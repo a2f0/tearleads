@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type { ListContainersResponse } from "@tearleads/validators/response";
@@ -43,6 +44,8 @@ for (const failure of [
   "tampered",
   "mixed",
   "dependency",
+  "manual dependency",
+  "policy",
   "expired",
   "runtime",
 ] as const) {
@@ -55,6 +58,17 @@ for (const failure of [
       const firstRoot = container("first-root");
       const laterRoot = container("later-root");
       const bad = container("bad-child", firstRoot.id);
+      if (failure === "policy")
+        bad.metadataReferencedPrincipals = [
+          {
+            keyEpoch: 1,
+            keyFingerprint: "refused",
+            principalType: "group",
+            principalId: "group",
+            stateHash: "refused",
+            version: 1,
+          },
+        ];
       const sibling = container("good-sibling", firstRoot.id);
       const descendant = container("good-descendant", sibling.id);
       const later = container("later-child", laterRoot.id);
@@ -99,7 +113,7 @@ for (const failure of [
                   return directory.getContainerWriterProjection(id);
                 badProofReads += 1;
                 if (failure === "withheld") return null;
-                if (failure === "dependency")
+                if (failure === "dependency" || failure === "manual dependency")
                   throw new ProjectionDependencyUnavailableError(
                     "signer unavailable",
                   );
@@ -154,6 +168,17 @@ for (const failure of [
             },
           }),
         } as unknown as RemoteContainerHydrationState;
+        if (failure === "policy")
+          spyOn(
+            state.runtime.principalPolicies,
+            "createWarmer",
+          ).mockReturnValue(async ({ references }) => {
+            if (references.some((ref) => ref.principalId === "group"))
+              throw new KeyingVerificationError(
+                "equivocation",
+                "refused test reference",
+              );
+          });
         let completed = false;
         let outcome: string | undefined;
         const hydration = hydrateRemoteContainers({
@@ -163,18 +188,25 @@ for (const failure of [
             },
             updateSnapshot: () => {},
           },
-          reconnect: {
-            isCurrent: () => true,
-            record: (value) => {
-              outcome = value;
-            },
-          },
+          reconnect:
+            failure === "manual dependency"
+              ? undefined
+              : {
+                  isCurrent: () => true,
+                  record: (value) => {
+                    outcome = value;
+                  },
+                },
           onFullyHydrated: () => {
             completed = true;
           },
           parentIds: [null],
           state,
         });
+        if (failure === "manual dependency") {
+          await expect(hydration).rejects.toThrow("signer unavailable");
+          return;
+        }
         if (failure === "runtime") {
           await expect(hydration).rejects.toBe(unexpectedFailure);
           expect(incidents).toHaveLength(0);
@@ -192,7 +224,11 @@ for (const failure of [
         expect(requestedParents).not.toContain(bad.id);
         // A rejected prefetch leaves no projection, so verification reads again.
         expect(badProofReads).toBe(
-          failure === "expired" || failure === "dependency" ? 2 : 1,
+          failure === "policy"
+            ? 0
+            : failure === "expired" || failure === "dependency"
+              ? 2
+              : 1,
         );
         const watermarks = new ContainerSyncWatermarkRepository(execSql);
         expect(
@@ -206,7 +242,9 @@ for (const failure of [
           ),
         ).toEqual(watermark);
         expect(completed).toBe(false);
-        expect(outcome).toBe(failure === "tampered" ? "refused" : "retry");
+        expect(outcome).toBe(
+          ["policy", "tampered"].includes(failure) ? "refused" : "retry",
+        );
         expect(incidents).toHaveLength(
           ["mixed", "tampered"].includes(failure) ? 1 : 0,
         );

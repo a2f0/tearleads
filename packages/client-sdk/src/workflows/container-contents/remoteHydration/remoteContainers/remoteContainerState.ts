@@ -423,6 +423,7 @@ export async function upsertRemoteContainerState(
 export async function upsertIsolatedRemoteContainerState(
   input: UpsertRemoteContainerStateInput,
   recordIncompleteItem?: (outcome: "refused" | "retry") => void,
+  isolateUnavailableDependency = false,
 ): Promise<ContainerState | null> {
   try {
     return await upsertRemoteContainerState(input);
@@ -434,9 +435,9 @@ export async function upsertIsolatedRemoteContainerState(
     if (isProjectionVerificationCancelledError(error)) return null;
     if (
       error instanceof ProjectionDependencyUnavailableError &&
-      recordIncompleteItem
+      isolateUnavailableDependency
     ) {
-      recordIncompleteItem("retry");
+      recordIncompleteItem?.("retry");
       return null;
     }
     throw error;

@@ -6,7 +6,7 @@ import { prefetchDestinationProjections } from "../destination/destinationPrefet
 import { cachedDestinationRole } from "../destination/destinationRoleCache";
 import { markContainerParentLaneFetched } from "../lanes/laneFetchMarkers";
 import { fetchContainerParentLaneBatch } from "../lanes/parentLaneFetch";
-import { cacheRemoteContainerPrincipalPolicies } from "../principalPolicyCache";
+import { warmListedContainerPolicies } from "../principalPolicyCache";
 import {
   applyContainerTombstones,
   getApplicableRemoteContainerItems,
@@ -72,6 +72,7 @@ function matchesListedState(
 }
 
 async function applyRemoteContainerPage(input: {
+  continuePastIncompletePages: boolean;
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   expectedHydrationTombstones: FetchedContainerParentLanePage["expectedHydrationTombstones"];
@@ -87,25 +88,23 @@ async function applyRemoteContainerPage(input: {
   state: RemoteContainerHydrationState;
 }): Promise<{ changedCount: number; outcome: HydrationOutcome }> {
   const {
-    childIdsByParentId,
     expectedContainerStates,
     expectedHydrationTombstones,
-    host,
-    items,
     queueParentLane,
     seenContainerIds,
     state,
   } = input;
   let hydratedCount = 0;
-  let outcome: HydrationOutcome = "complete";
-  await cacheRemoteContainerPrincipalPolicies({
-    cacheReferencedPrincipalPolicies:
-      state.runtime.principalPolicies.createWarmer({
-        operation: input.policyOperation,
-      }),
-    remoteContainers: items,
-    stillCurrent: input.isCurrent,
-  });
+  const policies = await warmListedContainerPolicies(
+    input.items,
+    state.runtime.principalPolicies.createWarmer({
+      operation: input.policyOperation,
+    }),
+    input.continuePastIncompletePages,
+    input.isCurrent,
+  );
+  const { items } = policies;
+  let outcome: HydrationOutcome = policies.outcome;
   if (input.isCurrent?.() === false) {
     return { changedCount: 0, outcome: "retry" };
   }
@@ -151,10 +150,10 @@ async function applyRemoteContainerPage(input: {
     let failure: HydrationOutcome = "retry";
     const upserted = await upsertIsolatedRemoteContainerState(
       {
-        childIdsByParentId,
+        childIdsByParentId: input.childIdsByParentId,
         containerIdsWithPendingMetadataUpdates,
         containerIdsWithPendingStructuralIntents,
-        host,
+        host: input.host,
         isCurrent: currentUnlessPaused(input, container),
         expectedHydrationTombstone:
           expectedHydrationTombstones.get(container.id) ?? null,
@@ -165,6 +164,7 @@ async function applyRemoteContainerPage(input: {
       (outcome) => {
         failure = outcome;
       },
+      input.continuePastIncompletePages,
     );
     if (!upserted) {
       outcome = combineOutcomes(outcome, failure);
@@ -310,6 +310,7 @@ async function applyContainerParentLanePage(input: {
   // lane complete and its watermark advance; their children are never queued.
   const isPaused = await loadPausedContainerFilter(state);
   const appliedPage = await applyRemoteContainerPage({
+    continuePastIncompletePages: input.continuePastIncompletePages,
     childIdsByParentId,
     expectedContainerStates,
     expectedHydrationTombstones,

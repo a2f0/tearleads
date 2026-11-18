@@ -19,6 +19,9 @@ export function createStoreRuntime(service: InternalRuntime) {
     ),
     // A superseded store can stop receiving host updates while its retry is pending.
     scopeGeneration,
+    isAcknowledgementCurrent: () =>
+      service.publicRuntime.input().state.serverEventsConnectionGeneration ===
+      input.state.serverEventsConnectionGeneration,
     liveHydrationStatus: (): "retired" | "ready" | "unavailable" => {
       const live = service.publicRuntime.input();
       if (
