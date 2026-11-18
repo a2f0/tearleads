@@ -71,6 +71,15 @@ export function createGenerationGuardedHydrationHost(input: {
           },
         }
       : {}),
+    ...(input.host.requestMetadataRevalidation
+      ? {
+          requestMetadataRevalidation: async (request) => {
+            assertCurrent();
+            await input.host.requestMetadataRevalidation?.(request);
+            assertCurrent();
+          },
+        }
+      : {}),
     updateSnapshot: () => {
       if (input.isCurrent()) {
         input.host.updateSnapshot();

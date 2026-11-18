@@ -8,6 +8,7 @@ import type {
   PendingUpdateRecord,
 } from "../documents/records";
 import type { HeldContainerBinding } from "./containerBinding";
+import type { ContainerMetadataRevalidationPersistence } from "./containerMetadataRevalidations";
 import type { ContainerRecord } from "./containerPersistence";
 import type { DormantMetadataSweepPersistence } from "./dormantMetadataSweep";
 
@@ -148,7 +149,8 @@ export interface SaveContainerWithPendingUpdateOptions
 }
 
 export interface ContainerContentsPersistence
-  extends DormantMetadataSweepPersistence {
+  extends DormantMetadataSweepPersistence,
+    ContainerMetadataRevalidationPersistence {
   containerExists: (execSql: ExecSql, containerId: string) => Promise<boolean>;
   /**
    * Create an absent remotely hydrated container only when no newer durable

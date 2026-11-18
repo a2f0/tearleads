@@ -138,6 +138,8 @@ describeSchema(
       "Encrypted document that holds the container's name and other metadata.",
     metadataReferencedPrincipals:
       "Principal policy heads the metadata document's access depends on.",
+    metadataVersionVector:
+      "Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read.",
     systemSlot:
       "Opaque id of a system container's role, such as Trash, or null for an ordinary container.",
   },

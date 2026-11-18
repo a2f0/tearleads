@@ -101,12 +101,16 @@ export function createContainerContentsStoreState(
     logLabel,
     metadataDocumentIdsNeedingSync: new Set(),
     metadataSyncSignalSeqById: new Map(),
+    owedMetadataReadsRestored: false,
     persistence,
     plannedMetadataDocumentIds: new Set(),
     remoteHydrationPromise: null,
     remoteHydrationGeneration: null,
     remoteHydrationStructuralGeneration: null,
-    remoteReconnectRefreshPending: false,
+    // A store opened after the socket's interest was acknowledged missed that
+    // acknowledgement's re-list, which is how hints lost earlier are recovered.
+    remoteReconnectRefreshPending:
+      (initialRuntime.state.serverEventsConnectionGeneration ?? 0) > 0,
     resolveProjectionUserKey:
       createContainerContentsProjectionUserKeyResolver(initialRuntime),
     rootLaneHydrated: false,
@@ -171,6 +175,7 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.locallyAcceptedMetadataUpdateIds = new Set();
   state.metadataDocumentIdsNeedingSync = new Set();
   state.metadataSyncSignalSeqById = new Map();
+  state.owedMetadataReadsRestored = false;
   state.plannedMetadataDocumentIds = new Set();
   state.rootLaneHydrated = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);

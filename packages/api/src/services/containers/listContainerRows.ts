@@ -3,6 +3,7 @@ import {
   accessManifestHeads,
   accessManifests,
   containers,
+  documentUpdateSpans,
   principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
 import type { SyncWatermark } from "@tearleads/validators/response";
@@ -29,6 +30,8 @@ export interface AccessibleContainerRow {
   metadataAccessEpoch?: number;
   metadataAccessStateHash?: string;
   metadataDocumentId: string | null;
+  /** Highest counter per peer across the metadata document's stored updates. */
+  metadataVersion: Readonly<Record<string, number>>;
   organizationId: string;
   parentId: string | null;
   updatedAt: string;
@@ -38,9 +41,29 @@ export interface AccessibleContainerRow {
 const accessibleContainerRowSchema = z.looseObject({
   id: z.string(),
   metadataDocumentId: z.string().nullable(),
+  metadataVersion: z.record(z.string(), z.number().int().nonnegative()),
   organizationId: z.string(),
   parentId: z.string().nullable(),
 });
+
+/**
+ * The metadata document's version on the server: the highest counter per peer
+ * across its stored update spans. A metadata write adds spans, so this changes
+ * exactly when the document gains an update, independent of any clock.
+ */
+function metadataVersionExpression(metadataDocumentId: SQL): SQL {
+  return sql`coalesce((
+    select jsonb_object_agg(span.peer_id, span.end_counter)
+    from (
+      select
+        ${documentUpdateSpans.peerId} as peer_id,
+        max(${documentUpdateSpans.endCounter}) as end_counter
+      from ${documentUpdateSpans}
+      where ${documentUpdateSpans.documentId} = (${metadataDocumentId})::uuid
+      group by ${documentUpdateSpans.peerId}
+    ) span
+  ), '{}'::jsonb)`;
+}
 
 function readDateIso(value: unknown, label: string): string {
   return readDateValue(value, label).toISOString();
@@ -279,7 +302,10 @@ export async function listAccessibleContainersForUser(input: {
       accessible.created_at as "createdAt",
       ${syncTimestampExpression(sql`accessible.updated_at`)} as "updatedAt",
       ${intExpression(sql`accessible.epoch`)} as "metadataAccessEpoch",
-      ${textExpression(sql`accessible.manifest_hash`)} as "metadataAccessStateHash"
+      ${textExpression(sql`accessible.manifest_hash`)} as "metadataAccessStateHash",
+      ${metadataVersionExpression(
+        jsonTextProperty(sql`accessible.state`, "metadataDocumentId"),
+      )} as "metadataVersion"
     from visible_candidate_containers accessible
     order by
       accessible.updated_at asc,
