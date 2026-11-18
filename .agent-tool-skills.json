@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "agentToolVersion": "0.1.65",
   "files": {
     ".agents/skills/cross-agent-review/SKILL.md": "61087439df8ee1dfbe4ff55a803aad2e0ae567e209096129097c212025fbdac3",
     ".agents/skills/open-pr/SKILL.md": "5d6d45b635ee153a0d53b83ef58d94cbd05bbf5d2933df647909a95b6f5c0bf2",
@@ -11,8 +12,8 @@
     ".claude/skills/reset/SKILL.md": "cca96afa405f33fd079e3cc450561ee350450a8419ad747fe52cad222a054778",
     ".claude/skills/ship-pr/SKILL.md": "2a6158c62c620a0b8d44c3df57ed871d30628793c58139ebee1421fa69ac6075",
     ".claude/skills/squash-merge/SKILL.md": "10f7b9831f6d6b03d4c07edf67bdc8cfa53577e5d96d2b34531f10c9e46eaaf7",
-    ".agents/skills/update-dependencies/SKILL.md": "dd4941ab4e70b731ef801cd016fdd371d10ebb520506f4df5a1beba068080ab2",
-    ".claude/skills/update-dependencies/SKILL.md": "dd4941ab4e70b731ef801cd016fdd371d10ebb520506f4df5a1beba068080ab2",
+    ".agents/skills/update-dependencies/SKILL.md": "069b6b81e175ac4bbfad6908bb72990a1a91ed24dd5766c17b04c7e5c9ca9d99",
+    ".claude/skills/update-dependencies/SKILL.md": "069b6b81e175ac4bbfad6908bb72990a1a91ed24dd5766c17b04c7e5c9ca9d99",
     ".agents/skills/open-issue/SKILL.md": "cf075fe29006db255efa83feb43100b6cff70421733cbd7e51413993ff5df814",
     ".claude/skills/open-issue/SKILL.md": "cf075fe29006db255efa83feb43100b6cff70421733cbd7e51413993ff5df814",
     ".agents/skills/explicit-state-machines/SKILL.md": "36e15fc4880e04182bc45db258c7e9a84b347b428c1a2729c546fde32647bce6",
