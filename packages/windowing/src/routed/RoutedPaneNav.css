@@ -21,6 +21,8 @@
 /* Borderless rows: the active/hover fill is the only affordance, so the rail
    reads as a launcher list rather than a stack of buttons. */
 .routed-pane-nav-link {
+  -webkit-touch-callout: none;
+  user-select: none;
   border-radius: var(--app-radius-control);
   display: flex;
   align-items: center;
