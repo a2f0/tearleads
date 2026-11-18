@@ -115,11 +115,16 @@ export function refineSeedWithinSyncRequestLimit(
   context: z.RefinementCtx,
   path: string,
 ): void {
-  if (
-    seed !== undefined &&
-    TEXT_ENCODER.encode(JSON.stringify(seed)).byteLength >
-      MAX_DOCUMENT_SYNC_REQUEST_BYTES
-  ) {
+  if (seed === undefined) return;
+  let bytes: number;
+  try {
+    bytes = TEXT_ENCODER.encode(JSON.stringify(seed)).byteLength;
+  } catch {
+    // Opaque fields (such as a write header) can nest too deeply to
+    // serialize; such a seed is refused, never thrown on.
+    bytes = Number.POSITIVE_INFINITY;
+  }
+  if (bytes > MAX_DOCUMENT_SYNC_REQUEST_BYTES) {
     context.addIssue({
       code: "custom",
       message: `create seed exceeds ${MAX_DOCUMENT_SYNC_REQUEST_BYTES} serialized bytes`,

@@ -267,3 +267,21 @@ test("a provisioned seed's sync is held to the sync request limit too", () => {
     }),
   ).toBe(false);
 });
+
+test("a seed too deeply nested to serialize is refused, not thrown on", () => {
+  let header: Record<string, unknown> = {};
+  const writeHeader = header;
+  for (let depth = 0; depth < 200_000; depth += 1) {
+    const next = {};
+    Reflect.set(header, "nested", next);
+    header = next;
+  }
+  const seed = { outgoingUpdates: [{ ...seedUpdate(), writeHeader }] };
+  const document = documentCreate();
+  expect(isDocumentCreateRequest({ ...document, initialSync: seed })).toBe(
+    false,
+  );
+  expect(isProvisionedDocumentRequest({ ...document, initialSync: seed })).toBe(
+    false,
+  );
+});
