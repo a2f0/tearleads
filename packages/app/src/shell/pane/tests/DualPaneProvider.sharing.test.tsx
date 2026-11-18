@@ -91,8 +91,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // containers stamp no grants: 0.40 MB received. Pulled updates and
   // attachment rows omit target sets the client holds (398.3 KB to 397.7 KB
   // received). Served bundles leave off the state their signed bytes name:
-  // 0.37 MB received; keep about 5% headroom.
-  bodyBytes: { request: 128_000, response: 390_000 },
+  // 0.37 MB received. Reads cite the heads this device authored and cached
+  // at acknowledgement: 0.34 MB received; keep about 4% headroom.
+  bodyBytes: { request: 128_000, response: 350_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

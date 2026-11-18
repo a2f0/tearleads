@@ -193,8 +193,11 @@ export function isContainerKekLogResponse(
  * hash and adds only the fields it assigned (timestamps). The client compares
  * the hashes with its own signed plan and persists state built from the plan,
  * so the signed event, manifest, state, key epoch, and wraps are never echoed.
+ * `bundleDigest` names the bundle a writer projection would serve for the new
+ * head, so the author can hold exactly those bytes for later citation.
  */
 const ContainerManifestMutationResponseShape = {
+  bundleDigest: sha256HexStringSchema,
   containerId: z.string(),
   createdAt: z.string(),
   eventHash: nonEmptyStringSchema,

@@ -290,6 +290,8 @@ describeSchema(
       "Ids of the seeded metadata updates the server committed.",
     committedProfileUpdateIds:
       "Ids of the seeded profile updates the server committed.",
+    rootBundleDigest:
+      "Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches.",
     rootMetadataAccessEpoch:
       "Access epoch of the root container's metadata document.",
     rootMetadataAccessStateHash:

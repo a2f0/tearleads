@@ -215,20 +215,29 @@ The response carries the identity the client signed (`containerId`,
 `updatedAt`, `eventHash`, `manifestHead`, and, except for a recitation,
 `containerKek` with `containerKeyEpochId`, `containerKeyEpoch`, `keyEpochHash`,
 `keyTargetHash`, `keyringHash` (null exactly at epoch 1), and
-`parentContainerKeyEpochId`. It never echoes the signed event, body, manifest,
+`parentContainerKeyEpochId`, plus `bundleDigest`, the citation digest of the
+bundle a writer projection would serve for the new head (a domain-separated
+SHA-256 of its canonical `event`, `manifest`, `manifestHash`, and served
+`state`). It never echoes the signed event, body, manifest,
 state, key epoch, wraps, keyring, recipient targets, or KEK history. The client
 compares each hash with the plan it signed and records state built from that
 plan; any mismatch refuses the acknowledgement. The manifest hash commits to
 the derived state, and `keyTargetHash` commits to every wrap recipient, so a
 wrap stored for anyone else cannot match. Later writer projections still verify
-what the server stored.
+what the server stored. When the client's own plan yields the same
+`bundleDigest`, the acknowledgement transaction also stores that bundle in the
+[verified-bundle cache](../projection-policy-evidence.md#cost-and-retained-history-tradeoff),
+so the author's next projection read cites its own head instead of
+downloading it back; a different digest only means the bundle travels.
 
 Document creates (including a with-metadata-document's metadata document and
 every provisioning document) and link-set mutations acknowledge the same way:
 `id`, the signed `eventHash`, the committed `manifestHash`, the stored
-`contentKeyEpoch`, the resolved KEK `targetHash`, and, for a create,
-`createdAt` and the seed's `initialSync`. The client records the manifest,
-content-key bundle, and KEK targets from its plan. A document sync likewise
+`contentKeyEpoch`, the resolved KEK `targetHash`, the head's
+`bundleDigest`, and, for a create, `createdAt` and the seed's `initialSync`.
+Organization provisioning adds `rootBundleDigest` for the root container. The
+client records the manifest, content-key bundle, and KEK targets from its plan,
+and caches each authored bundle whose digest matches. A document sync likewise
 returns no current content-key bundle or KEK targets: the client persists the
 bundle and targets its request named. An attachment bind returns the binding
 identity, `eventHash`, `contentKeyEpoch`, `writeHeaderHash`, and the hashes of

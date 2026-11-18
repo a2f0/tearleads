@@ -98,6 +98,8 @@ describeSchema(
   ContainerMutationResponseSchema,
   "Acknowledges a container mutation by hash; the client compares each value with the plan it signed and refuses any mismatch.",
   {
+    bundleDigest:
+      "Citation digest of the bundle a writer projection serves for the new head; the author caches its own bundle for citation only when it matches.",
     eventHash: "Hash of the signed event the API stored.",
     manifestHead: "Epoch and hash of the container's new manifest head.",
     containerKek: "Identity and hashes of the container's current KEK epoch.",

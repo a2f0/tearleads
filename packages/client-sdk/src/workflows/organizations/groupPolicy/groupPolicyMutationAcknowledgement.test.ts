@@ -294,6 +294,7 @@ test("group policy acknowledgements match container commitments by hash", async 
         ),
     );
   const containerResponse: ContainerMutationResponse = {
+    bundleDigest: "b".repeat(64),
     containerId: "container-1",
     createdAt: "2026-05-05T00:00:00.000Z",
     eventHash: manifest.eventHash,

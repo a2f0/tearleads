@@ -1,4 +1,5 @@
 import { encodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
+import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
   createDocumentWriterPublicKeyResolver,
   type DocumentRotationProofMode,
@@ -130,7 +131,8 @@ async function pullVerifiedRawHistoryForRotation(input: {
   const seenPullCursors = new Set<string>();
   let planningRecord = input.currentRecord;
   let writerProjection =
-    input.state.writerProjection?.documentId === documentId
+    input.state.writerProjection?.documentId === documentId &&
+    !isRejectedDecodedProjection(input.state.writerProjection)
       ? input.state.writerProjection
       : undefined;
 

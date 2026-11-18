@@ -2195,6 +2195,8 @@ export type components = {
         };
         /** @description Acknowledges a container mutation by hash; the client compares each value with the plan it signed and refuses any mismatch. */
         ContainerMutationResponse: {
+            /** @description Citation digest of the bundle a writer projection serves for the new head; the author caches its own bundle for citation only when it matches. */
+            bundleDigest: string;
             containerId: string;
             /** @description Identity and hashes of the container's current KEK epoch. */
             containerKek: {
@@ -2255,6 +2257,7 @@ export type components = {
         };
         /** @description Acknowledges a re-citation by its event hash and new manifest head; keys are unchanged. */
         ContainerReciteResponse: {
+            bundleDigest: string;
             containerId: string;
             createdAt: string;
             eventHash: string;
@@ -2314,6 +2317,7 @@ export type components = {
         };
         /** @description Acknowledges a rotation, plus one acknowledgement per carried descendant rekey in request order. */
         ContainerRotationResponse: {
+            bundleDigest: string;
             containerId: string;
             containerKek: {
                 containerKeyEpoch: number;
@@ -2343,6 +2347,7 @@ export type components = {
         };
         /** @description Acknowledges a share by hash, as for any container mutation, and may carry the sharer's read-model delta. */
         ContainerShareResponse: {
+            bundleDigest: string;
             containerId: string;
             containerKek: {
                 containerKeyEpoch: number;
@@ -2522,6 +2527,8 @@ export type components = {
             organizationProfileDocumentId?: string;
             /** @description For a replacement, the identity-signed authorization clients verify before following it. */
             replacementAuthorization: components["schemas"]["OrganizationReplacementAuthorization"] | null;
+            /** @description Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches. */
+            rootBundleDigest: string;
             rootContainerId: string;
             /** @description Access epoch of the root container's metadata document. */
             rootMetadataAccessEpoch: number;
@@ -2652,6 +2659,8 @@ export type components = {
         };
         /** @description Acknowledges a document create by hash. */
         DocumentCreateResponse: {
+            /** @description Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches. */
+            bundleDigest: string;
             /** @description Content-key epoch the API stored. */
             contentKeyEpoch: number;
             createdAt: string;
@@ -2757,6 +2766,8 @@ export type components = {
         };
         /** @description Acknowledges a link or unlink by hash. */
         DocumentLinkSetMutationResponse: {
+            /** @description Citation digest of the bundle a writer projection serves for the new link-set manifest; the author caches its own bundle for citation only when it matches. */
+            bundleDigest: string;
             contentKeyEpoch: number;
             eventHash: string;
             id: string;
@@ -4356,6 +4367,8 @@ export type components = {
             organizationMetadataContainerId: string;
             organizationProfileDocument?: components["schemas"]["DocumentCreateResponse"];
             organizationProfileDocumentId?: string;
+            /** @description Citation digest of the bundle a writer projection serves for the root container's genesis manifest; the author caches its own bundle for citation only when it matches. */
+            rootBundleDigest: string;
             rootContainerId: string;
             /** @description Access epoch of the root container's metadata document. */
             rootMetadataAccessEpoch: number;
