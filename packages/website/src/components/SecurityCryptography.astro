@@ -135,8 +135,8 @@ const tables: readonly {
     <h3 id="local-storage">Local storage and PIN protection</h3>
     <div class="site-prose">
       <p>
-        The local keyring stores a wrapped account root key and derives keys for
-        the encrypted SQLite database, local files, and identity persistence. In
+        The app uses separate keyring scopes for its SQLite database, local files,
+        and saved identities. Each scope has its own wrapped root key. In
         the browser, data is stored in the origin-private file system (OPFS);
         the keyring manifest and wrapping key normally live in IndexedDB.
       </p>
@@ -159,9 +159,9 @@ const tables: readonly {
       </p>
     </div>
     <DocsDiagram svg={localStorageSvg} label="Local storage and PIN protection diagram" captionId="local-storage-caption">
-      <span class="security-figure-label">Fig. 4</span> Follow the path for your PIN setting.
-      Both paths use the host key to unlock the same root key, from which the app
-      derives a separate key for each kind of local storage.
+      <span class="security-figure-label">Fig. 4</span> To reopen the database, follow the path for your PIN setting.
+      Both paths use the host key to unlock the SQLite scope’s root key. Local
+      files and saved identities follow the same pattern with their own roots.
     </DocsDiagram>
   </div>
 </section>
