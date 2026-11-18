@@ -46,11 +46,14 @@ export async function resetSQLiteRuntimeDatabase(
   runtime: SQLiteRuntime,
   mode: SQLiteRuntimeResetMode,
   timeoutMs = SQLITE_RUNTIME_RESET_TIMEOUT_MS,
+  current?: () => boolean,
 ): Promise<void> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   try {
     const request =
-      mode === "delete" ? runtime.client.delete() : runtime.client.close();
+      mode === "delete"
+        ? runtime.client.delete(current)
+        : runtime.client.close();
     await Promise.race([
       request,
       new Promise<never>((_, reject) => {

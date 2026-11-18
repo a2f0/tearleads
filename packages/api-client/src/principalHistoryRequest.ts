@@ -54,7 +54,6 @@ export async function principalHistoryRequest<T>(
   const progress: PreparationProgress = { previous: undefined, unchanged: 0 };
   while (true) {
     if (context.cancelled()) return context.failure();
-    context.beforeRequest();
     const decoded = await readResponse(runtime, context, input);
     if (!decoded.ok && context.restartReadAfterRenewal()) continue;
     if (!decoded.ok) return preserveCommitUncertainty(method, context, decoded);
@@ -183,40 +182,48 @@ async function readResponse(
       ? deadline.options
       : { ...deadline.options, reportErrors: false };
   try {
-    const response = await runtime.responseRequest(
-      input.path,
-      input.method,
-      input.body,
-      options,
-      [],
-      input.operation,
-    );
-    // Authentication rejection precedes the workflow, so renewal does not make
-    // this write's outcome uncertain. Reads may restart after a known renewal.
-    if (!response.ok && response.kind === "http" && response.status === 401)
-      return response;
-    // An expired write remains uncertain even if a failure status arrived.
-    if (context.cancelled() || deadline.expired())
-      return interruptedFailure(
-        context,
-        deadline,
-        response.ok ? response.data : undefined,
+    const session = runtime.responseRequest.sessionSignal?.();
+    const response = await context.withCredential(options.signal, () => {
+      context.beforeRequest();
+      return runtime.responseRequest(
+        input.path,
+        input.method,
+        input.body,
+        options,
+        [],
+        input.operation,
       );
-    if (!response.ok) return response;
-    const decoded = await decodeJsonOperationResponse(
-      runtime.responseRequest,
-      input.operation,
-      response.data,
-      input.path,
-      options,
+    });
+    if (!response) return interruptedFailure(context, deadline, undefined);
+    if (!response.ok) {
+      // Authentication rejection precedes the workflow and remains definitive.
+      if (response.kind === "http" && response.status === 401) return response;
+      return (
+        (await context.withCredential(options.signal, () => response)) ??
+        interruptedFailure(context, deadline, undefined)
+      );
+    }
+    const body = response.data;
+    const decoded = await context.withCredential(options.signal, () =>
+      decodeJsonOperationResponse(
+        runtime.responseRequest,
+        input.operation,
+        body,
+        input.path,
+        options,
+        session,
+      ),
     );
-    if (context.cancelled() || deadline.expired())
-      return interruptedFailure(context, deadline, response.data);
-    if (!decoded.ok) return decoded;
-    return {
-      ok: true as const,
-      data: { ...decoded.data, statusText: response.data.statusText },
-    };
+    if (!decoded) return interruptedFailure(context, deadline, body);
+    const result = await context.withCredential(options.signal, () =>
+      decoded.ok
+        ? {
+            ok: true as const,
+            data: { ...decoded.data, statusText: body.statusText },
+          }
+        : decoded,
+    );
+    return result ?? interruptedFailure(context, deadline, body);
   } finally {
     deadline.dispose();
   }

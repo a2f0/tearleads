@@ -1,6 +1,7 @@
 # Client SDK: Public API
 
 Part of the [client SDK guide](../client-sdk.md).
+See [sign-in lifetime](runtime-behavior.md#sign-in-lifetime) for host cleanup.
 
 ## Pending blob deletion snapshots
 
@@ -196,8 +197,7 @@ Custom adapters opt in with `commitOrganizationGroupPolicyResult`; a group share
 commits only grants, which rotate nothing, so it has nothing to carry. A
 container that already carries a grant has had its chain kept current by every
 rotation above it, so further grants and group rematerialization refreshes owe
-nothing more.
-`ContainerMutationService.shareRemoteContainer` and
+nothing more. `ContainerMutationService.shareRemoteContainer` and
 `shareRemoteContainerWithGroup` re-key a lazily stale path first, the container
 included, because a grant cites the parent's current epoch and the container's
 key epoch must pin it. An adapter without `rekeyContainer` cannot make that

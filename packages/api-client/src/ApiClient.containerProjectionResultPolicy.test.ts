@@ -215,3 +215,38 @@ testApiClient(
     expect(calls).toHaveLength(2);
   },
 );
+
+testApiClient(
+  "a projection queued behind the old plain read cannot start a new fetch after sign-in",
+  async () => {
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let requests = 0;
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        async () => {
+          requests++;
+          started.resolve();
+          await release.promise;
+          return HttpResponse.json({ error: "Unavailable" }, { status: 404 });
+        },
+      ),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("first");
+    const plain = client.getContainerWriterProjection("container-1");
+    await started.promise;
+    const pending = client.getContainerWriterProjectionResult("container-1", {
+      reportErrors: false,
+    });
+    client.setAuthToken("next", { boundary: "replacement" });
+    release.resolve();
+    expect(await plain).toBeNull();
+    await expect(pending).resolves.toMatchObject({
+      ok: false,
+      kind: "cancelled",
+    });
+    expect(requests).toBe(1);
+  },
+);

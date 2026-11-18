@@ -240,16 +240,19 @@ export function useLocalCryptoSessionPersistence(input: {
 }
 
 export async function restorePersistedCryptoSession(input: {
+  readonly isCurrent?: () => boolean;
   readonly localPersistence: LocalCryptoSessionPersistence;
   readonly signingFingerprint: string;
 }): Promise<PersistedCryptoSessionContext | null> {
-  const serializedEnvelope = input.localPersistence.storage.getItem(
-    input.localPersistence.storageKey,
-  );
+  const { storage, storageKey } = input.localPersistence;
+  const serializedEnvelope = storage.getItem(storageKey);
   if (!serializedEnvelope) {
     return null;
   }
 
+  const ownsEnvelope = () =>
+    (input.isCurrent?.() ?? true) &&
+    storage.getItem(storageKey) === serializedEnvelope;
   const session = await input.localPersistence.keyring.loadSession(
     input.localPersistence.scope,
   );
@@ -265,20 +268,17 @@ export async function restorePersistedCryptoSession(input: {
         serializedEnvelope,
       });
     } catch {
-      input.localPersistence.storage.removeItem(
-        input.localPersistence.storageKey,
-      );
+      if (ownsEnvelope()) storage.removeItem(storageKey);
       return null;
     }
 
+    if (!ownsEnvelope()) return null;
     const persistedSession = parsePersistedCryptoSession(payload);
     if (
       !persistedSession ||
       persistedSession.signingFingerprint !== input.signingFingerprint
     ) {
-      input.localPersistence.storage.removeItem(
-        input.localPersistence.storageKey,
-      );
+      storage.removeItem(storageKey);
       return null;
     }
 

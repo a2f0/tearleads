@@ -395,3 +395,26 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
     },
   ]);
 });
+
+test("registration checks the sign-in before dispatch after preparing its organization", async () => {
+  let current = true;
+  let submitted = false;
+  const pending = registerIdentity({
+    identityTrustDomain: "https://api.example.test",
+    containerId: crypto.randomUUID(),
+    apiClient: {
+      registerUser: async () => {
+        submitted = true;
+        return null;
+      },
+    },
+    dbClient: { exec: async () => ({ rows: [] }) },
+    encapsulationKeyPair: generateKemSeedAndKeyPair(),
+    signingKeyPair: generateSigningSeedAndKeyPair(),
+    isIdentityCurrent: () => current,
+    pinLocalUserIdentity: async () => {},
+  });
+  current = false;
+  await expect(pending).resolves.toBeNull();
+  expect(submitted).toBe(false);
+});
