@@ -122,6 +122,7 @@ export interface RemoteContainerHydrationState {
    * fell short while it ran.
    */
   containerListingFailures?: number | undefined;
+  containerParentIdsNeedingHydration?: Set<string | null>;
   containersById: Map<string, ContainerState>;
   lifecycleGeneration?: number | undefined;
   persistence: ContainerContentsPersistence;

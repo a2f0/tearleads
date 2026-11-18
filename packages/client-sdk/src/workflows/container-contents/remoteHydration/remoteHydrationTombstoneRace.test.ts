@@ -238,7 +238,10 @@ test.each(["newer", "older"] as const)(
         updatedAt: "2026-01-02T00:00:00.000Z",
       };
       let fetchCount = 0;
+      const retryParents = new Set<string | null>();
       const state = {
+        containerParentIdsNeedingHydration: retryParents,
+        containerListingFailures: 0,
         containersById: new Map(
           [
             parentState,
@@ -324,7 +327,9 @@ test.each(["newer", "older"] as const)(
         }),
       } as unknown as RemoteContainerHydrationState;
 
-      const hydrate = () =>
+      const hydrate = (
+        parentIds: readonly (string | null)[] = [parentState.container.id],
+      ) =>
         hydrateRemoteContainers({
           host: {
             persistContainerState: async () => {
@@ -332,7 +337,7 @@ test.each(["newer", "older"] as const)(
             },
             updateSnapshot: () => {},
           },
-          parentIds: [parentState.container.id],
+          parentIds,
           state,
         });
 
@@ -360,12 +365,15 @@ test.each(["newer", "older"] as const)(
       ).resolves.toEqual(legacyCursor);
 
       await hydrate();
+      expect(fetchCount).toBe(2);
+      expect(state.containerListingFailures).toBe(1);
+      expect([...retryParents]).toEqual([parentState.container.id]);
       expect(state.containersById.has(removedRoot.container.id)).toBe(true);
       await expect(
         loadParentWatermark(execSql, parentState.container.id),
       ).resolves.toEqual(legacyCursor);
 
-      await hydrate();
+      await hydrate([...retryParents]);
 
       await expect(
         defaultContainerContentsPersistence.containerExists(

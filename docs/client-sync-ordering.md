@@ -124,7 +124,9 @@ in bounded pages, recovering earlier omissions.
 An access recheck for a conflicting removal supplies its parent cursor.
 The API checks that its committed counter covers the parent page before
 reading permissions in the same repeatable-read snapshot. A lagging replica
-leaves the page retryable. Retrying the same publication requires the same position.
+leaves the cursor unchanged. An unsuccessful probe reports an incomplete
+refresh and retains the parent lane for the next request. Retrying the same
+publication requires the same position.
 A repeated folder in one crawl is reapplied when its listing changes.
 Parent lanes checkpoint each applied page. Document lanes checkpoint after
 applying the complete lane. After a restart, each resumes from its last
@@ -159,6 +161,11 @@ client-side recovery changes require the updated SDK. Earlier clients can read
 and resume the new cursors. On
 upgrade, the SDK replays lanes saved by an older build so it also consumes
 restored-folder hints and document unlinks previously checkpointed.
+
+Separate document crawls may still overlap locally. The SQLite generation
+tracks trust resets. A crawl already holding an earlier verified placement,
+or receiving its earlier listing after a separately checkpointed unlink,
+can finish later and restore the old projection.
 
 Deploy the additive database migrations before the API. A populated PostgreSQL
 database installs the triggers in one short transaction. Existing writers then

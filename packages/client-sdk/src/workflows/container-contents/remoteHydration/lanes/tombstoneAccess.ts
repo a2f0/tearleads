@@ -119,7 +119,18 @@ export async function resolveTombstoneCascade(input: {
   );
   // A move before the server upgrade may have left a superseded removal in
   // its old lane. Preserve a currently readable root and advance past it.
-  if (!access) return null;
+  if (!access) {
+    if (input.isCurrent?.() !== false) {
+      // The request boundary reports a lagging replica as an unavailable
+      // response. Resume this exact lane on the next scheduled refresh.
+      input.state.containerListingFailures =
+        (input.state.containerListingFailures ?? 0) + 1;
+      input.state.containerParentIdsNeedingHydration?.add(
+        input.afterParentPage.parentId,
+      );
+    }
+    return null;
+  }
   // A restored row only asks to reconcile its descendants. A newer loss of
   // the root itself has its own publication.
   if (input.reconcileDescendants)
