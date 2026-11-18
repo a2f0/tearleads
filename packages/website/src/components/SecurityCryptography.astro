@@ -136,9 +136,10 @@ const tables: readonly {
     <div class="site-prose">
       <p>
         The app uses separate keyring scopes for its SQLite database, local files,
-        and saved identities. Each scope has its own wrapped root key. In
-        the browser, data is stored in the origin-private file system (OPFS);
-        the keyring manifest and wrapping key normally live in IndexedDB.
+        and saved identities. Each scope has its own wrapped root key. The browser
+        stores the database and local files in the origin-private file system
+        (OPFS) and the encrypted identity registry in <code>localStorage</code>.
+        The keyring manifest and wrapping key normally live in IndexedDB.
       </p>
       <p>
         The web app persists a Web Crypto key; the desktop and mobile apps
