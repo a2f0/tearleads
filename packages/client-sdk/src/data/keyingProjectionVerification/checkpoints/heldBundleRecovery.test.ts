@@ -183,7 +183,11 @@ test("a refused cited read keeps a newer row and drops nothing once stale", asyn
   try {
     const cited = await seedWrongRow(database.execSql, fixture, wrong);
     // A request no longer current drops nothing.
-    await dropHeldManifestBundles(database.execSql, [wrong], () => false);
+    // The drop reports it did not commit, so recovery keeps the bundles out
+    // of citations instead of releasing them.
+    expect(
+      await dropHeldManifestBundles(database.execSql, [wrong], () => false),
+    ).toBe(false);
     expect(
       await loadVerifiedManifestCitations(database.execSql, target),
     ).toEqual([wrong]);

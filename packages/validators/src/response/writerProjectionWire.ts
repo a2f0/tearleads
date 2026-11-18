@@ -276,14 +276,22 @@ function manifestHashesIn(value: unknown, found = new Set<string>()) {
 // The exact held bytes refused projections took: any other projection
 // rebuilt from the same bytes is refused with them.
 const rejectedHeldBytes = new Set<string>();
+const MAX_REJECTED_HELD_BUNDLES = 64;
 
 /** Marks a decoded projection refused, so no cache serves it again. */
 export function rejectDecodedProjection(projection: object): void {
   rejectedProjections.add(projection);
   const origin = decodedOrigins.get(projection);
   if (origin) rejectedProjections.add(origin);
-  for (const bundle of heldBundlesUsedBy(projection))
+  for (const bundle of heldBundlesUsedBy(projection)) {
     rejectedHeldBytes.add(JSON.stringify(bundle));
+    // Bounded: the oldest refusals go first. Their projections stay refused
+    // by identity; only rebuilds from the same bytes are no longer caught.
+    if (rejectedHeldBytes.size > MAX_REJECTED_HELD_BUNDLES) {
+      const [oldest] = rejectedHeldBytes;
+      if (oldest !== undefined) rejectedHeldBytes.delete(oldest);
+    }
+  }
 }
 
 /**

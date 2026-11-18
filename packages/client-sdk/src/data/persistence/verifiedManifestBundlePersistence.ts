@@ -349,13 +349,14 @@ function citable(
  * to verify with, so the next read fetches them from the server. Only a row
  * still holding the exact bytes cited goes, so a newer verified copy written
  * meanwhile stays; nothing is dropped once `stillCurrent` turns false.
+ * Resolves whether the drop committed.
  */
 export async function dropHeldManifestBundles(
   execSql: ExecSql,
   heldBundles: readonly ServedAccessManifestBundleWireResponse[],
   stillCurrent?: () => boolean,
-): Promise<void> {
-  if (heldBundles.length === 0) return;
+): Promise<boolean> {
+  if (heldBundles.length === 0) return true;
   const cited = await Promise.all(
     heldBundles.map(async (bundle) => ({
       manifestHash: bundle.manifestHash,
@@ -376,11 +377,14 @@ export async function dropHeldManifestBundles(
         )
         .run();
   };
-  if (stillCurrent)
-    await runtime.guardedTransaction(drop, stillCurrent, {
-      behavior: "immediate",
-    });
-  else await runtime.transaction(drop, { behavior: "immediate" });
+  if (!stillCurrent) {
+    await runtime.transaction(drop, { behavior: "immediate" });
+    return true;
+  }
+  const { committed } = await runtime.guardedTransaction(drop, stillCurrent, {
+    behavior: "immediate",
+  });
+  return committed;
 }
 
 /** Drops damaged stored rows so no later read cites them. */
