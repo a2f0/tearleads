@@ -44,10 +44,6 @@ async function assertCurrentPayloadMatches(input: {
   );
   const envelopesRoot = await memberEnvelopesRoot(current);
   if (
-    current.currentPayload.principalType !== policy.principalType ||
-    current.currentPayload.principalId !== policy.principalId ||
-    current.currentPayload.stateHash !== policy.stateHash ||
-    current.currentPayload.ciphertextHash !== payloadHash ||
     policy.state.payloadCiphertextHash !== payloadHash ||
     current.currentMemberEnvelopes.principalType !== policy.principalType ||
     current.currentMemberEnvelopes.principalId !== policy.principalId ||

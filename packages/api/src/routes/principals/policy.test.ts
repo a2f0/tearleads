@@ -63,7 +63,9 @@ test("PUT /principals/:principalType/:principalId/policy atomically stores and r
     "expected principal policy bundle response",
   );
   expect(policyBundle.currentState.stateHash).toBe(storedState.stateHash);
-  expect(policyBundle.currentPayload.stateHash).toBe(storedState.stateHash);
+  expect(policyBundle.currentPayload).toEqual({
+    ciphertext: expect.any(String),
+  });
   expect(policyBundle.currentProjection).toEqual(projection);
   expect(policyBundle.currentMemberEnvelopes.principalId).toBe(principalId);
   expect(policyBundle.currentMemberEnvelopes.stateHash).toBe(

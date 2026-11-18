@@ -163,9 +163,7 @@ test("isPutPrincipalPolicyRequest", () => {
       signature: "signature",
     },
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm",
       ciphertext: "ciphertext",
-      ciphertextHash: "ciphertext-hash",
     },
     projection: [
       {
@@ -276,9 +274,7 @@ test("isCreateOrganizationGroupRequest", () => {
         signature: "signature",
       },
       encryptedPayload: {
-        cipherSuite: "aes-256-gcm",
         ciphertext: "ciphertext",
-        ciphertextHash: "ciphertext-hash",
       },
       projection: [
         {

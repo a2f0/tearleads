@@ -44,7 +44,7 @@ function securityContent(bundle: PrincipalPolicyBundleResponse) {
         compareCanonicalStrings(canonical(a), canonical(b)),
       ),
     },
-    currentPayload: withoutCreatedAt(bundle.currentPayload),
+    currentPayload: { ciphertext: bundle.currentPayload.ciphertext },
     currentProjection: normalizePrincipalProjectionMembers(
       bundle.currentProjection,
     ),

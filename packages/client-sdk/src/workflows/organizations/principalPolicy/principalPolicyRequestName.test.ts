@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
 } from "@tearleads/crypto";
@@ -60,7 +61,9 @@ test("the group name is committed in the signed payload", async () => {
   expect(request).not.toHaveProperty("name");
   expect(await readGroupPolicyPayloadName(bundle)).toBe("Operators");
   expect(bundle.currentState.payloadCiphertextHash).toBe(
-    request.initialGroupPolicy.encryptedPayload.ciphertextHash,
+    await computePrincipalStatePayloadCiphertextHash(
+      request.initialGroupPolicy.encryptedPayload.ciphertext,
+    ),
   );
 });
 

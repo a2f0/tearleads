@@ -83,21 +83,6 @@ function getBundleReferenceFailure(
       message: "member envelope epoch does not match current principal",
     };
   }
-  if (
-    bundle.currentPayload.principalType !== bundle.currentState.principalType ||
-    bundle.currentPayload.principalId !== bundle.currentState.principalId
-  ) {
-    return {
-      code: "object_mismatch",
-      message: "payload principal does not match current principal",
-    };
-  }
-  if (bundle.currentPayload.stateHash !== bundle.currentState.stateHash) {
-    return {
-      code: "hash_mismatch",
-      message: "payload state hash does not match current principal",
-    };
-  }
   return null;
 }
 

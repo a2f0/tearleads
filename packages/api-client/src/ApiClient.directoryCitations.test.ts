@@ -2,7 +2,6 @@ import { expect } from "bun:test";
 import {
   buildPrincipalStateSigningInput,
   computePrincipalStateHash,
-  computePrincipalStatePayloadCiphertextHash,
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
   signPrincipalState,
@@ -59,15 +58,7 @@ async function signedDirectory(ciphertext: string): Promise<{
   const stateHash = await computePrincipalStateHash(signed);
   return {
     state: { ...signed, stateHash, createdAt: SIGNED_AT },
-    payload: {
-      cipherSuite: "aes-256-gcm",
-      ciphertext,
-      ciphertextHash: signed.payloadCiphertextHash,
-      createdAt: SIGNED_AT,
-      principalId: ORGANIZATION_ID,
-      principalType: "organization",
-      stateHash,
-    },
+    payload: { ciphertext },
   };
 }
 
@@ -159,16 +150,11 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     client.setVerifiedManifestCitations(
       holding(
-        // Other bytes under the state's hash, their own hash consistent:
-        // only the signed state's payload hash refuses them.
+        // Other bytes under the state's hash: the signed state's payload
+        // hash refuses them.
         {
           directoryState: directory.state,
-          directoryPayload: {
-            ...directory.payload,
-            ciphertext: forged,
-            ciphertextHash:
-              await computePrincipalStatePayloadCiphertextHash(forged),
-          },
+          directoryPayload: { ciphertext: forged },
         },
         // A state whose own hash does not recompute.
         {

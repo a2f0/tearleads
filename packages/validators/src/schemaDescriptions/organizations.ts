@@ -103,8 +103,11 @@ describeSchema(
 
 describeSchema(
   PrincipalStatePayloadResponseSchema,
-  "A principal state's encrypted payload, which only members can read; the signed state commits to its hash.",
-  { ciphertextHash: "Hash of `ciphertext`; the signed state commits to it." },
+  "A principal state's encrypted payload, which only members can read. It is only the ciphertext: readers hash it and compare with the state's signed `payloadCiphertextHash`.",
+  {
+    ciphertext:
+      "The payload ciphertext; its hash is the state's signed `payloadCiphertextHash`.",
+  },
 );
 
 describeSchema(

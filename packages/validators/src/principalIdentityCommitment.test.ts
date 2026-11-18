@@ -15,9 +15,7 @@ const identityBundleFingerprint = "0123456789abcdef".repeat(4);
 const projection = [{ ...member, identityBundleFingerprint }];
 const policy = {
   encryptedPayload: {
-    cipherSuite: "aes-256-gcm",
     ciphertext: "ciphertext",
-    ciphertextHash: "ciphertext-hash",
   },
   grants: [],
   memberEnvelopes: [],

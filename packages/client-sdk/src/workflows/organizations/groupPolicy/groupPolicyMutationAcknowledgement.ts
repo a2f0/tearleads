@@ -95,7 +95,6 @@ async function assertPolicyRequestCommitments(
     request.state.memberCount !== projection.length ||
     request.state.grantRoot !== grantRoot ||
     request.state.grantCount !== request.grants.length ||
-    request.encryptedPayload.ciphertextHash !== payloadCiphertextHash ||
     request.state.payloadCiphertextHash !== payloadCiphertextHash
   ) {
     throw new Error("Authored group policy commitments are invalid");
@@ -292,11 +291,7 @@ export async function acknowledgeInitialGroupPolicy(input: {
       stateHash: input.stateHash,
     },
     currentPayload: {
-      principalId: state.principalId,
-      principalType: state.principalType,
-      stateHash: input.stateHash,
-      ...input.request.initialGroupPolicy.encryptedPayload,
-      createdAt: input.response.createdAt,
+      ciphertext: input.request.initialGroupPolicy.encryptedPayload.ciphertext,
     },
     currentProjection: input.request.initialGroupPolicy.projection,
     currentGrants: input.request.initialGroupPolicy.grants,

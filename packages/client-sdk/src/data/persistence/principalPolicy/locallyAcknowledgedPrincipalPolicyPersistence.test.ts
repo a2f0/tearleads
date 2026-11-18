@@ -106,7 +106,7 @@ function successorBundle(
       stateHash,
       version: bundle.currentState.version + 1,
     },
-    currentPayload: { ...bundle.currentPayload, stateHash },
+    currentPayload: { ...bundle.currentPayload },
     currentMemberEnvelopes: {
       ...bundle.currentMemberEnvelopes,
       epoch: bundle.currentState.keyEpoch + 1,
@@ -145,7 +145,6 @@ test("same-head timestamp and envelope-order differences are a no-op", async () 
       },
       currentPayload: {
         ...bundle.currentPayload,
-        createdAt: "2026-07-14T00:01:00.000Z",
       },
       currentMemberEnvelopes: {
         ...bundle.currentMemberEnvelopes,
@@ -198,7 +197,6 @@ test("same-head history timestamps are not security conflicts", async () => {
         },
         currentPayload: {
           ...successor.currentPayload,
-          createdAt: "2026-07-14T00:01:00.000Z",
         },
         previousStates: [
           {

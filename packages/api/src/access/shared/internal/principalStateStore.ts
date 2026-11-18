@@ -147,9 +147,7 @@ async function insertPrincipalStatePayloadRow(
       principalType: input.normalizedInput.state.principalType,
       principalId: input.normalizedInput.state.principalId,
       stateHash: input.stateHash,
-      cipherSuite: input.normalizedInput.encryptedPayload.cipherSuite,
       ciphertext: input.normalizedInput.encryptedPayload.ciphertext,
-      ciphertextHash: input.normalizedInput.encryptedPayload.ciphertextHash,
       createdAt,
     })
     .onConflictDoNothing({
@@ -179,12 +177,8 @@ async function ensureStoredPrincipalPayloadMatches(
     throw new Error("Failed to load stored principal state payload");
   }
   if (
-    storedPayload.cipherSuite !==
-      input.normalizedInput.encryptedPayload.cipherSuite ||
     storedPayload.ciphertext !==
-      input.normalizedInput.encryptedPayload.ciphertext ||
-    storedPayload.ciphertextHash !==
-      input.normalizedInput.encryptedPayload.ciphertextHash
+    input.normalizedInput.encryptedPayload.ciphertext
   ) {
     rejectPrincipalPolicy("state_conflict", "Principal state payload conflict");
   }

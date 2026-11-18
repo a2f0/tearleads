@@ -92,13 +92,7 @@ export function predecessorBundleFromSuccessor(
       envelopes: [],
     },
     currentPayload: {
-      principalType: previous.state.principalType,
-      principalId: previous.state.principalId,
-      stateHash: previous.state.stateHash,
-      cipherSuite: "aes-256-gcm",
       ciphertext: "cached-previous-ciphertext",
-      ciphertextHash: previous.state.payloadCiphertextHash,
-      createdAt: previous.state.createdAt,
     },
     currentProjection: previous.projection,
     currentGrants: previous.grants,

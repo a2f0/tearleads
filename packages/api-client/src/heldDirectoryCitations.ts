@@ -32,32 +32,31 @@ export function isHeldDirectoryCitation(
 }
 
 /**
- * The payload when its organization state recomputes to its own hash and its
- * bytes hash to the `payloadCiphertextHash` that state signs; null otherwise.
- * The state hash commits that payload hash, so a cited payload is exactly the
+ * The payload, under its state hash, when its organization state recomputes
+ * to its own hash and its bytes hash to the `payloadCiphertextHash` that
+ * state signs; null otherwise. A payload is only its ciphertext (#2903 P23),
+ * so the signed hash is its whole identity: a cited payload is exactly the
  * bytes the server would serve for that state, and verification of the
  * rebuilt evidence decides as if they had travelled.
  */
 export async function signedDirectoryPayload(
   citation: HeldDirectoryCitation,
-): Promise<PrincipalStatePayloadResponse | null> {
+): Promise<{
+  readonly payload: PrincipalStatePayloadResponse;
+  readonly stateHash: string;
+} | null> {
   const { directoryState: state, directoryPayload: payload } = citation;
   try {
     if (
       state.principalType !== "organization" ||
-      payload.principalType !== "organization" ||
-      payload.principalId !== state.principalId ||
-      payload.stateHash !== state.stateHash ||
       !isSha256HexString(state.stateHash) ||
       (await computePrincipalStateHash(state)) !== state.stateHash
     )
       return null;
-    const hash = await computePrincipalStatePayloadCiphertextHash(
+    return (await computePrincipalStatePayloadCiphertextHash(
       payload.ciphertext,
-    );
-    return hash === state.payloadCiphertextHash &&
-      hash === payload.ciphertextHash
-      ? payload
+    )) === state.payloadCiphertextHash
+      ? { payload, stateHash: state.stateHash }
       : null;
   } catch {
     return null;

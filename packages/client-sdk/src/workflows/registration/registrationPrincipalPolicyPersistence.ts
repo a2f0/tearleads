@@ -22,13 +22,7 @@ async function principalPolicyBundleFromInitialRequest(
 
   return {
     currentState: { ...policy.state, stateHash, createdAt },
-    currentPayload: {
-      principalType,
-      principalId,
-      stateHash,
-      ...policy.encryptedPayload,
-      createdAt,
-    },
+    currentPayload: { ciphertext: policy.encryptedPayload.ciphertext },
     currentGrants: policy.grants,
     currentProjection: policy.projection,
     currentMemberEnvelopes: {

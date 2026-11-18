@@ -28,17 +28,16 @@ export async function publicProjectionDirectoryBindings(
     if (
       !state ||
       reference.version > organization.options.source.head.version ||
-      payload.principalType !== "organization" ||
-      payload.principalId !== organization.options.organizationId ||
-      payload.stateHash !== state.stateHash ||
+      state.principalType !== "organization" ||
+      state.principalId !== organization.options.organizationId ||
       seen.has(state.stateHash)
     )
       rejectPublicProjection("directory payload scope is invalid");
     seen.add(state.stateHash);
-    const hash = await computePrincipalStatePayloadCiphertextHash(
-      payload.ciphertext,
-    );
-    if (hash !== payload.ciphertextHash || hash !== state.payloadCiphertextHash)
+    if (
+      (await computePrincipalStatePayloadCiphertextHash(payload.ciphertext)) !==
+      state.payloadCiphertextHash
+    )
       rejectPublicProjection("directory payload differs from its signed hash");
     const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);
     if (descriptor.organizationId !== organization.options.organizationId)

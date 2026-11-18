@@ -2,6 +2,7 @@ import { computePrincipalStatePayloadCiphertextHash } from "../principalState";
 import type { PrincipalPolicyBundle } from "./principalPolicyTypes";
 import { throwVerification } from "./shared";
 
+/** The payload's ciphertext hashes to the state's signed commitment. */
 export async function verifyPrincipalPolicyPayload(input: {
   readonly bundle: Pick<
     PrincipalPolicyBundle,
@@ -9,36 +10,11 @@ export async function verifyPrincipalPolicyPayload(input: {
   >;
 }): Promise<void> {
   const { currentPayload, currentState } = input.bundle;
-
   if (
-    currentPayload.principalType !== currentState.principalType ||
-    currentPayload.principalId !== currentState.principalId
+    (await computePrincipalStatePayloadCiphertextHash(
+      currentPayload.ciphertext,
+    )) !== currentState.payloadCiphertextHash
   ) {
-    throwVerification(
-      "object_mismatch",
-      "principal policy payload does not match current state principal",
-    );
-  }
-
-  if (currentPayload.stateHash !== currentState.stateHash) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy payload state hash does not match current state",
-    );
-  }
-
-  const computedPayloadHash = await computePrincipalStatePayloadCiphertextHash(
-    currentPayload.ciphertext,
-  );
-
-  if (computedPayloadHash !== currentPayload.ciphertextHash) {
-    throwVerification(
-      "hash_mismatch",
-      "principal policy payload hash does not match ciphertext",
-    );
-  }
-
-  if (computedPayloadHash !== currentState.payloadCiphertextHash) {
     throwVerification(
       "hash_mismatch",
       "principal policy payload hash does not match current state",

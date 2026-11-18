@@ -453,13 +453,7 @@ test("isPrincipalPolicyBundleResponse", () => {
       ],
       currentGrants: [],
       currentPayload: {
-        principalType: "group",
-        principalId: "group-123",
-        stateHash: "state-hash",
-        cipherSuite: "aes-256-gcm",
         ciphertext: "ciphertext",
-        ciphertextHash: "ciphertext-hash",
-        createdAt: new Date().toISOString(),
       },
       currentMemberEnvelopes: {
         principalType: "group",
@@ -477,13 +471,7 @@ test("isPrincipalPolicyBundleResponse", () => {
         principalType: "group",
       },
       currentPayload: {
-        principalType: "group",
-        principalId: "group-123",
-        stateHash: "state-hash",
-        cipherSuite: "aes-256-gcm",
         ciphertext: "ciphertext",
-        ciphertextHash: "ciphertext-hash",
-        createdAt: new Date().toISOString(),
       },
       currentMemberEnvelopes: {
         principalType: "group",

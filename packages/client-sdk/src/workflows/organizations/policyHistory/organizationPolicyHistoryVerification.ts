@@ -53,18 +53,14 @@ export async function verifyOrganizationPolicyHistory(input: {
     if (
       !entry ||
       !principalHeadMatchesReference(entry.state, reference) ||
-      payload.principalType !== "organization" ||
-      payload.principalId !== head.principalId ||
-      payload.stateHash !== reference.stateHash ||
+      reference.principalType !== "organization" ||
+      reference.principalId !== head.principalId ||
       descriptors.has(reference.stateHash)
     )
       reject("directory payload scope or order is invalid");
-    const hash = await computePrincipalStatePayloadCiphertextHash(
-      payload.ciphertext,
-    );
     if (
-      hash !== entry.state.payloadCiphertextHash ||
-      hash !== payload.ciphertextHash
+      (await computePrincipalStatePayloadCiphertextHash(payload.ciphertext)) !==
+      entry.state.payloadCiphertextHash
     )
       reject("directory payload does not match its signed hash");
     const descriptor = parseOrganizationAuthorityDescriptor(payload.ciphertext);

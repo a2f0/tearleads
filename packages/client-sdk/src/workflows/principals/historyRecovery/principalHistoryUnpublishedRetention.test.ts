@@ -42,7 +42,7 @@ test("invalid current artifacts cannot accumulate completed attempts or erase pu
       if (bundle.currentState.version <= 2) await recovery;
       else
         await expect(recovery).rejects.toThrow(
-          "payload hash does not match ciphertext",
+          "payload hash does not match current state",
         );
     }
     const stages = await f.db.select().from(principalHistoryStages);
@@ -128,7 +128,7 @@ test("cancellation after key archival rolls back completed eviction and proof pu
       if (bundle.currentState.version <= 2) await recovery;
       else
         await expect(recovery).rejects.toThrow(
-          "payload hash does not match ciphertext",
+          "payload hash does not match current state",
         );
     }
     const before = await snapshot();
@@ -144,7 +144,7 @@ test("cancellation after key archival rolls back completed eviction and proof pu
     expect(await snapshot()).toEqual(before);
     current = true;
     await expect(recoverPrincipalPolicyHistory(f.options)).rejects.toThrow(
-      "payload hash does not match ciphertext",
+      "payload hash does not match current state",
     );
     const after = await snapshot();
     expect(after.stages).toHaveLength(8);

@@ -321,13 +321,7 @@ export function createPrincipalPolicyBundleResponse(): PrincipalPolicyBundleResp
       createdAt: "2026-06-21T12:00:00.000Z",
     },
     currentPayload: {
-      principalType: "group",
-      principalId: "group-1",
-      stateHash: "state-hash",
-      cipherSuite: "aes-256-gcm",
       ciphertext: "ciphertext",
-      ciphertextHash: "payload-ciphertext-hash",
-      createdAt: "2026-06-21T12:00:00.000Z",
     },
     currentProjection: [
       {
@@ -418,9 +412,7 @@ export function createPrincipalPolicyRequest(): PutPrincipalPolicyRequest {
       signature: "signature",
     },
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm",
       ciphertext: "ciphertext",
-      ciphertextHash: "ciphertext-hash",
     },
     projection: [
       {
