@@ -18,6 +18,7 @@ import {
   readContainerParentLanePage as readLanePage,
 } from "../../../test/helpers/containerParentLaneQuery";
 import { buildGrantRequest } from "../../../test/helpers/containerShareRequests";
+import { expectedDiscoveryId } from "../../../test/helpers/discoveryTimestamp";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
 
@@ -295,7 +296,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(source.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: source.containerId,
+    id: expectedDiscoveryId(source.containerId),
     updatedAt: expect.any(String),
   });
 
@@ -341,7 +342,7 @@ test("POST /containers/:containerId/move emits tombstones when inherited access 
     },
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
-    id: source.containerId,
+    id: expectedDiscoveryId(source.containerId),
     updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 });

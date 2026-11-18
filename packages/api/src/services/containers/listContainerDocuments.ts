@@ -13,6 +13,7 @@ import type {
   SyncWatermark,
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import { uniqueSortedStrings } from "../../utils/array";
 import { textExpression } from "../../utils/postgresSql";
 import type {
@@ -31,12 +32,17 @@ import {
   type ContainerDocumentTombstoneRow,
   selectContainerDocumentPage,
 } from "./containerDocumentPage";
+import { readDiscoverySources } from "./discoverySnapshot";
 import {
   normalizeSyncPageLimit,
   normalizeSyncWatermark,
   watermarkPredicate,
 } from "./syncPaging";
-import { syncItemTimestamp, syncTimestampExpression } from "./syncTimestamp";
+import {
+  readSyncTimestamp,
+  syncItemTimestamp,
+  syncTimestampExpression,
+} from "./syncTimestamp";
 import { createContainerWriterProjectionContext } from "./writerProjection";
 
 interface ListContainerDocumentsOptions {
@@ -165,20 +171,46 @@ function effectiveDocumentAccessLevel(
   );
 }
 
-async function loadCurrentContainerDocumentRows(input: {
+const discoveryRow = z.object({
+  discoveryOrder: z.string().transform(BigInt),
+  id: z.string(),
+  updatedAt: z.string().transform(readSyncTimestamp),
+});
+const removedDocumentRow = discoveryRow.transform(({ id, ...row }) => ({
+  ...row,
+  documentId: id,
+}));
+const currentDocumentRow = discoveryRow
+  .extend({
+    createdAt: z.string().transform((value) => new Date(value)),
+    manifestHash: z.string(),
+    manifestEpoch: z.number().int(),
+  })
+  .transform(({ id, ...row }) => ({ ...row, documentId: id }));
+
+function currentContainerDocumentsQuery(input: {
   readonly containerId: string;
   readonly limit: number;
   readonly runtime: ApiServiceRuntime;
   readonly watermark: SyncWatermark | null;
-}): Promise<ContainerDocumentRow[]> {
+}) {
   return (
     input.runtime.db
       .select({
-        createdAt: documents.createdAt,
-        documentId: accessManifestHeads.objectId,
-        manifestHash: accessManifestHeads.manifestHash,
-        manifestEpoch: accessManifestHeads.epoch,
-        updatedAt: syncTimestampExpression(sql`${documents.updatedAt}`),
+        discoveryOrder: sql`${documents.discoveryOrder}::text`.as(
+          "discoveryOrder",
+        ),
+        createdAt: syncTimestampExpression(sql`${documents.createdAt}`).as(
+          "createdAt",
+        ),
+        id: sql`${accessManifestHeads.objectId}`.as("id"),
+        manifestHash: sql`${accessManifestHeads.manifestHash}`.as(
+          "manifestHash",
+        ),
+        manifestEpoch: sql`${accessManifestHeads.epoch}`.as("manifestEpoch"),
+        updatedAt: syncTimestampExpression(sql`${documents.updatedAt}`).as(
+          "updatedAt",
+        ),
       })
       .from(accessManifestHeads)
       .innerJoin(
@@ -215,40 +247,44 @@ async function loadCurrentContainerDocumentRows(input: {
       and ${containerMetadataDocuments.documentId} is null
       and ${organizationRosterEntries.profileDocumentId} is null
       ${watermarkPredicate(
-        sql`${documents.updatedAt}`,
+        sql`${documents.discoveryOrder}`,
         textExpression(sql`${accessManifestHeads.objectId}`),
         input.watermark,
       )}
     `)
-      .orderBy(asc(documents.updatedAt), asc(accessManifestHeads.objectId))
+      .orderBy(asc(documents.discoveryOrder), asc(accessManifestHeads.objectId))
       .limit(input.limit + 1)
   );
 }
 
-async function loadContainerDocumentTombstoneRows(input: {
+function documentTombstonesQuery(input: {
   readonly containerId: string;
   readonly limit: number;
   readonly runtime: ApiServiceRuntime;
   readonly watermark: SyncWatermark | null;
-}): Promise<ContainerDocumentTombstoneRow[]> {
+}) {
   return input.runtime.db
     .select({
-      documentId: containerDocumentSyncTombstones.documentId,
+      discoveryOrder:
+        sql`${containerDocumentSyncTombstones.discoveryOrder}::text`.as(
+          "discoveryOrder",
+        ),
+      id: sql`${containerDocumentSyncTombstones.documentId}`.as("id"),
       updatedAt: syncTimestampExpression(
         sql`${containerDocumentSyncTombstones.updatedAt}`,
-      ),
+      ).as("updatedAt"),
     })
     .from(containerDocumentSyncTombstones)
     .where(sql`
       ${containerDocumentSyncTombstones.containerId} = ${input.containerId}
       ${watermarkPredicate(
-        sql`${containerDocumentSyncTombstones.updatedAt}`,
+        sql`${containerDocumentSyncTombstones.discoveryOrder}`,
         textExpression(sql`${containerDocumentSyncTombstones.documentId}`),
         input.watermark,
       )}
     `)
     .orderBy(
-      asc(containerDocumentSyncTombstones.updatedAt),
+      asc(containerDocumentSyncTombstones.discoveryOrder),
       asc(containerDocumentSyncTombstones.documentId),
     )
     .limit(input.limit + 1);
@@ -383,20 +419,16 @@ export async function listContainerDocuments(
     userId,
     context,
   );
-  const [documentRows, tombstoneRows] = await Promise.all([
-    loadCurrentContainerDocumentRows({
-      containerId,
-      limit,
-      runtime,
-      watermark,
-    }),
-    loadContainerDocumentTombstoneRows({
-      containerId,
-      limit,
-      runtime,
-      watermark,
-    }),
-  ]);
+  const query = { containerId, limit, runtime, watermark };
+  const rows = await readDiscoverySources(
+    runtime,
+    currentContainerDocumentsQuery(query).getSQL(),
+    documentTombstonesQuery(query).getSQL(),
+  );
+  const documentRows = rows.live.map((row) => currentDocumentRow.parse(row));
+  const tombstoneRows = rows.removed.map((row) =>
+    removedDocumentRow.parse(row),
+  );
   return buildListContainerDocumentsResponse({
     containerAccess,
     containerId,

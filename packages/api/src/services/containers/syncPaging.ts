@@ -46,15 +46,35 @@ export function normalizeSyncWatermark(
   };
 }
 
+export function discoveryWatermark(
+  discoveryOrder: bigint,
+  id: string,
+  updatedAt: string,
+): SyncWatermark {
+  return { id: `${discoveryOrder}/${id}`, updatedAt };
+}
+
+export function compareDiscoveryOrder(
+  left: { discoveryOrder: bigint; id: string },
+  right: { discoveryOrder: bigint; id: string },
+): number {
+  if (left.discoveryOrder !== right.discoveryOrder)
+    return left.discoveryOrder < right.discoveryOrder ? -1 : 1;
+  return left.id.localeCompare(right.id);
+}
+
 export function watermarkPredicate(
-  updatedAtExpression: SQL,
+  orderExpression: SQL,
   idExpression: SQL,
   watermark: SyncWatermark | null | undefined,
 ): SQL {
-  if (!watermark) {
+  // Old clients persist and echo both opaque strings verbatim. A cursor from
+  // the former clock order starts a bounded replay, including previously
+  // missed rows. PostgreSQL IDs in the previous format contain no slash.
+  const match = watermark?.id.match(/^(-?\d{1,19})\/(.+)$/u);
+  if (!match) return sql``;
+  const order = BigInt(match[1] ?? "");
+  if (order < -9223372036854775808n || order > 9223372036854775807n)
     return sql``;
-  }
-
-  const updatedAtValue = sql`${watermark.updatedAt}::timestamp`;
-  return sql`and (${updatedAtExpression}, ${idExpression}) > (${updatedAtValue}, ${watermark.id})`;
+  return sql`and (${orderExpression}, ${idExpression}) > (${order.toString()}::bigint, ${match[2]})`;
 }

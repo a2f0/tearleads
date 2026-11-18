@@ -29,6 +29,20 @@
       "when": 1794975550718,
       "tag": "0003_principal_payload_ciphertext",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795012950796,
+      "tag": "0004_discovery_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795013010965,
+      "tag": "0005_publish_discovery_order",
+      "breakpoints": true
     }
   ]
 }

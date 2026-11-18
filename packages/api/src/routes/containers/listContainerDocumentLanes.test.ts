@@ -19,6 +19,7 @@ import {
   requestContainerDocumentLanes,
 } from "../../../test/helpers/containerDocumentLaneQuery";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
+import { expectedDiscoveryId } from "../../../test/helpers/discoveryTimestamp";
 import { registerUser } from "../../../test/helpers/registerUser";
 
 async function getContainerOrganizationId(containerId: string) {
@@ -60,7 +61,7 @@ test("POST /containers/documents/query lists current manifest-linked documents",
       }),
     ],
     nextWatermark: {
-      id: createdDocument.id,
+      id: expectedDiscoveryId(createdDocument.id),
       updatedAt: expect.any(String),
     },
     tombstones: [],
@@ -199,7 +200,7 @@ test("POST /containers/documents/query supports watermark resume", async () => {
       }),
     ],
     nextWatermark: {
-      id: olderDocument.id,
+      id: expectedDiscoveryId(olderDocument.id),
       updatedAt: olderUpdatedAt.toISOString(),
     },
     tombstones: [],
@@ -219,7 +220,7 @@ test("POST /containers/documents/query supports watermark resume", async () => {
       }),
     ],
     nextWatermark: {
-      id: newerDocument.id,
+      id: expectedDiscoveryId(newerDocument.id),
       updatedAt: newerUpdatedAt.toISOString(),
     },
     tombstones: [],
@@ -247,7 +248,7 @@ test("POST /containers/documents/query returns unlink tombstones by watermark or
     hasMore: false,
     items: [],
     nextWatermark: {
-      id: tombstonedDocumentId,
+      id: expectedDiscoveryId(tombstonedDocumentId),
       updatedAt: tombstoneUpdatedAt.toISOString(),
     },
     tombstones: [

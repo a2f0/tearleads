@@ -5,7 +5,7 @@ import type { TestUser } from "@tearleads/test-utils";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
-/** Expected persisted root candidates in the lane's (updatedAt, id) order. */
+/** Expected persisted root candidates in the lane's (discoveryOrder, id) order. */
 export async function loadRegisteredContainerRoots(owner: TestUser) {
   const [personal] = await db
     .select()
@@ -25,7 +25,7 @@ export async function loadRegisteredContainerRoots(owner: TestUser) {
         isNull(containers.parentId),
       ),
     )
-    .orderBy(asc(containers.updatedAt), asc(containers.id));
+    .orderBy(asc(containers.discoveryOrder), asc(containers.id));
   expect(roots).toHaveLength(2);
   expect(roots.map((root) => root.systemSlot)).toEqual(
     expect.arrayContaining([null, metadataSlot]),
@@ -34,8 +34,17 @@ export async function loadRegisteredContainerRoots(owner: TestUser) {
 }
 
 export function rootWatermark(
-  root: { readonly id: string; readonly updatedAt: Date } | undefined,
+  root:
+    | {
+        readonly discoveryOrder: bigint;
+        readonly id: string;
+        readonly updatedAt: Date;
+      }
+    | undefined,
 ) {
   if (!root) throw new Error("Expected a root candidate");
-  return { id: root.id, updatedAt: root.updatedAt.toISOString() };
+  return {
+    id: `${root.discoveryOrder}/${root.id}`,
+    updatedAt: root.updatedAt.toISOString(),
+  };
 }

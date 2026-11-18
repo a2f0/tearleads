@@ -19,6 +19,7 @@ import {
   buildGrantRequest,
   buildGroupGrantRequest,
 } from "../../../test/helpers/containerShareRequests";
+import { expectedDiscoveryId } from "../../../test/helpers/discoveryTimestamp";
 import {
   commitGroupGrant,
   firstCompoundMutation,
@@ -64,7 +65,7 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: created.containerId,
+    id: expectedDiscoveryId(created.containerId),
     updatedAt: expect.any(String),
   });
 
@@ -105,7 +106,7 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
     },
   ]);
   expect(recipientDelta.nextWatermark).toEqual({
-    id: created.containerId,
+    id: expectedDiscoveryId(created.containerId),
     updatedAt: firstTombstone(recipientDelta).updatedAt,
   });
 
@@ -170,7 +171,7 @@ test("group grant revoke requires and commits with principal rotation", async ()
     recipientBaseline.items.map((container: { id: string }) => container.id),
   ).toContain(created.containerId);
   expect(recipientBaseline.nextWatermark).toEqual({
-    id: created.containerId,
+    id: expectedDiscoveryId(created.containerId),
     updatedAt: expect.any(String),
   });
 

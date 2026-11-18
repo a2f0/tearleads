@@ -17,7 +17,6 @@ import {
   uuidValue,
 } from "../../utils/postgresSql";
 import { currentPrincipalStateHashSql } from "../../workflows/principals/currentPrincipalStateSql";
-import type { ApiServiceRuntime } from "../runtime";
 import { watermarkPredicate } from "./syncPaging";
 import { readSyncTimestamp, syncTimestampExpression } from "./syncTimestamp";
 
@@ -25,6 +24,7 @@ export interface AccessibleContainerRow {
   createdAt: string;
   /** Raw column value; `listContainers` admits only a known system slot. */
   systemSlot: unknown;
+  discoveryOrder: bigint;
   depth: number;
   id: string;
   metadataAccessEpoch?: number;
@@ -39,6 +39,10 @@ export interface AccessibleContainerRow {
 
 // A loose object: the remaining selected columns are read one by one below.
 const accessibleContainerRowSchema = z.looseObject({
+  discoveryOrder: z
+    .string()
+    .regex(/^-?\d+$/u)
+    .transform(BigInt),
   id: z.string(),
   metadataDocumentId: z.string().nullable(),
   metadataVersion: z.record(z.string(), z.number().int().nonnegative()),
@@ -97,21 +101,20 @@ export function parentIdPredicate(
   return sql`${parentIdExpression} = ${parentId}`;
 }
 
-export async function listAccessibleContainersForUser(input: {
+export function accessibleContainersQuery(input: {
   readonly limit: number;
   readonly parentId: string | null;
-  readonly runtime: ApiServiceRuntime;
   readonly userId: string;
   readonly watermark: SyncWatermark | null;
-}): Promise<AccessibleContainerRow[]> {
+}): SQL {
   // Applied inside each candidate set, so neither lane reads rows the page
   // has already passed.
   const watermark = watermarkPredicate(
-    sql`c.updated_at`,
+    sql`c.discovery_order`,
     textExpression(sql`c.id`),
     input.watermark,
   );
-  const result = await input.runtime.db.execute(sql`
+  return sql`
     -- Direct membership is the whole of reachability; principals contain only
     -- users, so there is no transitive tier to walk.
     with recursive reachable_principals as (
@@ -142,6 +145,7 @@ export async function listAccessibleContainersForUser(input: {
         c.depth,
         c.created_at,
         c.updated_at,
+        c.discovery_order,
         h.epoch,
         h.manifest_hash,
         m.state
@@ -163,6 +167,7 @@ export async function listAccessibleContainersForUser(input: {
         parent.depth,
         parent.created_at,
         parent.updated_at,
+        parent.discovery_order,
         h.epoch,
         h.manifest_hash,
         m.state
@@ -197,9 +202,10 @@ export async function listAccessibleContainersForUser(input: {
         c.depth,
         c.created_at,
         c.updated_at,
+        c.discovery_order,
         h.epoch,
         h.manifest_hash
-      -- From the parent's children via its (parent_id, updated_at, id) index,
+      -- From the parent's children via its (parent_id, discovery_order, id) index,
       -- starting at the watermark. A root listing shows only directly granted
       -- containers, so it needs no parent lane at all. The manifest state is
       -- read only for the children the listing shows.
@@ -223,6 +229,7 @@ export async function listAccessibleContainersForUser(input: {
         depth,
         created_at,
         updated_at,
+        discovery_order,
         epoch,
         manifest_hash,
         state
@@ -235,6 +242,7 @@ export async function listAccessibleContainersForUser(input: {
           c.depth,
           c.created_at,
           c.updated_at,
+          c.discovery_order,
           h.epoch,
           h.manifest_hash,
           m.state,
@@ -299,7 +307,8 @@ export async function listAccessibleContainersForUser(input: {
       ${textExpression(sql`accessible.organization_id`)} as "organizationId",
       ${textExpression(sql`accessible.parent_id`)} as "parentId",
       ${intExpression(sql`accessible.depth`)} as "depth",
-      accessible.created_at as "createdAt",
+      accessible.discovery_order::text as "discoveryOrder",
+      ${syncTimestampExpression(sql`accessible.created_at`)} as "createdAt",
       ${syncTimestampExpression(sql`accessible.updated_at`)} as "updatedAt",
       ${intExpression(sql`accessible.epoch`)} as "metadataAccessEpoch",
       ${textExpression(sql`accessible.manifest_hash`)} as "metadataAccessStateHash",
@@ -308,14 +317,18 @@ export async function listAccessibleContainersForUser(input: {
       )} as "metadataVersion"
     from visible_candidate_containers accessible
     order by
-      accessible.updated_at asc,
+      accessible.discovery_order asc,
       ${textExpression(sql`accessible.id`)} asc
     limit ${input.limit + 1}
-  `);
+  `;
+}
 
+export function readAccessibleContainerRows(
+  rows: readonly unknown[],
+): AccessibleContainerRow[] {
   const accessibleContainers: AccessibleContainerRow[] = [];
 
-  for (const candidate of result.rows) {
+  for (const candidate of rows) {
     const parsed = accessibleContainerRowSchema.safeParse(candidate);
     if (!parsed.success) {
       throw new Error("Unexpected row shape from accessible containers query");

@@ -102,6 +102,25 @@ that view; see
 [operation recovery batch](developer/current-principal-consumers.md#operation-recovery-batch).
 Document syncs scheduled through document stores remain separate operations.
 
+### Discovery watermark order
+
+Each container or document change, including a removal, receives a publication
+position as its database transaction commits. The four sources share a sequence
+because a page can mix live rows and removals, and root discovery crosses
+organizations. Deferred triggers take a transaction-scoped lock before drawing
+from the sequence and hold it through commit. A rollback can leave a gap.
+Entity timestamps retain their original meaning. See the
+[publication migration](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
+
+Each lane reads its live rows and tombstones in a single SQL statement, so
+both come from the same snapshot. Each page orders by publication position and ID.
+Existing clients already save and echo both watermark strings. The opaque ID
+now contains the position and row ID. A device resuming from a timestamp-only
+cursor replays the lane once, in bounded pages, recovering earlier omissions.
+A restart during that replay resumes at the saved publication position.
+Postgres and PGlite run the same migration. The SQLite client stores the
+cursor verbatim. See [API database support](./developer/api-persistence.md#database).
+
 ### Container metadata under lost hints
 
 A clean container metadata document skips its read. A pass reads it only when
@@ -139,12 +158,11 @@ it with the client's own copy:
   that resumes an earlier paginated pull reads only up to that pull's upper
   bound, and a superseded result discarded what it pulled; neither settles,
   and each hands the read to a fresh pass.
-- Coverage. A metadata write advances its container's `updatedAt`, so the next
-  delta listing of the container's lane returns the row. Every acknowledged
+- Coverage. A metadata write advances its container's publication position.
+  The next delta listing of its lane returns the row. Every acknowledged
   connection re-lists the root lane and every held lane from their
   watermarks, including the first one after a restart or after the store
-  opened, so either recovers a lost metadata hint. This has the clock-skew
-  window that existing discovery accepts.
+  opened, so either recovers a lost metadata hint.
 - No-brick. The forced read uses the stored commit position as its floor, as
   a hint-forced read does, and never waits on another device.
 

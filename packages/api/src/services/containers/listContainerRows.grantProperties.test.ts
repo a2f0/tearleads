@@ -7,10 +7,10 @@ import {
   seedListingContainer,
   seedListingGroup,
 } from "../../../test/helpers/listingGrantFixture";
-import type { ApiServiceRuntime } from "../runtime";
 import {
   type AccessibleContainerRow,
-  listAccessibleContainersForUser,
+  accessibleContainersQuery,
+  readAccessibleContainerRows,
 } from "./listContainerRows";
 
 // The listing checks each candidate's own head for a grant and applies the
@@ -20,7 +20,13 @@ import {
 // no grant, grants held only by a stale group state or another user, grants on
 // a superseded manifest, repeated grant rows, and updated_at ties.
 
-const runtime = { db } as unknown as ApiServiceRuntime;
+async function listAccessibleContainersForUser(
+  input: Parameters<typeof accessibleContainersQuery>[0],
+) {
+  return readAccessibleContainerRows(
+    (await db.execute(accessibleContainersQuery(input))).rows,
+  );
+}
 
 function at(offsetMs: number): Date {
   return new Date(Date.UTC(2026, 9, 1) + offsetMs);
@@ -198,14 +204,16 @@ async function pageThrough(input: {
   for (let page = 0; page < 50; page += 1) {
     const rows = await listAccessibleContainersForUser({
       ...input,
-      runtime,
       watermark,
     });
     const pageRows = rows.slice(0, input.limit);
     received.push(...pageRows);
     const last = pageRows.at(-1);
     if (rows.length <= input.limit || !last) return received;
-    watermark = { id: last.id, updatedAt: last.updatedAt };
+    watermark = {
+      id: `${last.discoveryOrder}/${last.id}`,
+      updatedAt: last.updatedAt,
+    };
   }
   throw new Error("Expected the listing to finish paging");
 }
@@ -238,10 +246,9 @@ test("a watermark past every row returns nothing for any listing", async () => {
     const rows = await listAccessibleContainersForUser({
       limit: 10,
       parentId: parent?.id ?? null,
-      runtime,
       userId: fixture.userId,
       watermark: {
-        id: "ffffffff-ffff-4fff-bfff-ffffffffffff",
+        id: `${at(10_000).getTime()}/ffffffff-ffff-4fff-bfff-ffffffffffff`,
         updatedAt: at(10_000).toISOString(),
       },
     });

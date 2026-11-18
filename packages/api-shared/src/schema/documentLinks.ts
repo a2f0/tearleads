@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm";
 import {
+  bigint,
   index,
   pgTable,
   timestamp,
@@ -19,11 +21,19 @@ export const containerDocumentSyncTombstones = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     containerId: uuid("container_id").notNull(),
     documentId: uuid("document_id").notNull(),
+    discoveryOrder: bigint("discovery_order", { mode: "bigint" })
+      .default(sql`0`)
+      .notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("container_document_sync_tombstones_unique_idx").on(
       table.containerId,
+      table.documentId,
+    ),
+    index("document_tombstones_container_discovery_idx").on(
+      table.containerId,
+      table.discoveryOrder,
       table.documentId,
     ),
     index("container_document_sync_tombstones_container_updated_idx").on(

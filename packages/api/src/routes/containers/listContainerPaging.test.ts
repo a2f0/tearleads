@@ -6,12 +6,16 @@ import {
   containers,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   readContainerParentLanePage,
   requestContainerParentLanes,
 } from "../../../test/helpers/containerParentLaneQuery";
+import {
+  expectedDiscoveryId,
+  fixtureDiscoveryOrder,
+} from "../../../test/helpers/discoveryTimestamp";
 import {
   loadRegisteredContainerRoots,
   rootWatermark,
@@ -34,6 +38,17 @@ test("parent-lanes/query supports client-owned watermark resume", async () => {
   expect(firstBody.hasMore).toBe(true);
   expect(firstBody.items[0]?.id).toBe(roots[0]?.id);
   expect(firstBody.nextWatermark).toEqual(rootWatermark(roots[0]));
+  // A pre-upgrade device can have saved a wall-clock cursor above every
+  // existing row. It replays once within the same page bound, even across
+  // a restart which retained only the two original strings.
+  const oldCursor = {
+    id: owner.rootContainerId,
+    updatedAt: "2099-01-01T00:00:00.000Z",
+  };
+  const replay = await requestContainerParentLanes(owner.token, [
+    { laneId: "root", limit: 1, parentId: null, watermark: oldCursor },
+  ]);
+  expect(await readContainerParentLanePage(replay, "root")).toEqual(firstBody);
   const firstWatermark = firstBody.nextWatermark;
   if (!firstWatermark) {
     throw new Error("Expected a root lane watermark");
@@ -44,7 +59,7 @@ test("parent-lanes/query supports client-owned watermark resume", async () => {
       laneId: "root",
       limit: 1,
       parentId: null,
-      watermark: firstWatermark,
+      watermark: { id: firstWatermark.id, updatedAt: firstWatermark.updatedAt },
     },
   ]);
   expect(secondResponse.status).toBe(200);
@@ -129,6 +144,17 @@ test("parent-lanes/query advances a lane watermark over filtered candidates", as
     userId: owner.userId,
   });
 
+  // Deliberately place the filtered root, removal, and metadata root in that order.
+  await db
+    .update(containers)
+    .set({ discoveryOrder: fixtureDiscoveryOrder(containers.updatedAt) })
+    .where(inArray(containers.id, [metadata.id, owner.rootContainerId]));
+  await db
+    .update(containerSyncTombstones)
+    .set({
+      discoveryOrder: fixtureDiscoveryOrder(containerSyncTombstones.updatedAt),
+    })
+    .where(eq(containerSyncTombstones.containerId, tombstoneContainerId));
   const firstResponse = await requestContainerParentLanes(owner.token, [
     { laneId: "root", limit: 1, parentId: null },
   ]);
@@ -138,7 +164,7 @@ test("parent-lanes/query advances a lane watermark over filtered candidates", as
     hasMore: true,
     items: [],
     nextWatermark: {
-      id: owner.rootContainerId,
+      id: expectedDiscoveryId(owner.rootContainerId),
       updatedAt: "2026-05-05T00:00:00.000Z",
     },
     tombstones: [],
@@ -158,7 +184,7 @@ test("parent-lanes/query advances a lane watermark over filtered candidates", as
     hasMore: true,
     items: [],
     nextWatermark: {
-      id: tombstoneContainerId,
+      id: expectedDiscoveryId(tombstoneContainerId),
       updatedAt: "2026-05-05T00:00:01.000Z",
     },
     tombstones: [
@@ -189,7 +215,10 @@ test("parent-lanes/query advances a lane watermark over filtered candidates", as
         systemSlot: metadata.systemSlot,
       }),
     ],
-    nextWatermark: { id: metadata.id, updatedAt: "2026-05-05T00:00:02.000Z" },
+    nextWatermark: {
+      id: expectedDiscoveryId(metadata.id),
+      updatedAt: "2026-05-05T00:00:02.000Z",
+    },
     tombstones: [],
   });
 });

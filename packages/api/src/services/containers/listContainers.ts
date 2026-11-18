@@ -9,6 +9,7 @@ import type {
 } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { type SQL, sql } from "drizzle-orm";
+import { z } from "zod";
 import { textExpression } from "../../utils/postgresSql";
 import type { PrincipalPolicyReferenceCache } from "../../workflows/containers/writerProjection/types";
 import {
@@ -17,18 +18,22 @@ import {
   resolveReadableContainerAccessBatch,
 } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
+import { readDiscoverySources } from "./discoverySnapshot";
 import {
   type AccessibleContainerRow,
-  listAccessibleContainersForUser,
+  accessibleContainersQuery,
   parentIdPredicate,
+  readAccessibleContainerRows,
 } from "./listContainerRows";
 import {
+  compareDiscoveryOrder,
+  discoveryWatermark,
   normalizeSyncPageLimit,
   normalizeSyncWatermark,
   watermarkPredicate,
 } from "./syncPaging";
 import {
-  compareSyncTimestamps,
+  readSyncTimestamp,
   syncItemTimestamp,
   syncTimestampExpression,
 } from "./syncTimestamp";
@@ -42,6 +47,7 @@ interface ListContainersOptions {
 }
 
 interface ContainerTombstoneRow {
+  discoveryOrder: bigint;
   containerId: string;
   depth: number;
   parentId: string | null;
@@ -50,6 +56,7 @@ interface ContainerTombstoneRow {
 }
 
 interface ContainerChangeCandidate {
+  discoveryOrder: bigint;
   kind: "container" | "tombstone";
   id: string;
   updatedAt: string;
@@ -92,65 +99,34 @@ function tombstoneParentIdPredicate(parentId: string | null): SQL {
   return parentIdPredicate(sql`${containerSyncTombstones.parentId}`, parentId);
 }
 
-async function listContainerTombstones(input: {
+const removalRow = z
+  .object({
+    discoveryOrder: z.string().transform(BigInt),
+    id: z.string(),
+    depth: z.number().int(),
+    parentId: z.string().nullable(),
+    reason: z.enum(["access_revoked", "deleted"]),
+    updatedAt: z.string().transform(readSyncTimestamp),
+  })
+  .transform(({ id, ...row }) => ({ ...row, containerId: id }));
+
+function containerTombstonesQuery(input: {
   readonly limit: number;
   readonly parentId: string | null;
-  readonly runtime: ApiServiceRuntime;
   readonly userId: string;
   readonly watermark: SyncWatermark | null;
-}): Promise<ContainerTombstoneRow[]> {
-  const rows = await input.runtime.db
-    .select({
-      containerId: containerSyncTombstones.containerId,
-      depth: containerSyncTombstones.depth,
-      parentId: containerSyncTombstones.parentId,
-      reason: containerSyncTombstones.reason,
-      updatedAt: syncTimestampExpression(
-        sql`${containerSyncTombstones.updatedAt}`,
-      ),
-    })
-    .from(containerSyncTombstones)
-    .where(sql`
-      ${containerSyncTombstones.userId} = ${input.userId}
+}): SQL {
+  return sql`
+    select container_id as id, discovery_order::text as "discoveryOrder",
+      depth, parent_id as "parentId", reason,
+      ${syncTimestampExpression(sql`updated_at`)} as "updatedAt"
+    from ${containerSyncTombstones}
+    where user_id = ${input.userId}
       and ${tombstoneParentIdPredicate(input.parentId)}
-      ${watermarkPredicate(
-        sql`${containerSyncTombstones.updatedAt}`,
-        textExpression(sql`${containerSyncTombstones.containerId}`),
-        input.watermark,
-      )}
-    `)
-    .orderBy(
-      containerSyncTombstones.updatedAt,
-      textExpression(sql`${containerSyncTombstones.containerId}`),
-    )
-    .limit(input.limit + 1);
-
-  return rows.map((row) => ({
-    containerId: row.containerId,
-    depth: row.depth,
-    parentId: row.parentId,
-    reason: row.reason,
-    updatedAt: row.updatedAt,
-  }));
-}
-
-function compareContainerChangeCandidates(
-  left: ContainerChangeCandidate,
-  right: ContainerChangeCandidate,
-): number {
-  const updatedAtOrder = compareSyncTimestamps(left.updatedAt, right.updatedAt);
-  return updatedAtOrder === 0
-    ? left.id.localeCompare(right.id)
-    : updatedAtOrder;
-}
-
-function containerCandidateWatermark(
-  candidate: ContainerChangeCandidate,
-): SyncWatermark {
-  return {
-    id: candidate.id,
-    updatedAt: candidate.updatedAt,
-  };
+      ${watermarkPredicate(sql`discovery_order`, textExpression(sql`container_id`), input.watermark)}
+    order by discovery_order, container_id
+    limit ${input.limit + 1}
+  `;
 }
 
 function selectContainerPage(input: {
@@ -161,18 +137,20 @@ function selectContainerPage(input: {
 }): ContainerPageSelection {
   const candidates: ContainerChangeCandidate[] = [
     ...input.containerRows.map((row) => ({
+      discoveryOrder: row.discoveryOrder,
       id: row.id,
       kind: "container" as const,
       updatedAt: row.updatedAt,
     })),
     ...input.tombstoneRows.map((row) => ({
+      discoveryOrder: row.discoveryOrder,
       id: row.containerId,
       kind: "tombstone" as const,
       updatedAt: row.updatedAt,
     })),
   ];
   const selectedCandidates = candidates
-    .sort(compareContainerChangeCandidates)
+    .sort(compareDiscoveryOrder)
     .slice(0, input.limit);
   const selectedContainerIds = new Set(
     selectedCandidates
@@ -195,7 +173,11 @@ function selectContainerPage(input: {
     nextWatermark:
       lastCandidate === null
         ? input.watermark
-        : containerCandidateWatermark(lastCandidate),
+        : discoveryWatermark(
+            lastCandidate.discoveryOrder,
+            lastCandidate.id,
+            lastCandidate.updatedAt,
+          ),
     tombstoneIds: selectedTombstoneIds,
   };
 }
@@ -308,16 +290,14 @@ export async function listContainers(
     () => new ListContainersError("Invalid watermark", 400),
   );
 
-  const [accessibleContainerRows, tombstoneRows] = await Promise.all([
-    listAccessibleContainersForUser({
-      limit,
-      parentId,
-      runtime,
-      userId,
-      watermark,
-    }),
-    listContainerTombstones({ limit, parentId, runtime, userId, watermark }),
-  ]);
+  const query = { limit, parentId, userId, watermark };
+  const rows = await readDiscoverySources(
+    runtime,
+    accessibleContainersQuery(query),
+    containerTombstonesQuery(query),
+  );
+  const accessibleContainerRows = readAccessibleContainerRows(rows.live);
+  const tombstoneRows = rows.removed.map((row) => removalRow.parse(row));
   const pageSelection = selectContainerPage({
     containerRows: accessibleContainerRows,
     limit,

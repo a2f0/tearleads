@@ -47,7 +47,8 @@ ASSUME /\ MaxEdits \in Nat /\ MaxTouches \in Nat
 
 VARIABLES
   remoteVer,     \* server metadata version
-  rowPending,    \* durable lane watermark has not passed the row's last write
+  watermark,     \* last applied publication position
+  listedOrder,   \* publication position captured by the listing snapshot
   edits, touches, restarts, disconnects, resumes,
   up,            \* the client process is running
   connected,     \* its interest declaration is acknowledged
@@ -64,12 +65,12 @@ VARIABLES
   reading, readVer, readSeq,
   readResumed    \* the read resumes an earlier pull's pages and bound
 
-vars == <<remoteVer, rowPending, edits, touches, restarts, disconnects,
-          resumes, up, connected, relistDue, listing, listedVer, listBehind,
+vars == <<remoteVer, watermark, edits, touches, restarts, disconnects,
+          resumes, up, connected, relistDue, listing, listedOrder, listedVer, listBehind,
           listOwed, listPassed, owedMem, owedDurable, seq, localVer, reading,
           readVer, readSeq, readResumed>>
 
-listingVars == <<listing, listedVer, listBehind, listOwed, listPassed>>
+listingVars == <<listing, listedOrder, listedVer, listBehind, listOwed, listPassed>>
 readVars == <<reading, readVer, readSeq, readResumed>>
 boundVars == <<edits, touches, restarts, disconnects, resumes>>
 
@@ -79,13 +80,14 @@ TypeOK ==
   /\ remoteVer \in 0..MaxEdits /\ localVer \in 0..MaxEdits
   /\ readVer \in 0..MaxEdits /\ listedVer \in 0..MaxEdits
   /\ seq \in 0..MaxSeq /\ readSeq \in 0..MaxSeq
-  /\ {rowPending, up, connected, relistDue, listing, listBehind, listOwed,
+  /\ watermark \in 0..(MaxEdits + MaxTouches) /\ listedOrder \in 0..(MaxEdits + MaxTouches)
+  /\ {up, connected, relistDue, listing, listBehind, listOwed,
       listPassed, owedMem, owedDurable, reading,
       readResumed} \subseteq BOOLEAN
 
 Init ==
   \* Registration or a seeded create: the local copy holds the server's version.
-  /\ remoteVer = 0 /\ localVer = 0 /\ rowPending = FALSE
+  /\ remoteVer = 0 /\ localVer = 0 /\ watermark = 0 /\ listedOrder = 0
   /\ edits = 0 /\ touches = 0 /\ restarts = 0 /\ disconnects = 0
   /\ resumes = 0
   /\ up = TRUE /\ connected = FALSE /\ relistDue = FALSE
@@ -97,7 +99,7 @@ Init ==
 \* A peer device of the same identity edits the metadata document.
 PeerEdit ==
   /\ edits < MaxEdits
-  /\ remoteVer' = remoteVer + 1 /\ rowPending' = TRUE
+  /\ remoteVer' = remoteVer + 1 /\ UNCHANGED watermark
   /\ edits' = edits + 1
   /\ IF up /\ connected
        THEN owedMem' = TRUE /\ seq' = seq + 1
@@ -108,7 +110,7 @@ PeerEdit ==
 \* A write into the folder or a move touches the row, not the metadata.
 OtherTouch ==
   /\ touches < MaxTouches
-  /\ rowPending' = TRUE /\ touches' = touches + 1
+  /\ UNCHANGED watermark /\ touches' = touches + 1
   /\ UNCHANGED <<remoteVer, edits, restarts, disconnects, resumes, up,
                  connected, relistDue, listingVars, owedMem, owedDurable, seq,
                  localVer, readVars>>
@@ -116,13 +118,13 @@ OtherTouch ==
 Acknowledge ==
   /\ up /\ ~connected
   /\ connected' = TRUE /\ relistDue' = RelistOnAcknowledge
-  /\ UNCHANGED <<remoteVer, rowPending, boundVars, up, listingVars, owedMem,
+  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, listingVars, owedMem,
                  owedDurable, seq, localVer, readVars>>
 
 Disconnect ==
   /\ connected /\ disconnects < MaxDisconnects
   /\ connected' = FALSE /\ disconnects' = disconnects + 1
-  /\ UNCHANGED <<remoteVer, rowPending, edits, touches, restarts, resumes,
+  /\ UNCHANGED <<remoteVer, watermark, edits, touches, restarts, resumes,
                  up, relistDue, listingVars, owedMem, owedDurable, seq,
                  localVer, readVars>>
 
@@ -130,12 +132,12 @@ Disconnect ==
 BeginListing ==
   /\ up /\ relistDue /\ ~listing
   /\ relistDue' = FALSE
-  /\ IF rowPending
-       THEN /\ listing' = TRUE /\ listedVer' = remoteVer
+  /\ IF edits + touches > watermark
+       THEN /\ listing' = TRUE /\ listedOrder' = edits + touches /\ listedVer' = remoteVer
             /\ listBehind' = (remoteVer > localVer)
             /\ listOwed' = FALSE /\ listPassed' = FALSE
        ELSE UNCHANGED listingVars
-  /\ UNCHANGED <<remoteVer, rowPending, boundVars, up, connected, owedMem,
+  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, owedMem,
                  owedDurable, seq, localVer, readVars>>
 
 \* oweContainerMetadataRead: memory first, then container_metadata_revalidations.
@@ -144,8 +146,8 @@ OweListedRead ==
   /\ OweBeforeWatermark \/ listPassed
   /\ owedMem' = TRUE /\ seq' = seq + 1 /\ owedDurable' = TRUE
   /\ listOwed' = TRUE
-  /\ UNCHANGED <<remoteVer, rowPending, boundVars, up, connected, relistDue,
-                 listing, listedVer, listBehind, listPassed, localVer,
+  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, relistDue,
+                 listing, listedOrder, listedVer, listBehind, listPassed, localVer,
                  readVars>>
 
 \* The page's watermark is saved after its rows are applied.
@@ -153,17 +155,17 @@ AdvanceWatermark ==
   /\ up /\ listing /\ ~listPassed
   /\ ~OweBeforeWatermark \/ listOwed \/ ~listBehind
   \* A write after the listing read the row leaves it pending.
-  /\ rowPending' = (remoteVer # listedVer)
+  /\ watermark' = listedOrder
   /\ listPassed' = TRUE
   /\ UNCHANGED <<remoteVer, boundVars, up, connected, relistDue, listing,
-                 listedVer, listBehind, listOwed, owedMem, owedDurable, seq,
+                 listedOrder, listedVer, listBehind, listOwed, owedMem, owedDurable, seq,
                  localVer, readVars>>
 
 FinishListing ==
   /\ listing /\ listPassed /\ (listOwed \/ ~listBehind)
   /\ listing' = FALSE /\ listOwed' = FALSE /\ listPassed' = FALSE
-  /\ UNCHANGED <<remoteVer, rowPending, boundVars, up, connected, relistDue,
-                 listedVer, listBehind, owedMem, owedDurable, seq, localVer,
+  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, relistDue,
+                 listedOrder, listedVer, listBehind, owedMem, owedDurable, seq, localVer,
                  readVars>>
 
 \* syncSingleContainerMetadata snapshots the signal sequence before its read.
@@ -171,7 +173,7 @@ BeginRead ==
   /\ up /\ owedMem /\ ~reading
   /\ reading' = TRUE /\ readVer' = remoteVer /\ readSeq' = seq
   /\ readResumed' = FALSE
-  /\ UNCHANGED <<remoteVer, rowPending, boundVars, up, connected, relistDue,
+  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, relistDue,
                  listingVars, owedMem, owedDurable, seq, localVer>>
 
 \* The pass resumes a paginated pull begun earlier; its pages stop at that
@@ -181,7 +183,7 @@ ResumeRead ==
   /\ reading' = TRUE /\ readSeq' = seq /\ readResumed' = TRUE
   /\ readVer' \in 0..remoteVer
   /\ resumes' = resumes + 1
-  /\ UNCHANGED <<remoteVer, rowPending, edits, touches, restarts,
+  /\ UNCHANGED <<remoteVer, watermark, edits, touches, restarts,
                  disconnects, up, connected, relistDue, listingVars, owedMem,
                  owedDurable, seq, localVer>>
 
@@ -194,7 +196,7 @@ FinishRead ==
         /\ (SettleResumedPull \/ ~readResumed)
        THEN owedMem' = FALSE /\ owedDurable' = FALSE
        ELSE UNCHANGED <<owedMem, owedDurable>>
-  /\ UNCHANGED <<remoteVer, rowPending, boundVars, up, connected, relistDue,
+  /\ UNCHANGED <<remoteVer, watermark, boundVars, up, connected, relistDue,
                  listingVars, seq, readVer, readSeq, readResumed>>
 
 Crash ==
@@ -203,8 +205,8 @@ Crash ==
   /\ restarts' = restarts + 1
   /\ listing' = FALSE /\ listOwed' = FALSE /\ listPassed' = FALSE
   /\ owedMem' = FALSE /\ reading' = FALSE
-  /\ UNCHANGED <<remoteVer, rowPending, edits, touches, disconnects, resumes,
-                 listedVer, listBehind, owedDurable, seq, localVer, readVer,
+  /\ UNCHANGED <<remoteVer, watermark, edits, touches, disconnects, resumes,
+                 listedOrder, listedVer, listBehind, owedDurable, seq, localVer, readVer,
                  readSeq, readResumed>>
 
 \* restoreOwedContainerMetadataReads on a store's first sync pass.
@@ -214,7 +216,7 @@ Start ==
   /\ IF RestoreOnStart /\ owedDurable
        THEN owedMem' = TRUE /\ seq' = seq + 1
        ELSE UNCHANGED <<owedMem, seq>>
-  /\ UNCHANGED <<remoteVer, rowPending, boundVars, connected, relistDue,
+  /\ UNCHANGED <<remoteVer, watermark, boundVars, connected, relistDue,
                  listingVars, owedDurable, localVer, readVars>>
 
 Next ==
@@ -241,7 +243,7 @@ Spec == Init /\ [][Next]_vars /\ Fairness
 EvidenceRetained ==
   localVer < remoteVer =>
     \/ owedDurable
-    \/ rowPending
+    \/ edits + touches > watermark
     \/ up /\ owedMem
     \/ up /\ reading /\ readVer = remoteVer /\ ~readResumed
     \/ up /\ listing /\ listBehind /\ ~listOwed

@@ -56,15 +56,19 @@ Five guards are parameters with registered negative controls:
   `Converges`.
 
 The bounded configuration allows two peer edits, one other touch, one crash,
-one disconnect and one resumed pull. TLC explores 216,116 generated states,
-52,223 distinct states, and depth 25.
+one disconnect and one resumed pull. TLC explores 354,205 generated states,
+89,480 distinct states, and depth 25.
 
 The model has one container, with the local copy holding the server's version
 at the start, as after registration or a seeded create. `OtherTouch` changes
 only the row, never the metadata version, so it owes no read; the comparison is
-clock-free. The model assumes, as existing discovery does, that a write
-leaves its row past the lane watermark; a trailing server clock can break that
-for discovery and for this recovery alike. Also outside the model:
+clock-free. `edits + touches` is this row's publication order. A page saves
+the position it captured, so a later commit remains above the watermark.
+[DiscoveryPublication.tla](./DiscoveryPublication.tla) checks the underlying
+ordering with two concurrent writers and a page size of one. A writer takes
+the publication lock when allocating its position and releases it on commit
+or abort. The registered negative control releases the serialization rule,
+allowing an older position to commit behind an applied page. Outside the model:
 minimum commit positions and replica lag (the forced read uses the stored
 commit position as its floor, as a hint-forced read does, and production
 settles a debt only once the local copy covers the advertised version), several

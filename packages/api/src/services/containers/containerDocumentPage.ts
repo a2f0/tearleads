@@ -1,8 +1,9 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { compareSyncTimestamps } from "./syncTimestamp";
+import { compareDiscoveryOrder, discoveryWatermark } from "./syncPaging";
 
 export interface ContainerDocumentRow {
   createdAt: Date;
+  discoveryOrder: bigint;
   documentId: string;
   manifestHash: string;
   manifestEpoch: number;
@@ -10,6 +11,7 @@ export interface ContainerDocumentRow {
 }
 
 export interface ContainerDocumentTombstoneRow {
+  discoveryOrder: bigint;
   documentId: string;
   updatedAt: string;
 }
@@ -25,11 +27,10 @@ export function selectContainerDocumentPage(input: {
     ...input.documentRows.map((row) => ({ kind: "document" as const, row })),
     ...input.tombstoneRows.map((row) => ({ kind: "tombstone" as const, row })),
   ].sort((left, right) => {
-    const timeOrder = compareSyncTimestamps(
-      left.row.updatedAt,
-      right.row.updatedAt,
+    return compareDiscoveryOrder(
+      { discoveryOrder: left.row.discoveryOrder, id: left.row.documentId },
+      { discoveryOrder: right.row.discoveryOrder, id: right.row.documentId },
     );
-    return timeOrder || left.row.documentId.localeCompare(right.row.documentId);
   });
   const selected = candidates.slice(0, input.limit);
   const last = selected.at(-1)?.row;
@@ -42,7 +43,7 @@ export function selectContainerDocumentPage(input: {
     ),
     hasMore: candidates.length > selected.length,
     nextWatermark: last
-      ? { id: last.documentId, updatedAt: last.updatedAt }
+      ? discoveryWatermark(last.discoveryOrder, last.documentId, last.updatedAt)
       : input.watermark,
   };
 }

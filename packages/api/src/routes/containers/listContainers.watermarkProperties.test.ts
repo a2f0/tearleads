@@ -7,14 +7,18 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { storeChildContainerAccessManifest } from "../../../test/helpers/containerManifests";
 import {
   readContainerParentLanePage,
   requestContainerParentLanes,
 } from "../../../test/helpers/containerParentLaneQuery";
-import { discoveryTimestampValue } from "../../../test/helpers/discoveryTimestamp";
+import {
+  discoveryTimestampValue,
+  expectedDiscoveryId,
+  fixtureDiscoveryOrder,
+} from "../../../test/helpers/discoveryTimestamp";
 import { registerUser } from "../../../test/helpers/registerUser";
 
 type ContainerChangeFixture = {
@@ -165,6 +169,17 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
         userId: owner.userId,
       })),
   );
+  const ids = CHANGES.map((change) => change.id);
+  await db
+    .update(containers)
+    .set({ discoveryOrder: fixtureDiscoveryOrder(containers.updatedAt) })
+    .where(inArray(containers.id, ids));
+  await db
+    .update(containerSyncTombstones)
+    .set({
+      discoveryOrder: fixtureDiscoveryOrder(containerSyncTombstones.updatedAt),
+    })
+    .where(inArray(containerSyncTombstones.containerId, ids));
 
   const expectedChanges = CHANGES.toSorted((left, right) =>
     changeKey(left).localeCompare(changeKey(right)),
@@ -195,7 +210,7 @@ test("container discovery watermarks exhaust every mixed change exactly once", a
       expect(page.nextWatermark).toEqual(
         expectedLastChange
           ? {
-              id: expectedLastChange.id,
+              id: expectedDiscoveryId(expectedLastChange.id),
               updatedAt: expectedLastChange.updatedAt,
             }
           : watermark,
