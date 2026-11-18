@@ -70,8 +70,14 @@ const CryptoSessionContext = createContext<CryptoSessionContextValue | null>(
   null,
 );
 
+interface RootBootstrapAttempt {
+  readonly scope: ReturnType<typeof useTearleads>["domainScope"];
+  readonly dbClient: ReturnType<typeof useDatabase>["client"];
+  readonly signingFingerprint: string;
+}
+
 function useResetCryptoSession(
-  containerBootstrapped: MutableRefObject<string | null>,
+  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
   signingKeyPair: ReturnType<typeof useIdentity>["signingKeyPair"],
   resetSession: () => void,
 ) {
@@ -86,7 +92,7 @@ function useResetCryptoSession(
 }
 
 function useBootstrapCryptoSessionContainer(
-  containerBootstrapped: MutableRefObject<string | null>,
+  containerBootstrapped: MutableRefObject<RootBootstrapAttempt | null>,
   tearleads: ReturnType<typeof useTearleads>,
   containerId: string | null,
   signingFingerprint: string | null,
@@ -94,27 +100,29 @@ function useBootstrapCryptoSessionContainer(
   dbClient: ReturnType<typeof useDatabase>["client"],
   logError: (message: string, error: unknown) => void,
 ) {
+  const scope = tearleads.domainScope;
   useEffect(() => {
-    const bootstrapKey =
-      signingFingerprint && dbClient
-        ? `${signingFingerprint}:${dbStatus}`
-        : null;
-
+    const previous = containerBootstrapped.current;
     if (
       containerId !== null ||
       !signingFingerprint ||
       dbStatus !== "ready" ||
       !dbClient ||
-      containerBootstrapped.current === bootstrapKey
-    ) {
+      (previous?.scope === scope &&
+        previous?.dbClient === dbClient &&
+        previous.signingFingerprint === signingFingerprint)
+    )
       return;
-    }
-    containerBootstrapped.current = bootstrapKey;
-
+    const attempt = { scope, dbClient, signingFingerprint };
+    containerBootstrapped.current = attempt;
+    const current = () =>
+      containerBootstrapped.current === attempt &&
+      tearleads.domainScope === scope;
     void (async () => {
       try {
-        await tearleads.session.bootstrapLocalRootContainer();
+        await tearleads.session.bootstrapLocalRootContainer(current);
       } catch (error: unknown) {
+        if (!current()) return;
         containerBootstrapped.current = null;
         // Reloads and identity transitions retire the worker beneath pending
         // queries. The next ready client retries; real SQL failures still log.
@@ -129,6 +137,7 @@ function useBootstrapCryptoSessionContainer(
     dbClient,
     containerId,
     logError,
+    scope,
     signingFingerprint,
     tearleads,
   ]);
@@ -373,7 +382,7 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   } = useDatabase();
   const { signingFingerprint, signingKeyPair } = useIdentity();
   const localKeyringLock = useLocalKeyringLock();
-  const containerBootstrapped = useRef<string | null>(null);
+  const containerBootstrapped = useRef<RootBootstrapAttempt | null>(null);
   const sessionState = useSdkBackedCryptoSessionState(tearleads);
   const localSessionPersistence = useLocalCryptoSessionPersistence({
     createLocalKeyring: localKeyringLock.createLocalKeyring,

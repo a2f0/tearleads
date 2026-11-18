@@ -235,7 +235,7 @@ class SessionService implements Session {
     }
 
     const identitySnapshot = this.dependencies.identity.snapshot;
-    const sessionCurrent = sessionLifetime(this).capture();
+    const sessionCurrent = this.captureSignIn();
     const isCurrent = () =>
       sessionCurrent() &&
       this.dependencies.identity.snapshot === identitySnapshot;

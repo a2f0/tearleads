@@ -161,39 +161,53 @@ test("a new attachment waits for dispatched removal and reopens the identity dir
   expect(writtenDirectories).toEqual([0, 1]);
 });
 
-test("retiring a write after its last chunk aborts the temporary file before close", async () => {
-  const writing = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const close = mock(async () => {});
-  const abort = mock(async () => {});
-  const file = {
-    createWritable: async () => ({
-      close,
-      abort,
-      write: async () => {
-        writing.resolve();
-        await release.promise;
+test.each([false, true])(
+  "retiring the last chunk preserves the destination (existing: %s)",
+  async (existing) => {
+    const writing = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const close = mock(async () => {});
+    const abort = mock(async () => {});
+    const file = {
+      createWritable: async () => ({
+        close,
+        abort,
+        write: async () => {
+          writing.resolve();
+          await release.promise;
+        },
+      }),
+    };
+    let exists = existing;
+    const directory = {
+      getFileHandle: async (_name: string, options?: { create?: boolean }) => {
+        if (!exists && !options?.create)
+          throw new DOMException("Missing", "NotFoundError");
+        exists = true;
+        return file;
       },
-    }),
-  };
-  const app = {
-    getDirectoryHandle: async () => ({ getFileHandle: async () => file }),
-  };
-  installStorage(
-    async () =>
-      ({
-        getDirectoryHandle: async () => app,
-      }) as unknown as FileSystemDirectoryHandle,
-  );
-  let current = true;
-  const store = createOpfsBlobStore("owner");
-  const pending = store.writeBytes("attachment", attachmentBytes, () => {
-    if (!current) throw new Error("ended");
-  });
-  await writing.promise;
-  current = false;
-  release.resolve();
-  await expect(pending).rejects.toThrow("ended");
-  expect(close).not.toHaveBeenCalled();
-  expect(abort).toHaveBeenCalledTimes(1);
-});
+      removeEntry: async () => {
+        exists = false;
+      },
+    };
+    const app = { getDirectoryHandle: async () => directory };
+    installStorage(
+      async () =>
+        ({
+          getDirectoryHandle: async () => app,
+        }) as unknown as FileSystemDirectoryHandle,
+    );
+    let current = true;
+    const store = createOpfsBlobStore("owner");
+    const pending = store.writeBytes("attachment", attachmentBytes, () => {
+      if (!current) throw new Error("ended");
+    });
+    await writing.promise;
+    current = false;
+    release.resolve();
+    await expect(pending).rejects.toThrow("ended");
+    expect(close).not.toHaveBeenCalled();
+    expect(abort).toHaveBeenCalledTimes(1);
+    expect(exists).toBe(existing);
+  },
+);

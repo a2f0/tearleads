@@ -7,6 +7,8 @@ import {
   readBlobByteSource,
 } from "./blobContracts";
 
+import { commitOpfsFile } from "./opfsBlobFile";
+
 interface StorageDirectoryProvider {
   getDirectory: () => Promise<FileSystemDirectoryHandle>;
 }
@@ -17,19 +19,40 @@ class OpfsBlobStore implements BlobStore {
   private directoryPromise: Promise<FileSystemDirectoryHandle> | null = null;
 
   private readonly active = new Set<Promise<unknown>>();
+  private readonly writers = new Map<string, Promise<unknown>>();
   private purgeBarrier: Promise<void> | undefined;
 
   constructor(private readonly namespace: string) {}
 
   // File operations run concurrently. A directory removal waits for all
   // of them and any later file operation opens the surviving directory.
-  private async useFile<T>(run: () => Promise<T>): Promise<T> {
-    const operation = this.purgeBarrier ? this.purgeBarrier.then(run) : run();
+  private async useFile<T>(
+    key: string,
+    mode: LockMode,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    const locked = () => {
+      const locks = navigator.locks;
+      return typeof locks?.request === "function"
+        ? locks.request(
+            JSON.stringify(["tearleads.opfs.blob", this.namespace, key]),
+            { mode },
+            run,
+          )
+        : run();
+    };
+    const writer = this.writers.get(key);
+    const operation =
+      writer || this.purgeBarrier
+        ? Promise.allSettled([writer, this.purgeBarrier]).then(locked)
+        : locked();
+    if (mode === "exclusive") this.writers.set(key, operation);
     this.active.add(operation);
     try {
       return await operation;
     } finally {
       this.active.delete(operation);
+      if (this.writers.get(key) === operation) this.writers.delete(key);
     }
   }
 
@@ -51,7 +74,9 @@ class OpfsBlobStore implements BlobStore {
   }
 
   deleteBytes(storageKey: string, assertCurrent?: () => void) {
-    return this.useFile(() => this.removeFile(storageKey, assertCurrent));
+    return this.useFile(storageKey, "exclusive", () =>
+      this.removeFile(storageKey, assertCurrent),
+    );
   }
 
   private async removeFile(storageKey: string, assertCurrent?: () => void) {
@@ -75,7 +100,7 @@ class OpfsBlobStore implements BlobStore {
   }
 
   openByteSource(storageKey: string) {
-    return this.useFile(() => this.openFile(storageKey));
+    return this.useFile(storageKey, "shared", () => this.openFile(storageKey));
   }
 
   private async openFile(storageKey: string) {
@@ -101,7 +126,7 @@ class OpfsBlobStore implements BlobStore {
     source: BlobByteSource,
     assertCurrent?: () => void,
   ) {
-    return this.useFile(() =>
+    return this.useFile(storageKey, "exclusive", () =>
       this.writeFile(storageKey, source, assertCurrent),
     );
   }
@@ -113,32 +138,25 @@ class OpfsBlobStore implements BlobStore {
   ) {
     const sourceByteLength = blobByteSourceInputLength(source);
     const directory = await this.getDirectory();
-    assertCurrent?.();
-    const fileHandle = await directory.getFileHandle(
+    await commitOpfsFile(
+      directory,
       this.getFileName(storageKey),
-      { create: true },
-    );
-    const writable = await fileHandle.createWritable();
-
-    try {
-      for (let offset = 0; offset < sourceByteLength; ) {
-        const byteLength = Math.min(
-          OPFS_WRITE_CHUNK_SIZE,
-          sourceByteLength - offset,
-        );
-        const chunk = await source.read(offset, byteLength);
-        if (chunk.byteLength !== byteLength) {
-          throw new Error("Blob byte source returned an incomplete read.");
+      assertCurrent,
+      async (writable) => {
+        for (let offset = 0; offset < sourceByteLength; ) {
+          const byteLength = Math.min(
+            OPFS_WRITE_CHUNK_SIZE,
+            sourceByteLength - offset,
+          );
+          const chunk = await source.read(offset, byteLength);
+          if (chunk.byteLength !== byteLength) {
+            throw new Error("Blob byte source returned an incomplete read.");
+          }
+          await writable.write(chunk);
+          offset += byteLength;
         }
-        await writable.write(chunk);
-        offset += byteLength;
-      }
-      assertCurrent?.();
-      await writable.close();
-    } catch (error) {
-      await writable.abort(error).catch(() => undefined);
-      throw error;
-    }
+      },
+    );
   }
 
   async writeBytes(

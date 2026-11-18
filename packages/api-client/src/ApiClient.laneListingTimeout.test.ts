@@ -164,3 +164,39 @@ testApiClient(
     ]);
   },
 );
+
+testApiClient(
+  "a retired listing deadline leaves the new sign-in's connectivity and failure cache intact",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("first");
+    const received = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<Response>();
+    globalThis.fetch = Object.assign(async () => {
+      received.resolve();
+      return release.promise;
+    }, realFetch);
+    let offline = false;
+    client.setOnNetworkError(() => {
+      offline = true;
+    });
+    jest.useFakeTimers();
+    try {
+      const listing = client.listContainerParentLanes({
+        lanes: [{ laneId: "root", parentId: null, watermark: null }],
+      });
+      await received.promise;
+      jest.advanceTimersByTime(CONTAINER_LANE_LISTING_TIMEOUT_MS);
+      client.setAuthToken("next", { boundary: "replacement" });
+      release.resolve(Response.json({ results: [] }));
+      await expect(listing).resolves.toBeNull();
+      expect(offline).toBe(false);
+      expect(
+        client.getRequestFailure({ method: "POST", path: listingPaths.parent }),
+      ).toBeNull();
+    } finally {
+      jest.useRealTimers();
+      release.resolve(Response.json({ results: [] }));
+    }
+  },
+);
