@@ -1,5 +1,6 @@
 import { basename, dirname, resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
+import { checkArguments, requireGitRoot } from "../lib/checkRoot";
 import { assertCompletedTurboRun, plannedTurboTasks } from "./turboRunEvidence";
 
 const verificationTasks = new Set([
@@ -14,7 +15,8 @@ const verificationTasks = new Set([
 ]);
 
 async function run() {
-  const [task, ...args] = process.argv.slice(2);
+  const { root: cwd, args: input } = checkArguments();
+  const [task, ...args] = input;
   if (!task || !verificationTasks.has(task))
     throw new Error("Expected a registered verification task");
   const separator = args.indexOf("--");
@@ -23,10 +25,11 @@ async function run() {
     turboArgs.some((arg) => /^--(?:dry(?:-run)?|summarize|ui)(?:=|$)/.test(arg))
   )
     throw new Error("Turbo evidence flags are managed by this runner");
-  const cwd = process.cwd();
+  requireGitRoot(cwd);
   const turbo = resolve(cwd, "node_modules/.bin/turbo");
   const plan = Bun.spawn([turbo, "run", task, "--dry-run=json", ...args], {
     cwd,
+    env: process.env,
     stdout: "pipe",
     stderr: "inherit",
   });
@@ -42,6 +45,7 @@ async function run() {
     [turbo, "run", task, "--summarize=true", "--ui=stream", ...args],
     {
       cwd,
+      env: process.env,
       stdout: "pipe",
       stderr: "pipe",
       stdin: "inherit",

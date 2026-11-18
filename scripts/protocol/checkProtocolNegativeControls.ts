@@ -7,10 +7,10 @@
  * invariant that has become vacuous, is caught on every push.
  */
 
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
+import { checkRoot } from "../lib/checkRoot";
 import { runFailFastPool } from "./failFastPool";
 import {
   NEGATIVE_CONTROLS,
@@ -24,16 +24,6 @@ import { resolveTlcTools, runTlcAsync, tlcParallelism } from "./tlcTools";
 function fail(message: string): never {
   console.error(`Error: ${message}`);
   process.exit(1);
-}
-
-function repoRoot(): string {
-  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
-    fail("the negative-control check must run inside a Git repository.");
-  }
-  return result.stdout.trim();
 }
 
 /** Every control derives from a pair the pull-request registry checks. */
@@ -87,7 +77,7 @@ async function runControl(
   }
 }
 
-const root = repoRoot();
+const root = checkRoot();
 const tools = resolveTlcTools(root);
 const ids = new Set<string>();
 for (const control of NEGATIVE_CONTROLS) {

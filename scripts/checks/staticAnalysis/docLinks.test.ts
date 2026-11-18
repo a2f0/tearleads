@@ -35,12 +35,15 @@ function fixture(files: Record<string, string>) {
     expect(git.exitCode, git.stderr.toString()).toBe(0);
   }
   const lint = (...args: string[]) => {
-    const result = Bun.spawnSync([process.execPath, linter, ...args], {
-      cwd,
-      env,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const result = Bun.spawnSync(
+      [process.execPath, linter, "--check-root", cwd, ...args],
+      {
+        cwd,
+        env,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
     return {
       code: result.exitCode,
       output: result.stdout.toString() + result.stderr.toString(),
@@ -169,6 +172,20 @@ test("code references in published docs must be links, and --fix links them", ()
       "",
     ].join("\n"),
   );
+});
+
+test("named documents keep host path separators and stay in the checkout", () => {
+  const name = process.platform === "win32" ? "docs/note.md" : "docs/a\\b.md";
+  const { cwd, lint } = fixture({
+    [name]: "Read `src/a.ts`.\n",
+    "src/a.ts": "",
+  });
+  const result = lint("--fix", join(cwd, name));
+  expect(result.code, result.output).toBe(0);
+  expect(readFileSync(join(cwd, name), "utf8")).toContain("](../src/a.ts)");
+  const outside = lint("--fix", dirname(cwd));
+  expect(outside.code).toBe(1);
+  expect(outside.output).toContain("outside the checkout");
 });
 
 test("linking is idempotent", () => {

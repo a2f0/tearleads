@@ -1,8 +1,9 @@
+import { resolve } from "node:path";
+import { checkArguments, requireGitRoot } from "../lib/checkRoot";
 import { verificationPlan, verificationUsage } from "./verificationPlan";
 import {
   saveVerificationReport,
   type VerificationReport,
-  verificationGit,
   verificationReportPath,
   verificationSnapshot,
 } from "./verificationReport";
@@ -46,6 +47,7 @@ async function runStep(
     state.child = Bun.spawn({
       cmd: step.command,
       cwd: root,
+      env: process.env,
       stdin: "ignore",
       stdout: "inherit",
       stderr: "inherit",
@@ -136,12 +138,22 @@ async function verify(
 }
 
 try {
-  const args = process.argv.slice(2);
+  const { root: target, args } = checkArguments();
   if (args.includes("--help") && args.length <= 2) {
     console.log(verificationUsage);
   } else {
-    const root = verificationGit(process.cwd(), "rev-parse", "--show-toplevel");
-    process.exitCode = await verify(root, verificationPlan(root, args));
+    requireGitRoot(target);
+    // The checks run from this checkout. Carry the caller's tool locations into them.
+    for (const name of [
+      "OASDIFF_BIN",
+      "JAVA_BIN",
+      "TLA_TOOLS_ROOT",
+      "LEAN_TOOLCHAIN_ROOT",
+    ]) {
+      const value = process.env[name];
+      if (value) process.env[name] = resolve(value);
+    }
+    process.exitCode = await verify(target, verificationPlan(target, args));
   }
 } catch (error) {
   console.error(String(error));

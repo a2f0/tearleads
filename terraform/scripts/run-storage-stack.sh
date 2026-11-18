@@ -22,7 +22,8 @@ case "$TIER:$ACTION" in
 esac
 shift 2
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/storage"
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"

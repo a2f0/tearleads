@@ -105,28 +105,23 @@ case "$*" in
 esac
 `,
     );
-    const child = Bun.spawn(
-      [
-        "bash",
-        resolve(repoRoot, "terraform/scripts/empty-r2-bucket.sh"),
-        ...args,
-      ],
-      {
-        env: {
-          ...process.env,
-          PATH: `${root}/bin:${inheritedPath}`,
-          TEST_ROOT: root,
-          TEST_FAILURE: failure,
-          TEARLEADS_TEARDOWN_TIER: authorization,
-          AWS_PROFILE: "inherited",
-          AWS_SESSION_TOKEN: "inherited",
-          AWS_REQUEST_CHECKSUM_CALCULATION: "when_supported",
-          AWS_RESPONSE_CHECKSUM_VALIDATION: "when_supported",
-        },
-        stdout: "pipe",
-        stderr: "pipe",
+    const script = "terraform/scripts/empty-r2-bucket.sh";
+    await cp(resolve(repoRoot, script), resolve(root, script));
+    const child = Bun.spawn(["bash", resolve(root, script), ...args], {
+      env: {
+        ...process.env,
+        PATH: `${root}/bin:${inheritedPath}`,
+        TEST_ROOT: root,
+        TEST_FAILURE: failure,
+        TEARLEADS_TEARDOWN_TIER: authorization,
+        AWS_PROFILE: "inherited",
+        AWS_SESSION_TOKEN: "inherited",
+        AWS_REQUEST_CHECKSUM_CALCULATION: "when_supported",
+        AWS_RESPONSE_CHECKSUM_VALIDATION: "when_supported",
       },
-    );
+      stdout: "pipe",
+      stderr: "pipe",
+    });
     const [code, stderr] = await Promise.all([
       child.exited,
       new Response(child.stderr).text(),

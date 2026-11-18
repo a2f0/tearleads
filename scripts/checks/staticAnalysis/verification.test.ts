@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
+import { delimiter, resolve } from "node:path";
+import { fixture } from "./fixture.testUtils";
 import { verificationFixture } from "./verification.testUtils";
 
 test("package verification replaces stale SDK output before API, app, and SDK tests", () => {
@@ -39,6 +47,62 @@ test("package verification replaces stale SDK output before API, app, and SDK te
     } finally {
       repo.cleanup();
     }
+  }
+});
+
+test("verification uses the selected checkout when invoked from a parent Git repository", () => {
+  const parent = fixture();
+  try {
+    parent.commit();
+    const repo = verificationFixture("", parent.cwd);
+    const result = repo.run(
+      ["full"],
+      {
+        OASDIFF_BIN: "./custom/tools",
+        JAVA_BIN: "./custom/tools",
+        TLA_TOOLS_ROOT: "./custom/tools",
+        LEAN_TOOLCHAIN_ROOT: "./custom/tools",
+        EXPECT_TOOLS: resolve(realpathSync(parent.cwd), "custom/tools"),
+        GIT_DIR: resolve(parent.cwd, ".git"),
+        GIT_WORK_TREE: parent.cwd,
+      },
+      parent.cwd,
+    );
+    expect(result.code, result.output).toBe(0);
+    expect(result.reports[0]?.before.head).toBe(repo.head);
+    expect(existsSync(resolve(parent.cwd, ".git/verification"))).toBe(false);
+  } finally {
+    rmSync(parent.cwd, { recursive: true, force: true });
+  }
+});
+
+test("verification refuses an exported tree nested in a Git repository", () => {
+  const parent = verificationFixture();
+  try {
+    const { PATH = "" } = parent.env;
+    const exported = resolve(parent.cwd, "exported");
+    mkdirSync(exported);
+    const result = Bun.spawnSync(
+      [
+        process.execPath,
+        resolve(import.meta.dir, "../../testing/runVerification.ts"),
+        "--check-root",
+        exported,
+        "full",
+      ],
+      {
+        cwd: exported,
+        env: {
+          ...parent.env,
+          PATH: `${resolve(parent.cwd, "bin")}${delimiter}${PATH}`,
+        },
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr.toString()).toContain("requires its own Git checkout");
+    expect(existsSync(resolve(parent.cwd, ".git/verification"))).toBe(false);
+  } finally {
+    parent.cleanup();
   }
 });
 

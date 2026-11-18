@@ -75,7 +75,16 @@ test.each([
     [postgres],
     [models, negative, windows],
   ],
-  ["scripts/lib/withBuildInfoEnv.sh", [windows], [postgres, models, negative]],
+  [
+    "scripts/lib/withBuildInfoEnv.sh",
+    [windows, "app-web#test"],
+    [postgres, models, negative],
+  ],
+  [
+    "scripts/lib/packageVersions.ts",
+    ["app-web#test"],
+    [postgres, models, negative],
+  ],
   ["bunfig.toml", [windows], [models, negative]],
   ["test/preload.ts", [windows], [models, negative]],
   ["mise.lock", [models, negative, native[0]], [postgres, windows]],

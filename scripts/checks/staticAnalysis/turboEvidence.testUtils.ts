@@ -67,7 +67,7 @@ process.exitCode = await child.exited;
   if (install.exitCode !== 0) throw new Error(install.stderr.toString());
   repo.commit();
   const start = (args = ["test"]) =>
-    Bun.spawn([process.execPath, runner, ...args], {
+    Bun.spawn([process.execPath, runner, "--check-root", repo.cwd, ...args], {
       cwd: repo.cwd,
       env,
       stdout: "pipe",
