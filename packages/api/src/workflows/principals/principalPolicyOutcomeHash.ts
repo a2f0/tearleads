@@ -33,19 +33,42 @@ function userIdOf(envelope: unknown): string {
   return typeof userId === "string" ? userId : "";
 }
 
-/** Every `memberEnvelopes` list in user-id order; envelopes are a set. */
-function withCanonicalEnvelopeOrder(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(withCanonicalEnvelopeOrder);
-  if (value === null || typeof value !== "object") return value;
+const LEG_KEYS = new Set([
+  "groupPolicy",
+  "initialGroupPolicy",
+  "memberPolicy",
+  "organizationPolicy",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** A policy leg with its `memberEnvelopes` in user-id order. */
+function withSortedEnvelopes(leg: unknown): unknown {
+  if (!isRecord(leg)) return leg;
+  const { memberEnvelopes } = leg;
+  if (!Array.isArray(memberEnvelopes)) return leg;
+  return {
+    ...leg,
+    memberEnvelopes: [...memberEnvelopes].sort((left, right) => {
+      const [a, b] = [userIdOf(left), userIdOf(right)];
+      return a < b ? -1 : a > b ? 1 : 0;
+    }),
+  };
+}
+
+/**
+ * The declared envelope lists in user-id order, since envelopes are a set:
+ * a request that is itself a leg, and its named legs. Nothing else is walked.
+ */
+function withCanonicalEnvelopeOrder(request: unknown): unknown {
+  const top = withSortedEnvelopes(request);
+  if (!isRecord(top)) return top;
   return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [
+    Object.entries(top).map(([key, entry]) => [
       key,
-      key === "memberEnvelopes" && Array.isArray(entry)
-        ? [...entry].sort((left, right) => {
-            const [a, b] = [userIdOf(left), userIdOf(right)];
-            return a < b ? -1 : a > b ? 1 : 0;
-          })
-        : withCanonicalEnvelopeOrder(entry),
+      LEG_KEYS.has(key) ? withSortedEnvelopes(entry) : entry,
     ]),
   );
 }
@@ -61,7 +84,9 @@ export function principalPolicyOutcomeHashes(value: unknown): {
   readonly matches: readonly string[];
   readonly requestHash: string;
 } {
-  const requestHash = hashCanonicalJson(withCanonicalEnvelopeOrder(value));
+  const requestHash = hashCanonicalJson(
+    Array.isArray(value) ? value.map(withCanonicalEnvelopeOrder) : value,
+  );
   const asSent = hashCanonicalJson(value);
   return {
     matches: asSent === requestHash ? [requestHash] : [requestHash, asSent],

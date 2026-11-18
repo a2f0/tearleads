@@ -53,12 +53,18 @@ export function withMemberEnvelopeChanges(
       envelope,
     ]),
   );
+  // A set that names a user twice goes whole, so the server sees exactly it.
+  const next = new Set(leg.memberEnvelopes.map((envelope) => envelope.userId));
+  if (
+    next.size !== leg.memberEnvelopes.length ||
+    heldEnvelopes.size !== predecessor.currentMemberEnvelopes.envelopes.length
+  )
+    return leg;
   const upsert = leg.memberEnvelopes.filter((envelope) => {
     const heldEnvelope = heldEnvelopes.get(envelope.userId);
     return !heldEnvelope || !sameEnvelope(heldEnvelope, envelope);
   });
   if (upsert.length === leg.memberEnvelopes.length) return leg;
-  const next = new Set(leg.memberEnvelopes.map((envelope) => envelope.userId));
   return {
     ...leg,
     memberEnvelopeChanges: {

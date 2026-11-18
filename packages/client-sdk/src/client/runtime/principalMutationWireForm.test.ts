@@ -6,10 +6,14 @@ import { PrincipalPolicyBundleRepository } from "../../data/persistence/principa
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import { sendWithHeldEnvelopeChanges } from "./principalMutationWireForm";
 
-function refusal(status: number): RequestResult<string> {
+/** The refusal an API that does not read envelope changes gives. */
+const UNREAD =
+  "Principal state memberEnvelopesRoot does not match member envelopes";
+
+function refusal(status: number, message = UNREAD): RequestResult<string> {
   return {
     kind: "http",
-    message: "refused",
+    message,
     method: "PUT",
     ok: false,
     path: "/principals/organization/policy",
@@ -65,7 +69,7 @@ test("an API that refuses the changes form gets the saved request in full", asyn
   }
 });
 
-test("a refusal of the full form is not resent", async () => {
+test("other refusals of the changes form stand, and the full form is never resent", async () => {
   const { saved, sqlite } = await heldSuccessor();
   const sent: AuthoredPrincipalMutation[] = [];
   try {
@@ -80,6 +84,20 @@ test("a refusal of the full form is not resent", async () => {
       stillCurrent: () => true,
     });
     expect(sent.map(byReference)).toEqual([true, false]);
+    // A stale-state refusal is an answer, not a format problem.
+    sent.length = 0;
+    const stale = await sendWithHeldEnvelopeChanges({
+      execSql: sqlite.execSql,
+      saved,
+      send: async (mutation) => {
+        sent.push(mutation);
+        return refusal(409, "Principal policy state is stale");
+      },
+      signal: undefined,
+      stillCurrent: () => true,
+    });
+    expect(stale.ok).toBe(false);
+    expect(sent.map(byReference)).toEqual([true]);
   } finally {
     sqlite.close();
   }
@@ -109,6 +127,30 @@ test("a stalled or cancelled cache read sends the saved request in full", async 
       expect(sent).toEqual([saved]);
       expect(Date.now() - started).toBeLessThan(cancel ? 500 : 3_000);
     }
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("a session switch before the refusal arrives sends nothing more", async () => {
+  const { saved, sqlite } = await heldSuccessor();
+  let current = true;
+  const sent: AuthoredPrincipalMutation[] = [];
+  try {
+    await expect(
+      sendWithHeldEnvelopeChanges({
+        execSql: sqlite.execSql,
+        saved,
+        send: async (mutation) => {
+          sent.push(mutation);
+          current = false;
+          return refusal(400);
+        },
+        signal: undefined,
+        stillCurrent: () => current,
+      }),
+    ).rejects.toThrow();
+    expect(sent).toHaveLength(1);
   } finally {
     sqlite.close();
   }

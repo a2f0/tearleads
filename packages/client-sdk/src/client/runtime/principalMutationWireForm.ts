@@ -33,11 +33,28 @@ async function boundedWireForm(
 }
 
 /**
- * Sends a journaled mutation with its held envelope sets by reference
- * (#2903 P17). The optional cache read is bounded and yields to cancellation,
- * a switched session or database sends nothing, and a refused request sent by
- * reference is resent in full once: an API that predates envelope changes
- * reads the empty list as the whole set and refuses it.
+ * How an API that predates envelope changes refuses one: it reads the empty
+ * list as the whole set, whose root then misses the signed one.
+ */
+const UNREAD_CHANGES_REFUSAL =
+  "Principal state memberEnvelopesRoot does not match member envelopes";
+
+function refusedUnreadChanges(result: RequestResult<unknown>): boolean {
+  return (
+    !result.ok &&
+    result.kind === "http" &&
+    result.status === 400 &&
+    result.message.includes(UNREAD_CHANGES_REFUSAL)
+  );
+}
+
+/**
+ * Sends a newly sealed journaled mutation with its held envelope sets by
+ * reference (#2903 P17); recovery always resends the saved full request. The
+ * optional cache read is bounded and yields to cancellation, and a switched
+ * session or database sends nothing. Only the refusal of an API that does not
+ * read envelope changes is resent in full; every other answer stands, so a
+ * known refusal is never traded for an unknown outcome.
  */
 export async function sendWithHeldEnvelopeChanges<
   Result extends RequestResult<unknown>,
@@ -51,10 +68,7 @@ export async function sendWithHeldEnvelopeChanges<
   const wire = await boundedWireForm(input.execSql, input.saved, input.signal);
   assertProjectionVerificationCurrent(input.stillCurrent);
   const result = await input.send(wire);
-  return wire !== input.saved &&
-    !result.ok &&
-    result.kind === "http" &&
-    (result.status === 400 || result.status === 409)
-    ? input.send(input.saved)
-    : result;
+  if (wire === input.saved || !refusedUnreadChanges(result)) return result;
+  assertProjectionVerificationCurrent(input.stillCurrent);
+  return input.send(input.saved);
 }

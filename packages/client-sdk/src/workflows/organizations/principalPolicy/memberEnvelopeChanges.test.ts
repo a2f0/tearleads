@@ -67,3 +67,14 @@ test("an envelope with fields beyond the signed four is sent whole", async () =>
     withMemberEnvelopeChanges(leg, f.predecessor).memberEnvelopeChanges,
   ).toBeUndefined();
 });
+
+test("a set naming a user twice is sent whole", async () => {
+  const f = await sameEpochAdd();
+  const [first] = f.successor.memberEnvelopes;
+  if (!first) throw new Error("expected an envelope");
+  const leg = {
+    ...f.successor,
+    memberEnvelopes: [...f.successor.memberEnvelopes, first],
+  };
+  expect(withMemberEnvelopeChanges(leg, f.predecessor)).toBe(leg);
+});
