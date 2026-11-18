@@ -91,13 +91,18 @@ async function assertContainerMutationAcknowledgements(input: {
       "authored recipient target",
     );
     // The request carries this client's own hash of the manifest it signed
-    // (the hash commits the manifest's epoch; the head's epoch is pinned only
-    // through the plan-based container acknowledgement) and the signed event,
-    // whose hash the acknowledgement must name. A rotation's signed
-    // body commits its keyring hash, so a substituted keyring must refuse
-    // here, before journal recovery clears the saved request. A grant that
-    // keeps its epoch commits none; the container acknowledgement checks the
-    // retained keyring against the epoch's own.
+    // and the signed event, whose hashes the acknowledgement must name. The
+    // manifest hash commits the epoch, but the request no longer names it,
+    // so the receipt's epoch label is not compared here: journal recovery
+    // discards the receipt after this check, and the in-process path stores
+    // a head only through the plan-based container acknowledgement, which
+    // requires the plan's epoch. Every field compared here is one the
+    // server received in the request, so this binds the receipt to the
+    // request; it never proved a commit, with or without the epoch. A
+    // rotation's signed body commits its keyring hash, so a substituted
+    // keyring must refuse here, before journal recovery clears the saved
+    // request. A grant that keeps its epoch commits none; the container
+    // acknowledgement checks the retained keyring against the epoch's own.
     const committedKeyringHash = Reflect.get(
       Object(request.body),
       "keyringHash",
