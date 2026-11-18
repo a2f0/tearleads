@@ -29,6 +29,7 @@ interface SessionOrganizationCreationDependencies {
 export async function createSessionOrganization(
   dependencies: SessionOrganizationCreationDependencies,
   input: {
+    readonly isCurrent: () => boolean;
     readonly nativeSubscriptionRestore?: boolean | undefined;
     readonly options?: CreateOrganizationOptions | undefined;
     readonly replacesOrganizationId?: string | undefined;
@@ -68,6 +69,7 @@ export async function createSessionOrganization(
       documentProjectors: dependencies.documentProjectors,
       encapsulationKeyPair,
       isIdentityCurrent: () =>
+        input.isCurrent() &&
         dependencies.identity.snapshot === identitySnapshot,
       log: dependencies.log,
       logError: dependencies.logError,
@@ -85,7 +87,8 @@ export async function createSessionOrganization(
     throw error;
   }
 
-  if (dependencies.identity.snapshot !== identitySnapshot) return null;
+  if (!input.isCurrent() || dependencies.identity.snapshot !== identitySnapshot)
+    return null;
   if (!response) {
     dependencies.log("Organization creation failed");
     return null;

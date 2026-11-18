@@ -13,7 +13,7 @@ import {
 /**
  * Run one read-model pass for the scope, then present what it applied: access
  * recovery when the pass restored a server-denied scope, group names, and
- * verified leave requests. Resolves `null` once the scope is no longer current.
+ * verified leave requests. A superseded pass resolves without a result.
  */
 export function presentOrganizationReadModelPass(
   runtimeService: InternalRuntime,
@@ -43,7 +43,7 @@ export function presentOrganizationReadModelPass(
     passIsCurrent();
 
   return pass().then(async (directoryAndGroups) => {
-    if (!stillCurrent()) return null;
+    if (!stillCurrent()) return undefined;
     // Feed success restores retry eligibility even if name decryption fails.
     const accessWasRestored =
       accessWasDenied &&
@@ -57,7 +57,7 @@ export function presentOrganizationReadModelPass(
         stillCurrent,
         userId: active.userId,
       });
-    if (!stillCurrent()) return null;
+    if (!stillCurrent()) return undefined;
     const presented = await withVerifiedLeaveRequests(
       await hydrateOrganizationGroupNamesForRuntime(
         runtimeService,
@@ -68,6 +68,6 @@ export function presentOrganizationReadModelPass(
       leaveRequestVerifier(runtimeService, active.runtime, active),
     );
     // A transition during presentation publishes nothing for the old scope.
-    return stillCurrent() ? presented : null;
+    return stillCurrent() ? presented : undefined;
   });
 }

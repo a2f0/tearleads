@@ -4,7 +4,6 @@ import { deleteDocumentPlacements } from "../../data/persistence/container-conte
 import type { DocumentPlacementCleanup } from "../../data/persistence/documents/documentsPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import type { DomainScope } from "../../data/shared/domainScope";
-import { createListenerSet } from "../../data/shared/listenerSet";
 import {
   runWithSecurityIncidentReporting,
   type SecurityIncidentReporter,
@@ -37,8 +36,9 @@ import type {
 import { getOrCreateOrganizationSyncPauses } from "../../workflows/sync/coordination";
 import type { Blobs } from "../blobs";
 import type { Identity } from "../identity";
+import { sessionLifetime } from "../session";
 import { acknowledgedSessionRoot } from "../session/sessionRootAuthority";
-import type { Session, SessionSnapshot } from "../session/sessionTypes";
+import type { Session } from "../session/sessionTypes";
 import type { Database } from "./database";
 import type { Events } from "./events";
 import type { Network } from "./network";
@@ -51,8 +51,12 @@ import {
   type PrincipalMutationApi,
 } from "./principalMutationApi";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
-import { createRuntimeIdentityResolution } from "./runtimeIdentityResolution";
+import {
+  bindSessionIdentityResolver,
+  createRuntimeIdentityResolution,
+} from "./runtimeIdentityResolution";
 import { reuseIfShallowEqual } from "./runtimeInputReuse";
+import { createRuntimeSubscription } from "./runtimeSubscription";
 import type { SyncBillingGate } from "./syncBillingGate";
 
 type HostWorkflowRuntimeUtilInput = Omit<
@@ -138,6 +142,7 @@ function createRuntimeMutationApi(
   return createPrincipalMutationApiCustody({
     api: dependencies.api,
     readSessionGeneration,
+    signIn: sessionLifetime(dependencies.session),
     principalMutationTimeoutMs: dependencies.principalMutationTimeoutMs,
     readScope: () => {
       const { signingKeyPair, signingFingerprint } = dependencies.identity;
@@ -154,7 +159,9 @@ function createRuntimeMutationApi(
         return null;
       return {
         database: dependencies.getDomainScope(),
-        execSql: dependencies.database.requireExecSql("principal mutation"),
+        execSql: sessionLifetime(dependencies.session).bind(
+          dependencies.database.requireExecSql("principal mutation"),
+        ),
         generation: readGeneration(),
         identityTrustDomain,
         signingFingerprint,
@@ -188,13 +195,19 @@ function createRuntimeProvisioningPrimer(
   });
 }
 
+function sessionExecutor(
+  dependencies: WorkflowRuntimeDependencies,
+): ExecSql | null {
+  const execSql = dependencies.database.execSql;
+  return dependencies.database.status === "ready" && execSql
+    ? sessionLifetime(dependencies.session).bind(execSql)
+    : null;
+}
+
 export function createRuntime(
   dependencies: WorkflowRuntimeDependencies,
 ): InternalRuntime {
-  const readyExecSql = () =>
-    dependencies.database.status === "ready"
-      ? dependencies.database.requireExecSql("trusted user identity")
-      : null;
+  const readyExecSql = () => sessionExecutor(dependencies);
   const runtimeSubscription = createRuntimeSubscription(dependencies);
   const { trustedUserIdentityService, resolveTrustedUserIdentity } =
     createRuntimeIdentityResolution(
@@ -216,14 +229,19 @@ export function createRuntime(
       return {
         signingFingerprint,
         identityTrustDomain,
-        database: dependencies.getDomainScope(),
+        database: dependencies.database.requireExecSql(
+          "principal history protection",
+        ),
         generation: runtimeSubscription.recoveryGeneration,
       };
     },
   });
   const runtimeInput = createRuntimeInputFactory(
     dependencies,
-    resolveTrustedUserIdentity,
+    bindSessionIdentityResolver(
+      resolveTrustedUserIdentity,
+      sessionLifetime(dependencies.session),
+    ),
     historyProtection.bind,
     createRuntimeMutationApi(
       dependencies,
@@ -275,58 +293,6 @@ export function createRuntime(
   };
 }
 
-function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
-  const listeners = createListenerSet();
-  let version = 0;
-  let sessionGeneration = 0;
-  let recoveryGeneration = 0;
-  let mutationGeneration = 0;
-  let sessionSnapshot = dependencies.session.snapshot;
-  const notifyListeners = () => {
-    version += 1;
-    listeners.notify();
-  };
-
-  const notifyAuthority = () => {
-    recoveryGeneration += 1;
-    mutationGeneration += 1;
-    notifyListeners();
-  };
-  dependencies.database.subscribe(notifyAuthority);
-  dependencies.events.subscribe(notifyListeners);
-  dependencies.identity.subscribe(notifyAuthority);
-  dependencies.network.subscribe(() => notifyListeners());
-  dependencies.session.subscribe(() => {
-    const next = dependencies.session.snapshot;
-    if (sessionAuthorityChanged(sessionSnapshot, next)) {
-      sessionGeneration += 1;
-      recoveryGeneration += 1;
-    }
-    if (sessionScopeChanged(sessionSnapshot, next)) mutationGeneration += 1;
-    sessionSnapshot = next;
-    notifyListeners();
-  });
-  dependencies.syncBillingGate?.subscribe(notifyListeners);
-
-  return {
-    get mutationGeneration() {
-      return mutationGeneration;
-    },
-    get recoveryGeneration() {
-      return recoveryGeneration;
-    },
-    get sessionGeneration() {
-      return sessionGeneration;
-    },
-    get version() {
-      return version;
-    },
-    subscribe(listener: RuntimeListener): () => void {
-      return listeners.subscribe(listener);
-    },
-  };
-}
-
 interface RuntimeInputFactory {
   hostInput(containerId?: string | null | undefined): WorkflowRuntimeInput;
   workflowInput(
@@ -347,30 +313,6 @@ function sessionAuthInput({
     organizationId: session.organizationId,
     userId: session.userId,
   };
-}
-
-/** Fields whose change invalidates work keyed on the session's authority. */
-function sessionAuthorityChanged(
-  previous: SessionSnapshot,
-  next: SessionSnapshot,
-): boolean {
-  return (
-    next.authToken !== previous.authToken || sessionScopeChanged(previous, next)
-  );
-}
-
-// A transport token renewal cannot turn a definite write refusal into saved work.
-// Journal custody still expires on every change to its identity or storage scope.
-function sessionScopeChanged(
-  previous: SessionSnapshot,
-  next: SessionSnapshot,
-): boolean {
-  return (
-    next.isAuthenticated !== previous.isAuthenticated ||
-    next.isRoot !== previous.isRoot ||
-    next.organizationId !== previous.organizationId ||
-    next.userId !== previous.userId
-  );
 }
 
 function runtimeInputUtilities(
@@ -403,7 +345,7 @@ function runtimeInputUtilities(
 
 function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+  bindIdentityResolver: () => TrustedUserIdentityResolver,
   bindHistoryProtection: () => PrincipalHistoryProtectionLease | undefined,
   bindMutationApi: () => PrincipalMutationApi,
 ): RuntimeInputFactory {
@@ -418,10 +360,7 @@ function createRuntimeInputFactory(
     containerId?: string | null | undefined,
   ): InternalWorkflowRuntimeInput => {
     const dbStatus = dependencies.database.status;
-    const execSql =
-      dbStatus === "ready"
-        ? dependencies.database.requireExecSql("tearleads.runtime.input")
-        : unavailableExecSql;
+    const execSql = sessionExecutor(dependencies) ?? unavailableExecSql;
     const nextContainerId =
       (containerId === undefined
         ? dependencies.session.containerId
@@ -458,6 +397,7 @@ function createRuntimeInputFactory(
     util = runtimeInputUtilities(dependencies, util);
 
     const apiClient = bindMutationApi();
+    const resolveTrustedUserIdentity = bindIdentityResolver();
     return {
       apiClient,
       auth,

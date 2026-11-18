@@ -8,6 +8,7 @@ import {
 import { clearRemoteSyncState } from "../../workflows/sync";
 import type { Identity } from "../identity";
 import type { Database } from "../runtime/database";
+import { sessionLifetime } from "./sessionLifetime";
 import { PurgedOrganizationRecoveryBillingRequiredError } from "./sessionRecoveryErrors";
 import type {
   CreateOrganizationOptions,
@@ -54,10 +55,15 @@ export async function clearSessionRemoteSyncState(
   session: SessionPurgeRecoveryContext,
   organizationId: string,
 ) {
-  const execSql = dependencies.database.requireExecSql("clearRemoteSyncState");
+  const lifetime = sessionLifetime(session);
+  const isCurrent = lifetime.capture();
+  const execSql = lifetime.bind(
+    dependencies.database.requireExecSql("clearRemoteSyncState"),
+  );
   const result = await clearRemoteSyncState(execSql, {
     organizationId,
   });
+  if (!isCurrent()) return result;
   dependencies.api.clearWriterProjectionCaches();
   if (session.organizationId === organizationId) {
     session.setContext({ containerId: null, organizationId: null });
@@ -113,7 +119,10 @@ export async function recoverPurgedSessionOrganization(
   if (!userId) {
     throw new Error("Purged organization recovery requires a current user");
   }
+  const lifetime = sessionLifetime(session);
+  const signInCurrent = lifetime.capture();
   const isRecoveryCurrent = () =>
+    signInCurrent() &&
     dependencies.identity.snapshot === identitySnapshot &&
     session.organizationId === sessionOrganizationId &&
     session.userId === userId;
@@ -132,8 +141,8 @@ export async function recoverPurgedSessionOrganization(
   );
   if (!isRecoveryCurrent()) return null;
   requireReplacementCanSync(replacement, replacementBilling);
-  const execSql = dependencies.database.requireExecSql(
-    "recoverPurgedOrganization",
+  const execSql = lifetime.bind(
+    dependencies.database.requireExecSql("recoverPurgedOrganization"),
   );
   const reset = await clearRemoteSyncState(
     execSql,

@@ -92,7 +92,10 @@ describe("session expiry", () => {
         userId: "22222222-2222-4222-8222-222222222222",
       });
 
+      const before = sdk.runtime.input();
       await expect(sdk.session.listSessions()).resolves.toEqual([]);
+      expect(sdk.domainScope).toBe(before.state.domainScope);
+      expect(sdk.runtime.input().infra.execSql).toBe(before.infra.execSql);
 
       const signingFingerprint = sdk.identity.signingFingerprint;
       if (!signingFingerprint) throw new Error("expected signing fingerprint");

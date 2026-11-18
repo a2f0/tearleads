@@ -1,14 +1,52 @@
+import {
+  authChallengeSigningBytes,
+  canonicalAuthOrigin,
+} from "@tearleads/crypto";
+import type { RequestResultOptions } from "./types";
+
+export function sessionAuthChallengeBytes(
+  baseUrl: string,
+  challengeHex: string,
+  fingerprint: string,
+): Uint8Array {
+  let apiOrigin: string;
+  try {
+    apiOrigin = canonicalAuthOrigin(
+      new URL(baseUrl || "/", globalThis.location?.href).href,
+    );
+  } catch {
+    throw new Error("The API origin is unavailable for authentication");
+  }
+  return authChallengeSigningBytes({ apiOrigin, challengeHex, fingerprint });
+}
+
 type RenewSession = (() => boolean | Promise<boolean>) | null;
 
 /** An identity change invalidates renewal evidence, including an awaited callback. */
 export class SessionRenewalTracker {
   private revision = 0;
+  private sessionRequests = new AbortController();
   private known: { from: string; to: string } | null = null;
   private inFlight: { from: string; promise: Promise<boolean> } | null = null;
 
   constructor(private readonly readToken: () => string | null) {}
 
-  tokenChanged(): void {
+  withSessionSignal(options: RequestResultOptions): RequestResultOptions {
+    const sessionSignal = this.sessionRequests.signal;
+    return {
+      ...options,
+      signal: options.signal
+        ? AbortSignal.any([options.signal, sessionSignal])
+        : sessionSignal,
+    };
+  }
+
+  tokenChanged(newSession = false): void {
+    if (newSession) {
+      this.sessionRequests.abort();
+      this.sessionRequests = new AbortController();
+      this.inFlight = null;
+    }
     this.revision += 1;
     this.known = null;
   }
@@ -48,7 +86,9 @@ export class SessionRenewalTracker {
     revision: number,
     handler: RenewSession,
   ): Promise<boolean> {
+    const session = this.sessionRequests;
     const renewed = await (handler?.() ?? false);
+    if (session !== this.sessionRequests) return false;
     const to = this.readToken();
     // The trusted callback authenticates the same identity and installs one
     // replacement token. A second transition cannot borrow that renewal.

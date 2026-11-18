@@ -8,6 +8,7 @@ export function getOrgManagerStateScopeKey(
   appData: ReturnType<typeof useTearleadsRuntime>,
 ): string {
   return JSON.stringify([
+    appData.state.domainScope.id,
     appData.auth.isAuthenticated,
     appData.auth.organizationId,
     appData.auth.userId,

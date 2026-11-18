@@ -79,8 +79,10 @@ export class SessionArea {
     this.context.verifiedManifestCitations = source;
   }
 
-  setAuthToken(token: string | null): void {
-    if (this.context.runtime.setAuthToken(token)) {
+  setAuthToken(token: string | null, options?: { newSession?: boolean }): void {
+    if (
+      this.context.runtime.setAuthToken(token, options?.newSession === true)
+    ) {
       this.context.clearAuthScopedCaches();
     }
   }

@@ -198,6 +198,8 @@ async function requestReadModelPage(
     state.requestCursor,
     { reportErrors: false },
   );
+  if (input.stillCurrent?.() === false)
+    return { kind: "done", value: undefined };
   if (result.ok) {
     return { kind: "response", response: result.data };
   }

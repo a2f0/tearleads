@@ -1,8 +1,4 @@
 import {
-  authChallengeSigningBytes,
-  canonicalAuthOrigin,
-} from "@tearleads/crypto";
-import {
   apiVersionHeaderName,
   parseApiVersion,
 } from "@tearleads/validators/operation";
@@ -25,7 +21,10 @@ import {
 } from "./requestInternals";
 import { responseBodyFailure } from "./responseBodyFailure";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
-import { SessionRenewalTracker } from "./sessionRenewal";
+import {
+  SessionRenewalTracker,
+  sessionAuthChallengeBytes,
+} from "./sessionRenewal";
 import type {
   HttpMethod,
   OperationRequestFn,
@@ -79,15 +78,7 @@ export class ApiRequestRuntime {
    * do; with neither, there is no API origin to sign for.
    */
   authChallengeBytes(challengeHex: string, fingerprint: string): Uint8Array {
-    let apiOrigin: string;
-    try {
-      apiOrigin = canonicalAuthOrigin(
-        new URL(this.baseUrl || "/", globalThis.location?.href).href,
-      );
-    } catch {
-      throw new Error("The API origin is unavailable for authentication");
-    }
-    return authChallengeSigningBytes({ apiOrigin, challengeHex, fingerprint });
+    return sessionAuthChallengeBytes(this.baseUrl, challengeHex, fingerprint);
   }
 
   setOnError(handler: ((message: string) => void) | null): void {
@@ -125,9 +116,9 @@ export class ApiRequestRuntime {
     this.onPaymentRequired = handler;
   }
 
-  setAuthToken(token: string | null): boolean {
-    const changed = this.authToken !== token;
-    if (changed) this.sessionRenewals.tokenChanged();
+  setAuthToken(token: string | null, newSession = false): boolean {
+    const changed = newSession || this.authToken !== token;
+    if (changed) this.sessionRenewals.tokenChanged(newSession);
     this.authToken = token;
     return changed;
   }
@@ -285,8 +276,9 @@ export class ApiRequestRuntime {
     options: RequestResultOptions,
     additionalSuccessStatuses: readonly number[],
     failureOperation: Parameters<OperationResponseRequestFn>[5],
+    authToken = this.authToken,
   ): Promise<RequestResult<Response>> {
-    const authToken = this.authToken;
+    options = this.sessionRenewals.withSessionSignal(options);
     const responseResult = await this.fetchResponseRequest(
       path,
       method,

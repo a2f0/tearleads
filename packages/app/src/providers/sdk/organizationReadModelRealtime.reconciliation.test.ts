@@ -250,11 +250,20 @@ for (const transition of ["user identity", "domain scope"] as const) {
       },
     );
 
+    if (transition === "domain scope") {
+      // The new sign-in can reconcile while the old request is still held.
+      const fresh = scheduleOrganizationReadModelReconciliation(
+        runtime.tearleads,
+        ORGANIZATION_A,
+      );
+      expect(fresh).not.toBe(stalePass);
+      await fresh;
+    }
     releaseFirstRequest?.();
     await stalePass;
 
     expect(runtime.reconcileCalls).toBe(2);
-    expect(maxInFlight).toBe(1);
+    expect(maxInFlight).toBe(transition === "domain scope" ? 2 : 1);
     expect(staleProjectionUpdates).toBe(0);
     expect(currentProjectionUpdates).toBe(1);
   });

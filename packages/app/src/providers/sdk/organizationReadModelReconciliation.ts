@@ -249,7 +249,7 @@ function scheduleOrganizationReadModelReconciliationPass(
   }
 
   const active = state.reconciliationsByOrganizationId.get(organizationId);
-  if (active) {
+  if (active && active.pass.scope.domainScope === requestedScope.domainScope) {
     dispatchPass(active, {
       type: "requested",
       ...request,
@@ -275,7 +275,11 @@ function scheduleOrganizationReadModelReconciliationPass(
     await Promise.resolve();
     do {
       const passScope = activeDemandScope(tearleads, state, organizationId);
-      if (!passScope) {
+      if (
+        !passScope ||
+        state.reconciliationsByOrganizationId.get(organizationId) !==
+          reconciliation
+      ) {
         return;
       }
       const checking = dispatchPass(reconciliation, {

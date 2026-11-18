@@ -65,7 +65,7 @@ export function activeOrganizationDataRuntime(
 export function isOrganizationDataRuntimeCurrent(
   runtimeService: InternalRuntime,
   active: ActiveOrganizationDataRuntime,
-  domainScope: DomainScope,
+  domainScope: DomainScope = active.runtime.state.domainScope,
 ): boolean {
   const current = activeOrganizationDataRuntime(
     runtimeService,
