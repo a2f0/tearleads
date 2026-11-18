@@ -12,6 +12,7 @@ import {
   type RuntimeOperationRequestInput,
 } from "./operationTransport";
 import { requireOperationTransportSurface } from "./operationTransportSurface";
+import { retiredRequest } from "./sessionResponse";
 import type {
   OperationResponseRequestFn,
   RequestResult,
@@ -65,7 +66,9 @@ async function decodeBinaryOperationResponse(
   response: Response,
   path: string,
   options: RequestResultOptions,
+  session?: AbortSignal,
 ): Promise<RequestResult<RuntimeBinaryOperationResponseEnvelope>> {
+  if (session?.aborted) return retiredRequest(operation.method, path);
   if (
     !operation.responses[response.status] ||
     operation.responseMediaTypes[response.status] !== "application/octet-stream"
@@ -125,6 +128,7 @@ export function createBinaryResponseOperationTransport(
     );
     const requestOptions =
       Object.keys(headers).length === 0 ? options : { ...options, headers };
+    const session = responseRequest.sessionSignal?.();
     const result = await responseRequest(
       derived.path,
       derived.method,
@@ -142,6 +146,7 @@ export function createBinaryResponseOperationTransport(
       result.data,
       derived.path,
       options,
+      session,
     );
   }
 

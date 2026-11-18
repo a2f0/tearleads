@@ -9,7 +9,8 @@ import {
 class MemoryBlobStore implements BlobStore {
   private readonly bytesByKey = new Map<string, BlobBytes>();
 
-  async deleteBytes(storageKey: string) {
+  async deleteBytes(storageKey: string, assertCurrent?: () => void) {
+    assertCurrent?.();
     this.bytesByKey.delete(storageKey);
   }
 
@@ -23,12 +24,26 @@ class MemoryBlobStore implements BlobStore {
     return source ? readBlobByteSource(source) : null;
   }
 
-  async writeByteSource(storageKey: string, source: BlobByteSource) {
-    this.bytesByKey.set(storageKey, await readBlobByteSource(source));
+  async writeByteSource(
+    storageKey: string,
+    source: BlobByteSource,
+    assertCurrent?: () => void,
+  ) {
+    const bytes = await readBlobByteSource(source);
+    assertCurrent?.();
+    this.bytesByKey.set(storageKey, bytes);
   }
 
-  async writeBytes(storageKey: string, bytes: BlobBytes) {
-    await this.writeByteSource(storageKey, createBlobByteSource(bytes));
+  async writeBytes(
+    storageKey: string,
+    bytes: BlobBytes,
+    assertCurrent?: () => void,
+  ) {
+    await this.writeByteSource(
+      storageKey,
+      createBlobByteSource(bytes),
+      assertCurrent,
+    );
   }
 }
 

@@ -393,3 +393,23 @@ test("an unacknowledged user id is never persisted across an identity switch", a
     sdk.dispose();
   }
 });
+
+test("a failed restore leaves a new session record intact", async () => {
+  const keyring = createSharedMemoryLocalKeyringFactory()();
+  const scope = localIdentityScope("superseded-restore");
+  (await keyring.getOrCreateSession(scope)).dispose();
+  const storage = createMemoryStorage();
+  const signingFingerprint = "a".repeat(64);
+  const storageKey = localCryptoSessionStorageKey(
+    "superseded-restore",
+    signingFingerprint,
+  );
+  storage.setItem(storageKey, "invalid old record");
+  const pending = restorePersistedCryptoSession({
+    signingFingerprint,
+    localPersistence: { keyring, scope, storage, storageKey },
+  });
+  storage.setItem(storageKey, "replacement record");
+  await expect(pending).resolves.toBeNull();
+  expect(storage.getItem(storageKey)).toBe("replacement record");
+});

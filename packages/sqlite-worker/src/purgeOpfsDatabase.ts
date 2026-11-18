@@ -30,7 +30,10 @@ function isNotFound(error: unknown): boolean {
  * it must not run while a worker still holds those handles — call it only after
  * the runtime has been torn down.
  */
-export async function purgeOpfsSqliteDatabase(dbName: string): Promise<void> {
+export async function purgeOpfsSqliteDatabase(
+  dbName: string,
+  current: () => boolean = () => true,
+): Promise<void> {
   if (
     typeof navigator !== "object" ||
     !hasStorageDirectory(navigator.storage)
@@ -57,7 +60,7 @@ export async function purgeOpfsSqliteDatabase(dbName: string): Promise<void> {
     for (const parent of parents) {
       dir = await dir.getDirectoryHandle(parent);
     }
-    await dir.removeEntry(leaf, { recursive: true });
+    if (current()) await dir.removeEntry(leaf, { recursive: true });
   } catch (error) {
     if (isNotFound(error)) {
       return;

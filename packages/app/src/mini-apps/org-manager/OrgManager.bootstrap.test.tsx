@@ -1,9 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
-import { fireEvent, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../../test/helpers/msw/server";
+import { renderLifecyclePane } from "../../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -49,9 +50,7 @@ test(
     // The real API runtime serves the organization read model Org Manager
     // loads once the account is signed in.
     useTestApiAppHandlers();
-    const view = renderPane({
-      hostConfig: createTestHostConfig({ autoProvisionIdentity: true }),
-    });
+    const { view, sdk } = renderLifecyclePane();
     const seen = new Set<string>();
     const record = () => {
       for (const heading of view.container.querySelectorAll(
@@ -80,6 +79,12 @@ test(
 
     expect(seen.has(SIGN_IN_TITLE)).toBe(false);
     expect(PROGRESS_TITLES.some((title) => seen.has(title))).toBe(true);
+
+    const previousView = view.container.querySelector(".org-manager-main");
+    expect(previousView).not.toBeNull();
+    act(() => sdk().session.setContext(sdk().session.snapshot));
+    expect(previousView?.isConnected).toBe(false);
+    expect(view.container.querySelector(".org-manager-main")).not.toBeNull();
 
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
     view.unmount();

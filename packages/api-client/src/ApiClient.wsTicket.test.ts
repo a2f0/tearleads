@@ -124,5 +124,9 @@ testApiClient(
     await expect(client.requestWebSocketTicket()).resolves.toBe("login-ticket");
     expect(minted).toBe(0);
     await expect(client.requestWebSocketTicket()).resolves.toBe("minted-1");
+
+    await client.authenticate("b".repeat(64), signingPrivateKey);
+    client.setAuthToken("token-1", { boundary: "replacement" });
+    await expect(client.requestWebSocketTicket()).resolves.toBe("minted-2");
   },
 );

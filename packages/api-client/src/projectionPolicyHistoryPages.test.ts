@@ -214,6 +214,22 @@ testApiClient(
 );
 
 testApiClient(
+  "a retired projection iterator cannot start a new request",
+  async () => {
+    const f = fixture();
+    f.client.setAuthToken("original");
+    const pages = f.client.getProjectionPolicyHistoryPages(f.source);
+    f.client.setAuthToken(null);
+    f.client.setAuthToken("replacement");
+    expect((await pages.next()).value).toMatchObject({
+      ok: false,
+      kind: "cancelled",
+    });
+    expect(f.cursors).toEqual([]);
+  },
+);
+
+testApiClient(
   "public history stops when identity changes while a consumer verifies a page",
   async () => {
     const f = fixture();

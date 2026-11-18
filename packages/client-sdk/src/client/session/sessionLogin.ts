@@ -1,0 +1,198 @@
+import type { ApiClient } from "@tearleads/api-client";
+import {
+  requireUserIdentityAvailable,
+  type SessionIdentityAcknowledgments,
+} from "./sessionIdentityTrust";
+import { sessionLifetime } from "./sessionLifetime";
+import {
+  authenticateUnlessSuspended,
+  refuseSessionLogin,
+} from "./sessionLoginRefusal";
+import { commitSessionRootAcknowledgment } from "./sessionRootAuthority";
+import type {
+  Session,
+  SessionContext,
+  SessionDependencies,
+} from "./sessionTypes";
+
+export async function authenticateSession(
+  dependencies: SessionDependencies,
+  session: Session & {
+    commitContext(
+      context: SessionContext,
+      kind: "renewal" | "boundary",
+      verifiedTicket: string,
+    ): void;
+    clearAuthentication(renewal: boolean): void;
+  },
+  acknowledgments: SessionIdentityAcknowledgments,
+  challengeHex: string | undefined,
+  renewal: boolean,
+): Promise<boolean> {
+  const attempt = sessionLifetime(session).authentication.start(renewal);
+  try {
+    return (
+      attempt.current() &&
+      (await runAuthentication(
+        dependencies,
+        session,
+        acknowledgments,
+        challengeHex,
+        renewal,
+        attempt.current,
+      ))
+    );
+  } finally {
+    attempt.finish();
+  }
+}
+
+async function runAuthentication(
+  dependencies: SessionDependencies,
+  session: Parameters<typeof authenticateSession>[1],
+  acknowledgments: SessionIdentityAcknowledgments,
+  challengeHex: string | undefined,
+  renewal: boolean,
+  isCurrent: () => boolean,
+): Promise<boolean> {
+  const signingKeyPair = dependencies.identity.requireSigningKeyPair("login");
+  const fingerprint =
+    (await dependencies.identity.refreshSigningFingerprint()) ?? null;
+
+  if (!isCurrent() || !fingerprint) {
+    return false;
+  }
+  // A refusal below clears the session it is evidence against; a session
+  // another login committed meanwhile is not that session and stays.
+  const snapshotAtStart = session.snapshot;
+  const identitySnapshot = dependencies.identity.snapshot;
+  const encapsulationKeyPair = identitySnapshot.encapsulationKeyPair;
+  if (
+    !encapsulationKeyPair ||
+    identitySnapshot.signingKeyPair !== signingKeyPair
+  ) {
+    return false;
+  }
+  const pinLocalUserIdentity = requireUserIdentityAvailable(
+    dependencies.onUserIdentityAvailable,
+    "Login",
+  );
+
+  dependencies.log(
+    challengeHex ? "Authenticating with challenge..." : "Authenticating...",
+  );
+  const authentication = await authenticate(
+    dependencies.api,
+    fingerprint,
+    signingKeyPair.signingPrivateKey,
+    challengeHex,
+    () => {
+      if (isCurrent() && session.authToken === snapshotAtStart.authToken)
+        session.clearAuthentication(renewal);
+    },
+  );
+
+  const identityCurrent = () =>
+    isCurrent() && dependencies.identity.snapshot === identitySnapshot;
+  if (!identityCurrent()) {
+    return false;
+  }
+
+  if (!authentication) {
+    session.clearAuthentication(renewal);
+    dependencies.log("Authentication failed");
+    return false;
+  }
+
+  try {
+    acknowledgments.assertMatches(authentication.userId, fingerprint);
+    if (renewal && authentication.userId !== snapshotAtStart.userId) {
+      session.clearAuthentication(renewal);
+      return false;
+    }
+    await pinLocalUserIdentity(
+      authentication.userId,
+      {
+        encapsulationPublicKey: encapsulationKeyPair.publicKey,
+        signingKeyFingerprint: fingerprint,
+        signingPublicKey: signingKeyPair.signingPublicKey,
+      },
+      () => assertSignInCurrent(identityCurrent),
+    );
+    if (!identityCurrent()) return false;
+    acknowledgments.remember(authentication.userId, fingerprint);
+  } catch (error) {
+    if (!isCurrent()) return false;
+    return refuseSessionLogin(error, authentication.userId, {
+      clear: () => session.clearAuthentication(renewal),
+      report: dependencies.reportSecurityIncident,
+    });
+  }
+  // A changed root for this identity+org is refused before the token is
+  // usable. Decision and commit are one synchronous step against the live
+  // snapshot (no await in between); the refusal clears the prior session in
+  // that same step and then reports its own incident.
+  await commitSessionRootAcknowledgment({
+    context: authenticatedSessionContext(session, authentication, renewal),
+    onRefused: () => {
+      if (session.snapshot === snapshotAtStart)
+        session.clearAuthentication(renewal);
+    },
+    reporter: dependencies.reportSecurityIncident,
+    root: authentication,
+    session: {
+      snapshot: session.snapshot,
+      setContext: (context) =>
+        session.commitContext(
+          context,
+          renewal ? "renewal" : "boundary",
+          authentication.wsTicket,
+        ),
+    },
+    signingFingerprint: fingerprint,
+  });
+  dependencies.log("Authentication successful");
+  return true;
+}
+
+function authenticatedSessionContext(
+  session: Session,
+  authentication: NonNullable<Awaited<ReturnType<typeof authenticate>>>,
+  renewal: boolean,
+): SessionContext {
+  // An independently selected organization survives renewal. A selection
+  // following the server default follows a change to that default.
+  const { organizationId: serverDefault } = authentication;
+  const selected = session.organizationId;
+  return {
+    authToken: authentication.token,
+    defaultOrganizationId: serverDefault,
+    isAuthenticated: true,
+    isRoot: authentication.isRoot,
+    organizationId:
+      renewal && selected && selected !== session.defaultOrganizationId
+        ? selected
+        : serverDefault,
+    userId: authentication.userId,
+  };
+}
+
+function assertSignInCurrent(isCurrent: () => boolean): void {
+  if (!isCurrent()) throw new Error("Sign-in attempt was superseded");
+}
+
+function authenticate(
+  api: ApiClient,
+  fingerprint: string,
+  privateKey: Uint8Array,
+  challengeHex: string | undefined,
+  clear: () => void,
+) {
+  return authenticateUnlessSuspended(
+    () =>
+      challengeHex
+        ? api.authenticateWithChallenge(fingerprint, privateKey, challengeHex)
+        : api.authenticate(fingerprint, privateKey),
+    clear,
+  );
+}

@@ -119,3 +119,18 @@ test("cancelling a signed download cancels storage and redacts native errors", a
   );
   expect(cancelled).toBe(true);
 });
+
+test("a buffered download cannot deliver its first chunk after its session retires", async () => {
+  const session = new AbortController();
+  const response = {
+    body: null,
+    status: 200,
+    arrayBuffer: async () => Uint8Array.of(1).buffer,
+  } as unknown as Response;
+  const blob = await getBlobBytes(transport(), blobId, async () => response, {
+    signal: session.signal,
+  });
+  expect(blob).not.toBeNull();
+  session.abort();
+  await expect(blob?.encryptedBytes.getReader().read()).rejects.toThrow();
+});

@@ -216,6 +216,7 @@ export function createJsonOperationTransport(
     );
     const requestOptions =
       Object.keys(headers).length === 0 ? options : { ...options, headers };
+    const session = responseRequest.sessionSignal?.();
     const result = await responseRequest(
       derived.path,
       derived.method,
@@ -233,6 +234,7 @@ export function createJsonOperationTransport(
       result.data,
       derived.path,
       options,
+      session,
     );
   }
 

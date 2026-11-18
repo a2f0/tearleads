@@ -250,11 +250,20 @@ for (const transition of ["user identity", "domain scope"] as const) {
       },
     );
 
+    if (transition === "domain scope") {
+      // The new sign-in can reconcile while the old request is still held.
+      const fresh = scheduleOrganizationReadModelReconciliation(
+        runtime.tearleads,
+        ORGANIZATION_A,
+      );
+      expect(fresh).not.toBe(stalePass);
+      await fresh;
+    }
     releaseFirstRequest?.();
     await stalePass;
 
     expect(runtime.reconcileCalls).toBe(2);
-    expect(maxInFlight).toBe(1);
+    expect(maxInFlight).toBe(transition === "domain scope" ? 2 : 1);
     expect(staleProjectionUpdates).toBe(0);
     expect(currentProjectionUpdates).toBe(1);
   });
@@ -392,4 +401,31 @@ test("ignores undemanded scope and catches up demanded scope on reconnect", asyn
 
   detachSecond();
   unsubscribe();
+});
+
+test("a pass overtaken during its pre-read check leaves the replacement sign-in one read", async () => {
+  const runtime = createRuntimeHarness();
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => undefined,
+  );
+  const old = scheduleOrganizationReadModelReconciliation(
+    runtime.tearleads,
+    ORGANIZATION_A,
+  );
+  await Promise.resolve();
+  expect(runtime.reconcileCalls).toBe(0);
+  runtime.transitionDomainScope();
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => undefined,
+  );
+  const current = scheduleOrganizationReadModelReconciliation(
+    runtime.tearleads,
+    ORGANIZATION_A,
+  );
+  await Promise.all([old, current]);
+  expect(runtime.reconcileCalls).toBe(1);
 });

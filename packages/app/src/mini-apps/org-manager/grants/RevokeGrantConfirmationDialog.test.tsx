@@ -1,9 +1,20 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import type { OrganizationContainerGrant } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import {
+  createDomainScope,
+  type OrganizationContainerGrant,
+} from "@tearleads/client-sdk";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+} from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { ORG_MANAGER_BUSY_LABELS } from "./busyLabels";
 import { RevokeGrantConfirmationDialog } from "./RevokeGrantConfirmationDialog";
+
+import { useRevokeGrantConfirmation } from "./useRevokeGrantConfirmation";
 
 afterEach(() => cleanup());
 
@@ -96,4 +107,35 @@ test("revoke grant confirmation dialog covers itself and does not submit while b
   );
 
   expect(onConfirm).toHaveBeenCalledTimes(0);
+});
+
+test("grant confirmation expires across sign-ins to the same organization", () => {
+  const first = {
+    containerId: "root",
+    domainScope: createDomainScope(),
+    generation: {},
+    organizationId: "org",
+    signingFingerprint: "identity",
+    userId: "user",
+  };
+  let scope = first;
+  const revokeGrant = mock(async () => {});
+  const { result, rerender } = renderHook(() =>
+    useRevokeGrantConfirmation({
+      captureOperationScope: () => scope,
+      isOperationScopeActive: (owner) => owner === scope,
+      organizationId: "org",
+      canRevokeGrants: true,
+      mutating: false,
+      revokeGrant,
+    }),
+  );
+  act(() => result.current.requestRevokeGrant(grant));
+  expect(result.current.grantPendingRevoke).toEqual(grant);
+  const confirm = result.current.confirmRevokeGrant;
+  scope = { ...first, domainScope: createDomainScope() };
+  act(confirm);
+  rerender();
+  expect(revokeGrant).not.toHaveBeenCalled();
+  expect(result.current.grantPendingRevoke).toBeNull();
 });

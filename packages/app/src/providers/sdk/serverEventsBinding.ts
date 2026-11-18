@@ -64,11 +64,10 @@ export async function resyncContainerAccess(
   }
 }
 
-// Tracks an in-flight root re-list per Tearleads instance (dual-pane gives each
-// pane its own instance) so a burst of "shared_with_you" events coalesces into a
+// Tracks an in-flight root re-list per sign-in so shared-container hints coalesce into a
 // single sweep plus at most one trailing sweep, instead of firing concurrently.
-const activeRootResyncByInstance = new WeakMap<
-  Tearleads,
+const activeRootResyncBySignIn = new WeakMap<
+  () => boolean,
   { readonly promise: Promise<void>; pending: boolean }
 >();
 
@@ -85,8 +84,12 @@ const activeRootResyncByInstance = new WeakMap<
 // sweep is in flight, so a share whose grant commits after the active sweep
 // already fetched the root list is still picked up rather than waiting for the
 // next event or manual refresh.
-async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
-  const active = activeRootResyncByInstance.get(tearleads);
+async function resyncRootContainers(
+  tearleads: Tearleads,
+  current = tearleads.session.captureSignIn(),
+): Promise<void> {
+  if (!current()) return;
+  const active = activeRootResyncBySignIn.get(current);
   if (active) {
     active.pending = true;
     return active.promise;
@@ -103,12 +106,12 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
   };
 
   const state = { pending: false, promise: runSweep() };
-  activeRootResyncByInstance.set(tearleads, state);
+  activeRootResyncBySignIn.set(current, state);
   await state.promise;
-  activeRootResyncByInstance.delete(tearleads);
+  activeRootResyncBySignIn.delete(current);
 
   if (state.pending) {
-    await resyncRootContainers(tearleads);
+    await resyncRootContainers(tearleads, current);
   }
 }
 
@@ -187,6 +190,72 @@ function markServerEventsConnected(
   log("WebSocket connected");
 }
 
+function routeSocketMessage(
+  tearleads: Tearleads,
+  ws: WebSocket,
+  event: MessageEvent,
+  interestHandle: ContainerInterestDeclaration | null,
+  log: (message: string) => void,
+) {
+  routeIncomingWsMessage(String(event.data), {
+    onContainerInterestAcknowledged: (declarationId, containerIds) => {
+      if (!interestHandle?.acknowledge(declarationId, containerIds)) {
+        return;
+      }
+      markServerEventsConnected(tearleads, log);
+    },
+    onOrganizationInterestAcknowledged: (
+      declarationId,
+      organizationId,
+      authorized,
+    ) => {
+      handleOrganizationReadModelInterestAcknowledgement(
+        tearleads,
+        ws,
+        declarationId,
+        organizationId,
+        authorized,
+      );
+    },
+    onOrganizationReadModelChanged: (organizationId, cursor) => {
+      handleOrganizationReadModelHint(tearleads, organizationId, cursor);
+    },
+    onOrganizationReadModelAccessRevoked: (organizationId) => {
+      handleOrganizationReadModelAccessRevoked(tearleads, organizationId);
+    },
+    onOrganizationMembershipsChanged: () =>
+      refreshOrganizationMemberships(tearleads, log),
+    onResyncRequired: (containerIds) =>
+      resyncDeclaredContainer(tearleads, interestHandle, containerIds),
+    onSharedWithYou: () => {
+      resyncSharedContainerInterest(tearleads, interestHandle);
+      // Joining (or rejoining) an organization arrives as a share; a
+      // rejoin starts with the member's earlier choices cleared.
+      refreshOrganizationMemberships(tearleads, log);
+    },
+    onServerEvent: (data) => {
+      tearleads.events.push({ ...data, id: String(nextEventId++) });
+    },
+  });
+}
+
+function stopWithSession(
+  session: Tearleads["session"],
+  current: () => boolean,
+  stop: () => void,
+) {
+  // A same-bearer replacement can deliver a frame before React cleanup.
+  const retire = () => {
+    if (!current()) stop();
+  };
+  const unsubscribe = session.subscribe(retire);
+  retire();
+  return () => {
+    unsubscribe();
+    stop();
+  };
+}
+
 export function useServerEventsBinding(
   tearleads: Tearleads,
   wsUrl: string,
@@ -197,13 +266,14 @@ export function useServerEventsBinding(
   subscribeConnectionRefresh?: SubscribeConnectionRefreshFn | undefined,
 ): void {
   const refreshGeneration = useRefreshGeneration(subscribeConnectionRefresh);
+  const signInCurrent = tearleads.session.captureSignIn();
 
   useEffect(() => {
     // In local-only mode the events WebSocket stays closed: no server
     // invalidations, interest declarations, or resync signals. The reconciler
     // and upload paths pause independently via the resolved runtime
     // `state.online` (Session.syncEnabled), so both sync channels are off.
-    if (!authToken || !wsUrl || !syncEnabled || !online) {
+    if (!signInCurrent() || !authToken || !wsUrl || !syncEnabled || !online) {
       return;
     }
     let detachOrganizationSocket: (() => void) | null = null;
@@ -223,46 +293,8 @@ export function useServerEventsBinding(
         tearleads.events.setConnected(false);
       },
       onMessage: (ws, event) => {
-        routeIncomingWsMessage(String(event.data), {
-          onContainerInterestAcknowledged: (declarationId, containerIds) => {
-            if (!interestHandle?.acknowledge(declarationId, containerIds)) {
-              return;
-            }
-            markServerEventsConnected(tearleads, log);
-          },
-          onOrganizationInterestAcknowledged: (
-            declarationId,
-            organizationId,
-            authorized,
-          ) => {
-            handleOrganizationReadModelInterestAcknowledgement(
-              tearleads,
-              ws,
-              declarationId,
-              organizationId,
-              authorized,
-            );
-          },
-          onOrganizationReadModelChanged: (organizationId, cursor) => {
-            handleOrganizationReadModelHint(tearleads, organizationId, cursor);
-          },
-          onOrganizationReadModelAccessRevoked: (organizationId) => {
-            handleOrganizationReadModelAccessRevoked(tearleads, organizationId);
-          },
-          onOrganizationMembershipsChanged: () =>
-            refreshOrganizationMemberships(tearleads, log),
-          onResyncRequired: (containerIds) =>
-            resyncDeclaredContainer(tearleads, interestHandle, containerIds),
-          onSharedWithYou: () => {
-            resyncSharedContainerInterest(tearleads, interestHandle);
-            // Joining (or rejoining) an organization arrives as a share; a
-            // rejoin starts with the member's earlier choices cleared.
-            refreshOrganizationMemberships(tearleads, log);
-          },
-          onServerEvent: (data) => {
-            tearleads.events.push({ ...data, id: String(nextEventId++) });
-          },
-        });
+        if (!signInCurrent()) return;
+        routeSocketMessage(tearleads, ws, event, interestHandle, log);
       },
       onOpen: (ws) => {
         // A socket opens with no container interest and routes no container
@@ -284,12 +316,17 @@ export function useServerEventsBinding(
       openSocket: (ticket) => tearleads.openServerEventsSocket(wsUrl, ticket),
       requestTicket: () => tearleads.requestWebSocketTicket(),
     });
-    return attempts.endingWith(stopLoop);
+    return stopWithSession(
+      tearleads.session,
+      signInCurrent,
+      attempts.endingWith(stopLoop),
+    );
   }, [
     authToken,
     log,
     online,
     refreshGeneration,
+    signInCurrent,
     syncEnabled,
     tearleads,
     wsUrl,

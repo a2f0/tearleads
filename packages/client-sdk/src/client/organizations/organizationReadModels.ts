@@ -146,17 +146,12 @@ class OrganizationReadModelCoordinatorImpl
     if (!active || groupId.length === 0) {
       return null;
     }
-    const domainScope = active.runtime.state.domainScope;
     return loadBoundedOrganizationGroupHistory({
       active,
       groupId,
       beforeVersion,
       stillCurrent: () =>
-        isOrganizationDataRuntimeCurrent(
-          this.runtimeService,
-          active,
-          domainScope,
-        ),
+        isOrganizationDataRuntimeCurrent(this.runtimeService, active),
     });
   }
 
@@ -169,16 +164,11 @@ class OrganizationReadModelCoordinatorImpl
       organizationId,
     );
     if (!active) return null;
-    const domainScope = active.runtime.state.domainScope;
     return loadBoundedOrganizationHistory({
       active,
       beforeVersion,
       stillCurrent: () =>
-        isOrganizationDataRuntimeCurrent(
-          this.runtimeService,
-          active,
-          domainScope,
-        ),
+        isOrganizationDataRuntimeCurrent(this.runtimeService, active),
     });
   }
 
@@ -236,6 +226,8 @@ class OrganizationReadModelCoordinatorImpl
         execSql: active.runtime.infra.execSql,
         logError: active.runtime.util.logError,
         organizationId: active.organizationId,
+        stillCurrent: () =>
+          isOrganizationDataRuntimeCurrent(this.runtimeService, active),
       }),
     );
   }
@@ -296,7 +288,9 @@ class OrganizationReadModelCoordinatorImpl
       return undefined;
     }
     await this.settleInFlightReconcile(active);
-    return this.reconcile(active.organizationId);
+    return isOrganizationDataRuntimeCurrent(this.runtimeService, active)
+      ? this.reconcile(active.organizationId)
+      : undefined;
   }
 
   async applyCommittedReadModel(
