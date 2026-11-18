@@ -11,7 +11,7 @@ versions, credentials, build numbers, or Terraform plans from a previous run.
 | State | Full environment reset |
 | --- | --- |
 | Production database | Replace the independent PlanetScale database and its runtime/migration roles. |
-| Staging database | Replace the staging PlanetScale database and its roles, then initialize the current baseline. |
+| Staging database | Replace the staging PlanetScale database and its roles, then apply the current migrations. |
 | Encrypted blobs | Empty and replace only the selected application bucket and its bucket-scoped R2 credentials. |
 | Worker state | Publish the API maintenance Worker, whose `exports` tombstones delete both Durable Object namespaces (sessions, tickets, and hibernated socket state), then redeploy the API, which recreates them empty. A plain redeploy keeps that state. Never delete the API Worker. |
 | Hostnames | Retain. The API, app, and demo hostnames stay attached throughout; a reset changes no edge stack resource. |
@@ -113,15 +113,15 @@ The explicit data/deploy sequence is:
    PostgreSQL/storage wrappers, not `prepare-*`. Require a different database
    branch ID, the expected bucket/account, and empty application data.
 5. Deploy API through its normal migration/secret reconciliation helper and
-   verify health. Check initialized table names, the baseline migration hash,
-   and zero rows in every application table. The verifier intentionally fails
-   closed if the single-greenfield-baseline layout changes.
+   verify health. Check table names against the latest journaled snapshot and
+   require zero rows in every application table. The applied migration
+   timestamps and SQL hashes must match the entire source journal in order.
 6. Deploy app and demo through `deployAppWeb.sh` (including its `dist-app` and
    `dist-demo` staging), then website with `--skip-terraform`. Check unchanged
    inventory and HTTP 200 on API/app/demo/site without registering test users.
 
-`pg_tables.tablename` is a `name` in `C` collation, so its order matches ASCII
-baseline names, not database locale ([PostgreSQL 12](https://www.postgresql.org/docs/release/12.0/)).
+PostgreSQL sorts `pg_tables.tablename` in `C` collation, matching the snapshot’s
+ASCII order ([PostgreSQL 12](https://www.postgresql.org/docs/release/12.0/)).
 
 This preserves edge/website domain resources, downloads, Terraform backend
 state, signing files, and external payment/store records. It rotates database
@@ -425,14 +425,14 @@ inspected plans. Confirm the new database branch ID differs from the old ID and
 its connection verifies TLS. Use client connection evidence with
 `sslmode=verify-full`; a managed proxy's `pg_stat_ssl` backend row may describe
 a different transport leg and cannot establish client TLS. Verify there are no
-application tables before baseline initialization, and no old blobs in storage.
+application tables before migrations run, and no old blobs in storage.
 
 Run
 [`scripts/deploy/deployProduction.sh`](../../scripts/deploy/deployProduction.sh)
 or [`scripts/deploy/deployStaging.sh`](../../scripts/deploy/deployStaging.sh).
 The staging script applies its database and storage stacks itself; the
-production script requires both to exist already. The API deploy initializes the
-baseline schema with the migration login, syncs the Worker secrets, and
+production script requires both to exist already. The API deploy applies the
+current migrations with the migration login, syncs the Worker secrets, and
 publishes the Worker, which ends maintenance; its `exports` entries recreate
 both Durable Object namespaces empty (Wrangler prints `Created:` for each), so
 no old session can survive the reset. The edge stack apply in those scripts
@@ -444,8 +444,8 @@ during, and after the reset. The document sync cursor HMAC key persists in
 should rotate it.
 
 Verify current schema initialization and application-table emptiness before any
-test identities are created. Compare schema against the current baseline rather
-than a historical table count. Derive read-only SQL probes from the `postgres`
+test identities are created. Match the latest snapshot and the full migration
+history. Derive read-only SQL probes from the `postgres`
 stack's `api_connection` output in a private shell, with TLS verification.
 
 Use `--skip-terraform` only after infrastructure exists. Record completed

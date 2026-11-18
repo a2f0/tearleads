@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fixture } from "./softReset.testUtils";
@@ -23,6 +24,16 @@ test("authorized reset completes only the application sequence with private timi
         "containers",
         "users",
       ],
+      migrations: ["0000_greenfield_baseline.sql", "0001_rename_users.sql"].map(
+        (file, index) => [
+          (index + 1) * 1000,
+          createHash("sha256")
+            .update(
+              readFileSync(join(f.repo, "packages/api-shared/drizzle", file)),
+            )
+            .digest("hex"),
+        ],
+      ),
       empty: true,
     });
     expect(record.steps.map((step: { label: string }) => step.label)).toEqual([

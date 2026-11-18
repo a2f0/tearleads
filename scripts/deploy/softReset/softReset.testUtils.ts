@@ -106,12 +106,38 @@ tier_demo_hostname() { [ "$1" = prod ] && printf demo.example.test || printf dem
   write("packages/api/scripts/workerDefines.ts", "");
   write("packages/app-web/package.json", "{}");
   write("packages/website/package.json", "{}");
+  const folder = "packages/api-shared/drizzle";
+  const tables = [
+    "users",
+    "blobs",
+    "blob_stages",
+    "containers",
+    "container_sync_tombstones",
+  ];
+  const original = ["old_users", ...tables.slice(1)];
   write(
-    "packages/api-shared/drizzle/0000_greenfield_baseline.sql",
-    ["users", "blobs", "blob_stages", "containers", "container_sync_tombstones"]
-      .map((name) => `CREATE TABLE "${name}" (id text);\n`)
-      .join(""),
+    `${folder}/0000_greenfield_baseline.sql`,
+    original.map((name) => `CREATE TABLE "${name}" (id text);\n`).join(""),
   );
+  write(
+    `${folder}/0001_rename_users.sql`,
+    'ALTER TABLE "old_users" RENAME TO "users";',
+  );
+  const entries = [
+    { idx: 0, tag: "0000_greenfield_baseline", when: 1000 },
+    { idx: 1, tag: "0001_rename_users", when: 2000 },
+  ];
+  write(`${folder}/meta/_journal.json`, JSON.stringify({ entries }));
+  for (const [index, names] of [original, tables].entries()) {
+    write(
+      `${folder}/meta/000${index}_snapshot.json`,
+      JSON.stringify({
+        tables: Object.fromEntries(
+          names.map((name) => [`public.${name}`, { name, schema: "" }]),
+        ),
+      }),
+    );
+  }
   write(".gitignore", "*_override.tf\nnode_modules/\n");
   write("package.json", "{}");
   for (const args of [
