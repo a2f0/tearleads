@@ -121,7 +121,7 @@ export interface ReconnectPages {
 
 export interface ReconnectCrawl {
   isCurrent(): boolean;
-  record(outcome: HydrationOutcome): void;
+  record(outcome: HydrationOutcome, manualRejection?: Error): void;
 }
 
 export interface RemoteContainerHydrationState {

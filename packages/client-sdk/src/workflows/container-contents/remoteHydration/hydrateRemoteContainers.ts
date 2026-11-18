@@ -119,9 +119,12 @@ export async function hydrateRemoteContainers(input: {
     state,
   });
   if (input.reconnect?.isCurrent() && canHydrateRemoteContainers(state)) {
-    input.reconnect.record(result.outcome);
+    const manualRejection = input.resetAllLaneWatermarks
+      ? manualError
+      : undefined;
+    input.reconnect.record(result.outcome, manualRejection);
     // A manual refresh sharing this crawl observes the error it would receive on its own.
-    if (input.resetAllLaneWatermarks && manualError) throw manualError;
+    if (manualRejection) throw manualRejection;
   }
   return changedCount;
 }

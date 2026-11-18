@@ -57,22 +57,27 @@ export class ReconnectRefresh {
     };
     // A joined or interrupted crawl that never reported coverage owes a retry.
     let outcome: HydrationOutcome = "retry";
+    let manualRejection: Error | undefined;
     void refresh({
       reconnect: {
         isCurrent,
-        record: (value) => {
+        record: (value, error) => {
           outcome = value;
+          manualRejection = error;
         },
       },
     }).then(
       () => finish(isCurrent() ? outcome : "retry"),
-      (error: unknown) =>
+      (error: unknown) => {
+        if (!isCurrent()) return finish("retry");
+        if (manualRejection && manualRejection === error)
+          return finish(outcome);
         finish(
-          isCurrent() &&
-            !(error instanceof ProjectionDependencyUnavailableError)
-            ? "unexpectedFailure"
-            : "retry",
-        ),
+          error instanceof ProjectionDependencyUnavailableError
+            ? "retry"
+            : "unexpectedFailure",
+        );
+      },
     );
   }
 }
