@@ -7,10 +7,6 @@ const ownerRoot = realpathSync(resolve(import.meta.dir, "../.."));
 // Git names the metadata that applies only to one repository. Keep user-wide
 // authentication and SSH settings when starting work in another checkout.
 export function checkRoot(root = ownerRoot): string {
-  // The push gate runs in the worktree Git selected, including an explicit
-  // --work-tree with its index and metadata stored elsewhere.
-  const { AGENT_TOOL_PUSH_GATE } = process.env;
-  if (AGENT_TOOL_PUSH_GATE && realpathSync(".") === root) return root;
   if (Object.keys(process.env).some((key) => key.startsWith("GIT_"))) {
     const names = execFileSync("git", ["rev-parse", "--local-env-vars"], {
       cwd: root,
