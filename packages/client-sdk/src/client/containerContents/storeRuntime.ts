@@ -17,17 +17,19 @@ export function createStoreRuntime(service: InternalRuntime) {
         ),
     ),
     // A superseded store can stop receiving host updates while its retry is pending.
-    isScopeCurrent: () => {
+    liveHydrationStatus: (): "retired" | "ready" | "unavailable" => {
       const live = service.publicRuntime.input();
-      return (
-        live.state.domainScope === input.state.domainScope &&
-        live.state.online &&
-        live.auth.organizationId === input.auth.organizationId &&
-        live.infra.execSql === input.infra.execSql &&
-        live.infra.dbStatus === "ready" &&
-        live.auth.isAuthenticated === input.auth.isAuthenticated &&
-        live.auth.userId === input.auth.userId
-      );
+      if (
+        live.state.domainScope !== input.state.domainScope ||
+        live.auth.organizationId !== input.auth.organizationId ||
+        live.infra.execSql !== input.infra.execSql ||
+        live.auth.isAuthenticated !== input.auth.isAuthenticated ||
+        live.auth.userId !== input.auth.userId
+      )
+        return "retired";
+      return live.state.online && live.infra.dbStatus === "ready"
+        ? "ready"
+        : "unavailable";
     },
   };
 }

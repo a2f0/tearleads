@@ -124,69 +124,93 @@ test("requests queued across a reset settle with the recovery crawl", async () =
   }
 });
 
-test("a superseding acknowledgement preserves a manual reset already handed to reconnect", async () => {
-  const { close, execSql } = await createTestExecSql("manual-refresh-handoff");
-  const holds = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
-  const started = [
-    Promise.withResolvers<void>(),
-    Promise.withResolvers<void>(),
-  ];
-  const initial = { id: "initial", updatedAt: "2026-01-01T00:00:00.000Z" };
-  const reset = { ...initial, id: "reset" };
-  const lane = createContainerParentSyncLane(null);
-  const cursors = new ContainerSyncWatermarkRepository(execSql);
-  let requests = 0;
-  const state = createRequestState(execSql, async ({ lanes }) => {
-    const n = requests++;
-    started[n]?.resolve();
-    await holds[n]?.promise;
-    return {
-      results: lanes.map(({ laneId, watermark }) => ({
-        laneId,
-        page: {
-          items: [],
-          tombstones: [],
-          hasMore: false,
-          nextWatermark: watermark ?? reset,
-        },
-      })),
+test.each([false, true])(
+  "a manual reset survives supersession (offline during handoff: %s)",
+  async (offline) => {
+    const { close, execSql } = await createTestExecSql(
+      "manual-refresh-handoff",
+    );
+    const holds = [
+      Promise.withResolvers<void>(),
+      Promise.withResolvers<void>(),
+    ];
+    const started = [
+      Promise.withResolvers<void>(),
+      Promise.withResolvers<void>(),
+    ];
+    const initial = { id: "initial", updatedAt: "2026-01-01T00:00:00.000Z" };
+    const reset = { ...initial, id: "reset" };
+    const lane = createContainerParentSyncLane(null);
+    const cursors = new ContainerSyncWatermarkRepository(execSql);
+    let requests = 0;
+    const state = createRequestState(execSql, async ({ lanes }) => {
+      const n = requests++;
+      started[n]?.resolve();
+      await holds[n]?.promise;
+      return {
+        results: lanes.map(({ laneId, watermark }) => ({
+          laneId,
+          page: {
+            items: [],
+            tombstones: [],
+            hasMore: false,
+            nextWatermark: watermark ?? reset,
+          },
+        })),
+      };
+    });
+    const input = {
+      state,
+      host: emptyHydrationHost,
+      parentIds: [null],
+      followDiscoveredParentLanes: true,
+      scheduleSync: () => {},
+      resumeRecoveryWork: async () => {
+        await resumeContainerContentsRecoveryHydration(state);
+      },
     };
-  });
-  const input = {
-    state,
-    host: emptyHydrationHost,
-    parentIds: [null],
-    followDiscoveredParentLanes: true,
-    scheduleSync: () => {},
-    resumeRecoveryWork: async () => {
-      await resumeContainerContentsRecoveryHydration(state);
-    },
-  };
-  try {
-    await cursors.saveWatermark(lane, initial);
-    const active = requestContainerContentsRemoteHydration(input);
-    await started[0]?.promise;
-    let current = true;
-    const reconnect = requestContainerContentsRemoteHydration({
-      ...input,
-      reconnect: { isCurrent: () => current, record: () => {} },
-    });
-    const manual = requestContainerContentsRemoteHydration({
-      ...input,
-      resetAllLaneWatermarks: true,
-    });
-    holds[0]?.resolve();
-    await started[1]?.promise;
-    current = false;
-    const replacement = requestContainerContentsRemoteHydration({
-      ...input,
-      reconnect: { isCurrent: () => true, record: () => {} },
-    });
-    holds[1]?.resolve();
-    await Promise.all([active, reconnect, manual, replacement]);
-    expect(await cursors.loadWatermark(lane)).toEqual(reset);
-  } finally {
-    for (const hold of holds) hold.resolve();
-    await close();
-  }
-});
+    try {
+      await cursors.saveWatermark(lane, initial);
+      const active = requestContainerContentsRemoteHydration(input);
+      await started[0]?.promise;
+      let current = true;
+      const reconnect = requestContainerContentsRemoteHydration({
+        ...input,
+        reconnect: { isCurrent: () => current, record: () => {} },
+      });
+      const manual = requestContainerContentsRemoteHydration({
+        ...input,
+        resetAllLaneWatermarks: true,
+      });
+      holds[0]?.resolve();
+      await started[1]?.promise;
+      current = false;
+      let connected = !offline;
+      state.runtime = {
+        ...state.runtime,
+        liveHydrationStatus: () => (connected ? "ready" : "unavailable"),
+        state: { ...state.runtime.state, online: connected },
+      };
+      if (offline) {
+        holds[1]?.resolve();
+        await Promise.all([active, reconnect, manual]);
+        connected = true;
+        state.runtime = {
+          ...state.runtime,
+          state: { ...state.runtime.state, online: true },
+        };
+        await resumeContainerContentsRecoveryHydration(state);
+      }
+      const replacement = requestContainerContentsRemoteHydration({
+        ...input,
+        reconnect: { isCurrent: () => true, record: () => {} },
+      });
+      holds[1]?.resolve();
+      await Promise.all([active, reconnect, manual, replacement]);
+      expect(await cursors.loadWatermark(lane)).toEqual(reset);
+    } finally {
+      for (const hold of holds) hold.resolve();
+      await close();
+    }
+  },
+);

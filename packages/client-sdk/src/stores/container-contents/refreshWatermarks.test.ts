@@ -223,7 +223,13 @@ test("a continuation cannot rewind to the child's persisted starting cursor", as
     await waitFor(() => reads.length >= 2, "child continuation did not start");
     await waitForDomainSyncCoordinatorToSettle(domainScope);
     expect(reads).toEqual(["a", "b"]);
-    expect(await cursors.loadWatermark(lane)).toEqual(cursor("b"));
+    await waitFor(
+      () => reads.length >= 4,
+      "child continuation was not retried",
+      2500,
+    );
+    expect(await cursors.loadWatermark(lane)).toEqual(cursor("a"));
+    expect(reads).toEqual(["a", "b", "a", "b"]);
   } finally {
     disposeDomainSyncCoordinator(domainScope);
     await close();

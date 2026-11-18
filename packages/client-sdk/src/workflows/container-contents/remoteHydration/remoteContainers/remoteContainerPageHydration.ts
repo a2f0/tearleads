@@ -229,6 +229,27 @@ function queueNextPage(
   }
 }
 
+async function checkpointPage(input: {
+  continuePastIncompletePages: boolean;
+  fetchedPage: FetchedContainerParentLanePage;
+  isCurrent?: (() => boolean) | undefined;
+  state: RemoteContainerHydrationState;
+}): Promise<boolean> {
+  const { lane, response, syncLane } = input.fetchedPage;
+  // Only a drained chain can advance a reconnect checkpoint. Otherwise a
+  // cycle can alternate the durable cursor between successive attempts.
+  if (input.continuePastIncompletePages && response.hasMore) return true;
+  const nextWatermark =
+    response.nextWatermark ??
+    (lane.continuationCursors ? (lane.watermark ?? null) : null);
+  return markContainerParentLaneFetched({
+    isCurrent: input.isCurrent,
+    response: { ...response, nextWatermark },
+    state: input.state,
+    syncLane,
+  });
+}
+
 async function applyContainerParentLanePage(input: {
   continuePastIncompletePages: boolean;
   childIdsByParentId: ContainerChildIndex;
@@ -255,7 +276,6 @@ async function applyContainerParentLanePage(input: {
     expectedHydrationTombstones,
     lane,
     response,
-    syncLane,
   } = fetchedPage;
   let changedCount = 0;
   if (input.isCurrent?.() === false) {
@@ -316,15 +336,7 @@ async function applyContainerParentLanePage(input: {
   if (outcome !== "complete" && !input.continuePastIncompletePages)
     return { changedCount, outcome, shouldStop: false };
   const skipWatermarkWrite = lane.skipWatermarkWrite || outcome !== "complete";
-  if (
-    !skipWatermarkWrite &&
-    !(await markContainerParentLaneFetched({
-      isCurrent: input.isCurrent,
-      response,
-      state,
-      syncLane,
-    }))
-  ) {
+  if (!skipWatermarkWrite && !(await checkpointPage(input))) {
     return { changedCount, outcome: "retry", shouldStop: true };
   }
 

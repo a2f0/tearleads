@@ -7,7 +7,6 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { enqueuePendingContainerUpdate } from "../containerPersistence";
 import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
@@ -15,6 +14,7 @@ import {
 import {
   createContainerRecord,
   createDocumentRecord,
+  enqueuePendingContainerUpdate,
 } from "./metadata.testFixtures";
 import { persistContainerMetadataStateFromRuntime } from "./metadataPersistence";
 

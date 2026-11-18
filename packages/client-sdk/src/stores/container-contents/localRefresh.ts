@@ -247,6 +247,7 @@ export function refreshLocalContainerStates(
   state.localContainerRefreshGeneration = lifecycleGeneration;
   state.localContainerRefreshStructuralGeneration = structuralGeneration;
   const refreshPromise = loadLocalContainerStates({
+    isCurrent,
     persistence: state.persistence,
     runtime: state.runtime,
   })

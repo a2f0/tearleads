@@ -311,7 +311,7 @@ export function consumePendingContainerContentsReconnectRefresh(
       state.runtime.infra.dbStatus === "ready" &&
       state.runtime.auth.isAuthenticated &&
       state.runtime.state.online &&
-      state.runtime.isScopeCurrent?.() !== false &&
+      (state.runtime.liveHydrationStatus?.() ?? "ready") === "ready" &&
       !state.syncLane?.isDisposed?.(),
     (options) => {
       const hydration = refresh(options);

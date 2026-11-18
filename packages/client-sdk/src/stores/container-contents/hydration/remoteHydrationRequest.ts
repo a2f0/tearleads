@@ -6,6 +6,7 @@ import {
   StaleRemoteHydrationError,
 } from "../../../workflows/container-contents/remoteHydration";
 import type { RemoteContainerHydrationState } from "../../../workflows/container-contents/remoteHydration/types";
+import type { ContainerContentsStoreWorkflowRuntime } from "../../../workflows/container-contents/runtime";
 import { isDatabaseUnavailableError } from "../../../workflows/container-contents/syncLane";
 import {
   type LocalContainerRefreshState,
@@ -27,7 +28,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
     remoteHydrationPromise: Promise<void> | null;
     remoteHydrationStructuralGeneration: number | null;
     rootLaneHydrated: boolean;
-    runtime: { isScopeCurrent?: () => boolean };
+    runtime: Pick<ContainerContentsStoreWorkflowRuntime, "liveHydrationStatus">;
     snapshot: {
       ready: boolean;
     };
@@ -59,13 +60,20 @@ interface RecoveryHydrationRequest {
   structuralGeneration: number;
 }
 
+function ownsHydrationStore(state: RemoteHydrationRequestState): boolean {
+  return (
+    !state.syncLane?.isDisposed?.() &&
+    state.runtime.liveHydrationStatus?.() !== "retired"
+  );
+}
+
 function isRequestGenerationCurrent(input: {
   lifecycleGeneration: number;
   state: RemoteHydrationRequestState;
   structuralGeneration: number;
 }): boolean {
   return (
-    !input.state.syncLane?.isDisposed?.() &&
+    ownsHydrationStore(input.state) &&
     input.state.lifecycleGeneration === input.lifecycleGeneration &&
     input.state.structuralGeneration === input.structuralGeneration
   );
@@ -108,6 +116,7 @@ function hasRemoteHydrationPrerequisites(
   state: RemoteHydrationRequestState,
 ): boolean {
   return (
+    (state.runtime.liveHydrationStatus?.() ?? "ready") === "ready" &&
     state.runtime.infra.dbStatus === "ready" &&
     state.runtime.auth.isAuthenticated &&
     state.runtime.state.online
@@ -129,7 +138,7 @@ function createResetRecoveryInput(
 function resumeRetainedRecoveryHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
-  if (input.state.syncLane?.isDisposed?.()) return Promise.resolve();
+  if (!ownsHydrationStore(input.state)) return Promise.resolve();
   queueRecoveryHydrationRequest(input);
   return hasRemoteHydrationPrerequisites(input.state)
     ? input.resumeRecoveryWork()
@@ -232,7 +241,7 @@ function retryRemoteHydrationAfterReset(
     // Complete that request under the live store's own generation guard.
     if (
       !input.resetAllLaneWatermarks ||
-      input.state.runtime.isScopeCurrent?.() === false
+      input.state.runtime.liveHydrationStatus?.() === "retired"
     )
       return Promise.resolve();
     input = { ...input, reconnect: undefined };
@@ -357,7 +366,7 @@ export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
   const { host, scheduleSync, state } = input;
-  if (state.syncLane?.isDisposed?.() || input.reconnect?.isCurrent() === false)
+  if (!ownsHydrationStore(state) || input.reconnect?.isCurrent() === false)
     return Promise.resolve();
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);

@@ -1,11 +1,8 @@
-import { createPendingUpdateFields } from "../../data/documents/documentSync";
-import type { ContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
   type ContainerSyncWatermarkLane,
   containerContentsSyncLane,
   containerParentSyncLane,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export type {
   ContainerContentsPersistence,
@@ -25,29 +22,6 @@ export {
   ContainerSyncWatermarkRepository,
 } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
-
-export async function enqueuePendingContainerUpdate(
-  execSql: ExecSql,
-  persistence: ContainerContentsPersistence,
-  params: {
-    containerId: string;
-    sourceVersionVector?: string | null | undefined;
-    update: Uint8Array;
-  },
-): Promise<string | null> {
-  const pendingUpdateFields = createPendingUpdateFields(
-    params.update,
-    params.sourceVersionVector,
-  );
-  if (!pendingUpdateFields) {
-    return null;
-  }
-
-  return persistence.enqueuePendingUpdate(execSql, {
-    containerId: params.containerId,
-    ...pendingUpdateFields,
-  });
-}
 
 export function createContainerParentSyncLane(
   parentId: string | null,

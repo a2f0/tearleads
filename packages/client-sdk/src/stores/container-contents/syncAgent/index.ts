@@ -71,6 +71,7 @@ async function initializeContainerContentsStore(input: {
     log: loadRuntime.util.log,
   });
   const localContainerStates = await loadLocalContainerStates({
+    isCurrent,
     persistence,
     runtime: loadRuntime,
   });
@@ -189,7 +190,7 @@ function ensureContainerContentsStoreInitialized(input: {
   if (state.initialized || state.runtime.infra.dbStatus !== "ready") {
     return;
   }
-  if (state.initializePromise) {
+  if (state.syncLane?.isDisposed?.() || state.initializePromise) {
     return;
   }
   if (waitForStaleLocalRefreshBeforeInitialization(input)) {
@@ -200,6 +201,7 @@ function ensureContainerContentsStoreInitialized(input: {
   const persistence = state.persistence;
   const execSql = state.runtime.infra.execSql;
   const isCurrent = () =>
+    !state.syncLane?.isDisposed?.() &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.persistence === persistence &&
     state.runtime.infra.execSql === execSql;
