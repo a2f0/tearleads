@@ -36,8 +36,9 @@ else. The API rebuilds the document sync the seed stands for from the create:
 its content-key bundle, link-set and target hashes and epoch, its target path as
 the authorizing path, and the update's end as the local version. The update's
 signed write header names the same values, and that sync must parse and fit the
-sync request limit. It is the client's one queued update that holds the new
-document's whole content. Content known at creation (a contact's names, an
+sync request limit. A seed that names any other sync field (such as a `minLsn`
+precondition) is refused. It is the client's one queued update that holds the
+new document's whole content. Content known at creation (a contact's names, an
 imported file's fields and rows) is opened into that birth update rather than
 written after it, so such a document qualifies. The API commits the seed in the
 create transaction under the same

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "../util";
+import {
+  MAX_CONTAINER_PATH_LENGTH,
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+} from "../util";
 import {
   documentCreateSeedSyncRequest,
   isContainerCreateWithMetadataDocumentRequest,
@@ -161,6 +164,68 @@ test("the sync a create seed stands for is held to the sync request limit", () =
       container: createContainerMutationRequest(),
       initialMetadataSync: over,
       metadataDocument: document,
+    }),
+  ).toBe(false);
+});
+
+test("a create seed carries nothing but its update, and malformed parts fail closed", () => {
+  const seed = { outgoingUpdates: [seedUpdate()] };
+  const document = documentCreate();
+  const container = {
+    container: createContainerMutationRequest(),
+    metadataDocument: document,
+  };
+  // A field the sync would take from the create, or a precondition the seed
+  // cannot honor, is refused rather than dropped.
+  for (const extra of [
+    { minLsn: "0/16B3748" },
+    { expectedTargetHash: "other-target-hash" },
+    { contentKeyBundle: document.contentKeyBundle },
+    { localVersionVector: '{"actor":1}' },
+  ]) {
+    expect(
+      isDocumentCreateRequest({
+        ...document,
+        initialSync: { ...seed, ...extra },
+      }),
+    ).toBe(false);
+    expect(
+      isContainerCreateWithMetadataDocumentRequest({
+        ...container,
+        initialMetadataSync: { ...seed, ...extra },
+      }),
+    ).toBe(false);
+  }
+  // Malformed values are refused, never thrown on.
+  expect(isDocumentCreateRequest({ ...document, initialSync: null })).toBe(
+    false,
+  );
+  expect(
+    isContainerCreateWithMetadataDocumentRequest({
+      container: createContainerMutationRequest(),
+      metadataDocument: null,
+      initialMetadataSync: seed,
+    }),
+  ).toBe(false);
+  expect(
+    isDocumentCreateRequest({
+      ...document,
+      contentKeyBundle: null,
+      initialSync: seed,
+    }),
+  ).toBe(false);
+  // An oversized target path is reported by its own bound, not rebuilt.
+  expect(
+    isDocumentCreateRequest({
+      ...document,
+      targetContainerPathRefs: Array.from(
+        { length: MAX_CONTAINER_PATH_LENGTH + 1 },
+        (_, index) => ({
+          containerId: `container-${index}`,
+          manifestHash: "container-manifest-hash",
+        }),
+      ),
+      initialSync: seed,
     }),
   ).toBe(false);
 });

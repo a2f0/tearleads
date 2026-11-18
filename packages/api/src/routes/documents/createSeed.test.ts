@@ -194,6 +194,27 @@ test("a seed the sync would refuse fails the whole create", async () => {
   expect(rows).toEqual([]);
 });
 
+test("a create seed that names a sync field or precondition is refused", async () => {
+  const { owner, root } = await registeredRoot();
+  const { request } = await seededCreateRequest({ owner, root });
+  const seed = request.initialSync;
+  if (!seed) throw new Error("Expected a seed");
+  const documentId = String(Reflect.get(request.event, "objectId"));
+
+  // The sync takes everything but the update from the create, so a seed that
+  // names a minLsn precondition is refused instead of committing without it.
+  const response = await postCreate(owner, {
+    ...request,
+    initialSync: { ...seed, minLsn: "FFFFFFFF/FFFFFFFF" },
+  });
+  expect(response.status).toBe(400);
+  const rows = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.id, documentId));
+  expect(rows).toEqual([]);
+});
+
 test("a create seed must hold exactly one update", async () => {
   const { owner, root } = await registeredRoot();
   const { request } = await seededCreateRequest({ owner, root });

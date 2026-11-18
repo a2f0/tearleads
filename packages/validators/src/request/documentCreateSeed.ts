@@ -1,12 +1,15 @@
 import type { z } from "zod";
 import { arraySchema, loosePlainObject } from "../schema";
+import { MAX_CONTAINER_PATH_LENGTH } from "../util/containerLimits";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
 } from "../util/documentSyncLimits";
 import {
+  ContainerManifestPathSchema,
   type ContainerManifestRef,
   type DocumentContentKeyBundleRequest,
+  DocumentContentKeyBundleRequestSchema,
   DocumentSyncOutgoingUpdateSchema,
   type DocumentSyncRequest,
   DocumentSyncRequestSchema,
@@ -39,6 +42,11 @@ export interface DocumentCreateSeedSource {
     | readonly ContainerManifestRef[]
     | undefined;
 }
+
+const DocumentCreateSeedSourceSchema = loosePlainObject({
+  contentKeyBundle: DocumentContentKeyBundleRequestSchema,
+  targetContainerPathRefs: ContainerManifestPathSchema.optional(),
+});
 
 /**
  * The document sync a create's seed stands for: the seed's update under the
@@ -121,30 +129,73 @@ export function refineSeedWithinSyncRequestLimit(
 }
 
 /**
- * Holds the sync a create's seed stands for to the checks a standalone sync
- * request gets: it must parse as a document sync (unique update ids, an
- * authorizing path for the write, rotation fields) and, `withinSyncLimit`,
- * serialize within the sync request limit. The refinement also runs over
- * values whose fields already failed, so it builds that sync only from a
- * well-formed seed and content-key bundle.
+ * Fields of a document sync that a create's seed never carries: the API takes
+ * them from the create, so a seed naming one (such as a `minLsn` precondition)
+ * is refused rather than silently dropped.
+ */
+const SEED_SYNC_ONLY_FIELDS = [
+  "authorizingContainerPathRefs",
+  "containerRekeys",
+  "contentKeyBundle",
+  "contentKeyEpoch",
+  "expectedLinkSetManifestHash",
+  "expectedTargetHash",
+  "historyMode",
+  "inlineRekeyCommitId",
+  "localVersionVector",
+  "minLsn",
+  "pullCursor",
+  "supportsPullPagination",
+] as const;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Holds a create's seed to its update alone and the sync it stands for to the
+ * checks a standalone sync request gets: it must parse as a document sync
+ * (unique update ids, an authorizing path for the write, rotation fields)
+ * and, `withinSyncLimit`, serialize within the sync request limit. The
+ * refinement also runs over values whose fields already failed, so it builds
+ * that sync only from a well-formed, bounded seed and create.
  */
 export function refineCreateSeedSync(
-  create: DocumentCreateSeedSource,
-  seed: DocumentCreateSeedRequest | undefined,
+  create: unknown,
+  seed: unknown,
   context: z.RefinementCtx,
   issue: { readonly path: string; readonly withinSyncLimit: boolean },
 ): void {
-  const bundle: unknown = create.contentKeyBundle;
-  const refs: unknown = create.targetContainerPathRefs;
+  if (!isRecord(seed)) return;
+  if (SEED_SYNC_ONLY_FIELDS.some((field) => Object.hasOwn(seed, field))) {
+    context.addIssue({
+      code: "custom",
+      message: "a create seed carries its update alone",
+      path: [issue.path],
+    });
+    return;
+  }
+  if (!isRecord(create)) return;
+  const { contentKeyBundle, targetContainerPathRefs } = create;
+  const { outgoingUpdates } = seed;
+  // The field schemas report malformed or oversized values; build nothing
+  // from them.
   if (
-    seed === undefined ||
-    !Array.isArray(seed.outgoingUpdates) ||
-    typeof bundle !== "object" ||
-    bundle === null ||
-    (refs !== undefined && !Array.isArray(refs))
+    !Array.isArray(outgoingUpdates) ||
+    outgoingUpdates.length !== 1 ||
+    !isRecord(contentKeyBundle) ||
+    (targetContainerPathRefs !== undefined &&
+      (!Array.isArray(targetContainerPathRefs) ||
+        targetContainerPathRefs.length > MAX_CONTAINER_PATH_LENGTH))
   )
     return;
-  const sync = documentCreateSeedSyncRequest(create, seed);
+  const parsedSeed = DocumentCreateSeedRequestSchema.safeParse(seed);
+  const parsedSource = DocumentCreateSeedSourceSchema.safeParse(create);
+  if (!parsedSeed.success || !parsedSource.success) return;
+  const sync = documentCreateSeedSyncRequest(
+    parsedSource.data,
+    parsedSeed.data,
+  );
   if (!DocumentSyncRequestSchema.safeParse(sync).success) {
     context.addIssue({
       code: "custom",

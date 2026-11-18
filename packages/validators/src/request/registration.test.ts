@@ -104,22 +104,9 @@ test("isRegistrationRequest", () => {
     plaintextHash: "plaintext-hash",
     writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
   };
-  const createInitialSync = () => ({
-    authorizingContainerPathRefs: [
-      [
-        {
-          containerId: "container-1",
-          manifestHash: "container-manifest-hash",
-        },
-      ],
-    ],
-    contentKeyEpoch: 1,
-    expectedLinkSetManifestHash: "document-link-set-hash",
-    expectedTargetHash: "target-hash",
-    localVersionVector: '{"actor":1}',
-    outgoingUpdates: [initialUpdate],
-    supportsPullPagination: true as const,
-  });
+  // A seed carries its update alone; the API rebuilds the sync from the
+  // document it seeds.
+  const createInitialSync = () => ({ outgoingUpdates: [initialUpdate] });
   const createValidRequest = (overrides: Record<string, unknown> = {}) => {
     const request = {
       userId,
@@ -134,7 +121,6 @@ test("isRegistrationRequest", () => {
         event: { eventType: "container.create" },
         body: { eventType: "container.create" },
         expectedManifestHash: "container-manifest-hash",
-        manifest: { objectKind: "container" },
         previousManifestRef: null,
         parentContainerPathRefs: [],
         keyEpoch: { id: "container-key-epoch-id" },
@@ -148,7 +134,6 @@ test("isRegistrationRequest", () => {
         event: { eventType: "document.link" },
         body: { eventType: "document.link" },
         expectedManifestHash: "document-manifest-hash",
-        manifest: { objectKind: "document" },
         targetContainerPathRefs: [
           {
             containerId: "container-1",
