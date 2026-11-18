@@ -1,4 +1,4 @@
-export {};
+import { checkRoot } from "../lib/checkRoot";
 
 for (const { cmd, cwd } of [
   { cmd: [process.execPath, "run", "--cwd", "packages/client-sdk", "build"] },
@@ -10,7 +10,7 @@ for (const { cmd, cwd } of [
   console.log(`[biome:promises] bun ${cmd.slice(1).join(" ")}`);
   const child = Bun.spawn({
     cmd,
-    cwd: cwd ?? process.cwd(),
+    cwd: cwd ?? checkRoot,
     stderr: "inherit",
     stdout: "inherit",
   });

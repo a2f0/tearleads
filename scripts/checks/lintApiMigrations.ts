@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { checkRoot } from "../lib/checkRoot";
 import {
   apiMigrationHistoryErrors,
   apiMigrationsPath,
@@ -80,6 +81,7 @@ function readWorktreeFiles(): MigrationFiles {
   return files;
 }
 
+process.chdir(checkRoot);
 const base = resolveBase();
 const baseFiles = readBaseFiles(base.commit);
 if (baseFiles.size === 0) {

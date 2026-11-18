@@ -16,7 +16,7 @@ function lint(files: Record<string, string>) {
     }
     const result = Bun.spawnSync([process.execPath, checker], {
       cwd,
-      env: isolatedGitEnv(),
+      env: { ...isolatedGitEnv(), TEARLEADS_CHECK_ROOT: cwd },
       stdout: "pipe",
       stderr: "pipe",
     });

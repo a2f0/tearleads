@@ -19,7 +19,7 @@ case "$STACK" in
     ;;
   *) usage; exit 1 ;;
 esac
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 # shellcheck source=./teardownGuard.sh
 # shellcheck disable=SC1091
 source "$REPO_ROOT/terraform/scripts/teardownGuard.sh"

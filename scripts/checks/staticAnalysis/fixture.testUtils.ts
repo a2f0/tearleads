@@ -30,7 +30,7 @@ export function isolatedGitEnv(): Record<string, string | undefined> {
 
 export function fixture() {
   const cwd = mkdtempSync(join(tmpdir(), "tearleads-static-analysis-"));
-  const env = isolatedGitEnv();
+  const env = { ...isolatedGitEnv(), TEARLEADS_CHECK_ROOT: cwd };
   const git = (...args: string[]) =>
     execFileSync(
       "git",

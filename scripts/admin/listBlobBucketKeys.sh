@@ -44,7 +44,7 @@ main() {
   fi
 
   local repo_root
-  repo_root="$(git rev-parse --show-toplevel)"
+  repo_root="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 
   umask 077
   local storage_json

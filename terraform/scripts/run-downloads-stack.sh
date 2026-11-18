@@ -15,7 +15,7 @@ case "$TIER:$ACTION" in
 esac
 shift 2
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/downloads"
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"

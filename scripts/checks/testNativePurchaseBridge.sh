@@ -7,7 +7,7 @@ case "$platform" in
   *) echo "Usage: testNativePurchaseBridge.sh android|ios" >&2; exit 2 ;;
 esac
 
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git -C "$(dirname -- "$0")" rev-parse --show-toplevel)"
 bun --bun run turbo run build --filter=app-capacitor^...
 cd packages/app-capacitor
 VITE_API_BASE_URL=https://api-staging.tearleads.com bun run build

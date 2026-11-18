@@ -16,7 +16,7 @@
 
 set -eu
 
-cd "$(git rev-parse --show-toplevel)/scripts"
+cd "$(git -C "$(dirname -- "$0")" rev-parse --show-toplevel)/scripts"
 
 exec bun test \
   ../packages/api/src/documents/documentBaselineDominance.test.ts \

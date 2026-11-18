@@ -10,7 +10,9 @@
  * map fails this check instead of silently making the documentation
  * prose-only.
  */
+
 import { dirname, join, relative, resolve } from "node:path";
+import { checkRoot } from "../lib/checkRoot";
 import { readSourceFiles, walkFiles } from "./formalSourceFiles";
 
 const TABLE_HEADER_PATTERN =
@@ -441,7 +443,7 @@ export function isProductionSourcePath(path: string): boolean {
 }
 
 if (import.meta.main) {
-  const root = process.cwd();
+  const root = checkRoot;
   const toRelative = (file: FormalSourceFile): FormalSourceFile => ({
     content: file.content,
     path: relative(root, resolve(root, file.path)),

@@ -29,7 +29,7 @@ configure_sentry_env() {
     return 1
   fi
   if [[ -n "$BUN_PUBLIC_SENTRY_DSN" ]]; then
-    BUN_PUBLIC_SENTRY_COMMIT="$(git rev-parse HEAD)" || return 1
+    BUN_PUBLIC_SENTRY_COMMIT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse HEAD)" || return 1
   fi
   export BUN_PUBLIC_SENTRY_DSN BUN_PUBLIC_SENTRY_ENVIRONMENT BUN_PUBLIC_SENTRY_COMMIT SENTRY_PROJECT
 }

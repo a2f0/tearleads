@@ -28,7 +28,7 @@ destroy_tier_report() {
 }
 
 destroy_tier() {
-  destroy_tier_root="$(git rev-parse --show-toplevel)"
+  destroy_tier_root="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
   destroy_tier_terraform="$destroy_tier_root/terraform/scripts"
   # shellcheck source=scripts/lib/stepTimings.sh
   # shellcheck disable=SC1091

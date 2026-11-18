@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import * as ts from "typescript";
+import { checkRoot } from "../lib/checkRoot";
 
 const packageRoot = "packages";
 const skippedPackageNames = new Set(["test-utils"]);
@@ -185,6 +186,7 @@ function collectTrustedIdentityBoundaryViolations(
   return violations;
 }
 
+process.chdir(checkRoot);
 const sourceRoots = await listPackageSourceRoots();
 const sourceFiles = (
   await Promise.all(

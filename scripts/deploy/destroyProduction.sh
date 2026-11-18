@@ -26,7 +26,7 @@ for argument in "$@"; do
   esac
 done
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 if [[ "$AUTO_APPROVE" -eq 0 ]]; then
   # The domain is read in a subshell so the prompt does not export production
   # secrets to the steps; each step loads what it needs.

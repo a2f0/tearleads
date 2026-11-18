@@ -1,9 +1,10 @@
+import { checkRoot } from "../lib/checkRoot";
 import {
   canonicalOrderingRoots,
   scanCanonicalOrdering,
 } from "./canonicalOrdering";
 
-const violations = scanCanonicalOrdering(process.cwd());
+const violations = scanCanonicalOrdering(checkRoot);
 
 if (violations.length > 0) {
   console.error(

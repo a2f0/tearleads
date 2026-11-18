@@ -7,8 +7,9 @@
  * (packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts)
  * drives the fixture through the real dominance and redirect kernels.
  */
-import { spawnSync } from "node:child_process";
+
 import { join } from "node:path";
+import { checkRoot } from "../lib/checkRoot";
 import { resolveTlcTools, runTlc } from "./tlcTools";
 
 const EXPORT_MODULE = "formal/document-sync/BaselineDominanceTraceExport.tla";
@@ -38,16 +39,6 @@ interface ExportedBehavior {
 function fail(message: string): never {
   console.error(`Error: ${message}`);
   process.exit(1);
-}
-
-function repoRoot(): string {
-  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], {
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
-    fail("the trace generator must run inside a Git repository.");
-  }
-  return result.stdout.trim();
 }
 
 function runTraceExport(root: string): string {
@@ -189,7 +180,7 @@ if (
   );
 }
 
-const root = repoRoot();
+const root = checkRoot;
 const fixture = renderFixture(runTraceExport(root));
 const fixtureFile = Bun.file(join(root, FIXTURE_PATH));
 

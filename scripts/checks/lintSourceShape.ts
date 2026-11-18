@@ -1,3 +1,4 @@
+import { checkRoot } from "../lib/checkRoot";
 import {
   type FileSizeBudget,
   parseSourceShapeBaseline,
@@ -15,6 +16,7 @@ const byteLimit = 20_000;
 // so documents get a larger byte budget under the same line limit.
 const markdownByteLimit = 40_000;
 
+process.chdir(checkRoot);
 const snapshot = sourceShapeSnapshot(process.argv.slice(2));
 const baselineBuffer = snapshot.read("scripts/checks/sourceShapeBaseline.json");
 if (!baselineBuffer)

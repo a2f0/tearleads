@@ -2,7 +2,7 @@
 
 set -e
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git -C "$(dirname -- "$0")" rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 # Pass --adopt only for an inspected installation from the previous installer.

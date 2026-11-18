@@ -10,7 +10,7 @@ fail() {
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd) ||
   fail "could not resolve the protocol check script directory."
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
+REPO_ROOT=$(git -C "${TEARLEADS_CHECK_ROOT:-$SCRIPT_DIR}" rev-parse --show-toplevel 2>/dev/null) ||
   fail "Protocol model checks must run inside a Git repository."
 REGISTRY_PATH=formal/protocol-models.txt
 

@@ -17,7 +17,7 @@ assert_contains() {
   esac
 }
 
-SOURCE_ROOT=$(git rev-parse --show-toplevel)
+SOURCE_ROOT=$(CDPATH='' cd -P -- "$(dirname -- "$0")/../.." && pwd -P)
 CHECK_SCRIPT=$SOURCE_ROOT/scripts/checks/checkOpenApiCompatibility.sh
 FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/openapiCompatibility
 TEST_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/openapi-compatibility.XXXXXX")
@@ -31,6 +31,7 @@ done
 trap 'rm -rf "$TEST_ROOT"' EXIT
 trap 'exit 1' HUP INT TERM
 
+export TEARLEADS_CHECK_ROOT="$TEST_ROOT"
 git init --quiet --initial-branch=main "$TEST_ROOT"
 git -C "$TEST_ROOT" config commit.gpgsign false
 git -C "$TEST_ROOT" config user.email test@tearleads.com

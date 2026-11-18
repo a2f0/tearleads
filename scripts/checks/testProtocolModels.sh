@@ -21,7 +21,7 @@ assert_contains() {
 # values exported by the caller must not change them.
 unset PROTOCOL_TLC_PARALLELISM PROTOCOL_TLC_FAILURE_LOG_DIR
 
-SOURCE_ROOT=$(git rev-parse --show-toplevel)
+SOURCE_ROOT=$(CDPATH='' cd -P -- "$(dirname -- "$0")/../.." && pwd -P)
 CHECK_SCRIPT=$SOURCE_ROOT/scripts/checks/checkProtocolModels.sh
 FIXTURE_ROOT=$SOURCE_ROOT/scripts/checks/fixtures/protocolModels
 
@@ -39,6 +39,7 @@ interrupted_check=
 trap '[ -z "$interrupted_check" ] || kill -TERM "$interrupted_check" 2>/dev/null; rm -rf "$TEST_ROOT"' EXIT
 trap 'exit 1' HUP INT TERM
 
+export TEARLEADS_CHECK_ROOT="$TEST_ROOT"
 git init --quiet --initial-branch=main "$TEST_ROOT"
 mkdir -p "$TEST_ROOT/bin" "$TEST_ROOT/tla-tools"
 cp -R "$FIXTURE_ROOT/formal" "$TEST_ROOT/formal"

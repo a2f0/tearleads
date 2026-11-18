@@ -8,7 +8,7 @@ fi
 ACTION="$1"
 shift
 case "$ACTION" in init | plan | apply | output) ;; *) echo "ERROR: Unsupported continuity action: $ACTION" >&2; exit 1 ;; esac
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 # shellcheck source=./common.sh
 # shellcheck disable=SC1091
 source "$REPO_ROOT/terraform/scripts/common.sh"

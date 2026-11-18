@@ -31,7 +31,7 @@ if [[ "$AUTO_APPROVE" -eq 0 ]]; then
   fi
 fi
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 # shellcheck source=scripts/deploy/destroyTier.sh
 # shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/deploy/destroyTier.sh"

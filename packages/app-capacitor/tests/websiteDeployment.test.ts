@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chmod, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
@@ -9,7 +9,10 @@ async function runWebsite(
   failure = "",
   teardownAuthorization = "",
 ) {
-  const root = await mkdtemp(resolve(tmpdir(), "tearleads-website-deploy-"));
+  const matrix = await realpath(
+    await mkdtemp(resolve(tmpdir(), "tearleads website ")),
+  );
+  const root = resolve(matrix, "checkouts/tearleads");
   async function executable(path: string, source: string) {
     await mkdir(dirname(path), { recursive: true });
     await Bun.write(path, source);
@@ -38,10 +41,14 @@ async function runWebsite(
         },
       );
     }
-    await executable(
-      resolve(root, "bin/git"),
-      '#!/bin/sh\nprintf "%s\\n" "$WEBSITE_TEST_ROOT"\n',
-    );
+    for (const cwd of [matrix, root]) {
+      expect(
+        Bun.spawnSync(["git", "init", "--quiet"], {
+          cwd,
+          env: { PATH: "/usr/bin:/bin" },
+        }).exitCode,
+      ).toBe(0);
+    }
     await executable(
       resolve(root, "terraform/scripts/common.sh"),
       [
@@ -72,22 +79,25 @@ async function runWebsite(
       ].join("\n"),
     );
     const log = resolve(root, "calls.log");
-    const child = Bun.spawn(["bash", resolve(root, script), ...args], {
-      env: {
-        PATH: `${root}/bin:/usr/bin:/bin`,
-        WEBSITE_TEST_ROOT: root,
-        WEBSITE_TEST_LOG: log,
-        WEBSITE_TEST_FAILURE: failure,
-        TEARLEADS_TEARDOWN_TIER: teardownAuthorization,
-        TF_VAR_cloudflare_api_token: "fixture-token",
-        TF_VAR_cloudflare_account_id: "fixture-account",
-        PUBLIC_ENVIRONMENT: "",
-        PUBLIC_STRIPE_CUSTOMER_PORTAL_URL:
-          "https://billing.stripe.com/p/login/live_fixture",
+    const child = Bun.spawn(
+      ["bash", `./checkouts/tearleads/${script}`, ...args],
+      {
+        cwd: matrix,
+        env: {
+          PATH: `${root}/bin:/usr/bin:/bin`,
+          WEBSITE_TEST_LOG: log,
+          WEBSITE_TEST_FAILURE: failure,
+          TEARLEADS_TEARDOWN_TIER: teardownAuthorization,
+          TF_VAR_cloudflare_api_token: "fixture-token",
+          TF_VAR_cloudflare_account_id: "fixture-account",
+          PUBLIC_ENVIRONMENT: "",
+          PUBLIC_STRIPE_CUSTOMER_PORTAL_URL:
+            "https://billing.stripe.com/p/login/live_fixture",
+        },
+        stdout: "pipe",
+        stderr: "pipe",
       },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    );
     const [exitCode, stdout, stderr] = await Promise.all([
       child.exited,
       new Response(child.stdout).text(),
@@ -99,7 +109,7 @@ async function runWebsite(
     expect(stdout + stderr).not.toContain("fixture-token");
     return { exitCode, stdout, stderr, calls };
   } finally {
-    await rm(root, { recursive: true, force: true });
+    await rm(matrix, { recursive: true, force: true });
   }
 }
 

@@ -26,7 +26,7 @@ function fixture(files: Record<string, string>) {
     mkdirSync(dirname(join(cwd, path)), { recursive: true });
     writeFileSync(join(cwd, path), source);
   }
-  const env = isolatedGitEnv();
+  const env = { ...isolatedGitEnv(), TEARLEADS_CHECK_ROOT: cwd };
   for (const args of [
     ["init", "-q"],
     ["add", "-A"],

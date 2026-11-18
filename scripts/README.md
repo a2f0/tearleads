@@ -4,7 +4,7 @@ Commands are grouped by purpose. Root [`package.json`](../package.json) scripts
 are the stable entrypoints for automated checks, builds, and publishing, such as
 `bun run check:fast`, `bun run lint:architecture`, or
 `bun run test:static-analysis`. Direct shell shortcuts live in the groups
-below; run them from the repository root, for example
+below. Invoke them by path from the checkout or its parent workspace, for example
 [`./scripts/dev/runApp.sh`](dev/runApp.sh),
 [`./scripts/release/buildIosRelease.sh`](release/buildIosRelease.sh), or
 [`./scripts/deploy/deployStaging.sh`](deploy/deployStaging.sh).
@@ -24,6 +24,12 @@ below; run them from the repository root, for example
 | [`protocol/`](protocol/) | Formal protocol checks, trace generation and projection, negative controls, and their tests. |
 | [`release/`](release/) | Native and desktop release builds/uploads, npm publishing, and their helpers and tests. |
 | [`testing/`](testing/) | Test runners, screenshots, device-test launchers, and verification evidence. |
+
+From a matrix workspace, prefix a checkout shortcut with its path, such as
+`./checkouts/tearleads/scripts/deploy/deployProductionWebsite.sh`.
+Scripts find repository files from their installed location. Check and
+verification tools that support fixture trees accept an explicit
+`TEARLEADS_CHECK_ROOT`. Git hooks use the checkout supplied by Git.
 
 ## Scope evaluations
 

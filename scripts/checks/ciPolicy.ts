@@ -27,6 +27,7 @@ export function ciScopes(paths: readonly string[]) {
       ),
     proofs:
       common ||
+      paths.includes("scripts/lib/checkRoot.ts") ||
       paths.some((path) =>
         /^(formal\/lean\/|scripts\/protocol\/(generateTransparencyVectors|leanTools)\.ts$)/.test(
           path,

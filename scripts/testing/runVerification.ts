@@ -1,3 +1,4 @@
+import { checkRoot } from "../lib/checkRoot";
 import { verificationPlan, verificationUsage } from "./verificationPlan";
 import {
   saveVerificationReport,
@@ -140,7 +141,7 @@ try {
   if (args.includes("--help") && args.length <= 2) {
     console.log(verificationUsage);
   } else {
-    const root = verificationGit(process.cwd(), "rev-parse", "--show-toplevel");
+    const root = verificationGit(checkRoot, "rev-parse", "--show-toplevel");
     process.exitCode = await verify(root, verificationPlan(root, args));
   }
 } catch (error) {

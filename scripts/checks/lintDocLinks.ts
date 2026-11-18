@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { checkRoot } from "../lib/checkRoot";
 import {
   codeReferenceIssues,
   isCodeReferenceDocument,
@@ -33,11 +34,13 @@ const { values, positionals } = parseArgs({
   },
 });
 
-const root = process.cwd();
+const root = checkRoot;
 const repo = repositoryFiles(root, listRepositoryFiles(root));
 const documents =
   positionals.length > 0
-    ? positionals.map((path) => path.replace(/^\.\//, ""))
+    ? positionals.map((path) =>
+        relative(root, resolve(path)).split("\\").join("/"),
+      )
     : documentsToCheck(repo);
 
 if (values.fix) {

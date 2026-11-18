@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { checkRoot } from "../lib/checkRoot";
 import { ciDiffRange, ciScopes } from "./ciPolicy";
 
 const {
@@ -14,7 +15,7 @@ if (range) {
   const paths = execFileSync(
     "git",
     ["diff", "--name-only", "--no-renames", "-z", range, "--"],
-    { encoding: "utf8" },
+    { cwd: checkRoot, encoding: "utf8" },
   ).split("\0");
   scopes = ciScopes(paths);
 }

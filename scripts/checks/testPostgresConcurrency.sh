@@ -7,7 +7,7 @@ fail() {
   exit 1
 }
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
+REPO_ROOT=$(git -C "$(dirname -- "$0")" rev-parse --show-toplevel 2>/dev/null) ||
   fail "The Postgres concurrency lane must run inside a Git repository."
 
 cd "$REPO_ROOT"

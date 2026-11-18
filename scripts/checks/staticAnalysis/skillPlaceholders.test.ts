@@ -22,6 +22,7 @@ function fixture(files: Record<string, string>) {
   const lint = () => {
     const result = Bun.spawnSync([process.execPath, linter], {
       cwd,
+      env: { ...process.env, TEARLEADS_CHECK_ROOT: cwd },
       stdout: "pipe",
       stderr: "pipe",
     });

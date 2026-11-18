@@ -30,7 +30,7 @@ case "$TIER" in
     ;;
 esac
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 API_DIR="$REPO_ROOT/packages/api"
 
 # shellcheck source=../../../terraform/scripts/common.sh

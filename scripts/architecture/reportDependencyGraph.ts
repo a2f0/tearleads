@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { cruise, type OutputType } from "dependency-cruiser";
+import { checkRoot } from "../lib/checkRoot";
 
 import {
   createDependencyCruiserOptions,
@@ -81,7 +82,7 @@ function parseCliOptions(args: string[]): CliOptions {
     }
 
     if (arg === "--output" || arg === "-o") {
-      options.outputPath = nextArg(args, index, arg);
+      options.outputPath = resolve(nextArg(args, index, arg));
       index += 1;
       continue;
     }
@@ -99,6 +100,7 @@ async function writeOutput(outputPath: string, content: string): Promise<void> {
 
 async function main() {
   const options = parseCliOptions(process.argv.slice(2));
+  process.chdir(checkRoot);
   const result = await cruise(
     dependencyCruiserEntryPoints,
     createDependencyCruiserOptions(options.format),

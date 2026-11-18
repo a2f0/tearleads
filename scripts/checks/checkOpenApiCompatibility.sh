@@ -11,10 +11,10 @@ fail() {
   exit 1
 }
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) ||
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT=$(git -C "${TEARLEADS_CHECK_ROOT:-$script_dir}" rev-parse --show-toplevel 2>/dev/null) ||
   fail "OpenAPI compatibility must run inside a Git repository."
 
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 cd "$REPO_ROOT"
 
 if [ -n "${OASDIFF_BIN:-}" ]; then

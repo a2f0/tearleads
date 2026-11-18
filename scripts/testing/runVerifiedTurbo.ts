@@ -1,5 +1,6 @@
 import { basename, dirname, resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
+import { checkRoot } from "../lib/checkRoot";
 import { assertCompletedTurboRun, plannedTurboTasks } from "./turboRunEvidence";
 
 const verificationTasks = new Set([
@@ -23,7 +24,7 @@ async function run() {
     turboArgs.some((arg) => /^--(?:dry(?:-run)?|summarize|ui)(?:=|$)/.test(arg))
   )
     throw new Error("Turbo evidence flags are managed by this runner");
-  const cwd = process.cwd();
+  const cwd = checkRoot;
   const turbo = resolve(cwd, "node_modules/.bin/turbo");
   const plan = Bun.spawn([turbo, "run", task, "--dry-run=json", ...args], {
     cwd,
