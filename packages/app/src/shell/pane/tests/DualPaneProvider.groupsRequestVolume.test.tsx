@@ -101,10 +101,10 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // acknowledgement: 490,761 bytes received. Losing that cache (503,042) or
   // the return of directory keys (501,957) exceeds this ceiling. Container
   // mutations send manifest hashes alone: 130,342 bytes sent (134,118 with
-  // manifests, which exceeds this ceiling). Policy legs in their
-  // predecessor's key epoch send member envelopes as changes to the held
-  // predecessor's set: P17_SENT bytes sent.
-  bodyBytes: { request: 132_000, response: 500_000 },
+  // manifests). Policy legs in their predecessor's key epoch send member
+  // envelopes as changes to the held predecessor's set: 110,968 bytes sent
+  // (130,342 with every list in full, which exceeds this ceiling).
+  bodyBytes: { request: 113_000, response: 500_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,
