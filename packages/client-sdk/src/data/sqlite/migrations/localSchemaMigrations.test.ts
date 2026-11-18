@@ -151,9 +151,44 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3]);
+    ).toEqual([1, 2, 3, 4]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
+  } finally {
+    close();
+  }
+});
+
+test("step 4 replays only document lanes an earlier SDK advanced in publication order", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-discovery-replay",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 2),
+    });
+    await execSql(
+      "CREATE TABLE container_sync_watermarks (lane_id TEXT PRIMARY KEY, lane_kind TEXT, watermark_id TEXT)",
+    );
+    await execSql(`INSERT INTO container_sync_watermarks VALUES
+      ('skipped-unlink', 'container_documents', '123/doc'),
+      ('legacy', 'container_documents', 'doc'),
+      ('parent', 'container_parent', '123/folder')`);
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+    expect(
+      await execSql(
+        "SELECT lane_id FROM container_sync_watermarks ORDER BY lane_id",
+      ),
+    ).toEqual([{ lane_id: "legacy" }, { lane_id: "parent" }]);
+    await execSql(
+      "INSERT INTO container_sync_watermarks VALUES ('replayed', 'container_documents', '124/doc')",
+    );
+    expect((await migrateLocalSchema(execSql)).status).toBe("current");
+    expect(
+      await execSql(
+        "SELECT lane_id FROM container_sync_watermarks WHERE lane_id = 'replayed'",
+      ),
+    ).toHaveLength(1);
   } finally {
     close();
   }

@@ -4,8 +4,8 @@ import type {
 } from "@tearleads/validators/response";
 import { isCanonicalSignedAt } from "@tearleads/validators/util";
 import { removeIndexedContainerChild } from "./lanes/childIndex";
+import { resolveTombstoneCascade } from "./lanes/tombstoneAccess";
 import { containerStateMatchesFingerprint } from "./remoteContainers/containerStateFingerprint";
-import { collectRemovedContainers } from "./tombstoneReasons";
 import type {
   ContainerChildIndex,
   ExpectedContainerState,
@@ -88,24 +88,20 @@ async function applyContainerTombstoneCascade(input: {
   state: RemoteContainerHydrationState;
   tombstone: ContainerSyncTombstone;
 }): Promise<{ current: boolean; removedCount: number; settled: boolean }> {
-  const {
-    childIdsByParentId,
-    expectedContainerStates,
-    preservedContainerIds,
-    state,
-    tombstone,
-  } = input;
+  const { childIdsByParentId, expectedContainerStates, state } = input;
+  const resolved = await resolveTombstoneCascade(input);
+  if (!resolved)
+    return {
+      current: input.isCurrent?.() !== false,
+      removedCount: 0,
+      settled: false,
+    };
   const {
     fenceOnlyContainerIds,
     absentDeletedContainerIds,
     removalByContainerId,
     removedContainerIds,
-  } = collectRemovedContainers({
-    childIdsByParentId,
-    containersById: state.containersById,
-    preservedContainerIds,
-    tombstones: [tombstone],
-  });
+  } = resolved.cascade;
   const affectedContainerIds = new Set([
     ...removedContainerIds,
     ...absentDeletedContainerIds,
@@ -137,6 +133,9 @@ async function applyContainerTombstoneCascade(input: {
       discoveryOnly: true,
       expectedContainers: Array.from(affectedContainerIds, (containerId) => ({
         containerId,
+        ...(resolved.denied?.has(containerId)
+          ? { confirmedAccessLoss: true as const }
+          : {}),
         expectedContainer:
           expectedContainerStates.get(containerId)?.container ?? null,
       })),

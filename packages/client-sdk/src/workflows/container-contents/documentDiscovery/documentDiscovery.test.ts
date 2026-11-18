@@ -322,20 +322,34 @@ test("container document discovery applies tombstones before advancing watermark
     },
     containerId: "shared-container",
     loadContainerDocumentWatermark: async () => null,
-    listContainerDocumentLanes: laneLister(async () =>
-      listContainerDocumentsResponse([], {
-        nextWatermark: {
-          id: "deleted-document",
-          updatedAt: "2026-04-06T12:00:00.000Z",
-        },
-        tombstones: [
-          {
-            containerId: "shared-container",
-            documentId: "deleted-document",
-            updatedAt: "2026-04-06T12:00:00.000Z",
-          },
-        ],
-      }),
+    listContainerDocumentLanes: laneLister(async (_id, { watermark }) =>
+      !watermark
+        ? listContainerDocumentsResponse(
+            [
+              {
+                id: "deleted-document",
+                linkedContainerIds: ["shared-container"],
+                currentAccessEpoch: 1,
+                currentAccessStateHash: "earlier-head",
+                createdAt: "2026-04-01T00:00:00.000Z",
+                updatedAt: "2026-04-09T00:00:00.000Z",
+              },
+            ],
+            { hasMore: true },
+          )
+        : listContainerDocumentsResponse([], {
+            nextWatermark: {
+              id: "deleted-document",
+              updatedAt: "2026-04-06T12:00:00.000Z",
+            },
+            tombstones: [
+              {
+                containerId: "shared-container",
+                documentId: "deleted-document",
+                updatedAt: "2026-04-06T12:00:00.000Z",
+              },
+            ],
+          }),
     ),
     replaceDocumentLinksBatch: async () => {
       applyOrder.push("replace-links");
@@ -350,7 +364,12 @@ test("container document discovery applies tombstones before advancing watermark
     },
   });
 
-  expect(applyOrder).toEqual(["apply-tombstones", "save-watermark"]);
+  expect(applyOrder).toEqual([
+    "upsert-documents",
+    "replace-links",
+    "apply-tombstones",
+    "save-watermark",
+  ]);
   expect(appliedTombstones).toEqual([
     [
       {

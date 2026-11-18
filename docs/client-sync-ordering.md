@@ -109,11 +109,7 @@ position as its database transaction commits. The four sources share a sequence
 because a page can mix live rows and removals, and root discovery crosses
 organizations. Deferred triggers take a transaction-scoped lock before drawing
 from the sequence and hold it through commit. A rollback can leave a gap.
-Live entity timestamps retain their original meaning. Each position also tracks
-the greatest entity clock published so far. A container tombstone reports at
-least that time, to millisecond precision, so a delayed revocation can remove a
-cached container or descendant even when its writer sampled an older clock.
-The SDK still compares the exact local row it observed before the request. See the
+Entity timestamps retain their original meaning. See the
 [publication migration](../packages/api-shared/drizzle/0005_publish_discovery_order.sql).
 
 Each lane reads its live rows and tombstones in a single SQL statement, so
@@ -126,6 +122,17 @@ applying the complete lane. After a restart, each resumes from its last
 durable checkpoint, replaying any intervening pages.
 Postgres and PGlite run the same migration. The SQLite client stores the
 cursor verbatim. See [API database support](./developer/api-persistence.md#database).
+
+When a cached container or descendant carries a later entity timestamp than
+its removal, the SDK checks current access to the affected rows with bounded
+document-lane reads. It retains readable descendants and applies confirmed
+denials or absence only if the local rows still match the pre-request snapshot.
+An inconclusive read leaves the page retryable. Document removals, including
+those received after a live item on an earlier page, reach the signed-head
+check for locally held placements. These client-side recovery changes require
+the updated SDK. Earlier clients can read and resume the new cursors. On
+upgrade, the SDK clears document-lane publication cursors once, so it also
+replays any unlinks an earlier client already checkpointed.
 
 ### Container metadata under lost hints
 

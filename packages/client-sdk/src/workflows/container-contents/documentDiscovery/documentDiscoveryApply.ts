@@ -2,7 +2,7 @@ import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { withoutDeferredDocumentLinks } from "../documentLinks/deferredDocumentLinks";
 import { settleContainerDocumentTombstones } from "../tombstones/documentTombstoneGate";
-import { getApplicableDocumentTombstones } from "./documentDiscoveryInputs";
+import { unopposedDocumentTombstones } from "./documentDiscoveryInputs";
 import type {
   DiscoverContainerDocumentsOptions,
   ListedContainerDocuments,
@@ -67,7 +67,7 @@ export async function applyListedContainerDocuments(
     })),
     [containerId],
     generation,
-    getApplicableDocumentTombstones(listedDocuments),
+    unopposedDocumentTombstones(listedDocuments),
   );
   if (!(await verification.isCurrent())) return null;
   const verifiedInputs = verification.inputs;
@@ -91,7 +91,9 @@ export async function applyListedContainerDocuments(
   const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
     containerIds: [containerId],
     store: options,
-    tombstones: getApplicableDocumentTombstones(listedDocuments),
+    // A later page can unlink a live item with an older entity clock.
+    // All removal hints reach the signed current-head gate for held placements.
+    tombstones: listedDocuments.tombstones,
   });
 
   const complete = await verification.commit();

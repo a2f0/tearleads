@@ -127,7 +127,8 @@ async function canApplyContainerRemovals(input: {
     const guard = guardById.get(removal.containerId);
     return (
       (!guard || sameGuardedContainerRow(currentRow, guard)) &&
-      (currentRow?.serverUpdatedAt == null ||
+      (guard?.confirmedAccessLoss ||
+        currentRow?.serverUpdatedAt == null ||
         currentRow.serverUpdatedAt <= removal.updatedAt)
     );
   });

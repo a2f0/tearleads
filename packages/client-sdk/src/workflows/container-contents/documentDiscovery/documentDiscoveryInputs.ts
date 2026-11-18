@@ -1,28 +1,19 @@
 import type {
   ContainerDocumentTombstone,
-  ListedContainerDocument,
   ListedContainerDocuments,
 } from "./documentDiscoveryTypes";
 
-export function getApplicableDocumentTombstones(
+/** Preserve a conflicting live candidate for signed-head verification. */
+export function unopposedDocumentTombstones(
   listedDocuments: ListedContainerDocuments,
 ): ContainerDocumentTombstone[] {
-  const latestItemsByDocumentId = new Map<string, ListedContainerDocument>();
-  for (const document of listedDocuments.items) {
-    const existingDocument = latestItemsByDocumentId.get(document.id);
-    if (
-      !existingDocument ||
-      existingDocument.updatedAt.localeCompare(document.updatedAt) < 0
-    ) {
-      latestItemsByDocumentId.set(document.id, document);
-    }
+  const linkedByDocument = new Map<string, Set<string>>();
+  for (const item of listedDocuments.items) {
+    const linked = linkedByDocument.get(item.id) ?? new Set<string>();
+    for (const id of item.linkedContainerIds) linked.add(id);
+    linkedByDocument.set(item.id, linked);
   }
-
-  return listedDocuments.tombstones.filter((tombstone) => {
-    const item = latestItemsByDocumentId.get(tombstone.documentId);
-    return (
-      !item?.linkedContainerIds.includes(tombstone.containerId) ||
-      item.updatedAt.localeCompare(tombstone.updatedAt) < 0
-    );
-  });
+  return listedDocuments.tombstones.filter(
+    (row) => !linkedByDocument.get(row.documentId)?.has(row.containerId),
+  );
 }

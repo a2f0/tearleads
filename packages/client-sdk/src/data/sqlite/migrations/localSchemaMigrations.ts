@@ -73,6 +73,17 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 3,
   },
+  {
+    name: "replay_commit_ordered_document_discovery",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("container_sync_watermarks"))) return;
+      // A previous SDK could save a publication cursor past an older-clock
+      // unlink. Original UUID cursors already replay on the upgraded server.
+      await execSql(`DELETE FROM container_sync_watermarks
+        WHERE lane_kind = 'container_documents' AND instr(watermark_id, '/') > 0`);
+    },
+    version: 4,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

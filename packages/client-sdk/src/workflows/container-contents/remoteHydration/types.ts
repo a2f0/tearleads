@@ -1,4 +1,5 @@
 import type {
+  ApiClient,
   RequestResult,
   WriterProjectionListing,
 } from "@tearleads/api-client";
@@ -86,6 +87,7 @@ interface RemoteContainerHydrationApi
     containerId: string,
     replacesOrganizationId: string,
   ): Promise<RequestResult<ContainerReplacementAuthorizationsResponse>>;
+  listContainerDocumentLanes: ApiClient["listContainerDocumentLanes"];
   evictContainerWriterProjection(containerId: string): void;
   evictWriterProjectionsCiting(containerIds: readonly string[]): void;
   getContainerWriterProjection(

@@ -120,9 +120,9 @@ test("POST /containers/:containerId/revoke advances the KEK epoch", async () => 
       updatedAt: expect.any(String),
     },
   ]);
-  expect(
-    Date.parse(firstTombstone(recipientDelta).updatedAt),
-  ).toBeGreaterThanOrEqual(cachedUpdatedAt.getTime());
+  expect(Date.parse(firstTombstone(recipientDelta).updatedAt)).toBeLessThan(
+    cachedUpdatedAt.getTime(),
+  );
   expect(recipientDelta.nextWatermark).toEqual({
     id: expectedDiscoveryId(created.containerId),
     updatedAt: firstTombstone(recipientDelta).updatedAt,

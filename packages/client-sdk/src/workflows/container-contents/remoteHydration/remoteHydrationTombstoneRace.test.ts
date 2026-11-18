@@ -228,7 +228,7 @@ test("a stale tombstone does not starve independent page work", async () => {
   }
 });
 
-test("a stale descendant keeps its whole tombstone cascade retryable", async () => {
+test("a replayed removal checks newer-clock descendants before advancing its cursor", async () => {
   const { close, execSql } = await createTestExecSql(
     "container-hydration-stale-tombstone-descendant",
   );
@@ -247,8 +247,22 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
       "unchanged-child",
       removedRoot.container.id,
     );
+    const stillReadable = existingContainerState(
+      "still-readable",
+      removedRoot.container.id,
+    );
+    const later = "2026-01-03T00:00:00.000Z";
+    for (const row of [unchangedChild, stillReadable, removedRoot]) {
+      row.container.serverUpdatedAt = later;
+    }
+    const legacyCursor = { id: parentState.container.id, updatedAt: later };
+    await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
+      createContainerParentSyncLane(parentState.container.id),
+      legacyCursor,
+    );
     for (const containerState of [
       parentState,
+      stillReadable,
       removedRoot,
       staleChild,
       unchangedChild,
@@ -260,20 +274,52 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
       );
     }
     const pageWatermark = {
-      id: "stale-descendant-page",
+      id: "273/removed-root",
       updatedAt: "2026-01-02T00:00:00.000Z",
     };
     let fetchCount = 0;
     const state = {
       containersById: new Map(
-        [parentState, removedRoot, staleChild, unchangedChild].map(
-          (containerState) => [containerState.container.id, containerState],
-        ),
+        [
+          parentState,
+          removedRoot,
+          staleChild,
+          unchangedChild,
+          stillReadable,
+        ].map((containerState) => [
+          containerState.container.id,
+          containerState,
+        ]),
       ),
       persistence: defaultContainerContentsPersistence,
       runtime: withPrincipalPolicies({
         organizations: containerContentsOrganizationHost,
         apiClient: {
+          listContainerDocumentLanes: async ({
+            lanes,
+          }: {
+            lanes: { containerId: string; laneId: string }[];
+          }) =>
+            fetchCount === 2
+              ? null
+              : {
+                  results: lanes.map(({ containerId, laneId }) =>
+                    containerId === stillReadable.container.id
+                      ? {
+                          laneId,
+                          page: {
+                            items: [],
+                            tombstones: [],
+                            hasMore: false,
+                            nextWatermark: null,
+                          },
+                        }
+                      : {
+                          laneId,
+                          failure: { status: 403, error: "Forbidden" },
+                        },
+                  ),
+                },
           getCurrentPrincipalPolicy: async () => null,
           listContainerParentLanes: async (request: {
             lanes: ReadonlyArray<{ laneId: string }>;
@@ -294,7 +340,7 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
                       containerId: removedRoot.container.id,
                       depth: 1,
                       parentId: parentState.container.id,
-                      reason: "deleted",
+                      reason: "access_revoked",
                       updatedAt: timestamp,
                     },
                   ],
@@ -324,6 +370,7 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
 
     await hydrate();
 
+    expect(state.containersById.has(stillReadable.container.id)).toBe(true);
     for (const containerState of [removedRoot, staleChild, unchangedChild]) {
       expect(state.containersById.has(containerState.container.id)).toBe(true);
       await expect(
@@ -335,10 +382,23 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
     }
     await expect(
       loadParentWatermark(execSql, parentState.container.id),
-    ).resolves.toBeNull();
+    ).resolves.toEqual(legacyCursor);
+
+    await hydrate();
+    expect(state.containersById.has(removedRoot.container.id)).toBe(true);
+    await expect(
+      loadParentWatermark(execSql, parentState.container.id),
+    ).resolves.toEqual(legacyCursor);
 
     await hydrate();
 
+    await expect(
+      defaultContainerContentsPersistence.containerExists(
+        execSql,
+        stillReadable.container.id,
+      ),
+    ).resolves.toBe(true);
+    expect(state.containersById.has(stillReadable.container.id)).toBe(true);
     for (const containerState of [removedRoot, staleChild, unchangedChild]) {
       expect(state.containersById.has(containerState.container.id)).toBe(false);
       await expect(
