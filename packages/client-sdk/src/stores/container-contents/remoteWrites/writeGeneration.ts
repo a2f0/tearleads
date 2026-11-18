@@ -43,6 +43,8 @@ export function captureContainerWriteGeneration(
   const runtime = state.runtime;
   const writeGeneration = state.writeGeneration;
   return () =>
+    !state.syncLane?.isDisposed?.() &&
+    runtime.liveHydrationStatus?.() !== "retired" &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.persistence === persistence &&
     state.writeGeneration === writeGeneration &&

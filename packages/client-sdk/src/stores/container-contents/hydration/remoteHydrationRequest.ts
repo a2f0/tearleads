@@ -145,26 +145,47 @@ function resumeRetainedRecoveryHydration(
     : Promise.resolve();
 }
 
-// A user refresh queued behind an active crawl contributes its reset to the
-// next crawl that consumes the shared parent-lane queue.
+// Keep a requested full reset until a current crawl actually covers it.
+// After the first handoff only another tree refresh takes on that obligation.
 const queuedTreeResets = new WeakMap<
   RemoteHydrationRequestState,
-  { lifecycleGeneration: number; structuralGeneration: number }
+  {
+    lifecycleGeneration: number;
+    structuralGeneration: number;
+    status: "queued" | "incomplete";
+  }
 >();
 
-function takeQueuedTreeReset(
+function prepareTreeReset(
   input: RemoteHydrationRequestInput,
 ): RemoteHydrationRequestInput {
   const queued = queuedTreeResets.get(input.state);
   if (!queued) return input;
-  queuedTreeResets.delete(input.state);
-  return isRequestGenerationCurrent({ ...queued, state: input.state })
-    ? {
-        ...input,
-        followDiscoveredParentLanes: true,
-        resetAllLaneWatermarks: true,
-      }
-    : input;
+  if (!isRequestGenerationCurrent({ ...queued, state: input.state })) {
+    queuedTreeResets.delete(input.state);
+    return input;
+  }
+  if (
+    queued.status === "incomplete" &&
+    !input.reconnect &&
+    !input.resetAllLaneWatermarks
+  )
+    return input;
+  queued.status = "incomplete";
+  const onCovered = input.recreateOnFullyHydratedAtStart
+    ? input.recreateOnFullyHydratedAfterReset?.()
+    : input.onFullyHydrated;
+  return {
+    ...input,
+    followDiscoveredParentLanes: true,
+    resetAllLaneWatermarks: true,
+    recreateOnFullyHydratedAtStart: false,
+    onFullyHydrated: () => {
+      if (queuedTreeResets.get(input.state) === queued)
+        queuedTreeResets.delete(input.state);
+      return onCovered?.();
+    },
+  };
 }
 
 function waitForActiveRemoteHydration(
@@ -182,6 +203,7 @@ function waitForActiveRemoteHydration(
     state.remoteHydrationStructuralGeneration !== state.structuralGeneration;
   if (input.resetAllLaneWatermarks && input.followDiscoveredParentLanes) {
     queuedTreeResets.set(state, {
+      status: "queued",
       lifecycleGeneration: requestLifecycleGeneration,
       structuralGeneration: requestStructuralGeneration,
     });
@@ -374,7 +396,7 @@ export function requestContainerContentsRemoteHydration(
     return readinessBarrier;
   }
 
-  input = takeQueuedTreeReset(input);
+  input = prepareTreeReset(input);
   const { followDiscoveredParentLanes, parentIds } =
     consumeQueuedHydrationScope(state, input.followDiscoveredParentLanes);
 

@@ -124,9 +124,10 @@ test("requests queued across a reset settle with the recovery crawl", async () =
   }
 });
 
-test.each([false, true])(
-  "a manual reset survives supersession (offline during handoff: %s)",
-  async (offline) => {
+test.each(["superseded", "offline", "listing unavailable"] as const)(
+  "a manual reset survives a reconnect handoff: %s",
+  async (scenario) => {
+    const offline = scenario === "offline";
     const { close, execSql } = await createTestExecSql(
       "manual-refresh-handoff",
     );
@@ -147,6 +148,7 @@ test.each([false, true])(
       const n = requests++;
       started[n]?.resolve();
       await holds[n]?.promise;
+      if (scenario === "listing unavailable" && n === 1) return null;
       return {
         results: lanes.map(({ laneId, watermark }) => ({
           laneId,
@@ -184,7 +186,11 @@ test.each([false, true])(
       });
       holds[0]?.resolve();
       await started[1]?.promise;
-      current = false;
+      current = scenario === "listing unavailable";
+      if (current) {
+        holds[1]?.resolve();
+        await Promise.all([active, reconnect, manual]);
+      }
       let connected = !offline;
       state.runtime = {
         ...state.runtime,

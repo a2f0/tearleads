@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/data/waitFor";
+import { seedLocalRootContainer } from "../../../test/helpers/workflows/containerContentsTestRuntime";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
@@ -143,6 +144,42 @@ test("an outstanding manual refresh cannot overwrite the reopened tree's cursor"
   } finally {
     release.resolve();
     disposeDomainSyncCoordinator(scope);
+    await close();
+  }
+});
+
+test("a queued rename on the disposed tree cannot change the reopened root", async () => {
+  const { execSql, close } = await createTestExecSql("retired-tree-rename");
+  const input = createWorkflowInputFixture({
+    apiClient: createMockApiClient(),
+    execSql,
+    online: false,
+  });
+  const contents = createContainerContents(
+    createInternalRuntimeFixture(() => input),
+  );
+  try {
+    await seedLocalRootContainer(execSql, { rootContainerId: "root" });
+    const old = contents.openTree();
+    old.updateRuntime(contents.workflowRuntime());
+    await waitFor(() => old.getSnapshot().ready, "old tree did not initialize");
+    const queued = old.renameContainer("root", "Obsolete");
+    disposeDomainSyncCoordinator(input.state.domainScope);
+    const reopened = contents.openTree();
+    reopened.updateRuntime(contents.workflowRuntime());
+    await waitFor(
+      () => reopened.getSnapshot().ready,
+      "new tree did not initialize",
+    );
+    expect(await queued).toBeNull();
+    const root =
+      await defaultContainerContentsPersistence.loadContainerMetadataState(
+        execSql,
+        "root",
+      );
+    expect(root?.container.name).not.toBe("Obsolete");
+  } finally {
+    disposeDomainSyncCoordinator(input.state.domainScope);
     await close();
   }
 });
