@@ -20,7 +20,12 @@ const durableObjectsPath = resolve(
   "docs/diagrams/durable-objects.svg",
 );
 /** Every diagram the website inlines. */
-const diagramPaths = [accessKeyingPath, infrastructurePath, durableObjectsPath];
+const diagramPaths = [
+  accessKeyingPath,
+  resolve(repoRoot, "docs/diagrams/local-storage-and-pin.svg"),
+  infrastructurePath,
+  durableObjectsPath,
+];
 const stylesheetPath = resolve(import.meta.dir, "styles/docsDiagram.css");
 
 function usedClasses(svg: string): Set<string> {

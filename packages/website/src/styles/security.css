@@ -1,8 +1,8 @@
 /*
  * /security page layout: header note, comparison pairs, crypto tables,
  * limits, and documentation. The "On this page" contents and columns come
- * from ReadingLayout.astro (readingLayout.css). Fig. 1, Fig. 4, and Fig. 5
- * live in docsDiagram.css, Fig. 2 and Fig. 3 in securityDiagrams.css.
+ * from ReadingLayout.astro (readingLayout.css). SVG figures use docsDiagram.css.
+ * The device and sharing diagrams use securityDiagrams.css.
  * Colors come from tokens.css only.
  *
  * Reading text stays at --site-measure; figures, tables, and spec lists may

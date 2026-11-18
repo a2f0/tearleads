@@ -144,12 +144,12 @@ curl -sI https://www.tearleads.com/ | grep -i '^location'
 
 ![Tearleads infrastructure](../diagrams/infrastructure.svg)
 
-The [infrastructure diagram](../diagrams/infrastructure.svg), also Fig. 4 on
+The [infrastructure diagram](../diagrams/infrastructure.svg), also Fig. 5 on
 the website's /security page, shows one tier's clients, Workers, and storage.
 
 ![Tearleads Durable Objects](../diagrams/durable-objects.svg)
 
-The [Durable Objects diagram](../diagrams/durable-objects.svg), Fig. 5 on
+The [Durable Objects diagram](../diagrams/durable-objects.svg), Fig. 6 on
 /security, breaks out the API's two Durable Objects: the SQLite tables each
 one keeps and the keys and socket state the API writes into them.
 

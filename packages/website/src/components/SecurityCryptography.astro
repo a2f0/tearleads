@@ -1,4 +1,6 @@
 ---
+import localStorageSvg from "../../../../docs/diagrams/local-storage-and-pin.svg?raw";
+import DocsDiagram from "./DocsDiagram.astro";
 import SectionHeader from "./SectionHeader.astro";
 
 /**
@@ -44,7 +46,7 @@ const tables: readonly {
       {
         purpose: "Local key separation",
         tokens: ["HKDF-SHA256"],
-        role: "Derives purpose-specific storage keys from the wrapped local account root key.",
+        role: "Derives each local storage key from the root key for its scope.",
       },
     ],
   },
@@ -133,10 +135,11 @@ const tables: readonly {
     <h3 id="local-storage">Local storage and PIN protection</h3>
     <div class="site-prose">
       <p>
-        The local keyring stores a wrapped account root key and derives keys for
-        the encrypted SQLite database, local files, and identity persistence. In
-        the browser, data is stored in the origin-private file system (OPFS);
-        the keyring manifest and wrapping key normally live in IndexedDB.
+        The app uses separate keyring scopes for its SQLite database, local files,
+        and saved identities. Each scope has its own wrapped root key. The browser
+        uses the origin-private file system (OPFS) for persistent database and file
+        storage. The encrypted identity registry lives in <code>localStorage</code>.
+        The keyring manifest and wrapping key normally live in IndexedDB.
       </p>
       <p>
         The web app persists a Web Crypto key; the desktop and mobile apps
@@ -156,5 +159,10 @@ const tables: readonly {
         remote sharing permissions.
       </p>
     </div>
+    <DocsDiagram svg={localStorageSvg} label="Local storage and PIN protection diagram" captionId="local-storage-caption">
+      <span class="security-figure-label">Fig. 4</span> To reopen the database, follow the path for your PIN setting.
+      Both paths use the host key to unlock the SQLite scope’s root key. Local
+      files and saved identities follow the same pattern with their own roots.
+    </DocsDiagram>
   </div>
 </section>
