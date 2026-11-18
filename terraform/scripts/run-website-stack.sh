@@ -17,6 +17,7 @@ if [[ "$TIER:$ACTION" == prod:destroy ]]; then
   echo "ERROR: Production website domains cannot be destroyed through this wrapper." >&2
   exit 1
 fi
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 # shellcheck source=./common.sh
 # shellcheck disable=SC1091

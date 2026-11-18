@@ -86,6 +86,8 @@ async function runWebsite(
         env: {
           PATH: `${root}/bin:/usr/bin:/bin`,
           WEBSITE_TEST_LOG: log,
+          GIT_DIR: resolve(matrix, ".git"),
+          GIT_WORK_TREE: matrix,
           WEBSITE_TEST_FAILURE: failure,
           TEARLEADS_TEARDOWN_TIER: teardownAuthorization,
           TF_VAR_cloudflare_api_token: "fixture-token",

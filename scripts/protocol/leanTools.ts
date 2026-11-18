@@ -122,7 +122,9 @@ export function resolveLeanTools(root: string): LeanTools {
   const { LEAN_TOOLCHAIN_ROOT } = process.env;
   let toolchainRoot = LEAN_TOOLCHAIN_ROOT;
   if (!toolchainRoot) {
-    const where = runCommand("mise", ["where", "github:leanprover/lean4"]);
+    const where = runCommand("mise", ["where", "github:leanprover/lean4"], {
+      cwd: root,
+    });
     if (!where.ok) {
       fail(
         "the pinned Lean toolchain is not installed; run `mise install github:leanprover/lean4` or set LEAN_TOOLCHAIN_ROOT.",

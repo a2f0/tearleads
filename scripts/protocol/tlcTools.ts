@@ -31,8 +31,12 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-function commandOutput(command: string, args: readonly string[]): string {
-  const result = spawnSync(command, [...args], { encoding: "utf8" });
+function commandOutput(
+  cwd: string,
+  command: string,
+  args: readonly string[],
+): string {
+  const result = spawnSync(command, [...args], { cwd, encoding: "utf8" });
   if (result.status !== 0) {
     fail(`\`${command} ${args.join(" ")}\` failed: ${result.stderr.trim()}`);
   }
@@ -72,10 +76,10 @@ function checkJavaVersion(root: string, javaBin: string): void {
 
 export function resolveTlcTools(root: string): TlcTools {
   const { JAVA_BIN, TLA_TOOLS_ROOT } = process.env;
-  const javaBin = JAVA_BIN || commandOutput("mise", ["which", "java"]);
+  const javaBin = JAVA_BIN || commandOutput(root, "mise", ["which", "java"]);
   const tlaToolsRoot =
     TLA_TOOLS_ROOT ||
-    commandOutput("mise", ["where", "github:tlaplus/tlaplus"]);
+    commandOutput(root, "mise", ["where", "github:tlaplus/tlaplus"]);
   checkJavaVersion(root, javaBin);
   const jarPath = join(tlaToolsRoot, "tla2tools.jar");
   const jarSha256 = createHash("sha256")

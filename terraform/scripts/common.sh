@@ -3,7 +3,7 @@
 
 # Get the repository root directory
 get_repo_root() {
-  git -C "$COMMON_SCRIPT_DIR" rev-parse --show-toplevel
+  (CDPATH='' cd -P -- "$COMMON_SCRIPT_DIR/../.." && pwd -P)
 }
 
 COMMON_SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd -P)"

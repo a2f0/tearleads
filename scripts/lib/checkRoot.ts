@@ -3,7 +3,10 @@ import { resolve } from "node:path";
 
 // Checks normally target the checkout that owns them. Fixture runners can
 // explicitly supply a different source tree.
-const { TEARLEADS_CHECK_ROOT } = process.env;
+const variable = "TEARLEADS_CHECK_ROOT";
+const selected = process.env[variable];
 export const checkRoot = realpathSync(
-  TEARLEADS_CHECK_ROOT ?? resolve(import.meta.dir, "../.."),
+  selected ?? resolve(import.meta.dir, "../.."),
 );
+// Keep an explicitly selected tree stable across child-process cwd changes.
+if (selected) process.env[variable] = checkRoot;

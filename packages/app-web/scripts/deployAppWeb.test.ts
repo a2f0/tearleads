@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import {
   chmod,
   copyFile,
@@ -21,7 +22,8 @@ async function write(path: string, contents: string, executable = false) {
 
 async function deployFixture(tier: "staging" | "production", failure = "") {
   const { PATH } = process.env;
-  const root = await mkdtemp(join(tmpdir(), "tearleads-web-deploy-"));
+  const matrix = await mkdtemp(join(tmpdir(), "tearleads web "));
+  const root = join(matrix, "checkouts/tearleads");
   const scripts = join(root, "packages/app-web/scripts");
   const log = join(root, "commands.log");
   const uploads = join(root, "uploads.log");
@@ -55,17 +57,28 @@ tier_demo_hostname() { case "$1" in staging) echo demo-staging.example.test ;; p
 purge_cloudflare_cache_for_hosts() { printf 'purge|%s\\n' "$*" >> "$WEB_DEPLOY_LOG"; }
 `,
   );
-  await write(
-    join(root, "bin/git"),
-    `#!/bin/sh
-case "$*" in
-  'rev-parse --show-toplevel') printf '%s\\n' "$WEB_DEPLOY_ROOT" ;;
-  'rev-parse HEAD') printf '%040d\\n' 1 ;;
-  *) exit 1 ;;
-esac
-`,
-    true,
+  const git = (cwd: string, ...args: string[]) =>
+    execFileSync("git", args, {
+      cwd,
+      env: { PATH, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" },
+      encoding: "utf8",
+    }).trim();
+  git(matrix, "init", "--quiet");
+  git(root, "init", "--quiet");
+  git(
+    root,
+    "-c",
+    "user.name=Fixture",
+    "-c",
+    "user.email=fixture@example.test",
+    "-c",
+    "commit.gpgSign=false",
+    "commit",
+    "--allow-empty",
+    "-qm",
+    "checkout",
   );
+  const commit = git(root, "rev-parse", "HEAD");
   await write(
     join(root, "bin/bun"),
     `#!/bin/bash
@@ -124,12 +137,15 @@ esac
   );
   return {
     root,
+    commit,
     log,
     uploads,
     run: () =>
       Bun.spawnSync([join(scripts, `deploy${suffix}AppWeb.sh`)], {
-        cwd: root,
+        cwd: matrix,
         env: {
+          GIT_DIR: join(matrix, ".git"),
+          GIT_WORK_TREE: matrix,
           PATH: `${join(root, "bin")}:${PATH ?? ""}`,
           WEB_DEPLOY_ROOT: root,
           WEB_DEPLOY_LOG: log,
@@ -143,7 +159,7 @@ esac
         stdout: "pipe",
         stderr: "pipe",
       }),
-    cleanup: () => rm(root, { recursive: true, force: true }),
+    cleanup: () => rm(matrix, { recursive: true, force: true }),
   };
 }
 
@@ -190,6 +206,7 @@ test.each(["staging", "production"] as const)(
       expect(calls).toContain(`build|app|${wranglerTier}`);
       expect(calls).toContain(`build|demo|${wranglerTier}`);
       expect(calls).toContain(`--project web-${tier}`);
+      expect(calls).toContain(`--release tearleads-web@${fixture.commit}`);
       expect(calls).toContain(`--dist ${tier}-app`);
       expect(calls).toContain(`publish|app|${wranglerTier}`);
       expect(calls).toContain(`publish|demo|${wranglerTier}`);

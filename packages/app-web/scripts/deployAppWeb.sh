@@ -18,6 +18,7 @@ case "$TIER" in
     ;;
 esac
 
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 REPO_ROOT="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 APP_WEB_DIR="$REPO_ROOT/packages/app-web"
 
