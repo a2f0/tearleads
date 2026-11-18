@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ApiClient } from "@tearleads/api-client";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/data/waitFor";
 import { seedLocalRootContainer } from "../../../test/helpers/workflows/containerContentsTestRuntime";
@@ -7,7 +8,10 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createDomainScope } from "../../data/shared/domainScope";
-import { disposeDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
+import {
+  disposeDomainSyncCoordinator,
+  waitForDomainSyncCoordinatorToSettle,
+} from "../../data/sync/syncCoordinator";
 import {
   consumePendingContainerContentsReconnectRefresh,
   createContainerContentsStoreState,
@@ -249,6 +253,79 @@ test("a reconnect becomes stale as soon as the live socket acknowledgement chang
     state.reconnectRefresh.reset("disposed");
     release.resolve();
     disposeDomainSyncCoordinator(input.state.domainScope);
+    await close();
+  }
+});
+
+test("a reopened tree cannot join a listing sent before the new socket acknowledgement", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "reopened-reconnect-transport",
+  );
+  const release = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<void>();
+  let calls = 0;
+  const server = Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    async fetch(request) {
+      const { lanes } = await request.json();
+      const stale = ++calls === 1;
+      if (stale) {
+        started.resolve();
+        await release.promise;
+      }
+      return Response.json({
+        results: lanes.map(({ laneId }: { laneId: string }) => ({
+          laneId,
+          page: {
+            items: [],
+            tombstones: [],
+            hasMore: false,
+            nextWatermark: {
+              id: stale ? "old" : "new",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          },
+        })),
+      });
+    },
+  });
+  const api = new ApiClient(server.url.origin);
+  const apiClient = createMockApiClient({
+    listContainerParentLanes: (input) => api.listContainerParentLanes(input),
+  });
+  const initial = createWorkflowInputFixture({ apiClient, execSql });
+  let input = {
+    ...initial,
+    state: { ...initial.state, serverEventsConnectionGeneration: 1 },
+  };
+  const contents = createContainerContents(
+    createInternalRuntimeFixture(() => input),
+  );
+  const lane = createContainerParentSyncLane(null);
+  try {
+    await defaultContainerContentsPersistence.ensureSchema(execSql);
+    const cursors = new ContainerSyncWatermarkRepository(execSql);
+    await cursors.markChecked(lane);
+    contents.openTree().updateRuntime(contents.workflowRuntime());
+    await started.promise;
+    disposeDomainSyncCoordinator(input.state.domainScope);
+    input = {
+      ...input,
+      state: { ...input.state, serverEventsConnectionGeneration: 2 },
+    };
+    contents.openTree().updateRuntime(contents.workflowRuntime());
+    await waitFor(
+      () => calls === 2,
+      "new acknowledgement reused the previous listing",
+    );
+    release.resolve();
+    await waitForDomainSyncCoordinatorToSettle(input.state.domainScope);
+    expect((await cursors.loadWatermark(lane))?.id).toBe("new");
+  } finally {
+    release.resolve();
+    disposeDomainSyncCoordinator(input.state.domainScope);
+    await server.stop(true);
     await close();
   }
 });

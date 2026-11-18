@@ -202,10 +202,17 @@ function ensureContainerContentsStoreInitialized(input: {
   }
 
   const lifecycleGeneration = state.lifecycleGeneration;
+  // A first login adopts device-local rows on this executor. A later owner must reload them.
+  const startedAnonymous = !state.runtime.auth.isAuthenticated;
+  const writeGeneration = state.writeGeneration;
   const persistence = state.persistence;
   const execSql = state.runtime.infra.execSql;
   const isCurrent = () =>
     ownsContainerStore(state) &&
+    (state.writeGeneration === writeGeneration ||
+      (startedAnonymous &&
+        state.runtime.auth.isAuthenticated &&
+        state.writeGeneration === writeGeneration + 1)) &&
     state.lifecycleGeneration === lifecycleGeneration &&
     state.persistence === persistence &&
     state.runtime.infra.execSql === execSql;
@@ -237,6 +244,7 @@ function ensureContainerContentsStoreInitialized(input: {
           input.refreshAfterReconnect,
         );
       } else if (state.runtime.infra.dbStatus === "ready") {
+        if (!state.snapshot.ready) state.initialized = false;
         ensureContainerContentsStoreInitialized(input);
       }
     });

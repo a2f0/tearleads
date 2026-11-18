@@ -116,6 +116,7 @@ interface RemoteContainerHydrationRuntime
 
 export type HydrationOutcome = "complete" | "refused" | "retry";
 export interface ReconnectPages {
+  laneIdPrefix: string;
   recordUnavailable(error: ProjectionDependencyUnavailableError): void;
 }
 

@@ -49,6 +49,9 @@ async function finishRemoteHydration(input: {
   }
 }
 
+// Distinct correlation IDs prevent an acknowledged crawl joining an older in-flight HTTP listing.
+let reconnectSequence = 0;
+
 export async function hydrateRemoteContainers(input: {
   followDiscoveredParentLanes?: boolean | undefined;
   host: RemoteContainerHydrationHost;
@@ -88,6 +91,7 @@ export async function hydrateRemoteContainers(input: {
   let unavailableDependency: Error | undefined;
   const result = await hydrateContainerParentLanes({
     reconnect: input.reconnect && {
+      laneIdPrefix: `r${++reconnectSequence}`,
       recordUnavailable: (error) => {
         unavailableDependency ??= error;
       },

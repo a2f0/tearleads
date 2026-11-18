@@ -463,6 +463,7 @@ export async function hydrateContainerParentLanes(input: {
 
     const fetchedPages = await fetchContainerParentLaneBatch({
       batch,
+      laneIdPrefix: input.reconnect?.laneIdPrefix,
       isCurrent: input.isCurrent,
       state,
     });

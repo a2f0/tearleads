@@ -10,7 +10,7 @@ import {
   WsDocumentUpdateCreatedHintSchema,
   type WsInvalidationHint,
 } from "@tearleads/validators/realtime";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 
@@ -310,9 +310,9 @@ export function useDeviceFirstBinding(input: {
     [reconciliationRoutingKey],
   );
 
-  // Drive runtime updates from an effect — never during render — so the view's
-  // synchronous emit cannot setState in a child while the provider renders.
-  useEffect(() => {
+  // Bind the new scope before child effects read provisioned folders from SQLite.
+  // A read on the previous scope would finish early and trigger a remote fallback.
+  useLayoutEffect(() => {
     if (runtime.infra.dbStatus === "ready" && !runtime.state.containerId) {
       return;
     }

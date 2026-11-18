@@ -48,7 +48,7 @@ import { createVerifiedManifestCitations } from "./data/persistence/verifiedMani
 import { createDomainScope, type DomainScope } from "./data/shared/domainScope";
 import { createListenerSet } from "./data/shared/listenerSet";
 import type { SecurityIncidentReporter } from "./data/shared/securityIncidents";
-import { disposeDomainSyncCoordinator } from "./data/sync/syncCoordinator";
+import { getOrCreateDomainSyncCoordinator } from "./data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "./data/trustedUserIdentity";
 import type { TearleadsOptions } from "./TearleadsOptions";
 
@@ -355,11 +355,11 @@ export class Tearleads {
    * fresh state.
    */
   dispose(): void {
-    const domainScope = this.domainScope;
+    const coordinator = getOrCreateDomainSyncCoordinator(this.domainScope);
     this.disposeSecurityIncidents();
     this.retirePrincipalHistoryProtection();
     this.deviceFirst.dispose();
-    disposeDomainSyncCoordinator(domainScope);
+    coordinator.dispose();
   }
 
   private loginAfterSessionExpired(): Promise<boolean> {

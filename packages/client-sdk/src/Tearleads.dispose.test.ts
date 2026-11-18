@@ -75,3 +75,22 @@ test("dispose() tears down reconcilers/coordinators across all scopes", async ()
   expect(getOrCreateDomainSyncCoordinator(scopeA)).not.toBe(coordinatorA);
   expect(getOrCreateDomainSyncCoordinator(scopeB)).not.toBe(coordinatorB);
 });
+
+test("SDK teardown retires only the coordinator it started with", () => {
+  const sdk = new Tearleads({ logger: quietLogger, online: false });
+  sdk.deviceFirst.open();
+  const scope = sdk.domainScope;
+  const old = getOrCreateDomainSyncCoordinator(scope);
+  let reopened = old;
+  old.subscribe(() => {
+    if (old.isDisposed()) reopened = getOrCreateDomainSyncCoordinator(scope);
+  });
+  sdk.dispose();
+  try {
+    expect(reopened).not.toBe(old);
+    expect(reopened.isDisposed()).toBe(false);
+    expect(getOrCreateDomainSyncCoordinator(scope)).toBe(reopened);
+  } finally {
+    sdk.dispose();
+  }
+});

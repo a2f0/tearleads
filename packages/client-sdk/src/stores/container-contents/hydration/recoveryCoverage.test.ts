@@ -17,14 +17,21 @@ type RequestState = Parameters<
   typeof requestContainerContentsRemoteHydration
 >[0]["state"];
 
-const emptyRootLane: ListContainerParentLanesResponse = {
-  results: [
-    {
-      laneId: "lane-0",
-      page: { hasMore: false, items: [], nextWatermark: null, tombstones: [] },
-    },
-  ],
-};
+function emptyRootLane(laneId = "lane-0"): ListContainerParentLanesResponse {
+  return {
+    results: [
+      {
+        laneId,
+        page: {
+          hasMore: false,
+          items: [],
+          nextWatermark: null,
+          tombstones: [],
+        },
+      },
+    ],
+  };
+}
 
 function createRequestState(
   execSql: RequestState["runtime"]["infra"]["execSql"],
@@ -109,9 +116,9 @@ test("requests queued across a reset settle with the recovery crawl", async () =
     const first = request().then(() => settled.push("first"));
     const second = request().then(() => settled.push("second"));
     state.structuralGeneration += 1;
-    listings[0]?.resolve(emptyRootLane);
+    listings[0]?.resolve(emptyRootLane());
     await listingStarted[1]?.promise;
-    listings[1]?.resolve(emptyRootLane);
+    listings[1]?.resolve(emptyRootLane());
     await listingStarted[2]?.promise;
 
     expect(settled).toEqual([]);
@@ -244,10 +251,10 @@ test("a restoration queued behind reconnect completes its claimed sweep", async 
   );
   const start = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
-  const state = createRequestState(execSql, async () => {
+  const state = createRequestState(execSql, async ({ lanes }) => {
     start.resolve();
     await release.promise;
-    return emptyRootLane;
+    return emptyRootLane(lanes[0]?.laneId);
   });
   const input = {
     host: emptyHydrationHost,
@@ -296,7 +303,7 @@ test("a queued full refresh does not reset the next owner's watermark before han
     reads.push(lanes[0]?.watermark);
     started.resolve();
     await held.promise;
-    return emptyRootLane;
+    return emptyRootLane(lanes[0]?.laneId);
   });
   const input = {
     host: emptyHydrationHost,
