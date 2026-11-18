@@ -6,7 +6,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export const LEAN_PROJECT = "formal/lean";
 
@@ -132,7 +132,7 @@ export function resolveLeanTools(root: string): LeanTools {
     }
     toolchainRoot = where.stdout.trim();
   }
-  const binDir = join(toolchainRoot, "bin");
+  const binDir = resolve(toolchainRoot, "bin");
   const lake = join(binDir, "lake");
   checkLeanVersion(root, lake);
   return { binDir, lake };

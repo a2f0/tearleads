@@ -16,6 +16,8 @@ for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 REPO_ROOT=$(CDPATH='' cd -P -- "$script_dir/../.." && pwd -P) ||
   fail "OpenAPI compatibility must run inside a Git repository."
 
+# Keep explicit tool paths relative to the caller when changing directories.
+case "${OASDIFF_BIN:-}" in ""|/*) ;; *) OASDIFF_BIN="$PWD/$OASDIFF_BIN" ;; esac
 cd "$REPO_ROOT"
 git_root=$(git rev-parse --show-toplevel)
 if [ "$(CDPATH='' cd -P -- "$git_root" && pwd -P)" != "$REPO_ROOT" ]; then

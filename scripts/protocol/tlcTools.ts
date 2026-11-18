@@ -14,7 +14,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { hostname, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 export interface TlcTools {
   readonly javaBin: string;
@@ -76,12 +76,14 @@ function checkJavaVersion(root: string, javaBin: string): void {
 
 export function resolveTlcTools(root: string): TlcTools {
   const { JAVA_BIN, TLA_TOOLS_ROOT } = process.env;
-  const javaBin = JAVA_BIN || commandOutput(root, "mise", ["which", "java"]);
+  const javaBin = JAVA_BIN
+    ? resolve(Bun.which(JAVA_BIN) ?? JAVA_BIN)
+    : commandOutput(root, "mise", ["which", "java"]);
   const tlaToolsRoot =
     TLA_TOOLS_ROOT ||
     commandOutput(root, "mise", ["where", "github:tlaplus/tlaplus"]);
   checkJavaVersion(root, javaBin);
-  const jarPath = join(tlaToolsRoot, "tla2tools.jar");
+  const jarPath = resolve(tlaToolsRoot, "tla2tools.jar");
   const jarSha256 = createHash("sha256")
     .update(readFileSync(jarPath))
     .digest("hex");

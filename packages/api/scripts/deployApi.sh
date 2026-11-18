@@ -30,7 +30,7 @@ case "$TIER" in
     ;;
 esac
 
-unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
+for name in $(git rev-parse --local-env-vars); do unset "$name"; done
 REPO_ROOT="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
 API_DIR="$REPO_ROOT/packages/api"
 if ! git -c core.fsmonitor=false -C "$REPO_ROOT" --git-dir=.git rev-parse HEAD >/dev/null; then

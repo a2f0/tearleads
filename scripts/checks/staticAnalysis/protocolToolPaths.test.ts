@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { chmodSync, realpathSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { fixture } from "./fixture.testUtils";
 
 test("mise discovers protocol tools from the selected checkout", () => {
@@ -42,27 +42,39 @@ test("mise discovers protocol tools from the selected checkout", () => {
     for (const file of ["bin/mise", "toolchain/bin/java", "toolchain/bin/lake"])
       chmodSync(join(root, file), 0o755);
     const protocol = resolve(import.meta.dir, "../../protocol");
-    const child = Bun.spawnSync(
-      [
-        process.execPath,
-        "--eval",
-        `
+    const toolchain = join(basename(root), "toolchain");
+    for (const overrides of [
+      {},
+      {
+        JAVA_BIN: join(toolchain, "bin/java"),
+        TLA_TOOLS_ROOT: toolchain,
+        LEAN_TOOLCHAIN_ROOT: toolchain,
+      },
+    ]) {
+      const child = Bun.spawnSync(
+        [
+          process.execPath,
+          "--eval",
+          `
       import { resolveLeanTools } from ${JSON.stringify(join(protocol, "leanTools.ts"))};
       import { resolveTlcTools } from ${JSON.stringify(join(protocol, "tlcTools.ts"))};
       const root = ${JSON.stringify(root)};
-      console.log(JSON.stringify([resolveLeanTools(root).lake, resolveTlcTools(root).javaBin]));
+      const tools = resolveTlcTools(root);
+      console.log(JSON.stringify([resolveLeanTools(root).lake, tools.jarPath, tools.javaBin]));
     `,
-      ],
-      {
-        cwd: join(root, ".."),
-        env: { PATH: join(root, "bin") },
-      },
-    );
-    expect(child.exitCode, child.stderr.toString()).toBe(0);
-    expect(JSON.parse(child.stdout.toString())).toEqual([
-      join(root, "toolchain/bin/lake"),
-      join(root, "toolchain/bin/java"),
-    ]);
+        ],
+        {
+          cwd: join(root, ".."),
+          env: { PATH: join(root, "bin"), ...overrides },
+        },
+      );
+      expect(child.exitCode, child.stderr.toString()).toBe(0);
+      expect(JSON.parse(child.stdout.toString())).toEqual([
+        join(root, "toolchain/bin/lake"),
+        join(root, "toolchain/tla2tools.jar"),
+        join(root, "toolchain/bin/java"),
+      ]);
+    }
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }

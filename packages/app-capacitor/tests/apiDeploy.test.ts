@@ -134,6 +134,7 @@ async function deployFixture(
       `    printf 'migrate|%s|%s|%s|%s|%s|%s\\n' "\${POSTGRES_HOST:-}" "\${POSTGRES_PORT:-}" "\${POSTGRES_USER:-}" "\${POSTGRES_DATABASE:-}" "\${DATABASE_URL:-unset}" "\${POSTGRES_URL:-unset}" >> "$API_DEPLOY_TEST_LOG"`,
       "    ;;",
       "  'scripts/workerDefines.ts')",
+      "    printenv GIT_REPLACE_REF_BASE >/dev/null && exit 91",
       '    printf \'API_BUILD_VERSION:123\\nAPI_DIAGNOSTICS_BUILD:{"commit":"abc"}\\n\'',
       "    ;;",
       "  'run sentry:cli sourcemaps upload '*)",
@@ -201,6 +202,7 @@ async function deployFixture(
     env: {
       GIT_DIR: resolve(matrix, ".git"),
       GIT_WORK_TREE: matrix,
+      GIT_REPLACE_REF_BASE: "refs/matrix/replacements/",
       GIT_CONFIG_COUNT: "1",
       GIT_CONFIG_KEY_0: "core.worktree",
       GIT_CONFIG_VALUE_0: matrix,
