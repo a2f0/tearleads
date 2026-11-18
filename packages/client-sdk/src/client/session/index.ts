@@ -57,6 +57,7 @@ class SessionService implements Session {
     new SessionIdentityAcknowledgments();
   private readonly listeners = createListenerSet();
   private syncEnabledValue = true;
+  private refusedSignIn: number | null = null;
   private snapshotValue = emptySessionSnapshot();
 
   constructor(private readonly dependencies: SessionDependencies) {}
@@ -183,6 +184,7 @@ class SessionService implements Session {
   }
 
   clearAuthentication(renewal: boolean): void {
+    if (renewal) this.refusedSignIn = sessionLifetime(this).signInRevision;
     this.commitContext(
       { authToken: null, isAuthenticated: false, isRoot: false },
       renewal ? "renewal-refused" : "boundary",
@@ -203,17 +205,19 @@ class SessionService implements Session {
       const response = await this.dependencies.api.logout();
       return response?.message === "ok";
     } finally {
-      if (
-        this.dependencies.identity.snapshot === identitySnapshot &&
-        revision === lifetime.signInRevision
-      ) {
-        this.logout();
-        const current = () =>
-          lifetime.signInRevision === revision + 1 &&
-          !this.isAuthenticated &&
-          this.dependencies.identity.snapshot === identitySnapshot;
-        if (current()) await onLocalLogout?.(current);
-      }
+      const sameIdentity = () =>
+        this.dependencies.identity.snapshot === identitySnapshot;
+      const clearedHere =
+        sameIdentity() && revision === lifetime.signInRevision;
+      if (clearedHere) this.logout();
+      // The same local sign-out may already have happened during a refused
+      // renewal. A later explicit logout or sign-in supersedes this cleanup.
+      const current = () =>
+        sameIdentity() &&
+        !this.isAuthenticated &&
+        lifetime.signInRevision === revision + 1;
+      if (current() && (clearedHere || this.refusedSignIn === revision))
+        await onLocalLogout?.(current);
     }
   }
 

@@ -155,3 +155,19 @@ test("a renewal that aborts its request while starting still ends the wait", asy
   }
   pendingRenewal.reject(new Error("renewal failed after the request ended"));
 });
+
+test("a synchronous sign-in during renewal leaves the new session free to renew", async () => {
+  const tracker = new SessionRenewalTracker(() => "same");
+  const release = Promise.withResolvers<boolean>();
+  const retired = tracker.renew(() => {
+    tracker.tokenChanged("replacement");
+    return release.promise;
+  });
+  try {
+    expect(tracker.pending("same")).toBeNull();
+    await expect(tracker.renew(() => true)).resolves.toBe(true);
+  } finally {
+    release.resolve(false);
+    await retired;
+  }
+});

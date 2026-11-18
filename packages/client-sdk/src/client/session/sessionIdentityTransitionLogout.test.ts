@@ -63,3 +63,29 @@ test.each(["same", "changed"])(
     expect(api.getAuthToken()).toBe("identity-b-token");
   },
 );
+
+test("a concurrent renewal refusal preserves confirmed local logout cleanup", async () => {
+  const release = Promise.withResolvers<{ message: string }>();
+  const identity = createIdentity({}, noIdentityChange, () => {});
+  const session = createSession({
+    api: {
+      logout: () => release.promise,
+      setAuthToken: () => {},
+    } as unknown as ApiClient,
+    identityTrustDomain: "https://api.example.test",
+    database: new Database(),
+    identity,
+    log: () => {},
+    logError: () => {},
+  });
+  session.setContext({ isAuthenticated: true, authToken: "old" });
+  let cleaned = false;
+  const pending = session.logoutRemote((current) => {
+    cleaned = current();
+  });
+  await session.renewExpired();
+  expect(session.isAuthenticated).toBe(false);
+  release.resolve({ message: "ok" });
+  await pending;
+  expect(cleaned).toBe(true);
+});

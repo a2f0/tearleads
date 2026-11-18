@@ -101,11 +101,12 @@ export class SessionRenewalTracker {
     if (!from) return false;
     const existing = this.pending(from);
     if (existing) return existing;
+    const owner = this.signal;
     const pending = {
       from,
       promise: this.complete(from, this.revision, handler),
     };
-    this.inFlight = pending;
+    if (!owner.aborted) this.inFlight = pending;
     try {
       return await pending.promise;
     } finally {

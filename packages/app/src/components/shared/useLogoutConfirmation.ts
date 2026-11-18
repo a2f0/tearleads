@@ -48,7 +48,7 @@ async function destroyLocalSessionData(input: {
 
   if (input.current() && input.signingFingerprint) {
     try {
-      await purgeOpfsBlobStore(input.signingFingerprint);
+      await purgeOpfsBlobStore(input.signingFingerprint, input.current);
     } catch (error: unknown) {
       input.logError("Failed to wipe local blob store", error);
     }
