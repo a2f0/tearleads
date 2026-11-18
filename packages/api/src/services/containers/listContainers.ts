@@ -339,6 +339,6 @@ export async function listContainers(
   });
   return {
     ...response,
-    nextWatermark: cursor.seal(response.nextWatermark),
+    nextWatermark: cursor.seal(response.nextWatermark, rows.publication),
   };
 }

@@ -115,7 +115,8 @@ Entity timestamps retain their original meaning. See the
 Each lane reads its live rows and tombstones in a single SQL statement, so
 both come from the same snapshot. Each page orders by publication position and ID.
 Existing clients already save and echo both watermark strings. The opaque ID
-seals the position and row ID with authenticated encryption
+seals the position, row ID, and highest publication visible to the listing
+with authenticated encryption
 bound to the user, lane, and cursor timestamp. Each database owns a durable
 cursor key shared across API deployments and server-secret rotations.
 A device resuming from a legacy UUID cursor replays the lane once,
@@ -162,7 +163,8 @@ restored-folder hints and document unlinks previously checkpointed.
 Deploy the additive database migrations before the API. A populated PostgreSQL
 database installs the triggers in one short transaction. Existing writers then
 publish immediately while the migrator fills historical rows in batches of 512
-and builds the five indexes concurrently. The cutover acquires its metadata
+and builds the five indexes concurrently. Each batch skips busy rows and
+revisits them before indexing. The cutover acquires its metadata
 locks together without waiting and retries for up to one minute when writers
 are active. Restarting the migrator resumes this
 work, including a concurrent index build interrupted before becoming valid.

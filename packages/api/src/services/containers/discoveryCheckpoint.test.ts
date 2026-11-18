@@ -66,9 +66,12 @@ test("rotating API processes resume the same database cursor and a lagging acces
   );
   const key = await readDiscoveryKey(runtime);
   const cursor = discoveryCursor(key, [userId, "containers", null], null);
-  const future = cursor.seal({
-    id: `9223372036854775807/${rootContainerId}`,
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  });
+  const future = cursor.seal(
+    {
+      id: `1/${rootContainerId}`,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
+    "9223372036854775807",
+  );
   await expect(probe(future)).rejects.toMatchObject({ status: 409 });
 });

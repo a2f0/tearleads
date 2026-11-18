@@ -12,30 +12,42 @@ const sources = [
   ["container_document_sync_tombstones", true],
 ] as const;
 
+type BackfillProgress = { cursor: string | null; remaining: boolean };
+
 async function fillHistoricalRows(
   db: ApiDatabase,
   table: SQL,
   removed: boolean,
 ) {
   let cursor: string | null = null;
-  do {
+  while (true) {
     // Each statement commits one batch, releasing all row locks. A concurrent
     // application write publishes a positive position and cannot be overwritten.
-    const result = await db.execute<{ cursor: string }>(sql`
+    const result = await db.execute<BackfillProgress>(sql`
       with batch as materialized (
         select id from ${table} where discovery_order = 0
           ${cursor ? sql`and id > ${cursor}::uuid` : sql``}
-        order by id limit 512
+        order by id limit 512 for update skip locked
       ), filled as (
         update ${table} target
         set discovery_order = public.historical_discovery_order(target.updated_at, ${removed})
         from batch where target.id = batch.id and target.discovery_order = 0
       )
-      select id::text as cursor from batch order by id desc limit 1
+      select (select id::text from batch order by id desc limit 1) as cursor,
+        case when not exists (select 1 from batch) then
+          exists (select 1 from ${table} where discovery_order = 0)
+        else false end as remaining
     `);
-    const next: unknown = result.rows.at(0)?.cursor;
-    cursor = typeof next === "string" ? next : null;
-  } while (cursor);
+    const row: BackfillProgress | undefined = result.rows[0];
+    if (!row) throw new Error("Discovery backfill returned no progress");
+    cursor = row.cursor;
+    if (!cursor) {
+      if (!row.remaining) return;
+      // Some zero rows were locked when their id range was scanned. Rewind
+      // after releasing the batch locks; a busy writer can continue normally.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
 }
 
 async function buildDiscoveryIndex(db: ApiDatabase, statement: string) {

@@ -115,7 +115,7 @@ test.skipIf(!serverUrl)(
     cleanups.push(() => db.close());
     await db.migrate({ migrationsFolder: earlier });
     await reader.query(
-      "insert into documents (id,created_by_fingerprint) select gen_random_uuid(),'fixture' from generate_series(1,1025)",
+      "insert into documents (id,created_by_fingerprint) select gen_random_uuid(),'fixture' from generate_series(1,1537)",
     );
     // Mimic cancellation after a concurrent index build reserved its name.
     await expect(
@@ -183,9 +183,26 @@ test.skipIf(!serverUrl)(
           )
         ).rows[0].published,
       ).toBe(true);
+      // Take a row in the next batch after cutover. The backfill must
+      // publish the rest while that row is held, then revisit it on release.
+      await reader.query("begin");
+      await reader.query(
+        "select id from documents where id=(select id from documents where discovery_order=0 order by id offset 600 limit 1) for update",
+      );
+      await reader.query("select pg_advisory_unlock(710112)");
+      const skipDeadline = Date.now() + 5000;
+      for (;;) {
+        const { rows } = await reader.query(
+          "select count(*)::int as count from documents where discovery_order=0",
+        );
+        if (rows[0].count === 1) break;
+        if (Date.now() > skipDeadline)
+          throw new Error("Backfill blocked on the busy row");
+        await Bun.sleep(20);
+      }
     } finally {
       await reader.query("rollback");
-      await reader.query("select pg_advisory_unlock(710112)");
+      await reader.query("select pg_advisory_unlock_all()");
       await migrating;
     }
     expect(
@@ -194,7 +211,7 @@ test.skipIf(!serverUrl)(
           "select count(*)::int as count from documents where discovery_order<0",
         )
       ).rows[0].count,
-    ).toBe(1025);
+    ).toBe(1537);
     expect(
       (
         await reader.query(

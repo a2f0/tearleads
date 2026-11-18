@@ -191,3 +191,62 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
   },
   30000,
 );
+
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "an access probe must cover newer publications outside the first page",
+  async () => {
+    const {
+      registration: { userId, organizationId, rootContainerId },
+    } = await registerServiceUser();
+    const primary = createServiceTestRuntime();
+    await db.transaction(
+      async (snapshot) => {
+        // This real connection can see the first (root) row but cannot see
+        // the second publication at the time the primary issues its page.
+        await snapshot.execute(
+          sql`select publication from drizzle.discovery_cursor_key`,
+        );
+        await db.insert(containerSyncTombstones).values({
+          containerId: crypto.randomUUID(),
+          userId,
+          organizationId,
+          depth: 0,
+          reason: "deleted",
+        });
+        const listing = await listContainerParentLanes(primary, userId, {
+          lanes: [
+            { parentId: null, laneId: "first", limit: 1, watermark: null },
+          ],
+        });
+        const page = listing.results[0]?.page;
+        if (!page?.nextWatermark)
+          throw new Error("Expected a publication cursor");
+        expect(page.hasMore).toBe(true);
+        expect(page.items[0]?.id).toBe(rootContainerId);
+        const request = {
+          afterParentPage: { parentId: null, watermark: page.nextWatermark },
+          lanes: [
+            {
+              containerId: rootContainerId,
+              laneId: "access",
+              limit: 1,
+              watermark: null,
+            },
+          ],
+        };
+        const behind = createServiceTestRuntime(snapshot);
+        await expect(
+          listContainerDocumentLanes(behind, userId, request),
+        ).rejects.toMatchObject({ status: 409 });
+        const visible = await listContainerDocumentLanes(
+          primary,
+          userId,
+          request,
+        );
+        expect(visible.results[0]).toMatchObject({ page: expect.anything() });
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" },
+    );
+  },
+  30000,
+);
