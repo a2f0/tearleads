@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="426" viewBox="0 0 600 426" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>Unlocking local storage with and without a PIN</title>
+  <desc>With a PIN, the app first opens the outer layer using a key derived from the PIN. Both paths then use the host wrapping key to recover the account root key. Separate keys derived from that root protect the database, local files, and saved identity.</desc>
+  <defs>
+    <marker id="local-storage-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+    </marker>
+    <style>
+      .canvas { fill: #ffffff; }
+      .band { fill: #f8fafc; }
+      .box { fill: #ffffff; stroke: #4b5563; stroke-width: 1.25; }
+      .edge { fill: none; stroke: #4b5563; stroke-width: 1.25; }
+      .arrowhead { fill: #4b5563; }
+      .colhead { font-size: 13px; font-weight: 600; fill: #111827; letter-spacing: 0.04em; text-transform: uppercase; }
+      .name { font-size: 14px; font-weight: 600; fill: #111827; }
+      .meta { font-size: 12px; fill: #4b5563; }
+      .mono { font-size: 12px; fill: #374151; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .elabel { font-size: 12px; fill: #374151; }
+      .lane { font-size: 15px; font-weight: 600; fill: #111827; }
+    </style>
+  </defs>
+
+  <rect width="600" height="426" class="canvas"/>
+  <rect width="600" height="202" class="band"/>
+  <text x="16" y="28" class="colhead">Stored keyring</text>
+
+  <rect x="16" y="44" width="268" height="80" rx="4" class="box"/>
+  <text x="30" y="68" class="name">Without a PIN (default)</text>
+  <text x="30" y="92" class="meta">Read the host-wrapped root key</text>
+  <text x="30" y="109" class="meta">directly from the keyring manifest.</text>
+
+  <rect x="316" y="44" width="268" height="80" rx="4" class="box"/>
+  <text x="330" y="68" class="name">With a PIN</text>
+  <text x="330" y="92" class="meta">Derive a key with PBKDF2-SHA256.</text>
+  <text x="330" y="109" class="meta">Use it to open the outer AES-GCM layer.</text>
+
+  <path d="M150 124 V176 H194" class="edge" marker-end="url(#local-storage-arrow)"/>
+  <path d="M450 124 V176 H406" class="edge" marker-end="url(#local-storage-arrow)"/>
+  <rect x="196" y="155" width="208" height="42" rx="4" class="box"/>
+  <text x="300" y="181" text-anchor="middle" class="name">Host-wrapped root key</text>
+
+  <path d="M300 197 V247" class="edge" marker-end="url(#local-storage-arrow)"/>
+  <text x="312" y="226" class="elabel">Unwrap with the host key</text>
+  <rect x="196" y="250" width="208" height="42" rx="4" class="box"/>
+  <text x="300" y="276" text-anchor="middle" class="lane">Account root key</text>
+
+  <path d="M300 292 V352" class="edge" marker-end="url(#local-storage-arrow)"/>
+  <text x="312" y="317" class="mono">HKDF-SHA256</text>
+  <path d="M300 330 H104 V352" class="edge" marker-end="url(#local-storage-arrow)"/>
+  <path d="M300 330 H496 V352" class="edge" marker-end="url(#local-storage-arrow)"/>
+
+  <g text-anchor="middle">
+    <rect x="16" y="355" width="176" height="54" rx="4" class="box"/>
+    <text x="104" y="378" class="name">Database key</text>
+    <text x="104" y="396" class="meta">SQLite database</text>
+
+    <rect x="212" y="355" width="176" height="54" rx="4" class="box"/>
+    <text x="300" y="378" class="name">File store key</text>
+    <text x="300" y="396" class="meta">Local file contents</text>
+
+    <rect x="408" y="355" width="176" height="54" rx="4" class="box"/>
+    <text x="496" y="378" class="name">Identity storage key</text>
+    <text x="496" y="396" class="meta">Saved identity material</text>
+  </g>
+</svg>
