@@ -1,7 +1,15 @@
-import type { MouseEventHandler } from "react";
+import type { ButtonHTMLAttributes, MouseEventHandler } from "react";
 import type { WindowingIcon } from "../icons/windowingIcon";
 
-export interface MenuItemProps {
+export interface MenuItemProps
+  extends Pick<
+    ButtonHTMLAttributes<HTMLButtonElement>,
+    | "onContextMenu"
+    | "onPointerDown"
+    | "onPointerMove"
+    | "onPointerUp"
+    | "onPointerCancel"
+  > {
   /** Any icon component, such as a Phosphor or Lucide icon. */
   icon?: WindowingIcon | undefined;
   label: string;
@@ -14,9 +22,15 @@ export function MenuItem({
   label,
   disabled,
   onClick,
+  ...buttonProps
 }: MenuItemProps) {
   return (
-    <button type="button" disabled={disabled} onClick={onClick}>
+    <button
+      {...buttonProps}
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+    >
       {IconComponent && (
         <IconComponent
           aria-hidden="true"
