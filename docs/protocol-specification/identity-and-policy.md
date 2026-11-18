@@ -124,7 +124,10 @@ A state commits the [principal](../glossary/principals.md#principal) identity,
 version and predecessor, key epoch and encapsulation key, membership/projection/envelope
 roots, payload hash, member count, signer identity, and timestamp. The API
 verifies those commitments, signature, chain, and admin-signer rule before
-atomically storing the state, payload, projection, and exact envelope set.
+atomically storing the state, payload, projection, and exact envelope set. A
+payload is only its ciphertext, `{ciphertext}` beside its state, in requests,
+responses, and storage: the API and every reader hash it and compare with the
+state's signed `payloadCiphertextHash`.
 Initial signers are admins in the new projection; successor signers are admins
 in the prior projection or, for org-scoped updates, independently proven members
 of the reserved `Admins` group. Clients verify the complete bundle again before

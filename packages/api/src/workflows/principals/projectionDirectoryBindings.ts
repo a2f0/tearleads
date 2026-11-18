@@ -44,10 +44,10 @@ async function readDirectory(input: {
   );
   if (!payload)
     throw new PrincipalPolicyError("Projection directory history missing", 409);
-  const hash = await computePrincipalStatePayloadCiphertextHash(
-    payload.ciphertext,
-  );
-  if (hash !== payload.ciphertextHash || hash !== input.payloadCiphertextHash)
+  if (
+    (await computePrincipalStatePayloadCiphertextHash(payload.ciphertext)) !==
+    input.payloadCiphertextHash
+  )
     throw new PrincipalPolicyError(
       "Projection directory payload hash mismatch",
       409,

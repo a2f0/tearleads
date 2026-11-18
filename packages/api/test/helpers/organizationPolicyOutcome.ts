@@ -22,11 +22,7 @@ export async function prepareOrganizationPolicyAdvance(
   );
   const body = {
     state,
-    encryptedPayload: {
-      cipherSuite: original.currentPayload.cipherSuite,
-      ciphertext: original.currentPayload.ciphertext,
-      ciphertextHash: original.currentPayload.ciphertextHash,
-    },
+    encryptedPayload: { ciphertext: original.currentPayload.ciphertext },
     projection: original.currentProjection,
     grants: original.currentGrants,
     memberEnvelopes: original.currentMemberEnvelopes.envelopes,

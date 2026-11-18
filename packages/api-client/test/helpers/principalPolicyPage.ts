@@ -12,11 +12,7 @@ export function principalPolicyBundleResponseFor(
   stateHash = "state-hash",
 ): PrincipalPolicyBundleResponse {
   const bundle = createPrincipalPolicyBundleResponse();
-  for (const artifact of [
-    bundle.currentState,
-    bundle.currentPayload,
-    bundle.currentMemberEnvelopes,
-  ]) {
+  for (const artifact of [bundle.currentState, bundle.currentMemberEnvelopes]) {
     artifact.principalType = principalType;
     artifact.principalId = principalId;
     artifact.stateHash = stateHash;

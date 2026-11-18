@@ -103,7 +103,12 @@ export async function principalHistoryPreparationFixture(
   if (!head) throw new Error("Expected history fixture");
   const current = entries.at(-1);
   if (options.currentArtifacts && current) {
-    await db.insert(principalStatePayloads).values(current.payload);
+    await db.insert(principalStatePayloads).values({
+      principalType: current.state.principalType,
+      principalId: current.state.principalId,
+      stateHash: current.state.stateHash,
+      ciphertext: current.payload.ciphertext,
+    });
     if (current.memberEnvelopes.length)
       await db.insert(principalMemberEnvelopes).values(
         current.memberEnvelopes.map((envelope) => ({

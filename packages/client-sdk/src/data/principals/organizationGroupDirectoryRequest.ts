@@ -104,9 +104,7 @@ export async function buildOrganizationGroupDirectoryPolicyRequest(input: {
 
   return {
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm",
       ciphertext: payloadCiphertext,
-      ciphertextHash: state.payloadCiphertextHash,
     },
     grants: [],
     memberEnvelopes: keying.memberEnvelopes,

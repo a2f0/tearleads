@@ -2,7 +2,6 @@ import type {
   PrincipalContainerGrant,
   PrincipalProjectionMember,
   PrincipalStateMemberEnvelope,
-  PrincipalStatePayloadCipherSuite,
   SignedPrincipalState,
 } from "../principalState";
 import type { PrincipalPolicyExternalAuthority } from "./principalPolicyExternalAuthorityTypes";
@@ -35,13 +34,12 @@ export interface PrincipalPolicyStateChainEntry {
   readonly grants: readonly PrincipalContainerGrant[];
 }
 
+/**
+ * Only the ciphertext: it travels beside its state, whose signed
+ * `payloadCiphertextHash` commits to it (#2903 P23).
+ */
 export interface PrincipalPolicyPayload {
-  readonly principalType: ManagedPrincipalKind;
-  readonly principalId: string;
-  readonly stateHash: string;
-  readonly cipherSuite: PrincipalStatePayloadCipherSuite;
   readonly ciphertext: string;
-  readonly ciphertextHash: string;
 }
 
 export interface PrincipalPolicyMemberEnvelopes {

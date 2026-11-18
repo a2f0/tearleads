@@ -9,7 +9,6 @@ import {
   compareCanonicalStrings,
   type ManagedRecipientPrincipalType,
   type PrincipalProjectionRole,
-  type PrincipalStatePayloadCipherSuite,
 } from "@tearleads/crypto";
 import { and, eq, type GetColumnData, type SQL, sql } from "drizzle-orm";
 import {
@@ -56,9 +55,7 @@ const emptyState: {
 };
 
 const emptyArtifacts = {
-  cipherSuite: sql<PrincipalStatePayloadCipherSuite | null>`null`,
   ciphertext: sql<string | null>`null`,
-  ciphertextHash: sql<string | null>`null`,
   memberKeyFingerprint: sql<string | null>`null`,
   kemCipherText: sql<string | null>`null`,
   wrappedKey: sql<string | null>`null`,
@@ -144,9 +141,7 @@ function appendArtifactReads(
           kind: sql<RowKind>`'payload'`,
           ...emptyState,
           ...emptyArtifacts,
-          cipherSuite: payload.cipherSuite,
           ciphertext: payload.ciphertext,
-          ciphertextHash: payload.ciphertextHash,
           createdAt: payload.createdAt,
           containerGrants: sql<
             typeof principalStates.$inferSelect.containerGrants

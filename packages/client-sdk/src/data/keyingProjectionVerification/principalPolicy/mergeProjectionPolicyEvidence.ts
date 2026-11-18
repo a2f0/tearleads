@@ -35,10 +35,7 @@ function payloadsConflict(
 ): boolean {
   return (
     !principalHeadMatchesReference(previous.reference, payload.reference) ||
-    previous.payload.principalId !== payload.payload.principalId ||
-    previous.payload.principalType !== payload.payload.principalType ||
-    previous.payload.ciphertext !== payload.payload.ciphertext ||
-    previous.payload.ciphertextHash !== payload.payload.ciphertextHash
+    previous.payload.ciphertext !== payload.payload.ciphertext
   );
 }
 

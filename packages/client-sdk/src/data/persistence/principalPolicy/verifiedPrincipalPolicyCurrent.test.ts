@@ -104,24 +104,6 @@ const substitutions: {
     },
   },
   {
-    name: "payload principal",
-    mutate: (c) => {
-      c.currentPayload.principalId = "other";
-    },
-  },
-  {
-    name: "payload head",
-    mutate: (c) => {
-      c.currentPayload.stateHash = "0".repeat(64);
-    },
-  },
-  {
-    name: "payload hash",
-    mutate: (c) => {
-      c.currentPayload.ciphertextHash = "0".repeat(64);
-    },
-  },
-  {
     name: "envelopes",
     mutate: (c) => {
       c.currentMemberEnvelopes.envelopes = [];

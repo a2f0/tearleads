@@ -68,14 +68,12 @@ export type PrincipalContainerGrantResponse = z.infer<
   typeof PrincipalContainerGrantResponseSchema
 >;
 
+/**
+ * A payload beside its state: only the ciphertext, which the reader checks
+ * against the state's signed `payloadCiphertextHash` (#2903 P23).
+ */
 export const PrincipalStatePayloadResponseSchema = loosePlainObject({
-  cipherSuite: z.literal("aes-256-gcm"),
   ciphertext: z.string(),
-  ciphertextHash: z.string(),
-  createdAt: z.string(),
-  principalId: z.string(),
-  principalType: z.literal(["group", "organization"]),
-  stateHash: z.string(),
 });
 
 export type PrincipalStatePayloadResponse = z.infer<

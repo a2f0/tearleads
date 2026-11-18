@@ -152,24 +152,11 @@ export function toPrincipalStateResponse(state: {
   };
 }
 
+/** Only the ciphertext travels: the state beside it signs its hash. */
 export function toPrincipalStatePayloadResponse(input: {
-  principalType: "group" | "organization";
-  principalId: string;
-  stateHash: string;
-  cipherSuite: "aes-256-gcm";
   ciphertext: string;
-  ciphertextHash: string;
-  createdAt: Date;
 }): PrincipalStatePayloadResponse {
-  return {
-    principalType: input.principalType,
-    principalId: input.principalId,
-    stateHash: input.stateHash,
-    cipherSuite: input.cipherSuite,
-    ciphertext: input.ciphertext,
-    ciphertextHash: input.ciphertextHash,
-    createdAt: input.createdAt.toISOString(),
-  };
+  return { ciphertext: input.ciphertext };
 }
 
 function toPrincipalMemberEnvelopeResponse(

@@ -55,13 +55,7 @@ export const principalPolicy: PrincipalPolicyBundleResponse = {
     createdAt: "2026-05-16T12:10:01.000Z",
   },
   currentPayload: {
-    principalType: "group",
-    principalId: groupId,
-    stateHash: "group-state-3",
-    cipherSuite: "aes-256-gcm",
     ciphertext: "group-payload-3",
-    ciphertextHash: "group-payload-hash-3",
-    createdAt: "2026-05-16T12:10:01.000Z",
   },
   currentProjection: [
     {
@@ -162,11 +156,7 @@ export const organizationPrincipalPolicy: PrincipalPolicyBundleResponse = {
     principalType: "organization",
     principalId: organizationId,
   },
-  currentPayload: {
-    ...principalPolicy.currentPayload,
-    principalType: "organization",
-    principalId: organizationId,
-  },
+  currentPayload: principalPolicy.currentPayload,
   currentMemberEnvelopes: {
     ...principalPolicy.currentMemberEnvelopes,
     principalType: "organization",

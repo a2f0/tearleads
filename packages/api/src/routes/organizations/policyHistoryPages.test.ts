@@ -5,7 +5,6 @@ import {
   principalHistoryProgress,
   principalStatePayloads,
 } from "@tearleads/api-shared/schema";
-import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import { clearPrincipalPolicySignatureCaches } from "@tearleads/crypto/principal-policy-test-fixtures";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
@@ -86,8 +85,9 @@ test("cold organization display pages pin a head and carry only 32 directories p
   expect(
     first.body.evidence.groups.every((source) => !("previousStates" in source)),
   ).toBe(true);
-  const oldPayload = first.body.evidence.organizationPayloads[1]?.payload;
-  if (!oldPayload) throw new Error("Missing older directory payload");
+  const older = first.body.evidence.organizationPayloads[1];
+  const oldPayload = older?.payload;
+  if (!older || !oldPayload) throw new Error("Missing older directory payload");
   const changed = bytesToBase64(
     new TextEncoder().encode(
       `${new TextDecoder().decode(base64ToBytes(oldPayload.ciphertext))} `,
@@ -95,14 +95,11 @@ test("cold organization display pages pin a head and carry only 32 directories p
   );
   const rowScope = and(
     eq(principalStatePayloads.principalId, organizationId),
-    eq(principalStatePayloads.stateHash, oldPayload.stateHash),
+    eq(principalStatePayloads.stateHash, older.reference.stateHash),
   );
   await db
     .update(principalStatePayloads)
-    .set({
-      ciphertext: changed,
-      ciphertextHash: await computePrincipalStatePayloadCiphertextHash(changed),
-    })
+    .set({ ciphertext: changed })
     .where(rowScope);
   try {
     const refused = await routeApp.request(
@@ -113,10 +110,7 @@ test("cold organization display pages pin a head and carry only 32 directories p
   } finally {
     await db
       .update(principalStatePayloads)
-      .set({
-        ciphertext: oldPayload.ciphertext,
-        ciphertextHash: oldPayload.ciphertextHash,
-      })
+      .set({ ciphertext: oldPayload.ciphertext })
       .where(rowScope);
   }
   const next = await page(actor, organizationId, target.stateHash, 34);

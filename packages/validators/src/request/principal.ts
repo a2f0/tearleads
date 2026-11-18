@@ -73,10 +73,12 @@ const PrincipalStateRequestSchema = loosePlainObject({
 
 export type PrincipalStateRequest = z.infer<typeof PrincipalStateRequestSchema>;
 
+/**
+ * Only the ciphertext: the signed state's `payloadCiphertextHash` commits to
+ * it, and the cipher suite is fixed (#2903 P23).
+ */
 const PrincipalStateEncryptedPayloadRequestSchema = loosePlainObject({
-  cipherSuite: z.literal("aes-256-gcm"),
   ciphertext: z.string(),
-  ciphertextHash: z.string(),
 });
 
 export type PrincipalStateEncryptedPayloadRequest = z.infer<

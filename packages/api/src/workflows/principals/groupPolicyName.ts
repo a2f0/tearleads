@@ -1,6 +1,9 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { groups } from "@tearleads/api-shared/schema";
-import { readGroupMetadata } from "@tearleads/crypto";
+import {
+  computePrincipalStatePayloadCiphertextHash,
+  readGroupMetadata,
+} from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import type { StoredPrincipalState } from "../../access/read/principalStateStore";
@@ -40,7 +43,12 @@ export async function assertGroupPolicyNamePreserved(
     }
     return;
   }
-  if (current.payloadCiphertextHash !== input.encryptedPayload.ciphertextHash) {
+  if (
+    current.payloadCiphertextHash !==
+    (await computePrincipalStatePayloadCiphertextHash(
+      input.encryptedPayload.ciphertext,
+    ))
+  ) {
     throw new PrincipalPolicyError(
       "Group metadata cannot change during a policy update",
       400,

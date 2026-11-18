@@ -21,9 +21,7 @@ function initialPolicy(
 ): RegistrationRequest["initialOrganizationPolicy"] {
   return {
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm",
       ciphertext: "ciphertext",
-      ciphertextHash: "ciphertext-hash",
     },
     grants: [],
     memberEnvelopes: [

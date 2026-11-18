@@ -63,12 +63,7 @@ export async function verifyCurrentPolicyMutation(
       currentState: state,
       currentProjection: request.projection,
       currentGrants: request.grants,
-      currentPayload: {
-        ...request.encryptedPayload,
-        principalId: state.principalId,
-        principalType: state.principalType,
-        stateHash: state.stateHash,
-      },
+      currentPayload: { ciphertext: request.encryptedPayload.ciphertext },
       currentMemberEnvelopes: {
         envelopes: request.memberEnvelopes,
         principalId: state.principalId,

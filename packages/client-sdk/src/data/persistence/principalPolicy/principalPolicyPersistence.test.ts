@@ -97,13 +97,7 @@ async function createPrincipalPolicyBundle() {
     currentProjection,
     currentGrants: [],
     currentPayload: {
-      principalType: "group",
-      principalId: "group-1",
-      stateHash,
-      cipherSuite: "aes-256-gcm",
       ciphertext: payloadCiphertext,
-      ciphertextHash: signedState.payloadCiphertextHash,
-      createdAt: "2026-04-08T00:00:00.000Z",
     },
     previousStates: [],
   };
@@ -128,7 +122,7 @@ function successorBundleForPersistence(
       prevStateHash: bundle.currentState.stateHash,
       stateHash,
     },
-    currentPayload: { ...bundle.currentPayload, stateHash },
+    currentPayload: { ...bundle.currentPayload },
     currentMemberEnvelopes: {
       ...bundle.currentMemberEnvelopes,
       epoch: bundle.currentState.keyEpoch + 1,
@@ -220,7 +214,6 @@ test("principal policy persistence rejects a competing head at the cached versio
       },
       currentPayload: {
         ...bundle.currentPayload,
-        stateHash: competingStateHash,
       },
       currentMemberEnvelopes: {
         ...bundle.currentMemberEnvelopes,

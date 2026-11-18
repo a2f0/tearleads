@@ -20,15 +20,7 @@ const OLDER = "d".repeat(64);
 const UNKNOWN = "e".repeat(64);
 
 function payload(stateHash: string): PrincipalStatePayloadResponse {
-  return {
-    cipherSuite: "aes-256-gcm",
-    ciphertext: `directory-${stateHash.slice(0, 4)}`,
-    ciphertextHash: `hash-${stateHash.slice(0, 4)}`,
-    createdAt: "2026-11-17T00:00:00.000Z",
-    principalId: "organization-1",
-    principalType: "organization",
-    stateHash,
-  };
+  return { ciphertext: `directory-${stateHash.slice(0, 4)}` };
 }
 
 function evidence(): ProjectionPolicyEvidenceResponse {
@@ -81,17 +73,10 @@ test("a cited directory payload travels as null and refills from the cited bytes
   expect(decoded?.policyEvidence.organizationPayloads[0]?.payload).not.toBe(
     held.get(CURRENT),
   );
-  // Without the cited bytes, or with bytes held for another state, the
-  // response is unusable and the caller refetches in full.
+  // Without the cited bytes the response is unusable and the caller refetches
+  // in full. Bytes held under the wrong state are caught by the reader, which
+  // checks every payload against its state's signed payloadCiphertextHash.
   expect(decodeContainerWriterProjection(wire)).toBeNull();
-  expect(
-    decodeContainerWriterProjection(
-      wire,
-      new Map(),
-      new Map(),
-      new Map([[CURRENT, payload(OLDER)]]),
-    ),
-  ).toBeNull();
   // Nothing cited: every payload travels.
   expect(
     ContainerWriterProjectionWireResponseSchema.parse(

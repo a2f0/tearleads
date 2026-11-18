@@ -13,7 +13,7 @@ function competingHead(
   return {
     ...bundle,
     currentState: { ...bundle.currentState, stateHash },
-    currentPayload: { ...bundle.currentPayload, stateHash },
+    currentPayload: { ...bundle.currentPayload },
     currentMemberEnvelopes: {
       ...bundle.currentMemberEnvelopes,
       stateHash,

@@ -1,5 +1,4 @@
 import { afterEach, expect, test } from "bun:test";
-import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import {
   projectionDirectoryPayload,
   projectionPolicySource,
@@ -77,9 +76,6 @@ test("rejects an altered directory payload even when its advertised ciphertext h
     adminGroupId: descriptor.memberGroupId,
     memberGroupId: descriptor.adminGroupId,
   });
-  payload.ciphertextHash = await computePrincipalStatePayloadCiphertextHash(
-    payload.ciphertext,
-  );
   await expect(buildDetailedOrganizationPolicyHistory(input)).rejects.toThrow(
     "directory payload does not match its signed hash",
   );

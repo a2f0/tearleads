@@ -42,7 +42,6 @@ export type {
   PrincipalStateMember,
   PrincipalStateMemberEnvelope,
   PrincipalStateMembershipMode,
-  PrincipalStatePayloadCipherSuite,
   PrincipalStateSigningInput,
   SignedPrincipalState,
   UnsignedPrincipalState,

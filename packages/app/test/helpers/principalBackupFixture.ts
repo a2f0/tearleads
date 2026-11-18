@@ -50,13 +50,7 @@ export const backupCurrent = {
   currentProjection: backupProjection,
   currentGrants: [],
   currentPayload: {
-    principalType: state.principalType,
-    principalId: state.principalId,
-    stateHash: state.stateHash,
-    createdAt: state.createdAt,
-    cipherSuite: "aes-256-gcm",
     ciphertext: "ciphertext",
-    ciphertextHash: state.payloadCiphertextHash,
   },
   currentMemberEnvelopes: {
     principalType: state.principalType,
@@ -72,9 +66,7 @@ export const backupPolicyRequest = {
   grants: [],
   memberEnvelopes: [],
   encryptedPayload: {
-    cipherSuite: "aes-256-gcm",
     ciphertext: "ciphertext",
-    ciphertextHash: state.payloadCiphertextHash,
   },
 };
 

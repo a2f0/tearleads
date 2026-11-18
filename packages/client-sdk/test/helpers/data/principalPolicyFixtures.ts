@@ -37,11 +37,7 @@ export function principalPolicyHead(
  */
 export async function principalPolicyBundleFromState(input: {
   readonly createdAt: string;
-  readonly encryptedPayload: {
-    readonly cipherSuite: PrincipalPolicyBundleResponse["currentPayload"]["cipherSuite"];
-    readonly ciphertext: string;
-    readonly ciphertextHash: string;
-  };
+  readonly encryptedPayload: { readonly ciphertext: string };
   readonly memberEnvelopes: PrincipalPolicyBundleResponse["currentMemberEnvelopes"]["envelopes"];
   readonly grants?: PrincipalPolicyBundleResponse["currentGrants"];
   readonly previousStates?: PrincipalPolicyBundleResponse["previousStates"];
@@ -59,15 +55,7 @@ export async function principalPolicyBundleFromState(input: {
       createdAt: input.createdAt,
       stateHash,
     },
-    currentPayload: {
-      principalType,
-      principalId,
-      stateHash,
-      cipherSuite: input.encryptedPayload.cipherSuite,
-      ciphertext: input.encryptedPayload.ciphertext,
-      ciphertextHash: input.encryptedPayload.ciphertextHash,
-      createdAt: input.createdAt,
-    },
+    currentPayload: { ciphertext: input.encryptedPayload.ciphertext },
     currentProjection: [...input.projection],
     currentGrants: [...(input.grants ?? [])],
     currentMemberEnvelopes: {
@@ -120,9 +108,7 @@ export async function signedPrincipalPolicyBundle(input: {
   return principalPolicyBundleFromState({
     createdAt: input.signing.signedAt,
     encryptedPayload: {
-      cipherSuite: "aes-256-gcm",
       ciphertext: input.payloadCiphertext,
-      ciphertextHash: state.payloadCiphertextHash,
     },
     memberEnvelopes: input.memberEnvelopes,
     grants: input.signing.grants ?? [],

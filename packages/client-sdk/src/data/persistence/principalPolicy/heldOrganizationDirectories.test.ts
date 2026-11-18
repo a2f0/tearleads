@@ -42,16 +42,8 @@ function stateOf(stateHash: string, principalId = ORGANIZATION) {
   };
 }
 
-function payloadOf(stateHash: string, principalId = ORGANIZATION) {
-  return {
-    cipherSuite: "aes-256-gcm" as const,
-    ciphertext: `directory-${stateHash.slice(-2)}`,
-    ciphertextHash: "payload-hash",
-    createdAt: NOW,
-    principalId,
-    principalType: "organization" as const,
-    stateHash,
-  };
+function payloadOf(stateHash: string, _principalId = ORGANIZATION) {
+  return { ciphertext: `directory-${stateHash.slice(-2)}` };
 }
 
 function bundleRow(input: {

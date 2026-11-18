@@ -50,9 +50,7 @@ async function fixture(principalType: "group" | "organization") {
     request: {
       state: { ...state, signature: "" },
       encryptedPayload: {
-        cipherSuite: "aes-256-gcm",
         ciphertext: "epoch-boundary",
-        ciphertextHash: state.payloadCiphertextHash,
       },
       memberEnvelopes: [],
       projection,

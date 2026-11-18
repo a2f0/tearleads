@@ -63,7 +63,7 @@ test("projection sources issue scoped exact-head grants without full snapshots",
     }
     for (const { reference, payload } of evidence.organizationPayloads) {
       expect(reference.principalId).toBe(f.input.scope.organizationId);
-      expect(reference.stateHash).toBe(payload.stateHash);
+      expect(payload).toEqual({ ciphertext: expect.any(String) });
       expect(reference.version).toBeGreaterThan(0);
     }
     expect(full).not.toHaveBeenCalled();
