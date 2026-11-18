@@ -276,17 +276,15 @@ class OrganizationReadModelCoordinatorImpl
     // A delta's apply reflects its commit, not this request: read after it,
     // for this scope only.
     if (inFlight?.kind === "delta") {
-      const { domainScope } = active.runtime.state;
+      const stillCurrent = sessionIsCurrent(
+        this.runtimeService,
+        active,
+        this.runtimeService.sessionGeneration,
+      );
       return inFlight.promise
         .catch(() => null)
         .then(() =>
-          isOrganizationDataRuntimeCurrent(
-            this.runtimeService,
-            active,
-            domainScope,
-          )
-            ? this.reconcile(active.organizationId)
-            : null,
+          stillCurrent() ? this.reconcile(active.organizationId) : null,
         );
     }
     return this.presentReconciliation(active, "feed", () =>

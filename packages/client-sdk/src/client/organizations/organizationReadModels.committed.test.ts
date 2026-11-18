@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import invariant from "invariant";
 import {
   organizationReadModelCursorAt,
   organizationReadModelGroupsDelta,
@@ -12,12 +13,15 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { OrganizationReadModelRepository } from "../../data/persistence/organizations/organizationReadModelRepository";
+import { loadLocalOrganizationDirectoryAndGroups } from "../../workflows/organizations";
 import {
   beginCommittedReadModel,
   takeCommittedReadModelOffer,
 } from "../../workflows/organizations/readModel/committedReadModel";
 import { runOrganizationPresentationMutation } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
+import { presentOrganizationReadModelPass } from "./organizationReadModelPresentation";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
+import { activeOrganizationDataRuntime } from "./organizationWorkflowRuntime";
 
 const organizationId = organizationReadModelOrganizationId;
 const userId = organizationReadModelUserId;
@@ -52,12 +56,13 @@ async function committedFixture(name: string, feedGate?: Promise<void>) {
     execSql,
   });
   let sessionGeneration = 0;
-  const coordinator = createOrganizationReadModelCoordinator({
+  const runtime = {
     ...createInternalRuntimeFixture(() => workflowInput),
     get sessionGeneration() {
       return sessionGeneration;
     },
-  });
+  };
+  const coordinator = createOrganizationReadModelCoordinator(runtime);
   const scope = {
     domainScope: workflowInput.state.domainScope,
     execSql,
@@ -85,6 +90,7 @@ async function committedFixture(name: string, feedGate?: Promise<void>) {
     coordinator,
     execSql,
     requestedCursors,
+    runtime,
     scope,
     switchDomainScope,
   };
@@ -426,6 +432,67 @@ test("a fallback that waited out a feed read does not read for a new session", a
 
     await expect(settled).resolves.toBeUndefined();
     expect(f.requestedCursors).toEqual([cursorAt(1)]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a refresh that waited out a delta does not read after a relogin", async () => {
+  const f = await committedFixture("committed-read-model-refresh-relogin-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const applying = f.coordinator.applyCommittedReadModel(
+      organizationId,
+      delta,
+    );
+    for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
+    const refreshed = f.coordinator.reconcile();
+    f.advanceSession();
+
+    await applying;
+    await expect(refreshed).resolves.toBeNull();
+    expect(f.requestedCursors).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a transition during presentation publishes nothing", async () => {
+  const f = await committedFixture("committed-read-model-presentation-test");
+  try {
+    const lease = await beginCommittedReadModel(f.scope);
+    const delta = organizationReadModelGroupsDelta({
+      cursor: cursorAt(2),
+      groupName: "Operators",
+    });
+    lease.settle(delta);
+    const runtime = f.runtime;
+    const active = activeOrganizationDataRuntime(runtime, organizationId);
+    invariant(active, "expected an active organization runtime");
+    let checks = 0;
+    // Current through the pass and the access step, then overtaken.
+    const presented = await presentOrganizationReadModelPass(
+      runtime,
+      active,
+      () =>
+        loadLocalOrganizationDirectoryAndGroups({
+          currentUserId: userId,
+          execSql: f.execSql,
+          organizationId,
+        }),
+      () => {
+        checks += 1;
+        return checks <= 2;
+      },
+    );
+
+    expect(presented).toBeNull();
+    expect(checks).toBe(3);
   } finally {
     f.close();
   }

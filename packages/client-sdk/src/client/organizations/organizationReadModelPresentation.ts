@@ -58,7 +58,7 @@ export function presentOrganizationReadModelPass(
         userId: active.userId,
       });
     if (!stillCurrent()) return null;
-    return withVerifiedLeaveRequests(
+    const presented = await withVerifiedLeaveRequests(
       await hydrateOrganizationGroupNamesForRuntime(
         runtimeService,
         active,
@@ -67,5 +67,7 @@ export function presentOrganizationReadModelPass(
       ),
       leaveRequestVerifier(runtimeService, active.runtime, active),
     );
+    // A transition during presentation publishes nothing for the old scope.
+    return stillCurrent() ? presented : null;
   });
 }

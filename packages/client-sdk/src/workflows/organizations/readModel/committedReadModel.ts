@@ -49,12 +49,22 @@ function scopeOffers(scope: CommittedReadModelScope): ScopeOffers {
     byScope = new Map();
     offersByDomainScope.set(scope.domainScope, byScope);
   }
-  const key = `${scope.sessionGeneration}:${organizationAccessScopeKey(
+  const requester = organizationAccessScopeKey(
     scope.organizationId,
     scope.userId,
-  )}`;
+  );
+  const key = `${scope.sessionGeneration}:${requester}`;
   let offers = byScope.get(key);
   if (!offers) {
+    // A newer session retires the requester's older buckets and their offers.
+    for (const [existing] of byScope) {
+      const [generation, ...rest] = existing.split(":");
+      if (
+        rest.join(":") === requester &&
+        Number(generation) < scope.sessionGeneration
+      )
+        byScope.delete(existing);
+    }
     offers = { pending: new Set(), settled: [] };
     byScope.set(key, offers);
   }

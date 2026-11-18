@@ -288,6 +288,7 @@ async function applyResponse(
     return {
       kind: "applied",
       result: await repository.applyOrganizationReadModelResponse({
+        canCommit: input.stillCurrent,
         currentUserId: input.currentUserId,
         requestedCursor: state.expectedLocalCursor,
         response,
@@ -369,10 +370,7 @@ async function applyReadModelPage(
     )
       return { kind: "done", value: null };
     const preparation = await prepareDeniedProjectionForApply(input, state);
-    if (preparation) {
-      return preparation;
-    }
-
+    if (preparation) return preparation;
     const applied = await applyResponse(input, state, response);
     if (applied.kind !== "applied") {
       return applied;

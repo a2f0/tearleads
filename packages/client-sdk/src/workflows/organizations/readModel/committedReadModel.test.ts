@@ -167,3 +167,57 @@ test("an unreadable projection begins a lease without a cursor", async () => {
   });
   expect(lease.heldCursor).toBeUndefined();
 });
+
+test("a newer session retires the requester's older offers", async () => {
+  const { close, execSql } = await createTestExecSql("committed-retire-test");
+  const scope = {
+    domainScope: {},
+    execSql,
+    organizationId,
+    sessionGeneration: 0,
+    userId,
+  };
+  try {
+    await new OrganizationReadModelRepository(
+      execSql,
+    ).applyOrganizationReadModelResponse({
+      currentUserId: userId,
+      requestedCursor: null,
+      response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
+    });
+    (await beginCommittedReadModel(scope)).settle(delta(cursorAt(2)));
+    (await beginCommittedReadModel({ ...scope, sessionGeneration: 1 })).settle(
+      undefined,
+    );
+
+    await expect(takeCommittedReadModelOffers(scope)).resolves.toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("a refused commit guard leaves the projection unapplied", async () => {
+  const { close, execSql } = await createTestExecSql("committed-guard-test");
+  const repository = new OrganizationReadModelRepository(execSql);
+  try {
+    await repository.applyOrganizationReadModelResponse({
+      currentUserId: userId,
+      requestedCursor: null,
+      response: organizationReadModelSnapshot({ cursor: cursorAt(1) }),
+    });
+
+    await expect(
+      repository.applyOrganizationReadModelResponse({
+        canCommit: () => false,
+        currentUserId: userId,
+        requestedCursor: cursorAt(1),
+        response: delta(cursorAt(2)),
+      }),
+    ).resolves.toBe("stale");
+    await expect(
+      repository.loadOrganizationReadModelCursor(organizationId),
+    ).resolves.toBe(cursorAt(1));
+  } finally {
+    close();
+  }
+});
