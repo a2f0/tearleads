@@ -1,3 +1,5 @@
+import { createKeyedQueue } from "../shared/keyedQueue";
+import { sqlConnectionIdentity } from "../sqlite/sqlExec";
 import { type ExecSql, resolveCanonicalExecSql } from "../sqlite/sqlSchema";
 import {
   type PrincipalMutationJournalScope,
@@ -5,9 +7,9 @@ import {
 } from "./principalMutationJournal";
 
 /**
- * The principal-policy work one database coordinates in this process. Every
- * executor for a connection, including a transaction's locked one, resolves to
- * the same coordinator; different databases never share one.
+ * Recovery hints belong to one scoped executor and its nested transactions.
+ * Journal dispatch and recovery share the physical database's mutation lock
+ * across sign-ins.
  */
 export interface PrincipalPolicyCoordinator {
   /**
@@ -33,26 +35,10 @@ export interface PrincipalPolicyCoordinator {
   ): Promise<T>;
 }
 
-/** Runs work for a key after the work already queued for it; idle keys hold nothing. */
-function createKeyedQueue() {
-  const tails = new Map<string, Promise<void>>();
-  return <T>(key: string, work: () => Promise<T>): Promise<T> => {
-    const operation = (tails.get(key) ?? Promise.resolve()).then(work);
-    const settled = operation.then(
-      () => undefined,
-      () => undefined,
-    );
-    tails.set(key, settled);
-    void settled.then(() => {
-      if (tails.get(key) === settled) tails.delete(key);
-    });
-    return operation;
-  };
-}
-
-function createPrincipalPolicyCoordinator(): PrincipalPolicyCoordinator {
+function createPrincipalPolicyCoordinator(
+  journalScopes: ReturnType<typeof createKeyedQueue>,
+): PrincipalPolicyCoordinator {
   const recoveries = createKeyedQueue();
-  const journalScopes = createKeyedQueue();
   const epochs = new Map<string, number>();
   return {
     queueRecovery: recoveries,
@@ -65,6 +51,7 @@ function createPrincipalPolicyCoordinator(): PrincipalPolicyCoordinator {
   };
 }
 
+const journals = new WeakMap<object, ReturnType<typeof createKeyedQueue>>();
 const coordinators = new WeakMap<ExecSql, PrincipalPolicyCoordinator>();
 
 export function getOrCreatePrincipalPolicyCoordinator(
@@ -73,7 +60,10 @@ export function getOrCreatePrincipalPolicyCoordinator(
   const database = resolveCanonicalExecSql(execSql);
   let coordinator = coordinators.get(database);
   if (!coordinator) {
-    coordinator = createPrincipalPolicyCoordinator();
+    const connection = sqlConnectionIdentity(execSql);
+    const journal = journals.get(connection) ?? createKeyedQueue();
+    journals.set(connection, journal);
+    coordinator = createPrincipalPolicyCoordinator(journal);
     coordinators.set(database, coordinator);
   }
   return coordinator;

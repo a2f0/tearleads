@@ -47,7 +47,7 @@ export interface DatabaseContextValue {
    * Wipe the persisted database. Reusable hosts renew the connection afterward;
    * other hosts terminate the worker.
    */
-  purgeWorker: () => Promise<void>;
+  purgeWorker: (current?: () => boolean) => Promise<void>;
   /** Wipe only this fingerprint's database, including when it is not open. */
   purgeIdentityDatabase: (signingFingerprint: string) => Promise<void>;
   spawnWorker: () => void;

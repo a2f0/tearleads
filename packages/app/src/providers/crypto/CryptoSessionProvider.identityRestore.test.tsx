@@ -39,6 +39,10 @@ test("a persisted session cannot bind to an identity switched before React clean
   const tearleads = {
     identity,
     session: {
+      get authToken() {
+        return sessionSnapshot.authToken;
+      },
+      captureSignIn: () => () => true,
       bootstrapLocalRootContainer: () => Promise.resolve(),
       login,
       logout,

@@ -36,6 +36,7 @@ import type {
 import { getOrCreateOrganizationSyncPauses } from "../../workflows/sync/coordination";
 import type { Blobs } from "../blobs";
 import type { Identity } from "../identity";
+import { sessionLifetime } from "../session";
 import { acknowledgedSessionRoot } from "../session/sessionRootAuthority";
 import type { Session } from "../session/sessionTypes";
 import type { Database } from "./database";
@@ -50,7 +51,10 @@ import {
   type PrincipalMutationApi,
 } from "./principalMutationApi";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
-import { createRuntimeIdentityResolution } from "./runtimeIdentityResolution";
+import {
+  bindSessionIdentityResolver,
+  createRuntimeIdentityResolution,
+} from "./runtimeIdentityResolution";
 import { reuseIfShallowEqual } from "./runtimeInputReuse";
 import { createRuntimeSubscription } from "./runtimeSubscription";
 import type { SyncBillingGate } from "./syncBillingGate";
@@ -105,6 +109,7 @@ export interface InternalRuntime {
   pinLocalUserIdentity(
     userId: string,
     candidate: LocalUserIdentityCandidate,
+    assertCurrent?: () => void,
   ): Promise<void>;
   readonly primeProvisionedState: ProvisionedStatePrimer;
   workflowInput(
@@ -140,6 +145,7 @@ function createRuntimeMutationApi(
   return createPrincipalMutationApiCustody({
     api: dependencies.api,
     readSessionGeneration,
+    signIn: sessionLifetime(dependencies.session),
     principalMutationTimeoutMs: dependencies.principalMutationTimeoutMs,
     readScope: () => {
       const { signingKeyPair, signingFingerprint } = dependencies.identity;
@@ -156,7 +162,9 @@ function createRuntimeMutationApi(
         return null;
       return {
         database: dependencies.getDomainScope(),
-        execSql: dependencies.database.requireExecSql("principal mutation"),
+        execSql: sessionLifetime(dependencies.session).bind(
+          dependencies.database.requireExecSql("principal mutation"),
+        ),
         generation: readGeneration(),
         identityTrustDomain,
         signingFingerprint,
@@ -190,21 +198,20 @@ function createRuntimeProvisioningPrimer(
   });
 }
 
-export function createRuntime(
+function sessionExecutor(
   dependencies: WorkflowRuntimeDependencies,
-): InternalRuntime {
-  const readyExecSql = () =>
-    dependencies.database.status === "ready"
-      ? dependencies.database.requireExecSql("trusted user identity")
-      : null;
-  const runtimeSubscription = createRuntimeSubscription(dependencies);
-  const { trustedUserIdentityService, resolveTrustedUserIdentity } =
-    createRuntimeIdentityResolution(
-      dependencies,
-      readyExecSql,
-      () => runtimeSubscription.recoveryGeneration,
-    );
-  const historyProtection = createPrincipalHistoryProtectionCustody({
+): ExecSql | null {
+  const execSql = dependencies.database.execSql;
+  return dependencies.database.status === "ready" && execSql
+    ? sessionLifetime(dependencies.session).bind(execSql)
+    : null;
+}
+
+function createRuntimeHistoryProtection(
+  dependencies: WorkflowRuntimeDependencies,
+  readGeneration: () => number,
+) {
+  return createPrincipalHistoryProtectionCustody({
     keyProvider: dependencies.principalHistoryKeyProvider,
     readScope: () => {
       const signingFingerprint = dependencies.identity.signingFingerprint;
@@ -218,14 +225,36 @@ export function createRuntime(
       return {
         signingFingerprint,
         identityTrustDomain,
-        database: dependencies.getDomainScope(),
-        generation: runtimeSubscription.recoveryGeneration,
+        database: dependencies.database.requireExecSql(
+          "principal history protection",
+        ),
+        generation: readGeneration(),
       };
     },
   });
+}
+
+export function createRuntime(
+  dependencies: WorkflowRuntimeDependencies,
+): InternalRuntime {
+  const readyExecSql = () => sessionExecutor(dependencies);
+  const runtimeSubscription = createRuntimeSubscription(dependencies);
+  const { trustedUserIdentityService, resolveTrustedUserIdentity } =
+    createRuntimeIdentityResolution(
+      dependencies,
+      readyExecSql,
+      () => runtimeSubscription.recoveryGeneration,
+    );
+  const historyProtection = createRuntimeHistoryProtection(
+    dependencies,
+    () => runtimeSubscription.recoveryGeneration,
+  );
   const runtimeInput = createRuntimeInputFactory(
     dependencies,
-    resolveTrustedUserIdentity,
+    bindSessionIdentityResolver(
+      resolveTrustedUserIdentity,
+      sessionLifetime(dependencies.session),
+    ),
     historyProtection.bind,
     createRuntimeMutationApi(
       dependencies,
@@ -252,7 +281,7 @@ export function createRuntime(
     ),
     boundUserId: (signingKeyFingerprint) =>
       trustedUserIdentityService.boundUserId(signingKeyFingerprint),
-    async pinLocalUserIdentity(userId, candidate) {
+    async pinLocalUserIdentity(userId, candidate, assertCurrent) {
       await runWithSecurityIncidentReporting(
         dependencies.reportSecurityIncident,
         {
@@ -261,7 +290,8 @@ export function createRuntime(
           operation: "user.identity.pin_local",
           organizationId: dependencies.session.organizationId,
         },
-        () => trustedUserIdentityService.pinLocal(userId, candidate),
+        () =>
+          trustedUserIdentityService.pinLocal(userId, candidate, assertCurrent),
       );
     },
     primeProvisionedState: createRuntimeProvisioningPrimer(
@@ -332,7 +362,7 @@ function runtimeInputUtilities(
 
 function createRuntimeInputFactory(
   dependencies: WorkflowRuntimeDependencies,
-  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+  bindIdentityResolver: () => TrustedUserIdentityResolver,
   bindHistoryProtection: () => PrincipalHistoryProtectionLease | undefined,
   bindMutationApi: () => PrincipalMutationApi,
 ): RuntimeInputFactory {
@@ -347,10 +377,7 @@ function createRuntimeInputFactory(
     containerId?: string | null | undefined,
   ): InternalWorkflowRuntimeInput => {
     const dbStatus = dependencies.database.status;
-    const execSql =
-      dbStatus === "ready"
-        ? dependencies.database.requireExecSql("tearleads.runtime.input")
-        : unavailableExecSql;
+    const execSql = sessionExecutor(dependencies) ?? unavailableExecSql;
     const nextContainerId =
       (containerId === undefined
         ? dependencies.session.containerId
@@ -363,7 +390,9 @@ function createRuntimeInputFactory(
       signingKeyPair: dependencies.identity.signingKeyPair,
     });
     infra = reuseIfShallowEqual(infra, {
-      blobStore: dependencies.blobs.store,
+      blobStore: sessionLifetime(dependencies.session).bindBlobStore(
+        dependencies.blobs.store,
+      ),
       dbStatus,
       documentProjectors: dependencies.documentProjectors,
       // Runtime consumers branch on dbStatus before touching SQLite. The
@@ -387,6 +416,7 @@ function createRuntimeInputFactory(
     util = runtimeInputUtilities(dependencies, util);
 
     const apiClient = bindMutationApi();
+    const resolveTrustedUserIdentity = bindIdentityResolver();
     return {
       apiClient,
       auth,

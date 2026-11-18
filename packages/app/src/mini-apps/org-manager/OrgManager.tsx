@@ -4,7 +4,7 @@ import {
   useWindowFileMenuItem,
   useWindowRefreshMenuItem,
 } from "@tearleads/windowing";
-import { type MouseEvent, useCallback, useState } from "react";
+import { type MouseEvent, useCallback } from "react";
 import { AccountBootstrapPanel } from "../../components/identity/AccountBootstrapPanel";
 import {
   MiniAppRoot,
@@ -16,6 +16,7 @@ import { resolveOrgManagerDetailBackVisibility } from "./detailBackActions";
 import { DirectoryView } from "./directory/DirectoryView";
 import { GrantsView } from "./grants/GrantsView";
 import { RevokeGrantConfirmationDialog } from "./grants/RevokeGrantConfirmationDialog";
+import { useRevokeGrantConfirmation } from "./grants/useRevokeGrantConfirmation";
 import { GroupsView } from "./groups/GroupsView";
 import { useOrgManagerBillingRosterState } from "./hooks/useOrgManagerBillingRosterState";
 import { ORG_MANAGER_LABELS } from "./labels";
@@ -202,64 +203,6 @@ function OrgManagerGroupsContent({ model }: { model: OrgManagerModel }) {
       userId={model.userId}
     />
   );
-}
-
-function useRevokeGrantConfirmation(model: OrgManagerModel) {
-  const [pendingRevoke, setPendingRevoke] = useState<{
-    grant: OrganizationContainerGrant;
-    organizationId: string;
-  } | null>(null);
-  const grantPendingRevoke =
-    pendingRevoke?.organizationId === model.organizationId
-      ? pendingRevoke.grant
-      : null;
-  const requestRevokeGrant = useCallback(
-    (grant: OrganizationContainerGrant) => {
-      if (
-        !model.organizationId ||
-        !model.canRevokeGrants ||
-        model.mutating ||
-        grant.isBuiltin
-      ) {
-        return;
-      }
-
-      setPendingRevoke({ grant, organizationId: model.organizationId });
-    },
-    [model.canRevokeGrants, model.mutating, model.organizationId],
-  );
-  const closeRevokeGrantDialog = useCallback(() => {
-    setPendingRevoke(null);
-  }, []);
-  const confirmRevokeGrant = useCallback(() => {
-    if (
-      !pendingRevoke ||
-      !grantPendingRevoke ||
-      !model.canRevokeGrants ||
-      model.mutating
-    ) {
-      return;
-    }
-
-    void model.revokeGrant(grantPendingRevoke).finally(() => {
-      setPendingRevoke((current) =>
-        current === pendingRevoke ? null : current,
-      );
-    });
-  }, [
-    grantPendingRevoke,
-    model.canRevokeGrants,
-    model.mutating,
-    model.revokeGrant,
-    pendingRevoke,
-  ]);
-
-  return {
-    closeRevokeGrantDialog,
-    confirmRevokeGrant,
-    grantPendingRevoke,
-    requestRevokeGrant,
-  };
 }
 
 function useOrgManagerWindowMenus(model: OrgManagerModel) {

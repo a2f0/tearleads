@@ -106,6 +106,7 @@ export async function registerIdentity(
     userId: newUserId,
   });
 
+  if (input.isIdentityCurrent?.() === false) return null;
   const response = await input.apiClient.registerUser(
     newUserId,
     artifacts.organizationId,

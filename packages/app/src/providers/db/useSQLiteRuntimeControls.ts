@@ -76,7 +76,10 @@ export function useSQLiteRuntimeControls(params: {
   currentDbNameRef: RefObject<string | null>;
   destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
   log: (message: string) => void;
-  purgeCurrentRuntime: (dbName?: string) => Promise<void>;
+  purgeCurrentRuntime: (
+    dbName?: string,
+    current?: () => boolean,
+  ) => Promise<void>;
   reuseWorker: boolean;
   runtimeRef: RefObject<SQLiteRuntime | null>;
   spawnRuntimeForDbName: (nextDbName: string) => void;
@@ -143,10 +146,13 @@ export function useSQLiteRuntimeControls(params: {
     log("Worker killed");
   }, [destroyCurrentRuntime, log, runtimeRef]);
 
-  const purgeWorker = useCallback(async () => {
-    await purgeCurrentRuntime();
-    log("Local database wiped");
-  }, [log, purgeCurrentRuntime]);
+  const purgeWorker = useCallback(
+    async (current: () => boolean = () => true) => {
+      await purgeCurrentRuntime(undefined, current);
+      if (current()) log("Local database wiped");
+    },
+    [log, purgeCurrentRuntime],
+  );
 
   const purgeIdentityDatabase = useCallback(
     async (signingFingerprint: string) => {

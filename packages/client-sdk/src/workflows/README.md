@@ -7,7 +7,7 @@ UI. Private leases stay hidden; authority loaders take exact heads. See
 
 ## Host Contract
 
-Hosts implement interfaces directly; the SDK does not adapt host or wire shapes.
+Hosts implement interfaces directly. Workflow scopes follow the [sign-in lifetime](../../../../docs/developer/client-sdk/runtime-behavior.md#sign-in-lifetime).
 See [initialization](../../../../docs/developer/sdk-initialization.md). `deviceFirst.open()`
 returns the tree handle. Container creation commits
 the container and its metadata document in one compound API request. Create,

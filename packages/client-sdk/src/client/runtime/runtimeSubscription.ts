@@ -1,4 +1,5 @@
 import { createListenerSet } from "../../data/shared/listenerSet";
+import { sessionLifetime } from "../session";
 import type { Session, SessionSnapshot } from "../session/sessionTypes";
 
 interface Subscribable {
@@ -19,6 +20,8 @@ export function createRuntimeSubscription(dependencies: SubscriptionSources) {
   let sessionGeneration = 0;
   let recoveryGeneration = 0;
   let mutationGeneration = 0;
+  const lifetime = sessionLifetime(dependencies.session);
+  let epoch = lifetime.epoch;
   let sessionSnapshot = dependencies.session.snapshot;
   const notifyListeners = () => {
     version += 1;
@@ -36,11 +39,18 @@ export function createRuntimeSubscription(dependencies: SubscriptionSources) {
   dependencies.network.subscribe(() => notifyListeners());
   dependencies.session.subscribe(() => {
     const next = dependencies.session.snapshot;
-    if (sessionAuthorityChanged(sessionSnapshot, next)) {
+    const replaced = epoch !== lifetime.epoch;
+    epoch = lifetime.epoch;
+    const changed = replaced || sessionScopeChanged(sessionSnapshot, next);
+    if (
+      changed ||
+      (next.authToken !== sessionSnapshot.authToken &&
+        lifetime.lastRenewal !== next)
+    ) {
       sessionGeneration += 1;
       recoveryGeneration += 1;
     }
-    if (sessionScopeChanged(sessionSnapshot, next)) mutationGeneration += 1;
+    if (changed) mutationGeneration += 1;
     sessionSnapshot = next;
     notifyListeners();
   });
@@ -59,18 +69,10 @@ export function createRuntimeSubscription(dependencies: SubscriptionSources) {
     get version() {
       return version;
     },
-    subscribe: listeners.subscribe,
+    subscribe(listener: () => void): () => void {
+      return listeners.subscribe(listener);
+    },
   };
-}
-
-/** Fields whose change invalidates work keyed on the session's authority. */
-function sessionAuthorityChanged(
-  previous: SessionSnapshot,
-  next: SessionSnapshot,
-): boolean {
-  return (
-    next.authToken !== previous.authToken || sessionScopeChanged(previous, next)
-  );
 }
 
 // A transport token renewal cannot turn a definite write refusal into saved work.

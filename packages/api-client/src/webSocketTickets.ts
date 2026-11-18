@@ -39,6 +39,10 @@ export class WebSocketTickets {
     };
   }
 
+  retainVerifiedTicket(ticket: string | undefined): void {
+    if (this.loginTicket?.ticket !== ticket) this.loginTicket = null;
+  }
+
   async next(): Promise<string | null> {
     const login = this.loginTicket;
     this.loginTicket = null;

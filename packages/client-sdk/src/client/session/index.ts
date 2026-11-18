@@ -7,6 +7,7 @@ import {
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import {
   emptySessionSnapshot,
+  hostSessionUpdate,
   mergeSessionContext,
   registrationSessionResult,
   sessionSnapshotsEqual,
@@ -15,14 +16,15 @@ import {
   registrationKeyAlreadyBound,
   requireRegistrationIdentityPinner,
   requireSessionTrustDomain,
-  requireUserIdentityAvailable,
   SessionIdentityAcknowledgments,
 } from "./sessionIdentityTrust";
-import { userSessionsFromResponse } from "./sessionListing";
 import {
-  authenticateUnlessSuspended,
-  refuseSessionLogin,
-} from "./sessionLoginRefusal";
+  type SessionTransition,
+  sessionBoundary,
+  sessionLifetime,
+} from "./sessionLifetime";
+import { userSessionsFromResponse } from "./sessionListing";
+import { authenticateSession } from "./sessionLogin";
 import { createSessionOrganization } from "./sessionOrganizationCreation";
 import {
   clearSessionRemoteSyncState,
@@ -47,7 +49,11 @@ import type {
   UserSession,
 } from "./sessionTypes";
 
-export function createSession(dependencies: SessionDependencies): Session {
+export { sessionLifetime } from "./sessionLifetime";
+
+export function createSession(
+  dependencies: SessionDependencies,
+): Session & { renewExpired(): Promise<boolean> } {
   return new SessionService(dependencies);
 }
 
@@ -56,9 +62,14 @@ class SessionService implements Session {
     new SessionIdentityAcknowledgments();
   private readonly listeners = createListenerSet();
   private syncEnabledValue = true;
+  private refusedSignIn: number | null = null;
   private snapshotValue = emptySessionSnapshot();
 
   constructor(private readonly dependencies: SessionDependencies) {}
+
+  captureSignIn(purpose?: "restore"): () => boolean {
+    return sessionLifetime(this).currentSignIn(purpose);
+  }
 
   get authToken(): string | null {
     return this.snapshotValue.authToken;
@@ -106,6 +117,7 @@ class SessionService implements Session {
   async bootstrapLocalRootContainer(
     isCurrent: () => boolean = () => true,
   ): ReturnType<typeof bootstrapRootContainer> {
+    const signInCurrent = this.captureSignIn();
     if (!isCurrent()) throw new Error("Identity change was superseded.");
     // Preserve a logged-in session's acknowledged root during local recovery.
     const acknowledgedRoot = acknowledgedSessionRoot(
@@ -116,9 +128,14 @@ class SessionService implements Session {
       return { containerId: acknowledgedRoot, created: false };
     }
     const result = await bootstrapRootContainer(
-      this.dependencies.database.requireExecSql("bootstrapLocalRootContainer"),
+      sessionLifetime(this).bind(
+        this.dependencies.database.requireExecSql(
+          "bootstrapLocalRootContainer",
+        ),
+      ),
     );
-    if (!isCurrent()) throw new Error("Identity change was superseded.");
+    if (!signInCurrent() || !isCurrent())
+      throw new Error("Identity change was superseded.");
     this.setContainerId(result.containerId);
     if (result.created) {
       this.dependencies.log("Root container created");
@@ -141,111 +158,48 @@ class SessionService implements Session {
     return response?.message === "ok";
   }
 
-  async login(challengeHex?: string | undefined): Promise<boolean> {
-    const signingKeyPair =
-      this.dependencies.identity.requireSigningKeyPair("login");
-    const fingerprint =
-      (await this.dependencies.identity.refreshSigningFingerprint()) ?? null;
-
-    if (!fingerprint) {
-      return false;
-    }
-    // A refusal below clears the session it is evidence against; a session
-    // another login committed meanwhile is not that session and stays.
-    const snapshotAtStart = this.snapshotValue;
-    const identitySnapshot = this.dependencies.identity.snapshot;
-    const encapsulationKeyPair = identitySnapshot.encapsulationKeyPair;
-    if (!encapsulationKeyPair) {
-      return false;
-    }
-    if (identitySnapshot.signingKeyPair !== signingKeyPair) {
-      return false;
-    }
-    const pinLocalUserIdentity = requireUserIdentityAvailable(
-      this.dependencies.onUserIdentityAvailable,
-      "Login",
+  login(challengeHex?: string): Promise<boolean> {
+    return authenticateSession(
+      this.dependencies,
+      this,
+      this.identityAcknowledgments,
+      challengeHex,
+      false,
     );
-
-    this.dependencies.log(
-      challengeHex ? "Authenticating with challenge..." : "Authenticating...",
-    );
-    const authentication = await authenticateUnlessSuspended(
-      () =>
-        challengeHex
-          ? this.dependencies.api.authenticateWithChallenge(
-              fingerprint,
-              signingKeyPair.signingPrivateKey,
-              challengeHex,
-            )
-          : this.dependencies.api.authenticate(
-              fingerprint,
-              signingKeyPair.signingPrivateKey,
-            ),
-      () => {
-        if (this.authToken === snapshotAtStart.authToken) this.logout();
-      },
-    );
-
-    if (this.dependencies.identity.snapshot !== identitySnapshot) {
-      return false;
-    }
-
-    if (!authentication) {
-      this.logout();
-      this.dependencies.log("Authentication failed");
-      return false;
-    }
-
-    try {
-      this.identityAcknowledgments.assertMatches(
-        authentication.userId,
-        fingerprint,
-      );
-      await pinLocalUserIdentity(authentication.userId, {
-        encapsulationPublicKey: encapsulationKeyPair.publicKey,
-        signingKeyFingerprint: fingerprint,
-        signingPublicKey: signingKeyPair.signingPublicKey,
-      });
-      if (this.dependencies.identity.snapshot !== identitySnapshot)
-        return false;
-      this.identityAcknowledgments.remember(authentication.userId, fingerprint);
-    } catch (error) {
-      return refuseSessionLogin(error, authentication.userId, {
-        clear: () => this.logout(),
-        report: this.dependencies.reportSecurityIncident,
-      });
-    }
-    // A changed root for this identity+org is refused before the token is
-    // usable. Decision and commit are one synchronous step against the live
-    // snapshot (no await in between); the refusal clears the prior session in
-    // that same step and then reports its own incident.
-    await commitSessionRootAcknowledgment({
-      context: {
-        authToken: authentication.token,
-        defaultOrganizationId: authentication.organizationId,
-        isAuthenticated: true,
-        isRoot: authentication.isRoot,
-        organizationId: authentication.organizationId,
-        userId: authentication.userId,
-      },
-      onRefused: () => {
-        if (this.snapshotValue === snapshotAtStart) this.logout();
-      },
-      reporter: this.dependencies.reportSecurityIncident,
-      root: authentication,
-      session: this,
-      signingFingerprint: fingerprint,
-    });
-    this.dependencies.log("Authentication successful");
-    return true;
   }
+
+  renewExpired = (): Promise<boolean> => {
+    if (!this.authToken || !this.dependencies.identity.signingKeyPair) {
+      this.clearAuthentication(true);
+      return Promise.resolve(false);
+    }
+    return authenticateSession(
+      this.dependencies,
+      this,
+      this.identityAcknowledgments,
+      undefined,
+      true,
+    );
+  };
 
   logout(): void {
-    this.setContext({ authToken: null, isAuthenticated: false, isRoot: false });
+    this.clearAuthentication(false);
   }
 
-  async logoutRemote(): Promise<boolean> {
+  clearAuthentication(renewal: boolean): void {
+    if (renewal) this.refusedSignIn = sessionLifetime(this).signInRevision;
+    this.commitContext(
+      { authToken: null, isAuthenticated: false, isRoot: false },
+      renewal ? "renewal-refused" : "boundary",
+    );
+  }
+
+  async logoutRemote(
+    onLocalLogout?: (current: () => boolean) => void | Promise<void>,
+  ): Promise<boolean> {
     const identitySnapshot = this.dependencies.identity.snapshot;
+    const lifetime = sessionLifetime(this);
+    const revision = lifetime.signInRevision;
     try {
       if (!this.authToken) {
         return true;
@@ -254,9 +208,19 @@ class SessionService implements Session {
       const response = await this.dependencies.api.logout();
       return response?.message === "ok";
     } finally {
-      if (this.dependencies.identity.snapshot === identitySnapshot) {
-        this.logout();
-      }
+      const sameIdentity = () =>
+        this.dependencies.identity.snapshot === identitySnapshot;
+      const clearedHere =
+        sameIdentity() && revision === lifetime.signInRevision;
+      if (clearedHere) this.logout();
+      // The same local sign-out may already have happened during a refused
+      // renewal. A later explicit logout or sign-in supersedes this cleanup.
+      const current = () =>
+        sameIdentity() &&
+        !this.isAuthenticated &&
+        lifetime.signInRevision === revision + 1;
+      if (current() && (clearedHere || this.refusedSignIn === revision))
+        await onLocalLogout?.(current);
     }
   }
 
@@ -272,6 +236,10 @@ class SessionService implements Session {
     }
 
     const identitySnapshot = this.dependencies.identity.snapshot;
+    const sessionCurrent = this.captureSignIn();
+    const isCurrent = () =>
+      sessionCurrent() &&
+      this.dependencies.identity.snapshot === identitySnapshot;
     const signingKeyPair = identitySnapshot.signingKeyPair;
     if (!signingKeyPair) {
       this.dependencies.log("Registration skipped: signing key is unavailable");
@@ -296,13 +264,14 @@ class SessionService implements Session {
     const pinLocalUserIdentity = requireRegistrationIdentityPinner({
       identity: this.dependencies.identity,
       identitySnapshot,
+      isCurrent,
       onUserIdentityAvailable: this.dependencies.onUserIdentityAvailable,
     });
     const keyBound = await registrationKeyAlreadyBound(
       this.dependencies,
       identitySnapshot.signingFingerprint,
     );
-    if (this.dependencies.identity.snapshot !== identitySnapshot) return null;
+    if (!isCurrent()) return null;
     if (keyBound) return keyBound;
 
     let response: Awaited<ReturnType<typeof registerIdentityWorkflow>>;
@@ -314,8 +283,7 @@ class SessionService implements Session {
         dbClient,
         documentProjectors: this.dependencies.documentProjectors,
         encapsulationKeyPair,
-        isIdentityCurrent: () =>
-          this.dependencies.identity.snapshot === identitySnapshot,
+        isIdentityCurrent: isCurrent,
         log: this.dependencies.log,
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
@@ -332,7 +300,7 @@ class SessionService implements Session {
       throw error;
     }
 
-    if (this.dependencies.identity.snapshot !== identitySnapshot) return null;
+    if (!isCurrent()) return null;
     if (!response) {
       this.dependencies.log("Registration failed");
       return null;
@@ -363,7 +331,9 @@ class SessionService implements Session {
   ): Promise<SessionCreateOrganizationResult | null> {
     const identitySnapshot = this.dependencies.identity.snapshot;
     const userId = this.userId;
+    const isCurrent = sessionLifetime(this).capture();
     const response = await createSessionOrganization(this.dependencies, {
+      isCurrent,
       nativeSubscriptionRestore,
       options,
       replacesOrganizationId,
@@ -371,6 +341,7 @@ class SessionService implements Session {
     });
     if (
       !response ||
+      !isCurrent() ||
       !userId ||
       this.userId !== userId ||
       this.dependencies.identity.snapshot !== identitySnapshot
@@ -402,8 +373,10 @@ class SessionService implements Session {
     const dbClient = this.dependencies.database.client;
     const identitySnapshot = this.dependencies.identity.snapshot;
     if (!userId || !dbClient) return false;
+    const isCurrent = sessionLifetime(this).capture();
     return removeNativeSubscriptionRestoreProvisioningAttempt({
       canCommit: () =>
+        isCurrent() &&
         this.userId === userId &&
         this.dependencies.identity.snapshot === identitySnapshot,
       dbClient,
@@ -425,7 +398,8 @@ class SessionService implements Session {
   }
 
   setAuthToken(authToken: string | null): void {
-    this.setSnapshot({ ...this.snapshotValue, authToken });
+    if (authToken === null) this.logout();
+    else this.setSnapshot({ ...this.snapshotValue, authToken });
   }
 
   setContainerId(containerId: string | null): void {
@@ -433,6 +407,14 @@ class SessionService implements Session {
   }
 
   setContext(context: SessionContext): void {
+    this.commitContext(...hostSessionUpdate(context));
+  }
+
+  commitContext(
+    context: SessionContext,
+    kind?: SessionTransition,
+    verifiedTicket?: string,
+  ): void {
     const wasAcknowledged = this.userIdAcknowledged;
     this.identityAcknowledgments.remember(
       context.userId,
@@ -445,6 +427,8 @@ class SessionService implements Session {
         context,
         this.dependencies.identity.snapshot.signingFingerprint,
       ),
+      kind,
+      verifiedTicket,
     );
     // Acknowledging an already-held userId changes `userIdAcknowledged` without
     // changing the snapshot; persistence subscribers must still observe it.
@@ -481,17 +465,34 @@ class SessionService implements Session {
   subscribe = (listener: SessionListener): (() => void) =>
     this.listeners.subscribe(listener);
 
-  private setSnapshot(next: SessionSnapshot): void {
+  private setSnapshot(
+    next: SessionSnapshot,
+    kind?: SessionTransition,
+    verifiedTicket?: string,
+  ): void {
     const previous = this.snapshotValue;
-    if (previous.authToken !== next.authToken) {
-      this.dependencies.api.setAuthToken(next.authToken);
-    }
 
-    if (sessionSnapshotsEqual(previous, next)) {
+    const lifetime = sessionLifetime(this);
+    const boundary = sessionBoundary(previous, next, kind);
+    const retired =
+      boundary &&
+      lifetime.transition(
+        previous.isAuthenticated || previous.authToken !== null,
+        next.isAuthenticated,
+      );
+    if (boundary || previous.authToken !== next.authToken) {
+      this.dependencies.api.setAuthToken(next.authToken, {
+        verifiedTicket,
+        boundary,
+      });
+    }
+    lifetime.lastRenewal = kind === "renewal" ? next : null;
+    if (!retired && sessionSnapshotsEqual(previous, next)) {
       return;
     }
 
     this.snapshotValue = next;
+    if (retired) lifetime.onBoundary?.();
     this.listeners.notify();
   }
 }

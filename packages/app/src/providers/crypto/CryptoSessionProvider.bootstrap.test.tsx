@@ -14,7 +14,7 @@ import * as LogProvider from "../logging/LogProvider";
 import * as TearleadsProvider from "../sdk/TearleadsProvider";
 import { CryptoSessionProvider } from "./CryptoSessionProvider";
 
-async function createBootstrapFixture() {
+async function createBootstrapFixture(authenticated = false) {
   const database = await createTestExecSql("root-bootstrap-cancellation");
   const queryStarted = createDeferred();
   const queryReleased = createDeferred();
@@ -53,6 +53,8 @@ async function createBootstrapFixture() {
     database: { client },
     identityProvisioning: "manual",
   });
+  if (authenticated)
+    tearleads.session.setContext({ authToken: "same", isAuthenticated: true });
   const logError = mock((_message: string | Error, _cause?: unknown) => {});
   const settled = createDeferred();
   const bootstrap = tearleads.session.bootstrapLocalRootContainer.bind(
@@ -175,6 +177,28 @@ test("root bootstrap still reports a genuine SQLite query failure", async () => 
     expect((error as Error).cause).toBeInstanceOf(Error);
     expect(String((error as Error).cause)).toContain(
       "no such table: containers",
+    );
+  } finally {
+    fixture.releaseQuery();
+    fixture.close();
+  }
+});
+
+test("a replacement sign-in can bootstrap its local root while the previous lookup settles", async () => {
+  const fixture = await createBootstrapFixture(true);
+  try {
+    await act(async () => {
+      fixture.tearleads.session.setContext({
+        authToken: "same",
+        isAuthenticated: true,
+      });
+      fixture.rerender();
+      fixture.releaseQuery();
+      await fixture.settled.promise;
+    });
+    await waitFor(
+      () => expect(fixture.tearleads.session.containerId).not.toBeNull(),
+      { timeout: 1000 },
     );
   } finally {
     fixture.releaseQuery();

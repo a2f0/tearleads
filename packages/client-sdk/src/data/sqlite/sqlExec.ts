@@ -60,6 +60,48 @@ export function resolveCanonicalExecSql(execSql: ExecSql): ExecSql {
   return serializedSqlExecCanonicals.get(execSql) ?? execSql;
 }
 
+// A sign-in may retire while a transaction waits on the connection. Its
+// executor remains a distinct owner for session caches, but uses the same
+// physical writer queue and schema memo as every sign-in on that database.
+const scopedExecutors = new WeakMap<
+  ExecSql,
+  { connection: ExecSql; assertCurrent: () => void }
+>();
+
+export function createScopedExecSql(
+  execSql: ExecSql,
+  assertCurrent: () => void,
+): ExecSql {
+  // A new sign-in can immediately read from the same physical connection.
+  // Wait for any previous owner to commit or roll back first.
+  let previous = sqlMutationQueue.get(execSql);
+  const scoped = defineExecSql(async (sql, bind, options) => {
+    if (previous) {
+      await previous;
+      previous = undefined;
+    }
+    assertCurrent();
+    const rows = await execSql(sql, bind, options);
+    // Preserve the acknowledgement for an accepted transaction boundary. Its
+    // caller must know it opened a transaction in order to roll it back.
+    if (!/^\s*(?:BEGIN|COMMIT|END|ROLLBACK|SAVEPOINT|RELEASE)\b/i.test(sql))
+      assertCurrent();
+    return rows;
+  });
+  scopedExecutors.set(scoped, { connection: execSql, assertCurrent });
+  return scoped;
+}
+
+function connectionOf(execSql: ExecSql): ExecSql {
+  const canonical = resolveCanonicalExecSql(execSql);
+  return scopedExecutors.get(canonical)?.connection ?? canonical;
+}
+
+/** Identity only: coordination spanning sign-ins must share one physical lock. */
+export function sqlConnectionIdentity(execSql: ExecSql): object {
+  return connectionOf(execSql);
+}
+
 // Completed once-per-connection keys (schema ensures).
 // Only COMPLETED runs are recorded — never in-flight promises — so two lock
 // contexts racing the same key both run the (idempotent) work instead of one
@@ -78,9 +120,7 @@ export function hasCompletedConnectionOnce(
   key: string,
 ): boolean {
   return (
-    completedConnectionOnceKeys
-      .get(resolveCanonicalExecSql(execSql))
-      ?.has(key) ?? false
+    completedConnectionOnceKeys.get(connectionOf(execSql))?.has(key) ?? false
   );
 }
 
@@ -88,7 +128,7 @@ export function markCompletedConnectionOnce(
   execSql: ExecSql,
   key: string,
 ): void {
-  const canonical = resolveCanonicalExecSql(execSql);
+  const canonical = connectionOf(execSql);
   const keys = completedConnectionOnceKeys.get(canonical) ?? new Set<string>();
   if (keys.has(key)) return;
   keys.add(key);
@@ -102,7 +142,7 @@ export function markCompletedConnectionOnce(
  * with exactly one `closeTransactionSchemaMemoScope`.
  */
 export function openTransactionSchemaMemoScope(execSql: ExecSql): void {
-  const canonical = resolveCanonicalExecSql(execSql);
+  const canonical = connectionOf(execSql);
   const scopes = transactionSchemaMemoScopes.get(canonical) ?? [];
   scopes.push(new Set<string>());
   transactionSchemaMemoScopes.set(canonical, scopes);
@@ -117,7 +157,7 @@ export function closeTransactionSchemaMemoScope(
   execSql: ExecSql,
   committed: boolean,
 ): void {
-  const canonical = resolveCanonicalExecSql(execSql);
+  const canonical = connectionOf(execSql);
   const scopes = transactionSchemaMemoScopes.get(canonical);
   const scopeKeys = scopes?.pop();
   if (!scopes || !scopeKeys) {
@@ -156,7 +196,7 @@ export async function runOncePerConnection(
  * re-runs its schema ensures.
  */
 export function resetConnectionSchemaMemo(execSql: ExecSql): void {
-  completedConnectionOnceKeys.delete(resolveCanonicalExecSql(execSql));
+  completedConnectionOnceKeys.delete(connectionOf(execSql));
 }
 
 function defineExecSql(
@@ -220,13 +260,34 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
     return execSql;
   }
 
-  const serializedExecSql = defineExecSql(execSql);
+  const scope = scopedExecutors.get(execSql);
+  const serializedExecSql = defineExecSql((sql, bind, options) => {
+    if (!isSerializedSqlExec(serializedExecSql))
+      throw new Error("SQLite mutation lock has been released");
+    // Drizzle rolls back the outer transaction on its locked handle.
+    if (scope && sql.trim().toUpperCase() === "ROLLBACK")
+      return scope.connection(sql, bind, options);
+    return execSql(sql, bind, options);
+  });
   serializedSqlExecs.add(serializedExecSql);
   serializedSqlExecCanonicals.set(
     serializedExecSql,
     resolveCanonicalExecSql(execSql),
   );
   return serializedExecSql;
+}
+
+/** Unwind an open savepoint even after its owning sign-in expired. Only
+ * release it after rollback succeeded: a standalone RELEASE would commit. */
+export async function rollbackSqlSavepoint(
+  locked: ExecSql,
+  name: "local_schema_migration" | `runtime_transaction_sp_${number}`,
+): Promise<void> {
+  if (!isSerializedSqlExec(locked))
+    throw new Error("Savepoint requires the mutation lock");
+  const connection = connectionOf(locked);
+  await connection(`ROLLBACK TO SAVEPOINT ${name}`);
+  await connection(`RELEASE SAVEPOINT ${name}`);
 }
 
 // SQLite transactions are scoped to the shared connection, so we must hold a
@@ -245,7 +306,8 @@ export async function runSerializedSqlMutation<T>(
   }
 
   const queuedAtMs = readUserTimingClock();
-  const previous = sqlMutationQueue.get(execSql);
+  const connection = connectionOf(execSql);
+  const previous = sqlMutationQueue.get(connection);
   let releaseCurrent = () => {};
   const current = new Promise<void>((resolve) => {
     releaseCurrent = resolve;
@@ -255,7 +317,7 @@ export async function runSerializedSqlMutation<T>(
   );
   const queuedCurrent = waitForPrevious.then(() => current);
 
-  sqlMutationQueue.set(execSql, queuedCurrent);
+  sqlMutationQueue.set(connection, queuedCurrent);
   await waitForPrevious;
   const acquiredAtMs = readUserTimingClock();
   if (previous) {
@@ -267,16 +329,19 @@ export async function runSerializedSqlMutation<T>(
     });
   }
 
+  const locked = createSerializedSqlExec(execSql);
   let failed = true;
   try {
-    const result = await operation(createSerializedSqlExec(execSql));
+    scopedExecutors.get(execSql)?.assertCurrent();
+    const result = await operation(locked);
     failed = false;
     return result;
   } finally {
+    serializedSqlExecs.delete(locked);
     const releasedAtMs = readUserTimingClock();
     releaseCurrent();
-    if (sqlMutationQueue.get(execSql) === queuedCurrent) {
-      sqlMutationQueue.delete(execSql);
+    if (sqlMutationQueue.get(connection) === queuedCurrent) {
+      sqlMutationQueue.delete(connection);
     }
     recordUserTimingEntry({
       endMs: releasedAtMs,

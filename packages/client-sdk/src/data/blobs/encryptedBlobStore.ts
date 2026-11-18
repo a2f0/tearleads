@@ -126,8 +126,12 @@ class EncryptedBlobStore implements BlobStore {
     this.rawKeyPromise = importRawAesKey(options.key);
   }
 
-  async deleteBytes(storageKey: string): Promise<void> {
-    await this.innerStore.deleteBytes(storageKey);
+  async deleteBytes(
+    storageKey: string,
+    assertCurrent?: () => void,
+  ): Promise<void> {
+    assertCurrent?.();
+    await this.innerStore.deleteBytes(storageKey, assertCurrent);
   }
 
   async openByteSource(storageKey: string): Promise<BlobByteSource | null> {
@@ -157,6 +161,7 @@ class EncryptedBlobStore implements BlobStore {
   async writeByteSource(
     storageKey: string,
     source: BlobByteSource,
+    assertCurrent?: () => void,
   ): Promise<void> {
     const keyDerivation = this.createKeyDerivationEnvelope();
     const key = await this.getCipherKey(keyDerivation);
@@ -173,6 +178,7 @@ class EncryptedBlobStore implements BlobStore {
     };
     const { headerBytes, prefixBytes } =
       serializeEncryptedBlobEnvelope(envelope);
+    assertCurrent?.();
     await this.innerStore.writeByteSource(
       storageKey,
       createEncryptedBlobByteSource({
@@ -185,11 +191,20 @@ class EncryptedBlobStore implements BlobStore {
         prefixBytes,
         storageKey,
       }),
+      assertCurrent,
     );
   }
 
-  async writeBytes(storageKey: string, bytes: BlobBytes): Promise<void> {
-    await this.writeByteSource(storageKey, createBlobByteSource(bytes));
+  async writeBytes(
+    storageKey: string,
+    bytes: BlobBytes,
+    assertCurrent?: () => void,
+  ): Promise<void> {
+    await this.writeByteSource(
+      storageKey,
+      createBlobByteSource(bytes),
+      assertCurrent,
+    );
   }
 
   private createKeyDerivationEnvelope(): KeyDerivationEnvelope | null {
@@ -311,9 +326,10 @@ export function createLazyEncryptedBlobStore(
   }
 
   return {
-    deleteBytes: async (storageKey) => {
+    deleteBytes: async (storageKey, assertCurrent) => {
       const store = await getStore();
-      return store.deleteBytes(storageKey);
+      assertCurrent?.();
+      return store.deleteBytes(storageKey, assertCurrent);
     },
     openByteSource: async (storageKey) => {
       const store = await getStore();
@@ -323,13 +339,15 @@ export function createLazyEncryptedBlobStore(
       const store = await getStore();
       return store.readBytes(storageKey);
     },
-    writeByteSource: async (storageKey, source) => {
+    writeByteSource: async (storageKey, source, assertCurrent) => {
       const store = await getStore();
-      return store.writeByteSource(storageKey, source);
+      assertCurrent?.();
+      return store.writeByteSource(storageKey, source, assertCurrent);
     },
-    writeBytes: async (storageKey, bytes) => {
+    writeBytes: async (storageKey, bytes, assertCurrent) => {
       const store = await getStore();
-      return store.writeBytes(storageKey, bytes);
+      assertCurrent?.();
+      return store.writeBytes(storageKey, bytes, assertCurrent);
     },
   };
 }
