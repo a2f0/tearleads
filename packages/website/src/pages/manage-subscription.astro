@@ -5,9 +5,10 @@ import Layout from "../layouts/Layout.astro";
 import { legalDetails } from "../legal";
 import "../styles/install.css";
 
-const billingHelpEmail = import.meta.env.PUBLIC_SUPPORT_EMAIL_ENABLED === "true"
-  ? "support@tearleads.com"
-  : legalDetails.email;
+const billingHelpEmail =
+  import.meta.env.PUBLIC_SUPPORT_EMAIL_ENABLED === "true"
+    ? "support@tearleads.com"
+    : legalDetails.email;
 const portalHost = stripeCustomerPortalUrl
   ? new URL(stripeCustomerPortalUrl).host
   : null;
