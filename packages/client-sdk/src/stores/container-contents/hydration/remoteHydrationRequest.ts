@@ -133,6 +133,28 @@ function resumeRetainedRecoveryHydration(
     : Promise.resolve();
 }
 
+// A user refresh queued behind an active crawl contributes its reset to the
+// next crawl that consumes the shared parent-lane queue.
+const queuedTreeResets = new WeakMap<
+  RemoteHydrationRequestState,
+  { lifecycleGeneration: number; structuralGeneration: number }
+>();
+
+function takeQueuedTreeReset(
+  input: RemoteHydrationRequestInput,
+): RemoteHydrationRequestInput {
+  const queued = queuedTreeResets.get(input.state);
+  if (!queued) return input;
+  queuedTreeResets.delete(input.state);
+  return isRequestGenerationCurrent({ ...queued, state: input.state })
+    ? {
+        ...input,
+        followDiscoveredParentLanes: true,
+        resetAllLaneWatermarks: true,
+      }
+    : input;
+}
+
 function waitForActiveRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> | null {
@@ -146,6 +168,12 @@ function waitForActiveRemoteHydration(
   const needsCurrentGenerationHydration =
     state.remoteHydrationGeneration !== state.lifecycleGeneration ||
     state.remoteHydrationStructuralGeneration !== state.structuralGeneration;
+  if (input.resetAllLaneWatermarks && input.followDiscoveredParentLanes) {
+    queuedTreeResets.set(state, {
+      lifecycleGeneration: requestLifecycleGeneration,
+      structuralGeneration: requestStructuralGeneration,
+    });
+  }
   const requestQueuedHydration = () => {
     if (
       !isRequestGenerationCurrent({
@@ -159,11 +187,7 @@ function waitForActiveRemoteHydration(
     // Another request's crawl may have taken over this request's queued
     // lanes. Settle with that crawl rather than at once, so the request never
     // resolves before the listing that covers it.
-    // A queued manual crawl must reset every child watermark. A reconnect
-    // or targeted crawl may have consumed its lane IDs without that reset.
-    return (input.resetAllLaneWatermarks &&
-      input.followDiscoveredParentLanes) ||
-      needsCurrentGenerationHydration ||
+    return needsCurrentGenerationHydration ||
       state.containerParentIdsNeedingHydration.size > 0
       ? requestContainerContentsRemoteHydration(input)
       : (state.remoteHydrationPromise ?? undefined);
@@ -328,6 +352,7 @@ export function requestContainerContentsRemoteHydration(
     return readinessBarrier;
   }
 
+  input = takeQueuedTreeReset(input);
   const { followDiscoveredParentLanes, parentIds } =
     consumeQueuedHydrationScope(state, input.followDiscoveredParentLanes);
 

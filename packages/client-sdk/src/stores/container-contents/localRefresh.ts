@@ -181,6 +181,8 @@ function reportLocalContainerRefreshFailure(
   }
 }
 
+const guardedReads = new WeakMap<Promise<void>, () => boolean>();
+
 export function refreshLocalContainerStates(input: {
   host: LocalContainerRefreshHost;
   stillCurrent?: (() => boolean) | undefined;
@@ -189,10 +191,13 @@ export function refreshLocalContainerStates(input: {
   const { host, state } = input;
   if (input.stillCurrent?.() === false) return Promise.resolve();
   if (state.localContainerRefreshPromise) {
-    // If a cancelled reconnect owned the read, its successor still needs the
-    // local snapshot before it can enumerate the child lanes.
-    return state.localContainerRefreshPromise.then(() =>
-      state.localContainersNeedRefresh
+    const active = state.localContainerRefreshPromise;
+    const owner = guardedReads.get(active);
+    // Ordinary callers share the same promise. If a cancelled reconnect
+    // owned the read, the successor still needs a current local snapshot.
+    if (!owner) return active;
+    return active.then(() =>
+      !owner() && state.localContainersNeedRefresh
         ? refreshLocalContainerStates(input)
         : undefined,
     );
@@ -276,6 +281,7 @@ export function refreshLocalContainerStates(input: {
       }
       return undefined;
     });
+  if (input.stillCurrent) guardedReads.set(refreshPromise, input.stillCurrent);
   state.localContainerRefreshPromise = refreshPromise;
 
   return refreshPromise;
