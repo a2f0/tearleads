@@ -125,7 +125,7 @@ export class ApiRequestRuntime {
     return changed;
   }
 
-  captureCredential(): () => boolean {
+  captureCredential() {
     return this.sessionRenewals.captureCredential();
   }
 

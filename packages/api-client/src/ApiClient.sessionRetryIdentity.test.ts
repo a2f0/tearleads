@@ -145,7 +145,8 @@ for (const route of ["health", "sessions"] as const) {
         const pending =
           route === "health" ? client.getHealth() : client.listSessions();
         await reading.promise;
-        client.setAuthToken("second", { boundary: "replacement" });
+        if (route === "sessions") client.setAuthToken(null);
+        else client.setAuthToken("second", { boundary: "replacement" });
         finish.resolve();
         await expect(pending).resolves.toBeNull();
       } finally {

@@ -113,58 +113,6 @@ const response = () => ({
 });
 
 testApiClient(
-  "an acknowledged write survives verified renewals by another request",
-  async () => {
-    const client = new ApiClient(apiBaseUrl);
-    client.setAuthToken("original");
-    let renewals = 0;
-    client.setOnSessionExpired(() => {
-      client.setAuthToken(`renewed-${++renewals}`);
-      return true;
-    });
-    const started = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<void>();
-    const committed = response();
-    let rejectNext = true;
-    server.use(
-      http.put(path, async () => {
-        started.resolve();
-        await release.promise;
-        return HttpResponse.json(committed);
-      }),
-      http.delete(`${apiBaseUrl}/containers/target`, () => {
-        if (!rejectNext)
-          return HttpResponse.json({
-            containerId: "target",
-            deletedAt: "2026-10-10T00:00:00.000Z",
-          });
-        rejectNext = false;
-        return HttpResponse.json(
-          { code: SESSION_ERROR_CODES.refreshRequired, error: "Expired" },
-          { status: 401 },
-        );
-      }),
-    );
-    const write = client.commitOrganizationGroupPolicyResult(
-      organizationId,
-      groupId,
-      request(),
-    );
-    try {
-      await started.promise;
-      for (let i = 0; i < 2; i++) {
-        rejectNext = true;
-        expect((await client.deleteContainerResult("target")).ok).toBe(true);
-      }
-      expect(renewals).toBe(2);
-    } finally {
-      release.resolve();
-    }
-    await expect(write).resolves.toEqual({ ok: true, data: committed });
-  },
-);
-
-testApiClient(
   "principal preparation retries preserve the original request bytes",
   async () => {
     const client = new ApiClient(apiBaseUrl);

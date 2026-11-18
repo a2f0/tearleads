@@ -36,13 +36,28 @@ export class SessionRenewalTracker {
   >();
   private readonly refusedSessions = new WeakSet<AbortSignal>();
   private known: { from: string; to: string } | null = null;
-  private inFlight: { from: string; promise: Promise<boolean> } | null = null;
+  private inFlight: {
+    from: string;
+    revision: number;
+    previousUnverifiedChange: number;
+    promise: Promise<boolean>;
+  } | null = null;
 
   constructor(private readonly readToken: () => string | null) {}
 
-  captureCredential(): () => boolean {
+  captureCredential(): () => boolean | Promise<boolean> {
     const revision = this.revision;
-    return () => this.lastUnverifiedChange <= revision;
+    return () => {
+      if (this.lastUnverifiedChange <= revision) return true;
+      const renewal = this.inFlight;
+      // Only this single provisional token change can still be confirmed by
+      // the handler. A second change or an earlier identity switch is final.
+      return renewal &&
+        renewal.previousUnverifiedChange <= revision &&
+        this.revision === renewal.revision + 1
+        ? renewal.promise
+        : false;
+    };
   }
 
   get signal(): AbortSignal {
@@ -111,6 +126,8 @@ export class SessionRenewalTracker {
     const owner = this.signal;
     const pending = {
       from,
+      revision: this.revision,
+      previousUnverifiedChange: this.lastUnverifiedChange,
       promise: this.complete(from, this.revision, handler),
     };
     if (!owner.aborted) this.inFlight = pending;

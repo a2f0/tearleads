@@ -2,11 +2,16 @@ import { expect } from "bun:test";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
+  createPrincipalPolicyBundleResponse,
+  createPrincipalPolicyRequest,
+} from "../test/helpers/apiClientTestFactories";
+import {
   apiBaseUrl,
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import {
+  principalPolicyAcknowledgementFor,
   principalPolicyBundleResponseFor,
   principalPolicyPageResponse,
 } from "../test/helpers/principalPolicyPage";
@@ -122,5 +127,83 @@ testApiClient(
       ]),
     ).toEqual([null, null]);
     expect([calls, errors]).toEqual([2, 1]);
+  },
+);
+
+testApiClient(
+  "an acknowledged write survives verified renewals by another request",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("original");
+    let renewals = 0;
+    const installed = Promise.withResolvers<void>();
+    const verified = Promise.withResolvers<void>();
+    client.setOnSessionExpired(async () => {
+      client.setAuthToken(`renewed-${++renewals}`);
+      if (renewals === 2) {
+        installed.resolve();
+        await verified.promise;
+      }
+      return true;
+    });
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const committed = {
+      groupPolicy: principalPolicyAcknowledgementFor(
+        createPrincipalPolicyBundleResponse(),
+      ),
+      organizationPolicy: principalPolicyAcknowledgementFor(
+        createPrincipalPolicyBundleResponse(),
+      ),
+    };
+    let rejectNext = true;
+    server.use(
+      http.put(
+        `${apiBaseUrl}/organizations/:organizationId/groups/:groupId/policy-commit`,
+        async () => {
+          started.resolve();
+          await release.promise;
+          return HttpResponse.json(committed);
+        },
+      ),
+      http.delete(`${apiBaseUrl}/containers/target`, () => {
+        if (!rejectNext)
+          return HttpResponse.json({
+            containerId: "target",
+            deletedAt: "2026-10-10T00:00:00.000Z",
+          });
+        rejectNext = false;
+        return HttpResponse.json(
+          { code: SESSION_ERROR_CODES.refreshRequired, error: "Expired" },
+          { status: 401 },
+        );
+      }),
+    );
+    const write = client.commitOrganizationGroupPolicyResult(
+      firstId,
+      secondId,
+      {
+        groupPolicy: createPrincipalPolicyRequest(),
+        organizationPolicy: createPrincipalPolicyRequest(),
+      },
+    );
+    try {
+      await started.promise;
+      expect((await client.deleteContainerResult("target")).ok).toBe(true);
+      rejectNext = true;
+      const renewal = client.deleteContainerResult("target");
+      await installed.promise;
+      release.resolve();
+      // The response arrives while the trusted handler is still verifying.
+      // Give the completed HTTP response one event-loop turn to deliver.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      verified.resolve();
+      expect((await renewal).ok).toBe(true);
+      expect(renewals).toBe(2);
+    } finally {
+      verified.resolve();
+      release.resolve();
+    }
+    await expect(write).resolves.toEqual({ ok: true, data: committed });
   },
 );

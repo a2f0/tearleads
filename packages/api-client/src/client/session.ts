@@ -87,9 +87,14 @@ export class SessionArea {
       verifiedTicket?: string | undefined;
     },
   ): void {
-    if (options?.boundary)
-      this.webSocketTickets.retainVerifiedTicket(options.verifiedTicket);
-    if (this.context.runtime.setAuthToken(token, options?.boundary)) {
+    const boundary =
+      options?.boundary ??
+      (token === null && this.getAuthToken() !== null
+        ? "replacement"
+        : undefined);
+    if (boundary)
+      this.webSocketTickets.retainVerifiedTicket(options?.verifiedTicket);
+    if (this.context.runtime.setAuthToken(token, boundary)) {
       this.context.clearAuthScopedCaches();
     }
   }

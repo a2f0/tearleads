@@ -54,7 +54,6 @@ export async function principalHistoryRequest<T>(
   const progress: PreparationProgress = { previous: undefined, unchanged: 0 };
   while (true) {
     if (context.cancelled()) return context.failure();
-    context.beforeRequest();
     const decoded = await readResponse(runtime, context, input);
     if (!decoded.ok && context.restartReadAfterRenewal()) continue;
     if (!decoded.ok) return preserveCommitUncertainty(method, context, decoded);
@@ -182,7 +181,12 @@ async function readResponse(
     input.method === "GET"
       ? deadline.options
       : { ...deadline.options, reportErrors: false };
+  const interrupted = (accepted: boolean) =>
+    !accepted || context.cancelled() || deadline.expired();
   try {
+    if (interrupted(await context.acceptsCredential(options.signal)))
+      return interruptedFailure(context, deadline, undefined);
+    context.beforeRequest();
     const session = runtime.responseRequest.sessionSignal?.();
     const response = await runtime.responseRequest(
       input.path,
@@ -197,7 +201,7 @@ async function readResponse(
     if (!response.ok && response.kind === "http" && response.status === 401)
       return response;
     // An expired write remains uncertain even if a failure status arrived.
-    if (context.cancelled() || deadline.expired())
+    if (interrupted(await context.acceptsCredential(options.signal)))
       return interruptedFailure(
         context,
         deadline,
@@ -212,7 +216,7 @@ async function readResponse(
       options,
       session,
     );
-    if (context.cancelled() || deadline.expired())
+    if (interrupted(await context.acceptsCredential(options.signal)))
       return interruptedFailure(context, deadline, response.data);
     if (!decoded.ok) return decoded;
     return {

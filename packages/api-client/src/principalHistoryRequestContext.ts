@@ -1,4 +1,5 @@
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
+import { renewalUnlessAborted } from "./sessionRefresh";
 import { retiredRequest } from "./sessionResponse";
 import type { HttpMethod, RequestFailure, RequestResultOptions } from "./types";
 
@@ -51,8 +52,21 @@ export class PrincipalHistoryRequestContext {
     return (
       this.identity.session?.aborted === true ||
       this.options.signal?.aborted === true ||
-      !this.identity.credentialCurrent()
+      this.identity.credentialCurrent() === false
     );
+  }
+
+  async acceptsCredential(signal: AbortSignal | undefined): Promise<boolean> {
+    if (this.cancelled() || signal?.aborted) return false;
+    const state = this.identity.credentialCurrent();
+    if (typeof state === "boolean") return state;
+    const owner = this.identity.session;
+    const cancellation =
+      owner && signal ? AbortSignal.any([owner, signal]) : (owner ?? signal);
+    // A different request is verifying the installed bearer. Its result, a
+    // caller deadline or retirement releases this operation without replay.
+    await renewalUnlessAborted(state, cancellation).catch(() => false);
+    return !cancellation?.aborted && this.identity.credentialCurrent() === true;
   }
 
   beforeRequest(): void {
