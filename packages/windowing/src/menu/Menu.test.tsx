@@ -1,5 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import { LauncherMenuItem } from "../launcher/LauncherMenuItem";
 import { Menu } from "./Menu";
 import { MenuItem } from "./MenuItem";
 
@@ -131,6 +133,37 @@ test("closes when the page scrolls but not when the menu itself does", () => {
 
   fireEvent.scroll(document.body);
   expect(closes).toBe(1);
+});
+
+test("nested menu scrolling dismisses only menus outside the scroll target", () => {
+  function Launcher() {
+    const [visible, setVisible] = useState(true);
+    return (
+      visible && (
+        <Menu position={{ x: 24, y: 48 }} onClose={() => setVisible(false)}>
+          <LauncherMenuItem label="Contacts" onClick={() => {}} />
+        </Menu>
+      )
+    );
+  }
+  const view = render(<Launcher />);
+  const contacts = view.getByRole("button", { name: "Contacts" });
+  fireEvent.contextMenu(contacts);
+  const open = view.getByRole("button", { name: "Open" });
+
+  fireEvent.scroll(open);
+  expect(view.getByRole("button", { name: "Open" })).toBe(open);
+  expect(view.getByRole("button", { name: "Contacts" })).toBe(contacts);
+
+  fireEvent.scroll(contacts);
+  expect(view.queryByRole("button", { name: "Open" })).toBeNull();
+  expect(view.getByRole("button", { name: "Contacts" })).toBe(contacts);
+
+  fireEvent.contextMenu(contacts);
+  expect(view.getByRole("button", { name: "Open" })).toBeTruthy();
+  fireEvent.scroll(document.body);
+  expect(view.queryByRole("button", { name: "Open" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Contacts" })).toBeNull();
 });
 
 test("calls the latest inline closer, not a stale one", () => {

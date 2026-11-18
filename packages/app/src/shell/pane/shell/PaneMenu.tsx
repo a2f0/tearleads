@@ -5,9 +5,11 @@ import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyri
 import { PaneContextMenuItems } from "./PaneContextMenuItems";
 
 export function PaneMenu({
+  appEntryMenus = false,
   position,
   onClose,
 }: {
+  appEntryMenus?: boolean;
   position: MenuPosition;
   onClose: () => void;
 }) {
@@ -24,6 +26,7 @@ export function PaneMenu({
   return (
     <Menu position={position} onClose={onClose}>
       <PaneContextMenuItems
+        appEntryMenus={appEntryMenus}
         identityTransitionInFlight={identityTransitionInFlight}
         hasSigningKeyPair={hasSigningKeyPair}
         paneLocked={paneLocked}

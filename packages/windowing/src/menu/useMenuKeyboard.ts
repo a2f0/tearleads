@@ -1,5 +1,7 @@
 import { type RefObject, useEffect, useEffectEvent } from "react";
 
+import { menuContainsTarget } from "./menuOwnership";
+
 function nextControl(
   controls: HTMLElement[],
   focused: Element | null,
@@ -94,7 +96,7 @@ export function useMenuKeyboard(
 
     function handleMouseDown(event: MouseEvent) {
       dismissedByPointer =
-        event.target instanceof Node && !menu?.contains(event.target);
+        menu !== null && !menuContainsTarget(menu, event.target);
     }
 
     document.addEventListener("mousedown", handleMouseDown, true);
