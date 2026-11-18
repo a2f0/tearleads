@@ -143,6 +143,10 @@ function legsOf(
         mutation.request.organizationPolicy,
       ];
     case "group-create":
+      return [
+        mutation.request.organizationPolicy,
+        mutation.request.initialGroupPolicy,
+      ];
     case "group-delete":
       return [mutation.request.organizationPolicy];
     case "organization":

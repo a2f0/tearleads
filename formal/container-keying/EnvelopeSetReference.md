@@ -22,6 +22,6 @@ Bounds are two members and three versions. Negative controls:
 a retry in the other form is refused and violates `OwnCommitNeverRefused`.
 
 The model abstracts envelopes to member ids and the root to the set itself.
-The epoch rule is covered by `memberEnvelopeReferences.test.ts`: the root
-check alone would refuse reused envelopes of an older key, and the explicit
-rule names the cause.
+The epoch rule is covered by `memberEnvelopeReferences.test.ts`. The root
+check alone does not exclude reused envelopes of an older key, since an author
+can sign their root again; the explicit predecessor-epoch check refuses them.

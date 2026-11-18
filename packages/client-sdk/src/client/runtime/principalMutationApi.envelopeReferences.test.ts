@@ -214,6 +214,26 @@ test("a request already in the changes form is not journaled", async () => {
           { reportErrors: false },
         ),
     ).rejects.toThrow("journaled with full member envelope lists");
+    // A founding leg carrying changes is refused before sealing too.
+    await expect(
+      createPrincipalMutationApiCustody({
+        api: new ApiClient(server.url.origin),
+        readScope: () => scope,
+      })
+        .bind()
+        .createOrganizationGroupResult(
+          fixture.scope.organizationId,
+          {
+            groupId: fixture.mutation.groupId,
+            initialGroupPolicy: {
+              ...fixture.mutation.request.groupPolicy,
+              memberEnvelopeChanges: { removeUserIds: [], upsert: [] },
+            },
+            organizationPolicy: fixture.mutation.request.organizationPolicy,
+          },
+          { reportErrors: false },
+        ),
+    ).rejects.toThrow("journaled with full member envelope lists");
     expect(requests).toBe(0);
   } finally {
     await server.stop(true);
