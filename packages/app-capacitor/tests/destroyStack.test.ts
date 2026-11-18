@@ -159,7 +159,7 @@ for (const [stack, addresses] of [
   ["storage", ["cloudflare_r2_bucket.blobs"]],
   ["downloads", ["cloudflare_r2_bucket.downloads"]],
   ["edge", []],
-  ["website", []],
+  ["website", ["cloudflare_dns_record.balebase_verification"]],
 ] as const) {
   test(`production ${stack} lifts prevent_destroy for exactly its protected resources`, async () => {
     const result = await destroyStack({ tier: "prod", stack });

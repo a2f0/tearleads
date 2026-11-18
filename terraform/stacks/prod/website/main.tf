@@ -24,4 +24,9 @@ resource "cloudflare_dns_record" "balebase_verification" {
   type    = "TXT"
   content = jsonencode(var.balebase_verification_txt)
   ttl     = 300
+
+  # A deployment missing the enrollment setting must preserve the live proof.
+  lifecycle {
+    prevent_destroy = true
+  }
 }

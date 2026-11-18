@@ -44,14 +44,21 @@ handling the zone's MX.
    complete TXT value beginning with `balebase-verification=`.
 2. Save that value, without DNS quotation marks, as
    `TF_VAR_balebase_verification_txt` in the production tier's `app.env`.
-   Keep the setting for subsequent deployments. The production website stack
+   Keep the setting for subsequent deployments. Omitting it after enrollment
+   stops the plan at the TXT record's destruction guard. The website stack
    manages the record at `_balebase-verification.tearleads.com` and needs
    DNS Edit permission for the zone. Review the saved plan in a private
-   directory and apply it after confirming the expected TXT change.
+   directory using the production stack wrapper.
 
    ```sh
    RUN_DIR="$(mktemp -d)"
    terraform/scripts/run-website-stack.sh prod plan -out="$RUN_DIR/website.tfplan"
+   ```
+
+   Confirm that the plan only adds the expected verification record. Apply
+   that plan and check the DNS answer.
+
+   ```sh
    terraform/scripts/run-website-stack.sh prod apply "$RUN_DIR/website.tfplan"
    dig +short TXT _balebase-verification.tearleads.com
    ```
@@ -60,7 +67,8 @@ handling the zone's MX.
    Balebase. Bind `legal@tearleads.com` to an inbox named **Legal** and
    copy the generated forwarding address from that inbox. Inbox access is
    organization-wide. Review the Tearleads member list and confirm every
-   member may read legal and privacy mail before enabling forwarding.
+   member may read legal and privacy mail before enabling forwarding. Check
+   this access whenever adding a member while the binding holds legal mail.
 4. In the Google Admin console, open **Apps → Google Workspace → Gmail →
    Routing** for the top-level organizational unit. Add an **Email forwarding
    using recipient address map** rule mapping only `legal@tearleads.com`
