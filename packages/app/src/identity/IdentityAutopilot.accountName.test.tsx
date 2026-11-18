@@ -10,7 +10,10 @@ import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../test/helpers/msw/server";
-import { renderLifecyclePane } from "../../test/helpers/paneLifecycleTestUtils";
+import {
+  renderLifecyclePane,
+  unmountLifecyclePane,
+} from "../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
@@ -23,6 +26,7 @@ import {
   waitForPaneRuntimeToSettle,
   waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
+import { createPersistedPaneStorage } from "../../test/helpers/persistedPaneStorage";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
@@ -103,12 +107,13 @@ test(
   async () => {
     useTestApiAppHandlers();
     const namespace = `test-account-name-${crypto.randomUUID()}`;
+    const storage = createPersistedPaneStorage();
     const hostConfig = createTestHostConfig({
       autoProvisionIdentity: true,
       createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
       localIdentityNamespace: namespace,
       promptAccountName: true,
-    });
+    }).withOverrides({ createSQLiteRuntime: storage.createRuntime });
 
     // First launch: closed before answering. The identity is stored only
     // after its pending prompt, so no restart can find one without the other.
@@ -124,7 +129,7 @@ test(
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
     expect(firstRegister).not.toHaveBeenCalled();
-    first.view.unmount();
+    await unmountLifecyclePane(first);
 
     // The restarted identity asks again, and its answer fails to register.
     const second = renderLifecyclePane(hostConfig);
@@ -147,7 +152,7 @@ test(
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
-    second.view.unmount();
+    await unmountLifecyclePane(second);
 
     // Back online after another restart: registers under the given name
     // without asking again, names the account's self contact, and only then
@@ -183,7 +188,7 @@ test(
       timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
     });
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
-    third.view.unmount();
+    await unmountLifecyclePane(third);
 
     // The saved nickname is still there after a restart, nothing asks again,
     // and nothing re-registers.
