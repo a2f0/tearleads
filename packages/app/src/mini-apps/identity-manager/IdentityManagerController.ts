@@ -45,7 +45,10 @@ function useIdentityManagerSessionList({
   tearleads: SdkClient;
 }) {
   const scope = useTearleadsRuntime().state.domainScope;
-  const [list, setList] = useState({ scope, rows: [] as UserSession[] });
+  const [list, setList] = useState<{
+    scope: typeof scope;
+    rows: UserSession[];
+  }>({ scope, rows: [] });
   const setSessions = useCallback(
     (rows: UserSession[]) => {
       if (tearleads.domainScope === scope) setList({ scope, rows });
