@@ -7,6 +7,7 @@ import type {
   ContainerMetadataRecord,
   StoredContainerState,
 } from "./containerPersistence";
+import { requireAtomicContainerSave } from "./containerPersistence";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
@@ -101,15 +102,11 @@ export async function hydrateStoredContainerState(input: {
         ? createPendingUpdateFields(initialUpdate)
         : null;
     if (pendingUpdate) {
-      await persistence.saveContainerWithPendingUpdate(
-        execSql,
-        nextContainer,
-        nextRecord,
-        {
-          pendingUpdate,
-          stillCurrent: input.isCurrent,
-        },
-      );
+      const save = requireAtomicContainerSave(persistence);
+      await save(execSql, nextContainer, nextRecord, {
+        pendingUpdate,
+        stillCurrent: input.isCurrent,
+      });
     } else {
       await persistence.saveContainer(
         execSql,

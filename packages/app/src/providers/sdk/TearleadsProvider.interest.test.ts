@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk";
 import { MAX_WS_INTEREST_CONTAINER_IDS } from "@tearleads/validators/realtime";
 import {
   createMswEventRouter,
@@ -393,4 +394,28 @@ test("a grant during initial authorization preserves its acknowledgment barrier"
   expect(handle.acknowledge(retry.declarationId, [])).toBe(false);
   expect(sent).toHaveLength(2);
   handle.stop();
+});
+
+test("a connected socket follows a replacement tree in the same scope", async () => {
+  const retired = createFakeStore(["prior"]);
+  const replacement = createFakeStore(["current"]);
+  let tree = retired;
+  const sdk = tearleadsWithStore(() => tree.store);
+  const { ws, sent } = fakeSocket(WebSocket.OPEN);
+  const declaration = startContainerInterestDeclaration(sdk, ws);
+  try {
+    acknowledgeInitialDeclaration(declaration, sent);
+    tree = replacement;
+    getOrCreateDomainSyncCoordinator(sdk.domainScope).dispose();
+    await Promise.resolve();
+    expect(sent.slice(1).map((entry) => JSON.parse(entry))).toMatchObject([
+      { type: "known_containers.add", containerIds: ["current"] },
+      { type: "known_containers.remove", containerIds: ["prior"] },
+    ]);
+    const count = sent.length;
+    retired.setNodes(["retired-update"]);
+    expect(sent.length).toBe(count);
+  } finally {
+    declaration.stop();
+  }
 });

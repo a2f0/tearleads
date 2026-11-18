@@ -1,4 +1,7 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import type {
+  getOrCreateDomainSyncCoordinator,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import {
   MAX_WS_INTEREST_CONTAINER_IDS,
   serializeWsClientDeclaration,
@@ -177,6 +180,47 @@ function resolveContainerInterestStore(tearleads: Tearleads) {
   }
 }
 
+type InterestTree = NonNullable<
+  ReturnType<typeof resolveContainerInterestStore>
+>;
+
+function subscribeToInterestTree(
+  sdk: Tearleads,
+  first: InterestTree,
+  changed: (store: InterestTree) => void,
+  coordinatorForScope?: typeof getOrCreateDomainSyncCoordinator,
+): () => void {
+  if (!coordinatorForScope) return first.subscribe(() => changed(first));
+  const getCoordinator = coordinatorForScope;
+  const scope = sdk.domainScope;
+  let stopped = false;
+  let detachTree = () => {};
+  let detachCoordinator = () => {};
+  function attach(store: InterestTree) {
+    const coordinator = getCoordinator(scope);
+    detachTree = store.subscribe(() => changed(store));
+    detachCoordinator = coordinator.subscribe(() => {
+      if (!coordinator.isDisposed()) return;
+      detachTree();
+      detachCoordinator();
+      // A sign-in transition retires its coordinator before installing its new scope.
+      queueMicrotask(() => {
+        if (stopped || sdk.domainScope !== scope) return;
+        const next = resolveContainerInterestStore(sdk);
+        if (!next) return;
+        attach(next);
+        changed(next);
+      });
+    });
+  }
+  attach(first);
+  return () => {
+    stopped = true;
+    detachTree();
+    detachCoordinator();
+  };
+}
+
 /**
  * A socket opens with no server-side interest. Once the local tree is ready,
  * send one acknowledged authoritative declaration, then push add/remove
@@ -185,10 +229,30 @@ function resolveContainerInterestStore(tearleads: Tearleads) {
 export function startContainerInterestDeclaration(
   tearleads: Tearleads,
   ws: WebSocket,
+  coordinatorForScope?: typeof getOrCreateDomainSyncCoordinator,
 ): ContainerInterestDeclaration {
-  const store = resolveContainerInterestStore(tearleads);
-  if (!store) return INACTIVE_DECLARATION;
+  const initialStore = resolveContainerInterestStore(tearleads);
+  if (!initialStore) return INACTIVE_DECLARATION;
+  let store = initialStore;
+  return declareInterest(ws, {
+    getSnapshot: () => store.getSnapshot(),
+    subscribe: (notify) =>
+      subscribeToInterestTree(
+        tearleads,
+        store,
+        (next) => {
+          store = next;
+          notify();
+        },
+        coordinatorForScope,
+      ),
+  });
+}
 
+function declareInterest(
+  ws: WebSocket,
+  tree: Pick<InterestTree, "getSnapshot" | "subscribe">,
+): ContainerInterestDeclaration {
   let declared = new Set<string>();
   const acknowledgments = new ContainerInterestAcknowledgments();
   let treeGeneration = 0;
@@ -216,7 +280,7 @@ export function startContainerInterestDeclaration(
       return;
     }
     syncRequested = false;
-    const snapshot = store.getSnapshot();
+    const snapshot = tree.getSnapshot();
     if (!snapshot.ready) {
       // A cold tree starts as ready=false/nodes=[]. Declaring that placeholder
       // would clear the reconnect barrier before the real tree is covered.
@@ -239,7 +303,7 @@ export function startContainerInterestDeclaration(
   };
 
   syncInterest();
-  const unsubscribe = store.subscribe(() => {
+  const unsubscribe = tree.subscribe(() => {
     treeGeneration++;
     syncInterest();
   });

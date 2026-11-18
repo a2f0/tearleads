@@ -108,3 +108,49 @@ test("metadata saved before an ordinary document remains readable at startup", a
     await close();
   }
 });
+
+test("a legacy child repair cannot bypass a custom persistence adapter", async () => {
+  const { close, execSql } = await createTestExecSql("legacy-repair-adapter");
+  try {
+    await metadata.ensureSchema(execSql);
+    const legacy = {
+      ...container,
+      parentId: "parent",
+      metadataDocumentId: null,
+    };
+    const persistence = {
+      ...metadata,
+      saveContainer: async () => {
+        throw new Error("custom backend");
+      },
+    };
+    await expect(
+      hydrateStoredContainerState({
+        execSql,
+        persistence,
+        storedContainer: { container: legacy, record: null },
+      }),
+    ).rejects.toThrow("saveContainerWithPendingUpdate");
+    const saved: string[] = [];
+    const custom = {
+      ...persistence,
+      saved,
+      async saveContainerWithPendingUpdate(
+        _sql: ExecSql,
+        row: Parameters<typeof metadata.saveContainer>[1],
+      ) {
+        this.saved.push(row.id);
+        return row;
+      },
+    };
+    await hydrateStoredContainerState({
+      execSql,
+      persistence: custom,
+      storedContainer: { container: legacy, record: null },
+    });
+    expect(saved).toEqual([legacy.id]);
+    expect(await metadata.containerExists(execSql, legacy.id)).toBe(false);
+  } finally {
+    await close();
+  }
+});

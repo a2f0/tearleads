@@ -1,11 +1,14 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import {
+  getOrCreateDomainSyncCoordinator,
+  type Tearleads,
+} from "@tearleads/client-sdk";
 
 import { useEffect, useState } from "react";
 import type { SubscribeConnectionRefreshFn } from "../../host/AppHostConfig";
 import { trackConnectAttempts } from "./connectAttemptTracker";
 import {
   type ContainerInterestDeclaration,
-  startContainerInterestDeclaration,
+  startContainerInterestDeclaration as declareInterest,
 } from "./containerInterest";
 import {
   attachOrganizationReadModelSocket,
@@ -16,7 +19,12 @@ import {
 import { startServerEventsConnectionLoop } from "./serverEventsConnectionLoop";
 import { routeIncomingWsMessage } from "./serverEventsRouting";
 
-export { startContainerInterestDeclaration } from "./containerInterest";
+export function startContainerInterestDeclaration(
+  tearleads: Tearleads,
+  ws: WebSocket,
+) {
+  return declareInterest(tearleads, ws, getOrCreateDomainSyncCoordinator);
+}
 
 // Revalidate affected contents, then re-list the root lane plus each flagged
 // container's parent lane and own child lane once.

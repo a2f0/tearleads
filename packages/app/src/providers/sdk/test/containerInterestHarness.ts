@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { Tearleads } from "@tearleads/client-sdk";
+import { createDomainScope, type Tearleads } from "@tearleads/client-sdk";
 import type { startContainerInterestDeclaration } from "../containerInterest";
 
 export function createFakeStore(initialIds: string[]) {
@@ -48,6 +48,7 @@ export function acknowledgeInitialDeclaration(
 
 export function tearleadsWithStore(openTree: () => unknown): Tearleads {
   return {
+    domainScope: createDomainScope(),
     deviceFirst: {
       open: () => ({ containerStore: openTree() }),
     },
