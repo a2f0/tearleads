@@ -59,6 +59,9 @@ import type {
 } from "../runtime/workflowRuntime";
 import { discoverContainerDocumentsForRuntime } from "./documentDiscovery";
 import { createStoreRuntime } from "./storeRuntime";
+
+export { createStoreRuntime as createContainerContentsStoreRuntime };
+
 import type {
   ContainerContents,
   ContainerDocumentLinks,

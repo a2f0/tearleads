@@ -35,9 +35,11 @@ import {
 } from "../../workflows/container-contents";
 import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
-import type { ContainerContents } from "../containerContents";
+import {
+  type ContainerContents,
+  createContainerContentsStoreRuntime as createDeviceFirstWorkflowRuntime,
+} from "../containerContents";
 import { discoverContainerDocumentLanesForRuntime } from "../containerContents/documentDiscovery";
-import { createStoreRuntime as createDeviceFirstWorkflowRuntime } from "../containerContents/storeRuntime";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
