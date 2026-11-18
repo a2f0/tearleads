@@ -42,10 +42,14 @@ export async function heldDirectoryCitations(
   for (const row of rows) {
     const directoryState = parsed(row.stateJson);
     const directoryPayload = parsed(row.payloadJson);
+    // A row must name its own state of this organization, so a request
+    // never cites another organization's state hash.
     if (
       isPrincipalStateResponse(directoryState) &&
       isPrincipalStatePayloadResponse(directoryPayload) &&
-      directoryState.stateHash === row.stateHash
+      directoryState.stateHash === row.stateHash &&
+      directoryState.principalType === "organization" &&
+      directoryState.principalId === organizationId
     )
       citations.push({ directoryState, directoryPayload });
   }

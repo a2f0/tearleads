@@ -107,6 +107,14 @@ test("a projection read cites the organization's held directory payloads, curren
           updatedAt: "2026-01-02T00:00:00.000Z",
           stateJson: JSON.stringify(stateOf(hash(14))),
         }),
+        // A row filed under this organization whose state names another
+        // organization is skipped too.
+        bundleRow({
+          stateHash: hash(15),
+          isCurrent: false,
+          updatedAt: "2026-01-02T00:00:00.000Z",
+          stateJson: JSON.stringify(stateOf(hash(15), "organization-2")),
+        }),
         ...Array.from({ length: 8 }, (_, index) =>
           bundleRow({
             stateHash: hash(20 + index),
@@ -126,13 +134,13 @@ test("a projection read cites the organization's held directory payloads, curren
       "directoryState" in citation ? [citation] : [],
     );
     // At most eight rows are read: the current state, then the most
-    // recently stored; the damaged row takes a slot and is dropped.
+    // recently stored; the two damaged rows take slots and are dropped.
     expect(
       directories.map(({ directoryState }) => directoryState.stateHash),
     ).toEqual([
       hash(11),
       hash(10),
-      ...Array.from({ length: 5 }, (_, index) => hash(20 + index)),
+      ...Array.from({ length: 4 }, (_, index) => hash(20 + index)),
     ]);
     expect(directories[0]?.directoryPayload).toEqual(payloadOf(hash(11)));
     // The manifest citations are unchanged.
