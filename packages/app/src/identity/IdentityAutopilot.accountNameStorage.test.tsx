@@ -89,7 +89,7 @@ async function answerAndRegister(
   await answerAccountNamePrompt(view.container);
   await waitFor(
     () => {
-      expect(getPaneStatusText(view)).not.toMatch(/userId:\s*none/);
+      expect(getPaneStatusText(view)).toMatch(/userId:\s*[0-9a-f-]{36}/u);
     },
     { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
   );
