@@ -8,6 +8,7 @@ import type {
 import {
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -130,11 +131,11 @@ function PolicyHistory({
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
 }) {
   if (!history) {
-    return (
+    return pending ? (
+      <MiniAppStatePanel busy title={ORG_MANAGER_LABELS.loadingPolicyHistory} />
+    ) : (
       <MiniAppStatus className="org-manager-hint">
-        {pending
-          ? ORG_MANAGER_LABELS.loadingPolicyHistory
-          : ORG_MANAGER_LABELS.policyHistoryUnavailable}
+        {ORG_MANAGER_LABELS.policyHistoryUnavailable}
       </MiniAppStatus>
     );
   }

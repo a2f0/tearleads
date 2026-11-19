@@ -58,7 +58,7 @@ export function OrganizationView({
   }, [organizationId]);
 
   return (
-    <section className="org-manager-panel">
+    <section className="org-manager-panel org-manager-profile-panel">
       <MiniAppHeader className="org-manager-detail-header">
         <MiniAppHeaderCopy>
           <strong>{organizationName ?? ORG_MANAGER_LABELS.organization}</strong>
@@ -79,7 +79,10 @@ export function OrganizationView({
         className="org-manager-detail-tab-panel"
         idPrefix={idPrefix}
       >
-        <div hidden={activeTab !== "profile"}>
+        <div
+          className="org-manager-profile-tab"
+          hidden={activeTab !== "profile"}
+        >
           <OrganizationProfileEditor
             canEdit={directory?.currentUser.isOrgAdmin ?? false}
             key={organizationId}

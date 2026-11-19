@@ -13,6 +13,7 @@ import {
   MiniAppHeaderCopy,
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
   type MiniAppTabDescriptor,
   MiniAppTabList,
@@ -75,7 +76,7 @@ function UserDetailTabContent({
 }) {
   return (
     <>
-      <div hidden={activeTab !== "profile"}>
+      <div className="org-manager-profile-tab" hidden={activeTab !== "profile"}>
         <MiniAppSection className="org-manager-roster-detail">
           <RosterProfileEditor
             canEdit={canEditRosterProfile}
@@ -280,21 +281,20 @@ export function UserDetailView({
   useWindowTitleBarAction(editAction);
 
   if (!detail) {
+    if (pending) {
+      return (
+        <MiniAppStatePanel busy title={ORG_MANAGER_LABELS.loadingUserDetail} />
+      );
+    }
     return (
       <>
         <MiniAppHeader className="org-manager-detail-header">
           <MiniAppHeaderCopy>
-            <strong>
-              {pending
-                ? ORG_MANAGER_LABELS.loadingUserDetail
-                : ORG_MANAGER_LABELS.userDetailUnavailable}
-            </strong>
+            <strong>{ORG_MANAGER_LABELS.userDetailUnavailable}</strong>
           </MiniAppHeaderCopy>
         </MiniAppHeader>
         <MiniAppStatus className="org-manager-hint">
-          {pending
-            ? ORG_MANAGER_LABELS.loadingUserDetail
-            : ORG_MANAGER_LABELS.userDetailUnavailable}
+          {ORG_MANAGER_LABELS.userDetailUnavailable}
         </MiniAppStatus>
       </>
     );

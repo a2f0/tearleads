@@ -64,6 +64,43 @@
   min-width: 0;
 }
 
+.org-manager-profile-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.org-manager-profile-panel > .org-manager-detail-tab-panel,
+.org-manager-profile-tab {
+  flex: 1;
+}
+
+.org-manager-profile-tab {
+  position: relative;
+}
+
+/* Keep the fields mounted so a sync cannot discard another field's draft.
+   The cover also hides roster metadata and its copy button from keyboard users. */
+.org-manager-profile-tab:has(.org-manager-profile-cover) {
+  visibility: hidden;
+}
+
+.org-manager-profile-cover {
+  position: absolute;
+  inset: 0;
+  visibility: visible;
+  background: var(--color-light);
+}
+
+/* A background sync can start while someone is typing the next name field. */
+.org-manager-profile-tab:has(input:focus) {
+  visibility: visible;
+}
+
+.org-manager-profile-tab:has(input:focus) .org-manager-profile-cover {
+  display: none;
+}
+
 .org-manager-panel--context-target {
   min-height: 100%;
   box-sizing: border-box;
