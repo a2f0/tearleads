@@ -96,3 +96,49 @@ test("a short System Monitor window scrolls its table tabs", async ({
     expect(lastRowInView, `${tabName} last row scrolls into view`).toBe(true);
   }
 });
+
+test("API request summary values stay aligned beside their labels as the viewport widens", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto("/app/system-monitor/requests");
+
+  const summary = page
+    .getByRole("region", { name: "API request counts" })
+    .getByRole("table")
+    .filter({ has: page.getByRole("rowheader", { name: "Counting since" }) });
+
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect(summary).toBeVisible();
+    const { gap, spread, singleLineLabels } = await summary.evaluate(
+      (table) => {
+        const textRange = (cell: Element) => {
+          const range = document.createRange();
+          range.selectNodeContents(cell);
+          return range;
+        };
+        const labels = Array.from(table.querySelectorAll("th"), textRange);
+        const labelEnds = labels.map(
+          (range) => range.getBoundingClientRect().right,
+        );
+        const valueStarts = Array.from(
+          table.querySelectorAll("td"),
+          (cell) => textRange(cell).getBoundingClientRect().left,
+        );
+        const left = Math.min(...valueStarts);
+        return {
+          gap: left - Math.max(...labelEnds),
+          spread: Math.max(...valueStarts) - left,
+          singleLineLabels: labels.every(
+            (range) => range.getClientRects().length === 1,
+          ),
+        };
+      },
+    );
+    expect(gap).toBeGreaterThan(0);
+    expect(gap).toBeLessThanOrEqual(16);
+    expect(spread).toBeLessThanOrEqual(1);
+    expect(singleLineLabels).toBe(true);
+  }
+});

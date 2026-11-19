@@ -40,7 +40,7 @@ export function SystemMonitorRequests() {
       aria-label="API request counts"
       className="system-monitor-requests"
     >
-      <MiniAppInfoTable className="mini-app-info-table--borderless">
+      <MiniAppInfoTable className="mini-app-info-table--borderless mini-app-info-table--pinned">
         <tbody>
           <MiniAppInfoRow label="Counting since">
             {snapshot.startedAt}
