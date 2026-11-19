@@ -34,7 +34,6 @@ import {
 } from "../../../stores/explorer/ExplorerProvider";
 
 const WAIT_OPTIONS = { timeout: PANE_ASYNC_TEST_TIMEOUT_MS };
-const ignoreDatabaseRetry = () => undefined;
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 type Capture = {
@@ -51,14 +50,7 @@ function captureExplorerModel() {
     const appData = useTearleadsRuntime();
     const explorer = useExplorer();
     const [sidebar, setSidebar] = useState<ReactNode>(null);
-    const model = useExplorerModel(
-      appData,
-      explorer,
-      setSidebar,
-      false,
-      null,
-      ignoreDatabaseRetry,
-    );
+    const model = useExplorerModel(appData, explorer, setSidebar, false, null);
     useLayoutEffect(() => {
       captured.current = { contacts, model, sdk };
     }, [contacts, model, sdk]);

@@ -60,11 +60,11 @@ point aggregates documented public facades;
 files, and store implementation files stay private. To make a contract public,
 promote it through the root entry point.
 
-When a lower-level workflow facade name conflicts with a root service type, the
-root meaning stays stable and the lower-level name gets a distinct alias. For
-example, root `ContainerDocumentLinkInput` is the high-level client
-document-link input, while the lower-level container query link input is
-`ContainerDocumentQueriesLinkInput`.
+`ContainerContentsSnapshot.ready` reports local readiness. Its optional
+`hydrating` flag is true during background folder listings. Hosts can display
+cached rows immediately. Root and workflow types have distinct names when
+their meanings differ, as with the high-level `ContainerDocumentLinkInput`
+and the query's `ContainerDocumentQueriesLinkInput`.
 
 Container KEK-history recovery is public workflow surface:
 `ContainerMutationService.rekeyRemoteContainer` performs an explicit rotation

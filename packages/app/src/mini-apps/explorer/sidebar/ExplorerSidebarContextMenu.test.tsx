@@ -49,15 +49,12 @@ function SidebarContextMenuHarness(params: {
   const toggleCollapsed = useCallback(() => undefined, []);
   // Stable identity: the sidebar memoizes on this, so an inline function would
   // recreate the sidebar every render and loop useRegisteredWindowSidebar.
-  const onRetryDatabase = useCallback(() => undefined, []);
 
   useExplorerSidebarPanel({
     activeContainerId: rootNode.id,
     collapsedIds,
-    databaseError: false,
-    onRetryDatabase,
     handleContainerContextMenu,
-    ready: true,
+    folderState: "available",
     organizationNamesById: NO_ORGANIZATION_NAMES,
     primaryOrganizationId: rootNode.organizationId,
     selectedId,

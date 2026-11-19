@@ -14,7 +14,6 @@ import {
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
-import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useAppFeatureFlags } from "../../providers/feature-flags/AppFeatureFlagsProvider";
 import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
 import {
@@ -90,7 +89,6 @@ type ExplorerBlobPickState = ReturnType<typeof useBlobPick>;
 interface BlobPickPanelProps {
   appData: RuntimeSnapshot;
   billingBlockedOrganizationId: string | null;
-  databaseError: boolean;
   model: ExplorerModel;
   readModelProjection: OrganizationDirectoryAndGroups | null;
   readModelRevision: number;
@@ -101,7 +99,6 @@ interface BlobPickPanelProps {
     grant: ExplorerGrantOrgManagerTarget,
     position?: MiniAppWindowPosition,
   ) => void;
-  onRetryDatabase: () => void;
 }
 
 // The detail panel's flag-gated surfaces, grouped so the render below forwards
@@ -141,8 +138,6 @@ function renderExplorerDetailPanelWithBlobPick(
       blobPickTarget={blobPick.pickTarget}
       blobStore={appData.infra.blobStore}
       billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-      databaseError={params.databaseError}
-      onRetryDatabase={params.onRetryDatabase}
       canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
       canShareWithPeer={model.canShareWithPeer}
@@ -191,7 +186,7 @@ function renderExplorerDetailPanelWithBlobPick(
       openDocumentInfoRoute={routeState.openDocumentInfoRoute}
       {...explorerQueueRoutes(model)}
       peerUserId={model.peerUserId}
-      ready={model.explorer.ready}
+      folderState={model.folderState}
       refreshError={model.refreshError}
       route={routeState.route}
       selectDocumentProjection={model.selectDocumentProjection}
@@ -249,30 +244,16 @@ function ExplorerContent() {
   const explorer = usePeerShareAdmission(useExplorer());
   const { setSidebar } = useWindowSidebar();
   const peerUserId = usePeerUserId();
-  // Surface a failed SQLite boot (e.g. an offline reload where the worker/wasm
-  // could not load) as an explicit error + Retry in Explorer's gates, rather than
-  // an indistinguishable "Loading...". appData.infra.dbStatus mirrors the worker
-  // status (workflowRuntime sets it from database.status); "error" = boot failed.
-  const { clearWorker } = useDatabase();
-  const databaseError = appData.infra.dbStatus === "error";
   const billingBlockedOrganizationId =
     billing.view && !billing.view.canSync
       ? (billing.billing?.organizationId ?? null)
       : null;
-  const retryDatabaseBoot = useCallback(() => {
-    // A failed boot leaves the database at the terminal "error" status with the
-    // worker handle still set, so re-spawning directly would no-op. clearWorker
-    // resets it to "idle", from which DatabaseProvider's identity effect
-    // re-spawns the worker and re-attempts the boot.
-    clearWorker();
-  }, [clearWorker]);
   const model = useExplorerModel(
     appData,
     explorer,
     setSidebar,
     hostConfig.profile.features.explorerPeerSharing,
     peerUserId,
-    retryDatabaseBoot,
   );
   const { routeState } = model;
   const organizationPresentation = useExplorerOrganizationPresentation({
@@ -406,7 +387,6 @@ function ExplorerContent() {
         <ExplorerDetailPanelWithBlobPick
           appData={appData}
           billingBlockedOrganizationId={billingBlockedOrganizationId}
-          databaseError={databaseError}
           model={model}
           readModelProjection={organizationPresentation.projection}
           readModelRevision={organizationPresentation.revision}
@@ -418,7 +398,6 @@ function ExplorerContent() {
             organizationPresentation.resolveAttributionUserLabel
           }
           onOpenGrant={openGrantInOrgManager}
-          onRetryDatabase={retryDatabaseBoot}
         />
       </BlobPickProvider>
       <ExplorerContextMenuLayer

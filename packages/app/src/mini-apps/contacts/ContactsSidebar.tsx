@@ -98,9 +98,12 @@ function ContactsList({
 
   if (!ready) {
     return bleed ? (
-      <AccountBootstrapLoadingPanel title={CONTACTS_LABELS.loadingState} />
+      <AccountBootstrapLoadingPanel
+        description={CONTACTS_LABELS.loadingDescription}
+        title={CONTACTS_LABELS.loadingState}
+      />
     ) : (
-      <MiniAppStatus busy>Loading...</MiniAppStatus>
+      <MiniAppStatus busy>{CONTACTS_LABELS.loadingState}</MiniAppStatus>
     );
   }
 

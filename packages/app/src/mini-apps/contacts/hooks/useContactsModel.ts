@@ -5,6 +5,7 @@ import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import { useContacts } from "../../../stores/contacts/ContactsProvider";
 import { useCurrentSelfContactIdentity } from "../../../stores/contacts/useCurrentSelfContactIdentity";
+import { useCollectionStartupPending } from "../../shared/useCollectionStartupPending";
 import { useContactsSidebarPanel } from "../ContactsSidebar";
 import {
   type ContactsContextMenuModel,
@@ -43,10 +44,16 @@ function useContactsSelectionState(
   };
 }
 
+function useContactsCollection() {
+  const contacts = useContacts();
+  const startupPending = useCollectionStartupPending(contacts.entries.length);
+  return { ...contacts, listReady: contacts.ready && !startupPending };
+}
+
 export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const compactRoutedMode = useCompactRoutedMode();
   const appData = useTearleadsRuntime();
-  const contacts = useContacts();
+  const contacts = useContactsCollection();
   const selfContactIdentity = useCurrentSelfContactIdentity();
   const { canWrite, entries, ready } = contacts;
   const { isAuthenticated } = useCryptoSession();
@@ -98,7 +105,7 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
     entries,
     handleAreaContextMenu: contextMenuState.handleAreaContextMenu,
     handleContextMenu: contextMenuState.handleSidebarContextMenu,
-    ready,
+    ready: contacts.listReady,
     selectedContactId: selectionState.selectedContactId,
     setSelectedContactId: selectionState.selectContact,
     setSidebar,
@@ -119,7 +126,7 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
     currentUserId: appData.auth.userId,
     entries,
     isAuthenticated,
-    ready,
+    ready: contacts.listReady,
     removeContactAvatar: contacts.removeContactAvatar,
     selectContact: selectionState.selectContact,
     selectedContactId: selectionState.selectedContactId,

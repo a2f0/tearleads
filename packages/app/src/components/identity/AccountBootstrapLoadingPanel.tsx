@@ -8,11 +8,17 @@ export const AccountBootstrapProgressContext =
   createContext<AccountBootstrapCopy | null>(null);
 
 /** Account progress while a mini-app loads, then its own local loading copy. */
-export function AccountBootstrapLoadingPanel({ title }: { title: string }) {
+export function AccountBootstrapLoadingPanel({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
   const progress = useContext(AccountBootstrapProgressContext);
   return progress ? (
     <AccountBootstrapProgressPanel progress={progress} />
   ) : (
-    <MiniAppStatePanel busy title={title} />
+    <MiniAppStatePanel busy description={description} title={title} />
   );
 }

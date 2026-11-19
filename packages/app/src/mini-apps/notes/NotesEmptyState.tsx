@@ -5,7 +5,10 @@ import { NOTES_LABELS } from "./labels";
 export function NotesEmptyState() {
   return (
     <MiniAppRoot padding="none">
-      <AccountBootstrapLoadingPanel title={NOTES_LABELS.emptyStateLoading} />
+      <AccountBootstrapLoadingPanel
+        description={NOTES_LABELS.loadingDescription}
+        title={NOTES_LABELS.emptyStateLoading}
+      />
     </MiniAppRoot>
   );
 }

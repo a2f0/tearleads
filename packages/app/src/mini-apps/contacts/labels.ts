@@ -1,4 +1,5 @@
 export const CONTACTS_LABELS = {
+  loadingDescription: "Reading your saved contacts on this device.",
   backToContactsAction: "Back to Contacts",
   contactUserIdField: "Identity link",
   createContactAction: "Create",
