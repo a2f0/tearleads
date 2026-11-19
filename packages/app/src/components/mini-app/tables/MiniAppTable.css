@@ -167,16 +167,15 @@
 }
 
 /*
- * Pinned System Monitor status table: letting the value column absorb all the
- * slack collapses the label column to its content width, so each key sits right
- * beside its value instead of being spread across the full pane width.
- *
- * The value column absorbs all the slack (width: 100%), so the label column
- * shrinks to its content. Keep multi-word labels ("SQLite Worker", "Web Socket")
- * on one line — the shared cell rule allows word breaks, which would otherwise
- * collapse the label column to its longest word and wrap each key.
+ * In pinned info tables, the value column absorbs the available width and
+ * labels stay on one line. The label's trailing padding and the value's
+ * leading padding together form the key/value gap.
  */
 .mini-app-info-table--pinned th {
+  padding-inline-end: calc(
+    var(--info-table-key-value-gap) -
+    var(--info-table-cell-padding)
+  );
   white-space: nowrap;
 }
 
