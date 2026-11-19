@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="397" viewBox="0 0 360 397" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Writing a note after a Team grant is revoked</title>
+  <desc>Follow the parent-first repairs for a note linked only to Drafts.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <marker id="key-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-key"/></marker>
+    <style>
+      .canvas,.box,.kbox { fill: #fff; }
+      .band { fill: #f8fafc; }
+      .box,.edge { stroke: #4b5563; }
+      .kbox,.kedge { stroke: #b45309; stroke-dasharray: 5 3; }
+      .box,.kbox,.edge,.kedge { stroke-width: 1.25; }
+      .edge,.kedge { fill: none; }
+      .arrowhead { fill: #4b5563; }
+      .arrowhead-key { fill: #b45309; }
+      .colhead { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+      .name { font-size: 15px; font-weight: 600; }
+      .colhead,.name { fill: #111827; }
+      .meta { fill: #4b5563; font-size: 13px; }
+      @media (prefers-color-scheme: dark) {
+        .canvas,.box,.kbox { fill: #18181b; }
+        .band { fill: #242427; }
+        .colhead,.name { fill: #fafafa; }
+        .meta,.arrowhead { fill: #d4d4d8; }
+        .box,.edge { stroke: #d4d4d8; }
+        .kbox,.kedge { stroke: #fbbf24; }
+        .arrowhead-key { fill: #fbbf24; }
+      }
+    </style>
+  </defs>
+  <rect width="360" height="397" class="canvas"/>
+  <text x="16" y="24" class="colhead">KEYS FOR THE NEXT EDIT</text>
+  <rect x="0" y="36" width="360" height="350" class="band"/>
+  <rect x="16" y="48" width="328" height="52" rx="4" class="kbox"/>
+  <text x="26" y="69" class="name">Team · new folder key</text>
+  <text x="26" y="88" class="meta">Wrapped for the remaining access paths</text>
+  <path d="M47 100 V146" class="kedge" marker-end="url(#key-arrow)"/>
+  <text x="62" y="127" class="meta">Wrap the fresh child key to Team</text>
+  <rect x="16" y="148" width="328" height="52" rx="4" class="kbox"/>
+  <text x="26" y="169" class="name">Drafts · new folder key</text>
+  <text x="26" y="188" class="meta">Replaces the key reachable through old Team</text>
+  <path d="M47 200 V246" class="kedge" marker-end="url(#key-arrow)"/>
+  <text x="62" y="227" class="meta">Wrap the fresh document key to Drafts</text>
+  <rect x="16" y="248" width="328" height="52" rx="4" class="kbox"/>
+  <text x="26" y="269" class="name">Note · new document key</text>
+  <text x="26" y="288" class="meta">One accepted bundle for the new epoch</text>
+  <path d="M47 300 V324" class="edge" marker-end="url(#arrow)"/>
+  <text x="62" y="317" class="meta">Encrypt</text>
+  <rect x="16" y="326" width="328" height="52" rx="4" class="box"/>
+  <text x="26" y="347" class="name">New baseline and later edits</text>
+  <text x="26" y="366" class="meta">Earlier ciphertext stays under earlier keys</text>
+</svg>

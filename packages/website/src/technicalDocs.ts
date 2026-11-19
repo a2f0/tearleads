@@ -19,6 +19,20 @@ export interface TechnicalDoc {
 
 export const technicalDocs: readonly TechnicalDoc[] = [
   {
+    slug: "backup-and-restore",
+    source: "docs/backup-and-restore.md",
+    title: "Backup and restore",
+    summary:
+      "Export a local backup, read its file format, and restore it on a device.",
+  },
+  {
+    slug: "re-keying",
+    source: "docs/re-keying.md",
+    title: "How re-keying works",
+    summary:
+      "Follow folder and document keys through sharing, revocation, and moves.",
+  },
+  {
     slug: "security-guarantees",
     source: "docs/security-guarantees.md",
     title: "Security guarantees",

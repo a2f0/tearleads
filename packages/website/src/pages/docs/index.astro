@@ -11,17 +11,10 @@ import "../../styles/docs.css";
 
 <Layout
   title="Documentation | Tearleads"
-  description="The Tearleads security guarantees, keying design, protocol specification, cipher suites, protocol models, limits, glossary, and API reference."
+  description="Guides to local backups and re-keying, plus the Tearleads security, protocol, and API references."
 >
   <div class="site-page docs-page">
-    <PageHeader title="Documentation">
-      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
-        <ol role="list">
-          <li><a href="/security/">Security</a></li>
-          <li aria-current="page">Documentation</li>
-        </ol>
-      </nav>
-    </PageHeader>
+    <PageHeader title="Documentation" />
 
     <dl class="site-spec site-spec--wide-key docs-index">
       {technicalDocs.map((doc) => (
