@@ -20,7 +20,10 @@ import { useRegisterMiniAppLauncher } from "../../../mini-apps/miniAppLauncher";
 import { MINI_APP_LAUNCHER } from "../../../mini-apps/registry";
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
 import { SystemMonitorProvider } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
-import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
+import {
+  AppNavigationProvider,
+  useAppNavigationActions,
+} from "../../../navigation/AppNavigationProvider";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { AppFeatureFlagsProvider } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
 import { AppSystemTray } from "../../../tray-apps/AppSystemTray";
@@ -56,6 +59,7 @@ function PaneInner({
   const { userId } = useCryptoSession();
   useRegisterUserId(userId);
   usePublishIdentityLink();
+  const { openMiniApp } = useAppNavigationActions();
   const { windows } = useWindowStateData();
   const [contextMenu, setContextMenu] = useState<MenuPosition | null>(null);
 
@@ -85,7 +89,16 @@ function PaneInner({
           ))}
         </div>
         <TestSystemBanner />
-        <PaneFooter label={label} tray={<AppSystemTray />} />
+        <PaneFooter
+          onOpenStartMenuSettings={() =>
+            openMiniApp({
+              appId: "display-properties",
+              pathSegments: ["start-menu"],
+            })
+          }
+          label={label}
+          tray={<AppSystemTray />}
+        />
         {contextMenu && (
           <PaneMenu
             surface="desktop"

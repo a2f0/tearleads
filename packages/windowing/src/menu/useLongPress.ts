@@ -75,6 +75,38 @@ function deliverLongPress(
   element.dispatchEvent(new MouseEvent("contextmenu", init));
 }
 
+// On release a browser may send mousedown (which dismisses an outside menu)
+// and click (which activates the trigger). Consume that gesture through click,
+// and always yield to the next genuine pointer or keyboard interaction.
+function suppressLongPressRelease(): () => void {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const remove = () => {
+    clearTimeout(timeout);
+    window.removeEventListener("mousedown", suppressMouse, true);
+    window.removeEventListener("click", suppressMouse, true);
+    window.removeEventListener("pointerup", expire, true);
+    window.removeEventListener("pointercancel", remove, true);
+    window.removeEventListener("pointerdown", remove, true);
+    window.removeEventListener("keydown", remove, true);
+  };
+  const suppressMouse = (event: MouseEvent) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.type === "click") remove();
+  };
+  const expire = () => {
+    timeout = setTimeout(remove, SYNTHESIZED_CLICK_WINDOW_MS);
+  };
+  window.addEventListener("mousedown", suppressMouse, true);
+  window.addEventListener("click", suppressMouse, true);
+  window.addEventListener("pointerup", expire, { capture: true, once: true });
+  window.addEventListener("pointercancel", remove, true);
+  window.addEventListener("pointerdown", remove, true);
+  window.addEventListener("keydown", remove, true);
+  return remove;
+}
+
 /**
  * Returns pointer handlers that, when a **touch** pointer is held still for
  * {@link LONG_PRESS_DELAY_MS}, dispatch a native `contextmenu` event on the
@@ -87,11 +119,8 @@ function deliverLongPress(
  * verbatim. Mouse and pen pointers are ignored so right-click stays the desktop
  * affordance.
  *
- * After the long press fires we register a one-shot capturing `click` listener
- * on `window` to swallow the click the browser synthesizes on touch release —
- * `preventDefault()` on `pointerup` does NOT suppress that click per the Pointer
- * Events spec, so without this the element's `onClick` (navigate/select) would
- * also run.
+ * After the hold fires, consume the mouse events synthesized on touch release
+ * so they cannot dismiss the menu or also activate its trigger.
  *
  * Pass `enabled: false` (e.g. when no context-menu handler is wired) to make the
  * returned handlers no-ops.
@@ -111,33 +140,6 @@ export function useLongPress(
       timerRef.current = null;
     }
     originRef.current = null;
-  }, []);
-
-  // Swallow exactly the next click (the one the browser synthesizes from the
-  // touch release after a long press) and then detach. A timeout detaches the
-  // suppressor if that click never arrives, so a later genuine tap still works.
-  const armClickSuppressor = useCallback(() => {
-    removeClickSuppressorRef.current?.();
-
-    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
-    const onClickCapture = (clickEvent: MouseEvent) => {
-      clickEvent.preventDefault();
-      clickEvent.stopPropagation();
-      removeClickSuppressorRef.current?.();
-    };
-
-    const remove = () => {
-      window.removeEventListener("click", onClickCapture, true);
-      if (fallbackTimer !== null) {
-        clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
-      removeClickSuppressorRef.current = null;
-    };
-
-    removeClickSuppressorRef.current = remove;
-    window.addEventListener("click", onClickCapture, true);
-    fallbackTimer = setTimeout(remove, SYNTHESIZED_CLICK_WINDOW_MS);
   }, []);
 
   // Tear down on unmount, and also when `enabled` flips off mid-press so a
@@ -169,12 +171,13 @@ export function useLongPress(
         timerRef.current = null;
         const element = resolvePressedElement(pressed, holder, point);
         if (element) {
-          armClickSuppressor();
+          removeClickSuppressorRef.current?.();
+          removeClickSuppressorRef.current = suppressLongPressRelease();
           deliverLongPress(element, point, emulateRightClick);
         }
       }, LONG_PRESS_DELAY_MS);
     },
-    [armClickSuppressor, clearTimer, emulateRightClick, enabled],
+    [clearTimer, emulateRightClick, enabled],
   );
 
   const onPointerMove = useCallback(

@@ -83,6 +83,8 @@ export interface RoutedPaneProps {
    * launcher sheet, or the rail on the tablet tier in side mode.
    */
   menuIcon: ReactNode;
+  /** Offer Start menu settings from the taskbar menu button. */
+  onOpenStartMenuSettings?: (() => void) | undefined;
   /**
    * A strip in its own row directly above the taskbar, such as a deployment
    * warning. It is told whether the phone's software keyboard is open, while
@@ -120,6 +122,7 @@ function RoutedPaneSurface({
   launcherPlacement,
   menuIcon,
   navigationRailExpanded,
+  onOpenStartMenuSettings,
   onToggleLauncherPlacement,
   onToggleNavigationRail,
   renderAboveTaskbar,
@@ -204,6 +207,13 @@ function RoutedPaneSurface({
         launcherPlacement={launcherPlacement}
         menuButtonRef={menuButtonRef}
         menuIcon={menuIcon}
+        onOpenStartMenuSettings={
+          onOpenStartMenuSettings &&
+          (() => {
+            closeDrawer();
+            onOpenStartMenuSettings();
+          })
+        }
         onToggleDrawer={toggleDrawer}
         onToggleRail={onToggleNavigationRail}
         railExpanded={navigationRailExpanded}

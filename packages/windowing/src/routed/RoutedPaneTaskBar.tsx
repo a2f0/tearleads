@@ -1,5 +1,6 @@
 import type { ReactNode, RefObject } from "react";
 import type { RoutedLayoutTier } from "../launcher/useRoutedLayoutTier";
+import { StartMenuButton } from "../menu/StartMenuButton";
 import type { LauncherPlacement } from "./launcherPlacement";
 import {
   ROUTED_PANE_NAV_PANEL_ID,
@@ -12,6 +13,7 @@ interface RoutedPaneTaskBarProps {
   launcherPlacement: LauncherPlacement;
   menuButtonRef: RefObject<HTMLButtonElement | null>;
   menuIcon: ReactNode;
+  onOpenStartMenuSettings?: (() => void) | undefined;
   onToggleDrawer: () => void;
   onToggleRail: () => void;
   railExpanded: boolean;
@@ -32,6 +34,7 @@ export function RoutedPaneTaskBar({
   launcherPlacement,
   menuButtonRef,
   menuIcon,
+  onOpenStartMenuSettings,
   onToggleDrawer,
   onToggleRail,
   railExpanded,
@@ -52,17 +55,17 @@ export function RoutedPaneTaskBar({
 
   return (
     <footer className="routed-pane-taskbar" hidden={hidden}>
-      <button
+      <StartMenuButton
+        onOpenSettings={onOpenStartMenuSettings}
         aria-controls={controls}
         aria-expanded={expanded}
         aria-label="Menu"
         className="routed-pane-taskbar-menu-button"
         ref={menuButtonRef}
-        type="button"
         onClick={usesSheet ? onToggleDrawer : onToggleRail}
       >
         {menuIcon}
-      </button>
+      </StartMenuButton>
       <div className="routed-pane-taskbar-end">{tray}</div>
     </footer>
   );

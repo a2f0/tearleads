@@ -7,3 +7,8 @@
 .routed-pane-main .app-settings {
   width: auto;
 }
+
+/* Settings already spans the phone pane edge to edge. */
+.routed-pane--mobile .app-settings .mini-app-tabs {
+  margin-inline: 0;
+}
