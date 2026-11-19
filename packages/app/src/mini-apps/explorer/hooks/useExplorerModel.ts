@@ -114,7 +114,6 @@ export function useExplorerModel(
   setSidebar: (sidebar: ReactNode | null) => void,
   canShareWithPeer: boolean,
   peerUserId: string | null,
-  // boot failure surfaces a Retry there too (the detail panel gets it directly).
 ): ExplorerModel {
   const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
     useDocumentLinkProjectionVersion();

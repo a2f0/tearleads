@@ -8,7 +8,6 @@ export function observeContainerBackgroundHydration(
   state: ContainerContentsStoreSyncState,
   hydration: Promise<unknown>,
 ): void {
-  state.trackBackgroundHydration?.(hydration);
   const generation = state.lifecycleGeneration;
   const runtime = state.runtime;
   void hydration.catch(async (error: unknown) => {

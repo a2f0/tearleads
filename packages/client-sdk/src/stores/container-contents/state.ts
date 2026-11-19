@@ -134,7 +134,7 @@ export function createContainerContentsStoreState(
     writeGeneration: 0,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
-  state.trackBackgroundHydration = trackContainerHydration(state);
+  state.trackHydration = trackContainerHydration(state);
   return state;
 }
 
