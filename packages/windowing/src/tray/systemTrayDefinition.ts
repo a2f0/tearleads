@@ -8,6 +8,8 @@ import type { WindowingIcon } from "../icons/windowingIcon";
 export interface TrayAppDefinition {
   /** The control. It may render nothing where it does not apply. */
   component: ComponentType;
+  /** Whether the control appears before the user chooses. Defaults to true. */
+  defaultEnabled?: boolean;
   /** Drawn beside the title in Display Properties and the app's menu. */
   icon?: WindowingIcon | undefined;
   /** Names the app in Display Properties and its context menu. */

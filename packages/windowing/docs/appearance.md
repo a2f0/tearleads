@@ -120,9 +120,9 @@ desktop's context menu.
 
 A host's tray apps are the small controls in its taskbar's corner, such as
 `ThemeSwitch` or a sync status button. A `SystemTrayDefinition` lists them as
-`{ title, icon?, component }` by id, with their order. `SystemTrayProvider`
-takes the definition and a `storageKey` under which the apps the user turned
-off persist, so every app starts on and one the host adds later appears.
+`{ title, icon?, component, defaultEnabled? }` by id, with their order. Set
+`defaultEnabled: false` for an opt-in app. Other apps start on.
+`SystemTrayProvider` persists the user’s visibility choices under `storageKey`.
 Render `SystemTray` in the taskbar's corner:
 
 ```tsx

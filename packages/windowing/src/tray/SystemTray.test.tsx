@@ -125,10 +125,12 @@ test("Display Properties switches each tray app off and back on", () => {
   fireEvent.click(volume);
   expect(volume).toHaveProperty("checked", true);
   expect(view.getByRole("button", { name: "Volume" })).toBeDefined();
-  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([]);
+  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([
+    { enabled: "volume" },
+  ]);
 });
 
-// A host's Reset Defaults turns every app back on from one click.
+// Exercise several explicit visibility changes in one event.
 function TurnEveryAppOn() {
   const { definition, setEnabled } = useSystemTray();
   return (
@@ -159,7 +161,32 @@ test("turning several apps back on in one event keeps every change", () => {
   fireEvent.click(view.getByRole("button", { name: "Turn every app on" }));
 
   expect(trayControls(view.container)).toEqual(["Volume", "12:00"]);
-  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([]);
+  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([
+    { enabled: "clock" },
+    { enabled: "volume" },
+  ]);
+});
+
+test("opt-in apps respect saved choices alongside legacy disabled ids", () => {
+  const definition = {
+    ...TRAY,
+    apps: {
+      ...TRAY.apps,
+      clock: { ...TRAY.apps.clock, defaultEnabled: false },
+    },
+  };
+  const ui = (
+    <SystemTrayProvider definition={definition} storageKey={TRAY_KEY}>
+      <SystemTray />
+      <DisplayProperties />
+    </SystemTrayProvider>
+  );
+  localStorage.setItem(TRAY_KEY, JSON.stringify(["volume"]));
+  const view = render(ui);
+  expect(trayControls(view.container)).toEqual([]);
+  fireEvent.click(view.getByRole("switch", { name: "Clock" }));
+  view.unmount();
+  expect(trayControls(render(ui).container)).toEqual(["12:00"]);
 });
 
 test("unreadable storage leaves every app on", () => {
