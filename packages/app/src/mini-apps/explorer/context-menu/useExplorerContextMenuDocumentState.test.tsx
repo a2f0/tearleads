@@ -39,6 +39,7 @@ test("a linked row uses the clicked folder's permissions and Trash state in a sh
   ];
   const queried: string[] = [];
   const queries = {
+    loadDocumentSummary: async () => row,
     async loadContainerDocumentSummary({
       containerId,
       documentId,
@@ -62,9 +63,6 @@ test("a linked row uses the clicked folder's permissions and Trash state in a sh
     documentListRevision: 1,
     documentQueries: queries,
     documentSummaries: [row],
-    mergeDocumentSummary: () => {
-      throw new Error("A secondary placement must not replace the cached home");
-    },
     linkedContainerIdsByDocumentId: new Map([
       ["note", ["folder", "trash", "read-only"]],
     ]),

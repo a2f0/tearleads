@@ -61,6 +61,8 @@ function ContactsContextMenuLayerHarness(params: {
   return (
     <TestIdentityLinkResolver links={VERIFIED_LINKS}>
       <ContactsContextMenuLayer
+        canEditContextMenuContact={true}
+        editContact={() => undefined}
         canRemoveContextMenuContact={params.canRemoveContextMenuContact ?? true}
         canWrite={true}
         closeContextMenu={() => setContextMenu(null)}
@@ -79,9 +81,12 @@ function ContactsContextMenuLayerHarness(params: {
   );
 }
 
-function ContactsContextMenuModelHarness(params: { entries: ContactEntry[] }) {
+function ContactsContextMenuModelHarness(params: {
+  entries: ContactEntry[];
+  canWrite?: boolean;
+}) {
   const model = useContactsContextMenu({
-    canWrite: true,
+    canWrite: params.canWrite ?? true,
     entries: params.entries,
     removeContact: async () => undefined,
     selectedContactId: null,
@@ -107,6 +112,9 @@ function ContactsContextMenuModelHarness(params: { entries: ContactEntry[] }) {
       >
         Missing contact
       </button>
+      <output aria-label="Can edit contact">
+        {model.canEditContextMenuContact ? "yes" : "no"}
+      </output>
       <output aria-label="Can remove contact">
         {model.canRemoveContextMenuContact ? "yes" : "no"}
       </output>
@@ -281,28 +289,38 @@ test("contacts context menu model disables remove for stale contact ids", async 
   });
 });
 
-test("contacts context menu model exposes contact user ids", async () => {
-  const view = render(
-    <ContactsContextMenuModelHarness
-      entries={[
-        {
-          encapsulationPublicKey: null,
-          firstName: "Ada",
-          id: "ada",
-          isSelf: false,
-          lastName: "Lovelace",
-          nickname: null,
-          userId: "ada-user",
-        },
-      ]}
-    />,
-  );
-
-  fireEvent.contextMenu(view.getByRole("button", { name: "Ada contact" }));
-
-  await waitFor(() => {
-    expect(view.getByLabelText("Context menu user ID").textContent).toBe(
-      "ada-user",
+// Container access governs membership changes. Editing an existing contact
+// uses its document-level grant, as in the detail toolbar and contact store.
+test.each([true, false])(
+  "contacts row Edit honors document write access (%s) in a read-only container",
+  async (canWrite) => {
+    const view = render(
+      <ContactsContextMenuModelHarness
+        canWrite={false}
+        entries={[
+          {
+            canWrite,
+            encapsulationPublicKey: null,
+            firstName: "Ada",
+            id: "ada",
+            isSelf: false,
+            lastName: "Lovelace",
+            nickname: null,
+            userId: "ada-user",
+          },
+        ]}
+      />,
     );
-  });
-});
+
+    fireEvent.contextMenu(view.getByRole("button", { name: "Ada contact" }));
+
+    await waitFor(() => {
+      expect(view.getByLabelText("Can edit contact").textContent).toBe(
+        canWrite ? "yes" : "no",
+      );
+      expect(view.getByLabelText("Context menu user ID").textContent).toBe(
+        "ada-user",
+      );
+    });
+  },
+);

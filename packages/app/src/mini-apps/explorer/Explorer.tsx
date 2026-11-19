@@ -417,6 +417,11 @@ function ExplorerContent() {
         />
       </BlobPickProvider>
       <ExplorerContextMenuLayer
+        canEditContextMenuContact={model.canEditContextMenuContact}
+        editContact={(localId, containerId) => {
+          model.markDocumentStartsInEditMode(localId);
+          model.selectDocumentProjection(localId, containerId);
+        }}
         canDeleteSelectedDocument={model.canDeleteContextMenuDocument}
         canDownloadSelectedDocument={model.canDownloadContextMenuDocument}
         canLinkSelectedDocument={model.canLinkContextMenuDocument}

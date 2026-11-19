@@ -281,11 +281,26 @@ const documentContextMenu: ExplorerContextMenuState = {
   position: { x: 12, y: 34 },
 };
 
+test("Edit opens the targeted contact in its container and closes the menu", () => {
+  const edits: string[][] = [];
+  const view = render(
+    <ExplorerContextMenuLayerHarness
+      contextMenu={documentContextMenu}
+      canEditContextMenuContact
+      editContact={(id, containerId) => edits.push([id, containerId])}
+    />,
+  );
+  fireEvent.click(view.getByRole("button", { name: "Edit" }));
+  expect(edits).toEqual([["document-1", rootNode.id]]);
+  expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
+});
+
 test("document context menu hides unavailable actions", () => {
   const view = render(
     <ExplorerContextMenuLayerHarness contextMenu={documentContextMenu} />,
   );
 
+  expect(view.queryByRole("button", { name: "Edit" })).toBeNull();
   expect(
     view.getAllByRole("button").map((button) => button.textContent),
   ).toEqual([EXPLORER_LABELS.documentInfoGetInfoAction]);

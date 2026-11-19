@@ -1,5 +1,4 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import type {
   BlobStore,
   DocumentAttachmentUpload,
@@ -8,7 +7,7 @@ import {
   useMiniAppRouteSegments,
   useWindowTitleBarAction,
 } from "@tearleads/windowing";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useMemo } from "react";
 import { AccountBootstrapLoadingPanel } from "../../../components/identity/AccountBootstrapLoadingPanel";
 import { CopyMyIdentityLinkButton } from "../../../components/identity/CopyMyIdentityLinkButton";
 import {
@@ -28,6 +27,10 @@ import type {
   ContactFieldValues,
 } from "../../../document-types/contact/contactFieldDescriptors";
 import type { ContactAddressEditorInput } from "../../../document-types/contact/useContactAddressEditor";
+import {
+  useStructuredDocumentEditAction,
+  useStructuredDocumentEditing,
+} from "../../../document-types/shared/StructuredDocument";
 import { chromeOwnsRouteBackedDetailBack } from "../../../navigation/routeBackedDetailBack";
 import type { RowWriterResolver } from "../../../stores/documents/useDocumentRowWriters";
 import { CONTACTS_LABELS } from "../labels";
@@ -91,6 +94,7 @@ function ContactsSelectionState({
   currentSigningFingerprint,
   currentUserId,
   entries,
+  initialEditing,
   ready,
   removeContactAvatar,
   selectedContactId,
@@ -100,6 +104,7 @@ function ContactsSelectionState({
   blobStore: BlobStore;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
+  initialEditing?: boolean | undefined;
   entries: ContactEntries;
   ready: boolean;
   removeContactAvatar: RemoveContactAvatar;
@@ -110,43 +115,19 @@ function ContactsSelectionState({
   resolveAddressWriter?: RowWriterResolver | undefined;
 }) {
   const selectedEntry = entries.find((entry) => entry.id === selectedContactId);
-  const selectedEntryId = selectedEntry?.id;
-  const [editingContactId, setEditingContactId] = useState<string | null>(null);
-  const isEditing = editingContactId === selectedEntryId;
-  const canEditSelectedEntry = ready && selectedEntry?.canWrite !== false;
-
-  useEffect(() => {
-    setEditingContactId(null);
-  }, [selectedEntryId]);
-  useEffect(() => {
-    if (selectedEntry?.canWrite === false) {
-      setEditingContactId(null);
-    }
-  }, [selectedEntry?.canWrite]);
-  const editAction = useMemo(() => {
-    if (selectedEntryId === undefined) {
-      return null;
-    }
-
-    return {
-      disabled: !canEditSelectedEntry,
-      icon: isEditing ? (
-        <CheckIcon aria-hidden size={18} />
-      ) : (
-        <PencilSimpleIcon aria-hidden size={18} />
-      ),
-      id: "contacts-toggle-edit",
-      label: isEditing
-        ? CONTACTS_LABELS.doneAction
-        : CONTACTS_LABELS.editAction,
-      onClick: () => {
-        setEditingContactId(isEditing ? null : selectedEntryId);
-      },
-      priority: 100,
-    };
-  }, [canEditSelectedEntry, isEditing, selectedEntryId]);
-
-  useWindowTitleBarAction(editAction);
+  const canEditSelectedEntry =
+    ready && !!selectedEntry && selectedEntry.canWrite !== false;
+  const [isEditing, , toggleEditing] = useStructuredDocumentEditing(
+    canEditSelectedEntry,
+    initialEditing,
+  );
+  useStructuredDocumentEditAction({
+    disabled: !canEditSelectedEntry,
+    hidden: !selectedEntry,
+    id: "contacts-toggle-edit",
+    isEditing,
+    onToggleEditing: toggleEditing,
+  });
 
   if (!selectedEntry) {
     if (!ready) {
@@ -288,6 +269,7 @@ export function ContactsDetailPanel(params: {
   draftLastName: string;
   draftNickname: string;
   draftUserId: string;
+  initialEditing?: boolean | undefined;
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
   importError?: string | null | undefined;
@@ -382,6 +364,8 @@ export function ContactsDetailPanel(params: {
   return (
     <ContactsDetailContextTarget onAreaContextMenu={onAreaContextMenu}>
       <ContactsSelectionState
+        key={params.selectedContactId}
+        initialEditing={params.initialEditing}
         addressActions={params.addressActions}
         resolveAddressWriter={params.resolveAddressWriter}
         blobStore={blobStore}

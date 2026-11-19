@@ -6,7 +6,10 @@ import { isExplorerOrphanedDocumentsId } from "./orphanedDocuments";
 
 /** Resolve the placement represented by an Explorer row against local persistence. */
 export async function loadExplorerPlacementSummary(
-  queries: ContainerDocumentQueries,
+  queries: Pick<
+    ContainerDocumentQueries,
+    "loadOrphanedDocumentSummary" | "loadContainerDocumentSummary"
+  >,
   summary: DocumentSummary,
   containerId: string,
   currentOrganizationId: string | null,
