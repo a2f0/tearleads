@@ -146,6 +146,11 @@
   flex: 1 1 auto;
 }
 
+.display-properties-menu-app .display-properties-label {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 .display-properties-app-switch svg {
   flex: 0 0 auto;
 }

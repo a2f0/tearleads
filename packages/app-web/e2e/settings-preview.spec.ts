@@ -105,6 +105,11 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
     menu.getByRole("switch", { name: "Contacts" }),
   ).not.toBeChecked();
   await expect(menu.getByRole("switch", { name: "Notes" })).not.toBeChecked();
+  for (const label of await menu.locator(".display-properties-label").all()) {
+    expect(
+      await label.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+  }
   await expect(
     display.getByRole("switch", { name: /screensaver/i }),
   ).toHaveCount(0);

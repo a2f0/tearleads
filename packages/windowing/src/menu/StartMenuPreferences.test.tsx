@@ -191,3 +191,24 @@ test("the default switches follow the launcher order", () => {
   expect(view.getByRole("switch", { name: "Mail" })).toBeTruthy();
   expect(view.queryByRole("switch", { name: "Notes" })).toBeNull();
 });
+
+test("equivalent host definitions preserve an in-memory choice", () => {
+  function shell() {
+    return (
+      <StartMenuPreferencesProvider
+        storageKey={KEY}
+        definition={{ ...definition, apps: { ...definition.apps } }}
+      >
+        <DisplayProperties />
+      </StartMenuPreferencesProvider>
+    );
+  }
+  const view = render(shell());
+  fireEvent.click(view.getByRole("switch", { name: "Mail" }));
+  localStorage.removeItem(`${KEY}.mail`);
+  view.rerender(shell());
+  expect(view.getByRole("switch", { name: "Mail" })).toHaveProperty(
+    "checked",
+    false,
+  );
+});

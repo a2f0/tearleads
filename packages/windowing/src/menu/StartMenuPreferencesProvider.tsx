@@ -26,12 +26,20 @@ export function StartMenuPreferencesProvider({
   definition,
   storageKey,
 }: Props) {
-  const configurableIds = useMemo(
+  // Equivalent host definitions share the same in-memory preferences, including
+  // when localStorage is unavailable. Launcher display order is independent.
+  const idsKey = useMemo(
     () =>
-      Object.keys(definition.apps).filter(
-        (id) => definition.apps[id]?.startMenuVisibility !== "pinned",
+      JSON.stringify(
+        Object.keys(definition.apps)
+          .filter((id) => definition.apps[id]?.startMenuVisibility !== "pinned")
+          .sort(),
       ),
     [definition.apps],
+  );
+  const configurableIds = useMemo<readonly string[]>(
+    () => JSON.parse(idsKey),
+    [idsKey],
   );
   const store = useMemo(
     () => createStartMenuStore(storageKey, configurableIds),
