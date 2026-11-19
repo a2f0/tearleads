@@ -344,7 +344,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Tray Apps",
     package: "app",
     responsibility:
-      "The system tray's apps and their registry for windowing's SystemTray: the theme switch, layout switch, and sync status, each in its own folder, plus the tray the shells mount with its Settings menu item. Tray apps import no mini-app, and mini-apps import no tray app.",
+      "The system tray's apps and their registry for windowing's SystemTray: the theme switch, layout switch, sync status, and network control, plus the tray the shells mount with its Settings menu item. Tray apps import no mini-app, and mini-apps import no tray app.",
     seam: "tray-apps/registry; tray-apps/AppSystemTray",
     paths: [`${app}/tray-apps/`],
     surface: [

@@ -16,7 +16,7 @@ import type { SystemTrayDefinition } from "./systemTrayDefinition";
 interface SystemTrayContextValue {
   /** The host's tray apps, in tray order. */
   definition: SystemTrayDefinition;
-  /** Whether the user has left the app on; every app starts on. */
+  /** Whether the app is visible with the user's preferences applied. */
   isEnabled: (id: string) => boolean;
   /** Turns one of the host's apps on or off, and persists the choice. */
   setEnabled: (id: string, enabled: boolean) => void;
@@ -26,30 +26,37 @@ const systemTrayContext = createRequiredContext<SystemTrayContextValue>(
   "useSystemTray must be used within a SystemTrayProvider",
 );
 
-const NONE_DISABLED: ReadonlySet<string> = new Set();
-
-// The stored value is a JSON array of the ids the user turned off. Storing the
-// off set rather than the on set lets a tray app the host adds later show up.
-function parseDisabledAppIds(stored: string | null): ReadonlySet<string> {
-  if (stored === null) {
-    return NONE_DISABLED;
+function parseVisibility(stored: string | null): ReadonlyMap<string, boolean> {
+  const parsed: unknown = stored === null ? null : JSON.parse(stored);
+  const preferences = new Map<string, boolean>();
+  if (Array.isArray(parsed)) {
+    const entries: readonly unknown[] = parsed;
+    for (const entry of entries) {
+      if (typeof entry === "string") {
+        preferences.set(entry, false);
+      } else if (
+        typeof entry === "object" &&
+        entry !== null &&
+        "enabled" in entry &&
+        typeof entry.enabled === "string"
+      ) {
+        preferences.set(entry.enabled, true);
+      }
+    }
   }
-  const parsed: unknown = JSON.parse(stored);
-  return Array.isArray(parsed)
-    ? new Set(parsed.filter((id): id is string => typeof id === "string"))
-    : NONE_DISABLED;
+  return preferences;
 }
 
 interface SystemTrayProviderProps<Id extends string> extends PropsWithChildren {
   /** The host's tray apps. Define it once, outside render. */
   definition: SystemTrayDefinition<Id>;
-  /** Where the apps the user turned off persist in localStorage. */
+  /** Where tray visibility preferences persist in localStorage. */
   storageKey: string;
 }
 
 /**
- * Owns the system tray: the host's tray apps and which of them the user turned
- * off. {@link SystemTray} shows the ones left on, each with a context menu that
+ * Applies saved visibility choices to the host’s tray defaults.
+ * {@link SystemTray} shows the enabled apps, each with a context menu that
  * turns it off, and Display Properties lists every one with a switch. Mount one
  * above every taskbar that shares the choice.
  */
@@ -58,24 +65,38 @@ export function SystemTrayProvider<Id extends string>({
   definition,
   storageKey,
 }: SystemTrayProviderProps<Id>) {
-  const [disabledAppIds, setDisabledAppIds] = useState(() =>
-    loadStoredPreference(storageKey, parseDisabledAppIds),
+  const [visibility, setVisibility] = useState(() =>
+    loadStoredPreference(storageKey, parseVisibility),
   );
 
   // Persist only what the user changed, after the change commits, so several
   // calls in one event (turning every app back on) all land.
-  const persistedAppIds = useRef(disabledAppIds);
+  const persistedVisibility = useRef(visibility);
   useEffect(() => {
-    if (persistedAppIds.current === disabledAppIds) {
+    if (persistedVisibility.current === visibility) {
       return;
     }
-    persistedAppIds.current = disabledAppIds;
-    saveStoredPreference(storageKey, JSON.stringify([...disabledAppIds]));
-  }, [disabledAppIds, storageKey]);
+    persistedVisibility.current = visibility;
+    saveStoredPreference(
+      storageKey,
+      // Older builds read the disabled ids and skip the opt-in records.
+      JSON.stringify(
+        Array.from(visibility, ([id, enabled]) =>
+          enabled ? { enabled: id } : id,
+        ),
+      ),
+    );
+  }, [visibility, storageKey]);
+
+  const apps: SystemTrayDefinition["apps"] = definition.apps;
+  const defaultEnabled = useCallback(
+    (id: string) => apps[id]?.defaultEnabled ?? true,
+    [apps],
+  );
 
   const isEnabled = useCallback(
-    (id: string) => !disabledAppIds.has(id),
-    [disabledAppIds],
+    (id: string) => visibility.get(id) ?? defaultEnabled(id),
+    [visibility, defaultEnabled],
   );
 
   const setEnabled = useCallback(
@@ -83,20 +104,16 @@ export function SystemTrayProvider<Id extends string>({
       if (!Object.hasOwn(definition.apps, id)) {
         return;
       }
-      setDisabledAppIds((current) => {
-        if (current.has(id) !== enabled) {
+      setVisibility((current) => {
+        if ((current.get(id) ?? defaultEnabled(id)) === enabled) {
           return current;
         }
-        const next = new Set(current);
-        if (enabled) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
+        const next = new Map(current);
+        next.set(id, enabled);
         return next;
       });
     },
-    [definition.apps],
+    [definition.apps, defaultEnabled],
   );
 
   const value = useMemo<SystemTrayContextValue>(

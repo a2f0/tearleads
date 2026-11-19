@@ -78,7 +78,7 @@
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 601,
-      "bytes": 23122
+      "bytes": 23115
     }
   },
   "suppressions": {

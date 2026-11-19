@@ -1,14 +1,21 @@
 import { CloudCheckIcon } from "@phosphor-icons/react/dist/csr/CloudCheck";
 import { LayoutIcon } from "@phosphor-icons/react/dist/csr/Layout";
+import { WifiHighIcon } from "@phosphor-icons/react/dist/csr/WifiHigh";
 import type { SystemTrayDefinition } from "@tearleads/windowing";
 import { ThemeInvertIcon } from "@tearleads/windowing/theme";
 import { NavigationModeTrayApp } from "./navigation-mode/NavigationModeTrayApp";
+import { NetworkControlTrayApp } from "./network-control/NetworkControlTrayApp";
 import { SyncStatusTrayApp } from "./sync-status/SyncStatusTrayApp";
 import { ThemeTrayApp } from "./theme/ThemeTrayApp";
 
 // The tray's order, start to end: both the windowed footer and the routed
 // taskbar show the same tray.
-const TRAY_APP_ORDER = ["theme", "navigation-mode", "sync-status"] as const;
+const TRAY_APP_ORDER = [
+  "theme",
+  "navigation-mode",
+  "sync-status",
+  "network-control",
+] as const;
 
 type TrayAppId = (typeof TRAY_APP_ORDER)[number];
 
@@ -23,6 +30,12 @@ export const TRAY_APPS: SystemTrayDefinition<TrayAppId> = {
       component: NavigationModeTrayApp,
       icon: LayoutIcon,
       title: "Layout Switch",
+    },
+    "network-control": {
+      component: NetworkControlTrayApp,
+      defaultEnabled: false,
+      icon: WifiHighIcon,
+      title: "Network Control",
     },
     "sync-status": {
       component: SyncStatusTrayApp,
