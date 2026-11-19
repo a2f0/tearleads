@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { validateSeedSpec } from "./validateSeedSpec";
+import { validateSeedSpec } from "../../src/document-types/continuity/validateSeedSpec";
 
 const seed = {
   schemaVersion: 2,
@@ -13,6 +13,7 @@ test("seed validation rejects unsupported versions and malformed document data",
     null,
     { ...seed, schemaVersion: 1 },
     { ...seed, files: {} },
+    { ...seed, notes: [{ text: "" }] },
     { ...seed, contacts: [{ fields: { firstName: 42 } }] },
     { ...seed, files: [{ kind: "unknown", attachments: [] }] },
     {

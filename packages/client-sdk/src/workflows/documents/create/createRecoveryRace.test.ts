@@ -3,6 +3,7 @@ import {
   generateKemSeedAndKeyPair,
   KeyingVerificationError,
 } from "@tearleads/crypto";
+import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import {
   createContainerWriterProjectionFixture,
   createMockApiClient,
@@ -15,6 +16,7 @@ import {
 } from "../../../../test/helpers/data/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
+import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { documentWriterProjectionFromCreateResponse } from "./index";
 
@@ -44,7 +46,14 @@ test.each(["unavailable", "integrity", "forged-recovery"] as const)(
     let injected = false;
     const contentKey = new Uint8Array(32).fill(7);
     try {
+      const doc = await createDocument("seed-peer");
+      doc.getText("text").update("Original fixture");
+      const fields = createPendingUpdateFields(exportAllUpdates(doc));
+      if (!fields) throw new Error("Missing birth update");
+      const seedUpdate = { ...fields, id: crypto.randomUUID() };
       const result = createRemoteDocument({
+        requireSeededCreate: true,
+        seedUpdate,
         apiClient: createMockApiClient({
           getContainerWriterProjection: async () => parent,
           createDocument: async (request) => {
@@ -54,7 +63,17 @@ test.each(["unavailable", "integrity", "forged-recovery"] as const)(
               containerProjection: parent,
               response,
             });
-            return response;
+            expect(request.initialSync?.outgoingUpdates[0]?.id).toBe(
+              seedUpdate.id,
+            );
+            return {
+              ...response,
+              initialSync: {
+                acceptedOutgoingUpdateIds: [seedUpdate.id],
+                commitLsn: null,
+                commitLsnMode: "untracked",
+              },
+            };
           },
           getDocumentWriterProjection: async () => {
             reads += 1;
@@ -89,6 +108,9 @@ test.each(["unavailable", "integrity", "forged-recovery"] as const)(
         const created = await result;
         expect(created?.documentId).toBe("create-race-document");
         expect(created?.contentKey).toEqual(contentKey);
+        expect(
+          created?.response?.initialSync?.acceptedOutgoingUpdateIds,
+        ).toEqual([seedUpdate.id]);
       } else if (kind === "integrity") {
         await expect(result).rejects.toMatchObject({ code: "equivocation" });
       } else {

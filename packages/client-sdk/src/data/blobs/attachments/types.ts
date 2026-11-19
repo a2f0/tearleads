@@ -46,6 +46,7 @@ export const BLOB_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
 export const TEXT_ENCODER = new TextEncoder();
 
 export interface BlobAttachmentRequestOptions {
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
 }
 
@@ -71,9 +72,11 @@ export interface BlobAttachmentApi {
   ): Promise<DocumentWriterProjectionResponse | null>;
   getMultipartBlobStage(
     stageId: string,
+    options?: RequestResultOptions,
   ): Promise<MultipartBlobStageStatusResponse | null>;
   initiateMultipartBlobStage(
     input: InitiateMultipartBlobStageRequest,
+    options?: RequestResultOptions,
   ): Promise<InitiateMultipartBlobStageResponse | null>;
   uploadMultipartBlobPartBytes(
     stageId: string,
@@ -213,6 +216,7 @@ export interface UploadDocumentAttachmentRequest {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }

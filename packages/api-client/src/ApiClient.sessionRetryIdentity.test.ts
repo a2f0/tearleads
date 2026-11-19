@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
+import { createBlobAttachmentBindRequest } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   server,
@@ -187,5 +188,103 @@ testApiClient(
       await Promise.resolve();
     }
     expect(errors).toEqual([]);
+  },
+);
+
+testApiClient(
+  "renewal cannot replay a write after its organization retires",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("original");
+    let current = true;
+    let attempts = 0;
+    client.setOnSessionExpired(() => {
+      client.setAuthToken("renewed");
+      current = false;
+      return true;
+    });
+    server.use(
+      http.delete(path, () => (++attempts === 1 ? expired() : deleted())),
+    );
+    const result = await client.deleteContainerResult("target", {
+      stillCurrent: () => current,
+      reportErrors: false,
+    });
+    expect(result).toMatchObject({ ok: false, kind: "cancelled" });
+    expect(attempts).toBe(1);
+  },
+);
+
+for (const status of [401, 402]) {
+  testApiClient(
+    `retired attachment response ${status} cannot publish failure or renew`,
+    async () => {
+      const client = new ApiClient(apiBaseUrl);
+      client.setAuthToken("identity-a");
+      const published: string[] = [];
+      client.setOnSessionExpired(() => {
+        published.push("renewal");
+        return false;
+      });
+      client.setOnPaymentRequired(() => published.push("billing"));
+      let current = true;
+      const route = "/blobs/blob-1/attachment-bindings";
+      server.use(
+        http.post(apiBaseUrl + route, () => {
+          current = false;
+          return status === 401
+            ? expired()
+            : HttpResponse.json(
+                {
+                  error: "Organization cannot sync",
+                  organizationId: "organization-1",
+                  reason: "billing_inactive",
+                },
+                { status },
+              );
+        }),
+      );
+      expect(
+        await client.bindBlobAttachment(
+          "blob-1",
+          createBlobAttachmentBindRequest(),
+          {
+            expectedPaymentRequiredOrganizationId: "organization-1",
+            stillCurrent: () => current,
+          },
+        ),
+      ).toBeNull();
+      expect(published).toEqual([]);
+      expect(
+        client.getRequestFailure({ method: "POST", path: route }),
+      ).toBeNull();
+    },
+  );
+}
+
+testApiClient(
+  "a scoped document head read drops an expired response after retirement",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("identity-a");
+    let current = true;
+    let renewals = 0;
+    client.setOnSessionExpired(() => {
+      renewals++;
+      return false;
+    });
+    server.use(
+      http.get(`${apiBaseUrl}/documents/fixture/writer-projection`, () => {
+        current = false;
+        return expired();
+      }),
+    );
+    expect(
+      await client.getDocumentWriterProjectionResult("fixture", {
+        stillCurrent: () => current,
+        reportErrors: false,
+      }),
+    ).toMatchObject({ ok: false, kind: "cancelled" });
+    expect(renewals).toBe(0);
   },
 );

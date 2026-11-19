@@ -10,6 +10,7 @@ import {
   generateIdentityKeyPairsFromSeedPhrase,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import type { SeedSpec } from "../../src/document-types/continuity/seedTypes";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { restoreBackupPayload } from "../../src/providers/db/localBackupData";
 import { decodeBackupFile } from "../../src/providers/db/localBackupFormat";
@@ -19,7 +20,6 @@ import {
 } from "../../src/stores/systemContainers";
 import { unexpectedSecurityIncidents } from "../helpers/unexpectedSecurityIncidents";
 import { buildSeedArtifact } from "./buildSeedArtifact";
-import type { SeedSpec } from "./seedTypes";
 
 // End-to-end proof that the seeder produces an artifact whose restore reproduces
 // exactly what the mini-apps read: documents summaries (Notes/Explorer), the

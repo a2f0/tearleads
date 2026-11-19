@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.70",
+      "version": "0.1.71",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -97,8 +97,9 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.253",
+      "version": "0.1.254",
       "dependencies": {
+        "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -115,7 +116,6 @@
         "react-dom": "catalog:react",
       },
       "devDependencies": {
-        "@a2f0/continuity": "catalog:",
         "@happy-dom/global-registrator": "catalog:testing",
         "@tearleads/sqlite-worker": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
@@ -223,19 +223,21 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
+        "app": "workspace:*",
       },
       "devDependencies": {
         "@tearleads/api": "workspace:*",
+        "@tearleads/loro": "workspace:*",
         "@types/bun": "catalog:",
       },
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.256",
+      "version": "0.1.257",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",

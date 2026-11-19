@@ -14,6 +14,7 @@ Commands:
   logout   Remove the target's saved recovery key.
   whoami   Show the signed-in user, signing fingerprint, and organization.
   orgs     List the organizations you belong to.
+  seed     Sync the Continuity screenshot dataset to your personal organization.
   ls       List the folders of your organization, or of --org <id>.
 
 --env defaults to production. Every command signs in, works on an in-memory
@@ -28,6 +29,7 @@ const commands = {
   logout,
   ls: listFolders,
   orgs: listOrganizations,
+  seed: async (input) => (await import("./commands/seed")).seed(input),
   whoami,
 } satisfies Record<string, (input: CommandInput) => Promise<void>>;
 

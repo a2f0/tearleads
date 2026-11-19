@@ -99,6 +99,7 @@ export type DocumentContextValue = DocumentSnapshot &
   >;
 
 export interface DocumentSnapshot {
+  readonly seedTag?: string | undefined;
   attachments: ReadonlyArray<DocumentAttachment>;
   attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;

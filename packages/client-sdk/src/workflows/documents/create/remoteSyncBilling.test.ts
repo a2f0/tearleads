@@ -299,3 +299,35 @@ test("an interrupted pull restarts while paused and leaves queued writes held", 
   expect(synced).not.toBeNull();
   expect(synced?.settledPendingUpdateIds).toEqual([]);
 });
+
+test("a seeded create rechecks its organization before a renewed POST", async () => {
+  const { author, projection, secretKey, resolveProjectionUserKey } =
+    await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql("paused-seeded-create");
+  let paused = false;
+  try {
+    const result = createRemoteDocument({
+      author,
+      containerId: projection.containerId,
+      execSql,
+      targetSecretKey: secretKey,
+      requireSeededCreate: true,
+      seedUpdate: createPendingUpdateRecord(),
+      resolveProjectionUserKey,
+      isRemoteSyncBlocked: () => paused,
+      apiClient: createMockApiClient({
+        getContainerWriterProjection: async () => projection,
+        createDocumentResult: async (_request, options) => {
+          expect(options?.stillCurrent?.()).toBe(true);
+          paused = true;
+          expect(options?.stillCurrent?.()).toBe(false);
+          throw new Error("Stopped before replay");
+        },
+      }),
+    });
+    await expect(result).rejects.toThrow("Stopped before replay");
+    expect(paused).toBe(true);
+  } finally {
+    close();
+  }
+});

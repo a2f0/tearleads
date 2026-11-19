@@ -199,14 +199,22 @@ async function bindCarryingDocumentSync(input: {
   readonly documentSync: DocumentSyncRequest | undefined;
   readonly organizationId: string;
   readonly plainRequest: BlobAttachmentBindRequest;
+  readonly stillCurrent?: (() => boolean) | undefined;
+  readonly isRemoteSyncBlocked?: UploadDocumentAttachmentRequest["isRemoteSyncBlocked"];
 }): Promise<{
   readonly request: BlobAttachmentBindRequest;
   readonly response: BlobAttachmentBindResponse | null;
 }> {
+  const canBind = () =>
+    input.stillCurrent?.() !== false &&
+    !input.isRemoteSyncBlocked?.(input.organizationId);
   const bind = (request: BlobAttachmentBindRequest) =>
-    input.apiClient.bindBlobAttachment(input.blobId, request, {
-      expectedPaymentRequiredOrganizationId: input.organizationId,
-    });
+    !canBind()
+      ? null
+      : input.apiClient.bindBlobAttachment(input.blobId, request, {
+          expectedPaymentRequiredOrganizationId: input.organizationId,
+          stillCurrent: canBind,
+        });
   if (input.documentSync) {
     const request = { ...input.plainRequest, documentSync: input.documentSync };
     const response = await bind(request);
@@ -220,7 +228,8 @@ async function bindCarryingDocumentSync(input: {
   };
 }
 
-async function stageAndBindBlobAttachment(input: {
+interface StageAndBindInput {
+  stillCurrent?: (() => boolean) | undefined;
   apiClient: BlobAttachmentApi;
   author: DocumentCreateAuthor;
   bindingId: string;
@@ -230,6 +239,7 @@ async function stageAndBindBlobAttachment(input: {
   documentSync?: DocumentSyncRequest | undefined;
   eventId: string;
   expectedBindingId: string | null;
+  isRemoteSyncBlocked?: UploadDocumentAttachmentRequest["isRemoteSyncBlocked"];
   material: BlobAttachmentMaterial;
   multipart: NonNullable<UploadDocumentAttachmentRequest["multipart"]>;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
@@ -237,7 +247,22 @@ async function stageAndBindBlobAttachment(input: {
   onStageUnavailable?: ((stageId: string) => Promise<void>) | undefined;
   signedAt: string;
   slotId: string;
-}): Promise<{
+}
+
+function stageBlobBytes(input: StageAndBindInput) {
+  return stageMultipartBlobAttachment({
+    stillCurrent: input.stillCurrent,
+    organizationId: input.material.manifestIdentity.organizationId,
+    apiClient: input.apiClient,
+    encryption: input.material.encrypted,
+    multipart: input.multipart,
+    onMultipartProgress: input.onMultipartProgress,
+    onStageResolved: input.onStageResolved,
+    onStageUnavailable: input.onStageUnavailable,
+  });
+}
+
+async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
   request: BlobAttachmentBindRequest;
   response: BlobAttachmentBindResponse;
   sha256: string;
@@ -272,15 +297,7 @@ async function stageAndBindBlobAttachment(input: {
     signedAt: input.signedAt,
     targetHash: input.material.targetHash,
   });
-  const stageId = await stageMultipartBlobAttachment({
-    organizationId: input.material.manifestIdentity.organizationId,
-    apiClient: input.apiClient,
-    encryption: input.material.encrypted,
-    multipart: input.multipart,
-    onMultipartProgress: input.onMultipartProgress,
-    onStageResolved: input.onStageResolved,
-    onStageUnavailable: input.onStageUnavailable,
-  });
+  const stageId = await stageBlobBytes(input);
   if (!stageId) {
     return null;
   }
@@ -298,8 +315,10 @@ async function stageAndBindBlobAttachment(input: {
     documentSync: input.documentSync,
     organizationId: input.material.manifestIdentity.organizationId,
     plainRequest,
+    stillCurrent: input.stillCurrent,
+    isRemoteSyncBlocked: input.isRemoteSyncBlocked,
   });
-  if (!response) {
+  if (!response || input.stillCurrent?.() === false) {
     return null;
   }
 
@@ -337,6 +356,15 @@ export interface PreparedUploadDocumentAttachmentRequest
     | undefined;
 }
 
+function isStaleUploadProjection(error: unknown) {
+  return shouldRetryWithFreshProjection(
+    error,
+    (message) =>
+      message.startsWith("Container writer projection KEK") &&
+      message.includes("could not be unwrapped"),
+  );
+}
+
 export async function uploadPreparedDocumentAttachment(
   blobs: BlobAttachmentCollaborators,
   {
@@ -360,6 +388,7 @@ export async function uploadPreparedDocumentAttachment(
     signedAt = new Date().toISOString(),
     slotId,
     sourceSnapshot,
+    stillCurrent,
     warmReferencedPrincipalPolicies,
     writerProjection,
   }: PreparedUploadDocumentAttachmentRequest,
@@ -396,6 +425,7 @@ export async function uploadPreparedDocumentAttachment(
       resolveProjectionUserKey: resolveProjectionUserKeyForUpload,
       source,
       sourceSnapshot,
+      stillCurrent,
       targetSecretKey,
       warmReferencedPrincipalPolicies,
       writerProjection: freshWriterProjection,
@@ -405,13 +435,9 @@ export async function uploadPreparedDocumentAttachment(
     material = await buildMaterial(writerProjection);
   } catch (error) {
     if (
+      stillCurrent?.() === false ||
       !apiClient.evictDocumentWriterProjection ||
-      !shouldRetryWithFreshProjection(
-        error,
-        (message) =>
-          message.startsWith("Container writer projection KEK") &&
-          message.includes("could not be unwrapped"),
-      )
+      !isStaleUploadProjection(error)
     ) {
       throw error;
     }
@@ -435,6 +461,8 @@ export async function uploadPreparedDocumentAttachment(
     eventId,
     expectedBindingId,
     material,
+    stillCurrent,
+    isRemoteSyncBlocked,
     multipart: resolvedMultipart,
     onMultipartProgress,
     onStageResolved,
@@ -442,7 +470,7 @@ export async function uploadPreparedDocumentAttachment(
     signedAt,
     slotId,
   });
-  if (!result) {
+  if (!result || stillCurrent?.() === false) {
     return null;
   }
 

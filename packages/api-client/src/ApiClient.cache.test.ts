@@ -392,3 +392,51 @@ testApiClient(
     ]);
   },
 );
+
+testApiClient(
+  "refetches a binding that may have committed after its writer scope retired",
+  async () => {
+    let current = true;
+    let reads = 0;
+    let committed = false;
+    const entered = Promise.withResolvers<void>();
+    const finish = Promise.withResolvers<void>();
+    server.use(
+      http.get(`${apiBaseUrl}/documents/:documentId/attachments`, () => {
+        reads++;
+        return HttpResponse.json(
+          committed ? [createBlobAttachmentSummary()] : [],
+        );
+      }),
+      http.post(`${apiBaseUrl}/blobs/:blobId/attachment-bindings`, async () => {
+        current = false;
+        entered.resolve();
+        await finish.promise;
+        committed = true;
+        return HttpResponse.json(createBlobAttachmentBindResponse());
+      }),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    expect(await client.listDocumentAttachments("document-1")).toEqual([]);
+    const binding = client.bindBlobAttachment(
+      "blob-1",
+      {
+        ...createBlobAttachmentBindRequest(),
+        body: { documentId: "document-1" },
+      },
+      {
+        stillCurrent: () => current,
+      },
+    );
+    await entered.promise;
+    expect(
+      await client.listDocumentAttachments("document-1", { refresh: true }),
+    ).toEqual([]);
+    finish.resolve();
+    expect(await binding).toBeNull();
+    expect(await client.listDocumentAttachments("document-1")).toEqual([
+      createBlobAttachmentSummary(),
+    ]);
+    expect(reads).toBe(3);
+  },
+);
