@@ -3,10 +3,12 @@ import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { continuityDocuments, loadContinuityAssets } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
+import { loadFolderTree } from "./folderTree";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
+import { withSession } from "./session";
 
-test.each(["missing", "different", "lost", "empty"] as const)(
+test.each(["missing", "different", "lost", "empty", "edited shell"] as const)(
   "seed resumes an already committed birth after a %s acknowledgement",
   async (fault) => {
     await initializeApiDatabase();
@@ -22,7 +24,7 @@ test.each(["missing", "different", "lost", "empty"] as const)(
         if (inject && path === "/documents" && request.method === "POST") {
           // Interrupt the retry at the next fixture after the first one finishes.
           if (committed) return new Response(null, { status: 503 });
-          if (fault === "empty") {
+          if (fault === "empty" || fault === "edited shell") {
             const body = await request.clone().json();
             delete body.initialSync;
             request = new Request(request, { body: JSON.stringify(body) });
@@ -32,7 +34,12 @@ test.each(["missing", "different", "lost", "empty"] as const)(
           const body = await response.json();
           committed = body.id;
           if (fault === "lost") return new Response(null, { status: 503 });
-          if (fault === "missing" || fault === "empty") delete body.initialSync;
+          if (
+            fault === "missing" ||
+            fault === "empty" ||
+            fault === "edited shell"
+          )
+            delete body.initialSync;
           else
             body.initialSync.acceptedOutgoingUpdateIds = [crypto.randomUUID()];
           return Response.json(body, { status: response.status });
@@ -53,8 +60,37 @@ test.each(["missing", "different", "lost", "empty"] as const)(
       if (fault !== "lost")
         expect(output.stderr.join(" ")).toContain("acknowledge");
       expect(uploads).toBe(0);
+      if (fault === "edited shell") {
+        await withSession(
+          { apiBaseUrl, recoveryKey: seedPhrase },
+          async (session) => {
+            const { nodes } = await loadFolderTree(session);
+            for (const node of nodes) {
+              const rows =
+                await session.sdk.containerContents.discoverContainerDocuments(
+                  node.id,
+                );
+              const row = rows?.find((item) => item.documentId === committed);
+              if (!row) continue;
+              const store = session.sdk.containerContents
+                .documentLinks()
+                .openDocument({
+                  containerId: node.id,
+                  documentId: row.documentId,
+                  localId: row.id,
+                });
+              expect(await store.ensureInitialized()).toBe(true);
+              expect(await store.requestRemoteSyncAndWait()).toBe(true);
+              await store.setText("My edit to the empty document");
+              expect(await store.requestRemoteSyncAndWait()).toBe(true);
+              return;
+            }
+            throw new Error("Missing fixture shell");
+          },
+        );
+      }
       expect(await seed()).toBe(1);
-      if (fault === "empty") {
+      if (fault === "empty" || fault === "edited shell") {
         expect(output.stderr.at(-1)).toContain("no synced birth content");
         expect(uploads).toBe(0);
         return;

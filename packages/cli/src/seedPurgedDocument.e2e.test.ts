@@ -6,6 +6,7 @@ import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
+import { withSession } from "./session";
 
 test("verified purges and moves to newly created folders survive a seed retry", async () => {
   await initializeApiDatabase();
@@ -80,19 +81,24 @@ test("verified purges and moves to newly created folders survive a seed retry", 
     expect(await seed()).toBe(1);
     expect(output.stderr.at(-1)).toMatch(/purge|mismatch/i);
     invalidateProof = false;
-    await onFreshDevice(device, async (_stores, sdk) => {
-      if (!rootContainerId) throw new Error("Missing personal root");
-      const input = {
-        containerId: rootContainerId,
-        documentId: purgedId,
-        initialText: "Keep the deletion",
-      };
-      const before = creates;
-      expect(await sdk.documents.createSeeded(input)).toBe("purged");
-      expect(creates).toBe(before + 1);
-      expect(await sdk.documents.createSeeded(input)).toBe("purged");
-      expect(creates).toBe(before + 1);
-    });
+    await withSession(
+      device,
+      async ({ sdk, assertNoFailures, recordSeedAbsence }) => {
+        if (!rootContainerId) throw new Error("Missing personal root");
+        const input = {
+          containerId: rootContainerId,
+          documentId: purgedId,
+          initialText: "Keep the deletion",
+        };
+        const before = creates;
+        expect(await sdk.documents.createSeeded(input)).toBe("purged");
+        recordSeedAbsence("verified purge");
+        expect(creates).toBe(before + 1);
+        expect(await sdk.documents.createSeeded(input)).toBe("purged");
+        expect(creates).toBe(before + 1);
+        assertNoFailures();
+      },
+    );
     beforeMissingHead = () =>
       onFreshDevice(device, async ([contact], sdk) => {
         const id = contact?.getSnapshot().documentId;

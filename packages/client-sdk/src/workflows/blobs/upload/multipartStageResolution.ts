@@ -27,6 +27,7 @@ function isMultipartStageStatus(
 }
 
 interface ResolveMultipartStageInput {
+  readonly assertCurrent?: (() => void) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly concurrency: number;
   readonly encryption: BlobEncryptionPlan;
@@ -47,7 +48,9 @@ async function resumeMultipartStage(
   input: ResolveMultipartStageInput,
   resumeStageId: string,
 ): Promise<MultipartBlobStageStatusResponse | null> {
+  input.assertCurrent?.();
   const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId);
+  input.assertCurrent?.();
   if (!resumed) {
     await assertMultipartStageReplaceable({
       apiClient: input.apiClient,
@@ -81,6 +84,7 @@ async function initiateWithFirstParts(
   firstParts: MultipartFirstParts,
 ): Promise<ResolvedMultipartStage> {
   const { byteLength, sha256 } = input.encryption;
+  input.assertCurrent?.();
   const stage = await input.apiClient.initiateMultipartBlobStage({
     organizationId: input.organizationId,
     byteLength,

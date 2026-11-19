@@ -8,6 +8,50 @@ import {
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 describe("stageMultipartBlobAttachment", () => {
+  test.each(["stage", "part"] as const)(
+    "stops %s dispatch after an upload scope switch",
+    async (phase) => {
+      let current = true;
+      let stages = 0;
+      let parts = 0;
+      const encryption = createFakePlan({
+        partCount: 1,
+        encryptPart: async (_, length) => {
+          if (phase === "stage") current = false;
+          return new Uint8Array(length);
+        },
+      });
+      await expect(
+        stageMultipartBlobAttachment({
+          organizationId: "org",
+          apiClient: createMultipartApi({
+            initiateMultipartBlobStage: async (request) => {
+              stages++;
+              return initiatedStage(request, {
+                stageId: "stage",
+                uploadId: "upload",
+              });
+            },
+            uploadMultipartBlobPartBytes: async () => {
+              parts++;
+              return null;
+            },
+          }),
+          encryption,
+          multipart: { partSize: DEFAULT_CHUNK_SIZE, uploadConcurrency: 1 },
+          onStageResolved: () => {
+            if (phase === "part") current = false;
+          },
+          assertCurrent: () => {
+            if (!current) throw new Error("Retired scope");
+          },
+        }),
+      ).rejects.toThrow("Retired scope");
+      expect(stages).toBe(phase === "stage" ? 0 : 1);
+      expect(parts).toBe(0);
+    },
+  );
+
   test("describes the first parts at initiation and encrypts each part once", async () => {
     const partLengths = [3, 4, 5, 6];
     const encryptedPartIndices: number[] = [];

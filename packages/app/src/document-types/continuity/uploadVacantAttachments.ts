@@ -8,6 +8,9 @@ import {
   type Tearleads,
 } from "@tearleads/client-sdk";
 
+import type { SeedDocument } from "./seedDocuments";
+import { verifySeedContent } from "./verifySeedContent";
+
 async function pull(store: DocumentStore) {
   if (!(await store.requestRemoteSyncAndWait(AbortSignal.timeout(120_000))))
     throw new Error("Could not sync the seed document.");
@@ -56,7 +59,7 @@ async function requireVacantBinding(
 
 /** Upload only into a vacant slot whose signed content still identifies the fixture. */
 export async function uploadVacantAttachments(
-  input: { sdk: Tearleads; containerId: string },
+  input: { sdk: Tearleads; containerId: string; document: SeedDocument },
   store: DocumentStore,
   attachments: readonly { bytes: BlobBytes; intent: DocumentAttachment }[],
   stillCurrent: () => boolean,
@@ -69,6 +72,13 @@ export async function uploadVacantAttachments(
   const { documentId } = first;
   if (!documentId || !author)
     throw new Error("Missing seed document or writer");
+  await verifySeedContent(
+    input.sdk,
+    input.document,
+    documentId,
+    first,
+    attachments,
+  );
   for (const [index, { bytes, intent }] of attachments.entries()) {
     const snapshot = index === 0 ? first : await pull(store);
     if (!needsFixtureBytes(snapshot, intent)) continue;

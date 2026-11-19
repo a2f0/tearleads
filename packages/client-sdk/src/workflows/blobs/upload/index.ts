@@ -223,7 +223,7 @@ async function bindCarryingDocumentSync(input: {
   };
 }
 
-async function stageAndBindBlobAttachment(input: {
+interface StageAndBindInput {
   apiClient: BlobAttachmentApi;
   author: DocumentCreateAuthor;
   bindingId: string;
@@ -241,7 +241,30 @@ async function stageAndBindBlobAttachment(input: {
   onStageUnavailable?: ((stageId: string) => Promise<void>) | undefined;
   signedAt: string;
   slotId: string;
-}): Promise<{
+}
+
+function stageBlobBytes(input: StageAndBindInput) {
+  const assertCurrent = () => {
+    if (
+      input.isRemoteSyncBlocked?.(
+        input.material.manifestIdentity.organizationId,
+      )
+    )
+      throw new Error("The attachment upload scope changed.");
+  };
+  return stageMultipartBlobAttachment({
+    assertCurrent,
+    organizationId: input.material.manifestIdentity.organizationId,
+    apiClient: input.apiClient,
+    encryption: input.material.encrypted,
+    multipart: input.multipart,
+    onMultipartProgress: input.onMultipartProgress,
+    onStageResolved: input.onStageResolved,
+    onStageUnavailable: input.onStageUnavailable,
+  });
+}
+
+async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
   request: BlobAttachmentBindRequest;
   response: BlobAttachmentBindResponse;
   sha256: string;
@@ -276,15 +299,7 @@ async function stageAndBindBlobAttachment(input: {
     signedAt: input.signedAt,
     targetHash: input.material.targetHash,
   });
-  const stageId = await stageMultipartBlobAttachment({
-    organizationId: input.material.manifestIdentity.organizationId,
-    apiClient: input.apiClient,
-    encryption: input.material.encrypted,
-    multipart: input.multipart,
-    onMultipartProgress: input.onMultipartProgress,
-    onStageResolved: input.onStageResolved,
-    onStageUnavailable: input.onStageUnavailable,
-  });
+  const stageId = await stageBlobBytes(input);
   if (!stageId) {
     return null;
   }
