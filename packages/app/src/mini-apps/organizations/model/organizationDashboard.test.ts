@@ -285,3 +285,27 @@ test("offers a leave request only for listed, non-personal memberships", () => {
     { canAskToLeave: false, leaveRequested: false, organizationId: "unlisted" },
   ]);
 });
+
+test("shows only the account organization while the device root is reconciled", () => {
+  const deviceRoot = node({
+    id: "local-root",
+    organizationId: "",
+    parentId: null,
+  });
+  const accountRoot = node({
+    id: "account-root",
+    organizationId: "personal",
+    parentId: null,
+  });
+  const cardIds = (nodes: ContainerNode[]) =>
+    buildOrganizationDashboardCards({
+      ...NO_SYNC_CHOICES,
+      activeOrganizationId: "personal",
+      namesById: new Map(),
+      nodes,
+    }).map((card) => card.organizationId);
+
+  expect(cardIds([deviceRoot, accountRoot])).toEqual(["personal"]);
+  expect(cardIds([deviceRoot])).toEqual([]);
+  expect(cardIds([accountRoot])).toEqual(["personal"]);
+});

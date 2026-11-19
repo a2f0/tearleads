@@ -107,6 +107,8 @@ export function buildOrganizationDashboardCards(input: {
     OrganizationDashboardFolder[]
   >();
   for (const node of input.nodes) {
+    // The device root and its local children have no organization until sync.
+    if (!node.organizationId) continue;
     let folders = foldersByOrganizationId.get(node.organizationId);
     if (!folders) {
       folders = [];
