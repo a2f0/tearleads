@@ -200,6 +200,12 @@ test("routed App boots from the Explorer home gate and navigates via the rail", 
       ).toBe("page");
     });
 
+    expect(view.queryByRole("link", { name: "Notes" })).toBeNull();
+    expect(view.queryByRole("link", { name: "Contacts" })).toBeNull();
+    fireEvent.click(view.getByRole("link", { name: "Settings" }));
+    const menu = within(await view.findByRole("group", { name: "Start menu" }));
+    expect(menu.queryByRole("switch", { name: "Root" })).toBeNull();
+    fireEvent.click(menu.getByRole("switch", { name: "Contacts" }));
     fireEvent.click(view.getByRole("link", { name: "Contacts" }));
 
     // The mini-app sidebar mounts when expanded and unmounts when hidden

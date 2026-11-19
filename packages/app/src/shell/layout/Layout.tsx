@@ -1,6 +1,7 @@
 import { TearleadsFrame } from "@tearleads/ui";
 import {
   NavigationModeOverrideProvider,
+  StartMenuPreferencesProvider,
   SystemTrayProvider,
   useNavigationMode,
   useNavigationModeDocumentAttribute,
@@ -9,6 +10,7 @@ import {
 import { type PropsWithChildren, useMemo } from "react";
 import type { AppHostConfig } from "../../host/AppHostConfig";
 import { MiniAppLauncherProvider } from "../../mini-apps/miniAppLauncher";
+import { MINI_APP_LAUNCHER } from "../../mini-apps/registry";
 import { AppRuntimeProvider } from "../../providers/AppRuntimeProvider";
 import { DeveloperModeProvider } from "../../providers/developer-mode/DeveloperModeProvider";
 import {
@@ -166,20 +168,25 @@ export function Layout({ hostConfig }: LayoutProps) {
   return (
     <ThemeProvider themes={hostConfig.profile.themes}>
       <WallpaperProvider>
-        <SystemTrayProvider
-          definition={TRAY_APPS}
-          storageKey={TRAY_DISABLED_APPS_STORAGE_KEY}
+        <StartMenuPreferencesProvider
+          definition={MINI_APP_LAUNCHER}
+          storageKey="tearleads.startMenu.visibility"
         >
-          <NavigationModeOverrideProvider
-            storageKey={NAVIGATION_MODE_STORAGE_KEY}
+          <SystemTrayProvider
+            definition={TRAY_APPS}
+            storageKey={TRAY_DISABLED_APPS_STORAGE_KEY}
           >
-            <DeveloperModeProvider>
-              <AppFeatureFlagsProvider>
-                <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />
-              </AppFeatureFlagsProvider>
-            </DeveloperModeProvider>
-          </NavigationModeOverrideProvider>
-        </SystemTrayProvider>
+            <NavigationModeOverrideProvider
+              storageKey={NAVIGATION_MODE_STORAGE_KEY}
+            >
+              <DeveloperModeProvider>
+                <AppFeatureFlagsProvider>
+                  <FeatureFlaggedWorkspaceLayout hostConfig={hostConfig} />
+                </AppFeatureFlagsProvider>
+              </DeveloperModeProvider>
+            </NavigationModeOverrideProvider>
+          </SystemTrayProvider>
+        </StartMenuPreferencesProvider>
       </WallpaperProvider>
     </ThemeProvider>
   );

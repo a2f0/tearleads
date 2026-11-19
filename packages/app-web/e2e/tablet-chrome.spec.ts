@@ -194,7 +194,7 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   expect(box?.y).toBeGreaterThan(300);
   expect((box?.y ?? 0) + (box?.height ?? 0)).toBeCloseTo(900, 0);
 
-  await sheet.getByRole("link", { name: "Contacts" }).click();
+  await sheet.getByRole("link", { name: "Settings" }).click();
   await expect(pane).toHaveAttribute("data-launcher-placement", "bottom");
   await expect(page.locator(".routed-pane-sheet")).toHaveAttribute(
     "data-open",

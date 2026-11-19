@@ -10,6 +10,7 @@ import {
   type RoutedLayoutTier,
   useRoutedLayoutTier,
 } from "../launcher/useRoutedLayoutTier";
+import { useOptionalStartMenuPreferences } from "../menu/StartMenuPreferencesProvider";
 import { WindowMenuProvider } from "../window/WindowMenuContext";
 import {
   hasWindowSidebar,
@@ -258,10 +259,11 @@ export function RoutedPane({
   // The route only ever names one of the launcher's apps, so the root route is
   // the one case that falls back to the home app.
   const activeAppId = appId ?? resolveLauncherHomeAppId(definition);
-  const offeredAppIds = useMemo(
-    () => appIds ?? resolveLauncherOrder(definition),
-    [appIds, definition],
-  );
+  const preferences = useOptionalStartMenuPreferences();
+  const offeredAppIds = useMemo(() => {
+    const ids = appIds ?? resolveLauncherOrder(definition);
+    return preferences ? ids.filter(preferences.isVisible) : ids;
+  }, [appIds, definition, preferences]);
   const toggleNavigationRail = useCallback(
     () => setNavigationRailExpanded(invertBoolean),
     [],
