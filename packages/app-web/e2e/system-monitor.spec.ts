@@ -111,28 +111,34 @@ test("API request summary values stay aligned beside their labels as the viewpor
   for (const width of [390, 1280]) {
     await page.setViewportSize({ width, height: 800 });
     await expect(summary).toBeVisible();
-    const { gap, spread } = await summary.evaluate((table) => {
-      const textBounds = (cell: Element) => {
-        const range = document.createRange();
-        range.selectNodeContents(cell);
-        return range.getBoundingClientRect();
-      };
-      const labelEnds = Array.from(
-        table.querySelectorAll("th"),
-        (cell) => textBounds(cell).right,
-      );
-      const valueStarts = Array.from(
-        table.querySelectorAll("td"),
-        (cell) => textBounds(cell).left,
-      );
-      const left = Math.min(...valueStarts);
-      return {
-        gap: left - Math.max(...labelEnds),
-        spread: Math.max(...valueStarts) - left,
-      };
-    });
+    const { gap, spread, singleLineLabels } = await summary.evaluate(
+      (table) => {
+        const textRange = (cell: Element) => {
+          const range = document.createRange();
+          range.selectNodeContents(cell);
+          return range;
+        };
+        const labels = Array.from(table.querySelectorAll("th"), textRange);
+        const labelEnds = labels.map(
+          (range) => range.getBoundingClientRect().right,
+        );
+        const valueStarts = Array.from(
+          table.querySelectorAll("td"),
+          (cell) => textRange(cell).getBoundingClientRect().left,
+        );
+        const left = Math.min(...valueStarts);
+        return {
+          gap: left - Math.max(...labelEnds),
+          spread: Math.max(...valueStarts) - left,
+          singleLineLabels: labels.every(
+            (range) => range.getClientRects().length === 1,
+          ),
+        };
+      },
+    );
     expect(gap).toBeGreaterThan(0);
     expect(gap).toBeLessThanOrEqual(16);
     expect(spread).toBeLessThanOrEqual(1);
+    expect(singleLineLabels).toBe(true);
   }
 });
