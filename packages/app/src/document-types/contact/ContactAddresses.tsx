@@ -29,6 +29,9 @@ export function ContactAddresses(props: ContactAddressesProps) {
   const { state, dispatch } = editor;
   const [detailId, setDetailId] = useState<string | null>(null);
   const addresses = props.rows?.filter(isContactAddressRow) ?? [];
+  if (!props.isEditing && props.rows !== undefined && addresses.length === 0) {
+    return null;
+  }
   const detail = addresses.find((row) => row.id === detailId);
   const error =
     state.status === "editing" || state.status === "removeFailed"
@@ -39,8 +42,6 @@ export function ContactAddresses(props: ContactAddressesProps) {
       <h3>Addresses</h3>
       {props.rows === undefined ? (
         <MiniAppStatus>Loading addresses…</MiniAppStatus>
-      ) : addresses.length === 0 ? (
-        <MiniAppStatus>No addresses.</MiniAppStatus>
       ) : null}
       {props.isEditing && props.rows !== undefined ? (
         <MiniAppButton
@@ -80,10 +81,12 @@ export function ContactAddresses(props: ContactAddressesProps) {
           onDetails={() => setDetailId(row.id)}
         />
       ))}
-      <p className="contact-addresses-attribution-note">
-        Attribution identifies signed uploaders, not necessarily the original
-        authors. Times are client-supplied; this is not a full edit history.
-      </p>
+      {addresses.length > 0 && (
+        <p className="contact-addresses-attribution-note">
+          Attribution identifies signed uploaders, not necessarily the original
+          authors. Times are client-supplied; this is not a full edit history.
+        </p>
+      )}
       {detail ? (
         <ContactAddressesDetails
           row={detail}

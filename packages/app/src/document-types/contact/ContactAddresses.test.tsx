@@ -61,15 +61,18 @@ function props(rows: ReadonlyArray<DocumentRow> | undefined = [address()]) {
   };
 }
 
-test("unhydrated rows show loading rather than an empty address list", () => {
+test("empty addresses disappear after loading and can be added in edit mode", () => {
   const view = render(
     <ContactAddresses {...props(undefined)} rows={undefined} isEditing />,
   );
   expect(view.getByText("Loading addresses…")).toBeTruthy();
-  expect(view.queryByText("No addresses.")).toBeNull();
   expect(view.queryByRole("button", { name: "Add address" })).toBeNull();
   view.rerender(<ContactAddresses {...props([])} />);
-  expect(view.getByText("No addresses.")).toBeTruthy();
+  expect(view.container.firstChild).toBeNull();
+  view.rerender(<ContactAddresses {...props([])} isEditing />);
+  expect(view.getByRole("button", { name: "Add address" })).toBeTruthy();
+  expect(view.queryByText(/Attribution identifies/)).toBeNull();
+  expect(view.queryByText("No addresses.")).toBeNull();
 });
 
 test("editing patches the stable row ID without replaying remotely changed cells", async () => {
