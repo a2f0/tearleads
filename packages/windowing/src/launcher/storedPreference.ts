@@ -2,7 +2,7 @@
 // (the navigation-mode choice, the launcher's placement). Unavailable or
 // throwing storage degrades to the caller's fallback.
 
-function getLocalStorage(): Pick<
+export function getLocalStorage(): Pick<
   Storage,
   "getItem" | "setItem" | "removeItem"
 > | null {

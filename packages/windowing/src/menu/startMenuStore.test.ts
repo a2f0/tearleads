@@ -31,6 +31,13 @@ test("subscribing keeps a choice made while storage writes are blocked", () => {
     const unsubscribe = store.subscribe(() => {});
     try {
       expect(store.snapshot().get("notes")).toBe(false);
+      // A notification queued before the blocked write can arrive afterward.
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "test.blocked.notes" }),
+      );
+      expect(store.snapshot().get("notes")).toBe(false);
+      window.dispatchEvent(new StorageEvent("storage", { key: null }));
+      expect(store.snapshot().get("notes")).toBe(false);
     } finally {
       unsubscribe();
     }

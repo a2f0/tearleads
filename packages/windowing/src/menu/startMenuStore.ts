@@ -1,4 +1,5 @@
 import {
+  getLocalStorage,
   loadStoredPreference,
   saveStoredPreference,
 } from "../launcher/storedPreference";
@@ -17,11 +18,11 @@ function readVisibility(key: string) {
 export function createStartMenuStore(
   storageKey: string,
   ids: readonly string[],
+  unsaved = new Map<string, boolean | undefined>(),
 ) {
   // Leave a single unescaped boundary between the namespace and the app ID.
   const keyFor = (id: string) =>
     `${storageKey}.${id.replaceAll("%", "%25").replaceAll(".", "%2E")}`;
-  const unsaved = new Map<string, boolean | undefined>();
   function persist(id: string, visible: boolean | undefined) {
     const value = visible === undefined ? null : String(visible);
     if (saveStoredPreference(keyFor(id), value)) unsaved.delete(id);
@@ -55,15 +56,15 @@ export function createStartMenuStore(
     publish(next);
   }
   function onStorage(event: StorageEvent) {
-    if (event.storageArea && event.storageArea !== window.localStorage) return;
+    if (event.storageArea && event.storageArea !== getLocalStorage()) return;
     if (event.key === null) {
-      unsaved.clear();
       publish(readAll());
       return;
     }
     const id = ids.find((id) => keyFor(id) === event.key);
-    if (id !== undefined) {
-      unsaved.delete(id);
+    // A queued storage event may predate a failed local write. The local
+    // choice wins in this tab until its next successful write or reset.
+    if (id !== undefined && !unsaved.has(id)) {
       update(id, readVisibility(keyFor(id)));
     }
   }

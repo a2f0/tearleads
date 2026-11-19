@@ -41,9 +41,18 @@ export function StartMenuPreferencesProvider({
     () => JSON.parse(idsKey),
     [idsKey],
   );
+  const namespace = useMemo(
+    () => ({ storageKey, unsaved: new Map<string, boolean | undefined>() }),
+    [storageKey],
+  );
   const store = useMemo(
-    () => createStartMenuStore(storageKey, configurableIds),
-    [storageKey, configurableIds],
+    () =>
+      createStartMenuStore(
+        namespace.storageKey,
+        configurableIds,
+        namespace.unsaved,
+      ),
+    [namespace, configurableIds],
   );
   const overrides = useSyncExternalStore(
     store.subscribe,
