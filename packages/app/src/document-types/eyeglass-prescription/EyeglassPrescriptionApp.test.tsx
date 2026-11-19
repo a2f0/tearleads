@@ -1,7 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { hasPendingLocalDocumentWrites } from "@tearleads/client-sdk";
 import { fireEvent, waitFor, within } from "@testing-library/react";
-import { getExplorerSidebarItem } from "../../../test/helpers/dual-pane/dualPaneCore";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
 import { renderLifecyclePane } from "../../../test/helpers/paneLifecycleTestUtils";
 import {
@@ -71,9 +70,9 @@ test(
     );
     const restarted = await openExplorer(reopened);
     fireEvent.click(
-      await waitFor(() =>
-        getExplorerSidebarItem(restarted, "Eyeglass Prescription Alex Rivera"),
-      ),
+      await within(restarted).findByRole("button", {
+        name: "Eyeglass Prescription Alex Rivera",
+      }),
     );
     const restored = within(restarted);
     await waitFor(() => {

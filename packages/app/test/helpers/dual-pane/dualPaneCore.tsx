@@ -295,8 +295,6 @@ export function listExplorerContainerItems(
 ): HTMLButtonElement[] {
   return Array.from(
     pane.querySelectorAll<HTMLButtonElement>("button.explorer-sidebar-item"),
-  ).filter(
-    (button) => !button.classList.contains("explorer-sidebar-item--note"),
   );
 }
 

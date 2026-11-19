@@ -5,6 +5,7 @@ import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/serve
 import {
   cleanupPaneTestEnvironment,
   generateIdentityAndWaitForDb,
+  getExplorerContainerItem,
   listExplorerNoteItems,
   openExplorer,
   openExplorerNewStructuredDocumentRoute,
@@ -94,6 +95,9 @@ test(
 
     await waitFor(() => {
       expect(editor.value).toBe("fresh explorer note");
+    });
+    fireEvent.click(getExplorerContainerItem(firstExplorer, "/"));
+    await waitFor(() => {
       expect(
         listExplorerNoteItems(firstExplorer).some(
           (button) => button.textContent?.trim() === "fresh explorer note",
@@ -135,6 +139,7 @@ test(
       target: { value: "visible from notes app" },
     });
 
+    fireEvent.click(getExplorerContainerItem(explorer, "/"));
     await waitFor(() => {
       expect(
         listExplorerNoteItems(explorer).some(

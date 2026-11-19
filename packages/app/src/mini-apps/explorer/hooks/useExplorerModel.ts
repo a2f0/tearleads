@@ -68,6 +68,7 @@ interface ExplorerModel {
   deleteDocument: ExplorerPanelState["deleteDocument"];
   purgeDocument: ExplorerPanelState["purgeDocument"];
   documentListRevision: number;
+  documentLinkProjectionVersion: number;
   onRecoveryChanged: () => void;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
@@ -111,11 +112,8 @@ export function useExplorerModel(
   // boot failure surfaces a Retry there too (the detail panel gets it directly).
   onRetryDatabase: () => void,
 ): ExplorerModel {
-  const {
-    documentLinkProjectionVersion,
-    documentLinkProjectionVersionByContainerId,
-    handleDocumentLinksChanged,
-  } = useDocumentLinkProjectionVersion();
+  const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
+    useDocumentLinkProjectionVersion();
   const documentQueries = useExplorerDocumentQueries(appData);
   const selfContactIdentity = useCurrentSelfContactIdentity();
   const {
@@ -233,8 +231,6 @@ export function useExplorerModel(
     unlinkDocument,
   } = useExplorerPanelState({
     appData,
-    documentLinkProjectionVersion,
-    documentLinkProjectionVersionByContainerId,
     documentQueries,
     explorer,
     bumpDocumentListRevision,
@@ -244,9 +240,6 @@ export function useExplorerModel(
     loadRouteDocumentSummary,
     mergeDocumentSummary,
     documentSummaries,
-    documentListRevision,
-    contactAvatarUrlByLocalId,
-    currentSelfContactLocalId,
     onDocumentLinksChanged: handleDocumentLinksChanged,
     onRetryDatabase,
     canShareWithPeer,
@@ -376,6 +369,7 @@ export function useExplorerModel(
     contextMenuState,
     deleteDocument,
     purgeDocument,
+    documentLinkProjectionVersion,
     documentListRevision,
     documentQueries,
     documentSummaries,

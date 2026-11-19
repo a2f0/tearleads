@@ -169,14 +169,9 @@
   gap: var(--space-xs);
 }
 
-.explorer-folder-icon,
-.explorer-document-icon {
+.explorer-folder-icon {
   flex: 0 0 auto;
   opacity: var(--opacity-icon);
-}
-
-.explorer-sidebar-item--more {
-  opacity: var(--opacity-muted);
 }
 
 .explorer-sidebar-row--section {
@@ -428,9 +423,6 @@
 :root[data-navigation-mode="routed"]
   .explorer-sidebar-item
   .explorer-folder-icon,
-:root[data-navigation-mode="routed"]
-  .explorer-sidebar-item
-  .explorer-document-icon,
 :root[data-navigation-mode="routed"] .explorer-item-name .explorer-folder-icon,
 :root[data-navigation-mode="routed"] .explorer-item-name .explorer-item-icon {
   width: var(--control-icon-size);

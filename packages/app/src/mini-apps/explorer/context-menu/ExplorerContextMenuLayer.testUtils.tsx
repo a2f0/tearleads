@@ -79,7 +79,6 @@ export function ExplorerContextMenuLayerHarness(params: {
     contextMenu,
     handleContainerContextMenu: () => {},
     handleItemContextMenu: () => {},
-    handleSidebarDocumentContextMenu: () => {},
   };
 
   return (

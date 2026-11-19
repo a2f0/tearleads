@@ -1,8 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type {
-  ContainerDocumentQueries,
-  ContainerNode,
-} from "@tearleads/client-sdk";
+import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { WindowStateProvider } from "@tearleads/windowing";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
@@ -29,36 +26,9 @@ const rootNode: ContainerNode = {
   syncState: syncedContainerDocumentObjectSyncState,
 };
 
-const documentQueries: ContainerDocumentQueries = {
-  applyContainerDocumentTombstones: async () => [],
-  hasOrphanedDocuments: async () => false,
-  listRecoveryFolderMoveIds: async () => [],
-  listRecoveryFolders: async () => [],
-  discardRecoveryFolder: async () => false,
-  listContainerDocumentSidebarWindow: async () => ({ rows: [], totalCount: 0 }),
-  listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
-  listPendingDownloads: async () => [],
-  listPendingWrites: async () => [],
-  retryPendingWriteItem: async () => undefined,
-  loadContainerDocumentWatermark: async () => null,
-  loadDocumentSyncState: async () => null,
-  loadDocumentSummary: async () => null,
-  loadContainerDocumentSummary: async () => null,
-  loadOrphanedDocumentSummary: async () => null,
-  listLinkedContainerIdsByDocumentIds: async () => new Map(),
-  replaceDocumentLinksBatch: async () => undefined,
-  saveContainerDocumentWatermark: async () => undefined,
-  upsertDiscoveredDocuments: async () => [],
-};
-
 // Stable identity: the sidebar memoizes on this prop, so an inline map would
 // recreate the sidebar every render and loop useRegisteredWindowSidebar.
 const NO_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
-// Same stability requirement for the per-container link-projection versions.
-const NO_CONTAINER_VERSIONS: ReadonlyMap<string, number> = new Map();
-// Stable identity, for the same reason as onRetryDatabase below: the sidebar
-// memoizes on this prop, so an inline literal would loop the registration.
-const NO_CONTACT_AVATAR_URLS: Readonly<Record<string, string>> = {};
 const TEST_MINI_APPS = {} as Readonly<Record<MiniAppId, MiniAppDefinition>>;
 
 function SidebarContextMenuHarness(params: {
@@ -76,15 +46,6 @@ function SidebarContextMenuHarness(params: {
     },
     [params.onContainerContextMenu],
   );
-  const handleSidebarDocumentContextMenu = useCallback(
-    (event: ReactMouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-    },
-    [],
-  );
-  const selectDocumentProjection = useCallback((localId: string) => {
-    setSelectedId(localId);
-  }, []);
   const toggleCollapsed = useCallback(() => undefined, []);
   // Stable identity: the sidebar memoizes on this, so an inline function would
   // recreate the sidebar every render and loop useRegisteredWindowSidebar.
@@ -93,25 +54,13 @@ function SidebarContextMenuHarness(params: {
   useExplorerSidebarPanel({
     activeContainerId: rootNode.id,
     collapsedIds,
-    contactAvatarUrlByLocalId: NO_CONTACT_AVATAR_URLS,
-    currentSigningFingerprint: null,
-    currentSelfContactLocalId: null,
-    currentUserId: null,
-    currentOrganizationId: rootNode.organizationId,
     databaseError: false,
     onRetryDatabase,
-    documentLinkProjectionVersion: 0,
-    documentLinkProjectionVersionByContainerId: NO_CONTAINER_VERSIONS,
-    documentListRevision: 0,
-    documentQueries,
     handleContainerContextMenu,
-    handleSidebarDocumentContextMenu,
-    nodes,
     ready: true,
     organizationNamesById: NO_ORGANIZATION_NAMES,
     primaryOrganizationId: rootNode.organizationId,
     selectedId,
-    selectDocumentProjection,
     setSelectedId,
     setSidebar,
     toggleCollapsed,

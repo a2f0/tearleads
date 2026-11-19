@@ -97,9 +97,6 @@
     "packages/app/src/mini-apps/explorer/hooks/useExplorerPanelState.ts": {
       "biomeIgnore": 1
     },
-    "packages/app/src/mini-apps/explorer/sidebar/useExplorerSidebarWindows.ts": {
-      "biomeIgnore": 4
-    },
     "packages/app/src/mini-apps/org-manager/model/useOrgManagerModel.ts": {
       "biomeIgnore": 1
     },

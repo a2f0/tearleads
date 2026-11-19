@@ -1,10 +1,12 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT } from "../../../components/mini-app/virtual/MiniAppVirtual";
-import type { ExplorerSidebarTreeEntry } from "./ExplorerSidebarRows";
 
 export const EXPLORER_SIDEBAR_ROW_HEIGHT = MINI_APP_VIRTUAL_SIDEBAR_ROW_HEIGHT;
 
-export type ExplorerTreeEntry = ExplorerSidebarTreeEntry;
+export interface ExplorerTreeEntry {
+  children: ExplorerTreeEntry[];
+  node: ContainerNode;
+}
 
 export function buildExplorerTree(
   nodes: ReadonlyArray<ContainerNode>,
@@ -38,32 +40,4 @@ export function buildExplorerTree(
 
   sortEntries(roots);
   return roots;
-}
-
-export function listExpandedExplorerTreeContainerIds(
-  entries: ReadonlyArray<ExplorerTreeEntry>,
-  collapsedIds: ReadonlySet<string>,
-): ReadonlyArray<string> {
-  const expandedContainerIds: string[] = [];
-
-  function visit(entry: ExplorerTreeEntry) {
-    if (collapsedIds.has(entry.node.id)) {
-      return;
-    }
-
-    expandedContainerIds.push(entry.node.id);
-    for (const child of entry.children) {
-      visit(child);
-    }
-  }
-
-  for (const entry of entries) {
-    visit(entry);
-  }
-
-  return expandedContainerIds;
-}
-
-export function getExplorerTreeIdSetKey(ids: ReadonlySet<string>): string {
-  return Array.from(ids).sort().join("\u0000");
 }
