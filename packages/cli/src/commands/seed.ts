@@ -124,6 +124,14 @@ async function confirmSeedSync(
   const localId =
     await session.sdk.documents.findLocalIdByDocumentId(documentId);
   if (!localId) throw new Error("Missing synced document.");
+  // Even a note cleared on another device retains its signed editing history.
+  const history = await session.sdk.documents.openHistory(localId);
+  try {
+    if (!history?.stops.length)
+      throw new Error(`Seed document has no synced birth content: ${key}.`);
+  } finally {
+    history?.close();
+  }
   const state = await session.sdk.containerContents
     .documentQueries()
     .loadDocumentSyncState(localId);

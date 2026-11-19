@@ -88,8 +88,8 @@ export async function uploadVacantAttachments(
             `The attachment changed during upload: ${intent.name}. Run seed again to resume.`,
           );
       },
-      isRemoteSyncBlocked: (orgId) =>
-        !stillCurrent() || (runtime.util.isRemoteSyncBlocked?.(orgId) ?? false),
+      stillCurrent,
+      isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
       resolveProjectionUserKey: links.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
     });

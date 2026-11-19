@@ -213,6 +213,7 @@ export interface UploadDocumentAttachmentRequest {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;
+  stillCurrent?: (() => boolean) | undefined;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }

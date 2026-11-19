@@ -6,7 +6,7 @@ import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
 
-test.each(["missing", "different", "lost"] as const)(
+test.each(["missing", "different", "lost", "empty"] as const)(
   "seed resumes an already committed birth after a %s acknowledgement",
   async (fault) => {
     await initializeApiDatabase();
@@ -22,12 +22,17 @@ test.each(["missing", "different", "lost"] as const)(
         if (inject && path === "/documents" && request.method === "POST") {
           // Interrupt the retry at the next fixture after the first one finishes.
           if (committed) return new Response(null, { status: 503 });
+          if (fault === "empty") {
+            const body = await request.clone().json();
+            delete body.initialSync;
+            request = new Request(request, { body: JSON.stringify(body) });
+          }
           const response = await routeApp.fetch(request);
           if (!response.ok) return response;
           const body = await response.json();
           committed = body.id;
           if (fault === "lost") return new Response(null, { status: 503 });
-          if (fault === "missing") delete body.initialSync;
+          if (fault === "missing" || fault === "empty") delete body.initialSync;
           else
             body.initialSync.acceptedOutgoingUpdateIds = [crypto.randomUUID()];
           return Response.json(body, { status: response.status });
@@ -49,6 +54,11 @@ test.each(["missing", "different", "lost"] as const)(
         expect(output.stderr.join(" ")).toContain("acknowledge");
       expect(uploads).toBe(0);
       expect(await seed()).toBe(1);
+      if (fault === "empty") {
+        expect(output.stderr.at(-1)).toContain("no synced birth content");
+        expect(uploads).toBe(0);
+        return;
+      }
       expect(uploads).toBe(1);
       const { spec, readAttachment } = await loadContinuityAssets();
       const first = continuityDocuments(spec)[0];

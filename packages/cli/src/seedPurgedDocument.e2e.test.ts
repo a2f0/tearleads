@@ -12,6 +12,7 @@ test("verified purges and moves to newly created folders survive a seed retry", 
   let uploads = 0;
   let limitUploads = true;
   let purgedId = "";
+  let creates = 0;
   let movedContactId = "";
   let additionalFolderId = "";
   let invalidateProof = false;
@@ -23,6 +24,7 @@ test("verified purges and moves to newly created folders survive a seed retry", 
       const path = new URL(req.url).pathname;
       if (limitUploads && path === "/blobs/stages/multipart" && ++uploads > 1)
         return new Response(null, { status: 503 });
+      if (req.method === "POST" && path === "/documents") creates++;
       const response = await routeApp.fetch(req);
       if (
         response.status === 404 &&
@@ -78,6 +80,19 @@ test("verified purges and moves to newly created folders survive a seed retry", 
     expect(await seed()).toBe(1);
     expect(output.stderr.at(-1)).toMatch(/purge|mismatch/i);
     invalidateProof = false;
+    await onFreshDevice(device, async (_stores, sdk) => {
+      if (!rootContainerId) throw new Error("Missing personal root");
+      const input = {
+        containerId: rootContainerId,
+        documentId: purgedId,
+        initialText: "Keep the deletion",
+      };
+      const before = creates;
+      expect(await sdk.documents.createSeeded(input)).toBe("purged");
+      expect(creates).toBe(before + 1);
+      expect(await sdk.documents.createSeeded(input)).toBe("purged");
+      expect(creates).toBe(before + 1);
+    });
     beforeMissingHead = () =>
       onFreshDevice(device, async ([contact], sdk) => {
         const id = contact?.getSnapshot().documentId;

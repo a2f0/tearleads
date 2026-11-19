@@ -342,6 +342,15 @@ export interface PreparedUploadDocumentAttachmentRequest
     | undefined;
 }
 
+function isStaleUploadProjection(error: unknown) {
+  return shouldRetryWithFreshProjection(
+    error,
+    (message) =>
+      message.startsWith("Container writer projection KEK") &&
+      message.includes("could not be unwrapped"),
+  );
+}
+
 export async function uploadPreparedDocumentAttachment(
   blobs: BlobAttachmentCollaborators,
   {
@@ -365,6 +374,7 @@ export async function uploadPreparedDocumentAttachment(
     signedAt = new Date().toISOString(),
     slotId,
     sourceSnapshot,
+    stillCurrent,
     warmReferencedPrincipalPolicies,
     writerProjection,
   }: PreparedUploadDocumentAttachmentRequest,
@@ -401,6 +411,7 @@ export async function uploadPreparedDocumentAttachment(
       resolveProjectionUserKey: resolveProjectionUserKeyForUpload,
       source,
       sourceSnapshot,
+      stillCurrent,
       targetSecretKey,
       warmReferencedPrincipalPolicies,
       writerProjection: freshWriterProjection,
@@ -410,13 +421,9 @@ export async function uploadPreparedDocumentAttachment(
     material = await buildMaterial(writerProjection);
   } catch (error) {
     if (
+      stillCurrent?.() === false ||
       !apiClient.evictDocumentWriterProjection ||
-      !shouldRetryWithFreshProjection(
-        error,
-        (message) =>
-          message.startsWith("Container writer projection KEK") &&
-          message.includes("could not be unwrapped"),
-      )
+      !isStaleUploadProjection(error)
     ) {
       throw error;
     }
@@ -440,7 +447,8 @@ export async function uploadPreparedDocumentAttachment(
     eventId,
     expectedBindingId,
     material,
-    isRemoteSyncBlocked,
+    isRemoteSyncBlocked: (orgId) =>
+      stillCurrent?.() === false || (isRemoteSyncBlocked?.(orgId) ?? false),
     multipart: resolvedMultipart,
     onMultipartProgress,
     onStageResolved,

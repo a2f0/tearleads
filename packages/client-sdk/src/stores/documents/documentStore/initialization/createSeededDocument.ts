@@ -21,7 +21,11 @@ import {
   RemoteDocumentService,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
-import { createVerifiedRemoteDocumentDeletionHandler } from "../../../../workflows/documents/purge";
+import {
+  createVerifiedRemoteDocumentDeletionHandler,
+  hasVerifiedDocumentPurge,
+  pinAbsentDocumentPurge,
+} from "../../../../workflows/documents/purge";
 import type { DocumentStoreOpenOptions, DocumentsRuntime } from "../../types";
 import { createFreshPeerStoredDocument } from "../storedDocument";
 import {
@@ -89,6 +93,16 @@ export async function createSeededDocument(
     throw new Error(
       "An online signing identity is required to seed a document.",
     );
+  const purged = await hasVerifiedDocumentPurge(
+    runtime.infra.execSql,
+    input.documentId,
+    author.organizationId,
+  );
+  if (!stillCurrent())
+    throw new Error(
+      "The account or database scope changed during seeded creation.",
+    );
+  if (purged) return "purged";
   const update = await createSeedUpdate(runtime, input);
   const remote = new RemoteDocumentService({
     api: runtime.apiClient,
@@ -110,6 +124,7 @@ export async function createSeededDocument(
     author,
     containerId: input.containerId,
     documentId: input.documentId,
+    expectedOrganizationId: author.organizationId,
     requireSeededCreate: true,
     seedUpdate: { ...update, id: crypto.randomUUID() },
   });
@@ -128,9 +143,12 @@ export async function createSeededDocument(
       apiClient: runtime.apiClient,
       execSql: runtime.infra.execSql,
       expectedOrganizationId: author.organizationId,
-      // This stateless create only observes deletion. A store that already
-      // has this document pins the proof atomically with local teardown in sync.
-      onVerifiedDeletion: () => {},
+      onVerifiedDeletion: ({ commitPurgeProof, documentId }) =>
+        pinAbsentDocumentPurge(
+          runtime.infra.execSql,
+          documentId,
+          commitPurgeProof,
+        ),
     })({ documentId: input.documentId });
     if (!stillCurrent())
       throw new Error(

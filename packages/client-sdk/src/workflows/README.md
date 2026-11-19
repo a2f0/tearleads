@@ -212,7 +212,7 @@ marker and carry the birth in the first attachment update. A failed attach
 queues the birth. Advancing the marker, reset, failed initialization, or
 `attachFiles([])` releases the hold. Store factories take these options
 and `remoteSyncMode` in the trailing `DocumentStoreOpenOptions`.
-A seeded create returns `"purged"` when a verified purge proof covers its ID.
+Seed within the active organization. A verified purge returns `"purged"`.
 `documents.createSeeded` commits fields, rows and attachment metadata together.
 Upload with `resolveDocumentCreateAuthor(runtime)` and a null expected binding
 to require a vacant slot at commit.

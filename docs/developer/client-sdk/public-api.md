@@ -344,7 +344,7 @@ do not silently clear pins or checkpoints to make obsolete data load.
 `deriveStableDocumentId(localId)` plans a remote ID. Sync prefers a stored
 `DocumentRecord.documentId` or `DocumentRecord.recoveryDocumentId`.
 `createDocumentHeadLinkSetLoader(runtime)` verifies a known ID's signed links.
-A seeded create returns `"purged"` when a verified purge proof covers its ID.
+Seed within the active organization. A verified purge returns `"purged"`.
 `documents.createSeeded` commits the initial content, including attachment
 metadata, in one online request and returns its verified placement.
 `resolveDocumentCreateAuthor(runtime)` returns the blob writer or `null`.

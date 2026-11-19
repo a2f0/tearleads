@@ -341,3 +341,8 @@ export async function purgeRemoteDocument(
   });
   return response;
 }
+
+export {
+  hasVerifiedDocumentPurge,
+  pinAbsentDocumentPurge,
+} from "./absentDocumentPurge";
