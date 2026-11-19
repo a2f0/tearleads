@@ -98,6 +98,7 @@ async function createInitialDocumentRecord(
 
   const created: DocumentRecord = {
     id: state.localId,
+    ...(state.createConflict === "fail" ? { createConflict: "fail" } : {}),
     containerId: state.runtime.state.containerId ?? null,
     documentId: state.initialDocumentId,
     documentKind: initialDocumentState.documentKind,

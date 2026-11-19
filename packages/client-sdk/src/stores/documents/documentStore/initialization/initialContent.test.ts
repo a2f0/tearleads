@@ -88,12 +88,17 @@ test("a birth carries initial fields and rows as the document's only update", as
       kind: "env_file",
       localId: "imported-env",
       options: {
+        createConflict: "fail",
         initialRows: ENV_ROWS,
         initialStructuredFields: { fileName: ".env", stale: undefined },
       },
     });
     expect(await store.ensureInitialized()).toBe(true);
 
+    expect(
+      (await defaultDocumentsPersistence.loadDocument(execSql, "imported-env"))
+        ?.createConflict,
+    ).toBe("fail");
     expect(await readQueued(execSql, "imported-env")).toEqual({
       attachmentNames: [],
       documentKind: "env_file",

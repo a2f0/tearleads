@@ -102,7 +102,6 @@ async function confirmSeedSync(
   const coordinator = getOrCreateDomainSyncCoordinator(
     session.sdk.runtime.input().state.domainScope,
   );
-  store.requestSync();
   const idle = await coordinator.waitForIdle({ timeoutMs: 120_000 });
   session.assertNoFailures(missingHeads);
   const state = await session.sdk.containerContents

@@ -82,6 +82,9 @@ export const documents = sqliteTable(
     pendingBaseVersion: text("pending_base_version"),
     pullContinuation: text("pull_continuation"),
     recoveryGeneration: integer("recovery_generation").notNull().default(0),
+    failOnCreateConflict: integer("fail_on_create_conflict")
+      .notNull()
+      .default(0),
     recoveryDocumentId: text("recovery_document_id"),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
     syncFailureMessage: text("sync_failure_message"),
@@ -202,6 +205,7 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
       "pull_continuation",
       "recovery_generation",
       "recovery_document_id",
+      "fail_on_create_conflict",
       "sync_failure_message",
       "sync_failure_attempted_at",
     ],

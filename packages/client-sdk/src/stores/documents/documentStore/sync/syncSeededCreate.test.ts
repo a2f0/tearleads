@@ -124,6 +124,7 @@ async function runSeededCreate(
     server: SeededCreateServer,
   ) => Promise<CreateResult>,
   onSeedEncrypt?: (state: DocumentStoreState) => void,
+  createConflict?: "fail",
 ) {
   const fixture = await createMaterializedSyncFixture();
   let scheduled = 0;
@@ -139,7 +140,8 @@ async function runSeededCreate(
     const document = await createDocument(`${name}-peer`);
     document.getText("text").update("hello");
     document.commit();
-    const record: DocumentRecord = {
+    const initial: DocumentRecord = {
+      createConflict,
       id: `${name}-local`,
       accessEpoch: 1,
       containerId: fixture.projection.containerId,
@@ -147,7 +149,12 @@ async function runSeededCreate(
       snapshotEndVersion: encodeVersionVector(document),
       text: "hello",
     };
-    await defaultDocumentsPersistence.saveDocument(execSql, record);
+    await defaultDocumentsPersistence.saveDocument(execSql, initial);
+    const record = await defaultDocumentsPersistence.loadDocument(
+      execSql,
+      initial.id,
+    );
+    if (!record) throw new Error("Pending document missing after reopen");
     const fields = createPendingUpdateFields(exportAllUpdates(document));
     if (!fields) throw new Error("Expected a non-empty initial update");
     await defaultDocumentsPersistence.enqueuePendingUpdate(execSql, {
@@ -346,6 +353,26 @@ test("a lost seeded create response adopts the document and keeps its row queued
   );
   expect(result.created.record?.lastCommitLsn ?? null).toBeNull();
   expect(result.state.remoteUpdatePending).toBe(true);
+});
+
+test("a reopened create-only birth rejects a competing remote document", async () => {
+  const result = await runSeededCreate(
+    "seeded-create-reopen",
+    async (request, _attempt, server) => {
+      server.committed = documentWriterProjectionFromCreateResponse({
+        containerProjection: server.fixture.projection,
+        response: await createResponseFromRequest(request),
+      });
+      return manifestExists;
+    },
+    undefined,
+    "fail",
+  );
+  expect(result.state.createConflict).toBeUndefined();
+  expect(result.created.record?.documentId).toBeNull();
+  expect(result.remaining.map((row) => row.id)).toEqual(
+    result.queued.map((row) => row.id),
+  );
 });
 
 test("a refused seeded create falls back to the plain create once", async () => {

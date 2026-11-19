@@ -85,6 +85,25 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 4,
   },
+  {
+    name: "persist_document_create_conflict_policy",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("documents"))) return;
+      const columns = new Set(
+        (await execSql("PRAGMA table_info(documents)")).map(({ name }) => name),
+      );
+      if (
+        !columns.has("local_id") ||
+        !columns.has("app_kind") ||
+        columns.has("fail_on_create_conflict")
+      )
+        return;
+      await execSql(
+        "ALTER TABLE documents ADD COLUMN fail_on_create_conflict INTEGER NOT NULL DEFAULT 0",
+      );
+    },
+    version: 5,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

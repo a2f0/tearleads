@@ -20,6 +20,7 @@ export const documentRecordSelection = {
   documentId: documents.documentId,
   recoveryGeneration: documents.recoveryGeneration,
   recoveryDocumentId: documents.recoveryDocumentId,
+  failOnCreateConflict: documents.failOnCreateConflict,
   snapshotEndVersion: documents.snapshotEndVersion,
   accessEpoch: documents.accessEpoch,
   accessStateHash: documents.accessStateHash,
@@ -49,6 +50,9 @@ export function mapSelectedDocumentRecord(
     documentKekTargets: row.documentKekTargets,
     documentManifestBundle: row.documentManifestBundle,
   };
+
+  if (!row.documentId && !row.recoveryDocumentId && row.failOnCreateConflict)
+    record.createConflict = "fail";
 
   if (row.accessStateHash !== null) {
     record.accessStateHash = row.accessStateHash;

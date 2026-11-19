@@ -175,6 +175,7 @@ function buildStoredDocumentRecord(input: {
       securityContextChanged,
     ),
     documentId: nextDocumentId,
+    createConflict: currentRecord?.createConflict ?? patch.createConflict,
     effectiveAccessLevel:
       patch.effectiveAccessLevel ?? currentRecord?.effectiveAccessLevel ?? null,
     documentKekTargets: resolveNullableDocumentRuntimeField(
@@ -311,8 +312,7 @@ async function resolveInitialDocumentCreation(input: {
   if (typeof input.savedAt === "string") {
     return { record: input.record, updatedAt: input.savedAt };
   }
-  // A discovered alias is not a concurrent local winner. Leave its backing
-  // store untouched and refuse until a caller can establish verified identity.
+  // Only verified identity allows a caller to adopt an existing remote alias.
   if (input.savedAt?.status === "remote-alias") return null;
   if (
     input.persistInput.canStartDurableMutation &&

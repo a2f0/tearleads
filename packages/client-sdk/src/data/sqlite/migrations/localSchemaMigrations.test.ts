@@ -114,10 +114,15 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
     const [documents] = documentTables;
     if (!documents) throw new Error("Documents table schema is missing");
     await execSql(
-      documents.createSql.replace(
-        '  "sync_failure_message" TEXT,\n',
-        '  "sync_failure_status" INTEGER,\n  "sync_failure_message" TEXT,\n',
-      ),
+      documents.createSql
+        .replace(
+          '  "fail_on_create_conflict" INTEGER NOT NULL DEFAULT 0,\n',
+          "",
+        )
+        .replace(
+          '  "sync_failure_message" TEXT,\n',
+          '  "sync_failure_status" INTEGER,\n  "sync_failure_message" TEXT,\n',
+        ),
     );
     for (const index of documents.indexes ?? []) await execSql(index);
     await execSql(
@@ -156,7 +161,12 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4]);
+    ).toEqual([1, 2, 3, 4, 5]);
+    expect(
+      await execSql(
+        "SELECT fail_on_create_conflict FROM documents WHERE local_id = 'note'",
+      ),
+    ).toEqual([{ fail_on_create_conflict: 0 }]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {

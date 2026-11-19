@@ -67,6 +67,13 @@ function toDocumentRecordRow(input: {
     localId: document.id,
     documentId: document.documentId,
     recoveryGeneration: document.recoveryGeneration ?? 0,
+    // Known remote documents have completed their birth. Before that, an
+    // unrelated upsert omitting the policy must preserve the original choice.
+    ...(document.documentId
+      ? { failOnCreateConflict: 0 }
+      : document.createConflict === "fail"
+        ? { failOnCreateConflict: 1 }
+        : {}),
     recoveryDocumentId: document.documentId
       ? null
       : (document.recoveryDocumentId ?? null),
