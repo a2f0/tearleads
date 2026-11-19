@@ -236,3 +236,60 @@ test("changing organizations during Contacts slot derivation never opens the rep
     server.stop(true);
   }
 }, 30_000);
+
+test("a later edit identical to a fixture cannot stand in for its original seed", async () => {
+  await initializeApiDatabase();
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: routeApp.fetch,
+  });
+  try {
+    const apiBaseUrl = server.url.origin;
+    const { seedPhrase, rootContainerId } =
+      await registerCliTestAccount(apiBaseUrl);
+    if (!rootContainerId) throw new Error("Missing personal root");
+    await withSession(
+      { apiBaseUrl, recoveryKey: seedPhrase },
+      async (session) => {
+        await loadFolderTree(session);
+        const { sdk } = session;
+        const documentId = crypto.randomUUID();
+        const receipt = await sdk.documents.createSeeded({
+          containerId: rootContainerId,
+          documentId,
+          initialText: "My note",
+        });
+        if (receipt === "purged") throw new Error("Unexpected purge");
+        const [summary] = await sdk.containerContents
+          .documentQueries()
+          .upsertDiscoveredDocuments([receipt]);
+        if (!summary) throw new Error("Missing note");
+        const store = sdk.containerContents.documentLinks().openDocument({
+          containerId: rootContainerId,
+          documentId,
+          localId: summary.id,
+        });
+        expect(await store.ensureInitialized()).toBe(true);
+        expect(await store.requestRemoteSyncAndWait()).toBe(true);
+        const text = "Looks like the fixture";
+        await store.setText(text);
+        expect(await store.requestRemoteSyncAndWait()).toBe(true);
+        await expect(
+          writeContinuityDocument({
+            destination: "account",
+            sdk,
+            existing: { documentId, localId: summary.id },
+            localId: summary.id,
+            containerId: rootContainerId,
+            document: { key: "note/0", kind: "note", text, attachments: [] },
+            readAttachment: async () => new Uint8Array(),
+          }),
+        ).rejects.toThrow("no synced birth content");
+        expect(store.getSnapshot().text).toBe(text);
+      },
+    );
+  } finally {
+    server.stop(true);
+  }
+}, 30_000);

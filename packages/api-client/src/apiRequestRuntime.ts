@@ -380,6 +380,7 @@ export class ApiRequestRuntime {
     attempt = 1,
   ): Promise<RequestResult<Response>> {
     const session = this.sessionRenewals.signal;
+    if (options.stillCurrent?.() === false) return retiredRequest(method, path);
     const reportErrors = options.reportErrors ?? true;
     const { headers, init } = sessionRequestInit(
       method,

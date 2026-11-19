@@ -21,11 +21,11 @@ import { ProjectionDependencyUnavailableError } from "../../../data/shared/depen
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import { documentWriterProjectionFromCreateResponse } from "./createProjection";
-import type { CreateRemoteDocumentRequest } from "./remoteDocumentCreateRequest";
+import type { DocumentSubmissionRequest } from "./remoteDocumentCreateRequest";
 
 /** A strict importer can only proceed after its exact birth update is acknowledged. */
 export function assertRequiredSeedAcknowledged(
-  request: CreateRemoteDocumentRequest,
+  request: DocumentSubmissionRequest,
   created: CreateRemoteDocumentResult | null,
 ) {
   if (!request.requireSeededCreate) return;

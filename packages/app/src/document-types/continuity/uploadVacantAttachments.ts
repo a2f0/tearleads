@@ -9,7 +9,6 @@ import {
 } from "@tearleads/client-sdk";
 
 import type { SeedDocument } from "./seedDocuments";
-import { verifySeedContent } from "./verifySeedContent";
 
 async function pull(store: DocumentStore) {
   if (!(await store.requestRemoteSyncAndWait(AbortSignal.timeout(120_000))))
@@ -63,6 +62,7 @@ export async function uploadVacantAttachments(
   store: DocumentStore,
   attachments: readonly { bytes: BlobBytes; intent: DocumentAttachment }[],
   stillCurrent: () => boolean,
+  seedTag: string,
 ) {
   const first = await pull(store);
   if (!stillCurrent()) throw new Error("The Continuity writer scope changed.");
@@ -72,13 +72,10 @@ export async function uploadVacantAttachments(
   const { documentId } = first;
   if (!documentId || !author)
     throw new Error("Missing seed document or writer");
-  await verifySeedContent(
-    input.sdk,
-    input.document,
-    documentId,
-    first,
-    attachments,
-  );
+  if (first.seedTag !== seedTag)
+    throw new Error(
+      `Seed document has no synced birth content matching ${input.document.key}.`,
+    );
   for (const [index, { bytes, intent }] of attachments.entries()) {
     const snapshot = index === 0 ? first : await pull(store);
     if (!needsFixtureBytes(snapshot, intent)) continue;

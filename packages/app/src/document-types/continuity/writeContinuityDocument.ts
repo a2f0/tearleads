@@ -54,6 +54,7 @@ async function openContinuityDocument(
   input: SeedWriteInput,
   attachments: ReadonlyArray<Awaited<ReturnType<typeof prepareAttachment>>>,
   assertCurrent: () => void,
+  seedTag: string | undefined,
 ) {
   const { sdk, document } = input;
   const content = {
@@ -70,6 +71,7 @@ async function openContinuityDocument(
     const receipt = await sdk.documents.createSeeded({
       ...content,
       onRecoveredStaleTarget: input.onRecoveredStaleTarget,
+      seedTag,
       initialAttachments: attachments.map(({ intent }) => intent),
       containerId: input.containerId,
       documentId,
@@ -98,7 +100,15 @@ export async function writeContinuityDocument(input: SeedWriteInput) {
     document.attachments.map((_, index) => prepareAttachment(input, index)),
   );
   assertCurrent();
-  const store = await openContinuityDocument(input, attachments, assertCurrent);
+  const seedTag = seedDigest(
+    JSON.stringify([document, attachments.map(({ intent }) => intent)]),
+  );
+  const store = await openContinuityDocument(
+    input,
+    attachments,
+    assertCurrent,
+    seedTag,
+  );
   if (store === "purged") return store;
   if (!(await store.ensureInitialized()))
     throw new Error(`Could not open ${document.key}`);
@@ -112,7 +122,13 @@ export async function writeContinuityDocument(input: SeedWriteInput) {
     throw new Error(`Invalid seed content for ${document.key}`);
   }
   if (input.destination === "account") {
-    await uploadVacantAttachments(input, store, attachments, stillCurrent);
+    await uploadVacantAttachments(
+      input,
+      store,
+      attachments,
+      stillCurrent,
+      seedTag,
+    );
   } else {
     for (const { bytes, intent } of attachments) {
       assertCurrent();

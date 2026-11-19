@@ -59,7 +59,8 @@ the web app in that environment and sign in with the same identity.
 The command writes the pinned screenshot dataset into your personal
 organization. Contacts and avatars appear in Contacts. Notes, photos, ID
 documents, equipment, and health trackers sync under your root folder.
-The import commits each document separately. If it stops partway, run the
+The import commits each document with an encrypted fingerprint of its fixture.
+If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,
 preserves moved documents and edits, and resumes missing uploads when the
 recorded digest and byte length still match. Edited names and MIME types are preserved.

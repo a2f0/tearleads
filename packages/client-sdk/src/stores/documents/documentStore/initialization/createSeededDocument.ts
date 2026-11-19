@@ -8,6 +8,7 @@ import {
   type DocumentAttachment,
   getDocumentAttachments,
   sameDocumentAttachments,
+  writeSeedTag,
 } from "../../../../data/documents/documentContent";
 import type { StoredDocumentKind } from "../../../../data/documents/documentKinds";
 import {
@@ -40,11 +41,41 @@ export interface SeededDocumentInput
     "initialRows" | "initialStructuredFields"
   > {
   readonly initialAttachments?: readonly DocumentAttachment[] | undefined;
+  /** Stamped inside the same encrypted update as the validated fixture content. */
+  readonly seedTag?: string | undefined;
   readonly onRecoveredStaleTarget?: (() => void) | undefined;
   readonly containerId: string;
   readonly documentId: string;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
   readonly initialText?: string | undefined;
+}
+
+function assertProjectedSeedContent(
+  doc: Awaited<ReturnType<typeof createFreshPeerStoredDocument>>,
+  input: SeededDocumentInput,
+  projectors: DocumentsRuntime["infra"]["documentProjectors"],
+) {
+  if (input.initialRows?.length) {
+    const rows = listDocumentRows(doc);
+    if (
+      input.initialRows.some((row, index) =>
+        Object.entries(row).some(
+          ([key, value]) => rows[index]?.fields[key] !== value,
+        ),
+      )
+    )
+      throw new Error("Invalid initial document row fields.");
+  }
+  const projected = readStoredDocumentState(doc, projectors);
+  const fields = Object.entries(input.initialStructuredFields ?? {});
+  if (
+    projected.fieldValidationIssues.length ||
+    fields.some(
+      ([key, value]) =>
+        value !== undefined && projected.structuredFields[key] !== value,
+    )
+  )
+    throw new Error("Invalid initial document fields.");
 }
 
 async function createSeedUpdate(
@@ -76,27 +107,8 @@ async function createSeedUpdate(
     )
   )
     throw new Error("Invalid or duplicate initial attachment metadata.");
-  if (input.initialRows?.length) {
-    const rows = listDocumentRows(doc);
-    if (
-      input.initialRows.some((row, index) =>
-        Object.entries(row).some(
-          ([key, value]) => rows[index]?.fields[key] !== value,
-        ),
-      )
-    )
-      throw new Error("Invalid initial document row fields.");
-  }
-  const projected = readStoredDocumentState(doc, projectors);
-  const fields = Object.entries(input.initialStructuredFields ?? {});
-  if (
-    projected.fieldValidationIssues.length ||
-    fields.some(
-      ([key, value]) =>
-        value !== undefined && projected.structuredFields[key] !== value,
-    )
-  )
-    throw new Error("Invalid initial document fields.");
+  assertProjectedSeedContent(doc, input, projectors);
+  if (input.seedTag && doc.opCount() > 0) writeSeedTag(doc, input.seedTag);
   const update = createPendingUpdateFields(exportAllUpdates(doc));
   if (!update) throw new Error("Seeded creation requires initial content.");
   return update;

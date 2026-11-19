@@ -35,37 +35,23 @@ interface DocumentCreateOptions {
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
 }
 
-export type CreateRemoteDocumentRequest = DocumentCreateOptions &
-  (
-    | {
-        requireSeededCreate: true;
-        seedUpdate: PendingUpdateRecord;
-        deferredSeedUpdate?: undefined;
-      }
-    | {
-        requireSeededCreate?: false | undefined;
-        /**
-         * The queued row holding the new document's whole content (see
-         * `documentCreateSeedCandidate`). The create commits it as its seed, and the
-         * caller settles the row from the response instead of syncing it.
-         */
-        seedUpdate?: PendingUpdateRecord | undefined;
-        deferredSeedUpdate?: undefined;
-      }
-    | {
-        requireSeededCreate?: false | undefined;
-        seedUpdate?: undefined;
-        /**
-         * The queued row holding the new document's whole content when its first
-         * attachment must bind before it: the create does not send it but returns
-         * it signed as `deferredSeed`, for that bind to carry.
-         */
-        deferredSeedUpdate?: PendingUpdateRecord | undefined;
-      }
-  );
+/** Existing ordinary create options, including a queued birth or a deferred attachment birth. */
+export interface CreateRemoteDocumentRequest extends DocumentCreateOptions {
+  requireSeededCreate?: false | undefined;
+  seedUpdate?: PendingUpdateRecord | undefined;
+  deferredSeedUpdate?: PendingUpdateRecord | undefined;
+}
+
+export type DocumentSubmissionRequest =
+  | CreateRemoteDocumentRequest
+  | (DocumentCreateOptions & {
+      requireSeededCreate: true;
+      seedUpdate: PendingUpdateRecord;
+      deferredSeedUpdate?: undefined;
+    });
 
 /** One create call's request joined with the service's collaborators. */
-export type RemoteDocumentCreateInput = CreateRemoteDocumentRequest & {
+export type RemoteDocumentCreateInput = DocumentSubmissionRequest & {
   apiClient: DocumentCreateApi;
   execSql: ExecSql;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;

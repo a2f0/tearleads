@@ -189,3 +189,27 @@ testApiClient(
     expect(errors).toEqual([]);
   },
 );
+
+testApiClient(
+  "renewal cannot replay a write after its organization retires",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("original");
+    let current = true;
+    let attempts = 0;
+    client.setOnSessionExpired(() => {
+      client.setAuthToken("renewed");
+      current = false;
+      return true;
+    });
+    server.use(
+      http.delete(path, () => (++attempts === 1 ? expired() : deleted())),
+    );
+    const result = await client.deleteContainerResult("target", {
+      stillCurrent: () => current,
+      reportErrors: false,
+    });
+    expect(result).toMatchObject({ ok: false, kind: "cancelled" });
+    expect(attempts).toBe(1);
+  },
+);
