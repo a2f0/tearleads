@@ -28,6 +28,8 @@ export function ExplorerContextMenuLayerHarness(params: {
   canCreateStructuredDocumentContextMenuNode?: boolean;
   canDeleteSelectedDocument?: boolean;
   canDownloadSelectedDocument?: boolean;
+  canEditContextMenuContact?: boolean;
+  editContact?: (localId: string, containerId: string) => void;
   canEmptyTrashContextMenuNode?: boolean;
   canMoveToTrashContextMenuNode?: boolean;
   canPurgeContextMenuNode?: boolean;
@@ -83,8 +85,8 @@ export function ExplorerContextMenuLayerHarness(params: {
   return (
     <IdentityLinkResolverContext.Provider value={resolver}>
       <ExplorerContextMenuLayer
-        canEditContextMenuContact={false}
-        editContact={() => {}}
+        canEditContextMenuContact={params.canEditContextMenuContact ?? false}
+        editContact={params.editContact ?? (() => {})}
         canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
         canDownloadSelectedDocument={
           params.canDownloadSelectedDocument ?? false

@@ -1,8 +1,12 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  ContainerDocumentQueries,
+  ContainerNode,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useContainerViewResource } from "../../../document-types/container-views/shared/useContainerViewResource";
 import { isFileBackedDocumentKind } from "../../../document-types/registry";
-import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
 import {
@@ -22,16 +26,41 @@ interface ExplorerContextMenuDocumentState {
   canPurgeContextMenuDocument: boolean;
 }
 
+type MenuDocumentQueries = Pick<
+  ContainerDocumentQueries,
+  "loadDocumentSummary"
+>;
+
+// Query the active menu row in its own database scope. This lookup can finish
+// after the menu closes or the account changes, so it never publishes to the
+// Explorer selection's shared summary cache.
+function useMenuDocumentSummary(
+  queries: MenuDocumentQueries,
+  localId: string | null,
+  revision: number,
+) {
+  const load = useCallback(
+    () =>
+      localId === null
+        ? Promise.resolve(null)
+        : queries.loadDocumentSummary(localId, { requireHydrated: true }),
+    [queries, localId, revision],
+  );
+  const resource = useContainerViewResource(load);
+  return resource.status === "ready" ? resource.value : null;
+}
+
 // The detail-pane row context menu opens without selecting (selecting would
 // navigate the pane away), so the document menu's enable/disable flags and
 // link/move target options are derived from the right-clicked target document
 // here rather than from the global selection.
 export function useExplorerContextMenuDocumentState(params: {
-  appData: RuntimeSnapshot;
+  appData: Parameters<typeof getSelectedDocumentMutationState>[0]["appData"];
   canResolveTrashContainer: boolean;
   contextMenu: ExplorerContextMenuState | null;
   documentSummaries: ReadonlyArray<DocumentSummary>;
-  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  documentQueries: MenuDocumentQueries;
+  documentListRevision: number;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
@@ -44,7 +73,8 @@ export function useExplorerContextMenuDocumentState(params: {
     contextMenu,
     documentSummaries,
     linkedContainerIdsByDocumentId,
-    loadDocumentSummary,
+    documentQueries,
+    documentListRevision,
     nodes,
     rulesContext,
     trashContainerId,
@@ -59,16 +89,11 @@ export function useExplorerContextMenuDocumentState(params: {
         : getDocumentByLocalId(documentSummaries, targetLocalId),
     [documentSummaries, targetLocalId],
   );
-  // A row in the virtualized listing can open its menu before its summary
-  // has been loaded by a document selection.
-  const { logError } = appData.util;
-  useEffect(() => {
-    if (targetLocalId && !targetDocument) {
-      void loadDocumentSummary(targetLocalId).catch((error: unknown) =>
-        logError("Failed to load the Explorer menu document", error),
-      );
-    }
-  }, [loadDocumentSummary, logError, targetDocument, targetLocalId]);
+  const menuSummary = useMenuDocumentSummary(
+    documentQueries,
+    appData.infra.dbStatus === "ready" ? targetLocalId : null,
+    documentListRevision,
+  );
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
     useDocumentTargetOptions({
       document: targetDocument,
@@ -108,9 +133,9 @@ export function useExplorerContextMenuDocumentState(params: {
   return {
     canEditContextMenuContact:
       contextMenu?.id.kind === "document" &&
-      appData.infra.dbStatus === "ready" &&
-      targetDocument?.documentKind === "contact" &&
-      canWriteDocumentSummary(targetDocument) &&
+      canResolveTrashContainer &&
+      menuSummary?.documentKind === "contact" &&
+      canWriteDocumentSummary(menuSummary) &&
       !isContainerUnderTrash(nodes, contextMenu.id.containerId, {
         currentOrganizationId: rulesContext.currentOrganizationId,
         trashSystemSlot,
