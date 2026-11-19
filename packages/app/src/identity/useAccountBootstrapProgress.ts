@@ -27,6 +27,7 @@ function useAccountBootstrapPhase(): AccountBootstrapPhase {
   const autoProvisioning = useAutoProvisioningStatus();
 
   return resolveAccountBootstrapPhase({
+    onboardingPhase: autoProvisioning.onboarding?.state.status,
     awaitingAccountName: autoProvisioning.accountNaming.status === "awaiting",
     autoGenerateIdentity: features.autoGenerateIdentity,
     autoProvisioningEnabled: autoProvisioning.enabled,
@@ -36,8 +37,10 @@ function useAccountBootstrapPhase(): AccountBootstrapPhase {
     hasSigningKey: identity.signingKeyPair !== null,
     identityDestroyed: identity.identityDestroyed,
     identityRestored:
-      identity.signingFingerprint !== null &&
-      identity.localIdentityRestoredFingerprint === identity.signingFingerprint,
+      autoProvisioning.recovered === true ||
+      (identity.signingFingerprint !== null &&
+        identity.localIdentityRestoredFingerprint ===
+          identity.signingFingerprint),
     identityTransitionInFlight: identity.identityTransitionInFlight,
     isAuthenticated: session.isAuthenticated,
     isLocked,

@@ -1,14 +1,10 @@
 import type { PersistedAccountNaming } from "../providers/identity/accountNamingPersistence";
 
 /**
- * Naming the identity the boot-time autopilot generated. Its first
- * registration waits for the user to say what to call them; the name titles
- * the personal organization and becomes the self contact's nickname.
- *
- * Only an identity the autopilot generated on this device is prompted for. An
- * imported or restored-from-backup identity may already have an account, so
- * it registers (or signs in) under the SDK's default organization name.
- * `awaiting` and `named` survive a restart through
+ * The name given before key generation titles the personal organization and
+ * becomes the self contact's nickname. It is sealed with the new fingerprint
+ * before the identity is stored. Existing pending prompts can still be
+ * answered after an upgrade. Both states survive a restart through
  * {@link PersistedAccountNaming} until the account exists and the self
  * contact's nickname is saved.
  *
@@ -36,7 +32,6 @@ export type AccountNamingState =
     };
 
 export type AccountNamingEvent =
-  | { readonly fingerprint: string; readonly type: "identity-generated" }
   | {
       readonly fingerprint: string;
       readonly name: string;
@@ -136,8 +131,6 @@ export function transitionAccountNaming(
   event: AccountNamingEvent,
 ): AccountNamingState {
   switch (event.type) {
-    case "identity-generated":
-      return { fingerprint: event.fingerprint, status: "awaiting" };
     case "name-submitted": {
       const name = normalizeAccountName(event.name);
       return state.status === "awaiting" &&

@@ -4,6 +4,8 @@ import {
   type AccountNamingState,
 } from "./accountNamingMachine";
 
+import type { IdentityOnboarding } from "./useIdentityOnboarding";
+
 /**
  * Where one automatic provisioning step (key generation, or register-and-login)
  * stands. "failed" carries the reason so a signed-out surface can say why
@@ -15,6 +17,9 @@ export type AutoProvisioningStep =
   | { readonly status: "failed"; readonly message: string };
 
 export interface AutoProvisioningStatus {
+  /** The current identity was recovered from a passphrase on this launch. */
+  readonly recovered?: boolean;
+  readonly onboarding?: IdentityOnboarding | null;
   /** Naming of the current identity's first registration. */
   readonly accountNaming: AccountNamingState;
   /**

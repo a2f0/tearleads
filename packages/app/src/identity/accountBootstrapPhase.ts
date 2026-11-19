@@ -1,5 +1,6 @@
 import type { SystemBootstrapStatus } from "../providers/system-bootstrap/systemBootstrapMachine";
 import type { AutoProvisioningStep } from "./autoProvisioningStatus";
+import type { IdentityOnboardingState } from "./identityOnboardingMachine";
 
 /**
  * Where the current account stands on its way to a signed-in session.
@@ -7,7 +8,10 @@ import type { AutoProvisioningStep } from "./autoProvisioningStatus";
  * - `signed-in`: authenticated.
  * - `restoring-session`: a stored identity or session is still loading.
  * - `creating-identity`: the autopilot is deriving a new identity key pair.
- * - `naming-account`: a new identity's registration waits for the user's name.
+ * - `choosing-identity`: a fresh device offers creation or recovery.
+ * - `naming-account`: creation or a previously pending registration awaits a name.
+ * - `entering-passphrase`: the user can paste their recovery passphrase.
+ * - `restoring-identity`: the app is importing the recovered keys.
  * - `creating-account`: the autopilot is registering a new identity.
  * - `signing-in`: the autopilot is logging a restored identity back in.
  * - `signed-out`: nothing is in flight; the user has to act.
@@ -15,13 +19,13 @@ import type { AutoProvisioningStep } from "./autoProvisioningStatus";
 export type AccountBootstrapPhase =
   | "signed-in"
   | "restoring-session"
-  | "creating-identity"
-  | "naming-account"
+  | IdentityOnboardingState["status"]
   | "creating-account"
   | "signing-in"
   | "signed-out";
 
 export interface AccountBootstrapInput {
+  readonly onboardingPhase?: IdentityOnboardingState["status"] | undefined;
   /** The autopilot holds this identity's registration for the user's name. */
   readonly awaitingAccountName: boolean;
   readonly autoGenerateIdentity: boolean;
@@ -63,11 +67,11 @@ export function resolveAccountBootstrapPhase(
   if (input.isLocked || input.databaseFailed) {
     return "signed-out";
   }
+  if (input.onboardingPhase) return input.onboardingPhase;
   if (input.identityTransitionInFlight || !input.localIdentityRestoreSettled) {
     return "restoring-session";
   }
-  // The key lands before the autopilot's generation settles and learns whether
-  // the new identity needs a name, so the identity is still being created.
+  // Keys become visible before generation finishes storing the identity.
   if (input.autoProvisioningEnabled && input.generation === "running") {
     return "creating-identity";
   }
@@ -129,6 +133,23 @@ const ACCOUNT_BOOTSTRAP_COPY: {
     readonly phase: Phase;
   };
 } = {
+  "choosing-identity": {
+    title: "Set up your identity",
+    description:
+      "Create an identity or restore one with your recovery passphrase.",
+    phase: "choosing-identity",
+  },
+  "entering-passphrase": {
+    title: "Restore your identity",
+    description:
+      "Paste your recovery passphrase to use this identity on this device.",
+    phase: "entering-passphrase",
+  },
+  "restoring-identity": {
+    title: "Restoring your identity",
+    description: "Recovering your keys from your passphrase.",
+    phase: "restoring-identity",
+  },
   "creating-account": {
     description:
       "Registering your identity and setting up your personal organization.",

@@ -14,19 +14,20 @@ function run(events: readonly AccountNamingEvent[]): AccountNamingState {
   return events.reduce(transitionAccountNaming, ACCOUNT_NAMING_IDLE);
 }
 
-const generated = {
+const legacyPending = {
   fingerprint: "fp-new",
-  type: "identity-generated",
+  naming: { status: "awaiting" },
+  type: "restored",
 } as const;
 
-test("a generated identity waits for a name, then carries the trimmed answer", () => {
-  expect(run([generated])).toEqual({
+test("a restored pending identity waits for a name, then carries the trimmed answer", () => {
+  expect(run([legacyPending])).toEqual({
     fingerprint: "fp-new",
     status: "awaiting",
   });
   expect(
     run([
-      generated,
+      legacyPending,
       { fingerprint: "fp-new", name: "  Bob   Smith ", type: "name-submitted" },
     ]),
   ).toEqual({
@@ -39,7 +40,7 @@ test("a generated identity waits for a name, then carries the trimmed answer", (
 });
 
 test("a blank answer or one for another identity leaves the prompt open", () => {
-  const awaiting = run([generated]);
+  const awaiting = run([legacyPending]);
   expect(
     transitionAccountNaming(awaiting, {
       fingerprint: "fp-new",
@@ -58,7 +59,7 @@ test("a blank answer or one for another identity leaves the prompt open", () => 
 
 test("a name is given once; a later answer cannot rename the account", () => {
   const named = run([
-    generated,
+    legacyPending,
     { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
   ]);
   expect(
@@ -72,7 +73,7 @@ test("a name is given once; a later answer cannot rename the account", () => {
 
 test("the self contact is marked named only for the named identity", () => {
   const named = run([
-    generated,
+    legacyPending,
     { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
   ]);
   expect(
@@ -88,7 +89,7 @@ test("the self contact is marked named only for the named identity", () => {
     }),
   ).toMatchObject({ contactNamed: true, name: "Bob" });
   expect(
-    transitionAccountNaming(run([generated]), {
+    transitionAccountNaming(run([legacyPending]), {
       fingerprint: "fp-new",
       type: "contact-named",
     }),
@@ -96,7 +97,7 @@ test("the self contact is marked named only for the named identity", () => {
 });
 
 test("switching to another identity leaves nothing to name", () => {
-  const awaiting = run([generated]);
+  const awaiting = run([legacyPending]);
   expect(accountNamingFor(awaiting, "fp-new")).toBe(awaiting);
   expect(accountNamingFor(awaiting, "fp-restored")).toBe(ACCOUNT_NAMING_IDLE);
   expect(accountNamingFor(awaiting, null)).toBe(ACCOUNT_NAMING_IDLE);
@@ -119,7 +120,7 @@ test("a sealed naming fills in a restarted identity, never one this page named",
     status: "named",
   });
   const named = run([
-    generated,
+    legacyPending,
     { fingerprint: "fp-new", name: "Alice", type: "name-submitted" },
   ]);
   expect(
@@ -133,7 +134,7 @@ test("a sealed naming fills in a restarted identity, never one this page named",
 
 test("the sealed name outlives registration until the contact's nickname is saved", () => {
   const named = run([
-    generated,
+    legacyPending,
     { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
   ]);
   expect(sealedAccountNaming(named, false)).toEqual({
@@ -151,15 +152,15 @@ test("the sealed name outlives registration until the contact's nickname is save
 
 test("an owed name is on record already, and dropped once an account exists", () => {
   // Sealed before its identity was stored; never rewritten from the page.
-  expect(sealedAccountNaming(run([generated]), false)).toBeUndefined();
-  expect(sealedAccountNaming(run([generated]), true)).toBeNull();
+  expect(sealedAccountNaming(run([legacyPending]), false)).toBeUndefined();
+  expect(sealedAccountNaming(run([legacyPending]), true)).toBeNull();
   expect(sealedAccountNaming(ACCOUNT_NAMING_IDLE, false)).toBeUndefined();
   expect(sealedAccountNaming(ACCOUNT_NAMING_IDLE, true)).toBeNull();
 });
 
 test("a given name holds until stored, and one that could not be is asked again", () => {
   const named = run([
-    generated,
+    legacyPending,
     { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
   ]);
   const sealed = transitionAccountNaming(named, {
@@ -200,7 +201,7 @@ test("a sealed record that cannot be read back asks for the name again", () => {
   });
   // A name this page was already given outranks the failed read.
   const named = run([
-    generated,
+    legacyPending,
     { fingerprint: "fp-new", name: "Bob", type: "name-submitted" },
   ]);
   expect(

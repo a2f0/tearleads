@@ -11,6 +11,19 @@ import {
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 } from "./paneTestUtils";
 
+export async function chooseNewIdentity(container: HTMLElement) {
+  await waitFor(
+    () => {
+      const [create] = within(container).getAllByRole("button", {
+        name: "Create new identity",
+      });
+      invariant(create, "Expected the first-launch identity choice");
+      fireEvent.click(create);
+    },
+    { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+  );
+}
+
 /**
  * Answers the "What should we call you?" prompt that holds an autopilot
  * identity's first registration, once it shows anywhere in `container`.

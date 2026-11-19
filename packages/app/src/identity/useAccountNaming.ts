@@ -29,7 +29,7 @@ export interface AccountNaming {
    */
   readonly settled: boolean;
   readonly contactNamed: (fingerprint: string) => void;
-  readonly identityGenerated: (fingerprint: string) => void;
+  readonly identityNamed: (fingerprint: string, name: string) => void;
   readonly submit: (name: string) => void;
 }
 
@@ -174,8 +174,12 @@ export function useAccountNaming(): AccountNaming {
     dispatch,
   );
 
-  const identityGenerated = useCallback((fingerprint: string) => {
-    dispatch({ fingerprint, type: "identity-generated" });
+  const identityNamed = useCallback((fingerprint: string, name: string) => {
+    dispatch({
+      fingerprint,
+      naming: { name, status: "named" },
+      type: "restored",
+    });
   }, []);
   const contactNamed = useCallback((fingerprint: string) => {
     dispatch({ fingerprint, type: "contact-named" });
@@ -193,5 +197,5 @@ export function useAccountNaming(): AccountNaming {
     [signingFingerprint],
   );
 
-  return { contactNamed, identityGenerated, settled, state, submit };
+  return { contactNamed, identityNamed, settled, state, submit };
 }

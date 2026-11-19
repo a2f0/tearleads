@@ -2,6 +2,7 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { type RenderResult, waitFor, within } from "@testing-library/react";
 import {
   answerAccountNamePrompt,
+  chooseNewIdentity,
   sealedAccountNamingKey,
   waitForPaneKey,
 } from "../../test/helpers/accountNamePrompt";
@@ -10,7 +11,10 @@ import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../test/helpers/msw/server";
-import { renderLifecyclePane } from "../../test/helpers/paneLifecycleTestUtils";
+import {
+  renderLifecyclePane,
+  unmountLifecyclePane,
+} from "../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
   createSharedMemoryLocalKeyringFactory,
@@ -21,10 +25,7 @@ import {
   waitForPaneRuntimeToSettle,
   waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
-import {
-  ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
-  ACCOUNT_NAME_UNREADABLE_MESSAGE,
-} from "./accountNamingMachine";
+import { ACCOUNT_NAME_UNREADABLE_MESSAGE } from "./accountNamingMachine";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
@@ -108,10 +109,9 @@ test(
     const storage = refuseNamingRecords(() => refusing);
     const pane = renderLifecyclePane(hostConfig(namespace));
     try {
-      await waitForPersistedPaneLocalIdentity(namespace);
-      await waitForPaneKey(pane.view);
       const register = spyOn(pane.sdk().session, "registerIdentity");
       const identityManager = await openIdentityManagerFromPane(pane.view);
+      await chooseNewIdentity(identityManager);
       refusing = true;
       await answerAccountNamePrompt(
         identityManager,
@@ -119,7 +119,7 @@ test(
         PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
       );
       await within(pane.view.container).findAllByText(
-        ACCOUNT_NAME_SEAL_FAILED_MESSAGE,
+        "Could not create your identity. Try again.",
         {},
         { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
       );
@@ -137,7 +137,7 @@ test(
 );
 
 test(
-  "an identity whose prompt could not be stored is not kept, so a restart asks",
+  "an identity whose name could not be stored is not kept, so a restart asks",
   async () => {
     useTestApiAppHandlers();
     const config = hostConfig(`test-account-name-${crypto.randomUUID()}`);
@@ -145,6 +145,9 @@ test(
     const storage = refuseNamingRecords(() => true);
     const first = renderLifecyclePane(config);
     try {
+      const manager = await openIdentityManagerFromPane(first.view);
+      await chooseNewIdentity(manager);
+      await answerAccountNamePrompt(manager);
       await waitFor(() => expect(storage.refusals()).toBeGreaterThan(0), {
         timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
       });
@@ -158,13 +161,11 @@ test(
     } finally {
       storage.restore();
     }
-    first.view.unmount();
+    await unmountLifecyclePane(first);
 
     const second = renderLifecyclePane(config);
     const register = spyOn(second.sdk().session, "registerIdentity");
-    await waitForPersistedPaneLocalIdentity(namespace);
-    await waitForPaneKey(second.view);
-    await openIdentityManagerFromPane(second.view);
+    await chooseNewIdentity(second.pane);
     await within(second.view.container).findAllByRole("textbox", NAME_PROMPT, {
       timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
     });
@@ -183,14 +184,14 @@ test(
     const config = hostConfig(`test-account-name-${crypto.randomUUID()}`);
     const namespace = config.localIdentityNamespace ?? "";
     const first = renderLifecyclePane(config);
+    spyOn(first.sdk().session, "registerIdentity").mockResolvedValue(null);
+    const manager = await openIdentityManagerFromPane(first.view);
+    await chooseNewIdentity(manager);
+    await answerAccountNamePrompt(manager);
     await waitForPersistedPaneLocalIdentity(namespace);
     await waitForPaneKey(first.view);
-    await openIdentityManagerFromPane(first.view);
-    await within(first.view.container).findAllByRole("textbox", NAME_PROMPT, {
-      timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
-    });
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
-    first.view.unmount();
+    await unmountLifecyclePane(first);
 
     const key = sealedAccountNamingKey(namespace);
     if (!key) throw new Error("Expected the sealed prompt");

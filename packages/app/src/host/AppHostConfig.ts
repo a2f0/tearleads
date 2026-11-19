@@ -106,11 +106,9 @@ export interface AppHostFeatureFlags {
   readonly explorerPeerSharing: boolean;
   readonly panePeerUserIds: boolean;
   /**
-   * Ask "What should we call you?" before the first registration of an
-   * identity the autopilot generated, and use the answer for the personal
-   * org ("Bob's Org"), the account's own roster entry, and the self contact's
-   * nickname. Registration waits for the answer, and every mini-app behind
-   * the keyring gate shows the prompt meanwhile. Only applies with
+   * Offer creation or passphrase recovery on first launch. Creation asks
+   * "What should we call you?" before deriving keys and uses the answer for
+   * the personal org, roster entry, and self contact. Only applies with
    * {@link autoGenerateIdentity} and {@link autoRegisterIdentity}; the demo
    * names its peers itself.
    */

@@ -2,8 +2,8 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import {
   answerAccountNamePrompt,
+  chooseNewIdentity,
   sealedAccountNamingRecord as sealedAccountNaming,
-  waitForPaneKey,
 } from "../../test/helpers/accountNamePrompt";
 import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
 import {
@@ -40,17 +40,18 @@ test(
         promptAccountName: true,
       }),
     );
-    await waitForPaneKey(view);
+    const manager = await openIdentityManagerFromPane(view);
+    await chooseNewIdentity(manager);
     const register = spyOn(sdk().session, "registerIdentity");
 
-    // System bootstrap settles with the key in place, yet nothing registers
-    // until the user says what to call them.
+    // Naming precedes derivation as well as registration.
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
+    expect(sdk().identity.signingKeyPair).toBeNull();
     expect(register).not.toHaveBeenCalled();
     expect(getPaneStatusText(view)).toMatch(/userId:\s*none/);
 
     // Identity Manager stays open behind the gate and carries the prompt.
-    await answerAccountNamePrompt(await openIdentityManagerFromPane(view));
+    await answerAccountNamePrompt(manager);
     await waitFor(
       () => {
         expect(getPaneStatusText(view)).not.toMatch(/userId:\s*none/);
@@ -115,14 +116,12 @@ test(
       promptAccountName: true,
     }).withOverrides({ createSQLiteRuntime: storage.createRuntime });
 
-    // First launch: closed before answering. The identity is stored only
-    // after its pending prompt, so no restart can find one without the other.
+    // Closing the name form leaves the device keyless.
     const first = renderLifecyclePane(hostConfig);
     const firstRegister = spyOn(first.sdk().session, "registerIdentity");
-    await waitForPersistedPaneLocalIdentity(namespace);
-    expect(sealedAccountNaming(namespace)).not.toBeNull();
-    await waitForPaneKey(first.view);
-    await openIdentityManagerFromPane(first.view);
+    await chooseNewIdentity(await openIdentityManagerFromPane(first.view));
+    expect(sealedAccountNaming(namespace)).toBeNull();
+    expect(first.sdk().identity.signingKeyPair).toBeNull();
     await within(first.view.container).findByRole(
       "textbox",
       { name: "What should we call you?" },
@@ -142,12 +141,14 @@ test(
       "registerIdentity",
     ).mockReturnValue(request.promise);
     const awaitingRecord = sealedAccountNaming(namespace);
-    await waitForPaneKey(second.view);
+    const manager = await openIdentityManagerFromPane(second.view);
+    await chooseNewIdentity(manager);
     await answerAccountNamePrompt(
-      await openIdentityManagerFromPane(second.view),
+      manager,
       "Bob",
       PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
     );
+    await waitForPersistedPaneLocalIdentity(namespace);
     await waitFor(
       () => {
         expect(offline).toHaveBeenCalledTimes(1);
