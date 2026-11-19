@@ -18,7 +18,7 @@ test("a linked row uses the clicked folder's permissions and Trash state in a sh
   const row: DocumentSummary = {
     id: "local-note",
     documentId: "note",
-    containerId: "trash",
+    containerId: "read-only",
     title: "Shared note",
     updatedAt: "2026-11-19T00:00:00Z",
   };
@@ -33,6 +33,7 @@ test("a linked row uses the clicked folder's permissions and Trash state in a sh
   };
   const nodes = [
     folder,
+    { ...folder, id: "another-folder" },
     { ...folder, id: "trash", systemSlot: trashSlot },
     { ...folder, id: "read-only", effectiveAccessLevel: "read" as const },
   ];
@@ -91,6 +92,8 @@ test("a linked row uses the clicked folder's permissions and Trash state in a sh
     expect(view.result.current.canDeleteContextMenuDocument).toBe(true),
   );
   expect(view.result.current.canPurgeContextMenuDocument).toBe(false);
+  expect(view.result.current.canMoveContextMenuDocument).toBe(false);
+  expect(view.result.current.canLinkContextMenuDocument).toBe(false);
   view.rerender(menu("read-only"));
   await waitFor(() => expect(queried).toContain("read-only"));
   expect(view.result.current.canDeleteContextMenuDocument).toBe(false);

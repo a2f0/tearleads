@@ -100,9 +100,13 @@ function useContextMenuDocumentSummary(input: {
       current = false;
     };
   }, [request, mergeDocumentSummary, logError]);
-  return request && loaded?.request === request
-    ? (loaded.summary ?? undefined)
-    : undefined;
+  return {
+    home: cached,
+    placement:
+      request && loaded?.request === request
+        ? (loaded.summary ?? undefined)
+        : undefined,
+  };
 }
 
 // The detail-pane row context menu opens without selecting (selecting would
@@ -134,7 +138,7 @@ export function useExplorerContextMenuDocumentState(params: {
     trashContainerId,
     trashSystemSlot,
   } = params;
-  const targetDocument = useContextMenuDocumentSummary({
+  const { home, placement } = useContextMenuDocumentSummary({
     target: contextMenu?.id,
     documentListRevision: params.documentListRevision,
     currentOrganizationId: rulesContext.currentOrganizationId ?? null,
@@ -145,48 +149,42 @@ export function useExplorerContextMenuDocumentState(params: {
   });
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
     useDocumentTargetOptions({
-      document: targetDocument,
+      document: home,
       linkedContainerIdsByDocumentId,
       nodes,
       rulesContext,
     });
-  const mutationState = useMemo(
-    () =>
-      getSelectedDocumentMutationState({
-        appData,
-        canResolveTrashContainer,
-        nodes,
-        rulesContext,
-        selectedDocument: targetDocument,
-        selectedDocumentLinkTargetOptions: linkTargetOptions,
-        selectedDocumentLinkedContainerIds: linkedContainerIds,
-        selectedDocumentMoveTargetOptions: moveTargetOptions,
-        trashContainerId,
-        trashSystemSlot,
-      }),
-    [
-      appData,
-      canResolveTrashContainer,
-      linkTargetOptions,
-      linkedContainerIds,
-      moveTargetOptions,
-      nodes,
-      rulesContext,
-      targetDocument,
-      trashContainerId,
-      trashSystemSlot,
-    ],
-  );
+  const options = {
+    appData,
+    canResolveTrashContainer,
+    nodes,
+    rulesContext,
+    selectedDocumentLinkTargetOptions: linkTargetOptions,
+    selectedDocumentLinkedContainerIds: linkedContainerIds,
+    selectedDocumentMoveTargetOptions: moveTargetOptions,
+    trashContainerId,
+    trashSystemSlot,
+  };
+  // The Link and Move dialogs operate on the document's home placement.
+  // Trash and purge act directly on the clicked folder link.
+  const homeActions = getSelectedDocumentMutationState({
+    ...options,
+    selectedDocument: home,
+  });
+  const placementActions = getSelectedDocumentMutationState({
+    ...options,
+    selectedDocument: placement,
+  });
 
   return {
-    canDeleteContextMenuDocument: mutationState.canDeleteSelectedDocument,
+    canDeleteContextMenuDocument: placementActions.canDeleteSelectedDocument,
     // Download only needs the file's local bytes, so it is gated on a ready
     // database and a file-backed kind — not on write access or being online.
     canDownloadContextMenuDocument:
       appData.infra.dbStatus === "ready" &&
-      isFileBackedDocumentKind(targetDocument?.documentKind ?? null),
-    canLinkContextMenuDocument: mutationState.canLinkSelectedDocument,
-    canMoveContextMenuDocument: mutationState.canMoveSelectedDocument,
-    canPurgeContextMenuDocument: mutationState.canPurgeSelectedDocument,
+      isFileBackedDocumentKind(home?.documentKind ?? null),
+    canLinkContextMenuDocument: homeActions.canLinkSelectedDocument,
+    canMoveContextMenuDocument: homeActions.canMoveSelectedDocument,
+    canPurgeContextMenuDocument: placementActions.canPurgeSelectedDocument,
   };
 }
