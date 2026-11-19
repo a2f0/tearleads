@@ -55,10 +55,7 @@ test("a page in the back/forward cache is evicted when a later page announces it
 
   // Leave for a same-origin document that runs no app code, so nothing but the
   // notice can evict the cached page.
-  await page.evaluate(() => {
-    location.assign("/worker.js");
-  });
-  await page.waitForURL("**/worker.js");
+  await page.goto("/worker.js");
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Page.enable");
   const notRestoredReasons: string[] = [];
