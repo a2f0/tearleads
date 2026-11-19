@@ -235,6 +235,7 @@ async function uploadMultipartPartBytes(input: {
     { signal: input.signal },
   );
   input.signal.throwIfAborted();
+  input.assertCurrent?.();
   if (
     uploaded &&
     (uploaded.stageId !== input.stageId ||
@@ -386,6 +387,7 @@ async function uploadResolvedMultipartStage(
     partSize: input.encryption.chunkSize,
     stageId: status.stageId,
   });
+  input.assertCurrent?.();
   if (status.completed) {
     input.onMultipartProgress?.({
       bytesTotal: input.encryption.byteLength,

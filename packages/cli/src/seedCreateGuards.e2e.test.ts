@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { RemoteDocumentService } from "@tearleads/client-sdk";
 import {
+  APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   ensureContactsContainer,
   writeContinuityDocument,
 } from "app/continuity";
@@ -15,6 +16,7 @@ test.each([
   "oversized birth",
   "invalid attachment metadata",
   "rows on a note",
+  "unknown contact field",
   "switch while reading fixture",
 ] as const)(
   "%s prevents seeded document submission",
@@ -51,7 +53,11 @@ test.each([
         await registerCliTestAccount(apiBaseUrl);
       if (!rootContainerId) throw new Error("Missing root");
       await withSession(
-        { apiBaseUrl, recoveryKey: seedPhrase },
+        {
+          apiBaseUrl,
+          recoveryKey: seedPhrase,
+          documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+        },
         async (session) => {
           const { sdk } = session;
           await loadFolderTree(session);
@@ -68,6 +74,19 @@ test.each([
               });
               expect(active?.()).toBe(false);
             };
+          }
+          if (scenario === "unknown contact field") {
+            watch = true;
+            await expect(
+              sdk.documents.createSeeded({
+                containerId: rootContainerId,
+                documentId: crypto.randomUUID(),
+                initialDocumentKind: "contact",
+                initialStructuredFields: { typoField: "Invisible" },
+              }),
+            ).rejects.toThrow("Invalid initial document fields");
+            expect(posts).toBe(0);
+            return;
           }
           if (scenario === "rows on a note") {
             watch = true;

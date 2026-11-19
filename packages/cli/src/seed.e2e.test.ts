@@ -167,15 +167,17 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       if (!summary?.containerId) throw new Error("Missing contact placement");
       // A retry with bytes that differ from the recorded intent must leave
       // that intent available for recovery by its original writer.
-      await writeContinuityDocument({
-        destination: "account",
-        sdk,
-        localId,
-        containerId: summary.containerId,
-        document,
-        existing: { localId, documentId: partial.documentId },
-        readAttachment: async () => new Uint8Array([1, 2, 3]),
-      });
+      await expect(
+        writeContinuityDocument({
+          destination: "account",
+          sdk,
+          localId,
+          containerId: summary.containerId,
+          document,
+          existing: { localId, documentId: partial.documentId },
+          readAttachment: async () => new Uint8Array([1, 2, 3]),
+        }),
+      ).rejects.toThrow("no synced birth content");
       expect(store.getSnapshot().attachmentStorageKeyBySlotId).toEqual({});
       expect(store.getSnapshot().attachments).toEqual(partial.attachments);
     });

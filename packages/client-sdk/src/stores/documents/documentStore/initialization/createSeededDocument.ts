@@ -74,7 +74,15 @@ async function createSeedUpdate(
     )
   )
     throw new Error("Invalid or duplicate initial attachment metadata.");
-  if (readStoredDocumentState(doc, projectors).fieldValidationIssues.length)
+  const projected = readStoredDocumentState(doc, projectors);
+  const fields = Object.entries(input.initialStructuredFields ?? {});
+  if (
+    projected.fieldValidationIssues.length ||
+    fields.some(
+      ([key, value]) =>
+        value !== undefined && projected.structuredFields[key] !== value,
+    )
+  )
     throw new Error("Invalid initial document fields.");
   const update = createPendingUpdateFields(exportAllUpdates(doc));
   if (!update) throw new Error("Seeded creation requires initial content.");

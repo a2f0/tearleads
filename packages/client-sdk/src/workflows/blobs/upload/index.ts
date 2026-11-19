@@ -224,6 +224,7 @@ async function bindCarryingDocumentSync(input: {
 }
 
 interface StageAndBindInput {
+  stillCurrent?: (() => boolean) | undefined;
   apiClient: BlobAttachmentApi;
   author: DocumentCreateAuthor;
   bindingId: string;
@@ -245,11 +246,7 @@ interface StageAndBindInput {
 
 function stageBlobBytes(input: StageAndBindInput) {
   const assertCurrent = () => {
-    if (
-      input.isRemoteSyncBlocked?.(
-        input.material.manifestIdentity.organizationId,
-      )
-    )
+    if (input.stillCurrent?.() === false)
       throw new Error("The attachment upload scope changed.");
   };
   return stageMultipartBlobAttachment({
@@ -462,6 +459,7 @@ export async function uploadPreparedDocumentAttachment(
     eventId,
     expectedBindingId,
     material,
+    stillCurrent,
     isRemoteSyncBlocked: (orgId) =>
       stillCurrent?.() === false || (isRemoteSyncBlocked?.(orgId) ?? false),
     multipart: resolvedMultipart,

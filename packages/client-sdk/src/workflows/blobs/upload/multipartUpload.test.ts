@@ -8,12 +8,13 @@ import {
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 describe("stageMultipartBlobAttachment", () => {
-  test.each(["stage", "part"] as const)(
+  test.each(["stage", "part", "pending part"] as const)(
     "stops %s dispatch after an upload scope switch",
     async (phase) => {
       let current = true;
       let stages = 0;
       let parts = 0;
+      let completed = 0;
       const encryption = createFakePlan({
         partCount: 1,
         encryptPart: async (_, length) => {
@@ -23,7 +24,7 @@ describe("stageMultipartBlobAttachment", () => {
       });
       await expect(
         stageMultipartBlobAttachment({
-          organizationId: "org",
+          organizationId: "organization-1",
           apiClient: createMultipartApi({
             initiateMultipartBlobStage: async (request) => {
               stages++;
@@ -32,13 +33,29 @@ describe("stageMultipartBlobAttachment", () => {
                 uploadId: "upload",
               });
             },
-            uploadMultipartBlobPartBytes: async () => {
+            uploadMultipartBlobPartBytes: async (
+              stageId,
+              partNumber,
+              request,
+            ) => {
               parts++;
-              return null;
+              if (phase === "pending part") current = false;
+              return {
+                stageId,
+                uploadId: request.uploadId,
+                part: {
+                  etag: "part",
+                  byteLength: request.byteLength,
+                  partNumber,
+                },
+              };
             },
           }),
           encryption,
           multipart: { partSize: DEFAULT_CHUNK_SIZE, uploadConcurrency: 1 },
+          onMultipartProgress: (progress) => {
+            completed = progress.partsCompleted;
+          },
           onStageResolved: () => {
             if (phase === "part") current = false;
           },
@@ -48,7 +65,8 @@ describe("stageMultipartBlobAttachment", () => {
         }),
       ).rejects.toThrow("Retired scope");
       expect(stages).toBe(phase === "stage" ? 0 : 1);
-      expect(parts).toBe(0);
+      expect(parts).toBe(phase === "pending part" ? 1 : 0);
+      expect(completed).toBe(0);
     },
   );
 
