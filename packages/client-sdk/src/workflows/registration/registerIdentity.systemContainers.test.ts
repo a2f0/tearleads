@@ -3,10 +3,13 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   documentCreateSeedSyncRequest,
   isDocumentSyncRequest,
 } from "@tearleads/validators/request";
+import { deriveSystemContainerId } from "../container-contents";
+import { deriveRegistrationOrganizationId } from "./bootstrapRootContainer";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 test("registration includes initial metadata in the personal-org transaction", async () => {
@@ -20,12 +23,16 @@ test("registration includes initial metadata in the personal-org transaction", a
     | undefined;
   let initialSystemContainers: RegisterUserParameters[14];
 
+  const rootContainerId = crypto.randomUUID();
+  const plannedOrganizationId =
+    await deriveRegistrationOrganizationId(rootContainerId);
   const response = await registerIdentity({
     identityTrustDomain: "https://api.example.test",
     apiClient: {
       registerUser: async (
         ...args: Parameters<RegistrationApi["registerUser"]>
       ) => {
+        expect(args[1]).toBe(plannedOrganizationId);
         initialRootMetadataDocument = args[9];
         initialRosterProfileContainer = args[10];
         initialOrganizationMetadataContainer = args[12];
@@ -33,7 +40,7 @@ test("registration includes initial metadata in the personal-org transaction", a
         return null;
       },
     },
-    containerId: crypto.randomUUID(),
+    containerId: rootContainerId,
     dbClient: {
       exec: async () => {
         throw new Error("Unexpected database access for a rejected request");
@@ -45,12 +52,7 @@ test("registration includes initial metadata in the personal-org transaction", a
       {
         icon: "trash",
         name: "Trash",
-        slotDefinition: {
-          namespace: "tearleads.explorer",
-          projectorId: "explorer",
-          slotId: "trash",
-          version: 1,
-        },
+        slotNamespace: "tearleads.organization-trash",
       },
     ],
     signingKeyPair,
@@ -66,7 +68,15 @@ test("registration includes initial metadata in the personal-org transaction", a
   expect(initialSystemContainers).toHaveLength(1);
   const provisionedTrash = initialSystemContainers?.[0];
   if (!provisionedTrash) throw new Error("Expected provisioned Trash");
-  expect(provisionedTrash.systemSlot).toMatch(/^sys_v1_[A-Za-z0-9_-]{43}$/);
+  const systemSlot = deriveOrganizationTrashSystemSlot(plannedOrganizationId);
+  expect(provisionedTrash.systemSlot).toBe(systemSlot);
+  expect(Reflect.get(provisionedTrash.container.event, "objectId")).toBe(
+    await deriveSystemContainerId({
+      parentContainerId: rootContainerId,
+      systemSlot,
+    }),
+  );
+
   // Each seed carries its update alone and forms a document sync with its
   // document's own bundle and path.
   for (const [document, seed] of [

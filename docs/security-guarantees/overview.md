@@ -80,9 +80,10 @@ incident. The default organization is not bound, since a purged personal one is
 legitimately replaced. Only a root administrator may create a signed system
 slot. Additional grantees are allowed: sharing a legitimate Trash must not
 disable deletion. A create acknowledgement persists the client-signed slot and
-refuses a differing echo. The app selects a foreign organization's Trash only by
-a slot the viewer can derive; another identity's Trash is reported unavailable,
-never matched by name.
+refuses a differing echo. Every member derives the Trash slot from the
+organization ID. For a shared organization, deletion requires a direct child
+of its data root with that signed slot. Folder names cannot redirect deletion.
+The server can also identify each organization's Trash from its slot.
 
 Every folder's metadata document id comes from its signed manifest, never from
 the listing. A held folder keeps its organization and metadata document unless

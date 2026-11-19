@@ -166,7 +166,7 @@ export function useExplorerContainerTrashActions(
         // document delete path). A folder under a foreign shared root lands in
         // that org's Trash, never the viewer's personal one.
         const trashContainerId = await resolveExplorerTrashDestination({
-          containerId: containerNode.parentId,
+          containerId: containerNode.id,
           currentOrganizationId: appData.auth.organizationId,
           explorer,
         });

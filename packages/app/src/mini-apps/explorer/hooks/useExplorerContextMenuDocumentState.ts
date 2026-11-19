@@ -1,6 +1,10 @@
-import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  ContainerDocumentQueries,
+  ContainerNode,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { isFileBackedDocumentKind } from "../../../document-types/registry";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
@@ -17,6 +21,47 @@ interface ExplorerContextMenuDocumentState {
   canPurgeContextMenuDocument: boolean;
 }
 
+// Listing a row does not load its full summary until the user opens the document.
+function useContextMenuDocumentSummary(input: {
+  localId: string | null;
+  documentQueries: ContainerDocumentQueries;
+  documentSummaries: readonly DocumentSummary[];
+  mergeDocumentSummary: (summary: DocumentSummary) => void;
+  logError: RuntimeSnapshot["util"]["logError"];
+}) {
+  const {
+    localId,
+    documentQueries,
+    documentSummaries,
+    mergeDocumentSummary,
+    logError,
+  } = input;
+  const summary = useMemo(
+    () =>
+      localId === null
+        ? undefined
+        : getDocumentByLocalId(documentSummaries, localId),
+    [localId, documentSummaries],
+  );
+  useEffect(() => {
+    if (!localId || summary) return;
+    let current = true;
+    void documentQueries
+      .loadDocumentSummary(localId, { requireHydrated: true })
+      .then((row) => {
+        if (current && row) mergeDocumentSummary(row);
+      })
+      .catch((error: unknown) => {
+        if (current)
+          logError("Failed to load the Explorer context menu document", error);
+      });
+    return () => {
+      current = false;
+    };
+  }, [localId, summary, documentQueries, mergeDocumentSummary, logError]);
+  return summary;
+}
+
 // The detail-pane row context menu opens without selecting (selecting would
 // navigate the pane away), so the document menu's enable/disable flags and
 // link/move target options are derived from the right-clicked target document
@@ -26,6 +71,8 @@ export function useExplorerContextMenuDocumentState(params: {
   canResolveTrashContainer: boolean;
   contextMenu: ExplorerContextMenuState | null;
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  documentQueries: ContainerDocumentQueries;
+  mergeDocumentSummary: (summary: DocumentSummary) => void;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
@@ -45,13 +92,13 @@ export function useExplorerContextMenuDocumentState(params: {
   } = params;
   const targetLocalId =
     contextMenu?.id.kind === "document" ? contextMenu.id.localId : null;
-  const targetDocument = useMemo(
-    () =>
-      targetLocalId === null
-        ? undefined
-        : getDocumentByLocalId(documentSummaries, targetLocalId),
-    [documentSummaries, targetLocalId],
-  );
+  const targetDocument = useContextMenuDocumentSummary({
+    localId: targetLocalId,
+    documentSummaries,
+    documentQueries: params.documentQueries,
+    mergeDocumentSummary: params.mergeDocumentSummary,
+    logError: appData.util.logError,
+  });
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
     useDocumentTargetOptions({
       document: targetDocument,

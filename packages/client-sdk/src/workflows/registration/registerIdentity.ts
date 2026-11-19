@@ -13,6 +13,7 @@ import type { DocumentProjectorRegistryInput } from "../../data/documents/docume
 import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
 import { validateUserIdentityKeys } from "../../data/trustedUserIdentity";
+import { deriveRegistrationOrganizationId } from "./bootstrapRootContainer";
 import { buildOrganizationProvisioningArtifacts } from "./organizationProvisioning";
 import { persistOrganizationProvisioningState } from "./organizationProvisioningPersistence";
 import type { ProvisionedStatePrimer } from "./provisionedStatePrimer";
@@ -96,6 +97,7 @@ export async function registerIdentity(
 
   const newUserId = crypto.randomUUID();
   const artifacts = await buildOrganizationProvisioningArtifacts({
+    organizationId: await deriveRegistrationOrganizationId(input.containerId),
     identityTrustDomain: input.identityTrustDomain,
     encapsulationKeyPair: input.encapsulationKeyPair,
     organizationProfileName: input.organizationProfileName,

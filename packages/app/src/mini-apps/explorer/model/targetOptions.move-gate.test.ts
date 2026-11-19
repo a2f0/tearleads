@@ -26,7 +26,7 @@ function containerNode(
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: null,
   contactsSystemSlot: null,
-  currentOrganizationId: null,
+  currentOrganizationId: "org-1",
   selfContactIdentity: await createCanonicalSelfContactIdentity("fingerprint"),
   trashSystemSlot: TRASH_SLOT,
 });

@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { resolveExplorerDeleteTrashTarget } from "./ExplorerSystemContainers";
 
 // Org-aware delete-to-trash resolution: a document under a foreign shared root
 // must target THAT org's Trash, not the viewer's own Trash.
 const VIEWER_ORG = "viewer-org";
 const OWNER_ORG = "owner-org";
-const VIEWER_TRASH_SLOT = "sys_v1_viewer_trash";
+const VIEWER_TRASH_SLOT = deriveOrganizationTrashSystemSlot(VIEWER_ORG);
 const viewerTreeNodes = [
   {
     id: "viewer-root",
@@ -48,8 +49,7 @@ const viewerTreeNodes = [
     organizationId: OWNER_ORG,
     parentId: "owner-root",
     syncState: syncedContainerDocumentObjectSyncState,
-    // A peer's Trash carries the owner's opaque per-owner HMAC slot.
-    systemSlot: "sys_v1_owner_trash_hmac",
+    systemSlot: deriveOrganizationTrashSystemSlot(OWNER_ORG),
   },
   {
     id: "owner-folder",
@@ -72,32 +72,18 @@ test("delete resolves the viewer's own Trash for an own-org container", () => {
   ).toEqual({ canFallBackToOwnTrash: true, trashContainerId: "viewer-trash" });
 });
 
-test("delete resolves a foreign org's Trash only by the viewer's verified slot", () => {
-  // An org the viewer's identity created (a custom org viewed from the personal
-  // one) carries the viewer-derived Trash slot; that is the only foreign Trash
-  // that can be verified, and it wins regardless of its display name.
-  const ownedForeignTree = viewerTreeNodes.map((node) =>
-    node.id === "owner-trash"
-      ? { ...node, name: "Bin", systemSlot: VIEWER_TRASH_SLOT }
-      : node,
+test("delete resolves the shared organization’s Trash after a display-name change", () => {
+  const nodes = viewerTreeNodes.map((node) =>
+    node.id === "owner-trash" ? { ...node, name: "Bin" } : node,
   );
   expect(
     resolveExplorerDeleteTrashTarget({
       containerId: "owner-folder",
       currentOrganizationId: VIEWER_ORG,
-      nodes: ownedForeignTree,
+      nodes,
       trashSystemSlot: VIEWER_TRASH_SLOT,
     }),
   ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: "owner-trash" });
-  // Another identity's Trash slot cannot be derived, so it is not selectable.
-  expect(
-    resolveExplorerDeleteTrashTarget({
-      containerId: "owner-folder",
-      currentOrganizationId: VIEWER_ORG,
-      nodes: viewerTreeNodes,
-      trashSystemSlot: VIEWER_TRASH_SLOT,
-    }),
-  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: null });
 });
 
 test("delete never selects a foreign system child by its 'Trash' name", () => {
@@ -127,8 +113,29 @@ test("delete never selects a foreign system child by its 'Trash' name", () => {
       nodes,
       trashSystemSlot: VIEWER_TRASH_SLOT,
     }),
-  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: null });
+  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: "owner-trash" });
 });
+
+test.each([
+  { systemSlot: VIEWER_TRASH_SLOT },
+  { parentId: "owner-folder" },
+  { organizationId: VIEWER_ORG },
+])(
+  "shared Trash requires the signed slot, data root, and organization to agree",
+  (change) => {
+    const nodes = viewerTreeNodes.map((node) =>
+      node.id === "owner-trash" ? { ...node, ...change } : node,
+    );
+    expect(
+      resolveExplorerDeleteTrashTarget({
+        containerId: "owner-folder",
+        currentOrganizationId: VIEWER_ORG,
+        nodes,
+        trashSystemSlot: VIEWER_TRASH_SLOT,
+      }),
+    ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: null });
+  },
+);
 
 test("delete never falls back to the viewer's Trash when a foreign Trash is absent", () => {
   const withoutOwnerTrash = viewerTreeNodes.filter(
@@ -154,14 +161,7 @@ test("delete skips an earlier metadata root when resolving another owned org's T
     syncState: syncedContainerDocumentObjectSyncState,
     systemSlot: "sys_v1_owner_metadata",
   };
-  const nodes = [
-    metadataRoot,
-    ...viewerTreeNodes.map((node) =>
-      node.id === "owner-trash"
-        ? { ...node, systemSlot: VIEWER_TRASH_SLOT }
-        : node,
-    ),
-  ];
+  const nodes = [metadataRoot, ...viewerTreeNodes];
   expect(
     resolveExplorerDeleteTrashTarget({
       containerId: "owner-folder",

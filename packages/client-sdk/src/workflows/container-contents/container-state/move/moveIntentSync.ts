@@ -306,6 +306,7 @@ async function movePendingRemoteContainer(input: {
   try {
     const replayed = await moveRemoteContainer({
       containerId: intent.containerId,
+      organizationId: containerState.container.organizationId,
       onAccepted: () => {
         remoteMoveApplied = true;
       },

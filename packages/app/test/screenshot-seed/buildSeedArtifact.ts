@@ -84,7 +84,11 @@ async function ensureContactsContainer(
   sdk: InstanceType<typeof Tearleads>,
   signingPrivateKey: Uint8Array,
 ): Promise<string> {
-  const systemContainers = await deriveUserSystemContainers(signingPrivateKey);
+  const systemContainers = await deriveUserSystemContainers({
+    signingPrivateKey,
+    rootContainerId: null,
+    organizationId: null,
+  });
   const contactsSystemContainer = findUserSystemContainer(
     systemContainers,
     "contacts",

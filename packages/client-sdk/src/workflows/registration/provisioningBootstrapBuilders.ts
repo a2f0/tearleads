@@ -1,11 +1,11 @@
 import { base64ToBytes } from "@tearleads/encoding";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import {
+  type ContainerSystemSlot,
+  deriveOrganizationSystemSlot,
+} from "@tearleads/validators/containerSystemSlot";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
-import {
-  type ContainerSystemSlotDefinition,
-  deriveContainerSystemSlot,
-} from "../container-contents";
+import { deriveSystemContainerId } from "../container-contents";
 import { createInitializedContainerMetadataDocument } from "../container-contents/metadata/containerMetadataDocument";
 import {
   buildContainerCreatePlan,
@@ -46,14 +46,14 @@ type InitialRootContainerProjection = ReturnType<
  * An app-owned system container to provision atomically with a new organization
  * (e.g. a trash bin). The client-sdk is agnostic to what these are:
  * the caller (the app, which owns the mini-app slot namespaces) declares each
- * one, and the provisioning path derives its per-user system slot, builds a
+ * one, and the provisioning path derives its organization system slot, builds a
  * signed Admins-scoped child of root, and links it into the same transaction as
  * the rest of the organization bootstrap. The behavioral rules that govern a
  * system container are resolved client-side by slot, so provisioning needs only
- * the slot definition, display name, and icon — no rules travel to the server.
+ * the slot namespace, display name, and icon — no rules travel to the server.
  */
 export interface ProvisionedSystemContainerSpec {
-  readonly slotDefinition: ContainerSystemSlotDefinition;
+  readonly slotNamespace: string;
   readonly name: string;
   readonly icon: string | null;
 }
@@ -285,12 +285,19 @@ export async function buildInitialSystemContainerBootstrap(input: {
   initialAdminGroup: CreateOrganizationGroupRequest;
   rootContainer: InitialRootContainerCreatePlan;
   rootContainerProjection: InitialRootContainerProjection;
-  signingPrivateKey: Uint8Array;
   spec: ProvisionedSystemContainerSpec;
   targetSecretKey: Uint8Array;
 }): Promise<InitialSystemContainerBootstrap> {
+  const systemSlot = deriveOrganizationSystemSlot({
+    namespace: input.spec.slotNamespace,
+    organizationId: input.author.organizationId,
+  });
   const core = await buildProvisionedChildContainerCore({
     author: input.author,
+    containerId: await deriveSystemContainerId({
+      parentContainerId: input.rootContainer.plan.state.containerId,
+      systemSlot,
+    }),
     icon: input.spec.icon,
     name: input.spec.name,
     principalPolicies: [
@@ -300,10 +307,7 @@ export async function buildInitialSystemContainerBootstrap(input: {
     ],
     rootContainer: input.rootContainer,
     rootContainerProjection: input.rootContainerProjection,
-    systemSlot: await deriveContainerSystemSlot({
-      definition: input.spec.slotDefinition,
-      secretKey: input.signingPrivateKey,
-    }),
+    systemSlot,
     targetSecretKey: input.targetSecretKey,
   });
   return {

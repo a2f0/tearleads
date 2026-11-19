@@ -388,12 +388,9 @@ first connection still does not fetch a projection that has no consumer.
 HTTP remains authoritative after hints, reconnects, explicit refreshes, and
 cursor-gap recovery.
 
-Provisioned system-container polling prefers an exact system-slot match. A
-viewer of a shared organization cannot derive slots keyed by that
-organization's founder, so an already-hydrated direct child of the active root
-with the registered visible name and an opaque non-null slot also ends the
-poll. This is only a discovery stop condition; signed container state remains
-the access and keying authority.
+Provisioned system-container polling stops when the active organization's signed
+slot appears in the tree. Every member derives the Trash slot from the same
+organization ID, including when the folder's display name changes.
 
 ## Organization policy history
 

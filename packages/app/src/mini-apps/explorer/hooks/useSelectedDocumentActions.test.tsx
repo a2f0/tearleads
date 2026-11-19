@@ -7,6 +7,7 @@ import type {
   MoveDocumentToContainerInput,
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { createCanonicalSelfContactIdentity } from "../model/canonicalSelfContact.testUtils";
 import { createExplorerContainerRulesContext } from "../model/containerRules";
@@ -17,7 +18,7 @@ import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 afterEach(() => cleanup());
 
 const CONTACTS_SLOT = "contacts-slot";
-const TRASH_SLOT = "trash-slot";
+const TRASH_SLOT = deriveOrganizationTrashSystemSlot("org-1");
 const CONTACTS_CONTAINER_ID = "contacts-container";
 const TRASH_CONTAINER_ID = "trash-container";
 

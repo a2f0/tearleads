@@ -3,7 +3,10 @@ import type {
   ContainerNode,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import {
+  type ContainerSystemSlot,
+  deriveOrganizationTrashSystemSlot,
+} from "@tearleads/validators/containerSystemSlot";
 import {
   createContext,
   type PropsWithChildren,
@@ -133,8 +136,6 @@ function useContactsSystemContainerResolution(input: {
   const systemContainers = useUserSystemContainers();
   const contactsSystemSlot =
     findUserSystemContainer(systemContainers, "contacts")?.systemSlot ?? null;
-  const trashSystemSlot =
-    findUserSystemContainer(systemContainers, "trash")?.systemSlot ?? null;
   const contactsContainer = useMemo(() => {
     // Contacts is a personal system container. Activating a custom org changes
     // the tree runtime, but the Contacts projection must stay on the
@@ -175,6 +176,9 @@ function useContactsSystemContainerResolution(input: {
     nodes,
   ]);
 
+  const trashSystemSlot = contactsContainer.organizationId
+    ? deriveOrganizationTrashSystemSlot(contactsContainer.organizationId)
+    : (findUserSystemContainer(systemContainers, "trash")?.systemSlot ?? null);
   return { contactsContainer, contactsSystemSlot, trashSystemSlot };
 }
 

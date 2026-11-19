@@ -27,7 +27,7 @@ const selfContactIdentity = await createCanonicalSelfContactIdentity("abc");
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
-  currentOrganizationId: null,
+  currentOrganizationId: "org-1",
   selfContactIdentity,
   trashSystemSlot: TRASH_SLOT,
 });

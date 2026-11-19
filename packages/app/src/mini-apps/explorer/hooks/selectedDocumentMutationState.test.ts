@@ -35,7 +35,7 @@ const selfContactIdentity =
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: "contacts-container",
   contactsSystemSlot: "contacts-slot",
-  currentOrganizationId: null,
+  currentOrganizationId: "org-1",
   selfContactIdentity,
   trashSystemSlot: "trash-slot",
 });

@@ -8,10 +8,15 @@ import {
   deriveContainerSystemSlot,
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  deriveRegistrationOrganizationId,
   ORGANIZATION_METADATA_CONTAINER_NAME,
   ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME,
 } from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import {
+  type ContainerSystemSlot,
+  deriveOrganizationTrashSystemSlot,
+  ORGANIZATION_TRASH_SLOT_NAMESPACE,
+} from "@tearleads/validators/containerSystemSlot";
 
 export const CONTACTS_CONTAINER_NAME = "Contacts";
 // Icon slug for the Contacts system folder, resolved to a glyph by
@@ -29,13 +34,6 @@ const CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
 
 export const EXPLORER_TRASH_CONTAINER_NAME = "Trash";
 export const EXPLORER_TRASH_CONTAINER_ICON = "trash";
-const EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION: ContainerSystemSlotDefinition =
-  {
-    namespace: "tearleads.explorer",
-    projectorId: "explorer",
-    slotId: "trash",
-    version: 1,
-  };
 
 export type UserSystemContainerKind = "contacts" | "trash";
 
@@ -88,20 +86,9 @@ interface UserSystemContainerDefinition {
   readonly icon: string | null;
   readonly kind: UserSystemContainerKind;
   readonly name: string;
-  // Whether this container is born with the organization: the SDK provisions it
-  // server-side in the same transaction as the org (see
-  // PROVISIONED_SYSTEM_CONTAINER_SPECS), so the client must NOT also create it
-  // device-first. A second local copy would carry the same per-user system slot
-  // as the server copy and collide (the slot is unique per organization); the
-  // eagerly-provisioned container instead reaches the tree through normal sync.
+  // The regular bootstrap skips containers included in the signed org creation.
   readonly provisionedAtOrganizationCreation: boolean;
   readonly rules: UserSystemContainerRules;
-  readonly slotDefinition: ContainerSystemSlotDefinition;
-  // Whether this system folder stays visible when its parent root is shared
-  // with another user. A peer's system slots are HMAC'd from the owner's key,
-  // so they never match the viewer's own slots — the explorer falls back to the
-  // container name to decide for shared system folders.
-  readonly visibleWhenShared: boolean;
 }
 
 export interface UserSystemContainer {
@@ -139,8 +126,6 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         // above); only Trash is move-only.
         protectFromInboundLinks: false,
       },
-      slotDefinition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
-      visibleWhenShared: true,
     },
     {
       icon: EXPLORER_TRASH_CONTAINER_ICON,
@@ -167,33 +152,20 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         // it out of the link-target dropdown while it stays a valid move target.
         protectFromInboundLinks: true,
       },
-      slotDefinition: EXPLORER_TRASH_CONTAINER_SYSTEM_SLOT_DEFINITION,
-      visibleWhenShared: true,
     },
   ];
 
-// System containers the SDK provisions atomically with every new organization
-// (both registration and org-manager creation), so the org is born with them in
-// a single server transaction instead of relying on the lazy client-side
-// bootstrap. Only the Trash bin is eagerly provisioned today; Contacts stays
-// lazy. The lazy `ensureSystemContainer` bootstrap still runs and finds the
-// provisioned container by slot, so the two never produce a duplicate. Passed
-// into `new Tearleads({ provisionedSystemContainers })`.
+// Used for personal registration and additional organization creation.
 export const PROVISIONED_SYSTEM_CONTAINER_SPECS: ReadonlyArray<ProvisionedSystemContainerSpec> =
-  USER_SYSTEM_CONTAINER_DEFINITIONS.filter(
-    (definition) => definition.provisionedAtOrganizationCreation,
-  ).map((definition) => ({
-    icon: definition.icon,
-    name: definition.name,
-    slotDefinition: definition.slotDefinition,
-  }));
+  [
+    {
+      icon: EXPLORER_TRASH_CONTAINER_ICON,
+      name: EXPLORER_TRASH_CONTAINER_NAME,
+      slotNamespace: ORGANIZATION_TRASH_SLOT_NAMESPACE,
+    },
+  ];
 
-// The org-scoped system containers the SDK provisions and owns: the roster
-// profile folder and the organization metadata folder. Unlike the user system
-// containers above, these are hidden from the Explorer unless the "Built-in
-// system containers" feature flag reveals them, and their slots are derived
-// from the organization id rather than a per-user key — so every member of the
-// organization derives the same slot and can key rules off it.
+// Explorer reveals these SDK-managed folders through the built-in containers flag.
 export type BuiltInSystemContainerKind =
   | "organizationMetadata"
   | "organizationRosterProfiles";
@@ -274,25 +246,6 @@ export function deriveBuiltInSystemContainers(input: {
   );
 }
 
-// Names of system folders that remain visible when viewed under another user's
-// shared root. Used as the cross-user classifier since system slots are opaque
-// per-owner HMACs and cannot be derived by a peer.
-export const SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES = new Set(
-  USER_SYSTEM_CONTAINER_DEFINITIONS.filter(
-    (definition) => definition.visibleWhenShared,
-  ).map((definition) => definition.name),
-);
-
-// Rules for the shareable system folders keyed by their name. A peer's system
-// folder carries the owner's opaque HMAC slot, so its rules cannot be resolved
-// by slot on the viewer's side — they are resolved by name instead (see
-// resolveContainerRules). Only `visibleWhenShared` folders are included.
-const SHARED_SYSTEM_CONTAINER_RULES_BY_NAME = new Map(
-  USER_SYSTEM_CONTAINER_DEFINITIONS.filter(
-    (definition) => definition.visibleWhenShared,
-  ).map((definition) => [definition.name, definition.rules]),
-);
-
 export function getUserSystemContainerRulesByKind(
   kind: UserSystemContainerKind,
 ): UserSystemContainerRules | null {
@@ -303,21 +256,35 @@ export function getUserSystemContainerRulesByKind(
   );
 }
 
-export async function deriveUserSystemContainers(
-  signingPrivateKey: Uint8Array,
-): Promise<ReadonlyArray<UserSystemContainer>> {
-  return Promise.all(
-    USER_SYSTEM_CONTAINER_DEFINITIONS.map(async (definition) => ({
-      icon: definition.icon,
-      kind: definition.kind,
-      name: definition.name,
-      provisionedAtOrganizationCreation:
-        definition.provisionedAtOrganizationCreation,
-      systemSlot: await deriveContainerSystemSlot({
-        definition: definition.slotDefinition,
-        secretKey: signingPrivateKey,
-      }),
-    })),
+export interface SystemContainerScope {
+  signingPrivateKey: Uint8Array;
+  organizationId: string | null;
+  rootContainerId: string | null;
+}
+
+export async function deriveUserSystemContainers({
+  signingPrivateKey,
+  organizationId,
+  rootContainerId,
+}: SystemContainerScope): Promise<ReadonlyArray<UserSystemContainer>> {
+  const trashOrganizationId =
+    organizationId ??
+    (rootContainerId &&
+      (await deriveRegistrationOrganizationId(rootContainerId)));
+  const contactsSlot = await deriveContainerSystemSlot({
+    definition: CONTACTS_CONTAINER_SYSTEM_SLOT_DEFINITION,
+    secretKey: signingPrivateKey,
+  });
+  const trashSlot = trashOrganizationId
+    ? deriveOrganizationTrashSystemSlot(trashOrganizationId)
+    : null;
+  return USER_SYSTEM_CONTAINER_DEFINITIONS.flatMap(
+    ({ icon, kind, name, provisionedAtOrganizationCreation }) => {
+      const systemSlot = kind === "contacts" ? contactsSlot : trashSlot;
+      return systemSlot
+        ? [{ icon, kind, name, provisionedAtOrganizationCreation, systemSlot }]
+        : [];
+    },
   );
 }
 
@@ -329,15 +296,6 @@ export function findUserSystemContainer(
     systemContainers.find((systemContainer) => systemContainer.kind === kind) ??
     null
   );
-}
-
-// Resolve the rules for a shareable system folder by its name. Used for a peer's
-// system folder under a shared root, whose owner-derived slot the viewer cannot
-// match. Returns null for non-system names and for folders that are not shared.
-export function getSharedSystemContainerRulesByName(
-  name: string,
-): UserSystemContainerRules | null {
-  return SHARED_SYSTEM_CONTAINER_RULES_BY_NAME.get(name) ?? null;
 }
 
 // A container belongs to another organization's shared root (a peer's tree the
@@ -358,39 +316,23 @@ export function isUnderForeignSharedRoot(input: {
   );
 }
 
-// Whether a container node is the Trash system folder, by the same rules the
-// Explorer applies to gate uploads/moves/child creation: the viewer's OWN Trash
-// is matched by its derived system slot; a peer's shared Trash under a foreign
-// org's root carries an opaque owner-derived slot the viewer cannot match, so it
-// is matched by name instead (name→rules is only trusted under a foreign shared
-// root, which stops a same-org sibling from spoofing the "Trash" name). This is
-// the single per-node Trash classifier shared by both the container-rules gates
-// and the read-only-when-trashed detection.
+// Device-first nodes have no organization ID until registration. Their current
+// slot was calculated from the organization ID planned for their local root.
 export function isTrashSystemContainerNode(
-  node: Pick<ContainerNode, "name" | "organizationId" | "systemSlot">,
+  node: Pick<ContainerNode, "organizationId" | "systemSlot">,
   input: {
     currentOrganizationId: string | null | undefined;
     trashSystemSlot: ContainerSystemSlot | null;
   },
 ): boolean {
-  const trashRules = getUserSystemContainerRulesByKind("trash");
-  if (!trashRules) {
-    return false;
-  }
-
-  if (
-    node.systemSlot != null &&
-    input.trashSystemSlot != null &&
-    node.systemSlot === input.trashSystemSlot
-  ) {
-    return true;
-  }
-
+  if (!node.systemSlot) return false;
   return (
-    isUnderForeignSharedRoot({
-      currentOrganizationId: input.currentOrganizationId,
-      organizationId: node.organizationId,
-    }) && getSharedSystemContainerRulesByName(node.name) === trashRules
+    node.systemSlot ===
+    (node.organizationId &&
+    (!input.trashSystemSlot ||
+      node.organizationId !== input.currentOrganizationId)
+      ? deriveOrganizationTrashSystemSlot(node.organizationId)
+      : input.trashSystemSlot)
   );
 }
 
@@ -398,12 +340,7 @@ export function isTrashSystemContainerNode(
 // its derived system slot rather than by a resolved container id. The slot is
 // derived from the signing key (see deriveUserSystemContainers), so this holds
 // offline and before the first sync — unlike the org-scoped Contacts container id
-// resolution, which returns null until an organization id is assigned (an account
-// bootstrapped device-first offline has none yet). Unlike isTrashSystemContainerNode
-// this intentionally does NOT match a peer's shared Contacts folder: that carries
-// the owner's opaque HMAC slot, and creating a contact is only meaningful in your
-// own Contacts. The narrower contract is why it takes just the slot, not the
-// organization/name fallback the Trash classifier needs for its rules gating.
+// resolution, which returns null until an organization id is assigned.
 export function isContactsSystemContainerNode(
   node: Pick<ContainerNode, "systemSlot"> | null | undefined,
   contactsSystemSlot: ContainerSystemSlot | null,

@@ -43,10 +43,11 @@ interface OrganizationProvisioningPrincipalPolicies {
  * The freshly built provisioning artifacts, shared by registration and
  * additional-organization creation. `registerIdentity` generates a new
  * `userId`; creating an additional organization reuses the caller's existing
- * one. Everything here is derived purely from the caller's key material, so it
- * is identical for both flows.
+ * one. Registration supplies the personal organization ID planned for the local
+ * root. An additional organization receives a fresh ID.
  */
 export interface OrganizationProvisioningArtifactsInput {
+  organizationId?: string;
   identityTrustDomain: string;
   encapsulationKeyPair: EncapsulationKeyPair;
   organizationProfileName?: string | undefined;
@@ -65,6 +66,7 @@ export interface OrganizationProvisioningArtifactsInput {
 }
 
 async function createOrganizationPrincipalPolicies(input: {
+  organizationId?: string;
   identityTrustDomain: string;
   encapsulationKeyPair: EncapsulationKeyPair;
   organizationMetadataContainerId: string;
@@ -72,7 +74,7 @@ async function createOrganizationPrincipalPolicies(input: {
   signingKeyPair: SigningKeyPair;
   userId: string;
 }): Promise<OrganizationProvisioningPrincipalPolicies> {
-  const organizationId = crypto.randomUUID();
+  const organizationId = input.organizationId ?? crypto.randomUUID();
   const signingFingerprint = await toFingerprint(
     input.signingKeyPair.signingPublicKey,
   );
@@ -218,7 +220,6 @@ export async function buildOrganizationProvisioningArtifacts(
         initialAdminGroup,
         rootContainer,
         rootContainerProjection,
-        signingPrivateKey: input.signingKeyPair.signingPrivateKey,
         spec,
         targetSecretKey: input.encapsulationKeyPair.secretKey,
       }),

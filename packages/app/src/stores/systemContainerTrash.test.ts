@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { resolveDeleteToTrashTarget } from "./systemContainerTrash";
 
 const VIEWER_ORG = "viewer-org";
@@ -195,7 +196,7 @@ test("never falls back to the viewer's Trash for a foreign-org container with no
   expect(spy.calls).toBe(0);
 });
 
-test("resolves a custom org's Trash under a foreign root by the viewer's own slot", async () => {
+test("resolves a custom org's Trash under a foreign root by its organization slot", async () => {
   const spy = ensureSpy({ id: "must-not-be-used" });
   const customFolder = {
     id: "custom-folder",
@@ -210,7 +211,17 @@ test("resolves a custom org's Trash under a foreign root by the viewer's own slo
     await resolveDeleteToTrashTarget({
       containerId: "custom-folder",
       currentOrganizationId: VIEWER_ORG,
-      nodes: [customFolder, ...nodesWithCollidingCustomTrash],
+      nodes: [
+        customFolder,
+        ...nodesWithCollidingCustomTrash.map((node) =>
+          node.id === "custom-trash"
+            ? {
+                ...node,
+                systemSlot: deriveOrganizationTrashSystemSlot(CUSTOM_ORG),
+              }
+            : node,
+        ),
+      ],
       trashSystemSlot: VIEWER_TRASH_SLOT,
       ensureOwnTrashContainer: spy.ensure,
     }),

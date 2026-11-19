@@ -38,11 +38,7 @@ export function ensureTrashSystemContainer(
   );
 }
 
-// Why no Trash could be resolved. "awaiting-sync" is the viewer's own org before
-// its verified root (and so its Trash) has arrived on this device; a fresh
-// device sees it until the first hydration pass completes. "foreign-trash-
-// unverified" is a shared org created by another identity, whose Trash slot the
-// viewer cannot derive, so no destination can be verified.
+// A shared Trash may be missing locally until its signed root and child hydrate.
 export type DeleteToTrashUnavailableReason =
   | "awaiting-sync"
   | "foreign-trash-unverified";

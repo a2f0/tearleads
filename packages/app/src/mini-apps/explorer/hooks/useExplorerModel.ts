@@ -280,6 +280,8 @@ export function useExplorerModel(
     appData,
     canResolveTrashContainer: explorer.canResolveTrashContainer,
     contextMenu: contextMenuState.contextMenu,
+    documentQueries,
+    mergeDocumentSummary,
     documentSummaries,
     linkedContainerIdsByDocumentId,
     nodes: explorer.nodes,

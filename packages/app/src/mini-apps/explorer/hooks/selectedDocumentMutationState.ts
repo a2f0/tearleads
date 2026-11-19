@@ -68,11 +68,20 @@ export function getSelectedDocumentMutationState(params: {
     selectedDocument !== undefined &&
     selectedDocument.containerId !== null;
 
+  const selectedDocumentUnderTrash = isContainerUnderTrash(
+    nodes,
+    selectedDocument?.containerId,
+    {
+      currentOrganizationId: rulesContext.currentOrganizationId,
+      trashSystemSlot,
+    },
+  );
   return {
     canDeleteSelectedDocument:
       canDeleteContainerScopedDocument &&
       canResolveTrashContainer &&
-      selectedDocument.containerId !== trashContainerId,
+      selectedDocument.containerId !== trashContainerId &&
+      !selectedDocumentUnderTrash,
     canLinkSelectedDocument:
       canActivateSelectedDocument &&
       selectedDocumentWritable &&
@@ -88,15 +97,7 @@ export function getSelectedDocumentMutationState(params: {
       selectedDocumentWritable &&
       selectedDocumentContainerWritable &&
       canMutateDocumentByIdentity(rulesContext, selectedDocument) &&
-      // Purge applies anywhere under trash, not only at the trash root: a
-      // document parked in a user-created subfolder of trash is still trashed.
-      // Rules-based (org-aware) so it matches the read-only-when-trashed gate —
-      // a document in a peer's shared Trash is purgeable (if writable) too, not
-      // only one in the viewer's own Trash.
-      isContainerUnderTrash(nodes, selectedDocument.containerId, {
-        currentOrganizationId: rulesContext.currentOrganizationId,
-        trashSystemSlot,
-      }),
+      selectedDocumentUnderTrash,
     canUnlinkSelectedDocument:
       canMutateSelectedDocument &&
       selectedDocumentLinkedContainerIds.length > 1,
