@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
 import { sealNewAccountName } from "../providers/identity/accountNamingPersistence";
 import { useIdentity } from "../providers/identity/IdentityProvider";
@@ -24,13 +24,27 @@ function useOnboardingTransitions() {
   const [state, setState] =
     useState<IdentityOnboardingState>(INITIAL_ONBOARDING);
   // All open surfaces share one request, including submits before React commits.
-  const current = useRef(state);
-  const send = useCallback((event: OnboardingEvent) => {
-    current.current = transitionIdentityOnboarding(current.current, event);
-    setState(current.current);
-    return current.current;
+  const current = useRef<IdentityOnboardingState | null>(state);
+  useLayoutEffect(() => {
+    current.current = INITIAL_ONBOARDING;
+    setState(INITIAL_ONBOARDING);
+    return () => {
+      current.current = null;
+    };
   }, []);
-  return { state, send };
+  const isCurrent = useCallback((request: symbol) => {
+    const active = current.current;
+    return active !== null && "request" in active && active.request === request;
+  }, []);
+  const send = useCallback((event: OnboardingEvent) => {
+    if (!current.current) return;
+    const next = transitionIdentityOnboarding(current.current, event);
+    if (next !== current.current) {
+      current.current = next;
+      setState(next);
+    }
+  }, []);
+  return { state, send, isCurrent };
 }
 
 export function useIdentityOnboarding(
@@ -56,7 +70,7 @@ export function useIdentityOnboarding(
     !identityDestroyed &&
     !identityTransitionInFlight &&
     signingKeyPair === null;
-  const { state, send } = useOnboardingTransitions();
+  const { state, send, isCurrent } = useOnboardingTransitions();
   const navigate = useCallback(
     (phase: OnboardingNavigation) => {
       if (available) send({ type: "navigate", phase });
@@ -69,11 +83,12 @@ export function useIdentityOnboarding(
         form === "naming-account" ? normalizeAccountName(value) : value.trim();
       if (!available || !input) return;
       const request = Symbol();
-      const next = send({ type: "submit", form, request });
-      if (!("request" in next) || next.request !== request) return;
+      send({ type: "submit", form, request });
+      if (!isCurrent(request)) return;
       const operation =
         form === "entering-passphrase"
           ? restoreSeedPhrase(input).then(() => {
+              if (!isCurrent(request)) return;
               const fingerprint = sdk.identity.signingFingerprint;
               if (fingerprint) onRecovered(fingerprint);
             })
@@ -85,7 +100,7 @@ export function useIdentityOnboarding(
                   namespace: localIdentityNamespace ?? null,
                   signingFingerprint,
                 });
-                onNamed(signingFingerprint, input);
+                if (isCurrent(request)) onNamed(signingFingerprint, input);
               },
             }).then((created) => {
               if (!created) throw new Error("Creation failed");
@@ -107,6 +122,7 @@ export function useIdentityOnboarding(
       available,
       createLocalKeyring,
       generateKey,
+      isCurrent,
       localIdentityNamespace,
       onNamed,
       onRecovered,
