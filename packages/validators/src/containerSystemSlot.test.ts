@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   deriveOrganizationMetadataContainerSystemSlot,
   deriveOrganizationRosterProfileContainerSystemSlot,
+  deriveOrganizationTrashSystemSlot,
   formatContainerSystemSlot,
   isContainerSystemSlot,
 } from "./containerSystemSlot";
@@ -14,6 +15,9 @@ test("organization system slots retain their deterministic namespaces", async ()
       organizationId: ORGANIZATION_ID,
     }),
   ).toBe("sys_v1_JD38_d_o8HZoET2G7K6ga0Xop6qjTqT0h1w4fb2RK4c");
+  expect(deriveOrganizationTrashSystemSlot(ORGANIZATION_ID)).toBe(
+    "sys_v1_QN6iwXZi76J5Y-QeG2fCqFuf649c4_hcwfmCxceaLDM",
+  );
   expect(
     await deriveOrganizationMetadataContainerSystemSlot({
       organizationId: ORGANIZATION_ID,

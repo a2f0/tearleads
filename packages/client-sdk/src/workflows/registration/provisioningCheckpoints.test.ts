@@ -24,12 +24,7 @@ import { createOrganization } from "./organizationCreation/createOrganization";
 const SYSTEM_CONTAINER = {
   icon: "trash",
   name: "Trash",
-  slotDefinition: {
-    namespace: "tearleads.explorer",
-    projectorId: "explorer",
-    slotId: "trash",
-    version: 1,
-  },
+  slotNamespace: "tearleads.organization-trash",
 } as const;
 
 function requireRequest<T>(value: T | undefined): T {

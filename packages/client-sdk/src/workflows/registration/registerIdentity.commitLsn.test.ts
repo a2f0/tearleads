@@ -34,12 +34,7 @@ async function seededCommitLsns(
         {
           icon: "trash",
           name: "Trash",
-          slotDefinition: {
-            namespace: "tearleads.explorer",
-            projectorId: "explorer",
-            slotId: "trash",
-            version: 1,
-          },
+          slotNamespace: "tearleads.organization-trash",
         },
       ],
       signingKeyPair: generateSigningSeedAndKeyPair(),

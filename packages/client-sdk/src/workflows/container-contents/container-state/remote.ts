@@ -222,6 +222,7 @@ export async function shareRemoteContainerWithGroup(input: {
  */
 export async function moveRemoteContainer(input: {
   containerId: string;
+  organizationId: string;
   onAccepted?: (() => void) | undefined;
   parentContainerId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -235,7 +236,7 @@ export async function moveRemoteContainer(input: {
     return null;
   }
   const replayed = await writer.containers.replayRemoteContainerMove({
-    author: writer.author,
+    author: { ...writer.author, organizationId: input.organizationId },
     containerId: input.containerId,
     destinationParentContainerId: input.parentContainerId,
     onAccepted: input.onAccepted,

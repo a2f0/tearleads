@@ -43,9 +43,11 @@ const TEST_SEED_PHRASE = createIdentitySeedPhraseFromEntropy(
 // The Contacts system slot the app derives for the given seed phrase.
 async function contactsSystemSlot(seedPhrase: string): Promise<string> {
   const { signingKeyPair } = generateIdentityKeyPairsFromSeedPhrase(seedPhrase);
-  const containers = await deriveUserSystemContainers(
-    signingKeyPair.signingPrivateKey,
-  );
+  const containers = await deriveUserSystemContainers({
+    signingPrivateKey: signingKeyPair.signingPrivateKey,
+    rootContainerId: null,
+    organizationId: null,
+  });
   const contacts = findUserSystemContainer(containers, "contacts");
   if (!contacts) {
     throw new Error("Contacts system container definition is missing.");

@@ -3,6 +3,7 @@ import {
   createContainerDocumentObjectSyncState,
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   canProvisionExplorerSystemContainers,
   getExplorerSystemContainerId,
@@ -68,7 +69,7 @@ test("explorer only shows user-facing system containers", () => {
   ).toEqual(["root-container", "contacts-container", "trash-container"]);
 });
 
-test("explorer shows shared user-facing system containers by name", () => {
+test("explorer shows shared Contacts by name and shared Trash by organization slot", () => {
   const contactsSystemSlot =
     "sys_v1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
   const trashSystemSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
@@ -100,7 +101,7 @@ test("explorer shows shared user-facing system containers by name", () => {
           organizationId: "owner-org",
           parentId: "shared-root-container",
           syncState: syncedContainerDocumentObjectSyncState,
-          systemSlot: "owner-trash-slot",
+          systemSlot: deriveOrganizationTrashSystemSlot("owner-org"),
         },
         {
           id: "peer-roster-profile-container",
@@ -158,7 +159,7 @@ test("explorer keeps named user-facing system containers before visible slots re
         organizationId: "org-1",
         parentId: "root-container",
         syncState: syncedContainerDocumentObjectSyncState,
-        systemSlot: "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc",
+        systemSlot: deriveOrganizationTrashSystemSlot("org-1"),
       },
       {
         id: "roster-profile-container",

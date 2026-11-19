@@ -66,7 +66,11 @@ function menuInput(
       selfContactIdentity: { status: "pending" },
       trashSystemSlot,
     }),
-    documentQueries: { loadDocumentSummary },
+    documentQueries: {
+      loadDocumentSummary,
+      loadContainerDocumentSummary: async () => null,
+      loadOrphanedDocumentSummary: async () => null,
+    },
     documentListRevision: 0,
   };
 }
@@ -107,7 +111,10 @@ test("a late menu lookup cannot enable Edit for the same local ID in another sco
   const input = { ...menuInput(contact), documentSummaries: [] };
   const initialProps = {
     ...input,
-    documentQueries: { loadDocumentSummary: () => oldScope.promise },
+    documentQueries: {
+      ...input.documentQueries,
+      loadDocumentSummary: () => oldScope.promise,
+    },
   };
   const { result, rerender } = renderHook(useExplorerContextMenuDocumentState, {
     initialProps,

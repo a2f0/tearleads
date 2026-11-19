@@ -289,12 +289,7 @@ test("ordinary adoption preserves later metadata and fills only missing bootstra
       {
         icon: "trash",
         name: "Trash",
-        slotDefinition: {
-          namespace: "tearleads.explorer",
-          projectorId: "explorer",
-          slotId: "trash",
-          version: 1,
-        },
+        slotNamespace: "tearleads.organization-trash",
       },
     ],
   };

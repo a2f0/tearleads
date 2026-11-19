@@ -7,6 +7,7 @@ import {
   TrashUnavailableError,
 } from "../../../stores/systemContainerTrash";
 import { EXPLORER_LABELS } from "../labels";
+import { canAdminContainerNode } from "../model/containerRules";
 import {
   type ExplorerPurgeRun,
   useExplorerPurgeRun,
@@ -148,14 +149,10 @@ export function useExplorerContainerTrashActions(
         const containerNode = explorer.nodes.find(
           (node) => node.id === containerId,
         );
-        // Guard: an unknown, root, or system container (Trash/Contacts itself)
-        // can never be trashed. The context menu already gates the action —
-        // including write access and protectFromMove via
-        // canMoveToTrashContextMenuNode — so this re-check just defends the
-        // id-based invariants against a stale/raced invocation; write access is
-        // ultimately enforced by the move outbox and the server.
+        // Check source authority again when the menu action runs.
         if (
           !containerNode ||
+          !canAdminContainerNode(containerNode) ||
           containerNode.parentId === null ||
           (containerNode.systemSlot ?? null) !== null
         ) {
@@ -166,7 +163,7 @@ export function useExplorerContainerTrashActions(
         // document delete path). A folder under a foreign shared root lands in
         // that org's Trash, never the viewer's personal one.
         const trashContainerId = await resolveExplorerTrashDestination({
-          containerId: containerNode.parentId,
+          containerId: containerNode.id,
           currentOrganizationId: appData.auth.organizationId,
           explorer,
         });

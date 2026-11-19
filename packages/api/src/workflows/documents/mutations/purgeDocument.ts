@@ -45,10 +45,8 @@ function toDocumentMutationError(
 // The single container a purgeable document is linked to. Purge is only allowed
 // for a document whose current link set has exactly one container (its trash);
 // a document still linked elsewhere must be unlinked from those containers
-// first. The server enforces cardinality here — it cannot identify "trash"
-// itself because the trash system slot is an identity-secret HMAC the API never
-// holds (see deriveContainerSystemSlot), so the UI restricts the action to the
-// trash container while the server guarantees the structural invariant.
+// first. The server enforces cardinality here. The app checks membership in
+// the organization's Trash subtree before offering purge.
 async function resolveSolePurgeContainerId(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;

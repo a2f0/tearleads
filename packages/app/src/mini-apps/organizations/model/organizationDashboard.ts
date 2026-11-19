@@ -2,7 +2,8 @@ import type {
   ContainerNode,
   ContainerShareAccessLevel,
 } from "@tearleads/client-sdk";
-import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../stores/systemContainers";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { CONTACTS_CONTAINER_NAME } from "../../../stores/systemContainers";
 
 /** A container this user can reach whose parent they cannot. */
 export interface OrganizationDashboardFolder {
@@ -41,15 +42,11 @@ function compareNames(left: string, right: string): number {
   return left.localeCompare(right, undefined, { sensitivity: "base" });
 }
 
-/**
- * The organization's own system containers (its metadata root and roster
- * profiles) are plumbing, never folders. A shared Contacts or Trash is a
- * folder; it carries its owner's opaque slot, so, as in Explorer, it is
- * recognized by name.
- */
 function isFolderNode(node: ContainerNode): boolean {
   return (
-    !node.systemSlot || SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES.has(node.name)
+    !node.systemSlot ||
+    node.name === CONTACTS_CONTAINER_NAME ||
+    node.systemSlot === deriveOrganizationTrashSystemSlot(node.organizationId)
   );
 }
 

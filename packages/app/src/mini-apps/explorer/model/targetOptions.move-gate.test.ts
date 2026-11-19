@@ -14,6 +14,7 @@ function containerNode(
   overrides: Partial<ContainerNode> & Pick<ContainerNode, "id">,
 ): ContainerNode {
   return {
+    effectiveAccessLevel: "admin",
     kind: "container",
     name: overrides.name ?? overrides.id,
     organizationId: "org-1",
@@ -26,7 +27,7 @@ function containerNode(
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: null,
   contactsSystemSlot: null,
-  currentOrganizationId: null,
+  currentOrganizationId: "org-1",
   selfContactIdentity: await createCanonicalSelfContactIdentity("fingerprint"),
   trashSystemSlot: TRASH_SLOT,
 });

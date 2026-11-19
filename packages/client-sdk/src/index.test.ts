@@ -200,6 +200,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "deriveContainerSystemSlot",
   "deriveOrganizationMetadataContainerSystemSlot",
   "deriveOrganizationRosterProfileContainerSystemSlot",
+  "deriveRegistrationOrganizationId",
   "deriveStableDocumentId",
   "deriveStoredDocumentTitle",
   "discardRegisteredDocumentLocalState",

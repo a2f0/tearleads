@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/validators",
-  "version": "0.1.78",
+  "version": "0.1.79",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -22,6 +22,7 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "zod": "catalog:"
   },
   "devDependencies": {

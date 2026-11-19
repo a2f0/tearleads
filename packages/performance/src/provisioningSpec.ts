@@ -6,11 +6,6 @@ export const provisioningSpec: ProvisionedSystemContainerSpec[] = [
   {
     name: "Trash",
     icon: "trash",
-    slotDefinition: {
-      namespace: "tearleads.explorer",
-      projectorId: "explorer",
-      slotId: "trash",
-      version: 1,
-    },
+    slotNamespace: "tearleads.organization-trash",
   },
 ];

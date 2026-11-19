@@ -154,40 +154,37 @@ export async function createNoteWithAttachment(
   await selectContainerAndWaitForItemTable(pane, containerName);
   await createExplorerNote(pane);
 
-  const editor = await within(pane).findByRole(
-    "textbox",
-    { name: /Notes editor/u },
-    { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
-  );
-  // The explorer's inline note view renders the editor and attachments
-  // without the notes mini-app toolbar, so attachments are staged through
-  // the hidden file input (and drag/drop) rather than an Attach button. Wait
-  // until that input is enabled to know the note document is ready to attach.
-  await waitFor(() => {
+  // Saving the title can remount the inline editor. Resolve each control in
+  // the same turn as its change event, once the note is ready for attachments.
+  const readyFileInput = () => {
     const input = pane.querySelector<HTMLInputElement>(
       "input.note-document-file-input",
     );
-    invariant(input, "Expected notes file input.");
-    expect(input.disabled).toBe(false);
-  });
-  await interact(() => {
-    fireEvent.change(editor, {
-      target: { value: title },
-    });
-  });
-
-  const fileInput = pane.querySelector<HTMLInputElement>(
-    "input.note-document-file-input",
+    invariant(
+      input && !input.disabled,
+      "Expected an enabled notes file input.",
+    );
+    return input;
+  };
+  await waitFor(
+    () =>
+      interact(() => {
+        readyFileInput();
+        const editor = within(pane).getByRole("textbox", {
+          name: /Notes editor/u,
+        });
+        fireEvent.change(editor, { target: { value: title } });
+      }),
+    { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
   );
-  invariant(fileInput, "Expected notes file input.");
   const attachment = new File([attachmentContents], attachmentName, {
     type: "image/png",
   });
-  await interact(() => {
-    fireEvent.change(fileInput, {
-      target: { files: [attachment] },
-    });
-  });
+  await waitFor(() =>
+    interact(() => {
+      fireEvent.change(readyFileInput(), { target: { files: [attachment] } });
+    }),
+  );
 
   await waitFor(() => {
     expect(within(pane).getByText(attachmentName)).toBeTruthy();

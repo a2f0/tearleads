@@ -8,6 +8,7 @@ export {
   type DocumentAttributionRangesPage,
   loadDocumentAttributionRanges,
 } from "./attribution/documentAttributionRanges";
+export { deriveSystemContainerId } from "./container-state/create/createChild";
 export type { ContainerContentsOrganizationHost } from "./container-state/organizationHost";
 export {
   type ContainerSyncWatermarkLane,

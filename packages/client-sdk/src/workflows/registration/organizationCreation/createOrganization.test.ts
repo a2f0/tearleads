@@ -5,6 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   type CreateOrganizationRequest,
   isCreateOrganizationRequest,
@@ -22,7 +23,6 @@ import {
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
 import { listPendingWrites } from "../../container-contents/pendingWrites";
-import { deriveContainerSystemSlot } from "../../container-contents/systemSlot";
 import {
   deriveOrganizationMetadataContainerSystemSlot,
   getRosterProfileDocumentLocalId,
@@ -254,16 +254,11 @@ test("createOrganization provisions configured system containers (Trash) atomica
     "organizations-create-organization-system-containers-test",
   );
   // The app declares the Explorer Trash bin; the SDK stays agnostic to what it
-  // is and derives the per-user slot from the founder's signing key.
+  // is and derives its slot from the organization ID.
   const trashSpec = {
     icon: "trash",
     name: "Trash",
-    slotDefinition: {
-      namespace: "tearleads.explorer",
-      projectorId: "explorer",
-      slotId: "trash",
-      version: 1,
-    },
+    slotNamespace: "tearleads.organization-trash",
   } as const;
   let captured: CreateOrganizationRequest | null = null;
 
@@ -288,11 +283,8 @@ test("createOrganization provisions configured system containers (Trash) atomica
     expect(isCreateOrganizationRequest(request)).toBe(true);
 
     // The Trash container rides along in the single provisioning request, tagged
-    // with the per-user system slot the app derives client-side.
-    const trashSlot = await deriveContainerSystemSlot({
-      definition: trashSpec.slotDefinition,
-      secretKey: signingKeyPair.signingPrivateKey,
-    });
+    // with the organization system slot the app derives client-side.
+    const trashSlot = deriveOrganizationTrashSystemSlot(request.organizationId);
     expect(request.initialSystemContainers).toHaveLength(1);
     const provisionedTrash = request.initialSystemContainers?.[0];
     expect(provisionedTrash?.systemSlot).toBe(trashSlot);

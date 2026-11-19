@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { RuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { loadExplorerPlacementSummary } from "./documentPlacementSummary";
 import {
   applyTrackedDocumentSummaryUpdates,
   type ExplorerRouteDocumentSummaryResult,
@@ -116,7 +117,10 @@ function useExplorerDocumentSummaryLoaders(params: {
     mergeDocumentSummary,
   } = params;
   const loadDocumentSummary = useCallback(
-    async (localId: string): Promise<DocumentSummary | null> => {
+    async (
+      localId: string,
+      sourceContainerId?: string,
+    ): Promise<DocumentSummary | null> => {
       if (dbStatus !== "ready") {
         return null;
       }
@@ -125,13 +129,21 @@ function useExplorerDocumentSummaryLoaders(params: {
         localId,
         { requireHydrated: true },
       );
+      if (documentSummary && sourceContainerId !== undefined) {
+        return loadExplorerPlacementSummary(
+          documentQueries,
+          documentSummary,
+          sourceContainerId,
+          currentOrganizationId,
+        );
+      }
       if (documentSummary) {
         mergeDocumentSummary(documentSummary);
       }
 
       return documentSummary;
     },
-    [dbStatus, documentQueries, mergeDocumentSummary],
+    [currentOrganizationId, dbStatus, documentQueries, mergeDocumentSummary],
   );
   const loadOrphanedDocumentSummary = useCallback(
     async (localId: string): Promise<DocumentSummary | null> => {

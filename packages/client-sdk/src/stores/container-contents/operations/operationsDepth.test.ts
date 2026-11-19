@@ -84,3 +84,29 @@ test("a local move whose subtree would pass the readable depth is refused", asyn
   expect(writes).toEqual([]);
   expect(state.containersById.get("moved")?.container.parentId).toBe("c0");
 });
+
+test.each([
+  ["write", "write"],
+  ["admin", "read"],
+] as const)(
+  "does not queue a folder move with %s source and %s destination access",
+  async (sourceAccess, destinationAccess) => {
+    const writes: string[] = [];
+    const tree = localChain(2);
+    const source = createTestContainerState({ id: "source", parentId: "c0" });
+    source.container.effectiveAccessLevel = sourceAccess;
+    const destination = tree.get("c1");
+    if (!destination) throw new Error("Missing destination");
+    destination.container.effectiveAccessLevel = destinationAccess;
+    tree.set("source", source);
+    const result = await moveContainer(
+      storeState(tree, writes),
+      noSyncAgent,
+      "source",
+      "c1",
+    );
+    expect(result).toBeNull();
+    expect(source.container.parentId).toBe("c0");
+    expect(writes).toEqual([]);
+  },
+);

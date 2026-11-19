@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   getExplorerSystemContainerId,
   getVisibleExplorerNodes,
 } from "./ExplorerProvider";
 
-test("explorer keeps same-slot user-facing system containers from separate organizations", () => {
-  const trashSystemSlot = "sys_v1_ccccccccccccccccccccccccccccccccccccccccccc";
+test("explorer shows both organizations’ Trash folders with only the active slot registered", () => {
+  const trashSystemSlot = deriveOrganizationTrashSystemSlot("work-org");
 
   expect(
     getVisibleExplorerNodes(
@@ -26,7 +27,7 @@ test("explorer keeps same-slot user-facing system containers from separate organ
           organizationId: "personal-org",
           parentId: "personal-root",
           syncState: syncedContainerDocumentObjectSyncState,
-          systemSlot: trashSystemSlot,
+          systemSlot: deriveOrganizationTrashSystemSlot("personal-org"),
         },
         {
           id: "work-root",

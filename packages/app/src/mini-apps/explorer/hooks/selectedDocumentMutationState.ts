@@ -2,6 +2,7 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
+import { canWriteDeleteToTrashTarget } from "../../../stores/systemContainerTrash";
 import {
   canMutateDocumentByIdentity,
   canWriteContainerNode,
@@ -40,10 +41,9 @@ export function getSelectedDocumentMutationState(params: {
   } = params;
   const canActivateSelectedDocument =
     appData.infra.dbStatus === "ready" && !!selectedDocument?.documentId;
-  const selectedDocumentContainer =
-    selectedDocument?.containerId === null || selectedDocument === undefined
-      ? undefined
-      : nodes.find((node) => node.id === selectedDocument.containerId);
+  const selectedDocumentContainer = nodes.find(
+    (node) => node.id === selectedDocument?.containerId,
+  );
   const selectedDocumentWritable = canWriteDocumentSummary(selectedDocument);
   const selectedDocumentContainerWritable =
     selectedDocument?.containerId === null ||
@@ -68,11 +68,24 @@ export function getSelectedDocumentMutationState(params: {
     selectedDocument !== undefined &&
     selectedDocument.containerId !== null;
 
+  const trashLookup = {
+    containerId: selectedDocument?.containerId ?? null,
+    currentOrganizationId: rulesContext.currentOrganizationId,
+    nodes,
+    trashSystemSlot,
+  };
+  const selectedDocumentUnderTrash = isContainerUnderTrash(
+    nodes,
+    trashLookup.containerId,
+    trashLookup,
+  );
   return {
     canDeleteSelectedDocument:
       canDeleteContainerScopedDocument &&
       canResolveTrashContainer &&
-      selectedDocument.containerId !== trashContainerId,
+      selectedDocument.containerId !== trashContainerId &&
+      !selectedDocumentUnderTrash &&
+      canWriteDeleteToTrashTarget(trashLookup),
     canLinkSelectedDocument:
       canActivateSelectedDocument &&
       selectedDocumentWritable &&
@@ -88,15 +101,7 @@ export function getSelectedDocumentMutationState(params: {
       selectedDocumentWritable &&
       selectedDocumentContainerWritable &&
       canMutateDocumentByIdentity(rulesContext, selectedDocument) &&
-      // Purge applies anywhere under trash, not only at the trash root: a
-      // document parked in a user-created subfolder of trash is still trashed.
-      // Rules-based (org-aware) so it matches the read-only-when-trashed gate —
-      // a document in a peer's shared Trash is purgeable (if writable) too, not
-      // only one in the viewer's own Trash.
-      isContainerUnderTrash(nodes, selectedDocument.containerId, {
-        currentOrganizationId: rulesContext.currentOrganizationId,
-        trashSystemSlot,
-      }),
+      selectedDocumentUnderTrash,
     canUnlinkSelectedDocument:
       canMutateSelectedDocument &&
       selectedDocumentLinkedContainerIds.length > 1,

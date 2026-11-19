@@ -19,21 +19,15 @@ import { useSelectedDocumentActions } from "./useSelectedDocumentActions";
 // selection or a right-clicked row — derived from shared memoized lookups.
 export function useDocumentTargetOptions(params: {
   document: DocumentSummary | undefined;
-  documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
 }) {
-  const {
-    document,
-    documentSummaries,
-    linkedContainerIdsByDocumentId,
-    nodes,
-    rulesContext,
-  } = params;
+  const { document, linkedContainerIdsByDocumentId, nodes, rulesContext } =
+    params;
   const targetLookups = useMemo(
-    () => createExplorerTargetLookups(nodes, documentSummaries),
-    [documentSummaries, nodes],
+    () => createExplorerTargetLookups(nodes, document ? [document] : []),
+    [document, nodes],
   );
   const linkedContainerIds = useMemo(
     () =>
@@ -84,7 +78,10 @@ export function useSelectedDocumentStructuralState(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   expandNode: (nodeId: string) => void;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  loadDocumentSummary: (
+    localId: string,
+    sourceContainerId?: string,
+  ) => Promise<DocumentSummary | null>;
   loadOrphanedDocumentSummary: (
     localId: string,
   ) => Promise<DocumentSummary | null>;
@@ -134,7 +131,6 @@ export function useSelectedDocumentStructuralState(params: {
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
     useDocumentTargetOptions({
       document: selectedDocument,
-      documentSummaries,
       linkedContainerIdsByDocumentId,
       nodes,
       rulesContext,
@@ -157,7 +153,10 @@ export function useSelectDocumentProjection(params: {
     documentId: string,
     containerId: string,
   ) => Promise<DocumentSummary | null>;
-  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  loadDocumentSummary: (
+    localId: string,
+    sourceContainerId?: string,
+  ) => Promise<DocumentSummary | null>;
   logError: (message: string | Error, cause?: unknown) => void;
   selectDocument: (
     id: string,

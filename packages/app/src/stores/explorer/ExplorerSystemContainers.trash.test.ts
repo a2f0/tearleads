@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { EXPLORER_TRASH_CONTAINER_NAME } from "../systemContainers";
 import { isContainerUnderTrash } from "./ExplorerSystemContainers";
 
@@ -50,14 +51,12 @@ test("a document parked in a subfolder of the own Trash is trashed", () => {
   expect(isContainerUnderTrash([trash, subfolder], "sub", input)).toBe(true);
 });
 
-test("a peer's shared Trash under a foreign org's root is trashed (matched by name)", () => {
-  // The owner's derived Trash slot is opaque to the viewer, so slot matching
-  // misses; foreign-shared detection falls back to the "Trash" name.
+test("a peer’s shared Trash is recognized by its organization slot", () => {
   const foreignTrash = node({
     id: "peer-trash",
     name: EXPLORER_TRASH_CONTAINER_NAME,
     organizationId: PEER_ORG,
-    systemSlot: "opaque-owner-slot",
+    systemSlot: deriveOrganizationTrashSystemSlot(PEER_ORG),
   });
   const foreignSubfolder = node({
     id: "peer-sub",
@@ -77,6 +76,7 @@ test("foreign-shared Trash is detected even before the viewer's own slot resolve
     id: "peer-trash",
     name: EXPLORER_TRASH_CONTAINER_NAME,
     organizationId: PEER_ORG,
+    systemSlot: deriveOrganizationTrashSystemSlot(PEER_ORG),
   });
 
   expect(

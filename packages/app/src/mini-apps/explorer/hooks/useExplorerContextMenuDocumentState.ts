@@ -4,9 +4,10 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useContainerViewResource } from "../../../document-types/container-views/shared/useContainerViewResource";
 import { isFileBackedDocumentKind } from "../../../document-types/registry";
+import { loadExplorerPlacementSummary } from "../../../stores/explorer/documentPlacementSummary";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
 import {
@@ -26,28 +27,36 @@ interface ExplorerContextMenuDocumentState {
   canPurgeContextMenuDocument: boolean;
 }
 
-type MenuDocumentQueries = Pick<
+type MenuQueries = Pick<
   ContainerDocumentQueries,
-  "loadDocumentSummary"
+  | "loadDocumentSummary"
+  | "loadOrphanedDocumentSummary"
+  | "loadContainerDocumentSummary"
 >;
 
-// Query the active menu row in its own database scope. This lookup can finish
-// after the menu closes or the account changes, so it never publishes to the
-// Explorer selection's shared summary cache.
-function useMenuDocumentSummary(
-  queries: MenuDocumentQueries,
-  localId: string | null,
+function useMenuPlacement(
+  queries: MenuQueries,
+  target: ExplorerContextMenuState["id"] | undefined,
+  currentOrganizationId: string | null,
   revision: number,
 ) {
-  const load = useCallback(
-    () =>
-      localId === null
-        ? Promise.resolve(null)
-        : queries.loadDocumentSummary(localId, { requireHydrated: true }),
-    [queries, localId, revision],
-  );
+  const load = useCallback(async () => {
+    if (target?.kind !== "document") return null;
+    const summary = await queries.loadDocumentSummary(target.localId, {
+      requireHydrated: true,
+    });
+    if (!summary) return null;
+    return loadExplorerPlacementSummary(
+      queries,
+      summary,
+      target.containerId,
+      currentOrganizationId,
+    );
+  }, [queries, target, currentOrganizationId, revision]);
   const resource = useContainerViewResource(load);
-  return resource.status === "ready" ? resource.value : null;
+  return resource.status === "ready"
+    ? (resource.value ?? undefined)
+    : undefined;
 }
 
 // The detail-pane row context menu opens without selecting (selecting would
@@ -57,10 +66,10 @@ function useMenuDocumentSummary(
 export function useExplorerContextMenuDocumentState(params: {
   appData: Parameters<typeof getSelectedDocumentMutationState>[0]["appData"];
   canResolveTrashContainer: boolean;
+  documentListRevision: number;
   contextMenu: ExplorerContextMenuState | null;
   documentSummaries: ReadonlyArray<DocumentSummary>;
-  documentQueries: MenuDocumentQueries;
-  documentListRevision: number;
+  documentQueries: MenuQueries;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
@@ -73,81 +82,66 @@ export function useExplorerContextMenuDocumentState(params: {
     contextMenu,
     documentSummaries,
     linkedContainerIdsByDocumentId,
-    documentQueries,
-    documentListRevision,
     nodes,
     rulesContext,
     trashContainerId,
     trashSystemSlot,
   } = params;
-  const targetLocalId =
-    contextMenu?.id.kind === "document" ? contextMenu.id.localId : null;
-  const targetDocument = useMemo(
-    () =>
-      targetLocalId === null
-        ? undefined
-        : getDocumentByLocalId(documentSummaries, targetLocalId),
-    [documentSummaries, targetLocalId],
+  const target = contextMenu?.id;
+  const placement = useMenuPlacement(
+    params.documentQueries,
+    appData.infra.dbStatus === "ready" ? target : undefined,
+    rulesContext.currentOrganizationId ?? null,
+    params.documentListRevision,
   );
-  const menuSummary = useMenuDocumentSummary(
-    documentQueries,
-    appData.infra.dbStatus === "ready" ? targetLocalId : null,
-    documentListRevision,
-  );
+  const home =
+    placement && getDocumentByLocalId(documentSummaries, placement.id);
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
     useDocumentTargetOptions({
-      document: targetDocument,
-      documentSummaries,
+      document: home,
       linkedContainerIdsByDocumentId,
       nodes,
       rulesContext,
     });
-  const mutationState = useMemo(
-    () =>
-      getSelectedDocumentMutationState({
-        appData,
-        canResolveTrashContainer,
-        nodes,
-        rulesContext,
-        selectedDocument: targetDocument,
-        selectedDocumentLinkTargetOptions: linkTargetOptions,
-        selectedDocumentLinkedContainerIds: linkedContainerIds,
-        selectedDocumentMoveTargetOptions: moveTargetOptions,
-        trashContainerId,
-        trashSystemSlot,
-      }),
-    [
-      appData,
-      canResolveTrashContainer,
-      linkTargetOptions,
-      linkedContainerIds,
-      moveTargetOptions,
-      nodes,
-      rulesContext,
-      targetDocument,
-      trashContainerId,
-      trashSystemSlot,
-    ],
-  );
+  const options = {
+    appData,
+    canResolveTrashContainer,
+    nodes,
+    rulesContext,
+    selectedDocumentLinkTargetOptions: linkTargetOptions,
+    selectedDocumentLinkedContainerIds: linkedContainerIds,
+    selectedDocumentMoveTargetOptions: moveTargetOptions,
+    trashContainerId,
+    trashSystemSlot,
+  };
+  // The Link and Move dialogs operate on the document's home placement.
+  // Trash and purge act directly on the clicked folder link.
+  const homeActions = getSelectedDocumentMutationState({
+    ...options,
+    selectedDocument: home,
+  });
+  const placementActions = getSelectedDocumentMutationState({
+    ...options,
+    selectedDocument: placement,
+  });
 
   return {
     canEditContextMenuContact:
-      contextMenu?.id.kind === "document" &&
       canResolveTrashContainer &&
-      menuSummary?.documentKind === "contact" &&
-      canWriteDocumentSummary(menuSummary) &&
-      !isContainerUnderTrash(nodes, contextMenu.id.containerId, {
+      placement?.documentKind === "contact" &&
+      canWriteDocumentSummary(placement) &&
+      !isContainerUnderTrash(nodes, placement.containerId, {
         currentOrganizationId: rulesContext.currentOrganizationId,
         trashSystemSlot,
       }),
-    canDeleteContextMenuDocument: mutationState.canDeleteSelectedDocument,
+    canDeleteContextMenuDocument: placementActions.canDeleteSelectedDocument,
     // Download only needs the file's local bytes, so it is gated on a ready
     // database and a file-backed kind — not on write access or being online.
     canDownloadContextMenuDocument:
       appData.infra.dbStatus === "ready" &&
-      isFileBackedDocumentKind(targetDocument?.documentKind ?? null),
-    canLinkContextMenuDocument: mutationState.canLinkSelectedDocument,
-    canMoveContextMenuDocument: mutationState.canMoveSelectedDocument,
-    canPurgeContextMenuDocument: mutationState.canPurgeSelectedDocument,
+      isFileBackedDocumentKind(placement?.documentKind ?? null),
+    canLinkContextMenuDocument: homeActions.canLinkSelectedDocument,
+    canMoveContextMenuDocument: homeActions.canMoveSelectedDocument,
+    canPurgeContextMenuDocument: placementActions.canPurgeSelectedDocument,
   };
 }

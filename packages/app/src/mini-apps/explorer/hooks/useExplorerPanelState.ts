@@ -76,7 +76,10 @@ export function useExplorerPanelState(params: {
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   bumpDocumentListRevision: () => void;
-  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  loadDocumentSummary: (
+    localId: string,
+    sourceContainerId?: string,
+  ) => Promise<DocumentSummary | null>;
   loadOrphanedDocumentSummary: (
     localId: string,
   ) => Promise<DocumentSummary | null>;
@@ -430,8 +433,10 @@ export function useExplorerPanelState(params: {
           return null;
         }
 
-        const purgedDocument =
-          await selectedNoteStructuralState.purgeDocument(documentId);
+        const purgedDocument = await selectedNoteStructuralState.purgeDocument(
+          documentId,
+          currentContainerId,
+        );
         if (purgedDocument) {
           // The purged document's local row is gone. Bump the document list
           // revision so the open container listing re-queries SQLite and the

@@ -187,7 +187,7 @@ test("provisioned-container pull skips the remote poll when the local surface yi
   expect(refreshRootLane.mock.calls.length).toBe(0);
 });
 
-test("provisioned-container pull accepts an opaque shared-org slot after a metadata root", async () => {
+test("provisioned-container pull continues until the shared organization slot appears despite a matching name", async () => {
   const nodes: ContainerNode[] = [
     {
       ...trashNode(),
@@ -242,7 +242,7 @@ test("provisioned-container pull accepts an opaque shared-org slot after a metad
   await new Promise((resolve) => setTimeout(resolve, 320));
   unmount();
 
-  expect(refreshRootLane).not.toHaveBeenCalled();
+  expect(refreshRootLane).toHaveBeenCalled();
 });
 
 // Regression: a slow network must not let interval ticks pile up concurrent

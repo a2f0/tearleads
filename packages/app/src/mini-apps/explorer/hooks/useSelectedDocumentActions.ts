@@ -16,6 +16,7 @@ import {
   purgeExplorerNote,
   unlinkExplorerLinkedNote,
 } from "../../../stores/explorer/documentLinks";
+import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";
 import {
   canLinkDocumentIntoContainerByRules,
   canLinkDocumentOutByRules,
@@ -33,13 +34,27 @@ import {
 
 type LoadExplorerDocumentSummary = (
   localId: string,
+  sourceContainerId?: string,
 ) => Promise<DocumentSummary | null>;
 
 async function resolveExplorerActionDocument(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   loadDocumentSummary: LoadExplorerDocumentSummary;
   documentId: string;
+  sourceContainerId?: string | null | undefined;
 }): Promise<DocumentSummary | null> {
+  if (params.sourceContainerId != null) {
+    const placed = await params.loadDocumentSummary(
+      params.documentId,
+      params.sourceContainerId,
+    );
+    if (
+      placed?.containerId !==
+      explorerDocumentQueryContainerId(params.sourceContainerId)
+    )
+      return null;
+    return placed;
+  }
   return (
     getDocumentByLocalId(params.documentSummaries, params.documentId) ??
     (await params.loadDocumentSummary(params.documentId))
@@ -61,6 +76,7 @@ interface MoveDocumentActionParams {
 }
 
 async function resolveMoveActionDocument(params: {
+  sourceContainerId?: string | null | undefined;
   documentId: string;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
@@ -107,6 +123,7 @@ function useMoveDocumentAction(params: MoveDocumentActionParams) {
       options?: ExplorerDocumentMutationOptions,
     ) => {
       const existingDocument = await resolveMoveActionDocument({
+        sourceContainerId: options?.sourceContainerId,
         documentSummaries,
         loadDocumentSummary,
         loadOrphanedDocumentSummary,
@@ -189,8 +206,9 @@ function usePurgeDocumentAction(params: {
   } = params;
 
   return useCallback(
-    async (documentId: string) => {
+    async (documentId: string, sourceContainerId?: string) => {
       const existingDocument = await resolveExplorerActionDocument({
+        sourceContainerId,
         documentSummaries,
         loadDocumentSummary,
         documentId,

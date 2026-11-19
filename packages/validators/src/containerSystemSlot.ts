@@ -1,3 +1,4 @@
+import { sha256 } from "@noble/hashes/sha2.js";
 import { z } from "zod";
 import { registerJsonSchemaFragment } from "./jsonSchema";
 
@@ -16,21 +17,27 @@ export function formatContainerSystemSlot(
   return `sys_v1_${encoded}`;
 }
 
-async function deriveOrganizationSystemSlot(input: {
+export const ORGANIZATION_TRASH_SLOT_NAMESPACE = "tearleads.organization-trash";
+
+export function deriveOrganizationSystemSlot(input: {
   readonly namespace: string;
   readonly organizationId: string;
-}): Promise<ContainerSystemSlot> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(
-      JSON.stringify({
-        namespace: input.namespace,
-        organizationId: input.organizationId,
-        version: 1,
-      }),
-    ),
-  );
-  return formatContainerSystemSlot(new Uint8Array(digest));
+}): ContainerSystemSlot {
+  const label = JSON.stringify({
+    namespace: input.namespace,
+    organizationId: input.organizationId,
+    version: 1,
+  });
+  return formatContainerSystemSlot(sha256(new TextEncoder().encode(label)));
+}
+
+export function deriveOrganizationTrashSystemSlot(
+  organizationId: string,
+): ContainerSystemSlot {
+  return deriveOrganizationSystemSlot({
+    namespace: ORGANIZATION_TRASH_SLOT_NAMESPACE,
+    organizationId,
+  });
 }
 
 export const ContainerSystemSlotSchema = registerJsonSchemaFragment(
@@ -58,7 +65,7 @@ export function isNullableContainerSystemSlot(
   return value === null || isContainerSystemSlot(value);
 }
 
-export function deriveOrganizationRosterProfileContainerSystemSlot(input: {
+export async function deriveOrganizationRosterProfileContainerSystemSlot(input: {
   readonly organizationId: string;
 }): Promise<ContainerSystemSlot> {
   return deriveOrganizationSystemSlot({
@@ -67,7 +74,7 @@ export function deriveOrganizationRosterProfileContainerSystemSlot(input: {
   });
 }
 
-export function deriveOrganizationMetadataContainerSystemSlot(input: {
+export async function deriveOrganizationMetadataContainerSystemSlot(input: {
   readonly organizationId: string;
 }): Promise<ContainerSystemSlot> {
   return deriveOrganizationSystemSlot({
