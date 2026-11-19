@@ -71,11 +71,19 @@ function StoredStartMenuPreferences({
       setOverrides(next);
     }
     function onStorage(event: StorageEvent) {
-      if (
-        event.key === null ||
-        configurableIds.some((id) => keyFor(id) === event.key)
-      )
+      if (event.key === null) {
         restore();
+        return;
+      }
+      const id = configurableIds.find((id) => keyFor(id) === event.key);
+      if (id === undefined) return;
+      const visible = readVisibility(keyFor(id));
+      setOverrides((current) => {
+        const next = new Map(current);
+        if (visible === undefined) next.delete(id);
+        else next.set(id, visible);
+        return next;
+      });
     }
     restore();
     window.addEventListener("storage", onStorage);

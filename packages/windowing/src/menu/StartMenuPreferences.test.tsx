@@ -1,6 +1,13 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { DisplayProperties } from "../display/DisplayProperties";
+import { LauncherNavigationProvider } from "../launcher/LauncherNavigationProvider";
+import { RoutedPane } from "../routed/RoutedPane";
+import {
+  forceMobileRoutedTier,
+  TEST_LAUNCHER,
+} from "../routed/routedPane.testUtils";
+import { WindowStateProvider } from "../window/WindowStateProvider";
 import { StartMenu } from "./StartMenu";
 import {
   StartMenuPreferencesProvider,
@@ -73,6 +80,8 @@ test("changing an app preserves a separate tab's choice for another app", () => 
   localStorage.setItem(`${KEY}.notes`, "true");
   fireEvent.click(view.getByRole("switch", { name: "Mail" }));
   expect(localStorage.getItem(`${KEY}.notes`)).toBe("true");
+  // A failed write would leave this tab with only its in-memory Mail choice.
+  localStorage.removeItem(`${KEY}.mail`);
   fireEvent(
     window,
     new StorageEvent("storage", { key: `${KEY}.notes`, newValue: "true" }),
@@ -82,4 +91,33 @@ test("changing an app preserves a separate tab's choice for another app", () => 
     true,
   );
   expect(view.getByRole("button", { name: "notes" })).toBeTruthy();
+  expect(view.queryByRole("button", { name: "mail" })).toBeNull();
+});
+
+test("a routed launcher keeps keyboard focus when another tab hides the focused entry", async () => {
+  const restore = forceMobileRoutedTier();
+  try {
+    const view = render(
+      <StartMenuPreferencesProvider definition={TEST_LAUNCHER} storageKey={KEY}>
+        <WindowStateProvider>
+          <LauncherNavigationProvider definition={TEST_LAUNCHER} mode="routed">
+            <RoutedPane menuIcon="Menu" />
+          </LauncherNavigationProvider>
+        </WindowStateProvider>
+      </StartMenuPreferencesProvider>,
+    );
+    fireEvent.click(view.getByRole("button", { name: "Menu" }));
+    const notes = view.getByRole("link", { name: "Notes" });
+    notes.focus();
+    expect(document.activeElement).toBe(notes);
+    localStorage.setItem(`${KEY}.notes`, "false");
+    fireEvent(window, new StorageEvent("storage", { key: `${KEY}.notes` }));
+    await Promise.resolve();
+    expect(view.queryByRole("link", { name: "Notes" })).toBeNull();
+    expect(document.activeElement).toBe(
+      view.getByRole("link", { name: "Explorer" }),
+    );
+  } finally {
+    restore();
+  }
 });

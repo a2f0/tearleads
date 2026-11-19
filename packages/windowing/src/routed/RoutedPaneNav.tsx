@@ -60,6 +60,27 @@ function isBrowserHandledNavClick(
   );
 }
 
+// A storage event can remove a focused launcher entry while the menu is open.
+function keepFocusInLauncher(link: HTMLAnchorElement | null) {
+  if (!link) return;
+  return () => {
+    if (link.ownerDocument.activeElement !== link) return;
+    const launcher = link.closest("aside");
+    queueMicrotask(() => {
+      if (
+        !launcher?.isConnected ||
+        launcher.getAttribute("aria-hidden") === "true" ||
+        link.ownerDocument.activeElement !== link.ownerDocument.body
+      )
+        return;
+      (
+        launcher.querySelector<HTMLElement>("a[href]") ??
+        launcher.querySelector("button")
+      )?.focus();
+    });
+  };
+}
+
 function RoutedPaneNavLink({
   appId,
   activeAppId,
@@ -84,6 +105,7 @@ function RoutedPaneNavLink({
     <>
       <a
         {...triggerProps}
+        ref={keepFocusInLauncher}
         aria-current={activeAppId === appId ? "page" : undefined}
         className={classNames(
           "routed-pane-nav-link",
@@ -178,6 +200,7 @@ function RoutedPaneMobileNavTile({
 }) {
   return (
     <a
+      ref={keepFocusInLauncher}
       aria-current={active ? "page" : undefined}
       className={classNames(
         "routed-pane-sheet-tile",
