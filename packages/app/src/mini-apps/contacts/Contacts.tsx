@@ -1,4 +1,5 @@
 import { useWindowFileMenuItem, useWindowSidebar } from "@tearleads/windowing";
+import { useEffect, useState } from "react";
 import { CopyMyIdentityLinkButton } from "../../components/identity/CopyMyIdentityLinkButton";
 import { IdentityLinkSignIn } from "../../components/identity/IdentityLinkSignIn";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
@@ -23,7 +24,9 @@ export function Contacts() {
 
 function ContactsDetailRoute({
   model,
+  initialEditing,
 }: {
+  initialEditing: boolean;
   model: ReturnType<typeof useContactsModel>;
 }) {
   const selected = model.entries.find(
@@ -38,6 +41,7 @@ function ContactsDetailRoute({
   });
   return (
     <ContactsDetailPanel
+      initialEditing={initialEditing}
       addressActions={model.addressActions}
       resolveAddressWriter={resolveAddressWriter}
       blobStore={model.blobStore}
@@ -80,6 +84,12 @@ function ContactsDetailRoute({
 function ContactsContent() {
   const { setSidebar } = useWindowSidebar();
   const model = useContactsModel(setSidebar);
+  const [editContactId, setEditContactId] = useState<string | null>(null);
+  const initialEditing =
+    editContactId !== null && model.selectedContactId === editContactId;
+  useEffect(() => {
+    if (initialEditing) setEditContactId(null);
+  }, [initialEditing]);
   useContactsRoutedChromeActions({
     canWrite: model.canWrite,
     openImportContactRoute: model.openImportContactRoute,
@@ -120,24 +130,18 @@ function ContactsContent() {
           setSelectedContactId={model.selectContact}
         />
       ) : (
-        <ContactsDetailRoute model={model} />
+        <ContactsDetailRoute model={model} initialEditing={initialEditing} />
       )}
       <ContactsContextMenuLayer
-        canRemoveContextMenuContact={
-          model.contextMenuState.canRemoveContextMenuContact
-        }
-        closeContextMenu={model.contextMenuState.closeContextMenu}
-        contextMenuContactUserId={
-          model.contextMenuState.contextMenuContactUserId
-        }
-        contextMenu={model.contextMenuState.contextMenu}
+        {...model.contextMenuState}
+        editContact={(id) => {
+          setEditContactId(id);
+          if (model.selectedContactId !== id) model.selectContact(id);
+        }}
         openImportContactRoute={model.openImportContactRoute}
         openNewContactRoute={model.openNewContactRoute}
         ready={model.ready}
         canWrite={model.canWrite}
-        removeContextMenuContact={
-          model.contextMenuState.removeContextMenuContact
-        }
       />
     </MiniAppRoot>
   );
