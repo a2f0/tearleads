@@ -124,7 +124,6 @@ export interface DocumentStoreState {
   attachmentStorageKeyBySlotId: Record<string, string>;
   /** Creation's birth rides the first attach; see `deferredInitialUpdate.ts`. */
   deferInitialUpdate?: boolean;
-  requireSeededCreate?: DocumentStoreOpenOptions["requireSeededCreate"];
   doc: DocumentState | null;
   effects: DocumentStorePersistenceEffects;
   initialDocumentId: string | null;

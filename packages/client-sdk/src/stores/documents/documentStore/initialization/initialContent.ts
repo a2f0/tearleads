@@ -46,7 +46,10 @@ export function assertInitialContentFitsKind(
  * was written.
  */
 export function writeInitialDocumentContent(
-  state: DocumentStoreState,
+  state: Pick<
+    DocumentStoreState,
+    "initialContent" | "initialDocumentKind" | "runtime"
+  >,
   doc: DocumentState,
 ): boolean {
   const fields = definedStructuredFields(

@@ -12,8 +12,6 @@ export interface DocumentRecord {
   recoveryGeneration?: number;
   /** Former server id reserved for deterministic post-purge recreation. */
   recoveryDocumentId?: string | null;
-  /** A pending first create may never adopt a competing remote birth. */
-  requireSeededCreate?: boolean | undefined;
   /**
    * Encoded end version vector of the persisted content frontier. Content
    * itself lives in the durable history (checkpoint + tail); this column
@@ -77,7 +75,6 @@ export interface SelectedDocumentRecordRow {
   documentId: string | null;
   recoveryGeneration: number;
   recoveryDocumentId: string | null;
-  requireSeededCreate: number;
   snapshotEndVersion: string;
   accessEpoch: number;
   accessStateHash: string | null;

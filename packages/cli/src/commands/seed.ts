@@ -94,7 +94,6 @@ async function findSeedPlacement(
 async function confirmSeedSync(
   session: CliSession,
   store: Awaited<ReturnType<typeof writeContinuityDocument>>,
-  localId: string,
   documentId: string,
   key: string,
   missingHeads: number,
@@ -104,6 +103,9 @@ async function confirmSeedSync(
   );
   const idle = await coordinator.waitForIdle({ timeoutMs: 120_000 });
   session.assertNoFailures(missingHeads);
+  const localId =
+    await session.sdk.documents.findLocalIdByDocumentId(documentId);
+  if (!localId) throw new Error("Missing synced document.");
   const state = await session.sdk.containerContents
     .documentQueries()
     .loadDocumentSyncState(localId);
@@ -166,7 +168,6 @@ export async function seed(input: CommandInput): Promise<void> {
           await confirmSeedSync(
             session,
             store,
-            existing?.localId ?? localId,
             documentId,
             document.key,
             missingHeads,

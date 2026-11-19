@@ -41,27 +41,51 @@ async function prepareAttachment(input: SeedWriteInput, index: number) {
   };
 }
 
-export async function writeContinuityDocument(input: SeedWriteInput) {
+async function openContinuityDocument(
+  input: SeedWriteInput,
+  attachments: ReadonlyArray<Awaited<ReturnType<typeof prepareAttachment>>>,
+) {
   const { sdk, document, existing } = input;
-  const attachments = await Promise.all(
-    document.attachments.map((_, index) => prepareAttachment(input, index)),
-  );
-  const store = sdk.containerContents.documentLinks().openDocument({
-    containerId: input.containerId,
-    localId: existing?.localId ?? input.localId,
-    documentId: existing?.documentId,
-    requireSeededCreate: input.destination === "account",
+  const content = {
     initialDocumentKind: document.kind,
     initialText: document.text ?? "",
     initialRows: document.rows,
     initialStructuredFields: document.fields,
     initialAttachments: attachments.map(({ intent }) => intent),
+  };
+  const links = sdk.containerContents.documentLinks();
+  let placement = existing;
+  if (input.destination === "account" && !placement) {
+    const receipt = await sdk.documents.createSeeded({
+      ...content,
+      containerId: input.containerId,
+      documentId: await deriveStableDocumentId(input.localId),
+    });
+    const [summary] = await sdk.containerContents
+      .documentQueries()
+      .upsertDiscoveredDocuments([receipt]);
+    if (!summary || summary.documentId !== receipt.documentId)
+      throw new Error("Missing seeded document placement.");
+    placement = { localId: summary.id, documentId: receipt.documentId };
+  }
+  return links.openDocument({
+    containerId: input.containerId,
+    localId: placement?.localId ?? input.localId,
+    ...(placement ? { documentId: placement.documentId } : content),
   });
+}
+
+export async function writeContinuityDocument(input: SeedWriteInput) {
+  const { document } = input;
+  const attachments = await Promise.all(
+    document.attachments.map((_, index) => prepareAttachment(input, index)),
+  );
+  const store = await openContinuityDocument(input, attachments);
   if (!(await store.ensureInitialized()))
     throw new Error(`Could not open ${document.key}`);
   const before = store.getSnapshot();
   if (
-    !existing &&
+    input.destination === "backup" &&
     (before.fieldValidationIssues.length ||
       before.rows.length !== (document.rows?.length ?? 0))
   ) {

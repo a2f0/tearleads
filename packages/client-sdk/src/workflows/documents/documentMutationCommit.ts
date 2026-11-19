@@ -23,9 +23,6 @@ import {
 } from "./documentMutationPreparation";
 import { prepareDocumentMutationUnlessDeleted } from "./documentPersistGuards";
 
-type DocumentMutation = Parameters<
-  DocumentsPersistence["commitDocumentMutation"]
->[1];
 type DocumentContentState = Parameters<typeof encodeVersionVector>[0];
 type NullableDocumentRuntimeField =
   | "accessStateHash"
@@ -50,8 +47,16 @@ export interface PersistedDocumentState {
 export interface PersistDocumentStateInput
   extends PrepareDocumentMutationInput {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
-  attachmentRemoval?: DocumentMutation["attachmentRemoval"];
-  attachmentStaging?: DocumentMutation["attachmentStaging"];
+  attachmentRemoval?:
+    | Parameters<
+        DocumentsPersistence["commitDocumentMutation"]
+      >[1]["attachmentRemoval"]
+    | undefined;
+  attachmentStaging?:
+    | Parameters<
+        DocumentsPersistence["commitDocumentMutation"]
+      >[1]["attachmentStaging"]
+    | undefined;
   canStartDurableMutation?: (() => boolean) | undefined;
   clearSyncFailure?: boolean | undefined;
   commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>;
@@ -170,8 +175,6 @@ function buildStoredDocumentRecord(input: {
       securityContextChanged,
     ),
     documentId: nextDocumentId,
-    requireSeededCreate:
-      currentRecord?.requireSeededCreate ?? patch.requireSeededCreate,
     effectiveAccessLevel:
       patch.effectiveAccessLevel ?? currentRecord?.effectiveAccessLevel ?? null,
     documentKekTargets: resolveNullableDocumentRuntimeField(
@@ -308,7 +311,8 @@ async function resolveInitialDocumentCreation(input: {
   if (typeof input.savedAt === "string") {
     return { record: input.record, updatedAt: input.savedAt };
   }
-  // Only verified identity allows a caller to adopt an existing remote alias.
+  // A discovered alias is not a concurrent local winner. Leave its backing
+  // store untouched and refuse until a caller can establish verified identity.
   if (input.savedAt?.status === "remote-alias") return null;
   if (
     input.persistInput.canStartDurableMutation &&

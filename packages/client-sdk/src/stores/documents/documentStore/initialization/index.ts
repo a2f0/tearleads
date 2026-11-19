@@ -98,7 +98,6 @@ async function createInitialDocumentRecord(
 
   const created: DocumentRecord = {
     id: state.localId,
-    ...(state.requireSeededCreate ? { requireSeededCreate: true } : {}),
     containerId: state.runtime.state.containerId ?? null,
     documentId: state.initialDocumentId,
     documentKind: initialDocumentState.documentKind,

@@ -20,7 +20,6 @@ export const documentRecordSelection = {
   documentId: documents.documentId,
   recoveryGeneration: documents.recoveryGeneration,
   recoveryDocumentId: documents.recoveryDocumentId,
-  requireSeededCreate: documents.requireSeededCreate,
   snapshotEndVersion: documents.snapshotEndVersion,
   accessEpoch: documents.accessEpoch,
   accessStateHash: documents.accessStateHash,
@@ -50,9 +49,6 @@ export function mapSelectedDocumentRecord(
     documentKekTargets: row.documentKekTargets,
     documentManifestBundle: row.documentManifestBundle,
   };
-
-  if (!row.documentId && !row.recoveryDocumentId && row.requireSeededCreate)
-    record.requireSeededCreate = true;
 
   if (row.accessStateHash !== null) {
     record.accessStateHash = row.accessStateHash;

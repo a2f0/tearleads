@@ -301,7 +301,6 @@ function createBackingStoreContext(
     (options.remoteSyncMode ?? "startup") === "startup",
   );
   if (options.deferInitialUpdate) state.deferInitialUpdate = true;
-  state.requireSeededCreate = options.requireSeededCreate;
   const { initialAttachments, initialRows, initialStructuredFields } = options;
   assertInitialContentFitsKind({ initialStructuredFields }, documentKind);
   state.initialContent = {

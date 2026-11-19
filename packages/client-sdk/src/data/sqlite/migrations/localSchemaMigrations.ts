@@ -85,25 +85,6 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 4,
   },
-  {
-    name: "require_atomic_seeded_birth",
-    up: async (execSql, context) => {
-      if (!(await context.hasTable("documents"))) return;
-      const columns = new Set(
-        (await execSql("PRAGMA table_info(documents)")).map(({ name }) => name),
-      );
-      if (
-        !columns.has("local_id") ||
-        !columns.has("app_kind") ||
-        columns.has("require_seeded_create")
-      )
-        return;
-      await execSql(
-        "ALTER TABLE documents ADD COLUMN require_seeded_create INTEGER NOT NULL DEFAULT 0",
-      );
-    },
-    version: 5,
-  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

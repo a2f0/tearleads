@@ -1,5 +1,6 @@
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
+import type { DiscoveredDocumentInput } from "../../data/documents/documentSummary";
 import type {
   DocumentSummaryList,
   DocumentSummarySort,
@@ -9,12 +10,14 @@ import type {
 } from "../../data/persistence/documents/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  createSeededDocument,
   DEFAULT_DOCUMENT_ID as DEFAULT_LOCAL_DOCUMENT_ID,
   type DocumentStore,
   type DocumentStoreOpenOptions,
   type DocumentsRuntime,
   openDocumentStore,
   type PersistedDocumentListener,
+  type SeededDocumentInput,
   subscribeToPersistedDocuments,
 } from "../../stores/documents";
 import { emitPersistedDocumentDeletion } from "../../stores/documents/registry";
@@ -57,20 +60,19 @@ export interface ListDocumentsInput extends ListDocumentSummariesInput {}
 
 export type DocumentList = DocumentSummaryList;
 
-export { DEFAULT_LOCAL_DOCUMENT_ID as DEFAULT_DOCUMENT_ID };
-
+export type { SeededDocumentInput } from "../../stores/documents";
 export interface OpenDocumentInput {
   readonly containerId?: string | null | undefined;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
   /** Birth content of a created record; see `DocumentStoreOpenOptions`. */
-  readonly requireSeededCreate?: DocumentStoreOpenOptions["requireSeededCreate"];
   readonly initialAttachments?: DocumentStoreOpenOptions["initialAttachments"];
   readonly initialRows?: DocumentStoreOpenOptions["initialRows"];
   readonly initialStructuredFields?: DocumentStoreOpenOptions["initialStructuredFields"];
   readonly initialText?: string | undefined;
   readonly localId?: string | undefined;
 }
+export { DEFAULT_LOCAL_DOCUMENT_ID as DEFAULT_DOCUMENT_ID };
 
 export interface OpenDocumentOptions {
   readonly remoteSyncMode?: "on-demand" | "startup" | undefined;
@@ -82,6 +84,7 @@ export interface DocumentSubscriptionOptions {
 }
 
 export interface Documents {
+  createSeeded(input: SeededDocumentInput): Promise<DiscoveredDocumentInput>;
   delete(localId: string): Promise<boolean>;
   findLocalIdByDocumentId(documentId: string): Promise<string | null>;
   list(input?: ListDocumentsInput | undefined): Promise<DocumentList | null>;
@@ -120,6 +123,10 @@ class DocumentsService implements Documents {
   >();
 
   constructor(private readonly dependencies: DocumentsDependencies) {}
+
+  createSeeded(input: SeededDocumentInput) {
+    return createSeededDocument(this.workflowRuntime(input.containerId), input);
+  }
 
   async delete(localId: string): Promise<boolean> {
     const runtime = this.workflowRuntime();
@@ -184,7 +191,6 @@ class DocumentsService implements Documents {
       containerId,
       documentId = null,
       initialDocumentKind = DEFAULT_DOCUMENT_KIND,
-      requireSeededCreate,
       initialAttachments,
       initialRows,
       initialStructuredFields,
@@ -201,7 +207,6 @@ class DocumentsService implements Documents {
       initialText,
       initialDocumentKind,
       {
-        requireSeededCreate,
         initialAttachments,
         initialRows,
         initialStructuredFields,

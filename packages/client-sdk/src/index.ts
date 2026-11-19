@@ -162,6 +162,7 @@ export type {
   SecurityIncidentListener,
   SecurityIncidentObjectKind,
   SecurityIncidents,
+  SeededDocumentInput,
   Session,
   SessionContext,
   SessionCreateOrganizationResult,

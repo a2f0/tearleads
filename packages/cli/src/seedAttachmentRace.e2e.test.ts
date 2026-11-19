@@ -8,11 +8,20 @@ import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { restoreAttachmentMetadata } from "./seedAttachmentMetadata.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
 
-test.each(["replace", "remove", "metadata", "restore", "rename"] as const)(
+test.each([
+  "replace",
+  "remove",
+  "metadata",
+  "restore",
+  "rename",
+  "interrupted removal",
+] as const)(
   "a retry respects a concurrent avatar %s after discovering a partial upload",
   async (edit) => {
     await initializeApiDatabase();
     let interrupt = true;
+    let loseBindResponse = edit === "interrupted removal";
+    let lostBind = false;
     let beforeDetach: (() => Promise<void>) | undefined;
     let beforeUpload: (() => Promise<void>) | undefined;
     const server = Bun.serve({
@@ -29,6 +38,17 @@ test.each(["replace", "remove", "metadata", "restore", "rename"] as const)(
           const restore = beforeDetach;
           beforeDetach = undefined;
           await restore?.();
+        }
+        if (
+          loseBindResponse &&
+          new URL(req.url).pathname.endsWith("/attachment-bindings")
+        ) {
+          const response = await routeApp.fetch(req);
+          if (response.ok) {
+            lostBind = true;
+            return new Response(null, { status: 503 });
+          }
+          return response;
         }
         return routeApp.fetch(req);
       },
@@ -74,7 +94,12 @@ test.each(["replace", "remove", "metadata", "restore", "rename"] as const)(
                 expect(await restored.requestRemoteSyncAndWait()).toBe(true);
               });
           }
-          if (edit === "remove" || edit === "restore" || edit === "rename")
+          if (
+            edit === "remove" ||
+            edit === "restore" ||
+            edit === "rename" ||
+            edit === "interrupted removal"
+          )
             await other.removeAttachment(attachment.slotId);
           else
             await other.replaceAttachment(attachment.slotId, {
@@ -112,10 +137,27 @@ test.each(["replace", "remove", "metadata", "restore", "rename"] as const)(
           }
         });
       const result = await runCli(["seed", "--env", "staging"], context);
-      expect(result).toBe(edit === "replace" || edit === "restore" ? 1 : 0);
+      expect(result).toBe(
+        edit === "replace" ||
+          edit === "restore" ||
+          edit === "interrupted removal"
+          ? 1
+          : 0,
+      );
       expect(beforeDetach).toBeUndefined();
       expect(beforeUpload).toBeUndefined();
-      if (edit === "metadata")
+      if (edit === "interrupted removal") {
+        expect(lostBind).toBe(true);
+        loseBindResponse = false;
+        await onFreshDevice(device, async ([store], sdk) => {
+          expect(store?.getSnapshot().attachments).toHaveLength(0);
+          const bindings = await sdk.documents
+            .workflowRuntime()
+            .apiClient.listDocumentAttachments(contactId ?? "");
+          expect(bindings).toHaveLength(1);
+        });
+      }
+      if (edit === "metadata" || edit === "interrupted removal")
         expect(await runCli(["seed", "--env", "staging"], context)).toBe(0);
       await onFreshDevice(device, async (stores, sdk) => {
         if (edit === "metadata")
@@ -128,7 +170,7 @@ test.each(["replace", "remove", "metadata", "restore", "rename"] as const)(
         const snapshot = store?.getSnapshot();
         if (!snapshot?.documentId)
           throw new Error("Missing partial avatar owner");
-        if (edit === "remove") {
+        if (edit === "remove" || edit === "interrupted removal") {
           expect(snapshot.attachments).toHaveLength(0);
           const runtime = sdk.documents.workflowRuntime();
           expect(

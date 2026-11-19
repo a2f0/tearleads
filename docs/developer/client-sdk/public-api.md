@@ -345,8 +345,8 @@ do not silently clear pins or checkpoints to make obsolete data load.
 the stored `documentId` or `recoveryDocumentId` from
 `defaultDocumentsPersistence.loadDocument` (`DocumentRecord`).
 `createDocumentHeadLinkSetLoader(runtime)` verifies a known ID's signed links.
-`initialAttachments` records metadata at birth. With `requireSeededCreate`,
-one create commits the full birth. Conflicting or oversized births fail.
+`documents.createSeeded` commits the initial content, including attachment
+metadata, in one online request and returns its verified placement.
 `resolveDocumentCreateAuthor(runtime)` returns the blob writer or `null`.
 
 First-birth persistence is not an alias resolver. Its root type

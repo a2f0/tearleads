@@ -221,7 +221,9 @@ export async function ensureRemoteDocument(
     !generation || isDocumentStoreSyncGenerationCurrent(state, generation);
   if (!generationIsCurrent()) return state.record ?? nextRecord;
 
-  if (nextRecord?.documentId) return nextRecord;
+  if (nextRecord?.documentId) {
+    return nextRecord;
+  }
 
   const runtime = state.runtime;
   if (!runtime.state.containerId) {
@@ -272,9 +274,6 @@ export async function ensureRemoteDocument(
   const created = await remoteDocuments.createRemoteDocument({
     author,
     containerId: runtime.state.containerId,
-    requireSeededCreate: nextRecord?.recoveryDocumentId
-      ? undefined
-      : nextRecord?.requireSeededCreate,
     deferredSeedUpdate: seed ? undefined : deferredSeed?.update,
     // Derive the remote id from the stable local id so a retry after a lost
     // create response re-sends the same id and adopts the existing remote

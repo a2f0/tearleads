@@ -36,22 +36,20 @@ export interface DocumentMutationOptions extends DocumentMutationGuard {
 }
 
 export interface DocumentStoreOpenOptions {
-  /** Commit the entire birth in one create. Refuse plain creates and adoption. */
-  requireSeededCreate?: boolean | undefined;
   /**
    * The caller attaches a file immediately after creating the document. The
    * birth commits locally without its own pending update, so the attach's
    * delta carries it; a failed attach enqueues the birth on its own.
    */
   deferInitialUpdate?: boolean | undefined;
-  /** Attachment metadata to commit at birth, before its bytes are uploaded. */
-  initialAttachments?: readonly DocumentAttachment[] | undefined;
   /**
    * Rows and structured fields a newly created record starts with. They are
    * written into its birth update with the initial kind and text, so a
    * document whose content is known up front queues one update. Fields need a
    * non-note `initialDocumentKind`. Both are ignored when the record exists.
    */
+  /** Attachment metadata to commit at birth, before its bytes are uploaded. */
+  initialAttachments?: readonly DocumentAttachment[] | undefined;
   initialRows?: ReadonlyArray<Readonly<Record<string, string>>> | undefined;
   initialStructuredFields?: DocumentStructuredFieldPatch | undefined;
   remoteSyncMode?: "on-demand" | "startup" | undefined;
