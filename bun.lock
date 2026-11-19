@@ -390,7 +390,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.44",
+      "version": "0.2.45",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
