@@ -78,7 +78,15 @@ test(
     });
     fireEvent.click(contacts.getByRole("button", { name: "Create" }));
     await contacts.findByRole("heading", { name: "Address owner" });
-    fireEvent.click(await contacts.findByRole("button", { name: "Edit" }));
+    fireEvent.click(await contacts.findByRole("button", { name: "You" }));
+    fireEvent.click(
+      await contacts.findByRole("button", {
+        name: "Actions for Address owner",
+      }),
+    );
+    const contactMenu = view.baseElement.querySelector<HTMLElement>(".menu");
+    if (!contactMenu) throw new Error("Expected the Contacts row menu.");
+    fireEvent.click(within(contactMenu).getByRole("button", { name: "Edit" }));
     await addAddress(contactsWindow, "Home", "12 King Street");
     await addAddress(contactsWindow, "Work", "99 Queen Street");
     fireEvent.click(contacts.getByRole("button", { name: "Done" }));
@@ -92,16 +100,17 @@ test(
     const table = within(
       await explorer.findByRole("table", { name: "Items in Contacts" }),
     );
-    fireEvent.click(
+    fireEvent.contextMenu(
       await table.findByRole("button", { name: "Address owner" }),
     );
+    const menu = view.baseElement.querySelector<HTMLElement>(".menu");
+    if (!menu) throw new Error("Expected the Explorer row menu.");
+    fireEvent.click(await within(menu).findByRole("button", { name: "Edit" }));
     await waitFor(() =>
       expect(explorerWindow.textContent).toContain("12 King Street"),
     );
     expect(explorer.getByText("99 Queen Street")).toBeTruthy();
     expect(explorer.getAllByText("00123")).toHaveLength(2);
-    // The detail can show the address before its edit controls mount.
-    fireEvent.click(await explorer.findByRole("button", { name: "Edit" }));
     const home = within(await explorer.findByRole("group", { name: "Home" }));
     fireEvent.click(await home.findByRole("button", { name: "Edit address" }));
     const editor = within(
