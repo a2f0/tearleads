@@ -1,17 +1,33 @@
 import {
   DisplayProperties,
+  useMiniAppRouteSegments,
   useWindowContentSize,
   type WindowSize,
 } from "@tearleads/windowing";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  MiniAppTabList,
+  MiniAppTabPanel,
+} from "../../components/mini-app/layout/MiniAppTabs";
 import { AppWindow } from "../AppWindow";
 import "./SettingsApp.css";
 import { MINI_APP_MENU_ITEMS } from "../catalog";
 import { useVisibleMiniAppItems } from "../useVisibleMiniAppItems";
 
+const SETTINGS_TABS = [
+  { id: "desktop", label: "Desktop" },
+  { id: "system-tray", label: "System tray" },
+  { id: "start-menu", label: "Start menu" },
+] as const;
+
 // Wallpaper, theme, and tray preferences come from the app-wide providers
 // in Layout, so Settings can open before an identity or database exists.
 export function SettingsApp() {
+  const idPrefix = useId();
+  const { pathSegments, setPathSegments } =
+    useMiniAppRouteSegments("display-properties");
+  const activeTab =
+    SETTINGS_TABS.find(({ id }) => id === pathSegments[0])?.id ?? "desktop";
   const menuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentSize, setContentSize] = useState<WindowSize>();
@@ -38,9 +54,19 @@ export function SettingsApp() {
   return (
     <AppWindow>
       <div className="app-settings" ref={contentRef}>
-        <DisplayProperties
-          startMenuAppIds={menuItems.map(({ appId }) => appId)}
+        <MiniAppTabList
+          activeTab={activeTab}
+          idPrefix={idPrefix}
+          label="Settings"
+          onSelect={(tab) => setPathSegments(tab === "desktop" ? [] : [tab])}
+          tabs={SETTINGS_TABS}
         />
+        <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
+          <DisplayProperties
+            section={activeTab}
+            startMenuAppIds={menuItems.map(({ appId }) => appId)}
+          />
+        </MiniAppTabPanel>
       </div>
     </AppWindow>
   );

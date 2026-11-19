@@ -15,9 +15,11 @@ import { PaneFooterWindowButton } from "./PaneFooterWindowButton";
 // demo's "Peer 1"/"Peer 2"), so it never sits under the windows.
 export function PaneFooter({
   label,
+  onOpenStartMenuSettings,
   tray,
 }: {
   label?: string | undefined;
+  onOpenStartMenuSettings?: (() => void) | undefined;
   tray?: ReactNode;
 }) {
   const { windows } = useWindowStateData();
@@ -28,6 +30,7 @@ export function PaneFooter({
       <StartMenu
         className="tearleads-action-button pane-footer-menu-button"
         icon={<TearleadsLogo className="pane-footer-menu-logo" />}
+        onOpenSettings={onOpenStartMenuSettings}
         renderMenu={({ close, position }) => (
           <PaneMenu surface="start" position={position} onClose={close} />
         )}

@@ -25,7 +25,11 @@ export function AppSystemTray() {
               icon: settings.icon,
               id: "display-properties",
               label: settings.iconLabel ?? settings.title,
-              onSelect: () => openMiniApp({ appId: "display-properties" }),
+              onSelect: () =>
+                openMiniApp({
+                  appId: "display-properties",
+                  pathSegments: ["system-tray"],
+                }),
             },
           ]
         : [],

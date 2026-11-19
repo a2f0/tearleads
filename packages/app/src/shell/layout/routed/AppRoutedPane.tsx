@@ -6,6 +6,7 @@ import { ROUTED_MINI_APP_NAV_ITEMS } from "../../../mini-apps/catalog";
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
 import type { MiniAppId } from "../../../mini-apps/types";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
+import { useAppNavigationActions } from "../../../navigation/AppNavigationProvider";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { AppSystemTray } from "../../../tray-apps/AppSystemTray";
@@ -34,6 +35,7 @@ function renderTestSystemBanner({
  * see.
  */
 export function AppRoutedPane() {
+  const { openMiniApp } = useAppNavigationActions();
   const { userId } = useCryptoSession();
   const { subscribeKeyboardVisibility } = useAppHostConfig();
   useRegisterUserId(userId);
@@ -50,6 +52,12 @@ export function AppRoutedPane() {
       appIds={appIds}
       contentTop={<SystemMonitorPinned />}
       launcherPlacementStorageKey={LAUNCHER_PLACEMENT_STORAGE_KEY}
+      onOpenStartMenuSettings={() =>
+        openMiniApp({
+          appId: "display-properties",
+          pathSegments: ["start-menu"],
+        })
+      }
       menuIcon={<TearleadsLogo />}
       renderAboveTaskbar={renderTestSystemBanner}
       subscribeKeyboardVisibility={subscribeKeyboardVisibility}

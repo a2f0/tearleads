@@ -198,6 +198,7 @@ test("postal addresses round-trip between Contacts and Explorer and survive relo
 
   await test.step("Contacts reopens the same contact with Explorer's edits", async () => {
     await openApp(page, "Settings");
+    await page.getByRole("tab", { name: "Start menu" }).click();
     await page.getByRole("switch", { name: "Contacts", exact: true }).check();
     await openApp(page, "Contacts");
     await page
