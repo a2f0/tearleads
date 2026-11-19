@@ -50,6 +50,11 @@ async function createSeedUpdate(
     input.initialDocumentKind ?? DEFAULT_DOCUMENT_KIND;
   const projectors = runtime.infra.documentProjectors;
   assertInitialContentFitsKind(input, initialDocumentKind);
+  if (
+    initialDocumentKind === DEFAULT_DOCUMENT_KIND &&
+    input.initialRows?.length
+  )
+    throw new Error("A seeded note cannot contain rows.");
   initializeStoredDocumentKind(doc, initialDocumentKind, projectors);
   if (input.initialText) doc.getText("text").update(input.initialText);
   writeInitialDocumentContent(

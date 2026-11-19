@@ -4,11 +4,11 @@ import type {
 } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
+  assertDocumentCreateSigner,
   assertDocumentWriterProjectionConsistent,
   readLinkedContainerIdsFromDocumentManifest,
   unwrapDocumentContentKeyFromWriterProjection,
 } from "../../../data/documents/shared/projection";
-import { assertDocumentCreateSigner } from "../../../data/documents/shared/projection/documentCreateSigner";
 import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { persistedDocumentCreateStateFromWriterProjection } from "../../../data/documents/shared/responses";

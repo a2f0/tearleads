@@ -65,7 +65,7 @@ preserves moved documents and edits, and resumes missing uploads when the
 recorded digest and byte length still match. Edited names and MIME types are preserved.
 The command only adds attachments. If another device removes a slot during an
 upload, the web app follows the edit and an encrypted fixture blob can remain
-bound on the server.
+bound on the server. [Attachment binding follow-up](https://github.com/a2f0/tearleads/issues/3070)
 A signed purge proof keeps a permanently deleted fixture out of future imports.
 A changed seed manifest can produce a new set of documents.
 
