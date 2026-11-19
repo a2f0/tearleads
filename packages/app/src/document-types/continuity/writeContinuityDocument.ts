@@ -7,15 +7,22 @@ import { seedDigest } from "./continuityAssets";
 import type { SeedDocument } from "./seedDocuments";
 import { uploadVacantAttachments } from "./uploadVacantAttachments";
 
-interface SeedWriteInput {
-  destination: "account" | "backup";
+interface SeedWriteBase {
   sdk: Tearleads;
   document: SeedDocument;
   containerId: string;
   localId: string;
-  existing?: { localId: string; documentId: string } | undefined;
   readAttachment: (name: string) => Promise<BlobBytes>;
 }
+
+type SeedWriteInput = SeedWriteBase &
+  (
+    | { destination: "backup"; existing?: never }
+    | {
+        destination: "account";
+        existing?: { localId: string; documentId: string } | undefined;
+      }
+  );
 
 async function prepareAttachment(input: SeedWriteInput, index: number) {
   const attachment = input.document.attachments[index];
@@ -45,7 +52,7 @@ async function openContinuityDocument(
   input: SeedWriteInput,
   attachments: ReadonlyArray<Awaited<ReturnType<typeof prepareAttachment>>>,
 ) {
-  const { sdk, document, existing } = input;
+  const { sdk, document } = input;
   const content = {
     initialDocumentKind: document.kind,
     initialText: document.text ?? "",
@@ -54,7 +61,7 @@ async function openContinuityDocument(
     initialAttachments: attachments.map(({ intent }) => intent),
   };
   const links = sdk.containerContents.documentLinks();
-  let placement = existing;
+  let placement = input.destination === "account" ? input.existing : undefined;
   if (input.destination === "account" && !placement) {
     const receipt = await sdk.documents.createSeeded({
       ...content,
