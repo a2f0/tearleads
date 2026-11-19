@@ -98,6 +98,7 @@
   --footer-gap: var(--space-sm);
   --panel-padding: 0.75rem;
   --info-table-cell-padding: var(--space-xs);
+  --info-table-key-value-gap: var(--space-md);
   --list-gap: 1px;
 
   /* === Opacity scale === */

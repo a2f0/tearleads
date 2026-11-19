@@ -9,7 +9,7 @@ import {
   useSystemStatusSnapshot,
 } from "./useSystemStatusSnapshot";
 
-export function PaneStatus({ pinned = false }: { pinned?: boolean } = {}) {
+export function PaneStatus() {
   const status = useSystemStatusSnapshot();
   const networkContextMenu = useNetworkModeContextMenu();
 
@@ -19,13 +19,7 @@ export function PaneStatus({ pinned = false }: { pinned?: boolean } = {}) {
       className="pane-content"
       onContextMenu={networkContextMenu.handleContextMenu}
     >
-      <MiniAppInfoTable
-        className={
-          pinned
-            ? "mini-app-info-table--borderless mini-app-info-table--pinned"
-            : "mini-app-info-table--borderless system-monitor-status-table"
-        }
-      >
+      <MiniAppInfoTable className="mini-app-info-table--borderless mini-app-info-table--pinned">
         <tbody>
           <MiniAppInfoRow label={STATUS_LABELS.sqliteWorker}>
             {status.sqliteWorker}
