@@ -125,7 +125,13 @@ class DocumentsService implements Documents {
   constructor(private readonly dependencies: DocumentsDependencies) {}
 
   createSeeded(input: SeededDocumentInput) {
-    return createSeededDocument(this.workflowRuntime(input.containerId), input);
+    const { runtime } = this.dependencies;
+    const generation = runtime.scopeGeneration;
+    return createSeededDocument(
+      this.workflowRuntime(input.containerId),
+      input,
+      () => runtime.scopeGeneration === generation,
+    );
   }
 
   async delete(localId: string): Promise<boolean> {

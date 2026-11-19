@@ -37,6 +37,7 @@ export interface SeededDocumentInput
 export async function createSeededDocument(
   runtime: DocumentsRuntime,
   input: SeededDocumentInput,
+  stillCurrent: () => boolean,
 ): Promise<DiscoveredDocumentInput> {
   const author = resolveDocumentCreateAuthor(runtime);
   const keys = runtime.crypto.encapsulationKeyPair;
@@ -65,7 +66,12 @@ export async function createSeededDocument(
     encapsulationSecretKey: keys.secretKey,
     isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
   });
+  let failure: string | undefined;
   const created = await remote.createRemoteDocument({
+    stillCurrent,
+    onTerminalSubmitFailure: ({ message }) => {
+      failure = message;
+    },
     author,
     containerId: input.containerId,
     documentId: input.documentId,
@@ -74,9 +80,14 @@ export async function createSeededDocument(
     resolveProjectionUserKey: createDocumentProjectionUserKeyResolver(runtime),
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
   });
+  if (!stillCurrent())
+    throw new Error(
+      "The account or database scope changed during seeded creation.",
+    );
   if (!created)
     throw new Error(
-      "Could not commit the seeded document. Run seed again to resume.",
+      failure ??
+        "Could not commit the seeded document. Run seed again to resume.",
     );
   // This verified create acknowledgement commits exactly one initial link.
   return {
