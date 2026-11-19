@@ -48,8 +48,6 @@ export interface DocumentStoreOpenOptions {
    * document whose content is known up front queues one update. Fields need a
    * non-note `initialDocumentKind`. Both are ignored when the record exists.
    */
-  /** Attachment metadata to commit at birth, before its bytes are uploaded. */
-  initialAttachments?: readonly DocumentAttachment[] | undefined;
   initialRows?: ReadonlyArray<Readonly<Record<string, string>>> | undefined;
   initialStructuredFields?: DocumentStructuredFieldPatch | undefined;
   remoteSyncMode?: "on-demand" | "startup" | undefined;

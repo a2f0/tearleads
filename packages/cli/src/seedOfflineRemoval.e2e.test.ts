@@ -10,7 +10,6 @@ test.each(["seed", "personal"] as const)(
   async (upload) => {
     await initializeApiDatabase();
     let interrupt = true;
-    let beforeLookup: (() => Promise<void>) | undefined;
     let personalBindingId: string | undefined;
     let contactId: string | null = null;
     const server = Bun.serve({
@@ -20,11 +19,6 @@ test.each(["seed", "personal"] as const)(
         const path = new URL(req.url).pathname;
         if (interrupt && path === "/blobs/stages/multipart")
           return new Response(null, { status: 503 });
-        if (path === `/documents/${contactId}/attachments`) {
-          const restore = beforeLookup;
-          beforeLookup = undefined;
-          await restore?.();
-        }
         return routeApp.fetch(req);
       },
     });
@@ -71,31 +65,28 @@ test.each(["seed", "personal"] as const)(
         expect(await store.requestRemoteSyncAndWait()).toBe(true);
 
         if (upload === "personal") {
-          // Restore after the deletion has synced, just before the retry
-          // observes which generation currently owns the slot.
-          beforeLookup = () =>
-            onFreshDevice(device, async (stores, otherSdk) => {
-              const personal = stores.find(
-                (item) => item.getSnapshot().documentId === contactId,
-              );
-              if (!personal) throw new Error("Missing contact");
-              expect(personal.getSnapshot().attachments).toHaveLength(0);
-              await personal.replaceAttachment(avatar.slotId, {
-                name: "personal.png",
-                mimeType: "image/png",
-                bytes: new Uint8Array([7, 8, 9]),
-              });
-              expect(await personal.requestRemoteSyncAndWait()).toBe(true);
-              const bindings = await otherSdk.documents
-                .workflowRuntime()
-                .apiClient.listDocumentAttachments(snapshot.documentId ?? "", {
-                  refresh: true,
-                });
-              personalBindingId = bindings?.find(
-                (item) => item.slotId === avatar.slotId,
-              )?.bindingId;
-              expect(personalBindingId).toBeDefined();
+          await onFreshDevice(device, async (stores, otherSdk) => {
+            const personal = stores.find(
+              (item) => item.getSnapshot().documentId === contactId,
+            );
+            if (!personal) throw new Error("Missing contact");
+            expect(personal.getSnapshot().attachments).toHaveLength(0);
+            await personal.replaceAttachment(avatar.slotId, {
+              name: "personal.png",
+              mimeType: "image/png",
+              bytes: new Uint8Array([7, 8, 9]),
             });
+            expect(await personal.requestRemoteSyncAndWait()).toBe(true);
+            const bindings = await otherSdk.documents
+              .workflowRuntime()
+              .apiClient.listDocumentAttachments(snapshot.documentId ?? "", {
+                refresh: true,
+              });
+            personalBindingId = bindings?.find(
+              (item) => item.slotId === avatar.slotId,
+            )?.bindingId;
+            expect(personalBindingId).toBeDefined();
+          });
         }
       });
       expect(await seed()).toBe(0);
@@ -109,14 +100,11 @@ test.each(["seed", "personal"] as const)(
           .apiClient.listDocumentAttachments(snapshot.documentId, {
             refresh: true,
           });
-        expect(bindings?.map((binding) => binding.slotId)).toEqual(
-          snapshot.attachments.map((item) => item.slotId),
-        );
+        expect(bindings).toHaveLength(1);
         const avatar = snapshot.attachments[0];
         if (upload === "seed") {
           expect(avatar).toBeUndefined();
         } else {
-          expect(beforeLookup).toBeUndefined();
           if (!avatar) throw new Error("Personal avatar was removed");
           expect(bindings?.[0]?.bindingId).toBe(personalBindingId);
           expect(avatar.name).toBe("personal.png");

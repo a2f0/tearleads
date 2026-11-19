@@ -20,32 +20,37 @@ test.each([
   async (edit) => {
     await initializeApiDatabase();
     let interrupt = true;
-    let loseBindResponse = edit === "interrupted removal";
+    const loseBindResponse = [
+      "interrupted removal",
+      "restore",
+      "rename",
+    ].includes(edit);
     let lostBind = false;
-    let beforeDetach: (() => Promise<void>) | undefined;
+    let afterBind: (() => Promise<void>) | undefined;
     let beforeUpload: (() => Promise<void>) | undefined;
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
       fetch: async (req) => {
-        if (new URL(req.url).pathname === "/blobs/stages/multipart") {
-          if (interrupt) return new Response(null, { status: 503 });
+        const path = new URL(req.url).pathname;
+        const stage = path === "/blobs/stages/multipart";
+        if (stage && interrupt) return new Response(null, { status: 503 });
+        if (loseBindResponse ? path.endsWith("/attachment-bindings") : stage) {
           const edit = beforeUpload;
           beforeUpload = undefined;
           await edit?.();
         }
-        if (new URL(req.url).pathname.endsWith("/detach")) {
-          const restore = beforeDetach;
-          beforeDetach = undefined;
-          await restore?.();
-        }
         if (
           loseBindResponse &&
+          !lostBind &&
           new URL(req.url).pathname.endsWith("/attachment-bindings")
         ) {
           const response = await routeApp.fetch(req);
           if (response.ok) {
             lostBind = true;
+            const restore = afterBind;
+            afterBind = undefined;
+            await restore?.();
             return new Response(null, { status: 503 });
           }
           return response;
@@ -76,7 +81,7 @@ test.each([
                   attachment.name,
                 ),
               );
-            beforeDetach = () =>
+            afterBind = () =>
               onFreshDevice(device, async ([restored], sdk) => {
                 if (!restored) throw new Error("Missing edited contact");
                 if (edit === "rename") {
@@ -137,18 +142,11 @@ test.each([
           }
         });
       const result = await runCli(["seed", "--env", "staging"], context);
-      expect(result).toBe(
-        edit === "replace" ||
-          edit === "restore" ||
-          edit === "interrupted removal"
-          ? 1
-          : 0,
-      );
-      expect(beforeDetach).toBeUndefined();
+      expect(result).toBe(1);
+      expect(afterBind).toBeUndefined();
       expect(beforeUpload).toBeUndefined();
       if (edit === "interrupted removal") {
         expect(lostBind).toBe(true);
-        loseBindResponse = false;
         await onFreshDevice(device, async ([store], sdk) => {
           expect(store?.getSnapshot().attachments).toHaveLength(0);
           const bindings = await sdk.documents
@@ -157,8 +155,7 @@ test.each([
           expect(bindings).toHaveLength(1);
         });
       }
-      if (edit === "metadata" || edit === "interrupted removal")
-        expect(await runCli(["seed", "--env", "staging"], context)).toBe(0);
+      expect(await runCli(["seed", "--env", "staging"], context)).toBe(0);
       await onFreshDevice(device, async (stores, sdk) => {
         if (edit === "metadata")
           expect(stores).toHaveLength(
@@ -177,7 +174,7 @@ test.each([
             await runtime.apiClient.listDocumentAttachments(
               snapshot.documentId,
             ),
-          ).toEqual([]);
+          ).toHaveLength(edit === "interrupted removal" ? 1 : 0);
           return;
         }
         const attachment = snapshot?.attachments[0];

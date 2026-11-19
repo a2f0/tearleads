@@ -60,7 +60,6 @@ async function openContinuityDocument(
     initialText: document.text ?? "",
     initialRows: document.rows,
     initialStructuredFields: document.fields,
-    initialAttachments: attachments.map(({ intent }) => intent),
   };
   const links = sdk.containerContents.documentLinks();
   let placement = input.destination === "account" ? input.existing : undefined;
@@ -69,6 +68,7 @@ async function openContinuityDocument(
     assertCurrent();
     const receipt = await sdk.documents.createSeeded({
       ...content,
+      initialAttachments: attachments.map(({ intent }) => intent),
       containerId: input.containerId,
       documentId,
     });

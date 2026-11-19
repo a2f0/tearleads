@@ -3,6 +3,10 @@ import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,
 } from "../../../../data/documents/documentConstants";
+import {
+  addDocumentAttachments,
+  type DocumentAttachment,
+} from "../../../../data/documents/documentContent";
 import type { StoredDocumentKind } from "../../../../data/documents/documentKinds";
 import {
   initializeStoredDocumentKind,
@@ -25,8 +29,9 @@ import {
 export interface SeededDocumentInput
   extends Pick<
     DocumentStoreOpenOptions,
-    "initialAttachments" | "initialRows" | "initialStructuredFields"
+    "initialRows" | "initialStructuredFields"
   > {
+  readonly initialAttachments?: readonly DocumentAttachment[] | undefined;
   readonly containerId: string;
   readonly documentId: string;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
@@ -56,6 +61,7 @@ export async function createSeededDocument(
     { runtime, initialContent: input, initialDocumentKind },
     doc,
   );
+  addDocumentAttachments(doc, input.initialAttachments ?? []);
   if (readStoredDocumentState(doc, projectors).fieldValidationIssues.length)
     throw new Error("Invalid initial document fields.");
   const update = createPendingUpdateFields(exportAllUpdates(doc));

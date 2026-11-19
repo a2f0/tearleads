@@ -130,7 +130,7 @@ export interface DocumentStoreState {
   /** Fields and rows a created record starts with; see `initialContent.ts`. */
   initialContent?: Pick<
     DocumentStoreOpenOptions,
-    "initialAttachments" | "initialRows" | "initialStructuredFields"
+    "initialRows" | "initialStructuredFields"
   >;
   initialDocumentKind: StoredDocumentKind;
   initialText: string;

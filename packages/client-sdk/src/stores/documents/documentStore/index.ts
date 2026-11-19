@@ -301,13 +301,9 @@ function createBackingStoreContext(
     (options.remoteSyncMode ?? "startup") === "startup",
   );
   if (options.deferInitialUpdate) state.deferInitialUpdate = true;
-  const { initialAttachments, initialRows, initialStructuredFields } = options;
+  const { initialRows, initialStructuredFields } = options;
   assertInitialContentFitsKind({ initialStructuredFields }, documentKind);
-  state.initialContent = {
-    initialAttachments,
-    initialRows,
-    initialStructuredFields,
-  };
+  state.initialContent = { initialRows, initialStructuredFields };
   refreshDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
   return {
