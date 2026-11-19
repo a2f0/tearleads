@@ -227,10 +227,7 @@ function surfaceThenPollProvisionedContainers(input: {
   };
 }
 
-// Hydrate system containers provisioned server-side with the organization (e.g.
-// the Trash bin). Unlike the local-only containers usePromoteLocalSystemContainers
-// handles, these are never created device-first — a second local copy would
-// collide on the per-user system slot — so they reach the tree only through sync.
+// Surface the containers created in the organization's provisioning transaction.
 // This runs on the bare auth transition (it is NOT gated on the bootstrap's
 // canProvisionSystemContainers, which can stay false while the local root still
 // carries its pre-registration organization id).
@@ -288,39 +285,23 @@ export function useProvisionedSystemContainerPull(input: {
 
     const listMissingSlots = (): string[] => {
       const nodes = store.getSnapshot().nodes;
-      const organizationRoot = nodes.find(
-        (node) =>
-          node.organizationId === currentOrganizationId &&
-          node.parentId === null &&
-          !node.systemSlot,
+      const rootId =
+        nodes.find(
+          (node) =>
+            node.organizationId === currentOrganizationId &&
+            node.parentId === null &&
+            !node.systemSlot,
+        )?.id ?? currentRootContainerId;
+      return provisionedContainers.flatMap((container) =>
+        nodes.some(
+          (node) =>
+            node.organizationId === currentOrganizationId &&
+            node.parentId === rootId &&
+            node.systemSlot === container.systemSlot,
+        )
+          ? []
+          : [container.systemSlot],
       );
-      return provisionedContainers.flatMap((container) => {
-        const exactSlot = findExplorerSystemNode(
-          nodes,
-          container.systemSlot,
-          currentOrganizationId,
-          currentRootContainerId,
-        );
-        if (exactSlot) {
-          return [];
-        }
-
-        // A shared organization's system slots are derived from its founder's
-        // key and are intentionally opaque to this viewer. Once its signed,
-        // direct-root system container has hydrated, matching by the registered
-        // visible name is enough to stop polling; waiting for this viewer's own
-        // slot can never succeed and otherwise burns the full retry budget.
-        const opaqueSharedSlot =
-          organizationRoot &&
-          nodes.some(
-            (node) =>
-              node.organizationId === currentOrganizationId &&
-              node.parentId === organizationRoot.id &&
-              node.name === container.name &&
-              (node.systemSlot ?? null) !== null,
-          );
-        return opaqueSharedSlot ? [] : [container.systemSlot];
-      });
     };
 
     // Already whole (synced in, or loaded from SQLite on a returning session), or

@@ -1,21 +1,32 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup } from "@testing-library/react";
+import type { ContainerContentsStore } from "@tearleads/client-sdk";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { act, cleanup, fireEvent, within } from "@testing-library/react";
+import { ContainerTreeProbe } from "../../../../test/helpers/dual-pane/ContainerTreeProbe";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+  getExplorerSidebarItem,
   getExplorerSidebarItemsByName,
   getPaneRoot,
   getPaneUserId,
+  interact,
   renderDualPane,
   renderSinglePane,
+  selectContainerAndWaitForItemTable,
   waitForDualPaneProvisioning,
   waitForSinglePaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import {
-  createChildContainer,
+  clickExplorerRefresh,
+  createNoteInContainer,
   openExplorer,
   refreshUntil,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
-import { addPeerToAdminsGroup } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
+import {
+  addPeerToAdminsGroup,
+  createGroupAndAddPeer,
+  shareContainerWithGroup,
+} from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   listProxiedApiRequests,
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -23,6 +34,7 @@ import {
   useTestApiAppHandlers,
 } from "../../../../test/helpers/msw/server";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
+import type { PaneSide } from "../dual-pane";
 
 const OWNER_SHARED_FOLDER = "Owner Shared Folder";
 
@@ -125,73 +137,161 @@ test(
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
-// KNOWN-LIMITATION end-to-end repro (skipped): the full user scenario — peer2,
-// added to peer1's Admins group, should see peer1's Contacts/Trash under the
-// shared root. With the promotion fix above the folders do reach peer2, but this
-// two-pane path drives both peers' system containers syncing simultaneously in a
-// single JSDOM tree, which amplifies a separate pre-existing explorer re-render
-// loop (useDocumentLinkedContainerIdsByDocumentId churns when documentSummaries
-// oscillate under heavy concurrent sync at the un-navigated root view). The
-// promotion fix itself is covered by the single-pane test above and the
-// getVisibleExplorerNodes shared-folder classifier unit tests; un-skip once the
-// explorer link-projection churn is stabilized.
-test.skip(
-  "peer sees shared system folders under an admins-group-shared root",
-  async () => {
+async function openItemMenu(target: HTMLElement) {
+  await interact(() => fireEvent.contextMenu(target.closest("tr") ?? target));
+  const menu = document.querySelector<HTMLElement>(".menu");
+  if (!menu) throw new Error("Missing Explorer context menu");
+  return within(menu);
+}
+
+test.each(["admin", "write"] as const)(
+  "a peer with %s access can trash shared items from their own active organization",
+  async (accessLevel) => {
     useTestApiAppHandlers();
-    const view = renderDualPane();
-    const leftPane = getPaneRoot(view, "left");
-    const rightPane = getPaneRoot(view, "right");
-
-    await waitForDualPaneProvisioning(leftPane, rightPane);
-    const peerUserId = getPaneUserId(rightPane);
-
-    await openExplorer(leftPane);
-    await openExplorer(rightPane);
-
-    await refreshUntil(
-      leftPane,
-      () => getExplorerSidebarItemsByName(leftPane, "Contacts").length > 0,
-      "Owner did not provision the Contacts system folder.",
-    );
-    await refreshUntil(
-      leftPane,
-      () => getExplorerSidebarItemsByName(leftPane, "Trash").length > 0,
-      "Owner did not provision the Trash system folder.",
-    );
-    await createChildContainer(leftPane, OWNER_SHARED_FOLDER);
-
-    // Membership in the Admins group alone grants peer2 hierarchical access to
-    // peer1's root (managed-by-Admins from birth) and every remote descendant.
-    await addPeerToAdminsGroup(leftPane, peerUserId);
-
-    await refreshUntil(
-      rightPane,
+    const trees = new Map<PaneSide, ContainerContentsStore>();
+    const view = renderDualPane({
+      children: <ContainerTreeProbe trees={trees} />,
+    });
+    const founder = getPaneRoot(view, "left");
+    const peer = getPaneRoot(view, "right");
+    await waitForDualPaneProvisioning(founder, peer);
+    const ownerTree = trees.get("left");
+    await waitForCondition(
       () =>
-        getExplorerSidebarItemsByName(rightPane, OWNER_SHARED_FOLDER).length >
-        0,
-      "Peer did not discover peer1's regular shared folder.",
-      20_000,
+        !!ownerTree
+          ?.getSnapshot()
+          .nodes.some(
+            (node) => !node.parentId && !node.systemSlot && node.organizationId,
+          ),
+      "Founder root did not hydrate.",
     );
-    await refreshUntil(
-      rightPane,
-      () => getExplorerSidebarItemsByName(rightPane, "Contacts").length > 1,
-      "Peer did not discover peer1's shared Contacts system folder.",
-      20_000,
+    const root = ownerTree
+      ?.getSnapshot()
+      .nodes.find(
+        (node) => !node.parentId && !node.systemSlot && node.organizationId,
+      );
+    if (!ownerTree || !root) throw new Error("Missing founder root");
+    const slot = deriveOrganizationTrashSystemSlot(root.organizationId);
+    await act(async () => {
+      await ownerTree.createChild(root.id, OWNER_SHARED_FOLDER);
+    });
+    const folder = ownerTree
+      .getSnapshot()
+      .nodes.find((node) => node.name === OWNER_SHARED_FOLDER);
+    if (!folder) throw new Error("Shared folder was not created");
+    const title = "Shared note to delete";
+    const writers = "Trash writers";
+    if (accessLevel === "write") {
+      await createGroupAndAddPeer(founder, writers, getPaneUserId(peer));
+    }
+    await openExplorer(founder);
+    await createNoteInContainer(founder, OWNER_SHARED_FOLDER, title);
+    await openExplorer(peer);
+    if (accessLevel === "admin") {
+      await addPeerToAdminsGroup(founder, getPaneUserId(peer));
+    } else {
+      await shareContainerWithGroup(
+        founder,
+        OWNER_SHARED_FOLDER,
+        writers,
+        "write",
+      );
+      await shareContainerWithGroup(founder, "Trash", writers, "write");
+      await clickExplorerRefresh(peer);
+    }
+    await waitForCondition(
+      async () => {
+        await act(async () => {});
+        const nodes = trees.get("right")?.getSnapshot().nodes ?? [];
+        return (
+          nodes.some(
+            (node) => node.systemSlot === slot && node.parentId === root.id,
+          ) &&
+          nodes.some(
+            (node) =>
+              node.id === folder.id &&
+              node.name === OWNER_SHARED_FOLDER &&
+              node.effectiveAccessLevel === accessLevel,
+          )
+        );
+      },
+      "The peer did not hydrate the shared folder and Trash at the granted access level.",
+      30_000,
     );
-    await refreshUntil(
-      rightPane,
-      () => getExplorerSidebarItemsByName(rightPane, "Trash").length > 1,
-      "Peer did not discover peer1's shared Trash system folder.",
-      20_000,
+    if (accessLevel === "write") {
+      expect(
+        trees
+          .get("right")
+          ?.getSnapshot()
+          .nodes.some((node) => node.id === root.id),
+      ).toBe(false);
+    }
+    const table = await selectContainerAndWaitForItemTable(
+      peer,
+      OWNER_SHARED_FOLDER,
     );
-
+    const note = await within(table).findByRole(
+      "button",
+      { name: title },
+      { timeout: 20_000 },
+    );
+    const before = listProxiedApiRequests().length;
+    const noteMenu = await openItemMenu(note);
+    const moveNote = await noteMenu.findByRole(
+      "button",
+      { name: "Move to Trash" },
+      { timeout: 10_000 },
+    );
+    expect(moveNote.hasAttribute("disabled")).toBe(false);
+    await interact(() => fireEvent.click(moveNote));
+    await waitForCondition(
+      () =>
+        listProxiedApiRequests()
+          .slice(before)
+          .some(({ url, status }) => url.endsWith("/unlink") && status === 200),
+      "The peer did not commit the document move.",
+      30_000,
+    );
+    const trashTable = await selectContainerAndWaitForItemTable(
+      founder,
+      "Trash",
+    );
     expect(
-      getExplorerSidebarItemsByName(rightPane, "Contacts").length,
-    ).toBeGreaterThan(1);
-    expect(
-      getExplorerSidebarItemsByName(rightPane, "Trash").length,
-    ).toBeGreaterThan(1);
+      await within(trashTable).findByRole(
+        "button",
+        { name: title },
+        { timeout: 20_000 },
+      ),
+    ).toBeTruthy();
+    const folderMenu = await openItemMenu(
+      getExplorerSidebarItem(peer, OWNER_SHARED_FOLDER),
+    );
+    if (accessLevel === "write") {
+      expect(folderMenu.getByRole("button", { name: "Get Info" })).toBeTruthy();
+      expect(
+        folderMenu.queryByRole("button", { name: "Move to Trash" }),
+      ).toBeNull();
+      return;
+    }
+    const moveFolder = folderMenu.getByRole("button", {
+      name: "Move to Trash",
+    });
+    await interact(() => fireEvent.click(moveFolder));
+    await waitForCondition(
+      async () => {
+        await act(async () => {});
+        const nodes = ownerTree.getSnapshot().nodes;
+        const trash = nodes.find(
+          (node) => node.parentId === root.id && node.systemSlot === slot,
+        );
+        return (
+          !!trash &&
+          nodes.find((node) => node.id === folder.id)?.parentId === trash.id
+        );
+      },
+      "The founder did not observe the shared folder in Trash.",
+      30_000,
+    );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );

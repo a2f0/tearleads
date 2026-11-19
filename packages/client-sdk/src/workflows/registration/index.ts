@@ -1,5 +1,8 @@
 export { buildInitialOrganizationPolicyRequest } from "../../data/principals/organizationPolicyRequest";
-export { bootstrapRootContainer } from "./bootstrapRootContainer";
+export {
+  bootstrapRootContainer,
+  deriveRegistrationOrganizationId,
+} from "./bootstrapRootContainer";
 export {
   type CreateOrganizationApi,
   type CreateOrganizationInput,

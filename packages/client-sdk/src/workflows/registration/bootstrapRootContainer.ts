@@ -1,3 +1,4 @@
+import { deriveStableUuidV4Shaped } from "../../data/keying/stableUuid";
 import {
   ensureContainerTables,
   loadContainers,
@@ -9,6 +10,18 @@ import {
   type ExecSqlClientLike,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
+
+// A device-first root can receive deleted items before its organization is registered.
+const ORGANIZATION_ID_NAMESPACE = new Uint8Array([
+  0x62, 0xb5, 0x73, 0xbf, 0x47, 0x2a, 0x4f, 0x93, 0x87, 0xcf, 0x07, 0x8e, 0x25,
+  0xa1, 0xd2, 0x68,
+]);
+
+export function deriveRegistrationOrganizationId(
+  rootContainerId: string,
+): Promise<string> {
+  return deriveStableUuidV4Shaped(ORGANIZATION_ID_NAMESPACE, rootContainerId);
+}
 
 interface RootContainerBootstrapResult {
   containerId: string;

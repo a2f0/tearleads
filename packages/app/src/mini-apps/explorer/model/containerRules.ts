@@ -12,23 +12,20 @@ import {
 } from "../../../stores/contacts/currentSelfContactIdentityState";
 import {
   type BuiltInSystemContainer,
-  getSharedSystemContainerRulesByName,
+  CONTACTS_CONTAINER_NAME,
   getUserSystemContainerRulesByKind,
+  isTrashSystemContainerNode,
   isUnderForeignSharedRoot,
   type UserSystemContainerRules,
 } from "../../../stores/systemContainers";
 
-// The configured rules keyed by the system slot they apply to. A container with
-// no system slot (a plain user container) has no rules and is fully mutable.
-// `currentOrganizationId` is the viewer's own organization; a container from a
-// different org is a peer's shared folder whose owner-derived slot the viewer
-// cannot match, so its rules are resolved by name instead (see
-// resolveContainerRules).
+// Explorer applies rules by signed slot. Shared Contacts uses its display name.
 export interface ExplorerContainerRulesContext {
   contactsContainerId: string | null;
   contactsSystemSlot: ContainerSystemSlot | null;
   currentOrganizationId: string | null;
   selfContactIdentity: SelfContactIdentityView;
+  trashSystemSlot: ContainerSystemSlot | null;
   rulesBySystemSlot: ReadonlyMap<ContainerSystemSlot, UserSystemContainerRules>;
 }
 
@@ -59,10 +56,7 @@ export function createExplorerContainerRulesContext(
   if (input.contactsSystemSlot && contactsRules) {
     rulesBySystemSlot.set(input.contactsSystemSlot, contactsRules);
   }
-  const trashRules = getUserSystemContainerRulesByKind("trash");
-  if (input.trashSystemSlot && trashRules) {
-    rulesBySystemSlot.set(input.trashSystemSlot, trashRules);
-  }
+
   // Built-in containers carry their own rules rather than a kind-keyed lookup,
   // because their slots are derived per organization instead of per user.
   for (const builtInSystemContainer of input.builtInSystemContainers ?? []) {
@@ -77,6 +71,7 @@ export function createExplorerContainerRulesContext(
     contactsSystemSlot: input.contactsSystemSlot,
     currentOrganizationId: input.currentOrganizationId,
     selfContactIdentity: input.selfContactIdentity,
+    trashSystemSlot: input.trashSystemSlot,
     rulesBySystemSlot,
   };
 }
@@ -119,6 +114,8 @@ function resolveContainerRules(
     return null;
   }
 
+  if (isTrashSystemContainerNode(container, context))
+    return getUserSystemContainerRulesByKind("trash");
   const systemSlot = container.systemSlot ?? null;
   if (systemSlot) {
     const rulesBySlot = context.rulesBySystemSlot.get(systemSlot);
@@ -127,18 +124,16 @@ function resolveContainerRules(
     }
   }
 
-  // A peer's system folder under a shared root carries the owner's opaque HMAC
-  // slot, which never matches the viewer's own slots, so the slot lookup above
-  // misses. Fall back to resolving the rules by name — but only for a genuine
-  // foreign-org shared folder, so a same-org sibling cannot spoof a system name
-  // to fabricate rules. Own-org containers therefore stay strictly slot-keyed.
+  // Shared Contacts still uses the owner's identity-keyed slot.
   if (
     isUnderForeignSharedRoot({
       currentOrganizationId: context.currentOrganizationId,
       organizationId: container.organizationId,
     })
   ) {
-    return getSharedSystemContainerRulesByName(container.name);
+    return container.name === CONTACTS_CONTAINER_NAME
+      ? getUserSystemContainerRulesByKind("contacts")
+      : null;
   }
 
   return null;
@@ -169,7 +164,10 @@ export function canMoveContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return allowedByContainerRule(context, container, "protectFromMove");
+  return (
+    canAdminContainerNode(container) &&
+    resolveContainerRules(context, container)?.protectFromMove !== true
+  );
 }
 
 export function canRenameContainerByRules(

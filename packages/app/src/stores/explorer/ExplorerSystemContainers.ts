@@ -2,24 +2,22 @@ import type {
   ContainerContentsContextValue,
   ContainerNode,
 } from "@tearleads/client-sdk";
-import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
+  type ContainerSystemSlot,
+  deriveOrganizationTrashSystemSlot,
+} from "@tearleads/validators/containerSystemSlot";
+import {
+  CONTACTS_CONTAINER_NAME,
   findUserSystemContainer,
   isTrashSystemContainerNode,
   isUnderForeignSharedRoot,
-  SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
-  USER_SYSTEM_CONTAINER_DEFINITIONS,
   type UserSystemContainer,
 } from "../systemContainers";
 
 type TrashLookupNode = Pick<
   ContainerNode,
-  "id" | "name" | "organizationId" | "parentId" | "systemSlot"
+  "id" | "organizationId" | "parentId" | "systemSlot"
 >;
-
-const USER_SYSTEM_CONTAINER_NAMES = new Set(
-  USER_SYSTEM_CONTAINER_DEFINITIONS.map((definition) => definition.name),
-);
 
 const SYSTEM_NODE_SYNC_STATUS_RANK = {
   synced: 3,
@@ -45,27 +43,26 @@ function shouldShowExplorerSystemSlot(
     return true;
   }
 
-  if (visibleSystemSlots !== undefined && visibleSystemSlots.size > 0) {
-    if (visibleSystemSlots.has(systemSlot)) {
-      return true;
-    }
-
-    // A system folder under another user's shared root carries an opaque
-    // per-owner HMAC slot that never matches the viewer's derived set, so it
-    // is classified by name and kept only if it is shareable. The shared-root
-    // test (a different, valid organization) is what distinguishes a legitimate
-    // peer folder from a same-org spoof reusing a system name with a foreign
-    // slot. A missing organizationId must not pass as "shared" — this gate
-    // controls whether another user's system folder is shown.
-    return (
-      isUnderForeignSharedRoot({
-        currentOrganizationId,
-        organizationId: node.organizationId,
-      }) && SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES.has(node.name)
-    );
-  }
-
-  return USER_SYSTEM_CONTAINER_NAMES.has(node.name);
+  if (
+    node.organizationId &&
+    systemSlot === deriveOrganizationTrashSystemSlot(node.organizationId)
+  )
+    return true;
+  const foreign = isUnderForeignSharedRoot({
+    currentOrganizationId,
+    organizationId: node.organizationId,
+  });
+  if (
+    foreign &&
+    currentOrganizationId &&
+    systemSlot === deriveOrganizationTrashSystemSlot(currentOrganizationId)
+  )
+    return false;
+  if (visibleSystemSlots?.has(systemSlot)) return true;
+  return (
+    (foreign || !visibleSystemSlots?.size) &&
+    node.name === CONTACTS_CONTAINER_NAME
+  );
 }
 
 function shouldPreferExplorerSystemNode(
@@ -210,41 +207,34 @@ export function getExplorerSystemContainerId<
   );
 }
 
-// Find the Trash system folder under another organization's shared root. Only
-// the verified system slot may choose a delete destination: a name is metadata
-// any writer can edit, so a renamed Contacts would otherwise win over the real
-// Trash. Trash slots are derived from the creator's signing key, so the match
-// succeeds exactly when the viewer's identity created that organization (a
-// custom org viewed from the personal one). Another identity's Trash cannot be
-// told apart from its other system children and is never selected; the caller
-// surfaces that as an unavailable Trash rather than guessing.
+// A shared delete destination must be a signed child of the organization's data root.
 function findForeignOrgTrashContainerId(
   nodes: ReadonlyArray<ContainerNode> | null | undefined,
   organizationId: string,
-  trashSystemSlot: ContainerSystemSlot | null,
 ): string | null {
-  if (!nodes || !trashSystemSlot) {
+  if (!nodes) {
     return null;
   }
 
-  const orgRoot = nodes.find(
+  const trashSystemSlot = deriveOrganizationTrashSystemSlot(organizationId);
+  const trash = nodes.find(
     (node) =>
-      node.parentId === null &&
-      !node.systemSlot &&
-      node.organizationId === organizationId,
+      node.organizationId === organizationId &&
+      node.systemSlot === trashSystemSlot &&
+      node.parentId !== null,
   );
-  if (!orgRoot) {
+  if (!trash) return null;
+  // Direct grants may omit the parent from Explorer. Hydration already checked
+  // the signed path to the data root before persisting the Trash slot and edge.
+  const parent = nodes.find((node) => node.id === trash.parentId);
+  if (
+    parent &&
+    (parent.parentId !== null ||
+      parent.systemSlot ||
+      parent.organizationId !== organizationId)
+  )
     return null;
-  }
-
-  return (
-    nodes.find(
-      (node) =>
-        node.parentId === orgRoot.id &&
-        node.organizationId === organizationId &&
-        node.systemSlot === trashSystemSlot,
-    )?.id ?? null
-  );
+  return trash.id;
 }
 
 interface ExplorerDeleteTrashResolution {
@@ -257,13 +247,6 @@ interface ExplorerDeleteTrashResolution {
   trashContainerId: string | null;
 }
 
-// Resolve the Trash a document/folder living in `containerId` should be deleted
-// into, making delete/purge org-aware. The viewer only ever holds one derived
-// trash slot (their own), so without this a document under another org's shared
-// root would be moved into the viewer's PERSONAL Trash — a cross-org re-home.
-// When `containerId` sits under a foreign shared root we instead target the
-// slot-verified Trash under THAT org's root; otherwise we resolve the viewer's
-// own Trash by slot (precise and spoof-proof, since the viewer can derive it).
 export function resolveExplorerDeleteTrashTarget(input: {
   containerId: string | null;
   currentOrganizationId: string | null | undefined;
@@ -277,18 +260,14 @@ export function resolveExplorerDeleteTrashTarget(input: {
       : null;
 
   if (
-    containerNode &&
-    isUnderForeignSharedRoot({
-      currentOrganizationId,
-      organizationId: containerNode.organizationId,
-    })
+    containerNode?.organizationId &&
+    containerNode.organizationId !== currentOrganizationId
   ) {
     return {
       canFallBackToOwnTrash: false,
       trashContainerId: findForeignOrgTrashContainerId(
         nodes,
         containerNode.organizationId,
-        trashSystemSlot,
       ),
     };
   }
@@ -347,14 +326,7 @@ interface TrashLookupInput {
   trashSystemSlot: ContainerSystemSlot | null;
 }
 
-// Whether `containerId` is a Trash system folder or lives anywhere beneath one,
-// classifying each ancestor by its rules rather than by a single resolved Trash
-// id. This is the org-aware sibling of isExplorerContainerUnderTrash: because it
-// asks isTrashSystemContainerNode per node, it catches the viewer's OWN Trash
-// (matched by slot) AND a peer's shared Trash under a foreign org's root (matched
-// by name), whereas the id-based walk only knows the viewer's own Trash. Walks
-// parentId up to the root, guarding a cyclic chain; an unknown container or a
-// null containerId is treated as not trashed.
+// Classify each ancestor by its organization’s Trash slot.
 export function isContainerUnderTrash(
   nodes: ReadonlyArray<TrashLookupNode> | null | undefined,
   containerId: string | null | undefined,

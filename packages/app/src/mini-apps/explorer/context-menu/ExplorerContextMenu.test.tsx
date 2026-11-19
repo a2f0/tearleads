@@ -5,6 +5,7 @@ import {
   syncedContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { type MouseEvent, useRef } from "react";
 import { createCanonicalSelfContactIdentity } from "../model/canonicalSelfContact.testUtils";
@@ -24,13 +25,14 @@ const selfContactIdentity =
 const emptyRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: null,
   contactsSystemSlot: null,
-  currentOrganizationId: null,
+  currentOrganizationId: "org-1",
   selfContactIdentity,
   trashSystemSlot: null,
 });
 
 const rootNode: ContainerNode = {
   id: "root-container",
+  effectiveAccessLevel: "admin",
   kind: "container",
   name: "/",
   organizationId: "org-1",
@@ -75,7 +77,7 @@ const userFolderNode: ContainerNode = {
 const systemRulesContext = createExplorerContainerRulesContext({
   contactsContainerId: contactsNode.id,
   contactsSystemSlot: "contacts-slot",
-  currentOrganizationId: null,
+  currentOrganizationId: "org-1",
   selfContactIdentity,
   trashSystemSlot: "trash-slot",
 });
@@ -270,6 +272,23 @@ test("container move-to-trash gate offers Move to Trash only for a normal folder
   }
 });
 
+test("folder move to Trash requires a writable destination", () => {
+  const view = render(
+    <ContainerContextMenuVariantHarness
+      nodeId={userFolderNode.id}
+      nodes={[
+        rootNode,
+        userFolderNode,
+        { ...trashNode, effectiveAccessLevel: "read" },
+      ]}
+    />,
+  );
+  fireEvent.contextMenu(view.getByRole("button", { name: "open" }));
+  expect(
+    view.getByLabelText("Can move to trash context menu node").textContent,
+  ).toBe("false");
+});
+
 test("move-to-trash gate hides for a folder under a DUPLICATE Trash node the resolved id misses", () => {
   // A device-first local-only Trash and its synced twin can briefly coexist for
   // the same org+slot. The folder is moved under the synced twin (trashB), but
@@ -309,10 +328,6 @@ test("move-to-trash gate hides for a folder under a DUPLICATE Trash node the res
 });
 
 test("move-to-trash gate hides for a folder under a foreign org's shared Trash", () => {
-  // A folder trashed into ANOTHER org's shared Trash carries that org's opaque
-  // slot, which never matches the viewer's derived trash slot. The viewer's own
-  // trashContainerId therefore can't recognize it via an id walk; the classifier
-  // matches the foreign "Trash" by name under a foreign shared root.
   const foreignRulesContext = createExplorerContainerRulesContext({
     contactsContainerId: null,
     contactsSystemSlot: null,
@@ -332,7 +347,7 @@ test("move-to-trash gate hides for a folder under a foreign org's shared Trash",
     id: "foreign-trash",
     name: "Trash",
     parentId: foreignRoot.id,
-    systemSlot: "foreign-opaque-trash-slot",
+    systemSlot: deriveOrganizationTrashSystemSlot("org-2"),
   };
   const foreignFolder: ContainerNode = {
     ...foreignRoot,

@@ -27,7 +27,7 @@ const selfContactIdentity = await createCanonicalSelfContactIdentity("abc");
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
-  currentOrganizationId: null,
+  currentOrganizationId: "org-1",
   selfContactIdentity,
   trashSystemSlot: TRASH_SLOT,
 });
@@ -36,6 +36,7 @@ function containerNode(
   overrides: Partial<ContainerNode> & Pick<ContainerNode, "id">,
 ): ContainerNode {
   return {
+    effectiveAccessLevel: "admin",
     kind: "container",
     name: overrides.name ?? overrides.id,
     organizationId: "org-1",

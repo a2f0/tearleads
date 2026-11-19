@@ -73,8 +73,8 @@
       "bytes": 21345
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 652,
-      "bytes": 19322
+      "lines": 653,
+      "bytes": 19358
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 601,
@@ -86,9 +86,6 @@
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/explorer/detail/ExplorerDetailPanel.tsx": {
-      "biomeIgnore": 1
-    },
-    "packages/app/src/mini-apps/explorer/detail/container/explorerContainerItemWindow.ts": {
       "biomeIgnore": 1
     },
     "packages/app/src/mini-apps/explorer/hooks/useDocumentLinkedContainerIdsByDocumentId.ts": {

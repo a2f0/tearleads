@@ -5,6 +5,7 @@ import type {
   ContainerItemSortKey,
   ContainerNode,
 } from "@tearleads/client-sdk";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useEffect, useMemo, useState } from "react";
 import {
   getMiniAppCompactTableRowHeight,
@@ -12,7 +13,7 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
 import { explorerDocumentQueryContainerId } from "../../../../stores/explorer/orphanedDocuments";
-import { SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES } from "../../../../stores/systemContainers";
+import { CONTACTS_CONTAINER_NAME } from "../../../../stores/systemContainers";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 
 /**
@@ -42,10 +43,6 @@ export function useExplorerItemTableLayout(narrowFrame: boolean): {
   const rowHeight = useTouchRowHeight(getMiniAppCompactTableRowHeight(compact));
   return { compact, rowHeight };
 }
-
-const EXPLORER_SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES = Array.from(
-  SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
-);
 
 export function getNextExplorerItemSort(
   currentSort: ContainerItemSort,
@@ -156,6 +153,20 @@ interface ExplorerContainerItemWindowParams {
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
+function serializeVisibleSlots(
+  visibleSystemSlots: ReadonlySet<string>,
+  organizationId: string,
+  currentOrganizationId: string | null | undefined,
+): string {
+  const slots = new Set(visibleSystemSlots);
+  if (organizationId && organizationId !== currentOrganizationId) {
+    if (currentOrganizationId)
+      slots.delete(deriveOrganizationTrashSystemSlot(currentOrganizationId));
+    slots.add(deriveOrganizationTrashSystemSlot(organizationId));
+  }
+  return Array.from(slots).sort().join("\u0000");
+}
+
 export function useExplorerContainerItemWindow(
   params: ExplorerContainerItemWindowParams,
 ) {
@@ -168,14 +179,15 @@ export function useExplorerContainerItemWindow(
     offset,
     selectedNode,
     sort,
-    visibleSystemSlots,
   } = params;
   const [state, setState] = useState<ContainerItemWindowState>(
     EMPTY_CONTAINER_ITEM_WINDOW_STATE,
   );
-  const serializedSystemSlots = Array.from(visibleSystemSlots)
-    .sort()
-    .join("\u0000");
+  const serializedSystemSlots = serializeVisibleSlots(
+    params.visibleSystemSlots,
+    selectedNode.organizationId,
+    params.currentOrganizationId,
+  );
   // Refetch only when the selected container's own child sub-containers change
   // (id/name/sync), not when any container elsewhere in the tree does. Documents
   // are tracked separately via `documentListRevision`.
@@ -191,7 +203,6 @@ export function useExplorerContainerItemWindow(
   // `sort` with the same key/direction doesn't re-run the fetch.
   const { direction: sortDirection, key: sortKey } = sort;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies(visibleSystemSlots): serializedSystemSlots keys the slots by content, so an equal new Set does not refetch.
   useEffect(() => {
     if (!enabled) {
       setState(EMPTY_CONTAINER_ITEM_WINDOW_STATE);
@@ -209,9 +220,10 @@ export function useExplorerContainerItemWindow(
         limit,
         offset,
         sort: { direction: sortDirection, key: sortKey },
-        visibleForeignSystemContainerNames:
-          EXPLORER_SHARED_VISIBLE_SYSTEM_CONTAINER_NAMES,
-        visibleSystemSlots: Array.from(visibleSystemSlots),
+        visibleForeignSystemContainerNames: [CONTACTS_CONTAINER_NAME],
+        visibleSystemSlots: serializedSystemSlots
+          ? serializedSystemSlots.split("\u0000")
+          : [],
       })
       .then((window) => {
         if (cancelled) {

@@ -26,10 +26,11 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-test("derives user system containers once per identity for every consumer", async () => {
+test("derives user system containers once per identity and organization for all consumers", async () => {
   const firstKey = new Uint8Array([1]);
   const secondKey = new Uint8Array([2]);
   let signingPrivateKey = firstKey;
+  let organizationId = "first-org";
   const pendingByKey = new Map<
     Uint8Array,
     Deferred<ReadonlyArray<SystemContainers.UserSystemContainer>>
@@ -37,7 +38,7 @@ test("derives user system containers once per identity for every consumer", asyn
   const derive = spyOn(
     SystemContainers,
     "deriveUserSystemContainers",
-  ).mockImplementation((key) => {
+  ).mockImplementation(({ signingPrivateKey: key }) => {
     const pending =
       deferred<ReadonlyArray<SystemContainers.UserSystemContainer>>();
     pendingByKey.set(key, pending);
@@ -46,6 +47,8 @@ test("derives user system containers once per identity for every consumer", asyn
   spyOn(TearleadsProvider, "useTearleadsRuntime").mockImplementation(
     () =>
       ({
+        state: { containerId: "root" },
+        auth: { organizationId },
         crypto: { signingKeyPair: { signingPrivateKey } },
       }) as ReturnType<typeof TearleadsProvider.useTearleadsRuntime>,
   );
@@ -112,7 +115,7 @@ test("derives user system containers once per identity for every consumer", asyn
   signingPrivateKey = secondKey;
   view.rerender(<Harness tick={1} />);
   expect(derive).toHaveBeenCalledTimes(2);
-  expect(firstConsumerValues.at(-1)).toBe(firstContainers);
+  expect(firstConsumerValues.at(-1)).toEqual([]);
 
   const secondContainers: ReadonlyArray<SystemContainers.UserSystemContainer> =
     [
@@ -128,4 +131,9 @@ test("derives user system containers once per identity for every consumer", asyn
   await act(async () => pendingByKey.get(secondKey)?.resolve(secondContainers));
   expect(firstConsumerValues.at(-1)).toBe(secondContainers);
   expect(secondConsumerValues.at(-1)).toBe(secondContainers);
+  organizationId = "second-org";
+  view.rerender(<Harness tick={2} />);
+  expect(derive).toHaveBeenCalledTimes(3);
+  expect(derive.mock.lastCall?.[0].organizationId).toBe(organizationId);
+  expect(secondConsumerValues.at(-1)).toEqual([]);
 });

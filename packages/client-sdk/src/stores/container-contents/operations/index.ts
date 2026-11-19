@@ -1,4 +1,5 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { canWriteEffectiveAccessLevel } from "../../../data/keying/accessLevel";
 import { createChildContainerState } from "../../../workflows/container-contents/container-state/create/createChild";
 import { deleteContainerState } from "../../../workflows/container-contents/container-state/delete";
 import {
@@ -446,6 +447,13 @@ export async function moveContainer(
   if (existingState.container.parentId === parentId) {
     return toContainerNode(existingState);
   }
+  if (
+    existingState.container.effectiveAccessLevel !== "admin" ||
+    !canWriteEffectiveAccessLevel(
+      targetParentState.container.effectiveAccessLevel,
+    )
+  )
+    return null;
   assertLocalMovePathFits(state.containersById, containerId, parentId);
 
   const isRemoteContainer = Boolean(existingState.record.documentId);

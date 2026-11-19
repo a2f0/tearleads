@@ -570,6 +570,7 @@ export {
   bootstrapRootContainer,
   buildInitialOrganizationPolicyRequest,
   createInitialRootMetadataBootstrap,
+  deriveRegistrationOrganizationId,
   persistRegistrationBootstrap,
   registerIdentity,
 } from "./workflows/registration";

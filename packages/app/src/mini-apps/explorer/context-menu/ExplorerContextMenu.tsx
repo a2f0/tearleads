@@ -5,7 +5,10 @@ import {
   useContextMenuState,
 } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useMemo } from "react";
-import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
+import {
+  isContainerUnderTrash,
+  resolveExplorerDeleteTrashTarget,
+} from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
@@ -46,20 +49,25 @@ function getExplorerContextMenuNodeCapabilities(params: {
     trashContainerId,
     trashSystemSlot,
   } = params;
-  // Whether the right-clicked folder is the Trash bin or lives anywhere under
-  // it, classified per-ancestor by Trash system slot (or a foreign org's shared
-  // "Trash" by name) rather than a single resolved trash id. This matches the
-  // document-side gate and, crucially, is immune to a transient duplicate Trash
-  // node: the id-based walk could miss when the resolved trashContainerId (from
-  // the raw node list) differs from the deduped Trash the folder actually sits
-  // under, which is exactly how an already-trashed folder used to keep offering
-  // "Move to Trash".
-  const contextMenuNodeUnderTrash =
-    contextMenuNode !== undefined &&
-    isContainerUnderTrash(nodes, contextMenuNode.id, {
+  const contextMenuNodeUnderTrash = isContainerUnderTrash(
+    nodes,
+    contextMenuNode?.id,
+    {
       currentOrganizationId: rulesContext.currentOrganizationId,
       trashSystemSlot,
-    });
+    },
+  );
+
+  const target = resolveExplorerDeleteTrashTarget({
+    containerId: contextMenuNode?.id ?? null,
+    currentOrganizationId: rulesContext.currentOrganizationId,
+    nodes,
+    trashSystemSlot,
+  });
+  const targetTrashId = target.canFallBackToOwnTrash
+    ? trashContainerId
+    : target.trashContainerId;
+  const targetTrash = nodes.find((node) => node.id === targetTrashId);
 
   return {
     canCreateChildContextMenuNode:
@@ -72,22 +80,16 @@ function getExplorerContextMenuNodeCapabilities(params: {
         contextMenuNode,
       ),
     canCreateContactContextMenuNode: canWriteContainerNode(contextMenuNode),
-    // "Empty Trash" is offered on the viewer's OWN Trash bin (the node whose
-    // system slot IS the trash slot) when it is writable. There is no
-    // has-children gate: the bin can hold trashed folders AND documents deleted
-    // straight into it, and the context menu only sees container nodes — so
-    // gating on visible child folders would wrongly hide the action for a Trash
-    // that holds only deleted documents. An already-empty Trash simply completes
-    // instantly. Foreign-org shared Trash is out of scope for v1 (its opaque slot
-    // never matches this one).
+    // Bulk emptying is available in the active organization's writable Trash.
     canEmptyTrashContextMenuNode:
       contextMenuNode !== undefined &&
+      target.canFallBackToOwnTrash &&
       trashSystemSlot !== null &&
       (contextMenuNode.systemSlot ?? null) === trashSystemSlot &&
       canWriteContainerNode(contextMenuNode),
     // "Move to Trash" relocates a user folder (and its whole subtree) into the
     // Trash system container — the folder equivalent of deleting a document.
-    // Offered for a writable, movable, non-root, non-system folder that is not
+    // Offered for an administered, movable, non-root, non-system folder that is not
     // already under Trash (an already-trashed folder is purged, not re-trashed)
     // and only when a Trash target for its org actually exists. No has-children
     // gate: trashing carries the subtree along. Unlike the old leaf hard-delete,
@@ -97,8 +99,9 @@ function getExplorerContextMenuNodeCapabilities(params: {
       contextMenuNode.parentId !== null &&
       (contextMenuNode.systemSlot ?? null) === null &&
       canMoveContainerByRules(rulesContext, contextMenuNode) &&
-      trashContainerId !== null &&
-      contextMenuNode.id !== trashContainerId &&
+      targetTrash?.effectiveAccessLevel != null &&
+      canWriteContainerNode(targetTrash) &&
+      contextMenuNode.id !== targetTrashId &&
       !contextMenuNodeUnderTrash,
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,
     // "Delete Forever" is offered for a user folder that has been moved into

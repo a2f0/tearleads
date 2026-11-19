@@ -259,7 +259,7 @@ invented default or a request origin with the API base path stripped:
 | `buildInitialGroupPolicyRequest`, `buildInitialMemberGroupPolicyRequest` | `signerUserId`, `signingKeyPair`, and `creatorEncapsulationKeyPair` for the founding member |
 | `buildInitialOrganizationPolicyRequest` | `userId`, `signingKeyPair`, and `encapsulationPublicKey` |
 | `createOrganizationGroup` | Forwards the domain with the creator's signing and encapsulation keys to group-policy construction |
-| `registerIdentity` (`RegisterIdentityInput`) | Newly generated user ID with `signingKeyPair` and `encapsulationKeyPair`, before the first local self pin |
+| `registerIdentity` (`RegisterIdentityInput`) | The local root’s `deriveRegistrationOrganizationId(rootContainerId)` fixes the personal organization ID before registration. Newly generated user ID with `signingKeyPair` and `encapsulationKeyPair`, before the first local self pin |
 
 `TearleadsOptions.identityTrustDomain` remains an optional host override. The
 client canonicalizes it; otherwise it canonicalizes an absolute `apiBaseUrl` or

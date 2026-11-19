@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { createCanonicalSelfContactIdentity } from "./canonicalSelfContact.testUtils";
 import {
   canAddDocumentToContainerByRules,
@@ -34,7 +35,7 @@ const selfContactIdentity = await createCanonicalSelfContactIdentity(
 const rulesContext = createExplorerContainerRulesContext({
   contactsContainerId: CONTACTS_CONTAINER_ID,
   contactsSystemSlot: CONTACTS_SLOT,
-  currentOrganizationId: null,
+  currentOrganizationId: "org-1",
   selfContactIdentity,
   trashSystemSlot: TRASH_SLOT,
 });
@@ -59,6 +60,7 @@ function containerNode(
   overrides: Partial<ContainerNode> & Pick<ContainerNode, "id">,
 ): ContainerNode {
   return {
+    effectiveAccessLevel: "admin",
     kind: "container",
     name: overrides.name ?? overrides.id,
     organizationId: "org-1",
@@ -368,14 +370,12 @@ test("a peer's shared contacts folder enforces contacts rules by name", () => {
   ).toBe(false);
 });
 
-test("a peer's shared trash folder enforces trash rules by name", () => {
-  // The owner's HMAC slot does not match the viewer's, so slot resolution
-  // misses; the foreign-org + system-name fallback applies the trash rules.
+test("a shared Trash enforces its rules after a rename", () => {
   const sharedTrash = containerNode({
     id: "peer-trash",
-    name: "Trash",
+    name: "Bin",
     organizationId: FOREIGN_ORG_ID,
-    systemSlot: "owner-trash-slot",
+    systemSlot: deriveOrganizationTrashSystemSlot(FOREIGN_ORG_ID),
   });
   expect(canMoveContainerByRules(sharedRulesContext, sharedTrash)).toBe(false);
   expect(canUploadToContainerByRules(sharedRulesContext, sharedTrash)).toBe(
@@ -423,7 +423,12 @@ test("the foreign-org name fallback is off before the viewer org is known", () =
     organizationId: FOREIGN_ORG_ID,
     systemSlot: "owner-derived-slot",
   });
-  expect(canMoveDocumentOutByRules(rulesContext, sharedContacts)).toBe(true);
+  expect(
+    canMoveDocumentOutByRules(
+      { ...rulesContext, currentOrganizationId: null },
+      sharedContacts,
+    ),
+  ).toBe(true);
 });
 
 test("rules are disabled when the configuration flags are absent for a slot", () => {

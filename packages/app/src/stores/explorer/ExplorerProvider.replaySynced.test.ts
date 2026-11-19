@@ -136,6 +136,8 @@ test("explorer sync replays moved synced containers from disk after restart and 
       runtime.infra.execSql,
       {
         id: input.id,
+        effectiveAccessLevel:
+          input.id === "child-container" ? "admin" : "write",
         icon: null,
         metadataDocumentId: input.metadataDocumentId,
         name: input.name,

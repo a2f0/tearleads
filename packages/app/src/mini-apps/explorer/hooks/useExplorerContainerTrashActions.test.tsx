@@ -29,6 +29,7 @@ function node(
 ): ContainerNode {
   return {
     id,
+    effectiveAccessLevel: "admin",
     kind: "container",
     name: id,
     organizationId,
@@ -39,7 +40,7 @@ function node(
 }
 
 // The viewer's own org (root + slot-verified Trash) next to a foreign shared
-// root owned by another identity, whose Trash slot the viewer cannot derive.
+// root whose Trash has not hydrated on the viewer's device.
 const nodes: ReadonlyArray<ContainerNode> = [
   node("viewer-root", VIEWER_ORG, null),
   node("viewer-trash", VIEWER_ORG, "viewer-root", VIEWER_TRASH_SLOT),
