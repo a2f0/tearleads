@@ -1,3 +1,4 @@
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   bindBlobAttachmentOperation,
   detachBlobAttachmentOperation,
@@ -136,10 +137,20 @@ export class BlobArea {
   private attachmentWrite<R>(
     write: Promise<R | null>,
     cacheResponse: (response: R) => void,
+    body: unknown,
     stillCurrent: RequestResultOptions["stillCurrent"],
   ): Promise<R | null> {
     const session = this.context.runtime.responseRequest.sessionSignal?.();
-    const current = () => !session?.aborted && stillCurrent?.() !== false;
+    const { documentId } = isPlainObject(body) ? body : {};
+    const id = typeof documentId === "string" ? documentId : null;
+    const cached = id ? this.attachmentLists.get(id) : undefined;
+    const current = () => {
+      if (!session?.aborted && stillCurrent?.() !== false) return true;
+      // The write may have committed, but a newer scope may already have read its own listing.
+      if (id && cached && this.attachmentLists.get(id) === cached)
+        this.attachmentLists.delete(id);
+      return false;
+    };
     return write
       .then((response) => {
         if (!current()) return null;
@@ -226,6 +237,7 @@ export class BlobArea {
         options,
       ),
       (response) => this.cacheBlobAttachmentBindResponse(input, response),
+      input.body,
       options.stillCurrent,
     );
   }
@@ -245,6 +257,7 @@ export class BlobArea {
         options,
       ),
       this.cacheBlobAttachmentDetachResponse,
+      input.body,
       options.stillCurrent,
     );
   }

@@ -18,7 +18,7 @@ export type ListDocumentEditAttributionRangesOptions = Omit<
 };
 
 export interface RequestResultOptions {
-  /** Checked at dispatch, including a replay after session renewal. */
+  /** Checked at dispatch, on renewal and before handling the response. */
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly signal?: AbortSignal | undefined;
   /** Expected target for a declared 402; mismatched response identities fail closed. */

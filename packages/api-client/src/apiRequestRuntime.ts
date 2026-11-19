@@ -24,7 +24,11 @@ import {
   sessionAuthChallengeBytes,
 } from "./sessionRenewal";
 import { sessionRequestInit } from "./sessionRequestInit";
-import { readSessionJson, retiredRequest } from "./sessionResponse";
+import {
+  readSessionJson,
+  requestRetired,
+  retiredRequest,
+} from "./sessionResponse";
 import type {
   HttpMethod,
   OperationRequestFn,
@@ -236,7 +240,7 @@ export class ApiRequestRuntime {
       options ?? {},
       session,
     );
-    if (session.aborted) return retiredRequest(method, path);
+    if (requestRetired(session, options)) return retiredRequest(method, path);
     if (!decoded.ok) return decoded;
     const data = decoded.data;
     if (!validator(data)) {
@@ -279,7 +283,7 @@ export class ApiRequestRuntime {
       attempt,
     );
     if (!result.ok) return result;
-    if (session.aborted)
+    if (requestRetired(session, options))
       return this.retiredResponse(session, method, path, result.data);
     const response = result.data;
     if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
@@ -299,7 +303,7 @@ export class ApiRequestRuntime {
         response,
         errorDescription.code,
       );
-    if (session.aborted) return retired();
+    if (requestRetired(session, options)) return retired();
     const failure = {
       errorDescription,
       failureOperation,
@@ -325,7 +329,7 @@ export class ApiRequestRuntime {
       reportError: (message) => this.onError?.(message),
       responseStatus: response.status,
     });
-    if (session.aborted) return retired();
+    if (requestRetired(session, options)) return retired();
     const retryToken = this.sessionRenewals.currentToken(authToken);
     if (!shouldRetry || !retryToken) return this.httpFailure(failure);
     if (options.retryOnSessionExpired === "renew-only")
@@ -399,7 +403,7 @@ export class ApiRequestRuntime {
         options.signal,
       );
     } catch (error) {
-      if (session.aborted) return retiredRequest(method, path);
+      if (requestRetired(session, options)) return retiredRequest(method, path);
       const { cancelled, networkError } = await settleNetworkFailure({
         attempt,
         baseUrl: this.baseUrl,
@@ -414,7 +418,7 @@ export class ApiRequestRuntime {
         signal: options.signal,
         onNetworkFailure: (failure) => this.onNetworkFailure?.(failure),
       });
-      if (session.aborted) return retiredRequest(method, path);
+      if (requestRetired(session, options)) return retiredRequest(method, path);
       return this.requestFailure({
         ...(cancelled ? { code: "request_aborted" } : {}),
         kind: cancelled ? "cancelled" : "network",
@@ -429,7 +433,7 @@ export class ApiRequestRuntime {
       });
     }
 
-    if (session.aborted)
+    if (requestRetired(session, options))
       return this.retiredResponse(session, method, path, response);
     this.onNetworkSuccess?.();
     const apiVersion = parseApiVersion(
@@ -482,6 +486,8 @@ export class ApiRequestRuntime {
   private reportResponseRequestFailure(
     input: ResponseRequestValidationFailureInput,
   ): RequestFailure {
+    if (input.options?.stillCurrent?.() === false)
+      return retiredRequest(input.method, input.path);
     if (input.kind === "network") {
       this.onNetworkError?.();
     }

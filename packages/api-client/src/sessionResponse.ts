@@ -8,6 +8,13 @@ import type {
   RequestResultOptions,
 } from "./types";
 
+export function requestRetired(
+  session: AbortSignal | undefined,
+  options?: RequestResultOptions,
+) {
+  return session?.aborted || options?.stillCurrent?.() === false;
+}
+
 /** A retired request cannot overwrite the active session's failure cache. */
 export function retiredRequest(
   method: HttpMethod,
@@ -36,10 +43,10 @@ export async function readSessionJson(
 ): Promise<RequestResult<unknown>> {
   try {
     const data: unknown = await response.json();
-    if (session?.aborted) return retiredRequest(method, path);
+    if (requestRetired(session, options)) return retiredRequest(method, path);
     return { ok: true, data };
   } catch (error) {
-    if (session?.aborted) return retiredRequest(method, path);
+    if (requestRetired(session, options)) return retiredRequest(method, path);
     const failure = responseBodyFailure(
       error,
       errorMessage(error),

@@ -140,6 +140,7 @@ async function uploadMultipartPartTasks(input: {
                 signal,
               });
               signal.throwIfAborted();
+              assertUploadCurrent(input.stillCurrent);
               if (!uploaded) {
                 failed = true;
                 throw new Error(

@@ -394,14 +394,16 @@ testApiClient(
 );
 
 testApiClient(
-  "ignores a binding response after its writer scope retires",
+  "refetches a binding that may have committed after its writer scope retired",
   async () => {
     let current = true;
     let reads = 0;
     server.use(
       http.get(`${apiBaseUrl}/documents/:documentId/attachments`, () => {
         reads++;
-        return HttpResponse.json([]);
+        return HttpResponse.json(
+          current ? [] : [createBlobAttachmentSummary()],
+        );
       }),
       http.post(`${apiBaseUrl}/blobs/:blobId/attachment-bindings`, () => {
         current = false;
@@ -413,13 +415,18 @@ testApiClient(
     expect(
       await client.bindBlobAttachment(
         "blob-1",
-        createBlobAttachmentBindRequest(),
+        {
+          ...createBlobAttachmentBindRequest(),
+          body: { documentId: "document-1" },
+        },
         {
           stillCurrent: () => current,
         },
       ),
     ).toBeNull();
-    expect(await client.listDocumentAttachments("document-1")).toEqual([]);
-    expect(reads).toBe(1);
+    expect(await client.listDocumentAttachments("document-1")).toEqual([
+      createBlobAttachmentSummary(),
+    ]);
+    expect(reads).toBe(2);
   },
 );

@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
+import { createBlobAttachmentBindRequest } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   server,
@@ -213,3 +214,50 @@ testApiClient(
     expect(attempts).toBe(1);
   },
 );
+
+for (const status of [401, 402]) {
+  testApiClient(
+    `retired attachment response ${status} cannot publish failure or renew`,
+    async () => {
+      const client = new ApiClient(apiBaseUrl);
+      client.setAuthToken("identity-a");
+      const published: string[] = [];
+      client.setOnSessionExpired(() => {
+        published.push("renewal");
+        return false;
+      });
+      client.setOnPaymentRequired(() => published.push("billing"));
+      let current = true;
+      const route = "/blobs/blob-1/attachment-bindings";
+      server.use(
+        http.post(apiBaseUrl + route, () => {
+          current = false;
+          return status === 401
+            ? expired()
+            : HttpResponse.json(
+                {
+                  error: "Organization cannot sync",
+                  organizationId: "organization-1",
+                  reason: "billing_inactive",
+                },
+                { status },
+              );
+        }),
+      );
+      expect(
+        await client.bindBlobAttachment(
+          "blob-1",
+          createBlobAttachmentBindRequest(),
+          {
+            expectedPaymentRequiredOrganizationId: "organization-1",
+            stillCurrent: () => current,
+          },
+        ),
+      ).toBeNull();
+      expect(published).toEqual([]);
+      expect(
+        client.getRequestFailure({ method: "POST", path: route }),
+      ).toBeNull();
+    },
+  );
+}

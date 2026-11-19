@@ -207,3 +207,38 @@ test("uploadDocumentAttachment binds a reused nonce seed to the plaintext", asyn
     close();
   }
 }, 10_000);
+
+test("a bind replay observes a sync pause during renewal", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql("paused-bind-replay");
+  let paused = false;
+  try {
+    const { apiClient } = createUploadApi({ writerProjection });
+    const result = await createBlobAttachmentServiceFixture({
+      api: {
+        ...apiClient,
+        async bindBlobAttachment(_blobId, _request, options) {
+          expect(options?.stillCurrent?.()).toBe(true);
+          paused = true;
+          expect(options?.stillCurrent?.()).toBe(false);
+          return null;
+        },
+      },
+      encapsulationSecretKey: secretKey,
+      execSql,
+    }).uploadDocumentAttachment({
+      author,
+      bytes: new Uint8Array([1]),
+      documentId: writerProjection.documentId,
+      expectedBindingId: null,
+      resolveProjectionUserKey,
+      slotId: "preview",
+      isRemoteSyncBlocked: () => paused,
+    });
+    expect(paused).toBe(true);
+    expect(result).toBeNull();
+  } finally {
+    close();
+  }
+});

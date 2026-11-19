@@ -205,12 +205,15 @@ async function bindCarryingDocumentSync(input: {
   readonly request: BlobAttachmentBindRequest;
   readonly response: BlobAttachmentBindResponse | null;
 }> {
+  const canBind = () =>
+    input.stillCurrent?.() !== false &&
+    !input.isRemoteSyncBlocked?.(input.organizationId);
   const bind = (request: BlobAttachmentBindRequest) =>
-    input.isRemoteSyncBlocked?.(input.organizationId)
+    !canBind()
       ? null
       : input.apiClient.bindBlobAttachment(input.blobId, request, {
           expectedPaymentRequiredOrganizationId: input.organizationId,
-          ...(input.stillCurrent ? { stillCurrent: input.stillCurrent } : {}),
+          stillCurrent: canBind,
         });
   if (input.documentSync) {
     const request = { ...input.plainRequest, documentSync: input.documentSync };
@@ -459,8 +462,7 @@ export async function uploadPreparedDocumentAttachment(
     expectedBindingId,
     material,
     stillCurrent,
-    isRemoteSyncBlocked: (orgId) =>
-      stillCurrent?.() === false || (isRemoteSyncBlocked?.(orgId) ?? false),
+    isRemoteSyncBlocked,
     multipart: resolvedMultipart,
     onMultipartProgress,
     onStageResolved,
