@@ -18,7 +18,7 @@ export function SystemMonitorPinned() {
       appName="System Monitor"
       requireLocalIdentity={false}
     >
-      <PaneStatus pinned />
+      <PaneStatus />
       <SystemMonitorLog />
     </LocalKeyringUnlockGate>
   );
