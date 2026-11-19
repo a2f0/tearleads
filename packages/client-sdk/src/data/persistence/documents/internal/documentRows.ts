@@ -70,9 +70,9 @@ function toDocumentRecordRow(input: {
     // Known remote documents have completed their birth. Before that, an
     // unrelated upsert omitting the policy must preserve the original choice.
     ...(document.documentId
-      ? { failOnCreateConflict: 0 }
-      : document.createConflict === "fail"
-        ? { failOnCreateConflict: 1 }
+      ? { requireSeededCreate: 0 }
+      : document.requireSeededCreate
+        ? { requireSeededCreate: 1 }
         : {}),
     recoveryDocumentId: document.documentId
       ? null

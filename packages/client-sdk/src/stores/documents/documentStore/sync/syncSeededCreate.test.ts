@@ -124,7 +124,7 @@ async function runSeededCreate(
     server: SeededCreateServer,
   ) => Promise<CreateResult>,
   onSeedEncrypt?: (state: DocumentStoreState) => void,
-  createConflict?: "fail",
+  requireSeededCreate?: boolean,
 ) {
   const fixture = await createMaterializedSyncFixture();
   let scheduled = 0;
@@ -141,7 +141,7 @@ async function runSeededCreate(
     document.getText("text").update("hello");
     document.commit();
     const initial: DocumentRecord = {
-      createConflict,
+      requireSeededCreate,
       id: `${name}-local`,
       accessEpoch: 1,
       containerId: fixture.projection.containerId,
@@ -150,6 +150,12 @@ async function runSeededCreate(
       text: "hello",
     };
     await defaultDocumentsPersistence.saveDocument(execSql, initial);
+    if (requireSeededCreate) {
+      // An unrelated projection refresh can save the pending row without
+      // setting a birth policy. Reopening must retain the original choice.
+      const { requireSeededCreate: _omitted, ...refresh } = initial;
+      await defaultDocumentsPersistence.saveDocument(execSql, refresh);
+    }
     const record = await defaultDocumentsPersistence.loadDocument(
       execSql,
       initial.id,
@@ -366,9 +372,9 @@ test("a reopened create-only birth rejects a competing remote document", async (
       return manifestExists;
     },
     undefined,
-    "fail",
+    true,
   );
-  expect(result.state.createConflict).toBeUndefined();
+  expect(result.state.requireSeededCreate).toBeUndefined();
   expect(result.created.record?.documentId).toBeNull();
   expect(result.remaining.map((row) => row.id)).toEqual(
     result.queued.map((row) => row.id),

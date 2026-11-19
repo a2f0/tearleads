@@ -23,6 +23,9 @@ import {
 } from "./documentMutationPreparation";
 import { prepareDocumentMutationUnlessDeleted } from "./documentPersistGuards";
 
+type DocumentMutation = Parameters<
+  DocumentsPersistence["commitDocumentMutation"]
+>[1];
 type DocumentContentState = Parameters<typeof encodeVersionVector>[0];
 type NullableDocumentRuntimeField =
   | "accessStateHash"
@@ -47,16 +50,8 @@ export interface PersistedDocumentState {
 export interface PersistDocumentStateInput
   extends PrepareDocumentMutationInput {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
-  attachmentRemoval?:
-    | Parameters<
-        DocumentsPersistence["commitDocumentMutation"]
-      >[1]["attachmentRemoval"]
-    | undefined;
-  attachmentStaging?:
-    | Parameters<
-        DocumentsPersistence["commitDocumentMutation"]
-      >[1]["attachmentStaging"]
-    | undefined;
+  attachmentRemoval?: DocumentMutation["attachmentRemoval"];
+  attachmentStaging?: DocumentMutation["attachmentStaging"];
   canStartDurableMutation?: (() => boolean) | undefined;
   clearSyncFailure?: boolean | undefined;
   commitSideEffect?: (transactionExecSql: ExecSql) => Promise<void>;
@@ -175,7 +170,8 @@ function buildStoredDocumentRecord(input: {
       securityContextChanged,
     ),
     documentId: nextDocumentId,
-    createConflict: currentRecord?.createConflict ?? patch.createConflict,
+    requireSeededCreate:
+      currentRecord?.requireSeededCreate ?? patch.requireSeededCreate,
     effectiveAccessLevel:
       patch.effectiveAccessLevel ?? currentRecord?.effectiveAccessLevel ?? null,
     documentKekTargets: resolveNullableDocumentRuntimeField(

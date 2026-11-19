@@ -115,10 +115,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
     if (!documents) throw new Error("Documents table schema is missing");
     await execSql(
       documents.createSql
-        .replace(
-          '  "fail_on_create_conflict" INTEGER NOT NULL DEFAULT 0,\n',
-          "",
-        )
+        .replace('  "require_seeded_create" INTEGER NOT NULL DEFAULT 0,\n', "")
         .replace(
           '  "sync_failure_message" TEXT,\n',
           '  "sync_failure_status" INTEGER,\n  "sync_failure_message" TEXT,\n',
@@ -164,9 +161,9 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
     ).toEqual([1, 2, 3, 4, 5]);
     expect(
       await execSql(
-        "SELECT fail_on_create_conflict FROM documents WHERE local_id = 'note'",
+        "SELECT require_seeded_create FROM documents WHERE local_id = 'note'",
       ),
-    ).toEqual([{ fail_on_create_conflict: 0 }]);
+    ).toEqual([{ require_seeded_create: 0 }]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {

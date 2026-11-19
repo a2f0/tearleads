@@ -214,7 +214,7 @@ queues the birth. Advancing the marker, reset, failed initialization, or
 and `remoteSyncMode` in the trailing `DocumentStoreOpenOptions`.
 A birth can include `initialRows`, `initialStructuredFields`, and
 `initialAttachments`. Importers can prevent competing births from merging
-with `createConflict: "fail"`. Use `resolveDocumentCreateAuthor(runtime)` for
+with `requireSeededCreate`. Use `resolveDocumentCreateAuthor(runtime)` for
 uploads. An expected binding of `null` requires a vacant slot at commit.
 `createDocumentHeadLinkSetLoader(runtime)` verifies placement by document ID.
 

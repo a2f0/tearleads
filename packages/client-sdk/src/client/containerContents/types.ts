@@ -79,7 +79,7 @@ export interface OpenContainerDocumentInput {
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
   /** Birth content of a created record; see `DocumentStoreOpenOptions`. */
-  readonly createConflict?: DocumentStoreOpenOptions["createConflict"];
+  readonly requireSeededCreate?: DocumentStoreOpenOptions["requireSeededCreate"];
   readonly initialAttachments?: DocumentStoreOpenOptions["initialAttachments"];
   readonly initialRows?: DocumentStoreOpenOptions["initialRows"];
   readonly initialStructuredFields?: DocumentStoreOpenOptions["initialStructuredFields"];

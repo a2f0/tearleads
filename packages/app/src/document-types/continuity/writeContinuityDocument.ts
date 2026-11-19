@@ -50,7 +50,7 @@ export async function writeContinuityDocument(input: SeedWriteInput) {
     containerId: input.containerId,
     localId: existing?.localId ?? input.localId,
     documentId: existing?.documentId,
-    createConflict: input.destination === "account" ? "fail" : "adopt",
+    requireSeededCreate: input.destination === "account",
     initialDocumentKind: document.kind,
     initialText: document.text ?? "",
     initialRows: document.rows,

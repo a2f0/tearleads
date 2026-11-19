@@ -40,7 +40,10 @@ import { isDocumentManifestAlreadyExistsConflict } from "../syncFailures/syncFai
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
-import { acknowledgeRemoteDocumentCreate } from "./createResponse";
+import {
+  acknowledgeRemoteDocumentCreate,
+  assertRequiredSeedAcknowledged,
+} from "./createResponse";
 import type {
   CreateRemoteDocumentRequest,
   RemoteDocumentCreateInput,
@@ -243,6 +246,7 @@ async function submitPlannedDocumentCreateRequest(
       organizationId,
     );
     if (
+      input.requireSeededCreate ||
       seeded.ok ||
       isDocumentManifestAlreadyExistsConflict(seeded) ||
       isStaleDocumentCreateTargetConflict(seeded)
@@ -251,6 +255,12 @@ async function submitPlannedDocumentCreateRequest(
     }
   }
   if (input.stillCurrent?.() === false) return null;
+  if (input.requireSeededCreate)
+    return {
+      ok: false,
+      status: null,
+      message: "The initial document content must fit in one seeded create.",
+    };
   return submitDocumentCreate(input.apiClient, request, organizationId);
 }
 
@@ -401,6 +411,7 @@ export async function createRemoteDocument(
       resolveProjectionUserKey,
       response: submission.data,
     });
+    assertRequiredSeedAcknowledged(input, created);
     return created && input.deferredSeedUpdate
       ? withDeferredSeed(created, createPlan, input)
       : created;
@@ -414,7 +425,7 @@ export async function createRemoteDocument(
   const stableDocumentId = input.documentId;
   if (
     stableDocumentId &&
-    input.createConflict !== "fail" &&
+    !input.requireSeededCreate &&
     isDocumentManifestAlreadyExistsConflict(submission)
   ) {
     if (input.stillCurrent?.() === false) return null;

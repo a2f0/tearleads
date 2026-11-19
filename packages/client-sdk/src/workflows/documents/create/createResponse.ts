@@ -21,6 +21,20 @@ import { ProjectionDependencyUnavailableError } from "../../../data/shared/depen
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import { documentWriterProjectionFromCreateResponse } from "./createProjection";
+import type { CreateRemoteDocumentRequest } from "./remoteDocumentCreateRequest";
+
+/** A strict importer can only proceed after its exact birth update is acknowledged. */
+export function assertRequiredSeedAcknowledged(
+  request: CreateRemoteDocumentRequest,
+  created: CreateRemoteDocumentResult | null,
+) {
+  if (!request.requireSeededCreate) return;
+  const accepted = created?.response?.initialSync?.acceptedOutgoingUpdateIds;
+  if (!request.seedUpdate || !accepted?.includes(request.seedUpdate.id))
+    throw new Error(
+      "The server did not acknowledge the initial document content.",
+    );
+}
 
 /** A matched acknowledgement remains committed if authorization evidence races. */
 export async function acknowledgeRemoteDocumentCreate(

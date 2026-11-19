@@ -86,7 +86,7 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     version: 4,
   },
   {
-    name: "persist_document_create_conflict_policy",
+    name: "require_atomic_seeded_birth",
     up: async (execSql, context) => {
       if (!(await context.hasTable("documents"))) return;
       const columns = new Set(
@@ -95,11 +95,11 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
       if (
         !columns.has("local_id") ||
         !columns.has("app_kind") ||
-        columns.has("fail_on_create_conflict")
+        columns.has("require_seeded_create")
       )
         return;
       await execSql(
-        "ALTER TABLE documents ADD COLUMN fail_on_create_conflict INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE documents ADD COLUMN require_seeded_create INTEGER NOT NULL DEFAULT 0",
       );
     },
     version: 5,

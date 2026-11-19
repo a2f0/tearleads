@@ -345,8 +345,8 @@ do not silently clear pins or checkpoints to make obsolete data load.
 the stored `documentId` or `recoveryDocumentId` from
 `defaultDocumentsPersistence.loadDocument` (`DocumentRecord`).
 `createDocumentHeadLinkSetLoader(runtime)` verifies a known ID's signed links.
-`initialAttachments` records metadata at birth. Set `createConflict: "fail"`
-to prevent concurrent imports from merging their initial content.
+`initialAttachments` records metadata at birth. With `requireSeededCreate`,
+one create commits the full birth. Conflicting or oversized births fail.
 `resolveDocumentCreateAuthor(runtime)` returns the blob writer or `null`.
 
 First-birth persistence is not an alias resolver. Its root type
