@@ -52,19 +52,24 @@ function seedBindingId(localId: string, slotId: string, blobId: string) {
   return deriveStableDocumentId(`${localId}/binding/${slotId}/${blobId}`);
 }
 
-async function loadSeedBinding(
+async function loadSlotBinding(
   runtime: DocumentsWorkflowRuntime,
   mutation: SlotMutation,
-  localId: string,
 ) {
   const bindings = await runtime.apiClient.listDocumentAttachments(
     mutation.documentId,
     { refresh: true },
   );
   if (!bindings) throw new Error("Could not verify seed attachment bindings.");
-  const observed = bindings.find(
-    (binding) => binding.slotId === mutation.slotId,
-  );
+  return bindings.find((binding) => binding.slotId === mutation.slotId);
+}
+
+async function loadSeedBinding(
+  runtime: DocumentsWorkflowRuntime,
+  mutation: SlotMutation,
+  localId: string,
+) {
+  const observed = await loadSlotBinding(runtime, mutation);
   if (
     observed &&
     observed.bindingId ===
@@ -81,6 +86,10 @@ async function bindSeedBytes(
   fixture: DocumentAttachment,
   bytes: BlobBytes,
 ) {
+  if (await loadSlotBinding(runtime, mutation))
+    throw new Error(
+      `The bound attachment could not be verified locally: ${fixture.name}. Run seed again when the bytes are available.`,
+    );
   const blobId = crypto.randomUUID();
   const uploaded = await runtime.blobAttachments.uploadDocumentAttachment({
     ...mutation,
@@ -97,6 +106,7 @@ async function bindSeedBytes(
 
 async function reconcileSlot(
   store: DocumentStore,
+  initial: DocumentSnapshot,
   runtime: DocumentsWorkflowRuntime,
   mutation: SlotMutation,
   localId: string,
@@ -105,8 +115,9 @@ async function reconcileSlot(
 ) {
   // A successful bind or detach can overlap a remote document edit. Re-read
   // after either mutation and bound the work when a slot is actively edited.
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const action = slotAction(await pull(store), fixture);
+  let snapshot = initial;
+  for (let attempt = 0; attempt < 4; attempt++, snapshot = await pull(store)) {
+    const action = slotAction(snapshot, fixture);
     if (action === "complete") return;
     if (action === "upload") {
       await bindSeedBytes(runtime, mutation, localId, fixture, bytes);
@@ -127,7 +138,7 @@ async function reconcileSlot(
         `Could not retire stale seed attachment: ${fixture.name}.`,
       );
   }
-  const final = slotAction(await pull(store), fixture);
+  const final = slotAction(snapshot, fixture);
   if (
     final === "complete" ||
     (final === "retire" && !(await loadSeedBinding(runtime, mutation, localId)))
@@ -144,15 +155,17 @@ export async function uploadVacantAttachments(
   store: DocumentStore,
   attachments: readonly { bytes: BlobBytes; intent: DocumentAttachment }[],
 ) {
-  const { documentId } = await pull(store);
+  const first = await pull(store);
+  const { documentId } = first;
   const links = input.sdk.containerContents.documentLinks();
   const runtime = links.documentRuntime(input.containerId);
   const author = resolveDocumentCreateAuthor(runtime);
   if (!documentId || !author)
     throw new Error("Missing seed document or writer");
-  for (const { bytes, intent } of attachments) {
+  for (const [index, { bytes, intent }] of attachments.entries()) {
     await reconcileSlot(
       store,
+      index === 0 ? first : await pull(store),
       runtime,
       {
         author,
