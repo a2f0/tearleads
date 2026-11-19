@@ -39,15 +39,18 @@ async function clickContextAction(item: HTMLElement, name: string) {
       clientY: 220,
     });
   });
-  const menu = document.querySelector<HTMLElement>(".menu");
-  invariant(menu, `Expected a context menu offering ${name}.`);
-  const action = await within(menu).findByRole("button", { name });
-  await waitFor(() => {
-    expect(action.hasAttribute("disabled")).toBe(false);
-  });
-  await interact(() => {
-    fireEvent.click(action);
-  });
+  // Placement refreshes can remount the action while the menu is open.
+  // Query and click in one turn so the click reaches the live button.
+  await waitFor(() =>
+    interact(() => {
+      const menu = document.querySelector<HTMLElement>(".menu");
+      invariant(menu, `Expected a context menu offering ${name}.`);
+      const action = within(menu).getByRole("button", { name });
+      expect(action.hasAttribute("disabled")).toBe(false);
+      fireEvent.click(action);
+    }),
+  );
+  expect(document.querySelector(".menu")).toBeNull();
 }
 
 async function confirmDialog(dialogName: string, submitName: string) {
@@ -137,8 +140,13 @@ test(
       await within(root).findByRole("button", { name: NOTE_TITLE }),
       "Move to Trash",
     );
-    const trash = await selectContainerAndWaitForItemTable(pane, "Trash");
-    await within(trash).findByRole("button", { name: NOTE_TITLE });
+    await selectContainerAndWaitForItemTable(pane, "Trash");
+    await waitFor(() => {
+      const trash = within(pane).getByRole("table", { name: "Items in Trash" });
+      expect(
+        within(trash).getByRole("button", { name: NOTE_TITLE }),
+      ).toBeDefined();
+    });
     await clickContextAction(
       getExplorerSidebarItem(pane, "Trash"),
       "Empty Trash",
