@@ -318,7 +318,7 @@ test("an unclean worker termination never corrupts page 1 into SQLITE_NOTADB", a
   }
 }, 20_000);
 
-test("a second worker cannot install a pool over a directory whose handles are held", async () => {
+test("a contending worker can reopen the original rows once the owner releases its handles", async () => {
   installOpfsMemoryShim();
   const s = await loadSqlite3();
   const dbName = "/app-identity-contended.db";
@@ -347,4 +347,14 @@ test("a second worker cannot install a pool over a directory whose handles are h
   closeAndPause(db, pool.poolUtil);
 
   expect(contention).toBe(true);
+
+  // Retry the same VFS name so the real installer encounters its cached
+  // rejection. Reopen the same file to prove the failed install preserved it.
+  const reopened = await installEncryptedPool(s, dbName, "second-worker-pool");
+  const reader = openEncrypted(s, reopened, dbName, "k");
+  try {
+    expect(reader.selectValue("SELECT x FROM t")).toBe(1);
+  } finally {
+    closeAndPause(reader, reopened.poolUtil);
+  }
 });
