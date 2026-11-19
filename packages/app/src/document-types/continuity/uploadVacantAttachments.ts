@@ -2,6 +2,7 @@ import {
   type BlobBytes,
   type DetachDocumentAttachmentRequest,
   type DocumentAttachment,
+  type DocumentSnapshot,
   type DocumentStore,
   type DocumentsWorkflowRuntime,
   deriveStableDocumentId,
@@ -28,7 +29,7 @@ function matches(
   );
 }
 
-async function retireRemovedSeedBinding(
+async function retireSeedBinding(
   runtime: DocumentsWorkflowRuntime,
   mutation: Omit<DetachDocumentAttachmentRequest, "blobId">,
 ) {
@@ -53,6 +54,38 @@ async function retireRemovedSeedBinding(
   }
 }
 
+// Metadata-only edits may keep using the same bytes. Retire this import's
+// binding when the edited document no longer claims those bytes.
+async function inspectSeedSlot(
+  snapshot: DocumentSnapshot,
+  intent: DocumentAttachment,
+  runtime: DocumentsWorkflowRuntime,
+  mutation: Omit<DetachDocumentAttachmentRequest, "blobId">,
+) {
+  const recorded = snapshot.attachments.find(
+    (item) => item.slotId === intent.slotId,
+  );
+  if (!recorded) {
+    await retireSeedBinding(runtime, mutation);
+    return false;
+  }
+  const occupied = snapshot.attachmentStorageKeyBySlotId[intent.slotId];
+  if (
+    occupied &&
+    snapshot.attachmentStatusBySlotId[intent.slotId] !== "intent-mismatch"
+  )
+    return false;
+  if (!matches(recorded, intent)) {
+    await retireSeedBinding(runtime, mutation);
+    throw new Error(`Could not recover edited attachment: ${intent.name}`);
+  }
+  if (occupied)
+    throw new Error(
+      `The bound bytes differ from the seed attachment: ${intent.name}. Run seed again after the edit syncs.`,
+    );
+  return true;
+}
+
 /** Bind bytes without ever authoring a second document-content update. */
 export async function uploadVacantAttachments(
   input: { sdk: Tearleads; containerId: string; localId: string },
@@ -68,9 +101,6 @@ export async function uploadVacantAttachments(
     throw new Error("Missing seed document or writer");
   for (const { bytes, intent } of attachments) {
     const { slotId } = intent;
-    const recorded = snapshot.attachments.find(
-      (item) => item.slotId === slotId,
-    );
     const bindingId = await deriveStableDocumentId(
       `${input.localId}/binding/${slotId}`,
     );
@@ -82,14 +112,7 @@ export async function uploadVacantAttachments(
       resolveProjectionUserKey: links.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
     };
-    // Also handles a previous run that stopped after committing a bind.
-    if (!recorded) {
-      await retireRemovedSeedBinding(runtime, mutation);
-      continue;
-    }
-    if (snapshot.attachmentStorageKeyBySlotId[slotId]) continue;
-    if (!matches(recorded, intent))
-      throw new Error(`Could not recover edited attachment: ${intent.name}`);
+    if (!(await inspectSeedSlot(snapshot, intent, runtime, mutation))) continue;
     const result = await runtime.blobAttachments.uploadDocumentAttachment({
       ...mutation,
       bytes,
@@ -99,11 +122,13 @@ export async function uploadVacantAttachments(
       throw new Error(
         `Could not upload seed attachment: ${intent.name}. Run seed again to resume.`,
       );
-    // A removal of an unbound slot changes only the encrypted document. It
-    // can race even a successful vacant bind. Retire only our own binding.
+    // A successful bind can overlap an encrypted document edit. Verify the
+    // new snapshot and reconcile just the binding this seed owns.
     snapshot = await pull(store);
-    if (!snapshot.attachments.some((item) => item.slotId === slotId)) {
-      await retireRemovedSeedBinding(runtime, mutation);
+    if (await inspectSeedSlot(snapshot, intent, runtime, mutation)) {
+      throw new Error(
+        `Could not verify uploaded seed attachment: ${intent.name}. Run seed again to resume.`,
+      );
     }
   }
 }
