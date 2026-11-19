@@ -242,7 +242,7 @@ export function listExplorerNoteItems(
 ): HTMLButtonElement[] {
   return Array.from(
     explorerWindow.querySelectorAll<HTMLButtonElement>(
-      "button.explorer-sidebar-item--note",
+      "button.explorer-item-row-button[data-document-local-id]",
     ),
   );
 }
@@ -254,8 +254,6 @@ function listExplorerContainerItems(
     explorerWindow.querySelectorAll<HTMLButtonElement>(
       "button.explorer-sidebar-item",
     ),
-  ).filter(
-    (button) => !button.classList.contains("explorer-sidebar-item--note"),
   );
 }
 

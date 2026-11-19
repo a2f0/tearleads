@@ -29,7 +29,7 @@ import {
   openExplorerContainerInfo,
   refreshUntil,
   selectExplorerNoteByName,
-  waitForExplorerNoteVisible,
+  selectSharedRoot,
   waitForSelectedNoteText,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import {
@@ -205,7 +205,7 @@ test(
     );
 
     await openExplorer(rightPane);
-    await waitForExplorerNoteVisible(rightPane, initialNoteText);
+    await selectSharedRoot(rightPane);
     await selectExplorerNoteByName(rightPane, initialNoteText);
     await waitForSelectedNoteText(
       rightPane,
@@ -265,7 +265,7 @@ test(
     );
 
     await openExplorer(rightPane);
-    await waitForExplorerNoteVisible(rightPane, initialNoteText);
+    await selectSharedRoot(rightPane);
     await selectExplorerNoteByName(rightPane, initialNoteText);
     await waitForSelectedNoteText(
       rightPane,
@@ -352,8 +352,8 @@ test(
       postShareBaseline,
     );
     const discoveryTimeoutMs = POST_SHARE_SYNC_SETTLE_TIMEOUT_MS;
-    await waitForExplorerNoteVisible(rightPane, noteText, discoveryTimeoutMs);
-    await selectExplorerNoteByName(rightPane, noteText);
+    await selectSharedRoot(rightPane);
+    await selectExplorerNoteByName(rightPane, noteText, discoveryTimeoutMs);
     await waitForSelectedNoteText(
       rightPane,
       noteText,

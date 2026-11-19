@@ -113,7 +113,6 @@ function ItemContextMenuHarness(params: {
   const { contextMenu, handleItemContextMenu } = useExplorerContextMenu(
     [rootNode],
     (id) => navigations.push(id),
-    (localId, containerId) => navigations.push(`${containerId}/${localId}`),
     emptyRulesContext,
     null,
     null,
@@ -155,7 +154,6 @@ function ContainerContextMenuVariantHarness(params: {
       trashChildNode,
       userFolderNode,
     ],
-    () => {},
     () => {},
     params.rulesContext ?? systemRulesContext,
     params.trashContainerId === undefined

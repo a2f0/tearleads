@@ -2,22 +2,8 @@ import { expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { EXPLORER_LABELS } from "../labels";
-import {
-  buildExplorerSidebarSections,
-  type ExplorerSidebarDocumentWindowState,
-  getExplorerSidebarRowsInRange,
-} from "./ExplorerSidebarRows";
+import { buildExplorerSidebarRows } from "./ExplorerSidebarRows";
 import { buildExplorerTree } from "./explorerTreeModel";
-
-function loadedEmptyWindow(): ExplorerSidebarDocumentWindowState {
-  return {
-    error: null,
-    isLoading: false,
-    offset: 0,
-    rows: [],
-    totalCount: 0,
-  };
-}
 
 function rootContainer(input: {
   id: string;
@@ -41,31 +27,16 @@ function renderSidebarLabels(input: {
   nodes: ContainerNode[];
   organizationNamesById?: ReadonlyMap<string, string>;
   primaryOrganizationId: string | null;
-}): Array<string | null> {
-  const sections = buildExplorerSidebarSections({
+}): string[] {
+  const rows = buildExplorerSidebarRows({
     collapsedIds: new Set(),
-    documentWindowsByContainerId: new Map(
-      input.nodes.map((node) => [node.id, loadedEmptyWindow()]),
-    ),
     entries: buildExplorerTree(input.nodes),
     organizationNamesById: input.organizationNamesById ?? new Map(),
     primaryOrganizationId: input.primaryOrganizationId,
   });
-  const rows = getExplorerSidebarRowsInRange({
-    collapsedIds: new Set(),
-    limit: 20,
-    offset: 0,
-    sections,
-  });
-  return rows.map((row) => {
-    if (row.kind === "container") {
-      return row.entry.node.name;
-    }
-    if (row.kind === "section-label") {
-      return row.label;
-    }
-    return null;
-  });
+  return rows.map((row) =>
+    row.kind === "container" ? row.entry.node.name : row.label,
+  );
 }
 
 test("explorer sidebar groups containers shared from another organization", () => {

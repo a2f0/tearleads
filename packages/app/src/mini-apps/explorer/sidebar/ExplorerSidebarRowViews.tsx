@@ -1,4 +1,3 @@
-import type { ContainerDocumentSidebarRow } from "@tearleads/client-sdk";
 import type { MouseEvent } from "react";
 import {
   MiniAppRow,
@@ -6,21 +5,10 @@ import {
   MiniAppRowText,
 } from "../../../components/mini-app/rows/MiniAppRow";
 import { MiniAppVirtualBlockSpacer } from "../../../components/mini-app/virtual/MiniAppVirtual";
-import { ContactAvatar } from "../../../document-types/contact/ContactAvatar";
-import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
-import { getDocumentTypeIcon } from "../../../document-types/registry";
 import { useTouchRowHeight } from "../../../navigation/useTouchRowHeight";
-import { getViewerRelativeContactDocumentLabel } from "../../../stores/contacts/contactLabels";
-import {
-  explorerDocumentRouteContainerId,
-  isExplorerOrphanedDocumentsId,
-} from "../../../stores/explorer/orphanedDocuments";
-import { getExplorerContactAvatar } from "../shared/explorerContactAvatar";
+import { isExplorerOrphanedDocumentsId } from "../../../stores/explorer/orphanedDocuments";
 import { getExplorerContainerIcon } from "../shared/explorerContainerIcons";
-import {
-  type ExplorerSidebarVirtualRow,
-  getLoadedExplorerSidebarDocumentRow,
-} from "./ExplorerSidebarRows";
+import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";
 import {
   EXPLORER_SIDEBAR_ROW_HEIGHT,
   type ExplorerTreeEntry,
@@ -28,23 +16,8 @@ import {
 
 export interface ExplorerSidebarRowProps {
   activeContainerId: string | null;
-  // Object URLs for contact avatars, keyed by the contact document's local id.
-  // Covers only contacts in the Explorer's contacts container; ContactAvatar
-  // supplies the shared silhouette when a row has no entry.
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
-  currentSigningFingerprint: string | null | undefined;
-  currentSelfContactLocalId: string | null | undefined;
-  currentUserId: string | null | undefined;
-  depth: number;
   onContextMenu: (event: MouseEvent<HTMLElement>, id: string) => void;
-  onDocumentContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
-    localId: string,
-    containerId: string,
-  ) => void;
   onSelectContainer: (id: string) => void;
-  onSelectDocument: (documentId: string, containerId: string) => void;
-  onRetryDocumentWindow: (containerId: string, offset: number) => void;
   onToggleCollapsed: (id: string) => void;
   selectedId: string | null;
 }
@@ -57,116 +30,9 @@ function getExplorerSidebarRowStyle(depth: number): {
   };
 }
 
-function ExplorerTreeDocumentRow(
-  props: Omit<
-    ExplorerSidebarRowProps,
-    "onContextMenu" | "onToggleCollapsed"
-  > & {
-    row: ContainerDocumentSidebarRow;
-  },
-) {
-  const { row } = props;
-  const sourceContainerId = row.containerId;
-  const title = getViewerRelativeContactDocumentLabel({
-    currentSigningFingerprint: props.currentSigningFingerprint,
-    currentSelfContactLocalId: props.currentSelfContactLocalId,
-    currentUserId: props.currentUserId,
-    documentKind: row.documentKind,
-    fallbackLabel: row.title,
-    localId: row.localId,
-  });
-  const DocumentGlyph = getDocumentTypeIcon(row.documentKind);
-  const contactAvatar = getExplorerContactAvatar(
-    row.documentKind,
-    row.localId,
-    props.contactAvatarUrlByLocalId,
-  );
-
-  return (
-    <div
-      className="explorer-sidebar-row"
-      style={getExplorerSidebarRowStyle(props.depth)}
-    >
-      <span className="explorer-node-spacer" aria-hidden="true" />
-      <MiniAppRowButton
-        data-document-local-id={row.localId}
-        className="explorer-sidebar-item explorer-sidebar-item--note"
-        onClick={() =>
-          props.onSelectDocument(
-            row.localId,
-            explorerDocumentRouteContainerId(sourceContainerId),
-          )
-        }
-        onContextMenu={(event) => {
-          if (sourceContainerId === null) {
-            event.preventDefault();
-            return;
-          }
-          props.onDocumentContextMenu(event, row.localId, sourceContainerId);
-        }}
-        selected={
-          props.selectedId === row.localId &&
-          props.activeContainerId ===
-            explorerDocumentRouteContainerId(sourceContainerId)
-        }
-      >
-        {contactAvatar ? (
-          // ContactAvatar owns both the image and the shared no-avatar
-          // silhouette, while also shrink-proofing itself.
-          <ContactAvatar imageUrl={contactAvatar.imageUrl} size="small" />
-        ) : (
-          <DocumentGlyph
-            aria-hidden="true"
-            className="explorer-document-icon"
-            data-icon={row.documentKind}
-            focusable="false"
-            size={16}
-            weight="regular"
-          />
-        )}
-        <MiniAppRowText>{title}</MiniAppRowText>
-      </MiniAppRowButton>
-    </div>
-  );
-}
-
-function ExplorerTreeDocumentPlaceholderRow(
-  props: Pick<ExplorerSidebarRowProps, "depth" | "onRetryDocumentWindow"> & {
-    containerId: string;
-    error: string | null;
-    isLoading: boolean;
-    offset: number;
-  },
-) {
-  const {
-    containerId,
-    depth,
-    error,
-    isLoading,
-    offset,
-    onRetryDocumentWindow,
-  } = props;
-  const label = error ? "Retry" : "Loading...";
-
-  return (
-    <div
-      className="explorer-sidebar-row"
-      style={getExplorerSidebarRowStyle(depth)}
-    >
-      <span className="explorer-node-spacer" aria-hidden="true" />
-      <MiniAppRowButton
-        className="explorer-sidebar-item explorer-sidebar-item--more"
-        disabled={!error || isLoading}
-        onClick={() => onRetryDocumentWindow(containerId, offset)}
-      >
-        <MiniAppRowText>{label}</MiniAppRowText>
-      </MiniAppRowButton>
-    </div>
-  );
-}
-
 function ExplorerTreeContainerRow(
-  props: Omit<ExplorerSidebarRowProps, "onDocumentContextMenu"> & {
+  props: ExplorerSidebarRowProps & {
+    depth: number;
     entry: ExplorerTreeEntry;
     isCollapsed: boolean;
   },
@@ -269,45 +135,12 @@ function ExplorerSidebarVirtualRowView(
     return <ExplorerSidebarSectionLabelRow label={row.label} />;
   }
 
-  if (row.kind === "container") {
-    return (
-      <ExplorerTreeContainerRow
-        {...props}
-        depth={row.depth}
-        entry={row.entry}
-        isCollapsed={row.isCollapsed}
-      />
-    );
-  }
-
-  if (row.kind === "document-status") {
-    return (
-      <ExplorerTreeDocumentPlaceholderRow
-        containerId={row.containerId}
-        depth={row.depth}
-        error={row.error}
-        isLoading={row.isLoading}
-        offset={0}
-        onRetryDocumentWindow={props.onRetryDocumentWindow}
-      />
-    );
-  }
-
-  const documentRow = getLoadedExplorerSidebarDocumentRow(row);
-  if (documentRow) {
-    return (
-      <ExplorerTreeDocumentRow {...props} depth={row.depth} row={documentRow} />
-    );
-  }
-
   return (
-    <ExplorerTreeDocumentPlaceholderRow
-      containerId={row.containerId}
+    <ExplorerTreeContainerRow
+      {...props}
       depth={row.depth}
-      error={row.state.error}
-      isLoading={row.state.isLoading}
-      offset={row.documentIndex}
-      onRetryDocumentWindow={props.onRetryDocumentWindow}
+      entry={row.entry}
+      isCollapsed={row.isCollapsed}
     />
   );
 }

@@ -18,6 +18,7 @@ import {
   POST_SHARE_NETWORK_IDLE_QUIET_MS,
   POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
   renderDualPane,
+  SHARED_NOTE_TITLE,
   selectContainerAndWaitForItemTable,
   waitForDualPaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
@@ -28,7 +29,8 @@ import {
   openExplorer,
   refreshUntil,
   selectPeerSharedContainer,
-  waitForSharedNoteVisible,
+  selectSharedRoot,
+  waitForExplorerNoteVisible,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
 import {
@@ -349,7 +351,8 @@ test(
     // The recipient pane re-lists its root containers automatically when the
     // share arrives (serverEventsBinding handles the "shared_with_you" event),
     // so the shared note surfaces without a manual refresh.
-    await waitForSharedNoteVisible(rightPane);
+    await selectSharedRoot(rightPane);
+    await waitForExplorerNoteVisible(rightPane, SHARED_NOTE_TITLE);
     await waitForNoPostShareSyncFailures(
       [leftPane, rightPane],
       postDiscoveryBaseline,

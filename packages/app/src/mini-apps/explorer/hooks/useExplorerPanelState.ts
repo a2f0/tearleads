@@ -4,7 +4,6 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import {
   type RuntimeSnapshot,
   useTearleads,
@@ -67,12 +66,7 @@ const explorerDroppedFileImportLabels: ExplorerDroppedFileImportLabels = {
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The panel hook coordinates sidebar, document, modal, and context-menu state.
 export function useExplorerPanelState(params: {
   appData: RuntimeSnapshot;
-  documentLinkProjectionVersion: number;
-  documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
-  documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
-  currentSelfContactLocalId: string | null;
   explorer: ExplorerModelExplorer;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   bumpDocumentListRevision: () => void;
@@ -106,12 +100,7 @@ export function useExplorerPanelState(params: {
 }): ExplorerPanelState {
   const {
     appData,
-    documentLinkProjectionVersion,
-    documentLinkProjectionVersionByContainerId,
-    documentListRevision,
     documentQueries,
-    contactAvatarUrlByLocalId,
-    currentSelfContactLocalId,
     explorer,
     linkedContainerIdsByDocumentId,
     bumpDocumentListRevision,
@@ -238,7 +227,6 @@ export function useExplorerPanelState(params: {
   const contextMenuState = useExplorerContextMenu(
     explorer.nodes,
     routeState.selectExplorerItem,
-    selectDocumentProjection,
     rulesContext,
     explorer.trashContainerId,
     explorer.trashSystemSlot,
@@ -246,28 +234,15 @@ export function useExplorerPanelState(params: {
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
-    contactAvatarUrlByLocalId,
-    currentSigningFingerprint: appData.crypto.signingFingerprint,
-    currentSelfContactLocalId,
-    currentUserId: appData.auth.userId,
-    currentOrganizationId: appData.auth.organizationId ?? null,
     // Derived from the same worker status as Explorer's detail gate so both show
     // the boot error together; the retry callback is threaded from Explorer.
     databaseError: appData.infra.dbStatus === "error",
-    documentLinkProjectionVersion,
-    documentLinkProjectionVersionByContainerId,
-    documentListRevision,
-    documentQueries,
-    handleSidebarDocumentContextMenu:
-      contextMenuState.handleSidebarDocumentContextMenu,
     handleContainerContextMenu: contextMenuState.handleContainerContextMenu,
-    nodes: explorer.nodes,
     onRetryDatabase,
     organizationNamesById: sidebarOrganizationNamesById,
     primaryOrganizationId,
     ready: explorer.ready,
     selectedId: selection.selectedId,
-    selectDocumentProjection,
     setSelectedId: routeState.selectExplorerItem,
     setSidebar,
     toggleCollapsed: selection.toggleCollapsed,
@@ -440,8 +415,8 @@ export function useExplorerPanelState(params: {
         if (purgedDocument) {
           // The purged document's local row is gone. Bump the document list
           // revision so the open container listing re-queries SQLite and the
-          // destroyed row drops out, and signal a link change so the sidebar
-          // tree and linked-container map refresh too.
+          // destroyed row drops out, and signal a link change so the linked-container
+          // map refreshes too.
           bumpDocumentListRevision();
           onDocumentLinksChanged([currentContainerId]);
           selectSource(currentContainerId);

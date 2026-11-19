@@ -80,7 +80,7 @@ unless noted.
 | [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 22 / 30 | Disconnect costs zero; one WebSocket ticket and one memberships read each; no write-bearing syncs |
 
 [`DualPaneProvider.sidebarReloadBudget.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sidebarReloadBudget.test.tsx)
-budgets local sidebar reload passes during cold bootstrap, not HTTP requests.
+bounds document link projection changes during cold bootstrap.
 
 Most policy reads in these budgets come from private metadata-root authority:
 each workflow operation reads the server-current

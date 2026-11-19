@@ -5,6 +5,7 @@ import {
   getExplorerSidebarItemsByName,
   getPaneRoot,
   renderSinglePane,
+  selectContainerAndWaitForItemTable,
   waitForSinglePaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
@@ -93,12 +94,17 @@ test(
         await waitForSinglePaneProvisioning(pane);
         await openExplorer(pane);
         await waitFor(() => {
-          for (const name of ["Contacts", "Trash", "You"]) {
+          for (const name of ["Contacts", "Trash"]) {
             expect(
               getExplorerSidebarItemsByName(pane, name).length,
             ).toBeGreaterThan(0);
           }
         });
+        const table = await selectContainerAndWaitForItemTable(
+          pane,
+          "Contacts",
+        );
+        await within(table).findByRole("button", { name: "You" });
       },
       mutations: [
         { method: "POST", path: /^\/auth\/register$/u, count: 1 },

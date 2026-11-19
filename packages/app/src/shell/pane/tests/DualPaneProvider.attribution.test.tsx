@@ -7,11 +7,11 @@ import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import {
   DUAL_PANE_TEST_TIMEOUT_MS,
-  getExplorerSidebarItem,
   getPaneRoot,
   getPaneUserId,
   interact,
   renderDualPane,
+  selectContainerAndWaitForItemTable,
   waitForDualPaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import {
@@ -52,8 +52,10 @@ afterEach(async () => {
 }, MOCK_SERVER_RESET_TIMEOUT_MS);
 
 async function openNoteInfo(pane: HTMLElement, title: string) {
+  const table = await selectContainerAndWaitForItemTable(pane, "Attribution");
+  await within(table).findByRole("button", { name: title });
   await interact(() => {
-    fireEvent.contextMenu(getExplorerSidebarItem(pane, title), {
+    fireEvent.contextMenu(within(table).getByRole("button", { name: title }), {
       clientX: 200,
       clientY: 200,
     });
@@ -195,6 +197,7 @@ test(
     await selectExplorerNoteByName(rightPane, title);
     const editedText = `${title}\nEdited by peer two`;
     await editSelectedNoteText(rightPane, editedText);
+    await selectContainerAndWaitForItemTable(leftPane, "Attribution");
     await selectExplorerNoteByName(leftPane, title);
     await waitForSelectedNoteText(
       leftPane,
@@ -215,9 +218,11 @@ test(
       await expectNoteAttribution(rightPane, title, writerUserIds),
     ).toEqual(sharedAttribution);
 
+    await selectContainerAndWaitForItemTable(leftPane, "Attribution");
     await selectExplorerNoteByName(leftPane, title);
     const ownerEditedText = `${editedText}\nEdited again by peer one`;
     await editSelectedNoteText(leftPane, ownerEditedText);
+    await selectContainerAndWaitForItemTable(rightPane, "Attribution");
     await selectExplorerNoteByName(rightPane, title);
     await waitForSelectedNoteText(
       rightPane,

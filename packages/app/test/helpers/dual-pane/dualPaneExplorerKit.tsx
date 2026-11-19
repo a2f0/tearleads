@@ -289,29 +289,33 @@ export async function clickExplorerRefresh(pane: HTMLElement) {
   });
 }
 
-export async function waitForSharedNoteVisible(pane: HTMLElement) {
-  await waitForCondition(
-    () => getExplorerSidebarItemsByName(pane, SHARED_NOTE_TITLE).length > 0,
-    () =>
-      `Peer did not discover shared note "${SHARED_NOTE_TITLE}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
+export async function selectSharedRoot(
+  pane: HTMLElement,
+  timeout = DUAL_PANE_TEST_TIMEOUT_MS,
+) {
+  // The peer's own root is first, followed by the granted root under its organization heading.
+  const root = await waitFor(
+    () => {
+      const shared = getExplorerSidebarItemsByName(pane, "/")[1];
+      invariant(shared, "Expected the shared root in Explorer.");
+      return shared;
+    },
+    { timeout },
   );
+  await interact(() => fireEvent.click(root));
 }
 
 export async function waitForExplorerNoteVisible(
   pane: HTMLElement,
   title: string,
-  // Peer discovery of a group-granted note took 7-9 s on four slow cores and
-  // passed 10 s with the parallel suite running, while still progressing.
   timeoutMs = DUAL_PANE_TEST_TIMEOUT_MS,
 ) {
-  await waitForCondition(
-    () =>
-      getExplorerSidebarItemsByName(pane, title).some((button) =>
-        button.classList.contains("explorer-sidebar-item--note"),
-      ),
-    () =>
-      `Explorer did not discover note "${title}".\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
-    timeoutMs,
+  return waitFor(
+    () => {
+      const table = within(pane).getByRole("table", { name: /^Items in /u });
+      return within(table).getByRole("button", { name: title });
+    },
+    { timeout: timeoutMs },
   );
 }
 
@@ -342,11 +346,7 @@ export async function selectExplorerNoteByName(
   title: string,
   timeoutMs?: number,
 ) {
-  await waitForExplorerNoteVisible(pane, title, timeoutMs);
-  const noteItem = getExplorerSidebarItemsByName(pane, title).find((button) =>
-    button.classList.contains("explorer-sidebar-item--note"),
-  );
-  invariant(noteItem, `Expected explorer note item "${title}".`);
+  const noteItem = await waitForExplorerNoteVisible(pane, title, timeoutMs);
   await interact(() => {
     fireEvent.click(noteItem);
   });

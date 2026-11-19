@@ -40,11 +40,6 @@ export interface ExplorerContextMenuModel {
     event: MouseEvent<HTMLElement>,
     row: ContainerItemRow,
   ) => void;
-  handleSidebarDocumentContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
-    localId: string,
-    containerId: string,
-  ) => void;
 }
 
 export interface ExplorerPanelState {

@@ -149,11 +149,15 @@ async function ensureExplorerReady(window: Locator): Promise<void> {
   await expect(firstItem).toBeVisible({ timeout: 60_000 });
 }
 
+function rootButtons(scope: ScreenshotScope): Locator {
+  return scope
+    .locator(".explorer-sidebar")
+    .getByRole("button", { name: "/", exact: true });
+}
+
 function noteButton(scope: ScreenshotScope): Locator {
   return scope
-    .locator(
-      "button.explorer-sidebar-item--note, button.explorer-item-row-button",
-    )
+    .locator("button.explorer-item-row-button")
     .filter({ hasText: NOTE_TITLE })
     .first();
 }
@@ -182,10 +186,7 @@ async function createOwnerNote(
   page: Page,
   ownerWindow: Locator,
 ): Promise<Locator> {
-  const ownerRoot = ownerWindow
-    .locator("button.explorer-sidebar-item")
-    .filter({ hasText: /^\/$/u })
-    .first();
+  const ownerRoot = rootButtons(ownerWindow).first();
   await expect(ownerRoot).toBeVisible({ timeout: 30_000 });
   await ownerRoot.click();
   await expect(
@@ -218,6 +219,7 @@ async function createOwnerNote(
   await expect(editor).toHaveValue(OWNER_TEXT);
   await createResponse;
 
+  await rootButtons(ownerWindow).first().click();
   const button = noteButton(ownerWindow);
   await expect(button).toBeVisible({ timeout: 30_000 });
   return button;
@@ -227,10 +229,7 @@ async function shareOwnerRootWithPeer(
   page: Page,
   ownerWindow: Locator,
 ): Promise<void> {
-  const ownerRoot = ownerWindow
-    .locator("button.explorer-sidebar-item")
-    .filter({ hasText: /^\/$/u })
-    .first();
+  const ownerRoot = rootButtons(ownerWindow).first();
   await expect(ownerRoot).toBeVisible({ timeout: 30_000 });
   await clickContextMenuAction(page, ownerRoot, "Get Info");
 
@@ -268,6 +267,7 @@ async function shareOwnerRootWithPeer(
 }
 
 async function appendPeerText(page: Page, peerWindow: Locator): Promise<void> {
+  await rootButtons(peerWindow).nth(1).click({ timeout: 60_000 });
   const editor = await selectNote(peerWindow);
   await expect(editor).toHaveValue(OWNER_TEXT, { timeout: 60_000 });
 
@@ -348,6 +348,7 @@ async function openWindowedDocumentBlame(
   page: Page,
   ownerWindow: Locator,
 ): Promise<void> {
+  await rootButtons(ownerWindow).first().click();
   const button = noteButton(ownerWindow);
   await expect(button).toBeVisible({ timeout: 60_000 });
   const response = attributionResponse(page);
@@ -360,7 +361,10 @@ async function openRoutedDocumentBlame(
   page: Page,
   routedPane: Locator,
 ): Promise<void> {
-  const editor = await selectNote(routedPane);
+  const editor = routedPane.getByRole("textbox", { name: /Notes editor/u });
+  const note = noteButton(routedPane);
+  await expect(editor.or(note)).toBeVisible();
+  if (await note.isVisible()) await note.click();
   await expect(editor).toHaveValue(COLLABORATIVE_TEXT, { timeout: 60_000 });
   const response = attributionResponse(page);
   await routedPane
@@ -462,6 +466,7 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
 
   await createOwnerNote(page, ownerWindow);
   await shareOwnerRootWithPeer(page, ownerWindow);
+  await rootButtons(ownerWindow).first().click();
   const ownerEditor = await selectNote(ownerWindow);
   await expect(ownerEditor).toHaveValue(OWNER_TEXT);
 
