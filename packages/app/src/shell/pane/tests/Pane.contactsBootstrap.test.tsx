@@ -92,7 +92,7 @@ test(
       const contactsWindow = await openContacts(view);
       expect(tearleads.session.isAuthenticated).toBe(false);
       expect(
-        within(contactsWindow).getByText(CONTACTS_LABELS.loadingState),
+        within(contactsWindow).getByText(CONTACTS_LABELS.loadingDescription),
       ).toBeTruthy();
       allowLogin.resolve();
 
