@@ -61,8 +61,9 @@ organization. Contacts and avatars appear in Contacts. Notes, photos, ID
 documents, equipment, and health trackers sync under your root folder.
 The import commits each document separately. If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,
-preserves edits to their fields and rows, and fills any vacant fixture
-attachment slots. A changed seed manifest can produce a new set of documents.
+preserves moved documents and edits, and resumes missing uploads whose
+attachment metadata still matches the fixture.
+A changed seed manifest can produce a new set of documents.
 
 ## Tracing
 

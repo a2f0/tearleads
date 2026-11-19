@@ -1,4 +1,5 @@
 import { DEFAULT_DOCUMENT_KIND } from "../../../../data/documents/documentConstants";
+import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { writeStoredDocumentFields } from "../../../../data/documents/documentKinds";
 import {
   addDocumentRow,
@@ -68,5 +69,7 @@ export function writeInitialDocumentContent(
       resolveRowAttribution(state),
     );
   }
-  return fields !== null || rows.length > 0;
+  const attachments = state.initialContent?.initialAttachments ?? [];
+  addDocumentAttachments(doc, attachments);
+  return fields !== null || rows.length > 0 || attachments.length > 0;
 }

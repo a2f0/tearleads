@@ -64,6 +64,7 @@ export interface OpenDocumentInput {
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
   /** Birth content of a created record; see `DocumentStoreOpenOptions`. */
+  readonly initialAttachments?: DocumentStoreOpenOptions["initialAttachments"];
   readonly initialRows?: DocumentStoreOpenOptions["initialRows"];
   readonly initialStructuredFields?: DocumentStoreOpenOptions["initialStructuredFields"];
   readonly initialText?: string | undefined;
@@ -182,6 +183,7 @@ class DocumentsService implements Documents {
       containerId,
       documentId = null,
       initialDocumentKind = DEFAULT_DOCUMENT_KIND,
+      initialAttachments,
       initialRows,
       initialStructuredFields,
       initialText = "",
@@ -197,6 +199,7 @@ class DocumentsService implements Documents {
       initialText,
       initialDocumentKind,
       {
+        initialAttachments,
         initialRows,
         initialStructuredFields,
         remoteSyncMode: options.remoteSyncMode,

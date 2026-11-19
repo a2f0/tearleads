@@ -72,6 +72,7 @@ export async function buildSeedArtifact(
 
     for (const document of continuityDocuments(spec)) {
       await writeContinuityDocument({
+        destination: "backup",
         sdk,
         document,
         localId: crypto.randomUUID(),

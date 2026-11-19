@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import {
   type DocumentStore,
+  type DocumentSummary,
   deriveContainerSystemSlot,
   type Tearleads,
 } from "@tearleads/client-sdk";
@@ -10,6 +11,7 @@ import { withSession } from "./session";
 
 export async function onFreshDevice(
   input: {
+    additionalFolderId?: string;
     apiBaseUrl: string;
     recoveryKey: string;
     rootContainerId: string | null;
@@ -44,10 +46,20 @@ export async function onFreshDevice(
       if (!contacts)
         throw new Error("Contacts folder missing from the personal root");
       const stores = [];
-      for (const containerId of [input.rootContainerId, contacts]) {
-        const rows =
-          await sdk.containerContents.discoverContainerDocuments(containerId);
-        for (const row of rows ?? []) {
+      for (const containerId of [
+        input.rootContainerId,
+        contacts,
+        ...(input.additionalFolderId ? [input.additionalFolderId] : []),
+      ]) {
+        const rows = new Map<string, DocumentSummary>();
+        for (;;) {
+          const batch =
+            await sdk.containerContents.discoverContainerDocuments(containerId);
+          if (!batch) throw new Error("Could not discover fixture documents");
+          if (!batch.length) break;
+          for (const row of batch) rows.set(row.id, row);
+        }
+        for (const row of rows.values()) {
           const store = sdk.containerContents.documentLinks().openDocument({
             containerId,
             localId: row.id,

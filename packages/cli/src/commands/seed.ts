@@ -47,7 +47,13 @@ async function resolveSeedAccount(
     throw new Error(
       "Could not resolve the account's root and signing identity.",
     );
-  return { rootId: root.id, signingPrivateKey: keys.signingPrivateKey };
+  return {
+    rootId: root.id,
+    signingPrivateKey: keys.signingPrivateKey,
+    folders: nodes
+      .filter((node) => node.organizationId === org.organizationId)
+      .map((node) => node.id),
+  };
 }
 
 // The SDK verifies a bounded batch of document heads on each discovery pass.
@@ -70,13 +76,24 @@ async function discoverSeedDestination(
   }
 }
 
+async function findSeedPlacement({ sdk }: CliSession, documentId: string) {
+  const localId = await sdk.documents.findLocalIdByDocumentId(documentId);
+  if (!localId) return undefined;
+  const summary = await sdk.containerContents
+    .documentQueries()
+    .loadDocumentSummary(localId);
+  if (!summary?.containerId)
+    throw new Error("Could not verify seed document placement.");
+  return { localId, documentId, containerId: summary.containerId };
+}
+
 /** Import the pinned screenshot dataset into the signed-in personal root. */
 export async function seed(input: CommandInput): Promise<void> {
   const count = await withSavedSession(
     input,
     async (session) => {
       const { sdk, tracer } = session;
-      const { rootId, signingPrivateKey } = await resolveSeedAccount(
+      const { rootId, signingPrivateKey, folders } = await resolveSeedAccount(
         session,
         input.organizationId,
       );
@@ -84,7 +101,7 @@ export async function seed(input: CommandInput): Promise<void> {
         await loadContinuityAssets();
       const documents = continuityDocuments(spec);
       const contactsId = await ensureContactsContainer(sdk, signingPrivateKey);
-      for (const containerId of [rootId, contactsId]) {
+      for (const containerId of new Set([...folders, contactsId])) {
         await discoverSeedDestination(session, containerId);
       }
       const queries = sdk.containerContents.documentQueries();
@@ -100,23 +117,21 @@ export async function seed(input: CommandInput): Promise<void> {
             )
             .digest("hex");
           const documentId = await deriveStableDocumentId(localId);
-          const existingId =
-            await sdk.documents.findLocalIdByDocumentId(documentId);
+          const existing = await findSeedPlacement(session, documentId);
           const store = await writeContinuityDocument({
+            destination: "account",
             sdk,
             document,
-            containerId,
+            containerId: existing?.containerId ?? containerId,
             localId,
             readAttachment,
-            existing: existingId
-              ? { localId: existingId, documentId }
-              : undefined,
+            existing,
           });
           store.requestSync();
           const idle = await coordinator.waitForIdle({ timeoutMs: 120_000 });
           session.assertNoFailures();
           const state = await queries.loadDocumentSyncState(
-            existingId ?? localId,
+            existing?.localId ?? localId,
           );
           if (
             !idle ||

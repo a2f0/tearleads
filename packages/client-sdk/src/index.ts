@@ -471,6 +471,7 @@ export {
   persistedDocumentCreateStateFromResponse,
   RemoteDocumentService,
   readPullContinuation,
+  resolveDocumentCreateAuthor,
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
   validateDocumentSyncUpdateImports,

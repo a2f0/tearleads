@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
+import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk";
 import {
   continuityDocuments,
   loadContinuityAssets,
@@ -85,6 +86,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       // that intent available for recovery by its original writer.
       await expect(
         writeContinuityDocument({
+          destination: "account",
           sdk,
           localId,
           containerId: summary.containerId,
@@ -100,7 +102,8 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     await run();
     const editedName = "Personal weight journal";
     const editedNotes = "Edited on a second device";
-    await onFreshDevice(device, async (stores) => {
+    let additionalFolderId = "";
+    await onFreshDevice(device, async (stores, sdk) => {
       const tracker = stores.find(
         (store) => store.getSnapshot().documentKind === "weight",
       );
@@ -109,47 +112,90 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       await tracker.setStructuredFields("weight", { trackerName: editedName });
       await tracker.updateRowFields(row.id, { notes: editedNotes });
       expect(await tracker.requestRemoteSyncAndWait()).toBe(true);
+      if (!rootContainerId) throw new Error("Missing root");
+      const folder = await sdk.containerContents
+        .openTree()
+        .createChild(rootContainerId, "Health");
+      if (!folder) throw new Error("Could not create Health folder");
+      additionalFolderId = folder.id;
+      const coordinator = getOrCreateDomainSyncCoordinator(
+        sdk.runtime.input().state.domainScope,
+      );
+      expect(await coordinator.waitForIdle({ timeoutMs: 30_000 })).toBe(true);
+      const id = await sdk.documents.findLocalIdByDocumentId(
+        tracker.getSnapshot().documentId ?? "",
+      );
+      const note = await sdk.containerContents
+        .documentQueries()
+        .loadDocumentSummary(id ?? "");
+      if (!note) throw new Error("Missing tracker summary");
+      const moved = await sdk.containerContents
+        .documentLinks()
+        .moveDocumentToContainer({
+          note,
+          targetContainerId: folder.id,
+          replaceLinkedContainers: true,
+          expandNode: () => {},
+          mergeDocumentSummary: () => {},
+          setLinkedContainerIdsForDocument: () => {},
+        });
+      expect(moved.note?.containerId).toBe(folder.id);
+      expect(await coordinator.waitForIdle({ timeoutMs: 30_000 })).toBe(true);
     });
     await run();
-    await onFreshDevice(device, async (stores, sdk) => {
-      const found = stores.map((store) => store.getSnapshot());
-      for (const snapshot of found) {
-        for (const attachment of snapshot.attachments) {
-          const key = snapshot.attachmentStorageKeyBySlotId[attachment.slotId];
-          expect(key).toBeDefined();
-          expect(await sdk.blobs.store.readBytes(key ?? "")).toEqual(
-            await readAttachment(attachment.name),
+    await onFreshDevice(
+      { ...device, additionalFolderId },
+      async (stores, sdk) => {
+        const found = stores.map((store) => store.getSnapshot());
+        const tracker = found.find(
+          (snapshot) => snapshot.documentKind === "weight",
+        );
+        const id = await sdk.documents.findLocalIdByDocumentId(
+          tracker?.documentId ?? "",
+        );
+        const moved = await sdk.containerContents
+          .documentQueries()
+          .loadDocumentSummary(id ?? "");
+        expect(moved?.containerId).toBe(additionalFolderId);
+        for (const snapshot of found) {
+          for (const attachment of snapshot.attachments) {
+            const key =
+              snapshot.attachmentStorageKeyBySlotId[attachment.slotId];
+            expect(key).toBeDefined();
+            expect(await sdk.blobs.store.readBytes(key ?? "")).toEqual(
+              await readAttachment(attachment.name),
+            );
+          }
+        }
+        expect(found.length).toBe(documents.length);
+        for (const document of documents) {
+          expect(found).toContainEqual(
+            expect.objectContaining({
+              documentKind: document.kind,
+              text: document.text ?? "",
+              structuredFields: expect.objectContaining(
+                document.kind === "weight"
+                  ? { ...document.fields, trackerName: editedName }
+                  : (document.fields ?? {}),
+              ),
+              rows: (document.rows ?? []).map((fields, index) =>
+                expect.objectContaining({
+                  fields:
+                    document.kind === "weight" && index === 0
+                      ? { ...fields, notes: editedNotes }
+                      : fields,
+                }),
+              ),
+              attachments: expect.arrayContaining(
+                document.attachments.map(({ file: name }) =>
+                  expect.objectContaining({ name }),
+                ),
+              ),
+            }),
           );
         }
-      }
-      expect(found.length).toBe(documents.length);
-      for (const document of documents) {
-        expect(found).toContainEqual(
-          expect.objectContaining({
-            documentKind: document.kind,
-            text: document.text ?? "",
-            structuredFields: expect.objectContaining(
-              document.kind === "weight"
-                ? { ...document.fields, trackerName: editedName }
-                : (document.fields ?? {}),
-            ),
-            rows: (document.rows ?? []).map((fields, index) =>
-              expect.objectContaining({
-                fields:
-                  document.kind === "weight" && index === 0
-                    ? { ...fields, notes: editedNotes }
-                    : fields,
-              }),
-            ),
-            attachments: expect.arrayContaining(
-              document.attachments.map(({ file: name }) =>
-                expect.objectContaining({ name }),
-              ),
-            ),
-          }),
-        );
-      }
-    });
+      },
+    );
   } finally {
     server.stop(true);
   }
