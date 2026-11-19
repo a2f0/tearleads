@@ -4,6 +4,7 @@ import {
   type Page,
   type Response,
 } from "@playwright/test";
+import { createFirstIdentity } from "./createFirstIdentity";
 import { SIGNED_IN_API_URL } from "./signedInServer";
 
 /*
@@ -78,26 +79,13 @@ function apiResponse(
   );
 }
 
-/**
- * The default host profile offers creation and recovery. Choosing creation
- * and submitting a name derives keys, registers the account, and signs in. This page comes from its
- * own browser context, outside the appTest fixture, so it answers here.
- */
 async function signIn(page: Page): Promise<void> {
   await page.addInitScript((key) => {
     localStorage.setItem(key, "enabled");
   }, EDIT_RANGES_FLAG_KEY);
   const loggedIn = apiResponse(page, "POST", /^\/auth\/verify$/u);
   await page.goto("/app/explorer");
-  await page
-    .getByRole("button", { name: "Create new identity", exact: true })
-    .first()
-    .click();
-  const prompt = page
-    .getByRole("textbox", { name: "What should we call you?" })
-    .first();
-  await prompt.fill("Bob", { timeout: 60_000 });
-  await prompt.press("Enter");
+  await createFirstIdentity(page);
   await loggedIn;
 }
 

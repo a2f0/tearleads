@@ -1,5 +1,5 @@
-import type { Page } from "@playwright/test";
-import { expect, test } from "./appTest";
+import { expect, type Page, test } from "@playwright/test";
+import { createFirstIdentity } from "./createFirstIdentity";
 
 // Playwright keeps every page out of the back/forward cache: the default
 // headless shell disables it for its delegate, and the launch passes
@@ -60,6 +60,7 @@ test("a page in the back/forward cache is evicted when a later page announces it
     Reflect.set(window, "Worker", ObservedWorker);
   });
   await page.goto("/");
+  await createFirstIdentity(page);
   await waitForSqliteWorker(page);
 
   // Leave for a same-origin document that runs no app code, so nothing but the
