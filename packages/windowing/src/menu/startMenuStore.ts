@@ -21,10 +21,18 @@ export function createStartMenuStore(
   // Leave a single unescaped boundary between the namespace and the app ID.
   const keyFor = (id: string) =>
     `${storageKey}.${id.replaceAll("%", "%25").replaceAll(".", "%2E")}`;
+  const unsaved = new Map<string, boolean | undefined>();
+  function persist(id: string, visible: boolean | undefined) {
+    const value = visible === undefined ? null : String(visible);
+    if (saveStoredPreference(keyFor(id), value)) unsaved.delete(id);
+    else unsaved.set(id, visible);
+  }
   function readAll() {
     const next = new Map<string, boolean>();
     for (const id of ids) {
-      const visible = readVisibility(keyFor(id));
+      const visible = unsaved.has(id)
+        ? unsaved.get(id)
+        : readVisibility(keyFor(id));
       if (visible !== undefined) next.set(id, visible);
     }
     return next;
@@ -49,11 +57,15 @@ export function createStartMenuStore(
   function onStorage(event: StorageEvent) {
     if (event.storageArea && event.storageArea !== window.localStorage) return;
     if (event.key === null) {
+      unsaved.clear();
       publish(readAll());
       return;
     }
     const id = ids.find((id) => keyFor(id) === event.key);
-    if (id !== undefined) update(id, readVisibility(keyFor(id)));
+    if (id !== undefined) {
+      unsaved.delete(id);
+      update(id, readVisibility(keyFor(id)));
+    }
   }
   return {
     snapshot: () => overrides,
@@ -69,11 +81,11 @@ export function createStartMenuStore(
     },
     setVisible(id: string, visible: boolean) {
       if (!ids.includes(id)) return;
-      saveStoredPreference(keyFor(id), String(visible));
+      persist(id, visible);
       update(id, visible);
     },
     reset() {
-      for (const id of ids) saveStoredPreference(keyFor(id), null);
+      for (const id of ids) persist(id, undefined);
       publish(EMPTY_MENU_OVERRIDES);
     },
   };

@@ -38,15 +38,16 @@ export function loadStoredPreference<T>(
 export function saveStoredPreference(
   storageKey: string,
   value: string | null,
-): void {
+): boolean {
   const storage = getLocalStorage();
   if (!storage) {
-    return;
+    return false;
   }
   try {
     if (value === null) storage.removeItem(storageKey);
     else storage.setItem(storageKey, value);
+    return true;
   } catch {
-    // Persistence is best-effort; ignore disabled storage and quota errors.
+    return false;
   }
 }
