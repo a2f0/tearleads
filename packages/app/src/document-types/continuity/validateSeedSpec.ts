@@ -1,4 +1,4 @@
-import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
 import type { SeedSpec } from "./seedTypes";
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -76,7 +76,7 @@ export function validateSeedSpec(value: unknown): asserts value is SeedSpec {
     !optionalArray(notes, (item) => {
       if (!record(item)) return false;
       const { text } = item;
-      return typeof text === "string";
+      return typeof text === "string" && text.length > 0;
     })
   )
     throw new Error("Invalid seed contacts or notes");

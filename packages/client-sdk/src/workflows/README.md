@@ -207,16 +207,16 @@ requested maintenance run.
 
 ### Deferred initial update
 
-A store opened with `DocumentStoreOpenOptions.deferInitialUpdate` (an Explorer
-file import) creates without that initial outgoing update and persists the
-empty version as its outgoing marker. Scheduled sync waits until the first
-`attachFiles` settles, so one update carries the birth and the attachment; a
-failed attach enqueues the birth alone. A write that advances the marker, a
-reset, or a failed initialization also lifts the wait, and a caller that gives
-up before attaching releases it with `attachFiles([])`. The store factories
-take that option, with `remoteSyncMode`, as a trailing
-`DocumentStoreOpenOptions` object. Its `initialStructuredFields` and
-`initialRows` join the birth update when the open creates the record.
+Explorer sets `DocumentStoreOpenOptions.deferInitialUpdate` to queue an empty
+marker and carry the birth in the first attachment update. A failed attach
+queues the birth. Advancing the marker, reset, failed initialization, or
+`attachFiles([])` releases the hold. Store factories take these options
+and `remoteSyncMode` in the trailing `DocumentStoreOpenOptions`.
+Seed within the active organization. A verified purge returns `"purged"`.
+`documents.createSeeded` commits fields, rows and attachment metadata together.
+Upload with `resolveDocumentCreateAuthor(runtime)` and a null expected binding
+to require a vacant slot at commit.
+`createDocumentHeadLinkSetLoader(runtime)` verifies placement by document ID.
 
 ### Queued local writes
 

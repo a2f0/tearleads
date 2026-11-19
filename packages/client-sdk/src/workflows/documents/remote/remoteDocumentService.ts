@@ -5,7 +5,7 @@ import type {
   RelinkRemoteDocumentResult,
 } from "../../../data/documents/shared/types";
 import { createRemoteDocument } from "../create";
-import type { CreateRemoteDocumentRequest } from "../create/remoteDocumentCreateRequest";
+import type { DocumentSubmissionRequest } from "../create/remoteDocumentCreateRequest";
 import {
   type RelinkRemoteDocumentRequest,
   relinkRemoteDocument,
@@ -37,7 +37,7 @@ export class RemoteDocumentService {
 
   /** Throws when the service has no encapsulation secret key. */
   createRemoteDocument(
-    request: CreateRemoteDocumentRequest,
+    request: DocumentSubmissionRequest,
   ): Promise<CreateRemoteDocumentResult | null> {
     return createRemoteDocument(this.remote, request);
   }

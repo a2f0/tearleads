@@ -4,6 +4,7 @@ import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants
 import {
   type DocumentAttachment,
   getDocumentAttachments,
+  readSeedTag,
   sameDocumentAttachments,
 } from "../../../data/documents/documentContent";
 import {
@@ -307,6 +308,7 @@ export function setDocumentSnapshot(
     state.snapshot.currentAuthorId === next.currentAuthorId &&
     state.snapshot.documentId === next.documentId &&
     state.snapshot.documentKind === next.documentKind &&
+    state.snapshot.seedTag === next.seedTag &&
     state.snapshot.effectiveAccessLevel === next.effectiveAccessLevel &&
     sameValidationIssues(
       state.snapshot.fieldValidationIssues,
@@ -445,6 +447,7 @@ export function setReadySnapshot(
     currentAuthorId: resolveCurrentAuthorId(state),
     documentId: state.record?.documentId ?? null,
     documentKind: projectedState.documentKind,
+    seedTag: readSeedTag(currentDoc),
     effectiveAccessLevel: normalizeEffectiveAccessLevel(
       state.record?.effectiveAccessLevel,
     ),

@@ -24,7 +24,7 @@ test("unknown commands, options, and targets are usage errors", async () => {
 });
 
 test("commands that need a session ask for login first", async () => {
-  for (const command of ["whoami", "orgs", "ls"]) {
+  for (const command of ["whoami", "orgs", "ls", "seed"]) {
     const { context, output } = testContext();
     expect(await runCli([command], context)).toBe(1);
     expect(output.stderr).toEqual([

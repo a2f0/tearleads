@@ -1,4 +1,4 @@
-import { trackerGraphTimestamp } from "../../src/document-types/shared/timeSeriesGraphData";
+import { trackerGraphTimestamp } from "../shared/timeSeriesGraphData";
 
 /** Continuity records an offset; tracker inputs store the recorded wall clock. */
 export function seedTrackerRow(

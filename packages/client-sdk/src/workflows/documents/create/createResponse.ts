@@ -21,6 +21,20 @@ import { ProjectionDependencyUnavailableError } from "../../../data/shared/depen
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import { documentWriterProjectionFromCreateResponse } from "./createProjection";
+import type { DocumentSubmissionRequest } from "./remoteDocumentCreateRequest";
+
+/** A strict importer can only proceed after its exact birth update is acknowledged. */
+export function assertRequiredSeedAcknowledged(
+  request: DocumentSubmissionRequest,
+  created: CreateRemoteDocumentResult | null,
+) {
+  if (!request.requireSeededCreate) return;
+  const accepted = created?.response?.initialSync?.acceptedOutgoingUpdateIds;
+  if (!request.seedUpdate || !accepted?.includes(request.seedUpdate.id))
+    throw new Error(
+      "The server did not acknowledge the initial document content.",
+    );
+}
 
 /** A matched acknowledgement remains committed if authorization evidence races. */
 export async function acknowledgeRemoteDocumentCreate(
@@ -63,7 +77,7 @@ export async function acknowledgeRemoteDocumentCreate(
     // A principal pin can advance while POST is in flight. Recover the already
     // committed document from fresh evidence, without submitting another create.
     // The adoption path still verifies its author, scope, chain and key binding.
-    return nullOnProjectionVerificationCancellation(() =>
+    const recovered = await nullOnProjectionVerificationCancellation(() =>
       adoptExistingRemoteDocument({
         ...input,
         documentId: response.id,
@@ -72,6 +86,9 @@ export async function acknowledgeRemoteDocumentCreate(
         expectedSignerUserId: input.author.signerUserId,
       }),
     );
+    return recovered && response.initialSync
+      ? { ...recovered, response }
+      : recovered;
   }
   input.apiClient.primeDocumentWriterProjection(response.id, writerProjection);
   return {

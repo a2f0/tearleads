@@ -2,8 +2,12 @@ import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
+import {
+  assertDocumentCreateSigner,
+  assertDocumentWriterProjectionConsistent,
+} from "../../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
+import { checkWithHeldBundleRecovery } from "../../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
 import type { DocumentPurgeCheckpoint } from "../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
@@ -17,7 +21,10 @@ import type {
   ContainerDocumentTombstoneVerifier,
 } from "../documentDiscovery/documentDiscoveryTypes";
 import { documentHeadMatchesOrganization } from "../documentDiscovery/documentHeadScope";
-import type { ContainerContentsWorkflowRuntime } from "../runtime";
+import type {
+  ContainerContentsStoreWorkflowRuntime,
+  ContainerContentsWorkflowRuntime,
+} from "../runtime";
 
 export interface VerifiedDocumentHeadLinkSet {
   readonly organizationId: string | null;
@@ -35,6 +42,7 @@ export interface VerifiedDocumentHeadLinkSet {
 export type DocumentHeadLinkSetLoader = (
   documentId: string,
   expectedManifestHash?: string,
+  expectedSignerUserId?: string,
 ) => Promise<VerifiedDocumentHeadLinkSet | "not-found" | null>;
 
 /** The highest access epoch local state records for the document. */
@@ -64,12 +72,14 @@ async function verifiedHeadLinkSet(
   documentId: string,
   projection: DocumentWriterProjectionResponse,
   policyOperation: PrincipalPolicyOperation | undefined,
+  stillCurrent: () => boolean,
 ): Promise<VerifiedDocumentHeadLinkSet> {
   const verified: { value?: VerifiedDocumentHeadLinkSet } = {};
   await deps.assertDocumentWriterProjectionConsistent(projection, {
     // Only the link set is read; a bundle wrapped to superseded KEK targets
     // still carries the signed head.
     allowStaleContentKeyBundle: true,
+    stillCurrent,
     execSql: runtime.infra.execSql,
     onVerifiedAuthorization: (authorization) => {
       const head = authorization.documentManifestByHash.get(
@@ -150,9 +160,41 @@ function failedHeadVerdict(
   return null;
 }
 
+async function fetchDocumentHead(
+  runtime: ContainerContentsWorkflowRuntime,
+  documentId: string,
+  expectedManifestHash: string | undefined,
+  assertCurrent: () => void,
+  requestGuard: (() => boolean) | undefined,
+) {
+  // Tombstones require a fresh head. Listings can reuse a matching cached
+  // projection, whose signature and local checkpoint are still verified.
+  if (!expectedManifestHash)
+    runtime.apiClient.evictDocumentWriterProjection(documentId);
+  let result = await runtime.apiClient.getDocumentWriterProjectionResult(
+    documentId,
+    { reportErrors: false, stillCurrent: requestGuard },
+  );
+  assertCurrent();
+  if (
+    expectedManifestHash &&
+    result.ok &&
+    result.data.documentManifest.manifestHash !== expectedManifestHash
+  ) {
+    runtime.apiClient.evictDocumentWriterProjection(documentId);
+    result = await runtime.apiClient.getDocumentWriterProjectionResult(
+      documentId,
+      { reportErrors: false, stillCurrent: requestGuard },
+    );
+  }
+  assertCurrent();
+  return result;
+}
+
 /** `policyOperation` lets one discovery pass share a directory discovery. */
 export function createDocumentHeadLinkSetLoader(
-  runtime: ContainerContentsWorkflowRuntime,
+  runtime: ContainerContentsWorkflowRuntime &
+    Pick<ContainerContentsStoreWorkflowRuntime, "liveHydrationStatus">,
   deps: DocumentHeadLinkSetLoaderDeps = {
     assertDocumentWriterProjectionConsistent,
     loadDocumentPurgeCheckpoint: (execSql, documentId) =>
@@ -162,53 +204,62 @@ export function createDocumentHeadLinkSetLoader(
   },
   policyOperation?: PrincipalPolicyOperation,
 ): DocumentHeadLinkSetLoader {
-  return async (documentId, expectedManifestHash) => {
+  const stillCurrent = () => runtime.liveHydrationStatus?.() !== "retired";
+  function assertCurrent() {
+    if (!stillCurrent()) throw new Error("Document head lookup scope changed.");
+  }
+  return async (documentId, expectedManifestHash, expectedSignerUserId) => {
     try {
       // A verified purge proof is terminal signed evidence that the document
       // links nothing any more.
-      if (
-        await deps.loadDocumentPurgeCheckpoint(
-          runtime.infra.execSql,
-          documentId,
-        )
-      ) {
+      assertCurrent();
+      const purge = await deps.loadDocumentPurgeCheckpoint(
+        runtime.infra.execSql,
+        documentId,
+      );
+      assertCurrent();
+      if (purge) {
         return {
           organizationId: null,
           accessEpoch: Number.MAX_SAFE_INTEGER,
           linkedContainerIds: [],
         };
       }
-      // Tombstones require a fresh head. Listings can reuse a matching cached
-      // projection, whose signature and local checkpoint are still verified.
-      if (!expectedManifestHash)
-        runtime.apiClient.evictDocumentWriterProjection(documentId);
-      let result = await runtime.apiClient.getDocumentWriterProjectionResult(
+      const result = await fetchDocumentHead(
+        runtime,
         documentId,
-        { reportErrors: false },
+        expectedManifestHash,
+        assertCurrent,
+        expectedSignerUserId ? stillCurrent : undefined,
       );
-      if (
-        expectedManifestHash &&
-        result.ok &&
-        result.data.documentManifest.manifestHash !== expectedManifestHash
-      ) {
-        runtime.apiClient.evictDocumentWriterProjection(documentId);
-        result = await runtime.apiClient.getDocumentWriterProjectionResult(
-          documentId,
-          { reportErrors: false },
+      if (!result.ok) return failedHeadVerdict(runtime, documentId, result);
+      const projection = result.data;
+      if (expectedSignerUserId) {
+        await checkWithHeldBundleRecovery(
+          { execSql: runtime.infra.execSql, projection, stillCurrent },
+          async () =>
+            assertDocumentCreateSigner(
+              { documentId, expectedSignerUserId },
+              projection,
+            ),
         );
       }
-      if (!result.ok) return failedHeadVerdict(runtime, documentId, result);
-      return await verifiedHeadLinkSet(
+      assertCurrent();
+      const head = await verifiedHeadLinkSet(
         runtime,
         deps,
         documentId,
         result.data,
         policyOperation,
+        stillCurrent,
       );
+      assertCurrent();
+      return head;
     } catch (error) {
       // Any failure leaves the tombstone unverified (held and retried); a
       // thrown error here must not fail the whole discovery pass.
-      await reportUnavailableHead(runtime, documentId, error);
+      if (stillCurrent())
+        await reportUnavailableHead(runtime, documentId, error);
       return null;
     }
   };

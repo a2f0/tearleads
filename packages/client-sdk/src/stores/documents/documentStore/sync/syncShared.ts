@@ -274,7 +274,9 @@ export async function ensureRemoteDocument(
   const created = await remoteDocuments.createRemoteDocument({
     author,
     containerId: runtime.state.containerId,
-    deferredSeedUpdate: seed ? undefined : deferredSeed?.update,
+    ...(seed
+      ? { seedUpdate: seed.update }
+      : { deferredSeedUpdate: deferredSeed?.update }),
     // Derive the remote id from the stable local id so a retry after a lost
     // create response re-sends the same id and adopts the existing remote
     // document instead of creating a duplicate.
@@ -284,7 +286,6 @@ export async function ensureRemoteDocument(
       generation,
     ),
     resolveProjectionUserKey: state.resolveProjectionUserKey,
-    seedUpdate: seed?.update,
     stillCurrent: generationIsCurrent,
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
       operation: policyOperation,

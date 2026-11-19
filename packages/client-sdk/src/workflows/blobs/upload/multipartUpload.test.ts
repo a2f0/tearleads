@@ -8,6 +8,66 @@ import {
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 describe("stageMultipartBlobAttachment", () => {
+  test.each(["stage", "part", "pending part"] as const)(
+    "stops %s dispatch after an upload scope switch",
+    async (phase) => {
+      let current = true;
+      let stages = 0;
+      let parts = 0;
+      let completed = 0;
+      const encryption = createFakePlan({
+        partCount: 1,
+        encryptPart: async (_, length) => {
+          if (phase === "stage") current = false;
+          return new Uint8Array(length);
+        },
+      });
+      await expect(
+        stageMultipartBlobAttachment({
+          organizationId: "organization-1",
+          apiClient: createMultipartApi({
+            initiateMultipartBlobStage: async (request) => {
+              stages++;
+              return initiatedStage(request, {
+                stageId: "stage",
+                uploadId: "upload",
+              });
+            },
+            uploadMultipartBlobPartBytes: async (
+              stageId,
+              partNumber,
+              request,
+            ) => {
+              parts++;
+              if (phase === "pending part") current = false;
+              return {
+                stageId,
+                uploadId: request.uploadId,
+                part: {
+                  etag: "part",
+                  byteLength: request.byteLength,
+                  partNumber,
+                },
+              };
+            },
+          }),
+          encryption,
+          multipart: { partSize: DEFAULT_CHUNK_SIZE, uploadConcurrency: 1 },
+          onMultipartProgress: (progress) => {
+            completed = progress.partsCompleted;
+          },
+          onStageResolved: () => {
+            if (phase === "part") current = false;
+          },
+          stillCurrent: () => current,
+        }),
+      ).rejects.toThrow("upload scope changed");
+      expect(stages).toBe(phase === "stage" ? 0 : 1);
+      expect(parts).toBe(phase === "pending part" ? 1 : 0);
+      expect(completed).toBe(0);
+    },
+  );
+
   test("describes the first parts at initiation and encrypts each part once", async () => {
     const partLengths = [3, 4, 5, 6];
     const encryptedPartIndices: number[] = [];

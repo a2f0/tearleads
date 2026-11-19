@@ -1,3 +1,4 @@
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
   bindBlobAttachmentOperation,
   detachBlobAttachmentOperation,
@@ -136,11 +137,23 @@ export class BlobArea {
   private attachmentWrite<R>(
     write: Promise<R | null>,
     cacheResponse: (response: R) => void,
+    body: unknown,
+    stillCurrent: RequestResultOptions["stillCurrent"],
   ): Promise<R | null> {
     const session = this.context.runtime.responseRequest.sessionSignal?.();
+    const { documentId } = isPlainObject(body) ? body : {};
+
+    const current = () => {
+      if (session?.aborted) return false;
+      if (stillCurrent?.() !== false) return true;
+      // Even a fresh listing from this session may have arrived before the write committed.
+      if (typeof documentId === "string")
+        this.attachmentLists.delete(documentId);
+      return false;
+    };
     return write
       .then((response) => {
-        if (session?.aborted) return null;
+        if (!current()) return null;
         if (response) {
           cacheResponse(response);
         } else {
@@ -149,25 +162,31 @@ export class BlobArea {
         return response;
       })
       .catch((error: unknown) => {
-        if (!session?.aborted) this.attachmentLists.clear();
+        if (current()) this.attachmentLists.clear();
         throw error;
       });
   }
 
-  initiateMultipartBlobStage(input: InitiateMultipartBlobStageRequest) {
+  initiateMultipartBlobStage(
+    input: InitiateMultipartBlobStageRequest,
+    options?: RequestResultOptions,
+  ) {
     return this.context.send(
       multipartInitiate,
       multipartInitiate.path,
       initiateMultipartBlobStageOperation,
       input,
+      options,
     );
   }
 
-  getMultipartBlobStage(stageId: string) {
+  getMultipartBlobStage(stageId: string, options?: RequestResultOptions) {
     return this.context.send(
       multipartGet,
       multipartGet.path(stageId),
       getMultipartBlobStageOperation,
+      undefined,
+      options,
     );
   }
 
@@ -218,6 +237,8 @@ export class BlobArea {
         options,
       ),
       (response) => this.cacheBlobAttachmentBindResponse(input, response),
+      input.body,
+      options.stillCurrent,
     );
   }
 
@@ -236,6 +257,8 @@ export class BlobArea {
         options,
       ),
       this.cacheBlobAttachmentDetachResponse,
+      input.body,
+      options.stillCurrent,
     );
   }
 

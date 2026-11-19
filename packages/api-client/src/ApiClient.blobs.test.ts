@@ -1,8 +1,12 @@
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import { MultipartBlobPartUploadRequestSchema } from "@tearleads/validators/operation";
-import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  MULTIPART_BLOB_STAGE_ERROR_CODES,
+  SESSION_ERROR_CODES,
+} from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
+import { createBlobAttachmentBindRequest } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
   type CapturedHttpCall,
@@ -260,3 +264,61 @@ testApiClient(
     );
   },
 );
+
+for (const step of ["initiate", "part", "bind"] as const) {
+  testApiClient(
+    `a retired upload cannot replay its ${step} request after renewal`,
+    async () => {
+      const client = new ApiClient(apiBaseUrl);
+      client.setAuthToken("original");
+      let current = true;
+      let attempts = 0;
+      client.setOnSessionExpired(() => {
+        client.setAuthToken("renewed");
+        current = false;
+        return true;
+      });
+      server.use(
+        http.all(`${apiBaseUrl}/*`, () => {
+          attempts++;
+          return HttpResponse.json(
+            { error: "Expired", code: SESSION_ERROR_CODES.refreshRequired },
+            { status: 401 },
+          );
+        }),
+      );
+      const options = { stillCurrent: () => current, reportErrors: false };
+      const bytes = new Uint8Array([1]);
+      const sha256 = createHash("sha256").update(bytes).digest("hex");
+      const send = {
+        initiate: () =>
+          client.initiateMultipartBlobStage(
+            { organizationId: "org", byteLength: 1, sha256, firstParts: [] },
+            options,
+          ),
+        part: () =>
+          client.uploadMultipartBlobPartBytes(
+            stageId,
+            1,
+            {
+              byteLength: 1,
+              sha256,
+              encryptedBytes: bytes,
+              uploadId: "upload",
+              source: { kind: "api" },
+            },
+            options,
+          ),
+        bind: () =>
+          client.bindBlobAttachment(
+            "blob-1",
+            createBlobAttachmentBindRequest(),
+            options,
+          ),
+      };
+      expect(await send[step]()).toBeNull();
+      expect(current).toBe(false);
+      expect(attempts).toBe(1);
+    },
+  );
+}
