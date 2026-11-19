@@ -1,5 +1,5 @@
-import type { Page } from "@playwright/test";
-import { expect, test } from "./appTest";
+import { expect, type Page, test } from "@playwright/test";
+import { createFirstIdentity } from "./createFirstIdentity";
 
 // Playwright keeps every page out of the back/forward cache: the default
 // headless shell disables it for its delegate, and the launch passes
@@ -14,18 +14,6 @@ test.use({
 // evictCachedDatabasePages in @tearleads/sqlite-worker).
 const CACHED_PAGE_EVICTION_CHANNEL_NAME =
   "tearleads-sqlite-cached-page-eviction";
-
-async function waitForSqliteWorker(page: Page): Promise<void> {
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          () => Reflect.get(window, "__tearleadsE2eSqliteWorker") === true,
-        ),
-      { timeout: 30_000 },
-    )
-    .toBe(true);
-}
 
 async function postEvictionNotice(page: Page): Promise<void> {
   // A receiver in this page hears the notice once the browser has fanned it
@@ -44,30 +32,30 @@ async function postEvictionNotice(page: Page): Promise<void> {
 }
 
 test("a page in the back/forward cache is evicted when a later page announces its SQLite runtime", async ({
+  context,
   page,
 }) => {
   // A cached page is frozen with its SQLite worker, which can still hold the
   // database's OPFS access handles, so the next page's SQLite boot fails until
   // the cache drops the page (#2859).
-  await page.addInitScript(() => {
-    const NativeWorker = window.Worker;
-    class ObservedWorker extends NativeWorker {
-      constructor(scriptURL: string | URL, options?: WorkerOptions) {
-        super(scriptURL, options);
-        Reflect.set(window, "__tearleadsE2eSqliteWorker", true);
-      }
-    }
-    Reflect.set(window, "Worker", ObservedWorker);
-  });
-  await page.goto("/");
-  await waitForSqliteWorker(page);
+  const setup = await context.newPage();
+  await setup.goto("/app/identity-manager/recovery-key");
+  await createFirstIdentity(setup);
+  await expect(
+    setup.getByRole("button", { name: "Reveal Recovery QR Code" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await setup.close();
+
+  // Start with an established identity and a ready database. Navigating while
+  // first-launch storage is still opening can evict the page for lock contention.
+  await page.goto("/app/system-monitor/status");
+  await expect(
+    page.getByRole("row", { name: /^SQLite Worker ready$/u }),
+  ).toBeVisible({ timeout: 30_000 });
 
   // Leave for a same-origin document that runs no app code, so nothing but the
   // notice can evict the cached page.
-  await page.evaluate(() => {
-    location.assign("/worker.js");
-  });
-  await page.waitForURL("**/worker.js");
+  await page.goto("/worker.js");
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Page.enable");
   const notRestoredReasons: string[] = [];

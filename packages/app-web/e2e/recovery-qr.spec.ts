@@ -1,4 +1,5 @@
-import { expect, test } from "./appTest";
+import { expect, test } from "@playwright/test";
+import { createFirstIdentity } from "./createFirstIdentity";
 
 test("a second device scans the displayed recovery QR into its restore form", async ({
   browser,
@@ -10,7 +11,7 @@ test("a second device scans the displayed recovery QR into its restore form", as
     throw new Error("The browser test requires a configured base URL.");
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto("/app/identity-manager/recovery-key");
-  // This button only renders once a seed exists, after auto-provisioning.
+  await createFirstIdentity(page);
   const reveal = page.getByRole("button", { name: "Reveal Recovery QR Code" });
   await expect(reveal).toBeVisible({ timeout: 30_000 });
   await reveal.click();
@@ -35,6 +36,7 @@ test("a second device scans the displayed recovery QR into its restore form", as
   try {
     const phonePage = await phone.newPage();
     await phonePage.goto("/app/identity-manager/recovery-key");
+    await createFirstIdentity(phonePage);
     await expect(
       phonePage.getByRole("button", { name: "Reveal Recovery QR Code" }),
     ).toBeVisible({ timeout: 30_000 });

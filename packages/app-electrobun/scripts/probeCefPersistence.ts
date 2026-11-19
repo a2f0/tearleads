@@ -1,4 +1,7 @@
-import { openSystemMonitorExpression } from "./cefMonitorExpression";
+import {
+  openSystemMonitorExpression,
+  submitFirstIdentityExpression,
+} from "./cefMonitorExpression";
 
 const devtoolsUrl = "http://127.0.0.1:9222/json";
 const startupTimeoutMs = 45_000;
@@ -116,6 +119,7 @@ async function readReadySnapshot(
   previousTimeOrigin?: number,
 ): Promise<StorageSnapshot> {
   const deadline = Date.now() + startupTimeoutMs;
+  let openMonitor = reopen;
   let lastSnapshot: StorageSnapshot | null = null;
   let lastError: unknown = null;
 
@@ -127,10 +131,17 @@ async function readReadySnapshot(
         continue;
       }
 
-      await evaluate<undefined>(
-        page.webSocketDebuggerUrl,
-        openSystemMonitorExpression,
-      );
+      if (openMonitor) {
+        await evaluate<undefined>(
+          page.webSocketDebuggerUrl,
+          openSystemMonitorExpression,
+        );
+      } else {
+        openMonitor = await evaluate<boolean>(
+          page.webSocketDebuggerUrl,
+          submitFirstIdentityExpression,
+        );
+      }
       lastSnapshot = await evaluate<StorageSnapshot>(
         page.webSocketDebuggerUrl,
         storageSnapshotExpression,

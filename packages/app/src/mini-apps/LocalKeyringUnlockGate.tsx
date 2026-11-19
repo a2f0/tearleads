@@ -91,6 +91,7 @@ export function LocalKeyringUnlockGate({
     newIdentityPending:
       !accountNamingSettled ||
       (accountNaming.status === "named" && !accountNaming.sealed) ||
+      progress?.phase === "restoring-identity" ||
       progress?.phase === "creating-identity" ||
       progress?.phase === "naming-account",
     requireLocalIdentity,

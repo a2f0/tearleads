@@ -8,7 +8,10 @@ import {
   WindowStateProvider,
 } from "@tearleads/windowing";
 import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
+import { AccountBootstrapProgressPanel } from "../../../components/identity/AccountBootstrapProgressPanel";
 import { LauncherMiniAppBoundary } from "../../../components/mini-app/MiniAppBoundary";
+import { useAutoProvisioningStatus } from "../../../identity/autoProvisioningStatus";
+import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapProgress";
 import {
   MiniAppBusProvider,
   useMiniAppBusActions,
@@ -28,6 +31,20 @@ import { PaneFooter } from "../footer/PaneFooter";
 import "./Pane.css";
 import { PaneDesktopIcons } from "./PaneDesktopIcons";
 import { PaneMenu } from "./PaneMenu";
+
+function PaneDesktopContents({ empty }: { empty: boolean }) {
+  const { onboarding } = useAutoProvisioningStatus();
+  const progress = useAccountBootstrapProgress();
+  if (empty && onboarding && progress) {
+    return <AccountBootstrapProgressPanel progress={progress} />;
+  }
+  return (
+    <>
+      <PaneDesktopIcons />
+      <SystemMonitorPinned />
+    </>
+  );
+}
 
 function PaneInner({
   className,
@@ -58,8 +75,7 @@ function PaneInner({
       <SystemMonitorProvider>
         <div className="pane-main">
           <DesktopWallpaper />
-          <PaneDesktopIcons />
-          <SystemMonitorPinned />
+          <PaneDesktopContents empty={windows.length === 0} />
           {windows.map((w) => (
             <MiniAppWindow
               key={w.id}

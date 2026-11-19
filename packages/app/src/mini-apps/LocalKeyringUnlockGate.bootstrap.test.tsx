@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act, render, waitFor } from "@testing-library/react";
-import { answerAccountNamePrompt } from "../../test/helpers/accountNamePrompt";
+import {
+  answerAccountNamePrompt,
+  chooseNewIdentity,
+} from "../../test/helpers/accountNamePrompt";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
@@ -100,6 +103,7 @@ for (const [appId, contentSelector] of [
       await act(async () => keyring.releaseLoadSession());
       // A new identity's registration waits for the user's name, and the
       // prompt holds the app until it is given.
+      await chooseNewIdentity(view.container);
       await answerAccountNamePrompt(view.container);
       await waitFor(
         () => {

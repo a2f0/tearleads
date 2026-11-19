@@ -1,4 +1,5 @@
-import { expect, type Locator, test } from "@playwright/test";
+import type { Locator } from "@playwright/test";
+import { expect, test } from "./appTest";
 
 /*
  * A confirmation sets its runtime value apart (the phrase the user must type,
