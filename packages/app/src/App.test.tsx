@@ -203,6 +203,7 @@ test("routed App boots from the Explorer home gate and navigates via the rail", 
     expect(view.queryByRole("link", { name: "Notes" })).toBeNull();
     expect(view.queryByRole("link", { name: "Contacts" })).toBeNull();
     fireEvent.click(view.getByRole("link", { name: "Settings" }));
+    fireEvent.click(await view.findByRole("tab", { name: "Start menu" }));
     const menu = within(await view.findByRole("group", { name: "Start menu" }));
     expect(menu.queryByRole("switch", { name: "Root" })).toBeNull();
     fireEvent.click(menu.getByRole("switch", { name: "Contacts" }));

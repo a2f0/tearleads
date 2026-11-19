@@ -3,6 +3,7 @@ import type { WindowingIcon } from "../icons/windowingIcon";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 import "./StartMenu.css";
+import { StartMenuButton } from "./StartMenuButton";
 import { useOptionalStartMenuPreferences } from "./StartMenuPreferencesProvider";
 import { useContextMenuPositionState } from "./useContextMenuState";
 
@@ -29,6 +30,8 @@ export interface StartMenuProps {
   icon: ReactNode;
   /** The menu's entries, in order. Ignored when `renderMenu` is given. */
   items?: readonly StartMenuItem[] | undefined;
+  /** Offer Start menu settings on a secondary click. */
+  onOpenSettings?: (() => void) | undefined;
   /** The button's accessible name. */
   label?: string | undefined;
   /**
@@ -50,6 +53,7 @@ export function StartMenu({
   icon,
   items = [],
   label = "Menu",
+  onOpenSettings,
   renderMenu,
 }: StartMenuProps) {
   const preferences = useOptionalStartMenuPreferences();
@@ -61,8 +65,8 @@ export function StartMenu({
 
   return (
     <>
-      <button
-        type="button"
+      <StartMenuButton
+        onOpenSettings={onOpenSettings}
         className={className ?? "start-menu-button"}
         aria-label={label}
         aria-haspopup="menu"
@@ -73,7 +77,7 @@ export function StartMenu({
         }}
       >
         {icon}
-      </button>
+      </StartMenuButton>
       {position &&
         (renderMenu ? (
           renderMenu({ close, position })
