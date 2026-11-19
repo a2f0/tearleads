@@ -1,6 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { DisplayProperties } from "@tearleads/windowing";
-import { fireEvent } from "@testing-library/react";
+import { fireEvent, within } from "@testing-library/react";
+import {
+  getPaneRoot,
+  renderDualPane,
+} from "../../../test/helpers/dual-pane/dualPaneCore";
 import {
   cleanupPaneTestEnvironment,
   getPaneStatusText,
@@ -51,4 +55,28 @@ test("Network Control is opt-in, remembers visibility, and controls the pane", (
     remounted.getByRole("button", { name: "Disable Network Control" }),
   );
   expect(remounted.queryByRole("button", trigger)).toBeNull();
+});
+
+test("forcing one pane offline leaves the other pane in automatic mode", () => {
+  localStorage.setItem(
+    "test.tray.disabled",
+    JSON.stringify(["sync-status", { enabled: "network-control" }]),
+  );
+  const view = renderDualPane({
+    autoProvisionLeft: false,
+    autoProvisionRight: false,
+  });
+  const left = within(getPaneRoot(view, "left"));
+  const right = within(getPaneRoot(view, "right"));
+  fireEvent(window, new Event("online"));
+  fireEvent.click(
+    left.getByRole("button", { name: "Network Control: online (automatic)" }),
+  );
+  fireEvent.click(view.getByRole("button", { name: "Force Offline" }));
+  expect(
+    left.getByRole("button", { name: "Network Control: offline (manual)" }),
+  ).toBeTruthy();
+  expect(
+    right.getByRole("button", { name: "Network Control: online (automatic)" }),
+  ).toBeTruthy();
 });

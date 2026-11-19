@@ -130,7 +130,7 @@ test("Display Properties switches each tray app off and back on", () => {
   ]);
 });
 
-// A host's Reset Defaults turns every app back on from one click.
+// Exercise several explicit visibility changes in one event.
 function TurnEveryAppOn() {
   const { definition, setEnabled } = useSystemTray();
   return (

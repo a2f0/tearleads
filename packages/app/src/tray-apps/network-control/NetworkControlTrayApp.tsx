@@ -1,10 +1,12 @@
 import { WifiHighIcon } from "@phosphor-icons/react/dist/csr/WifiHigh";
 import { WifiSlashIcon } from "@phosphor-icons/react/dist/csr/WifiSlash";
 import { Menu, useContextMenuPositionState } from "@tearleads/windowing";
+import { useId } from "react";
 import { NetworkModeMenuItems } from "../../components/shared/NetworkModeMenuItems";
 import { useNetworkState } from "../../providers/api/useNetworkState";
 
 export function NetworkControlTrayApp() {
+  const menuId = useId();
   const { mode, online } = useNetworkState();
   const { closeContextMenu, contextMenu, openContextMenuAt } =
     useContextMenuPositionState();
@@ -15,7 +17,7 @@ export function NetworkControlTrayApp() {
     <>
       <button
         aria-expanded={contextMenu !== null}
-        aria-haspopup="menu"
+        aria-controls={contextMenu ? menuId : undefined}
         aria-label={label}
         className="tearleads-action-button tearleads-action-button--icon"
         onClick={(event) => {
@@ -36,7 +38,7 @@ export function NetworkControlTrayApp() {
         <Icon aria-hidden="true" size={18} />
       </button>
       {contextMenu && (
-        <Menu onClose={closeContextMenu} position={contextMenu}>
+        <Menu id={menuId} onClose={closeContextMenu} position={contextMenu}>
           <NetworkModeMenuItems onClose={closeContextMenu} />
         </Menu>
       )}
