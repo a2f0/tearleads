@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { DisplayProperties } from "../display/DisplayProperties";
 import { LauncherNavigationProvider } from "../launcher/LauncherNavigationProvider";
 import { RoutedPane } from "../routed/RoutedPane";
@@ -50,7 +51,7 @@ function open() {
   const view = render(
     <StartMenuPreferencesProvider definition={definition} storageKey={KEY}>
       <StartMenu icon="Start" items={items} />
-      <DisplayProperties />
+      <DisplayProperties startMenuAppIds={["mail", "notes", "settings"]} />
       <Reset />
     </StartMenuPreferencesProvider>,
   );
@@ -142,14 +143,23 @@ for (const tier of ["mobile", "tablet"] as const) {
 }
 
 test("switching preference keys preserves mounted app content", () => {
+  const snapshots: boolean[] = [];
+  function Probe() {
+    const preferences = useStartMenuPreferences();
+    useLayoutEffect(() => {
+      snapshots.push(preferences.isVisible("notes"));
+    });
+    return null;
+  }
   function desktop(storageKey: string) {
     return (
       <StartMenuPreferencesProvider
         definition={definition}
         storageKey={storageKey}
       >
+        <Probe />
         <input aria-label="Draft" />
-        <DisplayProperties />
+        <DisplayProperties startMenuAppIds={["mail", "notes", "settings"]} />
       </StartMenuPreferencesProvider>
     );
   }
@@ -157,11 +167,23 @@ test("switching preference keys preserves mounted app content", () => {
   const draft = view.getByRole("textbox");
   fireEvent.input(draft, { target: { value: "Unsaved text" } });
   fireEvent.click(view.getByRole("switch", { name: "Notes" }));
+  snapshots.length = 0;
   view.rerender(desktop("test.otherMenu"));
+  expect(snapshots[0]).toBe(false);
   expect(view.getByRole("switch", { name: "Notes" })).toHaveProperty(
     "checked",
     false,
   );
   expect(view.getByRole("textbox")).toBe(draft);
   expect(draft).toHaveProperty("value", "Unsaved text");
+});
+
+test("the default switches follow the launcher order", () => {
+  const view = render(
+    <StartMenuPreferencesProvider storageKey={KEY} definition={definition}>
+      <DisplayProperties />
+    </StartMenuPreferencesProvider>,
+  );
+  expect(view.getByRole("switch", { name: "Mail" })).toBeTruthy();
+  expect(view.queryByRole("switch", { name: "Notes" })).toBeNull();
 });

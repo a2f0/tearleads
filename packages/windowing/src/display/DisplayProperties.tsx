@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { resolveLauncherOrder } from "../launcher/launcherDefinition";
 import { useOptionalStartMenuPreferences } from "../menu/StartMenuPreferencesProvider";
 import { useOptionalTheme } from "../theme/ThemeProvider";
 import { useOptionalSystemTray } from "../tray/SystemTrayProvider";
@@ -109,8 +110,8 @@ function StartMenuSection({
 }) {
   const preferences = useOptionalStartMenuPreferences();
   if (!preferences) return null;
-  const ids = preferences.configurableIds.filter(
-    (id) => !appIds || appIds.includes(id),
+  const ids = (appIds ?? resolveLauncherOrder(preferences.definition)).filter(
+    (id) => preferences.configurableIds.includes(id),
   );
   if (!ids.length) return null;
   return (

@@ -1,19 +1,7 @@
-import {
-  type PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type PropsWithChildren, useMemo, useSyncExternalStore } from "react";
 import { createRequiredContext } from "../createRequiredContext";
-import {
-  type LauncherDefinition,
-  resolveLauncherOrder,
-} from "../launcher/launcherDefinition";
-import {
-  loadStoredPreference,
-  saveStoredPreference,
-} from "../launcher/storedPreference";
+import type { LauncherDefinition } from "../launcher/launcherDefinition";
+import { createStartMenuStore, EMPTY_MENU_OVERRIDES } from "./startMenuStore";
 
 interface StartMenuPreferences {
   definition: LauncherDefinition;
@@ -27,14 +15,6 @@ const preferences = createRequiredContext<StartMenuPreferences>(
   "useStartMenuPreferences must be used within a StartMenuPreferencesProvider",
 );
 
-function readVisibility(key: string): boolean | undefined {
-  return loadStoredPreference(key, (value) => {
-    if (value === "true") return true;
-    if (value === "false") return false;
-    return undefined;
-  });
-}
-
 interface Props extends PropsWithChildren {
   definition: LauncherDefinition;
   storageKey: string;
@@ -46,50 +26,22 @@ export function StartMenuPreferencesProvider({
   definition,
   storageKey,
 }: Props) {
-  const configurableIds = useMemo(() => {
-    const ids = new Set([
-      ...resolveLauncherOrder(definition),
-      ...Object.keys(definition.apps),
-    ]);
-    return [...ids].filter(
-      (id) => definition.apps[id]?.startMenuVisibility !== "pinned",
-    );
-  }, [definition]);
-  const [overrides, setOverrides] = useState<ReadonlyMap<string, boolean>>(
-    new Map(),
+  const configurableIds = useMemo(
+    () =>
+      Object.keys(definition.apps).filter(
+        (id) => definition.apps[id]?.startMenuVisibility !== "pinned",
+      ),
+    [definition.apps],
   );
-  const keyFor = useCallback(
-    (id: string) => `${storageKey}.${id}`,
-    [storageKey],
+  const store = useMemo(
+    () => createStartMenuStore(storageKey, configurableIds),
+    [storageKey, configurableIds],
   );
-  useEffect(() => {
-    function restore() {
-      const next = new Map<string, boolean>();
-      for (const id of configurableIds) {
-        const visible = readVisibility(keyFor(id));
-        if (visible !== undefined) next.set(id, visible);
-      }
-      setOverrides(next);
-    }
-    function onStorage(event: StorageEvent) {
-      if (event.key === null) {
-        restore();
-        return;
-      }
-      const id = configurableIds.find((id) => keyFor(id) === event.key);
-      if (id === undefined) return;
-      const visible = readVisibility(keyFor(id));
-      setOverrides((current) => {
-        const next = new Map(current);
-        if (visible === undefined) next.delete(id);
-        else next.set(id, visible);
-        return next;
-      });
-    }
-    restore();
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [configurableIds, keyFor]);
+  const overrides = useSyncExternalStore(
+    store.subscribe,
+    store.snapshot,
+    () => EMPTY_MENU_OVERRIDES,
+  );
   const value = useMemo<StartMenuPreferences>(
     () => ({
       definition,
@@ -101,19 +53,10 @@ export function StartMenuPreferencesProvider({
           definition.apps[id]?.startMenuVisibility !== "hidden"
         );
       },
-      setVisible(id, visible) {
-        if (configurableIds.includes(id)) {
-          saveStoredPreference(keyFor(id), String(visible));
-          setOverrides((current) => new Map(current).set(id, visible));
-        }
-      },
-      reset() {
-        for (const id of configurableIds)
-          saveStoredPreference(keyFor(id), null);
-        setOverrides(new Map());
-      },
+      setVisible: store.setVisible,
+      reset: store.reset,
     }),
-    [definition, configurableIds, overrides, keyFor],
+    [definition, configurableIds, overrides, store],
   );
 
   return (

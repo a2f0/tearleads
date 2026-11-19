@@ -48,11 +48,11 @@ which mini-apps appear in their launchers.
 Each mini-app can set `startMenuVisibility` in its launcher definition.
 The default is `"visible"`. Use `"hidden"` to let users opt in or `"pinned"`
 to keep an entry such as Settings available. The provider uses launcher order
-for the switches, followed by any remaining registered apps. It saves each
-choice under the host's storage key prefix and shares changes across tabs.
+for the default switches. It saves each choice under the host's storage key
+prefix and shares changes across tabs.
 
-`DisplayProperties` renders the switches and accepts `startMenuAppIds` to limit
-them to the apps the current session may see. `StartMenu` matches item IDs to
+`DisplayProperties` renders the switches and accepts `startMenuAppIds` to match
+a custom launcher's eligible apps and order. `StartMenu` matches item IDs to
 mini-app IDs, and `RoutedPane` filters its launcher links. A custom
 `renderMenu` can filter app entries with `useStartMenuPreferences().isVisible`.
 Call `reset()` on the same preferences to restore the host's defaults.
