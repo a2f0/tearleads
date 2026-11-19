@@ -30,10 +30,16 @@ function parseVisibility(stored: string | null): ReadonlyMap<string, boolean> {
   const parsed: unknown = stored === null ? null : JSON.parse(stored);
   const preferences = new Map<string, boolean>();
   if (Array.isArray(parsed)) {
-    for (const entry of parsed) {
+    const entries: readonly unknown[] = parsed;
+    for (const entry of entries) {
       if (typeof entry === "string") {
         preferences.set(entry, false);
-      } else if (entry && typeof entry.enabled === "string") {
+      } else if (
+        typeof entry === "object" &&
+        entry !== null &&
+        "enabled" in entry &&
+        typeof entry.enabled === "string"
+      ) {
         preferences.set(entry.enabled, true);
       }
     }
@@ -49,8 +55,8 @@ interface SystemTrayProviderProps<Id extends string> extends PropsWithChildren {
 }
 
 /**
- * Owns the system tray: the host's tray apps and which of them the user turned
- * off. {@link SystemTray} shows the ones left on, each with a context menu that
+ * Applies saved visibility choices to the host’s tray defaults.
+ * {@link SystemTray} shows the enabled apps, each with a context menu that
  * turns it off, and Display Properties lists every one with a switch. Mount one
  * above every taskbar that shares the choice.
  */
@@ -82,11 +88,10 @@ export function SystemTrayProvider<Id extends string>({
     );
   }, [visibility, storageKey]);
 
+  const apps: SystemTrayDefinition["apps"] = definition.apps;
   const defaultEnabled = useCallback(
-    (id: string) =>
-      (definition.apps as SystemTrayDefinition["apps"])[id]?.defaultEnabled ??
-      true,
-    [definition.apps],
+    (id: string) => apps[id]?.defaultEnabled ?? true,
+    [apps],
   );
 
   const isEnabled = useCallback(

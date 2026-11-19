@@ -167,6 +167,28 @@ test("turning several apps back on in one event keeps every change", () => {
   ]);
 });
 
+test("opt-in apps respect saved choices alongside legacy disabled ids", () => {
+  const definition = {
+    ...TRAY,
+    apps: {
+      ...TRAY.apps,
+      clock: { ...TRAY.apps.clock, defaultEnabled: false },
+    },
+  };
+  const ui = (
+    <SystemTrayProvider definition={definition} storageKey={TRAY_KEY}>
+      <SystemTray />
+      <DisplayProperties />
+    </SystemTrayProvider>
+  );
+  localStorage.setItem(TRAY_KEY, JSON.stringify(["volume"]));
+  const view = render(ui);
+  expect(trayControls(view.container)).toEqual([]);
+  fireEvent.click(view.getByRole("switch", { name: "Clock" }));
+  view.unmount();
+  expect(trayControls(render(ui).container)).toEqual(["12:00"]);
+});
+
 test("unreadable storage leaves every app on", () => {
   localStorage.setItem(TRAY_KEY, "{not json");
   const view = render(<SystemTray />, { wrapper: Providers });

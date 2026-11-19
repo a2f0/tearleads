@@ -13,8 +13,9 @@ and the user can switch each one off:
 
 The platform is `@tearleads/windowing`'s system tray (see its
 [System tray guide](../../../windowing/docs/appearance.md#system-tray)):
-`SystemTrayProvider` keeps which apps are off, `SystemTray` renders the rest
-with their context menus, and `DisplayProperties` lists every app with a
+`SystemTrayProvider` applies saved visibility choices.
+`SystemTray` renders the enabled
+apps with their context menus, and `DisplayProperties` lists every app with a
 switch. This folder supplies the apps:
 
 - [`registry.ts`](registry.ts) — `TRAY_APPS`, each app's component, title, and
@@ -62,4 +63,5 @@ block several tray apps share goes in `shared/`.
    `tearleads-action-button` so it matches the tray; render nothing where the
    app does not apply.
 2. Add it to `TRAY_APPS` in [`registry.ts`](registry.ts) with a title and
-   icon, and place it in the order.
+   icon, and place it in the order. Set `defaultEnabled: false` for an app
+   that users enable in Settings.
