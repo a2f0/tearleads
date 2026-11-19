@@ -5,9 +5,10 @@ import { continuityDocuments, loadContinuityAssets } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
+import { restoreAttachmentMetadata } from "./seedAttachmentMetadata.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
 
-test.each(["replace", "remove", "metadata", "restore"] as const)(
+test.each(["replace", "remove", "metadata", "restore", "rename"] as const)(
   "a retry respects a concurrent avatar %s after discovering a partial upload",
   async (edit) => {
     await initializeApiDatabase();
@@ -42,15 +43,29 @@ test.each(["replace", "remove", "metadata", "restore"] as const)(
       expect(await runCli(["seed", "--env", "staging"], context)).toBe(1);
       interrupt = false;
       let contactId: string | null = null;
+      let expectedBytes = new Uint8Array([7, 8, 9]);
       beforeUpload = () =>
         onFreshDevice(device, async ([other], sdk) => {
           const attachment = other?.getSnapshot().attachments[0];
           if (!other || !attachment) throw new Error("Missing partial avatar");
           contactId = other.getSnapshot().documentId;
-          if (edit === "restore") {
+          if (edit === "restore" || edit === "rename") {
+            if (edit === "rename")
+              expectedBytes = new Uint8Array(
+                await (await loadContinuityAssets()).readAttachment(
+                  attachment.name,
+                ),
+              );
             beforeDetach = () =>
-              onFreshDevice(device, async ([restored]) => {
+              onFreshDevice(device, async ([restored], sdk) => {
                 if (!restored) throw new Error("Missing edited contact");
+                if (edit === "rename") {
+                  await restoreAttachmentMetadata(sdk, restored, {
+                    ...attachment,
+                    name: "personal.png",
+                  });
+                  return;
+                }
                 await restored.replaceAttachment(attachment.slotId, {
                   name: "personal.png",
                   mimeType: "image/png",
@@ -59,7 +74,7 @@ test.each(["replace", "remove", "metadata", "restore"] as const)(
                 expect(await restored.requestRemoteSyncAndWait()).toBe(true);
               });
           }
-          if (edit === "remove" || edit === "restore")
+          if (edit === "remove" || edit === "restore" || edit === "rename")
             await other.removeAttachment(attachment.slotId);
           else
             await other.replaceAttachment(attachment.slotId, {
@@ -137,8 +152,9 @@ test.each(["replace", "remove", "metadata", "restore"] as const)(
         }
         const key =
           snapshot?.attachmentStorageKeyBySlotId[attachment?.slotId ?? ""];
+        expect(key).toBeDefined();
         expect(await sdk.blobs.store.readBytes(key ?? "")).toEqual(
-          new Uint8Array([7, 8, 9]),
+          expectedBytes,
         );
       });
     } finally {

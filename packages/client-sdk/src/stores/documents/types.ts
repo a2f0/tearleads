@@ -36,6 +36,8 @@ export interface DocumentMutationOptions extends DocumentMutationGuard {
 }
 
 export interface DocumentStoreOpenOptions {
+  /** A create-only importer must never merge a competing document birth. */
+  createConflict?: "adopt" | "fail" | undefined;
   /**
    * The caller attaches a file immediately after creating the document. The
    * birth commits locally without its own pending update, so the attach's

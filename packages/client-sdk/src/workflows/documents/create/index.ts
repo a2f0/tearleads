@@ -412,7 +412,11 @@ export async function createRemoteDocument(
   // document instead of leaking a duplicate. Requires the stable id we sent, so
   // we can fetch its projection back.
   const stableDocumentId = input.documentId;
-  if (stableDocumentId && isDocumentManifestAlreadyExistsConflict(submission)) {
+  if (
+    stableDocumentId &&
+    input.createConflict !== "fail" &&
+    isDocumentManifestAlreadyExistsConflict(submission)
+  ) {
     if (input.stillCurrent?.() === false) return null;
     const adopted = await nullOnProjectionVerificationCancellation(() =>
       adoptExistingRemoteDocument({

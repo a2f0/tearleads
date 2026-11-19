@@ -14,6 +14,7 @@ import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFet
 /** What one `RemoteDocumentService.createRemoteDocument` call varies. */
 export interface CreateRemoteDocumentRequest {
   author: DocumentCreateAuthor;
+  createConflict?: "adopt" | "fail" | undefined;
   containerId: string;
   containerProjection?: ContainerWriterProjectionResponse | undefined;
   contentKey?: Uint8Array | undefined;

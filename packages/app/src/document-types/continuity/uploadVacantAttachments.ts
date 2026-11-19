@@ -26,11 +26,11 @@ function slotAction(snapshot: DocumentSnapshot, fixture: DocumentAttachment) {
     snapshot.attachmentStatusBySlotId[slotId] !== "intent-mismatch"
   )
     return "complete";
+  // Only the digest and length select bytes. Renaming an attachment or
+  // changing its MIME type leaves the authenticated plaintext unchanged.
   if (
     !recorded ||
     recorded.contentSha256 !== fixture.contentSha256 ||
-    recorded.name !== fixture.name ||
-    recorded.mimeType !== fixture.mimeType ||
     recorded.byteLength !== fixture.byteLength
   )
     return "retire";

@@ -207,15 +207,15 @@ requested maintenance run.
 
 ### Deferred initial update
 
-Explorer uses `DocumentStoreOpenOptions.deferInitialUpdate` to save an empty
-outgoing marker and defer the birth until the first `attachFiles` settles.
-One update carries the birth and attachment. A failed attach queues the birth.
-Advancing the marker, reset, failed initialization, or `attachFiles([])`
-releases the hold. Store factories take these options and `remoteSyncMode`
-in the trailing `DocumentStoreOpenOptions`. A birth can include
-`initialRows`, `initialStructuredFields`, and `initialAttachments`.
-Use `resolveDocumentCreateAuthor(runtime)` and the blob service to upload bytes.
-An expected binding of `null` requires a vacant slot at commit.
+Explorer sets `DocumentStoreOpenOptions.deferInitialUpdate` to queue an empty
+marker and carry the birth in the first attachment update. A failed attach
+queues the birth. Advancing the marker, reset, failed initialization, or
+`attachFiles([])` releases the hold. Store factories take these options
+and `remoteSyncMode` in the trailing `DocumentStoreOpenOptions`.
+A birth can include `initialRows`, `initialStructuredFields`, and
+`initialAttachments`. Importers can prevent competing births from merging
+with `createConflict: "fail"`. Use `resolveDocumentCreateAuthor(runtime)` for
+uploads. An expected binding of `null` requires a vacant slot at commit.
 `createDocumentHeadLinkSetLoader(runtime)` verifies placement by document ID.
 
 ### Queued local writes

@@ -301,6 +301,7 @@ function createBackingStoreContext(
     (options.remoteSyncMode ?? "startup") === "startup",
   );
   if (options.deferInitialUpdate) state.deferInitialUpdate = true;
+  state.createConflict = options.createConflict;
   const { initialAttachments, initialRows, initialStructuredFields } = options;
   assertInitialContentFitsKind({ initialStructuredFields }, documentKind);
   state.initialContent = {

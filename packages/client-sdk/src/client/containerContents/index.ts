@@ -204,6 +204,7 @@ function openContainerDocument(
     input.initialDocumentKind,
     {
       deferInitialUpdate: input.deferInitialUpdate,
+      createConflict: input.createConflict,
       initialAttachments: input.initialAttachments,
       initialRows: input.initialRows,
       initialStructuredFields: input.initialStructuredFields,

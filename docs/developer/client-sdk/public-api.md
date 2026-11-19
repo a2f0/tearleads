@@ -341,12 +341,12 @@ do not silently clear pins or checkpoints to make obsolete data load.
 
 ### Document identity
 
-The root export `deriveStableDocumentId(localId)` returns the planned remote ID.
-Persisted `documentId` and `recoveryDocumentId` values take precedence in sync.
-Read them through `defaultDocumentsPersistence.loadDocument` and `DocumentRecord`.
-`createDocumentHeadLinkSetLoader(runtime)` verifies a known ID’s signed links.
-
-`initialAttachments` records attachment metadata in the birth update.
+`deriveStableDocumentId(localId)` returns the planned remote ID. Sync prefers
+the stored `documentId` or `recoveryDocumentId` from
+`defaultDocumentsPersistence.loadDocument` (`DocumentRecord`).
+`createDocumentHeadLinkSetLoader(runtime)` verifies a known ID's signed links.
+`initialAttachments` records metadata at birth. Set `createConflict: "fail"`
+to prevent concurrent imports from merging their initial content.
 `resolveDocumentCreateAuthor(runtime)` returns the blob writer or `null`.
 
 First-birth persistence is not an alias resolver. Its root type
