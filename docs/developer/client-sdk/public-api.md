@@ -344,7 +344,7 @@ do not silently clear pins or checkpoints to make obsolete data load.
 The root export `deriveStableDocumentId(localId)` returns the planned remote ID.
 Persisted `documentId` and `recoveryDocumentId` values take precedence in sync.
 Read them through `defaultDocumentsPersistence.loadDocument` and `DocumentRecord`.
-Matching IDs alone grant no authority to adopt, merge, or purge a document.
+`createDocumentHeadLinkSetLoader(runtime)` verifies a known ID’s signed links.
 
 `initialAttachments` records attachment metadata in the birth update.
 `resolveDocumentCreateAuthor(runtime)` returns the blob writer or `null`.

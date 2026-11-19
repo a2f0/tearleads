@@ -216,6 +216,7 @@ in the trailing `DocumentStoreOpenOptions`. A birth can include
 `initialRows`, `initialStructuredFields`, and `initialAttachments`.
 Use `resolveDocumentCreateAuthor(runtime)` and the blob service to upload bytes.
 An expected binding of `null` requires a vacant slot at commit.
+`createDocumentHeadLinkSetLoader(runtime)` verifies placement by document ID.
 
 ### Queued local writes
 

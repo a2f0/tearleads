@@ -3,6 +3,7 @@ import {
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import {
+  type DocumentAttachment,
   getDocumentAttachments,
   removeDocumentAttachment,
 } from "../../../../data/documents/documentContent";
@@ -20,6 +21,7 @@ import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canWriteDocument,
   type DocumentStoreState,
+  type SaveDocumentRecordOptions,
   setReadySnapshot,
 } from "../state";
 import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";
@@ -82,6 +84,42 @@ function installCommittedAttachmentRemoval(input: {
   );
 }
 
+function removalRows(
+  localId: string,
+  intent: DocumentAttachment,
+  synced: boolean,
+  storageKey: string | undefined,
+): Pick<SaveDocumentRecordOptions, "attachmentStaging" | "attachmentRemoval"> {
+  if (storageKey)
+    return {
+      attachmentRemoval: {
+        mode: synced ? "detach" : "delete",
+        slotId: intent.slotId,
+        storageKey,
+      },
+    };
+  if (!synced) return {};
+  // A device can remove a synced slot before downloading any bytes. Commit a
+  // detach marker with the edit, so reconnect checks the current binding.
+  return {
+    attachmentStaging: {
+      pendingAttachments: [],
+      localAttachments: [
+        {
+          localId,
+          slotId: intent.slotId,
+          contentSha256: intent.contentSha256,
+          byteLength: intent.byteLength,
+          mimeType: intent.mimeType,
+          blobId: null,
+          storageKey: `detached-${crypto.randomUUID()}`,
+          detachedAt: new Date().toISOString(),
+        },
+      ],
+    },
+  };
+}
+
 async function persistRemovedAttachment(
   state: DocumentStoreState,
   slotId: string,
@@ -121,6 +159,12 @@ async function persistRemovedAttachment(
   const pendingUpdate = createPendingUpdateFields(attachmentUpdate);
   const syncedAttachment = Boolean(state.record?.documentId);
 
+  const removal = removalRows(
+    state.localId,
+    existingAttachment,
+    syncedAttachment,
+    storageKey,
+  );
   // Preserve the optimistic text/structured fields (see persistAttachedFiles):
   // removing an attachment while typing must not regress the editor.
   let persisted: Awaited<ReturnType<typeof persistDocument>>;
@@ -130,17 +174,7 @@ async function persistRemovedAttachment(
       currentDoc,
       { snapshotEndVersion: coveredVersion },
       {
-        ...(storageKey
-          ? {
-              attachmentRemoval: {
-                mode: syncedAttachment
-                  ? ("detach" as const)
-                  : ("delete" as const),
-                slotId,
-                storageKey,
-              },
-            }
-          : {}),
+        ...removal,
         ...(pendingUpdate ? { pendingUpdate } : {}),
         preserveSnapshotStructuredFields: true,
         preserveSnapshotText: true,
@@ -166,6 +200,11 @@ async function persistRemovedAttachment(
     // See persistAttachedFiles: only durable same-identity work re-arms sync.
     return;
   }
+  if (removal.attachmentStaging)
+    assignLocalAttachmentSlots(
+      state,
+      removal.attachmentStaging.localAttachments,
+    );
   installCommittedAttachmentRemoval({
     currentDoc,
     slotId,

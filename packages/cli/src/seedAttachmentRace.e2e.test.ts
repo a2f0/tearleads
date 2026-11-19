@@ -83,3 +83,67 @@ test.each(["replace", "remove"] as const)(
   },
   60_000,
 );
+
+test("a device can sync removal of its unbound avatar after seed has returned", async () => {
+  await initializeApiDatabase();
+  let interrupt = true;
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: (req) =>
+      interrupt && new URL(req.url).pathname === "/blobs/stages/multipart"
+        ? new Response(null, { status: 503 })
+        : routeApp.fetch(req),
+  });
+  try {
+    const apiBaseUrl = server.url.origin;
+    const { rootContainerId, seedPhrase } =
+      await registerCliTestAccount(apiBaseUrl);
+    const device = { apiBaseUrl, rootContainerId, recoveryKey: seedPhrase };
+    const { context, keyStore } = testContext({ apiBaseUrl });
+    await keyStore.save("staging", seedPhrase);
+    const seed = () => runCli(["seed", "--env", "staging"], context);
+    expect(await seed()).toBe(1);
+    interrupt = false;
+    await onFreshDevice(device, async ([store], sdk) => {
+      const snapshot = store?.getSnapshot();
+      const avatar = snapshot?.attachments[0];
+      if (!store || !avatar || !snapshot?.documentId)
+        throw new Error("Missing partial contact");
+      const links = sdk.containerContents.documentLinks();
+      const queries = sdk.containerContents.documentQueries();
+      const id = await sdk.documents.findLocalIdByDocumentId(
+        snapshot.documentId,
+      );
+      const summary = await queries.loadDocumentSummary(id ?? "");
+      if (!summary?.containerId) throw new Error("Missing contact placement");
+      expect(
+        snapshot.attachmentStorageKeyBySlotId[avatar.slotId],
+      ).toBeUndefined();
+      sdk.network.setOnline(false);
+      store.updateRuntime(
+        sdk.containerContents
+          .documentLinks()
+          .documentRuntime(summary.containerId),
+      );
+      await store.removeAttachment(avatar.slotId);
+      expect(store.getSnapshot().attachments).toHaveLength(0);
+      expect(await seed()).toBe(0);
+      sdk.network.setOnline(true);
+      store.updateRuntime(
+        sdk.containerContents
+          .documentLinks()
+          .documentRuntime(summary.containerId),
+      );
+      expect(await store.requestRemoteSyncAndWait()).toBe(true);
+      const bindings = await links
+        .documentRuntime(summary.containerId)
+        .apiClient.listDocumentAttachments(snapshot.documentId, {
+          refresh: true,
+        });
+      expect(bindings?.map((binding) => binding.slotId)).toEqual([]);
+    });
+  } finally {
+    server.stop(true);
+  }
+}, 90_000);

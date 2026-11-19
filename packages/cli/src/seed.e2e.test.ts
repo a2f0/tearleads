@@ -142,7 +142,9 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       expect(moved.note?.containerId).toBe(folder.id);
       expect(await coordinator.waitForIdle({ timeoutMs: 30_000 })).toBe(true);
     });
+    contentRequests.length = 0;
     await run();
+    expect(contentRequests).not.toContain("/containers/documents/query");
     await onFreshDevice(
       { ...device, additionalFolderId },
       async (stores, sdk) => {

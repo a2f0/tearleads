@@ -397,6 +397,7 @@ export {
   createContainerContentsProjectionUserKeyResolver,
   createContainerContentsSyncLane,
   createContainerParentSyncLane,
+  createDocumentHeadLinkSetLoader,
   createInitializedContainerMetadataDocument,
   DocumentContainerProjectionRepository,
   defaultContainerContentsPersistence,

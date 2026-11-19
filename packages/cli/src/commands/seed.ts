@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import {
+  createDocumentHeadLinkSetLoader,
   deriveStableDocumentId,
   getOrCreateDomainSyncCoordinator,
 } from "@tearleads/client-sdk";
@@ -56,35 +57,67 @@ async function resolveSeedAccount(
   };
 }
 
-// The SDK verifies a bounded batch of document heads on each discovery pass.
-// A null result means the listing or its evidence could not be verified.
-async function discoverSeedDestination(
-  session: CliSession,
-  containerId: string,
+async function findSeedPlacement(
+  { sdk }: CliSession,
+  documentId: string,
+  folders: ReadonlySet<string>,
+  lookup: ReturnType<typeof createDocumentHeadLinkSetLoader>,
 ) {
-  for (;;) {
-    const applied =
-      await session.sdk.containerContents.discoverContainerDocuments(
-        containerId,
-      );
-    session.assertNoFailures();
-    if (!applied)
-      throw new Error(
-        "Could not verify existing documents in the seed destination.",
-      );
-    if (applied.length === 0) return;
+  const head = await lookup(documentId);
+  if (head === "not-found") return undefined;
+  const containerId = head?.linkedContainerIds.find((id) => folders.has(id));
+  if (
+    !containerId ||
+    !head?.accessStateHash ||
+    head.organizationId !== sdk.session.organizationId
+  ) {
+    throw new Error("Could not verify seed document placement.");
   }
+  // The timestamp belongs only to this run's local discovery record.
+  const [summary] = await sdk.containerContents
+    .documentQueries()
+    .upsertDiscoveredDocuments([
+      {
+        documentId,
+        containerId,
+        createdAt: new Date().toISOString(),
+        accessEpoch: head.accessEpoch,
+        accessStateHash: head.accessStateHash,
+        linkedContainerIds: head.linkedContainerIds,
+      },
+    ]);
+  if (!summary || summary.documentId !== documentId)
+    throw new Error("Could not open the verified seed document.");
+  return { localId: summary.id, documentId, containerId };
 }
 
-async function findSeedPlacement({ sdk }: CliSession, documentId: string) {
-  const localId = await sdk.documents.findLocalIdByDocumentId(documentId);
-  if (!localId) return undefined;
-  const summary = await sdk.containerContents
+async function confirmSeedSync(
+  session: CliSession,
+  store: Awaited<ReturnType<typeof writeContinuityDocument>>,
+  localId: string,
+  documentId: string,
+  key: string,
+  missingHeads: number,
+) {
+  const coordinator = getOrCreateDomainSyncCoordinator(
+    session.sdk.runtime.input().state.domainScope,
+  );
+  store.requestSync();
+  const idle = await coordinator.waitForIdle({ timeoutMs: 120_000 });
+  session.assertNoFailures(missingHeads);
+  const state = await session.sdk.containerContents
     .documentQueries()
-    .loadDocumentSummary(localId);
-  if (!summary?.containerId)
-    throw new Error("Could not verify seed document placement.");
-  return { localId, documentId, containerId: summary.containerId };
+    .loadDocumentSyncState(localId);
+  if (
+    !idle ||
+    store.hasUnsavedLocalEdits() ||
+    store.getSnapshot().documentId !== documentId ||
+    state?.status !== "synced"
+  ) {
+    throw new Error(
+      `Could not finish syncing ${key}: ${state?.lastError ?? state?.status ?? "unknown"}.`,
+    );
+  }
 }
 
 /** Import the pinned screenshot dataset into the signed-in personal root. */
@@ -101,13 +134,11 @@ export async function seed(input: CommandInput): Promise<void> {
         await loadContinuityAssets();
       const documents = continuityDocuments(spec);
       const contactsId = await ensureContactsContainer(sdk, signingPrivateKey);
-      for (const containerId of new Set([...folders, contactsId])) {
-        await discoverSeedDestination(session, containerId);
-      }
-      const queries = sdk.containerContents.documentQueries();
-      const coordinator = getOrCreateDomainSyncCoordinator(
-        sdk.runtime.input().state.domainScope,
+      const accessibleFolders = new Set([...folders, contactsId]);
+      const lookup = createDocumentHeadLinkSetLoader(
+        sdk.containerContents.workflowRuntime(),
       );
+      let missingHeads = 0;
       for (const document of documents) {
         await tracer.span(`seed ${document.key}`, async () => {
           const containerId = document.kind === "contact" ? contactsId : rootId;
@@ -117,7 +148,13 @@ export async function seed(input: CommandInput): Promise<void> {
             )
             .digest("hex");
           const documentId = await deriveStableDocumentId(localId);
-          const existing = await findSeedPlacement(session, documentId);
+          const existing = await findSeedPlacement(
+            session,
+            documentId,
+            accessibleFolders,
+            lookup,
+          );
+          if (!existing) missingHeads++;
           const store = await writeContinuityDocument({
             destination: "account",
             sdk,
@@ -127,22 +164,14 @@ export async function seed(input: CommandInput): Promise<void> {
             readAttachment,
             existing,
           });
-          store.requestSync();
-          const idle = await coordinator.waitForIdle({ timeoutMs: 120_000 });
-          session.assertNoFailures();
-          const state = await queries.loadDocumentSyncState(
+          await confirmSeedSync(
+            session,
+            store,
             existing?.localId ?? localId,
+            documentId,
+            document.key,
+            missingHeads,
           );
-          if (
-            !idle ||
-            store.hasUnsavedLocalEdits() ||
-            store.getSnapshot().documentId !== documentId ||
-            state?.status !== "synced"
-          ) {
-            throw new Error(
-              `Could not finish syncing ${document.key}: ${state?.lastError ?? state?.status ?? "unknown"}.`,
-            );
-          }
         });
       }
       return documents.length;

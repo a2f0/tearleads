@@ -13,7 +13,7 @@ export interface CliSession {
    * Throws when, so far in this command, the SDK logged an error or an API
    * request failed or got no response: a listing read then may be partial.
    */
-  assertNoFailures(): void;
+  assertNoFailures(expectedMissingDocumentHeads?: number): void;
   readonly sdk: Tearleads;
   readonly tracer: Tracer;
   readonly userId: string;
@@ -65,9 +65,22 @@ function describeLoggedError(message: string | Error, cause: unknown): string {
   return cause instanceof Error ? `${text}: ${cause.message}` : text;
 }
 
-function failedRequests(sdk: Tearleads): string[] {
+function failedRequests(
+  sdk: Tearleads,
+  expectedMissingDocumentHeads: number,
+): string[] {
   const snapshot = sdk.apiRequests.getSnapshot(sdk.identity.signingFingerprint);
   return snapshot.endpoints
+    .map((endpoint) => {
+      // Only the SDK's typed not-found verdict for a probed document ID
+      // counts toward this allowance.
+      const allowed =
+        endpoint.method === "GET" &&
+        endpoint.path === "/documents/{documentId}/writer-projection"
+          ? expectedMissingDocumentHeads
+          : 0;
+      return { ...endpoint, failed: endpoint.failed - allowed };
+    })
     .filter((endpoint) => endpoint.failed > 0)
     .map(
       (endpoint) =>
@@ -130,8 +143,11 @@ async function runSession<T>(
       },
     },
   });
-  const assertNoFailures = () => {
-    const problems = [...loggedErrors, ...failedRequests(sdk)];
+  const assertNoFailures = (expectedMissingDocumentHeads = 0) => {
+    const problems = [
+      ...loggedErrors,
+      ...failedRequests(sdk, expectedMissingDocumentHeads),
+    ];
     if (problems.length > 0) {
       throw new Error(
         `The API did not answer completely, so the result may be partial:\n  ${problems.join("\n  ")}`,
