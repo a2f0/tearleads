@@ -236,18 +236,22 @@ export async function installSahPoolVfsWithRetry(
     vfsName,
   } = resolveSahPoolInstallOptions(overrides);
 
+  // SQLite caches a rejected install by VFS name. Reacquire the handles on
+  // retry and keep the pool files when another worker still owns them.
+  const installOptions = {
+    name: vfsName,
+    directory,
+    clearOnInit: false,
+    forceReinitIfPreviouslyFailed: true,
+    preserveOnInitFailure: true,
+  };
   const startedAt = now();
   let nextDelayMs = initialDelayMs;
 
   for (;;) {
     try {
       return await withSahPoolStepHangTimeout(
-        s.installOpfsSAHPoolVfs({
-          name: vfsName,
-          directory,
-          // Preserve existing files across sessions — this is the whole point.
-          clearOnInit: false,
-        }),
+        s.installOpfsSAHPoolVfs(installOptions),
         stepHangTimeoutMs,
       );
     } catch (error: unknown) {

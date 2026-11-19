@@ -204,11 +204,15 @@ test("installSahPoolVfsWithRetry retries past transient access-handle contention
   ).resolves.toBe(poolUtil);
   // Three contention failures, then success on the fourth attempt.
   expect(attempts()).toBe(4);
-  expect(installOptions()[0]).toMatchObject({
-    clearOnInit: false,
-    directory: "/tearleads-sqlite/test-db",
-    name: "tearleads-opfs-sahpool-test-db",
-  });
+  for (const options of installOptions()) {
+    expect(options).toMatchObject({
+      clearOnInit: false,
+      directory: "/tearleads-sqlite/test-db",
+      forceReinitIfPreviouslyFailed: true,
+      name: "tearleads-opfs-sahpool-test-db",
+      preserveOnInitFailure: true,
+    });
+  }
 });
 
 // The other half of the contract: a failure that will never clear by waiting
