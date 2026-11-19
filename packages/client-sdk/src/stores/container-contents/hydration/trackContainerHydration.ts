@@ -1,3 +1,4 @@
+import { ownsContainerStore } from "../containerState/storeScope";
 import type { ContainerContentsStoreState } from "../types";
 
 /** Publish background reads separately from the local snapshot used by writers. */
@@ -15,7 +16,12 @@ export function trackContainerHydration(state: ContainerContentsStoreState) {
     const owner = generation;
     const finish = () => {
       requests.delete(request);
-      if (state.lifecycleGeneration !== owner || requests.size > 0) return;
+      if (
+        requests.size > 0 ||
+        state.lifecycleGeneration !== owner ||
+        !ownsContainerStore(state)
+      )
+        return;
       const { hydrating: _finished, ...snapshot } = state.snapshot;
       state.snapshot = snapshot;
       for (const notify of state.listeners) notify();
