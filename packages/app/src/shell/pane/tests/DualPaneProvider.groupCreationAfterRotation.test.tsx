@@ -25,6 +25,7 @@ import {
   openExplorer,
   refreshUntil,
   selectExplorerNoteByName,
+  selectSharedRoot,
   waitForExplorerNoteVisible,
   waitForSelectedNoteText,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
@@ -188,6 +189,7 @@ test(
       () => listExplorerContainerItems(peerPane).length > 1,
       "Peer did not discover the custom-group root grant.",
     );
+    await selectSharedRoot(peerPane);
     await waitForExplorerNoteVisible(peerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(peerPane, NOTE_TEXT);
     await waitForSelectedNoteText(
@@ -212,6 +214,7 @@ test(
             request.status === 200,
         ),
     ).toBe(true);
+    await selectSharedRoot(peerPane);
     await waitForExplorerNoteVisible(peerPane, NOTE_TEXT, 20_000);
     await selectExplorerNoteByName(peerPane, NOTE_TEXT);
     await waitForSelectedNoteText(

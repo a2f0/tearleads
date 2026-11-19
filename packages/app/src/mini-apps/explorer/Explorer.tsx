@@ -386,7 +386,12 @@ function ExplorerContent() {
   });
 
   return (
-    <MiniAppRoot className="explorer">
+    <MiniAppRoot
+      className="explorer"
+      data-document-link-projection-version={
+        model.documentLinkProjectionVersion
+      }
+    >
       {model.modalState.backgroundActionError && (
         <MiniAppStatus role="alert" tone="error">
           {model.modalState.backgroundActionError}

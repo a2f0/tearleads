@@ -88,26 +88,12 @@ export function useExplorerViewProjectionSync(params: {
 
   // Subscribe to the view: whenever the local cache or a reconciled delta
   // changes, surface the active container's summaries into the explorer view
-  // model and bump the document link projection so the sidebar/table re-read
-  // their windows from SQLite. This replaces the old render-driven discovery.
+  // model and invalidate document link projections when membership changes.
   const lastActiveSummariesRef = useRef<ReadonlyArray<DocumentSummary> | null>(
     null,
   );
-  // Per-container membership signatures at the last view apply. The link
-  // projection is the DESTRUCTIVE sidebar refresh (it clears rows to a loading
-  // state and resets totalCount), so it must be bumped only when membership
-  // actually changes — discovery, move, delete — and reports WHICH containers
-  // changed so the sidebar blanks only those. The view fires on every reconciled
-  // delta during bootstrap (sync badges, title/content updates) with membership
-  // unchanged; bumping on those blanked the "You"/system-folder rows once per tick
-  // (the bootstrap flicker), and bumping every container blanked one org's rows
-  // while another org synced (the cross-org flicker).
-  //
-  // Null until the first apply (and reset to null on view rotation) so diffChanged
-  // ContainerIds fires the initial population exactly once. After that a non-null
-  // previous lets it tell a real change apart from a container key merely appearing
-  // for the first time — the active-container switch that collapsed the sidebar on
-  // selecting the "You" contact (see diffChangedContainerIds).
+  // A null previous snapshot marks the first population for this view. Later
+  // container keys can appear simply because the user opened another folder.
   const lastContainerSignaturesRef = useRef<ReadonlyMap<string, string> | null>(
     null,
   );
@@ -144,16 +130,6 @@ export function useExplorerViewProjectionSync(params: {
         lastActiveSummariesRef.current = activeSummaries;
         mergeDocumentSummaries(activeSummaries);
       }
-      // Nudge the link projection so windowed queries refresh for newly discovered
-      // documents — but only for the containers whose membership actually changed.
-      // This is the DESTRUCTIVE refresh (it clears rows), so firing it for a
-      // container that merely had summary content updated re-blanked its rows every
-      // sync tick during bootstrap, firing it for EVERY container blanked one org's
-      // rows whenever another org synced, and firing it for a container key that
-      // merely materialized (active-container switch) collapsed the sidebar on
-      // selecting the "You" contact. diffChangedContainerIds gates out all three;
-      // content-only / additive-key updates still refresh non-destructively via
-      // documentListRevision / the sidebar's own window loader.
       const nextSignatures = computeContainerMembershipSignatures(summariesMap);
       const changedContainerIds = diffChangedContainerIds(
         lastContainerSignaturesRef.current,

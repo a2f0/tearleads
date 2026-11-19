@@ -310,6 +310,7 @@ test(
     await waitForExplorerNoteVisible(primaryPane, LIVE_NOTE_TITLE);
     await waitForExplorerNoteVisible(primaryPane, MISSED_PURGE_NOTE_TITLE);
     await selectExplorerNoteByName(primaryPane, LIVE_NOTE_TITLE);
+    await selectContainerAndWaitForItemTable(secondaryPane, "/");
     await selectExplorerNoteByName(secondaryPane, LIVE_NOTE_TITLE);
     await waitFor(() => {
       expect(within(primaryPane).getByText(ATTACHMENT_NAME)).toBeTruthy();

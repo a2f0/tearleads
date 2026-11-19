@@ -50,10 +50,14 @@ async function createExplorerNote(page: Page): Promise<Locator> {
 }
 
 async function moveNoteToTrashAndOpenIt(page: Page, window: Locator) {
-  const sidebarNote = window
-    .locator(".explorer-sidebar-item--note")
-    .filter({ hasText: NOTE_TEXT });
-  await sidebarNote.click({ button: "right" });
+  await window
+    .locator(".explorer-sidebar")
+    .getByRole("button", { name: "/", exact: true })
+    .click();
+  const table = window.getByRole("table", { name: "Items in /", exact: true });
+  await table
+    .getByRole("button", { name: NOTE_TEXT, exact: true })
+    .click({ button: "right" });
   await page
     .locator(".menu")
     .getByRole("button", { name: "Move to Trash", exact: true })
@@ -62,9 +66,6 @@ async function moveNoteToTrashAndOpenIt(page: Page, window: Locator) {
     .locator(".explorer-sidebar-item")
     .filter({ hasText: "Trash" })
     .click();
-  // Open the note from the Trash listing. The sidebar also lists it under the
-  // open Trash once that container's documents load, so a window-wide lookup
-  // races two same-named buttons.
   await window
     .getByRole("table", { name: "Items in Trash", exact: true })
     .getByRole("button", { name: NOTE_TEXT, exact: true })

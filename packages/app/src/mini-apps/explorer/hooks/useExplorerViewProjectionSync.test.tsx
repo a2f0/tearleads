@@ -109,11 +109,7 @@ function renderSync(
   };
 }
 
-// The regression this locks: during cold bootstrap the view fires on every
-// reconciled delta (sync badges, decrypted titles) while container membership is
-// unchanged. The link projection is the DESTRUCTIVE sidebar refresh, so bumping it
-// per tick re-blanked the "You" contact + Trash rows ~15x (the reported flicker).
-// A long burst of content-only ticks must therefore bump it exactly once (mount).
+// Content updates during bootstrap must not invalidate stable document links.
 test("content-only bootstrap churn bumps the link projection only once", () => {
   const { view, emit } = createFakeView(
     contactsMap([createSummary("you", { title: "You" })]),

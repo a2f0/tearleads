@@ -1,11 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
-import { cleanup } from "@testing-library/react";
+import { cleanup, within } from "@testing-library/react";
 import invariant from "invariant";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getExplorerSidebarItemsByName,
   getPaneRoot,
   renderSinglePane,
+  selectContainerAndWaitForItemTable,
   waitForSinglePaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import {
@@ -19,37 +20,13 @@ import {
 } from "../../../../test/helpers/msw/server";
 import { waitForPaneRuntimeToSettle } from "../../../../test/helpers/paneTestUtils";
 
-// Integration regression canary for the cold-bootstrap sidebar flicker (PR #1401,
-// then hardened by PR #1403's hook-level test). Each documentLinkProjectionVersion
-// bump schedules a coalesced, NON-destructive sidebar reload pass (stale rows stay
-// rendered and swap in place — issue #1672 fix 6 removed the preserveRows:false
-// blank), and each bump is a membership-gated
-// onDocumentLinksChanged(changedContainerIds) call in useExplorerViewProjectionSync.
-// Pre-fix the view
-// fired that on EVERY reconciled delta, so the counter climbed ~15x over bootstrap
-// and the "You" contact + Trash rows re-blanked ~once per tick. Post-fix it only
-// bumps on genuine container->document membership changes.
-//
-// This asserts the whole real stack end-to-end (view -> reconciler -> SDK ->
-// sidebar), which the Tier-1 fake-view test cannot: after a full cold bootstrap
-// settles, the reload-pass counter (stamped on the sidebar viewport as
-// data-document-link-projection-version) must stay within a small bound.
-//
-// SCOPE: this bounds the fix's trigger signal (documentLinkProjectionVersion),
-// which is the ONLY scheduler of a link-refresh reload pass
-// (useExplorerSidebarWindows.ts). Reload passes no longer blank rows, but each
-// still costs window re-queries, so an unbounded counter would still mean churn.
-// It does not police hypothetical future blanking via other paths (a ready-gate
-// thrash or documentQueries churn wholesale-clearing the window map); those are
-// separate mechanisms. Single-pane matches the reported
-// bug (cold bootstrap of one identity); the two-pane explorer re-render loop is a
-// separate, documented issue.
-
-const SIDEBAR_RELOAD_VIEWPORT_SELECTOR = ".explorer-sidebar-viewport";
+// Count membership changes through the full cold-bootstrap stack. Content-only
+// sync deltas must not invalidate document projections.
+const EXPLORER_SELECTOR = ".explorer";
 const SETTLE_TIMEOUT_MS = 45_000;
 const ROW_DISCOVERY_TIMEOUT_MS = 20_000;
 
-// Upper bound on link-refresh reload passes across a single-pane cold bootstrap.
+// Upper bound on document link projection changes across a single-pane cold bootstrap.
 // Measured a STABLE 1 across 5 fixed-main runs locally (zero variance): the first
 // membership transition as documents appear under their containers. Reverting the
 // #1401 membership gate to an unconditional bump measured 9 and trips this test.
@@ -61,7 +38,7 @@ const ROW_DISCOVERY_TIMEOUT_MS = 20_000;
 // bound=6 tolerates that while still failing hard on the ~9 regression. If the
 // observed value climbs toward the bound on CI, INVESTIGATE a partial regression
 // rather than raising the bound.
-const MAX_SIDEBAR_LINK_RELOAD_PASSES = 6;
+const MAX_LINK_PROJECTION_CHANGES = 6;
 
 afterEach(async () => {
   cleanup();
@@ -69,30 +46,28 @@ afterEach(async () => {
   await resetMockServer();
 }, MOCK_SERVER_RESET_TIMEOUT_MS);
 
-function readSidebarReloadCount(pane: HTMLElement): number {
-  const viewport = pane.querySelector<HTMLElement>(
-    SIDEBAR_RELOAD_VIEWPORT_SELECTOR,
-  );
-  invariant(viewport, "Expected the explorer sidebar viewport to be rendered.");
+function readProjectionVersion(pane: HTMLElement): number {
+  const explorer = pane.querySelector<HTMLElement>(EXPLORER_SELECTOR);
+  invariant(explorer, "Expected Explorer to be rendered.");
   // Fail loudly if the seam is missing rather than letting Number(null)=>NaN or a
   // stray value produce a confusing downstream assertion (e.g. NaN <= 6).
-  const versionAttr = viewport.getAttribute(
+  const versionAttr = explorer.getAttribute(
     "data-document-link-projection-version",
   );
   invariant(
     versionAttr !== null,
-    "Expected data-document-link-projection-version attribute on the viewport.",
+    "Expected data-document-link-projection-version attribute on the explorer.",
   );
   const version = Number(versionAttr);
   invariant(
     !Number.isNaN(version),
-    `Expected a numeric reload counter, got "${versionAttr}".`,
+    `Expected a numeric projection version, got "${versionAttr}".`,
   );
   return version;
 }
 
 test(
-  "cold bootstrap keeps sidebar link reload passes within budget",
+  "cold bootstrap keeps link projection changes within budget",
   async () => {
     useTestApiAppHandlers();
     const view = renderSinglePane();
@@ -116,20 +91,11 @@ test(
       "Bootstrap did not provision the Trash system folder.",
       ROW_DISCOVERY_TIMEOUT_MS,
     );
-    // Pre-sample guard 2: the "You" self-contact DOCUMENT row — the exact row
-    // that re-blanked in the reported bug — must have rendered. Its presence
-    // proves the link projection applied at least once (the first apply always
-    // bumps the counter), which the container rows above cannot: under suite
-    // load the settle heuristic can report quiet while document discovery still
-    // has a queued trigger, and sampling then reads a counter of 0. Waiting here
-    // turns the old instant >0 assertion into a deterministic precondition —
-    // and waiting longer can only raise the sampled count, so the budget bound
-    // below stays as strict as before.
-    await refreshUntil(
-      pane,
-      () => getExplorerSidebarItemsByName(pane, "You").length > 0,
-      "Bootstrap did not surface the You self-contact row.",
-      ROW_DISCOVERY_TIMEOUT_MS,
+    await selectContainerAndWaitForItemTable(pane, "Contacts");
+    await within(pane).findByRole(
+      "button",
+      { name: "You" },
+      { timeout: ROW_DISCOVERY_TIMEOUT_MS },
     );
 
     // Pre-sample guard 3: assert the runtime has quiesced. waitForPaneRuntimeToSettle
@@ -139,24 +105,19 @@ test(
     // timeout well under the test budget keeps slow-CI a hard fail, not a slow pass.
     await waitForPaneRuntimeToSettle(SETTLE_TIMEOUT_MS);
 
-    // readSidebarReloadCount invariants that the seam is present and numeric, so a
+    // readProjectionVersion invariants that the seam is present and numeric, so a
     // missing/garbled attribute fails there with a clear message (not as NaN <= 6).
-    const reloadPasses = readSidebarReloadCount(pane);
+    const projectionVersion = readProjectionVersion(pane);
 
     // The You-row guard above proves the projection applied, so a zero here is
     // a broken seam (the attribute stopped tracking applies), not a race.
-    expect(reloadPasses).toBeGreaterThan(0);
+    expect(projectionVersion).toBeGreaterThan(0);
 
-    // The clamp: content-only sync churn must NOT drive link reload passes.
-    expect(reloadPasses).toBeLessThanOrEqual(MAX_SIDEBAR_LINK_RELOAD_PASSES);
+    // The clamp: content-only sync churn must NOT drive link projection changes.
+    expect(projectionVersion).toBeLessThanOrEqual(MAX_LINK_PROJECTION_CHANGES);
 
-    // Liveness matching the reported symptom: the "You" self-contact document row
-    // — the exact row that re-blanked ~15x — is actually present after settle, so
-    // the bounded count reflects a sidebar that rendered the flicker-prone rows
-    // (not one that short-circuited). Contacts + Trash containers corroborate.
-    expect(getExplorerSidebarItemsByName(pane, "You").length).toBeGreaterThan(
-      0,
-    );
+    expect(within(pane).getByRole("button", { name: "You" })).toBeTruthy();
+    expect(getExplorerSidebarItemsByName(pane, "You")).toHaveLength(0);
     expect(
       getExplorerSidebarItemsByName(pane, "Contacts").length,
     ).toBeGreaterThan(0);

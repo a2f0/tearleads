@@ -102,7 +102,7 @@ test(
 
     const explorer = await openExplorerInPane(view, visiblePane(view));
 
-    // Create a note, then select it from the sidebar so Explorer is on the
+    // Create a note, then select it from the root item list so Explorer is on the
     // document-selection route.
     fireEvent.click(within(explorer).getByText("File"));
     fireEvent.click(
@@ -115,18 +115,19 @@ test(
     invariant(editor instanceof HTMLTextAreaElement, "note editor not found");
     fireEvent.change(editor, { target: { value: SELECTED_NOTE_TITLE } });
 
-    const noteSelector = "button.explorer-sidebar-item--note";
-    await waitFor(() => {
-      expect(
-        Array.from(
-          explorer.querySelectorAll<HTMLButtonElement>(noteSelector),
-        ).some((button) => button.textContent?.trim() === SELECTED_NOTE_TITLE),
-      ).toBe(true);
+    const sidebar = within(explorer).getByRole("region", {
+      name: "Explorer containers",
     });
-    const noteItem = Array.from(
-      explorer.querySelectorAll<HTMLButtonElement>(noteSelector),
-    ).find((button) => button.textContent?.trim() === SELECTED_NOTE_TITLE);
-    invariant(noteItem, "note sidebar item not found");
+    fireEvent.click(within(sidebar).getByRole("button", { name: "/" }));
+    const table = await within(explorer).findByRole("table", {
+      name: "Items in /",
+    });
+    const noteItem = await within(table).findByRole("button", {
+      name: SELECTED_NOTE_TITLE,
+    });
+    expect(
+      within(sidebar).queryByRole("button", { name: SELECTED_NOTE_TITLE }),
+    ).toBeNull();
     fireEvent.click(noteItem);
 
     await waitFor(() => {

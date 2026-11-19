@@ -1,7 +1,3 @@
-import type {
-  ContainerDocumentQueries,
-  ContainerNode,
-} from "@tearleads/client-sdk";
 import { useRegisteredWindowSidebar } from "@tearleads/windowing";
 import {
   type MouseEvent,
@@ -14,32 +10,22 @@ import {
   MiniAppSidebar,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
+import { useMiniAppVirtualWindow } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { isExplorerOrphanedDocumentsId } from "../../../stores/explorer/orphanedDocuments";
 import { ExplorerDatabaseErrorStatus } from "../shared/ExplorerDatabaseErrorStatus";
 import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";
+import { buildExplorerSidebarRows } from "./ExplorerSidebarRows";
 import {
   type ExplorerSidebarRowProps,
   ExplorerSidebarVirtualTree,
 } from "./ExplorerSidebarRowViews";
 import type { ExplorerTreeEntry } from "./explorerTreeModel";
-import {
-  useExplorerSidebarDocumentWindowLoader,
-  useExplorerSidebarDocumentWindows,
-  useExplorerSidebarVisibleRows,
-} from "./useExplorerSidebarWindows";
+import { EXPLORER_SIDEBAR_ROW_HEIGHT } from "./explorerTreeModel";
 
 interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
   blankContextMenuContainerId: string | null;
   // True when the SQLite boot failed; surfaces the error instead of "Loading...".
   databaseError: boolean;
-  // Monotonic link-projection version. Increments schedule a coalesced,
-  // non-destructive sidebar reload pass across the expanded containers (see
-  // useExplorerSidebarWindows — stale rows stay rendered and swap in place).
-  // Stamped on the viewport purely so an integration canary can bound it after
-  // bootstrap settles — the cold-bootstrap flicker was this counter climbing
-  // ~once per sync tick. Not read by runtime code.
-  documentLinkProjectionVersion: number;
   frameRef: (nextFrame: HTMLDivElement | null) => void;
   nodesLength: number;
   offset: number;
@@ -78,9 +64,6 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
       <section
         className="explorer-sidebar-viewport"
         aria-label="Explorer containers"
-        data-document-link-projection-version={
-          props.documentLinkProjectionVersion
-        }
         onContextMenu={(event) => {
           if (
             isExplorerSidebarBlankContextTarget(event.target) &&
@@ -99,17 +82,9 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
         ) : shouldShowTree ? (
           <ExplorerSidebarVirtualTree
             activeContainerId={props.activeContainerId}
-            contactAvatarUrlByLocalId={props.contactAvatarUrlByLocalId}
-            currentSigningFingerprint={props.currentSigningFingerprint}
-            currentSelfContactLocalId={props.currentSelfContactLocalId}
-            currentUserId={props.currentUserId}
-            depth={0}
             offset={props.offset}
             onContextMenu={props.onContextMenu}
-            onDocumentContextMenu={props.onDocumentContextMenu}
-            onRetryDocumentWindow={props.onRetryDocumentWindow}
             onSelectContainer={props.onSelectContainer}
-            onSelectDocument={props.onSelectDocument}
             onToggleCollapsed={props.onToggleCollapsed}
             rows={props.rows}
             selectedId={props.selectedId}
@@ -130,33 +105,17 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
 interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
-  currentSigningFingerprint: string | null | undefined;
-  currentSelfContactLocalId: string | null | undefined;
-  currentUserId: string | null | undefined;
-  currentOrganizationId: string | null;
   // Surfaces a failed SQLite boot (with Retry) in the sidebar tree's gate.
   databaseError: boolean;
   onRetryDatabase: () => void;
-  documentLinkProjectionVersion: number;
-  documentLinkProjectionVersionByContainerId: ReadonlyMap<string, number>;
-  documentListRevision: number;
-  documentQueries: ContainerDocumentQueries;
   handleContainerContextMenu: (
     event: MouseEvent<HTMLElement>,
     nodeId: string,
   ) => void;
-  handleSidebarDocumentContextMenu: (
-    event: MouseEvent<HTMLButtonElement>,
-    localId: string,
-    containerId: string,
-  ) => void;
-  nodes: ReadonlyArray<ContainerNode>;
   organizationNamesById: ReadonlyMap<string, string>;
   primaryOrganizationId: string | null;
   ready: boolean;
   selectedId: string | null;
-  selectDocumentProjection: (documentId: string, containerId: string) => void;
   setSelectedId: (id: string | null) => void;
   setSidebar: (sidebar: ReactNode | null) => void;
   toggleCollapsed: (nodeId: string) => void;
@@ -182,20 +141,26 @@ export function getExplorerSidebarBlankContextMenuContainerId(
 }
 
 function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
-  const { documentWindowsByContainerId, requestDocumentWindow } =
-    useExplorerSidebarDocumentWindows(props);
   const {
-    frameRef,
-    offset: sidebarOffset,
-    rows: visibleSidebarRows,
-    totalRows: totalSidebarRows,
-  } = useExplorerSidebarVisibleRows({
-    collapsedIds: props.collapsedIds,
-    documentWindowsByContainerId,
-    organizationNamesById: props.organizationNamesById,
-    primaryOrganizationId: props.primaryOrganizationId,
-    treeEntries: props.treeEntries,
+    collapsedIds,
+    organizationNamesById,
+    primaryOrganizationId,
+    treeEntries,
+  } = props;
+  const rows = useMemo(
+    () =>
+      buildExplorerSidebarRows({
+        collapsedIds,
+        entries: treeEntries,
+        organizationNamesById,
+        primaryOrganizationId,
+      }),
+    [collapsedIds, treeEntries, organizationNamesById, primaryOrganizationId],
+  );
+  const { frameRef, offset, limit } = useMiniAppVirtualWindow({
+    rowHeight: EXPLORER_SIDEBAR_ROW_HEIGHT,
   });
+  const sidebarOffset = Math.min(offset, Math.max(0, rows.length - limit));
   const blankContextMenuContainerId = useMemo(
     () =>
       getExplorerSidebarBlankContextMenuContainerId(
@@ -204,38 +169,22 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
       ),
     [props.primaryOrganizationId, props.treeEntries],
   );
-  const retryDocumentWindow = useExplorerSidebarDocumentWindowLoader({
-    documentWindowsByContainerId,
-    ready: props.ready,
-    requestDocumentWindow,
-    rows: visibleSidebarRows,
-  });
-
   return (
     <ExplorerSidebarContent
       activeContainerId={props.activeContainerId}
       blankContextMenuContainerId={blankContextMenuContainerId}
-      contactAvatarUrlByLocalId={props.contactAvatarUrlByLocalId}
-      currentSigningFingerprint={props.currentSigningFingerprint}
-      currentSelfContactLocalId={props.currentSelfContactLocalId}
-      currentUserId={props.currentUserId}
       databaseError={props.databaseError}
-      depth={0}
-      documentLinkProjectionVersion={props.documentLinkProjectionVersion}
       frameRef={frameRef}
-      nodesLength={props.nodes.length}
+      nodesLength={props.treeEntries.length}
       offset={sidebarOffset}
       onContextMenu={props.handleContainerContextMenu}
-      onDocumentContextMenu={props.handleSidebarDocumentContextMenu}
       onRetryDatabase={props.onRetryDatabase}
-      onRetryDocumentWindow={retryDocumentWindow}
       onSelectContainer={props.setSelectedId}
-      onSelectDocument={props.selectDocumentProjection}
       onToggleCollapsed={props.toggleCollapsed}
       ready={props.ready}
-      rows={visibleSidebarRows}
+      rows={rows.slice(sidebarOffset, sidebarOffset + limit)}
       selectedId={props.selectedId}
-      totalRows={totalSidebarRows}
+      totalRows={rows.length}
     />
   );
 }
@@ -249,25 +198,12 @@ function useExplorerSidebarProps(
     () => ({
       activeContainerId: params.activeContainerId,
       collapsedIds: params.collapsedIds,
-      contactAvatarUrlByLocalId: params.contactAvatarUrlByLocalId,
-      currentOrganizationId: params.currentOrganizationId,
-      currentSelfContactLocalId: params.currentSelfContactLocalId,
-      currentSigningFingerprint: params.currentSigningFingerprint,
-      currentUserId: params.currentUserId,
       databaseError: params.databaseError,
-      documentLinkProjectionVersion: params.documentLinkProjectionVersion,
-      documentLinkProjectionVersionByContainerId:
-        params.documentLinkProjectionVersionByContainerId,
-      documentListRevision: params.documentListRevision,
-      documentQueries: params.documentQueries,
       handleContainerContextMenu: params.handleContainerContextMenu,
-      handleSidebarDocumentContextMenu: params.handleSidebarDocumentContextMenu,
-      nodes: params.nodes,
       onRetryDatabase: params.onRetryDatabase,
       organizationNamesById: params.organizationNamesById,
       primaryOrganizationId: params.primaryOrganizationId,
       ready: params.ready,
-      selectDocumentProjection: params.selectDocumentProjection,
       selectedId: params.selectedId,
       setSelectedId: params.setSelectedId,
       setSidebar: params.setSidebar,
@@ -277,25 +213,13 @@ function useExplorerSidebarProps(
     [
       params.activeContainerId,
       params.collapsedIds,
-      params.contactAvatarUrlByLocalId,
-      params.currentSigningFingerprint,
-      params.currentSelfContactLocalId,
-      params.currentUserId,
-      params.currentOrganizationId,
       params.databaseError,
-      params.documentLinkProjectionVersion,
-      params.documentLinkProjectionVersionByContainerId,
-      params.documentListRevision,
-      params.documentQueries,
       params.handleContainerContextMenu,
-      params.handleSidebarDocumentContextMenu,
-      params.nodes,
       params.onRetryDatabase,
       params.organizationNamesById,
       params.primaryOrganizationId,
       params.ready,
       params.selectedId,
-      params.selectDocumentProjection,
       params.setSelectedId,
       params.setSidebar,
       params.toggleCollapsed,
