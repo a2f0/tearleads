@@ -16,7 +16,7 @@ import {
 import { listDocumentRows } from "../../../../data/documents/documentRowList";
 import type { DiscoveredDocumentInput } from "../../../../data/documents/documentSummary";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
-import { readDocumentLinkSetManifestState } from "../../../../data/documents/shared/manifestBundleReaders";
+import { readDocumentLinkSetManifestState } from "../../../../data/documents/shared/readers";
 import {
   createDocumentProjectionUserKeyResolver,
   RemoteDocumentService,
