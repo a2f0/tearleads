@@ -237,7 +237,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.257",
+      "version": "0.1.258",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -319,7 +319,7 @@
     },
     "packages/sqlite-worker": {
       "name": "@tearleads/sqlite-worker",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@tearleads/sqlite-instance": "workspace:*",
       },
