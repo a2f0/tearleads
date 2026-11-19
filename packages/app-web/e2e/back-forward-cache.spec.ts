@@ -53,6 +53,11 @@ test("a page in the back/forward cache is evicted when a later page announces it
     page.getByRole("row", { name: /^SQLite Worker ready$/u }),
   ).toBeVisible({ timeout: 30_000 });
 
+  // Worker readiness can precede the last startup responses. Let the page
+  // finish loading before freezing it so their callbacks do not race the
+  // BroadcastChannel as the cause of eviction.
+  await page.waitForLoadState("networkidle");
+
   // Leave for a same-origin document that runs no app code, so nothing but the
   // notice can evict the cached page.
   await page.goto("/worker.js");
