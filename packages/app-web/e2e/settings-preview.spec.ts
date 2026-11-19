@@ -112,9 +112,11 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
   await expect(display.locator(".display-properties-theme")).toHaveCount(3);
   await display.getByRole("tab", { name: "System tray" }).click();
   await expectControlsToFit(display);
+  const tray = display.getByRole("group", { name: "System Tray" });
+  await expect(tray.getByRole("switch")).toHaveCount(4);
   await expect(
-    display.getByRole("group", { name: "System Tray" }).getByRole("switch"),
-  ).toHaveCount(3);
+    tray.getByRole("switch", { name: "Network Control" }),
+  ).not.toBeChecked();
   await expect(
     display.getByRole("switch", { name: /screensaver/i }),
   ).toHaveCount(0);
