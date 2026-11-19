@@ -83,10 +83,17 @@ test("a linked row uses the clicked folder's permissions and Trash state in a sh
     id: { kind: "document" as const, containerId, localId: row.id },
     position: { x: 0, y: 0 },
   });
+  const folderMenu = menu("folder");
   const view = renderHook(
-    (contextMenu: ReturnType<typeof menu>) =>
-      useExplorerContextMenuDocumentState({ ...params, contextMenu }),
-    { initialProps: menu("folder") },
+    ({
+      contextMenu,
+      nodes,
+    }: {
+      contextMenu: ReturnType<typeof menu>;
+      nodes: readonly ContainerNode[];
+    }) =>
+      useExplorerContextMenuDocumentState({ ...params, contextMenu, nodes }),
+    { initialProps: { contextMenu: folderMenu, nodes } },
   );
   await waitFor(() =>
     expect(view.result.current.canDeleteContextMenuDocument).toBe(true),
@@ -94,11 +101,24 @@ test("a linked row uses the clicked folder's permissions and Trash state in a sh
   expect(view.result.current.canPurgeContextMenuDocument).toBe(false);
   expect(view.result.current.canMoveContextMenuDocument).toBe(false);
   expect(view.result.current.canLinkContextMenuDocument).toBe(false);
-  view.rerender(menu("read-only"));
+  for (const targetNodes of [
+    nodes.filter((node) => node.id !== "trash"),
+    nodes.map((node) =>
+      node.id === "trash"
+        ? { ...node, effectiveAccessLevel: "read" as const }
+        : node,
+    ),
+  ]) {
+    view.rerender({ contextMenu: folderMenu, nodes: targetNodes });
+    await waitFor(() =>
+      expect(view.result.current.canDeleteContextMenuDocument).toBe(false),
+    );
+  }
+  view.rerender({ contextMenu: menu("read-only"), nodes });
   await waitFor(() => expect(queried).toContain("read-only"));
   expect(view.result.current.canDeleteContextMenuDocument).toBe(false);
   expect(view.result.current.canPurgeContextMenuDocument).toBe(false);
-  view.rerender(menu("trash"));
+  view.rerender({ contextMenu: menu("trash"), nodes });
   await waitFor(() =>
     expect(view.result.current.canPurgeContextMenuDocument).toBe(true),
   );

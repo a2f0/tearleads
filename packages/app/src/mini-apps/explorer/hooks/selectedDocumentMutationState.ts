@@ -1,7 +1,10 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
+import {
+  isContainerUnderTrash,
+  resolveExplorerDeleteTrashTarget,
+} from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   canMutateDocumentByIdentity,
   canWriteContainerNode,
@@ -9,6 +12,20 @@ import {
   type ExplorerContainerRulesContext,
 } from "../model/containerRules";
 import type { MoveTargetOption } from "../model/targetOptions";
+
+function hasWritableTrash(
+  input: Parameters<typeof resolveExplorerDeleteTrashTarget>[0],
+): boolean {
+  const target = resolveExplorerDeleteTrashTarget(input);
+  const trash = input.nodes?.find(
+    (node) => node.id === target.trashContainerId,
+  );
+  if (!trash) return target.canFallBackToOwnTrash;
+  return (
+    (target.canFallBackToOwnTrash || trash.effectiveAccessLevel != null) &&
+    canWriteContainerNode(trash)
+  );
+}
 
 export function getSelectedDocumentMutationState(params: {
   appData: {
@@ -40,10 +57,9 @@ export function getSelectedDocumentMutationState(params: {
   } = params;
   const canActivateSelectedDocument =
     appData.infra.dbStatus === "ready" && !!selectedDocument?.documentId;
-  const selectedDocumentContainer =
-    selectedDocument?.containerId === null || selectedDocument === undefined
-      ? undefined
-      : nodes.find((node) => node.id === selectedDocument.containerId);
+  const selectedDocumentContainer = nodes.find(
+    (node) => node.id === selectedDocument?.containerId,
+  );
   const selectedDocumentWritable = canWriteDocumentSummary(selectedDocument);
   const selectedDocumentContainerWritable =
     selectedDocument?.containerId === null ||
@@ -68,20 +84,24 @@ export function getSelectedDocumentMutationState(params: {
     selectedDocument !== undefined &&
     selectedDocument.containerId !== null;
 
+  const trashLookup = {
+    containerId: selectedDocument?.containerId ?? null,
+    currentOrganizationId: rulesContext.currentOrganizationId,
+    nodes,
+    trashSystemSlot,
+  };
   const selectedDocumentUnderTrash = isContainerUnderTrash(
     nodes,
-    selectedDocument?.containerId,
-    {
-      currentOrganizationId: rulesContext.currentOrganizationId,
-      trashSystemSlot,
-    },
+    trashLookup.containerId,
+    trashLookup,
   );
   return {
     canDeleteSelectedDocument:
       canDeleteContainerScopedDocument &&
       canResolveTrashContainer &&
       selectedDocument.containerId !== trashContainerId &&
-      !selectedDocumentUnderTrash,
+      !selectedDocumentUnderTrash &&
+      hasWritableTrash(trashLookup),
     canLinkSelectedDocument:
       canActivateSelectedDocument &&
       selectedDocumentWritable &&
