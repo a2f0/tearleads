@@ -233,6 +233,9 @@ async function submitPlannedDocumentCreateRequest(
 ): Promise<DocumentCreateSubmission | null> {
   const request = createPlan.materializedPlan.plan.request;
   const organizationId = createPlan.containerProjection.organizationId;
+  const canSubmit = () =>
+    input.stillCurrent?.() !== false &&
+    !isRemoteDocumentCreatePlanBlocked(input, createPlan);
   const seed = input.seedUpdate
     ? await buildDocumentCreateSeedRequest({
         author: input.author,
@@ -242,12 +245,12 @@ async function submitPlannedDocumentCreateRequest(
       })
     : null;
   if (seed && documentCreateSeedFits(request, seed)) {
-    if (input.stillCurrent?.() === false) return null;
+    if (!canSubmit()) return null;
     const seeded = await submitDocumentCreate(
       input.apiClient,
       { ...request, initialSync: documentCreateSeed(seed) },
       organizationId,
-      input.stillCurrent,
+      canSubmit,
     );
     if (
       input.requireSeededCreate ||
@@ -258,7 +261,7 @@ async function submitPlannedDocumentCreateRequest(
       return seeded;
     }
   }
-  if (input.stillCurrent?.() === false) return null;
+  if (!canSubmit()) return null;
   if (input.requireSeededCreate)
     return {
       ok: false,
@@ -269,7 +272,7 @@ async function submitPlannedDocumentCreateRequest(
     input.apiClient,
     request,
     organizationId,
-    input.stillCurrent,
+    canSubmit,
   );
 }
 

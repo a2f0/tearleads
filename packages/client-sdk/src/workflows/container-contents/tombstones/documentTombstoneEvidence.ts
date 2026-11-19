@@ -165,6 +165,7 @@ async function fetchDocumentHead(
   documentId: string,
   expectedManifestHash: string | undefined,
   assertCurrent: () => void,
+  requestGuard: (() => boolean) | undefined,
 ) {
   // Tombstones require a fresh head. Listings can reuse a matching cached
   // projection, whose signature and local checkpoint are still verified.
@@ -172,7 +173,7 @@ async function fetchDocumentHead(
     runtime.apiClient.evictDocumentWriterProjection(documentId);
   let result = await runtime.apiClient.getDocumentWriterProjectionResult(
     documentId,
-    { reportErrors: false },
+    { reportErrors: false, stillCurrent: requestGuard },
   );
   assertCurrent();
   if (
@@ -183,7 +184,7 @@ async function fetchDocumentHead(
     runtime.apiClient.evictDocumentWriterProjection(documentId);
     result = await runtime.apiClient.getDocumentWriterProjectionResult(
       documentId,
-      { reportErrors: false },
+      { reportErrors: false, stillCurrent: requestGuard },
     );
   }
   assertCurrent();
@@ -229,6 +230,7 @@ export function createDocumentHeadLinkSetLoader(
         documentId,
         expectedManifestHash,
         assertCurrent,
+        expectedSignerUserId ? stillCurrent : undefined,
       );
       if (!result.ok) return failedHeadVerdict(runtime, documentId, result);
       const projection = result.data;

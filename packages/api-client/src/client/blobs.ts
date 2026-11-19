@@ -142,13 +142,13 @@ export class BlobArea {
   ): Promise<R | null> {
     const session = this.context.runtime.responseRequest.sessionSignal?.();
     const { documentId } = isPlainObject(body) ? body : {};
-    const id = typeof documentId === "string" ? documentId : null;
-    const cached = id ? this.attachmentLists.get(id) : undefined;
+
     const current = () => {
-      if (!session?.aborted && stillCurrent?.() !== false) return true;
-      // The write may have committed, but a newer scope may already have read its own listing.
-      if (id && cached && this.attachmentLists.get(id) === cached)
-        this.attachmentLists.delete(id);
+      if (session?.aborted) return false;
+      if (stillCurrent?.() !== false) return true;
+      // Even a fresh listing from this session may have arrived before the write committed.
+      if (typeof documentId === "string")
+        this.attachmentLists.delete(documentId);
       return false;
     };
     return write

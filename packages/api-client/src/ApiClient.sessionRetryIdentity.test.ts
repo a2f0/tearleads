@@ -261,3 +261,30 @@ for (const status of [401, 402]) {
     },
   );
 }
+
+testApiClient(
+  "a scoped document head read drops an expired response after retirement",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("identity-a");
+    let current = true;
+    let renewals = 0;
+    client.setOnSessionExpired(() => {
+      renewals++;
+      return false;
+    });
+    server.use(
+      http.get(`${apiBaseUrl}/documents/fixture/writer-projection`, () => {
+        current = false;
+        return expired();
+      }),
+    );
+    expect(
+      await client.getDocumentWriterProjectionResult("fixture", {
+        stillCurrent: () => current,
+        reportErrors: false,
+      }),
+    ).toMatchObject({ ok: false, kind: "cancelled" });
+    expect(renewals).toBe(0);
+  },
+);
