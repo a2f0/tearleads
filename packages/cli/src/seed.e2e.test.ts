@@ -1,11 +1,15 @@
 import { expect, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
-import type { DocumentStore, Tearleads } from "@tearleads/client-sdk";
+import {
+  type DocumentStore,
+  deriveContainerSystemSlot,
+  type Tearleads,
+} from "@tearleads/client-sdk";
 import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   continuityDocuments,
-  ensureContactsContainer,
   loadContinuityAssets,
+  writeContinuityDocument,
 } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
@@ -25,14 +29,29 @@ async function onFreshDevice(
     { ...input, documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS },
     async (session) => {
       const { sdk } = session;
-      await loadFolderTree(session);
+      const { nodes } = await loadFolderTree(session);
       const keys = sdk.identity.signingKeyPair;
       if (!keys || !input.rootContainerId)
         throw new Error("Missing account root or keys");
-      const contacts = await ensureContactsContainer(
-        sdk,
-        keys.signingPrivateKey,
-      );
+      // Resolve the Contacts mini-app's system slot from the second device's
+      // identity and the downloaded tree, without provisioning anything.
+      const slot = await deriveContainerSystemSlot({
+        definition: {
+          namespace: "tearleads.contacts",
+          projectorId: "contact",
+          slotId: "contacts",
+          version: 1,
+        },
+        secretKey: keys.signingPrivateKey,
+      });
+      const contacts = nodes.find(
+        (node) =>
+          node.systemSlot === slot &&
+          node.parentId === input.rootContainerId &&
+          node.organizationId === sdk.session.organizationId,
+      )?.id;
+      if (!contacts)
+        throw new Error("Contacts folder missing from the personal root");
       const stores = [];
       for (const containerId of [input.rootContainerId, contacts]) {
         const rows =
@@ -60,10 +79,14 @@ async function onFreshDevice(
 test("seed uploads the pinned dataset and a fresh device can read it", async () => {
   await initializeApiDatabase();
   let interruptUpload = true;
+  const contentRequests: string[] = [];
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     fetch: (request) => {
+      const path = new URL(request.url).pathname;
+      if (/^\/(containers|documents|blobs)\//u.test(path))
+        contentRequests.push(path);
       if (
         interruptUpload &&
         new URL(request.url).pathname === "/blobs/stages/multipart"
@@ -78,6 +101,18 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       await registerCliTestAccount(apiBaseUrl);
     const { context, keyStore, output } = testContext({ apiBaseUrl });
     await keyStore.save("staging", seedPhrase);
+    contentRequests.length = 0;
+    expect(
+      await runCli(
+        ["seed", "--env", "staging", "--org", crypto.randomUUID()],
+        context,
+      ),
+    ).toBe(1);
+    expect(output.stderr).toEqual([
+      "Seed requires the signed-in account's personal organization.",
+    ]);
+    expect(contentRequests).toEqual([]);
+    output.stderr.length = 0;
     const { spec, readAttachment } = await loadContinuityAssets();
     const documents = continuityDocuments(spec);
     const run = async () => {
@@ -92,16 +127,39 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     expect(output.stderr.join("\n")).toContain("/blobs/stages/multipart");
     expect(output.stdout).toEqual([]);
     const device = { apiBaseUrl, recoveryKey: seedPhrase, rootContainerId };
-    await onFreshDevice(device, async (stores) => {
+    await onFreshDevice(device, async (stores, sdk) => {
       const avatar = spec.contacts?.[0]?.avatar;
       if (!avatar) throw new Error("Missing Continuity avatar");
-      const partial = stores
-        .find((store) =>
-          store.getSnapshot().attachments.some((a) => a.name === avatar.file),
-        )
-        ?.getSnapshot();
-      expect(partial?.documentKind).toBe("contact");
-      expect(partial?.attachmentStorageKeyBySlotId).toEqual({});
+      const store = stores.find((store) =>
+        store.getSnapshot().attachments.some((a) => a.name === avatar.file),
+      );
+      const partial = store?.getSnapshot();
+      const document = documents.find((item) => item.key === "contact/0");
+      if (!partial?.documentId || !document || !store)
+        throw new Error("Missing partially uploaded contact");
+      expect(partial.documentKind).toBe("contact");
+      expect(partial.attachmentStorageKeyBySlotId).toEqual({});
+      const localId = await sdk.documents.findLocalIdByDocumentId(
+        partial.documentId,
+      );
+      if (!localId) throw new Error("Missing contact alias");
+      const summary = await sdk.containerContents
+        .documentQueries()
+        .loadDocumentSummary(localId);
+      if (!summary?.containerId) throw new Error("Missing contact placement");
+      // A retry with bytes that differ from the recorded intent must leave
+      // that intent available for recovery by its original writer.
+      await expect(
+        writeContinuityDocument({
+          sdk,
+          localId,
+          containerId: summary.containerId,
+          document,
+          existing: { localId, documentId: partial.documentId },
+          readAttachment: async () => new Uint8Array([1, 2, 3]),
+        }),
+      ).rejects.toThrow("Could not recover edited attachment");
+      expect(store.getSnapshot().attachments).toEqual(partial.attachments);
     });
     interruptUpload = false;
     output.stderr.length = 0;

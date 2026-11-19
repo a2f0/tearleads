@@ -20,13 +20,17 @@ async function resolveSeedAccount(
   organizationId: string | undefined,
 ) {
   const { sdk } = session;
+  if (
+    organizationId !== undefined &&
+    organizationId !== sdk.session.defaultOrganizationId
+  ) {
+    throw new Error(
+      "Seed requires the signed-in account's personal organization.",
+    );
+  }
   const { memberships, nodes } = await loadFolderTree(session);
   const org = memberships.find((m) => m.isPersonalOrganizationOwner);
-  if (
-    !org ||
-    org.organizationId !== sdk.session.organizationId ||
-    (organizationId !== undefined && organizationId !== org.organizationId)
-  ) {
+  if (!org || org.organizationId !== sdk.session.organizationId) {
     throw new Error(
       "Seed requires the signed-in account's personal organization.",
     );
