@@ -26,8 +26,13 @@ function isMultipartStageStatus(
   return "completed" in stage && typeof stage.completed === "boolean";
 }
 
+export function assertUploadCurrent(stillCurrent: (() => boolean) | undefined) {
+  if (stillCurrent?.() === false)
+    throw new Error("The attachment upload scope changed.");
+}
+
 interface ResolveMultipartStageInput {
-  readonly assertCurrent?: (() => void) | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly concurrency: number;
   readonly encryption: BlobEncryptionPlan;
@@ -48,9 +53,11 @@ async function resumeMultipartStage(
   input: ResolveMultipartStageInput,
   resumeStageId: string,
 ): Promise<MultipartBlobStageStatusResponse | null> {
-  input.assertCurrent?.();
-  const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId);
-  input.assertCurrent?.();
+  assertUploadCurrent(input.stillCurrent);
+  const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId, {
+    stillCurrent: input.stillCurrent,
+  });
+  assertUploadCurrent(input.stillCurrent);
   if (!resumed) {
     await assertMultipartStageReplaceable({
       apiClient: input.apiClient,
@@ -84,13 +91,17 @@ async function initiateWithFirstParts(
   firstParts: MultipartFirstParts,
 ): Promise<ResolvedMultipartStage> {
   const { byteLength, sha256 } = input.encryption;
-  input.assertCurrent?.();
-  const stage = await input.apiClient.initiateMultipartBlobStage({
-    organizationId: input.organizationId,
-    byteLength,
-    firstParts: [...firstParts.descriptors],
-    sha256,
-  });
+  assertUploadCurrent(input.stillCurrent);
+  const stage = await input.apiClient.initiateMultipartBlobStage(
+    {
+      organizationId: input.organizationId,
+      byteLength,
+      firstParts: [...firstParts.descriptors],
+      sha256,
+    },
+    { stillCurrent: input.stillCurrent },
+  );
+  assertUploadCurrent(input.stillCurrent);
   if (!stage) {
     throw new Error(
       multipartApiFailureMessage({

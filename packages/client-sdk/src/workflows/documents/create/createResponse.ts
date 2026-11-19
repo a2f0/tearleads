@@ -77,7 +77,7 @@ export async function acknowledgeRemoteDocumentCreate(
     // A principal pin can advance while POST is in flight. Recover the already
     // committed document from fresh evidence, without submitting another create.
     // The adoption path still verifies its author, scope, chain and key binding.
-    return nullOnProjectionVerificationCancellation(() =>
+    const recovered = await nullOnProjectionVerificationCancellation(() =>
       adoptExistingRemoteDocument({
         ...input,
         documentId: response.id,
@@ -86,6 +86,9 @@ export async function acknowledgeRemoteDocumentCreate(
         expectedSignerUserId: input.author.signerUserId,
       }),
     );
+    return recovered && response.initialSync
+      ? { ...recovered, response }
+      : recovered;
   }
   input.apiClient.primeDocumentWriterProjection(response.id, writerProjection);
   return {

@@ -199,6 +199,7 @@ async function bindCarryingDocumentSync(input: {
   readonly documentSync: DocumentSyncRequest | undefined;
   readonly organizationId: string;
   readonly plainRequest: BlobAttachmentBindRequest;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly isRemoteSyncBlocked?: UploadDocumentAttachmentRequest["isRemoteSyncBlocked"];
 }): Promise<{
   readonly request: BlobAttachmentBindRequest;
@@ -209,6 +210,7 @@ async function bindCarryingDocumentSync(input: {
       ? null
       : input.apiClient.bindBlobAttachment(input.blobId, request, {
           expectedPaymentRequiredOrganizationId: input.organizationId,
+          ...(input.stillCurrent ? { stillCurrent: input.stillCurrent } : {}),
         });
   if (input.documentSync) {
     const request = { ...input.plainRequest, documentSync: input.documentSync };
@@ -245,12 +247,8 @@ interface StageAndBindInput {
 }
 
 function stageBlobBytes(input: StageAndBindInput) {
-  const assertCurrent = () => {
-    if (input.stillCurrent?.() === false)
-      throw new Error("The attachment upload scope changed.");
-  };
   return stageMultipartBlobAttachment({
-    assertCurrent,
+    stillCurrent: input.stillCurrent,
     organizationId: input.material.manifestIdentity.organizationId,
     apiClient: input.apiClient,
     encryption: input.material.encrypted,
@@ -314,6 +312,7 @@ async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
     documentSync: input.documentSync,
     organizationId: input.material.manifestIdentity.organizationId,
     plainRequest,
+    stillCurrent: input.stillCurrent,
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
   });
   if (!response) {

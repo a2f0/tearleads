@@ -144,13 +144,15 @@ test("a retired writer sends no bytes after part authorization", async () => {
       },
     },
   );
-  await expect(
-    uploadMultipartBlobPartBytes(createOperationTransport(request), id, 1, {
-      ...upload,
-      assertCurrent: () => {
-        if (!current) throw new Error("Writer scope retired");
-      },
-    }),
-  ).rejects.toThrow("Writer scope retired");
+  expect(
+    await uploadMultipartBlobPartBytes(
+      createOperationTransport(request),
+      id,
+      1,
+      upload,
+      undefined,
+      { stillCurrent: () => current },
+    ),
+  ).toBeNull();
   expect(requests).toBe(1);
 });

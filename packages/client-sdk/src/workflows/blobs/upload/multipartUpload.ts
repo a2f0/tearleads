@@ -24,7 +24,10 @@ import {
   multipartApiFailureMessage,
   multipartStagePath,
 } from "./multipartStageFailures";
-import { resolveMultipartStage } from "./multipartStageResolution";
+import {
+  assertUploadCurrent,
+  resolveMultipartStage,
+} from "./multipartStageResolution";
 
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MAX_MULTIPART_UPLOAD_CONCURRENCY = 4;
@@ -87,7 +90,7 @@ function isMultipartPartCommit(
 }
 
 async function uploadMultipartPartTasks(input: {
-  readonly assertCurrent?: (() => void) | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly completeParts: (MultipartPartCommit | undefined)[];
   readonly concurrency: number;
@@ -126,7 +129,7 @@ async function uploadMultipartPartTasks(input: {
             signal.addEventListener("abort", aborted, { once: true });
             try {
               const uploaded = await uploadMultipartPartBytes({
-                assertCurrent: input.assertCurrent,
+                stillCurrent: input.stillCurrent,
                 apiClient: input.apiClient,
                 encryption: input.encryption,
                 prepared: input.prepared,
@@ -207,7 +210,7 @@ async function encryptedPart(input: {
 }
 
 async function uploadMultipartPartBytes(input: {
-  readonly assertCurrent?: (() => void) | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
   readonly prepared: Map<number, PreparedFirstPart>;
@@ -220,7 +223,7 @@ async function uploadMultipartPartBytes(input: {
   input.signal.throwIfAborted();
   const { bytes: encryptedPartBytes, sha256 } = await encryptedPart(input);
   input.signal.throwIfAborted();
-  input.assertCurrent?.();
+  assertUploadCurrent(input.stillCurrent);
   const source = takePartSource(input.sources, input.task.partNumber);
   const uploaded = await input.apiClient.uploadMultipartBlobPartBytes(
     input.stageId,
@@ -228,15 +231,14 @@ async function uploadMultipartPartBytes(input: {
     {
       byteLength: encryptedPartBytes.byteLength,
       encryptedBytes: encryptedPartBytes,
-      assertCurrent: input.assertCurrent,
       sha256,
       ...(source === undefined ? {} : { source }),
       uploadId: input.uploadId,
     },
-    { signal: input.signal },
+    { signal: input.signal, stillCurrent: input.stillCurrent },
   );
   input.signal.throwIfAborted();
-  input.assertCurrent?.();
+  assertUploadCurrent(input.stillCurrent);
   if (
     uploaded &&
     (uploaded.stageId !== input.stageId ||
@@ -331,7 +333,7 @@ function assertMultipartPlanLimits(encryption: BlobEncryptionPlan): void {
 }
 
 type StageMultipartBlobAttachmentInput = {
-  readonly assertCurrent?: (() => void) | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
   readonly multipart: MultipartBlobUploadOptions;
@@ -356,7 +358,7 @@ export async function stageMultipartBlobAttachment(
     input.multipart.uploadConcurrency,
   );
   const resolved = await resolveMultipartStage({
-    assertCurrent: input.assertCurrent,
+    stillCurrent: input.stillCurrent,
     apiClient: input.apiClient,
     concurrency,
     encryption: input.encryption,
@@ -383,12 +385,12 @@ async function uploadResolvedMultipartStage(
 ): Promise<string> {
   // Surface the stage id before any parts upload so the caller can persist it;
   // an upload interrupted mid-flight can then resume this same stage.
-  input.assertCurrent?.();
+  assertUploadCurrent(input.stillCurrent);
   await input.onStageResolved?.({
     partSize: input.encryption.chunkSize,
     stageId: status.stageId,
   });
-  input.assertCurrent?.();
+  assertUploadCurrent(input.stillCurrent);
   if (status.completed) {
     input.onMultipartProgress?.({
       bytesTotal: input.encryption.byteLength,
@@ -415,7 +417,7 @@ async function uploadResolvedMultipartStage(
   reportMultipartProgress();
 
   await uploadMultipartPartTasks({
-    assertCurrent: input.assertCurrent,
+    stillCurrent: input.stillCurrent,
     apiClient: input.apiClient,
     completeParts,
     concurrency,

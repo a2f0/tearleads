@@ -59,11 +59,9 @@ describe("stageMultipartBlobAttachment", () => {
           onStageResolved: () => {
             if (phase === "part") current = false;
           },
-          assertCurrent: () => {
-            if (!current) throw new Error("Retired scope");
-          },
+          stillCurrent: () => current,
         }),
-      ).rejects.toThrow("Retired scope");
+      ).rejects.toThrow("upload scope changed");
       expect(stages).toBe(phase === "stage" ? 0 : 1);
       expect(parts).toBe(phase === "pending part" ? 1 : 0);
       expect(completed).toBe(0);

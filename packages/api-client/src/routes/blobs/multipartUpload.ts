@@ -186,7 +186,9 @@ export async function uploadMultipartBlobPartBytes(
   uploadFetch: UploadFetch = (url, init) => fetch(url, init),
   options: RequestResultOptions = {},
 ): Promise<UploadMultipartBlobPartResponse | null> {
-  if (options.signal?.aborted) return null;
+  const current = () =>
+    !options.signal?.aborted && options.stillCurrent?.() !== false;
+  if (!current()) return null;
   const path = operationRequestPath(authorizeMultipartBlobPartUploadOperation, {
     stageId,
     partNumber,
@@ -205,19 +207,27 @@ export async function uploadMultipartBlobPartBytes(
     stageId,
     transport,
   };
+  return transferPreparedPart(context, file, uploadFetch, current);
+}
+
+async function transferPreparedPart(
+  context: PartUploadContext,
+  file: File,
+  uploadFetch: UploadFetch,
+  current: () => boolean,
+): Promise<UploadMultipartBlobPartResponse | null> {
+  const { input } = context;
   let status: number | null = null;
   // The first attempt uses the source the stage initiation issued, if any. A
   // network failure may be an expired URL hidden by R2 CORS, or a lost success
   // response; reauthorize once and send the same immutable bytes to the same
   // part number.
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (options.signal?.aborted) return null;
-    input.assertCurrent?.();
+    if (!current()) return null;
     const source =
       firstAttemptSource(attempt, input.source) ??
       (await authorizePart(context));
-    if (!source || options.signal?.aborted) return null;
-    input.assertCurrent?.();
+    if (!source || !current()) return null;
     if (source.kind === "api") return uploadThroughApi(context, file);
     const outcome = await putStoragePart(
       context,
@@ -226,6 +236,7 @@ export async function uploadMultipartBlobPartBytes(
       uploadFetch,
       attempt,
     );
+    if (!current()) return null;
     if (outcome.kind === "uploaded") return outcome.response;
     status = outcome.status;
     if (!outcome.retry) break;

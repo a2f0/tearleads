@@ -261,9 +261,11 @@ test("a later edit identical to a fixture cannot stand in for its original seed"
           initialText: "My note",
         });
         if (receipt === "purged") throw new Error("Unexpected purge");
-        const [summary] = await sdk.containerContents
-          .documentQueries()
-          .upsertDiscoveredDocuments([receipt]);
+        const listing =
+          await sdk.containerContents.discoverContainerDocuments(
+            rootContainerId,
+          );
+        const summary = listing?.find((item) => item.documentId === documentId);
         if (!summary) throw new Error("Missing note");
         const store = sdk.containerContents.documentLinks().openDocument({
           containerId: rootContainerId,
@@ -273,8 +275,10 @@ test("a later edit identical to a fixture cannot stand in for its original seed"
         expect(await store.ensureInitialized()).toBe(true);
         expect(await store.requestRemoteSyncAndWait()).toBe(true);
         const text = "Looks like the fixture";
+        expect(store.getSnapshot().canWrite).toBe(true);
         await store.setText(text);
         expect(await store.requestRemoteSyncAndWait()).toBe(true);
+        expect(store.getSnapshot().text).toBe(text);
         await expect(
           writeContinuityDocument({
             destination: "account",

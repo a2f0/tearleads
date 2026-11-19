@@ -154,20 +154,26 @@ export class BlobArea {
       });
   }
 
-  initiateMultipartBlobStage(input: InitiateMultipartBlobStageRequest) {
+  initiateMultipartBlobStage(
+    input: InitiateMultipartBlobStageRequest,
+    options?: RequestResultOptions,
+  ) {
     return this.context.send(
       multipartInitiate,
       multipartInitiate.path,
       initiateMultipartBlobStageOperation,
       input,
+      options,
     );
   }
 
-  getMultipartBlobStage(stageId: string) {
+  getMultipartBlobStage(stageId: string, options?: RequestResultOptions) {
     return this.context.send(
       multipartGet,
       multipartGet.path(stageId),
       getMultipartBlobStageOperation,
+      undefined,
+      options,
     );
   }
 
