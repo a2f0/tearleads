@@ -2,7 +2,10 @@ import { expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { RemoteDocumentService } from "@tearleads/client-sdk";
-import { writeContinuityDocument } from "app/continuity";
+import {
+  ensureContactsContainer,
+  writeContinuityDocument,
+} from "app/continuity";
 import { loadFolderTree } from "./folderTree";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { withSession } from "./session";
@@ -125,3 +128,37 @@ test.each([
   },
   60_000,
 );
+
+test("changing organizations during Contacts slot derivation never opens the replacement tree", async () => {
+  await initializeApiDatabase();
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: routeApp.fetch,
+  });
+  try {
+    const apiBaseUrl = server.url.origin;
+    const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+    await withSession(
+      { apiBaseUrl, recoveryKey: seedPhrase },
+      async ({ sdk }) => {
+        const open = spyOn(
+          sdk.containerContents,
+          "openTree",
+        ).mockImplementation(() => {
+          throw new Error("Opened the replacement tree");
+        });
+        try {
+          const setup = ensureContactsContainer(sdk);
+          sdk.session.setOrganizationId(crypto.randomUUID());
+          await expect(setup).rejects.toThrow("writer scope changed");
+          expect(open).not.toHaveBeenCalled();
+        } finally {
+          open.mockRestore();
+        }
+      },
+    );
+  } finally {
+    server.stop(true);
+  }
+}, 30_000);

@@ -5,6 +5,8 @@ import {
   findUserSystemContainer,
 } from "../../stores/systemContainers";
 
+import { captureContinuityScope } from "./continuityScope";
+
 const STORE_READY_TIMEOUT_MS = 5_000;
 
 // Poll a container-contents store to readiness. openTree() hydrates from local
@@ -23,10 +25,10 @@ async function waitForStoreReady(store: {
 }
 
 // Use the same identity-scoped Contacts folder as the Contacts mini-app.
-export async function ensureContactsContainer(
-  sdk: Tearleads,
-  signingPrivateKey: Uint8Array,
-): Promise<string> {
+export async function ensureContactsContainer(sdk: Tearleads): Promise<string> {
+  const scope = captureContinuityScope(sdk);
+  const { signingPrivateKey } =
+    sdk.identity.requireSigningKeyPair("create Contacts");
   const systemContainers = await deriveUserSystemContainers({
     signingPrivateKey,
     rootContainerId: sdk.session.containerId,
@@ -39,18 +41,21 @@ export async function ensureContactsContainer(
   if (!contactsSystemContainer) {
     throw new Error("Contacts system container definition is missing.");
   }
+  scope.assertCurrent();
   const tree = sdk.containerContents.openTree();
   // openTree() does not hydrate on its own; the app drives it via updateRuntime
   // when the runtime changes. Push the current runtime once, then refresh from
   // the local root so the store reports ready.
-  tree.updateRuntime(sdk.containerContents.workflowRuntime());
+  tree.updateRuntime(scope.runtime);
   await tree.refreshLocalContainers();
   await waitForStoreReady(tree);
+  scope.assertCurrent();
   const contactsNode = await tree.ensureSystemContainer(
     contactsSystemContainer.systemSlot,
     CONTACTS_CONTAINER_NAME,
     { icon: contactsSystemContainer.icon },
   );
+  scope.assertCurrent();
   if (!contactsNode) {
     throw new Error("Failed to create the Contacts system container.");
   }

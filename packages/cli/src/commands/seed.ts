@@ -6,6 +6,7 @@ import {
 } from "@tearleads/client-sdk";
 import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+  captureContinuityScope,
   continuityDocuments,
   ensureContactsContainer,
   loadContinuityAssets,
@@ -62,6 +63,7 @@ async function findSeedPlacement(
   documentId: string,
   folders: Set<string>,
   lookup: ReturnType<typeof createDocumentHeadLinkSetLoader>,
+  assertCurrent: () => void,
 ) {
   const { sdk } = session;
   const head = await lookup(documentId);
@@ -83,6 +85,7 @@ async function findSeedPlacement(
   ) {
     throw new Error("Could not verify seed document placement.");
   }
+  assertCurrent();
   // The timestamp belongs only to this run's local discovery record.
   const [summary] = await sdk.containerContents
     .documentQueries()
@@ -137,6 +140,7 @@ export async function seed(input: CommandInput): Promise<void> {
     input,
     async (session) => {
       const { sdk, tracer } = session;
+      const { assertCurrent } = captureContinuityScope(sdk);
       const { rootId, signingPrivateKey, folders } = await resolveSeedAccount(
         session,
         input.organizationId,
@@ -144,7 +148,8 @@ export async function seed(input: CommandInput): Promise<void> {
       const { spec, datasetSha256, readAttachment } =
         await loadContinuityAssets();
       const documents = continuityDocuments(spec);
-      const contactsId = await ensureContactsContainer(sdk, signingPrivateKey);
+      assertCurrent();
+      const contactsId = await ensureContactsContainer(sdk);
       const accessibleFolders = new Set([...folders, contactsId]);
       const lookup = createDocumentHeadLinkSetLoader(
         sdk.containerContents.workflowRuntime(),
@@ -164,7 +169,9 @@ export async function seed(input: CommandInput): Promise<void> {
             documentId,
             accessibleFolders,
             lookup,
+            assertCurrent,
           );
+          assertCurrent();
           if (!existing) missingHeads++;
           const store = await writeContinuityDocument({
             destination: "account",
@@ -184,6 +191,7 @@ export async function seed(input: CommandInput): Promise<void> {
           );
         });
       }
+      assertCurrent();
       return documents.length;
     },
     APP_DOCUMENT_PROJECTOR_DEFINITIONS,

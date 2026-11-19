@@ -55,20 +55,13 @@ export async function buildSeedArtifact(
     // key makes the Contacts system slot reproducible. Unlike generate(),
     // importSeedPhrase does not bootstrap a root, so create it explicitly.
     await sdk.identity.importSeedPhrase(spec.identitySeedPhrase);
-    const signingKeyPair = sdk.identity.signingKeyPair;
-    if (!signingKeyPair) {
-      throw new Error("Seed identity is missing its signing key pair.");
-    }
     const { containerId: rootContainerId } =
       await sdk.session.bootstrapLocalRootContainer();
     await defaultDocumentsPersistence.ensureSchema(deps.execSql);
 
     // Contacts live in the identity-scoped Contacts container; notes + files stay
     // in the root (Explorer / Notes surface them by kind).
-    const contactsContainerId = await ensureContactsContainer(
-      sdk,
-      signingKeyPair.signingPrivateKey,
-    );
+    const contactsContainerId = await ensureContactsContainer(sdk);
 
     for (const document of continuityDocuments(spec)) {
       await writeContinuityDocument({

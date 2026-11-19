@@ -4,6 +4,7 @@ import {
   type Tearleads,
 } from "@tearleads/client-sdk";
 import { seedDigest } from "./continuityAssets";
+import { captureContinuityScope } from "./continuityScope";
 import type { SeedDocument } from "./seedDocuments";
 import { uploadVacantAttachments } from "./uploadVacantAttachments";
 
@@ -89,12 +90,7 @@ async function openContinuityDocument(
 
 export async function writeContinuityDocument(input: SeedWriteInput) {
   const { document } = input;
-  const scope = input.sdk.containerContents.workflowRuntime();
-  const stillCurrent = () => scope.liveHydrationStatus?.() !== "retired";
-  const assertCurrent = () => {
-    if (!stillCurrent())
-      throw new Error("The Continuity writer scope changed.");
-  };
+  const { stillCurrent, assertCurrent } = captureContinuityScope(input.sdk);
   const attachments = await Promise.all(
     document.attachments.map((_, index) => prepareAttachment(input, index)),
   );
