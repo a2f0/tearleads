@@ -10,6 +10,7 @@ import {
 const KEY = "test.startMenu.visibility";
 const app = { title: "Mail", createComponent: () => () => null };
 const definition = {
+  order: ["mail", "settings"],
   apps: {
     mail: app,
     notes: { ...app, title: "Notes", startMenuVisibility: "hidden" },
@@ -24,7 +25,8 @@ const items = ["mail", "notes", "settings", "screensaver"].map((id) => ({
 
 afterEach(() => {
   cleanup();
-  localStorage.removeItem(KEY);
+  localStorage.removeItem(`${KEY}.mail`);
+  localStorage.removeItem(`${KEY}.notes`);
 });
 
 function Reset() {
@@ -49,7 +51,7 @@ function open() {
 }
 
 test("choices update the menu, survive a remount and reset to the host defaults", () => {
-  localStorage.setItem(KEY, "{invalid");
+  localStorage.setItem(`${KEY}.notes`, "invalid");
   let view = open();
   expect(view.queryByRole("button", { name: "notes" })).toBeNull();
   expect(view.queryByRole("switch", { name: "Settings" })).toBeNull();
@@ -64,4 +66,20 @@ test("choices update the menu, survive a remount and reset to the host defaults"
   fireEvent.click(view.getByRole("button", { name: "Reset" }));
   expect(view.getByRole("button", { name: "mail" })).toBeTruthy();
   expect(view.queryByRole("button", { name: "notes" })).toBeNull();
+});
+
+test("changing an app preserves a separate tab's choice for another app", () => {
+  const view = open();
+  localStorage.setItem(`${KEY}.notes`, "true");
+  fireEvent.click(view.getByRole("switch", { name: "Mail" }));
+  expect(localStorage.getItem(`${KEY}.notes`)).toBe("true");
+  fireEvent(
+    window,
+    new StorageEvent("storage", { key: `${KEY}.notes`, newValue: "true" }),
+  );
+  expect(view.getByRole("switch", { name: "Notes" })).toHaveProperty(
+    "checked",
+    true,
+  );
+  expect(view.getByRole("button", { name: "notes" })).toBeTruthy();
 });

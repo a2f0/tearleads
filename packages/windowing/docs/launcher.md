@@ -48,7 +48,8 @@ which mini-apps appear in their launchers.
 Each mini-app can set `startMenuVisibility` in its launcher definition.
 The default is `"visible"`. Use `"hidden"` to let users opt in or `"pinned"`
 to keep an entry such as Settings available. The provider uses launcher order
-for the switches and saves explicit choices under the host's storage key.
+for the switches, followed by any remaining registered apps. It saves each
+choice under the host's storage key prefix and shares changes across tabs.
 
 `DisplayProperties` renders the switches and accepts `startMenuAppIds` to limit
 them to the apps the current session may see. `StartMenu` matches item IDs to
