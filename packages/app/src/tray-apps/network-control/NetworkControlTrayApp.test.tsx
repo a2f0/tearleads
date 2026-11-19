@@ -26,15 +26,18 @@ test("Network Control is opt-in, remembers visibility, and controls the pane", (
   for (const [action, status] of [
     ["Force Offline", "offline (manual)"],
     ["Force Online", "online (manual)"],
-    ["Use Automatic Network", "online"],
   ] as const) {
     fireEvent.click(view.getByRole("button", trigger));
     fireEvent.click(view.getByRole("button", { name: action }));
     expect(getPaneStatusText(view)).toContain(status);
   }
 
+  fireEvent(window, new Event("offline"));
+  expect(getPaneStatusText(view)).toContain("online (manual)");
+  fireEvent.click(view.getByRole("button", trigger));
+  fireEvent.click(view.getByRole("button", { name: "Use Automatic Network" }));
   expect(
-    view.getByRole("button", { name: "Network Control: online (automatic)" }),
+    view.getByRole("button", { name: "Network Control: offline (automatic)" }),
   ).toBeTruthy();
 
   view.unmount();

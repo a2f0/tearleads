@@ -28,19 +28,17 @@ const systemTrayContext = createRequiredContext<SystemTrayContextValue>(
 
 function parseVisibility(stored: string | null): ReadonlyMap<string, boolean> {
   const parsed: unknown = stored === null ? null : JSON.parse(stored);
+  const preferences = new Map<string, boolean>();
   if (Array.isArray(parsed)) {
-    // Earlier versions stored just the ids the user disabled.
-    return new Map(
-      parsed
-        .filter((id): id is string => typeof id === "string")
-        .map((id) => [id, false]),
-    );
+    for (const entry of parsed) {
+      if (typeof entry === "string") {
+        preferences.set(entry, false);
+      } else if (entry && typeof entry.enabled === "string") {
+        preferences.set(entry.enabled, true);
+      }
+    }
   }
-  return new Map(
-    Object.entries(parsed && typeof parsed === "object" ? parsed : {}).filter(
-      (entry): entry is [string, boolean] => typeof entry[1] === "boolean",
-    ),
-  );
+  return preferences;
 }
 
 interface SystemTrayProviderProps<Id extends string> extends PropsWithChildren {
@@ -75,7 +73,12 @@ export function SystemTrayProvider<Id extends string>({
     persistedVisibility.current = visibility;
     saveStoredPreference(
       storageKey,
-      JSON.stringify(Object.fromEntries(visibility)),
+      // Older builds read the disabled ids and skip the opt-in records.
+      JSON.stringify(
+        Array.from(visibility, ([id, enabled]) =>
+          enabled ? { enabled: id } : id,
+        ),
+      ),
     );
   }, [visibility, storageKey]);
 
