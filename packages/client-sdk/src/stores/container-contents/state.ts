@@ -7,6 +7,7 @@ import { didRegainSyncPrerequisites } from "../../workflows/container-contents/s
 import { ContainerStateMap } from "./containerState/containerStateMap";
 import { observeContainerBackgroundHydration } from "./hydration/backgroundHydration";
 import { ReconnectRefresh } from "./hydration/reconnectRefresh";
+import { trackContainerHydration } from "./hydration/trackContainerHydration";
 import { didContainerWriteRuntimeChange } from "./remoteWrites/writeGeneration";
 import type {
   ContainerContentsStoreRuntime,
@@ -89,7 +90,7 @@ export function createContainerContentsStoreState(
   persistence: ContainerContentsPersistence,
   logLabel?: string | undefined,
 ): ContainerContentsStoreState {
-  return {
+  const state: ContainerContentsStoreState = {
     parentLaneRequestPrefix: `s${++storeSequence}`,
     containerListingFailures: 0,
     containersById: new ContainerStateMap(),
@@ -133,6 +134,8 @@ export function createContainerContentsStoreState(
     writeGeneration: 0,
     writeChain: Promise.resolve<ContainerNode | null>(null),
   };
+  state.trackBackgroundHydration = trackContainerHydration(state);
+  return state;
 }
 
 function emitContainerContentsStore(state: ContainerContentsStoreState) {
@@ -146,6 +149,7 @@ function setContainerContentsSnapshot(
   next: ContainerContentsSnapshot,
 ) {
   if (
+    next.hydrating === state.snapshot.hydrating &&
     next.ready === state.snapshot.ready &&
     areSnapshotNodesEqual(next.nodes, state.snapshot.nodes)
   ) {
@@ -160,6 +164,7 @@ export function updateContainerContentsSnapshot(
   state: ContainerContentsStoreState,
 ) {
   setContainerContentsSnapshot(state, {
+    ...state.snapshot,
     nodes: getSnapshotNodes(state.containersById),
     ready: true,
   });

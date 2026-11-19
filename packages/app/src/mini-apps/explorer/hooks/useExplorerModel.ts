@@ -17,6 +17,7 @@ import {
   EXPLORER_TRASH_CONTAINER_ICON,
   isContactsSystemContainerNode,
 } from "../../../stores/systemContainers";
+import { useCollectionStartupPending } from "../../shared/useCollectionStartupPending";
 import {
   canCreateChildContainerByRules,
   canCreateStructuredDocumentInContainerByRules,
@@ -25,6 +26,10 @@ import {
   createExplorerContainerRulesContext,
   hasContainerRules,
 } from "../model/containerRules";
+import {
+  type ExplorerFolderState,
+  resolveExplorerFolderState,
+} from "../shared/ExplorerFolderStatus";
 import { buildExplorerTree } from "../sidebar/explorerTreeModel";
 import type {
   ExplorerDocumentMutationAction,
@@ -41,6 +46,7 @@ import { useExplorerPrimarySystemContainers } from "./useExplorerPrimarySystemCo
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 
 interface ExplorerModel {
+  folderState: ExplorerFolderState;
   activeContainerHasRules: boolean;
   activateLinkedContainer: ExplorerPanelState["activateLinkedContainer"];
   canCreateChildInActiveContainer: boolean;
@@ -108,9 +114,7 @@ export function useExplorerModel(
   setSidebar: (sidebar: ReactNode | null) => void,
   canShareWithPeer: boolean,
   peerUserId: string | null,
-  // Re-attempts the SQLite worker boot; threaded to the sidebar tree's gate so a
   // boot failure surfaces a Retry there too (the detail panel gets it directly).
-  onRetryDatabase: () => void,
 ): ExplorerModel {
   const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
     useDocumentLinkProjectionVersion();
@@ -203,6 +207,15 @@ export function useExplorerModel(
     mergeDocumentSummaries,
     onDocumentLinksChanged: handleDocumentLinksChanged,
   });
+  const startupPending = useCollectionStartupPending(explorer.nodes.length);
+  const folderState = resolveExplorerFolderState({
+    count: explorer.nodes.length,
+    knownCount: explorer.knownNodes.length,
+    ready: explorer.ready,
+    startupPending,
+    syncing:
+      appData.state.online && (Boolean(explorer.hydrating) || isRefreshing),
+  });
   const {
     activateLinkedContainer,
     canMutateDocumentLinks,
@@ -230,6 +243,7 @@ export function useExplorerModel(
     selectedDocumentMoveTargetOptions,
     unlinkDocument,
   } = useExplorerPanelState({
+    folderState,
     appData,
     documentQueries,
     explorer,
@@ -241,7 +255,6 @@ export function useExplorerModel(
     mergeDocumentSummary,
     documentSummaries,
     onDocumentLinksChanged: handleDocumentLinksChanged,
-    onRetryDatabase,
     canShareWithPeer,
     peerUserId,
     primaryOrganizationId,
@@ -353,6 +366,7 @@ export function useExplorerModel(
 
   return {
     ...selectedDocumentMutationState,
+    folderState,
     onRecoveryChanged: bumpDocumentListRevision,
     activeContainerHasRules,
     activateLinkedContainer,

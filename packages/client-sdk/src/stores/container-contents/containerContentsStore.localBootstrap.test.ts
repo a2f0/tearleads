@@ -209,3 +209,40 @@ test("refreshLocalContainers surfaces a newly persisted container from local SQL
     close();
   }
 });
+
+test("an empty local snapshot stays distinguishable from a pending startup listing", async () => {
+  const { close, execSql } = await createTestExecSql("startup-folder-listing");
+  const listing = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<void>();
+  try {
+    const runtime = createContainerContentsTestRuntime({
+      apiClient: createMockApiClient({
+        listContainerParentLanes: batchParentLanes(async () => {
+          started.resolve();
+          await listing.promise;
+          return emptyListContainersResponse();
+        }),
+      }),
+      containerId: "root",
+      domainScope: {} as DomainScope,
+      execSql,
+    });
+    const store = createContainerContentsStore(runtime);
+    store.updateRuntime(runtime);
+    await started.promise;
+    expect(store.getSnapshot()).toMatchObject({
+      ready: true,
+      nodes: [],
+      hydrating: true,
+    });
+    listing.resolve();
+    await waitFor(
+      () => !store.getSnapshot().hydrating,
+      "The empty listing did not settle.",
+    );
+    expect(store.getSnapshot()).toEqual({ ready: true, nodes: [] });
+  } finally {
+    listing.resolve();
+    close();
+  }
+});

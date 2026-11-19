@@ -37,6 +37,7 @@ import {
   canUploadToContainerIdByRules,
   type ExplorerContainerRulesContext,
 } from "../model/containerRules";
+import type { ExplorerFolderState } from "../shared/ExplorerFolderStatus";
 import { useExplorerSidebarPanel } from "../sidebar/ExplorerTree";
 import type { ExplorerTreeEntry } from "../sidebar/explorerTreeModel";
 import type { ExplorerModelExplorer } from "./explorerModelTypes";
@@ -65,6 +66,7 @@ const explorerDroppedFileImportLabels: ExplorerDroppedFileImportLabels = {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: The panel hook coordinates sidebar, document, modal, and context-menu state.
 export function useExplorerPanelState(params: {
+  folderState: ExplorerFolderState;
   appData: RuntimeSnapshot;
   documentQueries: ContainerDocumentQueries;
   explorer: ExplorerModelExplorer;
@@ -84,8 +86,6 @@ export function useExplorerPanelState(params: {
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
-  // Re-attempts the SQLite worker boot; forwarded to the sidebar tree's gate.
-  onRetryDatabase: () => void;
   canShareWithPeer: boolean;
   peerUserId: string | null;
   primaryOrganizationId: string | null;
@@ -110,7 +110,6 @@ export function useExplorerPanelState(params: {
     mergeDocumentSummary,
     documentSummaries,
     onDocumentLinksChanged,
-    onRetryDatabase,
     canShareWithPeer,
     peerUserId,
     primaryOrganizationId,
@@ -138,7 +137,10 @@ export function useExplorerPanelState(params: {
     useExplorerDocumentAttributionRangesLoader();
   const routeState = useExplorerRoute({
     knownNodes: explorer.knownNodes,
-    ready: explorer.ready,
+    ready:
+      explorer.ready &&
+      params.folderState !== "loading" &&
+      params.folderState !== "syncing",
     loadDocumentSummary: loadRouteDocumentSummary,
     logError: appData.util.logError,
     nodes: explorer.nodes,
@@ -234,14 +236,10 @@ export function useExplorerPanelState(params: {
   useExplorerSidebarPanel({
     activeContainerId: selection.activeContainerId,
     collapsedIds: selection.collapsedIds,
-    // Derived from the same worker status as Explorer's detail gate so both show
-    // the boot error together; the retry callback is threaded from Explorer.
-    databaseError: appData.infra.dbStatus === "error",
     handleContainerContextMenu: contextMenuState.handleContainerContextMenu,
-    onRetryDatabase,
     organizationNamesById: sidebarOrganizationNamesById,
     primaryOrganizationId,
-    ready: explorer.ready,
+    folderState: params.folderState,
     selectedId: selection.selectedId,
     setSelectedId: routeState.selectExplorerItem,
     setSidebar,

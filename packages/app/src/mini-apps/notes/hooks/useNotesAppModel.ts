@@ -4,6 +4,7 @@ import {
   useMiniAppRouteState,
 } from "@tearleads/windowing";
 import { useDocumentSummaryPrimer } from "../../../stores/documents/useDocumentSummaryPrimer";
+import { useCollectionStartupPending } from "../../shared/useCollectionStartupPending";
 import {
   type NotesContextMenuModel,
   useNotesContextMenu,
@@ -57,7 +58,7 @@ export function useNotesAppModel(
     deleteNote,
     isContainerTrashed,
     notes,
-    ready,
+    ready: directoryReady,
     selectedNoteId,
     selectNote,
   } = useNotesDirectory({
@@ -65,6 +66,8 @@ export function useNotesAppModel(
     explicitSelection,
     selectNoteRoute,
   });
+  const startupPending = useCollectionStartupPending(notes.length);
+  const ready = directoryReady && !startupPending;
   const activeSelection = useActiveNoteSelection({
     explicitSelection,
     notes,

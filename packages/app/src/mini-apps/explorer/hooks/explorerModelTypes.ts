@@ -65,6 +65,7 @@ export interface ExplorerModelExplorer {
   nodes: ReadonlyArray<ContainerNode>;
   knownNodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
+  readonly hydrating?: true;
   reconciler: ReconciliationService;
   trashContainerId: string | null;
   trashSystemSlot: NonNullable<ContainerNode["systemSlot"]> | null;
