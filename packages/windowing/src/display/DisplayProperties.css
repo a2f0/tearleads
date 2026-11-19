@@ -122,7 +122,14 @@
   max-width: 24rem;
 }
 
-.display-properties-tray-app {
+.display-properties-menu-apps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-2xs);
+}
+
+.display-properties-app-switch {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -131,15 +138,20 @@
   cursor: pointer;
 }
 
-.display-properties-tray-app:hover {
+.display-properties-app-switch:hover {
   background: var(--app-hover-surface);
 }
 
-.display-properties-tray-app .display-properties-label {
+.display-properties-app-switch .display-properties-label {
   flex: 1 1 auto;
 }
 
-.display-properties-tray-app-icon {
+.display-properties-menu-app .display-properties-label {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.display-properties-app-switch svg {
   flex: 0 0 auto;
 }
 

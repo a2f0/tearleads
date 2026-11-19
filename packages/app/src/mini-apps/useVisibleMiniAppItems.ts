@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
+import { useIsRootSession } from "../providers/crypto/CryptoSessionProvider";
 import { filterVisibleMiniAppItems } from "./miniAppVisibility";
 import type { MiniAppId } from "./types";
 
@@ -11,7 +11,7 @@ import type { MiniAppId } from "./types";
 export function useVisibleMiniAppItems<Item extends { appId: MiniAppId }>(
   items: ReadonlyArray<Item>,
 ): ReadonlyArray<Item> {
-  const { isRoot } = useCryptoSession();
+  const isRoot = useIsRootSession();
   return useMemo(
     () => filterVisibleMiniAppItems(items, { isRoot }),
     [isRoot, items],

@@ -459,6 +459,11 @@ export function CryptoSessionProvider({ children }: PropsWithChildren) {
   );
 }
 
+/** Display preferences can render before a pane provides a session. */
+export function useIsRootSession(): boolean {
+  return useContext(CryptoSessionContext)?.isRoot ?? false;
+}
+
 export function useCryptoSession(): CryptoSessionContextValue {
   const context = useContext(CryptoSessionContext);
   if (!context) {

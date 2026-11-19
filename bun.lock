@@ -189,7 +189,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.71",
+      "version": "0.1.72",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -392,7 +392,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.43",
+      "version": "0.2.44",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",

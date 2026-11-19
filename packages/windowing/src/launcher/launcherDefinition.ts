@@ -22,6 +22,8 @@ export interface MiniAppDefinition {
    * the sidebar hidden.
    */
   initialShowSidebar?: boolean | undefined;
+  /** Initial Start menu visibility. Defaults to visible. Pinned entries stay visible. */
+  startMenuVisibility?: "visible" | "hidden" | "pinned" | undefined;
   /** The window title and routed content heading. */
   title: string;
   /**

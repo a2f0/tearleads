@@ -87,13 +87,15 @@ export async function disableAnimations(page: Page): Promise<void> {
   await page.addStyleTag({ content: DISABLE_ANIMATIONS_CSS });
 }
 
-// Opens a mini-app as a floating window from the windowed shell's footer "Menu"
-// launcher (see MINI_APP_MENU_ITEMS in packages/app/src/mini-apps/registry.ts).
+// The desktop context menu also lists apps hidden from the Start menu.
 export async function openWindowedApp(
   page: Page,
   menuLabel: string,
 ): Promise<void> {
-  await visiblePane(page).locator(".pane-footer-menu-button").click();
+  await visiblePane(page).dispatchEvent("contextmenu", {
+    clientX: 120,
+    clientY: 120,
+  });
   await page
     .locator(".menu")
     .getByRole("button", { name: menuLabel, exact: true })

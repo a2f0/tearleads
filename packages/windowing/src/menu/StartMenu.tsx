@@ -3,6 +3,7 @@ import type { WindowingIcon } from "../icons/windowingIcon";
 import { Menu, type MenuPosition } from "./Menu";
 import { MenuItem } from "./MenuItem";
 import "./StartMenu.css";
+import { useOptionalStartMenuPreferences } from "./StartMenuPreferencesProvider";
 import { useContextMenuPositionState } from "./useContextMenuState";
 
 /** One entry in a {@link StartMenu}. */
@@ -51,6 +52,7 @@ export function StartMenu({
   label = "Menu",
   renderMenu,
 }: StartMenuProps) {
+  const preferences = useOptionalStartMenuPreferences();
   const {
     closeContextMenu: close,
     contextMenu: position,
@@ -77,18 +79,20 @@ export function StartMenu({
           renderMenu({ close, position })
         ) : (
           <Menu position={position} onClose={close}>
-            {items.map((item) => (
-              <MenuItem
-                key={item.id}
-                disabled={item.disabled}
-                icon={item.icon}
-                label={item.label}
-                onClick={() => {
-                  close();
-                  item.onSelect(position);
-                }}
-              />
-            ))}
+            {items
+              .filter((item) => preferences?.isVisible(item.id) ?? true)
+              .map((item) => (
+                <MenuItem
+                  key={item.id}
+                  disabled={item.disabled}
+                  icon={item.icon}
+                  label={item.label}
+                  onClick={() => {
+                    close();
+                    item.onSelect(position);
+                  }}
+                />
+              ))}
           </Menu>
         ))}
     </>
