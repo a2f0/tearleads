@@ -18,7 +18,9 @@ export function createStartMenuStore(
   storageKey: string,
   ids: readonly string[],
 ) {
-  const keyFor = (id: string) => `${storageKey}.${id}`;
+  // Leave a single unescaped boundary between the namespace and the app ID.
+  const keyFor = (id: string) =>
+    `${storageKey}.${id.replaceAll("%", "%25").replaceAll(".", "%2E")}`;
   function readAll() {
     const next = new Map<string, boolean>();
     for (const id of ids) {

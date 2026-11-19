@@ -111,17 +111,21 @@ for (const tier of ["mobile", "tablet"] as const) {
               definition={TEST_LAUNCHER}
               mode="routed"
             >
+              {tier === "tablet" && <RoutedPane menuIcon="First menu" />}
               <RoutedPane menuIcon="Menu" />
             </LauncherNavigationProvider>
           </WindowStateProvider>
         </StartMenuPreferencesProvider>,
       );
-      fireEvent.click(
-        view.getByRole("button", {
-          name: tier === "mobile" ? "Menu" : "Expand navigation rail",
-        }),
-      );
-      const notes = view.getByRole("link", { name: "Notes" });
+      for (const toggle of view.getAllByRole("button", {
+        name: tier === "mobile" ? "Menu" : "Expand navigation rail",
+      }))
+        fireEvent.click(toggle);
+      const launchers = view.getAllByRole("navigation", { name: "Apps" });
+      const lastLauncher = launchers.at(-1);
+      if (!lastLauncher) throw new Error("Missing launcher");
+      const launcher = within(lastLauncher);
+      const notes = launcher.getByRole("link", { name: "Notes" });
       notes.focus();
       if (tier === "tablet") {
         fireEvent.contextMenu(notes);
@@ -134,7 +138,7 @@ for (const tier of ["mobile", "tablet"] as const) {
       await Promise.resolve();
       expect(view.queryByRole("link", { name: "Notes" })).toBeNull();
       expect(document.activeElement).toBe(
-        view.getByRole("link", { name: "Explorer" }),
+        launcher.getByRole("link", { name: "Explorer" }),
       );
     } finally {
       restore();

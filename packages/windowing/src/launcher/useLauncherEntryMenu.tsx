@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import { type MouseEvent, useId } from "react";
 import { DesktopIconMenu } from "../desktop/DesktopIconMenu";
 import type { WindowingIcon } from "../icons/windowingIcon";
 import { useContextMenuState } from "../menu/useContextMenuState";
@@ -9,12 +9,14 @@ export function useLauncherEntryMenu(
   icon: WindowingIcon | undefined,
   onOpen: () => void,
 ) {
+  const menuId = useId();
   const { closeContextMenu, contextMenu, openContextMenu } =
     useContextMenuState<null>();
   const longPress = useLongPress(true, { emulateRightClick: true });
   return {
     triggerProps: {
       ...longPress,
+      "aria-controls": contextMenu ? menuId : undefined,
       onContextMenu(event: MouseEvent<HTMLElement>) {
         event.currentTarget.focus({ preventScroll: true });
         openContextMenu(event, null);
@@ -22,6 +24,7 @@ export function useLauncherEntryMenu(
     },
     menu: contextMenu && (
       <DesktopIconMenu
+        id={menuId}
         icon={icon}
         items={[]}
         onClose={closeContextMenu}

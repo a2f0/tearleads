@@ -178,12 +178,14 @@ function placeMenuInViewport(input: {
 }
 
 export function Menu({
+  id,
   position,
   onClose,
   direction = "up",
   keyboardNavigation = true,
   children,
 }: PropsWithChildren<{
+  id?: string | undefined;
   position: MenuPosition;
   onClose: () => void;
   direction?: "up" | "down";
@@ -267,6 +269,7 @@ export function Menu({
 
   return createPortal(
     <div
+      id={id}
       ref={menuRef}
       className="menu"
       data-scrollable={scrollable || undefined}

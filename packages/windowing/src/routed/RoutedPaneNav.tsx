@@ -65,7 +65,9 @@ function keepFocusInLauncher(link: HTMLAnchorElement | null) {
   if (!link) return;
   return () => {
     const focused = link.ownerDocument.activeElement;
-    if (!focused || (focused !== link && !focused.closest(".menu"))) return;
+    const popupId = link.getAttribute("aria-controls");
+    const popup = popupId ? link.ownerDocument.getElementById(popupId) : null;
+    if (!focused || (focused !== link && !popup?.contains(focused))) return;
     const launcher = link.closest("aside");
     queueMicrotask(() => {
       if (
