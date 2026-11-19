@@ -14,19 +14,25 @@ test("racing two first imports of the same tracker preserves exactly its fixture
   const firstMissing = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   let missing = 0;
+  const missingSessions = new Set<string>();
   let trackerPath = "";
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch: async (request) => {
+    fetch: async (request, server) => {
       const response = await routeApp.fetch(request);
       if (
         new URL(request.url).pathname === trackerPath &&
         response.status === 404
       ) {
+        // Hold this response until the other importer reaches the tracker.
+        // The test deadline bounds the wait even on a slow CI runner.
+        server.timeout(request, 0);
+        const session = request.headers.get("Authorization");
+        if (session) missingSessions.add(session);
         missing++;
         firstMissing.resolve();
-        if (missing === 2) release.resolve();
+        if (missingSessions.size === 2) release.resolve();
         await release.promise;
       }
       return response;
@@ -69,6 +75,7 @@ test("racing two first imports of the same tracker preserves exactly its fixture
     ]);
     const results = await Promise.all([first, seed().finally(release.resolve)]);
     expect(missing).toBe(2);
+    expect(missingSessions.size).toBe(2);
     await onFreshDevice(device, async (stores) => {
       const trackers = stores
         .map((store) => store.getSnapshot())
