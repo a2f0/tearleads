@@ -67,6 +67,7 @@ function getExplorerContextMenuNodeCapabilities(params: {
   const targetTrashId = target.canFallBackToOwnTrash
     ? trashContainerId
     : target.trashContainerId;
+  const targetTrash = nodes.find((node) => node.id === targetTrashId);
 
   return {
     canCreateChildContextMenuNode:
@@ -88,7 +89,7 @@ function getExplorerContextMenuNodeCapabilities(params: {
       canWriteContainerNode(contextMenuNode),
     // "Move to Trash" relocates a user folder (and its whole subtree) into the
     // Trash system container — the folder equivalent of deleting a document.
-    // Offered for a writable, movable, non-root, non-system folder that is not
+    // Offered for an administered, movable, non-root, non-system folder that is not
     // already under Trash (an already-trashed folder is purged, not re-trashed)
     // and only when a Trash target for its org actually exists. No has-children
     // gate: trashing carries the subtree along. Unlike the old leaf hard-delete,
@@ -98,7 +99,8 @@ function getExplorerContextMenuNodeCapabilities(params: {
       contextMenuNode.parentId !== null &&
       (contextMenuNode.systemSlot ?? null) === null &&
       canMoveContainerByRules(rulesContext, contextMenuNode) &&
-      targetTrashId !== null &&
+      targetTrash?.effectiveAccessLevel != null &&
+      canWriteContainerNode(targetTrash) &&
       contextMenuNode.id !== targetTrashId &&
       !contextMenuNodeUnderTrash,
     canMoveContextMenuNode: contextMenuNodeMoveTargets.length > 0,

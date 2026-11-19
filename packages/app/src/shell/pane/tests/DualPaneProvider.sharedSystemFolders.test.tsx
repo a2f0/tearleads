@@ -17,11 +17,16 @@ import {
   waitForSinglePaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
 import {
+  clickExplorerRefresh,
   createNoteInContainer,
   openExplorer,
   refreshUntil,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
-import { addPeerToAdminsGroup } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
+import {
+  addPeerToAdminsGroup,
+  createGroupAndAddPeer,
+  shareContainerWithGroup,
+} from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   listProxiedApiRequests,
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -132,22 +137,16 @@ test(
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
 
-async function clickMoveToTrash(target: HTMLElement) {
+async function openItemMenu(target: HTMLElement) {
   await interact(() => fireEvent.contextMenu(target.closest("tr") ?? target));
   const menu = document.querySelector<HTMLElement>(".menu");
   if (!menu) throw new Error("Missing Explorer context menu");
-  const move = await within(menu).findByRole(
-    "button",
-    { name: "Move to Trash" },
-    { timeout: 10_000 },
-  );
-  expect(move.hasAttribute("disabled")).toBe(false);
-  await interact(() => fireEvent.click(move));
+  return within(menu);
 }
 
-test(
-  "a second admin can move a shared note and folder to the founder organization's Trash from their own org",
-  async () => {
+test.each(["admin", "write"] as const)(
+  "a peer with %s access can trash shared items from their own active organization",
+  async (accessLevel) => {
     useTestApiAppHandlers();
     const trees = new Map<PaneSide, ContainerContentsStore>();
     const view = renderDualPane({
@@ -181,9 +180,19 @@ test(
       .nodes.find((node) => node.name === OWNER_SHARED_FOLDER);
     if (!folder) throw new Error("Shared folder was not created");
     const title = "Shared note to delete";
+    const writers = "Trash writers";
+    if (accessLevel === "write") {
+      await createGroupAndAddPeer(founder, writers, getPaneUserId(peer));
+    }
     await openExplorer(founder);
     await createNoteInContainer(founder, OWNER_SHARED_FOLDER, title);
-    await addPeerToAdminsGroup(founder, getPaneUserId(peer));
+    await openExplorer(peer);
+    if (accessLevel === "admin") {
+      await addPeerToAdminsGroup(founder, getPaneUserId(peer));
+    } else {
+      await shareContainerWithGroup(founder, "/", writers, "write");
+      await clickExplorerRefresh(peer);
+    }
     await waitForCondition(
       async () => {
         await act(async () => {});
@@ -194,14 +203,15 @@ test(
           ) &&
           nodes.some(
             (node) =>
-              node.id === folder.id && node.name === OWNER_SHARED_FOLDER,
+              node.id === folder.id &&
+              node.name === OWNER_SHARED_FOLDER &&
+              node.effectiveAccessLevel === accessLevel,
           )
         );
       },
-      "The peer did not hydrate the shared folder and Trash.",
+      "The peer did not hydrate the shared folder and Trash at the granted access level.",
       30_000,
     );
-    await openExplorer(peer);
     const table = await selectContainerAndWaitForItemTable(
       peer,
       OWNER_SHARED_FOLDER,
@@ -212,7 +222,14 @@ test(
       { timeout: 20_000 },
     );
     const before = listProxiedApiRequests().length;
-    await clickMoveToTrash(note);
+    const noteMenu = await openItemMenu(note);
+    const moveNote = await noteMenu.findByRole(
+      "button",
+      { name: "Move to Trash" },
+      { timeout: 10_000 },
+    );
+    expect(moveNote.hasAttribute("disabled")).toBe(false);
+    await interact(() => fireEvent.click(moveNote));
     await waitForCondition(
       () =>
         listProxiedApiRequests()
@@ -232,7 +249,20 @@ test(
         { timeout: 20_000 },
       ),
     ).toBeTruthy();
-    await clickMoveToTrash(getExplorerSidebarItem(peer, OWNER_SHARED_FOLDER));
+    const folderMenu = await openItemMenu(
+      getExplorerSidebarItem(peer, OWNER_SHARED_FOLDER),
+    );
+    if (accessLevel === "write") {
+      expect(folderMenu.getByRole("button", { name: "Get Info" })).toBeTruthy();
+      expect(
+        folderMenu.queryByRole("button", { name: "Move to Trash" }),
+      ).toBeNull();
+      return;
+    }
+    const moveFolder = folderMenu.getByRole("button", {
+      name: "Move to Trash",
+    });
+    await interact(() => fireEvent.click(moveFolder));
     await waitForCondition(
       async () => {
         await act(async () => {});

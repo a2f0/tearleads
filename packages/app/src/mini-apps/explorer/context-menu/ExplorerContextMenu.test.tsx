@@ -32,6 +32,7 @@ const emptyRulesContext = createExplorerContainerRulesContext({
 
 const rootNode: ContainerNode = {
   id: "root-container",
+  effectiveAccessLevel: "admin",
   kind: "container",
   name: "/",
   organizationId: "org-1",
@@ -269,6 +270,23 @@ test("container move-to-trash gate offers Move to Trash only for a normal folder
     ).toBe(can);
     cleanup();
   }
+});
+
+test("folder move to Trash requires a writable destination", () => {
+  const view = render(
+    <ContainerContextMenuVariantHarness
+      nodeId={userFolderNode.id}
+      nodes={[
+        rootNode,
+        userFolderNode,
+        { ...trashNode, effectiveAccessLevel: "read" },
+      ]}
+    />,
+  );
+  fireEvent.contextMenu(view.getByRole("button", { name: "open" }));
+  expect(
+    view.getByLabelText("Can move to trash context menu node").textContent,
+  ).toBe("false");
 });
 
 test("move-to-trash gate hides for a folder under a DUPLICATE Trash node the resolved id misses", () => {

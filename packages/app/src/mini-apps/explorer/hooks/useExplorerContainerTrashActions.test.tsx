@@ -29,6 +29,7 @@ function node(
 ): ContainerNode {
   return {
     id,
+    effectiveAccessLevel: "admin",
     kind: "container",
     name: id,
     organizationId,

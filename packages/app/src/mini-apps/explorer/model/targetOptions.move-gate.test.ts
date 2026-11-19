@@ -14,6 +14,7 @@ function containerNode(
   overrides: Partial<ContainerNode> & Pick<ContainerNode, "id">,
 ): ContainerNode {
   return {
+    effectiveAccessLevel: "admin",
     kind: "container",
     name: overrides.name ?? overrides.id,
     organizationId: "org-1",

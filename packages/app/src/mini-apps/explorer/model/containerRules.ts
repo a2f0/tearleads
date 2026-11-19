@@ -164,7 +164,10 @@ export function canMoveContainerByRules(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
 ): boolean {
-  return allowedByContainerRule(context, container, "protectFromMove");
+  return (
+    canAdminContainerNode(container) &&
+    resolveContainerRules(context, container)?.protectFromMove !== true
+  );
 }
 
 export function canRenameContainerByRules(
