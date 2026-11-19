@@ -26,7 +26,10 @@ export function useExplorerDocumentViewModel(params: {
   documentListRevision: number;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
-  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  loadDocumentSummary: (
+    localId: string,
+    sourceContainerId?: string,
+  ) => Promise<DocumentSummary | null>;
   loadOrphanedDocumentSummary: (
     localId: string,
   ) => Promise<DocumentSummary | null>;

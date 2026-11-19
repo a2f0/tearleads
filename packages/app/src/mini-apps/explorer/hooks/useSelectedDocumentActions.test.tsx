@@ -48,11 +48,16 @@ const nodes: ReadonlyArray<ContainerNode> = [
   containerNode({ id: CONTACTS_CONTAINER_ID, systemSlot: CONTACTS_SLOT }),
   containerNode({ id: TRASH_CONTAINER_ID, systemSlot: TRASH_SLOT }),
   containerNode({ id: "user-container", name: "Documents" }),
+  containerNode({ id: "read-only-folder", effectiveAccessLevel: "read" }),
 ];
 
 function renderActions(params: {
   documentSummaries: ReadonlyArray<DocumentSummary>;
   linkedContainerIdsByDocumentId?: ReadonlyMap<string, ReadonlyArray<string>>;
+  loadDocumentSummary?: (
+    id: string,
+    containerId?: string,
+  ) => Promise<DocumentSummary | null>;
   loadOrphanedDocumentSummary?: (
     localId: string,
   ) => Promise<DocumentSummary | null>;
@@ -85,8 +90,11 @@ function renderActions(params: {
       documentSummaries,
       expandNode: () => undefined,
       linkedContainerIdsByDocumentId,
-      loadDocumentSummary: async (localId) =>
-        documentSummaries.find((document) => document.id === localId) ?? null,
+      loadDocumentSummary:
+        params.loadDocumentSummary ??
+        (async (localId) =>
+          documentSummaries.find((document) => document.id === localId) ??
+          null),
       loadOrphanedDocumentSummary:
         params.loadOrphanedDocumentSummary ??
         (async (localId) =>
@@ -135,6 +143,46 @@ test("move action allows custom contacts from contacts to trash only", async () 
       targetContainerId: TRASH_CONTAINER_ID,
     }),
   ]);
+});
+
+test("a move from a secondary link rechecks that placement before moving the document", async () => {
+  const document: DocumentSummary = {
+    containerId: "read-only-folder",
+    documentId: "linked-note",
+    id: "local-note",
+    documentKind: "note",
+    title: "Linked note",
+    updatedAt: "2026-11-19T00:00:00Z",
+  };
+  const moves: MoveDocumentToContainerInput[] = [];
+  let linked = true;
+  const view = renderActions({
+    documentSummaries: [document],
+    moves,
+    loadDocumentSummary: async (id, source) =>
+      linked && id === document.id && source === "user-container"
+        ? { ...document, containerId: source }
+        : null,
+  });
+  const options = {
+    sourceContainerId: "user-container",
+    replaceLinkedContainers: true,
+  };
+  await view.result.current.moveDocument(
+    document.id,
+    TRASH_CONTAINER_ID,
+    options,
+  );
+  expect(moves).toHaveLength(1);
+  linked = false;
+  expect(
+    await view.result.current.moveDocument(
+      document.id,
+      TRASH_CONTAINER_ID,
+      options,
+    ),
+  ).toBeNull();
+  expect(moves).toHaveLength(1);
 });
 
 test("move action allows documents without a source container", async () => {

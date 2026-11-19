@@ -4,9 +4,10 @@ import type {
   DocumentSummary,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isFileBackedDocumentKind } from "../../../document-types/registry";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { loadExplorerPlacementSummary } from "../../../stores/explorer/documentPlacementSummary";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
 import type { ExplorerContainerRulesContext } from "../model/containerRules";
 import { getDocumentByLocalId } from "../model/documentSummaries";
@@ -21,45 +22,87 @@ interface ExplorerContextMenuDocumentState {
   canPurgeContextMenuDocument: boolean;
 }
 
-// Listing a row does not load its full summary until the user opens the document.
+// A document may be listed in several containers with different permissions.
 function useContextMenuDocumentSummary(input: {
-  localId: string | null;
+  target: ExplorerContextMenuState["id"] | undefined;
+  currentOrganizationId: string | null;
+  documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: readonly DocumentSummary[];
   mergeDocumentSummary: (summary: DocumentSummary) => void;
   logError: RuntimeSnapshot["util"]["logError"];
 }) {
   const {
-    localId,
+    target,
+    currentOrganizationId,
+    documentListRevision,
     documentQueries,
     documentSummaries,
     mergeDocumentSummary,
     logError,
   } = input;
-  const summary = useMemo(
+  const cached =
+    target?.kind === "document"
+      ? getDocumentByLocalId(documentSummaries, target.localId)
+      : undefined;
+  const request = useMemo(
     () =>
-      localId === null
-        ? undefined
-        : getDocumentByLocalId(documentSummaries, localId),
-    [localId, documentSummaries],
+      target?.kind === "document"
+        ? {
+            target,
+            cached,
+            documentQueries,
+            currentOrganizationId,
+            documentListRevision,
+          }
+        : null,
+    [
+      target,
+      cached,
+      documentQueries,
+      currentOrganizationId,
+      documentListRevision,
+    ],
   );
+  const [loaded, setLoaded] = useState<{
+    request: NonNullable<typeof request>;
+    summary: DocumentSummary | null;
+  } | null>(null);
   useEffect(() => {
-    if (!localId || summary) return;
+    if (!request) return;
     let current = true;
-    void documentQueries
-      .loadDocumentSummary(localId, { requireHydrated: true })
-      .then((row) => {
-        if (current && row) mergeDocumentSummary(row);
-      })
-      .catch((error: unknown) => {
-        if (current)
-          logError("Failed to load the Explorer context menu document", error);
-      });
+    async function load(placement: NonNullable<typeof request>) {
+      const { target, cached, documentQueries, currentOrganizationId } =
+        placement;
+      const summary =
+        cached ??
+        (await documentQueries.loadDocumentSummary(target.localId, {
+          requireHydrated: true,
+        }));
+      if (!current || !summary) return;
+      if (!cached) {
+        mergeDocumentSummary(summary);
+        return;
+      }
+      const row = await loadExplorerPlacementSummary(
+        documentQueries,
+        summary,
+        target.containerId,
+        currentOrganizationId,
+      );
+      if (current) setLoaded({ request: placement, summary: row });
+    }
+    void load(request).catch((error: unknown) => {
+      if (current)
+        logError("Failed to load the Explorer context menu document", error);
+    });
     return () => {
       current = false;
     };
-  }, [localId, summary, documentQueries, mergeDocumentSummary, logError]);
-  return summary;
+  }, [request, mergeDocumentSummary, logError]);
+  return request && loaded?.request === request
+    ? (loaded.summary ?? undefined)
+    : undefined;
 }
 
 // The detail-pane row context menu opens without selecting (selecting would
@@ -69,6 +112,7 @@ function useContextMenuDocumentSummary(input: {
 export function useExplorerContextMenuDocumentState(params: {
   appData: RuntimeSnapshot;
   canResolveTrashContainer: boolean;
+  documentListRevision: number;
   contextMenu: ExplorerContextMenuState | null;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   documentQueries: ContainerDocumentQueries;
@@ -90,10 +134,10 @@ export function useExplorerContextMenuDocumentState(params: {
     trashContainerId,
     trashSystemSlot,
   } = params;
-  const targetLocalId =
-    contextMenu?.id.kind === "document" ? contextMenu.id.localId : null;
   const targetDocument = useContextMenuDocumentSummary({
-    localId: targetLocalId,
+    target: contextMenu?.id,
+    documentListRevision: params.documentListRevision,
+    currentOrganizationId: rulesContext.currentOrganizationId ?? null,
     documentSummaries,
     documentQueries: params.documentQueries,
     mergeDocumentSummary: params.mergeDocumentSummary,
@@ -102,7 +146,6 @@ export function useExplorerContextMenuDocumentState(params: {
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
     useDocumentTargetOptions({
       document: targetDocument,
-      documentSummaries,
       linkedContainerIdsByDocumentId,
       nodes,
       rulesContext,

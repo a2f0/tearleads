@@ -278,6 +278,7 @@ export function useExplorerModel(
   });
   const contextMenuDocumentState = useExplorerContextMenuDocumentState({
     appData,
+    documentListRevision,
     canResolveTrashContainer: explorer.canResolveTrashContainer,
     contextMenu: contextMenuState.contextMenu,
     documentQueries,
