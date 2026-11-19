@@ -215,3 +215,36 @@ test("a second tab can hide the focused phone launcher entry", async ({
   await expect(explorer).toHaveCount(0);
   await expect(launcher.getByRole("link").first()).toBeFocused();
 });
+
+test.describe("touch Start button", () => {
+  test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+  test("holding Start opens its settings menu and releasing keeps the launcher closed", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/app/explorer");
+    const start = page.getByRole("button", { name: "Menu", exact: true });
+    await expect(start).toBeVisible();
+    const bounds = await start.boundingBox();
+    if (!bounds) throw new Error("Missing Start button bounds");
+    const session = await context.newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
+      ],
+    });
+    const settings = page.getByRole("button", { name: "Start menu settings" });
+    await expect(settings).toBeVisible();
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await expect(start).toHaveAttribute("aria-expanded", "false");
+    await settings.tap();
+    await expect(
+      page.getByRole("tab", { name: "Start menu", selected: true }),
+    ).toBeVisible();
+  });
+});
