@@ -138,7 +138,11 @@ test("a retired writer sends no bytes after part authorization", async () => {
         }),
       };
     },
-    { reportFailure: () => {} },
+    {
+      reportFailure: (): never => {
+        throw new Error("Unexpected transfer failure report");
+      },
+    },
   );
   await expect(
     uploadMultipartBlobPartBytes(createOperationTransport(request), id, 1, {
