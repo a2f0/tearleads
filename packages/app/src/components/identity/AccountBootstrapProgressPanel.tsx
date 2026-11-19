@@ -1,64 +1,120 @@
 import { type FormEvent, useState } from "react";
 import type { AccountBootstrapCopy } from "../../identity/accountBootstrapPhase";
-import { normalizeAccountName } from "../../identity/accountNamingMachine";
 import { useAutoProvisioningStatus } from "../../identity/autoProvisioningStatus";
+import { useRecoveryKeyPrivacy } from "../../identity/useRecoveryKeyPrivacy";
 import {
   MiniAppButton,
   MiniAppInput,
   MiniAppStatePanel,
   MiniAppStatus,
+  MiniAppTextarea,
+  MiniAppToolbar,
 } from "../mini-app/MiniAppLayout";
 import "./AccountBootstrapProgressPanel.css";
 
-function AccountNamePrompt({ copy }: { copy: AccountBootstrapCopy }) {
-  const { accountNaming, submitAccountName } = useAutoProvisioningStatus();
+function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
+  const { accountNaming, onboarding, submitAccountName } =
+    useAutoProvisioningStatus();
+  const restoring = copy.phase === "entering-passphrase";
   const error =
-    accountNaming.status === "awaiting" ? accountNaming.error : undefined;
-  const [name, setName] = useState("");
-  const canSubmit = normalizeAccountName(name) !== null;
-
+    onboarding && "error" in onboarding.state
+      ? onboarding.state.error
+      : accountNaming.status === "awaiting"
+        ? accountNaming.error
+        : undefined;
+  const [value, setValue] = useState("");
+  useRecoveryKeyPrivacy(() => {
+    if (restoring) setValue("");
+  });
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (canSubmit) {
-      submitAccountName(name);
+    if (!value.trim()) return;
+    if (onboarding) {
+      onboarding.submit(
+        restoring ? "entering-passphrase" : "naming-account",
+        value,
+      );
+    } else if (!restoring) {
+      submitAccountName(value);
     }
   };
-
   return (
     <MiniAppStatePanel description={copy.description} title={copy.title}>
-      <form className="account-name-prompt" onSubmit={submit}>
-        <MiniAppInput
-          aria-label={copy.title}
-          autoComplete="nickname"
-          onChange={(event) => setName(event.currentTarget.value)}
-          placeholder="Bob"
-          value={name}
-        />
-        <MiniAppButton disabled={!canSubmit} type="submit">
-          Continue
-        </MiniAppButton>
+      <form className="identity-onboarding-form" onSubmit={submit}>
+        {restoring ? (
+          <MiniAppTextarea
+            aria-label="Recovery passphrase"
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            rows={3}
+            value={value}
+            onChange={(event) => setValue(event.currentTarget.value)}
+          />
+        ) : (
+          <MiniAppInput
+            aria-label={copy.title}
+            autoComplete="nickname"
+            onChange={(event) => setValue(event.currentTarget.value)}
+            placeholder="Bob"
+            value={value}
+          />
+        )}
+        <MiniAppToolbar>
+          {onboarding && (
+            <MiniAppButton
+              type="button"
+              variant="ghost"
+              onClick={() => onboarding.navigate("choosing-identity")}
+            >
+              Back
+            </MiniAppButton>
+          )}
+          <MiniAppButton disabled={!value.trim()} type="submit">
+            {restoring ? "Restore from passphrase" : "Continue"}
+          </MiniAppButton>
+        </MiniAppToolbar>
       </form>
-      {error ? (
+      {error && (
         <MiniAppStatus role="alert" tone="error">
           {error}
         </MiniAppStatus>
-      ) : null}
+      )}
     </MiniAppStatePanel>
   );
 }
 
-/**
- * The whole-surface state of an account that is still bootstrapping: the
- * "What should we call you?" prompt while registration waits for a name, and
- * the phase's progress with a spinner otherwise.
- */
 export function AccountBootstrapProgressPanel({
   progress,
 }: {
   progress: AccountBootstrapCopy;
 }) {
-  if (progress.phase === "naming-account") {
-    return <AccountNamePrompt copy={progress} />;
+  const { onboarding } = useAutoProvisioningStatus();
+  if (progress.phase === "choosing-identity" && onboarding) {
+    return (
+      <MiniAppStatePanel
+        description={progress.description}
+        title={progress.title}
+      >
+        <MiniAppToolbar>
+          <MiniAppButton onClick={() => onboarding.navigate("naming-account")}>
+            Create new identity
+          </MiniAppButton>
+          <MiniAppButton
+            onClick={() => onboarding.navigate("entering-passphrase")}
+          >
+            Restore identity
+          </MiniAppButton>
+        </MiniAppToolbar>
+      </MiniAppStatePanel>
+    );
+  }
+  if (
+    progress.phase === "naming-account" ||
+    progress.phase === "entering-passphrase"
+  ) {
+    return <IdentityForm key={progress.phase} copy={progress} />;
   }
   return (
     <MiniAppStatePanel

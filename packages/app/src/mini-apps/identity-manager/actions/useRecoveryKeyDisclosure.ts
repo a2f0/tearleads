@@ -3,6 +3,7 @@ import {
   createSeedPhraseFileName,
   downloadSeedPhraseFile,
 } from "../../../identity/seedPhraseBackup";
+import { useRecoveryKeyPrivacy } from "../../../identity/useRecoveryKeyPrivacy";
 import { useFileSaver } from "../../../providers/file-saver/FileSaverProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
@@ -11,7 +12,6 @@ import {
   RECOVERY_KEY_DISCLOSURES,
   type RecoveryKeyDisclosure,
 } from "./recoveryKeyDisclosure";
-import { useRecoveryKeyPrivacy } from "./useRecoveryKeyPrivacy";
 import type { RecoveryKeyFeedback } from "./useRecoveryKeyRestore";
 
 async function copyRecoveryKey(recoveryKey: string) {

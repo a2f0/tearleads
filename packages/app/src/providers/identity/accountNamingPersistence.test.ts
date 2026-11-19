@@ -7,7 +7,7 @@ import {
   clearPersistedAccountNamingForIdentity,
   loadPersistedAccountNaming,
   savePersistedAccountNaming,
-  sealPendingAccountNaming,
+  sealNewAccountName,
 } from "./accountNamingPersistence";
 
 const NAMESPACE = "account-naming-test";
@@ -26,12 +26,13 @@ function persistence(): AccountNamingPersistence {
   };
 }
 
-test("sealing a new identity's prompt leaves the host's shared keyring open", async () => {
+test("sealing a new identity's name leaves the host's shared keyring open", async () => {
   const shared = createSharedMemoryLocalKeyringFactory()();
   const close = mock(() => {});
   const keyring = { ...shared, close };
-  await sealPendingAccountNaming({
+  await sealNewAccountName({
     createLocalKeyring: () => keyring,
+    name: "Bob",
     namespace: NAMESPACE,
     signingFingerprint: FINGERPRINT,
   });
@@ -41,7 +42,7 @@ test("sealing a new identity's prompt leaves the host's shared keyring open", as
       { ...persistence(), keyring },
       FINGERPRINT,
     ),
-  ).toEqual({ status: "awaiting" });
+  ).toEqual({ name: "Bob", status: "named" });
 });
 
 test("removing an identity drops its sealed name, even a seal still in flight", async () => {

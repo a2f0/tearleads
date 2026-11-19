@@ -1,11 +1,11 @@
 import { type FormEvent, useRef, useState } from "react";
 import { parseSeedPhraseFileText } from "../../../identity/seedPhraseBackup";
+import { useRecoveryKeyPrivacy } from "../../../identity/useRecoveryKeyPrivacy";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
-import { useRecoveryKeyPrivacy } from "./useRecoveryKeyPrivacy";
 
 export type RecoveryKeyBusyState = "restore" | null;
 

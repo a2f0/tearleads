@@ -11,6 +11,7 @@ import {
 } from "../../components/mini-app/MiniAppLayout";
 import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
+import { useAutoProvisioningStatus } from "../../identity/autoProvisioningStatus";
 import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import "./IdentityManager.css";
 import { useIdentityManager } from "./IdentityManagerController";
@@ -221,5 +222,15 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
 }
 
 export function IdentityManager() {
-  return <IdentityManagerLayout {...useIdentityManager()} />;
+  const model = useIdentityManager();
+  const progress = useAccountBootstrapProgress();
+  const { onboarding } = useAutoProvisioningStatus();
+  if (onboarding && progress) {
+    return (
+      <MiniAppRoot className="identity-manager">
+        <AccountBootstrapProgressPanel progress={progress} />
+      </MiniAppRoot>
+    );
+  }
+  return <IdentityManagerLayout {...model} />;
 }
