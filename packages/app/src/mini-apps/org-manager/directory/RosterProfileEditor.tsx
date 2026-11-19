@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
   MiniAppInput,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { readContactFields } from "../../../document-types/contact/contactDocumentModel";
@@ -25,6 +26,8 @@ import {
   ProfileReadOnlyField,
   useProfileDocumentLink,
 } from "../profile/profileDocumentEditor";
+
+const ROSTER_NAME_FIELDS = ["nickname", "firstName", "lastName"] as const;
 
 // Adopts a changed stored value during render. An effect would also run after
 // mount, once the field is already painted and editable, and replace a first
@@ -138,56 +141,41 @@ function RosterProfileDocumentFields({
           {ORG_MANAGER_LABELS.profileDocumentUnavailable}
         </MiniAppStatus>
       ) : !ready || !profileLinkReady ? (
-        <MiniAppStatus>
-          {ORG_MANAGER_LABELS.loadingProfileDocument}
-        </MiniAppStatus>
+        <MiniAppStatePanel
+          busy
+          title={ORG_MANAGER_LABELS.loadingProfileDocument}
+        />
       ) : canEditFields ? (
         <div className="org-manager-roster-profile-fields">
-          <RosterProfileTextField
-            disabled={disabled}
-            label={ORG_MANAGER_LABELS.nickname}
-            value={fields.nickname}
-            onCommit={(nickname) => {
-              void setStructuredFields("contact", { nickname });
-            }}
-          />
-          <RosterProfileTextField
-            disabled={disabled}
-            label={ORG_MANAGER_LABELS.firstName}
-            value={fields.firstName}
-            onCommit={(firstName) => {
-              void setStructuredFields("contact", { firstName });
-            }}
-          />
-          <RosterProfileTextField
-            disabled={disabled}
-            label={ORG_MANAGER_LABELS.lastName}
-            value={fields.lastName}
-            onCommit={(lastName) => {
-              void setStructuredFields("contact", { lastName });
-            }}
-          />
+          {ROSTER_NAME_FIELDS.map((field) => (
+            <RosterProfileTextField
+              key={field}
+              disabled={disabled}
+              label={ORG_MANAGER_LABELS[field]}
+              value={fields[field]}
+              onCommit={(value) => {
+                void setStructuredFields("contact", { [field]: value });
+              }}
+            />
+          ))}
         </div>
       ) : (
         <div className="org-manager-roster-profile-read-fields">
-          <ProfileReadOnlyField
-            label={ORG_MANAGER_LABELS.nickname}
-            value={fields.nickname}
-          />
-          <ProfileReadOnlyField
-            label={ORG_MANAGER_LABELS.firstName}
-            value={fields.firstName}
-          />
-          <ProfileReadOnlyField
-            label={ORG_MANAGER_LABELS.lastName}
-            value={fields.lastName}
-          />
+          {ROSTER_NAME_FIELDS.map((field) => (
+            <ProfileReadOnlyField
+              key={field}
+              label={ORG_MANAGER_LABELS[field]}
+              value={fields[field]}
+            />
+          ))}
         </div>
       )}
-      {ready && syncing && (
-        <MiniAppStatus>
-          {ORG_MANAGER_LABELS.syncingProfileDocument}
-        </MiniAppStatus>
+      {profileLinkReady && syncing && (
+        <MiniAppStatePanel
+          busy
+          className="org-manager-profile-cover"
+          title={ORG_MANAGER_LABELS.syncingProfileDocument}
+        />
       )}
     </div>
   );
@@ -220,22 +208,28 @@ export function RosterProfileEditor({
   });
 
   if (!user.profileDocumentId) {
-    return (
+    return canEdit ? (
+      <MiniAppStatePanel
+        busy
+        title={ORG_MANAGER_LABELS.loadingProfileDocument}
+      />
+    ) : (
       <MiniAppStatus>
-        {canEdit
-          ? ORG_MANAGER_LABELS.loadingProfileDocument
-          : ORG_MANAGER_LABELS.profileDocumentUnavailable}
+        {ORG_MANAGER_LABELS.profileDocumentUnavailable}
       </MiniAppStatus>
     );
   }
 
   if (binding.status !== "ready") {
-    return (
+    return binding.status === "unavailable" ? (
       <MiniAppStatus>
-        {binding.status === "unavailable"
-          ? ORG_MANAGER_LABELS.profileDocumentUnavailable
-          : ORG_MANAGER_LABELS.loadingProfileDocument}
+        {ORG_MANAGER_LABELS.profileDocumentUnavailable}
       </MiniAppStatus>
+    ) : (
+      <MiniAppStatePanel
+        busy
+        title={ORG_MANAGER_LABELS.loadingProfileDocument}
+      />
     );
   }
 

@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
   type MiniAppTabDescriptor,
   MiniAppTabList,
@@ -134,9 +135,10 @@ export function BillingHistory({
       <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
         {error ? <MiniAppStatus tone="error">{error}</MiniAppStatus> : null}
         {!error && loading ? (
-          <MiniAppStatus className="org-manager-hint">
-            {ORG_MANAGER_LABELS.loadingBillingHistory}
-          </MiniAppStatus>
+          <MiniAppStatePanel
+            busy
+            title={ORG_MANAGER_LABELS.loadingBillingHistory}
+          />
         ) : null}
         {!error && !loading ? (
           activeTab === "activity" ? (

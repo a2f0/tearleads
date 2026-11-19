@@ -7,6 +7,7 @@ import {
   MiniAppButton,
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -345,11 +346,11 @@ function BillingAdminActions({
 
 export function BillingView({ loading, view, ...rest }: BillingViewProps) {
   if (!view) {
-    return (
+    return loading ? (
+      <MiniAppStatePanel busy title={ORG_MANAGER_LABELS.loadingBilling} />
+    ) : (
       <MiniAppStatus className="org-manager-hint">
-        {loading
-          ? ORG_MANAGER_LABELS.loadingBilling
-          : ORG_MANAGER_LABELS.billingUnavailable}
+        {ORG_MANAGER_LABELS.billingUnavailable}
       </MiniAppStatus>
     );
   }

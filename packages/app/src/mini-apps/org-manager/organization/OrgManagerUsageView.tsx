@@ -7,6 +7,7 @@ import { useId, useState } from "react";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
   type MiniAppTabDescriptor,
   MiniAppTabList,
@@ -75,9 +76,10 @@ function DeviceDataUsageContent({ state }: { state: DeviceDataUsageState }) {
   switch (state.status) {
     case "loading":
       return (
-        <MiniAppStatus busy>
-          {DATA_USAGE_LABELS.loadingDeviceDataUsage}
-        </MiniAppStatus>
+        <MiniAppStatePanel
+          busy
+          title={DATA_USAGE_LABELS.loadingDeviceDataUsage}
+        />
       );
     case "unavailable":
       return (

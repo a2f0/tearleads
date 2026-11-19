@@ -113,7 +113,7 @@ export function DirectoryView({
 
   return (
     <>
-      <section className="org-manager-panel">
+      <section className="org-manager-panel org-manager-profile-panel">
         <UserDetailView
           canEditRosterProfile={canUpdateSelectedRosterEntry}
           canRevokeGrants={canRevokeGrants}

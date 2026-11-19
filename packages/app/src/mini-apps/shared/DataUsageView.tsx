@@ -2,6 +2,7 @@ import type { OrganizationDataUsage } from "@tearleads/client-sdk";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../components/mini-app/MiniAppLayout";
 import {
@@ -34,12 +35,10 @@ export function DataUsageView({
   pending: boolean;
 }) {
   if (!dataUsage) {
-    return (
-      <MiniAppStatus>
-        {pending
-          ? DATA_USAGE_LABELS.loadingDataUsage
-          : DATA_USAGE_LABELS.usageUnavailable}
-      </MiniAppStatus>
+    return pending ? (
+      <MiniAppStatePanel busy title={DATA_USAGE_LABELS.loadingDataUsage} />
+    ) : (
+      <MiniAppStatus>{DATA_USAGE_LABELS.usageUnavailable}</MiniAppStatus>
     );
   }
 
