@@ -22,7 +22,6 @@ import {
   getExplorerSidebarItemsByName,
   getExplorerWindowRoot,
   interact,
-  listExplorerContainerItems,
   openExplorerViewMenu,
   queryExplorerItemTable,
   SHARED_NOTE_TITLE,
@@ -474,24 +473,12 @@ export async function refreshUntil(
 
 export async function selectPeerSharedContainer(
   pane: HTMLElement,
-  preferredName: string,
+  name: string,
 ) {
   await refreshUntil(
     pane,
-    () => listExplorerContainerItems(pane).length > 1,
-    "Peer did not discover a shared child container.",
+    () => getExplorerSidebarItemsByName(pane, name).length > 0,
+    `Peer did not discover the shared container "${name}".`,
   );
-
-  const sharedContainer =
-    listExplorerContainerItems(pane).find(
-      (button) => button.textContent?.trim() === preferredName,
-    ) ??
-    listExplorerContainerItems(pane).find(
-      (button) => button.textContent?.trim() !== "/",
-    );
-
-  invariant(sharedContainer, "Expected peer shared container item.");
-  await interact(() => {
-    fireEvent.click(sharedContainer);
-  });
+  await selectContainerAndWaitForItemTable(pane, name);
 }
