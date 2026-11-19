@@ -113,19 +113,14 @@
   white-space: nowrap;
 }
 
-/* System Tray: one row per tray app, its name and an on/off switch. The rows
+/* Each app has one row with its name and an on/off switch. The rows
  * stay narrow so a wide window does not set a switch far from its name. */
-.display-properties-tray-apps {
+.display-properties-tray-apps,
+.display-properties-menu-apps {
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
   max-width: 24rem;
-}
-
-.display-properties-menu-apps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
-  gap: var(--space-2xs);
 }
 
 .display-properties-app-switch {
