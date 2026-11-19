@@ -23,7 +23,9 @@ switch. This folder supplies the apps:
 - [`AppSystemTray.tsx`](AppSystemTray.tsx) — the tray the windowed footer and
   routed taskbar render, with a Settings item in each app's menu.
 - One folder per tray app: [`theme/`](theme/),
-  [`navigation-mode/`](navigation-mode/), and [`sync-status/`](sync-status/).
+  [`navigation-mode/`](navigation-mode/), [`sync-status/`](sync-status/), and
+  [`network-control/`](network-control/). Enable **Network Control** in Settings
+  to force the current pane online or offline, or restore automatic detection.
 
 ## Layout standard
 

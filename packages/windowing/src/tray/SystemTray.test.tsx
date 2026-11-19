@@ -71,9 +71,9 @@ test("shows the apps in order, and a context menu turns one off for good", () =>
 
   expect(trayControls(view.container)).toEqual(["Volume"]);
   expect(document.querySelector(".menu")).toBeNull();
-  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([
-    "clock",
-  ]);
+  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual({
+    clock: false,
+  });
 
   cleanup();
   const remounted = render(<SystemTray />, { wrapper: Providers });
@@ -125,7 +125,9 @@ test("Display Properties switches each tray app off and back on", () => {
   fireEvent.click(volume);
   expect(volume).toHaveProperty("checked", true);
   expect(view.getByRole("button", { name: "Volume" })).toBeDefined();
-  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([]);
+  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual({
+    volume: true,
+  });
 });
 
 // A host's Reset Defaults turns every app back on from one click.
@@ -159,7 +161,10 @@ test("turning several apps back on in one event keeps every change", () => {
   fireEvent.click(view.getByRole("button", { name: "Turn every app on" }));
 
   expect(trayControls(view.container)).toEqual(["Volume", "12:00"]);
-  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual([]);
+  expect(JSON.parse(localStorage.getItem(TRAY_KEY) ?? "null")).toEqual({
+    clock: true,
+    volume: true,
+  });
 });
 
 test("unreadable storage leaves every app on", () => {
