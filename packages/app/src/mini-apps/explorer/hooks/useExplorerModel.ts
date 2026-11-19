@@ -50,6 +50,7 @@ interface ExplorerModel {
   canDeleteContextMenuDocument: boolean;
   canDeleteSelectedDocument: boolean;
   canDownloadContextMenuDocument: boolean;
+  canEditContextMenuContact: boolean;
   canLinkContextMenuDocument: boolean;
   canLinkSelectedDocument: boolean;
   canMoveContextMenuDocument: boolean;
@@ -281,6 +282,7 @@ export function useExplorerModel(
     canResolveTrashContainer: explorer.canResolveTrashContainer,
     contextMenu: contextMenuState.contextMenu,
     documentSummaries,
+    loadDocumentSummary,
     linkedContainerIdsByDocumentId,
     nodes: explorer.nodes,
     rulesContext,
@@ -364,17 +366,8 @@ export function useExplorerModel(
     canCreateContactInActiveContainer,
     canCreateStructuredDocumentInActiveContainer,
     canUploadToActiveContainer,
-    canDeleteContextMenuDocument:
-      contextMenuDocumentState.canDeleteContextMenuDocument,
-    canDownloadContextMenuDocument:
-      contextMenuDocumentState.canDownloadContextMenuDocument,
-    canLinkContextMenuDocument:
-      contextMenuDocumentState.canLinkContextMenuDocument,
-    canMoveContextMenuDocument:
-      contextMenuDocumentState.canMoveContextMenuDocument,
+    ...contextMenuDocumentState,
     canMutateDocumentLinks,
-    canPurgeContextMenuDocument:
-      contextMenuDocumentState.canPurgeContextMenuDocument,
     canShareWithPeer,
     consumeInitialDocumentEditing,
     contactAvatarUrlByLocalId,

@@ -83,6 +83,8 @@ export function ExplorerContextMenuLayerHarness(params: {
   return (
     <IdentityLinkResolverContext.Provider value={resolver}>
       <ExplorerContextMenuLayer
+        canEditContextMenuContact={false}
+        editContact={() => {}}
         canDeleteSelectedDocument={params.canDeleteSelectedDocument ?? false}
         canDownloadSelectedDocument={
           params.canDownloadSelectedDocument ?? false

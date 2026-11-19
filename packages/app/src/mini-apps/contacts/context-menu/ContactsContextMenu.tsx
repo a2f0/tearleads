@@ -1,4 +1,5 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
+import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import { UserMinusIcon } from "@phosphor-icons/react/dist/csr/UserMinus";
 import { type ContextMenuState, Menu, MenuItem } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useMemo } from "react";
@@ -28,6 +29,7 @@ function contactTarget(contactId: string): ContactsContextMenuTarget {
 }
 
 export interface ContactsContextMenuModel {
+  canEditContextMenuContact: boolean;
   canRemoveContextMenuContact: boolean;
   closeContextMenu: () => void;
   contextMenuContactUserId: string | null;
@@ -74,12 +76,12 @@ export function useContactsContextMenu(params: {
     contextMenu?.id.kind === "contact"
       ? entriesById.get(contextMenu.id.contactId)
       : undefined;
+  const canEditContextMenuContact =
+    contextMenuEntry !== undefined && contextMenuEntry.canWrite !== false;
   // `absent` (no signing identity) has no Me to protect from removal.
   const canRemoveContextMenuContact = Boolean(
     canWrite &&
-      contextMenu?.id.kind === "contact" &&
-      contextMenuEntry !== undefined &&
-      contextMenuEntry.canWrite !== false &&
+      canEditContextMenuContact &&
       selfContactIdentityAdmission(selfContactIdentity) !== null &&
       !(
         selfContactIdentity.status === "ready" &&
@@ -89,10 +91,6 @@ export function useContactsContextMenu(params: {
         )
       ),
   );
-  const contextMenuContactUserId =
-    contextMenu?.id.kind === "contact"
-      ? (contextMenuEntry?.userId ?? null)
-      : null;
 
   const removeContextMenuContact = useCallback(async () => {
     const admission = selfContactIdentityAdmission(selfContactIdentity);
@@ -126,9 +124,10 @@ export function useContactsContextMenu(params: {
   ]);
 
   return {
+    canEditContextMenuContact,
     canRemoveContextMenuContact,
     closeContextMenu,
-    contextMenuContactUserId,
+    contextMenuContactUserId: contextMenuEntry?.userId ?? null,
     contextMenu,
     handleAreaContextMenu,
     handleSidebarContextMenu,
@@ -137,6 +136,8 @@ export function useContactsContextMenu(params: {
 }
 
 export function ContactsContextMenuLayer(params: {
+  editContact: (contactId: string) => void;
+  canEditContextMenuContact: boolean;
   canRemoveContextMenuContact: boolean;
   canWrite: boolean;
   closeContextMenu: () => void;
@@ -163,13 +164,14 @@ export function ContactsContextMenuLayer(params: {
     return null;
   }
 
+  const target = contextMenu.id;
   return (
     <Menu
       position={contextMenu.position}
       onClose={closeContextMenu}
       direction="down"
     >
-      {contextMenu.id.kind === "area" ? (
+      {target.kind === "area" ? (
         <>
           <MenuItem
             icon={NewContactIcon}
@@ -192,6 +194,15 @@ export function ContactsContextMenuLayer(params: {
         </>
       ) : (
         <>
+          <MenuItem
+            icon={PencilSimpleIcon}
+            label={CONTACTS_LABELS.editAction}
+            disabled={!ready || !params.canEditContextMenuContact}
+            onClick={() => {
+              closeContextMenu();
+              params.editContact(target.contactId);
+            }}
+          />
           <CopyIdentityLinkMenuItem
             onSelect={closeContextMenu}
             userId={contextMenuContactUserId}

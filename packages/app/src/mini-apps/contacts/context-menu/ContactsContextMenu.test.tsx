@@ -61,6 +61,8 @@ function ContactsContextMenuLayerHarness(params: {
   return (
     <TestIdentityLinkResolver links={VERIFIED_LINKS}>
       <ContactsContextMenuLayer
+        canEditContextMenuContact={true}
+        editContact={() => undefined}
         canRemoveContextMenuContact={params.canRemoveContextMenuContact ?? true}
         canWrite={true}
         closeContextMenu={() => setContextMenu(null)}

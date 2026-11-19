@@ -1,15 +1,20 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { isFileBackedDocumentKind } from "../../../document-types/registry";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
 import type { ExplorerContextMenuState } from "../context-menu/ExplorerContextMenu";
-import type { ExplorerContainerRulesContext } from "../model/containerRules";
+import {
+  canWriteDocumentSummary,
+  type ExplorerContainerRulesContext,
+} from "../model/containerRules";
 import { getDocumentByLocalId } from "../model/documentSummaries";
 import { getSelectedDocumentMutationState } from "./selectedDocumentMutationState";
 import { useDocumentTargetOptions } from "./useSelectedDocumentStructuralState";
 
 interface ExplorerContextMenuDocumentState {
+  canEditContextMenuContact: boolean;
   canDeleteContextMenuDocument: boolean;
   canDownloadContextMenuDocument: boolean;
   canLinkContextMenuDocument: boolean;
@@ -26,6 +31,7 @@ export function useExplorerContextMenuDocumentState(params: {
   canResolveTrashContainer: boolean;
   contextMenu: ExplorerContextMenuState | null;
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   linkedContainerIdsByDocumentId: ReadonlyMap<string, ReadonlyArray<string>>;
   nodes: ReadonlyArray<ContainerNode>;
   rulesContext: ExplorerContainerRulesContext;
@@ -38,6 +44,7 @@ export function useExplorerContextMenuDocumentState(params: {
     contextMenu,
     documentSummaries,
     linkedContainerIdsByDocumentId,
+    loadDocumentSummary,
     nodes,
     rulesContext,
     trashContainerId,
@@ -52,6 +59,16 @@ export function useExplorerContextMenuDocumentState(params: {
         : getDocumentByLocalId(documentSummaries, targetLocalId),
     [documentSummaries, targetLocalId],
   );
+  // A row in the virtualized listing can open its menu before its summary
+  // has been loaded by a document selection.
+  const { logError } = appData.util;
+  useEffect(() => {
+    if (targetLocalId && !targetDocument) {
+      void loadDocumentSummary(targetLocalId).catch((error: unknown) =>
+        logError("Failed to load the Explorer menu document", error),
+      );
+    }
+  }, [loadDocumentSummary, logError, targetDocument, targetLocalId]);
   const { linkTargetOptions, linkedContainerIds, moveTargetOptions } =
     useDocumentTargetOptions({
       document: targetDocument,
@@ -89,6 +106,15 @@ export function useExplorerContextMenuDocumentState(params: {
   );
 
   return {
+    canEditContextMenuContact:
+      contextMenu?.id.kind === "document" &&
+      appData.infra.dbStatus === "ready" &&
+      targetDocument?.documentKind === "contact" &&
+      canWriteDocumentSummary(targetDocument) &&
+      !isContainerUnderTrash(nodes, contextMenu.id.containerId, {
+        currentOrganizationId: rulesContext.currentOrganizationId,
+        trashSystemSlot,
+      }),
     canDeleteContextMenuDocument: mutationState.canDeleteSelectedDocument,
     // Download only needs the file's local bytes, so it is gated on a ready
     // database and a file-backed kind — not on write access or being online.

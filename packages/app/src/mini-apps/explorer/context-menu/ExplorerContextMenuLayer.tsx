@@ -45,6 +45,7 @@ function isExplorerContainerContextMenu(
 interface ExplorerDocumentContextMenuProps {
   canDeleteSelectedDocument: boolean;
   canDownloadSelectedDocument: boolean;
+  canEditContextMenuContact: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canPurgeSelectedDocument: boolean;
@@ -53,6 +54,7 @@ interface ExplorerDocumentContextMenuProps {
   contextMenuContactUserId: string | null;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument: (localId: string) => void;
+  editContact: (localId: string, containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
   openLinkDocumentModal: (localId: string) => void;
   openMoveDocumentModal: (localId: string) => void;
@@ -60,23 +62,8 @@ interface ExplorerDocumentContextMenuProps {
 }
 
 function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
-  const {
-    canDeleteSelectedDocument,
-    canDownloadSelectedDocument,
-    canLinkSelectedDocument,
-    canMoveSelectedDocument,
-    canPurgeSelectedDocument,
-    closeContextMenu,
-    contextMenu,
-    contextMenuContactUserId,
-    deleteDocument,
-    downloadDocument,
-    openDocumentInfoRoute,
-    openLinkDocumentModal,
-    openMoveDocumentModal,
-    purgeDocument,
-  } = params;
-
+  const { closeContextMenu, contextMenu } = params;
+  const { localId, containerId } = contextMenu.id;
   return (
     <Menu
       position={contextMenu.position}
@@ -88,62 +75,60 @@ function ExplorerDocumentContextMenu(params: ExplorerDocumentContextMenuProps) {
         label={EXPLORER_LABELS.documentInfoGetInfoAction}
         onClick={() => {
           closeContextMenu();
-          openDocumentInfoRoute(
-            contextMenu.id.localId,
-            contextMenu.id.containerId,
-          );
+          params.openDocumentInfoRoute(localId, containerId);
         }}
+      />
+      <ExplorerOptionalMenuItem
+        closeContextMenu={closeContextMenu}
+        icon={PencilSimpleIcon}
+        label="Edit"
+        diagnosticAction="edit"
+        disabled={!params.canEditContextMenuContact}
+        onSelect={() => params.editContact(localId, containerId)}
       />
       <CopyIdentityLinkMenuItem
         onSelect={closeContextMenu}
-        userId={contextMenuContactUserId}
+        userId={params.contextMenuContactUserId}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
         icon={DownloadSimpleIcon}
         label={EXPLORER_LABELS.documentDownloadAction}
         diagnosticAction="export"
-        disabled={!canDownloadSelectedDocument}
-        onSelect={() => downloadDocument(contextMenu.id.localId)}
+        disabled={!params.canDownloadSelectedDocument}
+        onSelect={() => params.downloadDocument(localId)}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
         icon={LinkSimpleIcon}
         label={EXPLORER_LABELS.documentLinkAction}
         diagnosticAction="share"
-        disabled={!canLinkSelectedDocument}
-        onSelect={() => openLinkDocumentModal(contextMenu.id.localId)}
+        disabled={!params.canLinkSelectedDocument}
+        onSelect={() => params.openLinkDocumentModal(localId)}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
         icon={ArrowsOutCardinalIcon}
         label={EXPLORER_LABELS.documentMoveAction}
         diagnosticAction="move"
-        disabled={!canMoveSelectedDocument}
-        onSelect={() => openMoveDocumentModal(contextMenu.id.localId)}
+        disabled={!params.canMoveSelectedDocument}
+        onSelect={() => params.openMoveDocumentModal(localId)}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
         icon={TrashIcon}
         label={EXPLORER_LABELS.documentDeleteAction}
         diagnosticAction="move-to-trash"
-        disabled={!canDeleteSelectedDocument}
-        onSelect={() =>
-          void deleteDocument(
-            contextMenu.id.localId,
-            contextMenu.id.containerId,
-          )
-        }
+        disabled={!params.canDeleteSelectedDocument}
+        onSelect={() => void params.deleteDocument(localId, containerId)}
       />
       <ExplorerOptionalMenuItem
         closeContextMenu={closeContextMenu}
         icon={WarningCircleIcon}
         label={EXPLORER_LABELS.documentPurgeAction}
         diagnosticAction="delete"
-        disabled={!canPurgeSelectedDocument}
-        onSelect={() =>
-          void purgeDocument(contextMenu.id.localId, contextMenu.id.containerId)
-        }
+        disabled={!params.canPurgeSelectedDocument}
+        onSelect={() => void params.purgeDocument(localId, containerId)}
       />
     </Menu>
   );
@@ -413,6 +398,7 @@ function ExplorerContainerContextMenu(
 export function ExplorerContextMenuLayer(params: {
   canDeleteSelectedDocument: boolean;
   canDownloadSelectedDocument: boolean;
+  canEditContextMenuContact: boolean;
   canLinkSelectedDocument: boolean;
   canMoveSelectedDocument: boolean;
   canPurgeSelectedDocument: boolean;
@@ -420,6 +406,7 @@ export function ExplorerContextMenuLayer(params: {
   contextMenuState: ExplorerContextMenuModel;
   deleteDocument: (localId: string, containerId: string) => Promise<unknown>;
   downloadDocument: (localId: string) => void;
+  editContact: (localId: string, containerId: string) => void;
   moveContainerToTrash: (containerId: string) => Promise<unknown>;
   openContainerInfoRoute: (containerId: string) => void;
   openCreateChildModal: (containerId: string) => void;

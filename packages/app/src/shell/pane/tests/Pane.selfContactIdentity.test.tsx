@@ -60,6 +60,7 @@ function captureContactsModel() {
         {sidebar}
         <ContactsContextMenuLayer
           {...model.contextMenuState}
+          editContact={model.selectContact}
           canWrite={model.canWrite}
           openImportContactRoute={model.openImportContactRoute}
           openNewContactRoute={model.openNewContactRoute}
