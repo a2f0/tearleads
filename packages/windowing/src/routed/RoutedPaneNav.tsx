@@ -64,10 +64,12 @@ function isBrowserHandledNavClick(
 function keepFocusInLauncher(link: HTMLAnchorElement | null) {
   if (!link) return;
   return () => {
-    if (link.ownerDocument.activeElement !== link) return;
+    const focused = link.ownerDocument.activeElement;
+    if (!focused || (focused !== link && !focused.closest(".menu"))) return;
     const launcher = link.closest("aside");
     queueMicrotask(() => {
       if (
+        focused.isConnected ||
         !launcher?.isConnected ||
         launcher.getAttribute("aria-hidden") === "true" ||
         link.ownerDocument.activeElement !== link.ownerDocument.body

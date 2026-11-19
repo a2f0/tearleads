@@ -5,6 +5,7 @@ import { LauncherNavigationProvider } from "../launcher/LauncherNavigationProvid
 import { RoutedPane } from "../routed/RoutedPane";
 import {
   forceMobileRoutedTier,
+  forceTabletRoutedTier,
   TEST_LAUNCHER,
 } from "../routed/routedPane.testUtils";
 import { WindowStateProvider } from "../window/WindowStateProvider";
@@ -94,30 +95,73 @@ test("changing an app preserves a separate tab's choice for another app", () => 
   expect(view.queryByRole("button", { name: "mail" })).toBeNull();
 });
 
-test("a routed launcher keeps keyboard focus when another tab hides the focused entry", async () => {
-  const restore = forceMobileRoutedTier();
-  try {
-    const view = render(
-      <StartMenuPreferencesProvider definition={TEST_LAUNCHER} storageKey={KEY}>
-        <WindowStateProvider>
-          <LauncherNavigationProvider definition={TEST_LAUNCHER} mode="routed">
-            <RoutedPane menuIcon="Menu" />
-          </LauncherNavigationProvider>
-        </WindowStateProvider>
-      </StartMenuPreferencesProvider>,
+for (const tier of ["mobile", "tablet"] as const) {
+  test(`${tier} launcher keeps keyboard focus when another tab hides the active control`, async () => {
+    const restore =
+      tier === "mobile" ? forceMobileRoutedTier() : forceTabletRoutedTier();
+    try {
+      const view = render(
+        <StartMenuPreferencesProvider
+          definition={TEST_LAUNCHER}
+          storageKey={KEY}
+        >
+          <WindowStateProvider>
+            <LauncherNavigationProvider
+              definition={TEST_LAUNCHER}
+              mode="routed"
+            >
+              <RoutedPane menuIcon="Menu" />
+            </LauncherNavigationProvider>
+          </WindowStateProvider>
+        </StartMenuPreferencesProvider>,
+      );
+      fireEvent.click(
+        view.getByRole("button", {
+          name: tier === "mobile" ? "Menu" : "Expand navigation rail",
+        }),
+      );
+      const notes = view.getByRole("link", { name: "Notes" });
+      notes.focus();
+      if (tier === "tablet") {
+        fireEvent.contextMenu(notes);
+        expect(document.activeElement).toBe(
+          view.getByRole("button", { name: "Open" }),
+        );
+      } else expect(document.activeElement).toBe(notes);
+      localStorage.setItem(`${KEY}.notes`, "false");
+      fireEvent(window, new StorageEvent("storage", { key: `${KEY}.notes` }));
+      await Promise.resolve();
+      expect(view.queryByRole("link", { name: "Notes" })).toBeNull();
+      expect(document.activeElement).toBe(
+        view.getByRole("link", { name: "Explorer" }),
+      );
+    } finally {
+      restore();
+    }
+  });
+}
+
+test("switching preference keys preserves mounted app content", () => {
+  function desktop(storageKey: string) {
+    return (
+      <StartMenuPreferencesProvider
+        definition={definition}
+        storageKey={storageKey}
+      >
+        <input aria-label="Draft" />
+        <DisplayProperties />
+      </StartMenuPreferencesProvider>
     );
-    fireEvent.click(view.getByRole("button", { name: "Menu" }));
-    const notes = view.getByRole("link", { name: "Notes" });
-    notes.focus();
-    expect(document.activeElement).toBe(notes);
-    localStorage.setItem(`${KEY}.notes`, "false");
-    fireEvent(window, new StorageEvent("storage", { key: `${KEY}.notes` }));
-    await Promise.resolve();
-    expect(view.queryByRole("link", { name: "Notes" })).toBeNull();
-    expect(document.activeElement).toBe(
-      view.getByRole("link", { name: "Explorer" }),
-    );
-  } finally {
-    restore();
   }
+  const view = render(desktop(KEY));
+  const draft = view.getByRole("textbox");
+  fireEvent.input(draft, { target: { value: "Unsaved text" } });
+  fireEvent.click(view.getByRole("switch", { name: "Notes" }));
+  view.rerender(desktop("test.otherMenu"));
+  expect(view.getByRole("switch", { name: "Notes" })).toHaveProperty(
+    "checked",
+    false,
+  );
+  expect(view.getByRole("textbox")).toBe(draft);
+  expect(draft).toHaveProperty("value", "Unsaved text");
 });

@@ -40,7 +40,8 @@ interface Props extends PropsWithChildren {
   storageKey: string;
 }
 
-function StoredStartMenuPreferences({
+/** Shares one host's Start menu choices across its taskbars and Settings windows. */
+export function StartMenuPreferencesProvider({
   children,
   definition,
   storageKey,
@@ -120,11 +121,6 @@ function StoredStartMenuPreferences({
       {children}
     </preferences.context.Provider>
   );
-}
-
-/** Shares one host's Start menu choices across its taskbars and Settings windows. */
-export function StartMenuPreferencesProvider(props: Props) {
-  return <StoredStartMenuPreferences key={props.storageKey} {...props} />;
 }
 
 export const useStartMenuPreferences = preferences.useRequired;
