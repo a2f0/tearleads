@@ -12,3 +12,29 @@ export const openSystemMonitorExpression = `(() => {
   }
   document.querySelector('[aria-label="Menu"][aria-expanded="false"]')?.click();
 })()`;
+
+// The first-launch probe starts on Explorer. Stay there until its creation
+// form has submitted; opening System Monitor earlier hides onboarding.
+export const submitFirstIdentityExpression = `(() => {
+  const create = Array.from(document.querySelectorAll('button')).find(
+    button => button.textContent.trim() === 'Create new identity' && button.getClientRects().length,
+  );
+  if (create) {
+    create.click();
+    return false;
+  }
+  const name = Array.from(document.querySelectorAll('input[autocomplete="nickname"]')).find(
+    input => input.getClientRects().length && input.getAttribute('aria-label') === 'What should we call you?',
+  );
+  if (!name) return false;
+  if (name.value !== 'Persistence Test') {
+    // Use the browser's setter so React observes the input event as an edit.
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(name, 'Persistence Test');
+    name.dispatchEvent(new Event('input', { bubbles: true }));
+    return false;
+  }
+  const submit = name.form?.querySelector('button[type="submit"]:enabled');
+  if (!submit) return false;
+  submit.click();
+  return true;
+})()`;
