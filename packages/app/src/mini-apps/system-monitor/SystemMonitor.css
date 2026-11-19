@@ -120,6 +120,10 @@
   font-size: var(--font-size-sm);
 }
 
+.system-monitor-requests > .mini-app-info-table th {
+  padding-inline-end: calc(var(--info-table-cell-padding) + var(--space-sm));
+}
+
 .system-monitor-request-table {
   margin-top: var(--space-md);
   overflow-x: auto;

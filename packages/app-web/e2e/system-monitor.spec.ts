@@ -136,8 +136,7 @@ test("API request summary values stay aligned beside their labels as the viewpor
         };
       },
     );
-    expect(gap).toBeGreaterThan(0);
-    expect(gap).toBeLessThanOrEqual(16);
+    expect(Math.round(gap)).toBe(16);
     expect(spread).toBeLessThanOrEqual(1);
     expect(singleLineLabels).toBe(true);
   }
