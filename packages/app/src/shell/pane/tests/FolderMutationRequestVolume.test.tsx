@@ -3,6 +3,7 @@ import { RegistrationResponseSchema } from "@tearleads/validators/response";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import {
+  DUAL_PANE_TEST_TIMEOUT_MS,
   getExplorerSidebarItem,
   getPaneRoot,
   interact,
@@ -42,23 +43,29 @@ async function contextAction(item: HTMLElement, name: string) {
       clientY: 220,
     });
   });
-  const menu = document.querySelector<HTMLElement>(".menu");
-  invariant(menu, "Expected document menu");
-  const action = await within(menu).findByRole("button", { name });
-  await waitFor(() => {
-    expect(action.hasAttribute("disabled")).toBe(false);
-  });
-  await interact(() => {
-    fireEvent.click(action);
-  });
+  await waitFor(() =>
+    interact(() => {
+      const menu = document.querySelector<HTMLElement>(".menu");
+      invariant(menu, "Expected document menu");
+      const action = within(menu).getByRole("button", { name });
+      expect(action.hasAttribute("disabled")).toBe(false);
+      fireEvent.click(action);
+    }),
+  );
 }
 async function expectNote(pane: HTMLElement, name: string, present: boolean) {
-  const table = await selectContainerAndWaitForItemTable(pane, name);
-  await waitFor(() => {
-    expect(within(table).queryByRole("button", { name: title }) !== null).toBe(
-      present,
-    );
-  });
+  await selectContainerAndWaitForItemTable(pane, name);
+  // A projection refresh can replace the table while the mutation settles.
+  await waitFor(
+    () => {
+      const table = within(pane).getByRole("table", {
+        name: `Items in ${name}`,
+      });
+      const note = within(table).queryByRole("button", { name: title });
+      expect(Boolean(note), `${title} in ${name}`).toBe(present);
+    },
+    { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
+  );
 }
 
 test("folder creation, document linking, unlinking and trash have separate request budgets", async () => {
