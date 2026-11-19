@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./appTest";
 import { openWindowedDesktop } from "./windowedDesktop";
 
@@ -10,7 +10,11 @@ async function openSettingsFromTray(page: Page) {
     .getByRole("button", { name: /Switch to .* theme/ })
     .click({ button: "right" });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  return pane.getByRole("region", { name: "Settings", exact: true });
+  const settings = pane.getByRole("region", { name: "Settings", exact: true });
+  await expect(
+    settings.getByRole("tab", { name: "System tray" }),
+  ).toHaveAttribute("aria-selected", "true");
+  return settings;
 }
 
 test("previews fit full tile height without changing desktop tile sizes", async ({
@@ -18,6 +22,7 @@ test("previews fit full tile height without changing desktop tile sizes", async 
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const display = await openSettingsFromTray(page);
+  await display.getByRole("tab", { name: "Desktop" }).click();
   // A host may import the generic wallpaper rule after Settings.
   await page.addStyleTag({
     content: `.wallpaper-pattern[data-pattern]::before {
@@ -80,13 +85,7 @@ test("previews fit full tile height without changing desktop tile sizes", async 
   }
 });
 
-test("the initial window fits every wallpaper, theme, and tray switch without scrolling", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  const display = await openSettingsFromTray(page);
-  await expect(display).toHaveCSS("width", "500px");
-  await expect(display).toHaveCSS("height", "670px");
+async function expectControlsToFit(display: Locator) {
   const scroller = display.locator(".window-body-content-scroll");
   const sizes = await scroller.evaluate((element) => ({
     height: element.clientHeight,
@@ -95,11 +94,32 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
   }));
   expect(sizes.top).toBe(0);
   expect(sizes.content).toBeLessThanOrEqual(sizes.height);
+  for (const card of await display.locator("label").all()) {
+    await expect(card).toBeInViewport({ ratio: 1 });
+  }
+}
+
+test("the initial window fits every wallpaper, theme, and tray switch without scrolling", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const display = await openSettingsFromTray(page);
+  await display.getByRole("tab", { name: "Desktop" }).click();
+  await expect(display).toHaveCSS("width", "500px");
+  await expect(display).toHaveCSS("height", "670px");
+  await expectControlsToFit(display);
   await expect(display.locator(".display-properties-wallpaper")).toHaveCount(7);
   await expect(display.locator(".display-properties-theme")).toHaveCount(3);
+  await display.getByRole("tab", { name: "System tray" }).click();
+  await expectControlsToFit(display);
   await expect(
     display.getByRole("group", { name: "System Tray" }).getByRole("switch"),
   ).toHaveCount(3);
+  await expect(
+    display.getByRole("switch", { name: /screensaver/i }),
+  ).toHaveCount(0);
+  await display.getByRole("tab", { name: "Start menu" }).click();
+  await expectControlsToFit(display);
   const menu = display.getByRole("group", { name: "Start menu" });
   await expect(
     menu.getByRole("switch", { name: "Contacts" }),
@@ -113,9 +133,6 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
   await expect(
     display.getByRole("switch", { name: /screensaver/i }),
   ).toHaveCount(0);
-  for (const card of await display.locator("label").all()) {
-    await expect(card).toBeInViewport({ ratio: 1 });
-  }
 });
 
 test("a narrow desktop keeps all display controls reachable by scrolling", async ({
@@ -123,6 +140,7 @@ test("a narrow desktop keeps all display controls reachable by scrolling", async
 }) => {
   await page.setViewportSize({ width: 1024, height: 360 });
   const display = await openSettingsFromTray(page);
+  await display.getByRole("tab", { name: "Desktop" }).click();
   for (const label of ["Loom", "None", "Dark", "Dusk", "Light"]) {
     const card = display.locator("label").filter({
       has: page.getByRole("radio", { name: label, exact: true }),
@@ -158,6 +176,11 @@ test("Settings restores a hidden Start menu entry across a reload", async ({
     menu.getByRole("button", { name: "Contacts", exact: true }),
   ).toHaveCount(0);
   await page.keyboard.press("Escape");
+  await start.click({ button: "right" });
+  await page.getByRole("button", { name: "Start menu settings" }).click();
+  await expect(
+    settings.getByRole("tab", { name: "Start menu" }),
+  ).toHaveAttribute("aria-selected", "true");
   await settings.getByRole("switch", { name: "Notes", exact: true }).check();
   await page.reload();
   await start.click();
@@ -180,7 +203,12 @@ test("a second tab can hide the focused phone launcher entry", async ({
   await expect(explorer).toBeFocused();
 
   const settings = await context.newPage();
-  await settings.goto("/app/display-properties");
+  await settings.goto("/app/explorer");
+  await settings
+    .getByRole("button", { name: "Menu", exact: true })
+    .click({ button: "right" });
+  await settings.getByRole("button", { name: "Start menu settings" }).click();
+  await expect(settings).toHaveURL(/\/app\/display-properties\/start-menu$/);
   await settings
     .getByRole("switch", { name: "Explorer", exact: true })
     .uncheck();

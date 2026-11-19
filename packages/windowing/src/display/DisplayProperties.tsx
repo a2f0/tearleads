@@ -148,17 +148,26 @@ function StartMenuSection({
  * toolbar row.
  */
 export function DisplayProperties({
+  section,
   startMenuAppIds,
 }: {
+  /** Limit a tabbed host to the controls on its selected tab. */
+  section?: "desktop" | "system-tray" | "start-menu";
   startMenuAppIds?: readonly string[];
 } = {}) {
   useSuppressWindowToolbar(true);
   return (
     <div className="display-properties">
-      <BackgroundSection />
-      <ThemeSection />
-      <SystemTraySection />
-      <StartMenuSection appIds={startMenuAppIds} />
+      {(!section || section === "desktop") && (
+        <>
+          <BackgroundSection />
+          <ThemeSection />
+        </>
+      )}
+      {(!section || section === "system-tray") && <SystemTraySection />}
+      {(!section || section === "start-menu") && (
+        <StartMenuSection appIds={startMenuAppIds} />
+      )}
     </div>
   );
 }
