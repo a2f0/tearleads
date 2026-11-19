@@ -18,6 +18,7 @@ import { onFreshDevice } from "./seedDevice.testUtils";
 test("seed uploads the pinned dataset and a fresh device can read it", async () => {
   await initializeApiDatabase();
   let interruptUpload = true;
+  let staleTarget = false;
   const contentRequests: string[] = [];
   const missing = Promise.withResolvers<void>();
   const firstMissing = Promise.withResolvers<void>();
@@ -47,6 +48,13 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       }
       if (raceFolders && path === "/documents" && request.method === "POST")
         return new Response(null, { status: 503 });
+      if (staleTarget && path === "/documents" && request.method === "POST") {
+        staleTarget = false;
+        return Response.json(
+          { error: "Stale create target", code: "document_sync_state_stale" },
+          { status: 409 },
+        );
+      }
       const response = await routeApp.fetch(request);
       if (
         raceCreates &&
@@ -182,8 +190,10 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       expect(store.getSnapshot().attachments).toEqual(partial.attachments);
     });
     interruptUpload = false;
+    staleTarget = true;
     output.stderr.length = 0;
     await run();
+    expect(staleTarget).toBe(false);
     const editedName = "Personal weight journal";
     const editedNotes = "Edited on a second device";
     let additionalFolderId = "";

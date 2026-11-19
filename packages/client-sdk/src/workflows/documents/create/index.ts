@@ -309,41 +309,41 @@ async function submitPlannedDocumentCreate(
   if (input.stillCurrent?.() === false) return null;
   let submission = await submitPlannedDocumentCreateRequest(input, createPlan);
   if (!submission) return null;
-  if (isStaleDocumentCreateTargetConflict(submission)) {
-    if (input.stillCurrent?.() === false) {
-      return { createPlan, submission };
-    }
-    input.apiClient.evictContainerWriterProjection(input.containerId);
-    const firstPlan = createPlan.materializedPlan;
-    const refreshedPlan =
-      await buildMaterializedDocumentCreatePlanWithFreshProjection({
-        apiClient: input.apiClient,
-        author: input.author,
-        containerId: input.containerId,
-        contentKey: firstPlan.contentKey,
-        contentKeyEpoch:
-          firstPlan.plan.request.contentKeyBundle.contentKeyEpoch,
-        documentId: firstPlan.plan.documentId,
-        eventId: firstPlan.plan.event.eventId,
-        execSql: input.execSql,
-        expectedOrganizationId: input.expectedOrganizationId,
-        knownContainerKeks: input.knownContainerKeks,
-        onTerminalSubmitFailure: input.onTerminalSubmitFailure,
-        resolveProjectionUserKey,
-        signedAt: firstPlan.plan.event.signedAt,
-        targetSecretKey: input.targetSecretKey,
-        warmReferencedPrincipalPolicies,
-        ...verificationOptions,
-      });
-    if (!refreshedPlan) {
-      return null;
-    }
-    if (isRemoteDocumentCreatePlanBlocked(input, refreshedPlan)) return null;
-    createPlan = refreshedPlan;
-    if (input.stillCurrent?.() === false) return null;
-    submission = await submitPlannedDocumentCreateRequest(input, createPlan);
-    if (!submission) return null;
+  if (!isStaleDocumentCreateTargetConflict(submission))
+    return { createPlan, submission };
+  if (input.stillCurrent?.() === false) {
+    return { createPlan, submission };
   }
+  input.apiClient.evictContainerWriterProjection(input.containerId);
+  const firstPlan = createPlan.materializedPlan;
+  const refreshedPlan =
+    await buildMaterializedDocumentCreatePlanWithFreshProjection({
+      apiClient: input.apiClient,
+      author: input.author,
+      containerId: input.containerId,
+      contentKey: firstPlan.contentKey,
+      contentKeyEpoch: firstPlan.plan.request.contentKeyBundle.contentKeyEpoch,
+      documentId: firstPlan.plan.documentId,
+      eventId: firstPlan.plan.event.eventId,
+      execSql: input.execSql,
+      expectedOrganizationId: input.expectedOrganizationId,
+      knownContainerKeks: input.knownContainerKeks,
+      onTerminalSubmitFailure: input.onTerminalSubmitFailure,
+      resolveProjectionUserKey,
+      signedAt: firstPlan.plan.event.signedAt,
+      targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies,
+      ...verificationOptions,
+    });
+  if (!refreshedPlan) {
+    return null;
+  }
+  if (isRemoteDocumentCreatePlanBlocked(input, refreshedPlan)) return null;
+  createPlan = refreshedPlan;
+  if (input.stillCurrent?.() === false) return null;
+  submission = await submitPlannedDocumentCreateRequest(input, createPlan);
+  if (!submission) return null;
+  if (submission.ok) input.onRecoveredStaleTarget?.();
   return { createPlan, submission };
 }
 

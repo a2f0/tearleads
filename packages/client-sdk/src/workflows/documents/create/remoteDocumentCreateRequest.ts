@@ -14,6 +14,7 @@ import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFet
 /** What one `RemoteDocumentService.createRemoteDocument` call varies. */
 interface DocumentCreateOptions {
   author: DocumentCreateAuthor;
+  onRecoveredStaleTarget?: (() => void) | undefined;
   containerId: string;
   containerProjection?: ContainerWriterProjectionResponse | undefined;
   contentKey?: Uint8Array | undefined;

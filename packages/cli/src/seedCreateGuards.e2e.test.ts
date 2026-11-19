@@ -17,6 +17,7 @@ test.each([
   "invalid attachment metadata",
   "rows on a note",
   "unknown contact field",
+  "reserved row field",
   "switch while reading fixture",
 ] as const)(
   "%s prevents seeded document submission",
@@ -74,6 +75,19 @@ test.each([
               });
               expect(active?.()).toBe(false);
             };
+          }
+          if (scenario === "reserved row field") {
+            watch = true;
+            await expect(
+              sdk.documents.createSeeded({
+                containerId: rootContainerId,
+                documentId: crypto.randomUUID(),
+                initialDocumentKind: "weight",
+                initialRows: [{ "@createdAt": "Reserved" }],
+              }),
+            ).rejects.toThrow("Invalid initial document row fields");
+            expect(posts).toBe(0);
+            return;
           }
           if (scenario === "unknown contact field") {
             watch = true;

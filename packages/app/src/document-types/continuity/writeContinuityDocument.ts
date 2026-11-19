@@ -21,6 +21,7 @@ type SeedWriteInput = SeedWriteBase &
     | { destination: "backup"; existing?: never }
     | {
         destination: "account";
+        onRecoveredStaleTarget?: (() => void) | undefined;
         existing?: { localId: string; documentId: string } | undefined;
       }
   );
@@ -68,6 +69,7 @@ async function openContinuityDocument(
     assertCurrent();
     const receipt = await sdk.documents.createSeeded({
       ...content,
+      onRecoveredStaleTarget: input.onRecoveredStaleTarget,
       initialAttachments: attachments.map(({ intent }) => intent),
       containerId: input.containerId,
       documentId,

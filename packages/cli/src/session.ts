@@ -14,7 +14,9 @@ export interface CliSession {
    * request failed or got no response: a listing read then may be partial.
    */
   assertNoFailures(): void;
-  recordSeedAbsence(reason: "missing head" | "verified purge"): void;
+  recordExpectedSeedFailure(
+    reason: "missing head" | "verified purge" | "recovered stale target",
+  ): void;
   readonly sdk: Tearleads;
   readonly tracer: Tracer;
   readonly userId: string;
@@ -69,18 +71,18 @@ function describeLoggedError(message: string | Error, cause: unknown): string {
 function failedRequests(
   sdk: Tearleads,
   missingHeads: number,
-  purgedCreates: number,
+  expectedCreateFailures: number,
 ): string[] {
   const snapshot = sdk.apiRequests.getSnapshot(sdk.identity.signingFingerprint);
   return snapshot.endpoints
     .map((endpoint) => {
-      // Discount only typed missing heads and creates refused by a verified purge.
+      // Count only typed absences, verified purges, and successful stale-target retries.
       const allowed =
         endpoint.method === "GET" &&
         endpoint.path === "/documents/{documentId}/writer-projection"
           ? missingHeads
           : endpoint.method === "POST" && endpoint.path === "/documents"
-            ? purgedCreates
+            ? expectedCreateFailures
             : 0;
       return { ...endpoint, failed: endpoint.failed - allowed };
     })
@@ -147,15 +149,17 @@ async function runSession<T>(
     },
   });
   let missingHeads = 0;
-  let purgedCreates = 0;
-  const recordSeedAbsence: CliSession["recordSeedAbsence"] = (reason) => {
+  let expectedCreateFailures = 0;
+  const recordExpectedSeedFailure: CliSession["recordExpectedSeedFailure"] = (
+    reason,
+  ) => {
     if (reason === "missing head") missingHeads++;
-    else purgedCreates++;
+    else expectedCreateFailures++;
   };
   const assertNoFailures = () => {
     const problems = [
       ...loggedErrors,
-      ...failedRequests(sdk, missingHeads, purgedCreates),
+      ...failedRequests(sdk, missingHeads, expectedCreateFailures),
     ];
     if (problems.length > 0) {
       throw new Error(
@@ -176,7 +180,7 @@ async function runSession<T>(
     }
     const result = await work({
       assertNoFailures,
-      recordSeedAbsence,
+      recordExpectedSeedFailure,
       sdk,
       tracer,
       userId,

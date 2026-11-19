@@ -228,6 +228,7 @@ async function uploadMultipartPartBytes(input: {
     {
       byteLength: encryptedPartBytes.byteLength,
       encryptedBytes: encryptedPartBytes,
+      assertCurrent: input.assertCurrent,
       sha256,
       ...(source === undefined ? {} : { source }),
       uploadId: input.uploadId,

@@ -22,6 +22,8 @@ export interface BlobBytesResponse {
 }
 
 export interface UploadMultipartBlobPartBytesRequest {
+  /** Local writer-lifetime check before authorization and byte transfer. */
+  readonly assertCurrent?: (() => void) | undefined;
   readonly byteLength: number;
   readonly encryptedBytes: Blob | BufferSource;
   readonly sha256: string;

@@ -68,7 +68,7 @@ async function findSeedPlacement(
   const { sdk } = session;
   const head = await lookup(documentId, undefined, session.userId);
   if (head === "not-found") {
-    session.recordSeedAbsence("missing head");
+    session.recordExpectedSeedFailure("missing head");
     return undefined;
   }
   if (
@@ -179,6 +179,8 @@ export async function seed(input: CommandInput): Promise<void> {
           assertCurrent();
           const store = await writeContinuityDocument({
             destination: "account",
+            onRecoveredStaleTarget: () =>
+              session.recordExpectedSeedFailure("recovered stale target"),
             sdk,
             document,
             containerId: existing?.containerId ?? containerId,
@@ -187,7 +189,7 @@ export async function seed(input: CommandInput): Promise<void> {
             existing,
           });
           if (store === "purged") {
-            session.recordSeedAbsence("verified purge");
+            session.recordExpectedSeedFailure("verified purge");
             purged++;
             return;
           }

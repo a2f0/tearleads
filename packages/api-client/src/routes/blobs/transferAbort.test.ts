@@ -118,3 +118,35 @@ for (const direction of ["download", "upload"] as const) {
     });
   }
 }
+
+test("a retired writer sends no bytes after part authorization", async () => {
+  let current = true;
+  let requests = 0;
+  const request: OperationResponseRequestFn = Object.assign(
+    async () => {
+      requests++;
+      current = false;
+      return {
+        ok: true as const,
+        data: Response.json({
+          stageId: id,
+          uploadId: upload.uploadId,
+          partNumber: 1,
+          byteLength: bytes.length,
+          contentMd5,
+          source: { kind: "api" },
+        }),
+      };
+    },
+    { reportFailure: () => {} },
+  );
+  await expect(
+    uploadMultipartBlobPartBytes(createOperationTransport(request), id, 1, {
+      ...upload,
+      assertCurrent: () => {
+        if (!current) throw new Error("Writer scope retired");
+      },
+    }),
+  ).rejects.toThrow("Writer scope retired");
+  expect(requests).toBe(1);
+});

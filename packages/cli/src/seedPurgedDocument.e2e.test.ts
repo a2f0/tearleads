@@ -83,7 +83,7 @@ test("verified purges and moves to newly created folders survive a seed retry", 
     invalidateProof = false;
     await withSession(
       device,
-      async ({ sdk, assertNoFailures, recordSeedAbsence }) => {
+      async ({ sdk, assertNoFailures, recordExpectedSeedFailure }) => {
         if (!rootContainerId) throw new Error("Missing personal root");
         const input = {
           containerId: rootContainerId,
@@ -92,7 +92,7 @@ test("verified purges and moves to newly created folders survive a seed retry", 
         };
         const before = creates;
         expect(await sdk.documents.createSeeded(input)).toBe("purged");
-        recordSeedAbsence("verified purge");
+        recordExpectedSeedFailure("verified purge");
         expect(creates).toBe(before + 1);
         expect(await sdk.documents.createSeeded(input)).toBe("purged");
         expect(creates).toBe(before + 1);

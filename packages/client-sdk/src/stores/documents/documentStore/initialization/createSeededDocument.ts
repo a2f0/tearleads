@@ -14,6 +14,7 @@ import {
   initializeStoredDocumentKind,
   readStoredDocumentState,
 } from "../../../../data/documents/documentKinds";
+import { listDocumentRows } from "../../../../data/documents/documentRowList";
 import type { DiscoveredDocumentInput } from "../../../../data/documents/documentSummary";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import {
@@ -39,6 +40,7 @@ export interface SeededDocumentInput
     "initialRows" | "initialStructuredFields"
   > {
   readonly initialAttachments?: readonly DocumentAttachment[] | undefined;
+  readonly onRecoveredStaleTarget?: (() => void) | undefined;
   readonly containerId: string;
   readonly documentId: string;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
@@ -74,6 +76,17 @@ async function createSeedUpdate(
     )
   )
     throw new Error("Invalid or duplicate initial attachment metadata.");
+  if (input.initialRows?.length) {
+    const rows = listDocumentRows(doc);
+    if (
+      input.initialRows.some((row, index) =>
+        Object.entries(row).some(
+          ([key, value]) => rows[index]?.fields[key] !== value,
+        ),
+      )
+    )
+      throw new Error("Invalid initial document row fields.");
+  }
   const projected = readStoredDocumentState(doc, projectors);
   const fields = Object.entries(input.initialStructuredFields ?? {});
   if (
@@ -134,6 +147,7 @@ export async function createSeededDocument(
     documentId: input.documentId,
     expectedOrganizationId: author.organizationId,
     requireSeededCreate: true,
+    onRecoveredStaleTarget: input.onRecoveredStaleTarget,
     seedUpdate: { ...update, id: crypto.randomUUID() },
   });
   if (!stillCurrent())
