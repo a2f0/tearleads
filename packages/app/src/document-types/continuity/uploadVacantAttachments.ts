@@ -77,7 +77,7 @@ async function inspectSeedSlot(
     return false;
   if (!matches(recorded, intent)) {
     await retireSeedBinding(runtime, mutation);
-    throw new Error(`Could not recover edited attachment: ${intent.name}`);
+    return false;
   }
   if (occupied)
     throw new Error(

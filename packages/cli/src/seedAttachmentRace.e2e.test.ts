@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { resolveDocumentCreateAuthor } from "@tearleads/client-sdk";
+import { continuityDocuments, loadContinuityAssets } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
@@ -78,9 +79,15 @@ test.each(["replace", "remove", "metadata"] as const)(
           }
         });
       const result = await runCli(["seed", "--env", "staging"], context);
-      expect(result).toBe(edit === "remove" ? 0 : 1);
+      expect(result).toBe(edit === "replace" ? 1 : 0);
       expect(beforeUpload).toBeUndefined();
+      if (edit === "metadata")
+        expect(await runCli(["seed", "--env", "staging"], context)).toBe(0);
       await onFreshDevice(device, async (stores, sdk) => {
+        if (edit === "metadata")
+          expect(stores).toHaveLength(
+            continuityDocuments((await loadContinuityAssets()).spec).length,
+          );
         const store = stores.find(
           (candidate) => candidate.getSnapshot().documentId === contactId,
         );

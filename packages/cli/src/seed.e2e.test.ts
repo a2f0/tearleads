@@ -3,22 +3,29 @@ import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk";
 import {
   continuityDocuments,
+  ensureContactsContainer,
   loadContinuityAssets,
   writeContinuityDocument,
 } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
+import { loadFolderTree } from "./folderTree";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
+import { withSession } from "./session";
 
 test("seed uploads the pinned dataset and a fresh device can read it", async () => {
   await initializeApiDatabase();
   let interruptUpload = true;
   const contentRequests: string[] = [];
+  const missing = Promise.withResolvers<void>();
+  const firstMissing = Promise.withResolvers<void>();
+  const missingPaths: string[] = [];
+  let raceCreates = false;
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch: (request) => {
+    fetch: async (request) => {
       const path = new URL(request.url).pathname;
       if (/^\/(containers|documents|blobs)\//u.test(path))
         contentRequests.push(path);
@@ -27,7 +34,18 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
         new URL(request.url).pathname === "/blobs/stages/multipart"
       )
         return new Response("unavailable", { status: 503 });
-      return routeApp.fetch(request);
+      const response = await routeApp.fetch(request);
+      if (
+        raceCreates &&
+        response.status === 404 &&
+        path.endsWith("/writer-projection")
+      ) {
+        missingPaths.push(path);
+        firstMissing.resolve();
+        if (missingPaths.length === 2) missing.resolve();
+        await missing.promise;
+      }
+      return response;
     },
   });
   try {
@@ -58,10 +76,44 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
         `Synced ${documents.length} Continuity documents to your staging account.`,
       );
     };
-    expect(await runCli(["seed", "--env", "staging"], context)).toBe(1);
-    expect(output.stderr.join("\n")).toContain("/blobs/stages/multipart");
-    expect(output.stdout).toEqual([]);
     const device = { apiBaseUrl, recoveryKey: seedPhrase, rootContainerId };
+    await withSession(device, async (session) => {
+      await loadFolderTree(session);
+      const { sdk } = session;
+      const keys = sdk.identity.signingKeyPair;
+      if (!keys) throw new Error("Missing signing identity");
+      await ensureContactsContainer(sdk, keys.signingPrivateKey);
+      expect(
+        await getOrCreateDomainSyncCoordinator(
+          sdk.runtime.input().state.domainScope,
+        ).waitForIdle({ timeoutMs: 30_000 }),
+      ).toBe(true);
+      session.assertNoFailures();
+    });
+    const other = testContext({ apiBaseUrl });
+    await other.keyStore.save("staging", seedPhrase);
+    raceCreates = true;
+    const first = runCli(["seed", "--env", "staging"], context);
+    // Sign in the second device after the first has finished the account's
+    // challenge exchange, while its missing-document response is still held.
+    await Promise.race([
+      firstMissing.promise,
+      first.then(() => {
+        throw new Error("First importer did not reach document lookup");
+      }),
+    ]);
+    const codes = await Promise.all([
+      first,
+      runCli(["seed", "--env", "staging"], other.context),
+    ]);
+    raceCreates = false;
+    expect(codes).toEqual([1, 1]);
+    expect(missingPaths).toHaveLength(2);
+    expect(missingPaths[0]).toBe(missingPaths[1]);
+    expect([...output.stderr, ...other.output.stderr].join("\n")).toContain(
+      "/blobs/stages/multipart",
+    );
+    expect(output.stdout).toEqual([]);
     await onFreshDevice(device, async (stores, sdk) => {
       const avatar = spec.contacts?.[0]?.avatar;
       if (!avatar) throw new Error("Missing Continuity avatar");
@@ -84,17 +136,16 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       if (!summary?.containerId) throw new Error("Missing contact placement");
       // A retry with bytes that differ from the recorded intent must leave
       // that intent available for recovery by its original writer.
-      await expect(
-        writeContinuityDocument({
-          destination: "account",
-          sdk,
-          localId,
-          containerId: summary.containerId,
-          document,
-          existing: { localId, documentId: partial.documentId },
-          readAttachment: async () => new Uint8Array([1, 2, 3]),
-        }),
-      ).rejects.toThrow("Could not recover edited attachment");
+      await writeContinuityDocument({
+        destination: "account",
+        sdk,
+        localId,
+        containerId: summary.containerId,
+        document,
+        existing: { localId, documentId: partial.documentId },
+        readAttachment: async () => new Uint8Array([1, 2, 3]),
+      });
+      expect(store.getSnapshot().attachmentStorageKeyBySlotId).toEqual({});
       expect(store.getSnapshot().attachments).toEqual(partial.attachments);
     });
     interruptUpload = false;
@@ -199,6 +250,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       },
     );
   } finally {
+    missing.resolve();
     server.stop(true);
   }
 }, 240_000);
