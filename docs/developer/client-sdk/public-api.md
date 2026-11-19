@@ -341,10 +341,10 @@ do not silently clear pins or checkpoints to make obsolete data load.
 
 ### Document identity
 
-`deriveStableDocumentId(localId)` returns the planned remote ID. Sync prefers
-the stored `documentId` or `recoveryDocumentId` from
-`defaultDocumentsPersistence.loadDocument` (`DocumentRecord`).
+`deriveStableDocumentId(localId)` plans a remote ID. Sync prefers a stored
+`DocumentRecord.documentId` or `DocumentRecord.recoveryDocumentId`.
 `createDocumentHeadLinkSetLoader(runtime)` verifies a known ID's signed links.
+A seeded create returns `"purged"` when a verified purge proof covers its ID.
 `documents.createSeeded` commits the initial content, including attachment
 metadata, in one online request and returns its verified placement.
 `resolveDocumentCreateAuthor(runtime)` returns the blob writer or `null`.

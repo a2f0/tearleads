@@ -212,10 +212,10 @@ marker and carry the birth in the first attachment update. A failed attach
 queues the birth. Advancing the marker, reset, failed initialization, or
 `attachFiles([])` releases the hold. Store factories take these options
 and `remoteSyncMode` in the trailing `DocumentStoreOpenOptions`.
-Online importers can use `documents.createSeeded` to commit initial rows,
-fields and attachment metadata together in one request.
-Use `resolveDocumentCreateAuthor(runtime)` for
-uploads. An expected binding of `null` requires a vacant slot at commit.
+A seeded create returns `"purged"` when a verified purge proof covers its ID.
+`documents.createSeeded` commits fields, rows and attachment metadata together.
+Upload with `resolveDocumentCreateAuthor(runtime)` and a null expected binding
+to require a vacant slot at commit.
 `createDocumentHeadLinkSetLoader(runtime)` verifies placement by document ID.
 
 ### Queued local writes

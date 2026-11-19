@@ -66,6 +66,7 @@ recorded digest and byte length still match. Edited names and MIME types are pre
 The command only adds attachments. If another device removes a slot during an
 upload, the web app follows the edit and an encrypted fixture blob can remain
 bound on the server.
+A signed purge proof keeps a permanently deleted fixture out of future imports.
 A changed seed manifest can produce a new set of documents.
 
 ## Tracing

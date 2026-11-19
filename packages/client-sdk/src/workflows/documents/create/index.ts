@@ -455,7 +455,8 @@ export async function createRemoteDocument(
     return null;
   }
 
-  submission.report?.();
+  // Create-only callers handle the refusal directly, including a verified purge.
+  if (!input.requireSeededCreate) submission.report?.();
   await input.onTerminalSubmitFailure?.(submission);
   return null;
 }

@@ -13,6 +13,7 @@ import { withSession } from "./session";
 test.each([
   "database switch",
   "oversized birth",
+  "invalid attachment metadata",
   "switch while reading fixture",
 ] as const)(
   "%s prevents seeded document submission",
@@ -66,6 +67,33 @@ test.each([
               });
               expect(active?.()).toBe(false);
             };
+          }
+          if (scenario === "invalid attachment metadata") {
+            const avatar = {
+              slotId: "avatar",
+              name: "avatar.png",
+              mimeType: "image/png",
+              byteLength: 3,
+              contentSha256: "f".repeat(64),
+            };
+            watch = true;
+            for (const initialAttachments of [
+              [avatar, avatar],
+              [{ ...avatar, contentSha256: "broken" }],
+              [{ ...avatar, slotId: "" }],
+            ]) {
+              await expect(
+                sdk.documents.createSeeded({
+                  containerId: rootContainerId,
+                  documentId: crypto.randomUUID(),
+                  initialAttachments,
+                }),
+              ).rejects.toThrow(
+                "Invalid or duplicate initial attachment metadata",
+              );
+            }
+            expect(posts).toBe(0);
+            return;
           }
           if (scenario === "switch while reading fixture") {
             const create = spyOn(sdk.documents, "createSeeded");

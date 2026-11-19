@@ -67,7 +67,10 @@ async function findSeedPlacement(
 ) {
   const { sdk } = session;
   const head = await lookup(documentId);
-  if (head === "not-found") return undefined;
+  if (head === "not-found") {
+    session.recordSeedAbsence("missing head");
+    return undefined;
+  }
   if (
     head?.organizationId === sdk.session.organizationId &&
     !head.linkedContainerIds.some((id) => folders.has(id))
@@ -106,16 +109,15 @@ async function findSeedPlacement(
 
 async function confirmSeedSync(
   session: CliSession,
-  store: Awaited<ReturnType<typeof writeContinuityDocument>>,
+  store: Exclude<Awaited<ReturnType<typeof writeContinuityDocument>>, "purged">,
   documentId: string,
   key: string,
-  missingHeads: number,
 ) {
   const coordinator = getOrCreateDomainSyncCoordinator(
     session.sdk.runtime.input().state.domainScope,
   );
   const idle = await coordinator.waitForIdle({ timeoutMs: 120_000 });
-  session.assertNoFailures(missingHeads);
+  session.assertNoFailures();
   const localId =
     await session.sdk.documents.findLocalIdByDocumentId(documentId);
   if (!localId) throw new Error("Missing synced document.");
@@ -154,7 +156,7 @@ export async function seed(input: CommandInput): Promise<void> {
       const lookup = createDocumentHeadLinkSetLoader(
         sdk.containerContents.workflowRuntime(),
       );
-      let missingHeads = 0;
+      let purged = 0;
       for (const document of documents) {
         await tracer.span(`seed ${document.key}`, async () => {
           const containerId = document.kind === "contact" ? contactsId : rootId;
@@ -172,7 +174,6 @@ export async function seed(input: CommandInput): Promise<void> {
             assertCurrent,
           );
           assertCurrent();
-          if (!existing) missingHeads++;
           const store = await writeContinuityDocument({
             destination: "account",
             sdk,
@@ -182,21 +183,21 @@ export async function seed(input: CommandInput): Promise<void> {
             readAttachment,
             existing,
           });
-          await confirmSeedSync(
-            session,
-            store,
-            documentId,
-            document.key,
-            missingHeads,
-          );
+          if (store === "purged") {
+            session.recordSeedAbsence("verified purge");
+            purged++;
+            return;
+          }
+          await confirmSeedSync(session, store, documentId, document.key);
         });
       }
       assertCurrent();
-      return documents.length;
+      session.assertNoFailures();
+      return { synced: documents.length - purged, purged };
     },
     APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   );
   input.context.stdout(
-    `Synced ${count} Continuity documents to your ${input.target} account.`,
+    `Synced ${count.synced} Continuity documents to your ${input.target} account.${count.purged ? ` Skipped ${count.purged} permanently deleted.` : ""}`,
   );
 }

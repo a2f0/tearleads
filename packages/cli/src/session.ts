@@ -13,7 +13,8 @@ export interface CliSession {
    * Throws when, so far in this command, the SDK logged an error or an API
    * request failed or got no response: a listing read then may be partial.
    */
-  assertNoFailures(expectedMissingDocumentHeads?: number): void;
+  assertNoFailures(): void;
+  recordSeedAbsence(reason: "missing head" | "verified purge"): void;
   readonly sdk: Tearleads;
   readonly tracer: Tracer;
   readonly userId: string;
@@ -67,18 +68,20 @@ function describeLoggedError(message: string | Error, cause: unknown): string {
 
 function failedRequests(
   sdk: Tearleads,
-  expectedMissingDocumentHeads: number,
+  missingHeads: number,
+  purgedCreates: number,
 ): string[] {
   const snapshot = sdk.apiRequests.getSnapshot(sdk.identity.signingFingerprint);
   return snapshot.endpoints
     .map((endpoint) => {
-      // Only the SDK's typed not-found verdict for a probed document ID
-      // counts toward this allowance.
+      // Discount only typed missing heads and creates refused by a verified purge.
       const allowed =
         endpoint.method === "GET" &&
         endpoint.path === "/documents/{documentId}/writer-projection"
-          ? expectedMissingDocumentHeads
-          : 0;
+          ? missingHeads
+          : endpoint.method === "POST" && endpoint.path === "/documents"
+            ? purgedCreates
+            : 0;
       return { ...endpoint, failed: endpoint.failed - allowed };
     })
     .filter((endpoint) => endpoint.failed > 0)
@@ -143,10 +146,16 @@ async function runSession<T>(
       },
     },
   });
-  const assertNoFailures = (expectedMissingDocumentHeads = 0) => {
+  let missingHeads = 0;
+  let purgedCreates = 0;
+  const recordSeedAbsence: CliSession["recordSeedAbsence"] = (reason) => {
+    if (reason === "missing head") missingHeads++;
+    else purgedCreates++;
+  };
+  const assertNoFailures = () => {
     const problems = [
       ...loggedErrors,
-      ...failedRequests(sdk, expectedMissingDocumentHeads),
+      ...failedRequests(sdk, missingHeads, purgedCreates),
     ];
     if (problems.length > 0) {
       throw new Error(
@@ -165,7 +174,13 @@ async function runSession<T>(
     if (!signedIn || !userId) {
       throw new LoginRefusedError();
     }
-    const result = await work({ assertNoFailures, sdk, tracer, userId });
+    const result = await work({
+      assertNoFailures,
+      recordSeedAbsence,
+      sdk,
+      tracer,
+      userId,
+    });
     signedIn = false;
     if (!(await tracer.span("revoke session", () => revoke(sdk)))) {
       throw new Error(

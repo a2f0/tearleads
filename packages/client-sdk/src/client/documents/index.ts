@@ -83,7 +83,9 @@ export interface DocumentSubscriptionOptions {
 }
 
 export interface Documents {
-  createSeeded(input: SeededDocumentInput): Promise<DiscoveredDocumentInput>;
+  createSeeded(
+    input: SeededDocumentInput,
+  ): Promise<DiscoveredDocumentInput | "purged">;
   delete(localId: string): Promise<boolean>;
   findLocalIdByDocumentId(documentId: string): Promise<string | null>;
   list(input?: ListDocumentsInput | undefined): Promise<DocumentList | null>;

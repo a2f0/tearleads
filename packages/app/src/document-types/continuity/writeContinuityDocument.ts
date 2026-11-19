@@ -73,6 +73,7 @@ async function openContinuityDocument(
       documentId,
     });
     assertCurrent();
+    if (receipt === "purged") return receipt;
     const [summary] = await sdk.containerContents
       .documentQueries()
       .upsertDiscoveredDocuments([receipt]);
@@ -96,6 +97,7 @@ export async function writeContinuityDocument(input: SeedWriteInput) {
   );
   assertCurrent();
   const store = await openContinuityDocument(input, attachments, assertCurrent);
+  if (store === "purged") return store;
   if (!(await store.ensureInitialized()))
     throw new Error(`Could not open ${document.key}`);
   assertCurrent();

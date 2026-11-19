@@ -199,14 +199,17 @@ async function bindCarryingDocumentSync(input: {
   readonly documentSync: DocumentSyncRequest | undefined;
   readonly organizationId: string;
   readonly plainRequest: BlobAttachmentBindRequest;
+  readonly isRemoteSyncBlocked?: UploadDocumentAttachmentRequest["isRemoteSyncBlocked"];
 }): Promise<{
   readonly request: BlobAttachmentBindRequest;
   readonly response: BlobAttachmentBindResponse | null;
 }> {
   const bind = (request: BlobAttachmentBindRequest) =>
-    input.apiClient.bindBlobAttachment(input.blobId, request, {
-      expectedPaymentRequiredOrganizationId: input.organizationId,
-    });
+    input.isRemoteSyncBlocked?.(input.organizationId)
+      ? null
+      : input.apiClient.bindBlobAttachment(input.blobId, request, {
+          expectedPaymentRequiredOrganizationId: input.organizationId,
+        });
   if (input.documentSync) {
     const request = { ...input.plainRequest, documentSync: input.documentSync };
     const response = await bind(request);
@@ -230,6 +233,7 @@ async function stageAndBindBlobAttachment(input: {
   documentSync?: DocumentSyncRequest | undefined;
   eventId: string;
   expectedBindingId: string | null;
+  isRemoteSyncBlocked?: UploadDocumentAttachmentRequest["isRemoteSyncBlocked"];
   material: BlobAttachmentMaterial;
   multipart: NonNullable<UploadDocumentAttachmentRequest["multipart"]>;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
@@ -298,6 +302,7 @@ async function stageAndBindBlobAttachment(input: {
     documentSync: input.documentSync,
     organizationId: input.material.manifestIdentity.organizationId,
     plainRequest,
+    isRemoteSyncBlocked: input.isRemoteSyncBlocked,
   });
   if (!response) {
     return null;
@@ -435,6 +440,7 @@ export async function uploadPreparedDocumentAttachment(
     eventId,
     expectedBindingId,
     material,
+    isRemoteSyncBlocked,
     multipart: resolvedMultipart,
     onMultipartProgress,
     onStageResolved,
