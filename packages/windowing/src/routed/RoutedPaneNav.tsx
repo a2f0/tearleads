@@ -319,7 +319,9 @@ export function RoutedPaneNav({
         '.routed-pane-sheet-tile[aria-current="page"]',
       );
       (
-        tile ?? sheet?.querySelector<HTMLElement>(".routed-pane-sheet-tile")
+        tile ??
+        sheet?.querySelector<HTMLElement>(".routed-pane-sheet-tile") ??
+        sheet?.querySelector<HTMLButtonElement>(".routed-pane-sheet-handle")
       )?.focus();
     }
   }, [drawerOpen, launcherPlacement, tier]);

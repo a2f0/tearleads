@@ -45,6 +45,7 @@ export function createStartMenuStore(
     publish(next);
   }
   function onStorage(event: StorageEvent) {
+    if (event.storageArea && event.storageArea !== window.localStorage) return;
     if (event.key === null) {
       publish(readAll());
       return;

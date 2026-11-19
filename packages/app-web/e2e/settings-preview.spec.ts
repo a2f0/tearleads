@@ -161,3 +161,24 @@ test("Settings restores a hidden Start menu entry across a reload", async ({
     pane.getByRole("region", { name: "Notes", exact: true }),
   ).toBeVisible();
 });
+
+test("a second tab can hide the focused phone launcher entry", async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/app/explorer");
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  const launcher = page.getByRole("navigation", { name: "Apps" });
+  const explorer = launcher.getByRole("link", { name: "Explorer" });
+  await explorer.focus();
+  await expect(explorer).toBeFocused();
+
+  const settings = await context.newPage();
+  await settings.goto("/app/display-properties");
+  await settings
+    .getByRole("switch", { name: "Explorer", exact: true })
+    .uncheck();
+  await expect(explorer).toHaveCount(0);
+  await expect(launcher.getByRole("link").first()).toBeFocused();
+});
