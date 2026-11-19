@@ -390,7 +390,9 @@ cursor-gap recovery.
 
 Provisioned system-container polling stops when the active organization's signed
 slot appears in the tree. Every member derives the Trash slot from the same
-organization ID, including when the folder's display name changes.
+organization ID, including when the folder's display name changes. This is a
+fresh-data cutover. Organizations with founder-derived Trash slots require
+reprovisioning before using this version.
 
 ## Organization policy history
 
