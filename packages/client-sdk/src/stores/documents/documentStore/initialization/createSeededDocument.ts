@@ -1,8 +1,6 @@
 import { exportAllUpdates } from "@tearleads/loro";
-import {
-  DEFAULT_DOCUMENT_ACCESS_EPOCH,
-  DEFAULT_DOCUMENT_KIND,
-} from "../../../../data/documents/documentConstants";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
+import { DEFAULT_DOCUMENT_KIND } from "../../../../data/documents/documentConstants";
 import {
   addDocumentAttachments,
   type DocumentAttachment,
@@ -18,6 +16,7 @@ import {
 import { listDocumentRows } from "../../../../data/documents/documentRowList";
 import type { DiscoveredDocumentInput } from "../../../../data/documents/documentSummary";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import { readDocumentLinkSetManifestState } from "../../../../data/documents/shared/manifestBundleReaders";
 import {
   createDocumentProjectionUserKeyResolver,
   RemoteDocumentService,
@@ -114,6 +113,24 @@ async function createSeedUpdate(
   return update;
 }
 
+function seededPlacement(
+  containerId: string,
+  manifest: AccessManifestBundleWireResponse,
+): DiscoveredDocumentInput {
+  const state = readDocumentLinkSetManifestState(
+    manifest.state,
+    "Seeded document",
+  );
+  return {
+    documentId: state.documentId,
+    containerId,
+    linkedContainerIds: [...state.linkedContainerIds],
+    accessEpoch: state.epoch,
+    accessStateHash: manifest.manifestHash,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 /** One online create, without installing a local record or queuing a birth for replay. */
 export async function createSeededDocument(
   runtime: DocumentsRuntime,
@@ -195,13 +212,8 @@ export async function createSeededDocument(
       failure?.message ??
         "Could not commit the seeded document. Run seed again to resume.",
     );
-  // This verified create acknowledgement commits exactly one initial link.
-  return {
-    documentId: created.documentId,
-    containerId: input.containerId,
-    linkedContainerIds: [input.containerId],
-    accessEpoch: DEFAULT_DOCUMENT_ACCESS_EPOCH,
-    accessStateHash: created.writerProjection.documentManifest.manifestHash,
-    createdAt: new Date().toISOString(),
-  };
+  return seededPlacement(
+    input.containerId,
+    created.writerProjection.documentManifest,
+  );
 }

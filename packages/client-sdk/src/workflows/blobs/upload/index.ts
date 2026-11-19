@@ -315,7 +315,7 @@ async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
     stillCurrent: input.stillCurrent,
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
   });
-  if (!response) {
+  if (!response || input.stillCurrent?.() === false) {
     return null;
   }
 
@@ -468,7 +468,7 @@ export async function uploadPreparedDocumentAttachment(
     signedAt,
     slotId,
   });
-  if (!result) {
+  if (!result || stillCurrent?.() === false) {
     return null;
   }
 

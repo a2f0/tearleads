@@ -10,9 +10,11 @@ import {
 
 import type { SeedDocument } from "./seedDocuments";
 
-async function pull(store: DocumentStore) {
+async function pull(store: DocumentStore, stillCurrent: () => boolean) {
+  if (!stillCurrent()) throw new Error("The Continuity writer scope changed.");
   if (!(await store.requestRemoteSyncAndWait(AbortSignal.timeout(120_000))))
     throw new Error("Could not sync the seed document.");
+  if (!stillCurrent()) throw new Error("The Continuity writer scope changed.");
   return store.getSnapshot();
 }
 
@@ -64,8 +66,7 @@ export async function uploadVacantAttachments(
   stillCurrent: () => boolean,
   seedTag: string,
 ) {
-  const first = await pull(store);
-  if (!stillCurrent()) throw new Error("The Continuity writer scope changed.");
+  const first = await pull(store, stillCurrent);
   const links = input.sdk.containerContents.documentLinks();
   const runtime = links.documentRuntime(input.containerId);
   const author = resolveDocumentCreateAuthor(runtime);
@@ -77,7 +78,7 @@ export async function uploadVacantAttachments(
       `Seed document has no synced birth content matching ${input.document.key}.`,
     );
   for (const [index, { bytes, intent }] of attachments.entries()) {
-    const snapshot = index === 0 ? first : await pull(store);
+    const snapshot = index === 0 ? first : await pull(store, stillCurrent);
     if (!needsFixtureBytes(snapshot, intent)) continue;
     await requireVacantBinding(runtime, documentId, intent);
     if (!stillCurrent())
@@ -90,7 +91,10 @@ export async function uploadVacantAttachments(
       expectedBindingId: null,
       // Staging can take time. Recheck before sending the encrypted parts.
       onStageResolved: async () => {
-        if (!stillCurrent() || !needsFixtureBytes(await pull(store), intent))
+        if (
+          !stillCurrent() ||
+          !needsFixtureBytes(await pull(store, stillCurrent), intent)
+        )
           throw new Error(
             `The attachment changed during upload: ${intent.name}. Run seed again to resume.`,
           );
@@ -100,7 +104,7 @@ export async function uploadVacantAttachments(
       resolveProjectionUserKey: links.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
     });
-    if (!uploaded || needsFixtureBytes(await pull(store), intent))
+    if (!uploaded || needsFixtureBytes(await pull(store, stillCurrent), intent))
       throw new Error(
         `Could not upload seed attachment: ${intent.name}. Run seed again to resume.`,
       );

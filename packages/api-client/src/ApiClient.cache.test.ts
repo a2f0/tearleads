@@ -392,3 +392,34 @@ testApiClient(
     ]);
   },
 );
+
+testApiClient(
+  "ignores a binding response after its writer scope retires",
+  async () => {
+    let current = true;
+    let reads = 0;
+    server.use(
+      http.get(`${apiBaseUrl}/documents/:documentId/attachments`, () => {
+        reads++;
+        return HttpResponse.json([]);
+      }),
+      http.post(`${apiBaseUrl}/blobs/:blobId/attachment-bindings`, () => {
+        current = false;
+        return HttpResponse.json(createBlobAttachmentBindResponse());
+      }),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    expect(await client.listDocumentAttachments("document-1")).toEqual([]);
+    expect(
+      await client.bindBlobAttachment(
+        "blob-1",
+        createBlobAttachmentBindRequest(),
+        {
+          stillCurrent: () => current,
+        },
+      ),
+    ).toBeNull();
+    expect(await client.listDocumentAttachments("document-1")).toEqual([]);
+    expect(reads).toBe(1);
+  },
+);

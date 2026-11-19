@@ -136,11 +136,13 @@ export class BlobArea {
   private attachmentWrite<R>(
     write: Promise<R | null>,
     cacheResponse: (response: R) => void,
+    stillCurrent: RequestResultOptions["stillCurrent"],
   ): Promise<R | null> {
     const session = this.context.runtime.responseRequest.sessionSignal?.();
+    const current = () => !session?.aborted && stillCurrent?.() !== false;
     return write
       .then((response) => {
-        if (session?.aborted) return null;
+        if (!current()) return null;
         if (response) {
           cacheResponse(response);
         } else {
@@ -149,7 +151,7 @@ export class BlobArea {
         return response;
       })
       .catch((error: unknown) => {
-        if (!session?.aborted) this.attachmentLists.clear();
+        if (current()) this.attachmentLists.clear();
         throw error;
       });
   }
@@ -224,6 +226,7 @@ export class BlobArea {
         options,
       ),
       (response) => this.cacheBlobAttachmentBindResponse(input, response),
+      options.stillCurrent,
     );
   }
 
@@ -242,6 +245,7 @@ export class BlobArea {
         options,
       ),
       this.cacheBlobAttachmentDetachResponse,
+      options.stillCurrent,
     );
   }
 
