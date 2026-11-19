@@ -79,7 +79,7 @@ function createBootFailureDiagnostics() {
 // this as an explicit error with a Retry — not an indistinguishable, never-ending
 // "Loading...". (`ready` stays false on a hard failure just like during boot, so
 // without the explicit error branch the failure looks identical to still
-// loading; see ExplorerDatabaseErrorStatus and the detail/sidebar gates.)
+// loading; see SystemBootstrapGate.)
 test(
   "explorer surfaces a database error with retry (not an endless spinner) when the worker fails to boot offline",
   async () => {
@@ -135,8 +135,10 @@ test(
       within(explorerWindow).getAllByRole("button", { name: "Retry" }),
     ).toHaveLength(2);
     expect(explorerWindow.textContent).not.toContain("Loading...");
-    // And it never falsely reaches the ready-but-empty "No containers." state.
-    expect(explorerWindow.textContent).not.toContain("No containers.");
+    // And it never falsely reaches the ready-but-empty "No folders on this device" state.
+    expect(explorerWindow.textContent).not.toContain(
+      "No folders on this device",
+    );
 
     // Retrying re-attempts the boot; with a permanently-failing worker it returns
     // to the same surfaced error and never silently hangs.

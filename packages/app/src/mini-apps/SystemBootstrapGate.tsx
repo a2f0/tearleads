@@ -9,11 +9,13 @@ import {
   useRef,
 } from "react";
 import {
+  MiniAppButton,
   MiniAppRoot,
   MiniAppSidebar,
   MiniAppStatePanel,
   MiniAppStatus,
 } from "../components/mini-app/MiniAppLayout";
+import { useDatabase } from "../providers/db/DatabaseProvider";
 import { useSystemBootstrap } from "../providers/system-bootstrap/SystemBootstrapProvider";
 
 /**
@@ -64,23 +66,41 @@ export function SystemBootstrapGate({
   message,
 }: PropsWithChildren<{ readonly message: string }>) {
   const { isBootstrapping } = useSystemBootstrap();
+  const { status, clearWorker } = useDatabase();
+  const databaseFailed = status === "error";
+  const errorPanel = useMemo(
+    () => (
+      <MiniAppStatePanel
+        title="Couldn't open the local database."
+        description="Retry to open your saved data on this device."
+      >
+        <MiniAppButton onClick={clearWorker}>Retry</MiniAppButton>
+      </MiniAppStatePanel>
+    ),
+    [clearWorker],
+  );
   const { setSidebar } = useWindowSidebar();
   const sidebar = useMemo(
     () => (
       <MiniAppSidebar>
-        <MiniAppStatus busy>{message}...</MiniAppStatus>
+        {databaseFailed ? (
+          errorPanel
+        ) : (
+          <MiniAppStatus busy>{message}...</MiniAppStatus>
+        )}
       </MiniAppSidebar>
     ),
-    [message],
+    [message, databaseFailed, errorPanel],
   );
   const blocking = useSystemBootstrapBlocking(isBootstrapping);
 
   useRegisteredWindowSidebar({
-    enabled: blocking,
+    enabled: blocking || databaseFailed,
     setSidebar,
     sidebar,
   });
 
+  if (databaseFailed) return <MiniAppRoot>{errorPanel}</MiniAppRoot>;
   if (blocking) {
     return (
       <MiniAppRoot>

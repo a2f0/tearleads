@@ -1,18 +1,12 @@
 import { useRegisteredWindowSidebar } from "@tearleads/windowing";
-import {
-  type MouseEvent,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
-import {
-  MiniAppSidebar,
-  MiniAppStatus,
-} from "../../../components/mini-app/MiniAppLayout";
+import { type MouseEvent, type ReactNode, useMemo } from "react";
+import { MiniAppSidebar } from "../../../components/mini-app/MiniAppLayout";
 import { useMiniAppVirtualWindow } from "../../../components/mini-app/virtual/MiniAppVirtual";
 import { isExplorerOrphanedDocumentsId } from "../../../stores/explorer/orphanedDocuments";
-import { ExplorerDatabaseErrorStatus } from "../shared/ExplorerDatabaseErrorStatus";
+import {
+  type ExplorerFolderState,
+  ExplorerFolderStatus,
+} from "../shared/ExplorerFolderStatus";
 import type { ExplorerSidebarVirtualRow } from "./ExplorerSidebarRows";
 import { buildExplorerSidebarRows } from "./ExplorerSidebarRows";
 import {
@@ -24,13 +18,10 @@ import { EXPLORER_SIDEBAR_ROW_HEIGHT } from "./explorerTreeModel";
 
 interface ExplorerSidebarContentProps extends ExplorerSidebarRowProps {
   blankContextMenuContainerId: string | null;
-  // True when the SQLite boot failed; surfaces the error instead of "Loading...".
-  databaseError: boolean;
   frameRef: (nextFrame: HTMLDivElement | null) => void;
   nodesLength: number;
   offset: number;
-  onRetryDatabase: () => void;
-  ready: boolean;
+  folderState: ExplorerFolderState;
   rows: ReadonlyArray<ExplorerSidebarVirtualRow>;
   totalRows: number;
 }
@@ -42,23 +33,6 @@ function isExplorerSidebarBlankContextTarget(
 }
 
 function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
-  // The device-first store can briefly re-report `ready: false` while it
-  // re-snapshots during boot, even after it has already produced the tree. Latch
-  // the first time we have a real tree to show so a transient `ready` flip keeps
-  // displaying the existing rows instead of unmounting them back to "Loading...",
-  // which reads as the sidebar's contents appearing and then vanishing.
-  const hasRenderedTreeRef = useRef(false);
-  const canRenderTree = props.ready && props.nodesLength > 0;
-  // Latch in an effect rather than during render to keep render pure: on the
-  // first ready render `canRenderTree` already makes `shouldShowTree` true, and
-  // the effect persists it so a later transient `ready` flip keeps the tree.
-  useEffect(() => {
-    if (canRenderTree) {
-      hasRenderedTreeRef.current = true;
-    }
-  }, [canRenderTree]);
-  const shouldShowTree = canRenderTree || hasRenderedTreeRef.current;
-
   return (
     <MiniAppSidebar className="explorer-sidebar explorer-sidebar--virtual">
       <section
@@ -74,12 +48,7 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
         }}
         ref={props.frameRef}
       >
-        {props.databaseError ? (
-          // A failed SQLite boot leaves `ready` false just like an in-progress
-          // boot, so surface the error (matching the detail panel) rather than an
-          // indistinguishable, never-ending "Loading...".
-          <ExplorerDatabaseErrorStatus onRetry={props.onRetryDatabase} />
-        ) : shouldShowTree ? (
+        {props.nodesLength > 0 ? (
           <ExplorerSidebarVirtualTree
             activeContainerId={props.activeContainerId}
             offset={props.offset}
@@ -90,12 +59,8 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
             selectedId={props.selectedId}
             totalRows={props.totalRows}
           />
-        ) : props.ready ? (
-          // Settled and genuinely empty (distinct from the transient flip the
-          // latch above absorbs, which keeps the tree mounted).
-          <MiniAppStatus>No containers.</MiniAppStatus>
         ) : (
-          <MiniAppStatus>Loading...</MiniAppStatus>
+          <ExplorerFolderStatus state={props.folderState} />
         )}
       </section>
     </MiniAppSidebar>
@@ -105,16 +70,13 @@ function ExplorerSidebarContent(props: ExplorerSidebarContentProps) {
 interface ExplorerSidebarPanelParams {
   activeContainerId: string | null;
   collapsedIds: ReadonlySet<string>;
-  // Surfaces a failed SQLite boot (with Retry) in the sidebar tree's gate.
-  databaseError: boolean;
-  onRetryDatabase: () => void;
   handleContainerContextMenu: (
     event: MouseEvent<HTMLElement>,
     nodeId: string,
   ) => void;
   organizationNamesById: ReadonlyMap<string, string>;
   primaryOrganizationId: string | null;
-  ready: boolean;
+  folderState: ExplorerFolderState;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
   setSidebar: (sidebar: ReactNode | null) => void;
@@ -173,15 +135,13 @@ function ExplorerSidebar(props: ExplorerSidebarPanelParams) {
     <ExplorerSidebarContent
       activeContainerId={props.activeContainerId}
       blankContextMenuContainerId={blankContextMenuContainerId}
-      databaseError={props.databaseError}
       frameRef={frameRef}
       nodesLength={props.treeEntries.length}
       offset={sidebarOffset}
       onContextMenu={props.handleContainerContextMenu}
-      onRetryDatabase={props.onRetryDatabase}
       onSelectContainer={props.setSelectedId}
       onToggleCollapsed={props.toggleCollapsed}
-      ready={props.ready}
+      folderState={props.folderState}
       rows={rows.slice(sidebarOffset, sidebarOffset + limit)}
       selectedId={props.selectedId}
       totalRows={rows.length}
@@ -198,12 +158,10 @@ function useExplorerSidebarProps(
     () => ({
       activeContainerId: params.activeContainerId,
       collapsedIds: params.collapsedIds,
-      databaseError: params.databaseError,
       handleContainerContextMenu: params.handleContainerContextMenu,
-      onRetryDatabase: params.onRetryDatabase,
       organizationNamesById: params.organizationNamesById,
       primaryOrganizationId: params.primaryOrganizationId,
-      ready: params.ready,
+      folderState: params.folderState,
       selectedId: params.selectedId,
       setSelectedId: params.setSelectedId,
       setSidebar: params.setSidebar,
@@ -213,12 +171,10 @@ function useExplorerSidebarProps(
     [
       params.activeContainerId,
       params.collapsedIds,
-      params.databaseError,
       params.handleContainerContextMenu,
-      params.onRetryDatabase,
       params.organizationNamesById,
       params.primaryOrganizationId,
-      params.ready,
+      params.folderState,
       params.selectedId,
       params.setSelectedId,
       params.setSidebar,

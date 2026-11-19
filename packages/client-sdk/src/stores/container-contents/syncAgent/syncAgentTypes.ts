@@ -45,6 +45,7 @@ export interface ContainerContentsStoreSyncAgent {
 }
 
 export interface ContainerContentsStoreSyncState {
+  trackHydration?: (request: Promise<unknown>) => void;
   readonly parentLaneRequestPrefix?: string;
   /** Container listing requests that failed or timed out in a current crawl. */
   containerListingFailures: number;

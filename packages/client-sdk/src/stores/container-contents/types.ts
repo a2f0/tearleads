@@ -74,6 +74,8 @@ export type ContainerContentsContextValue = ContainerContentsSnapshot &
   >;
 
 export interface ContainerContentsSnapshot {
+  /** A background folder listing is pending, independently of local readiness. */
+  readonly hydrating?: true;
   nodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
 }

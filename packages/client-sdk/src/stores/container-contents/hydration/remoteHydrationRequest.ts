@@ -38,6 +38,7 @@ type RemoteHydrationRequestState = RemoteContainerHydrationState &
       ready: boolean;
     };
     structuralGeneration: number;
+    trackHydration?: (request: Promise<unknown>) => void;
     writeGeneration?: number;
   };
 
@@ -396,16 +397,17 @@ function bindManualTreeReset(
 export function requestContainerContentsRemoteHydration(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
-  const { host, scheduleSync, state } = input;
   input = bindManualTreeReset(input);
   if (!ownsHydrationRequest(input)) return Promise.resolve();
   queueRequestedParentIds(input);
   const readinessBarrier = waitForRemoteHydrationReadiness(input);
-  if (readinessBarrier) {
-    return readinessBarrier;
-  }
+  const request = readinessBarrier ?? startHydration(prepareTreeReset(input));
+  input.state.trackHydration?.(request);
+  return request;
+}
 
-  input = prepareTreeReset(input);
+function startHydration(input: RemoteHydrationRequestInput): Promise<void> {
+  const { host, scheduleSync, state } = input;
   const { followDiscoveredParentLanes, parentIds } =
     consumeQueuedHydrationScope(state, input.followDiscoveredParentLanes);
 
@@ -490,6 +492,5 @@ export function requestContainerContentsRemoteHydration(
       return undefined;
     });
   state.remoteHydrationPromise = hydrationPromise;
-
   return hydrationPromise;
 }
