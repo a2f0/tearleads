@@ -80,7 +80,8 @@ export async function seed(input: CommandInput): Promise<void> {
         session,
         input.organizationId,
       );
-      const { spec, seedSha256, readAttachment } = await loadContinuityAssets();
+      const { spec, datasetSha256, readAttachment } =
+        await loadContinuityAssets();
       const documents = continuityDocuments(spec);
       const contactsId = await ensureContactsContainer(sdk, signingPrivateKey);
       for (const containerId of [rootId, contactsId]) {
@@ -95,7 +96,7 @@ export async function seed(input: CommandInput): Promise<void> {
           const containerId = document.kind === "contact" ? contactsId : rootId;
           const localId = createHmac("sha256", signingPrivateKey)
             .update(
-              `tearleads.continuity/${containerId}/${seedSha256}/${document.key}`,
+              `tearleads.continuity/${containerId}/${datasetSha256}/${document.key}`,
             )
             .digest("hex");
           const documentId = await deriveStableDocumentId(localId);

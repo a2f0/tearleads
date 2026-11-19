@@ -21,6 +21,12 @@ async function fixture() {
       schemaVersion: 2,
       password: "test",
       identitySeedPhrase: "fixture",
+      contacts: [
+        {
+          fields: { firstName: "Fixture" },
+          avatar: { file: "photo.jpg", mimeType: "image/jpeg" },
+        },
+      ],
     }),
     "expectations.json": "{}",
     "photo.jpg": "photo bytes",
@@ -53,6 +59,21 @@ test("seed assets verify every attachment against its manifest before use", asyn
   await expect(assets.readAttachment("../manifest.json")).rejects.toThrow(
     "Invalid seed asset name",
   );
+});
+
+test("changing only fixture bytes changes the account seed identity", async () => {
+  const { files, root, seed, save } = await fixture();
+  const before = await loadContinuityAssets(seed);
+  const photo = files.find((file) => file.path === "tearleads/photo.jpg");
+  if (!photo) throw new Error("Missing fixture photo");
+  const replacement = "replacement photo";
+  await writeFile(join(root, photo.path), replacement);
+  photo.bytes = Buffer.byteLength(replacement);
+  photo.sha256 = seedDigest(replacement);
+  await save();
+  const after = await loadContinuityAssets(seed);
+  expect(after.seedSha256).toBe(before.seedSha256);
+  expect(after.datasetSha256).not.toBe(before.datasetSha256);
 });
 
 for (const corruption of ["missing", "duplicate", "size", "hash"] as const) {

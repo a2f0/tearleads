@@ -39,11 +39,24 @@ export async function loadContinuityAssets(
   const seedBytes = await read("seed.json");
   const spec: unknown = JSON.parse(new TextDecoder().decode(seedBytes));
   validateSeedSpec(spec);
+  const attachmentNames = new Set([
+    ...(spec.contacts ?? []).flatMap((contact) =>
+      contact.avatar ? [contact.avatar.file] : [],
+    ),
+    ...(spec.files ?? []).flatMap((file) =>
+      file.attachments.map((attachment) => attachment.file),
+    ),
+  ]);
+  const seedSha256 = seedDigest(seedBytes);
+  const digests = [seedSha256];
+  for (const name of attachmentNames)
+    digests.push(seedDigest(await read(name)));
   const expectations = await read("expectations.json");
   return {
     spec,
     readAttachment: read,
-    seedSha256: seedDigest(seedBytes),
+    seedSha256,
+    datasetSha256: seedDigest(JSON.stringify(digests)),
     expectationsSha256: seedDigest(expectations),
   };
 }
