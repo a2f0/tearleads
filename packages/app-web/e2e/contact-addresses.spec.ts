@@ -34,8 +34,9 @@ async function createContact(page: Page, name: string): Promise<string> {
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/app\/contacts\/contact\/[^/]+$/u);
   await expect(
-    addresses(page).getByText("No addresses.", { exact: true }),
+    page.getByRole("button", { name: "Edit", exact: true }),
   ).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
   return page.url();
 }
 

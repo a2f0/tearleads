@@ -80,11 +80,7 @@ async function selectOnlySelfContact(pane: HTMLElement, localId?: string) {
     name: "Items in Contacts",
   });
   await clickButton(table, "You");
-  await within(explorer).findByRole(
-    "region",
-    { name: "Addresses" },
-    WAIT_OPTIONS,
-  );
+  await within(explorer).findByRole("button", { name: "Edit" }, WAIT_OPTIONS);
 }
 
 function expectAddresses(pane: HTMLElement, expected: AddressCards) {

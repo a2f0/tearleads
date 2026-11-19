@@ -28,8 +28,9 @@ async function createContactWithAddress(page: Page, name: string) {
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/app\/contacts\/contact\/[^/]+$/u);
   await expect(
-    addresses(page).getByText("No addresses.", { exact: true }),
+    page.getByRole("button", { name: "Edit", exact: true }),
   ).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
   // History keeps one step per second of edits: let the creation's second
   // pass so the address is a step of its own.
   await page.waitForTimeout(2100);
@@ -186,9 +187,8 @@ test("History steps back to an earlier version and restores it", async ({
     await page.getByRole("button", { name: "Previous change" }).click();
     await expectSettled(page);
   }
-  await expect(
-    addresses(page).getByText("No addresses.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator(".contact-document-fields")).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
 
   // A restore within a second of the edit before it would share that edit's
   // step; a person never restores that fast, but this test does.
@@ -204,16 +204,14 @@ test("History steps back to an earlier version and restores it", async ({
     .poll(async () => Number(await slider(page).getAttribute("max")))
     .toBeGreaterThan(lastStop);
   await expectSettled(page);
-  await expect(
-    addresses(page).getByText("No addresses.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator(".contact-document-fields")).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
 
   // The live document holds the restored version, and it survives a reload.
   await page.reload();
   await expect(page).toHaveURL(historyUrl);
   await expect(slider(page)).toBeVisible();
   await expectSettled(page);
-  await expect(
-    addresses(page).getByText("No addresses.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator(".contact-document-fields")).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
 });
