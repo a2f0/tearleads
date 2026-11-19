@@ -41,12 +41,15 @@ export function ensureTrashSystemContainer(
 // A shared Trash may be missing locally until its signed root and child hydrate.
 export type DeleteToTrashUnavailableReason =
   | "awaiting-sync"
-  | "foreign-trash-unverified";
+  | "foreign-trash-unverified"
+  | "trash-not-writable";
 
 const DELETE_TO_TRASH_UNAVAILABLE_MESSAGES: Readonly<
   Record<DeleteToTrashUnavailableReason, string>
 > = {
   "awaiting-sync": "Trash is unavailable until sync completes.",
+  "trash-not-writable":
+    "Moving items to this organization’s Trash requires write access.",
   "foreign-trash-unverified":
     "This organization's Trash cannot be verified from this device.",
 };
@@ -76,7 +79,24 @@ interface ResolveDeleteToTrashTargetInput {
   // Lazily create the viewer's OWN Trash when none is resolved. Only invoked for
   // the viewer's own organization (canFallBackToOwnTrash) — a foreign org's Trash
   // is never substituted with the viewer's, so an absent one aborts the delete.
-  ensureOwnTrashContainer: () => Promise<{ id: string } | null>;
+  ensureOwnTrashContainer: () => Promise<Pick<
+    ContainerNode,
+    "id" | "effectiveAccessLevel"
+  > | null>;
+}
+
+export function canWriteDeleteToTrashTarget(
+  input: Parameters<typeof resolveExplorerDeleteTrashTarget>[0],
+  resolution: ReturnType<
+    typeof resolveExplorerDeleteTrashTarget
+  > = resolveExplorerDeleteTrashTarget(input),
+): boolean {
+  const trash = input.nodes?.find(
+    (node) => node.id === resolution.trashContainerId,
+  );
+  if (trash?.effectiveAccessLevel == null)
+    return resolution.canFallBackToOwnTrash;
+  return trash.effectiveAccessLevel !== "read";
 }
 
 // Resolve the Trash a document living in `containerId` should be moved into,
@@ -88,30 +108,19 @@ interface ResolveDeleteToTrashTargetInput {
 export async function resolveDeleteToTrashTarget(
   input: ResolveDeleteToTrashTargetInput,
 ): Promise<DeleteToTrashTarget> {
-  const {
-    containerId,
-    currentOrganizationId,
-    ensureOwnTrashContainer,
-    nodes,
-    trashSystemSlot,
-  } = input;
-
-  const trashResolution = resolveExplorerDeleteTrashTarget({
-    containerId,
-    currentOrganizationId,
-    nodes,
-    trashSystemSlot,
-  });
-  const trashContainerId =
-    trashResolution.trashContainerId ??
-    (trashResolution.canFallBackToOwnTrash
-      ? (await ensureOwnTrashContainer())?.id
-      : undefined);
-
+  const { nodes, containerId } = input;
+  const resolution = resolveExplorerDeleteTrashTarget(input);
+  let trashContainerId = resolution.trashContainerId;
+  if (!trashContainerId && resolution.canFallBackToOwnTrash) {
+    const created = await input.ensureOwnTrashContainer();
+    if (created?.effectiveAccessLevel === "read")
+      return { status: "unavailable", reason: "trash-not-writable" };
+    trashContainerId = created?.id ?? null;
+  }
   if (!trashContainerId) {
     return {
       status: "unavailable",
-      reason: trashResolution.canFallBackToOwnTrash
+      reason: resolution.canFallBackToOwnTrash
         ? "awaiting-sync"
         : "foreign-trash-unverified",
     };
@@ -119,6 +128,8 @@ export async function resolveDeleteToTrashTarget(
   if (isExplorerContainerUnderTrash(nodes, containerId, trashContainerId)) {
     return { status: "already-in-trash" };
   }
-
+  if (!canWriteDeleteToTrashTarget(input, resolution)) {
+    return { status: "unavailable", reason: "trash-not-writable" };
+  }
   return { status: "target", trashContainerId };
 }

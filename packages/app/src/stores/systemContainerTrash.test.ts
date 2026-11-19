@@ -196,38 +196,46 @@ test("never falls back to the viewer's Trash for a foreign-org container with no
   expect(spy.calls).toBe(0);
 });
 
-test("resolves a custom org's Trash under a foreign root by its organization slot", async () => {
-  const spy = ensureSpy({ id: "must-not-be-used" });
-  const customFolder = {
-    id: "custom-folder",
-    kind: "container" as const,
-    name: "Projects",
-    organizationId: CUSTOM_ORG,
-    parentId: CUSTOM_ROOT,
-    syncState: syncedContainerDocumentObjectSyncState,
-  };
+test.each(["read", "write", "admin", undefined] as const)(
+  "a shared organization's signed Trash has effective access %s",
+  async (access) => {
+    const spy = ensureSpy({ id: "must-not-be-used" });
+    const customFolder = {
+      id: "custom-folder",
+      kind: "container" as const,
+      name: "Projects",
+      organizationId: CUSTOM_ORG,
+      parentId: CUSTOM_ROOT,
+      syncState: syncedContainerDocumentObjectSyncState,
+    };
 
-  expect(
-    await resolveDeleteToTrashTarget({
-      containerId: "custom-folder",
-      currentOrganizationId: VIEWER_ORG,
-      nodes: [
-        customFolder,
-        ...nodesWithCollidingCustomTrash.map((node) =>
-          node.id === "custom-trash"
-            ? {
-                ...node,
-                systemSlot: deriveOrganizationTrashSystemSlot(CUSTOM_ORG),
-              }
-            : node,
-        ),
-      ],
-      trashSystemSlot: VIEWER_TRASH_SLOT,
-      ensureOwnTrashContainer: spy.ensure,
-    }),
-  ).toEqual({ status: "target", trashContainerId: "custom-trash" });
-  expect(spy.calls).toBe(0);
-});
+    expect(
+      await resolveDeleteToTrashTarget({
+        containerId: "custom-folder",
+        currentOrganizationId: VIEWER_ORG,
+        nodes: [
+          customFolder,
+          ...nodesWithCollidingCustomTrash.map((node) =>
+            node.id === "custom-trash"
+              ? {
+                  ...node,
+                  effectiveAccessLevel: access,
+                  systemSlot: deriveOrganizationTrashSystemSlot(CUSTOM_ORG),
+                }
+              : node,
+          ),
+        ],
+        trashSystemSlot: VIEWER_TRASH_SLOT,
+        ensureOwnTrashContainer: spy.ensure,
+      }),
+    ).toEqual(
+      access === "write" || access === "admin"
+        ? { status: "target", trashContainerId: "custom-trash" }
+        : { status: "unavailable", reason: "trash-not-writable" },
+    );
+    expect(spy.calls).toBe(0);
+  },
+);
 
 test("no-ops when the document already lives under Trash", async () => {
   const spy = ensureSpy({ id: "must-not-be-used" });

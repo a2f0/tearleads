@@ -1,10 +1,8 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
-import {
-  isContainerUnderTrash,
-  resolveExplorerDeleteTrashTarget,
-} from "../../../stores/explorer/ExplorerSystemContainers";
+import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
+import { canWriteDeleteToTrashTarget } from "../../../stores/systemContainerTrash";
 import {
   canMutateDocumentByIdentity,
   canWriteContainerNode,
@@ -12,20 +10,6 @@ import {
   type ExplorerContainerRulesContext,
 } from "../model/containerRules";
 import type { MoveTargetOption } from "../model/targetOptions";
-
-function hasWritableTrash(
-  input: Parameters<typeof resolveExplorerDeleteTrashTarget>[0],
-): boolean {
-  const target = resolveExplorerDeleteTrashTarget(input);
-  const trash = input.nodes?.find(
-    (node) => node.id === target.trashContainerId,
-  );
-  if (!trash) return target.canFallBackToOwnTrash;
-  return (
-    (target.canFallBackToOwnTrash || trash.effectiveAccessLevel != null) &&
-    canWriteContainerNode(trash)
-  );
-}
 
 export function getSelectedDocumentMutationState(params: {
   appData: {
@@ -101,7 +85,7 @@ export function getSelectedDocumentMutationState(params: {
       canResolveTrashContainer &&
       selectedDocument.containerId !== trashContainerId &&
       !selectedDocumentUnderTrash &&
-      hasWritableTrash(trashLookup),
+      canWriteDeleteToTrashTarget(trashLookup),
     canLinkSelectedDocument:
       canActivateSelectedDocument &&
       selectedDocumentWritable &&
