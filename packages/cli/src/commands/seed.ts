@@ -46,6 +46,26 @@ async function resolveSeedAccount(
   return { rootId: root.id, signingPrivateKey: keys.signingPrivateKey };
 }
 
+// The SDK verifies a bounded batch of document heads on each discovery pass.
+// A null result means the listing or its evidence could not be verified.
+async function discoverSeedDestination(
+  session: CliSession,
+  containerId: string,
+) {
+  for (;;) {
+    const applied =
+      await session.sdk.containerContents.discoverContainerDocuments(
+        containerId,
+      );
+    session.assertNoFailures();
+    if (!applied)
+      throw new Error(
+        "Could not verify existing documents in the seed destination.",
+      );
+    if (applied.length === 0) return;
+  }
+}
+
 /** Import the pinned screenshot dataset into the signed-in personal root. */
 export async function seed(input: CommandInput): Promise<void> {
   const count = await withSavedSession(
@@ -60,9 +80,8 @@ export async function seed(input: CommandInput): Promise<void> {
       const documents = continuityDocuments(spec);
       const contactsId = await ensureContactsContainer(sdk, signingPrivateKey);
       for (const containerId of [rootId, contactsId]) {
-        await sdk.containerContents.discoverContainerDocuments(containerId);
+        await discoverSeedDestination(session, containerId);
       }
-      session.assertNoFailures();
       const queries = sdk.containerContents.documentQueries();
       const coordinator = getOrCreateDomainSyncCoordinator(
         sdk.runtime.input().state.domainScope,
