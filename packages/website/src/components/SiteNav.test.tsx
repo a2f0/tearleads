@@ -48,12 +48,15 @@ test("static HTML has one Primary nav and a toggle that links to the footer", ()
   expect(currentStates(html)).toEqual({
     "/features/": null,
     "/security/": null,
+    "/docs/": null,
     "/pricing/": "page",
     "/#download": null,
   });
 });
 
 test("pages inside a section mark that section as current", () => {
+  expect(currentStates(staticNav("/docs"))["/docs/"]).toBe("page");
+  expect(currentStates(staticNav("/docs/re-keying"))["/docs/"]).toBe("true");
   expect(currentStates(staticNav("/manage-subscription"))).toMatchObject({
     "/pricing/": "true",
   });

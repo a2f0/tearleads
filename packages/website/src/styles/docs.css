@@ -144,3 +144,10 @@
   color: var(--site-ink-3);
   font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
 }
+
+/* Keep the Markdown diagrams at their drawn size and fit narrow screens. */
+.docs-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
