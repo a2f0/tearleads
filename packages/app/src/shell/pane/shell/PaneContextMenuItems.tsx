@@ -6,9 +6,11 @@ import {
   MenuItem,
   type MenuPosition,
 } from "@tearleads/windowing";
+import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapProgress";
 import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/catalog";
 import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItems";
 import { useAppNavigationState } from "../../../navigation/AppNavigationProvider";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { AppScreensaverMenuItem } from "../../layout/AppScreensaverHost";
 
 import { usePaneLockMenuAction } from "./usePaneLockMenuAction";
@@ -40,6 +42,10 @@ export function PaneContextMenuItems({
   const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
   const visibleMenuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
   const { definition } = useAppNavigationState();
+  const progress = useAccountBootstrapProgress();
+  const provisioning =
+    useAppHostConfig().profile.features.autoGenerateIdentity &&
+    progress !== null;
   const settings = definition.apps["display-properties"];
 
   const AppItem = surface === "start" ? LauncherMenuItem : MenuItem;
@@ -47,7 +53,7 @@ export function PaneContextMenuItems({
 
   return (
     <>
-      {needsIdentity && (
+      {needsIdentity && !provisioning && (
         <MenuItem
           disabled={identityTransitionInFlight}
           icon={KeyIcon}
@@ -66,7 +72,12 @@ export function PaneContextMenuItems({
         <MenuItem icon={LockIcon} label="Lock" onClick={lockPane} />
       )}
       {visibleMenuItems
-        .filter(({ appId }) => !needsIdentity || appId === "system-monitor")
+        .filter(
+          ({ appId }) =>
+            !needsIdentity ||
+            appId === "system-monitor" ||
+            (provisioning && appId === "identity-manager"),
+        )
         .map(({ appId }) => {
           const app = definition.apps[appId];
           return app ? (

@@ -1,4 +1,4 @@
-import { expect, test } from "./appTest";
+import { expect, test } from "@playwright/test";
 import { switchToWindowedDesktop } from "./windowedDesktop";
 
 // The URL names the app in both layouts. Switching from the tablet shell on an

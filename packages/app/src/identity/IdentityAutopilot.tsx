@@ -8,7 +8,6 @@ import {
 } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
-import { sealPendingAccountNaming } from "../providers/identity/accountNamingPersistence";
 import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useLog } from "../providers/logging/LogProvider";
@@ -30,7 +29,8 @@ import {
   registrationStepFor,
   transitionRegistrationRun,
 } from "./registrationRunMachine";
-import { type AccountNaming, useAccountNaming } from "./useAccountNaming";
+import { useAccountNaming } from "./useAccountNaming";
+import { useIdentityOnboarding } from "./useIdentityOnboarding";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
 /**
@@ -49,24 +49,41 @@ import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
  *
  * Auto-generation waits for the local keychain to be unlocked and for the
  * initial persisted-identity restore to settle, so a returning user's stored
- * identity is restored rather than clobbered by a freshly generated one. With
- * {@link AppHostFeatureFlags.promptAccountName}, the identity it generates
- * then waits for the user's name before it registers.
+ * identity takes precedence over first-launch onboarding.
  */
-function useAutoProvisionIdentity(enabled: boolean): {
-  generation: AutoProvisioningStep;
-  naming: AccountNaming;
-  registration: AutoProvisioningStep;
-} {
+function useAutoProvisionIdentity(enabled: boolean) {
+  const { features } = useAppHostConfig().profile;
+  const interactive =
+    features.autoGenerateIdentity &&
+    features.autoRegisterIdentity &&
+    features.promptAccountName;
   const naming = useAccountNaming();
-  const generation = useAutoGenerateIdentity(enabled, naming.identityGenerated);
+  const [recoveredFingerprint, setRecoveredFingerprint] = useState<
+    string | null
+  >(null);
+  const { signingFingerprint } = useIdentity();
+  const recovered =
+    signingFingerprint !== null && signingFingerprint === recoveredFingerprint;
+  const onboarding = useIdentityOnboarding(
+    enabled && interactive,
+    naming.identityNamed,
+    setRecoveredFingerprint,
+  );
+  const automatic = useAutoGenerateIdentity(enabled && !interactive);
+  const generation: AutoProvisioningStep =
+    onboarding && "request" in onboarding.state
+      ? { status: "running" }
+      : automatic;
   return {
     generation,
     naming,
+    onboarding,
+    recovered,
     registration: useAutoRegisterIdentity(enabled, {
       generation,
       naming: naming.state,
       namingSettled: naming.settled,
+      recovered,
     }),
   };
 }
@@ -74,41 +91,19 @@ function useAutoProvisionIdentity(enabled: boolean): {
 const AUTO_GENERATE_FAILED_MESSAGE =
   "Could not create an identity automatically. Create one in Identity Manager.";
 
-function useAutoGenerateIdentity(
-  enabled: boolean,
-  onGenerated: (fingerprint: string) => void,
-): AutoProvisioningStep {
-  const { localIdentityNamespace, profile } = useAppHostConfig();
-  const { features } = profile;
-  const { createLocalKeyring, isLocked } = useLocalKeyringLock();
+function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
+  const { features } = useAppHostConfig().profile;
+  const { isLocked } = useLocalKeyringLock();
   const {
     generateKey,
     identityDestroyed,
     localIdentityRestoreSettled,
     signingKeyPair,
   } = useIdentity();
-  const promptAccountName =
-    features.promptAccountName && features.autoRegisterIdentity;
   const generationInFlight = useRef(false);
   const [generation, setGeneration] = useState<AutoProvisioningStep>(
     AUTO_PROVISIONING_IDLE,
   );
-  // Before the new identity is stored: the prompt is owed from here on, and
-  // sealed first, so a restart before it is answered still asks. A prompt
-  // that cannot be sealed fails the generation: an identity stored without
-  // it would come back unprompted and register unnamed.
-  const beforePersist = useCallback(
-    async (signingFingerprint: string) => {
-      onGenerated(signingFingerprint);
-      await sealPendingAccountNaming({
-        createLocalKeyring,
-        namespace: localIdentityNamespace ?? null,
-        signingFingerprint,
-      });
-    },
-    [createLocalKeyring, localIdentityNamespace, onGenerated],
-  );
-
   useEffect(() => {
     if (
       generationInFlight.current ||
@@ -130,7 +125,7 @@ function useAutoGenerateIdentity(
     // so it is reported rather than left as a permanent "creating" state.
     generationInFlight.current = true;
     setGeneration({ status: "running" });
-    void generateKey(promptAccountName ? { beforePersist } : undefined)
+    void generateKey()
       .then(
         (created) => created,
         () => false,
@@ -146,14 +141,12 @@ function useAutoGenerateIdentity(
         generationInFlight.current = false;
       });
   }, [
-    beforePersist,
     enabled,
     features.autoGenerateIdentity,
     generateKey,
     identityDestroyed,
     isLocked,
     localIdentityRestoreSettled,
-    promptAccountName,
     signingKeyPair,
   ]);
 
@@ -161,6 +154,7 @@ function useAutoGenerateIdentity(
 }
 
 interface PendingRegistration {
+  readonly recovered: boolean;
   readonly generation: AutoProvisioningStep;
   readonly naming: AccountNamingState;
   readonly namingSettled: boolean;
@@ -233,7 +227,7 @@ function useAutoRegisterIdentity(
   pending: PendingRegistration,
 ): AutoProvisioningStep {
   const { features } = useAppHostConfig().profile;
-  const { sessionRestoreSettled } = useCryptoSession();
+  const { login, sessionRestoreSettled } = useCryptoSession();
   const { canRegisterCurrentIdentity, registerCurrentIdentity } =
     useRegisterCurrentIdentity();
   const { ensureBootstrapped, status: systemBootstrapStatus } =
@@ -243,15 +237,18 @@ function useAutoRegisterIdentity(
   const { rearm, registration, settle, start } =
     useRegistrationRuns(signingFingerprint);
   const { accountName, awaitingInput } = pendingRegistration(pending);
+  const authenticateIdentity = pending.recovered
+    ? login
+    : registerCurrentIdentity;
   const currentRegistrationRef = useRef({
     accountName,
     canRegisterCurrentIdentity,
-    registerCurrentIdentity,
+    authenticateIdentity,
   });
   currentRegistrationRef.current = {
     accountName,
     canRegisterCurrentIdentity,
-    registerCurrentIdentity,
+    authenticateIdentity,
   };
 
   useEffect(() => {
@@ -297,7 +294,7 @@ function useAutoRegisterIdentity(
           return null;
         }
 
-        return currentRegistrationRef.current.registerCurrentIdentity({
+        return currentRegistrationRef.current.authenticateIdentity({
           accountName: currentRegistrationRef.current.accountName,
         });
       })
@@ -312,7 +309,9 @@ function useAutoRegisterIdentity(
         (error: unknown): AutoProvisioningStep => {
           // Logged and kept, so signed-out surfaces show the reason beside
           // the manual Login fallback.
-          const message = autoRegisterFailureMessage(error);
+          const message = pending.recovered
+            ? AUTO_SIGN_IN_INCOMPLETE_MESSAGE
+            : autoRegisterFailureMessage(error);
           logError(message, error);
           return { message, status: "failed" };
         },
@@ -325,6 +324,7 @@ function useAutoRegisterIdentity(
     ensureBootstrapped,
     features.autoRegisterIdentity,
     logError,
+    pending.recovered,
     rearm,
     sessionRestoreSettled,
     settle,
@@ -355,7 +355,7 @@ export function IdentityAutopilot({
   readonly enabled?: boolean | undefined;
 }>) {
   const { features } = useAppHostConfig().profile;
-  const { generation, naming, registration } =
+  const { generation, naming, onboarding, recovered, registration } =
     useAutoProvisionIdentity(enabled);
   const { contactNamed, settled, state: accountNaming, submit } = naming;
   // Only a profile that asks for names has one to wait for.
@@ -367,6 +367,8 @@ export function IdentityAutopilot({
       accountNamingSettled,
       enabled,
       generation,
+      onboarding,
+      recovered,
       registration,
       submitAccountName: submit,
     }),
@@ -375,6 +377,8 @@ export function IdentityAutopilot({
       accountNamingSettled,
       enabled,
       generation,
+      onboarding,
+      recovered,
       registration,
       submit,
     ],

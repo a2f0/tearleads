@@ -178,12 +178,13 @@ export async function savePersistedAccountNaming(
 }
 
 /**
- * Seals a new identity's pending prompt before the identity itself is stored,
- * so a restart in between still asks for the name. The keyring is the host's
+ * Seals a new identity's name before the identity itself is stored,
+ * so its first registration can resume after a restart. The keyring is the host's
  * shared one, so it stays open, as the persisted crypto session leaves it.
  */
-export async function sealPendingAccountNaming(input: {
+export async function sealNewAccountName(input: {
   readonly createLocalKeyring: (() => LocalKeyring) | undefined;
+  readonly name: string;
   readonly namespace: string | null;
   readonly signingFingerprint: string;
 }): Promise<void> {
@@ -197,7 +198,7 @@ export async function sealPendingAccountNaming(input: {
   if (!input.namespace || !storage || !keyring) {
     return;
   }
-  await savePersistedAccountNaming(
+  const written = await savePersistedAccountNaming(
     {
       keyring,
       scope: localIdentityScope(input.namespace),
@@ -208,8 +209,9 @@ export async function sealPendingAccountNaming(input: {
       ),
     },
     input.signingFingerprint,
-    { status: "awaiting" },
+    { name: input.name, status: "named" },
   );
+  if (!written) throw new Error("Account name storage was superseded.");
 }
 
 /** Removes the record; false when a later claim on it superseded this. */
