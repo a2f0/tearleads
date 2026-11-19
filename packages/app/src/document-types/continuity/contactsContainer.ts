@@ -49,7 +49,7 @@ export async function ensureContactsContainer(
   const contactsNode = await tree.ensureSystemContainer(
     contactsSystemContainer.systemSlot,
     CONTACTS_CONTAINER_NAME,
-    { skipAdvancedManagedRoot: true, icon: contactsSystemContainer.icon },
+    { icon: contactsSystemContainer.icon },
   );
   if (!contactsNode) {
     throw new Error("Failed to create the Contacts system container.");

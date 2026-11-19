@@ -31,12 +31,7 @@ async function resolveSeedAccount(
       "Seed requires the signed-in account's personal organization.",
     );
   }
-  const rootId = sdk.session.snapshot.rootAcknowledgments.find(
-    (entry) =>
-      entry.organizationId === org.organizationId &&
-      entry.userId === session.userId &&
-      entry.signingFingerprint === sdk.identity.signingFingerprint,
-  )?.rootContainerId;
+  const rootId = sdk.runtime.input().auth.rootContainerId;
   const root = nodes.find(
     (node) =>
       node.id === rootId &&
