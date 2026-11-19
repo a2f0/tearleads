@@ -11,124 +11,144 @@ import {
 } from "@tearleads/client-sdk";
 
 async function pull(store: DocumentStore) {
-  if (!(await store.requestRemoteSyncAndWait(AbortSignal.timeout(120_000)))) {
+  if (!(await store.requestRemoteSyncAndWait(AbortSignal.timeout(120_000))))
     throw new Error("Could not sync the seed document.");
-  }
   return store.getSnapshot();
 }
 
-function matches(
-  recorded: DocumentAttachment | undefined,
-  intent: DocumentAttachment,
-) {
-  return (
-    recorded?.contentSha256 === intent.contentSha256 &&
-    recorded.name === intent.name &&
-    recorded.mimeType === intent.mimeType &&
-    recorded.byteLength === intent.byteLength
-  );
+function slotAction(snapshot: DocumentSnapshot, fixture: DocumentAttachment) {
+  const { slotId } = fixture;
+  const recorded = snapshot.attachments.find((item) => item.slotId === slotId);
+  const occupied = snapshot.attachmentStorageKeyBySlotId[slotId];
+  if (
+    recorded &&
+    occupied &&
+    snapshot.attachmentStatusBySlotId[slotId] !== "intent-mismatch"
+  )
+    return "complete";
+  if (
+    !recorded ||
+    recorded.contentSha256 !== fixture.contentSha256 ||
+    recorded.name !== fixture.name ||
+    recorded.mimeType !== fixture.mimeType ||
+    recorded.byteLength !== fixture.byteLength
+  )
+    return "retire";
+  if (occupied)
+    throw new Error(
+      `The bound bytes differ from the seed attachment: ${fixture.name}. Run seed again after the edit syncs.`,
+    );
+  return "upload";
 }
 
-async function retireSeedBinding(
+type SlotMutation = Omit<
+  DetachDocumentAttachmentRequest,
+  "blobId" | "bindingId"
+>;
+
+// Every upload has its own binding ID. The secret seed ID lets a later run
+// recognize its own signed binding after an interrupted upload.
+function seedBindingId(localId: string, slotId: string, blobId: string) {
+  return deriveStableDocumentId(`${localId}/binding/${slotId}/${blobId}`);
+}
+
+async function loadSeedBinding(
   runtime: DocumentsWorkflowRuntime,
-  mutation: Omit<DetachDocumentAttachmentRequest, "blobId">,
+  mutation: SlotMutation,
+  localId: string,
 ) {
   const bindings = await runtime.apiClient.listDocumentAttachments(
     mutation.documentId,
     { refresh: true },
   );
   if (!bindings) throw new Error("Could not verify seed attachment bindings.");
-  const own = bindings.find(
-    (binding) =>
-      binding.bindingId === mutation.bindingId &&
-      binding.slotId === mutation.slotId,
+  const observed = bindings.find(
+    (binding) => binding.slotId === mutation.slotId,
   );
-  if (!own) return;
   if (
-    !(await runtime.blobAttachments.detachDocumentAttachment({
-      ...mutation,
-      blobId: own.blobId,
-    }))
-  ) {
-    throw new Error("Could not retire the removed seed attachment.");
-  }
-}
-
-// Metadata-only edits may keep using the same bytes. Retire this import's
-// binding when the edited document no longer claims those bytes.
-async function inspectSeedSlot(
-  snapshot: DocumentSnapshot,
-  intent: DocumentAttachment,
-  runtime: DocumentsWorkflowRuntime,
-  mutation: Omit<DetachDocumentAttachmentRequest, "blobId">,
-) {
-  const recorded = snapshot.attachments.find(
-    (item) => item.slotId === intent.slotId,
-  );
-  if (!recorded) {
-    await retireSeedBinding(runtime, mutation);
-    return false;
-  }
-  const occupied = snapshot.attachmentStorageKeyBySlotId[intent.slotId];
-  if (
-    occupied &&
-    snapshot.attachmentStatusBySlotId[intent.slotId] !== "intent-mismatch"
+    observed &&
+    observed.bindingId ===
+      (await seedBindingId(localId, mutation.slotId, observed.blobId))
   )
-    return false;
-  if (!matches(recorded, intent)) {
-    await retireSeedBinding(runtime, mutation);
-    return false;
-  }
-  if (occupied)
-    throw new Error(
-      `The bound bytes differ from the seed attachment: ${intent.name}. Run seed again after the edit syncs.`,
-    );
-  return true;
+    return observed;
+  return null;
 }
 
-/** Bind bytes without ever authoring a second document-content update. */
+async function reconcileSlot(
+  store: DocumentStore,
+  runtime: DocumentsWorkflowRuntime,
+  mutation: SlotMutation,
+  localId: string,
+  fixture: DocumentAttachment,
+  bytes: BlobBytes,
+) {
+  // A successful bind or detach can overlap a remote document edit. Re-read
+  // after either mutation and bound the work when a slot is actively edited.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const action = slotAction(await pull(store), fixture);
+    if (action === "complete") return;
+    if (action === "upload") {
+      const blobId = crypto.randomUUID();
+      const uploaded = await runtime.blobAttachments.uploadDocumentAttachment({
+        ...mutation,
+        blobId,
+        bindingId: await seedBindingId(localId, fixture.slotId, blobId),
+        bytes,
+        expectedBindingId: null,
+      });
+      if (!uploaded)
+        throw new Error(
+          `Could not upload seed attachment: ${fixture.name}. Run seed again to resume.`,
+        );
+      continue;
+    }
+    const observed = await loadSeedBinding(runtime, mutation, localId);
+    if (!observed) return;
+    // Capture the exact generation before verifying the current intent. The
+    // API refuses a detach if a newer binding replaces this generation.
+    if (slotAction(await pull(store), fixture) !== "retire") continue;
+    const detached = await runtime.blobAttachments.detachDocumentAttachment({
+      ...mutation,
+      bindingId: observed.bindingId,
+      blobId: observed.blobId,
+    });
+    if (!detached)
+      throw new Error(
+        `Could not retire stale seed attachment: ${fixture.name}.`,
+      );
+  }
+  throw new Error(
+    `The attachment kept changing: ${fixture.name}. Run seed again to resume.`,
+  );
+}
+
+/** Bind bytes without authoring a second document-content update. */
 export async function uploadVacantAttachments(
   input: { sdk: Tearleads; containerId: string; localId: string },
   store: DocumentStore,
   attachments: readonly { bytes: BlobBytes; intent: DocumentAttachment }[],
 ) {
-  let snapshot = await pull(store);
-  const documentId = snapshot.documentId;
+  const { documentId } = await pull(store);
   const links = input.sdk.containerContents.documentLinks();
   const runtime = links.documentRuntime(input.containerId);
   const author = resolveDocumentCreateAuthor(runtime);
   if (!documentId || !author)
     throw new Error("Missing seed document or writer");
   for (const { bytes, intent } of attachments) {
-    const { slotId } = intent;
-    const bindingId = await deriveStableDocumentId(
-      `${input.localId}/binding/${slotId}`,
-    );
-    const mutation = {
-      author,
-      documentId,
-      slotId,
-      bindingId,
-      resolveProjectionUserKey: links.resolveProjectionUserKey,
-      warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
-    };
-    if (!(await inspectSeedSlot(snapshot, intent, runtime, mutation))) continue;
-    const result = await runtime.blobAttachments.uploadDocumentAttachment({
-      ...mutation,
+    await reconcileSlot(
+      store,
+      runtime,
+      {
+        author,
+        documentId,
+        slotId: intent.slotId,
+        resolveProjectionUserKey: links.resolveProjectionUserKey,
+        warmReferencedPrincipalPolicies:
+          runtime.principalPolicies.createWarmer(),
+      },
+      input.localId,
+      intent,
       bytes,
-      expectedBindingId: null,
-    });
-    if (!result)
-      throw new Error(
-        `Could not upload seed attachment: ${intent.name}. Run seed again to resume.`,
-      );
-    // A successful bind can overlap an encrypted document edit. Verify the
-    // new snapshot and reconcile just the binding this seed owns.
-    snapshot = await pull(store);
-    if (await inspectSeedSlot(snapshot, intent, runtime, mutation)) {
-      throw new Error(
-        `Could not verify uploaded seed attachment: ${intent.name}. Run seed again to resume.`,
-      );
-    }
+    );
   }
 }

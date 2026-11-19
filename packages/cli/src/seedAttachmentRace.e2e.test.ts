@@ -7,11 +7,12 @@ import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
 
-test.each(["replace", "remove", "metadata"] as const)(
+test.each(["replace", "remove", "metadata", "restore"] as const)(
   "a retry respects a concurrent avatar %s after discovering a partial upload",
   async (edit) => {
     await initializeApiDatabase();
     let interrupt = true;
+    let beforeDetach: (() => Promise<void>) | undefined;
     let beforeUpload: (() => Promise<void>) | undefined;
     const server = Bun.serve({
       hostname: "127.0.0.1",
@@ -22,6 +23,11 @@ test.each(["replace", "remove", "metadata"] as const)(
           const edit = beforeUpload;
           beforeUpload = undefined;
           await edit?.();
+        }
+        if (new URL(req.url).pathname.endsWith("/detach")) {
+          const restore = beforeDetach;
+          beforeDetach = undefined;
+          await restore?.();
         }
         return routeApp.fetch(req);
       },
@@ -41,7 +47,19 @@ test.each(["replace", "remove", "metadata"] as const)(
           const attachment = other?.getSnapshot().attachments[0];
           if (!other || !attachment) throw new Error("Missing partial avatar");
           contactId = other.getSnapshot().documentId;
-          if (edit === "remove")
+          if (edit === "restore") {
+            beforeDetach = () =>
+              onFreshDevice(device, async ([restored]) => {
+                if (!restored) throw new Error("Missing edited contact");
+                await restored.replaceAttachment(attachment.slotId, {
+                  name: "personal.png",
+                  mimeType: "image/png",
+                  bytes: new Uint8Array([7, 8, 9]),
+                });
+                expect(await restored.requestRemoteSyncAndWait()).toBe(true);
+              });
+          }
+          if (edit === "remove" || edit === "restore")
             await other.removeAttachment(attachment.slotId);
           else
             await other.replaceAttachment(attachment.slotId, {
@@ -79,7 +97,8 @@ test.each(["replace", "remove", "metadata"] as const)(
           }
         });
       const result = await runCli(["seed", "--env", "staging"], context);
-      expect(result).toBe(edit === "replace" ? 1 : 0);
+      expect(result).toBe(edit === "replace" || edit === "restore" ? 1 : 0);
+      expect(beforeDetach).toBeUndefined();
       expect(beforeUpload).toBeUndefined();
       if (edit === "metadata")
         expect(await runCli(["seed", "--env", "staging"], context)).toBe(0);

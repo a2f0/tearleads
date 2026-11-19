@@ -37,12 +37,14 @@ export async function onFreshDevice(
         },
         secretKey: keys.signingPrivateKey,
       });
-      const contacts = nodes.find(
+      const matchingFolders = nodes.filter(
         (node) =>
           node.systemSlot === slot &&
           node.parentId === input.rootContainerId &&
           node.organizationId === sdk.session.organizationId,
-      )?.id;
+      );
+      expect(matchingFolders).toHaveLength(1);
+      const contacts = matchingFolders[0]?.id;
       if (!contacts)
         throw new Error("Contacts folder missing from the personal root");
       const stores = [];

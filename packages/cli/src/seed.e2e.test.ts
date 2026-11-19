@@ -3,16 +3,13 @@ import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk";
 import {
   continuityDocuments,
-  ensureContactsContainer,
   loadContinuityAssets,
   writeContinuityDocument,
 } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
-import { loadFolderTree } from "./folderTree";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
-import { withSession } from "./session";
 
 test("seed uploads the pinned dataset and a fresh device can read it", async () => {
   await initializeApiDatabase();
@@ -22,6 +19,10 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
   const firstMissing = Promise.withResolvers<void>();
   const missingPaths: string[] = [];
   let raceCreates = false;
+  let raceFolders = false;
+  let folderAttempts = 0;
+  const firstFolder = Promise.withResolvers<void>();
+  const bothFolders = Promise.withResolvers<void>();
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -34,6 +35,14 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
         new URL(request.url).pathname === "/blobs/stages/multipart"
       )
         return new Response("unavailable", { status: 503 });
+      if (raceFolders && path === "/containers/with-metadata-document") {
+        folderAttempts++;
+        firstFolder.resolve();
+        if (folderAttempts === 2) bothFolders.resolve();
+        await bothFolders.promise;
+      }
+      if (raceFolders && path === "/documents" && request.method === "POST")
+        return new Response(null, { status: 503 });
       const response = await routeApp.fetch(request);
       if (
         raceCreates &&
@@ -77,21 +86,25 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       );
     };
     const device = { apiBaseUrl, recoveryKey: seedPhrase, rootContainerId };
-    await withSession(device, async (session) => {
-      await loadFolderTree(session);
-      const { sdk } = session;
-      const keys = sdk.identity.signingKeyPair;
-      if (!keys) throw new Error("Missing signing identity");
-      await ensureContactsContainer(sdk, keys.signingPrivateKey);
-      expect(
-        await getOrCreateDomainSyncCoordinator(
-          sdk.runtime.input().state.domainScope,
-        ).waitForIdle({ timeoutMs: 30_000 }),
-      ).toBe(true);
-      session.assertNoFailures();
-    });
     const other = testContext({ apiBaseUrl });
     await other.keyStore.save("staging", seedPhrase);
+    raceFolders = true;
+    const firstProvision = runCli(["seed", "--env", "staging"], context);
+    await Promise.race([
+      firstFolder.promise,
+      firstProvision.then(() => {
+        throw new Error("First seed did not provision Contacts");
+      }),
+    ]);
+    const provisioning = await Promise.all([
+      firstProvision,
+      runCli(["seed", "--env", "staging"], other.context),
+    ]);
+    expect(provisioning).toEqual([1, 1]);
+    expect(folderAttempts).toBeGreaterThanOrEqual(2);
+    raceFolders = false;
+    output.stderr.length = 0;
+    other.output.stderr.length = 0;
     raceCreates = true;
     const first = runCli(["seed", "--env", "staging"], context);
     // Sign in the second device after the first has finished the account's
@@ -251,6 +264,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     );
   } finally {
     missing.resolve();
+    bothFolders.resolve();
     server.stop(true);
   }
 }, 240_000);
