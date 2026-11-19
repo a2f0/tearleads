@@ -6,6 +6,7 @@ import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/wor
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import type { UploadDocumentAttachmentRequest } from "../../../data/blobs/attachments/types";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 test("uploadDocumentAttachment rejects document writer projections with bad signatures before staging", async () => {
@@ -93,4 +94,46 @@ test("uploadDocumentAttachment cannot use local trust to bypass remote checkpoin
     code: "missing_dependency",
   });
   expect(stageCalled).toBe(false);
+});
+
+test("an upload retired during projection loading leaves no verification checkpoint", async () => {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql("retired-blob-projection");
+  let current = true;
+  try {
+    const result = await createBlobAttachmentServiceFixture({
+      api: {
+        getDocumentWriterProjection: async () => {
+          current = false;
+          return writerProjection;
+        },
+      },
+      encapsulationSecretKey: secretKey,
+      execSql,
+    })
+      .uploadDocumentAttachment({
+        author,
+        bytes: new Uint8Array([1]),
+        documentId: writerProjection.documentId,
+        expectedBindingId: null,
+        resolveProjectionUserKey,
+        slotId: "avatar",
+        stillCurrent: () => current,
+        isRemoteSyncBlocked: () => !current,
+      })
+      .catch(() => null);
+    expect(result).toBeNull();
+    expect(
+      await new KeyingCheckpointRepository(
+        execSql,
+      ).loadAccessManifestCheckpoint(
+        "document",
+        author.organizationId,
+        writerProjection.documentId,
+      ),
+    ).toBeNull();
+  } finally {
+    close();
+  }
 });

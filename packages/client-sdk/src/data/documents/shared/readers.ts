@@ -28,6 +28,7 @@ import {
 
 export {
   assertDocumentManifestBundleConsistent,
+  readDocumentLinkSetManifestState,
   serializeCanonical,
 } from "./manifestBundleReaders";
 

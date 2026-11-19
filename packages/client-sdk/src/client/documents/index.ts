@@ -1,5 +1,6 @@
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
+import type { DiscoveredDocumentInput } from "../../data/documents/documentSummary";
 import type {
   DocumentSummaryList,
   DocumentSummarySort,
@@ -9,12 +10,14 @@ import type {
 } from "../../data/persistence/documents/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  createSeededDocument,
   DEFAULT_DOCUMENT_ID as DEFAULT_LOCAL_DOCUMENT_ID,
   type DocumentStore,
   type DocumentStoreOpenOptions,
   type DocumentsRuntime,
   openDocumentStore,
   type PersistedDocumentListener,
+  type SeededDocumentInput,
   subscribeToPersistedDocuments,
 } from "../../stores/documents";
 import { emitPersistedDocumentDeletion } from "../../stores/documents/registry";
@@ -57,8 +60,7 @@ export interface ListDocumentsInput extends ListDocumentSummariesInput {}
 
 export type DocumentList = DocumentSummaryList;
 
-export { DEFAULT_LOCAL_DOCUMENT_ID as DEFAULT_DOCUMENT_ID };
-
+export type { SeededDocumentInput } from "../../stores/documents";
 export interface OpenDocumentInput {
   readonly containerId?: string | null | undefined;
   readonly documentId?: string | null | undefined;
@@ -69,6 +71,7 @@ export interface OpenDocumentInput {
   readonly initialText?: string | undefined;
   readonly localId?: string | undefined;
 }
+export { DEFAULT_LOCAL_DOCUMENT_ID as DEFAULT_DOCUMENT_ID };
 
 export interface OpenDocumentOptions {
   readonly remoteSyncMode?: "on-demand" | "startup" | undefined;
@@ -80,6 +83,9 @@ export interface DocumentSubscriptionOptions {
 }
 
 export interface Documents {
+  createSeeded(
+    input: SeededDocumentInput,
+  ): Promise<DiscoveredDocumentInput | "purged">;
   delete(localId: string): Promise<boolean>;
   findLocalIdByDocumentId(documentId: string): Promise<string | null>;
   list(input?: ListDocumentsInput | undefined): Promise<DocumentList | null>;
@@ -118,6 +124,16 @@ class DocumentsService implements Documents {
   >();
 
   constructor(private readonly dependencies: DocumentsDependencies) {}
+
+  createSeeded(input: SeededDocumentInput) {
+    const { runtime } = this.dependencies;
+    const generation = runtime.scopeGeneration;
+    return createSeededDocument(
+      this.workflowRuntime(input.containerId),
+      input,
+      () => runtime.scopeGeneration === generation,
+    );
+  }
 
   async delete(localId: string): Promise<boolean> {
     const runtime = this.workflowRuntime();

@@ -73,6 +73,10 @@ export function renewalUnlessAborted(
   });
 }
 
+function shouldReportRenewalError(options: RequestResultOptions) {
+  return options.stillCurrent?.() !== false && (options.reportErrors ?? true);
+}
+
 /**
  * Decides whether a failed request can be replayed after session renewal.
  * Identity-integrity failures are terminal and must retain their typed error.
@@ -105,11 +109,12 @@ export async function shouldRetryAfterSessionExpired(
     if (error instanceof KeyingVerificationError) {
       throw error;
     }
-    if (input.options.reportErrors ?? true) {
+    if (shouldReportRenewalError(input.options)) {
       input.reportError(`Session refresh failed: ${errorMessage(error)}`);
     }
   }
 
+  if (input.options.stillCurrent?.() === false) return false;
   const refreshedToken = input.getCurrentAuthToken();
   const renewed = Boolean(
     refreshed &&

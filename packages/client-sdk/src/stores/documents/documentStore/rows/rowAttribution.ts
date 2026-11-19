@@ -6,7 +6,7 @@ import type { DocumentStoreState } from "../state";
 // unauthenticated) and an ISO timestamp, matching the keys the edit-attribution
 // layer resolves against.
 export function resolveRowAttribution(
-  state: DocumentStoreState,
+  state: Pick<DocumentStoreState, "runtime">,
 ): DocumentRowAttribution {
   return {
     at: new Date().toISOString(),

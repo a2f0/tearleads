@@ -71,6 +71,7 @@ export class WriterProjectionArea {
     // never publish the outcome to the shared caches. Only reporting-only
     // callers below participate in coalescing and cache warming.
     if (
+      options.stillCurrent !== undefined ||
       options.headers !== undefined ||
       options.retryOnSessionExpired !== undefined
     ) {

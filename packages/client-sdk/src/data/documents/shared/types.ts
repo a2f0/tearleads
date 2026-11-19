@@ -278,6 +278,7 @@ export interface RelinkRemoteDocumentResult {
 }
 
 export interface DocumentSyncRequestResultOptions {
+  readonly stillCurrent?: (() => boolean) | undefined;
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
   readonly reportErrors?: boolean | undefined;
 }

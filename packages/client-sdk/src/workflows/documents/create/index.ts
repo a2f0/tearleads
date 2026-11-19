@@ -1,8 +1,6 @@
-import type { DocumentCreateRequest } from "@tearleads/validators/request";
-import {
-  type ContainerWriterProjectionResponse,
-  DOCUMENT_SYNC_ERROR_CODES,
-  type DocumentCreateResponse,
+import type {
+  ContainerWriterProjectionResponse,
+  DocumentCreateResponse,
 } from "@tearleads/validators/response";
 import { assertContainerAuthorAccess } from "../../../data/containers/shared/authorAccess";
 import { buildDocumentCreatePlan } from "../../../data/documents/shared/events";
@@ -40,9 +38,17 @@ import { isDocumentManifestAlreadyExistsConflict } from "../syncFailures/syncFai
 import { adoptExistingRemoteDocument } from "./createAdoption";
 import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
 import { fetchContainerWriterProjectionForCreate } from "./createProjectionFetch";
-import { acknowledgeRemoteDocumentCreate } from "./createResponse";
+import {
+  acknowledgeRemoteDocumentCreate,
+  assertRequiredSeedAcknowledged,
+} from "./createResponse";
+import {
+  type DocumentCreateSubmission,
+  isStaleDocumentCreateTargetConflict,
+  submitDocumentCreate,
+} from "./createSubmission";
 import type {
-  CreateRemoteDocumentRequest,
+  DocumentSubmissionRequest,
   RemoteDocumentCreateInput,
 } from "./remoteDocumentCreateRequest";
 
@@ -227,6 +233,9 @@ async function submitPlannedDocumentCreateRequest(
 ): Promise<DocumentCreateSubmission | null> {
   const request = createPlan.materializedPlan.plan.request;
   const organizationId = createPlan.containerProjection.organizationId;
+  const canSubmit = () =>
+    input.stillCurrent?.() !== false &&
+    !isRemoteDocumentCreatePlanBlocked(input, createPlan);
   const seed = input.seedUpdate
     ? await buildDocumentCreateSeedRequest({
         author: input.author,
@@ -236,13 +245,15 @@ async function submitPlannedDocumentCreateRequest(
       })
     : null;
   if (seed && documentCreateSeedFits(request, seed)) {
-    if (input.stillCurrent?.() === false) return null;
+    if (!canSubmit()) return null;
     const seeded = await submitDocumentCreate(
       input.apiClient,
       { ...request, initialSync: documentCreateSeed(seed) },
       organizationId,
+      canSubmit,
     );
     if (
+      input.requireSeededCreate ||
       seeded.ok ||
       isDocumentManifestAlreadyExistsConflict(seeded) ||
       isStaleDocumentCreateTargetConflict(seeded)
@@ -250,8 +261,19 @@ async function submitPlannedDocumentCreateRequest(
       return seeded;
     }
   }
-  if (input.stillCurrent?.() === false) return null;
-  return submitDocumentCreate(input.apiClient, request, organizationId);
+  if (!canSubmit()) return null;
+  if (input.requireSeededCreate)
+    return {
+      ok: false,
+      status: null,
+      message: "The initial document content must fit in one seeded create.",
+    };
+  return submitDocumentCreate(
+    input.apiClient,
+    request,
+    organizationId,
+    canSubmit,
+  );
 }
 
 function isRemoteDocumentCreatePlanBlocked(
@@ -267,6 +289,7 @@ async function submitPlannedDocumentCreate(
   resolveProjectionUserKey: ProjectionUserKeyResolver,
 ): Promise<{
   readonly createPlan: MaterializedDocumentCreatePlanWithProjection;
+  readonly retriedStaleTarget?: boolean;
   readonly submission: DocumentCreateSubmission;
 } | null> {
   const verificationOptions = { stillCurrent: input.stillCurrent };
@@ -299,42 +322,41 @@ async function submitPlannedDocumentCreate(
   if (input.stillCurrent?.() === false) return null;
   let submission = await submitPlannedDocumentCreateRequest(input, createPlan);
   if (!submission) return null;
-  if (isStaleDocumentCreateTargetConflict(submission)) {
-    if (input.stillCurrent?.() === false) {
-      return { createPlan, submission };
-    }
-    input.apiClient.evictContainerWriterProjection(input.containerId);
-    const firstPlan = createPlan.materializedPlan;
-    const refreshedPlan =
-      await buildMaterializedDocumentCreatePlanWithFreshProjection({
-        apiClient: input.apiClient,
-        author: input.author,
-        containerId: input.containerId,
-        contentKey: firstPlan.contentKey,
-        contentKeyEpoch:
-          firstPlan.plan.request.contentKeyBundle.contentKeyEpoch,
-        documentId: firstPlan.plan.documentId,
-        eventId: firstPlan.plan.event.eventId,
-        execSql: input.execSql,
-        expectedOrganizationId: input.expectedOrganizationId,
-        knownContainerKeks: input.knownContainerKeks,
-        onTerminalSubmitFailure: input.onTerminalSubmitFailure,
-        resolveProjectionUserKey,
-        signedAt: firstPlan.plan.event.signedAt,
-        targetSecretKey: input.targetSecretKey,
-        warmReferencedPrincipalPolicies,
-        ...verificationOptions,
-      });
-    if (!refreshedPlan) {
-      return null;
-    }
-    if (isRemoteDocumentCreatePlanBlocked(input, refreshedPlan)) return null;
-    createPlan = refreshedPlan;
-    if (input.stillCurrent?.() === false) return null;
-    submission = await submitPlannedDocumentCreateRequest(input, createPlan);
-    if (!submission) return null;
+  if (!isStaleDocumentCreateTargetConflict(submission))
+    return { createPlan, submission };
+  if (input.stillCurrent?.() === false) {
+    return { createPlan, submission };
   }
-  return { createPlan, submission };
+  input.apiClient.evictContainerWriterProjection(input.containerId);
+  const firstPlan = createPlan.materializedPlan;
+  const refreshedPlan =
+    await buildMaterializedDocumentCreatePlanWithFreshProjection({
+      apiClient: input.apiClient,
+      author: input.author,
+      containerId: input.containerId,
+      contentKey: firstPlan.contentKey,
+      contentKeyEpoch: firstPlan.plan.request.contentKeyBundle.contentKeyEpoch,
+      documentId: firstPlan.plan.documentId,
+      eventId: firstPlan.plan.event.eventId,
+      execSql: input.execSql,
+      expectedOrganizationId: input.expectedOrganizationId,
+      knownContainerKeks: input.knownContainerKeks,
+      onTerminalSubmitFailure: input.onTerminalSubmitFailure,
+      resolveProjectionUserKey,
+      signedAt: firstPlan.plan.event.signedAt,
+      targetSecretKey: input.targetSecretKey,
+      warmReferencedPrincipalPolicies,
+      ...verificationOptions,
+    });
+  if (!refreshedPlan) {
+    return null;
+  }
+  if (isRemoteDocumentCreatePlanBlocked(input, refreshedPlan)) return null;
+  createPlan = refreshedPlan;
+  if (input.stillCurrent?.() === false) return null;
+  submission = await submitPlannedDocumentCreateRequest(input, createPlan);
+  if (!submission) return null;
+  return { createPlan, submission, retriedStaleTarget: true };
 }
 
 /**
@@ -359,10 +381,31 @@ async function withDeferredSeed(
     : created;
 }
 
+async function settleSubmittedCreate(
+  input: RemoteDocumentCreateInput,
+  createPlan: MaterializedDocumentCreatePlanWithProjection,
+  resolveProjectionUserKey: ProjectionUserKeyResolver,
+  response: DocumentCreateResponse,
+  retriedStaleTarget: boolean | undefined,
+) {
+  const created = await acknowledgeRemoteDocumentCreate({
+    ...input,
+    ...createPlan,
+    resolveProjectionUserKey,
+    response,
+  });
+  assertRequiredSeedAcknowledged(input, created);
+  if (input.stillCurrent?.() === false) return null;
+  if (created && retriedStaleTarget) input.onRecoveredStaleTarget?.();
+  return created && input.deferredSeedUpdate
+    ? withDeferredSeed(created, createPlan, input)
+    : created;
+}
+
 /** Throws when the collaborators carry no encapsulation secret key. */
 export async function createRemoteDocument(
   remote: RemoteDocumentCollaborators,
-  request: CreateRemoteDocumentRequest,
+  request: DocumentSubmissionRequest,
 ): Promise<CreateRemoteDocumentResult | null> {
   if (!remote.encapsulationSecretKey) {
     throw new Error("Remote document create requires an encapsulation key");
@@ -394,17 +437,14 @@ export async function createRemoteDocument(
   }
   const { createPlan, submission } = plannedSubmission;
   if (input.stillCurrent?.() === false) return null;
-  if (submission.ok) {
-    const created = await acknowledgeRemoteDocumentCreate({
-      ...input,
-      ...createPlan,
+  if (submission.ok)
+    return settleSubmittedCreate(
+      input,
+      createPlan,
       resolveProjectionUserKey,
-      response: submission.data,
-    });
-    return created && input.deferredSeedUpdate
-      ? withDeferredSeed(created, createPlan, input)
-      : created;
-  }
+      submission.data,
+      plannedSubmission.retriedStaleTarget,
+    );
 
   // A stable documentId means a retry after a lost create response re-submits
   // the same id; the server then reports the manifest already exists. That is
@@ -412,7 +452,11 @@ export async function createRemoteDocument(
   // document instead of leaking a duplicate. Requires the stable id we sent, so
   // we can fetch its projection back.
   const stableDocumentId = input.documentId;
-  if (stableDocumentId && isDocumentManifestAlreadyExistsConflict(submission)) {
+  if (
+    stableDocumentId &&
+    !input.requireSeededCreate &&
+    isDocumentManifestAlreadyExistsConflict(submission)
+  ) {
     if (input.stillCurrent?.() === false) return null;
     const adopted = await nullOnProjectionVerificationCancellation(() =>
       adoptExistingRemoteDocument({
@@ -440,41 +484,8 @@ export async function createRemoteDocument(
     return null;
   }
 
-  submission.report?.();
+  // Create-only callers handle the refusal directly, including a verified purge.
+  if (!input.requireSeededCreate) submission.report?.();
   await input.onTerminalSubmitFailure?.(submission);
   return null;
-}
-
-type DocumentCreateSubmission =
-  | {
-      readonly data: DocumentCreateResponse;
-      readonly ok: true;
-    }
-  | {
-      readonly code?: string | undefined;
-      readonly message: string;
-      readonly ok: false;
-      readonly report?: (() => void) | undefined;
-      readonly status: number | null;
-    };
-
-export function isStaleDocumentCreateTargetConflict(
-  submission: DocumentCreateSubmission,
-): boolean {
-  return (
-    !submission.ok &&
-    submission.status === 409 &&
-    submission.code === DOCUMENT_SYNC_ERROR_CODES.stateStale
-  );
-}
-
-async function submitDocumentCreate(
-  apiClient: DocumentCreateApi,
-  request: DocumentCreateRequest,
-  expectedOrganizationId: string,
-): Promise<DocumentCreateSubmission> {
-  return apiClient.createDocumentResult(request, {
-    expectedPaymentRequiredOrganizationId: expectedOrganizationId,
-    reportErrors: false,
-  });
 }

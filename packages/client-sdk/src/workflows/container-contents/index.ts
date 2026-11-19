@@ -138,3 +138,5 @@ export {
   purgeLocalContainerDocument,
   purgeRemoteContainerDocument,
 } from "./tombstones/documentPurge";
+
+export { createDocumentHeadLinkSetLoader } from "./tombstones/documentTombstoneEvidence";

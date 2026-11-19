@@ -3,8 +3,11 @@ import { resolve } from "node:path";
 import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  loadContinuityAssets,
+  seedDigest,
+} from "../../src/document-types/continuity/continuityAssets";
 import { buildSeedArtifact } from "./buildSeedArtifact";
-import { loadContinuityAssets, seedDigest } from "./continuityAssets";
 
 // CLI that regenerates the screenshot seed artifact:
 //   bun run screenshots:seed

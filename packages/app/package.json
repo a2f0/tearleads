@@ -1,10 +1,11 @@
 {
   "name": "app",
-  "version": "0.1.253",
+  "version": "0.1.254",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
+    "./continuity": "./src/document-types/continuity/index.ts",
     "./host/AppDiagnostics": "./src/host/AppDiagnostics.ts",
     "./App": "./src/App.tsx",
     "./client": "./src/client.tsx",
@@ -14,6 +15,7 @@
     "test": "bun test src test/screenshot-seed --max-concurrency=1 --parallel=2 --no-isolate"
   },
   "dependencies": {
+    "@a2f0/continuity": "catalog:",
     "@phosphor-icons/react": "2.1.10",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/crypto": "workspace:*",
@@ -30,7 +32,6 @@
     "react-dom": "catalog:react"
   },
   "devDependencies": {
-    "@a2f0/continuity": "catalog:",
     "@happy-dom/global-registrator": "catalog:testing",
     "@testing-library/react": "catalog:testing",
     "@tearleads/sqlite-worker": "workspace:*",
