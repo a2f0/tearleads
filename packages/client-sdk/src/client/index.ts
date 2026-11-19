@@ -113,6 +113,7 @@ export type {
   OpenDocumentInput,
   OpenDocumentOptions,
   PersistedDocumentListener,
+  SeededDocumentInput,
 } from "./documents";
 export { DEFAULT_DOCUMENT_ID } from "./documents";
 export type { FileSaver, SaveFileRequest } from "./host/fileSaver";

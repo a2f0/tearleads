@@ -1,5 +1,9 @@
 import { format } from "node:util";
-import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import {
+  createMemoryBlobStore,
+  type DocumentProjectorDefinition,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import { isOpfsInstallWarning, openLocalDatabase } from "./localDatabase";
 import { TracingApiRequestMetrics } from "./sdkTracing";
 import { disabledTracer, type Tracer } from "./trace";
@@ -10,12 +14,18 @@ export interface CliSession {
    * request failed or got no response: a listing read then may be partial.
    */
   assertNoFailures(): void;
+  recordExpectedSeedFailure(
+    reason: "missing head" | "verified purge" | "recovered stale target",
+  ): void;
   readonly sdk: Tearleads;
   readonly tracer: Tracer;
   readonly userId: string;
 }
 
 export interface SessionOptions {
+  readonly documentProjectors?:
+    | readonly DocumentProjectorDefinition[]
+    | undefined;
   readonly apiBaseUrl: string;
   readonly recoveryKey: string;
   readonly tracer?: Tracer | undefined;
@@ -58,9 +68,24 @@ function describeLoggedError(message: string | Error, cause: unknown): string {
   return cause instanceof Error ? `${text}: ${cause.message}` : text;
 }
 
-function failedRequests(sdk: Tearleads): string[] {
+function failedRequests(
+  sdk: Tearleads,
+  missingHeads: number,
+  expectedCreateFailures: number,
+): string[] {
   const snapshot = sdk.apiRequests.getSnapshot(sdk.identity.signingFingerprint);
   return snapshot.endpoints
+    .map((endpoint) => {
+      // Count only typed absences, verified purges, and successful stale-target retries.
+      const allowed =
+        endpoint.method === "GET" &&
+        endpoint.path === "/documents/{documentId}/writer-projection"
+          ? missingHeads
+          : endpoint.method === "POST" && endpoint.path === "/documents"
+            ? expectedCreateFailures
+            : 0;
+      return { ...endpoint, failed: endpoint.failed - allowed };
+    })
     .filter((endpoint) => endpoint.failed > 0)
     .map(
       (endpoint) =>
@@ -82,19 +107,25 @@ async function revoke(sdk: Tearleads): Promise<boolean> {
  * cannot be revoked fails the command, unless `work` already failed.
  */
 export async function withSession<T>(
-  { apiBaseUrl, recoveryKey, tracer = disabledTracer }: SessionOptions,
+  options: SessionOptions,
   work: (session: CliSession) => Promise<T>,
 ): Promise<T> {
+  const tracer = options.tracer ?? disabledTracer;
   const restoreConsole = labelConsoleOutput(tracer);
   try {
-    return await runSession({ apiBaseUrl, recoveryKey, tracer }, work);
+    return await runSession({ ...options, tracer }, work);
   } finally {
     restoreConsole();
   }
 }
 
 async function runSession<T>(
-  { apiBaseUrl, recoveryKey, tracer }: SessionOptions & { tracer: Tracer },
+  {
+    apiBaseUrl,
+    recoveryKey,
+    tracer,
+    documentProjectors,
+  }: SessionOptions & { tracer: Tracer },
   work: (session: CliSession) => Promise<T>,
 ): Promise<T> {
   const database = await tracer.span("open local database", () =>
@@ -106,6 +137,7 @@ async function runSession<T>(
     apiRequestMetrics: new TracingApiRequestMetrics(tracer),
     blobStoreFactory: () => createMemoryBlobStore(),
     database: { client: database.client, id: crypto.randomUUID() },
+    documentProjectors,
     identityProvisioning: "manual",
     logger: {
       log: (message) => tracer.event(`sdk: ${message}`),
@@ -116,8 +148,19 @@ async function runSession<T>(
       },
     },
   });
+  let missingHeads = 0;
+  let expectedCreateFailures = 0;
+  const recordExpectedSeedFailure: CliSession["recordExpectedSeedFailure"] = (
+    reason,
+  ) => {
+    if (reason === "missing head") missingHeads++;
+    else expectedCreateFailures++;
+  };
   const assertNoFailures = () => {
-    const problems = [...loggedErrors, ...failedRequests(sdk)];
+    const problems = [
+      ...loggedErrors,
+      ...failedRequests(sdk, missingHeads, expectedCreateFailures),
+    ];
     if (problems.length > 0) {
       throw new Error(
         `The API did not answer completely, so the result may be partial:\n  ${problems.join("\n  ")}`,
@@ -135,7 +178,13 @@ async function runSession<T>(
     if (!signedIn || !userId) {
       throw new LoginRefusedError();
     }
-    const result = await work({ assertNoFailures, sdk, tracer, userId });
+    const result = await work({
+      assertNoFailures,
+      recordExpectedSeedFailure,
+      sdk,
+      tracer,
+      userId,
+    });
     signedIn = false;
     if (!(await tracer.span("revoke session", () => revoke(sdk)))) {
       throw new Error(

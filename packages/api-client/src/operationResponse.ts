@@ -3,7 +3,11 @@ import {
   type OperationSchemaOutput,
   operationResponseHeaderNames,
 } from "@tearleads/validators/operation";
-import { readSessionJson, retiredRequest } from "./sessionResponse";
+import {
+  readSessionJson,
+  requestRetired,
+  retiredRequest,
+} from "./sessionResponse";
 import type {
   OperationResponseRequestFn,
   RequestResult,
@@ -132,7 +136,8 @@ export async function decodeJsonOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeJsonOperationResponseEnvelope>> {
-  if (session?.aborted) return retiredRequest(operation.method, path);
+  if (requestRetired(session, options))
+    return retiredRequest(operation.method, path);
   const schema = operation.responses[response.status];
   const isEmpty =
     operation.emptyResponseStatuses?.includes(response.status) ?? false;
@@ -169,7 +174,8 @@ export async function decodeJsonOperationResponse(
       options,
       session,
     );
-    if (session?.aborted) return retiredRequest(operation.method, path);
+    if (requestRetired(session, options))
+      return retiredRequest(operation.method, path);
     if (!result.ok) return result;
     const parsed = schema.safeParse(result.data);
     if (!parsed.success) {

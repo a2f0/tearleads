@@ -15,7 +15,7 @@ import { createResponseFromRequest } from "../../../../test/helpers/data/documen
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
-import { isStaleDocumentCreateTargetConflict } from "./index";
+import { isStaleDocumentCreateTargetConflict } from "./createSubmission";
 
 test("document create replan requires the exact stale-state code", () => {
   const diagnostic =

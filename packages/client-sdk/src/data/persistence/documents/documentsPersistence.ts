@@ -6,6 +6,7 @@ import {
 } from "../../documents/documentSummary";
 import { documentProjection } from "../../sqlite/schema/documentProjectionSchema";
 import { documents } from "../../sqlite/schema/documentRecordSchema";
+import { registerClientSQLiteCommitGuard } from "../../sqlite/sqliteCommitGuards";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import {
@@ -131,11 +132,14 @@ async function relinkPersistedDocumentWithExec(
 export async function upsertDiscoveredDocuments(
   execSql: ExecSql,
   inputs: ReadonlyArray<DiscoveredDocumentInput>,
+  assertCurrent?: () => void,
 ): Promise<DocumentSummary[]> {
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
     return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
       async (tx) => {
+        if (assertCurrent)
+          registerClientSQLiteCommitGuard(lockedExecSql, assertCurrent);
         const pendingCreates = await mapPendingCreateLocalIds(lockedExecSql);
         return upsertDiscoveredDocumentsInTransaction(
           lockedExecSql,

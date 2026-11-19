@@ -4,6 +4,7 @@ import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { openLocalDatabase } from "./localDatabase";
+import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 
 let apiBaseUrl = "";
 // Requests matching `method pathname` get a 503 instead of reaching the API.
@@ -35,41 +36,8 @@ afterEach(() => {
   onRequest = null;
 });
 
-/** Registers a fresh account the way an app install does and returns its key. */
-async function registerAccount() {
-  const database = await openLocalDatabase();
-  const sdk = new Tearleads({
-    apiBaseUrl,
-    blobStoreFactory: () => createMemoryBlobStore(),
-    database: { client: database.client, id: crypto.randomUUID() },
-    identityProvisioning: "manual",
-    logger: { log: () => undefined, logError: () => undefined },
-  });
-  try {
-    const { seedPhrase } = await sdk.identity.generate();
-    await sdk.session.bootstrapLocalRootContainer();
-    const registered = await sdk.session.registerIdentity();
-    if (
-      !seedPhrase ||
-      !registered ||
-      "status" in registered ||
-      !(await sdk.session.login(registered.challenge))
-    ) {
-      throw new Error("could not register a test account");
-    }
-    const userId = sdk.session.userId;
-    const organizationId = sdk.session.organizationId;
-    const rootContainerId = sdk.session.containerId;
-    await sdk.session.logoutRemote();
-    return { organizationId, rootContainerId, seedPhrase, userId };
-  } finally {
-    sdk.dispose();
-    database.close();
-  }
-}
-
 test("login verifies and saves the key; later commands sign in with it", async () => {
-  const account = await registerAccount();
+  const account = await registerCliTestAccount(apiBaseUrl);
   const { context, keyStore, output } = testContext({
     apiBaseUrl,
     // Identity Manager shows the words; users may paste them with stray case.
@@ -107,7 +75,7 @@ test("login verifies and saves the key; later commands sign in with it", async (
 }, 60_000);
 
 test("each command revokes the session it opened", async () => {
-  const account = await registerAccount();
+  const account = await registerCliTestAccount(apiBaseUrl);
   const { context } = testContext({
     apiBaseUrl,
     recoveryKey: account.seedPhrase,
@@ -163,7 +131,7 @@ test("a key for an account the API does not know is not saved", async () => {
 }, 60_000);
 
 async function signedInContext() {
-  const account = await registerAccount();
+  const account = await registerCliTestAccount(apiBaseUrl);
   const setup = testContext({ apiBaseUrl, recoveryKey: account.seedPhrase });
   expect(await runCli(["login"], setup.context)).toBe(0);
   setup.output.stdout.length = 0;
@@ -250,7 +218,7 @@ async function asDevice<T>(
 }
 
 test("ls --org refuses an organization whose sync the user paused", async () => {
-  const account = await registerAccount();
+  const account = await registerCliTestAccount(apiBaseUrl);
   const organizationId = await asDevice(account.seedPhrase, async (sdk) => {
     const created = await sdk.session.createOrganization();
     if (!created) throw new Error("could not create an organization");
@@ -345,7 +313,7 @@ test("--trace writes timestamped progress to stderr and leaves stdout alone", as
 }, 60_000);
 
 test("login's trace summary includes saving the key", async () => {
-  const account = await registerAccount();
+  const account = await registerCliTestAccount(apiBaseUrl);
   const { context, output } = testContext({
     apiBaseUrl,
     recoveryKey: account.seedPhrase,

@@ -5,6 +5,7 @@ import { createContainerContentsWorkflowRuntime } from "../../../../test/helpers
 import { createWorkflowInputFixture } from "../../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { DocumentDiscoveryEvidenceRepository } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import {
   discoverContainerDocuments,
@@ -28,6 +29,7 @@ async function createVerificationHarness(
   serve: (
     projection: DocumentWriterProjectionResponse,
   ) => DocumentWriterProjectionResponse = (projection) => projection,
+  current: () => boolean = () => true,
 ) {
   const fixture = await createMaterializedSyncFixture({
     documentId: DOCUMENT_ID,
@@ -62,12 +64,16 @@ async function createVerificationHarness(
     },
   });
   return {
+    checkpoints: new KeyingCheckpointRepository(database.execSql),
     store: new DocumentDiscoveryEvidenceRepository(database.execSql),
     close: database.close,
     evicted,
     fixture,
     incidents,
-    load: createDocumentHeadLinkSetLoader(runtime),
+    load: createDocumentHeadLinkSetLoader({
+      ...runtime,
+      liveHydrationStatus: () => (current() ? "ready" : "retired"),
+    }),
   };
 }
 
@@ -333,6 +339,51 @@ test("matching cached projections remain signed evidence without cache eviction"
       await harness.load(DOCUMENT_ID, "different-listing-head"),
     ).not.toBeNull();
     expect(harness.evicted).toEqual([DOCUMENT_ID]);
+  } finally {
+    harness.close();
+  }
+});
+
+test("a seeded ID collision requires the signed founding writer", async () => {
+  const harness = await createVerificationHarness();
+  try {
+    expect(
+      await harness.load(DOCUMENT_ID, undefined, crypto.randomUUID()),
+    ).toBeNull();
+    expect(harness.incidents).toHaveLength(1);
+    expect(
+      await harness.load(
+        DOCUMENT_ID,
+        undefined,
+        harness.fixture.author.signerUserId,
+      ),
+    ).toMatchObject({ organizationId: harness.fixture.author.organizationId });
+  } finally {
+    harness.close();
+  }
+});
+
+test("a head fetch that outlives its organization cannot persist a checkpoint", async () => {
+  let current = true;
+  const harness = await createVerificationHarness(
+    (projection) => {
+      current = false;
+      return projection;
+    },
+    () => current,
+  );
+  try {
+    const { organizationId, signerUserId } = harness.fixture.author;
+    const head = await harness.load(DOCUMENT_ID, undefined, signerUserId);
+    expect(
+      await harness.checkpoints.loadAccessManifestCheckpoint(
+        "document",
+        organizationId,
+        DOCUMENT_ID,
+      ),
+    ).toBeNull();
+    expect(head).toBeNull();
+    expect(harness.incidents).toEqual([]);
   } finally {
     harness.close();
   }

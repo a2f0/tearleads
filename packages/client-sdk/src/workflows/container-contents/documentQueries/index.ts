@@ -161,6 +161,7 @@ export interface ContainerDocumentQueries {
   ): Promise<void>;
   upsertDiscoveredDocuments(
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
+    assertCurrent?: () => void,
   ): Promise<ReadonlyArray<DocumentSummary>>;
 }
 
@@ -462,8 +463,8 @@ export function createContainerDocumentQueriesFromRuntime(
         watermark,
       );
     },
-    upsertDiscoveredDocuments(inputs) {
-      return upsertDiscoveredDocuments(execSql, inputs);
+    upsertDiscoveredDocuments(inputs, assertCurrent) {
+      return upsertDiscoveredDocuments(execSql, inputs, assertCurrent);
     },
   };
 }

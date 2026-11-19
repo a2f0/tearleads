@@ -23,7 +23,7 @@ import {
   readStringArray,
 } from "../../shared/recordReaders";
 
-function readDocumentLinkSetManifestState(
+export function readDocumentLinkSetManifestState(
   value: unknown,
   label: string,
 ): DocumentLinkSetManifestState {

@@ -341,13 +341,13 @@ do not silently clear pins or checkpoints to make obsolete data load.
 
 ### Document identity
 
-The root export `deriveStableDocumentId(localId): Promise<string>` returns the
-planned remote id using the same namespace and algorithm as first remote
-creation. It does not replace a persisted `documentId` or `recoveryDocumentId`;
-those identities take precedence during sync. Hosts can read them through
-`defaultDocumentsPersistence.loadDocument` and the public `DocumentRecord`.
-Matching ids does not establish signer identity, write access, verified
-adoption, redundant history, or permission to merge or purge a document.
+`deriveStableDocumentId(localId)` plans a remote ID. Sync prefers a stored
+`DocumentRecord.documentId` or `DocumentRecord.recoveryDocumentId`.
+`createDocumentHeadLinkSetLoader(runtime)` verifies a known ID's signed links.
+Seed within the active organization. A verified purge returns `"purged"`.
+`documents.createSeeded` commits the initial content, including attachment
+metadata, in one online request and returns its verified placement.
+`resolveDocumentCreateAuthor(runtime)` returns the blob writer or `null`.
 
 First-birth persistence is not an alias resolver. Its root type
 `DocumentBirthResult` is a timestamp, `null` for an existing requested local

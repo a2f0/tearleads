@@ -3,7 +3,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { countingExecSql } from "../../../../test/helpers/data/statementCounting";
 import type { DiscoveredDocumentInput } from "../../documents/documentSummary";
 import { deriveStableDocumentId } from "../../documents/shared/stableDocumentId";
-import type { ExecSql } from "../../sqlite/sqlSchema";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { KeyingCheckpointRepository } from "../keyingCheckpoints/keyingCheckpointRepository";
 import {
   sqlDocumentsPersistence,
@@ -207,6 +208,36 @@ test("a repeated document id keeps the per-row walk", async () => {
     await expect(
       sqlDocumentsPersistence.loadDocument(sqlite.execSql, "remote-0"),
     ).resolves.toMatchObject({ accessEpoch: 2 });
+  } finally {
+    sqlite.close();
+  }
+});
+
+test("an organization switch before commit rolls back the discovered placement", async () => {
+  const sqlite = await createTestExecSql("seed-placement");
+  let organizationId = "original";
+  const assertCurrent = () => {
+    if (organizationId !== "original") throw new Error("organization changed");
+  };
+  try {
+    await sqlDocumentsPersistence.ensureSchema(sqlite.execSql);
+    await expect(
+      runSerializedSqlMutation(sqlite.execSql, async (locked) => {
+        await getClientSQLitePersistenceRuntime(locked).transaction(
+          async () => {
+            await upsertDiscoveredDocuments(
+              locked,
+              discoveredInputs(1),
+              assertCurrent,
+            );
+            organizationId = "replacement";
+          },
+        );
+      }),
+    ).rejects.toThrow("organization changed");
+    expect(await sqlDocumentsPersistence.listDocuments(sqlite.execSql)).toEqual(
+      [],
+    );
   } finally {
     sqlite.close();
   }

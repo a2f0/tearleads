@@ -20,6 +20,15 @@ type StructuredDocumentShape = Pick<FullStructuredDocumentShape, "getMap">;
 const DOCUMENT_CONTENT_MAP_KEY = "content";
 const ATTACHMENT_KEY_PREFIX = "attachment:";
 
+export function readSeedTag(doc: StructuredDocumentShape): string | undefined {
+  const value = doc.getMap(DOCUMENT_CONTENT_MAP_KEY).get("seedTag");
+  return typeof value === "string" ? value : undefined;
+}
+
+export function writeSeedTag(doc: StructuredDocumentShape, tag: string): void {
+  doc.getMap(DOCUMENT_CONTENT_MAP_KEY).set("seedTag", tag);
+}
+
 function isStructuredAttachmentMap(
   value: unknown,
 ): value is StructuredDocumentMap {
