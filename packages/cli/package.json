@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@tearleads/client-sdk": "workspace:*",
-    "@tearleads/sqlite-worker": "workspace:*"
+    "@tearleads/sqlite-worker": "workspace:*",
+    "app": "workspace:*"
   },
   "devDependencies": {
     "@tearleads/api": "workspace:*",

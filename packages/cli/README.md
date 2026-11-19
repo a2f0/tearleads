@@ -33,11 +33,36 @@ Commands:
   logout   Remove the target's saved recovery key.
   whoami   Show the signed-in user, signing fingerprint, and organization.
   orgs     List the organizations you belong to.
+  seed     Sync the Continuity screenshot dataset to your personal organization.
   ls       List the folders of your organization, or of --org <id>.
 ```
 
 `--env` defaults to `production` (`https://api.tearleads.com`). Each target
 keeps its own saved key.
+
+## Seed an account with Continuity
+
+From the repository root on macOS, run the Quick start install and build steps,
+then choose the environment where the account already exists.
+
+```sh
+bun run tearleads login --env staging
+bun run tearleads seed --env staging
+```
+
+Paste the account's recovery key at the login prompt. For production, use
+`--env production` on both commands. Once the command reports success, open
+the web app in that environment and sign in with the same identity.
+[Staging web app](https://app-staging.tearleads.com) ·
+[Production web app](https://app.tearleads.com)
+
+The command writes the pinned screenshot dataset into your personal
+organization. Contacts and avatars appear in Contacts. Notes, photos, ID
+documents, equipment, and health trackers sync under your root folder.
+The import commits each document separately. If it stops partway, run the
+same command again. For the same dataset version it reuses the documents,
+preserves edits to their fields and rows, and fills any vacant fixture
+attachment slots. A changed seed manifest can produce a new set of documents.
 
 ## Tracing
 

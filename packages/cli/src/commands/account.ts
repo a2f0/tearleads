@@ -1,7 +1,7 @@
 import type { CommandInput } from "../cliContext";
 import { printable } from "../printable";
 import { normalizeRecoveryKey } from "../recoveryKey";
-import { type CliSession, withSession } from "../session";
+import { type CliSession, type SessionOptions, withSession } from "../session";
 
 async function requireRecoveryKey({
   context,
@@ -20,12 +20,14 @@ async function requireRecoveryKey({
 export async function withSavedSession<T>(
   input: CommandInput,
   work: (session: CliSession) => Promise<T>,
+  documentProjectors?: SessionOptions["documentProjectors"],
 ): Promise<T> {
   const recoveryKey = await requireRecoveryKey(input);
   return withSession(
     {
       apiBaseUrl: input.context.apiBaseUrl(input.target),
       recoveryKey,
+      documentProjectors,
       tracer: input.tracer,
     },
     work,

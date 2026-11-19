@@ -1,5 +1,9 @@
 import { format } from "node:util";
-import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import {
+  createMemoryBlobStore,
+  type DocumentProjectorDefinition,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import { isOpfsInstallWarning, openLocalDatabase } from "./localDatabase";
 import { TracingApiRequestMetrics } from "./sdkTracing";
 import { disabledTracer, type Tracer } from "./trace";
@@ -16,6 +20,9 @@ export interface CliSession {
 }
 
 export interface SessionOptions {
+  readonly documentProjectors?:
+    | readonly DocumentProjectorDefinition[]
+    | undefined;
   readonly apiBaseUrl: string;
   readonly recoveryKey: string;
   readonly tracer?: Tracer | undefined;
@@ -82,19 +89,25 @@ async function revoke(sdk: Tearleads): Promise<boolean> {
  * cannot be revoked fails the command, unless `work` already failed.
  */
 export async function withSession<T>(
-  { apiBaseUrl, recoveryKey, tracer = disabledTracer }: SessionOptions,
+  options: SessionOptions,
   work: (session: CliSession) => Promise<T>,
 ): Promise<T> {
+  const tracer = options.tracer ?? disabledTracer;
   const restoreConsole = labelConsoleOutput(tracer);
   try {
-    return await runSession({ apiBaseUrl, recoveryKey, tracer }, work);
+    return await runSession({ ...options, tracer }, work);
   } finally {
     restoreConsole();
   }
 }
 
 async function runSession<T>(
-  { apiBaseUrl, recoveryKey, tracer }: SessionOptions & { tracer: Tracer },
+  {
+    apiBaseUrl,
+    recoveryKey,
+    tracer,
+    documentProjectors,
+  }: SessionOptions & { tracer: Tracer },
   work: (session: CliSession) => Promise<T>,
 ): Promise<T> {
   const database = await tracer.span("open local database", () =>
@@ -106,6 +119,7 @@ async function runSession<T>(
     apiRequestMetrics: new TracingApiRequestMetrics(tracer),
     blobStoreFactory: () => createMemoryBlobStore(),
     database: { client: database.client, id: crypto.randomUUID() },
+    documentProjectors,
     identityProvisioning: "manual",
     logger: {
       log: (message) => tracer.event(`sdk: ${message}`),

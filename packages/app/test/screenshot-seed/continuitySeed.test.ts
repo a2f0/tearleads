@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { loadContinuityAssets } from "../../src/document-types/continuity/continuityAssets";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { trackerGraphTimestamp } from "../../src/document-types/shared/timeSeriesGraphData";
 import { restoreBackupPayload } from "../../src/providers/db/localBackupData";
 import { decodeBackupFile } from "../../src/providers/db/localBackupFormat";
 import { unexpectedSecurityIncidents } from "../helpers/unexpectedSecurityIncidents";
 import { buildSeedArtifact } from "./buildSeedArtifact";
-import { loadContinuityAssets } from "./continuityAssets";
 
 test("pinned Continuity restores every promised document, photo, and tracker row into a fresh database", async () => {
   const { spec, readAttachment } = await loadContinuityAssets();

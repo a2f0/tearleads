@@ -1,4 +1,4 @@
-import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
+import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
 import type { SeedSpec } from "./seedTypes";
 
 function record(value: unknown): value is Record<string, unknown> {
