@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="424" viewBox="0 0 360 424" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Moving Drafts from Team to Private</title>
+  <desc>Arrows show who can unwrap each Drafts key. The successor key also opens sealed history.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <marker id="key-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-key"/></marker>
+    <style>
+      .canvas,.box,.kbox { fill: #fff; }
+      .band { fill: #f8fafc; }
+      .box,.edge { stroke: #4b5563; }
+      .kbox,.kedge { stroke: #b45309; stroke-dasharray: 5 3; }
+      .box,.kbox,.edge,.kedge { stroke-width: 1.25; }
+      .edge,.kedge { fill: none; }
+      .arrowhead { fill: #4b5563; }
+      .arrowhead-key { fill: #b45309; }
+      .colhead { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+      .name { font-size: 15px; font-weight: 600; }
+      .colhead,.name { fill: #111827; }
+      .meta { fill: #4b5563; font-size: 13px; }
+      @media (prefers-color-scheme: dark) {
+        .canvas,.box,.kbox { fill: #18181b; }
+        .band { fill: #242427; }
+        .colhead,.name { fill: #fafafa; }
+        .meta,.arrowhead { fill: #d4d4d8; }
+        .box,.edge { stroke: #d4d4d8; }
+        .kbox,.kedge { stroke: #fbbf24; }
+        .arrowhead-key { fill: #fbbf24; }
+      }
+    </style>
+  </defs>
+  <rect width="360" height="424" class="canvas"/>
+  <text x="16" y="23" class="colhead">BEFORE THE MOVE</text>
+  <rect x="16" y="36" width="142" height="52" rx="4" class="box"/>
+  <text x="26" y="57" class="name">Team</text>
+  <text x="26" y="76" class="meta">Old parent</text>
+  <rect x="204" y="36" width="140" height="52" rx="4" class="kbox"/>
+  <text x="214" y="57" class="name">Drafts · epoch 1</text>
+  <text x="214" y="76" class="meta">Existing folder key</text>
+  <path d="M158 62 H202" class="kedge" marker-end="url(#key-arrow)"/>
+  <rect x="0" y="105" width="360" height="319" class="band"/>
+  <text x="16" y="130" class="colhead">AFTER THE MOVE</text>
+  <rect x="16" y="144" width="154" height="52" rx="4" class="box"/>
+  <text x="26" y="165" class="name">Private</text>
+  <text x="26" y="184" class="meta">New parent</text>
+  <rect x="190" y="144" width="154" height="52" rx="4" class="box"/>
+  <text x="200" y="165" class="name">Direct grantees</text>
+  <text x="200" y="184" class="meta">On Drafts, if any</text>
+  <path d="M93 196 V210 H147 V231" class="kedge" marker-end="url(#key-arrow)"/>
+  <path d="M267 196 V210 H213 V231" class="kedge" marker-end="url(#key-arrow)"/>
+  <rect x="86" y="233" width="188" height="52" rx="4" class="kbox"/>
+  <text x="96" y="254" class="name">Drafts · epoch 2</text>
+  <text x="96" y="273" class="meta">Fresh folder key</text>
+  <path d="M180 285 V336" class="kedge" marker-end="url(#key-arrow)"/>
+  <text x="192" y="316" class="meta">opens</text>
+  <rect x="16" y="338" width="328" height="52" rx="4" class="kbox"/>
+  <text x="26" y="359" class="name">Sealed history</text>
+  <text x="26" y="378" class="meta">Includes the retiring epoch 1 key</text>
+  <text x="16" y="411" class="meta">Team retains only its old route to epoch 1.</text>
+</svg>

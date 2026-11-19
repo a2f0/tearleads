@@ -54,7 +54,6 @@ const forwardsAnchors = Object.keys(forwards).length > 0;
     <PageHeader title={title} lede={doc.summary}>
       <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
         <ol role="list">
-          <li><a href="/security/">Security</a></li>
           <li><a href="/docs/">Documentation</a></li>
           {parent && <li><a href={docPath(parent)}>{parent.title}</a></li>}
           <li aria-current="page">{doc.title}</li>
