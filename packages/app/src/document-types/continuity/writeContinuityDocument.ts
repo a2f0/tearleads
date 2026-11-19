@@ -1,12 +1,11 @@
 import {
   type BlobBytes,
-  type DocumentStore,
   deriveStableDocumentId,
-  resolveDocumentCreateAuthor,
   type Tearleads,
 } from "@tearleads/client-sdk";
 import { seedDigest } from "./continuityAssets";
 import type { SeedDocument } from "./seedDocuments";
+import { uploadVacantAttachments } from "./uploadVacantAttachments";
 
 interface SeedWriteInput {
   destination: "account" | "backup";
@@ -40,54 +39,6 @@ async function prepareAttachment(input: SeedWriteInput, index: number) {
       contentSha256: seedDigest(bytes),
     },
   };
-}
-
-async function uploadVacantAttachments(
-  input: SeedWriteInput,
-  store: DocumentStore,
-  attachments: Awaited<ReturnType<typeof prepareAttachment>>[],
-) {
-  if (!(await store.requestRemoteSyncAndWait(AbortSignal.timeout(120_000)))) {
-    throw new Error(`Could not sync ${input.document.key}`);
-  }
-  const current = store.getSnapshot();
-  const links = input.sdk.containerContents.documentLinks();
-  const runtime = links.documentRuntime(input.containerId);
-  const author = resolveDocumentCreateAuthor(runtime);
-  if (!current.documentId || !author)
-    throw new Error("Missing seed document or writer");
-  for (const { bytes, intent } of attachments) {
-    if (current.attachmentStorageKeyBySlotId[intent.slotId]) continue;
-    const recorded = current.attachments.find(
-      (item) => item.slotId === intent.slotId,
-    );
-    // All fixture intents were committed in the birth. A missing intent now
-    // means the user removed the attachment.
-    if (!recorded) continue;
-    if (
-      recorded.contentSha256 !== intent.contentSha256 ||
-      recorded.name !== intent.name ||
-      recorded.mimeType !== intent.mimeType ||
-      recorded.byteLength !== intent.byteLength
-    ) {
-      throw new Error(`Could not recover edited attachment: ${intent.name}`);
-    }
-    // Do not enqueue a document edit on retry. The API compares the expected
-    // binding during commit even when another device writes after our pull.
-    const result = await runtime.blobAttachments.uploadDocumentAttachment({
-      author,
-      bytes,
-      documentId: current.documentId,
-      slotId: intent.slotId,
-      expectedBindingId: null,
-      resolveProjectionUserKey: links.resolveProjectionUserKey,
-      warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
-    });
-    if (!result)
-      throw new Error(
-        `Could not upload seed attachment: ${intent.name}. Run seed again to resume.`,
-      );
-  }
 }
 
 export async function writeContinuityDocument(input: SeedWriteInput) {
