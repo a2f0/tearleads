@@ -123,8 +123,9 @@ export async function createSeededDocument(
       apiClient: runtime.apiClient,
       execSql: runtime.infra.execSql,
       expectedOrganizationId: author.organizationId,
-      onVerifiedDeletion: ({ commitPurgeProof }) =>
-        commitPurgeProof(runtime.infra.execSql),
+      // This stateless create only observes deletion. A store that already
+      // has this document pins the proof atomically with local teardown in sync.
+      onVerifiedDeletion: () => {},
     })({ documentId: input.documentId });
     if (!stillCurrent())
       throw new Error(

@@ -76,7 +76,7 @@ export function validateSeedSpec(value: unknown): asserts value is SeedSpec {
     !optionalArray(notes, (item) => {
       if (!record(item)) return false;
       const { text } = item;
-      return typeof text === "string";
+      return typeof text === "string" && text.length > 0;
     })
   )
     throw new Error("Invalid seed contacts or notes");

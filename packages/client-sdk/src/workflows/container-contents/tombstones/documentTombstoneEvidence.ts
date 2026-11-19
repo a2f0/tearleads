@@ -3,7 +3,9 @@ import {
   type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
+import { assertDocumentCreateSigner } from "../../../data/documents/shared/projection/documentCreateSigner";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
+import { checkWithHeldBundleRecovery } from "../../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
 import type { DocumentPurgeCheckpoint } from "../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
@@ -35,6 +37,7 @@ export interface VerifiedDocumentHeadLinkSet {
 export type DocumentHeadLinkSetLoader = (
   documentId: string,
   expectedManifestHash?: string,
+  expectedSignerUserId?: string,
 ) => Promise<VerifiedDocumentHeadLinkSet | "not-found" | null>;
 
 /** The highest access epoch local state records for the document. */
@@ -162,7 +165,7 @@ export function createDocumentHeadLinkSetLoader(
   },
   policyOperation?: PrincipalPolicyOperation,
 ): DocumentHeadLinkSetLoader {
-  return async (documentId, expectedManifestHash) => {
+  return async (documentId, expectedManifestHash, expectedSignerUserId) => {
     try {
       // A verified purge proof is terminal signed evidence that the document
       // links nothing any more.
@@ -198,6 +201,17 @@ export function createDocumentHeadLinkSetLoader(
         );
       }
       if (!result.ok) return failedHeadVerdict(runtime, documentId, result);
+      const projection = result.data;
+      if (expectedSignerUserId) {
+        await checkWithHeldBundleRecovery(
+          { execSql: runtime.infra.execSql, projection },
+          async () =>
+            assertDocumentCreateSigner(
+              { documentId, expectedSignerUserId },
+              projection,
+            ),
+        );
+      }
       return await verifiedHeadLinkSet(
         runtime,
         deps,

@@ -337,3 +337,22 @@ test("matching cached projections remain signed evidence without cache eviction"
     harness.close();
   }
 });
+
+test("a seeded ID collision requires the signed founding writer", async () => {
+  const harness = await createVerificationHarness();
+  try {
+    expect(
+      await harness.load(DOCUMENT_ID, undefined, crypto.randomUUID()),
+    ).toBeNull();
+    expect(harness.incidents).toHaveLength(1);
+    expect(
+      await harness.load(
+        DOCUMENT_ID,
+        undefined,
+        harness.fixture.author.signerUserId,
+      ),
+    ).toMatchObject({ organizationId: harness.fixture.author.organizationId });
+  } finally {
+    harness.close();
+  }
+});

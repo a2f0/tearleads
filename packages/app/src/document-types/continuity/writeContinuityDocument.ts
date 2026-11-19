@@ -76,7 +76,7 @@ async function openContinuityDocument(
     if (receipt === "purged") return receipt;
     const [summary] = await sdk.containerContents
       .documentQueries()
-      .upsertDiscoveredDocuments([receipt]);
+      .upsertDiscoveredDocuments([receipt], assertCurrent);
     if (!summary || summary.documentId !== receipt.documentId)
       throw new Error("Missing seeded document placement.");
     placement = { localId: summary.id, documentId: receipt.documentId };

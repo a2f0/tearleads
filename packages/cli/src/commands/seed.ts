@@ -66,7 +66,7 @@ async function findSeedPlacement(
   assertCurrent: () => void,
 ) {
   const { sdk } = session;
-  const head = await lookup(documentId);
+  const head = await lookup(documentId, undefined, session.userId);
   if (head === "not-found") {
     session.recordSeedAbsence("missing head");
     return undefined;
@@ -92,16 +92,19 @@ async function findSeedPlacement(
   // The timestamp belongs only to this run's local discovery record.
   const [summary] = await sdk.containerContents
     .documentQueries()
-    .upsertDiscoveredDocuments([
-      {
-        documentId,
-        containerId,
-        createdAt: new Date().toISOString(),
-        accessEpoch: head.accessEpoch,
-        accessStateHash: head.accessStateHash,
-        linkedContainerIds: head.linkedContainerIds,
-      },
-    ]);
+    .upsertDiscoveredDocuments(
+      [
+        {
+          documentId,
+          containerId,
+          createdAt: new Date().toISOString(),
+          accessEpoch: head.accessEpoch,
+          accessStateHash: head.accessStateHash,
+          linkedContainerIds: head.linkedContainerIds,
+        },
+      ],
+      assertCurrent,
+    );
   if (!summary || summary.documentId !== documentId)
     throw new Error("Could not open the verified seed document.");
   return { localId: summary.id, documentId, containerId };
