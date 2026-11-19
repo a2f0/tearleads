@@ -3,7 +3,6 @@ import {
   KeyingVerificationError,
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
-import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
   verifiedContainerCreateManifest,
   verifyContainerDestinationProjection,
@@ -31,6 +30,7 @@ import {
   rememberDestinationRole,
 } from "./destinationRoleCache";
 import { resolveWithMetadataRootReload } from "./destinationRootReload";
+import { assertSystemDestinationTopology } from "./destinationSystemTopology";
 import { assertPermittedDestinationBinding } from "./replacementBinding";
 
 /** The identity a role is verified and cached under. */
@@ -53,18 +53,14 @@ async function destinationRoleFromPath(input: {
       "container destination manifest has the wrong identity",
     );
   }
-  const metadataSlot = await deriveOrganizationMetadataContainerSystemSlot({
+  const root = path[0];
+  if (!root) throw new Error("Destination root is unavailable");
+  await assertSystemDestinationTopology({
     organizationId: listed.organizationId,
+    systemSlot: head.state.systemSlot,
+    pathLength: path.length,
+    rootSystemSlot: root.state.systemSlot,
   });
-  if (
-    head.state.systemSlot !== null &&
-    path.length !== (head.state.systemSlot === metadataSlot ? 1 : 2)
-  ) {
-    throw new KeyingVerificationError(
-      "invalid_shape",
-      "system destination has the wrong signed topology",
-    );
-  }
   // The head may be a later grant signed by any admin; only the epoch-1
   // create names the creator, and roots are always created by the org owner.
   const created = verifiedContainerCreateManifest({
@@ -72,8 +68,6 @@ async function destinationRoleFromPath(input: {
     label: "Container destination",
     verifiedByHash: input.verifiedByHash,
   });
-  const root = path[0];
-  if (!root) throw new Error("Destination root is unavailable");
   const rootCreated = verifiedContainerCreateManifest({
     head: root,
     label: "Destination root",

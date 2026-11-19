@@ -190,7 +190,13 @@ test.each(["admin", "write"] as const)(
     if (accessLevel === "admin") {
       await addPeerToAdminsGroup(founder, getPaneUserId(peer));
     } else {
-      await shareContainerWithGroup(founder, "/", writers, "write");
+      await shareContainerWithGroup(
+        founder,
+        OWNER_SHARED_FOLDER,
+        writers,
+        "write",
+      );
+      await shareContainerWithGroup(founder, "Trash", writers, "write");
       await clickExplorerRefresh(peer);
     }
     await waitForCondition(
@@ -212,6 +218,14 @@ test.each(["admin", "write"] as const)(
       "The peer did not hydrate the shared folder and Trash at the granted access level.",
       30_000,
     );
+    if (accessLevel === "write") {
+      expect(
+        trees
+          .get("right")
+          ?.getSnapshot()
+          .nodes.some((node) => node.id === root.id),
+      ).toBe(false);
+    }
     const table = await selectContainerAndWaitForItemTable(
       peer,
       OWNER_SHARED_FOLDER,

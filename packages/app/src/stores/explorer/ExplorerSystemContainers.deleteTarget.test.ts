@@ -177,5 +177,5 @@ test("delete skips an earlier metadata root when resolving another owned org's T
       nodes: nodes.filter((node) => node.id !== "owner-root"),
       trashSystemSlot: VIEWER_TRASH_SLOT,
     }),
-  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: null });
+  ).toEqual({ canFallBackToOwnTrash: false, trashContainerId: "owner-trash" });
 });

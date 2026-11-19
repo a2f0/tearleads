@@ -217,24 +217,24 @@ function findForeignOrgTrashContainerId(
   }
 
   const trashSystemSlot = deriveOrganizationTrashSystemSlot(organizationId);
-  const orgRoot = nodes.find(
+  const trash = nodes.find(
     (node) =>
-      node.parentId === null &&
-      !node.systemSlot &&
-      node.organizationId === organizationId,
+      node.organizationId === organizationId &&
+      node.systemSlot === trashSystemSlot &&
+      node.parentId !== null,
   );
-  if (!orgRoot) {
+  if (!trash) return null;
+  // Direct grants may omit the parent from Explorer. Hydration already checked
+  // the signed path to the data root before persisting the Trash slot and edge.
+  const parent = nodes.find((node) => node.id === trash.parentId);
+  if (
+    parent &&
+    (parent.parentId !== null ||
+      parent.systemSlot ||
+      parent.organizationId !== organizationId)
+  )
     return null;
-  }
-
-  return (
-    nodes.find(
-      (node) =>
-        node.parentId === orgRoot.id &&
-        node.organizationId === organizationId &&
-        node.systemSlot === trashSystemSlot,
-    )?.id ?? null
-  );
+  return trash.id;
 }
 
 interface ExplorerDeleteTrashResolution {

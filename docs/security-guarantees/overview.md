@@ -82,7 +82,9 @@ slot. Additional grantees are allowed: sharing a legitimate Trash must not
 disable deletion. A create acknowledgement persists the client-signed slot and
 refuses a differing echo. Every member derives the Trash slot from the
 organization ID. For a shared organization, deletion requires a direct child
-of its data root with that signed slot. Folder names cannot redirect deletion.
+of its data root with that signed slot. The SDK verifies the parent in the
+signed path even when a direct grant leaves it out of Explorer. Folder names
+cannot redirect deletion.
 The server can also identify each organization's Trash from its slot.
 
 Every folder's metadata document id comes from its signed manifest, never from
