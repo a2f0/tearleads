@@ -13,8 +13,6 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
-import { AccountBootstrapLoadingPanel } from "../../../components/identity/AccountBootstrapLoadingPanel";
-import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import { ContainerDocumentView } from "../../../document-types/container-views/ContainerDocumentView";
 import { ContainerPrimaryDocumentField } from "../../../document-types/container-views/ContainerPrimaryDocumentField";
@@ -31,7 +29,10 @@ import {
   canWriteContainerNode,
 } from "../model/containerRules";
 import type { ExplorerRoute } from "../routes";
-import { ExplorerDatabaseErrorStatus } from "../shared/ExplorerDatabaseErrorStatus";
+import {
+  type ExplorerFolderState,
+  ExplorerFolderStatus,
+} from "../shared/ExplorerFolderStatus";
 import type { MiniAppWindowPosition } from "../types";
 import type { ExplorerAttributionUserLabelResolver } from "./attributionDisplay";
 import { ExplorerContainerDetail } from "./container/ExplorerContainerDetail";
@@ -44,26 +45,6 @@ import {
 } from "./ExplorerDocumentRouteDetail";
 import { ExplorerSectionsPanel } from "./ExplorerSectionsPanel";
 
-function ExplorerEmptyDetail(params: {
-  nodes: ReadonlyArray<ContainerNode>;
-  ready: boolean;
-}) {
-  const { nodes, ready } = params;
-
-  // The database-error case is handled once at the top of ExplorerDetailPanel
-  // (every route is non-functional without the DB), so this only covers the
-  // healthy idle/empty/select states.
-  if (!ready) {
-    return <AccountBootstrapLoadingPanel title="Loading your workspace" />;
-  }
-
-  return (
-    <MiniAppStatus>
-      {nodes.length > 0 ? "Select a container." : "No containers."}
-    </MiniAppStatus>
-  );
-}
-
 type ExplorerNewStructuredDocumentRouteState = Extract<
   ExplorerRoute,
   { view: "new-structured-document" }
@@ -72,14 +53,14 @@ type ExplorerNewStructuredDocumentRouteState = Extract<
 function ExplorerNewStructuredDocumentRoutePanel(params: {
   nodes: ReadonlyArray<ContainerNode>;
   openInlineDocument: OpenInlineDocument;
-  ready: boolean;
+  folderState: ExplorerFolderState;
   route: ExplorerNewStructuredDocumentRouteState;
 }) {
-  const { nodes, openInlineDocument, ready, route } = params;
+  const { nodes, openInlineDocument, folderState, route } = params;
   const creationNode = nodes.find((node) => node.id === route.containerId);
 
   if (!creationNode || !canWriteContainerNode(creationNode)) {
-    return <ExplorerEmptyDetail nodes={nodes} ready={ready} />;
+    return <ExplorerFolderStatus state={folderState} />;
   }
 
   return (
@@ -114,7 +95,6 @@ interface ExplorerDetailPanelProps {
   contextTarget: ExplorerContextMenuTarget | null;
   // True when the local SQLite database failed to start; gates the whole panel
   // on an explicit boot error + Retry instead of an endless "Loading...".
-  databaseError: boolean;
   currentOrganizationId: string | null | undefined;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
@@ -165,8 +145,6 @@ interface ExplorerDetailPanelProps {
     },
     position?: MiniAppWindowPosition,
   ) => void;
-  // Re-attempts the SQLite worker boot after a failure (the Retry action).
-  onRetryDatabase: () => void;
   openInlineDocument: OpenInlineDocument;
   openBlobBrowserRoute: (input?: {
     blobId?: string | null | undefined;
@@ -179,7 +157,7 @@ interface ExplorerDetailPanelProps {
   openWriteQueueRoute: () => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
   peerUserId: string | null;
-  ready: boolean;
+  folderState: ExplorerFolderState;
   refreshError: string | null;
   route: ExplorerRoute;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
@@ -238,13 +216,6 @@ function isContainerReadOnly(
 }
 
 export function ExplorerDetailPanel(params: ExplorerDetailPanelProps) {
-  // A failed SQLite boot makes every detail route non-functional (they all read
-  // from the local database), so gate the whole panel on the error — matching
-  // the sidebar — rather than letting individual routes render broken UIs.
-  if (params.databaseError) {
-    return <ExplorerDatabaseErrorStatus onRetry={params.onRetryDatabase} />;
-  }
-
   return renderExplorerRouteDetail(params);
 }
 
@@ -385,7 +356,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
       <ExplorerNewStructuredDocumentRoutePanel
         nodes={params.nodes}
         openInlineDocument={params.openInlineDocument}
-        ready={params.ready}
+        folderState={params.folderState}
         route={route}
       />
     );
@@ -452,5 +423,5 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     );
   }
 
-  return <ExplorerEmptyDetail nodes={params.nodes} ready={params.ready} />;
+  return <ExplorerFolderStatus state={params.folderState} />;
 }

@@ -43,16 +43,13 @@ function ExplorerSidebarHarness(params: {
     [],
   );
   const toggleCollapsed = useCallback(() => undefined, []);
-  const onRetryDatabase = useCallback(() => undefined, []);
   const treeEntries = useMemo(() => buildExplorerTree(nodes), [nodes]);
 
   useExplorerSidebarPanel({
     activeContainerId: "root-container",
     collapsedIds,
-    databaseError: false,
-    onRetryDatabase,
     handleContainerContextMenu,
-    ready: true,
+    folderState: "available",
     organizationNamesById: NO_ORGANIZATION_NAMES,
     primaryOrganizationId: "org-1",
     selectedId,

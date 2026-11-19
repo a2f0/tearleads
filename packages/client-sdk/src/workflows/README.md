@@ -7,11 +7,11 @@ UI. Private leases stay hidden; authority loaders take exact heads. See
 
 ## Host Contract
 
-Hosts implement interfaces directly. Workflow scopes follow the [sign-in lifetime](../../../../docs/developer/client-sdk/runtime-behavior.md#sign-in-lifetime).
-See [initialization](../../../../docs/developer/sdk-initialization.md). `deviceFirst.open()`
-returns the tree handle. Container creation commits
-the container and its metadata document in one compound API request. Create,
-document link/unlink, writer-projection, and sync adapters provide the
+Hosts implement interfaces directly. Scopes follow the [sign-in lifetime](../../../../docs/developer/client-sdk/runtime-behavior.md#sign-in-lifetime).
+The [device-first tree](../../../../docs/developer/sdk-initialization.md)
+returned by `deviceFirst.open()` reports local readiness and background folder
+listings separately. Folder creation commits its metadata in the same request.
+Create, document link/unlink, writer-projection, and sync adapters provide the
 structured `Result` methods, including complete transport failures; nullable
 mutation methods the SDK does not call are not required. Container persistence
 provides atomic `saveContainerWithPendingUpdate` and revision-checked

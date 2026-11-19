@@ -77,7 +77,7 @@ async function openExplorerInPane(
 
 // Remounting Explorer while its window route still points at a selected document
 // (e.g. switching between windowed and routed, or a workspace round trip) used
-// to strand the detail pane on "Select a container.": the route was restored but
+// to strand the detail pane on "Select a folder": the route was restored but
 // the document's summary was never reloaded into the freshly mounted view.
 test(
   "explorer keeps the selected document across a layout remount",
@@ -150,7 +150,7 @@ test(
     fireEvent.click(navModeButton(view));
 
     // Back in windowed layout the Explorer window remounts; the selected
-    // document must be restored, not "Select a container."
+    // document must be restored, not "Select a folder"
     let restoredExplorer: HTMLElement | null = null;
     await waitFor(
       () => {
@@ -167,7 +167,7 @@ test(
       () => {
         expect(
           within(restoredExplorer as HTMLElement).queryByText(
-            "Select a container.",
+            "Select a folder",
           ),
         ).toBeNull();
         const restored = within(restoredExplorer as HTMLElement).getByRole(
