@@ -94,11 +94,12 @@ function NotesList({
       {!ready ? (
         bleed ? (
           <AccountBootstrapLoadingPanel
+            description={NOTES_LABELS.loadingDescription}
             title={NOTES_LABELS.emptyStateLoading}
           />
         ) : (
           <MiniAppStatus busy className="notes-sidebar-status">
-            {NOTES_LABELS.sidebarLoading}
+            {NOTES_LABELS.emptyStateLoading}
           </MiniAppStatus>
         )
       ) : notes.length === 0 ? (

@@ -132,7 +132,10 @@ function ContactsSelectionState({
   if (!selectedEntry) {
     if (!ready) {
       return (
-        <AccountBootstrapLoadingPanel title={CONTACTS_LABELS.loadingState} />
+        <AccountBootstrapLoadingPanel
+          description={CONTACTS_LABELS.loadingDescription}
+          title={CONTACTS_LABELS.loadingState}
+        />
       );
     }
 

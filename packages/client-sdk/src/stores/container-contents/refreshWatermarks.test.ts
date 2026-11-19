@@ -166,6 +166,7 @@ test("a manual refresh queued behind reconnect still resets child watermarks", a
     await waitFor(() => store.getSnapshot().ready, "store not ready");
     const active = store.refreshRootLane();
     await started.promise;
+    expect(store.getSnapshot().hydrating).toBe(true);
     store.updateRuntime({
       ...runtime,
       state: { ...runtime.state, serverEventsConnectionGeneration: 1 },

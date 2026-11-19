@@ -13,7 +13,6 @@ export const EXPLORER_LABELS = {
   // Trash sits under the root, so a very deep subtree cannot move into it.
   trashNestedTooDeeply:
     "This folder is nested too deeply to move to Trash. Use Delete Forever instead.",
-  databaseLoadError: "Couldn't open the local database.",
   // Suffixes for the compact sort selector's accessible state.
   columnSortedAscending: "sorted ascending",
   columnSortedDescending: "sorted descending",

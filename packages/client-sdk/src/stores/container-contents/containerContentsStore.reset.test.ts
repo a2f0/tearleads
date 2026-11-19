@@ -221,7 +221,11 @@ test.each(["database status", "organization"])(
       await waitFor(() => store.getSnapshot().ready);
 
       expect(maxActiveLoads).toBe(1);
-      expect(store.getSnapshot()).toEqual({ nodes: [], ready: true });
+      expect(store.getSnapshot()).toEqual({
+        nodes: [],
+        ready: true,
+        hydrating: true,
+      });
     } finally {
       await close();
     }
