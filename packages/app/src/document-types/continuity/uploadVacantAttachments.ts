@@ -74,6 +74,27 @@ async function loadSeedBinding(
   return null;
 }
 
+async function bindSeedBytes(
+  runtime: DocumentsWorkflowRuntime,
+  mutation: SlotMutation,
+  localId: string,
+  fixture: DocumentAttachment,
+  bytes: BlobBytes,
+) {
+  const blobId = crypto.randomUUID();
+  const uploaded = await runtime.blobAttachments.uploadDocumentAttachment({
+    ...mutation,
+    blobId,
+    bindingId: await seedBindingId(localId, fixture.slotId, blobId),
+    bytes,
+    expectedBindingId: null,
+  });
+  if (!uploaded)
+    throw new Error(
+      `Could not upload seed attachment: ${fixture.name}. Run seed again to resume.`,
+    );
+}
+
 async function reconcileSlot(
   store: DocumentStore,
   runtime: DocumentsWorkflowRuntime,
@@ -88,18 +109,7 @@ async function reconcileSlot(
     const action = slotAction(await pull(store), fixture);
     if (action === "complete") return;
     if (action === "upload") {
-      const blobId = crypto.randomUUID();
-      const uploaded = await runtime.blobAttachments.uploadDocumentAttachment({
-        ...mutation,
-        blobId,
-        bindingId: await seedBindingId(localId, fixture.slotId, blobId),
-        bytes,
-        expectedBindingId: null,
-      });
-      if (!uploaded)
-        throw new Error(
-          `Could not upload seed attachment: ${fixture.name}. Run seed again to resume.`,
-        );
+      await bindSeedBytes(runtime, mutation, localId, fixture, bytes);
       continue;
     }
     const observed = await loadSeedBinding(runtime, mutation, localId);
@@ -117,6 +127,12 @@ async function reconcileSlot(
         `Could not retire stale seed attachment: ${fixture.name}.`,
       );
   }
+  const final = slotAction(await pull(store), fixture);
+  if (
+    final === "complete" ||
+    (final === "retire" && !(await loadSeedBinding(runtime, mutation, localId)))
+  )
+    return;
   throw new Error(
     `The attachment kept changing: ${fixture.name}. Run seed again to resume.`,
   );

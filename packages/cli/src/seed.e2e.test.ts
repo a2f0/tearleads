@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
+import { createHmac } from "node:crypto";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
-import { getOrCreateDomainSyncCoordinator } from "@tearleads/client-sdk";
+import {
+  deriveStableDocumentId,
+  getOrCreateDomainSyncCoordinator,
+} from "@tearleads/client-sdk";
 import {
   continuityDocuments,
   loadContinuityAssets,
@@ -75,7 +79,8 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     ]);
     expect(contentRequests).toEqual([]);
     output.stderr.length = 0;
-    const { spec, readAttachment } = await loadContinuityAssets();
+    const { spec, readAttachment, datasetSha256 } =
+      await loadContinuityAssets();
     const documents = continuityDocuments(spec);
     const run = async () => {
       const result = await runCli(["seed", "--env", "staging"], context);
@@ -88,37 +93,37 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     const device = { apiBaseUrl, recoveryKey: seedPhrase, rootContainerId };
     const other = testContext({ apiBaseUrl });
     await other.keyStore.save("staging", seedPhrase);
+    // Finish each challenge exchange before the second client starts. Always
+    // release a held API response if either importer exits before the barrier.
+    async function runPair(
+      firstRequest: Promise<void>,
+      barrier: PromiseWithResolvers<void>,
+    ) {
+      const start = (client: typeof context) =>
+        runCli(["seed", "--env", "staging"], client).finally(barrier.resolve);
+      const first = start(context);
+      await Promise.race([
+        firstRequest,
+        first.then(() => {
+          throw new Error(
+            `First seed exited before its request: ${output.stderr.join("\n")}`,
+          );
+        }),
+      ]);
+      const results = await Promise.all([first, start(other.context)]);
+      return results;
+    }
     raceFolders = true;
-    const firstProvision = runCli(["seed", "--env", "staging"], context);
-    await Promise.race([
-      firstFolder.promise,
-      firstProvision.then(() => {
-        throw new Error("First seed did not provision Contacts");
-      }),
-    ]);
-    const provisioning = await Promise.all([
-      firstProvision,
-      runCli(["seed", "--env", "staging"], other.context),
-    ]);
-    expect(provisioning).toEqual([1, 1]);
-    expect(folderAttempts).toBeGreaterThanOrEqual(2);
+    expect(await runPair(firstFolder.promise, bothFolders)).toEqual([1, 1]);
+    expect(
+      folderAttempts,
+      other.output.stderr.join("\n"),
+    ).toBeGreaterThanOrEqual(2);
     raceFolders = false;
     output.stderr.length = 0;
     other.output.stderr.length = 0;
     raceCreates = true;
-    const first = runCli(["seed", "--env", "staging"], context);
-    // Sign in the second device after the first has finished the account's
-    // challenge exchange, while its missing-document response is still held.
-    await Promise.race([
-      firstMissing.promise,
-      first.then(() => {
-        throw new Error("First importer did not reach document lookup");
-      }),
-    ]);
-    const codes = await Promise.all([
-      first,
-      runCli(["seed", "--env", "staging"], other.context),
-    ]);
+    const codes = await runPair(firstMissing.promise, missing);
     raceCreates = false;
     expect(codes).toEqual([1, 1]);
     expect(missingPaths).toHaveLength(2);
@@ -137,6 +142,19 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       const document = documents.find((item) => item.key === "contact/0");
       if (!partial?.documentId || !document || !store)
         throw new Error("Missing partially uploaded contact");
+      // A Contacts folder is a placement. Even if the host resolves a
+      // different Contacts destination later, this root-scoped identity holds.
+      const keys = sdk.identity.signingKeyPair;
+      if (!keys || !rootContainerId)
+        throw new Error("Missing account identity");
+      const expectedContact = createHmac("sha256", keys.signingPrivateKey)
+        .update(
+          `tearleads.continuity/${rootContainerId}/${datasetSha256}/contact/0`,
+        )
+        .digest("hex");
+      expect(partial.documentId).toBe(
+        await deriveStableDocumentId(expectedContact),
+      );
       expect(partial.documentKind).toBe("contact");
       expect(partial.attachmentStorageKeyBySlotId).toEqual({});
       const localId = await sdk.documents.findLocalIdByDocumentId(
@@ -167,6 +185,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     const editedName = "Personal weight journal";
     const editedNotes = "Edited on a second device";
     let additionalFolderId = "";
+    let movedContactId = "";
     await onFreshDevice(device, async (stores, sdk) => {
       const tracker = stores.find(
         (store) => store.getSnapshot().documentKind === "weight",
@@ -186,43 +205,54 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
         sdk.runtime.input().state.domainScope,
       );
       expect(await coordinator.waitForIdle({ timeoutMs: 30_000 })).toBe(true);
-      const id = await sdk.documents.findLocalIdByDocumentId(
-        tracker.getSnapshot().documentId ?? "",
-      );
-      const note = await sdk.containerContents
-        .documentQueries()
-        .loadDocumentSummary(id ?? "");
-      if (!note) throw new Error("Missing tracker summary");
-      const moved = await sdk.containerContents
-        .documentLinks()
-        .moveDocumentToContainer({
-          note,
-          targetContainerId: folder.id,
-          replaceLinkedContainers: true,
-          expandNode: () => {},
-          mergeDocumentSummary: () => {},
-          setLinkedContainerIdsForDocument: () => {},
-        });
-      expect(moved.note?.containerId).toBe(folder.id);
+      movedContactId =
+        stores
+          .find(
+            (candidate) => candidate.getSnapshot().documentKind === "contact",
+          )
+          ?.getSnapshot().documentId ?? "";
+      for (const remoteId of [
+        tracker.getSnapshot().documentId,
+        movedContactId,
+      ]) {
+        const id = await sdk.documents.findLocalIdByDocumentId(remoteId ?? "");
+        const note = await sdk.containerContents
+          .documentQueries()
+          .loadDocumentSummary(id ?? "");
+        if (!note) throw new Error("Missing seed document summary");
+        const moved = await sdk.containerContents
+          .documentLinks()
+          .moveDocumentToContainer({
+            note,
+            targetContainerId: folder.id,
+            replaceLinkedContainers: true,
+            expandNode: () => {},
+            mergeDocumentSummary: () => {},
+            setLinkedContainerIdsForDocument: () => {},
+          });
+        expect(moved.note?.containerId).toBe(folder.id);
+      }
       expect(await coordinator.waitForIdle({ timeoutMs: 30_000 })).toBe(true);
     });
     contentRequests.length = 0;
     await run();
     expect(contentRequests).not.toContain("/containers/documents/query");
     await onFreshDevice(
-      { ...device, additionalFolderId },
+      { ...device, additionalFolderId, movedContactId },
       async (stores, sdk) => {
         const found = stores.map((store) => store.getSnapshot());
         const tracker = found.find(
           (snapshot) => snapshot.documentKind === "weight",
         );
-        const id = await sdk.documents.findLocalIdByDocumentId(
-          tracker?.documentId ?? "",
-        );
-        const moved = await sdk.containerContents
-          .documentQueries()
-          .loadDocumentSummary(id ?? "");
-        expect(moved?.containerId).toBe(additionalFolderId);
+        for (const remoteId of [tracker?.documentId, movedContactId]) {
+          const id = await sdk.documents.findLocalIdByDocumentId(
+            remoteId ?? "",
+          );
+          const moved = await sdk.containerContents
+            .documentQueries()
+            .loadDocumentSummary(id ?? "");
+          expect(moved?.containerId).toBe(additionalFolderId);
+        }
         for (const snapshot of found) {
           for (const attachment of snapshot.attachments) {
             const key =

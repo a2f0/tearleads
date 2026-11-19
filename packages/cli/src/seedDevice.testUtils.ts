@@ -12,6 +12,7 @@ import { withSession } from "./session";
 export async function onFreshDevice(
   input: {
     additionalFolderId?: string;
+    movedContactId?: string;
     apiBaseUrl: string;
     recoveryKey: string;
     rootContainerId: string | null;
@@ -70,7 +71,9 @@ export async function onFreshDevice(
           expect(await store.ensureInitialized()).toBe(true);
           expect(await store.requestRemoteSyncAndWait()).toBe(true);
           expect(store.getSnapshot().documentKind === "contact").toBe(
-            containerId === contacts,
+            containerId === contacts ||
+              (containerId === input.additionalFolderId &&
+                row.documentId === input.movedContactId),
           );
           stores.push(store);
         }

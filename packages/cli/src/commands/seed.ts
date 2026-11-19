@@ -144,7 +144,7 @@ export async function seed(input: CommandInput): Promise<void> {
           const containerId = document.kind === "contact" ? contactsId : rootId;
           const localId = createHmac("sha256", signingPrivateKey)
             .update(
-              `tearleads.continuity/${containerId}/${datasetSha256}/${document.key}`,
+              `tearleads.continuity/${rootId}/${datasetSha256}/${document.key}`,
             )
             .digest("hex");
           const documentId = await deriveStableDocumentId(localId);
