@@ -2,7 +2,10 @@
 // (the navigation-mode choice, the launcher's placement). Unavailable or
 // throwing storage degrades to the caller's fallback.
 
-function getLocalStorage(): Pick<Storage, "getItem" | "setItem"> | null {
+export function getLocalStorage(): Pick<
+  Storage,
+  "getItem" | "setItem" | "removeItem"
+> | null {
   try {
     return typeof globalThis.localStorage === "undefined"
       ? null
@@ -32,14 +35,19 @@ export function loadStoredPreference<T>(
   }
 }
 
-export function saveStoredPreference(storageKey: string, value: string): void {
+export function saveStoredPreference(
+  storageKey: string,
+  value: string | null,
+): boolean {
   const storage = getLocalStorage();
   if (!storage) {
-    return;
+    return false;
   }
   try {
-    storage.setItem(storageKey, value);
+    if (value === null) storage.removeItem(storageKey);
+    else storage.setItem(storageKey, value);
+    return true;
   } catch {
-    // Persistence is best-effort; ignore disabled storage and quota errors.
+    return false;
   }
 }

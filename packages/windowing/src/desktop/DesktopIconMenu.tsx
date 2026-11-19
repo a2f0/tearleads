@@ -13,12 +13,14 @@ export interface DesktopIconMenuItem {
 
 /** An icon's context menu: Open, then the host's items. Each closes it. */
 export function DesktopIconMenu({
+  id,
   icon,
   items,
   onClose,
   onOpen,
   position,
 }: {
+  id?: string | undefined;
   icon: WindowingIcon | undefined;
   items: ReadonlyArray<DesktopIconMenuItem>;
   onClose: () => void;
@@ -26,7 +28,7 @@ export function DesktopIconMenu({
   position: MenuPosition;
 }) {
   return (
-    <Menu direction="down" onClose={onClose} position={position}>
+    <Menu id={id} direction="down" onClose={onClose} position={position}>
       <MenuItem
         icon={icon}
         label="Open"

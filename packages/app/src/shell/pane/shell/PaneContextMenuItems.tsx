@@ -5,6 +5,7 @@ import {
   LauncherMenuItem,
   MenuItem,
   type MenuPosition,
+  useOptionalStartMenuPreferences,
 } from "@tearleads/windowing";
 import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapProgress";
 import { MINI_APP_MENU_ITEMS } from "../../../mini-apps/catalog";
@@ -40,6 +41,7 @@ export function PaneContextMenuItems({
     position,
   });
   const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
+  const preferences = useOptionalStartMenuPreferences();
   const visibleMenuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
   const { definition } = useAppNavigationState();
   const progress = useAccountBootstrapProgress();
@@ -72,6 +74,10 @@ export function PaneContextMenuItems({
         <MenuItem icon={LockIcon} label="Lock" onClick={lockPane} />
       )}
       {visibleMenuItems
+        .filter(
+          ({ appId }) =>
+            surface !== "start" || (preferences?.isVisible(appId) ?? true),
+        )
         .filter(
           ({ appId }) =>
             !needsIdentity ||

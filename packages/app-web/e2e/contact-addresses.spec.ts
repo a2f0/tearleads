@@ -76,7 +76,7 @@ async function addAddress(page: Page, values: PostalAddress): Promise<void> {
   );
 }
 
-async function openApp(page: Page, name: "Contacts" | "Explorer") {
+async function openApp(page: Page, name: "Contacts" | "Explorer" | "Settings") {
   await page.getByRole("button", { name: "Menu", exact: true }).click();
   await page
     .getByRole("navigation", { name: "Apps" })
@@ -197,6 +197,8 @@ test("postal addresses round-trip between Contacts and Explorer and survive relo
   });
 
   await test.step("Contacts reopens the same contact with Explorer's edits", async () => {
+    await openApp(page, "Settings");
+    await page.getByRole("switch", { name: "Contacts", exact: true }).check();
     await openApp(page, "Contacts");
     await page
       .getByRole("region", { name: "Contacts list" })

@@ -60,6 +60,31 @@ function isBrowserHandledNavClick(
   );
 }
 
+// A storage event can remove a focused launcher entry while the menu is open.
+function keepFocusInLauncher(link: HTMLAnchorElement | null) {
+  if (!link) return;
+  return () => {
+    const focused = link.ownerDocument.activeElement;
+    const popupId = link.getAttribute("aria-controls");
+    const popup = popupId ? link.ownerDocument.getElementById(popupId) : null;
+    if (!focused || (focused !== link && !popup?.contains(focused))) return;
+    const launcher = link.closest("aside");
+    queueMicrotask(() => {
+      if (
+        focused.isConnected ||
+        !launcher?.isConnected ||
+        launcher.getAttribute("aria-hidden") === "true" ||
+        link.ownerDocument.activeElement !== link.ownerDocument.body
+      )
+        return;
+      (
+        launcher.querySelector<HTMLElement>("a[href]") ??
+        launcher.querySelector("button")
+      )?.focus();
+    });
+  };
+}
+
 function RoutedPaneNavLink({
   appId,
   activeAppId,
@@ -84,6 +109,7 @@ function RoutedPaneNavLink({
     <>
       <a
         {...triggerProps}
+        ref={keepFocusInLauncher}
         aria-current={activeAppId === appId ? "page" : undefined}
         className={classNames(
           "routed-pane-nav-link",
@@ -178,6 +204,7 @@ function RoutedPaneMobileNavTile({
 }) {
   return (
     <a
+      ref={keepFocusInLauncher}
       aria-current={active ? "page" : undefined}
       className={classNames(
         "routed-pane-sheet-tile",
@@ -294,7 +321,9 @@ export function RoutedPaneNav({
         '.routed-pane-sheet-tile[aria-current="page"]',
       );
       (
-        tile ?? sheet?.querySelector<HTMLElement>(".routed-pane-sheet-tile")
+        tile ??
+        sheet?.querySelector<HTMLElement>(".routed-pane-sheet-tile") ??
+        sheet?.querySelector<HTMLButtonElement>(".routed-pane-sheet-handle")
       )?.focus();
     }
   }, [drawerOpen, launcherPlacement, tier]);

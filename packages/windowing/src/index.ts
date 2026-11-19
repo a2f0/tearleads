@@ -110,6 +110,11 @@ export {
   type StartMenuProps,
 } from "./menu/StartMenu";
 export {
+  StartMenuPreferencesProvider,
+  useOptionalStartMenuPreferences,
+  useStartMenuPreferences,
+} from "./menu/StartMenuPreferencesProvider";
+export {
   type ContextMenuState,
   useContextMenuPositionState,
   useContextMenuState,

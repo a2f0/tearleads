@@ -29,16 +29,18 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
     title: MINI_APP_TITLES["backup-restore"],
   },
   contacts: {
+    startMenuVisibility: "hidden",
     createComponent: () => ContactsApp,
     icon: MINI_APP_ICONS.contacts,
     title: MINI_APP_TITLES.contacts,
   },
   "display-properties": {
+    startMenuVisibility: "pinned",
     createComponent: () => SettingsApp,
     icon: MINI_APP_ICONS["display-properties"],
     initialShowSidebar: false,
     title: MINI_APP_TITLES["display-properties"],
-    windowSize: { height: 470, width: 500 },
+    windowSize: { height: 670, width: 500 },
   },
   explorer: {
     createComponent: () => ExplorerApp,
@@ -52,6 +54,7 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
     title: MINI_APP_TITLES["identity-manager"],
   },
   notes: {
+    startMenuVisibility: "hidden",
     createComponent: () => createNotesWindowComponent(),
     icon: MINI_APP_ICONS.notes,
     title: MINI_APP_TITLES.notes,

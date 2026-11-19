@@ -86,7 +86,7 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
   await page.setViewportSize({ width: 1440, height: 900 });
   const display = await openSettingsFromTray(page);
   await expect(display).toHaveCSS("width", "500px");
-  await expect(display).toHaveCSS("height", "470px");
+  await expect(display).toHaveCSS("height", "670px");
   const scroller = display.locator(".window-body-content-scroll");
   const sizes = await scroller.evaluate((element) => ({
     height: element.clientHeight,
@@ -97,7 +97,19 @@ test("the initial window fits every wallpaper, theme, and tray switch without sc
   expect(sizes.content).toBeLessThanOrEqual(sizes.height);
   await expect(display.locator(".display-properties-wallpaper")).toHaveCount(7);
   await expect(display.locator(".display-properties-theme")).toHaveCount(3);
-  await expect(display.getByRole("switch")).toHaveCount(3);
+  await expect(
+    display.getByRole("group", { name: "System Tray" }).getByRole("switch"),
+  ).toHaveCount(3);
+  const menu = display.getByRole("group", { name: "Start menu" });
+  await expect(
+    menu.getByRole("switch", { name: "Contacts" }),
+  ).not.toBeChecked();
+  await expect(menu.getByRole("switch", { name: "Notes" })).not.toBeChecked();
+  for (const label of await menu.locator(".display-properties-label").all()) {
+    expect(
+      await label.evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+  }
   await expect(
     display.getByRole("switch", { name: /screensaver/i }),
   ).toHaveCount(0);
@@ -124,4 +136,54 @@ test("a narrow desktop keeps all display controls reachable by scrolling", async
       .locator(".window-body-content-scroll")
       .evaluate((element) => element.scrollTop),
   ).toBeGreaterThan(0);
+});
+
+test("Settings restores a hidden Start menu entry across a reload", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const settings = await openSettingsFromTray(page);
+  const pane = page.locator(".pane:not(.pane-hidden)").first();
+  const start = pane.getByRole("button", { name: "Menu", exact: true });
+  const menu = page.locator(".menu");
+  await start.click();
+  // Explorer is offered once the session is ready to launch apps.
+  await expect(
+    menu.getByRole("button", { name: "Explorer", exact: true }),
+  ).toBeVisible();
+  await expect(
+    menu.getByRole("button", { name: "Notes", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    menu.getByRole("button", { name: "Contacts", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await settings.getByRole("switch", { name: "Notes", exact: true }).check();
+  await page.reload();
+  await start.click();
+  await menu.getByRole("button", { name: "Notes", exact: true }).click();
+  await expect(
+    pane.getByRole("region", { name: "Notes", exact: true }),
+  ).toBeVisible();
+});
+
+test("a second tab can hide the focused phone launcher entry", async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/app/explorer");
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  const launcher = page.getByRole("navigation", { name: "Apps" });
+  const explorer = launcher.getByRole("link", { name: "Explorer" });
+  await explorer.focus();
+  await expect(explorer).toBeFocused();
+
+  const settings = await context.newPage();
+  await settings.goto("/app/display-properties");
+  await settings
+    .getByRole("switch", { name: "Explorer", exact: true })
+    .uncheck();
+  await expect(explorer).toHaveCount(0);
+  await expect(launcher.getByRole("link").first()).toBeFocused();
 });

@@ -1,9 +1,12 @@
 import { useId } from "react";
+import { resolveLauncherOrder } from "../launcher/launcherDefinition";
+import { useOptionalStartMenuPreferences } from "../menu/StartMenuPreferencesProvider";
 import { useOptionalTheme } from "../theme/ThemeProvider";
 import { useOptionalSystemTray } from "../tray/SystemTrayProvider";
 import { useOptionalWallpaper } from "../wallpaper/WallpaperProvider";
 import { wallpaperStyle } from "../wallpaper/wallpapers";
 import { useSuppressWindowToolbar } from "../window/CurrentWindowContext";
+import { AppSwitch } from "./AppSwitch";
 import "../wallpaper/Wallpaper.css";
 import "./DisplayProperties.css";
 
@@ -84,29 +87,50 @@ function SystemTraySection() {
           if (!app) {
             return null;
           }
-          const { icon: Icon, title } = app;
           return (
-            <label className="display-properties-tray-app" key={id}>
-              {Icon && (
-                <Icon
-                  aria-hidden="true"
-                  className="display-properties-tray-app-icon"
-                  focusable="false"
-                  size={16}
-                />
-              )}
-              <span className="display-properties-label">{title}</span>
-              <input
-                aria-checked={isEnabled(id)}
-                checked={isEnabled(id)}
-                className="display-properties-switch"
-                onChange={(event) =>
-                  setEnabled(id, event.currentTarget.checked)
-                }
-                role="switch"
-                type="checkbox"
+            <AppSwitch
+              key={id}
+              className="display-properties-tray-app"
+              icon={app.icon}
+              title={app.title}
+              checked={isEnabled(id)}
+              onChange={(enabled) => setEnabled(id, enabled)}
+            />
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function StartMenuSection({
+  appIds,
+}: {
+  appIds?: readonly string[] | undefined;
+}) {
+  const preferences = useOptionalStartMenuPreferences();
+  if (!preferences) return null;
+  const ids = (appIds ?? resolveLauncherOrder(preferences.definition)).filter(
+    (id) => preferences.configurableIds.includes(id),
+  );
+  if (!ids.length) return null;
+  return (
+    <fieldset className="display-properties-section">
+      <legend>Start menu</legend>
+      <div className="display-properties-menu-apps">
+        {ids.map((id) => {
+          const app = preferences.definition.apps[id];
+          return (
+            app && (
+              <AppSwitch
+                key={id}
+                icon={app.icon}
+                className="display-properties-menu-app"
+                title={app.iconLabel ?? app.title}
+                checked={preferences.isVisible(id)}
+                onChange={(visible) => preferences.setVisible(id, visible)}
               />
-            </label>
+            )
           );
         })}
       </div>
@@ -123,13 +147,18 @@ function SystemTraySection() {
  * apps, is left out. It has no toolbar actions, so its window shows no
  * toolbar row.
  */
-export function DisplayProperties() {
+export function DisplayProperties({
+  startMenuAppIds,
+}: {
+  startMenuAppIds?: readonly string[];
+} = {}) {
   useSuppressWindowToolbar(true);
   return (
     <div className="display-properties">
       <BackgroundSection />
       <ThemeSection />
       <SystemTraySection />
+      <StartMenuSection appIds={startMenuAppIds} />
     </div>
   );
 }
