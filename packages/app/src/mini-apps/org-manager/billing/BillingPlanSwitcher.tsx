@@ -10,6 +10,7 @@ import type { StripeSyncOptionResponse } from "@tearleads/validators/response";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -131,11 +132,7 @@ export function BillingPlanSwitcher({
   pendingSeatCount,
 }: BillingPlanSwitcherProps) {
   if (minimumSeatCount === null) {
-    return (
-      <MiniAppStatus className="org-manager-hint">
-        {ORG_MANAGER_LABELS.loadingBilling}
-      </MiniAppStatus>
-    );
+    return <MiniAppStatePanel busy title={ORG_MANAGER_LABELS.loadingBilling} />;
   }
   const eligibleOptions = options.filter(
     (option) => option.seatLimit >= minimumSeatCount,
@@ -403,11 +400,7 @@ function StripePlanSwitcher({
   });
   const { offer } = flow;
   if (offer.status === "off" || offer.status === "loading") {
-    return (
-      <MiniAppStatus className="org-manager-hint" busy>
-        {ORG_MANAGER_LABELS.loadingBilling}
-      </MiniAppStatus>
-    );
+    return <MiniAppStatePanel busy title={ORG_MANAGER_LABELS.loadingBilling} />;
   }
   if (offer.status === "failed") {
     return (

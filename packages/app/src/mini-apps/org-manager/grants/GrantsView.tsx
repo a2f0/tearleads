@@ -8,6 +8,7 @@ import {
   MiniAppHeaderCopy,
   MiniAppSection,
   MiniAppSectionHeading,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import { MiniAppInfoTable } from "../../../components/mini-app/MiniAppTable";
@@ -53,13 +54,16 @@ export function GrantsView({
   selectedGrant: OrganizationContainerGrant | null;
   selectedGrantRef: OrgManagerGrantRouteRef | null;
 }) {
+  if (!grants && pending) {
+    return <MiniAppStatePanel busy title={ORG_MANAGER_LABELS.loadingGrants} />;
+  }
+
   if (selectedGrantRef) {
     return (
       <GrantDetailView
         canRevokeGrants={canRevokeGrants}
         grant={selectedGrant}
         grants={grants}
-        pending={pending}
         mutating={mutating}
         openGroupRoute={openGroupRoute}
         revokeGrant={revokeGrant}
@@ -70,9 +74,7 @@ export function GrantsView({
   if (!grants) {
     return (
       <MiniAppStatus className="org-manager-hint">
-        {pending
-          ? ORG_MANAGER_LABELS.loadingGrants
-          : ORG_MANAGER_LABELS.grantsUnavailable}
+        {ORG_MANAGER_LABELS.grantsUnavailable}
       </MiniAppStatus>
     );
   }
@@ -106,7 +108,6 @@ function GrantDetailView({
   canRevokeGrants,
   grant,
   grants,
-  pending,
   mutating,
   openGroupRoute,
   revokeGrant,
@@ -114,7 +115,6 @@ function GrantDetailView({
   canRevokeGrants: boolean;
   grant: OrganizationContainerGrant | null;
   grants: OrganizationContainerGrants | null;
-  pending: boolean;
   mutating: boolean;
   openGroupRoute: (groupId: string) => void;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
@@ -124,9 +124,7 @@ function GrantDetailView({
       <section className="org-manager-panel">
         <GrantDetailHeader />
         <MiniAppStatus className="org-manager-hint">
-          {pending
-            ? ORG_MANAGER_LABELS.loadingGrants
-            : ORG_MANAGER_LABELS.grantsUnavailable}
+          {ORG_MANAGER_LABELS.grantsUnavailable}
         </MiniAppStatus>
       </section>
     );

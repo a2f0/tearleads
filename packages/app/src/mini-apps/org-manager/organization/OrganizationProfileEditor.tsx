@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
   MiniAppInput,
+  MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
@@ -86,9 +87,10 @@ function OrganizationProfileDocumentFields({
 
   if (!ready || !profileLinkReady) {
     return (
-      <MiniAppStatus>
-        {ORG_MANAGER_LABELS.loadingOrganizationProfile}
-      </MiniAppStatus>
+      <MiniAppStatePanel
+        busy
+        title={ORG_MANAGER_LABELS.loadingOrganizationProfile}
+      />
     );
   }
 
@@ -121,9 +123,11 @@ function OrganizationProfileDocumentFields({
         />
       </MiniAppField>
       {syncing && (
-        <MiniAppStatus>
-          {ORG_MANAGER_LABELS.syncingOrganizationProfile}
-        </MiniAppStatus>
+        <MiniAppStatePanel
+          busy
+          className="org-manager-profile-cover"
+          title={ORG_MANAGER_LABELS.syncingOrganizationProfile}
+        />
       )}
     </div>
   );
@@ -165,12 +169,15 @@ export function OrganizationProfileEditor({
   // `pending` only affects unresolved messaging. A managed refresh must not
   // unmount a ready document provider and discard an uncommitted name draft.
   if (binding.status !== "ready") {
-    return (
+    return binding.status === "unavailable" && !pending ? (
       <MiniAppStatus>
-        {binding.status === "unavailable" && !pending
-          ? ORG_MANAGER_LABELS.organizationProfileUnavailable
-          : ORG_MANAGER_LABELS.loadingOrganizationProfile}
+        {ORG_MANAGER_LABELS.organizationProfileUnavailable}
       </MiniAppStatus>
+    ) : (
+      <MiniAppStatePanel
+        busy
+        title={ORG_MANAGER_LABELS.loadingOrganizationProfile}
+      />
     );
   }
 
