@@ -300,9 +300,7 @@ test.each([
         createPrincipalPolicyOperation(),
       );
       expect(input.listBindings).toHaveBeenCalledTimes(2);
-      expect(input.listBindings).toHaveBeenCalledWith(REMOTE_ID, {
-        refresh: true,
-      });
+      expect(input.listBindings).toHaveBeenCalledWith(REMOTE_ID);
       expect(input.detachRequests).toHaveLength(bound ? 1 : 0);
       if (bound)
         expect(input.detachRequests[0]?.body).toMatchObject({

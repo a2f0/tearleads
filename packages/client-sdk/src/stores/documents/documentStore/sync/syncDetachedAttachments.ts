@@ -55,10 +55,8 @@ export async function syncDetachedAttachmentBindings(
   }
 
   const remoteDocumentId = nextRecord.documentId;
-  const remoteBindings = await state.runtime.apiClient.listDocumentAttachments(
-    remoteDocumentId,
-    { refresh: true },
-  );
+  const remoteBindings =
+    await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
   if (
     !remoteBindings ||
     !detachedSyncContextIsCurrent(state, generation, nextRecord)

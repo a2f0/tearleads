@@ -63,6 +63,8 @@ The import commits each document separately. If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,
 preserves moved documents and edits, and resumes missing uploads when the
 recorded digest and byte length still match. Edited names and MIME types are preserved.
+If an offline edit removes an attachment during import, rerunning after the edit
+syncs also clears any leftover fixture upload for that slot.
 A changed seed manifest can produce a new set of documents.
 
 ## Tracing

@@ -69,7 +69,6 @@ test("racing two first imports of the same tracker preserves exactly its fixture
     ]);
     const results = await Promise.all([first, seed().finally(release.resolve)]);
     expect(missing).toBe(2);
-    if (results.includes(1)) expect(await seed()).toBe(0);
     await onFreshDevice(device, async (stores) => {
       const trackers = stores
         .map((store) => store.getSnapshot())
@@ -78,6 +77,7 @@ test("racing two first imports of the same tracker preserves exactly its fixture
       expect(trackers[0]?.documentId).toBe(documentId);
       expect(trackers[0]?.rows.map((row) => row.fields)).toEqual(expectedRows);
     });
+    if (results.includes(1)) expect(await seed()).toBe(0);
   } finally {
     release.resolve();
     server.stop(true);

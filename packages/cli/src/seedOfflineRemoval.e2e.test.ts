@@ -10,8 +10,9 @@ test.each(["seed", "personal"] as const)(
   async (upload) => {
     await initializeApiDatabase();
     let interrupt = true;
-    let beforeDetach: (() => Promise<void>) | undefined;
+    let beforeLookup: (() => Promise<void>) | undefined;
     let personalBindingId: string | undefined;
+    let contactId: string | null = null;
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
@@ -19,9 +20,9 @@ test.each(["seed", "personal"] as const)(
         const path = new URL(req.url).pathname;
         if (interrupt && path === "/blobs/stages/multipart")
           return new Response(null, { status: 503 });
-        if (path.endsWith("/detach")) {
-          const restore = beforeDetach;
-          beforeDetach = undefined;
+        if (path === `/documents/${contactId}/attachments`) {
+          const restore = beforeLookup;
+          beforeLookup = undefined;
           await restore?.();
         }
         return routeApp.fetch(req);
@@ -37,8 +38,7 @@ test.each(["seed", "personal"] as const)(
       const seed = () => runCli(["seed", "--env", "staging"], context);
       expect(await seed()).toBe(1);
       interrupt = false;
-      let contactId: string | null = null;
-      const removal = onFreshDevice(device, async ([store], sdk) => {
+      await onFreshDevice(device, async ([store], sdk) => {
         const snapshot = store?.getSnapshot();
         const avatar = snapshot?.attachments[0];
         if (!store || !avatar || !snapshot?.documentId)
@@ -62,10 +62,18 @@ test.each(["seed", "personal"] as const)(
         await store.removeAttachment(avatar.slotId);
         expect(store.getSnapshot().attachments).toHaveLength(0);
         expect(await seed()).toBe(0);
+        sdk.network.setOnline(true);
+        store.updateRuntime(
+          sdk.containerContents
+            .documentLinks()
+            .documentRuntime(summary.containerId),
+        );
+        expect(await store.requestRemoteSyncAndWait()).toBe(true);
+
         if (upload === "personal") {
-          // The remover has published its content edit by the time it sends
-          // the detach. Restore from that revision before the API handles it.
-          beforeDetach = () =>
+          // Restore after the deletion has synced, just before the retry
+          // observes which generation currently owns the slot.
+          beforeLookup = () =>
             onFreshDevice(device, async (stores, otherSdk) => {
               const personal = stores.find(
                 (item) => item.getSnapshot().documentId === contactId,
@@ -89,23 +97,8 @@ test.each(["seed", "personal"] as const)(
               expect(personalBindingId).toBeDefined();
             });
         }
-        sdk.network.setOnline(true);
-        store.updateRuntime(
-          sdk.containerContents
-            .documentLinks()
-            .documentRuntime(summary.containerId),
-        );
-        expect(await store.requestRemoteSyncAndWait()).toBe(true);
       });
-      if (upload === "personal") {
-        // The session reports the API's compare-and-swap rejection, including
-        // the SDK's retry with a refreshed writer projection.
-        await expect(removal).rejects.toThrow(
-          /^The API did not answer completely, so the result may be partial:\n(?: {2}POST \/blobs\/[0-9a-f-]+\/attachment-bindings\/[0-9a-f-]+\/detach: 409 Conflict: Attachment binding is not active\n)+ {2}POST \/blobs\/\{blobId\}\/attachment-bindings\/\{bindingId\}\/detach failed \d+ time\(s\)$/,
-        );
-      } else {
-        await removal;
-      }
+      expect(await seed()).toBe(0);
       await onFreshDevice(device, async (stores, sdk) => {
         const snapshot = stores
           .find((item) => item.getSnapshot().documentId === contactId)
@@ -123,7 +116,7 @@ test.each(["seed", "personal"] as const)(
         if (upload === "seed") {
           expect(avatar).toBeUndefined();
         } else {
-          expect(beforeDetach).toBeUndefined();
+          expect(beforeLookup).toBeUndefined();
           if (!avatar) throw new Error("Personal avatar was removed");
           expect(bindings?.[0]?.bindingId).toBe(personalBindingId);
           expect(avatar.name).toBe("personal.png");
