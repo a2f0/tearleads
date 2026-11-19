@@ -51,6 +51,7 @@ async function prepareAttachment(input: SeedWriteInput, index: number) {
 async function openContinuityDocument(
   input: SeedWriteInput,
   attachments: ReadonlyArray<Awaited<ReturnType<typeof prepareAttachment>>>,
+  assertCurrent: () => void,
 ) {
   const { sdk, document } = input;
   const content = {
@@ -63,11 +64,14 @@ async function openContinuityDocument(
   const links = sdk.containerContents.documentLinks();
   let placement = input.destination === "account" ? input.existing : undefined;
   if (input.destination === "account" && !placement) {
+    const documentId = await deriveStableDocumentId(input.localId);
+    assertCurrent();
     const receipt = await sdk.documents.createSeeded({
       ...content,
       containerId: input.containerId,
-      documentId: await deriveStableDocumentId(input.localId),
+      documentId,
     });
+    assertCurrent();
     const [summary] = await sdk.containerContents
       .documentQueries()
       .upsertDiscoveredDocuments([receipt]);
@@ -75,6 +79,7 @@ async function openContinuityDocument(
       throw new Error("Missing seeded document placement.");
     placement = { localId: summary.id, documentId: receipt.documentId };
   }
+  assertCurrent();
   return links.openDocument({
     containerId: input.containerId,
     localId: placement?.localId ?? input.localId,
@@ -84,12 +89,20 @@ async function openContinuityDocument(
 
 export async function writeContinuityDocument(input: SeedWriteInput) {
   const { document } = input;
+  const scope = input.sdk.containerContents.workflowRuntime();
+  const stillCurrent = () => scope.liveHydrationStatus?.() !== "retired";
+  const assertCurrent = () => {
+    if (!stillCurrent())
+      throw new Error("The Continuity writer scope changed.");
+  };
   const attachments = await Promise.all(
     document.attachments.map((_, index) => prepareAttachment(input, index)),
   );
-  const store = await openContinuityDocument(input, attachments);
+  assertCurrent();
+  const store = await openContinuityDocument(input, attachments, assertCurrent);
   if (!(await store.ensureInitialized()))
     throw new Error(`Could not open ${document.key}`);
+  assertCurrent();
   const before = store.getSnapshot();
   if (
     input.destination === "backup" &&
@@ -99,9 +112,10 @@ export async function writeContinuityDocument(input: SeedWriteInput) {
     throw new Error(`Invalid seed content for ${document.key}`);
   }
   if (input.destination === "account") {
-    await uploadVacantAttachments(input, store, attachments);
+    await uploadVacantAttachments(input, store, attachments, stillCurrent);
   } else {
     for (const { bytes, intent } of attachments) {
+      assertCurrent();
       await store.replaceAttachment(intent.slotId, {
         bytes,
         name: intent.name,
@@ -111,5 +125,6 @@ export async function writeContinuityDocument(input: SeedWriteInput) {
         throw new Error(`Could not save seed attachment: ${intent.name}`);
     }
   }
+  assertCurrent();
   return store;
 }

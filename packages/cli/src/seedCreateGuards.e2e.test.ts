@@ -2,11 +2,16 @@ import { expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import { RemoteDocumentService } from "@tearleads/client-sdk";
+import { writeContinuityDocument } from "app/continuity";
 import { loadFolderTree } from "./folderTree";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { withSession } from "./session";
 
-test.each(["database switch", "oversized birth"] as const)(
+test.each([
+  "database switch",
+  "oversized birth",
+  "switch while reading fixture",
+] as const)(
   "%s prevents seeded document submission",
   async (scenario) => {
     await initializeApiDatabase();
@@ -58,6 +63,39 @@ test.each(["database switch", "oversized birth"] as const)(
               });
               expect(active?.()).toBe(false);
             };
+          }
+          if (scenario === "switch while reading fixture") {
+            const create = spyOn(sdk.documents, "createSeeded");
+            try {
+              watch = true;
+              await expect(
+                writeContinuityDocument({
+                  sdk,
+                  destination: "account",
+                  containerId: rootContainerId,
+                  localId: crypto.randomUUID(),
+                  document: {
+                    key: "test",
+                    kind: "contact",
+                    attachments: [
+                      { file: "avatar.png", mimeType: "image/png" },
+                    ],
+                  },
+                  readAttachment: async () => {
+                    sdk.database.configure({
+                      ...sdk.database.snapshot,
+                      id: crypto.randomUUID(),
+                    });
+                    return new Uint8Array([1]);
+                  },
+                }),
+              ).rejects.toThrow("writer scope changed");
+              expect(create).not.toHaveBeenCalled();
+              expect(posts).toBe(0);
+            } finally {
+              create.mockRestore();
+            }
+            return;
           }
           // Incompressible plaintext exceeds the signed sync request limit.
           const initialText =

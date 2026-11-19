@@ -91,10 +91,13 @@ async function bindSeedBytes(
       `The bound attachment could not be verified locally: ${fixture.name}. Run seed again when the bytes are available.`,
     );
   const blobId = crypto.randomUUID();
+  const bindingId = await seedBindingId(localId, fixture.slotId, blobId);
+  if (!mutation.stillCurrent?.())
+    throw new Error("The Continuity writer scope changed.");
   const uploaded = await runtime.blobAttachments.uploadDocumentAttachment({
     ...mutation,
     blobId,
-    bindingId: await seedBindingId(localId, fixture.slotId, blobId),
+    bindingId,
     bytes,
     expectedBindingId: null,
   });
@@ -154,8 +157,10 @@ export async function uploadVacantAttachments(
   input: { sdk: Tearleads; containerId: string; localId: string },
   store: DocumentStore,
   attachments: readonly { bytes: BlobBytes; intent: DocumentAttachment }[],
+  stillCurrent: () => boolean,
 ) {
   const first = await pull(store);
+  if (!stillCurrent()) throw new Error("The Continuity writer scope changed.");
   const { documentId } = first;
   const links = input.sdk.containerContents.documentLinks();
   const runtime = links.documentRuntime(input.containerId);
@@ -169,6 +174,10 @@ export async function uploadVacantAttachments(
       runtime,
       {
         author,
+        stillCurrent,
+        isRemoteSyncBlocked: (orgId) =>
+          !stillCurrent() ||
+          (runtime.util.isRemoteSyncBlocked?.(orgId) ?? false),
         documentId,
         slotId: intent.slotId,
         resolveProjectionUserKey: links.resolveProjectionUserKey,

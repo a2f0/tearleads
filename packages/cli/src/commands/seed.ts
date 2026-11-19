@@ -58,13 +58,23 @@ async function resolveSeedAccount(
 }
 
 async function findSeedPlacement(
-  { sdk }: CliSession,
+  session: CliSession,
   documentId: string,
-  folders: ReadonlySet<string>,
+  folders: Set<string>,
   lookup: ReturnType<typeof createDocumentHeadLinkSetLoader>,
 ) {
+  const { sdk } = session;
   const head = await lookup(documentId);
   if (head === "not-found") return undefined;
+  if (
+    head?.organizationId === sdk.session.organizationId &&
+    !head.linkedContainerIds.some((id) => folders.has(id))
+  ) {
+    const { nodes } = await loadFolderTree(session);
+    for (const node of nodes) {
+      if (node.organizationId === head.organizationId) folders.add(node.id);
+    }
+  }
   const containerId = head?.linkedContainerIds.find((id) => folders.has(id));
   if (
     !containerId ||
