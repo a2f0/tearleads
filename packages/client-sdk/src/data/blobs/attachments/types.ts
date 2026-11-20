@@ -1,5 +1,6 @@
 import type {
   BlobBytesResponse,
+  BlobDownloadOptions,
   RequestFailureKind,
   RequestResultOptions,
   UploadMultipartBlobPartBytesRequest,
@@ -102,7 +103,7 @@ export interface DocumentAttachmentHydrationApi {
   evictDocumentWriterProjection?(documentId: string): void;
   getBlobBytes(
     blobId: string,
-    options?: RequestResultOptions,
+    options?: BlobDownloadOptions,
   ): Promise<BlobBytesResponse | null>;
   getDocumentWriterProjection(
     documentId: string,

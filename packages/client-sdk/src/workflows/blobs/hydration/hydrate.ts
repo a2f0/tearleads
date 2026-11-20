@@ -160,6 +160,7 @@ async function loadDocumentAttachmentBlob(
   input.signal.throwIfAborted();
   const blob = await apiClient.getBlobBytes(binding.blobId, {
     signal: input.signal,
+    maxEncryptedByteLength: input.maxEncryptedBytes,
   });
   if (!blob) {
     return null;

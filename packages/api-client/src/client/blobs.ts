@@ -23,6 +23,7 @@ import {
   detachBlobAttachment as blobAttachmentDetach,
 } from "../routes/blobs/attachments";
 import {
+  type BlobDownloadOptions,
   getBlobBytes,
   type UploadMultipartBlobPartBytesRequest,
 } from "../routes/blobs/get";
@@ -208,9 +209,12 @@ export class BlobArea {
     );
   }
 
-  getBlobBytes(blobId: string, options: RequestResultOptions = {}) {
+  getBlobBytes(blobId: string, options: BlobDownloadOptions = {}) {
     return this.transfer(options, (scoped) =>
-      getBlobBytes(this.context.transport, blobId, undefined, scoped),
+      getBlobBytes(this.context.transport, blobId, undefined, {
+        ...scoped,
+        maxEncryptedByteLength: options.maxEncryptedByteLength,
+      }),
     );
   }
 

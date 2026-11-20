@@ -38,7 +38,7 @@ const attachments: ReadonlyArray<DocumentAttachment> = [
   },
 ];
 
-function renderAttachmentSlots(params?: {
+function attachmentSlotsElement(params?: {
   loadingPreviewSlots?: ReadonlySet<string>;
   slots?: ReadonlyArray<DocumentAttachmentSlot>;
   attachments?: ReadonlyArray<DocumentAttachment>;
@@ -64,15 +64,19 @@ function renderAttachmentSlots(params?: {
     />
   );
 
-  return render(
-    params?.onOpenBlob ? (
-      <DocumentBlobOpenProvider value={{ openBlob: params.onOpenBlob }}>
-        {slotsElement}
-      </DocumentBlobOpenProvider>
-    ) : (
-      slotsElement
-    ),
+  return params?.onOpenBlob ? (
+    <DocumentBlobOpenProvider value={{ openBlob: params.onOpenBlob }}>
+      {slotsElement}
+    </DocumentBlobOpenProvider>
+  ) : (
+    slotsElement
   );
+}
+
+function renderAttachmentSlots(
+  params?: Parameters<typeof attachmentSlotsElement>[0],
+) {
+  return render(attachmentSlotsElement(params));
 }
 
 test("a photo collection renders, opens, and clears each image independently", () => {
@@ -230,4 +234,22 @@ test("stored single-image actions remain hidden in read mode", () => {
   expect(view.getByText("front.png")).toBeTruthy();
   expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
   expect(view.queryByRole("button", { name: "Replace Image" })).toBeNull();
+});
+
+test("a focused open button survives the arrival of a preview URL", () => {
+  const params = {
+    attachmentStorageKeyBySlotId: { front: "held" },
+    onOpenBlob: () => {},
+  };
+  const view = renderAttachmentSlots(params);
+  const button = view.getByRole("button", { name: "Open Front Image" });
+  button.focus();
+  view.rerender(
+    attachmentSlotsElement({
+      ...params,
+      imageUrlBySlotId: { front: "blob:new" },
+    }),
+  );
+  expect(document.activeElement).toBe(button);
+  expect(button.querySelector("img")?.getAttribute("src")).toBe("blob:new");
 });

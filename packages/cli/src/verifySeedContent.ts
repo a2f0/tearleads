@@ -64,10 +64,14 @@ export function checkDocument(
     | "structuredFields"
     | "text"
   >,
-  storedFields: Readonly<Record<string, unknown>>,
   seedTag: string,
-  storedRows: readonly unknown[],
-  storedMetadata: Readonly<Record<string, unknown>>,
+  stored: {
+    fields: Readonly<Record<string, unknown>>;
+    metadata: Readonly<Record<string, unknown>>;
+    rows: readonly unknown[];
+    seedTag: unknown;
+    text: string;
+  },
   userId: string,
 ) {
   const expected = projectStoredDocumentState(
@@ -84,8 +88,10 @@ export function checkDocument(
   );
   if (
     snapshot.seedTag !== seedTag ||
+    stored.seedTag !== seedTag ||
+    stored.text !== (fixture.text ?? "") ||
     !isDeepStrictEqual(
-      storedMetadata,
+      stored.metadata,
       fixture.kind === "note"
         ? {}
         : {
@@ -96,8 +102,8 @@ export function checkDocument(
               )?.schemaVersion ?? 1,
           },
     ) ||
-    !isDeepStrictEqual(storedFields, fixture.fields ?? {}) ||
-    !storedSeedRowsMatch(fixture.rows ?? [], storedRows, userId) ||
+    !isDeepStrictEqual(stored.fields, fixture.fields ?? {}) ||
+    !storedSeedRowsMatch(fixture.rows ?? [], stored.rows, userId) ||
     snapshot.fieldValidationIssues.length > 0 ||
     snapshot.documentKind !== fixture.kind ||
     snapshot.text !== (fixture.text ?? "") ||
@@ -117,9 +123,7 @@ export function checkStoredAttachments(
   expected: ReadonlyArray<{ intent: DocumentAttachment }>,
   content: Readonly<Record<string, unknown>>,
 ) {
-  const slots = Object.fromEntries(
-    Object.entries(content).filter(([key]) => key.startsWith("attachment:")),
-  );
+  const { seedTag: _seedTag, ...slots } = content;
   const expectedSlots = Object.fromEntries(
     expected.map(({ intent }, order) => {
       const { slotId, mimeType, ...metadata } = intent;

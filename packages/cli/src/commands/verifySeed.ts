@@ -50,10 +50,14 @@ async function verifyDocument(
     checkDocument(
       fixture.document,
       snapshot,
-      content.getMap("fields").toJSON(),
       continuitySeedTag(fixture.document, prepared),
-      content.getList("rows").toJSON(),
-      content.getMap("metadata").toJSON(),
+      {
+        fields: content.getMap("fields").toJSON(),
+        rows: content.getList("rows").toJSON(),
+        metadata: content.getMap("metadata").toJSON(),
+        seedTag: content.getMap("content").get("seedTag"),
+        text: content.getText("text").toString(),
+      },
       session.userId,
     );
   } finally {

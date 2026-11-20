@@ -30,12 +30,13 @@ test("verification rejects an edit to a previously empty field", () => {
     checkDocument(
       fixture,
       view,
-      fields,
       "original",
-      [],
       {
-        kind: fixture.kind,
-        schemaVersion: 1,
+        fields,
+        metadata: { kind: fixture.kind, schemaVersion: 1 },
+        rows: [],
+        text: "",
+        seedTag: "original",
       },
       "author",
     );
@@ -91,8 +92,22 @@ test("a note requires the original empty metadata map", () => {
     rows: [],
     attachments: [],
   };
-  const verify = (metadata: Record<string, unknown>) =>
-    checkDocument(fixture, snapshot, {}, "original", [], metadata, "author");
+  const verify = (
+    metadata: Record<string, unknown>,
+    text = "",
+    seedTag: unknown = "original",
+  ) =>
+    checkDocument(
+      fixture,
+      snapshot,
+      "original",
+      { fields: {}, rows: [], metadata, text, seedTag },
+      "author",
+    );
+  expect(() => verify({}, "stale checkpoint")).toThrow(
+    "Fixture content differs",
+  );
+  expect(() => verify({}, "", null)).toThrow("Fixture content differs");
   expect(() => verify({})).not.toThrow();
   expect(() => verify({ kind: 42 })).toThrow("Fixture content differs");
 });

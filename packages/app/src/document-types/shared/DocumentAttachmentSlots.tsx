@@ -101,8 +101,8 @@ function DocumentAttachmentSlotPreview(params: {
   } = params;
   const altText = storedAttachment?.name ?? slot.label;
 
-  const [decodeFailed, setDecodeFailed] = useState(false);
-  if (imageUrl && !decodeFailed) {
+  const [failedUrl, setFailedUrl] = useState<string>();
+  if (imageUrl && imageUrl !== failedUrl) {
     return onOpenAttachment && storedAttachment ? (
       <button
         aria-label={`Open ${slot.label}`}
@@ -114,7 +114,8 @@ function DocumentAttachmentSlotPreview(params: {
         <img
           className="structured-document-slot-preview-image"
           src={imageUrl}
-          onError={() => setDecodeFailed(true)}
+          key={imageUrl}
+          onError={() => setFailedUrl(imageUrl)}
           alt=""
         />
       </button>
@@ -122,7 +123,8 @@ function DocumentAttachmentSlotPreview(params: {
       <img
         className="structured-document-slot-preview"
         src={imageUrl}
-        onError={() => setDecodeFailed(true)}
+        key={imageUrl}
+        onError={() => setFailedUrl(imageUrl)}
         alt={altText}
       />
     );
@@ -202,7 +204,6 @@ function DocumentAttachmentSlotCard(params: {
         <strong>{slot.label}</strong>
       </div>
       <DocumentAttachmentSlotPreview
-        key={imageUrl}
         loadingText={loadingText}
         hasLocalBytes={Boolean(attachmentStorageKey)}
         imageUrl={imageUrl}

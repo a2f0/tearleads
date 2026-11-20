@@ -14,6 +14,11 @@ import type {
 import { blobDownloadBody } from "./blobDownloadBody";
 import { storageFetchOptions } from "./storageFetchOptions";
 
+export interface BlobDownloadOptions extends RequestResultOptions {
+  /** Require a stream and reject oversized declarations before opening or buffering the body. */
+  readonly maxEncryptedByteLength?: number | undefined;
+}
+
 export interface BlobBytesResponse {
   readonly blobId: string;
   readonly byteLength: number;
@@ -45,7 +50,7 @@ function descriptorFailureFallback(
   transport: BlobDownloadTransport,
   blobId: string,
   failure: RequestFailure,
-  options: RequestResultOptions,
+  options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse | null> | null {
   if (failure.kind === "http" && failure.status === 404) {
     return getBlobStream(transport, blobId, options);
@@ -54,11 +59,34 @@ function descriptorFailureFallback(
   return null;
 }
 
+function acceptDownloadDescriptor(
+  transport: BlobDownloadTransport,
+  blobId: string,
+  descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength">,
+  options: BlobDownloadOptions,
+): boolean {
+  if (descriptor.blobId !== blobId) {
+    transport.reportFailure({
+      kind: "shape",
+      method: "GET",
+      path: `/blobs/${blobId}/download`,
+      status: 200,
+      statusText: "",
+      message: `Blob ${blobId} download descriptor has the wrong identity`,
+    });
+    return false;
+  }
+  return (
+    options.maxEncryptedByteLength === undefined ||
+    descriptor.byteLength <= options.maxEncryptedByteLength
+  );
+}
+
 export async function getBlobBytes(
   transport: BlobDownloadTransport,
   blobId: string,
   downloadFetch: DownloadFetch = (url, init) => fetch(url, init),
-  options: RequestResultOptions = {},
+  options: BlobDownloadOptions = {},
 ): Promise<BlobBytesResponse | null> {
   // Refresh at most once. R2 expiration errors can appear as CORS/network
   // failures in browsers, so both rejected fetches and 403s need a fresh URL.
@@ -74,17 +102,8 @@ export async function getBlobBytes(
       return descriptorFailureFallback(transport, blobId, result, options);
     }
     const descriptor = result.data;
-    if (descriptor.blobId !== blobId) {
-      transport.reportFailure({
-        kind: "shape",
-        method: "GET",
-        path: `/blobs/${blobId}/download`,
-        status: 200,
-        statusText: "",
-        message: `Blob ${blobId} download descriptor has the wrong identity`,
-      });
+    if (!acceptDownloadDescriptor(transport, blobId, descriptor, options))
       return null;
-    }
     if (descriptor.source.kind === "api") {
       return getBlobStream(transport, blobId, options);
     }
@@ -111,7 +130,7 @@ async function fetchSignedBlob(
   descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength" | "sha256">,
   url: string,
   downloadFetch: DownloadFetch,
-  options: RequestResultOptions,
+  options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse | "retry" | "fallback"> {
   try {
     // Never send the application's session or cookies to the object store.
@@ -121,6 +140,8 @@ async function fetchSignedBlob(
       await response.body?.cancel().catch(() => {});
       return response.status === 403 ? "retry" : "fallback";
     }
+    if (options.maxEncryptedByteLength !== undefined && !response.body)
+      return "fallback";
     return await signedBlobResponse(descriptor, response, options.signal);
   } catch {
     // The downstream SDK still verifies length, hash and authenticated
@@ -145,7 +166,7 @@ async function signedBlobResponse(
 async function getBlobStream(
   transport: Pick<BinaryResponseOperationTransport, "requestBinaryResponse">,
   blobId: string,
-  options: RequestResultOptions,
+  options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse | null> {
   if (options.signal?.aborted) return null;
   const result = await transport.requestBinaryResponse(
@@ -162,6 +183,13 @@ async function getBlobStream(
   const { headers, response } = result;
   const byteLength = Number(headers[blobWireHeaderKeys.blobByteLength]);
 
+  if (
+    options.maxEncryptedByteLength !== undefined &&
+    (byteLength > options.maxEncryptedByteLength || !response.body)
+  ) {
+    await response.body?.cancel().catch(() => {});
+    return null;
+  }
   const encryptedBytes = await blobDownloadBody(response, options.signal);
 
   if (options.signal?.aborted) return null;

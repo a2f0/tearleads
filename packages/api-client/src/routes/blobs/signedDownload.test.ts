@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { createOperationTransport } from "../../operationTransportFactory";
 import type {
   OperationResponseRequestFn,
@@ -133,4 +133,14 @@ test("a buffered download cannot deliver its first chunk after its session retir
   expect(blob).not.toBeNull();
   session.abort();
   await expect(blob?.encryptedBytes.getReader().read()).rejects.toThrow();
+});
+
+test("an oversized descriptor is rejected before the signed storage request", async () => {
+  const fetchStorage = mock(async () => new Response());
+  expect(
+    await getBlobBytes(transport(), blobId, fetchStorage, {
+      maxEncryptedByteLength: 4,
+    }),
+  ).toBeNull();
+  expect(fetchStorage).not.toHaveBeenCalled();
 });

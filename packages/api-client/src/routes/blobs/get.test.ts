@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { createOperationTransport } from "../../operationTransportFactory";
 import type {
   OperationResponseRequestFn,
@@ -124,3 +124,23 @@ test("rejects invalid blob ids before fetch", async () => {
     getBlobBytes(mockTransport(new Response()), "invalid"),
   ).rejects.toThrow("Invalid path parameters for blobs.download.get");
 });
+
+test.each([2, 1_000_000_000])(
+  "bounded downloads refuse buffered bodies before allocation (declared size %i)",
+  async (length) => {
+    const arrayBuffer = mock(async () => new ArrayBuffer(2));
+    const response = {
+      body: null,
+      headers: new Headers(BLOB_HEADERS(length)),
+      status: 200,
+      statusText: "OK",
+      arrayBuffer,
+    } as unknown as Response;
+    expect(
+      await getBlobBytes(mockTransport(response), blobId, undefined, {
+        maxEncryptedByteLength: 20,
+      }),
+    ).toBeNull();
+    expect(arrayBuffer).not.toHaveBeenCalled();
+  },
+);
