@@ -259,7 +259,12 @@ for (const phase of ["headers", "body"])
     },
   );
 
-for (const phase of ["success", "cancelled", "cancelled-error"])
+for (const phase of [
+  "success",
+  "cancelled",
+  "cancelled-error",
+  "aborted-fetch",
+])
   testApiClient(
     `an older JSON response preserves concurrent failures (${phase})`,
     async () => {
@@ -292,6 +297,13 @@ for (const phase of ["success", "cancelled", "cancelled-error"])
       );
       await transport.requestResult(getHealthOperation, { params: {} });
       expect(currentFailure()?.status).toBe(503);
+      if (phase === "aborted-fetch") {
+        controller.abort();
+        headers.reject(controller.signal.reason);
+        expect(await stale).toMatchObject({ ok: false, kind: "cancelled" });
+        expect(currentFailure()?.status).toBe(503);
+        return;
+      }
       const response = Response.json(
         {},
         { status: phase === "cancelled-error" ? 503 : 200 },

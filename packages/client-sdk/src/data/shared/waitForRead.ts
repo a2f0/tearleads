@@ -9,7 +9,7 @@ export async function waitForRead<T>(
   if (signal.aborted) abort();
   else signal.addEventListener("abort", abort, { once: true });
   try {
-    return await Promise.race([read, stopped.promise]);
+    return await Promise.race([stopped.promise, read]);
   } finally {
     signal.removeEventListener("abort", abort);
   }

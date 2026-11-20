@@ -173,17 +173,12 @@ async function fetchDocumentHead(
   // projection, whose signature and local checkpoint are still verified.
   if (!expectedManifestHash)
     runtime.apiClient.evictDocumentWriterProjection(documentId);
-  const fetchHead = () => {
-    const deadline =
-      signal && AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
-    return runtime.apiClient.getDocumentWriterProjectionResult(documentId, {
+  const fetchHead = () =>
+    runtime.apiClient.getDocumentWriterProjectionResult(documentId, {
       reportErrors: false,
-      stillCurrent: deadline
-        ? () => !deadline.aborted && requestGuard?.() !== false
-        : requestGuard,
-      signal: deadline,
+      stillCurrent: requestGuard,
+      signal,
     });
-  };
   let result = await fetchHead();
   assertCurrent();
   if (
@@ -212,16 +207,18 @@ export function createDocumentHeadLinkSetLoader(
   policyOperation?: PrincipalPolicyOperation,
   signal?: AbortSignal,
 ): DocumentHeadLinkSetLoader {
-  const stillCurrent = () =>
-    !signal?.aborted && runtime.liveHydrationStatus?.() !== "retired";
-  function assertCurrent() {
-    if (!stillCurrent()) throw new Error("Document head lookup scope changed.");
-  }
-  const load: DocumentHeadLinkSetLoader = async (
-    documentId,
-    expectedManifestHash,
-    expectedSignerUserId,
-  ) => {
+  const load = async (
+    signal: AbortSignal | undefined,
+    documentId: string,
+    expectedManifestHash?: string,
+    expectedSignerUserId?: string,
+  ): ReturnType<DocumentHeadLinkSetLoader> => {
+    const stillCurrent = () =>
+      !signal?.aborted && runtime.liveHydrationStatus?.() !== "retired";
+    function assertCurrent() {
+      if (!stillCurrent())
+        throw new Error("Document head lookup scope changed.");
+    }
     try {
       // A verified purge proof is terminal signed evidence that the document
       // links nothing any more.
@@ -278,7 +275,17 @@ export function createDocumentHeadLinkSetLoader(
       return null;
     }
   };
-  return (...args) => waitForRead(load(...args), signal);
+  return async (...args) => {
+    const deadline =
+      signal && AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
+    try {
+      return await waitForRead(load(deadline, ...args), deadline);
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (deadline?.aborted) return null;
+      throw error;
+    }
+  };
 }
 
 function judgeTombstones(

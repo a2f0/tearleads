@@ -30,6 +30,7 @@ export async function syncDetachedAttachmentBindings(
   generation: DocumentStoreSyncGeneration,
   policyOperation: PrincipalPolicyOperation,
 ): Promise<void> {
+  if (state.runtime.util.deferAttachmentDetaches) return;
   const currentDoc = generation.currentDoc;
   if (
     !currentDoc ||
@@ -55,11 +56,8 @@ export async function syncDetachedAttachmentBindings(
   }
 
   const remoteDocumentId = nextRecord.documentId;
-  const remoteBindings = await listWritableAttachmentBindings(
-    state,
-    generation.organizationId,
-    remoteDocumentId,
-  );
+  const remoteBindings =
+    await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
   if (
     !remoteBindings ||
     !detachedSyncContextIsCurrent(state, generation, nextRecord)
@@ -101,19 +99,6 @@ export async function syncDetachedAttachmentBindings(
       return;
     }
   }
-}
-
-function listWritableAttachmentBindings(
-  state: DocumentStoreState,
-  organizationId: DocumentStoreSyncGeneration["organizationId"],
-  documentId: string,
-) {
-  if (
-    organizationId &&
-    state.runtime.util.isRemoteSyncBlocked?.(organizationId, "push")
-  )
-    return null;
-  return state.runtime.apiClient.listDocumentAttachments(documentId);
 }
 
 function detachedSyncContextIsCurrent(

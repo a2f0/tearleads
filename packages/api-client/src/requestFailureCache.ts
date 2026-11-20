@@ -11,7 +11,9 @@ export class RequestFailureCache {
   }
 
   record(failure: RequestFailure) {
-    this.failures.set(requestFailureKey(failure), failure);
+    // Cancellation belongs to the abandoned caller and says nothing about the endpoint.
+    if (failure.kind !== "cancelled")
+      this.failures.set(requestFailureKey(failure), failure);
   }
 
   clear() {

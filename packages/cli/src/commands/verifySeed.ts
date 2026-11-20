@@ -221,6 +221,7 @@ async function verifyFixtures(
           // Permit only pulls, including continuation pages, on the verifier's device.
           util: {
             ...runtime.util,
+            deferAttachmentDetaches: true,
             isRemoteSyncBlocked: (organizationId, direction) =>
               direction !== "pull" ||
               (runtime.util.isRemoteSyncBlocked?.(organizationId, direction) ??

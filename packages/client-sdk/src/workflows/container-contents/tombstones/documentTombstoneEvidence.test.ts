@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { withPrincipalPolicies } from "../../../../test/helpers/workflows/principalPolicyServiceFixture";
@@ -433,5 +433,39 @@ test("a coded missing document settles discovery but never authorizes a tombston
         { documentId: "doc", containerId: "folder", updatedAt: at },
       ]),
     ).toMatchObject([{ kind: "unverified" }]);
+  }
+});
+
+test("a stalled policy check releases its head deadline and a later load retries", async () => {
+  const { runtime } = createRuntime({});
+  const controller = new AbortController();
+  const timeout = spyOn(AbortSignal, "timeout").mockReturnValueOnce(
+    controller.signal,
+  );
+  const verifying = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let attempts = 0;
+  const load = createDocumentHeadLinkSetLoader(
+    runtime,
+    deps(async (...args) => {
+      if (++attempts === 1) {
+        verifying.resolve();
+        await release.promise;
+      }
+      return verifiedHead("doc", ["folder"])(...args);
+    }),
+    undefined,
+    new AbortController().signal,
+  );
+  try {
+    const first = load("doc");
+    await verifying.promise;
+    controller.abort();
+    expect(await first).toBeNull();
+    expect(await load("doc")).toMatchObject({ linkedContainerIds: ["folder"] });
+    expect(attempts).toBe(2);
+  } finally {
+    release.resolve();
+    timeout.mockRestore();
   }
 });
