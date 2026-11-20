@@ -58,6 +58,20 @@ test("History slider paints and seeks across browser engines", {
   expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   await control.tap({ position: { x: 2, y: 4 } });
   await expect(control).toHaveValue("0");
+  const bounds = await control.boundingBox();
+  if (!bounds) throw new Error("History slider has no touch target");
+  const midX = bounds.x + bounds.width / 2;
+  const midY = bounds.y + bounds.height / 2;
+  await page.mouse.move(bounds.x + 8, midY);
+  await page.mouse.down();
+  await page.mouse.move(midX, midY, { steps: 5 });
+  await page.mouse.up();
+  await expect(control).toHaveValue("2");
+  const middle = await controlPixels(control);
+  expect(middle.row[Math.floor(middle.row.length / 2)]).toBe(
+    await themeForeground(control),
+  );
+  expect(middle.row.at(-8)).toBe((await controlPixels(reference)).row[8]);
   await page.emulateMedia({ forcedColors: "active" });
   const forcedColorsActive = await page.evaluate(
     () => matchMedia("(forced-colors: active)").matches,
