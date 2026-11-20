@@ -2,7 +2,7 @@ import {
   getRosterProfileDocumentLocalId,
   type OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
   MiniAppInput,
@@ -77,6 +77,24 @@ function RosterProfileTextField({
   );
 }
 
+function RosterNameFields({ children }: { children: ReactNode }) {
+  const [editingName, setEditingName] = useState(false);
+  return (
+    <div
+      className="org-manager-roster-profile-fields"
+      data-editing-name={editingName || undefined}
+      onFocusCapture={() => setEditingName(true)}
+      onBlurCapture={(event) => {
+        // Tab blurs the first input before the next one receives focus.
+        // Keep a pending sync cover hidden throughout that handoff.
+        setEditingName(event.currentTarget.contains(event.relatedTarget));
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function RosterProfileDocumentFields({
   canEdit,
   isEditing,
@@ -146,7 +164,7 @@ function RosterProfileDocumentFields({
           title={ORG_MANAGER_LABELS.loadingProfileDocument}
         />
       ) : canEditFields ? (
-        <div className="org-manager-roster-profile-fields">
+        <RosterNameFields>
           {ROSTER_NAME_FIELDS.map((field) => (
             <RosterProfileTextField
               key={field}
@@ -158,7 +176,7 @@ function RosterProfileDocumentFields({
               }}
             />
           ))}
-        </div>
+        </RosterNameFields>
       ) : (
         <div className="org-manager-roster-profile-read-fields">
           {ROSTER_NAME_FIELDS.map((field) => (
