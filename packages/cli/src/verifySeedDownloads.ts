@@ -36,7 +36,7 @@ export function hasSeedPlacement(
   discoveredIn: string,
   expectedFolder: string,
 ) {
-  return links.includes(discoveredIn) && links.includes(expectedFolder);
+  return discoveredIn === expectedFolder && links.includes(expectedFolder);
 }
 
 export function checkSyncedPlacement(

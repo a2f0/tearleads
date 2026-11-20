@@ -97,10 +97,15 @@ test("a healthy page can verify multiple heads beyond one request timeout", asyn
   expect(checked).toEqual(["slow-page"]);
 });
 
-test("a contact discovered in the root still needs a signed Contacts link", () => {
+test("a contact must be discovered in Contacts even when it has another valid link", () => {
   expect(hasSeedPlacement(["root"], "root", "contacts")).toBe(false);
   expect(hasSeedPlacement(["contacts"], "root", "contacts")).toBe(false);
-  expect(hasSeedPlacement(["contacts", "root"], "root", "contacts")).toBe(true);
+  expect(hasSeedPlacement(["contacts", "root"], "root", "contacts")).toBe(
+    false,
+  );
+  expect(hasSeedPlacement(["contacts", "root"], "contacts", "contacts")).toBe(
+    true,
+  );
 });
 
 test("verification checks active bindings even on fixtures without files", () => {

@@ -78,14 +78,24 @@ interface PendingContainerDocumentLane {
   seenRows: Set<string>;
 }
 
+function cursorKey(watermark: SyncWatermark) {
+  return JSON.stringify([watermark.id, watermark.updatedAt]);
+}
+
 function repeatedContinuation(
   lane: PendingContainerDocumentLane,
   page: ListContainerDocumentsResponse,
 ) {
   const watermark = page.nextWatermark;
-  if (page.hasMore && watermark) {
-    const cursor = JSON.stringify([watermark.id, watermark.updatedAt]);
-    if (lane.seenWatermarks.has(cursor)) return true;
+  if (watermark) {
+    const cursor = cursorKey(watermark);
+    const emptyTerminal =
+      !page.hasMore && !page.items.length && !page.tombstones.length;
+    if (
+      lane.seenWatermarks.has(cursor) &&
+      !(emptyTerminal && lane.watermark && cursorKey(lane.watermark) === cursor)
+    )
+      return true;
     lane.seenWatermarks.add(cursor);
   }
   // Publication cursors have a fresh IV on every seal. Check durable row
@@ -184,7 +194,7 @@ export async function listAllContainerDocumentLanes(input: {
       containerId,
       isFullListing: watermark === null,
       isContinuation: false,
-      seenWatermarks: new Set(),
+      seenWatermarks: new Set(watermark ? [cursorKey(watermark)] : []),
       seenRows: new Set(),
       items: [],
       tombstones: [],

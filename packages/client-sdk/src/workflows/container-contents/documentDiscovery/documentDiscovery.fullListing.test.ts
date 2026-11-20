@@ -41,7 +41,9 @@ for (const scenario of [
       ...nullContainerDocumentWatermarks,
       containerId: "container",
       loadContainerDocumentWatermark: async () =>
-        scenario === "incremental" ? watermark : null,
+        scenario === "incremental"
+          ? { ...watermark, id: "before-doc-a" }
+          : null,
       listContainerDocumentLanes: laneLister(async () => {
         pageCount += 1;
         if (pageCount === 1) {
@@ -100,23 +102,29 @@ test("an empty full listing is usable absence evidence", async () => {
   expect(listings).toEqual([[]]);
 });
 
-test("discovery rejects a continuation cursor repeated after an intervening page", async () => {
-  const cursors = ["a", "b", "a"];
-  const result = discoverContainerDocuments({
-    ...nullContainerDocumentWatermarks,
-    containerId: "container",
-    listContainerDocumentLanes: laneLister(async () => {
-      const cursor = cursors.shift();
-      if (!cursor) throw new Error("Continuation cycle did not terminate");
-      return page(cursor, true);
-    }),
-    replaceDocumentLinksBatch: async () => {},
-    upsertDiscoveredDocuments: async () => [],
-  });
-  await expect(result).rejects.toThrow(
-    "Document listing for container container is unavailable",
-  );
-});
+test.each([false, true])(
+  "discovery rejects a repeated cursor across distinct rows (terminal: %s)",
+  async (terminal) => {
+    const cursors = ["a", "b", "a"];
+    const result = discoverContainerDocuments({
+      ...nullContainerDocumentWatermarks,
+      containerId: "container",
+      listContainerDocumentLanes: laneLister(async () => {
+        const cursor = cursors.shift();
+        if (!cursor) throw new Error("Continuation cycle did not terminate");
+        return {
+          ...page(`doc-${cursors.length}`, cursors.length > 0 || !terminal),
+          nextWatermark: { ...watermark, id: cursor },
+        };
+      }),
+      replaceDocumentLinksBatch: async () => {},
+      upsertDiscoveredDocuments: async () => [],
+    });
+    await expect(result).rejects.toThrow(
+      "Document listing for container container is unavailable",
+    );
+  },
+);
 
 test.each([false, true])(
   "replayed document pages with newly sealed cursors are rejected (terminal: %s)",

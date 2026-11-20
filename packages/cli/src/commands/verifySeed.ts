@@ -274,11 +274,14 @@ async function verifyFixtures(
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);
     if (!fixture) continue;
+    const expectedFolder =
+      fixture.document.kind === "contact" ? contacts.id : account.rootId;
+    if (containerId !== expectedFolder) continue;
     const placementHead = await checkSeedPlacement(
       session,
       row.documentId,
       containerId,
-      fixture.document.kind === "contact" ? contacts.id : account.rootId,
+      expectedFolder,
       fixture.document.key,
     );
     const deadline = AbortSignal.any([

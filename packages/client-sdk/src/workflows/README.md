@@ -296,8 +296,8 @@ Document stores use the `blobs` facade's `BlobAttachmentService` through
 bounds verification reads to known file sizes. The facade also exports
 `createLazyEncryptedBlobStore` for async keyring providers. Stores implement
 `BlobByteSource` through `openByteSource` and `writeByteSource` for replayable
-range reads and multipart uploads bounded by the 5 MiB chunk size. A browser
-preview can pass an abort signal to `openByteSource` and `source.read`.
+range reads and multipart uploads bounded by the 5 MiB chunk size. Pass an
+abort signal to `withExpectedDownloads` to cancel the verification transfers.
 
 Local keyring variants, including WebView and PIN-code wrapping helpers, are
 client-facade exports rather than workflow facades. Keep platform keychain
