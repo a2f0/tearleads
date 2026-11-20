@@ -23,6 +23,7 @@ import {
 } from "../verifySeedContent";
 import {
   beforeSeedDeadline,
+  checkSeedBindingSlots,
   checkSeedBytes,
   discoverSeedDocuments,
   hasSeedPlacement,
@@ -76,6 +77,18 @@ async function verifyDocument(
   } finally {
     content.free();
   }
+  if (!snapshot.documentId)
+    throw new Error(`Missing document ID: ${fixture.document.key}`);
+  checkSeedBindingSlots(
+    fixture.document.key,
+    prepared.map(({ intent }) => intent.slotId),
+    await session.sdk.documents
+      .workflowRuntime()
+      .apiClient.listDocumentAttachments(snapshot.documentId, {
+        boundedListing: true,
+        signal,
+      }),
+  );
   let bytes = 0;
   for (const [index, { intent, bytes: original }] of prepared.entries()) {
     const slot = snapshot.attachments[index];

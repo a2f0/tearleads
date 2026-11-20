@@ -93,6 +93,7 @@ export async function readSessionJson(
       options.signal?.aborted === true,
     );
     return request.reportFailure({
+      response,
       ...failure,
       message: `${method} ${path}: ${failure.message}`,
       method,

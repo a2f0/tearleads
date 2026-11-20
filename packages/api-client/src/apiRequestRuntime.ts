@@ -10,7 +10,10 @@ import {
   networkFailureMessage,
   settleNetworkFailure,
 } from "./networkFailure";
-import { RequestFailureCache } from "./requestFailureCache";
+import {
+  type RequestDispatch,
+  RequestFailureCache,
+} from "./requestFailureCache";
 import {
   bindPrototypeMethods,
   describeErrorResponse,
@@ -79,7 +82,7 @@ export class ApiRequestRuntime {
       reportFailure: this.reportResponseRequestFailure,
       reportSuccess: (response: Response) => this.failures.success(response),
       reportCancellation: (response: Response, failure: RequestFailure) =>
-        this.failures.cancel(response, failure),
+        this.failures.record(failure, this.failures.dispatchFor(response)),
       sessionSignal: () => this.sessionRenewals.signal,
     });
   }
@@ -173,20 +176,21 @@ export class ApiRequestRuntime {
 
   private requestFailure(
     input: Omit<RequestFailure, "ok" | "report"> & {
-      observedFailure?: RequestFailure | null;
+      dispatch?: RequestDispatch | undefined;
       reportErrors: boolean;
     },
   ): RequestFailure {
+    const { kind, message } = input;
     const failure: RequestFailure = {
       ...(input.code === undefined ? {} : { code: input.code }),
-      kind: input.kind,
-      message: input.message,
+      kind,
+      message,
       method: input.method,
       ...(input.networkError ? { networkError: input.networkError } : {}),
       ok: false,
       path: input.path,
       report: () => {
-        if (input.kind !== "cancelled") this.onError?.(input.message);
+        if (kind !== "cancelled") this.onError?.(message);
       },
       status: input.status,
       statusText: input.statusText,
@@ -197,11 +201,9 @@ export class ApiRequestRuntime {
         ? { requiredContainerIds: input.requiredContainerIds }
         : {}),
     };
-    this.failures.record(failure, input.observedFailure);
+    this.failures.record(failure, input.dispatch);
 
-    if (input.reportErrors) {
-      failure.report();
-    }
+    if (input.reportErrors) failure.report();
 
     return failure;
   }
@@ -250,6 +252,7 @@ export class ApiRequestRuntime {
     const data = decoded.data;
     if (!validator(data)) {
       return this.requestFailure({
+        dispatch: this.failures.dispatchFor(response),
         kind: "shape",
         message: `Invalid response shape for ${path}`,
         method,
@@ -268,17 +271,17 @@ export class ApiRequestRuntime {
     path: string,
     method: HttpMethod,
     body: RequestBody | undefined,
-    options: RequestResultOptions,
+    callerOptions: RequestResultOptions,
     additionalSuccessStatuses: readonly number[],
     failureOperation: Parameters<OperationResponseRequestFn>[5],
     authToken = this.authToken,
     attempt = 1,
-    observed = this.getRequestFailure({ method, path }),
+    dispatch = this.failures.begin({ method, path }),
   ): Promise<RequestResult<Response>> {
     const session = this.sessionRenewals.signal;
-    const callerOptions = options;
-    const waitOptions = this.sessionRenewals.withRenewalWaitSignal(options);
-    options = this.sessionRenewals.withSessionSignal(options);
+    const renewals = this.sessionRenewals;
+    const waitOptions = renewals.withRenewalWaitSignal(callerOptions);
+    const options = renewals.withSessionSignal(callerOptions);
     const result = await this.fetchResponseRequest(
       path,
       method,
@@ -286,7 +289,7 @@ export class ApiRequestRuntime {
       options,
       authToken,
       failureOperation,
-      observed,
+      dispatch,
       attempt,
     );
     if (!result.ok) return result;
@@ -299,13 +302,13 @@ export class ApiRequestRuntime {
         code,
       );
       if (!requestRetired(session, options))
-        this.failures.record(failure, observed);
+        this.failures.record(failure, dispatch);
       return failure;
     };
     if (responseRetired(session, options)) return retired();
     const response = boundedMetadataResponse(result.data, options);
     if (isSuccessfulResponse(response, additionalSuccessStatuses))
-      return this.failures.received(response, observed);
+      return this.failures.received(response, dispatch);
     const errorDescription = await describeErrorResponse(
       response,
       failureOperation,
@@ -315,6 +318,7 @@ export class ApiRequestRuntime {
     if (responseRetired(session, options))
       return retired(errorDescription.code);
     const failure = {
+      dispatch,
       errorDescription,
       failureOperation,
       method,
@@ -331,8 +335,7 @@ export class ApiRequestRuntime {
       body,
       code: errorDescription.code,
       getCurrentAuthToken: () => this.authToken,
-      isKnownSessionRenewal: (from, to) =>
-        this.sessionRenewals.isKnown(from, to),
+      isKnownSessionRenewal: (from, to) => renewals.isKnown(from, to),
       pendingSessionRenewal: (from) => this.sessionRenewals.pending(from),
       options: waitOptions,
       refreshSession: () => this.sessionRenewals.renew(this.onSessionExpired),
@@ -354,7 +357,7 @@ export class ApiRequestRuntime {
       failureOperation,
       retryToken,
       2,
-      observed,
+      dispatch,
     );
   }
 
@@ -365,7 +368,7 @@ export class ApiRequestRuntime {
     options: RequestResultOptions,
     authToken: string | null,
     operation: Parameters<OperationResponseRequestFn>[5],
-    observedFailure: RequestFailure | null,
+    dispatch: RequestDispatch,
     /** 2 is the retry after a session renewal. */
     attempt = 1,
   ): Promise<RequestResult<Response>> {
@@ -405,7 +408,7 @@ export class ApiRequestRuntime {
       });
       if (requestRetired(session, options)) return retiredRequest(method, path);
       return this.requestFailure({
-        observedFailure,
+        dispatch,
         ...(cancelled ? { code: "request_aborted" } : {}),
         kind: cancelled ? "cancelled" : "network",
         message: `${method} ${path}: ${networkFailureMessage(error, networkError)}`,
@@ -435,6 +438,7 @@ export class ApiRequestRuntime {
 
   private httpFailure(
     input: {
+      readonly dispatch: RequestDispatch;
       readonly errorDescription: ErrorResponseDescription;
       readonly failureOperation: Parameters<OperationResponseRequestFn>[5];
       readonly method: HttpMethod;
@@ -459,6 +463,7 @@ export class ApiRequestRuntime {
       );
     }
     return this.requestFailure({
+      dispatch: input.dispatch,
       ...(cancelled
         ? { code: "request_aborted" }
         : input.errorDescription.code === null
@@ -486,6 +491,7 @@ export class ApiRequestRuntime {
     }
     return this.requestFailure({
       ...input,
+      dispatch: input.response && this.failures.dispatchFor(input.response),
       reportErrors: input.options?.reportErrors ?? true,
       stalePrincipalHeads: undefined,
     });

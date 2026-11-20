@@ -1,5 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import {
+  checkSeedBindingSlots,
   checkSeedBytes,
   discoverSeedDocuments,
   hasSeedPlacement,
@@ -128,4 +129,18 @@ test("a contact discovered in the root still needs a signed Contacts link", () =
   expect(hasSeedPlacement(["root"], "root", "contacts")).toBe(false);
   expect(hasSeedPlacement(["contacts"], "root", "contacts")).toBe(false);
   expect(hasSeedPlacement(["contacts", "root"], "root", "contacts")).toBe(true);
+});
+
+test("verification checks active bindings even on fixtures without files", () => {
+  const slot = { slotId: "a" };
+  expect(() => checkSeedBindingSlots("empty", [], [])).not.toThrow();
+  expect(() => checkSeedBindingSlots("empty", [], [slot])).toThrow(
+    "bindings differ",
+  );
+  expect(() =>
+    checkSeedBindingSlots("document", ["a", "b"], [slot, slot]),
+  ).toThrow("bindings differ");
+  expect(() => checkSeedBindingSlots("document", ["a"], null)).toThrow(
+    "bindings differ",
+  );
 });

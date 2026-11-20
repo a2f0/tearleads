@@ -362,3 +362,39 @@ testApiClient(
     );
   },
 );
+
+for (const olderFinishesFirst of [true, false])
+  testApiClient(
+    `a newer successful request supersedes an older failure (older finishes first: ${olderFinishesFirst})`,
+    async () => {
+      const net = new ApiRequestRuntime(apiBaseUrl);
+      const transport = createJsonOperationTransport(net.responseRequest);
+      const older = Promise.withResolvers<Response>();
+      const newer = Promise.withResolvers<Response>();
+      let calls = 0;
+      globalThis.fetch = Object.assign(
+        () => (++calls === 1 ? older : newer).promise,
+        realFetch,
+      );
+      const get = () =>
+        transport.requestResult(getHealthOperation, { params: {} });
+      const failed = get();
+      const succeeded = get();
+      const finishOlder = async () => {
+        older.resolve(new Response(null, { status: 503 }));
+        expect(await failed).toMatchObject({ ok: false, status: 503 });
+      };
+      const finishNewer = async () => {
+        newer.resolve(Response.json({ message: "ok" }));
+        expect(await succeeded).toMatchObject({ ok: true });
+      };
+      if (olderFinishesFirst) {
+        await finishOlder();
+        await finishNewer();
+      } else {
+        await finishNewer();
+        await finishOlder();
+      }
+      expect(net.getRequestFailure({ method: "GET", path: "/" })).toBeNull();
+    },
+  );

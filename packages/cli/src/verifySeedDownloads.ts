@@ -170,3 +170,17 @@ export async function* discoverSeedDocuments<Row extends Placement>(
     else remaining.push(followup);
   }
 }
+
+export function checkSeedBindingSlots(
+  label: string,
+  expected: readonly string[],
+  bindings: readonly { slotId: string }[] | null,
+) {
+  const remaining = new Set(expected);
+  if (
+    !bindings ||
+    bindings.some(({ slotId }) => !remaining.delete(slotId)) ||
+    remaining.size
+  )
+    throw new Error(`Attachment bindings differ: ${label}`);
+}
