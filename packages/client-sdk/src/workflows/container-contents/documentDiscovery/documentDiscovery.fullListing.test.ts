@@ -117,3 +117,23 @@ test("discovery rejects a continuation cursor repeated after an intervening page
     "Document listing for container container is unavailable",
   );
 });
+
+test("replayed document pages are rejected even with newly sealed cursors", async () => {
+  let pages = 0;
+  const result = discoverContainerDocuments({
+    ...nullContainerDocumentWatermarks,
+    containerId: "container",
+    listContainerDocumentLanes: laneLister(async () => {
+      if (++pages > 2) throw new Error("Kept replaying the same page");
+      return {
+        ...page("same", true),
+        nextWatermark: { ...watermark, id: `d1/cursor-${pages}` },
+      };
+    }),
+    replaceDocumentLinksBatch: async () => {},
+    upsertDiscoveredDocuments: async () => [],
+  });
+  await expect(result).rejects.toThrow(
+    "Document listing for container container is unavailable",
+  );
+});

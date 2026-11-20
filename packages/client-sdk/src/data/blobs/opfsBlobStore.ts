@@ -1,4 +1,3 @@
-import { waitForRead } from "../shared/waitForRead";
 import {
   type BlobByteSource,
   type BlobBytes,
@@ -31,15 +30,13 @@ class OpfsBlobStore implements BlobStore {
     key: string,
     mode: LockMode,
     run: () => Promise<T>,
-    signal?: AbortSignal,
   ): Promise<T> {
     const locked = () => {
-      signal?.throwIfAborted();
       const locks = navigator.locks;
       return typeof locks?.request === "function"
         ? locks.request(
             JSON.stringify(["tearleads.opfs.blob", this.namespace, key]),
-            signal ? { mode, signal } : { mode },
+            { mode },
             run,
           )
         : run();
@@ -102,32 +99,18 @@ class OpfsBlobStore implements BlobStore {
     return source ? readBlobByteSource(source) : null;
   }
 
-  openByteSource(storageKey: string, signal?: AbortSignal) {
-    return waitForRead(
-      this.useFile(
-        storageKey,
-        "shared",
-        () => waitForRead(this.openFile(storageKey, signal), signal),
-        signal,
-      ),
-      signal,
-    );
+  openByteSource(storageKey: string) {
+    return this.useFile(storageKey, "shared", () => this.openFile(storageKey));
   }
 
-  private async openFile(storageKey: string, signal?: AbortSignal) {
+  private async openFile(storageKey: string) {
+    const directory = await this.getDirectory();
+
     try {
-      // A cancelled preview may finish its native lookup after logout. It only
-      // opens existing directories, so that late read cannot recreate a namespace.
-      const directory = await (signal
-        ? (this.directoryPromise ?? this.createDirectory(false, signal))
-        : this.getDirectory());
-      signal?.throwIfAborted();
       const fileHandle = await directory.getFileHandle(
         this.getFileName(storageKey),
       );
-      signal?.throwIfAborted();
       const file = await fileHandle.getFile();
-      signal?.throwIfAborted();
       return createBlobByteSource(file);
     } catch (error) {
       if (error instanceof DOMException && error.name === "NotFoundError") {
@@ -203,15 +186,13 @@ class OpfsBlobStore implements BlobStore {
     return this.directoryPromise;
   }
 
-  private async createDirectory(create = true, signal?: AbortSignal) {
+  private async createDirectory() {
     const rootDirectory = await navigator.storage.getDirectory();
-    signal?.throwIfAborted();
     const appDirectory = await rootDirectory.getDirectoryHandle("tearleads", {
-      create,
+      create: true,
     });
 
-    signal?.throwIfAborted();
-    return appDirectory.getDirectoryHandle(this.namespace, { create });
+    return appDirectory.getDirectoryHandle(this.namespace, { create: true });
   }
 }
 

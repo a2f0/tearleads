@@ -148,7 +148,10 @@ class EncryptedBlobStore implements BlobStore {
       return null;
     }
 
-    const parsed = await readEncryptedBlobEnvelope(encryptedSource, signal);
+    const parsed = await waitForRead(
+      readEncryptedBlobEnvelope(encryptedSource, signal),
+      signal,
+    );
     const key = await waitForRead(
       this.getCipherKey(parsed.envelope.keyDerivation),
       signal,
@@ -344,6 +347,7 @@ export function createLazyEncryptedBlobStore(
       return store.deleteBytes(storageKey, assertCurrent);
     },
     openByteSource: async (storageKey, signal) => {
+      signal?.throwIfAborted();
       const store = await waitForRead(getStore(), signal);
       signal?.throwIfAborted();
       return store.openByteSource(storageKey, signal);

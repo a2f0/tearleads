@@ -38,9 +38,7 @@ const attachments: ReadonlyArray<DocumentAttachment> = [
   },
 ];
 
-function attachmentSlotsElement(params?: {
-  loadingPreviewSlots?: ReadonlySet<string>;
-  queuedPreviewSlots?: ReadonlySet<string>;
+function renderAttachmentSlots(params?: {
   slots?: ReadonlyArray<DocumentAttachmentSlot>;
   attachments?: ReadonlyArray<DocumentAttachment>;
   attachmentStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
@@ -52,8 +50,6 @@ function attachmentSlotsElement(params?: {
 }) {
   const slotsElement = (
     <DocumentAttachmentSlots
-      loadingPreviewSlots={params?.loadingPreviewSlots ?? new Set()}
-      queuedPreviewSlots={params?.queuedPreviewSlots ?? new Set()}
       attachmentStorageKeyBySlotId={params?.attachmentStorageKeyBySlotId ?? {}}
       attachmentStatusBySlotId={{}}
       attachments={params?.attachments ?? attachments}
@@ -66,19 +62,15 @@ function attachmentSlotsElement(params?: {
     />
   );
 
-  return params?.onOpenBlob ? (
-    <DocumentBlobOpenProvider value={{ openBlob: params.onOpenBlob }}>
-      {slotsElement}
-    </DocumentBlobOpenProvider>
-  ) : (
-    slotsElement
+  return render(
+    params?.onOpenBlob ? (
+      <DocumentBlobOpenProvider value={{ openBlob: params.onOpenBlob }}>
+        {slotsElement}
+      </DocumentBlobOpenProvider>
+    ) : (
+      slotsElement
+    ),
   );
-}
-
-function renderAttachmentSlots(
-  params?: Parameters<typeof attachmentSlotsElement>[0],
-) {
-  return render(attachmentSlotsElement(params));
 }
 
 test("a photo collection renders, opens, and clears each image independently", () => {
@@ -133,17 +125,15 @@ test("clear image buttons are hidden for empty slots", () => {
   expect(view.queryByText("Attach an image to bind this slot.")).toBeNull();
 });
 
-test("shows loading feedback while a local preview is being read", () => {
+test("shows downloading feedback when an attachment exists before its image bytes load", () => {
   const view = renderAttachmentSlots({
-    loadingPreviewSlots: new Set(["front"]),
-    attachmentStorageKeyBySlotId: { front: "front-file" },
     attachments: [attachments[0] as DocumentAttachment],
   });
 
   const frontSlot = view
     .getByText("Front Image")
     .closest(".structured-document-slot");
-  expect(frontSlot?.textContent).toContain("Loading preview...");
+  expect(frontSlot?.textContent).toContain("Downloading image...");
   expect(
     frontSlot
       ?.querySelector(".structured-document-slot-placeholder")
@@ -155,31 +145,7 @@ test("shows loading feedback while a local preview is being read", () => {
     .getByText("Back Image")
     .closest(".structured-document-slot");
   expect(backSlot?.textContent).toContain("No image selected");
-  expect(backSlot?.textContent).not.toContain("Loading preview...");
-});
-
-test("idle slots distinguish missing bytes from a held image without a preview", () => {
-  const view = renderAttachmentSlots({
-    attachmentStorageKeyBySlotId: { back: "held" },
-  });
-  expect(view.getByText("Waiting for image bytes")).toBeTruthy();
-  expect(view.getByText("Preview unavailable")).toBeTruthy();
-  expect(view.queryByText("Downloading image...")).toBeNull();
-});
-
-test("reports an undecodable held image and leaves its open action available", () => {
-  const opened: DocumentBlobOpenRequest[] = [];
-  const view = renderAttachmentSlots({
-    attachmentStorageKeyBySlotId: { front: "front-file" },
-    imageUrlBySlotId: { front: "blob:invalid" },
-    onOpenBlob: (request) => opened.push(request),
-  });
-  const button = view.getByRole("button", { name: "Open Front Image" });
-  const img = button.querySelector("img");
-  if (!img) throw new Error("Missing preview");
-  fireEvent.error(img);
-  fireEvent.click(view.getByText("Preview unavailable"));
-  expect(opened).toEqual([{ storageKey: "front-file" }]);
+  expect(backSlot?.textContent).not.toContain("Downloading image...");
 });
 
 test("opens the bound blob when a slot image is clicked", () => {
@@ -236,30 +202,4 @@ test("stored single-image actions remain hidden in read mode", () => {
   expect(view.getByText("front.png")).toBeTruthy();
   expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
   expect(view.queryByRole("button", { name: "Replace Image" })).toBeNull();
-});
-
-test("a focused open button survives the arrival of a preview URL", () => {
-  const params = {
-    attachmentStorageKeyBySlotId: { front: "held" },
-    onOpenBlob: () => {},
-  };
-  const view = renderAttachmentSlots(params);
-  const button = view.getByRole("button", { name: "Open Front Image" });
-  button.focus();
-  view.rerender(
-    attachmentSlotsElement({
-      ...params,
-      imageUrlBySlotId: { front: "blob:new" },
-    }),
-  );
-  expect(document.activeElement).toBe(button);
-  expect(button.querySelector("img")?.getAttribute("src")).toBe("blob:new");
-});
-
-test("queued previews show a waiting label", () => {
-  const view = renderAttachmentSlots({
-    queuedPreviewSlots: new Set(["front"]),
-    attachmentStorageKeyBySlotId: { front: "file" },
-  });
-  expect(view.getByText("Waiting to load preview")).toBeTruthy();
 });

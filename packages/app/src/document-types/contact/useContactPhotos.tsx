@@ -29,11 +29,10 @@ export function useContactPhotos({
   const store = useContext(DocumentContext);
   const document = useDocument();
   const { infra } = useTearleadsRuntime();
-  const previews = useAttachmentImageUrls(
+  const imageUrlBySlotId = useAttachmentImageUrls(
     document.attachments,
     document.attachmentStorageKeyBySlotId,
     infra.blobStore,
-    document.syncing,
   );
   const onSelectedAttachment = useDocumentAttachmentSelection({
     errorMessage: "Failed to attach contact photo",
@@ -47,14 +46,14 @@ export function useContactPhotos({
         blobStore={infra.blobStore}
         isEditing={isEditing}
         displayName={displayName}
-        imageUrlBySlotId={previews.imageUrlBySlotId}
+        imageUrlBySlotId={imageUrlBySlotId}
       />
     ),
     gallery: (
       <DocumentAttachmentSlots
         {...document}
         slots={slots}
-        {...previews}
+        imageUrlBySlotId={imageUrlBySlotId}
         canAttach={
           document.ready && isEditing && document.canWrite && document.canAttach
         }

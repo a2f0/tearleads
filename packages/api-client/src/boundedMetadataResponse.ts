@@ -83,7 +83,7 @@ export function boundedMetadataResponse(
               return;
             }
             bytes += next.value.byteLength;
-            if (bytes > limit || consume?.(next.value.byteLength) === false) {
+            if (consume?.(next.value.byteLength) === false || bytes > limit) {
               void reader.cancel().catch(() => {});
               throw new MetadataSizeError(
                 "Blob response metadata exceeds its size limit",

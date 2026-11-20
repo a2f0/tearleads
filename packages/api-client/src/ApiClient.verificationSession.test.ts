@@ -197,3 +197,25 @@ testApiClient(
     ).toBe("token response");
   },
 );
+
+testApiClient(
+  "a rejected first metadata chunk counts against the verifier session budget",
+  async () => {
+    const read = createSessionMetadataReader(true, 100_000);
+    const options = { [boundedMetadata]: "all" as const };
+    await expect(
+      read(
+        new Response(new Uint8Array(80_000)),
+        options,
+        documentSyncOperation,
+      ).arrayBuffer(),
+    ).rejects.toThrow("exceeds its size limit");
+    await expect(
+      read(
+        new Response(new Uint8Array(25_000)),
+        options,
+        documentSyncOperation,
+      ).arrayBuffer(),
+    ).rejects.toThrow("exceeds its size limit");
+  },
+);

@@ -9,6 +9,7 @@ import type {
   ContainerDocumentLaneLister,
   ContainerDocumentLaneListing,
   ContainerDocumentTombstone,
+  ListContainerDocumentsResponse,
   ListedContainerDocument,
 } from "./documentDiscoveryTypes";
 import {
@@ -74,17 +75,31 @@ interface PendingContainerDocumentLane {
   watermark: SyncWatermark | null;
   isContinuation: boolean;
   seenWatermarks: Set<string>;
+  seenPageEnds: Set<string>;
 }
 
 function repeatedContinuation(
   lane: PendingContainerDocumentLane,
-  watermark: SyncWatermark | null,
-  hasMore: boolean,
+  page: ListContainerDocumentsResponse,
 ) {
-  if (!hasMore || !watermark) return false;
+  const watermark = page.nextWatermark;
+  if (!page.hasMore || !watermark) return false;
   const cursor = JSON.stringify([watermark.id, watermark.updatedAt]);
-  if (lane.seenWatermarks.has(cursor)) return true;
+  // Publication cursor ciphertext changes on every seal. The last visible
+  // row in each ordered stream identifies the page even after resealing.
+  const item = page.items.at(-1);
+  const removal = page.tombstones.at(-1);
+  const end = JSON.stringify([
+    item?.id,
+    item?.updatedAt,
+    item?.currentAccessStateHash,
+    removal?.documentId,
+    removal?.updatedAt,
+  ]);
+  if (lane.seenWatermarks.has(cursor) || lane.seenPageEnds.has(end))
+    return true;
   lane.seenWatermarks.add(cursor);
+  lane.seenPageEnds.add(end);
   return false;
 }
 
@@ -157,6 +172,7 @@ export async function listAllContainerDocumentLanes(input: {
       isFullListing: watermark === null,
       isContinuation: false,
       seenWatermarks: new Set(),
+      seenPageEnds: new Set(),
       items: [],
       tombstones: [],
       watermark,
@@ -184,7 +200,7 @@ export async function listAllContainerDocumentLanes(input: {
           page.nextWatermark,
           lane.isContinuation,
         ) ||
-        repeatedContinuation(lane, page.nextWatermark, page.hasMore)
+        repeatedContinuation(lane, page)
       ) {
         listed.set(lane.containerId, "unavailable");
         return;

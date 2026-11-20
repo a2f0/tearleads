@@ -341,6 +341,17 @@ test("deferring attachment detaches leaves durable markers on an otherwise writa
     await sync();
     expect(input.listBindings).not.toHaveBeenCalled();
     expect(state.attachmentStorageKeyBySlotId[SLOT_ID]).toBe(STORAGE_KEY);
+    const deferred = state.runtime;
+    state.runtime = runtime;
+    const list = input.listBindings.getMockImplementation();
+    if (!list) throw new Error("Missing binding list");
+    input.listBindings.mockImplementationOnce(async () => {
+      state.runtime = deferred;
+      return list();
+    });
+    await sync();
+    expect(input.detachRequests).toHaveLength(0);
+    expect(state.attachmentStorageKeyBySlotId[SLOT_ID]).toBe(STORAGE_KEY);
     state.runtime = runtime;
     await sync();
     expect(input.detachRequests).toHaveLength(1);

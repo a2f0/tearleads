@@ -1,232 +1,162 @@
 import type { BlobStore, DocumentAttachment } from "@tearleads/client-sdk";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import {
-  type AttachmentPreview,
-  type PreviewResult,
-  transitionAttachmentPreview,
-} from "./attachmentPreviewState";
-import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
-import {
-  MAX_IMAGE_PREVIEW_READS,
-  readImagePreviewBytes,
-} from "./readImagePreviewBytes";
+  isAutomaticBlobPreviewAllowed,
+  readAutomaticPreviewBlobBytes,
+} from "./documentAttachmentUtils";
 
-interface Request {
-  blobStore: BlobStore;
+type AttachmentStorageKeyBySlotId = Readonly<Record<string, string>>;
+type AttachmentImageUrlBySlotId = Readonly<Record<string, string>>;
+type AttachmentObjectUrlEntry = {
   storageKey: string;
-  mimeType: string;
-}
-interface Entry {
-  lifetime: AbortController;
-  request: Request;
-  preview: AttachmentPreview;
+  url: string;
+};
+
+function revokeAttachmentObjectUrls(
+  objectUrls: ReadonlyMap<string, AttachmentObjectUrlEntry>,
+) {
+  for (const entry of objectUrls.values()) {
+    URL.revokeObjectURL(entry.url);
+  }
 }
 
-function sameSource(entry: Entry | undefined, request: Request) {
-  return (
-    entry?.request.blobStore === request.blobStore &&
-    entry.request.storageKey === request.storageKey &&
-    entry.request.mimeType === request.mimeType
-  );
-}
-function release(preview: AttachmentPreview) {
-  if (preview.status === "ready") URL.revokeObjectURL(preview.url);
-}
+async function buildAttachmentImageState(
+  attachments: ReadonlyArray<DocumentAttachment>,
+  attachmentStorageKeyBySlotId: AttachmentStorageKeyBySlotId,
+  blobStore: BlobStore,
+  currentObjectUrls: ReadonlyMap<string, AttachmentObjectUrlEntry>,
+): Promise<{
+  createdObjectUrls: string[];
+  nextImageUrlBySlotId: Record<string, string>;
+  nextObjectUrls: Map<string, AttachmentObjectUrlEntry>;
+}> {
+  const nextObjectUrls = new Map<string, AttachmentObjectUrlEntry>();
+  const nextImageUrlBySlotId: Record<string, string> = {};
+  const createdObjectUrls: string[] = [];
 
-async function load(
-  request: Request,
-  current: () => boolean,
-  deadline: AbortSignal,
-  onCapacity: (status: "start" | "waiting-for-reader") => void,
-): Promise<PreviewResult> {
-  try {
-    const bytes = await readImagePreviewBytes(
-      request.blobStore,
-      request.storageKey,
-      deadline,
-      onCapacity,
+  for (const attachment of attachments) {
+    const storageKey = attachmentStorageKeyBySlotId[attachment.slotId];
+    if (!storageKey) {
+      continue;
+    }
+
+    const existingEntry = currentObjectUrls.get(attachment.slotId);
+    if (existingEntry && existingEntry.storageKey === storageKey) {
+      nextObjectUrls.set(attachment.slotId, existingEntry);
+      nextImageUrlBySlotId[attachment.slotId] = existingEntry.url;
+      continue;
+    }
+
+    const blobBytes = await readAutomaticPreviewBlobBytes(
+      blobStore,
+      storageKey,
     );
-    if (bytes && current())
-      return {
-        status: "ready",
-        url: URL.createObjectURL(new Blob([bytes], { type: request.mimeType })),
-      };
-  } catch {
-    // Other slots can still render when reading this file fails.
-  }
-  return { status: "unavailable" };
-}
+    if (!blobBytes) {
+      continue;
+    }
 
-async function updatePreview(
-  slot: string,
-  entry: Entry,
-  activeEntries: Map<string, Entry>,
-  generation: () => number,
-  publish: (entries: ReadonlyMap<string, Entry>) => void,
-) {
-  const current = () => !entry.lifetime.signal.aborted;
-  if (!current()) return;
-  const started = generation();
-  const result = await load(
-    entry.request,
-    current,
-    entry.lifetime.signal,
-    (status) => {
-      if (!current()) return;
-      const currentEntry = activeEntries.get(slot);
-      if (!currentEntry) return;
-      activeEntries.set(slot, {
-        ...currentEntry,
-        preview: transitionAttachmentPreview(currentEntry.preview, { status }),
-      });
-      publish(new Map(activeEntries));
-    },
-  );
-  if (!current()) {
-    release(result);
-    return;
-  }
-  const retry = result.status === "unavailable" && generation() !== started;
-  if (retry) activeEntries.delete(slot); // Give waiting slots their turn before a retry.
-  activeEntries.set(slot, {
-    ...entry,
-    preview: transitionAttachmentPreview(
-      entry.preview,
-      retry ? { status: "retry" } : result,
-    ),
-  });
-  publish(new Map(activeEntries));
-}
-
-function discardStalePreviews(
-  activeEntries: Map<string, Entry>,
-  requests: ReadonlyMap<string, Request>,
-  refreshCompleted: boolean,
-) {
-  let changed = false;
-  for (const [slot, entry] of activeEntries) {
-    const requested = requests.get(slot);
-    const retry = refreshCompleted && entry.preview.status === "unavailable";
-    if (requested && sameSource(entry, requested) && !retry) continue;
-    entry.lifetime.abort();
-    release(entry.preview);
-    activeEntries.delete(slot);
-    changed = true;
-  }
-  return changed;
-}
-
-// Only current slots occupy a worker. A superseded read may still be waiting
-// for the filesystem, but cannot start another byte read or publish its URL.
-function startQueuedPreviews(
-  active: Map<string, Entry>,
-  generation: () => number,
-  publish: (entries: ReadonlyMap<string, Entry>) => void,
-) {
-  let available = MAX_IMAGE_PREVIEW_READS;
-  for (const { preview } of active.values())
-    if (preview.status === "loading" || preview.status === "waiting-for-reader")
-      available--;
-  for (const [slot, entry] of active) {
-    if (available === 0) break;
-    if (entry.preview.status !== "queued") continue;
-    available--;
-    const started = {
-      ...entry,
-      preview: transitionAttachmentPreview(entry.preview, { status: "start" }),
-    };
-    active.set(slot, started);
-    publish(new Map(active));
-    void updatePreview(slot, started, active, generation, publish).then(() =>
-      startQueuedPreviews(active, generation, publish),
+    const url = URL.createObjectURL(
+      new Blob([blobBytes], {
+        type: attachment.mimeType ?? "application/octet-stream",
+      }),
     );
+    createdObjectUrls.push(url);
+    nextObjectUrls.set(attachment.slotId, { storageKey, url });
+    nextImageUrlBySlotId[attachment.slotId] = url;
   }
+
+  return {
+    createdObjectUrls,
+    nextImageUrlBySlotId,
+    nextObjectUrls,
+  };
+}
+
+function applyAttachmentImageState(
+  currentObjectUrls: ReadonlyMap<string, AttachmentObjectUrlEntry>,
+  nextObjectUrls: ReadonlyMap<string, AttachmentObjectUrlEntry>,
+  setImageUrlBySlotId: (value: AttachmentImageUrlBySlotId) => void,
+  nextImageUrlBySlotId: AttachmentImageUrlBySlotId,
+  objectUrlsRef: RefObject<Map<string, AttachmentObjectUrlEntry>>,
+) {
+  for (const [slotId, entry] of currentObjectUrls.entries()) {
+    const nextEntry = nextObjectUrls.get(slotId);
+    if (!nextEntry || nextEntry.url !== entry.url) {
+      URL.revokeObjectURL(entry.url);
+    }
+  }
+
+  objectUrlsRef.current = new Map(nextObjectUrls);
+  setImageUrlBySlotId(nextImageUrlBySlotId);
 }
 
 export function useAttachmentImageUrls(
   attachments: ReadonlyArray<DocumentAttachment>,
-  storageKeys: Readonly<Record<string, string>>,
+  attachmentStorageKeyBySlotId: AttachmentStorageKeyBySlotId,
   blobStore: BlobStore,
-  syncing: boolean,
-) {
-  const requests = useMemo(() => {
-    const result = new Map<string, Request>();
-    for (const attachment of attachments) {
-      const storageKey = storageKeys[attachment.slotId];
-      if (
-        storageKey &&
-        attachment.mimeType?.startsWith("image/") &&
-        isAutomaticBlobPreviewAllowed(attachment)
-      ) {
-        result.set(attachment.slotId, {
-          storageKey,
-          blobStore,
-          mimeType: attachment.mimeType,
-        });
-      }
-    }
-    return result;
-  }, [attachments, storageKeys, blobStore]);
-  const active = useRef(new Map<string, Entry>());
-  const wasSyncing = useRef(syncing);
-  const refreshGeneration = useRef(0);
-  const [entries, setEntries] = useState<ReadonlyMap<string, Entry>>(
-    () => new Map(),
+): AttachmentImageUrlBySlotId {
+  const [imageUrlBySlotId, setImageUrlBySlotId] =
+    useState<AttachmentImageUrlBySlotId>({});
+  const objectUrlsRef = useRef<Map<string, AttachmentObjectUrlEntry>>(
+    new Map(),
   );
+
   useEffect(() => {
-    const entries = active.current;
     return () => {
-      for (const entry of entries.values()) {
-        entry.lifetime.abort();
-        release(entry.preview);
-      }
-      entries.clear();
+      revokeAttachmentObjectUrls(objectUrlsRef.current);
+      objectUrlsRef.current.clear();
     };
   }, []);
-  useEffect(() => {
-    const activeEntries = active.current;
-    const refreshCompleted = wasSyncing.current && !syncing;
-    wasSyncing.current = syncing;
-    if (refreshCompleted) refreshGeneration.current++;
-    let changed = discardStalePreviews(
-      activeEntries,
-      requests,
-      refreshCompleted,
-    );
-    for (const [slot, request] of requests) {
-      if (activeEntries.has(slot)) continue;
-      const entry: Entry = {
-        request,
-        lifetime: new AbortController(),
-        preview: { status: "queued" },
-      };
-      activeEntries.set(slot, entry);
-      changed = true;
-    }
-    startQueuedPreviews(
-      activeEntries,
-      () => refreshGeneration.current,
-      setEntries,
-    );
-    if (changed) setEntries(new Map(activeEntries));
-  }, [requests, syncing]);
 
-  return useMemo(() => {
-    const imageUrlBySlotId: Record<string, string> = Object.create(null);
-    const loadingPreviewSlots = new Set<string>();
-    const queuedPreviewSlots = new Set<string>();
-    for (const [slot, request] of requests) {
-      const entry = entries.get(slot);
-      const preview = sameSource(entry, request) ? entry?.preview : undefined;
-      if (preview?.status === "ready") imageUrlBySlotId[slot] = preview.url;
-      else if (preview?.status === "loading") loadingPreviewSlots.add(slot);
-      else if (
-        !preview ||
-        preview.status === "queued" ||
-        preview.status === "waiting-for-reader"
-      )
-        queuedPreviewSlots.add(slot);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadImages() {
+      const imageAttachments = attachments.filter(
+        (attachment) =>
+          attachment.mimeType?.startsWith("image/") &&
+          isAutomaticBlobPreviewAllowed(attachment) &&
+          attachmentStorageKeyBySlotId[attachment.slotId],
+      );
+
+      if (imageAttachments.length === 0) {
+        revokeAttachmentObjectUrls(objectUrlsRef.current);
+        objectUrlsRef.current.clear();
+        setImageUrlBySlotId({});
+        return;
+      }
+
+      const currentObjectUrls = objectUrlsRef.current;
+      const { createdObjectUrls, nextImageUrlBySlotId, nextObjectUrls } =
+        await buildAttachmentImageState(
+          imageAttachments,
+          attachmentStorageKeyBySlotId,
+          blobStore,
+          currentObjectUrls,
+        );
+
+      if (cancelled) {
+        for (const url of createdObjectUrls) {
+          URL.revokeObjectURL(url);
+        }
+        return;
+      }
+
+      applyAttachmentImageState(
+        currentObjectUrls,
+        nextObjectUrls,
+        setImageUrlBySlotId,
+        nextImageUrlBySlotId,
+        objectUrlsRef,
+      );
     }
-    return { imageUrlBySlotId, loadingPreviewSlots, queuedPreviewSlots };
-  }, [entries, requests]);
+
+    void loadImages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [attachments, attachmentStorageKeyBySlotId, blobStore]);
+
+  return imageUrlBySlotId;
 }

@@ -30,7 +30,6 @@ export async function syncDetachedAttachmentBindings(
   generation: DocumentStoreSyncGeneration,
   policyOperation: PrincipalPolicyOperation,
 ): Promise<void> {
-  if (state.runtime.util.deferAttachmentDetaches) return;
   const currentDoc = generation.currentDoc;
   if (
     !currentDoc ||
@@ -107,6 +106,7 @@ function detachedSyncContextIsCurrent(
   requestRecord: DocumentRecord,
 ): boolean {
   return (
+    !state.runtime.util.deferAttachmentDetaches &&
     isDocumentStoreSyncGenerationCurrent(state, generation) &&
     documentSyncContextMatches(
       state.record,

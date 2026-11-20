@@ -55,7 +55,6 @@ export function useAttachedStructuredDocument<Fields>(
     replaceAttachment,
     setStructuredFields,
     structuredFields,
-    syncing,
   } = useDocument();
   const { readFields, slots } = options;
   const fields = useMemo(
@@ -66,11 +65,10 @@ export function useAttachedStructuredDocument<Fields>(
     canWrite,
     options.initialEditing,
   );
-  const previews = useAttachmentImageUrls(
+  const imageUrlBySlotId = useAttachmentImageUrls(
     attachments,
     attachmentStorageKeyBySlotId,
     infra.blobStore,
-    syncing,
   );
   const uploadSlots = useMemo(
     () => expandAttachmentSlots(slots, attachments, true),
@@ -118,7 +116,7 @@ export function useAttachedStructuredDocument<Fields>(
       attachments,
       blobPicker,
       canAttach: canAttach && isEditing && canWrite,
-      ...previews,
+      imageUrlBySlotId,
       onClearAttachment: removeAttachment,
       onSelectedAttachment: handleSelectedAttachment,
       slots,

@@ -3,7 +3,7 @@ import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
-import { type ChangeEvent, useId, useRef, useState } from "react";
+import { type ChangeEvent, useId, useRef } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { AttachmentActionButton } from "./AttachmentActionButton";
 import { useDocumentBlobOpen } from "./DocumentBlobOpenContext";
@@ -75,37 +75,18 @@ function DocumentAttachmentSlotActions(params: {
   );
 }
 
-function idlePreviewText(
-  attachment: DocumentAttachment | null,
-  hasLocalBytes: boolean,
-  queued: boolean,
-) {
-  if (!attachment) return "No image selected";
-  if (queued) return "Waiting to load preview";
-  return hasLocalBytes ? "Preview unavailable" : "Waiting for image bytes";
-}
-
 function DocumentAttachmentSlotPreview(params: {
-  loadingText: string | null;
-  queued: boolean;
-  hasLocalBytes: boolean;
+  imageIsLoading: boolean;
   imageUrl: string | undefined;
   onOpenAttachment: (() => void) | null;
   slot: DocumentAttachmentSlot;
   storedAttachment: DocumentAttachment | null;
 }) {
-  const {
-    loadingText,
-    hasLocalBytes,
-    imageUrl,
-    onOpenAttachment,
-    slot,
-    storedAttachment,
-  } = params;
+  const { imageIsLoading, imageUrl, onOpenAttachment, slot, storedAttachment } =
+    params;
   const altText = storedAttachment?.name ?? slot.label;
 
-  const [failedUrl, setFailedUrl] = useState<string>();
-  if (imageUrl && imageUrl !== failedUrl) {
+  if (imageUrl) {
     return onOpenAttachment && storedAttachment ? (
       <button
         aria-label={`Open ${slot.label}`}
@@ -117,8 +98,6 @@ function DocumentAttachmentSlotPreview(params: {
         <img
           className="structured-document-slot-preview-image"
           src={imageUrl}
-          key={imageUrl}
-          onError={() => setFailedUrl(imageUrl)}
           alt=""
         />
       </button>
@@ -126,25 +105,23 @@ function DocumentAttachmentSlotPreview(params: {
       <img
         className="structured-document-slot-preview"
         src={imageUrl}
-        key={imageUrl}
-        onError={() => setFailedUrl(imageUrl)}
         alt={altText}
       />
     );
   }
 
-  const placeholderContent = loadingText ? (
+  const placeholderContent = imageIsLoading ? (
     <>
       <span className="structured-document-slot-spinner" aria-hidden="true" />
-      <span>{loadingText}</span>
+      <span>Downloading image...</span>
     </>
   ) : (
-    idlePreviewText(storedAttachment, hasLocalBytes, params.queued)
+    "No image selected"
   );
 
   return onOpenAttachment && storedAttachment ? (
     <button
-      aria-busy={Boolean(loadingText) || undefined}
+      aria-busy={imageIsLoading || undefined}
       aria-label={`Open ${slot.label}`}
       className="structured-document-slot-preview structured-document-slot-placeholder structured-document-slot-preview-button"
       onClick={onOpenAttachment}
@@ -155,7 +132,7 @@ function DocumentAttachmentSlotPreview(params: {
     </button>
   ) : (
     <div
-      aria-busy={Boolean(loadingText) || undefined}
+      aria-busy={imageIsLoading || undefined}
       className="structured-document-slot-preview structured-document-slot-placeholder"
     >
       {placeholderContent}
@@ -165,8 +142,6 @@ function DocumentAttachmentSlotPreview(params: {
 
 function DocumentAttachmentSlotCard(params: {
   attachmentStorageKey: string | undefined;
-  loadingPreview: boolean;
-  queuedPreview: boolean;
   blobPicker: DocumentAttachmentBlobPickerConfig | undefined;
   canAttach: boolean;
   imageUrl: string | undefined;
@@ -190,7 +165,7 @@ function DocumentAttachmentSlotCard(params: {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const statusLabel = getDocumentAttachmentStatusLabel(status);
-  const loadingText = params.loadingPreview ? "Loading preview..." : null;
+  const imageIsLoading = Boolean(storedAttachment && !imageUrl);
   const blobOpen = useDocumentBlobOpen();
   const openAttachment =
     storedAttachment && attachmentStorageKey && blobOpen
@@ -208,9 +183,7 @@ function DocumentAttachmentSlotCard(params: {
         <strong>{slot.label}</strong>
       </div>
       <DocumentAttachmentSlotPreview
-        queued={params.queuedPreview}
-        loadingText={loadingText}
-        hasLocalBytes={Boolean(attachmentStorageKey)}
+        imageIsLoading={imageIsLoading}
         imageUrl={imageUrl}
         onOpenAttachment={openAttachment}
         slot={slot}
@@ -255,8 +228,6 @@ function DocumentAttachmentSlotCard(params: {
 }
 
 export function DocumentAttachmentSlots(params: {
-  loadingPreviewSlots: ReadonlySet<string>;
-  queuedPreviewSlots: ReadonlySet<string>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string | undefined>>;
   attachmentStatusBySlotId: Readonly<
     Record<string, DocumentAttachmentStatus | undefined>
@@ -286,8 +257,6 @@ export function DocumentAttachmentSlots(params: {
       {expandAttachmentSlots(slots, attachments, canAttach).map((slot) => (
         <DocumentAttachmentSlotCard
           key={slot.slotId}
-          loadingPreview={params.loadingPreviewSlots.has(slot.slotId)}
-          queuedPreview={params.queuedPreviewSlots.has(slot.slotId)}
           attachmentStorageKey={attachmentStorageKeyBySlotId[slot.slotId]}
           blobPicker={blobPicker}
           canAttach={canAttach}
