@@ -368,12 +368,11 @@ async function hydrateCurrentAttachments(
   const expectedDownloads = input.expectedDownloads;
   const signal = expectedDownloads?.signal;
   const attachmentBindings = await waitForRead(
-    input.apiClient.listDocumentAttachments(
-      input.documentId,
-      expectedDownloads
-        ? { boundedListing: true, signal: expectedDownloads.signal }
-        : undefined,
-    ),
+    input.apiClient.listDocumentAttachments(input.documentId, {
+      refresh: true,
+      boundedListing: Boolean(expectedDownloads),
+      signal,
+    }),
     signal,
   );
   signal?.throwIfAborted();
