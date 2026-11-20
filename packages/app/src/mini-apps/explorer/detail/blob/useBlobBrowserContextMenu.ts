@@ -4,13 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFileSaver } from "../../../../providers/file-saver/FileSaverProvider";
 import { downloadBytesAsFile } from "../../../../utils/downloadFile";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
+import { getBlobDisplayName } from "../../../shared/blob-pick/blob-list/blobListState";
 import { EXPLORER_LABELS } from "../../labels";
-
-// Blobs frequently carry no name, so fall back to the blob id / storage key for
-// the downloaded file's name.
-function getBlobDownloadFileName(blob: BlobInfo): string {
-  return blob.name?.trim() || blob.blobId || blob.storageKey;
-}
 
 // Read a blob's local bytes and hand them to the browser. Returns false when the
 // bytes are not present locally (e.g. a blob that has not synced down to this
@@ -27,7 +22,7 @@ async function downloadBlobBytes(input: {
   }
   await downloadBytesAsFile(input.fileSaver, {
     bytes,
-    fileName: getBlobDownloadFileName(input.blob),
+    fileName: getBlobDisplayName(input.blob),
     mimeType: input.blob.mimeType,
   });
   return true;

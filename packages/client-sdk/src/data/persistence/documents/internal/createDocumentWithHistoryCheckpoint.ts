@@ -82,6 +82,7 @@ export async function createStoredDocumentWithHistoryCheckpoint(
           );
         }
         const created = await createDocumentRowsIfAbsent({
+          attachmentNames: options?.attachmentNames,
           document,
           tx,
           updatedAt,

@@ -101,6 +101,7 @@ test("client sqlite schema creates tables and indexes", async () => {
       "document_projection_container_idx",
       "document_projection_document_idx",
       "document_projection_orphan_organization_idx",
+      "document_projection_text_missing_names_idx",
       "documents_app_document_idx",
       "documents_deferred_tail_idx",
       "dormant_container_metadata_organization_idx",

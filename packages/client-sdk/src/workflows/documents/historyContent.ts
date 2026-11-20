@@ -72,17 +72,17 @@ export async function loadPersistedDocumentContent(input: {
     input.execSql,
     input.localId,
   );
-  if (!history) {
-    return null;
-  }
+  return restorePersistedDocumentContent(history);
+}
 
+export async function restorePersistedDocumentContent(
+  history: Awaited<ReturnType<DocumentsPersistence["loadHistoryRestoreState"]>>,
+): Promise<Awaited<ReturnType<typeof createDocument>> | null> {
+  if (!history) return null;
   const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
-  // A tail-only state (crash before the birth checkpoint landed) has an
-  // empty snapshot; the tail rows alone carry the content.
   try {
-    if (history.snapshot.length > 0) {
-      importSnapshot(doc, base64ToBytes(history.snapshot));
-    }
+    // A tail-only state has no birth checkpoint. Replay its rows on the empty document.
+    if (history.snapshot) importSnapshot(doc, base64ToBytes(history.snapshot));
     importDocumentHistoryTailUpdates(
       doc,
       history.tailUpdates.map((update) => update.updateData),

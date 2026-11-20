@@ -398,11 +398,11 @@ Existing unsaved edits remain available for a separately admitted retry.
 
 ### Queued document updates
 
-Before each send, a document store merges runs of consecutive queued local
-updates into one update under a fresh id, so a typing burst or an offline
-backlog uploads one update per run. Custom `DocumentsPersistence` adapters
-return `QueuedPendingUpdateRecord` rows (each with its `origin`) from
-`listPendingUpdates` and must implement `replaceQueuedPendingUpdates`; see
+Before sending, the store merges consecutive queued local updates under a fresh
+id. Custom `DocumentsPersistence` adapters implement `replaceQueuedPendingUpdates`
+and return each `QueuedPendingUpdateRecord` with its `origin` from
+`listPendingUpdates`. Create and commit persist supplied `attachmentNames`
+atomically with the document projection. See
 [custom document persistence](../custom-document-persistence.md).
 
 ### Organization data usage

@@ -425,7 +425,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       }),
     );
     expect(await db.select().from(documentProjectionText)).toEqual([
-      { localId: "doc-1", text: "keep this note" },
+      { localId: "doc-1", text: "keep this note", attachmentNames: null },
     ]);
 
     const resetContainers = await db

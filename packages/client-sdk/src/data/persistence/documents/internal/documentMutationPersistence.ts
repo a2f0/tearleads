@@ -336,6 +336,7 @@ async function applyStoredDocumentMutation(input: {
     );
   if (
     !(await saveDocumentRows({
+      attachmentNames: mutation.attachmentNames,
       clearSyncFailure: mutation.clearSyncFailure === true,
       document: mutation.document,
       tx,

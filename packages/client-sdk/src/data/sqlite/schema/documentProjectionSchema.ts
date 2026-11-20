@@ -124,8 +124,15 @@ export const documentProjectionText = sqliteTable(
   {
     localId: text("local_id"),
     text: text("text").notNull(),
+    attachmentNames: text("attachment_names"),
   },
-  (table) => [primaryKey({ columns: [table.localId] })],
+  (table) => [
+    primaryKey({ columns: [table.localId] }),
+    // Only documents awaiting their first filename projection need backfill.
+    index("document_projection_text_missing_names_idx")
+      .on(table.localId)
+      .where(sql`${table.attachmentNames} IS NULL`),
+  ],
 );
 
 export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
@@ -145,7 +152,10 @@ export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
 
 export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentProjection),
-  defineSqlTableSchema(documentProjectionText),
+  {
+    ...defineSqlTableSchema(documentProjectionText),
+    requiredColumns: ["attachment_names"],
+  },
   {
     ...defineSqlTableSchema(documentPendingAttachments),
     requiredColumns: ["content_sha256"],

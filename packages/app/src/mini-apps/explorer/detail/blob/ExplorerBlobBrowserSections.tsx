@@ -16,7 +16,10 @@ import {
 } from "../../../../document-types/shared/MediaPreview";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
-import { getBlobChangedAt } from "../../../shared/blob-pick/blob-list/blobListState";
+import {
+  getBlobChangedAt,
+  getBlobDisplayName,
+} from "../../../shared/blob-pick/blob-list/blobListState";
 import {
   type BlobPreviewState,
   useBlobPreview,
@@ -28,10 +31,7 @@ import {
 } from "../../labels";
 import { compactId } from "../compactId";
 import { BlobReferencesSection } from "./ExplorerBlobReferencesSection";
-import {
-  getBlobDisplayName,
-  useBlobDetailToolbarActions,
-} from "./useBlobDetailToolbarActions";
+import { useBlobDetailToolbarActions } from "./useBlobDetailToolbarActions";
 
 function BlobMetadataSection(params: {
   blob: BlobInfo;
@@ -268,7 +268,7 @@ export function BlobBrowserHeader(params: { selectedBlob: BlobInfo | null }) {
         <strong>{EXPLORER_LABELS.blobBrowserTitle}</strong>
         <span>
           {selectedBlob
-            ? compactId(selectedBlob.blobId ?? selectedBlob.storageKey)
+            ? getBlobDisplayName(selectedBlob)
             : EXPLORER_LABELS.blobBrowserNoSelection}
         </span>
       </MiniAppHeaderCopy>

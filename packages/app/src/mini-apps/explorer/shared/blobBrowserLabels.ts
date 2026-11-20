@@ -10,6 +10,7 @@ export const EXPLORER_BLOB_BROWSER_LABELS = {
   blobBrowserDocumentInfoAction: "Info",
   blobBrowserDownloadAction: "Download",
   blobBrowserEmpty: "No blobs.",
+  blobBrowserFilenameColumn: "Filename",
   blobBrowserIdRow: "Blob ID",
   blobBrowserLoading: "Loading...",
   blobBrowserLocalBytesMissing: "Local bytes are unavailable.",

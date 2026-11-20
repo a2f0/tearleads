@@ -200,10 +200,10 @@ filter their own catches with the documents facade's
 Custom `DocumentsPersistence` adapters implement the atomic create, enqueue,
 queue-merge, commit, snapshot-load, hydration, and orphan-blob contract in
 [custom document persistence](../../../../docs/developer/custom-document-persistence.md).
-Store maintenance uses the required `orphanBlobs` methods for every adapter, so
-shared bytes survive until their final reference is removed; explicit
-`reclaimDocumentOrphanBlobs(runtime, persistence)` awaits the complete
-requested maintenance run.
+Create and commit store supplied `attachmentNames` with the document projection.
+Store maintenance uses `orphanBlobs` to retain bytes until their last reference
+is removed. `reclaimDocumentOrphanBlobs(runtime, persistence)` awaits the
+complete maintenance run.
 
 ### Deferred initial update
 

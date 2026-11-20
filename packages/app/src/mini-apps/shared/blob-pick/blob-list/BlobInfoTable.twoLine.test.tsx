@@ -123,16 +123,16 @@ test("folded blob row stacks the first column over the rest", () => {
   const view = renderFoldedBlobInfoTable();
   const lines = getCompactLines(view);
 
-  // Organization and Sync are hidden by default, so MIME leads and the three
-  // remaining visible columns share the muted second line.
-  expect(lines[0]).toEqual([`${BLOB_LIST_LABELS.mimeTypeColumn}: text/plain`]);
-  expect(lines[1]?.slice(0, 2)).toEqual([
+  // The filename leads and the visible metadata follows on the muted line.
+  expect(lines[0]).toEqual([`${BLOB_LIST_LABELS.filenameColumn}: example.txt`]);
+  expect(lines[1]?.slice(0, 3)).toEqual([
+    `${BLOB_LIST_LABELS.mimeTypeColumn}: text/plain`,
     `${BLOB_LIST_LABELS.sizeColumn}: 12 B`,
     `${BLOB_LIST_LABELS.referenceColumn}: 1 reference`,
   ]);
   // Updated closes the line; its text is timezone-dependent, so only its
   // presence is asserted.
-  expect(lines[1]).toHaveLength(3);
+  expect(lines[1]).toHaveLength(4);
   expect(
     view.container.querySelector(".mini-app-compact-table-line--muted"),
   ).toBeTruthy();
@@ -153,7 +153,7 @@ test("folded blob row hides the sync badge until the column is enabled", () => {
   );
 
   expect(view.getByTestId("sync-cell")).toBeTruthy();
-  expect(getCompactLines(view)[1]).toHaveLength(4);
+  expect(getCompactLines(view)[1]).toHaveLength(5);
 });
 
 function getVisualTitle(view: ReturnType<typeof render>): string | null {
@@ -264,15 +264,15 @@ test("folded blob list still trims its second line from the columns menu", () =>
   );
 
   expect(globalThis.localStorage.getItem(STORAGE_KEY)).toContain("references");
-  expect(getCompactLines(view)[1]).toHaveLength(2);
+  expect(getCompactLines(view)[1]).toHaveLength(3);
 });
 
 test("unfolded blob list keeps its wide columns and pitch", () => {
   const view = renderBlobInfoTable();
   const frame = getTableFrame(view);
 
-  // Blob, MIME, Size, References, Updated — Organization and Sync stay hidden.
-  expect(view.container.querySelectorAll("thead th")).toHaveLength(5);
+  // Blob, Filename, MIME, Size, References, Updated — Organization and Sync stay hidden.
+  expect(view.container.querySelectorAll("thead th")).toHaveLength(6);
   expect(
     view.queryByRole("columnheader", { name: BLOB_LIST_LABELS.blobColumn }),
   ).not.toBeNull();
