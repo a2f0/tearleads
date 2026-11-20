@@ -325,10 +325,19 @@ test("Network radios use the active theme for selection and keyboard focus", {
     if (theme !== "Dusk") {
       expect(foreground).toMatch(/^rgb\((\d+), \1, \1\)$/);
     }
+    await expect(radio).toHaveCSS("accent-color", foreground);
+    await expect(radio).toHaveCSS("outline-color", foreground);
+    await expect(radio).toHaveCSS("outline-style", "solid");
+    await expect(radio).toHaveCSS("outline-width", "2px");
     const { row } = await controlPixels(radio);
+    await settings.getByRole("radio", { name: "Force Online" }).check();
+    await expect(radio).not.toBeChecked();
+    const unchecked = await controlPixels(radio);
+    await radio.check();
     const expected = foreground.match(/\d+/g)?.map(Number) ?? [];
     // Native antialiasing can round the three painted channels slightly.
-    const indicator = row.find((color) => {
+    const indicator = row.find((color, index) => {
+      if (unchecked.row[index] === color) return false;
       const channels = color.match(/\d+/g)?.map(Number) ?? [];
       return (
         expected.length === 3 &&
@@ -339,10 +348,6 @@ test("Network radios use the active theme for selection and keyboard focus", {
     });
     expect(indicator).toBeDefined();
     if (indicator) painted.add(indicator);
-    await expect(radio).toHaveCSS("accent-color", foreground);
-    await expect(radio).toHaveCSS("outline-color", foreground);
-    await expect(radio).toHaveCSS("outline-style", "solid");
-    await expect(radio).toHaveCSS("outline-width", "2px");
   }
   expect(painted.size).toBe(3);
 });
