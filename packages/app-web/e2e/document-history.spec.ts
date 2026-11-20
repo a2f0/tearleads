@@ -1,6 +1,8 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./appTest";
+import { controlPixels } from "./controlPixels";
 import { measureAttached } from "./domMeasure";
+import { themeForeground } from "./themeForeground";
 
 /*
  * Explorer History on a phone: a timeline (transport buttons, a slider over
@@ -12,7 +14,7 @@ import { measureAttached } from "./domMeasure";
  * that overlaps the document it controls all look correct in the markup.
  */
 
-test.use({ viewport: { width: 390, height: 844 } });
+test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 
 /** Apple HIG minimum hit target, which the routed shell's controls honor. */
 const TOUCH_TARGET = 44;
@@ -156,6 +158,39 @@ test("History fits a phone: touch-sized controls above the document, nothing ove
   expect(geometry.overhang).toBeLessThanOrEqual(0);
   // The timeline sits above the document it controls; they never overlap.
   expect(geometry.viewTop).toBeGreaterThanOrEqual(geometry.timelineBottom);
+
+  const pixels = await controlPixels(slider(page));
+  expect(pixels.row.at(-8)).toBe(await themeForeground(slider(page)));
+  // Tap above the painted track, within the full-height touch target.
+  await slider(page).tap({ position: { x: 2, y: 4 } });
+  await expect(slider(page)).toHaveValue("0");
+  await expectSettled(page);
+  await expect(page.locator(".contact-document-fields")).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
+  const box = await slider(page).boundingBox();
+  if (!box) throw new Error("Expected a visible History slider");
+  const touch = await page.context().newCDPSession(page);
+  const y = box.y + box.height / 2;
+  try {
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: box.x + 8, y }],
+    });
+    for (const fraction of [0.25, 0.5, 0.75, 1]) {
+      await touch.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x: box.x + 8 + (box.width - 16) * fraction, y }],
+      });
+    }
+    await touch.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  } finally {
+    await touch.detach();
+  }
+  await expectSettled(page);
+  await expect(addresses(page).getByText(STREET)).toBeVisible();
 });
 
 test("History steps back to an earlier version and restores it", async ({
