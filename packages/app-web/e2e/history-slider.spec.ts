@@ -6,7 +6,7 @@ test.use({ hasTouch: true });
 
 test("History slider paints and seeks across browser engines", {
   tag: "@themed-control",
-}, async ({ page }) => {
+}, async ({ browserName, page }) => {
   // Load the production CSS independently of a browser's local database support.
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", /.+/);
@@ -44,10 +44,21 @@ test("History slider paints and seeks across browser engines", {
   expect(accents.size).toBe(3);
   await control.tap({ position: { x: 1, y: 12 } });
   await expect(control).toHaveValue("0");
-  await page.emulateMedia({ forcedColors: "active" });
-  if (
-    await page.evaluate(() => matchMedia("(forced-colors: active)").matches)
-  ) {
+  // Chromium implements forced-colors emulation on every CI host.
+  if (browserName === "chromium") {
+    await page.emulateMedia({ forcedColors: "active" });
+    expect(
+      await page.evaluate(() => matchMedia("(forced-colors: active)").matches),
+    ).toBe(true);
     await expect(control).toHaveCSS("appearance", "auto");
+    const forced = await controlPixels(control);
+    // Compare with a native range at the same position and size, on the same host.
+    await control.evaluate((element) => {
+      const height = element.getBoundingClientRect().height;
+      element.classList.remove("explorer-document-history-slider");
+      element.style.height = `${height}px`;
+      element.style.appearance = "auto";
+    });
+    expect(forced).toEqual(await controlPixels(control));
   }
 });

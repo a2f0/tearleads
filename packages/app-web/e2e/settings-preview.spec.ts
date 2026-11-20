@@ -326,7 +326,20 @@ test("Network radios use the active theme for selection and keyboard focus", {
     if (theme !== "Dusk") {
       expect(foreground).toMatch(/^rgb\((\d+), \1, \1\)$/);
     }
-    expect((await controlPixels(radio)).row).toContain(foreground);
+    const { row } = await controlPixels(radio);
+    const expected = foreground.match(/\d+/g)?.map(Number) ?? [];
+    // Native antialiasing can round the three painted channels slightly.
+    expect(
+      row.some((color) => {
+        const channels = color.match(/\d+/g)?.map(Number) ?? [];
+        return (
+          expected.length === 3 &&
+          expected.every(
+            (value, i) => Math.abs(value - (channels[i] ?? Infinity)) <= 8,
+          )
+        );
+      }),
+    ).toBe(true);
     await expect(radio).toHaveCSS("accent-color", foreground);
     await expect(radio).toHaveCSS("outline-color", foreground);
     await expect(radio).toHaveCSS("outline-style", "solid");
