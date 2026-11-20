@@ -1,11 +1,17 @@
-import { expect, test } from "./appTest";
+import { expect, test } from "@playwright/test";
+import { createFirstIdentity } from "./createFirstIdentity";
 
 test("blob thumbnails resize without stretching the MIME column or losing row alignment", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/app/notes");
-  await page.getByRole("button", { name: "New Note", exact: true }).click();
+  await createFirstIdentity(page);
+  // The empty-list action appears once the notes directory finishes loading.
+  await page.getByRole("button", { name: "No notes. Create one" }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Notes editor" }),
+  ).toBeEditable();
   await page.locator(".note-document-file-input").setInputFiles({
     name: "thumbnail.svg",
     mimeType: "image/svg+xml",
