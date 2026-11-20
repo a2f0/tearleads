@@ -13,16 +13,46 @@ async function expectNativeForcedColors(control: Locator, browserName: string) {
   if (browserName !== "webkit") expect(forcedColorsActive).toBe(true);
   if (forcedColorsActive) {
     await expect(control).toHaveCSS("appearance", "auto");
-    const forced = await controlPixels(control);
-    // Compare with a native range at the same position and size, on the same host.
-    await control.evaluate((element) => {
-      const height = element.getBoundingClientRect().height;
-      element.classList.remove("explorer-document-history-slider");
-      element.style.height = `${height}px`;
-      element.style.appearance = "auto";
-    });
-    expect(forced).toEqual(await controlPixels(control));
+    for (const disabled of [false, true]) {
+      await control.evaluate((element, singleVersion) => {
+        if (!(element instanceof HTMLInputElement))
+          throw new Error("Expected a range");
+        element.classList.add("explorer-document-history-slider");
+        element.style.removeProperty("appearance");
+        element.style.height = `${element.getBoundingClientRect().height}px`;
+        element.blur();
+        element.disabled = singleVersion;
+        element.max = singleVersion ? "0" : "4";
+        element.value = singleVersion ? "0" : "2";
+      }, disabled);
+      const forced = await controlPixels(control);
+      await control.evaluate((element) => {
+        element.classList.remove("explorer-document-history-slider");
+        element.style.appearance = "auto";
+      });
+      expect(forced).toEqual(await controlPixels(control));
+    }
   }
+}
+
+async function checkKeyboardSeeking(control: Locator, browserName: string) {
+  const page = control.page();
+  await control.evaluate((element) => {
+    const button = document.createElement("button");
+    button.textContent = "Before timeline";
+    element.before(button);
+    button.focus();
+  });
+  await page.keyboard.press(
+    browserName === "webkit" && process.platform === "darwin"
+      ? "Alt+Tab"
+      : "Tab",
+  );
+  await expect(control).toBeFocused();
+  await expect(control).not.toHaveCSS("outline-style", "none");
+  await expect(control).not.toHaveCSS("outline-width", "0px");
+  await page.keyboard.press("ArrowLeft");
+  await expect(control).toHaveValue("1");
 }
 
 test("History slider paints and seeks across browser engines", {
@@ -93,5 +123,6 @@ test("History slider paints and seeks across browser engines", {
     await themeForeground(control),
   );
   expect(middle.row.at(-8)).toBe((await controlPixels(reference)).row[8]);
+  await checkKeyboardSeeking(control, browserName);
   await expectNativeForcedColors(control, browserName);
 });
