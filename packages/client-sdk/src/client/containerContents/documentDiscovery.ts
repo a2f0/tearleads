@@ -43,6 +43,7 @@ type ExecSql = ReturnType<InternalRuntime["workflowInput"]>["infra"]["execSql"];
 
 function createDiscoveryLane(input: {
   readonly containerOrganizationId: string | undefined;
+  readonly signal?: AbortSignal | undefined;
   readonly isContainerPaused: () => boolean;
   readonly evidenceStore: DocumentDiscoveryEvidenceRepository;
   readonly execSql: ExecSql;
@@ -65,6 +66,7 @@ function createDiscoveryLane(input: {
     runtime,
     undefined,
     input.policyOperation,
+    input.signal,
   );
   const loadEpoch = (documentId: string) =>
     holdRepository.loadLocalDocumentAccessEpoch(documentId);
@@ -135,7 +137,11 @@ export async function discoverContainerDocumentLanesForRuntime({
     organizations: runtimeService.containerContentsOrganizations,
   });
   const execSql = input.infra.execSql;
-  const evidenceStore = new DocumentDiscoveryEvidenceRepository(execSql);
+  const evidenceStore = new DocumentDiscoveryEvidenceRepository(
+    execSql,
+    undefined,
+    signal,
+  );
   const holdRepository = new ContainerDocumentTombstoneHoldRepository(execSql);
   const queries = createContainerDocumentQueriesFromRuntime(runtime);
   // Capture the reset fence before reading any lane's scope, so a reset
@@ -163,6 +169,7 @@ export async function discoverContainerDocumentLanesForRuntime({
         createDiscoveryLane({
           containerOrganizationId: stored.container.organizationId,
           isContainerPaused,
+          signal,
           evidenceStore,
           execSql,
           holdRepository,

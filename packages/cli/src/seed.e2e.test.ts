@@ -229,6 +229,28 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     expect(oneTime.output.stdout.at(-1)).toContain(
       `Verified ${documents.length} documents`,
     );
+    // Use the actual signed fixture heads and ask the verifier to check them
+    // against a different account. A verifier that omits the signer accepts them.
+    const loadHead = sdkModule.createDocumentHeadLinkSetLoader;
+    const signer = spyOn(
+      sdkModule,
+      "createDocumentHeadLinkSetLoader",
+    ).mockImplementation((...args) => {
+      const lookup = loadHead(...args);
+      return (id, hash, expectedSigner) =>
+        lookup(id, hash, expectedSigner && crypto.randomUUID());
+    });
+    try {
+      expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(
+        1,
+      );
+      expect(output.stderr.at(-1)).toContain(
+        "Could not verify seed creator and placement",
+      );
+    } finally {
+      signer.mockRestore();
+    }
+    output.stderr.length = 0;
     const createStore = sdkModule.createMemoryBlobStore;
     const stores = spyOn(sdkModule, "createMemoryBlobStore").mockImplementation(
       () => {

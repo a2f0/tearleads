@@ -68,10 +68,13 @@ export class DocumentDiscoveryEvidenceRepository {
   constructor(
     private readonly execSql: ExecSql,
     private readonly now: () => number = Date.now,
+    private readonly signal?: AbortSignal,
   ) {}
 
   private async read() {
+    this.signal?.throwIfAborted();
     await ensureSqlTables(this.execSql, documentContainerProjectionTables);
+    this.signal?.throwIfAborted();
     return getClientSQLitePersistenceRuntime(this.execSql).db;
   }
   private write<T>(
@@ -81,6 +84,7 @@ export class DocumentDiscoveryEvidenceRepository {
   ): Promise<T> {
     return runSerializedSqlMutation(this.execSql, async (locked) => {
       await ensureSqlTables(locked, documentContainerProjectionTables);
+      this.signal?.throwIfAborted();
       return operation(getClientSQLitePersistenceRuntime(locked).db);
     });
   }

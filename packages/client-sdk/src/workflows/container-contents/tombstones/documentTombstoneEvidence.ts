@@ -166,6 +166,7 @@ async function fetchDocumentHead(
   expectedManifestHash: string | undefined,
   assertCurrent: () => void,
   requestGuard: (() => boolean) | undefined,
+  signal?: AbortSignal,
 ) {
   // Tombstones require a fresh head. Listings can reuse a matching cached
   // projection, whose signature and local checkpoint are still verified.
@@ -173,7 +174,7 @@ async function fetchDocumentHead(
     runtime.apiClient.evictDocumentWriterProjection(documentId);
   let result = await runtime.apiClient.getDocumentWriterProjectionResult(
     documentId,
-    { reportErrors: false, stillCurrent: requestGuard },
+    { reportErrors: false, stillCurrent: requestGuard, signal },
   );
   assertCurrent();
   if (
@@ -184,7 +185,7 @@ async function fetchDocumentHead(
     runtime.apiClient.evictDocumentWriterProjection(documentId);
     result = await runtime.apiClient.getDocumentWriterProjectionResult(
       documentId,
-      { reportErrors: false, stillCurrent: requestGuard },
+      { reportErrors: false, stillCurrent: requestGuard, signal },
     );
   }
   assertCurrent();
@@ -203,8 +204,10 @@ export function createDocumentHeadLinkSetLoader(
       ),
   },
   policyOperation?: PrincipalPolicyOperation,
+  signal?: AbortSignal,
 ): DocumentHeadLinkSetLoader {
-  const stillCurrent = () => runtime.liveHydrationStatus?.() !== "retired";
+  const stillCurrent = () =>
+    !signal?.aborted && runtime.liveHydrationStatus?.() !== "retired";
   function assertCurrent() {
     if (!stillCurrent()) throw new Error("Document head lookup scope changed.");
   }
@@ -230,7 +233,8 @@ export function createDocumentHeadLinkSetLoader(
         documentId,
         expectedManifestHash,
         assertCurrent,
-        expectedSignerUserId ? stillCurrent : undefined,
+        expectedSignerUserId || signal ? stillCurrent : undefined,
+        signal,
       );
       if (!result.ok) return failedHeadVerdict(runtime, documentId, result);
       const projection = result.data;
@@ -256,6 +260,7 @@ export function createDocumentHeadLinkSetLoader(
       assertCurrent();
       return head;
     } catch (error) {
+      signal?.throwIfAborted();
       // Any failure leaves the tombstone unverified (held and retried); a
       // thrown error here must not fail the whole discovery pass.
       if (stillCurrent())

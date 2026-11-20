@@ -1,4 +1,5 @@
 import {
+  createDocumentHeadLinkSetLoader,
   type DocumentStore,
   defaultDocumentsPersistence,
   deriveStableDocumentId,
@@ -93,8 +94,7 @@ async function verifyDocument(
   return bytes;
 }
 
-async function verifyFixtures(
-  session: CliSession,
+async function expectedFixtures(
   account: Awaited<ReturnType<typeof resolveSeedAccount>>,
   assets: Assets,
 ) {
@@ -112,6 +112,18 @@ async function verifyFixtures(
       readAttachment: assets.readAttachment,
     });
   }
+  return expected;
+}
+
+async function verifyFixtures(
+  session: CliSession,
+  account: Awaited<ReturnType<typeof resolveSeedAccount>>,
+  assets: Assets,
+) {
+  const expected = await expectedFixtures(account, assets);
+  const lookup = createDocumentHeadLinkSetLoader(
+    session.sdk.containerContents.workflowRuntime(),
+  );
   const documents = expected.size;
   let bytes = 0;
   let attachments = 0;
@@ -133,6 +145,18 @@ async function verifyFixtures(
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);
     if (!fixture) continue;
+    const head = await lookup(row.documentId, undefined, session.userId);
+    if (
+      !head ||
+      head === "not-found" ||
+      !head.accessStateHash ||
+      head.organizationId !== session.sdk.session.organizationId ||
+      !head.linkedContainerIds.includes(containerId)
+    ) {
+      throw new Error(
+        `Could not verify seed creator and placement: ${fixture.document.key}`,
+      );
+    }
     const prepared = await prepareContinuityAttachments(fixture);
     const runtime = session.sdk.documents.workflowRuntime(containerId);
     const store = session.sdk.documents.open(

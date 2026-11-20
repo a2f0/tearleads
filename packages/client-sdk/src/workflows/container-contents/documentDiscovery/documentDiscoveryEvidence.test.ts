@@ -457,3 +457,43 @@ test("one signed verification covers multiple listed lanes without resetting bac
     close();
   }
 });
+
+test("cancelling during a head lookup leaves candidates immediately retryable", async () => {
+  const { execSql, close } = await createTestExecSql(
+    "cancel-discovery-evidence",
+  );
+  try {
+    const controller = new AbortController();
+    const store = new DocumentDiscoveryEvidenceRepository(
+      execSql,
+      () => 0,
+      controller.signal,
+    );
+    const durable = new DocumentDiscoveryEvidenceRepository(execSql, () => 0);
+    const inputs = Array.from({ length: 8 }, (_, i) => candidate(String(i)));
+    let loads = 0;
+    const results = Promise.withResolvers<null>();
+    const first = Promise.withResolvers<void>();
+    const verify = createDiscoveredDocumentVerifier(
+      "org",
+      async () => {
+        loads++;
+        first.resolve();
+        return results.promise;
+      },
+      async () => 1,
+      store,
+    );
+    const run = verify(inputs, ["a"], await store.begin());
+    await first.promise;
+    controller.abort();
+    results.resolve(null);
+    await expect(run).rejects.toThrow();
+    expect(loads).toBeLessThan(inputs.length);
+    expect(await durable.pending(["a"], inputs.length)).toHaveLength(
+      inputs.length,
+    );
+  } finally {
+    close();
+  }
+});

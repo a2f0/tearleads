@@ -7,6 +7,24 @@ const readers = new WeakMap<
 >();
 export const MAX_IMAGE_PREVIEW_READS = 4;
 
+const pendingOpens = new WeakMap<
+  BlobStore,
+  Map<string, ReturnType<BlobStore["openByteSource"]>>
+>();
+
+function openPreviewSource(store: BlobStore, key: string) {
+  const opens =
+    pendingOpens.get(store) ??
+    new Map<string, ReturnType<BlobStore["openByteSource"]>>();
+  pendingOpens.set(store, opens);
+  let opening = opens.get(key);
+  if (!opening) {
+    opening = store.openByteSource(key).finally(() => opens.delete(key));
+    opens.set(key, opening);
+  }
+  return opening;
+}
+
 function waitForReader(events: EventTarget, deadline: AbortSignal) {
   return new Promise<void>((resolve) => {
     function wake() {
@@ -43,7 +61,7 @@ export async function readImagePreviewBytes(
   onCapacity: (status: "start" | "waiting-for-reader") => void,
 ) {
   const source = await withReadDeadline(
-    () => store.openByteSource(key),
+    () => openPreviewSource(store, key),
     retired,
   );
   if (!source || !isAutomaticBlobPreviewAllowed(source)) return null;
