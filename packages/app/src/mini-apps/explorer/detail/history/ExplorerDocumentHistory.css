@@ -13,7 +13,8 @@
 }
 
 .explorer-document-history-slider {
-  --history-track-color: var(--color-muted);
+  /* Use the theme’s solid ink when the browser cannot mix track colors. */
+  --history-track-color: var(--color-dark);
   appearance: none;
   background: transparent;
   accent-color: var(--color-dark);
@@ -30,6 +31,16 @@
       var(--color-dark),
       var(--color-light)
     );
+  }
+}
+
+@supports not (color: color-mix(in oklab, black, white)) {
+  .explorer-document-history-slider::-webkit-slider-thumb {
+    box-shadow: inset 0 0 0 2px var(--color-light);
+  }
+
+  .explorer-document-history-slider::-moz-range-thumb {
+    box-shadow: inset 0 0 0 2px var(--color-light);
   }
 }
 
