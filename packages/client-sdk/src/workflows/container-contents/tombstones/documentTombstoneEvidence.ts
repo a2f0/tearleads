@@ -13,6 +13,7 @@ import type { DocumentPurgeCheckpoint } from "../../../data/persistence/keyingCh
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { reportKeyingVerificationErrorInCauseChain } from "../../../data/shared/securityIncidents";
+import { waitForRead } from "../../../data/shared/waitForRead";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import type {
@@ -216,7 +217,11 @@ export function createDocumentHeadLinkSetLoader(
   function assertCurrent() {
     if (!stillCurrent()) throw new Error("Document head lookup scope changed.");
   }
-  return async (documentId, expectedManifestHash, expectedSignerUserId) => {
+  const load: DocumentHeadLinkSetLoader = async (
+    documentId,
+    expectedManifestHash,
+    expectedSignerUserId,
+  ) => {
     try {
       // A verified purge proof is terminal signed evidence that the document
       // links nothing any more.
@@ -273,6 +278,7 @@ export function createDocumentHeadLinkSetLoader(
       return null;
     }
   };
+  return (...args) => waitForRead(load(...args), signal);
 }
 
 function judgeTombstones(

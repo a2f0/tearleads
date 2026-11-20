@@ -283,7 +283,6 @@ testApiClient(
       { params: {} },
       {
         signal: controller.signal,
-        stillCurrent: () => !controller.signal.aborted,
       },
     );
     await transport.requestResult(getHealthOperation, { params: {} });

@@ -68,7 +68,7 @@ async function decodeBinaryOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeBinaryOperationResponseEnvelope>> {
-  if (requestRetired(session, options)) {
+  if (options.signal?.aborted || requestRetired(session, options)) {
     void response.body?.cancel().catch(() => {});
     return retiredRequest(operation.method, path);
   }

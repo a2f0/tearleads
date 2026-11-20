@@ -223,6 +223,7 @@ async function verifyFixtures(
             new Map(
               prepared.map(({ intent }) => [intent.slotId, intent.byteLength]),
             ),
+            deadline,
           ),
         },
       },

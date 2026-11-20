@@ -17,6 +17,7 @@ import type {
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
 import { blobAttachmentSummaryFromStagedBind } from "@tearleads/validators/response";
+import { boundedMetadata } from "../boundedMetadataResponse";
 import { bindPrototypeMethods, cachedRequest } from "../requestInternals";
 import {
   bindBlobAttachment as blobAttachmentBind,
@@ -273,8 +274,30 @@ export class BlobArea {
 
   listDocumentAttachments(
     documentId: string,
-    options: { refresh?: boolean } = {},
+    options: {
+      refresh?: boolean;
+      boundedListing?: boolean;
+      signal?: AbortSignal | undefined;
+    } = {},
   ) {
+    if (options.boundedListing || options.signal) {
+      // A bounded reader must not join a listing with different cancellation or buffering rules.
+      if (options.boundedListing && !this.context.streamingDownloads)
+        return Promise.resolve(null);
+      return this.context.send(
+        documentAttachmentsList,
+        documentAttachmentsList.path(documentId),
+        listDocumentAttachmentsOperation,
+        undefined,
+        {
+          [boundedMetadata]: options.boundedListing
+            ? "attachment-list"
+            : undefined,
+          signal: options.signal,
+          stillCurrent: () => !options.signal?.aborted,
+        },
+      );
+    }
     if (options.refresh) {
       this.attachmentLists.delete(documentId);
     }

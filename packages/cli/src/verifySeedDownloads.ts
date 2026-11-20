@@ -55,26 +55,36 @@ async function* linkedRows<Row extends Placement>(
   }
 }
 
-type FolderRead = {
-  id: string;
-  retryAt: number;
-  unavailable?: { since: number; attempts: number };
-};
+type FolderRead = { id: string; retryAt: number } & (
+  | { status: "ready" }
+  | { status: "deferred" }
+  | { status: "unavailable"; since: number; attempts: number }
+);
+type PageOutcome =
+  | { status: "more" | "finished" | "unavailable" }
+  | { status: "deferred"; retryAt: number };
 
-function retryFolder(
+function nextFolderRead(
   folder: FolderRead,
-  retryAt: number | null,
+  event: PageOutcome,
   now: number,
-): FolderRead {
-  if (retryAt !== null) return { id: folder.id, retryAt };
-  const { since, attempts } = folder.unavailable ?? { since: now, attempts: 0 };
+): FolderRead | null {
+  const { id } = folder;
+  if (event.status === "finished") return null;
+  if (event.status === "deferred")
+    return { id, status: "deferred", retryAt: event.retryAt };
+  if (event.status === "more") return { id, status: "ready", retryAt: now };
+  const { since, attempts } =
+    folder.status === "unavailable" ? folder : { since: now, attempts: 0 };
   const until = since + 30_000;
   if (now >= until)
-    throw new Error(`Could not finish discovery in folder ${folder.id}.`);
+    throw new Error(`Could not finish discovery in folder ${id}.`);
   return {
-    id: folder.id,
+    id,
+    status: "unavailable",
+    since,
+    attempts: attempts + 1,
     retryAt: Math.min(until, now + Math.min(250 * 2 ** attempts, 2_000)),
-    unavailable: { since, attempts: attempts + 1 },
   };
 }
 
@@ -112,7 +122,11 @@ async function readFolderPage<Row extends Placement>(
     ),
     deadline,
   );
-  return { batch, retryAt: retryAt as number | null };
+  let outcome: PageOutcome;
+  if (retryAt !== null) outcome = { status: "deferred", retryAt };
+  else if (batch === null) outcome = { status: "unavailable" };
+  else outcome = { status: batch.length ? "more" : "finished" };
+  return { batch, outcome };
 }
 
 export async function* discoverSeedDocuments<Row extends Placement>(
@@ -122,7 +136,11 @@ export async function* discoverSeedDocuments<Row extends Placement>(
   clock = { now: () => Date.now(), sleep: (ms: number) => Bun.sleep(ms) },
   deadline = AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
 ) {
-  const remaining: FolderRead[] = folderIds.map((id) => ({ id, retryAt: 0 }));
+  const remaining: FolderRead[] = folderIds.map((id) => ({
+    id,
+    status: "ready",
+    retryAt: 0,
+  }));
   // Persistent head verification can defer a folder for 15 minutes. Give other
   // folders a turn and observe the SDK delay without polling a held head.
   const end = clock.now() + DISCOVERY_TIMEOUT_MS;
@@ -135,7 +153,7 @@ export async function* discoverSeedDocuments<Row extends Placement>(
       throw new Error(`Document discovery timed out in ${next.id}.`);
     if (next.retryAt > now)
       await beforeSeedDeadline(clock.sleep(next.retryAt - now), deadline);
-    const { batch, retryAt } = await readFolderPage(
+    const { batch, outcome } = await readFolderPage(
       next,
       list,
       clock.now,
@@ -145,12 +163,10 @@ export async function* discoverSeedDocuments<Row extends Placement>(
       yield* linkedRows(next.id, batch, (ids) =>
         beforeSeedDeadline(listLinks(ids), deadline),
       );
-      remaining.unshift({
-        id: next.id,
-        retryAt: retryAt ?? clock.now(),
-      });
-    } else if (!batch || retryAt !== null) {
-      remaining.push(retryFolder(next, retryAt, clock.now()));
     }
+    const followup = nextFolderRead(next, outcome, clock.now());
+    if (!followup) continue;
+    if (batch?.length) remaining.unshift(followup);
+    else remaining.push(followup);
   }
 }

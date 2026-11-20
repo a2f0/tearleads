@@ -246,7 +246,8 @@ export class ApiRequestRuntime {
       options ?? {},
       session,
     );
-    if (requestRetired(session, options)) return retiredRequest(method, path);
+    if (options?.signal?.aborted || requestRetired(session, options))
+      return retiredRequest(method, path);
     if (!decoded.ok) return decoded;
     const data = decoded.data;
     if (!validator(data)) {

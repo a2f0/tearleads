@@ -335,6 +335,9 @@ export async function hydrateDocumentAttachmentBlobs(
   };
   const attachmentBindings = await input.apiClient.listDocumentAttachments(
     input.documentId,
+    expectedDownloads
+      ? { boundedListing: true, signal: expectedDownloads.signal }
+      : undefined,
   );
   if (!attachmentBindings) {
     return null;

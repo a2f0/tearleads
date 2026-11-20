@@ -43,10 +43,12 @@ export async function readSessionJson(
 ): Promise<RequestResult<unknown>> {
   try {
     const data: unknown = await response.json();
-    if (requestRetired(session, options)) return retiredRequest(method, path);
+    if (options.signal?.aborted || requestRetired(session, options))
+      return retiredRequest(method, path);
     return { ok: true, data };
   } catch (error) {
-    if (requestRetired(session, options)) return retiredRequest(method, path);
+    if (options.signal?.aborted || requestRetired(session, options))
+      return retiredRequest(method, path);
     const failure = responseBodyFailure(
       error,
       errorMessage(error),

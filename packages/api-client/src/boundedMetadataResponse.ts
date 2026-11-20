@@ -2,11 +2,14 @@
 export class MetadataSizeError extends Error {}
 export const boundedMetadata = Symbol("boundedMetadata");
 const MAX_METADATA_BYTES = 64 * 1024;
+// A binding list carries signatures and recipient envelopes for multiple slots.
+const MAX_ATTACHMENT_LIST_BYTES = 8 * 1024 * 1024;
+export type MetadataLimit = "all" | "errors" | "attachment-list";
 
 /** Limit JSON descriptors and HTTP error details before any decoder can buffer them. */
 export function boundedMetadataResponse(
   response: Response,
-  options: { readonly [boundedMetadata]?: "all" | "errors" | undefined },
+  options: { readonly [boundedMetadata]?: MetadataLimit | undefined },
 ): Response {
   const mode = options[boundedMetadata];
   if (!mode || (mode === "errors" && response.ok) || response.status < 200)
@@ -18,6 +21,8 @@ export function boundedMetadataResponse(
   };
   const reader = response.body?.getReader();
   if (!reader) return new Response(null, init);
+  const limit =
+    mode === "attachment-list" ? MAX_ATTACHMENT_LIST_BYTES : MAX_METADATA_BYTES;
   let bytes = 0;
   return new Response(
     new ReadableStream<Uint8Array>(
@@ -31,7 +36,7 @@ export function boundedMetadataResponse(
               return;
             }
             bytes += next.value.byteLength;
-            if (bytes > MAX_METADATA_BYTES) {
+            if (bytes > limit) {
               void reader.cancel().catch(() => {});
               throw new MetadataSizeError(
                 "Blob response metadata exceeds its size limit",

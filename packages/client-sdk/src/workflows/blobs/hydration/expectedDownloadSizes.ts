@@ -13,6 +13,7 @@ import type { DocumentAttachment } from "../../../data/documents";
 export interface ExpectedDownloadSizes {
   documentId: string;
   sizesBySlot: ReadonlyMap<string, number>;
+  signal?: AbortSignal | undefined;
 }
 
 export async function expectedEncryptedDownloadLimits(

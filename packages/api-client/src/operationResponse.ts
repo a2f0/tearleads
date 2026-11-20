@@ -137,7 +137,7 @@ export async function decodeJsonOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeJsonOperationResponseEnvelope>> {
-  if (requestRetired(session, options)) {
+  if (options.signal?.aborted || requestRetired(session, options)) {
     void response.body?.cancel().catch(() => {});
     return retiredRequest(operation.method, path);
   }
@@ -177,7 +177,7 @@ export async function decodeJsonOperationResponse(
       options,
       session,
     );
-    if (requestRetired(session, options))
+    if (options.signal?.aborted || requestRetired(session, options))
       return retiredRequest(operation.method, path);
     if (!result.ok) return result;
     const parsed = schema.safeParse(result.data);
