@@ -13,10 +13,97 @@
 }
 
 .explorer-document-history-slider {
+  /* Use the theme’s solid ink when the browser cannot mix track colors. */
+  --history-track-color: var(--color-dark);
+  appearance: none;
+  background: transparent;
+  accent-color: var(--color-dark);
   flex: 1 1 8rem;
   min-width: 0;
   /* The native thumb is small; the row height gives it a touch target. */
   min-height: var(--control-height);
+}
+
+@supports (color: color-mix(in oklab, black, white)) {
+  .explorer-document-history-slider {
+    --history-track-color: color-mix(
+      in oklab,
+      var(--color-dark),
+      var(--color-light)
+    );
+  }
+}
+
+@supports not (color: color-mix(in oklab, black, white)) {
+  .explorer-document-history-slider::-webkit-slider-thumb {
+    box-shadow: inset 0 0 0 2px var(--color-light);
+  }
+
+  .explorer-document-history-slider::-moz-range-thumb {
+    box-shadow: inset 0 0 0 2px var(--color-light);
+  }
+}
+
+.explorer-document-history-slider::-webkit-slider-runnable-track {
+  display: flex;
+  align-items: center;
+  height: var(--space-xs);
+  border-radius: var(--space-xs);
+  background: var(--history-track-color);
+}
+
+.explorer-document-history-slider::-moz-range-track {
+  height: var(--space-xs);
+  border-radius: var(--space-xs);
+  background: var(--history-track-color);
+}
+
+.explorer-document-history-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--color-dark);
+}
+
+.explorer-document-history-slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-dark);
+}
+
+.explorer-document-history-slider:disabled {
+  opacity: var(--opacity-disabled);
+}
+
+@media (forced-colors: active) {
+  .explorer-document-history-slider {
+    appearance: auto;
+    accent-color: auto;
+    background: revert;
+  }
+
+  .explorer-document-history-slider::-webkit-slider-thumb {
+    all: revert;
+  }
+
+  .explorer-document-history-slider::-webkit-slider-runnable-track {
+    all: revert;
+  }
+
+  .explorer-document-history-slider::-moz-range-thumb {
+    all: revert;
+  }
+
+  .explorer-document-history-slider::-moz-range-track {
+    all: revert;
+  }
+
+  .explorer-document-history-slider:disabled {
+    opacity: revert;
+  }
 }
 
 .explorer-document-history-position {
