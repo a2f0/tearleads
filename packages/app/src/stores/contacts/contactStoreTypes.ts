@@ -1,5 +1,4 @@
 import type {
-  DocumentAttachmentUpload,
   DocumentStore,
   DocumentSummary,
   DocumentsRuntime,
@@ -86,11 +85,7 @@ export interface ContactsStore {
     contactId: string,
     operation?: ContactRemovalOperation,
   ) => Promise<void>;
-  removeContactAvatar: (contactId: string) => Promise<void>;
-  setContactAvatar: (
-    contactId: string,
-    upload: DocumentAttachmentUpload,
-  ) => Promise<void>;
+  getContactDocumentStore: (contactId: string) => DocumentStore | null;
   subscribe: (listener: () => void) => () => void;
   /** Resolves true once the patch is saved; a failed save still resolves. */
   updateContact: (

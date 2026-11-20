@@ -8,10 +8,6 @@ import {
   removeContactAddressInStore,
   updateContactAddressInStore,
 } from "./contactStoreAddresses";
-import {
-  removeContactAvatarInStore,
-  setContactAvatarInStore,
-} from "./contactStoreAvatar";
 import { writeContactPatch } from "./contactStoreFieldWrites";
 import {
   ensureContactsInitialized,
@@ -328,10 +324,8 @@ export function createContactsStore(
     importVerifiedUser: (userId) => importUserFromRuntime(state, userId),
     removeContact: (contactId, operation) =>
       removeContactFromRuntime(state, contactId, operation),
-    removeContactAvatar: (contactId) =>
-      removeContactAvatarInStore(state, contactId),
-    setContactAvatar: (contactId, upload) =>
-      setContactAvatarInStore(state, contactId, upload),
+    getContactDocumentStore: (contactId) =>
+      state.contactDocumentStoresById.get(contactId)?.store ?? null,
     subscribe(listener) {
       state.listeners.add(listener);
       return () => {

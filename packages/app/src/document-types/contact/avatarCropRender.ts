@@ -3,7 +3,6 @@ import {
   type AvatarCropView,
   getAvatarCropSourceRect,
 } from "./avatarCropGeometry";
-import { CONTACT_AVATAR_MIME_TYPE } from "./contactAvatarSlot";
 
 // Cap the persisted avatar edge length; smaller source crops are kept at
 // their native resolution instead of upscaling.
@@ -56,6 +55,6 @@ export async function renderAvatarCropToBlob(params: {
       } else {
         reject(new Error("Failed to encode the avatar image."));
       }
-    }, CONTACT_AVATAR_MIME_TYPE);
+    }, "image/png");
   });
 }

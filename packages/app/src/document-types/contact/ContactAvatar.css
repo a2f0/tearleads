@@ -55,3 +55,10 @@
 .contact-avatar-control-file-input {
   display: none;
 }
+
+.avatar-photo-option {
+  width: 2rem;
+  height: 2rem;
+  object-fit: cover;
+  border-radius: var(--app-radius-control);
+}

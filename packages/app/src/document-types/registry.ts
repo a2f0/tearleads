@@ -44,13 +44,17 @@ import {
 } from "./projectors";
 import { ToolDocumentApp } from "./tool/ToolApp";
 import { TOOL_DOCUMENT_KIND } from "./tool/toolDocumentDefinition";
-import type { DocumentTypeAppProps } from "./types";
+import type {
+  AppDocumentProjectorDefinition,
+  DocumentTypeAppProps,
+} from "./types";
 import { VideoDocumentApp } from "./video/VideoDocumentApp";
 import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
 import { WeightDocumentApp } from "./weight/WeightApp";
 import { WEIGHT_DOCUMENT_KIND } from "./weight/weightDocumentDefinition";
 
-interface DocumentTypeDefinition {
+interface DocumentTypeDefinition
+  extends Pick<AppDocumentProjectorDefinition, "photos"> {
   App: ComponentType<DocumentTypeAppProps>;
   /** Optional specialized container view; other kinds get the default notes view. */
   ContainerView?: ComponentType<ContainerViewProps> | undefined;
@@ -99,6 +103,7 @@ export const DOCUMENT_TYPE_DEFINITIONS: ReadonlyArray<DocumentTypeDefinition> =
 
     return {
       App,
+      photos: definition.photos,
       ContainerView: containerViewsByKind.get(definition.kind),
       createIcon: definition.createIcon,
       createLabel: definition.createLabel,

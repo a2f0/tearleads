@@ -65,10 +65,7 @@ export function contactEntryFromDocumentStore(
     contactId,
     readContactFields(snapshot.structuredFields),
     {
-      avatar: getContactAvatarRef(
-        snapshot.attachments,
-        snapshot.attachmentStorageKeyBySlotId,
-      ),
+      avatar: getContactAvatarRef(snapshot),
       canWrite: snapshot.canWrite,
       rows: snapshot.rows,
       documentId: snapshot.documentId,

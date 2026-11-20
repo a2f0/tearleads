@@ -114,3 +114,19 @@ test("unregistered stored Loro document kinds use a read-only fallback app", () 
     APP_DOCUMENT_PROJECTOR_DEFINITIONS.map((registered) => registered.kind),
   ).toContain(ORGANIZATION_PROFILE_DOCUMENT_KIND);
 });
+
+test("contact and appliance photos support an optional avatar, tools support photos, and weight has neither", () => {
+  expect(getDocumentTypeDefinition("contact").photos).toEqual({
+    slotId: "contact-photos",
+    avatar: true,
+  });
+  expect(getDocumentTypeDefinition("appliance").photos).toEqual({
+    slotId: "equipment-photos",
+    avatar: true,
+  });
+  expect(getDocumentTypeDefinition("tool").photos).toEqual({
+    slotId: "equipment-photos",
+    avatar: false,
+  });
+  expect(getDocumentTypeDefinition("weight").photos).toBeUndefined();
+});

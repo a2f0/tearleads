@@ -1,6 +1,8 @@
 import type { Icon } from "@phosphor-icons/react";
 import type { DocumentProjectorDefinition } from "@tearleads/client-sdk";
 
+import type { DocumentPhotoCapability } from "./shared/documentPhotos";
+
 export interface DocumentTypeAppProps {
   containerId?: string | null;
   documentId?: string | null;
@@ -15,6 +17,7 @@ export interface DocumentTypeAppProps {
 
 export interface AppDocumentProjectorDefinition
   extends DocumentProjectorDefinition {
+  photos?: DocumentPhotoCapability | undefined;
   createIcon: Icon;
   createLabel: string;
 }

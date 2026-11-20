@@ -1,8 +1,6 @@
-import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import {
   createDomainScope,
-  type DocumentRow,
-  type DocumentSnapshot,
   type DocumentStore,
   type Tearleads,
 } from "@tearleads/client-sdk";
@@ -18,8 +16,13 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import {
+  contactRow,
+  documentFixture,
+} from "../../../test/helpers/contactDocumentFixture";
 import { createAppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
+import { LogProvider } from "../../providers/logging/LogProvider";
 import * as Runtime from "../../providers/sdk/TearleadsProvider";
 import {
   DocumentContext,
@@ -44,86 +47,6 @@ const hostConfig = createAppHostConfig({
   apiBaseUrl: "http://api.example.test",
   wsUrl: "ws://api.example.test/events",
 });
-
-function row(id: string, fields: Record<string, string>): DocumentRow {
-  return {
-    id,
-    fields,
-    createdAt: "",
-    createdBy: "untrusted",
-    createdByPeer: null,
-    updatedAt: "",
-    updatedBy: "untrusted",
-    updatedByPeer: null,
-    fieldEditors: {},
-  };
-}
-
-function documentFixture(documentId: string | null = "contact-1") {
-  let snapshot: DocumentSnapshot = {
-    attachments: [],
-    attachmentStatusBySlotId: {},
-    attachmentStorageKeyBySlotId: {},
-    canAttach: false,
-    canWrite: true,
-    currentAuthorId: null,
-    documentId,
-    documentKind: "contact",
-    effectiveAccessLevel: "write",
-    fieldValidationIssues: [],
-    ready: true,
-    rows: [
-      row("home-id", {
-        recordType: "postalAddress",
-        label: "Home",
-        street: "Explorer street",
-      }),
-    ],
-    structuredFields: { firstName: "Ada" },
-    syncing: false,
-    text: "",
-    title: "Ada",
-  };
-  const listeners = new Set<() => void>();
-  const publish = (patch: Partial<DocumentSnapshot>) => {
-    snapshot = { ...snapshot, ...patch };
-    for (const listener of listeners) listener();
-  };
-  const methods = {
-    addRow: mock(async (fields: Record<string, string>) => {
-      publish({ rows: [...snapshot.rows, row("added-id", fields)] });
-      return "added-id";
-    }),
-    updateRowFields: mock(async (id: string, patch: Record<string, string>) => {
-      publish({
-        rows: snapshot.rows.map((entry) =>
-          entry.id === id
-            ? { ...entry, fields: { ...entry.fields, ...patch } }
-            : entry,
-        ),
-      });
-    }),
-    removeRow: mock(async (id: string) => {
-      publish({ rows: snapshot.rows.filter((entry) => entry.id !== id) });
-    }),
-    hasUnsavedLocalEdits: mock(() => false),
-    getSnapshot: () => snapshot,
-    subscribe: (listener: () => void) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    attachFiles: () => undefined,
-    removeAttachment: () => undefined,
-    replaceAttachment: async () => undefined,
-    requestSync: () => undefined,
-    relink: async () => null,
-    setStructuredFields: async () => undefined,
-    setText: async () => undefined,
-  };
-  return { methods, publish, store: methods as unknown as DocumentStore };
-}
 
 function setupRuntime() {
   const runtime = {
@@ -156,13 +79,58 @@ function documentTree(store: DocumentStore, readOnly = false) {
       <WindowMenuProvider>
         <DocumentContext.Provider value={store}>
           <DocumentReadOnlyContext.Provider value={readOnly}>
-            <ContactDocument initialEditing />
+            <LogProvider>
+              <ContactDocument initialEditing />
+            </LogProvider>
           </DocumentReadOnlyContext.Provider>
         </DocumentContext.Provider>
       </WindowMenuProvider>
     </AppHostConfigProvider>
   );
 }
+
+test("the avatar picker offers a photo once its local bytes match the document", async () => {
+  const { runtime } = setupRuntime();
+  const fixture = documentFixture();
+  const slotId = "contact-photos:portrait";
+  const photo = {
+    slotId,
+    byteLength: 1,
+    contentSha256: "a".repeat(64),
+    mimeType: "image/png",
+    name: "portrait.png",
+  };
+  const bytes = new Uint8Array(5 * 1024 * 1024 + 1);
+  runtime.infra.blobStore = {
+    openByteSource: async () => ({
+      byteLength: bytes.byteLength,
+      read: async () => bytes,
+    }),
+  };
+  fixture.publish({
+    canAttach: true,
+    attachments: [photo],
+    attachmentStatusBySlotId: { [slotId]: "intent-mismatch" },
+    attachmentStorageKeyBySlotId: { [slotId]: "held-photo" },
+  });
+  const view = render(documentTree(fixture.store));
+  expect(view.queryByRole("combobox", { name: "Avatar photo" })).toBeNull();
+  act(() =>
+    fixture.publish({
+      attachments: [
+        {
+          ...photo,
+          byteLength: bytes.byteLength,
+          contentSha256: "b".repeat(64),
+        },
+      ],
+      attachmentStatusBySlotId: {},
+    }),
+  );
+  expect(
+    await view.findByRole("combobox", { name: "Avatar photo" }),
+  ).toBeTruthy();
+});
 
 test("Explorer renders contact rows and saves only the edited address field", async () => {
   setupRuntime();
@@ -374,7 +342,7 @@ test("Explorer resolves address attribution from signed uploader segments", asyn
   fixture.publish({
     rows: [
       {
-        ...row("home-id", {
+        ...contactRow("home-id", {
           recordType: "postalAddress",
           street: "Explorer street",
         }),

@@ -10,6 +10,11 @@ import type { AppDocumentProjectorDefinition } from "../types";
 
 export const CONTACT_DOCUMENT_KIND = "contact" satisfies StoredDocumentKind;
 
+export const CONTACT_PHOTOS = {
+  slotId: "contact-photos",
+  avatar: true,
+} as const;
+
 export type ContactDocumentFields = {
   encapsulationPublicKey: string;
   firstName: string;
@@ -57,6 +62,7 @@ export function readContactFieldsFromRecord(
 
 export const contactDocumentProjectorDefinition: AppDocumentProjectorDefinition =
   {
+    photos: CONTACT_PHOTOS,
     createIcon: AddressBookIcon,
     createLabel: "Contact",
     kind: CONTACT_DOCUMENT_KIND,
@@ -64,6 +70,7 @@ export const contactDocumentProjectorDefinition: AppDocumentProjectorDefinition 
     project: structuredFieldsProjector(
       readContactFieldsFromRecord,
       deriveContactTitle,
+      CONTACT_PHOTOS,
     ),
     untitledTitle: "Untitled contact",
   };
