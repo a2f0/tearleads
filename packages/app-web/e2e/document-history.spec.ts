@@ -161,8 +161,12 @@ test("History fits a phone: touch-sized controls above the document, nothing ove
 
   const pixels = await controlPixels(slider(page));
   expect(pixels.row.at(-8)).toBe(await themeForeground(slider(page)));
-  await slider(page).tap({ position: { x: 1, y: TOUCH_TARGET / 2 } });
+  // Tap above the painted track, within the full-height touch target.
+  await slider(page).tap({ position: { x: 2, y: 4 } });
   await expect(slider(page)).toHaveValue("0");
+  await expectSettled(page);
+  await expect(page.locator(".contact-document-fields")).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
 });
 
 test("History steps back to an earlier version and restores it", async ({
