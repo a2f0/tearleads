@@ -237,7 +237,9 @@ async function loadUniqueDocumentAttachmentBlobs(
             ...input,
             binding: target.binding,
             maxEncryptedBytes: limits?.get(target.binding.blobId),
-            signal,
+            signal: input.expectedDownloads?.signal
+              ? AbortSignal.any([signal, input.expectedDownloads.signal])
+              : signal,
             progress,
           }),
         ),

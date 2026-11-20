@@ -194,7 +194,7 @@ export async function decodeJsonOperationResponse(
     data = parsed.data;
   }
 
-  request.reportSuccess?.(operation.method, path);
+  request.reportSuccess?.(response);
   return {
     data: { data, headers: headers.data, status: response.status },
     ok: true,

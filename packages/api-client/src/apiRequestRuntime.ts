@@ -62,6 +62,8 @@ export class ApiRequestRuntime {
   private onSessionExpired: ExpiredHandler | null = null;
   private onPaymentRequired: PaymentRequiredHandler | null = null;
   private readonly requestFailuresByKey = new Map<string, RequestFailure>();
+  // Only a failure present when this request started can be cleared by its success.
+  private readonly observedFailure = new WeakMap<Response, RequestFailure>();
   readonly request: OperationRequestFn;
   readonly requestResult: OperationRequestResultFn;
   readonly responseRequest: OperationResponseRequestFn;
@@ -76,9 +78,7 @@ export class ApiRequestRuntime {
     this.requestResult = this.makeRequestResult;
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
-      reportSuccess: (method: HttpMethod, path: string) => {
-        this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
-      },
+      reportSuccess: this.reportResponseSuccess,
       sessionSignal: () => this.sessionRenewals.signal,
     });
   }
@@ -149,6 +149,12 @@ export class ApiRequestRuntime {
 
   getRequestFailure(input: { method: HttpMethod; path: string }) {
     return this.requestFailuresByKey.get(requestFailureKey(input)) ?? null;
+  }
+
+  private reportResponseSuccess(response: Response) {
+    const observed = this.observedFailure.get(response);
+    if (observed && this.getRequestFailure(observed) === observed)
+      this.requestFailuresByKey.delete(requestFailureKey(observed));
   }
 
   private async makeRequest<T>(
@@ -263,7 +269,7 @@ export class ApiRequestRuntime {
       });
     }
 
-    this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
+    this.reportResponseSuccess(response);
     return { data, ok: true };
   }
   private async makeResponseRequest(
@@ -275,6 +281,7 @@ export class ApiRequestRuntime {
     failureOperation: Parameters<OperationResponseRequestFn>[5],
     authToken = this.authToken,
     attempt = 1,
+    observed = this.getRequestFailure({ method, path }),
   ): Promise<RequestResult<Response>> {
     const session = this.sessionRenewals.signal;
     const callerOptions = options;
@@ -300,8 +307,10 @@ export class ApiRequestRuntime {
       );
     if (requestRetired(session, options)) return retired();
     const response = boundedMetadataResponse(result.data, options);
-    if (isSuccessfulResponse(response, additionalSuccessStatuses))
+    if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
+      if (observed) this.observedFailure.set(response, observed);
       return { ok: true, data: response };
+    }
     const errorDescription = await describeErrorResponse(
       response,
       failureOperation,
@@ -354,6 +363,7 @@ export class ApiRequestRuntime {
       failureOperation,
       retryToken,
       2,
+      observed,
     );
   }
 

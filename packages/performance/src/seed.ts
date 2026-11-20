@@ -23,7 +23,6 @@ async function provisionSeedAccount(origin: string) {
     const sdk = createSdkHost(origin, id, db.client);
     try {
       const { seedPhrase } = await sdk.identity.generate();
-      await sdk.session.bootstrapLocalRootContainer();
       const account = await sdk.session.registerIdentity();
       if (!seedPhrase || !account || "status" in account)
         throw new Error("Registration failed.");

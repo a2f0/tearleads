@@ -98,7 +98,7 @@ async function decodeBinaryOperationResponse(
     );
   }
 
-  request.reportSuccess?.(operation.method, path);
+  request.reportSuccess?.(response);
   return {
     data: {
       headers: headers.data,
