@@ -3,6 +3,7 @@ import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { decodeJsonOperationResponse } from "./operationResponse";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
 import { requestDeadline } from "./requestDeadline";
+import { resourceRequestActivity } from "./resourceRequestActivity";
 import type {
   HttpMethod,
   RequestFailure,
@@ -225,6 +226,7 @@ async function readResponse(
     );
     return result ?? interruptedFailure(context, deadline, body);
   } finally {
+    options[resourceRequestActivity]?.finish();
     deadline.dispose();
   }
 }

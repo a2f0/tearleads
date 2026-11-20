@@ -89,6 +89,9 @@ export class ApiRequestMetrics {
     string | null,
     Map<string, EndpointDurations>
   >();
+  // Resource IDs live only for the duration of an HTTP attempt and never
+  // enter the endpoint snapshots used by System Monitor and support reports.
+  private readonly activeResources = new Map<string, number>();
   private readonly listeners = new Set<() => void>();
   private readonly generations = new Map<string | null, number>();
 
@@ -114,6 +117,38 @@ export class ApiRequestMetrics {
     this.scopes.set(identity, emptySnapshot());
     this.durations.delete(identity);
     this.notify();
+  }
+
+  isResourceInFlight(
+    identity: string | null,
+    operation: Pick<HttpOperation, "id">,
+    resourceId: string | null,
+  ): boolean {
+    return (
+      resourceId !== null &&
+      this.activeResources.has(
+        JSON.stringify([identity, operation.id, resourceId]),
+      )
+    );
+  }
+
+  beginResource(
+    identity: string | null,
+    operation: Pick<HttpOperation, "id">,
+    resourceId: string,
+  ): () => void {
+    const key = JSON.stringify([identity, operation.id, resourceId]);
+    this.activeResources.set(key, (this.activeResources.get(key) ?? 0) + 1);
+    this.notify();
+    let finished = false;
+    return () => {
+      if (finished) return;
+      finished = true;
+      const remaining = (this.activeResources.get(key) ?? 1) - 1;
+      if (remaining === 0) this.activeResources.delete(key);
+      else this.activeResources.set(key, remaining);
+      this.notify();
+    };
   }
 
   begin(
