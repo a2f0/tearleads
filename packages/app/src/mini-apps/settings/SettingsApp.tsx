@@ -13,11 +13,13 @@ import { AppWindow } from "../AppWindow";
 import "./SettingsApp.css";
 import { MINI_APP_MENU_ITEMS } from "../catalog";
 import { useVisibleMiniAppItems } from "../useVisibleMiniAppItems";
+import { NetworkSettings } from "./NetworkSettings";
 
 const SETTINGS_TABS = [
   { id: "desktop", label: "Desktop" },
   { id: "system-tray", label: "System tray" },
   { id: "start-menu", label: "Start menu" },
+  { id: "network", label: "Network" },
 ] as const;
 
 // Wallpaper, theme, and tray preferences come from the app-wide providers
@@ -62,10 +64,14 @@ export function SettingsApp() {
           tabs={SETTINGS_TABS}
         />
         <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
-          <DisplayProperties
-            section={activeTab}
-            startMenuAppIds={menuItems.map(({ appId }) => appId)}
-          />
+          {activeTab === "network" ? (
+            <NetworkSettings />
+          ) : (
+            <DisplayProperties
+              section={activeTab}
+              startMenuAppIds={menuItems.map(({ appId }) => appId)}
+            />
+          )}
         </MiniAppTabPanel>
       </div>
     </AppWindow>
