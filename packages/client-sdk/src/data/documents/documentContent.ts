@@ -154,7 +154,7 @@ export function serializeDocumentAttachmentNames(
     Object.fromEntries(
       getDocumentAttachments(doc).map(({ contentSha256, slotId, name }) => [
         `${contentSha256}:${slotId}`,
-        name,
+        { name, search: name.toLowerCase() },
       ]),
     ),
   );

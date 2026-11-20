@@ -65,7 +65,7 @@ test("grouped filenames follow each document across creation, rename, replacemen
         detachedAt: null,
       });
     }
-    for (const query of ["INVOICE.PDF", "rÉsumÉ.pdf"]) {
+    for (const query of ["INVOICE.PDF", "rÉsumÉ.pdf", "résumé.pdf"]) {
       const info = await listBlobInfo({ execSql, query });
       expect(info.totalCount).toBe(1);
       expect(info.rows[0]?.name).toBe("invoice.pdf");

@@ -152,10 +152,8 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
 // from a synced document keeps its row until the detach reaches the server, and
 // it stops being a reference the moment it is unlinked.
 function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
-  const name = sql<
-    string | null
-  >`json_extract(${documentProjectionText.attachmentNames},
-    '$.' || json_quote(${documentAttachmentBlobProjection.contentSha256} || ':' || ${documentAttachmentBlobProjection.slotId}))`;
+  const path = sql`'$.' || json_quote(${documentAttachmentBlobProjection.contentSha256} || ':' || ${documentAttachmentBlobProjection.slotId})`;
+  const names = documentProjectionText.attachmentNames;
   return db
     .select({
       attachmentKind: sql<BlobInfoAttachmentKind>`'local'`.as(
@@ -180,7 +178,9 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       documentTitle: documentProjection.title,
       localId: documentAttachmentBlobProjection.localId,
       mimeType: documentAttachmentBlobProjection.mimeType,
-      name: name.as("name"),
+      name: sql<string | null>`json_extract(${names}, ${path} || '.name')`.as(
+        "name",
+      ),
       organizationId: sql<string | null>`COALESCE(
         NULLIF(${containers.organizationId}, ''),
         NULLIF(${documentProjection.organizationId}, '')
@@ -188,7 +188,7 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       searchText: sql<string>`LOWER(
         COALESCE(${documentAttachmentBlobProjection.blobId}, '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.storageKey}, '')
-        || CHAR(0) || COALESCE(${name}, '')
+        || CHAR(0) || COALESCE(json_extract(${names}, ${path} || '.search'), '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.mimeType}, '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.localId}, '')
         || CHAR(0) || COALESCE(${documentProjection.documentId}, '')
@@ -289,7 +289,7 @@ function createGroupedBlobInfoCtes(input: {
     return { blobInfoReferences, groupedBlobInfo, matchingBlobKeys: null };
   }
 
-  const folded = input.query.toLocaleLowerCase();
+  const folded = input.query.toLowerCase();
   const search = blobInfoReferences.searchText;
   const foldedMatch = sql`INSTR(${search}, ${folded})`;
   // SQLite folds only ASCII. Also match its spelling of a verbatim filename.
