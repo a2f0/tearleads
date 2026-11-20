@@ -326,3 +326,39 @@ for (const phase of [
       expect(currentFailure()?.status).toBe(503);
     },
   );
+
+testApiClient(
+  "aborting JSON decoding replaces a prior failure when no competing request ran",
+  async () => {
+    const net = new ApiRequestRuntime(apiBaseUrl);
+    const transport = createJsonOperationTransport(net.responseRequest);
+    const reading = Promise.withResolvers<void>();
+    const body = Promise.withResolvers<unknown>();
+    const response = Response.json({});
+    response.json = () => {
+      reading.resolve();
+      return body.promise;
+    };
+    let calls = 0;
+    globalThis.fetch = Object.assign(
+      async () =>
+        ++calls === 1 ? new Response(null, { status: 503 }) : response,
+      realFetch,
+    );
+    const get = (signal?: AbortSignal) =>
+      transport.requestResult(getHealthOperation, { params: {} }, { signal });
+    await get();
+    expect(net.getRequestFailure({ method: "GET", path: "/" })?.status).toBe(
+      503,
+    );
+    const controller = new AbortController();
+    const cancelled = get(controller.signal);
+    await reading.promise;
+    controller.abort();
+    body.resolve({ message: "ok" });
+    expect(await cancelled).toMatchObject({ kind: "cancelled" });
+    expect(net.getRequestFailure({ method: "GET", path: "/" })?.kind).toBe(
+      "cancelled",
+    );
+  },
+);

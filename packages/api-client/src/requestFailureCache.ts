@@ -25,6 +25,10 @@ export class RequestFailureCache {
     return { ok: true as const, data: response };
   }
 
+  cancel(response: Response, failure: RequestFailure) {
+    this.record(failure, this.observed.get(response) ?? null);
+  }
+
   success(response: Response) {
     const failure = this.observed.get(response);
     if (failure && this.get(failure) === failure)

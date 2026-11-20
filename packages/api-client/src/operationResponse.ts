@@ -4,9 +4,9 @@ import {
   operationResponseHeaderNames,
 } from "@tearleads/validators/operation";
 import {
+  cancelledResponse,
   readSessionJson,
   responseRetired,
-  retiredRequest,
 } from "./sessionResponse";
 import type {
   OperationResponseRequestFn,
@@ -139,7 +139,14 @@ export async function decodeJsonOperationResponse(
 ): Promise<RequestResult<RuntimeJsonOperationResponseEnvelope>> {
   if (responseRetired(session, options)) {
     void response.body?.cancel().catch(() => {});
-    return retiredRequest(operation.method, path);
+    return cancelledResponse(
+      request,
+      response,
+      operation.method,
+      path,
+      options,
+      session,
+    );
   }
   const schema = operation.responses[response.status];
   const isEmpty =
@@ -178,7 +185,14 @@ export async function decodeJsonOperationResponse(
       session,
     );
     if (responseRetired(session, options))
-      return retiredRequest(operation.method, path);
+      return cancelledResponse(
+        request,
+        response,
+        operation.method,
+        path,
+        options,
+        session,
+      );
     if (!result.ok) return result;
     const parsed = schema.safeParse(result.data);
     if (!parsed.success) {

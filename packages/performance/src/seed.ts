@@ -75,8 +75,7 @@ async function main() {
         const child = Bun.spawn(
           [
             process.execPath,
-            "run",
-            "tearleads",
+            "src/index.ts",
             command,
             "--key-stdin",
             "--env",
@@ -84,14 +83,11 @@ async function main() {
             ...(values.trace ? ["--trace"] : []),
           ],
           {
-            cwd: fileURLToPath(new URL("../../../", import.meta.url)),
+            cwd: fileURLToPath(new URL("../../cli/", import.meta.url)),
             stdin: new TextEncoder().encode(key),
             stdout: "inherit",
             stderr: "inherit",
-            // Verification allows an hour for discovery plus per-document reads and logout.
-            signal: AbortSignal.timeout(
-              (command === "verify-seed" ? 120 : 30) * 60_000,
-            ),
+            // The CLI owns sign-in and logout. Wait for it to release the session.
           },
         );
         if ((await child.exited) !== 0) throw new Error(`${command} failed.`);

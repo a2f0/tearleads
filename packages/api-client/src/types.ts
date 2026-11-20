@@ -127,6 +127,10 @@ export interface OperationResponseRequestFn {
   readonly sessionSignal?: () => AbortSignal;
   /** Clear a matching failure only after the operation has validated its response. */
   readonly reportSuccess?: (response: Response) => void;
+  readonly reportCancellation?: (
+    response: Response,
+    failure: RequestFailure,
+  ) => void;
   readonly reportFailure: (
     input: ResponseRequestValidationFailureInput,
   ) => RequestFailure;

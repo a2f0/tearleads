@@ -41,6 +41,22 @@ export function retiredRequest(
   };
 }
 
+/** A caller cancellation updates its own request outcome only while the sign-in is current. */
+export function cancelledResponse(
+  request: OperationResponseRequestFn,
+  response: Response,
+  method: HttpMethod,
+  path: string,
+  options?: RequestResultOptions,
+  session?: AbortSignal,
+) {
+  const failure = retiredRequest(method, path);
+  if (options?.signal?.aborted && !requestRetired(session, options)) {
+    request.reportCancellation?.(response, failure);
+  }
+  return failure;
+}
+
 export async function readSessionJson(
   request: OperationResponseRequestFn,
   response: Response,
@@ -51,10 +67,26 @@ export async function readSessionJson(
 ): Promise<RequestResult<unknown>> {
   try {
     const data: unknown = await response.json();
-    if (responseRetired(session, options)) return retiredRequest(method, path);
+    if (responseRetired(session, options))
+      return cancelledResponse(
+        request,
+        response,
+        method,
+        path,
+        options,
+        session,
+      );
     return { ok: true, data };
   } catch (error) {
-    if (responseRetired(session, options)) return retiredRequest(method, path);
+    if (responseRetired(session, options))
+      return cancelledResponse(
+        request,
+        response,
+        method,
+        path,
+        options,
+        session,
+      );
     const failure = responseBodyFailure(
       error,
       errorMessage(error),

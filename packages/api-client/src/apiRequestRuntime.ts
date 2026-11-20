@@ -27,6 +27,7 @@ import {
 } from "./sessionRenewal";
 import { sessionRequestInit } from "./sessionRequestInit";
 import {
+  cancelledResponse,
   readSessionJson,
   requestRetired,
   responseRetired,
@@ -40,7 +41,6 @@ import type {
   OperationResponseRequestFn,
   RequestBody,
   RequestFailure,
-  RequestFailureKind,
   RequestResult,
   RequestResultOptions,
   ResponseRequestValidationFailureInput,
@@ -78,6 +78,8 @@ export class ApiRequestRuntime {
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
       reportSuccess: (response: Response) => this.failures.success(response),
+      reportCancellation: (response: Response, failure: RequestFailure) =>
+        this.failures.cancel(response, failure),
       sessionSignal: () => this.sessionRenewals.signal,
     });
   }
@@ -169,20 +171,12 @@ export class ApiRequestRuntime {
     return result.ok ? result.data : null;
   }
 
-  private requestFailure(input: {
-    observedFailure?: RequestFailure | null;
-    code?: string | undefined;
-    kind: RequestFailureKind;
-    message: string;
-    method: HttpMethod;
-    networkError?: ApiNetworkError | undefined;
-    path: string;
-    reportErrors: boolean;
-    requiredContainerIds?: RequestFailure["requiredContainerIds"];
-    stalePrincipalHeads: RequestFailure["stalePrincipalHeads"];
-    status: number | null;
-    statusText: string;
-  }): RequestFailure {
+  private requestFailure(
+    input: Omit<RequestFailure, "ok" | "report"> & {
+      observedFailure?: RequestFailure | null;
+      reportErrors: boolean;
+    },
+  ): RequestFailure {
     const failure: RequestFailure = {
       ...(input.code === undefined ? {} : { code: input.code }),
       kind: input.kind,
@@ -243,7 +237,15 @@ export class ApiRequestRuntime {
       options ?? {},
       session,
     );
-    if (responseRetired(session, options)) return retiredRequest(method, path);
+    if (responseRetired(session, options))
+      return cancelledResponse(
+        this.responseRequest,
+        response,
+        method,
+        path,
+        options,
+        session,
+      );
     if (!decoded.ok) return decoded;
     const data = decoded.data;
     if (!validator(data)) {
@@ -284,17 +286,22 @@ export class ApiRequestRuntime {
       options,
       authToken,
       failureOperation,
+      observed,
       attempt,
     );
     if (!result.ok) return result;
-    const retired = (code?: string | null) =>
-      retiredResponse(
+    const retired = (code?: string | null) => {
+      const failure = retiredResponse(
         this.sessionRenewals.refused(session),
         method,
         path,
         result.data,
         code,
       );
+      if (!requestRetired(session, options))
+        this.failures.record(failure, observed);
+      return failure;
+    };
     if (responseRetired(session, options)) return retired();
     const response = boundedMetadataResponse(result.data, options);
     if (isSuccessfulResponse(response, additionalSuccessStatuses))
@@ -337,13 +344,7 @@ export class ApiRequestRuntime {
     const retryToken = this.sessionRenewals.currentToken(authToken);
     if (!shouldRetry || !retryToken) return this.httpFailure(failure);
     if (options.retryOnSessionExpired === "renew-only")
-      return this.httpFailure({
-        ...failure,
-        options: {
-          ...options,
-          reportErrors: method === "GET" ? false : options.reportErrors,
-        },
-      });
+      return this.httpFailure(failure, method === "GET");
     return this.makeResponseRequest(
       path,
       method,
@@ -364,10 +365,10 @@ export class ApiRequestRuntime {
     options: RequestResultOptions,
     authToken: string | null,
     operation: Parameters<OperationResponseRequestFn>[5],
+    observedFailure: RequestFailure | null,
     /** 2 is the retry after a session renewal. */
     attempt = 1,
   ): Promise<RequestResult<Response>> {
-    const observedFailure = this.getRequestFailure({ method, path });
     const session = this.sessionRenewals.signal;
     if (options.stillCurrent?.() === false) return retiredRequest(method, path);
     const { headers, init } = sessionRequestInit(
@@ -432,16 +433,19 @@ export class ApiRequestRuntime {
     return { data: response, ok: true };
   }
 
-  private httpFailure(input: {
-    readonly errorDescription: ErrorResponseDescription;
-    readonly failureOperation: Parameters<OperationResponseRequestFn>[5];
-    readonly method: HttpMethod;
-    readonly options: RequestResultOptions;
-    readonly path: string;
-    readonly response: Response;
-  }): RequestFailure {
+  private httpFailure(
+    input: {
+      readonly errorDescription: ErrorResponseDescription;
+      readonly failureOperation: Parameters<OperationResponseRequestFn>[5];
+      readonly method: HttpMethod;
+      readonly options: RequestResultOptions;
+      readonly path: string;
+      readonly response: Response;
+    },
+    quietRenewal = false,
+  ): RequestFailure {
     const cancelled = input.options.signal?.aborted === true;
-    const reportErrors = input.options.reportErrors ?? true;
+    const reportErrors = !quietRenewal && (input.options.reportErrors ?? true);
     if (
       !cancelled &&
       input.response.status === 402 &&
