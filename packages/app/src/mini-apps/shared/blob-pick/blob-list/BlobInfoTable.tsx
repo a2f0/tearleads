@@ -28,8 +28,8 @@ import { useBlobInfoColumnVisibility } from "./blobListColumnPreferences";
 import {
   type BlobInfoColumnId,
   getBlobInfoColumnMenuOptions,
-  getBlobInfoColumns,
   getBlobInfoCompactFieldColumnIds,
+  getBlobInfoTableLayout,
   getVisibleBlobInfoColumnIds,
 } from "./blobListColumns";
 import { BLOB_LIST_LABELS } from "./blobListLabels";
@@ -182,16 +182,18 @@ export function BlobInfoTable(params: {
       getVisibleBlobInfoColumnIds(columnVisibility.hiddenColumns, includeSync),
     [columnVisibility.hiddenColumns, includeSync],
   );
-  const columns = useMemo(
-    () =>
-      addMiniAppTableHeaderAction(
-        getBlobInfoColumns({
-          compact: params.compact,
-          hiddenColumns: columnVisibility.hiddenColumns,
-          includeSync,
-          onSort: params.onSort,
-          sort: params.sort,
-        }),
+  const { columns, minWidth } = useMemo(() => {
+    const layout = getBlobInfoTableLayout({
+      compact: params.compact,
+      hiddenColumns: columnVisibility.hiddenColumns,
+      includeSync,
+      onSort: params.onSort,
+      sort: params.sort,
+    });
+    return {
+      minWidth: layout.minWidth,
+      columns: addMiniAppTableHeaderAction(
+        layout.columns,
         <MiniAppColumnMenuButton
           ariaLabel={BLOB_LIST_LABELS.columnsMenuButton}
           hiddenColumns={columnVisibility.hiddenColumns}
@@ -203,15 +205,15 @@ export function BlobInfoTable(params: {
           toggleColumn={columnVisibility.toggleColumn}
         />,
       ),
-    [
-      columnVisibility.hiddenColumns,
-      columnVisibility.toggleColumn,
-      includeSync,
-      params.compact,
-      params.onSort,
-      params.sort,
-    ],
-  );
+    };
+  }, [
+    columnVisibility.hiddenColumns,
+    columnVisibility.toggleColumn,
+    includeSync,
+    params.compact,
+    params.onSort,
+    params.sort,
+  ]);
 
   return (
     <MiniAppTableFrame
@@ -227,7 +229,11 @@ export function BlobInfoTable(params: {
       ref={params.frameRef}
       style={getMiniAppVirtualFrameStyle(params.rowHeight)}
     >
-      <MiniAppTable aria-label={BLOB_LIST_LABELS.title} columns={columns}>
+      <MiniAppTable
+        aria-label={BLOB_LIST_LABELS.title}
+        columns={columns}
+        style={{ minWidth }}
+      >
         <BlobInfoTableContent
           activeBlob={params.activeBlob}
           blobStore={params.blobStore}

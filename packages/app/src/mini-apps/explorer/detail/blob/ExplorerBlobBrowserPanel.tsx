@@ -117,6 +117,8 @@ function BlobBrowserBrowseScreen(params: {
           blobInfo={data.blobInfo}
           blobStore={params.blobStore}
           compact={data.compact}
+          largeThumbnails={data.largeThumbnails}
+          onThumbnailSizeChange={data.changeThumbnailSize}
           downloadMessage={downloadMessage}
           frameRef={data.frameRef}
           isWindowPending={data.isWindowPending}
