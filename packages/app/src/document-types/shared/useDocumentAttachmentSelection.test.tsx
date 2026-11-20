@@ -2,11 +2,11 @@ import { afterEach, expect, test } from "bun:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { LogProvider } from "../../providers/logging/LogProvider";
+import { toolDocumentProjectorDefinition } from "../tool/toolDocumentDefinition";
 import {
   type DocumentAttachmentUpload,
   expandAttachmentSlots,
 } from "./documentAttachmentUtils";
-import { EQUIPMENT_ATTACHMENT_SLOTS } from "./equipmentDocumentDefinition";
 import { useDocumentAttachmentSelection } from "./useDocumentAttachmentSelection";
 
 afterEach(cleanup);
@@ -26,7 +26,7 @@ test("multi-file selection appends independent images and replacing one keeps it
     () =>
       useDocumentAttachmentSelection({
         errorMessage: "photo failed",
-        slots: EQUIPMENT_ATTACHMENT_SLOTS,
+        slots: toolDocumentProjectorDefinition.slots,
         replaceAttachment: async (slotId, upload) => {
           writes.push({ slotId, upload });
         },
@@ -53,7 +53,7 @@ test("single-image receipts still replace and consume just one selected file", a
     () =>
       useDocumentAttachmentSelection({
         errorMessage: "receipt failed",
-        slots: EQUIPMENT_ATTACHMENT_SLOTS,
+        slots: toolDocumentProjectorDefinition.slots,
         replaceAttachment: async (slotId) => {
           slots.push(slotId);
         },
@@ -67,7 +67,7 @@ test("single-image receipts still replace and consume just one selected file", a
 test("an existing photo replaces in place while the collection slot appends", async () => {
   const writes: string[] = [];
   const slots = expandAttachmentSlots(
-    EQUIPMENT_ATTACHMENT_SLOTS,
+    toolDocumentProjectorDefinition.slots,
     [
       {
         slotId: "equipment-photos:existing",

@@ -1,35 +1,43 @@
-import type {
-  BlobStore,
-  DocumentAttachmentUpload,
-} from "@tearleads/client-sdk";
-import { useMemo } from "react";
-import { ContactAvatarControl } from "../../../document-types/contact/ContactAvatarControl";
-import { useContactAvatarUrls } from "../../../document-types/contact/useContactAvatarUrls";
+import { ContactAvatar } from "../../../document-types/contact/ContactAvatar";
+import { useContactPhotos } from "../../../document-types/contact/useContactPhotos";
 import { getViewerRelativeContactLabel } from "../../../stores/contacts/contactLabels";
+import type { ContactsStore } from "../../../stores/contacts/contactStore";
+import { DocumentContext } from "../../../stores/documents/DocumentsProvider";
 import type { ContactEntries } from "../types";
 
+function ContactPhotoHeader({
+  displayName,
+  isEditing,
+}: {
+  displayName: string;
+  isEditing: boolean;
+}) {
+  const { avatar, gallery } = useContactPhotos({ displayName, isEditing });
+  return (
+    <>
+      <div className="contacts-detail-header">
+        {avatar}
+        <h2 className="contacts-detail-name">{displayName}</h2>
+      </div>
+      {gallery}
+    </>
+  );
+}
+
 export function ContactsAvatarSection({
-  blobStore,
+  getContactDocumentStore,
   canEdit,
   currentSigningFingerprint,
   currentUserId,
   entry,
-  removeContactAvatar,
-  setContactAvatar,
 }: {
-  blobStore: BlobStore;
+  getContactDocumentStore: ContactsStore["getContactDocumentStore"];
   canEdit: boolean;
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   entry: ContactEntries[number];
-  removeContactAvatar: (contactId: string) => void;
-  setContactAvatar: (
-    contactId: string,
-    upload: DocumentAttachmentUpload,
-  ) => void;
 }) {
-  const avatarEntries = useMemo(() => [entry], [entry]);
-  const avatarUrlByContactId = useContactAvatarUrls(avatarEntries, blobStore);
+  const store = getContactDocumentStore(entry.id);
   // Same viewer-relative label as the sidebar row, so an unnamed self contact
   // reads "You" on both sides.
   const displayName = getViewerRelativeContactLabel(
@@ -38,18 +46,15 @@ export function ContactsAvatarSection({
     currentUserId,
   );
 
-  // The photo and name head the card, so the person is named before the
-  // fields that describe them.
+  if (store)
+    return (
+      <DocumentContext.Provider value={store}>
+        <ContactPhotoHeader displayName={displayName} isEditing={canEdit} />
+      </DocumentContext.Provider>
+    );
   return (
     <div className="contacts-detail-header">
-      <ContactAvatarControl
-        avatarUrl={avatarUrlByContactId[entry.id]}
-        canEdit={canEdit}
-        displayName={displayName}
-        hasAvatar={Boolean(entry.avatar)}
-        onApplyAvatar={(upload) => setContactAvatar(entry.id, upload)}
-        onRemoveAvatar={() => removeContactAvatar(entry.id)}
-      />
+      <ContactAvatar size="large" />
       <h2 className="contacts-detail-name">{displayName}</h2>
     </div>
   );

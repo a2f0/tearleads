@@ -20,6 +20,7 @@ import {
 } from "@testing-library/react";
 import { createAppHostConfig } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
+import { LogProvider } from "../../providers/logging/LogProvider";
 import * as Runtime from "../../providers/sdk/TearleadsProvider";
 import {
   DocumentContext,
@@ -156,7 +157,9 @@ function documentTree(store: DocumentStore, readOnly = false) {
       <WindowMenuProvider>
         <DocumentContext.Provider value={store}>
           <DocumentReadOnlyContext.Provider value={readOnly}>
-            <ContactDocument initialEditing />
+            <LogProvider>
+              <ContactDocument initialEditing />
+            </LogProvider>
           </DocumentReadOnlyContext.Provider>
         </DocumentContext.Provider>
       </WindowMenuProvider>

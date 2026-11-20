@@ -127,10 +127,9 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
     entries,
     isAuthenticated,
     ready: contacts.listReady,
-    removeContactAvatar: contacts.removeContactAvatar,
+    getContactDocumentStore: contacts.getContactDocumentStore,
     selectContact: selectionState.selectContact,
     selectedContactId: selectionState.selectedContactId,
-    setContactAvatar: contacts.setContactAvatar,
     showCompactListHome:
       compactRoutedMode &&
       routeState.route === "selection" &&

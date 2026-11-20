@@ -69,8 +69,7 @@ const contactsContextStoreKeys = defineFacadeKeys<ContactsContextStoreFacade>()(
     "createContact",
     "importVerifiedUser",
     "removeContact",
-    "removeContactAvatar",
-    "setContactAvatar",
+    "getContactDocumentStore",
     "updateContact",
   ],
 );

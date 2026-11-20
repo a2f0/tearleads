@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   createAppHostConfig,
@@ -6,12 +6,12 @@ import {
   ScannerPhotoCleanupError,
 } from "../../host/AppHostConfig";
 import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
-import { ContactAvatarControl } from "./ContactAvatarControl";
+import { DocumentAvatarControl } from "./DocumentAvatarControl";
 
 afterEach(cleanup);
 
 function renderControl(
-  props: Partial<Parameters<typeof ContactAvatarControl>[0]> = {},
+  props: Partial<Parameters<typeof DocumentAvatarControl>[0]> = {},
   scanner?: Scanner,
 ) {
   return render(
@@ -22,7 +22,7 @@ function renderControl(
         wsUrl: "ws://api.example.test/events",
       })}
     >
-      <ContactAvatarControl
+      <DocumentAvatarControl
         avatarUrl={null}
         canEdit
         displayName="Ada Lovelace"
@@ -51,7 +51,9 @@ test("offers set without an avatar and replace or remove with one", () => {
   const replaceView = renderControl({
     avatarUrl: "blob:avatar",
     hasAvatar: true,
-    onRemoveAvatar: () => removed.push(true),
+    onRemoveAvatar: () => {
+      removed.push(true);
+    },
   });
   expect(
     replaceView.getByRole("button", { name: "Replace Avatar" }),
@@ -175,4 +177,62 @@ test("explains photo cleanup failures and allows choosing an avatar instead", as
   });
   expect(view.queryByRole("alert")).toBeNull();
   expect(view.getByRole("dialog")).toBeTruthy();
+});
+
+test("selects the requested photo even when filenames match", async () => {
+  const base = {
+    byteLength: 10,
+    name: "camera.jpg",
+    contentSha256: "a".repeat(64),
+    mimeType: "image/jpeg",
+  };
+  const photos = ["first", "second"].map((slotId) => ({ ...base, slotId }));
+  const choices: string[] = [];
+  const view = renderControl({
+    photos,
+    onChoosePhoto: async (photo) => {
+      choices.push(photo.slotId);
+      return null;
+    },
+  });
+  fireEvent.click(view.getByRole("combobox", { name: "Avatar photo" }));
+  fireEvent.click(view.getByRole("option", { name: "Photo 2 · camera.jpg" }));
+  await waitFor(() => expect(choices).toEqual(["second"]));
+});
+
+test("applying an upload passes both the original photo and the approved crop to the document", async () => {
+  const original = new File(["full size"], "pump.jpg", { type: "image/jpeg" });
+  const crop = new Blob(["square preview"], { type: "image/png" });
+  const context = spyOn(
+    HTMLCanvasElement.prototype,
+    "getContext",
+  ).mockReturnValue({ drawImage() {} } as unknown as CanvasRenderingContext2D);
+  const encode = spyOn(
+    HTMLCanvasElement.prototype,
+    "toBlob",
+  ).mockImplementation((done) => done(crop));
+  try {
+    const apply = mock(async () => {});
+    const view = renderControl({ onApplyAvatar: apply });
+    fireEvent.change(view.getByLabelText("Set Avatar"), {
+      target: { files: [original] },
+    });
+    const image = view.getByRole("dialog").querySelector("img");
+    if (!image) throw new Error("Missing crop image");
+    Object.defineProperties(image, {
+      naturalWidth: { value: 800 },
+      naturalHeight: { value: 600 },
+    });
+    fireEvent.load(image);
+    fireEvent.click(view.getByRole("button", { name: "Apply" }));
+    await waitFor(() =>
+      expect(apply).toHaveBeenCalledWith({
+        photo: { bytes: original, mimeType: "image/jpeg", name: "pump.jpg" },
+        crop,
+      }),
+    );
+  } finally {
+    context.mockRestore();
+    encode.mockRestore();
+  }
 });

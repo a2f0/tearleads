@@ -1,6 +1,9 @@
 import type { BlobStore } from "@tearleads/client-sdk";
 import { useEffect, useRef, useState } from "react";
-import { isAutomaticBlobPreviewAllowed } from "../shared/documentAttachmentUtils";
+import {
+  isAutomaticBlobPreviewAllowed,
+  readAutomaticPreviewBlobBytes,
+} from "../shared/documentAttachmentUtils";
 import type { ContactAvatarRef } from "./contactAvatarSlot";
 
 interface ContactAvatarEntryLike {
@@ -48,7 +51,10 @@ async function loadAvatarObjectUrl(
   avatar: ContactAvatarRef & { storageKey: string },
   blobStore: BlobStore,
 ): Promise<string | null> {
-  const blobBytes = await blobStore.readBytes(avatar.storageKey);
+  const blobBytes = await readAutomaticPreviewBlobBytes(
+    blobStore,
+    avatar.storageKey,
+  );
   if (!blobBytes) {
     return null;
   }

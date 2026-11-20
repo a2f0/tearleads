@@ -5,15 +5,13 @@ import type { PropsWithChildren } from "react";
 import { LogProvider } from "../../providers/logging/LogProvider";
 import * as Runtime from "../../providers/sdk/TearleadsProvider";
 import * as Documents from "../../stores/documents/DocumentsProvider";
+import { toolDocumentProjectorDefinition } from "../tool/toolDocumentDefinition";
 import {
   DocumentBlobPickProvider,
   type DocumentBlobPickRequest,
 } from "./DocumentBlobPickContext";
 import type { DocumentAttachmentUpload } from "./documentAttachmentUtils";
-import {
-  EQUIPMENT_ATTACHMENT_SLOTS,
-  readEquipmentFields,
-} from "./equipmentDocumentDefinition";
+import { readEquipmentFields } from "./equipmentDocumentDefinition";
 import { useAttachedStructuredDocument } from "./useAttachedStructuredDocument";
 
 afterEach(cleanup);
@@ -103,7 +101,7 @@ test("choosing a blob appends a photo without replacing an existing one", async 
           initialEditing: true,
           localId: "tool",
           readFields: readEquipmentFields,
-          slots: EQUIPMENT_ATTACHMENT_SLOTS,
+          slots: toolDocumentProjectorDefinition.slots,
         }),
       { wrapper },
     );

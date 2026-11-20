@@ -1,5 +1,4 @@
 import { afterEach, expect, test } from "bun:test";
-import type { BlobStore } from "@tearleads/client-sdk";
 import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
@@ -13,14 +12,6 @@ import { getSelfContactLocalId } from "../../../stores/contacts/selfContact";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
 import { ContactsDetailPanel } from "./ContactsDetailPanel";
-
-const emptyBlobStore: BlobStore = {
-  deleteBytes: async () => undefined,
-  openByteSource: async () => null,
-  readBytes: async () => null,
-  writeByteSource: async () => undefined,
-  writeBytes: async () => undefined,
-};
 
 const hostConfig = createAppHostConfig({
   apiBaseUrl: "http://api.example.test",
@@ -50,7 +41,7 @@ function createContactsDetailPanelProps(
       updateContactAddress: async () => undefined,
       removeContactAddress: async () => undefined,
     },
-    blobStore: emptyBlobStore,
+    getContactDocumentStore: () => null,
     canCreate: false,
     canImport: false,
     createDraftContact: async () => undefined,
@@ -66,10 +57,8 @@ function createContactsDetailPanelProps(
     onAreaContextMenu: () => undefined,
     onBackToSelectionRoute: () => undefined,
     ready: true,
-    removeContactAvatar: () => undefined,
     route: "selection",
     selectedContactId: null,
-    setContactAvatar: () => undefined,
     setDraftFirstName: () => undefined,
     setDraftLastName: () => undefined,
     setDraftNickname: () => undefined,

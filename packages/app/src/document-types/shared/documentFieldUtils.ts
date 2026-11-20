@@ -1,9 +1,15 @@
-import type {
-  DocumentFieldValidationIssue,
-  DocumentProjection,
-  DocumentProjectorInput,
-  ValidatedDocumentFields,
+import {
+  type DocumentFieldValidationIssue,
+  type DocumentProjection,
+  type DocumentProjectorInput,
+  readStringDocumentField,
+  type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
+
+import {
+  AVATAR_PHOTO_FIELD,
+  type DocumentPhotoCapability,
+} from "./documentPhotos";
 
 /**
  * The projector every string-structured document kind shares: validate the
@@ -16,12 +22,21 @@ export function structuredFieldsProjector<
     source: Readonly<Record<string, unknown>>,
   ) => ValidatedDocumentFields<Fields>,
   deriveTitle: (fields: Fields) => string,
+  photos?: DocumentPhotoCapability,
 ): (input: DocumentProjectorInput) => DocumentProjection {
   return ({ structuredFields }) => {
     const validated = readFields(structuredFields);
+    const fields: Record<string, string> = { ...validated.fields };
+    if (photos?.avatar && structuredFields[AVATAR_PHOTO_FIELD] !== undefined) {
+      fields[AVATAR_PHOTO_FIELD] = readStringDocumentField(
+        structuredFields,
+        AVATAR_PHOTO_FIELD,
+        validated.issues,
+      );
+    }
     return {
       fieldValidationIssues: validated.issues,
-      structuredFields: { ...validated.fields },
+      structuredFields: fields,
       title: deriveTitle(validated.fields),
     };
   };

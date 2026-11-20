@@ -6,7 +6,7 @@ import {
 } from "@tearleads/client-sdk";
 import { emptyVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { CONTACT_AVATAR_SLOT_ID } from "../../src/document-types/contact/contactAvatarSlot";
+import { CONTACT_PHOTOS } from "../../src/document-types/contact/contactDocumentDefinition";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { createBackupPayload } from "../../src/providers/db/localBackupData";
 import { encodeBackupFile } from "../../src/providers/db/localBackupFormat";
@@ -33,12 +33,14 @@ function waitForTree(
 
 async function seedContact(store: DocumentStore, index: number) {
   await store.setStructuredFields("contact", {
+    avatarPhotoSlotId:
+      index === 0 ? `${CONTACT_PHOTOS.slotId}:portrait` : undefined,
     firstName: index === 0 ? "Ada" : "Grace",
     lastName: index === 0 ? "Lovelace" : "Hopper",
     email: index === 0 ? "ada@example.test" : "grace@example.test",
   });
   if (index === 0)
-    await store.replaceAttachment(CONTACT_AVATAR_SLOT_ID, {
+    await store.replaceAttachment(`${CONTACT_PHOTOS.slotId}:portrait`, {
       bytes: new TextEncoder().encode(
         '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="blue"/></svg>',
       ),

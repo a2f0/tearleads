@@ -147,7 +147,7 @@ test.each([false, true])(
         )`);
         await source.execSql(`INSERT INTO ${table} VALUES (?, ?, ?)`, [
           "ada",
-          "contact-avatar",
+          "contact-photos:portrait",
           storageKey,
         ]);
       }

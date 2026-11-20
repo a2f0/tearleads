@@ -1,27 +1,18 @@
 import { useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import {
-  useDocument,
-  useDocumentReadOnly,
-} from "../../stores/documents/DocumentsProvider";
+import { useDocument } from "../../stores/documents/DocumentsProvider";
 import { useDocumentRowWriters } from "../../stores/documents/useDocumentRowWriters";
 import {
   StructuredDocument,
   useStructuredDocumentEditAction,
   useStructuredDocumentEditing,
 } from "../shared/StructuredDocument";
-import { useAttachmentImageUrls } from "../shared/useAttachmentImageUrls";
 import "./ContactDocument.css";
 import { ContactAddresses } from "./ContactAddresses";
-import { ContactAvatarControl } from "./ContactAvatarControl";
 import { ContactFields } from "./ContactFields";
-import {
-  CONTACT_AVATAR_SLOT_ID,
-  getContactAvatarRef,
-} from "./contactAvatarSlot";
 import { readContactFields } from "./contactDocumentModel";
 import type { ContactFieldValues } from "./contactFieldDescriptors";
 import { useContactDocumentAddresses } from "./useContactDocumentAddresses";
+import { useContactPhotos } from "./useContactPhotos";
 
 type ContactStructuredFieldSetter = ReturnType<
   typeof useDocument
@@ -75,47 +66,6 @@ export function ContactDocumentFields({
   );
 }
 
-// The avatar block rendered in the Explorer's contact document view. It talks
-// to the document attachment API directly (the Contacts mini-app instead goes
-// through the contacts store, which wraps the same slot).
-function ContactDocumentAvatar({
-  displayName,
-  isEditing,
-}: {
-  displayName: string;
-  isEditing: boolean;
-}) {
-  const {
-    attachments,
-    attachmentStorageKeyBySlotId,
-    canAttach,
-    canWrite,
-    removeAttachment,
-    replaceAttachment,
-  } = useDocument();
-  const readOnly = useDocumentReadOnly();
-  const { infra } = useTearleadsRuntime();
-  const imageUrlBySlotId = useAttachmentImageUrls(
-    attachments,
-    attachmentStorageKeyBySlotId,
-    infra.blobStore,
-  );
-  const avatar = getContactAvatarRef(attachments, attachmentStorageKeyBySlotId);
-
-  return (
-    <ContactAvatarControl
-      avatarUrl={imageUrlBySlotId[CONTACT_AVATAR_SLOT_ID]}
-      canEdit={isEditing && canAttach && canWrite && !readOnly}
-      displayName={displayName}
-      hasAvatar={Boolean(avatar)}
-      onApplyAvatar={(upload) =>
-        replaceAttachment(CONTACT_AVATAR_SLOT_ID, upload)
-      }
-      onRemoveAvatar={() => removeAttachment(CONTACT_AVATAR_SLOT_ID)}
-    />
-  );
-}
-
 export function ContactDocument(params: {
   initialEditing?: boolean | undefined;
 }) {
@@ -134,18 +84,22 @@ export function ContactDocument(params: {
   const displayName =
     values.nickname.trim() || `${values.firstName} ${values.lastName}`.trim();
 
+  const photos = useContactPhotos({ displayName, isEditing });
   return (
     <StructuredDocument
       attachments={
-        <ContactAddresses
-          key={addressActions.identityKey}
-          rows={ready ? document.rows : undefined}
-          disabled={!ready || !canWrite}
-          isEditing={isEditing}
-          currentAuthorId={document.currentAuthorId}
-          resolveRowWriter={resolveRowWriter}
-          {...addressActions.actions}
-        />
+        <>
+          <ContactAddresses
+            key={addressActions.identityKey}
+            rows={ready ? document.rows : undefined}
+            disabled={!ready || !canWrite}
+            isEditing={isEditing}
+            currentAuthorId={document.currentAuthorId}
+            resolveRowWriter={resolveRowWriter}
+            {...addressActions.actions}
+          />
+          {photos.gallery}
+        </>
       }
       fields={
         <ContactDocumentFields
@@ -159,12 +113,7 @@ export function ContactDocument(params: {
       }
       // Heads the document, matching the Contacts mini-app's detail panel,
       // which puts the avatar above the fields.
-      leading={
-        <ContactDocumentAvatar
-          displayName={displayName}
-          isEditing={isEditing}
-        />
-      }
+      leading={photos.avatar}
     />
   );
 }

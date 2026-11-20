@@ -1,8 +1,4 @@
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
-import type {
-  BlobStore,
-  DocumentAttachmentUpload,
-} from "@tearleads/client-sdk";
 import {
   useMiniAppRouteSegments,
   useWindowTitleBarAction,
@@ -32,6 +28,7 @@ import {
   useStructuredDocumentEditing,
 } from "../../../document-types/shared/StructuredDocument";
 import { chromeOwnsRouteBackedDetailBack } from "../../../navigation/routeBackedDetailBack";
+import type { ContactsStore } from "../../../stores/contacts/contactStore";
 import type { RowWriterResolver } from "../../../stores/documents/useDocumentRowWriters";
 import { CONTACTS_LABELS } from "../labels";
 import type { ContactsRoute } from "../routes";
@@ -48,11 +45,6 @@ import {
 import { ContactsImportContactPanel } from "./ContactsImportContactPanel";
 
 type UpdateContact = (contactId: string, patch: ContactEntryPatch) => void;
-type RemoveContactAvatar = (contactId: string) => void;
-type SetContactAvatar = (
-  contactId: string,
-  upload: DocumentAttachmentUpload,
-) => void;
 type SelectedContactEntry = ContactEntries[number];
 
 function toContactFieldValues(entry: SelectedContactEntry): ContactFieldValues {
@@ -90,26 +82,22 @@ function addressEditorActions(
 function ContactsSelectionState({
   addressActions,
   resolveAddressWriter,
-  blobStore,
+  getContactDocumentStore,
   currentSigningFingerprint,
   currentUserId,
   entries,
   initialEditing,
   ready,
-  removeContactAvatar,
   selectedContactId,
-  setContactAvatar,
   updateContact,
 }: {
-  blobStore: BlobStore;
+  getContactDocumentStore: ContactsStore["getContactDocumentStore"];
   currentSigningFingerprint: string | null | undefined;
   currentUserId: string | null | undefined;
   initialEditing?: boolean | undefined;
   entries: ContactEntries;
   ready: boolean;
-  removeContactAvatar: RemoveContactAvatar;
   selectedContactId: string | null;
-  setContactAvatar: SetContactAvatar;
   updateContact: UpdateContact;
   addressActions: ContactAddressActions;
   resolveAddressWriter?: RowWriterResolver | undefined;
@@ -151,13 +139,11 @@ function ContactsSelectionState({
   return (
     <MiniAppPanel className="contacts-detail-panel" key={selectedEntry.id}>
       <ContactsAvatarSection
-        blobStore={blobStore}
+        getContactDocumentStore={getContactDocumentStore}
         canEdit={isEditing && canEditSelectedEntry}
         currentSigningFingerprint={currentSigningFingerprint}
         currentUserId={currentUserId}
         entry={selectedEntry}
-        removeContactAvatar={removeContactAvatar}
-        setContactAvatar={setContactAvatar}
       />
       <ContactFields
         disabled={!canEditSelectedEntry}
@@ -262,7 +248,7 @@ function ContactsNewContactPanel(params: {
 }
 
 export function ContactsDetailPanel(params: {
-  blobStore: BlobStore;
+  getContactDocumentStore: ContactsStore["getContactDocumentStore"];
   canCreate: boolean;
   canImport: boolean;
   createDraftContact: () => Promise<void>;
@@ -281,10 +267,8 @@ export function ContactsDetailPanel(params: {
   onAreaContextMenu: ContactsAreaContextMenuHandler;
   onBackToSelectionRoute: (options?: { replace?: boolean | undefined }) => void;
   ready: boolean;
-  removeContactAvatar: RemoveContactAvatar;
   route: ContactsRoute;
   selectedContactId: string | null;
-  setContactAvatar: SetContactAvatar;
   setDraftFirstName: (firstName: string) => void;
   setDraftLastName: (lastName: string) => void;
   setDraftNickname: (nickname: string) => void;
@@ -294,7 +278,7 @@ export function ContactsDetailPanel(params: {
   resolveAddressWriter?: RowWriterResolver | undefined;
 }) {
   const {
-    blobStore,
+    getContactDocumentStore,
     canCreate,
     canImport,
     createDraftContact,
@@ -371,14 +355,12 @@ export function ContactsDetailPanel(params: {
         initialEditing={params.initialEditing}
         addressActions={params.addressActions}
         resolveAddressWriter={params.resolveAddressWriter}
-        blobStore={blobStore}
+        getContactDocumentStore={getContactDocumentStore}
         currentSigningFingerprint={params.currentSigningFingerprint}
         currentUserId={params.currentUserId}
         entries={entries}
         ready={params.ready}
-        removeContactAvatar={params.removeContactAvatar}
         selectedContactId={params.selectedContactId}
-        setContactAvatar={params.setContactAvatar}
         updateContact={updateContact}
       />
     </ContactsDetailContextTarget>
