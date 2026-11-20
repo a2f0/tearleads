@@ -76,15 +76,16 @@ function DocumentAttachmentSlotActions(params: {
 }
 
 function DocumentAttachmentSlotPreview(params: {
-  imageIsLoading: boolean;
+  hasStorageKey: boolean;
   imageUrl: string | undefined;
   onOpenAttachment: (() => void) | null;
   slot: DocumentAttachmentSlot;
   storedAttachment: DocumentAttachment | null;
 }) {
-  const { imageIsLoading, imageUrl, onOpenAttachment, slot, storedAttachment } =
+  const { hasStorageKey, imageUrl, onOpenAttachment, slot, storedAttachment } =
     params;
   const altText = storedAttachment?.name ?? slot.label;
+  const descriptionId = useId();
 
   if (imageUrl) {
     return onOpenAttachment && storedAttachment ? (
@@ -110,31 +111,25 @@ function DocumentAttachmentSlotPreview(params: {
     );
   }
 
-  const placeholderContent = imageIsLoading ? (
-    <>
-      <span className="structured-document-slot-spinner" aria-hidden="true" />
-      <span>Downloading image...</span>
-    </>
-  ) : (
-    "No image selected"
-  );
+  const placeholderContent = !storedAttachment
+    ? "No image selected"
+    : hasStorageKey
+      ? "No image preview"
+      : "Waiting for image bytes";
 
   return onOpenAttachment && storedAttachment ? (
     <button
-      aria-busy={imageIsLoading || undefined}
+      aria-describedby={descriptionId}
       aria-label={`Open ${slot.label}`}
       className="structured-document-slot-preview structured-document-slot-placeholder structured-document-slot-preview-button"
       onClick={onOpenAttachment}
       title={`Open ${storedAttachment.name}`}
       type="button"
     >
-      {placeholderContent}
+      <span id={descriptionId}>{placeholderContent}</span>
     </button>
   ) : (
-    <div
-      aria-busy={imageIsLoading || undefined}
-      className="structured-document-slot-preview structured-document-slot-placeholder"
-    >
+    <div className="structured-document-slot-preview structured-document-slot-placeholder">
       {placeholderContent}
     </div>
   );
@@ -165,7 +160,6 @@ function DocumentAttachmentSlotCard(params: {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const statusLabel = getDocumentAttachmentStatusLabel(status);
-  const imageIsLoading = Boolean(storedAttachment && !imageUrl);
   const blobOpen = useDocumentBlobOpen();
   const openAttachment =
     storedAttachment && attachmentStorageKey && blobOpen
@@ -183,7 +177,7 @@ function DocumentAttachmentSlotCard(params: {
         <strong>{slot.label}</strong>
       </div>
       <DocumentAttachmentSlotPreview
-        imageIsLoading={imageIsLoading}
+        hasStorageKey={Boolean(attachmentStorageKey)}
         imageUrl={imageUrl}
         onOpenAttachment={openAttachment}
         slot={slot}
