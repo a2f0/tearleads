@@ -35,6 +35,28 @@ async function expectNativeForcedColors(control: Locator, browserName: string) {
   }
 }
 
+async function checkDisabledSlider(control: Locator) {
+  const expectedOpacity = await control.evaluate((element) => {
+    if (!(element instanceof HTMLInputElement))
+      throw new Error("Expected a range");
+    element.disabled = true;
+    element.max = "0";
+    return getComputedStyle(element)
+      .getPropertyValue("--opacity-disabled")
+      .trim();
+  });
+  await expect(control).toBeDisabled();
+  await expect(control).toHaveCSS("opacity", String(Number(expectedOpacity)));
+  expect(Number(expectedOpacity)).toBeLessThan(1);
+  await control.evaluate((element) => {
+    if (!(element instanceof HTMLInputElement))
+      throw new Error("Expected a range");
+    element.disabled = false;
+    element.max = "4";
+    element.value = "4";
+  });
+}
+
 async function checkKeyboardSeeking(control: Locator, browserName: string) {
   const page = control.page();
   await control.evaluate((element) => {
@@ -104,6 +126,7 @@ test("History slider paints and seeks across browser engines", {
     expect(track).not.toBe(pixels.background);
     expect(track).not.toBe(thumb);
     accents.add(accent);
+    await checkDisabledSlider(control);
   }
   expect(accents.size).toBe(3);
   expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(44);
