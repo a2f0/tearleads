@@ -11,6 +11,7 @@ import { BLOB_LIST_LABELS } from "./blobListLabels";
 
 export type BlobInfoColumnId =
   | "blob"
+  | "filename"
   | "organization"
   | "mime"
   | "size"
@@ -22,6 +23,7 @@ export type BlobInfoCompactFieldColumnId = Exclude<BlobInfoColumnId, "blob">;
 
 const BLOB_INFO_COLUMN_IDS: ReadonlyArray<BlobInfoColumnId> = [
   "blob",
+  "filename",
   "organization",
   "mime",
   "size",
@@ -47,6 +49,8 @@ export function getBlobInfoColumnLabel(id: BlobInfoColumnId): string {
   switch (id) {
     case "blob":
       return BLOB_LIST_LABELS.blobColumn;
+    case "filename":
+      return BLOB_LIST_LABELS.filenameColumn;
     case "organization":
       return BLOB_LIST_LABELS.organizationColumn;
     case "mime":
@@ -106,6 +110,8 @@ function buildBlobInfoColumn(
         id,
         width: "var(--blob-list-identity-width, 4rem)",
       };
+    case "filename":
+      return { header: getBlobInfoColumnLabel(id), id, width: "12rem" };
     case "organization":
       return {
         header: getBlobInfoColumnLabel(id),

@@ -104,38 +104,56 @@ async function openRowContextMenu(
   fireEvent.contextMenu(row as HTMLTableRowElement);
 }
 
-test("right-click download saves a blob's local bytes", async () => {
-  const bytes = new Uint8Array([1, 2, 3]) as BlobBytes;
-  const readKeys: string[] = [];
-  const blobStore = createBlobStore({
-    readBytes: async (storageKey) => {
-      readKeys.push(storageKey);
-      return bytes;
-    },
-  });
+test.each([
+  ["invoice.pdf", "invoice.pdf"],
+  [null, "blob-1"],
+] as const)(
+  "right-click download uses the projected filename or blob ID (%s)",
+  async (name, expected) => {
+    const bytes = new Uint8Array([1, 2, 3]) as BlobBytes;
+    const readKeys: string[] = [];
+    const blobStore = createBlobStore({
+      readBytes: async (storageKey) => {
+        readKeys.push(storageKey);
+        return bytes;
+      },
+    });
 
-  // downloadBytesAsFile drives an anchor click; capture the download name it
-  // would hand to the browser without triggering a real navigation.
-  const downloads: string[] = [];
-  const originalClick = HTMLAnchorElement.prototype.click;
-  HTMLAnchorElement.prototype.click = function click(this: HTMLAnchorElement) {
-    downloads.push(this.download);
-  };
+    // downloadBytesAsFile drives an anchor click; capture the download name it
+    // would hand to the browser without triggering a real navigation.
+    const downloads: string[] = [];
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function click(
+      this: HTMLAnchorElement,
+    ) {
+      downloads.push(this.download);
+    };
 
-  try {
-    const view = renderBrowsePanel(blobStore);
-    await openRowContextMenu(view, "blob-1");
-    fireEvent.click(await view.findByText("Download"));
+    try {
+      const view = renderBlobBrowserPanel({
+        blobStore,
+        rows: [
+          createBlobRow({
+            name,
+            blobId: "blob-1",
+            storageKey: "storage-1",
+            mimeType: "application/pdf",
+          }),
+        ],
+        route: { blobId: null, storageKey: null, view: "blob-browser" },
+      });
+      await openRowContextMenu(view, "blob-1");
+      fireEvent.click(await view.findByText("Download"));
 
-    // Image rows also read their bytes to build a thumbnail, so assert the
-    // download read is present rather than that it is the only read.
-    await waitFor(() => expect(readKeys).toContain("storage-1"));
-    // A nameless blob falls back to its blob id for the download file name.
-    expect(downloads).toEqual(["blob-1"]);
-  } finally {
-    HTMLAnchorElement.prototype.click = originalClick;
-  }
-});
+      // Image rows also read their bytes to build a thumbnail, so assert the
+      // download read is present rather than that it is the only read.
+      await waitFor(() => expect(readKeys).toContain("storage-1"));
+      expect(downloads).toEqual([expected]);
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
+  },
+);
 
 test("right-click download reports when local bytes are unavailable", async () => {
   const view = renderBrowsePanel(

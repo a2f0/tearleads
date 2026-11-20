@@ -4,7 +4,6 @@ import {
   countDistinct,
   desc,
   eq,
-  gt,
   inArray,
   isNull,
   sql,
@@ -17,12 +16,16 @@ import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
 } from "../../../data/sqlite/schema";
-import { documentProjection } from "../../../data/sqlite/schema/documentProjectionSchema";
+import {
+  documentProjection,
+  documentProjectionText,
+} from "../../../data/sqlite/schema/documentProjectionSchema";
 import {
   type ClientSQLiteDatabase,
   getClientSQLitePersistenceRuntime,
 } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { backfillDocumentAttachmentNames } from "../../documents";
 import {
   attachBlobInfoReferences,
   mapBlobInfoReferenceRow,
@@ -70,10 +73,6 @@ function normalizeBlobInfoLimit(value: number | undefined): number {
   }
 
   return Math.min(MAX_BLOB_INFO_LIMIT, normalizeBlobInfoWindowValue(value));
-}
-
-function normalizeBlobInfoQuery(value: string | undefined): string {
-  return value?.trim().toLocaleLowerCase() ?? "";
 }
 
 function normalizeBlobInfoSort(value: BlobInfoSort | undefined): BlobInfoSort {
@@ -153,6 +152,10 @@ function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
 // from a synced document keeps its row until the detach reaches the server, and
 // it stops being a reference the moment it is unlinked.
 function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
+  const name = sql<
+    string | null
+  >`json_extract(${documentProjectionText.attachmentNames},
+    '$.' || json_quote(${documentAttachmentBlobProjection.contentSha256} || ':' || ${documentAttachmentBlobProjection.slotId}))`;
   return db
     .select({
       attachmentKind: sql<BlobInfoAttachmentKind>`'local'`.as(
@@ -177,7 +180,7 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       documentTitle: documentProjection.title,
       localId: documentAttachmentBlobProjection.localId,
       mimeType: documentAttachmentBlobProjection.mimeType,
-      name: sql<string | null>`NULL`.as("name"),
+      name: name.as("name"),
       organizationId: sql<string | null>`COALESCE(
         NULLIF(${containers.organizationId}, ''),
         NULLIF(${documentProjection.organizationId}, '')
@@ -185,6 +188,7 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       searchText: sql<string>`LOWER(
         COALESCE(${documentAttachmentBlobProjection.blobId}, '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.storageKey}, '')
+        || CHAR(0) || COALESCE(${name}, '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.mimeType}, '')
         || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.localId}, '')
         || CHAR(0) || COALESCE(${documentProjection.documentId}, '')
@@ -204,6 +208,13 @@ function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
       >`${documentAttachmentBlobProjection.updatedAt}`.as("updated_at"),
     })
     .from(documentAttachmentBlobProjection)
+    .leftJoin(
+      documentProjectionText,
+      eq(
+        documentProjectionText.localId,
+        documentAttachmentBlobProjection.localId,
+      ),
+    )
     .leftJoin(
       documentProjection,
       eq(documentProjection.localId, documentAttachmentBlobProjection.localId),
@@ -278,6 +289,10 @@ function createGroupedBlobInfoCtes(input: {
     return { blobInfoReferences, groupedBlobInfo, matchingBlobKeys: null };
   }
 
+  const folded = input.query.toLocaleLowerCase();
+  const search = blobInfoReferences.searchText;
+  const foldedMatch = sql`INSTR(${search}, ${folded})`;
+  // SQLite folds only ASCII. Also match its spelling of a verbatim filename.
   const matchingBlobKeys = input.db.$with("matching_blob_keys").as(
     input.db
       .selectDistinct({
@@ -287,10 +302,9 @@ function createGroupedBlobInfoCtes(input: {
       })
       .from(blobInfoReferences)
       .where(
-        gt(
-          sql<number>`INSTR(${blobInfoReferences.searchText}, ${input.query})`,
-          0,
-        ),
+        input.query === folded
+          ? foldedMatch
+          : sql`${foldedMatch} OR INSTR(${search}, LOWER(${input.query}))`,
       ),
   );
   const groupedBlobInfo = input.db.$with("grouped_blob_info").as(
@@ -446,12 +460,13 @@ export async function listBlobInfo(
     return { rows: [], totalCount: 0 };
   }
 
-  const query = normalizeBlobInfoQuery(input.query);
+  const query = input.query?.trim() ?? "";
   const limit = normalizeBlobInfoLimit(input.limit);
   const offset = normalizeBlobInfoWindowValue(input.offset);
   const sort = normalizeBlobInfoSort(input.sort);
   await sqlDocumentsPersistence.ensureSchema(input.execSql);
   await ensureContainerTables(input.execSql);
+  await backfillDocumentAttachmentNames(input.execSql);
   const { db } = getClientSQLitePersistenceRuntime(input.execSql);
 
   const totalCount = await countBlobInfoRows({

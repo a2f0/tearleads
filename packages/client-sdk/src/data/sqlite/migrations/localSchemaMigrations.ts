@@ -85,6 +85,17 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 4,
   },
+  {
+    name: "project_document_attachment_names",
+    up: async (execSql, context) => {
+      if (await context.hasTable("document_projection_text")) {
+        await execSql(
+          "ALTER TABLE document_projection_text ADD COLUMN attachment_names TEXT",
+        );
+      }
+    },
+    version: 5,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

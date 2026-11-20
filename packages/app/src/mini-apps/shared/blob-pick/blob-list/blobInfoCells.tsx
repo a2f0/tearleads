@@ -25,7 +25,7 @@ import {
   BLOB_LIST_LABELS,
   getBlobListReferenceCountLabel,
 } from "./blobListLabels";
-import { getBlobChangedAt } from "./blobListState";
+import { getBlobChangedAt, getBlobDisplayName } from "./blobListState";
 import { useBlobThumbnailUrl } from "./blobPreview";
 
 // A host that shows the sync column supplies the cell: the shared table computes
@@ -188,6 +188,14 @@ export function renderBlobInfoCell(params: {
           selectable={selectable}
         />
       );
+    case "filename": {
+      const name = getBlobDisplayName(blob);
+      return (
+        <MiniAppTableCell key="filename" title={name}>
+          <MiniAppTableText>{name}</MiniAppTableText>
+        </MiniAppTableCell>
+      );
+    }
     case "organization":
       return (
         <MiniAppTableCell
@@ -254,6 +262,10 @@ function getBlobInfoCompactField(
   const label = getBlobInfoColumnLabel(columnId);
 
   switch (columnId) {
+    case "filename": {
+      const name = getBlobDisplayName(blob);
+      return { id: columnId, label, text: name, title: name };
+    }
     case "organization":
       return {
         id: columnId,
