@@ -26,6 +26,9 @@ export interface SessionOptions {
   readonly documentProjectors?:
     | readonly DocumentProjectorDefinition[]
     | undefined;
+  readonly registerShutdown?:
+    | ((revoke: () => Promise<boolean>) => void)
+    | undefined;
   readonly apiBaseUrl: string;
   readonly recoveryKey: string;
   readonly tracer?: Tracer | undefined;
@@ -125,6 +128,7 @@ async function runSession<T>(
     recoveryKey,
     tracer,
     documentProjectors,
+    registerShutdown,
   }: SessionOptions & { tracer: Tracer },
   work: (session: CliSession) => Promise<T>,
 ): Promise<T> {
@@ -169,12 +173,21 @@ async function runSession<T>(
     }
   };
 
+  const loginResult = Promise.withResolvers<boolean>();
+  let revocation: Promise<boolean> | undefined;
+  const revokeOnce = () => {
+    revocation ??= loginResult.promise.then((active) => !active || revoke(sdk));
+    return revocation;
+  };
+  registerShutdown?.(revokeOnce);
   let signedIn = false;
   try {
     await tracer.span("derive keys from recovery key", () =>
       sdk.identity.importSeedPhrase(recoveryKey),
     );
     signedIn = await tracer.span("sign in", () => sdk.session.login());
+    loginResult.resolve(signedIn);
+    if (revocation) throw new Error("Command interrupted.");
     const userId = sdk.session.userId;
     if (!signedIn || !userId) {
       throw new LoginRefusedError();
@@ -187,14 +200,15 @@ async function runSession<T>(
       userId,
     });
     signedIn = false;
-    if (!(await tracer.span("revoke session", () => revoke(sdk)))) {
+    if (!(await tracer.span("revoke session", revokeOnce))) {
       throw new Error(
         "Could not revoke this command's session on the API; it stays valid until it expires.",
       );
     }
     return result;
   } finally {
-    if (signedIn) await revoke(sdk);
+    loginResult.resolve(false);
+    if (signedIn) await revokeOnce();
     sdk.dispose();
     database.close();
   }

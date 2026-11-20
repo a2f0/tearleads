@@ -4,7 +4,11 @@ export const boundedMetadata = Symbol("boundedMetadata");
 const MAX_METADATA_BYTES = 64 * 1024;
 // A binding list carries signatures and recipient envelopes for multiple slots.
 const MAX_ATTACHMENT_LIST_BYTES = 8 * 1024 * 1024;
-export type MetadataLimit = "all" | "errors" | "attachment-list";
+export type MetadataLimit =
+  | "all"
+  | "errors"
+  | "attachment-list"
+  | "writer-projection";
 
 /** Limit JSON descriptors and HTTP error details before any decoder can buffer them. */
 export function boundedMetadataResponse(
@@ -22,7 +26,9 @@ export function boundedMetadataResponse(
   const reader = response.body?.getReader();
   if (!reader) return new Response(null, init);
   const limit =
-    mode === "attachment-list" ? MAX_ATTACHMENT_LIST_BYTES : MAX_METADATA_BYTES;
+    mode === "attachment-list" || mode === "writer-projection"
+      ? MAX_ATTACHMENT_LIST_BYTES
+      : MAX_METADATA_BYTES;
   let bytes = 0;
   return new Response(
     new ReadableStream<Uint8Array>(

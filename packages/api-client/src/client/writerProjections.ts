@@ -8,6 +8,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { BoundedCache } from "../ApiCache";
+import { boundedMetadata } from "../boundedMetadataResponse";
 import { bindPrototypeMethods, cachedRequest } from "../requestInternals";
 import {
   containerWriterProjection,
@@ -248,9 +249,12 @@ export class WriterProjectionArea {
     options?: { signal: AbortSignal },
   ) {
     if (options)
-      return this.getDocumentWriterProjectionResult(documentId, options).then(
-        (result) => (result.ok ? result.data : null),
-      );
+      return this.getDocumentWriterProjectionResult(documentId, {
+        ...options,
+        [boundedMetadata]: this.context.streamingDownloads
+          ? "writer-projection"
+          : undefined,
+      }).then((result) => (result.ok ? result.data : null));
 
     return cachedRequest(this.documents.cache, documentId, () =>
       this.context.request(

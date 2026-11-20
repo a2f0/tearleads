@@ -307,43 +307,48 @@ testApiClient(
   },
 );
 
-testApiClient(
-  "a bounded attachment listing cancels an oversized stream before decoding",
-  async () => {
-    const cancel = mock(() => {});
-    let pulls = 0;
-    const body = new ReadableStream<Uint8Array>(
-      {
-        pull(controller) {
-          pulls++;
-          if (pulls <= 10) controller.enqueue(new Uint8Array(1024 * 1024));
-          else controller.close();
+for (const kind of ["attachment listing", "writer projection"] as const)
+  testApiClient(
+    `a bounded ${kind} cancels an oversized stream before decoding`,
+    async () => {
+      const cancel = mock(() => {});
+      let pulls = 0;
+      const body = new ReadableStream<Uint8Array>(
+        {
+          pull(controller) {
+            pulls++;
+            if (pulls <= 10) controller.enqueue(new Uint8Array(1024 * 1024));
+            else controller.close();
+          },
+          cancel,
         },
-        cancel,
-      },
-      { highWaterMark: 0 },
-    );
-    const network = spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(body),
-    );
-    try {
-      const client = new ApiClient(apiBaseUrl, {
-        metrics: new ApiRequestMetrics(),
-        getIdentity: () => null,
-        streamingDownloads: true,
-      });
-      expect(
-        await client.listDocumentAttachments(crypto.randomUUID(), {
-          boundedListing: true,
-        }),
-      ).toBeNull();
-      expect(cancel).toHaveBeenCalledTimes(1);
-      expect(pulls).toBe(9);
-    } finally {
-      network.mockRestore();
-    }
-  },
-);
+        { highWaterMark: 0 },
+      );
+      const network = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(body),
+      );
+      try {
+        const client = new ApiClient(apiBaseUrl, {
+          metrics: new ApiRequestMetrics(),
+          getIdentity: () => null,
+          streamingDownloads: true,
+        });
+        expect(
+          kind === "attachment listing"
+            ? await client.listDocumentAttachments(crypto.randomUUID(), {
+                boundedListing: true,
+              })
+            : await client.getDocumentWriterProjection(crypto.randomUUID(), {
+                signal: new AbortController().signal,
+              }),
+        ).toBeNull();
+        expect(cancel).toHaveBeenCalledTimes(1);
+        expect(pulls).toBe(9);
+      } finally {
+        network.mockRestore();
+      }
+    },
+  );
 
 testApiClient(
   "a bounded verifier read with an invalid descriptor preserves shared download diagnostics",

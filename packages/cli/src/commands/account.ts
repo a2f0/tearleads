@@ -31,6 +31,7 @@ export async function withSavedSession<T>(
   return withSession(
     {
       apiBaseUrl: input.context.apiBaseUrl(input.target),
+      registerShutdown: input.context.registerShutdown,
       recoveryKey,
       documentProjectors,
       tracer: input.tracer,

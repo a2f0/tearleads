@@ -4,6 +4,7 @@ import type { Tracer } from "./trace";
 
 /** Everything a command touches outside the SDK, so tests can supply it. */
 export interface CliContext {
+  readonly registerShutdown?: (revoke: () => Promise<boolean>) => void;
   apiBaseUrl(target: TargetName): string;
   readonly keyStore: RecoveryKeyStore;
   readRecoveryKey(prompt: string): Promise<string>;

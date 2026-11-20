@@ -7,17 +7,24 @@ export async function runSeedProcess(
   recoveryKey: string,
   timeoutMs = 65 * 60_000,
 ) {
-  const deadline = AbortSignal.timeout(timeoutMs);
   const child = Bun.spawn(argv, {
     cwd: fileURLToPath(new URL("../../cli/", import.meta.url)),
     stdin: new TextEncoder().encode(recoveryKey),
     stdout: "inherit",
     stderr: "inherit",
-    signal: deadline,
-    killSignal: "SIGKILL",
   });
-  const exitCode = await child.exited;
-  if (deadline.aborted)
-    throw new Error(`${phase} timed out after ${timeoutMs} ms.`);
+  let timedOut = false;
+  let grace: ReturnType<typeof setTimeout> | undefined;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    child.kill("SIGTERM");
+    // The CLI gives session revocation five seconds before exiting.
+    grace = setTimeout(() => child.kill("SIGKILL"), 10_000);
+  }, timeoutMs);
+  const exitCode = await child.exited.finally(() => {
+    clearTimeout(timer);
+    clearTimeout(grace);
+  });
+  if (timedOut) throw new Error(`${phase} timed out after ${timeoutMs} ms.`);
   if (exitCode !== 0) throw new Error(`${phase} exited with code ${exitCode}.`);
 }
