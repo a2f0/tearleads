@@ -89,6 +89,8 @@ const baseConfig = {
         "e2e/**/*.spec.ts",
         // Bundled by the diagnostics browser test through a runtime path.
         "e2e/fixtures/diagnostics.ts",
+        // Loaded by the SQLite cache fixture HTML on the E2E server.
+        "e2e/fixtures/sqliteRuntime.ts",
         "screenshots/**/*.spec.ts",
       ],
       project: [
