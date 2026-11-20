@@ -17,6 +17,7 @@ interface Request {
   mimeType: string;
 }
 interface Entry {
+  lifetime: AbortController;
   request: Request;
   preview: AttachmentPreview;
 }
@@ -41,7 +42,6 @@ async function load(
     const bytes = await readImagePreviewBytes(
       request.blobStore,
       request.storageKey,
-      current,
       deadline,
     );
     if (bytes && current())
@@ -65,15 +65,7 @@ async function updatePreview(
   const current = () => activeEntries.get(slot) === entry;
   if (!current()) return;
   const started = generation();
-  const deadline = AbortSignal.timeout(30_000);
-  const expired = Promise.withResolvers<PreviewResult>();
-  const expire = () => expired.resolve({ status: "unavailable" });
-  deadline.addEventListener("abort", expire, { once: true });
-  const result = await Promise.race([
-    expired.promise,
-    load(entry.request, () => current() && !deadline.aborted, deadline),
-  ]);
-  deadline.removeEventListener("abort", expire);
+  const result = await load(entry.request, current, entry.lifetime.signal);
   if (!current()) {
     release(result);
     return;
@@ -81,7 +73,7 @@ async function updatePreview(
   const retry = result.status === "unavailable" && generation() !== started;
   if (retry) activeEntries.delete(slot); // Give waiting slots their turn before a retry.
   activeEntries.set(slot, {
-    request: entry.request,
+    ...entry,
     preview: transitionAttachmentPreview(
       entry.preview,
       retry ? { status: "retry" } : result,
@@ -100,6 +92,7 @@ function discardStalePreviews(
     const requested = requests.get(slot);
     const retry = refreshCompleted && entry.preview.status === "unavailable";
     if (requested && sameSource(entry, requested) && !retry) continue;
+    entry.lifetime.abort();
     release(entry.preview);
     activeEntries.delete(slot);
     changed = true;
@@ -122,7 +115,7 @@ function startQueuedPreviews(
     if (entry.preview.status !== "queued") continue;
     available--;
     const started = {
-      request: entry.request,
+      ...entry,
       preview: transitionAttachmentPreview(entry.preview, { status: "start" }),
     };
     active.set(slot, started);
@@ -165,7 +158,10 @@ export function useAttachmentImageUrls(
   useEffect(() => {
     const entries = active.current;
     return () => {
-      for (const entry of entries.values()) release(entry.preview);
+      for (const entry of entries.values()) {
+        entry.lifetime.abort();
+        release(entry.preview);
+      }
       entries.clear();
     };
   }, []);
@@ -181,7 +177,11 @@ export function useAttachmentImageUrls(
     );
     for (const [slot, request] of requests) {
       if (activeEntries.has(slot)) continue;
-      const entry: Entry = { request, preview: { status: "queued" } };
+      const entry: Entry = {
+        request,
+        lifetime: new AbortController(),
+        preview: { status: "queued" },
+      };
       activeEntries.set(slot, entry);
       changed = true;
     }

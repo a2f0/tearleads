@@ -216,6 +216,7 @@ export interface ContainerContents {
    */
   discoverContainerDocuments(
     containerId: string,
+    onPendingDiscovery?: (delayMs: number) => void,
   ): Promise<ReadonlyArray<DocumentSummary> | null>;
 
   /**

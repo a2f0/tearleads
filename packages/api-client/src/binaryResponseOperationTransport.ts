@@ -68,8 +68,10 @@ async function decodeBinaryOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeBinaryOperationResponseEnvelope>> {
-  if (requestRetired(session, options))
+  if (requestRetired(session, options)) {
+    void response.body?.cancel().catch(() => {});
     return retiredRequest(operation.method, path);
+  }
   if (
     !operation.responses[response.status] ||
     operation.responseMediaTypes[response.status] !== "application/octet-stream"
@@ -141,7 +143,7 @@ export function createBinaryResponseOperationTransport(
     if (!result.ok) {
       return result;
     }
-    const decoded = await decodeBinaryOperationResponse(
+    return decodeBinaryOperationResponse(
       responseRequest,
       operation,
       result.data,
@@ -149,8 +151,6 @@ export function createBinaryResponseOperationTransport(
       options,
       session,
     );
-    if (!decoded.ok) void result.data.body?.cancel().catch(() => {});
-    return decoded;
   }
 
   return {

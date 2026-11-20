@@ -117,7 +117,13 @@ async function verifyFixtures(
   let attachments = 0;
   for await (const { containerId, row } of discoverSeedDocuments(
     account.folders,
-    (id) => session.sdk.containerContents.discoverContainerDocuments(id),
+    (id, onPending) =>
+      session.sdk.containerContents.discoverContainerDocuments(id, (delay) => {
+        session.tracer.event(
+          `waiting ${delay} ms for document discovery in ${id}`,
+        );
+        onPending(delay);
+      }),
     session.sdk.containerContents.documentQueries()
       .listLinkedContainerIdsByDocumentIds,
   )) {

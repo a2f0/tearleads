@@ -281,3 +281,28 @@ testApiClient(
     expect(offline).not.toHaveBeenCalled();
   },
 );
+
+testApiClient(
+  "an unexpected descriptor status releases its unread stream",
+  async () => {
+    const cancel = mock(() => {});
+    const network = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(new ReadableStream({ cancel }, { highWaterMark: 0 }), {
+        status: 206,
+      }),
+    );
+    try {
+      const client = new ApiClient(apiBaseUrl, {
+        metrics: new ApiRequestMetrics(),
+        getIdentity: () => null,
+        streamingDownloads: true,
+      });
+      expect(
+        await client.getBlobBytes(blobId, { maxEncryptedByteLength: 20 }),
+      ).toBeNull();
+      expect(cancel).toHaveBeenCalledTimes(1);
+    } finally {
+      network.mockRestore();
+    }
+  },
+);

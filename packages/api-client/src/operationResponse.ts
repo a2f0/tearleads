@@ -96,6 +96,7 @@ export function operationResponseFailure(
   options: RequestResultOptions,
   message: string,
 ) {
+  void response.body?.cancel().catch(() => {});
   return request.reportFailure({
     kind: "shape",
     message,

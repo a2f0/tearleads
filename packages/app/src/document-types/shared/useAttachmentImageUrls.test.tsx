@@ -275,6 +275,12 @@ test("a replacement waits for active byte reads to release memory", async () => 
     byteLength: 1,
     contentSha256: "a".repeat(64),
   }));
+  const deadlines: AbortController[] = [];
+  const timer = spyOn(AbortSignal, "timeout").mockImplementation(() => {
+    const controller = new AbortController();
+    deadlines.push(controller);
+    return controller.signal;
+  });
   const { result, rerender } = renderHook(
     ({ key }) =>
       useAttachmentImageUrls(
@@ -289,10 +295,38 @@ test("a replacement waits for active byte reads to release memory", async () => 
     await waitFor(() => expect(active).toBe(4));
     await act(async () => rerender({ key: "new" }));
     expect(maxActive).toBe(4);
+    await act(async () => {
+      for (const deadline of deadlines) deadline.abort();
+    });
   } finally {
+    timer.mockRestore();
     await act(async () => stalled.resolve(new Uint8Array([1])));
   }
   await waitFor(() =>
     expect(Object.values(result.current.imageUrlBySlotId)).toHaveLength(4),
   );
+});
+
+test("an oversized local source is never read for a small declared photo", async () => {
+  const store = createMemoryBlobStore();
+  let reads = 0;
+  store.openByteSource = async () => ({
+    byteLength: 10_000_000,
+    read: async () => {
+      reads++;
+      return new Uint8Array();
+    },
+  });
+  const slot = {
+    slotId: "p",
+    name: "p",
+    mimeType: "image/png",
+    byteLength: 1,
+    contentSha256: "a".repeat(64),
+  };
+  const { result } = renderHook(() =>
+    useAttachmentImageUrls([slot], { p: "photo" }, store, false),
+  );
+  await waitFor(() => expect(result.current.loadingPreviewSlots.size).toBe(0));
+  expect(reads).toBe(0);
 });

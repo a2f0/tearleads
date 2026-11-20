@@ -19,32 +19,45 @@ function waitForReader(events: EventTarget, deadline: AbortSignal) {
   });
 }
 
-/** A filesystem read retains its memory allowance until the underlying read settles. */
+async function withReadDeadline<T>(work: Promise<T>, retired: AbortSignal) {
+  const limit = AbortSignal.any([retired, AbortSignal.timeout(30_000)]);
+  const timeout = Promise.withResolvers<null>();
+  const expired = () => timeout.resolve(null);
+  if (limit.aborted) expired();
+  else limit.addEventListener("abort", expired, { once: true });
+  try {
+    return await Promise.race([work, timeout.promise]);
+  } finally {
+    limit.removeEventListener("abort", expired);
+  }
+}
+
+/** Only time filesystem operations. Waiting for a sibling's read has no I/O deadline. */
 export async function readImagePreviewBytes(
   store: BlobStore,
   key: string,
-  current: () => boolean,
-  deadline: AbortSignal,
+  retired: AbortSignal,
 ) {
-  const source = await store.openByteSource(key);
+  const source = await withReadDeadline(store.openByteSource(key), retired);
   if (!source || !isAutomaticBlobPreviewAllowed(source)) return null;
   let pool = readers.get(store);
   if (!pool) {
     pool = { count: 0, events: new EventTarget() };
     readers.set(store, pool);
   }
-  while (
-    current() &&
-    !deadline.aborted &&
-    pool.count >= MAX_IMAGE_PREVIEW_READS
-  )
-    await waitForReader(pool.events, deadline);
-  if (!current() || deadline.aborted) return null;
-  pool.count++;
-  try {
-    return await source.read(0, source.byteLength);
-  } finally {
-    pool.count--;
-    pool.events.dispatchEvent(new Event("available"));
-  }
+  while (!retired.aborted && pool.count >= MAX_IMAGE_PREVIEW_READS)
+    await waitForReader(pool.events, retired);
+  if (retired.aborted) return null;
+  const active = pool;
+  const read = async () => {
+    active.count++;
+    try {
+      return await source.read(0, source.byteLength);
+    } finally {
+      // The caller can time out before the filesystem releases the buffer.
+      active.count--;
+      active.events.dispatchEvent(new Event("available"));
+    }
+  };
+  return withReadDeadline(read(), retired);
 }

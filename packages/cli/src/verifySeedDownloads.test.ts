@@ -60,3 +60,28 @@ test("a fixture whose only placement is under Trash is missing, while other fold
   expect(actual).toEqual(["live"]);
   expect(listed).toEqual(["root", "live", "live", "root"]);
 });
+
+test("deferred head verification waits for the SDK retry time", async () => {
+  let now = 0;
+  const seen: number[] = [];
+  for await (const _ of discoverSeedDocuments(
+    [{ id: "folder", organizationId: "org", parentId: null, systemSlot: null }],
+    async (_id, onPending) => {
+      seen.push(now);
+      if (!now) {
+        onPending(15 * 60_000);
+        return null;
+      }
+      return [];
+    },
+    async () => new Map(),
+    {
+      now: () => now,
+      sleep: async (ms) => {
+        now += ms;
+      },
+    },
+  ))
+    throw new Error("Unexpected fixture");
+  expect(seen).toEqual([0, 900_000]);
+});

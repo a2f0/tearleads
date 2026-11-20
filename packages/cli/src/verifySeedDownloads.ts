@@ -25,7 +25,10 @@ type Placement = { documentId: string | null };
 type ListLinks = (
   ids: readonly string[],
 ) => Promise<ReadonlyMap<string, readonly string[]>>;
-type ListPage<Row> = (id: string) => Promise<readonly Row[] | null>;
+type ListPage<Row> = (
+  id: string,
+  onPending: (delayMs: number) => void,
+) => Promise<readonly Row[] | null>;
 
 async function* linkedRows<Row extends Placement>(
   containerId: string,
@@ -42,20 +45,28 @@ async function* linkedRows<Row extends Placement>(
   }
 }
 
-async function* discoverPages<Row extends Placement>(
-  ids: readonly string[],
-  list: ListPage<Row>,
-  listLinks: ListLinks,
-  deferred: string[],
-) {
-  for (const containerId of ids) {
-    for (;;) {
-      const batch = await list(containerId);
-      if (!batch) deferred.push(containerId);
-      if (!batch?.length) break;
-      yield* linkedRows(containerId, batch, listLinks);
-    }
-  }
+type FolderRead = {
+  id: string;
+  retryAt: number;
+  unavailable?: { since: number; attempts: number };
+};
+
+function retryFolder(
+  folder: FolderRead,
+  delay: number | null,
+  now: number,
+): FolderRead {
+  if (delay !== null)
+    return { id: folder.id, retryAt: now + Math.max(1, delay) };
+  const { since, attempts } = folder.unavailable ?? { since: now, attempts: 0 };
+  const until = since + 30_000;
+  if (now >= until)
+    throw new Error(`Could not finish discovery in folder ${folder.id}.`);
+  return {
+    id: folder.id,
+    retryAt: Math.min(until, now + Math.min(250 * 2 ** attempts, 2_000)),
+    unavailable: { since, attempts: attempts + 1 },
+  };
 }
 
 export async function* discoverSeedDocuments<Row extends Placement>(
@@ -64,9 +75,10 @@ export async function* discoverSeedDocuments<Row extends Placement>(
   >,
   list: ListPage<Row>,
   listLinks: ListLinks,
+  clock = { now: () => Date.now(), sleep: (ms: number) => Bun.sleep(ms) },
 ) {
   const byId = new Map(folders.map((node) => [node.id, node]));
-  let remaining = folders
+  const remaining: FolderRead[] = folders
     .filter(
       (node) =>
         !isContainerUnderTrashByLookup(byId, node.id, {
@@ -74,21 +86,27 @@ export async function* discoverSeedDocuments<Row extends Placement>(
           trashSystemSlot: null,
         }),
     )
-    .map((node) => node.id);
-  let retryDeadline: number | undefined;
-  let delay = 250;
+    .map(({ id }) => ({ id, retryAt: 0 }));
+  // Persistent head verification can defer a folder for 15 minutes. Give other
+  // folders a turn and observe the SDK delay without polling a held head.
+  const end = clock.now() + 60 * 60_000;
   while (remaining.length) {
-    const deferred: string[] = [];
-    yield* discoverPages(remaining, list, listLinks, deferred);
-    if (!deferred.length) return;
-    retryDeadline ??= Date.now() + 30_000;
-    const timeLeft = retryDeadline - Date.now();
-    if (timeLeft <= 0)
-      throw new Error(
-        `Could not finish discovery in ${deferred.length} folder(s).`,
-      );
-    await Bun.sleep(Math.min(timeLeft, delay));
-    delay = Math.min(delay * 2, 2_000);
-    remaining = deferred;
+    remaining.sort((a, b) => a.retryAt - b.retryAt);
+    const next = remaining.shift();
+    if (!next) return;
+    const now = clock.now();
+    if (next.retryAt > end || now >= end)
+      throw new Error(`Document discovery timed out in ${next.id}.`);
+    if (next.retryAt > now) await clock.sleep(next.retryAt - now);
+    let retryDelay: number | null = null;
+    const batch = await list(next.id, (delay) => {
+      retryDelay = delay;
+    });
+    if (batch?.length) {
+      yield* linkedRows(next.id, batch, listLinks);
+      remaining.unshift({ id: next.id, retryAt: 0 });
+    } else if (!batch || retryDelay !== null) {
+      remaining.push(retryFolder(next, retryDelay, clock.now()));
+    }
   }
 }
