@@ -21,6 +21,38 @@
   min-height: var(--control-height);
 }
 
+/* Mobile Safari versions that ignore range accents need an explicit thumb. */
+@supports (-webkit-touch-callout: none) {
+  @media (forced-colors: none) {
+    .explorer-document-history-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+    }
+
+    .explorer-document-history-slider::-webkit-slider-runnable-track {
+      display: flex;
+      align-items: center;
+      height: var(--space-xs);
+      border-radius: var(--space-xs);
+      background: color-mix(in srgb, var(--color-dark) 50%, var(--color-light));
+    }
+
+    .explorer-document-history-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+      background: var(--color-dark);
+    }
+
+    .explorer-document-history-slider:disabled {
+      opacity: var(--opacity-disabled);
+    }
+  }
+}
+
 .explorer-document-history-position {
   flex: 0 0 auto;
   color: var(--color-muted-foreground);
