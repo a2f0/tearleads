@@ -291,12 +291,11 @@ test("Network radio labels meet the phone touch target", async ({ page }) => {
   }
 });
 
-test("Network radios use the active theme's grayscale foreground", async ({
+test("Network radios use the active theme for selection and keyboard focus", async ({
   page,
 }) => {
   const settings = await openSettingsFromTray(page);
-  const colors = new Set<string>();
-  for (const theme of ["Light", "Dark"]) {
+  for (const theme of ["Light", "Dark", "Dusk"]) {
     await settings.getByRole("tab", { name: "Desktop" }).click();
     await settings.getByText(theme, { exact: true }).click();
     await settings.getByRole("tab", { name: "Network" }).click();
@@ -304,11 +303,22 @@ test("Network radios use the active theme's grayscale foreground", async ({
       name: "Use Automatic Network",
     });
     await expect(radio).toBeChecked();
-    const accent = await radio.evaluate(
-      (element) => getComputedStyle(element).accentColor,
-    );
-    expect(accent).toMatch(/^rgb\((\d+), \1, \1\)$/);
-    colors.add(accent);
+    await page.keyboard.press("Tab");
+    await expect(radio).toBeFocused();
+    const foreground = await radio.evaluate((element) => {
+      const swatch = document.createElement("span");
+      swatch.style.color = "var(--color-dark)";
+      element.after(swatch);
+      const color = getComputedStyle(swatch).color;
+      swatch.remove();
+      return color;
+    });
+    if (theme !== "Dusk") {
+      expect(foreground).toMatch(/^rgb\((\d+), \1, \1\)$/);
+    }
+    await expect(radio).toHaveCSS("accent-color", foreground);
+    await expect(radio).toHaveCSS("outline-color", foreground);
+    await expect(radio).toHaveCSS("outline-style", "solid");
+    await expect(radio).toHaveCSS("outline-width", "2px");
   }
-  expect(colors.size).toBe(2);
 });
