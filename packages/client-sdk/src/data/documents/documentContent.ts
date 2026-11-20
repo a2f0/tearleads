@@ -145,6 +145,21 @@ export function getDocumentAttachments(
   return getStructuredDocumentAttachments(doc);
 }
 
+// The fixed-length digest keeps a held copy from inheriting the name of
+// different bytes that later occupy its slot.
+export function serializeDocumentAttachmentNames(
+  doc: StructuredDocumentShape,
+): string {
+  return JSON.stringify(
+    Object.fromEntries(
+      getDocumentAttachments(doc).map(({ contentSha256, slotId, name }) => [
+        `${contentSha256}:${slotId}`,
+        { name, search: name.toLowerCase() },
+      ]),
+    ),
+  );
+}
+
 export function addDocumentAttachments(
   doc: StructuredDocumentShape,
   attachments: ReadonlyArray<DocumentAttachment>,

@@ -167,6 +167,7 @@ export interface DocumentsPersistence
     },
     options:
       | {
+          attachmentNames?: string;
           pendingUpdate?: PendingUpdateFields;
           /** Recheck volatile caller ownership inside the create transaction. */
           stillCurrent?: (() => boolean) | undefined;
@@ -189,6 +190,7 @@ export interface DocumentsPersistence
     execSql: ExecSql,
     input: {
       acceptedPendingUpdateIds: readonly string[];
+      attachmentNames?: string;
       attachmentRemoval?: AttachmentRemovalRows | undefined;
       attachmentStaging?: AttachmentStagingRows | undefined;
       clearSyncFailure?: boolean | undefined;

@@ -98,6 +98,7 @@ function toDocumentRecordRow(input: {
 }
 
 async function saveDocumentProjectionRows(input: {
+  attachmentNames?: string | undefined;
   document: StoredDocumentRecord;
   tx: ClientSQLiteTransactionScope;
   updatedAt: string;
@@ -123,6 +124,9 @@ async function saveDocumentProjectionRows(input: {
   const projectionTextRow = {
     localId: document.id,
     text: document.text,
+    ...(input.attachmentNames === undefined
+      ? {}
+      : { attachmentNames: input.attachmentNames }),
   };
   await tx
     .insert(documentProjectionText)
@@ -135,6 +139,7 @@ async function saveDocumentProjectionRows(input: {
 }
 
 export async function createDocumentRowsIfAbsent(input: {
+  attachmentNames?: string | undefined;
   document: StoredDocumentRecord;
   tx: ClientSQLiteTransactionScope;
   updatedAt: string;
@@ -157,6 +162,7 @@ export async function createDocumentRowsIfAbsent(input: {
 }
 
 export async function saveDocumentRows(input: {
+  attachmentNames?: string | undefined;
   /** Clears the recorded sync failure in the same guarded upsert. */
   clearSyncFailure?: boolean;
   document: StoredDocumentRecord;

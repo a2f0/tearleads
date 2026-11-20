@@ -1,28 +1,13 @@
-import {
-  asc,
-  count,
-  countDistinct,
-  desc,
-  eq,
-  gt,
-  inArray,
-  isNull,
-  sql,
-} from "drizzle-orm";
-import { unionAll } from "drizzle-orm/sqlite-core";
+import { asc, count, countDistinct, desc, eq, inArray, sql } from "drizzle-orm";
 import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  containers,
-  documentAttachmentBlobProjection,
-  documentPendingAttachments,
-} from "../../../data/sqlite/schema";
-import { documentProjection } from "../../../data/sqlite/schema/documentProjectionSchema";
 import {
   type ClientSQLiteDatabase,
   getClientSQLitePersistenceRuntime,
 } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { backfillDocumentAttachmentNames } from "../../documents";
+import { createBlobInfoReferencesCte } from "./blobInfoReferenceQuery";
 import {
   attachBlobInfoReferences,
   mapBlobInfoReferenceRow,
@@ -31,7 +16,6 @@ import {
 } from "./blobInfoRows";
 import type {
   BlobInfo,
-  BlobInfoAttachmentKind,
   BlobInfoDocumentReference,
   BlobInfoInput,
   BlobInfoList,
@@ -72,10 +56,6 @@ function normalizeBlobInfoLimit(value: number | undefined): number {
   return Math.min(MAX_BLOB_INFO_LIMIT, normalizeBlobInfoWindowValue(value));
 }
 
-function normalizeBlobInfoQuery(value: string | undefined): string {
-  return value?.trim().toLocaleLowerCase() ?? "";
-}
-
 function normalizeBlobInfoSort(value: BlobInfoSort | undefined): BlobInfoSort {
   if (!value) {
     return DEFAULT_BLOB_INFO_SORT;
@@ -91,136 +71,6 @@ function normalizeBlobInfoSort(value: BlobInfoSort | undefined): BlobInfoSort {
   }
 
   return value;
-}
-
-function createPendingBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
-  return db
-    .select({
-      attachmentKind: sql<BlobInfoAttachmentKind>`'pending'`.as(
-        "attachment_kind",
-      ),
-      blobId: sql<string | null>`NULL`.as("blob_id"),
-      blobKey:
-        sql<string>`'storage:' || ${documentPendingAttachments.storageKey}`.as(
-          "blob_key",
-        ),
-      byteLength: documentPendingAttachments.byteLength,
-      changedAtSort: sql<string>`${documentPendingAttachments.createdAt}`.as(
-        "changed_at_sort",
-      ),
-      containerId: documentProjection.containerId,
-      createdAt: sql<string | null>`${documentPendingAttachments.createdAt}`.as(
-        "created_at",
-      ),
-      documentId: documentProjection.documentId,
-      documentKind: documentProjection.documentKind,
-      documentTitle: documentProjection.title,
-      localId: documentPendingAttachments.localId,
-      mimeType: documentPendingAttachments.mimeType,
-      name: sql<string | null>`${documentPendingAttachments.name}`.as("name"),
-      organizationId: sql<string | null>`COALESCE(
-        NULLIF(${containers.organizationId}, ''),
-        NULLIF(${documentProjection.organizationId}, '')
-      )`.as("organization_id"),
-      searchText: sql<string>`LOWER(
-        COALESCE(${documentPendingAttachments.storageKey}, '')
-        || CHAR(0) || COALESCE(${documentPendingAttachments.mimeType}, '')
-        || CHAR(0) || COALESCE(${documentPendingAttachments.name}, '')
-        || CHAR(0) || COALESCE(${documentPendingAttachments.localId}, '')
-        || CHAR(0) || COALESCE(${documentProjection.documentId}, '')
-        || CHAR(0) || COALESCE(${documentProjection.title}, '')
-        || CHAR(0) || COALESCE(${documentProjection.containerId}, '')
-        || CHAR(0) || COALESCE(
-          NULLIF(${containers.organizationId}, ''),
-          NULLIF(${documentProjection.organizationId}, ''),
-          ''
-        )
-        || CHAR(0) || COALESCE(${documentPendingAttachments.slotId}, '')
-      )`.as("search_text"),
-      slotId: documentPendingAttachments.slotId,
-      storageKey: documentPendingAttachments.storageKey,
-      updatedAt: sql<string | null>`NULL`.as("updated_at"),
-    })
-    .from(documentPendingAttachments)
-    .leftJoin(
-      documentProjection,
-      eq(documentProjection.localId, documentPendingAttachments.localId),
-    )
-    .leftJoin(containers, eq(containers.id, documentProjection.containerId));
-}
-
-// Detached rows are excluded here rather than at each call site: a slot unlinked
-// from a synced document keeps its row until the detach reaches the server, and
-// it stops being a reference the moment it is unlinked.
-function createLocalBlobInfoReferencesSelect(db: ClientSQLiteDatabase) {
-  return db
-    .select({
-      attachmentKind: sql<BlobInfoAttachmentKind>`'local'`.as(
-        "attachment_kind",
-      ),
-      blobId: documentAttachmentBlobProjection.blobId,
-      blobKey: sql<string>`CASE
-        WHEN ${documentAttachmentBlobProjection.blobId} IS NOT NULL
-          AND ${documentAttachmentBlobProjection.blobId} <> ''
-          THEN 'blob:' || ${documentAttachmentBlobProjection.blobId}
-        ELSE 'storage:' || ${documentAttachmentBlobProjection.storageKey}
-      END`.as("blob_key"),
-      byteLength: documentAttachmentBlobProjection.byteLength,
-      changedAtSort:
-        sql<string>`${documentAttachmentBlobProjection.updatedAt}`.as(
-          "changed_at_sort",
-        ),
-      containerId: documentProjection.containerId,
-      createdAt: sql<string | null>`NULL`.as("created_at"),
-      documentId: documentProjection.documentId,
-      documentKind: documentProjection.documentKind,
-      documentTitle: documentProjection.title,
-      localId: documentAttachmentBlobProjection.localId,
-      mimeType: documentAttachmentBlobProjection.mimeType,
-      name: sql<string | null>`NULL`.as("name"),
-      organizationId: sql<string | null>`COALESCE(
-        NULLIF(${containers.organizationId}, ''),
-        NULLIF(${documentProjection.organizationId}, '')
-      )`.as("organization_id"),
-      searchText: sql<string>`LOWER(
-        COALESCE(${documentAttachmentBlobProjection.blobId}, '')
-        || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.storageKey}, '')
-        || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.mimeType}, '')
-        || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.localId}, '')
-        || CHAR(0) || COALESCE(${documentProjection.documentId}, '')
-        || CHAR(0) || COALESCE(${documentProjection.title}, '')
-        || CHAR(0) || COALESCE(${documentProjection.containerId}, '')
-        || CHAR(0) || COALESCE(
-          NULLIF(${containers.organizationId}, ''),
-          NULLIF(${documentProjection.organizationId}, ''),
-          ''
-        )
-        || CHAR(0) || COALESCE(${documentAttachmentBlobProjection.slotId}, '')
-      )`.as("search_text"),
-      slotId: documentAttachmentBlobProjection.slotId,
-      storageKey: documentAttachmentBlobProjection.storageKey,
-      updatedAt: sql<
-        string | null
-      >`${documentAttachmentBlobProjection.updatedAt}`.as("updated_at"),
-    })
-    .from(documentAttachmentBlobProjection)
-    .leftJoin(
-      documentProjection,
-      eq(documentProjection.localId, documentAttachmentBlobProjection.localId),
-    )
-    .leftJoin(containers, eq(containers.id, documentProjection.containerId))
-    .where(isNull(documentAttachmentBlobProjection.detachedAt));
-}
-
-function createBlobInfoReferencesCte(db: ClientSQLiteDatabase) {
-  return db
-    .$with("blob_info_references")
-    .as(
-      unionAll(
-        createPendingBlobInfoReferencesSelect(db),
-        createLocalBlobInfoReferencesSelect(db),
-      ),
-    );
 }
 
 function createGroupedBlobInfoCtes(input: {
@@ -278,6 +128,10 @@ function createGroupedBlobInfoCtes(input: {
     return { blobInfoReferences, groupedBlobInfo, matchingBlobKeys: null };
   }
 
+  const folded = input.query.toLowerCase();
+  const search = blobInfoReferences.searchText;
+  const foldedMatch = sql`INSTR(${search}, ${folded})`;
+  // SQLite folds only ASCII. Also match its spelling of a verbatim filename.
   const matchingBlobKeys = input.db.$with("matching_blob_keys").as(
     input.db
       .selectDistinct({
@@ -287,10 +141,9 @@ function createGroupedBlobInfoCtes(input: {
       })
       .from(blobInfoReferences)
       .where(
-        gt(
-          sql<number>`INSTR(${blobInfoReferences.searchText}, ${input.query})`,
-          0,
-        ),
+        input.query === folded
+          ? foldedMatch
+          : sql`${foldedMatch} OR INSTR(${search}, LOWER(${input.query}))`,
       ),
   );
   const groupedBlobInfo = input.db.$with("grouped_blob_info").as(
@@ -439,6 +292,26 @@ async function listBlobInfoReferencesForKeys(input: {
   return rows.map(mapBlobInfoReferenceRow);
 }
 
+async function readBlobPage(input: Parameters<typeof listBlobInfoRows>[0]) {
+  const rows = await listBlobInfoRows(input);
+  const references = await listBlobInfoReferencesForKeys({
+    db: input.db,
+    keys: rows.map((row) => row.key),
+  });
+  return attachBlobInfoReferences({ rows, references });
+}
+
+function localIdsMissingFilenames(rows: readonly BlobInfo[]): string[] {
+  const missing = new Set<string>();
+  for (const row of rows) {
+    for (const ref of row.references) {
+      if (ref.attachmentKind === "local" && ref.name === null)
+        missing.add(ref.localId);
+    }
+  }
+  return [...missing];
+}
+
 export async function listBlobInfo(
   input: BlobInfoInput & { readonly execSql?: ExecSql | null | undefined },
 ): Promise<BlobInfoList> {
@@ -446,12 +319,13 @@ export async function listBlobInfo(
     return { rows: [], totalCount: 0 };
   }
 
-  const query = normalizeBlobInfoQuery(input.query);
+  const query = input.query?.trim() ?? "";
   const limit = normalizeBlobInfoLimit(input.limit);
   const offset = normalizeBlobInfoWindowValue(input.offset);
   const sort = normalizeBlobInfoSort(input.sort);
   await sqlDocumentsPersistence.ensureSchema(input.execSql);
   await ensureContainerTables(input.execSql);
+  if (query) await backfillDocumentAttachmentNames(input.execSql);
   const { db } = getClientSQLitePersistenceRuntime(input.execSql);
 
   const totalCount = await countBlobInfoRows({
@@ -462,20 +336,16 @@ export async function listBlobInfo(
     return { rows: [], totalCount };
   }
 
-  const groupedRows = await listBlobInfoRows({
-    db,
-    limit,
-    offset,
-    query,
-    sort,
-  });
-  const references = await listBlobInfoReferencesForKeys({
-    db,
-    keys: groupedRows.map((row) => row.key),
-  });
-
-  return {
-    rows: attachBlobInfoReferences({ references, rows: groupedRows }),
-    totalCount,
-  };
+  const page = { db, limit, offset, query, sort };
+  const rows = await readBlobPage(page);
+  if (
+    !query &&
+    (await backfillDocumentAttachmentNames(
+      input.execSql,
+      localIdsMissingFilenames(rows),
+    ))
+  ) {
+    return { rows: await readBlobPage(page), totalCount };
+  }
+  return { rows, totalCount };
 }

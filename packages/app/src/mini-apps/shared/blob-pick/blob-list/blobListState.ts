@@ -51,6 +51,12 @@ function getBlobRouteQuery(route: BlobBrowserRoute): string {
   return route.blobId ?? route.storageKey ?? "";
 }
 
+export function getBlobDisplayName(
+  blob: Pick<BlobInfo, "name" | "blobId" | "storageKey">,
+): string {
+  return blob.name?.trim() || blob.blobId || blob.storageKey;
+}
+
 export function getBlobChangedAt(blob: BlobInfo): string | null {
   return blob.updatedAt ?? blob.createdAt;
 }
