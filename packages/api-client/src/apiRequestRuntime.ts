@@ -392,7 +392,6 @@ export class ApiRequestRuntime {
       options,
       authToken,
     );
-
     let response: Response;
     const startedAt = Date.now();
     try {
@@ -401,6 +400,7 @@ export class ApiRequestRuntime {
         operation,
         () => fetch(`${this.baseUrl}${path}`, init),
         options.signal,
+        path,
       );
     } catch (error) {
       if (requestRetired(session, options)) return retiredRequest(method, path);

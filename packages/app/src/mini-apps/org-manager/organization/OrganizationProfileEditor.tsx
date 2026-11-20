@@ -4,6 +4,11 @@ import {
   ORGANIZATION_PROFILE_DOCUMENT_KIND,
   readOrganizationProfileName,
 } from "@tearleads/client-sdk";
+import {
+  documentSyncOperation,
+  getDocumentWriterProjectionOperation,
+  updateOrganizationProfileOperation,
+} from "@tearleads/validators/operation";
 import { useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
@@ -11,6 +16,11 @@ import {
   MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import {
+  useTearleads,
+  useTearleadsRuntime,
+} from "../../../providers/sdk/TearleadsProvider";
+import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
 import {
   DocumentsProvider,
   useDocument,
@@ -24,15 +34,31 @@ import {
   useProfileDocumentLink,
 } from "../profile/profileDocumentEditor";
 
+function OrganizationProfileLoading({
+  networkPending,
+}: {
+  networkPending: boolean;
+}) {
+  return (
+    <MiniAppStatePanel
+      busy
+      showSpinner={networkPending}
+      title={ORG_MANAGER_LABELS.loadingOrganizationProfile}
+    />
+  );
+}
+
 function OrganizationProfileDocumentFields({
   canEdit,
   localId,
+  networkPending,
   onNameChange,
   profileContainerId,
   profileDocumentId,
 }: {
   canEdit: boolean;
   localId: string;
+  networkPending: boolean;
   onNameChange: (name: string | null) => void;
   profileContainerId: string;
   profileDocumentId: string;
@@ -86,12 +112,7 @@ function OrganizationProfileDocumentFields({
   }
 
   if (!ready || !profileLinkReady) {
-    return (
-      <MiniAppStatePanel
-        busy
-        title={ORG_MANAGER_LABELS.loadingOrganizationProfile}
-      />
-    );
+    return <OrganizationProfileLoading networkPending={networkPending} />;
   }
 
   if (!canEdit) {
@@ -122,7 +143,7 @@ function OrganizationProfileDocumentFields({
           onKeyDown={blurOnEnter}
         />
       </MiniAppField>
-      {syncing && (
+      {syncing && networkPending && (
         <MiniAppStatePanel
           busy
           className="org-manager-profile-cover"
@@ -166,6 +187,30 @@ export function OrganizationProfileEditor({
     preferredLocalId: getOrganizationProfileDocumentLocalId({ organizationId }),
   });
 
+  const { apiRequests } = useTearleads();
+  const { signingFingerprint } = useTearleadsRuntime().crypto;
+  const documentId =
+    binding.status === "ready" ? binding.value.documentId : profileDocumentId;
+  const networkPending = useTearleadsExternalValue(
+    apiRequests.subscribe,
+    () =>
+      apiRequests.isResourceInFlight(
+        signingFingerprint,
+        documentSyncOperation,
+        documentId,
+      ) ||
+      apiRequests.isResourceInFlight(
+        signingFingerprint,
+        getDocumentWriterProjectionOperation,
+        documentId,
+      ) ||
+      apiRequests.isResourceInFlight(
+        signingFingerprint,
+        updateOrganizationProfileOperation,
+        organizationId,
+      ),
+  );
+
   // `pending` only affects unresolved messaging. A managed refresh must not
   // unmount a ready document provider and discard an uncommitted name draft.
   if (binding.status !== "ready") {
@@ -174,10 +219,7 @@ export function OrganizationProfileEditor({
         {ORG_MANAGER_LABELS.organizationProfileUnavailable}
       </MiniAppStatus>
     ) : (
-      <MiniAppStatePanel
-        busy
-        title={ORG_MANAGER_LABELS.loadingOrganizationProfile}
-      />
+      <OrganizationProfileLoading networkPending={networkPending} />
     );
   }
 
@@ -192,6 +234,7 @@ export function OrganizationProfileEditor({
       <OrganizationProfileDocumentFields
         canEdit={canEdit}
         localId={binding.value.localId}
+        networkPending={networkPending}
         onNameChange={onNameChange}
         profileContainerId={binding.value.containerId}
         profileDocumentId={binding.value.documentId}

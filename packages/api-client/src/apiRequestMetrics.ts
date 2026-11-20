@@ -89,6 +89,9 @@ export class ApiRequestMetrics {
     string | null,
     Map<string, EndpointDurations>
   >();
+  // Resource IDs live only for the duration of an HTTP attempt and never
+  // enter the endpoint snapshots used by System Monitor and support reports.
+  private readonly activeResources = new Map<string, number>();
   private readonly listeners = new Set<() => void>();
   private readonly generations = new Map<string | null, number>();
 
@@ -116,9 +119,23 @@ export class ApiRequestMetrics {
     this.notify();
   }
 
+  isResourceInFlight(
+    identity: string | null,
+    operation: Pick<HttpOperation, "id">,
+    resourceId: string | null,
+  ): boolean {
+    return (
+      resourceId !== null &&
+      this.activeResources.has(
+        JSON.stringify([identity, operation.id, resourceId]),
+      )
+    );
+  }
+
   begin(
     identity: string | null,
     operation: HttpOperation,
+    resourceId?: string,
   ): (outcome: Outcome, serverTiming?: ApiServerTiming | null) => void {
     const generation = this.generations.get(identity) ?? 0;
     const startedAt = this.now();
@@ -134,6 +151,16 @@ export class ApiRequestMetrics {
       total: (existing?.total ?? 0) + 1,
       inFlight: (existing?.inFlight ?? 0) + 1,
     };
+    const resourceKey =
+      resourceId === undefined
+        ? null
+        : JSON.stringify([identity, operation.id, resourceId]);
+    if (resourceKey !== null) {
+      this.activeResources.set(
+        resourceKey,
+        (this.activeResources.get(resourceKey) ?? 0) + 1,
+      );
+    }
     this.update(identity, previous, existing, row, {
       total: previous.total + 1,
       inFlight: previous.inFlight + 1,
@@ -144,7 +171,15 @@ export class ApiRequestMetrics {
     return (outcome, serverTiming) => {
       if (completed) return;
       completed = true;
-      if ((this.generations.get(identity) ?? 0) !== generation) return;
+      if (resourceKey !== null) {
+        const remaining = (this.activeResources.get(resourceKey) ?? 1) - 1;
+        if (remaining === 0) this.activeResources.delete(resourceKey);
+        else this.activeResources.set(resourceKey, remaining);
+      }
+      if ((this.generations.get(identity) ?? 0) !== generation) {
+        if (resourceKey !== null) this.notify();
+        return;
+      }
       const current = this.getSnapshot(identity);
       const endpoint = current.endpoints.find(
         (candidate) =>

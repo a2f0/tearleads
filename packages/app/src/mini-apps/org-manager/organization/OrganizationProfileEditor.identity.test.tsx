@@ -1,11 +1,16 @@
-import { expect, test } from "bun:test";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { expect, spyOn, test } from "bun:test";
+import {
+  documentSyncOperation,
+  updateOrganizationProfileOperation,
+} from "@tearleads/validators/operation";
+import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   createProfileEditorHarness,
   installProfileEditorHost,
   PROFILE_ORGANIZATION_ID,
   UNKNOWN_PROFILE_ROW,
 } from "../../../../test/helpers/org-manager/profileEditorHarness";
+import * as documents from "../../../stores/documents/DocumentsProvider";
 import { ORG_MANAGER_LABELS } from "../labels";
 import { OrganizationProfileEditor } from "./OrganizationProfileEditor";
 
@@ -71,3 +76,109 @@ for (const canEdit of [false, true]) {
     }
   });
 }
+
+test("the profile spinner follows only in-flight requests for the active profile", async () => {
+  const f = await createProfileEditorHarness("organization");
+  const lookup = Promise.withResolvers<null>();
+  const restore = installProfileEditorHost(f.sdk, {
+    ensureOrganizationMetadataContainer: () => lookup.promise,
+  });
+  const view = render(
+    <OrganizationProfileEditor
+      canEdit={false}
+      onNameChange={() => undefined}
+      organizationId={PROFILE_ORGANIZATION_ID}
+      pending={false}
+      profileDocumentId={f.documentId}
+    />,
+  );
+  const spinner = () =>
+    view.container.querySelector(".mini-app-state-panel-spinner");
+  const { apiRequests, identity } = f.sdk;
+  try {
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.loadingOrganizationProfile),
+    ).toBeTruthy();
+    expect(spinner()).toBeNull();
+    const begin = (id: string) =>
+      apiRequests.begin(identity.signingFingerprint, documentSyncOperation, id);
+    const unrelated = begin("another-document");
+    expect(spinner()).toBeNull();
+    let finish = () => {};
+    await act(async () => {
+      const document = begin(f.documentId);
+      finish = () => document("succeeded");
+    });
+    expect(spinner()).not.toBeNull();
+    await act(async () => finish());
+    expect(spinner()).toBeNull();
+    await act(async () => {
+      const binding = apiRequests.begin(
+        identity.signingFingerprint,
+        updateOrganizationProfileOperation,
+        PROFILE_ORGANIZATION_ID,
+      );
+      finish = () => binding("failed");
+    });
+    expect(spinner()).not.toBeNull();
+    await act(async () => {
+      finish();
+      unrelated("succeeded");
+    });
+    expect(spinner()).toBeNull();
+  } finally {
+    view.unmount();
+    lookup.resolve(null);
+    restore();
+    f.close();
+  }
+});
+
+test("a local sync pass keeps the name field visible until the profile makes a request", async () => {
+  const f = await createProfileEditorHarness("organization");
+  const restore = installProfileEditorHost(f.sdk);
+  const useDocument = documents.useDocument;
+  const syncPass = spyOn(documents, "useDocument").mockImplementation(() => ({
+    ...useDocument(),
+    syncing: true,
+  }));
+  const view = render(
+    <OrganizationProfileEditor
+      canEdit
+      onNameChange={() => undefined}
+      organizationId={PROFILE_ORGANIZATION_ID}
+      pending={false}
+      profileDocumentId={f.documentId}
+    />,
+  );
+  try {
+    const field = await view.findByRole("textbox", {
+      name: ORG_MANAGER_LABELS.organizationName,
+    });
+    expect(
+      view.queryByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
+    ).toBeNull();
+    let settle = () => {};
+    await act(async () => {
+      const finish = f.sdk.apiRequests.begin(
+        f.sdk.identity.signingFingerprint,
+        documentSyncOperation,
+        f.documentId,
+      );
+      settle = () => finish("succeeded");
+    });
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
+    ).toBeTruthy();
+    await act(async () => settle());
+    expect(
+      view.queryByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
+    ).toBeNull();
+    expect(view.getByRole("textbox")).toBe(field);
+  } finally {
+    view.unmount();
+    syncPass.mockRestore();
+    restore();
+    f.close();
+  }
+});

@@ -1,5 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import {
+  documentSyncOperation,
   getBlobBytesOperation,
   listSessionsOperation,
 } from "@tearleads/validators/operation";
@@ -64,6 +65,21 @@ test("reset ignores earlier completions even when the same endpoint is requested
     failed: 0,
   });
   expect(metrics.getSnapshot("bob").total).toBe(1);
+});
+
+test("live document requests survive a metrics reset until the last attempt settles", () => {
+  const metrics = new ApiRequestMetrics();
+  const active = (identity: string) =>
+    metrics.isResourceInFlight(identity, documentSyncOperation, "doc");
+  const older = metrics.begin("alice", documentSyncOperation, "doc");
+  metrics.reset("alice");
+  expect(active("alice")).toBe(true);
+  expect(active("bob")).toBe(false);
+  const newer = metrics.begin("alice", documentSyncOperation, "doc");
+  newer("cancelled");
+  expect(active("alice")).toBe(true);
+  older("failed");
+  expect(active("alice")).toBe(false);
 });
 
 test("observers cannot break requests and unsubscribe stops notifications", () => {
