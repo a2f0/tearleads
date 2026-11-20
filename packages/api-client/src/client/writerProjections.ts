@@ -14,7 +14,11 @@ import {
   documentWriterProjection,
 } from "../routes/writerProjections";
 import { retiredRequest } from "../sessionResponse";
-import type { RequestResult, RequestResultOptions } from "../types";
+import {
+  privateRead,
+  type RequestResult,
+  type RequestResultOptions,
+} from "../types";
 import type { WriterProjectionListing } from "../verifiedManifestCitations";
 import { primeWriterProjectionSlot } from "../writerProjectionPrime";
 import type {
@@ -71,6 +75,7 @@ export class WriterProjectionArea {
     // never publish the outcome to the shared caches. Only reporting-only
     // callers below participate in coalescing and cache warming.
     if (
+      options.signal !== undefined ||
       options.stillCurrent !== undefined ||
       options.headers !== undefined ||
       options.retryOnSessionExpired !== undefined
@@ -80,7 +85,7 @@ export class WriterProjectionArea {
         validator,
         "GET",
         undefined,
-        options,
+        options.signal ? { ...options, [privateRead]: true } : options,
         failureOperation,
       );
     }

@@ -171,7 +171,7 @@ async function fetchDocumentHead(
 ) {
   // Tombstones require a fresh head. Listings can reuse a matching cached
   // projection, whose signature and local checkpoint are still verified.
-  if (!expectedManifestHash)
+  if (!signal && !expectedManifestHash)
     runtime.apiClient.evictDocumentWriterProjection(documentId);
   const fetchHead = () =>
     runtime.apiClient.getDocumentWriterProjectionResult(documentId, {
@@ -186,7 +186,7 @@ async function fetchDocumentHead(
     result.ok &&
     result.data.documentManifest.manifestHash !== expectedManifestHash
   ) {
-    runtime.apiClient.evictDocumentWriterProjection(documentId);
+    if (!signal) runtime.apiClient.evictDocumentWriterProjection(documentId);
     result = await fetchHead();
   }
   assertCurrent();
