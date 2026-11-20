@@ -21,8 +21,8 @@
   min-height: var(--control-height);
 }
 
-/* Mobile Safari versions that ignore range accents need an explicit thumb. */
-@supports (-webkit-touch-callout: none) {
+/* Paint the thumb consistently on engines where native range accents vary. */
+@supports selector(input::-webkit-slider-thumb) {
   @media (forced-colors: none) {
     .explorer-document-history-slider {
       -webkit-appearance: none;
@@ -35,7 +35,11 @@
       align-items: center;
       height: var(--space-xs);
       border-radius: var(--space-xs);
-      background: color-mix(in srgb, var(--color-dark) 50%, var(--color-light));
+      background: color-mix(
+        in oklab,
+        var(--color-dark) 50%,
+        var(--color-light)
+      );
     }
 
     .explorer-document-history-slider::-webkit-slider-thumb {

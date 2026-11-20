@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./appTest";
 import { measureAttached } from "./domMeasure";
+import { sliderPixels } from "./sliderPixels";
 import { themeForeground } from "./themeForeground";
 
 /*
@@ -13,7 +14,7 @@ import { themeForeground } from "./themeForeground";
  * that overlaps the document it controls all look correct in the markup.
  */
 
-test.use({ viewport: { width: 390, height: 844 } });
+test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 
 /** Apple HIG minimum hit target, which the routed shell's controls honor. */
 const TOUCH_TARGET = 44;
@@ -159,7 +160,6 @@ test("History fits a phone: touch-sized controls above the document, nothing ove
   expect(geometry.viewTop).toBeGreaterThanOrEqual(geometry.timelineBottom);
 
   const accents = new Set<string>();
-  await expect(slider(page)).toHaveCSS("appearance", "auto");
   for (const theme of ["light", "dark", "dusk"]) {
     await page.evaluate((id) => {
       document.documentElement.setAttribute("data-theme", id);
@@ -169,10 +169,14 @@ test("History fits a phone: touch-sized controls above the document, nothing ove
     if (theme !== "dusk") {
       expect(accent).toMatch(/^rgb\((\d+), \1, \1\)$/);
     }
+    const pixels = await sliderPixels(slider(page));
+    expect(pixels.thumb).toBe(accent);
+    expect(pixels.track).not.toBe(pixels.background);
+    expect(pixels.track).not.toBe(pixels.thumb);
     accents.add(accent);
   }
   expect(accents.size).toBe(3);
-  await slider(page).press("Home");
+  await slider(page).tap({ position: { x: 1, y: TOUCH_TARGET / 2 } });
   await expect(slider(page)).toHaveValue("0");
 });
 
