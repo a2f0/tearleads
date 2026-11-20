@@ -12,7 +12,7 @@ import {
   type RuntimeOperationRequestInput,
 } from "./operationTransport";
 import { requireOperationTransportSurface } from "./operationTransportSurface";
-import { cancelledResponse, responseRetired } from "./sessionResponse";
+import { requestRetired, retiredRequest } from "./sessionResponse";
 import type {
   OperationResponseRequestFn,
   RequestResult,
@@ -68,16 +68,9 @@ async function decodeBinaryOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeBinaryOperationResponseEnvelope>> {
-  if (responseRetired(session, options)) {
+  if (requestRetired(session, options)) {
     void response.body?.cancel().catch(() => {});
-    return cancelledResponse(
-      request,
-      response,
-      operation.method,
-      path,
-      options,
-      session,
-    );
+    return retiredRequest(operation.method, path);
   }
   if (
     !operation.responses[response.status] ||
@@ -105,7 +98,6 @@ async function decodeBinaryOperationResponse(
     );
   }
 
-  request.reportSuccess?.(response);
   return {
     data: {
       headers: headers.data,

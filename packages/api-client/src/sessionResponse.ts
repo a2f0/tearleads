@@ -7,20 +7,17 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "./types";
+import { privateRead } from "./types";
 
 export function requestRetired(
   session: AbortSignal | undefined,
   options?: RequestResultOptions,
 ) {
-  return session?.aborted || options?.stillCurrent?.() === false;
-}
-
-/** Once headers arrive, caller cancellation also retires response decoding. */
-export function responseRetired(
-  session?: AbortSignal,
-  options?: RequestResultOptions,
-) {
-  return options?.signal?.aborted || requestRetired(session, options);
+  return (
+    session?.aborted ||
+    options?.stillCurrent?.() === false ||
+    (options?.[privateRead] && options.signal?.aborted)
+  );
 }
 
 /** A retired request cannot overwrite the active session's failure cache. */
@@ -41,25 +38,6 @@ export function retiredRequest(
   };
 }
 
-/** A caller cancellation updates its own request outcome only while the sign-in is current. */
-export function cancelledResponse(
-  request: OperationResponseRequestFn,
-  response: Response,
-  method: HttpMethod,
-  path: string,
-  options?: RequestResultOptions,
-  session?: AbortSignal,
-) {
-  const retired = retiredRequest(method, path);
-  if (requestRetired(session, options)) return retired;
-  const failure = {
-    ...retired,
-    message: `${method} ${path}: Request was cancelled`,
-  };
-  request.reportCancellation?.(response, failure);
-  return failure;
-}
-
 export async function readSessionJson(
   request: OperationResponseRequestFn,
   response: Response,
@@ -70,33 +48,16 @@ export async function readSessionJson(
 ): Promise<RequestResult<unknown>> {
   try {
     const data: unknown = await response.json();
-    if (responseRetired(session, options))
-      return cancelledResponse(
-        request,
-        response,
-        method,
-        path,
-        options,
-        session,
-      );
+    if (requestRetired(session, options)) return retiredRequest(method, path);
     return { ok: true, data };
   } catch (error) {
-    if (responseRetired(session, options))
-      return cancelledResponse(
-        request,
-        response,
-        method,
-        path,
-        options,
-        session,
-      );
+    if (requestRetired(session, options)) return retiredRequest(method, path);
     const failure = responseBodyFailure(
       error,
       errorMessage(error),
       options.signal?.aborted === true,
     );
     return request.reportFailure({
-      outcome: response,
       ...failure,
       message: `${method} ${path}: ${failure.message}`,
       method,

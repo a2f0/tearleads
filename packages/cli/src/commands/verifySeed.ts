@@ -106,7 +106,9 @@ async function verifyDocument(
       slot.byteLength !== intent.byteLength
     )
       throw new Error(`Attachment metadata differs: ${label}`);
-    const storageKey = storageKeys.get(intent.slotId);
+    const storageKey = snapshot.attachmentStorageKeyBySlotId[intent.slotId];
+    if (!storageKey || storageKey !== storageKeys.get(intent.slotId))
+      throw new Error(`Attachment storage key differs: ${label}`);
     const source =
       storageKey &&
       (await session.sdk.blobs.store.openByteSource(storageKey, signal));

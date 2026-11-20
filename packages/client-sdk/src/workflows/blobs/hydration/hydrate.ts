@@ -360,9 +360,7 @@ async function hydrateCurrentAttachments(
     signal,
   );
   signal?.throwIfAborted();
-  if (!attachmentBindings) {
-    return null;
-  }
+  if (!attachmentBindings || input.stillCurrent?.() === false) return null;
 
   const bindingBySlotId = new Map(
     attachmentBindings.map((binding) => [binding.slotId, binding]),
@@ -394,9 +392,7 @@ async function hydrateCurrentAttachments(
     }),
   );
   signal?.throwIfAborted();
-  if (loadedBlobs.length === 0) {
-    return [];
-  }
+  if (!loadedBlobs.length) return [];
 
   const writerProjection = await waitForRead(
     input.apiClient.getDocumentWriterProjection(input.documentId),
@@ -431,8 +427,11 @@ async function hydrateCurrentAttachments(
   const complete = hydrated.filter(
     (item): item is HydratedDocumentAttachmentBlob => item !== null,
   );
-  for (const item of complete)
+  for (const item of complete) {
+    if (input.stillCurrent?.() === false) return [];
     expectedDownloads?.onVerifiedBinding?.(item.binding);
+  }
+  if (input.stillCurrent?.() === false) return [];
   if (complete.length === hydrationTargets.length)
     request.onBindingsChecked?.();
   return complete;

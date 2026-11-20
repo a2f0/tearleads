@@ -1,7 +1,7 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import { requestDeadline } from "../requestDeadline";
 import { retiredRequest } from "../sessionResponse";
-import type { HttpMethod, RequestResult } from "../types";
+import { type HttpMethod, privateRead, type RequestResult } from "../types";
 import type { ApiClientContext } from "./apiClientContext";
 
 /**
@@ -38,6 +38,7 @@ export async function laneListingRequest<T>(
   const caller = input.signal;
   const deadline = requestDeadline(
     {
+      [privateRead]: Boolean(caller),
       reportErrors: false,
       signal: caller,
       stillCurrent: caller && (() => !caller.aborted),
@@ -64,12 +65,11 @@ export async function laneListingRequest<T>(
       return result;
     }
     return context.runtime.responseRequest.reportFailure({
-      outcome: result,
       code: "request_timed_out",
       kind: "network",
       message: `${method} ${path}: no response within ${CONTAINER_LANE_LISTING_TIMEOUT_MS} ms`,
       method,
-      options: { reportErrors },
+      options: { [privateRead]: Boolean(caller), reportErrors },
       path,
       status: null,
       statusText: "",

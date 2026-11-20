@@ -11,15 +11,12 @@ import {
   settleNetworkFailure,
 } from "./networkFailure";
 import {
-  type RequestDispatch,
-  RequestFailureCache,
-} from "./requestFailureCache";
-import {
   bindPrototypeMethods,
   describeErrorResponse,
   type ErrorResponseDescription,
   isSuccessfulResponse,
   normalizeApiBaseUrl,
+  requestFailureKey,
 } from "./requestInternals";
 import { resourceRequestActivity } from "./resourceRequestActivity";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
@@ -30,10 +27,8 @@ import {
 } from "./sessionRenewal";
 import { sessionRequestInit } from "./sessionRequestInit";
 import {
-  cancelledResponse,
   readSessionJson,
   requestRetired,
-  responseRetired,
   retiredRequest,
   retiredResponse,
 } from "./sessionResponse";
@@ -44,10 +39,12 @@ import type {
   OperationResponseRequestFn,
   RequestBody,
   RequestFailure,
+  RequestFailureKind,
   RequestResult,
   RequestResultOptions,
   ResponseRequestValidationFailureInput,
 } from "./types";
+import { privateRead } from "./types";
 
 type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
@@ -65,7 +62,7 @@ export class ApiRequestRuntime {
   private onApiVersion: ((version: number) => void) | null = null;
   private onSessionExpired: ExpiredHandler | null = null;
   private onPaymentRequired: PaymentRequiredHandler | null = null;
-  private readonly failures = new RequestFailureCache();
+  private readonly requestFailuresByKey = new Map<string, RequestFailure>();
   readonly request: OperationRequestFn;
   readonly requestResult: OperationRequestResultFn;
   readonly responseRequest: OperationResponseRequestFn;
@@ -80,9 +77,6 @@ export class ApiRequestRuntime {
     this.requestResult = this.makeRequestResult;
     this.responseRequest = Object.assign(this.makeResponseRequest, {
       reportFailure: this.reportResponseRequestFailure,
-      reportSuccess: (response: Response) => this.failures.success(response),
-      reportCancellation: (response: Response, failure: RequestFailure) =>
-        this.failures.record(failure, this.failures.dispatchFor(response)),
       sessionSignal: () => this.sessionRenewals.signal,
     });
   }
@@ -133,7 +127,7 @@ export class ApiRequestRuntime {
 
   setAuthToken(token: string | null, boundary?: SessionBoundary): boolean {
     const changed = Boolean(boundary) || this.authToken !== token;
-    if (boundary) this.failures.clear();
+    if (boundary) this.requestFailuresByKey.clear();
     if (changed) this.sessionRenewals.tokenChanged(boundary);
     this.authToken = token;
     return changed;
@@ -152,7 +146,7 @@ export class ApiRequestRuntime {
   }
 
   getRequestFailure(input: { method: HttpMethod; path: string }) {
-    return this.failures.get(input);
+    return this.requestFailuresByKey.get(requestFailureKey(input)) ?? null;
   }
 
   private async makeRequest<T>(
@@ -174,23 +168,30 @@ export class ApiRequestRuntime {
     return result.ok ? result.data : null;
   }
 
-  private requestFailure(
-    input: Omit<RequestFailure, "ok" | "report"> & {
-      dispatch?: RequestDispatch | undefined;
-      reportErrors: boolean;
-    },
-  ): RequestFailure {
-    const { kind, message } = input;
+  private requestFailure(input: {
+    code?: string | undefined;
+    isolated?: boolean | undefined;
+    kind: RequestFailureKind;
+    message: string;
+    method: HttpMethod;
+    networkError?: ApiNetworkError | undefined;
+    path: string;
+    reportErrors: boolean;
+    requiredContainerIds?: RequestFailure["requiredContainerIds"];
+    stalePrincipalHeads: RequestFailure["stalePrincipalHeads"];
+    status: number | null;
+    statusText: string;
+  }): RequestFailure {
     const failure: RequestFailure = {
       ...(input.code === undefined ? {} : { code: input.code }),
-      kind,
-      message,
+      kind: input.kind,
+      message: input.message,
       method: input.method,
       ...(input.networkError ? { networkError: input.networkError } : {}),
       ok: false,
       path: input.path,
       report: () => {
-        if (kind !== "cancelled") this.onError?.(message);
+        if (input.kind !== "cancelled") this.onError?.(input.message);
       },
       status: input.status,
       statusText: input.statusText,
@@ -201,9 +202,15 @@ export class ApiRequestRuntime {
         ? { requiredContainerIds: input.requiredContainerIds }
         : {}),
     };
-    this.failures.record(failure, input.dispatch);
+    if (!input.isolated)
+      this.requestFailuresByKey.set(
+        requestFailureKey({ method: input.method, path: input.path }),
+        failure,
+      );
 
-    if (input.reportErrors) failure.report();
+    if (input.reportErrors) {
+      failure.report();
+    }
 
     return failure;
   }
@@ -239,20 +246,12 @@ export class ApiRequestRuntime {
       options ?? {},
       session,
     );
-    if (responseRetired(session, options))
-      return cancelledResponse(
-        this.responseRequest,
-        response,
-        method,
-        path,
-        options,
-        session,
-      );
+    if (requestRetired(session, options)) return retiredRequest(method, path);
     if (!decoded.ok) return decoded;
     const data = decoded.data;
     if (!validator(data)) {
       return this.requestFailure({
-        dispatch: this.failures.dispatchFor(response),
+        isolated: options?.[privateRead],
         kind: "shape",
         message: `Invalid response shape for ${path}`,
         method,
@@ -264,24 +263,23 @@ export class ApiRequestRuntime {
       });
     }
 
-    this.failures.success(response);
     return { data, ok: true };
   }
+
   private async makeResponseRequest(
     path: string,
     method: HttpMethod,
     body: RequestBody | undefined,
-    callerOptions: RequestResultOptions,
+    options: RequestResultOptions,
     additionalSuccessStatuses: readonly number[],
     failureOperation: Parameters<OperationResponseRequestFn>[5],
     authToken = this.authToken,
     attempt = 1,
-    dispatch = this.failures.begin({ method, path }),
   ): Promise<RequestResult<Response>> {
     const session = this.sessionRenewals.signal;
-    const renewals = this.sessionRenewals;
-    const waitOptions = renewals.withRenewalWaitSignal(callerOptions);
-    const options = renewals.withSessionSignal(callerOptions);
+    const callerOptions = options;
+    const waitOptions = this.sessionRenewals.withRenewalWaitSignal(options);
+    options = this.sessionRenewals.withSessionSignal(options);
     const result = await this.fetchResponseRequest(
       path,
       method,
@@ -289,36 +287,32 @@ export class ApiRequestRuntime {
       options,
       authToken,
       failureOperation,
-      dispatch,
       attempt,
     );
     if (!result.ok) return result;
-    const retired = (code?: string | null) => {
-      const failure = retiredResponse(
+    const response = boundedMetadataResponse(result.data, options);
+    const retired = (code?: string | null) =>
+      retiredResponse(
         this.sessionRenewals.refused(session),
         method,
         path,
-        result.data,
+        response,
         code,
       );
-      if (!requestRetired(session, options))
-        this.failures.record(failure, dispatch);
-      return failure;
-    };
-    if (responseRetired(session, options)) return retired();
-    const response = boundedMetadataResponse(result.data, options);
-    if (isSuccessfulResponse(response, additionalSuccessStatuses))
-      return this.failures.received(response, dispatch);
+    if (requestRetired(session, options)) return retired();
+    if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
+      if (!options[privateRead])
+        this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
+      return { ok: true, data: response };
+    }
     const errorDescription = await describeErrorResponse(
       response,
       failureOperation,
       options.expectedPaymentRequiredOrganizationId,
     );
     options[resourceRequestActivity]?.finish();
-    if (responseRetired(session, options))
-      return retired(errorDescription.code);
+    if (requestRetired(session, options)) return retired(errorDescription.code);
     const failure = {
-      dispatch,
       errorDescription,
       failureOperation,
       method,
@@ -335,19 +329,25 @@ export class ApiRequestRuntime {
       body,
       code: errorDescription.code,
       getCurrentAuthToken: () => this.authToken,
-      isKnownSessionRenewal: (from, to) => renewals.isKnown(from, to),
+      isKnownSessionRenewal: (from, to) =>
+        this.sessionRenewals.isKnown(from, to),
       pendingSessionRenewal: (from) => this.sessionRenewals.pending(from),
       options: waitOptions,
       refreshSession: () => this.sessionRenewals.renew(this.onSessionExpired),
       reportError: (message) => this.onError?.(message),
       responseStatus: response.status,
     });
-    if (responseRetired(session, options))
-      return retired(errorDescription.code);
+    if (requestRetired(session, options)) return retired(errorDescription.code);
     const retryToken = this.sessionRenewals.currentToken(authToken);
     if (!shouldRetry || !retryToken) return this.httpFailure(failure);
     if (options.retryOnSessionExpired === "renew-only")
-      return this.httpFailure(failure, method === "GET");
+      return this.httpFailure({
+        ...failure,
+        options: {
+          ...options,
+          reportErrors: method === "GET" ? false : options.reportErrors,
+        },
+      });
     return this.makeResponseRequest(
       path,
       method,
@@ -357,7 +357,6 @@ export class ApiRequestRuntime {
       failureOperation,
       retryToken,
       2,
-      dispatch,
     );
   }
 
@@ -368,7 +367,6 @@ export class ApiRequestRuntime {
     options: RequestResultOptions,
     authToken: string | null,
     operation: Parameters<OperationResponseRequestFn>[5],
-    dispatch: RequestDispatch,
     /** 2 is the retry after a session renewal. */
     attempt = 1,
   ): Promise<RequestResult<Response>> {
@@ -408,7 +406,7 @@ export class ApiRequestRuntime {
       });
       if (requestRetired(session, options)) return retiredRequest(method, path);
       return this.requestFailure({
-        dispatch,
+        isolated: options[privateRead],
         ...(cancelled ? { code: "request_aborted" } : {}),
         kind: cancelled ? "cancelled" : "network",
         message: `${method} ${path}: ${networkFailureMessage(error, networkError)}`,
@@ -436,20 +434,16 @@ export class ApiRequestRuntime {
     return { data: response, ok: true };
   }
 
-  private httpFailure(
-    input: {
-      readonly dispatch: RequestDispatch;
-      readonly errorDescription: ErrorResponseDescription;
-      readonly failureOperation: Parameters<OperationResponseRequestFn>[5];
-      readonly method: HttpMethod;
-      readonly options: RequestResultOptions;
-      readonly path: string;
-      readonly response: Response;
-    },
-    quietRenewal = false,
-  ): RequestFailure {
+  private httpFailure(input: {
+    readonly errorDescription: ErrorResponseDescription;
+    readonly failureOperation: Parameters<OperationResponseRequestFn>[5];
+    readonly method: HttpMethod;
+    readonly options: RequestResultOptions;
+    readonly path: string;
+    readonly response: Response;
+  }): RequestFailure {
     const cancelled = input.options.signal?.aborted === true;
-    const reportErrors = !quietRenewal && (input.options.reportErrors ?? true);
+    const reportErrors = input.options.reportErrors ?? true;
     if (
       !cancelled &&
       input.response.status === 402 &&
@@ -463,7 +457,7 @@ export class ApiRequestRuntime {
       );
     }
     return this.requestFailure({
-      dispatch: input.dispatch,
+      isolated: input.options[privateRead],
       ...(cancelled
         ? { code: "request_aborted" }
         : input.errorDescription.code === null
@@ -491,7 +485,7 @@ export class ApiRequestRuntime {
     }
     return this.requestFailure({
       ...input,
-      dispatch: this.failures.dispatchFor(input.outcome),
+      isolated: input.options?.[privateRead],
       reportErrors: input.options?.reportErrors ?? true,
       stalePrincipalHeads: undefined,
     });

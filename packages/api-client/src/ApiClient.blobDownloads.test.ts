@@ -346,9 +346,13 @@ testApiClient(
 );
 
 testApiClient(
-  "a late invalid descriptor cannot overwrite a newer valid download",
+  "a bounded verifier read with an invalid descriptor preserves shared download diagnostics",
   async () => {
-    const client = new ApiClient(apiBaseUrl);
+    const client = new ApiClient(apiBaseUrl, {
+      metrics: new ApiRequestMetrics(),
+      getIdentity: () => null,
+      streamingDownloads: true,
+    });
     const started = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
     let calls = 0;
@@ -368,7 +372,10 @@ testApiClient(
         HttpResponse.text("bytes"),
       ),
     );
-    const older = client.getBlobBytes(blobId);
+    const older = client.getBlobBytes(blobId, {
+      maxEncryptedByteLength: 10,
+      signal: new AbortController().signal,
+    });
     try {
       await started.promise;
       const newer = await client.getBlobBytes(blobId);

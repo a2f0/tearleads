@@ -35,6 +35,7 @@ import {
 import { uploadMultipartBlobPartBytes } from "../routes/blobs/multipartUpload";
 import { listDocumentAttachments as documentAttachmentsList } from "../routes/documents/attachments";
 import type { RequestResultOptions } from "../types";
+import { privateRead } from "../types";
 import type { ApiClientContext } from "./apiClientContext";
 
 type AttachmentList = ListDocumentAttachmentsResponse;
@@ -219,6 +220,9 @@ export class BlobArea {
     return this.transfer(options, (scoped) =>
       getBlobBytes(this.context.transport, blobId, undefined, {
         ...scoped,
+        [privateRead]:
+          options.maxEncryptedByteLength !== undefined &&
+          Boolean(options.signal),
         maxEncryptedByteLength: options.maxEncryptedByteLength,
       }),
     );
@@ -293,6 +297,7 @@ export class BlobArea {
         listDocumentAttachmentsOperation,
         undefined,
         {
+          [privateRead]: Boolean(options.signal),
           [boundedMetadata]: options.boundedListing
             ? "attachment-list"
             : undefined,

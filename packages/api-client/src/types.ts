@@ -22,7 +22,11 @@ export type ListDocumentEditAttributionRangesOptions = Omit<
   cursor?: DocumentAttributionRangesQuery["cursor"] | null;
 };
 
+export const privateRead = Symbol("privateRead");
+
 export interface RequestResultOptions {
+  /** Report this caller-owned read through its result while preserving shared request diagnostics. */
+  readonly [privateRead]?: boolean;
   readonly [boundedMetadata]?: MetadataLimit | undefined;
   readonly [resourceRequestActivity]?: ResourceRequestActivity;
   /** Checked at dispatch, on renewal and before handling the response. */
@@ -105,7 +109,6 @@ export interface RequestSuccess<T> {
 export type RequestResult<T> = RequestFailure | RequestSuccess<T>;
 
 export interface ResponseRequestValidationFailureInput {
-  readonly outcome?: Response | RequestFailure;
   readonly code?: string | undefined;
   readonly kind: RequestFailureKind;
   readonly message: string;
@@ -126,12 +129,6 @@ export interface OperationResponseRequestFn {
     failureOperation: HttpOperation,
   ): Promise<RequestResult<Response>>;
   readonly sessionSignal?: () => AbortSignal;
-  /** Clear a matching failure only after the operation has validated its response. */
-  readonly reportSuccess?: (response: Response) => void;
-  readonly reportCancellation?: (
-    response: Response,
-    failure: RequestFailure,
-  ) => void;
   readonly reportFailure: (
     input: ResponseRequestValidationFailureInput,
   ) => RequestFailure;

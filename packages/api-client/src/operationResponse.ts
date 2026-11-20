@@ -4,9 +4,9 @@ import {
   operationResponseHeaderNames,
 } from "@tearleads/validators/operation";
 import {
-  cancelledResponse,
   readSessionJson,
-  responseRetired,
+  requestRetired,
+  retiredRequest,
 } from "./sessionResponse";
 import type {
   OperationResponseRequestFn,
@@ -98,7 +98,6 @@ export function operationResponseFailure(
 ) {
   void response.body?.cancel().catch(() => {});
   return request.reportFailure({
-    outcome: response,
     kind: "shape",
     message,
     method: operation.method,
@@ -138,16 +137,9 @@ export async function decodeJsonOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeJsonOperationResponseEnvelope>> {
-  if (responseRetired(session, options)) {
+  if (requestRetired(session, options)) {
     void response.body?.cancel().catch(() => {});
-    return cancelledResponse(
-      request,
-      response,
-      operation.method,
-      path,
-      options,
-      session,
-    );
+    return retiredRequest(operation.method, path);
   }
   const schema = operation.responses[response.status];
   const isEmpty =
@@ -185,15 +177,8 @@ export async function decodeJsonOperationResponse(
       options,
       session,
     );
-    if (responseRetired(session, options))
-      return cancelledResponse(
-        request,
-        response,
-        operation.method,
-        path,
-        options,
-        session,
-      );
+    if (requestRetired(session, options))
+      return retiredRequest(operation.method, path);
     if (!result.ok) return result;
     const parsed = schema.safeParse(result.data);
     if (!parsed.success) {
@@ -209,7 +194,6 @@ export async function decodeJsonOperationResponse(
     data = parsed.data;
   }
 
-  request.reportSuccess?.(response);
   return {
     data: { data, headers: headers.data, status: response.status },
     ok: true,

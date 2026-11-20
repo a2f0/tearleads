@@ -1,5 +1,4 @@
 import { afterEach, expect, jest } from "bun:test";
-import { getHealthOperation } from "@tearleads/validators/operation";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http, passthrough } from "msw";
 import {
@@ -8,9 +7,7 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
-import { ApiRequestRuntime } from "./apiRequestRuntime";
 import { CONTAINER_LANE_LISTING_TIMEOUT_MS } from "./client/laneListingRequest";
-import { createJsonOperationTransport } from "./operationTransport";
 
 const realFetch = globalThis.fetch;
 
@@ -259,148 +256,8 @@ for (const phase of ["headers", "body"])
     },
   );
 
-for (const phase of [
-  "success",
-  "cancelled",
-  "cancelled-error",
-  "aborted-fetch",
-])
-  testApiClient(
-    `an older JSON response preserves concurrent failures (${phase})`,
-    async () => {
-      const cancelled = phase !== "success";
-      const net = new ApiRequestRuntime(apiBaseUrl);
-      const transport = createJsonOperationTransport(net.responseRequest);
-      const headers = Promise.withResolvers<Response>();
-      const body = Promise.withResolvers<unknown>();
-      const reading = Promise.withResolvers<void>();
-      const controller = new AbortController();
-      let count = 0;
-      globalThis.fetch = Object.assign(
-        async () =>
-          ++count === 1
-            ? headers.promise
-            : Response.json({ error: "Busy" }, { status: 503 }),
-        realFetch,
-      );
-      const currentFailure = () =>
-        net.getRequestFailure({ method: "GET", path: "/" });
-      const stale = transport.requestResult(
-        {
-          ...getHealthOperation,
-          failureResponses: { 503: getHealthOperation.responses[200] },
-        },
-        { params: {} },
-        {
-          signal: controller.signal,
-        },
-      );
-      await transport.requestResult(getHealthOperation, { params: {} });
-      expect(currentFailure()?.status).toBe(503);
-      if (phase === "aborted-fetch") {
-        controller.abort();
-        headers.reject(controller.signal.reason);
-        expect(await stale).toMatchObject({ ok: false, kind: "cancelled" });
-        expect(currentFailure()?.status).toBe(503);
-        return;
-      }
-      const response = Response.json(
-        {},
-        { status: phase === "cancelled-error" ? 503 : 200 },
-      );
-      response.text = async () => {
-        reading.resolve();
-        return JSON.stringify(await body.promise);
-      };
-      response.json = () => {
-        reading.resolve();
-        return body.promise;
-      };
-      headers.resolve(response);
-      await reading.promise;
-      if (cancelled) controller.abort();
-      body.resolve({ message: "ok" });
-      expect(await stale).toMatchObject(
-        cancelled ? { ok: false, kind: "cancelled" } : { ok: true },
-      );
-      expect(currentFailure()?.status).toBe(503);
-    },
-  );
-
 testApiClient(
-  "aborting JSON decoding replaces a prior failure when no competing request ran",
-  async () => {
-    const net = new ApiRequestRuntime(apiBaseUrl);
-    const transport = createJsonOperationTransport(net.responseRequest);
-    const reading = Promise.withResolvers<void>();
-    const body = Promise.withResolvers<unknown>();
-    const response = Response.json({});
-    response.json = () => {
-      reading.resolve();
-      return body.promise;
-    };
-    let calls = 0;
-    globalThis.fetch = Object.assign(
-      async () =>
-        ++calls === 1 ? new Response(null, { status: 503 }) : response,
-      realFetch,
-    );
-    const get = (signal?: AbortSignal) =>
-      transport.requestResult(getHealthOperation, { params: {} }, { signal });
-    await get();
-    expect(net.getRequestFailure({ method: "GET", path: "/" })?.status).toBe(
-      503,
-    );
-    const controller = new AbortController();
-    const cancelled = get(controller.signal);
-    await reading.promise;
-    controller.abort();
-    body.resolve({ message: "ok" });
-    expect(await cancelled).toMatchObject({ kind: "cancelled" });
-    expect(net.getRequestFailure({ method: "GET", path: "/" })?.kind).toBe(
-      "cancelled",
-    );
-  },
-);
-
-for (const olderFinishesFirst of [true, false])
-  testApiClient(
-    `a newer successful request supersedes an older failure (older finishes first: ${olderFinishesFirst})`,
-    async () => {
-      const net = new ApiRequestRuntime(apiBaseUrl);
-      const transport = createJsonOperationTransport(net.responseRequest);
-      const older = Promise.withResolvers<Response>();
-      const newer = Promise.withResolvers<Response>();
-      let calls = 0;
-      globalThis.fetch = Object.assign(
-        () => (++calls === 1 ? older : newer).promise,
-        realFetch,
-      );
-      const get = () =>
-        transport.requestResult(getHealthOperation, { params: {} });
-      const failed = get();
-      const succeeded = get();
-      const finishOlder = async () => {
-        older.resolve(new Response(null, { status: 503 }));
-        expect(await failed).toMatchObject({ ok: false, status: 503 });
-      };
-      const finishNewer = async () => {
-        newer.resolve(Response.json({ message: "ok" }));
-        expect(await succeeded).toMatchObject({ ok: true });
-      };
-      if (olderFinishesFirst) {
-        await finishOlder();
-        await finishNewer();
-      } else {
-        await finishNewer();
-        await finishOlder();
-      }
-      expect(net.getRequestFailure({ method: "GET", path: "/" })).toBeNull();
-    },
-  );
-
-testApiClient(
-  "an older listing timeout preserves the result of a newer successful listing",
+  "a private listing timeout preserves a shared successful listing",
   async () => {
     const client = new ApiClient(apiBaseUrl);
     const started = Promise.withResolvers<void>();
@@ -424,13 +281,16 @@ testApiClient(
       started.resolve();
       return release.promise;
     }, realFetch);
-    const list = (id: string) =>
-      client.listContainerDocumentLanes({
-        lanes: [{ containerId: id, laneId: id, watermark: null }],
-      });
+    const list = (id: string, signal?: AbortSignal) =>
+      client.listContainerDocumentLanes(
+        {
+          lanes: [{ containerId: id, laneId: id, watermark: null }],
+        },
+        { signal },
+      );
     jest.useFakeTimers();
     try {
-      const older = list("older");
+      const older = list("older", new AbortController().signal);
       await started.promise;
       expect(await list("newer")).toEqual(success);
       jest.advanceTimersByTime(CONTAINER_LANE_LISTING_TIMEOUT_MS);
