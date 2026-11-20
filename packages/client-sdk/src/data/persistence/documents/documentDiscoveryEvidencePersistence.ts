@@ -230,6 +230,7 @@ export class DocumentDiscoveryEvidenceRepository {
         .from(pending)
         .where(identity(input))
         .limit(1);
+      this.signal?.throwIfAborted();
       if (!row) return;
       const attempts = Math.min(row.attempts + 1, 8);
       await db

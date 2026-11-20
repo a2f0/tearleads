@@ -17,24 +17,8 @@ test("verification refuses oversized held files before issuing a read", async ()
   expect(read).not.toHaveBeenCalled();
 });
 
-test("a fixture whose only placement is under Trash is missing, while other folders can finish", async () => {
-  const org = "550e8400-e29b-41d4-a716-446655440001";
-  const node = (
-    id: string,
-    parentId: string | null,
-    systemSlot: string | null = null,
-  ) => ({
-    id,
-    parentId,
-    systemSlot,
-    organizationId: org,
-  });
-  const folders = [
-    node("root", null),
-    node("bin", "root", "sys_v1_5FZNtQCXR9C9luuE3hGAdd-wTCyE9Fvauhupv8rsyaU"),
-    node("child", "bin"),
-    node("live", "root"),
-  ];
+test("discovery verifies the seed folders and rejects listings linked only elsewhere", async () => {
+  const folders = ["root", "contacts"];
   const listed: string[] = [];
   const passes = new Set<string>();
   const actual: string[] = [];
@@ -42,34 +26,33 @@ test("a fixture whose only placement is under Trash is missing, while other fold
     folders,
     async (id) => {
       listed.push(id);
+      if (id !== "root" && id !== "contacts")
+        throw new Error("Unrelated folder unavailable");
       if (id === "root" && listed.length === 1) return null;
       if (passes.has(id)) return [];
       passes.add(id);
       return id === "root"
         ? []
-        : [
-            { documentId: "moved-to-trash" },
-            { documentId: id === "child" ? "trashed-fixture" : id },
-          ];
+        : [{ documentId: "moved-to-trash" }, { documentId: id }];
     },
     async () =>
       new Map([
-        ["live", ["live"]],
+        ["contacts", ["contacts"]],
         ["moved-to-trash", ["child"]],
         ["trashed-fixture", ["child"]],
         ["bin", ["bin"]],
       ]),
   ))
     actual.push(row.documentId ?? "");
-  expect(actual).toEqual(["live"]);
-  expect(listed).toEqual(["root", "live", "live", "root"]);
+  expect(actual).toEqual(["contacts"]);
+  expect(listed).toEqual(["root", "contacts", "contacts", "root"]);
 });
 
 test("deferred head verification waits for the SDK retry time", async () => {
   let now = 0;
   const seen: number[] = [];
   for await (const _ of discoverSeedDocuments(
-    [{ id: "folder", organizationId: "org", parentId: null, systemSlot: null }],
+    ["folder"],
     async (_id, onPending) => {
       seen.push(now);
       if (!now) {
@@ -100,7 +83,7 @@ test.each(["listing", "links"])(
       return new Promise(() => {});
     };
     const rows = discoverSeedDocuments(
-      [{ id: "root", organizationId: "org", parentId: null, systemSlot: null }],
+      ["root"],
       () =>
         stage === "listing"
           ? stalled()
@@ -121,7 +104,7 @@ test("a healthy page can verify multiple heads beyond one request timeout", asyn
   const deadline = new AbortController();
   const checked: string[] = [];
   for await (const { row } of discoverSeedDocuments(
-    [{ id: "folder", organizationId: "org", parentId: null, systemSlot: null }],
+    ["folder"],
     async (_id, _pending, signal) => {
       expect(signal).toBe(deadline.signal);
       if (now) return [];

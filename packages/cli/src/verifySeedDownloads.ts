@@ -1,5 +1,4 @@
-import type { BlobByteSource, ContainerNode } from "@tearleads/client-sdk";
-import { isContainerUnderTrashByLookup } from "app/continuity";
+import type { BlobByteSource } from "@tearleads/client-sdk";
 
 export async function checkSeedBytes(
   source: BlobByteSource,
@@ -117,24 +116,13 @@ async function readFolderPage<Row extends Placement>(
 }
 
 export async function* discoverSeedDocuments<Row extends Placement>(
-  folders: ReadonlyArray<
-    Pick<ContainerNode, "id" | "organizationId" | "parentId" | "systemSlot">
-  >,
+  folderIds: readonly string[],
   list: ListPage<Row>,
   listLinks: ListLinks,
   clock = { now: () => Date.now(), sleep: (ms: number) => Bun.sleep(ms) },
   deadline = AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
 ) {
-  const byId = new Map(folders.map((node) => [node.id, node]));
-  const remaining: FolderRead[] = folders
-    .filter(
-      (node) =>
-        !isContainerUnderTrashByLookup(byId, node.id, {
-          currentOrganizationId: node.organizationId,
-          trashSystemSlot: null,
-        }),
-    )
-    .map(({ id }) => ({ id, retryAt: 0 }));
+  const remaining: FolderRead[] = folderIds.map((id) => ({ id, retryAt: 0 }));
   // Persistent head verification can defer a folder for 15 minutes. Give other
   // folders a turn and observe the SDK delay without polling a held head.
   const end = clock.now() + DISCOVERY_TIMEOUT_MS;

@@ -279,9 +279,9 @@ test("a replacement waits for active byte reads to release memory", async () => 
     contentSha256: "a".repeat(64),
   }));
   const deadlines: AbortController[] = [];
-  const timer = spyOn(AbortSignal, "timeout").mockImplementation(() => {
+  const timer = spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
     const controller = new AbortController();
-    deadlines.push(controller);
+    if (ms === 30_000) deadlines.push(controller);
     return controller.signal;
   });
   const { result, rerender } = renderHook(
@@ -389,5 +389,52 @@ test("expired reads release capacity for a fifth healthy preview", async () => {
     expect(cancelled).toBe(4);
   } finally {
     timer.mockRestore();
+  }
+});
+
+test("a queued preview settles when four host byte reads ignore cancellation", async () => {
+  const store = createMemoryBlobStore();
+  const stuck = Promise.withResolvers<Uint8Array<ArrayBuffer>>();
+  let reads = 0;
+  store.openByteSource = async () => ({
+    byteLength: 1,
+    read: async () => {
+      reads++;
+      return stuck.promise;
+    },
+  });
+  const io = new AbortController();
+  const capacity = new AbortController();
+  const timer = spyOn(AbortSignal, "timeout").mockImplementation((ms) =>
+    ms === 60_000 ? capacity.signal : io.signal,
+  );
+  const slots = Array.from({ length: 5 }, (_, i) => ({
+    slotId: String(i),
+    name: String(i),
+    mimeType: "image/png",
+    byteLength: 1,
+    contentSha256: "a".repeat(64),
+  }));
+  const keys = Object.fromEntries(slots.map(({ slotId }) => [slotId, slotId]));
+  try {
+    const { result } = renderHook(() =>
+      useAttachmentImageUrls(slots, keys, store, false),
+    );
+    await waitFor(() => expect(reads).toBe(4));
+    // Fresh I/O gets its own deadline after the first group has timed out.
+    timer.mockImplementation((ms) =>
+      ms === 60_000 ? capacity.signal : new AbortController().signal,
+    );
+    await act(async () => io.abort());
+    await waitFor(() =>
+      expect(result.current.queuedPreviewSlots.has("4")).toBe(true),
+    );
+    await act(async () => capacity.abort());
+    await waitFor(() => expect(result.current.queuedPreviewSlots.size).toBe(0));
+    expect(result.current.loadingPreviewSlots.size).toBe(0);
+    expect(reads).toBe(4);
+  } finally {
+    timer.mockRestore();
+    await act(async () => stuck.resolve(new Uint8Array([1])));
   }
 });

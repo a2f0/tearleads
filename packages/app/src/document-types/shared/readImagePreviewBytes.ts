@@ -35,7 +35,7 @@ async function withReadDeadline<T>(
   }
 }
 
-/** Only time filesystem operations. Waiting for a sibling's read has no I/O deadline. */
+/** Bound both filesystem calls and the wait for a buffer held by another reader. */
 export async function readImagePreviewBytes(
   store: BlobStore,
   key: string,
@@ -54,9 +54,11 @@ export async function readImagePreviewBytes(
   }
   if (pool.count >= MAX_IMAGE_PREVIEW_READS) {
     onCapacity("waiting-for-reader");
-    while (!retired.aborted && pool.count >= MAX_IMAGE_PREVIEW_READS)
-      await waitForReader(pool.events, retired);
-    if (!retired.aborted) onCapacity("start");
+    const capacity = AbortSignal.any([retired, AbortSignal.timeout(60_000)]);
+    while (!capacity.aborted && pool.count >= MAX_IMAGE_PREVIEW_READS)
+      await waitForReader(pool.events, capacity);
+    if (capacity.aborted) return null;
+    onCapacity("start");
   }
   if (retired.aborted) return null;
   const active = pool;

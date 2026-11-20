@@ -1,4 +1,3 @@
-export { isContainerUnderTrashByLookup } from "../../stores/explorer/ExplorerSystemContainers";
 export { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
 export {
   continuityContactsDefinition,

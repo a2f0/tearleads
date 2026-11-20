@@ -170,7 +170,7 @@ async function verifyFixtures(
   let bytes = 0;
   let attachments = 0;
   for await (const { containerId, row } of discoverSeedDocuments(
-    account.folders,
+    [account.rootId, contacts.id],
     (id, onPending, signal) =>
       session.sdk.containerContents.discoverContainerDocuments(id, {
         signal,
