@@ -2,12 +2,14 @@ import { expect, mock, test } from "bun:test";
 import {
   BLOB_CHUNK_SIZE_BYTES,
   BLOB_ENVELOPE_PREFIX_BYTES,
+  blobContentMetadataHash,
   computeBlobChunkCount,
   computeBlobEncryptedByteLength,
   MAX_BLOB_ENVELOPE_HEADER_BYTES,
 } from "@tearleads/crypto";
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import {
+  createFixtureBinding,
   createSingleAttachmentHydrationApi,
   createUploadedAttachmentFixture,
 } from "../../../../test/helpers/workflows/blobHydration";
@@ -89,4 +91,54 @@ test("an oversized ciphertext declaration cancels the body before the first read
   );
   expect(cancel).toHaveBeenCalledTimes(1);
   expect(pull).not.toHaveBeenCalled();
+});
+
+test("one blob cannot have different trusted lengths in two slots", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const first = fixture.attachment;
+  const second = {
+    ...first,
+    slotId: "second",
+    byteLength: first.byteLength + 1,
+  };
+  const binding = createFixtureBinding(fixture);
+  const metadataHash = await blobContentMetadataHash({
+    blobId: binding.blobId,
+    byteLength: second.byteLength,
+    chunkCount: computeBlobChunkCount(second.byteLength, BLOB_CHUNK_SIZE_BYTES),
+    chunkSize: BLOB_CHUNK_SIZE_BYTES,
+    contentKeyEpoch: binding.contentKeyBundle.contentKeyEpoch,
+  });
+  const bytes = mock(async () => null);
+  const api = createSingleAttachmentHydrationApi(fixture, bytes);
+  const documentId = fixture.writerProjection.documentId;
+  const service = createBlobAttachmentServiceFixture({
+    api: {
+      ...api,
+      listDocumentAttachments: async () => [
+        binding,
+        {
+          ...binding,
+          slotId: second.slotId,
+          writeHeader: { ...binding.writeHeader, metadataHash },
+        },
+      ],
+    },
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  }).withExpectedDownloads(
+    documentId,
+    new Map([
+      [first.slotId, first.byteLength],
+      [second.slotId, second.byteLength],
+    ]),
+  );
+  await expect(
+    service.hydrateDocumentAttachmentBlobs({
+      attachments: [first, second],
+      documentId,
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    }),
+  ).rejects.toThrow("Conflicting attachment sizes");
+  expect(bytes).not.toHaveBeenCalled();
 });

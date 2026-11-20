@@ -219,3 +219,33 @@ testApiClient(
     ).rejects.toThrow("exceeds its size limit");
   },
 );
+
+testApiClient(
+  "an exhausted session rejects the next response before pulling its body",
+  async () => {
+    const read = createSessionMetadataReader(true, 2);
+    const options = { [boundedMetadata]: "all" as const };
+    expect(
+      await read(new Response("[]"), options, documentSyncOperation).text(),
+    ).toBe("[]");
+    const cancel = mock(() => {});
+    const pull = mock(
+      (controller: ReadableStreamDefaultController<Uint8Array>) =>
+        controller.enqueue(new Uint8Array(3)),
+    );
+    await expect(
+      read(
+        new Response(
+          new ReadableStream<Uint8Array>(
+            { pull, cancel },
+            { highWaterMark: 0 },
+          ),
+        ),
+        options,
+        documentSyncOperation,
+      ).text(),
+    ).rejects.toThrow("exceeds its size limit");
+    expect(pull).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledTimes(1);
+  },
+);

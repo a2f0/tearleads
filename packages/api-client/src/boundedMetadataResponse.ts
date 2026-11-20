@@ -33,9 +33,12 @@ export function createSessionMetadataReader(
   sessionLimit = 2 * MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 ) {
   let remainingMetadataBytes = sessionLimit;
-  const consume = (bytes: number) => {
-    remainingMetadataBytes -= bytes;
-    return remainingMetadataBytes >= 0;
+  const budget = {
+    available: () => remainingMetadataBytes > 0,
+    consume(bytes: number) {
+      remainingMetadataBytes -= bytes;
+      return remainingMetadataBytes >= 0;
+    },
   };
   return (
     response: Response,
@@ -48,7 +51,7 @@ export function createSessionMetadataReader(
       verification &&
         operation !== logoutOperation &&
         operation !== verifyOperation
-        ? consume
+        ? budget
         : undefined,
     );
 }
@@ -57,7 +60,7 @@ export function createSessionMetadataReader(
 export function boundedMetadataResponse(
   response: Response,
   options: { readonly [boundedMetadata]?: MetadataLimit | undefined },
-  consume?: (bytes: number) => boolean,
+  budget?: { available(): boolean; consume(bytes: number): boolean },
 ): Response {
   const mode = options[boundedMetadata];
   if (!mode || (mode === "errors" && response.ok) || response.status < 200)
@@ -76,6 +79,10 @@ export function boundedMetadataResponse(
       {
         async pull(controller) {
           try {
+            if (bytes === 0 && budget?.available() === false)
+              throw new MetadataSizeError(
+                "Blob response metadata exceeds its size limit",
+              );
             const next = await reader.read();
             if (next.done) {
               reader.releaseLock();
@@ -83,14 +90,17 @@ export function boundedMetadataResponse(
               return;
             }
             bytes += next.value.byteLength;
-            if (consume?.(next.value.byteLength) === false || bytes > limit) {
-              void reader.cancel().catch(() => {});
+            if (
+              budget?.consume(next.value.byteLength) === false ||
+              bytes > limit
+            ) {
               throw new MetadataSizeError(
                 "Blob response metadata exceeds its size limit",
               );
             }
             controller.enqueue(next.value);
           } catch (error) {
+            void reader.cancel().catch(() => {});
             reader.releaseLock();
             controller.error(error);
           }

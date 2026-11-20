@@ -49,15 +49,16 @@ export async function expectedEncryptedDownloadLimits(
     const { metadataHash } = binding.writeHeader;
     if (metadataHash !== hash)
       throw new Error(`Unexpected bound attachment size: ${attachment.slotId}`);
-    limits.set(
-      binding.blobId,
-      computeBlobEncryptedByteLength({
-        plaintextByteLength: byteLength,
-        chunkCount,
-        headerByteLength:
-          BLOB_ENVELOPE_PREFIX_BYTES + MAX_BLOB_ENVELOPE_HEADER_BYTES,
-      }),
-    );
+    const limit = computeBlobEncryptedByteLength({
+      plaintextByteLength: byteLength,
+      chunkCount,
+      headerByteLength:
+        BLOB_ENVELOPE_PREFIX_BYTES + MAX_BLOB_ENVELOPE_HEADER_BYTES,
+    });
+    const existing = limits.get(binding.blobId);
+    if (existing !== undefined && existing !== limit)
+      throw new Error("Conflicting attachment sizes for the same blob");
+    limits.set(binding.blobId, limit);
   }
   return limits;
 }

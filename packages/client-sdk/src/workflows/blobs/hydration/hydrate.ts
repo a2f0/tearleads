@@ -297,6 +297,7 @@ async function decryptLoadedDocumentAttachmentBlob(
 
   const { attachment, binding } = input.loaded;
   const contentSha256 = await attachmentContentSha256(bytes);
+  if (input.stillCurrent?.() === false) return null;
   const intentMismatch = contentSha256 !== attachment.contentSha256;
   if (intentMismatch && input.localStorageKeyBySlotId?.[attachment.slotId]) {
     // Never replace a held copy with bytes the document does not record.
