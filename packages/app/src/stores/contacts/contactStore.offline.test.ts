@@ -10,6 +10,8 @@ import {
 } from "../../../test/helpers/contactStoreRecovery";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
 import { getContactAvatarRef } from "../../document-types/contact/contactAvatarSlot";
+import { CONTACT_PHOTOS } from "../../document-types/contact/contactDocumentDefinition";
+import { selectDocumentAvatar } from "../../document-types/shared/documentPhotos";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
 for (const reconnect of ["before", "after", "database"] as const) {
@@ -230,14 +232,16 @@ for (const target of ["canonical", "distinct"] as const) {
         );
       expect(otherBefore).not.toBeNull();
       await store.updateContact(targetId, { firstName: "Saved on original" });
-      // This fixture's open swaps crypto runtimes. Capture the store before
-      // the fire-and-forget avatar write so its generation stays current.
-      const document = runtime.openDocumentStore({ localId: targetId });
+      const document = store.getContactDocumentStore(targetId);
+      if (!document) throw new Error("Missing original contact document");
       const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-      await store.setContactAvatar(targetId, {
-        bytes,
-        mimeType: "image/png",
-        name: "self.png",
+      await selectDocumentAvatar(document, "contact", CONTACT_PHOTOS, {
+        crop: new Blob([bytes]),
+        photo: {
+          bytes,
+          mimeType: "image/png",
+          name: "self.png",
+        },
       });
       await waitForCondition(
         () =>
@@ -255,10 +259,7 @@ for (const target of ["canonical", "distinct"] as const) {
       expect(snapshot.structuredFields).toMatchObject({
         firstName: "Saved on original",
       });
-      const avatar = getContactAvatarRef(
-        snapshot.attachments,
-        snapshot.attachmentStorageKeyBySlotId,
-      );
+      const avatar = getContactAvatarRef(snapshot);
       if (!avatar?.storageKey)
         throw new Error("Durable original avatar missing");
       expect(

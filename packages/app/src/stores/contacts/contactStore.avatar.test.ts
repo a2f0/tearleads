@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  createDocumentStore,
   createDocumentsWorkflowRuntime,
   openDocumentStore,
 } from "@tearleads/client-sdk";
@@ -7,7 +8,13 @@ import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createSqlRuntimeBase } from "../../../test/helpers/createSqlRuntime";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
+import { CONTACT_PHOTOS } from "../../document-types/contact/contactDocumentDefinition";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
+import {
+  AVATAR_PHOTO_FIELD,
+  isDocumentPhoto,
+  selectDocumentAvatar,
+} from "../../document-types/shared/documentPhotos";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
 const CONTACTS_CONTAINER_ID = "builtin-contacts-container";
@@ -58,7 +65,7 @@ async function createContactsRuntime(): Promise<
   };
 }
 
-test("contacts store binds, reads back, and removes a contact avatar", async () => {
+test("switching and clearing a contact avatar preserves both original photos after reopening", async () => {
   const runtime = await createContactsRuntime();
   const store = createContactsStore(runtime, {
     resolveVerified: () => Promise.resolve(null),
@@ -82,41 +89,65 @@ test("contacts store binds, reads back, and removes a contact avatar", async () 
       throw new Error("Contact creation returned no id.");
     }
 
-    const avatarBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-    await store.setContactAvatar(contactId, {
-      bytes: avatarBytes,
-      mimeType: "image/png",
-      name: "avatar.png",
+    const document = store.getContactDocumentStore(contactId);
+    if (!document) throw new Error("Missing contact document");
+    const original = new Uint8Array([1, 2, 3]);
+    const crop = new Uint8Array([4, 5]);
+    const upload = (name: string, bytes: Uint8Array<ArrayBuffer>) =>
+      selectDocumentAvatar(document, "contact", CONTACT_PHOTOS, {
+        photo: { bytes, name, mimeType: "image/jpeg" },
+        crop: new Blob([crop], { type: "image/png" }),
+      });
+    const avatar = () =>
+      store.getSnapshot().entries.find((entry) => entry.id === contactId)
+        ?.avatar;
+    await upload("portrait.jpg", original);
+    await waitForCondition(
+      () => Boolean(avatar()?.storageKey),
+      "Avatar crop did not appear",
+    );
+    expect(avatar()?.mimeType).toBe("image/png");
+    expect(
+      await runtime.documents.infra.blobStore.readBytes(
+        avatar()?.storageKey ?? "",
+      ),
+    ).toEqual(crop);
+    const firstSlot =
+      document.getSnapshot().structuredFields[AVATAR_PHOTO_FIELD];
+    if (!firstSlot) throw new Error("Missing initial selection");
+    await upload("second.jpg", new Uint8Array([6, 7]));
+    const secondSlot =
+      document.getSnapshot().structuredFields[AVATAR_PHOTO_FIELD];
+    expect(secondSlot).toBeTruthy();
+    expect(secondSlot).not.toBe(firstSlot);
+    await selectDocumentAvatar(document, "contact", CONTACT_PHOTOS, {
+      slotId: firstSlot,
     });
-
-    await waitForCondition(() => {
-      const entry = store
-        .getSnapshot()
-        .entries.find((candidate) => candidate.id === contactId);
-      return Boolean(entry?.avatar?.storageKey);
-    }, "Contact avatar did not appear in the store snapshot.");
-
-    const entry = store
-      .getSnapshot()
-      .entries.find((candidate) => candidate.id === contactId);
-    expect(entry?.avatar?.mimeType).toBe("image/png");
-    expect(entry?.avatar?.byteLength).toBe(avatarBytes.byteLength);
-
-    const storageKey = entry?.avatar?.storageKey;
-    if (!storageKey) {
-      throw new Error("Avatar storage key missing.");
-    }
-    const storedBytes =
-      await runtime.documents.infra.blobStore.readBytes(storageKey);
-    expect(storedBytes).toEqual(avatarBytes);
-
-    await store.removeContactAvatar(contactId);
-    await waitForCondition(() => {
-      const current = store
-        .getSnapshot()
-        .entries.find((candidate) => candidate.id === contactId);
-      return Boolean(current) && !current?.avatar;
-    }, "Contact avatar was not removed from the store snapshot.");
+    expect(document.getSnapshot().structuredFields[AVATAR_PHOTO_FIELD]).toBe(
+      firstSlot,
+    );
+    await selectDocumentAvatar(document, "contact", CONTACT_PHOTOS, null);
+    await waitForCondition(() => !avatar(), "Avatar was not cleared");
+    const reopened = createDocumentStore(contactId, runtime.documents);
+    expect(await reopened.ensureInitialized()).toBe(true);
+    const after = reopened.getSnapshot();
+    expect(after.structuredFields[AVATAR_PHOTO_FIELD]).toBeFalsy();
+    expect(
+      after.attachments
+        .filter((item) => isDocumentPhoto(CONTACT_PHOTOS, item))
+        .map((item) => item.name)
+        .sort(),
+    ).toEqual(["portrait.jpg", "second.jpg"]);
+    expect(
+      await runtime.documents.infra.blobStore.readBytes(
+        after.attachmentStorageKeyBySlotId[firstSlot] ?? "",
+      ),
+    ).toEqual(original);
+    expect(
+      await runtime.documents.infra.blobStore.readBytes(
+        after.attachmentStorageKeyBySlotId[secondSlot ?? ""] ?? "",
+      ),
+    ).toEqual(new Uint8Array([6, 7]));
   } finally {
     runtime.close();
   }

@@ -151,7 +151,7 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
     expect(await targetBlobStore.readBytes(firstKey)).toEqual(PNG_1X1);
     const avatars = (await targetExecSql(
       "SELECT storage_key, name FROM document_pending_attachments WHERE slot_id = ?",
-      ["contact-avatar"],
+      ["contact-photos:portrait"],
     )) as Array<{ storage_key: string; name: string }>;
     expect(avatars).toHaveLength(1);
     expect(avatars[0]?.name).toBe("ada.png");

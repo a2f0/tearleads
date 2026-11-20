@@ -1,13 +1,6 @@
-import type { DocumentAttachment } from "@tearleads/client-sdk";
-import { getLatestDocumentAttachmentBySlotId } from "../shared/documentAttachmentUtils";
-
-// The contact avatar is a single attachment slot on the contact document. The
-// bound blob is the already-cropped square image (the editor persists the crop
-// result, not the original photo), so consumers can render it directly inside
-// a circle without any transform metadata.
-export const CONTACT_AVATAR_SLOT_ID = "contact-avatar";
-export const CONTACT_AVATAR_ATTACHMENT_NAME = "avatar.png";
-export const CONTACT_AVATAR_MIME_TYPE = "image/png";
+import type { DocumentSnapshot } from "@tearleads/client-sdk";
+import { findAvatarCrop, findDocumentAvatar } from "../shared/documentPhotos";
+import { CONTACT_PHOTOS } from "./contactDocumentDefinition";
 
 export interface ContactAvatarRef {
   byteLength: number;
@@ -18,13 +11,14 @@ export interface ContactAvatarRef {
 }
 
 export function getContactAvatarRef(
-  attachments: ReadonlyArray<DocumentAttachment>,
-  attachmentStorageKeyBySlotId: Readonly<Record<string, string>>,
+  snapshot: Pick<
+    DocumentSnapshot,
+    "attachments" | "attachmentStorageKeyBySlotId" | "structuredFields"
+  >,
 ): ContactAvatarRef | null {
-  const attachment = getLatestDocumentAttachmentBySlotId(
-    attachments,
-    CONTACT_AVATAR_SLOT_ID,
-  );
+  const photo = findDocumentAvatar(CONTACT_PHOTOS, snapshot);
+  const attachment =
+    photo && (findAvatarCrop(snapshot.attachments, photo) ?? photo);
   if (!attachment) {
     return null;
   }
@@ -32,7 +26,8 @@ export function getContactAvatarRef(
   return {
     byteLength: attachment.byteLength,
     mimeType: attachment.mimeType,
-    storageKey: attachmentStorageKeyBySlotId[CONTACT_AVATAR_SLOT_ID] ?? null,
+    storageKey:
+      snapshot.attachmentStorageKeyBySlotId[attachment.slotId] ?? null,
   };
 }
 

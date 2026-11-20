@@ -44,7 +44,7 @@ function ContactsDetailRoute({
       initialEditing={initialEditing}
       addressActions={model.addressActions}
       resolveAddressWriter={resolveAddressWriter}
-      blobStore={model.blobStore}
+      getContactDocumentStore={model.getContactDocumentStore}
       canCreate={model.canCreate}
       canImport={model.canImport}
       createDraftContact={model.createDraftContact}
@@ -62,14 +62,8 @@ function ContactsDetailRoute({
       onAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
       onBackToSelectionRoute={model.showSelectionRoute}
       ready={model.ready}
-      removeContactAvatar={(contactId) => {
-        void model.removeContactAvatar(contactId);
-      }}
       route={model.route}
       selectedContactId={model.selectedContactId}
-      setContactAvatar={(contactId, upload) => {
-        void model.setContactAvatar(contactId, upload);
-      }}
       setDraftFirstName={model.setDraftFirstName}
       setDraftLastName={model.setDraftLastName}
       setDraftNickname={model.setDraftNickname}

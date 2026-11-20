@@ -28,7 +28,7 @@ const AVATAR_EDITOR_LABELS = {
   apply: "Apply",
   cancel: "Cancel",
   encodeError: "Failed to crop the avatar image.",
-  hint: "Drag to position the face inside the circle. Zoom with the slider, mouse wheel, or a pinch.",
+  hint: "Drag to position the image inside the circle. Zoom with the slider, mouse wheel, or a pinch.",
   readError: "Could not read the selected image.",
   zoom: "Zoom",
 } as const;

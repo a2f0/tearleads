@@ -1,13 +1,16 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
+import { applianceDocumentProjectorDefinition } from "../appliance/applianceDocumentDefinition";
 import { BIRTH_CERTIFICATE_ATTACHMENT_SLOTS } from "../birth-certificate/birthCertificateDocument";
-import { CONTACT_AVATAR_SLOT_ID } from "../contact/contactAvatarSlot";
+import { CONTACT_PHOTOS } from "../contact/contactDocumentDefinition";
 import { CREDIT_CARD_ATTACHMENT_SLOTS } from "../credit-card/creditCardDocument";
 import { DRIVER_LICENSE_ATTACHMENT_SLOTS } from "../drivers-license/driverLicenseDocument";
 import { PASSPORT_ATTACHMENT_SLOTS } from "../passport/passportDocument";
 import type { DocumentAttachmentSlot } from "../shared/documentAttachmentUtils";
-import { EQUIPMENT_ATTACHMENT_SLOTS } from "../shared/equipmentDocumentDefinition";
+import { toolDocumentProjectorDefinition } from "../tool/toolDocumentDefinition";
 import { seedTrackerRow } from "./seedTrackerRows";
 import type { SeedAttachment, SeedFile, SeedSpec } from "./seedTypes";
+
+const seedPortraitSlotId = `${CONTACT_PHOTOS.slotId}:portrait`;
 
 const SLOTS: Partial<
   Record<StoredDocumentKind, readonly DocumentAttachmentSlot[]>
@@ -16,8 +19,8 @@ const SLOTS: Partial<
   passport: PASSPORT_ATTACHMENT_SLOTS,
   birth_certificate: BIRTH_CERTIFICATE_ATTACHMENT_SLOTS,
   credit_card: CREDIT_CARD_ATTACHMENT_SLOTS,
-  tool: EQUIPMENT_ATTACHMENT_SLOTS,
-  appliance: EQUIPMENT_ATTACHMENT_SLOTS,
+  tool: toolDocumentProjectorDefinition.slots,
+  appliance: applianceDocumentProjectorDefinition.slots,
 };
 
 function resolveSeedSlot(
@@ -55,9 +58,11 @@ export function continuityDocuments(spec: SeedSpec): SeedDocument[] {
     ...(spec.contacts ?? []).map((contact, index) => ({
       key: `contact/${index}`,
       kind: "contact",
-      fields: contact.fields,
+      fields: contact.avatar
+        ? { ...contact.fields, avatarPhotoSlotId: seedPortraitSlotId }
+        : contact.fields,
       attachments: contact.avatar
-        ? [{ ...contact.avatar, slot: CONTACT_AVATAR_SLOT_ID }]
+        ? [{ ...contact.avatar, slot: seedPortraitSlotId }]
         : [],
     })),
     ...(spec.notes ?? []).map((note, index) => ({

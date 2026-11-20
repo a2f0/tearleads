@@ -8,6 +8,10 @@ import {
 import type { AppDocumentProjectorDefinition } from "../types";
 import type { DocumentAttachmentSlot } from "./documentAttachmentUtils";
 import { structuredFieldsProjector } from "./documentFieldUtils";
+import {
+  type DocumentPhotoCapability,
+  photoCollectionSlot,
+} from "./documentPhotos";
 
 /**
  * The fields every owned-equipment document (tool, appliance) records. The
@@ -29,27 +33,15 @@ export interface EquipmentTypeOption {
 
 export interface EquipmentDocumentTypeDefinition
   extends AppDocumentProjectorDefinition {
+  readonly photos: DocumentPhotoCapability;
+  readonly slots: readonly DocumentAttachmentSlot[];
   readonly label: string;
   readonly typeOptions: ReadonlyArray<EquipmentTypeOption>;
   readonly untitledTitle: string;
 }
 
+export const EQUIPMENT_PHOTO_SLOT_ID = "equipment-photos";
 const EQUIPMENT_RECEIPT_IMAGE_SLOT_ID = "receipt-image";
-
-// Item photos form a collection; the receipt remains independently replaceable.
-export const EQUIPMENT_ATTACHMENT_SLOTS: ReadonlyArray<DocumentAttachmentSlot> =
-  [
-    {
-      itemLabel: "Photo",
-      label: "Photos",
-      slotId: "equipment-photos",
-      multiple: true,
-    },
-    {
-      label: "Receipt",
-      slotId: EQUIPMENT_RECEIPT_IMAGE_SLOT_ID,
-    },
-  ];
 
 export function readEquipmentFieldsFromRecord(
   source: Readonly<Record<string, unknown>>,
@@ -101,6 +93,7 @@ export function getEquipmentTypeLabel(
 }
 
 interface EquipmentDocumentTypeConfig {
+  photos: DocumentPhotoCapability;
   createIcon: Icon;
   createLabel: string;
   kind: StoredDocumentKind;
@@ -138,9 +131,14 @@ export function createEquipmentDocumentType(
 ): EquipmentDocumentTypeDefinition {
   return {
     ...config,
+    slots: [
+      photoCollectionSlot(config.photos.slotId),
+      { label: "Receipt", slotId: EQUIPMENT_RECEIPT_IMAGE_SLOT_ID },
+    ],
     project: structuredFieldsProjector(
       readEquipmentFieldsFromRecord,
       (fields) => deriveEquipmentTitle(config, fields),
+      config.photos,
     ),
   };
 }

@@ -1,12 +1,17 @@
 import type { ComponentType } from "react";
-import { useId } from "react";
+import { useContext, useId } from "react";
 import { MiniAppSelectMenu } from "../../components/mini-app/controls/MiniAppSelectMenu";
-import type { useDocument } from "../../stores/documents/DocumentsProvider";
+import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import {
+  DocumentContext,
+  type useDocument,
+} from "../../stores/documents/DocumentsProvider";
 import type { DocumentTypeAppProps } from "../types";
 import { createDocumentTypeApp } from "./createDocumentTypeApp";
 import { DocumentAttachmentSlots } from "./DocumentAttachmentSlots";
+import { DocumentAvatar } from "./DocumentAvatar";
+import { removeDocumentPhoto } from "./documentPhotos";
 import {
-  EQUIPMENT_ATTACHMENT_SLOTS,
   type EquipmentDocumentFields,
   type EquipmentDocumentTypeDefinition,
   type EquipmentTypeOption,
@@ -190,13 +195,15 @@ interface EquipmentDocumentProps {
 
 function EquipmentDocument(params: EquipmentDocumentProps) {
   const { definition } = params;
+  const { infra } = useTearleadsRuntime();
+  const store = useContext(DocumentContext);
   const doc = useAttachedStructuredDocument({
     containerId: params.containerId,
     documentLabel: definition.label,
     initialEditing: params.initialEditing,
     localId: params.localId,
     readFields: readEquipmentFields,
-    slots: EQUIPMENT_ATTACHMENT_SLOTS,
+    slots: definition.slots,
   });
   const inputIds = {
     equipmentType: useId(),
@@ -206,7 +213,28 @@ function EquipmentDocument(params: EquipmentDocumentProps) {
   };
   return (
     <StructuredDocument
-      attachments={<DocumentAttachmentSlots {...doc.slotsProps} />}
+      leading={
+        definition.photos.avatar && (
+          <DocumentAvatar
+            definition={definition}
+            displayName={
+              [doc.fields.make, doc.fields.model].filter(Boolean).join(" ") ||
+              definition.createLabel
+            }
+            isEditing={doc.isEditing}
+            imageUrlBySlotId={doc.slotsProps.imageUrlBySlotId}
+            blobStore={infra.blobStore}
+          />
+        )
+      }
+      attachments={
+        <DocumentAttachmentSlots
+          {...doc.slotsProps}
+          onClearAttachment={(slotId) => {
+            if (store) removeDocumentPhoto(store, definition.photos, slotId);
+          }}
+        />
+      }
       fields={
         <EquipmentDocumentFieldsPane
           canWrite={doc.canWrite}

@@ -1,24 +1,32 @@
 import { expect, test } from "bun:test";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
-import {
-  CONTACT_AVATAR_SLOT_ID,
-  getContactAvatarRef,
-  sameContactAvatarRef,
-} from "./contactAvatarSlot";
+import { getContactAvatarRef, sameContactAvatarRef } from "./contactAvatarSlot";
 
 const avatarAttachment: DocumentAttachment = {
   contentSha256: "1".repeat(64),
   byteLength: 1024,
   mimeType: "image/png",
   name: "avatar.png",
-  slotId: CONTACT_AVATAR_SLOT_ID,
+  slotId: "contact-photos:one",
 };
 
+function snapshot(
+  attachments: DocumentAttachment[],
+  keys: Record<string, string> = {},
+) {
+  return {
+    attachments,
+    attachmentStorageKeyBySlotId: keys,
+    structuredFields: { avatarPhotoSlotId: "contact-photos:one" },
+  };
+}
+
 test("returns null without an avatar slot attachment", () => {
-  expect(getContactAvatarRef([], {})).toBeNull();
+  expect(getContactAvatarRef(snapshot([]))).toBeNull();
   expect(
-    getContactAvatarRef([{ ...avatarAttachment, slotId: "other-slot" }], {
-      "other-slot": "other-key",
+    getContactAvatarRef({
+      ...snapshot([{ ...avatarAttachment, slotId: "other-slot" }]),
+      structuredFields: { avatarPhotoSlotId: "other-slot" },
     }),
   ).toBeNull();
 });
@@ -30,9 +38,11 @@ test("returns the latest avatar attachment with its storage key", () => {
   };
 
   expect(
-    getContactAvatarRef([avatarAttachment, replacement], {
-      [CONTACT_AVATAR_SLOT_ID]: "avatar-key",
-    }),
+    getContactAvatarRef(
+      snapshot([avatarAttachment, replacement], {
+        "contact-photos:one": "avatar-key",
+      }),
+    ),
   ).toEqual({
     byteLength: 2048,
     mimeType: "image/png",
@@ -41,7 +51,7 @@ test("returns the latest avatar attachment with its storage key", () => {
 });
 
 test("reports a null storage key while the blob is not local yet", () => {
-  expect(getContactAvatarRef([avatarAttachment], {})).toEqual({
+  expect(getContactAvatarRef(snapshot([avatarAttachment]))).toEqual({
     byteLength: 1024,
     mimeType: "image/png",
     storageKey: null,
