@@ -21,6 +21,10 @@ import { errorMessage } from "../../../data/shared/errorMessage";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createAttachmentDecryptor } from "../verification/attachmentDecryptor";
+import {
+  type ExpectedDownloadSizes,
+  expectedEncryptedDownloadLimits,
+} from "./expectedDownloadSizes";
 import { collectHydrationResults } from "./hydrationResults";
 import { readAttachmentTransfer } from "./readAttachmentTransfer";
 
@@ -68,6 +72,7 @@ interface DocumentAttachmentHydrationContext
     HydrateDocumentAttachmentBlobsRequest,
     "attachments" | "onBindingsChecked"
   > {
+  expectedDownloads?: ExpectedDownloadSizes | undefined;
   apiClient: DocumentAttachmentHydrationApi;
   execSql: ExecSql;
   log?: ((message: string) => void) | undefined;
@@ -145,6 +150,7 @@ function shouldHydrateAttachment(input: {
 async function loadDocumentAttachmentBlob(
   input: DocumentAttachmentHydrationContext & {
     binding: BlobAttachmentSummary;
+    maxEncryptedBytes: number | undefined;
     signal: AbortSignal;
     progress: () => void;
   },
@@ -159,6 +165,13 @@ async function loadDocumentAttachmentBlob(
     return null;
   }
 
+  if (
+    input.maxEncryptedBytes !== undefined &&
+    blob.byteLength > input.maxEncryptedBytes
+  ) {
+    await blob.encryptedBytes.cancel();
+    throw new Error("Attachment exceeds its expected encrypted size");
+  }
   let encryptedBytes: Uint8Array<ArrayBuffer>;
   try {
     encryptedBytes = await readAttachmentTransfer(
@@ -201,6 +214,11 @@ async function loadUniqueDocumentAttachmentBlobs(
     hydrationTargets: ReadonlyArray<DocumentAttachmentHydrationTarget>;
   },
 ): Promise<ReadonlyMap<string, LoadedDocumentAttachmentBlobBytes>> {
+  const limits = await expectedEncryptedDownloadLimits(
+    input.documentId,
+    input.expectedDownloads,
+    input.hydrationTargets,
+  );
   const targetsByBlobId = new Map<string, DocumentAttachmentHydrationTarget>();
   for (const target of input.hydrationTargets) {
     if (!targetsByBlobId.has(target.binding.blobId)) {
@@ -217,6 +235,7 @@ async function loadUniqueDocumentAttachmentBlobs(
           loadDocumentAttachmentBlob({
             ...input,
             binding: target.binding,
+            maxEncryptedBytes: limits?.get(target.binding.blobId),
             signal,
             progress,
           }),
@@ -299,9 +318,11 @@ async function decryptLoadedDocumentAttachmentBlob(
 export async function hydrateDocumentAttachmentBlobs(
   blobs: BlobAttachmentCollaborators,
   request: HydrateDocumentAttachmentBlobsRequest,
+  expectedDownloads?: ExpectedDownloadSizes,
 ): Promise<HydratedDocumentAttachmentBlob[] | null> {
   const input = {
     ...request,
+    expectedDownloads,
     apiClient: blobs.api,
     execSql: blobs.execSql,
     log: blobs.log,

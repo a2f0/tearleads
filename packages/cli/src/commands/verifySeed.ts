@@ -26,6 +26,7 @@ async function verifyDocument(
   store: DocumentStore,
   fixture: FixtureInput,
   localId: string,
+  prepared: Awaited<ReturnType<typeof prepareContinuityAttachments>>,
 ) {
   if (
     !(await store.ensureInitialized()) ||
@@ -33,7 +34,6 @@ async function verifyDocument(
   )
     throw new Error(`Could not sync ${fixture.document.key}`);
   const snapshot = store.getSnapshot();
-  const prepared = await prepareContinuityAttachments(fixture);
   const content = await loadPersistedDocumentContent({
     execSql: session.sdk.documents.workflowRuntime().infra.execSql,
     localId,
@@ -54,6 +54,7 @@ async function verifyDocument(
       continuitySeedTag(fixture.document, prepared),
       content.getList("rows").toJSON(),
       content.getMap("metadata").toJSON(),
+      session.userId,
     );
   } finally {
     content.free();
@@ -114,13 +115,29 @@ async function verifyFixtures(
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);
     if (!fixture) continue;
-    const store = session.sdk.containerContents.documentLinks().openDocument({
-      containerId,
-      localId: row.id,
-      documentId: row.documentId,
-    });
+    const prepared = await prepareContinuityAttachments(fixture);
+    const runtime = session.sdk.documents.workflowRuntime(containerId);
+    const store = session.sdk.documents.open(
+      {
+        containerId,
+        localId: row.id,
+        documentId: row.documentId,
+      },
+      {
+        remoteSyncMode: "on-demand",
+        workflowRuntime: {
+          ...runtime,
+          blobAttachments: runtime.blobAttachments.withExpectedDownloads(
+            row.documentId,
+            new Map(
+              prepared.map(({ intent }) => [intent.slotId, intent.byteLength]),
+            ),
+          ),
+        },
+      },
+    );
     bytes += await session.tracer.span(`read ${fixture.document.key}`, () =>
-      verifyDocument(session, store, fixture, row.id),
+      verifyDocument(session, store, fixture, row.id, prepared),
     );
     attachments += fixture.document.attachments.length;
     expected.delete(row.documentId);

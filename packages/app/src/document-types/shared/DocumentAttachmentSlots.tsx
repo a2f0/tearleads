@@ -3,7 +3,7 @@ import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
-import { type ChangeEvent, useId, useRef } from "react";
+import { type ChangeEvent, useId, useRef, useState } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { AttachmentActionButton } from "./AttachmentActionButton";
 import { useDocumentBlobOpen } from "./DocumentBlobOpenContext";
@@ -101,7 +101,8 @@ function DocumentAttachmentSlotPreview(params: {
   } = params;
   const altText = storedAttachment?.name ?? slot.label;
 
-  if (imageUrl) {
+  const [decodeFailed, setDecodeFailed] = useState(false);
+  if (imageUrl && !decodeFailed) {
     return onOpenAttachment && storedAttachment ? (
       <button
         aria-label={`Open ${slot.label}`}
@@ -113,6 +114,7 @@ function DocumentAttachmentSlotPreview(params: {
         <img
           className="structured-document-slot-preview-image"
           src={imageUrl}
+          onError={() => setDecodeFailed(true)}
           alt=""
         />
       </button>
@@ -120,6 +122,7 @@ function DocumentAttachmentSlotPreview(params: {
       <img
         className="structured-document-slot-preview"
         src={imageUrl}
+        onError={() => setDecodeFailed(true)}
         alt={altText}
       />
     );
@@ -199,6 +202,7 @@ function DocumentAttachmentSlotCard(params: {
         <strong>{slot.label}</strong>
       </div>
       <DocumentAttachmentSlotPreview
+        key={imageUrl}
         loadingText={loadingText}
         hasLocalBytes={Boolean(attachmentStorageKey)}
         imageUrl={imageUrl}

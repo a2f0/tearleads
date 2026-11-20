@@ -161,6 +161,21 @@ test("idle slots distinguish missing bytes from a held image without a preview",
   expect(view.queryByText("Downloading image...")).toBeNull();
 });
 
+test("reports an undecodable held image and leaves its open action available", () => {
+  const opened: DocumentBlobOpenRequest[] = [];
+  const view = renderAttachmentSlots({
+    attachmentStorageKeyBySlotId: { front: "front-file" },
+    imageUrlBySlotId: { front: "blob:invalid" },
+    onOpenBlob: (request) => opened.push(request),
+  });
+  const button = view.getByRole("button", { name: "Open Front Image" });
+  const img = button.querySelector("img");
+  if (!img) throw new Error("Missing preview");
+  fireEvent.error(img);
+  fireEvent.click(view.getByText("Preview unavailable"));
+  expect(opened).toEqual([{ storageKey: "front-file" }]);
+});
+
 test("opens the bound blob when a slot image is clicked", () => {
   const openRequests: DocumentBlobOpenRequest[] = [];
   const view = renderAttachmentSlots({

@@ -27,10 +27,18 @@ test("verification rejects an edit to a previously empty field", () => {
     view: Parameters<typeof checkDocument>[1],
     fields: Record<string, unknown> = fixture.fields,
   ) =>
-    checkDocument(fixture, view, fields, "original", [], {
-      kind: fixture.kind,
-      schemaVersion: 1,
-    });
+    checkDocument(
+      fixture,
+      view,
+      fields,
+      "original",
+      [],
+      {
+        kind: fixture.kind,
+        schemaVersion: 1,
+      },
+      "author",
+    );
   expect(() => verify(snapshot)).not.toThrow();
   for (const seedTag of [undefined, "another"])
     expect(() => verify({ ...snapshot, seedTag })).toThrow(
@@ -84,16 +92,38 @@ test("a note requires the original empty metadata map", () => {
     attachments: [],
   };
   const verify = (metadata: Record<string, unknown>) =>
-    checkDocument(fixture, snapshot, {}, "original", [], metadata);
+    checkDocument(fixture, snapshot, {}, "original", [], metadata, "author");
   expect(() => verify({})).not.toThrow();
   expect(() => verify({ kind: 42 })).toThrow("Fixture content differs");
 });
 
 test("two identical tracker readings remain separately editable", () => {
   const fields = { value: "120" };
-  const row = { ...fields, "@id": "first" };
+  const row = {
+    ...fields,
+    "@id": "first",
+    "@createdAt": "2026-01-01T00:00:00.000Z",
+    "@createdBy": "author",
+    "@updatedAt": "2026-01-01T00:00:00.000Z",
+    "@updatedBy": "author",
+  };
   expect(
-    storedSeedRowsMatch([fields, fields], [row, { ...row, "@id": "second" }]),
+    storedSeedRowsMatch(
+      [fields, fields],
+      [row, { ...row, "@id": "second" }],
+      "author",
+    ),
   ).toBe(true);
-  expect(storedSeedRowsMatch([fields, fields], [row, row])).toBe(false);
+  expect(storedSeedRowsMatch([fields, fields], [row, row], "author")).toBe(
+    false,
+  );
+  for (const edit of [
+    { "@createdBy": undefined },
+    { "@updatedBy": "other" },
+    { "@createdAt": "invalid", "@updatedAt": "invalid" },
+    { "@updatedAt": "2026-01-02T00:00:00.000Z" },
+  ])
+    expect(storedSeedRowsMatch([fields], [{ ...row, ...edit }], "author")).toBe(
+      false,
+    );
 });

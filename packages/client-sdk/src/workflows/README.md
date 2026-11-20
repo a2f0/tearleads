@@ -291,18 +291,17 @@ network detection and any manual online/offline override belong to the SDK
 
 ## Blobs, Keys, and Identity
 
-The `blobs` facade exports `BlobAttachmentService`, which document stores reach
-as `runtime.blobAttachments`, and encrypted local blob store helpers such as
-`createLazyEncryptedBlobStore` for async keyring providers. `BlobByteSource` is
-the replayable range-read contract for large attachment writes and multipart
-uploads; stores implement `openByteSource` and `writeByteSource` so those paths
-stay bounded by the 5 MiB chunk size instead of materializing the whole object.
+Document stores use the `blobs` facade's `BlobAttachmentService` through
+`runtime.blobAttachments`. Its `withExpectedDownloads(documentId, sizesBySlot)`
+bounds verification reads to known file sizes. The facade also exports
+`createLazyEncryptedBlobStore` for async keyring providers. Stores implement
+`BlobByteSource` through `openByteSource` and `writeByteSource` for replayable
+range reads and multipart uploads bounded by the 5 MiB chunk size.
 
 Local keyring variants, including WebView and PIN-code wrapping helpers, are
 client-facade exports rather than workflow facades. Keep platform keychain
 composition in [`client/`](../client/) so workflow modules stay focused on
-domain
-operations. Hosts close a retired keyring through its optional public `close()`
+domain operations. Hosts close a retired keyring through its public `close()`
 lifecycle contract so browser-backed variants can release their IndexedDB
 connections; callers still dispose the sessions they own.
 

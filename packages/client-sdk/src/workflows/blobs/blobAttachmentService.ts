@@ -18,6 +18,7 @@ import { readCanonicalRecord } from "../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { decryptDocumentAttachmentBlob } from "./hydration/decrypt";
+import type { ExpectedDownloadSizes } from "./hydration/expectedDownloadSizes";
 import {
   type HydrateDocumentAttachmentBlobsRequest,
   type HydratedDocumentAttachmentBlob,
@@ -46,8 +47,22 @@ export class BlobAttachmentService {
     collaboratorsOf = (service) => service.blobs;
   }
 
-  constructor(collaborators: BlobAttachmentCollaborators) {
+  constructor(
+    collaborators: BlobAttachmentCollaborators,
+    private readonly expectedDownloads?: ExpectedDownloadSizes,
+  ) {
     this.blobs = collaborators;
+  }
+
+  /** Limit this document's hydration to known slot sizes before reading any body. */
+  withExpectedDownloads(
+    documentId: string,
+    sizesBySlot: ReadonlyMap<string, number>,
+  ): BlobAttachmentService {
+    return new BlobAttachmentService(this.blobs, {
+      documentId,
+      sizesBySlot: new Map(sizesBySlot),
+    });
   }
 
   /** Inspects the source itself; any `sourceSnapshot` a caller attaches is dropped. */
@@ -143,7 +158,11 @@ export class BlobAttachmentService {
   hydrateDocumentAttachmentBlobs(
     request: HydrateDocumentAttachmentBlobsRequest,
   ): Promise<HydratedDocumentAttachmentBlob[] | null> {
-    return hydrateDocumentAttachmentBlobs(this.blobs, request);
+    return hydrateDocumentAttachmentBlobs(
+      this.blobs,
+      request,
+      this.expectedDownloads,
+    );
   }
 
   decryptDocumentAttachmentBlob(

@@ -15,6 +15,7 @@ type Fixture = ReturnType<typeof continuityDocuments>[number];
 export function storedSeedRowsMatch(
   expected: NonNullable<Fixture["rows"]>,
   stored: readonly unknown[],
+  userId: string,
 ) {
   const ids = new Set<string>();
   if (stored.length !== expected.length) return false;
@@ -26,21 +27,27 @@ export function storedSeedRowsMatch(
       !("@id" in row)
     )
       return false;
-    const id = row["@id"];
-    if (typeof id !== "string" || !id || ids.has(id)) return false;
+    const {
+      "@id": id,
+      "@createdAt": created,
+      "@createdBy": creator,
+      "@updatedAt": updated,
+      "@updatedBy": updater,
+      ...fields
+    } = Object.fromEntries<unknown>(Object.entries(row));
+    if (
+      typeof id !== "string" ||
+      !id ||
+      ids.has(id) ||
+      creator !== userId ||
+      updater !== userId ||
+      typeof created !== "string" ||
+      !Number.isFinite(Date.parse(created)) ||
+      new Date(created).toISOString() !== created ||
+      updated !== created
+    )
+      return false;
     ids.add(id);
-    const fields = Object.fromEntries(
-      Object.entries(row).filter(
-        ([key]) =>
-          ![
-            "@id",
-            "@createdAt",
-            "@createdBy",
-            "@updatedAt",
-            "@updatedBy",
-          ].includes(key),
-      ),
-    );
     return isDeepStrictEqual(fields, expected[index]);
   });
 }
@@ -61,6 +68,7 @@ export function checkDocument(
   seedTag: string,
   storedRows: readonly unknown[],
   storedMetadata: Readonly<Record<string, unknown>>,
+  userId: string,
 ) {
   const expected = projectStoredDocumentState(
     {
@@ -89,7 +97,7 @@ export function checkDocument(
           },
     ) ||
     !isDeepStrictEqual(storedFields, fixture.fields ?? {}) ||
-    !storedSeedRowsMatch(fixture.rows ?? [], storedRows) ||
+    !storedSeedRowsMatch(fixture.rows ?? [], storedRows, userId) ||
     snapshot.fieldValidationIssues.length > 0 ||
     snapshot.documentKind !== fixture.kind ||
     snapshot.text !== (fixture.text ?? "") ||
