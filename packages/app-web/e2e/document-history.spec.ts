@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./appTest";
 import { measureAttached } from "./domMeasure";
+import { themeForeground } from "./themeForeground";
 
 /*
  * Explorer History on a phone: a timeline (transport buttons, a slider over
@@ -159,17 +160,18 @@ test("History fits a phone: touch-sized controls above the document, nothing ove
 
   const accents = new Set<string>();
   await expect(slider(page)).toHaveCSS("appearance", "auto");
-  for (const theme of ["light", "dark"]) {
+  for (const theme of ["light", "dark", "dusk"]) {
     await page.evaluate((id) => {
       document.documentElement.setAttribute("data-theme", id);
     }, theme);
-    const accent = await slider(page).evaluate(
-      (input) => getComputedStyle(input).accentColor,
-    );
-    expect(accent).toMatch(/^rgb\((\d+), \1, \1\)$/);
+    const accent = await themeForeground(slider(page));
+    await expect(slider(page)).toHaveCSS("accent-color", accent);
+    if (theme !== "dusk") {
+      expect(accent).toMatch(/^rgb\((\d+), \1, \1\)$/);
+    }
     accents.add(accent);
   }
-  expect(accents.size).toBe(2);
+  expect(accents.size).toBe(3);
   await slider(page).press("Home");
   await expect(slider(page)).toHaveValue("0");
 });

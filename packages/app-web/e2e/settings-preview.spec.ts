@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./appTest";
+import { themeForeground } from "./themeForeground";
 import { openWindowedDesktop } from "./windowedDesktop";
 
 async function openSettingsFromTray(page: Page) {
@@ -310,14 +311,7 @@ test("Network radios use the active theme for selection and keyboard focus", asy
     await expect(radio).toBeChecked();
     await page.keyboard.press("Tab");
     await expect(radio).toBeFocused();
-    const foreground = await radio.evaluate((element) => {
-      const swatch = document.createElement("span");
-      swatch.style.color = "var(--color-dark)";
-      element.after(swatch);
-      const color = getComputedStyle(swatch).color;
-      swatch.remove();
-      return color;
-    });
+    const foreground = await themeForeground(radio);
     foregrounds.add(foreground);
     if (theme !== "Dusk") {
       expect(foreground).toMatch(/^rgb\((\d+), \1, \1\)$/);
