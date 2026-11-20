@@ -109,6 +109,7 @@ export interface DocumentAttachmentHydrationApi {
   ): Promise<DocumentWriterProjectionResponse | null>;
   listDocumentAttachments(
     documentId: string,
+    options?: { readonly refresh?: boolean },
   ): Promise<ListDocumentAttachmentsResponse | null>;
 }
 
