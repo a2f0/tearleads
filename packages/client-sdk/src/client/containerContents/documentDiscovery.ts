@@ -2,7 +2,6 @@ import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import { waitForRead } from "../../data/shared/waitForRead";
 import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryEvidence";
@@ -44,7 +43,6 @@ type ExecSql = ReturnType<InternalRuntime["workflowInput"]>["infra"]["execSql"];
 
 function createDiscoveryLane(input: {
   readonly containerOrganizationId: string | undefined;
-  readonly signal?: AbortSignal | undefined;
   readonly isContainerPaused: () => boolean;
   readonly evidenceStore: DocumentDiscoveryEvidenceRepository;
   readonly execSql: ExecSql;
@@ -67,7 +65,6 @@ function createDiscoveryLane(input: {
     runtime,
     undefined,
     input.policyOperation,
-    input.signal,
   );
   const loadEpoch = (documentId: string) =>
     holdRepository.loadLocalDocumentAccessEpoch(documentId);
@@ -75,23 +72,17 @@ function createDiscoveryLane(input: {
     ...input.queries,
     cacheReferencedPrincipalPolicies: (references) =>
       containerOrganizationId
-        ? waitForRead(
-            warmReferencedPrincipalPolicies({
-              organizationId: containerOrganizationId,
-              references,
-              stillCurrent: () => !input.isContainerPaused(),
-            }),
-            input.signal,
-          )
+        ? warmReferencedPrincipalPolicies({
+            organizationId: containerOrganizationId,
+            references,
+          })
         : Promise.resolve(),
     containerId: request.containerId,
     listHeldContainerDocumentTombstones: (containerIds) =>
       holdRepository.listRetryableHeldContainerDocumentTombstones(containerIds),
     listKnownContainerDocumentPlacements: (placements) =>
       holdRepository.listKnownContainerDocumentPlacements(placements),
-    onFullListing: (ids) => {
-      if (!input.isContainerPaused()) request.onFullListing?.(ids);
-    },
+    onFullListing: request.onFullListing,
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       containerOrganizationId,
       loadHead,
@@ -105,9 +96,7 @@ function createDiscoveryLane(input: {
         loadHead,
         loadEpoch,
         input.evidenceStore,
-        (delayMs) => {
-          if (!input.isContainerPaused()) request.onPendingDiscovery?.(delayMs);
-        },
+        request.onPendingDiscovery,
       ),
     }),
   };
@@ -118,21 +107,15 @@ function createDiscoveryLane(input: {
  * one batched listing for every requested container, then per-container
  * verification scoped to each container's durable organization.
  */
-export function discoverContainerDocumentLanesForRuntime(input: {
-  readonly signal?: AbortSignal | undefined;
+export async function discoverContainerDocumentLanesForRuntime({
+  onOutcome,
+  requests,
+  runtimeService,
+}: {
   readonly onOutcome?: ContainerDocumentDiscoveryOutcomeHandler | undefined;
   readonly requests: ReadonlyArray<ContainerDocumentDiscoveryRequest>;
   readonly runtimeService: InternalRuntime;
 }): Promise<ReadonlyArray<ContainerDocumentDiscoveryOutcome>> {
-  return waitForRead(discoverLanes(input), input.signal);
-}
-
-async function discoverLanes({
-  onOutcome,
-  signal,
-  requests,
-  runtimeService,
-}: Parameters<typeof discoverContainerDocumentLanesForRuntime>[0]) {
   const unlisted = (
     containerId: string,
   ): ContainerDocumentDiscoveryOutcome => ({
@@ -140,7 +123,6 @@ async function discoverLanes({
     status: "fulfilled",
     value: null,
   });
-  signal?.throwIfAborted();
   const input = runtimeService.workflowInput();
   if (input.infra.dbStatus !== "ready") {
     return requests.map(({ containerId }) => unlisted(containerId));
@@ -150,21 +132,15 @@ async function discoverLanes({
     organizations: runtimeService.containerContentsOrganizations,
   });
   const execSql = input.infra.execSql;
-  const evidenceStore = new DocumentDiscoveryEvidenceRepository(
-    execSql,
-    undefined,
-    signal,
-  );
+  const evidenceStore = new DocumentDiscoveryEvidenceRepository(execSql);
   const holdRepository = new ContainerDocumentTombstoneHoldRepository(execSql);
   const queries = createContainerDocumentQueriesFromRuntime(runtime);
   // Capture the reset fence before reading any lane's scope, so a reset
   // between these reads and the listing cannot publish old-organization
   // evidence into its replacement.
   const generation = await evidenceStore.begin();
-  signal?.throwIfAborted();
   const syncPauses = getOrCreateOrganizationSyncPauses(input.state.domainScope);
   await syncPauses.load(execSql);
-  signal?.throwIfAborted();
   const lanes: ContainerDocumentDiscoveryLane[] = [];
   const policyOperation = createPrincipalPolicyOperation();
   for (const request of requests) {
@@ -173,10 +149,8 @@ async function discoverLanes({
         execSql,
         request.containerId,
       );
-    signal?.throwIfAborted();
     if (!stored) continue;
     const isContainerPaused = () =>
-      signal?.aborted === true ||
       syncPauses.isContainerPaused(stored.container);
     // A paused organization's container lists like one that is not stored,
     // and a pause landing mid-listing stops its write.
@@ -185,7 +159,6 @@ async function discoverLanes({
         createDiscoveryLane({
           containerOrganizationId: stored.container.organizationId,
           isContainerPaused,
-          signal,
           evidenceStore,
           execSql,
           holdRepository,
@@ -200,18 +173,10 @@ async function discoverLanes({
     generation,
     lanes,
     listContainerDocumentLanes: (listed) =>
-      listContainerDocumentLanesFromApi(
-        runtime.apiClient,
-        listed,
-        true,
-        signal,
-      ),
+      listContainerDocumentLanesFromApi(runtime.apiClient, listed),
     loadContainerDocumentWatermark: queries.loadContainerDocumentWatermark,
-    onOutcome: async (outcome) => {
-      if (!signal?.aborted) return onOutcome?.(outcome);
-    },
+    onOutcome,
   });
-  signal?.throwIfAborted();
   const outcomeByContainerId = new Map(
     outcomes.map((outcome) => [outcome.containerId, outcome]),
   );
@@ -227,16 +192,13 @@ async function discoverLanes({
  */
 export async function discoverContainerDocumentsForRuntime({
   runtimeService,
-  signal,
   ...request
 }: ContainerDocumentDiscoveryRequest & {
-  readonly signal?: AbortSignal | undefined;
   readonly runtimeService: InternalRuntime;
 }): Promise<ReadonlyArray<DocumentSummary> | null> {
   const [outcome] = await discoverContainerDocumentLanesForRuntime({
     requests: [request],
     runtimeService,
-    signal,
   });
   if (outcome?.status === "rejected") {
     if (outcome.reason instanceof ContainerDocumentListingUnavailableError) {

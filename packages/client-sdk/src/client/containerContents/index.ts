@@ -353,7 +353,6 @@ class ContainerContentsService implements ContainerContents {
     containerId: string,
     options?: {
       onPendingDiscovery?: (delayMs: number) => void;
-      signal?: AbortSignal;
     },
   ): Promise<ReadonlyArray<DocumentSummary> | null> {
     return discoverContainerDocumentsForRuntime({

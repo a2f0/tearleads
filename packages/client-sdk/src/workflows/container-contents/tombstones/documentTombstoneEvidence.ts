@@ -13,7 +13,6 @@ import type { DocumentPurgeCheckpoint } from "../../../data/persistence/keyingCh
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import { reportKeyingVerificationErrorInCauseChain } from "../../../data/shared/securityIncidents";
-import { waitForRead } from "../../../data/shared/waitForRead";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import type {
@@ -167,27 +166,26 @@ async function fetchDocumentHead(
   expectedManifestHash: string | undefined,
   assertCurrent: () => void,
   requestGuard: (() => boolean) | undefined,
-  signal?: AbortSignal,
 ) {
   // Tombstones require a fresh head. Listings can reuse a matching cached
   // projection, whose signature and local checkpoint are still verified.
-  if (!signal && !expectedManifestHash)
+  if (!expectedManifestHash)
     runtime.apiClient.evictDocumentWriterProjection(documentId);
-  const fetchHead = () =>
-    runtime.apiClient.getDocumentWriterProjectionResult(documentId, {
-      reportErrors: false,
-      stillCurrent: requestGuard,
-      signal,
-    });
-  let result = await fetchHead();
+  let result = await runtime.apiClient.getDocumentWriterProjectionResult(
+    documentId,
+    { reportErrors: false, stillCurrent: requestGuard },
+  );
   assertCurrent();
   if (
     expectedManifestHash &&
     result.ok &&
     result.data.documentManifest.manifestHash !== expectedManifestHash
   ) {
-    if (!signal) runtime.apiClient.evictDocumentWriterProjection(documentId);
-    result = await fetchHead();
+    runtime.apiClient.evictDocumentWriterProjection(documentId);
+    result = await runtime.apiClient.getDocumentWriterProjectionResult(
+      documentId,
+      { reportErrors: false, stillCurrent: requestGuard },
+    );
   }
   assertCurrent();
   return result;
@@ -205,20 +203,12 @@ export function createDocumentHeadLinkSetLoader(
       ),
   },
   policyOperation?: PrincipalPolicyOperation,
-  signal?: AbortSignal,
 ): DocumentHeadLinkSetLoader {
-  const load = async (
-    signal: AbortSignal | undefined,
-    documentId: string,
-    expectedManifestHash?: string,
-    expectedSignerUserId?: string,
-  ): ReturnType<DocumentHeadLinkSetLoader> => {
-    const stillCurrent = () =>
-      !signal?.aborted && runtime.liveHydrationStatus?.() !== "retired";
-    function assertCurrent() {
-      if (!stillCurrent())
-        throw new Error("Document head lookup scope changed.");
-    }
+  const stillCurrent = () => runtime.liveHydrationStatus?.() !== "retired";
+  function assertCurrent() {
+    if (!stillCurrent()) throw new Error("Document head lookup scope changed.");
+  }
+  return async (documentId, expectedManifestHash, expectedSignerUserId) => {
     try {
       // A verified purge proof is terminal signed evidence that the document
       // links nothing any more.
@@ -240,8 +230,7 @@ export function createDocumentHeadLinkSetLoader(
         documentId,
         expectedManifestHash,
         assertCurrent,
-        expectedSignerUserId || signal ? stillCurrent : undefined,
-        signal,
+        expectedSignerUserId ? stillCurrent : undefined,
       );
       if (!result.ok) return failedHeadVerdict(runtime, documentId, result);
       const projection = result.data;
@@ -267,23 +256,11 @@ export function createDocumentHeadLinkSetLoader(
       assertCurrent();
       return head;
     } catch (error) {
-      signal?.throwIfAborted();
       // Any failure leaves the tombstone unverified (held and retried); a
       // thrown error here must not fail the whole discovery pass.
       if (stillCurrent())
         await reportUnavailableHead(runtime, documentId, error);
       return null;
-    }
-  };
-  return async (...args) => {
-    const deadline =
-      signal && AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
-    try {
-      return await waitForRead(load(deadline, ...args), deadline);
-    } catch (error) {
-      signal?.throwIfAborted();
-      if (deadline?.aborted) return null;
-      throw error;
     }
   };
 }

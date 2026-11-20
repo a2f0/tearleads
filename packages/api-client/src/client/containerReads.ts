@@ -85,29 +85,23 @@ export class ContainerReadArea {
   /** Batched document listing; see `containerDocumentLanes.settle`. */
   async listContainerDocumentLanes(
     input: ListContainerDocumentLanesRequest,
-    options: Pick<RequestResultOptions, "reportErrors" | "signal"> = {},
+    options: Pick<RequestResultOptions, "reportErrors"> = {},
   ): Promise<ListContainerDocumentLanesResponse | null> {
-    const list = () =>
-      laneListingRequest(this.context, {
-        body: JSON.stringify(input),
-        method: containerDocumentLanes.method,
-        operation: listContainerDocumentLanesOperation,
-        path: containerDocumentLanes.path,
-        reportErrors: false,
-        signal: options.signal,
-        validator: (value): value is ListContainerDocumentLanesResponse =>
-          containerDocumentLanes.isResponseForRequest(input, value),
-      });
-    // A caller-owned deadline must never cancel another caller's shared listing.
-    const result = options.signal
-      ? await list()
-      : await dedupedRequest(
-          this.context.containerDocumentLaneRequestsByKey,
-          listContainerDocumentLanesRequestKey(input),
-          list,
-        );
     return containerDocumentLanes.settle(
-      result,
+      await dedupedRequest(
+        this.context.containerDocumentLaneRequestsByKey,
+        listContainerDocumentLanesRequestKey(input),
+        () =>
+          laneListingRequest(this.context, {
+            body: JSON.stringify(input),
+            method: containerDocumentLanes.method,
+            operation: listContainerDocumentLanesOperation,
+            path: containerDocumentLanes.path,
+            reportErrors: false,
+            validator: (value): value is ListContainerDocumentLanesResponse =>
+              containerDocumentLanes.isResponseForRequest(input, value),
+          }),
+      ),
       options.reportErrors ?? true,
       (message) => this.context.runtime.reportError(message),
     );

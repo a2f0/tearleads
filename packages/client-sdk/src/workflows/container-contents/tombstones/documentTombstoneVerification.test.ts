@@ -64,7 +64,6 @@ async function createVerificationHarness(
     },
   });
   return {
-    runtime,
     checkpoints: new KeyingCheckpointRepository(database.execSql),
     store: new DocumentDiscoveryEvidenceRepository(database.execSql),
     close: database.close,
@@ -386,40 +385,6 @@ test("a head fetch that outlives its organization cannot persist a checkpoint", 
     expect(head).toBeNull();
     expect(harness.incidents).toEqual([]);
   } finally {
-    harness.close();
-  }
-});
-
-test("a cancelled head verification releases its caller while the signer lookup is pending", async () => {
-  const harness = await createVerificationHarness();
-  const entered = Promise.withResolvers<void>();
-  const blocked = Promise.withResolvers<void>();
-  const controller = new AbortController();
-  try {
-    const load = createDocumentHeadLinkSetLoader(
-      {
-        ...harness.runtime,
-        resolveTrustedUserIdentity: async (...args) => {
-          entered.resolve();
-          await blocked.promise;
-          return harness.runtime.resolveTrustedUserIdentity(...args);
-        },
-      },
-      undefined,
-      undefined,
-      controller.signal,
-    );
-    const reading = load(
-      DOCUMENT_ID,
-      undefined,
-      harness.fixture.author.signerUserId,
-    );
-    await entered.promise;
-    controller.abort();
-    await expect(reading).rejects.toThrow();
-  } finally {
-    blocked.resolve();
-    await new Promise<void>((resolve) => setImmediate(resolve));
     harness.close();
   }
 });

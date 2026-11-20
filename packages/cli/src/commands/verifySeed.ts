@@ -149,19 +149,11 @@ async function checkSeedPlacement(
   containerId: string,
   expectedFolder: string,
   fixtureKey: string,
-  deadline: AbortSignal,
 ) {
   const lookup = createDocumentHeadLinkSetLoader(
     session.sdk.containerContents.workflowRuntime(),
-    undefined,
-    undefined,
-    deadline,
   );
-  const head = await beforeSeedDeadline(
-    lookup(documentId, undefined, session.userId),
-    deadline,
-    `Timed out verifying creator and placement: ${fixtureKey}.`,
-  );
+  const head = await lookup(documentId, undefined, session.userId);
   if (
     !head ||
     head === "not-found" ||
@@ -259,9 +251,8 @@ async function verifyFixtures(
   let attachments = 0;
   for await (const { containerId, row } of discoverSeedDocuments(
     [account.rootId, contacts.id],
-    (id, onPending, signal) =>
+    (id, onPending) =>
       session.sdk.containerContents.discoverContainerDocuments(id, {
-        signal,
         onPendingDiscovery: (delay) => {
           session.tracer.event(
             `waiting ${delay} ms for document discovery in ${id}`,
@@ -275,15 +266,14 @@ async function verifyFixtures(
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);
     if (!fixture) continue;
-    const deadline = AbortSignal.timeout(120_000);
     await checkSeedPlacement(
       session,
       row.documentId,
       containerId,
       fixture.document.kind === "contact" ? contacts.id : account.rootId,
       fixture.document.key,
-      deadline,
     );
+    const deadline = AbortSignal.timeout(120_000);
     bytes += await readFixture(
       session,
       fixture,

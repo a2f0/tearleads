@@ -243,7 +243,15 @@ export class WriterProjectionArea {
     );
   }
 
-  getDocumentWriterProjection(documentId: string) {
+  getDocumentWriterProjection(
+    documentId: string,
+    options?: { signal: AbortSignal },
+  ) {
+    if (options)
+      return this.getDocumentWriterProjectionResult(documentId, options).then(
+        (result) => (result.ok ? result.data : null),
+      );
+
     return cachedRequest(this.documents.cache, documentId, () =>
       this.context.request(
         documentWriterProjection.path(documentId),

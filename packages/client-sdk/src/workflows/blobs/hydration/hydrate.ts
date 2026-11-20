@@ -344,6 +344,19 @@ export async function hydrateDocumentAttachmentBlobs(
   return waitForRead(hydrateCurrentAttachments(input, request), signal);
 }
 
+/** A bounded verifier owns its projection requests, including a proof refresh. */
+function projectionReader(
+  api: DocumentAttachmentHydrationApi,
+  signal?: AbortSignal,
+) {
+  return signal
+    ? {
+        getDocumentWriterProjection: (id: string) =>
+          api.getDocumentWriterProjection(id, { signal }),
+      }
+    : api;
+}
+
 async function hydrateCurrentAttachments(
   input: DocumentAttachmentHydrationContext,
   request: HydrateDocumentAttachmentBlobsRequest,
@@ -394,8 +407,9 @@ async function hydrateCurrentAttachments(
   signal?.throwIfAborted();
   if (!loadedBlobs.length) return [];
 
+  const projectionApi = projectionReader(input.apiClient, signal);
   const writerProjection = await waitForRead(
-    input.apiClient.getDocumentWriterProjection(input.documentId),
+    projectionApi.getDocumentWriterProjection(input.documentId),
     signal,
   );
   signal?.throwIfAborted();
@@ -407,7 +421,7 @@ async function hydrateCurrentAttachments(
   }
 
   const decryptAttachment = createAttachmentDecryptor(
-    input.apiClient,
+    projectionApi,
     input.documentId,
   );
   const hydrated = await collectHydrationResults({

@@ -1,18 +1,13 @@
-import { expect, mock, spyOn, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
-import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
-import {
-  createExecSql,
-  ensureSqlTables,
-  runSerializedSqlMutation,
-} from "../../data/sqlite/sqlSchema";
+import { createExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";
 import { ContainerDocumentListingUnavailableError } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryTypes";
 import {
@@ -204,159 +199,6 @@ test("a failed listing request rejects its lanes as unavailable", async () => {
       }),
     ).resolves.toBeNull();
   } finally {
-    native.close();
-  }
-});
-
-test("cancelling discovery retires a pending principal policy lookup", async () => {
-  const native = createNativeTestExecSql();
-  const gate = Promise.withResolvers<void>();
-  const started = Promise.withResolvers<void>();
-  const controller = new AbortController();
-  const input = createWorkflowInputFixture({
-    execSql: native.execSql,
-    apiClient: laneApi(async () => ({
-      items: [],
-      tombstones: [],
-      nextWatermark: null,
-      hasMore: false,
-    })) as never,
-  });
-  let current: (() => boolean) | undefined;
-  const warmer = spyOn(input.principalPolicies, "createWarmer").mockReturnValue(
-    async ({ stillCurrent }) => {
-      current = stillCurrent;
-      started.resolve();
-      await gate.promise;
-    },
-  );
-  try {
-    await ensureSqlTables(native.execSql, clientSqlTables);
-    await getClientSQLitePersistenceRuntime(native.execSql)
-      .db.insert(containers)
-      .values({
-        id: "container",
-        organizationId: "org",
-        parentId: null,
-        metadataDocumentId: "metadata",
-        localCreatedAt: "2026-09-28",
-        localUpdatedAt: "2026-09-28",
-      });
-    const listing = discoverContainerDocumentsForRuntime({
-      runtimeService: createInternalRuntimeFixture(() => input),
-      containerId: "container",
-      signal: controller.signal,
-    });
-    await started.promise;
-    expect(current?.()).toBe(true);
-    controller.abort();
-    await expect(listing).rejects.toThrow();
-    expect(current?.()).toBe(false);
-  } finally {
-    gate.resolve();
-    warmer.mockRestore();
-    native.close();
-  }
-});
-
-test("cancelling discovery returns before a held SQLite writer releases the queue", async () => {
-  const native = createNativeTestExecSql();
-  const release = Promise.withResolvers<void>();
-  const entered = Promise.withResolvers<void>();
-  const controller = new AbortController();
-  await ensureSqlTables(native.execSql, clientSqlTables);
-  const writer = runSerializedSqlMutation(native.execSql, async () => {
-    entered.resolve();
-    await release.promise;
-  });
-  await entered.promise;
-  const list = mock(async () => null);
-  const input = createWorkflowInputFixture({
-    execSql: native.execSql,
-    apiClient: { listContainerDocumentLanes: list } as never,
-  });
-  const read = discoverContainerDocumentsForRuntime({
-    containerId: "held",
-    signal: controller.signal,
-    runtimeService: createInternalRuntimeFixture(() => input),
-  });
-  const reason = new Error("cancel queued discovery");
-  controller.abort(reason);
-  try {
-    expect(
-      await Promise.race([
-        read.then(
-          () => null,
-          (error: unknown) => error,
-        ),
-        Bun.sleep(200).then(() => "still waiting"),
-      ]),
-    ).toBe(reason);
-  } finally {
-    release.resolve();
-    await writer;
-    await read.catch(() => {});
-    await runSerializedSqlMutation(native.execSql, async () => {});
-    native.close();
-  }
-  expect(list).not.toHaveBeenCalled();
-});
-
-test("a retry delay returned after cancellation cannot schedule another discovery", async () => {
-  const native = createNativeTestExecSql();
-  const entered = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const controller = new AbortController();
-  const retry = spyOn(
-    DocumentDiscoveryEvidenceRepository.prototype,
-    "retryDelay",
-  ).mockImplementation(async () => {
-    entered.resolve();
-    await release.promise;
-    return 100;
-  });
-  const pending = mock(() => {});
-  try {
-    await ensureSqlTables(native.execSql, clientSqlTables);
-    await getClientSQLitePersistenceRuntime(native.execSql)
-      .db.insert(containers)
-      .values({
-        id: "container",
-        organizationId: "org",
-        parentId: null,
-        metadataDocumentId: "metadata",
-        localCreatedAt: "2026-09-28",
-        localUpdatedAt: "2026-09-28",
-      });
-    const input = createWorkflowInputFixture({
-      execSql: native.execSql,
-      apiClient: laneApi(async () => ({
-        items: [],
-        tombstones: [],
-        hasMore: false,
-        nextWatermark: null,
-      })) as never,
-    });
-    const read = discoverContainerDocumentsForRuntime({
-      containerId: "container",
-      signal: controller.signal,
-      onPendingDiscovery: pending,
-      runtimeService: createInternalRuntimeFixture(() => input),
-    });
-    await Promise.race([
-      entered.promise,
-      read.then(() => {
-        throw new Error("Missed retry query");
-      }),
-    ]);
-    controller.abort();
-    await expect(read).rejects.toThrow();
-    release.resolve();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    expect(pending).not.toHaveBeenCalled();
-  } finally {
-    release.resolve();
-    retry.mockRestore();
     native.close();
   }
 });

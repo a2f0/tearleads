@@ -1,7 +1,7 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import { requestDeadline } from "../requestDeadline";
 import { retiredRequest } from "../sessionResponse";
-import { type HttpMethod, privateRead, type RequestResult } from "../types";
+import type { HttpMethod, RequestResult } from "../types";
 import type { ApiClientContext } from "./apiClientContext";
 
 /**
@@ -27,7 +27,6 @@ export async function laneListingRequest<T>(
     readonly operation: HttpOperation;
     readonly path: string;
     readonly reportErrors: boolean;
-    readonly signal?: AbortSignal | undefined;
     readonly validator: (value: unknown) => value is T;
   },
 ): Promise<RequestResult<T>> {
@@ -35,14 +34,8 @@ export async function laneListingRequest<T>(
   const signIn = context.runtime.responseRequest.sessionSignal?.();
   // Report only after classifying: an abort inside the body otherwise
   // surfaces as a body-read failure before it is known to be the deadline.
-  const caller = input.signal;
   const deadline = requestDeadline(
-    {
-      [privateRead]: Boolean(caller),
-      reportErrors: false,
-      signal: caller,
-      stillCurrent: caller && (() => !caller.aborted),
-    },
+    { reportErrors: false },
     CONTAINER_LANE_LISTING_TIMEOUT_MS,
   );
   try {
@@ -57,8 +50,7 @@ export async function laneListingRequest<T>(
       deadline.options,
       input.operation,
     );
-    if (signIn?.aborted || input.signal?.aborted)
-      return retiredRequest(method, path);
+    if (signIn?.aborted) return retiredRequest(method, path);
     if (result.ok) return result;
     if (!deadline.expired()) {
       if (reportErrors) result.report();
@@ -69,7 +61,7 @@ export async function laneListingRequest<T>(
       kind: "network",
       message: `${method} ${path}: no response within ${CONTAINER_LANE_LISTING_TIMEOUT_MS} ms`,
       method,
-      options: { [privateRead]: Boolean(caller), reportErrors },
+      options: { reportErrors },
       path,
       status: null,
       statusText: "",

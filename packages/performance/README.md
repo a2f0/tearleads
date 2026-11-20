@@ -24,7 +24,8 @@ times registration separately, then measures the CLI seed and a second CLI
 process recovering the same identity with empty document and blob stores.
 The reader checks every fixture and compares the decrypted bytes in each slot.
 The round-trip time includes both CLI startups, sign-ins and session revocations.
-A missing or changed fixture exits nonzero. The report goes to the terminal.
+Each CLI phase has a 65-minute time limit. A timeout or a missing or changed
+fixture exits nonzero. The report goes to the terminal.
 Keys travel over stdin and are discarded. This exercises the deployed API and
 blob storage through the SDK. Browser rendering and OPFS require a web test.
 

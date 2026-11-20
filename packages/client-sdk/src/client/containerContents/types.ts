@@ -218,7 +218,6 @@ export interface ContainerContents {
     containerId: string,
     options?: {
       onPendingDiscovery?: (delayMs: number) => void;
-      signal?: AbortSignal;
     },
   ): Promise<ReadonlyArray<DocumentSummary> | null>;
 

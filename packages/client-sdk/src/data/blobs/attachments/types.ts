@@ -107,6 +107,7 @@ export interface DocumentAttachmentHydrationApi {
   ): Promise<BlobBytesResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
+    options?: { signal: AbortSignal },
   ): Promise<DocumentWriterProjectionResponse | null>;
   listDocumentAttachments(
     documentId: string,

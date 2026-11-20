@@ -4,7 +4,6 @@ import {
   MAX_CONTAINER_DOCUMENT_LANES,
 } from "@tearleads/validators/request";
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { waitForRead } from "../../../data/shared/waitForRead";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerDocumentLaneLister,
@@ -45,7 +44,6 @@ export async function listContainerDocumentLanesFromApi(
   apiClient: ContainerDocumentLaneApi,
   lanes: Parameters<ContainerDocumentLaneLister>[0],
   reportErrors = true,
-  signal?: AbortSignal,
 ): ReturnType<ContainerDocumentLaneLister> {
   const limit = laneLimit(lanes.length);
   const requested = lanes.map((lane, index) => ({
@@ -54,20 +52,10 @@ export async function listContainerDocumentLanesFromApi(
     limit,
     watermark: lane.watermark,
   }));
-  const deadline =
-    signal && AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
-  deadline?.throwIfAborted();
-  const response = await waitForRead(
-    apiClient.listContainerDocumentLanes(
-      { lanes: requested },
-      deadline ? { reportErrors, signal: deadline } : { reportErrors },
-    ),
-    deadline,
-  ).catch((error: unknown) => {
-    signal?.throwIfAborted();
-    if (deadline?.aborted) return null;
-    throw error;
-  });
+  const response = await apiClient.listContainerDocumentLanes(
+    { lanes: requested },
+    { reportErrors },
+  );
   if (!response) return null;
   const resultsByLaneId = new Map(
     response.results.map((result) => [result.laneId, result]),

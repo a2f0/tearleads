@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
+import { continuityDocuments, loadContinuityAssets } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
@@ -9,6 +10,7 @@ import { onFreshDevice } from "./seedDevice.testUtils";
 test("verification preserves a binding whose slot disappears on a later history page", async () => {
   await initializeApiDatabase();
   let targetPath = "";
+  let fixtureKey = "";
   let verifying = false;
   let continued = false;
   let detached = false;
@@ -42,6 +44,14 @@ test("verification preserves a binding whose slot disappears on a later history 
         );
         const slot = store?.getSnapshot().attachments[0];
         if (!store || !slot) throw new Error("Missing seeded avatar");
+        const fixtures = continuityDocuments(
+          (await loadContinuityAssets()).spec,
+        );
+        const target = fixtures.find((item) =>
+          item.attachments.some((file) => file.file === slot.name),
+        );
+        if (!target) throw new Error("Missing target fixture");
+        fixtureKey = target.key;
         targetPath = `/documents/${store.getSnapshot().documentId}/sync`;
         // The API returns up to 64 updates per pull. The final page removes the slot.
         for (let i = 0; i < 65; i++) {
@@ -57,7 +67,9 @@ test("verification preserves a binding whose slot disappears on a later history 
     expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(1);
     expect(continued).toBe(true);
     expect(detached).toBe(false);
-    expect(output.stderr.at(-1)).toMatch(/differs/);
+    expect(output.stderr.at(-1)).toBe(
+      `Attachment metadata differs: ${fixtureKey}`,
+    );
   } finally {
     server.stop(true);
   }

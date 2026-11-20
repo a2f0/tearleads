@@ -11,11 +11,7 @@ import {
   remoteResetBatches,
   sqliteInsertBatchSize,
 } from "../../sqlite/sqliteBindBudget";
-import { registerClientSQLiteCommitGuard } from "../../sqlite/sqliteCommitGuards";
-import {
-  type ClientSQLiteTransactionScope,
-  getClientSQLitePersistenceRuntime,
-} from "../../sqlite/sqlitePersistenceRuntime";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { excludedValue } from "../../sqlite/sqliteUpsert";
 import {
   type ExecSql,
@@ -72,30 +68,20 @@ export class DocumentDiscoveryEvidenceRepository {
   constructor(
     private readonly execSql: ExecSql,
     private readonly now: () => number = Date.now,
-    private readonly signal?: AbortSignal,
   ) {}
 
   private async read() {
-    this.signal?.throwIfAborted();
     await ensureSqlTables(this.execSql, documentContainerProjectionTables);
-    this.signal?.throwIfAborted();
     return getClientSQLitePersistenceRuntime(this.execSql).db;
   }
   private write<T>(
-    operation: (db: ClientSQLiteTransactionScope) => Promise<T>,
-    atomic = false,
+    operation: (
+      db: ReturnType<typeof getClientSQLitePersistenceRuntime>["db"],
+    ) => Promise<T>,
   ): Promise<T> {
     return runSerializedSqlMutation(this.execSql, async (locked) => {
-      const signal = this.signal;
-      signal?.throwIfAborted();
       await ensureSqlTables(locked, documentContainerProjectionTables);
-      const runtime = getClientSQLitePersistenceRuntime(locked);
-      if (!signal)
-        return atomic ? runtime.transaction(operation) : operation(runtime.db);
-      return runtime.transaction((tx) => {
-        registerClientSQLiteCommitGuard(locked, () => signal.throwIfAborted());
-        return operation(tx);
-      });
+      return operation(getClientSQLitePersistenceRuntime(locked).db);
     });
   }
   async begin(): Promise<number> {
@@ -126,84 +112,86 @@ export class DocumentDiscoveryEvidenceRepository {
     removed: readonly RemovedDiscoveryPlacement[] = [],
     conflictingDocumentIds: ReadonlySet<string> = new Set(),
   ): Promise<boolean> {
-    return this.write(async (tx) => {
-      if (!(await isDocumentDiscoveryGenerationCurrent(tx, generation)))
+    return this.write(async (db) => {
+      if (!(await isDocumentDiscoveryGenerationCurrent(db, generation)))
         return false;
       if (!inputs.length && !removed.length && !conflictingDocumentIds.size)
         return true;
-      const rows = inputs.flatMap((input) =>
-        isDiscoveredDocumentCandidate(input)
-          ? input.listedContainerIds.map((containerId) => ({
-              containerId,
-              documentId: input.documentId,
-              accessEpoch: input.accessEpoch,
-              generation,
-              inputJson: JSON.stringify({
-                ...input,
+      await db.transaction(async (tx) => {
+        const rows = inputs.flatMap((input) =>
+          isDiscoveredDocumentCandidate(input)
+            ? input.listedContainerIds.map((containerId) => ({
                 containerId,
-                listedContainerIds: [containerId],
-              }),
-              retryAt: 0,
-            }))
-          : [],
-      );
-      // One multi-row upsert per chunk. SQLite applies a statement's rows
-      // in order, so a repeated placement updates the row the previous
-      // entry wrote, exactly as one statement per entry did.
-      // A later listing can replace a pending hint while its unlink is
-      // already behind the cursor. Keep the required current-head read.
-      const nextInput = sql`case when json_extract(${pending.inputJson}, '$.requiresCurrentHead') then json_set(excluded.input_json, '$.requiresCurrentHead', json('true')) else excluded.input_json end`;
-      const unchanged = sql`${pending.inputJson} = (${nextInput})`;
-      for (const chunk of chunked(rows, sqliteInsertBatchSize(pending))) {
-        await tx
-          .insert(pending)
-          .values(chunk)
-          .onConflictDoUpdate({
-            target: [pending.containerId, pending.documentId],
-            set: {
-              accessEpoch: excludedValue(pending.accessEpoch),
-              generation: excludedValue(pending.generation),
-              inputJson: nextInput,
-              retryAt: sql`case when ${unchanged} then ${pending.retryAt} else 0 end`,
-              attempts: sql`case when ${unchanged} then ${pending.attempts} else 0 end`,
-            },
-            setWhere: lte(pending.generation, generation),
-          })
-          .run();
-      }
-      for (const ids of batches([...conflictingDocumentIds])) {
-        await tx
-          .update(pending)
-          .set({
-            inputJson: sql`json_set(${pending.inputJson}, '$.requiresCurrentHead', json('true'))`,
-          })
-          .where(
-            and(
-              inArray(pending.documentId, ids),
-              lte(pending.generation, generation),
-            ),
-          )
-          .run();
-      }
-      // These are untrusted, unapplied hints only. Removing an existing local
-      // placement still requires the separate signed tombstone evidence gate.
-      for (const batch of remoteResetBatches(removed)) {
-        await tx
-          .delete(pending)
-          .where(
-            and(
-              placementPairsMatch(
-                batch,
-                pending.documentId,
-                pending.containerId,
+                documentId: input.documentId,
+                accessEpoch: input.accessEpoch,
+                generation,
+                inputJson: JSON.stringify({
+                  ...input,
+                  containerId,
+                  listedContainerIds: [containerId],
+                }),
+                retryAt: 0,
+              }))
+            : [],
+        );
+        // One multi-row upsert per chunk. SQLite applies a statement's rows
+        // in order, so a repeated placement updates the row the previous
+        // entry wrote, exactly as one statement per entry did.
+        // A later listing can replace a pending hint while its unlink is
+        // already behind the cursor. Keep the required current-head read.
+        const nextInput = sql`case when json_extract(${pending.inputJson}, '$.requiresCurrentHead') then json_set(excluded.input_json, '$.requiresCurrentHead', json('true')) else excluded.input_json end`;
+        const unchanged = sql`${pending.inputJson} = (${nextInput})`;
+        for (const chunk of chunked(rows, sqliteInsertBatchSize(pending))) {
+          await tx
+            .insert(pending)
+            .values(chunk)
+            .onConflictDoUpdate({
+              target: [pending.containerId, pending.documentId],
+              set: {
+                accessEpoch: excludedValue(pending.accessEpoch),
+                generation: excludedValue(pending.generation),
+                inputJson: nextInput,
+                retryAt: sql`case when ${unchanged} then ${pending.retryAt} else 0 end`,
+                attempts: sql`case when ${unchanged} then ${pending.attempts} else 0 end`,
+              },
+              setWhere: lte(pending.generation, generation),
+            })
+            .run();
+        }
+        for (const ids of batches([...conflictingDocumentIds])) {
+          await tx
+            .update(pending)
+            .set({
+              inputJson: sql`json_set(${pending.inputJson}, '$.requiresCurrentHead', json('true'))`,
+            })
+            .where(
+              and(
+                inArray(pending.documentId, ids),
+                lte(pending.generation, generation),
               ),
-              lte(pending.generation, generation),
-            ),
-          )
-          .run();
-      }
+            )
+            .run();
+        }
+        // These are untrusted, unapplied hints only. Removing an existing local
+        // placement still requires the separate signed tombstone evidence gate.
+        for (const batch of remoteResetBatches(removed)) {
+          await tx
+            .delete(pending)
+            .where(
+              and(
+                placementPairsMatch(
+                  batch,
+                  pending.documentId,
+                  pending.containerId,
+                ),
+                lte(pending.generation, generation),
+              ),
+            )
+            .run();
+        }
+      });
       return true;
-    }, true);
+    });
   }
   async pending(
     containerIds: readonly string[],
@@ -238,7 +226,6 @@ export class DocumentDiscoveryEvidenceRepository {
         .from(pending)
         .where(identity(input))
         .limit(1);
-      this.signal?.throwIfAborted();
       if (!row) return;
       const attempts = Math.min(row.attempts + 1, 8);
       await db
@@ -255,14 +242,16 @@ export class DocumentDiscoveryEvidenceRepository {
     inputs: readonly DiscoveredDocumentCandidate[],
     generation: number,
   ): Promise<void> {
-    return this.write(async (tx) => {
-      if (!(await isDocumentDiscoveryGenerationCurrent(tx, generation))) return;
-      for (const batch of remoteResetBatches(inputs))
-        await tx
-          .delete(pending)
-          .where(or(...batch.map(identity)))
-          .run();
-    }, true);
+    return this.write(async (db) => {
+      if (!(await isDocumentDiscoveryGenerationCurrent(db, generation))) return;
+      await db.transaction(async (tx) => {
+        for (const batch of remoteResetBatches(inputs))
+          await tx
+            .delete(pending)
+            .where(or(...batch.map(identity)))
+            .run();
+      });
+    });
   }
   async hasPending(containerIds: readonly string[]): Promise<boolean> {
     const db = await this.read();

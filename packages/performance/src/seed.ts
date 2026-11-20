@@ -1,8 +1,8 @@
-import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { openLocalDatabase } from "./localDatabase";
 import { targets } from "./options";
 import { createSdkHost } from "./sdkHost";
+import { runSeedProcess } from "./seedProcess";
 import { createMeasuredFetch } from "./transport";
 
 async function provisionSeedAccount(origin: string) {
@@ -72,7 +72,8 @@ async function main() {
   await measure("seed round trip", async () => {
     for (const command of ["seed", "verify-seed"]) {
       await measure(command, async () => {
-        const child = Bun.spawn(
+        await runSeedProcess(
+          command,
           [
             process.execPath,
             "src/index.ts",
@@ -82,15 +83,8 @@ async function main() {
             environment,
             ...(values.trace ? ["--trace"] : []),
           ],
-          {
-            cwd: fileURLToPath(new URL("../../cli/", import.meta.url)),
-            stdin: new TextEncoder().encode(key),
-            stdout: "inherit",
-            stderr: "inherit",
-            // The CLI owns sign-in and logout. Wait for it to release the session.
-          },
+          key,
         );
-        if ((await child.exited) !== 0) throw new Error(`${command} failed.`);
       });
     }
   });

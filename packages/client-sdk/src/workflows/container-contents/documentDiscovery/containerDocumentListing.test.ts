@@ -1,4 +1,4 @@
-import { expect, spyOn, test } from "bun:test";
+import { expect, test } from "bun:test";
 import type { ListContainerDocumentLanesRequest } from "@tearleads/validators/request";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import {
@@ -322,25 +322,3 @@ test.each([
     expect([...listed.values()]).toEqual(["unavailable", "unavailable"]);
   },
 );
-
-test("a transport that ignores the listing deadline releases its page for retry", async () => {
-  const deadline = new AbortController();
-  const timer = spyOn(AbortSignal, "timeout").mockReturnValueOnce(
-    deadline.signal,
-  );
-  const api = {
-    listContainerDocumentLanes: async () => new Promise<never>(() => {}),
-  };
-  try {
-    const loaded = listContainerDocumentLanesFromApi(
-      api,
-      [{ containerId: "folder", watermark: null }],
-      false,
-      new AbortController().signal,
-    );
-    deadline.abort();
-    expect(await loaded).toBeNull();
-  } finally {
-    timer.mockRestore();
-  }
-});

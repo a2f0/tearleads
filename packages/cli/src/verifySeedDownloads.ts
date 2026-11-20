@@ -38,7 +38,6 @@ type ListLinks = (
 type ListPage<Row> = (
   id: string,
   onPending: (delayMs: number) => void,
-  signal: AbortSignal,
 ) => Promise<readonly Row[] | null>;
 
 async function* linkedRows<Row extends Placement>(
@@ -110,19 +109,11 @@ async function readFolderPage<Row extends Placement>(
   folder: FolderRead,
   list: ListPage<Row>,
   now: () => number,
-  deadline: AbortSignal,
 ) {
   let retryAt: number | null = null;
-  const batch = await beforeSeedDeadline(
-    list(
-      folder.id,
-      (delay) => {
-        retryAt = now() + Math.max(1, delay);
-      },
-      deadline,
-    ),
-    deadline,
-  );
+  const batch = await list(folder.id, (delay) => {
+    retryAt = now() + Math.max(1, delay);
+  });
   let outcome: PageOutcome;
   if (retryAt !== null) outcome = { status: "deferred", retryAt };
   else if (batch === null) outcome = { status: "unavailable" };
@@ -135,7 +126,6 @@ export async function* discoverSeedDocuments<Row extends Placement>(
   list: ListPage<Row>,
   listLinks: ListLinks,
   clock = { now: () => Date.now(), sleep: (ms: number) => Bun.sleep(ms) },
-  deadline = AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
 ) {
   const remaining: FolderRead[] = folderIds.map((id) => ({
     id,
@@ -152,18 +142,10 @@ export async function* discoverSeedDocuments<Row extends Placement>(
     const now = clock.now();
     if (next.retryAt > end || now >= end)
       throw new Error(`Document discovery timed out in ${next.id}.`);
-    if (next.retryAt > now)
-      await beforeSeedDeadline(clock.sleep(next.retryAt - now), deadline);
-    const { batch, outcome } = await readFolderPage(
-      next,
-      list,
-      clock.now,
-      deadline,
-    );
+    if (next.retryAt > now) await clock.sleep(next.retryAt - now);
+    const { batch, outcome } = await readFolderPage(next, list, clock.now);
     if (batch?.length) {
-      yield* linkedRows(next.id, batch, (ids) =>
-        beforeSeedDeadline(listLinks(ids), deadline),
-      );
+      yield* linkedRows(next.id, batch, listLinks);
     }
     const followup = nextFolderRead(next, outcome, clock.now());
     if (!followup) continue;

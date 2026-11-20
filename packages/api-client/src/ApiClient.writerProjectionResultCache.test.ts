@@ -323,9 +323,8 @@ testApiClient(
       method: "GET" as const,
       path: "/documents/document-1/writer-projection",
     };
-    const privateRead = client.getDocumentWriterProjectionResult("document-1", {
+    const privateRead = client.getDocumentWriterProjection("document-1", {
       signal: new AbortController().signal,
-      stillCurrent: () => true,
     });
     try {
       await started.promise;
@@ -334,7 +333,7 @@ testApiClient(
     } finally {
       finish.resolve();
     }
-    expect((await privateRead).ok).toBe(true);
+    expect(await privateRead).not.toBeNull();
     expect(client.getRequestFailure(entry)?.status).toBe(503);
   },
 );

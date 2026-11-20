@@ -62,10 +62,7 @@ export type ContainerDocumentLaneResult =
 export interface ContainerDocumentDiscoveryApi {
   readonly listContainerDocumentLanes: (
     input: ListContainerDocumentLanesRequest,
-    options?: {
-      readonly reportErrors?: boolean | undefined;
-      readonly signal?: AbortSignal | undefined;
-    },
+    options?: { readonly reportErrors?: boolean | undefined },
   ) => Promise<{
     readonly results: ReadonlyArray<ContainerDocumentLaneResult>;
   } | null>;

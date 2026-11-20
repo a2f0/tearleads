@@ -74,40 +74,12 @@ test("deferred head verification waits for the SDK retry time", async () => {
   expect(seen).toEqual([0, 900_000]);
 });
 
-test.each(["listing", "links"])(
-  "discovery stops a pending %s at its deadline",
-  async (stage) => {
-    const deadline = new AbortController();
-    const entered = Promise.withResolvers<void>();
-    const stalled = async (): Promise<never> => {
-      entered.resolve();
-      return new Promise(() => {});
-    };
-    const rows = discoverSeedDocuments(
-      ["root"],
-      () =>
-        stage === "listing"
-          ? stalled()
-          : Promise.resolve([{ documentId: "fixture" }]),
-      stalled,
-      undefined,
-      deadline.signal,
-    );
-    const read = rows.next();
-    await entered.promise;
-    deadline.abort();
-    await expect(read).rejects.toThrow("Document discovery timed out");
-  },
-);
-
 test("a healthy page can verify multiple heads beyond one request timeout", async () => {
   let now = 0;
-  const deadline = new AbortController();
   const checked: string[] = [];
   for await (const { row } of discoverSeedDocuments(
     ["folder"],
-    async (_id, _pending, signal) => {
-      expect(signal).toBe(deadline.signal);
+    async () => {
       if (now) return [];
       now += 45_000;
       return [{ documentId: "slow-page" }];
@@ -119,7 +91,6 @@ test("a healthy page can verify multiple heads beyond one request timeout", asyn
         now += ms;
       },
     },
-    deadline.signal,
   ))
     checked.push(row.documentId);
   expect(checked).toEqual(["slow-page"]);
