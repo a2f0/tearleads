@@ -51,7 +51,7 @@ function uploadResultMessage(
 ) {
   return result === "held"
     ? `confirmed ${name} in ${Math.round(performance.now() - started)}ms`
-    : `skipped ${name} (slot changed during upload)`;
+    : `uploaded ${name} (slot changed before confirmation)`;
 }
 
 async function requireVacantBinding(
@@ -114,7 +114,7 @@ export async function uploadVacantAttachments(
       expectedBindingId: null,
       // Staging can take time. Recheck before sending the encrypted parts.
       onStageResolved: async () => {
-        input.traceAttachment?.(`staged ${intent.name}`);
+        input.traceAttachment?.(`stage opened for ${intent.name}`);
         if (
           !stillCurrent() ||
           fixtureAttachmentState(await pull(store, stillCurrent), intent) !==

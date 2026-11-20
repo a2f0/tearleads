@@ -109,7 +109,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       if (mode === "upload") {
         expect(events).toEqual([
           `uploading ${file} (${size} bytes)`,
-          `staged ${file}`,
+          `stage opened for ${file}`,
           expect.stringContaining(`confirmed ${file} in `),
         ]);
         expect(events[2]).toMatch(/ in \d+ms$/);
