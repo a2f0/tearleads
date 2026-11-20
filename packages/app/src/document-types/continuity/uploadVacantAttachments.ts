@@ -60,7 +60,12 @@ async function requireVacantBinding(
 
 /** Upload only into a vacant slot whose signed content still identifies the fixture. */
 export async function uploadVacantAttachments(
-  input: { sdk: Tearleads; containerId: string; document: SeedDocument },
+  input: {
+    sdk: Tearleads;
+    containerId: string;
+    document: SeedDocument;
+    traceAttachment?: (event: string) => void;
+  },
   store: DocumentStore,
   attachments: readonly { bytes: BlobBytes; intent: DocumentAttachment }[],
   stillCurrent: () => boolean,
@@ -79,7 +84,14 @@ export async function uploadVacantAttachments(
     );
   for (const [index, { bytes, intent }] of attachments.entries()) {
     const snapshot = index === 0 ? first : await pull(store, stillCurrent);
-    if (!needsFixtureBytes(snapshot, intent)) continue;
+    if (!needsFixtureBytes(snapshot, intent)) {
+      input.traceAttachment?.(`skipped ${intent.name} (held or edited slot)`);
+      continue;
+    }
+    const started = performance.now();
+    input.traceAttachment?.(
+      `uploading ${intent.name} (${bytes.byteLength} bytes)`,
+    );
     await requireVacantBinding(runtime, documentId, intent);
     if (!stillCurrent())
       throw new Error("The Continuity writer scope changed.");
@@ -91,6 +103,7 @@ export async function uploadVacantAttachments(
       expectedBindingId: null,
       // Staging can take time. Recheck before sending the encrypted parts.
       onStageResolved: async () => {
+        input.traceAttachment?.(`staged ${intent.name}`);
         if (
           !stillCurrent() ||
           !needsFixtureBytes(await pull(store, stillCurrent), intent)
@@ -108,5 +121,8 @@ export async function uploadVacantAttachments(
       throw new Error(
         `Could not upload seed attachment: ${intent.name}. Run seed again to resume.`,
       );
+    input.traceAttachment?.(
+      `confirmed ${intent.name} in ${Math.round(performance.now() - started)}ms`,
+    );
   }
 }

@@ -90,9 +90,22 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     const { spec, readAttachment, datasetSha256 } =
       await loadContinuityAssets();
     const documents = continuityDocuments(spec);
-    const run = async () => {
-      const result = await runCli(["seed", "--env", "staging"], context);
-      expect(output.stderr).toEqual([]);
+    const run = async (trace = false) => {
+      const result = await runCli(
+        ["seed", "--env", "staging", ...(trace ? ["--trace"] : [])],
+        context,
+      );
+      if (trace) {
+        const traceOutput = output.stderr.join("\n");
+        for (const stage of [
+          "uploading",
+          "staged",
+          "confirmed",
+          "confirm sync",
+        ])
+          expect(traceOutput).toContain(stage);
+        output.stderr.length = 0;
+      } else expect(output.stderr).toEqual([]);
       expect(result).toBe(0);
       expect(output.stdout.at(-1)).toBe(
         `Synced ${documents.length} Continuity documents to your staging account.`,
@@ -192,7 +205,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     interruptUpload = false;
     staleTarget = true;
     output.stderr.length = 0;
-    await run();
+    await run(true);
     expect(staleTarget).toBe(false);
     const editedName = "Personal weight journal";
     const editedNotes = "Edited on a second device";

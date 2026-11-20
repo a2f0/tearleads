@@ -21,6 +21,7 @@ type SeedWriteInput = SeedWriteBase &
     | { destination: "backup"; existing?: never }
     | {
         destination: "account";
+        traceAttachment?: (event: string) => void;
         onRecoveredStaleTarget?: (() => void) | undefined;
         existing?: { localId: string; documentId: string } | undefined;
       }
