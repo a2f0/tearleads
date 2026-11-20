@@ -188,6 +188,7 @@ async function runSession<T>(
     await tracer.span("derive keys from recovery key", () =>
       sdk.identity.importSeedPhrase(recoveryKey),
     );
+    if (revocation) throw new Error("Command interrupted.");
     signedIn = await tracer.span("sign in", () => sdk.session.login());
     loginResult.resolve(signedIn);
     if (revocation) throw new Error("Command interrupted.");

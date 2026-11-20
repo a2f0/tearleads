@@ -13,18 +13,32 @@ export async function runSeedProcess(
     stdout: "inherit",
     stderr: "inherit",
   });
-  let timedOut = false;
-  let grace: ReturnType<typeof setTimeout> | undefined;
-  const timer = setTimeout(() => {
-    timedOut = true;
+  const stopped = Promise.withResolvers<"timed out" | "interrupted">();
+  const interrupt = () => stopped.resolve("interrupted");
+  const timer = setTimeout(() => stopped.resolve("timed out"), timeoutMs);
+  process.on("SIGTERM", interrupt);
+  process.on("SIGINT", interrupt);
+  try {
+    const outcome = await Promise.race([child.exited, stopped.promise]);
+    if (typeof outcome === "number") {
+      if (outcome !== 0)
+        throw new Error(`${phase} exited with code ${outcome}.`);
+      return;
+    }
     child.kill("SIGTERM");
     // The CLI gives session revocation five seconds before exiting.
-    grace = setTimeout(() => child.kill("SIGKILL"), 10_000);
-  }, timeoutMs);
-  const exitCode = await child.exited.finally(() => {
+    const grace = setTimeout(() => child.kill("SIGKILL"), 10_000);
+    try {
+      await child.exited;
+    } finally {
+      clearTimeout(grace);
+    }
+    if (outcome === "timed out")
+      throw new Error(`${phase} timed out after ${timeoutMs} ms.`);
+    throw new Error(`${phase} interrupted.`);
+  } finally {
     clearTimeout(timer);
-    clearTimeout(grace);
-  });
-  if (timedOut) throw new Error(`${phase} timed out after ${timeoutMs} ms.`);
-  if (exitCode !== 0) throw new Error(`${phase} exited with code ${exitCode}.`);
+    process.off("SIGTERM", interrupt);
+    process.off("SIGINT", interrupt);
+  }
 }

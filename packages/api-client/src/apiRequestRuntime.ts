@@ -28,6 +28,7 @@ import {
 import {
   sessionRequestInit,
   sessionResponseRequest,
+  verificationRequestOptions,
 } from "./sessionRequestInit";
 import {
   readSessionJson,
@@ -86,11 +87,7 @@ export class ApiRequestRuntime {
     );
   }
 
-  /**
-   * The bytes a login challenge is signed as, bound to the API this client
-   * addresses. A relative base URL resolves against the page, as its requests
-   * do; with neither, there is no API origin to sign for.
-   */
+  /** Bind login challenge bytes to the API origin, resolving relative URLs against the page. */
   authChallengeBytes(challengeHex: string, fingerprint: string): Uint8Array {
     return sessionAuthChallengeBytes(this.baseUrl, challengeHex, fingerprint);
   }
@@ -228,8 +225,13 @@ export class ApiRequestRuntime {
     options: RequestResultOptions | undefined,
     failureOperation: Parameters<OperationRequestFn>[5],
   ): Promise<RequestResult<T>> {
+    options = verificationRequestOptions(
+      options ?? {},
+      failureOperation,
+      this.instrumentation?.verificationDeadline,
+    );
     const session = this.sessionRenewals.signal;
-    const responseResult = await this.responseRequest(
+    const responseResult = await this.makeResponseRequest(
       path,
       method,
       body,

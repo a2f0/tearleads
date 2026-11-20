@@ -34,6 +34,7 @@ import {
 } from "../routes/blobs/multipart";
 import { uploadMultipartBlobPartBytes } from "../routes/blobs/multipartUpload";
 import { listDocumentAttachments as documentAttachmentsList } from "../routes/documents/attachments";
+import { verificationRequestOptions } from "../sessionRequestInit";
 import type { RequestResultOptions } from "../types";
 import { privateRead } from "../types";
 import type { ApiClientContext } from "./apiClientContext";
@@ -232,7 +233,13 @@ export class BlobArea {
     options: RequestResultOptions,
     run: (scoped: RequestResultOptions) => Promise<T | null>,
   ): Promise<T | null> {
-    const scoped = this.context.runtime.withSessionSignal(options);
+    const scoped = this.context.runtime.withSessionSignal(
+      verificationRequestOptions(
+        options,
+        undefined,
+        this.context.verificationDeadline,
+      ),
+    );
     const result = await run(scoped);
     return scoped.signal?.aborted ? null : result;
   }

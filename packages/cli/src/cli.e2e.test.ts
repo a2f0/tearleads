@@ -5,6 +5,7 @@ import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { openLocalDatabase } from "./localDatabase";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
+import { withSession } from "./session";
 
 let apiBaseUrl = "";
 // Requests matching `method pathname` get a 503 instead of reaching the API.
@@ -361,3 +362,27 @@ test("while tracing, stray console output is labeled with its source", async () 
   expect(messages.some((line) => line.includes("sqlite3_vfs"))).toBe(false);
   expect(messages).toContain("console.log: ");
 }, 60_000);
+
+test("stopping during key derivation never starts a login", async () => {
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  requests.length = 0;
+  let revoked: Promise<boolean> | undefined;
+  await expect(
+    withSession(
+      {
+        apiBaseUrl,
+        recoveryKey: seedPhrase,
+        registerShutdown: (stop) => {
+          queueMicrotask(() => {
+            revoked = stop();
+          });
+        },
+      },
+      async () => {
+        throw new Error("Unexpected signed-in work");
+      },
+    ),
+  ).rejects.toThrow("Command interrupted.");
+  expect(await revoked).toBe(true);
+  expect(requests.filter((request) => request.includes("/auth/"))).toEqual([]);
+});

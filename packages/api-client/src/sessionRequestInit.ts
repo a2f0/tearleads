@@ -37,9 +37,9 @@ export function sessionRequestInit(
   return { headers, init };
 }
 
-function verificationRequestOptions(
+export function verificationRequestOptions(
   options: RequestResultOptions,
-  operation: HttpOperation,
+  operation: HttpOperation | undefined,
   deadline?: AbortSignal,
 ): RequestResultOptions {
   if (!deadline || operation === logoutOperation) return options;

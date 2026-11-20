@@ -96,6 +96,7 @@ export class ApiClientContext {
   >();
 
   readonly streamingDownloads: boolean;
+  readonly verificationDeadline: AbortSignal | undefined;
   constructor(
     baseUrl?: string | null,
     instrumentation?: ApiRequestInstrumentation,
@@ -107,6 +108,7 @@ export class ApiClientContext {
       throw new Error(
         "A verification deadline requires a streaming HTTP transport.",
       );
+    this.verificationDeadline = instrumentation?.verificationDeadline;
     this.streamingDownloads = instrumentation?.streamingDownloads === true;
     bindPrototypeMethods(this, ApiClientContext.prototype);
     this.runtime = new ApiRequestRuntime(baseUrl, instrumentation);

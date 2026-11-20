@@ -411,3 +411,32 @@ testApiClient(
     ).toBeNull();
   },
 );
+
+testApiClient(
+  "a verifier deadline cancels a signed storage body after its headers arrive",
+  async () => {
+    const deadline = new AbortController();
+    const cancel = mock(() => {});
+    const network = spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json(descriptor))
+      .mockResolvedValueOnce(
+        new Response(new ReadableStream({ cancel }, { highWaterMark: 0 })),
+      );
+    try {
+      const client = new ApiClient(apiBaseUrl, {
+        metrics: new ApiRequestMetrics(),
+        getIdentity: () => null,
+        streamingDownloads: true,
+        verificationDeadline: deadline.signal,
+      });
+      const blob = await client.getBlobBytes(blobId);
+      if (!blob) throw new Error("Expected a signed storage stream");
+      const bytes = new Response(blob.encryptedBytes).arrayBuffer();
+      deadline.abort(new Error("Verification deadline elapsed"));
+      await expect(bytes).rejects.toThrow();
+      expect(cancel).toHaveBeenCalledTimes(1);
+    } finally {
+      network.mockRestore();
+    }
+  },
+);
