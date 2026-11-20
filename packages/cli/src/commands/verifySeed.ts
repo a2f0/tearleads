@@ -265,6 +265,7 @@ async function verifyFixtures(
       }),
     session.sdk.containerContents.documentQueries()
       .listLinkedContainerIdsByDocumentIds,
+    { signal: discoveryDeadline },
   )) {
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);
@@ -317,18 +318,20 @@ export async function verifySeed(input: CommandInput) {
   const deadline = AbortSignal.timeout(60 * 60_000);
   const result = await withSavedSession(
     input,
-    (session) =>
-      beforeSeedDeadline(
+    (session) => {
+      const commandDeadline = AbortSignal.any([deadline, session.signal]);
+      return beforeSeedDeadline(
         (async () =>
           verifyFixtures(
             session,
             await resolveSeedAccount(session, input.organizationId),
             await loadContinuityAssets(),
-            deadline,
+            commandDeadline,
           ))(),
-        deadline,
+        commandDeadline,
         "Seed verification timed out.",
-      ),
+      );
+    },
     APP_DOCUMENT_PROJECTOR_DEFINITIONS,
     deadline,
   );

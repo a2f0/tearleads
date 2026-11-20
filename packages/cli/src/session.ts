@@ -18,6 +18,7 @@ export interface CliSession {
   recordExpectedSeedFailure(
     reason: "missing head" | "verified purge" | "recovered stale target",
   ): void;
+  readonly signal: AbortSignal;
   readonly sdk: Tearleads;
   readonly tracer: Tracer;
   readonly userId: string;
@@ -203,6 +204,7 @@ async function runSession<T>(
     const result = await work({
       assertNoFailures,
       recordExpectedSeedFailure,
+      signal: lifetime.signal,
       sdk,
       tracer,
       userId,

@@ -170,3 +170,17 @@ test("a concurrent move cannot verify content under an earlier signed placement"
     "Seed placement changed during verification: saw",
   );
 });
+
+test("stopping discovery cancels a deferred read before the next SDK call", async () => {
+  const controller = new AbortController();
+  const list = mock(async (_id: string, defer: (ms: number) => void) => {
+    defer(900_000);
+    setTimeout(() => controller.abort(), 1);
+    return [];
+  });
+  const rows = discoverSeedDocuments(["folder"], list, async () => new Map(), {
+    signal: controller.signal,
+  });
+  await expect(rows.next()).rejects.toThrow();
+  expect(list).toHaveBeenCalledTimes(1);
+});

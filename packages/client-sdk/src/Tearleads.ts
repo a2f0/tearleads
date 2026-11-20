@@ -231,7 +231,11 @@ export class Tearleads {
     });
     this.apiClient.setOnSessionExpired(() => {
       const renewal = session.renewExpired();
-      options.onSessionRenewal?.(renewal);
+      try {
+        options.onSessionRenewal?.(renewal);
+      } catch {
+        /* Observation cannot interrupt an ongoing sign-in. */
+      }
       return renewal;
     });
     return session;

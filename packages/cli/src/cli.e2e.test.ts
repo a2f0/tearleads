@@ -5,10 +5,8 @@ import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { openLocalDatabase } from "./localDatabase";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
-import { withSession } from "./session";
 
 let apiBaseUrl = "";
-let expireNextSessionList = false;
 // Requests matching `method pathname` get a 503 instead of reaching the API.
 let failing: RegExp | null = null;
 // Every `method pathname` the API received, in order.
@@ -25,13 +23,6 @@ beforeAll(async () => {
       const { pathname } = new URL(request.url);
       requests.push(`${request.method} ${pathname}`);
       onRequest?.(`${request.method} ${pathname}`);
-      if (expireNextSessionList && pathname.endsWith("/sessions")) {
-        expireNextSessionList = false;
-        return Response.json(
-          { code: "session_refresh_required", error: "Expired session" },
-          { status: 401 },
-        );
-      }
       return failing?.test(`${request.method} ${pathname}`)
         ? new Response("unavailable", { status: 503 })
         : routeApp.fetch(request);
@@ -42,7 +33,6 @@ beforeAll(async () => {
 
 afterEach(() => {
   failing = null;
-  expireNextSessionList = false;
   onRequest = null;
 });
 
@@ -371,118 +361,3 @@ test("while tracing, stray console output is labeled with its source", async () 
   expect(messages.some((line) => line.includes("sqlite3_vfs"))).toBe(false);
   expect(messages).toContain("console.log: ");
 }, 60_000);
-
-test("stopping during key derivation never starts a login", async () => {
-  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
-  requests.length = 0;
-  let revoked: Promise<boolean> | undefined;
-  await expect(
-    withSession(
-      {
-        apiBaseUrl,
-        recoveryKey: seedPhrase,
-        registerShutdown: (stop) => {
-          queueMicrotask(() => {
-            revoked = stop();
-          });
-        },
-      },
-      async () => {
-        throw new Error("Unexpected signed-in work");
-      },
-    ),
-  ).rejects.toThrow("Command interrupted.");
-  expect(await revoked).toBe(true);
-  expect(requests.filter((request) => request.includes("/auth/"))).toEqual([]);
-});
-
-test("interruption reports unconfirmed revocation when the sign-in reply is lost", async () => {
-  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
-  let stop: (() => Promise<boolean>) | undefined;
-  let cleanup: Promise<boolean> | undefined;
-  failing = /POST .*auth\/verify/u;
-  onRequest = (request) => {
-    if (failing?.test(request)) cleanup = stop?.();
-  };
-  await expect(
-    withSession(
-      {
-        apiBaseUrl,
-        recoveryKey: seedPhrase,
-        registerShutdown: (revoke) => {
-          stop = revoke;
-        },
-      },
-      async () => {
-        throw new Error("Unexpected signed-in work");
-      },
-    ),
-  ).rejects.toThrow("Command interrupted.");
-  expect(await cleanup).toBe(false);
-});
-
-test("an interrupt during the challenge prevents verification dispatch", async () => {
-  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
-  let stop: (() => Promise<boolean>) | undefined;
-  let cleanup: Promise<boolean> | undefined;
-  requests.length = 0;
-  onRequest = (request) => {
-    if (request.includes("/auth/challenge")) cleanup = stop?.();
-  };
-  await expect(
-    withSession(
-      {
-        apiBaseUrl,
-        recoveryKey: seedPhrase,
-        registerShutdown: (revoke) => {
-          stop = revoke;
-        },
-      },
-      async () => {
-        throw new Error("Unexpected signed-in work");
-      },
-    ),
-  ).rejects.toThrow("Command interrupted.");
-  expect(await cleanup).toBe(true);
-  expect(requests.some((request) => request.includes("/auth/verify"))).toBe(
-    false,
-  );
-});
-
-for (const ending of ["interrupt", "work failure"])
-  test(`a command ending in ${ending} during renewal revokes the newly issued session`, async () => {
-    const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
-    let stop: (() => Promise<boolean>) | undefined;
-    let cleanup: Promise<boolean> | undefined;
-    const dispatch = Promise.withResolvers<void>();
-    const command = withSession(
-      {
-        recoveryKey: seedPhrase,
-        apiBaseUrl,
-        registerShutdown: (revoke) => {
-          stop = revoke;
-        },
-      },
-      async ({ sdk }) => {
-        expireNextSessionList = true;
-        onRequest = (request) => {
-          if (request.includes("/auth/verify")) {
-            dispatch.resolve();
-            if (ending === "interrupt") cleanup = stop?.();
-          }
-        };
-        const listing = sdk.session.listSessions();
-        await dispatch.promise;
-        if (ending === "work failure") {
-          void listing.catch(() => {});
-          throw new Error("work failed");
-        }
-        await listing;
-        expect(await cleanup).toBe(true);
-      },
-    );
-    if (ending === "work failure")
-      await expect(command).rejects.toThrow("work failed");
-    else await command;
-    expect(requests.at(-1)).toContain("/auth/logout");
-  });

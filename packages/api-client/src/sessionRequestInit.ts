@@ -1,5 +1,6 @@
 import {
   documentSyncOperation,
+  getBlobBytesOperation,
   getDocumentWriterProjectionOperation,
   type HttpOperation,
   logoutOperation,
@@ -42,11 +43,25 @@ export function sessionRequestInit(
 
 const verificationLimits = new Map<
   HttpOperation,
-  "writer-projection" | "document-sync"
+  "writer-projection" | "document-sync" | "errors"
 >([
   [getDocumentWriterProjectionOperation, "writer-projection"],
   [documentSyncOperation, "document-sync"],
+  [getBlobBytesOperation, "errors"],
 ]);
+
+const signInCleanupSignals = new WeakMap<AbortSignal, AbortSignal>();
+function signInCleanupDeadline(limit: AbortSignal | undefined) {
+  if (!limit) return undefined;
+  const existing = signInCleanupSignals.get(limit);
+  if (existing) return existing;
+  const cleanup = new AbortController();
+  const expire = () => setTimeout(() => cleanup.abort(), 5_000);
+  if (limit.aborted) expire();
+  else limit.addEventListener("abort", expire, { once: true });
+  signInCleanupSignals.set(limit, cleanup.signal);
+  return cleanup.signal;
+}
 
 function workDeadline(
   operation: HttpOperation | undefined,
@@ -59,10 +74,10 @@ function workDeadline(
   // A stopped command can never start another verification.
   if (
     operation === verifyOperation &&
-    command &&
-    (phase === "response" || !command.aborted)
+    (command || limit) &&
+    (phase === "response" || (!command?.aborted && !limit?.aborted))
   )
-    return limit;
+    return signInCleanupDeadline(limit);
   return limit && command
     ? AbortSignal.any([limit, command])
     : (limit ?? command);

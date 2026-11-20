@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { isDeepStrictEqual } from "node:util";
 import type { BlobByteSource } from "@tearleads/client-sdk";
 
@@ -64,12 +65,14 @@ async function* linkedRows<Row extends Placement>(
   listLinks: ListLinks,
   checkTime: () => void,
 ) {
+  checkTime();
   const links = await listLinks(
     batch.flatMap(({ documentId }) => (documentId ? [documentId] : [])),
   );
   checkTime();
   // Tombstone reconciliation also returns summaries for removed placements.
   for (const row of batch) {
+    checkTime();
     if (row.documentId && links.get(row.documentId)?.includes(containerId))
       yield { containerId, row };
   }
@@ -150,8 +153,16 @@ export async function* discoverSeedDocuments<Row extends Placement>(
   folderIds: readonly string[],
   list: ListPage<Row>,
   listLinks: ListLinks,
-  clock = { now: () => Date.now(), sleep: (ms: number) => Bun.sleep(ms) },
+  clock: {
+    now?: () => number;
+    sleep?: (ms: number) => Promise<void>;
+    signal?: AbortSignal;
+  } = {},
 ) {
+  const now = clock.now ?? Date.now;
+  const sleep =
+    clock.sleep ??
+    ((ms: number) => delay(ms, undefined, { signal: clock.signal }));
   const remaining: FolderRead[] = folderIds.map((id) => ({
     id,
     status: "ready",
@@ -159,19 +170,24 @@ export async function* discoverSeedDocuments<Row extends Placement>(
   }));
   // Persistent head verification can defer a folder for 15 minutes. Give other
   // folders a turn and observe the SDK delay without polling a held head.
-  const end = clock.now() + DISCOVERY_TIMEOUT_MS;
+  const end = now() + DISCOVERY_TIMEOUT_MS;
   while (remaining.length) {
     remaining.sort((a, b) => a.retryAt - b.retryAt);
     const next = remaining.shift();
     if (!next) return;
-    const now = clock.now();
-    const checkTime = () => checkDiscoveryTime(next.id, clock.now(), end);
-    checkDiscoveryTime(next.id, Math.max(next.retryAt, now), end);
-    if (next.retryAt > now) await clock.sleep(next.retryAt - now);
-    const { batch, outcome } = await readFolderPage(next, list, clock.now);
+    const started = now();
+    const checkTime = () => {
+      clock.signal?.throwIfAborted();
+      checkDiscoveryTime(next.id, now(), end);
+    };
+    checkTime();
+    checkDiscoveryTime(next.id, Math.max(next.retryAt, started), end);
+    if (next.retryAt > started) await sleep(next.retryAt - started);
+    checkTime();
+    const { batch, outcome } = await readFolderPage(next, list, now);
     checkTime();
     if (batch?.length) yield* linkedRows(next.id, batch, listLinks, checkTime);
-    const followup = nextFolderRead(next, outcome, clock.now());
+    const followup = nextFolderRead(next, outcome, now());
     if (!followup) continue;
     if (batch?.length) remaining.unshift(followup);
     else remaining.push(followup);
