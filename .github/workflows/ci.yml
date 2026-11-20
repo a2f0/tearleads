@@ -376,11 +376,16 @@ jobs:
       - name: Install dependencies
         run: sh scripts/lib/installDependencies.sh
 
-      - name: Install Playwright's Chromium
-        run: bun run --cwd packages/app-web playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: bun run --cwd packages/app-web playwright install --with-deps chromium firefox webkit
 
       - name: Run E2E tests
         run: bun run test:turbo:e2e
+
+      - name: Check the History slider in Firefox and WebKit
+        run: |
+          bun run --cwd packages/app-web playwright test --browser=firefox history-slider.spec.ts
+          bun run --cwd packages/app-web playwright test --browser=webkit history-slider.spec.ts
 
   postgres-concurrency:
     name: Postgres concurrency

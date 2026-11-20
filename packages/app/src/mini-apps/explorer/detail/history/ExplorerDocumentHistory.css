@@ -21,39 +21,50 @@
   min-height: var(--control-height);
 }
 
-/* Paint the thumb consistently on engines where native range accents vary. */
-@supports selector(input::-webkit-slider-thumb) {
-  @media not (forced-colors: active) {
-    .explorer-document-history-slider {
-      -webkit-appearance: none;
-      appearance: none;
-      background: transparent;
-    }
+/* Range accents alone do not color the thumb on every engine. */
+@media not (forced-colors: active) {
+  .explorer-document-history-slider {
+    --history-track-color: color-mix(
+      in oklab,
+      var(--color-dark),
+      var(--color-light)
+    );
+    appearance: none;
+    background: transparent;
+  }
 
-    .explorer-document-history-slider::-webkit-slider-runnable-track {
-      display: flex;
-      align-items: center;
-      height: var(--space-xs);
-      border-radius: var(--space-xs);
-      background: color-mix(
-        in oklab,
-        var(--color-dark) 50%,
-        var(--color-light)
-      );
-    }
+  .explorer-document-history-slider::-webkit-slider-runnable-track {
+    display: flex;
+    align-items: center;
+    height: var(--space-xs);
+    border-radius: var(--space-xs);
+    background: var(--history-track-color);
+  }
 
-    .explorer-document-history-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 1rem;
-      height: 1rem;
-      border-radius: 50%;
-      background: var(--color-dark);
-    }
+  .explorer-document-history-slider::-moz-range-track {
+    height: var(--space-xs);
+    border-radius: var(--space-xs);
+    background: var(--history-track-color);
+  }
 
-    .explorer-document-history-slider:disabled {
-      opacity: var(--opacity-disabled);
-    }
+  .explorer-document-history-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: var(--color-dark);
+  }
+
+  .explorer-document-history-slider::-moz-range-thumb {
+    width: 1rem;
+    height: 1rem;
+    border: 0;
+    border-radius: 50%;
+    background: var(--color-dark);
+  }
+
+  .explorer-document-history-slider:disabled {
+    opacity: var(--opacity-disabled);
   }
 }
 

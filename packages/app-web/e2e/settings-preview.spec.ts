@@ -313,9 +313,14 @@ test("Network radios use the active theme for selection and keyboard focus", asy
     await expect(radio).toBeChecked();
     await expect(radio).toBeVisible();
     await expect(radio).toHaveCSS("appearance", "auto");
-    await page.keyboard.press("Tab");
-    // macOS WebKit can skip form controls when full keyboard access is off.
-    if (browserName === "webkit") await radio.focus();
+    const tab = settings.getByRole("tab", { name: "Network" });
+    await tab.focus();
+    // Option-Tab includes all form controls in macOS Safari.
+    await page.keyboard.press(
+      browserName === "webkit" && process.platform === "darwin"
+        ? "Alt+Tab"
+        : "Tab",
+    );
     await expect(radio).toBeFocused();
     const foreground = await themeForeground(radio);
     foregrounds.add(foreground);
