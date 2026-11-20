@@ -214,12 +214,19 @@ export function useAttachmentImageUrls(
   return useMemo(() => {
     const imageUrlBySlotId: Record<string, string> = Object.create(null);
     const loadingPreviewSlots = new Set<string>();
+    const queuedPreviewSlots = new Set<string>();
     for (const [slot, request] of requests) {
       const entry = entries.get(slot);
       const preview = sameSource(entry, request) ? entry?.preview : undefined;
       if (preview?.status === "ready") imageUrlBySlotId[slot] = preview.url;
       else if (preview?.status === "loading") loadingPreviewSlots.add(slot);
+      else if (
+        !preview ||
+        preview.status === "queued" ||
+        preview.status === "waiting-for-reader"
+      )
+        queuedPreviewSlots.add(slot);
     }
-    return { imageUrlBySlotId, loadingPreviewSlots };
+    return { imageUrlBySlotId, loadingPreviewSlots, queuedPreviewSlots };
   }, [entries, requests]);
 }

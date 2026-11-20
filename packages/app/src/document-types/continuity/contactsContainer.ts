@@ -24,9 +24,7 @@ async function waitForStoreReady(store: {
   throw new Error("Container contents store did not become ready.");
 }
 
-// Use the same identity-scoped Contacts folder as the Contacts mini-app.
-export async function ensureContactsContainer(sdk: Tearleads): Promise<string> {
-  const scope = captureContinuityScope(sdk);
+export async function continuityContactsDefinition(sdk: Tearleads) {
   const { signingPrivateKey } =
     sdk.identity.requireSigningKeyPair("create Contacts");
   const systemContainers = await deriveUserSystemContainers({
@@ -41,6 +39,13 @@ export async function ensureContactsContainer(sdk: Tearleads): Promise<string> {
   if (!contactsSystemContainer) {
     throw new Error("Contacts system container definition is missing.");
   }
+  return contactsSystemContainer;
+}
+
+// Use the same identity-scoped Contacts folder as the Contacts mini-app.
+export async function ensureContactsContainer(sdk: Tearleads): Promise<string> {
+  const scope = captureContinuityScope(sdk);
+  const contactsSystemContainer = await continuityContactsDefinition(sdk);
   scope.assertCurrent();
   const tree = sdk.containerContents.openTree();
   // openTree() does not hydrate on its own; the app drives it via updateRuntime

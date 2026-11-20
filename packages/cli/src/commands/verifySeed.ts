@@ -7,6 +7,7 @@ import {
 } from "@tearleads/client-sdk";
 import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+  continuityContactsDefinition,
   continuityDocuments,
   continuitySeedTag,
   loadContinuityAssets,
@@ -24,6 +25,7 @@ import {
   beforeSeedDeadline,
   checkSeedBytes,
   discoverSeedDocuments,
+  hasSeedPlacement,
 } from "../verifySeedDownloads";
 import { withSavedSession } from "./account";
 
@@ -125,6 +127,7 @@ async function checkSeedPlacement(
   session: CliSession,
   documentId: string,
   containerId: string,
+  expectedFolder: string,
   fixtureKey: string,
   deadline: AbortSignal,
 ) {
@@ -143,7 +146,7 @@ async function checkSeedPlacement(
     head === "not-found" ||
     !head.accessStateHash ||
     head.organizationId !== session.sdk.session.organizationId ||
-    !head.linkedContainerIds.includes(containerId)
+    !hasSeedPlacement(head.linkedContainerIds, containerId, expectedFolder)
   ) {
     throw new Error(
       `Could not verify seed creator and placement: ${fixtureKey}`,
@@ -157,6 +160,12 @@ async function verifyFixtures(
   assets: Assets,
 ) {
   const expected = await expectedFixtures(account, assets);
+  const { systemSlot } = await continuityContactsDefinition(session.sdk);
+  const contacts = account.folders.find(
+    (node) =>
+      node.parentId === account.rootId && node.systemSlot === systemSlot,
+  );
+  if (!contacts) throw new Error("Missing seeded Contacts folder.");
   const documents = expected.size;
   let bytes = 0;
   let attachments = 0;
@@ -183,6 +192,7 @@ async function verifyFixtures(
       session,
       row.documentId,
       containerId,
+      fixture.document.kind === "contact" ? contacts.id : account.rootId,
       fixture.document.key,
       deadline,
     );

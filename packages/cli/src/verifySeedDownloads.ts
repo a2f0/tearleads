@@ -23,6 +23,14 @@ export async function checkSeedBytes(
   }
 }
 
+export function hasSeedPlacement(
+  links: readonly string[],
+  discoveredIn: string,
+  expectedFolder: string,
+) {
+  return links.includes(discoveredIn) && links.includes(expectedFolder);
+}
+
 type Placement = { documentId: string | null };
 type ListLinks = (
   ids: readonly string[],
@@ -94,12 +102,6 @@ async function readFolderPage<Row extends Placement>(
   now: () => number,
   deadline: AbortSignal,
 ) {
-  const remaining =
-    30_000 - (folder.unavailable ? now() - folder.unavailable.since : 0);
-  const signal = AbortSignal.any([
-    deadline,
-    AbortSignal.timeout(Math.max(0, remaining)),
-  ]);
   let retryAt: number | null = null;
   const batch = await beforeSeedDeadline(
     list(
@@ -107,9 +109,9 @@ async function readFolderPage<Row extends Placement>(
       (delay) => {
         retryAt = now() + Math.max(1, delay);
       },
-      signal,
+      deadline,
     ),
-    signal,
+    deadline,
   );
   return { batch, retryAt: retryAt as number | null };
 }

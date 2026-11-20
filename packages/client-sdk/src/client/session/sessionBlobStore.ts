@@ -50,15 +50,18 @@ export function createSessionBlobStore(
         guarded(() => store.deleteBytes(key, commitGuard(check))),
       ),
     openByteSource: (key, signal) =>
-      queue(key, async () => {
-        signal?.throwIfAborted();
-        const source = await guarded(() =>
-          signal
-            ? waitForBlobRead(store.openByteSource(key, signal), signal)
-            : store.openByteSource(key),
-        );
-        return source && currentSource(source);
-      }),
+      waitForBlobRead(
+        queue(key, async () => {
+          signal?.throwIfAborted();
+          const source = await guarded(() =>
+            signal
+              ? waitForBlobRead(store.openByteSource(key, signal), signal)
+              : store.openByteSource(key),
+          );
+          return source && currentSource(source);
+        }),
+        signal,
+      ),
     readBytes: (key) => queue(key, () => guarded(() => store.readBytes(key))),
     writeByteSource: (key, source, check) =>
       queue(key, () =>

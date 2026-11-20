@@ -55,7 +55,12 @@ export async function listContainerDocumentLanesFromApi(
   }));
   const response = await apiClient.listContainerDocumentLanes(
     { lanes: requested },
-    signal ? { reportErrors, signal } : { reportErrors },
+    signal
+      ? {
+          reportErrors,
+          signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
+        }
+      : { reportErrors },
   );
   if (!response) return null;
   const resultsByLaneId = new Map(

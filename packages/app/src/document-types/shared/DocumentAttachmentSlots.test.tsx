@@ -40,6 +40,7 @@ const attachments: ReadonlyArray<DocumentAttachment> = [
 
 function attachmentSlotsElement(params?: {
   loadingPreviewSlots?: ReadonlySet<string>;
+  queuedPreviewSlots?: ReadonlySet<string>;
   slots?: ReadonlyArray<DocumentAttachmentSlot>;
   attachments?: ReadonlyArray<DocumentAttachment>;
   attachmentStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
@@ -52,6 +53,7 @@ function attachmentSlotsElement(params?: {
   const slotsElement = (
     <DocumentAttachmentSlots
       loadingPreviewSlots={params?.loadingPreviewSlots ?? new Set()}
+      queuedPreviewSlots={params?.queuedPreviewSlots ?? new Set()}
       attachmentStorageKeyBySlotId={params?.attachmentStorageKeyBySlotId ?? {}}
       attachmentStatusBySlotId={{}}
       attachments={params?.attachments ?? attachments}
@@ -252,4 +254,12 @@ test("a focused open button survives the arrival of a preview URL", () => {
   );
   expect(document.activeElement).toBe(button);
   expect(button.querySelector("img")?.getAttribute("src")).toBe("blob:new");
+});
+
+test("queued previews show a waiting label", () => {
+  const view = renderAttachmentSlots({
+    queuedPreviewSlots: new Set(["front"]),
+    attachmentStorageKeyBySlotId: { front: "file" },
+  });
+  expect(view.getByText("Waiting to load preview")).toBeTruthy();
 });

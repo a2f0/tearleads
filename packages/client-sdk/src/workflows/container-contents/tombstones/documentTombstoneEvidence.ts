@@ -172,10 +172,18 @@ async function fetchDocumentHead(
   // projection, whose signature and local checkpoint are still verified.
   if (!expectedManifestHash)
     runtime.apiClient.evictDocumentWriterProjection(documentId);
-  let result = await runtime.apiClient.getDocumentWriterProjectionResult(
-    documentId,
-    { reportErrors: false, stillCurrent: requestGuard, signal },
-  );
+  const fetchHead = () => {
+    const deadline =
+      signal && AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
+    return runtime.apiClient.getDocumentWriterProjectionResult(documentId, {
+      reportErrors: false,
+      stillCurrent: deadline
+        ? () => !deadline.aborted && requestGuard?.() !== false
+        : requestGuard,
+      signal: deadline,
+    });
+  };
+  let result = await fetchHead();
   assertCurrent();
   if (
     expectedManifestHash &&
@@ -183,10 +191,7 @@ async function fetchDocumentHead(
     result.data.documentManifest.manifestHash !== expectedManifestHash
   ) {
     runtime.apiClient.evictDocumentWriterProjection(documentId);
-    result = await runtime.apiClient.getDocumentWriterProjectionResult(
-      documentId,
-      { reportErrors: false, stillCurrent: requestGuard, signal },
-    );
+    result = await fetchHead();
   }
   assertCurrent();
   return result;

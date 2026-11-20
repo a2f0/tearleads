@@ -107,6 +107,10 @@ test("a new sign-in retains saved attachment bytes when a pending source is reti
       },
     });
     await reading.promise;
+    const controller = new AbortController();
+    const queued = old.openByteSource("attachment", controller.signal);
+    controller.abort();
+    await expect(queued).rejects.toThrow();
     sdk.session.logout();
     sdk.session.setContext({ authToken: "next", isAuthenticated: true });
     const fresh = sdk.runtime.input().infra.blobStore;

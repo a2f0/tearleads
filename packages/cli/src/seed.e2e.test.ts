@@ -259,11 +259,15 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     const stalled = spyOn(
       sdkModule,
       "createDocumentHeadLinkSetLoader",
-    ).mockImplementation((_runtime, _deps, _policy, signal) => async () => {
-      if (signal !== deadline.signal)
-        throw new Error("Missing creator lookup deadline");
-      deadline.abort();
-      return new Promise<never>(() => {});
+    ).mockImplementation((...args) => {
+      const lookup = loadHead(...args);
+      return async (id, hash, expectedSigner) => {
+        if (!expectedSigner) return lookup(id, hash);
+        if (args[3] !== deadline.signal)
+          throw new Error("Missing creator lookup deadline");
+        deadline.abort();
+        return new Promise<never>(() => {});
+      };
     });
     try {
       expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(

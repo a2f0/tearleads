@@ -78,13 +78,16 @@ function DocumentAttachmentSlotActions(params: {
 function idlePreviewText(
   attachment: DocumentAttachment | null,
   hasLocalBytes: boolean,
+  queued: boolean,
 ) {
   if (!attachment) return "No image selected";
+  if (queued) return "Waiting to load preview";
   return hasLocalBytes ? "Preview unavailable" : "Waiting for image bytes";
 }
 
 function DocumentAttachmentSlotPreview(params: {
   loadingText: string | null;
+  queued: boolean;
   hasLocalBytes: boolean;
   imageUrl: string | undefined;
   onOpenAttachment: (() => void) | null;
@@ -136,7 +139,7 @@ function DocumentAttachmentSlotPreview(params: {
       <span>{loadingText}</span>
     </>
   ) : (
-    idlePreviewText(storedAttachment, hasLocalBytes)
+    idlePreviewText(storedAttachment, hasLocalBytes, params.queued)
   );
 
   return onOpenAttachment && storedAttachment ? (
@@ -163,6 +166,7 @@ function DocumentAttachmentSlotPreview(params: {
 function DocumentAttachmentSlotCard(params: {
   attachmentStorageKey: string | undefined;
   loadingPreview: boolean;
+  queuedPreview: boolean;
   blobPicker: DocumentAttachmentBlobPickerConfig | undefined;
   canAttach: boolean;
   imageUrl: string | undefined;
@@ -204,6 +208,7 @@ function DocumentAttachmentSlotCard(params: {
         <strong>{slot.label}</strong>
       </div>
       <DocumentAttachmentSlotPreview
+        queued={params.queuedPreview}
         loadingText={loadingText}
         hasLocalBytes={Boolean(attachmentStorageKey)}
         imageUrl={imageUrl}
@@ -251,6 +256,7 @@ function DocumentAttachmentSlotCard(params: {
 
 export function DocumentAttachmentSlots(params: {
   loadingPreviewSlots: ReadonlySet<string>;
+  queuedPreviewSlots: ReadonlySet<string>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string | undefined>>;
   attachmentStatusBySlotId: Readonly<
     Record<string, DocumentAttachmentStatus | undefined>
@@ -281,6 +287,7 @@ export function DocumentAttachmentSlots(params: {
         <DocumentAttachmentSlotCard
           key={slot.slotId}
           loadingPreview={params.loadingPreviewSlots.has(slot.slotId)}
+          queuedPreview={params.queuedPreviewSlots.has(slot.slotId)}
           attachmentStorageKey={attachmentStorageKeyBySlotId[slot.slotId]}
           blobPicker={blobPicker}
           canAttach={canAttach}

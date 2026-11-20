@@ -78,9 +78,10 @@ bun run tearleads verify-seed --env production --trace
 ```
 
 It discovers the documents through their folders, checks the original fixture
-fields and rows, and compares every decrypted attachment with the pinned bytes.
+fields, rows and original folder links, and compares every decrypted attachment
+with the pinned bytes.
 Verification honors the retry delay for deferred document heads. Discovery stops
-after one hour, or after a folder listing stays unavailable for 30 seconds.
+after one hour. Individual listing and head requests have a 30-second deadline.
 An edit, removal or missing download fails the check and identifies the fixture.
 Add `--trace` to `seed` for per-file staging, confirmation and skip messages.
 

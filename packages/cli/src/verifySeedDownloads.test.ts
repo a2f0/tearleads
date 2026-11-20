@@ -1,5 +1,9 @@
-import { expect, mock, spyOn, test } from "bun:test";
-import { checkSeedBytes, discoverSeedDocuments } from "./verifySeedDownloads";
+import { expect, mock, test } from "bun:test";
+import {
+  checkSeedBytes,
+  discoverSeedDocuments,
+  hasSeedPlacement,
+} from "./verifySeedDownloads";
 
 test("verification refuses oversized held files before issuing a read", async () => {
   const read = mock(async () => new Uint8Array());
@@ -112,30 +116,33 @@ test.each(["listing", "links"])(
   },
 );
 
-test("an in-flight folder listing observes its own deadline", async () => {
-  const folder = new AbortController();
-  const overall = new AbortController();
-  const timeout = spyOn(AbortSignal, "timeout").mockReturnValue(folder.signal);
-  const entered = Promise.withResolvers<AbortSignal>();
-  try {
-    const rows = discoverSeedDocuments(
-      [{ id: "root", organizationId: "org", parentId: null, systemSlot: null }],
-      (_id, _pending, signal) => {
-        entered.resolve(signal);
-        return new Promise<never>(() => {});
+test("a healthy page can verify multiple heads beyond one request timeout", async () => {
+  let now = 0;
+  const deadline = new AbortController();
+  const checked: string[] = [];
+  for await (const { row } of discoverSeedDocuments(
+    [{ id: "folder", organizationId: "org", parentId: null, systemSlot: null }],
+    async (_id, _pending, signal) => {
+      expect(signal).toBe(deadline.signal);
+      if (now) return [];
+      now += 45_000;
+      return [{ documentId: "slow-page" }];
+    },
+    async () => new Map([["slow-page", ["folder"]]]),
+    {
+      now: () => now,
+      sleep: async (ms) => {
+        now += ms;
       },
-      async () => new Map(),
-      undefined,
-      overall.signal,
-    );
-    const read = rows.next();
-    const signal = await entered.promise;
-    expect(timeout).toHaveBeenCalledWith(30_000);
-    folder.abort();
-    await expect(read).rejects.toThrow("Document discovery timed out");
-    expect(signal.aborted).toBe(true);
-    expect(overall.signal.aborted).toBe(false);
-  } finally {
-    timeout.mockRestore();
-  }
+    },
+    deadline.signal,
+  ))
+    checked.push(row.documentId);
+  expect(checked).toEqual(["slow-page"]);
+});
+
+test("a contact discovered in the root still needs a signed Contacts link", () => {
+  expect(hasSeedPlacement(["root"], "root", "contacts")).toBe(false);
+  expect(hasSeedPlacement(["contacts"], "root", "contacts")).toBe(false);
+  expect(hasSeedPlacement(["contacts", "root"], "root", "contacts")).toBe(true);
 });
