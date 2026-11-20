@@ -1,7 +1,6 @@
 import {
   type HttpOperation,
-  listContainerDocumentLanesOperation,
-  listContainerParentLanesOperation,
+  logoutOperation,
 } from "@tearleads/validators/operation";
 import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@tearleads/validators/util";
 /** Only a streaming host sets this option on the requests used for bounded blob reads. */
@@ -27,15 +26,15 @@ const metadataLimits: Record<MetadataLimit, number> = {
   "verification-page": MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 };
 
-/** Folder discovery collects pages before applying them. Bound both listings together on a verifier. */
+/** The verifier accumulates discovery and document history locally. Bound all JSON reads together. */
 export function createSessionMetadataReader(
   verification: boolean,
-  discoveryLimit = 2 * MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
+  sessionLimit = 2 * MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 ) {
-  let remainingDiscoveryBytes = discoveryLimit;
+  let remainingMetadataBytes = sessionLimit;
   const consume = (bytes: number) => {
-    remainingDiscoveryBytes -= bytes;
-    return remainingDiscoveryBytes >= 0;
+    remainingMetadataBytes -= bytes;
+    return remainingMetadataBytes >= 0;
   };
   return (
     response: Response,
@@ -45,11 +44,7 @@ export function createSessionMetadataReader(
     boundedMetadataResponse(
       response,
       options,
-      verification &&
-        (operation === listContainerDocumentLanesOperation ||
-          operation === listContainerParentLanesOperation)
-        ? consume
-        : undefined,
+      verification && operation !== logoutOperation ? consume : undefined,
     );
 }
 

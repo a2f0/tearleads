@@ -6,6 +6,7 @@ import { withSession } from "./session";
 let apiBaseUrl = "";
 let server: Bun.Server<undefined>;
 let expireNextSessionList = false;
+let dropIssuedReply = false;
 // Requests matching `method pathname` get a 503 instead of reaching the API.
 let failing: RegExp | null = null;
 // Every `method pathname` the API received, in order.
@@ -18,7 +19,7 @@ beforeAll(async () => {
   server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch: (request) => {
+    fetch: async (request) => {
       const { pathname } = new URL(request.url);
       requests.push(`${request.method} ${pathname}`);
       onRequest?.(`${request.method} ${pathname}`);
@@ -29,6 +30,10 @@ beforeAll(async () => {
           { status: 401 },
         );
       }
+      if (dropIssuedReply && pathname.endsWith("/auth/verify")) {
+        await routeApp.fetch(request);
+        return new Response("sign-in response lost", { status: 503 });
+      }
       return failing?.test(`${request.method} ${pathname}`)
         ? new Response("unavailable", { status: 503 })
         : routeApp.fetch(request);
@@ -38,6 +43,7 @@ beforeAll(async () => {
 });
 
 afterEach(() => {
+  dropIssuedReply = false;
   failing = null;
   expireNextSessionList = false;
   onRequest = null;
@@ -177,4 +183,51 @@ test("verification expiry during sign-in receives and revokes the issued token",
     },
   );
   expect(requests.at(-1)).toContain("/auth/logout");
+});
+
+test("a lost verification reply without an interrupt reports the possible issued session", async () => {
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  dropIssuedReply = true;
+  await expect(
+    withSession({ apiBaseUrl, recoveryKey: seedPhrase }, async () => {
+      throw new Error("Unexpected work");
+    }),
+  ).rejects.toThrow("may have issued a session");
+});
+
+test("interrupting a renewal challenge revokes the previous session", async () => {
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  let stop: (() => Promise<boolean>) | undefined;
+  let cleanup: Promise<boolean> | undefined;
+  await withSession(
+    {
+      apiBaseUrl,
+      recoveryKey: seedPhrase,
+      registerShutdown: (revoke) => {
+        stop = revoke;
+      },
+    },
+    async ({ sdk }) => {
+      requests.length = 0;
+      expireNextSessionList = true;
+      onRequest = (request) => {
+        if (request.includes("/auth/challenge")) cleanup = stop?.();
+      };
+      await sdk.session.listSessions();
+      expect(await cleanup).toBe(true);
+      expect(requests.some((request) => request.endsWith("/auth/verify"))).toBe(
+        false,
+      );
+      expect(requests.some((request) => request.endsWith("/auth/logout"))).toBe(
+        true,
+      );
+    },
+  );
+  onRequest = null;
+  await withSession(
+    { apiBaseUrl, recoveryKey: seedPhrase },
+    async ({ sdk }) => {
+      expect(await sdk.session.listSessions()).toHaveLength(1);
+    },
+  );
 });

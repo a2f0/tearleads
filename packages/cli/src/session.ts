@@ -1,4 +1,5 @@
 import { format } from "node:util";
+import { ApiClient } from "@tearleads/api-client";
 import {
   createMemoryBlobStore,
   type DocumentProjectorDefinition,
@@ -107,6 +108,21 @@ async function revoke(sdk: Tearleads): Promise<boolean> {
   }
 }
 
+async function revokeHeldSession(sdk: Tearleads, apiBaseUrl: string) {
+  const token = sdk.session.authToken;
+  if (!token) return false;
+  // The interrupted renewal clears the transport that was reading the challenge.
+  const deadline = AbortSignal.timeout(5_000);
+  const cleanup = new ApiClient(apiBaseUrl, {
+    metrics: sdk.apiRequests,
+    getIdentity: () => sdk.identity.signingFingerprint,
+    streamingDownloads: true,
+    verificationDeadline: deadline,
+  });
+  cleanup.setAuthToken(token);
+  return (await cleanup.logout(deadline))?.message === "ok";
+}
+
 /**
  * Signs in as the identity derived from `recoveryKey`, runs `work`, then
  * revokes the session and discards the in-memory database. A session that
@@ -125,6 +141,21 @@ export async function withSession<T>(
   }
 }
 
+async function signIn(
+  sdk: Tearleads,
+  tracer: Tracer,
+  lifetime: ReturnType<typeof commandLoginLifetime>,
+) {
+  lifetime.send("starting");
+  let signedIn = false;
+  try {
+    signedIn = await tracer.span("sign in", () => sdk.session.login());
+    return signedIn;
+  } finally {
+    lifetime.send(signedIn ? "accepted" : "unconfirmed");
+  }
+}
+
 async function runSession<T>(
   {
     apiBaseUrl,
@@ -140,7 +171,10 @@ async function runSession<T>(
     openLocalDatabase(),
   );
   const loggedErrors: string[] = [];
-  const lifetime = commandLoginLifetime(() => revoke(sdk));
+  const lifetime = commandLoginLifetime(
+    () => revoke(sdk),
+    () => revokeHeldSession(sdk, apiBaseUrl),
+  );
   const sdk = new Tearleads({
     apiBaseUrl,
     apiRequestMetrics: new TracingApiRequestMetrics(tracer, () =>
@@ -190,15 +224,14 @@ async function runSession<T>(
       sdk.identity.importSeedPhrase(recoveryKey),
     );
     if (lifetime.stopping()) throw new Error("Command interrupted.");
-    lifetime.send("starting");
-    try {
-      signedIn = await tracer.span("sign in", () => sdk.session.login());
-    } finally {
-      lifetime.send(signedIn ? "accepted" : "unconfirmed");
-    }
+    signedIn = await signIn(sdk, tracer, lifetime);
     if (lifetime.stopping()) throw new Error("Command interrupted.");
     const userId = sdk.session.userId;
     if (!signedIn || !userId) {
+      if (lifetime.outcomeUnknown())
+        throw new Error(
+          "The sign-in reply could not be confirmed. The API may have issued a session that remains valid until expiry.",
+        );
       throw new LoginRefusedError();
     }
     const result = await work({

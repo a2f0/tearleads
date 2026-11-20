@@ -1,5 +1,6 @@
 import { expect, mock, spyOn } from "bun:test";
 import {
+  documentSyncOperation,
   listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
 } from "@tearleads/validators/operation";
@@ -158,5 +159,19 @@ testApiClient(
     } finally {
       network.mockRestore();
     }
+  },
+);
+
+testApiClient(
+  "a verifier bounds document history across continuation pages",
+  async () => {
+    const read = createSessionMetadataReader(true, 10);
+    const options = { [boundedMetadata]: "document-sync" as const };
+    expect(
+      await read(new Response("123456"), options, documentSyncOperation).text(),
+    ).toBe("123456");
+    await expect(
+      read(new Response("78901"), options, documentSyncOperation).text(),
+    ).rejects.toThrow("exceeds its size limit");
   },
 );
