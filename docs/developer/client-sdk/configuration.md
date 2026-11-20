@@ -137,7 +137,8 @@ limit each slot's transfer before decryption. The Bun CLI enables this option.
 The optional third argument is an abort signal. The fourth receives each
 verified binding after decryption so a fixture reader can compare it with a later
 listing. A host with a buffering HTTP bridge keeps the default for ordinary
-downloads.
+downloads. Custom adapters must explicitly declare `supportsBoundedAttachmentReads`
+and enforce the metadata and ciphertext limits before buffering.
 
 `BlobAttachmentService` replaces the free `uploadDocumentAttachment`,
 `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports.

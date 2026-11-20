@@ -20,7 +20,10 @@ test("a fixture reader refuses a differently sized binding before downloading", 
   const documentId = fixture.writerProjection.documentId;
   const length = fixture.attachment.byteLength - 1;
   const service = createBlobAttachmentServiceFixture({
-    api: createSingleAttachmentHydrationApi(fixture, getBytes),
+    api: {
+      ...createSingleAttachmentHydrationApi(fixture, getBytes),
+      supportsBoundedAttachmentReads: true,
+    },
     encapsulationSecretKey: fixture.secretKey,
     execSql: fixture.execSql,
   }).withExpectedDownloads(
@@ -44,27 +47,30 @@ test("an oversized ciphertext declaration cancels the body before the first read
   const pull = mock(() => {});
   let requestedLimit: number | undefined;
   const service = createBlobAttachmentServiceFixture({
-    api: createSingleAttachmentHydrationApi(
-      fixture,
-      async (blobId, options) => {
-        requestedLimit = options?.maxEncryptedByteLength;
-        return {
-          blobId,
-          byteLength: 1_000_000_000,
-          sha256: fixture.stagedBlob.sha256,
-          encryptedBytes: new ReadableStream<Uint8Array>(
-            {
-              cancel,
-              pull(controller) {
-                pull();
-                controller.close();
+    api: {
+      supportsBoundedAttachmentReads: true,
+      ...createSingleAttachmentHydrationApi(
+        fixture,
+        async (blobId, options) => {
+          requestedLimit = options?.maxEncryptedByteLength;
+          return {
+            blobId,
+            byteLength: 1_000_000_000,
+            sha256: fixture.stagedBlob.sha256,
+            encryptedBytes: new ReadableStream<Uint8Array>(
+              {
+                cancel,
+                pull(controller) {
+                  pull();
+                  controller.close();
+                },
               },
-            },
-            { highWaterMark: 0 },
-          ),
-        };
-      },
-    ),
+              { highWaterMark: 0 },
+            ),
+          };
+        },
+      ),
+    },
     encapsulationSecretKey: fixture.secretKey,
     execSql: fixture.execSql,
   }).withExpectedDownloads(
@@ -115,6 +121,7 @@ test("one blob cannot have different trusted lengths in two slots", async () => 
   const service = createBlobAttachmentServiceFixture({
     api: {
       ...api,
+      supportsBoundedAttachmentReads: true,
       listDocumentAttachments: async () => [
         binding,
         {
@@ -140,5 +147,23 @@ test("one blob cannot have different trusted lengths in two slots", async () => 
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     }),
   ).rejects.toThrow("Conflicting attachment sizes");
+  expect(bytes).not.toHaveBeenCalled();
+});
+
+test("a buffer-only adapter receives no request for a bounded verification", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const bytes = mock(async () => null);
+  const listed = mock(async () => [createFixtureBinding(fixture)]);
+  const service = createBlobAttachmentServiceFixture({
+    api: { getBlobBytes: bytes, listDocumentAttachments: listed },
+    execSql: fixture.execSql,
+  });
+  expect(() =>
+    service.withExpectedDownloads(
+      fixture.writerProjection.documentId,
+      new Map(),
+    ),
+  ).toThrow("bounded attachment reads");
+  expect(listed).not.toHaveBeenCalled();
   expect(bytes).not.toHaveBeenCalled();
 });

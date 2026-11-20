@@ -39,6 +39,7 @@ for (const inScope of [false, true]) {
         const incidents: unknown[] = [];
         const service = createBlobAttachmentServiceFixture({
           api: {
+            supportsBoundedAttachmentReads: true,
             evictDocumentWriterProjection: () => {
               evictions += 1;
             },

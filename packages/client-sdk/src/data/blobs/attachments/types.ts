@@ -100,6 +100,8 @@ export interface BlobAttachmentDetachApi {
 }
 
 export interface DocumentAttachmentHydrationApi {
+  /** Enforces per-request metadata and ciphertext limits before buffering. */
+  readonly supportsBoundedAttachmentReads?: boolean;
   evictDocumentWriterProjection?(documentId: string): void;
   getBlobBytes(
     blobId: string,

@@ -1,5 +1,6 @@
-import { afterAll, afterEach, beforeAll, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, expect, spyOn, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
+import * as localDatabase from "./localDatabase";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { withSession } from "./session";
 
@@ -183,4 +184,38 @@ test("a one-session command reports expiry without reauthenticating", async () =
       expect(await sdk.session.listSessions()).toHaveLength(1);
     },
   );
+});
+
+test("reports an issued session when local identity pinning fails after verification", async () => {
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  const db = await localDatabase.openLocalDatabase();
+  let afterVerify = false;
+  onRequest = (request) => {
+    if (request.endsWith("/auth/verify")) afterVerify = true;
+  };
+  const exec = db.client.exec.bind(db.client);
+  const dbOpen = spyOn(
+    localDatabase,
+    "openLocalDatabase",
+  ).mockResolvedValueOnce({
+    ...db,
+    client: {
+      exec: async (options) => {
+        if (afterVerify) {
+          afterVerify = false;
+          throw new Error("Local pin storage failed");
+        }
+        return exec(options);
+      },
+    },
+  });
+  try {
+    await expect(
+      withSession({ apiBaseUrl, recoveryKey: seedPhrase }, async () => {
+        throw new Error("Unexpected signed-in work");
+      }),
+    ).rejects.toThrow(/Local pin storage failed.*session may remain/u);
+  } finally {
+    dbOpen.mockRestore();
+  }
 });

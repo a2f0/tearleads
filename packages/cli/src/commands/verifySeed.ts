@@ -284,17 +284,13 @@ async function verifyFixtures(
       expectedFolder,
       fixture.document.key,
     );
-    const deadline = AbortSignal.any([
-      discoveryDeadline,
-      AbortSignal.timeout(120_000),
-    ]);
     bytes += await readFixture(
       session,
       fixture,
       containerId,
       row.id,
       row.documentId,
-      deadline,
+      discoveryDeadline,
     );
     const synced = await defaultDocumentsPersistence.loadDocument(
       session.sdk.documents.workflowRuntime().infra.execSql,

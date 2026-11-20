@@ -131,12 +131,17 @@ async function signIn(
   lifetime: ReturnType<typeof commandLoginLifetime>,
 ) {
   lifetime.send("starting");
-  let signedIn = false;
   try {
-    signedIn = await tracer.span("sign in", () => sdk.session.login());
-    return signedIn;
-  } finally {
+    const signedIn = await tracer.span("sign in", () => sdk.session.login());
     lifetime.send(signedIn ? "accepted" : "unconfirmed");
+    return signedIn;
+  } catch (cause) {
+    lifetime.send(sdk.session.isAuthenticated ? "accepted" : "unconfirmed");
+    if (await lifetime.stop()) throw cause;
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    throw new Error(`${reason}. A session may remain valid until expiry.`, {
+      cause,
+    });
   }
 }
 

@@ -51,6 +51,10 @@ export class BlobAttachmentService {
     collaborators: BlobAttachmentCollaborators,
     private readonly expectedDownloads?: ExpectedDownloadSizes,
   ) {
+    if (expectedDownloads && !collaborators.api.supportsBoundedAttachmentReads)
+      throw new Error(
+        "This transport does not support bounded attachment reads.",
+      );
     this.blobs = collaborators;
   }
 
