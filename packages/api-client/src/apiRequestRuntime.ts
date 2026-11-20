@@ -170,6 +170,7 @@ export class ApiRequestRuntime {
   }
 
   private requestFailure(input: {
+    observedFailure?: RequestFailure | null;
     code?: string | undefined;
     kind: RequestFailureKind;
     message: string;
@@ -202,7 +203,7 @@ export class ApiRequestRuntime {
         ? { requiredContainerIds: input.requiredContainerIds }
         : {}),
     };
-    this.failures.record(failure);
+    this.failures.record(failure, input.observedFailure);
 
     if (input.reportErrors) {
       failure.report();
@@ -366,6 +367,7 @@ export class ApiRequestRuntime {
     /** 2 is the retry after a session renewal. */
     attempt = 1,
   ): Promise<RequestResult<Response>> {
+    const observedFailure = this.getRequestFailure({ method, path });
     const session = this.sessionRenewals.signal;
     if (options.stillCurrent?.() === false) return retiredRequest(method, path);
     const { headers, init } = sessionRequestInit(
@@ -402,6 +404,7 @@ export class ApiRequestRuntime {
       });
       if (requestRetired(session, options)) return retiredRequest(method, path);
       return this.requestFailure({
+        observedFailure,
         ...(cancelled ? { code: "request_aborted" } : {}),
         kind: cancelled ? "cancelled" : "network",
         message: `${method} ${path}: ${networkFailureMessage(error, networkError)}`,

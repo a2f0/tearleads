@@ -10,9 +10,9 @@ export class RequestFailureCache {
     return this.failures.get(requestFailureKey(request)) ?? null;
   }
 
-  record(failure: RequestFailure) {
-    // Cancellation belongs to the abandoned caller and says nothing about the endpoint.
-    if (failure.kind !== "cancelled")
+  record(failure: RequestFailure, observed: RequestFailure | null = null) {
+    // Record a caller's cancellation unless another request reported a failure since dispatch.
+    if (failure.kind !== "cancelled" || this.get(failure) === observed)
       this.failures.set(requestFailureKey(failure), failure);
   }
 
