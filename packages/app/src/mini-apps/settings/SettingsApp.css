@@ -35,7 +35,13 @@
 
 .app-settings-network input[type="radio"] {
   appearance: auto;
+  accent-color: var(--color-dark);
   margin: 0;
+}
+
+.app-settings-network input[type="radio"]:focus-visible {
+  outline: 2px solid var(--color-dark);
+  outline-offset: 2px;
 }
 
 :root[data-navigation-mode="routed"] .app-settings-network label {

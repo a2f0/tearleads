@@ -290,3 +290,25 @@ test("Network radio labels meet the phone touch target", async ({ page }) => {
     expect((await label.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   }
 });
+
+test("Network radios use the active theme's grayscale foreground", async ({
+  page,
+}) => {
+  const settings = await openSettingsFromTray(page);
+  const colors = new Set<string>();
+  for (const theme of ["Light", "Dark"]) {
+    await settings.getByRole("tab", { name: "Desktop" }).click();
+    await settings.getByText(theme, { exact: true }).click();
+    await settings.getByRole("tab", { name: "Network" }).click();
+    const radio = settings.getByRole("radio", {
+      name: "Use Automatic Network",
+    });
+    await expect(radio).toBeChecked();
+    const accent = await radio.evaluate(
+      (element) => getComputedStyle(element).accentColor,
+    );
+    expect(accent).toMatch(/^rgb\((\d+), \1, \1\)$/);
+    colors.add(accent);
+  }
+  expect(colors.size).toBe(2);
+});
