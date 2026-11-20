@@ -6,10 +6,11 @@ import type {
   BlobInfoSortKey,
   BlobStore,
 } from "@tearleads/client-sdk";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useId } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
+  MiniAppCheckbox,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppInput,
@@ -39,6 +40,8 @@ export function BlobListScreen(params: {
   // The fold decision and row pitch come from the list data hook, which owns the
   // scroll frame and measures it once for both the window math and the table.
   compact: boolean;
+  largeThumbnails: boolean;
+  onThumbnailSizeChange: (large: boolean) => void;
   downloadMessage?: string | null | undefined;
   frameRef: (frame: HTMLDivElement | null) => void;
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
@@ -58,20 +61,37 @@ export function BlobListScreen(params: {
   rows: ReadonlyArray<BlobInfo>;
   sort: BlobInfoSort;
 }) {
+  const thumbnailToggleId = useId();
   return (
     <>
-      <MiniAppToolbar>
+      <MiniAppToolbar wrap>
         <MiniAppInput
           aria-label={BLOB_LIST_LABELS.searchPlaceholder}
           onChange={(event) => params.onQueryChange(event.currentTarget.value)}
           placeholder={BLOB_LIST_LABELS.searchPlaceholder}
           value={params.query}
         />
+        <label
+          className="blob-list-thumbnail-toggle"
+          htmlFor={thumbnailToggleId}
+        >
+          <MiniAppCheckbox
+            id={thumbnailToggleId}
+            checked={params.largeThumbnails}
+            onChange={(event) =>
+              params.onThumbnailSizeChange(event.currentTarget.checked)
+            }
+          />
+          {BLOB_LIST_LABELS.largeThumbnails}
+        </label>
       </MiniAppToolbar>
       {params.downloadMessage ? (
         <MiniAppStatus tone="error">{params.downloadMessage}</MiniAppStatus>
       ) : null}
-      <div className="explorer-blob-browser-screen">
+      <div
+        className="explorer-blob-browser-screen"
+        data-large-thumbnails={params.largeThumbnails || undefined}
+      >
         <BlobInfoTable
           activeBlob={null}
           bleed={params.bleed}
@@ -144,6 +164,8 @@ export function BlobPickSurface(params: {
         blobInfo={data.blobInfo}
         blobStore={params.blobStore}
         compact={data.compact}
+        largeThumbnails={data.largeThumbnails}
+        onThumbnailSizeChange={data.changeThumbnailSize}
         frameRef={data.frameRef}
         // Filtering non-image rows out of the windowed list would desync the
         // virtual-scroll padding from the total count, so disable instead.
