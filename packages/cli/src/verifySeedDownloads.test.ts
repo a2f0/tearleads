@@ -34,15 +34,28 @@ test("a fixture whose only placement is under Trash is missing, while other fold
   const listed: string[] = [];
   const passes = new Set<string>();
   const actual: string[] = [];
-  for await (const { row } of discoverSeedDocuments(folders, async (id) => {
-    listed.push(id);
-    if (id === "root" && listed.length === 1) return null;
-    if (passes.has(id)) return [];
-    passes.add(id);
-    return id === "root"
-      ? []
-      : [{ documentId: id === "child" ? "trashed-fixture" : id }];
-  }))
+  for await (const { row } of discoverSeedDocuments(
+    folders,
+    async (id) => {
+      listed.push(id);
+      if (id === "root" && listed.length === 1) return null;
+      if (passes.has(id)) return [];
+      passes.add(id);
+      return id === "root"
+        ? []
+        : [
+            { documentId: "moved-to-trash" },
+            { documentId: id === "child" ? "trashed-fixture" : id },
+          ];
+    },
+    async () =>
+      new Map([
+        ["live", ["live"]],
+        ["moved-to-trash", ["child"]],
+        ["trashed-fixture", ["child"]],
+        ["bin", ["bin"]],
+      ]),
+  ))
     actual.push(row.documentId ?? "");
   expect(actual).toEqual(["live"]);
   expect(listed).toEqual(["root", "live", "live", "root"]);

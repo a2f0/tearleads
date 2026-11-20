@@ -108,6 +108,8 @@ async function verifyFixtures(
   for await (const { containerId, row } of discoverSeedDocuments(
     account.folders,
     (id) => session.sdk.containerContents.discoverContainerDocuments(id),
+    session.sdk.containerContents.documentQueries()
+      .listLinkedContainerIdsByDocumentIds,
   )) {
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);

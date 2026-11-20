@@ -21,11 +21,31 @@ export async function checkSeedBytes(
   }
 }
 
+type Placement = { documentId: string | null };
+type ListLinks = (
+  ids: readonly string[],
+) => Promise<ReadonlyMap<string, readonly string[]>>;
 type ListPage<Row> = (id: string) => Promise<readonly Row[] | null>;
 
-async function* discoverPages<Row>(
+async function* linkedRows<Row extends Placement>(
+  containerId: string,
+  batch: readonly Row[],
+  listLinks: ListLinks,
+) {
+  const links = await listLinks(
+    batch.flatMap(({ documentId }) => (documentId ? [documentId] : [])),
+  );
+  // Tombstone reconciliation also returns summaries for removed placements.
+  for (const row of batch) {
+    if (row.documentId && links.get(row.documentId)?.includes(containerId))
+      yield { containerId, row };
+  }
+}
+
+async function* discoverPages<Row extends Placement>(
   ids: readonly string[],
   list: ListPage<Row>,
+  listLinks: ListLinks,
   deferred: string[],
 ) {
   for (const containerId of ids) {
@@ -33,16 +53,17 @@ async function* discoverPages<Row>(
       const batch = await list(containerId);
       if (!batch) deferred.push(containerId);
       if (!batch?.length) break;
-      for (const row of batch) yield { containerId, row };
+      yield* linkedRows(containerId, batch, listLinks);
     }
   }
 }
 
-export async function* discoverSeedDocuments<Row>(
+export async function* discoverSeedDocuments<Row extends Placement>(
   folders: ReadonlyArray<
     Pick<ContainerNode, "id" | "organizationId" | "parentId" | "systemSlot">
   >,
   list: ListPage<Row>,
+  listLinks: ListLinks,
 ) {
   const byId = new Map(folders.map((node) => [node.id, node]));
   let remaining = folders
@@ -58,7 +79,7 @@ export async function* discoverSeedDocuments<Row>(
   let delay = 250;
   while (remaining.length) {
     const deferred: string[] = [];
-    yield* discoverPages(remaining, list, deferred);
+    yield* discoverPages(remaining, list, listLinks, deferred);
     if (!deferred.length) return;
     retryDeadline ??= Date.now() + 30_000;
     const timeLeft = retryDeadline - Date.now();

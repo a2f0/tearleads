@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { projectStoredDocumentState } from "@tearleads/client-sdk";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "app/continuity";
-import { checkDocument, checkStoredAttachments } from "./verifySeedContent";
+import {
+  checkDocument,
+  checkStoredAttachments,
+  storedSeedRowsMatch,
+} from "./verifySeedContent";
 
 test("verification rejects an edit to a previously empty field", () => {
   const fixture = {
@@ -83,4 +87,13 @@ test("a note requires the original empty metadata map", () => {
     checkDocument(fixture, snapshot, {}, "original", [], metadata);
   expect(() => verify({})).not.toThrow();
   expect(() => verify({ kind: 42 })).toThrow("Fixture content differs");
+});
+
+test("two identical tracker readings remain separately editable", () => {
+  const fields = { value: "120" };
+  const row = { ...fields, "@id": "first" };
+  expect(
+    storedSeedRowsMatch([fields, fields], [row, { ...row, "@id": "second" }]),
+  ).toBe(true);
+  expect(storedSeedRowsMatch([fields, fields], [row, row])).toBe(false);
 });

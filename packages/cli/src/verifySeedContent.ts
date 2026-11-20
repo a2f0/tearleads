@@ -11,6 +11,40 @@ import {
 
 type Fixture = ReturnType<typeof continuityDocuments>[number];
 
+/** Row IDs and attribution are generated when the seed is written. */
+export function storedSeedRowsMatch(
+  expected: NonNullable<Fixture["rows"]>,
+  stored: readonly unknown[],
+) {
+  const ids = new Set<string>();
+  if (stored.length !== expected.length) return false;
+  return stored.every((row, index) => {
+    if (
+      row === null ||
+      Array.isArray(row) ||
+      typeof row !== "object" ||
+      !("@id" in row)
+    )
+      return false;
+    const id = row["@id"];
+    if (typeof id !== "string" || !id || ids.has(id)) return false;
+    ids.add(id);
+    const fields = Object.fromEntries(
+      Object.entries(row).filter(
+        ([key]) =>
+          ![
+            "@id",
+            "@createdAt",
+            "@createdBy",
+            "@updatedAt",
+            "@updatedBy",
+          ].includes(key),
+      ),
+    );
+    return isDeepStrictEqual(fields, expected[index]);
+  });
+}
+
 export function checkDocument(
   fixture: Fixture,
   snapshot: Pick<
@@ -55,16 +89,7 @@ export function checkDocument(
           },
     ) ||
     !isDeepStrictEqual(storedFields, fixture.fields ?? {}) ||
-    storedRows.length !== (fixture.rows?.length ?? 0) ||
-    storedRows.some((row, index) => {
-      if (row === null || Array.isArray(row) || typeof row !== "object")
-        return true;
-      // The SDK assigns row IDs, timestamps and author metadata at creation.
-      const fields = Object.fromEntries(
-        Object.entries(row).filter(([key]) => !key.startsWith("@")),
-      );
-      return !isDeepStrictEqual(fields, fixture.rows?.[index]);
-    }) ||
+    !storedSeedRowsMatch(fixture.rows ?? [], storedRows) ||
     snapshot.fieldValidationIssues.length > 0 ||
     snapshot.documentKind !== fixture.kind ||
     snapshot.text !== (fixture.text ?? "") ||
