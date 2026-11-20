@@ -180,6 +180,7 @@ async function loadDocumentAttachmentBlob(
       blob,
       input.signal,
       input.progress,
+      input.maxEncryptedBytes,
     );
   } catch (error) {
     log?.(

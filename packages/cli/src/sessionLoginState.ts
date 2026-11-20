@@ -22,6 +22,7 @@ export function commandLoginLifetime(revoke: () => Promise<boolean>) {
   let state: LoginState = "not-started";
   const settled = Promise.withResolvers<void>();
   const work = new AbortController();
+  const logout = Promise.withResolvers<void>();
   let revocation: Promise<boolean> | undefined;
   const send = (event: LoginEvent) => {
     state = transitionLogin(state, event);
@@ -32,7 +33,10 @@ export function commandLoginLifetime(revoke: () => Promise<boolean>) {
       const finish = async () => {
         work.abort();
         if (state === "verification") await settled.promise;
-        if (state === "authenticated") return revoke();
+        if (state === "authenticated") {
+          logout.resolve();
+          return revoke();
+        }
         return (
           state === "not-started" ||
           state === "challenge" ||
@@ -46,6 +50,7 @@ export function commandLoginLifetime(revoke: () => Promise<boolean>) {
   return {
     send,
     stop,
+    logoutStarted: logout.promise,
     outcomeUnknown: () => state === "outcome-unknown",
     signal: work.signal,
     stopping: () => revocation !== undefined,

@@ -26,8 +26,8 @@ export async function runSeedProcess(
       return;
     }
     child.kill("SIGTERM");
-    // The CLI gives session revocation five seconds before exiting.
-    const grace = setTimeout(() => child.kill("SIGKILL"), 10_000);
+    // Allow both the CLI sign-in and logout grace periods before killing it.
+    const grace = setTimeout(() => child.kill("SIGKILL"), 15_000);
     try {
       await child.exited;
     } finally {

@@ -55,3 +55,28 @@ test("interrupting a signed-in command awaits revocation", async () => {
   expect(revoked).toBe(true);
   expect(messages).toEqual(["Seed command interrupted."]);
 });
+
+test("a sign-in accepted during shutdown gets a fresh logout grace period", async () => {
+  const messages: string[] = [];
+  let revoked = false;
+  const result = await runSeedCommandWithDeadline(
+    async (register) => {
+      const logout = Promise.withResolvers<void>();
+      register(async () => {
+        await Bun.sleep(70);
+        logout.resolve();
+        await Bun.sleep(70);
+        revoked = true;
+        return true;
+      }, logout.promise);
+      process.emit("SIGINT");
+      return new Promise<number>(() => {});
+    },
+    (message) => messages.push(message),
+    1000,
+    100,
+  );
+  expect(result).toBe(1);
+  expect(revoked).toBe(true);
+  expect(messages).toEqual(["Seed command interrupted."]);
+});

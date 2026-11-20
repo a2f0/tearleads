@@ -1,10 +1,11 @@
 import type { RecoveryKeyStore } from "./recoveryKeyStore";
+import type { RegisterSeedShutdown } from "./seedCommandLifetime";
 import type { TargetName } from "./targets";
 import type { Tracer } from "./trace";
 
 /** Everything a command touches outside the SDK, so tests can supply it. */
 export interface CliContext {
-  readonly registerShutdown?: (revoke: () => Promise<boolean>) => void;
+  readonly registerShutdown?: RegisterSeedShutdown;
   apiBaseUrl(target: TargetName): string;
   readonly keyStore: RecoveryKeyStore;
   readRecoveryKey(prompt: string): Promise<string>;

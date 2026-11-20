@@ -6,6 +6,7 @@ import {
 } from "@tearleads/client-sdk";
 import { isOpfsInstallWarning, openLocalDatabase } from "./localDatabase";
 import { TracingApiRequestMetrics } from "./sdkTracing";
+import type { RegisterSeedShutdown } from "./seedCommandLifetime";
 import { commandLoginLifetime } from "./sessionLoginState";
 import { disabledTracer, type Tracer } from "./trace";
 
@@ -28,9 +29,7 @@ export interface SessionOptions {
   readonly documentProjectors?:
     | readonly DocumentProjectorDefinition[]
     | undefined;
-  readonly registerShutdown?:
-    | ((revoke: () => Promise<boolean>) => void)
-    | undefined;
+  readonly registerShutdown?: RegisterSeedShutdown | undefined;
   readonly apiBaseUrl: string;
   readonly automaticSessionRenewal?: boolean | undefined;
   readonly verificationDeadline?: AbortSignal | undefined;
@@ -201,7 +200,7 @@ async function runSession<T>(
     }
   };
 
-  registerShutdown?.(lifetime.stop);
+  registerShutdown?.(lifetime.stop, lifetime.logoutStarted);
   let signedIn = false;
   try {
     await tracer.span("derive keys from recovery key", () =>
