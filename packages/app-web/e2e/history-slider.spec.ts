@@ -9,6 +9,7 @@ test("History slider paints and seeks across browser engines", {
 }, async ({ page }) => {
   // Load the production CSS independently of a browser's local database support.
   await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", /.+/);
   const control = page.locator("#test-history-slider");
   await page.evaluate(() => {
     const input = document.createElement("input");
