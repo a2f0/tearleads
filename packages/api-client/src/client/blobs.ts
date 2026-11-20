@@ -210,6 +210,11 @@ export class BlobArea {
   }
 
   getBlobBytes(blobId: string, options: BlobDownloadOptions = {}) {
+    if (
+      options.maxEncryptedByteLength !== undefined &&
+      !this.context.streamingDownloads
+    )
+      return Promise.resolve(null);
     return this.transfer(options, (scoped) =>
       getBlobBytes(this.context.transport, blobId, undefined, {
         ...scoped,

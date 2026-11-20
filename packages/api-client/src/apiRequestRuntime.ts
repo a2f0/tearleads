@@ -3,6 +3,7 @@ import {
   parseApiVersion,
 } from "@tearleads/validators/operation";
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
+import { boundedMetadataResponse } from "./boundedMetadataResponse";
 import { measureApiRequest } from "./measureApiRequest";
 import {
   type ApiNetworkError,
@@ -259,7 +260,6 @@ export class ApiRequestRuntime {
 
     return { data, ok: true };
   }
-
   private async makeResponseRequest(
     path: string,
     method: HttpMethod,
@@ -286,10 +286,10 @@ export class ApiRequestRuntime {
     if (!result.ok) return result;
     if (requestRetired(session, options))
       return this.retiredResponse(session, method, path, result.data);
-    const response = result.data;
+    const response = boundedMetadataResponse(result.data, options);
     if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
       this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
-      return result;
+      return { ok: true, data: response };
     }
     const errorDescription = await describeErrorResponse(
       response,

@@ -95,10 +95,12 @@ export class ApiClientContext {
     Promise<PrincipalPolicyBundleResponse | null>
   >();
 
+  readonly streamingDownloads: boolean;
   constructor(
     baseUrl?: string | null,
     instrumentation?: ApiRequestInstrumentation,
   ) {
+    this.streamingDownloads = instrumentation?.streamingDownloads === true;
     bindPrototypeMethods(this, ApiClientContext.prototype);
     this.runtime = new ApiRequestRuntime(baseUrl, instrumentation);
     const projectionRequests = writerProjectionRequests(

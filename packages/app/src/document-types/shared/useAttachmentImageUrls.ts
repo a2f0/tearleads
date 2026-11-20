@@ -74,7 +74,19 @@ async function updatePreview(
 ) {
   const current = () => activeEntries.get(slot) === entry;
   if (!current()) return;
-  const result = await loadAcrossRefresh(entry.request, current, generation);
+  const deadline = AbortSignal.timeout(30_000);
+  const expired = Promise.withResolvers<PreviewResult>();
+  const expire = () => expired.resolve({ status: "unavailable" });
+  deadline.addEventListener("abort", expire, { once: true });
+  const result = await Promise.race([
+    expired.promise,
+    loadAcrossRefresh(
+      entry.request,
+      () => current() && !deadline.aborted,
+      generation,
+    ),
+  ]);
+  deadline.removeEventListener("abort", expire);
   if (!current()) {
     release(result);
     return;

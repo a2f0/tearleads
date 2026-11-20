@@ -14,7 +14,11 @@ import {
 import type { CommandInput } from "../cliContext";
 import { resolveSeedAccount, seedLocalId } from "../seedAccount";
 import type { CliSession } from "../session";
-import { checkDocument, checkStoredAttachments } from "../verifySeedContent";
+import {
+  checkDocument,
+  checkSeedRoots,
+  checkStoredAttachments,
+} from "../verifySeedContent";
 import { checkSeedBytes, discoverSeedDocuments } from "../verifySeedDownloads";
 import { withSavedSession } from "./account";
 
@@ -42,6 +46,7 @@ async function verifyDocument(
   if (!content)
     throw new Error(`Missing stored content: ${fixture.document.key}`);
   try {
+    checkSeedRoots(fixture.document.key, content.getShallowValue());
     checkStoredAttachments(
       fixture.document.key,
       prepared,

@@ -4,6 +4,7 @@ import type {
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type { boundedMetadata } from "./boundedMetadataResponse";
 import type { ApiNetworkError } from "./networkFailure";
 import type {
   ResourceRequestActivity,
@@ -22,6 +23,7 @@ export type ListDocumentEditAttributionRangesOptions = Omit<
 };
 
 export interface RequestResultOptions {
+  readonly [boundedMetadata]?: "all" | "errors" | undefined;
   readonly [resourceRequestActivity]?: ResourceRequestActivity;
   /** Checked at dispatch, on renewal and before handling the response. */
   readonly stillCurrent?: (() => boolean) | undefined;

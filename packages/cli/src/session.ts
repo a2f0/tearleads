@@ -135,6 +135,7 @@ async function runSession<T>(
   const sdk = new Tearleads({
     apiBaseUrl,
     apiRequestMetrics: new TracingApiRequestMetrics(tracer),
+    streamingDownloads: true,
     blobStoreFactory: () => createMemoryBlobStore(),
     database: { client: database.client, id: crypto.randomUUID() },
     documentProjectors,

@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { useAttachmentImageUrls } from "./useAttachmentImageUrls";
@@ -167,5 +167,49 @@ test("replacing all stalled sources immediately schedules their current previews
     );
   } finally {
     await act(async () => stalled.resolve());
+  }
+});
+
+test("a fifth preview loads after four filesystem reads time out", async () => {
+  const store = createMemoryBlobStore();
+  const stalled = Promise.withResolvers<null>();
+  const open = store.openByteSource.bind(store);
+  await store.writeBytes("ready", new Uint8Array([1]));
+  store.openByteSource = (key) =>
+    key === "ready" ? open(key) : stalled.promise;
+  const deadlines: AbortController[] = [];
+  const timeout = spyOn(AbortSignal, "timeout").mockImplementation(() => {
+    const timer = new AbortController();
+    deadlines.push(timer);
+    return timer.signal;
+  });
+  const keys = ["one", "two", "three", "four", "ready"];
+  const attachments = keys.map((key) => ({
+    slotId: key,
+    name: key,
+    mimeType: "image/png",
+    byteLength: 1,
+    contentSha256: "0".repeat(64),
+  }));
+  const storageKeys = Object.fromEntries(keys.map((key) => [key, key]));
+  try {
+    const { result } = renderHook(() =>
+      useAttachmentImageUrls(attachments, storageKeys, store, false),
+    );
+    expect(deadlines).toHaveLength(4);
+    await act(async () => {
+      for (const timer of [...deadlines]) timer.abort();
+    });
+    await waitFor(() =>
+      expect(result.current.imageUrlBySlotId[keys[4] ?? ""]).toBeDefined(),
+    );
+    expect(result.current.loadingPreviewSlots.size).toBe(0);
+    await act(async () => {
+      stalled.resolve(null);
+    });
+    expect(result.current.imageUrlBySlotId[keys[0] ?? ""]).toBeUndefined();
+  } finally {
+    stalled.resolve(null);
+    timeout.mockRestore();
   }
 });

@@ -5,6 +5,7 @@ import {
 } from "@tearleads/validators/operation";
 import type { MultipartBlobPartUploadSource } from "@tearleads/validators/util";
 import type { BinaryResponseOperationTransport } from "../../binaryResponseOperationTransport";
+import { boundedMetadata } from "../../boundedMetadataResponse";
 import type { JsonOperationTransport } from "../../operationTransport";
 import type {
   OperationResponseRequestFn,
@@ -82,6 +83,15 @@ function acceptDownloadDescriptor(
   );
 }
 
+function metadataOptions(
+  options: BlobDownloadOptions,
+  mode: "all" | "errors",
+): RequestResultOptions {
+  return options.maxEncryptedByteLength === undefined
+    ? options
+    : { ...options, [boundedMetadata]: mode };
+}
+
 export async function getBlobBytes(
   transport: BlobDownloadTransport,
   blobId: string,
@@ -95,7 +105,7 @@ export async function getBlobBytes(
     const result = await transport.requestResult(
       getBlobDownloadOperation,
       { params: { blobId } },
-      { ...options, reportErrors: false },
+      { ...metadataOptions(options, "all"), reportErrors: false },
     );
     if (options.signal?.aborted) return null;
     if (!result.ok) {
@@ -179,7 +189,7 @@ async function getBlobStream(
     {
       params: { blobId },
     },
-    options,
+    metadataOptions(options, "errors"),
   );
   if (!result) {
     return null;

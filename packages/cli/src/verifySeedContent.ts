@@ -11,6 +11,25 @@ import {
 
 type Fixture = ReturnType<typeof continuityDocuments>[number];
 
+const rootTypes = new Map([
+  ["text", "Text"],
+  ["content", "Map"],
+  ["fields", "Map"],
+  ["metadata", "Map"],
+  ["rows", "List"],
+]);
+
+export function checkSeedRoots(
+  fixtureKey: string,
+  roots: Readonly<Record<string, string>>,
+) {
+  for (const [name, id] of Object.entries(roots)) {
+    const type = rootTypes.get(name);
+    if (!type || id !== `cid:root-${name}:${type}`)
+      throw new Error(`Unexpected document root: ${fixtureKey} / ${name}`);
+  }
+}
+
 /** Row IDs and attribution are generated when the seed is written. */
 export function storedSeedRowsMatch(
   expected: NonNullable<Fixture["rows"]>,

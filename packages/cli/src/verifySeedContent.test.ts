@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import { projectStoredDocumentState } from "@tearleads/client-sdk";
+import { createDocument } from "@tearleads/loro";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "app/continuity";
 import {
   checkDocument,
+  checkSeedRoots,
   checkStoredAttachments,
   storedSeedRowsMatch,
 } from "./verifySeedContent";
@@ -141,4 +143,18 @@ test("two identical tracker readings remain separately editable", () => {
     expect(storedSeedRowsMatch([fields], [{ ...row, ...edit }], "author")).toBe(
       false,
     );
+});
+
+test("an unexpected populated Loro root cannot pass fixture verification", async () => {
+  const doc = await createDocument("fixture-roots");
+  try {
+    doc.getText("text").update("Hello");
+    expect(() => checkSeedRoots("note", doc.getShallowValue())).not.toThrow();
+    doc.getMap("other").set("hidden", true);
+    expect(() => checkSeedRoots("note", doc.getShallowValue())).toThrow(
+      "Unexpected document root",
+    );
+  } finally {
+    doc.free();
+  }
 });

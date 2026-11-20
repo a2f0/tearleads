@@ -16,6 +16,8 @@ export interface TearleadsOptions {
   apiBaseUrl?: string | undefined;
   /** Reuse a memory-only request counter across client lifetimes. */
   apiRequestMetrics?: ApiRequestMetrics | undefined;
+  /** Enable bounded downloads only when the host HTTP transport streams without native buffering. */
+  streamingDownloads?: boolean | undefined;
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
   database?: TearleadsDatabaseOptions | undefined;

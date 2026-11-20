@@ -1,4 +1,4 @@
-import { expect } from "bun:test";
+import { expect, mock, spyOn } from "bun:test";
 import { HttpResponse, http } from "msw";
 import {
   apiBaseUrl,
@@ -6,6 +6,7 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
+import { ApiRequestMetrics } from "./apiRequestMetrics";
 
 const blobId = "22222222-2222-4222-8222-222222222222";
 const downloadPath = `${apiBaseUrl}/blobs/${blobId}/download`;
@@ -191,5 +192,64 @@ testApiClient(
         path: `/blobs/${blobId}/download`,
       }),
     ).toMatchObject({ kind: "shape", status: 200 });
+  },
+);
+
+testApiClient(
+  "a buffer-only host refuses a bounded download before any HTTP request",
+  async () => {
+    const network = mock(() => HttpResponse.text("unexpected request"));
+    server.use(
+      http.get(downloadPath, network),
+      http.get("https://storage.test/private-object", network),
+      http.get(`${apiBaseUrl}/blobs/${blobId}/bytes`, network),
+    );
+    expect(
+      await new ApiClient(apiBaseUrl).getBlobBytes(blobId, {
+        maxEncryptedByteLength: 20,
+      }),
+    ).toBeNull();
+    expect(network).not.toHaveBeenCalled();
+  },
+);
+
+testApiClient(
+  "bounded downloads cancel a streaming API error before collecting its details",
+  async () => {
+    const cancel = mock(() => {});
+    let pulls = 0;
+    const network = spyOn(globalThis, "fetch");
+    network.mockResolvedValueOnce(
+      Response.json({ ...descriptor, source: { kind: "api" } }),
+    );
+    network.mockResolvedValueOnce(
+      new Response(
+        new ReadableStream<Uint8Array>(
+          {
+            pull(controller) {
+              if (++pulls === 1) controller.enqueue(new Uint8Array(65537));
+              else controller.close();
+            },
+            cancel,
+          },
+          { highWaterMark: 0 },
+        ),
+        { status: 500 },
+      ),
+    );
+    try {
+      const client = new ApiClient(apiBaseUrl, {
+        metrics: new ApiRequestMetrics(),
+        getIdentity: () => null,
+        streamingDownloads: true,
+      });
+      expect(
+        await client.getBlobBytes(blobId, { maxEncryptedByteLength: 20 }),
+      ).toBeNull();
+      expect(pulls).toBe(1);
+      expect(cancel).toHaveBeenCalledTimes(1);
+    } finally {
+      network.mockRestore();
+    }
   },
 );
