@@ -250,3 +250,32 @@ test.describe("touch Start button", () => {
     ).toBeVisible();
   });
 });
+
+test("Network settings and the tray control the same network mode", async ({
+  page,
+}) => {
+  const settings = await openSettingsFromTray(page);
+  const networkTab = settings.getByRole("tab", {
+    name: "Network",
+    exact: true,
+  });
+  await networkTab.click();
+  const radio = (name: string) => settings.getByRole("radio", { name });
+  await expect(settings.getByRole("radio")).toHaveCount(3);
+  await expect(radio("Use Automatic Network")).toBeChecked();
+  await radio("Force Offline").check();
+
+  await settings.getByRole("tab", { name: "System tray" }).click();
+  await settings.getByRole("switch", { name: "Network Control" }).check();
+  await networkTab.click();
+  await expect(radio("Force Offline")).toBeChecked();
+  await page
+    .getByRole("button", { name: "Network Control: offline (manual)" })
+    .click();
+  await page.getByRole("button", { name: "Force Online", exact: true }).click();
+  await expect(radio("Force Online")).toBeChecked();
+  await radio("Use Automatic Network").check();
+  await expect(
+    page.getByRole("button", { name: /^Network Control: .* \(automatic\)$/ }),
+  ).toBeVisible();
+});

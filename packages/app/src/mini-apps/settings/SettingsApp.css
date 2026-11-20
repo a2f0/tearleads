@@ -12,3 +12,28 @@
 .routed-pane--mobile .app-settings .mini-app-tabs {
   margin-inline: 0;
 }
+
+.app-settings-network {
+  display: grid;
+  gap: var(--space-sm);
+  margin: var(--space-md);
+  padding: 0;
+  border: 0;
+  font-size: var(--font-size-sm);
+}
+
+.app-settings-network legend {
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+}
+
+.app-settings-network label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.app-settings-network input[type="radio"] {
+  appearance: auto;
+  margin: 0;
+}
