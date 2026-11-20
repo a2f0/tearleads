@@ -122,13 +122,19 @@ for (const viewport of [
   test(`note preview fills the routed pane (${viewport.name})`, async ({
     page,
   }) => {
-    await page.setViewportSize({
-      width: viewport.width,
-      height: viewport.height,
-    });
-    await page.goto("/app/notes");
-    await page.getByRole("button", { name: "New Note", exact: true }).click();
-    await page.getByRole("textbox", { name: "Notes editor" }).waitFor();
+    if (viewport.name === "mobile") {
+      await openNote(page, "notes");
+    } else {
+      await page.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      });
+      await page.goto("/app/notes");
+      await page.getByRole("button", { name: "New Note", exact: true }).click();
+      await expect(
+        page.getByRole("textbox", { name: "Notes editor" }),
+      ).toBeEditable();
+    }
     await attachPdf(page, "reference.pdf", twoPagePdf());
 
     await page.getByRole("button", { name: "Open reference.pdf" }).click();
