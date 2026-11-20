@@ -1,8 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import {
-  documentSyncOperation,
-  updateOrganizationProfileOperation,
-} from "@tearleads/validators/operation";
+import { documentSyncOperation } from "@tearleads/validators/operation";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import {
   createProfileEditorHarness,
@@ -77,8 +74,13 @@ for (const canEdit of [false, true]) {
   });
 }
 
-test("the profile spinner follows only in-flight requests for the active profile", async () => {
+test("the mounted profile shows the spinner only for its own HTTP request", async () => {
   const f = await createProfileEditorHarness("organization");
+  f.sdk.session.setContext({
+    isAuthenticated: true,
+    authToken: "profile-test-session",
+    organizationId: PROFILE_ORGANIZATION_ID,
+  });
   const lookup = Promise.withResolvers<null>();
   const restore = installProfileEditorHost(f.sdk, {
     ensureOrganizationMetadataContainer: () => lookup.promise,
@@ -94,43 +96,55 @@ test("the profile spinner follows only in-flight requests for the active profile
   );
   const spinner = () =>
     view.container.querySelector(".mini-app-state-panel-spinner");
-  const { apiRequests, identity } = f.sdk;
+  const response = Promise.withResolvers<Response>();
+  const otherOrganization = "11111111-1111-4111-8111-111111111111";
+  const otherResponse = Promise.withResolvers<Response>();
+  const fetchSpy = spyOn(globalThis, "fetch")
+    .mockReturnValueOnce(otherResponse.promise)
+    .mockReturnValue(response.promise);
   try {
     expect(
       view.getByText(ORG_MANAGER_LABELS.loadingOrganizationProfile),
     ).toBeTruthy();
     expect(spinner()).toBeNull();
-    const begin = (id: string) =>
-      apiRequests.beginResource(
-        identity.signingFingerprint,
-        documentSyncOperation,
-        id,
-      );
-    const unrelated = begin("another-document");
-    expect(spinner()).toBeNull();
-    let finish = () => {};
-    await act(async () => {
-      const document = begin(f.documentId);
-      finish = () => document();
+    const client = f.sdk.documents.workflowRuntime().apiClient;
+    const other = client.updateOrganizationProfile(otherOrganization, {
+      profileDocumentId: null,
     });
-    expect(spinner()).not.toBeNull();
-    await act(async () => finish());
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     expect(spinner()).toBeNull();
+    // Exercise the SDK facade and its real request instrumentation. Hold the
+    // transport response while the component's local lookup is still pending.
+    const pending = f.sdk.organizations.updateProfile(f.documentId);
+    await waitFor(() => expect(spinner()).not.toBeNull());
+    const [path, init] = fetchSpy.mock.calls[1] ?? [];
+    expect(String(path)).toEndWith(
+      `/organizations/${PROFILE_ORGANIZATION_ID}/profile`,
+    );
+    expect(init?.method).toBe("PUT");
+    const updated = {
+      organizationId: PROFILE_ORGANIZATION_ID,
+      profileDocumentId: f.documentId,
+    };
     await act(async () => {
-      const binding = apiRequests.beginResource(
-        identity.signingFingerprint,
-        updateOrganizationProfileOperation,
-        PROFILE_ORGANIZATION_ID,
-      );
-      finish = () => binding();
-    });
-    expect(spinner()).not.toBeNull();
-    await act(async () => {
-      finish();
-      unrelated();
+      response.resolve(Response.json(updated));
+      expect(await pending).toEqual(updated);
     });
     expect(spinner()).toBeNull();
+    expect(
+      view.getByText(ORG_MANAGER_LABELS.loadingOrganizationProfile),
+    ).toBeTruthy();
+    otherResponse.resolve(
+      Response.json({
+        organizationId: otherOrganization,
+        profileDocumentId: null,
+      }),
+    );
+    expect(await other).not.toBeNull();
   } finally {
+    otherResponse.resolve(new Response(null, { status: 503 }));
+    response.resolve(new Response(null, { status: 503 }));
+    fetchSpy.mockRestore();
     view.unmount();
     lookup.resolve(null);
     restore();
