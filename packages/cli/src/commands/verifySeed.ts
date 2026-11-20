@@ -140,6 +140,7 @@ async function checkSeedPlacement(
   const head = await beforeSeedDeadline(
     lookup(documentId, undefined, session.userId),
     deadline,
+    `Timed out verifying creator and placement: ${fixtureKey}.`,
   );
   if (
     !head ||

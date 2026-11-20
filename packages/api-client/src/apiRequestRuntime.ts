@@ -27,9 +27,11 @@ import {
 } from "./sessionRenewal";
 import { sessionRequestInit } from "./sessionRequestInit";
 import {
+  confirmResponseHeaders,
   readSessionJson,
   requestRetired,
   retiredRequest,
+  retiredResponse,
 } from "./sessionResponse";
 import type {
   HttpMethod,
@@ -73,10 +75,18 @@ export class ApiRequestRuntime {
     bindPrototypeMethods(this, ApiRequestRuntime.prototype);
     this.request = this.makeRequest;
     this.requestResult = this.makeRequestResult;
-    this.responseRequest = Object.assign(this.makeResponseRequest, {
-      reportFailure: this.reportResponseRequestFailure,
-      sessionSignal: () => this.sessionRenewals.signal,
-    });
+    this.responseRequest = Object.assign(
+      confirmResponseHeaders(
+        this.makeResponseRequest,
+        () => this.sessionRenewals.signal,
+        (method, path) =>
+          this.requestFailuresByKey.delete(requestFailureKey({ method, path })),
+      ),
+      {
+        reportFailure: this.reportResponseRequestFailure,
+        sessionSignal: () => this.sessionRenewals.signal,
+      },
+    );
   }
 
   /**
@@ -258,6 +268,7 @@ export class ApiRequestRuntime {
       });
     }
 
+    this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
     return { data, ok: true };
   }
   private async makeResponseRequest(
@@ -284,28 +295,25 @@ export class ApiRequestRuntime {
       attempt,
     );
     if (!result.ok) return result;
-    if (requestRetired(session, options))
-      return this.retiredResponse(session, method, path, result.data);
+    const retired = (code?: string | null) =>
+      retiredResponse(
+        this.sessionRenewals.refused(session),
+        method,
+        path,
+        result.data,
+        code,
+      );
+    if (requestRetired(session, options)) return retired();
     const response = boundedMetadataResponse(result.data, options);
-    if (isSuccessfulResponse(response, additionalSuccessStatuses)) {
-      this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
+    if (isSuccessfulResponse(response, additionalSuccessStatuses))
       return { ok: true, data: response };
-    }
     const errorDescription = await describeErrorResponse(
       response,
       failureOperation,
       options.expectedPaymentRequiredOrganizationId,
     );
     options[resourceRequestActivity]?.finish();
-    const retired = () =>
-      this.retiredResponse(
-        session,
-        method,
-        path,
-        response,
-        errorDescription.code,
-      );
-    if (requestRetired(session, options)) return retired();
+    if (requestRetired(session, options)) return retired(errorDescription.code);
     const failure = {
       errorDescription,
       failureOperation,
@@ -331,7 +339,7 @@ export class ApiRequestRuntime {
       reportError: (message) => this.onError?.(message),
       responseStatus: response.status,
     });
-    if (requestRetired(session, options)) return retired();
+    if (requestRetired(session, options)) return retired(errorDescription.code);
     const retryToken = this.sessionRenewals.currentToken(authToken);
     if (!shouldRetry || !retryToken) return this.httpFailure(failure);
     if (options.retryOnSessionExpired === "renew-only")
@@ -352,27 +360,6 @@ export class ApiRequestRuntime {
       retryToken,
       2,
     );
-  }
-
-  private retiredResponse(
-    session: AbortSignal,
-    method: HttpMethod,
-    path: string,
-    response: Response,
-    code?: string | null,
-  ): RequestFailure {
-    const retired = retiredRequest(method, path);
-    // Principal writes refused before dispatch have a definitive outcome.
-    if (response.status !== 401 || !this.sessionRenewals.refused(session))
-      return retired;
-    return {
-      ...retired,
-      kind: "http",
-      status: 401,
-      statusText: response.statusText,
-      code: code ?? undefined,
-      message: `${method} ${path}: 401 ${response.statusText}`,
-    };
   }
 
   private async fetchResponseRequest(
@@ -434,7 +421,12 @@ export class ApiRequestRuntime {
       });
     }
     if (requestRetired(session, options))
-      return this.retiredResponse(session, method, path, response);
+      return retiredResponse(
+        this.sessionRenewals.refused(session),
+        method,
+        path,
+        response,
+      );
     this.onNetworkSuccess?.();
     const apiVersion = parseApiVersion(
       response.headers.get(apiVersionHeaderName),

@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { expect, mock, spyOn, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
   createInternalRuntimeFixture,
@@ -199,6 +199,57 @@ test("a failed listing request rejects its lanes as unavailable", async () => {
       }),
     ).resolves.toBeNull();
   } finally {
+    native.close();
+  }
+});
+
+test("cancelling discovery retires a pending principal policy lookup", async () => {
+  const native = createNativeTestExecSql();
+  const gate = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<void>();
+  const controller = new AbortController();
+  const input = createWorkflowInputFixture({
+    execSql: native.execSql,
+    apiClient: laneApi(async () => ({
+      items: [],
+      tombstones: [],
+      nextWatermark: null,
+      hasMore: false,
+    })) as never,
+  });
+  let current: (() => boolean) | undefined;
+  const warmer = spyOn(input.principalPolicies, "createWarmer").mockReturnValue(
+    async ({ stillCurrent }) => {
+      current = stillCurrent;
+      started.resolve();
+      await gate.promise;
+    },
+  );
+  try {
+    await ensureSqlTables(native.execSql, clientSqlTables);
+    await getClientSQLitePersistenceRuntime(native.execSql)
+      .db.insert(containers)
+      .values({
+        id: "container",
+        organizationId: "org",
+        parentId: null,
+        metadataDocumentId: "metadata",
+        localCreatedAt: "2026-09-28",
+        localUpdatedAt: "2026-09-28",
+      });
+    const listing = discoverContainerDocumentsForRuntime({
+      runtimeService: createInternalRuntimeFixture(() => input),
+      containerId: "container",
+      signal: controller.signal,
+    });
+    await started.promise;
+    expect(current?.()).toBe(true);
+    controller.abort();
+    await expect(listing).rejects.toThrow();
+    expect(current?.()).toBe(false);
+  } finally {
+    gate.resolve();
+    warmer.mockRestore();
     native.close();
   }
 });

@@ -2,6 +2,7 @@ import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { waitForRead } from "../../data/shared/waitForRead";
 import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryEvidence";
@@ -74,10 +75,14 @@ function createDiscoveryLane(input: {
     ...input.queries,
     cacheReferencedPrincipalPolicies: (references) =>
       containerOrganizationId
-        ? warmReferencedPrincipalPolicies({
-            organizationId: containerOrganizationId,
-            references,
-          })
+        ? waitForRead(
+            warmReferencedPrincipalPolicies({
+              organizationId: containerOrganizationId,
+              references,
+              stillCurrent: () => !input.isContainerPaused(),
+            }),
+            input.signal,
+          )
         : Promise.resolve(),
     containerId: request.containerId,
     listHeldContainerDocumentTombstones: (containerIds) =>

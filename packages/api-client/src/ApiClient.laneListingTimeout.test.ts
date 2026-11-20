@@ -201,39 +201,57 @@ testApiClient(
   },
 );
 
-testApiClient(
-  "a cancelled document listing preserves the concurrent caller's failure",
-  async () => {
-    const client = new ApiClient(apiBaseUrl);
-    const controller = new AbortController();
-    const first = Promise.withResolvers<void>();
-    const release = Promise.withResolvers<Response>();
-    let calls = 0;
-    globalThis.fetch = Object.assign(async () => {
-      if (++calls === 1) {
-        first.resolve();
-        return release.promise;
+for (const phase of ["headers", "body"])
+  testApiClient(
+    `a document listing cancelled during ${phase} preserves the concurrent caller's failure`,
+    async () => {
+      const client = new ApiClient(apiBaseUrl);
+      const controller = new AbortController();
+      const first = Promise.withResolvers<void>();
+      const release = Promise.withResolvers<Response>();
+      let calls = 0;
+      globalThis.fetch = Object.assign(async () => {
+        if (++calls === 1) {
+          first.resolve();
+          return release.promise;
+        }
+        return Response.json({ error: "Current failure" }, { status: 503 });
+      }, realFetch);
+      const input = {
+        lanes: [{ containerId: "container-1", laneId: "0", watermark: null }],
+      };
+      const failure = () =>
+        client.getRequestFailure({
+          method: "POST",
+          path: listingPaths.document,
+        });
+      try {
+        const stale = client.listContainerDocumentLanes(input, {
+          signal: controller.signal,
+        });
+        await first.promise;
+        await client.listContainerDocumentLanes(input);
+        expect(failure()?.status).toBe(503);
+        if (phase === "body") {
+          const reading = Promise.withResolvers<void>();
+          const body = Promise.withResolvers<unknown>();
+          const response = Response.json({ results: [] });
+          response.json = () => {
+            reading.resolve();
+            return body.promise;
+          };
+          release.resolve(response);
+          await reading.promise;
+          controller.abort();
+          body.resolve({ results: [] });
+        } else {
+          controller.abort();
+          release.resolve(Response.json({ error: "Retired" }, { status: 404 }));
+        }
+        expect(await stale).toBeNull();
+        expect(failure()?.status).toBe(503);
+      } finally {
+        release.resolve(Response.json({ results: [] }));
       }
-      return Response.json({ error: "Current failure" }, { status: 503 });
-    }, realFetch);
-    const input = {
-      lanes: [{ containerId: "container-1", laneId: "0", watermark: null }],
-    };
-    const failure = () =>
-      client.getRequestFailure({ method: "POST", path: listingPaths.document });
-    try {
-      const stale = client.listContainerDocumentLanes(input, {
-        signal: controller.signal,
-      });
-      await first.promise;
-      await client.listContainerDocumentLanes(input);
-      expect(failure()?.status).toBe(503);
-      controller.abort();
-      release.resolve(Response.json({ error: "Retired" }, { status: 404 }));
-      expect(await stale).toBeNull();
-      expect(failure()?.status).toBe(503);
-    } finally {
-      release.resolve(Response.json({ results: [] }));
-    }
-  },
-);
+    },
+  );

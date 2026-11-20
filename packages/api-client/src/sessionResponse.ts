@@ -63,3 +63,43 @@ export async function readSessionJson(
     });
   }
 }
+
+/** Raw callers settle at headers. JSON callers clear failures after validation. */
+export function confirmResponseHeaders(
+  request: (
+    ...args: Parameters<OperationResponseRequestFn>
+  ) => ReturnType<OperationResponseRequestFn>,
+  sessionSignal: () => AbortSignal,
+  clearFailure: (method: HttpMethod, path: string) => void,
+) {
+  return async (...args: Parameters<OperationResponseRequestFn>) => {
+    const session = sessionSignal();
+    const result = await request(...args);
+    const [path, method, , options] = args;
+    if (result.ok) {
+      if (requestRetired(session, options)) return retiredRequest(method, path);
+      clearFailure(method, path);
+    }
+    return result;
+  };
+}
+
+export function retiredResponse(
+  refused: boolean,
+  method: HttpMethod,
+  path: string,
+  response: Response,
+  code?: string | null,
+): RequestFailure {
+  const retired = retiredRequest(method, path);
+  // Principal writes refused before dispatch have a definitive outcome.
+  if (response.status !== 401 || !refused) return retired;
+  return {
+    ...retired,
+    kind: "http",
+    status: 401,
+    statusText: response.statusText,
+    code: code ?? undefined,
+    message: `${method} ${path}: 401 ${response.statusText}`,
+  };
+}

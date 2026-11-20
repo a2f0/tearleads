@@ -1,3 +1,4 @@
+import { waitForRead } from "../shared/waitForRead";
 import {
   type BlobByteSource,
   type BlobBytes,
@@ -5,7 +6,6 @@ import {
   blobByteSourceInputLength,
   createBlobByteSource,
   readBlobByteSource,
-  waitForBlobRead,
 } from "./blobContracts";
 
 import { commitOpfsFile } from "./opfsBlobFile";
@@ -103,10 +103,13 @@ class OpfsBlobStore implements BlobStore {
   }
 
   openByteSource(storageKey: string, signal?: AbortSignal) {
-    return this.useFile(
-      storageKey,
-      "shared",
-      () => waitForBlobRead(this.openFile(storageKey, signal), signal),
+    return waitForRead(
+      this.useFile(
+        storageKey,
+        "shared",
+        () => waitForRead(this.openFile(storageKey, signal), signal),
+        signal,
+      ),
       signal,
     );
   }

@@ -1,11 +1,11 @@
 import { bytesToBase64 } from "@tearleads/encoding";
+import { waitForRead } from "../shared/waitForRead";
 import {
   type BlobByteSource,
   type BlobBytes,
   type BlobStore,
   createBlobByteSource,
   readBlobByteSource,
-  waitForBlobRead,
 } from "./blobContracts";
 import {
   createDecryptedBlobByteSource,
@@ -140,7 +140,7 @@ class EncryptedBlobStore implements BlobStore {
     signal?: AbortSignal,
   ): Promise<BlobByteSource | null> {
     signal?.throwIfAborted();
-    const encryptedSource = await waitForBlobRead(
+    const encryptedSource = await waitForRead(
       this.innerStore.openByteSource(storageKey, signal),
       signal,
     );
@@ -149,7 +149,7 @@ class EncryptedBlobStore implements BlobStore {
     }
 
     const parsed = await readEncryptedBlobEnvelope(encryptedSource, signal);
-    const key = await waitForBlobRead(
+    const key = await waitForRead(
       this.getCipherKey(parsed.envelope.keyDerivation),
       signal,
     );
@@ -344,7 +344,7 @@ export function createLazyEncryptedBlobStore(
       return store.deleteBytes(storageKey, assertCurrent);
     },
     openByteSource: async (storageKey, signal) => {
-      const store = await waitForBlobRead(getStore(), signal);
+      const store = await waitForRead(getStore(), signal);
       signal?.throwIfAborted();
       return store.openByteSource(storageKey, signal);
     },
