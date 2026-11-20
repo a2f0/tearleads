@@ -112,7 +112,11 @@ async function verifyDocument(
       throw new Error(`Attachment storage key differs: ${label}`);
     const source =
       storageKey &&
-      (await session.sdk.blobs.store.openByteSource(storageKey, signal));
+      (await beforeSeedDeadline(
+        session.sdk.blobs.store.openByteSource(storageKey),
+        signal,
+        `Timed out opening attachment: ${label}`,
+      ));
     if (!source) throw new Error(`Missing attachment bytes: ${label}`);
     await checkSeedBytes(source, original, label, signal);
     bytes += original.byteLength;

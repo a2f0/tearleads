@@ -3,11 +3,7 @@ export type BlobBytes = Uint8Array<ArrayBuffer>;
 /** A stable, replayable byte source whose reads return exactly the requested range. */
 export interface BlobByteSource {
   readonly byteLength: number;
-  read(
-    offset: number,
-    byteLength: number,
-    signal?: AbortSignal,
-  ): Promise<BlobBytes>;
+  read(offset: number, byteLength: number): Promise<BlobBytes>;
 }
 
 export type BlobByteSourceInput =
@@ -21,10 +17,7 @@ export interface BlobStore {
     storageKey: string,
     assertCurrent?: () => void,
   ) => Promise<void>;
-  openByteSource: (
-    storageKey: string,
-    signal?: AbortSignal,
-  ) => Promise<BlobByteSource | null>;
+  openByteSource: (storageKey: string) => Promise<BlobByteSource | null>;
   readBytes: (storageKey: string) => Promise<BlobBytes | null>;
   writeByteSource: (
     storageKey: string,
@@ -62,13 +55,8 @@ export async function readExactBlobBytes(
   source: BlobByteSource,
   offset: number,
   byteLength: number,
-  signal?: AbortSignal,
 ): Promise<BlobBytes> {
-  signal?.throwIfAborted();
-  const bytes = signal
-    ? await source.read(offset, byteLength, signal)
-    : await source.read(offset, byteLength);
-  signal?.throwIfAborted();
+  const bytes = await source.read(offset, byteLength);
   if (bytes.byteLength !== byteLength) {
     throw new Error("Blob byte source returned an incomplete read.");
   }
@@ -100,28 +88,6 @@ export function blobByteSourceInputLength(input: BlobByteSourceInput): number {
   return byteLength;
 }
 
-async function readBlobSlice(
-  slice: Blob,
-  length: number,
-  signal?: AbortSignal,
-): Promise<BlobBytes> {
-  if (!signal) return new Uint8Array(await slice.arrayBuffer());
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  await slice.stream().pipeTo(
-    new WritableStream<Uint8Array>({
-      write(chunk) {
-        bytes.set(chunk, offset);
-        offset += chunk.byteLength;
-      },
-    }),
-    { signal },
-  );
-  if (offset !== length)
-    throw new Error("Blob byte source returned an incomplete read.");
-  return bytes;
-}
-
 export function createBlobByteSource(
   input: BlobByteSourceInput,
 ): BlobByteSource {
@@ -133,8 +99,7 @@ export function createBlobByteSource(
   if (input instanceof Uint8Array) {
     return {
       byteLength: input.byteLength,
-      async read(offset, byteLength, signal) {
-        signal?.throwIfAborted();
+      async read(offset, byteLength) {
         assertReadRange(input.byteLength, offset, byteLength);
         return copyBlobBytes(input.subarray(offset, offset + byteLength));
       },
@@ -144,13 +109,10 @@ export function createBlobByteSource(
   assertByteLength(input.size, "Blob size");
   return {
     byteLength: input.size,
-    async read(offset, byteLength, signal) {
-      signal?.throwIfAborted();
+    async read(offset, byteLength) {
       assertReadRange(input.size, offset, byteLength);
-      const bytes = await readBlobSlice(
-        input.slice(offset, offset + byteLength),
-        byteLength,
-        signal,
+      const bytes = new Uint8Array(
+        await input.slice(offset, offset + byteLength).arrayBuffer(),
       );
       if (bytes.byteLength !== byteLength) {
         throw new Error("Blob byte source returned an incomplete read.");

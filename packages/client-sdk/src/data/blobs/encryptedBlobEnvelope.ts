@@ -269,18 +269,12 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
 
 export async function readEncryptedBlobEnvelope(
   source: BlobByteSource,
-  signal?: AbortSignal,
 ): Promise<ParsedEncryptedBlobEnvelope> {
   const fixedPrefixLength = MAGIC_BYTES.byteLength + HEADER_LENGTH_BYTES;
   if (source.byteLength < fixedPrefixLength) {
     throw new Error("Encrypted blob store payload is too short.");
   }
-  const fixedPrefix = await readExactBlobBytes(
-    source,
-    0,
-    fixedPrefixLength,
-    signal,
-  );
+  const fixedPrefix = await readExactBlobBytes(source, 0, fixedPrefixLength);
   if (
     !equalBytes(fixedPrefix.subarray(0, MAGIC_BYTES.byteLength), MAGIC_BYTES)
   ) {
@@ -302,7 +296,6 @@ export async function readEncryptedBlobEnvelope(
     source,
     fixedPrefixLength,
     headerByteLength,
-    signal,
   );
   const { envelope, iv } = parseHeader(headerBytes);
   const encryptedByteLength =

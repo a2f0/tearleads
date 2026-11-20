@@ -90,3 +90,55 @@ test("download progress renews the idle deadline", async () => {
     ),
   ).resolves.toBe("complete");
 });
+
+test("external cancellation retires queued and running downloads independently of host completion", async () => {
+  const client = {};
+  const requests = new AbortController();
+  const queued = new AbortController();
+  const held = Promise.withResolvers<void>();
+  const entered: AbortSignal[] = [];
+  const blocked = Array.from({ length: 4 }, () =>
+    runBlobTransfer(
+      client,
+      async (signal) => {
+        entered.push(signal);
+        await held.promise;
+      },
+      undefined,
+      undefined,
+      requests.signal,
+    ),
+  );
+  const results = Promise.allSettled(blocked);
+  try {
+    await waitFor(() => entered.length === 4, "downloads did not start", 200);
+    const refused = runBlobTransfer(
+      client,
+      async () => {
+        throw new Error("queued transfer started");
+      },
+      undefined,
+      undefined,
+      queued.signal,
+    );
+    const refusal = Promise.allSettled([refused]);
+    queued.abort(new Error("queued stop"));
+    requests.abort(new Error("stop"));
+    await waitFor(
+      () => entered.every((s) => s.aborted),
+      "cancellation did not reach hosts",
+      200,
+    );
+    expect(await runBlobTransfer(client, async () => "ready")).toBe("ready");
+    expect((await refusal)[0]).toMatchObject({
+      status: "rejected",
+      reason: new Error("queued stop"),
+    });
+    expect((await results).every((row) => row.status === "rejected")).toBe(
+      true,
+    );
+  } finally {
+    held.resolve();
+    await results;
+  }
+});

@@ -233,16 +233,19 @@ async function loadUniqueDocumentAttachmentBlobs(
     tasks: Array.from(targetsByBlobId.values()).map((target) => ({
       blobId: target.binding.blobId,
       run: () =>
-        runBlobTransfer(input.apiClient, (signal, progress) =>
-          loadDocumentAttachmentBlob({
-            ...input,
-            binding: target.binding,
-            maxEncryptedBytes: limits?.get(target.binding.blobId),
-            signal: input.expectedDownloads?.signal
-              ? AbortSignal.any([signal, input.expectedDownloads.signal])
-              : signal,
-            progress,
-          }),
+        runBlobTransfer(
+          input.apiClient,
+          (signal, progress) =>
+            loadDocumentAttachmentBlob({
+              ...input,
+              binding: target.binding,
+              maxEncryptedBytes: limits?.get(target.binding.blobId),
+              signal,
+              progress,
+            }),
+          undefined,
+          undefined,
+          input.expectedDownloads?.signal,
         ),
     })),
   });

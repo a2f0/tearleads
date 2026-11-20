@@ -1,5 +1,4 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { waitForRead } from "../shared/waitForRead";
 import {
   type BlobByteSource,
   type BlobBytes,
@@ -135,28 +134,14 @@ class EncryptedBlobStore implements BlobStore {
     await this.innerStore.deleteBytes(storageKey, assertCurrent);
   }
 
-  async openByteSource(
-    storageKey: string,
-    signal?: AbortSignal,
-  ): Promise<BlobByteSource | null> {
-    signal?.throwIfAborted();
-    const encryptedSource = await waitForRead(
-      this.innerStore.openByteSource(storageKey, signal),
-      signal,
-    );
+  async openByteSource(storageKey: string): Promise<BlobByteSource | null> {
+    const encryptedSource = await this.innerStore.openByteSource(storageKey);
     if (!encryptedSource) {
       return null;
     }
 
-    const parsed = await waitForRead(
-      readEncryptedBlobEnvelope(encryptedSource, signal),
-      signal,
-    );
-    const key = await waitForRead(
-      this.getCipherKey(parsed.envelope.keyDerivation),
-      signal,
-    );
-    signal?.throwIfAborted();
+    const parsed = await readEncryptedBlobEnvelope(encryptedSource);
+    const key = await this.getCipherKey(parsed.envelope.keyDerivation);
     return createDecryptedBlobByteSource({
       encryptedSource,
       headerBytes: parsed.headerBytes,
@@ -346,11 +331,9 @@ export function createLazyEncryptedBlobStore(
       assertCurrent?.();
       return store.deleteBytes(storageKey, assertCurrent);
     },
-    openByteSource: async (storageKey, signal) => {
-      signal?.throwIfAborted();
-      const store = await waitForRead(getStore(), signal);
-      signal?.throwIfAborted();
-      return store.openByteSource(storageKey, signal);
+    openByteSource: async (storageKey) => {
+      const store = await getStore();
+      return store.openByteSource(storageKey);
     },
     readBytes: async (storageKey) => {
       const store = await getStore();

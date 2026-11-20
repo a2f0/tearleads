@@ -14,7 +14,14 @@ export async function checkSeedBytes(
   for (let offset = 0; offset < expected.length; offset += chunkSize) {
     const chunk = expected.subarray(offset, offset + chunkSize);
     signal?.throwIfAborted();
-    const downloaded = await source.read(offset, chunk.length, signal);
+    const read = source.read(offset, chunk.length);
+    const downloaded = await (signal
+      ? beforeSeedDeadline(
+          read,
+          signal,
+          `Timed out reading attachment: ${label}`,
+        )
+      : read);
     if (
       !Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength).equals(
         downloaded,

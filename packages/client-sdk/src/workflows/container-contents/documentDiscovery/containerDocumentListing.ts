@@ -75,7 +75,7 @@ interface PendingContainerDocumentLane {
   watermark: SyncWatermark | null;
   isContinuation: boolean;
   seenWatermarks: Set<string>;
-  seenPageEnds: Set<string>;
+  seenRows: Set<string>;
 }
 
 function repeatedContinuation(
@@ -83,23 +83,36 @@ function repeatedContinuation(
   page: ListContainerDocumentsResponse,
 ) {
   const watermark = page.nextWatermark;
-  if (!page.hasMore || !watermark) return false;
-  const cursor = JSON.stringify([watermark.id, watermark.updatedAt]);
-  // Publication cursor ciphertext changes on every seal. The last visible
-  // row in each ordered stream identifies the page even after resealing.
-  const item = page.items.at(-1);
-  const removal = page.tombstones.at(-1);
-  const end = JSON.stringify([
-    item?.id,
-    item?.updatedAt,
-    item?.currentAccessStateHash,
-    removal?.documentId,
-    removal?.updatedAt,
-  ]);
-  if (lane.seenWatermarks.has(cursor) || lane.seenPageEnds.has(end))
-    return true;
-  lane.seenWatermarks.add(cursor);
-  lane.seenPageEnds.add(end);
+  if (page.hasMore && watermark) {
+    const cursor = JSON.stringify([watermark.id, watermark.updatedAt]);
+    if (lane.seenWatermarks.has(cursor)) return true;
+    lane.seenWatermarks.add(cursor);
+  }
+  // Publication cursors have a fresh IV on every seal. Check durable row
+  // identities even on a final page before a full listing can prove absence.
+  const positions = [
+    ...page.items.map((item) =>
+      JSON.stringify([
+        "item",
+        item.id,
+        item.updatedAt,
+        item.currentAccessStateHash,
+      ]),
+    ),
+    ...page.tombstones.map((row) =>
+      JSON.stringify([
+        "removed",
+        row.containerId,
+        row.documentId,
+        row.updatedAt,
+      ]),
+    ),
+  ];
+  if (!positions.length && page.hasMore && watermark) return true;
+  for (const position of positions) {
+    if (lane.seenRows.has(position)) return true;
+    lane.seenRows.add(position);
+  }
   return false;
 }
 
@@ -172,7 +185,7 @@ export async function listAllContainerDocumentLanes(input: {
       isFullListing: watermark === null,
       isContinuation: false,
       seenWatermarks: new Set(),
-      seenPageEnds: new Set(),
+      seenRows: new Set(),
       items: [],
       tombstones: [],
       watermark,
