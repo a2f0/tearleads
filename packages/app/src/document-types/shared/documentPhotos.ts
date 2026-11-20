@@ -9,6 +9,7 @@ import {
   isImageDocumentAttachmentBlob,
 } from "./documentAttachmentUtils";
 
+/** A document has an avatar only when this field selects a gallery photo. */
 export const AVATAR_PHOTO_FIELD = "avatarPhotoSlotId";
 
 export interface DocumentPhotoCapability {
@@ -92,7 +93,13 @@ async function prepareAvatarPhoto(
     store.getSnapshot().attachments,
     slotId,
   );
-  if (!photo || !isDocumentPhoto(photos, photo) || !current()) return null;
+  if (
+    !photo ||
+    !isDocumentPhoto(photos, photo) ||
+    !current() ||
+    store.getSnapshot().attachmentStatusBySlotId[slotId] === "intent-mismatch"
+  )
+    return null;
   if ("slotId" in choice && !choice.crop) return photo;
   const crop = "photo" in choice ? choice.crop : choice.crop?.bytes;
   if (!crop || !store.getSnapshot().canAttach) return null;
@@ -136,10 +143,12 @@ export async function selectDocumentAvatar(
   const stillCurrent = () =>
     current() &&
     (!photo ||
-      getLatestDocumentAttachmentBySlotId(
-        store.getSnapshot().attachments,
-        photo.slotId,
-      )?.contentSha256 === photo.contentSha256);
+      (store.getSnapshot().attachmentStatusBySlotId[photo.slotId] !==
+        "intent-mismatch" &&
+        getLatestDocumentAttachmentBySlotId(
+          store.getSnapshot().attachments,
+          photo.slotId,
+        )?.contentSha256 === photo.contentSha256));
   const slotId = photo?.slotId;
   await store.setStructuredFields(
     kind,

@@ -46,8 +46,10 @@ export function DocumentAvatar({
   }, [writable, lifetime]);
   const capability = definition.photos;
   if (!store || !capability?.avatar) return null;
-  const photos = snapshot.attachments.filter((item) =>
-    isDocumentPhoto(capability, item),
+  const photos = snapshot.attachments.filter(
+    (item) =>
+      isDocumentPhoto(capability, item) &&
+      snapshot.attachmentStatusBySlotId[item.slotId] !== "intent-mismatch",
   );
   const selected = findDocumentAvatar(capability, snapshot);
   const preview =
@@ -76,17 +78,23 @@ export function DocumentAvatar({
       photoUrls={imageUrlBySlotId}
       selectedSlotId={selected?.slotId}
       onChoosePhoto={async (photo) => {
+        if (findAvatarCrop(snapshot.attachments, photo)) {
+          await apply({ slotId: photo.slotId });
+          return null;
+        }
+        const key = snapshot.attachmentStorageKeyBySlotId[photo.slotId];
+        const source = key && (await blobStore.openByteSource(key));
+        if (!source)
+          throw new Error("The photo is unavailable on this device.");
         if (
-          isAutomaticBlobPreviewAllowed(photo) ||
-          findAvatarCrop(snapshot.attachments, photo)
+          isAutomaticBlobPreviewAllowed(photo) &&
+          isAutomaticBlobPreviewAllowed(source)
         ) {
           await apply({ slotId: photo.slotId });
           return null;
         }
-        // Loading a full-size source for an explicit crop is a user action.
-        const key = snapshot.attachmentStorageKeyBySlotId[photo.slotId];
-        const bytes = key && (await blobStore.readBytes(key));
-        if (!bytes) throw new Error("The photo is unavailable on this device.");
+        // A user-selected full-size image is read explicitly for cropping.
+        const bytes = await source.read(0, source.byteLength);
         return {
           photo,
           blob: new Blob([bytes], { type: photo.mimeType ?? "" }),
