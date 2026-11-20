@@ -309,6 +309,8 @@ test("Network radios use the active theme for selection and keyboard focus", asy
       name: "Use Automatic Network",
     });
     await expect(radio).toBeChecked();
+    await expect(radio).toBeVisible();
+    await expect(radio).toHaveCSS("appearance", "auto");
     await page.keyboard.press("Tab");
     await expect(radio).toBeFocused();
     const foreground = await themeForeground(radio);
