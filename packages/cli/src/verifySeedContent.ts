@@ -89,7 +89,7 @@ export function checkDocument(
     metadata: Readonly<Record<string, unknown>>;
     rows: readonly unknown[];
     seedTag: unknown;
-    text: string;
+    textDelta: readonly unknown[];
   },
   userId: string,
 ) {
@@ -108,7 +108,10 @@ export function checkDocument(
   if (
     snapshot.seedTag !== seedTag ||
     stored.seedTag !== seedTag ||
-    stored.text !== (fixture.text ?? "") ||
+    !isDeepStrictEqual(
+      stored.textDelta,
+      fixture.text ? [{ insert: fixture.text }] : [],
+    ) ||
     !isDeepStrictEqual(
       stored.metadata,
       fixture.kind === "note"

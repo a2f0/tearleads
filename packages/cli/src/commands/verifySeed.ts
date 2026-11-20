@@ -61,7 +61,7 @@ async function verifyDocument(
         rows: content.getList("rows").toJSON(),
         metadata: content.getMap("metadata").toJSON(),
         seedTag: content.getMap("content").get("seedTag"),
-        text: content.getText("text").toString(),
+        textDelta: content.getText("text").toDelta(),
       },
       session.userId,
     );
@@ -136,6 +136,15 @@ async function verifyFixtures(
         remoteSyncMode: "on-demand",
         workflowRuntime: {
           ...runtime,
+          // Replaying history can mark a previously downloaded binding for detach.
+          // Permit only pulls, including continuation pages, on the verifier's device.
+          util: {
+            ...runtime.util,
+            isRemoteSyncBlocked: (organizationId, direction) =>
+              direction !== "pull" ||
+              (runtime.util.isRemoteSyncBlocked?.(organizationId, direction) ??
+                false),
+          },
           blobAttachments: runtime.blobAttachments.withExpectedDownloads(
             row.documentId,
             new Map(

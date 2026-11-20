@@ -145,23 +145,27 @@ test.each([2, 1_000_000_000])(
   },
 );
 
-test("an oversized API length cancels a readable body before its first pull", async () => {
-  const cancel = mock(() => {});
-  const pull = mock((controller: ReadableStreamDefaultController<Uint8Array>) =>
-    controller.close(),
-  );
-  const response = new Response(
-    new ReadableStream<Uint8Array>({ pull, cancel }, { highWaterMark: 0 }),
-    { headers: BLOB_HEADERS(300) },
-  );
-  expect(
-    await getBlobBytes(mockTransport(response), blobId, undefined, {
-      maxEncryptedByteLength: 3,
-    }),
-  ).toBeNull();
-  expect(pull).not.toHaveBeenCalled();
-  expect(cancel).toHaveBeenCalledTimes(1);
-});
+test.each([BLOB_HEADERS(300), { ...BLOB_HEADERS(3), "Content-Length": "300" }])(
+  "an oversized API length cancels a readable body before its first pull",
+  async (headers) => {
+    const cancel = mock(() => {});
+    const pull = mock(
+      (controller: ReadableStreamDefaultController<Uint8Array>) =>
+        controller.close(),
+    );
+    const response = new Response(
+      new ReadableStream<Uint8Array>({ pull, cancel }, { highWaterMark: 0 }),
+      { headers },
+    );
+    expect(
+      await getBlobBytes(mockTransport(response), blobId, undefined, {
+        maxEncryptedByteLength: 3,
+      }),
+    ).toBeNull();
+    expect(pull).not.toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledTimes(1);
+  },
+);
 
 test("a bounded API stream with a short advertised length cancels before forwarding excess bytes", async () => {
   const cancel = mock(() => {});
@@ -186,3 +190,20 @@ test("a bounded API stream with a short advertised length cancels before forward
   await expect(reader.read()).rejects.toThrow("exceeds its download limit");
   expect(cancel).toHaveBeenCalledTimes(1);
 });
+
+test.each([NaN, Infinity, -1, 0.5, Number.MAX_SAFE_INTEGER + 1])(
+  "invalid download limit %s fails before any request",
+  async (maxEncryptedByteLength) => {
+    const transport = mockTransport(new Response());
+    const request = mock(transport.requestResult);
+    expect(
+      await getBlobBytes(
+        { ...transport, requestResult: request },
+        blobId,
+        undefined,
+        { maxEncryptedByteLength },
+      ),
+    ).toBeNull();
+    expect(request).not.toHaveBeenCalled();
+  },
+);

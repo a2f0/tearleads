@@ -37,7 +37,7 @@ test("verification rejects an edit to a previously empty field", () => {
         fields,
         metadata: { kind: fixture.kind, schemaVersion: 1 },
         rows: [],
-        text: "",
+        textDelta: [],
         seedTag: "original",
       },
       "author",
@@ -103,7 +103,13 @@ test("a note requires the original empty metadata map", () => {
       fixture,
       snapshot,
       "original",
-      { fields: {}, rows: [], metadata, text, seedTag },
+      {
+        fields: {},
+        rows: [],
+        metadata,
+        textDelta: text ? [{ insert: text }] : [],
+        seedTag,
+      },
       "author",
     );
   expect(() => verify({}, "stale checkpoint")).toThrow(
@@ -112,6 +118,49 @@ test("a note requires the original empty metadata map", () => {
   expect(() => verify({}, "", null)).toThrow("Fixture content differs");
   expect(() => verify({})).not.toThrow();
   expect(() => verify({ kind: 42 })).toThrow("Fixture content differs");
+});
+
+test("a formatting-only edit changes the stored note", async () => {
+  const doc = await createDocument("formatted-note");
+  try {
+    doc.configTextStyle({ bold: { expand: "after" } });
+    const text = doc.getText("text");
+    text.insert(0, "Hello");
+    const fixture = {
+      kind: "note",
+      key: "note/0",
+      text: "Hello",
+      attachments: [],
+    };
+    const snapshot = {
+      ...projectStoredDocumentState(
+        { documentKind: "note", text: "Hello", structuredFields: {} },
+        APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+      ),
+      seedTag: "original",
+      rows: [],
+      attachments: [],
+    };
+    const verify = () =>
+      checkDocument(
+        fixture,
+        snapshot,
+        "original",
+        {
+          fields: {},
+          rows: [],
+          metadata: {},
+          textDelta: text.toDelta(),
+          seedTag: "original",
+        },
+        "author",
+      );
+    expect(verify).not.toThrow();
+    text.mark({ start: 0, end: 5 }, "bold", true);
+    expect(verify).toThrow("Fixture content differs");
+  } finally {
+    doc.free();
+  }
 });
 
 test("two identical tracker readings remain separately editable", () => {

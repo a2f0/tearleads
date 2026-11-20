@@ -98,6 +98,18 @@ export async function getBlobBytes(
   downloadFetch: DownloadFetch = (url, init) => fetch(url, init),
   options: BlobDownloadOptions = {},
 ): Promise<BlobBytesResponse | null> {
+  const limit = options.maxEncryptedByteLength;
+  if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 0))
+    return null;
+  return downloadBlob(transport, blobId, downloadFetch, options);
+}
+
+async function downloadBlob(
+  transport: BlobDownloadTransport,
+  blobId: string,
+  downloadFetch: DownloadFetch,
+  options: BlobDownloadOptions,
+): Promise<BlobBytesResponse | null> {
   // Refresh at most once. R2 expiration errors can appear as CORS/network
   // failures in browsers, so both rejected fetches and 403s need a fresh URL.
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -208,7 +220,10 @@ async function getBlobStream(
 
   if (
     options.maxEncryptedByteLength !== undefined &&
-    (byteLength > options.maxEncryptedByteLength || !response.body)
+    (byteLength > options.maxEncryptedByteLength ||
+      Number(response.headers.get("Content-Length")) >
+        options.maxEncryptedByteLength ||
+      !response.body)
   ) {
     void response.body?.cancel().catch(() => {});
     return null;
