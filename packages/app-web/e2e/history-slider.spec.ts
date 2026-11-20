@@ -53,12 +53,12 @@ test("History slider paints and seeks across browser engines", {
   expect(accents.size).toBe(3);
   await control.tap({ position: { x: 1, y: 12 } });
   await expect(control).toHaveValue("0");
-  // Chromium implements forced-colors emulation on every CI host.
-  if (browserName === "chromium") {
-    await page.emulateMedia({ forcedColors: "active" });
-    expect(
-      await page.evaluate(() => matchMedia("(forced-colors: active)").matches),
-    ).toBe(true);
+  await page.emulateMedia({ forcedColors: "active" });
+  const forcedColorsActive = await page.evaluate(
+    () => matchMedia("(forced-colors: active)").matches,
+  );
+  if (browserName !== "webkit") expect(forcedColorsActive).toBe(true);
+  if (forcedColorsActive) {
     await expect(control).toHaveCSS("appearance", "auto");
     const forced = await controlPixels(control);
     // Compare with a native range at the same position and size, on the same host.
