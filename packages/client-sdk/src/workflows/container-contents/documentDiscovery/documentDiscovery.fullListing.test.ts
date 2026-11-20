@@ -102,7 +102,7 @@ test("an empty full listing is usable absence evidence", async () => {
 
 test("discovery rejects a continuation cursor repeated after an intervening page", async () => {
   const cursors = ["a", "b", "a"];
-  const result = await discoverContainerDocuments({
+  const result = discoverContainerDocuments({
     ...nullContainerDocumentWatermarks,
     containerId: "container",
     listContainerDocumentLanes: laneLister(async () => {
@@ -113,5 +113,7 @@ test("discovery rejects a continuation cursor repeated after an intervening page
     replaceDocumentLinksBatch: async () => {},
     upsertDiscoveredDocuments: async () => [],
   });
-  expect(result).toBeNull();
+  await expect(result).rejects.toThrow(
+    "Document listing for container container is unavailable",
+  );
 });

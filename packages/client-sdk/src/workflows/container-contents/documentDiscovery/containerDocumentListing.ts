@@ -76,14 +76,16 @@ interface PendingContainerDocumentLane {
   seenWatermarks: Set<string>;
 }
 
-function rememberWatermark(lane: PendingContainerDocumentLane) {
-  const cursor = JSON.stringify([
-    lane.watermark?.id,
-    lane.watermark?.updatedAt,
-  ]);
-  if (lane.seenWatermarks.has(cursor)) return false;
+function repeatedContinuation(
+  lane: PendingContainerDocumentLane,
+  watermark: SyncWatermark | null,
+  hasMore: boolean,
+) {
+  if (!hasMore || !watermark) return false;
+  const cursor = JSON.stringify([watermark.id, watermark.updatedAt]);
+  if (lane.seenWatermarks.has(cursor)) return true;
   lane.seenWatermarks.add(cursor);
-  return true;
+  return false;
 }
 
 function removedDocumentPlacements(
@@ -181,7 +183,8 @@ export async function listAllContainerDocumentLanes(input: {
           lane.watermark,
           page.nextWatermark,
           lane.isContinuation,
-        )
+        ) ||
+        repeatedContinuation(lane, page.nextWatermark, page.hasMore)
       ) {
         listed.set(lane.containerId, "unavailable");
         return;
@@ -196,7 +199,7 @@ export async function listAllContainerDocumentLanes(input: {
           nextWatermark: lane.watermark,
           tombstones: lane.tombstones,
         });
-      } else if (lane.watermark && rememberWatermark(lane)) {
+      } else if (lane.watermark) {
         lane.isContinuation = true;
         pending.push(lane);
       } else {

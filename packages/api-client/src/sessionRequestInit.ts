@@ -3,6 +3,7 @@ import {
   getDocumentWriterProjectionOperation,
   type HttpOperation,
   logoutOperation,
+  verifyOperation,
 } from "@tearleads/validators/operation";
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { boundedMetadata } from "./boundedMetadataResponse";
@@ -47,12 +48,33 @@ const verificationLimits = new Map<
   [documentSyncOperation, "document-sync"],
 ]);
 
+function workDeadline(
+  operation: HttpOperation | undefined,
+  policy: ApiRequestInstrumentation | undefined,
+  phase: "dispatch" | "response",
+) {
+  const command = policy?.requestSignal;
+  const limit = policy?.verificationDeadline;
+  // Once verification can issue a token, receive its reply so logout can use it.
+  // A stopped command can never start another verification.
+  if (
+    operation === verifyOperation &&
+    command &&
+    (phase === "response" || !command.aborted)
+  )
+    return limit;
+  return limit && command
+    ? AbortSignal.any([limit, command])
+    : (limit ?? command);
+}
+
 export function verificationRequestOptions(
   options: RequestResultOptions,
   operation: HttpOperation | undefined,
   policy?: ApiRequestInstrumentation,
+  phase: "dispatch" | "response" = "dispatch",
 ): RequestResultOptions {
-  const deadline = policy?.verificationDeadline ?? policy?.requestSignal;
+  const deadline = workDeadline(operation, policy, phase);
   if (!deadline) return options;
   if (operation === logoutOperation)
     return policy?.verificationDeadline
@@ -83,7 +105,8 @@ export function sessionResponseRequest(
   const optionsFor = (
     options: RequestResultOptions,
     operation: HttpOperation,
-  ) => verificationRequestOptions(options, operation, policy);
+    phase: "dispatch" | "response" = "dispatch",
+  ) => verificationRequestOptions(options, operation, policy, phase);
   const send =
     policy?.verificationDeadline || policy?.requestSignal
       ? (...args: Parameters<OperationResponseRequestFn>) => {

@@ -190,8 +190,11 @@ async function runSession<T>(
     );
     if (lifetime.stopping()) throw new Error("Command interrupted.");
     lifetime.send("starting");
-    signedIn = await tracer.span("sign in", () => sdk.session.login());
-    lifetime.send(signedIn ? "accepted" : "unconfirmed");
+    try {
+      signedIn = await tracer.span("sign in", () => sdk.session.login());
+    } finally {
+      lifetime.send(signedIn ? "accepted" : "unconfirmed");
+    }
     if (lifetime.stopping()) throw new Error("Command interrupted.");
     const userId = sdk.session.userId;
     if (!signedIn || !userId) {
@@ -212,7 +215,6 @@ async function runSession<T>(
     }
     return result;
   } finally {
-    lifetime.send("unconfirmed");
     if (signedIn) await lifetime.stop();
     sdk.dispose();
     database.close();

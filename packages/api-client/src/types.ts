@@ -131,6 +131,7 @@ export interface OperationResponseRequestFn {
   readonly optionsFor?: (
     options: RequestResultOptions,
     operation: HttpOperation,
+    phase?: "dispatch" | "response",
   ) => RequestResultOptions;
   readonly sessionSignal?: () => AbortSignal;
   readonly reportFailure: (

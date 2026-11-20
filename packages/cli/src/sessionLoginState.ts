@@ -36,8 +36,8 @@ export function commandLoginLifetime(revoke: () => Promise<boolean>) {
   const stop = () => {
     if (!revocation) {
       const finish = async () => {
-        if (state === "verification") await settled.promise;
         work.abort();
+        if (state === "verification") await settled.promise;
         if (state === "authenticated") return revoke();
         return (
           state === "not-started" ||

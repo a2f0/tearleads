@@ -449,26 +449,40 @@ test("an interrupt during the challenge prevents verification dispatch", async (
   );
 });
 
-test("an interrupt during renewal revokes the newly issued session", async () => {
-  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
-  let stop: (() => Promise<boolean>) | undefined;
-  let cleanup: Promise<boolean> | undefined;
-  await withSession(
-    {
-      recoveryKey: seedPhrase,
-      apiBaseUrl,
-      registerShutdown: (revoke) => {
-        stop = revoke;
+for (const ending of ["interrupt", "work failure"])
+  test(`a command ending in ${ending} during renewal revokes the newly issued session`, async () => {
+    const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+    let stop: (() => Promise<boolean>) | undefined;
+    let cleanup: Promise<boolean> | undefined;
+    const dispatch = Promise.withResolvers<void>();
+    const command = withSession(
+      {
+        recoveryKey: seedPhrase,
+        apiBaseUrl,
+        registerShutdown: (revoke) => {
+          stop = revoke;
+        },
       },
-    },
-    async ({ sdk }) => {
-      expireNextSessionList = true;
-      onRequest = (request) => {
-        if (request.includes("/auth/verify")) cleanup = stop?.();
-      };
-      await sdk.session.listSessions();
-      expect(await cleanup).toBe(true);
-    },
-  );
-  expect(requests.at(-1)).toContain("/auth/logout");
-});
+      async ({ sdk }) => {
+        expireNextSessionList = true;
+        onRequest = (request) => {
+          if (request.includes("/auth/verify")) {
+            dispatch.resolve();
+            if (ending === "interrupt") cleanup = stop?.();
+          }
+        };
+        const listing = sdk.session.listSessions();
+        await dispatch.promise;
+        if (ending === "work failure") {
+          void listing.catch(() => {});
+          throw new Error("work failed");
+        }
+        await listing;
+        expect(await cleanup).toBe(true);
+      },
+    );
+    if (ending === "work failure")
+      await expect(command).rejects.toThrow("work failed");
+    else await command;
+    expect(requests.at(-1)).toContain("/auth/logout");
+  });

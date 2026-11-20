@@ -14,14 +14,21 @@ test("verification preserves a binding whose slot disappears on a later history 
   let verifying = false;
   let continued = false;
   let detached = false;
+  const syncWrites: string[] = [];
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
     async fetch(request) {
       const path = new URL(request.url).pathname;
-      if (verifying && path === targetPath) {
+      if (
+        verifying &&
+        path.startsWith("/documents/") &&
+        path.endsWith("/sync")
+      ) {
         const body = await request.clone().json();
-        if (body.pullCursor) continued = true;
+        if (body.outgoingUpdates?.length || body.containerRekeys?.length)
+          syncWrites.push(path);
+        if (path === targetPath && body.pullCursor) continued = true;
       }
       if (verifying && path.endsWith("/detach")) detached = true;
       return routeApp.fetch(request);
@@ -67,6 +74,7 @@ test("verification preserves a binding whose slot disappears on a later history 
     expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(1);
     expect(continued).toBe(true);
     expect(detached).toBe(false);
+    expect(syncWrites).toEqual([]);
     expect(output.stderr.at(-1)).toBe(
       `Attachment metadata differs: ${fixtureKey}`,
     );

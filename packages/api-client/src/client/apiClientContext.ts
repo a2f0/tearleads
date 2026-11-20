@@ -108,6 +108,7 @@ export class ApiClientContext {
       throw new Error(
         "A verification deadline requires a streaming HTTP transport.",
       );
+    const sessionPolicy = instrumentation;
     if (instrumentation?.verificationDeadline && instrumentation.requestSignal)
       instrumentation = {
         ...instrumentation,
@@ -119,7 +120,7 @@ export class ApiClientContext {
     this.requestPolicy = instrumentation;
     this.streamingDownloads = instrumentation?.streamingDownloads === true;
     bindPrototypeMethods(this, ApiClientContext.prototype);
-    this.runtime = new ApiRequestRuntime(baseUrl, instrumentation);
+    this.runtime = new ApiRequestRuntime(baseUrl, sessionPolicy);
     const projectionRequests = writerProjectionRequests(
       this.runtime,
       () => this.verifiedManifestCitations,
