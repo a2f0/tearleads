@@ -12,6 +12,15 @@ const baseURL = `http://127.0.0.1:${APP_WEB_PORT}`;
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
+  projects: [
+    { name: "chromium", use: { browserName: "chromium" } },
+    {
+      name: "firefox",
+      use: { browserName: "firefox" },
+      grep: /@themed-control/,
+    },
+    { name: "webkit", use: { browserName: "webkit" }, grep: /@themed-control/ },
+  ],
   use: {
     baseURL,
     trace: "retain-on-failure",
