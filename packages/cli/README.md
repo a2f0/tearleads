@@ -33,6 +33,7 @@ Commands:
   logout   Remove the target's saved recovery key.
   whoami   Show the signed-in user, signing fingerprint, and organization.
   orgs     List the organizations you belong to.
+  verify-seed  Read back the original fixture contents and attachment bytes.
   seed     Sync the Continuity screenshot dataset to your personal organization.
   ls       List the folders of your organization, or of --org <id>.
 ```
@@ -69,6 +70,17 @@ upload, the web app follows the edit and an encrypted fixture blob can remain
 bound on the server. [Attachment binding follow-up](https://github.com/a2f0/tearleads/issues/3070)
 A signed purge proof keeps a permanently deleted fixture out of future imports.
 A changed seed manifest can produce a new set of documents.
+
+To diagnose an import, run the read-only check in a fresh local session:
+
+```sh
+bun run tearleads verify-seed --env production --trace
+```
+
+It discovers the documents through their folders, checks the original fixture
+fields and rows, and compares every decrypted attachment with the pinned bytes.
+An edit, removal or missing download fails the check and identifies the fixture.
+Add `--trace` to `seed` for per-file staging, confirmation and skip messages.
 
 ## Tracing
 

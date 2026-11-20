@@ -3,4 +3,8 @@ export { ensureContactsContainer } from "./contactsContainer";
 export { loadContinuityAssets } from "./continuityAssets";
 export { captureContinuityScope } from "./continuityScope";
 export { continuityDocuments } from "./seedDocuments";
-export { writeContinuityDocument } from "./writeContinuityDocument";
+export {
+  continuitySeedTag,
+  prepareContinuityAttachments,
+  writeContinuityDocument,
+} from "./writeContinuityDocument";

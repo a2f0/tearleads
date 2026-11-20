@@ -1,6 +1,7 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { createHmac } from "node:crypto";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
+import * as sdkModule from "@tearleads/client-sdk";
 import {
   deriveStableDocumentId,
   getOrCreateDomainSyncCoordinator,
@@ -13,6 +14,7 @@ import {
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
+import { publishSeedEdit } from "./seedAttachmentMetadata.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
 
 test("seed uploads the pinned dataset and a fresh device can read it", async () => {
@@ -90,11 +92,22 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     const { spec, readAttachment, datasetSha256 } =
       await loadContinuityAssets();
     const documents = continuityDocuments(spec);
-    const run = async () => {
-      const result = await runCli(["seed", "--env", "staging"], context);
-      expect(output.stderr).toEqual([]);
+    const oneTime = testContext({ apiBaseUrl, recoveryKey: seedPhrase });
+    await oneTime.keyStore.save("staging", spec.identitySeedPhrase);
+    const keychainCalls = [
+      spyOn(oneTime.keyStore, "read"),
+      spyOn(oneTime.keyStore, "save"),
+      spyOn(oneTime.keyStore, "remove"),
+    ];
+    const run = async (stdin = false) => {
+      const result = await runCli(
+        ["seed", "--env", "staging", ...(stdin ? ["--key-stdin"] : [])],
+        stdin ? oneTime.context : context,
+      );
+      const log = stdin ? oneTime.output : output;
+      expect(log.stderr).toEqual([]);
       expect(result).toBe(0);
-      expect(output.stdout.at(-1)).toBe(
+      expect(log.stdout.at(-1)).toBe(
         `Synced ${documents.length} Continuity documents to your staging account.`,
       );
     };
@@ -192,12 +205,59 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     interruptUpload = false;
     staleTarget = true;
     output.stderr.length = 0;
-    await run();
+    await run(true);
     expect(staleTarget).toBe(false);
+    expect(
+      await runCli(
+        ["verify-seed", "--env", "staging", "--key-stdin"],
+        oneTime.context,
+      ),
+      oneTime.output.stderr.join("\n"),
+    ).toBe(0);
+    for (const call of keychainCalls) expect(call).not.toHaveBeenCalled();
+    expect(oneTime.keyStore.items.get("staging")).toBe(spec.identitySeedPhrase);
+    expect(oneTime.output.stdout.at(-1)).toContain(
+      `Verified ${documents.length} documents`,
+    );
+    const createStore = sdkModule.createMemoryBlobStore;
+    const stores = spyOn(sdkModule, "createMemoryBlobStore").mockImplementation(
+      () => {
+        const store = createStore();
+        const read = store.readBytes.bind(store);
+        store.readBytes = async (key) => {
+          const bytes = await read(key);
+          if (bytes?.length) bytes[0] = (bytes[0] ?? 0) ^ 1;
+          return bytes;
+        };
+        return store;
+      },
+    );
+    try {
+      expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(
+        1,
+      );
+      expect(output.stderr.at(-1)).toMatch(/^Attachment bytes differ: .+ \/ /u);
+    } finally {
+      stores.mockRestore();
+    }
+    output.stderr.length = 0;
     const editedName = "Personal weight journal";
     const editedNotes = "Edited on a second device";
     let additionalFolderId = "";
     let movedContactId = "";
+    await onFreshDevice(device, async (stores, sdk) => {
+      const contact = stores.find(
+        (store) => store.getSnapshot().documentKind === "contact",
+      );
+      if (!contact) throw new Error("Missing seeded contact");
+      await publishSeedEdit(sdk, contact, (doc) =>
+        doc.getMap("fields").set("encapsulationPublicKey", 42),
+      );
+    });
+    expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(1);
+    expect(output.stderr.at(-1)).toMatch(/Fixture content differs: contact\//u);
+    output.stderr.length = 0;
+    // This device must pull the edit before rotating the contact's link.
     await onFreshDevice(device, async (stores, sdk) => {
       const tracker = stores.find(
         (store) => store.getSnapshot().documentKind === "weight",

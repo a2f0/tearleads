@@ -11,6 +11,28 @@ The [database round-trip experiment](database-experiment.md) separates connectio
 setup, repeated warm queries, batched queries, and server execution time through
 the API's existing Hyperdrive binding. Run it with `bun run perf:database`.
 
+## Continuity seed round trip
+
+```sh
+bun run build:runtime
+bun run perf:seed --env staging
+bun run perf:seed --env production --trace
+```
+
+Each run creates one persistent test account in the selected environment. It
+times registration separately, then measures the CLI seed and a second CLI
+process recovering the same identity with empty document and blob stores.
+The reader checks every fixture and compares the decrypted bytes in each slot.
+The round-trip time includes both CLI startups, sign-ins and session revocations.
+A missing or changed fixture exits nonzero. The report goes to the terminal.
+Keys travel over stdin and are discarded. This exercises the deployed API and
+blob storage through the SDK. Browser rendering and OPFS require a web test.
+
+One production run on 2026-11-20 took 5.79 s to provision the account,
+152.97 s to seed it and 39.71 s to verify it. The 192.68 s round trip
+recovered 25 documents and 24 attachments (9,604,560 plaintext bytes),
+including the circular saw, drill and refrigerator photos and receipts.
+
 ## Account provisioning
 
 Build the workspace SDK before running so the experiment uses current source:

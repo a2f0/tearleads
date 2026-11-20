@@ -1,0 +1,171 @@
+import { afterEach, expect, test } from "bun:test";
+import { createMemoryBlobStore } from "@tearleads/client-sdk";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { useAttachmentImageUrls } from "./useAttachmentImageUrls";
+
+afterEach(cleanup);
+
+test("each preview settles independently and a late read cannot replace the current key", async () => {
+  const blobStore = createMemoryBlobStore();
+  await blobStore.writeBytes("old", new Uint8Array([1]));
+  await blobStore.writeBytes("new", new Uint8Array([2]));
+  const oldSource = await blobStore.openByteSource("old");
+  const deferred = Promise.withResolvers<typeof oldSource>();
+  const open = blobStore.openByteSource.bind(blobStore);
+  let offline = true;
+  blobStore.openByteSource = async (key) => {
+    if (key === "old") return deferred.promise;
+    if (key === "broken" && offline) throw new Error("Read failed");
+    return open(key);
+  };
+  const photoSlot = "photo";
+  const receiptSlot = "receipt";
+  const attachments = [photoSlot, receiptSlot].map((slotId) => ({
+    name: slotId,
+    slotId,
+    mimeType: "image/png",
+    byteLength: 1,
+    contentSha256: "0".repeat(64),
+  }));
+  const { result, rerender } = renderHook(
+    ({ photo, syncing }) =>
+      useAttachmentImageUrls(
+        attachments,
+        { photo, receipt: "broken" },
+        blobStore,
+        syncing,
+      ),
+    { initialProps: { photo: "old", syncing: false } },
+  );
+  expect(result.current.loadingPreviewSlots.has(photoSlot)).toBe(true);
+  await waitFor(() =>
+    expect(result.current.loadingPreviewSlots.has(receiptSlot)).toBe(false),
+  );
+  expect(result.current.imageUrlBySlotId[receiptSlot]).toBeUndefined();
+  rerender({ photo: "new", syncing: true });
+  await waitFor(() =>
+    expect(result.current.imageUrlBySlotId[photoSlot]).toBeDefined(),
+  );
+  const current = result.current.imageUrlBySlotId[photoSlot];
+  await act(async () => {
+    deferred.resolve(oldSource);
+    await deferred.promise;
+  });
+  expect(result.current.imageUrlBySlotId[photoSlot]).toBe(current);
+  expect(result.current.loadingPreviewSlots.size).toBe(0);
+  offline = false;
+  await blobStore.writeBytes("broken", new Uint8Array([3]));
+  rerender({ photo: "new", syncing: false });
+  await waitFor(() =>
+    expect(result.current.imageUrlBySlotId[receiptSlot]).toBeDefined(),
+  );
+  expect(result.current.imageUrlBySlotId[photoSlot]).toBe(current);
+});
+
+test("a failed read that spans a sync completion retries the same file", async () => {
+  const store = createMemoryBlobStore();
+  await store.writeBytes("held", new Uint8Array([7]));
+  const source = await store.openByteSource("held");
+  const first = Promise.withResolvers<typeof source>();
+  let reads = 0;
+  store.openByteSource = async () => (++reads === 1 ? first.promise : source);
+  const slot = "photo";
+  const attachments = [
+    {
+      slotId: slot,
+      mimeType: "image/png",
+      byteLength: 1,
+      contentSha256: "1".repeat(64),
+      name: "photo",
+    },
+  ];
+  const keys = { photo: "held" };
+  const { result, rerender } = renderHook(
+    ({ syncing }) => useAttachmentImageUrls(attachments, keys, store, syncing),
+    { initialProps: { syncing: true } },
+  );
+  await waitFor(() => expect(reads).toBe(1));
+  rerender({ syncing: false });
+  await act(async () => {
+    first.resolve(null);
+    await first.promise;
+  });
+  await waitFor(() =>
+    expect(result.current.imageUrlBySlotId[slot]).toBeDefined(),
+  );
+  expect(reads).toBe(2);
+});
+
+test("a stalled first image still lets the fifth preview finish", async () => {
+  const store = createMemoryBlobStore();
+  const attachments = Array.from({ length: 5 }, (_, i) => ({
+    slotId: String(i),
+    mimeType: "image/png",
+    byteLength: 1,
+    contentSha256: "0".repeat(64),
+    name: String(i),
+  }));
+  const keys = Object.fromEntries(
+    attachments.map(({ slotId }) => [slotId, slotId]),
+  );
+  for (const { slotId } of attachments)
+    await store.writeBytes(slotId, new Uint8Array([7]));
+  const open = store.openByteSource.bind(store);
+  const blocked = Promise.withResolvers<void>();
+  store.openByteSource = async (key) => {
+    if (key === "0") await blocked.promise;
+    return open(key);
+  };
+  const { result } = renderHook(() =>
+    useAttachmentImageUrls(attachments, keys, store, false),
+  );
+  try {
+    await waitFor(() =>
+      expect(result.current.imageUrlBySlotId["4"]).toBeDefined(),
+    );
+    expect(result.current.loadingPreviewSlots).toEqual(new Set(["0"]));
+  } finally {
+    await act(async () => blocked.resolve());
+  }
+});
+
+test("replacing all stalled sources immediately schedules their current previews", async () => {
+  const store = createMemoryBlobStore();
+  await store.writeBytes("replacement", new Uint8Array([1]));
+  const open = store.openByteSource.bind(store);
+  const stalled = Promise.withResolvers<void>();
+  let opened = 0;
+  store.openByteSource = async (key) => {
+    if (key === "old") {
+      opened++;
+      await stalled.promise;
+    }
+    return open("replacement");
+  };
+  const attachments = Array.from({ length: 4 }, (_, i) => ({
+    slotId: String(i),
+    name: String(i),
+    mimeType: "image/png",
+    byteLength: 1,
+    contentSha256: "0".repeat(64),
+  }));
+  const { result, rerender } = renderHook(
+    ({ key }) =>
+      useAttachmentImageUrls(
+        attachments,
+        Object.fromEntries(attachments.map(({ slotId }) => [slotId, key])),
+        store,
+        false,
+      ),
+    { initialProps: { key: "old" } },
+  );
+  try {
+    await waitFor(() => expect(opened).toBe(4));
+    rerender({ key: "replacement" });
+    await waitFor(() =>
+      expect(Object.keys(result.current.imageUrlBySlotId)).toHaveLength(4),
+    );
+  } finally {
+    await act(async () => stalled.resolve());
+  }
+});

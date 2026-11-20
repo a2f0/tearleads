@@ -159,10 +159,10 @@ reads.
 
 ## Documents
 
-`deriveStableDocumentId(localId)` is the pure first-creation id derivation;
-persisted remote and recovery ids take precedence. See
-[document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
-`openDocumentHistory` replays durable history read-only: [document history](../../../../docs/developer/client-sdk/document-history.md).
+`deriveStableDocumentId(localId)` derives the first-creation ID.
+Persisted remote and recovery IDs take precedence. See [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
+`loadPersistedDocumentContent` returns a detached document for inspection.
+`openDocumentHistory` replays [durable history](../../../../docs/developer/client-sdk/document-history.md).
 
 The documents facade admits explicit `historyMode: "raw"` reads through
 `RemoteDocumentService.syncRemoteDocument`. A raw consumer must start at a null

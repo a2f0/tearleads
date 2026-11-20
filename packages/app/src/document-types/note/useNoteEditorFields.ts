@@ -273,10 +273,11 @@ export function useNoteEditorFields(
   } = useDocument();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
-  const imageUrlBySlotId = useAttachmentImageUrls(
+  const { imageUrlBySlotId } = useAttachmentImageUrls(
     attachments,
     attachmentStorageKeyBySlotId,
     blobStore,
+    syncing,
   );
   const {
     handleDownloadAttachment,

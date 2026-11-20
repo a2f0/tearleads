@@ -92,13 +92,15 @@ function ContactDocumentAvatar({
     canWrite,
     removeAttachment,
     replaceAttachment,
+    syncing,
   } = useDocument();
   const readOnly = useDocumentReadOnly();
   const { infra } = useTearleadsRuntime();
-  const imageUrlBySlotId = useAttachmentImageUrls(
+  const { imageUrlBySlotId } = useAttachmentImageUrls(
     attachments,
     attachmentStorageKeyBySlotId,
     infra.blobStore,
+    syncing,
   );
   const avatar = getContactAvatarRef(attachments, attachmentStorageKeyBySlotId);
 

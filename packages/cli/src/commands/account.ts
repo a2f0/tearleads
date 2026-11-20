@@ -5,8 +5,13 @@ import { type CliSession, type SessionOptions, withSession } from "../session";
 
 async function requireRecoveryKey({
   context,
+  keyFromStdin,
   target,
 }: CommandInput): Promise<string> {
+  if (keyFromStdin)
+    return normalizeRecoveryKey(
+      await context.readRecoveryKey("Recovery key: "),
+    );
   const recoveryKey = await context.keyStore.read(target);
   if (!recoveryKey) {
     throw new Error(

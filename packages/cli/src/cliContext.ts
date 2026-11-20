@@ -15,6 +15,7 @@ export interface CliContext {
 
 export interface CommandInput {
   readonly context: CliContext;
+  readonly keyFromStdin?: boolean;
   readonly organizationId: string | undefined;
   readonly target: TargetName;
   readonly tracer: Tracer;

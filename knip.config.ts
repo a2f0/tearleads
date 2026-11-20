@@ -309,6 +309,7 @@ const productionConfig = {
     "packages/performance": {
       entry: [
         "src/index.ts!",
+        "src/seed.ts!",
         "src/database/index.ts!",
         "src/database/worker.ts!",
       ],

@@ -15,10 +15,13 @@ Commands:
   whoami   Show the signed-in user, signing fingerprint, and organization.
   orgs     List the organizations you belong to.
   seed     Sync the Continuity screenshot dataset to your personal organization.
+  verify-seed  Check the original fixture contents and bytes from a fresh session.
   ls       List the folders of your organization, or of --org <id>.
 
 --env defaults to production. Every command signs in, works on an in-memory
 database, and revokes its session before exiting.
+
+--key-stdin reads a one-time recovery key for seed or verify-seed.
 
 --trace (or TEARLEADS_TRACE=1) prints timestamped progress to stderr: each
 step, API request, and sync lane run with its duration, then a summary of
@@ -30,6 +33,8 @@ const commands = {
   ls: listFolders,
   orgs: listOrganizations,
   seed: async (input) => (await import("./commands/seed")).seed(input),
+  "verify-seed": async (input) =>
+    (await import("./commands/verifySeed")).verifySeed(input),
   whoami,
 } satisfies Record<string, (input: CommandInput) => Promise<void>>;
 
@@ -45,6 +50,7 @@ function parse(argv: readonly string[]) {
       env: { type: "string", default: "production" },
       help: { type: "boolean", short: "h", default: false },
       org: { type: "string" },
+      "key-stdin": { type: "boolean", default: false },
       trace: { type: "boolean", default: false },
     },
     strict: true,
@@ -82,6 +88,14 @@ export async function runCli(
     return 2;
   }
 
+  if (
+    values["key-stdin"] &&
+    commandName !== "seed" &&
+    commandName !== "verify-seed"
+  ) {
+    context.stderr("--key-stdin applies to seed and verify-seed.");
+    return 2;
+  }
   const tracer = createTracer({
     enabled: values.trace || context.traceByDefault === true,
     write: (line) => context.stderr(line),
@@ -89,6 +103,7 @@ export async function runCli(
   try {
     await commands[commandName]({
       context,
+      keyFromStdin: values["key-stdin"],
       organizationId: values.org,
       target: values.env,
       tracer,

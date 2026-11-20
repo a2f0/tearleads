@@ -3,7 +3,10 @@ import { readSecret } from "./prompt";
 import { createKeychainRecoveryKeyStore } from "./recoveryKeyStore";
 import { targets } from "./targets";
 
-if (process.platform !== "darwin") {
+if (
+  process.platform !== "darwin" &&
+  !process.argv.slice(2).includes("--key-stdin")
+) {
   console.error("tearleads keeps recovery keys in the macOS Keychain only.");
   process.exit(1);
 }

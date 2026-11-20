@@ -39,6 +39,7 @@ const attachments: ReadonlyArray<DocumentAttachment> = [
 ];
 
 function renderAttachmentSlots(params?: {
+  loadingPreviewSlots?: ReadonlySet<string>;
   slots?: ReadonlyArray<DocumentAttachmentSlot>;
   attachments?: ReadonlyArray<DocumentAttachment>;
   attachmentStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
@@ -50,6 +51,7 @@ function renderAttachmentSlots(params?: {
 }) {
   const slotsElement = (
     <DocumentAttachmentSlots
+      loadingPreviewSlots={params?.loadingPreviewSlots ?? new Set()}
       attachmentStorageKeyBySlotId={params?.attachmentStorageKeyBySlotId ?? {}}
       attachmentStatusBySlotId={{}}
       attachments={params?.attachments ?? attachments}
@@ -125,15 +127,17 @@ test("clear image buttons are hidden for empty slots", () => {
   expect(view.queryByText("Attach an image to bind this slot.")).toBeNull();
 });
 
-test("shows downloading feedback when an attachment exists before its image bytes load", () => {
+test("shows loading feedback while a local preview is being read", () => {
   const view = renderAttachmentSlots({
+    loadingPreviewSlots: new Set(["front"]),
+    attachmentStorageKeyBySlotId: { front: "front-file" },
     attachments: [attachments[0] as DocumentAttachment],
   });
 
   const frontSlot = view
     .getByText("Front Image")
     .closest(".structured-document-slot");
-  expect(frontSlot?.textContent).toContain("Downloading image...");
+  expect(frontSlot?.textContent).toContain("Loading preview...");
   expect(
     frontSlot
       ?.querySelector(".structured-document-slot-placeholder")
@@ -145,7 +149,16 @@ test("shows downloading feedback when an attachment exists before its image byte
     .getByText("Back Image")
     .closest(".structured-document-slot");
   expect(backSlot?.textContent).toContain("No image selected");
-  expect(backSlot?.textContent).not.toContain("Downloading image...");
+  expect(backSlot?.textContent).not.toContain("Loading preview...");
+});
+
+test("idle slots distinguish missing bytes from a held image without a preview", () => {
+  const view = renderAttachmentSlots({
+    attachmentStorageKeyBySlotId: { back: "held" },
+  });
+  expect(view.getByText("Waiting for image bytes")).toBeTruthy();
+  expect(view.getByText("Preview unavailable")).toBeTruthy();
+  expect(view.queryByText("Downloading image...")).toBeNull();
 });
 
 test("opens the bound blob when a slot image is clicked", () => {

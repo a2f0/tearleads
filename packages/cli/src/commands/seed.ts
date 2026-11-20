@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import {
   createDocumentHeadLinkSetLoader,
   deriveStableDocumentId,
@@ -14,49 +13,9 @@ import {
 } from "app/continuity";
 import type { CommandInput } from "../cliContext";
 import { loadFolderTree } from "../folderTree";
+import { resolveSeedAccount, seedLocalId } from "../seedAccount";
 import type { CliSession } from "../session";
 import { withSavedSession } from "./account";
-
-async function resolveSeedAccount(
-  session: CliSession,
-  organizationId: string | undefined,
-) {
-  const { sdk } = session;
-  if (
-    organizationId !== undefined &&
-    organizationId !== sdk.session.defaultOrganizationId
-  ) {
-    throw new Error(
-      "Seed requires the signed-in account's personal organization.",
-    );
-  }
-  const { memberships, nodes } = await loadFolderTree(session);
-  const org = memberships.find((m) => m.isPersonalOrganizationOwner);
-  if (!org || org.organizationId !== sdk.session.organizationId) {
-    throw new Error(
-      "Seed requires the signed-in account's personal organization.",
-    );
-  }
-  const rootId = sdk.runtime.input().auth.rootContainerId;
-  const root = nodes.find(
-    (node) =>
-      node.id === rootId &&
-      node.organizationId === org.organizationId &&
-      node.parentId === null,
-  );
-  const keys = sdk.identity.signingKeyPair;
-  if (!root || !keys)
-    throw new Error(
-      "Could not resolve the account's root and signing identity.",
-    );
-  return {
-    rootId: root.id,
-    signingPrivateKey: keys.signingPrivateKey,
-    folders: nodes
-      .filter((node) => node.organizationId === org.organizationId)
-      .map((node) => node.id),
-  };
-}
 
 async function findSeedPlacement(
   session: CliSession,
@@ -163,11 +122,12 @@ export async function seed(input: CommandInput): Promise<void> {
       for (const document of documents) {
         await tracer.span(`seed ${document.key}`, async () => {
           const containerId = document.kind === "contact" ? contactsId : rootId;
-          const localId = createHmac("sha256", signingPrivateKey)
-            .update(
-              `tearleads.continuity/${rootId}/${datasetSha256}/${document.key}`,
-            )
-            .digest("hex");
+          const localId = seedLocalId(
+            signingPrivateKey,
+            rootId,
+            datasetSha256,
+            document.key,
+          );
           const documentId = await deriveStableDocumentId(localId);
           const existing = await findSeedPlacement(
             session,
@@ -179,6 +139,8 @@ export async function seed(input: CommandInput): Promise<void> {
           assertCurrent();
           const store = await writeContinuityDocument({
             destination: "account",
+            traceAttachment: (event) =>
+              tracer.event(`seed ${document.key} ${event}`),
             onRecoveredStaleTarget: () =>
               session.recordExpectedSeedFailure("recovered stale target"),
             sdk,
@@ -193,7 +155,9 @@ export async function seed(input: CommandInput): Promise<void> {
             purged++;
             return;
           }
-          await confirmSeedSync(session, store, documentId, document.key);
+          await tracer.span(`confirm sync ${document.key}`, () =>
+            confirmSeedSync(session, store, documentId, document.key),
+          );
         });
       }
       assertCurrent();
