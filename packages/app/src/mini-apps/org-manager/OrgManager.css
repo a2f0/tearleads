@@ -93,11 +93,12 @@
 }
 
 /* A background sync can start while someone is typing the next name field. */
-.org-manager-profile-tab:has(input:focus) {
+.org-manager-profile-tab:has(input:focus, [data-editing-name]) {
   visibility: visible;
 }
 
-.org-manager-profile-tab:has(input:focus) .org-manager-profile-cover {
+.org-manager-profile-tab:has(input:focus, [data-editing-name])
+  .org-manager-profile-cover {
   display: none;
 }
 

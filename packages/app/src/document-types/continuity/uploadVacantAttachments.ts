@@ -18,20 +18,21 @@ async function pull(store: DocumentStore, stillCurrent: () => boolean) {
   return store.getSnapshot();
 }
 
-function needsFixtureBytes(
+function fixtureAttachmentState(
   snapshot: DocumentSnapshot,
   fixture: DocumentAttachment,
 ) {
   const { slotId } = fixture;
   const recorded = snapshot.attachments.find((item) => item.slotId === slotId);
   const occupied = snapshot.attachmentStorageKeyBySlotId[slotId];
-  if (recorded && occupied) {
-    if (snapshot.attachmentStatusBySlotId[slotId] === "intent-mismatch")
-      throw new Error(
-        `The bound bytes differ from the edited attachment: ${recorded.name}. Resolve the attachment on the web, then run seed again.`,
-      );
-    return false;
-  }
+  if (
+    recorded &&
+    occupied &&
+    snapshot.attachmentStatusBySlotId[slotId] === "intent-mismatch"
+  )
+    throw new Error(
+      `The bound bytes differ from the edited attachment: ${recorded.name}. Resolve the attachment on the web, then run seed again.`,
+    );
   // Only the digest and length select bytes. Renaming an attachment or
   // changing its MIME type leaves the authenticated plaintext unchanged.
   if (
@@ -39,8 +40,18 @@ function needsFixtureBytes(
     recorded.contentSha256 !== fixture.contentSha256 ||
     recorded.byteLength !== fixture.byteLength
   )
-    return false;
-  return true;
+    return "changed";
+  return occupied ? "held" : "missing";
+}
+
+function uploadResultMessage(
+  result: "held" | "changed",
+  name: string,
+  started: number,
+) {
+  return result === "held"
+    ? `confirmed ${name} in ${Math.round(performance.now() - started)}ms`
+    : `uploaded ${name} (slot changed before confirmation)`;
 }
 
 async function requireVacantBinding(
@@ -84,7 +95,7 @@ export async function uploadVacantAttachments(
     );
   for (const [index, { bytes, intent }] of attachments.entries()) {
     const snapshot = index === 0 ? first : await pull(store, stillCurrent);
-    if (!needsFixtureBytes(snapshot, intent)) {
+    if (fixtureAttachmentState(snapshot, intent) !== "missing") {
       input.traceAttachment?.(`skipped ${intent.name} (held or edited slot)`);
       continue;
     }
@@ -103,10 +114,11 @@ export async function uploadVacantAttachments(
       expectedBindingId: null,
       // Staging can take time. Recheck before sending the encrypted parts.
       onStageResolved: async () => {
-        input.traceAttachment?.(`staged ${intent.name}`);
+        input.traceAttachment?.(`stage opened for ${intent.name}`);
         if (
           !stillCurrent() ||
-          !needsFixtureBytes(await pull(store, stillCurrent), intent)
+          fixtureAttachmentState(await pull(store, stillCurrent), intent) !==
+            "missing"
         )
           throw new Error(
             `The attachment changed during upload: ${intent.name}. Run seed again to resume.`,
@@ -117,12 +129,13 @@ export async function uploadVacantAttachments(
       resolveProjectionUserKey: links.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
     });
-    if (!uploaded || needsFixtureBytes(await pull(store, stillCurrent), intent))
+    const result =
+      uploaded &&
+      fixtureAttachmentState(await pull(store, stillCurrent), intent);
+    if (!result || result === "missing")
       throw new Error(
         `Could not upload seed attachment: ${intent.name}. Run seed again to resume.`,
       );
-    input.traceAttachment?.(
-      `confirmed ${intent.name} in ${Math.round(performance.now() - started)}ms`,
-    );
+    input.traceAttachment?.(uploadResultMessage(result, intent.name, started));
   }
 }

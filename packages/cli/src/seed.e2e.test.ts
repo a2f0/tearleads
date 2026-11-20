@@ -127,13 +127,41 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       spyOn(oneTime.keyStore, "save"),
       spyOn(oneTime.keyStore, "remove"),
     ];
-    const run = async (stdin = false) => {
+    const tool = documents.find((document) => document.kind === "tool");
+    const file = tool?.attachments[0]?.file;
+    if (!tool || !file) throw new Error("Missing tool photo fixture");
+    const size = (await readAttachment(file)).byteLength;
+    const run = async (mode: "upload" | "resume", stdin = false) => {
+      const log = stdin ? oneTime.output : output;
       const result = await runCli(
-        ["seed", "--env", "staging", ...(stdin ? ["--key-stdin"] : [])],
+        [
+          "seed",
+          "--env",
+          "staging",
+          "--trace",
+          ...(stdin ? ["--key-stdin"] : []),
+        ],
         stdin ? oneTime.context : context,
       );
-      const log = stdin ? oneTime.output : output;
-      expect(log.stderr).toEqual([]);
+      const prefix = `  seed ${tool.key} `;
+      const events = log.stderr.flatMap((line) => {
+        const start = line.indexOf(prefix);
+        return start < 0 || !line.includes(file)
+          ? []
+          : [line.slice(start + prefix.length)];
+      });
+      if (mode === "upload") {
+        expect(events).toEqual([
+          `uploading ${file} (${size} bytes)`,
+          `stage opened for ${file}`,
+          expect.stringContaining(`confirmed ${file} in `),
+        ]);
+        expect(events[2]).toMatch(/ in \d+ms$/);
+      } else expect(events).toEqual([`skipped ${file} (held or edited slot)`]);
+      expect(log.stderr.join("\n")).toContain(
+        `confirm sync ${tool.key} done in `,
+      );
+      log.stderr.length = 0;
       expect(result).toBe(0);
       expect(log.stdout.at(-1)).toBe(
         `Synced ${documents.length} Continuity documents to your staging account.`,
@@ -233,7 +261,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     interruptUpload = false;
     staleTarget = true;
     output.stderr.length = 0;
-    await run(true);
+    await run("upload", true);
     expect(staleTarget).toBe(false);
     legacyDownloads = true;
     expect(
@@ -377,7 +405,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       expect(await coordinator.waitForIdle({ timeoutMs: 30_000 })).toBe(true);
     });
     contentRequests.length = 0;
-    await run();
+    await run("resume");
     expect(contentRequests).not.toContain("/containers/documents/query");
     await onFreshDevice(
       { ...device, additionalFolderId, movedContactId },

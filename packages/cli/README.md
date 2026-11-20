@@ -88,6 +88,9 @@ Add `--trace` to `seed` for per-file staging, confirmation and skip messages.
 
 ## Tracing
 
+Use `bun run tearleads seed --env production --trace` to see each fixture file
+being staged, confirmed, or skipped, with its document key and upload timing.
+
 Add `--trace` (or set `TEARLEADS_TRACE=1`) to see where a command spends its
 time. Progress goes to stderr, so stdout stays the command's normal output:
 
