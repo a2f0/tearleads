@@ -49,7 +49,8 @@ static checks still run in `Lint`. Local
 [`check:fast`](./verification.md#before-a-push) and the direct model commands
 still execute TLC.
 
-`Web E2E` runs the app-web Playwright suite in Chromium through
+`Web E2E` runs the app-web Playwright suite in Chromium and the themed
+control tests in Firefox and WebKit through
 `bun run test:turbo:e2e`. Its Turbo task depends on the app-web workspace
 builds and the API's runtime sources, so a pass replays from the cache until a
 change reaches either. The [push gate](./static-analysis.md#ci-and-the-push-gate)

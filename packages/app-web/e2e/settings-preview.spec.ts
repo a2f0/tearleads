@@ -1,5 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./appTest";
+import { controlPixels } from "./controlPixels";
+import { themeForeground } from "./themeForeground";
 import { openWindowedDesktop } from "./windowedDesktop";
 
 async function openSettingsFromTray(page: Page) {
@@ -289,4 +291,63 @@ test("Network radio labels meet the phone touch target", async ({ page }) => {
     await expect(label).toBeVisible();
     expect((await label.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   }
+});
+
+test("Network radios use the active theme for selection and keyboard focus", {
+  tag: "@themed-control",
+}, async ({ browserName, page }) => {
+  const settings = await openSettingsFromTray(page);
+  const painted = new Set<string>();
+  for (const theme of ["Light", "Dark", "Dusk"]) {
+    await settings.getByRole("tab", { name: "Desktop" }).click();
+    await settings.getByText(theme, { exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme",
+      theme.toLowerCase(),
+    );
+    await settings.getByRole("tab", { name: "Network" }).click();
+    const radio = settings.getByRole("radio", {
+      name: "Use Automatic Network",
+    });
+    await expect(radio).toBeChecked();
+    await expect(radio).toBeVisible();
+    await expect(radio).toHaveCSS("appearance", "auto");
+    const tab = settings.getByRole("tab", { name: "Network" });
+    await tab.focus();
+    // Option-Tab includes all form controls in macOS Safari.
+    await page.keyboard.press(
+      browserName === "webkit" && process.platform === "darwin"
+        ? "Alt+Tab"
+        : "Tab",
+    );
+    await expect(radio).toBeFocused();
+    const foreground = await themeForeground(radio);
+    if (theme !== "Dusk") {
+      expect(foreground).toMatch(/^rgb\((\d+), \1, \1\)$/);
+    }
+    await expect(radio).toHaveCSS("accent-color", foreground);
+    await expect(radio).toHaveCSS("outline-color", foreground);
+    await expect(radio).toHaveCSS("outline-style", "solid");
+    await expect(radio).toHaveCSS("outline-width", "2px");
+    const { row } = await controlPixels(radio);
+    await settings.getByRole("radio", { name: "Force Online" }).check();
+    await expect(radio).not.toBeChecked();
+    const unchecked = await controlPixels(radio);
+    await radio.check();
+    const expected = foreground.match(/\d+/g)?.map(Number) ?? [];
+    // Native antialiasing can round the three painted channels slightly.
+    const indicator = row.find((color, index) => {
+      if (unchecked.row[index] === color) return false;
+      const channels = color.match(/\d+/g)?.map(Number) ?? [];
+      return (
+        expected.length === 3 &&
+        expected.every(
+          (value, i) => Math.abs(value - (channels[i] ?? Infinity)) <= 1,
+        )
+      );
+    });
+    expect(indicator).toBeDefined();
+    if (indicator) painted.add(indicator);
+  }
+  expect(painted.size).toBe(3);
 });

@@ -52,6 +52,7 @@ the web-only integrations.
 
 ```sh
 bun run --cwd packages/app-web test   # build and deploy script tests
+bun run --cwd packages/app-web playwright install --with-deps chromium firefox webkit
 bun run --cwd packages/app-web e2e    # Playwright against a local server
 ```
 
