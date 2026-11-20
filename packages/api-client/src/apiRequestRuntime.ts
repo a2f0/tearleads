@@ -27,7 +27,6 @@ import {
 } from "./sessionRenewal";
 import { sessionRequestInit } from "./sessionRequestInit";
 import {
-  confirmResponseHeaders,
   readSessionJson,
   requestRetired,
   retiredRequest,
@@ -75,18 +74,13 @@ export class ApiRequestRuntime {
     bindPrototypeMethods(this, ApiRequestRuntime.prototype);
     this.request = this.makeRequest;
     this.requestResult = this.makeRequestResult;
-    this.responseRequest = Object.assign(
-      confirmResponseHeaders(
-        this.makeResponseRequest,
-        () => this.sessionRenewals.signal,
-        (method, path) =>
-          this.requestFailuresByKey.delete(requestFailureKey({ method, path })),
-      ),
-      {
-        reportFailure: this.reportResponseRequestFailure,
-        sessionSignal: () => this.sessionRenewals.signal,
+    this.responseRequest = Object.assign(this.makeResponseRequest, {
+      reportFailure: this.reportResponseRequestFailure,
+      reportSuccess: (method: HttpMethod, path: string) => {
+        this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
       },
-    );
+      sessionSignal: () => this.sessionRenewals.signal,
+    });
   }
 
   /**

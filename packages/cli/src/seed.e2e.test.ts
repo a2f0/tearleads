@@ -273,7 +273,11 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(
         1,
       );
-      expect(output.stderr.at(-1)).toContain("Document discovery timed out");
+      expect(
+        documents.map(
+          ({ key }) => `Timed out verifying creator and placement: ${key}.`,
+        ),
+      ).toContain(output.stderr.at(-1) ?? "");
     } finally {
       stalled.mockRestore();
       timers.mockRestore();

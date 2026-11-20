@@ -125,6 +125,8 @@ export interface OperationResponseRequestFn {
     failureOperation: HttpOperation,
   ): Promise<RequestResult<Response>>;
   readonly sessionSignal?: () => AbortSignal;
+  /** Clear a matching failure only after the operation has validated its response. */
+  readonly reportSuccess?: (method: HttpMethod, path: string) => void;
   readonly reportFailure: (
     input: ResponseRequestValidationFailureInput,
   ) => RequestFailure;

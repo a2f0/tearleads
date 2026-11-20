@@ -137,8 +137,10 @@ export async function decodeJsonOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeJsonOperationResponseEnvelope>> {
-  if (requestRetired(session, options))
+  if (requestRetired(session, options)) {
+    void response.body?.cancel().catch(() => {});
     return retiredRequest(operation.method, path);
+  }
   const schema = operation.responses[response.status];
   const isEmpty =
     operation.emptyResponseStatuses?.includes(response.status) ?? false;
@@ -192,6 +194,7 @@ export async function decodeJsonOperationResponse(
     data = parsed.data;
   }
 
+  request.reportSuccess?.(operation.method, path);
   return {
     data: { data, headers: headers.data, status: response.status },
     ok: true,

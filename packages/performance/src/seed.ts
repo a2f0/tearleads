@@ -3,11 +3,24 @@ import { parseArgs } from "node:util";
 import { openLocalDatabase } from "./localDatabase";
 import { targets } from "./options";
 import { createSdkHost } from "./sdkHost";
+import { createMeasuredFetch } from "./transport";
 
 async function provisionSeedAccount(origin: string) {
   const db = await openLocalDatabase();
+  const originalFetch = globalThis.fetch;
+  const id = crypto.randomUUID();
   try {
-    const sdk = createSdkHost(origin, crypto.randomUUID(), db.client);
+    globalThis.fetch = createMeasuredFetch({
+      fetch: originalFetch,
+      origin,
+      runId: id,
+      sampleId: "seed",
+      phase: () => "registration",
+      startedAt: performance.now(),
+      signal: AbortSignal.timeout(60_000),
+      requests: [],
+    });
+    const sdk = createSdkHost(origin, id, db.client);
     try {
       const { seedPhrase } = await sdk.identity.generate();
       await sdk.session.bootstrapLocalRootContainer();
@@ -20,6 +33,7 @@ async function provisionSeedAccount(origin: string) {
       sdk.dispose();
     }
   } finally {
+    globalThis.fetch = originalFetch;
     db.close();
   }
 }

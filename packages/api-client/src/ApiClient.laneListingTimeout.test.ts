@@ -1,4 +1,5 @@
 import { afterEach, expect, jest } from "bun:test";
+import { getHealthOperation } from "@tearleads/validators/operation";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http, passthrough } from "msw";
 import {
@@ -7,7 +8,9 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
+import { ApiRequestRuntime } from "./apiRequestRuntime";
 import { CONTAINER_LANE_LISTING_TIMEOUT_MS } from "./client/laneListingRequest";
+import { createJsonOperationTransport } from "./operationTransport";
 
 const realFetch = globalThis.fetch;
 
@@ -255,3 +258,46 @@ for (const phase of ["headers", "body"])
       }
     },
   );
+
+testApiClient(
+  "a retired JSON operation preserves failures recorded before its body arrives",
+  async () => {
+    const net = new ApiRequestRuntime(apiBaseUrl);
+    const transport = createJsonOperationTransport(net.responseRequest);
+    const headers = Promise.withResolvers<Response>();
+    const body = Promise.withResolvers<unknown>();
+    const reading = Promise.withResolvers<void>();
+    const controller = new AbortController();
+    let count = 0;
+    globalThis.fetch = Object.assign(
+      async () =>
+        ++count === 1
+          ? headers.promise
+          : Response.json({ error: "Busy" }, { status: 503 }),
+      realFetch,
+    );
+    const currentFailure = () =>
+      net.getRequestFailure({ method: "GET", path: "/" });
+    const stale = transport.requestResult(
+      getHealthOperation,
+      { params: {} },
+      {
+        signal: controller.signal,
+        stillCurrent: () => !controller.signal.aborted,
+      },
+    );
+    await transport.requestResult(getHealthOperation, { params: {} });
+    expect(currentFailure()?.status).toBe(503);
+    const response = Response.json({});
+    response.json = () => {
+      reading.resolve();
+      return body.promise;
+    };
+    headers.resolve(response);
+    await reading.promise;
+    controller.abort();
+    body.resolve({});
+    expect(await stale).toMatchObject({ ok: false, kind: "cancelled" });
+    expect(currentFailure()?.status).toBe(503);
+  },
+);
