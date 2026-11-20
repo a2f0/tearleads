@@ -11,6 +11,7 @@ export const BLOB_LIST_LABELS = {
   columnSortedAscending: "sorted ascending",
   columnSortedDescending: "sorted descending",
   empty: "No blobs.",
+  largeThumbnails: "Large thumbnails",
   loading: "Loading...",
   mimeTypeColumn: "MIME",
   organizationColumn: "Organization",
