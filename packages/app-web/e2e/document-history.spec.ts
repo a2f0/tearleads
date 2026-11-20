@@ -158,6 +158,7 @@ test("History fits a phone: touch-sized controls above the document, nothing ove
   expect(geometry.viewTop).toBeGreaterThanOrEqual(geometry.timelineBottom);
 
   const accents = new Set<string>();
+  await expect(slider(page)).toHaveCSS("appearance", "auto");
   for (const theme of ["light", "dark"]) {
     await page.evaluate((id) => {
       document.documentElement.setAttribute("data-theme", id);
