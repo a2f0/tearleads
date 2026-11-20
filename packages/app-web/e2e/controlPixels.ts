@@ -1,9 +1,9 @@
 import type { Locator } from "@playwright/test";
 
-/** Sample a horizontal slider at its latest (rightmost) version. */
-export async function sliderPixels(slider: Locator) {
-  const screenshot = await slider.screenshot({ scale: "css" });
-  return slider.evaluate(async (_, png) => {
+/** Read the painted colors across the middle of the control. */
+export async function controlPixels(control: Locator) {
+  const screenshot = await control.screenshot({ scale: "css" });
+  return control.evaluate(async (_, png) => {
     const image = new Image();
     image.src = `data:image/png;base64,${png}`;
     await image.decode();
@@ -11,7 +11,7 @@ export async function sliderPixels(slider: Locator) {
     canvas.width = image.width;
     canvas.height = image.height;
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("Cannot read slider screenshot");
+    if (!context) throw new Error("Cannot read control screenshot");
     context.drawImage(image, 0, 0);
     const color = (x: number, y: number) => {
       const [r, g, b] = context.getImageData(x, y, 1, 1).data;
@@ -19,8 +19,9 @@ export async function sliderPixels(slider: Locator) {
     };
     return {
       background: color(image.width / 2, 2),
-      track: color(image.width / 2, image.height / 2),
-      thumb: color(image.width - 8, image.height / 2),
+      row: Array.from({ length: image.width }, (_, x) =>
+        color(x, image.height / 2),
+      ),
     };
   }, screenshot.toString("base64"));
 }

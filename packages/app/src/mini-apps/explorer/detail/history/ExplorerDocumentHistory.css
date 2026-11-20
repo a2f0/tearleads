@@ -23,7 +23,7 @@
 
 /* Paint the thumb consistently on engines where native range accents vary. */
 @supports selector(input::-webkit-slider-thumb) {
-  @media (forced-colors: none) {
+  @media not (forced-colors: active) {
     .explorer-document-history-slider {
       -webkit-appearance: none;
       appearance: none;

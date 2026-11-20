@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./appTest";
+import { controlPixels } from "./controlPixels";
 import { themeForeground } from "./themeForeground";
 import { openWindowedDesktop } from "./windowedDesktop";
 
@@ -293,6 +294,7 @@ test("Network radio labels meet the phone touch target", async ({ page }) => {
 });
 
 test("Network radios use the active theme for selection and keyboard focus", async ({
+  browserName,
   page,
 }) => {
   const settings = await openSettingsFromTray(page);
@@ -312,12 +314,15 @@ test("Network radios use the active theme for selection and keyboard focus", asy
     await expect(radio).toBeVisible();
     await expect(radio).toHaveCSS("appearance", "auto");
     await page.keyboard.press("Tab");
+    // macOS WebKit can skip form controls when full keyboard access is off.
+    if (browserName === "webkit") await radio.focus();
     await expect(radio).toBeFocused();
     const foreground = await themeForeground(radio);
     foregrounds.add(foreground);
     if (theme !== "Dusk") {
       expect(foreground).toMatch(/^rgb\((\d+), \1, \1\)$/);
     }
+    expect((await controlPixels(radio)).row).toContain(foreground);
     await expect(radio).toHaveCSS("accent-color", foreground);
     await expect(radio).toHaveCSS("outline-color", foreground);
     await expect(radio).toHaveCSS("outline-style", "solid");
