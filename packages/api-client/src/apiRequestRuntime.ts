@@ -1,9 +1,5 @@
-import {
-  apiVersionHeaderName,
-  parseApiVersion,
-} from "@tearleads/validators/operation";
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
-import { boundedMetadataResponse } from "./boundedMetadataResponse";
+import { createSessionMetadataReader } from "./boundedMetadataResponse";
 import { measureApiRequest } from "./measureApiRequest";
 import {
   type ApiNetworkError,
@@ -17,6 +13,7 @@ import {
   isSuccessfulResponse,
   normalizeApiBaseUrl,
   requestFailureKey,
+  responseApiVersion,
 } from "./requestInternals";
 import { resourceRequestActivity } from "./resourceRequestActivity";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
@@ -54,6 +51,7 @@ type ExpiredHandler = () => boolean | Promise<boolean>;
 type PaymentRequiredHandler = (organizationId: string | null) => void;
 
 export class ApiRequestRuntime {
+  private readonly readMetadata: ReturnType<typeof createSessionMetadataReader>;
   private authToken: string | null = null;
   private readonly sessionRenewals = new SessionRenewalTracker(
     () => this.authToken,
@@ -75,6 +73,9 @@ export class ApiRequestRuntime {
     baseUrl?: string | null,
     private readonly instrumentation?: ApiRequestInstrumentation,
   ) {
+    this.readMetadata = createSessionMetadataReader(
+      Boolean(instrumentation?.verificationDeadline),
+    );
     this.baseUrl = normalizeApiBaseUrl(baseUrl);
     bindPrototypeMethods(this, ApiRequestRuntime.prototype);
     this.request = this.makeRequest;
@@ -297,7 +298,7 @@ export class ApiRequestRuntime {
       attempt,
     );
     if (!result.ok) return result;
-    const response = boundedMetadataResponse(result.data, options);
+    const response = this.readMetadata(result.data, options, failureOperation);
     const retired = (code?: string | null) =>
       retiredResponse(
         this.sessionRenewals.refused(session),
@@ -434,9 +435,7 @@ export class ApiRequestRuntime {
         response,
       );
     this.onNetworkSuccess?.();
-    const apiVersion = parseApiVersion(
-      response.headers.get(apiVersionHeaderName),
-    );
+    const apiVersion = responseApiVersion(response);
     if (apiVersion !== null) this.onApiVersion?.(apiVersion);
     return { data: response, ok: true };
   }

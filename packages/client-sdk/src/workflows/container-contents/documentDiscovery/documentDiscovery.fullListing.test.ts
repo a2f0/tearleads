@@ -99,3 +99,19 @@ test("an empty full listing is usable absence evidence", async () => {
   });
   expect(listings).toEqual([[]]);
 });
+
+test("discovery rejects a continuation cursor repeated after an intervening page", async () => {
+  const cursors = ["a", "b", "a"];
+  const result = await discoverContainerDocuments({
+    ...nullContainerDocumentWatermarks,
+    containerId: "container",
+    listContainerDocumentLanes: laneLister(async () => {
+      const cursor = cursors.shift();
+      if (!cursor) throw new Error("Continuation cycle did not terminate");
+      return page(cursor, true);
+    }),
+    replaceDocumentLinksBatch: async () => {},
+    upsertDiscoveredDocuments: async () => [],
+  });
+  expect(result).toBeNull();
+});

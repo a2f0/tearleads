@@ -73,6 +73,17 @@ interface PendingContainerDocumentLane {
   readonly tombstones: ContainerDocumentTombstone[];
   watermark: SyncWatermark | null;
   isContinuation: boolean;
+  seenWatermarks: Set<string>;
+}
+
+function rememberWatermark(lane: PendingContainerDocumentLane) {
+  const cursor = JSON.stringify([
+    lane.watermark?.id,
+    lane.watermark?.updatedAt,
+  ]);
+  if (lane.seenWatermarks.has(cursor)) return false;
+  lane.seenWatermarks.add(cursor);
+  return true;
 }
 
 function removedDocumentPlacements(
@@ -143,6 +154,7 @@ export async function listAllContainerDocumentLanes(input: {
       containerId,
       isFullListing: watermark === null,
       isContinuation: false,
+      seenWatermarks: new Set(),
       items: [],
       tombstones: [],
       watermark,
@@ -184,7 +196,7 @@ export async function listAllContainerDocumentLanes(input: {
           nextWatermark: lane.watermark,
           tombstones: lane.tombstones,
         });
-      } else if (lane.watermark) {
+      } else if (lane.watermark && rememberWatermark(lane)) {
         lane.isContinuation = true;
         pending.push(lane);
       } else {

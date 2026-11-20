@@ -1,3 +1,8 @@
+import {
+  type HttpOperation,
+  listContainerDocumentLanesOperation,
+  listContainerParentLanesOperation,
+} from "@tearleads/validators/operation";
 import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@tearleads/validators/util";
 /** Only a streaming host sets this option on the requests used for bounded blob reads. */
 export class MetadataSizeError extends Error {}
@@ -22,10 +27,37 @@ const metadataLimits: Record<MetadataLimit, number> = {
   "verification-page": MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 };
 
+/** Folder discovery collects pages before applying them. Bound both listings together on a verifier. */
+export function createSessionMetadataReader(
+  verification: boolean,
+  discoveryLimit = 2 * MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
+) {
+  let remainingDiscoveryBytes = discoveryLimit;
+  const consume = (bytes: number) => {
+    remainingDiscoveryBytes -= bytes;
+    return remainingDiscoveryBytes >= 0;
+  };
+  return (
+    response: Response,
+    options: Parameters<typeof boundedMetadataResponse>[1],
+    operation: HttpOperation,
+  ) =>
+    boundedMetadataResponse(
+      response,
+      options,
+      verification &&
+        (operation === listContainerDocumentLanesOperation ||
+          operation === listContainerParentLanesOperation)
+        ? consume
+        : undefined,
+    );
+}
+
 /** Limit JSON descriptors and HTTP error details before any decoder can buffer them. */
 export function boundedMetadataResponse(
   response: Response,
   options: { readonly [boundedMetadata]?: MetadataLimit | undefined },
+  consume?: (bytes: number) => boolean,
 ): Response {
   const mode = options[boundedMetadata];
   if (!mode || (mode === "errors" && response.ok) || response.status < 200)
@@ -51,7 +83,7 @@ export function boundedMetadataResponse(
               return;
             }
             bytes += next.value.byteLength;
-            if (bytes > limit) {
+            if (bytes > limit || consume?.(next.value.byteLength) === false) {
               void reader.cancel().catch(() => {});
               throw new MetadataSizeError(
                 "Blob response metadata exceeds its size limit",

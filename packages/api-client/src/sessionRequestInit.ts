@@ -53,7 +53,11 @@ export function verificationRequestOptions(
   policy?: ApiRequestInstrumentation,
 ): RequestResultOptions {
   const deadline = policy?.verificationDeadline ?? policy?.requestSignal;
-  if (!deadline || operation === logoutOperation) return options;
+  if (!deadline) return options;
+  if (operation === logoutOperation)
+    return policy?.verificationDeadline
+      ? { ...options, [boundedMetadata]: "all" }
+      : options;
   return {
     ...options,
     stillCurrent: () => !deadline.aborted && options.stillCurrent?.() !== false,

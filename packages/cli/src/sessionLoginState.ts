@@ -8,7 +8,11 @@ type LoginState =
 type LoginEvent = "starting" | "dispatch-verify" | "accepted" | "unconfirmed";
 
 function transitionLogin(state: LoginState, event: LoginEvent): LoginState {
-  if (state === "not-started" && event === "starting") return "challenge";
+  if (
+    (state === "not-started" || state === "authenticated") &&
+    event === "starting"
+  )
+    return "challenge";
   if (state === "challenge" && event === "dispatch-verify")
     return "verification";
   if (state !== "challenge" && state !== "verification") return state;
@@ -20,10 +24,12 @@ function transitionLogin(state: LoginState, event: LoginEvent): LoginState {
 /** Only a confirmed token can revoke an issued session; a lost reply is ambiguous. */
 export function commandLoginLifetime(revoke: () => Promise<boolean>) {
   let state: LoginState = "not-started";
-  const settled = Promise.withResolvers<void>();
+  let settled = Promise.withResolvers<void>();
   const work = new AbortController();
   let revocation: Promise<boolean> | undefined;
   const send = (event: LoginEvent) => {
+    if (state === "authenticated" && event === "starting")
+      settled = Promise.withResolvers<void>();
     state = transitionLogin(state, event);
     if (state !== "challenge" && state !== "verification") settled.resolve();
   };
@@ -46,6 +52,13 @@ export function commandLoginLifetime(revoke: () => Promise<boolean>) {
   return {
     send,
     stop,
+    observeRenewal: (renewal: Promise<boolean>) => {
+      send("starting");
+      void renewal.then(
+        (ok) => send(ok ? "accepted" : "unconfirmed"),
+        () => send("unconfirmed"),
+      );
+    },
     signal: work.signal,
     stopping: () => revocation !== undefined,
   };

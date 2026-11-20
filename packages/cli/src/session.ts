@@ -148,6 +148,7 @@ async function runSession<T>(
     streamingDownloads: true,
     verificationDeadline,
     requestSignal: lifetime.signal,
+    onSessionRenewal: lifetime.observeRenewal,
     blobStoreFactory: () => createMemoryBlobStore(),
     database: { client: database.client, id: crypto.randomUUID() },
     documentProjectors,

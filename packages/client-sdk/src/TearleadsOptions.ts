@@ -23,6 +23,9 @@ export interface TearleadsOptions {
   /** Stop command work while allowing authenticated remote logout to finish. */
   readonly requestSignal?: AbortSignal | undefined;
 
+  /** A command host may wait for an already-dispatched sign-in before revoking its session. */
+  readonly onSessionRenewal?: ((renewal: Promise<boolean>) => void) | undefined;
+
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
   database?: TearleadsDatabaseOptions | undefined;

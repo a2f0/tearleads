@@ -8,6 +8,7 @@ import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { withSession } from "./session";
 
 let apiBaseUrl = "";
+let expireNextSessionList = false;
 // Requests matching `method pathname` get a 503 instead of reaching the API.
 let failing: RegExp | null = null;
 // Every `method pathname` the API received, in order.
@@ -24,6 +25,13 @@ beforeAll(async () => {
       const { pathname } = new URL(request.url);
       requests.push(`${request.method} ${pathname}`);
       onRequest?.(`${request.method} ${pathname}`);
+      if (expireNextSessionList && pathname.endsWith("/sessions")) {
+        expireNextSessionList = false;
+        return Response.json(
+          { code: "session_refresh_required", error: "Expired session" },
+          { status: 401 },
+        );
+      }
       return failing?.test(`${request.method} ${pathname}`)
         ? new Response("unavailable", { status: 503 })
         : routeApp.fetch(request);
@@ -34,6 +42,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   failing = null;
+  expireNextSessionList = false;
   onRequest = null;
 });
 
@@ -438,4 +447,28 @@ test("an interrupt during the challenge prevents verification dispatch", async (
   expect(requests.some((request) => request.includes("/auth/verify"))).toBe(
     false,
   );
+});
+
+test("an interrupt during renewal revokes the newly issued session", async () => {
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  let stop: (() => Promise<boolean>) | undefined;
+  let cleanup: Promise<boolean> | undefined;
+  await withSession(
+    {
+      recoveryKey: seedPhrase,
+      apiBaseUrl,
+      registerShutdown: (revoke) => {
+        stop = revoke;
+      },
+    },
+    async ({ sdk }) => {
+      expireNextSessionList = true;
+      onRequest = (request) => {
+        if (request.includes("/auth/verify")) cleanup = stop?.();
+      };
+      await sdk.session.listSessions();
+      expect(await cleanup).toBe(true);
+    },
+  );
+  expect(requests.at(-1)).toContain("/auth/logout");
 });
