@@ -13,11 +13,7 @@
 }
 
 .explorer-document-history-slider {
-  --history-track-color: color-mix(
-    in oklab,
-    var(--color-dark),
-    var(--color-light)
-  );
+  --history-track-color: var(--color-muted);
   appearance: none;
   background: transparent;
   accent-color: var(--color-dark);
@@ -25,6 +21,16 @@
   min-width: 0;
   /* The native thumb is small; the row height gives it a touch target. */
   min-height: var(--control-height);
+}
+
+@supports (color: color-mix(in oklab, black, white)) {
+  .explorer-document-history-slider {
+    --history-track-color: color-mix(
+      in oklab,
+      var(--color-dark),
+      var(--color-light)
+    );
+  }
 }
 
 .explorer-document-history-slider::-webkit-slider-runnable-track {
