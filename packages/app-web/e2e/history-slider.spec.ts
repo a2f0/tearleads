@@ -23,6 +23,14 @@ test("History slider paints and seeks across browser engines", {
       "position: fixed; top: 0; left: 0; z-index: 2147483647; width: 200px";
     document.body.append(input);
   });
+  const reference = page.locator("#test-history-track");
+  await control.evaluate((element) => {
+    const swatch = document.createElement("div");
+    swatch.id = "test-history-track";
+    swatch.style.cssText =
+      "position:fixed;left:0;top:50px;width:16px;height:16px;z-index:2147483647;background:color-mix(in oklab,var(--color-dark),var(--color-light))";
+    element.after(swatch);
+  });
   const accents = new Set<string>();
   for (const theme of ["light", "dark", "dusk"]) {
     await page.evaluate((id) => {
@@ -37,6 +45,7 @@ test("History slider paints and seeks across browser engines", {
     const thumb = pixels.row.at(-8);
     const track = pixels.row[Math.floor(pixels.row.length / 2)];
     expect(thumb).toBe(accent);
+    expect(track).toBe((await controlPixels(reference)).row[8]);
     expect(track).not.toBe(pixels.background);
     expect(track).not.toBe(thumb);
     accents.add(accent);

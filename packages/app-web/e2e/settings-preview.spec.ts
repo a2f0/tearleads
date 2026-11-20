@@ -297,7 +297,7 @@ test("Network radios use the active theme for selection and keyboard focus", {
   tag: "@themed-control",
 }, async ({ browserName, page }) => {
   const settings = await openSettingsFromTray(page);
-  const foregrounds = new Set<string>();
+  const painted = new Set<string>();
   for (const theme of ["Light", "Dark", "Dusk"]) {
     await settings.getByRole("tab", { name: "Desktop" }).click();
     await settings.getByText(theme, { exact: true }).click();
@@ -322,28 +322,27 @@ test("Network radios use the active theme for selection and keyboard focus", {
     );
     await expect(radio).toBeFocused();
     const foreground = await themeForeground(radio);
-    foregrounds.add(foreground);
     if (theme !== "Dusk") {
       expect(foreground).toMatch(/^rgb\((\d+), \1, \1\)$/);
     }
     const { row } = await controlPixels(radio);
     const expected = foreground.match(/\d+/g)?.map(Number) ?? [];
     // Native antialiasing can round the three painted channels slightly.
-    expect(
-      row.some((color) => {
-        const channels = color.match(/\d+/g)?.map(Number) ?? [];
-        return (
-          expected.length === 3 &&
-          expected.every(
-            (value, i) => Math.abs(value - (channels[i] ?? Infinity)) <= 8,
-          )
-        );
-      }),
-    ).toBe(true);
+    const indicator = row.find((color) => {
+      const channels = color.match(/\d+/g)?.map(Number) ?? [];
+      return (
+        expected.length === 3 &&
+        expected.every(
+          (value, i) => Math.abs(value - (channels[i] ?? Infinity)) <= 1,
+        )
+      );
+    });
+    expect(indicator).toBeDefined();
+    if (indicator) painted.add(indicator);
     await expect(radio).toHaveCSS("accent-color", foreground);
     await expect(radio).toHaveCSS("outline-color", foreground);
     await expect(radio).toHaveCSS("outline-style", "solid");
     await expect(radio).toHaveCSS("outline-width", "2px");
   }
-  expect(foregrounds.size).toBe(3);
+  expect(painted.size).toBe(3);
 });
