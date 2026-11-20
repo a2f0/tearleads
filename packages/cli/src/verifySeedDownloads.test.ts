@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { expect, mock, spyOn, test } from "bun:test";
 import { checkSeedBytes, discoverSeedDocuments } from "./verifySeedDownloads";
 
 test("verification refuses oversized held files before issuing a read", async () => {
@@ -111,3 +111,31 @@ test.each(["listing", "links"])(
     await expect(read).rejects.toThrow("Document discovery timed out");
   },
 );
+
+test("an in-flight folder listing observes its own deadline", async () => {
+  const folder = new AbortController();
+  const overall = new AbortController();
+  const timeout = spyOn(AbortSignal, "timeout").mockReturnValue(folder.signal);
+  const entered = Promise.withResolvers<AbortSignal>();
+  try {
+    const rows = discoverSeedDocuments(
+      [{ id: "root", organizationId: "org", parentId: null, systemSlot: null }],
+      (_id, _pending, signal) => {
+        entered.resolve(signal);
+        return new Promise<never>(() => {});
+      },
+      async () => new Map(),
+      undefined,
+      overall.signal,
+    );
+    const read = rows.next();
+    const signal = await entered.promise;
+    expect(timeout).toHaveBeenCalledWith(30_000);
+    folder.abort();
+    await expect(read).rejects.toThrow("Document discovery timed out");
+    expect(signal.aborted).toBe(true);
+    expect(overall.signal.aborted).toBe(false);
+  } finally {
+    timeout.mockRestore();
+  }
+});

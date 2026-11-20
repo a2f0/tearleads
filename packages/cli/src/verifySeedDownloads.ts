@@ -28,6 +28,7 @@ type ListLinks = (
 type ListPage<Row> = (
   id: string,
   onPending: (delayMs: number) => void,
+  signal: AbortSignal,
 ) => Promise<readonly Row[] | null>;
 
 async function* linkedRows<Row extends Placement>(
@@ -53,11 +54,10 @@ type FolderRead = {
 
 function retryFolder(
   folder: FolderRead,
-  delay: number | null,
+  retryAt: number | null,
   now: number,
 ): FolderRead {
-  if (delay !== null)
-    return { id: folder.id, retryAt: now + Math.max(1, delay) };
+  if (retryAt !== null) return { id: folder.id, retryAt };
   const { since, attempts } = folder.unavailable ?? { since: now, attempts: 0 };
   const until = since + 30_000;
   if (now >= until)
@@ -83,6 +83,32 @@ async function beforeDiscoveryDeadline<T>(
   } finally {
     signal.removeEventListener("abort", stop);
   }
+}
+
+async function readFolderPage<Row extends Placement>(
+  folder: FolderRead,
+  list: ListPage<Row>,
+  now: () => number,
+  deadline: AbortSignal,
+) {
+  const remaining =
+    30_000 - (folder.unavailable ? now() - folder.unavailable.since : 0);
+  const signal = AbortSignal.any([
+    deadline,
+    AbortSignal.timeout(Math.max(0, remaining)),
+  ]);
+  let retryAt: number | null = null;
+  const batch = await beforeDiscoveryDeadline(
+    list(
+      folder.id,
+      (delay) => {
+        retryAt = now() + Math.max(1, delay);
+      },
+      signal,
+    ),
+    signal,
+  );
+  return { batch, retryAt: retryAt as number | null };
 }
 
 export async function* discoverSeedDocuments<Row extends Placement>(
@@ -116,11 +142,10 @@ export async function* discoverSeedDocuments<Row extends Placement>(
       throw new Error(`Document discovery timed out in ${next.id}.`);
     if (next.retryAt > now)
       await beforeDiscoveryDeadline(clock.sleep(next.retryAt - now), deadline);
-    let retryDelay: number | null = null;
-    const batch = await beforeDiscoveryDeadline(
-      list(next.id, (delay) => {
-        retryDelay = delay;
-      }),
+    const { batch, retryAt } = await readFolderPage(
+      next,
+      list,
+      clock.now,
       deadline,
     );
     if (batch?.length) {
@@ -129,10 +154,10 @@ export async function* discoverSeedDocuments<Row extends Placement>(
       );
       remaining.unshift({
         id: next.id,
-        retryAt: clock.now() + Math.max(0, retryDelay ?? 0),
+        retryAt: retryAt ?? clock.now(),
       });
-    } else if (!batch || retryDelay !== null) {
-      remaining.push(retryFolder(next, retryDelay, clock.now()));
+    } else if (!batch || retryAt !== null) {
+      remaining.push(retryFolder(next, retryAt, clock.now()));
     }
   }
 }

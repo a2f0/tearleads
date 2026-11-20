@@ -109,9 +109,11 @@ function createDiscoveryLane(input: {
  */
 export async function discoverContainerDocumentLanesForRuntime({
   onOutcome,
+  signal,
   requests,
   runtimeService,
 }: {
+  readonly signal?: AbortSignal | undefined;
   readonly onOutcome?: ContainerDocumentDiscoveryOutcomeHandler | undefined;
   readonly requests: ReadonlyArray<ContainerDocumentDiscoveryRequest>;
   readonly runtimeService: InternalRuntime;
@@ -123,6 +125,7 @@ export async function discoverContainerDocumentLanesForRuntime({
     status: "fulfilled",
     value: null,
   });
+  signal?.throwIfAborted();
   const input = runtimeService.workflowInput();
   if (input.infra.dbStatus !== "ready") {
     return requests.map(({ containerId }) => unlisted(containerId));
@@ -151,6 +154,7 @@ export async function discoverContainerDocumentLanesForRuntime({
       );
     if (!stored) continue;
     const isContainerPaused = () =>
+      signal?.aborted === true ||
       syncPauses.isContainerPaused(stored.container);
     // A paused organization's container lists like one that is not stored,
     // and a pause landing mid-listing stops its write.
@@ -173,10 +177,16 @@ export async function discoverContainerDocumentLanesForRuntime({
     generation,
     lanes,
     listContainerDocumentLanes: (listed) =>
-      listContainerDocumentLanesFromApi(runtime.apiClient, listed),
+      listContainerDocumentLanesFromApi(
+        runtime.apiClient,
+        listed,
+        true,
+        signal,
+      ),
     loadContainerDocumentWatermark: queries.loadContainerDocumentWatermark,
     onOutcome,
   });
+  signal?.throwIfAborted();
   const outcomeByContainerId = new Map(
     outcomes.map((outcome) => [outcome.containerId, outcome]),
   );
@@ -192,13 +202,16 @@ export async function discoverContainerDocumentLanesForRuntime({
  */
 export async function discoverContainerDocumentsForRuntime({
   runtimeService,
+  signal,
   ...request
 }: ContainerDocumentDiscoveryRequest & {
+  readonly signal?: AbortSignal | undefined;
   readonly runtimeService: InternalRuntime;
 }): Promise<ReadonlyArray<DocumentSummary> | null> {
   const [outcome] = await discoverContainerDocumentLanesForRuntime({
     requests: [request],
     runtimeService,
+    signal,
   });
   if (outcome?.status === "rejected") {
     if (outcome.reason instanceof ContainerDocumentListingUnavailableError) {

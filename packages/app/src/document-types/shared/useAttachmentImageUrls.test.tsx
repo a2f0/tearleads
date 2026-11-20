@@ -331,3 +331,60 @@ test("an oversized local source is never read for a small declared photo", async
   await waitFor(() => expect(result.current.loadingPreviewSlots.size).toBe(0));
   expect(reads).toBe(0);
 });
+
+test("expired reads release capacity for a fifth healthy preview", async () => {
+  const store = createMemoryBlobStore();
+  const deadlines: AbortController[] = [];
+  const timer = spyOn(AbortSignal, "timeout").mockImplementation(() => {
+    const controller = new AbortController();
+    deadlines.push(controller);
+    return controller.signal;
+  });
+  let stalled = 0;
+  let cancelled = 0;
+  store.openByteSource = async (key) => ({
+    byteLength: 1,
+    async read(_offset, _len, signal) {
+      if (key === "4") return new Uint8Array([9]);
+      if (!signal) throw new Error("Missing preview cancellation");
+      stalled++;
+      return new Promise((_resolve, reject) =>
+        signal.addEventListener(
+          "abort",
+          () => {
+            cancelled++;
+            reject(signal.reason);
+          },
+          { once: true },
+        ),
+      );
+    },
+  });
+  const slots = Array.from({ length: 5 }, (_, i) => ({
+    slotId: String(i),
+    name: String(i),
+    mimeType: "image/png",
+    byteLength: 1,
+    contentSha256: "a".repeat(64),
+  }));
+  try {
+    const { result } = renderHook(() =>
+      useAttachmentImageUrls(
+        slots,
+        Object.fromEntries(slots.map(({ slotId }) => [slotId, slotId])),
+        store,
+        false,
+      ),
+    );
+    await waitFor(() => expect(stalled).toBe(4));
+    await act(async () => {
+      for (const deadline of [...deadlines]) deadline.abort();
+    });
+    await waitFor(() =>
+      expect(result.current.imageUrlBySlotId["4"]).toBeDefined(),
+    );
+    expect(cancelled).toBe(4);
+  } finally {
+    timer.mockRestore();
+  }
+});

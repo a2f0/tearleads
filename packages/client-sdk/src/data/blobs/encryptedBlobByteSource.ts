@@ -94,12 +94,14 @@ async function encryptChunk(
 async function decryptChunk(
   input: CreateDecryptedBlobByteSourceInput,
   chunkIndex: number,
+  signal?: AbortSignal,
 ): Promise<BlobBytes> {
   const { envelope, prefixByteLength } = input.parsed;
   const ciphertext = await readExactBlobBytes(
     input.encryptedSource,
     ciphertextOffset(prefixByteLength, chunkIndex),
     chunkCiphertextByteLength(envelope.plaintextByteLength, chunkIndex),
+    signal,
   );
   try {
     const plaintext = new Uint8Array(
@@ -196,11 +198,13 @@ async function readDecryptedRange(
   input: CreateDecryptedBlobByteSourceInput,
   offset: number,
   byteLength: number,
+  signal?: AbortSignal,
 ): Promise<BlobBytes> {
+  signal?.throwIfAborted();
   const output = new Uint8Array(byteLength);
   if (byteLength === 0) {
     if (input.parsed.envelope.plaintextByteLength === 0) {
-      await decryptChunk(input, 0);
+      await decryptChunk(input, 0, signal);
     }
     return output;
   }
@@ -209,7 +213,7 @@ async function readDecryptedRange(
     (offset + byteLength - 1) / ENCRYPTED_BLOB_CHUNK_SIZE,
   );
   for (let chunkIndex = firstChunk; chunkIndex <= lastChunk; chunkIndex += 1) {
-    const plaintext = await decryptChunk(input, chunkIndex);
+    const plaintext = await decryptChunk(input, chunkIndex, signal);
     copyIntersection({
       chunk: plaintext,
       chunkOffset: chunkIndex * ENCRYPTED_BLOB_CHUNK_SIZE,
@@ -218,6 +222,7 @@ async function readDecryptedRange(
       readOffset: offset,
     });
   }
+  signal?.throwIfAborted();
   return output;
 }
 
@@ -252,9 +257,9 @@ export function createDecryptedBlobByteSource(
 ): BlobByteSource {
   return {
     byteLength: input.parsed.envelope.plaintextByteLength,
-    async read(offset, byteLength) {
+    async read(offset, byteLength, signal) {
       assertReadRange(this.byteLength, offset, byteLength);
-      return readDecryptedRange(input, offset, byteLength);
+      return readDecryptedRange(input, offset, byteLength, signal);
     },
   };
 }

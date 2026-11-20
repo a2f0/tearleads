@@ -44,6 +44,7 @@ export async function listContainerDocumentLanesFromApi(
   apiClient: ContainerDocumentLaneApi,
   lanes: Parameters<ContainerDocumentLaneLister>[0],
   reportErrors = true,
+  signal?: AbortSignal,
 ): ReturnType<ContainerDocumentLaneLister> {
   const limit = laneLimit(lanes.length);
   const requested = lanes.map((lane, index) => ({
@@ -54,7 +55,7 @@ export async function listContainerDocumentLanesFromApi(
   }));
   const response = await apiClient.listContainerDocumentLanes(
     { lanes: requested },
-    { reportErrors },
+    signal ? { reportErrors, signal } : { reportErrors },
   );
   if (!response) return null;
   const resultsByLaneId = new Map(

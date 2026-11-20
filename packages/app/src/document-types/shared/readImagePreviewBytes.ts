@@ -19,14 +19,17 @@ function waitForReader(events: EventTarget, deadline: AbortSignal) {
   });
 }
 
-async function withReadDeadline<T>(work: Promise<T>, retired: AbortSignal) {
+async function withReadDeadline<T>(
+  work: (signal: AbortSignal) => Promise<T>,
+  retired: AbortSignal,
+) {
   const limit = AbortSignal.any([retired, AbortSignal.timeout(30_000)]);
   const timeout = Promise.withResolvers<null>();
   const expired = () => timeout.resolve(null);
   if (limit.aborted) expired();
   else limit.addEventListener("abort", expired, { once: true });
   try {
-    return await Promise.race([work, timeout.promise]);
+    return await Promise.race([work(limit), timeout.promise]);
   } finally {
     limit.removeEventListener("abort", expired);
   }
@@ -39,7 +42,10 @@ export async function readImagePreviewBytes(
   retired: AbortSignal,
   onCapacity: (status: "start" | "waiting-for-reader") => void,
 ) {
-  const source = await withReadDeadline(store.openByteSource(key), retired);
+  const source = await withReadDeadline(
+    () => store.openByteSource(key),
+    retired,
+  );
   if (!source || !isAutomaticBlobPreviewAllowed(source)) return null;
   let pool = readers.get(store);
   if (!pool) {
@@ -54,15 +60,15 @@ export async function readImagePreviewBytes(
   }
   if (retired.aborted) return null;
   const active = pool;
-  const read = async () => {
+  const read = async (signal: AbortSignal) => {
     active.count++;
     try {
-      return await source.read(0, source.byteLength);
+      return await source.read(0, source.byteLength, signal);
     } finally {
       // The caller can time out before the filesystem releases the buffer.
       active.count--;
       active.events.dispatchEvent(new Event("available"));
     }
   };
-  return withReadDeadline(read(), retired);
+  return withReadDeadline(read, retired);
 }

@@ -61,6 +61,14 @@ testApiClient(
     await firstDocumentsRequestStarted.promise;
     const secondDocumentsRequest =
       client.listContainerDocumentLanes(documentLaneRequest);
+    // A reader with a private deadline must not retire the shared request.
+    const deadline = new AbortController();
+    deadline.abort();
+    await expect(
+      client.listContainerDocumentLanes(documentLaneRequest, {
+        signal: deadline.signal,
+      }),
+    ).resolves.toBeNull();
     const stricter = client.listContainerDocumentLanes({
       ...documentLaneRequest,
       afterParentPage: {

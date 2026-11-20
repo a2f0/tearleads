@@ -27,3 +27,33 @@ test("readBlobByteSource rejects incomplete source reads", async () => {
 
   await expect(readBlobByteSource(source)).rejects.toThrow("incomplete read");
 });
+
+test("aborting a file range cancels its underlying Blob stream", async () => {
+  const started = Promise.withResolvers<void>();
+  const cancelled = Promise.withResolvers<void>();
+  class StalledBlob extends Blob {
+    override slice() {
+      return this;
+    }
+    override stream() {
+      return new ReadableStream<Uint8Array<ArrayBuffer>>({
+        pull() {
+          started.resolve();
+        },
+        cancel() {
+          cancelled.resolve();
+        },
+      });
+    }
+  }
+  const controller = new AbortController();
+  const read = createBlobByteSource(new StalledBlob(["x"])).read(
+    0,
+    1,
+    controller.signal,
+  );
+  await started.promise;
+  controller.abort();
+  await expect(read).rejects.toThrow();
+  await cancelled.promise;
+});

@@ -27,6 +27,7 @@ export async function laneListingRequest<T>(
     readonly operation: HttpOperation;
     readonly path: string;
     readonly reportErrors: boolean;
+    readonly signal?: AbortSignal | undefined;
     readonly validator: (value: unknown) => value is T;
   },
 ): Promise<RequestResult<T>> {
@@ -35,7 +36,7 @@ export async function laneListingRequest<T>(
   // Report only after classifying: an abort inside the body otherwise
   // surfaces as a body-read failure before it is known to be the deadline.
   const deadline = requestDeadline(
-    { reportErrors: false },
+    { reportErrors: false, signal: input.signal },
     CONTAINER_LANE_LISTING_TIMEOUT_MS,
   );
   try {
@@ -50,7 +51,8 @@ export async function laneListingRequest<T>(
       deadline.options,
       input.operation,
     );
-    if (signIn?.aborted) return retiredRequest(method, path);
+    if (signIn?.aborted || input.signal?.aborted)
+      return retiredRequest(method, path);
     if (result.ok) return result;
     if (!deadline.expired()) {
       if (reportErrors) result.report();

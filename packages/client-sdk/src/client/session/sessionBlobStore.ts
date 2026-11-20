@@ -22,7 +22,12 @@ export function createSessionBlobStore(
   function currentSource(source: BlobByteSource): BlobByteSource {
     return {
       byteLength: source.byteLength,
-      read: (offset, length) => guarded(() => source.read(offset, length)),
+      read: (offset, length, signal) =>
+        guarded(() =>
+          signal
+            ? source.read(offset, length, signal)
+            : source.read(offset, length),
+        ),
     };
   }
 

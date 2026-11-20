@@ -136,6 +136,7 @@ function startQueuedPreviews(
       preview: transitionAttachmentPreview(entry.preview, { status: "start" }),
     };
     active.set(slot, started);
+    publish(new Map(active));
     void updatePreview(slot, started, active, generation, publish).then(() =>
       startQueuedPreviews(active, generation, publish),
     );
