@@ -138,51 +138,59 @@ test("the profile spinner follows only in-flight requests for the active profile
   }
 });
 
-test("a local sync pass keeps the name field visible until the profile makes a request", async () => {
-  const f = await createProfileEditorHarness("organization");
-  const restore = installProfileEditorHost(f.sdk);
-  const useDocument = documents.useDocument;
-  const syncPass = spyOn(documents, "useDocument").mockImplementation(() => ({
-    ...useDocument(),
-    syncing: true,
-  }));
-  const view = render(
-    <OrganizationProfileEditor
-      canEdit
-      onNameChange={() => undefined}
-      organizationId={PROFILE_ORGANIZATION_ID}
-      pending={false}
-      profileDocumentId={f.documentId}
-    />,
-  );
-  try {
-    const field = await view.findByRole("textbox", {
-      name: ORG_MANAGER_LABELS.organizationName,
-    });
-    expect(
-      view.queryByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
-    ).toBeNull();
-    let settle = () => {};
-    await act(async () => {
-      const finish = f.sdk.apiRequests.beginResource(
-        f.sdk.identity.signingFingerprint,
-        documentSyncOperation,
-        f.documentId,
-      );
-      settle = () => finish();
-    });
-    expect(
-      view.getByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
-    ).toBeTruthy();
-    await act(async () => settle());
-    expect(
-      view.queryByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
-    ).toBeNull();
-    expect(view.getByRole("textbox")).toBe(field);
-  } finally {
-    view.unmount();
-    syncPass.mockRestore();
-    restore();
-    f.close();
-  }
-});
+for (const { syncing, canEdit } of [
+  { syncing: true, canEdit: true },
+  { syncing: false, canEdit: true },
+  { syncing: false, canEdit: false },
+]) {
+  test(`a ready profile follows its request with syncing=${syncing} and canEdit=${canEdit}`, async () => {
+    const f = await createProfileEditorHarness("organization");
+    const restore = installProfileEditorHost(f.sdk);
+    const useDocument = documents.useDocument;
+    const syncPass = spyOn(documents, "useDocument").mockImplementation(() => ({
+      ...useDocument(),
+      syncing,
+    }));
+    const view = render(
+      <OrganizationProfileEditor
+        canEdit={canEdit}
+        onNameChange={() => undefined}
+        organizationId={PROFILE_ORGANIZATION_ID}
+        pending={false}
+        profileDocumentId={f.documentId}
+      />,
+    );
+    try {
+      const field = canEdit
+        ? await view.findByRole("textbox", {
+            name: ORG_MANAGER_LABELS.organizationName,
+          })
+        : await view.findByText("Existing organization");
+      expect(
+        view.queryByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
+      ).toBeNull();
+      let settle = () => {};
+      await act(async () => {
+        const finish = f.sdk.apiRequests.beginResource(
+          f.sdk.identity.signingFingerprint,
+          documentSyncOperation,
+          f.documentId,
+        );
+        settle = () => finish();
+      });
+      expect(
+        view.getByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
+      ).toBeTruthy();
+      await act(async () => settle());
+      expect(
+        view.queryByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),
+      ).toBeNull();
+      expect(field.isConnected).toBe(true);
+    } finally {
+      view.unmount();
+      syncPass.mockRestore();
+      restore();
+      f.close();
+    }
+  });
+}

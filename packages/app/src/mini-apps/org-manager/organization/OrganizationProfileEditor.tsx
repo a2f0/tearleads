@@ -70,7 +70,6 @@ function OrganizationProfileDocumentFields({
     relink,
     setStructuredFields,
     structuredFields,
-    syncing,
   } = useDocument();
   const name = useMemo(
     () => readOrganizationProfileName(structuredFields),
@@ -115,35 +114,33 @@ function OrganizationProfileDocumentFields({
     return <OrganizationProfileLoading networkPending={networkPending} />;
   }
 
-  if (!canEdit) {
-    return (
-      <ProfileReadOnlyField
-        label={ORG_MANAGER_LABELS.organizationName}
-        value={name}
-      />
-    );
-  }
-
   return (
     <div className="org-manager-roster-profile-fields">
-      <MiniAppField className="org-manager-roster-profile-field">
-        <span>{ORG_MANAGER_LABELS.organizationName}</span>
-        <MiniAppInput
-          disabled={!canWrite}
-          value={localName}
-          onBlur={() => {
-            const nextName = localName.trim();
-            if (canWrite && nextName !== (name ?? "")) {
-              void setStructuredFields(ORGANIZATION_PROFILE_DOCUMENT_KIND, {
-                name: nextName,
-              });
-            }
-          }}
-          onChange={(event) => setLocalName(event.target.value)}
-          onKeyDown={blurOnEnter}
+      {canEdit ? (
+        <MiniAppField className="org-manager-roster-profile-field">
+          <span>{ORG_MANAGER_LABELS.organizationName}</span>
+          <MiniAppInput
+            disabled={!canWrite}
+            value={localName}
+            onBlur={() => {
+              const nextName = localName.trim();
+              if (canWrite && nextName !== (name ?? "")) {
+                void setStructuredFields(ORGANIZATION_PROFILE_DOCUMENT_KIND, {
+                  name: nextName,
+                });
+              }
+            }}
+            onChange={(event) => setLocalName(event.target.value)}
+            onKeyDown={blurOnEnter}
+          />
+        </MiniAppField>
+      ) : (
+        <ProfileReadOnlyField
+          label={ORG_MANAGER_LABELS.organizationName}
+          value={name}
         />
-      </MiniAppField>
-      {syncing && networkPending && (
+      )}
+      {networkPending && (
         <MiniAppStatePanel
           busy
           className="org-manager-profile-cover"
