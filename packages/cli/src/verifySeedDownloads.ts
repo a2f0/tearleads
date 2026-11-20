@@ -5,13 +5,15 @@ export async function checkSeedBytes(
   source: BlobByteSource,
   expected: Uint8Array,
   label: string,
+  signal?: AbortSignal,
 ) {
   const mismatch = () => new Error(`Attachment bytes differ: ${label}`);
   if (source.byteLength !== expected.byteLength) throw mismatch();
   const chunkSize = 256 * 1024;
   for (let offset = 0; offset < expected.length; offset += chunkSize) {
     const chunk = expected.subarray(offset, offset + chunkSize);
-    const downloaded = await source.read(offset, chunk.length);
+    signal?.throwIfAborted();
+    const downloaded = await source.read(offset, chunk.length, signal);
     if (
       !Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength).equals(
         downloaded,
@@ -70,12 +72,13 @@ function retryFolder(
 }
 
 const DISCOVERY_TIMEOUT_MS = 60 * 60_000;
-async function beforeDiscoveryDeadline<T>(
+export async function beforeSeedDeadline<T>(
   read: Promise<T>,
   signal: AbortSignal,
+  message = "Document discovery timed out.",
 ) {
   const expired = Promise.withResolvers<never>();
-  const stop = () => expired.reject(new Error("Document discovery timed out."));
+  const stop = () => expired.reject(new Error(message));
   if (signal.aborted) stop();
   else signal.addEventListener("abort", stop, { once: true });
   try {
@@ -98,7 +101,7 @@ async function readFolderPage<Row extends Placement>(
     AbortSignal.timeout(Math.max(0, remaining)),
   ]);
   let retryAt: number | null = null;
-  const batch = await beforeDiscoveryDeadline(
+  const batch = await beforeSeedDeadline(
     list(
       folder.id,
       (delay) => {
@@ -141,7 +144,7 @@ export async function* discoverSeedDocuments<Row extends Placement>(
     if (next.retryAt > end || now >= end)
       throw new Error(`Document discovery timed out in ${next.id}.`);
     if (next.retryAt > now)
-      await beforeDiscoveryDeadline(clock.sleep(next.retryAt - now), deadline);
+      await beforeSeedDeadline(clock.sleep(next.retryAt - now), deadline);
     const { batch, retryAt } = await readFolderPage(
       next,
       list,
@@ -150,7 +153,7 @@ export async function* discoverSeedDocuments<Row extends Placement>(
     );
     if (batch?.length) {
       yield* linkedRows(next.id, batch, (ids) =>
-        beforeDiscoveryDeadline(listLinks(ids), deadline),
+        beforeSeedDeadline(listLinks(ids), deadline),
       );
       remaining.unshift({
         id: next.id,

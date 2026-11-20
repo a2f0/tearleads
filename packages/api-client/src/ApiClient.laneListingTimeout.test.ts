@@ -200,3 +200,40 @@ testApiClient(
     }
   },
 );
+
+testApiClient(
+  "a cancelled document listing preserves the concurrent caller's failure",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    const controller = new AbortController();
+    const first = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<Response>();
+    let calls = 0;
+    globalThis.fetch = Object.assign(async () => {
+      if (++calls === 1) {
+        first.resolve();
+        return release.promise;
+      }
+      return Response.json({ error: "Current failure" }, { status: 503 });
+    }, realFetch);
+    const input = {
+      lanes: [{ containerId: "container-1", laneId: "0", watermark: null }],
+    };
+    const failure = () =>
+      client.getRequestFailure({ method: "POST", path: listingPaths.document });
+    try {
+      const stale = client.listContainerDocumentLanes(input, {
+        signal: controller.signal,
+      });
+      await first.promise;
+      await client.listContainerDocumentLanes(input);
+      expect(failure()?.status).toBe(503);
+      controller.abort();
+      release.resolve(Response.json({ error: "Retired" }, { status: 404 }));
+      expect(await stale).toBeNull();
+      expect(failure()?.status).toBe(503);
+    } finally {
+      release.resolve(Response.json({ results: [] }));
+    }
+  },
+);

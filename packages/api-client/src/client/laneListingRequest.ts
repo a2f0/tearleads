@@ -35,8 +35,13 @@ export async function laneListingRequest<T>(
   const signIn = context.runtime.responseRequest.sessionSignal?.();
   // Report only after classifying: an abort inside the body otherwise
   // surfaces as a body-read failure before it is known to be the deadline.
+  const caller = input.signal;
   const deadline = requestDeadline(
-    { reportErrors: false, signal: input.signal },
+    {
+      reportErrors: false,
+      signal: caller,
+      stillCurrent: caller && (() => !caller.aborted),
+    },
     CONTAINER_LANE_LISTING_TIMEOUT_MS,
   );
   try {

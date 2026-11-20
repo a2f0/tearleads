@@ -20,7 +20,11 @@ import {
   checkSeedRoots,
   checkStoredAttachments,
 } from "../verifySeedContent";
-import { checkSeedBytes, discoverSeedDocuments } from "../verifySeedDownloads";
+import {
+  beforeSeedDeadline,
+  checkSeedBytes,
+  discoverSeedDocuments,
+} from "../verifySeedDownloads";
 import { withSavedSession } from "./account";
 
 type Assets = Awaited<ReturnType<typeof loadContinuityAssets>>;
@@ -32,10 +36,11 @@ async function verifyDocument(
   fixture: FixtureInput,
   localId: string,
   prepared: Awaited<ReturnType<typeof prepareContinuityAttachments>>,
+  signal: AbortSignal,
 ) {
   if (
     !(await store.ensureInitialized()) ||
-    !(await store.requestRemoteSyncAndWait(AbortSignal.timeout(120_000)))
+    !(await store.requestRemoteSyncAndWait(signal))
   )
     throw new Error(`Could not sync ${fixture.document.key}`);
   const snapshot = store.getSnapshot();
@@ -83,9 +88,10 @@ async function verifyDocument(
       throw new Error(`Attachment metadata differs: ${label}`);
     const storageKey = snapshot.attachmentStorageKeyBySlotId[intent.slotId];
     const source =
-      storageKey && (await session.sdk.blobs.store.openByteSource(storageKey));
+      storageKey &&
+      (await session.sdk.blobs.store.openByteSource(storageKey, signal));
     if (!source) throw new Error(`Missing attachment bytes: ${label}`);
-    await checkSeedBytes(source, original, label);
+    await checkSeedBytes(source, original, label, signal);
     bytes += original.byteLength;
     session.tracer.event(
       `verified ${intent.name} (${original.byteLength} bytes)`,
@@ -115,15 +121,42 @@ async function expectedFixtures(
   return expected;
 }
 
+async function checkSeedPlacement(
+  session: CliSession,
+  documentId: string,
+  containerId: string,
+  fixtureKey: string,
+  deadline: AbortSignal,
+) {
+  const lookup = createDocumentHeadLinkSetLoader(
+    session.sdk.containerContents.workflowRuntime(),
+    undefined,
+    undefined,
+    deadline,
+  );
+  const head = await beforeSeedDeadline(
+    lookup(documentId, undefined, session.userId),
+    deadline,
+  );
+  if (
+    !head ||
+    head === "not-found" ||
+    !head.accessStateHash ||
+    head.organizationId !== session.sdk.session.organizationId ||
+    !head.linkedContainerIds.includes(containerId)
+  ) {
+    throw new Error(
+      `Could not verify seed creator and placement: ${fixtureKey}`,
+    );
+  }
+}
+
 async function verifyFixtures(
   session: CliSession,
   account: Awaited<ReturnType<typeof resolveSeedAccount>>,
   assets: Assets,
 ) {
   const expected = await expectedFixtures(account, assets);
-  const lookup = createDocumentHeadLinkSetLoader(
-    session.sdk.containerContents.workflowRuntime(),
-  );
   const documents = expected.size;
   let bytes = 0;
   let attachments = 0;
@@ -145,18 +178,14 @@ async function verifyFixtures(
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);
     if (!fixture) continue;
-    const head = await lookup(row.documentId, undefined, session.userId);
-    if (
-      !head ||
-      head === "not-found" ||
-      !head.accessStateHash ||
-      head.organizationId !== session.sdk.session.organizationId ||
-      !head.linkedContainerIds.includes(containerId)
-    ) {
-      throw new Error(
-        `Could not verify seed creator and placement: ${fixture.document.key}`,
-      );
-    }
+    const deadline = AbortSignal.timeout(120_000);
+    await checkSeedPlacement(
+      session,
+      row.documentId,
+      containerId,
+      fixture.document.key,
+      deadline,
+    );
     const prepared = await prepareContinuityAttachments(fixture);
     const runtime = session.sdk.documents.workflowRuntime(containerId);
     const store = session.sdk.documents.open(
@@ -188,7 +217,11 @@ async function verifyFixtures(
       },
     );
     bytes += await session.tracer.span(`read ${fixture.document.key}`, () =>
-      verifyDocument(session, store, fixture, row.id, prepared),
+      beforeSeedDeadline(
+        verifyDocument(session, store, fixture, row.id, prepared, deadline),
+        deadline,
+        `Timed out verifying ${fixture.document.key}.`,
+      ),
     );
     attachments += fixture.document.attachments.length;
     expected.delete(row.documentId);

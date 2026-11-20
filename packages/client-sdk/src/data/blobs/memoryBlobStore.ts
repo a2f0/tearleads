@@ -14,7 +14,8 @@ class MemoryBlobStore implements BlobStore {
     this.bytesByKey.delete(storageKey);
   }
 
-  async openByteSource(storageKey: string) {
+  async openByteSource(storageKey: string, signal?: AbortSignal) {
+    signal?.throwIfAborted();
     const bytes = this.bytesByKey.get(storageKey);
     return bytes ? createBlobByteSource(bytes) : null;
   }

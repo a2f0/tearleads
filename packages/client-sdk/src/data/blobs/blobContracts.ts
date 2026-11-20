@@ -21,7 +21,10 @@ export interface BlobStore {
     storageKey: string,
     assertCurrent?: () => void,
   ) => Promise<void>;
-  openByteSource: (storageKey: string) => Promise<BlobByteSource | null>;
+  openByteSource: (
+    storageKey: string,
+    signal?: AbortSignal,
+  ) => Promise<BlobByteSource | null>;
   readBytes: (storageKey: string) => Promise<BlobBytes | null>;
   writeByteSource: (
     storageKey: string,
@@ -52,6 +55,23 @@ export function assertReadRange(
   assertByteLength(byteLength, "Blob byte source read length");
   if (offset + byteLength > sourceByteLength) {
     throw new Error("Blob byte source read exceeds the source length.");
+  }
+}
+
+/** Release the caller's wait on a read-only host operation when its scope expires. */
+export async function waitForBlobRead<T>(
+  read: Promise<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!signal) return read;
+  const stopped = Promise.withResolvers<never>();
+  const abort = () => stopped.reject(signal.reason);
+  if (signal.aborted) abort();
+  else signal.addEventListener("abort", abort, { once: true });
+  try {
+    return await Promise.race([read, stopped.promise]);
+  } finally {
+    signal.removeEventListener("abort", abort);
   }
 }
 

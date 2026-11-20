@@ -1,4 +1,8 @@
-import type { BlobByteSource, BlobStore } from "../../data/blobs/blobContracts";
+import {
+  type BlobByteSource,
+  type BlobStore,
+  waitForBlobRead,
+} from "../../data/blobs/blobContracts";
 import { createKeyedQueue } from "../../data/shared/keyedQueue";
 
 const queues = new WeakMap<BlobStore, ReturnType<typeof createKeyedQueue>>();
@@ -45,9 +49,14 @@ export function createSessionBlobStore(
       queue(key, () =>
         guarded(() => store.deleteBytes(key, commitGuard(check))),
       ),
-    openByteSource: (key) =>
+    openByteSource: (key, signal) =>
       queue(key, async () => {
-        const source = await guarded(() => store.openByteSource(key));
+        signal?.throwIfAborted();
+        const source = await guarded(() =>
+          signal
+            ? waitForBlobRead(store.openByteSource(key, signal), signal)
+            : store.openByteSource(key),
+        );
         return source && currentSource(source);
       }),
     readBytes: (key) => queue(key, () => guarded(() => store.readBytes(key))),

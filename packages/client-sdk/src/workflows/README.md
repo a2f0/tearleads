@@ -297,7 +297,7 @@ bounds verification reads to known file sizes. The facade also exports
 `createLazyEncryptedBlobStore` for async keyring providers. Stores implement
 `BlobByteSource` through `openByteSource` and `writeByteSource` for replayable
 range reads and multipart uploads bounded by the 5 MiB chunk size. A browser
-preview can cancel a range read by passing an abort signal to `source.read`.
+preview can pass an abort signal to `openByteSource` and `source.read`.
 
 Local keyring variants, including WebView and PIN-code wrapping helpers, are
 client-facade exports rather than workflow facades. Keep platform keychain

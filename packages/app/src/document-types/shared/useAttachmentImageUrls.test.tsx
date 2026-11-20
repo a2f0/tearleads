@@ -216,7 +216,7 @@ test("a fifth preview loads after four filesystem reads time out", async () => {
   }
 });
 
-test("a sync retry joins a still-open preview without starting another filesystem operation", async () => {
+test("a sync retry reopens an abandoned preview after its last waiter times out", async () => {
   const store = createMemoryBlobStore();
   await store.writeBytes("photo", new Uint8Array([1]));
   const open = store.openByteSource.bind(store);
@@ -245,12 +245,11 @@ test("a sync retry joins a still-open preview without starting another filesyste
     );
     rerender({ syncing: false });
     await act(async () => first.abort());
-    expect(attempts).toBe(1);
-    await act(async () => stalled.resolve(await open("photo")));
+    await waitFor(() => expect(attempts).toBe(2));
     await waitFor(() =>
       expect(Object.values(result.current.imageUrlBySlotId)).toHaveLength(1),
     );
-    expect(attempts).toBe(1);
+    expect(attempts).toBe(2);
   } finally {
     stalled.resolve(null);
     deadline.mockRestore();

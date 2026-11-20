@@ -251,6 +251,30 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       signer.mockRestore();
     }
     output.stderr.length = 0;
+    const deadline = new AbortController();
+    const nativeTimeout = AbortSignal.timeout.bind(AbortSignal);
+    const timers = spyOn(AbortSignal, "timeout").mockImplementation((ms) =>
+      ms === 120_000 ? deadline.signal : nativeTimeout(ms),
+    );
+    const stalled = spyOn(
+      sdkModule,
+      "createDocumentHeadLinkSetLoader",
+    ).mockImplementation((_runtime, _deps, _policy, signal) => async () => {
+      if (signal !== deadline.signal)
+        throw new Error("Missing creator lookup deadline");
+      deadline.abort();
+      return new Promise<never>(() => {});
+    });
+    try {
+      expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(
+        1,
+      );
+      expect(output.stderr.at(-1)).toContain("Document discovery timed out");
+    } finally {
+      stalled.mockRestore();
+      timers.mockRestore();
+    }
+    output.stderr.length = 0;
     const createStore = sdkModule.createMemoryBlobStore;
     const stores = spyOn(sdkModule, "createMemoryBlobStore").mockImplementation(
       () => {
