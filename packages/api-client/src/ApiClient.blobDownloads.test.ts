@@ -253,3 +253,31 @@ testApiClient(
     }
   },
 );
+
+testApiClient(
+  "a descriptor exceeding the metadata limit counts as an invalid response",
+  async () => {
+    const client = new ApiClient(apiBaseUrl, {
+      metrics: new ApiRequestMetrics(),
+      getIdentity: () => null,
+      streamingDownloads: true,
+    });
+    const offline = mock(() => {});
+    client.setOnNetworkError(offline);
+    server.use(
+      http.get(downloadPath, () =>
+        HttpResponse.json({ ...descriptor, extra: "x".repeat(65537) }),
+      ),
+    );
+    expect(
+      await client.getBlobBytes(blobId, { maxEncryptedByteLength: 20 }),
+    ).toBeNull();
+    expect(
+      client.getRequestFailure({
+        method: "GET",
+        path: `/blobs/${blobId}/download`,
+      }),
+    ).toMatchObject({ kind: "json" });
+    expect(offline).not.toHaveBeenCalled();
+  },
+);

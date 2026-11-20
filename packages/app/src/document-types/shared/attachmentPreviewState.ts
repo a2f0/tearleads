@@ -9,9 +9,10 @@ export type AttachmentPreview =
 
 export function transitionAttachmentPreview(
   current: AttachmentPreview,
-  event: { status: "start" } | PreviewResult,
+  event: { status: "start" } | { status: "retry" } | PreviewResult,
 ): AttachmentPreview {
   if (event.status === "start")
     return current.status === "queued" ? { status: "loading" } : current;
-  return current.status === "loading" ? event : current;
+  if (current.status !== "loading") return current;
+  return event.status === "retry" ? { status: "queued" } : event;
 }

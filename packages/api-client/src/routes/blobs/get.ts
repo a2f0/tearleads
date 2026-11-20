@@ -150,8 +150,16 @@ async function fetchSignedBlob(
       await response.body?.cancel().catch(() => {});
       return response.status === 403 ? "retry" : "fallback";
     }
-    if (options.maxEncryptedByteLength !== undefined && !response.body)
-      return "fallback";
+    if (options.maxEncryptedByteLength !== undefined) {
+      if (!response.body) return "fallback";
+      if (
+        Number(response.headers.get("Content-Length")) >
+        options.maxEncryptedByteLength
+      ) {
+        void response.body.cancel().catch(() => {});
+        return "fallback";
+      }
+    }
     return await signedBlobResponse(descriptor, response, options);
   } catch {
     // The downstream SDK still verifies length, hash and authenticated

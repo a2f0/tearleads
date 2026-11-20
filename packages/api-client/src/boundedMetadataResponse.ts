@@ -1,4 +1,5 @@
 /** Only a streaming host sets this option on the requests used for bounded blob reads. */
+export class MetadataSizeError extends Error {}
 export const boundedMetadata = Symbol("boundedMetadata");
 const MAX_METADATA_BYTES = 64 * 1024;
 
@@ -32,7 +33,9 @@ export function boundedMetadataResponse(
             bytes += next.value.byteLength;
             if (bytes > MAX_METADATA_BYTES) {
               void reader.cancel().catch(() => {});
-              throw new Error("Blob response metadata exceeds its size limit");
+              throw new MetadataSizeError(
+                "Blob response metadata exceeds its size limit",
+              );
             }
             controller.enqueue(next.value);
           } catch (error) {

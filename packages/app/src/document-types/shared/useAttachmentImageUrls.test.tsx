@@ -213,3 +213,42 @@ test("a fifth preview loads after four filesystem reads time out", async () => {
     timeout.mockRestore();
   }
 });
+
+test("a sync completed during a timed-out preview gives that slot one more read", async () => {
+  const store = createMemoryBlobStore();
+  await store.writeBytes("photo", new Uint8Array([1]));
+  const open = store.openByteSource.bind(store);
+  const stalled = Promise.withResolvers<null>();
+  let attempts = 0;
+  store.openByteSource = (key) =>
+    ++attempts === 1 ? stalled.promise : open(key);
+  const first = new AbortController();
+  const deadline = spyOn(AbortSignal, "timeout").mockReturnValueOnce(
+    first.signal,
+  );
+  const slots = [
+    {
+      slotId: "p",
+      name: "photo",
+      mimeType: "image/png",
+      byteLength: 1,
+      contentSha256: "0".repeat(64),
+    },
+  ];
+  try {
+    const { result, rerender } = renderHook(
+      ({ syncing }) =>
+        useAttachmentImageUrls(slots, { p: "photo" }, store, syncing),
+      { initialProps: { syncing: true } },
+    );
+    rerender({ syncing: false });
+    await act(async () => first.abort());
+    await waitFor(() =>
+      expect(Object.values(result.current.imageUrlBySlotId)).toHaveLength(1),
+    );
+    expect(attempts).toBe(2);
+  } finally {
+    stalled.resolve(null);
+    deadline.mockRestore();
+  }
+});

@@ -52,19 +52,6 @@ async function load(
   return { status: "unavailable" };
 }
 
-async function loadAcrossRefresh(
-  request: Request,
-  current: () => boolean,
-  generation: () => number,
-) {
-  for (;;) {
-    const started = generation();
-    const result = await load(request, current);
-    if (result.status === "ready" || !current() || generation() === started)
-      return result;
-  }
-}
-
 async function updatePreview(
   slot: string,
   entry: Entry,
@@ -74,26 +61,28 @@ async function updatePreview(
 ) {
   const current = () => activeEntries.get(slot) === entry;
   if (!current()) return;
+  const started = generation();
   const deadline = AbortSignal.timeout(30_000);
   const expired = Promise.withResolvers<PreviewResult>();
   const expire = () => expired.resolve({ status: "unavailable" });
   deadline.addEventListener("abort", expire, { once: true });
   const result = await Promise.race([
     expired.promise,
-    loadAcrossRefresh(
-      entry.request,
-      () => current() && !deadline.aborted,
-      generation,
-    ),
+    load(entry.request, () => current() && !deadline.aborted),
   ]);
   deadline.removeEventListener("abort", expire);
   if (!current()) {
     release(result);
     return;
   }
+  const retry = result.status === "unavailable" && generation() !== started;
+  if (retry) activeEntries.delete(slot); // Give waiting slots their turn before a retry.
   activeEntries.set(slot, {
     request: entry.request,
-    preview: transitionAttachmentPreview(entry.preview, result),
+    preview: transitionAttachmentPreview(
+      entry.preview,
+      retry ? { status: "retry" } : result,
+    ),
   });
   publish(new Map(activeEntries));
 }

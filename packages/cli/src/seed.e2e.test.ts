@@ -21,6 +21,8 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
   await initializeApiDatabase();
   let interruptUpload = true;
   let staleTarget = false;
+  let legacyDownloads = false;
+  let legacyByteReads = 0;
   const contentRequests: string[] = [];
   const missing = Promise.withResolvers<void>();
   const firstMissing = Promise.withResolvers<void>();
@@ -35,6 +37,11 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     port: 0,
     fetch: async (request) => {
       const path = new URL(request.url).pathname;
+      if (legacyDownloads && path.startsWith("/blobs/")) {
+        if (path.endsWith("/download"))
+          return Response.json({ error: "Not found" }, { status: 404 });
+        if (path.endsWith("/bytes")) legacyByteReads++;
+      }
       if (/^\/(containers|documents|blobs)\//u.test(path))
         contentRequests.push(path);
       if (
@@ -207,6 +214,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     output.stderr.length = 0;
     await run(true);
     expect(staleTarget).toBe(false);
+    legacyDownloads = true;
     expect(
       await runCli(
         ["verify-seed", "--env", "staging", "--key-stdin"],
@@ -214,6 +222,8 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       ),
       oneTime.output.stderr.join("\n"),
     ).toBe(0);
+    legacyDownloads = false;
+    expect(legacyByteReads).toBeGreaterThan(0);
     for (const call of keychainCalls) expect(call).not.toHaveBeenCalled();
     expect(oneTime.keyStore.items.get("staging")).toBe(spec.identitySeedPhrase);
     expect(oneTime.output.stdout.at(-1)).toContain(
