@@ -2,13 +2,17 @@ import { expect, test } from "@playwright/test";
 import { controlPixels } from "./controlPixels";
 import { themeForeground } from "./themeForeground";
 
-test.use({ hasTouch: true });
+test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 
 test("History slider paints and seeks across browser engines", {
   tag: "@themed-control",
 }, async ({ browserName, page }) => {
   // Load the production CSS independently of a browser's local database support.
-  await page.goto("/");
+  await page.goto("/app/explorer");
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-navigation-mode",
+    "routed",
+  );
   await expect(page.locator("html")).toHaveAttribute("data-theme", /.+/);
   const control = page.locator("#test-history-slider");
   await page.evaluate(() => {
@@ -51,7 +55,8 @@ test("History slider paints and seeks across browser engines", {
     accents.add(accent);
   }
   expect(accents.size).toBe(3);
-  await control.tap({ position: { x: 1, y: 12 } });
+  expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  await control.tap({ position: { x: 2, y: 4 } });
   await expect(control).toHaveValue("0");
   await page.emulateMedia({ forcedColors: "active" });
   const forcedColorsActive = await page.evaluate(
