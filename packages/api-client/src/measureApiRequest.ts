@@ -1,5 +1,6 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
+import type { ResourceRequestActivity } from "./resourceRequestActivity";
 import { parseServerTiming, serverTimingHeaderName } from "./serverTiming";
 
 type FinishMeasurement = ReturnType<
@@ -10,13 +11,15 @@ type Outcome = Parameters<FinishMeasurement>[0];
 function beginMeasurement(
   instrumentation: ApiRequestInstrumentation | undefined,
   operation: HttpOperation,
+  activity?: ResourceRequestActivity,
 ): (outcome: Outcome, response?: Response) => void {
   let finish: FinishMeasurement | undefined;
   try {
-    finish = instrumentation?.metrics.begin(
-      instrumentation.getIdentity(),
-      operation,
-    );
+    if (instrumentation) {
+      const identity = instrumentation.getIdentity();
+      finish = instrumentation.metrics.begin(identity, operation);
+      activity?.start(instrumentation.metrics, identity, operation);
+    }
   } catch {
     // Optional host instrumentation must not prevent HTTP dispatch.
   }
@@ -42,8 +45,9 @@ export async function measureApiRequest(
   operation: HttpOperation,
   fetchResponse: () => Promise<Response>,
   signal: AbortSignal | undefined,
+  activity?: ResourceRequestActivity,
 ): Promise<Response> {
-  const finish = beginMeasurement(instrumentation, operation);
+  const finish = beginMeasurement(instrumentation, operation, activity);
   try {
     const response = await fetchResponse();
     finish(
@@ -52,6 +56,7 @@ export async function measureApiRequest(
     );
     return response;
   } catch (error) {
+    activity?.finish();
     finish(signal?.aborted ? "cancelled" : "failed");
     throw error;
   }

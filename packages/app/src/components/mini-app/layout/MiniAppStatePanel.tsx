@@ -11,6 +11,7 @@ import "./MiniAppStatePanel.css";
  */
 export function MiniAppStatePanel({
   busy = false,
+  showSpinner = busy,
   children,
   className,
   description,
@@ -18,6 +19,8 @@ export function MiniAppStatePanel({
   title,
 }: {
   busy?: boolean | undefined;
+  /** A busy panel may announce local work without animating a spinner. */
+  showSpinner?: boolean | undefined;
   /** Actions and follow-up messages, rendered under the copy. */
   children?: ReactNode;
   className?: string | undefined;
@@ -35,7 +38,7 @@ export function MiniAppStatePanel({
       )}
       role={busy ? "status" : undefined}
     >
-      {busy ? (
+      {busy && showSpinner ? (
         <span className="mini-app-state-panel-spinner" aria-hidden="true" />
       ) : icon ? (
         <span className="mini-app-state-panel-icon" aria-hidden="true">

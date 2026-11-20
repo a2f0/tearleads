@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { documentSyncOperation } from "@tearleads/validators/operation";
 import { HttpResponse, http } from "msw";
 import {
   createDocumentCreateRequest,
@@ -16,6 +17,7 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
+import { ApiRequestMetrics } from "./apiRequestMetrics";
 
 testApiClient(
   "posts signed document link-set mutations to the route namespace",
@@ -59,8 +61,14 @@ testApiClient(
   "posts signed document create and sync mutations to the route namespace",
   async () => {
     const calls: CapturedHttpCall[] = [];
+    const metrics = new ApiRequestMetrics();
+    const documentId = "document /%雪";
+    const syncInFlight = () =>
+      metrics.isResourceInFlight("alice", documentSyncOperation, documentId);
+    const activityAtDispatch: boolean[] = [];
     server.use(
       http.all(`${apiBaseUrl}/*`, async ({ request }) => {
+        activityAtDispatch.push(syncInFlight());
         calls.push(await captureHttpCall(request));
         const body = request.url.endsWith("/sync")
           ? createDocumentSyncResponse()
@@ -69,13 +77,18 @@ testApiClient(
       }),
     );
 
-    const client = new ApiClient(apiBaseUrl);
+    const client = new ApiClient(apiBaseUrl, {
+      metrics,
+      getIdentity: () => "alice",
+    });
     const createRequest = createDocumentCreateRequest();
     const syncRequest = createDocumentSyncRequest();
-    const documentId = "document /%雪";
 
     expect(await client.createDocument(createRequest)).not.toBeNull();
     expect(await client.syncDocument(documentId, syncRequest)).not.toBeNull();
+
+    expect(activityAtDispatch).toEqual([false, true]);
+    expect(syncInFlight()).toBe(false);
 
     expect(
       calls.map((call) => ({
