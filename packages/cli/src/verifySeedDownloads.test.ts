@@ -85,3 +85,29 @@ test("deferred head verification waits for the SDK retry time", async () => {
     throw new Error("Unexpected fixture");
   expect(seen).toEqual([0, 900_000]);
 });
+
+test.each(["listing", "links"])(
+  "discovery stops a pending %s at its deadline",
+  async (stage) => {
+    const deadline = new AbortController();
+    const entered = Promise.withResolvers<void>();
+    const stalled = async (): Promise<never> => {
+      entered.resolve();
+      return new Promise(() => {});
+    };
+    const rows = discoverSeedDocuments(
+      [{ id: "root", organizationId: "org", parentId: null, systemSlot: null }],
+      () =>
+        stage === "listing"
+          ? stalled()
+          : Promise.resolve([{ documentId: "fixture" }]),
+      stalled,
+      undefined,
+      deadline.signal,
+    );
+    const read = rows.next();
+    await entered.promise;
+    deadline.abort();
+    await expect(read).rejects.toThrow("Document discovery timed out");
+  },
+);

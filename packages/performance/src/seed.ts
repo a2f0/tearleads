@@ -75,7 +75,10 @@ async function main() {
             stdin: new TextEncoder().encode(key),
             stdout: "inherit",
             stderr: "inherit",
-            signal: AbortSignal.timeout(30 * 60 * 1000),
+            // Verification allows an hour for discovery plus per-document reads and logout.
+            signal: AbortSignal.timeout(
+              (command === "verify-seed" ? 120 : 30) * 60_000,
+            ),
           },
         );
         if ((await child.exited) !== 0) throw new Error(`${command} failed.`);

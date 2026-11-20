@@ -69,6 +69,22 @@ function retryFolder(
   };
 }
 
+const DISCOVERY_TIMEOUT_MS = 60 * 60_000;
+async function beforeDiscoveryDeadline<T>(
+  read: Promise<T>,
+  signal: AbortSignal,
+) {
+  const expired = Promise.withResolvers<never>();
+  const stop = () => expired.reject(new Error("Document discovery timed out."));
+  if (signal.aborted) stop();
+  else signal.addEventListener("abort", stop, { once: true });
+  try {
+    return await Promise.race([read, expired.promise]);
+  } finally {
+    signal.removeEventListener("abort", stop);
+  }
+}
+
 export async function* discoverSeedDocuments<Row extends Placement>(
   folders: ReadonlyArray<
     Pick<ContainerNode, "id" | "organizationId" | "parentId" | "systemSlot">
@@ -76,6 +92,7 @@ export async function* discoverSeedDocuments<Row extends Placement>(
   list: ListPage<Row>,
   listLinks: ListLinks,
   clock = { now: () => Date.now(), sleep: (ms: number) => Bun.sleep(ms) },
+  deadline = AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
 ) {
   const byId = new Map(folders.map((node) => [node.id, node]));
   const remaining: FolderRead[] = folders
@@ -89,7 +106,7 @@ export async function* discoverSeedDocuments<Row extends Placement>(
     .map(({ id }) => ({ id, retryAt: 0 }));
   // Persistent head verification can defer a folder for 15 minutes. Give other
   // folders a turn and observe the SDK delay without polling a held head.
-  const end = clock.now() + 60 * 60_000;
+  const end = clock.now() + DISCOVERY_TIMEOUT_MS;
   while (remaining.length) {
     remaining.sort((a, b) => a.retryAt - b.retryAt);
     const next = remaining.shift();
@@ -97,14 +114,23 @@ export async function* discoverSeedDocuments<Row extends Placement>(
     const now = clock.now();
     if (next.retryAt > end || now >= end)
       throw new Error(`Document discovery timed out in ${next.id}.`);
-    if (next.retryAt > now) await clock.sleep(next.retryAt - now);
+    if (next.retryAt > now)
+      await beforeDiscoveryDeadline(clock.sleep(next.retryAt - now), deadline);
     let retryDelay: number | null = null;
-    const batch = await list(next.id, (delay) => {
-      retryDelay = delay;
-    });
+    const batch = await beforeDiscoveryDeadline(
+      list(next.id, (delay) => {
+        retryDelay = delay;
+      }),
+      deadline,
+    );
     if (batch?.length) {
-      yield* linkedRows(next.id, batch, listLinks);
-      remaining.unshift({ id: next.id, retryAt: 0 });
+      yield* linkedRows(next.id, batch, (ids) =>
+        beforeDiscoveryDeadline(listLinks(ids), deadline),
+      );
+      remaining.unshift({
+        id: next.id,
+        retryAt: clock.now() + Math.max(0, retryDelay ?? 0),
+      });
     } else if (!batch || retryDelay !== null) {
       remaining.push(retryFolder(next, retryDelay, clock.now()));
     }

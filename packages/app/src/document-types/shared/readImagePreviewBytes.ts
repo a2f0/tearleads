@@ -37,6 +37,7 @@ export async function readImagePreviewBytes(
   store: BlobStore,
   key: string,
   retired: AbortSignal,
+  onCapacity: (status: "start" | "waiting-for-reader") => void,
 ) {
   const source = await withReadDeadline(store.openByteSource(key), retired);
   if (!source || !isAutomaticBlobPreviewAllowed(source)) return null;
@@ -45,8 +46,12 @@ export async function readImagePreviewBytes(
     pool = { count: 0, events: new EventTarget() };
     readers.set(store, pool);
   }
-  while (!retired.aborted && pool.count >= MAX_IMAGE_PREVIEW_READS)
-    await waitForReader(pool.events, retired);
+  if (pool.count >= MAX_IMAGE_PREVIEW_READS) {
+    onCapacity("waiting-for-reader");
+    while (!retired.aborted && pool.count >= MAX_IMAGE_PREVIEW_READS)
+      await waitForReader(pool.events, retired);
+    if (!retired.aborted) onCapacity("start");
+  }
   if (retired.aborted) return null;
   const active = pool;
   const read = async () => {

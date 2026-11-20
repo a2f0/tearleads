@@ -295,6 +295,7 @@ test("a replacement waits for active byte reads to release memory", async () => 
     await waitFor(() => expect(active).toBe(4));
     await act(async () => rerender({ key: "new" }));
     expect(maxActive).toBe(4);
+    expect(result.current.loadingPreviewSlots.size).toBe(0);
     await act(async () => {
       for (const deadline of deadlines) deadline.abort();
     });

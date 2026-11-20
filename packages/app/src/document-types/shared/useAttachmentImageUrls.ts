@@ -37,12 +37,14 @@ async function load(
   request: Request,
   current: () => boolean,
   deadline: AbortSignal,
+  onCapacity: (status: "start" | "waiting-for-reader") => void,
 ): Promise<PreviewResult> {
   try {
     const bytes = await readImagePreviewBytes(
       request.blobStore,
       request.storageKey,
       deadline,
+      onCapacity,
     );
     if (bytes && current())
       return {
@@ -62,10 +64,24 @@ async function updatePreview(
   generation: () => number,
   publish: (entries: ReadonlyMap<string, Entry>) => void,
 ) {
-  const current = () => activeEntries.get(slot) === entry;
+  const current = () => !entry.lifetime.signal.aborted;
   if (!current()) return;
   const started = generation();
-  const result = await load(entry.request, current, entry.lifetime.signal);
+  const result = await load(
+    entry.request,
+    current,
+    entry.lifetime.signal,
+    (status) => {
+      if (!current()) return;
+      const currentEntry = activeEntries.get(slot);
+      if (!currentEntry) return;
+      activeEntries.set(slot, {
+        ...currentEntry,
+        preview: transitionAttachmentPreview(currentEntry.preview, { status }),
+      });
+      publish(new Map(activeEntries));
+    },
+  );
   if (!current()) {
     release(result);
     return;
@@ -109,7 +125,8 @@ function startQueuedPreviews(
 ) {
   let available = MAX_IMAGE_PREVIEW_READS;
   for (const { preview } of active.values())
-    if (preview.status === "loading") available--;
+    if (preview.status === "loading" || preview.status === "waiting-for-reader")
+      available--;
   for (const [slot, entry] of active) {
     if (available === 0) break;
     if (entry.preview.status !== "queued") continue;
@@ -200,7 +217,7 @@ export function useAttachmentImageUrls(
       const entry = entries.get(slot);
       const preview = sameSource(entry, request) ? entry?.preview : undefined;
       if (preview?.status === "ready") imageUrlBySlotId[slot] = preview.url;
-      else if (preview?.status !== "unavailable") loadingPreviewSlots.add(slot);
+      else if (preview?.status === "loading") loadingPreviewSlots.add(slot);
     }
     return { imageUrlBySlotId, loadingPreviewSlots };
   }, [entries, requests]);
