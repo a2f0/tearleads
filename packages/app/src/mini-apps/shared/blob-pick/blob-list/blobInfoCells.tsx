@@ -10,6 +10,7 @@ import {
   type MiniAppCompactTableField,
   MiniAppTableActionButton,
   MiniAppTableCell,
+  MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
 import { classNames } from "../../../../components/shared/classNames";
 import { getAttachmentFileType } from "../../../../document-types/shared/attachmentFileType";
@@ -198,7 +199,9 @@ export function renderBlobInfoCell(params: {
       );
     case "mime":
       return (
-        <MiniAppTableCell key="mime">{blob.mimeType ?? "-"}</MiniAppTableCell>
+        <MiniAppTableCell key="mime" title={blob.mimeType ?? undefined}>
+          <MiniAppTableText>{blob.mimeType ?? "-"}</MiniAppTableText>
+        </MiniAppTableCell>
       );
     case "size":
       return (

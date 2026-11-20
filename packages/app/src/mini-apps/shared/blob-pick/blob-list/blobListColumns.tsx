@@ -101,11 +101,10 @@ function buildBlobInfoColumn(
 
   switch (id) {
     case "blob":
-      // Thumbnail-only column: keep it tight and let mime absorb the slack.
       return {
         header: getBlobInfoColumnLabel(id),
         id,
-        width: "4rem",
+        width: "var(--blob-list-identity-width, 4rem)",
       };
     case "organization":
       return {
@@ -118,16 +117,14 @@ function buildBlobInfoColumn(
         ariaSort: getMiniAppTableSortAria(sort, "mimeType"),
         header: sortableHeader("mimeType", getBlobInfoColumnLabel(id)),
         id,
-        // No fixed width: this is the flexible column that soaks up leftover
-        // space now that the identity column is a narrow thumbnail.
-        width: undefined,
+        width: "10rem",
       };
     case "size":
       return {
         ariaSort: getMiniAppTableSortAria(sort, "byteLength"),
         header: sortableHeader("byteLength", getBlobInfoColumnLabel(id)),
         id,
-        width: "7rem",
+        width: "5rem",
       };
     case "references":
       return {
@@ -177,7 +174,7 @@ function buildBlobInfoSummaryColumn(params: {
   };
 }
 
-export function getBlobInfoColumns(params: {
+export function getBlobInfoTableLayout(params: {
   // A folded list — a phone, or any pane too narrow for the columns — replaces
   // the data columns with one two-line summary column.
   compact: boolean;
@@ -185,13 +182,24 @@ export function getBlobInfoColumns(params: {
   includeSync: boolean;
   onSort: (key: BlobInfoSortKey) => void;
   sort: BlobInfoSort;
-}): ReadonlyArray<MiniAppTableColumn> {
+}) {
   if (params.compact) {
-    return [buildBlobInfoSummaryColumn(params)];
+    return {
+      columns: [buildBlobInfoSummaryColumn(params)],
+      minWidth: undefined,
+    };
   }
 
-  return getVisibleBlobInfoColumnIds(
+  const visible = getVisibleBlobInfoColumnIds(
     params.hiddenColumns,
     params.includeSync,
   ).map((id) => buildBlobInfoColumn(id, params));
+  // Reserve enough space for every visible field, then let the last one take
+  // the spare width so earlier fields stay together on a wide screen.
+  return {
+    columns: visible.map((column, index) =>
+      index === visible.length - 1 ? { ...column, width: undefined } : column,
+    ),
+    minWidth: `calc(${visible.map((column) => column.width).join(" + ")})`,
+  };
 }

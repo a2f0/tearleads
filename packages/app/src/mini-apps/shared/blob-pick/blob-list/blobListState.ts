@@ -14,6 +14,10 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
+import {
+  loadStoredPreference,
+  saveStoredPreference,
+} from "../../../../utils/storedPreference";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import {
   type BlobSelectionState,
@@ -51,30 +55,23 @@ export function getBlobChangedAt(blob: BlobInfo): string | null {
   return blob.updatedAt ?? blob.createdAt;
 }
 
-/**
- * The one row pitch for the blob list, and whether the row folds into a
- * two-line summary.
- *
- * Three places have to agree on the pitch — the virtual window math (which
- * derives the fetched limit/offset), the spacer padding, and the frame's
- * `--mini-app-virtual-row-height` — or the served rows land in a window the
- * table is not showing. That is why this takes `narrowFrame` as an argument
- * rather than measuring: this hook owns the scroll frame, so it measures once
- * and hands the result to the table, which cannot derive a disagreeing answer.
- *
- * `useTouchRowHeight` mirrors the bump `useMiniAppVirtualWindow` already applies
- * internally, so the rendered pitch and the window math also agree on routed
- * tablets (44px), not just on phones (56px) and desktop (36px). It is
- * `Math.max`-based, so it is a no-op at the two-line pitch.
- */
-function useBlobListTableLayout(narrowFrame: boolean): {
-  compact: boolean;
-  rowHeight: number;
-} {
+const LARGE_THUMBNAILS_KEY = "tearleads.blob-browser:large-thumbnails";
+
+function useBlobListTableLayout(narrowFrame: boolean) {
   const { compact: tierCompact } = useMiniAppCompactTableLayout();
   const compact = tierCompact || narrowFrame;
-  const rowHeight = useTouchRowHeight(getMiniAppCompactTableRowHeight(compact));
-  return { compact, rowHeight };
+  const [largeThumbnails, setLargeThumbnails] = useState(() =>
+    loadStoredPreference(LARGE_THUMBNAILS_KEY, (stored) => stored === "true"),
+  );
+  const changeThumbnailSize = (large: boolean) => {
+    setLargeThumbnails(large);
+    saveStoredPreference(LARGE_THUMBNAILS_KEY, String(large));
+  };
+  // The rendered rows, scroll spacers, and fetch window all use this pitch.
+  const rowHeight = useTouchRowHeight(
+    largeThumbnails ? 96 : getMiniAppCompactTableRowHeight(compact),
+  );
+  return { changeThumbnailSize, compact, largeThumbnails, rowHeight };
 }
 
 export function getNextBlobInfoSort(
@@ -222,10 +219,10 @@ export function useBlobBrowserData(params: {
   // deliberate: the pitch feeds the window math, so guessing narrow before
   // measuring would fetch against a pitch the DOM does not have.
   const [narrowFrame, setNarrowFrame] = useState(false);
-  const { compact, rowHeight } = useBlobListTableLayout(narrowFrame);
+  const layout = useBlobListTableLayout(narrowFrame);
   const { frameRef, frameWidth, limit, offset } = useMiniAppVirtualWindow({
     resetKey,
-    rowHeight,
+    rowHeight: layout.rowHeight,
   });
   const blobInfo = useBlobInfoList({
     limit,
@@ -280,8 +277,8 @@ export function useBlobBrowserData(params: {
   }, [routeQuery]);
 
   return {
+    ...layout,
     blobInfo,
-    compact,
     frameRef,
     handleBackToList,
     handleQueryChange,
@@ -290,7 +287,6 @@ export function useBlobBrowserData(params: {
     isListDetail,
     isWindowPending,
     query,
-    rowHeight,
     rowOffset,
     rows,
     selectedBlob,
