@@ -207,3 +207,16 @@ test.each([NaN, Infinity, -1, 0.5, Number.MAX_SAFE_INTEGER + 1])(
     expect(request).not.toHaveBeenCalled();
   },
 );
+
+test("a rejected API byte response releases its unread stream", async () => {
+  const cancel = mock(() => {});
+  const response = new Response(
+    new ReadableStream({ cancel }, { highWaterMark: 0 }),
+  );
+  expect(
+    await getBlobBytes(mockTransport(response), blobId, undefined, {
+      maxEncryptedByteLength: 5,
+    }),
+  ).toBeNull();
+  expect(cancel).toHaveBeenCalledTimes(1);
+});

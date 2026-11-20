@@ -301,7 +301,7 @@ range reads and multipart uploads bounded by the 5 MiB chunk size.
 Local keyring variants, including WebView and PIN-code wrapping helpers, are
 client-facade exports rather than workflow facades. Keep platform keychain
 composition in [`client/`](../client/) so workflow modules stay focused on
-domain operations. Hosts close a retired keyring through its public `close()`
+domain operations. Hosts close a retired keyring through its optional `keyring.close?.()`
 lifecycle contract so browser-backed variants can release their IndexedDB
 connections; callers still dispose the sessions they own.
 

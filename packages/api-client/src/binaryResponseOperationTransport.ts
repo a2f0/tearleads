@@ -141,7 +141,7 @@ export function createBinaryResponseOperationTransport(
     if (!result.ok) {
       return result;
     }
-    return decodeBinaryOperationResponse(
+    const decoded = await decodeBinaryOperationResponse(
       responseRequest,
       operation,
       result.data,
@@ -149,6 +149,8 @@ export function createBinaryResponseOperationTransport(
       options,
       session,
     );
+    if (!decoded.ok) void result.data.body?.cancel().catch(() => {});
+    return decoded;
   }
 
   return {

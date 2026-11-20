@@ -252,3 +252,47 @@ test("a sync completed during a timed-out preview gives that slot one more read"
     deadline.mockRestore();
   }
 });
+
+test("a replacement waits for active byte reads to release memory", async () => {
+  const store = createMemoryBlobStore();
+  const stalled = Promise.withResolvers<Uint8Array<ArrayBuffer>>();
+  let active = 0;
+  let maxActive = 0;
+  const read = (key: string) => async () => {
+    active++;
+    maxActive = Math.max(active, maxActive);
+    try {
+      return key === "old" ? await stalled.promise : new Uint8Array([2]);
+    } finally {
+      active--;
+    }
+  };
+  store.openByteSource = async (key) => ({ byteLength: 1, read: read(key) });
+  const slots = Array.from({ length: 4 }, (_, i) => ({
+    slotId: String(i),
+    name: String(i),
+    mimeType: "image/png",
+    byteLength: 1,
+    contentSha256: "a".repeat(64),
+  }));
+  const { result, rerender } = renderHook(
+    ({ key }) =>
+      useAttachmentImageUrls(
+        slots,
+        Object.fromEntries(slots.map(({ slotId }) => [slotId, key])),
+        store,
+        false,
+      ),
+    { initialProps: { key: "old" } },
+  );
+  try {
+    await waitFor(() => expect(active).toBe(4));
+    await act(async () => rerender({ key: "new" }));
+    expect(maxActive).toBe(4);
+  } finally {
+    await act(async () => stalled.resolve(new Uint8Array([1])));
+  }
+  await waitFor(() =>
+    expect(Object.values(result.current.imageUrlBySlotId)).toHaveLength(4),
+  );
+});

@@ -183,6 +183,25 @@ test("two identical tracker readings remain separately editable", () => {
   expect(storedSeedRowsMatch([fields, fields], [row, row], "author")).toBe(
     false,
   );
+  const projected = {
+    id: row["@id"],
+    createdBy: "author",
+    updatedBy: "author",
+    createdAt: row["@createdAt"],
+    updatedAt: row["@updatedAt"],
+    updatedByPeer: null,
+    createdByPeer: null,
+    fieldEditors: {},
+    fields,
+  };
+  expect(storedSeedRowsMatch([fields], [row], "author", [projected])).toBe(
+    true,
+  );
+  expect(
+    storedSeedRowsMatch([fields], [row], "author", [
+      { ...projected, createdBy: "" },
+    ]),
+  ).toBe(false);
   for (const edit of [
     { "@createdBy": undefined },
     { "@updatedBy": "other" },

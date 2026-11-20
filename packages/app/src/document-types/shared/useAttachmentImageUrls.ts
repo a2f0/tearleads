@@ -5,10 +5,11 @@ import {
   type PreviewResult,
   transitionAttachmentPreview,
 } from "./attachmentPreviewState";
+import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
 import {
-  isAutomaticBlobPreviewAllowed,
-  readAutomaticPreviewBlobBytes,
-} from "./documentAttachmentUtils";
+  MAX_IMAGE_PREVIEW_READS,
+  readImagePreviewBytes,
+} from "./readImagePreviewBytes";
 
 interface Request {
   blobStore: BlobStore;
@@ -34,12 +35,14 @@ function release(preview: AttachmentPreview) {
 async function load(
   request: Request,
   current: () => boolean,
+  deadline: AbortSignal,
 ): Promise<PreviewResult> {
   try {
-    const bytes = await readAutomaticPreviewBlobBytes(
+    const bytes = await readImagePreviewBytes(
       request.blobStore,
       request.storageKey,
       current,
+      deadline,
     );
     if (bytes && current())
       return {
@@ -68,7 +71,7 @@ async function updatePreview(
   deadline.addEventListener("abort", expire, { once: true });
   const result = await Promise.race([
     expired.promise,
-    load(entry.request, () => current() && !deadline.aborted),
+    load(entry.request, () => current() && !deadline.aborted, deadline),
   ]);
   deadline.removeEventListener("abort", expire);
   if (!current()) {
@@ -111,7 +114,7 @@ function startQueuedPreviews(
   generation: () => number,
   publish: (entries: ReadonlyMap<string, Entry>) => void,
 ) {
-  let available = 4;
+  let available = MAX_IMAGE_PREVIEW_READS;
   for (const { preview } of active.values())
     if (preview.status === "loading") available--;
   for (const [slot, entry] of active) {
@@ -191,7 +194,7 @@ export function useAttachmentImageUrls(
   }, [requests, syncing]);
 
   return useMemo(() => {
-    const imageUrlBySlotId: Record<string, string> = {};
+    const imageUrlBySlotId: Record<string, string> = Object.create(null);
     const loadingPreviewSlots = new Set<string>();
     for (const [slot, request] of requests) {
       const entry = entries.get(slot);

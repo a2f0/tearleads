@@ -35,6 +35,7 @@ export function storedSeedRowsMatch(
   expected: NonNullable<Fixture["rows"]>,
   stored: readonly unknown[],
   userId: string,
+  projected?: DocumentSnapshot["rows"],
 ) {
   const ids = new Set<string>();
   if (stored.length !== expected.length) return false;
@@ -66,6 +67,19 @@ export function storedSeedRowsMatch(
       updated !== created
     )
       return false;
+    if (projected) {
+      const visible = projected[index];
+      if (
+        !visible ||
+        visible.id !== id ||
+        visible.createdBy !== creator ||
+        visible.updatedBy !== updater ||
+        visible.createdAt !== created ||
+        visible.updatedAt !== updated ||
+        !isDeepStrictEqual(visible.fields, fields)
+      )
+        return false;
+    }
     ids.add(id);
     return isDeepStrictEqual(fields, expected[index]);
   });
@@ -125,15 +139,17 @@ export function checkDocument(
           },
     ) ||
     !isDeepStrictEqual(stored.fields, fixture.fields ?? {}) ||
-    !storedSeedRowsMatch(fixture.rows ?? [], stored.rows, userId) ||
+    !storedSeedRowsMatch(
+      fixture.rows ?? [],
+      stored.rows,
+      userId,
+      snapshot.rows,
+    ) ||
     snapshot.fieldValidationIssues.length > 0 ||
     snapshot.documentKind !== fixture.kind ||
     snapshot.text !== (fixture.text ?? "") ||
     !isDeepStrictEqual(expected.structuredFields, snapshot.structuredFields) ||
     snapshot.rows.length !== (fixture.rows?.length ?? 0) ||
-    fixture.rows?.some(
-      (row, index) => !isDeepStrictEqual(row, snapshot.rows[index]?.fields),
-    ) ||
     snapshot.attachments.length !== fixture.attachments.length
   )
     throw new Error(`Fixture content differs: ${fixture.key}`);

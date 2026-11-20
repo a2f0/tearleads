@@ -74,10 +74,9 @@ export function isAutomaticBlobPreviewAllowed(
 export async function readAutomaticPreviewBlobBytes(
   blobStore: Pick<BlobStore, "openByteSource">,
   storageKey: string,
-  current: () => boolean = () => true,
 ): Promise<Uint8Array<ArrayBuffer> | null> {
   const source = await blobStore.openByteSource(storageKey);
-  if (!current() || !source || !isAutomaticBlobPreviewAllowed(source)) {
+  if (!source || !isAutomaticBlobPreviewAllowed(source)) {
     return null;
   }
   return source.read(0, source.byteLength);
