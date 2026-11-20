@@ -16,11 +16,16 @@ type Finish = ReturnType<ApiRequestMetrics["begin"]>;
 export class TracingApiRequestMetrics extends ApiRequestMetrics {
   private nextRequest = 0;
 
-  constructor(private readonly tracer: Tracer) {
+  constructor(
+    private readonly tracer: Tracer,
+    private readonly onVerify?: () => void,
+  ) {
     super();
   }
 
   override begin(...[identity, operation]: BeginArguments): Finish {
+    if (operation.method === "POST" && operation.path === "/auth/verify")
+      this.onVerify?.();
     const finish = super.begin(identity, operation);
     if (!this.tracer.enabled) return finish;
     const id = ++this.nextRequest;

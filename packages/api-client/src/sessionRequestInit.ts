@@ -63,7 +63,7 @@ export function verificationRequestOptions(
     [boundedMetadata]:
       options[boundedMetadata] ??
       (policy?.verificationDeadline && operation
-        ? verificationLimits.get(operation)
+        ? (verificationLimits.get(operation) ?? "verification-page")
         : undefined),
   };
 }

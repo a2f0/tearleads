@@ -1,15 +1,20 @@
 type LoginState =
   | "not-started"
-  | "in-flight"
+  | "challenge"
+  | "verification"
+  | "not-issued"
   | "authenticated"
   | "outcome-unknown";
-type LoginEvent = "starting" | "accepted" | "unconfirmed";
+type LoginEvent = "starting" | "dispatch-verify" | "accepted" | "unconfirmed";
 
 function transitionLogin(state: LoginState, event: LoginEvent): LoginState {
-  if (state === "not-started" && event === "starting") return "in-flight";
-  if (state !== "in-flight") return state;
+  if (state === "not-started" && event === "starting") return "challenge";
+  if (state === "challenge" && event === "dispatch-verify")
+    return "verification";
+  if (state !== "challenge" && state !== "verification") return state;
   if (event === "accepted") return "authenticated";
-  return event === "unconfirmed" ? "outcome-unknown" : state;
+  if (event !== "unconfirmed") return state;
+  return state === "verification" ? "outcome-unknown" : "not-issued";
 }
 
 /** Only a confirmed token can revoke an issued session; a lost reply is ambiguous. */
@@ -20,15 +25,19 @@ export function commandLoginLifetime(revoke: () => Promise<boolean>) {
   let revocation: Promise<boolean> | undefined;
   const send = (event: LoginEvent) => {
     state = transitionLogin(state, event);
-    if (state !== "in-flight") settled.resolve();
+    if (state !== "challenge" && state !== "verification") settled.resolve();
   };
   const stop = () => {
     if (!revocation) {
       const finish = async () => {
-        if (state === "in-flight") await settled.promise;
+        if (state === "verification") await settled.promise;
         work.abort();
         if (state === "authenticated") return revoke();
-        return state === "not-started";
+        return (
+          state === "not-started" ||
+          state === "challenge" ||
+          state === "not-issued"
+        );
       };
       revocation = finish();
     }

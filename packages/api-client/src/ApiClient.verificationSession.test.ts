@@ -8,51 +8,70 @@ import {
 import { ApiClient } from "./ApiClient";
 import { ApiRequestMetrics } from "./apiRequestMetrics";
 
-testApiClient(
-  "verification cancels an oversized document sync page before decoding",
-  async () => {
-    const cancel = mock(() => {});
-    const chunk = new Uint8Array(1024 * 1024);
-    let supplied = 0;
-    const network = spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(
-        new ReadableStream(
-          {
-            pull(controller) {
-              supplied += chunk.length;
-              if (
-                supplied >
-                MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES + chunk.length
-              )
-                controller.close();
-              else controller.enqueue(chunk);
+for (const page of [
+  "document sync",
+  "folder discovery",
+  "document discovery",
+] as const)
+  testApiClient(
+    `verification cancels an oversized ${page} page before decoding`,
+    async () => {
+      const cancel = mock(() => {});
+      const chunk = new Uint8Array(1024 * 1024);
+      let supplied = 0;
+      const network = spyOn(globalThis, "fetch").mockResolvedValueOnce(
+        new Response(
+          new ReadableStream(
+            {
+              pull(controller) {
+                supplied += chunk.length;
+                if (
+                  supplied >
+                  MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES + chunk.length
+                )
+                  controller.close();
+                else controller.enqueue(chunk);
+              },
+              cancel,
             },
-            cancel,
-          },
-          { highWaterMark: 0 },
+            { highWaterMark: 0 },
+          ),
+          { headers: { "Content-Type": "application/json" } },
         ),
-        { headers: { "Content-Type": "application/json" } },
-      ),
-    );
-    try {
-      const client = new ApiClient(apiBaseUrl, {
-        metrics: new ApiRequestMetrics(),
-        getIdentity: () => null,
-        streamingDownloads: true,
-        verificationDeadline: new AbortController().signal,
-      });
-      expect(
-        await client.syncDocument("document-1", createDocumentSyncRequest()),
-      ).toBeNull();
-      expect(cancel).toHaveBeenCalledTimes(1);
-      expect(supplied).toBe(
-        MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES + chunk.length,
       );
-    } finally {
-      network.mockRestore();
-    }
-  },
-);
+      try {
+        const client = new ApiClient(apiBaseUrl, {
+          metrics: new ApiRequestMetrics(),
+          getIdentity: () => null,
+          streamingDownloads: true,
+          verificationDeadline: new AbortController().signal,
+        });
+        expect(
+          await (page === "document sync"
+            ? client.syncDocument("document-1", createDocumentSyncRequest())
+            : page === "folder discovery"
+              ? client.listContainerParentLanes({
+                  lanes: [{ laneId: "root", parentId: null, watermark: null }],
+                })
+              : client.listContainerDocumentLanes({
+                  lanes: [
+                    {
+                      laneId: "root",
+                      containerId: "container-1",
+                      watermark: null,
+                    },
+                  ],
+                })),
+        ).toBeNull();
+        expect(cancel).toHaveBeenCalledTimes(1);
+        expect(supplied).toBe(
+          MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES + chunk.length,
+        );
+      } finally {
+        network.mockRestore();
+      }
+    },
+  );
 
 testApiClient(
   "stopping seed work allows logout while refusing new document writes",

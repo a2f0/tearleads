@@ -1,6 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import {
   checkSeedBytes,
+  checkSyncedPlacement,
   discoverSeedDocuments,
   hasSeedPlacement,
   verifiedSeedStorageKeys,
@@ -155,5 +156,17 @@ test("a continuation finishing after the discovery deadline cannot return a fixt
   };
   await expect(collect()).rejects.toThrow(
     "Document discovery timed out in folder",
+  );
+});
+
+test("a concurrent move cannot verify content under an earlier signed placement", () => {
+  const check = (accessStateHash: string) =>
+    checkSyncedPlacement("saw", "doc", "original", {
+      documentId: "doc",
+      accessStateHash,
+    });
+  expect(() => check("original")).not.toThrow();
+  expect(() => check("moved")).toThrow(
+    "Seed placement changed during verification: saw",
   );
 });

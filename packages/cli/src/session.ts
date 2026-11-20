@@ -142,7 +142,9 @@ async function runSession<T>(
   const lifetime = commandLoginLifetime(() => revoke(sdk));
   const sdk = new Tearleads({
     apiBaseUrl,
-    apiRequestMetrics: new TracingApiRequestMetrics(tracer),
+    apiRequestMetrics: new TracingApiRequestMetrics(tracer, () =>
+      lifetime.send("dispatch-verify"),
+    ),
     streamingDownloads: true,
     verificationDeadline,
     requestSignal: lifetime.signal,

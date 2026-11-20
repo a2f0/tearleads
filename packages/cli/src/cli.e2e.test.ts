@@ -411,3 +411,31 @@ test("interruption reports unconfirmed revocation when the sign-in reply is lost
   ).rejects.toThrow("Command interrupted.");
   expect(await cleanup).toBe(false);
 });
+
+test("an interrupt during the challenge prevents verification dispatch", async () => {
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  let stop: (() => Promise<boolean>) | undefined;
+  let cleanup: Promise<boolean> | undefined;
+  requests.length = 0;
+  onRequest = (request) => {
+    if (request.includes("/auth/challenge")) cleanup = stop?.();
+  };
+  await expect(
+    withSession(
+      {
+        apiBaseUrl,
+        recoveryKey: seedPhrase,
+        registerShutdown: (revoke) => {
+          stop = revoke;
+        },
+      },
+      async () => {
+        throw new Error("Unexpected signed-in work");
+      },
+    ),
+  ).rejects.toThrow("Command interrupted.");
+  expect(await cleanup).toBe(true);
+  expect(requests.some((request) => request.includes("/auth/verify"))).toBe(
+    false,
+  );
+});

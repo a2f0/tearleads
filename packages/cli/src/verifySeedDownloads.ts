@@ -31,6 +31,24 @@ export function hasSeedPlacement(
   return links.includes(discoveredIn) && links.includes(expectedFolder);
 }
 
+export function checkSyncedPlacement(
+  fixtureKey: string,
+  documentId: string,
+  accessStateHash: string,
+  stored: {
+    documentId: string | null;
+    accessStateHash?: string | null | undefined;
+  } | null,
+) {
+  if (
+    stored?.documentId !== documentId ||
+    stored.accessStateHash !== accessStateHash
+  )
+    throw new Error(
+      `Seed placement changed during verification: ${fixtureKey}`,
+    );
+}
+
 type Placement = { documentId: string | null };
 type ListLinks = (
   ids: readonly string[],

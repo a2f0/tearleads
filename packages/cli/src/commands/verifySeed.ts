@@ -24,6 +24,7 @@ import {
 import {
   beforeSeedDeadline,
   checkSeedBytes,
+  checkSyncedPlacement,
   discoverSeedDocuments,
   hasSeedPlacement,
   verifiedSeedStorageKeys,
@@ -165,6 +166,7 @@ async function checkSeedPlacement(
       `Could not verify seed creator and placement: ${fixtureKey}`,
     );
   }
+  return head.accessStateHash;
 }
 
 function prepareBeforeDeadline(fixture: FixtureInput, deadline: AbortSignal) {
@@ -267,7 +269,7 @@ async function verifyFixtures(
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);
     if (!fixture) continue;
-    await checkSeedPlacement(
+    const placementHead = await checkSeedPlacement(
       session,
       row.documentId,
       containerId,
@@ -285,6 +287,16 @@ async function verifyFixtures(
       row.id,
       row.documentId,
       deadline,
+    );
+    const synced = await defaultDocumentsPersistence.loadDocument(
+      session.sdk.documents.workflowRuntime().infra.execSql,
+      row.id,
+    );
+    checkSyncedPlacement(
+      fixture.document.key,
+      row.documentId,
+      placementHead,
+      synced,
     );
     attachments += fixture.document.attachments.length;
     expected.delete(row.documentId);

@@ -10,7 +10,8 @@ export type MetadataLimit =
   | "errors"
   | "attachment-list"
   | "writer-projection"
-  | "document-sync";
+  | "document-sync"
+  | "verification-page";
 
 const metadataLimits: Record<MetadataLimit, number> = {
   all: MAX_METADATA_BYTES,
@@ -18,6 +19,7 @@ const metadataLimits: Record<MetadataLimit, number> = {
   "attachment-list": MAX_ATTACHMENT_LIST_BYTES,
   "writer-projection": MAX_ATTACHMENT_LIST_BYTES,
   "document-sync": MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
+  "verification-page": MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
 };
 
 /** Limit JSON descriptors and HTTP error details before any decoder can buffer them. */
