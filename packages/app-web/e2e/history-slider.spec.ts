@@ -6,6 +6,8 @@ test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 
 async function expectNativeForcedColors(control: Locator, browserName: string) {
   const page = control.page();
+  // Compare both native thumbs at rest after the preceding drag.
+  await page.mouse.move(300, 300);
   await page.emulateMedia({ forcedColors: "active" });
   const forcedColorsActive = await page.evaluate(
     () => matchMedia("(forced-colors: active)").matches,
