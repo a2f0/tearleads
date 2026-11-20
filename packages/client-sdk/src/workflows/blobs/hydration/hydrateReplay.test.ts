@@ -255,3 +255,60 @@ test("a rejected binding hydrates once the held copy is gone", async () => {
     storageKey: `blob-${served.binding.blobId}`,
   });
 });
+
+test("a binding-only repair replaces previously flagged local bytes", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const replacement = await uploadNewerBinding(fixture);
+  const cached = createSingleAttachmentHydrationApi(fixture, async () => null);
+  const live = createServedBindingApi(fixture, replacement);
+  const blobs = createBlobAttachmentServiceFixture({
+    api: {
+      ...live,
+      listDocumentAttachments: async (documentId, options) =>
+        options?.refresh
+          ? live.listDocumentAttachments()
+          : cached.listDocumentAttachments(documentId),
+    },
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  });
+  const slot = fixture.attachment.slotId;
+  const result = await blobs.hydrateDocumentAttachmentBlobs({
+    attachments: [
+      { ...fixture.attachment, contentSha256: replacement.contentSha256 },
+    ],
+    documentId: fixture.writerProjection.documentId,
+    localStorageKeyBySlotId: { [slot]: "held" },
+    localBlobIdBySlotId: { [slot]: fixture.blobId },
+    resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+  });
+  expect(result?.[0]?.bytes).toEqual(replacement.bytes);
+});
+
+test("a reader fetches the file after its first binding list was empty", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const replacement = await uploadNewerBinding(fixture);
+  const server = createServedBindingApi(fixture, replacement);
+  let published = false;
+  const blobs = createBlobAttachmentServiceFixture({
+    api: {
+      ...server,
+      listDocumentAttachments: async (_document, options) =>
+        published && options?.refresh ? server.listDocumentAttachments() : [],
+    },
+    encapsulationSecretKey: fixture.secretKey,
+    execSql: fixture.execSql,
+  });
+  const read = () =>
+    blobs.hydrateDocumentAttachmentBlobs({
+      attachments: [
+        { ...fixture.attachment, contentSha256: replacement.contentSha256 },
+      ],
+      documentId: fixture.writerProjection.documentId,
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    });
+  expect(await read()).toEqual([]);
+  published = true;
+  const result = await read();
+  expect(result?.[0]?.bytes).toEqual(replacement.bytes);
+});

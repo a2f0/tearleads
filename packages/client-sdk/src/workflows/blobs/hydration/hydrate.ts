@@ -311,8 +311,11 @@ export async function hydrateDocumentAttachmentBlobs(
       "Document attachment hydration",
     ),
   };
+  // The writer can bind a file after publishing its document. An earlier
+  // cached list cannot tell a reader whether the file is now available.
   const attachmentBindings = await input.apiClient.listDocumentAttachments(
     input.documentId,
+    { refresh: true },
   );
   if (!attachmentBindings) {
     return null;
