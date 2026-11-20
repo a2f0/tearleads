@@ -50,10 +50,13 @@ export function cancelledResponse(
   options?: RequestResultOptions,
   session?: AbortSignal,
 ) {
-  const failure = retiredRequest(method, path);
-  if (options?.signal?.aborted && !requestRetired(session, options)) {
-    request.reportCancellation?.(response, failure);
-  }
+  const retired = retiredRequest(method, path);
+  if (requestRetired(session, options)) return retired;
+  const failure = {
+    ...retired,
+    message: `${method} ${path}: Request was cancelled`,
+  };
+  request.reportCancellation?.(response, failure);
   return failure;
 }
 
@@ -93,7 +96,7 @@ export async function readSessionJson(
       options.signal?.aborted === true,
     );
     return request.reportFailure({
-      response,
+      outcome: response,
       ...failure,
       message: `${method} ${path}: ${failure.message}`,
       method,

@@ -491,7 +491,7 @@ export class ApiRequestRuntime {
     }
     return this.requestFailure({
       ...input,
-      dispatch: input.response && this.failures.dispatchFor(input.response),
+      dispatch: this.failures.dispatchFor(input.outcome),
       reportErrors: input.options?.reportErrors ?? true,
       stalePrincipalHeads: undefined,
     });

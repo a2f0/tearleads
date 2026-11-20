@@ -23,10 +23,10 @@ import {
 } from "../verifySeedContent";
 import {
   beforeSeedDeadline,
-  checkSeedBindingSlots,
   checkSeedBytes,
   discoverSeedDocuments,
   hasSeedPlacement,
+  verifiedSeedStorageKeys,
 } from "../verifySeedDownloads";
 import { withSavedSession } from "./account";
 
@@ -79,15 +79,18 @@ async function verifyDocument(
   }
   if (!snapshot.documentId)
     throw new Error(`Missing document ID: ${fixture.document.key}`);
-  checkSeedBindingSlots(
+  const runtime = session.sdk.documents.workflowRuntime();
+  const storageKeys = verifiedSeedStorageKeys(
     fixture.document.key,
     prepared.map(({ intent }) => intent.slotId),
-    await session.sdk.documents
-      .workflowRuntime()
-      .apiClient.listDocumentAttachments(snapshot.documentId, {
-        boundedListing: true,
-        signal,
-      }),
+    await runtime.apiClient.listDocumentAttachments(snapshot.documentId, {
+      boundedListing: true,
+      signal,
+    }),
+    await defaultDocumentsPersistence.listLocalAttachments(
+      runtime.infra.execSql,
+      localId,
+    ),
   );
   let bytes = 0;
   for (const [index, { intent, bytes: original }] of prepared.entries()) {
@@ -101,7 +104,7 @@ async function verifyDocument(
       slot.byteLength !== intent.byteLength
     )
       throw new Error(`Attachment metadata differs: ${label}`);
-    const storageKey = snapshot.attachmentStorageKeyBySlotId[intent.slotId];
+    const storageKey = storageKeys.get(intent.slotId);
     const source =
       storageKey &&
       (await session.sdk.blobs.store.openByteSource(storageKey, signal));

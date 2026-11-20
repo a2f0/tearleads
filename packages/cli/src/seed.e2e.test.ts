@@ -23,6 +23,8 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
   let staleTarget = false;
   let legacyDownloads = false;
   let legacyByteReads = 0;
+  let rebindAfterHydration = false;
+  const listedBindings = new Set<string>();
   const contentRequests: string[] = [];
   const missing = Promise.withResolvers<void>();
   const firstMissing = Promise.withResolvers<void>();
@@ -65,6 +67,23 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
         );
       }
       const response = await routeApp.fetch(request);
+      if (
+        rebindAfterHydration &&
+        response.ok &&
+        path.endsWith("/attachments")
+      ) {
+        const bindings = await response.clone().json();
+        if (Array.isArray(bindings) && bindings.length) {
+          if (listedBindings.has(path))
+            return Response.json(
+              bindings.map((binding) => ({
+                ...binding,
+                blobId: crypto.randomUUID(),
+              })),
+            );
+          listedBindings.add(path);
+        }
+      }
       if (
         raceCreates &&
         response.status === 404 &&
@@ -229,6 +248,11 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     expect(oneTime.output.stdout.at(-1)).toContain(
       `Verified ${documents.length} documents`,
     );
+    rebindAfterHydration = true;
+    expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(1);
+    expect(output.stderr.at(-1)).toContain("Attachment bindings differ");
+    rebindAfterHydration = false;
+    output.stderr.length = 0;
     // Use the actual signed fixture heads and ask the verifier to check them
     // against a different account. A verifier that omits the signer accepts them.
     const loadHead = sdkModule.createDocumentHeadLinkSetLoader;

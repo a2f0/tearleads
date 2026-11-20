@@ -7,7 +7,11 @@ import {
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
-import { createExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import {
+  createExecSql,
+  ensureSqlTables,
+  runSerializedSqlMutation,
+} from "../../data/sqlite/sqlSchema";
 import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";
 import { ContainerDocumentListingUnavailableError } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryTypes";
 import {
@@ -252,4 +256,47 @@ test("cancelling discovery retires a pending principal policy lookup", async () 
     warmer.mockRestore();
     native.close();
   }
+});
+
+test("cancelling discovery returns before a held SQLite writer releases the queue", async () => {
+  const native = createNativeTestExecSql();
+  const release = Promise.withResolvers<void>();
+  const entered = Promise.withResolvers<void>();
+  const controller = new AbortController();
+  await ensureSqlTables(native.execSql, clientSqlTables);
+  const writer = runSerializedSqlMutation(native.execSql, async () => {
+    entered.resolve();
+    await release.promise;
+  });
+  await entered.promise;
+  const list = mock(async () => null);
+  const input = createWorkflowInputFixture({
+    execSql: native.execSql,
+    apiClient: { listContainerDocumentLanes: list } as never,
+  });
+  const read = discoverContainerDocumentsForRuntime({
+    containerId: "held",
+    signal: controller.signal,
+    runtimeService: createInternalRuntimeFixture(() => input),
+  });
+  const reason = new Error("cancel queued discovery");
+  controller.abort(reason);
+  try {
+    expect(
+      await Promise.race([
+        read.then(
+          () => null,
+          (error: unknown) => error,
+        ),
+        Bun.sleep(200).then(() => "still waiting"),
+      ]),
+    ).toBe(reason);
+  } finally {
+    release.resolve();
+    await writer;
+    await read.catch(() => {});
+    await runSerializedSqlMutation(native.execSql, async () => {});
+    native.close();
+  }
+  expect(list).not.toHaveBeenCalled();
 });

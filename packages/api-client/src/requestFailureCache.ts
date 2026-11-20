@@ -18,7 +18,10 @@ export class RequestFailureCache {
   // Only overlapping requests need to share ordering. Raw response consumers
   // can discard a Response without running a decoder or reporting an outcome.
   private readonly paths = new Map<string, WeakRef<PathRequests>>();
-  private readonly responses = new WeakMap<Response, RequestDispatch>();
+  private readonly outcomes = new WeakMap<
+    Response | RequestFailure,
+    RequestDispatch
+  >();
   private readonly abandoned = new FinalizationRegistry<string>((key) => {
     if (!this.paths.get(key)?.deref()) this.paths.delete(key);
   });
@@ -49,6 +52,7 @@ export class RequestFailureCache {
   }
 
   record(failure: RequestFailure, dispatch = this.begin(failure)) {
+    this.outcomes.set(failure, dispatch);
     if (this.settle(dispatch)) this.failures.set(dispatch.key, failure);
   }
 
@@ -58,12 +62,12 @@ export class RequestFailureCache {
   }
 
   received(response: Response, dispatch: RequestDispatch) {
-    this.responses.set(response, dispatch);
+    this.outcomes.set(response, dispatch);
     return { ok: true as const, data: response };
   }
 
-  dispatchFor(response: Response) {
-    return this.responses.get(response);
+  dispatchFor(outcome?: Response | RequestFailure) {
+    return outcome && this.outcomes.get(outcome);
   }
 
   success(response: Response) {

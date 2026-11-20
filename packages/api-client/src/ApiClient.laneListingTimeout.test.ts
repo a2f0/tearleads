@@ -398,3 +398,53 @@ for (const olderFinishesFirst of [true, false])
       expect(net.getRequestFailure({ method: "GET", path: "/" })).toBeNull();
     },
   );
+
+testApiClient(
+  "an older listing timeout preserves the result of a newer successful listing",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<Response>();
+    const success = {
+      results: [
+        {
+          laneId: "newer",
+          page: {
+            items: [],
+            tombstones: [],
+            nextWatermark: null,
+            hasMore: false,
+          },
+        },
+      ],
+    };
+    let calls = 0;
+    globalThis.fetch = Object.assign(async () => {
+      if (++calls > 1) return Response.json(success);
+      started.resolve();
+      return release.promise;
+    }, realFetch);
+    const list = (id: string) =>
+      client.listContainerDocumentLanes({
+        lanes: [{ containerId: id, laneId: id, watermark: null }],
+      });
+    jest.useFakeTimers();
+    try {
+      const older = list("older");
+      await started.promise;
+      expect(await list("newer")).toEqual(success);
+      jest.advanceTimersByTime(CONTAINER_LANE_LISTING_TIMEOUT_MS);
+      release.resolve(Response.json({ results: [] }));
+      expect(await older).toBeNull();
+      expect(
+        client.getRequestFailure({
+          method: "POST",
+          path: listingPaths.document,
+        }),
+      ).toBeNull();
+    } finally {
+      release.resolve(Response.json({ results: [] }));
+      jest.useRealTimers();
+    }
+  },
+);

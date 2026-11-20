@@ -64,6 +64,7 @@ export async function laneListingRequest<T>(
       return result;
     }
     return context.runtime.responseRequest.reportFailure({
+      outcome: result,
       code: "request_timed_out",
       kind: "network",
       message: `${method} ${path}: no response within ${CONTAINER_LANE_LISTING_TIMEOUT_MS} ms`,

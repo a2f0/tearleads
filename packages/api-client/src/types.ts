@@ -105,7 +105,7 @@ export interface RequestSuccess<T> {
 export type RequestResult<T> = RequestFailure | RequestSuccess<T>;
 
 export interface ResponseRequestValidationFailureInput {
-  readonly response?: Response;
+  readonly outcome?: Response | RequestFailure;
   readonly code?: string | undefined;
   readonly kind: RequestFailureKind;
   readonly message: string;

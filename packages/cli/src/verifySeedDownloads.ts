@@ -171,16 +171,35 @@ export async function* discoverSeedDocuments<Row extends Placement>(
   }
 }
 
-export function checkSeedBindingSlots(
+/** Return the local byte source corresponding to each binding seen by the verifier. */
+export function verifiedSeedStorageKeys(
   label: string,
   expected: readonly string[],
-  bindings: readonly { slotId: string }[] | null,
+  bindings: readonly { slotId: string; blobId: string }[] | null,
+  held: readonly {
+    slotId: string;
+    blobId: string | null;
+    storageKey: string;
+    detachedAt: string | null;
+  }[],
 ) {
   const remaining = new Set(expected);
-  if (
-    !bindings ||
-    bindings.some(({ slotId }) => !remaining.delete(slotId)) ||
-    remaining.size
-  )
-    throw new Error(`Attachment bindings differ: ${label}`);
+  const bySlot = new Map(
+    held.filter((row) => !row.detachedAt).map((row) => [row.slotId, row]),
+  );
+  const storageKeys = new Map<string, string>();
+  const mismatch = () => new Error(`Attachment bindings differ: ${label}`);
+  if (!bindings) throw mismatch();
+  for (const binding of bindings) {
+    const copy = bySlot.get(binding.slotId);
+    if (
+      !remaining.delete(binding.slotId) ||
+      !copy ||
+      copy.blobId !== binding.blobId
+    )
+      throw mismatch();
+    storageKeys.set(binding.slotId, copy.storageKey);
+  }
+  if (remaining.size) throw mismatch();
+  return storageKeys;
 }

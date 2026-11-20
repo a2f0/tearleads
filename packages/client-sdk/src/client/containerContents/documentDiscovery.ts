@@ -114,17 +114,21 @@ function createDiscoveryLane(input: {
  * one batched listing for every requested container, then per-container
  * verification scoped to each container's durable organization.
  */
-export async function discoverContainerDocumentLanesForRuntime({
-  onOutcome,
-  signal,
-  requests,
-  runtimeService,
-}: {
+export function discoverContainerDocumentLanesForRuntime(input: {
   readonly signal?: AbortSignal | undefined;
   readonly onOutcome?: ContainerDocumentDiscoveryOutcomeHandler | undefined;
   readonly requests: ReadonlyArray<ContainerDocumentDiscoveryRequest>;
   readonly runtimeService: InternalRuntime;
 }): Promise<ReadonlyArray<ContainerDocumentDiscoveryOutcome>> {
+  return waitForRead(discoverLanes(input), input.signal);
+}
+
+async function discoverLanes({
+  onOutcome,
+  signal,
+  requests,
+  runtimeService,
+}: Parameters<typeof discoverContainerDocumentLanesForRuntime>[0]) {
   const unlisted = (
     containerId: string,
   ): ContainerDocumentDiscoveryOutcome => ({
@@ -153,8 +157,10 @@ export async function discoverContainerDocumentLanesForRuntime({
   // between these reads and the listing cannot publish old-organization
   // evidence into its replacement.
   const generation = await evidenceStore.begin();
+  signal?.throwIfAborted();
   const syncPauses = getOrCreateOrganizationSyncPauses(input.state.domainScope);
   await syncPauses.load(execSql);
+  signal?.throwIfAborted();
   const lanes: ContainerDocumentDiscoveryLane[] = [];
   const policyOperation = createPrincipalPolicyOperation();
   for (const request of requests) {
@@ -163,6 +169,7 @@ export async function discoverContainerDocumentLanesForRuntime({
         execSql,
         request.containerId,
       );
+    signal?.throwIfAborted();
     if (!stored) continue;
     const isContainerPaused = () =>
       signal?.aborted === true ||
@@ -196,7 +203,9 @@ export async function discoverContainerDocumentLanesForRuntime({
         signal,
       ),
     loadContainerDocumentWatermark: queries.loadContainerDocumentWatermark,
-    onOutcome,
+    onOutcome: async (outcome) => {
+      if (!signal?.aborted) return onOutcome?.(outcome);
+    },
   });
   signal?.throwIfAborted();
   const outcomeByContainerId = new Map(

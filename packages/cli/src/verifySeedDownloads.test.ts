@@ -1,9 +1,9 @@
 import { expect, mock, test } from "bun:test";
 import {
-  checkSeedBindingSlots,
   checkSeedBytes,
   discoverSeedDocuments,
   hasSeedPlacement,
+  verifiedSeedStorageKeys,
 } from "./verifySeedDownloads";
 
 test("verification refuses oversized held files before issuing a read", async () => {
@@ -132,15 +132,27 @@ test("a contact discovered in the root still needs a signed Contacts link", () =
 });
 
 test("verification checks active bindings even on fixtures without files", () => {
-  const slot = { slotId: "a" };
-  expect(() => checkSeedBindingSlots("empty", [], [])).not.toThrow();
-  expect(() => checkSeedBindingSlots("empty", [], [slot])).toThrow(
+  const slot = { slotId: "a", blobId: "b" };
+  const held = [{ ...slot, storageKey: "bytes", detachedAt: null }];
+  expect(verifiedSeedStorageKeys("empty", [], [], [])).toEqual(new Map());
+  expect(
+    verifiedSeedStorageKeys("document", ["a"], [slot], held).get("a"),
+  ).toBe("bytes");
+  expect(() => verifiedSeedStorageKeys("empty", [], [slot], held)).toThrow(
     "bindings differ",
   );
   expect(() =>
-    checkSeedBindingSlots("document", ["a", "b"], [slot, slot]),
+    verifiedSeedStorageKeys("document", ["a", "b"], [slot, slot], held),
   ).toThrow("bindings differ");
-  expect(() => checkSeedBindingSlots("document", ["a"], null)).toThrow(
+  expect(() => verifiedSeedStorageKeys("document", ["a"], null, held)).toThrow(
     "bindings differ",
   );
+  expect(() =>
+    verifiedSeedStorageKeys(
+      "document",
+      ["a"],
+      [{ ...slot, blobId: "replacement" }],
+      held,
+    ),
+  ).toThrow("bindings differ");
 });
