@@ -156,6 +156,21 @@ test("History fits a phone: touch-sized controls above the document, nothing ove
   expect(geometry.overhang).toBeLessThanOrEqual(0);
   // The timeline sits above the document it controls; they never overlap.
   expect(geometry.viewTop).toBeGreaterThanOrEqual(geometry.timelineBottom);
+
+  const accents = new Set<string>();
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((id) => {
+      document.documentElement.setAttribute("data-theme", id);
+    }, theme);
+    const accent = await slider(page).evaluate(
+      (input) => getComputedStyle(input).accentColor,
+    );
+    expect(accent).toMatch(/^rgb\((\d+), \1, \1\)$/);
+    accents.add(accent);
+  }
+  expect(accents.size).toBe(2);
+  await slider(page).press("Home");
+  await expect(slider(page)).toHaveValue("0");
 });
 
 test("History steps back to an earlier version and restores it", async ({

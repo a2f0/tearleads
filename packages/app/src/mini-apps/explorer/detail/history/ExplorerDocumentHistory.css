@@ -13,6 +13,8 @@
 }
 
 .explorer-document-history-slider {
+  appearance: auto;
+  accent-color: var(--color-dark);
   flex: 1 1 8rem;
   min-width: 0;
   /* The native thumb is small; the row height gives it a touch target. */
