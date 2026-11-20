@@ -37,3 +37,7 @@
   appearance: auto;
   margin: 0;
 }
+
+:root[data-navigation-mode="routed"] .app-settings-network label {
+  min-height: var(--control-height);
+}

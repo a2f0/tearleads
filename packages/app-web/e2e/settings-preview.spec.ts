@@ -279,3 +279,14 @@ test("Network settings and the tray control the same network mode", async ({
     page.getByRole("button", { name: /^Network Control: .* \(automatic\)$/ }),
   ).toBeVisible();
 });
+
+test("Network radio labels meet the phone touch target", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/app/display-properties/network");
+  const group = page.getByRole("group", { name: "Network control" });
+  await expect(group.getByRole("radio")).toHaveCount(3);
+  for (const label of await group.locator("label").all()) {
+    await expect(label).toBeVisible();
+    expect((await label.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  }
+});
