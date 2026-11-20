@@ -128,6 +128,10 @@ export interface OperationResponseRequestFn {
     additionalSuccessStatuses: readonly number[],
     failureOperation: HttpOperation,
   ): Promise<RequestResult<Response>>;
+  readonly optionsFor?: (
+    options: RequestResultOptions,
+    operation: HttpOperation,
+  ) => RequestResultOptions;
   readonly sessionSignal?: () => AbortSignal;
   readonly reportFailure: (
     input: ResponseRequestValidationFailureInput,

@@ -83,7 +83,7 @@ export class ApiRequestRuntime {
       this.makeResponseRequest,
       this.reportResponseRequestFailure,
       () => this.sessionRenewals.signal,
-      instrumentation?.verificationDeadline,
+      instrumentation,
     );
   }
 
@@ -228,7 +228,7 @@ export class ApiRequestRuntime {
     options = verificationRequestOptions(
       options ?? {},
       failureOperation,
-      this.instrumentation?.verificationDeadline,
+      this.instrumentation,
     );
     const session = this.sessionRenewals.signal;
     const responseResult = await this.makeResponseRequest(
@@ -378,7 +378,7 @@ export class ApiRequestRuntime {
     attempt = 1,
   ): Promise<RequestResult<Response>> {
     const session = this.sessionRenewals.signal;
-    if (options.stillCurrent?.() === false) return retiredRequest(method, path);
+    if (requestRetired(session, options)) return retiredRequest(method, path);
     const { headers, init } = sessionRequestInit(
       method,
       body,

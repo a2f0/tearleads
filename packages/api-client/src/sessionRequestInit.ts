@@ -1,8 +1,10 @@
 import {
+  documentSyncOperation,
   getDocumentWriterProjectionOperation,
   type HttpOperation,
   logoutOperation,
 } from "@tearleads/validators/operation";
+import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { boundedMetadata } from "./boundedMetadataResponse";
 import { hasHeader } from "./requestInternals";
 import type {
@@ -37,21 +39,31 @@ export function sessionRequestInit(
   return { headers, init };
 }
 
+const verificationLimits = new Map<
+  HttpOperation,
+  "writer-projection" | "document-sync"
+>([
+  [getDocumentWriterProjectionOperation, "writer-projection"],
+  [documentSyncOperation, "document-sync"],
+]);
+
 export function verificationRequestOptions(
   options: RequestResultOptions,
   operation: HttpOperation | undefined,
-  deadline?: AbortSignal,
+  policy?: ApiRequestInstrumentation,
 ): RequestResultOptions {
+  const deadline = policy?.verificationDeadline ?? policy?.requestSignal;
   if (!deadline || operation === logoutOperation) return options;
   return {
     ...options,
+    stillCurrent: () => !deadline.aborted && options.stillCurrent?.() !== false,
     signal: options.signal
       ? AbortSignal.any([options.signal, deadline])
       : deadline,
     [boundedMetadata]:
       options[boundedMetadata] ??
-      (operation === getDocumentWriterProjectionOperation
-        ? "writer-projection"
+      (policy?.verificationDeadline && operation
+        ? verificationLimits.get(operation)
         : undefined),
   };
 }
@@ -62,13 +74,18 @@ export function sessionResponseRequest(
   ) => ReturnType<OperationResponseRequestFn>,
   reportFailure: OperationResponseRequestFn["reportFailure"],
   sessionSignal: () => AbortSignal,
-  deadline?: AbortSignal,
+  policy?: ApiRequestInstrumentation,
 ): OperationResponseRequestFn {
-  const send = deadline
-    ? (...args: Parameters<OperationResponseRequestFn>) => {
-        args[3] = verificationRequestOptions(args[3], args[5], deadline);
-        return request(...args);
-      }
-    : request;
-  return Object.assign(send, { reportFailure, sessionSignal });
+  const optionsFor = (
+    options: RequestResultOptions,
+    operation: HttpOperation,
+  ) => verificationRequestOptions(options, operation, policy);
+  const send =
+    policy?.verificationDeadline || policy?.requestSignal
+      ? (...args: Parameters<OperationResponseRequestFn>) => {
+          args[3] = optionsFor(args[3], args[5]);
+          return request(...args);
+        }
+      : request;
+  return Object.assign(send, { optionsFor, reportFailure, sessionSignal });
 }

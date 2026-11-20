@@ -20,6 +20,8 @@ export interface TearleadsOptions {
   streamingDownloads?: boolean | undefined;
   /** Deadline for a disposable verification client. Session revocation remains available. */
   readonly verificationDeadline?: AbortSignal | undefined;
+  /** Stop command work while allowing authenticated remote logout to finish. */
+  readonly requestSignal?: AbortSignal | undefined;
 
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;

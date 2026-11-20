@@ -237,7 +237,7 @@ export class BlobArea {
       verificationRequestOptions(
         options,
         undefined,
-        this.context.verificationDeadline,
+        this.context.requestPolicy,
       ),
     );
     const result = await run(scoped);

@@ -386,3 +386,28 @@ test("stopping during key derivation never starts a login", async () => {
   expect(await revoked).toBe(true);
   expect(requests.filter((request) => request.includes("/auth/"))).toEqual([]);
 });
+
+test("interruption reports unconfirmed revocation when the sign-in reply is lost", async () => {
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  let stop: (() => Promise<boolean>) | undefined;
+  let cleanup: Promise<boolean> | undefined;
+  failing = /POST .*auth\/verify/u;
+  onRequest = (request) => {
+    if (failing?.test(request)) cleanup = stop?.();
+  };
+  await expect(
+    withSession(
+      {
+        apiBaseUrl,
+        recoveryKey: seedPhrase,
+        registerShutdown: (revoke) => {
+          stop = revoke;
+        },
+      },
+      async () => {
+        throw new Error("Unexpected signed-in work");
+      },
+    ),
+  ).rejects.toThrow("Command interrupted.");
+  expect(await cleanup).toBe(false);
+});

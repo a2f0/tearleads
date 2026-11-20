@@ -1,3 +1,4 @@
+import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@tearleads/validators/util";
 /** Only a streaming host sets this option on the requests used for bounded blob reads. */
 export class MetadataSizeError extends Error {}
 export const boundedMetadata = Symbol("boundedMetadata");
@@ -8,7 +9,16 @@ export type MetadataLimit =
   | "all"
   | "errors"
   | "attachment-list"
-  | "writer-projection";
+  | "writer-projection"
+  | "document-sync";
+
+const metadataLimits: Record<MetadataLimit, number> = {
+  all: MAX_METADATA_BYTES,
+  errors: MAX_METADATA_BYTES,
+  "attachment-list": MAX_ATTACHMENT_LIST_BYTES,
+  "writer-projection": MAX_ATTACHMENT_LIST_BYTES,
+  "document-sync": MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
+};
 
 /** Limit JSON descriptors and HTTP error details before any decoder can buffer them. */
 export function boundedMetadataResponse(
@@ -25,10 +35,7 @@ export function boundedMetadataResponse(
   };
   const reader = response.body?.getReader();
   if (!reader) return new Response(null, init);
-  const limit =
-    mode === "attachment-list" || mode === "writer-projection"
-      ? MAX_ATTACHMENT_LIST_BYTES
-      : MAX_METADATA_BYTES;
+  const limit = metadataLimits[mode];
   let bytes = 0;
   return new Response(
     new ReadableStream<Uint8Array>(

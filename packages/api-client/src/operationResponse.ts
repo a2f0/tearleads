@@ -137,6 +137,7 @@ export async function decodeJsonOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeJsonOperationResponseEnvelope>> {
+  options = request.optionsFor?.(options, operation) ?? options;
   if (requestRetired(session, options)) {
     void response.body?.cancel().catch(() => {});
     return retiredRequest(operation.method, path);

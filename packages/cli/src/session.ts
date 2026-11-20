@@ -6,6 +6,7 @@ import {
 } from "@tearleads/client-sdk";
 import { isOpfsInstallWarning, openLocalDatabase } from "./localDatabase";
 import { TracingApiRequestMetrics } from "./sdkTracing";
+import { commandLoginLifetime } from "./sessionLoginState";
 import { disabledTracer, type Tracer } from "./trace";
 
 export interface CliSession {
@@ -138,11 +139,13 @@ async function runSession<T>(
     openLocalDatabase(),
   );
   const loggedErrors: string[] = [];
+  const lifetime = commandLoginLifetime(() => revoke(sdk));
   const sdk = new Tearleads({
     apiBaseUrl,
     apiRequestMetrics: new TracingApiRequestMetrics(tracer),
     streamingDownloads: true,
     verificationDeadline,
+    requestSignal: lifetime.signal,
     blobStoreFactory: () => createMemoryBlobStore(),
     database: { client: database.client, id: crypto.randomUUID() },
     documentProjectors,
@@ -176,22 +179,17 @@ async function runSession<T>(
     }
   };
 
-  const loginResult = Promise.withResolvers<boolean>();
-  let revocation: Promise<boolean> | undefined;
-  const revokeOnce = () => {
-    revocation ??= loginResult.promise.then((active) => !active || revoke(sdk));
-    return revocation;
-  };
-  registerShutdown?.(revokeOnce);
+  registerShutdown?.(lifetime.stop);
   let signedIn = false;
   try {
     await tracer.span("derive keys from recovery key", () =>
       sdk.identity.importSeedPhrase(recoveryKey),
     );
-    if (revocation) throw new Error("Command interrupted.");
+    if (lifetime.stopping()) throw new Error("Command interrupted.");
+    lifetime.send("starting");
     signedIn = await tracer.span("sign in", () => sdk.session.login());
-    loginResult.resolve(signedIn);
-    if (revocation) throw new Error("Command interrupted.");
+    lifetime.send(signedIn ? "accepted" : "unconfirmed");
+    if (lifetime.stopping()) throw new Error("Command interrupted.");
     const userId = sdk.session.userId;
     if (!signedIn || !userId) {
       throw new LoginRefusedError();
@@ -204,15 +202,15 @@ async function runSession<T>(
       userId,
     });
     signedIn = false;
-    if (!(await tracer.span("revoke session", revokeOnce))) {
+    if (!(await tracer.span("revoke session", lifetime.stop))) {
       throw new Error(
         "Could not revoke this command's session on the API; it stays valid until it expires.",
       );
     }
     return result;
   } finally {
-    loginResult.resolve(false);
-    if (signedIn) await revokeOnce();
+    lifetime.send("unconfirmed");
+    if (signedIn) await lifetime.stop();
     sdk.dispose();
     database.close();
   }

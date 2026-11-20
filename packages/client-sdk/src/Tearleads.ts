@@ -241,6 +241,7 @@ export class Tearleads {
       metrics: this.apiRequests,
       streamingDownloads: options.streamingDownloads,
       verificationDeadline: options.verificationDeadline,
+      requestSignal: options.requestSignal,
       getIdentity: () => this.identity.signingFingerprint,
       // A native source beats a WebView's navigator.onLine (Android misreports it).
       isOnline: () => this.network.authoritativeOnline,
