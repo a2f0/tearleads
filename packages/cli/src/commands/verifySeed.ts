@@ -15,6 +15,7 @@ import type { CommandInput } from "../cliContext";
 import { resolveSeedAccount, seedLocalId } from "../seedAccount";
 import type { CliSession } from "../session";
 import { checkDocument, checkStoredAttachments } from "../verifySeedContent";
+import { checkSeedBytes, discoverSeedDocuments } from "../verifySeedDownloads";
 import { withSavedSession } from "./account";
 
 type Assets = Awaited<ReturnType<typeof loadContinuityAssets>>;
@@ -70,31 +71,16 @@ async function verifyDocument(
     )
       throw new Error(`Attachment metadata differs: ${label}`);
     const storageKey = snapshot.attachmentStorageKeyBySlotId[intent.slotId];
-    const downloaded =
-      storageKey && (await session.sdk.blobs.store.readBytes(storageKey));
-    if (!downloaded) throw new Error(`Missing attachment bytes: ${label}`);
-    if (!Buffer.from(original).equals(downloaded))
-      throw new Error(`Attachment bytes differ: ${label}`);
-    bytes += downloaded.byteLength;
+    const source =
+      storageKey && (await session.sdk.blobs.store.openByteSource(storageKey));
+    if (!source) throw new Error(`Missing attachment bytes: ${label}`);
+    await checkSeedBytes(source, original, label);
+    bytes += original.byteLength;
     session.tracer.event(
-      `verified ${intent.name} (${downloaded.byteLength} bytes)`,
+      `verified ${intent.name} (${original.byteLength} bytes)`,
     );
   }
   return bytes;
-}
-
-async function* discover(session: CliSession, folders: readonly string[]) {
-  for (const containerId of folders) {
-    for (;;) {
-      const batch =
-        await session.sdk.containerContents.discoverContainerDocuments(
-          containerId,
-        );
-      if (!batch) throw new Error("Could not discover documents.");
-      if (!batch.length) break;
-      for (const row of batch) yield { containerId, row };
-    }
-  }
 }
 
 async function verifyFixtures(
@@ -119,7 +105,10 @@ async function verifyFixtures(
   const documents = expected.size;
   let bytes = 0;
   let attachments = 0;
-  for await (const { containerId, row } of discover(session, account.folders)) {
+  for await (const { containerId, row } of discoverSeedDocuments(
+    account.folders,
+    (id) => session.sdk.containerContents.discoverContainerDocuments(id),
+  )) {
     if (!row.documentId) continue;
     const fixture = expected.get(row.documentId);
     if (!fixture) continue;

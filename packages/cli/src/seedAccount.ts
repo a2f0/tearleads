@@ -48,8 +48,6 @@ export async function resolveSeedAccount(
   return {
     rootId: root.id,
     signingPrivateKey: keys.signingPrivateKey,
-    folders: nodes
-      .filter((node) => node.organizationId === org.organizationId)
-      .map((node) => node.id),
+    folders: nodes.filter((node) => node.organizationId === org.organizationId),
   };
 }

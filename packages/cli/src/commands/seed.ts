@@ -114,7 +114,10 @@ export async function seed(input: CommandInput): Promise<void> {
       const documents = continuityDocuments(spec);
       assertCurrent();
       const contactsId = await ensureContactsContainer(sdk);
-      const accessibleFolders = new Set([...folders, contactsId]);
+      const accessibleFolders = new Set([
+        ...folders.map((node) => node.id),
+        contactsId,
+      ]);
       const lookup = createDocumentHeadLinkSetLoader(
         sdk.containerContents.workflowRuntime(),
       );

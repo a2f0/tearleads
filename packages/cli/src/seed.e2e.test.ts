@@ -223,11 +223,18 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     const stores = spyOn(sdkModule, "createMemoryBlobStore").mockImplementation(
       () => {
         const store = createStore();
-        const read = store.readBytes.bind(store);
-        store.readBytes = async (key) => {
-          const bytes = await read(key);
-          if (bytes?.length) bytes[0] = (bytes[0] ?? 0) ^ 1;
-          return bytes;
+        const open = store.openByteSource.bind(store);
+        store.openByteSource = async (key) => {
+          const source = await open(key);
+          if (!source) return null;
+          return {
+            byteLength: source.byteLength,
+            read: async (offset, length) => {
+              const bytes = await source.read(offset, length);
+              if (bytes.length) bytes[0] = (bytes[0] ?? 0) ^ 1;
+              return bytes;
+            },
+          };
         };
         return store;
       },
