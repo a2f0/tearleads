@@ -179,6 +179,8 @@ export async function seed(input: CommandInput): Promise<void> {
           assertCurrent();
           const store = await writeContinuityDocument({
             destination: "account",
+            traceAttachment: (event) =>
+              tracer.event(`seed ${document.key} ${event}`),
             onRecoveredStaleTarget: () =>
               session.recordExpectedSeedFailure("recovered stale target"),
             sdk,
@@ -193,7 +195,9 @@ export async function seed(input: CommandInput): Promise<void> {
             purged++;
             return;
           }
-          await confirmSeedSync(session, store, documentId, document.key);
+          await tracer.span(`confirm sync ${document.key}`, () =>
+            confirmSeedSync(session, store, documentId, document.key),
+          );
         });
       }
       assertCurrent();

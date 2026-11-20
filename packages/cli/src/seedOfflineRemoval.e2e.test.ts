@@ -27,7 +27,7 @@ test.each(["seed", "personal"] as const)(
       const { rootContainerId, seedPhrase } =
         await registerCliTestAccount(apiBaseUrl);
       const device = { apiBaseUrl, rootContainerId, recoveryKey: seedPhrase };
-      const { context, keyStore } = testContext({ apiBaseUrl });
+      const { context, keyStore, output } = testContext({ apiBaseUrl });
       await keyStore.save("staging", seedPhrase);
       const seed = () => runCli(["seed", "--env", "staging"], context);
       expect(await seed()).toBe(1);
@@ -89,7 +89,9 @@ test.each(["seed", "personal"] as const)(
           });
         }
       });
+      output.stderr.length = 0;
       expect(await seed()).toBe(0);
+      expect(output.stderr).toEqual([]);
       await onFreshDevice(device, async (stores, sdk) => {
         const snapshot = stores
           .find((item) => item.getSnapshot().documentId === contactId)
