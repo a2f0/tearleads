@@ -36,6 +36,7 @@ export {
   didRegainSyncPrerequisites,
   isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
+export { backfillDocumentAttachmentNames } from "./attachments/attachmentFilenameBackfill";
 export {
   deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,

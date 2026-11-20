@@ -20,6 +20,13 @@ persisted local id and open it without creation seeds; see
 [document identity](client-sdk/public-api.md#document-identity). Expired
 `stillCurrent` admission also returns `null` without applying the birth.
 
+Both `createDocumentWithHistoryCheckpoint` and `commitDocumentMutation` can
+receive an `attachmentNames` string. Store the supplied value with the document
+projection in the same transaction. It replaces the complete filename map,
+including when the value is `"{}"`. When the field is omitted, preserve any
+existing map. Leave new rows without a supplied value eligible for backfill.
+The SDK matches each filename to the attachment's content digest and slot.
+
 `enqueuePendingUpdate(...)` returns a boolean and atomically writes the outgoing
 queue entry with the matching local durable-history tail entry. The built-in
 SQLite adapter stores both as one `document_history_updates` row: the row's

@@ -3,6 +3,7 @@ import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
   DEFAULT_DOCUMENT_KIND,
 } from "../../data/documents/documentConstants";
+import { serializeDocumentAttachmentNames } from "../../data/documents/documentContent";
 import {
   type DocumentProjectorRegistry,
   type DocumentProjectorRegistryInput,
@@ -376,6 +377,16 @@ async function commitOnePreparedDocumentMutation(input: {
     localId: persistInput.localId,
     patch: mutation.resolvedPatch,
   });
+  const saveClientProjection = (execSql: ExecSql, updatedAt: string) =>
+    saveDocumentClientProjection({
+      currentRecord: mutation.mutationCurrentRecord,
+      documentProjectors: input.documentProjectors,
+      documentState,
+      execSql,
+      localId: persistInput.localId,
+      record,
+      updatedAt,
+    });
   if (!mutation.mutationCurrentRecord) {
     const savedAt = await createInitialDocumentRows({
       currentDoc: persistInput.currentDoc,
@@ -384,16 +395,7 @@ async function commitOnePreparedDocumentMutation(input: {
       persistence: persistInput.persistence,
       record,
       stillCurrent: persistInput.canStartDurableMutation,
-      saveClientProjection: (transactionExecSql, updatedAt) =>
-        saveDocumentClientProjection({
-          currentRecord: null,
-          documentProjectors: input.documentProjectors,
-          documentState,
-          execSql: transactionExecSql,
-          localId: persistInput.localId,
-          record,
-          updatedAt,
-        }),
+      saveClientProjection,
     });
     return resolveInitialDocumentCreation({
       execSql: input.lockedExecSql,
@@ -407,6 +409,9 @@ async function commitOnePreparedDocumentMutation(input: {
     input.lockedExecSql,
     {
       acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
+      attachmentNames: serializeDocumentAttachmentNames(
+        persistInput.currentDoc,
+      ),
       clearSyncFailure: persistInput.clearSyncFailure,
       ...(persistInput.attachmentRemoval
         ? { attachmentRemoval: persistInput.attachmentRemoval }
@@ -435,15 +440,7 @@ async function commitOnePreparedDocumentMutation(input: {
         : {}),
     },
     async (transactionExecSql, updatedAt) => {
-      await saveDocumentClientProjection({
-        currentRecord: mutation.mutationCurrentRecord,
-        documentProjectors: input.documentProjectors,
-        documentState,
-        execSql: transactionExecSql,
-        localId: persistInput.localId,
-        record,
-        updatedAt,
-      });
+      await saveClientProjection(transactionExecSql, updatedAt);
       await persistInput.commitSideEffect?.(transactionExecSql);
     },
   );

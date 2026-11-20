@@ -12,10 +12,6 @@ import { EXPLORER_LABELS } from "../../labels";
 const BLOB_OPEN_ACTION_PRIORITY = 150;
 const BLOB_DOWNLOAD_ACTION_PRIORITY = 140;
 
-export function getBlobDisplayName(blob: BlobInfo): string {
-  return blob.name ?? blob.blobId ?? blob.storageKey;
-}
-
 /**
  * The blob detail screen's chrome: Open and Download, registered on the window
  * toolbar (and so on the routed shell's app bar too) rather than drawn inside

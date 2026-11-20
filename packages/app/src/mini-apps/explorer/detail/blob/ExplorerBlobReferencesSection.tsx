@@ -26,6 +26,7 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../../../components/shared/classNames";
+import { getBlobDisplayName } from "../../../shared/blob-pick/blob-list/blobListState";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoAttachmentKindLabel,
@@ -43,10 +44,7 @@ const BLOB_REFERENCE_SECONDARY_COLUMNS = [
 ] as const;
 
 /**
- * Folded, the four columns become one summary cell: the document leads, and
- * Container / State / Slot share the muted second line. Unfolded, they stay the
- * four columns they were — three of which are an id or a one-word state, so
- * they are the ones a narrow frame squeezes to nothing first.
+ * The compact row pairs each document with its own attachment filename.
  */
 function getBlobReferenceColumns(
   compact: boolean,
@@ -60,6 +58,10 @@ function getBlobReferenceColumns(
               {
                 id: "document",
                 text: EXPLORER_LABELS.blobBrowserDocumentColumn,
+              },
+              {
+                id: "filename",
+                text: EXPLORER_LABELS.blobBrowserFilenameColumn,
               },
             ]}
             secondary={BLOB_REFERENCE_SECONDARY_COLUMNS.map((column) => ({
@@ -77,12 +79,17 @@ function getBlobReferenceColumns(
     {
       header: EXPLORER_LABELS.blobBrowserDocumentColumn,
       id: "document",
-      width: "46%",
+      width: "28%",
+    },
+    {
+      header: EXPLORER_LABELS.blobBrowserFilenameColumn,
+      id: "filename",
+      width: "28%",
     },
     {
       header: EXPLORER_LABELS.documentInfoContainerColumn,
       id: "container",
-      width: "28%",
+      width: "20%",
     },
     {
       header: EXPLORER_LABELS.blobBrowserStateColumn,
@@ -218,6 +225,7 @@ function BlobReferenceRow(params: {
     params;
   const contextMenuTarget = getBlobReferenceContextTarget(reference);
   const canOpenDocument = contextMenuTarget !== null;
+  const filename = getBlobDisplayName(reference);
   const documentLabel = reference.documentTitle ?? compactId(reference.localId);
   const openDocument = contextMenuTarget
     ? () => {
@@ -260,6 +268,7 @@ function BlobReferenceRow(params: {
               id: "document",
               title: reference.localId,
             },
+            { id: "filename", text: filename, title: filename },
           ]}
           secondary={getBlobReferenceSecondaryFields(reference, containerName)}
         />
@@ -267,6 +276,9 @@ function BlobReferenceRow(params: {
         <>
           <MiniAppTableCell title={reference.localId}>
             {documentButton}
+          </MiniAppTableCell>
+          <MiniAppTableCell title={filename}>
+            <MiniAppTableText>{filename}</MiniAppTableText>
           </MiniAppTableCell>
           <MiniAppTableCell title={reference.containerId ?? undefined}>
             {getBlobReferenceContainerLabel(reference, containerName)}
@@ -302,7 +314,7 @@ export function BlobReferencesSection(params: {
         // Both modifiers, and only when folded: the two-line pitch rule is
         // written against the pair, and the denser `--compact` cell padding
         // belongs with the fold — unfolded, the section keeps the roomier
-        // four-column table it has always been.
+        // multi-column layout.
         className={classNames(
           compact &&
             "mini-app-table-frame--compact mini-app-table-frame--two-line",

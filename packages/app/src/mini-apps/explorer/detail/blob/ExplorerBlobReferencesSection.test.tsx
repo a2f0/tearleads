@@ -169,6 +169,7 @@ test("document links fold onto two lines on phones", () => {
   // One cell, and the container/state/slot trio muted beneath the document.
   expect(table.querySelectorAll("tbody .mini-app-table-cell")).toHaveLength(1);
   expect(bodyLines).toHaveLength(2);
+  expect(within(bodyLines.item(0)).getByText("example.txt")).toBeTruthy();
   expect(
     within(bodyLines.item(0)).getByRole("button", { name: "Roadmap notes" }),
   ).toBeTruthy();
@@ -207,16 +208,17 @@ test("document links fold when their own frame is narrow", () => {
   ).toBe(true);
 });
 
-test("document links keep four columns in a wide frame", () => {
+test("document links show each document’s filename in a wide frame", () => {
   document.documentElement.setAttribute("data-navigation-mode", "windowed");
   mockFrameWidth(900);
   const view = renderReferences();
   const table = getReferenceTable(view);
   const frame = getFrame(table);
+  expect(within(table).getByText("example.txt")).toBeTruthy();
 
-  expect(table.querySelectorAll("thead th")).toHaveLength(4);
+  expect(table.querySelectorAll("thead th")).toHaveLength(5);
   expect(table.querySelector(".mini-app-compact-table-lines")).toBeNull();
-  expect(table.querySelectorAll("tbody .mini-app-table-cell")).toHaveLength(4);
+  expect(table.querySelectorAll("tbody .mini-app-table-cell")).toHaveLength(5);
   expect(view.getByRole("button", { name: "Roadmap notes" })).toBeTruthy();
   expect(frame.classList.contains("mini-app-table-frame--two-line")).toBe(
     false,
@@ -228,7 +230,7 @@ test("document links stay single-line on routed tablets", () => {
   mockRoutedLayout(true);
   const table = getReferenceTable(renderReferences());
 
-  expect(table.querySelectorAll("thead th")).toHaveLength(4);
+  expect(table.querySelectorAll("thead th")).toHaveLength(5);
   expect(
     getFrame(table).classList.contains("mini-app-table-frame--two-line"),
   ).toBe(false);

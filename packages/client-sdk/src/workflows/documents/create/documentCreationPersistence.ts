@@ -3,6 +3,7 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
+import { serializeDocumentAttachmentNames } from "../../../data/documents/documentContent";
 import type {
   DocumentsPersistence,
   StoredDocumentRecord,
@@ -28,14 +29,11 @@ export function createInitialDocumentRows(input: {
       endVersionVector: encodeVersionVector(input.currentDoc),
       snapshot: bytesToBase64(exportFullHistorySnapshot(input.currentDoc)),
     },
-    input.pendingUpdate || input.stillCurrent
-      ? {
-          ...(input.pendingUpdate
-            ? { pendingUpdate: input.pendingUpdate }
-            : {}),
-          ...(input.stillCurrent ? { stillCurrent: input.stillCurrent } : {}),
-        }
-      : undefined,
+    {
+      attachmentNames: serializeDocumentAttachmentNames(input.currentDoc),
+      ...(input.pendingUpdate ? { pendingUpdate: input.pendingUpdate } : {}),
+      stillCurrent: input.stillCurrent,
+    },
     input.saveClientProjection,
   );
 }

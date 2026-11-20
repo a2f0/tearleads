@@ -190,7 +190,14 @@ async function saveDiscardShell(input: {
     document: shellDocument,
     tx,
   });
-  if (!(await saveDocumentRows({ document: shellDocument, tx, updatedAt }))) {
+  if (
+    !(await saveDocumentRows({
+      attachmentNames: "{}",
+      document: shellDocument,
+      tx,
+      updatedAt,
+    }))
+  ) {
     throw new Error("Document recovery generation changed during discard");
   }
 }

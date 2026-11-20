@@ -156,7 +156,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4]);
+    ).toEqual([1, 2, 3, 4, 5]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
