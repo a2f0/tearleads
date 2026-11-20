@@ -144,3 +144,45 @@ test.each([2, 1_000_000_000])(
     expect(arrayBuffer).not.toHaveBeenCalled();
   },
 );
+
+test("an oversized API length cancels a readable body before its first pull", async () => {
+  const cancel = mock(() => {});
+  const pull = mock((controller: ReadableStreamDefaultController<Uint8Array>) =>
+    controller.close(),
+  );
+  const response = new Response(
+    new ReadableStream<Uint8Array>({ pull, cancel }, { highWaterMark: 0 }),
+    { headers: BLOB_HEADERS(300) },
+  );
+  expect(
+    await getBlobBytes(mockTransport(response), blobId, undefined, {
+      maxEncryptedByteLength: 3,
+    }),
+  ).toBeNull();
+  expect(pull).not.toHaveBeenCalled();
+  expect(cancel).toHaveBeenCalledTimes(1);
+});
+
+test("a bounded API stream with a short advertised length cancels before forwarding excess bytes", async () => {
+  const cancel = mock(() => {});
+  const response = new Response(
+    new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          controller.enqueue(new Uint8Array(2));
+        },
+        cancel,
+      },
+      { highWaterMark: 0 },
+    ),
+    { headers: BLOB_HEADERS(3) },
+  );
+  const blob = await getBlobBytes(mockTransport(response), blobId, undefined, {
+    maxEncryptedByteLength: 3,
+  });
+  if (!blob) throw new Error("Missing blob");
+  const reader = blob.encryptedBytes.getReader();
+  expect((await reader.read()).value?.byteLength).toBe(2);
+  await expect(reader.read()).rejects.toThrow("exceeds its download limit");
+  expect(cancel).toHaveBeenCalledTimes(1);
+});

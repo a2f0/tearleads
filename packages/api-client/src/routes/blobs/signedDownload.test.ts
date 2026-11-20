@@ -144,3 +144,26 @@ test("an oversized descriptor is rejected before the signed storage request", as
   ).toBeNull();
   expect(fetchStorage).not.toHaveBeenCalled();
 });
+
+test("a signed storage stream cannot exceed the supplied limit", async () => {
+  const cancel = mock(() => {});
+  const response = new Response(
+    new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          controller.enqueue(new Uint8Array(3));
+        },
+        cancel,
+      },
+      { highWaterMark: 0 },
+    ),
+  );
+  const blob = await getBlobBytes(transport(), blobId, async () => response, {
+    maxEncryptedByteLength: 5,
+  });
+  if (!blob) throw new Error("Missing blob");
+  const reader = blob.encryptedBytes.getReader();
+  expect((await reader.read()).value?.byteLength).toBe(3);
+  await expect(reader.read()).rejects.toThrow("Blob download interrupted");
+  expect(cancel).toHaveBeenCalledTimes(1);
+});

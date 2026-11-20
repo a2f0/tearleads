@@ -15,7 +15,7 @@ import { blobDownloadBody } from "./blobDownloadBody";
 import { storageFetchOptions } from "./storageFetchOptions";
 
 export interface BlobDownloadOptions extends RequestResultOptions {
-  /** Require a stream and reject oversized declarations before opening or buffering the body. */
+  /** Require a stream and reject oversized declarations before opening the body. Cancel if it streams beyond this limit. */
   readonly maxEncryptedByteLength?: number | undefined;
 }
 
@@ -142,7 +142,7 @@ async function fetchSignedBlob(
     }
     if (options.maxEncryptedByteLength !== undefined && !response.body)
       return "fallback";
-    return await signedBlobResponse(descriptor, response, options.signal);
+    return await signedBlobResponse(descriptor, response, options);
   } catch {
     // The downstream SDK still verifies length, hash and authenticated
     // encryption. An error after streaming begins propagates to that reader.
@@ -153,13 +153,18 @@ async function fetchSignedBlob(
 async function signedBlobResponse(
   descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength" | "sha256">,
   response: Response,
-  signal: AbortSignal | undefined,
+  options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse> {
   return {
     blobId: descriptor.blobId,
     byteLength: descriptor.byteLength,
     sha256: descriptor.sha256,
-    encryptedBytes: await blobDownloadBody(response, signal, true),
+    encryptedBytes: await blobDownloadBody(
+      response,
+      options.signal,
+      true,
+      options.maxEncryptedByteLength,
+    ),
   };
 }
 
@@ -187,10 +192,15 @@ async function getBlobStream(
     options.maxEncryptedByteLength !== undefined &&
     (byteLength > options.maxEncryptedByteLength || !response.body)
   ) {
-    await response.body?.cancel().catch(() => {});
+    void response.body?.cancel().catch(() => {});
     return null;
   }
-  const encryptedBytes = await blobDownloadBody(response, options.signal);
+  const encryptedBytes = await blobDownloadBody(
+    response,
+    options.signal,
+    false,
+    options.maxEncryptedByteLength,
+  );
 
   if (options.signal?.aborted) return null;
   return {

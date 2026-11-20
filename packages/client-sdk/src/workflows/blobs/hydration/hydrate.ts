@@ -170,7 +170,7 @@ async function loadDocumentAttachmentBlob(
     input.maxEncryptedBytes !== undefined &&
     blob.byteLength > input.maxEncryptedBytes
   ) {
-    await blob.encryptedBytes.cancel();
+    void blob.encryptedBytes.cancel().catch(() => {});
     throw new Error("Attachment exceeds its expected encrypted size");
   }
   let encryptedBytes: Uint8Array<ArrayBuffer>;
