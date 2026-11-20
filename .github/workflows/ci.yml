@@ -377,7 +377,10 @@ jobs:
         run: sh scripts/lib/installDependencies.sh
 
       - name: Install Playwright browsers
-        run: bun run --cwd packages/app-web playwright install --with-deps chromium firefox webkit
+        run: |
+          # The runner's Azure mirror has timed out fetching WebKit dependencies.
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
+          bun run --cwd packages/app-web playwright install --with-deps chromium firefox webkit
 
       - name: Run E2E tests
         run: bun run test:turbo:e2e
