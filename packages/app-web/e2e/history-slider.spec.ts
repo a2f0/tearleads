@@ -4,9 +4,9 @@ import { themeForeground } from "./themeForeground";
 
 test.use({ hasTouch: true });
 
-test("History slider paints and seeks across browser engines", async ({
-  page,
-}) => {
+test("History slider paints and seeks across browser engines", {
+  tag: "@themed-control",
+}, async ({ page }) => {
   // Load the production CSS independently of a browser's local database support.
   await page.goto("/");
   const control = page.locator("#test-history-slider");

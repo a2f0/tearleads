@@ -293,10 +293,9 @@ test("Network radio labels meet the phone touch target", async ({ page }) => {
   }
 });
 
-test("Network radios use the active theme for selection and keyboard focus", async ({
-  browserName,
-  page,
-}) => {
+test("Network radios use the active theme for selection and keyboard focus", {
+  tag: "@themed-control",
+}, async ({ browserName, page }) => {
   const settings = await openSettingsFromTray(page);
   const foregrounds = new Set<string>();
   for (const theme of ["Light", "Dark", "Dusk"]) {
