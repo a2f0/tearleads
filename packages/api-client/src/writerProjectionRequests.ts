@@ -10,6 +10,7 @@ import { formatKnownManifestHints } from "@tearleads/validators/util";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
+import { withResourceRequestActivity } from "./resourceRequestActivity";
 import type {
   OperationRequestFn,
   OperationRequestResultFn,
@@ -166,13 +167,19 @@ export function writerProjectionRequests(
     operation,
   ) => {
     const kind = method === "GET" ? writerProjectionKind(operation.id) : null;
-    if (kind)
-      return citedProjectionRead(
-        runtime,
-        citations(),
-        { kind, path, validator },
-        options ?? {},
-      );
+    if (kind) {
+      const read = (requestOptions: RequestResultOptions) =>
+        citedProjectionRead(
+          runtime,
+          citations(),
+          { kind, path, validator },
+          requestOptions,
+        );
+      const id = kind === "document" ? projectionId(path) : null;
+      return id === null
+        ? read(options ?? {})
+        : withResourceRequestActivity(id, options ?? {}, read);
+    }
     return runtime.requestResult(
       path,
       validator,

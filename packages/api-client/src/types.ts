@@ -5,6 +5,10 @@ import type {
 } from "@tearleads/validators/operation";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import type { ApiNetworkError } from "./networkFailure";
+import type {
+  ResourceRequestActivity,
+  resourceRequestActivity,
+} from "./resourceRequestActivity";
 import type { WriterProjectionListing } from "./verifiedManifestCitations";
 
 export type HttpMethod = HttpOperationMethod;
@@ -18,6 +22,7 @@ export type ListDocumentEditAttributionRangesOptions = Omit<
 };
 
 export interface RequestResultOptions {
+  readonly [resourceRequestActivity]?: ResourceRequestActivity;
   /** Checked at dispatch, on renewal and before handling the response. */
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly signal?: AbortSignal | undefined;

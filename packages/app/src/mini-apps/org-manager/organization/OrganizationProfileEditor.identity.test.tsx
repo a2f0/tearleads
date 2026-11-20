@@ -101,29 +101,33 @@ test("the profile spinner follows only in-flight requests for the active profile
     ).toBeTruthy();
     expect(spinner()).toBeNull();
     const begin = (id: string) =>
-      apiRequests.begin(identity.signingFingerprint, documentSyncOperation, id);
+      apiRequests.beginResource(
+        identity.signingFingerprint,
+        documentSyncOperation,
+        id,
+      );
     const unrelated = begin("another-document");
     expect(spinner()).toBeNull();
     let finish = () => {};
     await act(async () => {
       const document = begin(f.documentId);
-      finish = () => document("succeeded");
+      finish = () => document();
     });
     expect(spinner()).not.toBeNull();
     await act(async () => finish());
     expect(spinner()).toBeNull();
     await act(async () => {
-      const binding = apiRequests.begin(
+      const binding = apiRequests.beginResource(
         identity.signingFingerprint,
         updateOrganizationProfileOperation,
         PROFILE_ORGANIZATION_ID,
       );
-      finish = () => binding("failed");
+      finish = () => binding();
     });
     expect(spinner()).not.toBeNull();
     await act(async () => {
       finish();
-      unrelated("succeeded");
+      unrelated();
     });
     expect(spinner()).toBeNull();
   } finally {
@@ -160,12 +164,12 @@ test("a local sync pass keeps the name field visible until the profile makes a r
     ).toBeNull();
     let settle = () => {};
     await act(async () => {
-      const finish = f.sdk.apiRequests.begin(
+      const finish = f.sdk.apiRequests.beginResource(
         f.sdk.identity.signingFingerprint,
         documentSyncOperation,
         f.documentId,
       );
-      settle = () => finish("succeeded");
+      settle = () => finish();
     });
     expect(
       view.getByText(ORG_MANAGER_LABELS.syncingOrganizationProfile),

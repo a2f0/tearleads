@@ -17,6 +17,7 @@ import {
   normalizeApiBaseUrl,
   requestFailureKey,
 } from "./requestInternals";
+import { resourceRequestActivity } from "./resourceRequestActivity";
 import { shouldRetryAfterSessionExpired } from "./sessionRefresh";
 import {
   type SessionBoundary,
@@ -295,6 +296,7 @@ export class ApiRequestRuntime {
       failureOperation,
       options.expectedPaymentRequiredOrganizationId,
     );
+    options[resourceRequestActivity]?.finish();
     const retired = () =>
       this.retiredResponse(
         session,
@@ -385,7 +387,6 @@ export class ApiRequestRuntime {
   ): Promise<RequestResult<Response>> {
     const session = this.sessionRenewals.signal;
     if (options.stillCurrent?.() === false) return retiredRequest(method, path);
-    const reportErrors = options.reportErrors ?? true;
     const { headers, init } = sessionRequestInit(
       method,
       body,
@@ -400,7 +401,7 @@ export class ApiRequestRuntime {
         operation,
         () => fetch(`${this.baseUrl}${path}`, init),
         options.signal,
-        path,
+        options[resourceRequestActivity],
       );
     } catch (error) {
       if (requestRetired(session, options)) return retiredRequest(method, path);
@@ -426,13 +427,12 @@ export class ApiRequestRuntime {
         method,
         networkError,
         path,
-        reportErrors: cancelled ? false : reportErrors,
+        reportErrors: !cancelled && (options.reportErrors ?? true),
         stalePrincipalHeads: undefined,
         status: null,
         statusText: "",
       });
     }
-
     if (requestRetired(session, options))
       return this.retiredResponse(session, method, path, response);
     this.onNetworkSuccess?.();

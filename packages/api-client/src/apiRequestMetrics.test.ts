@@ -71,14 +71,14 @@ test("live document requests survive a metrics reset until the last attempt sett
   const metrics = new ApiRequestMetrics();
   const active = (identity: string) =>
     metrics.isResourceInFlight(identity, documentSyncOperation, "doc");
-  const older = metrics.begin("alice", documentSyncOperation, "doc");
+  const older = metrics.beginResource("alice", documentSyncOperation, "doc");
   metrics.reset("alice");
   expect(active("alice")).toBe(true);
   expect(active("bob")).toBe(false);
-  const newer = metrics.begin("alice", documentSyncOperation, "doc");
-  newer("cancelled");
+  const newer = metrics.beginResource("alice", documentSyncOperation, "doc");
+  newer();
   expect(active("alice")).toBe(true);
-  older("failed");
+  older();
   expect(active("alice")).toBe(false);
 });
 

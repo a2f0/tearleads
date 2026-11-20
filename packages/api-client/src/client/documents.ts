@@ -23,6 +23,7 @@ import {
   bindPrototypeMethods,
   evictWriterProjectionIfSyncChanged,
 } from "../requestInternals";
+import { withResourceRequestActivity } from "../resourceRequestActivity";
 import {
   type DocumentPurgeProofOptions,
   documentCreate,
@@ -234,15 +235,16 @@ export class DocumentArea {
   ) {
     this.context.invalidateDocumentAttribution(documentId);
     const cachedBefore = this.projections.get(documentId);
-    return this.context.transport
-      .request(
+    return withResourceRequestActivity(documentId, options, (requestOptions) =>
+      this.context.transport.request(
         documentSyncOperation,
         {
           body: input,
           params: { documentId },
         },
-        options,
-      )
+        requestOptions,
+      ),
+    )
       .then(async (response) => {
         if (response) {
           await this.settleSyncedDocument(documentId, input, response);
@@ -268,10 +270,15 @@ export class DocumentArea {
     this.context.invalidateDocumentAttribution(documentId);
     const cachedBefore = this.projections.get(documentId);
     try {
-      const result = await this.context.transport.requestResult(
-        documentSyncOperation,
-        { body: input, params: { documentId } },
+      const result = await withResourceRequestActivity(
+        documentId,
         options,
+        (requestOptions) =>
+          this.context.transport.requestResult(
+            documentSyncOperation,
+            { body: input, params: { documentId } },
+            requestOptions,
+          ),
       );
       if (result.ok) {
         await this.settleSyncedDocument(documentId, input, result.data);

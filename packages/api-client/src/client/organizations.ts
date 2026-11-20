@@ -26,6 +26,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
 import { bindPrototypeMethods } from "../requestInternals";
+import { withResourceRequestActivity } from "../resourceRequestActivity";
 import { getOrganizationDataUsage as organizationDataUsage } from "../routes/organizations/dataUsage";
 import { listOrganizationGroupMembers as groupMembers } from "../routes/organizations/groupMembers";
 import {
@@ -161,12 +162,17 @@ export class OrganizationArea {
     organizationId: string,
     input: UpdateOrganizationProfileRequest,
   ) {
-    return this.context.send(
-      profileUpdate,
-      profileUpdate.path(organizationId),
-      updateOrganizationProfileOperation,
-      input,
+    return withResourceRequestActivity(
+      organizationId,
       { expectedPaymentRequiredOrganizationId: organizationId },
+      (options) =>
+        this.context.send(
+          profileUpdate,
+          profileUpdate.path(organizationId),
+          updateOrganizationProfileOperation,
+          input,
+          options,
+        ),
     );
   }
 

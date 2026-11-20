@@ -132,10 +132,28 @@ export class ApiRequestMetrics {
     );
   }
 
+  beginResource(
+    identity: string | null,
+    operation: Pick<HttpOperation, "id">,
+    resourceId: string,
+  ): () => void {
+    const key = JSON.stringify([identity, operation.id, resourceId]);
+    this.activeResources.set(key, (this.activeResources.get(key) ?? 0) + 1);
+    this.notify();
+    let finished = false;
+    return () => {
+      if (finished) return;
+      finished = true;
+      const remaining = (this.activeResources.get(key) ?? 1) - 1;
+      if (remaining === 0) this.activeResources.delete(key);
+      else this.activeResources.set(key, remaining);
+      this.notify();
+    };
+  }
+
   begin(
     identity: string | null,
     operation: HttpOperation,
-    resourceId?: string,
   ): (outcome: Outcome, serverTiming?: ApiServerTiming | null) => void {
     const generation = this.generations.get(identity) ?? 0;
     const startedAt = this.now();
@@ -151,16 +169,6 @@ export class ApiRequestMetrics {
       total: (existing?.total ?? 0) + 1,
       inFlight: (existing?.inFlight ?? 0) + 1,
     };
-    const resourceKey =
-      resourceId === undefined
-        ? null
-        : JSON.stringify([identity, operation.id, resourceId]);
-    if (resourceKey !== null) {
-      this.activeResources.set(
-        resourceKey,
-        (this.activeResources.get(resourceKey) ?? 0) + 1,
-      );
-    }
     this.update(identity, previous, existing, row, {
       total: previous.total + 1,
       inFlight: previous.inFlight + 1,
@@ -171,15 +179,7 @@ export class ApiRequestMetrics {
     return (outcome, serverTiming) => {
       if (completed) return;
       completed = true;
-      if (resourceKey !== null) {
-        const remaining = (this.activeResources.get(resourceKey) ?? 1) - 1;
-        if (remaining === 0) this.activeResources.delete(resourceKey);
-        else this.activeResources.set(resourceKey, remaining);
-      }
-      if ((this.generations.get(identity) ?? 0) !== generation) {
-        if (resourceKey !== null) this.notify();
-        return;
-      }
+      if ((this.generations.get(identity) ?? 0) !== generation) return;
       const current = this.getSnapshot(identity);
       const endpoint = current.endpoints.find(
         (candidate) =>
