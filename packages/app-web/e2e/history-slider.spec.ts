@@ -1,8 +1,29 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
 import { controlPixels } from "./controlPixels";
 import { themeForeground } from "./themeForeground";
 
 test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+
+async function expectNativeForcedColors(control: Locator, browserName: string) {
+  const page = control.page();
+  await page.emulateMedia({ forcedColors: "active" });
+  const forcedColorsActive = await page.evaluate(
+    () => matchMedia("(forced-colors: active)").matches,
+  );
+  if (browserName !== "webkit") expect(forcedColorsActive).toBe(true);
+  if (forcedColorsActive) {
+    await expect(control).toHaveCSS("appearance", "auto");
+    const forced = await controlPixels(control);
+    // Compare with a native range at the same position and size, on the same host.
+    await control.evaluate((element) => {
+      const height = element.getBoundingClientRect().height;
+      element.classList.remove("explorer-document-history-slider");
+      element.style.height = `${height}px`;
+      element.style.appearance = "auto";
+    });
+    expect(forced).toEqual(await controlPixels(control));
+  }
+}
 
 test("History slider paints and seeks across browser engines", {
   tag: "@themed-control",
@@ -72,21 +93,5 @@ test("History slider paints and seeks across browser engines", {
     await themeForeground(control),
   );
   expect(middle.row.at(-8)).toBe((await controlPixels(reference)).row[8]);
-  await page.emulateMedia({ forcedColors: "active" });
-  const forcedColorsActive = await page.evaluate(
-    () => matchMedia("(forced-colors: active)").matches,
-  );
-  if (browserName !== "webkit") expect(forcedColorsActive).toBe(true);
-  if (forcedColorsActive) {
-    await expect(control).toHaveCSS("appearance", "auto");
-    const forced = await controlPixels(control);
-    // Compare with a native range at the same position and size, on the same host.
-    await control.evaluate((element) => {
-      const height = element.getBoundingClientRect().height;
-      element.classList.remove("explorer-document-history-slider");
-      element.style.height = `${height}px`;
-      element.style.appearance = "auto";
-    });
-    expect(forced).toEqual(await controlPixels(control));
-  }
+  await expectNativeForcedColors(control, browserName);
 });
