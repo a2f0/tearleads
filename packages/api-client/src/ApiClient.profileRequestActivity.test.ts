@@ -96,3 +96,55 @@ for (const target of [
     },
   );
 }
+
+testApiClient(
+  "aborting a document sync after headers releases its activity",
+  async () => {
+    const metrics = new ApiRequestMetrics();
+    const client = new ApiClient(apiBaseUrl, {
+      metrics,
+      getIdentity: () => "alice",
+    });
+    const controller = new AbortController();
+    const headers = Promise.withResolvers<void>();
+    client.setOnNetworkSuccess(headers.resolve);
+    server.use(
+      http.post(
+        `${apiBaseUrl}/documents/:id/sync`,
+        ({ request }) =>
+          new Response(
+            new ReadableStream({
+              start(body) {
+                body.enqueue(new TextEncoder().encode("{"));
+                request.signal.addEventListener(
+                  "abort",
+                  () => body.error(request.signal.reason),
+                  { once: true },
+                );
+              },
+            }),
+            { headers: { "Content-Type": "application/json" } },
+          ),
+      ),
+    );
+    const result = client.syncDocumentResult(
+      projection.documentId,
+      createDocumentSyncRequest(),
+      { signal: controller.signal },
+    );
+    const active = () =>
+      metrics.isResourceInFlight(
+        "alice",
+        documentSyncOperation,
+        projection.documentId,
+      );
+    try {
+      await headers.promise;
+      expect(active()).toBe(true);
+    } finally {
+      controller.abort();
+    }
+    expect(await result).toMatchObject({ ok: false, kind: "cancelled" });
+    expect(active()).toBe(false);
+  },
+);
