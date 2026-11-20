@@ -35,3 +35,23 @@ test("a stalled logout returns after the revocation grace period", async () => {
   expect(result).toBe(1);
   expect(messages.at(-1)).toContain("Could not confirm revocation");
 });
+
+test("interrupting a signed-in command awaits revocation", async () => {
+  let revoked = false;
+  const messages: string[] = [];
+  const result = await runSeedCommandWithDeadline(
+    async (register) => {
+      register(async () => {
+        await Bun.sleep(1);
+        revoked = true;
+        return true;
+      });
+      process.emit("SIGINT");
+      return new Promise<number>(() => {});
+    },
+    (line) => messages.push(line),
+  );
+  expect(result).toBe(1);
+  expect(revoked).toBe(true);
+  expect(messages).toEqual(["Seed command interrupted."]);
+});

@@ -10,7 +10,8 @@ export async function runSeedCommandWithDeadline(
   const stopped = Promise.withResolvers<string>();
   const terminate = () => stopped.resolve("interrupted");
   const deadline = setTimeout(() => stopped.resolve("timed out"), timeoutMs);
-  process.once("SIGTERM", terminate);
+  process.on("SIGTERM", terminate);
+  process.on("SIGINT", terminate);
   let revoke: (() => Promise<boolean>) | undefined;
   try {
     const outcome = await Promise.race([
@@ -35,5 +36,6 @@ export async function runSeedCommandWithDeadline(
   } finally {
     clearTimeout(deadline);
     process.off("SIGTERM", terminate);
+    process.off("SIGINT", terminate);
   }
 }

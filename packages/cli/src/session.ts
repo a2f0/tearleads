@@ -30,6 +30,7 @@ export interface SessionOptions {
     | ((revoke: () => Promise<boolean>) => void)
     | undefined;
   readonly apiBaseUrl: string;
+  readonly verificationDeadline?: AbortSignal | undefined;
   readonly recoveryKey: string;
   readonly tracer?: Tracer | undefined;
 }
@@ -129,6 +130,7 @@ async function runSession<T>(
     tracer,
     documentProjectors,
     registerShutdown,
+    verificationDeadline,
   }: SessionOptions & { tracer: Tracer },
   work: (session: CliSession) => Promise<T>,
 ): Promise<T> {
@@ -140,6 +142,7 @@ async function runSession<T>(
     apiBaseUrl,
     apiRequestMetrics: new TracingApiRequestMetrics(tracer),
     streamingDownloads: true,
+    verificationDeadline,
     blobStoreFactory: () => createMemoryBlobStore(),
     database: { client: database.client, id: crypto.randomUUID() },
     documentProjectors,

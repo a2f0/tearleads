@@ -422,3 +422,7 @@ none.
 
 For SQLite initialization, runtime lifecycle methods, identity generation, and
 blob storage selection, see [SDK initialization](../sdk-initialization.md).
+
+For a disposable streaming verifier, pass `verificationDeadline` in the SDK
+options. Its signal bounds API calls across discovery continuations and caps
+document writer projections at 8 MiB. Logout can still revoke the session.

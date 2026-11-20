@@ -18,6 +18,9 @@ export interface TearleadsOptions {
   apiRequestMetrics?: ApiRequestMetrics | undefined;
   /** Enable bounded downloads only when the host HTTP transport streams without native buffering. */
   streamingDownloads?: boolean | undefined;
+  /** Deadline for a disposable verification client. Session revocation remains available. */
+  readonly verificationDeadline?: AbortSignal | undefined;
+
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
   database?: TearleadsDatabaseOptions | undefined;

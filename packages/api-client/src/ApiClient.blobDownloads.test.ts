@@ -307,7 +307,11 @@ testApiClient(
   },
 );
 
-for (const kind of ["attachment listing", "writer projection"] as const)
+for (const kind of [
+  "attachment listing",
+  "writer projection",
+  "placement head",
+] as const)
   testApiClient(
     `a bounded ${kind} cancels an oversized stream before decoding`,
     async () => {
@@ -332,15 +336,25 @@ for (const kind of ["attachment listing", "writer projection"] as const)
           metrics: new ApiRequestMetrics(),
           getIdentity: () => null,
           streamingDownloads: true,
+          verificationDeadline:
+            kind === "placement head"
+              ? new AbortController().signal
+              : undefined,
         });
         expect(
           kind === "attachment listing"
             ? await client.listDocumentAttachments(crypto.randomUUID(), {
                 boundedListing: true,
               })
-            : await client.getDocumentWriterProjection(crypto.randomUUID(), {
-                signal: new AbortController().signal,
-              }),
+            : kind === "placement head"
+              ? (
+                  await client.getDocumentWriterProjectionResult(
+                    crypto.randomUUID(),
+                  )
+                ).ok || null
+              : await client.getDocumentWriterProjection(crypto.randomUUID(), {
+                  signal: new AbortController().signal,
+                }),
         ).toBeNull();
         expect(cancel).toHaveBeenCalledTimes(1);
         expect(pulls).toBe(9);

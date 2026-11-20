@@ -25,7 +25,10 @@ import {
   SessionRenewalTracker,
   sessionAuthChallengeBytes,
 } from "./sessionRenewal";
-import { sessionRequestInit } from "./sessionRequestInit";
+import {
+  sessionRequestInit,
+  sessionResponseRequest,
+} from "./sessionRequestInit";
 import {
   readSessionJson,
   requestRetired,
@@ -75,10 +78,12 @@ export class ApiRequestRuntime {
     bindPrototypeMethods(this, ApiRequestRuntime.prototype);
     this.request = this.makeRequest;
     this.requestResult = this.makeRequestResult;
-    this.responseRequest = Object.assign(this.makeResponseRequest, {
-      reportFailure: this.reportResponseRequestFailure,
-      sessionSignal: () => this.sessionRenewals.signal,
-    });
+    this.responseRequest = sessionResponseRequest(
+      this.makeResponseRequest,
+      this.reportResponseRequestFailure,
+      () => this.sessionRenewals.signal,
+      instrumentation?.verificationDeadline,
+    );
   }
 
   /**
@@ -224,7 +229,7 @@ export class ApiRequestRuntime {
     failureOperation: Parameters<OperationRequestFn>[5],
   ): Promise<RequestResult<T>> {
     const session = this.sessionRenewals.signal;
-    const responseResult = await this.makeResponseRequest(
+    const responseResult = await this.responseRequest(
       path,
       method,
       body,

@@ -238,6 +238,7 @@ async function verifyFixtures(
   session: CliSession,
   account: Awaited<ReturnType<typeof resolveSeedAccount>>,
   assets: Assets,
+  discoveryDeadline: AbortSignal,
 ) {
   const expected = await expectedFixtures(account, assets);
   const { systemSlot } = await continuityContactsDefinition(session.sdk);
@@ -273,7 +274,10 @@ async function verifyFixtures(
       fixture.document.kind === "contact" ? contacts.id : account.rootId,
       fixture.document.key,
     );
-    const deadline = AbortSignal.timeout(120_000);
+    const deadline = AbortSignal.any([
+      discoveryDeadline,
+      AbortSignal.timeout(120_000),
+    ]);
     bytes += await readFixture(
       session,
       fixture,
@@ -286,6 +290,7 @@ async function verifyFixtures(
     expected.delete(row.documentId);
     if (!expected.size) break;
   }
+  discoveryDeadline.throwIfAborted();
   if (expected.size)
     throw new Error(
       `Missing fixtures: ${Array.from(expected.values(), ({ document }) => document.key).join(", ")}`,
@@ -297,15 +302,23 @@ async function verifyFixtures(
 
 /** Discover from an empty device and compare decrypted content with the pinned fixture. */
 export async function verifySeed(input: CommandInput) {
+  const deadline = AbortSignal.timeout(60 * 60_000);
   const result = await withSavedSession(
     input,
-    async (session) =>
-      verifyFixtures(
-        session,
-        await resolveSeedAccount(session, input.organizationId),
-        await loadContinuityAssets(),
+    (session) =>
+      beforeSeedDeadline(
+        (async () =>
+          verifyFixtures(
+            session,
+            await resolveSeedAccount(session, input.organizationId),
+            await loadContinuityAssets(),
+            deadline,
+          ))(),
+        deadline,
+        "Seed verification timed out.",
       ),
     APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+    deadline,
   );
   input.context.stdout(
     `Verified ${result.documents} documents, ${result.attachments} attachments and ${result.bytes} plaintext bytes.`,

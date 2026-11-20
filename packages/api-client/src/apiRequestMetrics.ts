@@ -35,6 +35,9 @@ export interface ApiRequestInstrumentation {
   readonly getIdentity: () => string | null;
   /** The host guarantees that HTTP response bodies stream without native buffering. */
   readonly streamingDownloads?: boolean | undefined;
+  /** Deadline for a disposable verification client. Session revocation remains available. */
+  readonly verificationDeadline?: AbortSignal | undefined;
+
   /** Host-enabled follow-up probe that classifies failed fetches. */
   readonly networkFailureProbe?: ApiReachabilityProbe | null | undefined;
   /**

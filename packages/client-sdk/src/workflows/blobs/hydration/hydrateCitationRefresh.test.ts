@@ -11,7 +11,11 @@ import { readWriteHeader } from "../../../data/documents/shared/readers";
 import { createAttachmentDecryptor } from "../verification/attachmentDecryptor";
 
 for (const inScope of [false, true]) {
-  for (const mode of ["stale", "fresh", ...(inScope ? ["bounded"] : [])]) {
+  for (const mode of [
+    "stale",
+    "fresh",
+    ...(inScope ? ["bounded", "bounded without signal"] : []),
+  ]) {
     const freshEvidence = mode !== "stale";
     const signal =
       mode === "bounded" ? new AbortController().signal : undefined;
@@ -46,7 +50,9 @@ for (const inScope of [false, true]) {
               _id: string,
               options?: { signal: AbortSignal },
             ) => {
-              expect(options?.signal).toBe(signal);
+              if (mode === "bounded without signal")
+                expect(options?.signal).toBeInstanceOf(AbortSignal);
+              else expect(options?.signal).toBe(signal);
               projections += 1;
               return projections > 1 && freshEvidence
                 ? refreshed
@@ -60,7 +66,7 @@ for (const inScope of [false, true]) {
             incidents.push(error);
           },
         });
-        const reader = signal
+        const reader = mode.startsWith("bounded")
           ? service.withExpectedDownloads(
               fixture.writerProjection.documentId,
               new Map([
@@ -85,7 +91,7 @@ for (const inScope of [false, true]) {
           });
         }
         expect(projections).toBe(2);
-        expect(evictions).toBe(signal ? 0 : 1);
+        expect(evictions).toBe(mode.startsWith("bounded") ? 0 : 1);
         expect(downloads).toBe(1);
         if (freshEvidence) {
           const sharedDatabase = await createTestExecSql(

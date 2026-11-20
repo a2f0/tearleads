@@ -44,10 +44,12 @@ async function* linkedRows<Row extends Placement>(
   containerId: string,
   batch: readonly Row[],
   listLinks: ListLinks,
+  checkTime: () => void,
 ) {
   const links = await listLinks(
     batch.flatMap(({ documentId }) => (documentId ? [documentId] : [])),
   );
+  checkTime();
   // Tombstone reconciliation also returns summaries for removed placements.
   for (const row of batch) {
     if (row.documentId && links.get(row.documentId)?.includes(containerId))
@@ -121,6 +123,11 @@ async function readFolderPage<Row extends Placement>(
   return { batch, outcome };
 }
 
+function checkDiscoveryTime(folder: string, now: number, deadline: number) {
+  if (now >= deadline)
+    throw new Error(`Document discovery timed out in ${folder}.`);
+}
+
 export async function* discoverSeedDocuments<Row extends Placement>(
   folderIds: readonly string[],
   list: ListPage<Row>,
@@ -140,13 +147,12 @@ export async function* discoverSeedDocuments<Row extends Placement>(
     const next = remaining.shift();
     if (!next) return;
     const now = clock.now();
-    if (next.retryAt > end || now >= end)
-      throw new Error(`Document discovery timed out in ${next.id}.`);
+    const checkTime = () => checkDiscoveryTime(next.id, clock.now(), end);
+    checkDiscoveryTime(next.id, Math.max(next.retryAt, now), end);
     if (next.retryAt > now) await clock.sleep(next.retryAt - now);
     const { batch, outcome } = await readFolderPage(next, list, clock.now);
-    if (batch?.length) {
-      yield* linkedRows(next.id, batch, listLinks);
-    }
+    checkTime();
+    if (batch?.length) yield* linkedRows(next.id, batch, listLinks, checkTime);
     const followup = nextFolderRead(next, outcome, clock.now());
     if (!followup) continue;
     if (batch?.length) remaining.unshift(followup);

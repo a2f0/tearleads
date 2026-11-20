@@ -80,9 +80,9 @@ bun run tearleads verify-seed --env production --trace
 It discovers the documents through their folders, checks the original fixture
 fields, rows and original folder links, and compares every decrypted attachment
 with the pinned bytes.
-Verification honors the SDK retry delay for deferred documents and checks the
-one-hour discovery budget between pages. The CLI limits the total time
-for each CLI process, including sign-in and logout.
+Verification honors the SDK retry delay for deferred documents and gives the
+verification session one hour, including discovery continuation requests.
+Each CLI process has a 65-minute limit and attempts logout on interruption.
 An edit, removal or missing download fails the check and identifies the fixture.
 Add `--trace` to `seed` for per-file staging, confirmation and skip messages.
 

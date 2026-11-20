@@ -26,6 +26,7 @@ export async function withSavedSession<T>(
   input: CommandInput,
   work: (session: CliSession) => Promise<T>,
   documentProjectors?: SessionOptions["documentProjectors"],
+  verificationDeadline?: AbortSignal,
 ): Promise<T> {
   const recoveryKey = await requireRecoveryKey(input);
   return withSession(
@@ -34,6 +35,7 @@ export async function withSavedSession<T>(
       registerShutdown: input.context.registerShutdown,
       recoveryKey,
       documentProjectors,
+      verificationDeadline,
       tracer: input.tracer,
     },
     work,

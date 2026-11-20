@@ -65,7 +65,7 @@ export class BlobAttachmentService {
       documentId,
       sizesBySlot: new Map(sizesBySlot),
       onVerifiedBinding,
-      signal,
+      signal: signal ?? new AbortController().signal,
     });
   }
 

@@ -137,3 +137,23 @@ test("verification checks active bindings even on fixtures without files", () =>
     ),
   ).toThrow("bindings differ");
 });
+
+test("a continuation finishing after the discovery deadline cannot return a fixture", async () => {
+  let now = 0;
+  const collect = async () => {
+    for await (const _ of discoverSeedDocuments(
+      ["folder"],
+      async () => {
+        now += 60 * 60_000 + 1;
+        return [{ documentId: "late" }];
+      },
+      async () => new Map([["late", ["folder"]]]),
+      { now: () => now, sleep: async () => {} },
+    )) {
+      throw new Error("Late fixture accepted");
+    }
+  };
+  await expect(collect()).rejects.toThrow(
+    "Document discovery timed out in folder",
+  );
+});

@@ -100,6 +100,13 @@ export class ApiClientContext {
     baseUrl?: string | null,
     instrumentation?: ApiRequestInstrumentation,
   ) {
+    if (
+      instrumentation?.verificationDeadline &&
+      !instrumentation.streamingDownloads
+    )
+      throw new Error(
+        "A verification deadline requires a streaming HTTP transport.",
+      );
     this.streamingDownloads = instrumentation?.streamingDownloads === true;
     bindPrototypeMethods(this, ApiClientContext.prototype);
     this.runtime = new ApiRequestRuntime(baseUrl, instrumentation);

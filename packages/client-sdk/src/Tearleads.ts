@@ -240,6 +240,7 @@ export class Tearleads {
     return new ApiClient(apiBaseUrl, {
       metrics: this.apiRequests,
       streamingDownloads: options.streamingDownloads,
+      verificationDeadline: options.verificationDeadline,
       getIdentity: () => this.identity.signingFingerprint,
       // A native source beats a WebView's navigator.onLine (Android misreports it).
       isOnline: () => this.network.authoritativeOnline,
