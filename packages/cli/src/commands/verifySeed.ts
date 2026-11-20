@@ -332,8 +332,11 @@ export async function verifySeed(input: CommandInput) {
         "Seed verification timed out.",
       );
     },
-    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
-    deadline,
+    {
+      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+      verificationDeadline: deadline,
+      automaticSessionRenewal: false,
+    },
   );
   input.context.stdout(
     `Verified ${result.documents} documents, ${result.attachments} attachments and ${result.bytes} plaintext bytes.`,

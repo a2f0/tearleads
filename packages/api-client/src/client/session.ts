@@ -211,7 +211,7 @@ export class SessionArea {
     );
   }
 
-  logout(signal?: AbortSignal) {
+  logout() {
     return this.context.send(
       authLogout,
       authLogout.path,
@@ -219,7 +219,6 @@ export class SessionArea {
       undefined,
       {
         retryOnSessionExpired: false,
-        signal,
       },
     );
   }

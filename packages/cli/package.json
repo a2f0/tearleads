@@ -9,7 +9,6 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@tearleads/api-client": "workspace:*",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*",
     "app": "workspace:*"

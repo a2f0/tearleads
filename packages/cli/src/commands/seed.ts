@@ -167,7 +167,10 @@ export async function seed(input: CommandInput): Promise<void> {
       session.assertNoFailures();
       return { synced: documents.length - purged, purged };
     },
-    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+    {
+      documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+      automaticSessionRenewal: false,
+    },
   );
   input.context.stdout(
     `Synced ${count.synced} Continuity documents to your ${input.target} account.${count.purged ? ` Skipped ${count.purged} permanently deleted.` : ""}`,

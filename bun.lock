@@ -225,7 +225,6 @@
       "name": "@tearleads/cli",
       "version": "0.1.11",
       "dependencies": {
-        "@tearleads/api-client": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",

@@ -3,6 +3,7 @@ import {
   documentSyncOperation,
   listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
+  verifyOperation,
 } from "@tearleads/validators/operation";
 import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@tearleads/validators/util";
 import { createDocumentSyncRequest } from "../test/helpers/apiClientTestFactories";
@@ -173,5 +174,26 @@ testApiClient(
     await expect(
       read(new Response("78901"), options, documentSyncOperation).text(),
     ).rejects.toThrow("exceeds its size limit");
+  },
+);
+
+testApiClient(
+  "an exhausted data budget preserves the bounded sign-in response",
+  async () => {
+    const read = createSessionMetadataReader(true, 1);
+    await expect(
+      read(
+        new Response("[]"),
+        { [boundedMetadata]: "document-sync" },
+        documentSyncOperation,
+      ).text(),
+    ).rejects.toThrow("exceeds its size limit");
+    expect(
+      await read(
+        new Response("token response"),
+        { [boundedMetadata]: "all" },
+        verifyOperation,
+      ).text(),
+    ).toBe("token response");
   },
 );

@@ -25,8 +25,10 @@ async function requireRecoveryKey({
 export async function withSavedSession<T>(
   input: CommandInput,
   work: (session: CliSession) => Promise<T>,
-  documentProjectors?: SessionOptions["documentProjectors"],
-  verificationDeadline?: AbortSignal,
+  options: Pick<
+    SessionOptions,
+    "documentProjectors" | "verificationDeadline" | "automaticSessionRenewal"
+  > = {},
 ): Promise<T> {
   const recoveryKey = await requireRecoveryKey(input);
   return withSession(
@@ -34,8 +36,7 @@ export async function withSavedSession<T>(
       apiBaseUrl: input.context.apiBaseUrl(input.target),
       registerShutdown: input.context.registerShutdown,
       recoveryKey,
-      documentProjectors,
-      verificationDeadline,
+      ...options,
       tracer: input.tracer,
     },
     work,

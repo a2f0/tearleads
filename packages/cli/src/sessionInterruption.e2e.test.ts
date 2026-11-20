@@ -128,44 +128,6 @@ test("an interrupt during the challenge prevents verification dispatch", async (
   );
 });
 
-for (const ending of ["interrupt", "work failure"])
-  test(`a command ending in ${ending} during renewal revokes the newly issued session`, async () => {
-    const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
-    let stop: (() => Promise<boolean>) | undefined;
-    let cleanup: Promise<boolean> | undefined;
-    const dispatch = Promise.withResolvers<void>();
-    const command = withSession(
-      {
-        recoveryKey: seedPhrase,
-        apiBaseUrl,
-        registerShutdown: (revoke) => {
-          stop = revoke;
-        },
-      },
-      async ({ sdk }) => {
-        expireNextSessionList = true;
-        onRequest = (request) => {
-          if (request.includes("/auth/verify")) {
-            dispatch.resolve();
-            if (ending === "interrupt") cleanup = stop?.();
-          }
-        };
-        const listing = sdk.session.listSessions();
-        await dispatch.promise;
-        if (ending === "work failure") {
-          void listing.catch(() => {});
-          throw new Error("work failed");
-        }
-        await listing;
-        expect(await cleanup).toBe(true);
-      },
-    );
-    if (ending === "work failure")
-      await expect(command).rejects.toThrow("work failed");
-    else await command;
-    expect(requests.at(-1)).toContain("/auth/logout");
-  });
-
 test("verification expiry during sign-in receives and revokes the issued token", async () => {
   const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
   const deadline = new AbortController();
@@ -195,35 +157,26 @@ test("a lost verification reply without an interrupt reports the possible issued
   ).rejects.toThrow("may have issued a session");
 });
 
-test("interrupting a renewal challenge revokes the previous session", async () => {
+test("a one-session command reports expiry without reauthenticating", async () => {
   const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
-  let stop: (() => Promise<boolean>) | undefined;
-  let cleanup: Promise<boolean> | undefined;
-  await withSession(
-    {
-      apiBaseUrl,
-      recoveryKey: seedPhrase,
-      registerShutdown: (revoke) => {
-        stop = revoke;
+  await expect(
+    withSession(
+      { apiBaseUrl, recoveryKey: seedPhrase, automaticSessionRenewal: false },
+      async ({ sdk, assertNoFailures }) => {
+        requests.length = 0;
+        expireNextSessionList = true;
+        await sdk.session.listSessions();
+        assertNoFailures();
       },
-    },
-    async ({ sdk }) => {
-      requests.length = 0;
-      expireNextSessionList = true;
-      onRequest = (request) => {
-        if (request.includes("/auth/challenge")) cleanup = stop?.();
-      };
-      await sdk.session.listSessions();
-      expect(await cleanup).toBe(true);
-      expect(requests.some((request) => request.endsWith("/auth/verify"))).toBe(
-        false,
-      );
-      expect(requests.some((request) => request.endsWith("/auth/logout"))).toBe(
-        true,
-      );
-    },
-  );
-  onRequest = null;
+    ),
+  ).rejects.toThrow("failed 1 time");
+  expect(
+    requests.some(
+      (request) =>
+        request.includes("/auth/challenge") || request.includes("/auth/verify"),
+    ),
+  ).toBe(false);
+  expect(requests.at(-1)).toContain("/auth/logout");
   await withSession(
     { apiBaseUrl, recoveryKey: seedPhrase },
     async ({ sdk }) => {

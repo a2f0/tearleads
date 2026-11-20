@@ -7,7 +7,7 @@ import {
   verifyOperation,
 } from "@tearleads/validators/operation";
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
-import { boundedMetadata } from "./boundedMetadataResponse";
+import { boundedMetadata, type MetadataLimit } from "./boundedMetadataResponse";
 import { hasHeader } from "./requestInternals";
 import type {
   HttpMethod,
@@ -41,16 +41,18 @@ export function sessionRequestInit(
   return { headers, init };
 }
 
-const verificationLimits = new Map<
-  HttpOperation,
-  "writer-projection" | "document-sync" | "errors"
->([
+const verificationLimits = new Map<HttpOperation, MetadataLimit>([
   [getDocumentWriterProjectionOperation, "writer-projection"],
   [documentSyncOperation, "document-sync"],
   [getBlobBytesOperation, "errors"],
+  [verifyOperation, "all"],
 ]);
 
 const signInCleanupSignals = new WeakMap<AbortSignal, AbortSignal>();
+function signInCleanupDeadline(limit: AbortSignal): AbortSignal;
+function signInCleanupDeadline(
+  limit: AbortSignal | undefined,
+): AbortSignal | undefined;
 function signInCleanupDeadline(limit: AbortSignal | undefined) {
   if (!limit) return undefined;
   const existing = signInCleanupSignals.get(limit);
@@ -77,7 +79,12 @@ function workDeadline(
     (command || limit) &&
     (phase === "response" || (!command?.aborted && !limit?.aborted))
   )
-    return signInCleanupDeadline(limit);
+    return command && limit
+      ? AbortSignal.any([
+          signInCleanupDeadline(command),
+          signInCleanupDeadline(limit),
+        ])
+      : signInCleanupDeadline(command ?? limit);
   return limit && command
     ? AbortSignal.any([limit, command])
     : (limit ?? command);

@@ -229,15 +229,8 @@ export class Tearleads {
       provisionedSystemContainers: options.provisionedSystemContainers,
       reportSecurityIncident,
     });
-    this.apiClient.setOnSessionExpired(() => {
-      const renewal = session.renewExpired();
-      try {
-        options.onSessionRenewal?.(renewal);
-      } catch {
-        /* Observation cannot interrupt an ongoing sign-in. */
-      }
-      return renewal;
-    });
+    if (options.automaticSessionRenewal !== false)
+      this.apiClient.setOnSessionExpired(session.renewExpired);
     return session;
   }
 

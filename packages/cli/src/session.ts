@@ -1,5 +1,4 @@
 import { format } from "node:util";
-import { ApiClient } from "@tearleads/api-client";
 import {
   createMemoryBlobStore,
   type DocumentProjectorDefinition,
@@ -33,6 +32,7 @@ export interface SessionOptions {
     | ((revoke: () => Promise<boolean>) => void)
     | undefined;
   readonly apiBaseUrl: string;
+  readonly automaticSessionRenewal?: boolean | undefined;
   readonly verificationDeadline?: AbortSignal | undefined;
   readonly recoveryKey: string;
   readonly tracer?: Tracer | undefined;
@@ -108,21 +108,6 @@ async function revoke(sdk: Tearleads): Promise<boolean> {
   }
 }
 
-async function revokeHeldSession(sdk: Tearleads, apiBaseUrl: string) {
-  const token = sdk.session.authToken;
-  if (!token) return false;
-  // The interrupted renewal clears the transport that was reading the challenge.
-  const deadline = AbortSignal.timeout(5_000);
-  const cleanup = new ApiClient(apiBaseUrl, {
-    metrics: sdk.apiRequests,
-    getIdentity: () => sdk.identity.signingFingerprint,
-    streamingDownloads: true,
-    verificationDeadline: deadline,
-  });
-  cleanup.setAuthToken(token);
-  return (await cleanup.logout(deadline))?.message === "ok";
-}
-
 /**
  * Signs in as the identity derived from `recoveryKey`, runs `work`, then
  * revokes the session and discards the in-memory database. A session that
@@ -163,6 +148,7 @@ async function runSession<T>(
     tracer,
     documentProjectors,
     registerShutdown,
+    automaticSessionRenewal,
     verificationDeadline,
   }: SessionOptions & { tracer: Tracer },
   work: (session: CliSession) => Promise<T>,
@@ -171,10 +157,7 @@ async function runSession<T>(
     openLocalDatabase(),
   );
   const loggedErrors: string[] = [];
-  const lifetime = commandLoginLifetime(
-    () => revoke(sdk),
-    () => revokeHeldSession(sdk, apiBaseUrl),
-  );
+  const lifetime = commandLoginLifetime(() => revoke(sdk));
   const sdk = new Tearleads({
     apiBaseUrl,
     apiRequestMetrics: new TracingApiRequestMetrics(tracer, () =>
@@ -183,7 +166,8 @@ async function runSession<T>(
     streamingDownloads: true,
     verificationDeadline,
     requestSignal: lifetime.signal,
-    onSessionRenewal: lifetime.observeRenewal,
+    automaticSessionRenewal:
+      automaticSessionRenewal ?? !(registerShutdown || verificationDeadline),
     blobStoreFactory: () => createMemoryBlobStore(),
     database: { client: database.client, id: crypto.randomUUID() },
     documentProjectors,

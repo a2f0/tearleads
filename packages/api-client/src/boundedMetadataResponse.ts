@@ -1,6 +1,7 @@
 import {
   type HttpOperation,
   logoutOperation,
+  verifyOperation,
 } from "@tearleads/validators/operation";
 import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES } from "@tearleads/validators/util";
 /** Only a streaming host sets this option on the requests used for bounded blob reads. */
@@ -44,7 +45,11 @@ export function createSessionMetadataReader(
     boundedMetadataResponse(
       response,
       options,
-      verification && operation !== logoutOperation ? consume : undefined,
+      verification &&
+        operation !== logoutOperation &&
+        operation !== verifyOperation
+        ? consume
+        : undefined,
     );
 }
 
