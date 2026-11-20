@@ -15,6 +15,14 @@ export function requestRetired(
   return session?.aborted || options?.stillCurrent?.() === false;
 }
 
+/** Once headers arrive, caller cancellation also retires response decoding. */
+export function responseRetired(
+  session?: AbortSignal,
+  options?: RequestResultOptions,
+) {
+  return options?.signal?.aborted || requestRetired(session, options);
+}
+
 /** A retired request cannot overwrite the active session's failure cache. */
 export function retiredRequest(
   method: HttpMethod,
@@ -43,12 +51,10 @@ export async function readSessionJson(
 ): Promise<RequestResult<unknown>> {
   try {
     const data: unknown = await response.json();
-    if (options.signal?.aborted || requestRetired(session, options))
-      return retiredRequest(method, path);
+    if (responseRetired(session, options)) return retiredRequest(method, path);
     return { ok: true, data };
   } catch (error) {
-    if (options.signal?.aborted || requestRetired(session, options))
-      return retiredRequest(method, path);
+    if (responseRetired(session, options)) return retiredRequest(method, path);
     const failure = responseBodyFailure(
       error,
       errorMessage(error),

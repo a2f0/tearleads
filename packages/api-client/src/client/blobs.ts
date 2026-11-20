@@ -280,6 +280,9 @@ export class BlobArea {
       signal?: AbortSignal | undefined;
     } = {},
   ) {
+    if (options.refresh) {
+      this.attachmentLists.delete(documentId);
+    }
     if (options.boundedListing || options.signal) {
       // A bounded reader must not join a listing with different cancellation or buffering rules.
       if (options.boundedListing && !this.context.streamingDownloads)
@@ -297,9 +300,6 @@ export class BlobArea {
           stillCurrent: () => !options.signal?.aborted,
         },
       );
-    }
-    if (options.refresh) {
-      this.attachmentLists.delete(documentId);
     }
     return cachedRequest(this.attachmentLists, documentId, () =>
       this.context.send(

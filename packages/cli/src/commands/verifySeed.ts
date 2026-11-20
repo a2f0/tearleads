@@ -155,6 +155,14 @@ async function checkSeedPlacement(
   }
 }
 
+function prepareBeforeDeadline(fixture: FixtureInput, deadline: AbortSignal) {
+  return beforeSeedDeadline(
+    prepareContinuityAttachments(fixture),
+    deadline,
+    `Timed out reading local fixtures for ${fixture.document.key}.`,
+  );
+}
+
 async function verifyFixtures(
   session: CliSession,
   account: Awaited<ReturnType<typeof resolveSeedAccount>>,
@@ -197,7 +205,7 @@ async function verifyFixtures(
       fixture.document.key,
       deadline,
     );
-    const prepared = await prepareContinuityAttachments(fixture);
+    const prepared = await prepareBeforeDeadline(fixture, deadline);
     const runtime = session.sdk.documents.workflowRuntime(containerId);
     const store = session.sdk.documents.open(
       {

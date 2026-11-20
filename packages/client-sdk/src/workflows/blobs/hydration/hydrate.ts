@@ -19,6 +19,7 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
+import { waitForRead } from "../../../data/shared/waitForRead";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createAttachmentDecryptor } from "../verification/attachmentDecryptor";
 import {
@@ -323,8 +324,13 @@ export async function hydrateDocumentAttachmentBlobs(
   request: HydrateDocumentAttachmentBlobsRequest,
   expectedDownloads?: ExpectedDownloadSizes,
 ): Promise<HydratedDocumentAttachmentBlob[] | null> {
+  const signal = expectedDownloads?.signal;
+  signal?.throwIfAborted();
   const input = {
     ...request,
+    stillCurrent: signal
+      ? () => !signal.aborted && request.stillCurrent?.() !== false
+      : request.stillCurrent,
     expectedDownloads,
     apiClient: blobs.api,
     execSql: blobs.execSql,
@@ -335,12 +341,25 @@ export async function hydrateDocumentAttachmentBlobs(
       "Document attachment hydration",
     ),
   };
-  const attachmentBindings = await input.apiClient.listDocumentAttachments(
-    input.documentId,
-    expectedDownloads
-      ? { boundedListing: true, signal: expectedDownloads.signal }
-      : undefined,
+  return waitForRead(hydrateCurrentAttachments(input, request), signal);
+}
+
+async function hydrateCurrentAttachments(
+  input: DocumentAttachmentHydrationContext,
+  request: HydrateDocumentAttachmentBlobsRequest,
+) {
+  const expectedDownloads = input.expectedDownloads;
+  const signal = expectedDownloads?.signal;
+  const attachmentBindings = await waitForRead(
+    input.apiClient.listDocumentAttachments(
+      input.documentId,
+      expectedDownloads
+        ? { boundedListing: true, signal: expectedDownloads.signal }
+        : undefined,
+    ),
+    signal,
   );
+  signal?.throwIfAborted();
   if (!attachmentBindings) {
     return null;
   }
@@ -349,7 +368,7 @@ export async function hydrateDocumentAttachmentBlobs(
     attachmentBindings.map((binding) => [binding.slotId, binding]),
   );
   const hydrationTargets: DocumentAttachmentHydrationTarget[] =
-    input.attachments.flatMap((attachment) => {
+    request.attachments.flatMap((attachment) => {
       const binding = bindingBySlotId.get(attachment.slotId);
       return binding &&
         shouldHydrateAttachment({
@@ -363,7 +382,7 @@ export async function hydrateDocumentAttachmentBlobs(
         : [];
     });
   if (hydrationTargets.length === 0) {
-    input.onBindingsChecked?.();
+    request.onBindingsChecked?.();
     return [];
   }
 
@@ -374,13 +393,16 @@ export async function hydrateDocumentAttachmentBlobs(
       hydrationTargets,
     }),
   );
+  signal?.throwIfAborted();
   if (loadedBlobs.length === 0) {
     return [];
   }
 
-  const writerProjection = await input.apiClient.getDocumentWriterProjection(
-    input.documentId,
+  const writerProjection = await waitForRead(
+    input.apiClient.getDocumentWriterProjection(input.documentId),
+    signal,
   );
+  signal?.throwIfAborted();
   if (!writerProjection) {
     input.log?.(
       `Documents: cannot hydrate attachments for document ${input.documentId} without a writer projection.`,
@@ -405,9 +427,11 @@ export async function hydrateDocumentAttachmentBlobs(
         }),
     })),
   });
+  signal?.throwIfAborted();
   const complete = hydrated.filter(
     (item): item is HydratedDocumentAttachmentBlob => item !== null,
   );
-  if (complete.length === hydrationTargets.length) input.onBindingsChecked?.();
+  if (complete.length === hydrationTargets.length)
+    request.onBindingsChecked?.();
   return complete;
 }

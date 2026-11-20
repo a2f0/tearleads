@@ -5,7 +5,7 @@ import {
 } from "@tearleads/validators/operation";
 import {
   readSessionJson,
-  requestRetired,
+  responseRetired,
   retiredRequest,
 } from "./sessionResponse";
 import type {
@@ -137,7 +137,7 @@ export async function decodeJsonOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeJsonOperationResponseEnvelope>> {
-  if (options.signal?.aborted || requestRetired(session, options)) {
+  if (responseRetired(session, options)) {
     void response.body?.cancel().catch(() => {});
     return retiredRequest(operation.method, path);
   }
@@ -177,7 +177,7 @@ export async function decodeJsonOperationResponse(
       options,
       session,
     );
-    if (options.signal?.aborted || requestRetired(session, options))
+    if (responseRetired(session, options))
       return retiredRequest(operation.method, path);
     if (!result.ok) return result;
     const parsed = schema.safeParse(result.data);

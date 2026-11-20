@@ -259,10 +259,11 @@ for (const phase of ["headers", "body"])
     },
   );
 
-for (const cancelled of [false, true])
+for (const phase of ["success", "cancelled", "cancelled-error"])
   testApiClient(
-    `an older JSON response preserves concurrent failures (cancelled: ${cancelled})`,
+    `an older JSON response preserves concurrent failures (${phase})`,
     async () => {
+      const cancelled = phase !== "success";
       const net = new ApiRequestRuntime(apiBaseUrl);
       const transport = createJsonOperationTransport(net.responseRequest);
       const headers = Promise.withResolvers<Response>();
@@ -280,7 +281,10 @@ for (const cancelled of [false, true])
       const currentFailure = () =>
         net.getRequestFailure({ method: "GET", path: "/" });
       const stale = transport.requestResult(
-        getHealthOperation,
+        {
+          ...getHealthOperation,
+          failureResponses: { 503: getHealthOperation.responses[200] },
+        },
         { params: {} },
         {
           signal: controller.signal,
@@ -288,7 +292,14 @@ for (const cancelled of [false, true])
       );
       await transport.requestResult(getHealthOperation, { params: {} });
       expect(currentFailure()?.status).toBe(503);
-      const response = Response.json({});
+      const response = Response.json(
+        {},
+        { status: phase === "cancelled-error" ? 503 : 200 },
+      );
+      response.text = async () => {
+        reading.resolve();
+        return JSON.stringify(await body.promise);
+      };
       response.json = () => {
         reading.resolve();
         return body.promise;
