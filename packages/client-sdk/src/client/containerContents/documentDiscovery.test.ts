@@ -4,6 +4,7 @@ import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
+import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -299,4 +300,63 @@ test("cancelling discovery returns before a held SQLite writer releases the queu
     native.close();
   }
   expect(list).not.toHaveBeenCalled();
+});
+
+test("a retry delay returned after cancellation cannot schedule another discovery", async () => {
+  const native = createNativeTestExecSql();
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const controller = new AbortController();
+  const retry = spyOn(
+    DocumentDiscoveryEvidenceRepository.prototype,
+    "retryDelay",
+  ).mockImplementation(async () => {
+    entered.resolve();
+    await release.promise;
+    return 100;
+  });
+  const pending = mock(() => {});
+  try {
+    await ensureSqlTables(native.execSql, clientSqlTables);
+    await getClientSQLitePersistenceRuntime(native.execSql)
+      .db.insert(containers)
+      .values({
+        id: "container",
+        organizationId: "org",
+        parentId: null,
+        metadataDocumentId: "metadata",
+        localCreatedAt: "2026-09-28",
+        localUpdatedAt: "2026-09-28",
+      });
+    const input = createWorkflowInputFixture({
+      execSql: native.execSql,
+      apiClient: laneApi(async () => ({
+        items: [],
+        tombstones: [],
+        hasMore: false,
+        nextWatermark: null,
+      })) as never,
+    });
+    const read = discoverContainerDocumentsForRuntime({
+      containerId: "container",
+      signal: controller.signal,
+      onPendingDiscovery: pending,
+      runtimeService: createInternalRuntimeFixture(() => input),
+    });
+    await Promise.race([
+      entered.promise,
+      read.then(() => {
+        throw new Error("Missed retry query");
+      }),
+    ]);
+    controller.abort();
+    await expect(read).rejects.toThrow();
+    release.resolve();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(pending).not.toHaveBeenCalled();
+  } finally {
+    release.resolve();
+    retry.mockRestore();
+    native.close();
+  }
 });

@@ -13,6 +13,7 @@ import type { DocumentAttachment } from "../../../data/documents";
 export interface ExpectedDownloadSizes {
   documentId: string;
   sizesBySlot: ReadonlyMap<string, number>;
+  onVerifiedBinding?: ((binding: BlobAttachmentSummary) => void) | undefined;
   signal?: AbortSignal | undefined;
 }
 

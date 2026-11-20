@@ -59,10 +59,12 @@ export class BlobAttachmentService {
     documentId: string,
     sizesBySlot: ReadonlyMap<string, number>,
     signal?: AbortSignal,
+    onVerifiedBinding?: ExpectedDownloadSizes["onVerifiedBinding"],
   ): BlobAttachmentService {
     return new BlobAttachmentService(this.blobs, {
       documentId,
       sizesBySlot: new Map(sizesBySlot),
+      onVerifiedBinding,
       signal,
     });
   }

@@ -134,25 +134,35 @@ test("a contact discovered in the root still needs a signed Contacts link", () =
 test("verification checks active bindings even on fixtures without files", () => {
   const slot = { slotId: "a", blobId: "b" };
   const held = [{ ...slot, storageKey: "bytes", detachedAt: null }];
-  expect(verifiedSeedStorageKeys("empty", [], [], [])).toEqual(new Map());
+  const verified = new Map([[slot.slotId, slot]]);
+  expect(verifiedSeedStorageKeys("empty", [], [], [], verified)).toEqual(
+    new Map(),
+  );
   expect(
-    verifiedSeedStorageKeys("document", ["a"], [slot], held).get("a"),
+    verifiedSeedStorageKeys("document", ["a"], [slot], held, verified).get("a"),
   ).toBe("bytes");
-  expect(() => verifiedSeedStorageKeys("empty", [], [slot], held)).toThrow(
-    "bindings differ",
-  );
   expect(() =>
-    verifiedSeedStorageKeys("document", ["a", "b"], [slot, slot], held),
+    verifiedSeedStorageKeys("empty", [], [slot], held, verified),
   ).toThrow("bindings differ");
-  expect(() => verifiedSeedStorageKeys("document", ["a"], null, held)).toThrow(
-    "bindings differ",
-  );
+  expect(() =>
+    verifiedSeedStorageKeys(
+      "document",
+      ["a", "b"],
+      [slot, slot],
+      held,
+      verified,
+    ),
+  ).toThrow("bindings differ");
+  expect(() =>
+    verifiedSeedStorageKeys("document", ["a"], null, held, verified),
+  ).toThrow("bindings differ");
   expect(() =>
     verifiedSeedStorageKeys(
       "document",
       ["a"],
       [{ ...slot, blobId: "replacement" }],
       held,
+      verified,
     ),
   ).toThrow("bindings differ");
 });

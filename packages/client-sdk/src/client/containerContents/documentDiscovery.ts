@@ -89,7 +89,9 @@ function createDiscoveryLane(input: {
       holdRepository.listRetryableHeldContainerDocumentTombstones(containerIds),
     listKnownContainerDocumentPlacements: (placements) =>
       holdRepository.listKnownContainerDocumentPlacements(placements),
-    onFullListing: request.onFullListing,
+    onFullListing: (ids) => {
+      if (!input.isContainerPaused()) request.onFullListing?.(ids);
+    },
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       containerOrganizationId,
       loadHead,
@@ -103,7 +105,9 @@ function createDiscoveryLane(input: {
         loadHead,
         loadEpoch,
         input.evidenceStore,
-        request.onPendingDiscovery,
+        (delayMs) => {
+          if (!input.isContainerPaused()) request.onPendingDiscovery?.(delayMs);
+        },
       ),
     }),
   };

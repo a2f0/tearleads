@@ -23,7 +23,7 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
   let staleTarget = false;
   let legacyDownloads = false;
   let legacyByteReads = 0;
-  let rebindAfterHydration = false;
+  let rebindAfterHydration: "blob" | "binding" | null = null;
   const listedBindings = new Set<string>();
   const contentRequests: string[] = [];
   const missing = Promise.withResolvers<void>();
@@ -78,7 +78,9 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
             return Response.json(
               bindings.map((binding) => ({
                 ...binding,
-                blobId: crypto.randomUUID(),
+                ...(rebindAfterHydration === "blob"
+                  ? { blobId: crypto.randomUUID() }
+                  : { bindingId: crypto.randomUUID() }),
               })),
             );
           listedBindings.add(path);
@@ -248,10 +250,15 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     expect(oneTime.output.stdout.at(-1)).toContain(
       `Verified ${documents.length} documents`,
     );
-    rebindAfterHydration = true;
-    expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(1);
-    expect(output.stderr.at(-1)).toContain("Attachment bindings differ");
-    rebindAfterHydration = false;
+    for (const change of ["blob", "binding"] as const) {
+      listedBindings.clear();
+      rebindAfterHydration = change;
+      expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(
+        1,
+      );
+      expect(output.stderr.at(-1)).toContain("Attachment bindings differ");
+    }
+    rebindAfterHydration = null;
     output.stderr.length = 0;
     // Use the actual signed fixture heads and ask the verifier to check them
     // against a different account. A verifier that omits the signer accepts them.

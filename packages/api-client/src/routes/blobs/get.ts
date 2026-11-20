@@ -7,11 +7,7 @@ import type { MultipartBlobPartUploadSource } from "@tearleads/validators/util";
 import type { BinaryResponseOperationTransport } from "../../binaryResponseOperationTransport";
 import { boundedMetadata } from "../../boundedMetadataResponse";
 import type { JsonOperationTransport } from "../../operationTransport";
-import type {
-  OperationResponseRequestFn,
-  RequestFailure,
-  RequestResultOptions,
-} from "../../types";
+import type { RequestFailure, RequestResultOptions } from "../../types";
 import { blobDownloadBody } from "./blobDownloadBody";
 import { storageFetchOptions } from "./storageFetchOptions";
 
@@ -41,8 +37,7 @@ export interface UploadMultipartBlobPartBytesRequest {
 }
 
 type BlobDownloadTransport = Pick<JsonOperationTransport, "requestResult"> &
-  Pick<BinaryResponseOperationTransport, "requestBinaryResponse"> &
-  Pick<OperationResponseRequestFn, "reportFailure">;
+  Pick<BinaryResponseOperationTransport, "requestBinaryResponse">;
 
 type DownloadFetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -58,29 +53,6 @@ function descriptorFailureFallback(
   }
   failure.report();
   return null;
-}
-
-function acceptDownloadDescriptor(
-  transport: BlobDownloadTransport,
-  blobId: string,
-  descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength">,
-  options: BlobDownloadOptions,
-): boolean {
-  if (descriptor.blobId !== blobId) {
-    transport.reportFailure({
-      kind: "shape",
-      method: "GET",
-      path: `/blobs/${blobId}/download`,
-      status: 200,
-      statusText: "",
-      message: `Blob ${blobId} download descriptor has the wrong identity`,
-    });
-    return false;
-  }
-  return (
-    options.maxEncryptedByteLength === undefined ||
-    descriptor.byteLength <= options.maxEncryptedByteLength
-  );
 }
 
 function metadataOptions(
@@ -110,12 +82,20 @@ async function downloadBlob(
   downloadFetch: DownloadFetch,
   options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse | null> {
+  const operation = {
+    ...getBlobDownloadOperation,
+    responses: {
+      200: getBlobDownloadOperation.responses[200].refine(
+        (descriptor) => descriptor.blobId === blobId,
+      ),
+    },
+  };
+  const limit = options.maxEncryptedByteLength ?? Infinity;
   // Refresh at most once. R2 expiration errors can appear as CORS/network
   // failures in browsers, so both rejected fetches and 403s need a fresh URL.
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (options.signal?.aborted) return null;
+  for (let attempt = 0; attempt < 2 && !options.signal?.aborted; attempt += 1) {
     const result = await transport.requestResult(
-      getBlobDownloadOperation,
+      operation,
       { params: { blobId } },
       { ...metadataOptions(options, "all"), reportErrors: false },
     );
@@ -124,8 +104,7 @@ async function downloadBlob(
       return descriptorFailureFallback(transport, blobId, result, options);
     }
     const descriptor = result.data;
-    if (!acceptDownloadDescriptor(transport, blobId, descriptor, options))
-      return null;
+    if (descriptor.byteLength > limit) return null;
     if (descriptor.source.kind === "api") {
       return getBlobStream(transport, blobId, options);
     }

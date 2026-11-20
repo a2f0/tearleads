@@ -134,7 +134,10 @@ A host with streaming HTTP responses can set `streamingDownloads: true` in
 `TearleadsOptions`. For a known dataset, call
 `runtime.blobAttachments.withExpectedDownloads(documentId, sizesBySlot)` to
 limit each slot's transfer before decryption. The Bun CLI enables this option.
-A host with a buffering HTTP bridge keeps the default for ordinary downloads.
+The optional third argument is an abort signal. The fourth receives each
+verified binding after decryption so a fixture reader can compare it with a later
+listing. A host with a buffering HTTP bridge keeps the default for ordinary
+downloads.
 
 `BlobAttachmentService` replaces the free `uploadDocumentAttachment`,
 `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports.

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { BlobByteSource } from "@tearleads/client-sdk";
 
 export async function checkSeedBytes(
@@ -182,6 +183,7 @@ export function verifiedSeedStorageKeys(
     storageKey: string;
     detachedAt: string | null;
   }[],
+  verified: ReadonlyMap<string, unknown>,
 ) {
   const remaining = new Set(expected);
   const bySlot = new Map(
@@ -195,6 +197,7 @@ export function verifiedSeedStorageKeys(
     if (
       !remaining.delete(binding.slotId) ||
       !copy ||
+      !isDeepStrictEqual(verified.get(binding.slotId), binding) ||
       copy.blobId !== binding.blobId
     )
       throw mismatch();

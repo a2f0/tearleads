@@ -344,3 +344,44 @@ testApiClient(
     }
   },
 );
+
+testApiClient(
+  "a late invalid descriptor cannot overwrite a newer valid download",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let calls = 0;
+    server.use(
+      http.get(downloadPath, async () => {
+        if (++calls === 1) {
+          started.resolve();
+          await release.promise;
+          return HttpResponse.json({
+            ...descriptor,
+            blobId: crypto.randomUUID(),
+          });
+        }
+        return HttpResponse.json(descriptor);
+      }),
+      http.get("https://storage.test/private-object", () =>
+        HttpResponse.text("bytes"),
+      ),
+    );
+    const older = client.getBlobBytes(blobId);
+    try {
+      await started.promise;
+      const newer = await client.getBlobBytes(blobId);
+      expect(await new Response(newer?.encryptedBytes).text()).toBe("bytes");
+    } finally {
+      release.resolve();
+    }
+    expect(await older).toBeNull();
+    expect(
+      client.getRequestFailure({
+        method: "GET",
+        path: `/blobs/${blobId}/download`,
+      }),
+    ).toBeNull();
+  },
+);

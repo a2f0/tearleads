@@ -431,6 +431,8 @@ async function hydrateCurrentAttachments(
   const complete = hydrated.filter(
     (item): item is HydratedDocumentAttachmentBlob => item !== null,
   );
+  for (const item of complete)
+    expectedDownloads?.onVerifiedBinding?.(item.binding);
   if (complete.length === hydrationTargets.length)
     request.onBindingsChecked?.();
   return complete;

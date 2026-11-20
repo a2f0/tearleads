@@ -40,6 +40,7 @@ async function verifyDocument(
   localId: string,
   prepared: Awaited<ReturnType<typeof prepareContinuityAttachments>>,
   signal: AbortSignal,
+  verified: ReadonlyMap<string, unknown>,
 ) {
   if (
     !(await store.ensureInitialized()) ||
@@ -91,6 +92,7 @@ async function verifyDocument(
       runtime.infra.execSql,
       localId,
     ),
+    verified,
   );
   let bytes = 0;
   for (const [index, { intent, bytes: original }] of prepared.entries()) {
@@ -179,6 +181,65 @@ function prepareBeforeDeadline(fixture: FixtureInput, deadline: AbortSignal) {
   );
 }
 
+async function readFixture(
+  session: CliSession,
+  fixture: FixtureInput,
+  containerId: string,
+  localId: string,
+  documentId: string,
+  deadline: AbortSignal,
+) {
+  const prepared = await prepareBeforeDeadline(fixture, deadline);
+  const runtime = session.sdk.documents.workflowRuntime(containerId);
+  const verified = new Map<string, unknown>();
+  const store = session.sdk.documents.open(
+    {
+      containerId,
+      localId: localId,
+      documentId: documentId,
+    },
+    {
+      remoteSyncMode: "on-demand",
+      workflowRuntime: {
+        ...runtime,
+        // Replaying history can mark a previously downloaded binding for detach.
+        // Permit only pulls, including continuation pages, on the verifier's device.
+        util: {
+          ...runtime.util,
+          deferAttachmentDetaches: true,
+          isRemoteSyncBlocked: (organizationId, direction) =>
+            direction !== "pull" ||
+            (runtime.util.isRemoteSyncBlocked?.(organizationId, direction) ??
+              false),
+        },
+        blobAttachments: runtime.blobAttachments.withExpectedDownloads(
+          documentId,
+          new Map(
+            prepared.map(({ intent }) => [intent.slotId, intent.byteLength]),
+          ),
+          deadline,
+          (binding) => verified.set(binding.slotId, structuredClone(binding)),
+        ),
+      },
+    },
+  );
+  return session.tracer.span(`read ${fixture.document.key}`, () =>
+    beforeSeedDeadline(
+      verifyDocument(
+        session,
+        store,
+        fixture,
+        localId,
+        prepared,
+        deadline,
+        verified,
+      ),
+      deadline,
+      `Timed out verifying ${fixture.document.key}.`,
+    ),
+  );
+}
+
 async function verifyFixtures(
   session: CliSession,
   account: Awaited<ReturnType<typeof resolveSeedAccount>>,
@@ -221,44 +282,13 @@ async function verifyFixtures(
       fixture.document.key,
       deadline,
     );
-    const prepared = await prepareBeforeDeadline(fixture, deadline);
-    const runtime = session.sdk.documents.workflowRuntime(containerId);
-    const store = session.sdk.documents.open(
-      {
-        containerId,
-        localId: row.id,
-        documentId: row.documentId,
-      },
-      {
-        remoteSyncMode: "on-demand",
-        workflowRuntime: {
-          ...runtime,
-          // Replaying history can mark a previously downloaded binding for detach.
-          // Permit only pulls, including continuation pages, on the verifier's device.
-          util: {
-            ...runtime.util,
-            deferAttachmentDetaches: true,
-            isRemoteSyncBlocked: (organizationId, direction) =>
-              direction !== "pull" ||
-              (runtime.util.isRemoteSyncBlocked?.(organizationId, direction) ??
-                false),
-          },
-          blobAttachments: runtime.blobAttachments.withExpectedDownloads(
-            row.documentId,
-            new Map(
-              prepared.map(({ intent }) => [intent.slotId, intent.byteLength]),
-            ),
-            deadline,
-          ),
-        },
-      },
-    );
-    bytes += await session.tracer.span(`read ${fixture.document.key}`, () =>
-      beforeSeedDeadline(
-        verifyDocument(session, store, fixture, row.id, prepared, deadline),
-        deadline,
-        `Timed out verifying ${fixture.document.key}.`,
-      ),
+    bytes += await readFixture(
+      session,
+      fixture,
+      containerId,
+      row.id,
+      row.documentId,
+      deadline,
     );
     attachments += fixture.document.attachments.length;
     expected.delete(row.documentId);
