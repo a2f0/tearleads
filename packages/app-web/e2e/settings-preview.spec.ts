@@ -295,9 +295,14 @@ test("Network radios use the active theme for selection and keyboard focus", asy
   page,
 }) => {
   const settings = await openSettingsFromTray(page);
+  const foregrounds = new Set<string>();
   for (const theme of ["Light", "Dark", "Dusk"]) {
     await settings.getByRole("tab", { name: "Desktop" }).click();
     await settings.getByText(theme, { exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-theme",
+      theme.toLowerCase(),
+    );
     await settings.getByRole("tab", { name: "Network" }).click();
     const radio = settings.getByRole("radio", {
       name: "Use Automatic Network",
@@ -313,6 +318,7 @@ test("Network radios use the active theme for selection and keyboard focus", asy
       swatch.remove();
       return color;
     });
+    foregrounds.add(foreground);
     if (theme !== "Dusk") {
       expect(foreground).toMatch(/^rgb\((\d+), \1, \1\)$/);
     }
@@ -321,4 +327,5 @@ test("Network radios use the active theme for selection and keyboard focus", asy
     await expect(radio).toHaveCSS("outline-style", "solid");
     await expect(radio).toHaveCSS("outline-width", "2px");
   }
+  expect(foregrounds.size).toBe(3);
 });
