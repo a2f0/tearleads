@@ -34,6 +34,7 @@ import {
 } from "./downloadHistoryMachine";
 import {
   ExplorerTransferNameCell,
+  type ExplorerTransferOpenAction,
   type ExplorerTransferProgress,
   ExplorerTransferStatusCell,
   getExplorerTransferStatusPercent,
@@ -131,7 +132,48 @@ function retryPendingFileDownloads(
   }
 }
 
+/** Where a finished download's row leads in Explorer. */
+export interface ExplorerDownloadDestinations {
+  openBlobDetail: (storageKey: string) => void;
+  openContainerInfoRoute: (containerId: string) => void;
+  openDocumentInfoRoute: (localId: string, containerId: string) => void;
+}
+
+// A finished file opens its stored blob, a document its info, and a folder
+// its info. An orphaned document has no container route to open.
+function getDownloadOpenAction(
+  entry: DownloadHistoryEntry,
+  destinations: ExplorerDownloadDestinations,
+): ExplorerTransferOpenAction | null {
+  if (entry.status !== "complete") return null;
+  const name = getDownloadName(entry);
+  const { stored } = entry;
+  switch (stored.objectKind) {
+    case "attachment":
+      return {
+        label: `${EXPLORER_LABELS.downloadsOpenFileAction}: ${name}`,
+        onOpen: () => destinations.openBlobDetail(stored.storageKey),
+      };
+    case "document": {
+      const { containerId } = stored;
+      return containerId === null
+        ? null
+        : {
+            label: `${EXPLORER_LABELS.downloadsOpenDocumentAction}: ${name}`,
+            onOpen: () =>
+              destinations.openDocumentInfoRoute(stored.localId, containerId),
+          };
+    }
+    case "container":
+      return {
+        label: `${EXPLORER_LABELS.downloadsOpenFolderAction}: ${name}`,
+        onOpen: () => destinations.openContainerInfoRoute(stored.localId),
+      };
+  }
+}
+
 function DownloadRow(params: {
+  destinations: ExplorerDownloadDestinations;
   entry: DownloadHistoryEntry;
   isAuthenticated: boolean;
   lanes: ReadonlyMap<string, SyncLaneSnapshot>;
@@ -155,9 +197,17 @@ function DownloadRow(params: {
           params.online,
           params.isAuthenticated,
         );
+  const open = getDownloadOpenAction(entry, params.destinations);
   return (
-    <MiniAppTableRow>
-      <ExplorerTransferNameCell title={item.documentId} transfer={transfer}>
+    <MiniAppTableRow
+      interactive={open !== null}
+      onActivate={open ? open.onOpen : undefined}
+    >
+      <ExplorerTransferNameCell
+        open={open}
+        title={item.documentId}
+        transfer={transfer}
+      >
         {getDownloadName(entry)}
         <small>
           {" "}
@@ -174,6 +224,7 @@ function DownloadRow(params: {
  * listed as Complete until the domain scope rotates, as Sync Lanes does.
  */
 export function ExplorerDownloadsPanel(params: {
+  destinations: ExplorerDownloadDestinations;
   documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
@@ -236,6 +287,7 @@ export function ExplorerDownloadsPanel(params: {
         >
           {entries.slice(0, limit).map((entry) => (
             <DownloadRow
+              destinations={params.destinations}
               entry={entry}
               isAuthenticated={isAuthenticated}
               key={getDownloadHistoryKey(entry.item)}

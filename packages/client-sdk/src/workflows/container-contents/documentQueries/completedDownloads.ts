@@ -20,12 +20,23 @@ export type DownloadQueueItemRef =
   | { localId: string; objectKind: "document" | "container" }
   | { localId: string; objectKind: "attachment"; slotId: string };
 
-/** A pull that left the download queue with its content fully stored. */
+/**
+ * A pull that left the download queue with its content fully stored, with
+ * where a host can show it: a document's projected container (null when it
+ * is orphaned), and a file's stored blob.
+ */
 export type CompletedDownloadItem =
   | {
       localId: string;
       documentId: string;
-      objectKind: "document" | "container";
+      objectKind: "document";
+      title: string | null;
+      containerId: string | null;
+    }
+  | {
+      localId: string;
+      documentId: string;
+      objectKind: "container";
       title: string | null;
     }
   | {
@@ -35,6 +46,11 @@ export type CompletedDownloadItem =
       slotId: string;
       /** The owning document's projected title. */
       title: string;
+      /** The owning document's projected container. */
+      containerId: string | null;
+      storageKey: string;
+      /** Null until the server blob identity is known. */
+      blobId: string | null;
     };
 
 // Each content statement also binds the two app kinds twice and both empty
@@ -98,6 +114,7 @@ async function selectCompletedContent(
   const rows = await db
     .select({
       appKind: documents.appKind,
+      containerId: documentProjection.containerId,
       documentId: documents.documentId,
       documentTitle: documentProjection.title,
       folderName: containers.displayName,
@@ -142,14 +159,21 @@ async function selectCompletedContent(
     );
   return rows.flatMap((row): CompletedDownloadItem[] => {
     if (row.documentId === null) return [];
-    const folder = row.appKind === CONTAINER_METADATA_APP_KIND;
     return [
-      {
-        documentId: row.documentId,
-        localId: row.localId,
-        objectKind: folder ? "container" : "document",
-        title: folder ? row.folderName : row.documentTitle,
-      },
+      row.appKind === CONTAINER_METADATA_APP_KIND
+        ? {
+            documentId: row.documentId,
+            localId: row.localId,
+            objectKind: "container",
+            title: row.folderName,
+          }
+        : {
+            containerId: row.containerId,
+            documentId: row.documentId,
+            localId: row.localId,
+            objectKind: "document",
+            title: row.documentTitle,
+          },
     ];
   });
 }
@@ -161,9 +185,12 @@ async function selectCompletedAttachments(
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({
+      blobId: documentAttachmentBlobProjection.blobId,
+      containerId: documentProjection.containerId,
       documentId: documents.documentId,
       localId: documentAttachmentBlobProjection.localId,
       slotId: documentAttachmentBlobProjection.slotId,
+      storageKey: documentAttachmentBlobProjection.storageKey,
       title: documentProjection.title,
     })
     .from(documentAttachmentBlobProjection)
@@ -191,10 +218,13 @@ async function selectCompletedAttachments(
       ? []
       : [
           {
+            blobId: row.blobId,
+            containerId: row.containerId,
             documentId: row.documentId,
             localId: row.localId,
             objectKind: "attachment",
             slotId: row.slotId,
+            storageKey: row.storageKey,
             title: row.title,
           },
         ],

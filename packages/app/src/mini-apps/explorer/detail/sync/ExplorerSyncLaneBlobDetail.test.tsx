@@ -1,9 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import type {
+  DocumentSummary,
   DomainSyncSnapshot,
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncLanesPanelView } from "./ExplorerSyncLanesPanel";
 
@@ -85,4 +86,96 @@ test("non-blob lane detail omits the Blob Browser action", () => {
       name: EXPLORER_LABELS.syncLanesOpenBlobAction,
     }),
   ).toBeNull();
+});
+
+test("blob lane Label and Key open the blob being uploaded", () => {
+  const openedStorageKeys: string[] = [];
+  const lane = createLane("documents/local-1/report.pdf");
+  const view = render(
+    <ExplorerSyncLanesPanelView
+      onBackToSelectionRoute={() => undefined}
+      onOpenBlobDetail={(storageKey) => openedStorageKeys.push(storageKey)}
+      onOpenLaneDetail={() => undefined}
+      selectedLaneKey={lane.key}
+      snapshot={createSnapshot(lane)}
+    />,
+  );
+
+  fireEvent.click(
+    view.getByRole("button", {
+      name: `${EXPLORER_LABELS.syncLanesOpenBlobAction}: Upload report.pdf`,
+    }),
+  );
+  fireEvent.click(
+    view.getByRole("button", {
+      name: `${EXPLORER_LABELS.syncLanesOpenBlobAction}: blob-upload:blob-1`,
+    }),
+  );
+
+  expect(openedStorageKeys).toEqual([
+    "documents/local-1/report.pdf",
+    "documents/local-1/report.pdf",
+  ]);
+});
+
+function renderDocumentLane(summary: DocumentSummary | null) {
+  const opened: Array<{ containerId: string; localId: string }> = [];
+  const loaded: string[] = [];
+  const lane = createLane(null);
+  const view = render(
+    <ExplorerSyncLanesPanelView
+      documentLinks={{
+        loadDocumentSummary: async (localId) => {
+          loaded.push(localId);
+          return summary;
+        },
+        openDocumentInfo: (localId, containerId) =>
+          opened.push({ containerId, localId }),
+      }}
+      onBackToSelectionRoute={() => undefined}
+      onOpenLaneDetail={() => undefined}
+      selectedLaneKey={lane.key}
+      snapshot={createSnapshot(lane)}
+    />,
+  );
+  return { loaded, opened, view };
+}
+
+test("document lane Label and Key open the document being synced", async () => {
+  const { loaded, opened, view } = renderDocumentLane({
+    containerId: "folder-1",
+    id: "local-1",
+  } as DocumentSummary);
+  const open = `${EXPLORER_LABELS.syncLanesOpenDocumentAction}: `;
+
+  fireEvent.click(
+    await view.findByRole("button", { name: `${open}Document local-1` }),
+  );
+  fireEvent.click(
+    view.getByRole("button", { name: `${open}documents:local-1` }),
+  );
+
+  expect(loaded).toEqual(["local-1"]);
+  expect(opened).toEqual([
+    { containerId: "folder-1", localId: "local-1" },
+    { containerId: "folder-1", localId: "local-1" },
+  ]);
+});
+
+test("a document lane without a shown document keeps plain text", async () => {
+  // Unhydrated here, or orphaned: there is no info route to open.
+  for (const summary of [
+    null,
+    { containerId: null, id: "local-1" } as DocumentSummary,
+  ]) {
+    const { loaded, view } = renderDocumentLane(summary);
+    await waitFor(() => expect(loaded).toEqual(["local-1"]));
+    expect(view.getAllByText("Document local-1").length).toBeGreaterThan(0);
+    expect(
+      view.queryByRole("button", {
+        name: new RegExp(EXPLORER_LABELS.syncLanesOpenDocumentAction),
+      }),
+    ).toBeNull();
+    cleanup();
+  }
 });

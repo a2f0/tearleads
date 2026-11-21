@@ -24,7 +24,16 @@ import {
   within,
 } from "@testing-library/react";
 import * as TearleadsProvider from "../../../../providers/sdk/TearleadsProvider";
-import { ExplorerDownloadsPanel } from "./ExplorerDownloadsPanel";
+import {
+  type ExplorerDownloadDestinations,
+  ExplorerDownloadsPanel,
+} from "./ExplorerDownloadsPanel";
+
+const noDestinations: ExplorerDownloadDestinations = {
+  openBlobDetail: () => undefined,
+  openContainerInfoRoute: () => undefined,
+  openDocumentInfoRoute: () => undefined,
+};
 
 let tearleadsSpy: ReturnType<typeof spyOn> | null = null;
 
@@ -80,6 +89,7 @@ function createQueue() {
         ref.objectKind === "document" && queue.completed.has(ref.localId)
           ? [
               {
+                containerId: "root",
                 documentId: `remote-${ref.localId}`,
                 localId: ref.localId,
                 objectKind: "document",
@@ -104,6 +114,7 @@ function renderDownloads(input: {
       <ExplorerRefresh onRefresh={input.onExplorerRefresh ?? (() => {})} />
       {input.showDownloads === false ? null : (
         <ExplorerDownloadsPanel
+          destinations={noDestinations}
           documentListRevision={0}
           documentQueries={input.documentQueries}
           domainScope={input.domainScope}
