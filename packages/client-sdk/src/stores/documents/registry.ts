@@ -5,6 +5,7 @@ import {
 } from "./documentStore/internalRelink";
 import type {
   DocumentAttachmentUpload,
+  DocumentSnapshot,
   DocumentStore,
   DocumentStoreFacade,
   DocumentsRuntime,
@@ -15,6 +16,8 @@ interface DocumentStoreRegistry {
   storeKeysByDocumentId: Map<string, string>;
   storeKeysByLocalId: Map<string, string>;
   storesByKey: Map<string, DocumentStoreFacade>;
+  /** Open views another record displaced; their queued writes still count. */
+  supersededStores: Set<DocumentStoreFacade>;
 }
 
 const documentStoreRegistriesByScope = new WeakMap<
@@ -75,6 +78,7 @@ export function getOrCreateDocumentStoreRegistry(
     storeKeysByDocumentId: new Map(),
     storeKeysByLocalId: new Map(),
     storesByKey: new Map(),
+    supersededStores: new Set(),
   };
   documentStoreRegistriesByScope.set(domainScope, nextRegistry);
   return nextRegistry;
@@ -131,7 +135,14 @@ export function registerDocumentStoreIdentity(
   const localStore = registry.storesByKey.get(localStoreKey);
   const documentStore = registry.storesByKey.get(documentStoreKey);
   if (localStore) {
-    documentStore?.rebindTo(localStore);
+    // Another local record now owns this document id. A view that already
+    // has the previous record open stays on it instead of switching records
+    // under its editor: its draft, uploads, and edits keep their identity,
+    // and a reopen resolves to the new owner.
+    if (documentStore && documentStore !== localStore) {
+      documentStore.supersede();
+      registry.supersededStores.add(documentStore);
+    }
     registry.storesByKey.set(documentStoreKey, localStore);
   }
   registry.storesByKey.delete(localStoreKey);
@@ -147,7 +158,10 @@ export function hasPendingLocalDocumentWrites(
 ): boolean {
   const registry = documentStoreRegistriesByScope.get(domainScope);
   if (!registry) return false;
-  for (const store of registry.storesByKey.values()) {
+  for (const store of [
+    ...registry.storesByKey.values(),
+    ...registry.supersededStores,
+  ]) {
     if (store.hasQueuedWrites() || store.hasUnsavedLocalEdits()) return true;
   }
   return false;
@@ -227,11 +241,23 @@ export async function discardRegisteredDocumentLocalState(
   return store.discardLocalState(documentId);
 }
 
+const supersedeHandlers = new WeakMap<DocumentStore, () => void>();
+
+/** How a backing store stops work that only its displaced view owned. */
+export function registerDocumentStoreSupersedeHandler(
+  store: DocumentStore,
+  handler: () => void,
+): void {
+  supersedeHandlers.set(store, handler);
+}
+
 export function createDocumentStoreFacade(
-  initialStore: DocumentStore,
+  targetStore: DocumentStore,
 ): DocumentStoreFacade {
-  let targetStore = initialStore;
   const listeners = new Set<() => void>();
+  let superseded = false;
+  let supersededSource: DocumentSnapshot | null = null;
+  let supersededSnapshot: DocumentSnapshot | null = null;
 
   const emitFacade = () => {
     for (const listener of listeners) {
@@ -239,21 +265,24 @@ export function createDocumentStoreFacade(
     }
   };
 
-  let unsubscribeTarget = targetStore.subscribe(() => {
+  targetStore.subscribe(() => {
     emitFacade();
   });
 
-  const connectTarget = (nextStore: DocumentStore) => {
-    if (targetStore === nextStore) {
-      return;
+  // Stable per source snapshot, as external-store readers require.
+  const getSnapshot = (): DocumentSnapshot => {
+    const snapshot = targetStore.getSnapshot();
+    if (!superseded) return snapshot;
+    if (snapshot !== supersededSource || !supersededSnapshot) {
+      supersededSource = snapshot;
+      supersededSnapshot = {
+        ...snapshot,
+        canAttach: false,
+        canWrite: false,
+        relinkedElsewhere: true,
+      };
     }
-
-    unsubscribeTarget();
-    targetStore = nextStore;
-    unsubscribeTarget = targetStore.subscribe(() => {
-      emitFacade();
-    });
-    emitFacade();
+    return supersededSnapshot;
   };
 
   const facade: DocumentStoreFacade = {
@@ -265,7 +294,7 @@ export function createDocumentStoreFacade(
     discardLocalState: (expectedDocumentId: string) =>
       targetStore.discardLocalState(expectedDocumentId),
     ensureInitialized: () => targetStore.ensureInitialized(),
-    getSnapshot: () => targetStore.getSnapshot(),
+    getSnapshot,
     hasQueuedWrites: () => targetStore.hasQueuedWrites(),
     hasUnsavedLocalEdits: () => targetStore.hasUnsavedLocalEdits(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
@@ -277,7 +306,12 @@ export function createDocumentStoreFacade(
       targetStore.requestRemoteSyncAndWait(signal),
     requestSync: () => targetStore.requestSync(),
     relink: (input) => targetStore.relink(input),
-    rebindTo: (store) => connectTarget(store),
+    supersede: () => {
+      if (superseded) return;
+      superseded = true;
+      supersedeHandlers.get(targetStore)?.();
+      emitFacade();
+    },
     restoreContent: (content, options) =>
       targetStore.restoreContent(content, options),
     setStructuredFields: (kind, patch, options) =>

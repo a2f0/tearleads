@@ -26,8 +26,11 @@ export async function hydrateAttachmentBlobs(
   policyOperation: PrincipalPolicyOperation,
   expectedGeneration?: DocumentStoreSyncGeneration,
 ) {
+  // A view displaced by a relink stops downloading for a record that no
+  // longer owns this document id, including a download already in flight.
   const generationIsCurrent = () =>
-    !expectedGeneration || isSyncGenerationCurrent(state, expectedGeneration);
+    !state.relinkedElsewhere &&
+    (!expectedGeneration || isSyncGenerationCurrent(state, expectedGeneration));
   if (!generationIsCurrent()) return;
 
   const runtime = state.runtime;

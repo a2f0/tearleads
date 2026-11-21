@@ -15,6 +15,7 @@ import {
   getOrCreateDocumentStoreRegistry,
   registerDocumentStore,
   registerDocumentStoreIdentity,
+  registerDocumentStoreSupersedeHandler,
   requestDocumentStoreSync,
   resolveDocumentStoreKey,
 } from "../registry";
@@ -391,6 +392,9 @@ function createBackingDocumentStore(
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };
+  registerDocumentStoreSupersedeHandler(store, () => {
+    context.state.relinkedElsewhere = true;
+  });
   return registerBackingStoreInternalRelink({ ...context, store });
 }
 

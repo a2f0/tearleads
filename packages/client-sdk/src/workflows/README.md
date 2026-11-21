@@ -162,6 +162,7 @@ objects or on-demand blob reads.
 persisted remote and recovery ids take precedence. See
 [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
 `openDocumentHistory` replays durable history read-only: [document history](../../../../docs/developer/client-sdk/document-history.md).
+Views displaced by a relink go read-only (`relinkedElsewhere`) until reopened.
 
 The documents facade admits explicit `historyMode: "raw"` reads through
 `RemoteDocumentService.syncRemoteDocument`. A raw consumer must start at a null
