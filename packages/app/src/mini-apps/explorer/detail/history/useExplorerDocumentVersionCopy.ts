@@ -1,5 +1,4 @@
 import type {
-  ContainerDocumentLinks,
   ContainerNode,
   DocumentSummary,
   StoredDocumentKind,
@@ -8,6 +7,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import { selfContactIdentityAdmission } from "../../../../stores/contacts/currentSelfContactIdentityState";
 import {
   type DocumentVersionCopyContent,
+  type OpenDocumentVersionCopy,
   saveDocumentVersionCopy,
 } from "../../../../stores/document-history/saveDocumentVersionCopy";
 import { isContainerUnderTrashByLookup } from "../../../../stores/explorer/ExplorerSystemContainers";
@@ -37,7 +37,8 @@ export interface ExplorerDocumentVersionCopy {
 }
 
 export function useExplorerDocumentVersionCopy(params: {
-  appData: Pick<ContainerDocumentLinks, "openDocument">;
+  /** Opens a document store, as Explorer's document links do. */
+  appData: { openDocument: OpenDocumentVersionCopy };
   /** The database and account the Explorer shows. */
   domainScope: object;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;

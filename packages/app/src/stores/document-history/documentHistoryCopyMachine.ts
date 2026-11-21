@@ -8,8 +8,8 @@ import type { DocumentSummary } from "@tearleads/client-sdk";
  * - `confirming`: the user asked to copy stop `index` and must confirm.
  * - `saving`: the new document is being created.
  * - `saved`: `copy` is the document that was created.
- * - `refused`: the last copy was not created (the folder no longer takes it,
- *   or the request was superseded).
+ * - `refused`: the copy was not created: the folder stopped taking it, before
+ *   or after it was confirmed, or creating it failed.
  */
 export type DocumentHistoryCopyState =
   | { readonly status: "idle" }
@@ -33,7 +33,13 @@ export type DocumentHistoryCopyEvent =
       readonly type: "finished";
     }
   /** The user moved to another stop: the outcome no longer describes it. */
-  | { readonly type: "stop-changed" };
+  | { readonly type: "stop-changed" }
+  /**
+   * The copy stopped being offered: the folder no longer takes it, or the
+   * viewer's Me is no longer known. A confirmation that is open must say so
+   * rather than vanish and come back.
+   */
+  | { readonly type: "withdrawn" };
 
 export const IDLE_DOCUMENT_HISTORY_COPY: DocumentHistoryCopyState = {
   status: "idle",
@@ -44,13 +50,13 @@ export const IDLE_DOCUMENT_HISTORY_COPY: DocumentHistoryCopyState = {
  * current run may finish a copy, and a copy in flight cannot be cancelled or
  * replaced: its document may already exist.
  *
- * | state \ event | requested  | cancelled | confirmed | finished (run)   | stop-changed |
- * | ------------- | ---------- | --------- | --------- | ---------------- | ------------ |
- * | idle          | confirming | (same)    | (same)    | (same)           | (same)       |
- * | confirming    | confirming | idle      | saving    | (same)           | idle         |
- * | saving        | (same)     | (same)    | (same)    | saved or refused | (same)       |
- * | saved         | confirming | idle      | (same)    | (same)           | idle         |
- * | refused       | confirming | idle      | (same)    | (same)           | idle         |
+ * | state \ event | requested  | cancelled | confirmed | finished (run)   | stop-changed | withdrawn |
+ * | ------------- | ---------- | --------- | --------- | ---------------- | ------------ | --------- |
+ * | idle          | confirming | (same)    | (same)    | (same)           | (same)       | (same)    |
+ * | confirming    | confirming | idle      | saving    | (same)           | idle         | refused   |
+ * | saving        | (same)     | (same)    | (same)    | saved or refused | (same)       | (same)    |
+ * | saved         | confirming | idle      | (same)    | (same)           | idle         | (same)    |
+ * | refused       | confirming | idle      | (same)    | (same)           | idle         | (same)    |
  */
 export function transitionDocumentHistoryCopy(
   state: DocumentHistoryCopyState,
@@ -72,6 +78,8 @@ export function transitionDocumentHistoryCopy(
       return state.status === "confirming"
         ? { index: state.index, run: event.run, status: "saving" }
         : state;
+    case "withdrawn":
+      return state.status === "confirming" ? { status: "refused" } : state;
     default:
       return state;
   }

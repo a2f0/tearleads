@@ -5,8 +5,13 @@ import {
   getRosterProfileDocumentLocalId,
 } from "@tearleads/client-sdk";
 import type { SelfContactIdentityView } from "../../../stores/contacts/currentSelfContactIdentityState";
+import {
+  CONTACTS_CONTAINER_NAME,
+  deriveBuiltInSystemContainers,
+} from "../../../stores/systemContainers";
 import { getSelectedDocumentMutationState } from "../hooks/selectedDocumentMutationState";
 import {
+  canCreateStructuredDocumentInContainerByRules,
   canMoveDocumentToContainerByRules,
   canSaveDocumentCopyByRules,
   createExplorerContainerRulesContext,
@@ -299,6 +304,56 @@ test("a version is never copied into the Trash", async () => {
     false,
   );
   expect(canSaveDocumentCopyByRules(rules, trash, ordinary, "contact")).toBe(
+    false,
+  );
+});
+
+test("app-owned folders take no copy, although they leave creation open", async () => {
+  const builtInSystemContainers = await deriveBuiltInSystemContainers({
+    organizationId: "identity-org",
+  });
+  expect(builtInSystemContainers.length).toBeGreaterThan(0);
+  const rules = createExplorerContainerRulesContext({
+    builtInSystemContainers,
+    contactsContainerId: "contacts",
+    contactsSystemSlot: "contacts-slot",
+    currentOrganizationId: "identity-org",
+    selfContactIdentity: await createReadySelfIdentity(),
+    trashSystemSlot: "trash-slot",
+  });
+
+  for (const builtIn of builtInSystemContainers) {
+    const container = node("linked-folder", {
+      id: builtIn.kind,
+      name: builtIn.name,
+      systemSlot: builtIn.systemSlot,
+    });
+    // The rule that would otherwise admit it: a new document may be made here.
+    expect(
+      canCreateStructuredDocumentInContainerByRules(rules, container),
+    ).toBe(true);
+    for (const kind of ["note", "contact"] as const) {
+      expect(canSaveDocumentCopyByRules(rules, container, ordinary, kind)).toBe(
+        false,
+      );
+    }
+  }
+});
+
+test("a shared Contacts takes no copy", async () => {
+  const rules = createSelfIdentityRules(await createReadySelfIdentity());
+  // Another organization's Contacts, shared with the viewer: its slot is the
+  // owner's, so it is known by name.
+  const shared = node("linked-folder", {
+    id: "shared-contacts",
+    name: CONTACTS_CONTAINER_NAME,
+    organizationId: "another-org",
+  });
+
+  expect(canSaveDocumentCopyByRules(rules, shared, ordinary, "contact")).toBe(
+    false,
+  );
+  expect(canSaveDocumentCopyByRules(rules, shared, ordinary, "note")).toBe(
     false,
   );
 });

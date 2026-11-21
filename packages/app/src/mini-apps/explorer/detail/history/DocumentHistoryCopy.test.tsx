@@ -6,7 +6,10 @@ import type {
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { act } from "react";
 import { EXPLORER_LABELS } from "../../labels";
-import { DocumentHistoryCopy } from "./DocumentHistoryCopy";
+import {
+  DocumentHistoryCopy,
+  useDocumentHistoryCopyControl,
+} from "./DocumentHistoryCopy";
 import type { ExplorerDocumentVersionCopy } from "./useExplorerDocumentVersionCopy";
 
 afterEach(cleanup);
@@ -66,26 +69,52 @@ function versionCopy() {
   return { asked, copy, opened, saves, state };
 }
 
+interface Shown {
+  /** The selected stop. */
+  index?: number;
+  /** The selected stop is still replaying: there is no version to copy yet. */
+  replaying?: boolean;
+  /** History is reloading: the timeline, and the control in it, is gone. */
+  timeline?: boolean;
+}
+
+/** The control under the state its host holds for it, as in the panel. */
+function Host(params: {
+  capability: ReturnType<typeof versionCopy>;
+  onRequested: () => void;
+  shown: Shown;
+}) {
+  const { capability, shown } = params;
+  const control = useDocumentHistoryCopyControl(capability.copy);
+  return shown.timeline === false ? null : (
+    <DocumentHistoryCopy
+      control={control}
+      copy={capability.copy}
+      documentSummary={DOCUMENT}
+      index={shown.index ?? 2}
+      onRequested={params.onRequested}
+      versionTime="Jan 1, 2030, 12:00:00 PM"
+      view={shown.replaying ? null : VIEW}
+    />
+  );
+}
+
 function mount(
   capability: ReturnType<typeof versionCopy>,
   options: { onRequested?: () => void } = {},
 ) {
-  const element = (index = 2) => (
-    <DocumentHistoryCopy
-      copy={capability.copy}
-      documentSummary={DOCUMENT}
-      index={index}
+  const element = (shown: Shown = {}) => (
+    <Host
+      capability={capability}
       onRequested={options.onRequested ?? (() => undefined)}
-      versionTime="Jan 1, 2030, 12:00:00 PM"
-      view={VIEW}
+      shown={shown}
     />
   );
   const view = render(element());
   return {
     ...view,
-    /** Re-render, optionally at another stop. */
-    update: (next: { index?: number } = {}) =>
-      view.rerender(element(next.index)),
+    /** Re-render: at another stop, while it replays, or without the timeline. */
+    update: (next: Shown = {}) => view.rerender(element(next)),
   };
 }
 
@@ -271,6 +300,86 @@ test("a copy that failed is reported as not created", async () => {
   expect(
     view.getByText(EXPLORER_LABELS.documentHistoryCopyRefused),
   ).toBeTruthy();
+});
+
+test("a copy in flight reports on the stop selected when it finishes", async () => {
+  const capability = versionCopy();
+  const view = mount(capability);
+  await confirmCopy(view);
+
+  // The user steps on while the copy is being created: the new stop replays,
+  // so there is no version on screen to copy.
+  view.update({ index: 1, replaying: true });
+  expect(copyButton(view).hasAttribute("disabled")).toBe(true);
+  await act(async () => capability.saves[0]?.settle(COPY));
+
+  expect(view.getByText(EXPLORER_LABELS.documentHistoryCopySaved)).toBeTruthy();
+  // It stays once that stop is on screen, and can be opened.
+  view.update({ index: 1 });
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentHistoryCopyOpenAction,
+    }),
+  );
+  expect(capability.opened).toEqual([COPY]);
+});
+
+test("a copy in flight still reports after History reloads", async () => {
+  const capability = versionCopy();
+  const view = mount(capability);
+  await confirmCopy(view);
+
+  // The timeline unmounts while History reloads, and the copy finishes.
+  view.update({ timeline: false });
+  await act(async () => capability.saves[0]?.settle(COPY));
+  view.update();
+
+  expect(view.getByText(EXPLORER_LABELS.documentHistoryCopySaved)).toBeTruthy();
+});
+
+test("a confirmation is refused in sight when the copy stops being offered", async () => {
+  const capability = versionCopy();
+  const view = mount(capability);
+  fireEvent.click(copyButton(view));
+  await view.findByRole("dialog", {
+    name: EXPLORER_LABELS.documentHistoryCopyTitle,
+  });
+
+  // The folder is trashed while the confirmation is open.
+  capability.state.offered = false;
+  view.update();
+  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+  expect(
+    view.getByText(EXPLORER_LABELS.documentHistoryCopyRefused),
+  ).toBeTruthy();
+  expect(capability.saves).toHaveLength(0);
+
+  // The offer returning does not bring the confirmation back unasked.
+  capability.state.offered = true;
+  view.update();
+  expect(copyButton(view)).toBeTruthy();
+  expect(view.queryByRole("dialog")).toBeNull();
+  expect(capability.saves).toHaveLength(0);
+});
+
+test("a copy that throws before it starts is reported as not created", async () => {
+  const capability = versionCopy();
+  capability.copy.save = () => {
+    throw new Error("no runtime");
+  };
+  const view = mount(capability);
+  await confirmCopy(view);
+
+  await waitFor(() =>
+    expect(
+      view.getByText(EXPLORER_LABELS.documentHistoryCopyRefused),
+    ).toBeTruthy(),
+  );
+  // Nothing is left latched: the copy can be asked for again.
+  fireEvent.click(copyButton(view));
+  await view.findByRole("dialog", {
+    name: EXPLORER_LABELS.documentHistoryCopyTitle,
+  });
 });
 
 test("a saved copy stays reachable when the folder stops taking documents", async () => {

@@ -274,6 +274,13 @@ test(
         name: EXPLORER_LABELS.documentHistoryCopyConfirm,
       }),
     );
+    // Step on while the copy is being created: its outcome is still
+    // reported, on whichever stop is selected when it finishes.
+    fireEvent.click(
+      explorer.getByRole("button", {
+        name: EXPLORER_LABELS.documentHistoryNextAction,
+      }),
+    );
     await explorer.findByText(EXPLORER_LABELS.documentHistoryCopySaved);
     // The original gained no step: nothing was written to it.
     expect(Number(slider.max)).toBe(lastStop);

@@ -217,11 +217,13 @@ export function canCreateStructuredDocumentInContainerByRules(
 }
 
 // A version saved as a copy is a new document born beside the original, so its
-// folder must take a new document of the version's kind: writable, accepting
-// the kind, and open to creation. Contacts refuses structured-document
-// creation but takes new contacts through its own action, so the viewer's own
-// Contacts takes a contact version. The Trash takes nothing; a folder under
-// it has no rules of its own, so its caller refuses that.
+// folder must take a new document of the version's kind. An ordinary folder
+// does when it is writable. A system folder holds what the app puts there, so
+// none takes a copy except the viewer's own Contacts, which takes a contact
+// version as it takes a new contact: not the Trash, not a shared Contacts, and
+// not Roster Profiles or Organization Metadata, although the last two leave
+// structured-document creation open. A folder under the Trash has no rules of
+// its own, so its caller refuses that.
 //
 // The copy never touches the original, so identity matters only for what the
 // copy would hold. A contact version of the viewer's Me would be born a second
@@ -242,7 +244,7 @@ export function canSaveDocumentCopyByRules(
   }
 
   return (
-    canCreateStructuredDocumentInContainerByRules(context, container) ||
+    !hasContainerRules(context, container) ||
     (documentKind === "contact" &&
       isContactsSystemContainerNode(container, context.contactsSystemSlot))
   );

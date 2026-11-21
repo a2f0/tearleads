@@ -14,6 +14,7 @@ export type DocumentVersionCopyContent = Pick<
   "documentKind" | "rows" | "structuredFields" | "text"
 >;
 
+/** How a copy's document is opened: everything it is born with. */
 interface DocumentVersionCopyStoreInput {
   containerId: string;
   initialDocumentKind: StoredDocumentKind;
@@ -23,6 +24,7 @@ interface DocumentVersionCopyStoreInput {
   localId: string;
 }
 
+/** The part of a document store that creating a copy uses. */
 interface DocumentVersionCopyStore {
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => {
@@ -33,6 +35,11 @@ interface DocumentVersionCopyStore {
   };
   requestSync: () => void;
 }
+
+/** Opens the store a copy is born in, as a container's `openDocument` does. */
+export type OpenDocumentVersionCopy = (
+  input: DocumentVersionCopyStoreInput,
+) => DocumentVersionCopyStore;
 
 /**
  * Create a new document in `containerId` that starts as `content`, and
@@ -48,9 +55,7 @@ export async function saveDocumentVersionCopy(input: {
   content: DocumentVersionCopyContent;
   createLocalId: () => string;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
-  openDocument: (
-    input: DocumentVersionCopyStoreInput,
-  ) => DocumentVersionCopyStore;
+  openDocument: OpenDocumentVersionCopy;
 }): Promise<DocumentSummary | null> {
   const { containerId, content } = input;
   const localId = input.createLocalId();

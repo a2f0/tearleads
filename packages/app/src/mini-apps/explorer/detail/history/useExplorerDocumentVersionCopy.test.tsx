@@ -1,9 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import type {
-  ContainerDocumentLinks,
-  DocumentStore,
-  DocumentSummary,
-} from "@tearleads/client-sdk";
+import type { DocumentSummary } from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
 import type { SelfContactIdentityView } from "../../../../stores/contacts/currentSelfContactIdentityState";
 import type { DocumentVersionCopyContent } from "../../../../stores/document-history/saveDocumentVersionCopy";
@@ -17,8 +13,8 @@ import { useExplorerDocumentVersionCopy } from "./useExplorerDocumentVersionCopy
 
 afterEach(cleanup);
 
-type OpenInput = Parameters<ContainerDocumentLinks["openDocument"]>[0];
 type HookParams = Parameters<typeof useExplorerDocumentVersionCopy>[0];
+type OpenInput = Parameters<HookParams["appData"]["openDocument"]>[0];
 
 const NOTE: DocumentVersionCopyContent = {
   documentKind: "note",
@@ -49,12 +45,12 @@ function documentLinks(options: { held?: boolean } = {}) {
             : Promise.resolve(true),
         getSnapshot: () => ({
           documentId: null,
-          documentKind: input.initialDocumentKind ?? "note",
+          documentKind: input.initialDocumentKind,
           ready: true,
           title: "from the store",
         }),
         requestSync: () => undefined,
-      } as unknown as DocumentStore;
+      };
     },
   };
   return { appData, opened, release };

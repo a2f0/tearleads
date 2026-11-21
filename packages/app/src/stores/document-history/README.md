@@ -91,11 +91,13 @@ copy does not need it to be writable and is offered on the newest stop too.
   bytes are [not retained](../../../../../docs/attachment-retention.md), and a
   copy never points at the original's bytes.
 - **The folder must take a new document of that kind**
-  ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/containerRules.ts)):
-  writable, accepting the version's kind, and open to creation. The viewer's
-  own Contacts takes a contact version, as it takes a new contact; the Trash,
-  folders under it, and read-only folders take nothing, and a document with no
-  folder has nowhere to save a copy.
+  ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/containerRules.ts)).
+  An ordinary folder does when it is writable. A system folder holds what the
+  app puts there, so none takes a copy except the viewer's own Contacts, which
+  takes a contact version as it takes a new contact. The Trash, folders under
+  it, a shared Contacts, Roster Profiles, Organization Metadata, and read-only
+  folders take nothing, and a document with no folder has nowhere to save a
+  copy.
 - **A contact version of Me is never copied.** Me is
   [one document](../../document-types/contact/README.md#personal-me-identity)
   per signing identity; a copy would be a second contact carrying the
@@ -104,4 +106,10 @@ copy does not need it to be writable and is offered on the newest stop too.
   Other kinds do not wait: the kind is the version's, so a Me alias that lists
   as a note is still refused once its version is a contact.
 - **The folder is asked again when the copy is confirmed.** It may have been
-  trashed or lost write access while the confirmation was open.
+  trashed or lost write access while the confirmation was open. If the copy
+  stops being offered while the confirmation is open, the confirmation closes
+  and says the version could not be saved.
+- **A copy in flight outlives the timeline.** Its state is held above the
+  timeline's actions, which unmount as stops replay and as History reloads.
+  Once confirmed, the copy's document exists, so its outcome is reported on
+  whichever stop is selected when it finishes.

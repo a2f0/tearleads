@@ -25,7 +25,11 @@ import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDat
 import { EXPLORER_LABELS } from "../../labels";
 import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { useExplorerDocumentSummary } from "../document/useExplorerDocumentSummary";
-import { DocumentHistoryCopy } from "./DocumentHistoryCopy";
+import {
+  DocumentHistoryCopy,
+  type DocumentHistoryCopyControl,
+  useDocumentHistoryCopyControl,
+} from "./DocumentHistoryCopy";
 import { DocumentHistoryRestore } from "./DocumentHistoryRestore";
 import { DocumentHistoryStopWriter } from "./DocumentHistoryStopWriter";
 import { DocumentHistoryTimeline } from "./DocumentHistoryTimeline";
@@ -77,6 +81,7 @@ function ReadyDocumentHistory(params: {
     | ExplorerAttributionUserLabelResolver
     | undefined;
   controls: DocumentHistoryControls;
+  copyControl: DocumentHistoryCopyControl;
   documentSummary: DocumentSummary;
   readOnly: boolean;
   state: ReadyHistory;
@@ -118,8 +123,8 @@ function ReadyDocumentHistory(params: {
     >
       <DocumentHistoryTimeline
         actions={
-          settled === null ? null : (
-            <div className="explorer-document-history-actions">
+          <div className="explorer-document-history-actions">
+            {settled === null ? null : (
               <DocumentHistoryRestore
                 index={settled.index}
                 isLatest={isCurrentDocumentVersion(state, settled.index)}
@@ -129,16 +134,19 @@ function ReadyDocumentHistory(params: {
                 versionTime={changeTime}
                 view={settled.view}
               />
-              <DocumentHistoryCopy
-                copy={versionCopy}
-                documentSummary={documentSummary}
-                index={settled.index}
-                onRequested={() => controls.seek(settled.index)}
-                versionTime={changeTime}
-                view={settled.view}
-              />
-            </div>
-          )
+            )}
+            {/* Stays mounted while a stop replays: a copy in flight reports
+                on whichever stop is selected when it finishes. */}
+            <DocumentHistoryCopy
+              control={params.copyControl}
+              copy={versionCopy}
+              documentSummary={documentSummary}
+              index={state.selectedIndex}
+              onRequested={() => controls.seek(state.selectedIndex)}
+              versionTime={changeTime}
+              view={settled?.view ?? null}
+            />
+          </div>
         }
         changeSummary={changeSummary}
         changeTime={changeTime}
@@ -179,6 +187,7 @@ function DocumentHistoryBody(params: {
     | ExplorerAttributionUserLabelResolver
     | undefined;
   controls: DocumentHistoryControls;
+  copyControl: DocumentHistoryCopyControl;
   documentSummary: DocumentSummary;
   isContainerReadOnly: (containerId: string | null) => boolean;
   versionCopy: ExplorerDocumentVersionCopy;
@@ -210,6 +219,7 @@ function DocumentHistoryBody(params: {
     <ReadyDocumentHistory
       attributionUserLabelResolver={params.attributionUserLabelResolver}
       controls={controls}
+      copyControl={params.copyControl}
       documentSummary={documentSummary}
       // The folder the document is in now, not the one the route names: a
       // stale or bookmarked route must not unlock a document since trashed.
@@ -260,6 +270,9 @@ function AdmittedDocumentHistory(params: {
 }) {
   const { documentSummary } = params;
   const controls = useDocumentHistory(documentSummary.id);
+  // Held here, above the timeline: History reloading unmounts the timeline,
+  // and a copy in flight must still report when it is back.
+  const copyControl = useDocumentHistoryCopyControl(params.versionCopy);
   const { state } = controls;
   const shown = state.status === "ready" ? state.shown : null;
 
@@ -276,6 +289,7 @@ function AdmittedDocumentHistory(params: {
       <DocumentHistoryBody
         attributionUserLabelResolver={params.attributionUserLabelResolver}
         controls={controls}
+        copyControl={copyControl}
         documentSummary={documentSummary}
         isContainerReadOnly={params.isContainerReadOnly}
         versionCopy={params.versionCopy}

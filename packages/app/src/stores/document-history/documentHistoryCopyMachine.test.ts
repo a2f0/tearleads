@@ -62,10 +62,19 @@ test("an outcome belongs to the stop it was raised on", () => {
   }
 });
 
+test("a confirmation whose copy is withdrawn is refused, not left open", () => {
+  expect(run(CONFIRMING, { type: "withdrawn" })).toEqual({ status: "refused" });
+  // Nothing else is waiting on the offer.
+  for (const state of [IDLE_DOCUMENT_HISTORY_COPY, SAVED, REFUSED]) {
+    expect(run(state, { type: "withdrawn" })).toBe(state);
+  }
+});
+
 test("a copy in flight cannot be cancelled, replaced, or moved away from", () => {
   for (const event of [
     { type: "cancelled" },
     { type: "stop-changed" },
+    { type: "withdrawn" },
     { index: 9, type: "requested" },
     { run: 2, type: "confirmed" },
   ] satisfies DocumentHistoryCopyEvent[]) {
