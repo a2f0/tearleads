@@ -42,8 +42,9 @@ export interface ExplorerDocumentVersionCopy {
 /**
  * A contact version that says it is the viewer. Me is refused by identity,
  * but other contacts carry the field too (the viewer's own roster profile,
- * or a contact left from another identity), and a copy would be a second
- * contact that Contacts labels "You".
+ * or a contact left from another identity). A copy leaves the field out in
+ * any case, so this is a second guard: it spares the viewer a copy of
+ * themselves that no longer says who it is.
  */
 function claimsToBeViewer(content: DocumentVersionCopyContent): boolean {
   const { isSelf = "" } = content.structuredFields;

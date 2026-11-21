@@ -2695,8 +2695,12 @@ export type components = {
         DocumentEditAttributionRangeResponse: {
             /** @enum {string} */
             authorityKind: "direct" | "baseline";
+            /** Format: date-time */
+            createdAt: string;
             endCounter: number;
             peerId: string;
+            /** Format: date-time */
+            signedAt: string;
             startCounter: number;
             updateId: string;
             writerKeyFingerprint: string;

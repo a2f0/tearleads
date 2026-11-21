@@ -284,9 +284,15 @@ commits share one change only while they fall within
   later change forward with it
 
 A signed write header's `signedAt` and the update's server `createdAt` are the
-independent upper bounds on when a change was made. A rotation baseline carries
-the times its writer asserts, under the same
-[coverage limitation](#declared-coverage-is-trusted-not-verified) as its
+independent upper bounds on when a change was made. Each
+[attribution range](./api-architecture.md) carries both for the upload that
+first delivered it: `createdAt` is the server's own clock, and `signedAt` is
+the writer's, authenticated but self-reported like the change time itself. A
+reader that shows a change's time can therefore show the lesser of that time
+and the `createdAt` of the upload that delivered the change's first operation,
+which bounds a clock that ran ahead; a clock that ran behind has no such
+bound. A rotation baseline carries the times its writer asserts, under the
+same [coverage limitation](#declared-coverage-is-trusted-not-verified) as its
 content.
 
 ### What Signed Headers Do Not Detect

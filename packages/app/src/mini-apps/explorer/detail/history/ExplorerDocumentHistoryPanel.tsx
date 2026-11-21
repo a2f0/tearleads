@@ -15,12 +15,17 @@ import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/p
 import { getDocumentTypeDefinition } from "../../../../document-types/registry";
 import { useTearleads } from "../../../../providers/sdk/TearleadsProvider";
 import { isCurrentDocumentVersion } from "../../../../stores/document-history/documentHistoryMachine";
+import {
+  boundDocumentHistoryStopTime,
+  resolveDocumentHistoryStopUploadedAt,
+} from "../../../../stores/document-history/documentHistoryUploadTime";
 import { DocumentHistoryViewContext } from "../../../../stores/document-history/historicalDocumentView";
 import {
   type DocumentHistoryControls,
   useDocumentHistory,
 } from "../../../../stores/document-history/useDocumentHistory";
 import { DocumentsProvider } from "../../../../stores/documents/DocumentsProvider";
+import { useDocumentAttributionRanges } from "../../../../stores/documents/useDocumentAttributionRanges";
 import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
@@ -76,6 +81,105 @@ function DocumentAtStop(params: {
   );
 }
 
+type SettledStop = NonNullable<ReadyHistory["shown"]>;
+
+/**
+ * The timeline for the selected stop: when the change was made, who uploaded
+ * it, what it changed, and what can be done with the version. It must render
+ * under the live document's provider, which the uploads, the restore, and
+ * the writer are read through.
+ */
+function SelectedStopTimeline(params: {
+  attributionUserLabelResolver:
+    | ExplorerAttributionUserLabelResolver
+    | undefined;
+  controls: DocumentHistoryControls;
+  copyControl: DocumentHistoryCopyControl;
+  documentSummary: DocumentSummary;
+  /** The selected stop once it is on screen; null while it replays. */
+  settled: SettledStop | null;
+  state: ReadyHistory;
+  versionCopy: ExplorerDocumentVersionCopy;
+}) {
+  const { controls, documentSummary, settled, state, versionCopy } = params;
+  const selectedStop = state.history.stops[state.selectedIndex];
+  // Who uploaded each run of operations, and when the server stored it.
+  const uploads = useDocumentAttributionRanges(true);
+  // A device's own time, bounded by when the change was uploaded: a change
+  // cannot have been made after the server stored it.
+  const stopTime = useMemo(
+    () =>
+      boundDocumentHistoryStopTime(
+        selectedStop?.committedAt ?? null,
+        selectedStop === undefined
+          ? null
+          : resolveDocumentHistoryStopUploadedAt(uploads, selectedStop),
+      ),
+    [selectedStop, uploads],
+  );
+  const changeTime = formatMiniAppDateTimeSeconds(stopTime.at, {
+    emptyFallback: EXPLORER_LABELS.documentHistoryTimeUnknown,
+  });
+  const changeSummary = useMemo(
+    () =>
+      settled === null ? null : describeDocumentHistoryChange(settled.change),
+    [settled],
+  );
+
+  return (
+    <DocumentHistoryTimeline
+      actions={
+        <div className="explorer-document-history-actions">
+          {settled === null ? null : (
+            <DocumentHistoryRestore
+              index={settled.index}
+              isLatest={isCurrentDocumentVersion(state, settled.index)}
+              // Choosing a stop stops playback, including the one on screen.
+              onRequested={() => controls.seek(settled.index)}
+              onRestored={controls.reload}
+              versionTime={changeTime}
+              view={settled.view}
+            />
+          )}
+          {/* Stays mounted while a stop replays: a copy in flight reports
+              on whichever stop is selected when it finishes. */}
+          <DocumentHistoryCopy
+            control={params.copyControl}
+            copy={versionCopy}
+            documentSummary={documentSummary}
+            index={state.selectedIndex}
+            onRequested={() => controls.seek(state.selectedIndex)}
+            versionTime={changeTime}
+            view={settled?.view ?? null}
+          />
+        </div>
+      }
+      changeSummary={changeSummary}
+      changeTime={changeTime}
+      changeTimeNote={
+        stopTime.clockAhead ? EXPLORER_LABELS.documentHistoryClockAhead : null
+      }
+      newerAvailable={state.newerAvailable}
+      onReload={controls.reload}
+      onSeek={controls.seek}
+      onStep={controls.step}
+      onTogglePlay={controls.togglePlay}
+      playing={state.playing}
+      selectedIndex={state.selectedIndex}
+      stopCount={state.history.stops.length}
+      writer={
+        selectedStop === undefined ? null : (
+          <DocumentHistoryStopWriter
+            resolveUserLabel={params.attributionUserLabelResolver}
+            segments={uploads}
+            stop={selectedStop}
+          />
+        )
+      }
+    />
+  );
+}
+
 function ReadyDocumentHistory(params: {
   attributionUserLabelResolver:
     | ExplorerAttributionUserLabelResolver
@@ -88,22 +192,12 @@ function ReadyDocumentHistory(params: {
   versionCopy: ExplorerDocumentVersionCopy;
 }) {
   const { controls, documentSummary, readOnly, state, versionCopy } = params;
-  const selectedStop = state.history.stops[state.selectedIndex];
   const { shown } = state;
-  const changeTime = formatMiniAppDateTimeSeconds(
-    state.history.stops[state.selectedIndex]?.committedAt ?? null,
-    { emptyFallback: EXPLORER_LABELS.documentHistoryTimeUnknown },
-  );
   // The stop on screen lags the selected one while it replays; its summary
   // and its restore would describe a different change, so offer neither
   // until it catches up.
   const settled =
     shown !== null && shown.index === state.selectedIndex ? shown : null;
-  const changeSummary = useMemo(
-    () =>
-      settled === null ? null : describeDocumentHistoryChange(settled.change),
-    [settled],
-  );
 
   return (
     // The live document: the restore reads its write access and writes
@@ -121,51 +215,14 @@ function ReadyDocumentHistory(params: {
         ? {}
         : { documentId: documentSummary.documentId })}
     >
-      <DocumentHistoryTimeline
-        actions={
-          <div className="explorer-document-history-actions">
-            {settled === null ? null : (
-              <DocumentHistoryRestore
-                index={settled.index}
-                isLatest={isCurrentDocumentVersion(state, settled.index)}
-                // Choosing a stop stops playback, including the one on screen.
-                onRequested={() => controls.seek(settled.index)}
-                onRestored={controls.reload}
-                versionTime={changeTime}
-                view={settled.view}
-              />
-            )}
-            {/* Stays mounted while a stop replays: a copy in flight reports
-                on whichever stop is selected when it finishes. */}
-            <DocumentHistoryCopy
-              control={params.copyControl}
-              copy={versionCopy}
-              documentSummary={documentSummary}
-              index={state.selectedIndex}
-              onRequested={() => controls.seek(state.selectedIndex)}
-              versionTime={changeTime}
-              view={settled?.view ?? null}
-            />
-          </div>
-        }
-        changeSummary={changeSummary}
-        changeTime={changeTime}
-        newerAvailable={state.newerAvailable}
-        onReload={controls.reload}
-        onSeek={controls.seek}
-        onStep={controls.step}
-        onTogglePlay={controls.togglePlay}
-        playing={state.playing}
-        selectedIndex={state.selectedIndex}
-        stopCount={state.history.stops.length}
-        writer={
-          selectedStop === undefined ? null : (
-            <DocumentHistoryStopWriter
-              resolveUserLabel={params.attributionUserLabelResolver}
-              stop={selectedStop}
-            />
-          )
-        }
+      <SelectedStopTimeline
+        attributionUserLabelResolver={params.attributionUserLabelResolver}
+        controls={controls}
+        copyControl={params.copyControl}
+        documentSummary={documentSummary}
+        settled={settled}
+        state={state}
+        versionCopy={versionCopy}
       />
       {shown === null ? (
         <MiniAppStatus busy>

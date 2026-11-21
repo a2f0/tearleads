@@ -4,6 +4,11 @@ import {
   resolveEditAttribution,
 } from "./documentEditAttribution";
 
+/** One second per upload, so each upload's times are its own. */
+function uploadTime(second: number): string {
+  return new Date(Date.UTC(2030, 0, 1, 0, 0, second)).toISOString();
+}
+
 function span(
   overrides: Partial<AttributionSpanInput> &
     Pick<
@@ -15,6 +20,8 @@ function span(
     updateId: `u-${overrides.sequence}`,
     writerKeyFingerprint: `fp-${overrides.writerUserId}`,
     isBaseline: false,
+    createdAt: uploadTime(overrides.sequence),
+    signedAt: uploadTime(overrides.sequence - 1),
     ...overrides,
   };
 }
@@ -36,6 +43,8 @@ test("attributes a single span to its writer", () => {
       endCounter: 5,
       updateId: "u-1",
       updateSequence: 1,
+      createdAt: uploadTime(1),
+      signedAt: uploadTime(1 - 1),
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -71,6 +80,8 @@ test("the earliest-received span wins where two updates cover the same op", () =
       endCounter: 3,
       updateId: "u-1",
       updateSequence: 1,
+      createdAt: uploadTime(1),
+      signedAt: uploadTime(1 - 1),
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -81,6 +92,8 @@ test("the earliest-received span wins where two updates cover the same op", () =
       endCounter: 10,
       updateId: "u-9",
       updateSequence: 9,
+      createdAt: uploadTime(9),
+      signedAt: uploadTime(9 - 1),
       writerUserId: "bob",
       writerKeyFingerprint: "fp-bob",
       authorityKind: "baseline",
@@ -116,6 +129,8 @@ test("mis-attribution guard: a re-asserting batch never overrides the original a
       endCounter: 4,
       updateId: "u-2",
       updateSequence: 2,
+      createdAt: uploadTime(2),
+      signedAt: uploadTime(2 - 1),
       writerUserId: "carol",
       writerKeyFingerprint: "fp-carol",
       authorityKind: "direct",
@@ -157,6 +172,8 @@ test("keeps a separate segment per upload, even contiguous same-writer ranges", 
       endCounter: 2,
       updateId: "u-1",
       updateSequence: 1,
+      createdAt: uploadTime(1),
+      signedAt: uploadTime(1 - 1),
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -167,6 +184,8 @@ test("keeps a separate segment per upload, even contiguous same-writer ranges", 
       endCounter: 4,
       updateId: "u-2",
       updateSequence: 2,
+      createdAt: uploadTime(2),
+      signedAt: uploadTime(2 - 1),
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",
@@ -177,6 +196,8 @@ test("keeps a separate segment per upload, even contiguous same-writer ranges", 
       endCounter: 6,
       updateId: "u-3",
       updateSequence: 3,
+      createdAt: uploadTime(3),
+      signedAt: uploadTime(3 - 1),
       writerUserId: "bob",
       writerKeyFingerprint: "fp-bob",
       authorityKind: "direct",
@@ -236,6 +257,8 @@ test("a baseline that introduces a peer the server never saw narrowly is marked 
       endCounter: 8,
       updateId: "u-3",
       updateSequence: 3,
+      createdAt: uploadTime(3),
+      signedAt: uploadTime(3 - 1),
       writerUserId: "bob",
       writerKeyFingerprint: "fp-bob",
       authorityKind: "baseline",
@@ -275,6 +298,8 @@ test("later overlap boundaries do not fragment an earlier winning upload", () =>
       endCounter: 10,
       updateId: "u-1",
       updateSequence: 1,
+      createdAt: uploadTime(1),
+      signedAt: uploadTime(1 - 1),
       writerUserId: "alice",
       writerKeyFingerprint: "fp-alice",
       authorityKind: "direct",

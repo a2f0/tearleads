@@ -43,6 +43,10 @@ async function insertUpdate(input: {
   encryptedData: string;
   partialEndVersionVector: string;
   checkpointSourceVersionVector?: string;
+  /** When the server stored the update. */
+  createdAt: string;
+  /** The time the writer signed into the write header. */
+  signedAt: string;
   writerUserId: string;
   writerKeyFingerprint: string;
 }): Promise<string> {
@@ -69,6 +73,7 @@ async function insertUpdate(input: {
     accessEpoch: 1,
     authorFingerprint: input.writerKeyFingerprint,
     byteLength: new TextEncoder().encode(input.encryptedData).byteLength,
+    createdAt: new Date(input.createdAt),
     documentId: input.documentId,
     encryptedData: input.encryptedData,
     id,
@@ -82,9 +87,10 @@ async function insertUpdate(input: {
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId: `record-${id}`,
     documentId: input.documentId,
-    // Attribution reads only these two fields off the header JSON.
+    // Attribution reads only these three fields off the header JSON.
     header: {
       metadataHash,
+      signedAt: input.signedAt,
       writerUserId: input.writerUserId,
       writerKeyFingerprint: input.writerKeyFingerprint,
     } as WriteHeader,
@@ -117,6 +123,8 @@ function attributionShape(
     writerUserId: segment.writerUserId,
     writerKeyFingerprint: segment.writerKeyFingerprint,
     authorityKind: segment.authorityKind,
+    createdAt: segment.createdAt,
+    signedAt: segment.signedAt,
   }));
 }
 
@@ -140,6 +148,9 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
     documentId,
     encryptedData: "alice-pre-rotation-payload",
     partialEndVersionVector: early,
+    // Her device's clock ran a day ahead of the server's.
+    createdAt: "2030-01-01T10:00:00.000Z",
+    signedAt: "2030-01-02T10:00:00.000Z",
     writerKeyFingerprint: "fp-alice",
     writerUserId: "alice",
   });
@@ -159,6 +170,8 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
     documentId,
     encryptedData: "bob-baseline-payload",
     partialEndVersionVector: late,
+    createdAt: "2030-01-03T12:30:00.000Z",
+    signedAt: "2030-01-03T12:29:59.500Z",
     writerKeyFingerprint: "fp-bob",
     writerUserId: "bob",
   });
@@ -182,8 +195,12 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
   const expected: ReturnType<typeof attributionShape> = [
     {
       authorityKind: "direct",
+      // Each range carries its own upload's times: the server's receipt and
+      // what the writer signed, which need not agree.
+      createdAt: "2030-01-01T10:00:00.000Z",
       endCounter: 3,
       peerId: "1",
+      signedAt: "2030-01-02T10:00:00.000Z",
       startCounter: 0,
       updateId: aliceUpdateId,
       writerKeyFingerprint: "fp-alice",
@@ -191,8 +208,10 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
     },
     {
       authorityKind: "baseline",
+      createdAt: "2030-01-03T12:30:00.000Z",
       endCounter: 10,
       peerId: "1",
+      signedAt: "2030-01-03T12:29:59.500Z",
       startCounter: 3,
       updateId: baselineUpdateId,
       writerKeyFingerprint: "fp-bob",

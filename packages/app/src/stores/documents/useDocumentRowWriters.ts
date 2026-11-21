@@ -79,16 +79,6 @@ export function useDocumentRowWriters(enabled: boolean): RowWriterResolver {
   return useRowWritersForDocument({ documentId, syncing, enabled });
 }
 
-// The open document's complete edit-attribution segments, for callers that
-// resolve an exact operation rather than a peer. Empty while they load or when
-// attribution is unavailable (offline, unsynced, unauthenticated, truncated).
-export function useDocumentAttributionSegments(
-  enabled: boolean,
-): AttributionSegments {
-  const { documentId, syncing } = useDocument();
-  return useAttributionSegmentsForDocument({ documentId, syncing, enabled });
-}
-
 // Contacts and other hosts can request attribution without a DocumentProvider.
 // Both entry points share the same policy and exact request-scope lifetime.
 export function useRowWritersForDocument(input: {
@@ -100,7 +90,12 @@ export function useRowWritersForDocument(input: {
   return useMemo(() => createRowWriterResolver(segments), [segments]);
 }
 
-function useAttributionSegmentsForDocument({
+/**
+ * The scope of one attribution read: a new object whenever the document, the
+ * session, or a completed sync should start another, and null when there is
+ * nothing to fetch. Readers key their request on its identity.
+ */
+export function useAttributionRequest({
   documentId,
   syncing,
   enabled,
@@ -108,7 +103,7 @@ function useAttributionSegmentsForDocument({
   documentId: string | null;
   syncing: boolean;
   enabled: boolean;
-}): AttributionSegments {
+}): RowWritersRequest | null {
   const { containerContents } = useTearleads();
   const runtime = useTearleadsRuntime();
   const { isAuthenticated, organizationId, userId, authToken } = runtime.auth;
@@ -134,7 +129,7 @@ function useAttributionSegmentsForDocument({
     online,
   });
 
-  const request = useMemo(
+  return useMemo(
     () =>
       canFetch && documentId !== null
         ? {
@@ -160,6 +155,15 @@ function useAttributionSegmentsForDocument({
       domainScope,
     ],
   );
+}
+
+function useAttributionSegmentsForDocument(input: {
+  documentId: string | null;
+  syncing: boolean;
+  enabled: boolean;
+}): AttributionSegments {
+  const { containerContents } = useTearleads();
+  const request = useAttributionRequest(input);
   return useRowWriterSegments(request, containerContents);
 }
 

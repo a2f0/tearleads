@@ -14,6 +14,7 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../../../components/shared/classNames";
+import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import {
   type ExplorerAttributionUserLabelResolver,
@@ -144,6 +145,18 @@ function getEditRangeDetail(
       { ...range, value: getEditRangeSpan(item) },
       { ...ops, value: getEditRangeOpCount(item) },
       { ...upload, copyable: true, value: item.updateId },
+      // When the server stored the upload, by its own clock, and the time
+      // its writer signed, by theirs.
+      {
+        id: "uploadStoredAt",
+        label: EXPLORER_LABELS.infoRowDetailUploadStoredRow,
+        value: formatMiniAppDateTimeSeconds(item.createdAt),
+      },
+      {
+        id: "uploadSignedAt",
+        label: EXPLORER_LABELS.infoRowDetailUploadSignedRow,
+        value: formatMiniAppDateTimeSeconds(item.signedAt),
+      },
       { ...authority, value: getEditRangeAuthorityLabel(item.authorityKind) },
     ],
     title: EXPLORER_LABELS.infoRowDetailEditRangeTitle,

@@ -3226,6 +3226,14 @@
             "type": "string",
             "minLength": 1
           },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "signedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
           "updateId": {
             "type": "string",
             "minLength": 1
@@ -3238,6 +3246,8 @@
           "startCounter",
           "writerKeyFingerprint",
           "writerUserId",
+          "createdAt",
+          "signedAt",
           "updateId"
         ],
         "additionalProperties": {}

@@ -70,8 +70,10 @@ testApiClient(
       items: [
         {
           authorityKind: "direct" as const,
+          createdAt: "2030-01-01T10:00:00.000Z",
           endCounter: 4,
           peerId: "peer-1",
+          signedAt: "2030-01-01T09:59:59.000Z",
           startCounter: 1,
           updateId: "update-1",
           writerKeyFingerprint: "fingerprint-1",

@@ -6,6 +6,7 @@ import {
   mockPhoneRoutedLayout,
 } from "../../../../../test/helpers/compactTableFold";
 import { readKeyValueRows } from "../../../../../test/helpers/keyValueRows";
+import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import { compactId } from "../compactId";
 import { EditRangesTable } from "./ExplorerDocumentInfoEditRangesTable";
@@ -32,6 +33,8 @@ test("folded edit ranges keep the writer over peer, range, ops, upload, and auth
           endCounter: 5,
           peerId: "peer-1",
           startCounter: 2,
+          createdAt: "2030-01-01T10:00:00.000Z",
+          signedAt: "2030-01-01T09:59:59.000Z",
           updateId: "update-aaaa",
           writerKeyFingerprint: "fingerprint-1",
           writerUserId: "writer-1",
@@ -65,6 +68,8 @@ const EDIT_RANGE = {
   endCounter: 9,
   peerId: PEER_ID,
   startCounter: 4,
+  createdAt: "2030-01-01T10:00:00.000Z",
+  signedAt: "2030-01-01T09:59:59.000Z",
   updateId: UPDATE_ID,
   writerKeyFingerprint: WRITER_KEY,
   writerUserId: "writer-1",
@@ -108,6 +113,11 @@ test("a folded edit range opens its peer, upload, and writer ids whole", () => {
     [EXPLORER_LABELS.documentInfoEditRangeRangeColumn]: "4–9",
     [EXPLORER_LABELS.documentInfoEditRangeOpsColumn]: "5",
     [EXPLORER_LABELS.documentInfoEditRangeUploadColumn]: UPDATE_ID,
+    // The server's receipt and the writer's signed time are separate facts.
+    [EXPLORER_LABELS.infoRowDetailUploadStoredRow]:
+      formatMiniAppDateTimeSeconds(EDIT_RANGE.createdAt),
+    [EXPLORER_LABELS.infoRowDetailUploadSignedRow]:
+      formatMiniAppDateTimeSeconds(EDIT_RANGE.signedAt),
     [EXPLORER_LABELS.documentInfoEditRangeAuthorityColumn]:
       EXPLORER_LABELS.documentInfoEditRangeAuthorityReasserted,
   });

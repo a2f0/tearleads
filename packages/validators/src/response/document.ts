@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { documentAttributionCounterRangeRefinement } from "../documentAttributionRefinements";
 import {
+  registerJsonSchemaFragment,
   registerJsonSchemaRuntimeRefinements,
   registerJsonSchemaView,
 } from "../jsonSchema";
@@ -79,8 +80,23 @@ export type DocumentEditAttributionSegmentResponse = z.infer<
   typeof DocumentEditAttributionSegmentResponseSchema
 >;
 
+const attributionTimestampSchema = registerJsonSchemaFragment(
+  z.iso.datetime(),
+  { format: "date-time", type: "string" },
+);
+
 const DocumentEditAttributionRangeShape = {
   ...DocumentEditAttributionSegmentShape,
+  /**
+   * When the server stored the upload that first delivered the range. The
+   * server's own clock: every operation in the range existed by then.
+   */
+  createdAt: attributionTimestampSchema,
+  /**
+   * The time that upload's writer signed into its write header. The writer's
+   * own clock, authenticated but self-reported.
+   */
+  signedAt: attributionTimestampSchema,
   updateId: nonEmptyStringSchema,
 } as const;
 

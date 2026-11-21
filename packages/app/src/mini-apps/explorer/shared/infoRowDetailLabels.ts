@@ -14,6 +14,8 @@ export const EXPLORER_INFO_ROW_DETAIL_LABELS = {
   infoRowDetailPathEntryTitle: "Path Entry",
   infoRowDetailStorageKeyRow: "Storage Key",
   infoRowDetailSyncCursorTitle: "Sync Cursor",
+  infoRowDetailUploadSignedRow: "Signed by Writer",
+  infoRowDetailUploadStoredRow: "Stored by Server",
   infoRowDetailWatermarkIdRow: "Watermark ID",
   infoRowDetailWriterKeyRow: "Writer Key",
   infoRowDetailWriterUserIdRow: "Writer User ID",

@@ -25,7 +25,14 @@ const ranges = {
   attributionRevision: 1,
   documentId: "document-1",
   hasMore: false,
-  items: [{ ...segment, updateId: "update-1" }],
+  items: [
+    {
+      ...segment,
+      createdAt: "2030-01-01T10:00:00.000Z",
+      signedAt: "2030-01-01T09:59:59.000Z",
+      updateId: "update-1",
+    },
+  ],
   nextCursor: null,
 };
 

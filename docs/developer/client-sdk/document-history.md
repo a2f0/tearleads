@@ -13,7 +13,10 @@ runtime can call the documents facade's `openDocumentHistory` directly.
   milliseconds the writing device recorded (`null` when it recorded none).
   Resolve a stop's writer by matching `peerId` and its counters against the
   [edit-attribution](../../document-rekey-and-audit-history.md#signed-write-headers)
-  segments.
+  segments. The per-upload ranges (`loadDocumentAttributionRanges`) also carry
+  `createdAt`, when the server stored each upload: the range that covers a
+  stop's `startCounter` bounds `committedAt` from above, since a change cannot
+  have been made after it was stored.
 - `viewAt(index)` returns the document after `stops[0..index]` as a
   `DocumentHistoryView`: the content fields of a `DocumentSnapshot` (`text`,
   `structuredFields`, `rows`, `attachments`, `documentKind`, `title`,
@@ -118,7 +121,8 @@ The limits are those of the history itself.
 
 - Times are
   [self-reported](../../document-rekey-and-audit-history.md#change-times) by
-  each writing device.
+  each writing device. A stop's upload time bounds its time from above, for a
+  change that has been uploaded; nothing bounds it from below.
 - History that reached this device through a rotation baseline is what that
   baseline's writer
   [asserted](../../document-rekey-and-audit-history.md#declared-coverage-is-trusted-not-verified).

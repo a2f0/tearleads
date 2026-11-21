@@ -145,8 +145,10 @@ function toRangeResponse(
 ): DocumentEditAttributionRangeResponse {
   return {
     authorityKind: segment.authorityKind,
+    createdAt: segment.createdAt,
     endCounter: segment.endCounter,
     peerId: segment.peerId,
+    signedAt: segment.signedAt,
     startCounter: segment.startCounter,
     updateId: segment.updateId,
     writerKeyFingerprint: segment.writerKeyFingerprint,

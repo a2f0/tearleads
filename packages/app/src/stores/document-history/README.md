@@ -45,16 +45,34 @@ and a nested document under the past version sees its own live state.
 - **One step per second.** A writer's edits within a second of each other
   share a step ([change times](../../../../../docs/document-rekey-and-audit-history.md#change-times)).
 
-## Who uploaded a change
+## Who uploaded a change, and when
 
-The timeline names the signed uploader of the selected change
-([`documentHistoryWriter`](documentHistoryWriter.ts)), resolved from the live
-document's edit-attribution segments by the change's exact operations. A
-change is credited only when every one of its operations was first delivered
-by an ordinary upload from one signing identity. Offline, unsynced,
-ambiguous, and rotation-baseline changes show no name. As everywhere else,
-this is the uploader, not proof of who typed the change, and the time beside it
-is the writing device's own.
+History reads the live document's per-upload attribution ranges
+([`useDocumentAttributionRanges`](../documents/useDocumentAttributionRanges.ts)):
+for each run of operations, the signing identity whose upload first delivered
+it and the time the server stored that upload. They are read page by page
+when History opens and again after each completed sync. Offline, unsynced,
+and unauthenticated documents have none, and a document with more uploads
+than the read allows is treated as having none rather than as having some.
+
+- **Who.** The timeline names the signed uploader of the selected change
+  ([`documentHistoryWriter`](documentHistoryWriter.ts)), resolved by the
+  change's exact operations. A change is credited only when every one of its
+  operations was first delivered by an ordinary upload from one signing
+  identity. Offline, unsynced, ambiguous, and rotation-baseline changes show
+  no name. As everywhere else, this is the uploader, not proof of who typed
+  the change.
+- **When.** A change records its writing device's own time, and a change
+  cannot have been made after the server stored it. So the time shown is the
+  lesser of the two
+  ([`documentHistoryUploadTime`](documentHistoryUploadTime.ts)): the device's
+  time, unless it is later than the upload that delivered the change's first
+  operation, in which case the upload's. Past a minute's difference the
+  timeline says the device's clock was ahead. A document never records a time
+  earlier than the newest one it holds, so one fast clock moves every later
+  change forward; each is bounded by its own upload. A clock that runs behind
+  cannot be told, a change no upload has delivered keeps its device's time,
+  and steps are still ordered causally, not by these times.
 
 ## Restoring
 
@@ -117,9 +135,10 @@ copy does not need it to be writable and is offered on the newest stop too.
   person, not which account they are.
 - **Nor is a contact version that says it is the viewer.** Contacts that are
   not Me can carry `isSelf` too, such as the viewer's own roster profile or a
-  contact left from another identity. Contacts would label a copy "You", so a
-  contact version whose `isSelf` field is set is refused whatever document it
-  comes from.
+  contact left from another identity. A contact version whose `isSelf` field
+  is set is refused whatever document it comes from. This is a second guard:
+  a copy leaves `isSelf` out in any case (above), so the refusal only spares
+  the viewer a copy of themselves that says nothing about who it is.
 - **The folder is asked again when the copy is created.** The rules are read
   then, not when the copy was offered: the folder may have been trashed or
   lost write access while the confirmation was open or while a contact

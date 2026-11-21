@@ -9,6 +9,7 @@ export const EXPLORER_DOCUMENT_HISTORY_LABELS = {
   documentHistoryBackAction: "Back to Document",
   documentHistoryCharacterOne: "character",
   documentHistoryCharacterOther: "characters",
+  documentHistoryClockAhead: "Shown as uploaded: the device's clock was ahead.",
   documentHistoryCopyAction: "Save as copy",
   documentHistoryCopyCancel: "Cancel",
   documentHistoryCopyConfirm: "Save copy",

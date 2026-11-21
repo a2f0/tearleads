@@ -13,17 +13,9 @@ import {
 } from "@testing-library/react";
 import { createElement } from "react";
 import { ExplorerDocumentInfoEditRangesSection } from "./ExplorerDocumentInfoEditRangesSection";
+import { compactAttributionSegment } from "./ExplorerDocumentInfoSections.testFixtures";
 
 afterEach(() => cleanup());
-
-const compactAttributionSegment = {
-  authorityKind: "direct",
-  endCounter: 1,
-  peerId: "peer-1",
-  startCounter: 0,
-  writerKeyFingerprint: "fingerprint-1",
-  writerUserId: "writer-1",
-} as const;
 
 function createDocumentInfo(input?: {
   attributionRevision?: number | undefined;
@@ -107,10 +99,10 @@ test("loads only after expansion and lists detailed uploads", async () => {
           updateId: "update-aaaa",
         },
         {
+          ...compactAttributionSegment,
           authorityKind: "baseline",
           endCounter: 3,
           peerId: "peer-2",
-          startCounter: 0,
           updateId: "update-bbbb",
           writerKeyFingerprint: "fingerprint-2",
           writerUserId: "writer-2",
