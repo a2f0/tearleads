@@ -106,11 +106,11 @@ dev-only URLs are rejected before simulator state changes. Tests can point
 `SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE` at an isolated dotenv fixture.
 
 These are native review screenshots, not App Store product-page marketing
-screenshots. Do not substitute the resized-browser output from
-[`scripts/testing/takeScreenshots.sh`][file-2]: the web shell follows the Stripe
-purchase
-path, while App Review needs evidence of the native App Store subscription
-surface.
+screenshots. Do not substitute the resized-browser output from the website
+capture (`bun run screenshots`, or the take-screenshots skill's
+`artifacts capture` in a linked clone): the web shell follows the Stripe
+purchase path, while App Review needs evidence of the native App Store
+subscription surface.
 
 ## Android (emulator)
 
@@ -132,4 +132,3 @@ from a clean install. They match on WebView text (`Contacts`,
 unchanged on both platforms.
 
 [file-1]: review/subscription-review-screenshots.yaml
-[file-2]: ../../../scripts/testing/takeScreenshots.sh
