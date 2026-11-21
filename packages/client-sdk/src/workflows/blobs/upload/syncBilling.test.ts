@@ -56,10 +56,10 @@ test.each(["before stage", "during transfer"] as const)(
     close();
 
     // The preflight check, then (during transfer) checks before staging, the
-    // stage request, the part request, and the bind, all for the manifest's
-    // organization.
+    // stage request, the part's encryption and request, and the bind, all for
+    // the manifest's organization.
     expect(checkedOrganizationIds).toEqual(
-      Array(when === "before stage" ? 1 : 5).fill(author.organizationId),
+      Array(when === "before stage" ? 1 : 6).fill(author.organizationId),
     );
     expect(stageCount).toBe(when === "before stage" ? 0 : 1);
     expect(bindCount).toBe(0);

@@ -404,6 +404,7 @@ export class ApiRequestRuntime {
         elapsedMs: Date.now() - startedAt,
         error,
         headers,
+        isCurrent: () => !requestRetired(session, options),
         isOnline: this.instrumentation?.isOnline,
         method,
         onNetworkError: () => this.onNetworkError?.(),

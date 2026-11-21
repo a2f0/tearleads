@@ -37,7 +37,7 @@ import {
   documentCreateSeedFits,
 } from "../../../documents/sync/initialSync";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
-
+import { readContainerWriterProjection } from "../projectionCache";
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
@@ -432,7 +432,11 @@ export async function createRemoteContainerWithMetadataDocument(input: {
 
   const parentProjection =
     input.parentProjection ??
-    (await apiClient.getContainerWriterProjection(input.parentContainerId));
+    (await readContainerWriterProjection(
+      apiClient,
+      input.parentContainerId,
+      input.stillCurrent,
+    ));
   if (!parentProjection) {
     return null;
   }

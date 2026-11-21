@@ -191,6 +191,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
       apiClient: input.apiClient,
       containerId: input.containerId,
       onTerminalSubmitFailure: input.onTerminalSubmitFailure,
+      stillCurrent: input.stillCurrent,
     }));
   if (!containerProjection) {
     return null;
@@ -215,6 +216,7 @@ async function buildMaterializedDocumentCreatePlanWithFreshProjection(input: {
     apiClient: input.apiClient,
     containerId: input.containerId,
     onTerminalSubmitFailure: input.onTerminalSubmitFailure,
+    stillCurrent: input.stillCurrent,
   });
   return refreshedProjection ? buildWithProjection(refreshedProjection) : null;
 }

@@ -17,6 +17,7 @@ import {
 } from "../operationTransportFactory";
 import { bindPrototypeMethods } from "../requestInternals";
 import { DocumentAttributionRequests } from "../routes/documents/attributionRequests";
+import type { SharedRequestScope } from "../sharedRequestScope";
 import type {
   HttpMethod,
   OperationRequestFn,
@@ -33,8 +34,10 @@ import { writerProjectionRequests } from "../writerProjectionRequests";
 
 // A joinable in-flight writer-projection result fetch, pinned to the value
 // slot and per-key invalidation stamp it started against. A caller may join
-// it only while both are unchanged — see writerProjectionResult.
+// it only while both are unchanged and the fetch is still current for some
+// caller — see writerProjectionResult.
 export interface InFlightWriterProjectionResult<T> {
+  readonly callers: SharedRequestScope;
   readonly invalidationStamp: number;
   readonly resultPromise: Promise<RequestResult<T>>;
   readonly slot: Promise<T | null> | undefined;

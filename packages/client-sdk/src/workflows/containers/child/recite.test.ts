@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import { MAX_CONTAINER_RECITATION_EPOCH } from "@tearleads/crypto";
 import { createContainerReciteScenario } from "../../../../test/helpers/workflows/containerReciteFixtures";
 import {
+  createExpiringApiServer,
+  SCOPE_RETIREMENTS,
+} from "../../../../test/helpers/workflows/expiringApiServer";
+import {
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
 } from "../../../data/keyingProjectionVerification/checkpoints/heldContainerHeads";
@@ -368,3 +372,36 @@ test("a recitation plan refuses a cross-organization held path", async () => {
     await scenario.close();
   }
 });
+
+test.each(SCOPE_RETIREMENTS)(
+  "a recite POST that expires after %s is not renewed or replayed",
+  async (change) => {
+    const scenario = await createContainerReciteScenario();
+    const server = createExpiringApiServer({
+      method: "POST",
+      path: /^\/containers\/[^/]+\/recite$/,
+    });
+    let current = true;
+    try {
+      await scenario.advanceAncestor();
+      const reciting = reciteHeldDescendants({
+        reportSecurityIncident: async () => {},
+        apiClient: { reciteContainer: server.api.reciteContainer },
+        author: scenario.parent.author,
+        ancestorIds: [scenario.parent.projection.containerId],
+        execSql: scenario.execSql,
+        stillCurrent: () => current,
+      });
+      await server.entered;
+      current = false;
+      server.retire(change);
+      server.release();
+      await reciting;
+      expect(server.requests).toHaveLength(1);
+      expect(server.renewals.count).toBe(0);
+    } finally {
+      server.stop();
+      await scenario.close();
+    }
+  },
+);

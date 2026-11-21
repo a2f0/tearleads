@@ -73,6 +73,7 @@ export interface BlobAttachmentApi {
   } | null;
   getDocumentWriterProjection(
     documentId: string,
+    options?: { readonly stillCurrent?: (() => boolean) | undefined },
   ): Promise<DocumentWriterProjectionResponse | null>;
   getMultipartBlobStage(
     stageId: string,
@@ -99,6 +100,7 @@ export interface BlobAttachmentDetachApi {
   ): Promise<BlobAttachmentDetachResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
+    options?: { readonly stillCurrent?: (() => boolean) | undefined },
   ): Promise<DocumentWriterProjectionResponse | null>;
 }
 
