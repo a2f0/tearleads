@@ -158,10 +158,10 @@ objects or on-demand blob reads.
 
 ## Documents
 
-`deriveStableDocumentId(localId)` is the pure first-creation id derivation;
-persisted remote and recovery ids take precedence. See
-[document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
-`openDocumentHistory` replays durable history read-only: [document history](../../../../docs/developer/client-sdk/document-history.md).
+`deriveStableDocumentId(localId)` derives the first-creation ID.
+Persisted remote and recovery IDs take precedence. See [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
+`loadPersistedDocumentContent` returns a detached document for inspection.
+`openDocumentHistory` replays [durable history](../../../../docs/developer/client-sdk/document-history.md).
 Views displaced by a relink go read-only (`relinkedElsewhere`) until reopened.
 
 The documents facade admits explicit `historyMode: "raw"` reads through
@@ -291,18 +291,18 @@ network detection and any manual online/offline override belong to the SDK
 
 ## Blobs, Keys, and Identity
 
-The `blobs` facade exports `BlobAttachmentService`, which document stores reach
-as `runtime.blobAttachments`, and encrypted local blob store helpers such as
-`createLazyEncryptedBlobStore` for async keyring providers. `BlobByteSource` is
-the replayable range-read contract for large attachment writes and multipart
-uploads; stores implement `openByteSource` and `writeByteSource` so those paths
-stay bounded by the 5 MiB chunk size instead of materializing the whole object.
+Document stores use the `blobs` facade's `BlobAttachmentService` through
+`runtime.blobAttachments`. Its `withExpectedDownloads(documentId, sizesBySlot)`
+bounds verification reads to known file sizes. The facade also exports
+`createLazyEncryptedBlobStore` for async keyring providers. Stores implement
+`BlobByteSource` through `openByteSource` and `writeByteSource` for replayable
+range reads and multipart uploads bounded by the 5 MiB chunk size. Pass an
+abort signal to `withExpectedDownloads` to cancel the verification transfers.
 
 Local keyring variants, including WebView and PIN-code wrapping helpers, are
 client-facade exports rather than workflow facades. Keep platform keychain
 composition in [`client/`](../client/) so workflow modules stay focused on
-domain
-operations. Hosts close a retired keyring through its optional public `close()`
+domain operations. Hosts close a retired keyring through its optional `keyring.close?.()`
 lifecycle contract so browser-backed variants can release their IndexedDB
 connections; callers still dispose the sessions they own.
 

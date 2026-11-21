@@ -17,12 +17,14 @@ import type {
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
 import { blobAttachmentSummaryFromStagedBind } from "@tearleads/validators/response";
+import { boundedMetadata } from "../boundedMetadataResponse";
 import { bindPrototypeMethods, cachedRequest } from "../requestInternals";
 import {
   bindBlobAttachment as blobAttachmentBind,
   detachBlobAttachment as blobAttachmentDetach,
 } from "../routes/blobs/attachments";
 import {
+  type BlobDownloadOptions,
   getBlobBytes,
   type UploadMultipartBlobPartBytesRequest,
 } from "../routes/blobs/get";
@@ -32,7 +34,9 @@ import {
 } from "../routes/blobs/multipart";
 import { uploadMultipartBlobPartBytes } from "../routes/blobs/multipartUpload";
 import { listDocumentAttachments as documentAttachmentsList } from "../routes/documents/attachments";
+import { verificationRequestOptions } from "../sessionRequestInit";
 import type { RequestResultOptions } from "../types";
+import { privateRead } from "../types";
 import type { ApiClientContext } from "./apiClientContext";
 
 type AttachmentList = ListDocumentAttachmentsResponse;
@@ -208,9 +212,20 @@ export class BlobArea {
     );
   }
 
-  getBlobBytes(blobId: string, options: RequestResultOptions = {}) {
+  getBlobBytes(blobId: string, options: BlobDownloadOptions = {}) {
+    if (
+      options.maxEncryptedByteLength !== undefined &&
+      !this.context.streamingDownloads
+    )
+      return Promise.resolve(null);
     return this.transfer(options, (scoped) =>
-      getBlobBytes(this.context.transport, blobId, undefined, scoped),
+      getBlobBytes(this.context.transport, blobId, undefined, {
+        ...scoped,
+        [privateRead]:
+          options.maxEncryptedByteLength !== undefined &&
+          Boolean(options.signal),
+        maxEncryptedByteLength: options.maxEncryptedByteLength,
+      }),
     );
   }
 
@@ -218,7 +233,13 @@ export class BlobArea {
     options: RequestResultOptions,
     run: (scoped: RequestResultOptions) => Promise<T | null>,
   ): Promise<T | null> {
-    const scoped = this.context.runtime.withSessionSignal(options);
+    const scoped = this.context.runtime.withSessionSignal(
+      verificationRequestOptions(
+        options,
+        undefined,
+        this.context.requestPolicy,
+      ),
+    );
     const result = await run(scoped);
     return scoped.signal?.aborted ? null : result;
   }
@@ -264,10 +285,33 @@ export class BlobArea {
 
   listDocumentAttachments(
     documentId: string,
-    options: { refresh?: boolean } = {},
+    options: {
+      refresh?: boolean;
+      boundedListing?: boolean;
+      signal?: AbortSignal | undefined;
+    } = {},
   ) {
     if (options.refresh) {
       this.attachmentLists.delete(documentId);
+    }
+    if (options.boundedListing || options.signal) {
+      // A bounded reader must not join a listing with different cancellation or buffering rules.
+      if (options.boundedListing && !this.context.streamingDownloads)
+        return Promise.resolve(null);
+      return this.context.send(
+        documentAttachmentsList,
+        documentAttachmentsList.path(documentId),
+        listDocumentAttachmentsOperation,
+        undefined,
+        {
+          [privateRead]: Boolean(options.signal),
+          [boundedMetadata]: options.boundedListing
+            ? "attachment-list"
+            : undefined,
+          signal: options.signal,
+          stillCurrent: () => !options.signal?.aborted,
+        },
+      );
     }
     return cachedRequest(this.attachmentLists, documentId, () =>
       this.context.send(

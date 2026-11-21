@@ -18,6 +18,7 @@ test("the public service offers no upload that trusts a source snapshot", () => 
     "detachDocumentAttachment",
     "hydrateDocumentAttachmentBlobs",
     "uploadDocumentAttachment",
+    "withExpectedDownloads",
   ]);
 });
 

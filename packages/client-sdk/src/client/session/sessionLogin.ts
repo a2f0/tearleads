@@ -122,6 +122,9 @@ async function runAuthentication(
     if (!identityCurrent()) return false;
     acknowledgments.remember(authentication.userId, fingerprint);
   } catch (error) {
+    // This client never uses the issued session, so revoke it rather than
+    // leave it valid until expiry.
+    await revokeRefusedSession(dependencies.api, authentication.token);
     if (!isCurrent()) return false;
     return refuseSessionLogin(error, authentication.userId, {
       clear: () => session.clearAuthentication(renewal),
@@ -175,6 +178,14 @@ function authenticatedSessionContext(
         : serverDefault,
     userId: authentication.userId,
   };
+}
+
+async function revokeRefusedSession(api: ApiClient, token: string) {
+  try {
+    await api.logout(token);
+  } catch {
+    // Best effort: an unrevoked session still expires on its own.
+  }
 }
 
 function assertSignInCurrent(isCurrent: () => boolean): void {

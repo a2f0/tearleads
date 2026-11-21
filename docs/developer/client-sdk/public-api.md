@@ -40,7 +40,7 @@ Supported package entry points:
 
 | Entry point | Use for |
 | --- | --- |
-| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, [`BlobAttachmentService`](configuration.md#blob-attachment-service) (which replaced the free `uploadDocumentAttachment`, `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports), the `PrincipalPolicyService` type of workflow runtime views' `principalPolicies` field, [`ContainerMutationService`](configuration.md#container-mutation-service) (which replaced the free `createRemoteContainer`, `shareRemoteContainer`, `moveRemoteContainer`, `rekeyRemoteContainer`, and `revokeRemoteContainer` exports), [`RemoteDocumentService`](configuration.md#remote-document-service) (which replaced the free `syncRemoteDocument` and `createRemoteDocument` exports, with `SyncRemoteDocumentRequest` in place of `SyncRemoteDocumentInput`), `ContainerSyncWatermarkRepository` (which replaced `loadContainerSyncWatermark(execSql, lane)` and `saveContainerSyncWatermark(execSql, lane, watermark)` with `new ContainerSyncWatermarkRepository(execSql, now?)` and its `loadWatermark(lane)`, `saveWatermark(lane, watermark, { stillCurrent }?)` returning whether it committed, `loadWatermarkRecords`, `loadCheckRecords`, `markChecked`, and `recordLaneFetch`), `DocumentContainerProjectionRepository` (which replaced the free `initializeDocumentLinksSchema`, `listDocumentLinkedContainerIds`, and `replaceDocumentLinks` exports), and public workflow symbols |
+| `@tearleads/client-sdk` | `Tearleads`, SDK service types, local keyring helpers, document contracts, sync diagnostics, stores, purchase capabilities, [`BlobAttachmentService`](configuration.md#blob-attachment-service) (use `withExpectedDownloads(documentId, sizesBySlot)` for bounded fixture verification; the service replaced the free `uploadDocumentAttachment`, `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports), the `PrincipalPolicyService` type of workflow runtime views' `principalPolicies` field, [`ContainerMutationService`](configuration.md#container-mutation-service) (which replaced the free `createRemoteContainer`, `shareRemoteContainer`, `moveRemoteContainer`, `rekeyRemoteContainer`, and `revokeRemoteContainer` exports), [`RemoteDocumentService`](configuration.md#remote-document-service) (which replaced the free `syncRemoteDocument` and `createRemoteDocument` exports, with `SyncRemoteDocumentRequest` in place of `SyncRemoteDocumentInput`), `ContainerSyncWatermarkRepository` (which replaced `loadContainerSyncWatermark(execSql, lane)` and `saveContainerSyncWatermark(execSql, lane, watermark)` with `new ContainerSyncWatermarkRepository(execSql, now?)` and its `loadWatermark(lane)`, `saveWatermark(lane, watermark, { stillCurrent }?)` returning whether it committed, `loadWatermarkRecords`, `loadCheckRecords`, `markChecked`, and `recordLaneFetch`), `DocumentContainerProjectionRepository` (which replaced the free `initializeDocumentLinksSchema`, `listDocumentLinkedContainerIds`, and `replaceDocumentLinks` exports), and public workflow symbols. `containerContents.discoverContainerDocuments` accepts an `onPendingDiscovery` callback with the retry delay in milliseconds. A disposable client can set `verificationDeadline` when constructed. A host can set `automaticSessionRenewal` to false to use one sign-in for a bounded command. |
 | `@tearleads/client-sdk/sqlite` | SQLite worker runtime factory, executor contracts, the error a cross-tab runtime gives its worker-error listeners and in-flight requests when the owner tab holding its database closes (`DatabaseConnectionLostError`, `isDatabaseConnectionLostError`), adapter helpers, and [local schema migration](../../../packages/client-sdk/src/data/sqlite/migrations/README.md) (`ensureLocalSchemaMigrated` at boot; `withLocalSchemaMigrationLock`, `migrateLocalSchema`, and the ledger check in a backup restore) |
 | `@tearleads/client-sdk/sqlite/worker.js` | The SQLite worker module a host serves for `createSQLiteRuntime` |
 | `@tearleads/client-sdk/sqlite/sqlite3.wasm` | The SQLite WebAssembly the host serves beside `worker.js` |
@@ -346,14 +346,14 @@ Seed within the active organization. A verified purge returns `"purged"`.
 metadata, in one online request and returns its verified placement.
 `resolveDocumentCreateAuthor(runtime)` returns the blob writer or `null`.
 
-First-birth persistence is not an alias resolver. Its root type
-`DocumentBirthResult` is a timestamp, `null` for an existing requested local
-row, or a `remote-alias` result when another local row already owns the
-requested remote identity. That result refuses a second birth; it does not
-adopt, overwrite, or merge the alias. A host reopening a known profile must
-resolve its actual persisted local ID, use the captured workflow runtime, and
-open without creation seeds. Scope, readiness, and access checks still apply.
-See [custom document persistence](../custom-document-persistence.md) and [`documents.openHistory`](./document-history.md).
+First-birth persistence returns a timestamp, `null` for an existing local row,
+or a `remote-alias` when another row owns the remote identity. A remote alias
+refuses duplicate creation. Reopen its persisted local ID without creation
+seeds, using the scoped workflow runtime and its readiness and access checks.
+`loadPersistedDocumentContent` returns a detached Loro document or `null` for
+an unhydrated shell. Call `free()` after inspecting the document.
+See [custom document persistence](../custom-document-persistence.md) and
+[document history](./document-history.md).
 
 `documents.retryDownload({ localId, documentId })` pulls a synced document again
 to re-list its attachment bindings, resolving `false` when the record no longer

@@ -1,3 +1,5 @@
+import { waitForRead } from "../shared/waitForRead";
+
 /** Bound byte I/O across documents sharing a client, including multipart parts. */
 export const BLOB_TRANSFER_CONCURRENCY = 4;
 const TRANSFER_IDLE_TIMEOUT_MS = 120_000;
@@ -40,10 +42,24 @@ function permitFrom(pool: TransferPool): BlobTransferPermit {
 
 export async function acquireBlobTransferPermit(
   client: object,
+  signal?: AbortSignal,
 ): Promise<BlobTransferPermit> {
+  if (signal?.aborted) throw signal.reason;
   const pool = poolFor(client);
   if (pool.active >= BLOB_TRANSFER_CONCURRENCY) {
-    await new Promise<void>((resolve) => pool.waiting.push(resolve));
+    await new Promise<void>((resolve, reject) => {
+      const admitted = () => {
+        signal?.removeEventListener("abort", cancel);
+        resolve();
+      };
+      const cancel = () => {
+        const index = pool.waiting.indexOf(admitted);
+        if (index !== -1) pool.waiting.splice(index, 1);
+        reject(signal?.reason);
+      };
+      pool.waiting.push(admitted);
+      signal?.addEventListener("abort", cancel, { once: true });
+    });
   } else {
     pool.active += 1;
   }
@@ -65,10 +81,12 @@ export async function runBlobTransfer<T>(
   transfer: (signal: AbortSignal, progress: () => void) => Promise<T>,
   timeoutMs = TRANSFER_IDLE_TIMEOUT_MS,
   heldPermit?: BlobTransferPermit,
+  signal?: AbortSignal,
 ): Promise<T> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
     throw new RangeError("Blob transfer timeout must be positive and finite");
-  const permit = heldPermit ?? (await acquireBlobTransferPermit(client));
+  const permit =
+    heldPermit ?? (await acquireBlobTransferPermit(client, signal));
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const progress = () => {
@@ -79,27 +97,22 @@ export async function runBlobTransfer<T>(
       timeoutMs,
     );
   };
-  progress();
+  const abort = () => controller.abort(signal?.reason);
   try {
-    // A native bridge or custom transport may ignore abort. Bound its logical
-    // ownership anyway; callers must check the signal before accepting results.
-    return await new Promise<T>((resolve, reject) => {
-      const aborted = () => reject(controller.signal.reason);
-      controller.signal.addEventListener("abort", aborted, { once: true });
-      void Promise.resolve()
-        .then(() => transfer(controller.signal, progress))
-        .then(
-          (value) => {
-            controller.signal.removeEventListener("abort", aborted);
-            resolve(value);
-          },
-          (error: unknown) => {
-            controller.signal.removeEventListener("abort", aborted);
-            reject(error);
-          },
-        );
-    });
+    if (signal?.aborted) throw signal.reason;
+    signal?.addEventListener("abort", abort, { once: true });
+    progress();
+    // A custom transport may ignore cancellation. It loses the logical permit
+    // at the deadline and its eventual response cannot be delivered.
+    return await waitForRead(
+      Promise.resolve().then(() => {
+        controller.signal.throwIfAborted();
+        return transfer(controller.signal, progress);
+      }),
+      controller.signal,
+    );
   } finally {
+    signal?.removeEventListener("abort", abort);
     clearTimeout(timer);
     permit.release();
   }

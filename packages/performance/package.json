@@ -1,10 +1,11 @@
 {
   "name": "@tearleads/performance",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
+    "seed": "bun src/seed.ts",
     "provision": "bun src/index.ts",
     "database": "bun src/database/index.ts",
     "test": "bun test src"

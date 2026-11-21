@@ -27,7 +27,10 @@ type SeedWriteInput = SeedWriteBase &
       }
   );
 
-async function prepareAttachment(input: SeedWriteInput, index: number) {
+async function prepareAttachment(
+  input: Pick<SeedWriteBase, "localId" | "document" | "readAttachment">,
+  index: number,
+) {
   const attachment = input.document.attachments[index];
   if (!attachment) throw new Error("Missing fixture attachment");
   const itemId = await deriveStableDocumentId(
@@ -49,6 +52,25 @@ async function prepareAttachment(input: SeedWriteInput, index: number) {
       contentSha256: seedDigest(bytes),
     },
   };
+}
+
+export function prepareContinuityAttachments(
+  input: Pick<SeedWriteBase, "localId" | "document" | "readAttachment">,
+) {
+  return Promise.all(
+    input.document.attachments.map((_, index) =>
+      prepareAttachment(input, index),
+    ),
+  );
+}
+
+export function continuitySeedTag(
+  document: SeedDocument,
+  attachments: Awaited<ReturnType<typeof prepareContinuityAttachments>>,
+) {
+  return seedDigest(
+    JSON.stringify([document, attachments.map(({ intent }) => intent)]),
+  );
 }
 
 async function openContinuityDocument(
@@ -97,13 +119,9 @@ async function openContinuityDocument(
 export async function writeContinuityDocument(input: SeedWriteInput) {
   const { document } = input;
   const { stillCurrent, assertCurrent } = captureContinuityScope(input.sdk);
-  const attachments = await Promise.all(
-    document.attachments.map((_, index) => prepareAttachment(input, index)),
-  );
+  const attachments = await prepareContinuityAttachments(input);
   assertCurrent();
-  const seedTag = seedDigest(
-    JSON.stringify([document, attachments.map(({ intent }) => intent)]),
-  );
+  const seedTag = continuitySeedTag(document, attachments);
   const store = await openContinuityDocument(
     input,
     attachments,

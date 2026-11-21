@@ -1,4 +1,8 @@
-import type { HttpOperation } from "@tearleads/validators/operation";
+import {
+  apiVersionHeaderName,
+  type HttpOperation,
+  parseApiVersion,
+} from "@tearleads/validators/operation";
 import type {
   DocumentSyncRequest,
   ListContainerDocumentLanesRequest,
@@ -487,4 +491,8 @@ export function errorMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+export function responseApiVersion(response: Response) {
+  return parseApiVersion(response.headers.get(apiVersionHeaderName));
 }
