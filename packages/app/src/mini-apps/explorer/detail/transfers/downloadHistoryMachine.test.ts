@@ -156,3 +156,23 @@ test("only the newest read settles, and a failed read keeps the rows", () => {
   );
   expect(neverRead).toMatchObject({ entries: [], status: "failed" });
 });
+
+test("only the newest 2000 completed rows are kept", () => {
+  const ids = Array.from({ length: 2_001 }, (_, index) => `item-${index}`);
+  const queued = settle(INITIAL_DOWNLOAD_HISTORY, {
+    pending: ids.map(pending),
+  });
+  const first = settle(queued, {
+    completed: [completed("item-0")],
+    pending: ids.slice(1).map(pending),
+  });
+  const all = settle(first, {
+    completed: ids.slice(1).map(completed),
+    pending: [],
+  });
+  const kept = rows(all);
+  expect(kept).toHaveLength(2_000);
+  // The oldest completion is the one dropped.
+  expect(kept).not.toContain("complete:item-0");
+  expect(kept[0]).toBe("complete:item-1");
+});

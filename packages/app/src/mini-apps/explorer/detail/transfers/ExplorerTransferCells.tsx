@@ -8,9 +8,10 @@ import {
   ExplorerSyncLaneStatusBadge,
   ExplorerSyncProgressBar,
 } from "../sync/ExplorerSyncLaneShared";
+import "./ExplorerTransferCells.css";
 
 /**
- * How one Downloads or Uploads row reads: its wording, the Sync Lanes tone that
+ * How one transfer row reads: its wording, the Sync Lanes tone that
  * colors its bar and badge, how full the bar is, and an optional detail such
  * as an error.
  */

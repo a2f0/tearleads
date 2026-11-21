@@ -1,26 +1,18 @@
 /*
- * The sync progress bar and status badge, shared by Sync Lanes, Downloads, and
- * Uploads so a status reads the same on every tab.
+ * The sync progress bar and status badge, shared by Sync Lanes and the
+ * transfer tabs so a status reads the same on every tab.
  */
 .explorer-sync-lane-muted {
   font-size: var(--font-size-sm);
   opacity: var(--opacity-subtle);
 }
 
-.explorer-sync-lane-progress-stack,
-.explorer-transfer-name,
-.explorer-transfer-status {
+.explorer-sync-lane-progress-stack {
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: var(--space-2xs);
   min-width: 0;
-}
-
-.explorer-transfer-status .explorer-sync-lane-muted {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .explorer-sync-lane-status {

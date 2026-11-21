@@ -52,6 +52,10 @@ export type DownloadHistoryEvent =
       readonly type: "read-failed";
     };
 
+// The newest completed rows kept, so a large first hydration cannot grow the
+// history without bound; pending rows are never dropped.
+const MAX_COMPLETED_DOWNLOADS = 2000;
+
 export const INITIAL_DOWNLOAD_HISTORY: DownloadHistoryState = {
   read: 0,
   status: "loading",
@@ -85,7 +89,8 @@ export function getDepartedDownloads(
  * A queue read replaces the pending rows. A departed pending row becomes
  * complete when the read confirmed it and is dropped otherwise. A completed
  * row stays until scope teardown, unless it re-enters the queue, which makes
- * it pending again so it is listed once.
+ * it pending again so it is listed once, or it falls past the newest
+ * `MAX_COMPLETED_DOWNLOADS`.
  */
 function settleEntries(
   previous: ReadonlyArray<DownloadHistoryEntry>,
@@ -111,8 +116,10 @@ function settleEntries(
     ...event.pending.map(
       (item): DownloadHistoryEntry => ({ item, status: "pending" }),
     ),
-    ...newlyComplete,
-    ...retainedComplete,
+    ...[...newlyComplete, ...retainedComplete].slice(
+      0,
+      MAX_COMPLETED_DOWNLOADS,
+    ),
   ];
 }
 

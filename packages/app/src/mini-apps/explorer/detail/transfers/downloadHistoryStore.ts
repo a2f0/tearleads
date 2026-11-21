@@ -7,6 +7,7 @@ import {
   type DownloadHistoryEvent,
   type DownloadHistoryState,
   getDepartedDownloads,
+  getDownloadHistoryEntries,
   INITIAL_DOWNLOAD_HISTORY,
   transitionDownloadHistory,
 } from "./downloadHistoryMachine";
@@ -34,8 +35,24 @@ export interface DownloadHistoryStore {
   subscribe: (listener: () => void) => () => void;
 }
 
+// Whether two states show the same thing; they may differ only in read tag.
+function looksTheSame(
+  left: DownloadHistoryState,
+  right: DownloadHistoryState,
+): boolean {
+  return (
+    left.status === right.status &&
+    getDownloadHistoryEntries(left) === getDownloadHistoryEntries(right) &&
+    (left.status === "failed" ? left.message : null) ===
+      (right.status === "failed" ? right.message : null)
+  );
+}
+
 function createDownloadHistoryStore(): DownloadHistoryStore {
   let state = INITIAL_DOWNLOAD_HISTORY;
+  // What views read: the newest state that changed what they show, so a read
+  // starting, which only retags the state, does not re-render them.
+  let snapshot = state;
   let loop = IDLE_DOWNLOAD_READ_LOOP;
   const listeners = new Set<() => void>();
   let queries: ContainerDocumentQueries | null = null;
@@ -46,6 +63,8 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
     const next = transitionDownloadHistory(state, event);
     if (next === state) return;
     state = next;
+    if (looksTheSame(snapshot, next)) return;
+    snapshot = next;
     for (const listener of listeners) listener();
   }
 
@@ -93,7 +112,7 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
   }
 
   return {
-    getSnapshot: () => state,
+    getSnapshot: () => snapshot,
     requestRead(nextQueries, options) {
       queries = nextQueries;
       step({ immediate: options.immediate, type: "requested" });

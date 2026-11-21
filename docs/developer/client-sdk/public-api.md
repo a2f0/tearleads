@@ -26,9 +26,9 @@ returning the current device's `DocumentSummary` or `null`. Hidden tombstone
 holds are excluded. `listContainerDocumentSidebarWindow` accepts an optional
 `documentKind` filter applied before counting and paging. Drafts without a
 canonical id cannot be selected as primary until their first sync.
-Custom implementations and test doubles of `ContainerDocumentQueries` must now
-implement the required `loadContainerDocumentSummary` method; this is a
-source-level contract change for hosts that implement the interface themselves.
+Hosts implementing `ContainerDocumentQueries` themselves, including test
+doubles, must implement `loadContainerDocumentSummary` and
+[`listCompletedDownloads`](runtime-behavior.md), a source-level change.
 
 See [container views](../container-views.md) for the app extension point,
 read-only behavior and fallback rules. These methods use existing root-exported

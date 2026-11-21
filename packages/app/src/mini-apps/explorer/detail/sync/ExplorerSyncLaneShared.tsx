@@ -85,8 +85,8 @@ export function ExplorerSyncLaneOverview(params: {
 }
 
 /**
- * A status in the Sync Lanes tone for `status`. Downloads and Uploads pass
- * their own wording as `label`; the tone, and so the emphasis, stays shared.
+ * A status in the Sync Lanes tone for `status`. A transfer tab passes its own
+ * wording as `label`; the tone, and so the emphasis, stays shared.
  */
 export function ExplorerSyncLaneStatusBadge(params: {
   label?: string | undefined;
