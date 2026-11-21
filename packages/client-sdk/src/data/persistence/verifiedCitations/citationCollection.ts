@@ -1,8 +1,8 @@
+import { toFingerprint } from "@tearleads/crypto";
 import type {
   HeldProjectionCitation,
   WriterProjectionTarget,
-} from "@tearleads/api-client";
-import { toFingerprint } from "@tearleads/crypto";
+} from "@tearleads/validators/response";
 import {
   isServedAccessManifestBundleWireResponse,
   type ServedAccessManifestBundleWireResponse,

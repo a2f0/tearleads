@@ -23,6 +23,7 @@ import type {
 } from "../state";
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
 import { logRevalidationApplied as logApplied } from "./remoteRevalidationTelemetry";
+import { noteDocumentPullCompleted } from "./replacedBindingSightings";
 import {
   discardPreRegisteredUpdateIds,
   discardUnacceptedPreRegisteredUpdateIds,
@@ -321,6 +322,9 @@ export async function finalizeDocumentSync(
   // drained.
   if (!synced.hasIncompletePull) {
     clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
+    // The server's updates are applied and drained: a binding the detach
+    // pass sighted before this pull no longer awaits its content update.
+    noteDocumentPullCompleted(state);
   }
 
   if (shouldReArmDocumentSync(state, syncAttempt)) {

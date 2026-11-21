@@ -77,10 +77,11 @@ test.each([
       "attachment-schema-flag-day",
     );
     try {
-      const obsoleteSql = table.createSql.replace(
-        '  "content_sha256" TEXT NOT NULL,\n',
-        "",
-      );
+      // A database from before the migration ledger also predates the
+      // columns its steps add.
+      const obsoleteSql = table.createSql
+        .replace('  "content_sha256" TEXT NOT NULL,\n', "")
+        .replace('  "requeued" INTEGER NOT NULL DEFAULT 0,\n', "");
       expect(obsoleteSql).not.toContain("content_sha256");
       await execSql(obsoleteSql);
       await expect(ensureSqlTables(execSql, [table])).rejects.toThrow(

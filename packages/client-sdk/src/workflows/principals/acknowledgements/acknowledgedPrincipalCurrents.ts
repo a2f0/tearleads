@@ -1,10 +1,12 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   KeyingVerificationError,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyMutationResponse,
+  PrincipalPolicyPageCurrent,
+} from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import {
   type AcknowledgedPrincipalCurrentPublication,

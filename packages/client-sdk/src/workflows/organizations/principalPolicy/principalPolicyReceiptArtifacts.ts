@@ -1,4 +1,3 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   compareCanonicalStrings,
   computeAccessEventHash,
@@ -11,6 +10,7 @@ import type {
   ContainerMutationResponse,
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalPolicyMutationResponse,
+  PrincipalPolicyPageCurrent,
 } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../../data/keying/canonicalJson";
 import {

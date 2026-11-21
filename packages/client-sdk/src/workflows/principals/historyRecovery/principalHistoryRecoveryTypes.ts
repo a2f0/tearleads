@@ -1,7 +1,4 @@
-import type {
-  PrincipalPolicyPageCurrent,
-  RequestFailure,
-} from "@tearleads/api-client";
+import type { RequestFailure } from "@tearleads/api-client";
 import {
   KeyingVerificationError,
   type PrincipalPolicyExternalAuthority,
@@ -9,6 +6,7 @@ import {
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { PrincipalPolicyPageReader } from "../principalPolicyHistoryReader";

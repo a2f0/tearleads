@@ -1,4 +1,4 @@
-import type { RequestResult } from "@tearleads/api-client/types";
+import type { RequestResult } from "@tearleads/api-client";
 import type {
   PendingBlobDeletionsQuery,
   RootPendingBlobDeletionsQuery,
