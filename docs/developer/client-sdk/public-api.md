@@ -284,13 +284,12 @@ checks. The built-in gateway batch-reads immutable pins, revalidates both keys
 and their fingerprints, and passes a scoped resolver to `verify`; self identity
 retains ordinary resolution. A missing pin yields the endpoint's validated
 candidate without pinning it. The gateway pins those candidates as `observed`
-only when `verify` succeeds with `publish` set, which callers set only after
-the projection's signed state verified. The callback must not retain its
-resolver for later work. Plain callable resolvers remain valid and use the
-ordinary per-user path. This capability does not admit recipients, raise
-provenance, or change direct resolution and signer-refetch conflict checks. A
-changed database, account, or runtime generation invalidates the scoped
-operation.
+only when `verify` succeeds with `publish` set, which callers set only after the
+projection's signed state verified. The callback must not retain its resolver
+for later work. Plain callable resolvers remain valid and use the ordinary
+per-user path. This capability does not admit recipients, raise provenance, or
+change direct resolution and signer-refetch conflict checks. A changed database,
+account, or runtime generation invalidates the scoped operation.
 
 ### Recipient admission
 
@@ -313,20 +312,19 @@ bounds, self-admission, cycles, and forward-only chains cannot establish trust.
 
 An otherwise valid but unauthenticated target raises
 `UnverifiedUserIdentityError` before the mutation; availability errors propagate
-separately. For group adds, Members advancing between proof and mutation
-raises retryable `ProjectionDependencyUnavailableError`; the caller must retry
-against the new head. Share admission is checked against the head current at
-admission and is not rechecked before the share. Bundle and current or
-signed-root-verified historical envelope
-contradictions raise `hash_mismatch`. Signer-pin conflicts remain hard
-verification failures; policy verification may reject them earlier as
-`signer_mismatch`. Chain admission never promotes a pin to `self` or `link`:
-`userIdentities.resolveVerified` and `createLinkFor` still require direct trust.
-Contacts and roster-profile creation do not gain chain-based admission. A valid
-chain trusts each authenticated administrator's vouch and cannot establish
-administrator honesty. No anchor-exchange, cold-start rollback, or global
-fork/currentness guarantee is added; see
-[roster vouching](../trusted-user-identity.md#roster-vouching).
+separately. For group adds, Members advancing between proof and mutation raises
+retryable `ProjectionDependencyUnavailableError`; the caller must retry against
+the new head. Share admission is checked against the head current at admission
+and is not rechecked before the share. Bundle and current or
+signed-root-verified historical envelope contradictions raise `hash_mismatch`.
+Signer-pin conflicts remain hard verification failures; policy verification may
+reject them earlier as `signer_mismatch`. Chain admission never promotes a pin
+to `self` or `link`: `userIdentities.resolveVerified` and `createLinkFor` still
+require direct trust. Contacts and roster-profile creation do not gain
+chain-based admission. A valid chain trusts each authenticated administrator's
+vouch and cannot establish administrator honesty. No anchor-exchange, cold-start
+rollback, or global fork/currentness guarantee is added; see [roster
+vouching](../trusted-user-identity.md#roster-vouching).
 
 ### Identity-format reset boundary
 
@@ -357,6 +355,10 @@ adopt, overwrite, or merge the alias. A host reopening a known profile must
 resolve its actual persisted local ID, use the captured workflow runtime, and
 open without creation seeds. Scope, readiness, and access checks still apply.
 See [custom document persistence](../custom-document-persistence.md) and [`documents.openHistory`](./document-history.md).
+
+`documents.retryDownload({ localId, documentId })` pulls a synced document again
+to re-list its attachment bindings, resolving `false` when the record no longer
+carries that `documentId`. It reuses an open store, keeping its draft.
 
 ### Unsaved document writes
 
@@ -443,35 +445,33 @@ secret: nothing exists on the server until `session.confirm(startPayment)`,
 which validates the form, calls `startPayment` for the client secret of the
 subscription the server starts at Pay, and confirms it.
 `session.updatePrice(price)` re-prices the open form when the buyer switches
-plans; `startPayment` must then start that plan. The provider form collects
-the billing email above the card fields and reports it through `mount`'s
-`onBillingEmailChange`. The form keeps loading after `mount` resolves:
-`onReady` reports it usable and `onLoadError` reports a form that never loads.
+plans; `startPayment` must then start that plan. The provider form collects the
+billing email above the card fields and reports it through `mount`'s
+`onBillingEmailChange`. The form keeps loading after `mount` resolves: `onReady`
+reports it usable and `onLoadError` reports a form that never loads.
 `organizations.loadStripeCheckoutOptions()` lists every plan that covers the
 roster, and `organizations.createStripeCheckout(priceId)` is the usual
-`startPayment` for the chosen one; `createStripeCheckoutSession(priceId,
-returnUrl)` opens Stripe's hosted page for it instead. A refusal throws with
-the server's billing `code`, and `billing_checkout_plan_unavailable` means the
-plans must be reloaded. For a subscribed organization the same options list
-the plans it can change to, and
+`startPayment` for the chosen one;
+`createStripeCheckoutSession(priceId, returnUrl)` opens Stripe's hosted page for
+it instead. A refusal throws with the server's billing `code`, and
+`billing_checkout_plan_unavailable` means the plans must be reloaded. For a
+subscribed organization the same options list the plans it can change to, and
 `organizations.changeStripePlan(priceId, currentSeatCount)` (the capacity the
-admin chose against) returns `upgraded` (charged now and applied),
-`scheduled` (at renewal), or `kept`; it throws
-`billing_plan_change_payment_failed` for a declined upgrade and
-`billing_plan_change_unavailable` for a plan it cannot change to now,
-including when the current plan changed meanwhile.
-Native purchases are personal-org only. Handle
-`PurchaseAlreadyOwnedError` with `purchases.moveNativeSubscription`: verify the
-receipt, prepare a fresh org outside the claim deadline, claim it, then publish
-attribution. Identity pending means retry; provider stalled means restart.
-Before purchase or restore, use
+admin chose against) returns `upgraded` (charged now and applied), `scheduled`
+(at renewal), or `kept`; it throws `billing_plan_change_payment_failed` for a
+declined upgrade and `billing_plan_change_unavailable` for a plan it cannot
+change to now, including when the current plan changed meanwhile. Native
+purchases are personal-org only. Handle `PurchaseAlreadyOwnedError` with
+`purchases.moveNativeSubscription`: verify the receipt, prepare a fresh org
+outside the claim deadline, claim it, then publish attribution. Identity pending
+means retry; provider stalled means restart. Before purchase or restore, use
 `checkNativePurchaseEligibility(organizationId, store)` to block a second
 subscription; claims and webhooks still recheck ownership and conflicts. Native
 providers must invoke the supplied `onProviderPresented` callback exactly when
 their store sheet becomes uncancellable. Before that notification, cancellation
 must prevent later presentation; there is no capability flag or conservative
-provider-start fallback. Keep restore/claim/bind atomic.
-See [revenuecat-billing.md](../revenuecat-billing.md).
+provider-start fallback. Keep restore/claim/bind atomic. See
+[revenuecat-billing.md](../revenuecat-billing.md).
 
 ## Package Contract
 

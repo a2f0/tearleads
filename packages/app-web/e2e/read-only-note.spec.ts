@@ -104,8 +104,13 @@ test("a note in the Trash is plain text that cannot take a caret", async ({
   await page.keyboard.type("more");
   await expect(body).toHaveText(NOTE_TEXT);
 
-  // The text sits exactly where the editor drew it.
-  expect(await body.boundingBox()).toEqual(editorBox);
+  // The text sits exactly where the editor drew it. Both fill the pane down to
+  // the attachments tray, which is shorter without its upload controls, so
+  // only the bottom edge may differ.
+  const bodyBox = await body.boundingBox();
+  expect(bodyBox && { ...bodyBox, height: 0 }).toEqual(
+    editorBox && { ...editorBox, height: 0 },
+  );
   expect(await body.evaluate((element) => getComputedStyle(element).font)).toBe(
     editorFont,
   );

@@ -7,12 +7,17 @@ import subprocess
 import time
 
 
+def claude_config_dir():
+    """Claude Code's config directory: CLAUDE_CONFIG_DIR when set, else ~/.claude."""
+    return Path(os.environ.get('CLAUDE_CONFIG_DIR') or Path.home() / '.claude')
+
+
 def claude_credentials():
     token = os.environ.get('CLAUDE_CODE_OAUTH_TOKEN')
     if token:
         return {'accessToken': token}
     try:
-        credentials = json.loads((Path.home() / '.claude/.credentials.json').read_text())['claudeAiOauth']
+        credentials = json.loads((claude_config_dir() / '.credentials.json').read_text())['claudeAiOauth']
         if credentials['expiresAt'] <= time.time() * 1000:
             raise RuntimeError('Claude login expired. Refresh the host Claude Code login.')
         if not credentials['accessToken']:

@@ -113,6 +113,7 @@ export type {
   OpenDocumentInput,
   OpenDocumentOptions,
   PersistedDocumentListener,
+  RetryDocumentDownloadInput,
   SeededDocumentInput,
 } from "./documents";
 export { DEFAULT_DOCUMENT_ID } from "./documents";

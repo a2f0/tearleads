@@ -106,40 +106,19 @@ test("uses a fieldset dropzone when attachments are interactive", () => {
   expect(dropzone?.tagName).toBe("FIELDSET");
 });
 
-test("auto-sizes the editor to its content height", () => {
+test("leaves the editor's height to its pane as the text grows", () => {
   const view = renderNoteEditorFields({ text: "first line" });
   const editor = view.getByLabelText("Notes editor") as HTMLTextAreaElement;
   Object.defineProperty(editor, "scrollHeight", {
     configurable: true,
-    value: 240,
+    value: 2400,
   });
 
-  view.rerender(
-    <NoteEditorFields
-      attachmentStorageKeyBySlotId={{}}
-      attachments={[]}
-      attachmentStatusBySlotId={{}}
-      canAttach={true}
-      dragActive={false}
-      fileInputId="note-file-input"
-      fileInputRef={createRef<HTMLInputElement>()}
-      handleDownloadAttachment={noop}
-      handleDragEnter={noop}
-      handleDragLeave={noop}
-      handleDragOver={noop}
-      handleDrop={noop}
-      handleRemoveAttachment={noop}
-      handleSelectedFiles={noop}
-      imageUrlBySlotId={{}}
-      ready={true}
-      readOnly={false}
-      setText={noop}
-      syncing={false}
-      text={"first line\nsecond line"}
-    />,
-  );
+  view.rerender(buildNoteEditorFields({ text: "first line\nsecond line" }));
 
-  expect(editor.style.height).toBe("240px");
+  // The pane's flex layout sizes the editor; the text scrolls inside it.
+  expect(editor.style.height).toBe("");
+  expect(editor.classList.contains("mini-app-editor")).toBe(true);
 });
 
 test("removing an attachment forwards its slot id after confirmation", () => {
