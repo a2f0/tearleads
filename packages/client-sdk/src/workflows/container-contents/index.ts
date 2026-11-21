@@ -40,7 +40,11 @@ export {
   removeDocumentLink,
   type SetLinkedContainerIdsForDocument,
 } from "./documentQueries/documentStructure";
-export type { PendingDownloadQueueItem } from "./documentQueries/pendingDownloads";
+export type {
+  CompletedDownloadItem,
+  DownloadQueueItemRef,
+  PendingDownloadQueueItem,
+} from "./documentQueries/pendingDownloads";
 export {
   type BlobInfo,
   type BlobInfoAttachmentKind,

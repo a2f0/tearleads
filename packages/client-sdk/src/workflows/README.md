@@ -152,10 +152,10 @@ still include shells. Orphan-route identity checks use the scoped
 content. `ContainerNode.metadataReady` is false for remote folders awaiting
 metadata; consumers can hide these nodes without removing their sync
 registrations. `containerContents.documentQueries()` exposes
-`listPendingDownloads()` and `PendingDownloadQueueItem` for known document and
-folder metadata pulls (initial hydration or remaining pages), including durable
-errors. The queue does not estimate undiscovered objects or on-demand blob
-reads.
+`listPendingDownloads()` (`PendingDownloadQueueItem`) for known document and
+folder metadata pulls with durable errors, and `listCompletedDownloads(refs)`
+(`CompletedDownloadItem`) for the named rows whose content is now stored. The
+queue does not estimate undiscovered objects or on-demand blob reads.
 
 ## Documents
 

@@ -178,3 +178,6 @@ removing their sync registrations. `containerContents.documentQueries()` exposes
 `listPendingDownloads()` and `PendingDownloadQueueItem` for known document and
 folder metadata pulls (initial hydration or remaining pages), including durable
 errors. The queue does not estimate undiscovered objects or on-demand blob reads.
+`listCompletedDownloads(refs)` returns, as `CompletedDownloadItem`, the named
+queue rows whose content is now fully stored, so a host can tell a finished pull
+from a row that left the queue because it was deleted or reset.

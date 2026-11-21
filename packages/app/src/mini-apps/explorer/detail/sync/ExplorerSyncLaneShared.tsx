@@ -18,6 +18,7 @@ import {
   type SyncLaneFilter,
   summarizeSyncLanes,
 } from "./ExplorerSyncLaneUtils";
+import "./ExplorerSyncLaneShared.css";
 
 // Ordered along the lane lifecycle, with the unfiltered total leading. Each
 // tile doubles as the filter for the lanes it counts; the leading `null` tile
@@ -83,10 +84,15 @@ export function ExplorerSyncLaneOverview(params: {
   );
 }
 
+/**
+ * A status in the Sync Lanes tone for `status`. Downloads and Uploads pass
+ * their own wording as `label`; the tone, and so the emphasis, stays shared.
+ */
 export function ExplorerSyncLaneStatusBadge(params: {
+  label?: string | undefined;
   status: SyncLaneStatus;
 }) {
-  const label = getExplorerSyncLaneStatusLabel(params.status);
+  const label = params.label ?? getExplorerSyncLaneStatusLabel(params.status);
 
   return (
     <span
@@ -94,32 +100,47 @@ export function ExplorerSyncLaneStatusBadge(params: {
         "explorer-sync-lane-status",
         `explorer-sync-lane-status--${params.status}`,
       )}
+      // A long transfer status may be clipped by its column.
+      title={params.label}
     >
       {label}
     </span>
   );
 }
 
+/** A horizontal bar filling to `percent` in the tone for `status`. */
+export function ExplorerSyncProgressBar(params: {
+  label: string;
+  percent: number;
+  status: SyncLaneStatus;
+}) {
+  return (
+    <span
+      aria-label={params.label}
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={params.percent}
+      className={classNames(
+        "explorer-sync-lane-progress",
+        `explorer-sync-lane-progress--${params.status}`,
+      )}
+      role="progressbar"
+    >
+      <span style={{ width: `${params.percent}%` }} />
+    </span>
+  );
+}
+
 export function ExplorerSyncLaneProgress(params: { lane: SyncLaneSnapshot }) {
   const { lane } = params;
-  const label = getExplorerSyncLaneStatusLabel(lane.status);
-  const percent = getExplorerSyncLaneProgressPercent(lane);
 
   return (
     <span className="explorer-sync-lane-progress-stack">
-      <span
-        aria-label={label}
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={percent}
-        className={classNames(
-          "explorer-sync-lane-progress",
-          `explorer-sync-lane-progress--${lane.status}`,
-        )}
-        role="progressbar"
-      >
-        <span style={{ width: `${percent}%` }} />
-      </span>
+      <ExplorerSyncProgressBar
+        label={getExplorerSyncLaneStatusLabel(lane.status)}
+        percent={getExplorerSyncLaneProgressPercent(lane)}
+        status={lane.status}
+      />
       {lane.progress ? (
         <span className="explorer-sync-lane-muted">
           {getExplorerSyncLaneUploadProgressLabel(lane.progress)}

@@ -5,12 +5,25 @@ import {
   getOrCreateDomainSyncCoordinator,
   type PendingDownloadQueueItem,
 } from "@tearleads/client-sdk";
+import {
+  useWindowRefreshMenuItemValue,
+  WindowMenuProvider,
+} from "@tearleads/windowing";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { ExplorerDownloadsPanel } from "./ExplorerDownloadsPanel";
 
 afterEach(cleanup);
 
-test("Downloads shows unknown items and failures, then removes hydrated items", async () => {
+function ToolbarProbe() {
+  const refresh = useWindowRefreshMenuItemValue();
+  return refresh ? (
+    <button disabled={refresh.disabled} onClick={refresh.onClick} type="button">
+      {refresh.label}
+    </button>
+  ) : null;
+}
+
+test("Downloads shows unknown items and failures, then drops a row that left unconfirmed", async () => {
   let items: ReadonlyArray<PendingDownloadQueueItem> = [
     {
       localId: "local",
@@ -22,6 +35,8 @@ test("Downloads shows unknown items and failures, then removes hydrated items", 
     },
   ];
   const documentQueries = {
+    // The row left the queue without its content, as a deletion does.
+    listCompletedDownloads: async () => [],
     listPendingDownloads: async () => items,
   } as unknown as ContainerDocumentQueries;
   const domainScope = createDomainScope();
@@ -79,38 +94,47 @@ test("Downloads distinguishes waiting offline from a failed queue read", async (
     },
   } as unknown as ContainerDocumentQueries;
   const domainScope = createDomainScope();
+  const renderPanel = (input: {
+    documentListRevision: number;
+    isAuthenticated: boolean;
+  }) => (
+    <WindowMenuProvider>
+      <ExplorerDownloadsPanel
+        documentListRevision={input.documentListRevision}
+        documentQueries={documentQueries}
+        domainScope={domainScope}
+        nodes={[]}
+        online={false}
+        isAuthenticated={input.isAuthenticated}
+      />
+      <ToolbarProbe />
+    </WindowMenuProvider>
+  );
   const view = render(
-    <ExplorerDownloadsPanel
-      documentListRevision={0}
-      documentQueries={documentQueries}
-      domainScope={domainScope}
-      nodes={[]}
-      online={false}
-      isAuthenticated
-    />,
+    renderPanel({ documentListRevision: 0, isAuthenticated: true }),
   );
   await waitFor(() =>
     expect(view.getByText("Waiting for connection")).toBeTruthy(),
   );
   expect(view.getByText("Folder awaiting metadata")).toBeTruthy();
+  // The toolbar Refresh replaces Sync now and keeps its offline restriction.
+  expect(view.queryByRole("button", { name: "Sync now" })).toBeNull();
   expect(
-    view.getByRole("button", { name: "Sync now" }).hasAttribute("disabled"),
+    view.getByRole("button", { name: "Refresh" }).hasAttribute("disabled"),
   ).toBe(true);
   fail = true;
   view.rerender(
-    <ExplorerDownloadsPanel
-      documentListRevision={1}
-      documentQueries={documentQueries}
-      domainScope={domainScope}
-      nodes={[]}
-      online={false}
-      isAuthenticated
-    />,
+    renderPanel({ documentListRevision: 1, isAuthenticated: false }),
   );
   await waitFor(() =>
     expect(view.getByRole("alert").textContent).toBe("Storage unavailable"),
   );
   expect(view.queryByText("No pending downloads.")).toBeNull();
+  // The failed read keeps the last rows, and signing out keeps Refresh off.
+  expect(view.getByText("Waiting for sign-in")).toBeTruthy();
+  expect(
+    view.getByRole("button", { name: "Refresh" }).hasAttribute("disabled"),
+  ).toBe(true);
 });
 
 test("Downloads keeps the title of a hydrated document with pages remaining", async () => {

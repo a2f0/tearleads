@@ -45,6 +45,9 @@ import {
   getOrphanedDocumentWhereSql,
 } from "./orphanedDocumentSql";
 import {
+  type CompletedDownloadItem,
+  type DownloadQueueItemRef,
+  listCompletedDownloads,
   listPendingDownloads,
   type PendingDownloadQueueItem,
 } from "./pendingDownloads";
@@ -146,6 +149,10 @@ export interface ContainerDocumentQueries {
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
   listPendingDownloads(): Promise<ReadonlyArray<PendingDownloadQueueItem>>;
+  /** The given queue rows whose content is now fully stored. */
+  listCompletedDownloads(
+    refs: ReadonlyArray<DownloadQueueItemRef>,
+  ): Promise<ReadonlyArray<CompletedDownloadItem>>;
   listPendingWrites(): Promise<ReadonlyArray<PendingWriteQueueItem>>;
   retryPendingWriteItem(input: {
     localId: string;
@@ -445,6 +452,9 @@ export function createContainerDocumentQueriesFromRuntime(
     },
     listPendingDownloads() {
       return listPendingDownloads(execSql);
+    },
+    listCompletedDownloads(refs) {
+      return listCompletedDownloads(execSql, refs);
     },
     listPendingWrites() {
       return listPendingWrites(execSql);
