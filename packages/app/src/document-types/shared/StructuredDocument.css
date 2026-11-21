@@ -93,6 +93,10 @@
   gap: var(--space-md);
 }
 
+.structured-document-attachments > .attachment-preview-notice {
+  flex-basis: 100%;
+}
+
 .structured-document-slot {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

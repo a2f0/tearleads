@@ -6,6 +6,10 @@ import type {
 import { type ChangeEvent, useId, useRef } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { AttachmentActionButton } from "./AttachmentActionButton";
+import {
+  AttachmentPreviewNotice,
+  type AttachmentPreviewNoticeSource,
+} from "./AttachmentPreviewNotice";
 import { useDocumentBlobOpen } from "./DocumentBlobOpenContext";
 import {
   type DocumentAttachmentSlot,
@@ -232,6 +236,7 @@ export function DocumentAttachmentSlots(params: {
   imageUrlBySlotId: Readonly<Record<string, string | undefined>>;
   onClearAttachment: (slotId: string) => void;
   onSelectedAttachment: (slotId: string, fileList: FileList | null) => void;
+  previewNotice?: AttachmentPreviewNoticeSource | undefined;
   slots: ReadonlyArray<DocumentAttachmentSlot>;
 }) {
   const {
@@ -243,11 +248,13 @@ export function DocumentAttachmentSlots(params: {
     imageUrlBySlotId,
     onClearAttachment,
     onSelectedAttachment,
+    previewNotice,
     slots,
   } = params;
 
   return (
     <div className="structured-document-attachments">
+      {previewNotice ? <AttachmentPreviewNotice {...previewNotice} /> : null}
       {expandAttachmentSlots(slots, attachments, canAttach).map((slot) => (
         <DocumentAttachmentSlotCard
           key={slot.slotId}

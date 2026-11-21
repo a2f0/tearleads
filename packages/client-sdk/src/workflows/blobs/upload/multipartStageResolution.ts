@@ -31,7 +31,21 @@ export function assertUploadCurrent(stillCurrent: (() => boolean) | undefined) {
     throw new Error("The attachment upload scope changed.");
 }
 
+/** Staging stopped for a sync pause; a stage it created stays resumable. */
+export class UploadPausedError extends Error {
+  constructor() {
+    super("The organization paused sync during the attachment upload.");
+    this.name = "UploadPausedError";
+  }
+}
+
+/** Checked before each stage or part request, never after one is sent. */
+export function assertUploadNotPaused(paused: (() => boolean) | undefined) {
+  if (paused?.()) throw new UploadPausedError();
+}
+
 interface ResolveMultipartStageInput {
+  readonly paused?: (() => boolean) | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly concurrency: number;
@@ -54,6 +68,7 @@ async function resumeMultipartStage(
   resumeStageId: string,
 ): Promise<MultipartBlobStageStatusResponse | null> {
   assertUploadCurrent(input.stillCurrent);
+  assertUploadNotPaused(input.paused);
   const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId, {
     stillCurrent: input.stillCurrent,
   });
@@ -92,6 +107,7 @@ async function initiateWithFirstParts(
 ): Promise<ResolvedMultipartStage> {
   const { byteLength, sha256 } = input.encryption;
   assertUploadCurrent(input.stillCurrent);
+  assertUploadNotPaused(input.paused);
   const stage = await input.apiClient.initiateMultipartBlobStage(
     {
       organizationId: input.organizationId,

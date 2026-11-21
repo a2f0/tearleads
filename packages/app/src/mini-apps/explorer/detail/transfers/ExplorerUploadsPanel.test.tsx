@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import type { SyncLaneSnapshot } from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import type { ExplorerUploadItem } from "../../hooks/explorerUploadState";
+import type { ExplorerUploadItem } from "../../../../stores/explorer/explorerUploadItemMachine";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../../labels";
 import {
@@ -21,6 +21,7 @@ function item(overrides: Partial<ExplorerUploadItem> = {}): ExplorerUploadItem {
     id: "upload-1",
     localId: null,
     status: "queued",
+    storageKeys: [],
     ...overrides,
   };
 }
@@ -85,9 +86,16 @@ test("ingest statuses pass through; imported items refine by sync lane", () => {
   expect(deriveExplorerUploadItemStatus(imported, lane("running"))).toBe(
     "uploading",
   );
+  // A completed lane waits for the SDK to confirm nothing is left to sync.
   expect(deriveExplorerUploadItemStatus(imported, lane("complete"))).toBe(
-    "uploaded",
+    "pending-sync",
   );
+  expect(
+    deriveExplorerUploadItemStatus(
+      item({ localId: "local-1", status: "uploaded" }),
+      lane("error"),
+    ),
+  ).toBe("uploaded");
   expect(deriveExplorerUploadItemStatus(imported, lane("error"))).toBe(
     "sync-failed",
   );
@@ -97,6 +105,8 @@ test("renders the session empty state", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
+      isAuthenticated
+      online
       uploadManager={manager()}
     />,
   );
@@ -108,6 +118,8 @@ test("lists items newest-first with per-item statuses and summary", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
+      isAuthenticated
+      online
       uploadManager={manager({
         items: [
           item({ fileName: "first.txt", id: "upload-1", status: "cancelled" }),
@@ -142,6 +154,8 @@ test("an active run shows the global status line with a working cancel", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
+      isAuthenticated
+      online
       uploadManager={manager({
         cancel: () => {
           cancelCount += 1;
@@ -181,6 +195,8 @@ test("bounds large lists until more rows are requested", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
+      isAuthenticated
+      online
       uploadManager={manager({ items })}
     />,
   );
@@ -190,4 +206,28 @@ test("bounds large lists until more rows are requested", () => {
     view.getByRole("button", { name: EXPLORER_LABELS.uploadsShowMoreAction }),
   );
   expect(view.getAllByText(/file-\d+\.txt/).length).toBe(101);
+});
+
+test("a failed upload announces its status with the error beneath", () => {
+  const view = render(
+    <ExplorerUploadsPanel
+      domainScope={createDomainScope()}
+      isAuthenticated
+      online
+      uploadManager={manager({
+        items: [
+          item({ error: "read failed", status: "failed" }),
+          item({ fileName: "b.txt", id: "upload-2", status: "removed" }),
+        ],
+      })}
+    />,
+  );
+
+  expect(view.getByRole("alert").textContent).toBe(
+    EXPLORER_LABELS.uploadsFailedStatus,
+  );
+  expect(view.getByText("read failed")).toBeTruthy();
+  // A document deleted before its upload settled is not a failure.
+  expect(view.getByText(EXPLORER_LABELS.uploadsRemovedStatus)).toBeTruthy();
+  expect(view.getByText("2 files")).toBeTruthy();
 });
