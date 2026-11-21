@@ -1,5 +1,9 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import { type BlobInfo, createMemoryBlobStore } from "@tearleads/client-sdk";
+import {
+  type BlobInfo,
+  createDomainScope,
+  createMemoryBlobStore,
+} from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { LogProvider } from "../../providers/logging/LogProvider";
@@ -67,6 +71,7 @@ test("choosing a blob appends a photo without replacing an existing one", async 
   const spies = [
     spyOn(Runtime, "useTearleadsRuntime").mockReturnValue({
       infra: { blobStore },
+      state: { domainScope: createDomainScope() },
     } as Runtime.RuntimeSnapshot),
     documentSpy,
   ];
