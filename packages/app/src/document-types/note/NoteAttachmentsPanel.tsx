@@ -9,6 +9,10 @@ import type {
 import type { DragEvent } from "react";
 import { formatByteLength } from "../../utils/formatByteLength";
 import { AttachmentActionButton } from "../shared/AttachmentActionButton";
+import {
+  AttachmentPreviewNotice,
+  type AttachmentPreviewNoticeSource,
+} from "../shared/AttachmentPreviewNotice";
 import { getAttachmentFileType } from "../shared/attachmentFileType";
 import "./NoteDocument.css";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
@@ -155,6 +159,7 @@ export function NoteAttachmentsPanel({
   onOpenAttachment,
   onSelectBlob,
   onUploadAttachment,
+  previewNotice,
 }: {
   attachments: ReadonlyArray<DocumentAttachment>;
   attachmentStatusBySlotId: NoteAttachmentStatusBySlotId;
@@ -171,6 +176,7 @@ export function NoteAttachmentsPanel({
   onOpenAttachment: (slotId: string) => void;
   onSelectBlob: (() => void) | undefined;
   onUploadAttachment: () => void;
+  previewNotice?: AttachmentPreviewNoticeSource | undefined;
 }) {
   const hasAttachments = attachments.length > 0;
 
@@ -207,6 +213,7 @@ export function NoteAttachmentsPanel({
           </div>
         ) : null}
       </div>
+      {previewNotice ? <AttachmentPreviewNotice {...previewNotice} /> : null}
       {hasAttachments ? (
         <ul
           aria-label={NOTE_DOCUMENT_LABELS.attachments}

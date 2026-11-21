@@ -43,7 +43,7 @@ interface AttachedStructuredDocument<Fields> {
 export function useAttachedStructuredDocument<Fields>(
   options: UseAttachedStructuredDocumentOptions<Fields>,
 ): AttachedStructuredDocument<Fields> {
-  const { infra } = useTearleadsRuntime();
+  const { infra, state } = useTearleadsRuntime();
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -119,6 +119,10 @@ export function useAttachedStructuredDocument<Fields>(
       imageUrlBySlotId,
       onClearAttachment: removeAttachment,
       onSelectedAttachment: handleSelectedAttachment,
+      previewNotice: {
+        blobStore: infra.blobStore,
+        domainScope: state.domainScope,
+      },
       slots,
     },
     toggleEditing,
