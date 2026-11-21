@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -17,11 +18,13 @@ import { join } from "node:path";
 
 const library = join(import.meta.dir, "screenshotsStore.sh");
 const pinnedCli = join(import.meta.dir, "../../node_modules/.bin/agent-tool");
+const captureWrapper = join(import.meta.dir, "../testing/takeScreenshots.sh");
 const { PATH = "" } = process.env;
 
 // A stand-in for the clone's pinned agent-tool: records how it was run, then
-// answers `screenshots status --json` with the store STUB_ARTIFACTS names, and
-// links .screenshots the way `screenshots link --apply` does, or fails.
+// answers `screenshots status --json` with the store STUB_ARTIFACTS names,
+// links .screenshots the way `screenshots link --apply` does, and succeeds for
+// any other command, unless STUB_FAIL makes everything but status fail.
 const STUB = `#!/usr/bin/env bun
 import { appendFileSync, symlinkSync } from "node:fs";
 const args = process.argv.slice(2);
@@ -32,7 +35,7 @@ if (args[1] === "status") {
   process.exit(1);
 }
 if (process.env.STUB_FAIL) process.exit(1);
-symlinkSync("../matrix-artifacts/app/screenshots", ".screenshots");
+if (args[1] === "link") symlinkSync("../matrix-artifacts/app/screenshots", ".screenshots");
 `;
 
 const temporary: string[] = [];
@@ -71,13 +74,19 @@ function installCli(repo: string, cli = STUB): void {
   chmodSync(join(bin, "agent-tool"), 0o755);
 }
 
-function runSh(
+interface Result {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+}
+
+function run(
   { root, store, log }: Fixture,
-  script: string,
+  cmd: string[],
   env: Record<string, string> = {},
-): { exitCode: number; stdout: string; stderr: string } {
+): Result {
   const result = Bun.spawnSync({
-    cmd: ["sh", "-c", `set -e\n. "${library}"\n${script}`],
+    cmd,
     env: {
       PATH,
       HOME: join(root, "home"),
@@ -91,6 +100,15 @@ function runSh(
     stdout: result.stdout.toString(),
     stderr: result.stderr.toString(),
   };
+}
+
+/** Runs a script with the library sourced, under `set -e` as callers are. */
+function runSh(
+  setup: Fixture,
+  script: string,
+  env: Record<string, string> = {},
+): Result {
+  return run(setup, ["sh", "-c", `set -e\n. "${library}"\n${script}`], env);
 }
 
 interface StubRun {
@@ -160,26 +178,31 @@ test("does nothing where the store does not exist, as in CI, and never creates i
   expect(present(setup.store)).toBe(false);
 });
 
-test("does nothing when agent-tool is not installed or its status cannot run", () => {
-  const missing = fixture();
-  mkdirSync(missing.store);
-  expect(runSh(missing, `screenshots_store_link "${missing.repo}"`)).toEqual(
-    quiet,
-  );
-  expect(present(join(missing.repo, ".screenshots"))).toBe(false);
+test("does nothing before agent-tool is installed", () => {
+  const setup = fixture();
+  mkdirSync(setup.store);
+  expect(runSh(setup, `screenshots_store_link "${setup.repo}"`)).toEqual(quiet);
+  expect(present(join(setup.repo, ".screenshots"))).toBe(false);
+});
 
-  const failing = fixture();
-  installCli(failing.repo);
-  mkdirSync(failing.store);
-  expect(
-    runSh(failing, `screenshots_store_link "${failing.repo}"`, {
-      STUB_STATUS_ERROR: "1",
-    }),
-  ).toEqual(quiet);
-  expect(stubRuns(failing.log).map(({ args }) => args)).toEqual([
+test("warns and still succeeds when agent-tool's status names no store", () => {
+  const setup = fixture();
+  installCli(setup.repo);
+  mkdirSync(setup.store);
+  const result = runSh(
+    setup,
+    `screenshots_store_link "${setup.repo}"\necho after`,
+    { STUB_STATUS_ERROR: "1" },
+  );
+  expect(result.exitCode).toBe(0);
+  expect(result.stdout).toBe("after\n");
+  expect(result.stderr).toContain(
+    "warning: agent-tool screenshots status named no store",
+  );
+  expect(stubRuns(setup.log).map(({ args }) => args)).toEqual([
     ["screenshots", "status", "--json"],
   ]);
-  expect(present(join(failing.repo, ".screenshots"))).toBe(false);
+  expect(present(join(setup.repo, ".screenshots"))).toBe(false);
 });
 
 test("leaves any existing .screenshots alone: a directory, a link, or a dangling link", () => {
@@ -253,3 +276,43 @@ test("the pinned agent-tool links a clone only where its store already exists", 
     join(setup.store, "app/screenshots"),
   );
 }, 30_000);
+
+/** A copy of the capture wrapper and its library, so REPO_ROOT is the fixture. */
+function installWrapper(repo: string): string {
+  mkdirSync(join(repo, "scripts/testing"), { recursive: true });
+  mkdirSync(join(repo, "scripts/lib"), { recursive: true });
+  copyFileSync(library, join(repo, "scripts/lib/screenshotsStore.sh"));
+  const wrapper = join(repo, "scripts/testing/takeScreenshots.sh");
+  copyFileSync(captureWrapper, wrapper);
+  return wrapper;
+}
+
+test("the capture wrapper delegates a linked clone's capture to the pinned agent-tool", () => {
+  const setup = fixture();
+  installCli(setup.repo);
+  symlinkSync(
+    "../matrix-artifacts/app/screenshots",
+    join(setup.repo, ".screenshots"),
+  );
+  const wrapper = installWrapper(setup.repo);
+  expect(run(setup, ["sh", wrapper, "--project=mobile"]).exitCode).toBe(0);
+  expect(stubRuns(setup.log)).toEqual([
+    {
+      cwd: setup.repo,
+      args: ["screenshots", "capture", "--apply", "--", "--project=mobile"],
+      noGh: null,
+    },
+  ]);
+});
+
+test("the capture wrapper refuses a linked clone before agent-tool is installed", () => {
+  const setup = fixture();
+  symlinkSync(
+    "../matrix-artifacts/app/screenshots",
+    join(setup.repo, ".screenshots"),
+  );
+  const result = run(setup, ["sh", installWrapper(setup.repo)]);
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("the pinned agent-tool is not installed");
+  expect(result.stderr).toContain("agent-tool screenshots capture --apply");
+});

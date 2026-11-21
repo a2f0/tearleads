@@ -20,40 +20,40 @@ screenshots_store_cli() {
   return 1
 }
 
-# Prints the store the clone at $1 resolves (MATRIX_ARTIFACTS_DIR, else
-# matrix-artifacts beside its matrix workspace, else beside the clone) when that
-# store already exists, or fails: CI and a machine that never used the store
-# have none, and this never creates one. The take-screenshots skill's `link` or
-# `capture` creates the store on purpose.
-screenshots_store_existing() {
-  screenshots_store_agent_tool=$(screenshots_store_cli "$1") || return 1
+# Prints the store that the clone at $1 resolves with the agent-tool CLI at $2:
+# MATRIX_ARTIFACTS_DIR, else matrix-artifacts beside its matrix workspace, else
+# beside the clone. The store need not exist. Fails when the CLI cannot report
+# one, as outside a Git checkout.
+screenshots_store_resolve() {
   # status exits 1 while the clone is unlinked and names the store either way;
   # MATRIX_ARTIFACTS_NO_GH skips asking GitHub for a namespace this never reads.
   screenshots_store_report=$(cd "$1" &&
-    MATRIX_ARTIFACTS_NO_GH=1 "$screenshots_store_agent_tool" screenshots status --json 2>/dev/null) || :
-  screenshots_store_root=$(printf '%s' "$screenshots_store_report" | bun -e '
+    MATRIX_ARTIFACTS_NO_GH=1 "$2" screenshots status --json 2>/dev/null) || :
+  printf '%s' "$screenshots_store_report" | bun -e '
 const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
-if (typeof report?.artifacts !== "string") process.exit(1);
+if (typeof report?.artifacts !== "string" || report.artifacts === "") process.exit(1);
 process.stdout.write(report.artifacts);
-' 2>/dev/null) || return 1
-  if [ -n "$screenshots_store_root" ] && [ -d "$screenshots_store_root" ]; then
-    printf '%s\n' "$screenshots_store_root"
-    return 0
-  fi
-  return 1
+' 2>/dev/null
 }
 
 # Links the clone at $1 to the store when it has no .screenshots at all and the
 # store already exists, so a capture, build, or deploy from a fresh clone or
 # worktree uses the shared captures instead of a local or empty directory. A
 # clone that already holds a .screenshots is left alone: choosing between two
-# captures is the skill's `link`. Without the store or the installed CLI it does
-# nothing, and it never fails its caller.
+# captures is the skill's `link`. It never creates a store: CI and a machine
+# that never used one have none, and the take-screenshots skill's `link` or
+# `capture` creates it on purpose. Without the store or the installed CLI it
+# does nothing, and it never fails its caller.
 screenshots_store_link() {
   if [ -e "$1/.screenshots" ] || [ -L "$1/.screenshots" ]; then
     return 0
   fi
-  screenshots_store_existing "$1" >/dev/null || return 0
+  screenshots_store_agent_tool=$(screenshots_store_cli "$1") || return 0
+  screenshots_store_root=$(screenshots_store_resolve "$1" "$screenshots_store_agent_tool") || {
+    echo "warning: agent-tool screenshots status named no store, so .screenshots stays unlinked" >&2
+    return 0
+  }
+  [ -d "$screenshots_store_root" ] || return 0
   (cd "$1" && "$screenshots_store_agent_tool" screenshots link --apply) ||
     echo "warning: could not link .screenshots to the shared screenshot store; run the take-screenshots skill's link" >&2
   return 0

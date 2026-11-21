@@ -200,8 +200,9 @@ build test fails on a root-relative link that would redirect or miss a file.
 Screenshots are captured once and shared by every clone: the gitignored
 `.screenshots` at the repository root is a symlink into the local
 `matrix-artifacts` store (`<store>/tearleads/screenshots`, where the store is
-`MATRIX_ARTIFACTS_DIR` or `matrix-artifacts` beside the matrix workspace), so a
-website build or deploy from any clone publishes the newest capture. The pinned
+`MATRIX_ARTIFACTS_DIR`, else `matrix-artifacts` beside the matrix workspace or,
+outside one, beside the clone), so a website build or deploy from any clone
+publishes the newest capture. The pinned
 `agent-tool screenshots link --apply` creates that link; once the store exists,
 the website's `predev` and `prebuild` and the capture wrapper also create it in
 a clone or worktree that has no `.screenshots` yet, so a fresh clone never

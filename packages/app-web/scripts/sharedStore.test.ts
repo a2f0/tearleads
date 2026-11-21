@@ -5,6 +5,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -220,3 +222,79 @@ test("another clone's or host's capture does not admit a direct one", () => {
     ).toThrow(refusal);
   }
 });
+
+// The guard reads the lock and record that the pinned agent-tool writes, so a
+// pin whose capture they no longer admit would refuse every shared capture.
+test("a capture through the pinned agent-tool is admitted, and a direct run is refused", () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "shared-store-")));
+  roots.push(root);
+  const repo = join(root, "repo");
+  const guard = "packages/app-web/screenshots/sharedStore.ts";
+  mkdirSync(join(repo, "packages/app-web/screenshots"), { recursive: true });
+  copyFileSync(
+    new URL("../screenshots/sharedStore.ts", import.meta.url),
+    join(repo, guard),
+  );
+  writeFileSync(join(repo, ".gitignore"), ".screenshots\nnode_modules\n");
+  writeFileSync(
+    join(repo, "package.json"),
+    JSON.stringify({
+      private: true,
+      scripts: {
+        screenshots: `bun ${guard} && echo ran > "$SCREENSHOT_OUTPUT_DIR/ran"`,
+      },
+    }),
+  );
+  const git = (...args: string[]) => {
+    const result = spawnSync(
+      "git",
+      [
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.com",
+        "-c",
+        "commit.gpgsign=false",
+        ...args,
+      ],
+      { cwd: repo, encoding: "utf8" },
+    );
+    expect(result.status, result.stderr).toBe(0);
+  };
+  git("init", "--quiet");
+  git("remote", "add", "origin", "git@github.com:a2f0/app.git");
+  git("add", "--all");
+  git("commit", "--quiet", "--message", "fixture");
+  const cli = join(repo, "node_modules/.bin/agent-tool");
+  mkdirSync(join(repo, "node_modules/.bin"), { recursive: true });
+  symlinkSync(
+    realpathSync(
+      fileURLToPath(
+        new URL("../../../node_modules/.bin/agent-tool", import.meta.url),
+      ),
+    ),
+    cli,
+  );
+  const env = {
+    ...process.env,
+    MATRIX_ARTIFACTS_DIR: join(root, "artifacts"),
+    MATRIX_ARTIFACTS_NO_GH: "1",
+  };
+
+  const capture = spawnSync(
+    cli,
+    ["screenshots", "capture", "--apply", "--json"],
+    { cwd: repo, encoding: "utf8", env },
+  );
+  expect(capture.status, capture.stderr).toBe(0);
+  expect(JSON.parse(capture.stdout).record.status).toBe("complete");
+  expect(readFileSync(join(repo, ".screenshots/ran"), "utf8")).toBe("ran\n");
+
+  const direct = spawnSync(process.execPath, ["run", "screenshots"], {
+    cwd: repo,
+    encoding: "utf8",
+    env,
+  });
+  expect(direct.status).not.toBe(0);
+  expect(direct.stderr).toContain(refusal);
+}, 30_000);
