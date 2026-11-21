@@ -5,7 +5,11 @@ The worker-thread runtime for client SQLite databases. It loads the
 databases in memory or in OPFS (through the SAH pool VFS), and serves
 statements to a client over worker messages. When several browser tabs open
 one database, a single owner tab runs the worker and the others reach it
-through a broadcast channel.
+through a broadcast channel. A client's open database lives only in the worker
+that opened it, so when ownership moves to another tab, or another connection
+deletes that database, the coordinator fails the client as a worker crash and
+the host opens a new one
+([`crossTabConnectionMachine.ts`](src/crossTabConnectionMachine.ts)).
 
 Hosts do not import this package directly: the
 [client SDK](../client-sdk/README.md) wraps it as

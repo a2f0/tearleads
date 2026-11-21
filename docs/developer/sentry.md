@@ -203,10 +203,12 @@ report the original `Error`. A crash of the SQLite worker itself (a failed
 script load or an uncaught exception outside request handling) is observed on
 the main thread on every target: the cross-tab owner forwards it to each
 client, in-flight requests reject instead of hanging, and the app reports it
-once and retires the runtime so the retry surface appears. Callers whose
-requests it rejected treat it as the database going away and stay local. The
-crash `Error` is constructed in application code, never from the worker's own
-event, so its stack maps to an allowlisted bundle frame.
+once and retires the runtime so the retry surface appears. A tab whose open
+database was lost, because the tab that owned it closed or another connection
+deleted it, reports the same way, and the app opens the database again.
+Callers whose requests it rejected treat it as the database going away and
+stay local. The crash `Error` is constructed in application code, never from
+the worker's own event, so its stack maps to an allowlisted bundle frame.
 
 User-initiated mini-app actions report the same way once they have thrown:
 Explorer's create, rename, move, link, share, activate, detach, refresh,

@@ -217,7 +217,9 @@ function useSpawnSQLiteRuntimeForDbName(
 
 // A crashed worker answers nothing: report it once (its callers already saw
 // the rejection as the database going away) and retire the runtime so
-// `waitForReadySQLiteRuntime` rejects and the retry surface appears.
+// `waitForReadySQLiteRuntime` rejects and the retry surface appears. A browser
+// tab whose open database was lost with another tab's owner worker reports the
+// same way, and the identity boot reopens it (see useEnsureDatabaseForIdentity).
 function useWorkerCrashRecovery(params: {
   destroyCurrentRuntime: (nextStatus: SQLiteRuntimeStatus) => void;
   logError: (message: string | Error, cause?: unknown) => void;

@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { expect, mock, setSystemTime, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { useDatabase } from "../db/DatabaseProvider";
 import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
@@ -80,6 +80,37 @@ test("stops auto-retrying once the cap is reached (offline contract)", async () 
   }
 
   expect(ensureIdentityReady.mock.calls.length).toBeLessThanOrEqual(3);
+}, 15_000);
+
+test("a database that stayed ready earns a fresh retry budget", async () => {
+  const { ensureIdentityReady, view } = renderEnsure("ready");
+  const failFromReady = async () => {
+    act(() => {
+      view.rerender({ status: "error" });
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 900));
+    });
+    act(() => {
+      view.rerender({ status: "ready" });
+    });
+  };
+
+  try {
+    // Failures right after each boot spend the budget and then stop.
+    for (let i = 0; i < 4; i++) {
+      await failFromReady();
+    }
+    expect(ensureIdentityReady).toHaveBeenCalledTimes(3);
+
+    // A later loss after the database held is a new incident, as when the tab
+    // that owned the database closes long after a good boot.
+    setSystemTime(new Date(Date.now() + 11_000));
+    await failFromReady();
+    expect(ensureIdentityReady).toHaveBeenCalledTimes(4);
+  } finally {
+    setSystemTime();
+  }
 }, 15_000);
 
 test("resets the retry budget when the fingerprint changes", () => {

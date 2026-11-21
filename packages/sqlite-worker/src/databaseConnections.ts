@@ -5,10 +5,11 @@ import {
   hasPersistentVfs,
   initDatabase,
 } from "./loadSqlite3";
-import type {
-  DatabaseWorkerExecOptions,
-  DatabaseWorkerExecResult,
-  DatabaseWorkerInitOptions,
+import {
+  DATABASE_NOT_INITIALIZED_MESSAGE,
+  type DatabaseWorkerExecOptions,
+  type DatabaseWorkerExecResult,
+  type DatabaseWorkerInitOptions,
 } from "./types";
 import { wipeOpfsStorage } from "./wipeOpfsStorage";
 import type { RegisterDatabaseWorkerOptions } from "./workerCore";
@@ -116,13 +117,13 @@ class DatabaseConnectionRegistry {
   ): Promise<DatabaseWorkerExecResult["rows"]> {
     const dbName = state.dbName;
     if (!dbName) {
-      throw new Error("Database has not been initialized.");
+      throw new Error(DATABASE_NOT_INITIALIZED_MESSAGE);
     }
 
     const entry = this.databasesByName.get(dbName);
     if (!entry) {
       this.detachConnection(state);
-      throw new Error("Database has not been initialized.");
+      throw new Error(DATABASE_NOT_INITIALIZED_MESSAGE);
     }
 
     return runQueued(entry, () => execDatabaseStatement(entry.db, options));

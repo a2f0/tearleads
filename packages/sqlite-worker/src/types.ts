@@ -126,6 +126,12 @@ export const WORKER_DISCONNECT_PORT_MESSAGE_TYPE =
 export const WORKER_PORT_DISCONNECTED_MESSAGE_TYPE =
   "tearleads:sqlite-port-disconnected";
 
+// The worker's answer to a statement on a connection with no open database.
+// The cross-tab coordinator matches it to notice a client whose database was
+// lost, so the worker and the coordinator share this one string.
+export const DATABASE_NOT_INITIALIZED_MESSAGE =
+  "Database has not been initialized.";
+
 export type WorkerMethod = keyof WorkerRequestMap;
 
 export type WorkerRequest<K extends WorkerMethod = WorkerMethod> =
