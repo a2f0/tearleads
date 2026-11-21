@@ -32,6 +32,7 @@ const documentChanged = {
  */
 async function uploadAtDocumentVersions(input: {
   readonly carry?: boolean;
+  readonly currentForBinds?: number;
   readonly refusals: number;
   readonly versions: readonly (string | null)[];
 }) {
@@ -75,6 +76,7 @@ async function uploadAtDocumentVersions(input: {
       expectedBindingId: null,
       resolveProjectionUserKey,
       slotId: "preview",
+      stillCurrent: () => binds.length < (input.currentForBinds ?? Infinity),
       verifiedDocumentVersion: async ({ refresh }) => {
         checks.push(refresh);
         return input.versions[checks.length - 1] ?? null;
@@ -143,4 +145,18 @@ test("a bind refused for a newer document keeps the update it carries", async ()
     documentSync,
   ]);
   expect(uploaded?.request.documentSync).toEqual(documentSync);
+});
+
+test("a bind that stops being current never reads an earlier refusal", async () => {
+  // The API client keeps reporting a document-changed refusal, but once the
+  // call is stale no further bind is sent, so nothing asks for a pull.
+  const { binds, checks, uploaded } = await uploadAtDocumentVersions({
+    currentForBinds: 1,
+    refusals: 1,
+    versions: ["checked", "pulled"],
+  });
+
+  expect(checks).toEqual([false]);
+  expect(binds).toHaveLength(1);
+  expect(uploaded).toBeNull();
 });

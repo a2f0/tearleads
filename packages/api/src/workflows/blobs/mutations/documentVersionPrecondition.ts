@@ -2,9 +2,28 @@ import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { BLOB_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   DocumentUpdateReadError,
+  type DocumentVersionFrontier,
   hasDocumentOpsBeyondVersion,
+  parseDocumentVersionFrontier,
 } from "../../../documents/documentUpdateStore";
 import { BlobMutationError } from "./types";
+
+/**
+ * Decodes the version the uploader checked its slot against before the bind
+ * transaction locks anything, so a malformed vector never holds a lock.
+ */
+export function parseBindDocumentVersion(
+  versionVector: string,
+): DocumentVersionFrontier {
+  try {
+    return parseDocumentVersionFrontier(versionVector);
+  } catch (error) {
+    if (error instanceof DocumentUpdateReadError) {
+      throw new BlobMutationError("Invalid document version vector", 400);
+    }
+    throw error;
+  }
+}
 
 /**
  * Refuses a bind while the document holds a committed op that the version the
@@ -18,21 +37,14 @@ import { BlobMutationError } from "./types";
 export async function assertBindDocumentVersionCurrent(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
-  readonly versionVector: string;
+  readonly version: DocumentVersionFrontier;
 }): Promise<void> {
-  let changed: boolean;
-  try {
-    changed = await hasDocumentOpsBeyondVersion(input.executor, {
+  if (
+    await hasDocumentOpsBeyondVersion(input.executor, {
       documentId: input.documentId,
-      versionVector: input.versionVector,
-    });
-  } catch (error) {
-    if (error instanceof DocumentUpdateReadError) {
-      throw new BlobMutationError("Invalid document version vector", 400);
-    }
-    throw error;
-  }
-  if (changed) {
+      version: input.version,
+    })
+  ) {
     throw new BlobMutationError(
       "Document changed after the attachment slot was checked",
       409,

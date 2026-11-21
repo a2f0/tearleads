@@ -120,7 +120,7 @@ export interface DocumentStorePersistenceEffects {
 }
 export interface DocumentStoreState {
   attachmentBlobIdBySlotId: Record<string, string | null>;
-  attachmentDocumentChangedPasses?: number; // attachmentDocumentVersion.ts
+  attachmentDocumentChangedPasses?: ReadonlyMap<string, number> | undefined; // attachmentDocumentVersion.ts
   /** Plaintext digest of the held bytes per slot; see `getAttachmentStatuses`. */
   attachmentContentSha256BySlotId: Record<string, string>;
   attachmentStorageKeyBySlotId: Record<string, string>;

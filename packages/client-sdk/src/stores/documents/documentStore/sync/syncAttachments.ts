@@ -16,8 +16,7 @@ import type { PrincipalPolicyOperation } from "../../../../workflows/principals/
 import { markOriginatedDocuments } from "../../../../workflows/sync/coordination";
 import { requestDocumentStoreSync } from "../../registry";
 import {
-  capturePendingAttachmentDocumentVersion,
-  type PendingAttachmentDocumentVersion,
+  pendingAttachmentDocumentVersion,
   settleDocumentChangedPasses,
   shouldRepullAfterDocumentChanged,
 } from "../attachmentUpload/attachmentDocumentVersion";
@@ -292,7 +291,7 @@ async function recoverCommittedAttachment(
 
 function createAttachmentBaseUploadInput(input: {
   author: PreparedUploadDocumentAttachmentRequest["author"];
-  documentVersion: PendingAttachmentDocumentVersion;
+  checkedVersion: string;
   pendingUpload: PendingAttachmentUploadInput;
   resume: AttachmentUploadResume;
   source: BlobByteSource;
@@ -325,7 +324,9 @@ function createAttachmentBaseUploadInput(input: {
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     slotId: pendingAttachment.slotId,
     sourceSnapshot: input.sourceSnapshot,
-    verifiedDocumentVersion: input.documentVersion.verifiedDocumentVersion,
+    verifiedDocumentVersion: pendingAttachmentDocumentVersion(
+      input.checkedVersion,
+    ),
     warmReferencedPrincipalPolicies:
       state.runtime.principalPolicies.createWarmer({
         operation: input.pendingUpload.policyOperation,
@@ -337,7 +338,6 @@ async function uploadPendingAttachmentBytes(input: {
   baseUploadInput: PreparedUploadDocumentAttachmentRequest;
   /** Read from the runtime the base input was built from. */
   blobAttachments: BlobAttachmentService;
-  documentVersion: PendingAttachmentDocumentVersion;
   pendingUpload: PendingAttachmentUploadInput;
   uploadLane: AttachmentUploadLaneReporter;
 }): Promise<PendingAttachmentUploadOutcome> {
@@ -365,7 +365,12 @@ async function uploadPendingAttachmentBytes(input: {
           writerProjection,
         }),
     });
-    const { error: uploadError, remoteSyncBlocked, uploaded } = uploadAttempt;
+    const {
+      documentChanged,
+      error: uploadError,
+      remoteSyncBlocked,
+      uploaded,
+    } = uploadAttempt;
     if (!uploaded) {
       if (remoteSyncBlocked) {
         input.uploadLane.failIfStarted(
@@ -374,8 +379,8 @@ async function uploadPendingAttachmentBytes(input: {
         return "retry";
       }
       if (
-        input.documentVersion.documentChanged() &&
-        shouldRepullAfterDocumentChanged(state)
+        documentChanged &&
+        shouldRepullAfterDocumentChanged(state, pendingAttachment)
       ) {
         // Another device committed an update after this pass pulled. The
         // next pass pulls it, checks the slot, and binds the kept stage.
@@ -395,7 +400,7 @@ async function uploadPendingAttachmentBytes(input: {
       return "retry";
     }
 
-    settleDocumentChangedPasses(state);
+    settleDocumentChangedPasses(state, pendingAttachment);
     await settleUploadedAttachment({
       activeBindingBySlotId: input.pendingUpload.activeBindingBySlotId,
       attachmentGeneration: input.pendingUpload.attachmentGeneration,
@@ -467,10 +472,7 @@ async function syncPendingAttachmentUpload(
     return "retry";
   }
   if (!prepared) return dropUnavailablePendingAttachment(input);
-  // Preparation just confirmed this slot still asks for these bytes.
-  if (!state.doc) return "retry";
-  const documentVersion = capturePendingAttachmentDocumentVersion(state.doc);
-  const { resume, snapshot } = prepared;
+  const { checkedVersion, resume, snapshot } = prepared;
   const uploadLane = createAttachmentUploadLaneReporter({
     blobId: resume.blobId,
     domainScope: state.runtime.state.domainScope,
@@ -478,7 +480,7 @@ async function syncPendingAttachmentUpload(
   });
   const baseUploadInput = createAttachmentBaseUploadInput({
     author,
-    documentVersion,
+    checkedVersion,
     pendingUpload: input,
     resume,
     source,
@@ -488,7 +490,6 @@ async function syncPendingAttachmentUpload(
   return uploadPendingAttachmentBytes({
     baseUploadInput,
     blobAttachments: state.runtime.blobAttachments,
-    documentVersion,
     pendingUpload: input,
     uploadLane,
   });

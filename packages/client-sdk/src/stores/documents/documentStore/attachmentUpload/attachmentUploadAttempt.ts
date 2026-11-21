@@ -30,6 +30,8 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
   state: DocumentStoreState;
   writerProjection: DocumentStoreState["writerProjection"];
 }): Promise<{
+  /** The API refused the bind because the document advanced. */
+  documentChanged: boolean;
   error: unknown;
   remoteSyncBlocked: boolean;
   uploaded: UploadDocumentAttachmentResult | null;
@@ -122,7 +124,7 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
   if (remoteSyncBlocked) {
     uploadError = undefined;
   }
-  return { error: uploadError, remoteSyncBlocked, uploaded };
+  return { documentChanged, error: uploadError, remoteSyncBlocked, uploaded };
 }
 
 async function tryUploadDocumentAttachment(input: {

@@ -34,35 +34,27 @@ function bindFailure(apiClient: BlobAttachmentApi, blobId: string) {
   );
 }
 
-/** The API refused the bind because the document advanced past its version. */
-function bindRefusedForDocumentChange(
+/**
+ * Why the API refused a bind this call sent: the document advanced past its
+ * version (pull and retry), the request was refused outright (a client error
+ * other than a billing pause or an expired session, which rolled back the
+ * binding with the update it carried), or anything else.
+ */
+type BindRefusal = "documentChanged" | "refused" | "other";
+
+function classifyBindRefusal(
   apiClient: BlobAttachmentApi,
   blobId: string,
-): boolean {
+): BindRefusal {
   const failure = bindFailure(apiClient, blobId);
-  return (
-    failure?.kind === "http" &&
+  if (failure?.kind !== "http" || failure.status === null) return "other";
+  if (
     failure.status === 409 &&
     failure.code === BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged
-  );
-}
-
-/**
- * Whether the server refused the bind outright (a client error other than a
- * billing pause, an expired session, or a newer document), which rolled back
- * the binding with the update it carried.
- */
-function bindRefusedCarriedSync(
-  apiClient: BlobAttachmentApi,
-  blobId: string,
-): boolean {
-  const failure = bindFailure(apiClient, blobId);
-  return (
-    failure?.kind === "http" &&
-    failure.status !== null &&
-    [400, 403, 404, 409].includes(failure.status) &&
-    failure.code !== BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged
-  );
+  ) {
+    return "documentChanged";
+  }
+  return [400, 403, 404, 409].includes(failure.status) ? "refused" : "other";
 }
 
 interface BindInput {
@@ -80,33 +72,54 @@ interface BindResult {
   readonly response: BlobAttachmentBindResponse | null;
 }
 
+interface BindAttempt extends BindResult {
+  /** Why the request this attempt sent was refused; null when none was. */
+  readonly refusal: BindRefusal | null;
+}
+
 /**
  * The carried update adds no failure mode: a refused carry binds once more
  * without it, and the caller's queued row then syncs on its own. A bind
- * refused for a newer document keeps its carry for the next version.
+ * refused for a newer document keeps its carry for the next version. A
+ * refusal is read only from a request this attempt sent, never from an
+ * earlier call's recorded failure.
  */
-async function bindCarryingDocumentSync(input: BindInput): Promise<BindResult> {
+async function bindCarryingDocumentSync(
+  input: BindInput,
+): Promise<BindAttempt> {
   const canBind = () =>
     input.stillCurrent?.() !== false &&
     !input.isRemoteSyncBlocked?.(input.organizationId);
-  const bind = (request: BlobAttachmentBindRequest) =>
-    !canBind()
-      ? null
-      : input.apiClient.bindBlobAttachment(input.blobId, request, {
-          expectedPaymentRequiredOrganizationId: input.organizationId,
-          stillCurrent: canBind,
-        });
-  if (input.documentSync) {
-    const request = { ...input.plainRequest, documentSync: input.documentSync };
-    const response = await bind(request);
-    if (response || !bindRefusedCarriedSync(input.apiClient, input.blobId)) {
-      return { request, response };
-    }
-  }
-  return {
-    request: input.plainRequest,
-    response: await bind(input.plainRequest),
+  const bind = async (
+    request: BlobAttachmentBindRequest,
+  ): Promise<BindAttempt> => {
+    if (!canBind()) return { refusal: null, request, response: null };
+    const response = await input.apiClient.bindBlobAttachment(
+      input.blobId,
+      request,
+      {
+        expectedPaymentRequiredOrganizationId: input.organizationId,
+        stillCurrent: canBind,
+      },
+    );
+    // A call that stopped being current may have returned without sending.
+    return {
+      refusal:
+        response || !canBind()
+          ? null
+          : classifyBindRefusal(input.apiClient, input.blobId),
+      request,
+      response,
+    };
   };
+  if (input.documentSync) {
+    const carried = await bind({
+      ...input.plainRequest,
+      documentSync: input.documentSync,
+    });
+    if (carried.refusal !== "refused") return carried;
+  }
+  return bind(input.plainRequest);
 }
 
 /**
@@ -128,16 +141,15 @@ export async function bindAtVerifiedDocumentVersion(
     if (documentVersionVector === null) {
       return null;
     }
-    const bound = await bindCarryingDocumentSync({
+    const { refusal, request, response } = await bindCarryingDocumentSync({
       ...input,
       plainRequest: { ...input.plainRequest, documentVersionVector },
     });
     if (
-      bound.response ||
-      refreshes >= MAX_DOCUMENT_VERSION_REFRESHES ||
-      !bindRefusedForDocumentChange(input.apiClient, input.blobId)
+      refusal !== "documentChanged" ||
+      refreshes >= MAX_DOCUMENT_VERSION_REFRESHES
     ) {
-      return bound;
+      return { request, response };
     }
   }
 }

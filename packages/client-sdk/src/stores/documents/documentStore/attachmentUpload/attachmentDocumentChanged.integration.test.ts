@@ -149,20 +149,21 @@ test("a bind the API keeps refusing stops re-pulling and records the stuck uploa
         name: "busy.png",
       },
     ]);
+    // Only the pass that stops re-pulling records the failure.
     await waitFor(
-      () =>
-        binds.length === MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 1 &&
-        !store.getSnapshot().syncing,
+      async () => (await syncFailure()) !== null,
       "The refused binds did not settle.",
       5_000,
     );
-    await Bun.sleep(50);
 
     expect(binds).toHaveLength(MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 1);
     expect(store.getSnapshot().attachmentStatusBySlotId).not.toEqual({});
     expect(await syncFailure()).toContain(
       "Attachment upload failed for busy.png",
     );
+    // A later sync signal gets one more bind, still without re-pulling.
+    expect(await store.requestRemoteSyncAndWait()).toBe(true);
+    expect(binds).toHaveLength(MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 2);
   } finally {
     close();
   }

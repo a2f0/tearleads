@@ -10,11 +10,12 @@ update that version lacks.
 | Model action or predicate | Production seam |
 | --- | --- |
 | `Check` | `verifiedDocumentVersion` pulls, re-checks the slot, and returns the checked version, or abandons the bind |
-| `Check` | `capturePendingAttachmentDocumentVersion` records the version a store pass checked its pending upload at |
+| `Check` | `resolveAttachmentSourceUpload` encodes the version in the same step as a store pass's last slot check |
 | `Bind` | `assertBindDocumentVersionCurrent` runs `hasDocumentOpsBeyondVersion` after `lockAttachmentAuthorizationForShare` locks the document head |
 | `Bind` | `verifyAndLockBindSlot` keeps the existing binding-generation precondition |
-| `Bind` / `RecheckOnRefresh` | `bindAtVerifiedDocumentVersion` asks for a re-checked version after a refusal |
-| `Bind` / `PullOnRefusal` | `shouldRepullAfterDocumentChanged` re-arms a store pass, which pulls before its next check |
+| `Bind` (refused) | `classifyBindRefusal` reads `attachment_document_changed` from the request the bind just sent |
+| `Retry` / `RecheckOnRefresh` | `bindAtVerifiedDocumentVersion` asks for a re-checked version after a refusal |
+| `Retry` / `PullOnRefusal` | `shouldRepullAfterDocumentChanged` re-arms a store pass, which pulls before its next check |
 | `Remove` / `Restore` / `Replace` / `Unrelated` | `appendDocumentUpdates` commits another device's update under `lockSyncDocumentWriteFrontier` |
 | `OtherBind` | `bindBlobAttachment` commits the replacing device's own bytes |
 

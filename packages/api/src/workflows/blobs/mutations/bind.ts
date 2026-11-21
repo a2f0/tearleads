@@ -16,6 +16,7 @@ import {
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
 import { readCommitCheckpoint } from "../../../documents/commitLsn";
+import type { DocumentVersionFrontier } from "../../../documents/documentUpdateStore";
 import { appendAttachmentBindDocumentSync } from "../../documents/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
@@ -29,7 +30,10 @@ import {
 } from "./authorization";
 import { registerAttachmentBlobs } from "./blobAuditRegistry";
 import { lockBlobMutationRows } from "./blobMutationLocks";
-import { assertBindDocumentVersionCurrent } from "./documentVersionPrecondition";
+import {
+  assertBindDocumentVersionCurrent,
+  parseBindDocumentVersion,
+} from "./documentVersionPrecondition";
 import { toMutationError } from "./errors";
 import { assertExistingBlobSourceAuthority } from "./existingBlobAuthority";
 import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
@@ -334,6 +338,7 @@ export interface BindBlobAttachmentWorkflowResult {
 
 async function bindBlobAttachmentTransaction(
   input: BindBlobAttachmentInput & {
+    readonly documentVersion: DocumentVersionFrontier;
     readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
   },
   tx: DatabaseTransaction,
@@ -351,7 +356,7 @@ async function bindBlobAttachmentTransaction(
   await assertBindDocumentVersionCurrent({
     documentId: bindBody.documentId,
     executor: tx,
-    versionVector: input.request.documentVersionVector,
+    version: input.documentVersion,
   });
   const { activeBinding, verifiedBinding } = await verifyAndLockBindSlot({
     bindBody,
@@ -440,11 +445,15 @@ export async function runBindBlobAttachmentWorkflow(
   },
 ): Promise<BindBlobAttachmentWorkflowResult> {
   try {
+    const documentVersion = parseBindDocumentVersion(
+      input.request.documentVersionVector,
+    );
     const { acceptedOutgoingUpdateIds, linkedContainerIds, response } =
       await db.transaction((tx) =>
         bindBlobAttachmentTransaction(
           {
             ...input,
+            documentVersion,
             prevalidatedMultipartStage:
               input.prevalidatedMultipartStage ?? null,
           },

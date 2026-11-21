@@ -15,7 +15,7 @@ vars == <<slot, edits, binding, boundSlot, uploader, checked>>
 
 SlotStates == {"fixture", "removed", "other"}
 Bindings == {"none", "fixture", "other"}
-UploaderStates == {"check", "ready", "bound", "abandoned"}
+UploaderStates == {"check", "ready", "refused", "bound", "abandoned"}
 
 Init == /\ slot = "fixture" /\ edits = 0
         /\ binding = "none" /\ boundSlot = "none"
@@ -33,23 +33,27 @@ Check ==
 
 (* The bind transaction locks the document head, under which no update
    commits, so its version check and its insert are one atomic step. A bind
-   at a version missing a committed update is refused; the uploader pulls and
-   checks again. `expectedBindingId` is null, so a binding that committed
-   meanwhile also refuses it. *)
+   at a version missing a committed update is refused. `expectedBindingId` is
+   null, so a binding that committed meanwhile also refuses it. *)
 Bind ==
   /\ uploader = "ready"
   /\ IF CheckDocumentVersion /\ checked < edits
-       THEN /\ uploader' = IF RecheckOnRefresh THEN "check" ELSE "ready"
-            (* Without a re-check, a retry may still adopt a newer version. *)
-            /\ checked' = IF RecheckOnRefresh \/ ~PullOnRefusal
-                             THEN checked ELSE edits
-            /\ UNCHANGED <<slot, edits, binding, boundSlot>>
+       THEN /\ uploader' = "refused"
+            /\ UNCHANGED <<slot, edits, binding, boundSlot, checked>>
        ELSE IF binding # "none"
        THEN /\ uploader' = "check"
             /\ UNCHANGED <<slot, edits, binding, boundSlot, checked>>
        ELSE /\ binding' = "fixture" /\ boundSlot' = slot
             /\ uploader' = "bound"
             /\ UNCHANGED <<slot, edits, checked>>
+
+(* After a refusal the uploader pulls and checks the slot again. Without a
+   re-check it retries at once, adopting the pulled version if it pulled. *)
+Retry ==
+  /\ uploader = "refused"
+  /\ uploader' = IF RecheckOnRefresh THEN "check" ELSE "ready"
+  /\ checked' = IF RecheckOnRefresh \/ ~PullOnRefusal THEN checked ELSE edits
+  /\ UNCHANGED <<slot, edits, binding, boundSlot>>
 
 (* Another device's edits commit regardless of any binding: the server never
    refuses an update because of an attachment. *)
@@ -71,11 +75,12 @@ OtherBind ==
   /\ UNCHANGED <<slot, edits, uploader, checked>>
 
 Idle == UNCHANGED vars
-Next == Check \/ Bind \/ Remove \/ Restore \/ Replace \/ Unrelated
-        \/ OtherBind \/ Idle
+Next == Check \/ Bind \/ Retry \/ Remove \/ Restore \/ Replace
+        \/ Unrelated \/ OtherBind \/ Idle
 (* Fairness covers only the uploader's own steps: no-brick forbids waiting
    on another device's write, which may never come. *)
-Spec == Init /\ [][Next]_vars /\ WF_vars(Check) /\ WF_vars(Bind)
+Spec == Init /\ [][Next]_vars
+        /\ WF_vars(Check) /\ WF_vars(Bind) /\ WF_vars(Retry)
 
 TypeOK == /\ slot \in SlotStates /\ edits \in 0..MaxEdits
           /\ binding \in Bindings /\ boundSlot \in {"none"} \cup SlotStates

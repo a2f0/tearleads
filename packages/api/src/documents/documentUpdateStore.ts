@@ -304,25 +304,34 @@ export async function hasMissingDocumentUpdatesThroughSequence(
   return candidates.length > 0;
 }
 
+/** A client version vector, decoded before its caller takes any lock. */
+export interface DocumentVersionFrontier {
+  readonly frontierJson: string;
+}
+
+/** Throws `DocumentUpdateReadError` (400) for a malformed version vector. */
+export function parseDocumentVersionFrontier(
+  versionVector: string,
+): DocumentVersionFrontier {
+  return { frontierJson: buildClientFrontierJson(versionVector) };
+}
+
 /**
- * Whether a committed update of the document holds an op the version vector
- * lacks. Only spans count: an update with no span carries no op, so it cannot
- * change what the version saw. Throws `DocumentUpdateReadError` (400) for a
- * malformed version vector.
+ * Whether a committed update of the document holds an op the version lacks.
+ * Only spans count: an update with no span carries no op, so it cannot
+ * change what the version saw.
  */
 export async function hasDocumentOpsBeyondVersion(
   executor: DatabaseSession,
   input: {
     readonly documentId: string;
-    readonly versionVector: string;
+    readonly version: DocumentVersionFrontier;
   },
 ): Promise<boolean> {
   const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
   const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
   const spanEndCounter = aliasedColumn("s", documentUpdateSpans.endCounter);
-  const frontier = buildFrontierRecordset(
-    buildClientFrontierJson(input.versionVector),
-  );
+  const frontier = buildFrontierRecordset(input.version.frontierJson);
   const result = await executor.execute(sql`
     select 1 as "uncovered"
     from ${documentUpdateSpans} s
