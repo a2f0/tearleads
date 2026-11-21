@@ -16,11 +16,11 @@ export {
   type ApiNetworkFailureClass,
   type ApiNetworkFailureDetails,
 } from "./networkFailure";
-export type { PrincipalPolicyPageResume } from "./policyHistoryPageChecks";
 export type {
   PrincipalPolicyDiscoveryOptions,
   PrincipalPolicyHeldHead,
   PrincipalPolicyPageReadOptions,
+  PrincipalPolicyPageResume,
 } from "./principalPolicyPages";
 export type { ProjectionPolicyHistoryReadOptions } from "./projectionPolicyHistoryPages";
 export type {

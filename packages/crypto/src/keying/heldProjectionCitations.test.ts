@@ -1,7 +1,16 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { HeldDirectoryCitation } from "@tearleads/validators/response";
-import { KNOWN_DIRECTORY_HINT_LIMIT } from "@tearleads/validators/util";
+import {
+  type ContainerKekResponse,
+  containerKekWireLevel,
+  type HeldDirectoryCitation,
+} from "@tearleads/validators/response";
+import {
+  type AccessManifestBundleWireResponse,
+  KNOWN_DIRECTORY_HINT_LIMIT,
+  KNOWN_MANIFEST_HINT_LIMIT,
+  toServedAccessManifestBundle,
+} from "@tearleads/validators/util";
 import { generateKemSeedAndKeyPair } from "../encapsulation/generateKeyPair";
 import { toFingerprint } from "../fingerprint";
 import {
@@ -10,6 +19,7 @@ import {
   signPrincipalState,
 } from "../principalState";
 import { generateSigningSeedAndKeyPair } from "../signing/generateKeyPair";
+import { computeContainerKekLevelDigest } from "./canonicalJsonGuard";
 import { prepareHeldProjectionCitations } from "./heldProjectionCitations";
 
 const SIGNED_AT = "2026-11-17T00:00:00.000Z";
@@ -126,4 +136,85 @@ test("entries of no held kind are ignored without failing preparation", async ()
   expect(held.bundles.size + held.kekLevels.size + held.directories.size).toBe(
     0,
   );
+});
+
+function heldBundle(manifestHash: string, objectId = "container-1") {
+  const bundle: AccessManifestBundleWireResponse = {
+    event: {
+      event: { eventType: "container.create" },
+      body: { eventType: "container.create" },
+      eventHash: "e".repeat(64),
+    },
+    manifest: { objectId, objectKind: "container" },
+    manifestHash,
+    state: { containerId: objectId },
+  } as AccessManifestBundleWireResponse;
+  return toServedAccessManifestBundle(bundle);
+}
+
+function heldLevel(containerId = "container-1") {
+  return containerKekWireLevel({
+    containerId,
+    accessManifestHash: "c".repeat(64),
+    containerKeyEpochId: "epoch-1",
+    containerKeyEpoch: 1,
+    keyring: null,
+    keyEpoch: { containerId, containerKeyEpochId: "epoch-1" },
+    keyEpochHash: "d".repeat(64),
+    keyTargetHash: "f".repeat(64),
+    containerManifestHistory: [],
+    parentContainerKeyEpochId: null,
+    recipientTargets: [{ recipientKind: "user" }],
+    wraps: [{ containerKeyEpochId: "epoch-1" }],
+  } as unknown as ContainerKekResponse);
+}
+
+async function levelDigest(level: ReturnType<typeof heldLevel>) {
+  const digest = await computeContainerKekLevelDigest(level);
+  if (digest === null) throw new Error("fixture level is not canonical");
+  return digest;
+}
+
+const digestHex = (index: number) => index.toString(16).padStart(64, "0");
+
+test("a held bundle is cited by its manifest hash, first held first", async () => {
+  const first = heldBundle("c".repeat(64));
+  const held = await prepareHeldProjectionCitations([
+    first,
+    heldBundle("c".repeat(64), "container-2"),
+    heldBundle("not-a-digest"),
+  ]);
+  expect([...held.bundles]).toEqual([["c".repeat(64), first]]);
+  expect(held.bundles.get("c".repeat(64))).not.toBe(first);
+});
+
+test("a held KEK level is keyed by the digest of its own bytes", async () => {
+  const level = heldLevel();
+  const other = heldLevel("container-2");
+  const held = await prepareHeldProjectionCitations([level, other, level]);
+  expect([...held.kekLevels]).toEqual([
+    [await levelDigest(level), level],
+    [await levelDigest(other), other],
+  ]);
+});
+
+test("bundles and KEK levels share one hint limit; directories have their own", async () => {
+  const bundles = Array.from(
+    { length: KNOWN_MANIFEST_HINT_LIMIT },
+    (_, index) => heldBundle(digestHex(index + 1)),
+  );
+  const directory = await heldDirectory("directory-v1");
+  const held = await prepareHeldProjectionCitations([
+    heldLevel(),
+    ...bundles,
+    directory,
+  ]);
+  // The level takes one of the shared slots, so the last bundle travels.
+  expect(held.kekLevels.size).toBe(1);
+  expect([...held.bundles.keys()]).toEqual(
+    bundles.slice(0, -1).map(({ manifestHash }) => manifestHash),
+  );
+  expect([...held.directories.keys()]).toEqual([
+    directory.directoryState.stateHash,
+  ]);
 });

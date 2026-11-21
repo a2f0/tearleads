@@ -10,7 +10,6 @@ import {
 } from "@tearleads/validators/response";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import {
-  type PrincipalPolicyPageResume,
   principalPolicyPageCurrent,
   readPrincipalPolicyResume,
   validPrincipalPolicyPage,
@@ -20,6 +19,12 @@ import { principalHistoryRequest } from "./principalHistoryRequest";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
 import { getPrincipalPolicy } from "./routes/principals/policy";
 import type { RequestResult, RequestResultOptions } from "./types";
+
+/** A transport position. Only the caller can authenticate the saved prefix. */
+export interface PrincipalPolicyPageResume {
+  readonly current: PrincipalPolicyPageCurrent;
+  readonly afterVersion: number;
+}
 
 export interface PrincipalPolicyPageReadOptions extends RequestResultOptions {
   /** Select an exact signed head even before its first page has been read. */
@@ -128,14 +133,14 @@ export async function* readPrincipalPolicyPages(
     const page = result.data;
     const artifacts = principalPolicyPageCurrent(page);
     const bytes = serializeKeyingCanonicalJson(artifacts);
-    const valid = validPrincipalPolicyPage(page, {
-      principalType,
-      principalId,
-      stateHash: options.stateHash,
-      pinnedBytes,
-      bytes,
-      afterVersion,
-    });
+    const valid =
+      validPrincipalPolicyPage(page, {
+        principalType,
+        principalId,
+        stateHash: options.stateHash,
+        afterVersion,
+      }) &&
+      (pinnedBytes === undefined || bytes === pinnedBytes);
     if (!valid) {
       yield pageFailure(
         runtime,
@@ -218,8 +223,6 @@ export async function readPrincipalPolicyDiscovery(
         principalType,
         principalId,
         stateHash: undefined,
-        pinnedBytes: undefined,
-        bytes: "",
         afterVersion: 0,
       });
   return valid

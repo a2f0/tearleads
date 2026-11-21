@@ -13,13 +13,9 @@ const index = apiClientIndexPath;
 const manifest = apiClientPackageJsonPath;
 
 test("the api-client package publishes exactly its transport surface", async () => {
-  const cwd = process.cwd();
-  process.chdir(resolve(import.meta.dir, "../.."));
-  try {
-    expect(await findApiClientSurfaceViolations()).toEqual([]);
-  } finally {
-    process.chdir(cwd);
-  }
+  expect(
+    await findApiClientSurfaceViolations(resolve(import.meta.dir, "../..")),
+  ).toEqual([]);
   expect(new Set(apiClientRootExports).size).toBe(apiClientRootExports.length);
 });
 
@@ -44,6 +40,7 @@ test("a protocol type, a local declaration or a default export is outside the su
         'export type { HeldDirectoryCitation } from "@tearleads/validators/response";',
         "export const MANIFEST_CITATION_DEADLINE_MS = 250;",
         "export interface WriterProjectionTarget { readonly id: string }",
+        "export const { isHeldDirectoryCitation, nested: [signed] } = guards;",
         "export default ApiClient;",
       ].join("\n"),
       ["ApiClient"],
@@ -53,6 +50,8 @@ test("a protocol type, a local declaration or a default export is outside the su
       "HeldDirectoryCitation",
       "MANIFEST_CITATION_DEADLINE_MS",
       "WriterProjectionTarget",
+      "isHeldDirectoryCitation",
+      "signed",
       "default",
     ].map((name) => ({
       detail: `exports ${name}, which is not part of the transport surface`,

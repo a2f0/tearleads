@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import * as ts from "typescript";
 
 export const apiClientPackageJsonPath = "packages/api-client/package.json";
@@ -66,10 +67,18 @@ function hasExportModifier(statement: ts.Statement): boolean {
   );
 }
 
+/** Every name a binding introduces, including each one a pattern destructures. */
+function boundNames(name: ts.BindingName): string[] {
+  if (ts.isIdentifier(name)) return [name.text];
+  return name.elements.flatMap((element) =>
+    ts.isBindingElement(element) ? boundNames(element.name) : [],
+  );
+}
+
 function declaredNames(statement: ts.Statement): string[] {
   if (ts.isVariableStatement(statement))
     return statement.declarationList.declarations.flatMap((declaration) =>
-      ts.isIdentifier(declaration.name) ? [declaration.name.text] : [],
+      boundNames(declaration.name),
     );
   const name = (statement as { readonly name?: ts.Node }).name;
   return name && ts.isIdentifier(name) ? [name.text] : ["default"];
@@ -157,12 +166,13 @@ export function findPackageExportViolations(
   return violations;
 }
 
-export async function findApiClientSurfaceViolations(): Promise<
-  ApiClientSurfaceViolation[]
-> {
+/** Surface violations in the checkout at `root`, the repository root. */
+export async function findApiClientSurfaceViolations(
+  root = ".",
+): Promise<ApiClientSurfaceViolation[]> {
   const [packageJson, index] = await Promise.all([
-    readFile(apiClientPackageJsonPath, "utf8"),
-    readFile(apiClientIndexPath, "utf8"),
+    readFile(join(root, apiClientPackageJsonPath), "utf8"),
+    readFile(join(root, apiClientIndexPath), "utf8"),
   ]);
   return [
     ...findPackageExportViolations(JSON.parse(packageJson)),

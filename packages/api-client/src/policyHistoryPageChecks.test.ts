@@ -153,8 +153,6 @@ describe("validPrincipalPolicyPage", () => {
     principalType: "group" as const,
     principalId: "group-1",
     stateHash: undefined,
-    pinnedBytes: undefined,
-    bytes: "",
     afterVersion: 0,
   };
 
@@ -179,23 +177,6 @@ describe("validPrincipalPolicyPage", () => {
       validPrincipalPolicyPage(page, {
         ...expected,
         stateHash: "b".repeat(64),
-      }),
-    ).toBe(false);
-  });
-
-  test("refuses current artifacts that differ from the pinned bytes", () => {
-    expect(
-      validPrincipalPolicyPage(page, {
-        ...expected,
-        pinnedBytes: "pinned",
-        bytes: "pinned",
-      }),
-    ).toBe(true);
-    expect(
-      validPrincipalPolicyPage(page, {
-        ...expected,
-        pinnedBytes: "pinned",
-        bytes: "changed",
       }),
     ).toBe(false);
   });

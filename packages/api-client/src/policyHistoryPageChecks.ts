@@ -16,8 +16,8 @@ import {
 // position may start one. They decide only what the transport accepts as the
 // next page; the caller still authenticates every page's contents.
 
-/** A transport position. Only the caller can authenticate the saved prefix. */
-export interface PrincipalPolicyPageResume {
+/** A saved transport position: the pinned current artifacts and a cursor. */
+interface SavedPrincipalPolicyPosition {
   readonly current: PrincipalPolicyPageCurrent;
   readonly afterVersion: number;
 }
@@ -81,7 +81,7 @@ export function principalPolicyPageCurrent(
 export function validPrincipalPolicyResume(
   principalType: "group" | "organization",
   principalId: string,
-  resume: PrincipalPolicyPageResume,
+  resume: SavedPrincipalPolicyPosition,
   stateHash: string | undefined,
 ): boolean {
   const state = resume.current.currentState;
@@ -101,7 +101,7 @@ export function validPrincipalPolicyResume(
  * it is absent or malformed.
  */
 export function readPrincipalPolicyResume(
-  input: PrincipalPolicyPageResume | undefined,
+  input: SavedPrincipalPolicyPosition | undefined,
 ) {
   if (input === undefined) return undefined;
   try {
@@ -123,9 +123,9 @@ export function readPrincipalPolicyResume(
 }
 
 /**
- * Whether a policy page is for the requested principal and head, repeats the
- * pinned current artifacts byte for byte once pinned, and continues the
- * history from `afterVersion`.
+ * Whether a policy page is for the requested principal and head and
+ * continues the history from `afterVersion`. The pager separately requires
+ * every later page to repeat the first page's current artifacts.
  */
 export function validPrincipalPolicyPage(
   page: PrincipalPolicyPageResponse,
@@ -133,8 +133,6 @@ export function validPrincipalPolicyPage(
     principalType: "group" | "organization";
     principalId: string;
     stateHash: string | undefined;
-    pinnedBytes: string | undefined;
-    bytes: string;
     afterVersion: number;
   },
 ): boolean {
@@ -143,8 +141,6 @@ export function validPrincipalPolicyPage(
     page.currentState.principalId === expected.principalId &&
     (expected.stateHash === undefined ||
       page.currentState.stateHash === expected.stateHash) &&
-    (expected.pinnedBytes === undefined ||
-      expected.bytes === expected.pinnedBytes) &&
     continuesPolicyHistory(page, page.currentState, expected.afterVersion)
   );
 }

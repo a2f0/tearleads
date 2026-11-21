@@ -378,7 +378,7 @@ const architectureChecks: ArchitectureCheck[] = [
   }),
   apiTransportCheck,
   createListCheck({
-    findItems: findApiClientSurfaceViolations,
+    findItems: () => findApiClientSurfaceViolations(),
     formatItem: (violation) => `${violation.path}: ${violation.detail}`,
     message:
       "@tearleads/api-client publishes only its transport surface from its root entry point. Import wire and protocol types from @tearleads/validators or @tearleads/crypto; extend apiClientRootExports in scripts/architecture/apiClientSurface.ts only for the transport itself.",
