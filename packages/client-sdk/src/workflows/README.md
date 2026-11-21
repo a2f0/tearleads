@@ -162,6 +162,7 @@ now stored. The queue does not estimate undiscovered objects or blob reads.
 Persisted remote and recovery IDs take precedence. See [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
 `loadPersistedDocumentContent` returns a detached document for inspection.
 `openDocumentHistory` replays [durable history](../../../../docs/developer/client-sdk/document-history.md).
+Views displaced by a relink go read-only (`relinkedElsewhere`) until reopened.
 
 The documents facade admits explicit `historyMode: "raw"` reads through
 `RemoteDocumentService.syncRemoteDocument`. A raw consumer must start at a null
