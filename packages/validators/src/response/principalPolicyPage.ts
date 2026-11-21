@@ -6,6 +6,7 @@ import {
 } from "../schema";
 import { PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT } from "../util/principalHistoryWire";
 import {
+  type PrincipalPolicyBundleResponse,
   PrincipalPolicyStateChainEntryResponseSchema,
   principalPolicyCurrentResponseShape,
 } from "./principal";
@@ -26,6 +27,12 @@ export const PrincipalPolicyPageResponseSchema = loosePlainObject({
 
 export type PrincipalPolicyPageResponse = z.infer<
   typeof PrincipalPolicyPageResponseSchema
+>;
+
+/** A policy page's pinned current artifacts, without its history slice. */
+export type PrincipalPolicyPageCurrent = Omit<
+  PrincipalPolicyBundleResponse,
+  "previousStates"
 >;
 
 export function isPrincipalPolicyPageResponse(

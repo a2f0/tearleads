@@ -1,4 +1,3 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicySignerPublicKey,
@@ -6,7 +5,10 @@ import type {
   VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyMutationResponse,
+  PrincipalPolicyPageCurrent,
+} from "@tearleads/validators/response";
 
 /**
  * The checks the code that authored a principal mutation makes on the

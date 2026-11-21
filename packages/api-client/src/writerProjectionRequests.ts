@@ -5,6 +5,8 @@ import {
 import {
   decodeContainerWriterProjection,
   decodeDocumentWriterProjection,
+  type HeldProjectionCitations,
+  type WriterProjectionTarget,
 } from "@tearleads/validators/response";
 import { formatKnownManifestHints } from "@tearleads/validators/util";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
@@ -18,10 +20,8 @@ import type {
   RequestResultOptions,
 } from "./types";
 import {
-  type HeldProjectionCitations,
   heldManifestCitations,
   type VerifiedManifestCitations,
-  type WriterProjectionTarget,
 } from "./verifiedManifestCitations";
 
 const NO_CITATIONS: HeldProjectionCitations = {

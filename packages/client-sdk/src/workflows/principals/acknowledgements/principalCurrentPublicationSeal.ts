@@ -1,9 +1,9 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   type PrincipalPolicyHistoryVerifier,
   type ReferencedPrincipalHead,
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import { principalHistoryPrefixProtection } from "../../../data/principals/principalHistoryPrefixProtection";
 import {
   principalHistoryStageId,

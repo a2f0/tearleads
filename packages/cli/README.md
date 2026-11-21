@@ -65,6 +65,10 @@ If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,
 preserves moved documents and edits, and resumes missing uploads when the
 recorded digest and byte length still match. Edited names and MIME types are preserved.
+Before it resumes uploads, it checks that the document's first committed update
+is its own, with the fixture fingerprint and content. A fingerprint copied into
+a later edit does not count. If the check fails, run seed again, or permanently
+delete that document on the web to skip it.
 The command only adds attachments. If another device removes a slot during an
 upload, the web app follows the edit and an encrypted fixture blob can remain
 bound on the server. [Attachment binding follow-up](https://github.com/a2f0/tearleads/issues/3070)

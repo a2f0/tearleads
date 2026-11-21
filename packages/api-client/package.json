@@ -1,13 +1,11 @@
 {
   "name": "@tearleads/api-client",
-  "version": "0.1.74",
+  "version": "0.1.75",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./ApiClient": "./src/ApiClient.ts",
-    "./types": "./src/types.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "test": "bun test src --max-concurrency=4"

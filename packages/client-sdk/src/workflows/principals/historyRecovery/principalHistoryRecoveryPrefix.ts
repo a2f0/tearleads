@@ -1,4 +1,3 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   type PrincipalPolicyHistoryInput,
   type PrincipalPolicyHistoryVerifier,
@@ -6,7 +5,10 @@ import {
   restorePrincipalPolicyHistoryVerifier,
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
-import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import {
+  isReferencedPrincipalStateResponse,
+  type PrincipalPolicyPageCurrent,
+} from "@tearleads/validators/response";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import { principalHistoryPrefixProtection } from "../../../data/principals/principalHistoryPrefixProtection";
 import { parsePrincipalHistoryStageCurrent } from "../../../data/principals/principalHistoryStageProtection";

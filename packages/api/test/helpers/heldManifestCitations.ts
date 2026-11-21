@@ -1,12 +1,10 @@
-import type {
-  HeldProjectionCitation,
-  VerifiedManifestCitations,
-} from "@tearleads/api-client";
+import type { VerifiedManifestCitations } from "@tearleads/api-client";
 import {
   type AccessManifestBundleWireResponse,
   type ContainerKeyingPathResponse,
   containerKekWireLevel,
   type DocumentWriterProjectionResponse,
+  type HeldProjectionCitation,
 } from "@tearleads/validators/response";
 import { toServedAccessManifestBundle } from "@tearleads/validators/util";
 

@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import { createPrincipalPolicyBundleResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -8,7 +9,6 @@ import {
 } from "../test/helpers/apiClientTestHarness";
 import { principalPolicyPageResponse } from "../test/helpers/principalPolicyPage";
 import { ApiClient } from "./ApiClient";
-import type { PrincipalPolicyPageCurrent } from "./principalPolicyPages";
 
 const principalId = "11111111-1111-4111-8111-111111111111";
 const path = `${apiBaseUrl}/principals/group/${principalId}/policy`;

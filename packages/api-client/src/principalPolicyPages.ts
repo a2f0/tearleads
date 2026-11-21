@@ -4,19 +4,21 @@ import {
   isPrincipalPolicyPageResponse,
   isPrincipalPolicyUnchangedResponse,
   type PrincipalPolicyBundleResponse,
+  type PrincipalPolicyPageCurrent,
   type PrincipalPolicyPageResponse,
   type PrincipalPolicyReadResponse,
 } from "@tearleads/validators/response";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
+import {
+  principalPolicyPageCurrent,
+  readPrincipalPolicyResume,
+  validPrincipalPolicyPage,
+  validPrincipalPolicyResume,
+} from "./policyHistoryPageChecks";
 import { principalHistoryRequest } from "./principalHistoryRequest";
 import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
 import { getPrincipalPolicy } from "./routes/principals/policy";
 import type { RequestResult, RequestResultOptions } from "./types";
-
-export type PrincipalPolicyPageCurrent = Omit<
-  PrincipalPolicyBundleResponse,
-  "previousStates"
->;
 
 /** A transport position. Only the caller can authenticate the saved prefix. */
 export interface PrincipalPolicyPageResume {
@@ -30,89 +32,6 @@ export interface PrincipalPolicyPageReadOptions extends RequestResultOptions {
   /** Transport offset for a caller-authenticated prefix; requires stateHash. */
   readonly afterVersion?: number | undefined;
   readonly resume?: PrincipalPolicyPageResume | undefined;
-}
-
-function currentArtifacts(page: PrincipalPolicyPageResponse) {
-  return {
-    currentState: page.currentState,
-    currentPayload: page.currentPayload,
-    currentProjection: page.currentProjection,
-    currentGrants: page.currentGrants,
-    currentMemberEnvelopes: page.currentMemberEnvelopes,
-  };
-}
-
-function validResume(
-  principalType: "group" | "organization",
-  principalId: string,
-  resume: PrincipalPolicyPageResume,
-  stateHash: string | undefined,
-): boolean {
-  const state = resume.current.currentState;
-  return (
-    Number.isSafeInteger(resume.afterVersion) &&
-    resume.afterVersion >= 0 &&
-    resume.afterVersion < state.version &&
-    state.principalType === principalType &&
-    state.principalId === principalId &&
-    (stateHash === undefined || state.stateHash === stateHash)
-  );
-}
-
-function readResume(input: PrincipalPolicyPageResume | undefined) {
-  if (input === undefined) return undefined;
-  try {
-    const page = {
-      ...input.current,
-      previousStates: [],
-      historyPage: { afterVersion: input.afterVersion, nextAfterVersion: null },
-    };
-    if (!isPrincipalPolicyPageResponse(page)) return undefined;
-    const current = structuredClone(currentArtifacts(page));
-    return {
-      current,
-      afterVersion: page.historyPage.afterVersion,
-      bytes: serializeKeyingCanonicalJson(current),
-    };
-  } catch {
-    return undefined;
-  }
-}
-
-function validPage(
-  page: PrincipalPolicyPageResponse,
-  expected: {
-    principalType: "group" | "organization";
-    principalId: string;
-    stateHash: string | undefined;
-    pinnedBytes: string | undefined;
-    bytes: string;
-    afterVersion: number;
-  },
-): boolean {
-  const { afterVersion } = expected;
-  const lastVersion = afterVersion + page.previousStates.length;
-  return (
-    page.currentState.principalType === expected.principalType &&
-    page.currentState.principalId === expected.principalId &&
-    (expected.stateHash === undefined ||
-      page.currentState.stateHash === expected.stateHash) &&
-    (expected.pinnedBytes === undefined ||
-      expected.bytes === expected.pinnedBytes) &&
-    page.historyPage.afterVersion === afterVersion &&
-    lastVersion < page.currentState.version &&
-    page.previousStates.every(
-      ({ state }, index) =>
-        state.version === afterVersion + index + 1 &&
-        state.principalId === expected.principalId &&
-        state.principalType === expected.principalType,
-    ) &&
-    (page.historyPage.nextAfterVersion === null
-      ? lastVersion === page.currentState.version - 1
-      : lastVersion > afterVersion &&
-        lastVersion < page.currentState.version - 1 &&
-        page.historyPage.nextAfterVersion === lastVersion)
-  );
 }
 
 function preparePrincipalPolicyRead(
@@ -142,11 +61,16 @@ function preparePrincipalPolicyRead(
     return failure("Initial principal history cursor requires one exact head");
   if (!getPrincipalPolicyOperation.query.safeParse(query).success)
     return failure("Invalid requested principal history head");
-  const resume = readResume(options.resume);
+  const resume = readPrincipalPolicyResume(options.resume);
   if (
     options.resume !== undefined &&
     (!resume ||
-      !validResume(principalType, principalId, resume, options.stateHash))
+      !validPrincipalPolicyResume(
+        principalType,
+        principalId,
+        resume,
+        options.stateHash,
+      ))
   )
     return failure("Invalid saved principal history position");
   return {
@@ -207,16 +131,16 @@ export async function* readPrincipalPolicyPages(
       return;
     }
     const page = result.data;
-    const artifacts = currentArtifacts(page);
+    const artifacts = principalPolicyPageCurrent(page);
     const bytes = serializeKeyingCanonicalJson(artifacts);
-    const valid = validPage(page, {
-      principalType,
-      principalId,
-      stateHash: options.stateHash,
-      pinnedBytes,
-      bytes,
-      afterVersion,
-    });
+    const valid =
+      validPrincipalPolicyPage(page, {
+        principalType,
+        principalId,
+        stateHash: options.stateHash,
+        afterVersion,
+      }) &&
+      (pinnedBytes === undefined || bytes === pinnedBytes);
     if (!valid) {
       yield pageFailure(
         runtime,
@@ -295,12 +219,10 @@ export async function readPrincipalPolicyDiscovery(
       response.head.principalType === principalType &&
       response.head.principalId === principalId
     : page &&
-      validPage(response, {
+      validPrincipalPolicyPage(response, {
         principalType,
         principalId,
         stateHash: undefined,
-        pinnedBytes: undefined,
-        bytes: "",
         afterVersion: 0,
       });
   return valid
@@ -330,7 +252,7 @@ export async function collectPrincipalPolicyPages(
     options,
   )) {
     if (!result.ok) return null;
-    current ??= currentArtifacts(result.data);
+    current ??= principalPolicyPageCurrent(result.data);
     previousStates.push(...result.data.previousStates);
   }
   return current ? { ...current, previousStates } : null;

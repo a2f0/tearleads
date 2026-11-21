@@ -89,6 +89,7 @@ export {
   type VerifyDocumentPurgeEventInput,
   verifyDocumentPurgeEvent,
 } from "./documentPurge";
+export { prepareHeldProjectionCitations } from "./heldProjectionCitations";
 export type { KeyingHashDomain } from "./keyingHashDomains";
 export * from "./principalPolicy";
 export { verifyPrincipalPolicyBundleAgainstHistory } from "./principalPolicyBundleHistory";
