@@ -1,10 +1,12 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import type {
   BlobStore,
   ContainerDocumentQueries,
+  Tearleads,
 } from "@tearleads/client-sdk";
 import { createDomainScope } from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
@@ -218,18 +220,25 @@ test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {
 });
 
 test("Downloads opens its route and shows an empty durable queue", async () => {
-  const opened: string[] = [];
-  const view = renderSectionsPanel(
-    { view: "downloads" },
-    {
-      openDownloadsRoute: () => opened.push("downloads"),
-    },
-  );
-  const tab = view.getByRole("tab", { name: "Downloads" });
-  expect(tab.getAttribute("aria-selected")).toBe("true");
-  fireEvent.click(tab);
-  expect(opened).toEqual(["downloads"]);
-  await waitFor(() =>
-    expect(view.getByText("No pending downloads.")).toBeTruthy(),
-  );
+  const sdk = spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+    documents: { retryDownload: async () => false },
+  } as unknown as Tearleads);
+  try {
+    const opened: string[] = [];
+    const view = renderSectionsPanel(
+      { view: "downloads" },
+      {
+        openDownloadsRoute: () => opened.push("downloads"),
+      },
+    );
+    const tab = view.getByRole("tab", { name: "Downloads" });
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(tab);
+    expect(opened).toEqual(["downloads"]);
+    await waitFor(() =>
+      expect(view.getByText("No pending downloads.")).toBeTruthy(),
+    );
+  } finally {
+    sdk.mockRestore();
+  }
 });

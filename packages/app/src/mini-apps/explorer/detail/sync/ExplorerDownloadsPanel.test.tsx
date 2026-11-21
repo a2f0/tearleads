@@ -1,14 +1,47 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import {
   type ContainerDocumentQueries,
   createDomainScope,
   getOrCreateDomainSyncCoordinator,
   type PendingDownloadQueueItem,
+  type RetryDocumentDownloadInput,
+  type Tearleads,
 } from "@tearleads/client-sdk";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
+import * as TearleadsProvider from "../../../../providers/sdk/TearleadsProvider";
 import { ExplorerDownloadsPanel } from "./ExplorerDownloadsPanel";
 
-afterEach(cleanup);
+let retries: RetryDocumentDownloadInput[] = [];
+let retryDownload = async (input: RetryDocumentDownloadInput) => {
+  retries.push(input);
+  return true;
+};
+let tearleadsSpy: ReturnType<typeof spyOn> | null = null;
+
+beforeEach(() => {
+  retries = [];
+  retryDownload = async (input) => {
+    retries.push(input);
+    return true;
+  };
+  tearleadsSpy = spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+    documents: {
+      retryDownload: (input: RetryDocumentDownloadInput) =>
+        retryDownload(input),
+    },
+  } as unknown as Tearleads);
+});
+
+afterEach(() => {
+  cleanup();
+  tearleadsSpy?.mockRestore();
+});
 
 test("Downloads shows unknown items and failures, then removes hydrated items", async () => {
   let items: ReadonlyArray<PendingDownloadQueueItem> = [
@@ -139,4 +172,152 @@ test("Downloads keeps the title of a hydrated document with pages remaining", as
   await waitFor(() => expect(view.getByText("Holiday.jpg")).toBeTruthy());
   expect(view.getByText("More pages pending")).toBeTruthy();
   expect(view.getByText("1 pending download")).toBeTruthy();
+});
+
+function attachmentDownload(input: {
+  documentId: string;
+  fileName: string;
+  localId: string;
+  slotId: string;
+  title: string;
+}): PendingDownloadQueueItem {
+  return {
+    ...input,
+    objectKind: "attachment",
+    reason: "initial",
+    lastError: null,
+  };
+}
+
+test("Downloads lists first file downloads and retries each document once", async () => {
+  const saw = { documentId: "saw-remote", localId: "saw", title: "Saw" };
+  const fridge = {
+    documentId: "fridge-remote",
+    localId: "fridge",
+    title: "Refrigerator",
+  };
+  let items: ReadonlyArray<PendingDownloadQueueItem> = [
+    attachmentDownload({ ...saw, fileName: "blade.jpg", slotId: "photos:1" }),
+    attachmentDownload({ ...saw, fileName: "side.jpg", slotId: "photos:2" }),
+    attachmentDownload({
+      ...fridge,
+      fileName: "receipt.pdf",
+      slotId: "receipt",
+    }),
+  ];
+  const documentQueries = {
+    listPendingDownloads: async () => items,
+  } as unknown as ContainerDocumentQueries;
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  // The saw's photos arrive on retry while the receipt is still unbound.
+  const sawLane = coordinator.registerLane("documents:saw", {
+    run: async () => {
+      items = items.filter((item) => item.localId !== "saw");
+    },
+  });
+  const view = render(
+    <ExplorerDownloadsPanel
+      documentListRevision={0}
+      documentQueries={documentQueries}
+      domainScope={domainScope}
+      nodes={[]}
+      online
+      isAuthenticated
+    />,
+  );
+  await waitFor(() => expect(view.getByText("blade.jpg")).toBeTruthy());
+  expect(view.getByText("side.jpg")).toBeTruthy();
+  expect(view.getByText("receipt.pdf")).toBeTruthy();
+  expect(view.getAllByText("Saw")).toHaveLength(2);
+  expect(view.getByText("Refrigerator")).toBeTruthy();
+  expect(view.getAllByText("Waiting for file")).toHaveLength(3);
+  expect(view.getByText("3 pending downloads")).toBeTruthy();
+
+  retryDownload = async (input) => {
+    retries.push(input);
+    if (input.localId === "saw") sawLane.requestSync();
+    return true;
+  };
+  await act(async () => {
+    fireEvent.click(view.getByRole("button", { name: "Sync now" }));
+  });
+  expect(retries).toEqual([
+    { documentId: "saw-remote", localId: "saw" },
+    { documentId: "fridge-remote", localId: "fridge" },
+  ]);
+  await waitFor(() =>
+    expect(view.getByText("1 pending download")).toBeTruthy(),
+  );
+  expect(view.queryByText("blade.jpg")).toBeNull();
+  expect(view.queryByText("side.jpg")).toBeNull();
+  expect(view.getByText("receipt.pdf")).toBeTruthy();
+});
+
+test("a failed retry request leaves the file pending", async () => {
+  const documentQueries = {
+    listPendingDownloads: async () => [
+      attachmentDownload({
+        documentId: "drill-remote",
+        fileName: "drill.png",
+        localId: "drill",
+        slotId: "photo",
+        title: "Drill",
+      }),
+    ],
+  } as unknown as ContainerDocumentQueries;
+  retryDownload = async () => {
+    throw new Error("database closed");
+  };
+  const view = render(
+    <ExplorerDownloadsPanel
+      documentListRevision={0}
+      documentQueries={documentQueries}
+      domainScope={createDomainScope()}
+      nodes={[]}
+      online
+      isAuthenticated
+    />,
+  );
+  await waitFor(() => expect(view.getByText("drill.png")).toBeTruthy());
+  await act(async () => {
+    fireEvent.click(view.getByRole("button", { name: "Sync now" }));
+  });
+  expect(view.getByText("drill.png")).toBeTruthy();
+  expect(view.getByText("1 pending download")).toBeTruthy();
+});
+
+test("Sync now retries only the documents whose files are shown", async () => {
+  const items = Array.from({ length: 101 }, (_, index) =>
+    attachmentDownload({
+      documentId: `remote-${index}`,
+      fileName: `photo-${index}.jpg`,
+      localId: `local-${index}`,
+      slotId: "photo",
+      title: `Document ${index}`,
+    }),
+  );
+  const documentQueries = {
+    listPendingDownloads: async () => items,
+  } as unknown as ContainerDocumentQueries;
+  const view = render(
+    <ExplorerDownloadsPanel
+      documentListRevision={0}
+      documentQueries={documentQueries}
+      domainScope={createDomainScope()}
+      nodes={[]}
+      online
+      isAuthenticated
+    />,
+  );
+  await waitFor(() => expect(view.getByText("photo-99.jpg")).toBeTruthy());
+  expect(view.queryByText("photo-100.jpg")).toBeNull();
+  await act(async () => {
+    fireEvent.click(view.getByRole("button", { name: "Sync now" }));
+  });
+  expect(retries).toHaveLength(100);
+  expect(retries.at(-1)).toEqual({
+    documentId: "remote-99",
+    localId: "local-99",
+  });
 });
