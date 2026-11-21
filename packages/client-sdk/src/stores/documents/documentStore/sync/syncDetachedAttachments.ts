@@ -15,6 +15,7 @@ import {
 } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { requestDocumentStoreSync } from "../../registry";
+import { upsertPendingAttachments } from "../attachments/attachmentPersistence";
 import {
   type AttachmentRemovalMarkerSlot,
   listAttachmentRemovalMarkers,
@@ -28,11 +29,12 @@ import type {
   DocumentStoreState,
 } from "../state";
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
-import { beginDetachPassSightings } from "./replacedBindingSightings";
+import { readReplacedBindingSightings } from "./replacedBindingSightings";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
+  markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
 import { documentSyncContextMatches } from "./syncUpdateImport";
 
@@ -48,7 +50,7 @@ import { documentSyncContextMatches } from "./syncUpdateImport";
  * while its binding was being detached has its held bytes queued to upload
  * and bind again. A binding of another blob may be another writer's re-add,
  * bound before the content update that records it arrives here, so it is
- * detached only once a later pass, after another pull, still lists it.
+ * detached only once a pass after a completed pull still lists it.
  */
 export async function syncDetachedAttachmentBindings(
   state: DocumentStoreState,
@@ -107,10 +109,11 @@ async function settleDetachMarkers(
   },
 ): Promise<{ readdedSlotIds: string[]; rebinding: boolean }> {
   const { activeBindingBySlotId, markers, ...context } = input;
-  const sightings = beginDetachPassSightings(
+  const sightings = readReplacedBindingSightings(
     context.state,
     context.requestRecord.documentId ?? "",
   );
+  let sighted = false;
   const readdedSlotIds: string[] = [];
   let rebinding = false;
   for (const marker of markers) {
@@ -123,7 +126,7 @@ async function settleDetachMarkers(
     });
     if (!settled) break;
     if (settled.status === "bindingReplaced" && binding) {
-      sightings.sight(marker.slotId, binding.bindingId);
+      sighted = sightings.sight(marker.slotId, binding.bindingId) || sighted;
     } else {
       sightings.forget(marker.slotId);
     }
@@ -132,6 +135,9 @@ async function settleDetachMarkers(
     }
     rebinding ||= settled.status === "rebinding";
   }
+  // The next pass pulls rather than skipping a clean document, so a binding
+  // still listed after it is the removed slot's.
+  if (sighted) markDocumentStoreRemoteSyncPending(context.state, "independent");
   return { readdedSlotIds, rebinding };
 }
 
@@ -211,8 +217,9 @@ async function settleDetachedAttachmentMarker(input: {
 /**
  * Bring the live document up to the committed history that added these slots
  * back. Until it records them, every pass would list them as markers again,
- * and the upload lane only uploads what the live document records. It runs in
- * the write chain, as every reload of a write's base does.
+ * and the upload lane drops, durably, an upload the live document does not
+ * record, so a requeued upload is published only after the catch-up. It runs
+ * in the write chain, as every reload of a write's base does.
  */
 function catchUpReaddedAttachments(
   state: DocumentStoreState,
@@ -225,25 +232,49 @@ function catchUpReaddedAttachments(
       .catch(() => undefined)
       .then(async () => {
         const doc = state.doc;
-        if (!doc || documentRecordsSlots(doc, slotIds)) return;
-        const generation = captureDocumentStoreSyncGeneration(state, doc);
-        if (!generation) return;
-        await reloadDocumentFromDurableHistory({
-          expectedGeneration: generation,
-          preserveQueuedWritesWhenIdentityMatches: true,
-          sameIdentitySnapshot: exportFullHistorySnapshot(doc).slice(),
-          state,
-        });
+        if (!doc) return;
+        if (!documentRecordsSlots(doc, slotIds)) {
+          const generation = captureDocumentStoreSyncGeneration(state, doc);
+          if (!generation) return;
+          await reloadDocumentFromDurableHistory({
+            expectedGeneration: generation,
+            preserveQueuedWritesWhenIdentityMatches: true,
+            sameIdentitySnapshot: exportFullHistorySnapshot(doc).slice(),
+            state,
+          });
+        }
+        if (requestUpload && (await publishRequeuedUploads(state, slotIds))) {
+          requestDocumentStoreSync(state);
+        }
       })
       .catch((error: unknown) => {
         state.runtime.util.log(
           `Documents: re-added attachment reload failed: ${errorMessage(error)}`,
         );
-      })
-      .finally(() => {
-        if (requestUpload) requestDocumentStoreSync(state);
       }),
   );
+}
+
+/**
+ * Hand the upload lane the uploads a `rebinding` settle queued durably, once
+ * the live document records their slots; a later startup publishes any the
+ * pane could not catch up with.
+ */
+async function publishRequeuedUploads(
+  state: DocumentStoreState,
+  slotIds: readonly string[],
+): Promise<boolean> {
+  const doc = state.doc;
+  if (!doc || !documentRecordsSlots(doc, slotIds)) return false;
+  const pending = await state.persistence.listPendingAttachments(
+    state.runtime.infra.execSql,
+    state.localId,
+  );
+  if (state.doc !== doc) return false;
+  const requeued = pending.filter((row) => slotIds.includes(row.slotId));
+  if (requeued.length === 0) return false;
+  upsertPendingAttachments(state, requeued);
+  return true;
 }
 
 function documentRecordsSlots(

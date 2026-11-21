@@ -15,13 +15,14 @@ ASSUME {OwnBindingOnly, DetachSighted, RestartRebinds, RecheckAfterDetach,
    pulls that update later. A concurrent merge can also bring the slot back
    with no new binding, here or through a pull that lands before the pass
    rechecks. A pane can stage a re-add that rolls back, and the
-   detach worker checks, dispatches, and settles in separate steps. Each
-   check follows a pull; `sighted` is the foreign binding an earlier check
-   listed for the still-removed slot. A restart, at most once, abandons the
-   pass, forgets `sighted`, and settles the marker before any binding list. *)
-VARIABLES committed, pushed, pulled, staged, row, bound, binding, bytes,
+   detach worker checks, dispatches, and settles in separate steps, with or
+   without a pull before it. `sighted` is the foreign binding a check listed
+   for the still-removed slot, and `sightPulled` whether a pull completed
+   since. A restart, at most once, abandons the pass, forgets `sighted`, and
+   settles the marker before any binding list. *)
+VARIABLES committed, pushed, sightPulled, staged, row, bound, binding, bytes,
           queued, worker, target, sighted, remote, readdPushed, restarted
-vars == <<committed, pushed, pulled, staged, row, bound, binding, bytes,
+vars == <<committed, pushed, sightPulled, staged, row, bound, binding, bytes,
           queued, worker, target, sighted, remote, readdPushed, restarted>>
 
 Slots == {"removed", "same", "other"}
@@ -35,7 +36,7 @@ Init == /\ committed = "removed" /\ pushed = "removed" /\ staged = FALSE
         /\ binding = (IF bound THEN "mine" ELSE "old") /\ bytes = TRUE
         /\ queued = FALSE /\ worker = "idle" /\ target = "none"
         /\ sighted = "none" /\ remote = "idle" /\ readdPushed = FALSE
-        /\ restarted = FALSE /\ pulled = TRUE
+        /\ restarted = FALSE /\ sightPulled = FALSE
 
 (* What a settle reads: committed history, or (negative control) the live
    document of a pane that holds a staged re-add. *)
@@ -45,7 +46,8 @@ View == IF ~SettleOnCommitted /\ staged THEN "same" ELSE committed
    binding is active, as the old pass did, or never own a sighted one. *)
 From == CASE binding = "none" -> "remoteDetached"
           [] binding = "mine" \/ ~OwnBindingOnly
-             \/ (DetachSighted /\ binding = sighted) -> "awaitingDetach"
+             \/ (DetachSighted /\ binding = sighted /\ sightPulled) ->
+               "awaitingDetach"
           [] OTHER -> "bindingReplaced"
 
 (* attachmentRemovalMarkerMachine.ts from an open state. *)
@@ -74,13 +76,13 @@ RowAfter(next) ==
 ReaddBind(kind) ==
   /\ pushed = "removed" /\ row = "detached" /\ remote = "idle"
   /\ binding' = "theirs" /\ remote' = kind
-  /\ UNCHANGED <<committed, pushed, pulled, staged, row, bound, bytes,
+  /\ UNCHANGED <<committed, pushed, sightPulled, staged, row, bound, bytes,
                  queued, worker, target, sighted, readdPushed, restarted>>
 
 ReaddPush ==
   /\ remote \in {"same", "other"} /\ ~readdPushed
   /\ pushed' = remote /\ readdPushed' = TRUE
-  /\ UNCHANGED <<committed, pulled, staged, row, bound, binding, bytes,
+  /\ UNCHANGED <<committed, sightPulled, staged, row, bound, binding, bytes,
                  queued, worker, target, sighted, remote, restarted>>
 
 (* A pane on this database restores the slot, or a pulled merge records it
@@ -89,15 +91,15 @@ Resurrect ==
   /\ committed = "removed" /\ pushed = "removed" /\ row = "detached"
   /\ remote = "idle"
   /\ committed' = "same" /\ pushed' = "same" /\ remote' = "merged"
-  /\ UNCHANGED <<pulled, staged, row, bound, binding, bytes, queued, worker,
+  /\ UNCHANGED <<sightPulled, staged, row, bound, binding, bytes, queued, worker,
                  target, sighted, readdPushed, restarted>>
 
 (* A pull after another device's bind brings the content update it pushed in
    the same pass: the device lost between the two is the remaining window. *)
 Pull ==
-  /\ committed # pushed \/ ~pulled
+  /\ committed # pushed \/ (sighted # "none" /\ ~sightPulled)
   /\ remote \in {"same", "other"} => readdPushed
-  /\ committed' = pushed /\ pulled' = TRUE
+  /\ committed' = pushed /\ sightPulled' = (sighted # "none")
   /\ UNCHANGED <<pushed, staged, row, bound, binding, bytes, queued, worker,
                  target, sighted, remote, readdPushed, restarted>>
 
@@ -105,21 +107,21 @@ Pull ==
 Stage ==
   /\ committed = "removed" /\ ~staged
   /\ staged' = TRUE
-  /\ UNCHANGED <<committed, pushed, pulled, row, bound, binding, bytes,
+  /\ UNCHANGED <<committed, pushed, sightPulled, row, bound, binding, bytes,
                  queued, worker, target, sighted, remote, readdPushed,
                  restarted>>
 
 Rollback ==
   /\ staged
   /\ staged' = FALSE
-  /\ UNCHANGED <<committed, pushed, pulled, row, bound, binding, bytes,
+  /\ UNCHANGED <<committed, pushed, sightPulled, row, bound, binding, bytes,
                  queued, worker, target, sighted, remote, readdPushed,
                  restarted>>
 
 (* The pass pulls, lists bindings, then settles before any detach. A live
    row of a removed slot is a marker too. *)
 Check ==
-  /\ worker = "idle" /\ pulled
+  /\ worker = "idle"
   /\ \/ row = "detached"
      \/ row = "live" /\ committed = "removed"
   /\ LET next == Settle(From, View)
@@ -127,9 +129,9 @@ Check ==
         /\ queued' = (queued \/ next = "rebinding")
         /\ worker' = IF next = "awaitingDetach" THEN "dispatching" ELSE "idle"
         /\ target' = IF next = "awaitingDetach" THEN binding ELSE "none"
-        /\ sighted' = IF next = "bindingReplaced" /\ sighted = "none"
-                        THEN binding ELSE sighted
-  /\ pulled' = FALSE
+        /\ sighted' = IF next = "bindingReplaced" THEN binding ELSE "none"
+        /\ sightPulled' = (next = "bindingReplaced" /\ sighted = binding
+                           /\ sightPulled)
   /\ UNCHANGED <<committed, pushed, staged, bound, binding, bytes, remote,
                  readdPushed, restarted>>
 
@@ -140,7 +142,7 @@ Land ==
        THEN binding' = "none" /\ worker' = "settling"
        ELSE UNCHANGED binding /\ worker' = "idle"
   /\ target' = "none"
-  /\ UNCHANGED <<committed, pushed, pulled, staged, row, bound, bytes,
+  /\ UNCHANGED <<committed, pushed, sightPulled, staged, row, bound, bytes,
                  queued, sighted, remote, readdPushed, restarted>>
 
 (* remoteDetachSettled, then the settle; the negative control drops without
@@ -152,7 +154,7 @@ SettleAfter ==
      IN /\ row' = RowAfter(next)
         /\ queued' = (queued \/ next = "rebinding")
   /\ worker' = "idle"
-  /\ UNCHANGED <<committed, pushed, pulled, staged, bound, binding, bytes,
+  /\ UNCHANGED <<committed, pushed, sightPulled, staged, bound, binding, bytes,
                  target, sighted, remote, readdPushed, restarted>>
 
 (* A restart abandons the pass, even between a landed detach and its
@@ -163,22 +165,23 @@ Restart ==
      IN /\ row' = RowAfter(next)
         /\ queued' = (queued \/ next = "rebinding")
   /\ worker' = "idle" /\ target' = "none" /\ sighted' = "none"
+  /\ sightPulled' = FALSE
   /\ restarted' = TRUE
-  /\ UNCHANGED <<committed, pushed, pulled, staged, bound, binding, bytes,
+  /\ UNCHANGED <<committed, pushed, staged, bound, binding, bytes,
                  remote, readdPushed>>
 
 (* The upload lane binds the requeued held copy. *)
 Upload ==
   /\ queued /\ bytes
   /\ binding' = "mine" /\ bound' = TRUE /\ queued' = FALSE
-  /\ UNCHANGED <<committed, pushed, pulled, staged, row, bytes, worker,
+  /\ UNCHANGED <<committed, pushed, sightPulled, staged, row, bytes, worker,
                  target, sighted, remote, readdPushed, restarted>>
 
 (* Reference-checked reclaim: a held or queued row keeps the bytes. *)
 Reclaim ==
   /\ bytes /\ row = "none" /\ ~queued
   /\ bytes' = FALSE
-  /\ UNCHANGED <<committed, pushed, pulled, staged, row, bound, binding,
+  /\ UNCHANGED <<committed, pushed, sightPulled, staged, row, bound, binding,
                  queued, worker, target, sighted, remote, readdPushed,
                  restarted>>
 
@@ -193,7 +196,7 @@ Spec == Init /\ [][Next]_vars
         /\ WF_vars(Land) /\ WF_vars(SettleAfter) /\ WF_vars(Upload)
         /\ WF_vars(Reclaim)
 
-TypeOK == /\ committed \in Slots /\ pushed \in Slots /\ pulled \in BOOLEAN
+TypeOK == /\ committed \in Slots /\ pushed \in Slots /\ sightPulled \in BOOLEAN
           /\ staged \in BOOLEAN /\ readdPushed \in BOOLEAN
           /\ row \in Rows /\ bound \in BOOLEAN /\ binding \in Bindings
           /\ bytes \in BOOLEAN /\ queued \in BOOLEAN /\ worker \in Workers

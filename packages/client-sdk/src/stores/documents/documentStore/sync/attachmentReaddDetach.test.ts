@@ -25,7 +25,9 @@ import {
 } from "../../../../workflows/documents";
 import { replaceAttachmentInDocumentStore } from "../attachments";
 import { commitHydratedAttachment } from "../attachments/attachmentHydrationCommit";
+import { removeAttachmentFromDocumentStore } from "../attachments/attachmentRemoval";
 import type { DocumentStoreState } from "../state";
+import { noteDocumentPullCompleted } from "./replacedBindingSightings";
 
 test.each([
   ["the restoring pane reopens", true],
@@ -130,7 +132,17 @@ test("a slot re-added while its detach is in flight uploads its held bytes again
   await withPanes("readd-during-detach", async (panes) => {
     const first = await panes.open();
     panes.server.onDetach = () => commitPulledReadd(panes.execSql, BYTES);
-    await removeAndDetach(first);
+    await removeAttachmentFromDocumentStore(first, () => undefined, SLOT_ID);
+    // A long write holds the chain the pane's catch-up waits behind.
+    let release = () => {};
+    first.writeChain = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await runDetachPass(first);
+    // The upload lane would durably drop an upload the live document does
+    // not record yet, so it sees none until the catch-up.
+    expect(first.pendingAttachments).toEqual([]);
+    release();
 
     // The detach landed, so the re-added slot has no binding until the held
     // bytes upload again.
@@ -142,12 +154,12 @@ test("a slot re-added while its detach is in flight uploads its held bytes again
     expect(await panes.pendingRows()).toMatchObject([
       { slotId: SLOT_ID, storageKey: STORAGE_KEY, name: "photo.bin" },
     ]);
-    expect(first.pendingAttachments).toMatchObject([
-      { slotId: SLOT_ID, storageKey: STORAGE_KEY },
-    ]);
     await first.writeChain;
     // The live document caught up, so the upload lane sees the slot.
     expect(first.snapshot.attachments).toMatchObject([{ slotId: SLOT_ID }]);
+    expect(first.pendingAttachments).toMatchObject([
+      { slotId: SLOT_ID, storageKey: STORAGE_KEY },
+    ]);
     await reclaimDocumentOrphanBlobs(panes.runtime);
     expect(await panes.blobStore.readBytes(STORAGE_KEY)).toEqual(BYTES);
   });
@@ -217,8 +229,9 @@ test.each([
       expect(await panes.rows()).toMatchObject([
         { detachedAt: expect.any(String), storageKey: STORAGE_KEY },
       ]);
-      // The content update arrives before the next pass lists the binding.
+      // The pull that follows brings the content update with it.
       await commitPulledReadd(panes.execSql, bytes);
+      noteDocumentPullCompleted(first);
       await runDetachPass(first);
       expect(panes.server.detached).toEqual([]);
       expect(panes.server.bindings).toEqual([theirs]);
@@ -251,8 +264,12 @@ test.each([
       const first = await panes.open();
       await removeAndDetach(first);
       expect(panes.server.detached).toEqual([]);
+      // A pass with no pull since the sighting cannot tell yet.
+      await runDetachPass(first);
+      expect(panes.server.detached).toEqual([]);
 
-      // No content update followed: the binding is the removed slot's.
+      // A pull brought no content update: the binding is the removed slot's.
+      noteDocumentPullCompleted(first);
       await runDetachPass(first);
       expect(panes.server.detached).toMatchObject([{ body: { bindingId } }]);
       expect(panes.server.bindings).toEqual([]);

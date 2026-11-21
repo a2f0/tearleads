@@ -69,6 +69,20 @@ export async function listAttachmentRemovalMarkers(
   return [...removed, ...recorded];
 }
 
+function docRecordsAttachment(
+  doc: DocumentState | null,
+  pending: { contentSha256: string; slotId: string },
+): boolean {
+  return (
+    doc !== null &&
+    getDocumentAttachments(doc).some(
+      (attachment) =>
+        attachment.slotId === pending.slotId &&
+        attachment.contentSha256 === pending.contentSha256,
+    )
+  );
+}
+
 function installSettledMarker(
   state: DocumentStoreState,
   marker: AttachmentRemovalMarkerSlot,
@@ -80,7 +94,12 @@ function installSettledMarker(
     return;
   removeLocalAttachmentSlot(state, marker.slotId);
   if (settled.row) assignLocalAttachmentSlots(state, [settled.row]);
-  if (settled.pending) upsertPendingAttachments(state, [settled.pending]);
+  // The upload lane drops a pending upload its live document does not
+  // record, durably. Until the pane catches up with the re-add, the durable
+  // record waits; the catch-up (or the next startup) publishes it.
+  if (settled.pending && docRecordsAttachment(state.doc, settled.pending)) {
+    upsertPendingAttachments(state, [settled.pending]);
+  }
   if (doc && doc === state.doc) {
     setReadySnapshot(
       state,

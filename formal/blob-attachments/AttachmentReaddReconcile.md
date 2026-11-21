@@ -10,16 +10,16 @@ with other bytes: it binds first and pushes the content update that records
 the slot in the same sync pass, so its binding can be listed here before
 committed history has the slot. A pane on this database, or a pulled merge,
 can record the slot again with no new binding, and a pane can stage a re-add
-whose commit fails and rolls back. The detach pass pulls, then checks,
-dispatches, and settles in separate steps, and a restart can stop it between
-any two of them.
+whose commit fails and rolls back. The detach pass checks, dispatches, and
+settles in separate steps, after a pull or after a clean pass that skipped
+it, and a restart can stop it between any two of them.
 
 | Model action or predicate | Production seam |
 | --- | --- |
 | `Settle` / `RowAfter` | `transitionAttachmentRemovalMarker` and `attachmentMarkerRowEffect`, applied by `planAttachmentRemovalMarkerSettlement` |
-| `From` / `OwnBindingOnly` / `DetachSighted` | `observeMarkerBinding`: the marker's own blob, or a binding `beginDetachPassSightings` listed before a pull |
+| `From` / `OwnBindingOnly` / `DetachSighted` | `observeMarkerBinding`: the marker's own blob, or a binding `readReplacedBindingSightings` holds from before a completed pull |
 | `View` / `SettleOnCommitted` | `settleAttachmentRemovalMarker` reads committed document history in the same immediate transaction as the row write, never a live document |
-| `ReaddBind` / `ReaddPush` / `Pull` | another device's upload lane binds, then `syncDocumentState` pushes; this device's `syncDocumentState` pulls before each detach pass |
+| `ReaddBind` / `ReaddPush` / `Pull` | another device's upload lane binds, then `syncDocumentState` pushes; this device's `syncDocumentState` pulls and counts it with `noteDocumentPullCompleted` |
 | `Resurrect` | another pane's `commitDocumentMutation`, or a pulled update's `persistDocumentState`, recording the slot again |
 | `Stage` / `Rollback` | a pane's staged attach or replace whose `commitDocumentMutation` fails |
 | `Check` | `syncDetachedAttachmentBindings` lists bindings fresh and settles each marker before any detach |

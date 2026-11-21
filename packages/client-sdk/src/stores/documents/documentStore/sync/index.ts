@@ -23,6 +23,7 @@ import {
   getActiveDocumentRemoteWork,
   runDocumentRemoteWork,
 } from "./remoteWork";
+import { noteDocumentPullCompleted } from "./replacedBindingSightings";
 import {
   cleanupPreRegisteredUpdateIdsOnFailure,
   discardPreRegisteredUpdateIds,
@@ -242,7 +243,7 @@ async function syncDocumentState(
   }
 
   return cleanupPreRegisteredUpdateIdsOnFailure(state, sentUpdateIds, () =>
-    finalizeDocumentSync(
+    finalizeCountingPull(
       state,
       currentDoc,
       nextRemoteRecord,
@@ -253,6 +254,21 @@ async function syncDocumentState(
       wasRemoteProbe,
     ),
   );
+}
+
+/**
+ * Finalize a sync whose response carried the server's updates, and count it
+ * as a completed pull for the detach pass's binding sightings.
+ */
+async function finalizeCountingPull(
+  ...args: Parameters<typeof finalizeDocumentSync>
+): ReturnType<typeof finalizeDocumentSync> {
+  const [state, , , , , generation] = args;
+  const record = await finalizeDocumentSync(...args);
+  if (isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    noteDocumentPullCompleted(state);
+  }
+  return record;
 }
 
 async function runDocumentSyncPass(
