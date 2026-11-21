@@ -201,9 +201,12 @@ Screenshots are captured once and shared by every clone: the gitignored
 `.screenshots` at the repository root is a symlink into the local
 `matrix-artifacts` store (`~/github/matrix-artifacts/tearleads/screenshots`), so
 a website build or deploy from any clone publishes the newest capture. The
-matrix workspace's `artifacts link` creates that link, and in a linked clone its
-`artifacts capture` runs `bun run screenshots` under the store's lock and
-records the capture in `.screenshots/capture.json`; a direct
+matrix workspace's `artifacts link` creates that link; when the take-screenshots
+skill is installed, the website's `predev` and `prebuild` and the capture
+wrapper also create it in a clone or worktree that has no `.screenshots` yet,
+so a fresh clone never publishes an empty gallery. In a linked clone the
+skill's `artifacts capture` runs `bun run screenshots` under the store's lock
+and records the capture in `.screenshots/capture.json`; a direct
 `bun run screenshots` there refuses to start. A clone that is not linked keeps a
 plain local `.screenshots` directory and captures directly. Builds never
 capture. From the repository root of an unlinked clone, capture and then build:
