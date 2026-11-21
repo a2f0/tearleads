@@ -80,6 +80,8 @@ test("a document is complete once its content is stored and no page remains", as
     expect(await queries.listPendingDownloads()).toEqual([]);
     expect(await queries.listCompletedDownloads(refs)).toEqual([
       {
+        // Where the document is shown, for a host to link to it.
+        containerId: "root",
         documentId: "photo",
         localId: "photo",
         objectKind: "document",
@@ -286,14 +288,18 @@ test("a file is complete once its slot holds an attached local copy", async () =
     expect(await queries.listPendingDownloads()).toEqual([]);
     expect(await queries.listCompletedDownloads(refs)).toEqual([
       {
+        // The stored blob, for a host to open the file's detail.
+        blobId: "manual-blob",
+        containerId: "folder",
         documentId: "drill-remote",
         localId: "drill",
         objectKind: "attachment",
         slotId: "manual",
+        storageKey: "blob-manual",
         title: "Drill",
       },
     ]);
-    // The document itself was never asked about.
+    // A document ref is answered on its own, apart from its file slots.
     expect(
       await queries.listCompletedDownloads([
         { localId: "drill", objectKind: "document" },

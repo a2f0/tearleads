@@ -213,3 +213,5 @@ errors. The queue does not estimate undiscovered objects or on-demand blob reads
 `CompletedDownloadItem`s, the rows whose content is now fully stored (for a
 file, an attached local copy of its slot), so a host can tell a finished pull
 from a row that left the queue because it was deleted, detached, or reset.
+Each says where to open it: a document's projected `containerId` (null when
+orphaned), and a file's `storageKey` and `blobId`.

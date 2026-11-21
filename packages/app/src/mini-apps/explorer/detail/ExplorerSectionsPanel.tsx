@@ -19,7 +19,10 @@ import type { ExplorerRoute } from "../routes";
 import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
 import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
 import { ExplorerWriteQueuePanel } from "./sync/ExplorerWriteQueuePanel";
-import { ExplorerDownloadsPanel } from "./transfers/ExplorerDownloadsPanel";
+import {
+  type ExplorerDownloadDestinations,
+  ExplorerDownloadsPanel,
+} from "./transfers/ExplorerDownloadsPanel";
 import { ExplorerUploadsPanel } from "./transfers/ExplorerUploadsPanel";
 import "./ExplorerSectionsPanel.css";
 
@@ -93,8 +96,15 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
     );
   }
   if (route.view === "downloads") {
+    const downloadDestinations: ExplorerDownloadDestinations = {
+      openBlobDetail: (storageKey) =>
+        params.openBlobBrowserRoute({ storageKey }),
+      openContainerInfoRoute: params.openContainerInfoRoute,
+      openDocumentInfoRoute: params.openDocumentInfoRoute,
+    };
     return (
       <ExplorerDownloadsPanel
+        destinations={downloadDestinations}
         documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
         domainScope={params.domainScope}
@@ -137,11 +147,13 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
   return (
     <ExplorerSyncLanesPanel
       embedded
+      documentQueries={params.documentQueries}
       domainScope={params.domainScope}
       onBackToSelectionRoute={params.openSyncLanesRoute}
       onOpenBlobDetail={(storageKey) => {
         params.openBlobBrowserRoute({ storageKey });
       }}
+      onOpenDocumentInfo={params.openDocumentInfoRoute}
       onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
       selectedLaneKey={route.view === "sync-lane-detail" ? route.laneKey : null}
     />

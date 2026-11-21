@@ -23,6 +23,7 @@ function pending(localId: string): PendingDownloadQueueItem {
 
 function completed(localId: string): CompletedDownloadItem {
   return {
+    containerId: "root",
     documentId: `remote-${localId}`,
     localId,
     objectKind: "document",
@@ -194,16 +195,18 @@ test("file downloads are tracked per slot and keep their file name when stored",
   expect(getDepartedDownloads(queued, [file("side")])).toEqual([
     { localId: "drill", objectKind: "attachment", slotId: "front" },
   ]);
+  const front: CompletedDownloadItem = {
+    blobId: "front-blob",
+    containerId: "tools",
+    documentId: "remote-drill",
+    localId: "drill",
+    objectKind: "attachment",
+    slotId: "front",
+    storageKey: "blob-front",
+    title: "Drill bit",
+  };
   const stored = settle(queued, {
-    completed: [
-      {
-        documentId: "remote-drill",
-        localId: "drill",
-        objectKind: "attachment",
-        slotId: "front",
-        title: "Drill bit",
-      },
-    ],
+    completed: [front],
     pending: [file("side")],
   });
   expect(stored.status === "ready" && stored.entries).toEqual([
@@ -211,6 +214,8 @@ test("file downloads are tracked per slot and keep their file name when stored",
     {
       item: { ...file("front"), lastError: null, title: "Drill bit" },
       status: "complete",
+      // Kept so the row can open the stored blob.
+      stored: front,
     },
   ]);
 });

@@ -1,4 +1,5 @@
 import {
+  type ContainerDocumentQueries,
   type DomainScope,
   type DomainSyncSnapshot,
   requestAllDomainSyncLanes,
@@ -14,7 +15,10 @@ import {
 } from "../../../../components/mini-app/MiniAppLayout";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
-import { ExplorerSyncLaneDetail } from "./ExplorerSyncLaneDetail";
+import {
+  ExplorerSyncLaneDetail,
+  type ExplorerSyncLaneDocumentLinks,
+} from "./ExplorerSyncLaneDetail";
 import { ExplorerSyncLaneList } from "./ExplorerSyncLaneList";
 import { ExplorerSyncLaneOverview } from "./ExplorerSyncLaneShared";
 import { filterSyncLanes, type SyncLaneFilter } from "./ExplorerSyncLaneUtils";
@@ -39,6 +43,7 @@ export function ExplorerSyncLanesPanelView(params: {
   // button. In list mode the "Back to Explorer" button is suppressed when
   // embedded, since the compact tabbed hub's tab bar owns top-level navigation.
   embedded?: boolean;
+  documentLinks?: ExplorerSyncLaneDocumentLinks | undefined;
   onBackToSelectionRoute: () => void;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
   onOpenLaneDetail: (laneKey: string) => void;
@@ -46,6 +51,7 @@ export function ExplorerSyncLanesPanelView(params: {
   snapshot: DomainSyncSnapshot;
 }) {
   const {
+    documentLinks,
     embedded = false,
     onBackToSelectionRoute,
     onOpenBlobDetail,
@@ -92,6 +98,7 @@ export function ExplorerSyncLanesPanelView(params: {
       </MiniAppHeader>
       {selectedLaneKey !== null ? (
         <ExplorerSyncLaneDetail
+          documentLinks={documentLinks}
           laneKey={selectedLaneKey}
           onOpenBlobDetail={onOpenBlobDetail}
           snapshot={snapshot}
@@ -120,14 +127,36 @@ export function ExplorerSyncLanesPanelView(params: {
 
 export function ExplorerSyncLanesPanel(params: {
   embedded?: boolean;
+  documentQueries?: ContainerDocumentQueries | undefined;
   domainScope: DomainScope;
   onBackToSelectionRoute: () => void;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
+  onOpenDocumentInfo?:
+    | ((localId: string, containerId: string) => void)
+    | undefined;
   onOpenLaneDetail: (laneKey: string) => void;
   selectedLaneKey: string | null;
 }) {
   const snapshot = useDomainSyncSnapshot(params.domainScope);
-  const { domainScope, selectedLaneKey } = params;
+  const { documentQueries, domainScope, onOpenDocumentInfo, selectedLaneKey } =
+    params;
+  // Stable per database, so a lane detail's summary load runs once per lane.
+  const loadDocumentSummary = useCallback(
+    (localId: string) =>
+      documentQueries
+        ? documentQueries.loadDocumentSummary(localId, {
+            requireHydrated: true,
+          })
+        : Promise.resolve(null),
+    [documentQueries],
+  );
+  const documentLinks = useMemo<ExplorerSyncLaneDocumentLinks | undefined>(
+    () =>
+      documentQueries && onOpenDocumentInfo
+        ? { loadDocumentSummary, openDocumentInfo: onOpenDocumentInfo }
+        : undefined,
+    [documentQueries, loadDocumentSummary, onOpenDocumentInfo],
+  );
   const handleRefresh = useCallback(
     () => requestAllDomainSyncLanes(domainScope),
     [domainScope],
@@ -147,6 +176,7 @@ export function ExplorerSyncLanesPanel(params: {
 
   return (
     <ExplorerSyncLanesPanelView
+      documentLinks={documentLinks}
       embedded={params.embedded ?? false}
       onBackToSelectionRoute={params.onBackToSelectionRoute}
       onOpenBlobDetail={params.onOpenBlobDetail}
