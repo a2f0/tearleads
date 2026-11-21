@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -95,6 +96,7 @@ for (const peerRepaired of [true, false]) {
         bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
         documentId: projection.documentId,
         expectedBindingId: null,
+        verifiedDocumentVersion: checkedDocumentVersion,
         slotId: "preview",
         writerProjection: projection,
       });

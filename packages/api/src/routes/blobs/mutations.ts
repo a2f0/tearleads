@@ -25,9 +25,10 @@ interface BlobMutationsRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
-// A blob failure carries at most the shared `container_unavailable` code;
-// render it so a bind/detach refused for a deleted container is coded like the
-// document and container mutations that share the path resolver (#2278 #4).
+// A blob failure carries at most one code: the shared `container_unavailable`,
+// so a bind/detach refused for a deleted container is coded like the document
+// and container mutations that share the path resolver (#2278 #4), or a bind's
+// `attachment_document_changed`, which the uploader retries after a pull.
 function respondToBlobMutationError(
   c: Context<SessionEnv>,
   error: unknown,

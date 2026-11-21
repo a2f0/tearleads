@@ -116,6 +116,12 @@ export interface DocumentSnapshot {
   text: string;
   title: string;
   syncing: boolean;
+  /**
+   * Encoded Loro version vector of the document state this snapshot's
+   * attachments were read from; absent before the store is ready. An upload
+   * that checked a slot in this snapshot binds against this version.
+   */
+  readonly versionVector?: string | undefined;
 }
 
 export interface DocumentStore {

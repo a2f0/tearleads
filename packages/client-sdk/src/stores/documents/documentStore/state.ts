@@ -1,4 +1,4 @@
-import type { createDocument } from "@tearleads/loro";
+import { type createDocument, encodeVersionVector } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
@@ -120,6 +120,8 @@ export interface DocumentStorePersistenceEffects {
 }
 export interface DocumentStoreState {
   attachmentBlobIdBySlotId: Record<string, string | null>;
+  /** Passes in a row whose bind the document's advance refused; see `attachmentDocumentVersion.ts`. */
+  attachmentDocumentChangedPasses?: number;
   /** Plaintext digest of the held bytes per slot; see `getAttachmentStatuses`. */
   attachmentContentSha256BySlotId: Record<string, string>;
   attachmentStorageKeyBySlotId: Record<string, string>;
@@ -309,6 +311,7 @@ export function setDocumentSnapshot(
     state.snapshot.documentId === next.documentId &&
     state.snapshot.documentKind === next.documentKind &&
     state.snapshot.seedTag === next.seedTag &&
+    state.snapshot.versionVector === next.versionVector &&
     state.snapshot.effectiveAccessLevel === next.effectiveAccessLevel &&
     sameValidationIssues(
       state.snapshot.fieldValidationIssues,
@@ -335,6 +338,7 @@ function clearDocumentStoreState(
   state: DocumentStoreState,
   { initialized }: { initialized: boolean },
 ) {
+  state.attachmentDocumentChangedPasses = 0;
   state.deferInitialUpdate = false;
   state.doc = null;
   state.localWriteGeneration += 1;
@@ -458,6 +462,7 @@ export function setReadySnapshot(
     text,
     title: projectedState.title,
     syncing,
+    versionVector: encodeVersionVector(currentDoc),
   });
 }
 

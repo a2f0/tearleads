@@ -29,6 +29,7 @@ import {
 } from "./authorization";
 import { registerAttachmentBlobs } from "./blobAuditRegistry";
 import { lockBlobMutationRows } from "./blobMutationLocks";
+import { assertBindDocumentVersionCurrent } from "./documentVersionPrecondition";
 import { toMutationError } from "./errors";
 import { assertExistingBlobSourceAuthority } from "./existingBlobAuthority";
 import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
@@ -346,6 +347,12 @@ async function bindBlobAttachmentTransaction(
   });
   const { lockedContainerHeads, proof, signingPublicKey } =
     await verifyAndLockBindAuthorization(input, bindBody.documentId, tx);
+  // Under the document head lock just taken, so no update commits after it.
+  await assertBindDocumentVersionCurrent({
+    documentId: bindBody.documentId,
+    executor: tx,
+    versionVector: input.request.documentVersionVector,
+  });
   const { activeBinding, verifiedBinding } = await verifyAndLockBindSlot({
     bindBody,
     blobId: input.blobId,

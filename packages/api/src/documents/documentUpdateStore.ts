@@ -304,6 +304,37 @@ export async function hasMissingDocumentUpdatesThroughSequence(
   return candidates.length > 0;
 }
 
+/**
+ * Whether a committed update of the document holds an op the version vector
+ * lacks. Only spans count: an update with no span carries no op, so it cannot
+ * change what the version saw. Throws `DocumentUpdateReadError` (400) for a
+ * malformed version vector.
+ */
+export async function hasDocumentOpsBeyondVersion(
+  executor: DatabaseSession,
+  input: {
+    readonly documentId: string;
+    readonly versionVector: string;
+  },
+): Promise<boolean> {
+  const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
+  const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
+  const spanEndCounter = aliasedColumn("s", documentUpdateSpans.endCounter);
+  const frontier = buildFrontierRecordset(
+    buildClientFrontierJson(input.versionVector),
+  );
+  const result = await executor.execute(sql`
+    select 1 as "uncovered"
+    from ${documentUpdateSpans} s
+    left join ${frontier.recordset}
+      on ${frontier.peerId} = ${spanPeerId}
+    where ${spanDocumentId} = ${uuidValue(input.documentId)}
+      and coalesce(${frontier.counter}, 0) < ${spanEndCounter}
+    limit 1
+  `);
+  return result.rows.length > 0;
+}
+
 export async function listMissingDocumentUpdatePage(
   executor: DatabaseSession,
   input: {

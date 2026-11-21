@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../../test/helpers/data/blobUploadFixtures";
@@ -109,6 +110,7 @@ test("a consumed stage whose committed binding was removed renews the durable up
           contentKey: upload.contentKey,
           documentId: fixture.writerProjection.documentId,
           expectedBindingId: null,
+          verifiedDocumentVersion: checkedDocumentVersion,
           multipart: upload.multipart,
           nonceSeed: upload.nonceSeed,
           onStageResolved: upload.onStageResolved,

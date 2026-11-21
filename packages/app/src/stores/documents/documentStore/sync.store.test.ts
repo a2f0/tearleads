@@ -281,6 +281,7 @@ test("document store reloads persisted note text and pending updates", async () 
     syncing: false,
     text: "",
     title: "Untitled note",
+    versionVector: expect.any(String),
   });
 
   firstStore.setText("persisted note");
@@ -325,5 +326,6 @@ test("document store reloads persisted note text and pending updates", async () 
     syncing: false,
     text: "persisted note",
     title: "persisted note",
+    versionVector: expect.any(String),
   });
 });

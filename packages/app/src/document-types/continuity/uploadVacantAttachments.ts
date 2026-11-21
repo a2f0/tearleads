@@ -125,6 +125,17 @@ export async function uploadVacantAttachments(
           );
       },
       stillCurrent,
+      // Pull right before each bind: the API refuses it while the document
+      // holds an update this version lacks, such as another device removing
+      // the slot after the checks above.
+      verifiedDocumentVersion: async () => {
+        const current = await pull(store, stillCurrent);
+        if (fixtureAttachmentState(current, intent) !== "missing")
+          throw new Error(
+            `The attachment changed during upload: ${intent.name}. Run seed again to resume.`,
+          );
+        return current.versionVector ?? null;
+      },
       isRemoteSyncBlocked: runtime.util.isRemoteSyncBlocked,
       resolveProjectionUserKey: links.resolveProjectionUserKey,
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),

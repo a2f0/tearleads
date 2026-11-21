@@ -99,6 +99,9 @@ Binding uses:
 - optional `containerRekeys[]`
 - [blob content-key bundle](../glossary/keys.md#blob-content-key-bundle)
 - optional `stagedBlob` with `stageId` and signed blob write header
+- required `documentVersionVector`: the encoded Loro version vector of the
+  document the uploader read when it checked that the slot still asks for
+  these bytes
 - optional `documentSync`: the document's deferred first update, a complete
   document sync request holding one outgoing update from an empty start, no
   container rekeys, within the sync request limit (a create's `initialSync`
@@ -115,6 +118,8 @@ For bind, the API verifies:
 - document manifest and authorizing paths are active heads
 - referenced principal policies resolve and verify
 - expected previous binding matches the active slot binding
+- `documentVersionVector` covers every op of every committed update of the
+  document (see [document version precondition](#document-version-precondition))
 - staged blob owner and expiry when `stagedBlob` is supplied
 - existing blob presence when no staged blob is supplied
 - submitted blob content-key targets and their hash match only the new binding's
@@ -161,6 +166,37 @@ only when the acknowledgement names it; a bind refused with `400`, `403`, `404`,
 or `409` is sent once more without `documentSync`, and the row then syncs on its
 own. A lost response leaves the row queued; binding adoption by slot and
 update-id recovery are unchanged.
+
+### Document Version Precondition
+
+The binding-generation check (`expectedBindingId`) cannot see a document edit:
+the API cannot read encrypted content, so another device that removes or
+changes a slot is invisible to it. A bind therefore also carries the document
+version the uploader checked the slot against. Right after locking the document
+head, the API refuses the bind with `409` and code
+`attachment_document_changed` when a committed update of the document holds an
+op the version lacks, compared per peer through the update spans the sync
+route already stores. Every update write locks the same head first, so no
+update commits between the check and the binding row: an edit that commits
+before the bind always wins. An update with no span carries no op and is
+ignored. A version ahead of the server, holding the uploader's own unsent ops,
+still binds.
+
+The check is scoped to the whole document, not the slot, because the server
+learns nothing about which update touches which slot. A refusal therefore needs
+another device's commit inside the uploader's pull-then-bind window. The
+uploader keeps its completed stage, signed event, and wrapped keys, pulls,
+checks the slot again, and retries the same bind at the newer version, or
+abandons it when the slot no longer asks for the bytes. Recovery needs only
+the uploader's own steps; a busy document can delay a bind until it is quiet
+for one window, never indefinitely once edits stop. The client SDK bounds the
+immediate retries (three re-checks per upload call, and three re-armed passes
+in a document store) and then records the stuck upload until a later sync
+signal. The API never refuses a document update because of a binding: an edit
+that commits after the bind can still remove the slot, and detaching that
+binding is reconciliation by a device that observes both.
+[`AttachmentBindDocumentVersion.tla`](../../formal/blob-attachments/AttachmentBindDocumentVersion.tla)
+models both interleavings.
 
 Detach uses:
 

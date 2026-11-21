@@ -31,6 +31,8 @@ export {
 } from "../blob";
 export {
   BLOB_MUTATION_ERROR_CODES,
+  type BlobAttachmentBindFailureResponse,
+  BlobAttachmentBindFailureResponseSchema,
   type BlobMutationErrorCode,
   type BlobMutationFailureResponse,
   BlobMutationFailureResponseSchema,

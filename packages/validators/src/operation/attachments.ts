@@ -8,6 +8,7 @@ import {
   isBlobAttachmentDetachRequest,
 } from "../request";
 import {
+  BlobAttachmentBindFailureResponseSchema,
   BlobAttachmentBindResponseSchema,
   BlobAttachmentDetachResponseSchema,
   BlobMutationFailureResponseSchema,
@@ -53,7 +54,7 @@ export const bindBlobAttachmentOperation = defineJsonOperation({
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
-    409: BlobMutationFailureResponseSchema,
+    409: BlobAttachmentBindFailureResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   },

@@ -20,42 +20,56 @@ test.each([
   async (edit) => {
     await initializeApiDatabase();
     let interrupt = true;
-    const loseBindResponse = [
-      "interrupted removal",
-      "restore",
-      "rename",
-    ].includes(edit);
+    // These edits land while the importer's bind is in flight, after the
+    // importer pulled to check the slot, so the API refuses that bind.
+    const raceBind = ["interrupted removal", "restore", "rename"].includes(
+      edit,
+    );
     let lostBind = false;
-    let afterBind: (() => Promise<void>) | undefined;
+    let refusedBinds = 0;
+    let afterRefusal: (() => Promise<void>) | undefined;
     let beforeUpload: (() => Promise<void>) | undefined;
+    // Requests the other device makes inside a hook, and every request after
+    // the raced run, pass straight through.
+    let hooking = false;
+    let racing = true;
+    const runHook = async (hook: (() => Promise<void>) | undefined) => {
+      hooking = true;
+      try {
+        await hook?.();
+      } finally {
+        hooking = false;
+      }
+    };
     const server = Bun.serve({
       hostname: "127.0.0.1",
       port: 0,
       fetch: async (req) => {
         const path = new URL(req.url).pathname;
+        if (hooking) return routeApp.fetch(req);
         const stage = path === "/blobs/stages/multipart";
         if (stage && interrupt) return new Response(null, { status: 503 });
-        if (loseBindResponse ? path.endsWith("/attachment-bindings") : stage) {
+        if (!racing) return routeApp.fetch(req);
+        const bind = path.endsWith("/attachment-bindings");
+        if (raceBind ? bind : stage) {
           const edit = beforeUpload;
           beforeUpload = undefined;
-          await edit?.();
+          await runHook(edit);
         }
-        if (
-          loseBindResponse &&
-          !lostBind &&
-          new URL(req.url).pathname.endsWith("/attachment-bindings")
-        ) {
-          const response = await routeApp.fetch(req);
-          if (response.ok) {
-            lostBind = true;
-            const restore = afterBind;
-            afterBind = undefined;
-            await restore?.();
-            return new Response(null, { status: 503 });
-          }
+        if (!raceBind || !bind) return routeApp.fetch(req);
+        const response = await routeApp.fetch(req);
+        if (response.status === 409) {
+          refusedBinds += 1;
+          // The other device edits again before the importer re-checks.
+          const edit = afterRefusal;
+          afterRefusal = undefined;
+          await runHook(edit);
           return response;
         }
-        return routeApp.fetch(req);
+        if (!response.ok || lostBind) return response;
+        // The bind commits but its response is lost.
+        lostBind = true;
+        return new Response(null, { status: 503 });
       },
     });
     try {
@@ -81,7 +95,7 @@ test.each([
                   attachment.name,
                 ),
               );
-            afterBind = () =>
+            afterRefusal = () =>
               onFreshDevice(device, async ([restored], sdk) => {
                 if (!restored) throw new Error("Missing edited contact");
                 if (edit === "rename") {
@@ -142,17 +156,21 @@ test.each([
           }
         });
       const result = await runCli(["seed", "--env", "staging"], context);
+      racing = false;
       expect(result).toBe(1);
-      expect(afterBind).toBeUndefined();
+      expect(afterRefusal).toBeUndefined();
       expect(beforeUpload).toBeUndefined();
+      expect(refusedBinds).toBe(raceBind ? 1 : 0);
+      // Only a rename keeps asking for the fixture, so only its re-checked
+      // bind commits (and loses its response).
+      expect(lostBind).toBe(edit === "rename");
       if (edit === "interrupted removal") {
-        expect(lostBind).toBe(true);
         await onFreshDevice(device, async ([store], sdk) => {
           expect(store?.getSnapshot().attachments).toHaveLength(0);
           const bindings = await sdk.documents
             .workflowRuntime()
             .apiClient.listDocumentAttachments(contactId ?? "");
-          expect(bindings).toHaveLength(1);
+          expect(bindings).toHaveLength(0);
         });
       }
       expect(await runCli(["seed", "--env", "staging"], context)).toBe(0);
@@ -174,7 +192,7 @@ test.each([
             await runtime.apiClient.listDocumentAttachments(
               snapshot.documentId,
             ),
-          ).toHaveLength(edit === "interrupted removal" ? 1 : 0);
+          ).toHaveLength(0);
           return;
         }
         const attachment = snapshot?.attachments[0];

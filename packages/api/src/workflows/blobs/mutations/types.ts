@@ -15,9 +15,10 @@ export class BlobMutationError extends Error {
     message: string,
     readonly status: BlobMutationStatus,
     /**
-     * Behavior-bearing code rendered into the response body. Only the shared
-     * `container_unavailable` proof is carried; every other blob failure is
-     * an uncoded diagnostic (see BlobMutationFailureResponseSchema).
+     * Behavior-bearing code rendered into the response body: the shared
+     * `container_unavailable` proof, or a bind's retryable
+     * `attachment_document_changed`. Every other blob failure is an uncoded
+     * diagnostic (see BlobMutationFailureResponseSchema).
      */
     readonly code?: BlobMutationErrorCode | undefined,
   ) {

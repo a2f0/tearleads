@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createMultipartBlobStageFixture } from "../../../../../test/helpers/data/blobUploadFixtures";
+import {
+  checkedDocumentVersion,
+  createMultipartBlobStageFixture,
+} from "../../../../../test/helpers/data/blobUploadFixtures";
 import { initiatedStage } from "../../../../../test/helpers/data/multipartUpload";
 import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
@@ -36,6 +39,7 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
       bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
       documentId: writerProjection.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       slotId: "first-upload-402",
     },
@@ -92,6 +96,7 @@ test("preserves a billing pause observed before recovery races the postflight ch
       bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
       documentId: writerProjection.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       slotId: "preflight-402",
     },
@@ -144,6 +149,7 @@ test("does not retry a concrete upload failure with a fresh projection", async (
         bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
         documentId: writerProjection.documentId,
         expectedBindingId: null,
+        verifiedDocumentVersion: checkedDocumentVersion,
         resolveProjectionUserKey,
         slotId: "network-failure",
       },
@@ -215,6 +221,7 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
         documentId: writerProjection.documentId,
         eventId: "550e8400-e29b-41d4-a716-446655440582",
         expectedBindingId: null,
+        verifiedDocumentVersion: checkedDocumentVersion,
         nonceSeed: new Uint8Array(12).fill(3),
         multipart: { partSize: 5 * 1024 * 1024 },
         onStageResolved: ({ stageId }) => {
@@ -334,6 +341,7 @@ test("attachment upload propagates identity failures without a projection retry"
           bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
           documentId: writerProjection.documentId,
           expectedBindingId: null,
+          verifiedDocumentVersion: checkedDocumentVersion,
           resolveProjectionUserKey: async () => {
             throw integrityError;
           },

@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -56,6 +57,7 @@ test("uploadDocumentAttachment defaults every blob to 5 MiB multipart", async ()
     bytes: new Uint8Array(8 * 1024 * 1024) as BlobBytes,
     documentId: writerProjection.documentId,
     expectedBindingId: null,
+    verifiedDocumentVersion: checkedDocumentVersion,
     onMultipartProgress: (progress) => progressEvents.push(progress),
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",

@@ -119,8 +119,9 @@ test("a bind commits the document sync it carries after its binding", async () =
     updateIds: [updateId],
   });
   console.info("locked-head-bind-carry", counter.statements);
+  // One statement is the bind's document-version precondition.
   expect(counter.statements).toBeLessThanOrEqual(
-    76 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    77 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 }, 20_000);
 
@@ -140,8 +141,9 @@ test("a bind without a document sync reports none", async () => {
     updateIds: [],
   });
   console.info("locked-head-bind-plain", counter.statements);
+  // One statement is the bind's document-version precondition.
   expect(counter.statements).toBeLessThanOrEqual(
-    54 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    55 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 }, 20_000);
 

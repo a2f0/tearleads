@@ -9,6 +9,7 @@ import { attachmentContentSha256 } from "../../../src/data/blobs/attachmentConte
 import type { BlobBytes } from "../../../src/data/blobs/blobContracts";
 import type { DocumentAttachment } from "../../../src/data/documents/documentContent";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../data/blobUploadFixtures";
@@ -100,6 +101,7 @@ export async function createUploadedAttachmentFixture(input?: {
     contentKey,
     documentId: writerProjection.documentId,
     expectedBindingId: null,
+    verifiedDocumentVersion: checkedDocumentVersion,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,

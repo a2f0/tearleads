@@ -35,6 +35,7 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
   uploaded: UploadDocumentAttachmentResult | null;
 }> {
   let remoteSyncBlocked = false;
+  let documentChanged = false;
   let checkedOrganizationId: string | undefined;
   let resolvedMultipartStage:
     | { readonly partSize: number; readonly stageId: string }
@@ -55,6 +56,10 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
       return remoteSyncBlocked;
     },
     onStageResolved,
+    verifiedDocumentVersion: (request: { readonly refresh: boolean }) => {
+      documentChanged ||= request.refresh;
+      return input.baseUploadInput.verifiedDocumentVersion(request);
+    },
   };
   let uploadError: unknown;
   let uploadThrew = false;
@@ -84,11 +89,13 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     !uploaded &&
     input.writerProjection &&
     !remoteSyncBlocked &&
+    !documentChanged &&
     !uploadThrew
   ) {
     // A stale cached writer projection may have caused an ambiguous null. Retry
     // once with a fresh projection, but do not immediately replay a concrete
-    // thrown failure or an expected billing pause.
+    // thrown failure, an expected billing pause, or a bind refused because
+    // the document advanced, which needs a pull rather than a projection.
     input.state.writerProjection = null;
     // Binding can return null after multipart staging succeeded. Carry that
     // resolved stage into the retry so it is resumed instead of orphaned.
