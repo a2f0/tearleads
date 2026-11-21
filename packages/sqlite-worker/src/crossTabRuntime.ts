@@ -1,11 +1,14 @@
 import type { WorkerLike } from "./client";
 import {
+  admitLocalClientRequest,
+  assertLocalClientConnected,
   createLocalClient,
   dispatchCrashToLocalClient,
   dispatchResponseToLocalClient,
-  failPendingRemoteRequests,
+  isOpenLocalClient,
   type LocalClient,
   releaseLocalClient,
+  releaseLocalClientFromPreviousOwner,
 } from "./crossTabLocalClient";
 import {
   canUseCrossTabPrimitives,
@@ -18,7 +21,6 @@ import {
   errorResponse,
   isCrossTabEnvelope,
   requestId,
-  requestMethod,
 } from "./crossTabProtocol";
 import { DatabaseWorkerCrashError } from "./workerCrash";
 
@@ -36,11 +38,6 @@ interface CrossTabDatabaseWorker extends WorkerLike {
    * routing into the dead one. See {@link CrossTabCoordinator.forceStopOwnerFor}.
    */
   forceStopOwner(): void;
-}
-
-function isTeardownRequest(request: unknown): boolean {
-  const method = requestMethod(request);
-  return method === "close" || method === "delete";
 }
 
 class CrossTabCoordinator {
@@ -134,8 +131,12 @@ class CrossTabCoordinator {
    * only ever risks a missed heal, never wrongly stranding a real remote tab.
    */
   private forceStopOwnerFor(clientId: string): void {
+    // A lost client's database died with an earlier owner; the current owner
+    // may never have served it, so its silence is no reason to stop it.
+    const lost =
+      this.localClientsById.get(clientId)?.connection.status === "lost";
     this.unregisterLocalClient(clientId);
-    if (this.hasOpenLocalClients()) {
+    if (lost || this.hasOpenLocalClients()) {
       return;
     }
 
@@ -153,8 +154,8 @@ class CrossTabCoordinator {
     const id = requestId(request);
     try {
       const localClient = this.localClientsById.get(clientId);
-      if (localClient && isTeardownRequest(request)) {
-        localClient.closing = true;
+      if (localClient) {
+        admitLocalClientRequest(localClient, request);
       }
 
       const hasClientLock = await this.waitForLocalClientLock(clientId);
@@ -169,6 +170,11 @@ class CrossTabCoordinator {
       await this.ownershipSettled;
       if (!this.localClientsById.has(clientId)) {
         return;
+      }
+
+      // A client can be lost while it waits, when this tab is promoted.
+      if (localClient) {
+        assertLocalClientConnected(localClient);
       }
 
       if (this.owner) {
@@ -355,9 +361,8 @@ class CrossTabCoordinator {
           );
           this.owner = owner;
           this.ownerError = null;
-          // Requests posted to the previous owner are orphaned; fail them with a
-          // retryable error instead of waiting out the timeout.
-          this.failPendingRemoteRequests();
+          // The previous owner is gone, with every database it had open.
+          this.releaseClientsFromPreviousOwner();
           this.settleOwnership(generation);
           await ownerReleased;
           releasedNormally = true;
@@ -368,7 +373,7 @@ class CrossTabCoordinator {
           this.owner = null;
           this.ownerError =
             error instanceof Error ? error : new Error(String(error));
-          this.failPendingRemoteRequests();
+          this.releaseClientsFromPreviousOwner();
           this.settleOwnership(generation);
           throw error;
         }
@@ -397,7 +402,7 @@ class CrossTabCoordinator {
 
   private hasOpenLocalClients(): boolean {
     for (const localClient of this.localClientsById.values()) {
-      if (!localClient.closing) {
+      if (isOpenLocalClient(localClient)) {
         return true;
       }
     }
@@ -464,11 +469,11 @@ class CrossTabCoordinator {
     return locks ? isOwnerLockHeld(locks, CROSS_TAB_OWNER_LOCK_NAME) : false;
   }
 
-  // Called when this tab is promoted to owner: the owner its clients had posted
-  // their remote requests to is gone, so fail them fast rather than time out.
-  private failPendingRemoteRequests(): void {
+  // Called when this tab takes the owner lock: the owner its clients had been
+  // routing to is gone (see releaseLocalClientFromPreviousOwner).
+  private releaseClientsFromPreviousOwner(): void {
     for (const localClient of this.localClientsById.values()) {
-      failPendingRemoteRequests(localClient);
+      releaseLocalClientFromPreviousOwner(localClient);
     }
   }
 }

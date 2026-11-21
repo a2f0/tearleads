@@ -1,5 +1,6 @@
 import type {
   BlobBytesResponse,
+  BlobDownloadOptions,
   RequestFailureKind,
   RequestResultOptions,
   UploadMultipartBlobPartBytesRequest,
@@ -99,17 +100,24 @@ export interface BlobAttachmentDetachApi {
 }
 
 export interface DocumentAttachmentHydrationApi {
+  /** Enforces per-request metadata and ciphertext limits before buffering. */
+  readonly supportsBoundedAttachmentReads?: boolean;
   evictDocumentWriterProjection?(documentId: string): void;
   getBlobBytes(
     blobId: string,
-    options?: RequestResultOptions,
+    options?: BlobDownloadOptions,
   ): Promise<BlobBytesResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
+    options?: { signal: AbortSignal },
   ): Promise<DocumentWriterProjectionResponse | null>;
   listDocumentAttachments(
     documentId: string,
-    options?: { readonly refresh?: boolean },
+    options?: {
+      refresh?: boolean;
+      boundedListing?: boolean;
+      signal?: AbortSignal | undefined;
+    },
   ): Promise<ListDocumentAttachmentsResponse | null>;
 }
 

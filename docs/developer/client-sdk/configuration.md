@@ -130,6 +130,16 @@ releases only waiter-owned work. See the
 
 ### Blob attachment service
 
+A host with streaming HTTP responses can set `streamingDownloads: true` in
+`TearleadsOptions`. For a known dataset, call
+`runtime.blobAttachments.withExpectedDownloads(documentId, sizesBySlot)` to
+limit each slot's transfer before decryption. The Bun CLI enables this option.
+The optional third argument is an abort signal. The fourth receives each
+verified binding after decryption so a fixture reader can compare it with a later
+listing. A host with a buffering HTTP bridge keeps the default for ordinary
+downloads. Custom adapters must explicitly declare `supportsBoundedAttachmentReads`
+and enforce the metadata and ciphertext limits before buffering.
+
 `BlobAttachmentService` replaces the free `uploadDocumentAttachment`,
 `hydrateDocumentAttachmentBlobs`, and `decryptDocumentAttachmentBlob` exports.
 Construct it with the collaborators those functions used to take on every call,
@@ -431,3 +441,7 @@ none.
 
 For SQLite initialization, runtime lifecycle methods, identity generation, and
 blob storage selection, see [SDK initialization](../sdk-initialization.md).
+
+For a disposable streaming verifier, pass `verificationDeadline` in the SDK
+options. Its signal bounds API calls across discovery continuations and caps
+document writer projections at 8 MiB. Logout can still revoke the session.

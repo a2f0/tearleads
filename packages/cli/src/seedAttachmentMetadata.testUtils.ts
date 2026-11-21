@@ -23,6 +23,16 @@ export async function restoreAttachmentMetadata(
   store: DocumentStore,
   attachment: DocumentAttachment,
 ) {
+  await publishSeedEdit(sdk, store, (doc) =>
+    addDocumentAttachments(doc, [attachment]),
+  );
+}
+
+export async function publishSeedEdit(
+  sdk: Tearleads,
+  store: DocumentStore,
+  edit: (doc: Awaited<ReturnType<typeof createDocument>>) => void,
+) {
   const runtime = sdk.documents.workflowRuntime();
   const { documentId } = store.getSnapshot();
   const author = resolveDocumentCreateAuthor(runtime);
@@ -30,7 +40,7 @@ export async function restoreAttachmentMetadata(
   const doc = await createDocument(crypto.randomUUID());
   importSnapshot(doc, await store.assertCanRotateContentKey("prove"));
   const before = encodeVersionVector(doc);
-  addDocumentAttachments(doc, [attachment]);
+  edit(doc);
   const update = exportUpdatesSince(doc, before);
   const id = crypto.randomUUID();
   const localId = await sdk.documents.findLocalIdByDocumentId(documentId);

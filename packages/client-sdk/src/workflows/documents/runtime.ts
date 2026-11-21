@@ -21,6 +21,8 @@ import type {
 
 interface DocumentsWorkflowRuntimeUtilInput
   extends Omit<WorkflowRuntimeUtilInput, "logError"> {
+  /** A read-only history replay leaves pending attachment detaches to writable devices. */
+  readonly deferAttachmentDetaches?: boolean;
   /** Receives handled quarantine errors without converting them to strings. */
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
 }

@@ -19,7 +19,11 @@ export interface SQLiteRuntimeWorker extends WorkerLike {
   terminate(): void;
 }
 
-export { createModuleDatabaseRuntime as createSQLiteRuntime } from "@tearleads/sqlite-worker/runtime";
+export {
+  createModuleDatabaseRuntime as createSQLiteRuntime,
+  DatabaseConnectionLostError,
+  isDatabaseConnectionLostError,
+} from "@tearleads/sqlite-worker/runtime";
 
 export function createSQLiteRuntimeFromWorker(
   worker: SQLiteRuntimeWorker,

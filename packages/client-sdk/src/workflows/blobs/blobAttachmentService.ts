@@ -18,6 +18,7 @@ import { readCanonicalRecord } from "../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { decryptDocumentAttachmentBlob } from "./hydration/decrypt";
+import type { ExpectedDownloadSizes } from "./hydration/expectedDownloadSizes";
 import {
   type HydrateDocumentAttachmentBlobsRequest,
   type HydratedDocumentAttachmentBlob,
@@ -41,13 +42,43 @@ let collaboratorsOf: (
  */
 export class BlobAttachmentService {
   private readonly blobs: BlobAttachmentCollaborators;
+  private readonly expectedDownloads: ExpectedDownloadSizes | undefined;
 
   static {
     collaboratorsOf = (service) => service.blobs;
   }
 
-  constructor(collaborators: BlobAttachmentCollaborators) {
+  constructor(
+    collaborators: BlobAttachmentCollaborators,
+    expectedDownloads?: Omit<ExpectedDownloadSizes, "signal"> & {
+      signal?: AbortSignal | undefined;
+    },
+  ) {
+    if (expectedDownloads && !collaborators.api.supportsBoundedAttachmentReads)
+      throw new Error(
+        "This transport does not support bounded attachment reads.",
+      );
     this.blobs = collaborators;
+    // A signal selects the bounded reader for every read, so one is always set.
+    this.expectedDownloads = expectedDownloads && {
+      ...expectedDownloads,
+      signal: expectedDownloads.signal ?? new AbortController().signal,
+    };
+  }
+
+  /** Limit this document's hydration to known slot sizes before reading any body. */
+  withExpectedDownloads(
+    documentId: string,
+    sizesBySlot: ReadonlyMap<string, number>,
+    signal?: AbortSignal,
+    onVerifiedBinding?: ExpectedDownloadSizes["onVerifiedBinding"],
+  ): BlobAttachmentService {
+    return new BlobAttachmentService(this.blobs, {
+      documentId,
+      sizesBySlot: new Map(sizesBySlot),
+      onVerifiedBinding,
+      signal,
+    });
   }
 
   /** Inspects the source itself; any `sourceSnapshot` a caller attaches is dropped. */
@@ -143,7 +174,11 @@ export class BlobAttachmentService {
   hydrateDocumentAttachmentBlobs(
     request: HydrateDocumentAttachmentBlobsRequest,
   ): Promise<HydratedDocumentAttachmentBlob[] | null> {
-    return hydrateDocumentAttachmentBlobs(this.blobs, request);
+    return hydrateDocumentAttachmentBlobs(
+      this.blobs,
+      request,
+      this.expectedDownloads,
+    );
   }
 
   decryptDocumentAttachmentBlob(

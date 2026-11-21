@@ -117,6 +117,11 @@ export interface DocumentSnapshot {
   title: string;
   syncing: boolean;
   /**
+   * Another view relinked a local record onto this document while this view
+   * had it open. The view keeps its own record, read-only, until it reopens.
+   */
+  readonly relinkedElsewhere?: true | undefined;
+  /**
    * Encoded Loro version vector of the document state this snapshot's
    * attachments were read from; absent before the store is ready. An upload
    * that checked a slot in this snapshot binds against this version.
@@ -187,7 +192,11 @@ export interface DocumentStore {
 }
 
 export interface DocumentStoreFacade extends DocumentStore {
-  rebindTo: (store: DocumentStore) => void;
+  /**
+   * Keep this view on its own record after another record took its document
+   * id: read-only, no attachment downloads, and edits stay with its record.
+   */
+  supersede: () => void;
 }
 
 export type PersistedDocumentListener = (

@@ -26,6 +26,7 @@ export type {
 export type { ProjectionPolicyHistoryReadOptions } from "./projectionPolicyHistoryPages";
 export type {
   BlobBytesResponse,
+  BlobDownloadOptions,
   UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
 export { describeMultipartBlobPart } from "./routes/blobs/multipartUpload";

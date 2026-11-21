@@ -16,6 +16,16 @@ export interface TearleadsOptions {
   apiBaseUrl?: string | undefined;
   /** Reuse a memory-only request counter across client lifetimes. */
   apiRequestMetrics?: ApiRequestMetrics | undefined;
+  /** Enable bounded downloads only when the host HTTP transport streams without native buffering. */
+  streamingDownloads?: boolean | undefined;
+  /** Deadline for a disposable verification client. Session revocation remains available. */
+  readonly verificationDeadline?: AbortSignal | undefined;
+  /** Stop command work while allowing authenticated remote logout to finish. */
+  readonly requestSignal?: AbortSignal | undefined;
+
+  /** Command hosts with one short-lived sign-in may opt out of automatic renewal. */
+  readonly automaticSessionRenewal?: boolean | undefined;
+
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
   database?: TearleadsDatabaseOptions | undefined;

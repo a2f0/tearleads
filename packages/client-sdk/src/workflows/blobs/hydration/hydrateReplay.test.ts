@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import type { BlobAttachmentSummary } from "@tearleads/validators/response";
 import {
   checkedDocumentVersion,
@@ -12,6 +12,7 @@ import {
   createUploadedAttachmentFixture,
   stagedBindingSummary,
 } from "../../../../test/helpers/workflows/blobHydration";
+import * as contentIdentity from "../../../data/blobs/attachmentContentIdentity";
 import { attachmentContentSha256 } from "../../../data/blobs/attachmentContentIdentity";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 
@@ -313,4 +314,40 @@ test("a reader fetches the file after its first binding list was empty", async (
   published = true;
   const result = await read();
   expect(result?.[0]?.bytes).toEqual(replacement.bytes);
+});
+
+test("a superseded read cannot reject a binding after hashing its plaintext", async () => {
+  const fixture = await createUploadedAttachmentFixture();
+  const served = await uploadNewerBinding(fixture);
+  const rejectedServedBindings = new Set<string>();
+  let current = true;
+  const digest = contentIdentity.attachmentContentSha256;
+  const hash = spyOn(
+    contentIdentity,
+    "attachmentContentSha256",
+  ).mockImplementation(async (bytes) => {
+    const result = await digest(bytes);
+    current = false;
+    return result;
+  });
+  try {
+    const blobs = createBlobAttachmentServiceFixture({
+      api: createServedBindingApi(fixture, served),
+      encapsulationSecretKey: fixture.secretKey,
+      execSql: fixture.execSql,
+    });
+    await blobs.hydrateDocumentAttachmentBlobs({
+      attachments: [fixture.attachment],
+      documentId: fixture.writerProjection.documentId,
+      rejectedServedBindings,
+      stillCurrent: () => current,
+      localBlobIdBySlotId: { [fixture.attachment.slotId]: fixture.blobId },
+      localStorageKeyBySlotId: { [fixture.attachment.slotId]: "held" },
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+    });
+    expect(hash).toHaveBeenCalled();
+    expect(rejectedServedBindings.size).toBe(0);
+  } finally {
+    hash.mockRestore();
+  }
 });

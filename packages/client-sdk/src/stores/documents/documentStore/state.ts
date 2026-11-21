@@ -120,8 +120,7 @@ export interface DocumentStorePersistenceEffects {
 }
 export interface DocumentStoreState {
   attachmentBlobIdBySlotId: Record<string, string | null>;
-  /** Passes in a row whose bind the document's advance refused; see `attachmentDocumentVersion.ts`. */
-  attachmentDocumentChangedPasses?: number;
+  attachmentDocumentChangedPasses?: number; // attachmentDocumentVersion.ts
   /** Plaintext digest of the held bytes per slot; see `getAttachmentStatuses`. */
   attachmentContentSha256BySlotId: Record<string, string>;
   attachmentStorageKeyBySlotId: Record<string, string>;
@@ -174,6 +173,8 @@ export interface DocumentStoreState {
   record: DocumentRecord | null;
   /** Served bindings hydration refused for a held copy; see `hydrate.ts`. */
   rejectedServedAttachmentBindings: Set<string>;
+  /** Another record took this document id; attachment downloads stop. */
+  relinkedElsewhere: boolean;
   /**
    * Consecutive completed sync passes that re-keyed conflicted pending updates
    * without settling anything. Bounds the rekey-driven self re-arm so a server
@@ -265,6 +266,7 @@ export function createDocumentStoreState(
     pullContinuation: null,
     record: null,
     rejectedServedAttachmentBindings: new Set(),
+    relinkedElsewhere: false,
     rekeyOnlyPassCount: 0,
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
@@ -338,7 +340,6 @@ function clearDocumentStoreState(
   state: DocumentStoreState,
   { initialized }: { initialized: boolean },
 ) {
-  state.attachmentDocumentChangedPasses = 0;
   state.deferInitialUpdate = false;
   state.doc = null;
   state.localWriteGeneration += 1;
