@@ -5,7 +5,15 @@ The worker-thread runtime for client SQLite databases. It loads the
 databases in memory or in OPFS (through the SAH pool VFS), and serves
 statements to a client over worker messages. When several browser tabs open
 one database, a single owner tab runs the worker and the others reach it
-through a broadcast channel.
+through a broadcast channel. A client's open database lives only in the worker
+that opened it. When ownership moves to another tab, the coordinator fails the
+client with a `DatabaseConnectionLostError` crash, so the host can open a new
+one: at once when this tab takes ownership, or when another tab's new owner
+answers one of its statements
+([`crossTabConnectionMachine.ts`](src/crossTabConnectionMachine.ts)). Until
+then, a teardown it sends reaches a connection with nothing to close or delete.
+The worker tells every other connection when one deletes their database, so a
+deliberate delete is never reopened behind the tab that made it.
 
 Hosts do not import this package directly: the
 [client SDK](../client-sdk/README.md) wraps it as

@@ -199,7 +199,9 @@ test("toolbar Refresh re-measures on device, then returns to the roster refresh"
   await view.findByText("3 documents");
   expect(measureCount).toBe(1);
 
-  const refresh = view.getByRole("button", { name: "Refresh" });
+  // The measurement renders before the panel's refresh registration stops
+  // reporting "Refreshing...", so wait for the toolbar to catch up.
+  const refresh = await view.findByRole("button", { name: "Refresh" });
   await waitFor(() => expect(refresh.hasAttribute("disabled")).toBe(false));
   fireEvent.click(refresh);
   await waitFor(() => expect(measureCount).toBe(2));

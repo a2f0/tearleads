@@ -15,6 +15,11 @@ import {
 } from "./renewedClientTransport";
 import { workerCrashErrorFromEvent } from "./workerCrash";
 
+export {
+  DatabaseConnectionLostError,
+  isDatabaseConnectionLostError,
+} from "./workerCrash";
+
 const DEFAULT_DATABASE_WORKER_URL = "/worker.js";
 const DEFAULT_SHARED_DATABASE_WORKER_NAME = "tearleads-sqlite-worker";
 
