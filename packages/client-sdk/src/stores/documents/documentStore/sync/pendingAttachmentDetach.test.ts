@@ -318,3 +318,42 @@ test.each([
     });
   },
 );
+
+test("deferring attachment detaches leaves durable markers on an otherwise writable store", async () => {
+  await withPendingRuntime("deferred-detach", true, async (input) => {
+    const state = await input.openStore("doc-a");
+    await removeAttachmentFromDocumentStore(state, () => undefined, SLOT_ID);
+    const generation = captureDocumentStoreSyncGeneration(state, state.doc);
+    if (!generation || !state.record) throw new Error("Expected sync state");
+    const record = state.record;
+    const runtime = state.runtime;
+    state.runtime = {
+      ...runtime,
+      util: { ...runtime.util, deferAttachmentDetaches: true },
+    };
+    const sync = () =>
+      syncDetachedAttachmentBindings(
+        state,
+        record,
+        generation,
+        createPrincipalPolicyOperation(),
+      );
+    await sync();
+    expect(input.listBindings).not.toHaveBeenCalled();
+    expect(state.attachmentStorageKeyBySlotId[SLOT_ID]).toBe(STORAGE_KEY);
+    const deferred = state.runtime;
+    state.runtime = runtime;
+    const list = input.listBindings.getMockImplementation();
+    if (!list) throw new Error("Missing binding list");
+    input.listBindings.mockImplementationOnce(async () => {
+      state.runtime = deferred;
+      return list();
+    });
+    await sync();
+    expect(input.detachRequests).toHaveLength(0);
+    expect(state.attachmentStorageKeyBySlotId[SLOT_ID]).toBe(STORAGE_KEY);
+    state.runtime = runtime;
+    await sync();
+    expect(input.detachRequests).toHaveLength(1);
+  });
+});
