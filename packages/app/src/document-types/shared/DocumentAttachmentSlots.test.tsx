@@ -125,7 +125,7 @@ test("clear image buttons are hidden for empty slots", () => {
   expect(view.queryByText("Attach an image to bind this slot.")).toBeNull();
 });
 
-test("shows downloading feedback when an attachment exists before its image bytes load", () => {
+test("shows which image is waiting for bytes without implying an active transfer", () => {
   const view = renderAttachmentSlots({
     attachments: [attachments[0] as DocumentAttachment],
   });
@@ -133,19 +133,34 @@ test("shows downloading feedback when an attachment exists before its image byte
   const frontSlot = view
     .getByText("Front Image")
     .closest(".structured-document-slot");
-  expect(frontSlot?.textContent).toContain("Downloading image...");
+  expect(frontSlot?.textContent).toContain("Waiting for image bytes");
   expect(
     frontSlot
       ?.querySelector(".structured-document-slot-placeholder")
       ?.getAttribute("aria-busy"),
-  ).toBe("true");
+  ).toBeNull();
   expect(frontSlot?.textContent).not.toContain("No image selected");
 
   const backSlot = view
     .getByText("Back Image")
     .closest(".structured-document-slot");
   expect(backSlot?.textContent).toContain("No image selected");
-  expect(backSlot?.textContent).not.toContain("Downloading image...");
+  expect(backSlot?.textContent).not.toContain("Waiting for image bytes");
+});
+
+test("a locally bound image without a preview remains openable", () => {
+  const opened: DocumentBlobOpenRequest[] = [];
+  const view = renderAttachmentSlots({
+    attachmentStorageKeyBySlotId: { front: "held" },
+    onOpenBlob: (request) => opened.push(request),
+  });
+  const button = view.getByRole("button", {
+    name: "Open Front Image",
+    description: "No image preview",
+  });
+  fireEvent.click(button);
+  expect(opened).toEqual([{ storageKey: "held" }]);
+  expect(view.getByText("Waiting for image bytes")).toBeTruthy();
 });
 
 test("opens the bound blob when a slot image is clicked", () => {
