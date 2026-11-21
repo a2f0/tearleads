@@ -56,6 +56,7 @@ const documentContextStoreKeys = defineFacadeKeys<DocumentContextStoreFacade>()(
     "removeAttachment",
     "removeRow",
     "replaceAttachment",
+    "requestRemoteSync",
     "requestSync",
     "relink",
     "restoreContent",
@@ -144,6 +145,11 @@ function DocumentsProviderSession({
   useLayoutEffect(() => {
     store.updateRuntime(runtime);
   }, [store, runtime]);
+
+  // Opening the document is the first access that checks its held files.
+  useEffect(() => {
+    void store.checkHeldAttachments();
+  }, [store]);
 
   useEffect(() => {
     store.requestSync();

@@ -24,6 +24,7 @@ test("a held copy whose digest differs from the document intent is flagged", () 
         served: "2".repeat(64),
       },
       pendingSlotIds: new Set(["queued"]),
+      unavailableSlotIds: new Set(),
     }),
   ).toEqual({ queued: "syncing", served: "intent-mismatch" });
 });
@@ -35,6 +36,7 @@ test("the flag clears once the document records the held digest", () => {
       attachments: [attachment("preview", "1".repeat(64))],
       contentSha256BySlotId,
       pendingSlotIds: new Set(),
+      unavailableSlotIds: new Set(),
     }),
   ).toEqual({ preview: "intent-mismatch" });
   expect(
@@ -42,6 +44,21 @@ test("the flag clears once the document records the held digest", () => {
       attachments: [attachment("preview", "2".repeat(64))],
       contentSha256BySlotId,
       pendingSlotIds: new Set(),
+      unavailableSlotIds: new Set(),
     }),
   ).toEqual({});
+});
+
+test("a missing or damaged copy reports unavailable before a differing digest", () => {
+  expect(
+    getAttachmentStatuses({
+      attachments: [
+        attachment("missing", "1".repeat(64)),
+        attachment("queued", "1".repeat(64)),
+      ],
+      contentSha256BySlotId: { missing: "2".repeat(64) },
+      pendingSlotIds: new Set(["queued"]),
+      unavailableSlotIds: new Set(["missing", "queued"]),
+    }),
+  ).toEqual({ missing: "unavailable", queued: "syncing" });
 });

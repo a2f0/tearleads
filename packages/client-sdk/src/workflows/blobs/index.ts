@@ -27,6 +27,7 @@ export type {
   BlobStore,
 } from "../../data/blobs/blobContracts";
 export {
+  BlobIntegrityError,
   blobByteSourceInputLength,
   createBlobByteSource,
   readBlobByteSource,

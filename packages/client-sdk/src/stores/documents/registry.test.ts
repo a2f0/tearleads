@@ -41,6 +41,7 @@ function createStore(
     addRow: async () => "row-id",
     assertCanRotateContentKey: async () => new Uint8Array(),
     attachFiles: () => undefined,
+    checkHeldAttachments: async () => undefined,
     discardLocalState: async () => onDiscard(),
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,

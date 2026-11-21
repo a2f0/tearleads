@@ -10,6 +10,10 @@ import {
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "../sync/syncGeneration";
 import { commitHydratedAttachment } from "./attachmentHydrationCommit";
+import {
+  hydrationBlobIdBySlotId,
+  hydrationStorageKeyBySlotId,
+} from "./heldCopyChecks";
 
 // A remote probe is evidence that bindings may have moved independently of
 // content. Capture its sequence before I/O so a hint arriving during hydration
@@ -70,8 +74,8 @@ export async function hydrateAttachmentBlobs(
       },
       attachments,
       documentId: currentRecord.documentId,
-      localBlobIdBySlotId: state.attachmentBlobIdBySlotId,
-      localStorageKeyBySlotId: state.attachmentStorageKeyBySlotId,
+      localBlobIdBySlotId: hydrationBlobIdBySlotId(state),
+      localStorageKeyBySlotId: hydrationStorageKeyBySlotId(state, attachments),
       rejectedServedBindings: state.rejectedServedAttachmentBindings,
       resolveProjectionUserKey:
         expectedGeneration?.resolveProjectionUserKey ??

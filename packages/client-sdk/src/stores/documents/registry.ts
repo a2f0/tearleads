@@ -283,9 +283,7 @@ export function createDocumentStoreFacade(
     }
   };
 
-  targetStore.subscribe(() => {
-    emitFacade();
-  });
+  targetStore.subscribe(emitFacade);
 
   // Stable per source snapshot, as external-store readers require.
   const getSnapshot = (): DocumentSnapshot => {
@@ -311,6 +309,7 @@ export function createDocumentStoreFacade(
     // Returned as-is: callers await the store's work behind the void type.
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       superseded ? undefined : targetStore.attachFiles(files),
+    checkHeldAttachments: () => targetStore.checkHeldAttachments(),
     discardLocalState: (expectedDocumentId: string) =>
       targetStore.discardLocalState(expectedDocumentId),
     ensureInitialized: () => targetStore.ensureInitialized(),
