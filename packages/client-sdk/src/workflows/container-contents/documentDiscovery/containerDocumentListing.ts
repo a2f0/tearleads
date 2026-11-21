@@ -89,13 +89,13 @@ function repeatedContinuation(
   const watermark = page.nextWatermark;
   if (watermark) {
     const cursor = cursorKey(watermark);
-    const emptyTerminal =
-      !page.hasMore && !page.items.length && !page.tombstones.length;
-    if (
-      lane.seenWatermarks.has(cursor) &&
-      !(emptyTerminal && lane.watermark && cursorKey(lane.watermark) === cursor)
-    )
-      return true;
+    // A final page may echo the cursor it was requested from: it ends the
+    // lane, so it cannot cycle. Its rows still face the replay check below.
+    const settlesAtRequest =
+      !page.hasMore &&
+      lane.watermark !== null &&
+      cursorKey(lane.watermark) === cursor;
+    if (lane.seenWatermarks.has(cursor) && !settlesAtRequest) return true;
     lane.seenWatermarks.add(cursor);
   }
   // Publication cursors have a fresh IV on every seal. Check durable row
