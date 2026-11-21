@@ -23,7 +23,7 @@ import {
 } from "../../hooks/explorerUploadState";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS, getExplorerUploadsSummaryLabel } from "../../labels";
-import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
+import { useDomainSyncSnapshot } from "../sync/useDomainSyncSnapshot";
 
 // Rows shown before the user asks for more; a 1000-file stress upload should
 // not render a 1000-row table by default.

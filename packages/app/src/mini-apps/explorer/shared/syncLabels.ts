@@ -14,7 +14,6 @@ export const EXPLORER_SYNC_LABELS = {
   syncLanesCompactDocument: "Document",
   syncLanesCompactReconciliation: "Reconciliation",
   syncLanesCountsColumn: "Counts",
-  syncLanesSyncNowAction: "Sync now",
   syncLanesDetailTitle: "Sync Lane Detail",
   syncLanesDetailTabsLabel: "Sync lane detail sections",
   syncLanesDocumentPhase: "Document",
