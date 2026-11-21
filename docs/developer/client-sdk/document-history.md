@@ -84,6 +84,30 @@ commits share one stop only within the
 Replaying a distant stop of a large document can take tens of milliseconds:
 call `viewAt` outside rendering.
 
+## Founding update
+
+`documents.readFoundingUpdate(localId)` resolves to a `DocumentFoundingUpdate`:
+the first update the server committed for a synced document, replayed alone.
+A seeded create commits its update in the create transaction, so this is the
+content the document was created with, and no later edit changes it.
+
+- `content` is a `DocumentHistoryView` of that update alone.
+- `seedTag` is the seed fingerprint the update wrote, if any.
+- `writerUserId` is the signer of the update, verified like any pulled write
+  header.
+
+It needs the network: it pulls the first raw-history page from a null version,
+verifies it like any sync page, and replays only the first update in a scratch
+document. It persists nothing and leaves open stores untouched. It resolves to
+`null` while the database is not ready or the device is offline, and when the
+document has no remote record, no updates, or a rotation baseline as its first
+update.
+
+The Continuity seed importer uses it before resuming uploads into a document an
+earlier run created. The current fingerprint cannot show when it was written:
+any writer can copy it into a later edit. The order is the server's commit
+order, which this device trusts as it does for every sync page.
+
 ## Trust limits
 
 The limits are those of the history itself.
