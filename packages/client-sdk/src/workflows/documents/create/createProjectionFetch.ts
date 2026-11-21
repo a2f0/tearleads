@@ -21,16 +21,22 @@ export type DocumentCreateTerminalFailureHandler = (failure: {
  * so shouldSkipCleanScheduledDocumentSync stays false), and that clean pass
  * clears the row. Across restarts the row itself is a priming ticket that
  * re-drives the store, exactly like a recorded revalidation refusal.
+ *
+ * The read carries the caller's `stillCurrent`, so a late 401 cannot renew
+ * the session for a caller whose scope already ended.
  */
 export async function fetchContainerWriterProjectionForCreate(input: {
   apiClient: DocumentCreateApi;
   containerId: string;
   onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<ContainerWriterProjectionResponse | null> {
   const result = await input.apiClient.getContainerWriterProjectionResult(
     input.containerId,
-    { reportErrors: false },
+    { reportErrors: false, stillCurrent: input.stillCurrent },
   );
+  // A read that outlived its caller says nothing about the queued create.
+  if (input.stillCurrent?.() === false) return null;
   if (result.ok) {
     return result.data;
   }

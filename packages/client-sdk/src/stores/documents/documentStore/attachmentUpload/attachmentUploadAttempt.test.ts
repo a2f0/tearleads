@@ -59,9 +59,9 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
   close();
 
   expect(stageCount).toBe(1);
-  // Preflight, staging, stage request, and part request, then the postflight
-  // recheck that sees the 402's pause.
-  expect(blockCheckCount).toBe(5);
+  // Preflight, staging, stage request, and the part's encryption and request,
+  // then the postflight recheck that sees the 402's pause.
+  expect(blockCheckCount).toBe(6);
   expect(result.remoteSyncBlocked).toBe(true);
   expect(result.uploaded).toBeNull();
   expect(result.error).toBeUndefined();

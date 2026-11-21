@@ -2,7 +2,9 @@
 
 [`SessionRetryIdentity.tla`](./SessionRetryIdentity.tla) checks that a delayed
 401 for identity A never replays its request as identity B. Renewal for A,
-including one completed by a concurrent request, may replay.
+including one completed by a concurrent request, may replay. A request whose
+callers all retired without a sign-in change, as on an organization switch,
+neither starts a renewal nor replays.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -13,6 +15,9 @@ including one completed by a concurrent request, may replay.
 | `Dispatch` | `SessionRenewalTracker.currentToken` rechecks the recorded transition after awaiting renewal and host notification; `fetchResponseRequest` receives that captured token |
 | `JoinRenewal` | `shouldRetryAfterSessionExpired` joins the pending promise for its original token, including the interval between token installation and callback completion |
 | `RetryKeepsActor` | `makeResponseRequest` never replays an earlier request under an unrelated identity |
+| `RetireCallers` | a caller's `stillCurrent` turns false; a shared writer-projection read retires when `SharedRequestScope.current` does, after every caller sharing it retired |
+| `RecheckCallerScope` | `requestRetired` before `shouldRetryAfterSessionExpired` renews, and the `stillCurrent` check after renewal |
+| `RetiredCallersNeitherRenewNorReplay` | `fetchResponseRequest` returns a cancellation for a retired caller instead of renewing or replaying |
 
 Bounds are two actors, one renewal, one identity switch, and one observed request.
 A concurrent request may initiate the renewal before this request receives its
@@ -24,10 +29,17 @@ user). The model does not model token cryptography, server authorization, or
 arbitrarily many renewals. Runtime tests cover logout, a switch during renewal,
 and a switch in the renewal notification callback.
 
+The caller's retirement is one abstract event: an organization switch or any
+other reason its `stillCurrent` turns false. For a shared writer-projection
+read, that event happens only after every caller sharing the read has
+retired.
+
 Negative controls remove the completion revision check or the dispatch check.
 A third removes both changed-token checks, reproducing a blind retry.
 A fourth disables joining a pending renewal and must fail the honest replay
 invariant. A fifth drops the renewed-user check, so a renewal that installs
-another user's session replays the request as that user. Weak fairness
-requires a request to finish; an uninterrupted same-identity renewal must
-successfully replay rather than satisfying safety by refusing all retries.
+another user's session replays the request as that user. A sixth drops the
+caller-scope recheck, so a request whose callers retired renews and replays.
+Weak fairness requires a request to finish; an uninterrupted same-identity
+renewal must successfully replay rather than satisfying safety by refusing all
+retries.

@@ -1,14 +1,30 @@
+interface BlobDownloadScope {
+  /** The stream errors once it has delivered more bytes than this. */
+  readonly maxEncryptedByteLength?: number | undefined;
+  readonly signal?: AbortSignal | undefined;
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
 // A native HTTP bridge can have a successful buffered response with no body
-// stream. Both transports retain the sign-in until the consumer reads a chunk.
+// stream. Both transports retain the caller's scope and sign-in until the
+// consumer reads a chunk: once either ends, the stream delivers nothing more.
 export async function blobDownloadBody(
   response: Response,
-  signal?: AbortSignal,
+  { maxEncryptedByteLength: maxBytes, signal, stillCurrent }: BlobDownloadScope,
   redact = false,
-  maxBytes?: number,
 ): Promise<ReadableStream<Uint8Array>> {
   const stream =
     response.body ?? bufferedResponseBodyStream(await response.arrayBuffer());
-  if (!signal && !redact && maxBytes === undefined) return stream;
+  if (!signal && !stillCurrent && !redact && maxBytes === undefined)
+    return stream;
+  const throwIfRetired = () => {
+    if (signal?.aborted) cancelRetired();
+    signal?.throwIfAborted();
+    if (stillCurrent?.() === false) {
+      cancelRetired();
+      throw new Error("Blob download outlived its caller");
+    }
+  };
   let readBytes = 0;
   const reader = stream.getReader();
   function cancelRetired() {
@@ -19,10 +35,9 @@ export async function blobDownloadBody(
       async pull(controller) {
         signal?.addEventListener("abort", cancelRetired, { once: true });
         try {
-          if (signal?.aborted) cancelRetired();
-          signal?.throwIfAborted();
+          throwIfRetired();
           const { done, value } = await reader.read();
-          signal?.throwIfAborted();
+          throwIfRetired();
           if (done) {
             controller.close();
             reader.releaseLock();

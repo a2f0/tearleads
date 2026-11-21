@@ -11,7 +11,7 @@ import {
   buildMaterializedDocumentCreatePlan,
   type resolveDocumentCreateAuthor,
 } from "../../../documents";
-
+import { readContainerWriterProjection } from "../projectionCache";
 import type { ContainerWorkflowRuntime } from "../types";
 
 export interface ContainerWithMetadataPlanInput {
@@ -95,8 +95,11 @@ export async function buildContainerWithMetadataPlans(
   const { apiClient } = input.runtime;
   const parentId = input.parentProjection.containerId;
   apiClient.evictContainerWriterProjection(parentId);
-  const parentProjection =
-    await apiClient.getContainerWriterProjection(parentId);
+  const parentProjection = await readContainerWriterProjection(
+    apiClient,
+    parentId,
+    input.stillCurrent,
+  );
   if (!parentProjection || input.stillCurrent?.() === false) return null;
   if (
     parentProjection.containerId !== parentId ||
