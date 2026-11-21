@@ -17,7 +17,7 @@ update that version lacks.
 | `Retry` / `RecheckOnRefresh` | `bindAtVerifiedDocumentVersion` asks for a re-checked version after a refusal |
 | `Retry` / `PullOnRefusal` | `pendingAttachmentDocumentVersion` pulls in the same store pass through `pullRemoteDocumentForAttachments` before its re-check |
 | `Retry` / `PullOnRefusal` | `recordDocumentChangedRefusal` re-arms a store pass when an upload call used up its re-checks |
-| `Retry` / `PullOnRefusal` | `bindAtVerifiedDocumentVersion` ends `bound`, `abandoned`, `documentChanged`, or `failed`; only `abandoned` and `documentChanged` re-arm, so a later bind that fails otherwise is reported |
+| `Retry` / `PullOnRefusal` | `bindAtVerifiedDocumentVersion` ends in one closed `DocumentVersionBindEnd` (bound, abandoned, document changed, or failed); only an abandoned or document-changed end re-arms, so a later bind that fails otherwise is reported |
 | `Remove` / `Restore` / `Replace` / `Unrelated` | `appendDocumentUpdates` commits another device's update under `lockSyncDocumentWriteFrontier` |
 | `OtherBind` | `bindBlobAttachment` commits the replacing device's own bytes |
 
