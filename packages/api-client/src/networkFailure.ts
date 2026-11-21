@@ -292,11 +292,14 @@ async function classify(
  * Handles a thrown fetch in order: read the host's connectivity before the
  * reachability hint can flip a non-authoritative source, send that hint
  * unless the caller already cancelled, classify, and say whether the caller
- * cancelled meanwhile (then the request ends as a cancellation).
+ * cancelled meanwhile (then the request ends as a cancellation). Neither the
+ * hint nor the diagnostics are published once the request retired.
  */
 export async function settleNetworkFailure(
   input: Omit<NetworkFailureInput, "online"> & {
     readonly isOnline?: (() => boolean | null) | undefined;
+    /** False once the request's caller or session retired. */
+    readonly isCurrent: () => boolean;
     readonly onNetworkError: () => void;
     /** Diagnostics: every classified failure except a plain cancellation. */
     readonly onNetworkFailure?: ((error: ApiNetworkError) => void) | undefined;
@@ -307,13 +310,14 @@ export async function settleNetworkFailure(
 }> {
   const online = readHostOnline(input.isOnline);
   const cancelledAtFailure = input.signal?.aborted === true;
-  if (!cancelledAtFailure) input.onNetworkError();
+  if (!cancelledAtFailure && input.isCurrent()) input.onNetworkError();
   const networkError = await describeNetworkFailure({
     ...input,
     online,
     probe: cancelledAtFailure ? null : input.probe,
   });
-  if (networkError.details.classification !== "aborted") {
+  // The probe can outlive the request; a retired request publishes nothing.
+  if (networkError.details.classification !== "aborted" && input.isCurrent()) {
     try {
       input.onNetworkFailure?.(networkError);
     } catch {

@@ -18,6 +18,7 @@ async function pausableUpload(input: {
   readonly label: string;
   /** Runs while the stage request is in flight. */
   readonly duringStageRequest?: () => void;
+  readonly resumeStageId?: string;
 }) {
   const fixture = await createMaterializedSyncFixture();
   const multipart = createMultipartBlobStageFixture();
@@ -27,6 +28,7 @@ async function pausableUpload(input: {
     binds: 0,
     parts: [] as number[],
     resolvedStages: 0,
+    stageReads: 0,
     stages: 0,
   };
   const progress: MultipartUploadProgress[] = [];
@@ -39,6 +41,10 @@ async function pausableUpload(input: {
         return null;
       },
       getDocumentWriterProjection: async () => fixture.writerProjection,
+      getMultipartBlobStage: async (stageId, options) => {
+        calls.stageReads += 1;
+        return multipart.getMultipartBlobStage(stageId, options);
+      },
       initiateMultipartBlobStage: async (request) => {
         calls.stages += 1;
         input.duringStageRequest?.();
@@ -72,7 +78,11 @@ async function pausableUpload(input: {
       documentId: fixture.writerProjection.documentId,
       expectedBindingId: null,
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
-      multipart: { partSize: 5 * MIB, uploadConcurrency: 1 },
+      multipart: {
+        partSize: 5 * MIB,
+        resumeStageId: input.resumeStageId,
+        uploadConcurrency: 1,
+      },
       onMultipartProgress: (event) => progress.push(event),
       onStageResolved: () => {
         calls.resolvedStages += 1;
@@ -107,9 +117,32 @@ test("an upload paused after its initial checks creates no stage", async () => {
     binds: 0,
     parts: [],
     resolvedStages: 0,
+    stageReads: 0,
     stages: 0,
   });
   expect(upload.progress).toEqual([]);
+});
+
+test("a paused resume reads no stage", async () => {
+  let checks = 0;
+  const upload = await pausableUpload({
+    bytes: new Uint8Array([1, 2, 3]),
+    isRemoteSyncBlocked: () => {
+      checks += 1;
+      return checks > 1;
+    },
+    label: "upload-paused-before-resume",
+    resumeStageId: "paused-resume-stage",
+  });
+  upload.releaseFirstPart();
+  expect(await upload.uploaded).toBeNull();
+  expect(upload.calls).toEqual({
+    binds: 0,
+    parts: [],
+    resolvedStages: 0,
+    stageReads: 0,
+    stages: 0,
+  });
 });
 
 test("a pause during the stage request keeps the stage resumable", async () => {
@@ -129,6 +162,7 @@ test("a pause during the stage request keeps the stage resumable", async () => {
     binds: 0,
     parts: [],
     resolvedStages: 1,
+    stageReads: 0,
     stages: 1,
   });
   expect(upload.progress.map((event) => event.partsCompleted)).toEqual([0]);
@@ -150,6 +184,7 @@ test("an upload paused during a part sends no later part", async () => {
     binds: 0,
     parts: [1],
     resolvedStages: 1,
+    stageReads: 0,
     stages: 1,
   });
   expect(upload.progress.map((event) => event.partsCompleted)).toEqual([0, 1]);

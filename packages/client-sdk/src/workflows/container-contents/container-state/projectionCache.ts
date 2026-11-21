@@ -81,9 +81,31 @@ export function installContainerWriterProjection(
   containerState.containerWriterProjection = projection;
 }
 
+/**
+ * A caller that can retire passes `stillCurrent`: once it turns false the
+ * transport neither renews the session for this read nor delivers its
+ * response. Scoped readers still share one fetch and its cached result.
+ */
+export async function readContainerWriterProjection(
+  apiClient: Pick<
+    ContainerWorkflowRuntime["apiClient"],
+    "getContainerWriterProjection" | "getContainerWriterProjectionResult"
+  >,
+  containerId: string,
+  stillCurrent: (() => boolean) | undefined,
+): Promise<ContainerWriterProjectionResponse | null> {
+  if (!stillCurrent) return apiClient.getContainerWriterProjection(containerId);
+  const result = await apiClient.getContainerWriterProjectionResult(
+    containerId,
+    { stillCurrent },
+  );
+  return result.ok && stillCurrent() ? result.data : null;
+}
+
 export async function loadContainerWriterProjectionForState(input: {
   containerState: ContainerState;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<ContainerWriterProjectionResponse | null> {
   const cachedProjection = getCachedContainerWriterProjection(
     input.containerState,
@@ -95,8 +117,10 @@ export async function loadContainerWriterProjectionForState(input: {
   let projection: ContainerWriterProjectionResponse | null = null;
   for (let attempt = 0; attempt < MAX_PROJECTION_LOAD_ATTEMPTS; attempt++) {
     const generation = projectionGeneration(input.containerState);
-    projection = await input.runtime.apiClient.getContainerWriterProjection(
+    projection = await readContainerWriterProjection(
+      input.runtime.apiClient,
       input.containerState.container.id,
+      input.stillCurrent,
     );
     if (projectionGeneration(input.containerState) === generation) {
       installContainerWriterProjection(

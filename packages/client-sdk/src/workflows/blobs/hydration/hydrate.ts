@@ -159,8 +159,10 @@ async function loadDocumentAttachmentBlob(
   const { apiClient, binding, log } = input;
   if (input.stillCurrent?.() === false) return null;
   input.signal.throwIfAborted();
+  // The download and every chunk it delivers stop once the caller retires.
   const blob = await apiClient.getBlobBytes(binding.blobId, {
     signal: input.signal,
+    stillCurrent: input.stillCurrent,
     maxEncryptedByteLength: input.maxEncryptedBytes,
   });
   if (!blob) {

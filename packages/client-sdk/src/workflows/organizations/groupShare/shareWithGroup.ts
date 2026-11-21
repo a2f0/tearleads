@@ -270,6 +270,21 @@ export function shareRemoteContainerWithGroup(
   return shareWithGroupReplanningOnce(input, shareRemoteContainerWithGroupOnce);
 }
 
+/** A signed share neither renews nor replays once its caller retires. */
+function submitGroupShare(
+  input: RemoteContainerGroupShareInput,
+  request: Parameters<
+    RemoteContainerGroupShareInput["apiClient"]["shareContainer"]
+  >[1],
+) {
+  return submitPlainContainerMutation(() =>
+    input.apiClient.shareContainer(input.containerId, request, {
+      expectedPaymentRequiredOrganizationId: input.author.organizationId,
+      stillCurrent: input.stillCurrent,
+    }),
+  );
+}
+
 async function shareRemoteContainerWithGroupOnce(
   input: RemoteContainerGroupShareInput,
 ): Promise<RemoteContainerGroupShareResult | null> {
@@ -335,16 +350,7 @@ async function shareRemoteContainerWithGroupOnce(
     execSql: input.execSql,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
-    submit: () =>
-      submitPlainContainerMutation(() =>
-        input.apiClient.shareContainer(
-          input.containerId,
-          materializedPlan.plan.request,
-          {
-            expectedPaymentRequiredOrganizationId: input.author.organizationId,
-          },
-        ),
-      ),
+    submit: () => submitGroupShare(input, materializedPlan.plan.request),
   });
   if (!result) return null;
 

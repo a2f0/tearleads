@@ -24,6 +24,23 @@ at the commit point for writes and deletes. Adapters pass it through to their
 backing store. The SDK's OPFS store checks before closing the staged file and
 aborts the write if its owning sign-in has ended.
 
+## Request scope
+
+Workflows pass their `stillCurrent` predicate to the API client. Once it
+returns false, for example after an organization switch, a new sign-in, or a
+store generation change, the request is retired:
+
+- It does not renew the session or replay.
+- Its response and reachability diagnostics are dropped.
+- A blob download stream delivers no more bytes.
+
+Concurrent writer-projection reads still share one fetch and its cached result.
+The shared fetch stays current while any of its callers is current.
+
+An attachment upload checks its organization's sync pause before each stage or
+part request. A pause stops the upload and returns `null`. A stage created
+before the pause can be resumed.
+
 ## Document persistence notifications
 
 `PersistedDocumentListener` supplies a summary and `placementChanged` flag.

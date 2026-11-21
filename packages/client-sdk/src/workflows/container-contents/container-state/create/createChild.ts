@@ -86,6 +86,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
   const parentProjection = await loadContainerWriterProjectionForState({
     containerState: parentState,
     runtime,
+    stillCurrent,
   });
   if (!parentProjection) {
     return null;

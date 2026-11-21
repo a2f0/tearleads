@@ -226,6 +226,8 @@ async function uploadMultipartPartBytes(input: {
   readonly signal: AbortSignal;
 }): ReturnType<BlobAttachmentApi["uploadMultipartBlobPartBytes"]> {
   input.signal.throwIfAborted();
+  // Before encrypting, and again before sending: a pause can start meanwhile.
+  assertUploadNotPaused(input.paused);
   const { bytes: encryptedPartBytes, sha256 } = await encryptedPart(input);
   input.signal.throwIfAborted();
   assertUploadCurrent(input.stillCurrent);

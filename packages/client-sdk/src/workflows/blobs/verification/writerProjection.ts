@@ -31,10 +31,16 @@ export async function resolveBlobMutationWriterProjection(
   manifestIdentity: DocumentManifestIdentity;
   writerProjection: DocumentWriterProjectionResponse;
 } | null> {
+  // A scoped read neither renews the session nor delivers once retired.
+  const { stillCurrent } = input;
   const writerProjection =
     input.writerProjection ??
-    (await input.apiClient.getDocumentWriterProjection(input.documentId));
-  if (!writerProjection) {
+    (await (stillCurrent
+      ? input.apiClient.getDocumentWriterProjection(input.documentId, {
+          stillCurrent,
+        })
+      : input.apiClient.getDocumentWriterProjection(input.documentId)));
+  if (!writerProjection || stillCurrent?.() === false) {
     return null;
   }
 
