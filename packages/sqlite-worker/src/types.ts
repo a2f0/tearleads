@@ -132,6 +132,12 @@ export const WORKER_PORT_DISCONNECTED_MESSAGE_TYPE =
 export const DATABASE_NOT_INITIALIZED_MESSAGE =
   "Database has not been initialized.";
 
+// The worker's answer to a statement on a connection whose database another
+// connection deleted. A deliberate delete (logout, destroying an identity) is
+// not a loss to recover from, so it must not read as a never-opened database.
+export const DATABASE_DELETED_MESSAGE =
+  "Database was deleted by another connection.";
+
 export type WorkerMethod = keyof WorkerRequestMap;
 
 export type WorkerRequest<K extends WorkerMethod = WorkerMethod> =

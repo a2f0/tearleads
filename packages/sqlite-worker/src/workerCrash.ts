@@ -30,6 +30,27 @@ export class DatabaseWorkerCrashError extends Error {
   }
 }
 
+const CONNECTION_LOST_DETAIL =
+  "The database connection was lost when the tab that owned it closed. Open the database again.";
+
+/**
+ * A client's open database went away with the owner tab whose worker held it.
+ * Hosts handle it as a crash (retire the runtime, open a new one) but it is the
+ * expected result of closing or reloading a tab, not a defect: report it below
+ * error level. The inherited message prefix keeps "the database went away"
+ * classifiers matching it.
+ */
+export class DatabaseConnectionLostError extends DatabaseWorkerCrashError {
+  constructor() {
+    super({ message: CONNECTION_LOST_DETAIL });
+    this.name = "DatabaseConnectionLostError";
+  }
+}
+
+export function isDatabaseConnectionLostError(error: unknown): boolean {
+  return error instanceof DatabaseConnectionLostError;
+}
+
 export function describeWorkerErrorEvent(event: Event): WorkerCrashDetail {
   if (!(event instanceof ErrorEvent)) {
     return { message: "" };

@@ -1,10 +1,11 @@
 import type { WorkerLike } from "./client";
 import {
   admitLocalClientRequest,
+  assertLocalClientConnected,
   createLocalClient,
-  databaseConnectionLostError,
   dispatchCrashToLocalClient,
   dispatchResponseToLocalClient,
+  isOpenLocalClient,
   type LocalClient,
   releaseLocalClient,
   releaseLocalClientFromPreviousOwner,
@@ -171,10 +172,8 @@ class CrossTabCoordinator {
         return;
       }
 
-      // No owner holds a lost client's database; fail here rather than reach
-      // one that would answer as if the database had never been opened.
-      if (localClient?.connection.status === "lost") {
-        throw databaseConnectionLostError();
+      if (localClient) {
+        assertLocalClientConnected(localClient);
       }
 
       if (this.owner) {
@@ -402,7 +401,7 @@ class CrossTabCoordinator {
 
   private hasOpenLocalClients(): boolean {
     for (const localClient of this.localClientsById.values()) {
-      if (!localClient.closing) {
+      if (isOpenLocalClient(localClient)) {
         return true;
       }
     }

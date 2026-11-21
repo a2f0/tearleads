@@ -152,7 +152,7 @@ test("closing one port keeps the shared database open for another port", async (
   });
 });
 
-test("delete detaches every port attached to that database", async () => {
+test("delete detaches every port attached to that database and says so", async () => {
   const createOptions = createDatabaseWorkerConnectionFactory();
   const first = connectSharedWorkerPort(createOptions);
   const second = connectSharedWorkerPort(createOptions);
@@ -176,8 +176,25 @@ test("delete detaches every port attached to that database", async () => {
     id: 4,
     result: {
       ok: false,
-      message: "Database has not been initialized.",
+      message: "Database was deleted by another connection.",
     },
+  });
+
+  // A port that opens a database again is an ordinary open connection.
+  await second.dispatch(request(5, "init", initOptions(dbName)));
+  expect(
+    await second.dispatch(
+      request(6, "exec", { rowMode: "array", sql: "SELECT 1" }),
+    ),
+  ).toEqual({ id: 6, result: { ok: true, rows: [[1]] } });
+  await second.dispatch(request(7, "close", undefined));
+  expect(
+    await second.dispatch(
+      request(8, "exec", { rowMode: "array", sql: "SELECT 1" }),
+    ),
+  ).toEqual({
+    id: 8,
+    result: { ok: false, message: "Database has not been initialized." },
   });
 });
 

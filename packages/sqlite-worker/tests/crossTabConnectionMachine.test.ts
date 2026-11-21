@@ -2,91 +2,97 @@ import { expect, test } from "bun:test";
 import {
   type CrossTabConnectionEvent,
   type CrossTabConnectionState,
+  connectionEventForRequest,
   connectionEventForResponse,
+  isOpenCrossTabConnection,
   transitionCrossTabConnection,
 } from "../src/crossTabConnectionMachine";
-import { DATABASE_NOT_INITIALIZED_MESSAGE } from "../src/types";
+import {
+  DATABASE_DELETED_MESSAGE,
+  DATABASE_NOT_INITIALIZED_MESSAGE,
+} from "../src/types";
 
 const unbound: CrossTabConnectionState = { status: "unbound" };
 const bound: CrossTabConnectionState = { status: "bound" };
+const closing: CrossTabConnectionState = { status: "closing" };
 const lost: CrossTabConnectionState = { status: "lost" };
 
 const opened: CrossTabConnectionEvent = { type: "opened" };
-const closed: CrossTabConnectionEvent = { type: "closed" };
+const closeRequested: CrossTabConnectionEvent = { type: "closeRequested" };
 const databaseMissing: CrossTabConnectionEvent = { type: "databaseMissing" };
 const ownerGone: CrossTabConnectionEvent = { type: "ownerGone" };
 
 test.each([
   [unbound, opened, bound],
-  [unbound, closed, unbound],
+  [unbound, closeRequested, closing],
   [unbound, databaseMissing, unbound],
   [unbound, ownerGone, unbound],
   [bound, opened, bound],
-  [bound, closed, unbound],
+  [bound, closeRequested, closing],
   [bound, databaseMissing, lost],
   [bound, ownerGone, lost],
+  [closing, opened, closing],
+  [closing, closeRequested, closing],
+  [closing, databaseMissing, closing],
+  [closing, ownerGone, lost],
   [lost, opened, lost],
-  [lost, closed, lost],
+  [lost, closeRequested, lost],
   [lost, databaseMissing, lost],
   [lost, ownerGone, lost],
 ] as const)("%o on %o becomes %o", (state, event, next) => {
   expect(transitionCrossTabConnection(state, event)).toEqual(next);
 });
 
+test("only an unbound or bound client still needs an owner", () => {
+  expect(isOpenCrossTabConnection(unbound)).toBe(true);
+  expect(isOpenCrossTabConnection(bound)).toBe(true);
+  expect(isOpenCrossTabConnection(closing)).toBe(false);
+  expect(isOpenCrossTabConnection(lost)).toBe(false);
+});
+
+test("a close or delete request starts the teardown", () => {
+  expect(connectionEventForRequest("close")).toEqual(closeRequested);
+  expect(connectionEventForRequest("delete")).toEqual(closeRequested);
+  expect(connectionEventForRequest("prepareDelete")).toBeNull();
+  expect(connectionEventForRequest("exec")).toBeNull();
+  expect(connectionEventForRequest(null)).toBeNull();
+});
+
 function failure(message: string) {
   return { id: 1, result: { ok: false, message } };
 }
 
-test("a successful init opens and a successful teardown closes", () => {
+test("only a successful init opens the database", () => {
   const success = { id: 1, result: { ok: true } };
-  for (const [method, event] of [
-    ["init", opened],
-    ["close", closed],
-    ["delete", closed],
-    ["exec", null],
-    ["ping", null],
-    [null, null],
-  ] as const) {
-    expect(
-      connectionEventForResponse({ closing: false, method, response: success }),
-    ).toEqual(event);
+  expect(connectionEventForResponse("init", success)).toEqual(opened);
+  for (const method of ["close", "delete", "exec", "ping", null]) {
+    expect(connectionEventForResponse(method, success)).toBeNull();
   }
 });
 
-test("only a missing database outside teardown reports the database missing", () => {
+test("only a never-opened answer reports the database missing", () => {
   expect(
-    connectionEventForResponse({
-      closing: false,
-      method: "exec",
-      response: failure(DATABASE_NOT_INITIALIZED_MESSAGE),
-    }),
+    connectionEventForResponse(
+      "exec",
+      failure(DATABASE_NOT_INITIALIZED_MESSAGE),
+    ),
   ).toEqual(databaseMissing);
+  // A deliberate delete elsewhere is not a loss to recover from.
   expect(
-    connectionEventForResponse({
-      closing: true,
-      method: "exec",
-      response: failure(DATABASE_NOT_INITIALIZED_MESSAGE),
-    }),
+    connectionEventForResponse("exec", failure(DATABASE_DELETED_MESSAGE)),
   ).toBeNull();
   expect(
-    connectionEventForResponse({
-      closing: false,
-      method: "exec",
-      response: failure("no such table: t"),
-    }),
+    connectionEventForResponse("exec", failure("no such table: t")),
   ).toBeNull();
   expect(
-    connectionEventForResponse({
-      closing: false,
-      method: "init",
-      response: failure("Timed out waiting for the database owner tab."),
-    }),
+    connectionEventForResponse(
+      "init",
+      failure("Timed out waiting for the database owner tab."),
+    ),
   ).toBeNull();
   expect(
-    connectionEventForResponse({
-      closing: false,
-      method: "exec",
-      response: { type: "tearleads:sqlite-port-disconnected" },
+    connectionEventForResponse("exec", {
+      type: "tearleads:sqlite-port-disconnected",
     }),
   ).toBeNull();
 });

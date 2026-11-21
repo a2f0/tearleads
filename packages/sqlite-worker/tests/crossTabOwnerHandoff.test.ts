@@ -1,14 +1,19 @@
 import { expect, test } from "bun:test";
+import { createDatabaseWorkerClient } from "../src/client";
 import { createCrossTabDatabaseWorker } from "../src/crossTabRuntime";
 import {
   createSharedDatabaseRuntime,
   type DatabaseRuntime,
+  isDatabaseConnectionLostError,
 } from "../src/runtime";
 import { DatabaseWorkerCrashError } from "../src/workerCrash";
 import {
   closeFirstCrossTabChannel,
   MockLockManager,
+  PortAwareWorker,
   requireCrossTabWorker,
+  ThrowingWorker,
+  uniqueWorkerUrl,
   waitUntil,
   withCrossTabGlobals,
 } from "./crossTabTestHarness";
@@ -119,7 +124,7 @@ test("a promoted tab's open database fails as lost instead of reporting it unini
 
     // Promotion itself reports the loss, before the next statement is sent.
     await waitUntil(() => survivorCrash() !== null);
-    expect(survivorCrash()).toBeInstanceOf(DatabaseWorkerCrashError);
+    expect(isDatabaseConnectionLostError(survivorCrash())).toBe(true);
     expect(String(survivorCrash())).toContain("connection was lost");
     const error = await rejectionOf(
       survivor.client.exec({ sql: "SELECT x FROM t" }),
@@ -173,9 +178,10 @@ test("a tab served by another tab's new owner learns its database was lost", asy
     const error = await rejectionOf(
       remote.client.exec({ sql: "SELECT x FROM t" }),
     );
-    expect(error).toBeInstanceOf(DatabaseWorkerCrashError);
+    expect(isDatabaseConnectionLostError(error)).toBe(true);
     expect(String(error)).toContain("connection was lost");
-    expect(remoteCrash()).toBeInstanceOf(DatabaseWorkerCrashError);
+    // The same loss reaches the host, which retires the runtime.
+    expect(remoteCrash() === error).toBe(true);
 
     // Later requests fail at once rather than reaching the new owner.
     expect(
@@ -195,7 +201,7 @@ test("a tab served by another tab's new owner learns its database was lost", asy
   });
 });
 
-test("a database deleted through another connection is reported lost", async () => {
+test("a database another tab deleted is not reopened behind it", async () => {
   await withRealWorkerTabs(async () => {
     const ownerTab = openTab(tabWorkerUrl("owner"));
     await ownerTab.client.init(INIT_OPTIONS);
@@ -205,13 +211,54 @@ test("a database deleted through another connection is reported lost", async () 
     await sibling.client.init(INIT_OPTIONS);
     await sibling.client.exec({ sql: "SELECT 1" });
 
+    // Logout and destroying an identity delete the database on purpose; a
+    // sibling tab must not treat that as a loss and open it again.
     await ownerTab.client.delete();
 
     const error = await rejectionOf(sibling.client.exec({ sql: "SELECT 1" }));
-    expect(error).toBeInstanceOf(DatabaseWorkerCrashError);
-    expect(siblingCrash()).toBeInstanceOf(DatabaseWorkerCrashError);
+    expect(error).not.toBeInstanceOf(DatabaseWorkerCrashError);
+    expect(String(error)).toContain(
+      "Database was deleted by another connection.",
+    );
+    expect(siblingCrash()).toBeNull();
     sibling.terminateNow();
     ownerTab.terminateNow();
+  });
+});
+
+test("a tab whose own owner fails to start still reports its database lost", async () => {
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    // The owner tab answers every request, so the other tab's init binds it.
+    const ownerWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("owner"), PortAwareWorker),
+    );
+    const ownerClient = createDatabaseWorkerClient(ownerWorker);
+    await ownerClient.ping();
+
+    const promotedWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("broken"), ThrowingWorker),
+    );
+    const crashes: unknown[] = [];
+    promotedWorker.addEventListener("error", (event) => {
+      crashes.push(event instanceof ErrorEvent ? event.error : event);
+    });
+    const promotedClient = createDatabaseWorkerClient(promotedWorker);
+    await promotedClient.init(INIT_OPTIONS);
+
+    // Promoted, its own owner worker throws on construction. The owner that
+    // held its database is gone either way.
+    locks.forceRelease(OWNER_LOCK_NAME);
+    await waitUntil(() => crashes.length === 1);
+    expect(isDatabaseConnectionLostError(crashes[0])).toBe(true);
+
+    const error = await rejectionOf(promotedClient.exec({ sql: "SELECT 1" }));
+    expect(String(error)).toContain("connection was lost");
+    promotedClient.destroy();
+    promotedWorker.close();
+    ownerClient.destroy();
+    ownerWorker.close();
   });
 });
 

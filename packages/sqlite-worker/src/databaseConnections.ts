@@ -6,6 +6,7 @@ import {
   initDatabase,
 } from "./loadSqlite3";
 import {
+  DATABASE_DELETED_MESSAGE,
   DATABASE_NOT_INITIALIZED_MESSAGE,
   type DatabaseWorkerExecOptions,
   type DatabaseWorkerExecResult,
@@ -26,6 +27,8 @@ interface DatabaseEntry {
 
 interface ConnectionState {
   dbName: string | null;
+  // Another connection deleted this one's database; cleared by a later init.
+  databaseDeleted: boolean;
   generation: number;
   initializing: boolean;
 }
@@ -63,6 +66,7 @@ class DatabaseConnectionRegistry {
   createConnection(): RegisterDatabaseWorkerOptions {
     const state: ConnectionState = {
       dbName: null,
+      databaseDeleted: false,
       generation: 0,
       initializing: false,
     };
@@ -104,6 +108,7 @@ class DatabaseConnectionRegistry {
       }
 
       state.dbName = entry.dbName;
+      state.databaseDeleted = false;
       this.addConnection(entry.dbName, state);
     } finally {
       state.initializing = false;
@@ -117,7 +122,11 @@ class DatabaseConnectionRegistry {
   ): Promise<DatabaseWorkerExecResult["rows"]> {
     const dbName = state.dbName;
     if (!dbName) {
-      throw new Error(DATABASE_NOT_INITIALIZED_MESSAGE);
+      throw new Error(
+        state.databaseDeleted
+          ? DATABASE_DELETED_MESSAGE
+          : DATABASE_NOT_INITIALIZED_MESSAGE,
+      );
     }
 
     const entry = this.databasesByName.get(dbName);
@@ -238,6 +247,7 @@ class DatabaseConnectionRegistry {
     if (connections) {
       for (const connection of connections) {
         connection.dbName = null;
+        connection.databaseDeleted = true;
         connection.generation += 1;
       }
       this.connectionsByName.delete(dbName);

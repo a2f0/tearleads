@@ -1,6 +1,9 @@
 import {
+  type CrossTabConnectionEvent,
   type CrossTabConnectionState,
+  connectionEventForRequest,
   connectionEventForResponse,
+  isOpenCrossTabConnection,
   transitionCrossTabConnection,
   UNBOUND_CONNECTION,
 } from "./crossTabConnectionMachine";
@@ -14,7 +17,10 @@ import {
   requestMethod,
   responseId,
 } from "./crossTabProtocol";
-import { DatabaseWorkerCrashError } from "./workerCrash";
+import {
+  DatabaseConnectionLostError,
+  type DatabaseWorkerCrashError,
+} from "./workerCrash";
 
 /**
  * One logical client of this tab's coordinator: the synthetic worker handed to a
@@ -22,13 +28,12 @@ import { DatabaseWorkerCrashError } from "./workerCrash";
  * a remote owner tab, and where its open database lives.
  */
 export interface LocalClient {
-  closing: boolean;
   connection: CrossTabConnectionState;
   readonly dispatch: (response: unknown) => void;
   readonly dispatchError: (error: DatabaseWorkerCrashError) => void;
   readonly liveness: ClientLivenessLock;
   // The method of every request still awaiting its response, so a response
-  // can say whether it opened or closed the client's database.
+  // can say whether it opened the client's database.
   readonly methodsByRequestId: Map<number, string>;
   readonly timeoutsByRequestId: Map<number, ReturnType<typeof setTimeout>>;
   // Request ids this client posted over BroadcastChannel that have not yet been
@@ -42,7 +47,6 @@ export function createLocalClient(
   events: EventTarget,
 ): LocalClient {
   return {
-    closing: false,
     connection: UNBOUND_CONNECTION,
     dispatch: (response) => {
       events.dispatchEvent(new MessageEvent("message", { data: response }));
@@ -61,16 +65,18 @@ export function createLocalClient(
   };
 }
 
-/**
- * The failure a client sees once its open database is gone. It is a crash: the
- * host retires the runtime and opens a new one, exactly as when the worker
- * itself dies, and the message keeps database-unavailable classifiers matching.
- */
-export function databaseConnectionLostError(): DatabaseWorkerCrashError {
-  return new DatabaseWorkerCrashError({
-    message:
-      "The database connection was lost: the tab that owned it closed, or another connection deleted the database. Open the database again.",
-  });
+// Apply an event; true when it just made the client lost.
+function applyConnectionEvent(
+  localClient: LocalClient,
+  event: CrossTabConnectionEvent | null,
+): boolean {
+  if (!event) {
+    return false;
+  }
+
+  const previous = localClient.connection;
+  localClient.connection = transitionCrossTabConnection(previous, event);
+  return previous.status !== "lost" && localClient.connection.status === "lost";
 }
 
 /** Note what a request will do to the client before it is routed. */
@@ -80,12 +86,25 @@ export function admitLocalClientRequest(
 ): void {
   const id = requestId(request);
   const method = requestMethod(request);
-  if (method === "close" || method === "delete") {
-    localClient.closing = true;
-  }
+  applyConnectionEvent(localClient, connectionEventForRequest(method));
   if (id !== null && method !== null) {
     localClient.methodsByRequestId.set(id, method);
   }
+}
+
+/**
+ * No owner holds a lost client's database, so its requests fail here rather
+ * than reach one that would answer as if the database had never been opened.
+ */
+export function assertLocalClientConnected(localClient: LocalClient): void {
+  if (localClient.connection.status === "lost") {
+    throw new DatabaseConnectionLostError();
+  }
+}
+
+/** Whether the client still needs an owner to serve it. */
+export function isOpenLocalClient(localClient: LocalClient): boolean {
+  return isOpenCrossTabConnection(localClient.connection);
 }
 
 // Every request this client has outstanding — routed locally or posted to a
@@ -121,22 +140,11 @@ export function dispatchResponseToLocalClient(
     localClient.methodsByRequestId.delete(id);
   }
 
-  const event = connectionEventForResponse({
-    closing: localClient.closing,
-    method,
-    response,
-  });
-  if (event) {
-    const previous = localClient.connection;
-    localClient.connection = transitionCrossTabConnection(previous, event);
-    if (
-      previous.status !== "lost" &&
-      localClient.connection.status === "lost"
-    ) {
-      // This answer and every other outstanding request fail as one loss.
-      crashLocalClient(localClient, databaseConnectionLostError());
-      return;
-    }
+  const event = connectionEventForResponse(method, response);
+  if (applyConnectionEvent(localClient, event)) {
+    // This answer and every other outstanding request fail as one loss.
+    crashLocalClient(localClient, new DatabaseConnectionLostError());
+    return;
   }
 
   localClient.dispatch(response);
@@ -152,24 +160,21 @@ export function dispatchCrashToLocalClient(
     return;
   }
 
-  localClient.connection = transitionCrossTabConnection(
-    localClient.connection,
-    { type: "ownerGone" },
-  );
+  applyConnectionEvent(localClient, { type: "ownerGone" });
   crashLocalClient(localClient, error);
 }
 
 /**
  * This tab just took the owner lock, so the owner it had been routing to is
- * gone. A client with a database open there has lost it; any other client only
- * loses the requests it had posted there, which fail with a retryable error
- * rather than waiting out the timeout.
+ * gone. A client with a database open there, or retiring from it, has lost it;
+ * any other client only loses the requests it had posted there, which fail
+ * with a retryable error rather than waiting out the timeout.
  */
 export function releaseLocalClientFromPreviousOwner(
   localClient: LocalClient,
 ): void {
-  if (localClient.connection.status === "bound") {
-    dispatchCrashToLocalClient(localClient, databaseConnectionLostError());
+  if (applyConnectionEvent(localClient, { type: "ownerGone" })) {
+    crashLocalClient(localClient, new DatabaseConnectionLostError());
     return;
   }
 
