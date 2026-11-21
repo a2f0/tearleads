@@ -1,11 +1,13 @@
 export const EXPLORER_DOWNLOAD_LABELS = {
   downloadsAction: "Downloads",
   downloadsDescription:
-    "Known documents, folder metadata, and files waiting to download. More items may appear as folders are discovered.",
+    "Known documents, folder metadata, and files waiting to download, and those downloaded this session. More items may appear as folders are discovered.",
   downloadsEmpty: "No pending downloads.",
   downloadsLoading: "Loading downloads...",
   downloadsUnknownDocument: "Document awaiting content",
   downloadsUnknownFolder: "Folder awaiting metadata",
+  downloadsUntitledDocument: "Untitled document",
+  downloadsUntitledFolder: "Untitled folder",
   downloadsWaiting: "Waiting to download",
   downloadsFileWaiting: "Waiting for file",
   downloadsRunning: "Downloading",

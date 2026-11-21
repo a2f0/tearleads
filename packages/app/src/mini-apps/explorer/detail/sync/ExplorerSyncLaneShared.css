@@ -1,0 +1,80 @@
+/*
+ * The sync progress bar and status badge, shared by Sync Lanes and the
+ * transfer tabs so a status reads the same on every tab.
+ */
+.explorer-sync-lane-muted {
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-subtle);
+}
+
+.explorer-sync-lane-progress-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.explorer-sync-lane-status {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  max-width: 100%;
+  min-height: 1.35rem;
+  padding: 0 var(--info-table-cell-padding);
+  border: var(--border);
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-sync-lane-status--idle,
+.explorer-sync-lane-status--complete {
+  opacity: var(--opacity-subtle);
+}
+
+.explorer-sync-lane-status--queued,
+.explorer-sync-lane-status--running,
+.explorer-sync-lane-status--error {
+  opacity: 1;
+}
+
+.explorer-sync-lane-status--error {
+  font-weight: 700;
+}
+
+.explorer-sync-lane-progress {
+  display: block;
+  width: 100%;
+  height: 0.55rem;
+  border: var(--border);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.explorer-sync-lane-progress > span {
+  display: block;
+  height: 100%;
+  background: currentColor;
+}
+
+.explorer-sync-lane-progress--idle > span {
+  opacity: 0;
+}
+
+.explorer-sync-lane-progress--queued > span {
+  opacity: var(--opacity-muted);
+}
+
+.explorer-sync-lane-progress--running > span {
+  opacity: 1;
+}
+
+.explorer-sync-lane-progress--complete > span {
+  opacity: var(--opacity-subtle);
+}
+
+.explorer-sync-lane-progress--error > span {
+  opacity: 1;
+}
