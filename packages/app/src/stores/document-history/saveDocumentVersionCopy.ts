@@ -1,7 +1,8 @@
-import type {
-  DocumentHistoryView,
-  DocumentSummary,
-  StoredDocumentKind,
+import {
+  DEFAULT_DOCUMENT_KIND,
+  type DocumentHistoryView,
+  type DocumentSummary,
+  type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 
 /**
@@ -66,7 +67,9 @@ export async function saveDocumentVersionCopy(input: {
     // A note has no structured fields, and a store refuses to open one with
     // any.
     initialStructuredFields:
-      content.documentKind === "note" ? {} : content.structuredFields,
+      content.documentKind === DEFAULT_DOCUMENT_KIND
+        ? {}
+        : content.structuredFields,
     initialText: content.text,
     localId,
   });

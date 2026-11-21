@@ -47,7 +47,8 @@ function normalizeOptionalString(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
-function readSelfField(value: string): boolean {
+/** Whether a contact's stored `isSelf` field says it is the viewer. */
+export function isSelfContactFieldValue(value: string): boolean {
   const normalized = value.trim().toLowerCase();
   return normalized === "1" || normalized === "true";
 }
@@ -78,7 +79,7 @@ export function contactFieldsToEntry(
       encapsulationPublicKey.length > 0 ? encapsulationPublicKey : null,
     firstName: fields.firstName.trim(),
     id,
-    isSelf: readSelfField(fields.isSelf),
+    isSelf: isSelfContactFieldValue(fields.isSelf),
     lastName: fields.lastName.trim(),
     nickname: fields.nickname.trim(),
     userId: userId.length > 0 ? userId : null,

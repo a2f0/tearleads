@@ -1,6 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
-import { isTruthyStructuredField } from "../../../../document-types/shared/documentFieldUtils";
+import { isSelfContactFieldValue } from "../../../../document-types/contact/contactDocumentModel";
+import { isFileBackedDocumentKind } from "../../../../document-types/registry";
 import {
   type SelfContactIdentityView,
   selfContactIdentityAdmission,
@@ -44,7 +45,20 @@ export interface ExplorerDocumentVersionCopy {
  */
 function claimsToBeViewer(content: DocumentVersionCopyContent): boolean {
   const { isSelf = "" } = content.structuredFields;
-  return content.documentKind === "contact" && isTruthyStructuredField(isSelf);
+  return content.documentKind === "contact" && isSelfContactFieldValue(isSelf);
+}
+
+/**
+ * Whether a version's content can stand as a document of its own. A
+ * file-backed version (an image, a PDF, any uploaded file) is its attachment,
+ * and attachments are not copied: the copy would be a file document with no
+ * file.
+ */
+function canStandAlone(content: DocumentVersionCopyContent): boolean {
+  return (
+    !isFileBackedDocumentKind(content.documentKind) &&
+    !claimsToBeViewer(content)
+  );
 }
 
 /** What a copy is created under. */
@@ -130,7 +144,7 @@ export function useExplorerDocumentVersionCopy(
   const canSave = useCallback<ExplorerDocumentVersionCopy["canSave"]>(
     (document, content) =>
       document.containerId !== null &&
-      !claimsToBeViewer(content) &&
+      canStandAlone(content) &&
       // A folder moved to the Trash keeps no rules of its own, but everything
       // under the Trash is read-only: nothing new is born there.
       !isContainerUnderTrashByLookup(

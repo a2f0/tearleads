@@ -57,9 +57,12 @@ export function useDocumentHistoryCopyControl(
     };
   }, []);
 
+  const { status } = state;
   const confirm = useCallback<DocumentHistoryCopyControl["confirm"]>(
     (document, view) => {
-      if (saving.current) return;
+      // Only a confirmation that is open starts a copy: otherwise the machine
+      // would ignore `confirmed` and the document's outcome would go unsaid.
+      if (saving.current || status !== "confirming") return;
       saving.current = true;
       currentRun.current += 1;
       const run = currentRun.current;
@@ -76,7 +79,7 @@ export function useDocumentHistoryCopyControl(
       }
       pending.then(finish, () => finish(null));
     },
-    [copy],
+    [copy, status],
   );
 
   return useMemo(() => ({ confirm, send, state }), [confirm, state]);

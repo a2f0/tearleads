@@ -89,7 +89,9 @@ copy does not need it to be writable and is offered on the newest stop too.
   version's order.
 - **Attachments are not copied.** As with a restore, a detached attachment's
   bytes are [not retained](../../../../../docs/attachment-retention.md), and a
-  copy never points at the original's bytes.
+  copy never points at the original's bytes. A file-backed version (an
+  image, audio, video, PDF, or other uploaded file) is its attachment, so it
+  offers no copy: the copy would be a file document with no file.
 - **The folder must take a new document of that kind**
   ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/containerRules.ts)).
   An ordinary folder does when it is writable. A system folder holds what the

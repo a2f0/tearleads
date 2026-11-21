@@ -1,6 +1,12 @@
 import { afterEach, expect, test } from "bun:test";
 import type { DocumentSummary } from "@tearleads/client-sdk";
 import { cleanup, renderHook } from "@testing-library/react";
+import { AUDIO_DOCUMENT_KIND } from "../../../../document-types/audio/audioDocumentDefinition";
+import { GENERIC_FILE_DOCUMENT_KIND } from "../../../../document-types/generic-file/genericFileDocumentDefinition";
+import { IMAGE_DOCUMENT_KIND } from "../../../../document-types/image/imageDocumentDefinition";
+import { JSON_FILE_DOCUMENT_KIND } from "../../../../document-types/json-file/jsonFileDocumentDefinition";
+import { PDF_DOCUMENT_KIND } from "../../../../document-types/pdf/pdfDocumentDefinition";
+import { VIDEO_DOCUMENT_KIND } from "../../../../document-types/video/videoDocumentDefinition";
 import type { SelfContactIdentityView } from "../../../../stores/contacts/currentSelfContactIdentityState";
 import type { DocumentVersionCopyContent } from "../../../../stores/document-history/saveDocumentVersionCopy";
 import {
@@ -196,6 +202,29 @@ test("a contact version asks the folder after waiting for the Me read", async ()
 
   expect(await pending).toBeNull();
   expect(links.opened).toHaveLength(0);
+});
+
+test("a file-backed version is never created: its file is not copied", async () => {
+  const links = documentLinks();
+  const hook = mount(await createReadySelfIdentity(), links);
+  const document = identityDocument({ containerId: "linked-folder" });
+
+  for (const documentKind of [
+    IMAGE_DOCUMENT_KIND,
+    AUDIO_DOCUMENT_KIND,
+    VIDEO_DOCUMENT_KIND,
+    PDF_DOCUMENT_KIND,
+    GENERIC_FILE_DOCUMENT_KIND,
+  ]) {
+    const content = { ...NOTE, documentKind };
+    expect(hook.copy().canSave(document, content)).toBe(false);
+    expect(await hook.copy().save(document, content)).toBeNull();
+  }
+  expect(links.opened).toHaveLength(0);
+
+  // A JSON file is uploaded too, but its content is its text.
+  const json = { ...NOTE, documentKind: JSON_FILE_DOCUMENT_KIND };
+  expect(hook.copy().canSave(document, json)).toBe(true);
 });
 
 test("a contact version that says it is the viewer is never created", async () => {
