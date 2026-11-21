@@ -11,8 +11,18 @@ import { readWriteHeader } from "../../../data/documents/shared/readers";
 import { createAttachmentDecryptor } from "../verification/attachmentDecryptor";
 
 for (const inScope of [false, true]) {
-  for (const freshEvidence of [false, true]) {
-    test(`attachment hydration refreshes valid ancestor citations and rejects unrelated paths (fresh=${freshEvidence}, inScope=${inScope})`, async () => {
+  for (const mode of [
+    "stale",
+    "fresh",
+    ...(inScope
+      ? ["bounded", "bounded without signal", "constructed without signal"]
+      : []),
+  ]) {
+    const freshEvidence = mode !== "stale";
+    const bounded = mode !== "stale" && mode !== "fresh";
+    const signal =
+      mode === "bounded" ? new AbortController().signal : undefined;
+    test(`attachment hydration refreshes valid ancestor citations and rejects unrelated paths (mode=${mode}, inScope=${inScope})`, async () => {
       const fixture = await createUploadedAttachmentFixture({
         nestedContainer: inScope,
       });
@@ -30,8 +40,9 @@ for (const inScope of [false, true]) {
         let evictions = 0;
         let downloads = 0;
         const incidents: unknown[] = [];
-        const hydration = createBlobAttachmentServiceFixture({
+        const service = createBlobAttachmentServiceFixture({
           api: {
+            supportsBoundedAttachmentReads: true,
             evictDocumentWriterProjection: () => {
               evictions += 1;
             },
@@ -39,7 +50,13 @@ for (const inScope of [false, true]) {
               downloads += 1;
               return createBlobBytesResponse({ blobId, ...fixture.stagedBlob });
             },
-            getDocumentWriterProjection: async () => {
+            getDocumentWriterProjection: async (
+              _id: string,
+              options?: { signal: AbortSignal },
+            ) => {
+              if (mode.endsWith("without signal"))
+                expect(options?.signal).toBeInstanceOf(AbortSignal);
+              else expect(options?.signal).toBe(signal);
               projections += 1;
               return projections > 1 && freshEvidence
                 ? refreshed
@@ -52,7 +69,27 @@ for (const inScope of [false, true]) {
           reportSecurityIncident: async (error) => {
             incidents.push(error);
           },
-        }).hydrateDocumentAttachmentBlobs({
+          ...(mode === "constructed without signal"
+            ? {
+                expectedDownloads: {
+                  documentId: fixture.writerProjection.documentId,
+                  sizesBySlot: new Map([
+                    [fixture.attachment.slotId, fixture.attachment.byteLength],
+                  ]),
+                },
+              }
+            : {}),
+        });
+        const reader = mode.startsWith("bounded")
+          ? service.withExpectedDownloads(
+              fixture.writerProjection.documentId,
+              new Map([
+                [fixture.attachment.slotId, fixture.attachment.byteLength],
+              ]),
+              signal,
+            )
+          : service;
+        const hydration = reader.hydrateDocumentAttachmentBlobs({
           attachments: [fixture.attachment],
           documentId: fixture.writerProjection.documentId,
           resolveProjectionUserKey: fixture.resolveProjectionUserKey,
@@ -68,7 +105,7 @@ for (const inScope of [false, true]) {
           });
         }
         expect(projections).toBe(2);
-        expect(evictions).toBe(1);
+        expect(evictions).toBe(bounded ? 0 : 1);
         expect(downloads).toBe(1);
         if (freshEvidence) {
           const sharedDatabase = await createTestExecSql(

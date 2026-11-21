@@ -7,12 +7,17 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "./types";
+import { privateRead } from "./types";
 
 export function requestRetired(
   session: AbortSignal | undefined,
   options?: RequestResultOptions,
 ) {
-  return session?.aborted || options?.stillCurrent?.() === false;
+  return (
+    session?.aborted ||
+    options?.stillCurrent?.() === false ||
+    (options?.[privateRead] && options.signal?.aborted)
+  );
 }
 
 /** A retired request cannot overwrite the active session's failure cache. */
@@ -62,4 +67,25 @@ export async function readSessionJson(
       statusText: response.statusText,
     });
   }
+}
+
+export function retiredResponse(
+  refused: boolean,
+  method: HttpMethod,
+  path: string,
+  response: Response,
+  code?: string | null,
+): RequestFailure {
+  void response.body?.cancel().catch(() => {});
+  const retired = retiredRequest(method, path);
+  // Principal writes refused before dispatch have a definitive outcome.
+  if (response.status !== 401 || !refused) return retired;
+  return {
+    ...retired,
+    kind: "http",
+    status: 401,
+    statusText: response.statusText,
+    code: code ?? undefined,
+    message: `${method} ${path}: 401 ${response.statusText}`,
+  };
 }

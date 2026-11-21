@@ -5,8 +5,13 @@ import { type CliSession, type SessionOptions, withSession } from "../session";
 
 async function requireRecoveryKey({
   context,
+  keyFromStdin,
   target,
 }: CommandInput): Promise<string> {
+  if (keyFromStdin)
+    return normalizeRecoveryKey(
+      await context.readRecoveryKey("Recovery key: "),
+    );
   const recoveryKey = await context.keyStore.read(target);
   if (!recoveryKey) {
     throw new Error(
@@ -20,14 +25,18 @@ async function requireRecoveryKey({
 export async function withSavedSession<T>(
   input: CommandInput,
   work: (session: CliSession) => Promise<T>,
-  documentProjectors?: SessionOptions["documentProjectors"],
+  options: Pick<
+    SessionOptions,
+    "documentProjectors" | "verificationDeadline" | "automaticSessionRenewal"
+  > = {},
 ): Promise<T> {
   const recoveryKey = await requireRecoveryKey(input);
   return withSession(
     {
       apiBaseUrl: input.context.apiBaseUrl(input.target),
+      registerShutdown: input.context.registerShutdown,
       recoveryKey,
-      documentProjectors,
+      ...options,
       tracer: input.tracer,
     },
     work,

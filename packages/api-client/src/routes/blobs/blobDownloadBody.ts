@@ -4,10 +4,12 @@ export async function blobDownloadBody(
   response: Response,
   signal?: AbortSignal,
   redact = false,
+  maxBytes?: number,
 ): Promise<ReadableStream<Uint8Array>> {
   const stream =
     response.body ?? bufferedResponseBodyStream(await response.arrayBuffer());
-  if (!signal && !redact) return stream;
+  if (!signal && !redact && maxBytes === undefined) return stream;
+  let readBytes = 0;
   const reader = stream.getReader();
   function cancelRetired() {
     void reader.cancel().catch(() => {});
@@ -25,6 +27,11 @@ export async function blobDownloadBody(
             controller.close();
             reader.releaseLock();
           } else {
+            readBytes += value.byteLength;
+            if (maxBytes !== undefined && readBytes > maxBytes) {
+              cancelRetired();
+              throw new Error("Blob stream exceeds its download limit");
+            }
             controller.enqueue(value);
           }
         } catch (error) {

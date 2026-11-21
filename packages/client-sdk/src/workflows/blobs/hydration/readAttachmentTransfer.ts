@@ -5,6 +5,7 @@ export async function readAttachmentTransfer(
   blob: BlobBytesResponse,
   signal: AbortSignal,
   progress: () => void,
+  maxEncryptedBytes?: number,
 ): Promise<Uint8Array<ArrayBuffer>> {
   const reader = blob.encryptedBytes.getReader();
   const abort = () => {
@@ -14,6 +15,10 @@ export async function readAttachmentTransfer(
   const chunks: Uint8Array[] = [];
   let length = 0;
   try {
+    const declaredLength = blob.byteLength;
+    if (!Number.isSafeInteger(declaredLength) || declaredLength < 0)
+      throw new Error("Invalid declared blob length");
+    const limit = Math.min(maxEncryptedBytes ?? declaredLength, declaredLength);
     if (signal.aborted) abort();
     signal.throwIfAborted();
     for (;;) {
@@ -21,7 +26,7 @@ export async function readAttachmentTransfer(
       signal.throwIfAborted();
       if (result.done) break;
       length += result.value.byteLength;
-      if (length > blob.byteLength)
+      if (length > limit)
         throw new Error("Blob stream exceeds its declared length");
       chunks.push(result.value);
       progress();

@@ -211,7 +211,8 @@ export class SessionArea {
     );
   }
 
-  logout() {
+  /** Revokes the current session, or the one `authToken` names. */
+  logout(authToken?: string) {
     return this.context.send(
       authLogout,
       authLogout.path,
@@ -219,6 +220,9 @@ export class SessionArea {
       undefined,
       {
         retryOnSessionExpired: false,
+        ...(authToken
+          ? { headers: { Authorization: `Bearer ${authToken}` } }
+          : {}),
       },
     );
   }

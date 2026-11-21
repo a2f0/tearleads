@@ -4,6 +4,7 @@ import type {
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type { boundedMetadata, MetadataLimit } from "./boundedMetadataResponse";
 import type { ApiNetworkError } from "./networkFailure";
 import type {
   ResourceRequestActivity,
@@ -21,7 +22,12 @@ export type ListDocumentEditAttributionRangesOptions = Omit<
   cursor?: DocumentAttributionRangesQuery["cursor"] | null;
 };
 
+export const privateRead = Symbol("privateRead");
+
 export interface RequestResultOptions {
+  /** Report this caller-owned read through its result while preserving shared request diagnostics. */
+  readonly [privateRead]?: boolean;
+  readonly [boundedMetadata]?: MetadataLimit | undefined;
   readonly [resourceRequestActivity]?: ResourceRequestActivity;
   /** Checked at dispatch, on renewal and before handling the response. */
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -122,6 +128,11 @@ export interface OperationResponseRequestFn {
     additionalSuccessStatuses: readonly number[],
     failureOperation: HttpOperation,
   ): Promise<RequestResult<Response>>;
+  readonly optionsFor?: (
+    options: RequestResultOptions,
+    operation: HttpOperation,
+    phase?: "dispatch" | "response",
+  ) => RequestResultOptions;
   readonly sessionSignal?: () => AbortSignal;
   readonly reportFailure: (
     input: ResponseRequestValidationFailureInput,
