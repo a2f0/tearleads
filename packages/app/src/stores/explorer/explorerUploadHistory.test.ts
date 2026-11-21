@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import {
   type ContainerDocumentQueries,
   createDomainScope,
@@ -9,25 +9,39 @@ import {
 import { getOrCreateExplorerUploadHistory } from "./explorerUploadHistory";
 import type { ExplorerUploadItem } from "./explorerUploadItemMachine";
 
-type SyncStatus = "synced" | "pending" | "error";
+type SyncStatus = "synced" | "pending" | "missing";
+
+const scopes: DomainScope[] = [];
+
+afterEach(() => {
+  for (const scope of scopes.splice(0)) {
+    getOrCreateDomainSyncCoordinator(scope).dispose();
+  }
+});
+
+function createScope(): DomainScope {
+  const scope = createDomainScope();
+  scopes.push(scope);
+  return scope;
+}
 
 function queriesWith(statusByLocalId: Map<string, SyncStatus>) {
   const reads: string[] = [];
-  const queries = {
-    loadDocumentSyncState: async (localId: string) => {
+  const queries: Pick<ContainerDocumentQueries, "loadDocumentSyncState"> = {
+    loadDocumentSyncState: async (localId) => {
       reads.push(localId);
-      const status = statusByLocalId.get(localId);
-      return status === undefined
+      const status = statusByLocalId.get(localId) ?? "missing";
+      return status === "missing"
         ? null
         : {
             lastError: null,
-            pendingAttachmentBytes: 0,
+            pendingAttachmentBytes: status === "pending" ? 1 : 0,
             pendingAttachmentCount: status === "pending" ? 1 : 0,
             pendingUpdateCount: 0,
             status,
           };
     },
-  } as unknown as ContainerDocumentQueries;
+  };
   return { queries, reads };
 }
 
@@ -55,6 +69,12 @@ function statusOf(domainScope: DomainScope, id: string) {
     .find((item) => item.id === id)?.status;
 }
 
+// Confirmation reads and their results settle in microtasks, so one
+// macrotask boundary is enough to observe them.
+function settleConfirmations(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 async function runLane(domainScope: DomainScope, localId: string) {
   getOrCreateDomainSyncCoordinator(domainScope).requestLane(
     `documents:${localId}`,
@@ -63,16 +83,20 @@ async function runLane(domainScope: DomainScope, localId: string) {
     quietMs: 0,
     timeoutMs: 1_000,
   });
-  // Let the confirmation read settle.
-  for (let index = 0; index < 5; index += 1) await Promise.resolve();
+  await settleConfirmations();
+}
+
+function laneStatus(domainScope: DomainScope, localId: string) {
+  return getOrCreateDomainSyncCoordinator(domainScope)
+    .getSnapshot()
+    .lanes.find((lane) => lane.key === `documents:${localId}`)?.status;
 }
 
 test("a completed lane confirmed as synced latches the upload, with no view open", async () => {
-  const domainScope = createDomainScope();
+  const domainScope = createScope();
   const statuses = new Map<string, SyncStatus>([["a", "pending"]]);
   const { queries, reads } = queriesWith(statuses);
-  const history = getOrCreateExplorerUploadHistory(domainScope);
-  history.setDocumentQueries(queries);
+  getOrCreateExplorerUploadHistory(domainScope).setDocumentQueries(queries);
   let fail = false;
   getOrCreateDomainSyncCoordinator(domainScope).registerLane("documents:a", {
     // Records the run as failed without logging the intended error.
@@ -97,17 +121,12 @@ test("a completed lane confirmed as synced latches the upload, with no view open
   // A later failed run of the same lane does not undo the finished upload.
   fail = true;
   await runLane(domainScope, "a");
-  expect(
-    getOrCreateDomainSyncCoordinator(domainScope)
-      .getSnapshot()
-      .lanes.find((lane) => lane.key === "documents:a")?.status,
-  ).toBe("error");
+  expect(laneStatus(domainScope, "a")).toBe("error");
   expect(statusOf(domainScope, id)).toBe("uploaded");
-  getOrCreateDomainSyncCoordinator(domainScope).dispose();
 });
 
 test("a file imported after its lane completed is confirmed at once", async () => {
-  const domainScope = createDomainScope();
+  const domainScope = createScope();
   const { queries } = queriesWith(new Map([["b", "synced"]]));
   getOrCreateExplorerUploadHistory(domainScope).setDocumentQueries(queries);
   getOrCreateDomainSyncCoordinator(domainScope).registerLane("documents:b", {
@@ -115,8 +134,23 @@ test("a file imported after its lane completed is confirmed at once", async () =
   });
   await runLane(domainScope, "b");
   const id = addImported(domainScope, "b");
-  for (let index = 0; index < 5; index += 1) await Promise.resolve();
+  await settleConfirmations();
   expect(statusOf(domainScope, id)).toBe("uploaded");
+});
+
+test("a document deleted before confirmation ends the upload as removed", async () => {
+  const domainScope = createScope();
+  const { queries, reads } = queriesWith(new Map());
+  getOrCreateExplorerUploadHistory(domainScope).setDocumentQueries(queries);
+  getOrCreateDomainSyncCoordinator(domainScope).registerLane("documents:c", {
+    run: async () => undefined,
+  });
+  const id = addImported(domainScope, "c");
+  await runLane(domainScope, "c");
+  expect(statusOf(domainScope, id)).toBe("removed");
+  // Nothing awaits confirmation, so later runs are not checked.
+  await runLane(domainScope, "c");
+  expect(reads).toEqual(["c"]);
 });
 
 test("item ids stay unique across managers that share a scope", () => {

@@ -97,6 +97,8 @@ const UPLOAD_STATUS_DISPLAY: Record<
     status: "queued",
   },
   queued: { label: EXPLORER_LABELS.uploadsQueuedStatus, status: "queued" },
+  // Deleted before its upload was confirmed.
+  removed: { label: EXPLORER_LABELS.uploadsRemovedStatus, status: "idle" },
   "sync-failed": {
     label: EXPLORER_LABELS.uploadsSyncFailedStatus,
     status: "error",
@@ -251,9 +253,10 @@ interface ExplorerUploadsPanelProps {
  * The scope's upload history: every file from every upload entry point,
  * newest selection first, traceable from "Queued" through "Complete". Files
  * whose upload the SDK confirmed stay listed as Complete for the scope's
- * lifetime, as Downloads and Sync Lanes do. This is the global surface for
- * the manager's Cancel (the container detail's status line only covers the
- * folder it targets).
+ * lifetime, as Downloads and Sync Lanes do. The Cancel here stops this
+ * window's queued and importing files (the container detail's status line
+ * only covers the folder it targets); another Explorer window's files are
+ * listed but cancelled from that window.
  */
 export function ExplorerUploadsPanel(params: ExplorerUploadsPanelProps) {
   const { domainScope, isAuthenticated, online, uploadManager } = params;

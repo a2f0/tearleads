@@ -11,6 +11,11 @@ import {
   transitionExplorerUploadItem,
 } from "./explorerUploadItemMachine";
 
+type UploadConfirmationQueries = Pick<
+  ContainerDocumentQueries,
+  "loadDocumentSyncState"
+>;
+
 // Oldest settled items are trimmed past this so a long session cannot grow the
 // list without bound; outstanding (queued/importing) items are never trimmed.
 const MAX_RETAINED_UPLOAD_ITEMS = 2000;
@@ -28,7 +33,7 @@ export interface ExplorerUploadHistory {
   /** Unique across every manager that shares this scope. */
   nextItemId: () => string;
   /** The queries confirmations read; the newest manager's win. */
-  setDocumentQueries: (queries: ContainerDocumentQueries) => void;
+  setDocumentQueries: (queries: UploadConfirmationQueries) => void;
   subscribe: (listener: () => void) => () => void;
 }
 
@@ -56,7 +61,7 @@ function createExplorerUploadHistory(
 ): ExplorerUploadHistory {
   let items: ReadonlyArray<ExplorerUploadItem> = [];
   let nextId = 0;
-  let queries: ContainerDocumentQueries | null = null;
+  let queries: UploadConfirmationQueries | null = null;
   let stopWatching: (() => void) | null = null;
   const listeners = new Set<() => void>();
   // The lane run each imported item was last checked after, so one completed
@@ -119,15 +124,18 @@ function createExplorerUploadHistory(
   }
 
   async function confirmUpload(
-    source: ContainerDocumentQueries,
+    source: UploadConfirmationQueries,
     itemId: string,
     localId: string,
   ) {
     try {
       const syncState = await source.loadDocumentSyncState(localId);
       // The transition ignores a confirmation for an item that has since
-      // failed or already been confirmed.
-      if (syncState?.status === "synced") {
+      // failed or already been settled.
+      if (syncState === null) {
+        // Deleted before it synced: nothing is left to confirm or watch.
+        dispatch([itemId], { type: "document-missing" });
+      } else if (syncState.status === "synced") {
         dispatch([itemId], { type: "upload-confirmed" });
       }
     } catch {

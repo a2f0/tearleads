@@ -230,7 +230,7 @@ function useLatestImporter(importDroppedFiles: ImportExplorerDroppedFiles): {
 // history, so finished uploads outlast this manager as Downloads and Sync
 // Lanes history do.
 export function useExplorerUploadManager(params: {
-  documentQueries: ContainerDocumentQueries;
+  documentQueries: Pick<ContainerDocumentQueries, "loadDocumentSyncState">;
   domainScope: DomainScope;
   importDroppedFiles: ImportExplorerDroppedFiles;
 }): ExplorerUploadManager {

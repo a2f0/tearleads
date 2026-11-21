@@ -207,3 +207,27 @@ test("bounds large lists until more rows are requested", () => {
   );
   expect(view.getAllByText(/file-\d+\.txt/).length).toBe(101);
 });
+
+test("a failed upload announces its status with the error beneath", () => {
+  const view = render(
+    <ExplorerUploadsPanel
+      domainScope={createDomainScope()}
+      isAuthenticated
+      online
+      uploadManager={manager({
+        items: [
+          item({ error: "read failed", status: "failed" }),
+          item({ fileName: "b.txt", id: "upload-2", status: "removed" }),
+        ],
+      })}
+    />,
+  );
+
+  expect(view.getByRole("alert").textContent).toBe(
+    EXPLORER_LABELS.uploadsFailedStatus,
+  );
+  expect(view.getByText("read failed")).toBeTruthy();
+  // A document deleted before its upload settled is not a failure.
+  expect(view.getByText(EXPLORER_LABELS.uploadsRemovedStatus)).toBeTruthy();
+  expect(view.getByText("2 files")).toBeTruthy();
+});

@@ -36,9 +36,8 @@ function importResult(
 }
 
 // Confirmation reads are covered by the history's own tests.
-const documentQueries = {
-  loadDocumentSyncState: async () => null,
-} as unknown as ContainerDocumentQueries;
+const documentQueries: Pick<ContainerDocumentQueries, "loadDocumentSyncState"> =
+  { loadDocumentSyncState: async () => null };
 
 function renderManager(
   importDroppedFiles: ImportExplorerDroppedFiles,

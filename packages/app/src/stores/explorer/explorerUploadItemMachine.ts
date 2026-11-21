@@ -7,6 +7,7 @@
  *   view refines it with the document's sync lane, and `storageKeys` name its
  *   attachment blobs so the view can show their transferred bytes.
  * - `uploaded`: the SDK confirmed the document synced, with nothing pending.
+ * - `removed`: the document was deleted before its upload was confirmed.
  * - `failed`: the file or its selection failed; `error` says why.
  * - `cancelled`: the user, or the view's teardown, stopped it first.
  */
@@ -15,6 +16,7 @@ export type ExplorerUploadItemStatus =
   | "importing"
   | "imported"
   | "uploaded"
+  | "removed"
   | "failed"
   | "cancelled";
 
@@ -44,7 +46,9 @@ export type ExplorerUploadItemEvent =
   /** The whole selection was refused before this file was imported. */
   | { readonly error: string; readonly type: "selection-failed" }
   | { readonly type: "cancelled" }
-  | { readonly type: "upload-confirmed" };
+  | { readonly type: "upload-confirmed" }
+  /** The SDK no longer has the imported file's document to confirm. */
+  | { readonly type: "document-missing" };
 
 export function isOutstandingUploadItem(item: ExplorerUploadItem): boolean {
   return item.status === "queued" || item.status === "importing";
@@ -52,13 +56,17 @@ export function isOutstandingUploadItem(item: ExplorerUploadItem): boolean {
 
 /**
  * Pure transition; returns the same reference for ignored events. `uploaded`,
- * `failed`, and `cancelled` are terminal.
+ * `removed`, `failed`, and `cancelled` are terminal.
  *
- * | state \ event | import-started | imported | file-failed | selection-failed | cancelled | upload-confirmed |
- * | ------------- | -------------- | -------- | ----------- | ---------------- | --------- | ---------------- |
- * | queued        | importing      | imported | failed      | failed           | cancelled | (same)           |
- * | importing     | (same)         | imported | failed      | failed           | cancelled | (same)           |
- * | imported      | (same)         | (same)   | failed      | (same)           | (same)    | uploaded         |
+ * | state \ event    | queued    | importing | imported           |
+ * | ---------------- | --------- | --------- | ------------------ |
+ * | import-started   | importing | (same)    | (same)             |
+ * | imported         | imported  | imported  | (same)             |
+ * | file-failed      | failed    | failed    | failed             |
+ * | selection-failed | failed    | failed    | (same)             |
+ * | cancelled        | cancelled | cancelled | (same)             |
+ * | upload-confirmed | (same)    | (same)    | uploaded           |
+ * | document-missing | (same)    | (same)    | removed            |
  */
 export function transitionExplorerUploadItem(
   item: ExplorerUploadItem,
@@ -89,12 +97,20 @@ export function transitionExplorerUploadItem(
         ? { ...item, error: null, status: "cancelled" }
         : item;
     case "upload-confirmed":
-      return item.status === "imported"
-        ? { ...item, status: "uploaded" }
-        : item;
+      return settleImported(item, "uploaded");
+    case "document-missing":
+      return settleImported(item, "removed");
     default: {
       const exhaustive: never = event;
       return exhaustive;
     }
   }
+}
+
+/** Only an imported file awaits the SDK's verdict on its upload. */
+function settleImported(
+  item: ExplorerUploadItem,
+  status: "uploaded" | "removed",
+): ExplorerUploadItem {
+  return item.status === "imported" ? { ...item, status } : item;
 }

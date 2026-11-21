@@ -23,7 +23,14 @@ import type { ImportExplorerDroppedFiles } from "../../../../stores/explorer/use
 import { useExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
 import { ExplorerUploadsPanel } from "./ExplorerUploadsPanel";
 
-afterEach(cleanup);
+const scopes: DomainScope[] = [];
+
+afterEach(() => {
+  cleanup();
+  for (const scope of scopes.splice(0)) {
+    getOrCreateDomainSyncCoordinator(scope).dispose();
+  }
+});
 
 function ToolbarProbe() {
   const refresh = useWindowRefreshMenuItemValue();
@@ -40,7 +47,7 @@ function ExplorerRefresh(params: { onRefresh: () => void }) {
 }
 
 interface HarnessProps {
-  documentQueries: ContainerDocumentQueries;
+  documentQueries: Pick<ContainerDocumentQueries, "loadDocumentSyncState">;
   domainScope: DomainScope;
   importDroppedFiles: ImportExplorerDroppedFiles;
   onExplorerRefresh?: () => void;
@@ -75,16 +82,20 @@ function Harness(props: HarnessProps) {
 
 function createUploadWorld() {
   const domainScope = createDomainScope();
+  scopes.push(domainScope);
   const synced = new Set<string>();
-  const documentQueries = {
-    loadDocumentSyncState: async (localId: string) => ({
+  const documentQueries: Pick<
+    ContainerDocumentQueries,
+    "loadDocumentSyncState"
+  > = {
+    loadDocumentSyncState: async (localId) => ({
       lastError: null,
       pendingAttachmentBytes: synced.has(localId) ? 0 : 1024,
       pendingAttachmentCount: synced.has(localId) ? 0 : 1,
       pendingUpdateCount: 0,
       status: synced.has(localId) ? "synced" : "pending",
     }),
-  } as unknown as ContainerDocumentQueries;
+  };
   const imports: string[] = [];
   // Sync is not kicked on import here, so the toolbar Refresh starts it.
   const importDroppedFiles: ImportExplorerDroppedFiles = async (

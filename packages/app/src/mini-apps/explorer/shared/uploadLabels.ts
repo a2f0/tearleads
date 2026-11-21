@@ -16,6 +16,7 @@ export const EXPLORER_UPLOAD_LABELS = {
   uploadsInProgressLabel: "in progress",
   uploadsPendingSyncStatus: "Pending sync",
   uploadsQueuedStatus: "Queued",
+  uploadsRemovedStatus: "Removed",
   uploadsShowMoreAction: "Show more",
   uploadsSizeColumn: "Size",
   uploadsStatusColumn: "Status",
