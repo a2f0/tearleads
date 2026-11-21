@@ -233,3 +233,31 @@ testApiClient(
     expect(errors).toEqual([]);
   },
 );
+
+testApiClient(
+  "a write answered after its caller retired is a cancellation, not a success",
+  async () => {
+    const scope = { current: true };
+    let deletes = 0;
+    server.use(
+      http.delete(`${apiBaseUrl}/containers/target`, () => {
+        deletes += 1;
+        scope.current = false;
+        return HttpResponse.json({
+          containerId: "target",
+          deletedAt: "2026-10-10T00:00:00.000Z",
+        });
+      }),
+    );
+    const { client, renewals } = renewingClient();
+    // The server committed, but only a current caller may act on it; a
+    // retired workflow leaves its intent queued for a current pass.
+    expect(
+      await client.deleteContainerResult("target", {
+        stillCurrent: () => scope.current,
+      }),
+    ).toMatchObject({ ok: false, kind: "cancelled" });
+    expect(deletes).toBe(1);
+    expect(renewals.count).toBe(0);
+  },
+);

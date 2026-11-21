@@ -1,9 +1,15 @@
 import { expect, test } from "bun:test";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createExpiringApiServer,
   SCOPE_RETIREMENTS,
 } from "../../../../test/helpers/workflows/expiringApiServer";
-import { readContainerWriterProjection } from "./projectionCache";
+import { createTestContainerState } from "./containerState.testFixtures";
+import {
+  loadContainerWriterProjectionForState,
+  readContainerWriterProjection,
+} from "./projectionCache";
+import type { ContainerWorkflowRuntime } from "./types";
 
 // The parent projection read under a folder create, as in ensureContactsContainer.
 test.each(SCOPE_RETIREMENTS)(
@@ -34,3 +40,32 @@ test.each(SCOPE_RETIREMENTS)(
     }
   },
 );
+
+test("a retired load leaves a current caller's projection installed", async () => {
+  const containerState = createTestContainerState({
+    id: "scoped-container",
+    parentId: null,
+  });
+  const installed = {
+    containerId: "scoped-container",
+  } as unknown as ContainerWriterProjectionResponse;
+  let current = true;
+  const runtime = {
+    apiClient: {
+      // A current caller installs its answer while this read is retiring.
+      getContainerWriterProjectionResult: async () => {
+        containerState.containerWriterProjection = installed;
+        current = false;
+        return { ok: false, kind: "cancelled" };
+      },
+    },
+  } as unknown as ContainerWorkflowRuntime;
+  expect(
+    await loadContainerWriterProjectionForState({
+      containerState,
+      runtime,
+      stillCurrent: () => current,
+    }),
+  ).toBeNull();
+  expect(containerState.containerWriterProjection).toBe(installed);
+});

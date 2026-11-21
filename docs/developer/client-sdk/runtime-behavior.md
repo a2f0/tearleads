@@ -26,13 +26,24 @@ aborts the write if its owning sign-in has ended.
 
 ## Request scope
 
-Workflows pass their `stillCurrent` predicate to the API client. Once it
-returns false, for example after an organization switch, a new sign-in, or a
-store generation change, the request is retired:
+A workflow can pass its `stillCurrent` predicate with a request. Once the
+predicate returns false, for example after an organization switch, a new
+sign-in, or a store generation change, the request is retired:
 
 - It does not renew the session or replay.
-- Its response and reachability diagnostics are dropped.
+- Its response, even a success, and its reachability diagnostics are dropped.
 - A blob download stream delivers no more bytes.
+
+These requests pass it:
+
+- the writer-projection reads of document creates, attachment uploads, and
+  container creates
+- attachment uploads and downloads
+- signed container creates, recitations, moves, revokes, rekeys, and user
+  shares
+
+Group shares, and the projection reads before a move, revoke, rekey, or share,
+do not pass it yet.
 
 Concurrent writer-projection reads still share one fetch and its cached result.
 The shared fetch stays current while any of its callers is current.

@@ -164,11 +164,13 @@ export class WriterProjectionArea {
   ): Promise<RequestResult<T>> {
     const session = this.context.runtime.responseRequest.sessionSignal?.();
     const retired = () => retiredRequest("GET", path);
+    // The sign-in ended or every caller sharing this fetch retired.
+    const isRetired = () => session?.aborted === true || !stillCurrent();
     let cached = cache.get(cacheKey);
     while (cached) {
       // Rejected and empty entries both fall through to the current slot.
       const data = await cached.catch(() => null);
-      if (session?.aborted || !stillCurrent()) return retired();
+      if (isRetired()) return retired();
       if (data) return { data, ok: true };
       // A newer entry installed during the wait must be reused.
       const current = cache.get(cacheKey);
@@ -195,7 +197,8 @@ export class WriterProjectionArea {
       failureOperation,
     );
 
-    if (session?.aborted) return retired();
+    // A retired fetch confirmed nothing, so it leaves the cache as it was.
+    if (isRetired()) return retired();
     if (result.ok) {
       // Publish the success unless the slot changed or this id was
       // invalidated mid-flight. The stamp check is what makes an eviction of

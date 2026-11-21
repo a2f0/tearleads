@@ -122,6 +122,8 @@ export async function loadContainerWriterProjectionForState(input: {
       input.containerState.container.id,
       input.stillCurrent,
     );
+    // A retired read must not clear what a current caller installed.
+    if (input.stillCurrent?.() === false) return null;
     if (projectionGeneration(input.containerState) === generation) {
       installContainerWriterProjection(
         input.containerState,

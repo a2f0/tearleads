@@ -35,11 +35,9 @@ export async function resolveBlobMutationWriterProjection(
   const { stillCurrent } = input;
   const writerProjection =
     input.writerProjection ??
-    (await (stillCurrent
-      ? input.apiClient.getDocumentWriterProjection(input.documentId, {
-          stillCurrent,
-        })
-      : input.apiClient.getDocumentWriterProjection(input.documentId)));
+    (await input.apiClient.getDocumentWriterProjection(input.documentId, {
+      stillCurrent,
+    }));
   if (!writerProjection || stillCurrent?.() === false) {
     return null;
   }

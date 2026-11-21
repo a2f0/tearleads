@@ -94,7 +94,6 @@ export function createRuntimeCurrentGroupShare(
                   {
                     expectedPaymentRequiredOrganizationId:
                       input.author.organizationId,
-                    stillCurrent: share.stillCurrent,
                   },
                 ),
               ),
