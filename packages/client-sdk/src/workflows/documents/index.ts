@@ -38,11 +38,11 @@ export {
 } from "../../data/sync/syncCoordinator";
 export { backfillDocumentAttachmentNames } from "./attachments/attachmentFilenameBackfill";
 export {
-  deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
   markLocalDocumentAttachmentDetached,
   saveLocalDocumentAttachments,
   savePendingDocumentAttachment,
+  settleDocumentAttachmentRemovalMarker,
 } from "./attachments/attachmentPersistence";
 export { runSerializedDocumentBlobMutation } from "./attachments/blobMutationLock";
 export { reclaimDocumentOrphanBlobs } from "./attachments/orphanBlobReclaims";
@@ -81,6 +81,7 @@ export {
   listPendingDocumentUpdates,
 } from "./pendingUpdatePersistence";
 export {
+  type AttachmentRemovalMarkerSettlement,
   type AttachmentRemovalRows,
   type AttachmentStagingRows,
   DOCUMENTS_APP_KIND,

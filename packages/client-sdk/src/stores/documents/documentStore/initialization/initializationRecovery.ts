@@ -5,8 +5,8 @@ import {
   getDocumentAttachments,
 } from "../../../../data/documents/documentContent";
 import type { LocalAttachmentRecord } from "../../../../workflows/documents";
-import { reconcileLocalAttachmentDetachState } from "../attachments/attachmentDetachState";
-import { saveLocalAttachmentRecord } from "../attachments/attachmentPersistence";
+import { listUnsettledAttachmentMarkers } from "../attachments/attachmentDetachState";
+import { settleAttachmentRemovalMarker } from "../attachments/attachmentRemovalMarkers";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "../pendingUpdateRefusal";
 import {
   advancePendingBaseVersion,
@@ -150,11 +150,13 @@ export async function recoverDroppedAttachmentSlots(
 /**
  * Realign detach markers with the loaded document.
  *
- * Removing an attachment marks its row detached and then persists the document;
- * a stop between those two writes leaves the halves disagreeing, and neither
- * the sync detach pass (which reads the document) nor the read models (which
- * read the marker) can resolve that on their own. The loaded document is the
- * durable truth, so the marker follows it.
+ * A live row can outlive its slot, and a slot this device removed can come
+ * back from another pane or a pull before its detach was sent. Each row that
+ * disagrees with the loaded document is settled against committed history
+ * by the same transition the sync detach pass uses: a removed slot keeps (or
+ * regains) its marker, a slot re-added with the same bytes revives the held
+ * copy, and one re-added with other bytes drops the earlier copy so the new
+ * one downloads like any first download.
  */
 export async function healLocalAttachmentDetachState(
   state: DocumentStoreState,
@@ -162,19 +164,27 @@ export async function healLocalAttachmentDetachState(
   persistedState: { localAttachments: ReadonlyArray<LocalAttachmentRecord> },
   writeGeneration: DocumentStoreSyncGeneration,
 ): Promise<void> {
-  const healed = reconcileLocalAttachmentDetachState(
+  const unsettled = listUnsettledAttachmentMarkers(
     persistedState.localAttachments,
     doc,
   );
-  for (const attachment of healed) {
-    // The save validates the generation inside its serialized mutation, so a
-    // concurrent store reset can never see this heal rewrite rows the
-    // teardown just removed.
-    await saveLocalAttachmentRecord(state, attachment, doc, writeGeneration);
+  // The settle commits only while this generation is current, so a
+  // concurrent store reset never sees it rewrite rows the teardown removed.
+  const stillCurrent = () =>
+    isDocumentStoreSyncGenerationCurrent(state, writeGeneration);
+  for (const { slotId, storageKey } of unsettled) {
+    const settled = await settleAttachmentRemovalMarker({
+      doc,
+      from: { status: "awaitingDetach" },
+      marker: { slotId, storageKey },
+      state,
+      stillCurrent,
+    });
+    if (!settled) return;
   }
-  if (healed.length > 0) {
+  if (unsettled.length > 0) {
     state.runtime.util.log(
-      `Documents: realigned ${healed.length} attachment detach marker(s) with the loaded document.`,
+      `Documents: realigned ${unsettled.length} attachment detach marker(s) with the loaded document.`,
     );
   }
 }

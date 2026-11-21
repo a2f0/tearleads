@@ -175,7 +175,17 @@ orphan reclaim queue. `deleteLocalAttachment(...)` and the discard teardown
 queue the storage keys of the rows they delete in the same transaction and never
 delete bytes themselves: hydration keys a copy by [blob](../glossary/content.md#blob)
 id, so one copy can back slots in several documents. Memory adapters must
-preserve the same compare-and-set and queueing behavior. Attachment entries
+preserve the same compare-and-set and queueing behavior.
+
+`settleAttachmentRemovalMarker(...)` reads the slot's durable row and the slot
+as committed document history records it, passes both to the supplied pure
+`settle` function, and applies its outcome in the same immediate transaction:
+`upsert` writes the returned row (and pending upload, when one is returned),
+`delete` removes the observed row and queues its storage key for the reclaim,
+and `none` writes nothing. Its `stillCurrent` guard runs immediately before
+commit; refusal returns `null` and writes nothing. Adapters read committed
+history, never an open store's document, so a staged edit that later rolls back
+cannot settle a marker. Attachment entries
 require `contentSha256`, the plaintext digest stored inside authenticated
 encrypted document content. Local attachment records carry the plaintext digest
 of the bytes they hold, so read models can flag a held copy whose digest differs

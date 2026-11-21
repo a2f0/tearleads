@@ -25,6 +25,7 @@ import {
   type StoredHistoryState,
   toHistoryRestoreState,
 } from "./documentStoreSyncPersistenceState";
+import { createMemoryAttachmentRemovalMarkerPersistence } from "./memoryAttachmentRemovalMarkerPersistence";
 import { commitMemoryDocumentMutation } from "./memoryDocumentMutation";
 import { createMemoryHydratedAttachmentPersistence } from "./memoryHydratedAttachmentPersistence";
 import { withMemoryOrphanBlobReclaims } from "./memoryOrphanBlobReclaims";
@@ -385,6 +386,19 @@ export function createDocumentsPersistence(): DocumentsPersistence & {
         localAttachments = rows;
       },
     }),
+    settleAttachmentRemovalMarker:
+      createMemoryAttachmentRemovalMarkerPersistence({
+        getAttachments: () => localAttachments,
+        getPendingAttachments: () => pendingAttachments,
+        loadHistoryRestoreState: async (_execSql, localId) =>
+          toHistoryRestoreState(historyByLocalId.get(localId)),
+        setAttachments: (rows) => {
+          localAttachments = rows;
+        },
+        setPendingAttachments: (rows) => {
+          pendingAttachments = rows;
+        },
+      }),
     async saveLocalAttachment(_execSql, attachment) {
       localAttachments = [
         ...localAttachments.filter(

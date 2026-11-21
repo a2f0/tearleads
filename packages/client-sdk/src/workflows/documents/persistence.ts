@@ -21,6 +21,7 @@ import {
 
 export type { DocumentBirthResult } from "../../data/persistence/documents/documentBirthResult";
 export type {
+  AttachmentRemovalMarkerSettlement,
   AttachmentRemovalRows,
   AttachmentStagingRows,
   DocumentsPersistence,

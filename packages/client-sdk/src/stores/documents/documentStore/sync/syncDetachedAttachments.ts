@@ -1,12 +1,24 @@
+import { exportFullHistorySnapshot } from "@tearleads/loro";
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
+import type {
+  AttachmentRemovalMarker,
+  OpenAttachmentRemovalMarker,
+} from "../../../../data/documents/attachmentRemovalMarkerMachine";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
+import { errorMessage } from "../../../../data/shared/errorMessage";
 import {
   type DocumentRecord,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
-import { deleteLocalAttachmentRecord } from "../attachments/attachmentPersistence";
-import { runDocumentOrphanMaintenance } from "../orphanMaintenance";
+import { requestDocumentStoreSync } from "../../registry";
+import {
+  type AttachmentRemovalMarkerSlot,
+  listAttachmentRemovalMarkers,
+  settleAttachmentRemovalMarker,
+} from "../attachments/attachmentRemovalMarkers";
+import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
+import { chainQueuedWrite } from "../localWriteQueue";
 import type {
   DocumentAttachmentBinding,
   DocumentState,
@@ -14,16 +26,24 @@ import type {
 } from "../state";
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
 import {
+  captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 import { documentSyncContextMatches } from "./syncUpdateImport";
 
-interface DetachedAttachmentMarker {
-  slotId: string;
-  storageKey: string;
-}
-
+/**
+ * Detach the remote bindings of attachment slots this store removed.
+ *
+ * Each removal marker is settled against committed document history before
+ * any detach is sent, and again after one lands: another pane, or a pull from
+ * another device, can add the slot back at any point, and only committed
+ * history (never a live document that may hold a staged edit that later rolls
+ * back) says whether it did. A re-added slot keeps its binding and held copy,
+ * one re-added with other bytes frees its first download, and one re-added
+ * while its binding was being detached has its held bytes queued to upload
+ * and bind again.
+ */
 export async function syncDetachedAttachmentBindings(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
@@ -38,66 +58,142 @@ export async function syncDetachedAttachmentBindings(
     return;
   }
 
-  const detachedMarkers = listDetachedAttachmentMarkers(state, currentDoc);
-  if (detachedMarkers.length === 0) {
+  const markers = listAttachmentRemovalMarkers(state, currentDoc);
+  if (markers.length === 0) {
     return;
   }
 
-  if (!nextRecord.documentId) {
-    await cleanupDetachedAttachmentMarkers(
-      state,
-      currentDoc,
-      nextRecord,
-      detachedMarkers,
-      generation,
-    );
-    return;
-  }
-
+  const contextIsCurrent = () =>
+    detachedSyncContextIsCurrent(state, generation, nextRecord);
   const remoteDocumentId = nextRecord.documentId;
-  const remoteBindings =
-    await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId);
-  if (
-    !remoteBindings ||
-    !detachedSyncContextIsCurrent(state, generation, nextRecord)
-  ) {
-    return;
-  }
-
-  const activeBindingBySlotId = new Map(
-    remoteBindings.map((binding) => [binding.slotId, binding]),
-  );
-
-  for (const marker of detachedMarkers) {
-    if (!detachedSyncContextIsCurrent(state, generation, nextRecord)) {
+  let activeBindingBySlotId = new Map<string, DocumentAttachmentBinding>();
+  // A document that never synced has no bindings to list.
+  if (remoteDocumentId) {
+    // Fresh, not cached: whether a re-added slot still has a binding decides
+    // between keeping its copy and uploading it again.
+    const remoteBindings =
+      await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId, {
+        refresh: true,
+      });
+    if (!remoteBindings || !contextIsCurrent()) {
       return;
     }
-    const activeBinding = activeBindingBySlotId.get(marker.slotId);
-    if (
-      activeBinding &&
-      !(await syncDetachedAttachmentBinding({
-        binding: activeBinding,
-        generation,
-        policyOperation,
-        remoteDocumentId,
-        requestRecord: nextRecord,
-        state,
-      }))
-    ) {
-      return;
-    }
-
-    const cleaned = await cleanupDetachedAttachmentMarker(
-      state,
-      currentDoc,
-      nextRecord,
-      marker,
-      generation,
+    activeBindingBySlotId = new Map(
+      remoteBindings.map((binding) => [binding.slotId, binding]),
     );
-    if (!cleaned) {
-      return;
-    }
   }
+
+  let rebinding = false;
+  for (const marker of markers) {
+    const settled = await settleDetachedAttachmentMarker({
+      binding: activeBindingBySlotId.get(marker.slotId),
+      contextIsCurrent,
+      currentDoc,
+      generation,
+      marker,
+      policyOperation,
+      requestRecord: nextRecord,
+      state,
+    });
+    if (!settled) break;
+    rebinding ||= settled.status === "rebinding";
+  }
+  if (rebinding) void catchUpReboundAttachments(state);
+}
+
+/**
+ * Settle one marker: committed history first, then the detach it still owes,
+ * then committed history again for a re-add that landed while it was sent.
+ * Null stops the pass, leaving the marker for a later one.
+ */
+async function settleDetachedAttachmentMarker(input: {
+  binding: DocumentAttachmentBinding | undefined;
+  contextIsCurrent: () => boolean;
+  currentDoc: DocumentState;
+  generation: DocumentStoreSyncGeneration;
+  marker: AttachmentRemovalMarkerSlot;
+  policyOperation: PrincipalPolicyOperation;
+  requestRecord: DocumentRecord;
+  state: DocumentStoreState;
+}): Promise<AttachmentRemovalMarker | null> {
+  const { binding, requestRecord, state } = input;
+  const settle = (from: OpenAttachmentRemovalMarker) =>
+    settleAttachmentRemovalMarker({
+      doc: input.currentDoc,
+      from,
+      marker: input.marker,
+      state,
+      stillCurrent: input.contextIsCurrent,
+    });
+  // Without an active binding there is nothing left to detach.
+  const settled = await settle(
+    binding ? { status: "awaitingDetach" } : { status: "remoteDetached" },
+  );
+  if (settled?.status !== "awaitingDetach") return settled;
+  if (
+    !binding ||
+    !requestRecord.documentId ||
+    !(await syncDetachedAttachmentBinding({
+      binding,
+      generation: input.generation,
+      policyOperation: input.policyOperation,
+      remoteDocumentId: requestRecord.documentId,
+      requestRecord,
+      state,
+    }))
+  ) {
+    return null;
+  }
+  // remoteDetachSettled: the binding is gone, so a slot committed again in
+  // the meantime needs its held bytes bound anew.
+  return settle({ status: "remoteDetached" });
+}
+
+/**
+ * Bring the live document up to the committed history that re-added a
+ * rebound slot: the upload lane only uploads what the live document records.
+ * It runs in the write chain, as every reload of a write's base does.
+ */
+function catchUpReboundAttachments(state: DocumentStoreState): Promise<void> {
+  return chainQueuedWrite(
+    state,
+    state.writeChain
+      .catch(() => undefined)
+      .then(async () => {
+        const doc = state.doc;
+        if (!doc || pendingAttachmentsAreRecorded(state, doc)) return;
+        const generation = captureDocumentStoreSyncGeneration(state, doc);
+        if (!generation) return;
+        await reloadDocumentFromDurableHistory({
+          expectedGeneration: generation,
+          preserveQueuedWritesWhenIdentityMatches: true,
+          sameIdentitySnapshot: exportFullHistorySnapshot(doc).slice(),
+          state,
+        });
+      })
+      .catch((error: unknown) => {
+        state.runtime.util.log(
+          `Documents: rebound attachment reload failed: ${errorMessage(error)}`,
+        );
+      })
+      .finally(() => {
+        requestDocumentStoreSync(state);
+      }),
+  );
+}
+
+function pendingAttachmentsAreRecorded(
+  state: DocumentStoreState,
+  doc: DocumentState,
+): boolean {
+  const recorded = new Set(
+    getDocumentAttachments(doc).map(
+      (attachment) => `${attachment.contentSha256}:${attachment.slotId}`,
+    ),
+  );
+  return state.pendingAttachments.every((pending) =>
+    recorded.has(`${pending.contentSha256}:${pending.slotId}`),
+  );
 }
 
 function detachedSyncContextIsCurrent(
@@ -113,63 +209,6 @@ function detachedSyncContextIsCurrent(
       requestRecord.documentId,
     )
   );
-}
-
-function listDetachedAttachmentMarkers(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-): DetachedAttachmentMarker[] {
-  const currentSlotIds = new Set(
-    getDocumentAttachments(currentDoc).map((attachment) => attachment.slotId),
-  );
-
-  return Object.entries(state.attachmentStorageKeyBySlotId).flatMap(
-    ([slotId, storageKey]) =>
-      currentSlotIds.has(slotId) ? [] : [{ slotId, storageKey }],
-  );
-}
-
-async function cleanupDetachedAttachmentMarkers(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  requestRecord: DocumentRecord,
-  markers: readonly DetachedAttachmentMarker[],
-  generation: DocumentStoreSyncGeneration,
-): Promise<void> {
-  for (const marker of markers) {
-    if (
-      !(await cleanupDetachedAttachmentMarker(
-        state,
-        currentDoc,
-        requestRecord,
-        marker,
-        generation,
-      ))
-    ) {
-      return;
-    }
-  }
-}
-
-async function cleanupDetachedAttachmentMarker(
-  state: DocumentStoreState,
-  currentDoc: DocumentState,
-  requestRecord: DocumentRecord,
-  marker: DetachedAttachmentMarker,
-  generation: DocumentStoreSyncGeneration,
-): Promise<boolean> {
-  if (!detachedSyncContextIsCurrent(state, generation, requestRecord)) {
-    return false;
-  }
-  await deleteLocalAttachmentRecord(
-    state,
-    marker.slotId,
-    marker.storageKey,
-    currentDoc,
-  );
-  // Deleting the row queued its bytes for the reference-checked reclaim.
-  void runDocumentOrphanMaintenance(state);
-  return detachedSyncContextIsCurrent(state, generation, requestRecord);
 }
 
 async function syncDetachedAttachmentBinding(input: {

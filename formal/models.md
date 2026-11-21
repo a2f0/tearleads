@@ -453,6 +453,17 @@ settlement finishes: removing the slot must preserve a detached row that the
 current store's detach pass sees, before and after a restart. See the
 [mapping and boundaries](./blob-attachments/PendingAttachmentDetach.md).
 
+### Attachment Re-add Reconciliation
+
+[`blob-attachments/AttachmentReaddReconcile.tla`](./blob-attachments/AttachmentReaddReconcile.tla)
+models another pane or device committing a removed slot again, with the same
+copy or other bytes, around the detach of its old binding: the marker settles
+against committed history before the detach and again after it lands, so a
+re-added copy keeps or regains its binding and bytes, other bytes keep their
+binding and free the slot's first download, and a re-add staged and rolled
+back leaves the removal to clean up. See the
+[mapping and boundaries](./blob-attachments/AttachmentReaddReconcile.md).
+
 ### Stage Promotion and Server Reclamation
 
 [StagePromotion](./blob-attachments/StagePromotion.md) models

@@ -11,6 +11,12 @@
  * the attachment list before an unlink and writes it back after. Both read the
  * slot list, await, then save — so the slot they save may already be gone.
  */
+import {
+  attachmentMarkerRowEffect,
+  observeAttachmentMarkerRow,
+  observeCommittedAttachmentSlot,
+  transitionAttachmentRemovalMarker,
+} from "../../../../data/documents/attachmentRemovalMarkerMachine";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import type { LocalAttachmentRecord } from "../../../../workflows/documents";
 import type { DocumentState } from "../state";
@@ -46,25 +52,33 @@ export function withLocalAttachmentDetachState(
 }
 
 /**
- * Report the loaded rows whose marker disagrees with the loaded document.
- *
- * A write can only be interrupted between marking the row and persisting the
- * document, so a restart can find either half applied. Reconciling against the
- * durable document at load makes the marker mean what it claims again: a slot
- * the document still has is live, and a slot it dropped is detached.
+ * The loaded rows whose detach marker disagrees with the loaded document, by
+ * the same transition the sync detach pass settles markers with. A write can
+ * leave a live row for a slot the document dropped, and another pane or a
+ * pull can add a removed slot back: with the same bytes the row is that
+ * slot's held copy again, with other bytes it is an unrelated earlier copy
+ * that must not stand in for the first download of the new one.
  */
-export function reconcileLocalAttachmentDetachState(
+export function listUnsettledAttachmentMarkers(
   attachments: ReadonlyArray<LocalAttachmentRecord>,
   doc: DocumentState,
 ): LocalAttachmentRecord[] {
-  const detachedAt = new Date().toISOString();
-  const liveSlotIds = getLiveSlotIds(doc);
-  return attachments.flatMap((attachment) => {
-    const slotIsLive = liveSlotIds.has(attachment.slotId);
-    if (slotIsLive === (attachment.detachedAt === null)) {
-      return [];
-    }
-
-    return [{ ...attachment, detachedAt: slotIsLive ? null : detachedAt }];
+  const committed = new Map(
+    getDocumentAttachments(doc).map((attachment) => [
+      attachment.slotId,
+      attachment,
+    ]),
+  );
+  return attachments.filter((attachment) => {
+    const row = observeAttachmentMarkerRow(attachment, attachment.storageKey);
+    const next = transitionAttachmentRemovalMarker(
+      { status: "awaitingDetach" },
+      {
+        row,
+        slot: observeCommittedAttachmentSlot(committed.get(attachment.slotId)),
+        type: "committedChecked",
+      },
+    );
+    return attachmentMarkerRowEffect(next, row) !== "none";
   });
 }
