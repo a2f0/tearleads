@@ -1,18 +1,9 @@
-import { emptyVersionVector } from "@tearleads/loro";
-import { and, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
-import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
-import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/dormantContainerMetadata";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { containers } from "../../../data/sqlite/schema/containerSchema";
-import { documentProjection } from "../../../data/sqlite/schema/documentProjectionSchema";
-import { documents } from "../../../data/sqlite/schema/documentRecordSchema";
-import { sqliteRowsPerStatement } from "../../../data/sqlite/sqliteBindBudget";
-import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { emptyContentFrontierSql } from "./hydrationSql";
 
-export interface PendingDownloadQueueItem {
+interface PendingContentDownload {
   localId: string;
   documentId: string;
   objectKind: "document" | "container";
@@ -22,26 +13,44 @@ export interface PendingDownloadQueueItem {
   lastError: string | null;
 }
 
-/** A pull that left the download queue with its content fully stored. */
-export interface CompletedDownloadItem {
+/**
+ * The first download of a file a synced document records for a slot. The row
+ * carries the identity hydration fetches with: the slot and the stored
+ * record's document id.
+ */
+interface PendingAttachmentDownload {
   localId: string;
   documentId: string;
-  objectKind: PendingDownloadQueueItem["objectKind"];
-  title: string | null;
+  objectKind: "attachment";
+  /** The owning document's projected title. */
+  title: string;
+  reason: "initial";
+  lastError: string | null;
+  slotId: string;
+  fileName: string;
 }
 
-/** Names one row of the download queue: a local id is unique per kind. */
-export type DownloadQueueItemRef = Pick<
-  PendingDownloadQueueItem,
-  "localId" | "objectKind"
->;
+export type PendingDownloadQueueItem =
+  | PendingContentDownload
+  | PendingAttachmentDownload;
 
-/** Durable, already-discovered content pulls, including folder metadata. */
+/**
+ * Durable, already-discovered content pulls, including folder metadata, then
+ * the first downloads of files recorded by synced documents.
+ */
 export async function listPendingDownloads(
   execSql: ExecSql,
 ): Promise<ReadonlyArray<PendingDownloadQueueItem>> {
   await ensureContainerTables(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
+  const contentDownloads = await listPendingContentDownloads(execSql);
+  const attachmentDownloads = await listPendingAttachmentDownloads(execSql);
+  return [...contentDownloads, ...attachmentDownloads];
+}
+
+async function listPendingContentDownloads(
+  execSql: ExecSql,
+): Promise<ReadonlyArray<PendingContentDownload>> {
   const rows = await execSql(`
     SELECT stored.local_id, stored.document_id, stored.app_kind,
       CASE WHEN ${emptyContentFrontierSql("stored")} THEN NULL
@@ -72,7 +81,7 @@ export async function listPendingDownloads(
     } = row;
     if (typeof localId !== "string" || typeof documentId !== "string")
       return [];
-    const item: PendingDownloadQueueItem = {
+    const item: PendingContentDownload = {
       localId,
       documentId,
       objectKind: appKind === "documents" ? "document" : "container",
@@ -84,105 +93,68 @@ export async function listPendingDownloads(
   });
 }
 
-// Each statement also binds the two app kinds twice and both empty frontiers.
-const COMPLETED_DOWNLOAD_BATCH_SIZE = sqliteRowsPerStatement(1, 6);
-
-/**
- * Of the given queue rows, those whose content is now fully stored: the record
- * still names its server document, its content frontier is not empty, no page
- * remains, and its projection exists. A row that left the queue for another
- * reason (deleted, relinked, reset) is not returned.
- */
-export async function listCompletedDownloads(
+// `attachment_names` keys each slot recorded by the content as
+// `<contentSha256>:<slotId>`; the hex digest never contains a colon, while a
+// collection slot id (`photos:<uuid>`) can. Any local row for the slot, held
+// or awaiting a remote detach, means this is no longer a first download, and a
+// pending upload is this device's own file.
+async function listPendingAttachmentDownloads(
   execSql: ExecSql,
-  refs: ReadonlyArray<DownloadQueueItemRef>,
-): Promise<ReadonlyArray<CompletedDownloadItem>> {
-  if (refs.length === 0) return [];
-  await ensureContainerTables(execSql);
-  await sqlDocumentsPersistence.ensureSchema(execSql);
-  const wanted = new Set(refs.map(downloadQueueItemKey));
-  const localIds = Array.from(new Set(refs.map((ref) => ref.localId)));
-  const completed: CompletedDownloadItem[] = [];
-  for (
-    let offset = 0;
-    offset < localIds.length;
-    offset += COMPLETED_DOWNLOAD_BATCH_SIZE
-  ) {
-    const batch = await selectCompletedDownloads(
-      execSql,
-      localIds.slice(offset, offset + COMPLETED_DOWNLOAD_BATCH_SIZE),
-    );
-    // A local id names one row per kind; keep only the kinds asked for.
-    completed.push(
-      ...batch.filter((item) => wanted.has(downloadQueueItemKey(item))),
-    );
-  }
-  return completed;
-}
-
-async function selectCompletedDownloads(
-  execSql: ExecSql,
-  localIds: ReadonlyArray<string>,
-): Promise<ReadonlyArray<CompletedDownloadItem>> {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const rows = await db
-    .select({
-      appKind: documents.appKind,
-      documentId: documents.documentId,
-      documentTitle: documentProjection.title,
-      folderName: containers.displayName,
-      localId: documents.localId,
-    })
-    .from(documents)
-    .leftJoin(
-      documentProjection,
-      and(
-        eq(documents.appKind, DOCUMENTS_APP_KIND),
-        eq(documentProjection.localId, documents.localId),
-      ),
-    )
-    .leftJoin(
-      containers,
-      and(
-        eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(containers.id, documents.localId),
-      ),
-    )
-    // The app-kind branches below let SQLite search the (app_kind, local_id)
-    // primary key for each id instead of scanning.
-    .where(
-      and(
-        inArray(documents.localId, [...localIds]),
-        isNotNull(documents.documentId),
-        isNull(documents.pullContinuation),
-        // The negation of `emptyContentFrontierSql`, which the queue reads.
-        ne(documents.snapshotEndVersion, ""),
-        or(
-          and(
-            eq(documents.appKind, DOCUMENTS_APP_KIND),
-            isNotNull(documentProjection.localId),
-          ),
-          and(
-            eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-            ne(documents.snapshotEndVersion, emptyVersionVector()),
-            isNotNull(containers.id),
-          ),
-        ),
-      ),
-    );
+): Promise<ReadonlyArray<PendingAttachmentDownload>> {
+  const rows = await execSql(`
+    SELECT stored.local_id, stored.document_id, d.title,
+      stored.sync_failure_message AS last_error,
+      substr(recorded.key, instr(recorded.key, ':') + 1) AS slot_id,
+      json_extract(recorded.value, '$.name') AS file_name
+    FROM documents stored
+    JOIN document_projection d ON d.local_id = stored.local_id
+    JOIN document_projection_text projected
+      ON projected.local_id = stored.local_id
+    JOIN json_each(projected.attachment_names) recorded
+    WHERE stored.app_kind = 'documents'
+      AND stored.document_id IS NOT NULL
+      AND NOT ${emptyContentFrontierSql("stored")}
+      AND projected.attachment_names IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM document_attachment_blob_projection held
+        WHERE held.local_id = stored.local_id
+          AND held.slot_id = substr(recorded.key, instr(recorded.key, ':') + 1)
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM document_pending_attachments upload
+        WHERE upload.local_id = stored.local_id
+          AND upload.slot_id = substr(recorded.key, instr(recorded.key, ':') + 1)
+      )
+    ORDER BY stored.updated_at, stored.local_id, slot_id
+  `);
   return rows.flatMap((row) => {
-    if (row.documentId === null) return [];
-    const folder = row.appKind === CONTAINER_METADATA_APP_KIND;
-    const item: CompletedDownloadItem = {
-      documentId: row.documentId,
-      localId: row.localId,
-      objectKind: folder ? "container" : "document",
-      title: folder ? row.folderName : row.documentTitle,
+    const {
+      local_id: localId,
+      document_id: documentId,
+      title,
+      last_error: lastError,
+      slot_id: slotId,
+      file_name: fileName,
+    } = row;
+    if (
+      typeof localId !== "string" ||
+      typeof documentId !== "string" ||
+      typeof title !== "string" ||
+      typeof slotId !== "string" ||
+      slotId.length === 0 ||
+      typeof fileName !== "string"
+    )
+      return [];
+    const item: PendingAttachmentDownload = {
+      localId,
+      documentId,
+      objectKind: "attachment",
+      title,
+      reason: "initial",
+      lastError: typeof lastError === "string" ? lastError : null,
+      slotId,
+      fileName,
     };
     return [item];
   });
-}
-
-function downloadQueueItemKey(ref: DownloadQueueItemRef): string {
-  return `${ref.objectKind}:${ref.localId}`;
 }

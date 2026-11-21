@@ -176,3 +176,41 @@ test("only the newest 2000 completed rows are kept", () => {
   expect(kept).not.toContain("complete:item-0");
   expect(kept[0]).toBe("complete:item-1");
 });
+
+test("file downloads are tracked per slot and keep their file name when stored", () => {
+  const file = (slotId: string): PendingDownloadQueueItem => ({
+    documentId: "remote-drill",
+    fileName: `${slotId}.png`,
+    lastError: "Connection failed",
+    localId: "drill",
+    objectKind: "attachment",
+    reason: "initial",
+    slotId,
+    title: "Drill",
+  });
+  const queued = settle(INITIAL_DOWNLOAD_HISTORY, {
+    pending: [file("front"), file("side")],
+  });
+  expect(getDepartedDownloads(queued, [file("side")])).toEqual([
+    { localId: "drill", objectKind: "attachment", slotId: "front" },
+  ]);
+  const stored = settle(queued, {
+    completed: [
+      {
+        documentId: "remote-drill",
+        localId: "drill",
+        objectKind: "attachment",
+        slotId: "front",
+        title: "Drill bit",
+      },
+    ],
+    pending: [file("side")],
+  });
+  expect(stored.status === "ready" && stored.entries).toEqual([
+    { item: file("side"), status: "pending" },
+    {
+      item: { ...file("front"), lastError: null, title: "Drill bit" },
+      status: "complete",
+    },
+  ]);
+});

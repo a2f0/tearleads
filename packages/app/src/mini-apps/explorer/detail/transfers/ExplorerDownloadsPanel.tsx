@@ -3,6 +3,7 @@ import {
   type ContainerNode,
   type DomainScope,
   type PendingDownloadQueueItem,
+  type RetryDocumentDownloadInput,
   requestAllDomainSyncLanes,
   type SyncLaneSnapshot,
   type SyncLaneStatus,
@@ -23,6 +24,7 @@ import {
   MiniAppTableFrame,
   MiniAppTableRow,
 } from "../../../../components/mini-app/MiniAppTable";
+import { useTearleads } from "../../../../providers/sdk/TearleadsProvider";
 import { EXPLORER_LABELS, getExplorerDownloadsCountLabel } from "../../labels";
 import { getExplorerSyncLaneProgress } from "../sync/ExplorerSyncLaneUtils";
 import { useDomainSyncSnapshot } from "../sync/useDomainSyncSnapshot";
@@ -85,6 +87,12 @@ function pendingDownloadTransfer(
     );
   if (item.lastError || lane?.status === "error")
     return downloadTransfer("error", EXPLORER_LABELS.downloadsError, detail);
+  if (item.objectKind === "attachment")
+    return downloadTransfer(
+      "queued",
+      EXPLORER_LABELS.downloadsFileWaiting,
+      detail,
+    );
   return downloadTransfer(
     "queued",
     item.reason === "continuation"
@@ -95,8 +103,10 @@ function pendingDownloadTransfer(
 }
 
 function getDownloadName(entry: DownloadHistoryEntry): string {
-  if (entry.item.title !== null) return entry.item.title;
-  const folder = entry.item.objectKind === "container";
+  const { item } = entry;
+  if (item.objectKind === "attachment") return item.fileName;
+  if (item.title !== null) return item.title;
+  const folder = item.objectKind === "container";
   if (entry.status === "complete")
     return folder
       ? EXPLORER_LABELS.downloadsUntitledFolder
@@ -106,6 +116,24 @@ function getDownloadName(entry: DownloadHistoryEntry): string {
     : EXPLORER_LABELS.downloadsUnknownDocument;
 }
 
+// A synced document only re-lists its file bindings when it pulls again, and
+// its store may not be open, so a retry asks each document with a pending
+// file directly. Only shown rows are retried: each opens and keeps a store.
+// The request names the document id the row was read with.
+function retryPendingFileDownloads(
+  entries: ReadonlyArray<DownloadHistoryEntry>,
+  retryDownload: (input: RetryDocumentDownloadInput) => Promise<boolean>,
+) {
+  const documents = new Map<string, string>();
+  for (const { item, status } of entries) {
+    if (status === "pending" && item.objectKind === "attachment")
+      documents.set(item.localId, item.documentId);
+  }
+  for (const [localId, documentId] of documents) {
+    void retryDownload({ documentId, localId }).catch(() => false);
+  }
+}
+
 function DownloadRow(params: {
   entry: DownloadHistoryEntry;
   isAuthenticated: boolean;
@@ -113,6 +141,7 @@ function DownloadRow(params: {
   online: boolean;
 }) {
   const { entry } = params;
+  const { item } = entry;
   const transfer =
     entry.status === "complete"
       ? downloadTransfer(
@@ -121,21 +150,22 @@ function DownloadRow(params: {
           null,
         )
       : pendingDownloadTransfer(
-          entry.item,
-          entry.item.objectKind === "document"
-            ? params.lanes.get(`documents:${entry.item.localId}`)
-            : undefined,
+          item,
+          // A file downloads through its document's lane.
+          item.objectKind === "container"
+            ? undefined
+            : params.lanes.get(`documents:${item.localId}`),
           params.online,
           params.isAuthenticated,
         );
   return (
     <MiniAppTableRow>
-      <ExplorerTransferNameCell
-        title={entry.item.documentId}
-        transfer={transfer}
-      >
+      <ExplorerTransferNameCell title={item.documentId} transfer={transfer}>
         {getDownloadName(entry)}
-        <small> {entry.item.documentId}</small>
+        <small>
+          {" "}
+          {item.objectKind === "attachment" ? item.title : item.documentId}
+        </small>
       </ExplorerTransferNameCell>
       <ExplorerTransferStatusCell transfer={transfer} />
     </MiniAppTableRow>
@@ -155,6 +185,7 @@ export function ExplorerDownloadsPanel(params: {
   isAuthenticated: boolean;
 }) {
   const { domainScope, isAuthenticated, online } = params;
+  const { documents } = useTearleads();
   const snapshot = useDomainSyncSnapshot(domainScope);
   const { readNow, state } = useDownloadHistory({
     ...params,
@@ -171,8 +202,11 @@ export function ExplorerDownloadsPanel(params: {
   ).length;
   const handleRefresh = useCallback(() => {
     requestAllDomainSyncLanes(domainScope);
+    retryPendingFileDownloads(entries.slice(0, limit), (input) =>
+      documents.retryDownload(input),
+    );
     readNow();
-  }, [domainScope, readNow]);
+  }, [documents, domainScope, entries, limit, readNow]);
   // Overrides Explorer's reconciliation Refresh while this view is open, as
   // Sync Lanes does. It stays enabled with work pending, since re-requesting
   // the lanes is the retry.

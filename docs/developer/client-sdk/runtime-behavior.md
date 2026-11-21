@@ -179,6 +179,6 @@ removing their sync registrations. `containerContents.documentQueries()` exposes
 folder metadata pulls (initial hydration or remaining pages), including durable
 errors. The queue does not estimate undiscovered objects or on-demand blob reads.
 `listCompletedDownloads(refs)` takes `DownloadQueueItemRef`s and returns, as
-`CompletedDownloadItem`s, the rows whose content is now fully stored, so a host
-can tell a finished pull from a row that left the queue because it was deleted
-or reset.
+`CompletedDownloadItem`s, the rows whose content is now fully stored (for a
+file, an attached local copy of its slot), so a host can tell a finished pull
+from a row that left the queue because it was deleted, detached, or reset.

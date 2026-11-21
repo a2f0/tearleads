@@ -7,11 +7,13 @@ import type {
 /**
  * One Downloads row: a pull still in the SDK's queue, or one that left it and
  * the SDK confirmed fully stored. A row that leaves the queue unconfirmed
- * (deleted, reset) is dropped rather than shown as complete.
+ * (deleted, detached, reset) is dropped rather than shown as complete. A
+ * completed row keeps its queue row's identity and file name, with the title
+ * the stored content supplied and no error.
  */
 export type DownloadHistoryEntry =
   | { readonly item: PendingDownloadQueueItem; readonly status: "pending" }
-  | { readonly item: CompletedDownloadItem; readonly status: "complete" };
+  | { readonly item: PendingDownloadQueueItem; readonly status: "complete" };
 
 /**
  * The Downloads history for one domain scope, tagged with the newest queue
@@ -62,7 +64,35 @@ export const INITIAL_DOWNLOAD_HISTORY: DownloadHistoryState = {
 };
 
 export function getDownloadHistoryKey(ref: DownloadQueueItemRef): string {
-  return `${ref.objectKind}:${ref.localId}`;
+  return ref.objectKind === "attachment"
+    ? `attachment:${ref.localId}:${ref.slotId}`
+    : `${ref.objectKind}:${ref.localId}`;
+}
+
+function getDownloadQueueItemRef(
+  item: PendingDownloadQueueItem,
+): DownloadQueueItemRef {
+  return item.objectKind === "attachment"
+    ? { localId: item.localId, objectKind: "attachment", slotId: item.slotId }
+    : { localId: item.localId, objectKind: item.objectKind };
+}
+
+function completeDownloadItem(
+  pending: PendingDownloadQueueItem,
+  confirmed: CompletedDownloadItem,
+): PendingDownloadQueueItem {
+  if (pending.objectKind === "attachment")
+    return {
+      ...pending,
+      lastError: null,
+      title:
+        confirmed.objectKind === "attachment" ? confirmed.title : pending.title,
+    };
+  return {
+    ...pending,
+    lastError: null,
+    title: confirmed.title ?? pending.title,
+  };
 }
 
 const NO_DOWNLOAD_ENTRIES: ReadonlyArray<DownloadHistoryEntry> = [];
@@ -82,7 +112,7 @@ export function getDepartedDownloads(
   return getDownloadHistoryEntries(state).flatMap((entry) =>
     entry.status === "pending" &&
     !stillPending.has(getDownloadHistoryKey(entry.item))
-      ? [{ localId: entry.item.localId, objectKind: entry.item.objectKind }]
+      ? [getDownloadQueueItemRef(entry.item)]
       : [],
   );
 }
@@ -111,8 +141,12 @@ function settleEntries(
       retainedComplete.push(entry);
       continue;
     }
-    const item = confirmed.get(key);
-    if (item) newlyComplete.push({ item, status: "complete" });
+    const stored = confirmed.get(key);
+    if (stored)
+      newlyComplete.push({
+        item: completeDownloadItem(entry.item, stored),
+        status: "complete",
+      });
   }
   return [
     ...event.pending.map(

@@ -28,6 +28,10 @@ export {
   type ContainerItemSortKey,
   createContainerDocumentQueriesFromRuntime,
 } from "./documentQueries";
+export type {
+  CompletedDownloadItem,
+  DownloadQueueItemRef,
+} from "./documentQueries/completedDownloads";
 export {
   activateDocumentLink,
   addDocumentLink,
@@ -40,11 +44,7 @@ export {
   removeDocumentLink,
   type SetLinkedContainerIdsForDocument,
 } from "./documentQueries/documentStructure";
-export type {
-  CompletedDownloadItem,
-  DownloadQueueItemRef,
-  PendingDownloadQueueItem,
-} from "./documentQueries/pendingDownloads";
+export type { PendingDownloadQueueItem } from "./documentQueries/pendingDownloads";
 export {
   type BlobInfo,
   type BlobInfoAttachmentKind,

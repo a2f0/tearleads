@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import {
   type CompletedDownloadItem,
   type ContainerDocumentQueries,
@@ -7,6 +7,7 @@ import {
   type DownloadQueueItemRef,
   getOrCreateDomainSyncCoordinator,
   type PendingDownloadQueueItem,
+  type Tearleads,
   waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
 import {
@@ -22,9 +23,22 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import * as TearleadsProvider from "../../../../providers/sdk/TearleadsProvider";
 import { ExplorerDownloadsPanel } from "./ExplorerDownloadsPanel";
 
-afterEach(cleanup);
+let tearleadsSpy: ReturnType<typeof spyOn> | null = null;
+
+// These downloads are documents, so Refresh asks for no file retries.
+beforeEach(() => {
+  tearleadsSpy = spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+    documents: { retryDownload: async () => true },
+  } as unknown as Tearleads);
+});
+
+afterEach(() => {
+  cleanup();
+  tearleadsSpy?.mockRestore();
+});
 
 function ToolbarProbe() {
   const refresh = useWindowRefreshMenuItemValue();
@@ -62,13 +76,13 @@ function createQueue() {
     listCompletedDownloads: async (
       refs: ReadonlyArray<DownloadQueueItemRef>,
     ): Promise<ReadonlyArray<CompletedDownloadItem>> =>
-      refs.flatMap((ref) =>
-        queue.completed.has(ref.localId)
+      refs.flatMap((ref): CompletedDownloadItem[] =>
+        ref.objectKind === "document" && queue.completed.has(ref.localId)
           ? [
               {
                 documentId: `remote-${ref.localId}`,
                 localId: ref.localId,
-                objectKind: ref.objectKind,
+                objectKind: "document",
                 title: ref.localId === "alpha" ? "Alpha" : "Beta",
               },
             ]

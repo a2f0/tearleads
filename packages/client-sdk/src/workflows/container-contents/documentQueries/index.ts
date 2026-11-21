@@ -39,15 +39,17 @@ import {
   type RecoveryFolder,
 } from "../recovery/folderRecovery";
 import type { ContainerDocumentObjectSyncState } from "../syncState";
+import {
+  type CompletedDownloadItem,
+  type DownloadQueueItemRef,
+  listCompletedDownloads,
+} from "./completedDownloads";
 import { hydratedProjectionSql } from "./hydrationSql";
 import {
   getOrphanedDocumentQueryBind,
   getOrphanedDocumentWhereSql,
 } from "./orphanedDocumentSql";
 import {
-  type CompletedDownloadItem,
-  type DownloadQueueItemRef,
-  listCompletedDownloads,
   listPendingDownloads,
   type PendingDownloadQueueItem,
 } from "./pendingDownloads";
