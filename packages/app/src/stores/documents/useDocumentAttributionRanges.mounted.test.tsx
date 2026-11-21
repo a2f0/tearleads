@@ -19,9 +19,10 @@ function page(
   documentId: string,
   updateId: string,
   more = false,
+  revision = 3,
 ): DocumentAttributionRangesPage {
   return {
-    attributionRevision: 3,
+    attributionRevision: revision,
     documentId,
     hasMore: more,
     items: [
@@ -144,8 +145,23 @@ test("a refresh after a sync keeps the ranges it replaces until it is ready", as
   expect(fixture.requests).toHaveLength(2);
   expect(fixture.renders.length).toBeGreaterThan(0);
   expect(fixture.renders.every((ids) => ids.join() === "update-1")).toBe(true);
-  await fixture.settle(1, page("doc-1", "update-2"));
+  // An upload landed: the revision moved, and the new ranges replace them.
+  await fixture.settle(1, page("doc-1", "update-2", false, 4));
   expect(fixture.updateIds()).toEqual(["update-2"]);
+});
+
+test("a refresh of a document nothing was uploaded to costs one request", async () => {
+  const fixture = setup();
+  await fixture.settle(0, page("doc-1", "update-1", true));
+  await fixture.settle(1, page("doc-1", "update-2"));
+  const held = fixture.view.result.current;
+
+  fixture.completeSync();
+  // The first page shows the same revision and first upload.
+  await fixture.settle(2, page("doc-1", "update-1", true));
+
+  expect(fixture.requests).toHaveLength(3);
+  expect(fixture.view.result.current).toBe(held);
 });
 
 test("a refresh that fails keeps the ranges already read", async () => {
@@ -181,8 +197,12 @@ test("another session never sees the ranges of the one before", async () => {
   fixture.runtime.auth = { ...fixture.runtime.auth, userId: "reader-2" };
   fixture.view.rerender({ ...fixture.input });
 
+  expect(fixture.renders.length).toBeGreaterThan(0);
   expect(fixture.renders.every((ids) => ids.length === 0)).toBe(true);
   expect(fixture.requests).toHaveLength(2);
+  // Nor does its read start from what the other session held.
+  await fixture.settle(1, page("doc-1", "update-1"));
+  expect(fixture.updateIds()).toEqual(["update-1"]);
 });
 
 test("a superseded read cannot land, and stops asking for pages", async () => {
@@ -214,17 +234,21 @@ test("a first read that fails, or has too many pages, yields no ranges", async (
   expect(endless.updateIds()).toEqual([]);
 });
 
-test("nothing is read offline or for a document that is not synced", () => {
+test("nothing is read, or shown, offline or for a document that is not synced", async () => {
   const offline = setup();
-  // The first setup read once while online; go offline and re-render.
+  await offline.settle(0, page("doc-1", "update-1"));
+  expect(offline.updateIds()).toEqual(["update-1"]);
+
   offline.runtime.state = { ...offline.runtime.state, online: false };
   offline.view.rerender({ ...offline.input });
+  // Attribution is the server's record: offline there is none to show.
   expect(offline.updateIds()).toEqual([]);
+  expect(offline.requests).toHaveLength(1);
   cleanup();
 
   const local = setup();
-  const before = local.requests.length;
+  await local.settle(0, page("doc-1", "update-1"));
   local.view.rerender({ ...local.input, documentId: null });
-  expect(local.requests).toHaveLength(before);
   expect(local.updateIds()).toEqual([]);
+  expect(local.requests).toHaveLength(1);
 });

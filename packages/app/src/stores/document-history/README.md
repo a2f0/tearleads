@@ -72,13 +72,15 @@ Offline, unsynced, and unauthenticated documents have neither.
 
 The upload times come from the per-upload attribution ranges
 ([`useDocumentAttributionRanges`](../documents/useDocumentAttributionRanges.ts)),
-read page by page at one attribution revision when History opens and again
-after each completed sync. A range never changes once read, so the ranges
-held stay in use while a refresh loads or fails, and the time on screen does
-not flicker on each sync; another document or session never sees them. A
-document with more uploads than the read allows is treated as having no
-ranges rather than some, and a read that is superseded stops before its next
-page.
+read page by page at one attribution revision when History opens. After each
+completed sync they are asked for again, and the first page settles it: the
+same revision means nothing was uploaded and what is held stands, at the cost
+of one request; otherwise every page is read again. A range never changes
+once read, so the ranges held stay in use while a refresh loads or fails, and
+the time on screen does not flicker on each sync; another document or session
+never sees them. A document with more uploads than the read allows is treated
+as having no ranges rather than some, and a read that is superseded stops
+before its next page.
 
 ## Restoring
 

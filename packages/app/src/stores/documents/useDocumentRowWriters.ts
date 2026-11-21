@@ -198,12 +198,9 @@ export function useAttributionRequest({
  * told whether its request is still the current one, so a long read can stop
  * early, and its result is dropped if it is not.
  */
-export function useAttributionRead<Result>(
-  request: RowWritersRequest | null,
-  load: (
-    request: RowWritersRequest,
-    isCurrent: () => boolean,
-  ) => Promise<Result | null>,
+export function useAttributionRead<Request extends RowWritersRequest, Result>(
+  request: Request | null,
+  load: (request: Request, isCurrent: () => boolean) => Promise<Result | null>,
 ): Result | null {
   const [state, dispatch] = useReducer(
     (current: RowWritersState<Result>, event: RowWritersEvent<Result>) =>
@@ -215,7 +212,7 @@ export function useAttributionRead<Result>(
   useEffect(() => {
     if (!loading || loading !== request) return;
     let active = true;
-    void load(loading, () => active).then(
+    void load(request, () => active).then(
       (result) => {
         if (!active) return;
         dispatch(

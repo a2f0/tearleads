@@ -3,8 +3,8 @@ import type { DocumentEditAttributionRangeResponse } from "@tearleads/validators
 import { useCallback, useEffect, useRef } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "./DocumentsProvider";
-import type { RowWritersRequest } from "./rowWritersMachine";
 import {
+  type AttributionRequest,
   useAttributionRead,
   useAttributionRequest,
 } from "./useDocumentRowWriters";
@@ -12,6 +12,13 @@ import {
 /** A document's per-upload attribution: each range names one upload. */
 export type DocumentAttributionRanges =
   ReadonlyArray<DocumentEditAttributionRangeResponse>;
+
+/** Every range of a document, as of one attribution revision. */
+export interface DocumentAttributionRangesRead {
+  readonly ranges: DocumentAttributionRanges;
+  /** The revision every page was read at; it moves with each upload. */
+  readonly revision: number;
+}
 
 // A stable empty list, so "no ranges" does not churn its readers.
 const NO_RANGES: DocumentAttributionRanges = [];
@@ -29,30 +36,48 @@ type ContainerContents = Tearleads["containerContents"];
 
 /**
  * Every range of one document, or null when there are too many to read or
- * the read stopped being wanted. The pages are bound to one attribution
- * revision: a document that gains an upload mid-read fails the next page
- * rather than mix two histories. `isCurrent` is asked before each page, so a
- * read nobody is waiting for stops there.
+ * the read stopped being wanted.
+ *
+ * - The pages are bound to one attribution revision: a document that gains
+ *   an upload mid-read fails the next page rather than mix two histories.
+ * - `isCurrent` is asked before each page, so a read nobody is waiting for
+ *   stops there.
+ * - `held` is what the caller already has for this document. When the first
+ *   page shows the same revision and the same first upload, nothing was
+ *   uploaded since and `held` is returned as it is: a refresh of an
+ *   unchanged document costs one request, not every page.
  */
 export async function loadAllDocumentAttributionRanges(
   containerContents: Pick<ContainerContents, "loadDocumentAttributionRanges">,
   documentId: string,
-  isCurrent: () => boolean = () => true,
-): Promise<DocumentAttributionRanges | null> {
+  options: {
+    held?: DocumentAttributionRangesRead | null | undefined;
+    isCurrent?: (() => boolean) | undefined;
+  } = {},
+): Promise<DocumentAttributionRangesRead | null> {
+  const { held = null, isCurrent = () => true } = options;
   const ranges: DocumentEditAttributionRangeResponse[] = [];
   let cursor: string | null = null;
-  let expectedRevision: number | undefined;
+  let revision: number | undefined;
   for (let pages = 0; pages < MAX_RANGE_PAGES && isCurrent(); pages += 1) {
     const page = await containerContents.loadDocumentAttributionRanges({
       cursor,
       documentId,
-      expectedRevision,
+      expectedRevision: revision,
       limit: RANGE_PAGE_LIMIT,
     });
+    if (
+      pages === 0 &&
+      held !== null &&
+      held.revision === page.attributionRevision &&
+      held.ranges[0]?.updateId === page.items[0]?.updateId
+    ) {
+      return held;
+    }
     ranges.push(...page.items);
-    if (!page.hasMore) return ranges;
+    revision = page.attributionRevision;
+    if (!page.hasMore) return { ranges, revision };
     cursor = page.nextCursor;
-    expectedRevision = page.attributionRevision;
   }
   return null;
 }
@@ -68,33 +93,32 @@ export function useAttributionRangesForDocument(input: {
 }): DocumentAttributionRanges {
   const { containerContents } = useTearleads();
   const request = useAttributionRequest(input);
-  const load = useCallback(
-    ({ documentId }: RowWritersRequest, isCurrent: () => boolean) =>
-      loadAllDocumentAttributionRanges(
-        containerContents,
-        documentId,
-        isCurrent,
-      ),
-    [containerContents],
-  );
-  const read = useAttributionRead(request, load);
 
   // A range never changes once read: an operation's first upload stays its
   // first upload, and later uploads only add ranges. So while a refresh of
   // the same document and session loads, or fails, the ranges already held
-  // still say what they said. Dropping them would blank every time and name
-  // they resolve on each sync. Another document or session never sees them.
-  const scope = request?.scope ?? null;
+  // still say what they said. Dropping them would blank every time they
+  // resolve on each sync. Another document or session never sees them.
   const held = useRef<{
-    ranges: DocumentAttributionRanges;
+    read: DocumentAttributionRangesRead;
     scope: object;
   } | null>(null);
+  const load = useCallback(
+    ({ documentId, scope }: AttributionRequest, isCurrent: () => boolean) =>
+      loadAllDocumentAttributionRanges(containerContents, documentId, {
+        held: held.current?.scope === scope ? held.current.read : null,
+        isCurrent,
+      }),
+    [containerContents],
+  );
+  const read = useAttributionRead(request, load);
+  const scope = request?.scope ?? null;
   useEffect(() => {
-    if (read !== null && scope !== null) held.current = { ranges: read, scope };
+    if (read !== null && scope !== null) held.current = { read, scope };
   }, [read, scope]);
-  if (read !== null) return read;
+  if (read !== null) return read.ranges;
   return scope !== null && held.current?.scope === scope
-    ? held.current.ranges
+    ? held.current.read.ranges
     : NO_RANGES;
 }
 
@@ -103,8 +127,9 @@ export function useAttributionRangesForDocument(input: {
  * operations, the upload that first delivered it and when the server stored
  * that upload. Empty while they first load and when attribution is
  * unavailable (offline, unsynced, unauthenticated, too many to read, or
- * changed mid-read). Read again after each completed sync, like the compact
- * segments, keeping what is held until the new read is ready.
+ * changed mid-read). Asked for again after each completed sync, like the
+ * compact segments, keeping what is held until the new read is ready and
+ * reading every page again only when something was uploaded.
  */
 export function useDocumentAttributionRanges(
   enabled: boolean,
