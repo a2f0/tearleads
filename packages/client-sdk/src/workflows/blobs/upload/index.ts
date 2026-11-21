@@ -249,17 +249,32 @@ interface StageAndBindInput {
   slotId: string;
 }
 
-function stageBlobBytes(input: StageAndBindInput) {
-  return stageMultipartBlobAttachment({
-    stillCurrent: input.stillCurrent,
-    organizationId: input.material.manifestIdentity.organizationId,
-    apiClient: input.apiClient,
-    encryption: input.material.encrypted,
-    multipart: input.multipart,
-    onMultipartProgress: input.onMultipartProgress,
-    onStageResolved: input.onStageResolved,
-    onStageUnavailable: input.onStageUnavailable,
-  });
+/**
+ * Stages the bytes while the caller is current and its organization still
+ * syncs. The stage and every part recheck both, as the bind does; a pause
+ * leaves the upload unstarted or resumable and returns null like the bind.
+ */
+async function stageBlobBytes(input: StageAndBindInput) {
+  const organizationId = input.material.manifestIdentity.organizationId;
+  const canSync = () =>
+    input.stillCurrent?.() !== false &&
+    !input.isRemoteSyncBlocked?.(organizationId);
+  try {
+    return await stageMultipartBlobAttachment({
+      stillCurrent: canSync,
+      organizationId,
+      apiClient: input.apiClient,
+      encryption: input.material.encrypted,
+      multipart: input.multipart,
+      onMultipartProgress: input.onMultipartProgress,
+      onStageResolved: input.onStageResolved,
+      onStageUnavailable: input.onStageUnavailable,
+    });
+  } catch (error) {
+    // A retired caller still sees the error.
+    if (input.stillCurrent?.() === false || canSync()) throw error;
+    return null;
+  }
 }
 
 async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
