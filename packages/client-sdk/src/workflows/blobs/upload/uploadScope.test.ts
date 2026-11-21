@@ -16,12 +16,19 @@ async function pausableUpload(input: {
   readonly bytes: Uint8Array;
   readonly isRemoteSyncBlocked: UploadDocumentAttachmentRequest["isRemoteSyncBlocked"];
   readonly label: string;
+  /** Runs while the stage request is in flight. */
+  readonly duringStageRequest?: () => void;
 }) {
   const fixture = await createMaterializedSyncFixture();
   const multipart = createMultipartBlobStageFixture();
   const firstPart = Promise.withResolvers<void>();
   const releaseFirstPart = Promise.withResolvers<void>();
-  const calls = { binds: 0, parts: [] as number[], stages: 0 };
+  const calls = {
+    binds: 0,
+    parts: [] as number[],
+    resolvedStages: 0,
+    stages: 0,
+  };
   const progress: MultipartUploadProgress[] = [];
   const { close, execSql } = await createTestExecSql(input.label);
   const uploaded = createBlobAttachmentServiceFixture({
@@ -34,6 +41,7 @@ async function pausableUpload(input: {
       getDocumentWriterProjection: async () => fixture.writerProjection,
       initiateMultipartBlobStage: async (request) => {
         calls.stages += 1;
+        input.duringStageRequest?.();
         return multipart.initiateMultipartBlobStage(request);
       },
       uploadMultipartBlobPartBytes: async (
@@ -66,6 +74,9 @@ async function pausableUpload(input: {
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       multipart: { partSize: 5 * MIB, uploadConcurrency: 1 },
       onMultipartProgress: (event) => progress.push(event),
+      onStageResolved: () => {
+        calls.resolvedStages += 1;
+      },
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
       slotId: "paused-upload",
     })
@@ -92,8 +103,35 @@ test("an upload paused after its initial checks creates no stage", async () => {
   });
   upload.releaseFirstPart();
   expect(await upload.uploaded).toBeNull();
-  expect(upload.calls).toEqual({ binds: 0, parts: [], stages: 0 });
+  expect(upload.calls).toEqual({
+    binds: 0,
+    parts: [],
+    resolvedStages: 0,
+    stages: 0,
+  });
   expect(upload.progress).toEqual([]);
+});
+
+test("a pause during the stage request keeps the stage resumable", async () => {
+  let paused = false;
+  const upload = await pausableUpload({
+    bytes: new Uint8Array([1, 2, 3]),
+    duringStageRequest: () => {
+      paused = true;
+    },
+    isRemoteSyncBlocked: () => paused,
+    label: "upload-paused-during-stage",
+  });
+  upload.releaseFirstPart();
+  expect(await upload.uploaded).toBeNull();
+  // The created stage is recorded for resumption; no part is sent.
+  expect(upload.calls).toEqual({
+    binds: 0,
+    parts: [],
+    resolvedStages: 1,
+    stages: 1,
+  });
+  expect(upload.progress.map((event) => event.partsCompleted)).toEqual([0]);
 });
 
 test("an upload paused during a part sends no later part", async () => {
@@ -107,6 +145,12 @@ test("an upload paused during a part sends no later part", async () => {
   paused = true;
   upload.releaseFirstPart();
   expect(await upload.uploaded).toBeNull();
-  expect(upload.calls).toEqual({ binds: 0, parts: [1], stages: 1 });
-  expect(upload.progress.map((event) => event.partsCompleted)).toEqual([0]);
+  // Part 1 was sent before the pause, so it completes and is reported.
+  expect(upload.calls).toEqual({
+    binds: 0,
+    parts: [1],
+    resolvedStages: 1,
+    stages: 1,
+  });
+  expect(upload.progress.map((event) => event.partsCompleted)).toEqual([0, 1]);
 });

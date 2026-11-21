@@ -58,6 +58,11 @@ export function createExpiringApiServer(input: {
   };
 }
 
+/**
+ * An organization change leaves the session alone, so only the caller's
+ * scope can stop the renewal. An independent sign-in also ends the session;
+ * that case guards the session boundary the transport already enforces.
+ */
 export const SCOPE_RETIREMENTS = [
   "organization change",
   "independent sign-in",

@@ -51,12 +51,12 @@ test.each(["before stage", "during transfer"] as const)(
     });
     close();
 
-    // Every check uses the manifest's organization. A block before the stage
-    // stops at the preflight check; staging rechecks after each step.
-    expect(new Set(checkedOrganizationIds)).toEqual(
-      new Set([author.organizationId]),
+    // The preflight check, then (during transfer) checks before staging, the
+    // stage request, the part request, and the bind, all for the manifest's
+    // organization.
+    expect(checkedOrganizationIds).toEqual(
+      Array(when === "before stage" ? 1 : 5).fill(author.organizationId),
     );
-    expect(checkedOrganizationIds.length > 1).toBe(when === "during transfer");
     expect(stageCount).toBe(when === "before stage" ? 0 : 1);
     expect(bindCount).toBe(0);
     expect(uploaded).toBeNull();
