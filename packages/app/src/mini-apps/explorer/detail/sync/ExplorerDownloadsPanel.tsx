@@ -85,7 +85,8 @@ function DownloadItemLabel(params: { item: PendingDownloadQueueItem }) {
 
 // A synced document only re-lists its file bindings when it pulls again, and
 // its store may not be open, so a retry asks each document with a pending
-// file directly. The request names the document id the row was read with.
+// file directly. Only shown rows are retried: each opens and keeps a store.
+// The request names the document id the row was read with.
 function retryPendingDownloads(
   items: ReadonlyArray<PendingDownloadQueueItem>,
   retryDownload: (input: RetryDocumentDownloadInput) => Promise<boolean>,
@@ -124,7 +125,7 @@ export function ExplorerDownloadsPanel(params: {
           disabled={!params.online || !params.isAuthenticated}
           onClick={() => {
             requestAllDomainSyncLanes(params.domainScope);
-            retryPendingDownloads(state.items, (input) =>
+            retryPendingDownloads(state.items.slice(0, limit), (input) =>
               documents.retryDownload(input),
             );
           }}

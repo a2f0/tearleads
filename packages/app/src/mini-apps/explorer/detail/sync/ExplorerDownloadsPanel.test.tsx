@@ -286,3 +286,38 @@ test("a failed retry request leaves the file pending", async () => {
   expect(view.getByText("drill.png")).toBeTruthy();
   expect(view.getByText("1 pending download")).toBeTruthy();
 });
+
+test("Sync now retries only the documents whose files are shown", async () => {
+  const items = Array.from({ length: 101 }, (_, index) =>
+    attachmentDownload({
+      documentId: `remote-${index}`,
+      fileName: `photo-${index}.jpg`,
+      localId: `local-${index}`,
+      slotId: "photo",
+      title: `Document ${index}`,
+    }),
+  );
+  const documentQueries = {
+    listPendingDownloads: async () => items,
+  } as unknown as ContainerDocumentQueries;
+  const view = render(
+    <ExplorerDownloadsPanel
+      documentListRevision={0}
+      documentQueries={documentQueries}
+      domainScope={createDomainScope()}
+      nodes={[]}
+      online
+      isAuthenticated
+    />,
+  );
+  await waitFor(() => expect(view.getByText("photo-99.jpg")).toBeTruthy());
+  expect(view.queryByText("photo-100.jpg")).toBeNull();
+  await act(async () => {
+    fireEvent.click(view.getByRole("button", { name: "Sync now" }));
+  });
+  expect(retries).toHaveLength(100);
+  expect(retries.at(-1)).toEqual({
+    documentId: "remote-99",
+    localId: "local-99",
+  });
+});

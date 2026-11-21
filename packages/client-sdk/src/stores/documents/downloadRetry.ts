@@ -32,7 +32,6 @@ export async function retryDocumentDownload(input: {
     null,
     "",
     record.documentKind,
-    { remoteSyncMode: "on-demand" },
   );
   // A store nothing has opened yet loads its record before it can sync.
   if (!(await store.ensureInitialized())) return false;
