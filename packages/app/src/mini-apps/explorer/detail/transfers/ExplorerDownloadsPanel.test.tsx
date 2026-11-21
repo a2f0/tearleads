@@ -22,7 +22,16 @@ import {
 } from "@testing-library/react";
 import type { ReactNode } from "react";
 import * as TearleadsProvider from "../../../../providers/sdk/TearleadsProvider";
-import { ExplorerDownloadsPanel } from "./ExplorerDownloadsPanel";
+import {
+  type ExplorerDownloadDestinations,
+  ExplorerDownloadsPanel,
+} from "./ExplorerDownloadsPanel";
+
+const noDestinations: ExplorerDownloadDestinations = {
+  openBlobDetail: () => undefined,
+  openContainerInfoRoute: () => undefined,
+  openDocumentInfoRoute: () => undefined,
+};
 
 let retries: RetryDocumentDownloadInput[] = [];
 let retryDownload = async (input: RetryDocumentDownloadInput) => {
@@ -95,6 +104,7 @@ test("Downloads shows unknown items and failures, then drops a row that left unc
   );
   const view = render(
     <ExplorerDownloadsPanel
+      destinations={noDestinations}
       documentListRevision={0}
       documentQueries={documentQueries}
       domainScope={domainScope}
@@ -145,6 +155,7 @@ test("Downloads distinguishes waiting offline from a failed queue read", async (
   }) => (
     <WindowMenuProvider>
       <ExplorerDownloadsPanel
+        destinations={noDestinations}
         documentListRevision={input.documentListRevision}
         documentQueries={documentQueries}
         domainScope={domainScope}
@@ -197,6 +208,7 @@ test("Downloads keeps the title of a hydrated document with pages remaining", as
   } as unknown as ContainerDocumentQueries;
   const view = render(
     <ExplorerDownloadsPanel
+      destinations={noDestinations}
       documentListRevision={0}
       documentQueries={documentQueries}
       domainScope={createDomainScope()}
@@ -248,7 +260,16 @@ test("Downloads lists first file downloads, retries each document once, and keep
     ): Promise<ReadonlyArray<CompletedDownloadItem>> =>
       refs.flatMap((ref) =>
         ref.objectKind === "attachment" && ref.localId === "saw"
-          ? [{ ...saw, objectKind: "attachment", slotId: ref.slotId }]
+          ? [
+              {
+                ...saw,
+                blobId: null,
+                containerId: "garage",
+                objectKind: "attachment",
+                slotId: ref.slotId,
+                storageKey: `blob-${ref.slotId}`,
+              },
+            ]
           : [],
       ),
     listPendingDownloads: async () => items,
@@ -264,6 +285,7 @@ test("Downloads lists first file downloads, retries each document once, and keep
   const view = render(
     <WithToolbar>
       <ExplorerDownloadsPanel
+        destinations={noDestinations}
         documentListRevision={0}
         documentQueries={documentQueries}
         domainScope={domainScope}
@@ -322,6 +344,7 @@ test("a failed retry request leaves the file pending", async () => {
   const view = render(
     <WithToolbar>
       <ExplorerDownloadsPanel
+        destinations={noDestinations}
         documentListRevision={0}
         documentQueries={documentQueries}
         domainScope={createDomainScope()}
@@ -355,6 +378,7 @@ test("Refresh retries only the documents whose files are shown", async () => {
   const view = render(
     <WithToolbar>
       <ExplorerDownloadsPanel
+        destinations={noDestinations}
         documentListRevision={0}
         documentQueries={documentQueries}
         domainScope={createDomainScope()}

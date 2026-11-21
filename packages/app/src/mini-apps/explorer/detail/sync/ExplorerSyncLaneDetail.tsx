@@ -1,8 +1,9 @@
 import type {
+  DocumentSummary,
   DomainSyncSnapshot,
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
-import { useEffect, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import {
   MiniAppButton,
   MiniAppInfoSection,
@@ -14,10 +15,12 @@ import {
 import {
   MiniAppKeyValueList,
   MiniAppKeyValueRow,
+  MiniAppTableActionButton,
 } from "../../../../components/mini-app/MiniAppTable";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS, getExplorerSyncLaneCountLabel } from "../../labels";
+import { useExplorerDocumentSummary } from "../document/useExplorerDocumentSummary";
 import {
   ExplorerSyncLaneProgress,
   ExplorerSyncLaneStatusBadge,
@@ -50,11 +53,43 @@ function formatSyncLaneProgressParts(progress: SyncLaneProgress): string {
   return `${progress.partsCompleted.toLocaleString()} / ${progress.partsTotal.toLocaleString()}`;
 }
 
+/** How a document lane's detail reaches the document being synced. */
+export interface ExplorerSyncLaneDocumentLinks {
+  loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
+  openDocumentInfo: (localId: string, containerId: string) => void;
+}
+
+/** Where a lane's Label and Key lead: the thing the lane syncs. */
+interface SyncLaneSubjectLink {
+  label: string;
+  onOpen: () => void;
+}
+
+const DOCUMENT_LANE_KEY_PREFIX = "documents:";
+
+function SyncLaneSubjectValue(params: {
+  children: ReactNode;
+  link: SyncLaneSubjectLink | null;
+  name: string;
+}) {
+  return params.link ? (
+    <MiniAppTableActionButton
+      aria-label={`${params.link.label}: ${params.name}`}
+      onClick={params.link.onOpen}
+    >
+      {params.children}
+    </MiniAppTableActionButton>
+  ) : (
+    params.children
+  );
+}
+
 function ExplorerSyncLaneGeneralSection(params: {
   lane: SyncLaneSnapshot;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
+  subject: SyncLaneSubjectLink | null;
 }) {
-  const { lane } = params;
+  const { lane, subject } = params;
   const blobStorageKey = lane.blobStorageKey;
 
   return (
@@ -64,13 +99,17 @@ function ExplorerSyncLaneGeneralSection(params: {
           label={EXPLORER_LABELS.syncLanesLabelRow}
           title={lane.label}
         >
-          {lane.label}
+          <SyncLaneSubjectValue link={subject} name={lane.label}>
+            {lane.label}
+          </SyncLaneSubjectValue>
         </MiniAppKeyValueRow>
         <MiniAppKeyValueRow
           label={EXPLORER_LABELS.syncLanesKeyRow}
           title={lane.key}
         >
-          <code>{lane.key}</code>
+          <SyncLaneSubjectValue link={subject} name={lane.key}>
+            <code>{lane.key}</code>
+          </SyncLaneSubjectValue>
         </MiniAppKeyValueRow>
         <MiniAppKeyValueRow label={EXPLORER_LABELS.syncLanesPhaseColumn}>
           {getSyncLanePhaseLabel(lane.phase)}
@@ -111,6 +150,73 @@ function ExplorerSyncLaneGeneralSection(params: {
         ) : null}
       </MiniAppKeyValueList>
     </MiniAppInfoSection>
+  );
+}
+
+// A document lane links to its document's info once the summary says where
+// the document is shown; an orphaned or unhydrated one stays plain text.
+function ExplorerSyncLaneDocumentGeneral(params: {
+  documentLinks: ExplorerSyncLaneDocumentLinks;
+  lane: SyncLaneSnapshot;
+  localId: string;
+  onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
+}) {
+  const { documentLinks, localId } = params;
+  const { documentSummary } = useExplorerDocumentSummary({
+    fallbackDocumentSummary: null,
+    loadDocumentSummary: documentLinks.loadDocumentSummary,
+    localId,
+  });
+  const containerId = documentSummary?.containerId ?? null;
+  return (
+    <ExplorerSyncLaneGeneralSection
+      lane={params.lane}
+      onOpenBlobDetail={params.onOpenBlobDetail}
+      subject={
+        containerId === null
+          ? null
+          : {
+              label: EXPLORER_LABELS.syncLanesOpenDocumentAction,
+              onOpen: () =>
+                documentLinks.openDocumentInfo(localId, containerId),
+            }
+      }
+    />
+  );
+}
+
+function ExplorerSyncLaneGeneral(params: {
+  documentLinks?: ExplorerSyncLaneDocumentLinks | undefined;
+  lane: SyncLaneSnapshot;
+  onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
+}) {
+  const { documentLinks, lane, onOpenBlobDetail } = params;
+  if (documentLinks && lane.key.startsWith(DOCUMENT_LANE_KEY_PREFIX)) {
+    return (
+      <ExplorerSyncLaneDocumentGeneral
+        documentLinks={documentLinks}
+        // Remount per document so its summary load starts fresh.
+        key={lane.key}
+        lane={lane}
+        localId={lane.key.slice(DOCUMENT_LANE_KEY_PREFIX.length)}
+        onOpenBlobDetail={onOpenBlobDetail}
+      />
+    );
+  }
+  const { blobStorageKey } = lane;
+  return (
+    <ExplorerSyncLaneGeneralSection
+      lane={lane}
+      onOpenBlobDetail={onOpenBlobDetail}
+      subject={
+        blobStorageKey !== null && onOpenBlobDetail
+          ? {
+              label: EXPLORER_LABELS.syncLanesOpenBlobAction,
+              onOpen: () => onOpenBlobDetail(blobStorageKey),
+            }
+          : null
+      }
+    />
   );
 }
 
@@ -272,6 +378,7 @@ function ExplorerSyncLaneDetailTabs(params: {
 
 function ExplorerSyncLaneDetailTabPanel(params: {
   activeTab: SyncLaneDetailTabId;
+  documentLinks?: ExplorerSyncLaneDocumentLinks | undefined;
   idPrefix: string;
   lane: SyncLaneSnapshot;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
@@ -286,7 +393,8 @@ function ExplorerSyncLaneDetailTabPanel(params: {
       idPrefix={params.idPrefix}
     >
       {activeTab === "general" ? (
-        <ExplorerSyncLaneGeneralSection
+        <ExplorerSyncLaneGeneral
+          documentLinks={params.documentLinks}
           lane={lane}
           onOpenBlobDetail={params.onOpenBlobDetail}
         />
@@ -305,6 +413,7 @@ function ExplorerSyncLaneDetailTabPanel(params: {
 }
 
 export function ExplorerSyncLaneDetail(params: {
+  documentLinks?: ExplorerSyncLaneDocumentLinks | undefined;
   laneKey: string;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
   snapshot: DomainSyncSnapshot;
@@ -347,6 +456,7 @@ export function ExplorerSyncLaneDetail(params: {
       />
       <ExplorerSyncLaneDetailTabPanel
         activeTab={resolvedTab}
+        documentLinks={params.documentLinks}
         idPrefix={tabIdPrefix}
         lane={lane}
         onOpenBlobDetail={params.onOpenBlobDetail}
