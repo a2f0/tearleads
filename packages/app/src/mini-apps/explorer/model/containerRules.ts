@@ -2,6 +2,7 @@ import {
   type ContainerNode,
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
+  type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { CurrentSelfContactIdentity } from "../../../stores/contacts/currentSelfContactIdentity";
@@ -14,6 +15,7 @@ import {
   type BuiltInSystemContainer,
   CONTACTS_CONTAINER_NAME,
   getUserSystemContainerRulesByKind,
+  isContactsSystemContainerNode,
   isTrashSystemContainerNode,
   isUnderForeignSharedRoot,
   type UserSystemContainerRules,
@@ -211,6 +213,38 @@ export function canCreateStructuredDocumentInContainerByRules(
     context,
     container,
     "protectFromStructuredDocumentCreation",
+  );
+}
+
+// A version saved as a copy is a new document born beside the original, so its
+// folder must take a new document of the version's kind: writable, accepting
+// the kind, and open to creation. Contacts refuses structured-document
+// creation but takes new contacts through its own action, so the viewer's own
+// Contacts takes a contact version. The Trash takes nothing; a folder under
+// it has no rules of its own, so its caller refuses that.
+//
+// The copy never touches the original, so identity matters only for what the
+// copy would hold. A contact version of the viewer's Me would be born a second
+// contact claiming to be them, so it waits for the Me read and is refused for
+// Me; the kind is the version's, since a Me alias can list as a note.
+export function canSaveDocumentCopyByRules(
+  context: ExplorerContainerRulesContext,
+  container: ContainerRulesNode | undefined,
+  document: Pick<DocumentSummary, "id" | "documentId"> | undefined,
+  documentKind: StoredDocumentKind,
+): boolean {
+  if (
+    !canAddDocumentToContainerByRules(context, container, { documentKind }) ||
+    (documentKind === "contact" &&
+      !canMutateDocumentByIdentity(context, document))
+  ) {
+    return false;
+  }
+
+  return (
+    canCreateStructuredDocumentInContainerByRules(context, container) ||
+    (documentKind === "contact" &&
+      isContactsSystemContainerNode(container, context.contactsSystemSlot))
   );
 }
 

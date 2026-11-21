@@ -25,10 +25,12 @@ import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDat
 import { EXPLORER_LABELS } from "../../labels";
 import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { useExplorerDocumentSummary } from "../document/useExplorerDocumentSummary";
+import { DocumentHistoryCopy } from "./DocumentHistoryCopy";
 import { DocumentHistoryRestore } from "./DocumentHistoryRestore";
 import { DocumentHistoryStopWriter } from "./DocumentHistoryStopWriter";
 import { DocumentHistoryTimeline } from "./DocumentHistoryTimeline";
 import { describeDocumentHistoryChange } from "./describeDocumentHistoryChange";
+import type { ExplorerDocumentVersionCopy } from "./useExplorerDocumentVersionCopy";
 
 type ReadyHistory = Extract<
   DocumentHistoryControls["state"],
@@ -78,8 +80,9 @@ function ReadyDocumentHistory(params: {
   documentSummary: DocumentSummary;
   readOnly: boolean;
   state: ReadyHistory;
+  versionCopy: ExplorerDocumentVersionCopy;
 }) {
-  const { controls, documentSummary, readOnly, state } = params;
+  const { controls, documentSummary, readOnly, state, versionCopy } = params;
   const selectedStop = state.history.stops[state.selectedIndex];
   const { shown } = state;
   const changeTime = formatMiniAppDateTimeSeconds(
@@ -116,15 +119,25 @@ function ReadyDocumentHistory(params: {
       <DocumentHistoryTimeline
         actions={
           settled === null ? null : (
-            <DocumentHistoryRestore
-              index={settled.index}
-              isLatest={isCurrentDocumentVersion(state, settled.index)}
-              // Choosing a stop stops playback, including the one on screen.
-              onRequested={() => controls.seek(settled.index)}
-              onRestored={controls.reload}
-              versionTime={changeTime}
-              view={settled.view}
-            />
+            <div className="explorer-document-history-actions">
+              <DocumentHistoryRestore
+                index={settled.index}
+                isLatest={isCurrentDocumentVersion(state, settled.index)}
+                // Choosing a stop stops playback, including the one on screen.
+                onRequested={() => controls.seek(settled.index)}
+                onRestored={controls.reload}
+                versionTime={changeTime}
+                view={settled.view}
+              />
+              <DocumentHistoryCopy
+                copy={versionCopy}
+                documentSummary={documentSummary}
+                index={settled.index}
+                onRequested={() => controls.seek(settled.index)}
+                versionTime={changeTime}
+                view={settled.view}
+              />
+            </div>
           )
         }
         changeSummary={changeSummary}
@@ -168,6 +181,7 @@ function DocumentHistoryBody(params: {
   controls: DocumentHistoryControls;
   documentSummary: DocumentSummary;
   isContainerReadOnly: (containerId: string | null) => boolean;
+  versionCopy: ExplorerDocumentVersionCopy;
 }) {
   const { controls, documentSummary } = params;
   const { state } = controls;
@@ -201,6 +215,7 @@ function DocumentHistoryBody(params: {
       // stale or bookmarked route must not unlock a document since trashed.
       readOnly={params.isContainerReadOnly(documentSummary.containerId)}
       state={state}
+      versionCopy={params.versionCopy}
     />
   );
 }
@@ -241,6 +256,7 @@ function AdmittedDocumentHistory(params: {
     | undefined;
   documentSummary: DocumentSummary;
   isContainerReadOnly: (containerId: string | null) => boolean;
+  versionCopy: ExplorerDocumentVersionCopy;
 }) {
   const { documentSummary } = params;
   const controls = useDocumentHistory(documentSummary.id);
@@ -262,6 +278,7 @@ function AdmittedDocumentHistory(params: {
         controls={controls}
         documentSummary={documentSummary}
         isContainerReadOnly={params.isContainerReadOnly}
+        versionCopy={params.versionCopy}
       />
     </>
   );
@@ -281,6 +298,8 @@ export function ExplorerDocumentHistoryPanel(params: {
   isContainerReadOnly: (containerId: string | null) => boolean;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
+  /** Saves a version as a new document beside this one. */
+  versionCopy: ExplorerDocumentVersionCopy;
 }) {
   const {
     documentSummary,
@@ -316,6 +335,7 @@ export function ExplorerDocumentHistoryPanel(params: {
           attributionUserLabelResolver={params.attributionUserLabelResolver}
           documentSummary={documentSummary}
           isContainerReadOnly={params.isContainerReadOnly}
+          versionCopy={params.versionCopy}
         />
       )}
     </MiniAppPanel>

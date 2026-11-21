@@ -28,6 +28,7 @@ import {
 import { useBlobOrganizationNames } from "../../shared/blob-pick/blob-list/useBlobOrganizationNames";
 import { useOrganizationNames } from "../../shared/organizations/useOrganizationNames";
 import { useExplorerContextMenu } from "../context-menu/ExplorerContextMenu";
+import { useExplorerDocumentVersionCopy } from "../detail/history/useExplorerDocumentVersionCopy";
 import {
   EXPLORER_LABELS,
   getExplorerDroppedFileImportFailureLog,
@@ -331,6 +332,15 @@ export function useExplorerPanelState(params: {
     domainScope: appData.state.domainScope,
     importDroppedFiles,
   });
+  const documentVersionCopy = useExplorerDocumentVersionCopy({
+    appData: explorerDocumentLinks,
+    domainScope: appData.state.domainScope,
+    loadDocumentSummary: documentQueries.loadDocumentSummary,
+    mergeDocumentSummary,
+    nodes: explorer.nodes,
+    rulesContext,
+    selectExplorerDocument: routeState.selectExplorerDocument,
+  });
   const deleteDocument = useCallback(
     async (documentId: string, currentContainerId: string) => {
       const selectSource = beginSelectionFollowUp();
@@ -446,6 +456,7 @@ export function useExplorerPanelState(params: {
     canMutateDocumentLinks: explorerDocumentLinks.canMutateDocumentLinks,
     contextMenuState,
     deleteDocument,
+    documentVersionCopy,
     uploadManager,
     loadBlobInfo,
     loadContainerInfo,

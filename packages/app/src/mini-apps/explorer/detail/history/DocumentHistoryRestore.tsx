@@ -1,21 +1,14 @@
 import type { DocumentHistoryView } from "@tearleads/client-sdk";
 import {
-  type FormEvent,
   useContext,
   useEffect,
-  useId,
   useLayoutEffect,
   useReducer,
   useRef,
 } from "react";
 import {
-  MiniAppActions,
   MiniAppButton,
-  MiniAppModalBackdrop,
-  MiniAppModalForm,
-  MiniAppModalPanel,
   MiniAppStatus,
-  useModalEscapeAndFocusRestore,
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
   IDLE_DOCUMENT_HISTORY_RESTORE,
@@ -26,53 +19,7 @@ import {
   useDocument,
 } from "../../../../stores/documents/DocumentsProvider";
 import { EXPLORER_LABELS } from "../../labels";
-
-function RestoreConfirmationDialog(params: {
-  onCancel: () => void;
-  onConfirm: () => void;
-  versionTime: string;
-}) {
-  const titleId = useId();
-  const messageId = useId();
-  // Escape cancels, focus starts on Cancel (the safe choice), and returns to
-  // the Restore button when the dialog closes.
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
-  useModalEscapeAndFocusRestore(params.onCancel, cancelButtonRef);
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    params.onConfirm();
-  };
-
-  return (
-    <MiniAppModalBackdrop role="presentation">
-      <MiniAppModalPanel
-        aria-describedby={messageId}
-        aria-labelledby={titleId}
-        aria-modal="true"
-        role="dialog"
-      >
-        <MiniAppModalForm onSubmit={handleSubmit}>
-          <h2 id={titleId}>{EXPLORER_LABELS.documentHistoryRestoreTitle}</h2>
-          <p id={messageId}>
-            {EXPLORER_LABELS.documentHistoryRestoreMessage(params.versionTime)}
-          </p>
-          <MiniAppActions>
-            <MiniAppButton
-              onClick={params.onCancel}
-              ref={cancelButtonRef}
-              type="button"
-            >
-              {EXPLORER_LABELS.documentHistoryRestoreCancel}
-            </MiniAppButton>
-            <MiniAppButton type="submit">
-              {EXPLORER_LABELS.documentHistoryRestoreConfirm}
-            </MiniAppButton>
-          </MiniAppActions>
-        </MiniAppModalForm>
-      </MiniAppModalPanel>
-    </MiniAppModalBackdrop>
-  );
-}
+import { DocumentHistoryConfirmation } from "./DocumentHistoryConfirmation";
 
 /**
  * Restores the version on screen into the live document, after a
@@ -175,10 +122,13 @@ export function DocumentHistoryRestore(params: {
         </MiniAppStatus>
       ) : null}
       {state.status === "confirming" ? (
-        <RestoreConfirmationDialog
+        <DocumentHistoryConfirmation
+          cancelLabel={EXPLORER_LABELS.documentHistoryRestoreCancel}
+          confirmLabel={EXPLORER_LABELS.documentHistoryRestoreConfirm}
+          message={EXPLORER_LABELS.documentHistoryRestoreMessage(versionTime)}
           onCancel={() => send({ type: "cancelled" })}
           onConfirm={confirm}
-          versionTime={versionTime}
+          title={EXPLORER_LABELS.documentHistoryRestoreTitle}
         />
       ) : null}
     </div>

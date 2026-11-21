@@ -11,6 +11,14 @@ import * as Runtime from "../../../../providers/sdk/TearleadsProvider";
 import * as History from "../../../../stores/document-history/useDocumentHistory";
 import * as Documents from "../../../../stores/documents/DocumentsProvider";
 import { ExplorerDocumentHistoryPanel } from "./ExplorerDocumentHistoryPanel";
+import type { ExplorerDocumentVersionCopy } from "./useExplorerDocumentVersionCopy";
+
+/** These tests never reach the timeline's actions. */
+const NO_VERSION_COPY: ExplorerDocumentVersionCopy = {
+  canSave: () => false,
+  open: () => undefined,
+  save: async () => null,
+};
 
 const restorers: Array<() => void> = [];
 afterEach(() => {
@@ -126,6 +134,7 @@ function mountPanel(input: {
       }}
       loadDocumentSummary={async () => input.documentSummary}
       localId="local-1"
+      versionCopy={NO_VERSION_COPY}
     />,
   );
   return {
@@ -160,6 +169,7 @@ test("a document the route was refused never has its history opened", async () =
       isContainerReadOnly={() => false}
       loadDocumentSummary={async () => null}
       localId="local-1"
+      versionCopy={NO_VERSION_COPY}
     />,
   );
 
@@ -182,6 +192,7 @@ test("a document whose summary failed to load never has its history opened", asy
         throw new Error("database closed");
       }}
       localId="local-1"
+      versionCopy={NO_VERSION_COPY}
     />,
   );
 
@@ -208,6 +219,7 @@ test("a cold link opens History once the document hydrates", async () => {
       isContainerReadOnly={() => false}
       loadDocumentSummary={async () => hydrated}
       localId="local-1"
+      versionCopy={NO_VERSION_COPY}
     />,
   );
   await view.findByText("This document is not available.");

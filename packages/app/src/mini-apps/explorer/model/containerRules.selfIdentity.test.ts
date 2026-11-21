@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  type ContainerNode,
   deriveStableDocumentId,
   getRosterProfileDocumentLocalId,
 } from "@tearleads/client-sdk";
@@ -7,6 +8,7 @@ import type { SelfContactIdentityView } from "../../../stores/contacts/currentSe
 import { getSelectedDocumentMutationState } from "../hooks/selectedDocumentMutationState";
 import {
   canMoveDocumentToContainerByRules,
+  canSaveDocumentCopyByRules,
   createExplorerContainerRulesContext,
   isPinnedSelfContact,
 } from "./containerRules";
@@ -249,3 +251,131 @@ for (const documentKind of ["note", "contact"] as const) {
     });
   });
 }
+
+// Saving a version as a copy: the folder must take a new document of the
+// version's kind, and a contact version must not be Me.
+function node(id: string, overrides: Partial<ContainerNode> = {}) {
+  const found = selfIdentityNodes.find((candidate) => candidate.id === id);
+  if (!found) throw new Error(`no test container ${id}`);
+  return { ...found, ...overrides };
+}
+
+const ordinary = identityDocument();
+
+test("a version is copied into an ordinary writable folder, whatever its kind", async () => {
+  const rules = createSelfIdentityRules(await createReadySelfIdentity());
+  const folder = node("linked-folder");
+
+  expect(canSaveDocumentCopyByRules(rules, folder, ordinary, "note")).toBe(
+    true,
+  );
+  expect(canSaveDocumentCopyByRules(rules, folder, ordinary, "contact")).toBe(
+    true,
+  );
+});
+
+test("a version is not copied into a folder that cannot be written or is unknown", async () => {
+  const rules = createSelfIdentityRules(await createReadySelfIdentity());
+
+  expect(
+    canSaveDocumentCopyByRules(
+      rules,
+      node("linked-folder", { effectiveAccessLevel: "read" }),
+      ordinary,
+      "note",
+    ),
+  ).toBe(false);
+  // A document whose folder is not in the tree: its write access is unproven.
+  expect(canSaveDocumentCopyByRules(rules, undefined, ordinary, "note")).toBe(
+    false,
+  );
+});
+
+test("a version is never copied into the Trash", async () => {
+  const rules = createSelfIdentityRules(await createReadySelfIdentity());
+  const trash = node("trash");
+
+  expect(canSaveDocumentCopyByRules(rules, trash, ordinary, "note")).toBe(
+    false,
+  );
+  expect(canSaveDocumentCopyByRules(rules, trash, ordinary, "contact")).toBe(
+    false,
+  );
+});
+
+test("Contacts takes a contact version and nothing else", async () => {
+  const rules = createSelfIdentityRules(await createReadySelfIdentity());
+  const contacts = node("contacts");
+
+  expect(canSaveDocumentCopyByRules(rules, contacts, ordinary, "contact")).toBe(
+    true,
+  );
+  // A contact's first stops can replay as a note; Contacts does not take one.
+  expect(canSaveDocumentCopyByRules(rules, contacts, ordinary, "note")).toBe(
+    false,
+  );
+  expect(
+    canSaveDocumentCopyByRules(
+      rules,
+      node("contacts", { effectiveAccessLevel: "read" }),
+      ordinary,
+      "contact",
+    ),
+  ).toBe(false);
+});
+
+test("a contact version of Me is never copied, wherever Me is listed", async () => {
+  const identity = await createReadySelfIdentity();
+  const rules = createSelfIdentityRules(identity);
+  const me = identityDocument({
+    documentId: identity.identity.documentId,
+    documentKind: "contact",
+    id: identity.identity.localId,
+  });
+  // A Me alias that lists as a note under another local id.
+  const alias = identityDocument({
+    documentId: identity.identity.documentId,
+    documentKind: "note",
+    id: "discovered-me-alias",
+  });
+
+  for (const document of [me, alias]) {
+    for (const container of [node("contacts"), node("linked-folder")]) {
+      expect(
+        canSaveDocumentCopyByRules(rules, container, document, "contact"),
+      ).toBe(false);
+    }
+  }
+  // A version of Me from before it was a contact holds none of Me's fields.
+  expect(
+    canSaveDocumentCopyByRules(rules, node("linked-folder"), me, "note"),
+  ).toBe(true);
+});
+
+test("a contact version waits until Me is known; other kinds do not", async () => {
+  const stale = await createReadySelfIdentity(() => false);
+  const unknown: SelfContactIdentityView[] = [
+    { status: "pending" },
+    { error: new Error("read failed"), status: "failed" },
+    stale,
+  ];
+  const folder = node("linked-folder");
+
+  for (const identity of unknown) {
+    const rules = createSelfIdentityRules(identity);
+    expect(canSaveDocumentCopyByRules(rules, folder, ordinary, "contact")).toBe(
+      false,
+    );
+    expect(canSaveDocumentCopyByRules(rules, folder, ordinary, "note")).toBe(
+      true,
+    );
+  }
+});
+
+test("without a signing identity there is no Me to refuse", () => {
+  const rules = createSelfIdentityRules(createAbsentSelfIdentity());
+
+  expect(
+    canSaveDocumentCopyByRules(rules, node("contacts"), ordinary, "contact"),
+  ).toBe(true);
+});

@@ -73,3 +73,35 @@ restore is a new step of history, not a rewind; see
   others, and by then the user may have left, the document may have become
   read-only, or the database, account, or keys may have changed. Any of those
   refuses it.
+
+## Saving a version as a copy
+
+"Save as copy" creates a new document in the folder the document is in now,
+starting as the version on screen: its kind, text, structured fields, and
+rows ([`saveDocumentVersionCopy`](saveDocumentVersionCopy.ts)). It asks first
+([`documentHistoryCopyMachine`](documentHistoryCopyMachine.ts)) and then
+offers to open the copy. The document being viewed is never written, so the
+copy does not need it to be writable and is offered on the newest stop too.
+
+- **A copy is a document of its own.** It is born through the same path as any
+  other new document, so it shares no history or identity with the original,
+  and its history starts at one step. Each row is born under a new id, in the
+  version's order.
+- **Attachments are not copied.** As with a restore, a detached attachment's
+  bytes are [not retained](../../../../../docs/attachment-retention.md), and a
+  copy never points at the original's bytes.
+- **The folder must take a new document of that kind**
+  ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/containerRules.ts)):
+  writable, accepting the version's kind, and open to creation. The viewer's
+  own Contacts takes a contact version, as it takes a new contact; the Trash,
+  folders under it, and read-only folders take nothing, and a document with no
+  folder has nowhere to save a copy.
+- **A contact version of Me is never copied.** Me is
+  [one document](../../document-types/contact/README.md#personal-me-identity)
+  per signing identity; a copy would be a second contact carrying the
+  viewer's own `isSelf` field, user id, and key. A contact version waits for
+  the Me read and is created under its admission, as a move or a purge is.
+  Other kinds do not wait: the kind is the version's, so a Me alias that lists
+  as a note is still refused once its version is a contact.
+- **The folder is asked again when the copy is confirmed.** It may have been
+  trashed or lost write access while the confirmation was open.
