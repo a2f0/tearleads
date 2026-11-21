@@ -158,7 +158,7 @@ export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   },
   {
     ...defineSqlTableSchema(documentPendingAttachments),
-    requiredColumns: ["content_sha256"],
+    requiredColumns: ["content_sha256", "requeued"],
   },
   {
     ...defineSqlTableSchema(documentAttachmentBlobProjection),

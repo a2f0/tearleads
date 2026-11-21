@@ -6,6 +6,7 @@ import {
   containerParentSyncLane,
 } from "../../persistence/container-contents/containerSyncWatermarkPersistence";
 import { organizationReadModelTables } from "../schema";
+import { documentProjectionTables } from "../schema/documentProjectionSchema";
 import { documentTables } from "../schema/documentRecordSchema";
 import { ensureSqlTables } from "../sqlSchema";
 import { localSchemaMigrations } from "./localSchemaMigrations";
@@ -156,7 +157,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5]);
+    ).toEqual([1, 2, 3, 4, 5, 6]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
@@ -197,6 +198,45 @@ test("step 4 replays publication cursors saved before unlink and restored-folder
     expect(
       await new ContainerSyncWatermarkRepository(execSql).loadWatermark(lane),
     ).toEqual(next);
+  } finally {
+    close();
+  }
+});
+
+test("step 6 marks a version-5 database's pending uploads as first attaches", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-requeued-pending",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 4),
+    });
+    const pending = documentProjectionTables.find(
+      ({ name }) => name === "document_pending_attachments",
+    );
+    if (!pending) throw new Error("Pending attachment schema is missing");
+    // The version-5 shape: the current table without its requeued column.
+    const previous = pending.createSql.replace(
+      '\n  "requeued" INTEGER NOT NULL DEFAULT 0,',
+      "",
+    );
+    expect(previous).not.toContain('"requeued"');
+    await execSql(previous);
+    await execSql(
+      `INSERT INTO document_pending_attachments (local_id, slot_id, name,
+         storage_key, byte_length, content_sha256, created_at)
+       VALUES ('note', 'photo', 'photo.bin', 'note-photo', 3, ?, ?)`,
+      ["0".repeat(64), CREATED_AT],
+    );
+
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+
+    expect(
+      await execSql(
+        "SELECT slot_id, requeued FROM document_pending_attachments",
+      ),
+    ).toEqual([{ requeued: 0, slot_id: "photo" }]);
+    await ensureSqlTables(execSql, documentProjectionTables);
   } finally {
     close();
   }

@@ -435,12 +435,12 @@ transfers and retain ownership of binding and persistence.
 
 Unlinking an attachment from a synced document is the mirror case. The local
 blob projection row cannot be dropped at unlink time: it is the durable marker
-the document lane diffs against the document to find the remote binding it
-still owes a detach, and that detach can be deferred indefinitely while the
-client is offline. The row is instead marked detached, and the local blob read
-models — the blob browser's references and document info's attachments — skip
-detached rows. Local views therefore reconcile at unlink time rather than at
-flush time, while the lane keeps the work it has not yet done.
+the document lane needs to detach the remote binding, possibly much later while
+offline. The row is marked detached instead, and the local blob read models skip
+detached rows, so local views reconcile at unlink time. The lane settles each
+marker against committed history before and after its detach, so a slot another
+pane or device adds back keeps or regains its copy
+([edge case 22](./sync-edge-cases.md#edge-cases)).
 
 ## Failure And Retry Semantics
 

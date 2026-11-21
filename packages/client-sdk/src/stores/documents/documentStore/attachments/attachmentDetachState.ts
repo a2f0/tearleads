@@ -1,16 +1,24 @@
 /**
  * Keeps a local attachment row's detach marker consistent with the document.
  *
- * The invariant is one line: a local blob row is marked detached exactly when
- * its slot is no longer in the document. The read models trust that marker to
- * decide whether a blob is still referenced, so anything that writes these rows
- * has to preserve it rather than restate what it believed the slots were.
+ * A local blob row is marked detached when its slot left the document, and
+ * stays so until a removal-marker settle reconciles it with committed history:
+ * a slot re-added meanwhile is detached only until that settle. The read
+ * models trust the marker to decide whether a blob is still referenced, so
+ * anything that writes these rows has to preserve it rather than restate what
+ * it believed the slots were.
  *
  * Two writers can otherwise clear a marker they never meant to touch: an upload
  * that settles after the user removed its slot, and a hydration that captured
  * the attachment list before an unlink and writes it back after. Both read the
  * slot list, await, then save — so the slot they save may already be gone.
  */
+import {
+  attachmentMarkerRowEffect,
+  observeAttachmentMarkerRow,
+  observeCommittedAttachmentSlot,
+  transitionAttachmentRemovalMarker,
+} from "../../../../data/documents/attachmentRemovalMarkerMachine";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import type { LocalAttachmentRecord } from "../../../../workflows/documents";
 import type { DocumentState } from "../state";
@@ -46,25 +54,34 @@ export function withLocalAttachmentDetachState(
 }
 
 /**
- * Report the loaded rows whose marker disagrees with the loaded document.
- *
- * A write can only be interrupted between marking the row and persisting the
- * document, so a restart can find either half applied. Reconciling against the
- * durable document at load makes the marker mean what it claims again: a slot
- * the document still has is live, and a slot it dropped is detached.
+ * The loaded rows whose detach marker disagrees with the loaded document, by
+ * the same transition the sync detach pass settles markers with. A write can
+ * leave a live row for a slot the document dropped, and another pane or a
+ * pull can add a removed slot back: with the same bytes the row is that
+ * slot's copy again, queued to bind since its detach may have landed, with
+ * other bytes it is an unrelated earlier copy that must not stand in for the
+ * first download of the new one.
  */
-export function reconcileLocalAttachmentDetachState(
+export function listUnsettledAttachmentMarkers(
   attachments: ReadonlyArray<LocalAttachmentRecord>,
   doc: DocumentState,
 ): LocalAttachmentRecord[] {
-  const detachedAt = new Date().toISOString();
-  const liveSlotIds = getLiveSlotIds(doc);
-  return attachments.flatMap((attachment) => {
-    const slotIsLive = liveSlotIds.has(attachment.slotId);
-    if (slotIsLive === (attachment.detachedAt === null)) {
-      return [];
-    }
-
-    return [{ ...attachment, detachedAt: slotIsLive ? null : detachedAt }];
+  const committed = new Map(
+    getDocumentAttachments(doc).map((attachment) => [
+      attachment.slotId,
+      attachment,
+    ]),
+  );
+  return attachments.filter((attachment) => {
+    const row = observeAttachmentMarkerRow(attachment, attachment.storageKey);
+    const next = transitionAttachmentRemovalMarker(
+      { status: "bindingUnknown" },
+      {
+        row,
+        slot: observeCommittedAttachmentSlot(committed.get(attachment.slotId)),
+        type: "committedChecked",
+      },
+    );
+    return attachmentMarkerRowEffect(next, row).kind !== "none";
   });
 }
