@@ -7,6 +7,7 @@ import {
   useLayoutEffect,
   useRef,
 } from "react";
+import { MiniAppEditor } from "../../components/mini-app/MiniAppLayout";
 import "./NoteDocument.css";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
@@ -50,14 +51,16 @@ function remapCaret(oldValue: string, newValue: string, caret: number): number {
   return Math.min(prefix, newValue.length);
 }
 
-// Drives the note textarea: keeps it autosized AND preserves the caret when the
-// `text` value changes from a NON-local source (a remote CRDT merge or a sync
-// republish). A controlled <textarea> whose value is rewritten by React snaps
-// the caret to the end; for the user's own keystrokes that is invisible (the
-// optimistic value already matches the DOM), but an external change mid-edit
-// would otherwise jump the caret and scramble subsequent input. We distinguish
-// the two by flagging local edits and only remapping the caret for external
-// ones, skipping entirely during IME composition.
+// Drives the note textarea: preserves the caret when the `text` value changes
+// from a NON-local source (a remote CRDT merge or a sync republish). A
+// controlled <textarea> whose value is rewritten by React snaps the caret to the
+// end; for the user's own keystrokes that is invisible (the optimistic value
+// already matches the DOM), but an external change mid-edit would otherwise
+// jump the caret and scramble subsequent input. We distinguish the two by
+// flagging local edits and only remapping the caret for external ones, skipping
+// entirely during IME composition. The textarea fills its pane and scrolls its
+// own text (NoteDocument.css); a rewritten value keeps its scroll position in
+// every engine, so an external change never moves the view.
 function useNoteEditorTextarea(
   text: string,
   setText: (value: string) => void,
@@ -138,9 +141,6 @@ function useNoteEditorTextarea(
 
     localEditRef.current = false;
     lastValueRef.current = text;
-
-    editor.style.height = "auto";
-    editor.style.height = `${editor.scrollHeight}px`;
   }, [text]);
 
   useAutoFocusEditorOnReady(ref, ready);
@@ -162,10 +162,11 @@ function useNoteEditorTextarea(
 // in-place switches between notes (the shared editor stays mounted while only
 // the store swaps). The caret lands at the end of any existing text — a no-op
 // for an empty new note — matching the "keep writing" expectation of a notes
-// editor. The editor only exists while the note is writable (a read-only note
-// renders NoteReadOnlyBody instead), so a note that loads read-only and later
-// becomes writable mounts this editor already ready and is focused then; a note
-// that never becomes writable has no editor to focus.
+// editor. Focusing the editor scrolls its text to that caret. The editor only
+// exists while the note is writable (a read-only note renders NoteReadOnlyBody
+// instead), so a note that loads read-only and later becomes writable mounts
+// this editor already ready and is focused then; a note that never becomes
+// writable has no editor to focus.
 function useAutoFocusEditorOnReady(
   ref: RefObject<HTMLTextAreaElement | null>,
   ready: boolean,
@@ -187,8 +188,8 @@ function useAutoFocusEditorOnReady(
   }, [ready, ref]);
 }
 
-// The editable note body: an autosizing, caret-preserving textarea. Owns its
-// editor hook so NoteBody only threads the text/state props through.
+// The editable note body: a caret-preserving textarea that fills its pane. Owns
+// its editor hook so NoteBody only threads the text/state props through.
 function NoteEditorTextarea({
   ready,
   setText,
@@ -209,7 +210,7 @@ function NoteEditorTextarea({
   } = useNoteEditorTextarea(text, setText, ready);
 
   return (
-    <textarea
+    <MiniAppEditor
       ref={ref}
       className="note-document-editor"
       value={text}

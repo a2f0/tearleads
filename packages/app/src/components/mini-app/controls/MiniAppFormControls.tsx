@@ -49,6 +49,21 @@ export const MiniAppTextarea = forwardRef<
   );
 });
 
+// A borderless text editor that fills its pane, such as a note body. It owns
+// only the shared focus treatment; the host lays out and pads the surface.
+export const MiniAppEditor = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function MiniAppEditor({ className, ...props }, ref) {
+  return (
+    <textarea
+      {...props}
+      className={classNames("mini-app-editor", className)}
+      ref={ref}
+    />
+  );
+});
+
 export function MiniAppField({
   className,
   ...props
