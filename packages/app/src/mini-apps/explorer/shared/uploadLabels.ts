@@ -16,12 +16,12 @@ export const EXPLORER_UPLOAD_LABELS = {
   uploadsInProgressLabel: "in progress",
   uploadsPendingSyncStatus: "Pending sync",
   uploadsQueuedStatus: "Queued",
+  uploadsRemovedStatus: "Removed",
   uploadsShowMoreAction: "Show more",
   uploadsSizeColumn: "Size",
   uploadsStatusColumn: "Status",
   uploadsSyncFailedStatus: "Sync failed",
   uploadsSyncQueuedStatus: "Sync queued",
   uploadsTitle: "Uploads",
-  uploadsUploadedStatus: "Uploaded",
   uploadsUploadingStatus: "Uploading",
 } as const;

@@ -26,7 +26,6 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { useTearleads } from "../../../../providers/sdk/TearleadsProvider";
 import { EXPLORER_LABELS, getExplorerDownloadsCountLabel } from "../../labels";
-import { getExplorerSyncLaneProgress } from "../sync/ExplorerSyncLaneUtils";
 import { useDomainSyncSnapshot } from "../sync/useDomainSyncSnapshot";
 import {
   type DownloadHistoryEntry,
@@ -37,6 +36,7 @@ import {
   ExplorerTransferNameCell,
   type ExplorerTransferProgress,
   ExplorerTransferStatusCell,
+  getExplorerTransferStatusPercent,
 } from "./ExplorerTransferCells";
 import { useDownloadHistory } from "./useDownloadHistory";
 
@@ -60,10 +60,7 @@ function downloadTransfer(
   return {
     detail,
     label,
-    // A failed pull is still queued: only a stored download fills the bar.
-    percent: getExplorerSyncLaneProgress(
-      status === "error" ? "queued" : status,
-    ),
+    percent: getExplorerTransferStatusPercent(status),
     status,
   };
 }

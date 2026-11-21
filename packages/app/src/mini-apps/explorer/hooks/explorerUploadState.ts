@@ -4,6 +4,8 @@ import {
   useCallback,
   useState,
 } from "react";
+import type { ExplorerUploadHistory } from "../../../stores/explorer/explorerUploadHistory";
+import type { ExplorerUploadItem } from "../../../stores/explorer/explorerUploadItemMachine";
 import type { ExplorerDroppedFileImportProgress } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import {
   EXPLORER_LABELS,
@@ -31,38 +33,12 @@ export interface ExplorerFileImportRunState {
   status: ExplorerFileImportRunStatus;
 }
 
-// Per-file lifecycle. "imported" means ingested locally and awaiting sync —
-// the Uploads panel derives uploading/synced from the document's sync lane.
-export type ExplorerUploadItemStatus =
-  | "queued"
-  | "importing"
-  | "imported"
-  | "failed"
-  | "cancelled";
-
-export interface ExplorerUploadItem {
-  containerId: string;
-  error: string | null;
-  fileName: string;
-  fileSize: number;
-  id: string;
-  localId: string | null;
-  status: ExplorerUploadItemStatus;
-}
-
-// Oldest settled items are trimmed past this so a long session cannot grow the
-// list without bound; outstanding (queued/importing) items are never trimmed.
-const MAX_RETAINED_UPLOAD_ITEMS = 2000;
-
 export interface UploadSelection {
   containerId: string;
   files: File[];
   itemIds: string[];
 }
 
-export type UploadItemsSetter = Dispatch<
-  SetStateAction<ReadonlyArray<ExplorerUploadItem>>
->;
 export type UploadRunSetter = Dispatch<
   SetStateAction<ExplorerFileImportRunState | null>
 >;
@@ -156,10 +132,6 @@ export function initialSelectionRun(
   };
 }
 
-function isOutstandingUploadItem(item: ExplorerUploadItem): boolean {
-  return item.status === "queued" || item.status === "importing";
-}
-
 function countQueuedFiles(queue: ReadonlyArray<UploadSelection>): number {
   return queue.reduce((total, selection) => total + selection.files.length, 0);
 }
@@ -191,25 +163,6 @@ export function useQueuedFileCounts(queueRef: { current: UploadSelection[] }) {
   return { queuedFileCount, queuedFileCounts, syncQueuedFileCount };
 }
 
-export function trimRetainedUploadItems(
-  items: ReadonlyArray<ExplorerUploadItem>,
-): ReadonlyArray<ExplorerUploadItem> {
-  const excess = items.length - MAX_RETAINED_UPLOAD_ITEMS;
-  if (excess <= 0) {
-    return items;
-  }
-  const trimmed: ExplorerUploadItem[] = [];
-  let toDrop = excess;
-  for (const item of items) {
-    if (toDrop > 0 && !isOutstandingUploadItem(item)) {
-      toDrop -= 1;
-      continue;
-    }
-    trimmed.push(item);
-  }
-  return trimmed;
-}
-
 export function createUploadItems(
   containerId: string,
   files: ReadonlyArray<File>,
@@ -229,16 +182,17 @@ export function createUploadItems(
       id,
       localId: null,
       status: "queued",
+      storageKeys: [],
     });
   });
   return items;
 }
 
-// Remove the queued selections matching the predicate and mark their items
-// cancelled; selections already running are not this function's concern.
+// Remove the queued selections matching the predicate and cancel their items;
+// selections already running are not this function's concern.
 export function dropQueuedSelections(
   queueRef: { current: UploadSelection[] },
-  setItems: UploadItemsSetter,
+  history: Pick<ExplorerUploadHistory, "dispatch">,
   predicate: (selection: UploadSelection) => boolean,
 ): void {
   const dropped = queueRef.current.filter(predicate);
@@ -248,26 +202,8 @@ export function dropQueuedSelections(
   queueRef.current = queueRef.current.filter(
     (selection) => !predicate(selection),
   );
-  markOutstandingUploadItems(
-    setItems,
+  history.dispatch(
     dropped.flatMap((selection) => selection.itemIds),
-    { error: null, status: "cancelled" },
-  );
-}
-
-// Apply a terminal patch to every listed item the run never settled (still
-// queued/importing); already-settled items keep their state.
-export function markOutstandingUploadItems(
-  setItems: UploadItemsSetter,
-  itemIds: Iterable<string>,
-  patch: { error: string | null; status: ExplorerUploadItemStatus },
-): void {
-  const ids = new Set(itemIds);
-  setItems((current) =>
-    current.map((item) =>
-      ids.has(item.id) && isOutstandingUploadItem(item)
-        ? { ...item, ...patch }
-        : item,
-    ),
+    { type: "cancelled" },
   );
 }

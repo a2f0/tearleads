@@ -1,3 +1,7 @@
+import type {
+  ContainerDocumentQueries,
+  DomainScope,
+} from "@tearleads/client-sdk";
 import {
   useCallback,
   useEffect,
@@ -5,6 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
+import {
+  type ExplorerUploadHistory,
+  getOrCreateExplorerUploadHistory,
+} from "../../../stores/explorer/explorerUploadHistory";
+import type { ExplorerUploadItem } from "../../../stores/explorer/explorerUploadItemMachine";
 import type {
   ExplorerDroppedFileImportResult,
   ExplorerDroppedFileImportRunOptions,
@@ -14,14 +24,10 @@ import {
   createUploadItems,
   dropQueuedSelections,
   type ExplorerFileImportRunState,
-  type ExplorerUploadItem,
   importRunWithProgress,
   initialSelectionRun,
   isAbortError,
-  markOutstandingUploadItems,
   settledImportRun,
-  trimRetainedUploadItems,
-  type UploadItemsSetter,
   type UploadRunSetter,
   type UploadSelection,
   uploadFailureMessage,
@@ -47,38 +53,37 @@ export interface ExplorerUploadManager {
 }
 
 function createSelectionImportOptions(input: {
+  history: ExplorerUploadHistory;
   pendingSyncKicks: Array<() => void>;
   selection: UploadSelection;
-  setItems: UploadItemsSetter;
   setRun: UploadRunSetter;
   signal: AbortSignal;
 }): ExplorerDroppedFileImportRunOptions {
-  const patchItem = (fileIndex: number, patch: Partial<ExplorerUploadItem>) => {
+  const fileItemIds = (fileIndex: number): string[] => {
     const itemId = input.selection.itemIds[fileIndex];
-    if (itemId === undefined) {
-      return;
-    }
-    input.setItems((current) =>
-      current.map((item) =>
-        item.id === itemId ? { ...item, ...patch } : item,
-      ),
-    );
+    return itemId === undefined ? [] : [itemId];
   };
 
   return {
     deferRequestSync: true,
     onFileFailed: (fileIndex, error) => {
-      patchItem(fileIndex, {
+      input.history.dispatch(fileItemIds(fileIndex), {
         error: uploadFailureMessage(error),
-        status: "failed",
+        type: "file-failed",
       });
     },
-    onFileImported: ({ fileIndex, localId, requestSync }) => {
+    onFileImported: ({ fileIndex, localId, requestSync, storageKeys }) => {
       input.pendingSyncKicks.push(requestSync);
-      patchItem(fileIndex, { localId, status: "imported" });
+      input.history.dispatch(fileItemIds(fileIndex), {
+        localId,
+        storageKeys,
+        type: "imported",
+      });
     },
     onFileStart: (fileIndex) => {
-      patchItem(fileIndex, { status: "importing" });
+      input.history.dispatch(fileItemIds(fileIndex), {
+        type: "import-started",
+      });
     },
     onProgress: (progress) => {
       input.setRun((current) => importRunWithProgress(current, progress));
@@ -93,12 +98,12 @@ function createSelectionImportOptions(input: {
 // failed, because those documents are durable and must reach the server.
 async function runUploadSelection(input: {
   controller: AbortController;
+  history: ExplorerUploadHistory;
   importDroppedFiles: ImportExplorerDroppedFiles;
   selection: UploadSelection;
-  setItems: UploadItemsSetter;
   setRun: UploadRunSetter;
 }): Promise<void> {
-  const { selection, setItems, setRun } = input;
+  const { history, selection, setRun } = input;
   const pendingSyncKicks: Array<() => void> = [];
   try {
     const result: ExplorerDroppedFileImportResult =
@@ -106,9 +111,9 @@ async function runUploadSelection(input: {
         selection.containerId,
         selection.files,
         createSelectionImportOptions({
+          history,
           pendingSyncKicks,
           selection,
-          setItems,
           setRun,
           signal: input.controller.signal,
         }),
@@ -127,10 +132,7 @@ async function runUploadSelection(input: {
       }),
     );
     if (result.aborted) {
-      markOutstandingUploadItems(setItems, selection.itemIds, {
-        error: null,
-        status: "cancelled",
-      });
+      history.dispatch(selection.itemIds, { type: "cancelled" });
     }
   } catch (error) {
     // A rejection refuses the whole selection (e.g. a protected container);
@@ -142,12 +144,11 @@ async function runUploadSelection(input: {
     setRun((current) =>
       settledImportRun(current, { aborted, error: message, failedCount: 0 }),
     );
-    markOutstandingUploadItems(
-      setItems,
+    history.dispatch(
       selection.itemIds,
       aborted
-        ? { error: null, status: "cancelled" }
-        : { error: message, status: "failed" },
+        ? { type: "cancelled" }
+        : { error: message, type: "selection-failed" },
     );
   } finally {
     for (const kick of pendingSyncKicks) {
@@ -162,29 +163,29 @@ async function runUploadSelection(input: {
 function useUploadCancellation(input: {
   abortRef: { current: AbortController | null };
   activeContainerIdRef: { current: string | null };
+  history: ExplorerUploadHistory;
   selectionQueueRef: { current: UploadSelection[] };
-  setItems: UploadItemsSetter;
   syncQueuedFileCount: () => void;
 }) {
   const {
     abortRef,
     activeContainerIdRef,
+    history,
     selectionQueueRef,
-    setItems,
     syncQueuedFileCount,
   } = input;
 
   const cancel = useCallback(() => {
-    dropQueuedSelections(selectionQueueRef, setItems, () => true);
+    dropQueuedSelections(selectionQueueRef, history, () => true);
     syncQueuedFileCount();
     abortRef.current?.abort();
-  }, [abortRef, selectionQueueRef, setItems, syncQueuedFileCount]);
+  }, [abortRef, history, selectionQueueRef, syncQueuedFileCount]);
 
   const cancelForContainer = useCallback(
     (containerId: string) => {
       dropQueuedSelections(
         selectionQueueRef,
-        setItems,
+        history,
         (selection) => selection.containerId === containerId,
       );
       syncQueuedFileCount();
@@ -195,8 +196,8 @@ function useUploadCancellation(input: {
     [
       abortRef,
       activeContainerIdRef,
+      history,
       selectionQueueRef,
-      setItems,
       syncQueuedFileCount,
     ],
   );
@@ -225,29 +226,37 @@ function useLatestImporter(importDroppedFiles: ImportExplorerDroppedFiles): {
 // item tracking. Sync kickoff is DEFERRED until a selection settles, so ingest
 // writes and sync-lane passes stop contending for the single serialized SQLite
 // queue. Cancellation aborts the active selection at its next batch boundary
-// and drops every not-yet-started selection.
+// and drops every not-yet-started selection. Items live in the scope's upload
+// history, so finished uploads outlast this manager as Downloads and Sync
+// Lanes history do.
 export function useExplorerUploadManager(params: {
+  documentQueries: Pick<ContainerDocumentQueries, "loadDocumentSyncState">;
+  domainScope: DomainScope;
   importDroppedFiles: ImportExplorerDroppedFiles;
 }): ExplorerUploadManager {
-  const { importDroppedFiles } = params;
+  const { documentQueries, domainScope, importDroppedFiles } = params;
+  const history = getOrCreateExplorerUploadHistory(domainScope);
+  const items = useTearleadsExternalStoreSnapshot(history);
   const [run, setRun] = useState<ExplorerFileImportRunState | null>(null);
-  const [items, setItems] = useState<ReadonlyArray<ExplorerUploadItem>>([]);
   const selectionQueueRef = useRef<UploadSelection[]>([]);
   const { queuedFileCount, queuedFileCounts, syncQueuedFileCount } =
     useQueuedFileCounts(selectionQueueRef);
   const drainingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const activeContainerIdRef = useRef<string | null>(null);
-  const itemSeqRef = useRef(0);
   const importDroppedFilesRef = useLatestImporter(importDroppedFiles);
+  useEffect(() => {
+    history.setDocumentQueries(documentQueries);
+  }, [documentQueries, history]);
   // Abort any in-flight import on unmount so it can't keep creating documents
-  // with no UI reporting on it; queued selections are dropped with it.
+  // with no UI reporting on it; queued selections are cancelled with it, and
+  // the aborted run cancels its own unimported files when it settles.
   useEffect(
     () => () => {
-      selectionQueueRef.current.length = 0;
+      dropQueuedSelections(selectionQueueRef, history, () => true);
       abortRef.current?.abort();
     },
-    [],
+    [history],
   );
 
   const drainNextSelection = useCallback(() => {
@@ -263,16 +272,16 @@ export function useExplorerUploadManager(params: {
     setRun(initialSelectionRun(selection));
     void runUploadSelection({
       controller,
+      history,
       importDroppedFiles: importDroppedFilesRef.current,
       selection,
-      setItems,
       setRun,
     }).finally(() => {
       abortRef.current = null;
       activeContainerIdRef.current = null;
       drainNextSelection();
     });
-  }, [syncQueuedFileCount]);
+  }, [history, syncQueuedFileCount]);
 
   const startImport = useCallback(
     (containerId: string, files: ReadonlyArray<File>) => {
@@ -280,15 +289,8 @@ export function useExplorerUploadManager(params: {
         return;
       }
       const selectionFiles = Array.from(files);
-      const itemIds = selectionFiles.map(
-        () => `upload-${++itemSeqRef.current}`,
-      );
-      setItems((current) =>
-        trimRetainedUploadItems([
-          ...current,
-          ...createUploadItems(containerId, selectionFiles, itemIds),
-        ]),
-      );
+      const itemIds = selectionFiles.map(() => history.nextItemId());
+      history.add(createUploadItems(containerId, selectionFiles, itemIds));
       selectionQueueRef.current.push({
         containerId,
         files: selectionFiles,
@@ -300,14 +302,14 @@ export function useExplorerUploadManager(params: {
         drainNextSelection();
       }
     },
-    [drainNextSelection, syncQueuedFileCount],
+    [drainNextSelection, history, syncQueuedFileCount],
   );
 
   const { cancel, cancelForContainer } = useUploadCancellation({
     abortRef,
     activeContainerIdRef,
+    history,
     selectionQueueRef,
-    setItems,
     syncQueuedFileCount,
   });
 
