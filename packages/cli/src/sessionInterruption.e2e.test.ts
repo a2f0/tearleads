@@ -186,7 +186,7 @@ test("a one-session command reports expiry without reauthenticating", async () =
   );
 });
 
-test("reports an issued session when local identity pinning fails after verification", async () => {
+test("revokes the issued session when local identity pinning fails after verification", async () => {
   const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
   const db = await localDatabase.openLocalDatabase();
   let afterVerify = false;
@@ -209,13 +209,28 @@ test("reports an issued session when local identity pinning fails after verifica
       },
     },
   });
+  requests.length = 0;
+  let failure: unknown;
   try {
-    await expect(
-      withSession({ apiBaseUrl, recoveryKey: seedPhrase }, async () => {
-        throw new Error("Unexpected signed-in work");
-      }),
-    ).rejects.toThrow(/Local pin storage failed.*session may remain/u);
+    await withSession({ apiBaseUrl, recoveryKey: seedPhrase }, async () => {
+      throw new Error("Unexpected signed-in work");
+    }).catch((error: unknown) => {
+      failure = error;
+    });
   } finally {
     dbOpen.mockRestore();
   }
+  expect(String(failure)).toContain("Local pin storage failed");
+  expect(String(failure)).not.toContain("session may remain");
+  expect(requests.filter((request) => request.includes("/auth/"))).toEqual([
+    "POST /auth/challenge",
+    "POST /auth/verify",
+    "POST /auth/logout",
+  ]);
+  await withSession(
+    { apiBaseUrl, recoveryKey: seedPhrase },
+    async ({ sdk }) => {
+      expect(await sdk.session.listSessions()).toHaveLength(1);
+    },
+  );
 });

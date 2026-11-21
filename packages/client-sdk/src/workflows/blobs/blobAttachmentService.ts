@@ -42,6 +42,7 @@ let collaboratorsOf: (
  */
 export class BlobAttachmentService {
   private readonly blobs: BlobAttachmentCollaborators;
+  private readonly expectedDownloads: ExpectedDownloadSizes | undefined;
 
   static {
     collaboratorsOf = (service) => service.blobs;
@@ -49,13 +50,20 @@ export class BlobAttachmentService {
 
   constructor(
     collaborators: BlobAttachmentCollaborators,
-    private readonly expectedDownloads?: ExpectedDownloadSizes,
+    expectedDownloads?: Omit<ExpectedDownloadSizes, "signal"> & {
+      signal?: AbortSignal | undefined;
+    },
   ) {
     if (expectedDownloads && !collaborators.api.supportsBoundedAttachmentReads)
       throw new Error(
         "This transport does not support bounded attachment reads.",
       );
     this.blobs = collaborators;
+    // A signal selects the bounded reader for every read, so one is always set.
+    this.expectedDownloads = expectedDownloads && {
+      ...expectedDownloads,
+      signal: expectedDownloads.signal ?? new AbortController().signal,
+    };
   }
 
   /** Limit this document's hydration to known slot sizes before reading any body. */
@@ -69,7 +77,7 @@ export class BlobAttachmentService {
       documentId,
       sizesBySlot: new Map(sizesBySlot),
       onVerifiedBinding,
-      signal: signal ?? new AbortController().signal,
+      signal,
     });
   }
 

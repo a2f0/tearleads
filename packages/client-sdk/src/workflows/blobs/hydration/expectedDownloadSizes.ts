@@ -14,7 +14,8 @@ export interface ExpectedDownloadSizes {
   documentId: string;
   sizesBySlot: ReadonlyMap<string, number>;
   onVerifiedBinding?: ((binding: BlobAttachmentSummary) => void) | undefined;
-  signal?: AbortSignal | undefined;
+  /** Bounds every read of the verification, including the writer projection. */
+  signal: AbortSignal;
 }
 
 export async function expectedEncryptedDownloadLimits(

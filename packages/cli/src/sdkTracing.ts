@@ -19,6 +19,7 @@ export class TracingApiRequestMetrics extends ApiRequestMetrics {
   constructor(
     private readonly tracer: Tracer,
     private readonly onVerify?: () => void,
+    private readonly onRevoked?: () => void,
   ) {
     super();
   }
@@ -26,7 +27,17 @@ export class TracingApiRequestMetrics extends ApiRequestMetrics {
   override begin(...[identity, operation]: BeginArguments): Finish {
     if (operation.method === "POST" && operation.path === "/auth/verify")
       this.onVerify?.();
-    const finish = super.begin(identity, operation);
+    const recorded = super.begin(identity, operation);
+    const onRevoked = this.onRevoked;
+    const finish: Finish =
+      onRevoked &&
+      operation.method === "POST" &&
+      operation.path === "/auth/logout"
+        ? (outcome, serverTiming) => {
+            recorded(outcome, serverTiming);
+            if (outcome === "succeeded") onRevoked();
+          }
+        : recorded;
     if (!this.tracer.enabled) return finish;
     const id = ++this.nextRequest;
     const endpoint = `${operation.method} ${operation.path}`;

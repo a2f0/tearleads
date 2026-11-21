@@ -14,9 +14,12 @@ for (const inScope of [false, true]) {
   for (const mode of [
     "stale",
     "fresh",
-    ...(inScope ? ["bounded", "bounded without signal"] : []),
+    ...(inScope
+      ? ["bounded", "bounded without signal", "constructed without signal"]
+      : []),
   ]) {
     const freshEvidence = mode !== "stale";
+    const bounded = mode !== "stale" && mode !== "fresh";
     const signal =
       mode === "bounded" ? new AbortController().signal : undefined;
     test(`attachment hydration refreshes valid ancestor citations and rejects unrelated paths (mode=${mode}, inScope=${inScope})`, async () => {
@@ -51,7 +54,7 @@ for (const inScope of [false, true]) {
               _id: string,
               options?: { signal: AbortSignal },
             ) => {
-              if (mode === "bounded without signal")
+              if (mode.endsWith("without signal"))
                 expect(options?.signal).toBeInstanceOf(AbortSignal);
               else expect(options?.signal).toBe(signal);
               projections += 1;
@@ -66,6 +69,16 @@ for (const inScope of [false, true]) {
           reportSecurityIncident: async (error) => {
             incidents.push(error);
           },
+          ...(mode === "constructed without signal"
+            ? {
+                expectedDownloads: {
+                  documentId: fixture.writerProjection.documentId,
+                  sizesBySlot: new Map([
+                    [fixture.attachment.slotId, fixture.attachment.byteLength],
+                  ]),
+                },
+              }
+            : {}),
         });
         const reader = mode.startsWith("bounded")
           ? service.withExpectedDownloads(
@@ -92,7 +105,7 @@ for (const inScope of [false, true]) {
           });
         }
         expect(projections).toBe(2);
-        expect(evictions).toBe(mode.startsWith("bounded") ? 0 : 1);
+        expect(evictions).toBe(bounded ? 0 : 1);
         expect(downloads).toBe(1);
         if (freshEvidence) {
           const sharedDatabase = await createTestExecSql(

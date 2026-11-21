@@ -5,7 +5,12 @@ type LoginState =
   | "not-issued"
   | "authenticated"
   | "outcome-unknown";
-type LoginEvent = "starting" | "dispatch-verify" | "accepted" | "unconfirmed";
+type LoginEvent =
+  | "starting"
+  | "dispatch-verify"
+  | "accepted"
+  | "unconfirmed"
+  | "revoked";
 
 function transitionLogin(state: LoginState, event: LoginEvent): LoginState {
   if (state === "not-started" && event === "starting") return "challenge";
@@ -13,6 +18,8 @@ function transitionLogin(state: LoginState, event: LoginEvent): LoginState {
     return "verification";
   if (state !== "challenge" && state !== "verification") return state;
   if (event === "accepted") return "authenticated";
+  // The SDK refused the sign-in and revoked the session the API issued.
+  if (event === "revoked") return "not-issued";
   if (event !== "unconfirmed") return state;
   return state === "verification" ? "outcome-unknown" : "not-issued";
 }
