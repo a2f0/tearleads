@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import * as rootEntrypoint from "./index";
 import {
+  type AttachmentRemovalMarkerSettlement,
   type BlobInfoInput,
   blobByteSourceInputLength,
   type ContainerDocumentObjectSyncState,
@@ -25,8 +26,30 @@ import {
   getDocumentClientProjectionTables,
   isPinCodeWrappedLocalSecretEnvelope,
   readBlobByteSource,
+  type SettleAttachmentRemovalMarkerInput,
   syncedContainerDocumentObjectSyncState,
 } from "./index";
+
+test("root entrypoint names the removal-marker settle contract", () => {
+  const dropped: AttachmentRemovalMarkerSettlement = {
+    marker: { status: "dropped" },
+    pending: null,
+    row: null,
+    write: "delete",
+  };
+  const input: SettleAttachmentRemovalMarkerInput = {
+    localId: "document-1",
+    settle: ({ committed, row }) =>
+      committed === undefined && row === null
+        ? { ...dropped, marker: { status: "superseded" }, write: "none" }
+        : dropped,
+    slotId: "slot-1",
+    stillCurrent: () => true,
+  };
+
+  expect(input.settle({ committed: undefined, row: null }).write).toBe("none");
+  expect(input.stillCurrent()).toBe(true);
+});
 
 test("root entrypoint exposes public facade symbols", () => {
   const upload: DocumentAttachmentUpload = {

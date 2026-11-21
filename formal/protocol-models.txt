@@ -57,5 +57,6 @@ formal/local-trust/SessionRetryIdentity.tla|formal/local-trust/SessionRetryIdent
 formal/local-trust/PrincipalAcknowledgementRace.tla|formal/local-trust/PrincipalAcknowledgementRace.cfg
 formal/blob-attachments/AttachmentBindDocumentVersion.tla|formal/blob-attachments/AttachmentBindDocumentVersion.cfg
 formal/blob-attachments/PendingAttachmentDetach.tla|formal/blob-attachments/PendingAttachmentDetach.cfg
+formal/blob-attachments/AttachmentReaddReconcile.tla|formal/blob-attachments/AttachmentReaddReconcile.cfg
 formal/blob-attachments/StagePromotion.tla|formal/blob-attachments/StagePromotion.cfg
 formal/document-sync/SyncLaneConcurrency.tla|formal/document-sync/SyncLaneConcurrency.cfg

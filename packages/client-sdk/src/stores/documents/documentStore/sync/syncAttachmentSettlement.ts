@@ -157,9 +157,11 @@ export function isNewPendingAttachmentSlot(
   state: DocumentStoreState,
   pendingAttachment: PendingAttachmentRecord,
 ): boolean {
-  // Fresh slots use a deterministic key; replacements append a UUID.
+  // Fresh slots use a deterministic key; replacements append a UUID. A
+  // requeued copy keeps its first-attach key but may still be bound.
   return (
+    pendingAttachment.requeued !== true &&
     pendingAttachment.storageKey ===
-    `${state.localId}-${pendingAttachment.slotId}`
+      `${state.localId}-${pendingAttachment.slotId}`
   );
 }

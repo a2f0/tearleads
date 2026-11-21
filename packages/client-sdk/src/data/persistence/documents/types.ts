@@ -8,6 +8,14 @@ import type {
 } from "../../documents/documentSummary";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import type {
+  AttachmentRemovalMarkerSettlement,
+  AttachmentRemovalRows,
+  AttachmentStagingRows,
+  LocalAttachmentRecord,
+  PendingAttachmentRecord,
+  SettleAttachmentRemovalMarkerInput,
+} from "./attachmentRecords";
 import type { DocumentBirthResult } from "./documentBirthResult";
 import type { DocumentDeletionPort } from "./documentDeletionPort";
 import type { DocumentOrphanBlobPersistence } from "./orphanBlobPersistence";
@@ -17,6 +25,17 @@ import type {
   PendingUpdateFields,
   QueuedPendingUpdateRecord,
 } from "./records";
+
+export type {
+  AttachmentRemovalMarkerObservation,
+  AttachmentRemovalMarkerSettlement,
+  AttachmentRemovalRows,
+  AttachmentStagingRows,
+  LocalAttachmentRecord,
+  PendingAttachmentRecord,
+  PendingAttachmentUploadIdentity,
+  SettleAttachmentRemovalMarkerInput,
+} from "./attachmentRecords";
 
 export interface StoredDocumentRecord extends BaseDocumentRecord {
   containerId: string | null;
@@ -34,63 +53,6 @@ export type DiscardDocumentToShellResult =
 
 export interface PendingUpdateInsert extends PendingUpdateFields {
   localId: string;
-}
-
-/**
- * The identity a pending attachment upload reuses across attempts so a retry
- * (next sync pass or after a restart) reproduces byte-identical encrypted bytes
- * and resumes the same multipart stage instead of orphaning it. `contentKey` and
- * the chunk `nonceSeed` are base64. `partSize`/`stageId` are filled in once the
- * multipart stage has been opened and remain null before that.
- */
-export interface PendingAttachmentUploadIdentity {
-  blobId: string;
-  contentKey: string;
-  contentKeyEpoch: number;
-  nonceSeed: string;
-  partSize: number | null;
-  plaintextSha256: string;
-  stageId: string | null;
-}
-
-export interface PendingAttachmentRecord {
-  byteLength: number;
-  contentSha256: string;
-  localId: string;
-  mimeType: string | null;
-  name: string;
-  slotId: string;
-  storageKey: string;
-  upload?: PendingAttachmentUploadIdentity | null;
-}
-
-export interface LocalAttachmentRecord {
-  blobId: string | null;
-  byteLength: number;
-  // Plaintext digest of the bytes at `storageKey`. Compared with the digest
-  // the document content records for the slot: a held copy that differs is a
-  // validly signed served binding the document has not recorded (yet).
-  contentSha256: string;
-  // Set once the slot is unlinked from a synced document and cleared when the
-  // slot is written again. The record survives the unlink so the next sync can
-  // still detach the remote binding; `detachedAt` is what keeps the local read
-  // models from reporting the slot as a live blob reference in the meantime.
-  detachedAt: string | null;
-  localId: string;
-  mimeType: string | null;
-  slotId: string;
-  storageKey: string;
-}
-
-export interface AttachmentStagingRows {
-  localAttachments: ReadonlyArray<LocalAttachmentRecord>;
-  pendingAttachments: ReadonlyArray<PendingAttachmentRecord>;
-}
-
-export interface AttachmentRemovalRows {
-  mode: "delete" | "detach";
-  slotId: string;
-  storageKey: string;
 }
 
 export interface DocumentHistoryRestoreState {
@@ -423,6 +385,11 @@ export interface DocumentsPersistence
       stillCurrent: () => boolean;
     },
   ) => Promise<boolean>;
+  /** Settle a removal marker against committed history; see the machine. */
+  settleAttachmentRemovalMarker: (
+    execSql: ExecSql,
+    input: SettleAttachmentRemovalMarkerInput,
+  ) => Promise<AttachmentRemovalMarkerSettlement | null>;
   saveLocalAttachment: (
     execSql: ExecSql,
     attachment: LocalAttachmentRecord,

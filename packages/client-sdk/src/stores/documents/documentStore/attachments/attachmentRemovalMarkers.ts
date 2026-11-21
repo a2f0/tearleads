@@ -1,0 +1,146 @@
+import {
+  type AttachmentRemovalMarker,
+  isOpenAttachmentRemovalMarker,
+  type OpenAttachmentRemovalMarker,
+} from "../../../../data/documents/attachmentRemovalMarkerMachine";
+import { getDocumentAttachments } from "../../../../data/documents/documentContent";
+import {
+  type AttachmentRemovalMarkerSettlement,
+  settleDocumentAttachmentRemovalMarker,
+} from "../../../../workflows/documents";
+import { runDocumentOrphanMaintenance } from "../orphanMaintenance";
+import {
+  type DocumentState,
+  type DocumentStoreState,
+  setReadySnapshot,
+} from "../state";
+import {
+  assignLocalAttachmentSlots,
+  removeLocalAttachmentSlot,
+  upsertPendingAttachments,
+} from "./attachmentPersistence";
+
+/** A copy this store removed and still maps until its marker settles. */
+export interface AttachmentRemovalMarkerSlot {
+  /** The blob this copy was bound as; null when its upload never bound. */
+  blobId: string | null;
+  /** The live document records the slot again; only its row is realigned. */
+  recorded: boolean;
+  slotId: string;
+  storageKey: string;
+}
+
+/**
+ * The slots this store maps to a held copy that `doc` no longer has, and the
+ * detached rows of slots `doc` records again (a pull or another pane added
+ * them back before their marker settled). Each is a removal marker unless
+ * committed history has the slot again, which only the durable settle can
+ * tell.
+ */
+export async function listAttachmentRemovalMarkers(
+  state: DocumentStoreState,
+  doc: DocumentState,
+): Promise<AttachmentRemovalMarkerSlot[]> {
+  const liveSlotIds = new Set(
+    getDocumentAttachments(doc).map((attachment) => attachment.slotId),
+  );
+  const marker = (slotId: string, storageKey: string, recorded: boolean) => ({
+    blobId: state.attachmentBlobIdBySlotId[slotId] ?? null,
+    recorded,
+    slotId,
+    storageKey,
+  });
+  const removed = Object.entries(state.attachmentStorageKeyBySlotId).flatMap(
+    ([slotId, storageKey]) =>
+      liveSlotIds.has(slotId) ? [] : [marker(slotId, storageKey, false)],
+  );
+  if (liveSlotIds.size === 0) return removed;
+  const rows = await state.persistence.listLocalAttachments(
+    state.runtime.infra.execSql,
+    state.localId,
+  );
+  const recorded = rows.flatMap((row) =>
+    row.detachedAt !== null &&
+    liveSlotIds.has(row.slotId) &&
+    state.attachmentStorageKeyBySlotId[row.slotId] === row.storageKey
+      ? [marker(row.slotId, row.storageKey, true)]
+      : [],
+  );
+  return [...removed, ...recorded];
+}
+
+function docRecordsAttachment(
+  doc: DocumentState | null,
+  pending: { contentSha256: string; slotId: string },
+): boolean {
+  return (
+    doc !== null &&
+    getDocumentAttachments(doc).some(
+      (attachment) =>
+        attachment.slotId === pending.slotId &&
+        attachment.contentSha256 === pending.contentSha256,
+    )
+  );
+}
+
+function installSettledMarker(
+  state: DocumentStoreState,
+  marker: AttachmentRemovalMarkerSlot,
+  settled: AttachmentRemovalMarkerSettlement,
+  doc: DocumentState | null,
+): void {
+  // Another write in this store already refilled the slot; it owns the maps.
+  if (state.attachmentStorageKeyBySlotId[marker.slotId] !== marker.storageKey)
+    return;
+  removeLocalAttachmentSlot(state, marker.slotId);
+  if (settled.row) assignLocalAttachmentSlots(state, [settled.row]);
+  // The upload lane drops a pending upload its live document does not
+  // record, durably. Until the pane catches up with the re-add, the durable
+  // record waits; the catch-up (or the next startup) publishes it.
+  if (settled.pending && docRecordsAttachment(state.doc, settled.pending)) {
+    upsertPendingAttachments(state, [settled.pending]);
+  }
+  if (doc && doc === state.doc) {
+    setReadySnapshot(
+      state,
+      doc,
+      state.snapshot.syncing,
+      state.snapshot.text,
+      state.snapshot.structuredFields,
+    );
+  }
+}
+
+/**
+ * Settle one removal marker against committed document history and mirror
+ * the durable outcome into this store. Null when `stillCurrent` turned false:
+ * before the commit nothing was written; after it the durable settle stands,
+ * but this store's mirror and the orphan reclaim are left to the store's next
+ * load, which reads the pending uploads and reclaims orphans from SQLite.
+ */
+export async function settleStoreAttachmentRemovalMarker(input: {
+  doc: DocumentState | null;
+  from: OpenAttachmentRemovalMarker;
+  marker: AttachmentRemovalMarkerSlot;
+  state: DocumentStoreState;
+  stillCurrent: () => boolean;
+}): Promise<AttachmentRemovalMarker | null> {
+  const { marker, state, stillCurrent } = input;
+  const settled = await settleDocumentAttachmentRemovalMarker({
+    execSql: state.runtime.infra.execSql,
+    from: input.from,
+    localId: state.localId,
+    persistence: state.persistence,
+    slotId: marker.slotId,
+    stillCurrent,
+    storageKey: marker.storageKey,
+  });
+  if (!settled || !stillCurrent()) return null;
+  if (isOpenAttachmentRemovalMarker(settled.marker)) return settled.marker;
+  installSettledMarker(state, marker, settled, input.doc);
+  // Dropping the row queued its bytes for the reference-checked reclaim.
+  if (settled.marker.status === "dropped") {
+    void runDocumentOrphanMaintenance(state);
+  }
+  return settled.marker;
+}
