@@ -48,6 +48,17 @@ function normalizeOptionalString(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
+/**
+ * The fields that bind a contact to an account: whose it is, their key, and
+ * whether it is the viewer. Contacts finds a person's contact by `userId`, so
+ * a contact made from another's content must not carry them.
+ */
+export const CONTACT_ACCOUNT_FIELDS: ReadonlyArray<string> = [
+  "encapsulationPublicKey",
+  "isSelf",
+  "userId",
+] satisfies ReadonlyArray<keyof ContactDocumentFields>;
+
 export function contactFieldsToEntry(
   id: string,
   fields: ContactDocumentFields,

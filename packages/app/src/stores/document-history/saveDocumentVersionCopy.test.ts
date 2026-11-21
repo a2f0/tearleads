@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentRow, DocumentSummary } from "@tearleads/client-sdk";
+import { ENV_FILE_DOCUMENT_KIND } from "../../document-types/env-file/envFileDocumentDefinition";
 import { AVATAR_PHOTO_FIELD } from "../../document-types/shared/documentPhotos";
 import {
   type DocumentVersionCopyContent,
@@ -148,6 +149,42 @@ test("a copy does not name an avatar photo it does not hold", async () => {
   expect(store.opened[0]?.initialStructuredFields).toEqual({
     firstName: "Ada",
   });
+});
+
+test("a contact's copy is not bound to the account the original names", async () => {
+  const store = harness();
+  const bound = {
+    encapsulationPublicKey: "a-key-from-the-past-version",
+    firstName: "Ada",
+    isSelf: "0",
+    userId: "user-ada",
+  };
+
+  await saveDocumentVersionCopy({
+    containerId: "folder-1",
+    content: { ...CONTACT, structuredFields: bound },
+    createLocalId: () => "copy-1",
+    loadDocumentSummary: async () => SUMMARY,
+    openDocument: store.openDocument,
+  });
+  // Contacts finds a person's contact by user id: the copy must not answer.
+  expect(store.opened[0]?.initialStructuredFields).toEqual({
+    firstName: "Ada",
+  });
+
+  // The names mean nothing on another kind, whose fields are its own.
+  await saveDocumentVersionCopy({
+    containerId: "folder-1",
+    content: {
+      ...CONTACT,
+      documentKind: ENV_FILE_DOCUMENT_KIND,
+      structuredFields: bound,
+    },
+    createLocalId: () => "copy-2",
+    loadDocumentSummary: async () => SUMMARY,
+    openDocument: store.openDocument,
+  });
+  expect(store.opened[1]?.initialStructuredFields).toEqual(bound);
 });
 
 test("a note is never opened with structured fields or rows", async () => {

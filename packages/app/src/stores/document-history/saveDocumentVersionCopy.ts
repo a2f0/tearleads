@@ -4,6 +4,8 @@ import {
   type DocumentSummary,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
+import { CONTACT_DOCUMENT_KIND } from "../../document-types/contact/contactDocumentDefinition";
+import { CONTACT_ACCOUNT_FIELDS } from "../../document-types/contact/contactDocumentModel";
 import { AVATAR_PHOTO_FIELD } from "../../document-types/shared/documentPhotos";
 
 /**
@@ -39,15 +41,27 @@ interface DocumentVersionCopyStore {
 }
 
 /**
- * A version's structured fields without the one that names an attachment
- * slot: the copy holds no attachments, so it must not point at a photo it
- * does not have.
+ * The structured fields a copy is born with: the version's, without those
+ * that point at something the copy does not have.
+ *
+ * - The field naming an attachment slot: the copy holds no attachments, so it
+ *   must not point at a photo it lacks.
+ * - A contact's account fields. The copy is another contact, and Contacts
+ *   finds a person's contact by user id: two contacts answering to one id
+ *   would let an import update the copy instead. The key is also the past
+ *   version's, which may since have been replaced.
  */
-function fieldsWithoutAttachmentReferences(
-  fields: Readonly<Record<string, string>>,
+function copiedStructuredFields(
+  content: DocumentVersionCopyContent,
 ): Record<string, string> {
+  const left = new Set([
+    AVATAR_PHOTO_FIELD,
+    ...(content.documentKind === CONTACT_DOCUMENT_KIND
+      ? CONTACT_ACCOUNT_FIELDS
+      : []),
+  ]);
   return Object.fromEntries(
-    Object.entries(fields).filter(([key]) => key !== AVATAR_PHOTO_FIELD),
+    Object.entries(content.structuredFields).filter(([key]) => !left.has(key)),
   );
 }
 
@@ -81,9 +95,7 @@ export async function saveDocumentVersionCopy(input: {
     containerId,
     initialDocumentKind: content.documentKind,
     initialRows: isNote ? [] : content.rows.map((row) => row.fields),
-    initialStructuredFields: isNote
-      ? {}
-      : fieldsWithoutAttachmentReferences(content.structuredFields),
+    initialStructuredFields: isNote ? {} : copiedStructuredFields(content),
     initialText: content.text,
     localId,
   });

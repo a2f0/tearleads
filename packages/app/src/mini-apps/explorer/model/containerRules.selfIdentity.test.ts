@@ -340,6 +340,30 @@ test("app-owned folders take no copy, although they leave creation open", async 
   }
 });
 
+test("a system folder whose rules are not loaded yet takes no copy", async () => {
+  // The Contacts and Trash slots are still being derived: neither folder
+  // resolves any rules, but each is still known by its own slot.
+  const rules = createExplorerContainerRulesContext({
+    contactsContainerId: null,
+    contactsSystemSlot: null,
+    currentOrganizationId: "identity-org",
+    selfContactIdentity: await createReadySelfIdentity(),
+    trashSystemSlot: null,
+  });
+
+  for (const container of [node("contacts"), node("trash")]) {
+    for (const kind of ["note", "contact"] as const) {
+      expect(canSaveDocumentCopyByRules(rules, container, ordinary, kind)).toBe(
+        false,
+      );
+    }
+  }
+  // An ordinary folder needs no rules to take one.
+  expect(
+    canSaveDocumentCopyByRules(rules, node("linked-folder"), ordinary, "note"),
+  ).toBe(true);
+});
+
 test("a shared Contacts takes no copy", async () => {
   const rules = createSelfIdentityRules(await createReadySelfIdentity());
   // Another organization's Contacts, shared with the viewer: its slot is the

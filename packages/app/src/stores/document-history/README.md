@@ -101,7 +101,8 @@ copy does not need it to be writable and is offered on the newest stop too.
   takes a contact version as it takes a new contact. The Trash, folders under
   it, a shared Contacts, Roster Profiles, Organization Metadata, and read-only
   folders take nothing, and a document with no folder has nowhere to save a
-  copy.
+  copy. A system folder is known by its slot, so one whose rules are not
+  loaded yet is refused rather than taken for an ordinary folder.
 - **A contact version of Me is never copied.** Me is
   [one document](../../document-types/contact/README.md#personal-me-identity)
   per signing identity; a copy would be a second contact carrying the
@@ -109,6 +110,11 @@ copy does not need it to be writable and is offered on the newest stop too.
   the Me read and is created under its admission, as a move or a purge is.
   Other kinds do not wait: the kind is the version's, so a Me alias that lists
   as a note is still refused once its version is a contact.
+- **A contact's copy is not bound to an account.** Contacts finds a person's
+  contact by user id, so a copy that kept the original's `userId` and key
+  could be taken for it, and the key would be the past version's. The copy
+  leaves both out, with `isSelf`: it keeps what the version says about the
+  person, not which account they are.
 - **Nor is a contact version that says it is the viewer.** Contacts that are
   not Me can carry `isSelf` too, such as the viewer's own roster profile or a
   contact left from another identity. Contacts would label a copy "You", so a

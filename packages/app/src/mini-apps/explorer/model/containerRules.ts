@@ -243,11 +243,16 @@ export function canSaveDocumentCopyByRules(
     return false;
   }
 
-  return (
-    !hasContainerRules(context, container) ||
-    (documentKind === "contact" &&
-      isContactsSystemContainerNode(container, context.contactsSystemSlot))
-  );
+  // A system folder is known by its slot even before its rules are: while
+  // the Contacts slot is still being derived, Contacts resolves no rules, and
+  // must not pass for an ordinary folder.
+  if (container?.systemSlot != null) {
+    return (
+      documentKind === "contact" &&
+      isContactsSystemContainerNode(container, context.contactsSystemSlot)
+    );
+  }
+  return !hasContainerRules(context, container);
 }
 
 // Resolve a container by id from the explorer's node list and report whether it
