@@ -1,3 +1,4 @@
+import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/csr/ArrowsClockwise";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import { FileArrowUpIcon } from "@phosphor-icons/react/dist/csr/FileArrowUp";
 import { StackIcon } from "@phosphor-icons/react/dist/csr/Stack";
@@ -29,6 +30,8 @@ function attachmentBadgeLabel(
   if (status === "syncing") return NOTE_DOCUMENT_LABELS.attachmentSyncing;
   if (status === "intent-mismatch")
     return NOTE_DOCUMENT_LABELS.attachmentDiffers;
+  if (status === "unavailable")
+    return NOTE_DOCUMENT_LABELS.attachmentUnavailable;
   return null;
 }
 
@@ -60,9 +63,12 @@ function NoteAttachmentTile({
   const { Icon } = fileType;
   const badgeLabel = attachmentBadgeLabel(status);
   const removeLabel = NOTE_DOCUMENT_LABELS.removeAttachment(attachment.name);
-  const downloadLabel = NOTE_DOCUMENT_LABELS.downloadAttachment(
-    attachment.name,
-  );
+  // An unavailable copy has no local bytes to save: the action fetches it.
+  const unavailable = status === "unavailable";
+  const downloadLabel = unavailable
+    ? NOTE_DOCUMENT_LABELS.retryAttachmentDownload(attachment.name)
+    : NOTE_DOCUMENT_LABELS.downloadAttachment(attachment.name);
+  const DownloadIcon = unavailable ? ArrowsClockwiseIcon : DownloadSimpleIcon;
 
   return (
     <li className="note-document-attachment">
@@ -111,7 +117,7 @@ function NoteAttachmentTile({
           title={downloadLabel}
           onClick={() => onDownloadAttachment(attachment.slotId)}
         >
-          <DownloadSimpleIcon aria-hidden size={14} />
+          <DownloadIcon aria-hidden size={14} />
         </button>
         {canRemove ? (
           <button

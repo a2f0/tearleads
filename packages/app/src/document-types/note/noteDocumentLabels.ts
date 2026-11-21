@@ -13,6 +13,9 @@ export const NOTE_DOCUMENT_LABELS = {
   // Held bytes are a validly signed attachment whose digest differs from the
   // one the document records; its content update has not arrived.
   attachmentDiffers: "Differs",
+  // The held file is missing or damaged on this device; the tile's download
+  // action fetches it from the server again.
+  attachmentUnavailable: "Unavailable",
   // Attach controls in the panel header. "Upload" opens the file picker;
   // "Attach Existing" opens the host's picker of stored files (hidden when
   // there are none).
@@ -27,6 +30,7 @@ export const NOTE_DOCUMENT_LABELS = {
   readOnlyBody: "Note (read only)",
   readOnlyEmpty: "This note is empty.",
   downloadAttachment: (name: string) => `Download ${name}`,
+  retryAttachmentDownload: (name: string) => `Retry download of ${name}`,
   openAttachment: (name: string) => `Open ${name}`,
   removeAttachment: (name: string) => `Remove attachment ${name}`,
   // Remove-attachment confirmation dialog copy.

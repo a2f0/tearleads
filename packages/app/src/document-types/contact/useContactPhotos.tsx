@@ -57,6 +57,7 @@ export function useContactPhotos({
         canAttach={
           document.ready && isEditing && document.canWrite && document.canAttach
         }
+        onRetryDownload={document.requestRemoteSync}
         onSelectedAttachment={onSelectedAttachment}
         previewNotice={{
           blobStore: infra.blobStore,

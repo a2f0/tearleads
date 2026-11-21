@@ -63,6 +63,7 @@ test("choosing a blob appends a photo without replacing an existing one", async 
       writes.push({ slotId, upload });
     },
     removeAttachment: async () => undefined,
+    requestRemoteSync: () => undefined,
     setStructuredFields: async () => undefined,
   } as unknown as ReturnType<typeof Documents.useDocument>;
   const documentSpy = spyOn(Documents, "useDocument").mockReturnValue(
@@ -114,6 +115,10 @@ test("choosing a blob appends a photo without replacing an existing one", async 
     const first = mount();
     await waitFor(() =>
       expect(first.result.current.slotsProps.blobPicker).toBeDefined(),
+    );
+    // An unavailable slot's retry fetches through the document's remote sync.
+    expect(first.result.current.slotsProps.onRetryDownload).toBe(
+      documentValue.requestRemoteSync,
     );
     const slotId = "equipment-photos";
     act(() =>

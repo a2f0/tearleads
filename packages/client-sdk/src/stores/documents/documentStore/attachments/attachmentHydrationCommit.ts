@@ -10,6 +10,7 @@ import {
   installLocalAttachmentRecords,
   removeLocalAttachmentSlot,
 } from "./attachmentPersistence";
+import { dispatchHeldCopyCheck } from "./heldCopyChecks";
 
 export async function commitHydratedAttachment(input: {
   state: DocumentStoreState;
@@ -70,9 +71,17 @@ export async function commitHydratedAttachment(input: {
         expectedSnapshotEndVersion,
         stillCurrent,
       });
-      if (committed && stillCurrent())
+      if (committed && stillCurrent()) {
+        // These bytes match the row just written, so a copy a check found
+        // missing or damaged is held again.
+        const { contentSha256, slotId, storageKey } = attachment;
+        const { blobStore } = runtime.infra;
+        dispatchHeldCopyCheck(state, slotId, {
+          type: "copyWritten",
+          copy: { blobStore, contentSha256, storageKey },
+        });
         installLocalAttachmentRecords(state, [attachment], currentDoc);
-      else if (!committed && stillCurrent())
+      } else if (!committed && stillCurrent())
         await refreshRefusedAttachmentSlot(input, stillCurrent);
     },
   );

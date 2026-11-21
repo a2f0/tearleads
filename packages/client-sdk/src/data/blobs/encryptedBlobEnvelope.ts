@@ -8,6 +8,7 @@ import {
 import {
   type BlobByteSource,
   type BlobBytes,
+  BlobIntegrityError,
   readExactBlobBytes,
 } from "./blobContracts";
 
@@ -214,6 +215,17 @@ function parseHeader(headerBytes: BlobBytes): {
   };
 }
 
+// The header is read from the stored file, so any parse failure is damage.
+function parseStoredHeader(headerBytes: BlobBytes) {
+  try {
+    return parseHeader(headerBytes);
+  } catch (error) {
+    throw new BlobIntegrityError(
+      error instanceof Error ? error.message : "Encrypted blob header failed.",
+    );
+  }
+}
+
 export function getChunkCount(plaintextByteLength: number): number {
   if (!Number.isSafeInteger(plaintextByteLength) || plaintextByteLength < 0) {
     throw new Error("Encrypted blob store byte length is invalid.");
@@ -272,13 +284,15 @@ export async function readEncryptedBlobEnvelope(
 ): Promise<ParsedEncryptedBlobEnvelope> {
   const fixedPrefixLength = MAGIC_BYTES.byteLength + HEADER_LENGTH_BYTES;
   if (source.byteLength < fixedPrefixLength) {
-    throw new Error("Encrypted blob store payload is too short.");
+    throw new BlobIntegrityError("Encrypted blob store payload is too short.");
   }
   const fixedPrefix = await readExactBlobBytes(source, 0, fixedPrefixLength);
   if (
     !equalBytes(fixedPrefix.subarray(0, MAGIC_BYTES.byteLength), MAGIC_BYTES)
   ) {
-    throw new Error("Encrypted blob store payload format is invalid.");
+    throw new BlobIntegrityError(
+      "Encrypted blob store payload format is invalid.",
+    );
   }
   const headerByteLength = new DataView(
     fixedPrefix.buffer,
@@ -286,18 +300,20 @@ export async function readEncryptedBlobEnvelope(
     fixedPrefix.byteLength,
   ).getUint32(MAGIC_BYTES.byteLength);
   if (headerByteLength === 0 || headerByteLength > MAX_HEADER_BYTES) {
-    throw new Error("Encrypted blob store header length is invalid.");
+    throw new BlobIntegrityError(
+      "Encrypted blob store header length is invalid.",
+    );
   }
   const prefixByteLength = fixedPrefixLength + headerByteLength;
   if (source.byteLength < prefixByteLength) {
-    throw new Error("Encrypted blob store payload is truncated.");
+    throw new BlobIntegrityError("Encrypted blob store payload is truncated.");
   }
   const headerBytes = await readExactBlobBytes(
     source,
     fixedPrefixLength,
     headerByteLength,
   );
-  const { envelope, iv } = parseHeader(headerBytes);
+  const { envelope, iv } = parseStoredHeader(headerBytes);
   const encryptedByteLength =
     prefixByteLength +
     envelope.plaintextByteLength +
@@ -306,7 +322,9 @@ export async function readEncryptedBlobEnvelope(
     !Number.isSafeInteger(encryptedByteLength) ||
     source.byteLength !== encryptedByteLength
   ) {
-    throw new Error("Encrypted blob store payload length is invalid.");
+    throw new BlobIntegrityError(
+      "Encrypted blob store payload length is invalid.",
+    );
   }
   return {
     encryptedByteLength,

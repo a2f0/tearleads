@@ -43,10 +43,7 @@ import type {
   DocumentStoreOpenOptions,
   DocumentsRuntime,
 } from "../types";
-import {
-  getAttachmentStatuses,
-  getAttachmentStorageKeys,
-} from "./attachments/attachmentSnapshot";
+import { getAttachmentSlotSnapshot } from "./attachments/attachmentSnapshot";
 import { sameValidationIssues, shallowEqualRecord } from "./snapshotEquality";
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
@@ -436,17 +433,7 @@ export function setReadySnapshot(
 
   setDocumentSnapshot(state, {
     attachments,
-    attachmentStatusBySlotId: getAttachmentStatuses({
-      attachments,
-      contentSha256BySlotId: state.attachmentContentSha256BySlotId,
-      pendingSlotIds: new Set(
-        state.pendingAttachments.map((attachment) => attachment.slotId),
-      ),
-    }),
-    attachmentStorageKeyBySlotId: getAttachmentStorageKeys(
-      state.attachmentStorageKeyBySlotId,
-      attachments,
-    ),
+    ...getAttachmentSlotSnapshot(state, attachments),
     canAttach: canAttachFiles(state),
     canWrite: canWriteDocument(state),
     currentAuthorId: resolveCurrentAuthorId(state),
