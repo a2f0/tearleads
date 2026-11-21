@@ -6,6 +6,7 @@ import {
 import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
+  WriterProjectionListing,
 } from "@tearleads/validators/response";
 import type { BoundedCache } from "../ApiCache";
 import { boundedMetadata } from "../boundedMetadataResponse";
@@ -21,7 +22,6 @@ import {
   type RequestResult,
   type RequestResultOptions,
 } from "../types";
-import type { WriterProjectionListing } from "../verifiedManifestCitations";
 import { primeWriterProjectionSlot } from "../writerProjectionPrime";
 import type {
   ApiClientContext,

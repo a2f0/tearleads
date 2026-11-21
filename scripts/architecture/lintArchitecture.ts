@@ -1,4 +1,5 @@
 import { requireGitRoot } from "../lib/checkRoot";
+import { findApiClientSurfaceViolations } from "./apiClientSurface";
 import { apiTransportCheck } from "./apiTransport";
 import {
   type ArchitectureCheck,
@@ -376,6 +377,13 @@ const architectureChecks: ArchitectureCheck[] = [
     pattern: clientSdkPrefixedFacadeAliasPattern,
   }),
   apiTransportCheck,
+  createListCheck({
+    findItems: () => findApiClientSurfaceViolations(),
+    formatItem: (violation) => `${violation.path}: ${violation.detail}`,
+    message:
+      "@tearleads/api-client publishes only its transport surface from its root entry point. Import wire and protocol types from @tearleads/validators or @tearleads/crypto; extend apiClientRootExports in scripts/architecture/apiClientSurface.ts only for the transport itself.",
+    name: "api-client-exports-only-transport-surface",
+  }),
   createSourceTextCheck({
     entryPoints: clientSdkSourceEntryPoints,
     message:

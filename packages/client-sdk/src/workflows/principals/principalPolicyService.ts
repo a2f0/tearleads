@@ -1,5 +1,5 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import type { PrincipalPolicyHistoryProgressOptions } from "@tearleads/crypto";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
   assertProjectionVerificationCurrent,

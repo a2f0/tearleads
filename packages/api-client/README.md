@@ -11,13 +11,17 @@ Requests and responses are checked against the operation contracts in
 API share one wire shape. The client may share crypto and validator
 contracts, but must not import server, app, SDK, UI, or deployment code.
 
-## Entry points
+## Entry point
 
-| Entry point | Use for |
-| --- | --- |
-| `@tearleads/api-client` | `ApiClient`, network failure types, the reachability probe, request metrics, and `openServerEventsSocket` |
-| `@tearleads/api-client/ApiClient` | The `ApiClient` class alone |
-| `@tearleads/api-client/types` | Request result, failure, and method types |
+`@tearleads/api-client` is the only entry point. It exports the transport
+surface: `ApiClient`, request results and failures, the options and ports its
+methods take, the reachability probe, request metrics, and
+`openServerEventsSocket`. It does not re-export wire or protocol types:
+import those, such as `PrincipalPolicyPageCurrent` or the held writer
+projection citation types, from `@tearleads/validators/response`. The
+`api-client-exports-only-transport-surface` check in
+`bun run lint:architecture` holds the export list to
+[`apiClientRootExports`](../../scripts/architecture/apiClientSurface.ts).
 
 ## Layout
 
@@ -32,6 +36,12 @@ transport
 renews sessions, and explains
 failures.
 
+- [`src/policyHistoryPageChecks.ts`](src/policyHistoryPageChecks.ts) holds
+  the pure checks that decide whether a principal policy or projection
+  history page continues its cursor chain; the pagers call them per page.
+- Writer projection reads cite held bytes prepared by `@tearleads/crypto`'s
+  `prepareHeldProjectionCitations`, within the
+  [citation deadline](src/verifiedManifestCitations.ts).
 - [API network failures](../../docs/developer/api-network-failures.md)
   describes what a failed request reports and how reachability is probed.
 - [API request cost](../../docs/developer/api-request-cost.md) covers the

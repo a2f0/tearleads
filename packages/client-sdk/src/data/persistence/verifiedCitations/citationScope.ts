@@ -1,4 +1,4 @@
-import type { WriterProjectionTarget } from "@tearleads/api-client";
+import type { WriterProjectionTarget } from "@tearleads/validators/response";
 import { MAX_CONTAINER_PATH_LENGTH } from "@tearleads/validators/util";
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/sqlite-core";

@@ -1,5 +1,7 @@
-import type { WriterProjectionListing } from "@tearleads/api-client";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  ContainerWriterProjectionResponse,
+  WriterProjectionListing,
+} from "@tearleads/validators/response";
 import type { RemoteContainerHydrationState } from "../types";
 
 /** A projection fetched ahead of sequential verification. */

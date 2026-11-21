@@ -1,4 +1,3 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   computePrincipalMemberEnvelopesRoot,
   computePrincipalStatePayloadCiphertextHash,
@@ -9,6 +8,7 @@ import {
   type VerifiedPrincipalPolicy,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import { canonicalKeyingJsonString } from "../../keying/canonicalJson";
 
 type VerifiedCurrentPolicy =
