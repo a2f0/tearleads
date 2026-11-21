@@ -281,12 +281,14 @@ Shared branch, hook, validation, release, review, PR, and version helpers come
 from the exact npm-pinned [`@a2f0/agent-tool`](https://github.com/a2f0/agent-tool)
 dev dependency; run it with `bun run agent-tool`. Branch, commit trust, binary,
 hook, push-gate, title, required-check, and version policy is in
-`agent-tool.json`. The shared `cross-agent-review`, `explicit-state-machines`,
-`open-issue`, `open-pr`, `squash-merge`, `ship-pr`, `reset`, and
-`update-dependencies` skills are managed copies in `.agents/skills` and
-`.claude/skills`, tracked by `.agent-tool-skills.json`. Do not edit them;
-change the shared skill upstream instead. After changing the pin
-or `agent-tool.json`, run `bun run agents:sync`, which also writes the [harness
+`agent-tool.json`. The shared `app-store-readiness`, `audit-trails`,
+`cross-agent-review`, `explicit-state-machines`, `open-issue`, `open-pr`,
+`performance-pass`, `reset`, `seo-optimization`, `ship-pr`, `space-cleanup`,
+`squash-merge`, `take-screenshots`, and `update-dependencies` skills are managed
+copies in `.agents/skills` and `.claude/skills`, tracked by
+`.agent-tool-skills.json`. Do not edit them; change the shared skill upstream
+instead. After changing the pin or `agent-tool.json`, run `bun run agents:sync`,
+which also writes the [harness
 permissions](docs/developer/static-analysis.md#harness-permissions), and commit
 the lockfile, skills, rules, and manifests together. The Markdown linter skips
 managed skill paths; project skills follow local rules. `bun run agents:check`,

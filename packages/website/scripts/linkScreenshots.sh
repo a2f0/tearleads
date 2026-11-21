@@ -5,8 +5,8 @@ set -e
 # none, before the website stages screenshots (predev, prebuild, screenshots).
 # Without it, a website build, dev server, or deploy from a fresh clone or
 # worktree finds no captures and publishes an empty gallery. A clone that
-# already has .screenshots, or a machine without the take-screenshots skill
-# (CI), is left as it is.
+# already has .screenshots, or a machine without the store (CI), is left as it
+# is.
 #
 # Under `turbo run build` this runs after Turbo hashed .screenshots, so a fresh
 # clone's first build is cached under the unlinked hash. That hash does not

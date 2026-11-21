@@ -136,7 +136,7 @@ test("capture", () => writeFileSync("capture-ran", "yes"));`,
   expect(existsSync(join(clone.appWeb, "capture-ran"))).toBe(true);
 }, 30_000);
 
-const refusal = "capture through its `artifacts capture`";
+const refusal = "capture through `agent-tool screenshots capture --apply`";
 
 test("an unlinked clone captures directly", () => {
   const root = mkdtempSync(join(tmpdir(), "shared-store-"));
