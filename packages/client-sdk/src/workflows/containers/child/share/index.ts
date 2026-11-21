@@ -102,6 +102,7 @@ async function submitShare(
 ): Promise<ContainerShareSubmitResult> {
   const options = {
     expectedPaymentRequiredOrganizationId: input.author.organizationId,
+    stillCurrent: input.stillCurrent,
   };
   const { shareContainerResult } = input.apiClient;
   if (!shareContainerResult) {

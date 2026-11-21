@@ -24,6 +24,37 @@ at the commit point for writes and deletes. Adapters pass it through to their
 backing store. The SDK's OPFS store checks before closing the staged file and
 aborts the write if its owning sign-in has ended.
 
+## Request scope
+
+A workflow can pass its `stillCurrent` predicate with a request. Once the
+predicate returns false, for example after an organization switch, a new
+sign-in, or a store generation change, the request is retired:
+
+- It does not renew the session or replay.
+- Its response, even a success, and its reachability diagnostics are dropped.
+- A blob download stream delivers no more bytes.
+
+These requests pass it:
+
+- the writer-projection reads of document creates and attachment uploads
+- the parent reads of container-contents folder creates
+- attachment uploads and downloads
+- signed container creates, recitations, moves, revokes, rekeys, and user
+  shares
+
+These do not pass it yet:
+
+- group shares
+- the projection reads before a move, revoke, rekey, or share
+- the parent reads inside a container create, including its stale-path repair
+
+Concurrent writer-projection reads still share one fetch and its cached result.
+The shared fetch stays current while any of its callers is current.
+
+An attachment upload checks its organization's sync pause before each stage or
+part request. A pause stops the upload and returns `null`. A stage created
+before the pause can be resumed.
+
 ## Document persistence notifications
 
 `PersistedDocumentListener` supplies a summary and `placementChanged` flag.

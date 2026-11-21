@@ -34,6 +34,14 @@ export const SESSION_RETRY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "An expired request must not execute under a replacement identity (#2485 finding 3).",
   },
   {
+    id: "session-retry-retired-caller",
+    module: "formal/local-trust/SessionRetryIdentity.tla",
+    config: "formal/local-trust/SessionRetryIdentity.cfg",
+    constants: { RecheckCallerScope: "FALSE" },
+    expect: { kind: "invariant", name: "RetiredCallersNeitherRenewNorReplay" },
+    why: "A request whose callers all retired, as on an organization switch, must neither renew the session nor replay (#3079).",
+  },
+  {
     id: "session-retry-renewal-for-other-user",
     module: "formal/local-trust/SessionRetryIdentity.tla",
     config: "formal/local-trust/SessionRetryIdentity.cfg",
