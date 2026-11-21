@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "images": "agent-tool --repo ../.. images build website",
-    "screenshots": "sh ../../scripts/testing/linkScreenshots.sh && agent-tool --repo ../.. screenshots build website",
-    "predev": "agent-tool --repo ../.. images build website && sh ../../scripts/testing/linkScreenshots.sh && agent-tool --repo ../.. screenshots build website",
+    "screenshots": "sh scripts/linkScreenshots.sh && agent-tool --repo ../.. screenshots build website",
+    "predev": "agent-tool --repo ../.. images build website && sh scripts/linkScreenshots.sh && agent-tool --repo ../.. screenshots build website",
     "dev": "astro dev",
-    "prebuild": "agent-tool --repo ../.. images build website && sh ../../scripts/testing/linkScreenshots.sh && agent-tool --repo ../.. screenshots build website",
+    "prebuild": "agent-tool --repo ../.. images build website && sh scripts/linkScreenshots.sh && agent-tool --repo ../.. screenshots build website",
     "build": "astro build",
     "preview": "astro preview",
     "test": "bun test src",

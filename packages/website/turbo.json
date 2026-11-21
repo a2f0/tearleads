@@ -24,7 +24,6 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.screenshots/**",
         "$TURBO_ROOT$/scripts/lib/screenshotsStore.sh",
-        "$TURBO_ROOT$/scripts/testing/linkScreenshots.sh",
         "$TURBO_ROOT$/assets/brand/**",
         "$TURBO_ROOT$/docs/diagrams/**",
         "$TURBO_ROOT$/agent-tool.json",

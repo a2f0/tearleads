@@ -104,11 +104,11 @@ every clone; in a linked clone it runs only under that store's
 `scripts/testing/takeScreenshots.sh` wrapper first links a clone with no
 `.screenshots` to the store when the take-screenshots skill is installed, then
 delegates to that command in a linked clone and runs the package script
-directly otherwise. `scripts/testing/linkScreenshots.sh` does the same linking
-before the website stages screenshots (its `predev`, `prebuild`, and
+directly otherwise. `packages/website/scripts/linkScreenshots.sh` does the same
+linking before the website stages screenshots (its `predev`, `prebuild`, and
 `screenshots` scripts), so a build or deploy from a fresh clone or worktree
 publishes the shared captures instead of an empty gallery; both share
-`scripts/lib/screenshotsStore.sh`.
+`scripts/lib/screenshotsStore.sh`, tested by `bun run test:screenshots-store`.
 `bun run build:website` only stages the existing captures into the website
 gallery; it never captures (see
 [local website screenshots](../packages/website/README.md#local-website-screenshots)).
