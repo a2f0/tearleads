@@ -5,6 +5,7 @@ import {
 } from "./documentStore/internalRelink";
 import type {
   DocumentAttachmentUpload,
+  DocumentSnapshot,
   DocumentStore,
   DocumentStoreFacade,
   DocumentsRuntime,
@@ -15,6 +16,8 @@ interface DocumentStoreRegistry {
   storeKeysByDocumentId: Map<string, string>;
   storeKeysByLocalId: Map<string, string>;
   storesByKey: Map<string, DocumentStoreFacade>;
+  /** Open views another record displaced; their queued writes still count. */
+  supersededStores: Set<DocumentStoreFacade>;
 }
 
 const documentStoreRegistriesByScope = new WeakMap<
@@ -75,6 +78,7 @@ export function getOrCreateDocumentStoreRegistry(
     storeKeysByDocumentId: new Map(),
     storeKeysByLocalId: new Map(),
     storesByKey: new Map(),
+    supersededStores: new Set(),
   };
   documentStoreRegistriesByScope.set(domainScope, nextRegistry);
   return nextRegistry;
@@ -131,7 +135,14 @@ export function registerDocumentStoreIdentity(
   const localStore = registry.storesByKey.get(localStoreKey);
   const documentStore = registry.storesByKey.get(documentStoreKey);
   if (localStore) {
-    documentStore?.rebindTo(localStore);
+    // Another local record now owns this document id. A view that already
+    // has the previous record open stays on it instead of switching records
+    // under its editor: its draft, uploads, and edits keep their identity,
+    // and a reopen resolves to the new owner.
+    if (documentStore && documentStore !== localStore) {
+      documentStore.supersede();
+      registry.supersededStores.add(documentStore);
+    }
     registry.storesByKey.set(documentStoreKey, localStore);
   }
   registry.storesByKey.delete(localStoreKey);
@@ -147,7 +158,16 @@ export function hasPendingLocalDocumentWrites(
 ): boolean {
   const registry = documentStoreRegistriesByScope.get(domainScope);
   if (!registry) return false;
-  for (const store of registry.storesByKey.values()) {
+  // A displaced view accepts no new writes, so once its queue has reached
+  // SQLite it can never hold the page open again.
+  for (const store of registry.supersededStores) {
+    if (!store.hasQueuedWrites() && !store.hasUnsavedLocalEdits())
+      registry.supersededStores.delete(store);
+  }
+  for (const store of [
+    ...registry.storesByKey.values(),
+    ...registry.supersededStores,
+  ]) {
     if (store.hasQueuedWrites() || store.hasUnsavedLocalEdits()) return true;
   }
   return false;
@@ -227,11 +247,35 @@ export async function discardRegisteredDocumentLocalState(
   return store.discardLocalState(documentId);
 }
 
+const supersedeHandlers = new WeakMap<DocumentStore, () => void>();
+
+/** A content write through a view another record displaced. */
+class DocumentRelinkedElsewhereError extends Error {
+  constructor() {
+    super("This document view is read-only; reopen the document to edit it.");
+    this.name = "DocumentRelinkedElsewhereError";
+  }
+}
+
+function refuseWrite(): Promise<never> {
+  return Promise.reject(new DocumentRelinkedElsewhereError());
+}
+
+/** How a backing store stops work that only its displaced view owned. */
+export function registerDocumentStoreSupersedeHandler(
+  store: DocumentStore,
+  handler: () => void,
+): void {
+  supersedeHandlers.set(store, handler);
+}
+
 export function createDocumentStoreFacade(
-  initialStore: DocumentStore,
+  targetStore: DocumentStore,
 ): DocumentStoreFacade {
-  let targetStore = initialStore;
   const listeners = new Set<() => void>();
+  let superseded = false;
+  let supersededSource: DocumentSnapshot | null = null;
+  let supersededSnapshot: DocumentSnapshot | null = null;
 
   const emitFacade = () => {
     for (const listener of listeners) {
@@ -239,50 +283,65 @@ export function createDocumentStoreFacade(
     }
   };
 
-  let unsubscribeTarget = targetStore.subscribe(() => {
+  targetStore.subscribe(() => {
     emitFacade();
   });
 
-  const connectTarget = (nextStore: DocumentStore) => {
-    if (targetStore === nextStore) {
-      return;
+  // Stable per source snapshot, as external-store readers require.
+  const getSnapshot = (): DocumentSnapshot => {
+    const snapshot = targetStore.getSnapshot();
+    if (!superseded) return snapshot;
+    if (snapshot !== supersededSource || !supersededSnapshot) {
+      supersededSource = snapshot;
+      supersededSnapshot = {
+        ...snapshot,
+        canAttach: false,
+        canWrite: false,
+        relinkedElsewhere: true,
+      };
     }
-
-    unsubscribeTarget();
-    targetStore = nextStore;
-    unsubscribeTarget = targetStore.subscribe(() => {
-      emitFacade();
-    });
-    emitFacade();
+    return supersededSnapshot;
   };
 
   const facade: DocumentStoreFacade = {
-    addRow: (fields, options) => targetStore.addRow(fields, options),
+    addRow: (fields, options) =>
+      superseded ? refuseWrite() : targetStore.addRow(fields, options),
     assertCanRotateContentKey: (proof) =>
       targetStore.assertCanRotateContentKey(proof),
+    // Returned as-is: callers await the store's work behind the void type.
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
-      targetStore.attachFiles(files),
+      superseded ? undefined : targetStore.attachFiles(files),
     discardLocalState: (expectedDocumentId: string) =>
       targetStore.discardLocalState(expectedDocumentId),
     ensureInitialized: () => targetStore.ensureInitialized(),
-    getSnapshot: () => targetStore.getSnapshot(),
+    getSnapshot,
     hasQueuedWrites: () => targetStore.hasQueuedWrites(),
     hasUnsavedLocalEdits: () => targetStore.hasUnsavedLocalEdits(),
-    removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
-    removeRow: (id, options) => targetStore.removeRow(id, options),
+    removeAttachment: (slotId: string) =>
+      superseded ? undefined : targetStore.removeAttachment(slotId),
+    removeRow: (id, options) =>
+      superseded ? refuseWrite() : targetStore.removeRow(id, options),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      targetStore.replaceAttachment(slotId, file),
+      superseded ? refuseWrite() : targetStore.replaceAttachment(slotId, file),
     requestRemoteSync: () => targetStore.requestRemoteSync(),
     requestRemoteSyncAndWait: (signal) =>
       targetStore.requestRemoteSyncAndWait(signal),
     requestSync: () => targetStore.requestSync(),
     relink: (input) => targetStore.relink(input),
-    rebindTo: (store) => connectTarget(store),
-    restoreContent: (content, options) =>
-      targetStore.restoreContent(content, options),
+    supersede: () => {
+      if (superseded) return;
+      superseded = true;
+      supersedeHandlers.get(targetStore)?.();
+      emitFacade();
+    },
+    restoreContent: async (content, options) =>
+      !superseded && (await targetStore.restoreContent(content, options)),
     setStructuredFields: (kind, patch, options) =>
-      targetStore.setStructuredFields(kind, patch, options),
-    setText: (value: string) => targetStore.setText(value),
+      superseded
+        ? refuseWrite()
+        : targetStore.setStructuredFields(kind, patch, options),
+    setText: (value: string) =>
+      superseded ? refuseWrite() : targetStore.setText(value),
     subscribe: (listener: () => void) => {
       listeners.add(listener);
       return () => {
@@ -290,7 +349,9 @@ export function createDocumentStoreFacade(
       };
     },
     updateRowFields: (id, patch, options) =>
-      targetStore.updateRowFields(id, patch, options),
+      superseded
+        ? refuseWrite()
+        : targetStore.updateRowFields(id, patch, options),
     updateRuntime: (runtime: DocumentsRuntime) =>
       targetStore.updateRuntime(runtime),
   };

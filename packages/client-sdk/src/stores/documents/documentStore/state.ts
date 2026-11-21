@@ -172,6 +172,8 @@ export interface DocumentStoreState {
   record: DocumentRecord | null;
   /** Served bindings hydration refused for a held copy; see `hydrate.ts`. */
   rejectedServedAttachmentBindings: Set<string>;
+  /** Another record took this document id; attachment downloads stop. */
+  relinkedElsewhere: boolean;
   /**
    * Consecutive completed sync passes that re-keyed conflicted pending updates
    * without settling anything. Bounds the rekey-driven self re-arm so a server
@@ -263,6 +265,7 @@ export function createDocumentStoreState(
     pullContinuation: null,
     record: null,
     rejectedServedAttachmentBindings: new Set(),
+    relinkedElsewhere: false,
     rekeyOnlyPassCount: 0,
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),

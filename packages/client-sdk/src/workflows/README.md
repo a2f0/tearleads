@@ -149,12 +149,12 @@ still include shells. Orphan-route identity checks use the scoped
 content. `ContainerNode.metadataReady` is false for remote folders awaiting
 metadata; consumers can hide these nodes without removing their sync
 registrations. `containerContents.documentQueries()` exposes
-`listPendingDownloads()` and `PendingDownloadQueueItem` for known document and
-folder metadata pulls (initial hydration or remaining pages), including durable
-errors, and first file downloads: a slot a synced document records with no local
-row or pending upload (`objectKind: "attachment"`), which
-`documents.retryDownload` retries. The queue does not estimate undiscovered
-objects or on-demand blob reads.
+`listPendingDownloads()` (`PendingDownloadQueueItem`) for known document and
+folder metadata pulls with durable errors, and first file downloads: a slot a
+synced document records with no local row or pending upload
+(`objectKind: "attachment"`), which `documents.retryDownload` retries.
+`listCompletedDownloads(refs)` (`CompletedDownloadItem`) returns the named rows
+now stored. The queue does not estimate undiscovered objects or blob reads.
 
 ## Documents
 
@@ -162,6 +162,7 @@ objects or on-demand blob reads.
 Persisted remote and recovery IDs take precedence. See [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
 `loadPersistedDocumentContent` returns a detached document for inspection.
 `openDocumentHistory` replays [durable history](../../../../docs/developer/client-sdk/document-history.md).
+Views displaced by a relink go read-only (`relinkedElsewhere`) until reopened.
 
 The documents facade admits explicit `historyMode: "raw"` reads through
 `RemoteDocumentService.syncRemoteDocument`. A raw consumer must start at a null
@@ -197,13 +198,12 @@ filter their own catches with the documents facade's
 ### Persistence adapters
 
 Custom `DocumentsPersistence` adapters implement the atomic create, enqueue,
-queue-merge, commit, snapshot-load, hydration, removal-marker settle
-(`settleAttachmentRemovalMarker`), and orphan-blob contract in
+queue-merge, commit, snapshot-load, hydration, removal-marker settle, and
+orphan-blob contract in
 [custom document persistence](../../../../docs/developer/custom-document-persistence.md).
 Create and commit store supplied `attachmentNames` with the document projection.
-Store maintenance uses `orphanBlobs` to retain bytes until their last reference
-is removed. `reclaimDocumentOrphanBlobs(runtime, persistence)` awaits the
-complete maintenance run.
+Maintenance uses `orphanBlobs` to retain bytes until their last reference is
+removed; `reclaimDocumentOrphanBlobs(runtime, persistence)` awaits the run.
 
 ### Deferred initial update
 

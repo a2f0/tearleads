@@ -39,6 +39,11 @@ import {
   type RecoveryFolder,
 } from "../recovery/folderRecovery";
 import type { ContainerDocumentObjectSyncState } from "../syncState";
+import {
+  type CompletedDownloadItem,
+  type DownloadQueueItemRef,
+  listCompletedDownloads,
+} from "./completedDownloads";
 import { hydratedProjectionSql } from "./hydrationSql";
 import {
   getOrphanedDocumentQueryBind,
@@ -146,6 +151,10 @@ export interface ContainerDocumentQueries {
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
   listPendingDownloads(): Promise<ReadonlyArray<PendingDownloadQueueItem>>;
+  /** The given queue rows whose content is now fully stored. */
+  listCompletedDownloads(
+    refs: ReadonlyArray<DownloadQueueItemRef>,
+  ): Promise<ReadonlyArray<CompletedDownloadItem>>;
   listPendingWrites(): Promise<ReadonlyArray<PendingWriteQueueItem>>;
   retryPendingWriteItem(input: {
     localId: string;
@@ -445,6 +454,9 @@ export function createContainerDocumentQueriesFromRuntime(
     },
     listPendingDownloads() {
       return listPendingDownloads(execSql);
+    },
+    listCompletedDownloads(refs) {
+      return listCompletedDownloads(execSql, refs);
     },
     listPendingWrites() {
       return listPendingWrites(execSql);
