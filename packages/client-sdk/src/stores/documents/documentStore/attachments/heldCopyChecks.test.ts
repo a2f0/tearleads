@@ -20,9 +20,14 @@ import {
   noopDocumentStorePersistenceEffects,
 } from "../documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "../initialization";
-import { createDocumentStoreState, type DocumentStoreState } from "../state";
+import {
+  createDocumentStoreState,
+  type DocumentStoreState,
+  resetDocumentStore,
+} from "../state";
 import { hydrateAttachmentBlobs } from "./attachmentHydration";
 import { checkHeldAttachmentCopies } from "./heldCopyCheckRun";
+import { unavailableHeldCopySlotIds } from "./heldCopyChecks";
 
 const BYTES = new Uint8Array([1, 2, 3, 4]);
 const SLOT_ID = "file";
@@ -100,6 +105,7 @@ async function openHeldCopy(
   return {
     attachment,
     check: () => checkHeldAttachmentCopies(state, ensureReady),
+    ensureReady,
     close: () => {
       state.doc?.free();
       fixture.remoteDocument.free();
@@ -108,6 +114,31 @@ async function openHeldCopy(
     runtime,
     state,
   };
+}
+
+/** Count the store's opens, delegating to `open` instead when it is given. */
+function countOpens(
+  runtime: { infra: { blobStore: BlobStore } },
+  open?: (storageKey: string) => ReturnType<BlobStore["openByteSource"]>,
+) {
+  const blobStore = runtime.infra.blobStore;
+  const opens = { count: 0 };
+  Object.assign(runtime.infra, {
+    blobStore: {
+      ...blobStore,
+      openByteSource: (storageKey: string) => {
+        opens.count += 1;
+        return open ? open(storageKey) : blobStore.openByteSource(storageKey);
+      },
+    },
+  });
+  return opens;
+}
+
+async function until(condition: () => boolean): Promise<void> {
+  for (let turn = 0; turn < 200 && !condition(); turn += 1)
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  expect(condition()).toBe(true);
 }
 
 function slotView(state: DocumentStoreState) {
@@ -233,6 +264,81 @@ test("an unavailable copy downloads its binding again and holds the verified byt
     expect(requests[0]?.localBlobIdBySlotId?.[SLOT_ID]).toBeUndefined();
     expect(requests[0]?.localStorageKeyBySlotId?.[SLOT_ID]).toBe(STORAGE_KEY);
     expect(files.get(STORAGE_KEY)).toEqual(BYTES);
+    expect(slotView(held.state)).toEqual({
+      status: undefined,
+      storageKey: STORAGE_KEY,
+    });
+  } finally {
+    held.close();
+  }
+});
+
+test("a failed read is not a finding: the copy stays readable and is checked again", async () => {
+  const held = await openHeldCopy("held-copy-unreadable", new Map());
+  const blobStore = held.runtime.infra.blobStore;
+  const opens = countOpens(held.runtime, async (storageKey) => {
+    if (opens.count === 1) throw new Error("The database was released.");
+    return blobStore.openByteSource(storageKey);
+  });
+  try {
+    const signal = held.state.remoteUpdateSignalSeq;
+    await held.check();
+    expect(slotView(held.state)).toEqual({
+      status: undefined,
+      storageKey: STORAGE_KEY,
+    });
+    expect(held.state.remoteUpdateSignalSeq).toBe(signal);
+    await held.check();
+    expect(opens.count).toBe(2);
+    expect(slotView(held.state).status).toBe("unavailable");
+  } finally {
+    held.close();
+  }
+});
+
+test("a read that outlives a store reset settles nothing", async () => {
+  const held = await openHeldCopy("held-copy-retired", new Map());
+  const blobStore = held.runtime.infra.blobStore;
+  const firstOpen = Promise.withResolvers<null>();
+  const opens = countOpens(held.runtime, (storageKey) =>
+    opens.count === 1
+      ? firstOpen.promise
+      : blobStore.openByteSource(storageKey),
+  );
+  try {
+    const signal = held.state.remoteUpdateSignalSeq;
+    const checking = held.check();
+    await until(() => opens.count === 1);
+    // What a reset or a discard does to the store's write generation.
+    held.state.localWriteGeneration += 1;
+    firstOpen.resolve(null);
+    await checking;
+    expect(slotView(held.state).status).toBeUndefined();
+    expect(held.state.remoteUpdateSignalSeq).toBe(signal);
+    // The retired read left the copy unchecked; the next access reads it.
+    await held.check();
+    expect(opens.count).toBe(2);
+    expect(slotView(held.state).status).toBe("unavailable");
+  } finally {
+    held.close();
+  }
+});
+
+test("a reload checks the copy a new blob store holds", async () => {
+  const held = await openHeldCopy("held-copy-new-store", new Map());
+  try {
+    await held.check();
+    expect(unavailableHeldCopySlotIds(held.state)).toEqual(new Set([SLOT_ID]));
+    // A finding about one blob store says nothing about another's file.
+    Object.assign(held.runtime.infra, {
+      blobStore: createMemoryBlobStore(new Map([[STORAGE_KEY, BYTES]])),
+    });
+    expect(unavailableHeldCopySlotIds(held.state).size).toBe(0);
+    const opens = countOpens(held.runtime);
+    resetDocumentStore(held.state);
+    expect(await held.ensureReady()).toBe(true);
+    // The host asked once; the reload checks without being asked again.
+    await until(() => opens.count === 1);
     expect(slotView(held.state)).toEqual({
       status: undefined,
       storageKey: STORAGE_KEY,

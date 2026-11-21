@@ -139,8 +139,9 @@ export interface DocumentStore {
   /**
    * The host opened the document: read each held attachment file once per
    * store session and report a missing or damaged one as `unavailable`, then
-   * fetch it again. Later loads of this store check again. Resolves once the
-   * checks this call started have finished.
+   * fetch it again. A failed read is not a finding; the copy stays unchecked.
+   * Copies a later load of this store brings, or a new blob store holds, are
+   * checked then. Resolves once the checks this call started have finished.
    */
   checkHeldAttachments: () => Promise<void>;
   /**

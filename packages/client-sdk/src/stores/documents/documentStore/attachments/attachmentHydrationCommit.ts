@@ -75,9 +75,10 @@ export async function commitHydratedAttachment(input: {
         // These bytes match the row just written, so a copy a check found
         // missing or damaged is held again.
         const { contentSha256, slotId, storageKey } = attachment;
+        const { blobStore } = runtime.infra;
         dispatchHeldCopyCheck(state, slotId, {
           type: "copyWritten",
-          copy: { contentSha256, storageKey },
+          copy: { blobStore, contentSha256, storageKey },
         });
         installLocalAttachmentRecords(state, [attachment], currentDoc);
       } else if (!committed && stillCurrent())

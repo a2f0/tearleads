@@ -22,6 +22,7 @@ import {
   useDocument,
   useDocumentReadOnly,
 } from "../../stores/documents/DocumentsProvider";
+import { AttachmentActionButton } from "./AttachmentActionButton";
 import "./FileDocument.css";
 import {
   type FileDocumentPdfPreview,
@@ -133,6 +134,9 @@ const FILE_DOCUMENT_DOWNLOAD_LABEL = "Download";
  */
 export const FILE_DOCUMENT_ATTACHMENT_DIFFERS_NOTICE =
   "This file differs from the document's recorded version.";
+/** The held file is missing or damaged on this device (`unavailable`). */
+export const FILE_DOCUMENT_ATTACHMENT_UNAVAILABLE_NOTICE =
+  "This file is missing or damaged on this device.";
 
 export function FileDocumentFields({
   attachmentNotice = null,
@@ -147,6 +151,7 @@ export function FileDocumentFields({
   pdfPreview,
   onCommitFileName,
   onDownload,
+  onRetryDownload,
   onToggleEditing,
   readFields,
 }: {
@@ -164,6 +169,8 @@ export function FileDocumentFields({
   pdfPreview?: FileDocumentPdfPreview | null | undefined;
   onCommitFileName: (value: string) => void;
   onDownload: () => void;
+  /** Fetch an unavailable file from the server again. */
+  onRetryDownload?: (() => void) | undefined;
   onToggleEditing: () => void;
   readFields: ReadonlyArray<FileDocumentField>;
 }) {
@@ -215,6 +222,12 @@ export function FileDocumentFields({
           {attachmentNotice}
         </MiniAppStatus>
       ) : null}
+      {onRetryDownload ? (
+        <AttachmentActionButton
+          label="Retry Download"
+          onClick={onRetryDownload}
+        />
+      ) : null}
       {downloadError ? (
         <MiniAppStatus as="span" tone="error">
           {downloadError}
@@ -243,7 +256,10 @@ export function FileDocumentFields({
   );
 }
 
-/** The held file is the latest slot with local bytes; report a differing one. */
+/**
+ * The held file is the latest slot with local bytes; report a differing one,
+ * or a later one whose held file is missing or damaged.
+ */
 export function resolveFileDocumentAttachmentNotice(input: {
   attachments: ReadonlyArray<Pick<DocumentAttachment, "slotId">>;
   attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
@@ -251,6 +267,10 @@ export function resolveFileDocumentAttachmentNotice(input: {
 }): string | null {
   for (let index = input.attachments.length - 1; index >= 0; index -= 1) {
     const attachment = input.attachments[index];
+    if (
+      input.attachmentStatusBySlotId[attachment?.slotId ?? ""] === "unavailable"
+    )
+      return FILE_DOCUMENT_ATTACHMENT_UNAVAILABLE_NOTICE;
     if (!attachment || !input.attachmentStorageKeyBySlotId[attachment.slotId]) {
       continue;
     }
@@ -263,11 +283,12 @@ export function resolveFileDocumentAttachmentNotice(input: {
 }
 
 // The held file (latest slot with local bytes) drives both the download
-// handler and the differs notice.
+// handler and the differs notice; an unavailable one offers a retry.
 function useFileDocumentAttachmentState(input: {
   attachments: ReadonlyArray<DocumentAttachment>;
   attachmentStatusBySlotId: Readonly<Record<string, DocumentAttachmentStatus>>;
   attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
+  requestRemoteSync: () => void;
 }) {
   const {
     attachments,
@@ -288,7 +309,33 @@ function useFileDocumentAttachmentState(input: {
       }),
     [attachments, attachmentStatusBySlotId, attachmentStorageKeyBySlotId],
   );
-  return { attachmentNotice, downloadable };
+  // A retry fetches the recorded file again; it needs no write access.
+  const retryDownload =
+    attachmentNotice === FILE_DOCUMENT_ATTACHMENT_UNAVAILABLE_NOTICE
+      ? input.requestRemoteSync
+      : undefined;
+  return { attachmentNotice, downloadable, retryDownload };
+}
+
+// The inline picture, media, or PDF preview of the held file, if any.
+function useFileDocumentPreviews(input: {
+  attachments: ReadonlyArray<DocumentAttachment>;
+  attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
+}) {
+  const { infra, util } = useTearleadsRuntime();
+  const fileViewer = useFileViewer();
+  const mediaPreview = useFileDocumentMediaPreview({
+    ...input,
+    blobStore: infra.blobStore,
+    logError: util.logError,
+  });
+  const pdfPreview = useFileDocumentPdfPreview({
+    ...input,
+    blobStore: infra.blobStore,
+    fileViewer,
+    logError: util.logError,
+  });
+  return { mediaPreview, pdfPreview };
 }
 
 // Derives everything the file view renders from the document store + runtime:
@@ -302,7 +349,6 @@ function useFileDocument(params: {
   const { extraFields, initialEditing, title } = params;
   const { infra, util } = useTearleadsRuntime();
   const fileSaver = useFileSaver();
-  const fileViewer = useFileViewer();
   const {
     attachments,
     attachmentStatusBySlotId,
@@ -310,6 +356,7 @@ function useFileDocument(params: {
     canWrite,
     documentKind,
     ready,
+    requestRemoteSync,
     setStructuredFields,
     structuredFields,
   } = useDocument();
@@ -325,23 +372,16 @@ function useFileDocument(params: {
     structuredFields,
   });
 
-  const { attachmentNotice, downloadable } = useFileDocumentAttachmentState({
-    attachments,
-    attachmentStatusBySlotId,
-    attachmentStorageKeyBySlotId,
-  });
-  const mediaPreview = useFileDocumentMediaPreview({
-    attachments,
-    attachmentStorageKeyBySlotId,
-    blobStore: infra.blobStore,
-    logError: util.logError,
-  });
-  const pdfPreview = useFileDocumentPdfPreview({
+  const { attachmentNotice, downloadable, retryDownload } =
+    useFileDocumentAttachmentState({
+      attachments,
+      attachmentStatusBySlotId,
+      attachmentStorageKeyBySlotId,
+      requestRemoteSync,
+    });
+  const { mediaPreview, pdfPreview } = useFileDocumentPreviews({
     attachments,
     attachmentStorageKeyBySlotId,
-    blobStore: infra.blobStore,
-    fileViewer,
-    logError: util.logError,
   });
 
   const commitFileName = useCallback(
@@ -386,6 +426,7 @@ function useFileDocument(params: {
 
   return {
     attachmentNotice,
+    retryDownload,
     canWrite,
     commitFileName,
     downloadError,
@@ -426,6 +467,7 @@ export function FileDocument(params: {
           pdfPreview={model.pdfPreview}
           onCommitFileName={model.commitFileName}
           onDownload={model.handleDownload}
+          onRetryDownload={model.retryDownload}
           onToggleEditing={model.toggleEditing}
           readFields={model.readFields}
         />

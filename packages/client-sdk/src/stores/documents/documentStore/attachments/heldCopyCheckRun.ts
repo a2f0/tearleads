@@ -7,6 +7,8 @@ import { requestDocumentStoreSync } from "../../registry";
 import { type DocumentStoreState, setReadySnapshot } from "../state";
 import {
   allowDocumentStoreRemoteSync,
+  captureDocumentStoreGenerationIdentity,
+  isDocumentStoreGenerationIdentityCurrent,
   markDocumentStoreRemoteSyncPending,
 } from "../sync/syncGeneration";
 import type {
@@ -40,7 +42,7 @@ export async function checkHeldAttachmentCopies(
  * whose digest differs from the row's, marks the slot `unavailable` and asks
  * the server again; hydration then verifies the download against the
  * document's digest before the copy is held again. Runs only after a host
- * requested checks for this store, and again after the store reloads.
+ * requested checks for this store, and again when the store reloads.
  */
 export async function runHeldCopyChecks(
   state: DocumentStoreState,
@@ -48,6 +50,7 @@ export async function runHeldCopyChecks(
   const currentDoc = state.doc;
   if (!heldCopyChecksRequested(state) || !currentDoc || state.relinkedElsewhere)
     return;
+  const identity = captureDocumentStoreGenerationIdentity(state);
   const uploading = new Set(state.pendingAttachments.map((row) => row.slotId));
   const started = getDocumentAttachments(currentDoc).flatMap(({ slotId }) => {
     const copy = heldCopyOf(state, slotId);
@@ -70,31 +73,42 @@ export async function runHeldCopyChecks(
       : [];
   });
   let flagged = false;
-  for (const { attempt, copy, slotId } of started) {
-    const result = await readHeldCopy(state.runtime.infra.blobStore, copy);
-    const settled = dispatchHeldCopyCheck(state, slotId, {
-      type: "checkFinished",
-      attempt,
-      result,
-    });
+  for (const [index, { attempt, copy, slotId }] of started.entries()) {
+    const result = await readHeldCopy(identity.blobStore, copy);
+    // A reset or runtime swap retires this pass: its reads settle nothing.
+    if (!isDocumentStoreGenerationIdentityCurrent(state, identity)) {
+      for (const retired of started.slice(index))
+        dispatchHeldCopyCheck(state, retired.slotId, {
+          type: "checkAbandoned",
+          attempt: retired.attempt,
+        });
+      return;
+    }
+    const settled = dispatchHeldCopyCheck(
+      state,
+      slotId,
+      result === "unreadable"
+        ? { type: "checkAbandoned", attempt }
+        : { type: "checkFinished", attempt, result },
+    );
     if (settled?.status === "unavailable") flagged = true;
   }
-  if (flagged) publishUnavailableCopies(state);
+  if (flagged && !state.relinkedElsewhere) publishUnavailableCopies(state);
 }
 
 async function readHeldCopy(
   blobStore: BlobStore,
   copy: HeldCopy,
-): Promise<"present" | HeldCopyUnavailableReason> {
+): Promise<"present" | "unreadable" | HeldCopyUnavailableReason> {
   try {
     const source = await blobStore.openByteSource(copy.storageKey);
     if (!source) return "missing";
     const contentSha256 = await attachmentContentSha256(source);
     return contentSha256 === copy.contentSha256 ? "present" : "damaged";
   } catch {
-    // A short or failing read is damage too: the download that repairs it
-    // rewrites the file only with bytes the document records.
-    return "damaged";
+    // Only an absent file or differing bytes are evidence. A failed read (a
+    // released database, a locked key) leaves the copy unchecked.
+    return "unreadable";
   }
 }
 

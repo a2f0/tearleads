@@ -15,6 +15,7 @@ export interface HeldCopySlots {
   readonly attachmentBlobIdBySlotId: Readonly<Record<string, string | null>>;
   readonly attachmentContentSha256BySlotId: Readonly<Record<string, string>>;
   readonly attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
+  readonly runtime: { readonly infra: { readonly blobStore: object } };
 }
 
 interface HeldCopyChecks {
@@ -43,6 +44,7 @@ export function dispatchHeldCopyCheck(
   const checks = readChecks(state);
   const next = transitionHeldCopyCheck(checks.bySlotId.get(slotId), event);
   if (next) checks.bySlotId.set(slotId, next);
+  else checks.bySlotId.delete(slotId);
   return next;
 }
 
@@ -62,7 +64,7 @@ export function heldCopyOf(
   const storageKey = state.attachmentStorageKeyBySlotId[slotId];
   const contentSha256 = state.attachmentContentSha256BySlotId[slotId];
   return storageKey && contentSha256 !== undefined
-    ? { contentSha256, storageKey }
+    ? { blobStore: state.runtime.infra.blobStore, contentSha256, storageKey }
     : null;
 }
 

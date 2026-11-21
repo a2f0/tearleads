@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import { transitionHeldCopyCheck } from "./heldCopyCheckMachine";
 
-const copy = { contentSha256: "1".repeat(64), storageKey: "blob-a" };
-const replaced = { contentSha256: "2".repeat(64), storageKey: "blob-b" };
+const blobStore = {};
+const copy = { blobStore, contentSha256: "1".repeat(64), storageKey: "blob-a" };
+const replaced = { ...copy, contentSha256: "2".repeat(64) };
 
 test("a copy is checked once; a different copy starts a new check", () => {
   const checking = transitionHeldCopyCheck(undefined, {
@@ -74,4 +75,26 @@ test("bytes this store wrote supersede a check still reading the old file", () =
       result: "missing",
     }),
   ).toBe(written);
+});
+
+test("an abandoned read leaves the copy unchecked for its next access", () => {
+  const checking = transitionHeldCopyCheck(undefined, {
+    type: "checkStarted",
+    attempt: 6,
+    copy,
+  });
+  expect(
+    transitionHeldCopyCheck(checking, { type: "checkAbandoned", attempt: 5 }),
+  ).toBe(checking);
+  expect(
+    transitionHeldCopyCheck(checking, { type: "checkAbandoned", attempt: 6 }),
+  ).toBeUndefined();
+  // The same key in another blob store is another copy.
+  expect(
+    transitionHeldCopyCheck(checking, {
+      type: "checkStarted",
+      attempt: 7,
+      copy: { ...copy, blobStore: {} },
+    }),
+  ).toMatchObject({ status: "checking", attempt: 7 });
 });
