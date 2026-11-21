@@ -161,7 +161,7 @@ now stored. The queue does not estimate undiscovered objects or blob reads.
 `deriveStableDocumentId(localId)` derives the first-creation ID.
 Persisted remote and recovery IDs take precedence. See [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
 `loadPersistedDocumentContent` returns a detached document for inspection.
-`openDocumentHistory` replays [durable history](../../../../docs/developer/client-sdk/document-history.md).
+`openDocumentHistory` and `documents.readFoundingUpdate` replay [durable history](../../../../docs/developer/client-sdk/document-history.md).
 Views displaced by a relink go read-only (`relinkedElsewhere`) until reopened.
 
 The documents facade admits explicit `historyMode: "raw"` reads through
@@ -171,7 +171,6 @@ and publish only after the complete retained frontier validates. The built-in
 rotation preflight is the reference consumer; ordinary sync omits the mode. Raw
 consumers can handle `DocumentRawHistoryUnavailableError` by its stable code
 and numeric content-key epoch without parsing an integrity-error message.
-`documents.readFoundingUpdate` replays one first update: [founding update](../../../../docs/developer/client-sdk/document-history.md#founding-update).
 
 Hosts creating `.env` file documents use the SDK-owned `ENV_FILE_*` kind and
 field names with `parseEnvFileText`, so the app and CLI write one shape.
