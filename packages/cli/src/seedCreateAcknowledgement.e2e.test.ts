@@ -91,7 +91,9 @@ test.each(["missing", "different", "lost", "empty", "edited shell"] as const)(
       }
       expect(await seed()).toBe(1);
       if (fault === "empty" || fault === "edited shell") {
-        expect(output.stderr.at(-1)).toContain("no synced birth content");
+        expect(output.stderr.at(-1)).toContain(
+          "cannot confirm it created that document with the fixture content",
+        );
         expect(uploads).toBe(0);
         return;
       }

@@ -53,6 +53,10 @@ export {
 } from "./create";
 export type { CreateRemoteDocumentRequest } from "./create/remoteDocumentCreateRequest";
 export {
+  type DocumentFoundingUpdate,
+  readDocumentFoundingUpdate,
+} from "./history/documentFoundingUpdate";
+export {
   type DocumentHistory,
   type DocumentHistoryStop,
   type DocumentHistoryVersion,

@@ -289,7 +289,9 @@ test("a later edit identical to a fixture cannot stand in for its original seed"
             document: { key: "note/0", kind: "note", text, attachments: [] },
             readAttachment: async () => new Uint8Array(),
           }),
-        ).rejects.toThrow("no synced birth content");
+        ).rejects.toThrow(
+          "cannot confirm it created that document with the fixture content",
+        );
         expect(store.getSnapshot().text).toBe(text);
       },
     );
