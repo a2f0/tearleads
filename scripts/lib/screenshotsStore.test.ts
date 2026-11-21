@@ -91,6 +91,9 @@ function run(
     env: {
       PATH,
       HOME: join(root, "home"),
+      // The developer's Git configuration never reaches the fixtures.
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_NOSYSTEM: "1",
       STUB_LOG: log,
       STUB_ARTIFACTS: store,
       ...env,
@@ -257,7 +260,14 @@ test("the pinned agent-tool links a clone only where its store already exists", 
   const setup = fixture();
   const git = (...args: string[]) =>
     expect(
-      Bun.spawnSync({ cmd: ["git", ...args], cwd: setup.repo }).exitCode,
+      run(setup, [
+        "git",
+        "-C",
+        setup.repo,
+        "-c",
+        "core.hooksPath=/dev/null",
+        ...args,
+      ]).exitCode,
     ).toBe(0);
   rmSync(join(setup.repo, ".git"), { recursive: true });
   git("init", "--quiet");

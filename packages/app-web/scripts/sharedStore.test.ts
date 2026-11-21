@@ -245,6 +245,19 @@ test("a capture through the pinned agent-tool is admitted, and a direct run is r
       },
     }),
   );
+  // A closed environment: neither the developer's Git configuration nor an
+  // inherited GIT_DIR reaches the fixture, its capture, or the CLI.
+  const home = join(root, "home");
+  mkdirSync(home);
+  const { PATH } = process.env;
+  const env = {
+    PATH,
+    HOME: home,
+    GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_CONFIG_NOSYSTEM: "1",
+    MATRIX_ARTIFACTS_DIR: join(root, "artifacts"),
+    MATRIX_ARTIFACTS_NO_GH: "1",
+  };
   const git = (...args: string[]) => {
     const result = spawnSync(
       "git",
@@ -255,9 +268,11 @@ test("a capture through the pinned agent-tool is admitted, and a direct run is r
         "user.email=test@example.com",
         "-c",
         "commit.gpgsign=false",
+        "-c",
+        "core.hooksPath=/dev/null",
         ...args,
       ],
-      { cwd: repo, encoding: "utf8" },
+      { cwd: repo, encoding: "utf8", env },
     );
     expect(result.status, result.stderr).toBe(0);
   };
@@ -275,11 +290,6 @@ test("a capture through the pinned agent-tool is admitted, and a direct run is r
     ),
     cli,
   );
-  const env = {
-    ...process.env,
-    MATRIX_ARTIFACTS_DIR: join(root, "artifacts"),
-    MATRIX_ARTIFACTS_NO_GH: "1",
-  };
 
   const capture = spawnSync(
     cli,
