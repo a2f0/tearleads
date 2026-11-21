@@ -43,6 +43,33 @@ test("does not re-boot when status returns to idle after the first boot", () => 
   expect(ensureIdentityReady).toHaveBeenCalledTimes(1);
 });
 
+// A database whose connection went away with another tab's owner worker is
+// retired to idle, not error, so it reopens at once without spending the
+// retry budget that bounds real boot failures.
+test("reopens a database that returns to idle after it was ready", async () => {
+  const { ensureIdentityReady, view } = renderEnsure("idle");
+  expect(ensureIdentityReady).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  act(() => {
+    view.rerender({ status: "ready" });
+  });
+
+  for (let loss = 1; loss <= 4; loss++) {
+    act(() => {
+      view.rerender({ status: "idle" });
+    });
+    expect(ensureIdentityReady).toHaveBeenCalledTimes(loss + 1);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      view.rerender({ status: "ready" });
+    });
+  }
+});
+
 test("schedules exactly one retry per error transition (no double-call)", async () => {
   const { ensureIdentityReady, view } = renderEnsure("ready");
   expect(ensureIdentityReady).toHaveBeenCalledTimes(0);
