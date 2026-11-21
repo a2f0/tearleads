@@ -171,21 +171,6 @@ button.structured-document-slot-placeholder:is(:hover, :focus-visible) {
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
-.structured-document-slot-spinner {
-  width: 1rem;
-  height: 1rem;
-  border: var(--border-width) solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: structured-document-slot-spin 0.8s linear infinite;
-}
-
-@keyframes structured-document-slot-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .structured-document-slot-meta {
   display: grid;
   gap: var(--space-xs);
