@@ -68,6 +68,7 @@ async function resumeMultipartStage(
   resumeStageId: string,
 ): Promise<MultipartBlobStageStatusResponse | null> {
   assertUploadCurrent(input.stillCurrent);
+  assertUploadNotPaused(input.paused);
   const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId, {
     stillCurrent: input.stillCurrent,
   });

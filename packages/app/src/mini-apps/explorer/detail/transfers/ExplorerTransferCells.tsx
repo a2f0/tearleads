@@ -1,0 +1,84 @@
+import type { SyncLaneStatus } from "@tearleads/client-sdk";
+import type { ReactNode } from "react";
+import {
+  MiniAppTableCell,
+  MiniAppTableText,
+} from "../../../../components/mini-app/MiniAppTable";
+import {
+  ExplorerSyncLaneStatusBadge,
+  ExplorerSyncProgressBar,
+} from "../sync/ExplorerSyncLaneShared";
+import { getExplorerSyncLaneProgress } from "../sync/ExplorerSyncLaneUtils";
+import "./ExplorerTransferCells.css";
+
+/**
+ * How one transfer row reads: its wording, the Sync Lanes tone that
+ * colors its bar and badge, how full the bar is, and an optional detail such
+ * as an error.
+ */
+export interface ExplorerTransferProgress {
+  detail: string | null;
+  label: string;
+  percent: number;
+  status: SyncLaneStatus;
+}
+
+/**
+ * The Sync Lanes fill for a transfer without byte counts. A failed transfer
+ * keeps the queued fill, so only a Complete one reaches 100%.
+ */
+export function getExplorerTransferStatusPercent(
+  status: SyncLaneStatus,
+): number {
+  return getExplorerSyncLaneProgress(status === "error" ? "queued" : status);
+}
+
+/** The row's name with its progress bar spanning the cell beneath it. */
+export function ExplorerTransferNameCell(params: {
+  children: ReactNode;
+  title?: string | undefined;
+  transfer: ExplorerTransferProgress;
+}) {
+  return (
+    <MiniAppTableCell>
+      <span className="explorer-transfer-name">
+        <MiniAppTableText title={params.title}>
+          {params.children}
+        </MiniAppTableText>
+        <ExplorerSyncProgressBar
+          label={params.transfer.label}
+          percent={params.transfer.percent}
+          status={params.transfer.status}
+        />
+      </span>
+    </MiniAppTableCell>
+  );
+}
+
+/**
+ * The row's status badge, with its detail beneath. `announceError` makes an
+ * error badge a live alert, for a list of files the user chose themselves.
+ */
+export function ExplorerTransferStatusCell(params: {
+  announceError?: boolean;
+  transfer: ExplorerTransferProgress;
+}) {
+  const { detail, label, status } = params.transfer;
+  const badge = <ExplorerSyncLaneStatusBadge label={label} status={status} />;
+  return (
+    <MiniAppTableCell>
+      <span className="explorer-transfer-status">
+        {params.announceError && status === "error" ? (
+          <span role="alert">{badge}</span>
+        ) : (
+          badge
+        )}
+        {detail === null ? null : (
+          <span className="explorer-sync-lane-muted" title={detail}>
+            {detail}
+          </span>
+        )}
+      </span>
+    </MiniAppTableCell>
+  );
+}

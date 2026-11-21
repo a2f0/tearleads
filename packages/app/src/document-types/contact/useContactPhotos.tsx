@@ -28,7 +28,7 @@ export function useContactPhotos({
 }) {
   const store = useContext(DocumentContext);
   const document = useDocument();
-  const { infra } = useTearleadsRuntime();
+  const { infra, state } = useTearleadsRuntime();
   const imageUrlBySlotId = useAttachmentImageUrls(
     document.attachments,
     document.attachmentStorageKeyBySlotId,
@@ -58,6 +58,10 @@ export function useContactPhotos({
           document.ready && isEditing && document.canWrite && document.canAttach
         }
         onSelectedAttachment={onSelectedAttachment}
+        previewNotice={{
+          blobStore: infra.blobStore,
+          domainScope: state.domainScope,
+        }}
         onClearAttachment={(slotId) => {
           if (store) removeDocumentPhoto(store, CONTACT_PHOTOS, slotId);
         }}
