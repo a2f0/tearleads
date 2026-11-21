@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
-import { resolve } from "node:path";
 import {
   apiClientIndexPath,
   apiClientPackageJsonPath,
   apiClientRootExports,
-  findApiClientSurfaceViolations,
   findEntryExportViolations,
   findPackageExportViolations,
 } from "./apiClientSurface";
@@ -12,10 +10,9 @@ import {
 const index = apiClientIndexPath;
 const manifest = apiClientPackageJsonPath;
 
-test("the api-client package publishes exactly its transport surface", async () => {
-  expect(
-    await findApiClientSurfaceViolations(resolve(import.meta.dir, "../..")),
-  ).toEqual([]);
+// The live package is checked by `lint:architecture`, which reads other
+// workspaces' files outside this Turbo task's hash; these tests stay pure.
+test("the allowlist names each export once", () => {
   expect(new Set(apiClientRootExports).size).toBe(apiClientRootExports.length);
 });
 
@@ -41,7 +38,7 @@ test("a protocol type, a local declaration or a default export is outside the su
         "export const MANIFEST_CITATION_DEADLINE_MS = 250;",
         "export interface WriterProjectionTarget { readonly id: string }",
         "export const { isHeldDirectoryCitation, nested: [signed] } = guards;",
-        "export default ApiClient;",
+        "export default class Client {}",
       ].join("\n"),
       ["ApiClient"],
     ),

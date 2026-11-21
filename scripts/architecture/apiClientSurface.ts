@@ -58,11 +58,11 @@ export interface ApiClientSurfaceViolation {
   readonly path: string;
 }
 
-function hasExportModifier(statement: ts.Statement): boolean {
+function hasModifier(statement: ts.Statement, kind: ts.SyntaxKind): boolean {
   return (
     ts.canHaveModifiers(statement) &&
     (ts.getModifiers(statement) ?? []).some(
-      (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+      (modifier) => modifier.kind === kind,
     )
   );
 }
@@ -76,6 +76,8 @@ function boundNames(name: ts.BindingName): string[] {
 }
 
 function declaredNames(statement: ts.Statement): string[] {
+  // `export default class Foo` exports `default`, not `Foo`.
+  if (hasModifier(statement, ts.SyntaxKind.DefaultKeyword)) return ["default"];
   if (ts.isVariableStatement(statement))
     return statement.declarationList.declarations.flatMap((declaration) =>
       boundNames(declaration.name),
@@ -102,7 +104,7 @@ function readEntryExports(source: string) {
         names.push(...clause.elements.map((element) => element.name.text));
       else wildcards.push(statement.getText(file));
     } else if (ts.isExportAssignment(statement)) names.push("default");
-    else if (hasExportModifier(statement))
+    else if (hasModifier(statement, ts.SyntaxKind.ExportKeyword))
       names.push(...declaredNames(statement));
   }
   return { names, wildcards };
