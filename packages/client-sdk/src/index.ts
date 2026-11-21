@@ -157,6 +157,7 @@ export type {
   ReconciliationService,
   RemoveOrganizationGroupUserInput,
   ResolvedUserIdentity,
+  RetryDocumentDownloadInput,
   SaveFileRequest,
   SecurityIncident,
   SecurityIncidentListener,
