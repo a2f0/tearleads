@@ -72,8 +72,7 @@ explicit unknown-outcome acknowledgement; they never submit unreadable work.
 
 Name SDK facades after platform state; keep product names in the app. For
 example, the SDK exports [`workflows/organizations`](organizations/), while the
-app keeps
-`OrgManager` provider, route, and screen names in
+app keeps `OrgManager` provider, route, and screen names in
 [`packages/app`](../../../app/).
 
 `bun run lint:architecture` guards this taxonomy by rejecting product window
@@ -122,11 +121,9 @@ recovery capability compile-time required; general query workflows use
 The device-first read/write/reconcile seam lives outside the workflow facades.
 `tearleads.deviceFirst.open()` binds the locally durable per-scope container
 mutation store to [`src/stores/local-projection`](../stores/local-projection/)
-(synchronous reads) and
-[`src/sync/reconciliation`](../sync/reconciliation/) (background remote
-discovery). Product UIs consume
-that unified handle rather than owning those modules or reopening the tree
-store independently. See
+(synchronous reads) and [`src/sync/reconciliation`](../sync/reconciliation/)
+(background remote discovery). Product UIs consume that unified handle rather
+than owning those modules or reopening the tree store independently. See
 [device-first reads and writes](../../../../docs/developer/device-first.md).
 
 ### Retained folder recovery
@@ -144,8 +141,8 @@ local work from shared folders with inaccessible parents.
 
 ### Explorer hydration and pending downloads
 
-Explorer queries omit remote document shells until content is present,
-including paginated counts. Explorer requests direct summaries with
+Explorer queries omit remote document shells until content is present, including
+paginated counts. Explorer requests direct summaries with
 `loadDocumentSummary(id, { requireHydrated: true })`; ordinary identity reads
 still include shells. Orphan-route identity checks use the scoped
 `loadOrphanedDocumentSummary` read before requesting `requireHydrated: true`
@@ -154,8 +151,10 @@ metadata; consumers can hide these nodes without removing their sync
 registrations. `containerContents.documentQueries()` exposes
 `listPendingDownloads()` and `PendingDownloadQueueItem` for known document and
 folder metadata pulls (initial hydration or remaining pages), including durable
-errors. The queue does not estimate undiscovered objects or on-demand blob
-reads.
+errors, and first file downloads: a slot a synced document records with no local
+row or pending upload (`objectKind: "attachment"`), which
+`documents.retryDownload` retries. The queue does not estimate undiscovered
+objects or on-demand blob reads.
 
 ## Documents
 

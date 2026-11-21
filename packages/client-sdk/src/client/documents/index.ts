@@ -17,6 +17,7 @@ import {
   type DocumentsRuntime,
   openDocumentStore,
   type PersistedDocumentListener,
+  retryDocumentDownload,
   type SeededDocumentInput,
   subscribeToPersistedDocuments,
 } from "../../stores/documents";
@@ -78,6 +79,11 @@ export interface OpenDocumentOptions {
   readonly workflowRuntime?: DocumentsRuntime | undefined;
 }
 
+export interface RetryDocumentDownloadInput {
+  readonly documentId: string;
+  readonly localId: string;
+}
+
 export interface DocumentSubscriptionOptions {
   readonly containerId?: string | null | undefined;
 }
@@ -99,6 +105,13 @@ export interface Documents {
    * The caller must `close()` the result.
    */
   openHistory(localId: string): Promise<DocumentHistory | null>;
+  /**
+   * Pull a synced document again and re-list its attachment bindings, e.g.
+   * to retry a pending first download. Resolves false, without syncing, when
+   * the database is not ready or the local record no longer carries
+   * `documentId`; an already-open store keeps its runtime and draft.
+   */
+  retryDownload(input: RetryDocumentDownloadInput): Promise<boolean>;
   subscribe(
     listener: PersistedDocumentListener,
     options?: DocumentSubscriptionOptions | undefined,
@@ -232,6 +245,13 @@ class DocumentsService implements Documents {
       execSql: runtime.infra.execSql,
       localId,
       persistence: defaultDocumentsPersistence,
+    });
+  }
+
+  retryDownload(input: RetryDocumentDownloadInput): Promise<boolean> {
+    return retryDocumentDownload({
+      ...input,
+      workflowRuntime: (containerId) => this.workflowRuntime(containerId),
     });
   }
 
