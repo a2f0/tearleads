@@ -70,6 +70,8 @@ export async function submitRemoteContainerCreate(input: {
     {
       expectedPaymentRequiredOrganizationId: input.plan.state.organizationId,
       reportErrors: false,
+      // A signed create must not renew or replay for a retired caller.
+      stillCurrent: input.stillCurrent,
     },
   );
   return result.ok ? { ok: true, response: result.data } : result;
