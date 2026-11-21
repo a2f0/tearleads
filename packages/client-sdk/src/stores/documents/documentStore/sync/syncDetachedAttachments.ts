@@ -33,6 +33,7 @@ import { readReplacedBindingSightings } from "./replacedBindingSightings";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
+  isDocumentStoreGenerationIdentityCurrent,
   isDocumentStoreSyncGenerationCurrent,
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
@@ -94,7 +95,12 @@ export async function syncDetachedAttachmentBindings(
     state,
   });
   if (readdedSlotIds.length > 0) {
-    void catchUpReaddedAttachments(state, readdedSlotIds, rebinding);
+    void catchUpReaddedAttachments(
+      state,
+      generation,
+      readdedSlotIds,
+      rebinding,
+    );
   }
 }
 
@@ -135,9 +141,13 @@ async function settleDetachMarkers(
     }
     rebinding ||= settled.status === "rebinding";
   }
-  // The next pass pulls rather than skipping a clean document, so a binding
-  // still listed after it is the removed slot's.
-  if (sighted) markDocumentStoreRemoteSyncPending(context.state, "independent");
+  // Ask for a pass that pulls rather than skipping a clean document: a
+  // binding still listed after it is the removed slot's. Sightings live in
+  // memory only, so waiting for an unrelated pass could outlast the session.
+  if (sighted) {
+    markDocumentStoreRemoteSyncPending(context.state, "independent");
+    requestDocumentStoreSync(context.state);
+  }
   return { readdedSlotIds, rebinding };
 }
 
@@ -223,16 +233,19 @@ async function settleDetachedAttachmentMarker(input: {
  */
 function catchUpReaddedAttachments(
   state: DocumentStoreState,
+  passGeneration: DocumentStoreSyncGeneration,
   slotIds: readonly string[],
   requestUpload: boolean,
 ): Promise<void> {
+  const passIsCurrent = () =>
+    isDocumentStoreGenerationIdentityCurrent(state, passGeneration);
   return chainQueuedWrite(
     state,
     state.writeChain
       .catch(() => undefined)
       .then(async () => {
         const doc = state.doc;
-        if (!doc) return;
+        if (!doc || !passIsCurrent()) return;
         if (!documentRecordsSlots(doc, slotIds)) {
           const generation = captureDocumentStoreSyncGeneration(state, doc);
           if (!generation) return;
@@ -243,7 +256,10 @@ function catchUpReaddedAttachments(
             state,
           });
         }
-        if (requestUpload && (await publishRequeuedUploads(state, slotIds))) {
+        if (
+          requestUpload &&
+          (await publishRequeuedUploads(state, slotIds, passIsCurrent))
+        ) {
           requestDocumentStoreSync(state);
         }
       })
@@ -263,14 +279,17 @@ function catchUpReaddedAttachments(
 async function publishRequeuedUploads(
   state: DocumentStoreState,
   slotIds: readonly string[],
+  passIsCurrent: () => boolean,
 ): Promise<boolean> {
   const doc = state.doc;
-  if (!doc || !documentRecordsSlots(doc, slotIds)) return false;
+  if (!doc || !passIsCurrent() || !documentRecordsSlots(doc, slotIds)) {
+    return false;
+  }
   const pending = await state.persistence.listPendingAttachments(
     state.runtime.infra.execSql,
     state.localId,
   );
-  if (state.doc !== doc) return false;
+  if (state.doc !== doc || !passIsCurrent()) return false;
   const requeued = pending.filter((row) => slotIds.includes(row.slotId));
   if (requeued.length === 0) return false;
   upsertPendingAttachments(state, requeued);

@@ -262,8 +262,19 @@ test.each([
       await panes.setRow({ blobId: rowBlobId });
       panes.server.bindings = [binding(blobId, bindingId)];
       const first = await panes.open();
-      await removeAndDetach(first);
+      let requestedPasses = 0;
+      first.syncLane = {
+        requestSync: () => {
+          requestedPasses += 1;
+        },
+      } as NonNullable<DocumentStoreState["syncLane"]>;
+      await removeAttachmentFromDocumentStore(first, () => undefined, SLOT_ID);
+      const requestedByRemoval = requestedPasses;
+      await runDetachPass(first);
       expect(panes.server.detached).toEqual([]);
+      // The sighting asks for a pass that pulls, not one that skips.
+      expect(requestedPasses).toBe(requestedByRemoval + 1);
+      expect(first.remoteUpdatePending).toBe(true);
       // A pass with no pull since the sighting cannot tell yet.
       await runDetachPass(first);
       expect(panes.server.detached).toEqual([]);

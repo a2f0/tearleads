@@ -19,7 +19,7 @@ it, and a restart can stop it between any two of them.
 | `Settle` / `RowAfter` | `transitionAttachmentRemovalMarker` and `attachmentMarkerRowEffect`, applied by `planAttachmentRemovalMarkerSettlement` |
 | `From` / `OwnBindingOnly` / `DetachSighted` | `observeMarkerBinding`: the marker's own blob, or a binding `readReplacedBindingSightings` holds from before a completed pull |
 | `View` / `SettleOnCommitted` | `settleAttachmentRemovalMarker` reads committed document history in the same immediate transaction as the row write, never a live document |
-| `ReaddBind` / `ReaddPush` / `Pull` | another device's upload lane binds, then `syncDocumentState` pushes; this device's `syncDocumentState` pulls and counts it with `noteDocumentPullCompleted` |
+| `ReaddBind` / `ReaddPush` / `Pull` | another device's upload lane binds, then `syncDocumentState` pushes; a sighting asks this device for a pull with `markDocumentStoreRemoteSyncPending`, and `finalizeDocumentSync` counts one applied and drained with `noteDocumentPullCompleted` |
 | `Resurrect` | another pane's `commitDocumentMutation`, or a pulled update's `persistDocumentState`, recording the slot again |
 | `Stage` / `Rollback` | a pane's staged attach or replace whose `commitDocumentMutation` fails |
 | `Check` | `syncDetachedAttachmentBindings` lists bindings fresh and settles each marker before any detach |
@@ -38,8 +38,9 @@ removal of a re-added slot, which starts a fresh marker.
 
 Two windows remain outside it. `Pull` brings a re-add's content update once
 its bind is listed, since the other device pushes it in the same sync pass; a
-device lost between its bind and that push, for longer than one of this
-device's passes, has its binding detached. And a merge of a concurrent edit
+device whose push has not reached the server by the time this device's
+requested pull completes, because it was lost between bind and push or is
+slower than that pull, has its binding detached. And a merge of a concurrent edit
 that records the slot again, pulled only after the detach landed and the
 recheck dropped the copy, leaves the slot with no binding until a device that
 holds the bytes binds them; the pass before this change detached and dropped

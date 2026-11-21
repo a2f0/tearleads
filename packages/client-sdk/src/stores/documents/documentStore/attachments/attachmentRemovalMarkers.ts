@@ -113,8 +113,10 @@ function installSettledMarker(
 
 /**
  * Settle one removal marker against committed document history and mirror
- * the durable outcome into this store. Null when `stillCurrent` turned false;
- * nothing was written or installed then.
+ * the durable outcome into this store. Null when `stillCurrent` turned false:
+ * before the commit nothing was written; after it the durable settle stands,
+ * but this store's mirror and the orphan reclaim are left to the store's next
+ * load, which reads the pending uploads and reclaims orphans from SQLite.
  */
 export async function settleStoreAttachmentRemovalMarker(input: {
   doc: DocumentState | null;
