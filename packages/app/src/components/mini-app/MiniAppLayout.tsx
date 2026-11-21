@@ -5,6 +5,7 @@ export {
 export { MiniAppCheckbox } from "./controls/MiniAppCheckbox";
 export { MiniAppCopyValue } from "./controls/MiniAppCopyValue";
 export {
+  MiniAppEditor,
   MiniAppField,
   MiniAppFieldGroup,
   MiniAppInput,
