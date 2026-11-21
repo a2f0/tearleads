@@ -56,7 +56,6 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
   let loop = IDLE_DOWNLOAD_READ_LOOP;
   const listeners = new Set<() => void>();
   let queries: ContainerDocumentQueries | null = null;
-  let nextRead = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function dispatch(event: DownloadHistoryEvent) {
@@ -71,24 +70,21 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
   function step(event: DownloadReadLoopEvent) {
     const previous = loop;
     loop = transitionDownloadReadLoop(loop, event);
-    if (loop.status === previous.status) return;
-    if (previous.status === "waiting") {
+    if (previous.status === "waiting" && loop.status !== "waiting") {
       clearTimeout(timer);
       timer = undefined;
     }
-    if (loop.status === "waiting") {
+    if (loop.status === "waiting" && previous.status !== "waiting") {
       timer = setTimeout(
         () => step({ type: "delay-elapsed" }),
         DOWNLOAD_READ_COALESCE_MS,
       );
-    } else if (loop.status === "reading" && queries) {
-      void read(queries);
     }
+    if (loop.status === "reading" && loop.reads !== previous.reads && queries)
+      void read(queries, loop.reads);
   }
 
-  async function read(source: ContainerDocumentQueries) {
-    nextRead += 1;
-    const request = nextRead;
+  async function read(source: ContainerDocumentQueries, request: number) {
     dispatch({ read: request, type: "read-started" });
     try {
       const pending = await source.listPendingDownloads();
@@ -99,13 +95,17 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
         departed.length === 0
           ? []
           : await source.listCompletedDownloads(departed);
-      dispatch({ completed, pending, read: request, type: "read-finished" });
+      // A result from replaced queries (a reopened database) is dropped; the
+      // read the replacement asked for follows at once.
+      if (source === queries)
+        dispatch({ completed, pending, read: request, type: "read-finished" });
     } catch (error) {
-      dispatch({
-        message: unknownErrorMessage(error),
-        read: request,
-        type: "read-failed",
-      });
+      if (source === queries)
+        dispatch({
+          message: unknownErrorMessage(error),
+          read: request,
+          type: "read-failed",
+        });
     } finally {
       step({ type: "read-settled", watched: listeners.size > 0 });
     }
@@ -114,8 +114,11 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
   return {
     getSnapshot: () => snapshot,
     requestRead(nextQueries, options) {
+      // New queries always read at once: the rows on screen came from the
+      // replaced ones.
+      const immediate = options.immediate || nextQueries !== queries;
       queries = nextQueries;
-      step({ immediate: options.immediate, type: "requested" });
+      step({ immediate, type: "requested" });
     },
     subscribe(listener) {
       listeners.add(listener);

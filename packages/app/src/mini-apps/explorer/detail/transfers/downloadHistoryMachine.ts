@@ -65,10 +65,12 @@ export function getDownloadHistoryKey(ref: DownloadQueueItemRef): string {
   return `${ref.objectKind}:${ref.localId}`;
 }
 
+const NO_DOWNLOAD_ENTRIES: ReadonlyArray<DownloadHistoryEntry> = [];
+
 export function getDownloadHistoryEntries(
   state: DownloadHistoryState,
 ): ReadonlyArray<DownloadHistoryEntry> {
-  return state.status === "loading" ? [] : state.entries;
+  return state.status === "loading" ? NO_DOWNLOAD_ENTRIES : state.entries;
 }
 
 /** The rows this state shows pending that a fresh queue read no longer lists. */

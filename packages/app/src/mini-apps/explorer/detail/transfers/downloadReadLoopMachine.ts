@@ -1,18 +1,26 @@
 /**
  * When the Downloads store reads the SDK queue: one read at a time, with
- * notifications that arrive mid-read coalesced into one follow-up.
+ * requests that arrive mid-read coalesced into one follow-up.
  *
  * - `idle`: nothing scheduled.
  * - `waiting`: a read starts when the coalescing delay ends.
- * - `reading`: a read is in flight; `rerun` asks for one more after it.
+ * - `reading`: a read is in flight; `rerun` says whether one follows it at
+ *   once (`now`, for an opened view or Refresh), after the delay (`soon`, for
+ *   a change signal), or not at all.
  *
- * Effects run on entering a state: `waiting` arms the delay and `reading`
- * starts the read. Leaving `waiting` disarms the delay.
+ * Every state counts the reads started so far. Effects run on entering a
+ * state: `waiting` arms the delay, and a higher count in `reading` starts that
+ * read, even straight after the previous one. Leaving `waiting` disarms the
+ * delay.
  */
 export type DownloadReadLoopState =
-  | { readonly status: "idle" }
-  | { readonly status: "waiting" }
-  | { readonly rerun: boolean; readonly status: "reading" };
+  | { readonly reads: number; readonly status: "idle" }
+  | { readonly reads: number; readonly status: "waiting" }
+  | {
+      readonly reads: number;
+      readonly rerun: "none" | "soon" | "now";
+      readonly status: "reading";
+    };
 
 export type DownloadReadLoopEvent =
   /** A change signal (`immediate: false`) or an opened view or Refresh. */
@@ -23,20 +31,22 @@ export type DownloadReadLoopEvent =
   | { readonly type: "unwatched" };
 
 export const IDLE_DOWNLOAD_READ_LOOP: DownloadReadLoopState = {
+  reads: 0,
   status: "idle",
 };
 
-const READING: DownloadReadLoopState = { rerun: false, status: "reading" };
-const WAITING: DownloadReadLoopState = { status: "waiting" };
+function startRead(state: DownloadReadLoopState): DownloadReadLoopState {
+  return { reads: state.reads + 1, rerun: "none", status: "reading" };
+}
 
 /**
  * Pure transition; returns the same reference for ignored events.
  *
- * | state \ event   | requested (immediate) | requested (later) | delay-elapsed | read-settled          | unwatched |
- * | --------------- | --------------------- | ----------------- | ------------- | --------------------- | --------- |
- * | idle            | reading               | waiting           | (same)        | (same)                | (same)    |
- * | waiting         | reading               | (same)            | reading       | (same)                | idle      |
- * | reading         | reading, rerun        | reading, rerun    | (same)        | waiting or idle       | no rerun  |
+ * | state \ event | requested (immediate) | requested (later) | delay-elapsed | read-settled (watched)       | unwatched  |
+ * | ------------- | --------------------- | ----------------- | ------------- | ---------------------------- | ---------- |
+ * | idle          | next read             | waiting           | (same)        | (same)                       | (same)     |
+ * | waiting       | next read             | (same)            | next read     | (same)                       | idle       |
+ * | reading       | rerun now             | rerun soon        | (same)        | next read, waiting, or idle  | rerun none |
  */
 export function transitionDownloadReadLoop(
   state: DownloadReadLoopState,
@@ -46,7 +56,7 @@ export function transitionDownloadReadLoop(
     case "requested":
       return onRequested(state, event.immediate);
     case "delay-elapsed":
-      return state.status === "waiting" ? READING : state;
+      return state.status === "waiting" ? startRead(state) : state;
     case "read-settled":
       return onReadSettled(state, event.watched);
     case "unwatched":
@@ -62,10 +72,14 @@ function onRequested(
   state: DownloadReadLoopState,
   immediate: boolean,
 ): DownloadReadLoopState {
-  if (state.status === "reading")
-    return state.rerun ? state : { rerun: true, status: "reading" };
-  if (immediate) return READING;
-  return state.status === "waiting" ? state : WAITING;
+  if (state.status === "reading") {
+    const rerun = immediate || state.rerun === "now" ? "now" : "soon";
+    return rerun === state.rerun ? state : { ...state, rerun };
+  }
+  if (immediate) return startRead(state);
+  return state.status === "waiting"
+    ? state
+    : { reads: state.reads, status: "waiting" };
 }
 
 function onReadSettled(
@@ -73,10 +87,16 @@ function onReadSettled(
   watched: boolean,
 ): DownloadReadLoopState {
   if (state.status !== "reading") return state;
-  return state.rerun && watched ? WAITING : IDLE_DOWNLOAD_READ_LOOP;
+  if (!watched || state.rerun === "none")
+    return { reads: state.reads, status: "idle" };
+  return state.rerun === "now"
+    ? startRead(state)
+    : { reads: state.reads, status: "waiting" };
 }
 
 function onUnwatched(state: DownloadReadLoopState): DownloadReadLoopState {
-  if (state.status === "waiting") return IDLE_DOWNLOAD_READ_LOOP;
-  return state.status === "reading" && state.rerun ? READING : state;
+  if (state.status === "waiting") return { reads: state.reads, status: "idle" };
+  return state.status === "reading" && state.rerun !== "none"
+    ? { ...state, rerun: "none" }
+    : state;
 }
