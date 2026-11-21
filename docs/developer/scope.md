@@ -39,7 +39,10 @@ CLIs; this command records their versions rather than installing them.
 
 Sign in to Claude Code and run `codex login` using ChatGPT authentication first.
 This adapter accepts `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), or
-reads Claude's `~/.claude/.credentials.json` OAuth login at worker startup.
+reads the OAuth login from `.credentials.json` in Claude's config directory
+(`$CLAUDE_CONFIG_DIR` when set, otherwise `~/.claude`) at worker startup.
+Services do not inherit `CLAUDE_CONFIG_DIR`, so the worker's session files stay
+under `~/.claude/projects`, where the Judge looks for them.
 Use the explicit token when the host login is stored only in the Keychain.
 Refresh that login and restart if it expires. Codex uses its saved
 ChatGPT login; the Judge does not require Copilot SDK authentication or an
