@@ -4,6 +4,7 @@ import type { ExplorerRoute } from "../routes";
 import { ExplorerDocumentInfoPanel } from "./document/ExplorerDocumentInfoPanel";
 import { getDocumentInfoRouteFallbackSummary } from "./documentInfoRouteSummary";
 import { ExplorerDocumentHistoryPanel } from "./history/ExplorerDocumentHistoryPanel";
+import type { ExplorerDocumentVersionCopy } from "./history/useExplorerDocumentVersionCopy";
 
 /** A route that names one document by local id and shows a view of it. */
 type ExplorerDocumentViewRoute = Extract<
@@ -33,6 +34,7 @@ export function ExplorerDocumentRouteDetail(
     isContainerReadOnly: (containerId: string | null) => boolean;
     route: ExplorerDocumentViewRoute;
     selectedDocument: DocumentSummary | undefined;
+    versionCopy: ExplorerDocumentVersionCopy;
   },
 ) {
   const {
@@ -40,6 +42,7 @@ export function ExplorerDocumentRouteDetail(
     isContainerReadOnly,
     route,
     selectedDocument,
+    versionCopy,
     ...infoProps
   } = params;
   const fallbackDocumentSummary = getDocumentInfoRouteFallbackSummary({
@@ -56,6 +59,7 @@ export function ExplorerDocumentRouteDetail(
         loadDocumentSummary={params.loadDocumentSummary}
         isContainerReadOnly={isContainerReadOnly}
         localId={route.localId}
+        versionCopy={versionCopy}
       />
     );
   }

@@ -25,10 +25,16 @@ import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDat
 import { EXPLORER_LABELS } from "../../labels";
 import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { useExplorerDocumentSummary } from "../document/useExplorerDocumentSummary";
+import {
+  DocumentHistoryCopy,
+  type DocumentHistoryCopyControl,
+  useDocumentHistoryCopyControl,
+} from "./DocumentHistoryCopy";
 import { DocumentHistoryRestore } from "./DocumentHistoryRestore";
 import { DocumentHistoryStopWriter } from "./DocumentHistoryStopWriter";
 import { DocumentHistoryTimeline } from "./DocumentHistoryTimeline";
 import { describeDocumentHistoryChange } from "./describeDocumentHistoryChange";
+import type { ExplorerDocumentVersionCopy } from "./useExplorerDocumentVersionCopy";
 
 type ReadyHistory = Extract<
   DocumentHistoryControls["state"],
@@ -75,11 +81,13 @@ function ReadyDocumentHistory(params: {
     | ExplorerAttributionUserLabelResolver
     | undefined;
   controls: DocumentHistoryControls;
+  copyControl: DocumentHistoryCopyControl;
   documentSummary: DocumentSummary;
   readOnly: boolean;
   state: ReadyHistory;
+  versionCopy: ExplorerDocumentVersionCopy;
 }) {
-  const { controls, documentSummary, readOnly, state } = params;
+  const { controls, documentSummary, readOnly, state, versionCopy } = params;
   const selectedStop = state.history.stops[state.selectedIndex];
   const { shown } = state;
   const changeTime = formatMiniAppDateTimeSeconds(
@@ -115,17 +123,30 @@ function ReadyDocumentHistory(params: {
     >
       <DocumentHistoryTimeline
         actions={
-          settled === null ? null : (
-            <DocumentHistoryRestore
-              index={settled.index}
-              isLatest={isCurrentDocumentVersion(state, settled.index)}
-              // Choosing a stop stops playback, including the one on screen.
-              onRequested={() => controls.seek(settled.index)}
-              onRestored={controls.reload}
+          <div className="explorer-document-history-actions">
+            {settled === null ? null : (
+              <DocumentHistoryRestore
+                index={settled.index}
+                isLatest={isCurrentDocumentVersion(state, settled.index)}
+                // Choosing a stop stops playback, including the one on screen.
+                onRequested={() => controls.seek(settled.index)}
+                onRestored={controls.reload}
+                versionTime={changeTime}
+                view={settled.view}
+              />
+            )}
+            {/* Stays mounted while a stop replays: a copy in flight reports
+                on whichever stop is selected when it finishes. */}
+            <DocumentHistoryCopy
+              control={params.copyControl}
+              copy={versionCopy}
+              documentSummary={documentSummary}
+              index={state.selectedIndex}
+              onRequested={() => controls.seek(state.selectedIndex)}
               versionTime={changeTime}
-              view={settled.view}
+              view={settled?.view ?? null}
             />
-          )
+          </div>
         }
         changeSummary={changeSummary}
         changeTime={changeTime}
@@ -166,8 +187,10 @@ function DocumentHistoryBody(params: {
     | ExplorerAttributionUserLabelResolver
     | undefined;
   controls: DocumentHistoryControls;
+  copyControl: DocumentHistoryCopyControl;
   documentSummary: DocumentSummary;
   isContainerReadOnly: (containerId: string | null) => boolean;
+  versionCopy: ExplorerDocumentVersionCopy;
 }) {
   const { controls, documentSummary } = params;
   const { state } = controls;
@@ -196,11 +219,13 @@ function DocumentHistoryBody(params: {
     <ReadyDocumentHistory
       attributionUserLabelResolver={params.attributionUserLabelResolver}
       controls={controls}
+      copyControl={params.copyControl}
       documentSummary={documentSummary}
       // The folder the document is in now, not the one the route names: a
       // stale or bookmarked route must not unlock a document since trashed.
       readOnly={params.isContainerReadOnly(documentSummary.containerId)}
       state={state}
+      versionCopy={params.versionCopy}
     />
   );
 }
@@ -241,9 +266,13 @@ function AdmittedDocumentHistory(params: {
     | undefined;
   documentSummary: DocumentSummary;
   isContainerReadOnly: (containerId: string | null) => boolean;
+  versionCopy: ExplorerDocumentVersionCopy;
 }) {
   const { documentSummary } = params;
   const controls = useDocumentHistory(documentSummary.id);
+  // Held here, above the timeline: History reloading unmounts the timeline,
+  // and a copy in flight must still report when it is back.
+  const copyControl = useDocumentHistoryCopyControl(params.versionCopy);
   const { state } = controls;
   const shown = state.status === "ready" ? state.shown : null;
 
@@ -260,8 +289,10 @@ function AdmittedDocumentHistory(params: {
       <DocumentHistoryBody
         attributionUserLabelResolver={params.attributionUserLabelResolver}
         controls={controls}
+        copyControl={copyControl}
         documentSummary={documentSummary}
         isContainerReadOnly={params.isContainerReadOnly}
+        versionCopy={params.versionCopy}
       />
     </>
   );
@@ -281,6 +312,8 @@ export function ExplorerDocumentHistoryPanel(params: {
   isContainerReadOnly: (containerId: string | null) => boolean;
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
   localId: string;
+  /** Saves a version as a new document beside this one. */
+  versionCopy: ExplorerDocumentVersionCopy;
 }) {
   const {
     documentSummary,
@@ -316,6 +349,7 @@ export function ExplorerDocumentHistoryPanel(params: {
           attributionUserLabelResolver={params.attributionUserLabelResolver}
           documentSummary={documentSummary}
           isContainerReadOnly={params.isContainerReadOnly}
+          versionCopy={params.versionCopy}
         />
       )}
     </MiniAppPanel>

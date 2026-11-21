@@ -41,7 +41,8 @@ and the chrome conventions across desktop, tablet, and phone.
 Contacts/Explorer editor, repeated Loro records, and attribution boundaries.
 
 [Document history](src/stores/document-history/README.md) documents Explorer's
-History view: replaying a document's changes and restoring a past version.
+History view: replaying a document's changes, restoring a past version, and
+saving one as a copy.
 
 In the regular app’s windowed layout, right-click the bare desktop and choose
 **Start Screensaver**. To start it from the routed layout, first switch to the

@@ -44,6 +44,7 @@ import {
   isExplorerDocumentViewRoute,
 } from "./ExplorerDocumentRouteDetail";
 import { ExplorerSectionsPanel } from "./ExplorerSectionsPanel";
+import type { ExplorerDocumentVersionCopy } from "./history/useExplorerDocumentVersionCopy";
 
 type ExplorerNewStructuredDocumentRouteState = Extract<
   ExplorerRoute,
@@ -202,6 +203,7 @@ interface ExplorerDetailPanelProps {
     documentId: string,
     removedContainerId: string,
   ) => Promise<DocumentSummary | null>;
+  versionCopy: ExplorerDocumentVersionCopy;
   visibleSystemSlots: ReadonlySet<NonNullable<ContainerNode["systemSlot"]>>;
 }
 
@@ -347,6 +349,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
           params.showLinkedDocumentActivationControls
         }
         unlinkDocument={params.unlinkDocument}
+        versionCopy={params.versionCopy}
       />
     );
   }

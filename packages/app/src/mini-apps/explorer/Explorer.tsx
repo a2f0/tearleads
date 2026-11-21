@@ -200,6 +200,7 @@ function renderExplorerDetailPanelWithBlobPick(
       shareWithGroup={model.explorer.shareWithGroup}
       shareWithUser={model.explorer.shareWithUser}
       unlinkDocument={model.unlinkDocument}
+      versionCopy={model.documentVersionCopy}
       visibleSystemSlots={model.explorer.visibleSystemSlots}
     />
   );

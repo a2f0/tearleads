@@ -73,3 +73,63 @@ restore is a new step of history, not a rewind; see
   others, and by then the user may have left, the document may have become
   read-only, or the database, account, or keys may have changed. Any of those
   refuses it.
+
+## Saving a version as a copy
+
+"Save as copy" creates a new document in the folder the document is in now,
+starting as the version on screen: its kind, text, structured fields, and
+rows ([`saveDocumentVersionCopy`](saveDocumentVersionCopy.ts)). It asks first
+([`documentHistoryCopyMachine`](documentHistoryCopyMachine.ts)) and then
+offers to open the copy. The document being viewed is never written, so the
+copy does not need it to be writable and is offered on the newest stop too.
+
+- **A copy is a document of its own.** It is born through the same path as any
+  other new document, so it shares no history or identity with the original,
+  and its history starts at one step. Each row is born under a new id, in the
+  version's order.
+- **Attachments are not copied.** As with a restore, a detached attachment's
+  bytes are [not retained](../../../../../docs/attachment-retention.md), and a
+  copy never points at the original's bytes. A file-backed version (an
+  image, audio, video, PDF, or other uploaded file) is its attachment, so it
+  offers no copy: the copy would be a file document with no file. A field
+  that names an attachment slot (a contact's avatar photo) is left out of the
+  copy too, so it never points at a photo it does not hold.
+- **The folder must take a new document of that kind**
+  ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/containerRules.ts)).
+  An ordinary folder does when it is writable. A system folder holds what the
+  app puts there, so none takes a copy except the viewer's own Contacts, which
+  takes a contact version as it takes a new contact. The Trash, folders under
+  it, a shared Contacts, Roster Profiles, Organization Metadata, and read-only
+  folders take nothing, and a document with no folder has nowhere to save a
+  copy. A system folder is known by its slot, so one whose rules are not
+  loaded yet is refused rather than taken for an ordinary folder.
+- **A contact version of Me is never copied.** Me is
+  [one document](../../document-types/contact/README.md#personal-me-identity)
+  per signing identity; a copy would be a second contact carrying the
+  viewer's own `isSelf` field, user id, and key. A contact version waits for
+  the Me read and is created under its admission, as a move or a purge is.
+  Other kinds do not wait: the kind is the version's, so a Me alias that lists
+  as a note is still refused once its version is a contact.
+- **A contact's copy is not bound to an account.** Contacts finds a person's
+  contact by user id, so a copy that kept the original's `userId` and key
+  could be taken for it, and the key would be the past version's. The copy
+  leaves both out, with `isSelf`: it keeps what the version says about the
+  person, not which account they are.
+- **Nor is a contact version that says it is the viewer.** Contacts that are
+  not Me can carry `isSelf` too, such as the viewer's own roster profile or a
+  contact left from another identity. Contacts would label a copy "You", so a
+  contact version whose `isSelf` field is set is refused whatever document it
+  comes from.
+- **The folder is asked again when the copy is created.** The rules are read
+  then, not when the copy was offered: the folder may have been trashed or
+  lost write access while the confirmation was open or while a contact
+  version waited for the Me read. If the copy stops being offered while the
+  confirmation is open, the confirmation closes and says the version could
+  not be saved.
+- **A copy in flight outlives the timeline.** Its state is held above the
+  timeline's actions, which unmount as History reloads. Once confirmed, the
+  copy's document exists, so its outcome is reported on whichever stop is
+  shown when it finishes, or on the next one shown if none is. A
+  confirmation or an outcome raised on one stop goes when another is shown,
+  and all of it is forgotten when the database or account changes: a copy
+  that finishes then belongs to the scope before.

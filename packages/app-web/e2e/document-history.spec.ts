@@ -250,3 +250,65 @@ test("History steps back to an earlier version and restores it", async ({
   await expect(page.locator(".contact-document-fields")).toBeVisible();
   await expect(addresses(page)).toHaveCount(0);
 });
+
+test("History saves an earlier version as a separate document", async ({
+  page,
+}) => {
+  const name = `History Copy ${Date.now()}`;
+  await createContactWithAddress(page, name);
+  await openExplorerContact(page, name);
+  const documentUrl = page.url();
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await expect(slider(page)).toBeVisible();
+  await expectSettled(page);
+
+  const lastStop = Number(await slider(page).getAttribute("max"));
+  expect(lastStop).toBeGreaterThanOrEqual(1);
+  // Step back until the address is gone.
+  for (let steps = 0; steps < lastStop; steps += 1) {
+    if ((await addresses(page).getByText(STREET).count()) === 0) break;
+    await page.getByRole("button", { name: "Previous change" }).click();
+    await expectSettled(page);
+  }
+  await expect(page.locator(".contact-document-fields")).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
+
+  // Restore and Save as copy share a row that fits the phone.
+  const actions = page.locator(".explorer-document-history-actions button");
+  await expect(actions).toHaveText(["Restore this version", "Save as copy"]);
+  const viewportWidth = page.viewportSize()?.width ?? 0;
+  for (const action of await actions.all()) {
+    const box = await action.boundingBox();
+    if (!box) throw new Error("Expected a visible History action");
+    expect(box.height).toBeGreaterThanOrEqual(TOUCH_TARGET);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewportWidth);
+  }
+
+  await page.getByRole("button", { name: "Save as copy" }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Save this version as a copy?",
+  });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Save copy", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText("Saved a copy in this folder.")).toBeVisible();
+  // Nothing was written to the document being viewed.
+  expect(Number(await slider(page).getAttribute("max"))).toBe(lastStop);
+
+  // The copy is another document, holding the version it was saved from.
+  await page.getByRole("button", { name: "Open copy", exact: true }).click();
+  await expect(page).toHaveURL(
+    /\/app\/explorer\/containers\/[^/]+\/documents\/[^/]+$/u,
+  );
+  expect(page.url()).not.toBe(documentUrl);
+  await expect(page.locator(".contact-document-fields")).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
+
+  // Both survive a reload: the copy without the address, the original with.
+  await page.reload();
+  await expect(page.locator(".contact-document-fields")).toBeVisible();
+  await expect(addresses(page)).toHaveCount(0);
+  await page.goto(documentUrl);
+  await expect(addresses(page).getByText(STREET)).toBeVisible();
+});
