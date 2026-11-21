@@ -1,5 +1,5 @@
-import type { WriterProjectionTarget } from "@tearleads/api-client";
 import { compareCanonicalStrings } from "@tearleads/crypto";
+import type { WriterProjectionTarget } from "@tearleads/validators/response";
 import { and, desc, eq, exists, inArray, ne } from "drizzle-orm";
 import {
   LOCAL_INTENT_LANES,

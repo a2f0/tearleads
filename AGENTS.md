@@ -178,7 +178,9 @@ deleted as soon as the default branch contains the new contract.
 - `@tearleads/sqlite-worker` may depend on `@tearleads/sqlite-instance`, but not
   app, API, SDK, UI, or other support implementation code.
 - `@tearleads/api-client` may share crypto and validator contracts, but must not
-  import server, app, SDK, UI, or deployment implementation code.
+  import server, app, SDK, UI, or deployment implementation code. It publishes
+  only its transport surface from its root entry; consumers import wire and
+  protocol types from validators or crypto, never through it.
 - Production source must not import `@tearleads/test-utils` or
   `@tearleads/bob-and-alice`; keep shared test helpers in tests or documented
   test helper directories.

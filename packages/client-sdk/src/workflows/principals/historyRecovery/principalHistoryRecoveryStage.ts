@@ -1,10 +1,10 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   createPrincipalPolicyHistoryVerifier,
   type PrincipalPolicyHistoryInput,
   type PrincipalPolicyHistoryVerifier,
   restorePrincipalPolicyHistoryVerifier,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import { PrincipalHistoryRepository } from "../../../data/persistence/principalHistory/principalHistoryRepository";
 import type { PrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";

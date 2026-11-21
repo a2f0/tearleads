@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { RequestResult } from "@tearleads/api-client/types";
+import type { RequestResult } from "@tearleads/api-client";
 import { createMockApiClient } from "@tearleads/test-utils";
 import type { PendingBlobDeletionsResponse } from "@tearleads/validators/response";
 import {

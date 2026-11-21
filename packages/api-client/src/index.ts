@@ -16,12 +16,11 @@ export {
   type ApiNetworkFailureClass,
   type ApiNetworkFailureDetails,
 } from "./networkFailure";
+export type { PrincipalPolicyPageResume } from "./policyHistoryPageChecks";
 export type {
   PrincipalPolicyDiscoveryOptions,
   PrincipalPolicyHeldHead,
-  PrincipalPolicyPageCurrent,
   PrincipalPolicyPageReadOptions,
-  PrincipalPolicyPageResume,
 } from "./principalPolicyPages";
 export type { ProjectionPolicyHistoryReadOptions } from "./projectionPolicyHistoryPages";
 export type {
@@ -39,11 +38,5 @@ export type {
   RequestResultOptions,
   RequestSuccess,
 } from "./types";
-export type {
-  HeldDirectoryCitation,
-  HeldProjectionCitation,
-  VerifiedManifestCitations,
-  WriterProjectionListing,
-  WriterProjectionTarget,
-} from "./verifiedManifestCitations";
+export type { VerifiedManifestCitations } from "./verifiedManifestCitations";
 export { openServerEventsSocket } from "./webSocketTickets";

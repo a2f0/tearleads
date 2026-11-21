@@ -3,14 +3,16 @@ import type {
   HttpOperation,
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
-import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
+import type {
+  ReferencedPrincipalStateResponse,
+  WriterProjectionListing,
+} from "@tearleads/validators/response";
 import type { boundedMetadata, MetadataLimit } from "./boundedMetadataResponse";
 import type { ApiNetworkError } from "./networkFailure";
 import type {
   ResourceRequestActivity,
   resourceRequestActivity,
 } from "./resourceRequestActivity";
-import type { WriterProjectionListing } from "./verifiedManifestCitations";
 
 export type HttpMethod = HttpOperationMethod;
 export type RequestBody = BodyInit;

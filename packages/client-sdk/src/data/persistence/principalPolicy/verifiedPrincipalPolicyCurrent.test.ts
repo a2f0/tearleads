@@ -1,11 +1,11 @@
 import { beforeAll, expect, test } from "bun:test";
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   createPrincipalPolicyHistoryVerifier,
   type KeyingVerificationResult,
   verifyPrincipalPolicyBundle,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import { signedRecoveryHistory } from "../../../../test/helpers/data/principalHistoryRecovery";
 import { collectPrincipalPolicySignerPublicKeys } from "../../principals/principalPolicyVerification";
 import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";

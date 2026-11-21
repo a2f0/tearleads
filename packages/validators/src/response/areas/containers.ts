@@ -79,6 +79,14 @@ export {
   type ContainerUnavailableErrorCode,
 } from "../containerUnavailableError";
 export {
+  type HeldDirectoryCitation,
+  type HeldProjectionCitation,
+  type HeldProjectionCitations,
+  isHeldDirectoryCitation,
+  type WriterProjectionListing,
+  type WriterProjectionTarget,
+} from "../heldProjectionCitations";
+export {
   acceptDecodedProjection,
   containerKekWireLevel,
   decodeContainerWriterProjection,

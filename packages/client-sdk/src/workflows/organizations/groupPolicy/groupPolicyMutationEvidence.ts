@@ -1,4 +1,3 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   type PrincipalPolicyCheckpoint,
   type PrincipalPolicyExternalAuthority,
@@ -9,7 +8,10 @@ import {
   verifyPrincipalPolicyCurrentMutation,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyBundleResponse,
+  PrincipalPolicyPageCurrent,
+} from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { assertCurrentMatchesVerifiedPolicy } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import { requireSignerCanManageGroup } from "./groupMutationAuthorization";

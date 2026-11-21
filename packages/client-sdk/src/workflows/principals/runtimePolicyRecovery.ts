@@ -1,5 +1,5 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import {
   assertProjectionVerificationCurrent,
   type PrincipalPolicyResolveRequest,
