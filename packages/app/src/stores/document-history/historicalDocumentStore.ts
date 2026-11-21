@@ -76,6 +76,7 @@ export function createHistoricalDocumentStore(
     assertCanRotateContentKey: () =>
       Promise.reject(new Error("A past version cannot rotate keys.")),
     attachFiles: () => undefined,
+    checkHeldAttachments: () => Promise.resolve(),
     discardLocalState: () => Promise.resolve(false),
     ensureInitialized: () => Promise.resolve(true),
     getSnapshot: () => snapshot,

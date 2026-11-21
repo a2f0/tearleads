@@ -156,6 +156,9 @@ export function getDocumentAttachmentStatusLabel(
   if (status === "intent-mismatch") {
     return "Image differs from the document's recorded version.";
   }
+  if (status === "unavailable") {
+    return "Image missing or damaged on this device.";
+  }
 
   return null;
 }

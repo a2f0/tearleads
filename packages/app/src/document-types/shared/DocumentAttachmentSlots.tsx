@@ -79,15 +79,32 @@ function DocumentAttachmentSlotActions(params: {
   );
 }
 
+function slotPlaceholder(slot: {
+  hasStorageKey: boolean;
+  stored: boolean;
+  unavailable: boolean;
+}): string {
+  if (!slot.stored) return "No image selected";
+  if (slot.unavailable) return "Image unavailable";
+  return slot.hasStorageKey ? "No image preview" : "Waiting for image bytes";
+}
+
 function DocumentAttachmentSlotPreview(params: {
   hasStorageKey: boolean;
   imageUrl: string | undefined;
   onOpenAttachment: (() => void) | null;
   slot: DocumentAttachmentSlot;
   storedAttachment: DocumentAttachment | null;
+  unavailable: boolean;
 }) {
-  const { hasStorageKey, imageUrl, onOpenAttachment, slot, storedAttachment } =
-    params;
+  const {
+    hasStorageKey,
+    imageUrl,
+    onOpenAttachment,
+    slot,
+    storedAttachment,
+    unavailable,
+  } = params;
   const altText = storedAttachment?.name ?? slot.label;
   const descriptionId = useId();
 
@@ -115,11 +132,11 @@ function DocumentAttachmentSlotPreview(params: {
     );
   }
 
-  const placeholderContent = !storedAttachment
-    ? "No image selected"
-    : hasStorageKey
-      ? "No image preview"
-      : "Waiting for image bytes";
+  const placeholderContent = slotPlaceholder({
+    hasStorageKey,
+    stored: storedAttachment !== null,
+    unavailable,
+  });
 
   return onOpenAttachment && storedAttachment ? (
     <button
@@ -145,6 +162,7 @@ function DocumentAttachmentSlotCard(params: {
   canAttach: boolean;
   imageUrl: string | undefined;
   onClearAttachment: (slotId: string) => void;
+  onRetryDownload: (() => void) | undefined;
   onSelectedFile: (fileList: FileList | null) => void;
   slot: DocumentAttachmentSlot;
   status: DocumentAttachmentStatus | undefined;
@@ -156,6 +174,7 @@ function DocumentAttachmentSlotCard(params: {
     canAttach,
     imageUrl,
     onClearAttachment,
+    onRetryDownload,
     onSelectedFile,
     slot,
     status,
@@ -186,6 +205,7 @@ function DocumentAttachmentSlotCard(params: {
         onOpenAttachment={openAttachment}
         slot={slot}
         storedAttachment={storedAttachment}
+        unavailable={status === "unavailable"}
       />
       {storedAttachment ? (
         <div className="structured-document-slot-meta">
@@ -206,6 +226,13 @@ function DocumentAttachmentSlotCard(params: {
           slot={slot}
           storedAttachment={storedAttachment}
         />
+        {status === "unavailable" && onRetryDownload ? (
+          <AttachmentActionButton
+            ariaLabel={`Retry download of ${slot.label}`}
+            label="Retry Download"
+            onClick={onRetryDownload}
+          />
+        ) : null}
         {statusLabel ? (
           <span className="structured-document-slot-status">{statusLabel}</span>
         ) : null}
@@ -235,6 +262,8 @@ export function DocumentAttachmentSlots(params: {
   canAttach: boolean;
   imageUrlBySlotId: Readonly<Record<string, string | undefined>>;
   onClearAttachment: (slotId: string) => void;
+  /** Fetch an unavailable copy from the server again. */
+  onRetryDownload?: (() => void) | undefined;
   onSelectedAttachment: (slotId: string, fileList: FileList | null) => void;
   previewNotice?: AttachmentPreviewNoticeSource | undefined;
   slots: ReadonlyArray<DocumentAttachmentSlot>;
@@ -247,6 +276,7 @@ export function DocumentAttachmentSlots(params: {
     canAttach,
     imageUrlBySlotId,
     onClearAttachment,
+    onRetryDownload,
     onSelectedAttachment,
     previewNotice,
     slots,
@@ -263,6 +293,7 @@ export function DocumentAttachmentSlots(params: {
           canAttach={canAttach}
           imageUrl={imageUrlBySlotId[slot.slotId]}
           onClearAttachment={onClearAttachment}
+          onRetryDownload={onRetryDownload}
           onSelectedFile={(fileList) => {
             onSelectedAttachment(slot.slotId, fileList);
           }}

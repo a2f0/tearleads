@@ -170,6 +170,24 @@ test("surfaces a syncing attachment status", () => {
   expect(view.getByText("Syncing")).toBeTruthy();
 });
 
+test("an unavailable attachment offers a retry instead of a download", () => {
+  const requested: string[] = [];
+  const view = renderNoteEditorFields({
+    attachments: [attachment],
+    attachmentStatusBySlotId: { "slot-1": "unavailable" },
+    handleDownloadAttachment: (slotId) => requested.push(slotId),
+  });
+
+  expect(view.getByText("Unavailable")).toBeTruthy();
+  expect(
+    view.queryByRole("button", { name: "Download diagram.png" }),
+  ).toBeNull();
+  fireEvent.click(
+    view.getByRole("button", { name: "Retry download of diagram.png" }),
+  );
+  expect(requested).toEqual(["slot-1"]);
+});
+
 test("shows the attachment count in the section header", () => {
   const second: DocumentAttachment = {
     contentSha256: "1".repeat(64),

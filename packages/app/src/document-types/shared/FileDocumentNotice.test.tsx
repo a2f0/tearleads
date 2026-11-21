@@ -1,8 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import { WindowMenuProvider } from "@tearleads/windowing";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import {
   FILE_DOCUMENT_ATTACHMENT_DIFFERS_NOTICE,
+  FILE_DOCUMENT_ATTACHMENT_UNAVAILABLE_NOTICE,
   FileDocumentFields,
   resolveFileDocumentAttachmentNotice,
 } from "./FileDocument";
@@ -65,4 +66,37 @@ test("the differs notice follows the latest slot with local bytes", () => {
       attachmentStorageKeyBySlotId: {},
     }),
   ).toBeNull();
+});
+
+test("an unavailable held file is reported with a retry", () => {
+  expect(
+    resolveFileDocumentAttachmentNotice({
+      attachments: [{ slotId: "old" }, { slotId: "current" }],
+      attachmentStatusBySlotId: { current: "unavailable" },
+      attachmentStorageKeyBySlotId: { old: "held-old" },
+    }),
+  ).toBe(FILE_DOCUMENT_ATTACHMENT_UNAVAILABLE_NOTICE);
+  let retries = 0;
+  const view = render(
+    <WindowMenuProvider>
+      <FileDocumentFields
+        attachmentNotice={FILE_DOCUMENT_ATTACHMENT_UNAVAILABLE_NOTICE}
+        canWrite={false}
+        downloadDisabled
+        downloadError={null}
+        editDisabled
+        fileName="report.png"
+        isEditing={false}
+        onCommitFileName={() => undefined}
+        onDownload={() => undefined}
+        onRetryDownload={() => {
+          retries += 1;
+        }}
+        onToggleEditing={() => undefined}
+        readFields={[]}
+      />
+    </WindowMenuProvider>,
+  );
+  fireEvent.click(view.getByRole("button", { name: "Retry Download" }));
+  expect(retries).toBe(1);
 });
