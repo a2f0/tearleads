@@ -113,10 +113,7 @@ export class Tearleads {
   constructor(options: TearleadsOptions = {}) {
     const apiBaseUrl = options.apiBaseUrl ?? "";
     this.apiRequests = options.apiRequestMetrics ?? new ApiRequestMetrics();
-    this.apiClient = this.createApiClient(
-      apiBaseUrl,
-      options.probeApiNetworkFailures === true,
-    );
+    this.apiClient = this.createApiClient(apiBaseUrl, options);
     this.blobs = new Blobs(options.blobStore, options.blobStoreFactory);
     this.database = new Database(options.database);
     this.documentProjectors = resolveDocumentProjectorRegistry(
@@ -232,20 +229,24 @@ export class Tearleads {
       provisionedSystemContainers: options.provisionedSystemContainers,
       reportSecurityIncident,
     });
-    this.apiClient.setOnSessionExpired(session.renewExpired);
+    if (options.automaticSessionRenewal !== false)
+      this.apiClient.setOnSessionExpired(session.renewExpired);
     return session;
   }
 
   private createApiClient(
     apiBaseUrl: string,
-    probeNetworkFailures: boolean,
+    options: TearleadsOptions,
   ): ApiClient {
     return new ApiClient(apiBaseUrl, {
       metrics: this.apiRequests,
+      streamingDownloads: options.streamingDownloads,
+      verificationDeadline: options.verificationDeadline,
+      requestSignal: options.requestSignal,
       getIdentity: () => this.identity.signingFingerprint,
       // A native source beats a WebView's navigator.onLine (Android misreports it).
       isOnline: () => this.network.authoritativeOnline,
-      networkFailureProbe: probeNetworkFailures
+      networkFailureProbe: options.probeApiNetworkFailures
         ? createApiReachabilityProbe()
         : null,
     });

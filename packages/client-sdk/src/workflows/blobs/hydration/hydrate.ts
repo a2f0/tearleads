@@ -19,8 +19,13 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
+import { waitForRead } from "../../../data/shared/waitForRead";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createAttachmentDecryptor } from "../verification/attachmentDecryptor";
+import {
+  type ExpectedDownloadSizes,
+  expectedEncryptedDownloadLimits,
+} from "./expectedDownloadSizes";
 import { collectHydrationResults } from "./hydrationResults";
 import { readAttachmentTransfer } from "./readAttachmentTransfer";
 
@@ -68,6 +73,7 @@ interface DocumentAttachmentHydrationContext
     HydrateDocumentAttachmentBlobsRequest,
     "attachments" | "onBindingsChecked"
   > {
+  expectedDownloads?: ExpectedDownloadSizes | undefined;
   apiClient: DocumentAttachmentHydrationApi;
   execSql: ExecSql;
   log?: ((message: string) => void) | undefined;
@@ -145,6 +151,7 @@ function shouldHydrateAttachment(input: {
 async function loadDocumentAttachmentBlob(
   input: DocumentAttachmentHydrationContext & {
     binding: BlobAttachmentSummary;
+    maxEncryptedBytes: number | undefined;
     signal: AbortSignal;
     progress: () => void;
   },
@@ -154,17 +161,26 @@ async function loadDocumentAttachmentBlob(
   input.signal.throwIfAborted();
   const blob = await apiClient.getBlobBytes(binding.blobId, {
     signal: input.signal,
+    maxEncryptedByteLength: input.maxEncryptedBytes,
   });
   if (!blob) {
     return null;
   }
 
+  if (
+    input.maxEncryptedBytes !== undefined &&
+    blob.byteLength > input.maxEncryptedBytes
+  ) {
+    void blob.encryptedBytes.cancel().catch(() => {});
+    throw new Error("Attachment exceeds its expected encrypted size");
+  }
   let encryptedBytes: Uint8Array<ArrayBuffer>;
   try {
     encryptedBytes = await readAttachmentTransfer(
       blob,
       input.signal,
       input.progress,
+      input.maxEncryptedBytes,
     );
   } catch (error) {
     log?.(
@@ -201,6 +217,11 @@ async function loadUniqueDocumentAttachmentBlobs(
     hydrationTargets: ReadonlyArray<DocumentAttachmentHydrationTarget>;
   },
 ): Promise<ReadonlyMap<string, LoadedDocumentAttachmentBlobBytes>> {
+  const limits = await expectedEncryptedDownloadLimits(
+    input.documentId,
+    input.expectedDownloads,
+    input.hydrationTargets,
+  );
   const targetsByBlobId = new Map<string, DocumentAttachmentHydrationTarget>();
   for (const target of input.hydrationTargets) {
     if (!targetsByBlobId.has(target.binding.blobId)) {
@@ -213,13 +234,19 @@ async function loadUniqueDocumentAttachmentBlobs(
     tasks: Array.from(targetsByBlobId.values()).map((target) => ({
       blobId: target.binding.blobId,
       run: () =>
-        runBlobTransfer(input.apiClient, (signal, progress) =>
-          loadDocumentAttachmentBlob({
-            ...input,
-            binding: target.binding,
-            signal,
-            progress,
-          }),
+        runBlobTransfer(
+          input.apiClient,
+          (signal, progress) =>
+            loadDocumentAttachmentBlob({
+              ...input,
+              binding: target.binding,
+              maxEncryptedBytes: limits?.get(target.binding.blobId),
+              signal,
+              progress,
+            }),
+          undefined,
+          undefined,
+          input.expectedDownloads?.signal,
         ),
     })),
   });
@@ -270,6 +297,7 @@ async function decryptLoadedDocumentAttachmentBlob(
 
   const { attachment, binding } = input.loaded;
   const contentSha256 = await attachmentContentSha256(bytes);
+  if (input.stillCurrent?.() === false) return null;
   const intentMismatch = contentSha256 !== attachment.contentSha256;
   if (intentMismatch && input.localStorageKeyBySlotId?.[attachment.slotId]) {
     // Never replace a held copy with bytes the document does not record.
@@ -299,9 +327,16 @@ async function decryptLoadedDocumentAttachmentBlob(
 export async function hydrateDocumentAttachmentBlobs(
   blobs: BlobAttachmentCollaborators,
   request: HydrateDocumentAttachmentBlobsRequest,
+  expectedDownloads?: ExpectedDownloadSizes,
 ): Promise<HydratedDocumentAttachmentBlob[] | null> {
+  const signal = expectedDownloads?.signal;
+  signal?.throwIfAborted();
   const input = {
     ...request,
+    stillCurrent: signal
+      ? () => !signal.aborted && request.stillCurrent?.() !== false
+      : request.stillCurrent,
+    expectedDownloads,
     apiClient: blobs.api,
     execSql: blobs.execSql,
     log: blobs.log,
@@ -311,21 +346,44 @@ export async function hydrateDocumentAttachmentBlobs(
       "Document attachment hydration",
     ),
   };
-  // The writer can bind a file after publishing its document. An earlier
-  // cached list cannot tell a reader whether the file is now available.
-  const attachmentBindings = await input.apiClient.listDocumentAttachments(
-    input.documentId,
-    { refresh: true },
+  return waitForRead(hydrateCurrentAttachments(input, request), signal);
+}
+
+/** A bounded verifier owns its projection requests, including a proof refresh. */
+function projectionReader(
+  api: DocumentAttachmentHydrationApi,
+  signal?: AbortSignal,
+) {
+  return signal
+    ? {
+        getDocumentWriterProjection: (id: string) =>
+          api.getDocumentWriterProjection(id, { signal }),
+      }
+    : api;
+}
+
+async function hydrateCurrentAttachments(
+  input: DocumentAttachmentHydrationContext,
+  request: HydrateDocumentAttachmentBlobsRequest,
+) {
+  const expectedDownloads = input.expectedDownloads;
+  const signal = expectedDownloads?.signal;
+  const attachmentBindings = await waitForRead(
+    input.apiClient.listDocumentAttachments(input.documentId, {
+      refresh: true,
+      boundedListing: Boolean(expectedDownloads),
+      signal,
+    }),
+    signal,
   );
-  if (!attachmentBindings) {
-    return null;
-  }
+  signal?.throwIfAborted();
+  if (!attachmentBindings || input.stillCurrent?.() === false) return null;
 
   const bindingBySlotId = new Map(
     attachmentBindings.map((binding) => [binding.slotId, binding]),
   );
   const hydrationTargets: DocumentAttachmentHydrationTarget[] =
-    input.attachments.flatMap((attachment) => {
+    request.attachments.flatMap((attachment) => {
       const binding = bindingBySlotId.get(attachment.slotId);
       return binding &&
         shouldHydrateAttachment({
@@ -339,7 +397,7 @@ export async function hydrateDocumentAttachmentBlobs(
         : [];
     });
   if (hydrationTargets.length === 0) {
-    input.onBindingsChecked?.();
+    request.onBindingsChecked?.();
     return [];
   }
 
@@ -350,13 +408,15 @@ export async function hydrateDocumentAttachmentBlobs(
       hydrationTargets,
     }),
   );
-  if (loadedBlobs.length === 0) {
-    return [];
-  }
+  signal?.throwIfAborted();
+  if (!loadedBlobs.length) return [];
 
-  const writerProjection = await input.apiClient.getDocumentWriterProjection(
-    input.documentId,
+  const projectionApi = projectionReader(input.apiClient, signal);
+  const writerProjection = await waitForRead(
+    projectionApi.getDocumentWriterProjection(input.documentId),
+    signal,
   );
+  signal?.throwIfAborted();
   if (!writerProjection) {
     input.log?.(
       `Documents: cannot hydrate attachments for document ${input.documentId} without a writer projection.`,
@@ -365,7 +425,7 @@ export async function hydrateDocumentAttachmentBlobs(
   }
 
   const decryptAttachment = createAttachmentDecryptor(
-    input.apiClient,
+    projectionApi,
     input.documentId,
   );
   const hydrated = await collectHydrationResults({
@@ -381,9 +441,16 @@ export async function hydrateDocumentAttachmentBlobs(
         }),
     })),
   });
+  signal?.throwIfAborted();
   const complete = hydrated.filter(
     (item): item is HydratedDocumentAttachmentBlob => item !== null,
   );
-  if (complete.length === hydrationTargets.length) input.onBindingsChecked?.();
+  for (const item of complete) {
+    if (input.stillCurrent?.() === false) return [];
+    expectedDownloads?.onVerifiedBinding?.(item.binding);
+  }
+  if (input.stillCurrent?.() === false) return [];
+  if (complete.length === hydrationTargets.length)
+    request.onBindingsChecked?.();
   return complete;
 }

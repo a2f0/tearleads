@@ -1,5 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import { PERSISTENT_STORAGE_POLICY } from "@tearleads/client-sdk/sqlite";
+import {
+  DatabaseConnectionLostError,
+  PERSISTENT_STORAGE_POLICY,
+} from "@tearleads/client-sdk/sqlite";
 import { act, cleanup, waitFor } from "@testing-library/react";
 import { renderDatabaseProvider } from "../../../test/helpers/databaseProviderTestHarness";
 import {
@@ -398,6 +401,39 @@ test("a worker crash is reported once and retires the runtime so waiters reject"
 
     // The crashed runtime was retired, so a retry boots a fresh one rather than
     // reattaching the dead worker.
+    await act(async () => {
+      await view.getControls().ensureReady();
+    });
+    expect(view.getControls().status).toBe("ready");
+    expect(runtimeFactory.getStats().createCount).toBe(2);
+  } finally {
+    view.unmount();
+  }
+});
+
+test("a connection lost with its owner tab retires the runtime to idle without a crash report", async () => {
+  const runtimeFactory = createCrashableSQLiteRuntimeFactory();
+  const recorder = createDiagnosticsRecorder();
+  const view = renderDatabaseProvider({
+    createSQLiteRuntime: runtimeFactory.createSQLiteRuntime,
+    diagnostics: recorder.diagnostics,
+  });
+
+  try {
+    await view.controlsReady.promise;
+    await act(async () => {
+      await view.getControls().ensureReady();
+    });
+
+    act(() => {
+      runtimeFactory.crash(new DatabaseConnectionLostError());
+    });
+
+    await waitFor(() => {
+      expect(view.getControls().status).toBe("idle");
+    });
+    expect(recorder.captured).toEqual([]);
+
     await act(async () => {
       await view.getControls().ensureReady();
     });

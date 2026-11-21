@@ -294,3 +294,46 @@ testApiClient(
     ]);
   },
 );
+
+testApiClient(
+  "a deadline-bound head lookup preserves a later public request failure",
+  async () => {
+    const started = createDeferred<void>();
+    const finish = createDeferred<void>();
+    let reads = 0;
+    server.use(
+      http.get(
+        `${apiBaseUrl}/documents/:documentId/writer-projection`,
+        async () => {
+          if (++reads === 1) {
+            started.resolve();
+            await finish.promise;
+            return HttpResponse.json(
+              encodeDocumentWriterProjection(
+                createDocumentWriterProjectionResponse(),
+              ),
+            );
+          }
+          return new HttpResponse(null, { status: 503 });
+        },
+      ),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    const entry = {
+      method: "GET" as const,
+      path: "/documents/document-1/writer-projection",
+    };
+    const privateRead = client.getDocumentWriterProjection("document-1", {
+      signal: new AbortController().signal,
+    });
+    try {
+      await started.promise;
+      expect(await client.getDocumentWriterProjection("document-1")).toBeNull();
+      expect(client.getRequestFailure(entry)?.status).toBe(503);
+    } finally {
+      finish.resolve();
+    }
+    expect(await privateRead).not.toBeNull();
+    expect(client.getRequestFailure(entry)?.status).toBe(503);
+  },
+);

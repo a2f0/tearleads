@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.72",
+      "version": "0.1.73",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.268",
+      "version": "0.1.269",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -223,7 +223,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
@@ -237,7 +237,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.263",
+      "version": "0.1.265",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -299,7 +299,7 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "@tearleads/api-shared": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -319,7 +319,7 @@
     },
     "packages/sqlite-worker": {
       "name": "@tearleads/sqlite-worker",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "dependencies": {
         "@tearleads/sqlite-instance": "workspace:*",
       },
@@ -366,7 +366,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.79",
+      "version": "0.1.80",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.65",
         "@a2f0/ct-client": "0.1.6",

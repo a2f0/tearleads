@@ -68,8 +68,11 @@ async function decodeBinaryOperationResponse(
   options: RequestResultOptions,
   session?: AbortSignal,
 ): Promise<RequestResult<RuntimeBinaryOperationResponseEnvelope>> {
-  if (requestRetired(session, options))
+  options = request.optionsFor?.(options, operation, "response") ?? options;
+  if (requestRetired(session, options)) {
+    void response.body?.cancel().catch(() => {});
     return retiredRequest(operation.method, path);
+  }
   if (
     !operation.responses[response.status] ||
     operation.responseMediaTypes[response.status] !== "application/octet-stream"

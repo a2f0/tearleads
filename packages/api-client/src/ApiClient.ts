@@ -157,6 +157,7 @@ export class ApiClient extends ApiClientAreas {
   initiateMultipartBlobStage = this.blobs.initiateMultipartBlobStage;
   getMultipartBlobStage = this.blobs.getMultipartBlobStage;
   uploadMultipartBlobPartBytes = this.blobs.uploadMultipartBlobPartBytes;
+  readonly supportsBoundedAttachmentReads = this.context.streamingDownloads;
   getBlobBytes = this.blobs.getBlobBytes;
   bindBlobAttachment = this.blobs.bindBlobAttachment;
   detachBlobAttachment = this.blobs.detachBlobAttachment;

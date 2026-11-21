@@ -9,6 +9,7 @@ import type {
   ContainerDocumentLaneLister,
   ContainerDocumentLaneListing,
   ContainerDocumentTombstone,
+  ListContainerDocumentsResponse,
   ListedContainerDocument,
 } from "./documentDiscoveryTypes";
 import {
@@ -73,6 +74,56 @@ interface PendingContainerDocumentLane {
   readonly tombstones: ContainerDocumentTombstone[];
   watermark: SyncWatermark | null;
   isContinuation: boolean;
+  seenWatermarks: Set<string>;
+  seenRows: Set<string>;
+}
+
+function cursorKey(watermark: SyncWatermark) {
+  return JSON.stringify([watermark.id, watermark.updatedAt]);
+}
+
+function repeatedContinuation(
+  lane: PendingContainerDocumentLane,
+  page: ListContainerDocumentsResponse,
+) {
+  const watermark = page.nextWatermark;
+  if (watermark) {
+    const cursor = cursorKey(watermark);
+    // A final page may echo the cursor it was requested from: it ends the
+    // lane, so it cannot cycle. Its rows still face the replay check below.
+    const settlesAtRequest =
+      !page.hasMore &&
+      lane.watermark !== null &&
+      cursorKey(lane.watermark) === cursor;
+    if (lane.seenWatermarks.has(cursor) && !settlesAtRequest) return true;
+    lane.seenWatermarks.add(cursor);
+  }
+  // Publication cursors have a fresh IV on every seal. Check durable row
+  // identities even on a final page before a full listing can prove absence.
+  const positions = [
+    ...page.items.map((item) =>
+      JSON.stringify([
+        "item",
+        item.id,
+        item.updatedAt,
+        item.currentAccessStateHash,
+      ]),
+    ),
+    ...page.tombstones.map((row) =>
+      JSON.stringify([
+        "removed",
+        row.containerId,
+        row.documentId,
+        row.updatedAt,
+      ]),
+    ),
+  ];
+  if (!positions.length && page.hasMore && watermark) return true;
+  for (const position of positions) {
+    if (lane.seenRows.has(position)) return true;
+    lane.seenRows.add(position);
+  }
+  return false;
 }
 
 function removedDocumentPlacements(
@@ -143,6 +194,8 @@ export async function listAllContainerDocumentLanes(input: {
       containerId,
       isFullListing: watermark === null,
       isContinuation: false,
+      seenWatermarks: new Set(watermark ? [cursorKey(watermark)] : []),
+      seenRows: new Set(),
       items: [],
       tombstones: [],
       watermark,
@@ -169,7 +222,8 @@ export async function listAllContainerDocumentLanes(input: {
           lane.watermark,
           page.nextWatermark,
           lane.isContinuation,
-        )
+        ) ||
+        repeatedContinuation(lane, page)
       ) {
         listed.set(lane.containerId, "unavailable");
         return;

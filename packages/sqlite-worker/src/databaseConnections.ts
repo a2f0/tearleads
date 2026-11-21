@@ -5,10 +5,14 @@ import {
   hasPersistentVfs,
   initDatabase,
 } from "./loadSqlite3";
-import type {
-  DatabaseWorkerExecOptions,
-  DatabaseWorkerExecResult,
-  DatabaseWorkerInitOptions,
+import {
+  DATABASE_DELETED_MESSAGE,
+  DATABASE_NOT_INITIALIZED_MESSAGE,
+  type DatabaseWorkerExecOptions,
+  type DatabaseWorkerExecResult,
+  type DatabaseWorkerInitOptions,
+  type DatabaseWorkerNotify,
+  WORKER_DATABASE_DELETED_MESSAGE_TYPE,
 } from "./types";
 import { wipeOpfsStorage } from "./wipeOpfsStorage";
 import type { RegisterDatabaseWorkerOptions } from "./workerCore";
@@ -25,6 +29,9 @@ interface DatabaseEntry {
 
 interface ConnectionState {
   dbName: string | null;
+  // Another connection deleted this one's database; cleared by a later init.
+  databaseDeleted: boolean;
+  readonly notify: DatabaseWorkerNotify;
   generation: number;
   initializing: boolean;
 }
@@ -59,11 +66,15 @@ class DatabaseConnectionRegistry {
   // database lands in storage while any wipe is still deleting.
   private storageWipe: Promise<void> = Promise.resolve();
 
-  createConnection(): RegisterDatabaseWorkerOptions {
+  createConnection(
+    notify: DatabaseWorkerNotify = () => {},
+  ): RegisterDatabaseWorkerOptions {
     const state: ConnectionState = {
       dbName: null,
+      databaseDeleted: false,
       generation: 0,
       initializing: false,
+      notify,
     };
 
     return {
@@ -103,6 +114,7 @@ class DatabaseConnectionRegistry {
       }
 
       state.dbName = entry.dbName;
+      state.databaseDeleted = false;
       this.addConnection(entry.dbName, state);
     } finally {
       state.initializing = false;
@@ -116,13 +128,17 @@ class DatabaseConnectionRegistry {
   ): Promise<DatabaseWorkerExecResult["rows"]> {
     const dbName = state.dbName;
     if (!dbName) {
-      throw new Error("Database has not been initialized.");
+      throw new Error(
+        state.databaseDeleted
+          ? DATABASE_DELETED_MESSAGE
+          : DATABASE_NOT_INITIALIZED_MESSAGE,
+      );
     }
 
     const entry = this.databasesByName.get(dbName);
     if (!entry) {
       this.detachConnection(state);
-      throw new Error("Database has not been initialized.");
+      throw new Error(DATABASE_NOT_INITIALIZED_MESSAGE);
     }
 
     return runQueued(entry, () => execDatabaseStatement(entry.db, options));
@@ -212,7 +228,7 @@ class DatabaseConnectionRegistry {
       return;
     }
 
-    await this.deleteDatabase(dbName);
+    await this.deleteDatabase(dbName, state);
   }
 
   private async releaseDatabase(dbName: string): Promise<void> {
@@ -232,12 +248,19 @@ class DatabaseConnectionRegistry {
     );
   }
 
-  private async deleteDatabase(dbName: string): Promise<void> {
+  private async deleteDatabase(
+    dbName: string,
+    deleting: ConnectionState,
+  ): Promise<void> {
     const connections = this.connectionsByName.get(dbName);
     if (connections) {
       for (const connection of connections) {
         connection.dbName = null;
         connection.generation += 1;
+        if (connection !== deleting) {
+          connection.databaseDeleted = true;
+          connection.notify({ type: WORKER_DATABASE_DELETED_MESSAGE_TYPE });
+        }
       }
       this.connectionsByName.delete(dbName);
     }
@@ -302,7 +325,9 @@ class DatabaseConnectionRegistry {
   }
 }
 
-export function createDatabaseWorkerConnectionFactory(): () => RegisterDatabaseWorkerOptions {
+export function createDatabaseWorkerConnectionFactory(): (
+  notify?: DatabaseWorkerNotify,
+) => RegisterDatabaseWorkerOptions {
   const registry = new DatabaseConnectionRegistry();
-  return () => registry.createConnection();
+  return (notify) => registry.createConnection(notify);
 }
