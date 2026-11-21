@@ -50,6 +50,7 @@ export type {
   DocumentAttributionRangesInput,
   DocumentAttributionRangesPage,
   DocumentContextValue,
+  DocumentFoundingUpdate,
   DocumentHistory,
   DocumentHistoryChange,
   DocumentHistoryRowChange,

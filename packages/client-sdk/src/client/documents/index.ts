@@ -24,10 +24,12 @@ import {
 import { emitPersistedDocumentDeletion } from "../../stores/documents/registry";
 import {
   createDocumentsWorkflowRuntimeFromSnapshot,
+  type DocumentFoundingUpdate,
   type DocumentHistory,
   defaultDocumentsPersistence,
   deletePersistedDocument,
   openDocumentHistory,
+  readDocumentFoundingUpdate,
   reclaimDocumentOrphanBlobs,
 } from "../../workflows/documents";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
@@ -42,6 +44,7 @@ export type {
 } from "../../stores/documents";
 
 export type {
+  DocumentFoundingUpdate,
   DocumentHistory,
   DocumentHistoryChange,
   DocumentHistoryRowChange,
@@ -105,6 +108,13 @@ export interface Documents {
    * The caller must `close()` the result.
    */
   openHistory(localId: string): Promise<DocumentHistory | null>;
+  /**
+   * Pull a synced document's founding update, the first update the server
+   * committed for it, verify it, and replay it alone. Later edits cannot
+   * change what it shows. Resolves to null while the database is not ready,
+   * offline, or when the document has no ordinary first update to read.
+   */
+  readFoundingUpdate(localId: string): Promise<DocumentFoundingUpdate | null>;
   /**
    * Pull a synced document again and re-list its attachment bindings, e.g.
    * to retry a pending first download. Resolves false, without syncing, when
@@ -245,6 +255,24 @@ class DocumentsService implements Documents {
       execSql: runtime.infra.execSql,
       localId,
       persistence: defaultDocumentsPersistence,
+    });
+  }
+
+  async readFoundingUpdate(
+    localId: string,
+  ): Promise<DocumentFoundingUpdate | null> {
+    const { runtime } = this.dependencies;
+    const generation = runtime.scopeGeneration;
+    const workflowRuntime = this.workflowRuntime();
+    if (workflowRuntime.infra.dbStatus !== "ready") {
+      return null;
+    }
+
+    await this.ensureSchema(workflowRuntime.infra.execSql);
+    return readDocumentFoundingUpdate({
+      localId,
+      runtime: workflowRuntime,
+      stillCurrent: () => runtime.scopeGeneration === generation,
     });
   }
 

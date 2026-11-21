@@ -93,6 +93,7 @@ export type {
   DocumentAttachmentStatus,
   DocumentAttachmentUpload,
   DocumentContextValue,
+  DocumentFoundingUpdate,
   DocumentHistory,
   DocumentHistoryChange,
   DocumentHistoryRowChange,
