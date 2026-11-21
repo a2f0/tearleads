@@ -24,6 +24,12 @@ export interface PendingAttachmentRecord {
   localId: string;
   mimeType: string | null;
   name: string;
+  /**
+   * Held bytes staged again for a slot that was bound before: the slot may
+   * still have a binding, so the upload lane lists it before binding even
+   * under a first-attach storage key.
+   */
+  requeued?: boolean | undefined;
   slotId: string;
   storageKey: string;
   upload?: PendingAttachmentUploadIdentity | null;

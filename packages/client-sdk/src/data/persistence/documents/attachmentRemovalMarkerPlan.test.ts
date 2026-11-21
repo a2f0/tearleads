@@ -38,7 +38,7 @@ test("a live row of a removed slot is marked detached at the settle time", () =>
   });
 });
 
-test("a rebound copy is held unbound and queued under the committed name", () => {
+test("a rebound copy is held unbound and requeued under the committed name", () => {
   const detached = { ...heldRow, detachedAt: NOW };
   expect(
     planAttachmentRemovalMarkerSettlement({
@@ -55,6 +55,8 @@ test("a rebound copy is held unbound and queued under the committed name", () =>
       localId: "doc-1",
       mimeType: "image/png",
       name: "renamed.png",
+      // The slot may still be bound, so the upload lane lists it first.
+      requeued: true,
       slotId: "photo",
       storageKey: heldRow.storageKey,
     },

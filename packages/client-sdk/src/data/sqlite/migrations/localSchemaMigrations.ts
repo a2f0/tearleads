@@ -96,6 +96,17 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 5,
   },
+  {
+    name: "mark_requeued_pending_attachments",
+    up: async (execSql, context) => {
+      if (await context.hasTable("document_pending_attachments")) {
+        await execSql(
+          "ALTER TABLE document_pending_attachments ADD COLUMN requeued INTEGER NOT NULL DEFAULT 0",
+        );
+      }
+    },
+    version: 6,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

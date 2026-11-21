@@ -31,7 +31,10 @@ function storeSightings(state: DocumentStoreState): StoreSightings {
   return sightings;
 }
 
-/** A pull for this store's current generation completed. */
+/**
+ * A pull of this store applied its response and drained the server's
+ * updates. Sightings are keyed by document id, so a relink retires them.
+ */
 export function noteDocumentPullCompleted(state: DocumentStoreState): void {
   storeSightings(state).pulls += 1;
 }

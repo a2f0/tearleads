@@ -21,6 +21,8 @@ import {
  * - `storageKey`: Local blob storage key for upload/readback.
  * - `byteLength`: Blob size in bytes.
  * - `createdAt`: Queue insertion timestamp used for ordered display.
+ * - `requeued`: Held bytes staged again for a slot that was bound before, so
+ *   the upload lane lists the slot's binding before it binds.
  *
  * Indexes:
  * - `(localId, slotId)` is the primary key and keeps one pending blob per
@@ -37,6 +39,7 @@ export const documentPendingAttachments = sqliteTable(
     byteLength: integer("byte_length").notNull(),
     contentSha256: text("content_sha256").notNull(),
     createdAt: text("created_at").notNull(),
+    requeued: integer("requeued", { mode: "boolean" }).notNull().default(false),
     // Upload-resume identity, set on the first upload attempt. Reusing the blob
     // id, content key and IV seed makes every encrypted chunk byte-identical, so
     // the persisted multipart stage can resume instead of being orphaned. All

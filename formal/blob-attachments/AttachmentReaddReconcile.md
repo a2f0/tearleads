@@ -26,7 +26,7 @@ it, and a restart can stop it between any two of them.
 | `Land` | `syncDetachedAttachmentBinding` sends a signed detach naming the listed binding; the server refuses an inactive one |
 | `SettleAfter` / `RecheckAfterDetach` | `settleDetachedAttachmentMarker` settles again once the detach lands |
 | `Restart` / `RestartRebinds` | `healLocalAttachmentDetachState` settles each marker at startup, before any binding list |
-| `Upload` | the upload lane binds the held bytes the `rebinding` settle requeued |
+| `Upload` | the upload lane binds the held bytes the `rebinding` settle requeued, listing the slot's binding first because `isNewPendingAttachmentSlot` never treats a `requeued` row as fresh |
 | `Reclaim` | `reclaimDocumentOrphanBlobs` keeps bytes a held or pending row references |
 
 The finite model bounds one slot, its marker copy, one other device's re-add,

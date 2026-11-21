@@ -23,11 +23,14 @@ import {
   defaultDocumentsPersistence,
   reclaimDocumentOrphanBlobs,
 } from "../../../../workflows/documents";
+import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { replaceAttachmentInDocumentStore } from "../attachments";
 import { commitHydratedAttachment } from "../attachments/attachmentHydrationCommit";
 import { removeAttachmentFromDocumentStore } from "../attachments/attachmentRemoval";
 import type { DocumentStoreState } from "../state";
 import { noteDocumentPullCompleted } from "./replacedBindingSightings";
+import { syncPendingAttachments } from "./syncAttachments";
+import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 test.each([
   ["the restoring pane reopens", true],
@@ -305,6 +308,46 @@ test("a restart after a landed detach queues a re-added copy to bind again", asy
     expect(reopened.pendingAttachments).toMatchObject([
       { slotId: SLOT_ID, storageKey: STORAGE_KEY },
     ]);
+  });
+});
+
+test("a requeued copy under its first-attach key lists the binding it may still own", async () => {
+  await withPanes("readd-requeued-fresh-key", async (panes) => {
+    // A first attach on this device keeps the slot's deterministic key.
+    const firstAttachKey = `${LOCAL_ID}-${SLOT_ID}`;
+    await panes.blobStore.writeBytes(firstAttachKey, BYTES);
+    // The app stopped before the detach landed: the binding is still active.
+    await panes.setRow({
+      detachedAt: "2026-11-21T00:00:00.000Z",
+      storageKey: firstAttachKey,
+    });
+    await commitPulledReadd(panes.execSql, BYTES);
+    const reopened = await panes.open();
+    expect(reopened.pendingAttachments).toMatchObject([
+      { requeued: true, slotId: SLOT_ID, storageKey: firstAttachKey },
+    ]);
+
+    let listed = false;
+    panes.server.onList = async () => {
+      listed = true;
+    };
+    const generation = captureDocumentStoreSyncGeneration(
+      reopened,
+      reopened.doc,
+    );
+    const { encapsulationKeyPair } = reopened.runtime.crypto;
+    if (!generation || !reopened.record || !encapsulationKeyPair) {
+      throw new Error("Expected sync state");
+    }
+    await syncPendingAttachments(
+      reopened,
+      reopened.record,
+      encapsulationKeyPair,
+      generation,
+      createPrincipalPolicyOperation(),
+    ).catch(() => undefined);
+    // The bind must name the active binding, so the lane lists it first.
+    expect(listed).toBe(true);
   });
 });
 

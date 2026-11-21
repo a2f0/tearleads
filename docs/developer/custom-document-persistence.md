@@ -180,7 +180,8 @@ preserve the same compare-and-set and queueing behavior.
 `settleAttachmentRemovalMarker(...)` reads the slot's durable row and the slot
 as committed document history records it, passes both to the supplied pure
 `settle` function, and applies its outcome in the same immediate transaction:
-`upsert` writes the returned row (and pending upload, when one is returned),
+`upsert` writes the returned row (and pending upload, when one is returned,
+keeping its `requeued` flag so the upload lane lists the slot's binding first),
 `delete` removes the observed row and queues its storage key for the reclaim,
 and `none` writes nothing. Its `stillCurrent` guard runs immediately before
 commit; refusal returns `null` and writes nothing. Adapters read committed

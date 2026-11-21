@@ -188,6 +188,7 @@ export interface Panes {
   setRow: (patch: {
     blobId?: string | null;
     detachedAt?: string | null;
+    storageKey?: string;
   }) => Promise<void>;
   server: Server;
 }

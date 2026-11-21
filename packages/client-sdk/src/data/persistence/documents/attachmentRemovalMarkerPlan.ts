@@ -64,6 +64,8 @@ export function planAttachmentRemovalMarkerSettlement(input: {
           localId: row.localId,
           mimeType: effect.mimeType,
           name: effect.name,
+          // The slot was bound before and may still be: list, then bind.
+          requeued: true,
           slotId: row.slotId,
           storageKey: row.storageKey,
         },
