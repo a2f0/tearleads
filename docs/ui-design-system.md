@@ -142,6 +142,10 @@ radii, hover fill, control borders, and overlay/window shadows. Table rules and
 shell separators use hairlines without weakening the borders of other controls.
 Keyboard focus uses an inset ring so scrolling toolbars do not clip it, and
 reduced-motion preferences disable chrome transitions, including the launcher.
+A text editor that fills its pane, such as the note body, renders through
+`MiniAppEditor`, which draws that ring in `--app-editor-focus-ring`: a
+theme-derived tone at the 3:1 non-text contrast floor rather than the text
+color, so the frame stays visible without glaring while the user types.
 
 Floating windows have named, 28px minimum title-bar controls and truncate long
 titles before the control cluster. The taskbar marks the frontmost visible

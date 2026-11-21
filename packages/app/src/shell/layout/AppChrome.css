@@ -13,6 +13,16 @@
     var(--color-dark) 8%,
     var(--color-light)
   );
+  /* Focus ring of a full-pane text editor (`.mini-app-editor`). It frames a
+     surface the user types in for minutes at a time, so it keeps the WCAG
+     3:1 non-text contrast that keyboard focus needs and no more, instead of
+     the text color the generic ring below uses. Mixed from the theme's
+     primitives so each theme gets its own tone; a theme overrides it here. */
+  --app-editor-focus-ring: color-mix(
+    in srgb,
+    var(--color-dark) 55%,
+    var(--color-light)
+  );
   --app-shadow-surface: 0 0.5rem 2rem rgb(0 0 0 / 14%);
   --app-shadow-window:
     0 1rem 3rem rgb(0 0 0 / 12%), 0 0.25rem 0.75rem rgb(0 0 0 / 8%);

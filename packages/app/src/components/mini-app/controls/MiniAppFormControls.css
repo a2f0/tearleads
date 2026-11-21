@@ -68,3 +68,13 @@
 :root[data-navigation-mode="routed"] .mini-app-field-control {
   gap: var(--space-sm);
 }
+
+/* A text editor that is the surface itself (a note body), not a framed field
+   in a form. With no frame of its own, the shell's generic focus ring in the
+   text color would outline the whole pane for as long as the user types. Keep
+   the same inset ring at the subdued, theme-controlled editor tone. Chained
+   with `:focus-visible` so it outranks the generic ring in any bundle order. */
+.mini-app-editor:focus-visible {
+  outline: 2px solid var(--app-editor-focus-ring);
+  outline-offset: -3px;
+}

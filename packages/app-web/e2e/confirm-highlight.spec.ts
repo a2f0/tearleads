@@ -1,5 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { expect, test } from "./appTest";
+import { contrastRatio } from "./colorContrast";
 
 /*
  * A confirmation sets its runtime value apart (the phrase the user must type,
@@ -15,8 +16,6 @@ import { expect, test } from "./appTest";
  * step above the panel, so the ring alone has to set the phrase apart there.
  */
 
-type Rgb = readonly [number, number, number];
-
 interface HighlightColors {
   readonly fill: string;
   readonly panel: string;
@@ -24,36 +23,6 @@ interface HighlightColors {
   readonly ringStyle: string;
   readonly ringWidth: string;
   readonly text: string;
-}
-
-function parseOpaqueRgb(value: string): Rgb {
-  const match =
-    /^rgba?\((\d+(?:\.\d+)?), (\d+(?:\.\d+)?), (\d+(?:\.\d+)?)(?:, ([\d.]+))?\)$/u.exec(
-      value,
-    );
-  if (!match || (match[4] !== undefined && Number(match[4]) !== 1)) {
-    throw new Error(`Expected an opaque computed color, got "${value}".`);
-  }
-  return [Number(match[1]), Number(match[2]), Number(match[3])];
-}
-
-function linearChannel(channel: number): number {
-  const unit = channel / 255;
-  return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
-}
-
-function relativeLuminance([red, green, blue]: Rgb): number {
-  return (
-    0.2126 * linearChannel(red) +
-    0.7152 * linearChannel(green) +
-    0.0722 * linearChannel(blue)
-  );
-}
-
-function contrastRatio(first: string, second: string): number {
-  const a = relativeLuminance(parseOpaqueRgb(first));
-  const b = relativeLuminance(parseOpaqueRgb(second));
-  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
 function readHighlightColors(phrase: Locator): Promise<HighlightColors> {
