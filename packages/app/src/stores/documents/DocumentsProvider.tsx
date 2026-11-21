@@ -15,7 +15,9 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useState,
 } from "react";
+import { DocumentRelinkedNotice } from "../../components/shared/DocumentRelinkedNotice";
 import {
   defineFacadeKeys,
   projectFacade,
@@ -72,15 +74,29 @@ interface DocumentsProviderProps extends PropsWithChildren {
   readOnly?: boolean | undefined;
 }
 
-export function DocumentsProvider({
+export function DocumentsProvider(props: DocumentsProviderProps) {
+  // Reopening remounts the session so the store is resolved again: after a
+  // relink from another pane it now names the document's current record.
+  const [reopenCount, setReopenCount] = useState(0);
+  return (
+    <DocumentsProviderSession
+      key={reopenCount}
+      {...props}
+      onReopen={() => setReopenCount((count) => count + 1)}
+    />
+  );
+}
+
+function DocumentsProviderSession({
   children,
   localId = DEFAULT_DOCUMENT_ID,
   containerId,
   documentId = null,
   initialDocumentKind = DEFAULT_DOCUMENT_KIND,
   initialText = "",
+  onReopen,
   readOnly = false,
-}: DocumentsProviderProps) {
+}: DocumentsProviderProps & { onReopen: () => void }) {
   const tearleads = useTearleads();
   const historyView = useContext(DocumentHistoryViewContext);
   const runtime = useRuntimeScopedMemo<DocumentsRuntime>(
@@ -146,6 +162,7 @@ export function DocumentsProvider({
     <DocumentContext.Provider value={store}>
       <DocumentWriteScopeContext.Provider value={writeScope}>
         <DocumentReadOnlyContext.Provider value={readOnly}>
+          <RelinkedDocumentNotice onReopen={onReopen} store={store} />
           {historyView === null ? (
             children
           ) : (
@@ -157,6 +174,16 @@ export function DocumentsProvider({
       </DocumentWriteScopeContext.Provider>
     </DocumentContext.Provider>
   );
+}
+
+function RelinkedDocumentNotice(params: {
+  onReopen: () => void;
+  store: DocumentStore;
+}) {
+  const snapshot = useTearleadsExternalStoreSnapshot(params.store);
+  return snapshot.relinkedElsewhere ? (
+    <DocumentRelinkedNotice onReopen={params.onReopen} />
+  ) : null;
 }
 
 // Serves the children a past version of the live document above them. The

@@ -3,9 +3,13 @@ import type { DomainScope } from "../../data/shared/domainScope";
 import {
   createDocumentStoreFacade,
   discardRegisteredDocumentLocalState,
+  getOrCreateDocumentStoreRegistry,
+  hasPendingLocalDocumentWrites,
   registerDocumentStore,
   registerDocumentStoreIdentity,
+  registerDocumentStoreSupersedeHandler,
   requestRegisteredDocumentRemoteSync,
+  resolveDocumentStoreKey,
   subscribeToPersistedDocumentDeletions,
 } from "./registry";
 import type { DocumentSnapshot, DocumentStore } from "./types";
@@ -61,7 +65,7 @@ function createStore(
   };
 }
 
-test("the facade forwards mutation guards unchanged after rebinding", async () => {
+test("the facade forwards mutation guards unchanged", async () => {
   const options = { stillCurrent: () => false };
   const fields = { value: "row" };
   const received: unknown[][] = [];
@@ -85,8 +89,7 @@ test("the facade forwards mutation guards unchanged after rebinding", async () =
       received.push(args);
     },
   };
-  const facade = createDocumentStoreFacade(createStore(() => undefined));
-  facade.rebindTo(target);
+  const facade = createDocumentStoreFacade(target);
   expect(await facade.addRow(fields, options)).toBe("forwarded-row");
   await facade.updateRowFields("row", fields, options);
   await facade.removeRow("row", options);
@@ -270,4 +273,79 @@ test("discard refuses when the two identifiers resolve differently", async () =>
   ).toBe(true);
   expect(targetDiscards).toBe(1);
   expect(otherDiscards).toBe(0);
+});
+
+test("a relink onto an open document id leaves the open view on its record", async () => {
+  const domainScope = {} as DomainScope;
+  let draftQueued = true;
+  const openSnapshot = { ...READY_SNAPSHOT, documentId: "d2", text: "draft" };
+  const openTarget = {
+    ...createStore(() => undefined),
+    getSnapshot: () => openSnapshot,
+    hasQueuedWrites: () => draftQueued,
+  };
+  let stoppedDownloads = 0;
+  registerDocumentStoreSupersedeHandler(openTarget, () => {
+    stoppedDownloads += 1;
+  });
+  const openView = createDocumentStoreFacade(openTarget);
+  const relinked = createDocumentStoreFacade(createStore(() => undefined));
+  registerDocumentStore(domainScope, "open-local", openView, "d2");
+  registerDocumentStore(domainScope, "relinked-local", relinked, null);
+  let notified = 0;
+  openView.subscribe(() => {
+    notified += 1;
+  });
+
+  registerDocumentStoreIdentity(domainScope, "relinked-local", "d2");
+
+  // The open view still shows its own record, read-only and flagged.
+  const snapshot = openView.getSnapshot();
+  expect(snapshot).toMatchObject({
+    canAttach: false,
+    canWrite: false,
+    relinkedElsewhere: true,
+    text: "draft",
+  });
+  expect(openView.getSnapshot()).toBe(snapshot);
+  expect(notified).toBe(1);
+  expect(stoppedDownloads).toBe(1);
+  // Reopening either record or the document resolves to the new owner.
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  for (const [localId, documentId] of [
+    ["open-local", "d2"],
+    ["relinked-local", null],
+    ["open-local", null],
+  ] as const) {
+    expect(
+      registry.storesByKey.get(
+        resolveDocumentStoreKey(registry, localId, documentId),
+      ),
+    ).toBe(relinked);
+  }
+  // Content writes through the displaced view are refused.
+  const refused = { name: "DocumentRelinkedElsewhereError" };
+  await expect(openView.setText("more")).rejects.toMatchObject(refused);
+  await expect(openView.addRow({ value: "row" })).rejects.toMatchObject(
+    refused,
+  );
+  await expect(
+    openView.setStructuredFields("contact", { firstName: "Ada" }),
+  ).rejects.toMatchObject(refused);
+  expect(
+    await openView.restoreContent({
+      rows: [],
+      structuredFields: {},
+      text: "old",
+    }),
+  ).toBe(false);
+  // Its queued draft still holds the page open until it reaches SQLite, and
+  // the drained view is then dropped.
+  expect(hasPendingLocalDocumentWrites(domainScope)).toBe(true);
+  expect(registry.supersededStores.has(openView)).toBe(true);
+  draftQueued = false;
+  expect(hasPendingLocalDocumentWrites(domainScope)).toBe(false);
+  expect(registry.supersededStores.has(openView)).toBe(false);
+  openView.supersede();
+  expect(stoppedDownloads).toBe(1);
 });
