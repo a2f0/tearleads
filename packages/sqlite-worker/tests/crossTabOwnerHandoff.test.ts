@@ -202,9 +202,13 @@ test("a tab served by another tab's new owner learns its database was lost", asy
 });
 
 test("a database another tab deleted is not reopened behind it", async () => {
-  await withRealWorkerTabs(async () => {
+  await withRealWorkerTabs(async (locks) => {
     const ownerTab = openTab(tabWorkerUrl("owner"));
     await ownerTab.client.init(INIT_OPTIONS);
+    const [ownerWorker] = TrackedWorker.instances;
+    if (!ownerWorker) {
+      throw new Error("Expected the owner tab to construct its worker.");
+    }
 
     const sibling = openTab(tabWorkerUrl("sibling"));
     const siblingCrash = observeCrash(sibling);
@@ -220,6 +224,16 @@ test("a database another tab deleted is not reopened behind it", async () => {
     expect(String(error)).toContain(
       "Database was deleted by another connection.",
     );
+    expect(siblingCrash()).toBeNull();
+
+    // The deleting tab then closes. Taking ownership must not turn the
+    // deleted database into a lost one that the host would open again.
+    discardOwnerTab(locks, ownerWorker);
+    await waitUntil(() => TrackedWorker.instances.length === 2);
+    const afterHandoff = await rejectionOf(
+      sibling.client.exec({ sql: "SELECT 1" }),
+    );
+    expect(afterHandoff).not.toBeInstanceOf(DatabaseWorkerCrashError);
     expect(siblingCrash()).toBeNull();
     sibling.terminateNow();
     ownerTab.terminateNow();

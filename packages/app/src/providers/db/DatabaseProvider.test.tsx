@@ -411,7 +411,7 @@ test("a worker crash is reported once and retires the runtime so waiters reject"
   }
 });
 
-test("a connection lost with its owner tab retires the runtime without a crash report", async () => {
+test("a connection lost with its owner tab retires the runtime to idle without a crash report", async () => {
   const runtimeFactory = createCrashableSQLiteRuntimeFactory();
   const recorder = createDiagnosticsRecorder();
   const view = renderDatabaseProvider({
@@ -430,7 +430,7 @@ test("a connection lost with its owner tab retires the runtime without a crash r
     });
 
     await waitFor(() => {
-      expect(view.getControls().status).toBe("error");
+      expect(view.getControls().status).toBe("idle");
     });
     expect(recorder.captured).toEqual([]);
 

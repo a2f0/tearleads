@@ -20,24 +20,29 @@ const lost: CrossTabConnectionState = { status: "lost" };
 const opened: CrossTabConnectionEvent = { type: "opened" };
 const closeRequested: CrossTabConnectionEvent = { type: "closeRequested" };
 const databaseMissing: CrossTabConnectionEvent = { type: "databaseMissing" };
+const databaseDeleted: CrossTabConnectionEvent = { type: "databaseDeleted" };
 const ownerGone: CrossTabConnectionEvent = { type: "ownerGone" };
 
 test.each([
   [unbound, opened, bound],
   [unbound, closeRequested, closing],
   [unbound, databaseMissing, unbound],
+  [unbound, databaseDeleted, unbound],
   [unbound, ownerGone, unbound],
   [bound, opened, bound],
   [bound, closeRequested, closing],
   [bound, databaseMissing, lost],
+  [bound, databaseDeleted, unbound],
   [bound, ownerGone, lost],
   [closing, opened, closing],
   [closing, closeRequested, closing],
   [closing, databaseMissing, closing],
+  [closing, databaseDeleted, closing],
   [closing, ownerGone, lost],
   [lost, opened, lost],
   [lost, closeRequested, lost],
   [lost, databaseMissing, lost],
+  [lost, databaseDeleted, lost],
   [lost, ownerGone, lost],
 ] as const)("%o on %o becomes %o", (state, event, next) => {
   expect(transitionCrossTabConnection(state, event)).toEqual(next);
@@ -70,7 +75,7 @@ test("only a successful init opens the database", () => {
   }
 });
 
-test("only a never-opened answer reports the database missing", () => {
+test("a worker's answer tells a missing database from a deleted one", () => {
   expect(
     connectionEventForResponse(
       "exec",
@@ -80,7 +85,7 @@ test("only a never-opened answer reports the database missing", () => {
   // A deliberate delete elsewhere is not a loss to recover from.
   expect(
     connectionEventForResponse("exec", failure(DATABASE_DELETED_MESSAGE)),
-  ).toBeNull();
+  ).toEqual(databaseDeleted);
   expect(
     connectionEventForResponse("exec", failure("no such table: t")),
   ).toBeNull();

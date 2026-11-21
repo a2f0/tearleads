@@ -79,11 +79,15 @@ function applyConnectionEvent(
   return previous.status !== "lost" && localClient.connection.status === "lost";
 }
 
-/** Note what a request will do to the client before it is routed. */
+/**
+ * Note what a request will do to the client before it is routed. A lost
+ * client needs no owner, so its requests fail here instead of waiting for one.
+ */
 export function admitLocalClientRequest(
   localClient: LocalClient,
   request: unknown,
 ): void {
+  assertLocalClientConnected(localClient);
   const id = requestId(request);
   const method = requestMethod(request);
   applyConnectionEvent(localClient, connectionEventForRequest(method));

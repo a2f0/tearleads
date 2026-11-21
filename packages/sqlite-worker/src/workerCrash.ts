@@ -47,7 +47,9 @@ export class DatabaseConnectionLostError extends DatabaseWorkerCrashError {
   }
 }
 
-export function isDatabaseConnectionLostError(error: unknown): boolean {
+export function isDatabaseConnectionLostError(
+  error: unknown,
+): error is DatabaseConnectionLostError {
   return error instanceof DatabaseConnectionLostError;
 }
 

@@ -1,5 +1,8 @@
 import { responseOutcome } from "./crossTabProtocol";
-import { DATABASE_NOT_INITIALIZED_MESSAGE } from "./types";
+import {
+  DATABASE_DELETED_MESSAGE,
+  DATABASE_NOT_INITIALIZED_MESSAGE,
+} from "./types";
 
 /**
  * Where one tab-local client's open database lives, as its coordinator sees it.
@@ -12,7 +15,8 @@ import { DATABASE_NOT_INITIALIZED_MESSAGE } from "./types";
  * host still believes it is ready. This machine lets the coordinator notice
  * that and retire the client instead.
  *
- * - `unbound`: no database is open for the client yet.
+ * - `unbound`: no database is open for the client: before its `init`, or
+ *   after another connection deliberately deleted it.
  * - `bound`: an `init` succeeded, and the owner worker that answered it holds
  *   the client's open database.
  * - `closing`: the client sent `close` or `delete`, so it is being retired.
@@ -24,8 +28,9 @@ import { DATABASE_NOT_INITIALIZED_MESSAGE } from "./types";
  *   database.
  *
  * A database another connection deleted is not lost: the worker answers that
- * it was deleted, which is no event here, so a deliberate delete (logout,
- * destroying an identity) is never reopened behind the tab that made it.
+ * it was deleted, which unbinds the client, so neither that answer nor a later
+ * owner change reopens a deliberate delete (logout, destroying an identity)
+ * behind the tab that made it.
  */
 export type CrossTabConnectionState =
   | { readonly status: "unbound" }
@@ -40,6 +45,8 @@ export type CrossTabConnectionEvent =
   | { readonly type: "closeRequested" }
   // A worker answered that the client's connection has no open database.
   | { readonly type: "databaseMissing" }
+  // A worker answered that another connection deleted the client's database.
+  | { readonly type: "databaseDeleted" }
   // The owner worker that served this tab is gone: this tab took the owner
   // lock from it, or the owner worker crashed.
   | { readonly type: "ownerGone" };
@@ -60,6 +67,8 @@ function transitionOpenConnection(
       return BOUND_CONNECTION;
     case "closeRequested":
       return CLOSING_CONNECTION;
+    case "databaseDeleted":
+      return UNBOUND_CONNECTION;
     case "databaseMissing":
     case "ownerGone":
       return state.status === "bound" ? LOST_CONNECTION : state;
@@ -113,6 +122,9 @@ export function connectionEventForResponse(
     return method === "init" ? { type: "opened" } : null;
   }
 
+  if (outcome.message === DATABASE_DELETED_MESSAGE) {
+    return { type: "databaseDeleted" };
+  }
   return outcome.message === DATABASE_NOT_INITIALIZED_MESSAGE
     ? { type: "databaseMissing" }
     : null;

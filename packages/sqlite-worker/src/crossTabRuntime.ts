@@ -172,6 +172,7 @@ class CrossTabCoordinator {
         return;
       }
 
+      // A client can be lost while it waits, when this tab is promoted.
       if (localClient) {
         assertLocalClientConnected(localClient);
       }

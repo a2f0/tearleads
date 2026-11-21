@@ -1,4 +1,4 @@
-import { expect, mock, setSystemTime, test } from "bun:test";
+import { expect, mock, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { useDatabase } from "../db/DatabaseProvider";
 import { useEnsureDatabaseForIdentity } from "./useEnsureDatabaseForIdentity";
@@ -43,6 +43,33 @@ test("does not re-boot when status returns to idle after the first boot", () => 
   expect(ensureIdentityReady).toHaveBeenCalledTimes(1);
 });
 
+// A database whose connection went away with another tab's owner worker is
+// retired to idle, not error, so it reopens at once without spending the
+// retry budget that bounds real boot failures.
+test("reopens a database that returns to idle after it was ready", async () => {
+  const { ensureIdentityReady, view } = renderEnsure("idle");
+  expect(ensureIdentityReady).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  act(() => {
+    view.rerender({ status: "ready" });
+  });
+
+  for (let loss = 1; loss <= 4; loss++) {
+    act(() => {
+      view.rerender({ status: "idle" });
+    });
+    expect(ensureIdentityReady).toHaveBeenCalledTimes(loss + 1);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      view.rerender({ status: "ready" });
+    });
+  }
+});
+
 test("schedules exactly one retry per error transition (no double-call)", async () => {
   const { ensureIdentityReady, view } = renderEnsure("ready");
   expect(ensureIdentityReady).toHaveBeenCalledTimes(0);
@@ -80,37 +107,6 @@ test("stops auto-retrying once the cap is reached (offline contract)", async () 
   }
 
   expect(ensureIdentityReady.mock.calls.length).toBeLessThanOrEqual(3);
-}, 15_000);
-
-test("a database that stayed ready earns a fresh retry budget", async () => {
-  const { ensureIdentityReady, view } = renderEnsure("ready");
-  const failFromReady = async () => {
-    act(() => {
-      view.rerender({ status: "error" });
-    });
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 900));
-    });
-    act(() => {
-      view.rerender({ status: "ready" });
-    });
-  };
-
-  try {
-    // Failures right after each boot spend the budget and then stop.
-    for (let i = 0; i < 4; i++) {
-      await failFromReady();
-    }
-    expect(ensureIdentityReady).toHaveBeenCalledTimes(3);
-
-    // A later loss after the database held is a new incident, as when the tab
-    // that owned the database closes long after a good boot.
-    setSystemTime(new Date(Date.now() + 11_000));
-    await failFromReady();
-    expect(ensureIdentityReady).toHaveBeenCalledTimes(4);
-  } finally {
-    setSystemTime();
-  }
 }, 15_000);
 
 test("resets the retry budget when the fingerprint changes", () => {

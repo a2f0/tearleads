@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { useDatabase } from "../db/DatabaseProvider";
 
 // How many times to automatically re-attempt local-identity database boot after
@@ -20,36 +20,6 @@ import type { useDatabase } from "../db/DatabaseProvider";
 // pane async test timeout so the offline error still surfaces promptly.
 const IDENTITY_DB_BOOT_MAX_AUTO_RETRIES = 3;
 const IDENTITY_DB_BOOT_RETRY_DELAY_MS = 750;
-// A database that stayed ready this long ended whatever spent the retry budget,
-// so its next failure gets a fresh one. A browser database can be lost long
-// after a good boot — another tab that owned it closed — and each such loss
-// must recover on its own. One that fails right after every boot still
-// exhausts the budget and settles to `error`.
-const IDENTITY_DB_RETRY_BUDGET_RESET_AFTER_READY_MS = 10_000;
-
-// Notes when the database became ready, and refunds the retry budget when it
-// fails straight out of a `ready` that lasted. Only a failure directly from
-// `ready` can follow a lasting good boot, so any other status forgets it.
-function trackRetryBudget(
-  dbStatus: ReturnType<typeof useDatabase>["status"],
-  readySinceRef: RefObject<number | null>,
-  retriesRef: RefObject<number>,
-): void {
-  if (dbStatus === "ready") {
-    readySinceRef.current ??= Date.now();
-    return;
-  }
-
-  const readySince = readySinceRef.current;
-  readySinceRef.current = null;
-  if (
-    dbStatus === "error" &&
-    readySince !== null &&
-    Date.now() - readySince >= IDENTITY_DB_RETRY_BUDGET_RESET_AFTER_READY_MS
-  ) {
-    retriesRef.current = 0;
-  }
-}
 
 export function useEnsureDatabaseForIdentity(
   signingFingerprint: string | null,
@@ -71,23 +41,18 @@ export function useEnsureDatabaseForIdentity(
   // Retry, which calls clearWorker() to reset to idle and rely on this effect to
   // re-boot) still triggers a fresh attempt.
   const attemptInFlightRef = useRef(false);
-  // When the database last became ready (see trackRetryBudget).
-  const readySinceRef = useRef<number | null>(null);
   useEffect(() => {
     // A new identity is an independent boot: reset the retry budget and clear any
     // stale in-flight marker so the new fingerprint's first `idle` is not mistaken
     // for the previous boot's reflexive re-entry.
     retriesRef.current = 0;
     attemptInFlightRef.current = false;
-    readySinceRef.current = null;
   }, [signingFingerprint]);
 
   useEffect(() => {
     if (!signingFingerprint) {
       return;
     }
-
-    trackRetryBudget(dbStatus, readySinceRef, retriesRef);
 
     // `idle` is the normal first boot. `error` is a failed boot we may retry:
     // ensureIdentityReady spawns a fresh worker for a DB pinned in error, so a
