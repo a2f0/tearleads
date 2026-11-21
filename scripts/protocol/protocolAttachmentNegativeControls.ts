@@ -18,12 +18,12 @@ export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "The open store must discover a new detach marker without requiring a restart.",
   },
   {
-    id: "readd-detached-without-settle",
+    id: "readd-detaches-foreign-binding",
     module: "formal/blob-attachments/AttachmentReaddReconcile.tla",
     config: "formal/blob-attachments/AttachmentReaddReconcile.cfg",
-    constants: { CheckBeforeDetach: "FALSE" },
-    expect: { kind: "invariant", name: "ReaddedOtherBindingKept" },
-    why: "A detach pass must settle its marker against committed history before detaching, or it detaches the binding of bytes another pane committed for the slot.",
+    constants: { OwnBindingOnly: "FALSE" },
+    expect: { kind: "invariant", name: "ReaddedSameStaysBound" },
+    why: "A detach pass must detach only its own copy's binding: another device binds its re-add before the content update that records it arrives, and detaching that binding leaves the re-add unbound.",
   },
   {
     id: "readd-during-detach-dropped",

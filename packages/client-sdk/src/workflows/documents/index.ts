@@ -81,6 +81,7 @@ export {
   listPendingDocumentUpdates,
 } from "./pendingUpdatePersistence";
 export {
+  type AttachmentRemovalMarkerObservation,
   type AttachmentRemovalMarkerSettlement,
   type AttachmentRemovalRows,
   type AttachmentStagingRows,
@@ -99,6 +100,7 @@ export {
   type QueuedPendingUpdateRecord,
   type RelinkPersistedDocumentInput,
   runSerializedSqlMutation,
+  type SettleAttachmentRemovalMarkerInput,
 } from "./persistence";
 export {
   createDocumentProjectionUserKeyResolver,

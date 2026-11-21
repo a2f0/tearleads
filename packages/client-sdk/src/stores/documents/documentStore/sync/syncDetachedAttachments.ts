@@ -1,8 +1,11 @@
 import { exportFullHistorySnapshot } from "@tearleads/loro";
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
-import type {
-  AttachmentRemovalMarker,
-  OpenAttachmentRemovalMarker,
+import {
+  type AttachmentRemovalMarker,
+  isOpenAttachmentRemovalMarker,
+  type OpenAttachmentRemovalMarker,
+  observeMarkerBinding,
+  transitionAttachmentRemovalMarker,
 } from "../../../../data/documents/attachmentRemovalMarkerMachine";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import { errorMessage } from "../../../../data/shared/errorMessage";
@@ -42,7 +45,7 @@ import { documentSyncContextMatches } from "./syncUpdateImport";
  * back) says whether it did. A re-added slot keeps its binding and held copy,
  * one re-added with other bytes frees its first download, and one re-added
  * while its binding was being detached has its held bytes queued to upload
- * and bind again.
+ * and bind again. A binding of another blob is never detached.
  */
 export async function syncDetachedAttachmentBindings(
   state: DocumentStoreState,
@@ -83,6 +86,7 @@ export async function syncDetachedAttachmentBindings(
     );
   }
 
+  const readdedSlotIds: string[] = [];
   let rebinding = false;
   for (const marker of markers) {
     const settled = await settleDetachedAttachmentMarker({
@@ -96,9 +100,14 @@ export async function syncDetachedAttachmentBindings(
       state,
     });
     if (!settled) break;
+    if (settled.status === "held" || settled.status === "rebinding") {
+      readdedSlotIds.push(marker.slotId);
+    }
     rebinding ||= settled.status === "rebinding";
   }
-  if (rebinding) void catchUpReboundAttachments(state);
+  if (readdedSlotIds.length > 0) {
+    void catchUpReaddedAttachments(state, readdedSlotIds, rebinding);
+  }
 }
 
 /**
@@ -116,19 +125,19 @@ async function settleDetachedAttachmentMarker(input: {
   requestRecord: DocumentRecord;
   state: DocumentStoreState;
 }): Promise<AttachmentRemovalMarker | null> {
-  const { binding, requestRecord, state } = input;
+  const { binding, marker, requestRecord, state } = input;
   const settle = (from: OpenAttachmentRemovalMarker) =>
     settleAttachmentRemovalMarker({
       doc: input.currentDoc,
       from,
-      marker: input.marker,
+      marker,
       state,
       stillCurrent: input.contextIsCurrent,
     });
-  // Without an active binding there is nothing left to detach.
-  const settled = await settle(
-    binding ? { status: "awaitingDetach" } : { status: "remoteDetached" },
-  );
+  // Only the binding of the copy this device removed is its to detach: a
+  // binding of another blob is another writer's re-add, listed before the
+  // content update that records it arrives here.
+  const settled = await settle(observeMarkerBinding(binding, marker.blobId));
   if (settled?.status !== "awaitingDetach") return settled;
   if (
     !binding ||
@@ -144,24 +153,32 @@ async function settleDetachedAttachmentMarker(input: {
   ) {
     return null;
   }
-  // remoteDetachSettled: the binding is gone, so a slot committed again in
-  // the meantime needs its held bytes bound anew.
-  return settle({ status: "remoteDetached" });
+  // The binding is gone, so a slot committed again meanwhile needs its held
+  // bytes bound anew.
+  const detached = transitionAttachmentRemovalMarker(settled, {
+    type: "remoteDetachSettled",
+  });
+  return isOpenAttachmentRemovalMarker(detached) ? settle(detached) : detached;
 }
 
 /**
- * Bring the live document up to the committed history that re-added a
- * rebound slot: the upload lane only uploads what the live document records.
- * It runs in the write chain, as every reload of a write's base does.
+ * Bring the live document up to the committed history that added these slots
+ * back. Until it records them, every pass would list them as markers again,
+ * and the upload lane only uploads what the live document records. It runs in
+ * the write chain, as every reload of a write's base does.
  */
-function catchUpReboundAttachments(state: DocumentStoreState): Promise<void> {
+function catchUpReaddedAttachments(
+  state: DocumentStoreState,
+  slotIds: readonly string[],
+  requestUpload: boolean,
+): Promise<void> {
   return chainQueuedWrite(
     state,
     state.writeChain
       .catch(() => undefined)
       .then(async () => {
         const doc = state.doc;
-        if (!doc || pendingAttachmentsAreRecorded(state, doc)) return;
+        if (!doc || documentRecordsSlots(doc, slotIds)) return;
         const generation = captureDocumentStoreSyncGeneration(state, doc);
         if (!generation) return;
         await reloadDocumentFromDurableHistory({
@@ -173,27 +190,23 @@ function catchUpReboundAttachments(state: DocumentStoreState): Promise<void> {
       })
       .catch((error: unknown) => {
         state.runtime.util.log(
-          `Documents: rebound attachment reload failed: ${errorMessage(error)}`,
+          `Documents: re-added attachment reload failed: ${errorMessage(error)}`,
         );
       })
       .finally(() => {
-        requestDocumentStoreSync(state);
+        if (requestUpload) requestDocumentStoreSync(state);
       }),
   );
 }
 
-function pendingAttachmentsAreRecorded(
-  state: DocumentStoreState,
+function documentRecordsSlots(
   doc: DocumentState,
+  slotIds: readonly string[],
 ): boolean {
   const recorded = new Set(
-    getDocumentAttachments(doc).map(
-      (attachment) => `${attachment.contentSha256}:${attachment.slotId}`,
-    ),
+    getDocumentAttachments(doc).map((attachment) => attachment.slotId),
   );
-  return state.pendingAttachments.every((pending) =>
-    recorded.has(`${pending.contentSha256}:${pending.slotId}`),
-  );
+  return slotIds.every((slotId) => recorded.has(slotId));
 }
 
 function detachedSyncContextIsCurrent(

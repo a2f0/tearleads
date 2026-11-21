@@ -27,6 +27,7 @@ import type {
 } from "./records";
 
 export type {
+  AttachmentRemovalMarkerObservation,
   AttachmentRemovalMarkerSettlement,
   AttachmentRemovalRows,
   AttachmentStagingRows,

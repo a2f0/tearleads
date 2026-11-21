@@ -79,6 +79,6 @@ export function listUnsettledAttachmentMarkers(
         type: "committedChecked",
       },
     );
-    return attachmentMarkerRowEffect(next, row) !== "none";
+    return attachmentMarkerRowEffect(next, row).kind !== "none";
   });
 }

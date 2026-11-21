@@ -70,6 +70,7 @@ export { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
 export type { DocumentPlacementCleanup } from "./documentDeletionPort";
 export type { PendingUpdateRecord, QueuedPendingUpdateRecord } from "./records";
 export type {
+  AttachmentRemovalMarkerObservation,
   AttachmentRemovalMarkerSettlement,
   AttachmentRemovalRows,
   AttachmentStagingRows,
@@ -81,6 +82,7 @@ export type {
   PendingAttachmentUploadIdentity,
   PendingUpdateInsert,
   RelinkPersistedDocumentInput,
+  SettleAttachmentRemovalMarkerInput,
   StoredDocumentRecord,
 } from "./types";
 

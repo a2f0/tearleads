@@ -28,7 +28,11 @@ test("a settled marker leaves a newer same-slot copy mapped", async () => {
     await settleAttachmentRemovalMarker({
       doc: null,
       from: { status: "remoteDetached" },
-      marker: { slotId: "slot-1", storageKey: "storage-old" },
+      marker: {
+        blobId: "blob-old",
+        slotId: "slot-1",
+        storageKey: "storage-old",
+      },
       state,
       stillCurrent: () => true,
     }),

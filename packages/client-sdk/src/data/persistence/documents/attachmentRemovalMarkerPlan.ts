@@ -44,7 +44,8 @@ export function planAttachmentRemovalMarkerSettlement(input: {
     row: next,
     write: "upsert",
   });
-  switch (attachmentMarkerRowEffect(marker, observedRow)) {
+  const effect = attachmentMarkerRowEffect(marker, observedRow);
+  switch (effect.kind) {
     case "none":
       return unchanged;
     case "markDetached":
@@ -53,23 +54,21 @@ export function planAttachmentRemovalMarkerSettlement(input: {
       return upsert({ ...row, detachedAt: null });
     case "delete":
       return { marker, pending: null, row: null, write: "delete" };
-    case "requeueUpload": {
+    case "requeueUpload":
       // Stage the held bytes again, as a fresh attach would, to bind anew.
-      if (!committed) throw new Error("A rebound slot must be committed");
       return {
         marker,
         pending: {
           byteLength: row.byteLength,
           contentSha256: row.contentSha256,
           localId: row.localId,
-          mimeType: committed.mimeType,
-          name: committed.name,
+          mimeType: effect.mimeType,
+          name: effect.name,
           slotId: row.slotId,
           storageKey: row.storageKey,
         },
         row: { ...row, blobId: null, detachedAt: null },
         write: "upsert",
       };
-    }
   }
 }

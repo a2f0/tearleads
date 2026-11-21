@@ -21,6 +21,7 @@ import {
 
 export type { DocumentBirthResult } from "../../data/persistence/documents/documentBirthResult";
 export type {
+  AttachmentRemovalMarkerObservation,
   AttachmentRemovalMarkerSettlement,
   AttachmentRemovalRows,
   AttachmentStagingRows,
@@ -32,6 +33,7 @@ export type {
   PendingUpdateRecord,
   QueuedPendingUpdateRecord,
   RelinkPersistedDocumentInput,
+  SettleAttachmentRemovalMarkerInput,
   StoredDocumentRecord as DocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
 export {

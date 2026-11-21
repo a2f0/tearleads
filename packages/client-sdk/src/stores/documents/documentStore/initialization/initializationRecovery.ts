@@ -172,11 +172,12 @@ export async function healLocalAttachmentDetachState(
   // concurrent store reset never sees it rewrite rows the teardown removed.
   const stillCurrent = () =>
     isDocumentStoreSyncGenerationCurrent(state, writeGeneration);
-  for (const { slotId, storageKey } of unsettled) {
+  for (const { blobId, slotId, storageKey } of unsettled) {
     const settled = await settleAttachmentRemovalMarker({
       doc,
+      // No binding list at startup: the marker keeps owing its detach.
       from: { status: "awaitingDetach" },
-      marker: { slotId, storageKey },
+      marker: { blobId, slotId, storageKey },
       state,
       stillCurrent,
     });

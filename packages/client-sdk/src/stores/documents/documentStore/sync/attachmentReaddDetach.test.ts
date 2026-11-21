@@ -1,316 +1,30 @@
 import { expect, test } from "bun:test";
-import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import {
-  createDocument,
-  encodeVersionVector,
-  exportFullHistorySnapshot,
-  exportUpdatesSince,
-} from "@tearleads/loro";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
-import type { BlobAttachmentSummary } from "@tearleads/validators/response";
-import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
-import { attachmentContentSha256 } from "../../../../data/blobs/attachmentContentIdentity";
-import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
-import {
-  addDocumentAttachments,
-  type DocumentAttachment,
-  getDocumentAttachments,
-} from "../../../../data/documents/documentContent";
-import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
-import { deleteDocumentPlacements } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
-import { createDomainScope } from "../../../../data/shared/domainScope";
-import {
-  clientSqlTables,
-  documentAttachmentBlobProjection,
-  documentPendingAttachments,
-} from "../../../../data/sqlite/schema";
-import { documentProjection } from "../../../../data/sqlite/schema/documentProjectionSchema";
-import {
-  documentHistoryCheckpoints,
-  documents,
-} from "../../../../data/sqlite/schema/documentRecordSchema";
-import { getClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import { ensureSqlTables } from "../../../../data/sqlite/sqlTableSchema";
+  BINDING_ID,
+  BLOB_ID,
+  BYTES,
+  binding,
+  commitPulledReadd,
+  LOCAL_ID,
+  OTHER_BINDING_ID,
+  OTHER_BLOB_ID,
+  OTHER_BYTES,
+  OTHER_STORAGE_KEY,
+  removeAndDetach,
+  SLOT_ID,
+  STORAGE_KEY,
+  withPanes,
+} from "../../../../../test/helpers/stores/attachmentReaddPanes";
+import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import { listPendingDownloads } from "../../../../workflows/container-contents/documentQueries/pendingDownloads";
 import {
-  createDocumentsWorkflowRuntime,
   type DocumentsPersistence,
-  type DocumentsWorkflowRuntimeInput,
   defaultDocumentsPersistence,
-  loadPersistedDocumentContent,
-  persistDocumentState,
   reclaimDocumentOrphanBlobs,
 } from "../../../../workflows/documents";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
-import type { DocumentsRuntime } from "../../types";
 import { replaceAttachmentInDocumentStore } from "../attachments";
 import { commitHydratedAttachment } from "../attachments/attachmentHydrationCommit";
-import { removeAttachmentFromDocumentStore } from "../attachments/attachmentRemoval";
-import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
-import { ensureDocumentStoreReady } from "../initialization";
-import { createDocumentStoreState, type DocumentStoreState } from "../state";
-import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
-import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
-
-const LOCAL_ID = "doc-readd";
-const SLOT_ID = "photo";
-const BYTES = new Uint8Array([1, 2, 3]);
-const OTHER_BYTES = new Uint8Array([4, 5, 6, 7]);
-const ORGANIZATION_ID = "org-readd";
-const REMOTE_ID = "550e8400-e29b-41d4-a716-446655440010";
-const BLOB_ID = "550e8400-e29b-41d4-a716-446655440657";
-const BINDING_ID = "550e8400-e29b-41d4-a716-446655440656";
-const OTHER_BLOB_ID = "550e8400-e29b-41d4-a716-446655440658";
-const OTHER_BINDING_ID = "550e8400-e29b-41d4-a716-446655440659";
-// A hydrated copy is keyed by its blob, so holding that blob again reuses it.
-const STORAGE_KEY = `blob-${BLOB_ID}`;
-const OTHER_STORAGE_KEY = `blob-${OTHER_BLOB_ID}`;
-
-function binding(blobId: string, bindingId: string): BlobAttachmentSummary {
-  // The detach pass reads only these identifiers before signing its own event.
-  return { blobId, bindingId, slotId: SLOT_ID } as BlobAttachmentSummary;
-}
-
-async function slotAttachment(
-  bytes: Uint8Array<ArrayBuffer>,
-): Promise<DocumentAttachment> {
-  return {
-    byteLength: bytes.length,
-    contentSha256: await attachmentContentSha256(bytes),
-    mimeType: "application/octet-stream",
-    name: "photo.bin",
-    slotId: SLOT_ID,
-  };
-}
-
-async function seedHeldAttachment(execSql: ExecSql) {
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  const doc = await createDocument(LOCAL_ID);
-  const attachment = await slotAttachment(BYTES);
-  addDocumentAttachments(doc, [attachment]);
-  const snapshot = bytesToBase64(exportFullHistorySnapshot(doc));
-  const endVersionVector = encodeVersionVector(doc);
-  const updatedAt = new Date().toISOString();
-  await db.insert(documents).values({
-    appKind: "documents",
-    localId: LOCAL_ID,
-    documentId: REMOTE_ID,
-    snapshotEndVersion: endVersionVector,
-    effectiveAccessLevel: "admin",
-    accessEpoch: 1,
-    updatedAt,
-  });
-  await db.insert(documentHistoryCheckpoints).values({
-    appKind: "documents",
-    localId: LOCAL_ID,
-    snapshot,
-    endVersionVector,
-    revision: LOCAL_ID,
-    updatedAt,
-  });
-  await db.insert(documentProjection).values({
-    localId: LOCAL_ID,
-    documentId: REMOTE_ID,
-    containerId: null,
-    organizationId: ORGANIZATION_ID,
-    title: "Photo",
-    updatedAt,
-  });
-  await db.insert(documentAttachmentBlobProjection).values({
-    localId: LOCAL_ID,
-    slotId: SLOT_ID,
-    blobId: BLOB_ID,
-    storageKey: STORAGE_KEY,
-    mimeType: attachment.mimeType,
-    byteLength: attachment.byteLength,
-    contentSha256: attachment.contentSha256,
-    updatedAt,
-    detachedAt: null,
-  });
-}
-
-/**
- * Another device's re-add of the slot reaching this database through a pull:
- * committed history gains the slot while no local row changes.
- */
-async function commitPulledReadd(
-  execSql: ExecSql,
-  bytes: Uint8Array<ArrayBuffer>,
-) {
-  const record = await defaultDocumentsPersistence.loadDocument(
-    execSql,
-    LOCAL_ID,
-  );
-  const writer = await loadPersistedDocumentContent({
-    execSql,
-    localId: LOCAL_ID,
-    persistence: defaultDocumentsPersistence,
-  });
-  if (!record || !writer) throw new Error("Expected a stored document");
-  const before = encodeVersionVector(writer);
-  addDocumentAttachments(writer, [await slotAttachment(bytes)]);
-  writer.commit();
-  const saved = await persistDocumentState({
-    currentDoc: writer,
-    currentRecord: record,
-    deleteDocumentPlacements,
-    documentProjectors: defaultDocumentProjectorRegistry,
-    execSql,
-    historyUpdateOrigin: "remote",
-    historyUpdates: [bytesToBase64(exportUpdatesSince(writer, before))],
-    localId: LOCAL_ID,
-    patch: { snapshotEndVersion: encodeVersionVector(writer) },
-    persistence: defaultDocumentsPersistence,
-  });
-  if (!saved) throw new Error("Expected the pulled re-add to commit");
-}
-
-interface Server {
-  bindings: BlobAttachmentSummary[];
-  detached: BlobAttachmentDetachRequest[];
-  onDetach: (() => Promise<void>) | null;
-  onList: (() => Promise<void>) | null;
-}
-
-interface Panes {
-  blobStore: ReturnType<typeof createMemoryBlobStore>;
-  execSql: ExecSql;
-  open: (persistence?: DocumentsPersistence) => Promise<DocumentStoreState>;
-  rows: () => Promise<unknown[]>;
-  pendingRows: () => Promise<unknown[]>;
-  runtime: DocumentsRuntime;
-  server: Server;
-}
-
-async function withPanes(name: string, run: (panes: Panes) => Promise<void>) {
-  const { close, execSql } = await createTestExecSql(name);
-  const blobStore = createMemoryBlobStore();
-  const fixture = await createMaterializedSyncFixture({
-    organizationId: ORGANIZATION_ID,
-    documentId: REMOTE_ID,
-  });
-  const server: Server = {
-    bindings: [binding(BLOB_ID, BINDING_ID)],
-    detached: [],
-    onDetach: null,
-    onList: null,
-  };
-  const runtime = createDocumentsWorkflowRuntime({
-    apiClient: {
-      listDocumentAttachments: async () => {
-        const hook = server.onList;
-        server.onList = null;
-        await hook?.();
-        return [...server.bindings];
-      },
-      getDocumentWriterProjection: async () => fixture.writerProjection,
-      detachBlobAttachment: async (
-        blobId: string,
-        bindingId: string,
-        request: BlobAttachmentDetachRequest,
-      ) => {
-        // The hook runs while the signed detach is in flight.
-        const hook = server.onDetach;
-        server.onDetach = null;
-        await hook?.();
-        server.detached.push(request);
-        server.bindings = server.bindings.filter(
-          (active) => active.bindingId !== bindingId,
-        );
-        return { blobId, bindingId, documentId: REMOTE_ID, slotId: SLOT_ID };
-      },
-    } as unknown as DocumentsWorkflowRuntimeInput["apiClient"],
-    auth: {
-      isAuthenticated: false,
-      organizationId: ORGANIZATION_ID,
-      userId: fixture.author.signerUserId,
-    },
-    crypto: {
-      encapsulationKeyPair: generateKemSeedAndKeyPair(),
-      signingFingerprint: fixture.author.signerKeyFingerprint,
-      signingKeyPair: {
-        signingPrivateKey: fixture.author.signerPrivateKey,
-        signingPublicKey: fixture.signingPublicKey,
-      },
-    },
-    deleteDocumentPlacements,
-    infra: {
-      blobStore,
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    resolveTrustedUserIdentity: async () => null,
-    state: {
-      containerId: null,
-      domainScope: createDomainScope(),
-      events: [],
-      online: false,
-    },
-    util: {
-      log: () => undefined,
-      reportSecurityIncident: async () => undefined,
-    },
-  });
-  // Each pane is its own runtime (registry, sync coordinator, Loro peer) over
-  // the same database and server.
-  const open = async (persistence = defaultDocumentsPersistence) => {
-    const pane = createDocumentStoreState(
-      LOCAL_ID,
-      {
-        ...runtime,
-        state: { ...runtime.state, domainScope: createDomainScope() },
-      },
-      persistence,
-      noopDocumentStorePersistenceEffects,
-      null,
-    );
-    expect(await ensureDocumentStoreReady(pane, () => undefined)).toBe(true);
-    pane.resolveProjectionUserKey = fixture.resolveProjectionUserKey;
-    return pane;
-  };
-  const { db } = getClientSQLitePersistenceRuntime(execSql);
-  try {
-    await ensureSqlTables(execSql, clientSqlTables);
-    await blobStore.writeBytes(STORAGE_KEY, BYTES);
-    await seedHeldAttachment(execSql);
-    await run({
-      blobStore,
-      execSql,
-      open,
-      pendingRows: () => db.select().from(documentPendingAttachments),
-      rows: () => db.select().from(documentAttachmentBlobProjection),
-      runtime,
-      server,
-    });
-  } finally {
-    try {
-      await reclaimDocumentOrphanBlobs(runtime);
-    } finally {
-      close();
-    }
-  }
-}
-
-/** Remove the slot in `pane`, then run its detach pass. */
-async function removeAndDetach(pane: DocumentStoreState): Promise<void> {
-  await removeAttachmentFromDocumentStore(pane, () => undefined, SLOT_ID);
-  await runDetachPass(pane);
-}
-
-async function runDetachPass(pane: DocumentStoreState): Promise<void> {
-  const generation = captureDocumentStoreSyncGeneration(pane, pane.doc);
-  if (!generation || !pane.record) throw new Error("Expected sync state");
-  await syncDetachedAttachmentBindings(
-    pane,
-    pane.record,
-    generation,
-    createPrincipalPolicyOperation(),
-  );
-}
+import type { DocumentStoreState } from "../state";
 
 test.each([
   ["the restoring pane reopens", true],
@@ -333,6 +47,9 @@ test.each([
         { blobId: BLOB_ID, storageKey: STORAGE_KEY, detachedAt: null },
       ]);
       expect(first.attachmentStorageKeyBySlotId[SLOT_ID]).toBe(STORAGE_KEY);
+      // The pane caught up with the re-add, so later passes list no marker.
+      await first.writeChain;
+      expect(first.snapshot.attachments).toMatchObject([{ slotId: SLOT_ID }]);
       if (second) {
         expect(
           (second as DocumentStoreState).snapshot.attachments,
@@ -464,5 +181,59 @@ test("a staged re-add that rolls back leaves the removal to clean up", async () 
     expect(first.attachmentStorageKeyBySlotId[SLOT_ID]).toBeUndefined();
     await reclaimDocumentOrphanBlobs(panes.runtime);
     expect(await panes.blobStore.readBytes(STORAGE_KEY)).toBeNull();
+  });
+});
+
+test.each([
+  ["other bytes", OTHER_BYTES],
+  ["the same bytes", BYTES],
+])(
+  "a re-add another device bound before its content update arrived keeps its binding (%s)",
+  async (_label, bytes) => {
+    await withPanes("readd-bound-first", async (panes) => {
+      const first = await panes.open();
+      const theirs = binding(OTHER_BLOB_ID, OTHER_BINDING_ID);
+      panes.server.onList = async () => {
+        // The other device binds first; its content update is still on its way.
+        panes.server.bindings = [theirs];
+      };
+      await removeAndDetach(first);
+
+      expect(panes.server.detached).toEqual([]);
+      expect(panes.server.bindings).toEqual([theirs]);
+      // This copy's binding was replaced, so it owes no detach.
+      expect(await panes.rows()).toEqual([]);
+      await reclaimDocumentOrphanBlobs(panes.runtime);
+      expect(await panes.blobStore.readBytes(STORAGE_KEY)).toBeNull();
+      // The content update arrives: the re-add is a first download.
+      await commitPulledReadd(panes.execSql, bytes);
+      await panes.open();
+      expect(await listPendingDownloads(panes.execSql)).toMatchObject([
+        { objectKind: "attachment", slotId: SLOT_ID },
+      ]);
+    });
+  },
+);
+
+test("a settle refused before commit writes nothing", async () => {
+  await withPanes("readd-settle-refused", async (panes) => {
+    const before = await panes.rows();
+    expect(
+      await defaultDocumentsPersistence.settleAttachmentRemovalMarker(
+        panes.execSql,
+        {
+          localId: LOCAL_ID,
+          settle: () => ({
+            marker: { status: "dropped" },
+            pending: null,
+            row: null,
+            write: "delete",
+          }),
+          slotId: SLOT_ID,
+          stillCurrent: () => false,
+        },
+      ),
+    ).toBeNull();
+    expect(await panes.rows()).toEqual(before);
   });
 });

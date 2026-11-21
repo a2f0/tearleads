@@ -402,9 +402,9 @@ Existing unsaved edits remain available for a separately admitted retry.
 
 Before sending, the store merges consecutive queued local updates under a fresh
 id. Custom `DocumentsPersistence` adapters implement `replaceQueuedPendingUpdates`
-and return each `QueuedPendingUpdateRecord` with its `origin` from
-`listPendingUpdates`. Create and commit persist supplied `attachmentNames`
-atomically with the document projection. See
+(each `QueuedPendingUpdateRecord` keeps its `origin` in `listPendingUpdates`)
+and `settleAttachmentRemovalMarker` (`SettleAttachmentRemovalMarkerInput`).
+Create and commit persist `attachmentNames` atomically with the projection; see
 [custom document persistence](../custom-document-persistence.md).
 
 ### Organization data usage

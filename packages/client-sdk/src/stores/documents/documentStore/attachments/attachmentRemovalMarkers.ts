@@ -1,6 +1,7 @@
-import type {
-  AttachmentRemovalMarker,
-  OpenAttachmentRemovalMarker,
+import {
+  type AttachmentRemovalMarker,
+  isOpenAttachmentRemovalMarker,
+  type OpenAttachmentRemovalMarker,
 } from "../../../../data/documents/attachmentRemovalMarkerMachine";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import {
@@ -21,6 +22,8 @@ import {
 
 /** A copy this store removed and still maps until its marker settles. */
 export interface AttachmentRemovalMarkerSlot {
+  /** The blob this copy was bound as; null when its upload never bound. */
+  blobId: string | null;
   slotId: string;
   storageKey: string;
 }
@@ -39,7 +42,15 @@ export function listAttachmentRemovalMarkers(
   );
   return Object.entries(state.attachmentStorageKeyBySlotId).flatMap(
     ([slotId, storageKey]) =>
-      liveSlotIds.has(slotId) ? [] : [{ slotId, storageKey }],
+      liveSlotIds.has(slotId)
+        ? []
+        : [
+            {
+              blobId: state.attachmentBlobIdBySlotId[slotId] ?? null,
+              slotId,
+              storageKey,
+            },
+          ],
   );
 }
 
@@ -89,12 +100,11 @@ export async function settleAttachmentRemovalMarker(input: {
     storageKey: marker.storageKey,
   });
   if (!settled || !stillCurrent()) return null;
-  const { status } = settled.marker;
-  if (status === "awaitingDetach" || status === "remoteDetached") {
-    return settled.marker;
-  }
+  if (isOpenAttachmentRemovalMarker(settled.marker)) return settled.marker;
   installSettledMarker(state, marker, settled, input.doc);
   // Dropping the row queued its bytes for the reference-checked reclaim.
-  if (status === "dropped") void runDocumentOrphanMaintenance(state);
+  if (settled.marker.status === "dropped") {
+    void runDocumentOrphanMaintenance(state);
+  }
   return settled.marker;
 }
