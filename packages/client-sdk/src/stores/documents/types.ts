@@ -141,7 +141,7 @@ export interface DocumentStore {
    * store session and report a missing or damaged one as `unavailable`, then
    * fetch it again. A failed read is not a finding; the copy stays unchecked.
    * Copies a later load of this store brings, or a new blob store holds, are
-   * checked then. Resolves once the checks this call started have finished.
+   * checked then. Resolves once the store's reads in flight have finished.
    */
   checkHeldAttachments: () => Promise<void>;
   /**

@@ -10,7 +10,9 @@ import {
   type BlobBytes,
   type BlobStore,
   createBlobByteSource,
+  readBlobByteSource,
 } from "../../../../data/blobs/blobContracts";
+import { wrapEncryptedBlobStore } from "../../../../data/blobs/encryptedBlobStore";
 import { addDocumentAttachments } from "../../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import type { HydrateDocumentAttachmentBlobsRequest } from "../../../../workflows/blobs/hydration/hydrate";
@@ -43,7 +45,9 @@ function createMemoryBlobStore(files: Map<string, BlobBytes>): BlobStore {
       return bytes ? createBlobByteSource(bytes) : null;
     },
     readBytes: async (storageKey) => files.get(storageKey) ?? null,
-    writeByteSource: async () => undefined,
+    writeByteSource: async (storageKey, source) => {
+      files.set(storageKey, await readBlobByteSource(source));
+    },
     writeBytes: async (storageKey, bytes) => {
       files.set(storageKey, bytes);
     },
@@ -54,7 +58,11 @@ function createMemoryBlobStore(files: Map<string, BlobBytes>): BlobStore {
 async function openHeldCopy(
   name: string,
   files: Map<string, BlobBytes>,
-  options: { blobId?: string | null; uploading?: boolean } = {},
+  options: {
+    blobId?: string | null;
+    rowContentSha256?: string;
+    uploading?: boolean;
+  } = {},
 ) {
   const sqlite = await createTestExecSql(name);
   const fixture = await createRemoteHistoryFixture();
@@ -80,7 +88,7 @@ async function openHeldCopy(
   await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
     blobId: options.blobId === undefined ? "held" : options.blobId,
     byteLength: attachment.byteLength,
-    contentSha256: attachment.contentSha256,
+    contentSha256: options.rowContentSha256 ?? attachment.contentSha256,
     detachedAt: null,
     localId: "local",
     mimeType: attachment.mimeType,
@@ -182,6 +190,43 @@ test("a held copy whose bytes differ from its row is reported unavailable", asyn
     held.close();
   }
 });
+
+for (const [label, damage] of [
+  ["truncated", (bytes: BlobBytes) => bytes.slice(0, -1)],
+  [
+    "altered",
+    (bytes: BlobBytes) => {
+      const altered = bytes.slice();
+      altered[altered.byteLength - 1] = (altered.at(-1) ?? 0) ^ 1;
+      return altered;
+    },
+  ],
+] as const) {
+  test(`an encrypted copy whose file was ${label} is reported unavailable`, async () => {
+    const files = new Map<string, BlobBytes>();
+    const held = await openHeldCopy(`held-copy-encrypted-${label}`, files);
+    const encrypted = wrapEncryptedBlobStore(held.runtime.infra.blobStore, {
+      key: "held-copy-key",
+      kdfIterations: 1,
+      namespace: "held-copy",
+    });
+    Object.assign(held.runtime.infra, { blobStore: encrypted });
+    try {
+      await encrypted.writeBytes(STORAGE_KEY, BYTES);
+      const stored = files.get(STORAGE_KEY);
+      if (!stored) throw new Error("Expected stored ciphertext");
+      // The store refuses the file before any digest: that refusal is damage.
+      files.set(STORAGE_KEY, damage(stored));
+      await held.check();
+      expect(slotView(held.state)).toEqual({
+        status: "unavailable",
+        storageKey: undefined,
+      });
+    } finally {
+      held.close();
+    }
+  });
+}
 
 test("an intact copy is checked once and left as it is", async () => {
   const files = new Map([[STORAGE_KEY, BYTES]]);
@@ -296,8 +341,8 @@ test("a failed read is not a finding: the copy stays readable and is checked aga
   }
 });
 
-test("a read that outlives a store reset settles nothing", async () => {
-  const held = await openHeldCopy("held-copy-retired", new Map());
+test("a read that outlives a store reset and reload still reports its finding", async () => {
+  const held = await openHeldCopy("held-copy-reloaded", new Map());
   const blobStore = held.runtime.infra.blobStore;
   const firstOpen = Promise.withResolvers<null>();
   const opens = countOpens(held.runtime, (storageKey) =>
@@ -306,19 +351,70 @@ test("a read that outlives a store reset settles nothing", async () => {
       : blobStore.openByteSource(storageKey),
   );
   try {
-    const signal = held.state.remoteUpdateSignalSeq;
     const checking = held.check();
     await until(() => opens.count === 1);
-    // What a reset or a discard does to the store's write generation.
-    held.state.localWriteGeneration += 1;
+    resetDocumentStore(held.state);
+    expect(await held.ensureReady()).toBe(true);
+    // The reload finds the same copy already being read and waits for it.
+    const signal = held.state.remoteUpdateSignalSeq;
     firstOpen.resolve(null);
     await checking;
-    expect(slotView(held.state).status).toBeUndefined();
-    expect(held.state.remoteUpdateSignalSeq).toBe(signal);
-    // The retired read left the copy unchecked; the next access reads it.
+    expect(opens.count).toBe(1);
+    expect(slotView(held.state)).toEqual({
+      status: "unavailable",
+      storageKey: undefined,
+    });
+    expect(held.state.remoteUpdateSignalSeq).toBe(signal + 1);
+  } finally {
+    held.close();
+  }
+});
+
+test("a missing copy that already differed from the document is fetched again flagged", async () => {
+  const served = new Uint8Array([5, 6, 7, 8]);
+  const servedSha256 = await attachmentContentSha256(served);
+  const files = new Map<string, BlobBytes>();
+  const held = await openHeldCopy("held-copy-differed", files, {
+    rowContentSha256: servedSha256,
+  });
+  try {
+    expect(slotView(held.state).status).toBe("intent-mismatch");
     await held.check();
-    expect(opens.count).toBe(2);
     expect(slotView(held.state).status).toBe("unavailable");
+    const requests: HydrateDocumentAttachmentBlobsRequest[] = [];
+    Object.assign(held.runtime.blobAttachments, {
+      hydrateDocumentAttachmentBlobs: async (
+        request: HydrateDocumentAttachmentBlobsRequest,
+      ) => {
+        requests.push(request);
+        return [
+          {
+            attachment: held.attachment,
+            binding: { blobId: "held" } as BlobAttachmentSummary,
+            bytes: served,
+            contentSha256: servedSha256,
+            intentMismatch: true,
+            storageKey: STORAGE_KEY,
+          },
+        ];
+      },
+    });
+    const { doc, record } = held.state;
+    if (!doc) throw new Error("Expected a loaded document");
+    await hydrateAttachmentBlobs(
+      held.state,
+      doc,
+      record,
+      createPrincipalPolicyOperation(),
+    );
+    // No held copy is left to protect, so the served bytes come back flagged
+    // instead of being refused for differing from the document.
+    expect(requests[0]?.localStorageKeyBySlotId?.[SLOT_ID]).toBeUndefined();
+    expect(files.get(STORAGE_KEY)).toEqual(served);
+    expect(slotView(held.state)).toEqual({
+      status: "intent-mismatch",
+      storageKey: STORAGE_KEY,
+    });
   } finally {
     held.close();
   }

@@ -204,9 +204,10 @@ A held row can outlive its file, for example after a device restores a backup.
 A host that opens a document calls `checkHeldAttachments()`, and the store then
 reads each held copy the document records once per store session: a missing
 file, or bytes whose digest differs from the row's, reports the slot as
-`unavailable` and withholds its storage key. A read that fails, or outlives a
-store reset, is not a finding and leaves the copy unchecked. Nothing scans
-the library at startup. The store asks the server again at once, and `requestRemoteSync()`
+`unavailable` and withholds its storage key. An encrypted file that fails
+its own format or authentication check is damaged too; any other failed read
+is not a finding and leaves the copy unchecked. Nothing scans the library at
+startup. The store asks the server again at once, and `requestRemoteSync()`
 retries later. The download replaces the copy only when its plaintext digest
 matches the document intent; the row keeps its storage key meanwhile, so
 differing bytes are refused as for any held copy. Only a bound copy is

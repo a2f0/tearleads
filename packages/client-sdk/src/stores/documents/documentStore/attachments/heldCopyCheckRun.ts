@@ -1,14 +1,13 @@
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import {
   attachmentContentSha256,
+  BlobIntegrityError,
   type BlobStore,
 } from "../../../../workflows/blobs";
 import { requestDocumentStoreSync } from "../../registry";
 import { type DocumentStoreState, setReadySnapshot } from "../state";
 import {
   allowDocumentStoreRemoteSync,
-  captureDocumentStoreGenerationIdentity,
-  isDocumentStoreGenerationIdentityCurrent,
   markDocumentStoreRemoteSyncPending,
 } from "../sync/syncGeneration";
 import type {
@@ -23,6 +22,9 @@ import {
 } from "./heldCopyChecks";
 
 let lastAttempt = 0;
+// The passes still reading for each store, so a host's request also waits on
+// the reads its store's load started.
+const passesByStore = new WeakMap<DocumentStoreState, Set<Promise<void>>>();
 
 /** A host opened the document: check its held copies once it is ready. */
 export async function checkHeldAttachmentCopies(
@@ -33,7 +35,9 @@ export async function checkHeldAttachmentCopies(
   // A store that fails to load reports that to its own readers; a reload
   // runs the requested checks.
   const ready = await ensureReady().catch(() => false);
-  if (ready) await runHeldCopyChecks(state);
+  if (!ready) return;
+  await runHeldCopyChecks(state);
+  await Promise.all([...(passesByStore.get(state) ?? [])]);
 }
 
 /**
@@ -44,13 +48,25 @@ export async function checkHeldAttachmentCopies(
  * document's digest before the copy is held again. Runs only after a host
  * requested checks for this store, and again when the store reloads.
  */
-export async function runHeldCopyChecks(
-  state: DocumentStoreState,
-): Promise<void> {
+export function runHeldCopyChecks(state: DocumentStoreState): Promise<void> {
+  const pass = runHeldCopyCheckPass(state);
+  let passes = passesByStore.get(state);
+  if (!passes) {
+    passes = new Set();
+    passesByStore.set(state, passes);
+  }
+  const running = passes;
+  running.add(pass);
+  const settle = () => running.delete(pass);
+  void pass.then(settle, settle);
+  return pass;
+}
+
+async function runHeldCopyCheckPass(state: DocumentStoreState): Promise<void> {
   const currentDoc = state.doc;
   if (!heldCopyChecksRequested(state) || !currentDoc || state.relinkedElsewhere)
     return;
-  const identity = captureDocumentStoreGenerationIdentity(state);
+  const blobStore = state.runtime.infra.blobStore;
   const uploading = new Set(state.pendingAttachments.map((row) => row.slotId));
   const started = getDocumentAttachments(currentDoc).flatMap(({ slotId }) => {
     const copy = heldCopyOf(state, slotId);
@@ -74,16 +90,19 @@ export async function runHeldCopyChecks(
   });
   let flagged = false;
   for (const [index, { attempt, copy, slotId }] of started.entries()) {
-    const result = await readHeldCopy(identity.blobStore, copy);
-    // A reset or runtime swap retires this pass: its reads settle nothing.
-    if (!isDocumentStoreGenerationIdentityCurrent(state, identity)) {
+    if (state.runtime.infra.blobStore !== blobStore) {
+      // The store reads another blob store now: check the copies it holds.
       for (const retired of started.slice(index))
         dispatchHeldCopyCheck(state, retired.slotId, {
           type: "checkAbandoned",
           attempt: retired.attempt,
         });
-      return;
+      return runHeldCopyCheckPass(state);
     }
+    // A finding is about this file in this blob store, so a reload or an
+    // auth change meanwhile does not void it; it applies only while the slot
+    // still holds this copy.
+    const result = await readHeldCopy(blobStore, copy);
     const settled = dispatchHeldCopyCheck(
       state,
       slotId,
@@ -93,6 +112,8 @@ export async function runHeldCopyChecks(
     );
     if (settled?.status === "unavailable") flagged = true;
   }
+  if (state.runtime.infra.blobStore !== blobStore)
+    return runHeldCopyCheckPass(state);
   if (flagged && !state.relinkedElsewhere) publishUnavailableCopies(state);
 }
 
@@ -105,10 +126,11 @@ async function readHeldCopy(
     if (!source) return "missing";
     const contentSha256 = await attachmentContentSha256(source);
     return contentSha256 === copy.contentSha256 ? "present" : "damaged";
-  } catch {
-    // Only an absent file or differing bytes are evidence. A failed read (a
-    // released database, a locked key) leaves the copy unchecked.
-    return "unreadable";
+  } catch (error) {
+    // A file that fails its own format or authentication is damaged. Any
+    // other failed read (a released database, a locked key) is no evidence
+    // and leaves the copy unchecked.
+    return error instanceof BlobIntegrityError ? "damaged" : "unreadable";
   }
 }
 

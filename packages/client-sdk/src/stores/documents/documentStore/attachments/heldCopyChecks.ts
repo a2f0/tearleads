@@ -104,3 +104,25 @@ export function hydrationBlobIdBySlotId(
   for (const slotId of unavailable) blobIds[slotId] = undefined;
   return blobIds;
 }
+
+/**
+ * The held storage keys hydration protects from bytes the document does not
+ * record. An unavailable copy whose row already differed from the document
+ * intent has nothing left to protect: like an empty slot, it takes its served
+ * binding back, flagged as differing.
+ */
+export function hydrationStorageKeyBySlotId(
+  state: HeldCopySlots,
+  attachments: ReadonlyArray<{ contentSha256: string; slotId: string }>,
+): Readonly<Record<string, string>> {
+  const unavailable = unavailableHeldCopySlotIds(state);
+  const released = attachments.filter(
+    ({ contentSha256, slotId }) =>
+      unavailable.has(slotId) &&
+      state.attachmentContentSha256BySlotId[slotId] !== contentSha256,
+  );
+  if (released.length === 0) return state.attachmentStorageKeyBySlotId;
+  const storageKeys = { ...state.attachmentStorageKeyBySlotId };
+  for (const { slotId } of released) delete storageKeys[slotId];
+  return storageKeys;
+}
