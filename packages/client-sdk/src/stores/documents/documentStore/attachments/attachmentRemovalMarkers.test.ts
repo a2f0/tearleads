@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { SettleAttachmentRemovalMarkerInput } from "../../../../data/persistence/documents/attachmentRecords";
 import type { DocumentStoreState } from "../state";
-import { settleAttachmentRemovalMarker } from "./attachmentRemovalMarkers";
+import { settleStoreAttachmentRemovalMarker } from "./attachmentRemovalMarkers";
 
 test("a settled marker leaves a newer same-slot copy mapped", async () => {
   const settles: string[] = [];
@@ -25,11 +25,12 @@ test("a settled marker leaves a newer same-slot copy mapped", async () => {
   } as unknown as DocumentStoreState;
 
   expect(
-    await settleAttachmentRemovalMarker({
+    await settleStoreAttachmentRemovalMarker({
       doc: null,
       from: { status: "remoteDetached" },
       marker: {
         blobId: "blob-old",
+        recorded: false,
         slotId: "slot-1",
         storageKey: "storage-old",
       },

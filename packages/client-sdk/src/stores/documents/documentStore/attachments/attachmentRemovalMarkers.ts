@@ -24,34 +24,49 @@ import {
 export interface AttachmentRemovalMarkerSlot {
   /** The blob this copy was bound as; null when its upload never bound. */
   blobId: string | null;
+  /** The live document records the slot again; only its row is realigned. */
+  recorded: boolean;
   slotId: string;
   storageKey: string;
 }
 
 /**
- * The slots this store maps to a held copy that `doc` no longer has. Each is
- * a removal marker unless committed history has the slot again, which only
- * the durable settle can tell.
+ * The slots this store maps to a held copy that `doc` no longer has, and the
+ * detached rows of slots `doc` records again (a pull or another pane added
+ * them back before their marker settled). Each is a removal marker unless
+ * committed history has the slot again, which only the durable settle can
+ * tell.
  */
-export function listAttachmentRemovalMarkers(
+export async function listAttachmentRemovalMarkers(
   state: DocumentStoreState,
   doc: DocumentState,
-): AttachmentRemovalMarkerSlot[] {
+): Promise<AttachmentRemovalMarkerSlot[]> {
   const liveSlotIds = new Set(
     getDocumentAttachments(doc).map((attachment) => attachment.slotId),
   );
-  return Object.entries(state.attachmentStorageKeyBySlotId).flatMap(
+  const marker = (slotId: string, storageKey: string, recorded: boolean) => ({
+    blobId: state.attachmentBlobIdBySlotId[slotId] ?? null,
+    recorded,
+    slotId,
+    storageKey,
+  });
+  const removed = Object.entries(state.attachmentStorageKeyBySlotId).flatMap(
     ([slotId, storageKey]) =>
-      liveSlotIds.has(slotId)
-        ? []
-        : [
-            {
-              blobId: state.attachmentBlobIdBySlotId[slotId] ?? null,
-              slotId,
-              storageKey,
-            },
-          ],
+      liveSlotIds.has(slotId) ? [] : [marker(slotId, storageKey, false)],
   );
+  if (liveSlotIds.size === 0) return removed;
+  const rows = await state.persistence.listLocalAttachments(
+    state.runtime.infra.execSql,
+    state.localId,
+  );
+  const recorded = rows.flatMap((row) =>
+    row.detachedAt !== null &&
+    liveSlotIds.has(row.slotId) &&
+    state.attachmentStorageKeyBySlotId[row.slotId] === row.storageKey
+      ? [marker(row.slotId, row.storageKey, true)]
+      : [],
+  );
+  return [...removed, ...recorded];
 }
 
 function installSettledMarker(
@@ -82,7 +97,7 @@ function installSettledMarker(
  * the durable outcome into this store. Null when `stillCurrent` turned false;
  * nothing was written or installed then.
  */
-export async function settleAttachmentRemovalMarker(input: {
+export async function settleStoreAttachmentRemovalMarker(input: {
   doc: DocumentState | null;
   from: OpenAttachmentRemovalMarker;
   marker: AttachmentRemovalMarkerSlot;

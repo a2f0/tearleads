@@ -59,8 +59,10 @@ export function createMemoryAttachmentRemovalMarkerPersistence(input: {
       row.localId === localId && row.slotId === slotId;
     const rows = input.getAttachments();
     const row = rows.find(isSlot) ?? null;
-    if (!request.stillCurrent()) return null;
     const settlement = request.settle({ committed, row });
+    // As in the SQLite adapter: currency is checked after the settle, right
+    // before its writes commit.
+    if (!request.stillCurrent()) return null;
     if (settlement.write === "delete" && row) {
       input.setAttachments(rows.filter((candidate) => candidate !== row));
     }

@@ -6,7 +6,7 @@ import {
 } from "../../../../data/documents/documentContent";
 import type { LocalAttachmentRecord } from "../../../../workflows/documents";
 import { listUnsettledAttachmentMarkers } from "../attachments/attachmentDetachState";
-import { settleAttachmentRemovalMarker } from "../attachments/attachmentRemovalMarkers";
+import { settleStoreAttachmentRemovalMarker } from "../attachments/attachmentRemovalMarkers";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "../pendingUpdateRefusal";
 import {
   advancePendingBaseVersion,
@@ -154,9 +154,10 @@ export async function recoverDroppedAttachmentSlots(
  * back from another pane or a pull before its detach was sent. Each row that
  * disagrees with the loaded document is settled against committed history
  * by the same transition the sync detach pass uses: a removed slot keeps (or
- * regains) its marker, a slot re-added with the same bytes revives the held
- * copy, and one re-added with other bytes drops the earlier copy so the new
- * one downloads like any first download.
+ * regains) its marker, a slot re-added with the same bytes has the held copy
+ * queued to bind again (startup cannot tell whether its detach landed), and
+ * one re-added with other bytes drops the earlier copy so the new one
+ * downloads like any first download.
  */
 export async function healLocalAttachmentDetachState(
   state: DocumentStoreState,
@@ -173,11 +174,11 @@ export async function healLocalAttachmentDetachState(
   const stillCurrent = () =>
     isDocumentStoreSyncGenerationCurrent(state, writeGeneration);
   for (const { blobId, slotId, storageKey } of unsettled) {
-    const settled = await settleAttachmentRemovalMarker({
+    const settled = await settleStoreAttachmentRemovalMarker({
       doc,
-      // No binding list at startup: the marker keeps owing its detach.
-      from: { status: "awaitingDetach" },
-      marker: { blobId, slotId, storageKey },
+      // No binding list at startup: whether a detach landed is unknown.
+      from: { status: "bindingUnknown" },
+      marker: { blobId, recorded: false, slotId, storageKey },
       state,
       stillCurrent,
     });

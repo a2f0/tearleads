@@ -184,6 +184,11 @@ export interface Panes {
   rows: () => Promise<unknown[]>;
   pendingRows: () => Promise<unknown[]>;
   runtime: DocumentsRuntime;
+  /** Rewrite the held row, e.g. as a replace or an earlier session left it. */
+  setRow: (patch: {
+    blobId?: string | null;
+    detachedAt?: string | null;
+  }) => Promise<void>;
   server: Server;
 }
 
@@ -297,6 +302,9 @@ export async function withPanes(
       pendingRows: () => db.select().from(documentPendingAttachments),
       rows: () => db.select().from(documentAttachmentBlobProjection),
       runtime,
+      setRow: async (patch) => {
+        await db.update(documentAttachmentBlobProjection).set(patch).run();
+      },
       server,
     });
   } finally {
@@ -314,7 +322,7 @@ export async function removeAndDetach(pane: DocumentStoreState): Promise<void> {
   await runDetachPass(pane);
 }
 
-async function runDetachPass(pane: DocumentStoreState): Promise<void> {
+export async function runDetachPass(pane: DocumentStoreState): Promise<void> {
   const generation = captureDocumentStoreSyncGeneration(pane, pane.doc);
   if (!generation || !pane.record) throw new Error("Expected sync state");
   await syncDetachedAttachmentBindings(

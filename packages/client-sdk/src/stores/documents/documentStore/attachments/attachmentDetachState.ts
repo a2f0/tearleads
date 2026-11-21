@@ -56,8 +56,9 @@ export function withLocalAttachmentDetachState(
  * the same transition the sync detach pass settles markers with. A write can
  * leave a live row for a slot the document dropped, and another pane or a
  * pull can add a removed slot back: with the same bytes the row is that
- * slot's held copy again, with other bytes it is an unrelated earlier copy
- * that must not stand in for the first download of the new one.
+ * slot's copy again, queued to bind since its detach may have landed, with
+ * other bytes it is an unrelated earlier copy that must not stand in for the
+ * first download of the new one.
  */
 export function listUnsettledAttachmentMarkers(
   attachments: ReadonlyArray<LocalAttachmentRecord>,
@@ -72,7 +73,7 @@ export function listUnsettledAttachmentMarkers(
   return attachments.filter((attachment) => {
     const row = observeAttachmentMarkerRow(attachment, attachment.storageKey);
     const next = transitionAttachmentRemovalMarker(
-      { status: "awaitingDetach" },
+      { status: "bindingUnknown" },
       {
         row,
         slot: observeCommittedAttachmentSlot(committed.get(attachment.slotId)),

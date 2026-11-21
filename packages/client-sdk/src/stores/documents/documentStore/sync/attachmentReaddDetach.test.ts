@@ -11,6 +11,7 @@ import {
   OTHER_BYTES,
   OTHER_STORAGE_KEY,
   removeAndDetach,
+  runDetachPass,
   SLOT_ID,
   STORAGE_KEY,
   withPanes,
@@ -43,9 +44,16 @@ test.each([
 
       expect(panes.server.detached).toEqual([]);
       expect(panes.server.bindings).toEqual([binding(BLOB_ID, BINDING_ID)]);
+      // A pane opened before the list cannot tell whether a detach landed,
+      // so it queues the copy to bind again; its upload replaces the binding.
       expect(await panes.rows()).toMatchObject([
-        { blobId: BLOB_ID, storageKey: STORAGE_KEY, detachedAt: null },
+        {
+          blobId: secondPaneOpens ? null : BLOB_ID,
+          storageKey: STORAGE_KEY,
+          detachedAt: null,
+        },
       ]);
+      expect(await panes.pendingRows()).toHaveLength(secondPaneOpens ? 1 : 0);
       expect(first.attachmentStorageKeyBySlotId[SLOT_ID]).toBe(STORAGE_KEY);
       // The pane caught up with the re-add, so later passes list no marker.
       await first.writeChain;
@@ -185,11 +193,15 @@ test("a staged re-add that rolls back leaves the removal to clean up", async () 
 });
 
 test.each([
-  ["other bytes", OTHER_BYTES],
-  ["the same bytes", BYTES],
+  ["other bytes", OTHER_BYTES, []],
+  [
+    "the same bytes",
+    BYTES,
+    [{ blobId: BLOB_ID, detachedAt: null, storageKey: STORAGE_KEY }],
+  ],
 ])(
   "a re-add another device bound before its content update arrived keeps its binding (%s)",
-  async (_label, bytes) => {
+  async (_label, bytes, settledRows) => {
     await withPanes("readd-bound-first", async (panes) => {
       const first = await panes.open();
       const theirs = binding(OTHER_BLOB_ID, OTHER_BINDING_ID);
@@ -201,19 +213,86 @@ test.each([
 
       expect(panes.server.detached).toEqual([]);
       expect(panes.server.bindings).toEqual([theirs]);
-      // This copy's binding was replaced, so it owes no detach.
-      expect(await panes.rows()).toEqual([]);
-      await reclaimDocumentOrphanBlobs(panes.runtime);
-      expect(await panes.blobStore.readBytes(STORAGE_KEY)).toBeNull();
-      // The content update arrives: the re-add is a first download.
-      await commitPulledReadd(panes.execSql, bytes);
-      await panes.open();
-      expect(await listPendingDownloads(panes.execSql)).toMatchObject([
-        { objectKind: "attachment", slotId: SLOT_ID },
+      // The binding may be a re-add, so the marker waits for a pull.
+      expect(await panes.rows()).toMatchObject([
+        { detachedAt: expect.any(String), storageKey: STORAGE_KEY },
       ]);
+      // The content update arrives before the next pass lists the binding.
+      await commitPulledReadd(panes.execSql, bytes);
+      await runDetachPass(first);
+      expect(panes.server.detached).toEqual([]);
+      expect(panes.server.bindings).toEqual([theirs]);
+      expect(await panes.rows()).toMatchObject(settledRows);
+      if (settledRows.length === 0) {
+        await reclaimDocumentOrphanBlobs(panes.runtime);
+        expect(await panes.blobStore.readBytes(STORAGE_KEY)).toBeNull();
+        expect(await listPendingDownloads(panes.execSql)).toMatchObject([
+          { objectKind: "attachment", slotId: SLOT_ID },
+        ]);
+      }
     });
   },
 );
+
+test.each([
+  ["a replaced copy that never bound", null, BINDING_ID, BLOB_ID],
+  [
+    "a copy whose download the removal overtook",
+    BLOB_ID,
+    OTHER_BINDING_ID,
+    OTHER_BLOB_ID,
+  ],
+])(
+  "a binding of another blob still listed after a pull is detached (%s)",
+  async (_label, rowBlobId, bindingId, blobId) => {
+    await withPanes("readd-orphan-binding", async (panes) => {
+      await panes.setRow({ blobId: rowBlobId });
+      panes.server.bindings = [binding(blobId, bindingId)];
+      const first = await panes.open();
+      await removeAndDetach(first);
+      expect(panes.server.detached).toEqual([]);
+
+      // No content update followed: the binding is the removed slot's.
+      await runDetachPass(first);
+      expect(panes.server.detached).toMatchObject([{ body: { bindingId } }]);
+      expect(panes.server.bindings).toEqual([]);
+      expect(await panes.rows()).toEqual([]);
+      await reclaimDocumentOrphanBlobs(panes.runtime);
+      expect(await panes.blobStore.readBytes(STORAGE_KEY)).toBeNull();
+    });
+  },
+);
+
+test("a restart after a landed detach queues a re-added copy to bind again", async () => {
+  await withPanes("readd-after-restart", async (panes) => {
+    // The detach landed and the app stopped before its settle ran.
+    await panes.setRow({ detachedAt: "2026-11-21T00:00:00.000Z" });
+    panes.server.bindings = [];
+    await commitPulledReadd(panes.execSql, BYTES);
+
+    const reopened = await panes.open();
+    expect(await panes.rows()).toMatchObject([
+      { blobId: null, detachedAt: null, storageKey: STORAGE_KEY },
+    ]);
+    expect(reopened.pendingAttachments).toMatchObject([
+      { slotId: SLOT_ID, storageKey: STORAGE_KEY },
+    ]);
+  });
+});
+
+test("a detached row of a slot the live document records is realigned, never detached", async () => {
+  await withPanes("readd-recorded-marker", async (panes) => {
+    const first = await panes.open();
+    // A pull merged the re-add into the live document before a pass settled.
+    await panes.setRow({ detachedAt: "2026-11-21T00:00:00.000Z" });
+    await runDetachPass(first);
+
+    expect(panes.server.detached).toEqual([]);
+    expect(await panes.rows()).toMatchObject([
+      { blobId: BLOB_ID, detachedAt: null, storageKey: STORAGE_KEY },
+    ]);
+  });
+});
 
 test("a settle refused before commit writes nothing", async () => {
   await withPanes("readd-settle-refused", async (panes) => {

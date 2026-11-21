@@ -26,6 +26,22 @@ export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A detach pass must detach only its own copy's binding: another device binds its re-add before the content update that records it arrives, and detaching that binding leaves the re-add unbound.",
   },
   {
+    id: "readd-sighted-binding-kept",
+    module: "formal/blob-attachments/AttachmentReaddReconcile.tla",
+    config: "formal/blob-attachments/AttachmentReaddReconcile.cfg",
+    constants: { DetachSighted: "FALSE" },
+    expect: { kind: "liveness", name: "RemovalEventuallyCleaned" },
+    why: "A binding of another blob still listed after a pull belongs to the removed slot (the copy a replace superseded, or a download the removal overtook) and must be detached, or the removal leaks it.",
+  },
+  {
+    id: "readd-restart-revives-unbound",
+    module: "formal/blob-attachments/AttachmentReaddReconcile.tla",
+    config: "formal/blob-attachments/AttachmentReaddReconcile.cfg",
+    constants: { RestartRebinds: "FALSE" },
+    expect: { kind: "liveness", name: "ReaddedCopyEventuallyBound" },
+    why: "Startup cannot tell whether a detach landed before it stopped, so a same copy committed again must be queued to bind, never revived as held.",
+  },
+  {
     id: "readd-during-detach-dropped",
     module: "formal/blob-attachments/AttachmentReaddReconcile.tla",
     config: "formal/blob-attachments/AttachmentReaddReconcile.cfg",

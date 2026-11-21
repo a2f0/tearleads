@@ -67,7 +67,7 @@ test("a dropped marker deletes its row and a superseded one writes nothing", () 
   const detached = { ...heldRow, detachedAt: NOW };
   expect(
     planAttachmentRemovalMarkerSettlement({
-      from: { status: "bindingReplaced" },
+      from: { status: "remoteDetached" },
       now: NOW,
       observed: { committed: undefined, row: detached },
       storageKey: heldRow.storageKey,

@@ -21,8 +21,9 @@ const committedPhoto = {
 };
 const rows = {
   absent: { kind: "absent" },
-  detached: { contentSha256: SAME, kind: "detached" },
-  live: { contentSha256: SAME, kind: "live" },
+  detached: { bound: true, contentSha256: SAME, kind: "detached" },
+  live: { bound: true, contentSha256: SAME, kind: "live" },
+  unbound: { bound: false, contentSha256: SAME, kind: "detached" },
 } satisfies Record<string, AttachmentMarkerRow>;
 const slots = {
   other: { ...committedPhoto, contentSha256: OTHER, kind: "present" },
@@ -48,6 +49,7 @@ describe("committed history settles an open marker", () => {
     ["awaitingDetach", "live", "removed", "awaitingDetach", "markDetached"],
     ["awaitingDetach", "detached", "same", "held", "revive"],
     ["awaitingDetach", "live", "same", "held", "none"],
+    ["awaitingDetach", "unbound", "same", "rebinding", "requeueUpload"],
     ["awaitingDetach", "detached", "other", "dropped", "delete"],
     ["awaitingDetach", "live", "other", "held", "none"],
     ["remoteDetached", "detached", "removed", "dropped", "delete"],
@@ -56,12 +58,19 @@ describe("committed history settles an open marker", () => {
     ["remoteDetached", "live", "same", "rebinding", "requeueUpload"],
     ["remoteDetached", "detached", "other", "dropped", "delete"],
     ["remoteDetached", "live", "other", "held", "none"],
-    ["bindingReplaced", "detached", "removed", "dropped", "delete"],
-    ["bindingReplaced", "live", "removed", "dropped", "delete"],
+    ["bindingReplaced", "detached", "removed", "bindingReplaced", "none"],
+    ["bindingReplaced", "live", "removed", "bindingReplaced", "markDetached"],
     ["bindingReplaced", "detached", "same", "held", "revive"],
     ["bindingReplaced", "live", "same", "held", "none"],
+    ["bindingReplaced", "unbound", "same", "rebinding", "requeueUpload"],
     ["bindingReplaced", "detached", "other", "dropped", "delete"],
     ["bindingReplaced", "live", "other", "held", "none"],
+    ["bindingUnknown", "detached", "removed", "bindingUnknown", "none"],
+    ["bindingUnknown", "live", "removed", "bindingUnknown", "markDetached"],
+    ["bindingUnknown", "detached", "same", "rebinding", "requeueUpload"],
+    ["bindingUnknown", "live", "same", "held", "none"],
+    ["bindingUnknown", "detached", "other", "dropped", "delete"],
+    ["bindingUnknown", "live", "other", "held", "none"],
     ["awaitingDetach", "absent", "removed", "superseded", "none"],
     ["bindingReplaced", "absent", "same", "superseded", "none"],
     ["remoteDetached", "absent", "other", "superseded", "none"],
@@ -97,7 +106,11 @@ test("a landed detach moves only an awaiting marker", () => {
       { type: "remoteDetachSettled" },
     ),
   ).toEqual({ status: "remoteDetached" });
-  for (const status of ["remoteDetached", "bindingReplaced"] as const) {
+  for (const status of [
+    "remoteDetached",
+    "bindingReplaced",
+    "bindingUnknown",
+  ] as const) {
     expect(
       transitionAttachmentRemovalMarker(
         { status },
@@ -129,30 +142,47 @@ test.each([
   },
 );
 
-test("only the binding of the marker's own blob is its to detach", () => {
+test("a binding of another blob is the marker's once it outlives a pull", () => {
+  const own = { bindingId: "binding-a", blobId: "blob-a" };
+  const other = { bindingId: "binding-b", blobId: "blob-b" };
   expect(observeMarkerBinding(undefined, "blob-a")).toEqual({
     status: "remoteDetached",
   });
-  expect(observeMarkerBinding({ blobId: "blob-a" }, "blob-a")).toEqual({
+  expect(observeMarkerBinding(own, "blob-a")).toEqual({
     status: "awaitingDetach",
   });
-  // Another writer's re-add, bound before its content update arrives here.
-  expect(observeMarkerBinding({ blobId: "blob-b" }, "blob-a")).toEqual({
+  // Possibly another writer's re-add, bound before its content update.
+  expect(observeMarkerBinding(other, "blob-a")).toEqual({
     status: "bindingReplaced",
   });
-  // A copy whose upload never bound owns no binding.
-  expect(observeMarkerBinding({ blobId: "blob-b" }, null)).toEqual({
+  expect(observeMarkerBinding(other, null)).toEqual({
+    status: "bindingReplaced",
+  });
+  // Still listed after a later pull: the copy this one replaced, or a
+  // download the removal overtook.
+  expect(observeMarkerBinding(other, null, "binding-b")).toEqual({
+    status: "awaitingDetach",
+  });
+  expect(observeMarkerBinding(other, "blob-a", "binding-c")).toEqual({
     status: "bindingReplaced",
   });
 });
 
 test("observations name the marker's own copy only", () => {
-  const row = { contentSha256: SAME, detachedAt: "t", storageKey: "key" };
+  const row = {
+    blobId: "blob-a",
+    contentSha256: SAME,
+    detachedAt: "t",
+    storageKey: "key",
+  };
   expect(observeAttachmentMarkerRow(row, "key")).toEqual(rows.detached);
   expect(
     observeAttachmentMarkerRow({ ...row, detachedAt: null }, "key"),
   ).toEqual(rows.live);
   // Another writer refilled the slot under a new key.
+  expect(observeAttachmentMarkerRow({ ...row, blobId: null }, "key")).toEqual(
+    rows.unbound,
+  );
   expect(observeAttachmentMarkerRow(row, "other-key")).toEqual(rows.absent);
   expect(observeAttachmentMarkerRow(null, "key")).toEqual(rows.absent);
   expect(observeCommittedAttachmentSlot(undefined)).toEqual(slots.removed);

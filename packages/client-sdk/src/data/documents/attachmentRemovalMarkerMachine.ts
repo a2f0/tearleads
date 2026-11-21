@@ -1,42 +1,47 @@
 /**
  * A local attachment row marked detached is a removal marker: this device
  * removed the slot from a synced document and still owes the server a detach
- * of the binding of the copy it removed. Another pane, or another device
- * through a pull, can add the slot back before that detach is sent or while
- * it is in flight, and the local storage key can stay the same throughout.
- * Another device binds its re-add before it sends the content update that
- * records it, so a binding of other blob can be listed while committed
- * history still lacks the slot: that binding is theirs, never this marker's
- * to detach. Committed document history decides what the marker becomes,
- * never an in-memory document that may hold a staged edit that later rolls
- * back. Startup and the sync detach pass settle a marker through this one
- * transition, so they cannot disagree.
+ * of the slot's binding. Another pane, or another device through a pull, can
+ * add the slot back before that detach is sent or while it is in flight, and
+ * the local storage key can stay the same throughout. Committed document
+ * history decides what the marker becomes, never an in-memory document that
+ * may hold a staged edit that later rolls back. Startup and the sync detach
+ * pass settle a marker through this one transition, so they cannot disagree.
  *
- * | From            | Row              | Committed slot | To             |
- * | --------------- | ---------------- | -------------- | -------------- |
- * | awaitingDetach  | detached or live | removed        | awaitingDetach |
- * | awaitingDetach  | detached or live | same copy      | held           |
- * | remoteDetached  | detached or live | removed        | dropped        |
- * | remoteDetached  | detached or live | same copy      | rebinding      |
- * | bindingReplaced | detached or live | removed        | dropped        |
- * | bindingReplaced | detached or live | same copy      | held           |
- * | any open        | detached         | other copy     | dropped        |
- * | any open        | live             | other copy     | held           |
- * | any open        | absent           | any            | superseded     |
+ * | From            | Row              | Committed slot | To              |
+ * | --------------- | ---------------- | -------------- | --------------- |
+ * | awaitingDetach  | detached or live | removed        | awaitingDetach  |
+ * | bindingReplaced | detached or live | removed        | bindingReplaced |
+ * | bindingUnknown  | detached or live | removed        | bindingUnknown  |
+ * | remoteDetached  | detached or live | removed        | dropped         |
+ * | remoteDetached  | detached or live | same copy      | rebinding       |
+ * | bindingUnknown  | detached         | same copy      | rebinding       |
+ * | any open        | detached unbound | same copy      | rebinding       |
+ * | any other open  | detached or live | same copy      | held            |
+ * | any open        | detached         | other copy     | dropped         |
+ * | any open        | live             | other copy     | held            |
+ * | any open        | absent           | any            | superseded      |
  *
- * The open state comes from the binding list (`observeMarkerBinding`), and
- * `remoteDetachSettled` moves `awaitingDetach` to `remoteDetached` once this
- * device's signed detach lands. A same copy re-added after that needs its
- * bytes uploaded again, since the binding it relied on is gone. The terminal
- * states ignore every event.
+ * The open state comes from a fresh binding list (`observeMarkerBinding`), or
+ * is `bindingUnknown` at startup, before any list. `remoteDetachSettled`
+ * moves `awaitingDetach` to `remoteDetached` once this device's signed detach
+ * lands. A same copy re-added once its binding may be gone has its bytes
+ * uploaded again: that is harmless when a binding remains, and the only way
+ * back when none does. The terminal states ignore every event.
  */
 export type AttachmentRemovalMarker =
-  /** The committed document lacks the slot; this copy's binding may be active. */
+  /** The committed document lacks the slot; the listed binding is the marker's. */
   | { readonly status: "awaitingDetach" }
   /** No binding remains for the slot. */
   | { readonly status: "remoteDetached" }
-  /** Another blob's binding replaced this copy's; there is nothing to detach. */
+  /**
+   * A binding of another blob is listed and not yet the marker's: another
+   * writer's re-add, bound before the content update that records it, until
+   * a later pull shows the slot still removed.
+   */
   | { readonly status: "bindingReplaced" }
+  /** No binding list has been read yet. */
+  | { readonly status: "bindingUnknown" }
   /** The row is the held copy of a slot the document has again. */
   | { readonly status: "held" }
   /** The held copy is queued to upload and bind its re-added slot again. */
@@ -56,8 +61,12 @@ export type AttachmentRemovalMarker =
  */
 export type AttachmentMarkerRow =
   | { readonly kind: "absent" }
-  | { readonly kind: "detached"; readonly contentSha256: string }
-  | { readonly kind: "live"; readonly contentSha256: string };
+  | {
+      readonly kind: "detached" | "live";
+      /** False when the copy's upload never bound. */
+      readonly bound: boolean;
+      readonly contentSha256: string;
+    };
 
 /** The marker's slot as committed document history records it. */
 export type CommittedAttachmentSlot =
@@ -92,7 +101,13 @@ export type AttachmentMarkerRowEffect =
 /** A marker that still owes a settle against committed history. */
 export type OpenAttachmentRemovalMarker = Extract<
   AttachmentRemovalMarker,
-  { status: "awaitingDetach" | "bindingReplaced" | "remoteDetached" }
+  {
+    status:
+      | "awaitingDetach"
+      | "bindingReplaced"
+      | "bindingUnknown"
+      | "remoteDetached";
+  }
 >;
 
 export function isOpenAttachmentRemovalMarker(
@@ -101,6 +116,7 @@ export function isOpenAttachmentRemovalMarker(
   return (
     state.status === "awaitingDetach" ||
     state.status === "bindingReplaced" ||
+    state.status === "bindingUnknown" ||
     state.status === "remoteDetached"
   );
 }
@@ -108,15 +124,22 @@ export function isOpenAttachmentRemovalMarker(
 function settleRemovedSlot(
   state: OpenAttachmentRemovalMarker,
 ): AttachmentRemovalMarker {
-  return state.status === "awaitingDetach" ? state : { status: "dropped" };
+  return state.status === "remoteDetached" ? { status: "dropped" } : state;
 }
 
 function settleSameCopy(
   state: OpenAttachmentRemovalMarker,
+  row: Extract<AttachmentMarkerRow, { kind: "detached" | "live" }>,
   slot: Extract<CommittedAttachmentSlot, { kind: "present" }>,
 ): AttachmentRemovalMarker {
-  // Only a slot left with no binding at all needs these bytes bound again.
-  return state.status === "remoteDetached"
+  // Bind these bytes again unless a binding of them is known to remain: the
+  // detach landed, the copy never bound and lost its upload at removal, or
+  // startup cannot tell whether a detach landed before it stopped.
+  const rebind =
+    state.status === "remoteDetached" ||
+    (row.kind === "detached" &&
+      (!row.bound || state.status === "bindingUnknown"));
+  return rebind
     ? { mimeType: slot.mimeType, name: slot.name, status: "rebinding" }
     : { status: "held" };
 }
@@ -129,7 +152,7 @@ function checkCommittedSlot(
   if (row.kind === "absent") return { status: "superseded" };
   if (slot.kind === "removed") return settleRemovedSlot(state);
   if (slot.contentSha256 === row.contentSha256) {
-    return settleSameCopy(state, slot);
+    return settleSameCopy(state, row, slot);
   }
   // Other bytes fill the slot. A copy this device removed is unrelated to
   // them; a live row is a served copy the content has not recorded yet.
@@ -153,14 +176,23 @@ export function transitionAttachmentRemovalMarker(
 
 /**
  * The open state a fresh binding list gives a marker whose copy was bound to
- * `markerBlobId` (null when its upload never bound).
+ * `markerBlobId` (null when its upload never bound). A binding of another
+ * blob is the marker's only once a pull has completed since it was first
+ * listed with the slot still removed (`replacedBindingId`): another writer's
+ * re-add sends the content update that records the slot right after its
+ * bind, so a pull after the listing would have brought it. Until then the
+ * binding may be that re-add, and detaching it would leave the slot unbound.
  */
 export function observeMarkerBinding(
-  activeBinding: { readonly blobId: string } | undefined,
+  activeBinding:
+    | { readonly bindingId: string; readonly blobId: string }
+    | undefined,
   markerBlobId: string | null,
+  replacedBindingId?: string,
 ): OpenAttachmentRemovalMarker {
   if (!activeBinding) return { status: "remoteDetached" };
-  return activeBinding.blobId === markerBlobId
+  return activeBinding.blobId === markerBlobId ||
+    activeBinding.bindingId === replacedBindingId
     ? { status: "awaitingDetach" }
     : { status: "bindingReplaced" };
 }
@@ -168,6 +200,7 @@ export function observeMarkerBinding(
 /** Observe a slot's row against the copy a marker names by storage key. */
 export function observeAttachmentMarkerRow(
   row: {
+    readonly blobId: string | null;
     readonly contentSha256: string;
     readonly detachedAt: string | null;
     readonly storageKey: string;
@@ -175,9 +208,11 @@ export function observeAttachmentMarkerRow(
   storageKey: string,
 ): AttachmentMarkerRow {
   if (!row || row.storageKey !== storageKey) return { kind: "absent" };
-  return row.detachedAt === null
-    ? { contentSha256: row.contentSha256, kind: "live" }
-    : { contentSha256: row.contentSha256, kind: "detached" };
+  return {
+    bound: row.blobId !== null,
+    contentSha256: row.contentSha256,
+    kind: row.detachedAt === null ? "live" : "detached",
+  };
 }
 
 export function observeCommittedAttachmentSlot(
@@ -207,6 +242,7 @@ export function attachmentMarkerRowEffect(
   switch (next.status) {
     case "awaitingDetach":
     case "bindingReplaced":
+    case "bindingUnknown":
     case "remoteDetached":
       return { kind: row.kind === "live" ? "markDetached" : "none" };
     case "held":

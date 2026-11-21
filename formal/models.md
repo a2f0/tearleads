@@ -456,13 +456,14 @@ current store's detach pass sees, before and after a restart. See the
 ### Attachment Re-add Reconciliation
 
 [`blob-attachments/AttachmentReaddReconcile.tla`](./blob-attachments/AttachmentReaddReconcile.tla)
-models a removed slot coming back around the detach of its old binding:
-another device binding its re-add before the content update that records it,
-a merge recording the slot again, and a staged re-add that rolls back. The
-marker detaches only its own copy's binding and settles against committed
-history before the detach and again after it lands, so a re-add keeps or
-regains a binding and its bytes, other bytes free the slot's first download,
-and a removal that stands is cleaned up. See the
+models a removed slot coming back around the detach of its binding: another
+device binding its re-add before the content update that records it, a merge
+recording the slot again, a staged re-add that rolls back, and a restart. The
+marker detaches its own copy's binding, or another blob's once a pull shows
+the slot still removed, and settles against committed history before the
+detach and again after it lands, so a re-add keeps or regains a binding and
+its bytes, other bytes free the slot's first download, and a removal that
+stands is cleaned up whichever copy it binds. See the
 [mapping and boundaries](./blob-attachments/AttachmentReaddReconcile.md).
 
 ### Stage Promotion and Server Reclamation

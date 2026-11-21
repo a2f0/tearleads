@@ -18,7 +18,7 @@ import { requestDocumentStoreSync } from "../../registry";
 import {
   type AttachmentRemovalMarkerSlot,
   listAttachmentRemovalMarkers,
-  settleAttachmentRemovalMarker,
+  settleStoreAttachmentRemovalMarker,
 } from "../attachments/attachmentRemovalMarkers";
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
 import { chainQueuedWrite } from "../localWriteQueue";
@@ -28,6 +28,7 @@ import type {
   DocumentStoreState,
 } from "../state";
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
+import { beginDetachPassSightings } from "./replacedBindingSightings";
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
@@ -45,7 +46,9 @@ import { documentSyncContextMatches } from "./syncUpdateImport";
  * back) says whether it did. A re-added slot keeps its binding and held copy,
  * one re-added with other bytes frees its first download, and one re-added
  * while its binding was being detached has its held bytes queued to upload
- * and bind again. A binding of another blob is never detached.
+ * and bind again. A binding of another blob may be another writer's re-add,
+ * bound before the content update that records it arrives here, so it is
+ * detached only once a later pass, after another pull, still lists it.
  */
 export async function syncDetachedAttachmentBindings(
   state: DocumentStoreState,
@@ -61,53 +64,95 @@ export async function syncDetachedAttachmentBindings(
     return;
   }
 
-  const markers = listAttachmentRemovalMarkers(state, currentDoc);
-  if (markers.length === 0) {
+  const markers = await listAttachmentRemovalMarkers(state, currentDoc);
+  if (
+    markers.length === 0 ||
+    !detachedSyncContextIsCurrent(state, generation, nextRecord)
+  ) {
     return;
   }
 
   const contextIsCurrent = () =>
     detachedSyncContextIsCurrent(state, generation, nextRecord);
-  const remoteDocumentId = nextRecord.documentId;
-  let activeBindingBySlotId = new Map<string, DocumentAttachmentBinding>();
-  // A document that never synced has no bindings to list.
-  if (remoteDocumentId) {
-    // Fresh, not cached: whether a re-added slot still has a binding decides
-    // between keeping its copy and uploading it again.
-    const remoteBindings =
-      await state.runtime.apiClient.listDocumentAttachments(remoteDocumentId, {
-        refresh: true,
-      });
-    if (!remoteBindings || !contextIsCurrent()) {
-      return;
-    }
-    activeBindingBySlotId = new Map(
-      remoteBindings.map((binding) => [binding.slotId, binding]),
-    );
-  }
+  const activeBindingBySlotId = await listActiveBindings(
+    state,
+    nextRecord.documentId,
+    contextIsCurrent,
+  );
+  if (!activeBindingBySlotId) return;
 
+  const { readdedSlotIds, rebinding } = await settleDetachMarkers({
+    activeBindingBySlotId,
+    contextIsCurrent,
+    currentDoc,
+    generation,
+    markers,
+    policyOperation,
+    requestRecord: nextRecord,
+    state,
+  });
+  if (readdedSlotIds.length > 0) {
+    void catchUpReaddedAttachments(state, readdedSlotIds, rebinding);
+  }
+}
+
+/** Settle each marker in turn, stopping at the first that cannot finish. */
+async function settleDetachMarkers(
+  input: Omit<
+    Parameters<typeof settleDetachedAttachmentMarker>[0],
+    "binding" | "marker" | "replacedBindingId"
+  > & {
+    activeBindingBySlotId: ReadonlyMap<string, DocumentAttachmentBinding>;
+    markers: readonly AttachmentRemovalMarkerSlot[];
+  },
+): Promise<{ readdedSlotIds: string[]; rebinding: boolean }> {
+  const { activeBindingBySlotId, markers, ...context } = input;
+  const sightings = beginDetachPassSightings(
+    context.state,
+    context.requestRecord.documentId ?? "",
+  );
   const readdedSlotIds: string[] = [];
   let rebinding = false;
   for (const marker of markers) {
+    const binding = activeBindingBySlotId.get(marker.slotId);
     const settled = await settleDetachedAttachmentMarker({
-      binding: activeBindingBySlotId.get(marker.slotId),
-      contextIsCurrent,
-      currentDoc,
-      generation,
+      ...context,
+      binding,
       marker,
-      policyOperation,
-      requestRecord: nextRecord,
-      state,
+      replacedBindingId: sightings.confirmed(marker.slotId),
     });
     if (!settled) break;
+    if (settled.status === "bindingReplaced" && binding) {
+      sightings.sight(marker.slotId, binding.bindingId);
+    } else {
+      sightings.forget(marker.slotId);
+    }
     if (settled.status === "held" || settled.status === "rebinding") {
       readdedSlotIds.push(marker.slotId);
     }
     rebinding ||= settled.status === "rebinding";
   }
-  if (readdedSlotIds.length > 0) {
-    void catchUpReaddedAttachments(state, readdedSlotIds, rebinding);
-  }
+  return { readdedSlotIds, rebinding };
+}
+
+/**
+ * The slot bindings the server lists for the document, fresh rather than
+ * cached: whether a re-added slot still has a binding decides between keeping
+ * its copy and uploading it again. A document that never synced has none.
+ * Null when the listing failed or the pass went stale.
+ */
+async function listActiveBindings(
+  state: DocumentStoreState,
+  remoteDocumentId: string | null | undefined,
+  contextIsCurrent: () => boolean,
+): Promise<Map<string, DocumentAttachmentBinding> | null> {
+  if (!remoteDocumentId) return new Map();
+  const remoteBindings = await state.runtime.apiClient.listDocumentAttachments(
+    remoteDocumentId,
+    { refresh: true },
+  );
+  if (!remoteBindings || !contextIsCurrent()) return null;
+  return new Map(remoteBindings.map((binding) => [binding.slotId, binding]));
 }
 
 /**
@@ -122,23 +167,25 @@ async function settleDetachedAttachmentMarker(input: {
   generation: DocumentStoreSyncGeneration;
   marker: AttachmentRemovalMarkerSlot;
   policyOperation: PrincipalPolicyOperation;
+  replacedBindingId: string | undefined;
   requestRecord: DocumentRecord;
   state: DocumentStoreState;
 }): Promise<AttachmentRemovalMarker | null> {
   const { binding, marker, requestRecord, state } = input;
   const settle = (from: OpenAttachmentRemovalMarker) =>
-    settleAttachmentRemovalMarker({
+    settleStoreAttachmentRemovalMarker({
       doc: input.currentDoc,
       from,
       marker,
       state,
       stillCurrent: input.contextIsCurrent,
     });
-  // Only the binding of the copy this device removed is its to detach: a
-  // binding of another blob is another writer's re-add, listed before the
-  // content update that records it arrives here.
-  const settled = await settle(observeMarkerBinding(binding, marker.blobId));
-  if (settled?.status !== "awaitingDetach") return settled;
+  const settled = await settle(
+    observeMarkerBinding(binding, marker.blobId, input.replacedBindingId),
+  );
+  // A slot the live document records is only realigned, never detached: a
+  // staged re-add may yet commit.
+  if (settled?.status !== "awaitingDetach" || marker.recorded) return settled;
   if (
     !binding ||
     !requestRecord.documentId ||
