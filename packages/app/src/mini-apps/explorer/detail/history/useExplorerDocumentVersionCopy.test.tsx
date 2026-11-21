@@ -105,7 +105,7 @@ test("a version is saved into the folder its document is in and listed there", a
   const hook = mount(await createReadySelfIdentity(), links);
   const document = identityDocument({ containerId: "linked-folder" });
 
-  expect(hook.copy().canSave(document, "note")).toBe(true);
+  expect(hook.copy().canSave(document, NOTE)).toBe(true);
   const copy = await hook.copy().save(document, NOTE);
 
   expect(links.opened).toHaveLength(1);
@@ -139,30 +139,99 @@ test("nothing is created where the folder does not take the version", async () =
     identityDocument({ containerId: "not-in-the-tree" }),
     identityDocument({ containerId: null }),
   ]) {
-    expect(hook.copy().canSave(document, "note")).toBe(false);
+    expect(hook.copy().canSave(document, NOTE)).toBe(false);
     expect(await hook.copy().save(document, NOTE)).toBeNull();
   }
   expect(links.opened).toHaveLength(0);
   expect(hook.merged).toHaveLength(0);
 });
 
+const READ_ONLY_FOLDER = selfIdentityNodes.map((node) =>
+  node.id === "linked-folder"
+    ? { ...node, effectiveAccessLevel: "read" as const }
+    : node,
+);
+
 test("the folder is asked again when the copy is confirmed", async () => {
   const links = documentLinks();
   const hook = mount(await createReadySelfIdentity(), links);
   const document = identityDocument({ containerId: "linked-folder" });
-  expect(hook.copy().canSave(document, "note")).toBe(true);
+  expect(hook.copy().canSave(document, NOTE)).toBe(true);
+  // The confirmation holds the capability it was opened with.
+  const offered = hook.copy();
 
-  // The folder loses write access after the button was offered.
-  hook.update({
-    nodes: selfIdentityNodes.map((node) =>
-      node.id === "linked-folder"
-        ? { ...node, effectiveAccessLevel: "read" as const }
-        : node,
-    ),
+  // The folder loses write access while the confirmation is open.
+  hook.update({ nodes: READ_ONLY_FOLDER });
+
+  expect(await offered.save(document, NOTE)).toBeNull();
+  expect(links.opened).toHaveLength(0);
+});
+
+test("a contact version asks the folder after waiting for the Me read", async () => {
+  const links = documentLinks();
+  let finishRead: () => void = () => undefined;
+  const read = new Promise<void>((resolve) => {
+    finishRead = resolve;
+  });
+  const ready = await createReadySelfIdentity();
+  const identity: SelfContactIdentityView = {
+    ...ready,
+    // A Me read is pending: the work runs once it has finished.
+    runWhenCurrent: async (work) => {
+      await read;
+      return work();
+    },
+  };
+  const hook = mount(identity, links);
+  const contact = identityDocument({
+    containerId: "linked-folder",
+    documentKind: "contact",
+  });
+  expect(hook.copy().canSave(contact, CONTACT)).toBe(true);
+
+  const pending = hook.copy().save(contact, CONTACT);
+  // The folder loses write access during the wait.
+  hook.update({ identity, nodes: READ_ONLY_FOLDER });
+  finishRead();
+
+  expect(await pending).toBeNull();
+  expect(links.opened).toHaveLength(0);
+});
+
+test("a contact version that says it is the viewer is never created", async () => {
+  const links = documentLinks();
+  const hook = mount(await createReadySelfIdentity(), links);
+  // Not Me: the viewer's own roster profile, or a contact left from another
+  // identity, in a folder that takes contacts.
+  const contact = identityDocument({
+    containerId: "contacts",
+    documentKind: "contact",
   });
 
-  expect(await hook.copy().save(document, NOTE)).toBeNull();
+  for (const isSelf of ["1", "true", " TRUE "]) {
+    const content = {
+      ...CONTACT,
+      structuredFields: { ...CONTACT.structuredFields, isSelf },
+    };
+    expect(hook.copy().canSave(contact, content)).toBe(false);
+    expect(await hook.copy().save(contact, content)).toBeNull();
+  }
   expect(links.opened).toHaveLength(0);
+
+  // A contact that says it is someone else is copied as usual.
+  const other = {
+    ...CONTACT,
+    structuredFields: { ...CONTACT.structuredFields, isSelf: "0" },
+  };
+  expect(hook.copy().canSave(contact, other)).toBe(true);
+  expect(await hook.copy().save(contact, other)).not.toBeNull();
+  // The field means nothing on a note.
+  const note = { ...NOTE, structuredFields: { isSelf: "1" } };
+  expect(
+    hook
+      .copy()
+      .canSave(identityDocument({ containerId: "linked-folder" }), note),
+  ).toBe(true);
 });
 
 test("a contact version of Me is never created", async () => {
@@ -176,7 +245,7 @@ test("a contact version of Me is never created", async () => {
     id: identity.identity.localId,
   });
 
-  expect(hook.copy().canSave(me, "contact")).toBe(false);
+  expect(hook.copy().canSave(me, CONTACT)).toBe(false);
   expect(await hook.copy().save(me, CONTACT)).toBeNull();
   expect(links.opened).toHaveLength(0);
 });

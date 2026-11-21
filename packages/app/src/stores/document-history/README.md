@@ -105,11 +105,19 @@ copy does not need it to be writable and is offered on the newest stop too.
   the Me read and is created under its admission, as a move or a purge is.
   Other kinds do not wait: the kind is the version's, so a Me alias that lists
   as a note is still refused once its version is a contact.
-- **The folder is asked again when the copy is confirmed.** It may have been
-  trashed or lost write access while the confirmation was open. If the copy
-  stops being offered while the confirmation is open, the confirmation closes
-  and says the version could not be saved.
+- **Nor is a contact version that says it is the viewer.** Contacts that are
+  not Me can carry `isSelf` too, such as the viewer's own roster profile or a
+  contact left from another identity. Contacts would label a copy "You", so a
+  contact version whose `isSelf` field is set is refused whatever document it
+  comes from.
+- **The folder is asked again when the copy is created.** The rules are read
+  then, not when the copy was offered: the folder may have been trashed or
+  lost write access while the confirmation was open or while a contact
+  version waited for the Me read. If the copy stops being offered while the
+  confirmation is open, the confirmation closes and says the version could
+  not be saved.
 - **A copy in flight outlives the timeline.** Its state is held above the
-  timeline's actions, which unmount as stops replay and as History reloads.
-  Once confirmed, the copy's document exists, so its outcome is reported on
-  whichever stop is selected when it finishes.
+  timeline's actions, which unmount as History reloads. Once confirmed, the
+  copy's document exists, so its outcome is reported on whichever stop is
+  shown when it finishes, or on the next one shown if none is. A
+  confirmation or an outcome raised on one stop goes when another is shown.

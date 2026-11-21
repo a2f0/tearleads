@@ -108,23 +108,24 @@ export function DocumentHistoryCopy(params: {
     params;
   const { view } = params;
   const { send, state } = control;
-  // `index` is the trigger: an outcome or a pending confirmation belongs to
-  // the stop it was raised on.
-  const shownIndex = useRef(index);
+  // Tell the machine which stop this shows, and when it stops showing one
+  // (the timeline unmounts while History reloads): it drops what was raised
+  // on another stop, and holds an outcome that arrives with no stop on screen
+  // for the next one shown.
   useEffect(() => {
-    if (shownIndex.current === index) return;
-    shownIndex.current = index;
-    send({ type: "stop-changed" });
+    send({ index, type: "stop-shown" });
+    return () => send({ index: null, type: "stop-shown" });
   }, [index, send]);
 
-  const offered =
-    view !== null && copy.canSave(documentSummary, view.documentKind);
+  const offered = view !== null && copy.canSave(documentSummary, view);
   // The folder was trashed or lost write access, or Me stopped being known,
   // while the confirmation was open: refuse it where the user can see why,
-  // rather than drop the dialog and bring it back if the offer returns.
+  // rather than drop the dialog and bring it back if the offer returns. A
+  // stop that is only replaying has withdrawn nothing.
+  const withdrawn = view !== null && !offered;
   useEffect(() => {
-    if (!offered) send({ type: "withdrawn" });
-  }, [offered, send]);
+    if (withdrawn) send({ type: "withdrawn" });
+  }, [withdrawn, send]);
 
   const inFlight = state.status === "saving";
   // A copy that was saved stays reachable even if the folder stops taking
@@ -167,7 +168,10 @@ export function DocumentHistoryCopy(params: {
           {EXPLORER_LABELS.documentHistoryCopyRefused}
         </MiniAppStatus>
       ) : null}
-      {state.status === "confirming" && offered && view !== null ? (
+      {state.status === "confirming" &&
+      state.index === index &&
+      offered &&
+      view !== null ? (
         <DocumentHistoryConfirmation
           cancelLabel={EXPLORER_LABELS.documentHistoryCopyCancel}
           confirmLabel={EXPLORER_LABELS.documentHistoryCopyConfirm}

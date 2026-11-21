@@ -54,8 +54,8 @@ function versionCopy() {
   const opened: DocumentSummary[] = [];
   const state = { offered: true };
   const copy: ExplorerDocumentVersionCopy = {
-    canSave: (document, documentKind) => {
-      asked.push({ document, documentKind });
+    canSave: (document, content) => {
+      asked.push({ document, documentKind: content.documentKind });
       return state.offered;
     },
     open: (saved) => {
@@ -332,9 +332,60 @@ test("a copy in flight still reports after History reloads", async () => {
   // The timeline unmounts while History reloads, and the copy finishes.
   view.update({ timeline: false });
   await act(async () => capability.saves[0]?.settle(COPY));
+  // History reopens on its newest stop, not the one that was copied.
+  view.update({ index: 5 });
+
+  await view.findByText(EXPLORER_LABELS.documentHistoryCopySaved);
+  // It is that stop's notice from then on, and goes with the next stop.
+  view.update({ index: 4 });
+  await waitFor(() =>
+    expect(
+      view.queryByText(EXPLORER_LABELS.documentHistoryCopySaved),
+    ).toBeNull(),
+  );
+});
+
+test("a confirmation left open across a reload is dropped, not refused", async () => {
+  const capability = versionCopy();
+  const view = mount(capability);
+  fireEvent.click(copyButton(view));
+  await view.findByRole("dialog", {
+    name: EXPLORER_LABELS.documentHistoryCopyTitle,
+  });
+
+  // A restore finishes underneath and History reloads onto its new stop,
+  // which is still replaying when the timeline comes back.
+  view.update({ timeline: false });
+  view.update({ index: 5, replaying: true });
+  view.update({ index: 5 });
+
+  await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+  // Nothing was refused: the folder still takes the copy.
+  expect(
+    view.queryByText(EXPLORER_LABELS.documentHistoryCopyRefused),
+  ).toBeNull();
+  expect(copyButton(view)).toBeTruthy();
+  expect(capability.saves).toHaveLength(0);
+});
+
+test("a stop that is only replaying withdraws nothing", async () => {
+  const capability = versionCopy();
+  const view = mount(capability);
+  fireEvent.click(copyButton(view));
+  await view.findByRole("dialog", {
+    name: EXPLORER_LABELS.documentHistoryCopyTitle,
+  });
+
+  // The same stop replays again; its version is briefly not on screen.
+  view.update({ replaying: true });
   view.update();
 
-  expect(view.getByText(EXPLORER_LABELS.documentHistoryCopySaved)).toBeTruthy();
+  await view.findByRole("dialog", {
+    name: EXPLORER_LABELS.documentHistoryCopyTitle,
+  });
+  expect(
+    view.queryByText(EXPLORER_LABELS.documentHistoryCopyRefused),
+  ).toBeNull();
 });
 
 test("a confirmation is refused in sight when the copy stops being offered", async () => {
