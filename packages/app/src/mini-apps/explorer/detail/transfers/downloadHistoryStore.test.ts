@@ -19,6 +19,7 @@ function pending(localId: string): PendingDownloadQueueItem {
 }
 
 interface HeldRead {
+  fail: (error: Error) => void;
   release: (items: ReadonlyArray<PendingDownloadQueueItem>) => void;
 }
 
@@ -27,9 +28,11 @@ function heldQueries(reads: HeldRead[]): ContainerDocumentQueries {
   return {
     listCompletedDownloads: async () => [],
     listPendingDownloads: () =>
-      new Promise<ReadonlyArray<PendingDownloadQueueItem>>((resolve) => {
-        reads.push({ release: resolve });
-      }),
+      new Promise<ReadonlyArray<PendingDownloadQueueItem>>(
+        (resolve, reject) => {
+          reads.push({ fail: reject, release: resolve });
+        },
+      ),
   } as unknown as ContainerDocumentQueries;
 }
 
@@ -63,22 +66,55 @@ test("an immediate request during a read gets its read straight after", async ()
   unsubscribe();
 });
 
-test("a read from replaced queries is dropped and the new queries read at once", async () => {
+test("a failure from replaced queries is dropped and the replacement reads next", async () => {
   const store = getOrCreateDownloadHistoryStore(createDomainScope());
   const unsubscribe = store.subscribe(() => undefined);
   const oldReads: HeldRead[] = [];
   const newReads: HeldRead[] = [];
   store.requestRead(heldQueries(oldReads), { immediate: true });
-  // The database reopens mid-read; even a change signal reads at once.
-  store.requestRead(heldQueries(newReads), { immediate: false });
-  oldReads[0]?.release([pending("stale")]);
+  // The database reopens mid-read, so the view's new queries read at once.
+  store.requestRead(heldQueries(newReads), { immediate: true });
+  oldReads[0]?.fail(new Error("database closed"));
   await flush();
-  expect(localIds(store)).toEqual([]);
   expect(store.getSnapshot().status).toBe("loading");
   expect(newReads).toHaveLength(1);
   newReads[0]?.release([pending("fresh")]);
   await flush();
+  expect(store.getSnapshot().status).toBe("ready");
   expect(localIds(store)).toEqual(["fresh"]);
+  unsubscribe();
+});
+
+test("another view's read is kept, and its change signal waits for the delay", async () => {
+  const store = getOrCreateDownloadHistoryStore(createDomainScope());
+  const unsubscribe = store.subscribe(() => undefined);
+  const firstWindow: HeldRead[] = [];
+  const secondWindow: HeldRead[] = [];
+  store.requestRead(heldQueries(firstWindow), { immediate: true });
+  // A second Explorer window has its own queries for the same scope.
+  store.requestRead(heldQueries(secondWindow), { immediate: false });
+  firstWindow[0]?.release([pending("a")]);
+  await flush();
+  expect(localIds(store)).toEqual(["a"]);
+  expect(secondWindow).toHaveLength(0);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  expect(secondWindow).toHaveLength(1);
+  secondWindow[0]?.release([pending("a"), pending("b")]);
+  await flush();
+  expect(localIds(store)).toEqual(["a", "b"]);
+  unsubscribe();
+});
+
+test("a change signal on an idle view reads after the coalescing delay", async () => {
+  const store = getOrCreateDownloadHistoryStore(createDomainScope());
+  const unsubscribe = store.subscribe(() => undefined);
+  const reads: HeldRead[] = [];
+  const queries = heldQueries(reads);
+  store.requestRead(queries, { immediate: false });
+  store.requestRead(queries, { immediate: false });
+  expect(reads).toHaveLength(0);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  expect(reads).toHaveLength(1);
   unsubscribe();
 });
 

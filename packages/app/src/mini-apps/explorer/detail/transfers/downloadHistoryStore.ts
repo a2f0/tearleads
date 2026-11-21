@@ -95,11 +95,12 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
         departed.length === 0
           ? []
           : await source.listCompletedDownloads(departed);
-      // A result from replaced queries (a reopened database) is dropped; the
-      // read the replacement asked for follows at once.
-      if (source === queries)
-        dispatch({ completed, pending, read: request, type: "read-finished" });
+      // Every view in this scope reads the same database, so a result is
+      // kept whichever view's queries produced it.
+      dispatch({ completed, pending, read: request, type: "read-finished" });
     } catch (error) {
+      // A failure from queries another request has since replaced (a
+      // reopened database) is dropped; that request's own read follows.
       if (source === queries)
         dispatch({
           message: unknownErrorMessage(error),
@@ -114,11 +115,11 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
   return {
     getSnapshot: () => snapshot,
     requestRead(nextQueries, options) {
-      // New queries always read at once: the rows on screen came from the
-      // replaced ones.
-      const immediate = options.immediate || nextQueries !== queries;
+      // Each view asks for an immediate read when it opens or its own
+      // queries change; views share the store, so a different view's queries
+      // alone are no reason to skip the coalescing delay.
       queries = nextQueries;
-      step({ immediate, type: "requested" });
+      step({ immediate: options.immediate, type: "requested" });
     },
     subscribe(listener) {
       listeners.add(listener);
