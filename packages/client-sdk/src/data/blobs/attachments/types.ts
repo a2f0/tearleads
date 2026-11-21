@@ -49,6 +49,8 @@ export const TEXT_ENCODER = new TextEncoder();
 export interface BlobAttachmentRequestOptions {
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
+  /** False defers reporting to the caller, through the failure's `report`. */
+  readonly reportErrors?: boolean | undefined;
 }
 
 export interface BlobAttachmentApi {
@@ -66,6 +68,7 @@ export interface BlobAttachmentApi {
     readonly code?: string | undefined;
     readonly kind: RequestFailureKind;
     readonly message: string;
+    readonly report?: (() => void) | undefined;
     readonly status: number | null;
   } | null;
   getDocumentWriterProjection(

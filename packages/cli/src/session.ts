@@ -10,15 +10,19 @@ import type { RegisterSeedShutdown } from "./seedCommandLifetime";
 import { commandLoginLifetime } from "./sessionLoginState";
 import { disabledTracer, type Tracer } from "./trace";
 
+type ExpectedSeedFailure =
+  | "missing head"
+  | "verified purge"
+  | "recovered stale target"
+  | "refused stale bind";
+
 export interface CliSession {
   /**
    * Throws when, so far in this command, the SDK logged an error or an API
    * request failed or got no response: a listing read then may be partial.
    */
   assertNoFailures(): void;
-  recordExpectedSeedFailure(
-    reason: "missing head" | "verified purge" | "recovered stale target",
-  ): void;
+  recordExpectedSeedFailure(reason: ExpectedSeedFailure): void;
   readonly signal: AbortSignal;
   readonly sdk: Tearleads;
   readonly tracer: Tracer;
@@ -74,22 +78,26 @@ function describeLoggedError(message: string | Error, cause: unknown): string {
   return cause instanceof Error ? `${text}: ${cause.message}` : text;
 }
 
+/**
+ * The endpoint each expected failure is counted against: typed absences,
+ * verified purges, successful stale-target retries, and binds refused for a
+ * newer document that the importer pulled for and retried.
+ */
+const EXPECTED_SEED_FAILURE_ENDPOINTS: Record<ExpectedSeedFailure, string> = {
+  "missing head": "GET /documents/{documentId}/writer-projection",
+  "recovered stale target": "POST /documents",
+  "refused stale bind": "POST /blobs/{blobId}/attachment-bindings",
+  "verified purge": "POST /documents",
+};
+
 function failedRequests(
   sdk: Tearleads,
-  missingHeads: number,
-  expectedCreateFailures: number,
+  expected: ReadonlyMap<string, number>,
 ): string[] {
   const snapshot = sdk.apiRequests.getSnapshot(sdk.identity.signingFingerprint);
   return snapshot.endpoints
     .map((endpoint) => {
-      // Count only typed absences, verified purges, and successful stale-target retries.
-      const allowed =
-        endpoint.method === "GET" &&
-        endpoint.path === "/documents/{documentId}/writer-projection"
-          ? missingHeads
-          : endpoint.method === "POST" && endpoint.path === "/documents"
-            ? expectedCreateFailures
-            : 0;
+      const allowed = expected.get(`${endpoint.method} ${endpoint.path}`) ?? 0;
       return { ...endpoint, failed: endpoint.failed - allowed };
     })
     .filter((endpoint) => endpoint.failed > 0)
@@ -187,18 +195,17 @@ async function runSession<T>(
       },
     },
   });
-  let missingHeads = 0;
-  let expectedCreateFailures = 0;
+  const expectedFailures = new Map<string, number>();
   const recordExpectedSeedFailure: CliSession["recordExpectedSeedFailure"] = (
     reason,
   ) => {
-    if (reason === "missing head") missingHeads++;
-    else expectedCreateFailures++;
+    const endpoint = EXPECTED_SEED_FAILURE_ENDPOINTS[reason];
+    expectedFailures.set(endpoint, (expectedFailures.get(endpoint) ?? 0) + 1);
   };
   const assertNoFailures = () => {
     const problems = [
       ...loggedErrors,
-      ...failedRequests(sdk, missingHeads, expectedCreateFailures),
+      ...failedRequests(sdk, expectedFailures),
     ];
     if (problems.length > 0) {
       throw new Error(

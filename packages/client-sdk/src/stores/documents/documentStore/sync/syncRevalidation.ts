@@ -14,6 +14,11 @@ import {
 } from "./syncGeneration";
 import { requestRemoteDocumentSync } from "./syncRequest";
 
+interface AttachmentRevalidation {
+  readonly canSyncAttachments: boolean;
+  readonly nextRecord: DocumentRecord;
+}
+
 /**
  * Syncs a remote document before its pending attachments upload; they wait
  * while that pull is incomplete or the pass is stale.
@@ -25,8 +30,35 @@ export async function revalidateRemoteDocumentBeforeAttachments(
   encapsulationKeyPair: EncapsulationKeyPair,
   generation: DocumentStoreSyncGeneration,
   policyOperation: PrincipalPolicyOperation,
-): Promise<{ canSyncAttachments: boolean; nextRecord: DocumentRecord }> {
-  if (state.pendingAttachments.length === 0 || !nextRecord.documentId) {
+): Promise<AttachmentRevalidation> {
+  if (state.pendingAttachments.length === 0) {
+    return { canSyncAttachments: true, nextRecord };
+  }
+  return pullRemoteDocumentForAttachments(
+    state,
+    currentDoc,
+    nextRecord,
+    encapsulationKeyPair,
+    generation,
+    policyOperation,
+  );
+}
+
+/**
+ * Pulls a remote document without sending queued updates, as a pass does
+ * before its attachments upload and again after the API refused a bind
+ * because the document advanced. Attachments may bind only once the pull is
+ * complete and the pass is still current.
+ */
+export async function pullRemoteDocumentForAttachments(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  nextRecord: DocumentRecord,
+  encapsulationKeyPair: EncapsulationKeyPair,
+  generation: DocumentStoreSyncGeneration,
+  policyOperation: PrincipalPolicyOperation,
+): Promise<AttachmentRevalidation> {
+  if (!nextRecord.documentId) {
     return { canSyncAttachments: true, nextRecord };
   }
 

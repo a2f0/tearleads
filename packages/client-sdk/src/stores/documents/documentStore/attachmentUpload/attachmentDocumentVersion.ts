@@ -2,26 +2,35 @@ import type { UploadDocumentAttachmentRequest } from "../../../../workflows/blob
 import type { PendingAttachmentRecord } from "../../../../workflows/documents";
 
 /**
- * Passes in a row that may re-arm the store after the API refused one pending
- * upload's bind because the document advanced. Each honest refusal needs
- * another device to commit inside one pull-then-bind window, so a pass that
- * pulls converges once the document is quiet for that long. Past this many,
- * the store records the stuck upload and waits for a later sync signal, so a
- * server that keeps refusing cannot drive a network-speed loop.
+ * Store passes in a row that may end on one pending upload's bind refused
+ * because the document advanced and still re-arm right away. Inside a pass
+ * each refusal already pulled and checked the slot again (up to the upload
+ * call's own limit), so a pass ends this way only while another device keeps
+ * committing inside every pull-then-bind window. Past this many, the store
+ * records the stuck upload and waits for a later sync signal, so a server
+ * that keeps refusing cannot drive a network-speed loop.
  */
 export const MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES = 3;
 
 /**
  * The bind precondition for a pending upload whose slot a sync pass found
- * still asking for its bytes at `checkedVersion`. A store pulls only at the
- * start of a pass, so a refusal ends this attempt instead of refreshing; the
- * next pass pulls, checks the slot again, and binds the completed stage
- * against the newer version.
+ * still asking for its bytes at `checkedVersion`. After the API refuses a
+ * bind because the document advanced, the same pass pulls, checks the slot
+ * again, and returns the version that check read, so the completed stage
+ * binds without waiting for another pass. Null abandons this attempt: the
+ * pull did not complete, or the slot no longer asks for the bytes.
  */
-export function pendingAttachmentDocumentVersion(
-  checkedVersion: string,
-): UploadDocumentAttachmentRequest["verifiedDocumentVersion"] {
-  return async ({ refresh }) => (refresh ? null : checkedVersion);
+export function pendingAttachmentDocumentVersion(input: {
+  readonly checkedVersion: string;
+  /** The slot check after a pull, read in one step with its version. */
+  readonly matchingVersion: () => string | null;
+  /** Pulls the document within this pass; false when the pull is incomplete. */
+  readonly pull: () => Promise<boolean>;
+}): UploadDocumentAttachmentRequest["verifiedDocumentVersion"] {
+  return async ({ refresh }) => {
+    if (!refresh) return input.checkedVersion;
+    return (await input.pull()) ? input.matchingVersion() : null;
+  };
 }
 
 type PendingUpload = Pick<PendingAttachmentRecord, "slotId" | "storageKey">;
@@ -37,8 +46,8 @@ type DocumentChangedEvent =
       readonly pending: readonly PendingUpload[];
     }
   | {
-      /** This upload's bind committed. */
-      readonly type: "bound";
+      /** This upload's attempt bound, or ended for another reason. */
+      readonly type: "settled";
       readonly upload: PendingUpload;
     };
 
@@ -56,7 +65,7 @@ function transitionDocumentChangedPasses(
   event: DocumentChangedEvent,
 ): DocumentChangedPasses {
   const key = pendingUploadKey(event.upload);
-  if (event.type === "bound") {
+  if (event.type === "settled") {
     return new Map([...passes].filter(([pending]) => pending !== key));
   }
   const pendingKeys = new Set(event.pending.map(pendingUploadKey));
@@ -91,7 +100,10 @@ export function recordDocumentChangedRefusal(
   );
 }
 
-/** A bind that committed ends its upload's run of refused passes. */
+/**
+ * An attempt that bound, or ended other than refused for a newer document,
+ * ends its upload's run of refused passes.
+ */
 export function settleDocumentChangedPasses(
   state: DocumentChangedPassState,
   upload: PendingUpload,
@@ -99,6 +111,6 @@ export function settleDocumentChangedPasses(
   if (!state.attachmentDocumentChangedPasses) return;
   state.attachmentDocumentChangedPasses = transitionDocumentChangedPasses(
     state.attachmentDocumentChangedPasses,
-    { type: "bound", upload },
+    { type: "settled", upload },
   );
 }

@@ -15,7 +15,8 @@ update that version lacks.
 | `Bind` | `assertBindDocumentVersionCurrent` then runs `hasDocumentOpsBeyondVersion`, still under the document head lock `lockAttachmentAuthorizationForShare` took |
 | `Bind` (refused) | `classifyBindRefusal` reads `attachment_document_changed` from the request the bind just sent |
 | `Retry` / `RecheckOnRefresh` | `bindAtVerifiedDocumentVersion` asks for a re-checked version after a refusal |
-| `Retry` / `PullOnRefusal` | `recordDocumentChangedRefusal` re-arms a store pass, which pulls before its next check |
+| `Retry` / `PullOnRefusal` | `pendingAttachmentDocumentVersion` pulls in the same store pass through `pullRemoteDocumentForAttachments` before its re-check |
+| `Retry` / `PullOnRefusal` | `recordDocumentChangedRefusal` re-arms a store pass when an upload call used up its re-checks |
 | `Remove` / `Restore` / `Replace` / `Unrelated` | `appendDocumentUpdates` commits another device's update under `lockSyncDocumentWriteFrontier` |
 | `OtherBind` | `bindBlobAttachment` commits the replacing device's own bytes |
 
@@ -29,7 +30,12 @@ the bind's check runs under the document head lock that every update write
 takes first, so the check and the insert are one step. An edit that commits
 after the bind is never refused for it, and can remove the slot. Detaching
 that binding is reconciliation by a device that sees both, which this model
-does not cover. `OtherBytesKept` shows that the uploader never replaces bytes
+does not cover. The existing detach path runs only on a device that held the
+binding when its slot was removed: in
+[`seedOfflineRemoval.e2e.test.ts`](../../packages/cli/src/seedOfflineRemoval.e2e.test.ts)
+a removal queued before the importer's bind leaves that binding in place,
+which [#3070](https://github.com/a2f0/tearleads/issues/3070) tracks.
+`OtherBytesKept` shows that the uploader never replaces bytes
 another device bound into the slot, through the existing
 `expectedBindingId` precondition.
 
@@ -37,10 +43,10 @@ another device bound into the slot, through the existing
 following the [no-brick](../container-keying/NoBrickedDevice.md) standard: the
 other device may stop writing at any point. Because every refusal consumes a
 foreign edit committed inside one pull-then-bind window, the uploader binds or
-abandons once edits stop. Production bounds the immediate retries, three
-re-checks per upload call and three re-armed store passes, and then waits for
-a later sync signal. The model abstracts that bound as an unbounded series of
-the uploader's own steps.
+abandons once edits stop. Production bounds the immediate retries: three
+re-checks per upload call, each after a pull in the same pass, then three
+re-armed store passes in a row, and then it waits for a later sync signal. The
+model abstracts that bound as an unbounded series of the uploader's own steps.
 
 The model also abstracts encryption, signatures, staging, and lost bind
 responses ([PendingAttachmentDetach](./PendingAttachmentDetach.md) covers
@@ -58,4 +64,10 @@ cover both interleavings and a bind queued behind an update's head lock. The
 CLI importer regression in
 [`seedAttachmentRace.e2e.test.ts`](../../packages/cli/src/seedAttachmentRace.e2e.test.ts)
 removes, restores, and renames the slot while the importer's bind is in
-flight.
+flight, and
+[`seedBusyDocument.e2e.test.ts`](../../packages/cli/src/seedBusyDocument.e2e.test.ts)
+lands an unrelated edit there, which the import pulls past and binds. The
+document store regressions in
+[`attachmentDocumentChanged.integration.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentDocumentChanged.integration.test.ts)
+bind in the pass that was refused, keep binding while refusals outlast one
+upload call, and stop once a server that keeps refusing uses up the budget.

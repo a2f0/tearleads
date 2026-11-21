@@ -24,9 +24,13 @@ import {
   createOnlineDocumentsRuntime,
   createStoredDocumentWriterProjection,
 } from "../../../../../test/helpers/workflows/onlineDocumentStoreFixtures";
+import { MAX_DOCUMENT_VERSION_REFRESHES } from "../../../../workflows/blobs/upload/bindAtDocumentVersion";
 import { defaultDocumentsPersistence } from "../../../../workflows/documents";
 import { createDocumentStore } from "../index";
 import { MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES } from "./attachmentDocumentVersion";
+
+/** Binds one upload call sends before it gives up on a busy document. */
+const BINDS_PER_CALL = MAX_DOCUMENT_VERSION_REFRESHES + 1;
 
 function documentChangedFailure(path: string) {
   return {
@@ -116,18 +120,25 @@ async function uploadWithDocumentChangedRefusals(refusals: number) {
   return { binds, close, store, syncFailure };
 }
 
-test("a bind refused because the document advanced pulls and binds again", async () => {
+function attachBusyFile(
+  store: Awaited<ReturnType<typeof uploadWithDocumentChangedRefusals>>["store"],
+  name: string,
+) {
+  store.attachFiles([
+    {
+      bytes: new TextEncoder().encode(`${name} bytes`),
+      mimeType: "image/png",
+      name,
+    },
+  ]);
+}
+
+test("a peer edit that lands mid-pass refuses the bind, and the same pass pulls and binds", async () => {
   const { binds, close, store, syncFailure } =
     await uploadWithDocumentChangedRefusals(1);
   try {
     expect(await store.ensureInitialized()).toBe(true);
-    store.attachFiles([
-      {
-        bytes: new TextEncoder().encode("document changed bytes"),
-        mimeType: "image/png",
-        name: "changed.png",
-      },
-    ]);
+    attachBusyFile(store, "changed.png");
     await waitFor(
       () => binds.length === 2 && !store.getSnapshot().syncing,
       "The refused bind was not retried after a pull.",
@@ -135,10 +146,16 @@ test("a bind refused because the document advanced pulls and binds again", async
     );
 
     const [refused, retried] = binds;
-    // The retry is a new pass: it pulled before checking the slot again.
-    expect(retried?.pulls).toBeGreaterThan(refused?.pulls ?? 0);
-    expect(retried?.request.documentVersionVector).toBe(
-      store.getSnapshot().versionVector,
+    if (!refused || !retried) throw new Error("Expected two binds");
+    // One pull sits between them, and the retry is the same signed bind on
+    // the kept stage: the pass pulled and checked the slot in place.
+    expect(retried.pulls).toBe(refused.pulls + 1);
+    expect({
+      ...retried.request,
+      documentVersionVector: refused.request.documentVersionVector,
+    }).toEqual(refused.request);
+    expect(store.getSnapshot().versionVector).toBe(
+      retried.request.documentVersionVector,
     );
     expect(store.getSnapshot().attachments).toHaveLength(1);
     expect(store.getSnapshot().attachmentStatusBySlotId).toEqual({});
@@ -148,33 +165,55 @@ test("a bind refused because the document advanced pulls and binds again", async
   }
 }, 10_000);
 
-test("a bind the API keeps refusing stops re-pulling and records the stuck upload", async () => {
+test("a peer that keeps editing past one pass's pulls still lets the upload bind", async () => {
+  const refusals = BINDS_PER_CALL + 1;
+  const { binds, close, store, syncFailure } =
+    await uploadWithDocumentChangedRefusals(refusals);
+  try {
+    expect(await store.ensureInitialized()).toBe(true);
+    attachBusyFile(store, "busy.png");
+    // Nothing but the uploader's own passes runs: no sync is requested here.
+    await waitFor(
+      () => binds.length === refusals + 1 && !store.getSnapshot().syncing,
+      "The upload did not bind once the peer stopped editing.",
+      5_000,
+    );
+
+    // Every refused bind pulled before the next one.
+    for (const [index, bind] of binds.entries()) {
+      if (index > 0)
+        expect(bind.pulls).toBe((binds[index - 1]?.pulls ?? 0) + 1);
+    }
+    expect(store.getSnapshot().attachments).toHaveLength(1);
+    expect(await syncFailure()).toBeNull();
+  } finally {
+    close();
+  }
+}, 10_000);
+
+test("a bind the API keeps refusing stops after a bounded budget and records the stuck upload", async () => {
   const { binds, close, store, syncFailure } =
     await uploadWithDocumentChangedRefusals(Number.POSITIVE_INFINITY);
   try {
     expect(await store.ensureInitialized()).toBe(true);
-    store.attachFiles([
-      {
-        bytes: new TextEncoder().encode("busy document bytes"),
-        mimeType: "image/png",
-        name: "busy.png",
-      },
-    ]);
-    // Only the pass that stops re-pulling records the failure.
+    attachBusyFile(store, "stuck.png");
+    // Only the pass that stops re-arming records the failure.
     await waitFor(
       async () => (await syncFailure()) !== null,
       "The refused binds did not settle.",
       5_000,
     );
 
-    expect(binds).toHaveLength(MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 1);
+    const budget =
+      BINDS_PER_CALL * (MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 1);
+    expect(binds).toHaveLength(budget);
     expect(store.getSnapshot().attachmentStatusBySlotId).not.toEqual({});
     expect(await syncFailure()).toContain(
-      "Attachment upload failed for busy.png",
+      "Attachment upload failed for stuck.png",
     );
-    // A later sync signal gets one more bind, still without re-pulling.
+    // A later sync signal gets one more call's pulls, and no re-armed pass.
     expect(await store.requestRemoteSyncAndWait()).toBe(true);
-    expect(binds).toHaveLength(MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 2);
+    expect(binds).toHaveLength(budget + BINDS_PER_CALL);
   } finally {
     close();
   }

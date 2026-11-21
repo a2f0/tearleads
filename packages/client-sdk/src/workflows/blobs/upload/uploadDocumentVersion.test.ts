@@ -26,6 +26,13 @@ const documentChanged = {
   status: 409,
 } as const;
 
+/** The binding generation moved: a refusal that is not retried. */
+const bindingChanged = {
+  kind: "http",
+  message: "Attachment binding changed",
+  status: 409,
+} as const;
+
 /**
  * Uploads with an API that refuses the first `refusals` binds because the
  * document advanced, and a caller whose slot check yields versions in turn.
@@ -33,6 +40,7 @@ const documentChanged = {
 async function uploadAtDocumentVersions(input: {
   readonly carry?: boolean;
   readonly currentForBinds?: number;
+  readonly refusal?: typeof documentChanged | typeof bindingChanged;
   readonly refusals: number;
   /** Binds past this many return null without recording a failure. */
   readonly silentAfter?: number;
@@ -47,7 +55,12 @@ async function uploadAtDocumentVersions(input: {
   const { getAssembledBytes: _bytes, ...multipartApi } = multipart;
   const binds: BlobAttachmentBindRequest[] = [];
   const checks: boolean[] = [];
-  let recordedFailure: typeof documentChanged | null = null;
+  const reported: string[] = [];
+  let recordedFailure:
+    | ((typeof documentChanged | typeof bindingChanged) & {
+        readonly report: () => void;
+      })
+    | null = null;
   const { close, execSql } = await createTestExecSql(`version-${blobId}`);
   try {
     const uploaded = await createBlobAttachmentServiceFixture({
@@ -57,7 +70,11 @@ async function uploadAtDocumentVersions(input: {
           binds.push(request);
           if (binds.length > (input.silentAfter ?? Infinity)) return null;
           if (binds.length <= input.refusals) {
-            recordedFailure = { ...documentChanged };
+            const refusal = input.refusal ?? documentChanged;
+            recordedFailure = {
+              ...refusal,
+              report: () => reported.push(refusal.message),
+            };
             return null;
           }
           return createBlobAttachmentBindResponse({
@@ -89,7 +106,7 @@ async function uploadAtDocumentVersions(input: {
         return input.versions[checks.length - 1] ?? null;
       },
     });
-    return { binds, checks, uploaded };
+    return { binds, checks, reported, uploaded };
   } finally {
     close();
   }
@@ -180,4 +197,22 @@ test("a bind that records no failure never reads an earlier refusal", async () =
   expect(checks).toEqual([false, true]);
   expect(binds).toHaveLength(2);
   expect(uploaded).toBeNull();
+});
+
+test("only a refusal the call does not retry is reported", async () => {
+  const retried = await uploadAtDocumentVersions({
+    refusals: 1,
+    versions: ["checked", "pulled"],
+  });
+  expect(retried.uploaded?.request.documentVersionVector).toBe("pulled");
+  expect(retried.reported).toEqual([]);
+
+  const refused = await uploadAtDocumentVersions({
+    refusal: bindingChanged,
+    refusals: 1,
+    versions: ["checked", "pulled"],
+  });
+  expect(refused.checks).toEqual([false]);
+  expect(refused.uploaded).toBeNull();
+  expect(refused.reported).toEqual([bindingChanged.message]);
 });

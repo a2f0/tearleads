@@ -76,6 +76,8 @@ export async function uploadVacantAttachments(
     containerId: string;
     document: SeedDocument;
     traceAttachment?: (event: string) => void;
+    /** A bind refused for a newer document, which this import retries. */
+    onRefusedStaleBind?: (() => void) | undefined;
   },
   store: DocumentStore,
   attachments: readonly { bytes: BlobBytes; intent: DocumentAttachment }[],
@@ -128,7 +130,8 @@ export async function uploadVacantAttachments(
       // Pull right before each bind: the API refuses it while the document
       // holds an update this version lacks, such as another device removing
       // the slot after the checks above.
-      verifiedDocumentVersion: async () => {
+      verifiedDocumentVersion: async ({ refresh }) => {
+        if (refresh) input.onRefusedStaleBind?.();
         const current = await pull(store, stillCurrent);
         if (fixtureAttachmentState(current, intent) !== "missing")
           throw new Error(

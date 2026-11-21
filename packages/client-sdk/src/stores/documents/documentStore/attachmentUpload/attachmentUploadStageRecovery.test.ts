@@ -132,8 +132,9 @@ test("a consumed stage whose committed binding was removed renews the durable up
       });
 
     // Failure of the additional recovery read must retain the original identity.
-    expect((await attempt(resume)).error).toMatchObject({
-      message: "Attachment recovery lookup failed.",
+    expect(await attempt(resume)).toMatchObject({
+      error: { message: "Attachment recovery lookup failed." },
+      status: "failed",
     });
     expect(pending.upload?.blobId).toBe(original.blobId);
 
@@ -147,7 +148,7 @@ test("a consumed stage whose committed binding was removed renews the durable up
         message:
           "Multipart stage is unavailable; upload attempt stopped for recovery.",
       },
-      uploaded: null,
+      status: "failed",
     });
     expect(pending.upload?.blobId).toBe(original.blobId);
 
@@ -159,7 +160,7 @@ test("a consumed stage whose committed binding was removed renews the durable up
         message:
           "Multipart stage is unavailable; upload attempt stopped for recovery.",
       },
-      uploaded: null,
+      status: "failed",
     });
     expect(saved.at(-1)?.upload?.blobId).not.toBe(original.blobId);
     expect(saved.at(-1)?.upload?.stageId).toBeNull();
@@ -177,7 +178,10 @@ test("a consumed stage whose committed binding was removed renews the durable up
     expect(renewed.contentKey).not.toEqual(original.contentKey);
     expect(renewed.nonceSeed).not.toEqual(original.nonceSeed);
     expect(saved.at(-1)?.upload?.blobId).toBe(renewed.blobId);
-    expect((await attempt(renewed)).uploaded?.blobId).toBe(renewed.blobId);
+    expect(await attempt(renewed)).toMatchObject({
+      status: "uploaded",
+      uploaded: { blobId: renewed.blobId },
+    });
     expect(boundBlobIds).toEqual([renewed.blobId]);
   } finally {
     close();

@@ -189,14 +189,18 @@ learns nothing about which update touches which slot. A refusal therefore needs
 another device's commit inside the uploader's pull-then-bind window. The
 uploader keeps its completed stage, signed event, and wrapped keys, pulls,
 checks the slot again, and retries the same bind at the newer version, or
-abandons it when the slot no longer asks for the bytes. Recovery needs only
-the uploader's own steps; a busy document can delay a bind until it is quiet
-for one window, never indefinitely once edits stop. The client SDK bounds the
-immediate retries (three re-checks per upload call, and three re-armed passes
-per pending upload in a document store) and then records the stuck upload
-until a later sync signal. The API never refuses a document update because of
-a binding: an edit that commits after the bind can still remove the slot, and
-detaching that binding is reconciliation by a device that observes both.
+abandons it when the slot no longer asks for the bytes. A document store
+pulls in the same sync pass, so each window is one pull and one bind. Recovery
+needs only the uploader's own steps; a busy document can delay a bind until it
+is quiet for one window, never indefinitely once edits stop. The client SDK
+bounds the immediate retries (three re-checks per upload call, then three
+re-armed passes in a row per pending upload in a document store) and then
+records the stuck upload until a later sync signal. The API never refuses a
+document update because of a binding: an edit that commits after the bind can
+still remove the slot, and detaching that binding is reconciliation by a device
+that observes both. The existing detach runs only on a device that held the
+binding when its slot was removed, so a removal queued before the bind
+currently leaves the binding in place.
 [`AttachmentBindDocumentVersion.tla`](../../formal/blob-attachments/AttachmentBindDocumentVersion.tla)
 models both interleavings.
 

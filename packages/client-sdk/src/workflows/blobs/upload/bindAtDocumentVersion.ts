@@ -101,15 +101,19 @@ async function bindCarryingDocumentSync(
       request,
       {
         expectedPaymentRequiredOrganizationId: input.organizationId,
+        reportErrors: false,
         stillCurrent: canBind,
       },
     );
-    const failure = bindFailure(input.apiClient, input.blobId);
+    const recorded = bindFailure(input.apiClient, input.blobId);
+    const failure = response || recorded === earlier ? null : recorded;
+    // A refusal for a newer document is routine on a busy document and is
+    // retried; every other failure is reported as the client would have.
+    if (failure && classifyBindRefusal(failure) !== "documentChanged") {
+      failure.report?.();
+    }
     return {
-      refusal:
-        response || !canBind() || failure === earlier
-          ? null
-          : classifyBindRefusal(failure),
+      refusal: failure && canBind() ? classifyBindRefusal(failure) : null,
       request,
       response,
     };

@@ -38,7 +38,9 @@ export function pendingAttachmentMatchesIntent(
  * The encoded version of the document whose slot still asks for the pending
  * bytes, read in the same step as that check, or null when it no longer does.
  */
-function matchingDocumentVersion(input: PendingSourceInput): string | null {
+export function matchingDocumentVersion(
+  input: PendingSourceInput,
+): string | null {
   const { doc } = input.state;
   return doc !== null && pendingAttachmentMatchesIntent(input)
     ? encodeVersionVector(doc)

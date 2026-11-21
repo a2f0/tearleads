@@ -64,9 +64,7 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
 
   expect(stageCount).toBe(1);
   expect(blockCheckCount).toBe(2);
-  expect(result.remoteSyncBlocked).toBe(true);
-  expect(result.uploaded).toBeNull();
-  expect(result.error).toBeUndefined();
+  expect(result).toEqual({ status: "syncBlocked" });
 });
 
 test("preserves a billing pause observed before recovery races the postflight check", async () => {
@@ -120,9 +118,7 @@ test("preserves a billing pause observed before recovery races the postflight ch
 
   expect(stageCount).toBe(0);
   expect(blockCheckCount).toBe(1);
-  expect(result.remoteSyncBlocked).toBe(true);
-  expect(result.uploaded).toBeNull();
-  expect(result.error).toBeUndefined();
+  expect(result).toEqual({ status: "syncBlocked" });
 });
 
 test("does not retry a concrete upload failure with a fresh projection", async () => {
@@ -173,9 +169,7 @@ test("does not retry a concrete upload failure with a fresh projection", async (
       writerProjection,
     });
 
-    expect(result.error).toBe(uploadError);
-    expect(result.uploaded).toBeNull();
-    expect(result.remoteSyncBlocked).toBe(false);
+    expect(result).toEqual({ error: uploadError, status: "failed" });
     expect(stageRequests).toBe(1);
     expect(projectionRequests).toBe(0);
     expect(state.writerProjection).toBe(writerProjection);
@@ -289,8 +283,7 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
       writerProjection,
     });
 
-    expect(result.error).toBeUndefined();
-    expect(result.uploaded).toBeNull();
+    expect(result).toEqual({ error: undefined, status: "failed" });
     expect(initiateRequests).toBe(1);
     expect(uploadedParts).toBe(1);
     expect(bindRequests).toBe(2);

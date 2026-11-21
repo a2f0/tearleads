@@ -23,19 +23,28 @@ function withResumedMultipartStage(
     : uploadInput;
 }
 
+/** How one upload attempt ended; the first matching status wins. */
+export type AttachmentUploadAttempt =
+  | {
+      readonly status: "uploaded";
+      readonly uploaded: UploadDocumentAttachmentResult;
+    }
+  /** A billing pause stopped it; no failure is reported. */
+  | { readonly status: "syncBlocked" }
+  /**
+   * The API refused a bind because the document advanced, and the attempt
+   * then ended without binding, whatever stopped its last bind.
+   */
+  | { readonly status: "documentChanged"; readonly error: unknown }
+  | { readonly status: "failed"; readonly error: unknown };
+
 export async function uploadAttachmentWithWriterProjectionRetry(input: {
   baseUploadInput: AttachmentUploadInput;
   /** The service whose executor the base input was built beside. */
   blobAttachments: BlobAttachmentService;
   state: DocumentStoreState;
   writerProjection: DocumentStoreState["writerProjection"];
-}): Promise<{
-  /** The API refused the bind because the document advanced. */
-  documentChanged: boolean;
-  error: unknown;
-  remoteSyncBlocked: boolean;
-  uploaded: UploadDocumentAttachmentResult | null;
-}> {
+}): Promise<AttachmentUploadAttempt> {
   let remoteSyncBlocked = false;
   let documentChanged = false;
   let checkedOrganizationId: string | undefined;
@@ -121,10 +130,12 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     }
   }
 
-  if (remoteSyncBlocked) {
-    uploadError = undefined;
-  }
-  return { documentChanged, error: uploadError, remoteSyncBlocked, uploaded };
+  if (uploaded) return { status: "uploaded", uploaded };
+  if (remoteSyncBlocked) return { status: "syncBlocked" };
+  return {
+    error: uploadError,
+    status: documentChanged ? "documentChanged" : "failed",
+  };
 }
 
 async function tryUploadDocumentAttachment(input: {
