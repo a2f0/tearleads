@@ -163,5 +163,9 @@ test("events that do not apply return the same state", () => {
   for (const state of [IDLE_DOCUMENT_HISTORY_COPY, CONFIRMING, SAVED]) {
     expect(run(state, { copy: COPY, run: 1, type: "finished" })).toBe(state);
   }
+  // Only an open confirmation can be cancelled: an outcome is not dropped.
+  for (const state of [SAVED, REFUSED]) {
+    expect(run(state, { type: "cancelled" })).toBe(state);
+  }
   expect(run(SAVED, { run: 2, type: "confirmed" })).toBe(SAVED);
 });

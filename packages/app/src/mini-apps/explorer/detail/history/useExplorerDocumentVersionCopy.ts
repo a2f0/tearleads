@@ -1,7 +1,7 @@
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
-import { isSelfContactFieldValue } from "../../../../document-types/contact/contactDocumentModel";
 import { isFileBackedDocumentKind } from "../../../../document-types/registry";
+import { isTruthyStructuredField } from "../../../../document-types/shared/documentFieldUtils";
 import {
   type SelfContactIdentityView,
   selfContactIdentityAdmission,
@@ -45,7 +45,9 @@ export interface ExplorerDocumentVersionCopy {
  */
 function claimsToBeViewer(content: DocumentVersionCopyContent): boolean {
   const { isSelf = "" } = content.structuredFields;
-  return content.documentKind === "contact" && isSelfContactFieldValue(isSelf);
+  // The one reading of the field: the contact model and its projection, which
+  // decide what Contacts labels "You", use it too.
+  return content.documentKind === "contact" && isTruthyStructuredField(isSelf);
 }
 
 /**

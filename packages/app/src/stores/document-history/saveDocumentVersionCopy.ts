@@ -60,27 +60,36 @@ export async function saveDocumentVersionCopy(input: {
 }): Promise<DocumentSummary | null> {
   const { containerId, content } = input;
   const localId = input.createLocalId();
+  // A note has neither structured fields nor rows: a store refuses to open
+  // one with fields, and would write its rows without saying so.
+  const isNote = content.documentKind === DEFAULT_DOCUMENT_KIND;
   const store = input.openDocument({
     containerId,
     initialDocumentKind: content.documentKind,
-    initialRows: content.rows.map((row) => row.fields),
-    // A note has no structured fields, and a store refuses to open one with
-    // any.
-    initialStructuredFields:
-      content.documentKind === DEFAULT_DOCUMENT_KIND
-        ? {}
-        : content.structuredFields,
+    initialRows: isNote ? [] : content.rows.map((row) => row.fields),
+    initialStructuredFields: isNote ? {} : content.structuredFields,
     initialText: content.text,
     localId,
   });
-  if (!(await store.ensureInitialized()) || !store.getSnapshot().ready) {
-    return null;
+  const readSummary = () =>
+    input.loadDocumentSummary(localId).catch(() => null);
+  const ready = await store.ensureInitialized().then(
+    (initialized) => initialized && store.getSnapshot().ready,
+    () => false,
+  );
+  if (!ready) {
+    // Opening commits the document's record before it finishes, so a store
+    // that failed to become ready can still have left the document behind.
+    // If it did, it is reported: listed, synced, and not saved a second time.
+    const left = await readSummary();
+    if (left !== null) store.requestSync();
+    return left;
   }
   store.requestSync();
 
   // The document is durable from here on. A summary that cannot be read must
   // not report it as not created: the user would save it a second time.
-  const summary = await input.loadDocumentSummary(localId).catch(() => null);
+  const summary = await readSummary();
   if (summary !== null) return summary;
   const snapshot = store.getSnapshot();
   return {

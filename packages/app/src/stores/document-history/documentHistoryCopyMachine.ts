@@ -105,8 +105,8 @@ function showStop(
  * | idle          | confirming | (same)    | (same)    | (same)           | (same)             | (same)    |
  * | confirming    | confirming | idle      | saving    | (same)           | idle               | refused   |
  * | saving        | (same)     | (same)    | (same)    | saved or refused | saving, that stop  | (same)    |
- * | saved         | confirming | idle      | (same)    | (same)           | idle               | (same)    |
- * | refused       | confirming | idle      | (same)    | (same)           | idle               | (same)    |
+ * | saved         | confirming | (same)    | (same)    | (same)           | idle               | (same)    |
+ * | refused       | confirming | (same)    | (same)    | (same)           | idle               | (same)    |
  */
 export function transitionDocumentHistoryCopy(
   state: DocumentHistoryCopyState,
@@ -117,7 +117,7 @@ export function transitionDocumentHistoryCopy(
     case "requested":
       return { index: event.index, status: "confirming" };
     case "cancelled":
-      return state.status === "idle" ? state : IDLE_DOCUMENT_HISTORY_COPY;
+      return state.status === "confirming" ? IDLE_DOCUMENT_HISTORY_COPY : state;
     case "stop-shown":
       return showStop(state, event.index);
     case "confirmed":

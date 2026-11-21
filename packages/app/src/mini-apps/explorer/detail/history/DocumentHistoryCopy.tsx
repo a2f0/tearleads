@@ -167,7 +167,7 @@ export function DocumentHistoryCopy(params: {
         </>
       ) : null}
       {state.status === "refused" ? (
-        <MiniAppStatus as="span" tone="error">
+        <MiniAppStatus as="span" role="alert" tone="error">
           {EXPLORER_LABELS.documentHistoryCopyRefused}
         </MiniAppStatus>
       ) : null}

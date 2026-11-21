@@ -49,7 +49,9 @@ const SUMMARY: DocumentSummary = {
 };
 
 /** A store that records how it was opened and what was asked of it. */
-function harness(options: { initialized?: boolean; ready?: boolean } = {}) {
+function harness(
+  options: { initialized?: boolean; ready?: boolean; throws?: boolean } = {},
+) {
   const opened: OpenInput[] = [];
   const events: string[] = [];
   const openDocument: CopyInput["openDocument"] = (input) => {
@@ -57,6 +59,7 @@ function harness(options: { initialized?: boolean; ready?: boolean } = {}) {
     return {
       ensureInitialized: async () => {
         events.push("initialized");
+        if (options.throws) throw new Error("the database closed");
         return options.initialized ?? true;
       },
       getSnapshot: () => ({
@@ -123,41 +126,72 @@ test("rows keep their order and cells but not their ids or stamps", async () => 
   ]);
 });
 
-test("a note is never opened with structured fields", async () => {
+test("a note is never opened with structured fields or rows", async () => {
   const store = harness();
 
   await saveDocumentVersionCopy({
     containerId: "folder-1",
     // Whatever a note version projects, a store refuses to open a note
-    // with fields.
-    content: { ...NOTE, structuredFields: { firstName: "Ada" } },
+    // with fields, and a note has no rows to hold.
+    content: {
+      ...NOTE,
+      rows: CONTACT.rows,
+      structuredFields: { firstName: "Ada" },
+    },
     createLocalId: () => "copy-1",
     loadDocumentSummary: async () => SUMMARY,
     openDocument: store.openDocument,
   });
 
   expect(store.opened[0]?.initialStructuredFields).toEqual({});
+  expect(store.opened[0]?.initialRows).toEqual([]);
 });
 
+const NOT_READY = [{ initialized: false }, { ready: false }, { throws: true }];
+
 test("a copy that could not be created is null and asks for no sync", async () => {
-  for (const options of [{ initialized: false }, { ready: false }]) {
+  for (const options of NOT_READY) {
+    for (const loadDocumentSummary of [
+      async () => null,
+      async () => {
+        throw new Error("the summary query failed");
+      },
+    ]) {
+      const store = harness(options);
+
+      const copy = await saveDocumentVersionCopy({
+        containerId: "folder-1",
+        content: NOTE,
+        createLocalId: () => "copy-1",
+        loadDocumentSummary,
+        openDocument: store.openDocument,
+      });
+
+      expect(copy).toBeNull();
+      expect(store.events).toEqual(["initialized"]);
+    }
+  }
+});
+
+test("a copy left behind by a store that did not become ready is reported", async () => {
+  for (const options of NOT_READY) {
     const store = harness(options);
-    let summaryReads = 0;
 
     const copy = await saveDocumentVersionCopy({
       containerId: "folder-1",
       content: NOTE,
       createLocalId: () => "copy-1",
-      loadDocumentSummary: async () => {
-        summaryReads += 1;
+      // Opening committed the record before it failed.
+      loadDocumentSummary: async (localId) => {
+        store.events.push(`summary:${localId}`);
         return SUMMARY;
       },
       openDocument: store.openDocument,
     });
 
-    expect(copy).toBeNull();
-    expect(store.events).toEqual(["initialized"]);
-    expect(summaryReads).toBe(0);
+    // Reported, so it is listed and not saved a second time, and synced.
+    expect(copy).toBe(SUMMARY);
+    expect(store.events).toEqual(["initialized", "summary:copy-1", "sync"]);
   }
 });
 
