@@ -55,6 +55,7 @@ import { requireProjectionUserKeyResolver } from "../../../data/keyingProjection
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { resolveBlobMutationWriterProjection } from "../verification/writerProjection";
 import { resolveMultipartUploadOptions } from "./automaticMultipartUpload";
+import { UploadPausedError } from "./multipartStageResolution";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 async function buildBlobAttachmentMaterial(
@@ -249,17 +250,29 @@ interface StageAndBindInput {
   slotId: string;
 }
 
-function stageBlobBytes(input: StageAndBindInput) {
-  return stageMultipartBlobAttachment({
-    stillCurrent: input.stillCurrent,
-    organizationId: input.material.manifestIdentity.organizationId,
-    apiClient: input.apiClient,
-    encryption: input.material.encrypted,
-    multipart: input.multipart,
-    onMultipartProgress: input.onMultipartProgress,
-    onStageResolved: input.onStageResolved,
-    onStageUnavailable: input.onStageUnavailable,
-  });
+/**
+ * Stages the bytes while the caller is current. A sync pause stops staging
+ * before its next stage or part request and returns null, as the bind does.
+ */
+async function stageBlobBytes(input: StageAndBindInput) {
+  const organizationId = input.material.manifestIdentity.organizationId;
+  const blocked = input.isRemoteSyncBlocked;
+  try {
+    return await stageMultipartBlobAttachment({
+      paused: blocked && (() => blocked(organizationId)),
+      stillCurrent: input.stillCurrent,
+      organizationId,
+      apiClient: input.apiClient,
+      encryption: input.material.encrypted,
+      multipart: input.multipart,
+      onMultipartProgress: input.onMultipartProgress,
+      onStageResolved: input.onStageResolved,
+      onStageUnavailable: input.onStageUnavailable,
+    });
+  } catch (error) {
+    if (error instanceof UploadPausedError) return null;
+    throw error;
+  }
 }
 
 async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
