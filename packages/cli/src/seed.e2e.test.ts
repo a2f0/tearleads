@@ -254,7 +254,9 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
           existing: { localId, documentId: partial.documentId },
           readAttachment: async () => new Uint8Array([1, 2, 3]),
         }),
-      ).rejects.toThrow("no synced birth content");
+      ).rejects.toThrow(
+        "cannot confirm it created that document with the fixture content",
+      );
       expect(store.getSnapshot().attachmentStorageKeyBySlotId).toEqual({});
       expect(store.getSnapshot().attachments).toEqual(partial.attachments);
     });

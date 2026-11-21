@@ -8,6 +8,7 @@ import {
   type Tearleads,
 } from "@tearleads/client-sdk";
 
+import { requireFoundingSeed } from "./foundingSeed";
 import type { SeedDocument } from "./seedDocuments";
 
 async function pull(store: DocumentStore, stillCurrent: () => boolean) {
@@ -75,6 +76,8 @@ export async function uploadVacantAttachments(
     sdk: Tearleads;
     containerId: string;
     document: SeedDocument;
+    /** A placement found from an earlier run, whose founding must be proven. */
+    existing?: { localId: string } | undefined;
     traceAttachment?: (event: string) => void;
   },
   store: DocumentStore,
@@ -89,10 +92,17 @@ export async function uploadVacantAttachments(
   const { documentId } = first;
   if (!documentId || !author)
     throw new Error("Missing seed document or writer");
-  if (first.seedTag !== seedTag)
-    throw new Error(
-      `Seed document has no synced birth content matching ${input.document.key}.`,
-    );
+  // A create in this run already had its exact seed acknowledged.
+  if (input.existing)
+    await requireFoundingSeed({
+      sdk: input.sdk,
+      document: input.document,
+      localId: input.existing.localId,
+      writerUserId: author.signerUserId,
+      seedTag,
+      intents: attachments.map(({ intent }) => intent),
+      stillCurrent,
+    });
   for (const [index, { bytes, intent }] of attachments.entries()) {
     const snapshot = index === 0 ? first : await pull(store, stillCurrent);
     if (fixtureAttachmentState(snapshot, intent) !== "missing") {

@@ -85,6 +85,18 @@ export interface DocumentHistory {
   viewAt(index: number): DocumentHistoryView;
 }
 
+/** A document's current content, in the shape a history stop shows. */
+export function readDocumentHistoryView(
+  doc: HistoryViewer["doc"],
+  documentProjectors: DocumentProjectorRegistryInput,
+): DocumentHistoryView {
+  return {
+    ...readStoredDocumentState(doc, documentProjectors),
+    attachments: getDocumentAttachments(doc),
+    rows: listDocumentRows(doc),
+  };
+}
+
 class DocumentHistoryReader implements DocumentHistory {
   readonly stops: ReadonlyArray<DocumentHistoryStop>;
   private closed = false;
@@ -133,12 +145,10 @@ class DocumentHistoryReader implements DocumentHistory {
       return cached;
     }
     this.viewer.checkout(index);
-    const { doc } = this.viewer;
-    const view: DocumentHistoryView = {
-      ...readStoredDocumentState(doc, this.documentProjectors),
-      attachments: getDocumentAttachments(doc),
-      rows: listDocumentRows(doc),
-    };
+    const view = readDocumentHistoryView(
+      this.viewer.doc,
+      this.documentProjectors,
+    );
     this.views.set(index, view);
     if (this.views.size > VIEW_CACHE_SIZE) {
       const oldest = this.views.keys().next();
