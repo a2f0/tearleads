@@ -17,12 +17,18 @@ export function createBlobAttachmentServiceFixture(input: {
   readonly execSql: ExecSql;
   readonly log?: BlobAttachmentCollaborators["log"];
   readonly reportSecurityIncident?: BlobAttachmentCollaborators["reportSecurityIncident"];
+  readonly expectedDownloads?: ConstructorParameters<
+    typeof BlobAttachmentService
+  >[1];
 }): BlobAttachmentService {
-  return new BlobAttachmentService({
-    api: input.api as BlobAttachmentServiceApi,
-    encapsulationSecretKey: input.encapsulationSecretKey ?? null,
-    execSql: input.execSql,
-    log: input.log,
-    reportSecurityIncident: input.reportSecurityIncident,
-  });
+  return new BlobAttachmentService(
+    {
+      api: input.api as BlobAttachmentServiceApi,
+      encapsulationSecretKey: input.encapsulationSecretKey ?? null,
+      execSql: input.execSql,
+      log: input.log,
+      reportSecurityIncident: input.reportSecurityIncident,
+    },
+    input.expectedDownloads,
+  );
 }

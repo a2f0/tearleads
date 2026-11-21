@@ -8,13 +8,18 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { BoundedCache } from "../ApiCache";
+import { boundedMetadata } from "../boundedMetadataResponse";
 import { bindPrototypeMethods, cachedRequest } from "../requestInternals";
 import {
   containerWriterProjection,
   documentWriterProjection,
 } from "../routes/writerProjections";
 import { retiredRequest } from "../sessionResponse";
-import type { RequestResult, RequestResultOptions } from "../types";
+import {
+  privateRead,
+  type RequestResult,
+  type RequestResultOptions,
+} from "../types";
 import type { WriterProjectionListing } from "../verifiedManifestCitations";
 import { primeWriterProjectionSlot } from "../writerProjectionPrime";
 import type {
@@ -71,6 +76,7 @@ export class WriterProjectionArea {
     // never publish the outcome to the shared caches. Only reporting-only
     // callers below participate in coalescing and cache warming.
     if (
+      options.signal !== undefined ||
       options.stillCurrent !== undefined ||
       options.headers !== undefined ||
       options.retryOnSessionExpired !== undefined
@@ -80,7 +86,7 @@ export class WriterProjectionArea {
         validator,
         "GET",
         undefined,
-        options,
+        options.signal ? { ...options, [privateRead]: true } : options,
         failureOperation,
       );
     }
@@ -238,7 +244,18 @@ export class WriterProjectionArea {
     );
   }
 
-  getDocumentWriterProjection(documentId: string) {
+  getDocumentWriterProjection(
+    documentId: string,
+    options?: { signal: AbortSignal },
+  ) {
+    if (options)
+      return this.getDocumentWriterProjectionResult(documentId, {
+        ...options,
+        [boundedMetadata]: this.context.streamingDownloads
+          ? "writer-projection"
+          : undefined,
+      }).then((result) => (result.ok ? result.data : null));
+
     return cachedRequest(this.documents.cache, documentId, () =>
       this.context.request(
         documentWriterProjection.path(documentId),

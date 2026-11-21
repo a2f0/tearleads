@@ -1,3 +1,4 @@
+import { MetadataSizeError } from "./boundedMetadataResponse";
 import type { RequestFailureKind } from "./types";
 
 /**
@@ -23,6 +24,7 @@ export function responseBodyFailure(
       kind: "cancelled",
       message: "Request was cancelled",
     };
+  if (error instanceof MetadataSizeError) return { kind: "json", message };
   return error instanceof SyntaxError
     ? { kind: "json", message: `failed to parse JSON: ${message}` }
     : { kind: "network", message: `failed to read the body: ${message}` };

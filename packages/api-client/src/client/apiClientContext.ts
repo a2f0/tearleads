@@ -95,12 +95,32 @@ export class ApiClientContext {
     Promise<PrincipalPolicyBundleResponse | null>
   >();
 
+  readonly streamingDownloads: boolean;
+  readonly requestPolicy: ApiRequestInstrumentation | undefined;
   constructor(
     baseUrl?: string | null,
     instrumentation?: ApiRequestInstrumentation,
   ) {
+    if (
+      instrumentation?.verificationDeadline &&
+      !instrumentation.streamingDownloads
+    )
+      throw new Error(
+        "A verification deadline requires a streaming HTTP transport.",
+      );
+    const sessionPolicy = instrumentation;
+    if (instrumentation?.verificationDeadline && instrumentation.requestSignal)
+      instrumentation = {
+        ...instrumentation,
+        verificationDeadline: AbortSignal.any([
+          instrumentation.verificationDeadline,
+          instrumentation.requestSignal,
+        ]),
+      };
+    this.requestPolicy = instrumentation;
+    this.streamingDownloads = instrumentation?.streamingDownloads === true;
     bindPrototypeMethods(this, ApiClientContext.prototype);
-    this.runtime = new ApiRequestRuntime(baseUrl, instrumentation);
+    this.runtime = new ApiRequestRuntime(baseUrl, sessionPolicy);
     const projectionRequests = writerProjectionRequests(
       this.runtime,
       () => this.verifiedManifestCitations,
