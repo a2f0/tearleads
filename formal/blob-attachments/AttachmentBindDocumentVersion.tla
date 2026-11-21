@@ -32,16 +32,18 @@ Check ==
   /\ UNCHANGED <<slot, edits, binding, boundSlot>>
 
 (* The bind transaction locks the document head, under which no update
-   commits, so its version check and its insert are one atomic step. A bind
-   at a version missing a committed update is refused. `expectedBindingId` is
-   null, so a binding that committed meanwhile also refuses it. *)
+   commits, so its checks and its insert are one atomic step. It verifies the
+   signed bind and its binding generation first: `expectedBindingId` is null,
+   so a binding that committed meanwhile refuses it. Only then is a bind at a
+   version missing a committed update refused, so a caller without write
+   access learns nothing about the document's updates. *)
 Bind ==
   /\ uploader = "ready"
-  /\ IF CheckDocumentVersion /\ checked < edits
-       THEN /\ uploader' = "refused"
-            /\ UNCHANGED <<slot, edits, binding, boundSlot, checked>>
-       ELSE IF binding # "none"
+  /\ IF binding # "none"
        THEN /\ uploader' = "check"
+            /\ UNCHANGED <<slot, edits, binding, boundSlot, checked>>
+       ELSE IF CheckDocumentVersion /\ checked < edits
+       THEN /\ uploader' = "refused"
             /\ UNCHANGED <<slot, edits, binding, boundSlot, checked>>
        ELSE /\ binding' = "fixture" /\ boundSlot' = slot
             /\ uploader' = "bound"

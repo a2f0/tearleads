@@ -352,12 +352,6 @@ async function bindBlobAttachmentTransaction(
   });
   const { lockedContainerHeads, proof, signingPublicKey } =
     await verifyAndLockBindAuthorization(input, bindBody.documentId, tx);
-  // Under the document head lock just taken, so no update commits after it.
-  await assertBindDocumentVersionCurrent({
-    documentId: bindBody.documentId,
-    executor: tx,
-    version: input.documentVersion,
-  });
   const { activeBinding, verifiedBinding } = await verifyAndLockBindSlot({
     bindBody,
     blobId: input.blobId,
@@ -366,6 +360,14 @@ async function bindBlobAttachmentTransaction(
     request: input.request,
     signingPublicKey,
     tx,
+  });
+  // Only once the signed bind is verified, so a caller without write access
+  // learns nothing about the document's updates; still under the document
+  // head lock taken above, so no update commits after it.
+  await assertBindDocumentVersionCurrent({
+    documentId: bindBody.documentId,
+    executor: tx,
+    version: input.documentVersion,
   });
   const stagedBlob = await promoteStagedBlobIfPresent({
     blobId: input.blobId,

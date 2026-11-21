@@ -172,16 +172,17 @@ update-id recovery are unchanged.
 The binding-generation check (`expectedBindingId`) cannot see a document edit:
 the API cannot read encrypted content, so another device that removes or
 changes a slot is invisible to it. A bind therefore also carries the document
-version the uploader checked the slot against. Right after locking the document
-head, the API refuses the bind with `409` and code
+version the uploader checked the slot against. While it holds the document
+head lock, the API refuses the bind with `409` and code
 `attachment_document_changed` when a committed update of the document holds an
 op the version lacks, compared per peer through the update spans the sync
 route already stores. Every update write locks the same head first, so no
 update commits between the check and the binding row: an edit that commits
 before the bind always wins. An update with no span carries no op and is
 ignored. A version ahead of the server, holding the uploader's own unsent ops,
-still binds. The check runs only after the bind is authorized, so a caller
-without access to the document learns nothing about its updates.
+still binds. The check runs only after the signed bind, its write authority,
+and its binding generation are verified, so a caller without write access to
+the document learns nothing about its updates.
 
 The check is scoped to the whole document, not the slot, because the server
 learns nothing about which update touches which slot. A refusal therefore needs

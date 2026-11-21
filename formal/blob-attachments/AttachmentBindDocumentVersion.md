@@ -11,8 +11,8 @@ update that version lacks.
 | --- | --- |
 | `Check` | `verifiedDocumentVersion` pulls, re-checks the slot, and returns the checked version, or abandons the bind |
 | `Check` | `resolveAttachmentSourceUpload` encodes the version in the same step as a store pass's last slot check |
-| `Bind` | `assertBindDocumentVersionCurrent` runs `hasDocumentOpsBeyondVersion` after `lockAttachmentAuthorizationForShare` locks the document head |
-| `Bind` | `verifyAndLockBindSlot` keeps the existing binding-generation precondition |
+| `Bind` | `verifyAndLockBindSlot` verifies the signed bind and keeps the existing binding-generation precondition |
+| `Bind` | `assertBindDocumentVersionCurrent` then runs `hasDocumentOpsBeyondVersion`, still under the document head lock `lockAttachmentAuthorizationForShare` took |
 | `Bind` (refused) | `classifyBindRefusal` reads `attachment_document_changed` from the request the bind just sent |
 | `Retry` / `RecheckOnRefresh` | `bindAtVerifiedDocumentVersion` asks for a re-checked version after a refusal |
 | `Retry` / `PullOnRefusal` | `recordDocumentChangedRefusal` re-arms a store pass, which pulls before its next check |
