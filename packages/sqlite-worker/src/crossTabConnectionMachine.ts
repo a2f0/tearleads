@@ -1,4 +1,4 @@
-import { responseOutcome } from "./crossTabProtocol";
+import { isDatabaseDeletedNotice, responseOutcome } from "./crossTabProtocol";
 import {
   DATABASE_DELETED_MESSAGE,
   DATABASE_NOT_INITIALIZED_MESSAGE,
@@ -27,10 +27,11 @@ import {
  *   one's requests itself, so they never reach an owner that did not open its
  *   database.
  *
- * A database another connection deleted is not lost: the worker answers that
- * it was deleted, which unbinds the client, so neither that answer nor a later
- * owner change reopens a deliberate delete (logout, destroying an identity)
- * behind the tab that made it.
+ * A database another connection deleted is not lost: the worker tells every
+ * other connection at once, and answers their later statements that it was
+ * deleted. Either unbinds the client, so a later owner change does not turn a
+ * deliberate delete (logout, destroying an identity) into a loss the host
+ * would reopen behind the tab that made it.
  */
 export type CrossTabConnectionState =
   | { readonly status: "unbound" }
@@ -45,7 +46,7 @@ export type CrossTabConnectionEvent =
   | { readonly type: "closeRequested" }
   // A worker answered that the client's connection has no open database.
   | { readonly type: "databaseMissing" }
-  // A worker answered that another connection deleted the client's database.
+  // A worker said another connection deleted the client's database.
   | { readonly type: "databaseDeleted" }
   // The owner worker that served this tab is gone: this tab took the owner
   // lock from it, or the owner worker crashed.
@@ -108,11 +109,18 @@ export function connectionEventForRequest(
     : null;
 }
 
-/** The event a worker response implies for the client that sent `method`. */
+/**
+ * The event a worker message implies for the client: a response to its
+ * `method` request, or an unprompted notice.
+ */
 export function connectionEventForResponse(
   method: string | null,
   response: unknown,
 ): CrossTabConnectionEvent | null {
+  if (isDatabaseDeletedNotice(response)) {
+    return { type: "databaseDeleted" };
+  }
+
   const outcome = responseOutcome(response);
   if (!outcome) {
     return null;

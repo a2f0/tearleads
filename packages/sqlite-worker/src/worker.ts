@@ -1,4 +1,5 @@
 import {
+  type DatabaseWorkerNotify,
   WORKER_CONNECT_PORT_MESSAGE_TYPE,
   WORKER_DISCONNECT_PORT_MESSAGE_TYPE,
   WORKER_PORT_DISCONNECTED_MESSAGE_TYPE,
@@ -15,7 +16,10 @@ export type {
   RegisterDatabaseWorkerOptions,
 } from "./workerCore";
 
-type RegisterDatabaseWorkerFactory = () => RegisterDatabaseWorkerOptions;
+// Receives how to post unprompted notices to the connection's client.
+type RegisterDatabaseWorkerFactory = (
+  notify: DatabaseWorkerNotify,
+) => RegisterDatabaseWorkerOptions;
 type RegisterDatabaseWorkerInput =
   | RegisterDatabaseWorkerOptions
   | RegisterDatabaseWorkerFactory;
@@ -214,11 +218,14 @@ export function registerDatabaseWorker(
         return;
       }
 
-      registerDatabaseWorkerPort(port, createOptions());
+      registerDatabaseWorkerPort(
+        port,
+        createOptions((message) => port.postMessage(message)),
+      );
     });
     registerDatabaseWorkerRuntime(
       scopeForDedicatedWorker(workerScope),
-      createOptions(),
+      createOptions((message) => workerScope.postMessage(message)),
     );
   }
 
@@ -233,6 +240,9 @@ export function registerDatabaseWorker(
       return;
     }
 
-    registerDatabaseWorkerPort(port, createOptions());
+    registerDatabaseWorkerPort(
+      port,
+      createOptions((message) => port.postMessage(message)),
+    );
   });
 }

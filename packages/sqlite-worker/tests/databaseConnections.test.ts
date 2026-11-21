@@ -15,6 +15,7 @@ class MockWorkerScope implements DatabaseWorkerScope {
     | ((event: MessageEvent<WorkerRequest>) => void | Promise<void>)
     | undefined;
   readonly messages: WorkerResponse[] = [];
+  readonly notices: unknown[] = [];
 
   addEventListener(
     type: "message",
@@ -45,7 +46,10 @@ function connectSharedWorkerPort(
   createOptions: ReturnType<typeof createDatabaseWorkerConnectionFactory>,
 ): MockWorkerScope {
   const scope = new MockWorkerScope();
-  registerDatabaseWorker(scope, createOptions());
+  registerDatabaseWorker(
+    scope,
+    createOptions((notice) => scope.notices.push(notice)),
+  );
   return scope;
 }
 
@@ -164,6 +168,19 @@ test("delete detaches every port attached to that database and says so", async (
   expect(await first.dispatch(request(3, "delete", undefined))).toEqual({
     id: 3,
     result: { ok: true },
+  });
+  // The other port hears of the delete at once; the deleting port does not.
+  expect(second.notices).toEqual([
+    { type: "tearleads:sqlite-database-deleted" },
+  ]);
+  expect(first.notices).toEqual([]);
+  expect(
+    await first.dispatch(
+      request(9, "exec", { rowMode: "array", sql: "SELECT 1" }),
+    ),
+  ).toEqual({
+    id: 9,
+    result: { ok: false, message: "Database has not been initialized." },
   });
   expect(
     await second.dispatch(

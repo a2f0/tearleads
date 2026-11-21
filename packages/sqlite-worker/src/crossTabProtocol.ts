@@ -1,4 +1,7 @@
-import type { WorkerResponse } from "./types";
+import {
+  WORKER_DATABASE_DELETED_MESSAGE_TYPE,
+  type WorkerResponse,
+} from "./types";
 import type { WorkerCrashDetail } from "./workerCrash";
 
 type CrossTabEnvelope =
@@ -54,6 +57,11 @@ export function requestMethod(request: unknown): string | null {
 
 export function responseId(response: unknown): number | null {
   return getNumber(response, "id");
+}
+
+// The worker's unprompted notice that another connection deleted the database.
+export function isDatabaseDeletedNotice(message: unknown): boolean {
+  return getString(message, "type") === WORKER_DATABASE_DELETED_MESSAGE_TYPE;
 }
 
 // The outcome a worker response reports, or null for anything that is not one.

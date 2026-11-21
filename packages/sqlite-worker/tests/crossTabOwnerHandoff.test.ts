@@ -240,6 +240,86 @@ test("a database another tab deleted is not reopened behind it", async () => {
   });
 });
 
+test("a delete the sibling never queried survives the deleting tab closing", async () => {
+  await withRealWorkerTabs(async (locks) => {
+    const ownerTab = openTab(tabWorkerUrl("owner"));
+    await ownerTab.client.init(INIT_OPTIONS);
+    const [ownerWorker] = TrackedWorker.instances;
+    if (!ownerWorker) {
+      throw new Error("Expected the owner tab to construct its worker.");
+    }
+
+    const sibling = openTab(tabWorkerUrl("sibling"));
+    const siblingCrash = observeCrash(sibling);
+    await sibling.client.init(INIT_OPTIONS);
+
+    // The sibling sends nothing between the delete and the deleting tab
+    // closing; the worker's notice alone must keep it from being reopened.
+    await ownerTab.client.delete();
+    discardOwnerTab(locks, ownerWorker);
+    await waitUntil(() => TrackedWorker.instances.length === 2);
+
+    const error = await rejectionOf(sibling.client.exec({ sql: "SELECT 1" }));
+    expect(error).not.toBeInstanceOf(DatabaseWorkerCrashError);
+    expect(siblingCrash()).toBeNull();
+    sibling.terminateNow();
+    ownerTab.terminateNow();
+  });
+});
+
+// Answers every request except a teardown, which stays in flight.
+class TeardownHangingWorker extends PortAwareWorker {
+  override postMessage(_message: unknown, transfer?: Transferable[]): void {
+    const port = transfer?.[0];
+    if (!(port instanceof MessagePort)) {
+      return;
+    }
+    this.ports.push(port);
+    port.start();
+    port.addEventListener("message", (event) => {
+      const { id, method } = event.data as { id: number; method: string };
+      if (method !== "close" && method !== "delete") {
+        port.postMessage({ id, result: { ok: true } });
+      }
+    });
+  }
+}
+
+test("a client mid-teardown at promotion is lost and leaves the new owner alone", async () => {
+  const locks = new MockLockManager();
+
+  await withCrossTabGlobals(locks, async () => {
+    const ownerWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(
+        uniqueWorkerUrl("owner"),
+        TeardownHangingWorker,
+      ),
+    );
+    const ownerClient = createDatabaseWorkerClient(ownerWorker);
+    await ownerClient.ping();
+    const hangingOwner = PortAwareWorker.lastConstructed;
+
+    PortAwareWorker.lastConstructed = null;
+    const promotedWorker = requireCrossTabWorker(
+      createCrossTabDatabaseWorker(uniqueWorkerUrl("closing"), PortAwareWorker),
+    );
+    const promotedRuntime = createSharedDatabaseRuntime(promotedWorker);
+    await promotedRuntime.client.init(INIT_OPTIONS);
+    const pendingDelete = rejectionOf(promotedRuntime.deleteData());
+    await waitUntil(() => hangingOwner?.ports.length === 2);
+
+    locks.forceRelease(OWNER_LOCK_NAME);
+    await pendingDelete;
+    const promotedOwner =
+      PortAwareWorker.lastConstructed as PortAwareWorker | null;
+    expect(promotedOwner).not.toBeNull();
+    // Its teardown is over without force-stopping the owner it never used.
+    expect(promotedOwner?.terminated).toBe(false);
+    ownerClient.destroy();
+    ownerWorker.close();
+  });
+});
+
 test("a tab whose own owner fails to start still reports its database lost", async () => {
   const locks = new MockLockManager();
 

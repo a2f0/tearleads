@@ -138,6 +138,15 @@ export const DATABASE_NOT_INITIALIZED_MESSAGE =
 export const DATABASE_DELETED_MESSAGE =
   "Database was deleted by another connection.";
 
+// Posted unprompted on each other connection to a database the moment one
+// connection deletes it, so a client learns of the delete before its owner tab
+// can go away, even when it sends nothing in between.
+export const WORKER_DATABASE_DELETED_MESSAGE_TYPE =
+  "tearleads:sqlite-database-deleted";
+
+/** Posts an unprompted notice back to the connection's client. */
+export type DatabaseWorkerNotify = (message: { readonly type: string }) => void;
+
 export type WorkerMethod = keyof WorkerRequestMap;
 
 export type WorkerRequest<K extends WorkerMethod = WorkerMethod> =

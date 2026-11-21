@@ -10,6 +10,7 @@ import {
 import {
   DATABASE_DELETED_MESSAGE,
   DATABASE_NOT_INITIALIZED_MESSAGE,
+  WORKER_DATABASE_DELETED_MESSAGE_TYPE,
 } from "../src/types";
 
 const unbound: CrossTabConnectionState = { status: "unbound" };
@@ -82,9 +83,15 @@ test("a worker's answer tells a missing database from a deleted one", () => {
       failure(DATABASE_NOT_INITIALIZED_MESSAGE),
     ),
   ).toEqual(databaseMissing);
-  // A deliberate delete elsewhere is not a loss to recover from.
+  // A deliberate delete elsewhere is not a loss to recover from, whether the
+  // worker announces it or answers a later statement with it.
   expect(
     connectionEventForResponse("exec", failure(DATABASE_DELETED_MESSAGE)),
+  ).toEqual(databaseDeleted);
+  expect(
+    connectionEventForResponse(null, {
+      type: WORKER_DATABASE_DELETED_MESSAGE_TYPE,
+    }),
   ).toEqual(databaseDeleted);
   expect(
     connectionEventForResponse("exec", failure("no such table: t")),
