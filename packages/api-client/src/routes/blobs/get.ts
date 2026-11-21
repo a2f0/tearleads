@@ -5,14 +5,16 @@ import {
 } from "@tearleads/validators/operation";
 import type { MultipartBlobPartUploadSource } from "@tearleads/validators/util";
 import type { BinaryResponseOperationTransport } from "../../binaryResponseOperationTransport";
+import { boundedMetadata } from "../../boundedMetadataResponse";
 import type { JsonOperationTransport } from "../../operationTransport";
-import type {
-  OperationResponseRequestFn,
-  RequestFailure,
-  RequestResultOptions,
-} from "../../types";
+import type { RequestFailure, RequestResultOptions } from "../../types";
 import { blobDownloadBody } from "./blobDownloadBody";
 import { storageFetchOptions } from "./storageFetchOptions";
+
+export interface BlobDownloadOptions extends RequestResultOptions {
+  /** Require a stream and reject oversized declarations before opening the body. Cancel if it streams beyond this limit. */
+  readonly maxEncryptedByteLength?: number | undefined;
+}
 
 export interface BlobBytesResponse {
   readonly blobId: string;
@@ -35,8 +37,7 @@ export interface UploadMultipartBlobPartBytesRequest {
 }
 
 type BlobDownloadTransport = Pick<JsonOperationTransport, "requestResult"> &
-  Pick<BinaryResponseOperationTransport, "requestBinaryResponse"> &
-  Pick<OperationResponseRequestFn, "reportFailure">;
+  Pick<BinaryResponseOperationTransport, "requestBinaryResponse">;
 
 type DownloadFetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -45,7 +46,7 @@ function descriptorFailureFallback(
   transport: BlobDownloadTransport,
   blobId: string,
   failure: RequestFailure,
-  options: RequestResultOptions,
+  options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse | null> | null {
   if (failure.kind === "http" && failure.status === 404) {
     return getBlobStream(transport, blobId, options);
@@ -54,37 +55,56 @@ function descriptorFailureFallback(
   return null;
 }
 
+function metadataOptions(
+  options: BlobDownloadOptions,
+  mode: "all" | "errors",
+): RequestResultOptions {
+  return options.maxEncryptedByteLength === undefined
+    ? options
+    : { ...options, [boundedMetadata]: mode };
+}
+
 export async function getBlobBytes(
   transport: BlobDownloadTransport,
   blobId: string,
   downloadFetch: DownloadFetch = (url, init) => fetch(url, init),
-  options: RequestResultOptions = {},
+  options: BlobDownloadOptions = {},
 ): Promise<BlobBytesResponse | null> {
+  const limit = options.maxEncryptedByteLength;
+  if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 0))
+    return null;
+  return downloadBlob(transport, blobId, downloadFetch, options);
+}
+
+async function downloadBlob(
+  transport: BlobDownloadTransport,
+  blobId: string,
+  downloadFetch: DownloadFetch,
+  options: BlobDownloadOptions,
+): Promise<BlobBytesResponse | null> {
+  const operation = {
+    ...getBlobDownloadOperation,
+    responses: {
+      200: getBlobDownloadOperation.responses[200].refine(
+        (descriptor) => descriptor.blobId === blobId,
+      ),
+    },
+  };
+  const limit = options.maxEncryptedByteLength ?? Infinity;
   // Refresh at most once. R2 expiration errors can appear as CORS/network
   // failures in browsers, so both rejected fetches and 403s need a fresh URL.
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    if (options.signal?.aborted) return null;
+  for (let attempt = 0; attempt < 2 && !options.signal?.aborted; attempt += 1) {
     const result = await transport.requestResult(
-      getBlobDownloadOperation,
+      operation,
       { params: { blobId } },
-      { ...options, reportErrors: false },
+      { ...metadataOptions(options, "all"), reportErrors: false },
     );
     if (options.signal?.aborted) return null;
     if (!result.ok) {
       return descriptorFailureFallback(transport, blobId, result, options);
     }
     const descriptor = result.data;
-    if (descriptor.blobId !== blobId) {
-      transport.reportFailure({
-        kind: "shape",
-        method: "GET",
-        path: `/blobs/${blobId}/download`,
-        status: 200,
-        statusText: "",
-        message: `Blob ${blobId} download descriptor has the wrong identity`,
-      });
-      return null;
-    }
+    if (descriptor.byteLength > limit) return null;
     if (descriptor.source.kind === "api") {
       return getBlobStream(transport, blobId, options);
     }
@@ -111,7 +131,7 @@ async function fetchSignedBlob(
   descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength" | "sha256">,
   url: string,
   downloadFetch: DownloadFetch,
-  options: RequestResultOptions,
+  options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse | "retry" | "fallback"> {
   try {
     // Never send the application's session or cookies to the object store.
@@ -121,7 +141,17 @@ async function fetchSignedBlob(
       await response.body?.cancel().catch(() => {});
       return response.status === 403 ? "retry" : "fallback";
     }
-    return await signedBlobResponse(descriptor, response, options.signal);
+    if (options.maxEncryptedByteLength !== undefined) {
+      if (!response.body) return "fallback";
+      if (
+        Number(response.headers.get("Content-Length")) >
+        options.maxEncryptedByteLength
+      ) {
+        void response.body.cancel().catch(() => {});
+        return "fallback";
+      }
+    }
+    return await signedBlobResponse(descriptor, response, options);
   } catch {
     // The downstream SDK still verifies length, hash and authenticated
     // encryption. An error after streaming begins propagates to that reader.
@@ -132,20 +162,25 @@ async function fetchSignedBlob(
 async function signedBlobResponse(
   descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength" | "sha256">,
   response: Response,
-  signal: AbortSignal | undefined,
+  options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse> {
   return {
     blobId: descriptor.blobId,
     byteLength: descriptor.byteLength,
     sha256: descriptor.sha256,
-    encryptedBytes: await blobDownloadBody(response, signal, true),
+    encryptedBytes: await blobDownloadBody(
+      response,
+      options.signal,
+      true,
+      options.maxEncryptedByteLength,
+    ),
   };
 }
 
 async function getBlobStream(
   transport: Pick<BinaryResponseOperationTransport, "requestBinaryResponse">,
   blobId: string,
-  options: RequestResultOptions,
+  options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse | null> {
   if (options.signal?.aborted) return null;
   const result = await transport.requestBinaryResponse(
@@ -153,7 +188,7 @@ async function getBlobStream(
     {
       params: { blobId },
     },
-    options,
+    metadataOptions(options, "errors"),
   );
   if (!result) {
     return null;
@@ -162,7 +197,22 @@ async function getBlobStream(
   const { headers, response } = result;
   const byteLength = Number(headers[blobWireHeaderKeys.blobByteLength]);
 
-  const encryptedBytes = await blobDownloadBody(response, options.signal);
+  if (
+    options.maxEncryptedByteLength !== undefined &&
+    (byteLength > options.maxEncryptedByteLength ||
+      Number(response.headers.get("Content-Length")) >
+        options.maxEncryptedByteLength ||
+      !response.body)
+  ) {
+    void response.body?.cancel().catch(() => {});
+    return null;
+  }
+  const encryptedBytes = await blobDownloadBody(
+    response,
+    options.signal,
+    false,
+    options.maxEncryptedByteLength,
+  );
 
   if (options.signal?.aborted) return null;
   return {
