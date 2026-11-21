@@ -11,6 +11,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   type ContainerWriterProjectionResponse,
   encodeContainerWriterProjection,
+  type HeldDirectoryCitation,
   type PrincipalStatePayloadResponse,
   type PrincipalStateResponse,
 } from "@tearleads/validators/response";
@@ -23,7 +24,6 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
-import type { HeldDirectoryCitation } from "./heldDirectoryCitations";
 
 const ORGANIZATION_ID = "organization-1";
 const SIGNED_AT = "2026-11-17T00:00:00.000Z";

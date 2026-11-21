@@ -326,7 +326,11 @@ export function useExplorerPanelState(params: {
     },
     [explorer.nodes, importDroppedFilesUnguarded, rulesContext],
   );
-  const uploadManager = useExplorerUploadManager({ importDroppedFiles });
+  const uploadManager = useExplorerUploadManager({
+    documentQueries,
+    domainScope: appData.state.domainScope,
+    importDroppedFiles,
+  });
   const deleteDocument = useCallback(
     async (documentId: string, currentContainerId: string) => {
       const selectSource = beginSelectionFollowUp();

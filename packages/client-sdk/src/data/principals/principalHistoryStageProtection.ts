@@ -1,11 +1,13 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   type PrincipalPolicyHistoryProgressOptions,
   type ReferencedPrincipalHead,
   serializeKeyingCanonicalJson,
   toFingerprint,
 } from "@tearleads/crypto";
-import { isPrincipalPolicyPageResponse } from "@tearleads/validators/response";
+import {
+  isPrincipalPolicyPageResponse,
+  type PrincipalPolicyPageCurrent,
+} from "@tearleads/validators/response";
 import type { PrincipalHistoryStage } from "../persistence/principalHistory/principalHistoryStagePersistence";
 
 export function principalHistoryStageId(

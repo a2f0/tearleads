@@ -1,4 +1,3 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   createPrincipalPolicyHistoryVerifier,
   KeyingVerificationError,
@@ -8,7 +7,10 @@ import {
   verifyPrincipalPolicyCheckpoint,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
-import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
+import type {
+  PrincipalPolicyPageCurrent,
+  PrincipalPolicyPageResponse,
+} from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { KeyingCheckpointRepository } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";

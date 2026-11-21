@@ -1,5 +1,5 @@
-import type { HeldDirectoryCitation } from "@tearleads/api-client";
 import {
+  type HeldDirectoryCitation,
   isPrincipalStatePayloadResponse,
   isPrincipalStateResponse,
 } from "@tearleads/validators/response";

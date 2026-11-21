@@ -38,6 +38,7 @@ export {
 export {
   isPrincipalPolicyPageResponse,
   isPrincipalPolicyUnchangedResponse,
+  type PrincipalPolicyPageCurrent,
   type PrincipalPolicyPageResponse,
   PrincipalPolicyPageResponseSchema,
   type PrincipalPolicyReadResponse,

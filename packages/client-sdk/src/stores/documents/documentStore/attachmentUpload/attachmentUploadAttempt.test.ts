@@ -63,7 +63,9 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
   close();
 
   expect(stageCount).toBe(1);
-  expect(blockCheckCount).toBe(2);
+  // Preflight, staging, stage request, and part request, then the postflight
+  // recheck that sees the 402's pause.
+  expect(blockCheckCount).toBe(5);
   expect(result).toEqual({ status: "syncBlocked" });
 });
 

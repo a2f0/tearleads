@@ -24,7 +24,7 @@ how the pieces fit.
 | [`src/challenge.ts`](src/challenge.ts), [`src/identitySeedPhrase.ts`](src/identitySeedPhrase.ts), [`src/fingerprint.ts`](src/fingerprint.ts) | Sign-in challenges, the BIP39 identity seed phrase, and key fingerprints |
 | [`src/identityTrustDomain.ts`](src/identityTrustDomain.ts), [`src/userIdentityBundle.ts`](src/userIdentityBundle.ts) | Shared canonical identity scopes and full identity-link bundle commitments |
 | [`src/principalState.ts`](src/principalState.ts), [`src/principalStateMembers.ts`](src/principalStateMembers.ts), [`src/principalStateTypes.ts`](src/principalStateTypes.ts), [`src/principalStateVerification.ts`](src/principalStateVerification.ts), [`src/principalContainerGrants.ts`](src/principalContainerGrants.ts), [`src/principalMemberEnvelopes.ts`](src/principalMemberEnvelopes.ts), [`src/principalPolicyValidationError.ts`](src/principalPolicyValidationError.ts) | Signed group and organization principal state and member envelopes |
-| [`src/keying`](src/keying/) | Canonical encoding, access events and manifests, container KEKs, document access, and principal policy history |
+| [`src/keying`](src/keying/) | Canonical encoding, access events and manifests, container KEKs, document access, principal policy history, and verifying held writer projection citations |
 | [`src/keying/containerKek`](src/keying/containerKek/README.md) | Container KEK internals and content-key target derivations |
 
 The root entry point exports the public functions. Keep canonical hashing

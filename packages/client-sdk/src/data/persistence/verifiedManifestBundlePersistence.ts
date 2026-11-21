@@ -1,10 +1,10 @@
+import type { VerifiedManifestCitations } from "@tearleads/api-client";
+import { toFingerprint } from "@tearleads/crypto";
 import type {
   HeldDirectoryCitation,
   HeldProjectionCitation,
-  VerifiedManifestCitations,
   WriterProjectionTarget,
-} from "@tearleads/api-client";
-import { toFingerprint } from "@tearleads/crypto";
+} from "@tearleads/validators/response";
 import {
   KNOWN_MANIFEST_HINT_LIMIT,
   type ServedAccessManifestBundleWireResponse,
