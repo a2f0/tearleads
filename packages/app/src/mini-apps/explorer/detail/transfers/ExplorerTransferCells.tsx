@@ -1,6 +1,7 @@
 import type { SyncLaneStatus } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
 import {
+  MiniAppTableActionButton,
   MiniAppTableCell,
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
@@ -33,18 +34,39 @@ export function getExplorerTransferStatusPercent(
   return getExplorerSyncLaneProgress(status === "error" ? "queued" : status);
 }
 
-/** The row's name with its progress bar spanning the cell beneath it. */
+/** Where a finished transfer's row leads, and the accessible name for it. */
+export interface ExplorerTransferOpenAction {
+  label: string;
+  onOpen: () => void;
+}
+
+/**
+ * The row's name with its progress bar spanning the cell beneath it. With an
+ * `open` action the name is the row's keyboard-reachable link; pair it with
+ * `MiniAppTableRow`'s `onActivate` so a click anywhere on the row follows it.
+ */
 export function ExplorerTransferNameCell(params: {
   children: ReactNode;
+  open?: ExplorerTransferOpenAction | null | undefined;
   title?: string | undefined;
   transfer: ExplorerTransferProgress;
 }) {
+  const name = (
+    <MiniAppTableText title={params.title}>{params.children}</MiniAppTableText>
+  );
   return (
     <MiniAppTableCell>
       <span className="explorer-transfer-name">
-        <MiniAppTableText title={params.title}>
-          {params.children}
-        </MiniAppTableText>
+        {params.open ? (
+          <MiniAppTableActionButton
+            aria-label={params.open.label}
+            onClick={params.open.onOpen}
+          >
+            {name}
+          </MiniAppTableActionButton>
+        ) : (
+          name
+        )}
         <ExplorerSyncProgressBar
           label={params.transfer.label}
           percent={params.transfer.percent}

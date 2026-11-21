@@ -9,11 +9,16 @@ import type {
  * the SDK confirmed fully stored. A row that leaves the queue unconfirmed
  * (deleted, detached, reset) is dropped rather than shown as complete. A
  * completed row keeps its queue row's identity and file name, with the title
- * the stored content supplied and no error.
+ * the stored content supplied and no error, and the SDK's confirmation, which
+ * says where the stored content can be opened.
  */
 export type DownloadHistoryEntry =
   | { readonly item: PendingDownloadQueueItem; readonly status: "pending" }
-  | { readonly item: PendingDownloadQueueItem; readonly status: "complete" };
+  | {
+      readonly item: PendingDownloadQueueItem;
+      readonly status: "complete";
+      readonly stored: CompletedDownloadItem;
+    };
 
 /**
  * The Downloads history for one domain scope, tagged with the newest queue
@@ -146,6 +151,7 @@ function settleEntries(
       newlyComplete.push({
         item: completeDownloadItem(entry.item, stored),
         status: "complete",
+        stored,
       });
   }
   return [

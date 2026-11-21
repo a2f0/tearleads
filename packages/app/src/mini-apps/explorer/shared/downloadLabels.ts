@@ -20,4 +20,7 @@ export const EXPLORER_DOWNLOAD_LABELS = {
   downloadsCountOne: "pending download",
   downloadsCountOther: "pending downloads",
   downloadsShowMoreAction: "Show more",
+  downloadsOpenFileAction: "Open file details",
+  downloadsOpenDocumentAction: "Open document info",
+  downloadsOpenFolderAction: "Open folder info",
 } as const;
