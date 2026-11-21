@@ -17,6 +17,7 @@ update that version lacks.
 | `Retry` / `RecheckOnRefresh` | `bindAtVerifiedDocumentVersion` asks for a re-checked version after a refusal |
 | `Retry` / `PullOnRefusal` | `pendingAttachmentDocumentVersion` pulls in the same store pass through `pullRemoteDocumentForAttachments` before its re-check |
 | `Retry` / `PullOnRefusal` | `recordDocumentChangedRefusal` re-arms a store pass when an upload call used up its re-checks |
+| `Retry` / `PullOnRefusal` | `bindAtVerifiedDocumentVersion` ends `bound`, `abandoned`, `documentChanged`, or `failed`; only `abandoned` and `documentChanged` re-arm, so a later bind that fails otherwise is reported |
 | `Remove` / `Restore` / `Replace` / `Unrelated` | `appendDocumentUpdates` commits another device's update under `lockSyncDocumentWriteFrontier` |
 | `OtherBind` | `bindBlobAttachment` commits the replacing device's own bytes |
 
@@ -50,12 +51,12 @@ model abstracts that bound as an unbounded series of the uploader's own steps.
 
 The model counts edits, while the API compares the span each update declares.
 The API stores those spans but cannot check them against the ciphertext, so
-`UploadSettles` assumes span-honest writers. An honest client declares the
-span of the ops it encrypted, and a pull covers it. A writer that declares a
-span its update lacks makes every later bind on that document refuse; before
-this check such an update was only served again on every pull. That writer
-could already remove any slot while it holds write access, but the refusal
-outlasts that access.
+`UploadSettles` assumes each committed span matches its update's ops. An
+honest client declares the span of the ops it encrypted, and a pull covers it.
+A client rejects a pulled update whose decrypted ops differ from its declared
+span (`assertDecryptedDocumentUpdateMetadata`) and records the document's sync
+as failed, so a false span already stops every device's pulls of that
+document; the refused binds add no new failure there.
 
 The model also abstracts encryption, signatures, staging, and lost bind
 responses ([PendingAttachmentDetach](./PendingAttachmentDetach.md) covers
@@ -81,3 +82,7 @@ document store regressions in
 bind in the pass that was refused, keep binding while refusals outlast one
 upload call, stop once a server that keeps refusing uses up the budget, and
 give a reloaded upload its full budget when the store tears down mid-pull.
+[`attachmentPeerEdit.integration.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentPeerEdit.integration.test.ts)
+pulls a second device's real update inside the bind window: a removal of the
+slot being replaced sends no second bind and drops the upload, and an
+unrelated edit retries at a version that covers the peer's ops.

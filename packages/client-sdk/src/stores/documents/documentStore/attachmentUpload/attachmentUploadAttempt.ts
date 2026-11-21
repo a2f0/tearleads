@@ -5,6 +5,7 @@ import type {
 } from "../../../../workflows/blobs";
 import { uploadInspectedDocumentAttachment } from "../../../../workflows/blobs/blobAttachmentService";
 import type { PreparedUploadDocumentAttachmentRequest as AttachmentUploadInput } from "../../../../workflows/blobs/upload";
+import type { DocumentVersionBindStatus } from "../../../../workflows/blobs/upload/bindAtDocumentVersion";
 import type { DocumentStoreState } from "../state";
 
 function withResumedMultipartStage(
@@ -32,10 +33,11 @@ export type AttachmentUploadAttempt =
   /** A billing pause stopped it; no failure is reported. */
   | { readonly status: "syncBlocked" }
   /**
-   * The API refused a bind because the document advanced, and the attempt
-   * then ended without binding or throwing: its refreshes ran out, the slot
-   * no longer asks for the bytes, or the pull did not complete. A throw after
-   * a refresh is `failed`, so its error is reported.
+   * The upload call's binds ended because the document advanced: its last
+   * bind was refused for a newer document, or its check after a refusal
+   * abandoned the bind (the slot no longer asks for the bytes, or the pull
+   * did not complete). A bind that then failed otherwise, or a throw, is
+   * `failed`, so its error is reported.
    */
   | { readonly status: "documentChanged" }
   | { readonly status: "failed"; readonly error: unknown };
@@ -48,7 +50,8 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
   writerProjection: DocumentStoreState["writerProjection"];
 }): Promise<AttachmentUploadAttempt> {
   let remoteSyncBlocked = false;
-  let documentChanged = false;
+  /** How the latest upload call's binds ended; null until one reaches a bind. */
+  let bindEnd: DocumentVersionBindStatus | null = null;
   let checkedOrganizationId: string | undefined;
   let resolvedMultipartStage:
     | { readonly partSize: number; readonly stageId: string }
@@ -68,11 +71,11 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
         input.state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
       return remoteSyncBlocked;
     },
-    onStageResolved,
-    verifiedDocumentVersion: (request: { readonly refresh: boolean }) => {
-      documentChanged ||= request.refresh;
-      return input.baseUploadInput.verifiedDocumentVersion(request);
+    onBindEnded: (status: DocumentVersionBindStatus) => {
+      bindEnd = status;
+      input.baseUploadInput.onBindEnded?.(status);
     },
+    onStageResolved,
   };
   let uploadError: unknown;
   let uploadThrew = false;
@@ -102,7 +105,7 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     !uploaded &&
     input.writerProjection &&
     !remoteSyncBlocked &&
-    !documentChanged &&
+    !endedForNewerDocument(bindEnd) &&
     !uploadThrew
   ) {
     // A stale cached writer projection may have caused an ambiguous null. Retry
@@ -132,25 +135,26 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     }
   }
 
-  return endedAttempt({
-    documentChanged,
-    remoteSyncBlocked,
-    uploaded,
-    uploadError,
-    uploadThrew,
-  });
+  return endedAttempt({ bindEnd, remoteSyncBlocked, uploaded, uploadError });
+}
+
+/** Whether an upload call's binds ended because the document advanced. */
+function endedForNewerDocument(
+  bindEnd: DocumentVersionBindStatus | null,
+): boolean {
+  return bindEnd === "documentChanged" || bindEnd === "abandoned";
 }
 
 function endedAttempt(input: {
-  readonly documentChanged: boolean;
+  /** Null when the call threw or stopped before any bind. */
+  readonly bindEnd: DocumentVersionBindStatus | null;
   readonly remoteSyncBlocked: boolean;
   readonly uploaded: UploadDocumentAttachmentResult | null;
   readonly uploadError: unknown;
-  readonly uploadThrew: boolean;
 }): AttachmentUploadAttempt {
   if (input.uploaded) return { status: "uploaded", uploaded: input.uploaded };
   if (input.remoteSyncBlocked) return { status: "syncBlocked" };
-  if (input.documentChanged && !input.uploadThrew) {
+  if (endedForNewerDocument(input.bindEnd)) {
     return { status: "documentChanged" };
   }
   return { error: input.uploadError, status: "failed" };

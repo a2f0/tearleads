@@ -55,7 +55,10 @@ import { requireProjectionUserKeyResolver } from "../../../data/keyingProjection
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { resolveBlobMutationWriterProjection } from "../verification/writerProjection";
 import { resolveMultipartUploadOptions } from "./automaticMultipartUpload";
-import { bindAtVerifiedDocumentVersion } from "./bindAtDocumentVersion";
+import {
+  bindAtVerifiedDocumentVersion,
+  type DocumentVersionBindStatus,
+} from "./bindAtDocumentVersion";
 import { UploadPausedError } from "./multipartStageResolution";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
@@ -187,6 +190,7 @@ interface StageAndBindInput {
   multipart: NonNullable<UploadDocumentAttachmentRequest["multipart"]>;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
   onStageResolved?: MultipartStageResolvedListener | undefined;
+  onBindEnded?: PreparedUploadDocumentAttachmentRequest["onBindEnded"];
   onStageUnavailable?: ((stageId: string) => Promise<void>) | undefined;
   signedAt: string;
   slotId: string;
@@ -275,7 +279,8 @@ async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
     verifiedDocumentVersion: input.verifiedDocumentVersion,
   });
-  if (!bound?.response || input.stillCurrent?.() === false) {
+  input.onBindEnded?.(bound.status);
+  if (bound.status !== "bound" || input.stillCurrent?.() === false) {
     return null;
   }
   const { request, response } = bound;
@@ -308,6 +313,10 @@ async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
 /** An upload whose source `inspectBlobSource` already snapshotted. */
 export interface PreparedUploadDocumentAttachmentRequest
   extends UploadDocumentAttachmentRequest {
+  /** Called once per call that reaches a bind, with how its binds ended. */
+  readonly onBindEnded?:
+    | ((status: DocumentVersionBindStatus) => void)
+    | undefined;
   readonly sourceSnapshot?: BlobSourceSnapshot | undefined;
   readonly onStageUnavailable?:
     | ((stageId: string) => Promise<void>)
@@ -339,6 +348,7 @@ export async function uploadPreparedDocumentAttachment(
     isRemoteSyncBlocked,
     nonceSeed,
     multipart,
+    onBindEnded,
     onMultipartProgress,
     onStageResolved,
     onStageUnavailable,
@@ -423,6 +433,7 @@ export async function uploadPreparedDocumentAttachment(
     stillCurrent,
     isRemoteSyncBlocked,
     multipart: resolvedMultipart,
+    onBindEnded,
     onMultipartProgress,
     onStageResolved,
     onStageUnavailable,

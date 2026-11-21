@@ -49,7 +49,9 @@ type DocumentChangedEvent =
       /** This upload's attempt bound, or ended for another reason. */
       readonly type: "settled";
       readonly upload: PendingUpload;
-    };
+    }
+  /** The store loaded its pending uploads again. */
+  | { readonly type: "reloaded" };
 
 function pendingUploadKey(upload: PendingUpload): string {
   return JSON.stringify([upload.slotId, upload.storageKey]);
@@ -58,12 +60,14 @@ function pendingUploadKey(upload: PendingUpload): string {
 /**
  * Each upload has its own budget, so one upload that used it up never makes
  * another's first refusal wait for a later signal. A refusal also forgets
- * uploads that are no longer pending.
+ * uploads that are no longer pending, and a reload gives every upload a full
+ * budget again.
  */
 function transitionDocumentChangedPasses(
   passes: DocumentChangedPasses,
   event: DocumentChangedEvent,
 ): DocumentChangedPasses {
+  if (event.type === "reloaded") return new Map();
   const key = pendingUploadKey(event.upload);
   if (event.type === "settled") {
     return new Map([...passes].filter(([pending]) => pending !== key));
@@ -112,5 +116,18 @@ export function settleDocumentChangedPasses(
   state.attachmentDocumentChangedPasses = transitionDocumentChangedPasses(
     state.attachmentDocumentChangedPasses,
     { type: "settled", upload },
+  );
+}
+
+/**
+ * A store that loads its pending uploads again gives each a full budget, so
+ * one that used it up before a reset pulls again on its next refusal.
+ */
+export function reloadDocumentChangedPasses(
+  state: Pick<DocumentChangedPassState, "attachmentDocumentChangedPasses">,
+): void {
+  state.attachmentDocumentChangedPasses = transitionDocumentChangedPasses(
+    state.attachmentDocumentChangedPasses ?? new Map(),
+    { type: "reloaded" },
   );
 }

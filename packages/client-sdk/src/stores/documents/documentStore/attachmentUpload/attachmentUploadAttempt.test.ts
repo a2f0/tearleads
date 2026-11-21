@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { emptyVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { BLOB_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
@@ -181,12 +182,20 @@ test("does not retry a concrete upload failure with a fresh projection", async (
   }
 });
 
+const documentChangedFailure = {
+  code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
+  kind: "http",
+  status: 409,
+};
+
 /**
- * An attempt whose one bind the API refuses because the document advanced,
- * and whose caller's refresh then does `refresh`.
+ * An attempt whose first bind the API refuses because the document advanced,
+ * whose caller's refresh then does `refresh`, and whose later binds fail
+ * with `laterFailure`.
  */
 async function attemptAfterDocumentChanged(
   refresh: () => Promise<string | null>,
+  laterFailure: object = documentChangedFailure,
 ) {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
@@ -195,6 +204,7 @@ async function attemptAfterDocumentChanged(
   );
   const { getAssembledBytes: _bytes, ...multipart } =
     createMultipartBlobStageFixture();
+  let binds = 0;
   let recordedFailure: object | null = null;
   const state = {
     runtime: { util: { isRemoteSyncBlocked: () => false } },
@@ -216,11 +226,10 @@ async function attemptAfterDocumentChanged(
         api: {
           ...multipart,
           bindBlobAttachment: async () => {
-            // The client records each refusal as a new failure.
+            binds += 1;
+            // The client records each failure as a new object.
             recordedFailure = {
-              code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
-              kind: "http",
-              status: 409,
+              ...(binds === 1 ? documentChangedFailure : laterFailure),
             };
             return null;
           },
@@ -242,6 +251,16 @@ test("an attempt whose refresh abandons the bind ends as a document change", asy
   expect(await attemptAfterDocumentChanged(async () => null)).toEqual({
     status: "documentChanged",
   });
+});
+
+test("a refreshed bind that then fails for another reason is a reported failure", async () => {
+  const unavailable = { kind: "http", status: 503 };
+  expect(
+    await attemptAfterDocumentChanged(
+      async () => emptyVersionVector(),
+      unavailable,
+    ),
+  ).toMatchObject({ status: "failed" });
 });
 
 test("a throw after a refused bind's refresh is a reported failure", async () => {

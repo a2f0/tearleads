@@ -65,15 +65,31 @@ interface BindInput {
   readonly isRemoteSyncBlocked?: UploadDocumentAttachmentRequest["isRemoteSyncBlocked"];
 }
 
-interface BindResult {
+interface BindAttempt {
   readonly request: BlobAttachmentBindRequest;
   readonly response: BlobAttachmentBindResponse | null;
-}
-
-interface BindAttempt extends BindResult {
   /** Why the request this attempt sent was refused; null when none was. */
   readonly refusal: BindRefusal | null;
 }
+
+/** How one upload call's binds ended; the first matching status wins. */
+export type DocumentVersionBindEnd =
+  | {
+      readonly status: "bound";
+      readonly request: BlobAttachmentBindRequest;
+      readonly response: BlobAttachmentBindResponse;
+    }
+  /**
+   * The caller's check returned null instead of a version: the slot no
+   * longer asks for the bytes, or the caller's pull did not complete.
+   */
+  | { readonly status: "abandoned" }
+  /** The last bind was refused because the document advanced again. */
+  | { readonly status: "documentChanged" }
+  /** The last bind failed for another reason, or was not sent. */
+  | { readonly status: "failed" };
+
+export type DocumentVersionBindStatus = DocumentVersionBindEnd["status"];
 
 /**
  * The carried update adds no failure mode: a refused carry binds once more
@@ -108,7 +124,10 @@ async function bindCarryingDocumentSync(
     const recorded = bindFailure(input.apiClient, input.blobId);
     const failure = response || recorded === earlier ? null : recorded;
     // A refusal for a newer document is routine on a busy document and is
-    // retried; every other failure is reported as the client would have.
+    // retried; every other recorded failure is still reported. Turning the
+    // client's reporting off also drops its own "Session refresh failed"
+    // diagnostic for a renewal that fails during a bind, which `report`
+    // does not replay.
     if (failure && classifyBindRefusal(failure) !== "documentChanged") {
       failure.report?.();
     }
@@ -139,23 +158,20 @@ export async function bindAtVerifiedDocumentVersion(
     readonly plainRequest: PlainBindRequest;
     readonly verifiedDocumentVersion: UploadDocumentAttachmentRequest["verifiedDocumentVersion"];
   },
-): Promise<BindResult | null> {
+): Promise<DocumentVersionBindEnd> {
   for (let refreshes = 0; ; refreshes += 1) {
     const documentVersionVector = await input.verifiedDocumentVersion({
       refresh: refreshes > 0,
     });
-    if (documentVersionVector === null) {
-      return null;
-    }
+    if (documentVersionVector === null) return { status: "abandoned" };
     const { refusal, request, response } = await bindCarryingDocumentSync({
       ...input,
       plainRequest: { ...input.plainRequest, documentVersionVector },
     });
-    if (
-      refusal !== "documentChanged" ||
-      refreshes >= MAX_DOCUMENT_VERSION_REFRESHES
-    ) {
-      return { request, response };
+    if (response) return { request, response, status: "bound" };
+    if (refusal !== "documentChanged") return { status: "failed" };
+    if (refreshes >= MAX_DOCUMENT_VERSION_REFRESHES) {
+      return { status: "documentChanged" };
     }
   }
 }
