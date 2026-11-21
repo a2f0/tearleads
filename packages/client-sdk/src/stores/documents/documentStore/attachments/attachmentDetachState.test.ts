@@ -6,7 +6,7 @@ import {
 } from "../../../../data/documents/documentContent";
 import type { LocalAttachmentRecord } from "../../../../workflows/documents";
 import {
-  reconcileLocalAttachmentDetachState,
+  listUnsettledAttachmentMarkers,
   withLocalAttachmentDetachState,
 } from "./attachmentDetachState";
 
@@ -82,29 +82,39 @@ test("withLocalAttachmentDetachState keeps an existing marker and passes through
   ).toBeNull();
 });
 
-test("reconcileLocalAttachmentDetachState reports only rows that disagree with the document", async () => {
-  const doc = await createDocumentWithSlots(["slot-live", "slot-stale-marker"]);
+test("listUnsettledAttachmentMarkers reports only rows that disagree with the document", async () => {
+  // Every slot records digest "1"; createLocalAttachment holds digest "0".
+  const doc = await createDocumentWithSlots([
+    "slot-live",
+    "slot-readded",
+    "slot-readded-other",
+    "slot-served-other",
+  ]);
+  const sameCopy = (slotId: string, detachedAt: string | null = null) => ({
+    ...createLocalAttachment(slotId, detachedAt),
+    contentSha256: "1".repeat(64),
+  });
 
-  const healed = reconcileLocalAttachmentDetachState(
+  const unsettled = listUnsettledAttachmentMarkers(
     [
-      createLocalAttachment("slot-live"),
-      // Marked detached, but the document kept the slot: the removal stopped
-      // between marking the row and persisting the document.
-      createLocalAttachment("slot-stale-marker", DETACHED_AT),
+      sameCopy("slot-live"),
+      // Removed here, then added back with the same bytes elsewhere.
+      sameCopy("slot-readded", DETACHED_AT),
+      // Removed here, then added back with other bytes.
+      createLocalAttachment("slot-readded-other", DETACHED_AT),
+      // A held served copy the content has not recorded yet stays.
+      createLocalAttachment("slot-served-other"),
       // Dropped from the document while its row stayed live.
-      createLocalAttachment("slot-missing-marker"),
+      sameCopy("slot-missing-marker"),
+      // Still owes its detach.
+      sameCopy("slot-removed", DETACHED_AT),
     ],
     doc,
   );
 
-  expect(
-    healed.map((attachment) => [
-      attachment.slotId,
-      attachment.detachedAt === null,
-    ]),
-  ).toEqual([
-    ["slot-stale-marker", true],
-    ["slot-missing-marker", false],
+  expect(unsettled.map((attachment) => attachment.slotId)).toEqual([
+    "slot-readded",
+    "slot-readded-other",
+    "slot-missing-marker",
   ]);
-  expect(healed[1]?.detachedAt).toBeString();
 });

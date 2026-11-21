@@ -12,6 +12,7 @@ interface SelectedPendingAttachment {
   storageKey: string;
   byteLength: number;
   contentSha256: string;
+  requeued: boolean;
   uploadBlobId: string | null;
   uploadContentKey: string | null;
   uploadIv: string | null;
@@ -43,6 +44,7 @@ export function buildPendingAttachmentRow(
     localId: attachment.localId,
     mimeType: attachment.mimeType,
     name: attachment.name,
+    requeued: attachment.requeued === true,
     slotId: attachment.slotId,
     storageKey: attachment.storageKey,
     uploadBlobId: attachment.upload?.blobId ?? null,
@@ -101,6 +103,7 @@ export function mapPendingAttachmentRecord(
     localId: row.localId,
     mimeType: row.mimeType,
     name: row.name,
+    ...(row.requeued ? { requeued: true } : {}),
     slotId: row.slotId,
     storageKey: row.storageKey,
     upload,
