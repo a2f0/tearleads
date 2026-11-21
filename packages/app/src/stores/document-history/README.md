@@ -79,8 +79,9 @@ of one request; otherwise every page is read again. A range never changes
 once read, so the ranges held stay in use while a refresh loads or fails, and
 the time on screen does not flicker on each sync; another document or session
 never sees them. A document with more uploads than the read allows is treated
-as having no ranges rather than some, and a read that is superseded stops
-before its next page.
+as having no ranges rather than some, and that outcome is held like any
+other, so it is not paged through again until something is uploaded. A read
+that is superseded stops before its next page.
 
 ## Restoring
 

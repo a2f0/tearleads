@@ -87,12 +87,31 @@ test("a document with one page costs one request", async () => {
 test("a document with too many uploads is read as having none", async () => {
   const api = pagedRanges(Number.POSITIVE_INFINITY);
 
-  // Part of the list would date or credit a change from whichever uploads
-  // happened to be read.
-  expect(
-    await loadAllDocumentAttributionRanges(api.containerContents, "document-1"),
-  ).toBeNull();
+  // Part of the list would date a change from whichever uploads happened to
+  // be read.
+  const read = await loadAllDocumentAttributionRanges(
+    api.containerContents,
+    "document-1",
+  );
+  expect(read).toEqual({
+    firstUpdateId: "update-0",
+    ranges: [],
+    revision: 12,
+  });
   expect(api.requests).toHaveLength(40);
+
+  // Found once, it is not paged through again while nothing is uploaded.
+  api.requests.length = 0;
+  expect(
+    await loadAllDocumentAttributionRanges(
+      api.containerContents,
+      "document-1",
+      {
+        held: read,
+      },
+    ),
+  ).toBe(read);
+  expect(api.requests).toHaveLength(1);
 });
 
 test("a read nobody is waiting for stops before its next page", async () => {
@@ -139,7 +158,11 @@ test("a document nothing was uploaded to since costs one request", async () => {
 
 test("a document that gained an upload is read again in full", async () => {
   const api = pagedRanges(2);
-  const stale = { ranges: [range("update-0")], revision: 11 };
+  const stale = {
+    firstUpdateId: "update-0",
+    ranges: [range("update-0")],
+    revision: 11,
+  };
 
   const read = await loadAllDocumentAttributionRanges(
     api.containerContents,
@@ -153,7 +176,11 @@ test("a document that gained an upload is read again in full", async () => {
   ]);
   expect(read?.revision).toBe(12);
   // The same revision under another first upload is another history.
-  const other = { ranges: [range("update-x")], revision: 12 };
+  const other = {
+    firstUpdateId: "update-x",
+    ranges: [range("update-x")],
+    revision: 12,
+  };
   expect(
     (
       await loadAllDocumentAttributionRanges(

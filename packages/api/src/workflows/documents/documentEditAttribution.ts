@@ -9,7 +9,6 @@ import type {
   DocumentEditAttributionResponse,
   DocumentEditAttributionSegmentResponse,
 } from "@tearleads/validators/response";
-import { isCanonicalSignedAt } from "@tearleads/validators/util";
 import { and, eq, sql } from "drizzle-orm";
 import {
   type AttributionSpanInput,
@@ -50,24 +49,6 @@ export interface PreparedDocumentEditAttribution {
 }
 
 export const MAX_COMPACT_ATTRIBUTION_SEGMENTS = 2_000;
-
-/**
- * A write header's `signedAt`, in the canonical form a header is accepted
- * with. The ranges response promises a timestamp, so a stored value that is
- * not one fails here, by update, rather than as a page the client rejects.
- */
-function requireAttributionSignedAt(
-  value: string | null,
-  updateId: string,
-): string {
-  const signedAt = requireAttributionText(value, "signedAt", updateId);
-  if (!isCanonicalSignedAt(signedAt)) {
-    throw new Error(
-      `Attribution update ${updateId} has no valid signedAt in its write header.`,
-    );
-  }
-  return signedAt;
-}
 
 function requireAttributionText(
   value: string | null,
@@ -177,7 +158,9 @@ function attributionSpanFromRow(
     ),
     isBaseline: span.isBaseline,
     createdAt: span.updateCreatedAt.toISOString(),
-    signedAt: requireAttributionSignedAt(span.signedAt, span.updateId),
+    // Carried as stored. Only a range response returns it, and that is
+    // where it is held to a timestamp; the compact response never reads it.
+    signedAt: span.signedAt ?? "",
   };
 }
 

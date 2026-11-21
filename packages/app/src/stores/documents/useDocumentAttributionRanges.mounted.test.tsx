@@ -232,6 +232,13 @@ test("a first read that fails, or has too many pages, yields no ranges", async (
   }
   expect(endless.requests).toHaveLength(40);
   expect(endless.updateIds()).toEqual([]);
+
+  // After the next sync, one request finds nothing was uploaded: the forty
+  // pages are not fetched again.
+  endless.completeSync();
+  await endless.settle(40, page("doc-1", "update-0", true));
+  expect(endless.requests).toHaveLength(41);
+  expect(endless.updateIds()).toEqual([]);
 });
 
 test("nothing is read, or shown, offline or for a document that is not synced", async () => {

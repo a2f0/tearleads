@@ -115,6 +115,39 @@ test("caps the default compact response and marks it truncated", () => {
   expect(response.truncated).toBe(true);
 });
 
+test("a range whose stored signed time is not a timestamp is refused, by update", () => {
+  // A write header is only accepted with a canonical signedAt, so such a row
+  // is a broken one.
+  for (const signedAt of ["", "yesterday", "2030-01-01 10:00:00"]) {
+    const attribution = {
+      attributionRevision: 12,
+      attributionScope: "scope-1",
+      documentId: "document-1",
+      documentIncarnation: "incarnation-1",
+      segments: [
+        {
+          ...detailedSegment({
+            endCounter: 1,
+            startCounter: 0,
+            updateSequence: 1,
+          }),
+          signedAt,
+        },
+      ],
+    };
+
+    expect(() =>
+      createDocumentEditAttributionRangesPage(attribution, {}),
+    ).toThrow(
+      "Attribution update update-1 has no valid signedAt in its write header.",
+    );
+    // The compact response never returns the time, so it is unaffected.
+    expect(
+      createDocumentEditAttributionResponse(attribution).segments,
+    ).toHaveLength(1);
+  }
+});
+
 test("paginates ranges with an incarnation and revision-bound cursor", () => {
   const attribution = {
     attributionScope: "scope-1",

@@ -13,8 +13,14 @@ import {
 export type DocumentAttributionRanges =
   ReadonlyArray<DocumentEditAttributionRangeResponse>;
 
-/** Every range of a document, as of one attribution revision. */
+/** What reading a document's ranges found, as of one attribution revision. */
 export interface DocumentAttributionRangesRead {
+  /** The document's first upload, which tells one history from another. */
+  readonly firstUpdateId: string | null;
+  /**
+   * Every range, or none when the document has more uploads than a read
+   * takes: see `MAX_RANGE_PAGES`.
+   */
   readonly ranges: DocumentAttributionRanges;
   /** The revision every page was read at; it moves with each upload. */
   readonly revision: number;
@@ -35,17 +41,19 @@ const MAX_RANGE_PAGES = 40;
 type ContainerContents = Tearleads["containerContents"];
 
 /**
- * Every range of one document, or null when there are too many to read or
- * the read stopped being wanted.
+ * Every range of one document, or null when the read stopped being wanted.
  *
  * - The pages are bound to one attribution revision: a document that gains
  *   an upload mid-read fails the next page rather than mix two histories.
  * - `isCurrent` is asked before each page, so a read nobody is waiting for
  *   stops there.
+ * - A document with more uploads than `MAX_RANGE_PAGES` holds is read as
+ *   having no ranges, at that revision.
  * - `held` is what the caller already has for this document. When the first
  *   page shows the same revision and the same first upload, nothing was
  *   uploaded since and `held` is returned as it is: a refresh of an
- *   unchanged document costs one request, not every page.
+ *   unchanged document costs one request, not every page, and not forty for
+ *   a document already found to have too many.
  */
 export async function loadAllDocumentAttributionRanges(
   containerContents: Pick<ContainerContents, "loadDocumentAttributionRanges">,
@@ -58,28 +66,38 @@ export async function loadAllDocumentAttributionRanges(
   const { held = null, isCurrent = () => true } = options;
   const ranges: DocumentEditAttributionRangeResponse[] = [];
   let cursor: string | null = null;
-  let revision: number | undefined;
-  for (let pages = 0; pages < MAX_RANGE_PAGES && isCurrent(); pages += 1) {
+  let found: Pick<
+    DocumentAttributionRangesRead,
+    "firstUpdateId" | "revision"
+  > | null = null;
+  for (let pages = 0; pages < MAX_RANGE_PAGES; pages += 1) {
+    if (!isCurrent()) return null;
     const page = await containerContents.loadDocumentAttributionRanges({
       cursor,
       documentId,
-      expectedRevision: revision,
+      expectedRevision: found?.revision,
       limit: RANGE_PAGE_LIMIT,
     });
-    if (
-      pages === 0 &&
-      held !== null &&
-      held.revision === page.attributionRevision &&
-      held.ranges[0]?.updateId === page.items[0]?.updateId
-    ) {
-      return held;
+    if (found === null) {
+      found = {
+        firstUpdateId: page.items[0]?.updateId ?? null,
+        revision: page.attributionRevision,
+      };
+      if (
+        held !== null &&
+        held.revision === found.revision &&
+        held.firstUpdateId === found.firstUpdateId
+      ) {
+        return held;
+      }
     }
     ranges.push(...page.items);
-    revision = page.attributionRevision;
-    if (!page.hasMore) return { ranges, revision };
+    if (!page.hasMore) return { ...found, ranges };
     cursor = page.nextCursor;
   }
-  return null;
+  // Too many uploads to read. Say so as a read of its own, so an unchanged
+  // document is not paged through again after every sync.
+  return found === null ? null : { ...found, ranges: NO_RANGES };
 }
 
 /**

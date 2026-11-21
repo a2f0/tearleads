@@ -336,7 +336,7 @@ uses at most 2,000 compact effective attribution intervals for contributor and
 local blame derivation. An explicitly `truncated` result disables partial blame.
 Per-upload provenance is lazy through `loadDocumentAttributionRanges(...)`;
 follow `nextCursor` only while a view that needs every range is open (Edit
-Ranges, or History, which reads who uploaded each change and when). Each range
+Ranges, or History, which reads when each change was uploaded). Each range
 carries its upload's `createdAt` (when the server stored it) and `signedAt`
 (the time its writer signed). Cursors bind the document incarnation and
 attribution revision, so stale pages fail instead of mixing histories.

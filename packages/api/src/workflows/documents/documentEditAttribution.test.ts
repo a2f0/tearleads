@@ -257,45 +257,6 @@ test("rejects attribution spans whose write-header identity is missing", async (
   );
 });
 
-test("rejects an attribution span whose write header has no usable signed time", async () => {
-  const { early } = await buildVersions();
-  // A header stores a canonical timestamp or the update is refused when it
-  // is written. One that reached the table otherwise must not go out as a
-  // range, which promises a timestamp.
-  for (const signedAt of ["", "yesterday", "2030-01-01 10:00:00"]) {
-    const [document] = await db
-      .insert(documents)
-      .values({ createdByFingerprint: "attribution-signed-at-test" })
-      .returning({ id: documents.id });
-    if (!document) {
-      throw new Error("Failed to create document");
-    }
-    const updateId = await insertUpdate({
-      contentKeyEpoch: 1,
-      createdAt: "2030-01-01T10:00:00.000Z",
-      documentId: document.id,
-      encryptedData: "payload",
-      partialEndVersionVector: early,
-      signedAt,
-      writerKeyFingerprint: "fp-alice",
-      writerUserId: "alice",
-    });
-    await insertSpan({
-      documentId: document.id,
-      endCounter: 1,
-      peerId: "1",
-      startCounter: 0,
-      updateId,
-    });
-
-    await expect(
-      computeDocumentEditAttribution(document.id, db),
-    ).rejects.toThrow(
-      `Attribution update ${updateId} has no valid signedAt in its write header.`,
-    );
-  }
-});
-
 test("returns the current attribution revision for a document with no spans", async () => {
   const [document] = await db
     .insert(documents)
