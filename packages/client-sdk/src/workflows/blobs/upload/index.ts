@@ -59,6 +59,9 @@ import {
   bindAtVerifiedDocumentVersion,
   type DocumentVersionBindStatus,
 } from "./bindAtDocumentVersion";
+
+export type { DocumentVersionBindStatus };
+
 import { UploadPausedError } from "./multipartStageResolution";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 

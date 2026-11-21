@@ -4,8 +4,10 @@ import type {
   UploadDocumentAttachmentResult,
 } from "../../../../workflows/blobs";
 import { uploadInspectedDocumentAttachment } from "../../../../workflows/blobs/blobAttachmentService";
-import type { PreparedUploadDocumentAttachmentRequest as AttachmentUploadInput } from "../../../../workflows/blobs/upload";
-import type { DocumentVersionBindStatus } from "../../../../workflows/blobs/upload/bindAtDocumentVersion";
+import type {
+  PreparedUploadDocumentAttachmentRequest as AttachmentUploadInput,
+  DocumentVersionBindStatus,
+} from "../../../../workflows/blobs/upload";
 import type { DocumentStoreState } from "../state";
 
 function withResumedMultipartStage(
