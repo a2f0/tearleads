@@ -3,7 +3,7 @@ import type { PendingAttachmentRecord } from "../../../../workflows/documents";
 import type { DocumentsRuntime } from "../../types";
 import {
   MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES,
-  shouldRepullAfterDocumentChanged,
+  recordDocumentChangedRefusal,
 } from "../attachmentUpload/attachmentDocumentVersion";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState } from "../state";
@@ -44,10 +44,10 @@ test("a pending upload reloaded after a reset pulls again on its next refusal", 
     pass <= MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES;
     pass += 1
   ) {
-    shouldRepullAfterDocumentChanged(state, upload);
+    recordDocumentChangedRefusal(state, upload);
   }
-  expect(shouldRepullAfterDocumentChanged(state, upload)).toBe(false);
+  expect(recordDocumentChangedRefusal(state, upload)).toBe(false);
 
   reload();
-  expect(shouldRepullAfterDocumentChanged(state, upload)).toBe(true);
+  expect(recordDocumentChangedRefusal(state, upload)).toBe(true);
 });

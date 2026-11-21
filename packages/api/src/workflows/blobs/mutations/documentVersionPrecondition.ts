@@ -1,4 +1,4 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
+import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { BLOB_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   DocumentUpdateReadError,
@@ -6,8 +6,7 @@ import {
   hasDocumentOpsBeyondVersion,
   parseDocumentVersionFrontier,
 } from "../../../documents/documentUpdateStore";
-import { readBindRequestSession } from "./authorization";
-import { type BindBlobAttachmentInput, BlobMutationError } from "./types";
+import { BlobMutationError } from "./types";
 
 /**
  * Decodes the version the uploader checked its slot against before the bind
@@ -37,7 +36,7 @@ export function parseBindDocumentVersion(
  */
 export async function assertBindDocumentVersionCurrent(input: {
   readonly documentId: string;
-  readonly executor: DatabaseSession;
+  readonly executor: DatabaseTransaction;
   readonly version: DocumentVersionFrontier;
 }): Promise<void> {
   if (
@@ -52,23 +51,4 @@ export async function assertBindDocumentVersionCurrent(input: {
       BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
     );
   }
-}
-
-/**
- * Refuses a bind whose version is malformed or already stale before the
- * service reads its staged bytes, so a refused retry costs one indexed read
- * rather than re-hashing the whole stage. It takes no lock: a committed
- * update it misses is caught by the check under the document head lock,
- * which still decides.
- */
-export async function refuseStaleBindDocumentVersion(
-  executor: DatabaseSession,
-  input: BindBlobAttachmentInput,
-): Promise<void> {
-  const { bindBody } = readBindRequestSession(input);
-  await assertBindDocumentVersionCurrent({
-    documentId: bindBody.documentId,
-    executor,
-    version: parseBindDocumentVersion(input.request.documentVersionVector),
-  });
 }

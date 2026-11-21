@@ -180,9 +180,8 @@ route already stores. Every update write locks the same head first, so no
 update commits between the check and the binding row: an edit that commits
 before the bind always wins. An update with no span carries no op and is
 ignored. A version ahead of the server, holding the uploader's own unsent ops,
-still binds. The API also runs the same comparison without a lock before it
-reads the staged bytes, so a refused retry does not re-hash the whole stage;
-only the check under the head lock decides.
+still binds. The check runs only after the bind is authorized, so a caller
+without access to the document learns nothing about its updates.
 
 The check is scoped to the whole document, not the slot, because the server
 learns nothing about which update touches which slot. A refusal therefore needs

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { attachmentBindings } from "@tearleads/api-shared/schema";
-import { mergeVersionVectors } from "@tearleads/loro";
+import { emptyVersionVector, mergeVersionVectors } from "@tearleads/loro";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { BLOB_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
@@ -24,7 +24,7 @@ import {
 import { registerUser } from "../../../test/helpers/registerUser";
 import { postDocumentSync } from "../../../test/helpers/staleBundleHealKit";
 import { routeApp } from "../../routeApp";
-import { bindBlobAttachment } from "./blobMutations";
+import { BlobMutationError, bindBlobAttachment } from "./blobMutations";
 
 interface Fixture {
   readonly document: CreatedDocumentFixture;
@@ -113,31 +113,30 @@ test("an edit committed after the uploader's check refuses the bind until it pul
   expect(await boundBlobIds(fixture.document.id)).toEqual([blobId]);
 }, 20_000);
 
-test("a stale bind is refused before the service reads its staged bytes", async () => {
+test("a caller without access learns nothing about the document's version", async () => {
   const fixture = await documentWithRoot();
-  const { blobId, request } = await stagedBind(fixture);
   await commitOtherDeviceUpdate(fixture);
-  // Each refused retry would otherwise read and hash the whole stage again.
-  const unreadStage = new Proxy(blobAttachmentTestRuntime.blobObjectStore, {
-    get: () => () => {
-      throw new Error("The staged bytes were read");
+  const outsider = await documentWithRoot();
+  // The outsider signs a bind of its own bytes into its own document, then
+  // names the fixture's document at a version that lacks its committed update.
+  const { blobId, request } = await stagedBind(outsider);
+  const stale = {
+    ...request,
+    body: {
+      ...(request.body as Record<string, unknown>),
+      documentId: fixture.document.id,
     },
-  });
+    documentVersionVector: emptyVersionVector(),
+  };
 
-  await expect(
-    bindBlobAttachment(
-      { ...blobAttachmentTestRuntime, blobObjectStore: unreadStage },
-      {
-        blobId,
-        fingerprint: fixture.owner.fingerprint,
-        request,
-        sessionId: "bind-document-version-test",
-        userId: fixture.owner.userId,
-      },
-    ),
-  ).rejects.toMatchObject({
+  const refusal = await bind(outsider.owner, blobId, stale).catch(
+    (error: unknown) => error,
+  );
+  // Verifying the signed bind refuses it before anything reads the
+  // document's updates, so the refusal never names a newer document.
+  expect(refusal).toBeInstanceOf(BlobMutationError);
+  expect(refusal).not.toMatchObject({
     code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
-    status: 409,
   });
 }, 20_000);
 

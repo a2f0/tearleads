@@ -43,10 +43,8 @@ function bindFailure(apiClient: BlobAttachmentApi, blobId: string) {
 type BindRefusal = "documentChanged" | "refused" | "other";
 
 function classifyBindRefusal(
-  apiClient: BlobAttachmentApi,
-  blobId: string,
+  failure: ReturnType<typeof bindFailure>,
 ): BindRefusal {
-  const failure = bindFailure(apiClient, blobId);
   if (failure?.kind !== "http" || failure.status === null) return "other";
   if (
     failure.status === 409 &&
@@ -82,7 +80,7 @@ interface BindAttempt extends BindResult {
  * without it, and the caller's queued row then syncs on its own. A bind
  * refused for a newer document keeps its carry for the next version. A
  * refusal is read only from a request this attempt sent, never from an
- * earlier call's recorded failure.
+ * earlier request's recorded failure.
  */
 async function bindCarryingDocumentSync(
   input: BindInput,
@@ -94,6 +92,10 @@ async function bindCarryingDocumentSync(
     request: BlobAttachmentBindRequest,
   ): Promise<BindAttempt> => {
     if (!canBind()) return { refusal: null, request, response: null };
+    // The client records each failure as a new object and keeps it until a
+    // success, so an unchanged record means this request recorded none: it
+    // was retired (as during session renewal) or never sent.
+    const earlier = bindFailure(input.apiClient, input.blobId);
     const response = await input.apiClient.bindBlobAttachment(
       input.blobId,
       request,
@@ -102,12 +104,12 @@ async function bindCarryingDocumentSync(
         stillCurrent: canBind,
       },
     );
-    // A call that stopped being current may have returned without sending.
+    const failure = bindFailure(input.apiClient, input.blobId);
     return {
       refusal:
-        response || !canBind()
+        response || !canBind() || failure === earlier
           ? null
-          : classifyBindRefusal(input.apiClient, input.blobId),
+          : classifyBindRefusal(failure),
       request,
       response,
     };

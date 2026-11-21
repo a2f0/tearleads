@@ -28,6 +28,20 @@ import { defaultDocumentsPersistence } from "../../../../workflows/documents";
 import { createDocumentStore } from "../index";
 import { MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES } from "./attachmentDocumentVersion";
 
+function documentChangedFailure(path: string) {
+  return {
+    code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
+    kind: "http",
+    message: "Document changed after the attachment slot was checked",
+    method: "POST",
+    ok: false,
+    path,
+    report: () => undefined,
+    status: 409,
+    statusText: "Conflict",
+  } as const;
+}
+
 /**
  * A store whose API refuses the first `refusals` binds because another
  * device's update committed after the store's pull.
@@ -40,6 +54,7 @@ async function uploadWithDocumentChangedRefusals(refusals: number) {
     [];
   const attachments: BlobAttachmentSummary[] = [];
   let pulls = 0;
+  let recordedFailure: ReturnType<typeof documentChangedFailure> | null = null;
   let storedDocument: DocumentCreateFixture | null = null;
   const { getAssembledBytes: _bytes, ...multipartApi } =
     createMultipartBlobStageFixture();
@@ -47,7 +62,13 @@ async function uploadWithDocumentChangedRefusals(refusals: number) {
     ...multipartApi,
     async bindBlobAttachment(blobId, request) {
       binds.push({ pulls, request });
-      if (!storedDocument || binds.length <= refusals) return null;
+      if (!storedDocument || binds.length <= refusals) {
+        // The client records each refusal as a new failure.
+        recordedFailure = documentChangedFailure(
+          `/blobs/${blobId}/attachment-bindings`,
+        );
+        return null;
+      }
       const response = await createBlobAttachmentBindResponse({
         blobId,
         documentManifest: storedDocument.accessManifest,
@@ -67,17 +88,7 @@ async function uploadWithDocumentChangedRefusals(refusals: number) {
         : null,
     getRequestFailure: ({ method, path }) =>
       method === "POST" && path.endsWith("/attachment-bindings")
-        ? {
-            code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
-            kind: "http",
-            message: "Document changed after the attachment slot was checked",
-            method,
-            ok: false,
-            path,
-            report: () => undefined,
-            status: 409,
-            statusText: "Conflict",
-          }
+        ? recordedFailure
         : null,
     listDocumentAttachments: async () => attachments,
     async syncDocument(_documentId: string, request: DocumentSyncRequest) {

@@ -10,7 +10,6 @@ import {
   BlobMutationError,
   type DetachBlobAttachmentInput,
   type PrevalidatedMultipartBlobStage,
-  refuseStaleBindDocumentVersion,
   runBindBlobAttachmentWorkflow,
   runDetachBlobAttachmentWorkflow,
 } from "../../workflows/blobs/mutations";
@@ -164,9 +163,6 @@ export async function bindBlobAttachment(
   runtime: ApiServiceRuntime,
   input: BindBlobAttachmentInput,
 ): Promise<BlobAttachmentBindResponse> {
-  // A bind refused for a newer document is retried after a pull; refuse it
-  // before reading the stage, so each retry does not re-hash the whole blob.
-  await refuseStaleBindDocumentVersion(runtime.db, input);
   const prevalidatedMultipartStage = await prevalidateMultipartBlobStage(
     runtime,
     input,

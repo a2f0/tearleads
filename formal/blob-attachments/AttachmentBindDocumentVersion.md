@@ -15,7 +15,7 @@ update that version lacks.
 | `Bind` | `verifyAndLockBindSlot` keeps the existing binding-generation precondition |
 | `Bind` (refused) | `classifyBindRefusal` reads `attachment_document_changed` from the request the bind just sent |
 | `Retry` / `RecheckOnRefresh` | `bindAtVerifiedDocumentVersion` asks for a re-checked version after a refusal |
-| `Retry` / `PullOnRefusal` | `shouldRepullAfterDocumentChanged` re-arms a store pass, which pulls before its next check |
+| `Retry` / `PullOnRefusal` | `recordDocumentChangedRefusal` re-arms a store pass, which pulls before its next check |
 | `Remove` / `Restore` / `Replace` / `Unrelated` | `appendDocumentUpdates` commits another device's update under `lockSyncDocumentWriteFrontier` |
 | `OtherBind` | `bindBlobAttachment` commits the replacing device's own bytes |
 

@@ -17,8 +17,8 @@ import { markOriginatedDocuments } from "../../../../workflows/sync/coordination
 import { requestDocumentStoreSync } from "../../registry";
 import {
   pendingAttachmentDocumentVersion,
+  recordDocumentChangedRefusal,
   settleDocumentChangedPasses,
-  shouldRepullAfterDocumentChanged,
 } from "../attachmentUpload/attachmentDocumentVersion";
 import {
   dropUnavailablePendingAttachment,
@@ -380,7 +380,7 @@ async function uploadPendingAttachmentBytes(input: {
       }
       if (
         documentChanged &&
-        shouldRepullAfterDocumentChanged(state, pendingAttachment)
+        recordDocumentChangedRefusal(state, pendingAttachment)
       ) {
         // Another device committed an update after this pass pulled. The
         // next pass pulls it, checks the slot, and binds the kept stage.

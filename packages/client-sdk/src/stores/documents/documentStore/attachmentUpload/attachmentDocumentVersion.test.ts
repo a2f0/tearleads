@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import {
   MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES,
+  recordDocumentChangedRefusal,
   settleDocumentChangedPasses,
-  shouldRepullAfterDocumentChanged,
 } from "./attachmentDocumentVersion";
 
-type PassState = Parameters<typeof shouldRepullAfterDocumentChanged>[0];
+type PassState = Parameters<typeof recordDocumentChangedRefusal>[0];
 
 const first = { slotId: "first", storageKey: "first-bytes" };
 const second = { slotId: "second", storageKey: "second-bytes" };
@@ -13,7 +13,7 @@ const second = { slotId: "second", storageKey: "second-bytes" };
 function refuseUntilExhausted(state: PassState, upload: typeof first) {
   const repulls = Array.from(
     { length: MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 1 },
-    () => shouldRepullAfterDocumentChanged(state, upload),
+    () => recordDocumentChangedRefusal(state, upload),
   );
   expect(repulls).toEqual([
     ...Array.from(
@@ -31,7 +31,7 @@ test("an upload that used up its re-pulls leaves another upload's budget whole",
   // The first upload's slot is removed; the second's first honest refusal
   // still pulls right away instead of waiting for a later signal.
   const afterRemoval: PassState = { ...state, pendingAttachments: [second] };
-  expect(shouldRepullAfterDocumentChanged(afterRemoval, second)).toBe(true);
+  expect(recordDocumentChangedRefusal(afterRemoval, second)).toBe(true);
   expect(afterRemoval.attachmentDocumentChangedPasses?.size).toBe(1);
 });
 
@@ -40,8 +40,8 @@ test("uploads refused in the same passes each stop after their own budget", () =
   const repulls = Array.from(
     { length: MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 1 },
     () => [
-      shouldRepullAfterDocumentChanged(state, first),
-      shouldRepullAfterDocumentChanged(state, second),
+      recordDocumentChangedRefusal(state, first),
+      recordDocumentChangedRefusal(state, second),
     ],
   );
 

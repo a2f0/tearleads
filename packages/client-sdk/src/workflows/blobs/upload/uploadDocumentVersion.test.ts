@@ -34,6 +34,8 @@ async function uploadAtDocumentVersions(input: {
   readonly carry?: boolean;
   readonly currentForBinds?: number;
   readonly refusals: number;
+  /** Binds past this many return null without recording a failure. */
+  readonly silentAfter?: number;
   readonly versions: readonly (string | null)[];
 }) {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
@@ -45,6 +47,7 @@ async function uploadAtDocumentVersions(input: {
   const { getAssembledBytes: _bytes, ...multipartApi } = multipart;
   const binds: BlobAttachmentBindRequest[] = [];
   const checks: boolean[] = [];
+  let recordedFailure: typeof documentChanged | null = null;
   const { close, execSql } = await createTestExecSql(`version-${blobId}`);
   try {
     const uploaded = await createBlobAttachmentServiceFixture({
@@ -52,7 +55,11 @@ async function uploadAtDocumentVersions(input: {
         ...multipartApi,
         bindBlobAttachment: async (requestBlobId, request) => {
           binds.push(request);
-          if (binds.length <= input.refusals) return null;
+          if (binds.length > (input.silentAfter ?? Infinity)) return null;
+          if (binds.length <= input.refusals) {
+            recordedFailure = { ...documentChanged };
+            return null;
+          }
           return createBlobAttachmentBindResponse({
             blobId: requestBlobId,
             documentManifest: writerProjection.documentManifest,
@@ -62,7 +69,7 @@ async function uploadAtDocumentVersions(input: {
         getDocumentWriterProjection: async () => writerProjection,
         getRequestFailure: ({ method, path }) =>
           method === "POST" && path === `/blobs/${blobId}/attachment-bindings`
-            ? documentChanged
+            ? recordedFailure
             : null,
       },
       encapsulationSecretKey: secretKey,
@@ -158,5 +165,19 @@ test("a bind that stops being current never reads an earlier refusal", async () 
 
   expect(checks).toEqual([false]);
   expect(binds).toHaveLength(1);
+  expect(uploaded).toBeNull();
+});
+
+test("a bind that records no failure never reads an earlier refusal", async () => {
+  // The retry is retired without a response (as during session renewal), so
+  // the client still holds the first bind's refusal.
+  const { binds, checks, uploaded } = await uploadAtDocumentVersions({
+    refusals: 1,
+    silentAfter: 1,
+    versions: ["checked", "pulled", "again"],
+  });
+
+  expect(checks).toEqual([false, true]);
+  expect(binds).toHaveLength(2);
   expect(uploaded).toBeNull();
 });

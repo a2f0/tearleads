@@ -76,7 +76,7 @@ interface DocumentChangedPassState {
  * advanced, and returns whether the store should run another pass to pull
  * right away.
  */
-export function shouldRepullAfterDocumentChanged(
+export function recordDocumentChangedRefusal(
   state: DocumentChangedPassState,
   upload: PendingUpload,
 ): boolean {
