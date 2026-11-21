@@ -7,7 +7,10 @@ import {
   getDocumentAttachments,
 } from "../../../documents/documentContent";
 import { importDocumentHistoryTailUpdates } from "../../../documents/documentHistoryImport";
-import { documentAttachmentBlobProjection } from "../../../sqlite/schema";
+import {
+  documentAttachmentBlobProjection,
+  documentPendingAttachments,
+} from "../../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -96,16 +99,38 @@ async function writeSettlement(input: {
     await queueDocumentAttachmentStorageKeys(tx, [observedRow.storageKey]);
   }
   if (settlement.write === "upsert" && settlement.row) {
+    const { pending } = settlement;
     await upsertStoredAttachmentStagingRows({
       createdAt: new Date().toISOString(),
       localId,
       staging: {
         localAttachments: [settlement.row],
-        pendingAttachments: settlement.pending ? [settlement.pending] : [],
+        pendingAttachments:
+          pending && !(await pendingUploadQueued(tx, localId, pending))
+            ? [pending]
+            : [],
       },
       tx,
     });
   }
+}
+
+/**
+ * Whether the slot already queues an upload of this copy, e.g. one another
+ * pane requeued and has begun: its persisted resume identity stays.
+ */
+async function pendingUploadQueued(
+  tx: ClientSQLiteTransactionScope,
+  localId: string,
+  pending: { slotId: string; storageKey: string },
+): Promise<boolean> {
+  const queued = documentPendingAttachments;
+  const [existing] = await tx
+    .select({ storageKey: queued.storageKey })
+    .from(queued)
+    .where(and(eq(queued.localId, localId), eq(queued.slotId, pending.slotId)))
+    .limit(1);
+  return existing?.storageKey === pending.storageKey;
 }
 
 /**

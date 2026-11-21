@@ -17,6 +17,7 @@ import {
   withPanes,
 } from "../../../../../test/helpers/stores/attachmentReaddPanes";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
+import { planAttachmentRemovalMarkerSettlement } from "../../../../data/persistence/documents/attachmentRemovalMarkerPlan";
 import { listPendingDownloads } from "../../../../workflows/container-contents/documentQueries/pendingDownloads";
 import {
   type DocumentsPersistence,
@@ -273,11 +274,14 @@ test.each([
       } as NonNullable<DocumentStoreState["syncLane"]>;
       await removeAttachmentFromDocumentStore(first, () => undefined, SLOT_ID);
       const requestedByRemoval = requestedPasses;
+      // A relink or an abandoned wait left remote sync blocked.
+      first.remoteSyncBlocked = true;
       await runDetachPass(first);
       expect(panes.server.detached).toEqual([]);
       // The sighting asks for a pass that pulls, not one that skips.
       expect(requestedPasses).toBe(requestedByRemoval + 1);
       expect(first.remoteUpdatePending).toBe(true);
+      expect(first.remoteSyncBlocked).toBe(false);
       // A pass with no pull since the sighting cannot tell yet.
       await runDetachPass(first);
       expect(panes.server.detached).toEqual([]);
@@ -362,6 +366,54 @@ test("a detached row of a slot the live document records is realigned, never det
     expect(await panes.rows()).toMatchObject([
       { blobId: BLOB_ID, detachedAt: null, storageKey: STORAGE_KEY },
     ]);
+  });
+});
+
+test("a requeue keeps the upload another pane already began for the copy", async () => {
+  await withPanes("readd-requeue-keeps-upload", async (panes) => {
+    await panes.setRow({ detachedAt: "2026-11-21T00:00:00.000Z" });
+    await commitPulledReadd(panes.execSql, BYTES);
+    // The reopened pane requeued the copy, and its upload lane began.
+    const [requeued] = (await panes.open()).pendingAttachments;
+    if (!requeued) throw new Error("Expected a requeued upload");
+    const upload = {
+      blobId: OTHER_BLOB_ID,
+      contentKey: "content-key",
+      contentKeyEpoch: 1,
+      nonceSeed: "nonce-seed",
+      partSize: 5 * 1024 * 1024,
+      plaintextSha256: requeued.contentSha256,
+      stageId: "stage-begun",
+    };
+    await defaultDocumentsPersistence.savePendingAttachment(panes.execSql, {
+      ...requeued,
+      upload,
+    });
+
+    // An older pane, whose listing showed no binding, requeues it again.
+    const settled =
+      await defaultDocumentsPersistence.settleAttachmentRemovalMarker(
+        panes.execSql,
+        {
+          localId: LOCAL_ID,
+          settle: (observed) =>
+            planAttachmentRemovalMarkerSettlement({
+              from: { status: "remoteDetached" },
+              now: "2026-11-21T00:01:00.000Z",
+              observed,
+              storageKey: STORAGE_KEY,
+            }),
+          slotId: SLOT_ID,
+          stillCurrent: () => true,
+        },
+      );
+    expect(settled?.marker.status).toBe("rebinding");
+    expect(
+      await defaultDocumentsPersistence.listPendingAttachments(
+        panes.execSql,
+        LOCAL_ID,
+      ),
+    ).toMatchObject([{ requeued: true, storageKey: STORAGE_KEY, upload }]);
   });
 });
 

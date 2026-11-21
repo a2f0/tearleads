@@ -1,10 +1,12 @@
 /**
  * Keeps a local attachment row's detach marker consistent with the document.
  *
- * The invariant is one line: a local blob row is marked detached exactly when
- * its slot is no longer in the document. The read models trust that marker to
- * decide whether a blob is still referenced, so anything that writes these rows
- * has to preserve it rather than restate what it believed the slots were.
+ * A local blob row is marked detached when its slot left the document, and
+ * stays so until a removal-marker settle reconciles it with committed history:
+ * a slot re-added meanwhile is detached only until that settle. The read
+ * models trust the marker to decide whether a blob is still referenced, so
+ * anything that writes these rows has to preserve it rather than restate what
+ * it believed the slots were.
  *
  * Two writers can otherwise clear a marker they never meant to touch: an upload
  * that settles after the user removed its slot, and a hydration that captured

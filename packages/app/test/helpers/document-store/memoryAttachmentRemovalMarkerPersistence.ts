@@ -85,10 +85,17 @@ function settleSynchronously(
       settlement.row,
     ]);
   }
+  // As in the SQLite adapter: only an upsert queues the upload, and an upload
+  // of the same copy already queued keeps its resume identity.
   const { pending } = settlement;
-  if (pending) {
+  const queued = input.getPendingAttachments();
+  if (
+    settlement.write === "upsert" &&
+    pending &&
+    queued.find(isSlot)?.storageKey !== pending.storageKey
+  ) {
     input.setPendingAttachments([
-      ...input.getPendingAttachments().filter((row) => !isSlot(row)),
+      ...queued.filter((row) => !isSlot(row)),
       pending,
     ]);
   }

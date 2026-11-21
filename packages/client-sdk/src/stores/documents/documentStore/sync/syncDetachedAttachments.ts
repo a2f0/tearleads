@@ -31,6 +31,7 @@ import type {
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
 import { readReplacedBindingSightings } from "./replacedBindingSightings";
 import {
+  allowDocumentStoreRemoteSync,
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreGenerationIdentityCurrent,
@@ -145,6 +146,9 @@ async function settleDetachMarkers(
   // binding still listed after it is the removed slot's. Sightings live in
   // memory only, so waiting for an unrelated pass could outlast the session.
   if (sighted) {
+    // As every remote request does: a relink or an abandoned wait may have
+    // blocked remote sync, which would return the pass before its pull.
+    allowDocumentStoreRemoteSync(context.state);
     markDocumentStoreRemoteSyncPending(context.state, "independent");
     requestDocumentStoreSync(context.state);
   }
