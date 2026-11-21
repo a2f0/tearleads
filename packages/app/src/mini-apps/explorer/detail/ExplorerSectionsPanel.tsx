@@ -17,10 +17,10 @@ import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
 import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
 import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
-import { ExplorerDownloadsPanel } from "./sync/ExplorerDownloadsPanel";
 import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
-import { ExplorerUploadsPanel } from "./sync/ExplorerUploadsPanel";
 import { ExplorerWriteQueuePanel } from "./sync/ExplorerWriteQueuePanel";
+import { ExplorerDownloadsPanel } from "./transfers/ExplorerDownloadsPanel";
+import { ExplorerUploadsPanel } from "./transfers/ExplorerUploadsPanel";
 import "./ExplorerSectionsPanel.css";
 
 type ExplorerSectionTabId =
