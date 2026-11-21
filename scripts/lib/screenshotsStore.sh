@@ -38,14 +38,15 @@ process.stdout.write(report.artifacts);
 
 # Links the clone at $1 to the store when it has no .screenshots at all and the
 # store already exists, so a capture, build, or deploy from a fresh clone or
-# worktree uses the shared captures instead of a local or empty directory. A
-# clone that already holds a .screenshots is left alone: choosing between two
-# captures is the skill's `link`. It never creates a store: CI and a machine
-# that never used one have none, and the take-screenshots skill's `link` or
-# `capture` creates it on purpose. Without the store or the installed CLI it
-# does nothing, and it never fails its caller.
+# worktree that resolves that store (one beside the others, or any clone under
+# MATRIX_ARTIFACTS_DIR) uses the shared captures instead of a local or empty
+# directory. A clone that already holds a .screenshots is left alone: choosing
+# between two captures is the skill's `link`. It never creates a store: CI and a
+# machine that never used one have none, and the take-screenshots skill's `link`
+# or `capture` creates it on purpose. Outside a Git checkout, without the store,
+# or before the CLI is installed it does nothing, and it never fails its caller.
 screenshots_store_link() {
-  if [ -e "$1/.screenshots" ] || [ -L "$1/.screenshots" ]; then
+  if [ -e "$1/.screenshots" ] || [ -L "$1/.screenshots" ] || [ ! -e "$1/.git" ]; then
     return 0
   fi
   screenshots_store_agent_tool=$(screenshots_store_cli "$1") || return 0
@@ -54,6 +55,8 @@ screenshots_store_link() {
     return 0
   }
   [ -d "$screenshots_store_root" ] || return 0
+  # Unlike status, link may ask GitHub for the namespace's current name, which
+  # the owner file records; offline it falls back to the name in origin's URL.
   (cd "$1" && "$screenshots_store_agent_tool" screenshots link --apply) ||
     echo "warning: could not link .screenshots to the shared screenshot store; run the take-screenshots skill's link" >&2
   return 0

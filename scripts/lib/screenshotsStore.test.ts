@@ -57,7 +57,8 @@ function fixture(): Fixture {
   temporary.push(root);
   const repo = join(root, "repo");
   mkdirSync(join(root, "home"));
-  mkdirSync(repo);
+  // Marks a Git checkout, which is all the stub cases need of one.
+  mkdirSync(join(repo, ".git"), { recursive: true });
   return {
     root,
     repo,
@@ -185,6 +186,16 @@ test("does nothing before agent-tool is installed", () => {
   expect(present(join(setup.repo, ".screenshots"))).toBe(false);
 });
 
+test("does nothing outside a Git checkout, as in a source archive", () => {
+  const setup = fixture();
+  rmSync(join(setup.repo, ".git"), { recursive: true });
+  installCli(setup.repo);
+  mkdirSync(setup.store);
+  expect(runSh(setup, `screenshots_store_link "${setup.repo}"`)).toEqual(quiet);
+  expect(stubRuns(setup.log)).toEqual([]);
+  expect(present(join(setup.repo, ".screenshots"))).toBe(false);
+});
+
 test("warns and still succeeds when agent-tool's status names no store", () => {
   const setup = fixture();
   installCli(setup.repo);
@@ -248,6 +259,7 @@ test("the pinned agent-tool links a clone only where its store already exists", 
     expect(
       Bun.spawnSync({ cmd: ["git", ...args], cwd: setup.repo }).exitCode,
     ).toBe(0);
+  rmSync(join(setup.repo, ".git"), { recursive: true });
   git("init", "--quiet");
   git("remote", "add", "origin", "git@github.com:a2f0/app.git");
   writeFileSync(join(setup.repo, ".gitignore"), ".screenshots\n");
