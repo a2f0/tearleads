@@ -157,6 +157,17 @@ class MockBroadcastChannel extends EventTarget {
   }
 }
 
+// The first tab's channel stops delivering for good, as when that tab is
+// discarded: other tabs' requests no longer reach its coordinator.
+export function closeFirstCrossTabChannel(): void {
+  const channel = MockBroadcastChannel.first();
+  if (!channel) {
+    throw new Error("Expected a cross-tab broadcast channel.");
+  }
+
+  channel.close();
+}
+
 interface BroadcastChannelSuspension {
   readonly pendingMessageCount: number;
   resume(): void;
