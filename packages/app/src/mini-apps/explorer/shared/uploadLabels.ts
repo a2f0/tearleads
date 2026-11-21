@@ -22,6 +22,5 @@ export const EXPLORER_UPLOAD_LABELS = {
   uploadsSyncFailedStatus: "Sync failed",
   uploadsSyncQueuedStatus: "Sync queued",
   uploadsTitle: "Uploads",
-  uploadsUploadedStatus: "Uploaded",
   uploadsUploadingStatus: "Uploading",
 } as const;

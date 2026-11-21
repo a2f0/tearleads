@@ -26,6 +26,7 @@ function createCountingStoreFactory(createdStores: CountingStore[]) {
       addRow: async () => "row-1",
       attachFiles: () => undefined,
       getSnapshot: () => ({
+        attachmentStorageKeyBySlotId: {},
         documentId: null,
         documentKind: "note" as StoredDocumentKind,
         ready: true,

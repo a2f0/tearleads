@@ -55,6 +55,11 @@ function createDeferralStoreFactory(
         created.attachFileCounts.push(files.length);
       },
       getSnapshot: () => ({
+        // An attached file's blob gets a storage key once it is staged.
+        attachmentStorageKeyBySlotId:
+          created.attachCount > 0
+            ? { "slot-1": `blob-${created.documentKind}` }
+            : {},
         documentId: null,
         documentKind: created.documentKind,
         ready: failure !== "not-ready",
@@ -218,3 +223,36 @@ for (const failure of ["not-ready", "set-text-rejects"] as const) {
     expect(attachesByKind).toEqual({ note: [], pdf: [0] });
   });
 }
+
+test("each imported file reports its attachment storage keys", async () => {
+  const imported: Array<{
+    localId: string;
+    storageKeys: ReadonlyArray<string>;
+  }> = [];
+  let nextLocalId = 0;
+  await importExplorerDroppedFiles({
+    containerId: "folder-1",
+    createDocumentStore: createDeferralStoreFactory([]),
+    createLocalId: () => `local-${++nextLocalId}`,
+    files: [
+      new File([new Uint8Array([1, 2, 3])], "report.pdf", {
+        type: "application/pdf",
+      }),
+      new File(["Plain text"], "notes.txt", { type: "text/plain" }),
+    ],
+    labels: testImportLabels,
+    loadDocumentSummary: async () => null,
+    mergeDocumentSummary: () => undefined,
+    onFileImported: ({ localId, storageKeys }) => {
+      imported.push({ localId, storageKeys });
+    },
+  });
+  // Files in one batch import concurrently, so compare in local-id order.
+  imported.sort((left, right) =>
+    left.localId.localeCompare(right.localId, "en"),
+  );
+  expect(imported).toEqual([
+    { localId: "local-1", storageKeys: ["blob-pdf"] },
+    { localId: "local-2", storageKeys: [] },
+  ]);
+});
