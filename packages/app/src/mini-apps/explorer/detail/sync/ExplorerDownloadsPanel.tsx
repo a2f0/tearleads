@@ -3,6 +3,7 @@ import {
   type ContainerNode,
   type DomainScope,
   type PendingDownloadQueueItem,
+  type RetryDocumentDownloadInput,
   requestAllDomainSyncLanes,
   type SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
@@ -23,6 +24,7 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
+import { useTearleads } from "../../../../providers/sdk/TearleadsProvider";
 import { EXPLORER_LABELS, getExplorerDownloadsCountLabel } from "../../labels";
 import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 import { usePendingDownloads } from "./usePendingDownloads";
@@ -47,9 +49,56 @@ function downloadStatus(
   if (lane?.running) return EXPLORER_LABELS.downloadsRunning;
   if (item.lastError || lane?.status === "error")
     return EXPLORER_LABELS.downloadsError;
+  if (item.objectKind === "attachment")
+    return EXPLORER_LABELS.downloadsFileWaiting;
   return item.reason === "continuation"
     ? EXPLORER_LABELS.downloadsRemaining
     : EXPLORER_LABELS.downloadsWaiting;
+}
+
+function downloadItemKey(item: PendingDownloadQueueItem): string {
+  return item.objectKind === "attachment"
+    ? `attachment:${item.localId}:${item.slotId}`
+    : `${item.objectKind}:${item.localId}`;
+}
+
+function DownloadItemLabel(params: { item: PendingDownloadQueueItem }) {
+  const { item } = params;
+  if (item.objectKind === "attachment") {
+    return (
+      <MiniAppTableText title={item.documentId}>
+        {item.fileName}
+        <small> {item.title}</small>
+      </MiniAppTableText>
+    );
+  }
+  return (
+    <MiniAppTableText title={item.documentId}>
+      {item.title ??
+        (item.objectKind === "container"
+          ? EXPLORER_LABELS.downloadsUnknownFolder
+          : EXPLORER_LABELS.downloadsUnknownDocument)}
+      <small> {item.documentId}</small>
+    </MiniAppTableText>
+  );
+}
+
+// A synced document only re-lists its file bindings when it pulls again, and
+// its store may not be open, so a retry asks each document with a pending
+// file directly. Only shown rows are retried: each opens and keeps a store.
+// The request names the document id the row was read with.
+function retryPendingDownloads(
+  items: ReadonlyArray<PendingDownloadQueueItem>,
+  retryDownload: (input: RetryDocumentDownloadInput) => Promise<boolean>,
+) {
+  const documents = new Map<string, string>();
+  for (const item of items) {
+    if (item.objectKind === "attachment")
+      documents.set(item.localId, item.documentId);
+  }
+  for (const [localId, documentId] of documents) {
+    void retryDownload({ documentId, localId }).catch(() => false);
+  }
 }
 
 export function ExplorerDownloadsPanel(params: {
@@ -60,6 +109,7 @@ export function ExplorerDownloadsPanel(params: {
   online: boolean;
   isAuthenticated: boolean;
 }) {
+  const { documents } = useTearleads();
   const snapshot = useDomainSyncSnapshot(params.domainScope);
   const state = usePendingDownloads({ ...params, syncSnapshot: snapshot });
   const [limit, setLimit] = useState(100);
@@ -73,7 +123,12 @@ export function ExplorerDownloadsPanel(params: {
         </MiniAppHeaderCopy>
         <MiniAppButton
           disabled={!params.online || !params.isAuthenticated}
-          onClick={() => requestAllDomainSyncLanes(params.domainScope)}
+          onClick={() => {
+            requestAllDomainSyncLanes(params.domainScope);
+            retryPendingDownloads(state.items.slice(0, limit), (input) =>
+              documents.retryDownload(input),
+            );
+          }}
         >
           {EXPLORER_LABELS.syncLanesSyncNowAction}
         </MiniAppButton>
@@ -95,20 +150,14 @@ export function ExplorerDownloadsPanel(params: {
         >
           {state.items.slice(0, limit).map((item) => {
             const lane =
-              item.objectKind === "document"
-                ? lanes.get(`documents:${item.localId}`)
-                : undefined;
+              item.objectKind === "container"
+                ? undefined
+                : lanes.get(`documents:${item.localId}`);
             const error = item.lastError ?? lane?.lastError;
             return (
-              <MiniAppTableRow key={`${item.objectKind}:${item.localId}`}>
+              <MiniAppTableRow key={downloadItemKey(item)}>
                 <MiniAppTableCell>
-                  <MiniAppTableText title={item.documentId}>
-                    {item.title ??
-                      (item.objectKind === "container"
-                        ? EXPLORER_LABELS.downloadsUnknownFolder
-                        : EXPLORER_LABELS.downloadsUnknownDocument)}
-                    <small> {item.documentId}</small>
-                  </MiniAppTableText>
+                  <DownloadItemLabel item={item} />
                 </MiniAppTableCell>
                 <MiniAppTableCell>
                   <MiniAppTableText>
