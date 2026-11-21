@@ -428,6 +428,7 @@ function submitContainerMoveRequest(
 ) {
   const options = {
     expectedPaymentRequiredOrganizationId: input.author.organizationId,
+    stillCurrent: input.stillCurrent,
   };
   const { moveContainerResult } = input.apiClient;
   return submitContainerRotation({

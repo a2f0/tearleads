@@ -16,6 +16,7 @@ import {
   documentWriterProjection,
 } from "../routes/writerProjections";
 import { retiredRequest } from "../sessionResponse";
+import { SharedRequestScope } from "../sharedRequestScope";
 import {
   privateRead,
   type RequestResult,
@@ -73,11 +74,10 @@ export class WriterProjectionArea {
     const { cacheKey, path, validator, failureOperation } = read;
     // Request-affecting options make the response caller-specific: run the
     // request directly with the caller's options, join no shared fetch, and
-    // never publish the outcome to the shared caches. Only reporting-only
-    // callers below participate in coalescing and cache warming.
+    // never publish the outcome to the shared caches. Reporting-only and
+    // scoped callers below participate in coalescing and cache warming.
     if (
       options.signal !== undefined ||
-      options.stillCurrent !== undefined ||
       options.headers !== undefined ||
       options.retryOnSessionExpired !== undefined
     ) {
@@ -106,8 +106,11 @@ export class WriterProjectionArea {
     //
     // The shared fetch itself is always silent; each caller applies its OWN
     // reporting policy to the shared outcome below. Coalescing therefore
-    // never lets one caller's reportErrors suppress (or force) another's,
-    // and caller options never reach the request — the fetch takes none.
+    // never lets one caller's reportErrors suppress (or force) another's.
+    // The fetch's only option is its callers' joined scope: it stays current
+    // while any caller is, so it renews the session or delivers a response
+    // only for a caller that can still use it. A fetch whose callers all
+    // retired is never joined; a current caller starts its own.
     const slot = cache.get(cacheKey);
     const invalidationStamp = cache.invalidationStamp(cacheKey);
     const inFlight = inFlightResults.get(cacheKey);
@@ -115,32 +118,36 @@ export class WriterProjectionArea {
     if (
       inFlight &&
       inFlight.slot === slot &&
-      inFlight.invalidationStamp === invalidationStamp
+      inFlight.invalidationStamp === invalidationStamp &&
+      inFlight.callers.current()
     ) {
+      inFlight.callers.join(options.stillCurrent);
       shared = inFlight.resultPromise;
     } else {
+      const callers = new SharedRequestScope(options.stillCurrent);
       const entry: InFlightWriterProjectionResult<T> = {
+        callers,
         invalidationStamp,
-        resultPromise: this.fetchWriterProjectionResult(cache, read).finally(
-          () => {
-            if (inFlightResults.get(cacheKey) === entry) {
-              inFlightResults.delete(cacheKey);
-            }
-          },
-        ),
+        resultPromise: this.fetchWriterProjectionResult(
+          cache,
+          read,
+          callers.current,
+        ).finally(() => {
+          if (inFlightResults.get(cacheKey) === entry) {
+            inFlightResults.delete(cacheKey);
+          }
+        }),
         slot,
       };
       inFlightResults.set(cacheKey, entry);
       shared = entry.resultPromise;
     }
 
-    if (options.reportErrors === false) {
-      return shared;
-    }
     return shared.then((result) => {
-      if (!result.ok) {
-        result.report();
-      }
+      // A caller that retired gets a cancellation, whatever the fetch found.
+      if (options.stillCurrent?.() === false)
+        return retiredRequest("GET", path);
+      if (!result.ok && options.reportErrors !== false) result.report();
       return result;
     });
   }
@@ -153,14 +160,17 @@ export class WriterProjectionArea {
   private async fetchWriterProjectionResult<T>(
     cache: BoundedCache<Promise<T | null>>,
     { cacheKey, path, validator, failureOperation }: ProjectionRead<T>,
+    stillCurrent: () => boolean,
   ): Promise<RequestResult<T>> {
     const session = this.context.runtime.responseRequest.sessionSignal?.();
     const retired = () => retiredRequest("GET", path);
+    // The sign-in ended or every caller sharing this fetch retired.
+    const isRetired = () => session?.aborted === true || !stillCurrent();
     let cached = cache.get(cacheKey);
     while (cached) {
       // Rejected and empty entries both fall through to the current slot.
       const data = await cached.catch(() => null);
-      if (session?.aborted) return retired();
+      if (isRetired()) return retired();
       if (data) return { data, ok: true };
       // A newer entry installed during the wait must be reused.
       const current = cache.get(cacheKey);
@@ -175,7 +185,7 @@ export class WriterProjectionArea {
     // null without its normal error reporting. Plain callers keep their own
     // fetch-and-report behavior instead, and only a success is published.
     // Always silent here: reporting is per-caller in writerProjectionResult,
-    // and taking no caller options is what guarantees nothing
+    // and taking only the joined scope is what guarantees nothing
     // request-affecting can be smuggled into the shared fetch.
     const invalidationStamp = cache.invalidationStamp(cacheKey);
     const result = await this.context.requestResult(
@@ -183,13 +193,12 @@ export class WriterProjectionArea {
       validator,
       "GET",
       undefined,
-      {
-        reportErrors: false,
-      },
+      { reportErrors: false, stillCurrent },
       failureOperation,
     );
 
-    if (session?.aborted) return retired();
+    // A retired fetch confirmed nothing, so it leaves the cache as it was.
+    if (isRetired()) return retired();
     if (result.ok) {
       // Publish the success unless the slot changed or this id was
       // invalidated mid-flight. The stamp check is what makes an eviction of
@@ -244,16 +253,24 @@ export class WriterProjectionArea {
     );
   }
 
+  /**
+   * A `signal` makes a private, bounded read. A `stillCurrent` alone joins the
+   * shared read, which renews and delivers only while some caller is current.
+   */
   getDocumentWriterProjection(
     documentId: string,
-    options?: { signal: AbortSignal },
+    options?: {
+      readonly signal?: AbortSignal | undefined;
+      readonly stillCurrent?: (() => boolean) | undefined;
+    },
   ) {
-    if (options)
+    if (options?.signal || options?.stillCurrent)
       return this.getDocumentWriterProjectionResult(documentId, {
         ...options,
-        [boundedMetadata]: this.context.streamingDownloads
-          ? "writer-projection"
-          : undefined,
+        [boundedMetadata]:
+          options.signal && this.context.streamingDownloads
+            ? "writer-projection"
+            : undefined,
       }).then((result) => (result.ok ? result.data : null));
 
     return cachedRequest(this.documents.cache, documentId, () =>

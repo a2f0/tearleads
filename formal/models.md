@@ -396,7 +396,8 @@ user-selected subtree. See the
 
 [`local-trust/SessionRetryIdentity.tla`](./local-trust/SessionRetryIdentity.tla)
 checks that a delayed 401 for one identity never replays its request as
-another. See the
+another, and that a request whose callers all retired neither renews the
+session nor replays. See the
 [mapping and boundaries](./local-trust/SessionRetryIdentity.md).
 
 ### Principal Acknowledgement Race

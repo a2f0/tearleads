@@ -93,6 +93,7 @@ export async function rekeyRemoteContainer(
         : materializedPlan.plan.request;
       const options = {
         expectedPaymentRequiredOrganizationId: input.author.organizationId,
+        stillCurrent: input.stillCurrent,
       };
       const { rekeyContainerResult } = input.apiClient;
       return submitContainerRotation({
