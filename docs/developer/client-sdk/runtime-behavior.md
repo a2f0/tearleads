@@ -36,14 +36,17 @@ sign-in, or a store generation change, the request is retired:
 
 These requests pass it:
 
-- the writer-projection reads of document creates, attachment uploads, and
-  container creates
+- the writer-projection reads of document creates and attachment uploads
+- the parent reads of container-contents folder creates
 - attachment uploads and downloads
 - signed container creates, recitations, moves, revokes, rekeys, and user
   shares
 
-Group shares, and the projection reads before a move, revoke, rekey, or share,
-do not pass it yet.
+These do not pass it yet:
+
+- group shares
+- the projection reads before a move, revoke, rekey, or share
+- the parent reads inside a container create, including its stale-path repair
 
 Concurrent writer-projection reads still share one fetch and its cached result.
 The shared fetch stays current while any of its callers is current.

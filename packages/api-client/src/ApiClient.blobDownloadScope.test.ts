@@ -41,25 +41,21 @@ const retirements = {
 
 /** Two five-byte chunks; the second waits until the test releases it. */
 function gatedBody(secondChunk: Promise<void>) {
-  const state = { cancelled: false, served: 0 };
+  const state = { served: 0 };
   const stream = new ReadableStream<Uint8Array>(
     {
       async pull(controller) {
         if (state.served === 1) await secondChunk;
-        if (state.cancelled) return;
         state.served += 1;
         controller.enqueue(
           encoder.encode(state.served === 1 ? "first" : "later"),
         );
         if (state.served === 2) controller.close();
       },
-      cancel() {
-        state.cancelled = true;
-      },
     },
     { highWaterMark: 0 },
   );
-  return { state, stream };
+  return { stream };
 }
 
 async function readDelivered(stream: ReadableStream<Uint8Array>) {

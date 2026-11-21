@@ -35,6 +35,7 @@ test.each(SCOPE_RETIREMENTS)(
           reciteContainer: async () => null,
           getContainerWriterProjection: async () => parent.projection,
           shareContainer: server.api.shareContainer,
+          shareContainerResult: server.api.shareContainerResult,
         },
         execSql: database.execSql,
         resolveTrustedUserIdentity: createRecipientIdentityResolver({

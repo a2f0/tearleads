@@ -45,9 +45,13 @@ async function retiredRotation(
         reciteContainer: async () => null,
         getContainerWriterProjection: async (containerId) =>
           projections.get(containerId) ?? null,
+        // Both adapters, so the production `*Result` submit path is the one run.
         moveContainer: server.api.moveContainer,
+        moveContainerResult: server.api.moveContainerResult,
         rekeyContainer: server.api.rekeyContainer,
+        rekeyContainerResult: server.api.rekeyContainerResult,
         revokeContainer: server.api.revokeContainer,
+        revokeContainerResult: server.api.revokeContainerResult,
       },
       encapsulationSecretKey: scenario.parent.secretKey,
       execSql: scenario.database.execSql,
