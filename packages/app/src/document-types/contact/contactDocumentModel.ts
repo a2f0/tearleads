@@ -1,4 +1,5 @@
 import type { DocumentRow } from "@tearleads/client-sdk";
+import { isTruthyStructuredField } from "../shared/documentFieldUtils";
 import type { ContactAvatarRef } from "./contactAvatarSlot";
 import {
   type ContactDocumentFields,
@@ -47,10 +48,16 @@ function normalizeOptionalString(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
-function readSelfField(value: string): boolean {
-  const normalized = value.trim().toLowerCase();
-  return normalized === "1" || normalized === "true";
-}
+/**
+ * The fields that bind a contact to an account: whose it is, their key, and
+ * whether it is the viewer. Contacts finds a person's contact by `userId`, so
+ * a contact made from another's content must not carry them.
+ */
+export const CONTACT_ACCOUNT_FIELDS: ReadonlyArray<string> = [
+  "encapsulationPublicKey",
+  "isSelf",
+  "userId",
+] satisfies ReadonlyArray<keyof ContactDocumentFields>;
 
 export function contactFieldsToEntry(
   id: string,
@@ -78,7 +85,7 @@ export function contactFieldsToEntry(
       encapsulationPublicKey.length > 0 ? encapsulationPublicKey : null,
     firstName: fields.firstName.trim(),
     id,
-    isSelf: readSelfField(fields.isSelf),
+    isSelf: isTruthyStructuredField(fields.isSelf),
     lastName: fields.lastName.trim(),
     nickname: fields.nickname.trim(),
     userId: userId.length > 0 ? userId : null,

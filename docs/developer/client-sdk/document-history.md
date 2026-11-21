@@ -53,6 +53,26 @@ the document durably holds that content, including when it already matched, and
   is not restored, because a row cannot be moved.
 - The document kind is not changed.
 
+## Copying a version
+
+A copy needs no call of its own. Open a new document with a
+`DocumentHistoryView` as its birth: `documents.open` (or a container's
+`openDocument`) with a fresh `localId`, the view's `documentKind` as
+`initialDocumentKind`, its `text` as `initialText`, its `structuredFields` as
+`initialStructuredFields`, and each row's `fields` as `initialRows`. Leave
+fields and rows out for a note: a store refuses to open one with fields, and
+would write its rows without saying so.
+
+- The new document shares nothing with the one it was copied from: no
+  history, no identity, and no row ids. Its rows keep the version's order.
+- Attachments are not carried over. A view lists the attachments a version
+  referenced, not bytes this device still has.
+- The host decides where a copy may go. The SDK applies document creation's
+  own checks, not the host's folder rules.
+- The host also decides which fields a copy carries. A field that names an
+  attachment slot, or that a host uses to find one particular document, does
+  not belong in a second document.
+
 ## What a replay is
 
 The replay is a capture of what was durable when it was opened. It is loaded

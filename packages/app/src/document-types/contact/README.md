@@ -65,10 +65,14 @@ updates within one document identity, not histories of different documents.
 This contract does not trigger a local-data or environment reset.
 
 Contacts removal and Explorer move/purge protect canonical Me and its resolved
-same-document aliases. Retained actions wait for pending identity reads before
-their effect, after asynchronous preparation. An equivalent refresh preserves
-their authority; changed identity, failed reads, or expired scope refuse them.
-Once persistence starts, a later identity refresh does not cancel that write.
+same-document aliases. Explorer's History never saves a contact version of Me,
+or any contact version whose `isSelf` field is set, as a
+[copy](../../stores/document-history/README.md#saving-a-version-as-a-copy):
+it would be a second contact carrying Me's fields. Retained actions wait for
+pending identity reads before their effect, after asynchronous preparation. An
+equivalent refresh preserves their authority; changed identity, failed reads,
+or expired scope refuse them. Once persistence starts, a later identity
+refresh does not cancel that write.
 
 The [identity source](../../stores/contacts/createSelfContactIdentitySource.ts)
 reloads on births, relinks, placement, and structural discovery changes, not

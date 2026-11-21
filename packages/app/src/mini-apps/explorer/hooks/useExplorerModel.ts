@@ -78,6 +78,7 @@ interface ExplorerModel {
   onRecoveryChanged: () => void;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
+  documentVersionCopy: ExplorerPanelState["documentVersionCopy"];
   explorer: ExplorerModelExplorer;
   handleCancelRefresh: () => void;
   handleOpenCatchup: () => Promise<boolean>;
@@ -221,6 +222,7 @@ export function useExplorerModel(
     consumeInitialDocumentEditing,
     contextMenuState,
     deleteDocument,
+    documentVersionCopy,
     uploadManager,
     loadBlobInfo,
     loadContainerInfo,
@@ -386,6 +388,7 @@ export function useExplorerModel(
     documentListRevision,
     documentQueries,
     documentSummaries,
+    documentVersionCopy,
     currentSelfContactLocalId,
     explorer,
     handleCancelRefresh,
