@@ -346,6 +346,7 @@ async function submitRevocation(
     : plan.request;
   const options = {
     expectedPaymentRequiredOrganizationId: input.author.organizationId,
+    stillCurrent: input.stillCurrent,
   };
   const { revokeContainerResult } = input.apiClient;
   return submitContainerRotation({

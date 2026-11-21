@@ -4,13 +4,12 @@ import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 /**
  * A real API client over a local server. The first request matching `path`
  * waits until the test releases it, then answers a refresh-required 401;
- * later matches get `respond`. Renewal installs a new token for the same
- * identity, so an unguarded request is replayed.
+ * a replay gets a 500. Renewal installs a new token for the same identity,
+ * so an unguarded request is replayed.
  */
 export function createExpiringApiServer(input: {
   readonly method: string;
   readonly path: RegExp;
-  readonly respond?: ((request: Request) => Promise<Response>) | undefined;
 }) {
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
@@ -24,9 +23,7 @@ export function createExpiringApiServer(input: {
         return Response.json({ error: "Not found" }, { status: 404 });
       requests.push(`${request.method} ${pathname}`);
       if (requests.length > 1)
-        return input.respond
-          ? input.respond(request)
-          : Response.json({ error: "Unexpected replay" }, { status: 500 });
+        return Response.json({ error: "Unexpected replay" }, { status: 500 });
       entered.resolve();
       await release.promise;
       return Response.json(

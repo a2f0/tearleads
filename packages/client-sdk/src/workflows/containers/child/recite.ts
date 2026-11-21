@@ -68,6 +68,7 @@ async function recitePinnedPath(
   const id = plan.state.containerId;
   const response = await input.apiClient.reciteContainer(id, plan.request, {
     reportErrors: false,
+    stillCurrent: input.stillCurrent,
   });
   if (!response || input.stillCurrent?.() === false) return null;
   try {

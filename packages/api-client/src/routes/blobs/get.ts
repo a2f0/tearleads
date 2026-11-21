@@ -73,7 +73,18 @@ export async function getBlobBytes(
   const limit = options.maxEncryptedByteLength;
   if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 0))
     return null;
-  return downloadBlob(transport, blobId, downloadFetch, options);
+  const blob = await downloadBlob(transport, blobId, downloadFetch, options);
+  // A stream opened for a caller that retired meanwhile is never returned.
+  if (blob && downloadRetired(options)) {
+    void blob.encryptedBytes.cancel().catch(() => {});
+    return null;
+  }
+  return blob;
+}
+
+/** The caller cancelled, its sign-in ended, or its scope retired. */
+function downloadRetired(options: BlobDownloadOptions): boolean {
+  return options.signal?.aborted === true || options.stillCurrent?.() === false;
 }
 
 async function downloadBlob(
@@ -93,13 +104,17 @@ async function downloadBlob(
   const limit = options.maxEncryptedByteLength ?? Infinity;
   // Refresh at most once. R2 expiration errors can appear as CORS/network
   // failures in browsers, so both rejected fetches and 403s need a fresh URL.
-  for (let attempt = 0; attempt < 2 && !options.signal?.aborted; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < 2 && !downloadRetired(options);
+    attempt += 1
+  ) {
     const result = await transport.requestResult(
       operation,
       { params: { blobId } },
       { ...metadataOptions(options, "all"), reportErrors: false },
     );
-    if (options.signal?.aborted) return null;
+    if (downloadRetired(options)) return null;
     if (!result.ok) {
       return descriptorFailureFallback(transport, blobId, result, options);
     }
@@ -125,18 +140,23 @@ async function downloadBlob(
 
 /**
  * One signed-URL attempt: the bytes, `"retry"` with a fresh URL (403 or a
- * rejected fetch), or `"fallback"` to the API stream (any other status).
+ * rejected fetch), `"fallback"` to the API stream (any other status), or null
+ * once the caller retired.
  */
 async function fetchSignedBlob(
   descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength" | "sha256">,
   url: string,
   downloadFetch: DownloadFetch,
   options: BlobDownloadOptions,
-): Promise<BlobBytesResponse | "retry" | "fallback"> {
+): Promise<BlobBytesResponse | "retry" | "fallback" | null> {
   try {
     // Never send the application's session or cookies to the object store.
     // Reject redirects and keep bearer URLs out of referrers and errors.
     const response = await downloadFetch(url, storageFetchOptions(options));
+    if (downloadRetired(options)) {
+      await response.body?.cancel().catch(() => {});
+      return null;
+    }
     if (response.status !== 200) {
       await response.body?.cancel().catch(() => {});
       return response.status === 403 ? "retry" : "fallback";
@@ -168,12 +188,7 @@ async function signedBlobResponse(
     blobId: descriptor.blobId,
     byteLength: descriptor.byteLength,
     sha256: descriptor.sha256,
-    encryptedBytes: await blobDownloadBody(
-      response,
-      options.signal,
-      true,
-      options.maxEncryptedByteLength,
-    ),
+    encryptedBytes: await blobDownloadBody(response, options, true),
   };
 }
 
@@ -182,7 +197,7 @@ async function getBlobStream(
   blobId: string,
   options: BlobDownloadOptions,
 ): Promise<BlobBytesResponse | null> {
-  if (options.signal?.aborted) return null;
+  if (downloadRetired(options)) return null;
   const result = await transport.requestBinaryResponse(
     getBlobBytesOperation,
     {
@@ -207,14 +222,7 @@ async function getBlobStream(
     void response.body?.cancel().catch(() => {});
     return null;
   }
-  const encryptedBytes = await blobDownloadBody(
-    response,
-    options.signal,
-    false,
-    options.maxEncryptedByteLength,
-  );
-
-  if (options.signal?.aborted) return null;
+  const encryptedBytes = await blobDownloadBody(response, options);
   return {
     blobId: headers[blobWireHeaderKeys.blobId],
     byteLength,

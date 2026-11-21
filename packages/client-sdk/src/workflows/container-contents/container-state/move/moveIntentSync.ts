@@ -317,6 +317,8 @@ async function movePendingRemoteContainer(input: {
     });
     if (!replayed) {
       if (!syncInput.isCurrent()) {
+        // A success after retirement is dropped too; the queued intent's
+        // next current replay finds the move applied and settles it.
         if (!remoteMoveApplied)
           syncInput.requestRemoteReconciliation(intent.parentContainerId);
         return abandonAppliedMove();
