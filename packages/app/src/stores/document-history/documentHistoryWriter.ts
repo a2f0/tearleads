@@ -1,9 +1,7 @@
 import type { DocumentHistoryStop } from "@tearleads/client-sdk";
 import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
 
-type AttributionSegments = ReadonlyArray<
-  DocumentEditAttributionResponse["segments"][number]
->;
+type AttributionSegments = DocumentEditAttributionResponse["segments"];
 
 /** The signing identity whose signed upload first delivered a stop. */
 export interface DocumentHistoryStopWriter {

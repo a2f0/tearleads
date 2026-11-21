@@ -103,7 +103,7 @@ function SelectedStopTimeline(params: {
 }) {
   const { controls, documentSummary, settled, state, versionCopy } = params;
   const selectedStop = state.history.stops[state.selectedIndex];
-  // Who uploaded each run of operations, and when the server stored it.
+  // When the server stored the upload behind each run of operations.
   const uploads = useDocumentAttributionRanges(true);
   // A device's own time, bounded by when the change was uploaded: a change
   // cannot have been made after the server stored it.
@@ -171,7 +171,6 @@ function SelectedStopTimeline(params: {
         selectedStop === undefined ? null : (
           <DocumentHistoryStopWriter
             resolveUserLabel={params.attributionUserLabelResolver}
-            segments={uploads}
             stop={selectedStop}
           />
         )

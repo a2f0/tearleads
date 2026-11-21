@@ -1,11 +1,16 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import type { DocumentEditAttributionResponse } from "@tearleads/validators/response";
 import { cleanup, render } from "@testing-library/react";
+import * as RowWriters from "../../../../stores/documents/useDocumentRowWriters";
 import { DocumentHistoryStopWriter } from "./DocumentHistoryStopWriter";
 
 type Segments = DocumentEditAttributionResponse["segments"];
 
-afterEach(cleanup);
+const restorers: Array<() => void> = [];
+afterEach(() => {
+  cleanup();
+  for (const restore of restorers.splice(0)) restore();
+});
 
 const STOP = {
   committedAt: 1_000,
@@ -29,10 +34,14 @@ function mount(
   segments: Segments,
   resolveUserLabel?: (userId: string | null | undefined) => string | null,
 ) {
+  const spy = spyOn(
+    RowWriters,
+    "useDocumentAttributionSegments",
+  ).mockReturnValue(segments);
+  restorers.push(() => spy.mockRestore());
   return render(
     <DocumentHistoryStopWriter
       resolveUserLabel={resolveUserLabel}
-      segments={segments}
       stop={STOP}
     />,
   );

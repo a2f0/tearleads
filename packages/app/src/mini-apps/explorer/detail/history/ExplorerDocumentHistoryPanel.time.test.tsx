@@ -12,6 +12,7 @@ import * as Registry from "../../../../document-types/registry";
 import * as History from "../../../../stores/document-history/useDocumentHistory";
 import * as Documents from "../../../../stores/documents/DocumentsProvider";
 import * as Ranges from "../../../../stores/documents/useDocumentAttributionRanges";
+import * as RowWriters from "../../../../stores/documents/useDocumentRowWriters";
 import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerDocumentHistoryPanel } from "./ExplorerDocumentHistoryPanel";
@@ -130,6 +131,8 @@ function mountChange(input: { committedAt: number; storedAt: string | null }) {
             },
           ],
     ),
+    // Who uploaded the change is a separate read, not under test here.
+    spyOn(RowWriters, "useDocumentAttributionSegments").mockReturnValue([]),
     spyOn(Registry, "getDocumentTypeDefinition").mockReturnValue({
       App: () => <div data-testid="document-at-stop" />,
     } as unknown as ReturnType<typeof Registry.getDocumentTypeDefinition>),
@@ -168,10 +171,6 @@ test("a change made before its upload shows the time its device recorded", () =>
   expect(
     view.queryByText(EXPLORER_LABELS.documentHistoryClockAhead),
   ).toBeNull();
-  // The same ranges name who uploaded it.
-  expect(view.container.textContent).toContain(
-    EXPLORER_LABELS.documentHistoryUploadedBy,
-  );
 });
 
 test("a change recorded a day after its upload shows the upload, and says why", () => {

@@ -1,15 +1,13 @@
 import type { Tearleads } from "@tearleads/client-sdk";
 import type { DocumentEditAttributionRangeResponse } from "@tearleads/validators/response";
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "./DocumentsProvider";
+import type { RowWritersRequest } from "./rowWritersMachine";
 import {
-  type RowWritersEvent,
-  type RowWritersRequest,
-  type RowWritersState,
-  transitionRowWriters,
-} from "./rowWritersMachine";
-import { useAttributionRequest } from "./useDocumentRowWriters";
+  useAttributionRead,
+  useAttributionRequest,
+} from "./useDocumentRowWriters";
 
 /** A document's per-upload attribution: each range names one upload. */
 export type DocumentAttributionRanges =
@@ -22,26 +20,29 @@ const NO_RANGES: DocumentAttributionRanges = [];
 const RANGE_PAGE_LIMIT = 500;
 /**
  * Where a read gives up. A document with more uploads than this is read as
- * having no ranges at all: part of the list would credit or date a change
- * from uploads that happen to be on the pages that were read.
+ * having no ranges at all: part of the list would date a change from the
+ * uploads that happen to be on the pages that were read.
  */
 const MAX_RANGE_PAGES = 40;
 
 type ContainerContents = Tearleads["containerContents"];
 
 /**
- * Every range of one document, or null when there are too many to read. The
- * pages are bound to one attribution revision: a document that gains an
- * upload mid-read fails the next page rather than mix two histories.
+ * Every range of one document, or null when there are too many to read or
+ * the read stopped being wanted. The pages are bound to one attribution
+ * revision: a document that gains an upload mid-read fails the next page
+ * rather than mix two histories. `isCurrent` is asked before each page, so a
+ * read nobody is waiting for stops there.
  */
 export async function loadAllDocumentAttributionRanges(
   containerContents: Pick<ContainerContents, "loadDocumentAttributionRanges">,
   documentId: string,
+  isCurrent: () => boolean = () => true,
 ): Promise<DocumentAttributionRanges | null> {
   const ranges: DocumentEditAttributionRangeResponse[] = [];
   let cursor: string | null = null;
   let expectedRevision: number | undefined;
-  for (let pages = 0; pages < MAX_RANGE_PAGES; pages += 1) {
+  for (let pages = 0; pages < MAX_RANGE_PAGES && isCurrent(); pages += 1) {
     const page = await containerContents.loadDocumentAttributionRanges({
       cursor,
       documentId,
@@ -56,62 +57,58 @@ export async function loadAllDocumentAttributionRanges(
   return null;
 }
 
-type RangesState = RowWritersState<DocumentAttributionRanges>;
-type RangesEvent = RowWritersEvent<DocumentAttributionRanges>;
+/**
+ * A document's per-upload attribution ranges, for hosts without a
+ * DocumentProvider. See `useDocumentAttributionRanges`.
+ */
+export function useAttributionRangesForDocument(input: {
+  documentId: string | null;
+  syncing: boolean;
+  enabled: boolean;
+}): DocumentAttributionRanges {
+  const { containerContents } = useTearleads();
+  const request = useAttributionRequest(input);
+  const load = useCallback(
+    ({ documentId }: RowWritersRequest, isCurrent: () => boolean) =>
+      loadAllDocumentAttributionRanges(
+        containerContents,
+        documentId,
+        isCurrent,
+      ),
+    [containerContents],
+  );
+  const read = useAttributionRead(request, load);
 
-function transitionRanges(state: RangesState, event: RangesEvent): RangesState {
-  return transitionRowWriters<DocumentAttributionRanges>(state, event);
-}
-
-function useAttributionRanges(
-  request: RowWritersRequest | null,
-  containerContents: ContainerContents,
-): DocumentAttributionRanges {
-  const [state, dispatch] = useReducer(transitionRanges, { status: "idle" });
-  useEffect(() => dispatch({ type: "request", request }), [request]);
-  const loading = state.status === "loading" ? state.request : null;
+  // A range never changes once read: an operation's first upload stays its
+  // first upload, and later uploads only add ranges. So while a refresh of
+  // the same document and session loads, or fails, the ranges already held
+  // still say what they said. Dropping them would blank every time and name
+  // they resolve on each sync. Another document or session never sees them.
+  const scope = request?.scope ?? null;
+  const held = useRef<{
+    ranges: DocumentAttributionRanges;
+    scope: object;
+  } | null>(null);
   useEffect(() => {
-    if (!loading || loading !== request) return;
-    let active = true;
-    void loadAllDocumentAttributionRanges(
-      containerContents,
-      loading.documentId,
-    ).then(
-      (ranges) => {
-        if (!active) return;
-        dispatch(
-          ranges === null
-            ? { type: "failed", request: loading }
-            : { type: "loaded", request: loading, segments: ranges },
-        );
-      },
-      () => {
-        if (active) dispatch({ type: "failed", request: loading });
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [containerContents, loading, request]);
-  // Effects clear state after commit; projection must already hide an old
-  // document's ranges during the very first render of the new scope.
-  return state.status === "ready" && state.request === request
-    ? state.segments
+    if (read !== null && scope !== null) held.current = { ranges: read, scope };
+  }, [read, scope]);
+  if (read !== null) return read;
+  return scope !== null && held.current?.scope === scope
+    ? held.current.ranges
     : NO_RANGES;
 }
 
 /**
- * The open document's per-upload attribution ranges: who first uploaded each
- * run of operations, and when the server stored that upload. Empty while they
- * load and when attribution is unavailable (offline, unsynced,
- * unauthenticated, too many to read, or changed mid-read). Read again after
- * each completed sync, like the compact segments.
+ * The open document's per-upload attribution ranges: for each run of
+ * operations, the upload that first delivered it and when the server stored
+ * that upload. Empty while they first load and when attribution is
+ * unavailable (offline, unsynced, unauthenticated, too many to read, or
+ * changed mid-read). Read again after each completed sync, like the compact
+ * segments, keeping what is held until the new read is ready.
  */
 export function useDocumentAttributionRanges(
   enabled: boolean,
 ): DocumentAttributionRanges {
   const { documentId, syncing } = useDocument();
-  const { containerContents } = useTearleads();
-  const request = useAttributionRequest({ documentId, syncing, enabled });
-  return useAttributionRanges(request, containerContents);
+  return useAttributionRangesForDocument({ documentId, syncing, enabled });
 }

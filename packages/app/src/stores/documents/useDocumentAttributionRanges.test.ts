@@ -92,6 +92,28 @@ test("a document with too many uploads is read as having none", async () => {
   expect(api.requests).toHaveLength(40);
 });
 
+test("a read nobody is waiting for stops before its next page", async () => {
+  const api = pagedRanges(5);
+  let wanted = true;
+
+  const ranges = await loadAllDocumentAttributionRanges(
+    {
+      loadDocumentAttributionRanges: async (input) => {
+        const page =
+          await api.containerContents.loadDocumentAttributionRanges(input);
+        // The request is superseded while its second page is in flight.
+        if (api.requests.length === 2) wanted = false;
+        return page;
+      },
+    },
+    "document-1",
+    () => wanted,
+  );
+
+  expect(ranges).toBeNull();
+  expect(api.requests).toHaveLength(2);
+});
+
 test("a failed page fails the read", async () => {
   const api = pagedRanges(3);
   const containerContents = {

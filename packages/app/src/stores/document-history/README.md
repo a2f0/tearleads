@@ -47,32 +47,38 @@ and a nested document under the past version sees its own live state.
 
 ## Who uploaded a change, and when
 
-History reads the live document's per-upload attribution ranges
-([`useDocumentAttributionRanges`](../documents/useDocumentAttributionRanges.ts)):
-for each run of operations, the signing identity whose upload first delivered
-it and the time the server stored that upload. They are read page by page
-when History opens and again after each completed sync. Offline, unsynced,
-and unauthenticated documents have none, and a document with more uploads
-than the read allows is treated as having none rather than as having some.
+Both come from the server's record of signed uploads, read through the live
+document: nothing here is taken from what a change says about itself.
+Offline, unsynced, and unauthenticated documents have neither.
 
 - **Who.** The timeline names the signed uploader of the selected change
-  ([`documentHistoryWriter`](documentHistoryWriter.ts)), resolved by the
-  change's exact operations. A change is credited only when every one of its
-  operations was first delivered by an ordinary upload from one signing
-  identity. Offline, unsynced, ambiguous, and rotation-baseline changes show
-  no name. As everywhere else, this is the uploader, not proof of who typed
-  the change.
+  ([`documentHistoryWriter`](documentHistoryWriter.ts)), resolved from the
+  document's compact edit-attribution segments by the change's exact
+  operations. A change is credited only when every one of its operations was
+  first delivered by an ordinary upload from one signing identity. Offline,
+  unsynced, ambiguous, and rotation-baseline changes show no name. As
+  everywhere else, this is the uploader, not proof of who typed the change.
 - **When.** A change records its writing device's own time, and a change
   cannot have been made after the server stored it. So the time shown is the
   lesser of the two
   ([`documentHistoryUploadTime`](documentHistoryUploadTime.ts)): the device's
   time, unless it is later than the upload that delivered the change's first
   operation, in which case the upload's. Past a minute's difference the
-  timeline says the device's clock was ahead. A document never records a time
+  timeline says a device's clock was ahead. A document never records a time
   earlier than the newest one it holds, so one fast clock moves every later
   change forward; each is bounded by its own upload. A clock that runs behind
   cannot be told, a change no upload has delivered keeps its device's time,
   and steps are still ordered causally, not by these times.
+
+The upload times come from the per-upload attribution ranges
+([`useDocumentAttributionRanges`](../documents/useDocumentAttributionRanges.ts)),
+read page by page at one attribution revision when History opens and again
+after each completed sync. A range never changes once read, so the ranges
+held stay in use while a refresh loads or fails, and the time on screen does
+not flicker on each sync; another document or session never sees them. A
+document with more uploads than the read allows is treated as having no
+ranges rather than some, and a read that is superseded stops before its next
+page.
 
 ## Restoring
 
