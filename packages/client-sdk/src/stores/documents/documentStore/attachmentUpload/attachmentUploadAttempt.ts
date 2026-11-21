@@ -33,9 +33,11 @@ export type AttachmentUploadAttempt =
   | { readonly status: "syncBlocked" }
   /**
    * The API refused a bind because the document advanced, and the attempt
-   * then ended without binding, whatever stopped its last bind.
+   * then ended without binding or throwing: its refreshes ran out, the slot
+   * no longer asks for the bytes, or the pull did not complete. A throw after
+   * a refresh is `failed`, so its error is reported.
    */
-  | { readonly status: "documentChanged"; readonly error: unknown }
+  | { readonly status: "documentChanged" }
   | { readonly status: "failed"; readonly error: unknown };
 
 export async function uploadAttachmentWithWriterProjectionRetry(input: {
@@ -130,12 +132,28 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     }
   }
 
-  if (uploaded) return { status: "uploaded", uploaded };
-  if (remoteSyncBlocked) return { status: "syncBlocked" };
-  return {
-    error: uploadError,
-    status: documentChanged ? "documentChanged" : "failed",
-  };
+  return endedAttempt({
+    documentChanged,
+    remoteSyncBlocked,
+    uploaded,
+    uploadError,
+    uploadThrew,
+  });
+}
+
+function endedAttempt(input: {
+  readonly documentChanged: boolean;
+  readonly remoteSyncBlocked: boolean;
+  readonly uploaded: UploadDocumentAttachmentResult | null;
+  readonly uploadError: unknown;
+  readonly uploadThrew: boolean;
+}): AttachmentUploadAttempt {
+  if (input.uploaded) return { status: "uploaded", uploaded: input.uploaded };
+  if (input.remoteSyncBlocked) return { status: "syncBlocked" };
+  if (input.documentChanged && !input.uploadThrew) {
+    return { status: "documentChanged" };
+  }
+  return { error: input.uploadError, status: "failed" };
 }
 
 async function tryUploadDocumentAttachment(input: {

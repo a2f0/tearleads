@@ -192,10 +192,13 @@ checks the slot again, and retries the same bind at the newer version, or
 abandons it when the slot no longer asks for the bytes. A document store
 pulls in the same sync pass, so each window is one pull and one bind. Recovery
 needs only the uploader's own steps; a busy document can delay a bind until it
-is quiet for one window, never indefinitely once edits stop. The client SDK
-bounds the immediate retries (three re-checks per upload call, then three
-re-armed passes in a row per pending upload in a document store) and then
-records the stuck upload until a later sync signal. The API never refuses a
+is quiet for one window, never indefinitely once edits stop. That bound assumes
+span-honest writers: the API cannot check a declared span against the
+ciphertext, so a writer that declares a span its update lacks makes every later
+bind on the document refuse, an effect that outlasts its write access. The
+client SDK bounds the immediate retries (three re-checks per upload call, then
+three re-armed passes in a row per pending upload in a document store) and
+then records the stuck upload until a later sync signal. The API never refuses a
 document update because of a binding: an edit that commits after the bind can
 still remove the slot, and detaching that binding is reconciliation by a device
 that observes both. The existing detach runs only on a device that held the

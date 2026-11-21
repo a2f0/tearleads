@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { BLOB_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import {
   checkedDocumentVersion,
   createMultipartBlobStageFixture,
@@ -178,6 +179,78 @@ test("does not retry a concrete upload failure with a fresh projection", async (
   } finally {
     close();
   }
+});
+
+/**
+ * An attempt whose one bind the API refuses because the document advanced,
+ * and whose caller's refresh then does `refresh`.
+ */
+async function attemptAfterDocumentChanged(
+  refresh: () => Promise<string | null>,
+) {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql(
+    `attachment-document-changed-${crypto.randomUUID()}`,
+  );
+  const { getAssembledBytes: _bytes, ...multipart } =
+    createMultipartBlobStageFixture();
+  let recordedFailure: object | null = null;
+  const state = {
+    runtime: { util: { isRemoteSyncBlocked: () => false } },
+    writerProjection,
+  } as unknown as DocumentStoreState;
+  try {
+    return await uploadAttachmentWithWriterProjectionRetry({
+      baseUploadInput: {
+        author,
+        bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+        documentId: writerProjection.documentId,
+        expectedBindingId: null,
+        verifiedDocumentVersion: async (request) =>
+          request.refresh ? refresh() : checkedDocumentVersion(request),
+        resolveProjectionUserKey,
+        slotId: "document-changed",
+      },
+      blobAttachments: createBlobAttachmentServiceFixture({
+        api: {
+          ...multipart,
+          bindBlobAttachment: async () => {
+            // The client records each refusal as a new failure.
+            recordedFailure = {
+              code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
+              kind: "http",
+              status: 409,
+            };
+            return null;
+          },
+          getDocumentWriterProjection: async () => writerProjection,
+          getRequestFailure: () => recordedFailure as never,
+        },
+        encapsulationSecretKey: secretKey,
+        execSql,
+      }),
+      state,
+      writerProjection,
+    });
+  } finally {
+    close();
+  }
+}
+
+test("an attempt whose refresh abandons the bind ends as a document change", async () => {
+  expect(await attemptAfterDocumentChanged(async () => null)).toEqual({
+    status: "documentChanged",
+  });
+});
+
+test("a throw after a refused bind's refresh is a reported failure", async () => {
+  const pullError = new Error("pull failed");
+  expect(
+    await attemptAfterDocumentChanged(async () => {
+      throw pullError;
+    }),
+  ).toEqual({ error: pullError, status: "failed" });
 });
 
 test("reuses a multipart stage when retrying a null upload result", async () => {

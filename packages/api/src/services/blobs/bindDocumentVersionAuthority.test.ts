@@ -3,10 +3,7 @@ import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
 import { emptyVersionVector } from "@tearleads/loro";
 import { createTestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
-import {
-  BLOB_MUTATION_ERROR_CODES,
-  isContainerMutationResponse,
-} from "@tearleads/validators/response";
+import { isContainerMutationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -163,10 +160,15 @@ test("a member without write access learns nothing about a document's updates", 
     userId: org.writer.userId,
   }).catch((error: unknown) => error);
 
-  // Verifying the signed bind refuses it before anything reads the
-  // document's updates, so the refusal never names a newer document.
+  // Verifying the signed bind's authorizing path refuses it before anything
+  // reads the document's updates, so the refusal never names a newer
+  // document. The version lacks the committed update, so a version check
+  // run any earlier would refuse with attachment_document_changed instead.
   expect(refusal).toBeInstanceOf(BlobMutationError);
-  expect(refusal).not.toMatchObject({
-    code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
+  expect(refusal).toMatchObject({
+    code: undefined,
+    message:
+      "attachment.bind authorizing path is outside the signed target scope",
+    status: 400,
   });
 }, 30_000);

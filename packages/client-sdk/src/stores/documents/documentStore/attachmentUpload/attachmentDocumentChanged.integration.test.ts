@@ -58,6 +58,8 @@ async function uploadWithDocumentChangedRefusals(refusals: number) {
     [];
   const attachments: BlobAttachmentSummary[] = [];
   let pulls = 0;
+  /** Runs inside each pull, before it answers. */
+  const hooks: { onPull: (() => Promise<void>) | null } = { onPull: null };
   let recordedFailure: ReturnType<typeof documentChangedFailure> | null = null;
   let storedDocument: DocumentCreateFixture | null = null;
   const { getAssembledBytes: _bytes, ...multipartApi } =
@@ -97,7 +99,10 @@ async function uploadWithDocumentChangedRefusals(refusals: number) {
     listDocumentAttachments: async () => attachments,
     async syncDocument(_documentId: string, request: DocumentSyncRequest) {
       if (!storedDocument) return null;
-      if (request.outgoingUpdates.length === 0) pulls += 1;
+      if (request.outgoingUpdates.length === 0) {
+        pulls += 1;
+        await hooks.onPull?.();
+      }
       return createEchoDocumentSyncResponse({
         commitLsn: `0/${binds.length + 1}0`,
         request,
@@ -105,9 +110,10 @@ async function uploadWithDocumentChangedRefusals(refusals: number) {
       });
     },
   });
+  const runtime = createOnlineDocumentsRuntime({ apiClient, execSql, fixture });
   const store = createDocumentStore(
     localId,
-    createOnlineDocumentsRuntime({ apiClient, execSql, fixture }),
+    runtime,
     defaultDocumentsPersistence,
   );
   const syncFailure = async () => {
@@ -117,7 +123,7 @@ async function uploadWithDocumentChangedRefusals(refusals: number) {
     );
     return row ? Reflect.get(row, "message") : null;
   };
-  return { binds, close, store, syncFailure };
+  return { binds, close, hooks, runtime, store, syncFailure };
 }
 
 function attachBusyFile(
@@ -214,6 +220,42 @@ test("a bind the API keeps refusing stops after a bounded budget and records the
     // A later sync signal gets one more call's pulls, and no re-armed pass.
     expect(await store.requestRemoteSyncAndWait()).toBe(true);
     expect(binds).toHaveLength(budget + BINDS_PER_CALL);
+  } finally {
+    close();
+  }
+}, 10_000);
+
+test("a store torn down during a refused bind's pull leaves the reloaded upload its full budget", async () => {
+  const { binds, close, hooks, runtime, store, syncFailure } =
+    await uploadWithDocumentChangedRefusals(Number.POSITIVE_INFINITY);
+  try {
+    expect(await store.ensureInitialized()).toBe(true);
+    let tornDown = false;
+    hooks.onPull = async () => {
+      if (tornDown || binds.length !== 1) return;
+      tornDown = true;
+      // The refused bind's refresh is mid-pull when the store resets and
+      // loads the pending upload again.
+      store.updateRuntime({
+        ...runtime,
+        infra: { ...runtime.infra, dbStatus: "idle" },
+      });
+      store.updateRuntime(runtime);
+      expect(await store.ensureInitialized()).toBe(true);
+    };
+    attachBusyFile(store, "reloaded.png");
+    await waitFor(
+      async () => (await syncFailure()) !== null,
+      "The reloaded upload's refused binds did not settle.",
+      5_000,
+    );
+
+    expect(tornDown).toBe(true);
+    // The torn-down pass sent one bind and counted nothing, so the reloaded
+    // upload re-armed as many passes as a fresh one.
+    expect(binds).toHaveLength(
+      1 + BINDS_PER_CALL * (MAX_CONSECUTIVE_DOCUMENT_CHANGED_PASSES + 1),
+    );
   } finally {
     close();
   }

@@ -48,6 +48,15 @@ re-checks per upload call, each after a pull in the same pass, then three
 re-armed store passes in a row, and then it waits for a later sync signal. The
 model abstracts that bound as an unbounded series of the uploader's own steps.
 
+The model counts edits, while the API compares the span each update declares.
+The API stores those spans but cannot check them against the ciphertext, so
+`UploadSettles` assumes span-honest writers. An honest client declares the
+span of the ops it encrypted, and a pull covers it. A writer that declares a
+span its update lacks makes every later bind on that document refuse; before
+this check such an update was only served again on every pull. That writer
+could already remove any slot while it holds write access, but the refusal
+outlasts that access.
+
 The model also abstracts encryption, signatures, staging, and lost bind
 responses ([PendingAttachmentDetach](./PendingAttachmentDetach.md) covers
 those). It treats every foreign update as an edit, because the server compares
@@ -70,4 +79,5 @@ lands an unrelated edit there, which the import pulls past and binds. The
 document store regressions in
 [`attachmentDocumentChanged.integration.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentDocumentChanged.integration.test.ts)
 bind in the pass that was refused, keep binding while refusals outlast one
-upload call, and stop once a server that keeps refusing uses up the budget.
+upload call, stop once a server that keeps refusing uses up the budget, and
+give a reloaded upload its full budget when the store tears down mid-pull.

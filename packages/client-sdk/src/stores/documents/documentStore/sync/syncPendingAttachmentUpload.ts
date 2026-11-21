@@ -22,7 +22,10 @@ import {
   pendingAttachmentMatchesIntent,
   resolveAttachmentSourceUpload,
 } from "../attachmentUpload/attachmentSourceUpload";
-import { uploadAttachmentWithWriterProjectionRetry } from "../attachmentUpload/attachmentUploadAttempt";
+import {
+  type AttachmentUploadAttempt,
+  uploadAttachmentWithWriterProjectionRetry,
+} from "../attachmentUpload/attachmentUploadAttempt";
 import {
   type AttachmentUploadLaneReporter,
   createAttachmentUploadLaneReporter,
@@ -152,6 +155,48 @@ function createAttachmentBaseUploadInput(input: {
   };
 }
 
+/**
+ * Whether the store generation this pass started under is still live. Only
+ * a live pass may count its upload's refused passes or re-arm the store.
+ */
+function isPassGenerationCurrent(input: PendingAttachmentUploadInput): boolean {
+  return isDocumentStoreSyncGenerationCurrent(
+    input.state,
+    input.attachmentGeneration,
+  );
+}
+
+/**
+ * Counts how the attempt ended toward its upload's run of refused passes, and
+ * whether the pass stops here to retry because another device committed
+ * inside every pull-then-bind window it had. A fresh pass then pulls, checks
+ * the slot, and binds the kept stage against the newer version. A pass the
+ * store tore down counts nothing: the reloaded store runs its own passes, and
+ * its uploads start with a full budget.
+ */
+function pausesForDocumentChange(
+  input: {
+    readonly pendingUpload: PendingAttachmentUploadInput;
+    readonly uploadLane: AttachmentUploadLaneReporter;
+  },
+  attempt: AttachmentUploadAttempt,
+): boolean {
+  const { pendingAttachment, state } = input.pendingUpload;
+  const current = isPassGenerationCurrent(input.pendingUpload);
+  if (attempt.status !== "documentChanged") {
+    if (current) settleDocumentChangedPasses(state, pendingAttachment);
+    return false;
+  }
+  if (current && !recordDocumentChangedRefusal(state, pendingAttachment)) {
+    return false;
+  }
+  input.uploadLane.failIfStarted(
+    new Error("Attachment upload paused because the document changed."),
+  );
+  if (current) requestDocumentStoreSync(state);
+  return true;
+}
+
 async function uploadPendingAttachmentBytes(input: {
   baseUploadInput: PreparedUploadDocumentAttachmentRequest;
   /** Read from the runtime the base input was built from. */
@@ -186,20 +231,7 @@ async function uploadPendingAttachmentBytes(input: {
           writerProjection,
         }),
     });
-    if (attempt.status === "documentChanged") {
-      if (recordDocumentChangedRefusal(state, pendingAttachment)) {
-        // Another device committed inside every pull-then-bind window this
-        // pass had. A fresh pass pulls, checks the slot, and binds the kept
-        // stage against the newer version.
-        input.uploadLane.failIfStarted(
-          new Error("Attachment upload paused because the document changed."),
-        );
-        requestDocumentStoreSync(state);
-        return "retry";
-      }
-    } else {
-      settleDocumentChangedPasses(state, pendingAttachment);
-    }
+    if (pausesForDocumentChange(input, attempt)) return "retry";
     if (attempt.status === "syncBlocked") {
       input.uploadLane.failIfStarted(
         new Error("Attachment upload paused because remote sync is blocked."),
@@ -209,7 +241,10 @@ async function uploadPendingAttachmentBytes(input: {
     if (attempt.status !== "uploaded") {
       reportAttachmentUploadFailure({
         attachmentGeneration: input.pendingUpload.attachmentGeneration,
-        error: attempt.error,
+        error:
+          attempt.status === "failed"
+            ? attempt.error
+            : new Error("The document kept changing before the bind."),
         pendingAttachment,
         state,
         uploadLane: input.uploadLane,
@@ -229,7 +264,9 @@ async function uploadPendingAttachmentBytes(input: {
     });
     return "uploaded";
   } catch (error) {
-    settleDocumentChangedPasses(state, pendingAttachment);
+    if (isPassGenerationCurrent(input.pendingUpload)) {
+      settleDocumentChangedPasses(state, pendingAttachment);
+    }
     reportAttachmentUploadFailure({
       attachmentGeneration: input.pendingUpload.attachmentGeneration,
       error,
