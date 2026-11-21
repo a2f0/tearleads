@@ -9,6 +9,7 @@ import { documents } from "../../sqlite/schema/documentRecordSchema";
 import { registerClientSQLiteCommitGuard } from "../../sqlite/sqliteCommitGuards";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import { settleAttachmentRemovalMarker } from "./internal/attachmentRemovalMarkerPersistence";
 import {
   applyContainerDocumentTombstonesWithExec,
   type ContainerDocumentTombstonePlacementRemoval,
@@ -69,6 +70,8 @@ export { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
 export type { DocumentPlacementCleanup } from "./documentDeletionPort";
 export type { PendingUpdateRecord, QueuedPendingUpdateRecord } from "./records";
 export type {
+  AttachmentRemovalMarkerObservation,
+  AttachmentRemovalMarkerSettlement,
   AttachmentRemovalRows,
   AttachmentStagingRows,
   ContainerDocumentTombstoneInput,
@@ -79,6 +82,7 @@ export type {
   PendingAttachmentUploadIdentity,
   PendingUpdateInsert,
   RelinkPersistedDocumentInput,
+  SettleAttachmentRemovalMarkerInput,
   StoredDocumentRecord,
 } from "./types";
 
@@ -223,6 +227,7 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
   ...documentSyncQueuePersistence,
   supportsAtomicRecoveryHistoryPruning: true,
   saveHydratedAttachment,
+  settleAttachmentRemovalMarker,
   createDocumentWithHistoryCheckpoint:
     createStoredDocumentWithHistoryCheckpoint,
   commitDocumentMutation: (execSql, input, saveClientProjection) =>

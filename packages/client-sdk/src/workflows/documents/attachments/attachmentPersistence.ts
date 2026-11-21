@@ -5,7 +5,10 @@
  * through: the pending-upload queue, the local blob projection, and the detach
  * marker that keeps an unlinked slot's row alive for the next sync.
  */
+import type { OpenAttachmentRemovalMarker } from "../../../data/documents/attachmentRemovalMarkerMachine";
+import { planAttachmentRemovalMarkerSettlement } from "../../../data/persistence/documents/attachmentRemovalMarkerPlan";
 import type {
+  AttachmentRemovalMarkerSettlement,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
@@ -20,21 +23,6 @@ export async function saveLocalDocumentAttachments(input: {
   for (const attachment of input.attachments) {
     await input.persistence.saveLocalAttachment(input.execSql, attachment);
   }
-}
-
-export async function deleteLocalDocumentAttachment(input: {
-  execSql: ExecSql;
-  localId: string;
-  persistence: DocumentsPersistence;
-  slotId: string;
-  storageKey: string;
-}): Promise<void> {
-  await input.persistence.deleteLocalAttachment(
-    input.execSql,
-    input.localId,
-    input.slotId,
-    input.storageKey,
-  );
 }
 
 /**
@@ -60,6 +48,36 @@ export async function markLocalDocumentAttachmentDetached(input: {
     input.slotId,
     input.storageKey,
   );
+}
+
+/**
+ * Settle a removal marker against committed document history: keep it owing
+ * a detach, revive it as the held copy of a re-added slot, requeue its bytes
+ * for a slot re-added after its binding went away, or drop it.
+ */
+export function settleDocumentAttachmentRemovalMarker(input: {
+  execSql: ExecSql;
+  from: OpenAttachmentRemovalMarker;
+  localId: string;
+  persistence: DocumentsPersistence;
+  slotId: string;
+  stillCurrent: () => boolean;
+  /** The copy this device removed, as its store still maps it. */
+  storageKey: string;
+}): Promise<AttachmentRemovalMarkerSettlement | null> {
+  const { from, storageKey } = input;
+  return input.persistence.settleAttachmentRemovalMarker(input.execSql, {
+    localId: input.localId,
+    settle: (observed) =>
+      planAttachmentRemovalMarkerSettlement({
+        from,
+        now: new Date().toISOString(),
+        observed,
+        storageKey,
+      }),
+    slotId: input.slotId,
+    stillCurrent: input.stillCurrent,
+  });
 }
 
 export async function savePendingDocumentAttachment(input: {

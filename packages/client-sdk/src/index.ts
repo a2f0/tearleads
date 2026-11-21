@@ -252,6 +252,7 @@ export {
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";
 export type {
+  AttachmentRemovalMarker,
   DiscoveredDocumentInput,
   DocumentAttachment,
   DocumentClientProjectionDefinition,
@@ -442,6 +443,8 @@ export {
   rootContainerWriterProjectionFromCreatePlan,
 } from "./workflows/containers";
 export type {
+  AttachmentRemovalMarkerObservation,
+  AttachmentRemovalMarkerSettlement,
   CreateRemoteDocumentRequest,
   CreateRemoteDocumentResult,
   DocumentBirthResult,
@@ -458,6 +461,7 @@ export type {
   PendingUpdateRecord,
   QueuedPendingUpdateRecord,
   RemoteDocumentServiceApi,
+  SettleAttachmentRemovalMarkerInput,
   SyncRemoteDocumentRequest,
   SyncRemoteDocumentResult,
 } from "./workflows/documents";

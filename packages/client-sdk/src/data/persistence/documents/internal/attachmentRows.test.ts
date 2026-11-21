@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { mapPendingAttachmentRecord } from "./attachmentRows";
+import {
+  buildPendingAttachmentRow,
+  mapPendingAttachmentRecord,
+} from "./attachmentRows";
 
 const baseRow = {
   contentSha256: "0".repeat(64),
@@ -7,6 +10,7 @@ const baseRow = {
   localId: "local-document",
   mimeType: "application/octet-stream",
   name: "attachment.bin",
+  requeued: false,
   slotId: "slot-1",
   storageKey: "storage-1",
   uploadBlobId: null,
@@ -59,4 +63,14 @@ test("pending attachment rows reject partial identities", () => {
       uploadStageId: "stage-1",
     }),
   ).toThrow("Pending attachment multipart identity has no upload.");
+});
+
+test("a requeued pending row keeps its flag through the table", () => {
+  const record = mapPendingAttachmentRecord({ ...baseRow, requeued: true });
+  expect(record.requeued).toBe(true);
+  expect(
+    buildPendingAttachmentRow(record, "2026-11-21T00:00:00Z"),
+  ).toMatchObject({ requeued: true });
+  // A first attach carries no flag at all.
+  expect(mapPendingAttachmentRecord(baseRow)).not.toHaveProperty("requeued");
 });

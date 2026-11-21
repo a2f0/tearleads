@@ -1,5 +1,4 @@
 import {
-  deleteLocalDocumentAttachment,
   deletePendingDocumentAttachment,
   type LocalAttachmentRecord,
   type PendingAttachmentRecord,
@@ -36,35 +35,6 @@ export async function deletePendingAttachment(
       storageKey,
     }),
   );
-}
-
-export async function deleteLocalAttachmentRecord(
-  state: DocumentStoreState,
-  slotId: string,
-  storageKey: string,
-  currentDoc: DocumentState | null = state.doc,
-) {
-  await deleteLocalDocumentAttachment({
-    execSql: state.runtime.infra.execSql,
-    localId: state.localId,
-    persistence: state.persistence,
-    slotId,
-    storageKey,
-  });
-
-  if (state.attachmentStorageKeyBySlotId[slotId] === storageKey) {
-    removeLocalAttachmentSlot(state, slotId);
-  }
-
-  if (currentDoc && currentDoc === state.doc) {
-    setReadySnapshot(
-      state,
-      currentDoc,
-      state.snapshot.syncing,
-      state.snapshot.text,
-      state.snapshot.structuredFields,
-    );
-  }
 }
 
 export async function saveLocalAttachmentRecord(

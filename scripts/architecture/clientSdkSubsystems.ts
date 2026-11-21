@@ -63,8 +63,10 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/documents/`,
       `${sdk}/data/documents/attachmentContentIdentity.ts`,
+      `${sdk}/data/documents/attachmentRemovalMarkerMachine.ts`,
       `${sdk}/data/documents/documentConstants.ts`,
       `${sdk}/data/documents/documentContent.ts`,
+      `${sdk}/data/documents/documentHistoryImport.ts`,
       `${sdk}/data/documents/documentKinds.ts`,
       `${sdk}/data/documents/documentRestore.ts`,
       `${sdk}/data/documents/documentRowList.ts`,

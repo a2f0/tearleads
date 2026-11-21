@@ -1,3 +1,4 @@
+export type { AttachmentRemovalMarker } from "./attachmentRemovalMarkerMachine";
 export * from "./documentConstants";
 export * from "./documentContent";
 export {

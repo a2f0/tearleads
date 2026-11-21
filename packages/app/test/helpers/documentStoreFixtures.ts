@@ -21,6 +21,7 @@ import {
   type StoredDocumentsState,
   type StoredHistoryState,
 } from "./document-store/documentStoreWritePersistence";
+import { createMemoryAttachmentRemovalMarkerPersistence } from "./document-store/memoryAttachmentRemovalMarkerPersistence";
 import { createMemoryHydratedAttachmentPersistence } from "./document-store/memoryHydratedAttachmentPersistence";
 import { withMemoryOrphanBlobReclaims } from "./document-store/memoryOrphanBlobReclaims";
 import { createFixtureBlobStore } from "./documentStoreBlobStore";
@@ -396,6 +397,18 @@ export function createDocumentStorePersistence(): DocumentsPersistence & {
     ...createPendingUpdatePersistence(state, historyByLocalId),
     ...createAttachmentPersistence(state),
     ...historyPersistence,
+    settleAttachmentRemovalMarker:
+      createMemoryAttachmentRemovalMarkerPersistence({
+        getAttachments: () => state.localAttachments,
+        getPendingAttachments: () => state.pendingAttachments,
+        loadHistoryRestoreState: historyPersistence.loadHistoryRestoreState,
+        setAttachments: (rows) => {
+          state.localAttachments = rows;
+        },
+        setPendingAttachments: (rows) => {
+          state.pendingAttachments = rows;
+        },
+      }),
     async loadDocumentStoreState(execSql, localId) {
       return {
         document: state.document?.id === localId ? state.document : null,
