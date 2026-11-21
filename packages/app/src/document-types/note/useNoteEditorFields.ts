@@ -21,6 +21,7 @@ import {
   useDocument,
 } from "../../stores/documents/DocumentsProvider";
 import { downloadBytesAsFile } from "../../utils/downloadFile";
+import type { AttachmentPreviewNoticeSource } from "../shared/AttachmentPreviewNotice";
 import {
   type DocumentAttachmentSlot,
   readDocumentAttachmentUpload,
@@ -69,6 +70,7 @@ interface NoteEditorFieldsModel {
   handleSelectBlob: (() => void) | undefined;
   handleSelectedFiles: (fileList: FileList | null) => void;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
+  previewNotice: AttachmentPreviewNoticeSource;
   ready: boolean;
   readOnly: boolean;
   setText: (text: string) => void;
@@ -255,8 +257,13 @@ export function useNoteEditorFields(
   params: { containerId?: string | null; localId?: string | undefined } = {},
 ): NoteEditorFieldsModel {
   const { containerId = null, localId = DEFAULT_DOCUMENT_ID } = params;
-  const { infra } = useTearleadsRuntime();
+  const { infra, state } = useTearleadsRuntime();
   const { blobStore } = infra;
+  const { domainScope } = state;
+  const previewNotice = useMemo(
+    () => ({ blobStore, domainScope }),
+    [blobStore, domainScope],
+  );
   const { logError } = useLog();
   const {
     attachments,
@@ -320,6 +327,7 @@ export function useNoteEditorFields(
     handleSelectBlob: canAttach && canWrite ? handleSelectBlob : undefined,
     handleSelectedFiles,
     imageUrlBySlotId,
+    previewNotice,
     ready,
     setText,
     syncing,
@@ -348,6 +356,7 @@ function useNoteEditorFieldsModel(input: {
   handleSelectBlob: (() => void) | undefined;
   handleSelectedFiles: (fileList: FileList | null) => void;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
+  previewNotice: AttachmentPreviewNoticeSource;
   ready: boolean;
   setText: (text: string) => void;
   syncing: boolean;
@@ -367,6 +376,7 @@ function useNoteEditorFieldsModel(input: {
     handleSelectBlob,
     handleSelectedFiles,
     imageUrlBySlotId,
+    previewNotice,
     ready,
     setText,
     syncing,
@@ -398,6 +408,7 @@ function useNoteEditorFieldsModel(input: {
       handleSelectBlob,
       handleSelectedFiles,
       imageUrlBySlotId,
+      previewNotice,
       ready,
       readOnly: !canWrite,
       setText,
@@ -421,6 +432,7 @@ function useNoteEditorFieldsModel(input: {
       handleSelectBlob,
       handleSelectedFiles,
       imageUrlBySlotId,
+      previewNotice,
       ready,
       canWrite,
       setText,

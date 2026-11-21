@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { classNames } from "../../components/shared/classNames";
+import type { AttachmentPreviewNoticeSource } from "../shared/AttachmentPreviewNotice";
 import { NoteAttachmentOverlay } from "./NoteAttachmentPreview";
 import {
   type NoteAttachmentImageUrlBySlotId,
@@ -139,6 +140,7 @@ export function NoteEditorFields({
   handleSelectBlob,
   handleSelectedFiles,
   imageUrlBySlotId,
+  previewNotice,
   ready,
   readOnly,
   setText,
@@ -162,6 +164,7 @@ export function NoteEditorFields({
   handleSelectBlob?: (() => void) | undefined;
   handleSelectedFiles: NoteHandleSelectedFiles;
   imageUrlBySlotId: NoteAttachmentImageUrlBySlotId;
+  previewNotice?: AttachmentPreviewNoticeSource | undefined;
   ready: boolean;
   readOnly: boolean;
   setText: (text: string) => void;
@@ -233,6 +236,7 @@ export function NoteEditorFields({
           onOpenAttachment={setPreviewSlotId}
           onSelectBlob={handleSelectBlob}
           onUploadAttachment={handleUploadAttachment}
+          previewNotice={previewNotice}
         />
       </div>
       <NoteAttachmentFileInput
