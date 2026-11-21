@@ -14,7 +14,7 @@ Zod.
 | --- | --- |
 | `@tearleads/validators/operation` | HTTP operation contracts (method, path, request, response, summary) and the OpenAPI renderer |
 | `@tearleads/validators/request` | Request body schemas and type guards |
-| `@tearleads/validators/response` | Response body schemas and type guards |
+| `@tearleads/validators/response` | Response body schemas and type guards, including the held writer projection citation types |
 | `@tearleads/validators/realtime` | Server-events WebSocket frames and client declarations |
 | `@tearleads/validators/event` | The user event guard |
 | `@tearleads/validators/util` | Shared wire primitives: UUIDs, hashes, base64, limits, and history wire formats |

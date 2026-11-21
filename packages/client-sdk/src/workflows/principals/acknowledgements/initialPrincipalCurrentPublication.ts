@@ -1,10 +1,10 @@
-import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import {
   createPrincipalPolicyHistoryVerifier,
   KeyingVerificationError,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { AcknowledgedPrincipalCurrentPublication } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
 import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
