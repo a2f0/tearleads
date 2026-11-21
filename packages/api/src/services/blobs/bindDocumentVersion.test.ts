@@ -113,6 +113,34 @@ test("an edit committed after the uploader's check refuses the bind until it pul
   expect(await boundBlobIds(fixture.document.id)).toEqual([blobId]);
 }, 20_000);
 
+test("a stale bind is refused before the service reads its staged bytes", async () => {
+  const fixture = await documentWithRoot();
+  const { blobId, request } = await stagedBind(fixture);
+  await commitOtherDeviceUpdate(fixture);
+  // Each refused retry would otherwise read and hash the whole stage again.
+  const unreadStage = new Proxy(blobAttachmentTestRuntime.blobObjectStore, {
+    get: () => () => {
+      throw new Error("The staged bytes were read");
+    },
+  });
+
+  await expect(
+    bindBlobAttachment(
+      { ...blobAttachmentTestRuntime, blobObjectStore: unreadStage },
+      {
+        blobId,
+        fingerprint: fixture.owner.fingerprint,
+        request,
+        sessionId: "bind-document-version-test",
+        userId: fixture.owner.userId,
+      },
+    ),
+  ).rejects.toMatchObject({
+    code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
+    status: 409,
+  });
+}, 20_000);
+
 test("an edit committed after the bind is never refused for it", async () => {
   const fixture = await documentWithRoot();
   const { blobId, request } = await stagedBind(fixture);

@@ -180,7 +180,9 @@ route already stores. Every update write locks the same head first, so no
 update commits between the check and the binding row: an edit that commits
 before the bind always wins. An update with no span carries no op and is
 ignored. A version ahead of the server, holding the uploader's own unsent ops,
-still binds.
+still binds. The API also runs the same comparison without a lock before it
+reads the staged bytes, so a refused retry does not re-hash the whole stage;
+only the check under the head lock decides.
 
 The check is scoped to the whole document, not the slot, because the server
 learns nothing about which update touches which slot. A refusal therefore needs
@@ -191,10 +193,10 @@ abandons it when the slot no longer asks for the bytes. Recovery needs only
 the uploader's own steps; a busy document can delay a bind until it is quiet
 for one window, never indefinitely once edits stop. The client SDK bounds the
 immediate retries (three re-checks per upload call, and three re-armed passes
-in a document store) and then records the stuck upload until a later sync
-signal. The API never refuses a document update because of a binding: an edit
-that commits after the bind can still remove the slot, and detaching that
-binding is reconciliation by a device that observes both.
+per pending upload in a document store) and then records the stuck upload
+until a later sync signal. The API never refuses a document update because of
+a binding: an edit that commits after the bind can still remove the slot, and
+detaching that binding is reconciliation by a device that observes both.
 [`AttachmentBindDocumentVersion.tla`](../../formal/blob-attachments/AttachmentBindDocumentVersion.tla)
 models both interleavings.
 

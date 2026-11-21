@@ -1,5 +1,6 @@
 export { runBindBlobAttachmentWorkflow } from "./mutations/bind";
 export { runDetachBlobAttachmentWorkflow } from "./mutations/detach";
+export { refuseStaleBindDocumentVersion } from "./mutations/documentVersionPrecondition";
 export {
   type BindBlobAttachmentInput,
   BlobMutationError,
