@@ -5,6 +5,7 @@ import {
   MiniAppButton,
   MiniAppCheckbox,
   MiniAppClipboardButton,
+  MiniAppEditor,
   MiniAppField,
   MiniAppFieldGroup,
   MiniAppInput,
@@ -178,12 +179,14 @@ test("mini app form controls preserve class names and forwarded refs", () => {
   const inputRef = createRef<HTMLInputElement>();
   const selectRef = createRef<HTMLSelectElement>();
   const textareaRef = createRef<HTMLTextAreaElement>();
+  const editorRef = createRef<HTMLTextAreaElement>();
   const view = render(
     <MiniAppField className="custom-field">
       <span>Name</span>
       <MiniAppInput ref={inputRef} className="custom-input" />
       <MiniAppSelect ref={selectRef} className="custom-select" />
       <MiniAppTextarea ref={textareaRef} className="custom-textarea" />
+      <MiniAppEditor ref={editorRef} className="custom-editor" />
     </MiniAppField>,
   );
 
@@ -195,6 +198,7 @@ test("mini app form controls preserve class names and forwarded refs", () => {
   expect(textareaRef.current?.className).toBe(
     "mini-app-textarea custom-textarea",
   );
+  expect(editorRef.current?.className).toBe("mini-app-editor custom-editor");
 });
 
 test("mini app select menu forwards an id so a label can target its trigger", () => {
