@@ -26,6 +26,7 @@ import {
 } from "./multipartStageFailures";
 import {
   assertUploadCurrent,
+  assertUploadNotPaused,
   resolveMultipartStage,
 } from "./multipartStageResolution";
 
@@ -90,6 +91,7 @@ function isMultipartPartCommit(
 }
 
 async function uploadMultipartPartTasks(input: {
+  readonly paused?: (() => boolean) | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly completeParts: (MultipartPartCommit | undefined)[];
@@ -129,6 +131,7 @@ async function uploadMultipartPartTasks(input: {
             signal.addEventListener("abort", aborted, { once: true });
             try {
               const uploaded = await uploadMultipartPartBytes({
+                paused: input.paused,
                 stillCurrent: input.stillCurrent,
                 apiClient: input.apiClient,
                 encryption: input.encryption,
@@ -211,6 +214,7 @@ async function encryptedPart(input: {
 }
 
 async function uploadMultipartPartBytes(input: {
+  readonly paused?: (() => boolean) | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
@@ -225,6 +229,7 @@ async function uploadMultipartPartBytes(input: {
   const { bytes: encryptedPartBytes, sha256 } = await encryptedPart(input);
   input.signal.throwIfAborted();
   assertUploadCurrent(input.stillCurrent);
+  assertUploadNotPaused(input.paused);
   const source = takePartSource(input.sources, input.task.partNumber);
   const uploaded = await input.apiClient.uploadMultipartBlobPartBytes(
     input.stageId,
@@ -334,6 +339,12 @@ function assertMultipartPlanLimits(encryption: BlobEncryptionPlan): void {
 }
 
 type StageMultipartBlobAttachmentInput = {
+  /**
+   * True while the organization's sync is paused: no stage or part request
+   * starts, and staging stops with `UploadPausedError`. A request already
+   * sent still completes, so a created stage is recorded and resumable.
+   */
+  readonly paused?: (() => boolean) | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
@@ -358,7 +369,9 @@ export async function stageMultipartBlobAttachment(
   const concurrency = normalizeMultipartUploadConcurrency(
     input.multipart.uploadConcurrency,
   );
+  assertUploadNotPaused(input.paused);
   const resolved = await resolveMultipartStage({
+    paused: input.paused,
     stillCurrent: input.stillCurrent,
     apiClient: input.apiClient,
     concurrency,
@@ -418,6 +431,7 @@ async function uploadResolvedMultipartStage(
   reportMultipartProgress();
 
   await uploadMultipartPartTasks({
+    paused: input.paused,
     stillCurrent: input.stillCurrent,
     apiClient: input.apiClient,
     completeParts,
