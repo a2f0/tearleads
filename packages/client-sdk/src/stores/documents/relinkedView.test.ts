@@ -157,6 +157,12 @@ test("a relink from another pane leaves the open editor on its own record", asyn
       await sqlDocumentsPersistence.listLocalAttachments(execSql, "pane-a"),
     ).toEqual([]);
 
+    // Pane A's draft is not stranded: its own record still sends it to the
+    // document it was written for, and the server accepted it.
+    expect(
+      await sqlDocumentsPersistence.listPendingUpdates(execSql, "pane-a"),
+    ).toEqual([]);
+
     // Each draft and file stays with the record that made it.
     expect(
       (await sqlDocumentsPersistence.loadDocument(execSql, "pane-a"))?.text,

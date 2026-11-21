@@ -275,7 +275,7 @@ test("discard refuses when the two identifiers resolve differently", async () =>
   expect(otherDiscards).toBe(0);
 });
 
-test("a relink onto an open document id leaves the open view on its record", () => {
+test("a relink onto an open document id leaves the open view on its record", async () => {
   const domainScope = {} as DomainScope;
   let draftQueued = true;
   const openSnapshot = { ...READY_SNAPSHOT, documentId: "d2", text: "draft" };
@@ -323,10 +323,29 @@ test("a relink onto an open document id leaves the open view on its record", () 
       ),
     ).toBe(relinked);
   }
-  // Its queued draft still holds the page open until it reaches SQLite.
+  // Content writes through the displaced view are refused.
+  const refused = { name: "DocumentRelinkedElsewhereError" };
+  await expect(openView.setText("more")).rejects.toMatchObject(refused);
+  await expect(openView.addRow({ value: "row" })).rejects.toMatchObject(
+    refused,
+  );
+  await expect(
+    openView.setStructuredFields("contact", { firstName: "Ada" }),
+  ).rejects.toMatchObject(refused);
+  expect(
+    await openView.restoreContent({
+      rows: [],
+      structuredFields: {},
+      text: "old",
+    }),
+  ).toBe(false);
+  // Its queued draft still holds the page open until it reaches SQLite, and
+  // the drained view is then dropped.
   expect(hasPendingLocalDocumentWrites(domainScope)).toBe(true);
+  expect(registry.supersededStores.has(openView)).toBe(true);
   draftQueued = false;
   expect(hasPendingLocalDocumentWrites(domainScope)).toBe(false);
+  expect(registry.supersededStores.has(openView)).toBe(false);
   openView.supersede();
   expect(stoppedDownloads).toBe(1);
 });

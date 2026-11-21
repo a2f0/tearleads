@@ -3,7 +3,7 @@ import { MiniAppStatus } from "../mini-app/controls/MiniAppStatus";
 
 export const DOCUMENT_RELINKED_LABELS = {
   message:
-    "Another pane linked a different copy to this document. This view is read-only.",
+    "This document now opens from a different copy. This view is read-only; its edits are kept and still sync.",
   reopen: "Reopen",
 } as const;
 

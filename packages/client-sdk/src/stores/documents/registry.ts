@@ -158,6 +158,12 @@ export function hasPendingLocalDocumentWrites(
 ): boolean {
   const registry = documentStoreRegistriesByScope.get(domainScope);
   if (!registry) return false;
+  // A displaced view accepts no new writes, so once its queue has reached
+  // SQLite it can never hold the page open again.
+  for (const store of registry.supersededStores) {
+    if (!store.hasQueuedWrites() && !store.hasUnsavedLocalEdits())
+      registry.supersededStores.delete(store);
+  }
   for (const store of [
     ...registry.storesByKey.values(),
     ...registry.supersededStores,
@@ -243,6 +249,18 @@ export async function discardRegisteredDocumentLocalState(
 
 const supersedeHandlers = new WeakMap<DocumentStore, () => void>();
 
+/** A content write through a view another record displaced. */
+class DocumentRelinkedElsewhereError extends Error {
+  constructor() {
+    super("This document view is read-only; reopen the document to edit it.");
+    this.name = "DocumentRelinkedElsewhereError";
+  }
+}
+
+function refuseWrite(): Promise<never> {
+  return Promise.reject(new DocumentRelinkedElsewhereError());
+}
+
 /** How a backing store stops work that only its displaced view owned. */
 export function registerDocumentStoreSupersedeHandler(
   store: DocumentStore,
@@ -286,21 +304,25 @@ export function createDocumentStoreFacade(
   };
 
   const facade: DocumentStoreFacade = {
-    addRow: (fields, options) => targetStore.addRow(fields, options),
+    addRow: (fields, options) =>
+      superseded ? refuseWrite() : targetStore.addRow(fields, options),
     assertCanRotateContentKey: (proof) =>
       targetStore.assertCanRotateContentKey(proof),
+    // Returned as-is: callers await the store's work behind the void type.
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
-      targetStore.attachFiles(files),
+      superseded ? undefined : targetStore.attachFiles(files),
     discardLocalState: (expectedDocumentId: string) =>
       targetStore.discardLocalState(expectedDocumentId),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot,
     hasQueuedWrites: () => targetStore.hasQueuedWrites(),
     hasUnsavedLocalEdits: () => targetStore.hasUnsavedLocalEdits(),
-    removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
-    removeRow: (id, options) => targetStore.removeRow(id, options),
+    removeAttachment: (slotId: string) =>
+      superseded ? undefined : targetStore.removeAttachment(slotId),
+    removeRow: (id, options) =>
+      superseded ? refuseWrite() : targetStore.removeRow(id, options),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      targetStore.replaceAttachment(slotId, file),
+      superseded ? refuseWrite() : targetStore.replaceAttachment(slotId, file),
     requestRemoteSync: () => targetStore.requestRemoteSync(),
     requestRemoteSyncAndWait: (signal) =>
       targetStore.requestRemoteSyncAndWait(signal),
@@ -312,11 +334,14 @@ export function createDocumentStoreFacade(
       supersedeHandlers.get(targetStore)?.();
       emitFacade();
     },
-    restoreContent: (content, options) =>
-      targetStore.restoreContent(content, options),
+    restoreContent: async (content, options) =>
+      !superseded && (await targetStore.restoreContent(content, options)),
     setStructuredFields: (kind, patch, options) =>
-      targetStore.setStructuredFields(kind, patch, options),
-    setText: (value: string) => targetStore.setText(value),
+      superseded
+        ? refuseWrite()
+        : targetStore.setStructuredFields(kind, patch, options),
+    setText: (value: string) =>
+      superseded ? refuseWrite() : targetStore.setText(value),
     subscribe: (listener: () => void) => {
       listeners.add(listener);
       return () => {
@@ -324,7 +349,9 @@ export function createDocumentStoreFacade(
       };
     },
     updateRowFields: (id, patch, options) =>
-      targetStore.updateRowFields(id, patch, options),
+      superseded
+        ? refuseWrite()
+        : targetStore.updateRowFields(id, patch, options),
     updateRuntime: (runtime: DocumentsRuntime) =>
       targetStore.updateRuntime(runtime),
   };

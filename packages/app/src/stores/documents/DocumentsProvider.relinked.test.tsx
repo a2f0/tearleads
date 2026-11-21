@@ -1,4 +1,5 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
+import * as Sdk from "@tearleads/client-sdk";
 import {
   createMemoryBlobStore,
   type DocumentStore,
@@ -44,6 +45,7 @@ test("a view another pane relinked goes read-only and reopens on request", async
       </DocumentsProvider>,
     );
     expect(view.queryByRole("status")).toBeNull();
+    expect(view.getByText("editable")).toBeTruthy();
     const store = stores[0] as DocumentStore & { supersede: () => void };
     await act(async () => {
       store.supersede();
@@ -54,13 +56,29 @@ test("a view another pane relinked goes read-only and reopens on request", async
     expect(view.getByText("read-only")).toBeTruthy();
     expect(mounts).toBe(1);
 
-    await act(async () => {
-      fireEvent.click(
-        view.getByRole("button", { name: DOCUMENT_RELINKED_LABELS.reopen }),
-      );
+    // The relinked record's store now answers for this document.
+    const replacement = client.documents.open({
+      documentId: "replacement-remote-note",
+      localId: "replacement-note",
     });
-    // Reopening resolves the store again and remounts the document's view.
+    expect(replacement).not.toBe(store);
+    const resolve = spyOn(Sdk, "getOrCreateDocumentStore").mockReturnValue(
+      replacement,
+    );
+    try {
+      await act(async () => {
+        fireEvent.click(
+          view.getByRole("button", { name: DOCUMENT_RELINKED_LABELS.reopen }),
+        );
+      });
+    } finally {
+      resolve.mockRestore();
+    }
+    // Reopening remounts the view on the store resolved again.
     expect(mounts).toBe(2);
+    expect(stores.at(-1)).toBe(replacement);
+    expect(view.queryByRole("status")).toBeNull();
+    expect(view.getByText("editable")).toBeTruthy();
   } finally {
     runtime.mockRestore();
     sdk.mockRestore();

@@ -97,23 +97,22 @@ is never given its key: a stale container's KEK may be held by a revoked
 ancestor member. Such a writer must never wait on another device, so a rotation
 may not leave those levels stale. The API refuses a rekey, revoke, or move that
 would leave a descendant above a directly granted container pinned to a retired
-epoch, with `container_descendant_rekeys_required` and the `requiredContainerIds`
-it must carry, parent-first. `ContainerMutationService`'s `rekeyRemoteContainer`,
-`revokeRemoteContainer`, and `moveRemoteContainer`, and document sync's
-standalone repairs answer it themselves: they sign those rekeys against the path
-the batch leaves behind, resubmit once with `containerRekeys` carried, and pin
-the whole batch together.
-Access and keys inherit downward only while the rotator retains authority.
-A self-revoke that removes write access on an owed level is refused atomically
-with `container_descendant_rekeys_inaccessible`; another authorized member must
+epoch, with `container_descendant_rekeys_required` and the
+`requiredContainerIds` it must carry, parent-first. `ContainerMutationService`'s
+`rekeyRemoteContainer`, `revokeRemoteContainer`, and `moveRemoteContainer`, and
+document sync's standalone repairs answer it themselves: they sign those rekeys
+against the path the batch leaves behind, resubmit once with `containerRekeys`
+carried, and pin the whole batch together. Access and keys inherit downward only
+while the rotator retains authority. A self-revoke that removes write access on
+an owed level is refused atomically with
+`container_descendant_rekeys_inaccessible`; another authorized member must
 complete it. The SDK reports the refusal and returns null. Proactively carried
-rekeys are also refused by the batch's signature/authorization verification.
-The set is empty for almost every rotation, since a child container carries
-no direct grant unless shared. At most 64 rekeys ride one rotation; beyond that
-the remainder repairs lazily rather than refuse a revocation. Custom adapters
-opt in by supplying the status-bearing `rekeyContainerResult`,
-`revokeContainerResult`, or `moveContainerResult`, and
-`getContainerWriterProjection`.
+rekeys are also refused by the batch's signature/authorization verification. The
+set is empty for almost every rotation, since a child container carries no
+direct grant unless shared. At most 64 rekeys ride one rotation; beyond that the
+remainder repairs lazily rather than refuse a revocation. Custom adapters opt in
+by supplying the status-bearing `rekeyContainerResult`, `revokeContainerResult`,
+or `moveContainerResult`, and `getContainerWriterProjection`.
 
 A user share whose path advanced in flight, most often under this device's own
 held-descendant re-citation, is planned once more from a fresh projection that
@@ -358,7 +357,8 @@ See [custom document persistence](../custom-document-persistence.md) and [`docum
 
 `documents.retryDownload({ localId, documentId })` pulls a synced document again
 to re-list its attachment bindings, resolving `false` when the record no longer
-carries that `documentId`. It reuses an open store, keeping its draft.
+carries that `documentId`. A view a relink displaces goes read-only
+(`relinkedElsewhere`) until reopened.
 
 ### Unsaved document writes
 
