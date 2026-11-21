@@ -81,7 +81,7 @@ test("openDocumentStore reuses a synced remote note across different local ids",
   }
 });
 
-test("openDocumentStore collapses live duplicate document facades after remote identity resolves", async () => {
+test("a live view stays on its record when another record takes its document id", async () => {
   const runtimeBase = await createSqlRuntime();
   const encapsulationKeyPair = generateKemSeedAndKeyPair();
   const patch = await documentWorkflowRuntimePatch({
@@ -134,24 +134,29 @@ test("openDocumentStore collapses live duplicate document facades after remote i
     firstStore.setText("Shared note");
     await waitForStoredDocumentText(runtime, "note-1", "Shared note");
 
-    await waitForCondition(
-      () =>
-        secondStore.getSnapshot().documentId === "shared-remote-note" &&
-        secondStore.getSnapshot().text === "Shared note",
-      "Live duplicate document facades did not collapse onto the same backing store.",
-    );
+    // The open view keeps its own record instead of switching under its
+    // editor, and goes read-only until it reopens.
+    expect(secondStore.getSnapshot()).toMatchObject({
+      canWrite: false,
+      documentId: "shared-remote-note",
+      relinkedElsewhere: true,
+      text: "",
+    });
 
-    secondStore.setText("Merged note");
+    // Reopening resolves to the record that now owns the document.
+    const reopened = openDocumentStore(
+      runtime.state.domainScope,
+      "default",
+      runtime,
+      "shared-remote-note",
+    );
+    expect(reopened).toBe(firstStore);
+    expect(reopened.getSnapshot().text).toBe("Shared note");
+    reopened.setText("Merged note");
     await waitForStoredDocumentText(runtime, "note-1", "Merged note");
-
     await waitForCondition(
-      () => firstStore.getSnapshot().text === "Merged note",
-      "Collapsed document facades did not share subsequent updates.",
-    );
-    await waitForCondition(
-      () =>
-        !firstStore.getSnapshot().syncing && !secondStore.getSnapshot().syncing,
-      "Collapsed document facades did not finish syncing before cleanup.",
+      () => !firstStore.getSnapshot().syncing,
+      "The relinked document did not finish syncing before cleanup.",
     );
   } finally {
     runtimeBase.close();
