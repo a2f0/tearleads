@@ -19,6 +19,7 @@ interface ExplorerDroppedFileDocumentStore {
     files: ReadonlyArray<DocumentAttachmentUpload>,
   ) => Promise<void> | void;
   getSnapshot: () => {
+    attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
     documentId: string | null;
     documentKind: StoredDocumentKind;
     ready: boolean;
@@ -53,6 +54,15 @@ interface ExplorerDroppedFileImportStoreInput {
   localId: string;
 }
 
+/** One file stored locally, with what its upload view needs to follow it. */
+export interface ExplorerDroppedFileImported {
+  fileIndex: number;
+  localId: string;
+  requestSync: () => void;
+  /** Storage keys of the file's attachment blobs, whose upload lanes report bytes. */
+  storageKeys: ReadonlyArray<string>;
+}
+
 interface ExplorerDroppedFileImportInput {
   containerId: string;
   createDocumentStore: (
@@ -66,11 +76,7 @@ interface ExplorerDroppedFileImportInput {
   logError?: (message: string, cause?: unknown) => void;
   mergeDocumentSummary: (nextDocument: DocumentSummary) => void;
   onFileFailed?: (fileIndex: number, error: unknown) => void;
-  onFileImported?: (input: {
-    fileIndex: number;
-    localId: string;
-    requestSync: () => void;
-  }) => void;
+  onFileImported?: (input: ExplorerDroppedFileImported) => void;
   onFileStart?: (fileIndex: number) => void;
   onProgress?: (progress: ExplorerDroppedFileImportProgress) => void;
   signal?: AbortSignal;
@@ -92,11 +98,7 @@ export interface ExplorerDroppedFileImportRunOptions {
   // requestSync for each imported file.
   deferRequestSync?: boolean;
   onFileFailed?: (fileIndex: number, error: unknown) => void;
-  onFileImported?: (input: {
-    fileIndex: number;
-    localId: string;
-    requestSync: () => void;
-  }) => void;
+  onFileImported?: (input: ExplorerDroppedFileImported) => void;
   onFileStart?: (fileIndex: number) => void;
   onProgress?: (progress: ExplorerDroppedFileImportProgress) => void;
   // Cancels between batches, never mid-file: the batch in flight settles, then
@@ -228,6 +230,9 @@ async function importExplorerDroppedFile(input: {
     fileIndex: input.fileIndex,
     localId,
     requestSync: () => store.requestSync(),
+    storageKeys: Object.values(
+      store.getSnapshot().attachmentStorageKeyBySlotId,
+    ),
   });
 
   return (

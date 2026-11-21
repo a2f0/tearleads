@@ -108,6 +108,8 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
     return (
       <ExplorerUploadsPanel
         domainScope={params.domainScope}
+        isAuthenticated={params.isAuthenticated}
+        online={params.online}
         uploadManager={params.uploadManager}
       />
     );
