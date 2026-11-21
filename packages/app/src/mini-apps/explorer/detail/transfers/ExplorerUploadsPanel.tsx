@@ -1,5 +1,11 @@
-import type { DomainScope, SyncLaneSnapshot } from "@tearleads/client-sdk";
-import { useMemo, useState } from "react";
+import {
+  type DomainScope,
+  requestAllDomainSyncLanes,
+  type SyncLaneSnapshot,
+  type SyncLaneStatus,
+} from "@tearleads/client-sdk";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
+import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppButton,
   MiniAppHeader,
@@ -16,34 +22,44 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
+import type { ExplorerUploadItem } from "../../../../stores/explorer/explorerUploadItemMachine";
 import { formatByteLength } from "../../../../utils/formatByteLength";
-import {
-  type ExplorerUploadItem,
-  getExplorerUploadStatusText,
-} from "../../hooks/explorerUploadState";
+import { getExplorerUploadStatusText } from "../../hooks/explorerUploadState";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
-import { EXPLORER_LABELS, getExplorerUploadsSummaryLabel } from "../../labels";
+import {
+  EXPLORER_LABELS,
+  getExplorerSyncLaneUploadProgressLabel,
+  getExplorerUploadsSummaryLabel,
+} from "../../labels";
 import { useDomainSyncSnapshot } from "../sync/useDomainSyncSnapshot";
+import {
+  ExplorerTransferNameCell,
+  type ExplorerTransferProgress,
+  ExplorerTransferStatusCell,
+  getExplorerTransferStatusPercent,
+} from "./ExplorerTransferCells";
+
+type SyncLaneProgress = NonNullable<SyncLaneSnapshot["progress"]>;
 
 // Rows shown before the user asks for more; a 1000-file stress upload should
 // not render a 1000-row table by default.
 const UPLOADS_ROW_LIMIT = 100;
 
 const UPLOADS_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
-  { header: EXPLORER_LABELS.uploadsFileColumn, id: "file", width: "18rem" },
+  // The file flexes so its progress bar spans the rest of the row.
+  { header: EXPLORER_LABELS.uploadsFileColumn, id: "file" },
   { header: EXPLORER_LABELS.uploadsSizeColumn, id: "size", width: "7rem" },
-  { header: EXPLORER_LABELS.uploadsStatusColumn, id: "status", width: "10rem" },
+  { header: EXPLORER_LABELS.uploadsStatusColumn, id: "status", width: "11rem" },
 ];
 
-// The panel-facing status: the manager's ingest lifecycle, refined for
-// "imported" items by the document's sync lane so the tail of an upload
-// (local ingest done, bytes still moving) stays visible.
+// The panel-facing status: the item's own lifecycle, refined for "imported"
+// items by the document's sync lane so the tail of an upload (local ingest
+// done, bytes still moving) stays visible until the SDK confirms it synced.
 type ExplorerUploadDerivedStatus =
-  | ExplorerUploadItem["status"]
+  | Exclude<ExplorerUploadItem["status"], "imported">
   | "pending-sync"
   | "sync-queued"
   | "uploading"
-  | "uploaded"
   | "sync-failed";
 
 export function deriveExplorerUploadItemStatus(
@@ -58,36 +74,103 @@ export function deriveExplorerUploadItemStatus(
       return "sync-queued";
     case "running":
       return "uploading";
-    case "complete":
-      return "uploaded";
     case "error":
       return "sync-failed";
     default:
+      // A completed lane still waits for the SDK to confirm nothing is left.
       return "pending-sync";
   }
 }
 
-const UPLOAD_STATUS_LABELS: Record<ExplorerUploadDerivedStatus, string> = {
-  cancelled: EXPLORER_LABELS.uploadsCancelledStatus,
-  failed: EXPLORER_LABELS.uploadsFailedStatus,
-  imported: EXPLORER_LABELS.uploadsPendingSyncStatus,
-  importing: EXPLORER_LABELS.uploadsImportingStatus,
-  "pending-sync": EXPLORER_LABELS.uploadsPendingSyncStatus,
-  queued: EXPLORER_LABELS.uploadsQueuedStatus,
-  "sync-failed": EXPLORER_LABELS.uploadsSyncFailedStatus,
-  "sync-queued": EXPLORER_LABELS.uploadsSyncQueuedStatus,
-  uploaded: EXPLORER_LABELS.uploadsUploadedStatus,
-  uploading: EXPLORER_LABELS.uploadsUploadingStatus,
+const UPLOAD_STATUS_DISPLAY: Record<
+  ExplorerUploadDerivedStatus,
+  { label: string; status: SyncLaneStatus }
+> = {
+  cancelled: { label: EXPLORER_LABELS.uploadsCancelledStatus, status: "idle" },
+  failed: { label: EXPLORER_LABELS.uploadsFailedStatus, status: "error" },
+  importing: {
+    label: EXPLORER_LABELS.uploadsImportingStatus,
+    status: "running",
+  },
+  "pending-sync": {
+    label: EXPLORER_LABELS.uploadsPendingSyncStatus,
+    status: "queued",
+  },
+  queued: { label: EXPLORER_LABELS.uploadsQueuedStatus, status: "queued" },
+  // Deleted before its upload was confirmed.
+  removed: { label: EXPLORER_LABELS.uploadsRemovedStatus, status: "idle" },
+  "sync-failed": {
+    label: EXPLORER_LABELS.uploadsSyncFailedStatus,
+    status: "error",
+  },
+  "sync-queued": {
+    label: EXPLORER_LABELS.uploadsSyncQueuedStatus,
+    status: "queued",
+  },
+  uploaded: {
+    label: EXPLORER_LABELS.syncLanesStatusComplete,
+    status: "complete",
+  },
+  uploading: {
+    label: EXPLORER_LABELS.uploadsUploadingStatus,
+    status: "running",
+  },
 };
 
-function isUploadFailure(status: ExplorerUploadDerivedStatus): boolean {
-  return status === "failed" || status === "sync-failed";
+const OUTSTANDING_UPLOAD_STATUSES: ReadonlySet<ExplorerUploadDerivedStatus> =
+  new Set(["queued", "importing", "pending-sync", "sync-queued", "uploading"]);
+
+/** The summed byte progress of the item's attachment uploads, if any began. */
+function getUploadByteProgress(
+  item: ExplorerUploadItem,
+  blobLanesByStorageKey: ReadonlyMap<string, SyncLaneSnapshot>,
+): SyncLaneProgress | null {
+  const reported = item.storageKeys.flatMap((storageKey) => {
+    const progress = blobLanesByStorageKey.get(storageKey)?.progress;
+    return progress ? [progress] : [];
+  });
+  const total = reported.reduce<SyncLaneProgress>(
+    (sum, progress) => ({
+      bytesTotal: sum.bytesTotal + progress.bytesTotal,
+      bytesUploaded: sum.bytesUploaded + progress.bytesUploaded,
+      partsCompleted: sum.partsCompleted + progress.partsCompleted,
+      partsTotal: sum.partsTotal + progress.partsTotal,
+    }),
+    { bytesTotal: 0, bytesUploaded: 0, partsCompleted: 0, partsTotal: 0 },
+  );
+  return total.bytesTotal > 0 ? total : null;
+}
+
+function getUploadTransfer(
+  item: ExplorerUploadItem,
+  derived: ExplorerUploadDerivedStatus,
+  input: {
+    byteProgress: SyncLaneProgress | null;
+    laneError: string | null;
+  },
+): ExplorerTransferProgress {
+  const display = UPLOAD_STATUS_DISPLAY[derived];
+  const { byteProgress } = input;
+  // Transferred bytes drive the bar while the item awaits confirmation; the
+  // Sync Lanes status fill stands in when no attachment upload reported.
+  const showBytes = item.status === "imported" && byteProgress !== null;
+  return {
+    detail:
+      item.error ??
+      input.laneError ??
+      (showBytes ? getExplorerSyncLaneUploadProgressLabel(byteProgress) : null),
+    label: display.label,
+    percent: showBytes
+      ? Math.round((byteProgress.bytesUploaded / byteProgress.bytesTotal) * 100)
+      : getExplorerTransferStatusPercent(display.status),
+    status: display.status,
+  };
 }
 
 interface UploadRow {
+  derived: ExplorerUploadDerivedStatus;
   item: ExplorerUploadItem;
-  status: ExplorerUploadDerivedStatus;
-  statusDetail: string | null;
+  transfer: ExplorerTransferProgress;
 }
 
 function UploadsTable(params: { rows: ReadonlyArray<UploadRow> }) {
@@ -102,27 +185,15 @@ function UploadsTable(params: { rows: ReadonlyArray<UploadRow> }) {
       >
         {visibleRows.map((row) => (
           <MiniAppTableRow key={row.item.id}>
-            <MiniAppTableCell>
-              <MiniAppTableText>{row.item.fileName}</MiniAppTableText>
-            </MiniAppTableCell>
+            <ExplorerTransferNameCell transfer={row.transfer}>
+              {row.item.fileName}
+            </ExplorerTransferNameCell>
             <MiniAppTableCell>
               <MiniAppTableText>
                 {formatByteLength(row.item.fileSize)}
               </MiniAppTableText>
             </MiniAppTableCell>
-            <MiniAppTableCell>
-              <MiniAppTableText
-                {...(row.statusDetail === null
-                  ? {}
-                  : { title: row.statusDetail })}
-              >
-                {isUploadFailure(row.status) ? (
-                  <span role="alert">{UPLOAD_STATUS_LABELS[row.status]}</span>
-                ) : (
-                  UPLOAD_STATUS_LABELS[row.status]
-                )}
-              </MiniAppTableText>
-            </MiniAppTableCell>
+            <ExplorerTransferStatusCell announceError transfer={row.transfer} />
           </MiniAppTableRow>
         ))}
         {params.rows.length > rowLimit ? (
@@ -140,51 +211,75 @@ function UploadsTable(params: { rows: ReadonlyArray<UploadRow> }) {
   );
 }
 
-interface ExplorerUploadsPanelProps {
-  domainScope: DomainScope;
-  uploadManager: ExplorerUploadManager;
-}
-
-/**
- * The session-wide upload queue: every file from every upload entry point,
- * newest selection first, with the ingest lifecycle refined by sync-lane
- * telemetry so an item is traceable from "queued" through "uploaded". This is
- * the global surface for the manager's Cancel (the container detail's status
- * line only covers the folder it targets).
- */
-export function ExplorerUploadsPanel(params: ExplorerUploadsPanelProps) {
-  const { uploadManager } = params;
-  const syncSnapshot = useDomainSyncSnapshot(params.domainScope);
-  const rows = useMemo(() => {
-    const lanesByKey = new Map(
-      syncSnapshot.lanes.map((lane) => [lane.key, lane]),
+function useUploadRows(
+  items: ReadonlyArray<ExplorerUploadItem>,
+  lanes: ReadonlyArray<SyncLaneSnapshot>,
+): ReadonlyArray<UploadRow> {
+  return useMemo(() => {
+    const lanesByKey = new Map(lanes.map((lane) => [lane.key, lane]));
+    const blobLanesByStorageKey = new Map(
+      lanes.flatMap((lane) =>
+        lane.blobStorageKey === null ? [] : [[lane.blobStorageKey, lane]],
+      ),
     );
-    return uploadManager.items
+    return items
       .map((item): UploadRow => {
         const lane = item.localId
           ? lanesByKey.get(`documents:${item.localId}`)
           : undefined;
-        const status = deriveExplorerUploadItemStatus(item, lane);
+        const derived = deriveExplorerUploadItemStatus(item, lane);
         return {
+          derived,
           item,
-          status,
-          statusDetail: item.error ?? lane?.lastError ?? null,
+          transfer: getUploadTransfer(item, derived, {
+            byteProgress: getUploadByteProgress(item, blobLanesByStorageKey),
+            laneError:
+              item.status === "imported" ? (lane?.lastError ?? null) : null,
+          }),
         };
       })
       .reverse();
-  }, [syncSnapshot, uploadManager.items]);
-  const outstandingCount = rows.filter(
-    (row) =>
-      row.status === "queued" ||
-      row.status === "importing" ||
-      row.status === "pending-sync" ||
-      row.status === "sync-queued" ||
-      row.status === "uploading",
+  }, [items, lanes]);
+}
+
+interface ExplorerUploadsPanelProps {
+  domainScope: DomainScope;
+  isAuthenticated: boolean;
+  online: boolean;
+  uploadManager: ExplorerUploadManager;
+}
+
+/**
+ * The scope's upload history: every file from every upload entry point,
+ * newest selection first, traceable from "Queued" through "Complete". Files
+ * whose upload the SDK confirmed stay listed as Complete for the scope's
+ * lifetime, as Downloads and Sync Lanes do. The Cancel here stops this
+ * window's queued and importing files (the container detail's status line
+ * only covers the folder it targets); another Explorer window's files are
+ * listed but cancelled from that window.
+ */
+export function ExplorerUploadsPanel(params: ExplorerUploadsPanelProps) {
+  const { domainScope, isAuthenticated, online, uploadManager } = params;
+  const syncSnapshot = useDomainSyncSnapshot(domainScope);
+  const rows = useUploadRows(uploadManager.items, syncSnapshot.lanes);
+  const outstandingCount = rows.filter((row) =>
+    OUTSTANDING_UPLOAD_STATUSES.has(row.derived),
   ).length;
   const activeStatusText = getExplorerUploadStatusText(
     uploadManager.run,
     uploadManager.queuedFileCount,
   );
+  const handleRefresh = useCallback(
+    () => requestAllDomainSyncLanes(domainScope),
+    [domainScope],
+  );
+  // The same Refresh as Downloads: re-request sync for the scope, which only
+  // re-drives each imported file's existing upload and never re-imports it.
+  useWindowRefreshMenuItem({
+    disabled: !online || !isAuthenticated,
+    onRefresh: handleRefresh,
+    priority: 200,
+  });
 
   return (
     <MiniAppPanel className="explorer-detail explorer-detail--uploads" scroll>

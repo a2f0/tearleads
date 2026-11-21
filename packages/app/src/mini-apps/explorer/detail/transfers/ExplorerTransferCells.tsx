@@ -8,6 +8,7 @@ import {
   ExplorerSyncLaneStatusBadge,
   ExplorerSyncProgressBar,
 } from "../sync/ExplorerSyncLaneShared";
+import { getExplorerSyncLaneProgress } from "../sync/ExplorerSyncLaneUtils";
 import "./ExplorerTransferCells.css";
 
 /**
@@ -20,6 +21,16 @@ export interface ExplorerTransferProgress {
   label: string;
   percent: number;
   status: SyncLaneStatus;
+}
+
+/**
+ * The Sync Lanes fill for a transfer without byte counts. A failed transfer
+ * keeps the queued fill, so only a Complete one reaches 100%.
+ */
+export function getExplorerTransferStatusPercent(
+  status: SyncLaneStatus,
+): number {
+  return getExplorerSyncLaneProgress(status === "error" ? "queued" : status);
 }
 
 /** The row's name with its progress bar spanning the cell beneath it. */
@@ -44,15 +55,24 @@ export function ExplorerTransferNameCell(params: {
   );
 }
 
-/** The row's status badge, with its detail beneath. */
+/**
+ * The row's status badge, with its detail beneath. `announceError` makes an
+ * error badge a live alert, for a list of files the user chose themselves.
+ */
 export function ExplorerTransferStatusCell(params: {
+  announceError?: boolean;
   transfer: ExplorerTransferProgress;
 }) {
   const { detail, label, status } = params.transfer;
+  const badge = <ExplorerSyncLaneStatusBadge label={label} status={status} />;
   return (
     <MiniAppTableCell>
       <span className="explorer-transfer-status">
-        <ExplorerSyncLaneStatusBadge label={label} status={status} />
+        {params.announceError && status === "error" ? (
+          <span role="alert">{badge}</span>
+        ) : (
+          badge
+        )}
         {detail === null ? null : (
           <span className="explorer-sync-lane-muted" title={detail}>
             {detail}

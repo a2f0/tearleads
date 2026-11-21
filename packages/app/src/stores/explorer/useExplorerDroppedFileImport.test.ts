@@ -124,6 +124,7 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
       getSnapshot: () => {
         const { fileName } = createdStore.structuredFields;
         return {
+          attachmentStorageKeyBySlotId: {},
           documentId: null,
           documentKind: createdStore.initialDocumentKind,
           ready: createdStore.ready,

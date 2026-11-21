@@ -1,5 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
+import {
+  type ContainerDocumentQueries,
+  createDomainScope,
+  type DomainScope,
+} from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { getOrCreateExplorerUploadHistory } from "../../../stores/explorer/explorerUploadHistory";
 import type {
   ExplorerDroppedFileImportResult,
   ExplorerDroppedFileImportRunOptions,
@@ -29,8 +35,21 @@ function importResult(
   };
 }
 
-function renderManager(importDroppedFiles: ImportExplorerDroppedFiles) {
-  return renderHook(() => useExplorerUploadManager({ importDroppedFiles }));
+// Confirmation reads are covered by the history's own tests.
+const documentQueries: Pick<ContainerDocumentQueries, "loadDocumentSyncState"> =
+  { loadDocumentSyncState: async () => null };
+
+function renderManager(
+  importDroppedFiles: ImportExplorerDroppedFiles,
+  domainScope: DomainScope = createDomainScope(),
+) {
+  return renderHook(() =>
+    useExplorerUploadManager({
+      documentQueries,
+      domainScope,
+      importDroppedFiles,
+    }),
+  );
 }
 
 test("a clean import tracks per-file items and settles as done", async () => {
@@ -50,6 +69,7 @@ test("a clean import tracks per-file items and settles as done", async () => {
         requestSync: () => {
           requestedSyncs.push(file.name);
         },
+        storageKeys: [],
       });
       options?.onProgress?.({
         completedCount: index + 1,
@@ -145,6 +165,7 @@ test("cancel drops queued selections and aborts the active one", async () => {
       fileIndex: 0,
       localId: "local-0",
       requestSync: () => undefined,
+      storageKeys: [],
     });
     return new Promise((resolve) => {
       resolveImport = resolve;
@@ -305,6 +326,7 @@ test("per-file failures settle as failed with the partial status", async () => {
       fileIndex: 0,
       localId: "local-0",
       requestSync: () => undefined,
+      storageKeys: [],
     });
     options?.onFileStart?.(1);
     options?.onFileFailed?.(1, new Error("read failed"));
@@ -368,9 +390,14 @@ test("a queued selection drains through the latest importer", async () => {
         resolvers.push(resolve);
       });
     };
+  const domainScope = createDomainScope();
   const { rerender, result } = renderHook(
     ({ importDroppedFiles }) =>
-      useExplorerUploadManager({ importDroppedFiles }),
+      useExplorerUploadManager({
+        documentQueries,
+        domainScope,
+        importDroppedFiles,
+      }),
     { initialProps: { importDroppedFiles: importerFor("before") } },
   );
 
@@ -389,4 +416,57 @@ test("a queued selection drains through the latest importer", async () => {
   });
   await waitFor(() => expect(calls.length).toBe(2));
   expect(calls).toEqual(["before:folder-1", "after:new-folder"]);
+});
+
+test("items outlive the manager in the scope's history, and unmount cancels queued files", async () => {
+  const domainScope = createDomainScope();
+  const importDroppedFiles: ImportExplorerDroppedFiles = async (
+    _containerId,
+    files,
+    options,
+  ) => {
+    files.forEach((_file, index) => {
+      options?.onFileImported?.({
+        fileIndex: index,
+        localId: `local-${index}`,
+        requestSync: () => undefined,
+        storageKeys: [],
+      });
+    });
+    return importResult();
+  };
+  const first = renderManager(importDroppedFiles, domainScope);
+  act(() => first.result.current.startImport("folder-1", TWO_FILES));
+  await waitFor(() => expect(first.result.current.run?.status).toBe("done"));
+  first.unmount();
+
+  // A later manager in the same scope, as when Explorer reopens, lists them.
+  let releaseImport: () => void = () => undefined;
+  const second = renderManager(
+    () =>
+      new Promise((resolve) => {
+        releaseImport = () => resolve(importResult({ aborted: true }));
+      }),
+    domainScope,
+  );
+  expect(second.result.current.items.map((item) => item.status)).toEqual([
+    "imported",
+    "imported",
+  ]);
+  act(() => second.result.current.startImport("folder-1", TWO_FILES));
+  act(() =>
+    second.result.current.startImport("folder-2", [
+      new File(["Gamma"], "c.txt", { type: "text/plain" }),
+    ]),
+  );
+  second.unmount();
+  await act(async () => {
+    releaseImport();
+  });
+  // The aborted run and the never-started selection both end cancelled.
+  expect(
+    getOrCreateExplorerUploadHistory(domainScope)
+      .getSnapshot()
+      .map((item) => item.status),
+  ).toEqual(["imported", "imported", "cancelled", "cancelled", "cancelled"]);
 });
