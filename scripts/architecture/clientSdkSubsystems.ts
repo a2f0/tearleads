@@ -353,6 +353,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/shared/userTiming.ts`,
       `${sdk}/data/shared/listenerSet.ts`,
       `${sdk}/data/shared/keyedQueue.ts`,
+      `${sdk}/data/shared/waitForRead.ts`,
       `${sdk}/data/persistence/latestTimestamp.ts`,
       `${sdk}/workflows/shared/`,
     ],

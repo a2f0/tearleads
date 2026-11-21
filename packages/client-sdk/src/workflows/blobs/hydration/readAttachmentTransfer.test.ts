@@ -53,3 +53,34 @@ test("stream chunks retain exact bytes and report progress", async () => {
   expect(bytes).toEqual(new Uint8Array([1, 2, 3]));
   expect(progress).toBe(2);
 });
+
+test("a non-finite response length is refused before pulling any bytes", async () => {
+  let pulled = false;
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>(
+    {
+      pull(controller) {
+        pulled = true;
+        controller.close();
+      },
+      cancel() {
+        cancelled = true;
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  await expect(
+    readAttachmentTransfer(
+      {
+        blobId: "blob",
+        byteLength: NaN,
+        sha256: "digest",
+        encryptedBytes: body,
+      },
+      new AbortController().signal,
+      () => {},
+    ),
+  ).rejects.toThrow("length");
+  expect(pulled).toBe(false);
+  expect(cancelled).toBe(true);
+});

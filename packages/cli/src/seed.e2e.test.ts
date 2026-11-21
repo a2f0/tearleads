@@ -1,6 +1,7 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { createHmac } from "node:crypto";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
+import * as sdkModule from "@tearleads/client-sdk";
 import {
   deriveStableDocumentId,
   getOrCreateDomainSyncCoordinator,
@@ -13,12 +14,17 @@ import {
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
+import { publishSeedEdit } from "./seedAttachmentMetadata.testUtils";
 import { onFreshDevice } from "./seedDevice.testUtils";
 
 test("seed uploads the pinned dataset and a fresh device can read it", async () => {
   await initializeApiDatabase();
   let interruptUpload = true;
   let staleTarget = false;
+  let legacyDownloads = false;
+  let legacyByteReads = 0;
+  let rebindAfterHydration: "blob" | "binding" | null = null;
+  const listedBindings = new Set<string>();
   const contentRequests: string[] = [];
   const missing = Promise.withResolvers<void>();
   const firstMissing = Promise.withResolvers<void>();
@@ -33,6 +39,11 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     port: 0,
     fetch: async (request) => {
       const path = new URL(request.url).pathname;
+      if (legacyDownloads && path.startsWith("/blobs/")) {
+        if (path.endsWith("/download"))
+          return Response.json({ error: "Not found" }, { status: 404 });
+        if (path.endsWith("/bytes")) legacyByteReads++;
+      }
       if (/^\/(containers|documents|blobs)\//u.test(path))
         contentRequests.push(path);
       if (
@@ -56,6 +67,25 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
         );
       }
       const response = await routeApp.fetch(request);
+      if (
+        rebindAfterHydration &&
+        response.ok &&
+        path.endsWith("/attachments")
+      ) {
+        const bindings = await response.clone().json();
+        if (Array.isArray(bindings) && bindings.length) {
+          if (listedBindings.has(path))
+            return Response.json(
+              bindings.map((binding) => ({
+                ...binding,
+                ...(rebindAfterHydration === "blob"
+                  ? { blobId: crypto.randomUUID() }
+                  : { bindingId: crypto.randomUUID() }),
+              })),
+            );
+          listedBindings.add(path);
+        }
+      }
       if (
         raceCreates &&
         response.status === 404 &&
@@ -90,17 +120,31 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     const { spec, readAttachment, datasetSha256 } =
       await loadContinuityAssets();
     const documents = continuityDocuments(spec);
+    const oneTime = testContext({ apiBaseUrl, recoveryKey: seedPhrase });
+    await oneTime.keyStore.save("staging", spec.identitySeedPhrase);
+    const keychainCalls = [
+      spyOn(oneTime.keyStore, "read"),
+      spyOn(oneTime.keyStore, "save"),
+      spyOn(oneTime.keyStore, "remove"),
+    ];
     const tool = documents.find((document) => document.kind === "tool");
     const file = tool?.attachments[0]?.file;
     if (!tool || !file) throw new Error("Missing tool photo fixture");
     const size = (await readAttachment(file)).byteLength;
-    const run = async (mode: "upload" | "resume") => {
+    const run = async (mode: "upload" | "resume", stdin = false) => {
+      const log = stdin ? oneTime.output : output;
       const result = await runCli(
-        ["seed", "--env", "staging", "--trace"],
-        context,
+        [
+          "seed",
+          "--env",
+          "staging",
+          "--trace",
+          ...(stdin ? ["--key-stdin"] : []),
+        ],
+        stdin ? oneTime.context : context,
       );
       const prefix = `  seed ${tool.key} `;
-      const events = output.stderr.flatMap((line) => {
+      const events = log.stderr.flatMap((line) => {
         const start = line.indexOf(prefix);
         return start < 0 || !line.includes(file)
           ? []
@@ -114,12 +158,12 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
         ]);
         expect(events[2]).toMatch(/ in \d+ms$/);
       } else expect(events).toEqual([`skipped ${file} (held or edited slot)`]);
-      expect(output.stderr.join("\n")).toContain(
+      expect(log.stderr.join("\n")).toContain(
         `confirm sync ${tool.key} done in `,
       );
-      output.stderr.length = 0;
+      log.stderr.length = 0;
       expect(result).toBe(0);
-      expect(output.stdout.at(-1)).toBe(
+      expect(log.stdout.at(-1)).toBe(
         `Synced ${documents.length} Continuity documents to your staging account.`,
       );
     };
@@ -217,12 +261,101 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     interruptUpload = false;
     staleTarget = true;
     output.stderr.length = 0;
-    await run("upload");
+    await run("upload", true);
     expect(staleTarget).toBe(false);
+    legacyDownloads = true;
+    expect(
+      await runCli(
+        ["verify-seed", "--env", "staging", "--key-stdin"],
+        oneTime.context,
+      ),
+      oneTime.output.stderr.join("\n"),
+    ).toBe(0);
+    legacyDownloads = false;
+    expect(legacyByteReads).toBeGreaterThan(0);
+    for (const call of keychainCalls) expect(call).not.toHaveBeenCalled();
+    expect(oneTime.keyStore.items.get("staging")).toBe(spec.identitySeedPhrase);
+    expect(oneTime.output.stdout.at(-1)).toContain(
+      `Verified ${documents.length} documents`,
+    );
+    for (const change of ["blob", "binding"] as const) {
+      listedBindings.clear();
+      rebindAfterHydration = change;
+      expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(
+        1,
+      );
+      expect(output.stderr.at(-1)).toContain("Attachment bindings differ");
+    }
+    rebindAfterHydration = null;
+    output.stderr.length = 0;
+    // Use the actual signed fixture heads and ask the verifier to check them
+    // against a different account. A verifier that omits the signer accepts them.
+    const loadHead = sdkModule.createDocumentHeadLinkSetLoader;
+    const signer = spyOn(
+      sdkModule,
+      "createDocumentHeadLinkSetLoader",
+    ).mockImplementation((...args) => {
+      const lookup = loadHead(...args);
+      return (id, hash, expectedSigner) =>
+        lookup(id, hash, expectedSigner && crypto.randomUUID());
+    });
+    try {
+      expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(
+        1,
+      );
+      expect(output.stderr.at(-1)).toContain(
+        "Could not verify seed creator and placement",
+      );
+    } finally {
+      signer.mockRestore();
+    }
+    output.stderr.length = 0;
+    const createStore = sdkModule.createMemoryBlobStore;
+    const stores = spyOn(sdkModule, "createMemoryBlobStore").mockImplementation(
+      () => {
+        const store = createStore();
+        const open = store.openByteSource.bind(store);
+        store.openByteSource = async (key) => {
+          const source = await open(key);
+          if (!source) return null;
+          return {
+            byteLength: source.byteLength,
+            read: async (offset, length) => {
+              const bytes = await source.read(offset, length);
+              if (bytes.length) bytes[0] = (bytes[0] ?? 0) ^ 1;
+              return bytes;
+            },
+          };
+        };
+        return store;
+      },
+    );
+    try {
+      expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(
+        1,
+      );
+      expect(output.stderr.at(-1)).toMatch(/^Attachment bytes differ: .+ \/ /u);
+    } finally {
+      stores.mockRestore();
+    }
+    output.stderr.length = 0;
     const editedName = "Personal weight journal";
     const editedNotes = "Edited on a second device";
     let additionalFolderId = "";
     let movedContactId = "";
+    await onFreshDevice(device, async (stores, sdk) => {
+      const contact = stores.find(
+        (store) => store.getSnapshot().documentKind === "contact",
+      );
+      if (!contact) throw new Error("Missing seeded contact");
+      await publishSeedEdit(sdk, contact, (doc) =>
+        doc.getMap("fields").set("encapsulationPublicKey", 42),
+      );
+    });
+    expect(await runCli(["verify-seed", "--env", "staging"], context)).toBe(1);
+    expect(output.stderr.at(-1)).toMatch(/Fixture content differs: contact\//u);
+    output.stderr.length = 0;
+    // This device must pull the edit before rotating the contact's link.
     await onFreshDevice(device, async (stores, sdk) => {
       const tracker = stores.find(
         (store) => store.getSnapshot().documentKind === "weight",

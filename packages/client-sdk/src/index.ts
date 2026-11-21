@@ -471,6 +471,7 @@ export {
   isDatabaseUnavailableError,
   isDocumentSyncUpdateIsolationError,
   isEmptyDocumentHistoryChange,
+  loadPersistedDocumentContent,
   persistedDocumentCreateStateFromResponse,
   RemoteDocumentService,
   readPullContinuation,

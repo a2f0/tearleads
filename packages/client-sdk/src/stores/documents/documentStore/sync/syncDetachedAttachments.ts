@@ -202,6 +202,7 @@ function detachedSyncContextIsCurrent(
   requestRecord: DocumentRecord,
 ): boolean {
   return (
+    !state.runtime.util.deferAttachmentDetaches &&
     isDocumentStoreSyncGenerationCurrent(state, generation) &&
     documentSyncContextMatches(
       state.record,
