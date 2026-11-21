@@ -91,7 +91,9 @@ copy does not need it to be writable and is offered on the newest stop too.
   bytes are [not retained](../../../../../docs/attachment-retention.md), and a
   copy never points at the original's bytes. A file-backed version (an
   image, audio, video, PDF, or other uploaded file) is its attachment, so it
-  offers no copy: the copy would be a file document with no file.
+  offers no copy: the copy would be a file document with no file. A field
+  that names an attachment slot (a contact's avatar photo) is left out of the
+  copy too, so it never points at a photo it does not hold.
 - **The folder must take a new document of that kind**
   ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/containerRules.ts)).
   An ordinary folder does when it is writable. A system folder holds what the
@@ -122,4 +124,6 @@ copy does not need it to be writable and is offered on the newest stop too.
   timeline's actions, which unmount as History reloads. Once confirmed, the
   copy's document exists, so its outcome is reported on whichever stop is
   shown when it finishes, or on the next one shown if none is. A
-  confirmation or an outcome raised on one stop goes when another is shown.
+  confirmation or an outcome raised on one stop goes when another is shown,
+  and all of it is forgotten when the database or account changes: a copy
+  that finishes then belongs to the scope before.

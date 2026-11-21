@@ -18,6 +18,7 @@ const NO_VERSION_COPY: ExplorerDocumentVersionCopy = {
   canSave: () => false,
   open: () => undefined,
   save: async () => null,
+  scope: {},
 };
 
 const restorers: Array<() => void> = [];

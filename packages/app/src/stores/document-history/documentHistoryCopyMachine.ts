@@ -51,7 +51,13 @@ export type DocumentHistoryCopyEvent =
    * longer takes it, or the viewer's Me is no longer known. A confirmation
    * that is open must say so rather than vanish and come back.
    */
-  | { readonly type: "withdrawn" };
+  | { readonly type: "withdrawn" }
+  /**
+   * The database or account changed. Whatever was asked, in flight, or
+   * reported belonged to the one before: a copy that finishes now is not this
+   * scope's to show.
+   */
+  | { readonly type: "scope-changed" };
 
 export const IDLE_DOCUMENT_HISTORY_COPY: DocumentHistoryCopyState = {
   status: "idle",
@@ -94,7 +100,8 @@ function showStop(
 /**
  * Pure transition; returns the same reference for ignored events. Only the
  * current run may finish a copy, and a copy in flight cannot be cancelled or
- * replaced: its document may already exist.
+ * replaced: its document may already exist. `scope-changed`, not in the
+ * table, takes every state to `idle`.
  *
  * `stop-shown` is listed for another stop. For the state's own stop it
  * changes nothing; for no stop (null) it changes only `saving`, which stops
@@ -112,6 +119,9 @@ export function transitionDocumentHistoryCopy(
   state: DocumentHistoryCopyState,
   event: DocumentHistoryCopyEvent,
 ): DocumentHistoryCopyState {
+  if (event.type === "scope-changed") {
+    return state.status === "idle" ? state : IDLE_DOCUMENT_HISTORY_COPY;
+  }
   if (state.status === "saving") return transitionSavingCopy(state, event);
   switch (event.type) {
     case "requested":

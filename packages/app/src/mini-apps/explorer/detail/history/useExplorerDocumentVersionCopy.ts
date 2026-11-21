@@ -26,6 +26,8 @@ export interface ExplorerDocumentVersionCopy {
   ) => boolean;
   /** Show a saved copy. */
   open: (copy: DocumentSummary) => void;
+  /** The database and account copies are saved under. */
+  scope: object;
   /**
    * Create the copy in the folder `document` is in now. Resolves the new
    * document, or null when the folder no longer takes it or it could not be
@@ -201,5 +203,8 @@ export function useExplorerDocumentVersionCopy(
     [selectExplorerDocument],
   );
 
-  return useMemo(() => ({ canSave, open, save }), [canSave, open, save]);
+  return useMemo(
+    () => ({ canSave, open, save, scope: domainScope }),
+    [canSave, domainScope, open, save],
+  );
 }

@@ -148,6 +148,25 @@ test("a copy in flight cannot be cancelled, replaced, or withdrawn", () => {
   }
 });
 
+test("a change of database or account forgets everything, even a copy in flight", () => {
+  for (const state of [CONFIRMING, SAVING, SAVED, REFUSED]) {
+    expect(run(state, { type: "scope-changed" })).toBe(
+      IDLE_DOCUMENT_HISTORY_COPY,
+    );
+  }
+  expect(run(IDLE_DOCUMENT_HISTORY_COPY, { type: "scope-changed" })).toBe(
+    IDLE_DOCUMENT_HISTORY_COPY,
+  );
+  // The copy that was in flight finishes into nothing.
+  expect(
+    run(
+      SAVING,
+      { type: "scope-changed" },
+      { copy: COPY, run: 1, type: "finished" },
+    ),
+  ).toBe(IDLE_DOCUMENT_HISTORY_COPY);
+});
+
 test("only the current run finishes a copy", () => {
   expect(run(SAVING, { copy: COPY, run: 7, type: "finished" })).toBe(SAVING);
   expect(run(SAVING, { copy: null, run: 7, type: "finished" })).toBe(SAVING);

@@ -57,6 +57,17 @@ export function useDocumentHistoryCopyControl(
     };
   }, []);
 
+  // A copy asked for, in flight, or reported under one database or account
+  // is not another's to show: forget it when the scope changes.
+  const { scope } = copy;
+  const heldScope = useRef(scope);
+  useEffect(() => {
+    if (heldScope.current === scope) return;
+    heldScope.current = scope;
+    saving.current = false;
+    send({ type: "scope-changed" });
+  }, [scope]);
+
   const { status } = state;
   const confirm = useCallback<DocumentHistoryCopyControl["confirm"]>(
     (document, view) => {
@@ -68,7 +79,8 @@ export function useDocumentHistoryCopyControl(
       const run = currentRun.current;
       send({ run, type: "confirmed" });
       const finish = (saved: DocumentSummary | null) => {
-        saving.current = false;
+        // A copy from before a scope change must not release a later one.
+        if (currentRun.current === run) saving.current = false;
         if (mounted.current) send({ copy: saved, run, type: "finished" });
       };
       let pending: Promise<DocumentSummary | null>;

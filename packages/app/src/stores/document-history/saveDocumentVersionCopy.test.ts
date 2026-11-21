@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentRow, DocumentSummary } from "@tearleads/client-sdk";
+import { AVATAR_PHOTO_FIELD } from "../../document-types/shared/documentPhotos";
 import {
   type DocumentVersionCopyContent,
   saveDocumentVersionCopy,
@@ -124,6 +125,29 @@ test("rows keep their order and cells but not their ids or stamps", async () => 
     { recordType: "postalAddress", street: "2 Second St" },
     { recordType: "postalAddress", street: "1 First St" },
   ]);
+});
+
+test("a copy does not name an avatar photo it does not hold", async () => {
+  const store = harness();
+
+  await saveDocumentVersionCopy({
+    containerId: "folder-1",
+    content: {
+      ...CONTACT,
+      structuredFields: {
+        ...CONTACT.structuredFields,
+        [AVATAR_PHOTO_FIELD]: "contact-photos-1",
+      },
+    },
+    createLocalId: () => "copy-1",
+    loadDocumentSummary: async () => SUMMARY,
+    openDocument: store.openDocument,
+  });
+
+  // Attachments are not copied, so neither is the field that points at one.
+  expect(store.opened[0]?.initialStructuredFields).toEqual({
+    firstName: "Ada",
+  });
 });
 
 test("a note is never opened with structured fields or rows", async () => {

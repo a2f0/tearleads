@@ -4,6 +4,7 @@ import {
   type DocumentSummary,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
+import { AVATAR_PHOTO_FIELD } from "../../document-types/shared/documentPhotos";
 
 /**
  * What a copy is born with: a version's kind, text, structured fields, and
@@ -37,6 +38,19 @@ interface DocumentVersionCopyStore {
   requestSync: () => void;
 }
 
+/**
+ * A version's structured fields without the one that names an attachment
+ * slot: the copy holds no attachments, so it must not point at a photo it
+ * does not have.
+ */
+function fieldsWithoutAttachmentReferences(
+  fields: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([key]) => key !== AVATAR_PHOTO_FIELD),
+  );
+}
+
 /** Opens the store a copy is born in, as a container's `openDocument` does. */
 export type OpenDocumentVersionCopy = (
   input: DocumentVersionCopyStoreInput,
@@ -67,7 +81,9 @@ export async function saveDocumentVersionCopy(input: {
     containerId,
     initialDocumentKind: content.documentKind,
     initialRows: isNote ? [] : content.rows.map((row) => row.fields),
-    initialStructuredFields: isNote ? {} : content.structuredFields,
+    initialStructuredFields: isNote
+      ? {}
+      : fieldsWithoutAttachmentReferences(content.structuredFields),
     initialText: content.text,
     localId,
   });

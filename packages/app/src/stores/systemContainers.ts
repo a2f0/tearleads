@@ -64,6 +64,9 @@ export interface UserSystemContainerRules {
   readonly protectFromChildContainerCreation: boolean;
   // Block creating new structured documents directly inside this system
   // container. Existing documents still follow the move/link rules below.
+  // Contacts raises this and still takes new contacts through its own action,
+  // and through History's "Save as copy" of a contact version
+  // (canSaveDocumentCopyByRules).
   readonly protectFromStructuredDocumentCreation: boolean;
   // Restrict document kinds that may be linked or moved into this container.
   // `null` means the container accepts every document kind.
