@@ -129,17 +129,21 @@ function useNoteDropzone(
 function useNoteAttachmentActions({
   attachFiles,
   attachments,
+  attachmentStatusBySlotId,
   attachmentStorageKeyBySlotId,
   blobStore,
   logError,
   removeAttachment,
+  requestRemoteSync,
 }: {
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   attachments: ReadonlyArray<DocumentAttachment>;
+  attachmentStatusBySlotId: NoteAttachmentStatusBySlotId;
   attachmentStorageKeyBySlotId: NoteAttachmentStorageKeyBySlotId;
   blobStore: BlobStore;
   logError: (message: string, error: unknown) => void;
   removeAttachment: (slotId: string) => void;
+  requestRemoteSync: () => void;
 }) {
   const fileSaver = useFileSaver();
   const handleSelectedFiles = useCallback(
@@ -169,6 +173,11 @@ function useNoteAttachmentActions({
   // guards the pending window) is silently a no-op besides a logged error.
   const handleDownloadAttachment = useCallback(
     (slotId: string) => {
+      // A missing or damaged copy is fetched from the server again instead.
+      if (attachmentStatusBySlotId[slotId] === "unavailable") {
+        requestRemoteSync();
+        return;
+      }
       const attachment = attachments.find(
         (candidate) => candidate.slotId === slotId,
       );
@@ -197,7 +206,15 @@ function useNoteAttachmentActions({
           logError("Failed to download note attachment", error);
         });
     },
-    [attachments, attachmentStorageKeyBySlotId, blobStore, fileSaver, logError],
+    [
+      attachments,
+      attachmentStatusBySlotId,
+      attachmentStorageKeyBySlotId,
+      blobStore,
+      fileSaver,
+      logError,
+      requestRemoteSync,
+    ],
   );
 
   return {
@@ -274,6 +291,7 @@ export function useNoteEditorFields(
     canWrite,
     ready,
     removeAttachment,
+    requestRemoteSync,
     setText,
     syncing,
     text,
@@ -292,10 +310,12 @@ export function useNoteEditorFields(
   } = useNoteAttachmentActions({
     attachFiles,
     attachments,
+    attachmentStatusBySlotId,
     attachmentStorageKeyBySlotId,
     blobStore,
     logError,
     removeAttachment,
+    requestRemoteSync,
   });
   const handleSelectBlob = useNoteBlobPickAttachment({
     attachFiles,
