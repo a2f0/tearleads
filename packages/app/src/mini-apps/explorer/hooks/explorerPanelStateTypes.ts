@@ -11,6 +11,7 @@ import type {
   ExplorerContainerContextMenuVariant,
   ExplorerContextMenuState,
 } from "../context-menu/ExplorerContextMenu";
+import type { ExplorerDocumentVersionCopy } from "../detail/history/useExplorerDocumentVersionCopy";
 import type { MoveTargetOption } from "../model/targetOptions";
 import type { ExplorerPurgeRun } from "../purge-progress/useExplorerPurgeRun";
 import type { ExplorerDocumentMutationAction } from "./explorerModelTypes";
@@ -47,6 +48,7 @@ export interface ExplorerPanelState {
   canMutateDocumentLinks: boolean;
   contextMenuState: ExplorerContextMenuModel;
   deleteDocument: ExplorerDocumentMutationAction;
+  documentVersionCopy: ExplorerDocumentVersionCopy;
   uploadManager: ExplorerUploadManager;
   loadBlobInfo: ExplorerBlobInfoLoader;
   loadContainerInfo: (containerId: string) => Promise<ContainerInfo>;

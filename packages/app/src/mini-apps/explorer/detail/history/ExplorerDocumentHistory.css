@@ -125,10 +125,17 @@
   color: var(--color-muted-foreground);
 }
 
+.explorer-document-history-actions,
+.explorer-document-history-copy,
 .explorer-document-history-newer,
 .explorer-document-history-restore {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+}
+
+/* Neither action is offered: leave no gap in the timeline for the row. */
+.explorer-document-history-actions:empty {
+  display: none;
 }
