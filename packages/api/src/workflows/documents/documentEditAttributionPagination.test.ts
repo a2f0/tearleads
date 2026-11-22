@@ -118,7 +118,7 @@ test("caps the default compact response and marks it truncated", () => {
 test("a range whose stored signed time is not a timestamp is refused, by update", () => {
   // A write header is only accepted with a canonical signedAt, so such a row
   // is a broken one.
-  for (const signedAt of ["", "yesterday", "2030-01-01 10:00:00"]) {
+  for (const signedAt of [null, "", "yesterday", "2030-01-01 10:00:00"]) {
     const attribution = {
       attributionRevision: 12,
       attributionScope: "scope-1",
