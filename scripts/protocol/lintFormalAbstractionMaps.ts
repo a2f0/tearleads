@@ -23,6 +23,7 @@ const TLA_LINK_PATTERN = /\(([^()\s]+\.tla)\)/g;
 const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/blob-attachments/AttachmentBindDocumentVersion.md": 1,
   "formal/blob-attachments/AttachmentReaddReconcile.md": 1,
+  "formal/blob-attachments/AttachmentRemovedSlotDetach.md": 1,
   "formal/blob-attachments/PendingAttachmentDetach.md": 1,
   "formal/container-keying/ContainerGrantScope.md": 1,
   "formal/document-sync/EmptyFrontierUnlink.md": 1,

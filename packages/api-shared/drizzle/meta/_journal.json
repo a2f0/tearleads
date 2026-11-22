@@ -43,6 +43,13 @@
       "when": 1795013010965,
       "tag": "0005_publish_discovery_order",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795359060763,
+      "tag": "0006_attachment_bind_document_version",
+      "breakpoints": true
     }
   ]
 }

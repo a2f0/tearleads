@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { liveDocumentView } from "../../../../../test/helpers/stores/syncedDocumentView";
 import { ensureDocumentAttachmentStructure } from "../../../../data/documents/documentContent";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
@@ -115,6 +116,7 @@ test("detaching one slot keeps a hydrated copy another document holds", async ()
       record,
       generation,
       createPrincipalPolicyOperation(),
+      liveDocumentView(state.doc),
     );
     await reclaimDocumentOrphanBlobs(state.runtime);
 
