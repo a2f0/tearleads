@@ -26,13 +26,19 @@ const COPY: DocumentSummary = {
 const CONFIRMING = run(IDLE_DOCUMENT_HISTORY_COPY, {
   index: 3,
   type: "requested",
+  versionTime: "noon",
 });
 const SAVING = run(CONFIRMING, { run: 1, type: "confirmed" });
 const SAVED = run(SAVING, { copy: COPY, run: 1, type: "finished" });
 const REFUSED = run(SAVING, { copy: null, run: 1, type: "finished" });
 
 test("a copy is asked, confirmed, and saved", () => {
-  expect(CONFIRMING).toEqual({ index: 3, status: "confirming" });
+  // The confirmation names the time shown when it was asked for.
+  expect(CONFIRMING).toEqual({
+    index: 3,
+    status: "confirming",
+    versionTime: "noon",
+  });
   expect(SAVING).toEqual({ index: 3, run: 1, status: "saving" });
   expect(SAVED).toEqual({ copy: COPY, index: 3, status: "saved" });
 });
@@ -55,10 +61,9 @@ test("an outcome belongs to the stop it was raised on", () => {
     expect(run(outcome, { index: 4, type: "stop-shown" })).toBe(
       IDLE_DOCUMENT_HISTORY_COPY,
     );
-    expect(run(outcome, { index: 5, type: "requested" })).toEqual({
-      index: 5,
-      status: "confirming",
-    });
+    expect(
+      run(outcome, { index: 5, type: "requested", versionTime: null }),
+    ).toEqual({ index: 5, status: "confirming", versionTime: null });
   }
 });
 
@@ -141,7 +146,7 @@ test("a copy in flight cannot be cancelled, replaced, or withdrawn", () => {
   for (const event of [
     { type: "cancelled" },
     { type: "withdrawn" },
-    { index: 9, type: "requested" },
+    { index: 9, type: "requested", versionTime: null },
     { run: 2, type: "confirmed" },
   ] satisfies DocumentHistoryCopyEvent[]) {
     expect(run(SAVING, event)).toBe(SAVING);
