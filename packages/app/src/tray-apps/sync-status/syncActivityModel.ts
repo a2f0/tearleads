@@ -23,6 +23,10 @@ const ABANDONED_RUN_ERROR = "Stopped responding";
 // `lastError` is set when a run fails and cleared only when one completes, so
 // it says whether the last finished run failed, whatever is queued after it.
 function laneFailure(lane: SyncLaneSnapshot): string | null | undefined {
+  // An upload lane (the only `blob` phase) records an upload the write queue
+  // already tracks; the SDK keeps a failed one as history that no sync request
+  // re-runs, so the queue's failed writes report it instead.
+  if (lane.phase === "blob") return undefined;
   if (lane.lastError !== null) return lane.lastError;
   if (lane.runAbandoned) return ABANDONED_RUN_ERROR;
   return lane.status === "error" ? null : undefined;

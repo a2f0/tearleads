@@ -5,23 +5,13 @@ import type {
 import { useMemo } from "react";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { getOrCreateExplorerUploadHistory } from "../../stores/explorer/explorerUploadHistory";
-import type { ExplorerUploadItem } from "../../stores/explorer/explorerUploadItemMachine";
+import { isUnfinishedUploadItem } from "../../stores/explorer/explorerUploadItemMachine";
 import { getOrCreatePendingDownloadQueueStore } from "../../stores/sync-queues/syncQueueStores";
 import { useQueueRead } from "../../stores/sync-queues/useQueueRead";
 import {
   type DownloadQueueSummary,
   summarizeDownloadQueue,
 } from "./syncActivityModel";
-
-// A file still on its way to the server: queued, importing, or imported and
-// awaiting its upload's confirmation.
-function isUnfinishedUpload(item: ExplorerUploadItem): boolean {
-  return (
-    item.status === "queued" ||
-    item.status === "importing" ||
-    item.status === "imported"
-  );
-}
 
 /**
  * What the open popover reads beyond the tray's own status: the download
@@ -46,7 +36,7 @@ export function usePopoverTransfers(input: {
     getOrCreateExplorerUploadHistory(input.domainScope),
   );
   const uploadingFileCount = useMemo(
-    () => uploads.filter(isUnfinishedUpload).length,
+    () => uploads.filter(isUnfinishedUploadItem).length,
     [uploads],
   );
   return { downloads, uploadingFileCount };

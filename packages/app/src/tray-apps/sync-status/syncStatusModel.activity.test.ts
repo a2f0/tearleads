@@ -112,7 +112,7 @@ test("a first sign-in still pulling content reads as syncing, with what is left"
     }),
   ).toEqual([
     "Changes to upload: none",
-    "Downloading 42 items",
+    "42 items to download",
     "3 sync tasks running",
   ]);
 });
@@ -122,7 +122,7 @@ test("a failed or abandoned sync task warns with its recorded error", () => {
     snapshot([
       lane({ key: "documents:ok" }),
       lane({
-        key: "blobs:photo",
+        key: "documents:photos",
         lastAction: "failed",
         lastError: "Blob download failed (503)",
         status: "error",
@@ -176,7 +176,7 @@ test("a lane that keeps failing stays failed while its retry waits or runs", () 
         status: "queued",
       }),
       lane({
-        key: "blobs:running-retry",
+        key: "documents:running-retry",
         lastAction: "started",
         lastError: "Blob download failed (503)",
         running: true,
@@ -191,6 +191,25 @@ test("a lane that keeps failing stays failed while its retry waits or runs", () 
     firstError: "Sync failed (500)",
     running: 1,
   });
+});
+
+test("a failed upload is left to the write queue, not counted as a failed lane", () => {
+  // The SDK keeps a settled upload lane as history that no sync request
+  // re-runs, so counting it would pin the warning until it is evicted.
+  expect(
+    summarizeSyncLanes(
+      snapshot([
+        lane({
+          blobStorageKey: "blob-1",
+          key: "upload:blob-1",
+          lastAction: "failed",
+          lastError: "Upload failed (500)",
+          phase: "blob",
+          status: "error",
+        }),
+      ]),
+    ),
+  ).toEqual({ failed: 0, firstError: null, running: 0 });
 });
 
 test("offline hides lane failures and activity, and any pause is named", () => {
@@ -262,7 +281,7 @@ test("a pending download with a recorded error is named in the popover", () => {
     }),
   ).toEqual([
     "Changes to upload: 1",
-    "Downloading 2 items",
+    "2 items to download",
     "1 download failed — Unable to fetch content",
     "Uploading 2 files",
   ]);

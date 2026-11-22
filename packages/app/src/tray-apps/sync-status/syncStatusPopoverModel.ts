@@ -9,8 +9,7 @@ const DETAIL_LABELS = {
   downloadsLoading: "Downloads: checking…",
   downloadsUnreadable: "Downloads: unable to check",
   downloadsNone: "Downloads: none waiting",
-  downloading: "Downloading",
-  item: ["item", "items"],
+  item: ["item to download", "items to download"],
   downloadFailed: ["download failed", "downloads failed"],
   uploading: "Uploading",
   file: ["file", "files"],
@@ -41,7 +40,8 @@ function describeDownloads(downloads: DownloadQueueSummary): string[] {
     case "read": {
       if (downloads.pending === 0) return [DETAIL_LABELS.downloadsNone];
       const lines = [
-        `${DETAIL_LABELS.downloading} ${counted(downloads.pending, DETAIL_LABELS.item)}`,
+        // Not "Downloading": offline or paused, nothing is.
+        counted(downloads.pending, DETAIL_LABELS.item),
       ];
       if (downloads.failed > 0) {
         const failed = counted(downloads.failed, DETAIL_LABELS.downloadFailed);
@@ -92,7 +92,7 @@ export type SyncStatusActionId =
   | "sync-lanes";
 
 interface SyncStatusActionsInput {
-  /** Online and signed in, so a sync request can run. */
+  /** Online, signed in, and the database open: a sync request can run. */
   readonly canSync: boolean;
   readonly billingBlocked: boolean;
   readonly pendingWriteCount: number;

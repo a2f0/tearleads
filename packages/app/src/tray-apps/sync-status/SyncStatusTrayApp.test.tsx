@@ -202,7 +202,7 @@ test("popover lists its actions in order and runs the one chosen", () => {
         { id: "sync-now", label: "Sync now", onSelect: syncNow },
         { id: "downloads", label: "View downloads", onSelect: openDownloads },
       ]}
-      details={["Downloading 42 items"]}
+      details={["42 items to download"]}
       title="All changes synced, syncing updates…"
     />,
   );
