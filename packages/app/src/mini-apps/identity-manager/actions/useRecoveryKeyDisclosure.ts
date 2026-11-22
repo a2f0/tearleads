@@ -1,4 +1,9 @@
+import type { FileSaver } from "@tearleads/client-sdk";
 import { useLayoutEffect, useRef, useState } from "react";
+import {
+  discardRecoveryKeyPrint,
+  printRecoveryKey,
+} from "../../../identity/recoveryKeyPrint";
 import {
   createSeedPhraseFileName,
   downloadSeedPhraseFile,
@@ -22,6 +27,32 @@ async function copyRecoveryKey(recoveryKey: string) {
   await navigator.clipboard.writeText(recoveryKey);
 }
 
+/** Sends the key off the screen: to the clipboard, a file, or the printer. */
+async function exportRecoveryKey(
+  kind: Exclude<RecoveryKeyDisclosure, "reveal" | "qr">,
+  input: {
+    readonly fileSaver: FileSaver;
+    readonly seedPhrase: string;
+    readonly signingFingerprint: string | null;
+  },
+) {
+  const { fileSaver, seedPhrase, signingFingerprint } = input;
+  switch (kind) {
+    case "copy":
+      return copyRecoveryKey(seedPhrase);
+    case "download":
+      return downloadSeedPhraseFile(fileSaver, {
+        fileName: createSeedPhraseFileName({ signingFingerprint }),
+        seedPhrase,
+      });
+    case "print":
+      // Synchronous, so the print dialog opens inside the confirming click.
+      return printRecoveryKey({ seedPhrase, signingFingerprint });
+    default:
+      return kind satisfies never;
+  }
+}
+
 export function useRecoveryKeyDisclosure(
   feedback: RecoveryKeyFeedback,
   active: boolean,
@@ -42,11 +73,22 @@ export function useRecoveryKeyDisclosure(
   useLayoutEffect(() => {
     activeRef.current = active;
   }, [active]);
+  // A sheet still waiting on its print dialog holds this identity's key, so it
+  // goes when the identity changes or the section unmounts.
+  useLayoutEffect(() => discardRecoveryKeyPrint, [signingFingerprint]);
 
-  const hide = () => {
-    setRevealed(false);
-    setQrRevealed(false);
-    if (revealed || qrRevealed) feedback.setStatus(null);
+  /** Hides the passphrase, the QR code, or (by default) both. */
+  const hide = (shown: "reveal" | "qr" | "all" = "all") => {
+    const hidesKey = shown !== "qr";
+    const hidesQr = shown !== "reveal";
+    if (shown === "all") discardRecoveryKeyPrint();
+    if (hidesKey) setRevealed(false);
+    if (hidesQr) setQrRevealed(false);
+    // The status line reports the last disclosure, so it must not keep
+    // claiming a key that is back off screen.
+    if ((hidesKey && revealed) || (hidesQr && qrRevealed)) {
+      feedback.setStatus(null);
+    }
   };
   useRecoveryKeyPrivacy(() => {
     hide();
@@ -76,13 +118,6 @@ export function useRecoveryKeyDisclosure(
     }
   }
 
-  const downloadRecoveryKey = async (recoveryKey: string) => {
-    await downloadSeedPhraseFile(fileSaver, {
-      fileName: createSeedPhraseFileName({ signingFingerprint }),
-      seedPhrase: recoveryKey,
-    });
-  };
-
   // A copy or download can still be in flight when the identity changes. It
   // exported the key captured when it was acknowledged, so it is still worth
   // logging — but the status line describes whatever identity is on screen now,
@@ -103,16 +138,18 @@ export function useRecoveryKeyDisclosure(
         throw new Error("No recovery key is available for this identity.");
       }
 
-      if (acknowledged === "copy") {
-        await copyRecoveryKey(seedPhrase);
-      } else if (acknowledged === "download") {
-        await downloadRecoveryKey(seedPhrase);
-      } else if (acknowledged === "qr") {
+      if (acknowledged === "qr") {
         setQrRevealed(true);
-      } else {
+      } else if (acknowledged === "reveal") {
         // Reveal has no await ahead of it, so it cannot land on a swapped
         // identity the way an export can.
         setRevealed(true);
+      } else {
+        await exportRecoveryKey(acknowledged, {
+          fileSaver,
+          seedPhrase,
+          signingFingerprint,
+        });
       }
       log(disclosureCopy.successLog);
       reportIfCurrent(requestedFor, () =>
