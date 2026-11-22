@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.179",
+      "version": "0.1.180",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -81,7 +81,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.41",
+      "version": "0.1.42",
       "dependencies": {
         "@electric-sql/pglite": "0.5.15",
         "@tearleads/crypto": "workspace:*",
@@ -223,7 +223,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
@@ -237,7 +237,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.277",
+      "version": "0.1.278",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -353,7 +353,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.82",
+      "version": "0.1.83",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "zod": "catalog:",
