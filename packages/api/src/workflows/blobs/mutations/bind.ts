@@ -31,8 +31,8 @@ import {
 import { registerAttachmentBlobs } from "./blobAuditRegistry";
 import { lockBlobMutationRows } from "./blobMutationLocks";
 import {
-  assertBindDocumentVersionCurrent,
-  parseBindDocumentVersion,
+  assertAttachmentDocumentVersionCurrent,
+  parseAttachmentDocumentVersion,
 } from "./documentVersionPrecondition";
 import { toMutationError } from "./errors";
 import { assertExistingBlobSourceAuthority } from "./existingBlobAuthority";
@@ -364,7 +364,7 @@ async function bindBlobAttachmentTransaction(
   // Only once the signed bind is verified, so a caller without write access
   // learns nothing about the document's updates; still under the document
   // head lock taken above, so no update commits after it.
-  await assertBindDocumentVersionCurrent({
+  await assertAttachmentDocumentVersionCurrent({
     documentId: bindBody.documentId,
     executor: tx,
     version: input.documentVersion,
@@ -388,7 +388,9 @@ async function bindBlobAttachmentTransaction(
     });
   }
   await detachActiveSlotBinding({ activeBinding, executor: tx });
-  await storeVerifiedAttachmentBindingInTransaction(verifiedBinding, tx);
+  await storeVerifiedAttachmentBindingInTransaction(verifiedBinding, tx, {
+    bindDocumentVersion: input.documentVersion.frontierJson,
+  });
   // The blob now has an active binding again; clear any prior purge soft-delete
   // so the GC sweep does not reclaim a blob this bind just re-referenced.
   await reviveBlobIfDereferenced({ blobId: input.blobId, executor: tx });
@@ -447,7 +449,7 @@ export async function runBindBlobAttachmentWorkflow(
   },
 ): Promise<BindBlobAttachmentWorkflowResult> {
   try {
-    const documentVersion = parseBindDocumentVersion(
+    const documentVersion = parseAttachmentDocumentVersion(
       input.request.documentVersionVector,
     );
     const { acceptedOutgoingUpdateIds, linkedContainerIds, response } =

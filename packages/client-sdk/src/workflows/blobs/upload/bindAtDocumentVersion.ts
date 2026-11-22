@@ -2,10 +2,8 @@ import type {
   BlobAttachmentBindRequest,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
-import {
-  BLOB_MUTATION_ERROR_CODES,
-  type BlobAttachmentBindResponse,
-} from "@tearleads/validators/response";
+import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
+import { isAttachmentDocumentChanged } from "../../../data/blobs/attachments/responses";
 import type {
   BlobAttachmentApi,
   UploadDocumentAttachmentRequest,
@@ -46,12 +44,7 @@ function classifyBindRefusal(
   failure: ReturnType<typeof bindFailure>,
 ): BindRefusal {
   if (failure?.kind !== "http" || failure.status === null) return "other";
-  if (
-    failure.status === 409 &&
-    failure.code === BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged
-  ) {
-    return "documentChanged";
-  }
+  if (isAttachmentDocumentChanged(failure)) return "documentChanged";
   return [400, 403, 404, 409].includes(failure.status) ? "refused" : "other";
 }
 

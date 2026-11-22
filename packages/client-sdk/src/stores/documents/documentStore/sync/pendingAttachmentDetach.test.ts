@@ -8,6 +8,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
 import type { BlobAttachmentSummary } from "@tearleads/validators/response";
+import { liveDocumentView } from "../../../../../test/helpers/stores/syncedDocumentView";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import { attachmentContentSha256 } from "../../../../data/blobs/attachmentContentIdentity";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
@@ -286,6 +287,7 @@ test.each([
           current.record,
           generation,
           createPrincipalPolicyOperation(),
+          liveDocumentView(current.doc),
         ),
       ).rejects.toThrow("offline");
       expect(
@@ -298,6 +300,7 @@ test.each([
         current.record,
         generation,
         createPrincipalPolicyOperation(),
+        liveDocumentView(current.doc),
       );
       expect(input.listBindings).toHaveBeenCalledTimes(2);
       expect(input.listBindings).toHaveBeenCalledWith(REMOTE_ID, {
@@ -339,6 +342,7 @@ test("deferring attachment detaches leaves durable markers on an otherwise writa
         record,
         generation,
         createPrincipalPolicyOperation(),
+        liveDocumentView(state.doc),
       );
     await sync();
     expect(input.listBindings).not.toHaveBeenCalled();

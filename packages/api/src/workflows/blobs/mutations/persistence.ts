@@ -64,6 +64,7 @@ export async function loadActiveAttachmentBindingById(input: {
 }) {
   const [binding] = await input.executor
     .select({
+      bindDocumentVersion: attachmentBindings.bindDocumentVersion,
       blobId: attachmentBindings.blobId,
       documentId: attachmentBindings.documentId,
       id: attachmentBindings.id,

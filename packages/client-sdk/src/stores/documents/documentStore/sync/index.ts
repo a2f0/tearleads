@@ -30,6 +30,7 @@ import {
 } from "./syncAcceptedUpdateIds";
 import { syncPendingAttachments } from "./syncAttachments";
 import { syncDetachedAttachmentBindings } from "./syncDetachedAttachments";
+import { captureSyncedDocumentView } from "./syncedDocumentView";
 import { finalizeDocumentSync } from "./syncFinalize";
 import {
   captureDocumentStoreAttachmentSyncGeneration,
@@ -331,12 +332,18 @@ async function runDocumentSyncPass(
 
   if (!state.doc || !state.record) return;
 
+  // Read before the pending check: when nothing is pending after it, every
+  // op this version holds is on the server, so a detach can cite it.
+  const view = captureSyncedDocumentView(state, state.doc);
   const pendingUpdates = await listPendingUpdates(state);
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     requestDocumentStoreSync(state);
     return;
   }
-  if (!canSyncDetachedAttachmentBindings(nextRecord, pendingUpdates.length)) {
+  if (
+    !view ||
+    !canSyncDetachedAttachmentBindings(nextRecord, pendingUpdates.length)
+  ) {
     return;
   }
 
@@ -345,6 +352,7 @@ async function runDocumentSyncPass(
     nextRecord,
     generation,
     policyOperation,
+    view,
   );
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     requestDocumentStoreSync(state);
