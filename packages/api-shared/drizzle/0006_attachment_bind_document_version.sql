@@ -1,0 +1,1 @@
+ALTER TABLE "attachment_bindings" ADD COLUMN "bind_document_version" text DEFAULT '[]' NOT NULL;

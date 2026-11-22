@@ -1,77 +1,28 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  attachmentBindings,
-  documentUpdates,
-} from "@tearleads/api-shared/schema";
+import { documentUpdates } from "@tearleads/api-shared/schema";
 import { mergeVersionVectors } from "@tearleads/loro";
-import { createTestUser, type TestUser } from "@tearleads/test-utils";
+import type { TestUser } from "@tearleads/test-utils";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { BLOB_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  boundBlobIds,
+  commitOtherDeviceUpdate,
+  documentWithRoot,
+  stagedBind,
+} from "../../../test/helpers/attachmentDocumentVersionKit";
 import {
   bindForTest,
   blobAttachmentTestRuntime,
-  buildBind,
-  stageBlob,
 } from "../../../test/helpers/blobAttachmentKit";
 import { committedDocumentVersionVector } from "../../../test/helpers/committedDocumentVersion";
-import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
 import {
   createFirstUpdateSyncRequest,
   createSignedDocumentSyncRequest,
 } from "../../../test/helpers/documentUpdateRequests";
-import {
-  bootstrapRoot,
-  createDocument,
-  type StoredRootFixture,
-} from "../../../test/helpers/keyingWriterProjectionKit";
-import { registerUser } from "../../../test/helpers/registerUser";
-import { postDocumentSync } from "../../../test/helpers/staleBundleHealKit";
 import { routeApp } from "../../routeApp";
 import { bindBlobAttachment } from "./blobMutations";
-
-interface Fixture {
-  readonly document: CreatedDocumentFixture;
-  readonly owner: TestUser;
-  readonly root: StoredRootFixture;
-}
-
-async function documentWithRoot(): Promise<Fixture> {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-  const root = await bootstrapRoot(owner);
-  return { document: await createDocument({ owner, root }), owner, root };
-}
-
-/** Another device's edit: an update from a peer the uploader has not seen. */
-async function commitOtherDeviceUpdate(fixture: Fixture): Promise<void> {
-  const { request } = await createSignedDocumentSyncRequest({
-    created: fixture.document,
-    owner: fixture.owner,
-    root: fixture.root,
-  });
-  const response = await postDocumentSync(
-    fixture.owner,
-    fixture.document.id,
-    request,
-  );
-  expect(response.status).toBe(200);
-}
-
-async function stagedBind(fixture: Fixture) {
-  const blobId = crypto.randomUUID();
-  const { request } = await buildBind({
-    blobId,
-    document: fixture.document,
-    owner: fixture.owner,
-    root: fixture.root,
-    stagedBlob: await stageBlob(fixture.owner, blobId),
-  });
-  return { blobId, request };
-}
 
 function bind(
   owner: TestUser,
@@ -93,14 +44,6 @@ async function committedUpdateIds(documentId: string): Promise<string[]> {
     .from(documentUpdates)
     .where(eq(documentUpdates.documentId, documentId));
   return rows.map((row) => row.id).sort();
-}
-
-async function boundBlobIds(documentId: string): Promise<string[]> {
-  const rows = await db
-    .select({ blobId: attachmentBindings.blobId })
-    .from(attachmentBindings)
-    .where(eq(attachmentBindings.documentId, documentId));
-  return rows.map((row) => row.blobId);
 }
 
 test("an edit committed after the uploader's check refuses the bind until it pulls", async () => {

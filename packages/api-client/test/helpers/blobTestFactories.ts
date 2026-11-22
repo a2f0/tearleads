@@ -38,6 +38,7 @@ export function createBlobAttachmentDetachRequest(): BlobAttachmentDetachRequest
   return {
     authorizingContainerPathRefs: [],
     body: {},
+    documentVersionVector: "document-version-vector",
     event: {},
   };
 }

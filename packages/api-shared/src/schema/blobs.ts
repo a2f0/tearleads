@@ -124,6 +124,11 @@ export const blobStages = pgTable(
  * - `attachmentEventHash`: Access event hash that created this binding.
  * - `documentManifestHash`: Document link-set manifest hash verified for the
  *   binding.
+ * - `bindDocumentVersion`: The document version the bind checked its slot
+ *   against, as a JSON array of `{ peer_id, counter }` rows. It can hold the
+ *   uploader's unsent ops, so a detach must cover it: until those ops commit,
+ *   the slot's content may still be on its way. `[]` (no ops) for bindings
+ *   that predate it.
  * - `detachedAt`: Timestamp when this binding was detached, or `null` while it
  *   is active.
  * - `createdAt`: Server-side insertion timestamp.
@@ -146,6 +151,7 @@ export const attachmentBindings = pgTable(
     previousBindingId: uuid("previous_binding_id"),
     attachmentEventHash: text("attachment_event_hash"),
     documentManifestHash: text("document_manifest_hash"),
+    bindDocumentVersion: text("bind_document_version").notNull().default("[]"),
     detachedAt: timestamp("detached_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

@@ -12,7 +12,7 @@ update that version lacks.
 | `Check` | `verifiedDocumentVersion` pulls, re-checks the slot, and returns the checked version, or abandons the bind |
 | `Check` | `resolveAttachmentSourceUpload` encodes the version in the same step as a store pass's last slot check |
 | `Bind` | `verifyAndLockBindSlot` verifies the signed bind and keeps the existing binding-generation precondition |
-| `Bind` | `assertBindDocumentVersionCurrent` then runs `hasDocumentOpsBeyondVersion`, still under the document head lock `lockAttachmentAuthorizationForShare` took |
+| `Bind` | `assertAttachmentDocumentVersionCurrent` then runs `hasDocumentOpsBeyondVersion`, still under the document head lock `lockAttachmentAuthorizationForShare` took |
 | `Bind` (refused) | `classifyBindRefusal` reads `attachment_document_changed` from the request the bind just sent |
 | `Retry` / `RecheckOnRefresh` | `bindAtVerifiedDocumentVersion` asks for a re-checked version after a refusal |
 | `Retry` / `PullOnRefusal` | `pendingAttachmentDocumentVersion` pulls in the same store pass through `pullRemoteDocumentForAttachments` before its re-check |
@@ -30,12 +30,8 @@ document asked for when the binding committed.
 the bind's check runs under the document head lock that every update write
 takes first, so the check and the insert are one step. An edit that commits
 after the bind is never refused for it, and can remove the slot. Detaching
-that binding is reconciliation by a device that sees both, which this model
-does not cover. The existing detach path runs only on a device that held the
-binding when its slot was removed: in
-[`seedOfflineRemoval.e2e.test.ts`](../../packages/cli/src/seedOfflineRemoval.e2e.test.ts)
-a removal queued before the importer's bind leaves that binding in place,
-which [#3070](https://github.com/a2f0/tearleads/issues/3070) tracks.
+that binding is reconciliation by a device that sees both, which
+[AttachmentRemovedSlotDetach](./AttachmentRemovedSlotDetach.md) models.
 `OtherBytesKept` shows that the uploader never replaces bytes
 another device bound into the slot, through the existing
 `expectedBindingId` precondition.

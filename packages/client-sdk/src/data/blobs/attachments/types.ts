@@ -274,8 +274,20 @@ export interface DetachDocumentAttachmentRequest {
   bindingId: string;
   blobId: string;
   documentId: string;
+  /**
+   * The encoded version of the document the caller read the slot removed
+   * at, holding none of the caller's unsent ops. The API refuses the detach
+   * while the document holds a committed op this version lacks, or while the
+   * binding was bound at a version holding one.
+   */
+  documentVersionVector: string;
   eventId?: string | undefined;
   isRemoteSyncBlocked?: ((organizationId: string) => boolean) | undefined;
+  /**
+   * Called when the API refused the detach that way, so the caller can pull
+   * and check the slot again; the call then returns null.
+   */
+  onDocumentChanged?: (() => void) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   slotId: string;
