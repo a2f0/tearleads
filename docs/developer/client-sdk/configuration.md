@@ -160,8 +160,26 @@ await blobs.uploadDocumentAttachment({
   expectedBindingId: null,
   resolveProjectionUserKey,
   slotId,
+  // Pull, re-check the slot, and return the snapshot's version, or null.
+  verifiedDocumentVersion: async () => {
+    if (!(await store.requestRemoteSyncAndWait(signal))) return null;
+    const snapshot = store.getSnapshot();
+    if (!slotStillAsksForBytes(snapshot)) return null;
+    return snapshot.versionVector ?? null;
+  },
 });
 ```
+
+`verifiedDocumentVersion` is required. The service calls it before each bind
+and sends the version it returns, which the API checks under the document head
+lock: a bind is refused with `409 attachment_document_changed` while the
+document holds another device's committed update that version lacks. After such
+a refusal the service calls it again with `refresh: true`, up to three times,
+retrying the same signed bind on the kept stage. Return `null` to abandon the
+bind; the upload then returns `null` and keeps its stage for a later call.
+`DocumentSnapshot.versionVector` is the version the snapshot's attachments were
+read from. See the
+[document version precondition](../../protocol-specification/blobs.md#document-version-precondition).
 
 The methods that unwrap a blob content key (upload, hydrate, and decrypt) throw
 when the service has no encapsulation secret key. Requests no longer accept

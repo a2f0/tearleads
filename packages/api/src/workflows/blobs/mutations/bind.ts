@@ -16,6 +16,7 @@ import {
   storeBlobContentWriteHeader,
 } from "../../../access/write/blobContentKeyStore";
 import { readCommitCheckpoint } from "../../../documents/commitLsn";
+import type { DocumentVersionFrontier } from "../../../documents/documentUpdateStore";
 import { appendAttachmentBindDocumentSync } from "../../documents/mutations";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
@@ -29,6 +30,10 @@ import {
 } from "./authorization";
 import { registerAttachmentBlobs } from "./blobAuditRegistry";
 import { lockBlobMutationRows } from "./blobMutationLocks";
+import {
+  assertBindDocumentVersionCurrent,
+  parseBindDocumentVersion,
+} from "./documentVersionPrecondition";
 import { toMutationError } from "./errors";
 import { assertExistingBlobSourceAuthority } from "./existingBlobAuthority";
 import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
@@ -333,6 +338,7 @@ export interface BindBlobAttachmentWorkflowResult {
 
 async function bindBlobAttachmentTransaction(
   input: BindBlobAttachmentInput & {
+    readonly documentVersion: DocumentVersionFrontier;
     readonly prevalidatedMultipartStage: PrevalidatedMultipartBlobStage | null;
   },
   tx: DatabaseTransaction,
@@ -354,6 +360,14 @@ async function bindBlobAttachmentTransaction(
     request: input.request,
     signingPublicKey,
     tx,
+  });
+  // Only once the signed bind is verified, so a caller without write access
+  // learns nothing about the document's updates; still under the document
+  // head lock taken above, so no update commits after it.
+  await assertBindDocumentVersionCurrent({
+    documentId: bindBody.documentId,
+    executor: tx,
+    version: input.documentVersion,
   });
   const stagedBlob = await promoteStagedBlobIfPresent({
     blobId: input.blobId,
@@ -433,11 +447,15 @@ export async function runBindBlobAttachmentWorkflow(
   },
 ): Promise<BindBlobAttachmentWorkflowResult> {
   try {
+    const documentVersion = parseBindDocumentVersion(
+      input.request.documentVersionVector,
+    );
     const { acceptedOutgoingUpdateIds, linkedContainerIds, response } =
       await db.transaction((tx) =>
         bindBlobAttachmentTransaction(
           {
             ...input,
+            documentVersion,
             prevalidatedMultipartStage:
               input.prevalidatedMultipartStage ?? null,
           },

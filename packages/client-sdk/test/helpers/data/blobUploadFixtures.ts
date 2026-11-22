@@ -5,17 +5,28 @@ import {
   computeBlobAccessManifestHash,
   computeWriteHeaderHash,
 } from "@tearleads/crypto";
+import { emptyVersionVector } from "@tearleads/loro";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import type {
   AccessManifestBundleWireResponse,
   BlobAttachmentBindResponse,
   BlobAttachmentSummary,
 } from "@tearleads/validators/response";
-import type { BlobAttachmentApi } from "../../../src/data/blobs/attachments/types";
+import type {
+  BlobAttachmentApi,
+  UploadDocumentAttachmentRequest,
+} from "../../../src/data/blobs/attachments/types";
 import {
   readWriteHeader,
   uniqueSortedStrings,
 } from "../../../src/data/documents/shared/readers";
+
+/**
+ * The document version an upload test's caller checked its slot at. These
+ * tests' APIs never refuse a bind for a newer document.
+ */
+export const checkedDocumentVersion: UploadDocumentAttachmentRequest["verifiedDocumentVersion"] =
+  async () => emptyVersionVector();
 
 const DEFAULT_MULTIPART_EXPIRES_AT = "2099-01-01T00:00:00.000Z";
 const DEFAULT_MULTIPART_STAGE_ID = "35069150-b8c1-4052-8003-9780f080aa08";

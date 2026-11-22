@@ -37,7 +37,7 @@ update as the seed, so the seams below name both lanes.
 | `SeedCommitsWithDocument` | `commitDocumentCreateSeedInTransaction` runs inside the create's `db.transaction` |
 | `SubmitDeferred` | `ensureRemoteDocumentCarryingFirstUpdate` has `createRemoteDocument` sign the queued row as `deferredSeedUpdate` without sending it |
 | `CarryInBind` / `CarryCommitsWithBinding` | `bindCarryingDocumentSync` sends the row as `documentSync`; `bindBlobAttachmentTransaction` runs `appendCarriedDocumentSync` after `storeVerifiedAttachmentBindingInTransaction` in one transaction, and `lockSyncDocumentWriteFrontier` refuses (`requireHeldHeads`) a head the bind did not lock |
-| `BindPlain` | `bindRefusedCarriedSync` reads the refusal (400, 403, 404 or 409) and `bindCarryingDocumentSync` binds once more without the row |
+| `BindPlain` | `classifyBindRefusal` reads the refusal (400, 403, 404 or 409, other than `attachment_document_changed`) and `bindCarryingDocumentSync` binds once more without the row |
 | `SettleCarry` / `RequireCarryAcknowledgement` | `settleCarriedFirstUpdate` calls `persistBindCarriedSeed`, which settles the row only when the bind's `documentSync` acknowledgement names it |
 | `SyncWaitsForBind` / `CarriedContentNamesBoundAttachment` | the sync pass returns while `pendingAttachments` is not empty, so `syncDocumentState` sends the row only after `syncPendingAttachments` settles the bind |
 

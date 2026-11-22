@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createMultipartBlobStageFixture } from "../../../../test/helpers/data/blobUploadFixtures";
+import {
+  checkedDocumentVersion,
+  createMultipartBlobStageFixture,
+} from "../../../../test/helpers/data/blobUploadFixtures";
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import type {
@@ -89,6 +92,7 @@ async function pausableUpload(input: {
       },
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
       slotId: "paused-upload",
+      verifiedDocumentVersion: checkedDocumentVersion,
     })
     .finally(close);
   return {

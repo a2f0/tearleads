@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { blobStages, blobs } from "@tearleads/api-shared/schema";
+import { emptyVersionVector } from "@tearleads/loro";
 import { eq, sql } from "drizzle-orm";
 import { createBlobEnvelopeFixture } from "../../../test/helpers/blobEnvelope";
 import {
@@ -67,6 +68,7 @@ async function createStageFixture() {
       authorizingContainerPathRefs: [],
       body: {},
       contentKeyBundle: { contentKeyEpoch: 1, targetHash: "", targets: [] },
+      documentVersionVector: emptyVersionVector(),
       event: {},
       stagedBlob: { stageId: stage.stageId, writeHeader: {} },
     },

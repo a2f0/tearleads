@@ -13,6 +13,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestUser } from "@tearleads/test-utils";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { writerResolver } from "../../../test/helpers/coldSdkRematerialization";
+import { committedDocumentVersionVector } from "../../../test/helpers/committedDocumentVersion";
 import { withCreatedDocumentArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import {
@@ -153,6 +154,8 @@ test("a cold device verifies every hash-acknowledged write from its stored bytes
       contentKey: crypto.getRandomValues(new Uint8Array(32)),
       documentId: created.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: async () =>
+        committedDocumentVersionVector(created.documentId),
       slotId: SLOT_ID,
     });
     if (!uploaded) throw new Error("Expected encrypted attachment");

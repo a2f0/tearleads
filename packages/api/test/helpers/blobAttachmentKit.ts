@@ -26,6 +26,7 @@ import {
   detachBlobAttachment,
 } from "../../src/services/blobs/blobMutations";
 import { fixtureBlobMetadataHash } from "./blobEnvelope";
+import { committedDocumentVersionVector } from "./committedDocumentVersion";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
 import {
@@ -208,6 +209,9 @@ export async function buildBind(input: {
       targetHash: targetsResult.value.blobKeyTargetHash,
       targets: contentKeyTargets(targetsResult.value),
     },
+    documentVersionVector: await committedDocumentVersionVector(
+      manifest.state.documentId,
+    ),
     event: event.event as unknown as Record<string, unknown>,
   };
   if (input.stagedBlob) {

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -64,6 +65,7 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
     bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
     documentId: writerProjection.documentId,
     expectedBindingId: null,
+    verifiedDocumentVersion: checkedDocumentVersion,
     resolveProjectionUserKey,
     slotId,
   });
@@ -117,6 +119,7 @@ test("uploadDocumentAttachment does not retry identity failures that resemble st
         bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
         documentId: writerProjection.documentId,
         expectedBindingId: null,
+        verifiedDocumentVersion: checkedDocumentVersion,
         resolveProjectionUserKey: async () => {
           throw integrityError;
         },

@@ -1,7 +1,12 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
+import { emptyVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createMultipartBlobStageFixture } from "../../../../../test/helpers/data/blobUploadFixtures";
+import { BLOB_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  checkedDocumentVersion,
+  createMultipartBlobStageFixture,
+} from "../../../../../test/helpers/data/blobUploadFixtures";
 import { initiatedStage } from "../../../../../test/helpers/data/multipartUpload";
 import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
@@ -36,6 +41,7 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
       bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
       documentId: writerProjection.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       slotId: "first-upload-402",
     },
@@ -62,9 +68,7 @@ test("classifies a first upload 402 as a billing pause without a cached projecti
   // Preflight, staging, stage request, and the part's encryption and request,
   // then the postflight recheck that sees the 402's pause.
   expect(blockCheckCount).toBe(6);
-  expect(result.remoteSyncBlocked).toBe(true);
-  expect(result.uploaded).toBeNull();
-  expect(result.error).toBeUndefined();
+  expect(result).toEqual({ status: "syncBlocked" });
 });
 
 test("preserves a billing pause observed before recovery races the postflight check", async () => {
@@ -94,6 +98,7 @@ test("preserves a billing pause observed before recovery races the postflight ch
       bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
       documentId: writerProjection.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       slotId: "preflight-402",
     },
@@ -117,9 +122,7 @@ test("preserves a billing pause observed before recovery races the postflight ch
 
   expect(stageCount).toBe(0);
   expect(blockCheckCount).toBe(1);
-  expect(result.remoteSyncBlocked).toBe(true);
-  expect(result.uploaded).toBeNull();
-  expect(result.error).toBeUndefined();
+  expect(result).toEqual({ status: "syncBlocked" });
 });
 
 test("does not retry a concrete upload failure with a fresh projection", async () => {
@@ -146,6 +149,7 @@ test("does not retry a concrete upload failure with a fresh projection", async (
         bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
         documentId: writerProjection.documentId,
         expectedBindingId: null,
+        verifiedDocumentVersion: checkedDocumentVersion,
         resolveProjectionUserKey,
         slotId: "network-failure",
       },
@@ -169,15 +173,103 @@ test("does not retry a concrete upload failure with a fresh projection", async (
       writerProjection,
     });
 
-    expect(result.error).toBe(uploadError);
-    expect(result.uploaded).toBeNull();
-    expect(result.remoteSyncBlocked).toBe(false);
+    expect(result).toEqual({ error: uploadError, status: "failed" });
     expect(stageRequests).toBe(1);
     expect(projectionRequests).toBe(0);
     expect(state.writerProjection).toBe(writerProjection);
   } finally {
     close();
   }
+});
+
+const documentChangedFailure = {
+  code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
+  kind: "http",
+  status: 409,
+};
+
+/**
+ * An attempt whose first bind the API refuses because the document advanced,
+ * whose caller's refresh then does `refresh`, and whose later binds fail
+ * with `laterFailure`.
+ */
+async function attemptAfterDocumentChanged(
+  refresh: () => Promise<string | null>,
+  laterFailure: object = documentChangedFailure,
+) {
+  const { author, resolveProjectionUserKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const { close, execSql } = await createTestExecSql(
+    `attachment-document-changed-${crypto.randomUUID()}`,
+  );
+  const { getAssembledBytes: _bytes, ...multipart } =
+    createMultipartBlobStageFixture();
+  let binds = 0;
+  let recordedFailure: object | null = null;
+  const state = {
+    runtime: { util: { isRemoteSyncBlocked: () => false } },
+    writerProjection,
+  } as unknown as DocumentStoreState;
+  try {
+    return await uploadAttachmentWithWriterProjectionRetry({
+      baseUploadInput: {
+        author,
+        bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
+        documentId: writerProjection.documentId,
+        expectedBindingId: null,
+        verifiedDocumentVersion: async (request) =>
+          request.refresh ? refresh() : checkedDocumentVersion(request),
+        resolveProjectionUserKey,
+        slotId: "document-changed",
+      },
+      blobAttachments: createBlobAttachmentServiceFixture({
+        api: {
+          ...multipart,
+          bindBlobAttachment: async () => {
+            binds += 1;
+            // The client records each failure as a new object.
+            recordedFailure = {
+              ...(binds === 1 ? documentChangedFailure : laterFailure),
+            };
+            return null;
+          },
+          getDocumentWriterProjection: async () => writerProjection,
+          getRequestFailure: () => recordedFailure as never,
+        },
+        encapsulationSecretKey: secretKey,
+        execSql,
+      }),
+      state,
+      writerProjection,
+    });
+  } finally {
+    close();
+  }
+}
+
+test("an attempt whose refresh abandons the bind ends as a document change", async () => {
+  expect(await attemptAfterDocumentChanged(async () => null)).toEqual({
+    status: "documentChanged",
+  });
+});
+
+test("a refreshed bind that then fails for another reason is a reported failure", async () => {
+  const unavailable = { kind: "http", status: 503 };
+  expect(
+    await attemptAfterDocumentChanged(
+      async () => emptyVersionVector(),
+      unavailable,
+    ),
+  ).toMatchObject({ status: "failed" });
+});
+
+test("a throw after a refused bind's refresh is a reported failure", async () => {
+  const pullError = new Error("pull failed");
+  expect(
+    await attemptAfterDocumentChanged(async () => {
+      throw pullError;
+    }),
+  ).toEqual({ error: pullError, status: "failed" });
 });
 
 test("reuses a multipart stage when retrying a null upload result", async () => {
@@ -217,6 +309,7 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
         documentId: writerProjection.documentId,
         eventId: "550e8400-e29b-41d4-a716-446655440582",
         expectedBindingId: null,
+        verifiedDocumentVersion: checkedDocumentVersion,
         nonceSeed: new Uint8Array(12).fill(3),
         multipart: { partSize: 5 * 1024 * 1024 },
         onStageResolved: ({ stageId }) => {
@@ -284,8 +377,7 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
       writerProjection,
     });
 
-    expect(result.error).toBeUndefined();
-    expect(result.uploaded).toBeNull();
+    expect(result).toEqual({ error: undefined, status: "failed" });
     expect(initiateRequests).toBe(1);
     expect(uploadedParts).toBe(1);
     expect(bindRequests).toBe(2);
@@ -336,6 +428,7 @@ test("attachment upload propagates identity failures without a projection retry"
           bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
           documentId: writerProjection.documentId,
           expectedBindingId: null,
+          verifiedDocumentVersion: checkedDocumentVersion,
           resolveProjectionUserKey: async () => {
             throw integrityError;
           },

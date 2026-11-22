@@ -42,6 +42,7 @@ test("document store seeds initial note text before first persistence", async ()
     syncing: false,
     text: initialText,
     title: "Seeded note",
+    versionVector: expect.any(String),
   });
   expect(persistence.getState().document?.text).toBe(initialText);
   expect(persistence.getState().pendingUpdates).toHaveLength(1);

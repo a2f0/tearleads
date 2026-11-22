@@ -146,6 +146,8 @@ export async function seed(input: CommandInput): Promise<void> {
               tracer.event(`seed ${document.key} ${event}`),
             onRecoveredStaleTarget: () =>
               session.recordExpectedSeedFailure("recovered stale target"),
+            onRefusedStaleBind: () =>
+              session.recordExpectedSeedFailure("refused stale bind"),
             sdk,
             document,
             containerId: existing?.containerId ?? containerId,

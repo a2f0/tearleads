@@ -87,6 +87,7 @@ exec bun test \
   src/routes/documents/syncMinLsnGuards.test.ts \
   src/routes/documents/syncConcurrency.pg.test.ts \
   src/services/blobs/bindDocumentSyncLockOrder.pg.test.ts \
+  src/services/blobs/bindDocumentVersionRace.pg.test.ts \
   src/services/blobs/multipartStageCleanup.pg.test.ts \
   src/services/blobs/stageOrganizationLock.pg.test.ts \
   src/services/blobs/stageOrganizationFailure.pg.test.ts \

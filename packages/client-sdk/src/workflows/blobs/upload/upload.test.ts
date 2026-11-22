@@ -8,6 +8,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -71,6 +72,7 @@ test("uploadDocumentAttachment wraps blob keys with the blob content-key suite",
     bytes: new Uint8Array([1, 2, 3, 4]) as BlobBytes,
     documentId: writerProjection.documentId,
     expectedBindingId: null,
+    verifiedDocumentVersion: checkedDocumentVersion,
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
     slotId,
@@ -147,6 +149,7 @@ test("uploadDocumentAttachment stages binary v2 with multipart uploads", async (
     bytes: new Uint8Array(MIN_MULTIPART_CHUNK_SIZE + 128) as BlobBytes,
     documentId: writerProjection.documentId,
     expectedBindingId: null,
+    verifiedDocumentVersion: checkedDocumentVersion,
     multipart: { partSize: MIN_MULTIPART_CHUNK_SIZE },
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
@@ -265,6 +268,7 @@ test("uploadDocumentAttachment refuses missing managed-policy evidence before st
         bytes: new Uint8Array([1, 2, 3]) as BlobBytes,
         documentId: writerProjection.documentId,
         expectedBindingId: null,
+        verifiedDocumentVersion: checkedDocumentVersion,
         resolveProjectionUserKey,
         slotId: "preview",
         warmReferencedPrincipalPolicies: async (request) => {
@@ -347,6 +351,7 @@ test("uploadDocumentAttachment rejects substituted KEK material before staging",
       bytes: new Uint8Array([8, 9, 10]) as BlobBytes,
       documentId: writerProjection.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       signedAt: "2026-04-27T00:00:00.000Z",
       slotId: "preview",

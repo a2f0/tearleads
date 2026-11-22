@@ -5,6 +5,7 @@ import type {
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -62,6 +63,7 @@ async function uploadWithCarriedSync(input: {
       documentId: writerProjection.documentId,
       documentSync,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       slotId: "preview",
     });

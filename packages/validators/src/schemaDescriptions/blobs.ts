@@ -12,6 +12,7 @@ import {
   PrincipalPolicyRefSchema,
 } from "../request";
 import {
+  BlobAttachmentBindFailureResponseSchema,
   BlobAttachmentBindResponseSchema,
   BlobAttachmentDetachResponseSchema,
   BlobAttachmentSummarySchema,
@@ -241,6 +242,8 @@ describeSchema(
       "Container rekeys to commit first in the same transaction.",
     documentSync:
       "The document's first queued update, committed with the bind under every check a standalone sync makes.",
+    documentVersionVector:
+      "Encoded Loro version vector of the document the uploader checked the slot against. The API refuses the bind with `409 attachment_document_changed` while the document has a committed update this version lacks; the uploader pulls, checks the slot still asks for these bytes, and retries with the newer version.",
     stagedBlob:
       "The blob stage to promote; absent when binding a blob that is already committed.",
   },
@@ -301,9 +304,17 @@ describeSchema(
 
 describeSchema(
   BlobMutationFailureResponseSchema,
-  "A refused attachment bind or detach.",
+  "A refused attachment detach.",
   {
     code: "`container_unavailable` when a container the write depends on no longer exists.",
+  },
+);
+
+describeSchema(
+  BlobAttachmentBindFailureResponseSchema,
+  "A refused attachment bind.",
+  {
+    code: "`container_unavailable` when a container the write depends on no longer exists; `attachment_document_changed` when the document has a committed update the bind's `documentVersionVector` lacks, which the uploader resolves by pulling and binding again.",
   },
 );
 

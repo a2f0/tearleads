@@ -1,0 +1,18 @@
+# Issue #3070 (greenfield flag day): a bind carries the document version its
+# slot check read, so an older client without `documentVersionVector` is
+# refused with 400. Remove this exact diagnostic as soon as main contains the
+# new contract.
+POST /blobs/{blobId}/attachment-bindings added the new required request property `documentVersionVector`
+
+# Issue #3070: a bind's 409 may name `attachment_document_changed`, so its
+# failure code is an enum of two values instead of one constant.
+# Remove these exact diagnostics as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings the `code` response property const value `container_unavailable` was removed for the status `409`
+
+# Issue #3070: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings added the new `attachment_document_changed` enum value to the `code` response property for the response status `409`
+
+# Issue #3070: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings added the new `container_unavailable` enum value to the `code` response property for the response status `409`

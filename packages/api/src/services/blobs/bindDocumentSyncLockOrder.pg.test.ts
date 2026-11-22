@@ -6,6 +6,7 @@ import {
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { readKeyingCanonicalJson } from "@tearleads/crypto";
+import { mergeVersionVectors } from "@tearleads/loro";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -47,7 +48,11 @@ async function documentWithRoot() {
   return { document: await createDocument({ owner, root }), owner, root };
 }
 
-/** A staged bind that carries the document's first update. */
+/**
+ * A staged bind that carries the document's first update. Its document
+ * version covers `seenUpdateVersions` too, so a concurrent bind's carried
+ * update does not refuse it.
+ */
 async function bindWithDocumentSync(input: {
   readonly document: CreatedDocumentFixture;
   readonly owner: TestUser;
@@ -66,11 +71,18 @@ async function bindWithDocumentSync(input: {
   const sync = await createFirstUpdateSyncRequest(input);
   return {
     blobId,
-    run: () =>
+    localVersionVector: sync.request.localVersionVector,
+    run: (seenUpdateVersions: readonly (string | null)[]) =>
       bindForTest({
         blobId,
         owner: input.owner,
-        request: { ...request, documentSync: sync.request },
+        request: {
+          ...request,
+          documentSync: sync.request,
+          documentVersionVector: mergeVersionVectors(
+            seenUpdateVersions.filter((version) => version !== null),
+          ),
+        },
       }).then(
         () => 200,
         (error: unknown) => {
@@ -131,7 +143,8 @@ test.skipIf(!isPostgres)(
     });
     let statuses: Promise<number[]> | undefined;
     try {
-      statuses = Promise.all([first.run(), second.run()]);
+      const seen = [first.localVersionVector, second.localVersionVector];
+      statuses = Promise.all([first.run(seen), second.run(seen)]);
       await waitForPostgresLockWait({
         blockerPid: documentRow.backendPid,
         minimumWaiters: 2,
@@ -227,7 +240,7 @@ test.skipIf(!isPostgres)(
     });
     const pending: Promise<number>[] = [];
     try {
-      pending.push(carried.run());
+      pending.push(carried.run([carried.localVersionVector]));
       pending.push(
         post(
           fixture.owner,

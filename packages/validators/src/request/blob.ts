@@ -4,6 +4,7 @@ import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
   boundedNonEmptyArraySchema,
+  boundedNonEmptyStringSchema,
   loosePlainObject,
   nonEmptyStringSchema,
   plainObjectSchema,
@@ -12,6 +13,7 @@ import {
   uuidV4StringSchema,
 } from "../schema";
 import {
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_INITIATE_PART_UPLOADS,
   MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
@@ -86,6 +88,10 @@ const OptionalContainerRekeysSchema = arraySchema(
  * the document's first queued update, held back until its attachment binds;
  * the bind commits it after the binding row under the same checks as a
  * standalone sync, so the upload needs no follow-up sync round trip.
+ * `documentVersionVector` is the document version the uploader checked the
+ * slot against: the bind refuses while the document has a committed update
+ * that version lacks, so it never binds bytes into a slot another device
+ * removed or changed after that check.
  */
 export const BlobAttachmentBindRequestSchema =
   registerJsonSchemaRuntimeRefinements(
@@ -98,6 +104,9 @@ export const BlobAttachmentBindRequestSchema =
       containerRekeys: OptionalContainerRekeysSchema,
       contentKeyBundle: BlobContentKeyBundleRequestSchema,
       documentSync: DocumentSyncRequestSchema.optional(),
+      documentVersionVector: boundedNonEmptyStringSchema(
+        MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+      ),
       event: plainObjectSchema,
       stagedBlob: BlobStagedBlobRequestSchema.optional(),
     }).superRefine((value, context) => {

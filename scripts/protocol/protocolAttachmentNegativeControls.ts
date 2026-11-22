@@ -2,6 +2,30 @@ import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "bind-skips-document-version",
+    module: "formal/blob-attachments/AttachmentBindDocumentVersion.tla",
+    config: "formal/blob-attachments/AttachmentBindDocumentVersion.cfg",
+    constants: { CheckDocumentVersion: "FALSE" },
+    expect: { kind: "invariant", name: "FixtureBindingWasRequested" },
+    why: "A bind checked against an older document must not commit after another device removed its slot.",
+  },
+  {
+    id: "bind-refresh-skips-slot-check",
+    module: "formal/blob-attachments/AttachmentBindDocumentVersion.tla",
+    config: "formal/blob-attachments/AttachmentBindDocumentVersion.cfg",
+    constants: { RecheckOnRefresh: "FALSE" },
+    expect: { kind: "invariant", name: "FixtureBindingWasRequested" },
+    why: "A refused bind may adopt a newer document version only after checking that the slot still asks for its bytes.",
+  },
+  {
+    id: "bind-retries-stale-document-version",
+    module: "formal/blob-attachments/AttachmentBindDocumentVersion.tla",
+    config: "formal/blob-attachments/AttachmentBindDocumentVersion.cfg",
+    constants: { PullOnRefusal: "FALSE", RecheckOnRefresh: "FALSE" },
+    expect: { kind: "liveness", name: "UploadSettles" },
+    why: "An uploader that retries a refused bind without pulling never converges once another device has edited.",
+  },
+  {
     id: "pending-removal-loses-detach-marker",
     module: "formal/blob-attachments/PendingAttachmentDetach.tla",
     config: "formal/blob-attachments/PendingAttachmentDetach.cfg",

@@ -21,6 +21,7 @@ import {
 } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { trustedResolver } from "../../../test/helpers/coldSdkRematerialization";
+import { committedDocumentVersionVector } from "../../../test/helpers/committedDocumentVersion";
 import { documentFixtureFromWriterProjection } from "../../../test/helpers/documentAcknowledgementFixture";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import {
@@ -187,6 +188,8 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       contentKey: blobContentKey,
       documentId: document.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: async () =>
+        committedDocumentVersionVector(document.documentId),
       slotId: "preview",
     });
     if (!uploaded?.response) throw new Error("Expected encrypted attachment");

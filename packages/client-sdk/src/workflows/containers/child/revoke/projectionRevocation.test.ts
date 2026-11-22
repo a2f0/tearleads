@@ -10,7 +10,10 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createMultipartBlobStageFixture } from "../../../../../test/helpers/data/blobUploadFixtures";
+import {
+  checkedDocumentVersion,
+  createMultipartBlobStageFixture,
+} from "../../../../../test/helpers/data/blobUploadFixtures";
 import { SIGNED_AT } from "../../../../../test/helpers/data/containerFixtures";
 import { createBlobAttachmentServiceFixture } from "../../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import {
@@ -241,6 +244,7 @@ test("blobs uploaded after a revoking KEK rotation wrap only the rotated KEK", a
       contentKey: blobContentKey,
       documentId: createdDocument.plan.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       signedAt: SIGNED_AT,
       slotId,
