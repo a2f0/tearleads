@@ -226,9 +226,9 @@ detaching client reads it, the slot may still ask for these bytes.
 
 A client detaches a listed binding once its synced document holds no entry
 for the slot, readable or not: a device that held the bytes settles its
-removal marker first, and any device that saw the slot recorded and now reads
-it removed detaches the binding too, including one that removed the slot
-before the bind arrived.
+removal marker first, and any device with write access that saw the slot
+recorded and now reads it removed detaches the binding too, including one
+that removed the slot before the bind arrived.
 After a refusal the client asks for one pull and retries only at a newer
 version that still lacks the slot.
 [`AttachmentRemovedSlotDetach.tla`](../../formal/blob-attachments/AttachmentRemovedSlotDetach.tla)

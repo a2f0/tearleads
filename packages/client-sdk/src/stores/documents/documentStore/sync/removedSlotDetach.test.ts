@@ -5,8 +5,9 @@ import {
   withRemovedSlotDetachHarness,
 } from "../../../../../test/helpers/stores/removedSlotDetachHarness";
 import { liveDocumentView } from "../../../../../test/helpers/stores/syncedDocumentView";
+import { removeDocumentAttachment } from "../../../../data/documents/documentContent";
 import { removeAttachmentFromDocumentStore } from "../attachments/attachmentRemoval";
-import type { DocumentStoreState } from "../state";
+import type { DocumentState, DocumentStoreState } from "../state";
 
 const SLOT_ID = "contact-photos:portrait";
 const IMPORTED = bindingFor(SLOT_ID);
@@ -46,6 +47,20 @@ test("a store that never saw the slot recorded leaves its binding", async () => 
     const state = await harness.open([]);
     await runDetachPass(state);
     expect(harness.detachRequests).toEqual([]);
+  });
+}, 20_000);
+
+test("a reader that saw the slot removed leaves its binding to a writer", async () => {
+  await withRemovedSlotDetachHarness(async (harness) => {
+    harness.bound.set(SLOT_ID, IMPORTED);
+    const state = await harness.open([SLOT_ID], [], "read");
+    // A pulled removal, here applied to the live document directly.
+    removeDocumentAttachment(state.doc as DocumentState, SLOT_ID);
+    state.doc?.commit();
+
+    await runDetachPass(state);
+    expect(harness.detachRequests).toEqual([]);
+    expect(harness.listings).toBe(0);
   });
 }, 20_000);
 

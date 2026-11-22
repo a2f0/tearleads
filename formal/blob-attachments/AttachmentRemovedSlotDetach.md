@@ -21,7 +21,8 @@ every committed op and every op of the version the binding was bound at.
 | `Detach` | `assertAttachmentDocumentVersionCurrent` runs `hasDocumentOpsBeyondVersion` under the document head lock `lockAttachmentAuthorizationForShare` took |
 | `Detach` | `assertDetachCoversBindVersion` runs `documentVersionCovers` against the binding's stored version |
 | `Detach` (refused) | `isAttachmentDocumentChanged` reads the refusal, and `planRemovedSlotDetach` waits for a newer view before sending that binding's detach again |
-| `Detach` (refused) | `isRemovedSlotDetachWaiting` keeps a waiting slot out of `listRemovedAttachmentSlots`, so a pass lists bindings again only once the view moves; a waiting marker does not hold up the markers after it |
+| `Detach` (refused) | `isRemovedSlotDetachWaiting` keeps a waiting slot out of `listRemovedAttachmentSlots`, so a pass with no marker lists bindings again only once the view moves; a refused marker detach (`AttachmentDetachOutcome`) waits without holding up the markers after it |
+| `Detach` | only a store that `canWriteDocument` lists removed slots: a reader leaves the binding to a writer |
 | `Push` / `Restore` | `appendDocumentUpdates` commits each device's update under `lockSyncDocumentWriteFrontier` |
 | `RestoreBind` | `bindBlobAttachment` commits the restoring device's own bytes before its content update |
 

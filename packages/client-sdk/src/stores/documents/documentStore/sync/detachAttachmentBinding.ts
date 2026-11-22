@@ -57,9 +57,15 @@ function recordDocumentChanged(
 }
 
 /**
- * Detach `binding` at the version of `view`, which must lack its slot. True
- * when the API detached it; a refusal for a newer document records itself
- * and requests a pull.
+ * How one detach ended: `refused` when the API keeps the binding for a newer
+ * document, which waits for a newer view; `failed` for anything else, which a
+ * later pass tries again.
+ */
+export type AttachmentDetachOutcome = "detached" | "failed" | "refused";
+
+/**
+ * Detach `binding` at the version of `view`, which must lack its slot. A
+ * refusal for a newer document records itself and requests a pull.
  */
 export async function detachAttachmentBinding(input: {
   binding: DocumentAttachmentBinding;
@@ -69,18 +75,18 @@ export async function detachAttachmentBinding(input: {
   requestRecord: DocumentRecord;
   state: DocumentStoreState;
   view: SyncedDocumentView;
-}): Promise<boolean> {
+}): Promise<AttachmentDetachOutcome> {
   const { binding, generation, requestRecord, state, view } = input;
   const contextIsCurrent = () =>
     detachedSyncContextIsCurrent(state, generation, requestRecord);
-  if (!contextIsCurrent() || view.slotIds.has(binding.slotId)) return false;
+  if (!contextIsCurrent() || view.slotIds.has(binding.slotId)) return "failed";
 
   const author = resolveDocumentCreateAuthor(state.runtime);
   if (!author) {
     state.runtime.util.log(
       "Documents: skipped attachment detach because the writer context is unavailable.",
     );
-    return false;
+    return "failed";
   }
 
   const writerProjection =
@@ -119,15 +125,16 @@ export async function detachAttachmentBinding(input: {
     ...baseDetachInput,
     writerProjection: writerProjection ?? undefined,
   });
-  if (!contextIsCurrent()) return false;
+  if (!contextIsCurrent()) return "failed";
   if (!detached && writerProjection && !remoteSyncBlocked && !documentChanged) {
     state.writerProjection = null;
     detached = await blobAttachments.detachDocumentAttachment(baseDetachInput);
-    if (!contextIsCurrent()) return false;
+    if (!contextIsCurrent()) return "failed";
   }
   if (!detached) {
-    if (documentChanged) recordDocumentChanged(state, binding, view);
-    return false;
+    if (!documentChanged) return "failed";
+    recordDocumentChanged(state, binding, view);
+    return "refused";
   }
 
   installDocumentWriterProjection(
@@ -139,5 +146,5 @@ export async function detachAttachmentBinding(input: {
   state.runtime.util.log(
     `Detached attachment ${binding.slotId} from document ${input.remoteDocumentId}.`,
   );
-  return true;
+  return "detached";
 }

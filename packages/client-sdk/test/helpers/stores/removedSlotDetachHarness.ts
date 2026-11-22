@@ -68,6 +68,7 @@ async function seedDocument(
   blobStore: ReturnType<typeof createMemoryBlobStore>,
   slotIds: readonly string[],
   heldSlotIds: readonly string[],
+  accessLevel: "admin" | "read",
 ) {
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const localId = "doc-a";
@@ -90,7 +91,7 @@ async function seedDocument(
     accessEpoch: 1,
     appKind: "documents",
     documentId: REMOTE_ID,
-    effectiveAccessLevel: "admin",
+    effectiveAccessLevel: accessLevel,
     localId,
     snapshotEndVersion: endVersionVector,
     updatedAt,
@@ -138,6 +139,7 @@ export interface RemovedSlotDetachHarness {
   open(
     slotIds: readonly string[],
     heldSlotIds?: readonly string[],
+    accessLevel?: "admin" | "read",
   ): Promise<DocumentStoreState>;
 }
 
@@ -156,8 +158,8 @@ export async function withRemovedSlotDetachHarness(
     bound: new Map(),
     detachRequests: [],
     listings: 0,
-    open: async (slotIds, heldSlotIds = []) => {
-      await seedDocument(execSql, blobStore, slotIds, heldSlotIds);
+    open: async (slotIds, heldSlotIds = [], accessLevel = "admin") => {
+      await seedDocument(execSql, blobStore, slotIds, heldSlotIds, accessLevel);
       const store = createDocumentStoreState(
         "doc-a",
         runtime,

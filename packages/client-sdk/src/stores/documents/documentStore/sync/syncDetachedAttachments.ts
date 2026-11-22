@@ -19,10 +19,11 @@ import {
 } from "../attachments/attachmentRemovalMarkers";
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
 import { chainQueuedWrite } from "../localWriteQueue";
-import type {
-  DocumentAttachmentBinding,
-  DocumentState,
-  DocumentStoreState,
+import {
+  canWriteDocument,
+  type DocumentAttachmentBinding,
+  type DocumentState,
+  type DocumentStoreState,
 } from "../state";
 import {
   detachAttachmentBinding,
@@ -78,9 +79,13 @@ export async function syncDetachedAttachmentBindings(
   const markers = await listAttachmentRemovalMarkers(state, currentDoc);
   if (!contextIsCurrent()) return;
   const markerSlotIds = new Set(markers.map((marker) => marker.slotId));
-  const removedSlotIds = listRemovedAttachmentSlots(state, view).filter(
-    (slotId) => !markerSlotIds.has(slotId),
-  );
+  // Only a writer can sign a detach the API accepts; a reader that saw the
+  // slot removed leaves its binding to one.
+  const removedSlotIds = canWriteDocument(state)
+    ? listRemovedAttachmentSlots(state, view).filter(
+        (slotId) => !markerSlotIds.has(slotId),
+      )
+    : [];
   if (markers.length === 0 && removedSlotIds.length === 0) return;
 
   const activeBindingBySlotId = await listActiveBindings(
@@ -238,7 +243,7 @@ async function settleDetachedAttachmentMarker(input: {
   );
   if (step === "wait") return "waiting";
   if (step !== "detach") return null;
-  const landed = await detachAttachmentBinding({
+  const outcome = await detachAttachmentBinding({
     binding,
     generation: input.generation,
     policyOperation: input.policyOperation,
@@ -247,17 +252,9 @@ async function settleDetachedAttachmentMarker(input: {
     state,
     view: input.view,
   });
-  if (!landed) {
-    // Refused at this version: wait for a newer view as a later pass would.
-    const refused =
-      planAttachmentSlotDetach(
-        state,
-        marker.slotId,
-        binding,
-        input.view.versionVector,
-      ) === "wait";
-    return refused ? "waiting" : null;
-  }
+  // Refused at this version: wait for a newer view as a later pass would.
+  if (outcome === "refused") return "waiting";
+  if (outcome === "failed") return null;
   // The binding is gone, so a slot committed again meanwhile needs its held
   // bytes bound anew.
   const detached = transitionAttachmentRemovalMarker(settled, {
