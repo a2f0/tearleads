@@ -29,9 +29,8 @@ import { EXPLORER_LABELS, getExplorerDownloadsCountLabel } from "../../labels";
 import { useDomainSyncSnapshot } from "../sync/useDomainSyncSnapshot";
 import {
   type DownloadHistoryEntry,
-  getDownloadHistoryEntries,
   getDownloadHistoryKey,
-} from "./downloadHistoryMachine";
+} from "./downloadHistory";
 import {
   ExplorerTransferNameCell,
   type ExplorerTransferOpenAction,
@@ -147,7 +146,7 @@ function getDownloadOpenAction(
 ): ExplorerTransferOpenAction | null {
   if (entry.status !== "complete") return null;
   const name = getDownloadName(entry);
-  const { stored } = entry;
+  const stored = entry.item;
   switch (stored.objectKind) {
     case "attachment":
       return {
@@ -189,11 +188,11 @@ function DownloadRow(params: {
           null,
         )
       : pendingDownloadTransfer(
-          item,
+          entry.item,
           // A file downloads through its document's lane.
-          item.objectKind === "container"
+          entry.item.objectKind === "container"
             ? undefined
-            : params.lanes.get(`documents:${item.localId}`),
+            : params.lanes.get(`documents:${entry.item.localId}`),
           params.online,
           params.isAuthenticated,
         );
@@ -220,8 +219,9 @@ function DownloadRow(params: {
 }
 
 /**
- * The scope's download queue plus the pulls this view saw finish, which stay
- * listed as Complete until the domain scope rotates, as Sync Lanes does.
+ * The scope's download queue plus the downloads the SDK recorded finishing,
+ * which stay listed as Complete until the domain scope rotates, as Sync Lanes
+ * does, whether or not this view was open when they finished.
  */
 export function ExplorerDownloadsPanel(params: {
   destinations: ExplorerDownloadDestinations;
@@ -235,7 +235,7 @@ export function ExplorerDownloadsPanel(params: {
   const { domainScope, isAuthenticated, online } = params;
   const { documents } = useTearleads();
   const snapshot = useDomainSyncSnapshot(domainScope);
-  const { readNow, state } = useDownloadHistory({
+  const { entries, readNow, state } = useDownloadHistory({
     ...params,
     syncSnapshot: snapshot,
   });
@@ -244,7 +244,6 @@ export function ExplorerDownloadsPanel(params: {
     () => new Map(snapshot.lanes.map((lane) => [lane.key, lane])),
     [snapshot.lanes],
   );
-  const entries = getDownloadHistoryEntries(state);
   const pendingCount = entries.filter(
     (entry) => entry.status === "pending",
   ).length;

@@ -42,6 +42,24 @@ import {
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./sync/syncGeneration";
 
+/** The title Explorer lists for a stored record. */
+export function documentTitleFromRecord(
+  record: DocumentRecord,
+  documentProjectors: DocumentProjectorRegistry,
+): string {
+  return (
+    record.title ??
+    projectStoredDocumentState(
+      {
+        documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,
+        structuredFields: {},
+        text: record.text,
+      },
+      documentProjectors,
+    ).title
+  );
+}
+
 export function documentSummaryFromRecord(
   record: DocumentRecord,
   updatedAt: string,
@@ -56,16 +74,7 @@ export function documentSummaryFromRecord(
     containerId: record.containerId,
     documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,
     documentId: record.documentId,
-    title:
-      record.title ??
-      projectStoredDocumentState(
-        {
-          documentKind: record.documentKind ?? DEFAULT_DOCUMENT_KIND,
-          structuredFields: {},
-          text: record.text,
-        },
-        documentProjectors,
-      ).title,
+    title: documentTitleFromRecord(record, documentProjectors),
     updatedAt,
   };
 }

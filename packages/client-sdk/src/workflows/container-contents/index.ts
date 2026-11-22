@@ -28,10 +28,6 @@ export {
   type ContainerItemSortKey,
   createContainerDocumentQueriesFromRuntime,
 } from "./documentQueries";
-export type {
-  CompletedDownloadItem,
-  DownloadQueueItemRef,
-} from "./documentQueries/completedDownloads";
 export {
   activateDocumentLink,
   addDocumentLink,
