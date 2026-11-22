@@ -27,7 +27,7 @@ import { BlobMutationError, bindBlobAttachment } from "./blobMutations";
 /**
  * The statuses on which the SDK's carrying bind binds again without its
  * document sync and leaves the queued row to sync alone
- * (`bindRefusedCarriedSync` in the client SDK's blob upload workflow).
+ * (`classifyBindRefusal` in the client SDK's blob upload workflow).
  */
 const CLIENT_FALLBACK_STATUSES = [400, 403, 404, 409];
 

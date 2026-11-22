@@ -6,6 +6,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -120,6 +121,7 @@ for (const { label, message, tamper } of bindAcknowledgementTampers) {
           ) as BlobBytes,
           documentId: writerProjection.documentId,
           expectedBindingId: null,
+          verifiedDocumentVersion: checkedDocumentVersion,
           resolveProjectionUserKey,
           signedAt: "2026-04-27T00:00:01.000Z",
           slotId: "tampered-response-slot",
@@ -154,6 +156,7 @@ test("uploadDocumentAttachment binds a reused nonce seed to the plaintext", asyn
       nonceSeed,
       resolveProjectionUserKey,
       slotId,
+      verifiedDocumentVersion: checkedDocumentVersion,
     };
     const first = await createBlobAttachmentServiceFixture({
       api: firstApi.apiClient,
@@ -232,6 +235,7 @@ test("a bind replay observes a sync pause during renewal", async () => {
       bytes: new Uint8Array([1]),
       documentId: writerProjection.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       slotId: "preview",
       isRemoteSyncBlocked: () => paused,

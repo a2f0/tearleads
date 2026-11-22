@@ -446,6 +446,15 @@ Models under [`blob-attachments/`](./blob-attachments).
 ciphertext binding with original-author or source-read authority in addition
 to destination-write authority.
 
+### Attachment Bind Document Version
+
+[`blob-attachments/AttachmentBindDocumentVersion.tla`](./blob-attachments/AttachmentBindDocumentVersion.tla)
+models an upload racing another device's edits to its slot: the API refuses a
+bind whose checked document version lacks a committed update, so an edit that
+commits first always wins, and the uploader converges by its own pulls once
+edits stop. See the
+[mapping and boundaries](./blob-attachments/AttachmentBindDocumentVersion.md).
+
 ### Pending Attachment Detach
 
 [`blob-attachments/PendingAttachmentDetach.tla`](./blob-attachments/PendingAttachmentDetach.tla)

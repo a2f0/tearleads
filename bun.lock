@@ -223,7 +223,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",

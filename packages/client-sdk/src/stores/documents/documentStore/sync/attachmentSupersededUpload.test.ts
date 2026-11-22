@@ -121,16 +121,17 @@ for (const change of [
       state.pendingAttachments = [pending];
       const generation = captureDocumentStoreSyncGeneration(state, state.doc);
       if (!generation) throw new Error("Expected live upload generation");
-      const syncing = syncPendingAttachments(
-        state,
-        record,
-        {
+      const syncing = syncPendingAttachments({
+        attachmentGeneration: generation,
+        encapsulationKeyPair: {
           publicKey: fixture.publicKey,
           secretKey: fixture.secretKey,
         },
         generation,
-        createPrincipalPolicyOperation(),
-      );
+        nextRecord: record,
+        policyOperation: createPrincipalPolicyOperation(),
+        state,
+      });
       if (change === "read-failure")
         await expect(syncing).rejects.toThrow("temporary source read failure");
       else await syncing;

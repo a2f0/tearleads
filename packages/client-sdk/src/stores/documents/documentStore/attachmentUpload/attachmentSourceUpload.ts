@@ -1,3 +1,4 @@
+import { encodeVersionVector } from "@tearleads/loro";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import {
   type BlobByteSource,
@@ -33,6 +34,19 @@ export function pendingAttachmentMatchesIntent(
   );
 }
 
+/**
+ * The encoded version of the document whose slot still asks for the pending
+ * bytes, read in the same step as that check, or null when it no longer does.
+ */
+export function matchingDocumentVersion(
+  input: PendingSourceInput,
+): string | null {
+  const { doc } = input.state;
+  return doc !== null && pendingAttachmentMatchesIntent(input)
+    ? encodeVersionVector(doc)
+    : null;
+}
+
 export async function dropUnavailablePendingAttachment(
   input: PendingSourceInput,
 ): Promise<"dropped"> {
@@ -56,6 +70,8 @@ export async function resolveAttachmentSourceUpload(
     source: BlobByteSource;
   },
 ): Promise<{
+  /** The document version at which the slot last asked for these bytes. */
+  readonly checkedVersion: string;
   readonly resume: AttachmentUploadResume;
   readonly snapshot: BlobSourceSnapshot;
 } | null> {
@@ -76,9 +92,10 @@ export async function resolveAttachmentSourceUpload(
     );
     const resolvedChunkSize =
       resume.multipart?.partSize ?? DEFAULT_BLOB_CHUNK_SIZE_BYTES;
-    if (!pendingAttachmentMatchesIntent(input)) return null;
+    const checkedVersion = matchingDocumentVersion(input);
+    if (checkedVersion === null) return null;
     if (resolvedChunkSize === snapshot.chunkSize) {
-      return { resume, snapshot };
+      return { checkedVersion, resume, snapshot };
     }
     chunkSize = resolvedChunkSize;
   }

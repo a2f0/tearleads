@@ -3,9 +3,13 @@ import {
   detachBlobAttachmentOperation,
   operationRoutePath,
 } from "@tearleads/validators/operation";
-import type {
-  BlobAttachmentBindResponse,
-  BlobAttachmentDetachResponse,
+import {
+  BLOB_MUTATION_ERROR_CODES,
+  type BlobAttachmentBindFailureResponse,
+  type BlobAttachmentBindResponse,
+  type BlobAttachmentDetachResponse,
+  type BlobMutationErrorCode,
+  type BlobMutationFailureResponse,
 } from "@tearleads/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -25,21 +29,42 @@ interface BlobMutationsRouteDeps {
   readonly runtime: ApiServiceRuntime;
 }
 
-// A blob failure carries at most the shared `container_unavailable` code;
-// render it so a bind/detach refused for a deleted container is coded like the
-// document and container mutations that share the path resolver (#2278 #4).
-function respondToBlobMutationError(
+// A blob failure carries at most one code: the shared `container_unavailable`,
+// so a bind/detach refused for a deleted container is coded like the document
+// and container mutations that share the path resolver (#2278 #4), or a bind's
+// `attachment_document_changed`, which the uploader retries after a pull.
+// Each route narrows the code to its own response schema.
+function respondToBlobMutationError<Code extends BlobMutationErrorCode>(
   c: Context<SessionEnv>,
   error: unknown,
+  responseCode: (code: BlobMutationErrorCode) => Code | undefined,
 ): Response {
+  const code =
+    error instanceof BlobMutationError && error.code
+      ? responseCode(error.code)
+      : undefined;
   return respondToStatusError(
     c,
     error,
     BlobMutationError,
-    error instanceof BlobMutationError && error.code
-      ? { code: error.code, status: error.status }
+    code && error instanceof BlobMutationError
+      ? { code, status: error.status }
       : undefined,
   );
+}
+
+function bindFailureCode(
+  code: BlobMutationErrorCode,
+): NonNullable<BlobAttachmentBindFailureResponse["code"]> {
+  return code;
+}
+
+function detachFailureCode(
+  code: BlobMutationErrorCode,
+): NonNullable<BlobMutationFailureResponse["code"]> | undefined {
+  return code === BLOB_MUTATION_ERROR_CODES.containerUnavailable
+    ? code
+    : undefined;
 }
 
 export function createBlobMutationsRoute({
@@ -72,7 +97,7 @@ export function createBlobMutationsRoute({
           }),
         );
       } catch (error) {
-        return respondToBlobMutationError(c, error);
+        return respondToBlobMutationError(c, error, bindFailureCode);
       }
     },
   );
@@ -102,7 +127,7 @@ export function createBlobMutationsRoute({
           }),
         );
       } catch (error) {
-        return respondToBlobMutationError(c, error);
+        return respondToBlobMutationError(c, error, detachFailureCode);
       }
     },
   );

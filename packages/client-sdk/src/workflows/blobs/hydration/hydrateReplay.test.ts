@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import type { BlobAttachmentSummary } from "@tearleads/validators/response";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -48,6 +49,7 @@ async function uploadNewerBinding(fixture: UploadedFixture) {
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     documentId: fixture.writerProjection.documentId,
     expectedBindingId: fixture.bindingId,
+    verifiedDocumentVersion: checkedDocumentVersion,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     signedAt: "2026-04-27T00:01:00.000Z",
     slotId: fixture.attachment.slotId,

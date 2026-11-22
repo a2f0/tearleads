@@ -127,6 +127,12 @@ export interface DocumentSnapshot {
    * had it open. The view keeps its own record, read-only, until it reopens.
    */
   readonly relinkedElsewhere?: true | undefined;
+  /**
+   * Encoded Loro version vector of the document state this snapshot's
+   * attachments were read from; absent before the store is ready. An upload
+   * that checked a slot in this snapshot binds against this version.
+   */
+  readonly versionVector?: string | undefined;
 }
 
 export interface DocumentStore {

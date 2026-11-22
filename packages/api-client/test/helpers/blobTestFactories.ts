@@ -28,6 +28,7 @@ export function createBlobAttachmentBindRequest(): BlobAttachmentBindRequest {
         },
       ],
     },
+    documentVersionVector: "document-version-vector",
     event: { organizationId: "organization-1" },
     stagedBlob: { stageId: "stage-1", writeHeader: {} },
   };

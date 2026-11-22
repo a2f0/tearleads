@@ -55,6 +55,13 @@ import { requireProjectionUserKeyResolver } from "../../../data/keyingProjection
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { resolveBlobMutationWriterProjection } from "../verification/writerProjection";
 import { resolveMultipartUploadOptions } from "./automaticMultipartUpload";
+import {
+  bindAtVerifiedDocumentVersion,
+  type DocumentVersionBindStatus,
+} from "./bindAtDocumentVersion";
+
+export type { DocumentVersionBindStatus };
+
 import { UploadPausedError } from "./multipartStageResolution";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
@@ -152,7 +159,7 @@ function blobAttachmentBindRequest(input: {
   material: BlobAttachmentMaterial;
   stageId: string;
   writeHeader: WriteHeader;
-}): BlobAttachmentBindRequest {
+}): Omit<BlobAttachmentBindRequest, "documentVersionVector"> {
   return {
     event: readCanonicalRecord(input.event, "Blob attachment bind event"),
     body: readCanonicalRecord(input.body, "Blob attachment bind body"),
@@ -167,65 +174,6 @@ function blobAttachmentBindRequest(input: {
         "Blob attachment write header",
       ),
     },
-  };
-}
-
-/**
- * Whether the server refused the bind outright (a client error other than a
- * billing pause or an expired session), which rolled back the binding with
- * the update it carried.
- */
-function bindRefusedCarriedSync(
-  apiClient: BlobAttachmentApi,
-  blobId: string,
-): boolean {
-  const failure = apiClient.getRequestFailure?.({
-    method: "POST",
-    path: `/blobs/${encodeURIComponent(blobId)}/attachment-bindings`,
-  });
-  return (
-    failure?.kind === "http" &&
-    failure.status !== null &&
-    [400, 403, 404, 409].includes(failure.status)
-  );
-}
-
-/**
- * The carried update adds no failure mode: a refused carry binds once more
- * without it, and the caller's queued row then syncs on its own.
- */
-async function bindCarryingDocumentSync(input: {
-  readonly apiClient: BlobAttachmentApi;
-  readonly blobId: string;
-  readonly documentSync: DocumentSyncRequest | undefined;
-  readonly organizationId: string;
-  readonly plainRequest: BlobAttachmentBindRequest;
-  readonly stillCurrent?: (() => boolean) | undefined;
-  readonly isRemoteSyncBlocked?: UploadDocumentAttachmentRequest["isRemoteSyncBlocked"];
-}): Promise<{
-  readonly request: BlobAttachmentBindRequest;
-  readonly response: BlobAttachmentBindResponse | null;
-}> {
-  const canBind = () =>
-    input.stillCurrent?.() !== false &&
-    !input.isRemoteSyncBlocked?.(input.organizationId);
-  const bind = (request: BlobAttachmentBindRequest) =>
-    !canBind()
-      ? null
-      : input.apiClient.bindBlobAttachment(input.blobId, request, {
-          expectedPaymentRequiredOrganizationId: input.organizationId,
-          stillCurrent: canBind,
-        });
-  if (input.documentSync) {
-    const request = { ...input.plainRequest, documentSync: input.documentSync };
-    const response = await bind(request);
-    if (response || !bindRefusedCarriedSync(input.apiClient, input.blobId)) {
-      return { request, response };
-    }
-  }
-  return {
-    request: input.plainRequest,
-    response: await bind(input.plainRequest),
   };
 }
 
@@ -245,9 +193,11 @@ interface StageAndBindInput {
   multipart: NonNullable<UploadDocumentAttachmentRequest["multipart"]>;
   onMultipartProgress?: MultipartUploadProgressListener | undefined;
   onStageResolved?: MultipartStageResolvedListener | undefined;
+  onBindEnded?: PreparedUploadDocumentAttachmentRequest["onBindEnded"];
   onStageUnavailable?: ((stageId: string) => Promise<void>) | undefined;
   signedAt: string;
   slotId: string;
+  verifiedDocumentVersion: UploadDocumentAttachmentRequest["verifiedDocumentVersion"];
 }
 
 /**
@@ -322,7 +272,7 @@ async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
     stageId,
     writeHeader,
   });
-  const { request, response } = await bindCarryingDocumentSync({
+  const bound = await bindAtVerifiedDocumentVersion({
     apiClient: input.apiClient,
     blobId: input.blobId,
     documentSync: input.documentSync,
@@ -330,10 +280,13 @@ async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
     plainRequest,
     stillCurrent: input.stillCurrent,
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
+    verifiedDocumentVersion: input.verifiedDocumentVersion,
   });
-  if (!response || input.stillCurrent?.() === false) {
+  input.onBindEnded?.(bound.status);
+  if (bound.status !== "bound" || input.stillCurrent?.() === false) {
     return null;
   }
+  const { request, response } = bound;
 
   await assertBlobAttachmentBindResponse({
     body,
@@ -363,6 +316,10 @@ async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
 /** An upload whose source `inspectBlobSource` already snapshotted. */
 export interface PreparedUploadDocumentAttachmentRequest
   extends UploadDocumentAttachmentRequest {
+  /** Called once per call that reaches a bind, with how its binds ended. */
+  readonly onBindEnded?:
+    | ((status: DocumentVersionBindStatus) => void)
+    | undefined;
   readonly sourceSnapshot?: BlobSourceSnapshot | undefined;
   readonly onStageUnavailable?:
     | ((stageId: string) => Promise<void>)
@@ -394,6 +351,7 @@ export async function uploadPreparedDocumentAttachment(
     isRemoteSyncBlocked,
     nonceSeed,
     multipart,
+    onBindEnded,
     onMultipartProgress,
     onStageResolved,
     onStageUnavailable,
@@ -402,6 +360,7 @@ export async function uploadPreparedDocumentAttachment(
     slotId,
     sourceSnapshot,
     stillCurrent,
+    verifiedDocumentVersion,
     warmReferencedPrincipalPolicies,
     writerProjection,
   }: PreparedUploadDocumentAttachmentRequest,
@@ -477,11 +436,13 @@ export async function uploadPreparedDocumentAttachment(
     stillCurrent,
     isRemoteSyncBlocked,
     multipart: resolvedMultipart,
+    onBindEnded,
     onMultipartProgress,
     onStageResolved,
     onStageUnavailable,
     signedAt,
     slotId,
+    verifiedDocumentVersion,
   });
   if (!result || stillCurrent?.() === false) {
     return null;

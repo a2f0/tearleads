@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import type { AccessEvent } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createMultipartBlobStageFixture } from "../../../../test/helpers/data/blobUploadFixtures";
+import {
+  checkedDocumentVersion,
+  createMultipartBlobStageFixture,
+} from "../../../../test/helpers/data/blobUploadFixtures";
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import type { UploadDocumentAttachmentRequest } from "../../../data/blobs/attachments/types";
@@ -49,6 +52,7 @@ test("uploadDocumentAttachment rejects document writer projections with bad sign
       bytes: new Uint8Array([5, 6, 7]) as BlobBytes,
       documentId: writerProjection.documentId,
       expectedBindingId: null,
+      verifiedDocumentVersion: checkedDocumentVersion,
       resolveProjectionUserKey,
       signedAt: "2026-04-27T00:00:00.000Z",
       slotId: "preview",
@@ -117,6 +121,7 @@ test("an upload retired during projection loading leaves no verification checkpo
         bytes: new Uint8Array([1]),
         documentId: writerProjection.documentId,
         expectedBindingId: null,
+        verifiedDocumentVersion: checkedDocumentVersion,
         resolveProjectionUserKey,
         slotId: "avatar",
         stillCurrent: () => current,

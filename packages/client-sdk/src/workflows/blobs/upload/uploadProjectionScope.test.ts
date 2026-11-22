@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { checkedDocumentVersion } from "../../../../test/helpers/data/blobUploadFixtures";
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import {
   createExpiringApiServer,
@@ -41,6 +42,7 @@ test.each(SCOPE_RETIREMENTS)(
         resolveProjectionUserKey,
         slotId: "scoped-projection",
         stillCurrent: () => current,
+        verifiedDocumentVersion: checkedDocumentVersion,
       });
       await server.entered;
       current = false;

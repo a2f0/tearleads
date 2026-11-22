@@ -296,13 +296,16 @@ async function runDocumentSyncPass(
     return;
   }
 
-  const attachmentResult = await syncPendingAttachments(
-    state,
-    nextRecord,
-    encapsulationKeyPair,
+  const attachmentResult = await syncPendingAttachments({
     attachmentGeneration,
+    encapsulationKeyPair,
+    generation,
+    nextRecord,
     policyOperation,
-  );
+    state,
+  });
+  // A refused bind may have pulled mid-pass; the rest of the pass syncs from
+  // the record that pull left, or its responses would not apply.
   nextRecord = attachmentResult.nextRecord;
   if (state.pendingAttachments.length > 0) {
     return;

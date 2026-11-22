@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -254,6 +255,7 @@ test("hydrateDocumentAttachmentBlobs reuses one projection for distinct attachme
     bytes,
     documentId: fixture.writerProjection.documentId,
     expectedBindingId: null,
+    verifiedDocumentVersion: checkedDocumentVersion,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     signedAt: "2026-04-27T00:02:00.000Z",
     slotId,

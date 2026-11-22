@@ -88,6 +88,7 @@ test("isBlobAttachmentBindRequest", () => {
     ],
     containerRekeys: [createContainerMutationRequest()],
     contentKeyBundle: createBlobContentKeyBundle(),
+    documentVersionVector: "document-version-vector",
     stagedBlob: {
       stageId: "550e8400-e29b-41d4-a716-446655440004",
       writeHeader: { objectKind: "blob" },
@@ -95,6 +96,11 @@ test("isBlobAttachmentBindRequest", () => {
   };
 
   expect(isBlobAttachmentBindRequest(validRequest)).toBe(true);
+  const { documentVersionVector: _version, ...withoutVersion } = validRequest;
+  expect(isBlobAttachmentBindRequest(withoutVersion)).toBe(false);
+  expect(
+    isBlobAttachmentBindRequest({ ...validRequest, documentVersionVector: "" }),
+  ).toBe(false);
   expect(
     isBlobAttachmentBindRequest({
       ...validRequest,

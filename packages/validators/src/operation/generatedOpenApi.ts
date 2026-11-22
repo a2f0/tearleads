@@ -1739,6 +1739,17 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A refused attachment bind. */
+        BlobAttachmentBindFailureResponse: {
+            /**
+             * @description `container_unavailable` when a container the write depends on no longer exists; `attachment_document_changed` when the document has a committed update the bind's `documentVersionVector` lacks, which the uploader resolves by pulling and binding again.
+             * @enum {string}
+             */
+            code?: "attachment_document_changed" | "container_unavailable";
+            error: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description A signed `attachment.bind`: puts a blob in a document slot, optionally completing a blob stage and committing the document's first update. */
         BlobAttachmentBindRequest: {
             /** @description Container paths that authorize the write; the API resolves the document link-set manifest itself. */
@@ -1750,6 +1761,8 @@ export type components = {
             contentKeyBundle: components["schemas"]["BlobContentKeyBundleRequest"];
             /** @description The document's first queued update, committed with the bind under every check a standalone sync makes. */
             documentSync?: components["schemas"]["DocumentSyncRequest"];
+            /** @description Encoded Loro version vector of the document the uploader checked the slot against. The API refuses the bind with `409 attachment_document_changed` while the document has a committed update this version lacks; the uploader pulls, checks the slot still asks for these bytes, and retries with the newer version. */
+            documentVersionVector: string;
             event: {
                 [key: string]: unknown;
             };
@@ -1927,7 +1940,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A refused attachment bind or detach. */
+        /** @description A refused attachment detach. */
         BlobMutationFailureResponse: {
             /**
              * @description `container_unavailable` when a container the write depends on no longer exists.
@@ -5852,7 +5865,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BlobMutationFailureResponse"];
+                    "application/json": components["schemas"]["BlobAttachmentBindFailureResponse"];
                 };
             };
             /** @description Internal Server Error */

@@ -4,7 +4,10 @@ import type {
   UploadDocumentAttachmentResult,
 } from "../../../../workflows/blobs";
 import { uploadInspectedDocumentAttachment } from "../../../../workflows/blobs/blobAttachmentService";
-import type { PreparedUploadDocumentAttachmentRequest as AttachmentUploadInput } from "../../../../workflows/blobs/upload";
+import type {
+  PreparedUploadDocumentAttachmentRequest as AttachmentUploadInput,
+  DocumentVersionBindStatus,
+} from "../../../../workflows/blobs/upload";
 import type { DocumentStoreState } from "../state";
 
 function withResumedMultipartStage(
@@ -23,18 +26,34 @@ function withResumedMultipartStage(
     : uploadInput;
 }
 
+/** How one upload attempt ended; the first matching status wins. */
+export type AttachmentUploadAttempt =
+  | {
+      readonly status: "uploaded";
+      readonly uploaded: UploadDocumentAttachmentResult;
+    }
+  /** A billing pause stopped it; no failure is reported. */
+  | { readonly status: "syncBlocked" }
+  /**
+   * The upload call's binds ended because the document advanced: its last
+   * bind was refused for a newer document, or its check after a refusal
+   * abandoned the bind (the slot no longer asks for the bytes, or the pull
+   * did not complete). A bind that then failed otherwise, or a throw, is
+   * `failed`, so its error is reported.
+   */
+  | { readonly status: "documentChanged" }
+  | { readonly status: "failed"; readonly error: unknown };
+
 export async function uploadAttachmentWithWriterProjectionRetry(input: {
   baseUploadInput: AttachmentUploadInput;
   /** The service whose executor the base input was built beside. */
   blobAttachments: BlobAttachmentService;
   state: DocumentStoreState;
   writerProjection: DocumentStoreState["writerProjection"];
-}): Promise<{
-  error: unknown;
-  remoteSyncBlocked: boolean;
-  uploaded: UploadDocumentAttachmentResult | null;
-}> {
+}): Promise<AttachmentUploadAttempt> {
   let remoteSyncBlocked = false;
+  /** How the latest upload call's binds ended; null until one reaches a bind. */
+  let bindEnd: DocumentVersionBindStatus | null = null;
   let checkedOrganizationId: string | undefined;
   let resolvedMultipartStage:
     | { readonly partSize: number; readonly stageId: string }
@@ -53,6 +72,10 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
       remoteSyncBlocked =
         input.state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
       return remoteSyncBlocked;
+    },
+    onBindEnded: (status: DocumentVersionBindStatus) => {
+      bindEnd = status;
+      input.baseUploadInput.onBindEnded?.(status);
     },
     onStageResolved,
   };
@@ -84,11 +107,13 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     !uploaded &&
     input.writerProjection &&
     !remoteSyncBlocked &&
+    !endedForNewerDocument(bindEnd) &&
     !uploadThrew
   ) {
     // A stale cached writer projection may have caused an ambiguous null. Retry
     // once with a fresh projection, but do not immediately replay a concrete
-    // thrown failure or an expected billing pause.
+    // thrown failure, an expected billing pause, or a bind refused because
+    // the document advanced, which needs a pull rather than a projection.
     input.state.writerProjection = null;
     // Binding can return null after multipart staging succeeded. Carry that
     // resolved stage into the retry so it is resumed instead of orphaned.
@@ -112,10 +137,29 @@ export async function uploadAttachmentWithWriterProjectionRetry(input: {
     }
   }
 
-  if (remoteSyncBlocked) {
-    uploadError = undefined;
+  return endedAttempt({ bindEnd, remoteSyncBlocked, uploaded, uploadError });
+}
+
+/** Whether an upload call's binds ended because the document advanced. */
+function endedForNewerDocument(
+  bindEnd: DocumentVersionBindStatus | null,
+): boolean {
+  return bindEnd === "documentChanged" || bindEnd === "abandoned";
+}
+
+function endedAttempt(input: {
+  /** Null when the call threw or stopped before any bind. */
+  readonly bindEnd: DocumentVersionBindStatus | null;
+  readonly remoteSyncBlocked: boolean;
+  readonly uploaded: UploadDocumentAttachmentResult | null;
+  readonly uploadError: unknown;
+}): AttachmentUploadAttempt {
+  if (input.uploaded) return { status: "uploaded", uploaded: input.uploaded };
+  if (input.remoteSyncBlocked) return { status: "syncBlocked" };
+  if (endedForNewerDocument(input.bindEnd)) {
+    return { status: "documentChanged" };
   }
-  return { error: uploadError, remoteSyncBlocked, uploaded };
+  return { error: input.uploadError, status: "failed" };
 }
 
 async function tryUploadDocumentAttachment(input: {

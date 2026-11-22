@@ -9,6 +9,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import {
+  checkedDocumentVersion,
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/data/blobUploadFixtures";
@@ -122,6 +123,7 @@ test("decryptDocumentAttachmentBlob accepts a binding created after the blob wri
     contentKey: fixture.contentKey,
     documentId: fixture.writerProjection.documentId,
     expectedBindingId: null,
+    verifiedDocumentVersion: checkedDocumentVersion,
     resolveProjectionUserKey: fixture.resolveProjectionUserKey,
     signedAt: "2026-04-27T00:01:00.000Z",
     slotId,

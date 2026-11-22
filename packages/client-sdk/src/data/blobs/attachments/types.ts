@@ -49,6 +49,8 @@ export const TEXT_ENCODER = new TextEncoder();
 export interface BlobAttachmentRequestOptions {
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly expectedPaymentRequiredOrganizationId?: string | undefined;
+  /** False defers reporting to the caller, through the failure's `report`. */
+  readonly reportErrors?: boolean | undefined;
 }
 
 export interface BlobAttachmentApi {
@@ -66,6 +68,7 @@ export interface BlobAttachmentApi {
     readonly code?: string | undefined;
     readonly kind: RequestFailureKind;
     readonly message: string;
+    readonly report?: (() => void) | undefined;
     readonly status: number | null;
   } | null;
   getDocumentWriterProjection(
@@ -228,6 +231,17 @@ export interface UploadDocumentAttachmentRequest {
   signedAt?: string | undefined;
   slotId: string;
   stillCurrent?: (() => boolean) | undefined;
+  /**
+   * Checks that the slot still asks for these bytes and returns the encoded
+   * Loro version vector of the document that check read, or null to abandon
+   * the bind. Called before each bind. `refresh` is true after the API
+   * refused a bind because the document has a committed update that version
+   * lacks: the caller pulls before checking again, or returns null to retry
+   * later. A refused bind keeps its completed stage for that retry.
+   */
+  verifiedDocumentVersion: (request: {
+    readonly refresh: boolean;
+  }) => Promise<string | null>;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }

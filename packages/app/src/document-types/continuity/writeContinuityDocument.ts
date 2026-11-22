@@ -23,6 +23,7 @@ type SeedWriteInput = SeedWriteBase &
         destination: "account";
         traceAttachment?: (event: string) => void;
         onRecoveredStaleTarget?: (() => void) | undefined;
+        onRefusedStaleBind?: (() => void) | undefined;
         existing?: { localId: string; documentId: string } | undefined;
       }
   );

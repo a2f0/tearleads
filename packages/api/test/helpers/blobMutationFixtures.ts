@@ -25,6 +25,7 @@ import type { TestUser } from "@tearleads/test-utils";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 import { fixtureBlobMetadataHash } from "./blobEnvelope";
+import { committedDocumentVersionVector } from "./committedDocumentVersion";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import {
   asVerifiedContainerManifest,
@@ -281,6 +282,9 @@ export async function buildBindRequest(input: {
       targetHash: blobKekTargets.blobKeyTargetHash,
       targets: allTargets,
     },
+    documentVersionVector: await committedDocumentVersionVector(
+      verifiedBinding.value.documentId,
+    ),
   };
 
   if (input.stagedBlob) {

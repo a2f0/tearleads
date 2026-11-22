@@ -343,13 +343,14 @@ test("a requeued copy under its first-attach key lists the binding it may still 
     if (!generation || !reopened.record || !encapsulationKeyPair) {
       throw new Error("Expected sync state");
     }
-    await syncPendingAttachments(
-      reopened,
-      reopened.record,
+    await syncPendingAttachments({
+      attachmentGeneration: generation,
       encapsulationKeyPair,
       generation,
-      createPrincipalPolicyOperation(),
-    ).catch(() => undefined);
+      nextRecord: reopened.record,
+      policyOperation: createPrincipalPolicyOperation(),
+      state: reopened,
+    }).catch(() => undefined);
     // The bind must name the active binding, so the lane lists it first.
     expect(listed).toBe(true);
   });
