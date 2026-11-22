@@ -10,20 +10,31 @@ export interface AttributionReadRequest {
 }
 
 /**
+ * What a loading read follows in its scope. Another document or session never
+ * carries anything over.
+ *
+ * - `first`: nothing in the scope has settled; this is the scope's first read.
+ * - `settled`: a read in the scope has loaded or failed. `previous` is the
+ *   latest result read, or null when none was (the first read failed).
+ */
+export type AttributionReadPrior<Result> =
+  | { kind: "first" }
+  | { kind: "settled"; previous: Result | null };
+
+const FIRST_READ: AttributionReadPrior<never> = { kind: "first" };
+
+/**
  * One attribution read for one request. `Result` is what the read yields: the
- * compact intervals, or the per-upload ranges. While a refresh loads, and
- * after it fails, `previous` is the last result read in the same scope, or
- * null when there is none: another document or session never carries it.
- * `refreshing` says a read in the same scope has already settled, loaded or
- * failed, so this one is not the scope's first.
+ * compact intervals, or the per-upload ranges. While a read loads, `prior`
+ * says what it follows in its scope. After it fails, `previous` is the latest
+ * result read in the scope, or null when there is none.
  */
 export type AttributionReadState<Result> =
   | { status: "idle" }
   | {
       status: "loading";
       request: AttributionReadRequest;
-      previous: Result | null;
-      refreshing: boolean;
+      prior: AttributionReadPrior<Result>;
     }
   | {
       status: "unavailable";
@@ -46,7 +57,7 @@ function hasSettledInScope<Result>(
     case "idle":
       return false;
     case "loading":
-      return state.request.scope === scope && state.refreshing;
+      return state.request.scope === scope && state.prior.kind === "settled";
     default:
       return state.request.scope === scope;
   }
@@ -62,15 +73,33 @@ function latestResultInScope<Result>(
       return null;
     case "ready":
       return state.request.scope === scope ? state.result : null;
-    default:
+    case "loading":
+      return state.request.scope === scope && state.prior.kind === "settled"
+        ? state.prior.previous
+        : null;
+    case "unavailable":
       return state.request.scope === scope ? state.previous : null;
+    default: {
+      const exhaustive: never = state;
+      return exhaustive;
+    }
   }
+}
+
+/** What a new read in `scope` follows, given what `state` holds. */
+function priorInScope<Result>(
+  state: AttributionReadState<Result>,
+  scope: object,
+): AttributionReadPrior<Result> {
+  return hasSettledInScope(state, scope)
+    ? { kind: "settled", previous: latestResultInScope(state, scope) }
+    : FIRST_READ;
 }
 
 // Request identity, not just document id, rejects old completions after a
 // refresh or an A -> B -> A scope switch. Completion outside loading is
-// ignored. A request in the same scope keeps the latest result as `previous`;
-// one in another scope, or no request, drops it.
+// ignored. A request in a scope where a read has settled carries what it
+// settled with; one in another scope, or no request, drops it.
 export function transitionAttributionRead<Result>(
   state: AttributionReadState<Result>,
   event: AttributionReadEvent<Result>,
@@ -81,8 +110,7 @@ export function transitionAttributionRead<Result>(
         ? {
             status: "loading",
             request: event.request,
-            previous: latestResultInScope(state, event.request.scope),
-            refreshing: hasSettledInScope(state, event.request.scope),
+            prior: priorInScope(state, event.request.scope),
           }
         : { status: "idle" };
     case "failed":
@@ -94,7 +122,7 @@ export function transitionAttributionRead<Result>(
         ? {
             status: "unavailable",
             request: event.request,
-            previous: state.previous,
+            previous: latestResultInScope(state, event.request.scope),
           }
         : { status: "ready", request: event.request, result: event.result };
     default: {
