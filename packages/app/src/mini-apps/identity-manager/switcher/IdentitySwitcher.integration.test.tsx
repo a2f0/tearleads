@@ -2,6 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import type { WorkerRequest } from "@tearleads/sqlite-worker/types";
 import { fireEvent, waitFor, within } from "@testing-library/react";
+import {
+  confirmRecoveryKeyBackup,
+  RECOVERY_KEY_BACKUP_AGREEMENT_LABEL,
+} from "../../../../test/helpers/accountNamePrompt";
 import { openIdentityManagerFromPane } from "../../../../test/helpers/identityPaneTestUtils";
 import { MockWorker } from "../../../../test/helpers/mockWorker";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
@@ -134,6 +138,22 @@ test(
       },
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
+    // The new identity holds Identity Manager until its recovery key is
+    // backed up, and only the typed agreement releases it.
+    await identityManager.findByRole("heading", {
+      name: "Back up your recovery key",
+    });
+    expect(
+      identityManager.queryByRole("combobox", { name: "Identities" }),
+    ).toBeNull();
+    const agree = identityManager.getByRole("button", { name: "Continue" });
+    expect(agree.hasAttribute("disabled")).toBe(true);
+    fireEvent.change(
+      identityManager.getByLabelText(RECOVERY_KEY_BACKUP_AGREEMENT_LABEL),
+      { target: { value: "i agree" } },
+    );
+    expect(agree.hasAttribute("disabled")).toBe(true);
+    await confirmRecoveryKeyBackup(identityManagerWindow);
     const userB = await registerCurrentIdentity(view, identityManager);
     expect(userB).not.toBe(userA);
     await waitForPersistedSession(localIdentityNamespace, identityB);

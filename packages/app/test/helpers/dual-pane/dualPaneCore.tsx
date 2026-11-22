@@ -8,9 +8,9 @@ import {
 } from "@testing-library/react";
 import invariant from "invariant";
 import { type ReactNode, useEffect, useRef } from "react";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/components/identity/recovery-key/recoveryKeyDisclosure";
 import { APP_HOST_PROFILES } from "../../../src/host/AppHostConfig";
 import { useRegisterCurrentIdentity } from "../../../src/identity/useRegisterCurrentIdentity";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
 import {
   saveSystemMonitorMode,
   systemMonitorModeStorageKey,
