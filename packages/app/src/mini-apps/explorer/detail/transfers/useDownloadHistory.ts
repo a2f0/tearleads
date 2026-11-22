@@ -95,6 +95,8 @@ export function useDownloadHistory(params: {
     store.requestRead(documentQueries, { immediate: true });
   }, [documentQueries, store]);
   const pending = getPendingDownloads(state);
+  // Finished downloads are known before the first queue read settles, so
+  // they are listed while the queue still shows as loading.
   const entries = useMemo(
     () => mergeDownloadHistory(pending, completed),
     [completed, pending],

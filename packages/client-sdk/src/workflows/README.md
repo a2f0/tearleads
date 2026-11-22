@@ -270,9 +270,9 @@ never admitted by the purge.
 The `sync` facade exposes read-only snapshots of the scope's coordinator lanes
 (`getDomainSyncCoordinatorSnapshot`, `subscribeToDomainSyncCoordinator`) and
 finished downloads, newest first, recorded whether or not a view is open
-(`getDomainDownloadHistorySnapshot`, `subscribeToDomainDownloadHistory`). Host
-diagnostics and product UI may show lane status, request/run/error counts, last
-action times, and downloads without touching coordinator internals or policy.
+(`getDomainDownloadHistorySnapshot`, `subscribeToDomainDownloadHistory`), for
+host diagnostics and UI that must not touch coordinator internals or policy.
+`getOrCreateDomainDownloadHistory` mirrors `getOrCreateDomainSyncCoordinator`.
 
 `clearRemoteSyncState(execSql, { organizationId })` clears the organization's
 remote-derived rows and child/document cursors, plus the global root-list
