@@ -38,11 +38,11 @@ export function createMiniApps(
       createComponent: () => orgManagerComponent,
       title: "Org Manager",
     },
-    organizations: {
-      createComponent: () => EmptyMiniApp,
-      title: "Organizations",
-    },
     root: { createComponent: () => () => null, title: "Root" },
+    "shared-with-me": {
+      createComponent: () => EmptyMiniApp,
+      title: "Shared with Me",
+    },
     "system-monitor": {
       createComponent: () => EmptyMiniApp,
       title: "System Monitor",

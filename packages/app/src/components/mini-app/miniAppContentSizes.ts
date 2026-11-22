@@ -19,7 +19,7 @@ export const MINI_APP_CONTENT_SIZES = {
   "identity-manager": FORM,
   notes: DOCUMENT,
   "org-manager": DOCUMENT,
-  organizations: FORM,
   root: DIAGNOSTICS,
+  "shared-with-me": DOCUMENT,
   "system-monitor": DIAGNOSTICS,
 } as const satisfies Record<MiniAppId, WindowSize | undefined>;

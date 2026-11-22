@@ -9,7 +9,7 @@ import {
   useTearleadsRuntime,
 } from "../../../providers/sdk/TearleadsProvider";
 import { usePausedOrganizationIds } from "../../../providers/sdk/usePausedOrganizationIds";
-import { ORGANIZATIONS_LABELS } from "../labels";
+import { SHARED_WITH_ME_LABELS } from "../labels";
 
 export interface OrganizationSyncChoices {
   readonly changingOrganizationId: string | null;
@@ -33,7 +33,7 @@ function byOrganizationId(
 function pauseErrorMessage(result: OrganizationSyncPauseResult): string | null {
   return result.status === "updated"
     ? null
-    : result.message || ORGANIZATIONS_LABELS.syncChangeFailed;
+    : result.message || SHARED_WITH_ME_LABELS.syncChangeFailed;
 }
 
 function leaveErrorMessage(
@@ -41,7 +41,7 @@ function leaveErrorMessage(
 ): string | null {
   return result.status === "updated"
     ? null
-    : result.message || ORGANIZATIONS_LABELS.leaveRequestFailed;
+    : result.message || SHARED_WITH_ME_LABELS.leaveRequestFailed;
 }
 
 /** The paused set on this device and the memberships the server reports. */
@@ -111,7 +111,7 @@ function useScopedChange(scopeKey: unknown) {
       try {
         message = await change(isCurrent);
       } catch {
-        message = ORGANIZATIONS_LABELS.syncChangeFailed;
+        message = SHARED_WITH_ME_LABELS.syncChangeFailed;
       }
       if (!isCurrent()) return;
       setError(message);

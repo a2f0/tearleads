@@ -11,9 +11,9 @@ import { ExplorerApp } from "./explorer/ExplorerApp";
 import { IdentityManagerApp } from "./identity-manager/IdentityManagerApp";
 import { createNotesWindowComponent } from "./notes/NotesApp";
 import { OrgManagerApp } from "./org-manager/OrgManagerApp";
-import { OrganizationsApp } from "./organizations/OrganizationsApp";
 import { RootApp } from "./root/RootApp";
 import { SettingsApp } from "./settings/SettingsApp";
+import { SharedWithMeApp } from "./shared-with-me/SharedWithMeApp";
 import { SystemMonitorApp } from "./system-monitor/SystemMonitorApp";
 import type { MiniAppDefinition, MiniAppId } from "./types";
 
@@ -64,16 +64,16 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
     icon: MINI_APP_ICONS["org-manager"],
     title: MINI_APP_TITLES["org-manager"],
   },
-  organizations: {
-    createComponent: () => OrganizationsApp,
-    icon: MINI_APP_ICONS.organizations,
-    initialShowSidebar: false,
-    title: MINI_APP_TITLES.organizations,
-  },
   root: {
     createComponent: () => RootApp,
     icon: MINI_APP_ICONS.root,
     title: MINI_APP_TITLES.root,
+  },
+  "shared-with-me": {
+    createComponent: () => SharedWithMeApp,
+    icon: MINI_APP_ICONS["shared-with-me"],
+    initialShowSidebar: false,
+    title: MINI_APP_TITLES["shared-with-me"],
   },
   "system-monitor": {
     createComponent: () => SystemMonitorApp,

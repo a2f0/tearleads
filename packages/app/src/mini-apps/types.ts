@@ -13,8 +13,8 @@ const MINI_APP_IDS = [
   "identity-manager",
   "notes",
   "org-manager",
-  "organizations",
   "root",
+  "shared-with-me",
   "system-monitor",
 ] as const;
 
