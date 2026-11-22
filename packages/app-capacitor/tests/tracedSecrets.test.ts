@@ -86,6 +86,19 @@ test("a traced bucket listing never prints the storage secret", async () => {
   expect(run.stdout).not.toContain(S3_SECRET);
 });
 
+test("a traced root grant never prints the migration password", async () => {
+  const fingerprint = "a".repeat(64);
+  const run = await tracedRun("scripts/admin/makeRoot.sh", [
+    "prod",
+    fingerprint,
+  ]);
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(run.calls).toEqual([`bun src/index.ts make-admin ${fingerprint}`]);
+  expect(run.stderr).toContain("+ ");
+  expect(run.stderr).not.toContain(MIGRATION_PASSWORD);
+  expect(run.stdout).not.toContain(MIGRATION_PASSWORD);
+});
+
 test("a traced staging drop never prints the migration password", async () => {
   const run = await tracedRun("terraform/scripts/drop-postgres-owned.sh", [
     "staging",
