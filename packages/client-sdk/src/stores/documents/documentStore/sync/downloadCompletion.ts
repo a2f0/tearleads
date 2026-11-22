@@ -12,7 +12,7 @@ import type { DocumentStoreState } from "../state";
  * record and every delete removes with it, so a just-saved record has one.
  * `downloadQueueRule.test.ts` pins this against the query.
  */
-export function isQueuedForDownload(record: DocumentRecord): boolean {
+export function isDocumentQueuedForDownload(record: DocumentRecord): boolean {
   return (
     record.documentId !== null &&
     (record.snapshotEndVersion === "" ||
@@ -24,9 +24,10 @@ export function isQueuedForDownload(record: DocumentRecord): boolean {
 /**
  * Record a finished download in the scope's history: a pull that drained the
  * server's updates and took this document out of the queue it was in when the
- * request was made. A pull of a document already stored is a sync, not a
- * download. The stored record's container is the projection's, which every
- * persist reads back.
+ * request was made. A one-page sync of a document already stored is not a
+ * download; an update that pages is queued until its last page lands, and
+ * that page records it. The stored record's container is the projection's,
+ * which every persist reads back.
  */
 export function noteDocumentDownloadDrained(input: {
   readonly requestRecord: DocumentRecord;
@@ -35,8 +36,12 @@ export function noteDocumentDownloadDrained(input: {
   readonly storedRecord: DocumentRecord;
 }): void {
   const { requestRecord, state, storedRecord } = input;
-  if (!(input.requestedPage || isQueuedForDownload(requestRecord))) return;
-  if (storedRecord.documentId === null || isQueuedForDownload(storedRecord))
+  if (!(input.requestedPage || isDocumentQueuedForDownload(requestRecord)))
+    return;
+  if (
+    storedRecord.documentId === null ||
+    isDocumentQueuedForDownload(storedRecord)
+  )
     return;
   recordDomainCompletedDownload(state.runtime.state.domainScope, {
     containerId: storedRecord.containerId,

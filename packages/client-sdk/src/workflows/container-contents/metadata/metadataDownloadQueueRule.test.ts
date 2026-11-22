@@ -9,7 +9,7 @@ import {
   createContainerRecord,
   createDocumentRecord,
 } from "./metadata.testFixtures";
-import { isQueuedForDownload } from "./metadataDownloadCompletion";
+import { isFolderMetadataQueuedForDownload } from "./metadataDownloadCompletion";
 
 async function exportedMetadata(name: string | null): Promise<string> {
   const doc = await createDocument(`metadata-queue-rule-${name ?? "empty"}`);
@@ -74,7 +74,10 @@ test("the folder queue rule matches listPendingDownloads for every stored state"
           id,
         );
       if (!loaded?.record) throw new Error(`Expected stored ${id}`);
-      expect({ id, queued: isQueuedForDownload(loaded.record) }).toEqual({
+      expect({
+        id,
+        queued: isFolderMetadataQueuedForDownload(loaded.record),
+      }).toEqual({
         id,
         queued: queued.has(id),
       });

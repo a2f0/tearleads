@@ -18,7 +18,9 @@ type ContainerMetadataRecord = ContainerMetadataState["record"];
  * the record wrote with it. `metadataDownloadQueueRule.test.ts` pins this
  * against the query.
  */
-export function isQueuedForDownload(record: ContainerMetadataRecord): boolean {
+export function isFolderMetadataQueuedForDownload(
+  record: ContainerMetadataRecord,
+): boolean {
   if (record.documentId === null) return false;
   if (
     (record.pullContinuation ?? null) !== null ||
@@ -32,7 +34,8 @@ export function isQueuedForDownload(record: ContainerMetadataRecord): boolean {
 /**
  * Record a finished folder download in the scope's history: a metadata pull
  * that took the folder out of the queue it was in when the request was made.
- * A pull of a folder already stored, such as a rename, is a sync.
+ * A one-page sync of a folder already stored, such as a rename, is not a
+ * download; one that pages is queued until its last page lands.
  */
 export function noteContainerMetadataDownloadDrained(input: {
   readonly container: ContainerRecord;
@@ -47,11 +50,14 @@ export function noteContainerMetadataDownloadDrained(input: {
   if (
     !(
       resumedEarlierMetadataPull(syncAttempt) ||
-      isQueuedForDownload(syncAttempt.requestRecord)
+      isFolderMetadataQueuedForDownload(syncAttempt.requestRecord)
     )
   )
     return;
-  if (storedRecord.documentId === null || isQueuedForDownload(storedRecord))
+  if (
+    storedRecord.documentId === null ||
+    isFolderMetadataQueuedForDownload(storedRecord)
+  )
     return;
   recordDomainCompletedDownload(input.domainScope, {
     documentId: storedRecord.documentId,

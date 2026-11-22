@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { listPendingDownloads } from "../../../../workflows/container-contents/documentQueries/pendingDownloads";
-import { isQueuedForDownload } from "./downloadCompletion";
+import { isDocumentQueuedForDownload } from "./downloadCompletion";
 
 const base = {
   accessEpoch: 1,
@@ -60,7 +60,7 @@ test("the document queue rule matches listPendingDownloads for every stored stat
     for (const id of Object.keys(states)) {
       const record = await sqlDocumentsPersistence.loadDocument(execSql, id);
       if (!record) throw new Error(`Expected stored ${id}`);
-      expect({ id, queued: isQueuedForDownload(record) }).toEqual({
+      expect({ id, queued: isDocumentQueuedForDownload(record) }).toEqual({
         id,
         queued: queued.has(id),
       });
