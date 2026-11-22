@@ -1,21 +1,41 @@
+import { requestAllDomainSyncLanes } from "@tearleads/client-sdk";
 import { Menu, type MenuPosition } from "@tearleads/windowing";
-import { type MouseEvent, useCallback, useState } from "react";
+import {
+  type MouseEvent,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 import { SyncGlyph } from "../../components/shared/SyncGlyph";
 import { useAppNavigationActions } from "../../navigation/AppNavigationProvider";
+import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
+import {
+  SyncStatusPopover,
+  type SyncStatusPopoverAction,
+} from "./SyncStatusPopover";
 import type { SyncStatus } from "./syncStatusModel";
-import { useSyncStatus } from "./useSyncStatus";
+import {
+  describeSyncStatusDetails,
+  listSyncStatusActions,
+  type SyncStatusActionId,
+} from "./syncStatusPopoverModel";
+import { usePopoverTransfers } from "./usePopoverTransfers";
+import { type SyncStatusResult, useSyncStatus } from "./useSyncStatus";
 import "./SyncStatusTrayApp.css";
 
-// Jumps to the Explorer's Write Queue view — the panel this indicator shares its
-// source of truth with (`pathSegments: ["writes"]`, see the routes module).
-const OPEN_WRITE_QUEUE_LABEL = "View write queue";
-
-// Jumps to the Org Manager's Billing view — where the "Update billing to
-// resume" instruction in the billing-paused status text can actually be done.
-// That view bills the *active* org; when the block is another organization's,
-// the same destination is still the right one — its org switcher is how the
-// lapsed org is reached.
-const OPEN_BILLING_LABEL = "Update billing";
+const SYNC_STATUS_ACTION_LABELS: Record<SyncStatusActionId, string> = {
+  "sync-now": "Sync now",
+  // Jumps to the Org Manager's Billing view — where the "Update billing to
+  // resume" instruction in the billing-paused status text can actually be
+  // done. That view bills the *active* org; when the block is another
+  // organization's, its org switcher is how the lapsed org is reached.
+  billing: "Update billing",
+  "write-queue": "View write queue",
+  downloads: "View downloads",
+  uploads: "View uploads",
+  "sync-lanes": "View sync lanes",
+};
 
 // Applied only while this popover is open: keep the trigger's own mousedown from
 // reaching Menu's document-level outside-click handler, so clicking the button
@@ -58,63 +78,17 @@ export function SyncStatusIndicatorView({
   );
 }
 
-// The popover body: the status detail, plus a link into the Org Manager's
-// Billing view when billing has sync paused and a link into the Explorer Write
-// Queue when the local queue holds unflushed data or could not be read (that
-// panel shows why). Props-only for the same reason.
-export function SyncStatusPopover({
-  title,
-  billingBlocked,
-  showWriteQueueLink,
-  onOpenBilling,
-  onOpenWriteQueue,
-}: {
-  title: string;
-  billingBlocked: boolean;
-  showWriteQueueLink: boolean;
-  onOpenBilling: () => void;
-  onOpenWriteQueue: () => void;
-}) {
-  return (
-    <>
-      <p className="sync-status-popover-message">{title}</p>
-      {billingBlocked && (
-        <button
-          className="sync-status-popover-action"
-          onClick={onOpenBilling}
-          type="button"
-        >
-          <span className="menu-item-label">{OPEN_BILLING_LABEL}</span>
-        </button>
-      )}
-      {showWriteQueueLink && (
-        <button
-          className="sync-status-popover-action"
-          onClick={onOpenWriteQueue}
-          type="button"
-        >
-          <span className="menu-item-label">{OPEN_WRITE_QUEUE_LABEL}</span>
-        </button>
-      )}
-    </>
-  );
-}
-
-// The trigger and its popover, without the SDK: the popover's open state and
-// its links. A right-click or long press, which opens the tray's context menu,
-// closes the popover first so only one menu shows.
+// The trigger and its popover, without the SDK: the popover's open state.
+// `renderPopover` draws the body only while it is open, so what it reads
+// (the download queue) is read only then. A right-click or long press, which
+// opens the tray's context menu, closes the popover first so only one menu
+// shows.
 export function SyncStatusTrayControl({
-  billingBlocked,
-  onOpenBilling,
-  onOpenWriteQueue,
-  showWriteQueueLink,
+  renderPopover,
   status,
   title,
 }: {
-  billingBlocked: boolean;
-  onOpenBilling: () => void;
-  onOpenWriteQueue: () => void;
-  showWriteQueueLink: boolean;
+  renderPopover: (close: () => void) => ReactNode;
   status: SyncStatus;
   title: string;
 }) {
@@ -141,53 +115,98 @@ export function SyncStatusTrayControl({
       />
       {menuPosition && (
         <Menu onClose={closeMenu} position={menuPosition}>
-          <SyncStatusPopover
-            billingBlocked={billingBlocked}
-            showWriteQueueLink={showWriteQueueLink}
-            onOpenBilling={() => {
-              onOpenBilling();
-              closeMenu();
-            }}
-            onOpenWriteQueue={() => {
-              onOpenWriteQueue();
-              closeMenu();
-            }}
-            title={title}
-          />
+          {renderPopover(closeMenu)}
         </Menu>
       )}
     </>
   );
 }
 
-// The Sync Status tray app (green = synced, red = unflushed data, red
-// warning = writes failing terminally or the queue unreadable, amber
-// warning = billing paused).
-// Clicking it opens a popover with the status detail plus a link into the Org
-// Manager's Billing view when billing has sync paused and, when the write queue
-// is non-empty, a link into the Explorer's Write Queue view. Same source of
-// truth as that panel (see `useSyncStatus`). It opens those views through app
-// navigation by id, since a tray app imports no mini-app.
-export function SyncStatusTrayApp() {
-  const { status, title, pendingWriteCount, queueReadFailed } = useSyncStatus();
-  const { openMiniApp } = useAppNavigationActions();
-  const openWriteQueue = useCallback(
-    () => openMiniApp({ appId: "explorer", pathSegments: ["writes"] }),
-    [openMiniApp],
-  );
-  const openBilling = useCallback(
-    () => openMiniApp({ appId: "org-manager", pathSegments: ["billing"] }),
-    [openMiniApp],
-  );
+// Where each popover action leads: a request for every sync lane, or a view
+// opened through app navigation by id, since a tray app imports no mini-app.
+const ACTION_DESTINATIONS = {
+  billing: { appId: "org-manager", pathSegments: ["billing"] },
+  downloads: { appId: "explorer", pathSegments: ["downloads"] },
+  "sync-lanes": { appId: "explorer", pathSegments: ["sync", "lanes"] },
+  uploads: { appId: "explorer", pathSegments: ["uploads"] },
+  "write-queue": { appId: "explorer", pathSegments: ["writes"] },
+} as const;
 
+// The open popover: reads what only it shows (the download queue and the
+// Explorer's file uploads), then lists the status, the per-direction details,
+// and the actions that apply.
+function SyncStatusPopoverContent({
+  close,
+  sync,
+}: {
+  close: () => void;
+  sync: SyncStatusResult;
+}) {
+  const runtime = useTearleadsRuntime();
+  const { openMiniApp } = useAppNavigationActions();
+  const { downloads, uploadingFileCount } = usePopoverTransfers();
+  const domainScope = runtime.state.domainScope;
+  const canSync = runtime.state.online && runtime.auth.isAuthenticated;
+  const actions = useMemo(
+    () =>
+      listSyncStatusActions({
+        billingBlocked: sync.status === "billing",
+        canSync,
+        downloads,
+        lanes: sync.lanes,
+        pendingWriteCount: sync.pendingWriteCount,
+        queueReadFailed: sync.queueReadFailed,
+        uploadingFileCount,
+      }).map(
+        (id): SyncStatusPopoverAction => ({
+          id,
+          label: SYNC_STATUS_ACTION_LABELS[id],
+          onSelect: () => {
+            if (id === "sync-now") requestAllDomainSyncLanes(domainScope);
+            else openMiniApp(ACTION_DESTINATIONS[id]);
+            close();
+          },
+        }),
+      ),
+    [
+      canSync,
+      close,
+      domainScope,
+      downloads,
+      openMiniApp,
+      sync,
+      uploadingFileCount,
+    ],
+  );
+  const details = describeSyncStatusDetails({
+    downloads,
+    lanes: sync.lanes,
+    pendingWriteCount: sync.pendingWriteCount,
+    uploadingFileCount,
+  });
+  return (
+    <SyncStatusPopover actions={actions} details={details} title={sync.title} />
+  );
+}
+
+// The Sync Status tray app. The glyph: green = synced, green ring = syncing
+// with nothing local waiting, red = unflushed data, red warning = writes or
+// sync tasks failing or the queue unreadable, amber warning = billing paused.
+// Clicking it opens a popover with the status, what is waiting in each
+// direction, Sync now, and links into the views that explain it.
+export function SyncStatusTrayApp() {
+  const sync = useSyncStatus();
+  const renderPopover = useCallback(
+    (close: () => void) => (
+      <SyncStatusPopoverContent close={close} sync={sync} />
+    ),
+    [sync],
+  );
   return (
     <SyncStatusTrayControl
-      billingBlocked={status === "billing"}
-      onOpenBilling={openBilling}
-      onOpenWriteQueue={openWriteQueue}
-      showWriteQueueLink={pendingWriteCount > 0 || queueReadFailed}
-      status={status}
-      title={title}
+      renderPopover={renderPopover}
+      status={sync.status}
+      title={sync.title}
     />
   );
 }

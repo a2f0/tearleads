@@ -10,14 +10,15 @@ import "./SyncGlyph.css";
 export type SyncGlyphTone =
   | "loading"
   | "synced"
+  | "syncing"
   | "pending"
   | "error"
   | "billing";
 
 /**
  * One sync vocabulary for the whole app: a coloured dot for the passive states
- * (green synced, red unflushed, muted not-yet-known) and a warning glyph for
- * the two that need the user to act. Shared by the footer-tray indicator and
+ * (green synced, a green ring while syncing, red unflushed, muted
+ * not-yet-known) and a warning glyph for the two that need the user to act. Shared by the footer-tray indicator and
  * the Explorer's per-object badge so both read identically.
  */
 export function SyncGlyph({
