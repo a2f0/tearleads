@@ -218,3 +218,35 @@ test("stored single-image actions remain hidden in read mode", () => {
   expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
   expect(view.queryByRole("button", { name: "Replace Image" })).toBeNull();
 });
+
+test("an unavailable image says so and retries its download", () => {
+  let retries = 0;
+  const view = render(
+    <DocumentAttachmentSlots
+      attachmentStorageKeyBySlotId={{ back: "blob-back" }}
+      attachmentStatusBySlotId={{ front: "unavailable" }}
+      attachments={attachments}
+      canAttach={false}
+      imageUrlBySlotId={{}}
+      onClearAttachment={() => undefined}
+      onRetryDownload={() => {
+        retries += 1;
+      }}
+      onSelectedAttachment={() => undefined}
+      slots={slots}
+    />,
+  );
+
+  expect(view.getByText("Image unavailable")).toBeTruthy();
+  expect(
+    view.getByText("Image missing or damaged on this device."),
+  ).toBeTruthy();
+  // Retrying needs no write access: it only fetches the recorded file again.
+  fireEvent.click(
+    view.getByRole("button", { name: "Retry download of Front Image" }),
+  );
+  expect(retries).toBe(1);
+  expect(
+    view.queryByRole("button", { name: "Retry download of Back Image" }),
+  ).toBeNull();
+});

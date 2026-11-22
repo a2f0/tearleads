@@ -1,5 +1,17 @@
 export type BlobBytes = Uint8Array<ArrayBuffer>;
 
+/**
+ * Stored bytes fail their own format or authentication check: the file is
+ * damaged or was not written with this store's key. A failure to read at all
+ * (a released database, a locked key) is a different error.
+ */
+export class BlobIntegrityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BlobIntegrityError";
+  }
+}
+
 /** A stable, replayable byte source whose reads return exactly the requested range. */
 export interface BlobByteSource {
   readonly byteLength: number;

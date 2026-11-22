@@ -31,6 +31,7 @@ import {
   replaceAttachmentInDocumentStore,
 } from "./attachments";
 import { removeAttachmentFromDocumentStore } from "./attachments/attachmentRemoval";
+import { checkHeldAttachmentCopies } from "./attachments/heldCopyCheckRun";
 import { discardDocumentStoreLocalState } from "./discard";
 import { restoreDocumentStoreContent } from "./history/restoreContent";
 import {
@@ -345,6 +346,12 @@ function createBackingDocumentStore(
       ),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
       liveWrite(() => attachFilesToDocumentStore(state, scheduleSync, files)),
+    checkHeldAttachments: () =>
+      withLiveSyncLane(() =>
+        checkHeldAttachmentCopies(state, () =>
+          ensureDocumentStoreReady(state, scheduleSync),
+        ),
+      ),
     discardLocalState: (expectedDocumentId: string) =>
       withLiveSyncLane(() =>
         discardBackingDocumentStoreLocalState(

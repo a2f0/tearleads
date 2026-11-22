@@ -33,6 +33,41 @@ interface AttachedStructuredDocument<Fields> {
   readonly toggleEditing: () => void;
 }
 
+/** Bind a blob picked in Explorer to the slot it was picked for. */
+function useSlotBlobPicker<Fields>(input: {
+  blobStore: ReturnType<typeof useTearleadsRuntime>["infra"]["blobStore"];
+  options: UseAttachedStructuredDocumentOptions<Fields>;
+  ready: boolean;
+  replaceAttachment: DocumentContextValue["replaceAttachment"];
+  uploadSlots: ReadonlyArray<DocumentAttachmentSlot>;
+}) {
+  const { options, ready, replaceAttachment, uploadSlots } = input;
+  const slotIds = useMemo(
+    // A returned pick waits for hydrated attachments, which list each photo's
+    // replace slot.
+    () => (ready ? uploadSlots.map((slot) => slot.slotId) : []),
+    [ready, uploadSlots],
+  );
+  const replacePickedAttachment = useCallback<
+    DocumentContextValue["replaceAttachment"]
+  >(
+    (slotId, upload) =>
+      replaceAttachment(
+        resolveAttachmentUploadSlot(slotId, uploadSlots),
+        upload,
+      ),
+    [replaceAttachment, uploadSlots],
+  );
+  return useBlobPickAttachment({
+    blobStore: input.blobStore,
+    containerId: options.containerId,
+    errorMessage: `Failed to handle ${options.documentLabel} blob attachment selection`,
+    localId: options.localId,
+    replaceAttachment: replacePickedAttachment,
+    slotIds,
+  });
+}
+
 /**
  * The hook stack every attachment-slotted structured document (passport,
  * credit card, driver's license, tool, appliance) shares: the document store,
@@ -53,6 +88,7 @@ export function useAttachedStructuredDocument<Fields>(
     ready,
     removeAttachment,
     replaceAttachment,
+    requestRemoteSync,
     setStructuredFields,
     structuredFields,
   } = useDocument();
@@ -79,29 +115,12 @@ export function useAttachedStructuredDocument<Fields>(
     replaceAttachment,
     slots: uploadSlots,
   });
-  const slotIds = useMemo(
-    // A returned pick waits for hydrated attachments, which list each photo's
-    // replace slot.
-    () => (ready ? uploadSlots.map((slot) => slot.slotId) : []),
-    [ready, uploadSlots],
-  );
-  const replacePickedAttachment = useCallback<
-    DocumentContextValue["replaceAttachment"]
-  >(
-    (slotId, upload) =>
-      replaceAttachment(
-        resolveAttachmentUploadSlot(slotId, uploadSlots),
-        upload,
-      ),
-    [replaceAttachment, uploadSlots],
-  );
-  const blobPicker = useBlobPickAttachment({
+  const blobPicker = useSlotBlobPicker({
     blobStore: infra.blobStore,
-    containerId: options.containerId,
-    errorMessage: `Failed to handle ${options.documentLabel} blob attachment selection`,
-    localId: options.localId,
-    replaceAttachment: replacePickedAttachment,
-    slotIds,
+    options,
+    ready,
+    replaceAttachment,
+    uploadSlots,
   });
 
   return {
@@ -118,6 +137,7 @@ export function useAttachedStructuredDocument<Fields>(
       canAttach: canAttach && isEditing && canWrite,
       imageUrlBySlotId,
       onClearAttachment: removeAttachment,
+      onRetryDownload: requestRemoteSync,
       onSelectedAttachment: handleSelectedAttachment,
       previewNotice: {
         blobStore: infra.blobStore,

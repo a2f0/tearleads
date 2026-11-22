@@ -2,6 +2,7 @@ import {
   assertReadRange,
   type BlobByteSource,
   type BlobBytes,
+  BlobIntegrityError,
   readExactBlobBytes,
 } from "./blobContracts";
 import {
@@ -118,7 +119,9 @@ async function decryptChunk(
     }
     return plaintext;
   } catch {
-    throw new Error("Encrypted blob store payload could not be decrypted.");
+    throw new BlobIntegrityError(
+      "Encrypted blob store payload could not be decrypted.",
+    );
   }
 }
 

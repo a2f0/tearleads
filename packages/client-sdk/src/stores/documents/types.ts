@@ -62,7 +62,12 @@ export interface DocumentAttachmentUpload {
 // `syncing`: the slot's upload is still queued. `intent-mismatch`: the held
 // bytes are a validly signed served binding whose digest differs from the one
 // the document content records (its content update has not arrived).
-export type DocumentAttachmentStatus = "syncing" | "intent-mismatch";
+// `unavailable`: a check found the held file missing or damaged; the slot
+// reports no storage key until a verified download replaces the copy.
+export type DocumentAttachmentStatus =
+  | "syncing"
+  | "intent-mismatch"
+  | "unavailable";
 
 // Add a row to the document's repeated-row list, returning the new row id.
 export type AddDocumentRow = (
@@ -91,6 +96,7 @@ export type DocumentContextValue = DocumentSnapshot &
     | "removeAttachment"
     | "removeRow"
     | "replaceAttachment"
+    | "requestRemoteSync"
     | "requestSync"
     | "restoreContent"
     | "setStructuredFields"
@@ -130,6 +136,14 @@ export interface DocumentStore {
     proof: DocumentRotationProofMode,
   ) => Promise<Uint8Array>;
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
+  /**
+   * The host opened the document: read each held attachment file once per
+   * store session and report a missing or damaged one as `unavailable`, then
+   * fetch it again. A failed read is not a finding; the copy stays unchecked.
+   * Copies a later load of this store brings, or a new blob store holds, are
+   * checked then. Resolves once the store's reads in flight have finished.
+   */
+  checkHeldAttachments: () => Promise<void>;
   /**
    * Convert this document's persisted local state to the discovered-share
    * shell so the store re-pulls the server copy — the escape hatch for

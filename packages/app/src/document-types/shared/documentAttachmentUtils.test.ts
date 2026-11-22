@@ -22,6 +22,9 @@ test("attachment statuses label queued uploads and unrecorded served bytes", () 
   expect(getDocumentAttachmentStatusLabel("intent-mismatch")).toBe(
     "Image differs from the document's recorded version.",
   );
+  expect(getDocumentAttachmentStatusLabel("unavailable")).toBe(
+    "Image missing or damaged on this device.",
+  );
   expect(getDocumentAttachmentStatusLabel(undefined)).toBeNull();
 });
 

@@ -23,6 +23,7 @@ import {
 } from "../../../../workflows/documents";
 import { loadOrganizationSyncPausesBeforeSync } from "../../../../workflows/sync/coordination";
 import type { DocumentStoreRelinkInput } from "../../types";
+import { runHeldCopyChecks } from "../attachments/heldCopyCheckRun";
 import { chainIdentityWrite } from "../identityWriteChain";
 import type { DocumentRelinkCommitSideEffect } from "../internalRelink";
 import { runDocumentOrphanMaintenance } from "../orphanMaintenance";
@@ -325,6 +326,7 @@ async function initializeDocumentStore(
   state.initialized = true;
   state.initializePromise = null;
   setReadySnapshot(state, restored.doc, false);
+  void runHeldCopyChecks(state);
 
   // Websocket invalidations are intentionally session-local. A process can
   // stop before receiving a peer device's update event, and no event survives
