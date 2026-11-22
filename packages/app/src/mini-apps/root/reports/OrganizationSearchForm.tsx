@@ -7,7 +7,8 @@ import {
 
 /**
  * The organization ID search shared by the organization list and the data
- * usage report. Submitting the applied search again refreshes instead.
+ * usage report. Submitting the applied search again refreshes instead; the
+ * window toolbar carries the view's Refresh.
  */
 export function OrganizationSearchForm({
   search,
@@ -40,9 +41,6 @@ export function OrganizationSearchForm({
         />
         <MiniAppButton type="submit" disabled={loading}>
           Search
-        </MiniAppButton>
-        <MiniAppButton disabled={loading} onClick={onRefresh}>
-          {loading ? "Loading..." : "Refresh"}
         </MiniAppButton>
       </MiniAppToolbar>
     </form>

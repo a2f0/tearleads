@@ -35,8 +35,7 @@ export function OrganizationRevenuecatEvents({
     },
     [organizationId, tearleads],
   );
-  const { items, error, loading, nextCursor, loadMore, refresh } =
-    useRootPage(request);
+  const { items, error, loading, nextCursor, loadMore } = useRootPage(request);
   return (
     <>
       <MiniAppInfoHeading>RevenueCat webhooks</MiniAppInfoHeading>
@@ -45,11 +44,6 @@ export function OrganizationRevenuecatEvents({
         ignored, and transfers that moved a purchase away from it, newest first
         by event time.
       </MiniAppStatus>
-      <MiniAppToolbar>
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          Refresh deliveries
-        </MiniAppButton>
-      </MiniAppToolbar>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {items.length === 0 ? (
         <MiniAppStatus>

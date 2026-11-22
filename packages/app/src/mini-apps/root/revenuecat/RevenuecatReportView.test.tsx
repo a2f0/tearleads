@@ -3,13 +3,17 @@ import { afterEach, expect, test } from "bun:test";
 import { fireEvent, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../../test/helpers/identityManagerTestRuntime";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
-import { renderRootWithSession } from "../../../../test/helpers/renderRootConsole";
+import {
+  clickRootToolbarButton,
+  openRootReport,
+  renderRootWithSession,
+} from "../../../../test/helpers/renderRootConsole";
 import {
   ROOT_TEST_IDENTITIES,
   ROOT_TEST_ORGANIZATION,
 } from "../../../../test/helpers/rootConsoleFixtures";
 
-const REPORT_HEADING = "Reports · RevenueCat webhooks needing attention";
+const REPORT_HEADING = "RevenueCat webhooks";
 const organizationId = ROOT_TEST_ORGANIZATION.organization.organizationId;
 
 afterEach(async () => {
@@ -19,7 +23,7 @@ afterEach(async () => {
 async function openReport(
   view: Awaited<ReturnType<typeof renderRootWithSession>>["view"],
 ) {
-  fireEvent.click(view.getByRole("button", { name: "Reports" }));
+  await openRootReport(view, REPORT_HEADING);
   const heading = await view.findByRole("heading", { name: REPORT_HEADING });
   const section = heading.closest("section");
   if (!section) throw new Error("Expected the RevenueCat report section");
@@ -54,7 +58,7 @@ test("the RevenueCat report filters by disposition and opens the buyer", async (
       }),
     );
     await view.findByRole("group", { name: "Identity" });
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    clickRootToolbarButton(view, "Back");
     await view.findByRole("heading", { name: REPORT_HEADING });
   } finally {
     restore();
@@ -90,13 +94,13 @@ test("a reported delivery opens its organization's billing, with its webhooks", 
       })[0] as HTMLElement,
     );
     await view.findByRole("group", { name: "Identity" });
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    clickRootToolbarButton(view, "Back");
     await view.findByText(/RENEWAL · applied/);
     expect(
       view.getByRole("tab", { name: "Billing" }).getAttribute("aria-selected"),
     ).toBe("true");
 
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    clickRootToolbarButton(view, "Back");
     await view.findByRole("heading", { name: REPORT_HEADING });
   } finally {
     restore();

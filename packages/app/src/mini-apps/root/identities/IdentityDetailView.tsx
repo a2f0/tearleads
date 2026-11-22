@@ -3,14 +3,13 @@ import type {
   RootIdentityOrganization,
   RootIdentitySession,
 } from "@tearleads/client-sdk";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import {
-  MiniAppButton,
   MiniAppClipboardButton,
   MiniAppInfoHeading,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-  MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import {
   MiniAppKeyValueList,
@@ -219,33 +218,25 @@ function OrganizationsTable({
 }
 
 export function IdentityDetailView({
-  onBack,
   userId,
   onSelectOrganization,
-  onShowAudit,
 }: {
-  onBack: () => void;
   userId: string;
   onSelectOrganization: (organizationId: string) => void;
-  onShowAudit: (subjectId: string) => void;
 }) {
   const { detail, error, loading, organizations, refresh } =
     useRootIdentityDetail(userId);
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    refreshing: loading,
+  });
 
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
         <h2>Identity</h2>
       </MiniAppSectionHeading>
-      <MiniAppToolbar>
-        <MiniAppButton onClick={onBack}>Back</MiniAppButton>
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          {loading ? "Loading..." : "Refresh"}
-        </MiniAppButton>
-        <MiniAppButton onClick={() => onShowAudit(userId)}>
-          Audit activity
-        </MiniAppButton>
-      </MiniAppToolbar>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {detail ? (
         <>

@@ -1,4 +1,5 @@
 import { MIN_ROOT_FINGERPRINT_PREFIX_LENGTH } from "@tearleads/validators/operation";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useId, useMemo, useState } from "react";
 import {
   MiniAppButton,
@@ -35,6 +36,11 @@ export function IdentitiesView({
   );
   const { error, identities, loadMore, loading, nextCursor, refresh } =
     useRootIdentities(filter, rootOnly);
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    refreshing: loading,
+  });
 
   return (
     <MiniAppSection>
@@ -68,9 +74,6 @@ export function IdentitiesView({
           />
           <MiniAppButton type="submit" disabled={loading}>
             Search
-          </MiniAppButton>
-          <MiniAppButton disabled={loading} onClick={refresh}>
-            {loading ? "Loading..." : "Refresh"}
           </MiniAppButton>
           <label className="root-console-toggle" htmlFor={rootOnlyId}>
             <MiniAppCheckbox
