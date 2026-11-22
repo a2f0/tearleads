@@ -224,9 +224,17 @@ removing their sync registrations. `containerContents.documentQueries()` exposes
 `listPendingDownloads()` and `PendingDownloadQueueItem` for known document and
 folder metadata pulls (initial hydration or remaining pages), including durable
 errors. The queue does not estimate undiscovered objects or on-demand blob reads.
-`listCompletedDownloads(refs)` takes `DownloadQueueItemRef`s and returns, as
-`CompletedDownloadItem`s, the rows whose content is now fully stored (for a
-file, an attached local copy of its slot), so a host can tell a finished pull
-from a row that left the queue because it was deleted, detached, or reset.
-Each says where to open it: a document's projected `containerId` (null when
-orphaned), and a file's `storageKey` and `blobId`.
+The SDK keeps the downloads that finished in each `DomainScope`, newest first,
+like the sync coordinator keeps its lanes: in memory, from scope creation,
+whether or not any view is watching, and gone on reload. It records one as
+`CompletedDownloadItem` when a queued document's pull drains, a queued folder's
+metadata pull drains, or a file slot gets its first local copy. A sync that
+merely updates already-stored content is not a download, and a row that left
+the queue because it was deleted, detached, or reset is never recorded. Each
+says where to open it: a document's projected `containerId` (null when
+orphaned), and a file's `storageKey` and `blobId`. Read it through
+`getDomainDownloadHistorySnapshot` and `subscribeToDomainDownloadHistory`.
+`getOrCreateDomainDownloadHistory` returns the scope's history object, as
+`getOrCreateDomainSyncCoordinator` returns its coordinator; its
+`recordCompleted` exists for host tests, since the SDK records downloads
+itself.

@@ -1,5 +1,4 @@
 import { exportFullHistorySnapshot } from "@tearleads/loro";
-import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
   type AttachmentRemovalMarker,
   isOpenAttachmentRemovalMarker,
@@ -9,10 +8,7 @@ import {
 } from "../../../../data/documents/attachmentRemovalMarkerMachine";
 import { getDocumentAttachments } from "../../../../data/documents/documentContent";
 import { errorMessage } from "../../../../data/shared/errorMessage";
-import {
-  type DocumentRecord,
-  resolveDocumentCreateAuthor,
-} from "../../../../workflows/documents";
+import type { DocumentRecord } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { requestDocumentStoreSync } from "../../registry";
 import { upsertPendingAttachments } from "../attachments/attachmentPersistence";
@@ -23,25 +19,34 @@ import {
 } from "../attachments/attachmentRemovalMarkers";
 import { reloadDocumentFromDurableHistory } from "../history/durableDocumentReload";
 import { chainQueuedWrite } from "../localWriteQueue";
-import type {
-  DocumentAttachmentBinding,
-  DocumentState,
-  DocumentStoreState,
+import {
+  canWriteDocument,
+  type DocumentAttachmentBinding,
+  type DocumentState,
+  type DocumentStoreState,
 } from "../state";
-import { installDocumentWriterProjection } from "../writerProjectionGeneration";
+import {
+  detachAttachmentBinding,
+  detachedSyncContextIsCurrent,
+} from "./detachAttachmentBinding";
+import { detachRemovedSlotBindings } from "./detachRemovedSlotBindings";
+import {
+  listRemovedAttachmentSlots,
+  planAttachmentSlotDetach,
+} from "./removedSlotDetaches";
 import { readReplacedBindingSightings } from "./replacedBindingSightings";
+import type { SyncedDocumentView } from "./syncedDocumentView";
 import {
   allowDocumentStoreRemoteSync,
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   isDocumentStoreGenerationIdentityCurrent,
-  isDocumentStoreSyncGenerationCurrent,
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
-import { documentSyncContextMatches } from "./syncUpdateImport";
 
 /**
- * Detach the remote bindings of attachment slots this store removed.
+ * Detach the remote bindings of attachment slots this store removed, or saw
+ * removed, at the version of `view`.
  *
  * Each removal marker is settled against committed document history before
  * any detach is sent, and again after one lands: another pane, or a pull from
@@ -53,31 +58,36 @@ import { documentSyncContextMatches } from "./syncUpdateImport";
  * and bind again. A binding of another blob may be another writer's re-add,
  * bound before the content update that records it arrives here, so it is
  * detached only once a pass after a completed pull still lists it.
+ *
+ * A slot this store saw recorded but never held, such as one removed before
+ * its importer's bind arrived, has no marker: its listed binding is detached
+ * at the view's version, which the API refuses while a restore of the slot is
+ * committed or still on its way.
  */
 export async function syncDetachedAttachmentBindings(
   state: DocumentStoreState,
   nextRecord: DocumentRecord,
   generation: DocumentStoreSyncGeneration,
   policyOperation: PrincipalPolicyOperation,
+  view: SyncedDocumentView,
 ): Promise<void> {
   const currentDoc = generation.currentDoc;
-  if (
-    !currentDoc ||
-    !detachedSyncContextIsCurrent(state, generation, nextRecord)
-  ) {
-    return;
-  }
-
-  const markers = await listAttachmentRemovalMarkers(state, currentDoc);
-  if (
-    markers.length === 0 ||
-    !detachedSyncContextIsCurrent(state, generation, nextRecord)
-  ) {
-    return;
-  }
-
   const contextIsCurrent = () =>
     detachedSyncContextIsCurrent(state, generation, nextRecord);
+  if (!currentDoc || !contextIsCurrent()) return;
+
+  const markers = await listAttachmentRemovalMarkers(state, currentDoc);
+  if (!contextIsCurrent()) return;
+  const markerSlotIds = new Set(markers.map((marker) => marker.slotId));
+  // Only a writer can sign a detach the API accepts; a reader that saw the
+  // slot removed leaves its binding to one.
+  const removedSlotIds = canWriteDocument(state)
+    ? listRemovedAttachmentSlots(state, view).filter(
+        (slotId) => !markerSlotIds.has(slotId),
+      )
+    : [];
+  if (markers.length === 0 && removedSlotIds.length === 0) return;
+
   const activeBindingBySlotId = await listActiveBindings(
     state,
     nextRecord.documentId,
@@ -85,24 +95,37 @@ export async function syncDetachedAttachmentBindings(
   );
   if (!activeBindingBySlotId) return;
 
-  const { readdedSlotIds, rebinding } = await settleDetachMarkers({
+  if (markers.length > 0) {
+    const { readdedSlotIds, rebinding } = await settleDetachMarkers({
+      activeBindingBySlotId,
+      contextIsCurrent,
+      currentDoc,
+      generation,
+      markers,
+      policyOperation,
+      requestRecord: nextRecord,
+      state,
+      view,
+    });
+    if (readdedSlotIds.length > 0) {
+      void catchUpReaddedAttachments(
+        state,
+        generation,
+        readdedSlotIds,
+        rebinding,
+      );
+    }
+  }
+  await detachRemovedSlotBindings({
     activeBindingBySlotId,
     contextIsCurrent,
-    currentDoc,
     generation,
-    markers,
     policyOperation,
     requestRecord: nextRecord,
+    slotIds: removedSlotIds,
     state,
+    view,
   });
-  if (readdedSlotIds.length > 0) {
-    void catchUpReaddedAttachments(
-      state,
-      generation,
-      readdedSlotIds,
-      rebinding,
-    );
-  }
 }
 
 /** Settle each marker in turn, stopping at the first that cannot finish. */
@@ -131,6 +154,9 @@ async function settleDetachMarkers(
       marker,
       replacedBindingId: sightings.confirmed(marker.slotId),
     });
+    // A detach refused at this version leaves its marker for a newer view
+    // without holding up the markers after it.
+    if (settled === "waiting") continue;
     if (!settled) break;
     if (settled.status === "bindingReplaced" && binding) {
       sighted = sightings.sight(marker.slotId, binding.bindingId) || sighted;
@@ -178,7 +204,8 @@ async function listActiveBindings(
 /**
  * Settle one marker: committed history first, then the detach it still owes,
  * then committed history again for a re-add that landed while it was sent.
- * Null stops the pass, leaving the marker for a later one.
+ * Null stops the pass, leaving the marker for a later one; `"waiting"` leaves
+ * it for a newer view, since its detach was refused at this one.
  */
 async function settleDetachedAttachmentMarker(input: {
   binding: DocumentAttachmentBinding | undefined;
@@ -190,7 +217,8 @@ async function settleDetachedAttachmentMarker(input: {
   replacedBindingId: string | undefined;
   requestRecord: DocumentRecord;
   state: DocumentStoreState;
-}): Promise<AttachmentRemovalMarker | null> {
+  view: SyncedDocumentView;
+}): Promise<AttachmentRemovalMarker | "waiting" | null> {
   const { binding, marker, requestRecord, state } = input;
   const settle = (from: OpenAttachmentRemovalMarker) =>
     settleStoreAttachmentRemovalMarker({
@@ -206,20 +234,27 @@ async function settleDetachedAttachmentMarker(input: {
   // A slot the live document records is only realigned, never detached: a
   // staged re-add may yet commit.
   if (settled?.status !== "awaitingDetach" || marker.recorded) return settled;
-  if (
-    !binding ||
-    !requestRecord.documentId ||
-    !(await syncDetachedAttachmentBinding({
-      binding,
-      generation: input.generation,
-      policyOperation: input.policyOperation,
-      remoteDocumentId: requestRecord.documentId,
-      requestRecord,
-      state,
-    }))
-  ) {
-    return null;
-  }
+  if (!binding || !requestRecord.documentId) return null;
+  const step = planAttachmentSlotDetach(
+    state,
+    marker.slotId,
+    binding,
+    input.view.versionVector,
+  );
+  if (step === "wait") return "waiting";
+  if (step !== "detach") return null;
+  const outcome = await detachAttachmentBinding({
+    binding,
+    generation: input.generation,
+    policyOperation: input.policyOperation,
+    remoteDocumentId: requestRecord.documentId,
+    requestRecord,
+    state,
+    view: input.view,
+  });
+  // Refused at this version: wait for a newer view as a later pass would.
+  if (outcome === "refused") return "waiting";
+  if (outcome === "failed") return null;
   // The binding is gone, so a slot committed again meanwhile needs its held
   // bytes bound anew.
   const detached = transitionAttachmentRemovalMarker(settled, {
@@ -308,93 +343,4 @@ function documentRecordsSlots(
     getDocumentAttachments(doc).map((attachment) => attachment.slotId),
   );
   return slotIds.every((slotId) => recorded.has(slotId));
-}
-
-function detachedSyncContextIsCurrent(
-  state: DocumentStoreState,
-  generation: DocumentStoreSyncGeneration,
-  requestRecord: DocumentRecord,
-): boolean {
-  return (
-    !state.runtime.util.deferAttachmentDetaches &&
-    isDocumentStoreSyncGenerationCurrent(state, generation) &&
-    documentSyncContextMatches(
-      state.record,
-      requestRecord,
-      requestRecord.documentId,
-    )
-  );
-}
-
-async function syncDetachedAttachmentBinding(input: {
-  binding: DocumentAttachmentBinding;
-  generation: DocumentStoreSyncGeneration;
-  policyOperation: PrincipalPolicyOperation;
-  remoteDocumentId: string;
-  requestRecord: DocumentRecord;
-  state: DocumentStoreState;
-}): Promise<boolean> {
-  const { binding, generation, requestRecord, state } = input;
-  const contextIsCurrent = () =>
-    detachedSyncContextIsCurrent(state, generation, requestRecord);
-  if (!contextIsCurrent()) return false;
-
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  if (!author) {
-    state.runtime.util.log(
-      "Documents: skipped attachment detach because the writer context is unavailable.",
-    );
-    return false;
-  }
-
-  const writerProjection =
-    state.writerProjection?.documentId === input.remoteDocumentId &&
-    !isRejectedDecodedProjection(state.writerProjection)
-      ? state.writerProjection
-      : null;
-  const writerProjectionGeneration = state.writerProjectionGeneration;
-  let remoteSyncBlocked = false;
-  // Read with the currency check above, so its executor is this generation's.
-  const { blobAttachments } = state.runtime;
-  const baseDetachInput = {
-    author,
-    bindingId: binding.bindingId,
-    blobId: binding.blobId,
-    documentId: input.remoteDocumentId,
-    isRemoteSyncBlocked: (organizationId: string) => {
-      remoteSyncBlocked =
-        state.runtime.util.isRemoteSyncBlocked?.(organizationId) ?? false;
-      return remoteSyncBlocked;
-    },
-    resolveProjectionUserKey: generation.resolveProjectionUserKey,
-    slotId: binding.slotId,
-    stillCurrent: contextIsCurrent,
-    warmReferencedPrincipalPolicies:
-      state.runtime.principalPolicies.createWarmer({
-        operation: input.policyOperation,
-      }),
-  };
-  let detached = await blobAttachments.detachDocumentAttachment({
-    ...baseDetachInput,
-    writerProjection: writerProjection ?? undefined,
-  });
-  if (!contextIsCurrent()) return false;
-  if (!detached && writerProjection && !remoteSyncBlocked) {
-    state.writerProjection = null;
-    detached = await blobAttachments.detachDocumentAttachment(baseDetachInput);
-    if (!contextIsCurrent()) return false;
-  }
-  if (!detached) {
-    return false;
-  }
-
-  installDocumentWriterProjection(
-    state,
-    detached.writerProjection,
-    writerProjectionGeneration,
-  );
-  state.runtime.util.log(
-    `Detached attachment ${binding.slotId} from document ${input.remoteDocumentId}.`,
-  );
-  return true;
 }

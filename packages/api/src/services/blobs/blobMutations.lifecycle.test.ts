@@ -24,6 +24,7 @@ import {
   type StoredDocumentFixture,
   stageEncryptedBlob,
 } from "../../../test/helpers/blobMutationFixtures";
+import { committedDocumentVersionVector } from "../../../test/helpers/committedDocumentVersion";
 import { createSignedAccessEvent } from "../../../test/helpers/keyingWriterProjectionKit";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
 import { resolveCurrentBlobKekTargets } from "../../access/read/blobKekTargets";
@@ -81,6 +82,9 @@ async function buildDetachRequest(input: {
         },
       ],
     ],
+    documentVersionVector: await committedDocumentVersionVector(
+      input.binding.documentId,
+    ),
   };
 }
 

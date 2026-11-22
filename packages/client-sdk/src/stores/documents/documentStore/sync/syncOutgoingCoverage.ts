@@ -1,8 +1,10 @@
 import {
+  emptyVersionVector,
   encodeVersionVector,
   exportUpdatesSince,
   mergeVersionVectors,
   satisfiesVersionVector,
+  versionVectorsEqual,
 } from "@tearleads/loro";
 import type {
   DocumentRecord,
@@ -49,6 +51,24 @@ function queuedHistoryBelongsToDocument(
       return false;
     }
   });
+}
+
+/**
+ * Whether the stored record needs no persist to advance its marker: it already
+ * holds the marker, or it is a document never pulled with nothing of its own
+ * to send. That one stays the shell discovery stored, since advancing its
+ * frontier to the empty version would read as a stored blank note before its
+ * first pull lands and drop it from the download queue.
+ */
+function storedRecordNeedsNoAdvance(
+  record: DocumentRecord,
+  nextBaseVersion: string,
+): boolean {
+  if (record.pendingBaseVersion === nextBaseVersion) return true;
+  return (
+    record.snapshotEndVersion === "" &&
+    versionVectorsEqual(nextBaseVersion, emptyVersionVector())
+  );
 }
 
 /**
@@ -125,7 +145,7 @@ export async function prepareDocumentOutgoingCoverage(input: {
   // Keep the existing reconciliation persist in that case: queue merging
   // must prove those rows against the refreshed document, not send them twice.
   if (
-    liveRecord.pendingBaseVersion === nextBaseVersion &&
+    storedRecordNeedsNoAdvance(liveRecord, nextBaseVersion) &&
     queuedHistoryBelongsToDocument(documentVersion, pendingUpdates)
   ) {
     state.pendingBaseVersion = nextBaseVersion;

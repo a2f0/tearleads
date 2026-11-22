@@ -23,7 +23,7 @@ it, and a restart can stop it between any two of them.
 | `Resurrect` | another pane's `commitDocumentMutation`, or a pulled update's `persistDocumentState`, recording the slot again |
 | `Stage` / `Rollback` | a pane's staged attach or replace whose `commitDocumentMutation` fails |
 | `Check` | `syncDetachedAttachmentBindings` lists bindings fresh and settles each marker before any detach |
-| `Land` | `syncDetachedAttachmentBinding` sends a signed detach naming the listed binding; the server refuses an inactive one |
+| `Land` | `detachAttachmentBinding` sends a signed detach naming the listed binding at the pass's synced document version; the server refuses an inactive one, and one whose version lacks a committed op or an op of the binding's bind version |
 | `SettleAfter` / `RecheckAfterDetach` | `settleDetachedAttachmentMarker` settles again once the detach lands |
 | `Restart` / `RestartRebinds` | `healLocalAttachmentDetachState` settles each marker at startup, before any binding list |
 | `Upload` | the upload lane binds the held bytes the `rebinding` settle requeued, listing the slot's binding first because `isNewPendingAttachmentSlot` never treats a `requeued` row as fresh |

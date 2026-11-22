@@ -4,7 +4,10 @@ import {
   requireEncapsulationSecretKey,
 } from "../../data/blobs/attachments/collaborators";
 import { signBlobAttachmentDetachEvent } from "../../data/blobs/attachments/events";
-import { assertBlobAttachmentDetachResponse } from "../../data/blobs/attachments/responses";
+import {
+  assertBlobAttachmentDetachResponse,
+  isAttachmentDocumentChanged,
+} from "../../data/blobs/attachments/responses";
 import type {
   DecryptDocumentAttachmentBlobRequest,
   DetachDocumentAttachmentRequest,
@@ -96,8 +99,10 @@ export class BlobAttachmentService {
     bindingId,
     blobId,
     documentId,
+    documentVersionVector,
     eventId = crypto.randomUUID(),
     isRemoteSyncBlocked,
+    onDocumentChanged,
     resolveProjectionUserKey,
     signedAt = new Date().toISOString(),
     slotId,
@@ -141,18 +146,33 @@ export class BlobAttachmentService {
       event: readCanonicalRecord(event, "Blob attachment detach event"),
       body: readCanonicalRecord(body, "Blob attachment detach body"),
       authorizingContainerPathRefs: pathRefs,
+      documentVersionVector,
     };
     assertProjectionVerificationCurrent(stillCurrent);
+    const failurePath = {
+      method: "POST" as const,
+      path: `/blobs/${encodeURIComponent(blobId)}/attachment-bindings/${encodeURIComponent(bindingId)}/detach`,
+    };
+    // The client records each failure as a new object, so an unchanged
+    // record means this request recorded none.
+    const earlier = this.blobs.api.getRequestFailure?.(failurePath) ?? null;
     const response = await this.blobs.api.detachBlobAttachment(
       blobId,
       bindingId,
       request,
       {
         expectedPaymentRequiredOrganizationId: manifestIdentity.organizationId,
+        reportErrors: false,
         stillCurrent,
       },
     );
     if (!response) {
+      const recorded = this.blobs.api.getRequestFailure?.(failurePath) ?? null;
+      const failure = recorded === earlier ? null : recorded;
+      // A detach behind the document is routine and retried after a pull;
+      // every other recorded failure is still reported.
+      if (isAttachmentDocumentChanged(failure)) onDocumentChanged?.();
+      else failure?.report?.();
       return null;
     }
     assertProjectionVerificationCurrent(stillCurrent);

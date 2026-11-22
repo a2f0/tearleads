@@ -5,12 +5,13 @@ import {
   computeBlobContentKeyTargetHash,
 } from "@tearleads/crypto";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
-import type {
-  BlobAttachmentBindResponse,
-  BlobAttachmentDetachResponse,
+import {
+  BLOB_MUTATION_ERROR_CODES,
+  type BlobAttachmentBindResponse,
+  type BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
 import { contentKeyTargetReference } from "./readers";
-import type { DocumentManifestIdentity } from "./types";
+import type { BlobAttachmentApi, DocumentManifestIdentity } from "./types";
 
 export async function assertBlobContentKeyBundleTargetHash(
   bundle: BlobContentKeyBundleRequest,
@@ -83,4 +84,24 @@ export function assertBlobAttachmentDetachResponse(input: {
   ) {
     throw new Error("Blob attachment detach response did not match request");
   }
+}
+
+/** A failure the API client recorded for one attachment write request. */
+type AttachmentRequestFailure = ReturnType<
+  NonNullable<BlobAttachmentApi["getRequestFailure"]>
+>;
+
+/**
+ * Whether the API refused a bind or detach because the document holds a
+ * committed op the version it carried lacks; the client pulls, checks the
+ * slot again, and retries at the newer version.
+ */
+export function isAttachmentDocumentChanged(
+  failure: AttachmentRequestFailure,
+): boolean {
+  return (
+    failure?.kind === "http" &&
+    failure.status === 409 &&
+    failure.code === BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged
+  );
 }
