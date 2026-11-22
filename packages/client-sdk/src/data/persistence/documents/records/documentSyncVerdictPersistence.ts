@@ -8,6 +8,10 @@ import {
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentScope } from "./documentPersistenceTypes";
+import {
+  type ProcessedCursorTransition,
+  processedCursorTransition,
+} from "./processedCursorState";
 
 type VerdictReader = Pick<ClientSQLiteTransactionScope, "select">;
 
@@ -101,6 +105,48 @@ export async function readSendableProcessedCursor(
   return progress.throughUpdateId;
 }
 
+/** An import-stage void this scope recorded, with the key it was judged under. */
+export interface RecordedImportVoid {
+  readonly contentKeyEpoch: number | null;
+  readonly keyFingerprint: string | null;
+  readonly updateId: string;
+}
+
+/**
+ * The served updates this scope already voided at the import stage under
+ * `judge`. A void judged under another judge is judged again.
+ */
+export async function readRecordedImportVoids(
+  db: VerdictReader,
+  input: {
+    readonly judge: string;
+    readonly scope: DocumentScope;
+    readonly updateIds: readonly string[];
+  },
+): Promise<RecordedImportVoid[]> {
+  const recorded: RecordedImportVoid[] = [];
+  for (const batch of chunks(input.updateIds, UPDATE_IDS_PER_STATEMENT)) {
+    recorded.push(
+      ...(await db
+        .select({
+          contentKeyEpoch: documentVoidUpdates.contentKeyEpoch,
+          keyFingerprint: documentVoidUpdates.keyFingerprint,
+          updateId: documentVoidUpdates.updateId,
+        })
+        .from(documentVoidUpdates)
+        .where(
+          and(
+            voidScope(input.scope),
+            eq(documentVoidUpdates.judge, input.judge),
+            eq(documentVoidUpdates.stage, "loro_import"),
+            inArray(documentVoidUpdates.updateId, batch),
+          ),
+        )),
+    );
+  }
+  return recorded;
+}
+
 /** Void rows of the scope judged under another key for an epoch this pass held. */
 async function deleteVoidsJudgedUnderOtherKeys(
   tx: ClientSQLiteTransactionScope,
@@ -166,6 +212,8 @@ async function upsertVoidRows(
     for (const row of rows) existing.add(row.updateId);
   }
   for (const voided of input.voids) {
+    // A row keeps the reason it was first voided for; a later verdict on the
+    // same update refreshes only what it was judged with.
     const verdict = {
       contentKeyEpoch: voided.contentKeyEpoch,
       documentId: input.documentId,
@@ -174,8 +222,6 @@ async function upsertVoidRows(
         voided.contentKeyEpoch === null
           ? null
           : (input.keyFingerprintsByEpoch.get(voided.contentKeyEpoch) ?? null),
-      message: voided.message,
-      stage: voided.stage,
     };
     await tx
       .insert(documentVoidUpdates)
@@ -183,6 +229,8 @@ async function upsertVoidRows(
         ...verdict,
         appKind: input.scope.appKind,
         localId: input.scope.localId,
+        message: voided.message,
+        stage: voided.stage,
         updateId: voided.updateId,
         voidedAt: input.now,
       })
@@ -199,19 +247,17 @@ async function upsertVoidRows(
   return updateIds.filter((updateId) => !existing.has(updateId));
 }
 
-async function advanceProcessedCursor(
+async function applyProcessedCursorTransition(
   tx: ClientSQLiteTransactionScope,
-  input: DocumentSyncVerdictInput & {
-    readonly completedPull: NonNullable<
-      DocumentSyncVerdictInput["completedPull"]
-    > & { readonly throughVersion: string };
-  },
+  input: DocumentSyncVerdictInput,
+  transition: ProcessedCursorTransition,
 ): Promise<void> {
-  const { throughUpdateId, throughVersion } = input.completedPull;
-  if (!input.completedPull.cursorSent) {
-    // A pull without a cursor served every update whose declared span the
-    // frontier left uncovered and judged it again; a void row it did not
-    // rewrite names an update the frontier now covers.
+  if (transition.status === "unchanged") return;
+  if (transition.status === "cleared") {
+    await clearDocumentSyncProgressInTransaction(tx, input.scope);
+    return;
+  }
+  if (transition.dropsOtherJudges) {
     await tx
       .delete(documentVoidUpdates)
       .where(
@@ -219,12 +265,12 @@ async function advanceProcessedCursor(
       )
       .run();
   }
-  if (throughUpdateId === null) return;
+  if (transition.through === null) return;
   const progress = {
     documentId: input.documentId,
     judge: input.judge,
-    throughUpdateId,
-    throughVersion,
+    throughUpdateId: transition.through.updateId,
+    throughVersion: transition.through.version,
   };
   await tx
     .insert(documentSyncProgress)
@@ -269,21 +315,19 @@ export async function recordDocumentSyncVerdictsInTransaction(
   if (!record || record.documentId !== input.documentId) {
     return { cursorCleared: false, newlyVoidedUpdateIds: [] };
   }
-  const cursorCleared = await deleteVoidsJudgedUnderOtherKeys(tx, input);
+  const keyConflict = await deleteVoidsJudgedUnderOtherKeys(tx, input);
   await deleteVoidRows(tx, input.scope, input.acceptedUpdateIds);
   const newlyVoidedUpdateIds = await upsertVoidRows(tx, input);
-  if (cursorCleared) {
-    await clearDocumentSyncProgressInTransaction(tx, input.scope);
-  } else if (input.completedPull) {
-    await advanceProcessedCursor(tx, {
-      ...input,
-      completedPull: {
-        ...input.completedPull,
-        throughVersion: record.snapshotEndVersion,
-      },
-    });
-  }
-  return { cursorCleared, newlyVoidedUpdateIds };
+  const transition = processedCursorTransition({
+    completedPull: input.completedPull,
+    keyConflict,
+    recordedFrontier: record.snapshotEndVersion,
+  });
+  await applyProcessedCursorTransition(tx, input, transition);
+  return {
+    cursorCleared: transition.status === "cleared",
+    newlyVoidedUpdateIds,
+  };
 }
 
 /** Forget where a scope's pulls reached, so the next one pulls by version. */

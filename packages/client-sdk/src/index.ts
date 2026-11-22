@@ -450,6 +450,7 @@ export type {
   DocumentBirthResult,
   DocumentRecord,
   DocumentSyncContainerRekeyBuilder,
+  DocumentSyncImportVerdicts,
   DocumentSyncPullContinuation,
   DocumentSyncUpdateIsolationError,
   DocumentsPersistence,
@@ -464,8 +465,10 @@ export type {
   SettleAttachmentRemovalMarkerInput,
   SyncRemoteDocumentRequest,
   SyncRemoteDocumentResult,
+  VoidedDocumentSyncUpdate,
 } from "./workflows/documents";
 export {
+  assertNoVoidedDocumentSyncUpdates,
   buildMaterializedDocumentCreatePlan,
   createDocumentProjectionUserKeyResolver,
   DOCUMENT_SYNC_TRACE_FRAGMENT,

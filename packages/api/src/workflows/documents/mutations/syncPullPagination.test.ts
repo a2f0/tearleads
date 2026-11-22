@@ -81,6 +81,40 @@ test("pull cursor retains the first page upper bound", async () => {
   });
 });
 
+test("a processed cursor skips judged updates on continuation pages, within the frozen bound", async () => {
+  const firstPage = createSyncPullPageResponse({
+    cursorHmacKey: CURSOR_HMAC_KEY,
+    hasMore: true,
+    identity: IDENTITY,
+    lastUpdateId: AFTER_UPDATE_ID,
+    plan: {
+      afterSequence: 0,
+      upperBoundSequence: 42,
+      upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
+    },
+  });
+  const continuation = (processedThroughSequence: number) =>
+    resolveSyncPullPagePlan({
+      cursorHmacKey: CURSOR_HMAC_KEY,
+      identity: IDENTITY,
+      processedThroughSequence,
+      request: request({ pullCursor: firstPage.nextCursor ?? undefined }),
+      resolveCursorBounds,
+      upperBound: { id: LATER_UPDATE_ID, sequence: 99 },
+    });
+  const bound = {
+    upperBoundSequence: 42,
+    upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
+  };
+
+  // Past the continuation's position: start after what the reader judged.
+  expect(await continuation(30)).toEqual({ afterSequence: 30, ...bound });
+  // Behind it: the continuation's position stands.
+  expect(await continuation(5)).toEqual({ afterSequence: 12, ...bound });
+  // Past the frozen bound: the page ends at the bound, never beyond it.
+  expect(await continuation(60)).toEqual({ afterSequence: 42, ...bound });
+});
+
 test("pull cursor binds raw-history mode across every page", async () => {
   const plan = await resolveSyncPullPagePlan({
     cursorHmacKey: CURSOR_HMAC_KEY,

@@ -164,6 +164,7 @@ function inServerOrder(
 async function judgeDocumentSyncResponseUpdates(
   input: SyncRemoteDocumentResultInput,
   contentKeysByEpoch: ReadonlyMap<number, Uint8Array>,
+  contentKeyFingerprintsByEpoch: ReadonlyMap<number, string>,
 ) {
   const { plan } = input.materializedPlan;
   const decrypted = await judgeDocumentSyncUpdateDecryption({
@@ -172,18 +173,30 @@ async function judgeDocumentSyncResponseUpdates(
     organizationId: plan.organizationId,
     updates: input.response.updates,
   });
-  const importVoids =
-    (await input.validateIncomingUpdates({
-      decryptedUpdates: decrypted.accepted,
-      response: input.response,
-    })) ?? [];
+  const importVerdicts = (await input.validateIncomingUpdates({
+    contentKeyFingerprintsByEpoch,
+    decryptedUpdates: decrypted.accepted,
+    response: input.response,
+  })) ?? { deferredUpdateIds: [], voided: [] };
   return {
-    decryptedUpdates: withoutVoidedUpdates(decrypted.accepted, importVoids),
+    decryptedUpdates: withoutVoidedUpdates(decrypted.accepted, importVerdicts),
+    deferred: importVerdicts.deferredUpdateIds.length > 0,
     voidedUpdates: inServerOrder(input.response, [
       ...decrypted.voided,
-      ...importVoids,
+      ...importVerdicts.voided,
     ]),
   };
+}
+
+/**
+ * The response a pass that deferred part of its page hands on: its pull is
+ * incomplete and has no continuation, so the next pass starts the pull again
+ * and is served the deferred updates once more.
+ */
+function restartedPull(response: DocumentSyncResponse): DocumentSyncResponse {
+  return response.pullPage
+    ? { ...response, pullPage: { ...response.pullPage, nextCursor: null } }
+    : response;
 }
 
 export async function syncRemoteDocumentResultFromResponse(
@@ -192,13 +205,17 @@ export async function syncRemoteDocumentResultFromResponse(
   const { plan } = input.materializedPlan;
   const { contentKeysByEpoch, persistedState } =
     await resolveVerifiedResponseState(input);
-  const { decryptedUpdates, voidedUpdates } =
-    await judgeDocumentSyncResponseUpdates(input, contentKeysByEpoch);
   const contentKeyFingerprintsByEpoch =
     await deriveDocumentContentKeyFingerprints({
       contentKeysByEpoch,
       documentId: plan.documentId,
     });
+  const { decryptedUpdates, deferred, voidedUpdates } =
+    await judgeDocumentSyncResponseUpdates(
+      input,
+      contentKeysByEpoch,
+      contentKeyFingerprintsByEpoch,
+    );
   const recoveryBaselineId =
     input.materializedPlan.staleRecoveryBaselineUpdateId;
   const acceptedRecoveryBaseline = responseAcceptedRecoveryBaseline(
@@ -234,11 +251,11 @@ export async function syncRemoteDocumentResultFromResponse(
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
     hasDeferredPendingUpdates: false,
-    hasIncompletePull: false,
+    hasIncompletePull: deferred,
     persistedState,
     plan,
     rekeyedPendingUpdateIds,
-    response: input.response,
+    response: deferred ? restartedPull(input.response) : input.response,
     settledPendingUpdateIds,
     acceptedRecoveryBaseline,
     contentKeyFingerprintsByEpoch,

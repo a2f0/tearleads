@@ -40,7 +40,12 @@ async function parentAndChild(name: string) {
   };
 }
 
-function voidedIds(voided: readonly { readonly updateId: string }[]) {
+function voidedIds(
+  verdicts:
+    | readonly { readonly updateId: string }[]
+    | { readonly voided: readonly { readonly updateId: string }[] },
+) {
+  const voided = "voided" in verdicts ? verdicts.voided : verdicts;
   return voided.map((entry) => entry.updateId);
 }
 
@@ -137,7 +142,7 @@ test("scratch import voids a poison update, keeps its sibling, and leaves live s
     },
   } as unknown as DocumentSyncResponse["updates"][number];
 
-  const voided = await validateDocumentSyncUpdateImports({
+  const { voided } = await validateDocumentSyncUpdateImports({
     currentDocument: current,
     decryptedUpdates: [
       {
@@ -179,11 +184,11 @@ test("server order decides dependencies: a child served before its parent is voi
       currentDocument: current,
       decryptedUpdates: [parent, child],
     }),
-  ).resolves.toEqual([]);
+  ).resolves.toEqual({ deferredUpdateIds: [], voided: [] });
 
   // Every reader judges a page in server order, so the verdict cannot depend
   // on how a reader's pages happened to group the two updates.
-  const voided = await validateDocumentSyncUpdateImports({
+  const { voided } = await validateDocumentSyncUpdateImports({
     currentDocument: current,
     decryptedUpdates: [child, parent],
   });
@@ -211,7 +216,7 @@ test("a follow-up to a voided update is void too, and later honest updates are k
     updateData: new Uint8Array([1, 2, 3]),
   };
 
-  const voided = await validateDocumentSyncUpdateImports({
+  const { voided } = await validateDocumentSyncUpdateImports({
     currentDocument: current,
     decryptedUpdates: [poisonedParent, child, otherUpdate],
   });
@@ -279,7 +284,7 @@ test("a delta whose parent no served update carries is void with its writer name
     },
   } as unknown as DocumentSyncResponse["updates"][number];
 
-  const voided = await validateDocumentSyncUpdateImports({
+  const { voided } = await validateDocumentSyncUpdateImports({
     currentDocument: current,
     decryptedUpdates: [
       {
@@ -313,7 +318,7 @@ test("each poison update is voided on its own and the valid sibling is kept", as
   ];
   const validId = "550e8400-e29b-41d4-a716-4466554400c3";
 
-  const voided = await validateDocumentSyncUpdateImports({
+  const { voided } = await validateDocumentSyncUpdateImports({
     currentDocument: current,
     decryptedUpdates: [
       ...poisonIds.map((id, index) => ({
@@ -338,7 +343,7 @@ test("poison checkpoints and deltas are each voided", async () => {
   const checkpointId = "550e8400-e29b-41d4-a716-4466554400e1";
   const deltaId = "550e8400-e29b-41d4-a716-4466554400e2";
 
-  const voided = await validateDocumentSyncUpdateImports({
+  const { voided } = await validateDocumentSyncUpdateImports({
     currentDocument: current,
     decryptedUpdates: [
       {

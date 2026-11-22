@@ -306,13 +306,13 @@ test("two reset clients recreate one remote document and converge their Loro his
         currentDocument: leftRecovered,
         decryptedUpdates: [rightUpdate],
       }),
-    ).toEqual([]);
+    ).toEqual({ deferredUpdateIds: [], voided: [] });
     expect(
       await validateDocumentSyncUpdateImports({
         currentDocument: rightRecovered,
         decryptedUpdates: [leftUpdate],
       }),
-    ).toEqual([]);
+    ).toEqual({ deferredUpdateIds: [], voided: [] });
     importDecryptedDocumentSyncUpdates(leftRecovered, [rightUpdate]);
     importDecryptedDocumentSyncUpdates(rightRecovered, [leftUpdate]);
 
@@ -366,7 +366,9 @@ test("reset history with a same-peer collision is quarantined before live import
   try {
     const leftRecovered = await createDocument("collision-recovered-left");
     importUpdates(leftRecovered, [decryptedPendingUpdate(left).updateData]);
-    const [voided] = await validateDocumentSyncUpdateImports({
+    const {
+      voided: [voided],
+    } = await validateDocumentSyncUpdateImports({
       currentDocument: leftRecovered,
       decryptedUpdates: [decryptedPendingUpdate(right)],
     });
@@ -417,7 +419,7 @@ test("a same-page same-peer collision voids the later carrier", async () => {
   const currentIdentity = exportFullHistoryIdentity(current);
   try {
     const rightUpdate = decryptedPendingUpdate(right);
-    const voided = await validateDocumentSyncUpdateImports({
+    const { voided } = await validateDocumentSyncUpdateImports({
       currentDocument: current,
       decryptedUpdates: [decryptedPendingUpdate(left), rightUpdate],
     });

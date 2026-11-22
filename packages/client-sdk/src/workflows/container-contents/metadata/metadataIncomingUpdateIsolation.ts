@@ -1,4 +1,3 @@
-import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { importDecryptedDocumentSyncUpdates } from "../../../data/documents/shared/sync/documentSyncUpdateImport";
 import type { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
@@ -9,7 +8,10 @@ import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
-import { recordUncursoredDocumentSyncVerdicts } from "../../documents/sync/processedCursor";
+import {
+  judgeDocumentSyncImports,
+  recordUncursoredDocumentSyncVerdicts,
+} from "../../documents/sync/processedCursor";
 import { reportDocumentSyncQuarantine } from "../../documents/sync/reportDocumentSyncQuarantine";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import type { ContainerMetadataState } from "./metadataTypes";
@@ -40,9 +42,10 @@ export async function recordCurrentMetadataSyncFailure(input: {
 /**
  * Records and reports a metadata pass's voids once its state is saved.
  * Metadata keeps no processed cursor, so its voids are served and judged
- * again on every pull; each is reported only when first recorded.
+ * again on every pull; each is reported only when first recorded. The rows
+ * only spare later passes an import, so a failure to record them is logged
+ * rather than failing a pass whose state is already saved.
  */
-/** Records and reports a metadata sync page's voids; metadata keeps no cursor. */
 export async function recordContainerMetadataVoids(
   pass: {
     readonly isCurrent: () => boolean;
@@ -56,13 +59,22 @@ export async function recordContainerMetadataVoids(
   localId: string,
   synced: SyncRemoteDocumentResult,
 ): Promise<void> {
-  await recordUncursoredDocumentSyncVerdicts({
-    execSql: pass.runtime.infra.execSql,
-    isCurrent: pass.isCurrent,
-    logError: pass.runtime.util.logError,
-    scope: { appKind: CONTAINER_METADATA_APP_KIND, localId },
-    synced,
-  });
+  const { logError } = pass.runtime.util;
+  try {
+    await recordUncursoredDocumentSyncVerdicts({
+      execSql: pass.runtime.infra.execSql,
+      isCurrent: pass.isCurrent,
+      logError,
+      scope: { appKind: CONTAINER_METADATA_APP_KIND, localId },
+      synced,
+    });
+  } catch (error) {
+    await Promise.resolve()
+      .then(() =>
+        logError?.("Container metadata: verdicts not recorded", error),
+      )
+      .catch(() => undefined);
+  }
 }
 
 export function applyIncomingContainerMetadataUpdates(
@@ -99,12 +111,16 @@ export function metadataIncomingUpdateIsolation(input: {
       );
     },
     validateIncomingUpdates: (
-      result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
+      result: Pick<
+        SyncRemoteDocumentResult,
+        "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
+      >,
     ) =>
-      validateDocumentSyncUpdateImports({
+      judgeDocumentSyncImports({
         currentDocument: input.currentDocument,
-        decryptedUpdates: result.decryptedUpdates,
-        responseUpdates: result.response.updates,
+        execSql: input.execSql,
+        result,
+        scope: input.metadataScope,
       }),
   };
 }

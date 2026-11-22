@@ -74,7 +74,10 @@ Outside the model: AEAD failures, which stay availability failures until a
 writer-signed key commitment exists; the content-key fingerprint that drops a
 void judged under another key; duplicate update ids, which still fail a page;
 container metadata documents, which void but keep no cursor; pagination within
-a pull; and devices' own writes. An honest writer depends only on operations
+a pull; the per-page rebuild budget, whose deferred updates are served again as
+a shorter page would leave them; the record of import voids that spares a
+device a second import of an update under the same judge and key; and devices'
+own writes. An honest writer depends only on operations
 committed before its update. A dishonest writer that forges a dependency on a
 later update can make a device that judges an update again (after an upgrade or
 a replaced state) accept what a device judging in server order voided; that is

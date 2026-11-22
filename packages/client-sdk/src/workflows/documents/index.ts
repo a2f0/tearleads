@@ -16,6 +16,7 @@ export {
 } from "../../data/documents/shared/sync/documentSyncUpdateIsolation";
 export {
   assertNoVoidedDocumentSyncUpdates,
+  type DocumentSyncImportVerdicts,
   type VoidedDocumentSyncUpdate,
 } from "../../data/documents/shared/sync/documentUpdateVerdict";
 export {
@@ -139,6 +140,7 @@ export {
 } from "./runtime";
 export { documentCreateSeedCandidate } from "./sync/initialSync";
 export {
+  judgeDocumentSyncImports,
   readProcessedCursorForSync,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,

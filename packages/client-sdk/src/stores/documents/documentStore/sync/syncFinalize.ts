@@ -155,8 +155,9 @@ async function persistSyncedDocument(
   const options = documentSyncSaveOptions(syncAttempt);
   const isCurrent = () =>
     isDocumentStoreSyncGenerationCurrent(state, generation);
-  // Written by the save's commit side effect, so only a committed save has one.
-  const recordedVerdicts: DocumentSyncVerdictOutcome[] = [];
+  // Written by the save's commit side effect, so only a committed save has
+  // one; a retried transaction overwrites an attempt that rolled back.
+  let recordedVerdicts: DocumentSyncVerdictOutcome | undefined;
   try {
     importSyncedDocumentUpdates(candidate, updates);
     if (state.pendingBaseVersion === null) {
@@ -182,15 +183,16 @@ async function persistSyncedDocument(
       },
       generation,
       async (transactionExecSql) => {
-        recordedVerdicts.push(
-          await recordDocumentSyncVerdicts(transactionExecSql, {
+        recordedVerdicts = await recordDocumentSyncVerdicts(
+          transactionExecSql,
+          {
             scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
             synced,
-          }),
+          },
         );
       },
     );
-    const verdicts = recordedVerdicts.at(-1);
+    const verdicts = recordedVerdicts;
     if (persisted && verdicts && isCurrent()) {
       settleDocumentSyncVerdicts(state, synced, verdicts);
     }

@@ -18,7 +18,10 @@ import type {
   DocumentSyncRequestResultOptions,
   PersistedDocumentSyncState,
 } from "../types";
-import type { VoidedDocumentSyncUpdate } from "./documentUpdateVerdict";
+import type {
+  DocumentSyncImportVerdicts,
+  VoidedDocumentSyncUpdate,
+} from "./documentUpdateVerdict";
 import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
 export interface DocumentSyncPreparedUpdate {
@@ -120,11 +123,14 @@ export interface MaterializedDocumentSyncPlan {
  * the ones it voids; a validator that returns nothing accepts every update.
  */
 export type IncomingDocumentSyncUpdateValidator = (
-  result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
+  result: Pick<
+    SyncRemoteDocumentResult,
+    "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
+  >,
 ) =>
   | undefined
-  | readonly VoidedDocumentSyncUpdate[]
-  | Promise<undefined | readonly VoidedDocumentSyncUpdate[]>;
+  | DocumentSyncImportVerdicts
+  | Promise<undefined | DocumentSyncImportVerdicts>;
 
 export interface SyncRemoteDocumentResult {
   contentKey: Uint8Array;

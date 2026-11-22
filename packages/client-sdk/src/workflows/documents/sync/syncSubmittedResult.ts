@@ -110,7 +110,7 @@ async function submittedDocumentSyncResult(
         rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
         settledPendingUpdateIds: result.settledPendingUpdateIds,
       }),
-    hasIncompletePull: !input.pullComplete,
+    hasIncompletePull: result.hasIncompletePull || !input.pullComplete,
   };
 }
 

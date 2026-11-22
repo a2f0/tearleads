@@ -42,6 +42,18 @@ export interface VoidedDocumentSyncUpdate {
   readonly updateId: string;
 }
 
+/** What judging one page's imports decided. */
+export interface DocumentSyncImportVerdicts {
+  /**
+   * Updates left unjudged because the page used up its rebuild budget, in
+   * server order. The pass applies none of them, and its pull starts over so
+   * the next pass is served them again.
+   */
+  readonly deferredUpdateIds: readonly string[];
+  /** Updates this reader will never apply, in server order. */
+  readonly voided: readonly VoidedDocumentSyncUpdate[];
+}
+
 /** The void an attributed failure at a void stage stands for, else null. */
 export function voidedDocumentSyncUpdate(
   error: unknown,
@@ -66,17 +78,22 @@ export function voidedDocumentSyncUpdate(
  * update, a rotation's raw history): any void there is still a failure.
  */
 export function assertNoVoidedDocumentSyncUpdates(
-  voided: readonly VoidedDocumentSyncUpdate[],
+  voided: readonly VoidedDocumentSyncUpdate[] | DocumentSyncImportVerdicts,
 ): void {
-  const [first] = voided;
+  // A page defers updates only after voiding one, so the void is thrown.
+  const [first] = "voided" in voided ? voided.voided : voided;
   if (first) throw first.error;
 }
 
+/** The updates a page applies: neither voided nor deferred. */
 export function withoutVoidedUpdates<Update extends { readonly id: string }>(
   updates: readonly Update[],
-  voided: readonly VoidedDocumentSyncUpdate[],
+  verdicts: DocumentSyncImportVerdicts,
 ): Update[] {
-  if (voided.length === 0) return [...updates];
-  const voidedIds = new Set(voided.map((entry) => entry.updateId));
-  return updates.filter((update) => !voidedIds.has(update.id));
+  const skipped = new Set([
+    ...verdicts.voided.map((entry) => entry.updateId),
+    ...verdicts.deferredUpdateIds,
+  ]);
+  if (skipped.size === 0) return [...updates];
+  return updates.filter((update) => !skipped.has(update.id));
 }

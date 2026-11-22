@@ -133,5 +133,5 @@ server from serving it again.
 
 Related docs:
 
-- [loro-e2ee-sync-protocol.md](../advisory-op-spans.md)
+- [advisory-op-spans.md](../advisory-op-spans.md)
 - [sync-edge-cases.md](../sync-edge-cases.md#the-failure-isolation-model)

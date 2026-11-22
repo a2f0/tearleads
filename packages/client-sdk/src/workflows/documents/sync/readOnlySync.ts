@@ -97,7 +97,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
   });
   return {
     ...result,
-    hasIncompletePull: !input.pullComplete,
+    hasIncompletePull: result.hasIncompletePull || !input.pullComplete,
   };
 }
 

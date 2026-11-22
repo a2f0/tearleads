@@ -65,7 +65,7 @@ frontier still covers the one recorded with it and its decoder is unchanged.
 
 Related docs:
 
-- [loro-e2ee-sync-protocol.md](../advisory-op-spans.md)
+- [advisory-op-spans.md](../advisory-op-spans.md)
 
 ## Projection Row
 

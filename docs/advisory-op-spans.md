@@ -27,6 +27,17 @@ fails the pass or sets the document's sync failure. An AES-GCM failure stays an
 availability failure, because a reader cannot prove its content key is the one
 the writer used.
 
+A void whose import changed the scratch history the reader judges against
+forces it to rebuild that history before the next update. Each page may spend
+at most 32 MiB of rebuilt snapshot and update bytes; once the budget is spent,
+the reader leaves the page's remaining updates unapplied, reports the pull
+incomplete, and drops the page's continuation, so its next pull serves them
+again. Voids that change nothing (a counter gap read from the update's
+metadata, a collision with operations already held, an undecodable payload)
+cost no rebuild. An update this device already voided at the import stage,
+under the same judge and the same content key, stays void without another
+import, so every pass judges at least one update the last one did not.
+
 ## The Processed Cursor
 
 Every page returns `pullPage.throughUpdateId`, the last update committed when

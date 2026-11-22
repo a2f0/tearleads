@@ -366,7 +366,6 @@ async function finalizeContainerMetadataSync(input: {
   }
   metadataState.container = persisted.container;
   installContainerMetadataRecord(metadataState, persisted.record);
-  await recordContainerMetadataVoids(input, persisted.record.id, synced);
   if (persisted.pullContinuationSuperseded) {
     // The response's accepted IDs were not durably settled. Treat every
     // pre-registration as unapplied so an early echo cannot hide work that the
@@ -377,6 +376,9 @@ async function finalizeContainerMetadataSync(input: {
       [],
     );
     metadataState.metadataWriterProjection = null;
+  } else {
+    // A superseded page was not settled; its follow-up judges it again.
+    await recordContainerMetadataVoids(input, persisted.record.id, synced);
   }
 
   return {

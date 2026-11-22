@@ -1,10 +1,15 @@
+import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
-import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import {
+  type DocumentSyncImportVerdicts,
+  documentVerdictJudge,
+} from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import {
   type DocumentSyncVerdictInput,
   type DocumentSyncVerdictOutcome,
+  readRecordedImportVoids,
   readSendableProcessedCursor,
   recordDocumentSyncVerdictsInTransaction,
 } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
@@ -34,6 +39,51 @@ export async function readProcessedCursorForSync(
     getClientSQLitePersistenceRuntime(execSql).db,
     { ...input, judge: documentVerdictJudge() },
   );
+}
+
+/**
+ * Judges a sync page's imports against `currentDocument`. An update this
+ * scope already voided at the import stage, under the running judge and the
+ * content key this pass holds for its epoch, stays void without being
+ * imported again: a re-served void costs nothing, so a pass that deferred
+ * part of its page makes progress on the next one.
+ */
+export async function judgeDocumentSyncImports(input: {
+  readonly currentDocument: Parameters<
+    typeof validateDocumentSyncUpdateImports
+  >[0]["currentDocument"];
+  readonly execSql: ExecSql;
+  readonly result: Pick<
+    SyncRemoteDocumentResult,
+    "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
+  >;
+  readonly scope: DocumentScope;
+}): Promise<DocumentSyncImportVerdicts> {
+  const { result } = input;
+  await ensureDocumentTables(input.execSql);
+  const recorded = await readRecordedImportVoids(
+    getClientSQLitePersistenceRuntime(input.execSql).db,
+    {
+      judge: documentVerdictJudge(),
+      scope: input.scope,
+      updateIds: result.decryptedUpdates.map((update) => update.id),
+    },
+  );
+  const knownVoids = new Set(
+    recorded.flatMap((row) =>
+      row.contentKeyEpoch === null ||
+      result.contentKeyFingerprintsByEpoch.get(row.contentKeyEpoch) ===
+        row.keyFingerprint
+        ? [row.updateId]
+        : [],
+    ),
+  );
+  return validateDocumentSyncUpdateImports({
+    currentDocument: input.currentDocument,
+    decryptedUpdates: result.decryptedUpdates,
+    knownVoids,
+    responseUpdates: result.response.updates,
+  });
 }
 
 /**

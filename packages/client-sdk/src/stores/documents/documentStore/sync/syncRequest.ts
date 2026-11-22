@@ -9,11 +9,12 @@ import {
   type DocumentRecord,
   deletePersistedDocument,
   type ExecSql,
+  type IncomingDocumentSyncUpdateValidator,
+  judgeDocumentSyncImports,
   type PendingUpdateRecord,
   RemoteDocumentService,
   readProcessedCursorForSync,
   resolveDocumentCreateAuthor,
-  validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { requestDocumentStoreSync } from "../../registry";
@@ -154,6 +155,20 @@ function pullPosition(
   };
 }
 
+/** Judges a page against the live document, skipping this scope's known voids. */
+function documentImportJudge(
+  state: RequestRemoteDocumentSyncInput["state"],
+  currentDocument: RequestRemoteDocumentSyncInput["currentDoc"],
+): IncomingDocumentSyncUpdateValidator {
+  return (result) =>
+    judgeDocumentSyncImports({
+      currentDocument,
+      execSql: state.runtime.infra.execSql,
+      result,
+      scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+    });
+}
+
 function runRemoteDocumentSync(
   input: RequestRemoteDocumentSyncInput,
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>,
@@ -231,12 +246,7 @@ function runRemoteDocumentSync(
       writerKeyLabel: "writer key",
     }),
     stillCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
-    validateIncomingUpdates: (result) =>
-      validateDocumentSyncUpdateImports({
-        currentDocument: currentDoc,
-        decryptedUpdates: result.decryptedUpdates,
-        responseUpdates: result.response.updates,
-      }),
+    validateIncomingUpdates: documentImportJudge(state, currentDoc),
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
     }),
