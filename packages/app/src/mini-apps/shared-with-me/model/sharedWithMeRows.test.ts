@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
-import { buildOrganizationDashboardCards } from "./organizationDashboard";
+import {
+  buildSharedWithMeRows,
+  type SharedWithMeRow,
+} from "./sharedWithMeRows";
 
 const METADATA_SLOT = `sys_v1_${"m".repeat(43)}`;
 const TRASH_SLOT = `sys_v1_${"t".repeat(43)}`;
@@ -23,8 +26,26 @@ function node(
   };
 }
 
+function organizationIds(rows: ReadonlyArray<SharedWithMeRow>): string[] {
+  return [...new Set(rows.map((row) => row.organization.organizationId))];
+}
+
 test("lists the root of a workspace and the topmost shared folders elsewhere", () => {
-  const cards = buildOrganizationDashboardCards({
+  const personal = {
+    canAskToLeave: false,
+    leaveRequested: false,
+    name: "Personal Org",
+    organizationId: "personal",
+    syncPaused: false,
+  };
+  const acme = {
+    canAskToLeave: false,
+    leaveRequested: false,
+    name: "Acme",
+    organizationId: "acme",
+    syncPaused: false,
+  };
+  const rows = buildSharedWithMeRows({
     ...NO_SYNC_CHOICES,
     activeOrganizationId: "personal",
     namesById: new Map([
@@ -77,63 +98,56 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
     ],
   });
 
-  expect(cards).toEqual([
+  expect(rows).toEqual([
     {
-      active: true,
-      canAskToLeave: false,
-      folders: [
-        {
-          accessLevel: "admin",
-          id: "personal-root",
-          name: "personal-root",
-          workspaceRoot: true,
-        },
-      ],
-      leaveRequested: false,
-      name: "Personal Org",
-      organizationId: "personal",
-      syncPaused: false,
-      workspace: true,
+      folder: {
+        accessLevel: "admin",
+        id: "personal-root",
+        name: "personal-root",
+        workspaceRoot: true,
+      },
+      key: "folder:personal-root",
+      kind: "folder",
+      organization: personal,
     },
     {
-      active: false,
-      canAskToLeave: false,
-      folders: [
-        {
-          accessLevel: "write",
-          id: "acme-design",
-          name: "design",
-          workspaceRoot: false,
-        },
-        {
-          accessLevel: "read",
-          id: "acme-team",
-          name: "Team",
-          workspaceRoot: false,
-        },
-      ],
-      leaveRequested: false,
-      name: "Acme",
-      organizationId: "acme",
-      syncPaused: false,
-      workspace: false,
+      folder: {
+        accessLevel: "write",
+        id: "acme-design",
+        name: "design",
+        workspaceRoot: false,
+      },
+      key: "folder:acme-design",
+      kind: "folder",
+      organization: acme,
+    },
+    {
+      folder: {
+        accessLevel: "read",
+        id: "acme-team",
+        name: "Team",
+        workspaceRoot: false,
+      },
+      key: "folder:acme-team",
+      kind: "folder",
+      organization: acme,
     },
   ]);
 });
 
 test("treats a folder with no synced access level as read only", () => {
-  const [card] = buildOrganizationDashboardCards({
+  const [row] = buildSharedWithMeRows({
     ...NO_SYNC_CHOICES,
     activeOrganizationId: null,
     namesById: new Map(),
     nodes: [node({ id: "shared", organizationId: "acme", parentId: "hidden" })],
   });
 
-  expect(card?.folders.map((folder) => folder.accessLevel)).toEqual(["read"]);
+  expect(row?.kind === "folder" && row.folder.accessLevel).toBe("read");
 });
 
-test("keeps an organization known only through its metadata root", () => {
-  const cards = buildOrganizationDashboardCards({
+test("gives an organization known only through its metadata root one organization row", () => {
+  const rows = buildSharedWithMeRows({
     ...NO_SYNC_CHOICES,
     activeOrganizationId: null,
     namesById: new Map(),
@@ -147,22 +161,23 @@ test("keeps an organization known only through its metadata root", () => {
     ],
   });
 
-  expect(cards).toEqual([
+  expect(rows).toEqual([
     {
-      active: false,
-      canAskToLeave: false,
-      folders: [],
-      leaveRequested: false,
-      name: null,
-      organizationId: "members-only",
-      syncPaused: false,
-      workspace: false,
+      key: "organization:members-only",
+      kind: "organization",
+      organization: {
+        canAskToLeave: false,
+        leaveRequested: false,
+        name: null,
+        organizationId: "members-only",
+        syncPaused: false,
+      },
     },
   ]);
 });
 
 test("lists a Contacts folder shared on its own, but not roster profiles", () => {
-  const [card] = buildOrganizationDashboardCards({
+  const rows = buildSharedWithMeRows({
     ...NO_SYNC_CHOICES,
     activeOrganizationId: null,
     namesById: new Map(),
@@ -190,11 +205,11 @@ test("lists a Contacts folder shared on its own, but not roster profiles", () =>
     ],
   });
 
-  expect(card?.folders.map((folder) => folder.id)).toEqual(["acme-contacts"]);
+  expect(rows.map((row) => row.key)).toEqual(["folder:acme-contacts"]);
 });
 
-test("orders the active organization, then workspaces, then named organizations", () => {
-  const cards = buildOrganizationDashboardCards({
+test("groups the active organization, then workspaces, then named organizations", () => {
+  const rows = buildSharedWithMeRows({
     ...NO_SYNC_CHOICES,
     activeOrganizationId: "active",
     namesById: new Map([
@@ -205,24 +220,26 @@ test("orders the active organization, then workspaces, then named organizations"
     ]),
     nodes: [
       node({ id: "pending", organizationId: "pending", parentId: "hidden" }),
-      node({ id: "beta", organizationId: "beta", parentId: "hidden" }),
+      node({ id: "beta-2", organizationId: "beta", parentId: "hidden" }),
       node({ id: "alpha", organizationId: "alpha", parentId: "hidden" }),
+      node({ id: "beta-1", organizationId: "beta", parentId: "hidden" }),
       node({ id: "workspace", organizationId: "workspace", parentId: null }),
       node({ id: "active", organizationId: "active", parentId: null }),
     ],
   });
 
-  expect(cards.map((card) => card.organizationId)).toEqual([
-    "active",
-    "workspace",
-    "alpha",
-    "beta",
-    "pending",
+  expect(rows.map((row) => row.key)).toEqual([
+    "folder:active",
+    "folder:workspace",
+    "folder:alpha",
+    "folder:beta-1",
+    "folder:beta-2",
+    "folder:pending",
   ]);
 });
 
-test("marks the organizations paused on this device, active and personal included", () => {
-  const cards = buildOrganizationDashboardCards({
+test("marks every row of an organization paused on this device, active and personal included", () => {
+  const rows = buildSharedWithMeRows({
     activeOrganizationId: "active",
     namesById: new Map(),
     nodes: [
@@ -241,20 +258,20 @@ test("marks the organizations paused on this device, active and personal include
   });
 
   expect(
-    cards.map(({ organizationId, syncPaused }) => ({
-      organizationId,
-      syncPaused,
+    rows.map(({ key, organization }) => ({
+      key,
+      syncPaused: organization.syncPaused,
     })),
   ).toEqual([
-    { organizationId: "active", syncPaused: true },
-    { organizationId: "live", syncPaused: false },
-    { organizationId: "personal", syncPaused: true },
-    { organizationId: "paused", syncPaused: true },
+    { key: "folder:active", syncPaused: true },
+    { key: "folder:live", syncPaused: false },
+    { key: "folder:personal", syncPaused: true },
+    { key: "organization:paused", syncPaused: true },
   ]);
 });
 
 test("offers a leave request only for listed, non-personal memberships", () => {
-  const cards = buildOrganizationDashboardCards({
+  const rows = buildSharedWithMeRows({
     activeOrganizationId: "personal",
     ...NO_SYNC_CHOICES,
     leavableOrganizationIds: new Set(["acme", "asked"]),
@@ -273,10 +290,10 @@ test("offers a leave request only for listed, non-personal memberships", () => {
   });
 
   expect(
-    cards.map(({ canAskToLeave, leaveRequested, organizationId }) => ({
-      canAskToLeave,
-      leaveRequested,
-      organizationId,
+    rows.map(({ organization }) => ({
+      canAskToLeave: organization.canAskToLeave,
+      leaveRequested: organization.leaveRequested,
+      organizationId: organization.organizationId,
     })),
   ).toEqual([
     { canAskToLeave: false, leaveRequested: false, organizationId: "personal" },
@@ -297,15 +314,17 @@ test("shows only the account organization while the device root is reconciled", 
     organizationId: "personal",
     parentId: null,
   });
-  const cardIds = (nodes: ContainerNode[]) =>
-    buildOrganizationDashboardCards({
-      ...NO_SYNC_CHOICES,
-      activeOrganizationId: "personal",
-      namesById: new Map(),
-      nodes,
-    }).map((card) => card.organizationId);
+  const listed = (nodes: ContainerNode[]) =>
+    organizationIds(
+      buildSharedWithMeRows({
+        ...NO_SYNC_CHOICES,
+        activeOrganizationId: "personal",
+        namesById: new Map(),
+        nodes,
+      }),
+    );
 
-  expect(cardIds([deviceRoot, accountRoot])).toEqual(["personal"]);
-  expect(cardIds([deviceRoot])).toEqual([]);
-  expect(cardIds([accountRoot])).toEqual(["personal"]);
+  expect(listed([deviceRoot, accountRoot])).toEqual(["personal"]);
+  expect(listed([deviceRoot])).toEqual([]);
+  expect(listed([accountRoot])).toEqual(["personal"]);
 });
