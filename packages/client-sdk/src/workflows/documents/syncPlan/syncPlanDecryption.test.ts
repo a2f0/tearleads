@@ -1,10 +1,4 @@
 import { expect, test } from "bun:test";
-import {
-  CONTENT_RECORD_ENCRYPTION_SUITE,
-  computeDocumentContentRecordCiphertextHash,
-  createAesGcmIv,
-  serializeKeyingCanonicalJson,
-} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -17,19 +11,10 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../../test/helpers/data/documentFixtures";
+import { replaceEncryptedPlaintext } from "../../../../test/helpers/data/replaceEncryptedPlaintext";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
-import {
-  deriveDocumentContentRecordKey,
-  documentContentRecordDerivationPayload,
-  importContentKeyMaterial,
-} from "../../../data/documents/shared/contentRecordKeys";
 import { decryptDocumentSyncUpdates } from "../../../data/documents/shared/crypto";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
-import {
-  DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
-  DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
-  TEXT_ENCODER,
-} from "../../../data/documents/shared/types";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 function errorCauseTree(error: unknown): unknown[] {
@@ -49,74 +34,6 @@ function errorCauseTree(error: unknown): unknown[] {
     }
   }
   return found;
-}
-
-async function replaceEncryptedPlaintext(input: {
-  contentKey: Uint8Array;
-  documentId: string;
-  organizationId: string;
-  update: Awaited<ReturnType<typeof createSyncResponse>>["updates"][number];
-}) {
-  // Header signature verification is upstream of this unit. Model a writer
-  // committing this ciphertext while retaining a hash for different bytes.
-  const encrypted = JSON.parse(input.update.encryptedData) as {
-    contentKeyEpoch: number;
-    contentRecordId: string;
-    metadataHash: string;
-    nonceDomainHash: string;
-  };
-  const contentKeyMaterial = await importContentKeyMaterial(input.contentKey);
-  const recordKey = await deriveDocumentContentRecordKey({
-    contentKeyMaterial,
-    contentKeyEpoch: encrypted.contentKeyEpoch,
-    contentRecordId: encrypted.contentRecordId,
-    documentId: input.documentId,
-    organizationId: input.organizationId,
-    usage: "encrypt",
-  });
-  const iv = createAesGcmIv();
-  const additionalData = TEXT_ENCODER.encode(
-    serializeKeyingCanonicalJson({
-      domain: DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
-      payload: {
-        ...documentContentRecordDerivationPayload({
-          contentKeyEpoch: encrypted.contentKeyEpoch,
-          contentRecordId: encrypted.contentRecordId,
-          documentId: input.documentId,
-          organizationId: input.organizationId,
-        }),
-        metadataHash: encrypted.metadataHash,
-        nonceDomainHash: encrypted.nonceDomainHash,
-      },
-    }),
-  );
-  const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv, additionalData },
-      recordKey,
-      new Uint8Array([1, 2, 3]),
-    ),
-  );
-  const encryptedData = serializeKeyingCanonicalJson({
-    format: DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
-    version: 1,
-    encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-    contentKeyEpoch: encrypted.contentKeyEpoch,
-    contentRecordId: encrypted.contentRecordId,
-    nonceDomainHash: encrypted.nonceDomainHash,
-    metadataHash: encrypted.metadataHash,
-    iv: bytesToBase64(iv),
-    ciphertext: bytesToBase64(ciphertext),
-  });
-  return {
-    ...input.update,
-    encryptedData,
-    writeHeader: {
-      ...input.update.writeHeader,
-      ciphertextHash:
-        await computeDocumentContentRecordCiphertextHash(encryptedData),
-    },
-  };
 }
 
 test("decryptDocumentSyncUpdates verifies and decrypts content records", async () => {
@@ -313,34 +230,6 @@ test("decryptDocumentSyncUpdates keeps multiple poison updates anonymous", async
   );
 });
 
-test("decryptDocumentSyncUpdates rejects signed outer vectors that do not match the Loro payload", async () => {
-  const { author, contentKey, secretKey, writerProjection } =
-    await createMaterializedSyncFixture();
-  const materialized = await buildMaterializedDocumentSyncPlan({
-    author,
-    localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        partialEndVersionVector: "AA==",
-        partialStartVersionVector: "AA==",
-      }),
-    ],
-    targetSecretKey: secretKey,
-    trustedLocalProjection: true,
-    writerProjection,
-  });
-
-  await expect(
-    decryptDocumentSyncUpdates({
-      contentKey,
-      contentKeyEpoch: materialized.plan.contentKeyEpoch,
-      documentId: materialized.plan.documentId,
-      organizationId: materialized.plan.organizationId,
-      updates: (await createSyncResponse(materialized.plan)).updates,
-    }),
-  ).rejects.toThrow("decrypted update version-vector mismatch");
-});
-
 test("decryptDocumentSyncUpdates rejects a dependency-bearing update labeled as a rotation baseline", async () => {
   const { author, contentKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
@@ -400,4 +289,34 @@ test("decryptDocumentSyncUpdates rejects a snapshot labeled as an ordinary updat
       updates: (await createSyncResponse(materialized.plan)).updates,
     }),
   ).rejects.toThrow("ordinary update payload is not an update blob");
+});
+
+// Sync voids such an update; this strict path, which a host can still call,
+// fails on it.
+test("decryptDocumentSyncUpdates rejects signed outer vectors that do not match the Loro payload", async () => {
+  const { author, contentKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [
+      createPendingUpdateRecord({
+        partialEndVersionVector: "AA==",
+        partialStartVersionVector: "AA==",
+      }),
+    ],
+    targetSecretKey: secretKey,
+    trustedLocalProjection: true,
+    writerProjection,
+  });
+
+  await expect(
+    decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: (await createSyncResponse(materialized.plan)).updates,
+    }),
+  ).rejects.toThrow("decrypted update version-vector mismatch");
 });

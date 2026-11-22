@@ -44,6 +44,7 @@ function page(input: {
           pullPage: {
             hasMore: input.cursor !== null,
             nextCursor: input.cursor,
+            throughUpdateId: null,
           },
         }),
     updates:

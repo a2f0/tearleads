@@ -61,7 +61,8 @@ export const principalPolicyContractsSurface = [
 // The document projection, container KEK path, reader, and sync contracts that
 // Container Data, Client Blob Storage, and Document Store & Sync build on.
 // Document sync also uses the KEK currency, content crypto, event, outgoing
-// batch, pagination, decryption, acknowledgement, and submit-failure contracts.
+// batch, pagination, decryption, import, verdict, Loro runtime-failure ledger,
+// key-fingerprint, acknowledgement, and submit-failure contracts.
 export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/containerKek/index.ts`,
   `${sdk}/data/documents/shared/projection/index.ts`,
@@ -75,10 +76,15 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/readers.ts`,
   `${sdk}/data/documents/shared/responses.ts`,
   `${sdk}/data/documents/shared/stableDocumentId.ts`,
+  `${sdk}/data/documents/shared/sync/contentKeyFingerprint.ts`,
+  `${sdk}/data/documents/shared/sync/documentSyncImportVerdicts.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncOutgoingBatch.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncTypes.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncUpdateDecryption.ts`,
+  `${sdk}/data/documents/shared/sync/documentSyncUpdateImport.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncUpdateIsolation.ts`,
+  `${sdk}/data/documents/shared/sync/documentUpdateVerdict.ts`,
+  `${sdk}/data/documents/shared/sync/loroRuntimeFailureLedger.ts`,
   `${sdk}/data/documents/shared/sync/mutationAcknowledgement.ts`,
   `${sdk}/data/documents/shared/sync/pullContinuation.ts`,
   `${sdk}/data/documents/shared/sync/syncPagination.ts`,
@@ -112,6 +118,7 @@ export const documentStoreSurface = [
   `${sdk}/workflows/documents/purge/subtreePurgeScope.ts`,
   `${sdk}/workflows/documents/remoteReset/documentRemoteReset.ts`,
   `${sdk}/workflows/documents/sync/initialSync.ts`,
+  `${sdk}/workflows/documents/sync/processedCursor.ts`,
   `${sdk}/workflows/documents/sync/reportDocumentSyncQuarantine.ts`,
   `${sdk}/workflows/documents/syncFailures/syncFailureClassification.ts`,
   `${sdk}/data/persistence/documents/types.ts`,

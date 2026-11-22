@@ -1,7 +1,8 @@
 import { createReadOnlyDocument, importUpdates } from "@tearleads/loro";
 import { readSeedTag } from "../../../data/documents/documentContent";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
-import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
+import { processLoroRuntimeFailures } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import { resolveDocumentCreateAuthor } from "../author";
 import { defaultDocumentsPersistence } from "../persistence";
 import { createDocumentProjectionUserKeyResolver } from "../projectionKeys";
@@ -79,12 +80,14 @@ export async function readDocumentFoundingUpdate(input: {
         writerKeyLabel: "writer key",
       }),
       stillCurrent,
-      // Only the first update is replayed, so only it must import alone.
+      // Only the first update is replayed, so only it must import alone. A
+      // founding view records no runtime attempts.
       validateIncomingUpdates: ({ decryptedUpdates, response }) =>
         validateDocumentSyncUpdateImports({
           currentDocument: scratch,
           decryptedUpdates: decryptedUpdates.slice(0, 1),
           responseUpdates: response.updates.slice(0, 1),
+          runtimeLedger: processLoroRuntimeFailures.unrecorded(),
         }),
       warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
     });

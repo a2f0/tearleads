@@ -176,7 +176,9 @@ test("raw recovery quarantines a same-page forged rotation baseline", async () =
 
     expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
     if (!isDocumentSyncUpdateIsolationError(error)) return;
-    expect(error.attribution).toBe("batch");
+    // Judged one update at a time, the forged baseline is named exactly.
+    expect(error.attribution).toBe("update");
+    expect(error.updateId).toBe("550e8400-e29b-41d4-a716-446655440445");
     expect(error.stage).toBe("loro_import");
     expect(await hasTerminalFailures(execSql)).toBe(true);
     expect(await listPendingUpdates(state)).toEqual(pendingBefore);

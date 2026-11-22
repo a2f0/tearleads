@@ -390,7 +390,7 @@ export async function createSyncResponse(
     commitLsnMode: "tracked",
     contentKeyBundles: [],
     documentId: plan.documentId,
-    pullPage: { hasMore: false, nextCursor: null },
+    pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
     updates,
     ...overrides,
   };

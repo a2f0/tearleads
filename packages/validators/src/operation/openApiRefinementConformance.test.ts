@@ -119,6 +119,16 @@ const witnesses = {
     expectedMessage: "raw-history pulls must start from a null version vector",
     kind: "request",
   },
+  [documentSyncRequestPullRefinements[3].id]: {
+    createInput: () => ({
+      ...createSyncRequest(),
+      localVersionVector: null,
+      processedThroughUpdateId: "550e8400-e29b-41d4-a716-446655440000",
+    }),
+    expectedMessage:
+      "a processed cursor needs the version vector it was recorded with",
+    kind: "request",
+  },
   [documentSyncResponseRotationRefinement.id]: {
     createInput: () => ({
       ...createSyncResponse(),
@@ -154,6 +164,7 @@ const witnesses = {
       pullPage: {
         hasMore: true,
         nextCursor: null,
+        throughUpdateId: null,
       },
     }),
     expectedMessage: "pull page continuation does not match hasMore",

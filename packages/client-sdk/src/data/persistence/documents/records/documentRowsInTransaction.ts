@@ -5,6 +5,7 @@ import {
   documents,
 } from "../../../sqlite/schema/documentRecordSchema";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
+import { deleteDocumentSyncVerdictsInTransaction } from "./documentSyncVerdictPersistence";
 
 // Document rows written inside another subsystem's transaction. Container
 // Contents stores each folder's metadata document in these tables, so it
@@ -72,6 +73,7 @@ export async function deleteDocumentScopeRowsInTransaction(
       ),
     )
     .run();
+  await deleteDocumentSyncVerdictsInTransaction(tx, appKind, ids);
 }
 
 /**
@@ -103,4 +105,7 @@ export async function rebindDocumentRowInTransaction(
       ),
     )
     .run();
+  await deleteDocumentSyncVerdictsInTransaction(tx, scope.appKind, [
+    scope.localId,
+  ]);
 }

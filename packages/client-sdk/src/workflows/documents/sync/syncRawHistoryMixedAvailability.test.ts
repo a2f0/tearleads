@@ -16,10 +16,7 @@ import {
 } from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
-import {
-  isDocumentSyncUpdateIsolationError,
-  validateDocumentSyncUpdateImports,
-} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   DocumentRawHistoryUnavailableError,
   unwrapDocumentSyncResponseContentKeys,
@@ -31,7 +28,6 @@ test("decryptable poison outranks an unavailable raw-history sibling", async () 
   const { close, execSql } = await createTestExecSql(
     "raw-history-unavailable-with-decryptable-poison",
   );
-  const scratchDocument = await createDocument("mixed-raw-page-validator");
   try {
     const fixture = await createMaterializedSyncFixture();
     const currentBundle = await sealContentKeyBundle({
@@ -111,12 +107,6 @@ test("decryptable poison outranks an unavailable raw-history sibling", async () 
           organizationId: materializedPlan.plan.organizationId,
           response,
           updates,
-          validateIncomingUpdates: (result) =>
-            validateDocumentSyncUpdateImports({
-              currentDocument: scratchDocument,
-              decryptedUpdates: result.decryptedUpdates,
-              responseUpdates: result.response.updates,
-            }),
         }),
       response,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
@@ -132,16 +122,14 @@ test("decryptable poison outranks an unavailable raw-history sibling", async () 
     if (!isDocumentSyncUpdateIsolationError(error)) return;
     expect(error.updateId).toBe(poisonedCurrentUpdate.id);
   } finally {
-    scratchDocument.free();
     close();
   }
 });
 
-test("an unrelated unresolved update outranks raw-history availability", async () => {
+test("an unresolved update does not outrank raw-history availability", async () => {
   const { close, execSql } = await createTestExecSql(
     "raw-history-unavailable-with-unresolved-poison",
   );
-  const scratchDocument = await createDocument("unresolved-raw-page-validator");
   try {
     const fixture = await createMaterializedSyncFixture();
     const currentBundle = await sealContentKeyBundle({
@@ -228,12 +216,6 @@ test("an unrelated unresolved update outranks raw-history availability", async (
           organizationId: materializedPlan.plan.organizationId,
           response,
           updates,
-          validateIncomingUpdates: (result) =>
-            validateDocumentSyncUpdateImports({
-              currentDocument: scratchDocument,
-              decryptedUpdates: result.decryptedUpdates,
-              responseUpdates: result.response.updates,
-            }),
         }),
       response,
       resolveProjectionUserKey: fixture.resolveProjectionUserKey,
@@ -244,13 +226,10 @@ test("an unrelated unresolved update outranks raw-history availability", async (
       (thrown: unknown) => thrown,
     );
 
-    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
-    expect(error).not.toBeInstanceOf(DocumentRawHistoryUnavailableError);
-    if (!isDocumentSyncUpdateIsolationError(error)) return;
-    expect(error.stage).toBe("loro_import");
-    expect(error.batchUpdateIds).toEqual([childId]);
+    // Its missing parent may be the update this reader cannot decrypt, so
+    // no dependency verdict is made while any served update is unavailable.
+    expect(error).toBeInstanceOf(DocumentRawHistoryUnavailableError);
   } finally {
-    scratchDocument.free();
     close();
   }
 });

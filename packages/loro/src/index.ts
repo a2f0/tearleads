@@ -25,6 +25,7 @@ export {
   listSnapshotFieldEditors,
   listTextCharOpIds,
   listVersionVectorSpans,
+  loroDecoderIdentity,
   mergeVersionVectors,
   satisfiesVersionVector,
   type TextCharBlameSource,
@@ -40,6 +41,7 @@ export {
   openHistoryViewer,
   orderHistoryStops,
 } from "./historyTimeline";
+export { isLoroRuntimeFailure } from "./runtimeFailure";
 export * from "./shared";
 export { updateMatchesDocumentHistory } from "./updateIdentity";
 export {

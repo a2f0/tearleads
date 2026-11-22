@@ -1,0 +1,11 @@
+# Issue #3135 (advisory op spans, PR 1): document sync requests gain the
+# optional `processedThroughUpdateId`, and a new refinement requires a
+# non-null `localVersionVector` beside it. No existing client sends the field,
+# so no existing request is rejected. The attachment bind carries a document
+# sync request, so it reports the same refinement. Remove these exact
+# diagnostics, and this file, as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.processed-cursor-frontier' was added; existing clients were not rejected by it.
+
+# Issue #3135 PR 1: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/sync: request refinement 'request.processed-cursor-frontier' was added; existing clients were not rejected by it.

@@ -83,6 +83,8 @@ exec bun test \
   src/routes/documents/purgeSyncConcurrency.pg.test.ts \
   src/routes/documents/unlinkSyncConcurrency.pg.test.ts \
   src/routes/documents/syncPaginationConcurrency.pg.test.ts \
+  src/routes/documents/syncProcessedThroughRace.pg.test.ts \
+  src/routes/documents/syncProcessedThrough.test.ts \
   src/routes/documents/syncPagination.test.ts \
   src/routes/documents/syncMinLsnGuards.test.ts \
   src/routes/documents/syncConcurrency.pg.test.ts \

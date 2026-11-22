@@ -11,6 +11,7 @@ import {
 } from "../../../../test/helpers/workflows/ancestorRotationRecovery";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import {
   buildMaterializedDocumentCreatePlan,
@@ -44,7 +45,7 @@ test("ordinary document sync repairs a stale ancestor chain before encrypting it
       documentId: projection.documentId,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     await expect(
       prepareAutomaticContainerRekeys(
@@ -128,7 +129,7 @@ test("a pass that cannot heal a stale bundle declines to repair its ancestors", 
       documentId: projection.documentId,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     await expect(
       buildRemoteDocumentSyncPlan({
@@ -178,7 +179,7 @@ test("a repair path outside the author's organization is refused", async () => {
       documentId: projection.documentId,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     await expect(
       buildRemoteDocumentSyncPlan({

@@ -174,47 +174,53 @@ export async function loadLatestReadableBaselineCoverage(
 }
 
 /**
- * Move an initial pull directly to a readable baseline when it covers every
- * update the client is missing before that baseline. This decision happens
- * before the bounded page query, so a long run of covered old-epoch updates
- * cannot consume empty pages and starve the baseline itself.
+ * Move a pull's first page directly to a readable baseline when it covers
+ * every update the client is missing between where the page starts and that
+ * baseline. A first page starts after the client's processed cursor, if it
+ * sent one, and updates at or before the cursor were judged already, so they
+ * neither need the baseline nor keep it from serving. A continuation page
+ * keeps its position. This decision happens before the bounded page query,
+ * so a long run of covered old-epoch updates cannot consume empty pages and
+ * starve the baseline itself.
  */
 export async function resolveBaselineRedirectAfterSequence(input: {
   readonly afterSequence: number;
   readonly contentKeyEpoch: number;
   readonly documentId: string;
   readonly executor: DatabaseSession;
+  /** Whether this is a pull's first page, sent with no pull cursor. */
+  readonly firstPage: boolean;
   readonly localVersionVector: string | null;
   readonly upperBoundSequence: number;
 }): Promise<number> {
-  if (input.afterSequence !== 0) return input.afterSequence;
+  if (!input.firstPage) return input.afterSequence;
   const baseline = await loadLatestReadableBaseline(input.executor, {
     contentKeyEpoch: input.contentKeyEpoch,
     documentId: input.documentId,
     upperBoundSequence: input.upperBoundSequence,
   });
-  if (!baseline || baseline.sequence <= 1) return input.afterSequence;
+  if (!baseline) return input.afterSequence;
 
   const beforeBaseline = baseline.sequence - 1;
-  const hasMissingBeforeBaseline =
-    await hasMissingDocumentUpdatesThroughSequence(input.executor, {
+  if (beforeBaseline <= input.afterSequence) return input.afterSequence;
+  const missingBeforeBaseline = (localVersionVector: string | null) =>
+    hasMissingDocumentUpdatesThroughSequence(input.executor, {
+      afterSequence: input.afterSequence,
       documentId: input.documentId,
-      localVersionVector: input.localVersionVector,
+      localVersionVector,
       upperBoundSequence: beforeBaseline,
     });
-  if (!hasMissingBeforeBaseline) return input.afterSequence;
+  if (!(await missingBeforeBaseline(input.localVersionVector))) {
+    return input.afterSequence;
+  }
 
   const coveredFrontier = mergeVersionVectors([
     ...(input.localVersionVector === null ? [] : [input.localVersionVector]),
     baseline.sourceVersionVector,
   ]);
-  const hasUncoveredBeforeBaseline =
-    await hasMissingDocumentUpdatesThroughSequence(input.executor, {
-      documentId: input.documentId,
-      localVersionVector: coveredFrontier,
-      upperBoundSequence: beforeBaseline,
-    });
-  return hasUncoveredBeforeBaseline ? input.afterSequence : beforeBaseline;
+  return (await missingBeforeBaseline(coveredFrontier))
+    ? input.afterSequence
+    : beforeBaseline;
 }
 
 /**

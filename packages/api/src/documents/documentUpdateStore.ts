@@ -290,12 +290,15 @@ export async function listMissingDocumentUpdates(
 export async function hasMissingDocumentUpdatesThroughSequence(
   executor: DatabaseSession,
   input: {
+    /** Only updates committed after this position count. */
+    readonly afterSequence?: number | undefined;
     readonly documentId: string;
     readonly localVersionVector: string | null;
     readonly upperBoundSequence: number;
   },
 ): Promise<boolean> {
   const candidates = await listMissingDocumentUpdateCandidates(executor, {
+    afterSequence: input.afterSequence,
     documentId: input.documentId,
     limit: 1,
     localVersionVector: input.localVersionVector,
