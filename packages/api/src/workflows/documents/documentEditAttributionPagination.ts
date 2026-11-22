@@ -41,6 +41,12 @@ export class DocumentEditAttributionError extends Error {
   }
 }
 
+/** The write header fields a stored attribution row must carry. */
+export type DocumentEditAttributionHeaderField =
+  | "signedAt"
+  | "writerKeyFingerprint"
+  | "writerUserId";
+
 /**
  * A stored attribution row that breaks what every accepted write keeps: a
  * write header names its writer and signs a canonical time. It is a server
@@ -52,7 +58,7 @@ export class DocumentEditAttributionError extends Error {
 export class DocumentEditAttributionIntegrityError extends Error {
   constructor(
     readonly updateId: string,
-    readonly property: string,
+    readonly property: DocumentEditAttributionHeaderField,
   ) {
     super(
       `Attribution update ${updateId} has no valid ${property} in its write header.`,
