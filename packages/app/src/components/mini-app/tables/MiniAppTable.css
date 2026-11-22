@@ -24,9 +24,16 @@
   );
 }
 
+/*
+ * Separate (zero-spaced) borders, not collapsed: a collapsed border belongs to
+ * the table's grid rather than to the cell, so it stays in the flow while a
+ * pinned heading moves, and the heading's bottom divider scrolled away with
+ * the rows. Cells draw only a bottom border, so nothing doubles up.
+ */
 .mini-app-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
