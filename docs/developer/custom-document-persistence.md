@@ -207,9 +207,14 @@ file, or bytes whose digest differs from the row's, reports the slot as
 `unavailable` and withholds its storage key. An encrypted file that fails
 its own format or authentication check is damaged too; any other failed read
 is not a finding and leaves the copy unchecked. Nothing scans the library at
-startup. The store asks the server again at once, and `requestRemoteSync()`
-retries later. The download replaces the copy only when its plaintext digest
-matches the document intent; the row keeps its storage key meanwhile, so
-differing bytes are refused as for any held copy. Only a bound copy is
-checked: an unbound local copy, or one a queued upload still reads, cannot be
-fetched again.
+startup. The store asks the server again at once, and until the copy is held
+again every hydration pass fetches it, like a slot with no bytes, so a refused
+repair or a finding settled while the store reloaded retries without a remote
+signal; `requestRemoteSync()` also retries. The download replaces the copy only
+when its plaintext digest matches the document intent; the row keeps its
+storage key meanwhile, so differing bytes are refused as for any held copy.
+The one exception is a copy whose row already differed from the document
+intent: its bytes were never the ones the document records, so it gives up its
+storage key and, like an empty slot, takes the served binding back flagged
+`intent-mismatch`. Only a bound copy is checked: an unbound local copy, or one
+a queued upload still reads, cannot be fetched again.
