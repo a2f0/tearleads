@@ -38,7 +38,11 @@ export function DocumentHistoryRestore(params: {
    */
   onRequested: () => void;
   onRestored: () => void;
-  /** When the version was made, as shown; null until it is known. */
+  /**
+   * When the version was made, as shown; null until it is known. A
+   * confirmation names the time shown when it was asked for, so its text does
+   * not change while it is read.
+   */
   versionTime: string | null;
   view: DocumentHistoryView;
 }) {
@@ -112,7 +116,7 @@ export function DocumentHistoryRestore(params: {
         loading={state.status === "restoring"}
         onClick={() => {
           onRequested();
-          send({ index, type: "requested" });
+          send({ index, type: "requested", versionTime });
         }}
       >
         {EXPLORER_LABELS.documentHistoryRestoreAction}
@@ -126,7 +130,9 @@ export function DocumentHistoryRestore(params: {
         <DocumentHistoryConfirmation
           cancelLabel={EXPLORER_LABELS.documentHistoryRestoreCancel}
           confirmLabel={EXPLORER_LABELS.documentHistoryRestoreConfirm}
-          message={EXPLORER_LABELS.documentHistoryRestoreMessage(versionTime)}
+          message={EXPLORER_LABELS.documentHistoryRestoreMessage(
+            state.versionTime,
+          )}
           onCancel={() => send({ type: "cancelled" })}
           onConfirm={confirm}
           title={EXPLORER_LABELS.documentHistoryRestoreTitle}

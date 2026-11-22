@@ -7,7 +7,7 @@ import type {
   DocumentStore,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { useEffect } from "react";
 import * as Registry from "../../../../document-types/registry";
 import * as History from "../../../../stores/document-history/useDocumentHistory";
@@ -100,6 +100,8 @@ function uploadsStoredAt(storedAt: string | null) {
  */
 function mountChange(input: {
   committedAt: number;
+  /** The folder takes a copy of the version, so Save as copy is offered. */
+  copyable?: boolean;
   pending?: boolean;
   storedAt: string | null;
 }) {
@@ -163,7 +165,7 @@ function mountChange(input: {
   ];
   restorers.push(...spies.map((spy) => () => spy.mockRestore()));
   const versionCopy = {
-    canSave: () => false,
+    canSave: () => input.copyable === true,
     open: () => undefined,
     save: async () => null,
     scope: {},
@@ -266,15 +268,38 @@ test("the time waits for the uploads' first read, then shows bounded", () => {
   ).toBeTruthy();
 });
 
-test("a confirmation opened before the time is known does not name one", () => {
-  expect(EXPLORER_LABELS.documentHistoryRestoreMessage(null)).toContain(
-    "how they were in this version.",
+test("a confirmation opened before the time is known names none while open", () => {
+  const view = mountChange({
+    committedAt: STORED_AT + 24 * 60 * 60 * 1000,
+    copyable: true,
+    pending: true,
+    storedAt: STORED,
+  });
+  const saveAsCopy = () =>
+    fireEvent.click(
+      view.getByRole("button", {
+        name: EXPLORER_LABELS.documentHistoryCopyAction,
+      }),
+    );
+  const message = () => view.getByRole("dialog").textContent;
+
+  // Not the device's time, a day ahead, and not the upload's once it is read:
+  // the text does not change while it is read.
+  saveAsCopy();
+  expect(message()).toContain("rows of this version.");
+  view.settleUploads();
+  expect(view.shownTime()).toBe(formatMiniAppDateTimeSeconds(STORED_AT));
+  expect(message()).toContain("rows of this version.");
+
+  // Asked again, it names the time now shown.
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentHistoryCopyCancel,
+    }),
   );
-  expect(EXPLORER_LABELS.documentHistoryCopyMessage(null)).toContain(
-    "rows of this version.",
-  );
-  expect(EXPLORER_LABELS.documentHistoryRestoreMessage("noon")).toContain(
-    "how they were at noon.",
+  saveAsCopy();
+  expect(message()).toContain(
+    `rows this one had at ${formatMiniAppDateTimeSeconds(STORED_AT)}.`,
   );
 });
 
