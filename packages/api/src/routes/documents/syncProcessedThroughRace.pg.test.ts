@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { documentUpdates } from "@tearleads/api-shared/schema";
+import { computeWriteHeaderHash } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -16,6 +17,9 @@ import {
 import { registerUser } from "../../../test/helpers/registerUser";
 import { postDocumentSync } from "../../../test/helpers/staleBundleHealKit";
 import { resolveCurrentDocumentKekTargets } from "../../access/read/documentKekTargets";
+import { storeDocumentContentWriteHeader } from "../../access/shared/internal/documentContentWriteHeaderStore";
+import { insertDocumentUpdateSpans } from "../../documents/documentUpdateSpans";
+import { readWriteHeader } from "../../workflows/documents/mutations/shared/records";
 import { lockSyncDocumentWriteFrontier } from "../../workflows/documents/mutations/syncWriteFrontier";
 
 const databaseKind = getDefaultApiDatabaseKind();
@@ -66,6 +70,23 @@ test.skipIf(databaseKind !== "postgres")(
         partialStartVersionVector: update.partialStartVersionVector,
         plaintextHash: update.plaintextHash,
       });
+      // The rest of what a commit writes with the row, so the pull can serve
+      // it once this transaction commits.
+      await insertDocumentUpdateSpans(tx, {
+        documentId: created.id,
+        updates: [update],
+      });
+      const header = readWriteHeader(update.writeHeader, "write header");
+      await storeDocumentContentWriteHeader(
+        {
+          authorizationTargets: currentTargets.targets,
+          documentId: created.id,
+          header,
+          headerHash: await computeWriteHeaderHash(header),
+          updateId,
+        },
+        tx,
+      );
     });
 
     const pull = postDocumentSync(owner, created.id, {
