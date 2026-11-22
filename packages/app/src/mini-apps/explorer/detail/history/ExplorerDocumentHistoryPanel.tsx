@@ -4,7 +4,7 @@ import {
   getStoredDocumentTypeLabel,
   type StoredDocumentKind,
 } from "@tearleads/client-sdk";
-import { useEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   MiniAppHeader,
   MiniAppHeaderCopy,
@@ -14,37 +14,28 @@ import {
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
 import { getDocumentTypeDefinition } from "../../../../document-types/registry";
 import { useTearleads } from "../../../../providers/sdk/TearleadsProvider";
-import { isCurrentDocumentVersion } from "../../../../stores/document-history/documentHistoryMachine";
-import {
-  boundDocumentHistoryStopTime,
-  resolveDocumentHistoryStopUploadedAt,
-} from "../../../../stores/document-history/documentHistoryUploadTime";
 import { DocumentHistoryViewContext } from "../../../../stores/document-history/historicalDocumentView";
 import {
   type DocumentHistoryControls,
   useDocumentHistory,
 } from "../../../../stores/document-history/useDocumentHistory";
 import { DocumentsProvider } from "../../../../stores/documents/DocumentsProvider";
-import { useDocumentAttributionRanges } from "../../../../stores/documents/useDocumentAttributionRanges";
-import { formatMiniAppDateTimeSeconds } from "../../../../utils/formatMiniAppDate";
+import {
+  type DocumentAttributionRanges,
+  useDocumentAttributionRanges,
+} from "../../../../stores/documents/useDocumentAttributionRanges";
 import { EXPLORER_LABELS } from "../../labels";
 import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { useExplorerDocumentSummary } from "../document/useExplorerDocumentSummary";
 import {
-  DocumentHistoryCopy,
   type DocumentHistoryCopyControl,
   useDocumentHistoryCopyControl,
 } from "./DocumentHistoryCopy";
-import { DocumentHistoryRestore } from "./DocumentHistoryRestore";
-import { DocumentHistoryStopWriter } from "./DocumentHistoryStopWriter";
-import { DocumentHistoryTimeline } from "./DocumentHistoryTimeline";
-import { describeDocumentHistoryChange } from "./describeDocumentHistoryChange";
+import {
+  type ReadyHistory,
+  SelectedStopTimeline,
+} from "./SelectedStopTimeline";
 import type { ExplorerDocumentVersionCopy } from "./useExplorerDocumentVersionCopy";
-
-type ReadyHistory = Extract<
-  DocumentHistoryControls["state"],
-  { status: "ready" }
->;
 
 /**
  * The document at the stop on screen, rendered by its own document type. The
@@ -81,104 +72,6 @@ function DocumentAtStop(params: {
   );
 }
 
-type SettledStop = NonNullable<ReadyHistory["shown"]>;
-
-/**
- * The timeline for the selected stop: when the change was made, who uploaded
- * it, what it changed, and what can be done with the version. It must render
- * under the live document's provider, which the uploads, the restore, and
- * the writer are read through.
- */
-function SelectedStopTimeline(params: {
-  attributionUserLabelResolver:
-    | ExplorerAttributionUserLabelResolver
-    | undefined;
-  controls: DocumentHistoryControls;
-  copyControl: DocumentHistoryCopyControl;
-  documentSummary: DocumentSummary;
-  /** The selected stop once it is on screen; null while it replays. */
-  settled: SettledStop | null;
-  state: ReadyHistory;
-  versionCopy: ExplorerDocumentVersionCopy;
-}) {
-  const { controls, documentSummary, settled, state, versionCopy } = params;
-  const selectedStop = state.history.stops[state.selectedIndex];
-  // When the server stored the upload behind each run of operations.
-  const uploads = useDocumentAttributionRanges(true);
-  // A device's own time, bounded by when the change was uploaded: a change
-  // cannot have been made after the server stored it.
-  const stopTime = useMemo(
-    () =>
-      boundDocumentHistoryStopTime(
-        selectedStop?.committedAt ?? null,
-        selectedStop === undefined
-          ? null
-          : resolveDocumentHistoryStopUploadedAt(uploads, selectedStop),
-      ),
-    [selectedStop, uploads],
-  );
-  const changeTime = formatMiniAppDateTimeSeconds(stopTime.at, {
-    emptyFallback: EXPLORER_LABELS.documentHistoryTimeUnknown,
-  });
-  const changeSummary = useMemo(
-    () =>
-      settled === null ? null : describeDocumentHistoryChange(settled.change),
-    [settled],
-  );
-
-  return (
-    <DocumentHistoryTimeline
-      actions={
-        <div className="explorer-document-history-actions">
-          {settled === null ? null : (
-            <DocumentHistoryRestore
-              index={settled.index}
-              isLatest={isCurrentDocumentVersion(state, settled.index)}
-              // Choosing a stop stops playback, including the one on screen.
-              onRequested={() => controls.seek(settled.index)}
-              onRestored={controls.reload}
-              versionTime={changeTime}
-              view={settled.view}
-            />
-          )}
-          {/* Stays mounted while a stop replays: a copy in flight reports
-              on whichever stop is selected when it finishes. */}
-          <DocumentHistoryCopy
-            control={params.copyControl}
-            copy={versionCopy}
-            documentSummary={documentSummary}
-            index={state.selectedIndex}
-            onRequested={() => controls.seek(state.selectedIndex)}
-            versionTime={changeTime}
-            view={settled?.view ?? null}
-          />
-        </div>
-      }
-      changeSummary={changeSummary}
-      changeTime={changeTime}
-      changeTimeNote={
-        stopTime.clockAhead ? EXPLORER_LABELS.documentHistoryClockAhead : null
-      }
-      newerAvailable={state.newerAvailable}
-      onReload={controls.reload}
-      onSeek={controls.seek}
-      onStep={controls.step}
-      onTogglePlay={controls.togglePlay}
-      playing={state.playing}
-      selectedIndex={state.selectedIndex}
-      stopCount={state.history.stops.length}
-      writer={
-        selectedStop === undefined ? null : (
-          <DocumentHistoryStopWriter
-            resolveUserLabel={params.attributionUserLabelResolver}
-            stop={selectedStop}
-          />
-        )
-      }
-    />
-  );
-}
-
 function ReadyDocumentHistory(params: {
   attributionUserLabelResolver:
     | ExplorerAttributionUserLabelResolver
@@ -186,11 +79,11 @@ function ReadyDocumentHistory(params: {
   controls: DocumentHistoryControls;
   copyControl: DocumentHistoryCopyControl;
   documentSummary: DocumentSummary;
-  readOnly: boolean;
   state: ReadyHistory;
+  uploads: DocumentAttributionRanges | null;
   versionCopy: ExplorerDocumentVersionCopy;
 }) {
-  const { controls, documentSummary, readOnly, state, versionCopy } = params;
+  const { documentSummary, state } = params;
   const { shown } = state;
   // The stop on screen lags the selected one while it replays; its summary
   // and its restore would describe a different change, so offer neither
@@ -199,29 +92,16 @@ function ReadyDocumentHistory(params: {
     shown !== null && shown.index === state.selectedIndex ? shown : null;
 
   return (
-    // The live document: the restore reads its write access and writes
-    // through it, and the document type below opens this same store.
-    <DocumentsProvider
-      initialDocumentKind={
-        documentSummary.documentKind ?? DEFAULT_DOCUMENT_KIND
-      }
-      localId={documentSummary.id}
-      readOnly={readOnly}
-      {...(documentSummary.containerId === null
-        ? {}
-        : { containerId: documentSummary.containerId })}
-      {...(documentSummary.documentId === null
-        ? {}
-        : { documentId: documentSummary.documentId })}
-    >
+    <>
       <SelectedStopTimeline
         attributionUserLabelResolver={params.attributionUserLabelResolver}
-        controls={controls}
+        controls={params.controls}
         copyControl={params.copyControl}
         documentSummary={documentSummary}
         settled={settled}
         state={state}
-        versionCopy={versionCopy}
+        uploads={params.uploads}
+        versionCopy={params.versionCopy}
       />
       {shown === null ? (
         <MiniAppStatus busy>
@@ -234,21 +114,24 @@ function ReadyDocumentHistory(params: {
           shown={shown}
         />
       )}
-    </DocumentsProvider>
+    </>
   );
 }
 
-function DocumentHistoryBody(params: {
+interface DocumentHistoryBodyProps {
   attributionUserLabelResolver:
     | ExplorerAttributionUserLabelResolver
     | undefined;
   controls: DocumentHistoryControls;
   copyControl: DocumentHistoryCopyControl;
   documentSummary: DocumentSummary;
-  isContainerReadOnly: (containerId: string | null) => boolean;
+  /** The live document's upload ranges; null until first read. */
+  uploads: DocumentAttributionRanges | null;
   versionCopy: ExplorerDocumentVersionCopy;
-}) {
-  const { controls, documentSummary } = params;
+}
+
+function DocumentHistoryBody(params: DocumentHistoryBodyProps) {
+  const { controls } = params;
   const { state } = controls;
   if (state.status === "failed") {
     return (
@@ -271,19 +154,63 @@ function DocumentHistoryBody(params: {
       </MiniAppStatus>
     );
   }
+  return <ReadyDocumentHistory {...params} state={state} />;
+}
+
+/**
+ * The body under the live document, with its upload ranges read here: above
+ * the body's reload, so loading newer edits or restoring a version keeps
+ * what was read instead of reading every page again.
+ */
+function LiveDocumentHistoryBody(
+  params: Omit<DocumentHistoryBodyProps, "uploads">,
+) {
+  // When the server stored the upload behind each run of operations.
+  const uploads = useDocumentAttributionRanges(true);
+  return <DocumentHistoryBody {...params} uploads={uploads} />;
+}
+
+/**
+ * The live document: the restore reads its write access and writes through
+ * it, the uploads are read through it, and the document type at the stop
+ * opens this same store.
+ */
+function LiveDocument(params: {
+  children: ReactNode;
+  documentSummary: DocumentSummary;
+  readOnly: boolean;
+}) {
+  const { documentSummary } = params;
   return (
-    <ReadyDocumentHistory
-      attributionUserLabelResolver={params.attributionUserLabelResolver}
-      controls={controls}
-      copyControl={params.copyControl}
-      documentSummary={documentSummary}
-      // The folder the document is in now, not the one the route names: a
-      // stale or bookmarked route must not unlock a document since trashed.
-      readOnly={params.isContainerReadOnly(documentSummary.containerId)}
-      state={state}
-      versionCopy={params.versionCopy}
-    />
+    <DocumentsProvider
+      initialDocumentKind={
+        documentSummary.documentKind ?? DEFAULT_DOCUMENT_KIND
+      }
+      localId={documentSummary.id}
+      readOnly={params.readOnly}
+      {...(documentSummary.containerId === null
+        ? {}
+        : { containerId: documentSummary.containerId })}
+      {...(documentSummary.documentId === null
+        ? {}
+        : { documentId: documentSummary.documentId })}
+    >
+      {params.children}
+    </DocumentsProvider>
   );
+}
+
+/**
+ * True from the first render in which `ready` is, for as long as the caller
+ * stays mounted: the live document opens with the first ready history and
+ * stays open while History reloads.
+ */
+function useOpenedOnceReady(ready: boolean): boolean {
+  const [opened, setOpened] = useState(ready);
+  useEffect(() => {
+    if (ready) setOpened(true);
+  }, [ready]);
+  return opened || ready;
 }
 
 function DocumentHistoryHeader(params: {
@@ -331,6 +258,14 @@ function AdmittedDocumentHistory(params: {
   const copyControl = useDocumentHistoryCopyControl(params.versionCopy);
   const { state } = controls;
   const shown = state.status === "ready" ? state.shown : null;
+  const liveOpen = useOpenedOnceReady(state.status === "ready");
+  const body = {
+    attributionUserLabelResolver: params.attributionUserLabelResolver,
+    controls,
+    copyControl,
+    documentSummary,
+    versionCopy: params.versionCopy,
+  };
 
   return (
     <>
@@ -342,14 +277,19 @@ function AdmittedDocumentHistory(params: {
         }
         title={shown?.view.title ?? documentSummary.title}
       />
-      <DocumentHistoryBody
-        attributionUserLabelResolver={params.attributionUserLabelResolver}
-        controls={controls}
-        copyControl={copyControl}
-        documentSummary={documentSummary}
-        isContainerReadOnly={params.isContainerReadOnly}
-        versionCopy={params.versionCopy}
-      />
+      {liveOpen ? (
+        <LiveDocument
+          documentSummary={documentSummary}
+          // The folder the document is in now, not the one the route names:
+          // a stale or bookmarked route must not unlock a document since
+          // trashed.
+          readOnly={params.isContainerReadOnly(documentSummary.containerId)}
+        >
+          <LiveDocumentHistoryBody {...body} />
+        </LiveDocument>
+      ) : (
+        <DocumentHistoryBody {...body} uploads={null} />
+      )}
     </>
   );
 }

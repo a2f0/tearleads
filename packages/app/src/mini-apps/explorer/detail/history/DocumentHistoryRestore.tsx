@@ -38,7 +38,8 @@ export function DocumentHistoryRestore(params: {
    */
   onRequested: () => void;
   onRestored: () => void;
-  versionTime: string;
+  /** When the version was made, as shown; null until it is known. */
+  versionTime: string | null;
   view: DocumentHistoryView;
 }) {
   const { index, isLatest, onRequested, onRestored, versionTime, view } =
