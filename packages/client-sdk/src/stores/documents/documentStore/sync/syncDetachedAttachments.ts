@@ -237,19 +237,26 @@ async function settleDetachedAttachmentMarker(input: {
     input.view.versionVector,
   );
   if (step === "wait") return "waiting";
-  if (
-    step !== "detach" ||
-    !(await detachAttachmentBinding({
-      binding,
-      generation: input.generation,
-      policyOperation: input.policyOperation,
-      remoteDocumentId: requestRecord.documentId,
-      requestRecord,
-      state,
-      view: input.view,
-    }))
-  ) {
-    return null;
+  if (step !== "detach") return null;
+  const landed = await detachAttachmentBinding({
+    binding,
+    generation: input.generation,
+    policyOperation: input.policyOperation,
+    remoteDocumentId: requestRecord.documentId,
+    requestRecord,
+    state,
+    view: input.view,
+  });
+  if (!landed) {
+    // Refused at this version: wait for a newer view as a later pass would.
+    const refused =
+      planAttachmentSlotDetach(
+        state,
+        marker.slotId,
+        binding,
+        input.view.versionVector,
+      ) === "wait";
+    return refused ? "waiting" : null;
   }
   // The binding is gone, so a slot committed again meanwhile needs its held
   // bytes bound anew.

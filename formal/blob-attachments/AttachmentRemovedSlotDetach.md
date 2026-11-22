@@ -54,14 +54,20 @@ also asks for one pull after a refusal and then waits for a newer view, so a
 binding the API keeps refusing costs one request per document version.
 
 The model abstracts encryption, signatures, listing pages, and lost
-responses. It does not cover a restore whose content update is pushed after a
-detach that landed before it: the restoring device adopted the active binding
-without writing to the server, so neither the server nor the detaching
-device can see it. The store that holds those bytes has no marker for a slot
-its document records, so the restored slot is left without a binding. Before
-this change only a device that held the bytes detached; now any device that
-saw the removal can, which widens the window to every such device. The
-observation also lives in memory, so a device that restarts between seeing
+responses. It leaves out the window
+[AttachmentReaddReconcile](./AttachmentReaddReconcile.md) already names: a
+content update that records the slot again with the same bytes and no bind of
+its own, such as a merge or a restore of earlier content, committed after a
+detach landed. Neither the server nor the detaching device can see it coming.
+A device still holding the bytes under an open removal marker binds them
+again once its listing shows the binding gone (the marker's `rebinding`
+settle); otherwise the slot has no binding until a device that holds the
+bytes binds them. Before this change every device that held the bytes
+detached as soon as it read the removal, so the window is not new. What is
+new is that a device that never held them detaches too, as #3134 asks: where
+no device held the bytes, the binding used to stay, and with it the bytes
+such a late re-record could still reach. The observation also lives in
+memory, so a device that restarts between seeing
 the slot and reading it removed does not detach; another device that saw both
 still can.
 

@@ -96,17 +96,17 @@ test("a held copy's refused detach waits without holding up the next marker", as
         (request) => (request.body as { bindingId: string }).bindingId,
       );
 
-    // The first marker's refusal stops this pass, as any failed detach does.
-    await runDetachPass(state);
-    expect(detachedBindings()).toEqual([bindingFor(first).bindingId]);
-
-    // At the same version it waits, and the second marker still detaches.
+    // The first marker's refusal leaves it waiting, and the second detaches.
     await runDetachPass(state);
     expect(detachedBindings()).toEqual([
       bindingFor(first).bindingId,
       bindingFor(second).bindingId,
     ]);
     expect([...harness.bound.keys()]).toEqual([first]);
+
+    // At the same version the first still waits and sends nothing.
+    await runDetachPass(state);
+    expect(harness.detachRequests).toHaveLength(2);
 
     // A newer version sends the waiting detach again.
     editDocument(state);

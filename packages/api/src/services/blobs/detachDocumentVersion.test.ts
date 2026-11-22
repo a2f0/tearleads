@@ -20,6 +20,7 @@ import {
 import { committedDocumentVersionVector } from "../../../test/helpers/committedDocumentVersion";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import { postDocumentSync } from "../../../test/helpers/staleBundleHealKit";
+import { routeApp } from "../../routeApp";
 
 async function boundAtCommittedVersion(fixture: DocumentVersionFixture) {
   const bound = await stagedBind(fixture);
@@ -126,5 +127,35 @@ test("a malformed detach version is a client error", async () => {
   await expect(
     detach(fixture, binding, "not a version vector"),
   ).rejects.toMatchObject({ status: 400 });
+  expect(await activeBoundBlobIds(fixture.document.id)).toEqual([blobId]);
+}, 20_000);
+
+test("the detach route names a refused version's code for the client to pull", async () => {
+  const fixture = await documentWithRoot();
+  const { binding, blobId } = await boundAtCommittedVersion(fixture);
+  const readRemoved = await committedDocumentVersionVector(fixture.document.id);
+  await commitOtherDeviceUpdate(fixture);
+  const request = await buildDetach({
+    binding,
+    document: fixture.document,
+    owner: fixture.owner,
+    root: fixture.root,
+  });
+
+  const response = await routeApp.request(
+    `/blobs/${blobId}/attachment-bindings/${binding.bindingId}/detach`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${fixture.owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...request, documentVersionVector: readRemoved }),
+    },
+  );
+  expect(response.status).toBe(409);
+  expect(await response.json()).toMatchObject({
+    code: BLOB_MUTATION_ERROR_CODES.attachmentDocumentChanged,
+  });
   expect(await activeBoundBlobIds(fixture.document.id)).toEqual([blobId]);
 }, 20_000);
