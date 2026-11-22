@@ -73,15 +73,29 @@ Offline, unsynced, and unauthenticated documents have neither.
 The upload times come from the per-upload attribution ranges
 ([`useDocumentAttributionRanges`](../documents/useDocumentAttributionRanges.ts)),
 read page by page at one attribution revision when History opens. After each
-completed sync they are asked for again, and the first page settles it: the
-same revision means nothing was uploaded and what is held stands, at the cost
-of one request; otherwise every page is read again. A range never changes
-once read, so the ranges held stay in use while a refresh loads or fails, and
-the time on screen does not flicker on each sync; another document or session
-never sees them. A document with more uploads than the read allows is treated
-as having no ranges rather than some, and that outcome is held like any
-other, so it is not paged through again until something is uploaded. A read
-that is superseded stops before its next page.
+completed sync they are asked for again, and a one-range probe settles it:
+the same revision and first update mean nothing was uploaded and what is held
+stands, at the cost of one small request; otherwise the read goes on from the
+probe in full pages. A range never changes once read, so the ranges held stay
+in use while a refresh loads or fails, and the time on screen does not
+flicker on each sync; another document or session never sees them. The
+read's state machine keeps them
+([`attributionReadMachine`](../documents/attributionReadMachine.ts)): a
+refresh in the same scope carries the last result as `previous`. A document
+with more ranges than the read allows (20,000, counted in ranges so a probe
+does not move the limit) is treated as having none rather than some. Uploads
+only add ranges, so that outcome stands for the document and session without
+another request. A read that is superseded stops before its next page.
+
+The ranges are read under the live document, which History opens with its
+first ready history and keeps open while History reloads after a restore or
+"Load newer edits", so a reload does not read them again
+([`ExplorerDocumentHistoryPanel`](../../mini-apps/explorer/detail/history/ExplorerDocumentHistoryPanel.tsx)).
+Until their first read settles, the timeline says the time is being checked
+rather than show the device's own, and a Restore or Save as copy confirmation
+opened meanwhile names no time: the device's time could be a day ahead, and
+a dialog on it would change under the reader. Once a read has settled,
+loaded or failed, later refreshes never withhold it again.
 
 ## Restoring
 
@@ -122,14 +136,18 @@ copy does not need it to be writable and is offered on the newest stop too.
   that names an attachment slot (a contact's avatar photo) is left out of the
   copy too, so it never points at a photo it does not hold.
 - **The folder must take a new document of that kind**
-  ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/containerRules.ts)).
-  An ordinary folder does when it is writable. A system folder holds what the
-  app puts there, so none takes a copy except the viewer's own Contacts, which
-  takes a contact version as it takes a new contact. The Trash, folders under
-  it, a shared Contacts, Roster Profiles, Organization Metadata, and read-only
-  folders take nothing, and a document with no folder has nowhere to save a
-  copy. A system folder is known by its slot, so one whose rules are not
-  loaded yet is refused rather than taken for an ordinary folder.
+  ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/documentCopyRules.ts)).
+  An ordinary folder does when it is writable, whether or not the document
+  itself is. A system folder holds what the app puts there, so it takes a
+  copy only when the rules of its own slot set `acceptsDocumentCopies`
+  ([system containers](../systemContainers.ts)): only the viewer's own
+  Contacts does, taking a contact version as it takes a new contact. The
+  Trash, folders under it, a shared Contacts, Roster Profiles, Organization
+  Metadata, and read-only folders take nothing, and a document with no folder
+  has nowhere to save a copy. The rule looks the folder and its ancestors up
+  itself, so no caller can skip the Trash. A system folder is known by its
+  slot, so one whose rules are not loaded yet is refused rather than taken
+  for an ordinary folder.
 - **A contact version of Me is never copied.** Me is
   [one document](../../document-types/contact/README.md#personal-me-identity)
   per signing identity; a copy would be a second contact carrying the
