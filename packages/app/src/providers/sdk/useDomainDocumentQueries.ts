@@ -1,14 +1,19 @@
 import type { ContainerDocumentQueries } from "@tearleads/client-sdk";
 import { useMemo } from "react";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
+import { useTearleads } from "./TearleadsProvider";
 
-interface ExplorerDocumentQueriesRuntimeState {
+interface DomainDocumentQueriesRuntimeState {
   infra: { readonly dbStatus: string };
   state: { readonly domainScope: object };
 }
 
-export function useExplorerDocumentQueries(
-  appData: ExplorerDocumentQueriesRuntimeState,
+/**
+ * The document query handle for the runtime's current database and domain
+ * scope, shared by the Explorer, the Sync Status tray app, and the System
+ * Monitor report.
+ */
+export function useDomainDocumentQueries(
+  appData: DomainDocumentQueriesRuntimeState,
 ): ContainerDocumentQueries {
   const { containerContents } = useTearleads();
 

@@ -64,7 +64,6 @@ function renderSectionsPanel(
       billingBlockedOrganizationId={null}
       blobPickTarget={null}
       blobStore={createBlobStore()}
-      documentListRevision={0}
       documentQueries={documentQueries}
       domainScope={overrides.domainScope ?? createDomainScope()}
       isAuthenticated={true}
