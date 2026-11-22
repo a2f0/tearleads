@@ -2,7 +2,6 @@ import {
   type ContainerNode,
   DEFAULT_DOCUMENT_KIND,
   type DocumentSummary,
-  type StoredDocumentKind,
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { CurrentSelfContactIdentity } from "../../../stores/contacts/currentSelfContactIdentity";
@@ -15,7 +14,6 @@ import {
   type BuiltInSystemContainer,
   CONTACTS_CONTAINER_NAME,
   getUserSystemContainerRulesByKind,
-  isContactsSystemContainerNode,
   isTrashSystemContainerNode,
   isUnderForeignSharedRoot,
   type UserSystemContainerRules,
@@ -214,45 +212,6 @@ export function canCreateStructuredDocumentInContainerByRules(
     container,
     "protectFromStructuredDocumentCreation",
   );
-}
-
-// A version saved as a copy is a new document born beside the original, so its
-// folder must take a new document of the version's kind. An ordinary folder
-// does when it is writable. A system folder holds what the app puts there, so
-// none takes a copy except the viewer's own Contacts, which takes a contact
-// version as it takes a new contact: not the Trash, not a shared Contacts, and
-// not Roster Profiles or Organization Metadata, although the last two leave
-// structured-document creation open. A folder under the Trash has no rules of
-// its own, so its caller refuses that.
-//
-// The copy never touches the original, so identity matters only for what the
-// copy would hold. A contact version of the viewer's Me would be born a second
-// contact claiming to be them, so it waits for the Me read and is refused for
-// Me; the kind is the version's, since a Me alias can list as a note.
-export function canSaveDocumentCopyByRules(
-  context: ExplorerContainerRulesContext,
-  container: ContainerRulesNode | undefined,
-  document: Pick<DocumentSummary, "id" | "documentId"> | undefined,
-  documentKind: StoredDocumentKind,
-): boolean {
-  if (
-    !canAddDocumentToContainerByRules(context, container, { documentKind }) ||
-    (documentKind === "contact" &&
-      !canMutateDocumentByIdentity(context, document))
-  ) {
-    return false;
-  }
-
-  // A system folder is known by its slot even before its rules are: while
-  // the Contacts slot is still being derived, Contacts resolves no rules, and
-  // must not pass for an ordinary folder.
-  if (container?.systemSlot != null) {
-    return (
-      documentKind === "contact" &&
-      isContactsSystemContainerNode(container, context.contactsSystemSlot)
-    );
-  }
-  return !hasContainerRules(context, container);
 }
 
 // Resolve a container by id from the explorer's node list and report whether it

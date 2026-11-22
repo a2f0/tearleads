@@ -127,6 +127,22 @@ test("a version is saved into the folder its document is in and listed there", a
   expect(hook.merged).toEqual(copy ? [copy] : []);
 });
 
+test("a read-only document in a writable folder is still copied", async () => {
+  const links = documentLinks();
+  const hook = mount(await createReadySelfIdentity(), links);
+  // The copy is a new document in the folder; the original is never written.
+  const document = identityDocument({
+    containerId: "linked-folder",
+    effectiveAccessLevel: "read",
+  });
+
+  expect(hook.copy().canSave(document, NOTE)).toBe(true);
+  const copy = await hook.copy().save(document, NOTE);
+
+  expect(links.opened).toHaveLength(1);
+  expect(copy?.containerId).toBe("linked-folder");
+});
+
 test("nothing is created where the folder does not take the version", async () => {
   const links = documentLinks();
   const linkedFolder = selfIdentityNodes.find(

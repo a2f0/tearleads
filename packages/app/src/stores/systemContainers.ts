@@ -65,9 +65,15 @@ export interface UserSystemContainerRules {
   // Block creating new structured documents directly inside this system
   // container. Existing documents still follow the move/link rules below.
   // Contacts raises this and still takes new contacts through its own action,
-  // and through History's "Save as copy" of a contact version
-  // (canSaveDocumentCopyByRules).
+  // and copies through `acceptsDocumentCopies`.
   readonly protectFromStructuredDocumentCreation: boolean;
+  // Take a version saved from History as a new document ("Save as copy"),
+  // whatever structured-document creation allows, within
+  // `acceptedDocumentKinds`. A system folder takes a copy only when this is
+  // set on the rules its own slot carries, so a shared one, whose rules
+  // resolve by name, takes none (canSaveDocumentCopyByRules). Contacts takes a
+  // contact version as it takes a new contact.
+  readonly acceptsDocumentCopies: boolean;
   // Restrict document kinds that may be linked or moved into this container.
   // `null` means the container accepts every document kind.
   readonly acceptedDocumentKinds: ReadonlyArray<StoredDocumentKind> | null;
@@ -124,6 +130,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectFromUpload: true,
         protectFromChildContainerCreation: true,
         protectFromStructuredDocumentCreation: true,
+        acceptsDocumentCopies: true,
         acceptedDocumentKinds: ["contact"],
         // Contacts accepts inbound contact links (gated by acceptedDocumentKinds
         // above); only Trash is move-only.
@@ -149,6 +156,7 @@ export const USER_SYSTEM_CONTAINER_DEFINITIONS: readonly UserSystemContainerDefi
         protectFromUpload: true,
         protectFromChildContainerCreation: true,
         protectFromStructuredDocumentCreation: true,
+        acceptsDocumentCopies: false,
         acceptedDocumentKinds: null,
         // Trash is a move-only destination: a document reaches it by being
         // deleted (moved), never by being linked. Blocking inbound links keeps
@@ -188,6 +196,9 @@ const BUILT_IN_SYSTEM_CONTAINER_RULES: UserSystemContainerRules = {
   protectFromUpload: false,
   protectFromChildContainerCreation: false,
   protectFromStructuredDocumentCreation: false,
+  // They leave creation open for the org workflows, but hold only what those
+  // workflows write.
+  acceptsDocumentCopies: false,
   acceptedDocumentKinds: null,
   protectFromInboundLinks: true,
 };
