@@ -145,6 +145,24 @@ export function getDocumentAttachments(
   return getStructuredDocumentAttachments(doc);
 }
 
+/**
+ * Every slot the document's content map holds an entry for, readable or not.
+ * A slot whose entry this client cannot parse, such as one a newer client
+ * wrote, is still recorded: only a deleted entry means the slot was removed.
+ */
+export function listRecordedAttachmentSlotIds(
+  doc: StructuredDocumentShape,
+): string[] {
+  return doc
+    .getMap(DOCUMENT_CONTENT_MAP_KEY)
+    .entries()
+    .flatMap(([key]) =>
+      key.startsWith(ATTACHMENT_KEY_PREFIX)
+        ? [key.slice(ATTACHMENT_KEY_PREFIX.length)]
+        : [],
+    );
+}
+
 // The fixed-length digest keeps a held copy from inheriting the name of
 // different bytes that later occupy its slot.
 export function serializeDocumentAttachmentNames(

@@ -102,12 +102,14 @@ test.each(["seed", "personal"] as const)(
           .apiClient.listDocumentAttachments(snapshot.documentId, {
             refresh: true,
           });
-        expect(bindings).toHaveLength(1);
         const avatar = snapshot.attachments[0];
         if (upload === "seed") {
+          // The remover saw the importer's binding once its removal synced.
+          expect(bindings).toEqual([]);
           expect(avatar).toBeUndefined();
         } else {
           if (!avatar) throw new Error("Personal avatar was removed");
+          expect(bindings).toHaveLength(1);
           expect(bindings?.[0]?.bindingId).toBe(personalBindingId);
           expect(avatar.name).toBe("personal.png");
           expect(

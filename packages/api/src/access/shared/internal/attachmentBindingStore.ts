@@ -55,18 +55,28 @@ async function loadAttachmentBindingRow(
   return row ?? null;
 }
 
+/**
+ * The document version the bind checked its slot against, as the frontier
+ * JSON `documentUpdateStore` encodes; a detach must cover it.
+ */
+interface AttachmentBindingVersion {
+  readonly bindDocumentVersion: string;
+}
+
 export async function storeVerifiedAttachmentBinding(
   binding: VerifiedAttachmentBinding,
   database: ApiDatabase,
+  version: AttachmentBindingVersion,
 ): Promise<typeof attachmentBindings.$inferSelect> {
   return database.transaction((tx) =>
-    storeVerifiedAttachmentBindingInTransaction(binding, tx),
+    storeVerifiedAttachmentBindingInTransaction(binding, tx, version),
   );
 }
 
 export async function storeVerifiedAttachmentBindingInTransaction(
   binding: VerifiedAttachmentBinding,
   executor: DatabaseTransaction,
+  version: AttachmentBindingVersion,
 ): Promise<typeof attachmentBindings.$inferSelect> {
   assertCanonicalStoredUuid(binding.bindingId, "Attachment binding id");
   await storeVerifiedAccessEventInTransaction(binding.event, executor);
@@ -80,6 +90,7 @@ export async function storeVerifiedAttachmentBindingInTransaction(
       previousBindingId: binding.body.expectedBindingId,
       attachmentEventHash: binding.event.eventHash,
       documentManifestHash: binding.documentManifestHash,
+      bindDocumentVersion: version.bindDocumentVersion,
     })
     .onConflictDoNothing({ target: attachmentBindings.id })
     .returning();
