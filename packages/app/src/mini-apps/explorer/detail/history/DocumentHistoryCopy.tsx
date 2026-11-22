@@ -115,7 +115,12 @@ export function DocumentHistoryCopy(params: {
    * confirmation before it could be answered.
    */
   onRequested: () => void;
-  versionTime: string;
+  /**
+   * When the version was made, as shown; null until it is known. A
+   * confirmation names the time shown when it was asked for, so its text does
+   * not change while it is read.
+   */
+  versionTime: string | null;
   /** The selected stop's version, or null while it replays. */
   view: DocumentHistoryView | null;
 }) {
@@ -162,7 +167,7 @@ export function DocumentHistoryCopy(params: {
           loading={inFlight}
           onClick={() => {
             onRequested();
-            send({ index, type: "requested" });
+            send({ index, type: "requested", versionTime });
           }}
         >
           {EXPLORER_LABELS.documentHistoryCopyAction}
@@ -190,7 +195,9 @@ export function DocumentHistoryCopy(params: {
         <DocumentHistoryConfirmation
           cancelLabel={EXPLORER_LABELS.documentHistoryCopyCancel}
           confirmLabel={EXPLORER_LABELS.documentHistoryCopyConfirm}
-          message={EXPLORER_LABELS.documentHistoryCopyMessage(versionTime)}
+          message={EXPLORER_LABELS.documentHistoryCopyMessage(
+            state.versionTime,
+          )}
           onCancel={() => send({ type: "cancelled" })}
           onConfirm={() => control.confirm(documentSummary, view)}
           title={EXPLORER_LABELS.documentHistoryCopyTitle}

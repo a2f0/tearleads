@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.180",
+      "version": "0.1.179",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -54,7 +54,7 @@
     },
     "packages/api-cli": {
       "name": "@tearleads/api-cli",
-      "version": "0.1.22",
+      "version": "0.1.23",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@tearleads/api-shared": "workspace:*",
@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.80",
+      "version": "0.1.79",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.281",
+      "version": "0.1.282",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -129,7 +129,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.48",
+      "version": "0.0.49",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -212,12 +212,11 @@
     },
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
-      "version": "0.1.23",
+      "version": "0.1.22",
       "devDependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
-        "@tearleads/loro": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
       },
@@ -238,7 +237,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.279",
+      "version": "0.1.278",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -255,7 +254,7 @@
     },
     "packages/crypto": {
       "name": "@tearleads/crypto",
-      "version": "0.1.42",
+      "version": "0.1.41",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@noble/post-quantum": "0.7.1",
@@ -288,7 +287,7 @@
     },
     "packages/loro": {
       "name": "@tearleads/loro",
-      "version": "0.1.14",
+      "version": "0.1.13",
       "dependencies": {
         "@tearleads/encoding": "workspace:*",
         "drizzle-orm": "0.45.4",
@@ -354,7 +353,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.83",
+      "version": "0.1.82",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "zod": "catalog:",

@@ -7,7 +7,8 @@ import type {
   DocumentStore,
   DocumentSummary,
 } from "@tearleads/client-sdk";
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { useEffect } from "react";
 import * as Registry from "../../../../document-types/registry";
 import * as History from "../../../../stores/document-history/useDocumentHistory";
 import * as Documents from "../../../../stores/documents/DocumentsProvider";
@@ -71,12 +72,39 @@ const LIVE_DOCUMENT = {
   subscribe: () => () => undefined,
 } as unknown as DocumentStore;
 
+/** The upload ranges History is given: none, or one stored at `storedAt`. */
+function uploadsStoredAt(storedAt: string | null) {
+  return storedAt === null
+    ? []
+    : [
+        {
+          authorityKind: "direct" as const,
+          createdAt: storedAt,
+          endCounter: 5,
+          peerId: "7",
+          signedAt: storedAt,
+          startCounter: 0,
+          updateId: "update-1",
+          writerKeyFingerprint: "0123456789abcdef0123456789abcdef",
+          writerUserId: "ada",
+        },
+      ];
+}
+
 /**
  * Render History on one change: `committedAt` is the time its device
  * recorded, and `storedAt` when the server stored the upload that delivered
- * it (null when no upload has).
+ * it (null when no upload has). `pending` starts with the uploads' first read
+ * not settled. The returned controls change what the history and the uploads
+ * read say, and count how often the uploads read was mounted.
  */
-function mountChange(input: { committedAt: number; storedAt: string | null }) {
+function mountChange(input: {
+  committedAt: number;
+  /** The folder takes a copy of the version, so Save as copy is offered. */
+  copyable?: boolean;
+  pending?: boolean;
+  storedAt: string | null;
+}) {
   const history: DocumentHistory = {
     changeAt: () => NO_CHANGE,
     close: () => undefined,
@@ -92,45 +120,43 @@ function mountChange(input: { committedAt: number; storedAt: string | null }) {
     versionAt: () => [],
     viewAt: () => VIEW,
   };
+  const ready: ReturnType<typeof History.useDocumentHistory>["state"] = {
+    history,
+    newerAvailable: false,
+    playing: false,
+    run: 1,
+    selectedIndex: 0,
+    shown: { change: NO_CHANGE, index: 0, view: VIEW },
+    status: "ready",
+  };
+  const current: {
+    state: ReturnType<typeof History.useDocumentHistory>["state"];
+    uploads: ReturnType<typeof uploadsStoredAt> | null;
+  } = {
+    state: ready,
+    uploads: input.pending ? null : uploadsStoredAt(input.storedAt),
+  };
+  let uploadReadMounts = 0;
   const spies = [
-    spyOn(History, "useDocumentHistory").mockReturnValue({
+    spyOn(History, "useDocumentHistory").mockImplementation(() => ({
       reload: () => undefined,
       seek: () => undefined,
-      state: {
-        history,
-        newerAvailable: false,
-        playing: false,
-        run: 1,
-        selectedIndex: 0,
-        shown: { change: NO_CHANGE, index: 0, view: VIEW },
-        status: "ready",
-      },
+      state: current.state,
       step: () => undefined,
       togglePlay: () => undefined,
-    }),
+    })),
     // The live document's provider, without opening a store.
     spyOn(Documents, "DocumentsProvider").mockImplementation(({ children }) => (
       <Documents.DocumentContext.Provider value={LIVE_DOCUMENT}>
         {children}
       </Documents.DocumentContext.Provider>
     )),
-    spyOn(Ranges, "useDocumentAttributionRanges").mockReturnValue(
-      input.storedAt === null
-        ? []
-        : [
-            {
-              authorityKind: "direct",
-              createdAt: input.storedAt,
-              endCounter: 5,
-              peerId: "7",
-              signedAt: input.storedAt,
-              startCounter: 0,
-              updateId: "update-1",
-              writerKeyFingerprint: "0123456789abcdef0123456789abcdef",
-              writerUserId: "ada",
-            },
-          ],
-    ),
+    spyOn(Ranges, "useDocumentAttributionRanges").mockImplementation(() => {
+      useEffect(() => {
+        uploadReadMounts += 1;
+      }, []);
+      return current.uploads;
+    }),
     // Who uploaded the change is a separate read, not under test here.
     spyOn(RowWriters, "useDocumentAttributionSegments").mockReturnValue([]),
     spyOn(Registry, "getDocumentTypeDefinition").mockReturnValue({
@@ -138,22 +164,35 @@ function mountChange(input: { committedAt: number; storedAt: string | null }) {
     } as unknown as ReturnType<typeof Registry.getDocumentTypeDefinition>),
   ];
   restorers.push(...spies.map((spy) => () => spy.mockRestore()));
-  const view = render(
+  const versionCopy = {
+    canSave: () => input.copyable === true,
+    open: () => undefined,
+    save: async () => null,
+    scope: {},
+  };
+  const panel = () => (
     <ExplorerDocumentHistoryPanel
       fallbackDocumentSummary={SUMMARY}
       isContainerReadOnly={() => false}
       loadDocumentSummary={async () => SUMMARY}
       localId="local-1"
-      versionCopy={{
-        canSave: () => false,
-        open: () => undefined,
-        save: async () => null,
-        scope: {},
-      }}
-    />,
+      versionCopy={versionCopy}
+    />
   );
+  const view = render(panel());
+  function update(next: Partial<typeof current>) {
+    Object.assign(current, next);
+    act(() => view.rerender(panel()));
+  }
   return {
     ...view,
+    /** History reloads, as after a restore or "Load newer edits". */
+    reload: () => {
+      update({ state: { run: 2, status: "loading" } });
+      update({ state: { ...ready, run: 2 } });
+    },
+    settleUploads: () => update({ uploads: uploadsStoredAt(input.storedAt) }),
+    uploadReadMounts: () => uploadReadMounts,
     shownTime: () =>
       view.container.querySelector(".explorer-document-history-caption strong")
         ?.textContent,
@@ -207,4 +246,70 @@ test("a change no upload has delivered shows its device's time, unbounded", () =
   expect(
     view.queryByText(EXPLORER_LABELS.documentHistoryClockAhead),
   ).toBeNull();
+});
+
+test("the time waits for the uploads' first read, then shows bounded", () => {
+  const view = mountChange({
+    committedAt: STORED_AT + 24 * 60 * 60 * 1000,
+    pending: true,
+    storedAt: STORED,
+  });
+
+  // Not the device's time, a day ahead, which the read would then change.
+  expect(view.shownTime()).toBe(EXPLORER_LABELS.documentHistoryTimeChecking);
+  expect(
+    view.queryByText(EXPLORER_LABELS.documentHistoryClockAhead),
+  ).toBeNull();
+
+  view.settleUploads();
+  expect(view.shownTime()).toBe(formatMiniAppDateTimeSeconds(STORED_AT));
+  expect(
+    view.getByText(EXPLORER_LABELS.documentHistoryClockAhead),
+  ).toBeTruthy();
+});
+
+test("a confirmation opened before the time is known names none while open", () => {
+  const view = mountChange({
+    committedAt: STORED_AT + 24 * 60 * 60 * 1000,
+    copyable: true,
+    pending: true,
+    storedAt: STORED,
+  });
+  const saveAsCopy = () =>
+    fireEvent.click(
+      view.getByRole("button", {
+        name: EXPLORER_LABELS.documentHistoryCopyAction,
+      }),
+    );
+  const message = () => view.getByRole("dialog").textContent;
+
+  // Not the device's time, a day ahead, and not the upload's once it is read:
+  // the text does not change while it is read.
+  saveAsCopy();
+  expect(message()).toContain("rows of this version.");
+  view.settleUploads();
+  expect(view.shownTime()).toBe(formatMiniAppDateTimeSeconds(STORED_AT));
+  expect(message()).toContain("rows of this version.");
+
+  // Asked again, it names the time now shown.
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentHistoryCopyCancel,
+    }),
+  );
+  saveAsCopy();
+  expect(message()).toContain(
+    `rows this one had at ${formatMiniAppDateTimeSeconds(STORED_AT)}.`,
+  );
+});
+
+test("History reloading keeps the uploads it read", () => {
+  const view = mountChange({ committedAt: STORED_AT, storedAt: STORED });
+  expect(view.uploadReadMounts()).toBe(1);
+
+  view.reload();
+
+  // Read above the reload, through the live document that stays open.
+  expect(view.uploadReadMounts()).toBe(1);
+  expect(view.shownTime()).toBe(formatMiniAppDateTimeSeconds(STORED_AT));
 });

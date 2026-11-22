@@ -16,11 +16,17 @@ function run(
 const CONFIRMING = run(IDLE_DOCUMENT_HISTORY_RESTORE, {
   index: 3,
   type: "requested",
+  versionTime: "noon",
 });
 const RESTORING = run(CONFIRMING, { run: 1, type: "confirmed" });
 
 test("a restore is asked, confirmed, and finished", () => {
-  expect(CONFIRMING).toEqual({ index: 3, status: "confirming" });
+  // The confirmation names the time shown when it was asked for.
+  expect(CONFIRMING).toEqual({
+    index: 3,
+    status: "confirming",
+    versionTime: "noon",
+  });
   expect(RESTORING).toEqual({ index: 3, run: 1, status: "restoring" });
   expect(run(RESTORING, { restored: true, run: 1, type: "finished" })).toBe(
     IDLE_DOCUMENT_HISTORY_RESTORE,
@@ -46,7 +52,7 @@ test("a restore in flight cannot be cancelled, replaced, or finished by another 
   for (const event of [
     { type: "cancelled" },
     { type: "stop-changed" },
-    { index: 9, type: "requested" },
+    { index: 9, type: "requested", versionTime: null },
     { run: 2, type: "confirmed" },
     { restored: true, run: 2, type: "finished" },
   ] satisfies DocumentHistoryRestoreEvent[]) {
@@ -60,10 +66,9 @@ test("a refusal clears when the user moves on or asks again", () => {
   expect(run(refused, { type: "stop-changed" })).toBe(
     IDLE_DOCUMENT_HISTORY_RESTORE,
   );
-  expect(run(refused, { index: 1, type: "requested" })).toEqual({
-    index: 1,
-    status: "confirming",
-  });
+  expect(
+    run(refused, { index: 1, type: "requested", versionTime: null }),
+  ).toEqual({ index: 1, status: "confirming", versionTime: null });
   expect(run(refused, { run: 5, type: "confirmed" })).toBe(refused);
 });
 
