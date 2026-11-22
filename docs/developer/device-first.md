@@ -322,12 +322,13 @@ Same-document recovery remains supported; distinct same-user or roster
 documents are not automatically adopted, deleted, or used as replacement edit
 targets. There is no legacy self-contact migration or reconnect purge queue.
 
-The Organizations dashboard reads the same shared container store and lists
-every organization present in the local tree, including one reached only
-through a folder shared from beneath an unreachable root. A card's folders are
-the containers whose parent is not local, the rule Explorer uses for its
-top-level rows. Names come from `listLocalOrganizations`, which reports a null
-`rootContainerId` for an organization reached without its root.
+The Shared with Me list reads the same shared container store and lists every
+folder the user can reach, grouped by organization, including one shared from
+beneath an unreachable root. Its folders are the containers whose parent is not
+local, the rule Explorer uses for its top-level rows; an organization with no
+such folder gets one row of its own. Names come from `listLocalOrganizations`,
+which reports a null `rootContainerId` for an organization reached without its
+root.
 
 ## Why first paint is device-first (trace)
 

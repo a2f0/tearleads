@@ -6,9 +6,9 @@ import {
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { useOrganizationNames } from "../../shared/organizations/useOrganizationNames";
 import {
-  buildOrganizationDashboardCards,
-  type OrganizationDashboardCard,
-} from "../model/organizationDashboard";
+  buildSharedWithMeRows,
+  type SharedWithMeRow,
+} from "../model/sharedWithMeRows";
 import {
   type OrganizationSyncChoices,
   useOrganizationSyncChoices,
@@ -35,19 +35,19 @@ function leaveRequestIds(memberships: OrganizationSyncChoices["memberships"]): {
   };
 }
 
-export interface OrganizationDashboardModel {
-  readonly cards: ReadonlyArray<OrganizationDashboardCard>;
+export interface SharedWithMeModel {
   readonly ready: boolean;
+  readonly rows: ReadonlyArray<SharedWithMeRow>;
   readonly syncChoices: OrganizationSyncChoices;
 }
 
 /**
- * Every organization this user holds a container of, read from the local
- * container tree. Membership needs no request: each Members recipient holds the
- * organization's metadata root, and shared folders arrive with their
- * organization attached.
+ * Every folder this user can reach, and every organization they hold a
+ * container of, read from the local container tree. Membership needs no
+ * request: each Members recipient holds the organization's metadata root, and
+ * shared folders arrive with their organization attached.
  */
-export function useOrganizationDashboard(): OrganizationDashboardModel {
+export function useSharedWithMe(): SharedWithMeModel {
   const appData = useTearleadsRuntime();
   const tearleads = useTearleads();
   const scopeKey = appData.state.domainScope;
@@ -69,9 +69,9 @@ export function useOrganizationDashboard(): OrganizationDashboardModel {
   const syncChoices = useOrganizationSyncChoices();
   const { memberships, pausedOrganizationIds } = syncChoices;
   const activeOrganizationId = appData.auth.organizationId ?? null;
-  const cards = useMemo(
+  const rows = useMemo(
     () =>
-      buildOrganizationDashboardCards({
+      buildSharedWithMeRows({
         activeOrganizationId,
         ...leaveRequestIds(memberships),
         namesById,
@@ -86,5 +86,5 @@ export function useOrganizationDashboard(): OrganizationDashboardModel {
       snapshot.nodes,
     ],
   );
-  return { cards, ready: snapshot.ready, syncChoices };
+  return { ready: snapshot.ready, rows, syncChoices };
 }

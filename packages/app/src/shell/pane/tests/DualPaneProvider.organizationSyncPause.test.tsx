@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import type { ContainerContentsStore, Tearleads } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, within } from "@testing-library/react";
+import { cleanup } from "@testing-library/react";
 import invariant from "invariant";
 import { settleAppTestRuntimeInAct } from "../../../../test/helpers/appRuntimeIdle";
 import { ContainerTreeProbe } from "../../../../test/helpers/dual-pane/ContainerTreeProbe";
@@ -21,13 +21,15 @@ import {
   openExplorer,
   selectExplorerNoteByName,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
-import {
-  activeOrganizationCard,
-  memberCardShowsFolder,
-  memberOrganizationCard,
-  openOrganizationsDashboard,
-} from "../../../../test/helpers/dual-pane/dualPaneOrganizationsKit";
 import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
+import {
+  chooseRowAction,
+  memberOrganizationRow,
+  openSharedWithMe,
+  rowShowsStatus,
+  sharedWithMeShowsFolder,
+  workspaceRootRow,
+} from "../../../../test/helpers/dual-pane/dualPaneSharedWithMeKit";
 import { shareContainerWithPeer } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -36,7 +38,7 @@ import {
 } from "../../../../test/helpers/msw/server";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
-import { ORGANIZATIONS_LABELS } from "../../../mini-apps/organizations/labels";
+import { SHARED_WITH_ME_LABELS } from "../../../mini-apps/shared-with-me/labels";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { type PaneSide, usePaneSide } from "../dual-pane";
 
@@ -52,22 +54,8 @@ afterEach(async () => {
   await resetMockServer();
 }, MOCK_SERVER_RESET_TIMEOUT_MS);
 
-async function clickCardButton(card: HTMLElement | null, name: string) {
-  invariant(card, "Expected the organization's card");
-  const button = within(card).getByRole("button", { name });
-  await interact(() => {
-    fireEvent.click(button);
-  });
-}
-
-function cardShowsPaused(card: HTMLElement | null): boolean {
-  return (
-    card !== null &&
-    within(card).queryByText(ORGANIZATIONS_LABELS.syncPausedStatus) !== null &&
-    within(card).queryByRole("button", {
-      name: ORGANIZATIONS_LABELS.resumeSync,
-    }) !== null
-  );
+function rowShowsPaused(row: HTMLElement | null): boolean {
+  return rowShowsStatus(row, SHARED_WITH_ME_LABELS.syncPausedStatus);
 }
 
 async function settleSync(): Promise<boolean> {
@@ -138,10 +126,10 @@ test(
     await createChildContainer(founderPane, SHARED_FOLDER);
     await createNoteInContainer(founderPane, SHARED_FOLDER, SHARED_NOTE);
     await shareContainerWithPeer(founderPane, SHARED_FOLDER);
-    await openOrganizationsDashboard(peerPane);
+    await openSharedWithMe(peerPane);
     await waitForCondition(
-      () => memberCardShowsFolder(peerPane, SHARED_FOLDER),
-      "The peer's dashboard did not list the shared folder.",
+      () => sharedWithMeShowsFolder(peerPane, SHARED_FOLDER),
+      "Shared with Me did not list the shared folder.",
       SYNC_TIMEOUT_MS,
     );
     // The peer opens the folder, reconciling its documents before pausing.
@@ -155,13 +143,13 @@ test(
     // An editor holds the note open across the pause.
     await selectExplorerNoteByName(peerPane, SHARED_NOTE);
 
-    await clickCardButton(
-      memberOrganizationCard(peerPane),
-      ORGANIZATIONS_LABELS.pauseSync,
+    await chooseRowAction(
+      memberOrganizationRow(peerPane),
+      SHARED_WITH_ME_LABELS.pauseSync,
     );
     await waitForCondition(
-      () => cardShowsPaused(memberOrganizationCard(peerPane)),
-      "The peer's card did not show the organization as paused.",
+      () => rowShowsPaused(memberOrganizationRow(peerPane)),
+      "The shared folder's row did not show its organization as paused.",
       SYNC_TIMEOUT_MS,
     );
 
@@ -170,12 +158,12 @@ test(
     // note, and nothing new.
     await createNoteInContainer(founderPane, SHARED_FOLDER, LATER_NOTE);
     expect(await settleSync()).toBe(true);
-    expect(memberCardShowsFolder(peerPane, SHARED_FOLDER)).toBe(true);
+    expect(sharedWithMeShowsFolder(peerPane, SHARED_FOLDER)).toBe(true);
     expect(await peerFolderDocumentLocalIds(trees, sdks)).toHaveLength(1);
 
-    await clickCardButton(
-      memberOrganizationCard(peerPane),
-      ORGANIZATIONS_LABELS.resumeSync,
+    await chooseRowAction(
+      memberOrganizationRow(peerPane),
+      SHARED_WITH_ME_LABELS.resumeSync,
     );
     await waitForCondition(
       async () => (await peerFolderDocumentLocalIds(trees, sdks)).length === 2,
@@ -203,7 +191,7 @@ test(
     const pane = getPaneRoot(view, "left");
     await waitForDualPaneProvisioning(pane, getPaneRoot(view, "right"));
     await waitForPersonalBootstrap(2);
-    await openOrganizationsDashboard(pane);
+    await openSharedWithMe(pane);
     expect(await settleSync()).toBe(true);
     const sdk = sdks.get("left");
     const tree = trees.get("left");
@@ -211,13 +199,13 @@ test(
     expect(await pendingWriteCount(sdk)).toBe(0);
 
     // The personal organization is the one the session is working in.
-    await clickCardButton(
-      activeOrganizationCard(pane),
-      ORGANIZATIONS_LABELS.pauseSync,
+    await chooseRowAction(
+      workspaceRootRow(pane),
+      SHARED_WITH_ME_LABELS.pauseSync,
     );
     await waitForCondition(
-      () => cardShowsPaused(activeOrganizationCard(pane)),
-      "The card did not show the personal organization as paused.",
+      () => rowShowsPaused(workspaceRootRow(pane)),
+      "The workspace row did not show the personal organization as paused.",
       SYNC_TIMEOUT_MS,
     );
 
@@ -235,9 +223,9 @@ test(
     expect(await settleSync()).toBe(true);
     expect(await pendingWriteCount(sdk)).toBeGreaterThan(0);
 
-    await clickCardButton(
-      activeOrganizationCard(pane),
-      ORGANIZATIONS_LABELS.resumeSync,
+    await chooseRowAction(
+      workspaceRootRow(pane),
+      SHARED_WITH_ME_LABELS.resumeSync,
     );
     await waitForCondition(
       async () => (await pendingWriteCount(sdk)) === 0,

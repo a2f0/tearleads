@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { ORGANIZATIONS_LABELS } from "../labels";
-import { resolveOrganizationsSurfaceState } from "./organizationsSurfaceState";
+import { SHARED_WITH_ME_LABELS } from "../labels";
+import { resolveSharedWithMeSurfaceState } from "./sharedWithMeSurfaceState";
 
 const PROGRESS = {
   description: "Registering your identity.",
@@ -8,14 +8,14 @@ const PROGRESS = {
   title: "Creating your account",
 } as const;
 
-describe("resolveOrganizationsSurfaceState", () => {
+describe("resolveSharedWithMeSurfaceState", () => {
   test("shows account setup instead of loading or empty", () => {
     for (const ready of [false, true]) {
       expect(
-        resolveOrganizationsSurfaceState({
-          cardCount: 0,
+        resolveSharedWithMeSurfaceState({
           progress: PROGRESS,
           ready,
+          rowCount: 0,
         }),
       ).toEqual({
         busy: true,
@@ -25,40 +25,40 @@ describe("resolveOrganizationsSurfaceState", () => {
     }
   });
 
-  test("shows loading while the dashboard is not ready", () => {
+  test("shows loading while the list is not ready", () => {
     expect(
-      resolveOrganizationsSurfaceState({
-        cardCount: 0,
+      resolveSharedWithMeSurfaceState({
         progress: null,
         ready: false,
+        rowCount: 0,
       }),
     ).toEqual({
       busy: true,
       description: undefined,
-      title: ORGANIZATIONS_LABELS.loading,
+      title: SHARED_WITH_ME_LABELS.loading,
     });
   });
 
-  test("shows the empty state once ready with no organizations", () => {
+  test("shows the empty state once ready with nothing shared", () => {
     expect(
-      resolveOrganizationsSurfaceState({
-        cardCount: 0,
+      resolveSharedWithMeSurfaceState({
         progress: null,
         ready: true,
+        rowCount: 0,
       }),
     ).toEqual({
       busy: false,
-      description: ORGANIZATIONS_LABELS.emptyDescription,
-      title: ORGANIZATIONS_LABELS.empty,
+      description: SHARED_WITH_ME_LABELS.emptyDescription,
+      title: SHARED_WITH_ME_LABELS.empty,
     });
   });
 
-  test("shows the list once organizations exist, even mid account setup", () => {
+  test("shows the list once rows exist, even mid account setup", () => {
     expect(
-      resolveOrganizationsSurfaceState({
-        cardCount: 1,
+      resolveSharedWithMeSurfaceState({
         progress: PROGRESS,
         ready: true,
+        rowCount: 1,
       }),
     ).toBeNull();
   });
