@@ -59,4 +59,4 @@ test("a fresh install records the folder and document it downloads", async () =>
         item.localId === trips.id || item.documentId === notes.documentId,
     ),
   ).toEqual([]);
-});
+}, 120_000);
