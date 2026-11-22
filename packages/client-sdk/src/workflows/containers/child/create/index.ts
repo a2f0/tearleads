@@ -460,6 +460,7 @@ async function createRemoteContainerOutcome(
     input.parentProjection ??
     (await input.apiClient.getContainerWriterProjection(
       input.parentContainerId,
+      { stillCurrent: input.stillCurrent },
     ));
   if (!parentProjection) {
     return null;

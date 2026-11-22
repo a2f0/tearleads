@@ -33,6 +33,17 @@ interface ProjectionSlots<T> {
   readonly inFlightResults: Map<string, InFlightWriterProjectionResult<T>>;
 }
 
+/** A container projection read cites a listing or carries a scope, not both. */
+type ContainerWriterProjectionReadOptions =
+  | {
+      readonly listing?: WriterProjectionListing | undefined;
+      readonly stillCurrent?: undefined;
+    }
+  | {
+      readonly listing?: undefined;
+      readonly stillCurrent?: (() => boolean) | undefined;
+    };
+
 interface ProjectionRead<T> {
   readonly cacheKey: string;
   readonly path: string;
@@ -220,11 +231,21 @@ export class WriterProjectionArea {
     return result;
   }
 
-  /** `listing` only picks which held bytes an unstored container cites. */
+  /**
+   * A `listing` only picks which held bytes an unstored container cites. A
+   * `stillCurrent` joins the shared read instead, which renews and delivers
+   * only while some caller is current.
+   */
   getContainerWriterProjection(
     containerId: string,
-    listing?: WriterProjectionListing,
+    options?: ContainerWriterProjectionReadOptions,
   ) {
+    if (options?.stillCurrent)
+      return this.getContainerWriterProjectionResult(containerId, {
+        stillCurrent: options.stillCurrent,
+      }).then((result) => (result.ok ? result.data : null));
+
+    const listing = options?.listing;
     return cachedRequest(this.containers.cache, containerId, () =>
       this.context.request(
         containerWriterProjection.path(containerId),

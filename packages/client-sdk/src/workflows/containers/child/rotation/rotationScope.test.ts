@@ -13,20 +13,52 @@ import {
 } from "../../../../../test/helpers/workflows/relocatedLineage";
 
 const ROTATIONS = ["move", "rekey", "revoke"] as const;
+const DESTINATION_ID = "scope-destination";
+
+/** The request each case holds: the signed POST or a projection read before it. */
+type HeldRequest =
+  | { readonly kind: "POST" }
+  | { readonly kind: "projection read"; readonly containerId: string };
+
+const HELD_REQUESTS: Record<
+  (typeof ROTATIONS)[number],
+  readonly HeldRequest[]
+> = {
+  move: [
+    { kind: "POST" },
+    { kind: "projection read", containerId: CHILD_ID },
+    { kind: "projection read", containerId: DESTINATION_ID },
+  ],
+  rekey: [{ kind: "POST" }, { kind: "projection read", containerId: CHILD_ID }],
+  revoke: [
+    { kind: "POST" },
+    { kind: "projection read", containerId: CHILD_ID },
+  ],
+};
+
+function heldPath(
+  rotation: (typeof ROTATIONS)[number],
+  held: HeldRequest,
+): string {
+  return held.kind === "POST"
+    ? `/containers/${CHILD_ID}/${rotation}`
+    : `/containers/${held.containerId}/writer-projection`;
+}
 
 /**
- * Runs one signed rotation against a server that holds its POST, retires the
- * caller meanwhile, then answers the POST with a refresh-required 401.
+ * Runs one signed rotation against a server that holds one of its requests,
+ * retires the caller meanwhile, then answers it with a refresh-required 401.
  */
 async function retiredRotation(
   rotation: (typeof ROTATIONS)[number],
+  held: HeldRequest,
   change: (typeof SCOPE_RETIREMENTS)[number],
 ) {
   const scenario = await relocatedChildHistory({
     shareWithGrantee: rotation === "revoke",
   });
   const destination = await createChildContainerProjection({
-    containerId: "scope-destination",
+    containerId: DESTINATION_ID,
     parent: scenario.parent,
     parentProjection: scenario.parent.projection,
   });
@@ -35,16 +67,18 @@ async function retiredRotation(
     [destination.projection.containerId, destination.projection],
   ]);
   const server = createExpiringApiServer({
-    method: "POST",
-    path: new RegExp(`^/containers/${CHILD_ID}/${rotation}$`),
+    method: held.kind === "POST" ? "POST" : "GET",
+    path: new RegExp(`^${heldPath(rotation, held)}$`),
   });
   let current = true;
   try {
     const containers = createContainerMutationServiceFixture({
       api: {
         reciteContainer: async () => null,
-        getContainerWriterProjection: async (containerId) =>
-          projections.get(containerId) ?? null,
+        getContainerWriterProjection: async (containerId, options) =>
+          held.kind === "projection read" && containerId === held.containerId
+            ? server.api.getContainerWriterProjection(containerId, options)
+            : (projections.get(containerId) ?? null),
         // Both adapters, so the production `*Result` submit path is the one run.
         moveContainer: server.api.moveContainer,
         moveContainerResult: server.api.moveContainerResult,
@@ -66,7 +100,7 @@ async function retiredRotation(
       rotation === "move"
         ? containers.moveRemoteContainer({
             ...common,
-            destinationParentContainerId: destination.projection.containerId,
+            destinationParentContainerId: DESTINATION_ID,
           })
         : rotation === "rekey"
           ? containers.rekeyRemoteContainer(common)
@@ -90,16 +124,23 @@ async function retiredRotation(
 }
 
 for (const rotation of ROTATIONS) {
-  test.each(SCOPE_RETIREMENTS)(
-    `a ${rotation} POST that expires after %s is not renewed or replayed`,
-    async (change) => {
-      const { requests, renewals, result } = await retiredRotation(
-        rotation,
-        change,
-      );
-      expect(result).toBeNull();
-      expect(requests).toEqual([`POST /containers/${CHILD_ID}/${rotation}`]);
-      expect(renewals).toBe(0);
-    },
-  );
+  for (const held of HELD_REQUESTS[rotation]) {
+    const label =
+      held.kind === "POST" ? "POST" : `${held.containerId} projection read`;
+    test.each(SCOPE_RETIREMENTS)(
+      `a ${rotation} ${label} that expires after %s is not renewed or replayed`,
+      async (change) => {
+        const { requests, renewals, result } = await retiredRotation(
+          rotation,
+          held,
+          change,
+        );
+        expect(result).toBeNull();
+        expect(requests).toEqual([
+          `${held.kind === "POST" ? "POST" : "GET"} ${heldPath(rotation, held)}`,
+        ]);
+        expect(renewals).toBe(0);
+      },
+    );
+  }
 }
