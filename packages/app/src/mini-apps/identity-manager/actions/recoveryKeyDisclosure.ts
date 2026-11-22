@@ -1,11 +1,16 @@
 /**
  * Disclosing the recovery key discloses every private key derived from it, so
- * every path that surfaces it — on screen, on the clipboard, or in a file — is
- * gated behind this typed acknowledgement.
+ * every path that surfaces it — on screen, on the clipboard, in a file, or on
+ * paper — is gated behind this typed acknowledgement.
  */
 export const RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE = "i understand";
 
-export type RecoveryKeyDisclosure = "copy" | "download" | "reveal" | "qr";
+export type RecoveryKeyDisclosure =
+  | "copy"
+  | "download"
+  | "print"
+  | "reveal"
+  | "qr";
 
 interface RecoveryKeyDisclosureCopy {
   readonly confirmLabel: string;
@@ -37,6 +42,15 @@ export const RECOVERY_KEY_DISCLOSURES: Record<
     title: "Download recovery key",
     warning:
       "Your recovery key derives the private encryption keys for this identity. Anyone who opens the downloaded file can decrypt your data and impersonate you, so move it to encrypted storage and remove the plaintext copy.",
+  },
+  print: {
+    confirmLabel: "Print",
+    failureLog: "Failed to print recovery key",
+    successLog: "Recovery key sent to print",
+    successStatus: "Recovery key sent to print.",
+    title: "Print recovery key",
+    warning:
+      "Your recovery key derives the private encryption keys for this identity. Anyone who reads the printed page can decrypt your data and impersonate you, so collect it from the printer right away and store it somewhere safe.",
   },
   qr: {
     confirmLabel: "Show QR Code",

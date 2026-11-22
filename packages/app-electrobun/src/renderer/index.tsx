@@ -65,6 +65,10 @@ renderApp(createRoot(elem), {
     // would make the keyring host-managed and disable PIN locking. The record
     // written is byte-identical, so existing installs are unaffected.
     localKeyringKeyMaterialStorage: "raw-bytes",
+    // Electrobun's macOS WKWebView implements no print handler, so
+    // window.print() silently does nothing there. Printing through the CEF
+    // renderer (Windows and Linux) is unverified, so it stays off everywhere.
+    disablePrinting: true,
     // The desktop WKWebView has no browser download destination; route the
     // download through the Bun main process, which writes to ~/Downloads.
     createFileSaver: createElectrobunFileSaver,
