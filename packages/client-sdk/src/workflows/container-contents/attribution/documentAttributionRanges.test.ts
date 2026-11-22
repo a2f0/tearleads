@@ -10,8 +10,10 @@ test("loadDocumentAttributionRanges forwards pagination and returns the page", a
     items: [
       {
         authorityKind: "baseline",
+        createdAt: "2030-01-01T10:00:00.000Z",
         endCounter: 8,
         peerId: "peer-1",
+        signedAt: "2030-01-01T09:59:59.000Z",
         startCounter: 2,
         updateId: "update-1",
         writerKeyFingerprint: "fingerprint-1",

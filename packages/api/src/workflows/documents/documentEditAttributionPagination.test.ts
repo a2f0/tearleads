@@ -8,6 +8,11 @@ import {
   MAX_COMPACT_ATTRIBUTION_SEGMENTS,
 } from "./documentEditAttribution";
 
+/** One second per upload, so each upload's times are its own. */
+function uploadTime(second: number): string {
+  return new Date(Date.UTC(2030, 0, 1, 0, 0, second)).toISOString();
+}
+
 function detailedSegment(input: {
   endCounter: number;
   startCounter: number;
@@ -17,8 +22,10 @@ function detailedSegment(input: {
 }) {
   return {
     authorityKind: input.authorityKind ?? ("direct" as const),
+    createdAt: uploadTime(input.updateSequence),
     endCounter: input.endCounter,
     peerId: input.peerId ?? "peer-1",
+    signedAt: uploadTime(input.updateSequence - 1),
     startCounter: input.startCounter,
     updateId: `update-${input.updateSequence}`,
     updateSequence: input.updateSequence,
@@ -108,6 +115,39 @@ test("caps the default compact response and marks it truncated", () => {
   expect(response.truncated).toBe(true);
 });
 
+test("a range whose stored signed time is not a timestamp is refused, by update", () => {
+  // A write header is only accepted with a canonical signedAt, so such a row
+  // is a broken one.
+  for (const signedAt of ["", "yesterday", "2030-01-01 10:00:00"]) {
+    const attribution = {
+      attributionRevision: 12,
+      attributionScope: "scope-1",
+      documentId: "document-1",
+      documentIncarnation: "incarnation-1",
+      segments: [
+        {
+          ...detailedSegment({
+            endCounter: 1,
+            startCounter: 0,
+            updateSequence: 1,
+          }),
+          signedAt,
+        },
+      ],
+    };
+
+    expect(() =>
+      createDocumentEditAttributionRangesPage(attribution, {}),
+    ).toThrow(
+      "Attribution update update-1 has no valid signedAt in its write header.",
+    );
+    // The compact response never returns the time, so it is unaffected.
+    expect(
+      createDocumentEditAttributionResponse(attribution).segments,
+    ).toHaveLength(1);
+  }
+});
+
 test("paginates ranges with an incarnation and revision-bound cursor", () => {
   const attribution = {
     attributionScope: "scope-1",
@@ -126,6 +166,18 @@ test("paginates ranges with an incarnation and revision-bound cursor", () => {
     "update-1",
     "update-2",
   ]);
+  // Each range carries its own upload's two times, and nothing server-only.
+  expect(first.items[1]).toEqual({
+    authorityKind: "direct",
+    createdAt: uploadTime(2),
+    endCounter: 2,
+    peerId: "peer-1",
+    signedAt: uploadTime(1),
+    startCounter: 1,
+    updateId: "update-2",
+    writerKeyFingerprint: "fingerprint-1",
+    writerUserId: "user-1",
+  });
   if (!first.nextCursor) {
     throw new Error("Expected a next attribution cursor");
   }

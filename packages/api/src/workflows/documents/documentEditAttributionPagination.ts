@@ -2,6 +2,7 @@ import type {
   DocumentEditAttributionRangeResponse,
   ListDocumentEditAttributionRangesResponse,
 } from "@tearleads/validators/response";
+import { isCanonicalSignedAt } from "@tearleads/validators/util";
 import { z } from "zod";
 import type { DocumentEditAttributionSegment } from "../../documents/documentEditAttribution";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
@@ -143,10 +144,21 @@ export function validateDocumentEditAttributionRangesRequest(
 function toRangeResponse(
   segment: DocumentEditAttributionSegment,
 ): DocumentEditAttributionRangeResponse {
+  // A range promises its upload's signed time as a timestamp. A write header
+  // is only accepted with a canonical one, so a stored value that is not one
+  // is a broken row: it fails here, naming its update, rather than as a page
+  // the client rejects whole.
+  if (!isCanonicalSignedAt(segment.signedAt)) {
+    throw new Error(
+      `Attribution update ${segment.updateId} has no valid signedAt in its write header.`,
+    );
+  }
   return {
     authorityKind: segment.authorityKind,
+    createdAt: segment.createdAt,
     endCounter: segment.endCounter,
     peerId: segment.peerId,
+    signedAt: segment.signedAt,
     startCounter: segment.startCounter,
     updateId: segment.updateId,
     writerKeyFingerprint: segment.writerKeyFingerprint,

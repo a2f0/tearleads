@@ -125,6 +125,8 @@ test("document info does not load detailed edit ranges until requested", async (
             endCounter: 7,
             peerId: "peer-1",
             startCounter: 0,
+            createdAt: "2030-01-01T10:00:00.000Z",
+            signedAt: "2030-01-01T09:59:59.000Z",
             updateId: "update-1",
             writerKeyFingerprint: "writer-fingerprint-1",
             writerUserId: "writer-1",

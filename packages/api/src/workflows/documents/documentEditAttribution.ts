@@ -76,6 +76,10 @@ async function loadDocumentAttributionRows(
       startCounter: documentUpdateSpans.startCounter,
       endCounter: documentUpdateSpans.endCounter,
       sequence: documentUpdates.sequence,
+      updateCreatedAt: documentUpdates.createdAt,
+      signedAt: sql<
+        string | null
+      >`${jsonTextProperty(sql`${documentContentWriteHeaders.header}`, "signedAt")}`,
       writerUserId: sql<
         string | null
       >`${jsonTextProperty(sql`${documentContentWriteHeaders.header}`, "writerUserId")}`,
@@ -121,7 +125,7 @@ function attributionSpanFromRow(
   if (span.updateId === null) {
     return null;
   }
-  if (span.sequence === null) {
+  if (span.sequence === null || span.updateCreatedAt === null) {
     throw new Error(
       `Attribution span references missing update ${span.updateId}.`,
     );
@@ -153,6 +157,10 @@ function attributionSpanFromRow(
       span.updateId,
     ),
     isBaseline: span.isBaseline,
+    createdAt: span.updateCreatedAt.toISOString(),
+    // Carried as stored. Only a range response returns it, and that is
+    // where it is held to a timestamp; the compact response never reads it.
+    signedAt: span.signedAt ?? "",
   };
 }
 

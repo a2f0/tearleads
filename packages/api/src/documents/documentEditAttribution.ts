@@ -35,6 +35,10 @@ export interface AttributionSpanInput {
   readonly writerKeyFingerprint: string;
   /** The covering update is a rotate_baseline checkpoint. */
   readonly isBaseline: boolean;
+  /** When the server stored the update (document_updates.created_at), ISO. */
+  readonly createdAt: string;
+  /** The time the writer signed into the update's write header, ISO. */
+  readonly signedAt: string;
 }
 
 export interface DocumentEditAttributionSegment {
@@ -48,6 +52,13 @@ export interface DocumentEditAttributionSegment {
   readonly writerUserId: string;
   readonly writerKeyFingerprint: string;
   readonly authorityKind: EditAttributionAuthorityKind;
+  /**
+   * When the server stored that update, ISO. The server's own clock: every
+   * operation in the range existed by then, whatever its writer's clock said.
+   */
+  readonly createdAt: string;
+  /** The time the writer signed into that update's write header, ISO. */
+  readonly signedAt: string;
 }
 
 interface ClaimedInterval {
@@ -244,6 +255,8 @@ function appendInterval(
     writerUserId: interval.span.writerUserId,
     writerKeyFingerprint: interval.span.writerKeyFingerprint,
     authorityKind: authorityKindFor(interval.span),
+    createdAt: interval.span.createdAt,
+    signedAt: interval.span.signedAt,
   });
 }
 

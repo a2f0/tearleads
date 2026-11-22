@@ -63,8 +63,10 @@ test("caches detailed attribution by document revision for range pages", () => {
     segments: [
       {
         authorityKind: "direct" as const,
+        createdAt: "2030-01-01T00:00:01.000Z",
         endCounter: 1,
         peerId: "peer-1",
+        signedAt: "2030-01-01T00:00:00.000Z",
         startCounter: 0,
         updateId: crypto.randomUUID(),
         updateSequence: 1,

@@ -16,6 +16,22 @@ type DocumentInfoFieldBlame = NonNullable<
   DocumentInfo["remoteInfo"]
 >["fieldBlame"];
 
+/**
+ * One upload's attribution: a compact segment, with the times an edit range
+ * also carries (when the server stored the upload, and when its writer
+ * signed it).
+ */
+export const compactAttributionSegment = {
+  authorityKind: "direct",
+  createdAt: "2030-01-01T10:00:00.000Z",
+  endCounter: 1,
+  peerId: "peer-1",
+  signedAt: "2030-01-01T09:59:59.000Z",
+  startCounter: 0,
+  writerKeyFingerprint: "fingerprint-1",
+  writerUserId: "writer-1",
+} as const;
+
 export function createRemoteInfo(
   activeAttachmentBindings: NonNullable<
     DocumentInfo["remoteInfo"]

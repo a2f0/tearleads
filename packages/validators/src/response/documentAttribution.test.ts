@@ -68,8 +68,10 @@ test("isDocumentEditAttributionResponse", () => {
 test("isListDocumentEditAttributionRangesResponse", () => {
   const validRange = {
     authorityKind: "direct",
+    createdAt: "2030-01-01T10:00:00.000Z",
     endCounter: 5,
     peerId: "1",
+    signedAt: "2030-01-01T09:59:59.000Z",
     startCounter: 0,
     updateId: "550e8400-e29b-41d4-a716-446655440020",
     writerKeyFingerprint: "fingerprint-abc",
@@ -97,6 +99,17 @@ test("isListDocumentEditAttributionRangesResponse", () => {
       items: [{ ...validRange, updateId: undefined }],
     }),
   ).toBe(false);
+  // A range names when its upload was stored and signed, as timestamps.
+  for (const time of ["createdAt", "signedAt"]) {
+    for (const value of [undefined, "", "yesterday", 1893492000000]) {
+      expect(
+        isListDocumentEditAttributionRangesResponse({
+          ...finalPage,
+          items: [{ ...validRange, [time]: value }],
+        }),
+      ).toBe(false);
+    }
+  }
   expect(
     isListDocumentEditAttributionRangesResponse({
       ...finalPage,

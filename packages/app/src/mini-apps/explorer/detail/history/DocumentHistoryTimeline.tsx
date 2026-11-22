@@ -44,6 +44,8 @@ export function DocumentHistoryTimeline(params: {
   changeSummary: ReadonlyArray<string> | null;
   /** When the selected change was made, ready to read. */
   changeTime: string;
+  /** What the reader should know about that time, such as a corrected clock. */
+  changeTimeNote?: string | null;
   newerAvailable: boolean;
   onReload: () => void;
   onSeek: (index: number) => void;
@@ -125,6 +127,7 @@ export function DocumentHistoryTimeline(params: {
       </div>
       <p className="explorer-document-history-caption">
         <strong>{params.changeTime}</strong>
+        {params.changeTimeNote ? <span>{params.changeTimeNote}</span> : null}
         {params.writer}
         {/* Keeps its line while a stop replays, so the document never jumps. */}
         <span>{params.changeSummary?.join(" · ") ?? " "}</span>
