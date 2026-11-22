@@ -238,7 +238,7 @@ test("downloads that finish before Downloads first opens are listed Complete", a
   );
   expectRow(view, "Alpha", { percent: "100", status: "Complete" });
   expectRow(view, "Beta", { percent: "100", status: "Complete" });
-  // A finished download shown while the panel is open arrives the same way.
+  // Closing and reopening the panel keeps the history, which the SDK owns.
   view.rerender(
     renderDownloads({ documentQueries, domainScope, showDownloads: false }),
   );

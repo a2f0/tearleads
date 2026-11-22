@@ -219,3 +219,7 @@ the queue because it was deleted, detached, or reset is never recorded. Each
 says where to open it: a document's projected `containerId` (null when
 orphaned), and a file's `storageKey` and `blobId`. Read it through
 `getDomainDownloadHistorySnapshot` and `subscribeToDomainDownloadHistory`.
+`getOrCreateDomainDownloadHistory` returns the scope's history object, as
+`getOrCreateDomainSyncCoordinator` returns its coordinator; its
+`recordCompleted` exists for host tests, since the SDK records downloads
+itself.

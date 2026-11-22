@@ -28,6 +28,7 @@ holds are excluded. `listContainerDocumentSidebarWindow` accepts an optional
 canonical id cannot be selected as primary until their first sync.
 Hosts implementing `ContainerDocumentQueries` themselves, including test
 doubles, must implement `loadContainerDocumentSummary`, a source-level change.
+`listCompletedDownloads(refs)` gave way to the [download history](runtime-behavior.md#explorer-hydration-and-pending-downloads).
 
 See [container views](../container-views.md) for the app extension point,
 read-only behavior and fallback rules. These methods use existing root-exported

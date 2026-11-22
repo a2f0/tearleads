@@ -5,8 +5,9 @@ import type { DocumentStoreState } from "../state";
 
 /**
  * Whether a stored record is in the download queue as `listPendingDownloads`
- * reads it: a synced document whose content was never pulled, or whose pull
- * still has pages left.
+ * reads it: a synced document whose content was never pulled, or whose stored
+ * continuation is not null. A continuation that failed to parse is still a
+ * stored one, so recovery counts too.
  */
 function isQueuedForDownload(record: DocumentRecord): boolean {
   return (
@@ -21,7 +22,8 @@ function isQueuedForDownload(record: DocumentRecord): boolean {
  * Record a finished download in the scope's history: a pull that drained the
  * server's updates and took this document out of the queue it was in when the
  * request was made. A pull of a document already stored is a sync, not a
- * download.
+ * download. The stored record's container is the projection's, which every
+ * persist reads back.
  */
 export function noteDocumentDownloadDrained(input: {
   readonly requestRecord: DocumentRecord;

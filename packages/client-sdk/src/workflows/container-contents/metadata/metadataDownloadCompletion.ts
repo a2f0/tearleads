@@ -3,6 +3,8 @@ import { deriveMetadataEndVersion } from "../../../data/persistence/container-co
 import type { ContainerRecord } from "../../../data/persistence/container-contents/containerPersistence";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import { recordDomainCompletedDownload } from "../../../data/sync/downloadHistory";
+import type { ContainerMetadataSyncAttempt } from "./metadataRemoteSync";
+import { resumedEarlierMetadataPull } from "./metadataSyncFollowup";
 import type { ContainerMetadataState } from "./metadataTypes";
 
 type ContainerMetadataRecord = ContainerMetadataState["record"];
@@ -10,7 +12,8 @@ type ContainerMetadataRecord = ContainerMetadataState["record"];
 /**
  * Whether a folder's metadata record is in the download queue as
  * `listPendingDownloads` reads it: a synced folder whose metadata was never
- * pulled, or whose pull still has pages left.
+ * pulled, or whose stored continuation is not null. A continuation that
+ * failed to parse is still a stored one, so recovery counts too.
  */
 function isQueuedForDownload(record: ContainerMetadataRecord): boolean {
   if (record.documentId === null) return false;
@@ -26,16 +29,24 @@ function isQueuedForDownload(record: ContainerMetadataRecord): boolean {
 /**
  * Record a finished folder download in the scope's history: a metadata pull
  * that took the folder out of the queue it was in when the request was made.
+ * A pull of a folder already stored, such as a rename, is a sync.
  */
 export function noteContainerMetadataDownloadDrained(input: {
   readonly container: ContainerRecord;
   readonly domainScope: DomainScope;
-  readonly requestRecord: ContainerMetadataRecord;
-  readonly requestedPage: boolean;
   readonly storedRecord: ContainerMetadataRecord;
+  readonly syncAttempt: Pick<
+    ContainerMetadataSyncAttempt,
+    "consumedPullContinuation" | "requestRecord"
+  >;
 }): void {
-  const { container, storedRecord } = input;
-  if (!(input.requestedPage || isQueuedForDownload(input.requestRecord)))
+  const { container, storedRecord, syncAttempt } = input;
+  if (
+    !(
+      resumedEarlierMetadataPull(syncAttempt) ||
+      isQueuedForDownload(syncAttempt.requestRecord)
+    )
+  )
     return;
   if (storedRecord.documentId === null || isQueuedForDownload(storedRecord))
     return;

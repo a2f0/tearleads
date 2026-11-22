@@ -22,9 +22,8 @@ import { requestRemoteDocumentSync } from "./syncRequest";
 
 type Fixture = Awaited<ReturnType<typeof createRemoteHistoryFixture>>;
 
-// One lane pass as the scheduled sync runs it: settle outgoing coverage,
-// pull, then finalize.
-async function pullOnce(state: DocumentStoreState, fixture: Fixture) {
+// The first step of a lane pass: settle outgoing coverage.
+async function prepareCoverage(state: DocumentStoreState) {
   const currentDoc = state.doc;
   if (!currentDoc) throw new Error("Expected ready store");
   const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
@@ -36,7 +35,14 @@ async function pullOnce(state: DocumentStoreState, fixture: Fixture) {
     state,
   });
   if (!prepared) throw new Error("Expected prepared outgoing coverage");
-  const currentRecord = prepared.record;
+  return { currentDoc, currentRecord: prepared.record, generation };
+}
+
+// One lane pass as the scheduled sync runs it: settle outgoing coverage,
+// pull, then finalize.
+async function pullOnce(state: DocumentStoreState, fixture: Fixture) {
+  const { currentDoc, currentRecord, generation } =
+    await prepareCoverage(state);
   const attempt = await requestRemoteDocumentSync({
     policyOperation: createPrincipalPolicyOperation(),
     currentDoc,
@@ -173,6 +179,15 @@ test("a discovered document's single-page first pull is a download", async () =>
     state.syncLane = { requestSync: () => undefined } as NonNullable<
       typeof state.syncLane
     >;
+
+    // Settling coverage alone leaves the shell queued and unhydrated.
+    await prepareCoverage(state);
+    expect(await queries.listPendingDownloads()).toMatchObject([
+      { documentId, reason: "initial" },
+    ]);
+    expect(
+      await queries.loadDocumentSummary(documentId, { requireHydrated: true }),
+    ).toBeNull();
 
     expect(await pullOnce(state, fixture)).toBe(false);
     expect(await queries.listPendingDownloads()).toEqual([]);

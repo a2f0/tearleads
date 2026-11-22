@@ -59,19 +59,23 @@ function completedDownloadKey(item: CompletedDownloadItem): string {
 
 function createDomainDownloadHistory(): DomainDownloadHistory {
   const listeners = createListenerSet();
-  let snapshot: DomainDownloadHistorySnapshot = { completed: [] };
+  // Oldest first, so recording is a delete and a set; the newest-first
+  // snapshot is built only when read after a change.
+  const items = new Map<string, CompletedDownloadItem>();
+  let snapshot: DomainDownloadHistorySnapshot | null = { completed: [] };
   return {
-    getSnapshot: () => snapshot,
+    getSnapshot() {
+      snapshot ??= { completed: [...items.values()].reverse() };
+      return snapshot;
+    },
     recordCompleted(item) {
       const key = completedDownloadKey(item);
-      snapshot = {
-        completed: [
-          item,
-          ...snapshot.completed.filter(
-            (entry) => completedDownloadKey(entry) !== key,
-          ),
-        ].slice(0, MAX_COMPLETED_DOWNLOADS),
-      };
+      items.delete(key);
+      items.set(key, item);
+      const oldest = items.keys().next();
+      if (items.size > MAX_COMPLETED_DOWNLOADS && !oldest.done)
+        items.delete(oldest.value);
+      snapshot = null;
       listeners.notify();
     },
     subscribe: listeners.subscribe,
