@@ -112,6 +112,7 @@ export interface DocumentCreateApi {
   // (the create response that carried them was lost).
   getDocumentWriterProjection(
     documentId: string,
+    options?: { readonly stillCurrent?: (() => boolean) | undefined },
   ): Promise<DocumentWriterProjectionResponse | null>;
   evictContainerWriterProjection(containerId: string): void;
   primeDocumentWriterProjection(
@@ -220,7 +221,10 @@ type DocumentLinkSetMutationResult =
     });
 
 export interface DocumentLinkSetMutationApi {
-  getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;
+  getBlobBytes(
+    blobId: string,
+    options?: { readonly stillCurrent?: (() => boolean) | undefined },
+  ): Promise<BlobBytesResponse | null>;
   listDocumentAttachments(
     documentId: string,
     options?: { readonly refresh?: boolean },

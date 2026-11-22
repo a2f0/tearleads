@@ -36,11 +36,13 @@ async function listMoveSourceContainerIds(input: {
   execSql: ExecSql;
   existingContainerId: string | null | undefined;
   intent: DocumentMoveIntentRecord;
+  isCurrent: () => boolean;
 }): Promise<string[]> {
   const { documentId, targetContainerId } = input.intent;
   const [remote, local] = await Promise.all([
     input.apiClient.getDocumentWriterProjectionResult(documentId, {
       reportErrors: false,
+      stillCurrent: input.isCurrent,
     }),
     new DocumentContainerProjectionRepository(
       input.execSql,
@@ -112,7 +114,7 @@ export async function moveWithVanishedContainerRefresh<TMoved>(input: {
     apiClient.evictContainerWriterProjection(targetContainerId);
     const destination = await apiClient.getContainerWriterProjectionResult(
       targetContainerId,
-      { reportErrors: false },
+      { reportErrors: false, stillCurrent: input.isCurrent },
     );
     apiClient.evictDocumentWriterProjection(intent.documentId);
     if (!input.isCurrent()) return "abandoned";

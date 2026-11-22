@@ -36,18 +36,35 @@ sign-in, or a store generation change, the request is retired:
 
 These requests pass it:
 
-- the writer-projection reads of document creates and attachment uploads
-- the projection reads of container creates, shares, moves, revokes, and
-  rekeys, including a create's stale-path refetch, a share's repair of a stale
-  chain above it, and a rotation's carried descendant rekeys
-- attachment uploads and downloads
-- signed container creates, recitations, moves, revokes, rekeys, and user and
-  group shares
+- the writer-projection reads of document creates, purges, syncs, and
+  attachment uploads, and the read that adopts a create whose response was lost
+- the projection reads of container creates, shares, moves, revokes, rekeys,
+  and purges, including a create's stale-path refetch, a share's repair of a
+  stale chain above it, a custom-named group's metadata read, a rotation's
+  carried descendant rekeys and rematerialized levels, and the probes of a
+  document move that cites a vanished container
+- the projection reads that verify a hydrated destination, and an attachment
+  verifier's one proof refresh
+- attachment uploads, downloads, relink ciphertext reads, and detaches
+- signed container creates, recitations, moves, revokes, rekeys, deletes, and
+  user and group shares
+- document sync submits, purge requests, and purge proof reads
+- organization read-model pages and pending blob deletion listings
 
 Concurrent writer-projection reads still share one fetch and its cached result.
 The shared fetch stays current while any of its callers is current. A container
 mutation adapter receives the scope as the `stillCurrent` option of
-`getContainerWriterProjection`; the built-in API client honors it.
+`getContainerWriterProjection`; the built-in API client honors it. A listing
+read, which cites the manifests a listing holds, does not also take a scope.
+
+Journaled principal-policy writes do not pass it. These are group policy
+commits, including the commit a group share makes when it mints keys, and group
+creates and deletes. A retired request reports `cancelled`, and the journal
+clears its saved request on that refusal even when the server may have
+committed the change. These writes keep their outcome classification and are
+bound to the sign-in instead. Principal-policy and organization policy-history
+reads use the principal-history transport, which is also bound to the sign-in
+and does not read `stillCurrent`.
 
 An attachment upload checks its organization's sync pause before each stage or
 part request. A pause stops the upload and returns `null`. A stage created

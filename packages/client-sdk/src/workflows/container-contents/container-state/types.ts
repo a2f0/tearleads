@@ -35,6 +35,7 @@ export type ContainerWorkflowApi = ContainerMutationServiceApi &
         expectedPaymentRequiredOrganizationId?: string;
         reportErrors?: boolean;
         requiredAncestorId?: string | undefined;
+        stillCurrent?: (() => boolean) | undefined;
       },
     ): Promise<
       | { data: ContainerDeleteResponse; ok: true }

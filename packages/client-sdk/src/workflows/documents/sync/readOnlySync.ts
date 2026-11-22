@@ -357,6 +357,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
     apiClient: input.apiClient,
     expectedCommitLsnMode: input.pullContinuation?.commitLsnMode,
     plan,
+    stillCurrent: input.stillCurrent,
   });
   if (input.stillCurrent?.() === false) {
     return { kind: "completed", result: null };

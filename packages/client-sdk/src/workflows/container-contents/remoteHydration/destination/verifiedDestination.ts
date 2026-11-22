@@ -161,7 +161,9 @@ async function verifyDestinationRole(input: {
   const { isCurrent, listed, runtime } = input;
   const projection = input.prefetched
     ? input.prefetched.projection
-    : await runtime.apiClient.getContainerWriterProjection(listed.id);
+    : await runtime.apiClient.getContainerWriterProjection(listed.id, {
+        stillCurrent: isCurrent,
+      });
   if (!projection || isCurrent?.() === false) return null;
   assertDestinationProjectionIdentity(projection, listed);
   const verificationInput = {

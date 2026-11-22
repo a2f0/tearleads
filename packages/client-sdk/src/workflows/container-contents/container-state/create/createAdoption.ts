@@ -124,6 +124,7 @@ async function assertContainerCreateAdoptable(input: {
   }
   const projection = await runtime.apiClient.getContainerWriterProjection(
     input.containerId,
+    { stillCurrent: input.stillCurrent },
   );
   if (!projection) {
     throw new Error(`${LABEL} is unavailable to verify`);

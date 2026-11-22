@@ -149,6 +149,7 @@ export class BlobAttachmentService {
       request,
       {
         expectedPaymentRequiredOrganizationId: manifestIdentity.organizationId,
+        stillCurrent,
       },
     );
     if (!response) {
