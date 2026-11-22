@@ -183,9 +183,9 @@ export type BuiltInSystemContainerKind =
 
 // Built-in containers are app-owned endpoints: the org workflows write roster
 // profiles and organization metadata into them, and nothing else belongs there.
-// Blocking inbound links is the only rule they carry — revealing them with the
-// feature flag must not turn them into "Link Document" destinations, while
-// everything else about them stays inspectable, which is the point of the flag.
+// Revealing them with the feature flag must not make them destinations: they
+// block inbound links ("Link Document") and take no copy saved from History.
+// Everything else about them stays inspectable, which is the point of the flag.
 const BUILT_IN_SYSTEM_CONTAINER_RULES: UserSystemContainerRules = {
   protectFromMove: false,
   protectFromDelete: false,
