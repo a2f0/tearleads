@@ -228,6 +228,13 @@ test.describe("touch Start button", () => {
     context,
   }) => {
     await page.goto("/app/explorer");
+    // Let the fresh profile finish its identity prompts before the hold: the
+    // fixture answers them by typing and pressing Enter, and a keypress that
+    // lands mid-hold ends the long press's release suppression (as any new
+    // interaction should), so the release would then open the launcher.
+    await expect(
+      page.getByRole("button", { name: "New Document" }),
+    ).toBeVisible({ timeout: 30_000 });
     const start = page.getByRole("button", { name: "Menu", exact: true });
     await expect(start).toBeVisible();
     const bounds = await start.boundingBox();
