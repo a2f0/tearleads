@@ -1,5 +1,5 @@
 import { satisfiesVersionVector } from "@tearleads/loro";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import {
   documentSyncProgress,
@@ -49,6 +49,8 @@ export interface DocumentSyncVerdictOutcome {
 
 // Two binds name the scope; the rest carry update ids.
 const UPDATE_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 2);
+// The scope, the judge, and the stage; the rest carry update ids.
+const RECORDED_VOID_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 4);
 
 function chunks<T>(values: readonly T[], size: number): T[][] {
   const result: T[][] = [];
@@ -125,7 +127,10 @@ export async function readRecordedImportVoids(
   },
 ): Promise<RecordedImportVoid[]> {
   const recorded: RecordedImportVoid[] = [];
-  for (const batch of chunks(input.updateIds, UPDATE_IDS_PER_STATEMENT)) {
+  for (const batch of chunks(
+    input.updateIds,
+    RECORDED_VOID_IDS_PER_STATEMENT,
+  )) {
     recorded.push(
       ...(await db
         .select({
@@ -212,8 +217,8 @@ async function upsertVoidRows(
     for (const row of rows) existing.add(row.updateId);
   }
   for (const voided of input.voids) {
-    // A row keeps the reason it was first voided for; a later verdict on the
-    // same update refreshes only what it was judged with.
+    // A row keeps the reason it was first voided for while its stage holds;
+    // a verdict at another stage (a new decoder reads further) replaces both.
     const verdict = {
       contentKeyEpoch: voided.contentKeyEpoch,
       documentId: input.documentId,
@@ -240,7 +245,12 @@ async function upsertVoidRows(
           documentVoidUpdates.localId,
           documentVoidUpdates.updateId,
         ],
-        set: verdict,
+        set: {
+          ...verdict,
+          message: sql`CASE WHEN ${documentVoidUpdates.stage} = excluded.stage
+            THEN ${documentVoidUpdates.message} ELSE excluded.message END`,
+          stage: voided.stage,
+        },
       })
       .run();
   }

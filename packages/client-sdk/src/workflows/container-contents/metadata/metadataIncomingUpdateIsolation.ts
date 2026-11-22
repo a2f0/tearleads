@@ -40,11 +40,13 @@ export async function recordCurrentMetadataSyncFailure(input: {
 }
 
 /**
- * Records and reports a metadata pass's voids once its state is saved.
- * Metadata keeps no processed cursor, so its voids are served and judged
- * again on every pull; each is reported only when first recorded. The rows
- * only spare later passes an import, so a failure to record them is logged
- * rather than failing a pass whose state is already saved.
+ * Records and reports a metadata pass's voids once its state is saved. A
+ * page a later save superseded was never settled, so its follow-up judges it
+ * again and nothing is recorded. Metadata keeps no processed cursor, so its
+ * voids are served and judged again on every pull; each is reported only
+ * when first recorded. The rows only spare later passes an import, so a
+ * failure to record them is logged rather than failing a pass whose state is
+ * already saved.
  */
 export async function recordContainerMetadataVoids(
   pass: {
@@ -56,9 +58,14 @@ export async function recordContainerMetadataVoids(
       };
     };
   },
-  localId: string,
+  persisted: {
+    readonly pullContinuationSuperseded?: boolean | undefined;
+    readonly record: { readonly id: string };
+  },
   synced: SyncRemoteDocumentResult,
 ): Promise<void> {
+  if (persisted.pullContinuationSuperseded === true) return;
+  const localId = persisted.record.id;
   const { logError } = pass.runtime.util;
   try {
     await recordUncursoredDocumentSyncVerdicts({

@@ -374,9 +374,8 @@ async function finalizeContainerMetadataSync(input: {
       storedRecord: persisted.record,
       syncAttempt,
     });
-    // A superseded page was not settled; its follow-up judges it again.
-    await recordContainerMetadataVoids(input, persisted.record.id, synced);
   }
+  await recordContainerMetadataVoids(input, persisted, synced);
 
   return {
     ...persisted,

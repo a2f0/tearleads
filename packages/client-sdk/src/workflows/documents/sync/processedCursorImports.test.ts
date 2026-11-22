@@ -131,3 +131,33 @@ test("an update voided under another key, another judge, or at another stage is 
   await recordVoid({ judge: documentVerdictJudge(), stage: "loro_metadata" });
   expect(await judge("key-a")).toEqual([]);
 });
+
+test("a void judged again at another stage takes that stage and its reason", async () => {
+  await recordVoid({
+    judge: "void-rules-0:loro-crdt@0.0.0",
+    stage: "loro_metadata",
+  });
+  // A newer decoder reads the update's metadata and voids it at the import.
+  await recordDocumentSyncVerdictsInTransaction(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    {
+      acceptedUpdateIds: [],
+      documentId: DOCUMENT_ID,
+      judge: documentVerdictJudge(),
+      keyFingerprintsByEpoch: new Map([[1, "key-a"]]),
+      now: "2026-11-22T00:00:02.000Z",
+      scope: SCOPE,
+      voids: [
+        {
+          contentKeyEpoch: 1,
+          message: "depends on operations no update carries",
+          stage: "loro_import",
+          updateId: UPDATE_ID,
+        },
+      ],
+    },
+  );
+
+  expect(await storedMessage()).toBe("depends on operations no update carries");
+  expect(await judge("key-a")).toEqual([UPDATE_ID]);
+});

@@ -231,22 +231,25 @@ export class Device {
 
   /**
    * Plays a dishonest or broken writer: rewrites the declared op spans of
-   * this install's queued document updates, as a modified client could, so
-   * the SDK signs spans its payloads do not carry. The only reach past the
-   * SDK's surface, and only into this device's own outgoing queue.
+   * this install's queued updates of `appKind` (documents, or folder
+   * metadata as `container-metadata`), as a modified client could, so the
+   * SDK signs spans its payloads do not carry. The only reach past the SDK's
+   * surface, and only into this device's own outgoing queue.
    */
   async forgeQueuedUpdateSpans(
     forge: (span: { start: string; end: string }) => {
       start: string;
       end: string;
     },
+    appKind: "container-metadata" | "documents" = "documents",
   ): Promise<number> {
     const rows = (
       await this.storage.database.execSql(
         `SELECT id, partial_start_version_vector AS start,
                 partial_end_version_vector AS end
            FROM document_history_updates
-          WHERE app_kind = 'documents' AND update_id IS NOT NULL`,
+          WHERE app_kind = ? AND update_id IS NOT NULL`,
+        [appKind],
       )
     ).flatMap(({ end, id, start }) =>
       typeof end === "string" &&

@@ -60,9 +60,13 @@ frontier does not cover again, when:
   now holds.
 
 Rebinding or deleting the local record drops its cursor and void rows.
-Rotation's raw history and a founding update still fail on any void, because
-they re-encrypt or verify a history that must be whole.
-Container metadata documents void the same way but keep no cursor. Attachment
+Rotation's raw history still fails on any void, because it re-encrypts a
+history that must be whole, and a founding view whose first update is void
+shows no founding update.
+Container metadata documents void the same way but keep no cursor, so every
+pull of one judges its voids again (each is still reported once), and a folder
+listing whose advertised version an overclaim left uncovered keeps that folder
+marked as behind. Attachment
 binds, rotation, unlink, and raw-history recovery still compare declared spans.
 [`VoidUpdateProgress`](../formal/document-sync/VoidUpdateProgress.md) checks
 that no void update is applied, that readers agree, and that a reader stays
