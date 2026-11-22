@@ -18,7 +18,7 @@ import {
   voidedDocumentSyncUpdate,
 } from "./documentUpdateVerdict";
 import {
-  type LoroRuntimeFailureLedger,
+  type LoroRuntimeAttempts,
   MAX_LORO_RUNTIME_ATTEMPTS,
   processLoroRuntimeFailures,
 } from "./loroRuntimeFailureLedger";
@@ -118,7 +118,7 @@ class PageVerdicts {
 }
 
 interface PageJudging {
-  readonly ledger: LoroRuntimeFailureLedger;
+  readonly ledger: LoroRuntimeAttempts;
   readonly responseById: ReadonlyMap<string, SyncResponseUpdate>;
   readonly runtimeAttempts: ReadonlyMap<string, number>;
   readonly scratch: ScratchHistory;
@@ -149,7 +149,7 @@ function noteRuntimeFailure(
   });
   if (final) {
     page.verdicts.voided.push(
-      voidOf(update, error, "loro_runtime", page.responseById),
+      voidOf(update, failure, "loro_runtime", page.responseById),
     );
   } else {
     page.verdicts.hold(update.id);
@@ -230,8 +230,12 @@ export async function validateDocumentSyncUpdateImports(input: {
   /** @internal The rebuild budget; tests lower it. */
   rebuildBudgetBytes?: number | undefined;
   responseUpdates?: readonly SyncResponseUpdate[] | undefined;
-  /** @internal This process's runtime failures; tests stand in a new one. */
-  runtimeLedger?: LoroRuntimeFailureLedger | undefined;
+  /**
+   * @internal This process's runtime failures, by default; a judge that
+   * records no attempts passes `processLoroRuntimeFailures.unrecorded()`,
+   * and tests stand in a new process's ledger.
+   */
+  runtimeLedger?: LoroRuntimeAttempts | undefined;
   runtimeAttempts?: ReadonlyMap<string, number> | undefined;
 }): Promise<DocumentSyncImportVerdicts> {
   const verdicts = new PageVerdicts();

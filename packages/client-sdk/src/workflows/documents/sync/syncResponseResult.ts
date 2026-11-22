@@ -40,6 +40,7 @@ import {
   rekeyAndReportUnsettledRecoveryPendingUpdates,
   settledPendingUpdateIdsFromSync,
 } from "../syncRekeys/syncRecoveryRekey";
+import { documentPullOutcome } from "./pullOutcome";
 
 function isolateContentKeyResponseFailure(
   error: unknown,
@@ -225,6 +226,11 @@ export async function syncRemoteDocumentResultFromResponse(
       contentKeysByEpoch,
       contentKeyFingerprintsByEpoch,
     );
+  const pageOutcome = documentPullOutcome({
+    deferred,
+    held,
+    pullComplete: true,
+  });
   const recoveryBaselineId =
     input.materializedPlan.staleRecoveryBaselineUpdateId;
   const acceptedRecoveryBaseline = responseAcceptedRecoveryBaseline(
@@ -260,8 +266,9 @@ export async function syncRemoteDocumentResultFromResponse(
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
     hasDeferredPendingUpdates: false,
-    hasHeldPull: held && !deferred,
-    hasIncompletePull: deferred,
+    // This page's own outcome; `withPullCompletion` adds the server's.
+    hasHeldPull: pageOutcome === "held",
+    hasIncompletePull: pageOutcome === "deferred",
     persistedState,
     plan,
     rekeyedPendingUpdateIds,

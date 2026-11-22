@@ -114,7 +114,10 @@ asserts the named violation on every run:
   holds it: `ProcessedDevicesAgree` fails against a device whose runtime did
   not fail.
 
-Outside the model: AEAD failures, which stay availability failures until a
+Outside the model: the rotation-baseline redirect of a pull's first page,
+which skips only updates after the cursor that the baseline covers
+([`BaselineDominance`](./BaselineDominance.md) checks that gate); AEAD
+failures, which stay availability failures until a
 writer-signed key commitment exists; the content-key fingerprint that drops a
 void judged under another key; duplicate update ids, which still fail a page;
 container metadata documents, which void but keep no cursor; a pull's pages

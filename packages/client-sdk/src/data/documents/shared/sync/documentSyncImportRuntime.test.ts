@@ -7,6 +7,7 @@ import {
 import { validateDocumentSyncUpdateImports } from "./documentSyncImportVerdicts";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
 import {
+  type LoroRuntimeAttempts,
   LoroRuntimeFailureLedger,
   MAX_LORO_RUNTIME_ATTEMPTS,
 } from "./loroRuntimeFailureLedger";
@@ -59,7 +60,7 @@ function clock() {
 }
 
 async function judge(input: {
-  readonly ledger: LoroRuntimeFailureLedger;
+  readonly ledger: LoroRuntimeAttempts;
   readonly page: readonly DecryptedDocumentSyncUpdate[];
   readonly runtimeAttempts?: ReadonlyMap<string, number>;
 }) {
@@ -189,4 +190,25 @@ test("an unsettled update that imports on a later attempt joins", async () => {
   expect(verdicts.voidedIds).toEqual([]);
   expect(verdicts.heldUpdateIds).toEqual([]);
   expect(verdicts.failures).toEqual([]);
+});
+
+test("a judge that records no attempts holds a failure without counting or delaying it, and poisons the process", async () => {
+  const { ledger } = clock();
+  const { trap, update } = await trapping(ids.trap);
+  const unrecorded = await judge({
+    ledger: ledger.unrecorded(),
+    page: [update],
+  });
+  expect(unrecorded.heldUpdateIds).toEqual([ids.trap]);
+  expect(unrecorded.failures).toEqual([
+    { attempts: 0, counted: false, final: false, updateId: ids.trap },
+  ]);
+
+  // The sync judge may read it at once, but the process already failed, so
+  // its failure does not count either.
+  const synced = await judge({ ledger, page: [update] });
+  expect(trap.reads).toBe(2);
+  expect(synced.failures).toEqual([
+    { attempts: 0, counted: false, final: false, updateId: ids.trap },
+  ]);
 });

@@ -54,6 +54,7 @@ import {
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
+import { withPullCompletion } from "./pullOutcome";
 import {
   handleReadOnlyProjectionCompletionError,
   REFRESH_CACHED_PROJECTION,
@@ -95,12 +96,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
-  return {
-    ...result,
-    // A held pull ends here: its unjudged rest waits for a later pull.
-    hasIncompletePull:
-      !result.hasHeldPull && (result.hasIncompletePull || !input.pullComplete),
-  };
+  return withPullCompletion(result, input.pullComplete);
 }
 
 function parsePersistedDocumentSyncRecord<T>(

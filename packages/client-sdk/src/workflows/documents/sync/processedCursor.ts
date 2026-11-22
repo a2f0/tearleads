@@ -6,7 +6,7 @@ import {
   documentVerdictJudge,
 } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
-  type LoroRuntimeFailureLedger,
+  type LoroRuntimeAttempts,
   MAX_LORO_RUNTIME_ATTEMPTS,
 } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
@@ -116,7 +116,7 @@ export async function judgeDocumentSyncImports(input: {
     "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
   >;
   /** @internal This process's runtime failures; tests stand in a new one. */
-  readonly runtimeLedger?: LoroRuntimeFailureLedger | undefined;
+  readonly runtimeLedger?: LoroRuntimeAttempts | undefined;
   readonly scope: DocumentScope;
 }): Promise<DocumentSyncImportVerdicts> {
   const { result } = input;

@@ -51,8 +51,12 @@ records it at stage `loro_runtime` with an attempt count, in its own
 transaction before anything else touches Loro, and holds it and every update
 after it on the page: the pass applies what came before, records no cursor,
 keeps the remote-update signal pending, and does not pull again at once. A
-later pull judges the update again. In the same process it waits out a retry
-delay (one minute, doubling to an hour) and is not read in the meantime.
+later pull judges the update again; like a parked sync failure, it waits for
+the next edit, remote hint, reconnect, start, or refresh rather than a timer.
+In the same process it waits out a retry delay (one minute, doubling to an
+hour) and is not read in the meantime. Rotation and a founding view judge
+updates without recording attempts: a runtime failure there fails that
+operation, counts toward no update, and still marks the process as failed.
 
 Only the first runtime failure in a process counts as an attempt, because a
 later one may be the module's state, not the update. Once three process
@@ -99,7 +103,9 @@ Its next pull sends the cursor as `processedThroughUpdateId`. The server then
 starts the pull after the cursor's commit position, never past the pull's upper
 bound, so a void update is served once instead of on every pull. An id that is
 not an update of this document is ignored. A cursor needs a non-null
-`localVersionVector`, so a raw-history pull carries none.
+`localVersionVector`, so a raw-history pull carries none. A first page that
+starts after a cursor still goes straight to the latest readable rotation
+baseline when the baseline covers every update between the cursor and it.
 
 The reader withholds its cursor, and the next pull judges everything its
 frontier does not cover again, when:
@@ -133,6 +139,10 @@ pull of one judges its voids again (each is still reported once), and a folder
 listing whose advertised version an overclaim left uncovered keeps that folder
 marked as behind. Attachment
 binds, rotation, unlink, and raw-history recovery still compare declared spans.
+A rotation baseline must cover the committed frontier its updates declare, so
+after an overclaim an honest rotation's baseline is refused, and a first page
+goes straight to a baseline only when the baseline covers every update it
+would skip.
 [`VoidUpdateProgress`](../formal/document-sync/VoidUpdateProgress.md) checks
 that no void update is applied, that readers agree, that a reader stays
 current, and that a runtime failure voids an update the decoder can read only

@@ -8,6 +8,16 @@ export const MAX_LORO_RUNTIME_ATTEMPTS = 3;
 const FIRST_RETRY_DELAY_MS = 60_000;
 const MAX_RETRY_DELAY_MS = 60 * 60_000;
 
+/** How a judge learns whether to read an update and notes a failure. */
+export interface LoroRuntimeAttempts {
+  /** Whether `updateId` may be imported now. */
+  mayAttempt(updateId: string): boolean;
+  /** Notes `updateId` failing; true when the failure counts as an attempt. */
+  noteFailure(updateId: string): boolean;
+  /** Notes a failure no single update is to blame for (a scratch rebuild). */
+  noteUnattributedFailure(): void;
+}
+
 /**
  * What this process has seen of Loro runtime failures. A trap can leave the
  * module unusable for the rest of the process, so a failure after the first
@@ -15,7 +25,7 @@ const MAX_RETRY_DELAY_MS = 60 * 60_000;
  * counts as an attempt. An update that failed here is not imported again
  * until its retry delay, doubling with each failure, has passed.
  */
-export class LoroRuntimeFailureLedger {
+export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
   private failedInProcess = false;
   private readonly retries = new Map<
     string,
@@ -46,6 +56,23 @@ export class LoroRuntimeFailureLedger {
   /** Notes a failure no single update is to blame for (a scratch rebuild). */
   noteUnattributedFailure(): void {
     this.failedInProcess = true;
+  }
+
+  /**
+   * The view a judge that records no attempts uses (rotation, a founding
+   * view): every update may be read, and a failure counts toward none and
+   * delays none, but still marks this process as failed, since the module
+   * may be unusable for the sync judge that does count.
+   */
+  unrecorded(): LoroRuntimeAttempts {
+    return {
+      mayAttempt: () => true,
+      noteFailure: () => {
+        this.noteUnattributedFailure();
+        return false;
+      },
+      noteUnattributedFailure: () => this.noteUnattributedFailure(),
+    };
   }
 }
 

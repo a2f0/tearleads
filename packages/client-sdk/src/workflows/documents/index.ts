@@ -19,6 +19,7 @@ export {
   type DocumentSyncImportVerdicts,
   type VoidedDocumentSyncUpdate,
 } from "../../data/documents/shared/sync/documentUpdateVerdict";
+export { processLoroRuntimeFailures } from "../../data/documents/shared/sync/loroRuntimeFailureLedger";
 export {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
