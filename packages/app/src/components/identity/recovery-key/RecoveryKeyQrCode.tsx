@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import { recoveryKeyQrSvg } from "../../../identity/recoveryKeyQr";
+import { MiniAppStatus } from "../../mini-app/MiniAppLayout";
 
 export function RecoveryKeyQrCode({ seedPhrase }: { seedPhrase: string }) {
   const image = useMemo(
@@ -10,10 +10,10 @@ export function RecoveryKeyQrCode({ seedPhrase }: { seedPhrase: string }) {
   );
 
   return (
-    <div className="identity-manager-recovery-qr">
+    <div className="recovery-key-qr">
       <img
         alt="Recovery key QR code"
-        className="identity-manager-recovery-qr-image"
+        className="recovery-key-qr-image"
         height={320}
         src={image}
         width={320}

@@ -16,8 +16,24 @@ import {
 
 export interface IdentityOnboarding {
   readonly state: IdentityOnboardingState;
+  /** Records that the new identity's recovery key is backed up. */
+  readonly confirmBackup: () => void;
   readonly navigate: (phase: OnboardingNavigation) => void;
   readonly submit: (form: OnboardingForm, value: string) => void;
+}
+
+const FAILURE_MESSAGE = {
+  "naming-account": "Could not create your identity. Try again.",
+  "entering-passphrase":
+    "Could not restore your identity. Check your recovery passphrase and try again.",
+} as const;
+
+/**
+ * An operation in flight, or a created identity awaiting its backup, keeps
+ * onboarding on screen after the new key has made it unavailable.
+ */
+function holdsOnboarding(state: IdentityOnboardingState): boolean {
+  return "request" in state || state.status === "confirming-backup";
 }
 
 function useOnboardingTransitions() {
@@ -44,7 +60,11 @@ function useOnboardingTransitions() {
       setState(next);
     }
   }, []);
-  return { state, send, isCurrent };
+  const confirmBackup = useCallback(
+    () => send({ type: "confirm-backup" }),
+    [send],
+  );
+  return { confirmBackup, isCurrent, send, state };
 }
 
 export function useIdentityOnboarding(
@@ -70,7 +90,7 @@ export function useIdentityOnboarding(
     !identityDestroyed &&
     !identityTransitionInFlight &&
     signingKeyPair === null;
-  const { state, send, isCurrent } = useOnboardingTransitions();
+  const { confirmBackup, isCurrent, send, state } = useOnboardingTransitions();
   const navigate = useCallback(
     (phase: OnboardingNavigation) => {
       if (available) send({ type: "navigate", phase });
@@ -107,15 +127,7 @@ export function useIdentityOnboarding(
             });
       void operation.then(
         () => send({ type: "finish", request }),
-        () =>
-          send({
-            type: "finish",
-            request,
-            error:
-              form === "naming-account"
-                ? "Could not create your identity. Try again."
-                : "Could not restore your identity. Check your recovery passphrase and try again.",
-          }),
+        () => send({ type: "finish", request, error: FAILURE_MESSAGE[form] }),
       );
     },
     [
@@ -131,9 +143,9 @@ export function useIdentityOnboarding(
       send,
     ],
   );
-  const visible = available || ("request" in state && enabled && !isLocked);
+  const visible = available || (holdsOnboarding(state) && enabled && !isLocked);
   return useMemo(
-    () => (visible ? { navigate, state, submit } : null),
-    [navigate, state, submit, visible],
+    () => (visible ? { confirmBackup, navigate, state, submit } : null),
+    [confirmBackup, navigate, state, submit, visible],
   );
 }
