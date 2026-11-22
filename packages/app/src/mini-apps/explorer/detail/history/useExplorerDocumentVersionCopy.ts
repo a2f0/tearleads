@@ -11,11 +11,8 @@ import {
   type OpenDocumentVersionCopy,
   saveDocumentVersionCopy,
 } from "../../../../stores/document-history/saveDocumentVersionCopy";
-import { isContainerUnderTrashByLookup } from "../../../../stores/explorer/ExplorerSystemContainers";
-import {
-  canSaveDocumentCopyByRules,
-  type ExplorerContainerRulesContext,
-} from "../../model/containerRules";
+import type { ExplorerContainerRulesContext } from "../../model/containerRules";
+import { canSaveDocumentCopyByRules } from "../../model/documentCopyRules";
 
 /** Saving a version of a document as a new document beside it. */
 export interface ExplorerDocumentVersionCopy {
@@ -148,18 +145,10 @@ export function useExplorerDocumentVersionCopy(
   );
   const canSave = useCallback<ExplorerDocumentVersionCopy["canSave"]>(
     (document, content) =>
-      document.containerId !== null &&
       canStandAlone(content) &&
-      // A folder moved to the Trash keeps no rules of its own, but everything
-      // under the Trash is read-only: nothing new is born there.
-      !isContainerUnderTrashByLookup(
-        nodesById,
-        document.containerId,
-        rulesContext,
-      ) &&
       canSaveDocumentCopyByRules(
         rulesContext,
-        nodesById.get(document.containerId),
+        nodesById,
         document,
         content.documentKind,
       ),
