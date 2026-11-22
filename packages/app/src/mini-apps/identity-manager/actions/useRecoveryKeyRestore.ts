@@ -1,4 +1,5 @@
 import { type FormEvent, useRef, useState } from "react";
+import type { RecoveryKeyFeedback } from "../../../components/identity/recovery-key/useRecoveryKeyDisclosure";
 import { parseSeedPhraseFileText } from "../../../identity/seedPhraseBackup";
 import { useRecoveryKeyPrivacy } from "../../../identity/useRecoveryKeyPrivacy";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
@@ -8,11 +9,6 @@ import { useLog } from "../../../providers/logging/LogProvider";
 import { unknownErrorMessage } from "../../../utils/unknownErrorMessage";
 
 export type RecoveryKeyBusyState = "restore" | null;
-
-export interface RecoveryKeyFeedback {
-  readonly setError: (message: string | null) => void;
-  readonly setStatus: (message: string | null) => void;
-}
 
 export function useRecoveryKeyRestore(feedback: RecoveryKeyFeedback) {
   const { restoreSeedPhrase, identityTransitionInFlight, signingFingerprint } =

@@ -8,7 +8,7 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../src/components/identity/recovery-key/recoveryKeyDisclosure";
 import { IdentityManager } from "../../src/mini-apps/identity-manager/IdentityManager";
 import {
   cleanupIdentityManagerTestEnvironment,

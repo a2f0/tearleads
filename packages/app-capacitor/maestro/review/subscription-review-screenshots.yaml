@@ -30,6 +30,13 @@ tags:
       - tapOn: "Bob"
       - inputText: "App Review"
       - pressKey: Enter
+- runFlow:
+    when:
+      visible: "Back up your recovery key"
+    commands:
+      - tapOn: ".*I agree.*"
+      - inputText: "I agree"
+      - pressKey: Enter
 - extendedWaitUntil:
     visible: "Contacts"
     timeout: 40000
