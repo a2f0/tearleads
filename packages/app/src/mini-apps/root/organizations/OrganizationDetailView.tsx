@@ -22,15 +22,17 @@ import { OrganizationOverview } from "./OrganizationOverview";
 function OrganizationDetailTabs({
   activeTab,
   detail,
+  detailLoading,
   organizationId,
+  onRefreshDetail,
   onSelectIdentity,
-  refreshGeneration,
 }: {
   activeTab: RootOrganizationTab;
   detail: RootOrganizationDetail;
+  detailLoading: boolean;
   organizationId: string;
+  onRefreshDetail: () => void;
   onSelectIdentity: (userId: string) => void;
-  refreshGeneration: number;
 }) {
   return (
     <>
@@ -41,10 +43,9 @@ function OrganizationDetailTabs({
             billing={detail.billing}
             stripe={detail.stripe}
           />
-          {/* Remounted by each Refresh, so its deliveries reload with the
-              billing they sit beside. */}
           <OrganizationRevenuecatEvents
-            key={refreshGeneration}
+            detailLoading={detailLoading}
+            onRefreshDetail={onRefreshDetail}
             organizationId={organizationId}
             onSelectIdentity={onSelectIdentity}
           />
@@ -95,13 +96,9 @@ export function OrganizationDetailView({
       sequence.current += 1;
     };
   }, [load]);
-  const [refreshGeneration, setRefreshGeneration] = useState(0);
-  const refresh = useCallback(() => {
-    setRefreshGeneration((generation) => generation + 1);
-    void load();
-  }, [load]);
-  // The Identities and Data Usage tabs register their own Refresh above this
-  // one while open.
+  const refresh = useCallback(() => void load(), [load]);
+  // The Identities and Data Usage tabs, and the Billing tab's deliveries,
+  // register their own Refresh above this one while open.
   useWindowRefreshMenuItem({
     disabled: loading,
     onRefresh: refresh,
@@ -134,9 +131,10 @@ export function OrganizationDetailView({
               <OrganizationDetailTabs
                 activeTab={activeTab}
                 detail={detail}
+                detailLoading={loading}
                 organizationId={organizationId}
+                onRefreshDetail={refresh}
                 onSelectIdentity={onSelectIdentity}
-                refreshGeneration={refreshGeneration}
               />
             ) : (
               loading && <MiniAppStatus>Loading organization...</MiniAppStatus>

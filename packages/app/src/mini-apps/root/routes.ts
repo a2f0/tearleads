@@ -22,10 +22,26 @@ export type RootView =
   | "organizations"
   | "reports"
   | "audit";
+type RootReportsRoute = {
+  readonly reportId: RootReportId | null;
+  readonly view: "reports";
+};
+type RootAuditRoute = {
+  readonly subjectId: string | null;
+  readonly view: "audit";
+};
+/**
+ * A view a detail can return to: a report (or the Reports list), or the audit
+ * trail with the subject it was filtered to.
+ */
+export type RootReturnRoute = RootReportsRoute | RootAuditRoute;
+/** Where a detail view's Back leads, when not to its own list. */
+interface RootReturn {
+  readonly returnTo?: RootReturnRoute;
+}
 export type RootRoute =
   | { readonly view: "menu" }
-  | { readonly reportId: RootReportId | null; readonly view: "reports" }
-  | { readonly subjectId: string | null; readonly view: "audit" }
+  | RootReturnRoute
   | ({
       readonly userId: string | null;
       readonly view: "identities";
@@ -38,15 +54,6 @@ export type RootRoute =
       readonly view: "organizations";
       readonly tab?: RootOrganizationTab;
     } & RootReturn);
-/**
- * Where a detail view's Back leads: the report it was opened from (or the
- * Reports list), or the audit trail with the subject it was filtered to.
- */
-export interface RootReturn {
-  readonly returnView?: "reports" | "audit";
-  readonly returnReportId?: RootReportId;
-  readonly returnSubjectId?: string;
-}
 export const MENU_ROOT_ROUTE: RootRoute = { view: "menu" };
 export const IDENTITIES_ROOT_ROUTE: RootRoute = {
   userId: null,
@@ -62,20 +69,21 @@ export const REPORTS_ROOT_ROUTE: RootRoute = {
 };
 const AUDIT_ROOT_ROUTE: RootRoute = { subjectId: null, view: "audit" };
 
-function parseRootReturn(segments: ReadonlyArray<string>): RootReturn {
-  const [returnView, returnId] = segments;
-  if (returnView === "reports") {
-    const returnReportId = parseRootReportId(returnId);
-    return { returnView, ...(returnReportId ? { returnReportId } : {}) };
-  }
-  if (returnView !== "audit") return {};
-  return { returnView, ...(returnId ? { returnSubjectId: returnId } : {}) };
+function parseRootReturnRoute(
+  view: string | undefined,
+  id: string | undefined,
+): RootReturnRoute | null {
+  if (view === "reports") return { reportId: parseRootReportId(id), view };
+  if (view === "audit") return { subjectId: id || null, view };
+  return null;
 }
-function formatRootReturn(route: RootReturn): ReadonlyArray<string> {
-  const returnId =
-    route.returnView === "audit" ? route.returnSubjectId : route.returnReportId;
-  if (!route.returnView) return [];
-  return returnId ? [route.returnView, returnId] : [route.returnView];
+// A return is written after the detail's own segments, as the route it names.
+function parseRootReturn(segments: ReadonlyArray<string>): RootReturn {
+  const returnTo = parseRootReturnRoute(segments[0], segments[1]);
+  return returnTo ? { returnTo } : {};
+}
+function formatRootReturn({ returnTo }: RootReturn): ReadonlyArray<string> {
+  return returnTo ? formatRootRouteSegments(returnTo) : [];
 }
 
 function parseIdentitiesRoute(
@@ -104,8 +112,8 @@ export function parseRootRouteSegments(
 ): RootRoute {
   const [view, id, ...rest] = pathSegments;
   if (view === "identities") return parseIdentitiesRoute(id, rest);
-  if (view === "reports") return { reportId: parseRootReportId(id), view };
-  if (view === "audit") return { subjectId: id || null, view };
+  const returnRoute = parseRootReturnRoute(view, id);
+  if (returnRoute) return returnRoute;
   if (view === "organizations") {
     const [tabId, ...returnTail] = rest;
     const tab = ROOT_ORGANIZATION_TABS.find((tab) => tab.id === tabId)?.id;
@@ -140,7 +148,7 @@ export function formatRootRouteSegments(
       : [
           route.view,
           route.organizationId,
-          ...(route.tab || route.returnView ? [route.tab ?? "overview"] : []),
+          ...(route.tab || route.returnTo ? [route.tab ?? "overview"] : []),
           ...formatRootReturn(route),
         ];
   if (route.userId === null) return [route.view];
