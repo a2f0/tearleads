@@ -51,9 +51,31 @@
   padding: var(--info-table-cell-padding) var(--space-sm);
 }
 
+/*
+ * Column headings fade their ink, never the cell: `opacity` on the `<th>` would
+ * also fade the opaque background that pins it below, and rows scrolled under
+ * the heading would show through it.
+ */
 .mini-app-table th {
   font-weight: 700;
-  opacity: var(--opacity-heading);
+  color: color-mix(
+    in srgb,
+    var(--color-dark) calc(var(--opacity-heading) * 100%),
+    transparent
+  );
+}
+
+/*
+ * Every list table pins its column headings to the top of whatever scrolls it
+ * (its frame), virtualized or not, so a long list keeps its labels in view. The
+ * background is opaque so the rows passing beneath stay hidden. In a frame that
+ * does not scroll vertically, the pin never engages.
+ */
+.mini-app-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-light);
 }
 
 .mini-app-table-header-content {
