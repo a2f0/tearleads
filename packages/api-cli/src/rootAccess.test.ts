@@ -4,14 +4,24 @@ import {
   createDefaultManagedApiDatabase,
 } from "@tearleads/api-shared/postgres";
 import { rootAuditEvents, users } from "@tearleads/api-shared/schema";
+import {
+  computeUserIdentityBundleFingerprint,
+  encodeIdentityLinkToken,
+  IDENTITY_LINK_PATH,
+} from "@tearleads/crypto";
+import { bytesToBase64 } from "@tearleads/encoding";
 import { asc, eq } from "drizzle-orm";
 import {
   formatRootAccessOutcome,
   parseRootAccessArgs,
+  resolveIdentityLinkFingerprint,
   setIdentityRootAccess,
 } from "./rootAccess";
 
 const FINGERPRINT = "ab".repeat(32);
+const TRUST_DOMAIN = "https://api.example.test/v1";
+const SIGNING_PUBLIC_KEY = new Uint8Array([1, 2, 3]);
+const ENCAPSULATION_PUBLIC_KEY = new Uint8Array([4, 5, 6]);
 
 async function insertIdentity(db: ApiDatabase): Promise<{ id: string }> {
   const [inserted] = await db
@@ -19,9 +29,9 @@ async function insertIdentity(db: ApiDatabase): Promise<{ id: string }> {
     .values({
       defaultOrganizationId: crypto.randomUUID(),
       encapsulationKeyFingerprint: "cd".repeat(32),
-      encapsulationPublicKey: "kem",
+      encapsulationPublicKey: bytesToBase64(ENCAPSULATION_PUBLIC_KEY),
       fingerprint: FINGERPRINT,
-      signingPublicKey: "signing",
+      signingPublicKey: bytesToBase64(SIGNING_PUBLIC_KEY),
     })
     .returning({ id: users.id });
   if (!inserted) {
@@ -56,23 +66,101 @@ function withFailingTransactionInserts(db: ApiDatabase): ApiDatabase {
   });
 }
 
-test("root access args require exactly one hex fingerprint", () => {
+/** The identity link the app would copy for `userId` holding the test keys. */
+async function identityLinkFor(
+  userId: string,
+  keys: {
+    readonly encapsulationPublicKey: Uint8Array;
+    readonly signingPublicKey: Uint8Array;
+  } = {
+    encapsulationPublicKey: ENCAPSULATION_PUBLIC_KEY,
+    signingPublicKey: SIGNING_PUBLIC_KEY,
+  },
+): Promise<string> {
+  const fingerprint = await computeUserIdentityBundleFingerprint({
+    ...keys,
+    identityTrustDomain: TRUST_DOMAIN,
+    userId,
+  });
+  const token = encodeIdentityLinkToken({
+    fingerprint,
+    identityTrustDomain: TRUST_DOMAIN,
+    userId,
+  });
+  return `https://app.example.test${IDENTITY_LINK_PATH}${token}`;
+}
+
+function parsedLink(link: string) {
+  const target = parseRootAccessArgs([link]);
+  if (target.kind !== "identity-link") {
+    throw new Error("expected an identity link target");
+  }
+  return target.link;
+}
+
+test("root access args take exactly one hex fingerprint or identity link", async () => {
   expect(parseRootAccessArgs([FINGERPRINT])).toEqual({
     fingerprint: FINGERPRINT,
+    kind: "fingerprint",
+  });
+  const userId = crypto.randomUUID();
+  expect(parseRootAccessArgs([await identityLinkFor(userId)])).toMatchObject({
+    kind: "identity-link",
+    link: { identityTrustDomain: TRUST_DOMAIN, userId },
   });
   expect(() => parseRootAccessArgs([])).toThrow(
-    "A signing key fingerprint is required",
+    "A signing key fingerprint or identity link is required",
   );
   expect(() => parseRootAccessArgs([FINGERPRINT, "--force"])).toThrow(
     "Unknown argument: --force",
   );
-  expect(() => parseRootAccessArgs(["not-a-fingerprint"])).toThrow(
-    "Fingerprint must be the 64-character lowercase hex signing key fingerprint",
-  );
-  expect(() => parseRootAccessArgs([FINGERPRINT.toUpperCase()])).toThrow(
-    "Fingerprint must be the 64-character lowercase hex signing key fingerprint",
-  );
+  for (const malformed of [
+    "not-a-fingerprint",
+    FINGERPRINT.toUpperCase(),
+    `${await identityLinkFor(userId)}?extra=1`,
+  ]) {
+    expect(() => parseRootAccessArgs([malformed])).toThrow(
+      "Expected the 64-character lowercase hex signing key fingerprint or a complete identity link",
+    );
+  }
 });
+
+test("an identity link resolves to its identity's fingerprint only when it commits to the registered keys", async () => {
+  const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
+  try {
+    await managed.migrate();
+    const inserted = await insertIdentity(managed.db);
+
+    await expect(
+      resolveIdentityLinkFingerprint(
+        managed.db,
+        parsedLink(await identityLinkFor(inserted.id)),
+      ),
+    ).resolves.toBe(FINGERPRINT);
+
+    const otherKeys = await identityLinkFor(inserted.id, {
+      encapsulationPublicKey: ENCAPSULATION_PUBLIC_KEY,
+      signingPublicKey: new Uint8Array([9, 9, 9]),
+    });
+    await expect(
+      resolveIdentityLinkFingerprint(managed.db, parsedLink(otherKeys)),
+    ).rejects.toThrow(
+      `The identity link does not match the keys registered for user ID ${inserted.id}`,
+    );
+
+    const unknownUserId = crypto.randomUUID();
+    await expect(
+      resolveIdentityLinkFingerprint(
+        managed.db,
+        parsedLink(await identityLinkFor(unknownUserId)),
+      ),
+    ).rejects.toThrow(
+      `No identity is registered with user ID ${unknownUserId}`,
+    );
+  } finally {
+    await managed.close();
+  }
+}, 15_000);
 
 test("root access flips is_root for the fingerprint's identity and is idempotent", async () => {
   const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });

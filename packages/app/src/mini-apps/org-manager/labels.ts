@@ -117,6 +117,7 @@ export const ORG_MANAGER_LABELS = {
   cancel: "Cancel",
   container: "Folder",
   containerId: "Folder ID",
+  copySigningKeyAction: "Copy signing key fingerprint",
   copyUserIdAction: "Copy user ID",
   created: "Created",
   create: "Create",

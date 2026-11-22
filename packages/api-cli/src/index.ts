@@ -11,9 +11,9 @@ function usage(): string {
     "",
     "Commands:",
     "  blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys",
-    "  make-admin <fingerprint>      Grant root (global admin) access to the identity with this signing key fingerprint",
+    "  make-admin <fingerprint|identity-link>      Grant root (global admin) access to the identity with this signing key fingerprint or verified identity link",
     "  migrate    Apply pending API database migrations",
-    "  revoke-admin <fingerprint>    Revoke root (global admin) access from the identity with this signing key fingerprint",
+    "  revoke-admin <fingerprint|identity-link>    Revoke root (global admin) access from the identity with this signing key fingerprint or verified identity link",
   ].join("\n");
 }
 
@@ -137,15 +137,20 @@ async function setRootAccess(
   const {
     formatRootAccessOutcome,
     parseRootAccessArgs,
+    resolveIdentityLinkFingerprint,
     setIdentityRootAccess,
   } = await import("./rootAccess");
-  const { fingerprint } = parseRootAccessArgs(args);
+  const target = parseRootAccessArgs(args);
 
   const { closeApiDatabase, db } = await import(
     "@tearleads/api-shared/postgres"
   );
 
   try {
+    const fingerprint =
+      target.kind === "fingerprint"
+        ? target.fingerprint
+        : await resolveIdentityLinkFingerprint(db, target.link);
     const result = await setIdentityRootAccess(db, { fingerprint, isRoot });
     console.log(formatRootAccessOutcome(fingerprint, isRoot, result));
   } finally {
