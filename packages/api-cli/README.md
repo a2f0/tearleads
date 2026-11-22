@@ -133,13 +133,15 @@ root audit trail (`root_audit_events`, action `root.access.grant` or
 `root.access.revoke`, with no actor) in the transaction that changes the flag;
 a run that changes nothing records nothing. Root identities cannot be
 suspended, and granting root does not lift an existing suspension; lift it
-from the root console. Against a deployed tier, export the runtime connection
-from the `postgres` Terraform stack output
-(`terraform/scripts/run-postgres-stack.sh <tier> output -json api_connection`)
-in a private shell, then run the command from source:
+from the root console.
+
+To grant root, use the repo wrapper. For `staging` or `prod` it reads the
+tier's migration login from the `postgres` Terraform stack output
+(`api_connection`), as the API deploy does, and runs the command from source;
+`local` uses the inherited Postgres environment or the development defaults:
 
 ```bash
-bun src/index.ts make-admin <fingerprint>
+scripts/admin/makeRoot.sh <local|staging|prod> <fingerprint>
 ```
 
 ## Local development
