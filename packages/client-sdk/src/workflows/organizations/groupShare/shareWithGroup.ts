@@ -30,13 +30,13 @@ import {
   buildMaterializedContainerSharePlan,
   resolveShareProjection,
   submitAcknowledgedContainerMutation,
-  submitPlainContainerMutation,
 } from "../../containers";
 import { preparePrincipalContainerRematerializationBatch } from "../../containers/rematerialization";
 import { createGroupMetadataAccess } from "../groupMetadata/groupMetadataAccess";
 import { createGroupMetadataContainerVerifier } from "../groupMetadata/groupMetadataContainerAuthority";
 import { setOrganizationGroupContainerGrant } from "../principalPolicy";
 import { shareWithGroupReplanningOnce } from "./groupShareReplan";
+import { submitGroupShare } from "./groupShareSubmit";
 import {
   advanceVerifiedSharePolicies,
   type ContainerManagedPrincipalShareApi,
@@ -335,16 +335,7 @@ async function shareRemoteContainerWithGroupOnce(
     execSql: input.execSql,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
-    submit: () =>
-      submitPlainContainerMutation(() =>
-        input.apiClient.shareContainer(
-          input.containerId,
-          materializedPlan.plan.request,
-          {
-            expectedPaymentRequiredOrganizationId: input.author.organizationId,
-          },
-        ),
-      ),
+    submit: () => submitGroupShare(input, materializedPlan.plan.request),
   });
   if (!result) return null;
 

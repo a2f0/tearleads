@@ -38,8 +38,10 @@ export async function prefetchDestinationProjections(input: {
             await input.runtime.apiClient.getContainerWriterProjection(
               container.id,
               {
-                organizationId: container.organizationId,
-                parentId: container.parentId,
+                listing: {
+                  organizationId: container.organizationId,
+                  parentId: container.parentId,
+                },
               },
             ),
         });
