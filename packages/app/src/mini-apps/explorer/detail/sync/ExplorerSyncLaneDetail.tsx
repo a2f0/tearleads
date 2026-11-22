@@ -56,7 +56,8 @@ function formatSyncLaneProgressParts(progress: SyncLaneProgress): string {
 /** How a document lane's detail reaches the document being synced. */
 export interface ExplorerSyncLaneDocumentLinks {
   loadDocumentSummary: (localId: string) => Promise<DocumentSummary | null>;
-  openDocumentInfo: (localId: string, containerId: string) => void;
+  /** Opens the document itself, as selecting it in a folder does. */
+  openDocument: (localId: string, containerId: string) => void;
 }
 
 /** Where a lane's Label and Key lead: the thing the lane syncs. */
@@ -153,8 +154,8 @@ function ExplorerSyncLaneGeneralSection(params: {
   );
 }
 
-// A document lane links to its document's info once the summary says where
-// the document is shown; an orphaned or unhydrated one stays plain text.
+// A document lane opens its document once the summary says which folder shows
+// it; an orphaned or unhydrated one stays plain text.
 function ExplorerSyncLaneDocumentGeneral(params: {
   documentLinks: ExplorerSyncLaneDocumentLinks;
   lane: SyncLaneSnapshot;
@@ -177,8 +178,7 @@ function ExplorerSyncLaneDocumentGeneral(params: {
           ? null
           : {
               label: EXPLORER_LABELS.syncLanesOpenDocumentAction,
-              onOpen: () =>
-                documentLinks.openDocumentInfo(localId, containerId),
+              onOpen: () => documentLinks.openDocument(localId, containerId),
             }
       }
     />
