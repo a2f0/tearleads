@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
+import { shouldFetchAttribution } from "./useAttributionRead";
 import {
   createRowWriterResolver,
   selectAttributionSegments,
-  shouldFetchAttribution,
 } from "./useDocumentRowWriters";
 
 function segment(

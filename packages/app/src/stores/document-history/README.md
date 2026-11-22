@@ -73,15 +73,19 @@ Offline, unsynced, and unauthenticated documents have neither.
 The upload times come from the per-upload attribution ranges
 ([`useDocumentAttributionRanges`](../documents/useDocumentAttributionRanges.ts)),
 read page by page at one attribution revision when History opens. After each
-completed sync they are asked for again, and the first page settles it: the
-same revision means nothing was uploaded and what is held stands, at the cost
-of one request; otherwise every page is read again. A range never changes
-once read, so the ranges held stay in use while a refresh loads or fails, and
-the time on screen does not flicker on each sync; another document or session
-never sees them. A document with more uploads than the read allows is treated
-as having no ranges rather than some, and that outcome is held like any
-other, so it is not paged through again until something is uploaded. A read
-that is superseded stops before its next page.
+completed sync they are asked for again, and a one-range probe settles it:
+the same revision and first update mean nothing was uploaded and what is held
+stands, at the cost of one small request; otherwise the read goes on from the
+probe in full pages. A range never changes once read, so the ranges held stay
+in use while a refresh loads or fails, and the time on screen does not
+flicker on each sync; another document or session never sees them. Keeping
+them is the read's state machine's
+([`attributionReadMachine`](../documents/attributionReadMachine.ts)): a
+refresh in the same scope carries the last result as `previous`. A document
+with more uploads than the read allows is treated as having no ranges rather
+than some. Uploads only add ranges, so that outcome stands for the document
+and session without another request. A read that is superseded stops before
+its next page.
 
 ## Restoring
 

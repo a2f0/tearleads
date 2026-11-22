@@ -157,7 +157,8 @@ test("a refresh of a document nothing was uploaded to costs one request", async 
   const held = fixture.view.result.current;
 
   fixture.completeSync();
-  // The first page shows the same revision and first upload.
+  // A one-range probe shows the same revision and first update.
+  expect(fixture.requests[2]?.input.limit).toBe(1);
   await fixture.settle(2, page("doc-1", "update-1", true));
 
   expect(fixture.requests).toHaveLength(3);
@@ -233,11 +234,11 @@ test("a first read that fails, or has too many pages, yields no ranges", async (
   expect(endless.requests).toHaveLength(40);
   expect(endless.updateIds()).toEqual([]);
 
-  // After the next sync, one request finds nothing was uploaded: the forty
-  // pages are not fetched again.
+  // After the next sync, even one that uploaded something, nothing is asked:
+  // uploads only add ranges, so there are still too many.
   endless.completeSync();
-  await endless.settle(40, page("doc-1", "update-0", true));
-  expect(endless.requests).toHaveLength(41);
+  endless.completeSync();
+  expect(endless.requests).toHaveLength(40);
   expect(endless.updateIds()).toEqual([]);
 });
 
