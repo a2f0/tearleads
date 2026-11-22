@@ -46,6 +46,14 @@ writes; an uploader lost between them must not leave the attachment invisible
 forever. `CheckContentDigest` still governs every replacement: a held copy is
 never overwritten or deleted for a mismatching served binding, and that
 binding is remembered per (slot, binding, intent) so it is downloaded once.
+The one exception is a held copy that a held-copy check found missing or
+damaged (`unavailable`) and whose row already differed from the document
+intent. Its bytes are gone and were never the ones the document selected, so
+it gives up its storage key and takes the served binding back flagged, as an
+empty slot does. An unavailable copy whose row matches the intent keeps its
+key, so only bytes matching the intent replace it. The model's held copy is
+always readable, so this exception, like the empty slot, is outside its
+replacement claim and leaves its states unchanged.
 The uploader also pushes the content update in the same sync pass as the bind,
 narrowing the window to a crash between two consecutive requests. A new
 document's first update, held back for its only attachment, rides in that bind
