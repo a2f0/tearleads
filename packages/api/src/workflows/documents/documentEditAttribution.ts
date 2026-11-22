@@ -20,11 +20,15 @@ import {
   KeyingReadAccessError,
   resolveReadableDocumentAccess,
 } from "../keyingReadAccess";
-import { DocumentEditAttributionError } from "./documentEditAttributionPagination";
+import {
+  DocumentEditAttributionError,
+  DocumentEditAttributionIntegrityError,
+} from "./documentEditAttributionPagination";
 
 export {
   createDocumentEditAttributionRangesPage,
   DocumentEditAttributionError,
+  DocumentEditAttributionIntegrityError,
   validateDocumentEditAttributionRangesRequest,
 } from "./documentEditAttributionPagination";
 
@@ -56,9 +60,7 @@ function requireAttributionText(
   updateId: string,
 ): string {
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error(
-      `Attribution update ${updateId} has no valid ${property} in its write header.`,
-    );
+    throw new DocumentEditAttributionIntegrityError(updateId, property);
   }
   return value;
 }
@@ -160,7 +162,7 @@ function attributionSpanFromRow(
     createdAt: span.updateCreatedAt.toISOString(),
     // Carried as stored. Only a range response returns it, and that is
     // where it is held to a timestamp; the compact response never reads it.
-    signedAt: span.signedAt ?? "",
+    signedAt: span.signedAt,
   };
 }
 
