@@ -136,14 +136,18 @@ copy does not need it to be writable and is offered on the newest stop too.
   that names an attachment slot (a contact's avatar photo) is left out of the
   copy too, so it never points at a photo it does not hold.
 - **The folder must take a new document of that kind**
-  ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/containerRules.ts)).
-  An ordinary folder does when it is writable. A system folder holds what the
-  app puts there, so none takes a copy except the viewer's own Contacts, which
-  takes a contact version as it takes a new contact. The Trash, folders under
-  it, a shared Contacts, Roster Profiles, Organization Metadata, and read-only
-  folders take nothing, and a document with no folder has nowhere to save a
-  copy. A system folder is known by its slot, so one whose rules are not
-  loaded yet is refused rather than taken for an ordinary folder.
+  ([`canSaveDocumentCopyByRules`](../../mini-apps/explorer/model/documentCopyRules.ts)).
+  An ordinary folder does when it is writable, whether or not the document
+  itself is. A system folder holds what the app puts there, so it takes a
+  copy only when the rules of its own slot set `acceptsDocumentCopies`
+  ([system containers](../systemContainers.ts)): only the viewer's own
+  Contacts does, taking a contact version as it takes a new contact. The
+  Trash, folders under it, a shared Contacts, Roster Profiles, Organization
+  Metadata, and read-only folders take nothing, and a document with no folder
+  has nowhere to save a copy. The rule looks the folder and its ancestors up
+  itself, so no caller can skip the Trash. A system folder is known by its
+  slot, so one whose rules are not loaded yet is refused rather than taken
+  for an ordinary folder.
 - **A contact version of Me is never copied.** Me is
   [one document](../../document-types/contact/README.md#personal-me-identity)
   per signing identity; a copy would be a second contact carrying the

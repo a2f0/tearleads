@@ -106,6 +106,7 @@ async function loadRemoteContainerShareContext(input: {
   const projection = await loadContainerWriterProjectionForState({
     containerState: input.containerState,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
   });
   if (!projection || input.stillCurrent?.() === false) {
     return null;
@@ -201,6 +202,7 @@ async function prepareContainerStateGroupRewrapInternal(input: {
   const projection = await loadContainerWriterProjectionForState({
     containerState: input.containerState,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
   });
   if (!projection || input.stillCurrent?.() === false) {
     return null;
