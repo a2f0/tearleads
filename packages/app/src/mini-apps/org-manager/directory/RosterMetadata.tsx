@@ -67,6 +67,12 @@ export function UserRosterMetadata({
         value={compactFingerprint(user.userId)}
       />
       <RosterMetadataRow
+        action={
+          <MiniAppClipboardButton
+            label={ORG_MANAGER_LABELS.copySigningKeyAction}
+            value={user.signingKeyFingerprint}
+          />
+        }
         label={ORG_MANAGER_LABELS.signingKey}
         title={user.signingKeyFingerprint}
         value={compactFingerprint(user.signingKeyFingerprint)}

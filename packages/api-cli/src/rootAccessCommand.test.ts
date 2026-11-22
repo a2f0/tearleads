@@ -23,7 +23,7 @@ async function runCli(
 // Regression: the schema module resolves the database dialect on import and
 // throws under NODE_ENV=production when API_DATABASE is unset. The command
 // must apply its postgres default before that import, so a malformed
-// fingerprint is reported as such rather than as a missing API_DATABASE.
+// argument is reported as such rather than as a missing API_DATABASE.
 test("make-admin defaults API_DATABASE before loading the schema", async () => {
   const result = await runCli(["make-admin", "not-a-fingerprint"], {
     API_DATABASE: undefined,
@@ -33,14 +33,16 @@ test("make-admin defaults API_DATABASE before loading the schema", async () => {
   expect(result.exitCode).toBe(1);
   expect(result.stderr).not.toContain("API_DATABASE is required");
   expect(result.stderr).toContain(
-    "Fingerprint must be the 64-character lowercase hex signing key fingerprint",
+    "Expected the 64-character lowercase hex signing key fingerprint or a complete identity link",
   );
 }, 30_000);
 
-test("make-admin and revoke-admin require a fingerprint argument", async () => {
+test("make-admin and revoke-admin require a fingerprint or link argument", async () => {
   for (const command of ["make-admin", "revoke-admin"]) {
     const result = await runCli([command], { API_DATABASE: "memory" });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("A signing key fingerprint is required");
+    expect(result.stderr).toContain(
+      "A signing key fingerprint or identity link is required",
+    );
   }
 }, 30_000);

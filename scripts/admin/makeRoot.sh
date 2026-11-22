@@ -3,12 +3,14 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/admin/makeRoot.sh <local|staging|prod> <fingerprint>
+Usage: scripts/admin/makeRoot.sh <local|staging|prod> <fingerprint|identity-link>
 
-Grants root (the /root operator routes and root console) to the identity
-registered with the 64-character lowercase hex signing key fingerprint, using
-the API CLI's make-admin command. The change is recorded in the root audit
-trail; a run against an identity that is already root changes nothing.
+Grants root (the /root operator routes and root console) to an identity, using
+the API CLI's make-admin command. Name the identity by its 64-character
+lowercase hex signing key fingerprint, or by the identity link its owner copied
+from Identity Manager; a link is honored only when it matches the keys
+registered for its user. The change is recorded in the root audit trail; a run
+against an identity that is already root changes nothing.
 
 With local, the CLI uses the inherited Postgres environment or the development
 defaults. With staging or prod, it uses the tier's migration login from its
@@ -27,7 +29,7 @@ main() {
   fi
 
   local tier="$1"
-  local fingerprint="$2"
+  local identity="$2"
   case "$tier" in
     local | staging | prod) ;;
     *)
@@ -35,10 +37,12 @@ main() {
       return 1
       ;;
   esac
-  # The CLI validates too; checking first keeps a typo from loading the tier's
-  # secrets and writing its database login to disk.
-  if [[ ! "$fingerprint" =~ ^[0-9a-f]{64}$ ]]; then
-    echo "Error: Fingerprint must be the 64-character lowercase hex signing key fingerprint" >&2
+  # The CLI validates fully; checking the shape first keeps a typo from loading
+  # the tier's secrets and writing its database login to disk.
+  local fingerprint_pattern='^[0-9a-f]{64}$'
+  local link_pattern='^https?://[^[:space:]/?#]+/app/contacts/import/[A-Za-z0-9_-]+$'
+  if [[ ! "$identity" =~ $fingerprint_pattern && ! "$identity" =~ $link_pattern ]]; then
+    echo "Error: Expected the 64-character lowercase hex signing key fingerprint or a complete identity link" >&2
     return 1
   fi
 
@@ -48,7 +52,7 @@ main() {
 
   if [[ "$tier" == local ]]; then
     cd "$repo_root/packages/api-cli"
-    exec bun src/index.ts make-admin "$fingerprint"
+    exec bun src/index.ts make-admin "$identity"
   fi
 
   umask 077
@@ -79,7 +83,7 @@ main() {
     POSTGRES_DATABASE="$(jq -r '.postgres_db // ""' "$connection_json")"
     export POSTGRES_SSL=true
     export POSTGRES_SSL_REJECT_UNAUTHORIZED=true
-    exec bun src/index.ts make-admin "$fingerprint"
+    exec bun src/index.ts make-admin "$identity"
   )
 }
 
