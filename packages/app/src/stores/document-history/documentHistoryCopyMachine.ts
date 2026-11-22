@@ -6,6 +6,8 @@ import type { DocumentSummary } from "@tearleads/client-sdk";
  *
  * - `idle`: nothing asked.
  * - `confirming`: the user asked to copy stop `index` and must confirm.
+ *   `versionTime` is the version's time as shown when they asked, which the
+ *   confirmation names for as long as it is open.
  * - `saving`: the new document is being created. `index` follows the stop on
  *   screen, so the outcome is reported there; it is null while no stop is
  *   shown, as when History reloads.
@@ -16,7 +18,12 @@ import type { DocumentSummary } from "@tearleads/client-sdk";
  */
 export type DocumentHistoryCopyState =
   | { readonly status: "idle" }
-  | { readonly index: number; readonly status: "confirming" }
+  | {
+      readonly index: number;
+      readonly status: "confirming";
+      /** Null when the time was not known yet. */
+      readonly versionTime: string | null;
+    }
   | {
       readonly index: number | null;
       readonly run: number;
@@ -30,7 +37,11 @@ export type DocumentHistoryCopyState =
   | { readonly index: number | null; readonly status: "refused" };
 
 export type DocumentHistoryCopyEvent =
-  | { readonly index: number; readonly type: "requested" }
+  | {
+      readonly index: number;
+      readonly type: "requested";
+      readonly versionTime: string | null;
+    }
   | { readonly type: "cancelled" }
   | { readonly run: number; readonly type: "confirmed" }
   | {
@@ -125,7 +136,11 @@ export function transitionDocumentHistoryCopy(
   if (state.status === "saving") return transitionSavingCopy(state, event);
   switch (event.type) {
     case "requested":
-      return { index: event.index, status: "confirming" };
+      return {
+        index: event.index,
+        status: "confirming",
+        versionTime: event.versionTime,
+      };
     case "cancelled":
       return state.status === "confirming" ? IDLE_DOCUMENT_HISTORY_COPY : state;
     case "stop-shown":
