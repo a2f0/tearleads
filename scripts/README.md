@@ -11,7 +11,7 @@ below. Invoke them by path from the checkout or its parent workspace, for exampl
 
 | Folder | Contents |
 | --- | --- |
-| [`admin/`](admin/) | Explicit operational utilities, including blob-bucket inspection. |
+| [`admin/`](admin/) | Explicit operational utilities, including blob-bucket inspection and root grants. |
 | [`architecture/`](architecture/) | Architecture checks and reports, dependency rules, workspace and subsystem registries. |
 | [`checks/`](checks/) | Check entry points, static analysis helpers, baselines, and regression fixtures. |
 | [`deploy/`](deploy/) | Tier and website deployments, teardown, and their shared helpers. |
