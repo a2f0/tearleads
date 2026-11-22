@@ -4,6 +4,15 @@ export {
 } from "../../data/shared/domainScope";
 export { getRuntimePeerSeed } from "../../data/sync/crdtPeerSeed";
 export {
+  type CompletedDownloadItem,
+  type DomainDownloadHistory,
+  type DomainDownloadHistorySnapshot,
+  getDomainDownloadHistorySnapshot,
+  getOrCreateDomainDownloadHistory,
+  recordDomainCompletedDownload,
+  subscribeToDomainDownloadHistory,
+} from "../../data/sync/downloadHistory";
+export {
   getOrCreateOrganizationSyncPauses,
   loadOrganizationSyncPausesBeforeSync,
   type OrganizationSyncPauseChange,
