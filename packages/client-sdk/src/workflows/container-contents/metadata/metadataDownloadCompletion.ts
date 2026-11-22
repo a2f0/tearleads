@@ -13,9 +13,12 @@ type ContainerMetadataRecord = ContainerMetadataState["record"];
  * Whether a folder's metadata record is in the download queue as
  * `listPendingDownloads` reads it: a synced folder whose metadata was never
  * pulled, or whose stored continuation is not null. A continuation that
- * failed to parse is still a stored one, so recovery counts too.
+ * failed to parse is still a stored one, so recovery counts too. The query
+ * also requires the folder's row, which the metadata persist that produced
+ * the record wrote with it. `metadataDownloadQueueRule.test.ts` pins this
+ * against the query.
  */
-function isQueuedForDownload(record: ContainerMetadataRecord): boolean {
+export function isQueuedForDownload(record: ContainerMetadataRecord): boolean {
   if (record.documentId === null) return false;
   if (
     (record.pullContinuation ?? null) !== null ||

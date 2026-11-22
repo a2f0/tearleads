@@ -7,9 +7,12 @@ import type { DocumentStoreState } from "../state";
  * Whether a stored record is in the download queue as `listPendingDownloads`
  * reads it: a synced document whose content was never pulled, or whose stored
  * continuation is not null. A continuation that failed to parse is still a
- * stored one, so recovery counts too.
+ * stored one, so recovery counts too. The query also requires the document's
+ * projection row, which every save writes in the same transaction as the
+ * record and every delete removes with it, so a just-saved record has one.
+ * `downloadQueueRule.test.ts` pins this against the query.
  */
-function isQueuedForDownload(record: DocumentRecord): boolean {
+export function isQueuedForDownload(record: DocumentRecord): boolean {
   return (
     record.documentId !== null &&
     (record.snapshotEndVersion === "" ||

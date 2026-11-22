@@ -210,10 +210,12 @@ errors. The queue does not estimate undiscovered objects or on-demand blob reads
 The SDK keeps the downloads that finished in each `DomainScope`, newest first,
 like the sync coordinator keeps its lanes: in memory, from scope creation,
 whether or not any view is watching, and gone on reload. It records one as
-`CompletedDownloadItem` when a queued document's pull drains, a queued folder's
-metadata pull drains, or a file slot gets its first local copy. A sync that
-merely updates already-stored content is not a download, and a row that left
-the queue because it was deleted, detached, or reset is never recorded. Each
+`CompletedDownloadItem` when a queued document's pull drains (a key-rotation
+recovery pull included), a queued folder's metadata pull drains, or a file slot
+gets its first local copy. A one-page sync of already-stored content is not a
+download; an update that pages is queued until its last page lands, then
+recorded like any queued pull. A row that left the queue because it was
+deleted, detached, or reset is never recorded. Each
 says where to open it: a document's projected `containerId` (null when
 orphaned), and a file's `storageKey` and `blobId`. Read it through
 `getDomainDownloadHistorySnapshot` and `subscribeToDomainDownloadHistory`.
