@@ -131,14 +131,12 @@ export function ExplorerSyncLanesPanel(params: {
   domainScope: DomainScope;
   onBackToSelectionRoute: () => void;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
-  onOpenDocumentInfo?:
-    | ((localId: string, containerId: string) => void)
-    | undefined;
+  onOpenDocument?: ((localId: string, containerId: string) => void) | undefined;
   onOpenLaneDetail: (laneKey: string) => void;
   selectedLaneKey: string | null;
 }) {
   const snapshot = useDomainSyncSnapshot(params.domainScope);
-  const { documentQueries, domainScope, onOpenDocumentInfo, selectedLaneKey } =
+  const { documentQueries, domainScope, onOpenDocument, selectedLaneKey } =
     params;
   // Stable per database, so a lane detail's summary load runs once per lane.
   const loadDocumentSummary = useCallback(
@@ -152,10 +150,10 @@ export function ExplorerSyncLanesPanel(params: {
   );
   const documentLinks = useMemo<ExplorerSyncLaneDocumentLinks | undefined>(
     () =>
-      documentQueries && onOpenDocumentInfo
-        ? { loadDocumentSummary, openDocumentInfo: onOpenDocumentInfo }
+      documentQueries && onOpenDocument
+        ? { loadDocumentSummary, openDocument: onOpenDocument }
         : undefined,
-    [documentQueries, loadDocumentSummary, onOpenDocumentInfo],
+    [documentQueries, loadDocumentSummary, onOpenDocument],
   );
   const handleRefresh = useCallback(
     () => requestAllDomainSyncLanes(domainScope),

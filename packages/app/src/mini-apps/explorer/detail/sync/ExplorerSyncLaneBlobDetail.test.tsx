@@ -129,7 +129,7 @@ function renderDocumentLane(summary: DocumentSummary | null) {
           loaded.push(localId);
           return summary;
         },
-        openDocumentInfo: (localId, containerId) =>
+        openDocument: (localId, containerId) =>
           opened.push({ containerId, localId }),
       }}
       onBackToSelectionRoute={() => undefined}
@@ -163,7 +163,7 @@ test("document lane Label and Key open the document being synced", async () => {
 });
 
 test("a document lane without a shown document keeps plain text", async () => {
-  // Unhydrated here, or orphaned: there is no info route to open.
+  // Unhydrated here, or orphaned: there is no folder to open it in.
   for (const summary of [
     null,
     { containerId: null, id: "local-1" } as DocumentSummary,
