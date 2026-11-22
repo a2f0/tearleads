@@ -153,7 +153,7 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
       onOpenBlobDetail={(storageKey) => {
         params.openBlobBrowserRoute({ storageKey });
       }}
-      onOpenDocumentInfo={params.openDocumentInfoRoute}
+      onOpenDocument={params.selectDocumentProjection}
       onOpenLaneDetail={params.onOpenSyncLaneDetailRoute}
       selectedLaneKey={route.view === "sync-lane-detail" ? route.laneKey : null}
     />
