@@ -13,11 +13,13 @@ import { commitHydratedAttachment } from "./attachmentHydrationCommit";
 import {
   hydrationBlobIdBySlotId,
   hydrationStorageKeyBySlotId,
+  unavailableHeldCopySlotIds,
 } from "./heldCopyChecks";
 
 // A remote probe is evidence that bindings may have moved independently of
 // content. Capture its sequence before I/O so a hint arriving during hydration
-// survives for the trailing pass. Missing or changed local bytes always retry.
+// survives for the trailing pass. Missing or changed local bytes always retry,
+// including a held copy a check found missing or damaged.
 const checkedSignals = new WeakMap<
   DocumentStoreState,
   { documentId: string; document: WeakRef<DocumentState>; sequence: number }
@@ -132,13 +134,15 @@ function bindingsAlreadyChecked(
     checked.document.deref() === currentDoc
       ? checked.sequence
       : 0);
-  return (
-    !needsBindingProbe &&
-    attachments.every(
-      (attachment) =>
-        state.attachmentStorageKeyBySlotId[attachment.slotId] &&
-        state.attachmentContentSha256BySlotId[attachment.slotId] ===
-          attachment.contentSha256,
-    )
+  if (needsBindingProbe) return false;
+  // An unavailable copy's row still names its storage key, but its bytes are
+  // gone, so it retries like a slot with no bytes. A refused repair, or a
+  // finding settled while the store reloaded, raises no further signal.
+  const unavailable = unavailableHeldCopySlotIds(state);
+  return attachments.every(
+    ({ contentSha256, slotId }) =>
+      state.attachmentStorageKeyBySlotId[slotId] &&
+      !unavailable.has(slotId) &&
+      state.attachmentContentSha256BySlotId[slotId] === contentSha256,
   );
 }
