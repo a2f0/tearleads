@@ -81,7 +81,8 @@ in use while a refresh loads or fails, and the time on screen does not
 flicker on each sync; another document or session never sees them. The
 read's state machine keeps them
 ([`attributionReadMachine`](../documents/attributionReadMachine.ts)): a
-refresh in the same scope carries the last result as `previous`. A document
+read records its `prior` in the scope, either its first read or one after a
+read settled, carrying the last result as `previous`. A document
 with more ranges than the read allows (20,000, counted in ranges so a probe
 does not move the limit) is treated as having none rather than some. Uploads
 only add ranges, so that outcome stands for the document and session without

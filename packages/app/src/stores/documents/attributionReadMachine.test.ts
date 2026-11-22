@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  type AttributionReadPrior,
   type AttributionReadState,
   currentAttributionResult,
   hasAttributionReadSettled,
@@ -25,8 +26,7 @@ test("replacement requests discard old identities and cannot finish out of order
   expect(loading).toEqual({
     status: "loading",
     request: first,
-    previous: null,
-    refreshing: false,
+    prior: { kind: "first" },
   });
   const ready = transitionAttributionRead(loading, {
     type: "loaded",
@@ -42,8 +42,7 @@ test("replacement requests discard old identities and cannot finish out of order
   expect(replacement).toEqual({
     status: "loading",
     request: next,
-    previous: null,
-    refreshing: false,
+    prior: { kind: "first" },
   });
   expect(
     transitionAttributionRead(replacement, {
@@ -76,12 +75,7 @@ test("reset and restart for the same document require a new request identity", (
   const oldRequest = request(scopeA);
   const newRequest = request(scopeA);
   const reset = transitionAttributionRead<string>(
-    {
-      status: "loading",
-      request: oldRequest,
-      previous: null,
-      refreshing: false,
-    },
+    { status: "loading", request: oldRequest, prior: { kind: "first" } },
     { type: "request", request: null },
   );
   const current = transitionAttributionRead(reset, {
@@ -133,86 +127,75 @@ test("settled requests ignore duplicate completions and can restart or reset", (
   }
 });
 
-// What a refresh keeps: the latest result read in its own scope, through
-// loading and failure, until its own result replaces it.
+// What a new request follows: in its own scope, whether a read has settled
+// and the latest result read, kept through loading and failure until its own
+// result replaces it.
 const refreshTable: ReadonlyArray<{
   name: string;
   state: State;
   scope: object;
-  previous: string | null;
-  refreshing: boolean;
+  prior: AttributionReadPrior<string>;
 }> = [
   {
     name: "nothing read yet",
     state: { status: "idle" },
     scope: scopeA,
-    previous: null,
-    refreshing: false,
+    prior: { kind: "first" },
   },
   {
     name: "a ready read, same scope",
     state: { status: "ready", request: request(scopeA), result: "a" },
     scope: scopeA,
-    previous: "a",
-    refreshing: true,
+    prior: { kind: "settled", previous: "a" },
   },
   {
     name: "a ready read, another scope",
     state: { status: "ready", request: request(scopeA), result: "a" },
     scope: scopeB,
-    previous: null,
-    refreshing: false,
+    prior: { kind: "first" },
   },
   {
     name: "a refresh still loading, same scope",
     state: {
       status: "loading",
       request: request(scopeA),
-      previous: "a",
-      refreshing: true,
+      prior: { kind: "settled", previous: "a" },
     },
     scope: scopeA,
-    previous: "a",
-    refreshing: true,
+    prior: { kind: "settled", previous: "a" },
   },
   {
     name: "a first read still loading, same scope",
     state: {
       status: "loading",
       request: request(scopeA),
-      previous: null,
-      refreshing: false,
+      prior: { kind: "first" },
     },
     scope: scopeA,
-    previous: null,
-    refreshing: false,
+    prior: { kind: "first" },
   },
   {
     name: "a refresh still loading, another scope",
     state: {
       status: "loading",
       request: request(scopeA),
-      previous: "a",
-      refreshing: true,
+      prior: { kind: "settled", previous: "a" },
     },
     scope: scopeB,
-    previous: null,
-    refreshing: false,
+    prior: { kind: "first" },
   },
   {
     name: "a refresh that failed, same scope",
     state: { status: "unavailable", request: request(scopeA), previous: "a" },
     scope: scopeA,
-    previous: "a",
-    refreshing: true,
+    prior: { kind: "settled", previous: "a" },
   },
   {
     name: "a first read that failed, same scope",
     state: { status: "unavailable", request: request(scopeA), previous: null },
     scope: scopeA,
-    previous: null,
     // Nothing was read, but the scope's first read has settled.
-    refreshing: true,
+    prior: { kind: "settled", previous: null },
   },
 ];
 
@@ -226,14 +209,17 @@ for (const row of refreshTable) {
     expect(loading).toEqual({
       status: "loading",
       request: next,
-      previous: row.previous,
-      refreshing: row.refreshing,
+      prior: row.prior,
     });
-    expect(hasAttributionReadSettled(loading, next)).toBe(row.refreshing);
-    // A failure keeps it; a result replaces it.
+    expect(hasAttributionReadSettled(loading, next)).toBe(
+      row.prior.kind === "settled",
+    );
+    // A failure keeps the latest result; a result replaces it.
+    const previous = row.prior.kind === "settled" ? row.prior.previous : null;
+    expect(heldAttributionResult(loading, next)).toBe(previous);
     expect(
       transitionAttributionRead(loading, { type: "failed", request: next }),
-    ).toEqual({ status: "unavailable", request: next, previous: row.previous });
+    ).toEqual({ status: "unavailable", request: next, previous });
     expect(
       transitionAttributionRead(loading, {
         type: "loaded",
@@ -254,7 +240,11 @@ test("a current reader sees only its own request's result", () => {
   expect(currentAttributionResult(ready, request(scopeA))).toBeNull();
   expect(
     currentAttributionResult(
-      { status: "loading", request: own, previous: "a", refreshing: true },
+      {
+        status: "loading",
+        request: own,
+        prior: { kind: "settled", previous: "a" },
+      },
       own,
     ),
   ).toBeNull();
@@ -276,7 +266,11 @@ test("a held reader sees the latest result in its scope, never another's", () =>
   expect(heldAttributionResult(ready, request(scopeA))).toBe("a");
   expect(
     heldAttributionResult(
-      { status: "loading", request: own, previous: "a", refreshing: true },
+      {
+        status: "loading",
+        request: own,
+        prior: { kind: "settled", previous: "a" },
+      },
       own,
     ),
   ).toBe("a");

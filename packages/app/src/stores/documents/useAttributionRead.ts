@@ -7,6 +7,7 @@ import {
   type AttributionReadEvent,
   type AttributionReadRequest,
   type AttributionReadState,
+  heldAttributionResult,
   transitionAttributionRead,
 } from "./attributionReadMachine";
 
@@ -135,7 +136,7 @@ export function useAttributionRead<Result>(
     let active = true;
     void load(request, {
       isCurrent: () => active,
-      previous: loading.previous,
+      previous: heldAttributionResult(loading, loading.request),
     }).then(
       (result) => {
         if (!active) return;
