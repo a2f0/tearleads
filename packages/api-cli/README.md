@@ -144,6 +144,19 @@ tier's migration login from the `postgres` Terraform stack output
 scripts/admin/makeRoot.sh <local|staging|prod> <fingerprint>
 ```
 
+To revoke root on a deployed tier, give `revoke-admin` the same connection in a
+private shell: read the tier's `api_connection` output
+(`terraform/scripts/run-postgres-stack.sh <tier> output -json api_connection`),
+unset any inherited `DATABASE_URL`, `POSTGRES_URL`, and `PG*` variables, and
+export `NODE_ENV=production`, `API_DATABASE=postgres`, `POSTGRES_HOST`,
+`POSTGRES_PORT` and `POSTGRES_USER` (the migration port and user),
+`POSTGRES_PASSWORD`, `POSTGRES_DATABASE`, `POSTGRES_SSL=true`, and
+`POSTGRES_SSL_REJECT_UNAUTHORIZED=true`. Then, from `packages/api-cli`:
+
+```bash
+bun src/index.ts revoke-admin <fingerprint>
+```
+
 ## Local development
 
 ```bash

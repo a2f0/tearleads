@@ -35,6 +35,12 @@ main() {
       return 1
       ;;
   esac
+  # The CLI validates too; checking first keeps a typo from loading the tier's
+  # secrets and writing its database login to disk.
+  if [[ ! "$fingerprint" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "Error: Fingerprint must be the 64-character lowercase hex signing key fingerprint" >&2
+    return 1
+  fi
 
   local repo_root
   unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
