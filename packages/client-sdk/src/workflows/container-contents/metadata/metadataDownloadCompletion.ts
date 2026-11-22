@@ -13,9 +13,14 @@ type ContainerMetadataRecord = ContainerMetadataState["record"];
  * Whether a folder's metadata record is in the download queue as
  * `listPendingDownloads` reads it: a synced folder whose metadata was never
  * pulled, or whose stored continuation is not null. A continuation that
- * failed to parse is still a stored one, so recovery counts too.
+ * failed to parse is still a stored one, so recovery counts too. The query
+ * also requires the folder's row, which the metadata persist that produced
+ * the record wrote with it. `metadataDownloadQueueRule.test.ts` pins this
+ * against the query.
  */
-function isQueuedForDownload(record: ContainerMetadataRecord): boolean {
+export function isFolderMetadataQueuedForDownload(
+  record: ContainerMetadataRecord,
+): boolean {
   if (record.documentId === null) return false;
   if (
     (record.pullContinuation ?? null) !== null ||
@@ -29,7 +34,8 @@ function isQueuedForDownload(record: ContainerMetadataRecord): boolean {
 /**
  * Record a finished folder download in the scope's history: a metadata pull
  * that took the folder out of the queue it was in when the request was made.
- * A pull of a folder already stored, such as a rename, is a sync.
+ * A one-page sync of a folder already stored, such as a rename, is not a
+ * download; one that pages is queued until its last page lands.
  */
 export function noteContainerMetadataDownloadDrained(input: {
   readonly container: ContainerRecord;
@@ -44,11 +50,14 @@ export function noteContainerMetadataDownloadDrained(input: {
   if (
     !(
       resumedEarlierMetadataPull(syncAttempt) ||
-      isQueuedForDownload(syncAttempt.requestRecord)
+      isFolderMetadataQueuedForDownload(syncAttempt.requestRecord)
     )
   )
     return;
-  if (storedRecord.documentId === null || isQueuedForDownload(storedRecord))
+  if (
+    storedRecord.documentId === null ||
+    isFolderMetadataQueuedForDownload(storedRecord)
+  )
     return;
   recordDomainCompletedDownload(input.domainScope, {
     documentId: storedRecord.documentId,
