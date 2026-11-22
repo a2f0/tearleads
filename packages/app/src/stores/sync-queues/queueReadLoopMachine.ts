@@ -1,5 +1,5 @@
 /**
- * When the Downloads store reads the SDK queue: one read at a time, with
+ * When a queue-read store reads its SDK queue: one read at a time, with
  * requests that arrive mid-read coalesced into one follow-up.
  *
  * - `idle`: nothing scheduled.
@@ -13,7 +13,7 @@
  * read, even straight after the previous one. Leaving `waiting` disarms the
  * delay.
  */
-export type DownloadReadLoopState =
+export type QueueReadLoopState =
   | { readonly reads: number; readonly status: "idle" }
   | { readonly reads: number; readonly status: "waiting" }
   | {
@@ -22,7 +22,7 @@ export type DownloadReadLoopState =
       readonly status: "reading";
     };
 
-export type DownloadReadLoopEvent =
+export type QueueReadLoopEvent =
   /** A change signal (`immediate: false`) or an opened view or Refresh. */
   | { readonly immediate: boolean; readonly type: "requested" }
   | { readonly type: "delay-elapsed" }
@@ -30,12 +30,12 @@ export type DownloadReadLoopEvent =
   /** The last view stopped watching, so pending follow-ups are dropped. */
   | { readonly type: "unwatched" };
 
-export const IDLE_DOWNLOAD_READ_LOOP: DownloadReadLoopState = {
+export const IDLE_QUEUE_READ_LOOP: QueueReadLoopState = {
   reads: 0,
   status: "idle",
 };
 
-function startRead(state: DownloadReadLoopState): DownloadReadLoopState {
+function startRead(state: QueueReadLoopState): QueueReadLoopState {
   return { reads: state.reads + 1, rerun: "none", status: "reading" };
 }
 
@@ -48,10 +48,10 @@ function startRead(state: DownloadReadLoopState): DownloadReadLoopState {
  * | waiting       | next read             | (same)            | next read     | (same)                       | idle       |
  * | reading       | rerun now             | rerun soon        | (same)        | next read, waiting, or idle  | rerun none |
  */
-export function transitionDownloadReadLoop(
-  state: DownloadReadLoopState,
-  event: DownloadReadLoopEvent,
-): DownloadReadLoopState {
+export function transitionQueueReadLoop(
+  state: QueueReadLoopState,
+  event: QueueReadLoopEvent,
+): QueueReadLoopState {
   switch (event.type) {
     case "requested":
       return onRequested(state, event.immediate);
@@ -69,9 +69,9 @@ export function transitionDownloadReadLoop(
 }
 
 function onRequested(
-  state: DownloadReadLoopState,
+  state: QueueReadLoopState,
   immediate: boolean,
-): DownloadReadLoopState {
+): QueueReadLoopState {
   if (state.status === "reading") {
     const rerun = immediate || state.rerun === "now" ? "now" : "soon";
     return rerun === state.rerun ? state : { ...state, rerun };
@@ -83,9 +83,9 @@ function onRequested(
 }
 
 function onReadSettled(
-  state: DownloadReadLoopState,
+  state: QueueReadLoopState,
   watched: boolean,
-): DownloadReadLoopState {
+): QueueReadLoopState {
   if (state.status !== "reading") return state;
   if (!watched || state.rerun === "none")
     return { reads: state.reads, status: "idle" };
@@ -94,7 +94,7 @@ function onReadSettled(
     : { reads: state.reads, status: "waiting" };
 }
 
-function onUnwatched(state: DownloadReadLoopState): DownloadReadLoopState {
+function onUnwatched(state: QueueReadLoopState): QueueReadLoopState {
   if (state.status === "waiting") return { reads: state.reads, status: "idle" };
   return state.status === "reading" && state.rerun !== "none"
     ? { ...state, rerun: "none" }

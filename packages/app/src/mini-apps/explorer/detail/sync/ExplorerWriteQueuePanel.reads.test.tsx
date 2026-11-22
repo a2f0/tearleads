@@ -25,7 +25,6 @@ function renderPanelLoader(
   return render(
     <ExplorerWriteQueuePanel
       billingBlockedOrganizationId={null}
-      documentListRevision={0}
       documentQueries={documentQueries}
       domainScope={domainScope}
       isAuthenticated={true}
@@ -40,7 +39,7 @@ function renderPanelLoader(
   );
 }
 
-test("coalesces a revision-bump burst and keeps stale rows while re-reading", async () => {
+test("coalesces a burst of sync signals and keeps stale rows while re-reading", async () => {
   let queryCount = 0;
   const resolvers: Array<
     (items: ReadonlyArray<PendingWriteQueueItem>) => void
@@ -54,31 +53,18 @@ test("coalesces a revision-bump burst and keeps stale rows while re-reading", as
     },
   } as unknown as ContainerDocumentQueries;
   const domainScope = createDomainScope();
-  const panelWithRevision = (documentListRevision: number) => (
-    <ExplorerWriteQueuePanel
-      billingBlockedOrganizationId={null}
-      documentListRevision={documentListRevision}
-      documentQueries={documentQueries}
-      domainScope={domainScope}
-      isAuthenticated={true}
-      nodes={[ARCHIVE_NODE]}
-      online={true}
-      openContainerInfoRoute={() => undefined}
-      openDocument={() => undefined}
-      openWriteQueueEntryRoute={() => undefined}
-      organizationNamesById={new Map()}
-      selectedEntryKey={null}
-    />
-  );
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
 
-  const view = render(panelWithRevision(0));
+  const view = renderPanelLoader(documentQueries, domainScope);
   expect(queryCount).toBe(1);
 
-  // A burst of revision bumps while the first scan is still pending must queue
-  // exactly one re-read, not one heavy scan per bump.
-  view.rerender(panelWithRevision(1));
-  view.rerender(panelWithRevision(2));
-  view.rerender(panelWithRevision(3));
+  // A burst of sync signals while the first scan is still pending must queue
+  // exactly one re-read, not one heavy scan per signal.
+  await act(async () => {
+    for (const key of ["burst-a", "burst-b", "burst-c"]) {
+      coordinator.registerLane(key, { run: async () => undefined });
+    }
+  });
   expect(queryCount).toBe(1);
 
   await act(async () => {
@@ -92,7 +78,7 @@ test("coalesces a revision-bump burst and keeps stale rows while re-reading", as
   ).toBeTruthy();
   expect(view.queryByText(EXPLORER_LABELS.writeQueueLoading)).toBeNull();
 
-  await waitFor(() => expect(queryCount).toBe(2));
+  await waitFor(() => expect(queryCount).toBe(2), { timeout: 2000 });
   await act(async () => {
     resolvers[1]?.([]);
   });
@@ -112,7 +98,6 @@ test("surfaces a durable-write query failure", async () => {
   const view = render(
     <ExplorerWriteQueuePanel
       billingBlockedOrganizationId={null}
-      documentListRevision={0}
       documentQueries={documentQueries}
       domainScope={createDomainScope()}
       isAuthenticated={true}
@@ -133,7 +118,7 @@ test("surfaces a durable-write query failure", async () => {
   expect(view.getByText("database unavailable")).toBeTruthy();
 });
 
-test("drops a replaced documentQueries' reads and re-reads the new one", async () => {
+test("a scope switch never shows the previous scope's late rows", async () => {
   const pendingQueries = (
     calls: Array<(items: ReadonlyArray<PendingWriteQueueItem>) => void>,
   ) =>
@@ -151,13 +136,19 @@ test("drops a replaced documentQueries' reads and re-reads the new one", async (
   > = [];
   const previousQueries = pendingQueries(previousCalls);
   const nextQueries = pendingQueries(nextCalls);
-  const domainScope = createDomainScope();
-  const panelWith = (documentQueries: ContainerDocumentQueries) => (
+  const previousScope = createDomainScope();
+  const nextScope = createDomainScope();
+
+  const view = renderPanelLoader(previousQueries, previousScope);
+  expect(previousCalls).toHaveLength(1);
+
+  // The domain scope rotates (org switch, logout) while the previous scope's
+  // scan is still pending: the new scope is read at once.
+  view.rerender(
     <ExplorerWriteQueuePanel
       billingBlockedOrganizationId={null}
-      documentListRevision={0}
-      documentQueries={documentQueries}
-      domainScope={domainScope}
+      documentQueries={nextQueries}
+      domainScope={nextScope}
       isAuthenticated={true}
       nodes={[ARCHIVE_NODE]}
       online={true}
@@ -166,15 +157,8 @@ test("drops a replaced documentQueries' reads and re-reads the new one", async (
       openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
       selectedEntryKey={null}
-    />
+    />,
   );
-
-  const view = render(panelWith(previousQueries));
-  expect(previousCalls).toHaveLength(1);
-
-  // The database scope is replaced (org switch, logout) while the previous
-  // scope's scan is still pending: the new scope is read at once.
-  view.rerender(panelWith(nextQueries));
   expect(nextCalls).toHaveLength(1);
 
   // The previous scope's late rows never reach the panel, and it is not
@@ -194,7 +178,7 @@ test("drops a replaced documentQueries' reads and re-reads the new one", async (
     expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy(),
   );
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    await new Promise((resolve) => setTimeout(resolve, 900));
   });
   expect(previousCalls).toHaveLength(1);
   expect(nextCalls).toHaveLength(1);

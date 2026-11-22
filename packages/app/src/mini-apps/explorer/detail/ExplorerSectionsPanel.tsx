@@ -47,7 +47,6 @@ interface ExplorerSectionsPanelProps {
   route: ExplorerRoute;
   billingBlockedOrganizationId: string | null;
   domainScope: DomainScope;
-  documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   isAuthenticated: boolean;
   onOpenSyncLaneDetailRoute: (laneKey: string) => void;
@@ -105,10 +104,8 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
     return (
       <ExplorerDownloadsPanel
         destinations={downloadDestinations}
-        documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
         domainScope={params.domainScope}
-        nodes={params.nodes}
         online={params.online}
         isAuthenticated={params.isAuthenticated}
       />
@@ -128,7 +125,6 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
     return (
       <ExplorerWriteQueuePanel
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-        documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
         domainScope={params.domainScope}
         isAuthenticated={params.isAuthenticated}

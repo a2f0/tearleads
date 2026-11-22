@@ -45,7 +45,8 @@ block several tray apps share goes in `shared/`.
   `app-mini-apps-do-not-import-tray-apps`). Code both need lives in a lower
   layer they share: [`components/`](../components/) for UI (the Sync Status
   glyph is `components/shared/SyncGlyph`), [`stores/`](../stores/) for state
-  machines (the write-queue watcher is `stores/write-queue/`),
+  machines (the write- and download-queue read stores are
+  `stores/sync-queues/`),
   [`providers/`](../providers/), [`navigation/`](../navigation/), or
   [`utils/`](../utils/).
 - A tray app opens a mini-app by id through
