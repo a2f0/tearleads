@@ -264,7 +264,12 @@ key resolver, policy warmer, and `stillCurrent` stay per call.
 
 Loop `remoteDocuments.syncRemoteDocument(...)`; resume with
 `readPullContinuation(...)` and validate via
-`validateDocumentSyncUpdateImports(...)`. Inline callbacks pass
+`validateDocumentSyncUpdateImports(...)`, which returns
+`DocumentSyncImportVerdicts`. The pass skips each
+[void update](../../glossary/content.md#void-update), reporting it in
+`voidedUpdates`, and pulls deferred ones again; a host that must apply every
+update passes the verdicts to `assertNoVoidedDocumentSyncUpdates(...)`, which
+throws the first void's isolation error. Inline callbacks pass
 `verification` to `buildMaterializedContainerRekeyPlan(...)`, including
 chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../../raw-document-history-recovery.md)

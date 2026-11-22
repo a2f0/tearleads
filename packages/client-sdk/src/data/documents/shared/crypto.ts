@@ -27,6 +27,10 @@ import {
   isolateDocumentSyncBatchError,
   isolateDocumentSyncUpdateError,
 } from "./sync/documentSyncUpdateIsolation";
+import {
+  type VoidedDocumentSyncUpdate,
+  voidedDocumentSyncUpdate,
+} from "./sync/documentUpdateVerdict";
 import { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "./types";
 
 export async function encryptDocumentPendingUpdate(input: {
@@ -136,15 +140,24 @@ export async function decryptDocumentSyncUpdates(input: {
   });
 }
 
-export async function decryptDocumentSyncUpdatesByEpoch(input: {
+type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
+
+interface DocumentSyncDecryptionInput {
   contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
   documentId: string;
   organizationId: string;
-  updates: readonly DocumentSyncResponse["updates"][number][];
-}): Promise<DecryptedDocumentSyncUpdate[]> {
-  if (input.updates.length === 0) {
-    return [];
-  }
+  updates: readonly SyncResponseUpdate[];
+}
+
+interface InspectionFailure {
+  readonly index: number;
+  readonly reason: unknown;
+}
+
+function inspectDocumentSyncUpdatesByEpoch(
+  input: DocumentSyncDecryptionInput,
+  verifyLoroMetadata: boolean,
+): Promise<PromiseSettledResult<DecryptedDocumentSyncUpdate>[]> {
   const contentKeyMaterialByEpoch = new Map<number, Promise<CryptoKey>>();
   const contentKeyMaterialForEpoch = (contentKeyEpoch: number) => {
     const existing = contentKeyMaterialByEpoch.get(contentKeyEpoch);
@@ -161,7 +174,7 @@ export async function decryptDocumentSyncUpdatesByEpoch(input: {
     return imported;
   };
 
-  const inspections = await Promise.allSettled(
+  return Promise.allSettled(
     input.updates.map(async (update) => {
       let contentKeyEpoch: number;
       try {
@@ -196,27 +209,30 @@ export async function decryptDocumentSyncUpdatesByEpoch(input: {
         documentId: input.documentId,
         organizationId: input.organizationId,
         update,
+        verifyLoroMetadata,
       });
     }),
   );
-  const failures = inspections.flatMap((inspection, index) =>
-    inspection.status === "rejected"
-      ? [{ index, reason: inspection.reason }]
-      : [],
-  );
+}
+
+function throwInspectionFailures(
+  failures: readonly InspectionFailure[],
+  updates: readonly SyncResponseUpdate[],
+): void {
   const firstFailure = failures[0];
   if (failures.length === 1 && firstFailure) {
     throw firstFailure.reason;
   }
   if (failures.length > 1 && firstFailure) {
+    const firstReason = firstFailure.reason;
     const stage =
-      isDocumentSyncUpdateIsolationError(firstFailure.reason) &&
+      isDocumentSyncUpdateIsolationError(firstReason) &&
       failures.every(
         ({ reason }) =>
           isDocumentSyncUpdateIsolationError(reason) &&
-          reason.stage === firstFailure.reason.stage,
+          reason.stage === firstReason.stage,
       )
-        ? firstFailure.reason.stage
+        ? firstReason.stage
         : "decrypt";
     throw isolateDocumentSyncBatchError({
       // The per-update errors carry authenticated writer attribution. Once
@@ -227,15 +243,65 @@ export async function decryptDocumentSyncUpdatesByEpoch(input: {
         "Multiple document sync updates failed decryption inspection",
       ),
       stage,
-      updateIds: failures.map(
-        ({ index }) => input.updates[index]?.id ?? "unknown",
-      ),
+      updateIds: failures.map(({ index }) => updates[index]?.id ?? "unknown"),
     });
   }
-  return inspections.map((inspection) => {
-    if (inspection.status === "rejected") {
-      throw inspection.reason;
+}
+
+/** Decrypts a history the caller trusts whole: any failure fails it. */
+export async function decryptDocumentSyncUpdatesByEpoch(
+  input: DocumentSyncDecryptionInput,
+): Promise<DecryptedDocumentSyncUpdate[]> {
+  if (input.updates.length === 0) {
+    return [];
+  }
+  const inspections = await inspectDocumentSyncUpdatesByEpoch(input, true);
+  throwInspectionFailures(
+    inspections.flatMap((inspection, index) =>
+      inspection.status === "rejected"
+        ? [{ index, reason: inspection.reason }]
+        : [],
+    ),
+    input.updates,
+  );
+  return inspections.flatMap((inspection) =>
+    inspection.status === "fulfilled" ? [inspection.value] : [],
+  );
+}
+
+/**
+ * Decrypts served updates and voids each whose plaintext is not the one its
+ * signed hash names, in server order. Any other failure (a header, an
+ * envelope, a key, or AES-GCM itself) still fails the pass: the reader cannot
+ * prove its key is the writer's, so it cannot blame the writer. Whether a
+ * payload is the Loro update its signed span declares is left to the import
+ * judge (`validateDocumentSyncUpdateImports`), the only reader of payloads.
+ */
+export async function judgeDocumentSyncUpdateDecryption(
+  input: DocumentSyncDecryptionInput,
+): Promise<{
+  accepted: DecryptedDocumentSyncUpdate[];
+  voided: VoidedDocumentSyncUpdate[];
+}> {
+  if (input.updates.length === 0) {
+    return { accepted: [], voided: [] };
+  }
+  const inspections = await inspectDocumentSyncUpdatesByEpoch(input, false);
+  const accepted: DecryptedDocumentSyncUpdate[] = [];
+  const voided: VoidedDocumentSyncUpdate[] = [];
+  const failures: InspectionFailure[] = [];
+  for (const [index, inspection] of inspections.entries()) {
+    if (inspection.status === "fulfilled") {
+      accepted.push(inspection.value);
+      continue;
     }
-    return inspection.value;
-  });
+    const voidedUpdate = voidedDocumentSyncUpdate(inspection.reason);
+    if (voidedUpdate) {
+      voided.push(voidedUpdate);
+    } else {
+      failures.push({ index, reason: inspection.reason });
+    }
+  }
+  throwInspectionFailures(failures, input.updates);
+  return { accepted, voided };
 }

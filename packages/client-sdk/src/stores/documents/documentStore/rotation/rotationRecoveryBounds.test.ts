@@ -58,7 +58,11 @@ test("rotation validates every bounded page before one durable install", async (
         if (request.pullCursor === undefined) {
           return {
             ...response,
-            pullPage: { hasMore: true, nextCursor: "rotation-page-2" },
+            pullPage: {
+              hasMore: true,
+              nextCursor: "rotation-page-2",
+              throughUpdateId: null,
+            },
             updates: [firstPageUpdate],
           };
         }
@@ -69,7 +73,11 @@ test("rotation validates every bounded page before one durable install", async (
           return {
             ...response,
             acceptedOutgoingUpdateIds: [],
-            pullPage: { hasMore: false, nextCursor: null },
+            pullPage: {
+              hasMore: false,
+              nextCursor: null,
+              throughUpdateId: null,
+            },
             updates: [secondPageUpdate],
           };
         }

@@ -179,6 +179,26 @@ existing per-page deduplication and event budget. Reporting throws or rejections
 do not replace the quarantine or clear the write-queue error, and results from
 an invalidated sync generation are not reported.
 
+A [void update](../glossary/content.md#void-update) is not a quarantine. The
+pass goes on and no write-queue error is recorded, so the void is reported as
+`Documents: sync update voided`, once per update: the report follows the
+transaction that first records its `document_void_updates` row. A later pass
+that serves the same update again (after a decoder upgrade, say) reports
+nothing new. The `Error` and its handling match a quarantine report, and
+results from an invalidated sync generation are not reported either.
+
+A [Loro runtime failure](../advisory-op-spans.md#loro-runtime-failures) is
+reported as `Documents: sync update failed the Loro runtime (attempt n of 3)`,
+ending in `; voided` on the attempt that voids the update, once per counted
+attempt after its `document_void_updates` row is recorded. A void that reused
+operation ids under this device's own peer id
+([preempted operations](../advisory-op-spans.md#preempted-operations)) is
+reported once more, after its `document_peer_preemptions` notice is recorded,
+as `Documents: writer <user> (fingerprint <key>) committed operations under
+this device's peer id <peer>; ...`. The writer's user id, key fingerprint, and
+peer id appear only in that local log line. Both pass the update's isolation
+`Error`, which is reported as a void report's is.
+
 Failed local document writes and failed
 [sync-lane](../sync-edge-cases.md#the-failure-isolation-model) runs report the
 same way. The document write chain deliberately swallows its errors so an

@@ -4,9 +4,7 @@ import { organizationBilling } from "@tearleads/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
-  computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
-  signWriteHeader,
 } from "@tearleads/crypto";
 import {
   createDocument as createLoroDocument,
@@ -23,6 +21,7 @@ import {
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { signWithDocumentEnvelope } from "../../../test/helpers/documentEnvelopeFixture";
 import {
   asVerifiedContainerManifest,
   bootstrapRoot,
@@ -48,11 +47,11 @@ async function createSignedDocumentSyncRequest(input: {
   const vectors = getUpdateVersionVectors(
     exportUpdatesSince(document, partialStartVersionVector),
   );
-  const encryptedData = `encrypted-lapsed-sync-update:${updateId}`;
   const plaintextHash = `plaintext-hash:${updateId}`;
   const organizationId = asVerifiedContainerManifest(input.root.bundle).state
     .organizationId;
-  const writeHeader = await signWriteHeader(
+  const { encryptedData, writeHeader } = await signWithDocumentEnvelope(
+    `encrypted-lapsed-sync-update:${updateId}`,
     {
       version: 1,
       dependencyManifestHashes: [input.root.bundle.manifestHash],
@@ -80,8 +79,6 @@ async function createSignedDocumentSyncRequest(input: {
         plaintextHash,
         updateId,
       }),
-      ciphertextHash:
-        await computeDocumentContentRecordCiphertextHash(encryptedData),
       writerUserId: input.owner.userId,
       writerDeviceId: "test-device",
       writerKeyFingerprint: input.owner.fingerprint,

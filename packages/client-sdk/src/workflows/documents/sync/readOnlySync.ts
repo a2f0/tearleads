@@ -19,9 +19,9 @@ import { limitDocumentSyncRequestBytes } from "../../../data/documents/shared/sy
 import type {
   DocumentSyncApi,
   DocumentSyncPlan,
+  IncomingDocumentSyncUpdateValidator,
   SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
-import type { IncomingDocumentSyncUpdateValidator } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
@@ -54,6 +54,7 @@ import {
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
+import { withPullCompletion } from "./pullOutcome";
 import {
   handleReadOnlyProjectionCompletionError,
   REFRESH_CACHED_PROJECTION,
@@ -73,6 +74,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     historyMode: input.historyMode,
     localVersionVector: input.localVersionVector,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
+    processedThroughUpdateId: input.processedThroughUpdateId,
     pullCursor: input.pullContinuation?.cursor,
     onSyncTrace: input.onSyncTrace,
     pendingUpdates: [],
@@ -94,10 +96,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     writerProjection: input.writerProjection,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
   });
-  return {
-    ...result,
-    hasIncompletePull: !input.pullComplete,
-  };
+  return withPullCompletion(result, input.pullComplete);
 }
 
 function parsePersistedDocumentSyncRecord<T>(
@@ -161,6 +160,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
   historyMode?: "raw" | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  processedThroughUpdateId?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   signedAt?: string | undefined;
@@ -183,6 +183,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     localVersionVector: input.localVersionVector,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
+    processedThroughUpdateId: input.processedThroughUpdateId,
     pullCursor: input.pullContinuation?.cursor,
     signedAt: input.signedAt,
   });
@@ -207,6 +208,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   historyMode?: "raw" | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  processedThroughUpdateId?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   onReadOnlyProjectionFailure?: TerminalSubmitFailureHandler | undefined;
   onRemoteDocumentDeleted?: RemoteDocumentDeletionHandler | undefined;
@@ -418,6 +420,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
         hasDeferredPendingUpdates: false,
+        hasHeldPull: false,
         hasIncompletePull: !submitted.pullComplete,
         persistedState,
         plan,
@@ -425,6 +428,8 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         response: submitted.response,
         settledPendingUpdateIds: [],
         acceptedRecoveryBaseline: false,
+        contentKeyFingerprintsByEpoch: new Map(),
+        voidedUpdates: [],
       },
     };
   } catch (error) {

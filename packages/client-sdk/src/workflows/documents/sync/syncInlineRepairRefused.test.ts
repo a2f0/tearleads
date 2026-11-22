@@ -18,6 +18,7 @@ import {
 } from "../../../../test/helpers/workflows/ancestorRotationRecovery";
 import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
@@ -84,7 +85,7 @@ test("a pass told to repair standalone commits every repair before writing", asy
       execSql: database.execSql,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     // Two stale levels fit inline, so an ordinary pass commits nothing itself.
     const inline = await prepareAutomaticContainerRekeys(sync, projection);
@@ -135,7 +136,7 @@ test("a refused inline batch retries the pass with standalone repairs", async ()
       },
       pendingUpdates: [createPendingUpdateRecord()],
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       writerProjection: projection,
     });
     // This mock keeps serving the pre-repair projection, which after the
@@ -190,7 +191,7 @@ test("a repair that carried the next level does not resubmit that level", async 
       execSql: database.execSql,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     requireStandaloneAncestorRepairs(sync);
     await expect(
@@ -254,7 +255,7 @@ test("a carry stops the prefix so the levels below it are re-planned", async () 
       execSql: database.execSql,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     requireStandaloneAncestorRepairs(sync);
     await expect(

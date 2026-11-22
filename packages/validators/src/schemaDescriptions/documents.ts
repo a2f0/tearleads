@@ -131,6 +131,8 @@ describeSchema(
     minLsn:
       "Commit LSN the server must have reached before answering, for read-after-write consistency.",
     outgoingUpdates: "Encrypted updates to upload.",
+    processedThroughUpdateId:
+      "The `throughUpdateId` of the client's last completed pull: it has imported or voided every update committed up to that one, so the response returns only later updates its version vector does not cover. Needs a non-null `localVersionVector`; an id outside this document is ignored.",
     pullCursor:
       "Continuation cursor from the previous page; a continuation is read-only.",
     supportsPullPagination: "Always true; every response is paged.",
@@ -166,6 +168,8 @@ describeSchema(
     hasMore: "True exactly when `nextCursor` is set.",
     nextCursor:
       "Opaque cursor for the next page, or null on the last page; it grants nothing, and each page is reauthorized.",
+    throughUpdateId:
+      "The last update committed when the pull began, the same on every page, or null when the document had none. Once the last page is processed, the client sends it back as `processedThroughUpdateId`.",
   },
 );
 

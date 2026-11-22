@@ -265,6 +265,7 @@ test("pagination redirects past a long covered history to its readable baseline"
     contentKeyEpoch: 2,
     documentId,
     executor: db,
+    firstPage: true,
     localVersionVector: null,
     upperBoundSequence: baselineSequence,
   });

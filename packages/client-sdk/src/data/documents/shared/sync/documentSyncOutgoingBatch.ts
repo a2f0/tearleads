@@ -93,6 +93,16 @@ function serializedBytes(value: unknown): number {
   return TEXT_ENCODER.encode(JSON.stringify(value)).byteLength;
 }
 
+/**
+ * A request without a version vector pulls the whole history, so it cannot
+ * carry the processed cursor recorded with that vector either.
+ */
+function withoutLocalVersionVector(
+  request: DocumentSyncRequest,
+): DocumentSyncRequest {
+  const { processedThroughUpdateId: _cursor, ...rest } = request;
+  return { ...rest, localVersionVector: null };
+}
 export function limitDocumentSyncRequestBytes(
   request: DocumentSyncRequest,
   options: { readonly requiredOutgoingUpdateId?: string | undefined } = {},
@@ -137,7 +147,7 @@ export function limitDocumentSyncRequestBytes(
     fitRequest(request) ??
     (request.localVersionVector === null
       ? null
-      : fitRequest({ ...request, localVersionVector: null }));
+      : fitRequest(withoutLocalVersionVector(request)));
   if (!bounded) {
     throw new DocumentSyncRequestLimitError(
       "Document sync update cannot fit within the request limit",

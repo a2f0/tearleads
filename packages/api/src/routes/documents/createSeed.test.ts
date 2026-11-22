@@ -1,11 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { documents, documentUpdates } from "@tearleads/api-shared/schema";
-import {
-  computeDocumentContentRecordCiphertextHash,
-  signWriteHeader,
-  type UnsignedWriteHeader,
-} from "@tearleads/crypto";
+import type { UnsignedWriteHeader } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   type DocumentCreateRequest,
@@ -18,6 +14,7 @@ import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";
 import type { CreatedDocumentFixture } from "../../../test/helpers/documentAcknowledgementFixture";
+import { signWithDocumentEnvelope } from "../../../test/helpers/documentEnvelopeFixture";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {
   asVerifiedContainerManifest,
@@ -256,14 +253,10 @@ async function reencryptedSeed(
 ): Promise<DocumentSyncRequest> {
   const [update] = seed.outgoingUpdates;
   if (!update) throw new Error("Expected a seed update");
-  const encryptedData = `${update.encryptedData}:fresh-iv`;
   const { signature: _signature, ...header } = update.writeHeader;
-  const writeHeader = await signWriteHeader(
-    {
-      ...(header as unknown as UnsignedWriteHeader),
-      ciphertextHash:
-        await computeDocumentContentRecordCiphertextHash(encryptedData),
-    },
+  const { encryptedData, writeHeader } = await signWithDocumentEnvelope(
+    "fresh-iv",
+    header as unknown as UnsignedWriteHeader,
     owner.signing.signingPrivateKey,
   );
   return {

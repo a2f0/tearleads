@@ -44,6 +44,7 @@ function record(input: Partial<MetadataRecord> = {}): MetadataRecord {
 /** Settle one metadata pull and return the folders the history recorded. */
 function settle(input: {
   consumed: Continuation;
+  pullIncomplete?: boolean;
   request: MetadataRecord;
   stored: MetadataRecord;
 }) {
@@ -51,6 +52,7 @@ function settle(input: {
   noteContainerMetadataDownloadDrained({
     container,
     domainScope,
+    pullIncomplete: input.pullIncomplete ?? false,
     storedRecord: input.stored,
     syncAttempt: {
       consumedPullContinuation: input.consumed,
@@ -116,4 +118,18 @@ test("a pull recovering a damaged continuation leaves the queue it was listed in
       stored: record({ metadataUpdates }),
     }).map((item) => item.localId),
   ).toEqual(["trips"]);
+});
+
+test("a first pull that deferred part of its page is not yet a download", async () => {
+  const metadataUpdates = await storedMetadata();
+  // Judging spent its budget: the page stored what it judged, with no
+  // continuation, and the next pass pulls the rest again.
+  expect(
+    settle({
+      consumed: null,
+      pullIncomplete: true,
+      request: record(),
+      stored: record({ metadataUpdates }),
+    }),
+  ).toEqual([]);
 });
