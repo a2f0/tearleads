@@ -41,7 +41,7 @@ test("ops health lists maintenance trouble and opens an organization's billing",
     expect(
       view.getByRole("tab", { name: "Billing" }).getAttribute("aria-selected"),
     ).toBe("true");
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     await view.findByRole("table", { name: "Seat sync" });
   } finally {
     restore();
@@ -60,7 +60,7 @@ test("an ops health failure shows an error and refresh can recover", async () =>
     await openRootReport(view, "Operations health");
     await view.findByText("Report temporarily unavailable");
     expect(view.queryByRole("table", { name: "Seat sync" })).toBeNull();
-    clickRootToolbarButton(view, "Refresh");
+    await clickRootToolbarButton(view, "Refresh");
     await view.findByRole("table", { name: "Seat sync" });
   } finally {
     report.mockRestore();

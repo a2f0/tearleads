@@ -35,7 +35,7 @@ test("operators suspend and lift a member account but not a root one", async () 
 
     await openIdentity(rootIdentity.signingKeyFingerprint);
     expect(view.queryByRole("button", { name: "Suspend account" })).toBeNull();
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
 
     await openIdentity(memberIdentity.signingKeyFingerprint);
     fireEvent.click(
