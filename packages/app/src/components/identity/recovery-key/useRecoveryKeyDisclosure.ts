@@ -22,7 +22,12 @@ import {
   RECOVERY_KEY_DISCLOSURES,
   type RecoveryKeyDisclosure,
 } from "./recoveryKeyDisclosure";
-import type { RecoveryKeyFeedback } from "./useRecoveryKeyRestore";
+
+/** Where a recovery-key action reports its outcome: one status, one error. */
+export interface RecoveryKeyFeedback {
+  readonly setError: (message: string | null) => void;
+  readonly setStatus: (message: string | null) => void;
+}
 
 async function copyRecoveryKey(recoveryKey: string) {
   if (typeof navigator === "undefined" || !navigator.clipboard) {
@@ -212,3 +217,7 @@ export function useRecoveryKeyDisclosure(
     revealed,
   };
 }
+
+export type RecoveryKeyDisclosureState = ReturnType<
+  typeof useRecoveryKeyDisclosure
+>;

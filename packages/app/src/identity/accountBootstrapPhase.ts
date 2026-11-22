@@ -11,6 +11,8 @@ import type { IdentityOnboardingState } from "./identityOnboardingMachine";
  * - `choosing-identity`: a fresh device offers creation or recovery.
  * - `naming-account`: creation or a previously pending registration awaits a name.
  * - `entering-passphrase`: the user can paste their recovery passphrase.
+ * - `confirming-backup`: a created identity waits for the user to back up its
+ *   recovery key and agree that they have.
  * - `restoring-identity`: the app is importing the recovered keys.
  * - `creating-account`: the autopilot is registering a new identity.
  * - `signing-in`: the autopilot is logging a restored identity back in.
@@ -139,6 +141,12 @@ const ACCOUNT_BOOTSTRAP_COPY: {
       "Create an identity or restore one with your recovery passphrase.",
     phase: "choosing-identity",
   },
+  "confirming-backup": {
+    title: "Back up your recovery key",
+    description:
+      "Your recovery key is the only way to restore this identity on a new device or after losing this one. Save it somewhere safe, such as a password manager or a printed copy, before you continue.",
+    phase: "confirming-backup",
+  },
   "entering-passphrase": {
     title: "Restore your identity",
     description:
@@ -179,6 +187,13 @@ const ACCOUNT_BOOTSTRAP_COPY: {
     title: "Signing you in",
   },
 };
+
+/**
+ * The backup agreement's copy, shared by onboarding and the Identity Manager
+ * prompt that follows creating another identity.
+ */
+export const RECOVERY_KEY_BACKUP_COPY =
+  ACCOUNT_BOOTSTRAP_COPY["confirming-backup"];
 
 /** Progress copy for a bootstrapping phase, or null once nothing is in flight. */
 export function accountBootstrapCopy(

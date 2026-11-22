@@ -29,6 +29,7 @@ import { useIdentityManagerIdentityMutations } from "./actions/useIdentityManage
 import { CURRENT_SESSION_MUTATION_ID } from "./IdentityManagerConstants";
 import { getIdentityState } from "./IdentityManagerIdentityState";
 import { useIdentitySwitcher } from "./switcher/useIdentitySwitcher";
+import { useNewIdentityBackupPrompt } from "./switcher/useNewIdentityBackupPrompt";
 
 type DatabaseContextValue = ReturnType<typeof useDatabase>;
 type LogContextValue = ReturnType<typeof useLog>;
@@ -276,6 +277,23 @@ function deriveIdentityManagerStatus(
  * object for the presentational layout. Kept out of the component file so the
  * view module stays presentational.
  */
+/** Offers the window's Refresh item for the session list while it shows. */
+function useSessionRefreshMenuItem(
+  canManageSessions: boolean,
+  sessionList: ReturnType<typeof useIdentityManagerSessionList>,
+  mutatingSessionId: string | null,
+) {
+  useWindowRefreshMenuItem(
+    canManageSessions
+      ? {
+          disabled: sessionList.loadingSessions || mutatingSessionId !== null,
+          onRefresh: sessionList.refreshSessions,
+          refreshing: sessionList.loadingSessions,
+        }
+      : null,
+  );
+}
+
 export function useIdentityManager() {
   const tearleads = useTearleads();
   const session = useCryptoSession();
@@ -323,20 +341,20 @@ export function useIdentityManager() {
     identityMutations.isDestroyKeyPackageDialogOpen ||
     logoutBusy ||
     identityMutations.identityBusy !== null;
-  const identitySwitcher = useIdentitySwitcher(identity, switcherBusy);
-  useWindowRefreshMenuItem(
-    canManageSessions
-      ? {
-          disabled:
-            sessionList.loadingSessions ||
-            sessionMutations.mutatingSessionId !== null,
-          onRefresh: sessionList.refreshSessions,
-          refreshing: sessionList.loadingSessions,
-        }
-      : null,
+  const backupPrompt = useNewIdentityBackupPrompt(identity.signingFingerprint);
+  const identitySwitcher = useIdentitySwitcher(
+    identity,
+    switcherBusy,
+    backupPrompt.identityCreated,
+  );
+  useSessionRefreshMenuItem(
+    canManageSessions,
+    sessionList,
+    sessionMutations.mutatingSessionId,
   );
 
   return {
+    backupPrompt,
     canAuthenticate,
     canManageSessions,
     identity,

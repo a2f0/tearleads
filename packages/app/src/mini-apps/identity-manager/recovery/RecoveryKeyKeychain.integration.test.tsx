@@ -8,6 +8,7 @@ import {
 } from "../../../../test/helpers/recoveryKeyTestKit";
 import "../../../../test/helpers/msw/server";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../components/identity/recovery-key/recoveryKeyDisclosure";
 import type {
   PasswordKeychain,
   PasswordKeychainEntry,
@@ -16,7 +17,6 @@ import {
   identityKeychainEntry,
   KEYCHAIN_SAVE_STATUS,
 } from "../../../identity/identityKeychain";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../actions/recoveryKeyDisclosure";
 
 afterEach(cleanupRecoveryKeyTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 

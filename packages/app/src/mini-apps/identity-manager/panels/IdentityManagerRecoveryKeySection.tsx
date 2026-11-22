@@ -1,4 +1,9 @@
 import { useId, useState } from "react";
+import { RecoveryKeyBackupControls } from "../../../components/identity/recovery-key/RecoveryKeyBackupControls";
+import {
+  type RecoveryKeyFeedback,
+  useRecoveryKeyDisclosure,
+} from "../../../components/identity/recovery-key/useRecoveryKeyDisclosure";
 import {
   MiniAppSection,
   MiniAppSectionHeading,
@@ -9,13 +14,7 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { useIdentity } from "../../../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../../../providers/local-keyring/LocalKeyringLockProvider";
-import { useRecoveryKeyDisclosure } from "../actions/useRecoveryKeyDisclosure";
-import {
-  type RecoveryKeyFeedback,
-  useRecoveryKeyRestore,
-} from "../actions/useRecoveryKeyRestore";
-import { RecoveryKeyDisclosureDialog } from "../recovery/RecoveryKeyDisclosureDialog";
-import { RecoveryKeyDisplay } from "../recovery/RecoveryKeyDisplay";
+import { useRecoveryKeyRestore } from "../actions/useRecoveryKeyRestore";
 import { RecoveryKeyRestoreForm } from "../recovery/RecoveryKeyRestoreForm";
 
 type RecoveryKeyTabId = "backup" | "recovery";
@@ -62,20 +61,10 @@ export function IdentityManagerRecoveryKeySection() {
       />
       <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
         {activeTab === "backup" ? (
-          <>
-            <RecoveryKeyDisplay
-              onHide={disclosure.hide}
-              onRequestDisclosure={disclosure.requestDisclosure}
-              revealed={disclosure.revealed}
-              qrRevealed={disclosure.qrRevealed}
-              seedPhrase={seedPhrase}
-            />
-            <RecoveryKeyDisclosureDialog
-              onCancel={disclosure.cancelDisclosure}
-              onConfirm={disclosure.confirmDisclosure}
-              pendingDisclosure={disclosure.pendingDisclosure}
-            />
-          </>
+          <RecoveryKeyBackupControls
+            disclosure={disclosure}
+            seedPhrase={seedPhrase}
+          />
         ) : (
           <RecoveryKeyRestoreForm
             key={signingFingerprint ?? "no-identity"}

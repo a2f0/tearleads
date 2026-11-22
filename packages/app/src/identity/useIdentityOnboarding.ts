@@ -22,12 +22,28 @@ export interface OnboardingSubmitOptions {
 
 export interface IdentityOnboarding {
   readonly state: IdentityOnboardingState;
+  /** Records that the new identity's recovery key is backed up. */
+  readonly confirmBackup: () => void;
   readonly navigate: (phase: OnboardingNavigation) => void;
   readonly submit: (
     form: OnboardingForm,
     value: string,
     options?: OnboardingSubmitOptions,
   ) => void;
+}
+
+const FAILURE_MESSAGE = {
+  "naming-account": "Could not create your identity. Try again.",
+  "entering-passphrase":
+    "Could not restore your identity. Check your recovery passphrase and try again.",
+} as const;
+
+/**
+ * An operation in flight, or a created identity awaiting its backup, keeps
+ * onboarding on screen after the new key has made it unavailable.
+ */
+function holdsOnboarding(state: IdentityOnboardingState): boolean {
+  return "request" in state || state.status === "confirming-backup";
 }
 
 function useOnboardingTransitions() {
@@ -54,14 +70,12 @@ function useOnboardingTransitions() {
       setState(next);
     }
   }, []);
-  return { state, send, isCurrent };
+  const confirmBackup = useCallback(
+    () => send({ type: "confirm-backup" }),
+    [send],
+  );
+  return { confirmBackup, isCurrent, send, state };
 }
-
-const ONBOARDING_FAILURE: Record<OnboardingForm, string> = {
-  "entering-passphrase":
-    "Could not restore your identity. Check your recovery passphrase and try again.",
-  "naming-account": "Could not create your identity. Try again.",
-};
 
 export function useIdentityOnboarding(
   enabled: boolean,
@@ -86,7 +100,7 @@ export function useIdentityOnboarding(
     !identityDestroyed &&
     !identityTransitionInFlight &&
     signingKeyPair === null;
-  const { state, send, isCurrent } = useOnboardingTransitions();
+  const { confirmBackup, isCurrent, send, state } = useOnboardingTransitions();
   const offerKeychainSave = useOfferIdentityKeychainSave();
   const navigate = useCallback(
     (phase: OnboardingNavigation) => {
@@ -130,8 +144,7 @@ export function useIdentityOnboarding(
           if (isCurrent(request) && !options?.fromKeychain) offerKeychainSave();
           send({ type: "finish", request });
         },
-        () =>
-          send({ type: "finish", request, error: ONBOARDING_FAILURE[form] }),
+        () => send({ type: "finish", request, error: FAILURE_MESSAGE[form] }),
       );
     },
     [
@@ -148,9 +161,9 @@ export function useIdentityOnboarding(
       send,
     ],
   );
-  const visible = available || ("request" in state && enabled && !isLocked);
+  const visible = available || (holdsOnboarding(state) && enabled && !isLocked);
   return useMemo(
-    () => (visible ? { navigate, state, submit } : null),
-    [navigate, state, submit, visible],
+    () => (visible ? { confirmBackup, navigate, state, submit } : null),
+    [confirmBackup, navigate, state, submit, visible],
   );
 }

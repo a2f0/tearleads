@@ -167,4 +167,19 @@ test("progress copy exists only for bootstrapping phases", () => {
     phase: "naming-account",
     title: "What should we call you?",
   });
+  expect(accountBootstrapCopy("confirming-backup")).toMatchObject({
+    phase: "confirming-backup",
+    title: "Back up your recovery key",
+  });
+});
+
+test("a created identity awaiting its backup agreement holds onboarding until sign-in", () => {
+  // The key exists and registration is waiting, but the agreement outranks
+  // both until the session signs in.
+  expect(
+    phaseOf({ onboardingPhase: "confirming-backup", registration: "idle" }),
+  ).toBe("confirming-backup");
+  expect(
+    phaseOf({ isAuthenticated: true, onboardingPhase: "confirming-backup" }),
+  ).toBe("signed-in");
 });

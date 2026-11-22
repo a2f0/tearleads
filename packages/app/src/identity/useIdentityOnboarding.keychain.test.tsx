@@ -40,6 +40,9 @@ function renderOnboarding(
       () => {},
     );
     if (!onboarding) return <p>Onboarded</p>;
+    // A created identity waits on its backup agreement; a restore does not.
+    if (onboarding.state.status === "confirming-backup")
+      return <p>Backing up</p>;
     return onboarding.state.status === "choosing-identity" ? (
       <button type="button" onClick={() => onboarding.navigate(form)}>
         Choose
@@ -71,7 +74,7 @@ test("creating an identity offers its new recovery passphrase to the keychain", 
   const { save, sdkRef, view } = renderOnboarding("naming-account", "Bob");
   fireEvent.click(await view.findByText("Choose"));
   fireEvent.click(await view.findByText("Submit"));
-  await view.findByText("Onboarded");
+  await view.findByText("Backing up");
   const { seedPhrase, signingFingerprint } = sdkRef.current?.identity ?? {};
   if (!seedPhrase || !signingFingerprint)
     throw new Error("Expected an identity");
@@ -123,7 +126,7 @@ test("a device with no password manager is logged, not reported as an error", as
   );
   fireEvent.click(await view.findByText("Choose"));
   fireEvent.click(await view.findByText("Submit"));
-  await view.findByText("Onboarded");
+  await view.findByText("Backing up");
   await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
   await waitFor(() =>
     expect(logRef.current.map((entry) => entry.message)).toContain(
