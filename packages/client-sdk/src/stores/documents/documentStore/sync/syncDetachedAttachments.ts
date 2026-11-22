@@ -149,6 +149,9 @@ async function settleDetachMarkers(
       marker,
       replacedBindingId: sightings.confirmed(marker.slotId),
     });
+    // A detach refused at this version leaves its marker for a newer view
+    // without holding up the markers after it.
+    if (settled === "waiting") continue;
     if (!settled) break;
     if (settled.status === "bindingReplaced" && binding) {
       sighted = sightings.sight(marker.slotId, binding.bindingId) || sighted;
@@ -196,7 +199,8 @@ async function listActiveBindings(
 /**
  * Settle one marker: committed history first, then the detach it still owes,
  * then committed history again for a re-add that landed while it was sent.
- * Null stops the pass, leaving the marker for a later one.
+ * Null stops the pass, leaving the marker for a later one; `"waiting"` leaves
+ * it for a newer view, since its detach was refused at this one.
  */
 async function settleDetachedAttachmentMarker(input: {
   binding: DocumentAttachmentBinding | undefined;
@@ -209,7 +213,7 @@ async function settleDetachedAttachmentMarker(input: {
   requestRecord: DocumentRecord;
   state: DocumentStoreState;
   view: SyncedDocumentView;
-}): Promise<AttachmentRemovalMarker | null> {
+}): Promise<AttachmentRemovalMarker | "waiting" | null> {
   const { binding, marker, requestRecord, state } = input;
   const settle = (from: OpenAttachmentRemovalMarker) =>
     settleStoreAttachmentRemovalMarker({
@@ -225,15 +229,16 @@ async function settleDetachedAttachmentMarker(input: {
   // A slot the live document records is only realigned, never detached: a
   // staged re-add may yet commit.
   if (settled?.status !== "awaitingDetach" || marker.recorded) return settled;
+  if (!binding || !requestRecord.documentId) return null;
+  const step = planAttachmentSlotDetach(
+    state,
+    marker.slotId,
+    binding,
+    input.view.versionVector,
+  );
+  if (step === "wait") return "waiting";
   if (
-    !binding ||
-    !requestRecord.documentId ||
-    planAttachmentSlotDetach(
-      state,
-      marker.slotId,
-      binding,
-      input.view.versionVector,
-    ) !== "detach" ||
+    step !== "detach" ||
     !(await detachAttachmentBinding({
       binding,
       generation: input.generation,

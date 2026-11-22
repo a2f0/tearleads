@@ -140,6 +140,8 @@ test.each([
               (item) => item.slotId === attachment.slotId,
             );
             if (!binding || !author) throw new Error("Missing personal avatar");
+            const documentVersionVector = other.getSnapshot().versionVector;
+            if (!documentVersionVector) throw new Error("Missing version");
             // Leave the signed changed document intact while its blob is absent.
             expect(
               await runtime.blobAttachments.detachDocumentAttachment({
@@ -148,7 +150,7 @@ test.each([
                 documentId: docId,
                 // The synced version still records the slot; this direct
                 // detach is the test's own, not the store's reconciliation.
-                documentVersionVector: other.getSnapshot().versionVector ?? "",
+                documentVersionVector,
                 resolveProjectionUserKey:
                   sdk.containerContents.documentLinks()
                     .resolveProjectionUserKey,

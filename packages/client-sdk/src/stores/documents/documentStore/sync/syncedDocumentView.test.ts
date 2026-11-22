@@ -3,6 +3,7 @@ import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import {
   addDocumentAttachments,
   ensureDocumentAttachmentStructure,
+  getDocumentAttachments,
 } from "../../../../data/documents/documentContent";
 import type { DocumentStoreState } from "../state";
 import { captureSyncedDocumentView } from "./syncedDocumentView";
@@ -52,4 +53,18 @@ test("a document holding an edit not yet enqueued is never cited", async () => {
   doc.commit();
   expect(captureSyncedDocumentView(storeAt(enqueued), doc)).toBeNull();
   expect(captureSyncedDocumentView(storeAt(null), doc)).toBeNull();
+});
+
+test("a slot whose entry this client cannot parse is still recorded", async () => {
+  const doc = await documentRecordingSlot();
+  // A newer client rewrote the entry in a shape this one does not read.
+  doc.getMap("content").set("attachment:avatar", "v2");
+  doc.commit();
+  expect(getDocumentAttachments(doc)).toEqual([]);
+
+  const view = captureSyncedDocumentView(
+    storeAt(encodeVersionVector(doc)),
+    doc,
+  );
+  expect(view?.slotIds).toEqual(new Set(["avatar"]));
 });

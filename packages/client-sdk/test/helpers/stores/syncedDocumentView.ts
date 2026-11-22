@@ -1,5 +1,5 @@
 import { encodeVersionVector } from "@tearleads/loro";
-import { getDocumentAttachments } from "../../../src/data/documents/documentContent";
+import { listRecordedAttachmentSlotIds } from "../../../src/data/documents/documentContent";
 import type { DocumentState } from "../../../src/stores/documents/documentStore/state";
 import type { SyncedDocumentView } from "../../../src/stores/documents/documentStore/sync/syncedDocumentView";
 
@@ -12,9 +12,7 @@ export function liveDocumentView(
 ): SyncedDocumentView {
   if (!doc) throw new Error("Expected a loaded document");
   return {
-    slotIds: new Set(
-      getDocumentAttachments(doc).map((attachment) => attachment.slotId),
-    ),
+    slotIds: new Set(listRecordedAttachmentSlotIds(doc)),
     versionVector: encodeVersionVector(doc),
   };
 }

@@ -59,6 +59,17 @@ function sameVersion(left: string, right: string): boolean {
   );
 }
 
+/** Whether a detach refused at `versionVector` still waits for a newer view. */
+export function isRemovedSlotDetachWaiting(
+  state: RemovedSlotDetachState | undefined,
+  versionVector: string,
+): boolean {
+  return (
+    state?.status === "refused" &&
+    sameVersion(state.versionVector, versionVector)
+  );
+}
+
 /**
  * What a pass owes a slot it may detach, given the binding the server lists
  * for it and the version of the pass's synced view. A refused detach waits
@@ -74,7 +85,7 @@ export function planRemovedSlotDetach(
   if (
     state?.status === "refused" &&
     state.bindingId === binding.bindingId &&
-    sameVersion(state.versionVector, versionVector)
+    isRemovedSlotDetachWaiting(state, versionVector)
   ) {
     return "wait";
   }

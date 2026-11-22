@@ -1,10 +1,10 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
-import { getDocumentAttachments } from "../../../../data/documents/documentContent";
+import { listRecordedAttachmentSlotIds } from "../../../../data/documents/documentContent";
 import type { DocumentState, DocumentStoreState } from "../state";
 
 /** A version of the document holding only ops the server has, read in one step. */
 export interface SyncedDocumentView {
-  /** The slots this version records. */
+  /** The slots this version holds an entry for, whether or not it parses. */
   readonly slotIds: ReadonlySet<string>;
   readonly versionVector: string;
 }
@@ -28,9 +28,7 @@ export function captureSyncedDocumentView(
     return null;
   }
   return {
-    slotIds: new Set(
-      getDocumentAttachments(doc).map((attachment) => attachment.slotId),
-    ),
+    slotIds: new Set(listRecordedAttachmentSlotIds(doc)),
     versionVector,
   };
 }

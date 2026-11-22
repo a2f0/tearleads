@@ -57,17 +57,16 @@ test("attachment operations own their shared HTTP contracts", () => {
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
-    // Bind/detach share the container path resolver, so their 409 carries the
-    // coded `container_unavailable` envelope (#2278 #4).
+    // Bind/detach share the container path resolver and the document version
+    // precondition, so their 409 carries the coded `container_unavailable` or
+    // `attachment_document_changed` envelope (#2278 #4).
     409: BlobMutationFailureResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   };
-  // A bind's 409 may instead name a document that advanced past its version.
-  expect(bindBlobAttachmentOperation.failureResponses).toEqual({
-    ...mutationFailures,
-    409: BlobMutationFailureResponseSchema,
-  });
+  expect(bindBlobAttachmentOperation.failureResponses).toEqual(
+    mutationFailures,
+  );
   expect(detachBlobAttachmentOperation.failureResponses).toEqual(
     mutationFailures,
   );

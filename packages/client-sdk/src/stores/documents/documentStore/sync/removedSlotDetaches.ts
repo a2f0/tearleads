@@ -1,4 +1,5 @@
 import {
+  isRemovedSlotDetachWaiting,
   planRemovedSlotDetach,
   type RemovedSlotDetachEvent,
   type RemovedSlotDetachState,
@@ -72,18 +73,25 @@ export function observeRecordedAttachmentSlots(
 
 /**
  * Slots this store saw recorded that `view` lacks and whose bytes it neither
- * holds nor is uploading: a held copy settles through its removal marker.
+ * holds nor is uploading: a held copy settles through its removal marker. A
+ * slot whose detach was refused at this very version is left out, so a pass
+ * lists bindings again only once the view moves.
  */
 export function listRemovedAttachmentSlots(
   state: ObservingStore,
-  view: { readonly slotIds: ReadonlySet<string> },
+  view: {
+    readonly slotIds: ReadonlySet<string>;
+    readonly versionVector: string;
+  },
 ): string[] {
   const uploading = new Set(state.pendingAttachments.map((row) => row.slotId));
-  return [...observationsFor(state).slots.keys()].filter(
-    (slotId) =>
-      !view.slotIds.has(slotId) &&
-      !state.attachmentStorageKeyBySlotId[slotId] &&
-      !uploading.has(slotId),
+  return [...observationsFor(state).slots].flatMap(([slotId, slot]) =>
+    !view.slotIds.has(slotId) &&
+    !state.attachmentStorageKeyBySlotId[slotId] &&
+    !uploading.has(slotId) &&
+    !isRemovedSlotDetachWaiting(slot, view.versionVector)
+      ? [slotId]
+      : [],
   );
 }
 

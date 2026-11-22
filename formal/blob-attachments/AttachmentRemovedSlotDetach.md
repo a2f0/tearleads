@@ -15,11 +15,13 @@ every committed op and every op of the version the binding was bound at.
 | `ImporterBind` | `assertAttachmentDocumentVersionCurrent` checks the bind's version, and `storeVerifiedAttachmentBindingInTransaction` stores it with the binding as `bindDocumentVersion` |
 | `Observe` | `observeRecordedAttachmentSlots` records each slot a published snapshot holds, so only a slot this client parsed can count as removed |
 | `ObserveSynced` | `captureSyncedDocumentView` reads the live document only while `pendingBaseVersion` covers it and no local write is queued, before the pass lists pending updates; `canSyncDetachedAttachmentBindings` then requires none |
+| `ObserveSynced` | `listRecordedAttachmentSlotIds` reads the view's slots from the content map's keys, so an entry this client cannot parse still counts as recorded |
 | `ObserveSynced` | `listRemovedAttachmentSlots` names the seen slots the view lacks that the store neither holds nor uploads, and `listDocumentAttachments` lists their bindings |
 | `Detach` | `detachRemovedSlotBindings` sends `detachAttachmentBinding` with the view's version |
 | `Detach` | `assertAttachmentDocumentVersionCurrent` runs `hasDocumentOpsBeyondVersion` under the document head lock `lockAttachmentAuthorizationForShare` took |
 | `Detach` | `assertDetachCoversBindVersion` runs `documentVersionCovers` against the binding's stored version |
 | `Detach` (refused) | `isAttachmentDocumentChanged` reads the refusal, and `planRemovedSlotDetach` waits for a newer view before sending that binding's detach again |
+| `Detach` (refused) | `isRemovedSlotDetachWaiting` keeps a waiting slot out of `listRemovedAttachmentSlots`, so a pass lists bindings again only once the view moves; a waiting marker does not hold up the markers after it |
 | `Push` / `Restore` | `appendDocumentUpdates` commits each device's update under `lockSyncDocumentWriteFrontier` |
 | `RestoreBind` | `bindBlobAttachment` commits the restoring device's own bytes before its content update |
 
@@ -75,9 +77,11 @@ refuse a detach behind a committed edit and one that lacks the binding's
 unsent op. The store regressions in
 [`removedSlotDetach.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/sync/removedSlotDetach.test.ts)
 detach a never-held slot's binding at the view's version, leave a slot the
-client never parsed, and wait after a refusal;
+client never parsed, wait after a refusal without listing again, and let a
+held copy's waiting marker pass to the next;
 [`syncedDocumentView.test.ts`](../../packages/client-sdk/src/stores/documents/documentStore/sync/syncedDocumentView.test.ts)
-refuses to cite a document holding an edit not yet enqueued. The CLI
+refuses to cite a document holding an edit not yet enqueued and keeps an
+unparsed entry recorded. The CLI
 regression
 [`seedOfflineRemoval.e2e.test.ts`](../../packages/cli/src/seedOfflineRemoval.e2e.test.ts)
 removes the slot offline, lets the importer bind, and ends with no binding,
