@@ -244,7 +244,6 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         blobStore={params.blobStore}
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
         domainScope={params.domainScope}
-        documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
         isAuthenticated={params.isAuthenticated}
         loadBlobInfo={params.loadBlobInfo}

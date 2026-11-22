@@ -22,6 +22,7 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
+import { useDomainSyncSnapshot } from "../../../../providers/sdk/useDomainSyncSnapshot";
 import type { ExplorerUploadItem } from "../../../../stores/explorer/explorerUploadItemMachine";
 import { formatByteLength } from "../../../../utils/formatByteLength";
 import { getExplorerUploadStatusText } from "../../hooks/explorerUploadState";
@@ -31,7 +32,6 @@ import {
   getExplorerSyncLaneUploadProgressLabel,
   getExplorerUploadsSummaryLabel,
 } from "../../labels";
-import { useDomainSyncSnapshot } from "../sync/useDomainSyncSnapshot";
 import {
   ExplorerTransferNameCell,
   type ExplorerTransferProgress,

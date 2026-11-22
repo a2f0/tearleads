@@ -4,7 +4,7 @@ import {
   subscribeToDomainSyncCoordinator,
 } from "@tearleads/client-sdk";
 import { useCallback } from "react";
-import { useTearleadsExternalValue } from "../../../../providers/sdk/useTearleadsSubscription";
+import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
 export function useDomainSyncSnapshot(
   domainScope: DomainScope,
