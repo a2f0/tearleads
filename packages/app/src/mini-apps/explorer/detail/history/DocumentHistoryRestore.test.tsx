@@ -73,7 +73,11 @@ function mount(
   } = {},
 ) {
   const scope = { current: {} as object };
-  const element = (readOnly: boolean, index = 2) => (
+  const element = (
+    readOnly: boolean,
+    index = 2,
+    versionTime: string | null = "Jan 1, 2030, 12:00:00 PM",
+  ) => (
     <DocumentContext.Provider value={store}>
       <DocumentWriteScopeContext.Provider value={scope.current}>
         <DocumentReadOnlyContext.Provider value={readOnly}>
@@ -82,7 +86,7 @@ function mount(
             isLatest={options.isLatest ?? false}
             onRequested={options.onRequested ?? (() => undefined)}
             onRestored={options.onRestored ?? (() => undefined)}
-            versionTime="Jan 1, 2030, 12:00:00 PM"
+            versionTime={versionTime}
             view={VIEW}
           />
         </DocumentReadOnlyContext.Provider>
@@ -92,12 +96,22 @@ function mount(
   const view = render(element(false));
   return {
     ...view,
-    /** Re-render, optionally read-only, at another stop, or under a new scope. */
+    /**
+     * Re-render, optionally read-only, at another stop, under a new scope, or
+     * with the version's time shown differently.
+     */
     update: (
-      next: { index?: number; newScope?: boolean; readOnly?: boolean } = {},
+      next: {
+        index?: number;
+        newScope?: boolean;
+        readOnly?: boolean;
+        versionTime?: string | null;
+      } = {},
     ) => {
       if (next.newScope) scope.current = {};
-      view.rerender(element(next.readOnly ?? false, next.index));
+      view.rerender(
+        element(next.readOnly ?? false, next.index, next.versionTime),
+      );
     },
   };
 }
@@ -264,4 +278,34 @@ test("a restore that did not persist is reported, and moving on clears it", asyn
       view.queryByText(EXPLORER_LABELS.documentHistoryRestoreRefused),
     ).toBeNull(),
   );
+});
+
+test("an open confirmation keeps the time it was asked with", () => {
+  const view = mount(liveDocument().store);
+  view.update({ versionTime: null });
+  const restore = () =>
+    fireEvent.click(
+      view.getByRole("button", {
+        name: EXPLORER_LABELS.documentHistoryRestoreAction,
+      }),
+    );
+  const message = () => view.getByRole("dialog").textContent;
+
+  // Asked before the time was known: it names none, and goes on naming none
+  // when the time arrives, rather than change while it is read.
+  restore();
+  expect(message()).toContain("how they were in this version.");
+  view.update({ versionTime: "noon" });
+  expect(message()).toContain("how they were in this version.");
+
+  // Asked again, it names the time shown now.
+  fireEvent.click(
+    view.getByRole("button", {
+      name: EXPLORER_LABELS.documentHistoryRestoreCancel,
+    }),
+  );
+  restore();
+  expect(message()).toContain("how they were at noon.");
+  view.update({ versionTime: "one o'clock" });
+  expect(message()).toContain("how they were at noon.");
 });

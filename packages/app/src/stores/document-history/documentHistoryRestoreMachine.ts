@@ -3,13 +3,20 @@
  *
  * - `idle`: nothing asked.
  * - `confirming`: the user asked to restore stop `index` and must confirm.
+ *   `versionTime` is the version's time as shown when they asked, which the
+ *   confirmation names for as long as it is open.
  * - `restoring`: the write is in flight.
  * - `refused`: the last restore did not persist (the document could not be
  *   written, or the request was superseded).
  */
 export type DocumentHistoryRestoreState =
   | { readonly status: "idle" }
-  | { readonly index: number; readonly status: "confirming" }
+  | {
+      readonly index: number;
+      readonly status: "confirming";
+      /** Null when the time was not known yet. */
+      readonly versionTime: string | null;
+    }
   | {
       readonly index: number;
       readonly run: number;
@@ -18,7 +25,11 @@ export type DocumentHistoryRestoreState =
   | { readonly status: "refused" };
 
 export type DocumentHistoryRestoreEvent =
-  | { readonly index: number; readonly type: "requested" }
+  | {
+      readonly index: number;
+      readonly type: "requested";
+      readonly versionTime: string | null;
+    }
   | { readonly type: "cancelled" }
   | { readonly run: number; readonly type: "confirmed" }
   | {
@@ -57,7 +68,11 @@ export function transitionDocumentHistoryRestore(
   }
   switch (event.type) {
     case "requested":
-      return { index: event.index, status: "confirming" };
+      return {
+        index: event.index,
+        status: "confirming",
+        versionTime: event.versionTime,
+      };
     case "cancelled":
     case "stop-changed":
       return state.status === "idle" ? state : IDLE_DOCUMENT_HISTORY_RESTORE;
