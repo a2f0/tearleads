@@ -13,8 +13,11 @@ export const EXPLORER_DOCUMENT_HISTORY_LABELS = {
   documentHistoryCopyAction: "Save as copy",
   documentHistoryCopyCancel: "Cancel",
   documentHistoryCopyConfirm: "Save copy",
-  documentHistoryCopyMessage: (versionTime: string) =>
-    `A new document is saved in the same folder with the text, fields, and rows this one had at ${versionTime}. Attachments are not copied, and this document is not changed.`,
+  /** Null while the version's time is not known yet. */
+  documentHistoryCopyMessage: (versionTime: string | null) =>
+    versionTime === null
+      ? "A new document is saved in the same folder with the text, fields, and rows of this version. Attachments are not copied, and this document is not changed."
+      : `A new document is saved in the same folder with the text, fields, and rows this one had at ${versionTime}. Attachments are not copied, and this document is not changed.`,
   documentHistoryCopyOpenAction: "Open copy",
   documentHistoryCopyRefused: "This version could not be saved as a copy.",
   documentHistoryCopySaved: "Saved a copy in this folder.",
@@ -37,8 +40,9 @@ export const EXPLORER_DOCUMENT_HISTORY_LABELS = {
   documentHistoryRestoreAction: "Restore this version",
   documentHistoryRestoreCancel: "Cancel",
   documentHistoryRestoreConfirm: "Restore",
-  documentHistoryRestoreMessage: (versionTime: string) =>
-    `The document's text, fields, and rows go back to how they were at ${versionTime}. Attachments are not changed. Today's version stays in History, so this can be undone.`,
+  /** Null while the version's time is not known yet. */
+  documentHistoryRestoreMessage: (versionTime: string | null) =>
+    `The document's text, fields, and rows go back to how they were ${versionTime === null ? "in this version" : `at ${versionTime}`}. Attachments are not changed. Today's version stays in History, so this can be undone.`,
   documentHistoryRestoreRefused: "This version could not be restored.",
   documentHistoryRestoreTitle: "Restore this version?",
   documentHistoryRowsAddedOne: "Added a row",
@@ -52,6 +56,7 @@ export const EXPLORER_DOCUMENT_HISTORY_LABELS = {
   documentHistoryTextRemoved: "Removed",
   documentHistoryTextReplaced: "Replaced",
   documentHistoryTextReplacedWith: "with",
+  documentHistoryTimeChecking: "Checking when this was uploaded...",
   documentHistoryTimeUnknown: "Time not recorded",
   documentHistoryUploadedBy: "Uploaded by",
   documentHistoryUnavailable:

@@ -58,7 +58,7 @@ test("every page is read, each bound to the first page's revision", async () => 
     "update-1",
     "update-2",
   ]);
-  expect(ranges?.revision).toBe(12);
+  expect(ranges).toMatchObject({ revision: 12, status: "complete" });
   expect(api.requests).toEqual([
     {
       cursor: null,
@@ -93,25 +93,20 @@ test("a document with too many uploads is read as having none", async () => {
     api.containerContents,
     "document-1",
   );
-  expect(read).toEqual({
-    firstUpdateId: "update-0",
-    ranges: [],
-    revision: 12,
-  });
+  expect(read).toEqual({ ranges: [], status: "tooMany" });
   expect(api.requests).toHaveLength(40);
 
-  // Found once, it is not paged through again while nothing is uploaded.
+  // Found once, it stands for the document and session: uploads only add
+  // ranges, so it is not asked about again, whatever the revision.
   api.requests.length = 0;
   expect(
     await loadAllDocumentAttributionRanges(
       api.containerContents,
       "document-1",
-      {
-        held: read,
-      },
+      { held: read },
     ),
   ).toBe(read);
-  expect(api.requests).toHaveLength(1);
+  expect(api.requests).toHaveLength(0);
 });
 
 test("a read nobody is waiting for stops before its next page", async () => {
@@ -151,9 +146,17 @@ test("a document nothing was uploaded to since costs one request", async () => {
     { held },
   );
 
-  // The same revision and first upload: what is held is still everything.
+  // The same revision and first update: what is held is still everything.
+  // One range is enough to tell.
   expect(again).toBe(held);
-  expect(api.requests).toHaveLength(1);
+  expect(api.requests).toEqual([
+    {
+      cursor: null,
+      documentId: "document-1",
+      expectedRevision: undefined,
+      limit: 1,
+    },
+  ]);
 });
 
 test("a document that gained an upload is read again in full", async () => {
@@ -162,6 +165,7 @@ test("a document that gained an upload is read again in full", async () => {
     firstUpdateId: "update-0",
     ranges: [range("update-0")],
     revision: 11,
+    status: "complete" as const,
   };
 
   const read = await loadAllDocumentAttributionRanges(
@@ -174,12 +178,24 @@ test("a document that gained an upload is read again in full", async () => {
     "update-0",
     "update-1",
   ]);
-  expect(read?.revision).toBe(12);
-  // The same revision under another first upload is another history.
+  expect(read).toMatchObject({ revision: 12, status: "complete" });
+  // The probe's range is kept, and the read goes on from it in full pages.
+  expect(
+    api.requests.map(({ cursor, expectedRevision, limit }) => ({
+      cursor,
+      expectedRevision,
+      limit,
+    })),
+  ).toEqual([
+    { cursor: null, expectedRevision: undefined, limit: 1 },
+    { cursor: "1", expectedRevision: 12, limit: 500 },
+  ]);
+  // The same revision under another first update is another history.
   const other = {
     firstUpdateId: "update-x",
     ranges: [range("update-x")],
     revision: 12,
+    status: "complete" as const,
   };
   expect(
     (
@@ -190,6 +206,57 @@ test("a document that gained an upload is read again in full", async () => {
       )
     )?.ranges,
   ).toHaveLength(2);
+});
+
+/** `total` ranges served as many at a time as asked for, at one revision. */
+function servedRanges(total: number) {
+  return {
+    loadDocumentAttributionRanges: async (
+      input: DocumentAttributionRangesInput,
+    ): Promise<DocumentAttributionRangesPage> => {
+      const offset = input.cursor ? Number(input.cursor) : 0;
+      const end = Math.min(total, offset + (input.limit ?? 100));
+      const items = Array.from({ length: end - offset }, (_, index) =>
+        range(`update-${offset + index}`),
+      );
+      return {
+        attributionRevision: 12,
+        documentId: input.documentId,
+        hasMore: end < total,
+        items,
+        nextCursor: end < total ? String(end) : null,
+      };
+    },
+  };
+}
+
+test("a refresh gives up exactly where a first read does", async () => {
+  // Something was uploaded since: the refresh probes, then reads on.
+  const held = {
+    firstUpdateId: "update-0",
+    ranges: [range("update-0")],
+    revision: 11,
+    status: "complete" as const,
+  };
+
+  for (const [total, status] of [
+    [20_000, "complete"],
+    [20_001, "tooMany"],
+  ] as const) {
+    const first = await loadAllDocumentAttributionRanges(
+      servedRanges(total),
+      "document-1",
+    );
+    const refresh = await loadAllDocumentAttributionRanges(
+      servedRanges(total),
+      "document-1",
+      { held },
+    );
+    expect([first?.status, refresh?.status]).toEqual([status, status]);
+    expect([first?.ranges.length, refresh?.ranges.length]).toEqual(
+      status === "complete" ? [total, total] : [0, 0],
+    );
+  }
 });
 
 test("a failed page fails the read", async () => {
