@@ -261,6 +261,12 @@ export interface AppHostConfigOptions {
     | undefined;
   readonly createSQLiteRuntime?: CreateSQLiteRuntimeFn | undefined;
   readonly disableLocalIdentityPersistence?: boolean | undefined;
+  /**
+   * Hides print actions, for shells whose WebView may ignore `window.print()`
+   * so that a print would silently do nothing: Capacitor's native WebViews and
+   * Electrobun's macOS WKWebView implement no print handler.
+   */
+  readonly disablePrinting?: boolean | undefined;
   readonly localIdentityNamespace?: string | undefined;
   /**
    * How the local keyring's IndexedDB wrapping key is persisted. WebView shells
