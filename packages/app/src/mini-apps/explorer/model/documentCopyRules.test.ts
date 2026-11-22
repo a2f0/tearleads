@@ -117,6 +117,33 @@ test("app-owned folders take no copy, although they leave creation open", async 
   }
 });
 
+test("a system folder takes a copy only when its own slot's rules accept one", async () => {
+  const rules = createSelfIdentityRules(await createReadySelfIdentity());
+  const [builtIn] = await deriveBuiltInSystemContainers({
+    organizationId: "identity-org",
+  });
+  if (!builtIn) throw new Error("no built-in container");
+  // A system folder that is neither Contacts nor the Trash, under rules that
+  // differ only in the flag: the rule reads the flag, not which folder it is.
+  const folder = node("linked-folder", {
+    id: "app-folder",
+    name: "App folder",
+    systemSlot: "app-folder-slot",
+  });
+  const withSlotRules = (
+    acceptsDocumentCopies: boolean,
+  ): ExplorerContainerRulesContext => ({
+    ...rules,
+    rulesBySystemSlot: new Map([
+      ...rules.rulesBySystemSlot,
+      [folder.systemSlot ?? "", { ...builtIn.rules, acceptsDocumentCopies }],
+    ]),
+  });
+
+  expect(copies(withSlotRules(true), folder, ordinary, "note")).toBe(true);
+  expect(copies(withSlotRules(false), folder, ordinary, "note")).toBe(false);
+});
+
 test("a system folder whose rules are not loaded yet takes no copy", async () => {
   // The Contacts and Trash slots are still being derived: neither folder
   // resolves any rules, but each is still known by its own slot.

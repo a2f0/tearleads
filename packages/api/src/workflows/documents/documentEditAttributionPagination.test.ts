@@ -5,6 +5,7 @@ import {
   createDocumentEditAttributionRangesPage,
   createDocumentEditAttributionResponse,
   type DocumentEditAttributionError,
+  DocumentEditAttributionIntegrityError,
   MAX_COMPACT_ATTRIBUTION_SEGMENTS,
 } from "./documentEditAttribution";
 
@@ -136,11 +137,20 @@ test("a range whose stored signed time is not a timestamp is refused, by update"
       ],
     };
 
-    expect(() =>
-      createDocumentEditAttributionRangesPage(attribution, {}),
-    ).toThrow(
-      "Attribution update update-1 has no valid signedAt in its write header.",
-    );
+    let thrown: unknown;
+    try {
+      createDocumentEditAttributionRangesPage(attribution, {});
+    } catch (error) {
+      thrown = error;
+    }
+    // The server's fault, by name, so the 500 it becomes can be counted.
+    expect(thrown).toBeInstanceOf(DocumentEditAttributionIntegrityError);
+    expect(thrown).toMatchObject({
+      message:
+        "Attribution update update-1 has no valid signedAt in its write header.",
+      property: "signedAt",
+      updateId: "update-1",
+    });
     // The compact response never returns the time, so it is unaffected.
     expect(
       createDocumentEditAttributionResponse(attribution).segments,
