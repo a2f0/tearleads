@@ -36,6 +36,14 @@ import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { ContainerMutationRequestOptions } from "./mutationRequestOptions";
 import type { ContainerReciteApi } from "./reciteApi";
 
+/**
+ * A caller that can retire passes `stillCurrent`: once it turns false the read
+ * neither renews the session nor delivers its response.
+ */
+interface ContainerWriterProjectionReadOptions {
+  readonly stillCurrent?: (() => boolean) | undefined;
+}
+
 export interface ContainerMutationAuthor {
   organizationId: string;
   signerDeviceId: string;
@@ -141,12 +149,14 @@ export interface ContainerCreateApi {
   evictContainerWriterProjection(containerId: string): void;
   getContainerWriterProjection(
     containerId: string,
+    options?: ContainerWriterProjectionReadOptions,
   ): Promise<ContainerWriterProjectionResponse | null>;
 }
 
 export interface ContainerShareApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
+    options?: ContainerWriterProjectionReadOptions,
   ): Promise<ContainerWriterProjectionResponse | null>;
   shareContainer(
     containerId: string,
@@ -192,6 +202,7 @@ export type ContainerRotationResult =
 export interface ContainerMoveApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
+    options?: ContainerWriterProjectionReadOptions,
   ): Promise<ContainerWriterProjectionResponse | null>;
   moveContainer(
     containerId: string,
@@ -211,6 +222,7 @@ export interface ContainerRevokeApi extends ContainerReciteApi {
   evictWriterProjectionsCiting?(containerIds: readonly string[]): void;
   getContainerWriterProjection(
     containerId: string,
+    options?: ContainerWriterProjectionReadOptions,
   ): Promise<ContainerWriterProjectionResponse | null>;
   revokeContainer(
     containerId: string,
@@ -305,6 +317,7 @@ export interface MaterializedContainerRekeyPlan {
 export interface ContainerRekeyApi extends ContainerReciteApi {
   getContainerWriterProjection(
     containerId: string,
+    options?: ContainerWriterProjectionReadOptions,
   ): Promise<ContainerWriterProjectionResponse | null>;
   rekeyContainer(
     containerId: string,

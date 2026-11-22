@@ -354,10 +354,12 @@ async function submitRemoteContainerMove(
     input.resolveProjectionUserKey,
     "Remote container move",
   );
+  const scope = { stillCurrent: input.stillCurrent };
   const [previousProjection, destinationParentProjection] = await Promise.all([
-    input.apiClient.getContainerWriterProjection(input.containerId),
+    input.apiClient.getContainerWriterProjection(input.containerId, scope),
     input.apiClient.getContainerWriterProjection(
       input.destinationParentContainerId,
+      scope,
     ),
   ]);
   if (!previousProjection || !destinationParentProjection) {

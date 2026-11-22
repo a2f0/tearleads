@@ -3,7 +3,7 @@ import type { RemoteContainerHydrationState } from "../types";
 import { prefetchDestinationProjections } from "./destinationPrefetch";
 
 function runtimeFetching(
-  fetch: (containerId: string, listing?: unknown) => Promise<unknown>,
+  fetch: (containerId: string, options?: unknown) => Promise<unknown>,
 ): RemoteContainerHydrationState["runtime"] {
   return {
     apiClient: { getContainerWriterProjection: fetch },
@@ -57,11 +57,13 @@ test("each prefetch cites from the folder's listing", async () => {
   const listings: unknown[] = [];
   await prefetchDestinationProjections({
     containers: [listed("a")],
-    runtime: runtimeFetching(async (_containerId, listing) => {
-      listings.push(listing);
+    runtime: runtimeFetching(async (_containerId, options) => {
+      listings.push(options);
       return null;
     }),
   });
   // The unstored folder's lineage continues through its listed parent.
-  expect(listings).toEqual([{ organizationId: "org-1", parentId: "root-1" }]);
+  expect(listings).toEqual([
+    { listing: { organizationId: "org-1", parentId: "root-1" } },
+  ]);
 });

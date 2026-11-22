@@ -11,6 +11,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   verifyContainerWriterProjection,
 } from "../../../../data/keyingProjectionVerification";
+import { assertProjectionVerificationCurrent } from "../../../../data/keyingProjectionVerification/types";
 import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principalContracts/principalPolicyEvidence";
 import type { CurrentPolicyReferenceResolver } from "../../../../data/principals/currentPolicyReferenceResolver";
@@ -179,8 +180,12 @@ export async function planCarriedDescendantRekeys(
   for (const containerId of input.requiredContainerIds) {
     if (plans.length >= MAX_ROTATION_CONTAINER_REKEYS) break;
     if (planned.has(containerId)) continue;
-    const served =
-      await input.apiClient.getContainerWriterProjection(containerId);
+    const served = await input.apiClient.getContainerWriterProjection(
+      containerId,
+      { stillCurrent: input.stillCurrent },
+    );
+    // A retired read is the cancellation verification would raise, not a gap.
+    assertProjectionVerificationCurrent(input.stillCurrent);
     if (!served) {
       throw new Error("Carried descendant rekey projection is unavailable");
     }
