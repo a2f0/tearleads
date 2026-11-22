@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import {
-  type CompletedDownloadItem,
   type ContainerDocumentQueries,
   createDomainScope,
-  type DownloadQueueItemRef,
+  getOrCreateDomainDownloadHistory,
   getOrCreateDomainSyncCoordinator,
   type PendingDownloadQueueItem,
   type RetryDocumentDownloadInput,
@@ -77,7 +76,7 @@ function WithToolbar(params: { children: ReactNode }) {
   );
 }
 
-test("Downloads shows unknown items and failures, then drops a row that left unconfirmed", async () => {
+test("Downloads shows unknown items and failures, then drops a row that left unrecorded", async () => {
   let items: ReadonlyArray<PendingDownloadQueueItem> = [
     {
       localId: "local",
@@ -88,9 +87,9 @@ test("Downloads shows unknown items and failures, then drops a row that left unc
       lastError: "Unable to fetch content",
     },
   ];
+  // The row leaves the queue without the SDK recording a finished download,
+  // as a deletion does.
   const documentQueries = {
-    // The row left the queue without its content, as a deletion does.
-    listCompletedDownloads: async () => [],
     listPendingDownloads: async () => items,
   } as unknown as ContainerDocumentQueries;
   const domainScope = createDomainScope();
@@ -254,31 +253,26 @@ test("Downloads lists first file downloads, retries each document once, and keep
     }),
   ];
   const documentQueries = {
-    // The saw's photos are stored once they leave the queue.
-    listCompletedDownloads: async (
-      refs: ReadonlyArray<DownloadQueueItemRef>,
-    ): Promise<ReadonlyArray<CompletedDownloadItem>> =>
-      refs.flatMap((ref) =>
-        ref.objectKind === "attachment" && ref.localId === "saw"
-          ? [
-              {
-                ...saw,
-                blobId: null,
-                containerId: "garage",
-                objectKind: "attachment",
-                slotId: ref.slotId,
-                storageKey: `blob-${ref.slotId}`,
-              },
-            ]
-          : [],
-      ),
     listPendingDownloads: async () => items,
   } as unknown as ContainerDocumentQueries;
   const domainScope = createDomainScope();
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
-  // The saw's photos arrive on retry while the receipt is still unbound.
+  // The saw's photos arrive on retry while the receipt is still unbound; the
+  // SDK records each stored photo as it leaves the queue.
   const sawLane = coordinator.registerLane("documents:saw", {
     run: async () => {
+      const history = getOrCreateDomainDownloadHistory(domainScope);
+      for (const item of items)
+        if (item.objectKind === "attachment" && item.localId === "saw")
+          history.recordCompleted({
+            ...saw,
+            blobId: null,
+            containerId: "garage",
+            fileName: item.fileName,
+            objectKind: "attachment",
+            slotId: item.slotId,
+            storageKey: `blob-${item.slotId}`,
+          });
       items = items.filter((item) => item.localId !== "saw");
     },
   });

@@ -4,8 +4,8 @@ import {
   createDomainScope,
   type PendingDownloadQueueItem,
 } from "@tearleads/client-sdk";
-import { getDownloadHistoryEntries } from "./downloadHistoryMachine";
-import { getOrCreateDownloadHistoryStore } from "./downloadHistoryStore";
+import { getPendingDownloads } from "./downloadQueueMachine";
+import { getOrCreateDownloadQueueStore } from "./downloadQueueStore";
 
 function pending(localId: string): PendingDownloadQueueItem {
   return {
@@ -26,7 +26,6 @@ interface HeldRead {
 // Queries whose pending reads stay open until the test releases them.
 function heldQueries(reads: HeldRead[]): ContainerDocumentQueries {
   return {
-    listCompletedDownloads: async () => [],
     listPendingDownloads: () =>
       new Promise<ReadonlyArray<PendingDownloadQueueItem>>(
         (resolve, reject) => {
@@ -41,15 +40,13 @@ async function flush() {
 }
 
 function localIds(
-  store: ReturnType<typeof getOrCreateDownloadHistoryStore>,
+  store: ReturnType<typeof getOrCreateDownloadQueueStore>,
 ): string[] {
-  return getDownloadHistoryEntries(store.getSnapshot()).map(
-    (entry) => entry.item.localId,
-  );
+  return getPendingDownloads(store.getSnapshot()).map((item) => item.localId);
 }
 
 test("an immediate request during a read gets its read straight after", async () => {
-  const store = getOrCreateDownloadHistoryStore(createDomainScope());
+  const store = getOrCreateDownloadQueueStore(createDomainScope());
   const unsubscribe = store.subscribe(() => undefined);
   const reads: HeldRead[] = [];
   const queries = heldQueries(reads);
@@ -67,7 +64,7 @@ test("an immediate request during a read gets its read straight after", async ()
 });
 
 test("a failure from replaced queries is dropped and the replacement reads next", async () => {
-  const store = getOrCreateDownloadHistoryStore(createDomainScope());
+  const store = getOrCreateDownloadQueueStore(createDomainScope());
   const unsubscribe = store.subscribe(() => undefined);
   const oldReads: HeldRead[] = [];
   const newReads: HeldRead[] = [];
@@ -86,7 +83,7 @@ test("a failure from replaced queries is dropped and the replacement reads next"
 });
 
 test("another view's read is kept, and its change signal waits for the delay", async () => {
-  const store = getOrCreateDownloadHistoryStore(createDomainScope());
+  const store = getOrCreateDownloadQueueStore(createDomainScope());
   const unsubscribe = store.subscribe(() => undefined);
   const firstWindow: HeldRead[] = [];
   const secondWindow: HeldRead[] = [];
@@ -106,7 +103,7 @@ test("another view's read is kept, and its change signal waits for the delay", a
 });
 
 test("a change signal on an idle view reads after the coalescing delay", async () => {
-  const store = getOrCreateDownloadHistoryStore(createDomainScope());
+  const store = getOrCreateDownloadQueueStore(createDomainScope());
   const unsubscribe = store.subscribe(() => undefined);
   const reads: HeldRead[] = [];
   const queries = heldQueries(reads);
@@ -119,7 +116,7 @@ test("a change signal on an idle view reads after the coalescing delay", async (
 });
 
 test("closing the last view mid-read finishes the read without a follow-up", async () => {
-  const store = getOrCreateDownloadHistoryStore(createDomainScope());
+  const store = getOrCreateDownloadQueueStore(createDomainScope());
   const unsubscribe = store.subscribe(() => undefined);
   const reads: HeldRead[] = [];
   const queries = heldQueries(reads);
@@ -137,7 +134,7 @@ test("closing the last view mid-read finishes the read without a follow-up", asy
 });
 
 test("a read starting does not notify views", async () => {
-  const store = getOrCreateDownloadHistoryStore(createDomainScope());
+  const store = getOrCreateDownloadQueueStore(createDomainScope());
   let notifications = 0;
   const unsubscribe = store.subscribe(() => {
     notifications += 1;

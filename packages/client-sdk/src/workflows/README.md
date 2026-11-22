@@ -153,8 +153,7 @@ registrations. `containerContents.documentQueries()` exposes
 folder metadata pulls with durable errors, and first file downloads: a slot a
 synced document records with no local row or pending upload
 (`objectKind: "attachment"`), which `documents.retryDownload` retries.
-`listCompletedDownloads(refs)` (`CompletedDownloadItem`) returns the named rows
-now stored. The queue does not estimate undiscovered objects or blob reads.
+The queue does not estimate undiscovered objects or blob reads.
 
 ## Documents
 
@@ -268,11 +267,12 @@ never admitted by the purge.
 
 ## Sync
 
-The `sync` facade exposes read-only coordinator snapshots through
-`getDomainSyncCoordinatorSnapshot(...)` and
-`subscribeToDomainSyncCoordinator(...)`. Host diagnostics and product UI may use
-those snapshots to show lane status, request/run/error counts, and last action
-timestamps without reaching into coordinator internals or owning sync policy.
+The `sync` facade exposes read-only snapshots of the scope's coordinator lanes
+(`getDomainSyncCoordinatorSnapshot`, `subscribeToDomainSyncCoordinator`) and
+finished downloads, newest first, recorded whether or not a view is open
+(`getDomainDownloadHistorySnapshot`, `subscribeToDomainDownloadHistory`), for
+host diagnostics and UI that must not touch coordinator internals or policy.
+`getOrCreateDomainDownloadHistory` mirrors `getOrCreateDomainSyncCoordinator`.
 
 `clearRemoteSyncState(execSql, { organizationId })` clears the organization's
 remote-derived rows and child/document cursors, plus the global root-list

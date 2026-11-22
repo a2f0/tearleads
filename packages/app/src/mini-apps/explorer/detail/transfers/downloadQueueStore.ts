@@ -4,13 +4,12 @@ import type {
 } from "@tearleads/client-sdk";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import {
-  type DownloadHistoryEvent,
-  type DownloadHistoryState,
-  getDepartedDownloads,
-  getDownloadHistoryEntries,
-  INITIAL_DOWNLOAD_HISTORY,
-  transitionDownloadHistory,
-} from "./downloadHistoryMachine";
+  type DownloadQueueEvent,
+  type DownloadQueueState,
+  getPendingDownloads,
+  INITIAL_DOWNLOAD_QUEUE,
+  transitionDownloadQueue,
+} from "./downloadQueueMachine";
 import {
   type DownloadReadLoopEvent,
   IDLE_DOWNLOAD_READ_LOOP,
@@ -21,8 +20,8 @@ import {
 // queue read after a short quiet period.
 const DOWNLOAD_READ_COALESCE_MS = 300;
 
-export interface DownloadHistoryStore {
-  getSnapshot: () => DownloadHistoryState;
+export interface DownloadQueueStore {
+  getSnapshot: () => DownloadQueueState;
   /**
    * Read the queue with these queries: at once when `immediate`, otherwise
    * after the coalescing delay. A request made while a read is in flight runs
@@ -37,19 +36,19 @@ export interface DownloadHistoryStore {
 
 // Whether two states show the same thing; they may differ only in read tag.
 function looksTheSame(
-  left: DownloadHistoryState,
-  right: DownloadHistoryState,
+  left: DownloadQueueState,
+  right: DownloadQueueState,
 ): boolean {
   return (
     left.status === right.status &&
-    getDownloadHistoryEntries(left) === getDownloadHistoryEntries(right) &&
+    getPendingDownloads(left) === getPendingDownloads(right) &&
     (left.status === "failed" ? left.message : null) ===
       (right.status === "failed" ? right.message : null)
   );
 }
 
-function createDownloadHistoryStore(): DownloadHistoryStore {
-  let state = INITIAL_DOWNLOAD_HISTORY;
+function createDownloadQueueStore(): DownloadQueueStore {
+  let state = INITIAL_DOWNLOAD_QUEUE;
   // What views read: the newest state that changed what they show, so a read
   // starting, which only retags the state, does not re-render them.
   let snapshot = state;
@@ -58,8 +57,8 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
   let queries: ContainerDocumentQueries | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  function dispatch(event: DownloadHistoryEvent) {
-    const next = transitionDownloadHistory(state, event);
+  function dispatch(event: DownloadQueueEvent) {
+    const next = transitionDownloadQueue(state, event);
     if (next === state) return;
     state = next;
     if (looksTheSame(snapshot, next)) return;
@@ -88,16 +87,9 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
     dispatch({ read: request, type: "read-started" });
     try {
       const pending = await source.listPendingDownloads();
-      // Only this store's loop settles the state and one read runs at a
-      // time, so the rows departed now are the ones this read settles.
-      const departed = getDepartedDownloads(state, pending);
-      const completed =
-        departed.length === 0
-          ? []
-          : await source.listCompletedDownloads(departed);
       // Every view in this scope reads the same database, so a result is
       // kept whichever view's queries produced it.
-      dispatch({ completed, pending, read: request, type: "read-finished" });
+      dispatch({ pending, read: request, type: "read-finished" });
     } catch (error) {
       // A failure from queries another request has since replaced (a
       // reopened database) is dropped; that request's own read follows.
@@ -125,25 +117,25 @@ function createDownloadHistoryStore(): DownloadHistoryStore {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
-        // An unwatched history keeps its rows but stops reading; the next
-        // panel to open reads at once.
+        // An unwatched queue keeps its rows but stops reading; the next
+        // panel to open reads at once. Finished downloads do not depend on
+        // it: the SDK records them whether or not a panel is open.
         if (listeners.size === 0) step({ type: "unwatched" });
       };
     },
   };
 }
 
-// The history lives exactly as long as the domain scope, which the SDK rotates
-// with the database, signing identity, and sign-in, as the sync coordinator
-// whose lanes the Sync Lanes view lists.
-const storesByScope = new WeakMap<DomainScope, DownloadHistoryStore>();
+// The queue read lives as long as the domain scope, like the SDK's download
+// history and sync coordinator it is shown beside.
+const storesByScope = new WeakMap<DomainScope, DownloadQueueStore>();
 
-export function getOrCreateDownloadHistoryStore(
+export function getOrCreateDownloadQueueStore(
   domainScope: DomainScope,
-): DownloadHistoryStore {
+): DownloadQueueStore {
   const existing = storesByScope.get(domainScope);
   if (existing) return existing;
-  const created = createDownloadHistoryStore();
+  const created = createDownloadQueueStore();
   storesByScope.set(domainScope, created);
   return created;
 }

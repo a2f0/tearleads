@@ -13,6 +13,7 @@ import {
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../documents";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
+import { noteContainerMetadataDownloadDrained } from "./metadataDownloadCompletion";
 import {
   applyIncomingContainerMetadataUpdates,
   recordContainerMetadataVoids,
@@ -303,12 +304,14 @@ async function finalizeContainerMetadataSync(input: {
 > {
   const { metadataState, syncAttempt } = input;
   const { outgoingUpdateCount, synced } = syncAttempt;
-  if (!input.isCurrent()) {
+  const discardAllSent = () =>
     discardUnacceptedContainerMetadataUpdateIds(
       input.locallyAcceptedUpdateIds,
       input.sentUpdateIds,
       [],
     );
+  if (!input.isCurrent()) {
+    discardAllSent();
     return null;
   }
   // An id sent but not accepted will never be echoed. Accepted ids stay
@@ -348,19 +351,11 @@ async function finalizeContainerMetadataSync(input: {
     stillCurrent: input.isCurrent,
   });
   if (!input.isCurrent()) {
-    discardUnacceptedContainerMetadataUpdateIds(
-      input.locallyAcceptedUpdateIds,
-      input.sentUpdateIds,
-      [],
-    );
+    discardAllSent();
     return null;
   }
   if (!persisted) {
-    discardUnacceptedContainerMetadataUpdateIds(
-      input.locallyAcceptedUpdateIds,
-      input.sentUpdateIds,
-      [],
-    );
+    discardAllSent();
     metadataState.metadataWriterProjection = null;
     return { missing: true };
   }
@@ -370,13 +365,15 @@ async function finalizeContainerMetadataSync(input: {
     // The response's accepted IDs were not durably settled. Treat every
     // pre-registration as unapplied so an early echo cannot hide work that the
     // forced follow-up still needs to reconcile.
-    discardUnacceptedContainerMetadataUpdateIds(
-      input.locallyAcceptedUpdateIds,
-      input.sentUpdateIds,
-      [],
-    );
+    discardAllSent();
     metadataState.metadataWriterProjection = null;
   } else {
+    noteContainerMetadataDownloadDrained({
+      container: persisted.container,
+      domainScope: input.runtime.state.domainScope,
+      storedRecord: persisted.record,
+      syncAttempt,
+    });
     // A superseded page was not settled; its follow-up judges it again.
     await recordContainerMetadataVoids(input, persisted.record.id, synced);
   }

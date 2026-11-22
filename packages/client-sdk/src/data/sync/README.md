@@ -112,7 +112,11 @@ runtime helpers:
 - common teardown-error detection for destroyed database clients;
 - per-scope ids of documents this client just wrote, which the document
   store records and reconciliation consumes so the server's echo of the
-  write is skipped once ([`originatedDocuments.ts`](originatedDocuments.ts)).
+  write is skipped once ([`originatedDocuments.ts`](originatedDocuments.ts));
+- per-scope download history, which document and container-metadata sync
+  record when a queued pull drains and attachment hydration records on a
+  slot's first local copy, kept like coordinator lanes for the scope's
+  lifetime ([`downloadHistory.ts`](downloadHistory.ts)).
 
 Do not add domain-specific document, container, blob, or persistence logic
 here. Add that to the owning workflow/store lane and register it with the
