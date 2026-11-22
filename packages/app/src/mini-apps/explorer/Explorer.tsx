@@ -139,6 +139,7 @@ function renderExplorerDetailPanelWithBlobPick(
       blobStore={appData.infra.blobStore}
       billingBlockedOrganizationId={params.billingBlockedOrganizationId}
       canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
+      dbReady={appData.infra.dbStatus === "ready"}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
       canShareWithPeer={model.canShareWithPeer}
       contactAvatarUrlByLocalId={model.contactAvatarUrlByLocalId}

@@ -196,6 +196,27 @@ test("closing the newest watch reads with the one before it, without a read", as
   stopTray();
 });
 
+test("a failure dropped from a closed view's read is followed by the remaining view's read", async () => {
+  const { reads, store } = heldStore();
+  const stopTray = store.watch("tray");
+  const stopPanel = store.watch("panel");
+  reads[0]?.fail(new Error("locked"));
+  await flush();
+  expect(reads.map((read) => read.source)).toEqual(["tray", "panel"]);
+  // The panel closes while its read is in flight, and that read fails.
+  stopPanel();
+  reads[1]?.fail(new Error("locked"));
+  await flush();
+  // Without a follow-up the tray would wait at "loading" until the next
+  // change signal.
+  expect(store.getSnapshot().status).toBe("loading");
+  expect(reads[2]?.source).toBe("tray");
+  reads[2]?.release(["a"]);
+  await flush();
+  expect(rows(store)).toEqual(["a"]);
+  stopTray();
+});
+
 test("a read starting does not notify views", async () => {
   const { reads, store } = heldStore();
   let notifications = 0;

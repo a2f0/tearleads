@@ -21,10 +21,12 @@ afterEach(() => cleanup());
 function renderPanelLoader(
   documentQueries: ContainerDocumentQueries,
   domainScope = createDomainScope(),
+  dbReady = true,
 ) {
   return render(
     <ExplorerWriteQueuePanel
       billingBlockedOrganizationId={null}
+      dbReady={dbReady}
       documentQueries={documentQueries}
       domainScope={domainScope}
       isAuthenticated={true}
@@ -38,6 +40,25 @@ function renderPanelLoader(
     />,
   );
 }
+
+test("reads nothing into the shared queue while the database is closed", async () => {
+  let queryCount = 0;
+  const documentQueries = {
+    listPendingWrites: () => {
+      queryCount += 1;
+      return Promise.reject(new Error("Database is locked"));
+    },
+  } as unknown as ContainerDocumentQueries;
+  const domainScope = createDomainScope();
+
+  const view = renderPanelLoader(documentQueries, domainScope, false);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  // A failure here would reach the tray and System Monitor through the store.
+  expect(queryCount).toBe(0);
+  expect(view.queryByText("Database is locked")).toBeNull();
+});
 
 test("coalesces a burst of sync signals and keeps stale rows while re-reading", async () => {
   let queryCount = 0;
@@ -98,6 +119,7 @@ test("surfaces a durable-write query failure", async () => {
   const view = render(
     <ExplorerWriteQueuePanel
       billingBlockedOrganizationId={null}
+      dbReady
       documentQueries={documentQueries}
       domainScope={createDomainScope()}
       isAuthenticated={true}
@@ -147,6 +169,7 @@ test("a scope switch never shows the previous scope's late rows", async () => {
   view.rerender(
     <ExplorerWriteQueuePanel
       billingBlockedOrganizationId={null}
+      dbReady
       documentQueries={nextQueries}
       domainScope={nextScope}
       isAuthenticated={true}

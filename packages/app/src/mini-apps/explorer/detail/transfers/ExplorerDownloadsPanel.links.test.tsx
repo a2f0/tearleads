@@ -131,6 +131,7 @@ test("a finished download opens its blob, document, or folder", async () => {
   const view = render(
     <ExplorerDownloadsPanel
       destinations={destinations}
+      dbReady
       documentQueries={documentQueries}
       domainScope={domainScope}
       online

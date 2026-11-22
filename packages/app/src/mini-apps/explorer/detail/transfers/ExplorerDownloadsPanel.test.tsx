@@ -104,6 +104,7 @@ test("Downloads shows unknown items and failures, then drops a row that left unr
   const view = render(
     <ExplorerDownloadsPanel
       destinations={noDestinations}
+      dbReady
       documentQueries={documentQueries}
       domainScope={domainScope}
       online
@@ -150,6 +151,7 @@ test("Downloads distinguishes waiting offline from a failed queue read", async (
     <WindowMenuProvider>
       <ExplorerDownloadsPanel
         destinations={noDestinations}
+        dbReady
         documentQueries={documentQueries}
         domainScope={domainScope}
         online={false}
@@ -203,6 +205,7 @@ test("Downloads keeps the title of a hydrated document with pages remaining", as
   const view = render(
     <ExplorerDownloadsPanel
       destinations={noDestinations}
+      dbReady
       documentQueries={documentQueries}
       domainScope={createDomainScope()}
       online
@@ -273,6 +276,7 @@ test("Downloads lists first file downloads, retries each document once, and keep
     <WithToolbar>
       <ExplorerDownloadsPanel
         destinations={noDestinations}
+        dbReady
         documentQueries={documentQueries}
         domainScope={domainScope}
         online
@@ -330,6 +334,7 @@ test("a failed retry request leaves the file pending", async () => {
     <WithToolbar>
       <ExplorerDownloadsPanel
         destinations={noDestinations}
+        dbReady
         documentQueries={documentQueries}
         domainScope={createDomainScope()}
         online
@@ -362,6 +367,7 @@ test("Refresh retries only the documents whose files are shown", async () => {
     <WithToolbar>
       <ExplorerDownloadsPanel
         destinations={noDestinations}
+        dbReady
         documentQueries={documentQueries}
         domainScope={createDomainScope()}
         online
