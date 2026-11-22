@@ -50,6 +50,22 @@ async function expectAppRuntimeSettled(): Promise<void> {
   expect(settled).toBe(true);
 }
 
+// The Sync Status tray holds its "syncing" ring for a moment after sync work
+// stops (see `useHeldSyncActivity`), so a settled pane reads as fully synced
+// only once that hold ends. Reading the label shows what it said on failure.
+async function waitForPaneFullySynced(pane: HTMLElement): Promise<void> {
+  await waitFor(
+    () => {
+      expect(
+        pane
+          .querySelector(".sync-status-indicator")
+          ?.getAttribute("aria-label"),
+      ).toBe("All changes synced");
+    },
+    { timeout: DUAL_PANE_TEST_TIMEOUT_MS },
+  );
+}
+
 async function logoutFromIdentityManager(pane: HTMLElement): Promise<void> {
   const identityManagerWindow = await openIdentityManagerForPane(pane);
   fireEvent.click(
@@ -138,24 +154,12 @@ test(
     expect(
       (await readPaneExplorerDocumentIdentity(recoveredPane, "You")).documentId,
     ).not.toBeNull();
-    await waitFor(() => {
-      expect(
-        within(recoveredPane).getByRole("button", {
-          name: "All changes synced",
-        }),
-      ).toBeTruthy();
-    });
+    await waitForPaneFullySynced(recoveredPane);
 
     await logoutFromIdentityManager(recoveredPane);
     await act(() => new Promise((resolve) => setTimeout(resolve, 1_000)));
 
-    await waitFor(() => {
-      expect(
-        within(recoveredPane).getByRole("button", {
-          name: "All changes synced",
-        }),
-      ).toBeTruthy();
-    });
+    await waitForPaneFullySynced(recoveredPane);
     view.unmount();
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
