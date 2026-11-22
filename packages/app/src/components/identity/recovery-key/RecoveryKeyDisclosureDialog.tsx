@@ -1,10 +1,10 @@
-import { PhraseConfirmationDialog } from "../../../components/shared/PhraseConfirmationDialog";
+import { PhraseConfirmationDialog } from "../../shared/PhraseConfirmationDialog";
 
 import {
   RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE,
   RECOVERY_KEY_DISCLOSURES,
   type RecoveryKeyDisclosure,
-} from "../actions/recoveryKeyDisclosure";
+} from "./recoveryKeyDisclosure";
 
 export function RecoveryKeyDisclosureDialog({
   onCancel,

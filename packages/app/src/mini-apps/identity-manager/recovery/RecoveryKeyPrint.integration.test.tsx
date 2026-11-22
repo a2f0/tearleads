@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { act, fireEvent } from "@testing-library/react";
 import {
   createIdentityManagerHostConfig,
@@ -12,7 +13,7 @@ import {
 } from "../../../../test/helpers/recoveryKeyTestKit";
 import "../../../../test/helpers/msw/server";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../actions/recoveryKeyDisclosure";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../../components/identity/recovery-key/recoveryKeyDisclosure";
 
 const originalWebSocket = globalThis.WebSocket;
 let printFrames: ReturnType<typeof installPrintFrameStub> | undefined;
@@ -75,6 +76,39 @@ test("revoking the disclosure removes a sheet whose dialog never reported closin
   expect(document.querySelectorAll("iframe")).toHaveLength(1);
 
   fireEvent.click(view.getByRole("tab", { name: "Recovery" }));
+  expect(document.querySelectorAll("iframe")).toHaveLength(0);
+});
+
+async function printSheet(
+  view: Awaited<ReturnType<typeof renderRecoveryKeyView>>["view"],
+) {
+  fireEvent.click(view.getByRole("button", { name: "Print Recovery Key" }));
+  fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
+    target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
+  });
+  await act(async () => {
+    fireEvent.click(view.getByRole("button", { name: "Print" }));
+  });
+  expect(document.querySelectorAll("iframe")).toHaveLength(1);
+}
+
+test("switching identities removes the previous identity's sheet", async () => {
+  const { tearleads, view } = await renderRecoveryKeyView(0x18);
+  await printSheet(view);
+
+  await act(async () => {
+    await tearleads.identity.importSeedPhrase(
+      createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(0x19)),
+    );
+  });
+  expect(document.querySelectorAll("iframe")).toHaveLength(0);
+});
+
+test("closing Identity Manager removes a pending sheet", async () => {
+  const { view } = await renderRecoveryKeyView(0x1a);
+  await printSheet(view);
+
+  view.unmount();
   expect(document.querySelectorAll("iframe")).toHaveLength(0);
 });
 

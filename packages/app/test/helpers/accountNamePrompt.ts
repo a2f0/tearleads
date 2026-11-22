@@ -6,10 +6,17 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
+import { RECOVERY_KEY_BACKUP_AGREEMENT_PHRASE } from "../../src/components/identity/recovery-key/RecoveryKeyBackupConfirmation";
 import {
   getPaneStatusText,
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
 } from "./paneTestUtils";
+
+/** Labels the input of the new identity's recovery key backup agreement. */
+export const RECOVERY_KEY_BACKUP_AGREEMENT_LABEL = new RegExp(
+  `Type ${RECOVERY_KEY_BACKUP_AGREEMENT_PHRASE} to confirm`,
+  "u",
+);
 
 export async function chooseNewIdentity(container: HTMLElement) {
   await waitFor(
@@ -42,6 +49,29 @@ export async function answerAccountNamePrompt(
   fireEvent.change(prompt, { target: { value: name } });
   const form = prompt.closest("form");
   invariant(form, "Expected the account name form");
+  fireEvent.submit(form);
+}
+
+/**
+ * Types the agreement that a created identity's recovery key is backed up,
+ * once its prompt shows anywhere in `container`. Onboarding holds the new
+ * identity's first registration until it is given.
+ */
+export async function confirmRecoveryKeyBackup(
+  container: HTMLElement,
+  timeout = 30_000,
+): Promise<void> {
+  const [agreement] = await within(container).findAllByLabelText(
+    RECOVERY_KEY_BACKUP_AGREEMENT_LABEL,
+    {},
+    { timeout },
+  );
+  invariant(agreement, "Expected the recovery key backup agreement");
+  fireEvent.change(agreement, {
+    target: { value: RECOVERY_KEY_BACKUP_AGREEMENT_PHRASE },
+  });
+  const form = agreement.closest("form");
+  invariant(form, "Expected the backup agreement form");
   fireEvent.submit(form);
 }
 

@@ -32,6 +32,12 @@ appId: com.tearleads.app
 - inputText: "Bob"
 - pressKey: Enter
 - extendedWaitUntil:
+    visible: "Back up your recovery key"
+    timeout: 40000
+- tapOn: ".*I agree.*"
+- inputText: "I agree"
+- pressKey: Enter
+- extendedWaitUntil:
     visible: "Contacts"
     timeout: 40000
 
@@ -65,6 +71,14 @@ appId: com.tearleads.app
       - tapOn:
           text: '[0-9a-f]{12}\.\.\.[0-9a-f]{8}'
 - tapOn: "New Identity"
+
+# Identity Manager holds the new identity until its recovery key is backed up.
+- extendedWaitUntil:
+    visible: "Back up your recovery key"
+    timeout: 40000
+- tapOn: ".*I agree.*"
+- inputText: "I agree"
+- pressKey: Enter
 
 # The second identity must provision offline. The bug wedged the app in the
 # keyless state — the "Generate Key Pair" button visible, Register/Login hidden —
