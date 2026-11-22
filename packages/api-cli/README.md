@@ -14,9 +14,9 @@ Usage: tearleads-api-cli <command>
 
 Commands:
   blob-store:list-keys [--prefix <prefix>] [--with-size]    List configured S3 blob store keys
-  make-admin <fingerprint>      Grant root (global admin) access to the identity with this signing key fingerprint
+  make-admin <fingerprint|identity-link>      Grant root (global admin) access to the identity with this signing key fingerprint or verified identity link
   migrate    Apply pending API database migrations
-  revoke-admin <fingerprint>    Revoke root (global admin) access from the identity with this signing key fingerprint
+  revoke-admin <fingerprint|identity-link>    Revoke root (global admin) access from the identity with this signing key fingerprint or verified identity link
 ```
 
 A missing command prints usage to stderr and exits `1`; an unknown command
@@ -112,7 +112,13 @@ scripts/admin/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
 
 Sets or clears `users.is_root` for the identity registered with the given
 signing key fingerprint (the 64-character lowercase hex value shown as
-`signingKeyFingerprint` in the app and API). Root identities may call the
+`signingKeyFingerprint` in the app and API, copyable from Identity Manager in
+developer mode or from an organization roster entry), or named by an identity
+link (Identity Manager's **Copy identity link**). A link carries a user ID and
+a hash over its deployment's trust domain, that user ID, and both public keys;
+the command recomputes that hash from the keys registered for the user and
+refuses the link if they differ, so it never acts on the user ID alone. Root
+identities may call the
 API's internal `/root` operator routes, which back the root console's identity
 and organization lookups, reports, audit trail, and account suspension (see
 the [root operator API](../../docs/root-operator-api.md)). Root is a plain
@@ -120,20 +126,21 @@ operational boolean for internal staff and technical support; it grants no
 access-plane keys and is never exposed as a user-facing feature.
 
 ```bash
-tearleads-api-cli make-admin <fingerprint>
-tearleads-api-cli revoke-admin <fingerprint>
+tearleads-api-cli make-admin <fingerprint|identity-link>
+tearleads-api-cli revoke-admin <fingerprint|identity-link>
 ```
 
 The command reads the database the same way `migrate` does (`API_DATABASE`
 defaults to `postgres`, connection variables from the environment). It prints
 whether the identity `is now root` or `was already root`, and fails with a
-non-zero exit when the fingerprint is malformed, extra arguments are passed, or
-no identity is registered under that fingerprint. A change is recorded in the
-root audit trail (`root_audit_events`, action `root.access.grant` or
-`root.access.revoke`, with no actor) in the transaction that changes the flag;
-a run that changes nothing records nothing. Root identities cannot be
-suspended, and granting root does not lift an existing suspension; lift it
-from the root console.
+non-zero exit when the argument is neither a fingerprint nor a complete
+identity link, extra arguments are passed, no identity is registered under that
+fingerprint or link user ID, or a link does not match the registered keys. A
+change is recorded in the root audit trail (`root_audit_events`, action
+`root.access.grant` or `root.access.revoke`, with no actor) in the transaction
+that changes the flag; a run that changes nothing records nothing. Root
+identities cannot be suspended, and granting root does not lift an existing
+suspension; lift it from the root console.
 
 To grant root, use the repo wrapper. For `staging` or `prod` it reads the
 tier's migration login from the `postgres` Terraform stack output
@@ -141,7 +148,7 @@ tier's migration login from the `postgres` Terraform stack output
 `local` uses the inherited Postgres environment or the development defaults:
 
 ```bash
-scripts/admin/makeRoot.sh <local|staging|prod> <fingerprint>
+scripts/admin/makeRoot.sh <local|staging|prod> <fingerprint|identity-link>
 ```
 
 To revoke root on a deployed tier, give `revoke-admin` the same connection in a

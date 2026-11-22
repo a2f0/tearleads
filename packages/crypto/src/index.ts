@@ -75,6 +75,12 @@ export {
 } from "./groupMetadata";
 export { bytesToHex, hexToBytes } from "./hex";
 export {
+  decodeIdentityLink,
+  encodeIdentityLinkToken,
+  IDENTITY_LINK_PATH,
+  type IdentityLinkExpectation,
+} from "./identityLink";
+export {
   createIdentitySeedPhrase,
   createIdentitySeedPhraseFromEntropy,
   generateIdentityKeyPairsFromSeedPhrase,

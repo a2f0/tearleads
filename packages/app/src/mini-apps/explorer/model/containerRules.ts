@@ -146,13 +146,22 @@ export function hasContainerRules(
   return resolveContainerRules(context, container) !== null;
 }
 
+/**
+ * The rules that deny an operation when raised. The others (`accepts*`,
+ * `acceptedDocumentKinds`) admit when set, so reading one as a denial would
+ * invert it.
+ */
+type ContainerProtection = Extract<
+  keyof UserSystemContainerRules,
+  `protect${string}`
+>;
+
 // The shared shape of every per-operation container gate: the container must be
-// writable and its resolved rules (if any) must not raise the given protection
-// flag.
+// writable and its resolved rules (if any) must not raise the given protection.
 function allowedByContainerRule(
   context: ExplorerContainerRulesContext,
   container: ContainerRulesNode | undefined,
-  flag: keyof UserSystemContainerRules,
+  flag: ContainerProtection,
 ): boolean {
   return (
     canWriteContainerNode(container) &&

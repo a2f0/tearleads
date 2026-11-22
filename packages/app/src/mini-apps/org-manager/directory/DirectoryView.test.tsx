@@ -192,7 +192,7 @@ test("org manager roster view exposes roster metadata", () => {
   ).toBeNull();
 });
 
-test("org manager roster view copies the selected user id", () => {
+test("org manager roster view copies the selected user's id and signing key", () => {
   const clipboardWrites = installClipboardWriteMock();
   const view = renderDirectoryView({
     detail,
@@ -202,8 +202,16 @@ test("org manager roster view copies the selected user id", () => {
   fireEvent.click(
     view.getByRole("button", { name: ORG_MANAGER_LABELS.copyUserIdAction }),
   );
+  fireEvent.click(
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.copySigningKeyAction,
+    }),
+  );
 
-  expect(clipboardWrites).toEqual([rosterUser.userId]);
+  expect(clipboardWrites).toEqual([
+    rosterUser.userId,
+    rosterUser.signingKeyFingerprint,
+  ]);
 });
 
 test("org manager roster view toggles roster profile editing", async () => {
