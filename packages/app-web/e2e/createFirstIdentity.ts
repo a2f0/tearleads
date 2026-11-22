@@ -1,5 +1,8 @@
 import type { Page } from "@playwright/test";
 
+/** Labels the new identity's recovery key backup agreement. */
+export const BACKUP_AGREEMENT_LABEL = /Type I agree to confirm/u;
+
 /** Complete first-launch creation through the visible onboarding controls. */
 export async function createFirstIdentity(page: Page): Promise<void> {
   await page
@@ -11,4 +14,7 @@ export async function createFirstIdentity(page: Page): Promise<void> {
     .first();
   await prompt.fill("Bob");
   await prompt.press("Enter");
+  const agreement = page.getByLabel(BACKUP_AGREEMENT_LABEL).first();
+  await agreement.fill("I agree");
+  await agreement.press("Enter");
 }

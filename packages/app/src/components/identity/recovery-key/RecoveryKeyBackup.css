@@ -1,0 +1,40 @@
+.recovery-key-backup {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+  max-width: var(--form-measure);
+}
+
+.recovery-key-backup-textarea {
+  width: 100%;
+  line-height: 1.45;
+}
+
+.recovery-key-qr {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.recovery-key-qr-image {
+  display: block;
+  width: min(20rem, 100%);
+  height: auto;
+  background: white;
+}
+
+/* The onboarding-style panel centers its contents; keep the controls with it. */
+.recovery-key-backup-confirmation .mini-app-toolbar {
+  justify-content: center;
+}
+
+.recovery-key-backup-agreement {
+  display: grid;
+  gap: var(--space-sm);
+  width: min(100%, 20rem);
+  text-align: start;
+}
+
+.recovery-key-backup-agreement .mini-app-button {
+  justify-self: center;
+}
