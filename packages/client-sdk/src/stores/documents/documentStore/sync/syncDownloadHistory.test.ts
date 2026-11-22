@@ -232,6 +232,7 @@ async function syncStoredDocument(name: string, paged: boolean) {
       localId,
     });
     let requests = 0;
+    let pullBound: string | null = null;
     const runtime = createRotationRecoveryRuntime({
       execSql,
       fixture,
@@ -240,15 +241,28 @@ async function syncStoredDocument(name: string, paged: boolean) {
         ? {
             responseForRequest: async (_request, response) => {
               requests += 1;
+              // The pull's upper bound is the same on every page.
+              if (requests === 1) {
+                pullBound = response.updates.at(-1)?.id ?? null;
+              }
+              const throughUpdateId = pullBound;
               return requests === 1
                 ? {
                     ...response,
-                    pullPage: { hasMore: true, nextCursor: "page-2" },
+                    pullPage: {
+                      hasMore: true,
+                      nextCursor: "page-2",
+                      throughUpdateId,
+                    },
                   }
                 : {
                     ...response,
                     updates: [],
-                    pullPage: { hasMore: false, nextCursor: null },
+                    pullPage: {
+                      hasMore: false,
+                      nextCursor: null,
+                      throughUpdateId,
+                    },
                   };
             },
           }
