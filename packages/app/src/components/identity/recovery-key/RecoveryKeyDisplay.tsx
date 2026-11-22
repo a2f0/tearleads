@@ -4,6 +4,7 @@ import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
 import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
 import { PrinterIcon } from "@phosphor-icons/react/dist/csr/Printer";
 import { QrCodeIcon } from "@phosphor-icons/react/dist/csr/QrCode";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
@@ -11,10 +12,9 @@ import {
   MiniAppStatus,
   MiniAppTextarea,
   MiniAppToolbar,
-} from "../../../components/mini-app/MiniAppLayout";
-import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
-import type { RecoveryKeyDisclosure } from "../actions/recoveryKeyDisclosure";
+} from "../../mini-app/MiniAppLayout";
 import { RecoveryKeyQrCode } from "./RecoveryKeyQrCode";
+import type { RecoveryKeyDisclosure } from "./recoveryKeyDisclosure";
 
 function RecoveryKeyIconButton({
   icon: ButtonIcon,
@@ -56,12 +56,12 @@ export function RecoveryKeyDisplay({
   }
 
   return (
-    <div className="identity-manager-recovery-key-form">
+    <div className="recovery-key-backup">
       {revealed ? (
         <MiniAppField>
           <span>Passphrase</span>
           <MiniAppTextarea
-            className="identity-manager-recovery-key-textarea"
+            className="recovery-key-backup-textarea"
             readOnly
             rows={3}
             spellCheck={false}

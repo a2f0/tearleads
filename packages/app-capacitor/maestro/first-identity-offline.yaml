@@ -24,6 +24,14 @@ appId: com.tearleads.app
 - tapOn: "Bob"
 - inputText: "Bob"
 - pressKey: Enter
+# The new identity then holds the app until the user agrees its recovery key
+# is backed up.
+- extendedWaitUntil:
+    visible: "Back up your recovery key"
+    timeout: 40000
+- tapOn: ".*I agree.*"
+- inputText: "I agree"
+- pressKey: Enter
 - extendedWaitUntil:
     visible: "Contacts"
     timeout: 40000

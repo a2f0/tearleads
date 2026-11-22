@@ -8,15 +8,16 @@ import {
 import {
   MiniAppActions,
   MiniAppButton,
-  MiniAppField,
-  MiniAppInput,
   MiniAppModalBackdrop,
   MiniAppModalForm,
-  MiniAppModalHighlight,
   MiniAppModalPanel,
   MiniAppStatus,
 } from "../mini-app/MiniAppLayout";
 import "./PhraseConfirmationDialog.css";
+import {
+  isPhraseConfirmed,
+  PhraseConfirmationField,
+} from "./PhraseConfirmationField";
 
 interface PhraseConfirmationDialogProps {
   readonly busy?: boolean;
@@ -48,11 +49,10 @@ export function PhraseConfirmationDialog({
   warning,
 }: PhraseConfirmationDialogProps) {
   const [confirmationText, setConfirmationText] = useState("");
-  const inputId = useId();
   const titleId = useId();
   const warningId = useId();
   const errorId = useId();
-  const confirmed = confirmationText.trim() === phrase;
+  const confirmed = isPhraseConfirmed(confirmationText, phrase);
 
   useEffect(() => {
     if (!isOpen) {
@@ -89,21 +89,14 @@ export function PhraseConfirmationDialog({
           <p className="phrase-confirmation-dialog-warning" id={warningId}>
             {warning}
           </p>
-          <MiniAppField htmlFor={inputId}>
-            <span>
-              Type <MiniAppModalHighlight>{phrase}</MiniAppModalHighlight> to
-              continue
-            </span>
-            <MiniAppInput
-              disabled={busy}
-              autoComplete="off"
-              autoFocus
-              id={inputId}
-              aria-describedby={error ? `${warningId} ${errorId}` : warningId}
-              value={confirmationText}
-              onChange={(event) => setConfirmationText(event.target.value)}
-            />
-          </MiniAppField>
+          <PhraseConfirmationField
+            autoFocus
+            describedBy={error ? `${warningId} ${errorId}` : warningId}
+            disabled={busy}
+            onChange={setConfirmationText}
+            phrase={phrase}
+            value={confirmationText}
+          />
           {error && (
             <MiniAppStatus id={errorId} role="alert" tone="error">
               {error}
