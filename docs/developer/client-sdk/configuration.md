@@ -93,10 +93,11 @@ document content and pending-upload rows. Recovery restores
 [slots](../../glossary/content.md#attachment-slot) without reading bytes. Hydration
 replaces a held copy only with bytes matching the document intent; a valid
 served [binding](../../glossary/content.md#attachment-binding) the document has
-not recorded fills only an empty slot. Removal queues local bytes for
-reference-aware reclamation, including copies shared by pending uploads after
-reset. Custom `DocumentsPersistence` adapters provide the required `orphanBlobs`
-queue and reference methods described in
+not recorded fills only an empty slot, or a held copy found missing or damaged
+whose row already differed from the document intent. Removal queues local
+bytes for reference-aware reclamation, including copies shared by pending
+uploads after reset. Custom `DocumentsPersistence` adapters provide the
+required `orphanBlobs` queue and reference methods described in
 [custom persistence](../custom-document-persistence.md).
 
 A host that attaches a file right after creating its document can open it with

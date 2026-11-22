@@ -1,160 +1,21 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
-import type { BlobAttachmentSummary } from "@tearleads/validators/response";
 import {
-  createRotationRecoveryRuntime,
-  persistFullHistoryDocument,
-} from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
+  BYTES,
+  countOpens,
+  createMemoryBlobStore,
+  hydrateHeldCopy,
+  openHeldCopy,
+  SLOT_ID,
+  STORAGE_KEY,
+  serveHeldBinding,
+  slotView,
+  until,
+} from "../../../../../test/helpers/stores/heldCopyChecks";
 import { attachmentContentSha256 } from "../../../../data/blobs/attachmentContentIdentity";
-import {
-  type BlobBytes,
-  type BlobStore,
-  createBlobByteSource,
-  readBlobByteSource,
-} from "../../../../data/blobs/blobContracts";
+import type { BlobBytes } from "../../../../data/blobs/blobContracts";
 import { wrapEncryptedBlobStore } from "../../../../data/blobs/encryptedBlobStore";
-import { addDocumentAttachments } from "../../../../data/documents/documentContent";
-import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import type { HydrateDocumentAttachmentBlobsRequest } from "../../../../workflows/blobs/hydration/hydrate";
-import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
-import {
-  createRemoteHistoryFixture,
-  noopDocumentStorePersistenceEffects,
-} from "../documentStore.testFixtures";
-import { ensureDocumentStoreReady } from "../initialization";
-import {
-  createDocumentStoreState,
-  type DocumentStoreState,
-  resetDocumentStore,
-} from "../state";
-import { hydrateAttachmentBlobs } from "./attachmentHydration";
-import { checkHeldAttachmentCopies } from "./heldCopyCheckRun";
+import { resetDocumentStore } from "../state";
 import { unavailableHeldCopySlotIds } from "./heldCopyChecks";
-
-const BYTES = new Uint8Array([1, 2, 3, 4]);
-const SLOT_ID = "file";
-const STORAGE_KEY = "blob-held";
-
-function createMemoryBlobStore(files: Map<string, BlobBytes>): BlobStore {
-  return {
-    deleteBytes: async (storageKey) => {
-      files.delete(storageKey);
-    },
-    openByteSource: async (storageKey) => {
-      const bytes = files.get(storageKey);
-      return bytes ? createBlobByteSource(bytes) : null;
-    },
-    readBytes: async (storageKey) => files.get(storageKey) ?? null,
-    writeByteSource: async (storageKey, source) => {
-      files.set(storageKey, await readBlobByteSource(source));
-    },
-    writeBytes: async (storageKey, bytes) => {
-      files.set(storageKey, bytes);
-    },
-  };
-}
-
-/** A synced note holding `file` under STORAGE_KEY, opened through SQLite. */
-async function openHeldCopy(
-  name: string,
-  files: Map<string, BlobBytes>,
-  options: {
-    blobId?: string | null;
-    rowContentSha256?: string;
-    uploading?: boolean;
-  } = {},
-) {
-  const sqlite = await createTestExecSql(name);
-  const fixture = await createRemoteHistoryFixture();
-  const { execSql } = sqlite;
-  await sqlDocumentsPersistence.ensureSchema(execSql);
-  const runtime = createRotationRecoveryRuntime({ execSql, fixture });
-  Object.assign(runtime.infra, { blobStore: createMemoryBlobStore(files) });
-  const documentId = fixture.writerProjection.documentId;
-  const attachment = {
-    byteLength: BYTES.byteLength,
-    contentSha256: await attachmentContentSha256(BYTES),
-    mimeType: "image/png",
-    name: "file.png",
-    slotId: SLOT_ID,
-  };
-  addDocumentAttachments(fixture.remoteDocument, [attachment]);
-  await persistFullHistoryDocument({
-    doc: fixture.remoteDocument,
-    documentId,
-    execSql,
-    localId: "local",
-  });
-  await sqlDocumentsPersistence.saveLocalAttachment(execSql, {
-    blobId: options.blobId === undefined ? "held" : options.blobId,
-    byteLength: attachment.byteLength,
-    contentSha256: options.rowContentSha256 ?? attachment.contentSha256,
-    detachedAt: null,
-    localId: "local",
-    mimeType: attachment.mimeType,
-    slotId: attachment.slotId,
-    storageKey: STORAGE_KEY,
-  });
-  if (options.uploading)
-    await sqlDocumentsPersistence.savePendingAttachment(execSql, {
-      ...attachment,
-      localId: "local",
-      storageKey: STORAGE_KEY,
-    });
-  const state = createDocumentStoreState(
-    "local",
-    runtime,
-    sqlDocumentsPersistence,
-    noopDocumentStorePersistenceEffects,
-    documentId,
-  );
-  const ensureReady = () => ensureDocumentStoreReady(state, () => undefined);
-  expect(await ensureReady()).toBe(true);
-  return {
-    attachment,
-    check: () => checkHeldAttachmentCopies(state, ensureReady),
-    ensureReady,
-    close: () => {
-      state.doc?.free();
-      fixture.remoteDocument.free();
-      sqlite.close();
-    },
-    runtime,
-    state,
-  };
-}
-
-/** Count the store's opens, delegating to `open` instead when it is given. */
-function countOpens(
-  runtime: { infra: { blobStore: BlobStore } },
-  open?: (storageKey: string) => ReturnType<BlobStore["openByteSource"]>,
-) {
-  const blobStore = runtime.infra.blobStore;
-  const opens = { count: 0 };
-  Object.assign(runtime.infra, {
-    blobStore: {
-      ...blobStore,
-      openByteSource: (storageKey: string) => {
-        opens.count += 1;
-        return open ? open(storageKey) : blobStore.openByteSource(storageKey);
-      },
-    },
-  });
-  return opens;
-}
-
-async function until(condition: () => boolean): Promise<void> {
-  for (let turn = 0; turn < 200 && !condition(); turn += 1)
-    await new Promise((resolve) => setTimeout(resolve, 1));
-  expect(condition()).toBe(true);
-}
-
-function slotView(state: DocumentStoreState) {
-  return {
-    status: state.snapshot.attachmentStatusBySlotId[SLOT_ID],
-    storageKey: state.snapshot.attachmentStorageKeyBySlotId[SLOT_ID],
-  };
-}
 
 test("a held copy whose file is missing is reported unavailable and fetched again", async () => {
   const held = await openHeldCopy("held-copy-missing", new Map());
@@ -277,33 +138,12 @@ test("an unavailable copy downloads its binding again and holds the verified byt
   const held = await openHeldCopy("held-copy-repair", files);
   try {
     await held.check();
-    const requests: HydrateDocumentAttachmentBlobsRequest[] = [];
-    Object.assign(held.runtime.blobAttachments, {
-      hydrateDocumentAttachmentBlobs: async (
-        request: HydrateDocumentAttachmentBlobsRequest,
-      ) => {
-        requests.push(request);
-        request.onBindingsChecked?.();
-        return [
-          {
-            attachment: held.attachment,
-            binding: { blobId: "held" } as BlobAttachmentSummary,
-            bytes: BYTES,
-            contentSha256: held.attachment.contentSha256,
-            intentMismatch: false,
-            storageKey: STORAGE_KEY,
-          },
-        ];
-      },
+    const requests = serveHeldBinding(held, {
+      bytes: BYTES,
+      contentSha256: held.attachment.contentSha256,
+      intentMismatch: false,
     });
-    const { doc, record } = held.state;
-    if (!doc) throw new Error("Expected a loaded document");
-    await hydrateAttachmentBlobs(
-      held.state,
-      doc,
-      record,
-      createPrincipalPolicyOperation(),
-    );
+    await hydrateHeldCopy(held);
     // The held blob id is withheld so the same binding is fetched again; the
     // storage key stays, so bytes the document does not record are refused.
     expect(requests[0]?.localBlobIdBySlotId?.[SLOT_ID]).toBeUndefined();
@@ -381,32 +221,12 @@ test("a missing copy that already differed from the document is fetched again fl
     expect(slotView(held.state).status).toBe("intent-mismatch");
     await held.check();
     expect(slotView(held.state).status).toBe("unavailable");
-    const requests: HydrateDocumentAttachmentBlobsRequest[] = [];
-    Object.assign(held.runtime.blobAttachments, {
-      hydrateDocumentAttachmentBlobs: async (
-        request: HydrateDocumentAttachmentBlobsRequest,
-      ) => {
-        requests.push(request);
-        return [
-          {
-            attachment: held.attachment,
-            binding: { blobId: "held" } as BlobAttachmentSummary,
-            bytes: served,
-            contentSha256: servedSha256,
-            intentMismatch: true,
-            storageKey: STORAGE_KEY,
-          },
-        ];
-      },
+    const requests = serveHeldBinding(held, {
+      bytes: served,
+      contentSha256: servedSha256,
+      intentMismatch: true,
     });
-    const { doc, record } = held.state;
-    if (!doc) throw new Error("Expected a loaded document");
-    await hydrateAttachmentBlobs(
-      held.state,
-      doc,
-      record,
-      createPrincipalPolicyOperation(),
-    );
+    await hydrateHeldCopy(held);
     // No held copy is left to protect, so the served bytes come back flagged
     // instead of being refused for differing from the document.
     expect(requests[0]?.localStorageKeyBySlotId?.[SLOT_ID]).toBeUndefined();
