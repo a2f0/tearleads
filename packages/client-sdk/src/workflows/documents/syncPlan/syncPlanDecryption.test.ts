@@ -290,3 +290,33 @@ test("decryptDocumentSyncUpdates rejects a snapshot labeled as an ordinary updat
     }),
   ).rejects.toThrow("ordinary update payload is not an update blob");
 });
+
+// Sync voids such an update; this strict path, which a host can still call,
+// fails on it.
+test("decryptDocumentSyncUpdates rejects signed outer vectors that do not match the Loro payload", async () => {
+  const { author, contentKey, secretKey, writerProjection } =
+    await createMaterializedSyncFixture();
+  const materialized = await buildMaterializedDocumentSyncPlan({
+    author,
+    localVersionVector: null,
+    pendingUpdates: [
+      createPendingUpdateRecord({
+        partialEndVersionVector: "AA==",
+        partialStartVersionVector: "AA==",
+      }),
+    ],
+    targetSecretKey: secretKey,
+    trustedLocalProjection: true,
+    writerProjection,
+  });
+
+  await expect(
+    decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: materialized.plan.contentKeyEpoch,
+      documentId: materialized.plan.documentId,
+      organizationId: materialized.plan.organizationId,
+      updates: (await createSyncResponse(materialized.plan)).updates,
+    }),
+  ).rejects.toThrow("decrypted update version-vector mismatch");
+});

@@ -189,13 +189,17 @@ async function judgeDocumentSyncResponseUpdates(
 }
 
 /**
- * The response a pass that deferred part of its page hands on: its pull is
- * incomplete and has no continuation, so the next pass starts the pull again
- * and is served the deferred updates once more.
+ * The response a pass that deferred part of its page hands on: no further
+ * page and no continuation, so it still parses as a pull page, while the
+ * result's `hasIncompletePull` makes the next pass start the pull again and
+ * be served the deferred updates once more.
  */
 function restartedPull(response: DocumentSyncResponse): DocumentSyncResponse {
   return response.pullPage
-    ? { ...response, pullPage: { ...response.pullPage, nextCursor: null } }
+    ? {
+        ...response,
+        pullPage: { ...response.pullPage, hasMore: false, nextCursor: null },
+      }
     : response;
 }
 

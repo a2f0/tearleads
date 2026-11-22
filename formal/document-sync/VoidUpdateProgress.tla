@@ -18,24 +18,29 @@ EXTENDS FiniteSets, Naturals, Sequences
 (* voids it and goes on. A completed pull records a processed cursor (the *)
 (* pull's upper bound) with the judge (decoder) and the frontier it was    *)
 (* reached with. A later pull sends the cursor only while both still hold, *)
-(* and the server then serves only updates after it.                       *)
+(* and the server then serves only updates after it. A pull's pages are    *)
+(* collapsed into one served inbox and one judging step; a decoder upgrade *)
+(* between the two stands for one between pages, and such a pull leaves   *)
+(* the cursor as it was.                                                   *)
 (*                                                                         *)
 (* Readers are devices with no local writes; writers are outside actors.  *)
 (* Commits, decoder upgrades, and state replacement have no fairness; only *)
 (* server delivery (Pull) and the device's own processing (Process) do.   *)
 (*                                                                         *)
-(* Five switches each relax one rule, set safe in the registered config:   *)
+(* Six switches each relax one rule, set safe in the registered config:    *)
 (*   RefuseVoid           a void fails the whole pass (the old behavior)   *)
 (*   ImportCarriedOps     a span mismatch imports what the payload carries *)
 (*   PullUsesCursor       FALSE: the server filters by frontier alone      *)
 (*   KeepCursorOnUpgrade  the cursor survives a decoder upgrade            *)
 (*   IgnoreCursorVersion  the cursor survives a frontier that no longer    *)
 (*                        covers the one it was recorded with              *)
+(*   IgnorePullPremise    a pull upgraded between its pages still records  *)
+(*                        its cursor                                       *)
 (***************************************************************************)
 
 CONSTANTS Devices, MaxUpdates, MaxDecoder, MaxReplacements,
           RefuseVoid, ImportCarriedOps, PullUsesCursor,
-          KeepCursorOnUpgrade, IgnoreCursorVersion
+          KeepCursorOnUpgrade, IgnoreCursorVersion, IgnorePullPremise
 
 ASSUME /\ Devices # {}
        /\ IsFiniteSet(Devices)
@@ -47,6 +52,7 @@ ASSUME /\ Devices # {}
        /\ PullUsesCursor \in BOOLEAN
        /\ KeepCursorOnUpgrade \in BOOLEAN
        /\ IgnoreCursorVersion \in BOOLEAN
+       /\ IgnorePullPremise \in BOOLEAN
 
 (* An overclaim reserves a second id that no update ever carries. *)
 Ops == 1..(2 * MaxUpdates)
@@ -59,12 +65,13 @@ Phases == {"idle", "pulled"}
 (* device: `decoder` is the running judge, `held` the operations its       *)
 (* document holds (its frontier), `cursor` the processed cursor (0 when it *)
 (* has none) with the `cursorJudge` and `cursorVersion` it was recorded    *)
-(* with, and `inbox`/`bound` a served page and its upper bound.           *)
+(* with, `inbox`/`bound` a served pull and its upper bound, and          *)
+(* `pullJudge` the judge the pull's first page was sent with.              *)
 VARIABLES log, nextOp, decoder, held, cursor, cursorJudge, cursorVersion,
-          phase, inbox, bound, replacements
+          phase, inbox, bound, pullJudge, replacements
 
 vars == << log, nextOp, decoder, held, cursor, cursorJudge, cursorVersion,
-           phase, inbox, bound, replacements >>
+           phase, inbox, bound, pullJudge, replacements >>
 
 Truthful(u) == u.declared = u.carried
 TruthfulOps ==
@@ -120,6 +127,7 @@ TypeOK ==
   /\ phase \in [Devices -> Phases]
   /\ inbox \in [Devices -> Seq(1..MaxUpdates)]
   /\ bound \in [Devices -> 0..MaxUpdates]
+  /\ pullJudge \in [Devices -> Decoders]
   /\ replacements \in 0..MaxReplacements
 
 Init ==
@@ -133,10 +141,11 @@ Init ==
   /\ phase = [d \in Devices |-> "idle"]
   /\ inbox = [d \in Devices |-> << >>]
   /\ bound = [d \in Devices |-> 0]
+  /\ pullJudge = [d \in Devices |-> 1]
   /\ replacements = 0
 
 DeviceVars == << decoder, held, cursor, cursorJudge, cursorVersion, phase,
-                 inbox, bound, replacements >>
+                 inbox, bound, pullJudge, replacements >>
 
 (* An honest writer, on any decoder, depends only on operations committed  *)
 (* before its update, which it holds; it never holds a voided payload.     *)
@@ -173,32 +182,37 @@ Pull(d) ==
   /\ inbox' = [inbox EXCEPT ![d] =
                  Uncovered(held[d], IF CursorSendable(d) THEN cursor[d] ELSE 0, 1)]
   /\ bound' = [bound EXCEPT ![d] = Len(log)]
+  /\ pullJudge' = [pullJudge EXCEPT ![d] = decoder[d]]
   /\ phase' = [phase EXCEPT ![d] = "pulled"]
   /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
                   cursorVersion, replacements >>
 
-(* Judges the page in one transaction. A completed page records the cursor *)
-(* with the running judge and the frontier it reached.                     *)
+(* Judges the pull in one transaction. A completed pull records the cursor *)
+(* with the running judge and the frontier it reached, unless the judge is *)
+(* not the one its first page was sent with: the server served it from a   *)
+(* cursor another judge stood for, so it judged less than its bound claims. *)
 Process(d) ==
   /\ phase[d] = "pulled"
   /\ LET r == Judge(inbox[d], decoder[d], held[d]) IN
        IF RefuseVoid /\ r.voided
          THEN UNCHANGED << held, cursor, cursorJudge, cursorVersion >>
          ELSE /\ held' = [held EXCEPT ![d] = r.held]
-              /\ cursor' = [cursor EXCEPT ![d] = bound[d]]
-              /\ cursorJudge' = [cursorJudge EXCEPT ![d] = decoder[d]]
-              /\ cursorVersion' = [cursorVersion EXCEPT ![d] = r.held]
+              /\ IF pullJudge[d] = decoder[d] \/ IgnorePullPremise
+                   THEN /\ cursor' = [cursor EXCEPT ![d] = bound[d]]
+                        /\ cursorJudge' = [cursorJudge EXCEPT ![d] = decoder[d]]
+                        /\ cursorVersion' = [cursorVersion EXCEPT ![d] = r.held]
+                   ELSE UNCHANGED << cursor, cursorJudge, cursorVersion >>
   /\ phase' = [phase EXCEPT ![d] = "idle"]
   /\ inbox' = [inbox EXCEPT ![d] = << >>]
-  /\ UNCHANGED << log, nextOp, decoder, bound, replacements >>
+  /\ UNCHANGED << log, nextOp, decoder, bound, pullJudge, replacements >>
 
-(* A newer SDK, whose decoder reads formats the older one voided. *)
+(* A newer SDK, whose decoder reads formats the older one voided. It may    *)
+(* land between a pull's pages, while its continuation is persisted.       *)
 Upgrade(d) ==
-  /\ phase[d] = "idle"
   /\ decoder[d] < MaxDecoder
   /\ decoder' = [decoder EXCEPT ![d] = @ + 1]
   /\ UNCHANGED << log, nextOp, held, cursor, cursorJudge, cursorVersion,
-                  phase, inbox, bound, replacements >>
+                  phase, inbox, bound, pullJudge, replacements >>
 
 (* The document's local state is replaced by an older copy; the cursor row *)
 (* is left as it was.                                                      *)
@@ -209,7 +223,7 @@ Replace(d) ==
   /\ held' = [held EXCEPT ![d] = {}]
   /\ replacements' = replacements + 1
   /\ UNCHANGED << log, nextOp, decoder, cursor, cursorJudge, cursorVersion,
-                  phase, inbox, bound >>
+                  phase, inbox, bound, pullJudge >>
 
 Next ==
   \/ HonestCommit

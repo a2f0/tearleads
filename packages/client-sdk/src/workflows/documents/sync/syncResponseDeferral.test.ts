@@ -6,6 +6,7 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { isDocumentSyncResponse } from "@tearleads/validators/response";
 import {
   createPendingUpdateRecord,
   createSyncResponse,
@@ -99,6 +100,10 @@ test("a page whose judge defers updates applies only what it judged and starts i
     // update, instead of skipping to the next page.
     expect(readPullContinuation(result.response)).toBeNull();
     expect(response.pullPage?.nextCursor).toBe("next-page");
+    // The response handed on still parses as a pull page: no further page.
+    expect(result.response.pullPage?.hasMore).toBe(false);
+    expect(isDocumentSyncResponse(response)).toBe(true);
+    expect(isDocumentSyncResponse(result.response)).toBe(true);
   } finally {
     close();
   }

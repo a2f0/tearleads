@@ -59,6 +59,19 @@ frontier does not cover again, when:
 - a void was judged under a different content key for its epoch than the one it
   now holds.
 
+A pull of several pages advances the cursor only if every page after the first
+went out under the judge and the cursor its first page was sent with. The
+server keeps serving after the continuation, so a pull whose later pages ran
+under a newer decoder, or after its cursor was dropped, never judged what that
+cursor skipped. Such a pull leaves the cursor as it was, and the next pull goes
+by version alone.
+
+A cursor also makes a server's omission durable: an update left out of a
+completed pull is not served to that device again until its cursor is
+withheld. Before the cursor, the next version pull served it.
+[Withholding](./security-guarantees/boundaries.md#availability-is-out-of-scope)
+is outside the guarantees either way.
+
 Rebinding or deleting the local record drops its cursor and void rows.
 Rotation's raw history still fails on any void, because it re-encrypts a
 history that must be whole, and a founding view whose first update is void

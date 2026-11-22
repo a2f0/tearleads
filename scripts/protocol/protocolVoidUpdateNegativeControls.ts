@@ -44,4 +44,12 @@ export const VOID_UPDATE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "ProcessedDevicesAgree" },
     why: "A cursor kept after the local state is replaced by an older copy never pulls what the device lost (#3135).",
   },
+  {
+    id: "void-update-cursor-ignores-pull-premise",
+    module: MODULE,
+    config: CONFIG,
+    constants: { IgnorePullPremise: "TRUE" },
+    expect: { kind: "invariant", name: "ProcessedDevicesAgree" },
+    why: "A pull upgraded between its pages, served from a cursor the old decoder stood for, records a cursor past updates the new decoder never judged (#3135).",
+  },
 ];

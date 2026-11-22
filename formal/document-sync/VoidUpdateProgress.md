@@ -17,6 +17,12 @@ sends the cursor only while the device runs the same judge and its frontier
 still covers the recorded one. The server then starts the pull after the
 cursor.
 
+The model collapses a pull's pages into one served inbox (`Pull`) and one
+judging step (`Process`). A decoder upgrade may land between the two, which
+stands for an SDK upgrade between pages while a continuation is persisted. The
+server still serves from the cursor the first page sent, so such a pull leaves
+the cursor as it was (`pullJudge`).
+
 Writers are outside actors and devices only read. Commits, decoder upgrades,
 and state replacement have no fairness. Only server delivery (`Pull`) and the
 device's own processing (`Process`) are fair, so no device waits on another.
@@ -31,6 +37,7 @@ The abstraction maps to production at these seams:
 | `bound` | `createSyncPullPageResponse` returning the page plan's upper bound as `throughUpdateId` |
 | `CursorSendable` | `readSendableProcessedCursor`, read by `readProcessedCursorForSync` before each store pull |
 | `Judge` / `Accepts` | `validateDocumentSyncUpdateImports` and `voidedDocumentSyncUpdate`, after `decryptDocumentSyncUpdatesByEpoch` voids a payload whose decoded span differs from its signed one |
+| `pullJudge` | the pull premise in `processedCursorTransition`: a pull's first page records its judge and sent cursor (`pullJudge`, `pullSentCursor` on `document_sync_progress`), and a later page under another premise is `abandoned` |
 | `Process` / `cursorVersion` | `recordDocumentSyncVerdictsInTransaction` as the record save's commit side effect, recording the saved `snapshotEndVersion` |
 | `Upgrade` / `cursorJudge` | `documentVerdictJudge`, from `loroDecoderIdentity` and the void rules version |
 | `Replace` | a replaced local state whose frontier no longer satisfies the recorded one (`satisfiesVersionVector`); `deleteDocumentSyncVerdictsInTransaction` on a rebind or delete |
@@ -51,7 +58,7 @@ stop, every device holds exactly what a fresh reader on its own decoder holds.
 So a device on the newest decoder eventually imports every honest update, even
 one an older decoder voided before the device upgraded.
 
-Five negative controls each relax one rule, and the negative-control check
+Six negative controls each relax one rule, and the negative-control check
 asserts the named violation on every run:
 
 - `RefuseVoid = TRUE` is the behavior before #3135: a void fails the whole
@@ -69,22 +76,27 @@ asserts the named violation on every run:
 - `IgnoreCursorVersion = TRUE` keeps the cursor after the local state is
   replaced by an older copy, so the device never pulls what it lost:
   `ProcessedDevicesAgree` fails.
+- `IgnorePullPremise = TRUE` records the cursor of a pull upgraded between its
+  pages. The server served it from a cursor the old decoder stood for, so an
+  update the old decoder voided is never judged again:
+  `ProcessedDevicesAgree` fails.
 
 Outside the model: AEAD failures, which stay availability failures until a
 writer-signed key commitment exists; the content-key fingerprint that drops a
 void judged under another key; duplicate update ids, which still fail a page;
-container metadata documents, which void but keep no cursor; pagination within
-a pull; the per-page rebuild budget, whose deferred updates are served again as
-a shorter page would leave them; the record of import voids that spares a
-device a second import of an update under the same judge and key; and devices'
-own writes. An honest writer depends only on operations
-committed before its update. A dishonest writer that forges a dependency on a
+container metadata documents, which void but keep no cursor; a pull's pages
+beyond the collapse above, and a cursor dropped between them, which abandons the
+pull as an upgrade does; the per-page rebuild budget, whose deferred updates are
+served again as a shorter page would leave them; the record of import voids
+that spares a device a second import of an update under the same judge and key;
+and devices' own writes. An honest writer depends only on operations committed
+before its update. A dishonest writer that forges a dependency on a
 later update can make a device that judges an update again (after an upgrade or
 a replaced state) accept what a device judging in server order voided; that is
 left to the forged-dependency follow-up.
 
 The configuration bounds two devices, two updates, two decoder versions, and
-one state replacement. TLC explores 64,092 generated and 24,746 distinct states
-at depth 14 in about 2 seconds with one worker. Three updates also pass
-(581,002 distinct states in about 2 minutes with one worker). This is
+one state replacement. TLC explores 143,601 generated and 51,547 distinct
+states at depth 16 in about 5 seconds with one worker. Three updates also pass
+(1,398,292 distinct states in about 5 minutes with one worker). This is
 exhaustive bounded model checking, not an unbounded proof.

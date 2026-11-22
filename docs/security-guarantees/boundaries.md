@@ -135,6 +135,11 @@ The server can always deny service by withholding data, policy bundles,
 key-target envelopes, or key lookup responses. The protocol fails closed when
 required cryptographic policy material is unavailable.
 
+A document's [processed cursor](../advisory-op-spans.md#the-processed-cursor)
+makes one such omission durable. An update the server leaves out of a pull that
+completes is not served to that device again while its cursor stands, where a
+pull by version alone would serve it on the next pass.
+
 ## Information-Disclosure Scenarios
 
 ### Forged Group Or Organization Membership

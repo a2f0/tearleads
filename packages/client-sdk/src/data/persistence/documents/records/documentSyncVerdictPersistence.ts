@@ -10,6 +10,8 @@ import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersist
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {
   type ProcessedCursorTransition,
+  type PullPagePosition,
+  type PullPremise,
   processedCursorTransition,
 } from "./processedCursorState";
 
@@ -24,18 +26,15 @@ export interface DocumentVoidVerdict {
 
 export interface DocumentSyncVerdictInput {
   readonly acceptedUpdateIds: readonly string[];
-  /** Set when this page ended its pull; the cursor advances only then. */
-  readonly completedPull?:
-    | {
-        /** Whether the request carried a processed cursor. */
-        readonly cursorSent: boolean;
-        readonly throughUpdateId: string | null;
-      }
-    | undefined;
   readonly documentId: string;
   readonly judge: string;
   readonly keyFingerprintsByEpoch: ReadonlyMap<number, string>;
   readonly now: string;
+  /**
+   * Where the page sits in its pull; a completed pull advances the cursor.
+   * Undefined for a scope that keeps no cursor.
+   */
+  readonly pullPage?: PullPagePosition | undefined;
   readonly scope: DocumentScope;
   readonly voids: readonly DocumentVoidVerdict[];
 }
@@ -97,7 +96,8 @@ export async function readSendableProcessedCursor(
     .where(progressScope(input.scope))
     .limit(1);
   if (
-    !progress ||
+    !progress?.throughUpdateId ||
+    progress.throughVersion === null ||
     progress.documentId !== input.documentId ||
     progress.judge !== input.judge ||
     !satisfiesVersionVector(input.frontier, progress.throughVersion)
@@ -257,15 +257,73 @@ async function upsertVoidRows(
   return updateIds.filter((updateId) => !existing.has(updateId));
 }
 
+/** The premise of the scope's pull in progress for `documentId`, if any. */
+async function readPullPremise(
+  tx: ClientSQLiteTransactionScope,
+  scope: DocumentScope,
+  documentId: string,
+): Promise<PullPremise | null> {
+  const [row] = await tx
+    .select({
+      documentId: documentSyncProgress.documentId,
+      pullJudge: documentSyncProgress.pullJudge,
+      pullSentCursor: documentSyncProgress.pullSentCursor,
+    })
+    .from(documentSyncProgress)
+    .where(progressScope(scope))
+    .limit(1);
+  if (!row || row.documentId !== documentId || row.pullJudge === null) {
+    return null;
+  }
+  return { judge: row.pullJudge, sentCursor: row.pullSentCursor };
+}
+
+/** Writes `fields` onto the scope's progress row, creating it if needed. */
+async function upsertProgress(
+  tx: ClientSQLiteTransactionScope,
+  scope: DocumentScope,
+  fields: Partial<typeof documentSyncProgress.$inferInsert> & {
+    readonly documentId: string;
+  },
+): Promise<void> {
+  await tx
+    .insert(documentSyncProgress)
+    .values({ ...fields, appKind: scope.appKind, localId: scope.localId })
+    .onConflictDoUpdate({
+      target: [documentSyncProgress.appKind, documentSyncProgress.localId],
+      set: fields,
+    })
+    .run();
+}
+
 async function applyProcessedCursorTransition(
   tx: ClientSQLiteTransactionScope,
   input: DocumentSyncVerdictInput,
   transition: ProcessedCursorTransition,
 ): Promise<void> {
-  if (transition.status === "unchanged") return;
-  if (transition.status === "cleared") {
-    await clearDocumentSyncProgressInTransaction(tx, input.scope);
-    return;
+  const noPull = { pullJudge: null, pullSentCursor: null };
+  switch (transition.status) {
+    case "unchanged":
+      return;
+    case "cleared":
+      await clearDocumentSyncProgressInTransaction(tx, input.scope);
+      return;
+    case "pulling":
+      await upsertProgress(tx, input.scope, {
+        documentId: input.documentId,
+        pullJudge: transition.premise.judge,
+        pullSentCursor: transition.premise.sentCursor,
+      });
+      return;
+    case "abandoned":
+      await tx
+        .update(documentSyncProgress)
+        .set(noPull)
+        .where(progressScope(input.scope))
+        .run();
+      return;
+    case "advanced":
+      break;
   }
   if (transition.dropsOtherJudges) {
     await tx
@@ -275,33 +333,26 @@ async function applyProcessedCursorTransition(
       )
       .run();
   }
-  if (transition.through === null) return;
-  const progress = {
+  await upsertProgress(tx, input.scope, {
     documentId: input.documentId,
-    judge: input.judge,
-    throughUpdateId: transition.through.updateId,
-    throughVersion: transition.through.version,
-  };
-  await tx
-    .insert(documentSyncProgress)
-    .values({
-      ...progress,
-      appKind: input.scope.appKind,
-      localId: input.scope.localId,
-    })
-    .onConflictDoUpdate({
-      target: [documentSyncProgress.appKind, documentSyncProgress.localId],
-      set: progress,
-    })
-    .run();
+    ...noPull,
+    ...(transition.through === null
+      ? {}
+      : {
+          judge: input.judge,
+          throughUpdateId: transition.through.updateId,
+          throughVersion: transition.through.version,
+        }),
+  });
 }
 
 /**
  * Records one sync page's verdicts in the transaction that saves its record:
  * voids are written or refreshed, updates now accepted lose their void row,
- * and a completed pull advances the processed cursor to its upper bound. A
- * void judged under a different key for its epoch than this pass held drops
- * that row and the cursor, so the next pull serves the update again.
+ * and a pull that completed under the premise its first page recorded
+ * advances the processed cursor to its upper bound. A void judged under a
+ * different key for its epoch than this pass held drops that row and the
+ * cursor, so the next pull serves the update again.
  */
 export async function recordDocumentSyncVerdictsInTransaction(
   tx: ClientSQLiteTransactionScope,
@@ -329,9 +380,13 @@ export async function recordDocumentSyncVerdictsInTransaction(
   await deleteVoidRows(tx, input.scope, input.acceptedUpdateIds);
   const newlyVoidedUpdateIds = await upsertVoidRows(tx, input);
   const transition = processedCursorTransition({
-    completedPull: input.completedPull,
+    judge: input.judge,
     keyConflict,
+    page: input.pullPage,
     recordedFrontier: record.snapshotEndVersion,
+    storedPremise: input.pullPage?.first
+      ? null
+      : await readPullPremise(tx, input.scope, input.documentId),
   });
   await applyProcessedCursorTransition(tx, input, transition);
   return {

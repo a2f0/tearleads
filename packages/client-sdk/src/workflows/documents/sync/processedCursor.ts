@@ -116,18 +116,18 @@ function documentSyncVerdictInput(input: {
   const { synced } = input;
   return {
     acceptedUpdateIds: synced.decryptedUpdates.map((update) => update.id),
-    completedPull:
-      !input.advancesCursor || synced.hasIncompletePull
-        ? undefined
-        : {
-            cursorSent:
-              synced.plan.request.processedThroughUpdateId !== undefined,
-            throughUpdateId: synced.response.pullPage?.throughUpdateId ?? null,
-          },
     documentId: synced.plan.documentId,
     judge: documentVerdictJudge(),
     keyFingerprintsByEpoch: synced.contentKeyFingerprintsByEpoch,
     now: new Date().toISOString(),
+    pullPage: input.advancesCursor
+      ? {
+          first: synced.plan.request.pullCursor === undefined,
+          last: !synced.hasIncompletePull,
+          sentCursor: synced.plan.request.processedThroughUpdateId ?? null,
+          throughUpdateId: synced.response.pullPage?.throughUpdateId ?? null,
+        }
+      : undefined,
     scope: input.scope,
     voids: synced.voidedUpdates.map((voided) => ({
       contentKeyEpoch: voided.contentKeyEpoch,
