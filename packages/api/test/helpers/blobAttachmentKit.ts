@@ -269,6 +269,9 @@ export async function buildDetach(input: {
       })),
     ],
     body,
+    documentVersionVector: await committedDocumentVersionVector(
+      manifest.state.documentId,
+    ),
     event: event.event as unknown as Record<string, unknown>,
   };
 }

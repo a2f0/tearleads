@@ -53,6 +53,7 @@ import {
 } from "../../../src/workflows/documents";
 import { createPrincipalPolicyOperation } from "../../../src/workflows/principals/principalPolicyService";
 import { createMaterializedSyncFixture } from "../workflows/materializedSyncFixture";
+import { liveDocumentView } from "./syncedDocumentView";
 
 export const LOCAL_ID = "doc-readd";
 export const SLOT_ID = "photo";
@@ -331,5 +332,6 @@ export async function runDetachPass(pane: DocumentStoreState): Promise<void> {
     pane.record,
     generation,
     createPrincipalPolicyOperation(),
+    liveDocumentView(pane.doc),
   );
 }

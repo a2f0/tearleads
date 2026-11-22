@@ -7,6 +7,7 @@ import {
   verifyAttachmentDetachEvent,
 } from "@tearleads/crypto";
 import { storeVerifiedAttachmentDetachInTransaction } from "../../../access/write/attachmentBindingStore";
+import type { DocumentVersionFrontier } from "../../../documents/documentUpdateStore";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import {
   applyAttachmentContainerRekeys,
@@ -17,6 +18,11 @@ import {
 } from "./authorization";
 import { registerAttachmentBlobs } from "./blobAuditRegistry";
 import { lockBlobMutationRows } from "./blobMutationLocks";
+import {
+  assertAttachmentDocumentVersionCurrent,
+  assertDetachCoversBindVersion,
+  parseAttachmentDocumentVersion,
+} from "./documentVersionPrecondition";
 import { toMutationError } from "./errors";
 import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
 import { loadActiveAttachmentBindingById } from "./persistence";
@@ -27,7 +33,9 @@ import {
 } from "./types";
 
 async function detachBlobAttachmentTransaction(
-  input: DetachBlobAttachmentInput,
+  input: DetachBlobAttachmentInput & {
+    readonly documentVersion: DocumentVersionFrontier;
+  },
   tx: DatabaseTransaction,
 ): Promise<DetachBlobAttachmentWorkflowResult> {
   const { detachBody, event } = readDetachRequestSession(input);
@@ -79,6 +87,19 @@ async function detachBlobAttachmentTransaction(
   if (!verifiedDetach.ok) {
     throw verifiedDetach.error;
   }
+  // As a bind does, only once the signed detach is verified and under the
+  // document head lock taken above: the client read the slot removed at this
+  // version, which must hold every committed op and every op the binding was
+  // bound at, so a restore that is committed or still on its way keeps it.
+  await assertAttachmentDocumentVersionCurrent({
+    documentId: activeBinding.documentId,
+    executor: tx,
+    version: input.documentVersion,
+  });
+  assertDetachCoversBindVersion({
+    bindVersion: { frontierJson: activeBinding.bindDocumentVersion },
+    version: input.documentVersion,
+  });
 
   await lockBlobMutationRows({
     blobIds: [activeBinding.blobId],
@@ -121,8 +142,11 @@ export async function runDetachBlobAttachmentWorkflow(
   input: DetachBlobAttachmentInput,
 ): Promise<DetachBlobAttachmentWorkflowResult> {
   try {
+    const documentVersion = parseAttachmentDocumentVersion(
+      input.request.documentVersionVector,
+    );
     return await db.transaction((tx) =>
-      detachBlobAttachmentTransaction(input, tx),
+      detachBlobAttachmentTransaction({ ...input, documentVersion }, tx),
     );
   } catch (error) {
     const mutationError = toMutationError(error);

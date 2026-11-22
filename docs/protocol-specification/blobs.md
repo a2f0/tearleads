@@ -202,9 +202,8 @@ per upload call, then three re-armed passes in a row per pending upload in a
 document store) and then records the stuck upload until a later sync signal.
 The API never refuses a document update because of a binding: an edit that
 commits after the bind can still remove the slot, and detaching that binding
-is reconciliation by a device that observes both. The existing detach runs
-only on a device that held the binding when its slot was removed, so a removal
-queued before the bind currently leaves the binding in place.
+is reconciliation by a device that observes both, under the same check (see
+detach below).
 [`AttachmentBindDocumentVersion.tla`](../../formal/blob-attachments/AttachmentBindDocumentVersion.tla)
 models both interleavings.
 
@@ -213,9 +212,26 @@ Detach uses:
 - `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
 
 `BlobAttachmentDetachRequest` carries the signed `attachment.detach` event and
-body, `authorizingContainerPathRefs`, and optional `containerRekeys[]`. The API
-verifies the active binding, signed event, document manifest, authorizing paths,
-and referenced principal policies before detaching the binding.
+body, `authorizingContainerPathRefs`, optional `containerRekeys[]`, and a
+required `documentVersionVector`: the version of the document the client read
+the slot removed at, holding none of its own unsent ops. The API verifies the
+active binding, signed event, document manifest, authorizing paths, and
+referenced principal policies. Then, still under the document head lock, it
+refuses the detach with `409 attachment_document_changed` when a committed
+update holds an op that version lacks (the bind's check) or when the version
+the binding was bound at holds one. A bind stores the version it checked with
+the binding for that second check: an uploader may bind before pushing the
+update that records its slot, and until that update commits and the
+detaching client reads it, the slot may still ask for these bytes.
+
+A client detaches a listed binding once its synced document lacks the slot:
+a device that held the bytes settles its removal marker first, and any
+device that saw the slot recorded and now reads it removed detaches the
+binding too, including one that removed the slot before the bind arrived.
+After a refusal the client asks for one pull and retries only at a newer
+version that still lacks the slot.
+[`AttachmentRemovedSlotDetach.tla`](../../formal/blob-attachments/AttachmentRemovedSlotDetach.tla)
+models it.
 
 Each encrypted Loro attachment entry carries its slot ID and required lowercase
 SHA-256 `contentSha256` of the intended plaintext. Local attachment creation and

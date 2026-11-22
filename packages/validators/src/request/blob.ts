@@ -128,10 +128,20 @@ export type BlobAttachmentBindRequest = z.infer<
   typeof BlobAttachmentBindRequestSchema
 >;
 
+/**
+ * `POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach`.
+ * `documentVersionVector` is the document version the client read when it
+ * found the slot removed: the detach refuses while the document has a
+ * committed update that version lacks, or while the binding's own bind
+ * version holds an op it lacks, so it never unbinds bytes a restore asks for.
+ */
 export const BlobAttachmentDetachRequestSchema = loosePlainObject({
   authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema,
   body: requiredUnknownSchema,
   containerRekeys: OptionalContainerRekeysSchema,
+  documentVersionVector: boundedNonEmptyStringSchema(
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  ),
   event: plainObjectSchema,
 });
 

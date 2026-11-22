@@ -4,7 +4,6 @@ import {
   BlobAttachmentDetachRequestSchema,
 } from "../request";
 import {
-  BlobAttachmentBindFailureResponseSchema,
   BlobAttachmentBindResponseSchema,
   BlobAttachmentDetachResponseSchema,
   BlobMutationFailureResponseSchema,
@@ -67,7 +66,7 @@ test("attachment operations own their shared HTTP contracts", () => {
   // A bind's 409 may instead name a document that advanced past its version.
   expect(bindBlobAttachmentOperation.failureResponses).toEqual({
     ...mutationFailures,
-    409: BlobAttachmentBindFailureResponseSchema,
+    409: BlobMutationFailureResponseSchema,
   });
   expect(detachBlobAttachmentOperation.failureResponses).toEqual(
     mutationFailures,
@@ -150,6 +149,14 @@ test("attachment OpenAPI documents shared inputs and responses", () => {
   ]);
   expect(detach.operationId).toBe("blobs.attachmentBindings.detach");
   expect(
+    detach.requestBody.content["application/json"]?.schema.required,
+  ).toEqual([
+    "authorizingContainerPathRefs",
+    "body",
+    "documentVersionVector",
+    "event",
+  ]);
+  expect(
     detach.parameters.map((parameter) => Reflect.get(parameter, "name")),
   ).toEqual(["blobId", "bindingId"]);
   expect(list.operationId).toBe("documents.attachments.list");
@@ -157,25 +164,16 @@ test("attachment OpenAPI documents shared inputs and responses", () => {
   expect(list.security).toEqual([{ bearerAuth: [] }]);
 });
 
-test("a bind failure names a document that advanced past the bind", () => {
+test("a bind or detach failure names a document that advanced past it", () => {
   expect(
-    BlobAttachmentBindFailureResponseSchema.parse({
+    BlobMutationFailureResponseSchema.parse({
       code: "attachment_document_changed",
       error: "Document changed after the attachment slot was checked",
     }).code,
   ).toBe("attachment_document_changed");
-  for (const schema of [
-    BlobAttachmentBindFailureResponseSchema,
-    BlobMutationFailureResponseSchema,
-  ]) {
-    expect(() =>
-      schema.parse({ code: "document_changed", error: "Document changed" }),
-    ).toThrow();
-  }
-  // A detach never refuses for the document version.
   expect(() =>
     BlobMutationFailureResponseSchema.parse({
-      code: "attachment_document_changed",
+      code: "document_changed",
       error: "Document changed",
     }),
   ).toThrow();

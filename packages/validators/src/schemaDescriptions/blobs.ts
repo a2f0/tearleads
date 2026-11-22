@@ -12,7 +12,6 @@ import {
   PrincipalPolicyRefSchema,
 } from "../request";
 import {
-  BlobAttachmentBindFailureResponseSchema,
   BlobAttachmentBindResponseSchema,
   BlobAttachmentDetachResponseSchema,
   BlobAttachmentSummarySchema,
@@ -275,6 +274,8 @@ describeSchema(
     authorizingContainerPathRefs: "Container paths that authorize the write.",
     containerRekeys:
       "Container rekeys to commit first in the same transaction.",
+    documentVersionVector:
+      "Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed.",
   },
 );
 
@@ -304,17 +305,9 @@ describeSchema(
 
 describeSchema(
   BlobMutationFailureResponseSchema,
-  "A refused attachment detach.",
+  "A refused attachment bind or detach.",
   {
-    code: "`container_unavailable` when a container the write depends on no longer exists.",
-  },
-);
-
-describeSchema(
-  BlobAttachmentBindFailureResponseSchema,
-  "A refused attachment bind.",
-  {
-    code: "`container_unavailable` when a container the write depends on no longer exists; `attachment_document_changed` when the document has a committed update the bind's `documentVersionVector` lacks, which the uploader resolves by pulling and binding again.",
+    code: "`container_unavailable` when a container the write depends on no longer exists; `attachment_document_changed` when the document has a committed update the request's `documentVersionVector` lacks, or, for a detach, when the binding was bound at a version holding an op it lacks. The client pulls, checks the slot again, and retries.",
   },
 );
 

@@ -146,6 +146,9 @@ test.each([
                 ...binding,
                 author,
                 documentId: docId,
+                // The synced version still records the slot; this direct
+                // detach is the test's own, not the store's reconciliation.
+                documentVersionVector: other.getSnapshot().versionVector ?? "",
                 resolveProjectionUserKey:
                   sdk.containerContents.documentLinks()
                     .resolveProjectionUserKey,

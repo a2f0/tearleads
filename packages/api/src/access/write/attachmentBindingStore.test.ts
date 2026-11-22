@@ -73,7 +73,9 @@ test("storeVerifiedAttachmentBinding projects signed bind and detach events", as
     body,
   } as unknown as VerifiedAttachmentBinding;
 
-  const stored = await storeVerifiedAttachmentBinding(binding, db);
+  const stored = await storeVerifiedAttachmentBinding(binding, db, {
+    bindDocumentVersion: '[{"counter":2,"peer_id":"7"}]',
+  });
   expect(stored).toMatchObject({
     id: bindingId,
     blobId,
@@ -81,10 +83,11 @@ test("storeVerifiedAttachmentBinding projects signed bind and detach events", as
     slotId: "slot-a",
     attachmentEventHash: event.eventHash,
     documentManifestHash,
+    bindDocumentVersion: '[{"counter":2,"peer_id":"7"}]',
   });
 
   await expect(
-    storeVerifiedAttachmentBinding(binding, db),
+    storeVerifiedAttachmentBinding(binding, db, { bindDocumentVersion: "[]" }),
   ).resolves.toMatchObject({
     id: bindingId,
   });
