@@ -115,6 +115,7 @@ export async function repairContainerCreateFailure(input: {
   input.apiClient.evictContainerWriterProjection(input.parentContainerId);
   const parentProjection = await input.apiClient.getContainerWriterProjection(
     input.parentContainerId,
+    { stillCurrent: input.stillCurrent },
   );
   if (input.stillCurrent?.() === false) {
     return { kind: "unavailable" };

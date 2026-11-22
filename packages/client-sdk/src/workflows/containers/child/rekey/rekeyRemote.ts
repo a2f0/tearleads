@@ -43,6 +43,7 @@ export async function rekeyRemoteContainer(
   const input = { ...request, ...containerRotationBag(collaborators) };
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
+    { stillCurrent: input.stillCurrent },
   );
   if (!previousProjection) {
     return null;
