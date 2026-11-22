@@ -46,7 +46,7 @@ for (const [appId, contentSelector] of [
   ["explorer", ".explorer"],
   ["contacts", ".contacts"],
   ["notes", ".notes-list-home, .note-document-editor"],
-  ["organizations", ".organizations-list"],
+  ["shared-with-me", ".shared-with-me-table-wrap"],
   ["root", ".root-console"],
 ] as const) {
   test(`${appId} boots directly into provisioning progress and the name prompt without a local-key prompt`, async () => {

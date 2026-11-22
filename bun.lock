@@ -271,7 +271,7 @@
     },
     "packages/diagnostics": {
       "name": "@tearleads/diagnostics",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "dependencies": {
         "@sentry/browser": "11.10.0",
         "@sentry/core": "11.10.0",
