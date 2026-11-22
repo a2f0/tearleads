@@ -18,3 +18,30 @@ export function createDocumentContentKeyBundle(
     ...overrides,
   };
 }
+
+export function createContainerMutationRequest(
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    event: { eventType: "container.rekey" },
+    body: { eventType: "container.rekey" },
+    expectedManifestHash: "container-manifest-hash",
+    manifest: { objectKind: "container" },
+    previousManifestRef: {
+      containerId: "container-1",
+      manifestHash: "previous-container-manifest-hash",
+    },
+    previousContainerPathRefs: [
+      {
+        containerId: "container-1",
+        manifestHash: "previous-container-manifest-hash",
+      },
+    ],
+    principalPolicyRefs: [],
+    keyEpoch: { id: "container-key-epoch-id" },
+    predecessorBridge: null,
+    keyring: null,
+    wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
+    ...overrides,
+  };
+}

@@ -8,7 +8,6 @@ import {
   isBlobAttachmentDetachRequest,
 } from "../request";
 import {
-  BlobAttachmentBindFailureResponseSchema,
   BlobAttachmentBindResponseSchema,
   BlobAttachmentDetachResponseSchema,
   BlobMutationFailureResponseSchema,
@@ -54,7 +53,7 @@ export const bindBlobAttachmentOperation = defineJsonOperation({
     402: PaymentRequiredErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
-    409: BlobAttachmentBindFailureResponseSchema,
+    409: BlobMutationFailureResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   },
@@ -92,7 +91,7 @@ export const detachBlobAttachmentOperation = defineJsonOperation({
   id: "blobs.attachmentBindings.detach",
   summary: "Detach a blob attachment",
   description:
-    "Removes an active attachment binding from its document slot through a signed `attachment.detach` event. Requires write access through an authorizing container path. A blob left with no active binding is kept for the attachment-retention grace period before garbage collection.",
+    "Removes an active attachment binding from its document slot through a signed `attachment.detach` event. Requires write access through an authorizing container path. The detach carries the document version the client read when it found the slot removed; a document holding a committed op that version lacks, or a binding bound at a version holding such an op, returns `409 attachment_document_changed`. A blob left with no active binding is kept for the attachment-retention grace period before garbage collection.",
   method: "POST",
   params: BlobAttachmentBindingPathParamsSchema,
   path: "/blobs/{blobId}/attachment-bindings/{bindingId}/detach",

@@ -8,14 +8,16 @@ import {
 } from "../util";
 import {
   isBlobAttachmentBindRequest,
-  isBlobAttachmentDetachRequest,
   isContainerCreateWithMetadataDocumentRequest,
   isDocumentContentKeyBundleRequest,
   isDocumentCreateRequest,
   isDocumentLinkSetMutationRequest,
   isDocumentSyncRequest,
 } from "./index";
-import { createDocumentContentKeyBundle } from "./requestTestFixtures";
+import {
+  createContainerMutationRequest,
+  createDocumentContentKeyBundle,
+} from "./requestTestFixtures";
 
 test("document content-key bundles enforce the greenfield link maximum", () => {
   const bundle = createDocumentContentKeyBundle();
@@ -48,33 +50,6 @@ function createBlobContentKeyBundle(overrides: Record<string, unknown> = {}) {
         ...contentKeyEnvelopeFixture("blob"),
       },
     ],
-    ...overrides,
-  };
-}
-
-function createContainerMutationRequest(
-  overrides: Record<string, unknown> = {},
-) {
-  return {
-    event: { eventType: "container.rekey" },
-    body: { eventType: "container.rekey" },
-    expectedManifestHash: "container-manifest-hash",
-    manifest: { objectKind: "container" },
-    previousManifestRef: {
-      containerId: "container-1",
-      manifestHash: "previous-container-manifest-hash",
-    },
-    previousContainerPathRefs: [
-      {
-        containerId: "container-1",
-        manifestHash: "previous-container-manifest-hash",
-      },
-    ],
-    principalPolicyRefs: [],
-    keyEpoch: { id: "container-key-epoch-id" },
-    predecessorBridge: null,
-    keyring: null,
-    wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
     ...overrides,
   };
 }
@@ -131,34 +106,6 @@ test("isBlobAttachmentBindRequest", () => {
     ).toBe(false);
   }
   expect(isBlobAttachmentBindRequest(null)).toBe(false);
-});
-
-test("isBlobAttachmentDetachRequest", () => {
-  const validRequest = {
-    event: { eventType: "attachment.detach" },
-    body: { eventType: "attachment.detach" },
-    authorizingContainerPathRefs: [
-      [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
-    ],
-    containerRekeys: [createContainerMutationRequest()],
-  };
-
-  expect(isBlobAttachmentDetachRequest(validRequest)).toBe(true);
-  expect(
-    isBlobAttachmentDetachRequest({
-      ...validRequest,
-      authorizingContainerPathRefs: [
-        { containerId: "container-1", manifestHash: "container-manifest-hash" },
-      ],
-    }),
-  ).toBe(false);
-  expect(
-    isBlobAttachmentDetachRequest({
-      ...validRequest,
-      containerRekeys: [{ event: { eventType: "container.rekey" } }],
-    }),
-  ).toBe(false);
-  expect(isBlobAttachmentDetachRequest(null)).toBe(false);
 });
 
 test("isDocumentContentKeyBundleRequest", () => {

@@ -60,6 +60,7 @@ for (const operation of ["detach", "hydrate", "retain", "relink"] as const) {
             bindingId: fixture.bindingId,
             blobId: fixture.blobId,
             documentId,
+            documentVersionVector: "document-version-vector",
             slotId: fixture.attachment.slotId,
           }),
         ).not.toBeNull();
@@ -128,6 +129,7 @@ test("attachment detach cannot submit after its policy recovery lifetime changes
         bindingId: fixture.bindingId,
         blobId: fixture.blobId,
         documentId: fixture.writerProjection.documentId,
+        documentVersionVector: "document-version-vector",
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         slotId: fixture.attachment.slotId,
         stillCurrent: () => current,

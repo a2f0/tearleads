@@ -54,6 +54,7 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
     bindingId,
     blobId,
     documentId: writerProjection.documentId,
+    documentVersionVector: "document-version-vector",
     eventId: "550e8400-e29b-41d4-a716-446655440658",
     resolveProjectionUserKey,
     signedAt: "2026-04-27T00:00:00.000Z",
@@ -89,6 +90,9 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
     signedAt: "2026-04-27T00:00:00.000Z",
   });
   expect(submittedRequest.authorizingContainerPathRefs).toHaveLength(1);
+  expect(submittedRequest.documentVersionVector).toBe(
+    "document-version-vector",
+  );
   const detachEvent = submittedRequest.event as {
     dependencyManifestHashes: readonly string[];
   };
@@ -96,3 +100,55 @@ test("detachDocumentAttachment submits a signed detach event", async () => {
     writerProjection.documentManifest.manifestHash,
   );
 });
+
+test.each([
+  ["attachment_document_changed", true],
+  [undefined, false],
+] as const)(
+  "a refused detach hands back only a document change (code: %s)",
+  async (code, documentChanged) => {
+    const { author, resolveProjectionUserKey, writerProjection } =
+      await createMaterializedSyncFixture();
+    const { close, execSql } = await createTestExecSql(
+      "attachment-detach-refused",
+    );
+    let failure: object | null = null;
+    const reported: string[] = [];
+    const changed: string[] = [];
+    try {
+      const detached = await createBlobAttachmentServiceFixture({
+        api: {
+          detachBlobAttachment: async () => {
+            failure = {
+              code,
+              kind: "http",
+              message: "Refused",
+              report: () => reported.push("reported"),
+              status: 409,
+            };
+            return null;
+          },
+          getDocumentWriterProjection: async () => writerProjection,
+          getRequestFailure: () => failure as never,
+        },
+        execSql,
+      }).detachDocumentAttachment({
+        author,
+        bindingId: "550e8400-e29b-41d4-a716-446655440666",
+        blobId: "550e8400-e29b-41d4-a716-446655440667",
+        documentId: writerProjection.documentId,
+        documentVersionVector: "document-version-vector",
+        onDocumentChanged: () => changed.push("changed"),
+        resolveProjectionUserKey,
+        slotId: "preview",
+      });
+      expect(detached).toBeNull();
+    } finally {
+      close();
+    }
+    // Only a refusal for a newer document is routine; anything else is
+    // reported as before.
+    expect(changed).toEqual(documentChanged ? ["changed"] : []);
+    expect(reported).toEqual(documentChanged ? [] : ["reported"]);
+  },
+);
