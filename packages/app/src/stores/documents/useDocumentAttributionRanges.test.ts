@@ -208,6 +208,57 @@ test("a document that gained an upload is read again in full", async () => {
   ).toHaveLength(2);
 });
 
+/** `total` ranges served as many at a time as asked for, at one revision. */
+function servedRanges(total: number) {
+  return {
+    loadDocumentAttributionRanges: async (
+      input: DocumentAttributionRangesInput,
+    ): Promise<DocumentAttributionRangesPage> => {
+      const offset = input.cursor ? Number(input.cursor) : 0;
+      const end = Math.min(total, offset + (input.limit ?? 100));
+      const items = Array.from({ length: end - offset }, (_, index) =>
+        range(`update-${offset + index}`),
+      );
+      return {
+        attributionRevision: 12,
+        documentId: input.documentId,
+        hasMore: end < total,
+        items,
+        nextCursor: end < total ? String(end) : null,
+      };
+    },
+  };
+}
+
+test("a refresh gives up exactly where a first read does", async () => {
+  // Something was uploaded since: the refresh probes, then reads on.
+  const held = {
+    firstUpdateId: "update-0",
+    ranges: [range("update-0")],
+    revision: 11,
+    status: "complete" as const,
+  };
+
+  for (const [total, status] of [
+    [20_000, "complete"],
+    [20_001, "tooMany"],
+  ] as const) {
+    const first = await loadAllDocumentAttributionRanges(
+      servedRanges(total),
+      "document-1",
+    );
+    const refresh = await loadAllDocumentAttributionRanges(
+      servedRanges(total),
+      "document-1",
+      { held },
+    );
+    expect([first?.status, refresh?.status]).toEqual([status, status]);
+    expect([first?.ranges.length, refresh?.ranges.length]).toEqual(
+      status === "complete" ? [total, total] : [0, 0],
+    );
+  }
+});
+
 test("a failed page fails the read", async () => {
   const api = pagedRanges(3);
   const containerContents = {

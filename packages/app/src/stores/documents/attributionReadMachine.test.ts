@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   type AttributionReadState,
   currentAttributionResult,
+  hasAttributionReadSettled,
   heldAttributionResult,
   transitionAttributionRead,
 } from "./attributionReadMachine";
@@ -25,6 +26,7 @@ test("replacement requests discard old identities and cannot finish out of order
     status: "loading",
     request: first,
     previous: null,
+    refreshing: false,
   });
   const ready = transitionAttributionRead(loading, {
     type: "loaded",
@@ -41,6 +43,7 @@ test("replacement requests discard old identities and cannot finish out of order
     status: "loading",
     request: next,
     previous: null,
+    refreshing: false,
   });
   expect(
     transitionAttributionRead(replacement, {
@@ -73,7 +76,12 @@ test("reset and restart for the same document require a new request identity", (
   const oldRequest = request(scopeA);
   const newRequest = request(scopeA);
   const reset = transitionAttributionRead<string>(
-    { status: "loading", request: oldRequest, previous: null },
+    {
+      status: "loading",
+      request: oldRequest,
+      previous: null,
+      refreshing: false,
+    },
     { type: "request", request: null },
   );
   const current = transitionAttributionRead(reset, {
@@ -132,48 +140,79 @@ const refreshTable: ReadonlyArray<{
   state: State;
   scope: object;
   previous: string | null;
+  refreshing: boolean;
 }> = [
   {
     name: "nothing read yet",
     state: { status: "idle" },
     scope: scopeA,
     previous: null,
+    refreshing: false,
   },
   {
     name: "a ready read, same scope",
     state: { status: "ready", request: request(scopeA), result: "a" },
     scope: scopeA,
     previous: "a",
+    refreshing: true,
   },
   {
     name: "a ready read, another scope",
     state: { status: "ready", request: request(scopeA), result: "a" },
     scope: scopeB,
     previous: null,
+    refreshing: false,
   },
   {
     name: "a refresh still loading, same scope",
-    state: { status: "loading", request: request(scopeA), previous: "a" },
+    state: {
+      status: "loading",
+      request: request(scopeA),
+      previous: "a",
+      refreshing: true,
+    },
     scope: scopeA,
     previous: "a",
+    refreshing: true,
+  },
+  {
+    name: "a first read still loading, same scope",
+    state: {
+      status: "loading",
+      request: request(scopeA),
+      previous: null,
+      refreshing: false,
+    },
+    scope: scopeA,
+    previous: null,
+    refreshing: false,
   },
   {
     name: "a refresh still loading, another scope",
-    state: { status: "loading", request: request(scopeA), previous: "a" },
+    state: {
+      status: "loading",
+      request: request(scopeA),
+      previous: "a",
+      refreshing: true,
+    },
     scope: scopeB,
     previous: null,
+    refreshing: false,
   },
   {
     name: "a refresh that failed, same scope",
     state: { status: "unavailable", request: request(scopeA), previous: "a" },
     scope: scopeA,
     previous: "a",
+    refreshing: true,
   },
   {
     name: "a first read that failed, same scope",
     state: { status: "unavailable", request: request(scopeA), previous: null },
     scope: scopeA,
     previous: null,
+    // Nothing was read, but the scope's first read has settled.
+    refreshing: true,
   },
 ];
 
@@ -188,7 +227,9 @@ for (const row of refreshTable) {
       status: "loading",
       request: next,
       previous: row.previous,
+      refreshing: row.refreshing,
     });
+    expect(hasAttributionReadSettled(loading, next)).toBe(row.refreshing);
     // A failure keeps it; a result replaces it.
     expect(
       transitionAttributionRead(loading, { type: "failed", request: next }),
@@ -213,7 +254,7 @@ test("a current reader sees only its own request's result", () => {
   expect(currentAttributionResult(ready, request(scopeA))).toBeNull();
   expect(
     currentAttributionResult(
-      { status: "loading", request: own, previous: "a" },
+      { status: "loading", request: own, previous: "a", refreshing: true },
       own,
     ),
   ).toBeNull();
@@ -235,7 +276,7 @@ test("a held reader sees the latest result in its scope, never another's", () =>
   expect(heldAttributionResult(ready, request(scopeA))).toBe("a");
   expect(
     heldAttributionResult(
-      { status: "loading", request: own, previous: "a" },
+      { status: "loading", request: own, previous: "a", refreshing: true },
       own,
     ),
   ).toBe("a");
@@ -249,4 +290,41 @@ test("a held reader sees the latest result in its scope, never another's", () =>
   expect(heldAttributionResult(ready, request(scopeB))).toBeNull();
   expect(heldAttributionResult(ready, null)).toBeNull();
   expect(heldAttributionResult({ status: "idle" }, own)).toBeNull();
+});
+
+test("a scope has settled once its first read loads or fails", () => {
+  const first = request(scopeA);
+  const loading = transitionAttributionRead<string>(
+    { status: "idle" },
+    { type: "request", request: first },
+  );
+
+  // Nothing to read is not a read that settled.
+  expect(hasAttributionReadSettled(loading, null)).toBe(false);
+  expect(hasAttributionReadSettled({ status: "idle" }, first)).toBe(false);
+  expect(hasAttributionReadSettled(loading, first)).toBe(false);
+  for (const settled of [
+    transitionAttributionRead(loading, { type: "failed", request: first }),
+    transitionAttributionRead(loading, {
+      type: "loaded",
+      request: first,
+      result: "a",
+    }),
+  ]) {
+    expect(hasAttributionReadSettled(settled, first)).toBe(true);
+    // The render before a refresh is requested, and the refresh loading.
+    const refresh = request(scopeA);
+    expect(hasAttributionReadSettled(settled, refresh)).toBe(true);
+    expect(
+      hasAttributionReadSettled(
+        transitionAttributionRead(settled, {
+          type: "request",
+          request: refresh,
+        }),
+        refresh,
+      ),
+    ).toBe(true);
+    // Never for another document or session.
+    expect(hasAttributionReadSettled(settled, request(scopeB))).toBe(false);
+  }
 });

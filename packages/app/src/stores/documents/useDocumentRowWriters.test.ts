@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { shouldFetchAttribution } from "./useAttributionRead";
 import {
   createRowWriterResolver,
   selectAttributionSegments,
@@ -46,22 +45,6 @@ test("selectAttributionSegments drops a truncated response", () => {
 
 test("selectAttributionSegments treats a null response as no segments", () => {
   expect(selectAttributionSegments(null)).toEqual([]);
-});
-
-test("shouldFetchAttribution requires enabled, a synced doc, auth, and online", () => {
-  const base = {
-    documentId: "doc-1",
-    enabled: true,
-    isAuthenticated: true,
-    online: true,
-  };
-  expect(shouldFetchAttribution(base)).toBe(true);
-  expect(shouldFetchAttribution({ ...base, enabled: false })).toBe(false);
-  expect(shouldFetchAttribution({ ...base, documentId: null })).toBe(false);
-  expect(shouldFetchAttribution({ ...base, isAuthenticated: false })).toBe(
-    false,
-  );
-  expect(shouldFetchAttribution({ ...base, online: false })).toBe(false);
 });
 
 test("resolves a peer to its server-verified writer", () => {

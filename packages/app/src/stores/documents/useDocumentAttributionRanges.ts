@@ -7,6 +7,7 @@ import { useCallback } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import {
   type AttributionReadRequest,
+  hasAttributionReadSettled,
   heldAttributionResult,
 } from "./attributionReadMachine";
 import { useDocument } from "./DocumentsProvider";
@@ -55,11 +56,18 @@ const TOO_MANY: DocumentAttributionRangesRead = {
 /** The most a page may hold; the API refuses a larger limit. */
 const RANGE_PAGE_LIMIT = 500;
 /**
- * Where a read gives up: a document with more uploads than this many full
- * pages hold is read as having no ranges at all. Part of the list would date
- * a change from the uploads that happen to be on the pages that were read.
+ * Where a read gives up: a document with more ranges than this is read as
+ * having none at all. Part of the list would date a change from the uploads
+ * that happen to be on the pages that were read. It counts ranges, not pages,
+ * so a refresh that starts with a probe gives up exactly where a first read
+ * does.
  */
-const MAX_RANGE_PAGES = 40;
+const MAX_RANGES = 20_000;
+/**
+ * The most full pages a read asks for, which bounds a read even if pages
+ * come back short: `MAX_RANGES` in pages of `RANGE_PAGE_LIMIT`.
+ */
+const MAX_RANGE_PAGES = MAX_RANGES / RANGE_PAGE_LIMIT;
 /** A refresh's first page only asks whether anything was uploaded since. */
 const PROBE_LIMIT = 1;
 
@@ -136,9 +144,8 @@ export async function loadAllDocumentAttributionRanges(
     loadPage,
     revision: found.revision,
   });
-  if (ranges === null || ranges === "tooMany") {
-    return ranges === null ? null : TOO_MANY;
-  }
+  if (ranges === null) return null;
+  if (ranges === "tooMany") return TOO_MANY;
   return { ...found, ranges, status: "complete" };
 }
 
@@ -150,8 +157,8 @@ type LoadRangePage = (
 
 /**
  * The ranges on `first` and every page after it, each bound to `revision`;
- * "tooMany" past `MAX_RANGE_PAGES` full pages, or null once the read is not
- * wanted.
+ * "tooMany" past `MAX_RANGES` ranges or `MAX_RANGE_PAGES` full pages, or null
+ * once the read is not wanted.
  */
 async function readOnFrom(
   first: DocumentAttributionRangesPage,
@@ -166,7 +173,10 @@ async function readOnFrom(
   let page = first;
   let fullPages = read.fullPagesRead;
   while (page.hasMore) {
-    if (fullPages >= MAX_RANGE_PAGES) return "tooMany";
+    // There is at least one range more than those read.
+    if (ranges.length >= MAX_RANGES || fullPages >= MAX_RANGE_PAGES) {
+      return "tooMany";
+    }
     if (!read.isCurrent()) return null;
     page = await read.loadPage(
       page.nextCursor,
@@ -176,7 +186,7 @@ async function readOnFrom(
     fullPages += 1;
     ranges.push(...page.items);
   }
-  return ranges;
+  return ranges.length > MAX_RANGES ? "tooMany" : ranges;
 }
 
 /**
@@ -187,7 +197,7 @@ export function useAttributionRangesForDocument(input: {
   documentId: string | null;
   syncing: boolean;
   enabled: boolean;
-}): DocumentAttributionRanges {
+}): DocumentAttributionRanges | null {
   const { containerContents } = useTearleads();
   const request = useAttributionRequest(input);
   const load = useCallback(
@@ -205,26 +215,34 @@ export function useAttributionRangesForDocument(input: {
     [containerContents],
   );
   const state = useAttributionRead(request, load);
+  // Nothing to read (offline, unsynced, unauthenticated): no ranges.
+  if (request === null) return NO_RANGES;
   // A range never changes once read: an operation's first upload stays its
   // first upload, and later uploads only add ranges. So while a refresh of
   // the same document and session loads, or fails, the ranges already read
   // still say what they said. Dropping them would blank every time they
   // resolve on each sync. Another document or session never sees them.
-  return heldAttributionResult(state, request)?.ranges ?? NO_RANGES;
+  const held = heldAttributionResult(state, request);
+  if (held !== null) return held.ranges;
+  // Nothing held: none once a read in this scope settled, or the first read
+  // has yet to say.
+  return hasAttributionReadSettled(state, request) ? NO_RANGES : null;
 }
 
 /**
  * The open document's per-upload attribution ranges: for each run of
  * operations, the upload that first delivered it and when the server stored
- * that upload. Empty while they first load and when attribution is
- * unavailable (offline, unsynced, unauthenticated, too many to read, or
- * changed mid-read). Asked for again after each completed sync, like the
- * compact segments, keeping what is held until the new read is ready and
- * reading every page again only when something was uploaded.
+ * that upload. Null until the first read for this document and session
+ * settles, so a reader can wait for it rather than show what the ranges
+ * would change. Empty when attribution is unavailable (offline, unsynced,
+ * unauthenticated, too many to read, or failed). Asked for again after each
+ * completed sync, like the compact segments, keeping what is held until the
+ * new read is ready and reading every page again only when something was
+ * uploaded.
  */
 export function useDocumentAttributionRanges(
   enabled: boolean,
-): DocumentAttributionRanges {
+): DocumentAttributionRanges | null {
   const { documentId, syncing } = useDocument();
   return useAttributionRangesForDocument({ documentId, syncing, enabled });
 }

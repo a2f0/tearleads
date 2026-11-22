@@ -115,7 +115,8 @@ export function DocumentHistoryCopy(params: {
    * confirmation before it could be answered.
    */
   onRequested: () => void;
-  versionTime: string;
+  /** When the version was made, as shown; null until it is known. */
+  versionTime: string | null;
   /** The selected stop's version, or null while it replays. */
   view: DocumentHistoryView | null;
 }) {

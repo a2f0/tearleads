@@ -14,6 +14,8 @@ export interface AttributionReadRequest {
  * compact intervals, or the per-upload ranges. While a refresh loads, and
  * after it fails, `previous` is the last result read in the same scope, or
  * null when there is none: another document or session never carries it.
+ * `refreshing` says a read in the same scope has already settled, loaded or
+ * failed, so this one is not the scope's first.
  */
 export type AttributionReadState<Result> =
   | { status: "idle" }
@@ -21,6 +23,7 @@ export type AttributionReadState<Result> =
       status: "loading";
       request: AttributionReadRequest;
       previous: Result | null;
+      refreshing: boolean;
     }
   | {
       status: "unavailable";
@@ -33,6 +36,21 @@ export type AttributionReadEvent<Result> =
   | { type: "request"; request: AttributionReadRequest | null }
   | { type: "failed"; request: AttributionReadRequest }
   | { type: "loaded"; request: AttributionReadRequest; result: Result };
+
+/** Whether a read in `scope` has settled, loaded or failed. */
+function hasSettledInScope<Result>(
+  state: AttributionReadState<Result>,
+  scope: object,
+): boolean {
+  switch (state.status) {
+    case "idle":
+      return false;
+    case "loading":
+      return state.request.scope === scope && state.refreshing;
+    default:
+      return state.request.scope === scope;
+  }
+}
 
 /** The latest result `state` holds for `scope`, if any. */
 function latestResultInScope<Result>(
@@ -64,6 +82,7 @@ export function transitionAttributionRead<Result>(
             status: "loading",
             request: event.request,
             previous: latestResultInScope(state, event.request.scope),
+            refreshing: hasSettledInScope(state, event.request.scope),
           }
         : { status: "idle" };
     case "failed":
@@ -109,4 +128,16 @@ export function heldAttributionResult<Result>(
   request: AttributionReadRequest | null,
 ): Result | null {
   return request === null ? null : latestResultInScope(state, request.scope);
+}
+
+/**
+ * Whether a read in `request`'s scope has settled, loaded or failed, so what
+ * the scope holds (perhaps nothing) can be shown. False until the scope's
+ * first read settles, and for no request.
+ */
+export function hasAttributionReadSettled<Result>(
+  state: AttributionReadState<Result>,
+  request: AttributionReadRequest | null,
+): boolean {
+  return request !== null && hasSettledInScope(state, request.scope);
 }

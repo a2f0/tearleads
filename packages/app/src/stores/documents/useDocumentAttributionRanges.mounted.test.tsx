@@ -79,11 +79,12 @@ function setup() {
     enabled: true,
     syncing: false,
   };
-  const renders: string[][] = [];
+  /** Each render's update ids, or null while the first read is pending. */
+  const renders: Array<string[] | null> = [];
   const view = renderHook(
     (props) => {
       const ranges = useAttributionRangesForDocument(props);
-      renders.push(ranges.map((range) => range.updateId));
+      renders.push(ranges?.map((range) => range.updateId) ?? null);
       return ranges;
     },
     { initialProps: input },
@@ -112,19 +113,21 @@ function setup() {
     requests,
     runtime,
     settle,
-    updateIds: () => view.result.current.map((range) => range.updateId),
+    updateIds: () =>
+      view.result.current?.map((range) => range.updateId) ?? null,
     view,
   };
 }
 
 test("a document's ranges are read across its pages", async () => {
   const fixture = setup();
-  expect(fixture.updateIds()).toEqual([]);
+  // Pending, not empty: no ranges yet is not "no uploads".
+  expect(fixture.updateIds()).toBeNull();
 
   await fixture.settle(0, page("doc-1", "update-1", true));
   // Not shown until every page is in: half the list would date a change
   // from whichever uploads had been read.
-  expect(fixture.updateIds()).toEqual([]);
+  expect(fixture.updateIds()).toBeNull();
   await fixture.settle(1, page("doc-1", "update-2"));
 
   expect(fixture.updateIds()).toEqual(["update-1", "update-2"]);
@@ -144,7 +147,7 @@ test("a refresh after a sync keeps the ranges it replaces until it is ready", as
   // The read is asked again, and nothing the ranges resolve goes blank.
   expect(fixture.requests).toHaveLength(2);
   expect(fixture.renders.length).toBeGreaterThan(0);
-  expect(fixture.renders.every((ids) => ids.join() === "update-1")).toBe(true);
+  expect(fixture.renders.every((ids) => ids?.join() === "update-1")).toBe(true);
   // An upload landed: the revision moved, and the new ranges replace them.
   await fixture.settle(1, page("doc-1", "update-2", false, 4));
   expect(fixture.updateIds()).toEqual(["update-2"]);
@@ -183,9 +186,10 @@ test("another document never sees the ranges of the one before", async () => {
 
   fixture.view.rerender({ ...fixture.input, documentId: "doc-2" });
 
-  // Not even in the first render of the new document.
+  // Not even in the first render of the new document, whose first read is
+  // pending.
   expect(fixture.renders.length).toBeGreaterThan(0);
-  expect(fixture.renders.every((ids) => ids.length === 0)).toBe(true);
+  expect(fixture.renders.every((ids) => ids === null)).toBe(true);
   await fixture.settle(1, page("doc-2", "update-9"));
   expect(fixture.updateIds()).toEqual(["update-9"]);
 });
@@ -199,7 +203,7 @@ test("another session never sees the ranges of the one before", async () => {
   fixture.view.rerender({ ...fixture.input });
 
   expect(fixture.renders.length).toBeGreaterThan(0);
-  expect(fixture.renders.every((ids) => ids.length === 0)).toBe(true);
+  expect(fixture.renders.every((ids) => ids === null)).toBe(true);
   expect(fixture.requests).toHaveLength(2);
   // Nor does its read start from what the other session held.
   await fixture.settle(1, page("doc-1", "update-1"));
@@ -213,7 +217,8 @@ test("a superseded read cannot land, and stops asking for pages", async () => {
   fixture.view.rerender({ ...fixture.input, documentId: "doc-2" });
   await fixture.settle(0, page("doc-1", "update-1", true));
 
-  expect(fixture.updateIds()).toEqual([]);
+  // The new document's own first read is still pending.
+  expect(fixture.updateIds()).toBeNull();
   // One request for the old document, one for the new: no second page.
   expect(fixture.requests.map(({ input }) => input.documentId)).toEqual([
     "doc-1",
@@ -259,4 +264,20 @@ test("nothing is read, or shown, offline or for a document that is not synced", 
   local.view.rerender({ ...local.input, documentId: null });
   expect(local.updateIds()).toEqual([]);
   expect(local.requests).toHaveLength(1);
+});
+
+test("once a first read fails, a refresh is not pending again", async () => {
+  const fixture = setup();
+  expect(fixture.updateIds()).toBeNull();
+  await fixture.settle(0, new Error("offline"));
+  expect(fixture.updateIds()).toEqual([]);
+  fixture.renders.length = 0;
+
+  // A reader that waited for the first read does not wait again on each
+  // sync: the scope has settled, with nothing to show.
+  fixture.completeSync();
+  expect(fixture.requests).toHaveLength(2);
+  expect(fixture.renders.every((ids) => ids?.length === 0)).toBe(true);
+  await fixture.settle(1, page("doc-1", "update-1"));
+  expect(fixture.updateIds()).toEqual(["update-1"]);
 });
