@@ -256,9 +256,25 @@ function cursorMatchesIdentity(
   );
 }
 
+/**
+ * Starts the pull after the reader's processed cursor: it already imported or
+ * voided every update served to it up to there, and holds every other one.
+ */
+function afterProcessedCursor(
+  plan: SyncPullPagePlan,
+  processedThroughSequence: number,
+): SyncPullPagePlan {
+  const processed = Math.min(processedThroughSequence, plan.upperBoundSequence);
+  return processed > plan.afterSequence
+    ? { ...plan, afterSequence: processed }
+    : plan;
+}
+
 export async function resolveSyncPullPagePlan(input: {
   readonly cursorHmacKey: string | null;
   readonly identity: SyncPullIdentity;
+  /** The commit position of the request's processed cursor, if any. */
+  readonly processedThroughSequence?: number | undefined;
   readonly request: DocumentSyncRequest;
   readonly resolveCursorBounds: (input: {
     readonly afterUpdateId: string;
@@ -273,11 +289,14 @@ export async function resolveSyncPullPagePlan(input: {
     return null;
   }
   if (input.request.pullCursor === undefined) {
-    return {
-      afterSequence: 0,
-      upperBoundSequence: input.upperBound?.sequence ?? 0,
-      upperBoundUpdateId: input.upperBound?.id ?? null,
-    };
+    return afterProcessedCursor(
+      {
+        afterSequence: 0,
+        upperBoundSequence: input.upperBound?.sequence ?? 0,
+        upperBoundUpdateId: input.upperBound?.id ?? null,
+      },
+      input.processedThroughSequence ?? 0,
+    );
   }
 
   const cursor = decodeCursor(
@@ -311,7 +330,10 @@ export async function resolveSyncPullPagePlan(input: {
     }
     throw error;
   }
-  return { ...bounds, upperBoundUpdateId: cursor.upperBoundUpdateId };
+  return afterProcessedCursor(
+    { ...bounds, upperBoundUpdateId: cursor.upperBoundUpdateId },
+    input.processedThroughSequence ?? 0,
+  );
 }
 
 export function createSyncPullPageResponse(input: {
@@ -348,5 +370,6 @@ export function createSyncPullPageResponse(input: {
   return {
     hasMore: input.hasMore,
     nextCursor,
+    throughUpdateId: input.plan.upperBoundUpdateId,
   };
 }

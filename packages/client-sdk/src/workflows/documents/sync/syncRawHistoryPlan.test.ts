@@ -107,6 +107,7 @@ test("raw history fails a stale cursor without restarting its frozen pull", asyn
                 pullPage: {
                   hasMore: true,
                   nextCursor: request.pullCursor ?? "unexpected-restart",
+                  throughUpdateId: null,
                 },
                 updates: [],
               },

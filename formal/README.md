@@ -119,6 +119,10 @@ Model-specific gaps:
 - `OutgoingQueueMerge` checks safety only; it has no eventual-sending property.
   It leaves out the merge byte cap, the per-pass row limit, and the rekey
   budget.
+- `VoidUpdateProgress` lets honest writers depend only on earlier updates;
+  a dishonest writer's forged dependency on a later update is outside it. It
+  leaves out AEAD failures, which stay availability failures, and devices' own
+  writes.
 - `RawHistoryRecovery` progress assumes awaited worker operations return; it
   does not cover retries, cancellation, or network failure.
 - `RestartProbeConvergence` and the honest `NoBrickedDevice` configuration bound

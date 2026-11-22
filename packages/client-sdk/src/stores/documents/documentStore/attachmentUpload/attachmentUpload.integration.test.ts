@@ -152,6 +152,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
         pullPage: {
           hasMore,
           nextCursor: hasMore ? `attachment-page-${syncCount + 1}` : null,
+          throughUpdateId: null,
         },
         request,
         storedDocument,

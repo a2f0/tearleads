@@ -3,21 +3,24 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { decryptDocumentSyncUpdatesByEpoch } from "../../../data/documents/shared/crypto";
+import { judgeDocumentSyncUpdateDecryption } from "../../../data/documents/shared/crypto";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
 } from "../../../data/documents/shared/responses";
+import { deriveDocumentContentKeyFingerprints } from "../../../data/documents/shared/sync/contentKeyFingerprint";
 import type {
+  IncomingDocumentSyncUpdateValidator,
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
+import { isolateDocumentSyncBatchError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
-  type IncomingDocumentSyncUpdateValidator,
-  isolateDocumentSyncBatchError,
-} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+  type VoidedDocumentSyncUpdate,
+  withoutVoidedUpdates,
+} from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import type { DocumentWriterPublicKeyResolver } from "../../../data/documents/shared/types";
 import type {
   ProjectionUserKeyResolver,
@@ -77,22 +80,16 @@ export async function validateDecryptableRawHistorySiblings(input: {
   organizationId: string;
   response: DocumentSyncResponse;
   updates: readonly DocumentSyncResponse["updates"][number][];
-  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
 }): Promise<void> {
   if (input.updates.length === 0) return;
-  const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
+  // A void sibling is not a failure, but an envelope, header, or key failure
+  // still outranks the unavailable epoch. Import verdicts are not judged:
+  // a missing parent may belong to the update this reader cannot decrypt.
+  await judgeDocumentSyncUpdateDecryption({
     contentKeysByEpoch: input.contentKeysByEpoch,
     documentId: input.documentId,
     organizationId: input.organizationId,
     updates: input.updates,
-  });
-  // The current wire contract authenticates each update's operation range but
-  // not its exact dependency set. An unresolved import therefore cannot prove
-  // that the missing parent belongs to an unavailable sibling; preserve the
-  // isolation failure instead of downgrading unrelated poison to availability.
-  await input.validateIncomingUpdates({
-    decryptedUpdates,
-    response: { ...input.response, updates: [...input.updates] },
   });
 }
 
@@ -137,7 +134,6 @@ async function resolveVerifiedResponseState(
         organizationId: plan.organizationId,
         response: input.response,
         updates,
-        validateIncomingUpdates: input.validateIncomingUpdates,
       }),
     response: input.response,
     targetSecretKey: input.targetSecretKey,
@@ -147,22 +143,62 @@ async function resolveVerifiedResponseState(
   return { contentKeysByEpoch, persistedState };
 }
 
+function inServerOrder(
+  response: DocumentSyncResponse,
+  voided: readonly VoidedDocumentSyncUpdate[],
+): VoidedDocumentSyncUpdate[] {
+  const order = new Map(
+    response.updates.map((update, index) => [update.id, index]),
+  );
+  return [...voided].sort(
+    (left, right) =>
+      (order.get(left.updateId) ?? 0) - (order.get(right.updateId) ?? 0),
+  );
+}
+
+/**
+ * Decrypts and judges the served updates in server order: a payload that is
+ * not its declared update is void before import, and the import verdicts run
+ * over what remains, so a writer's follow-up to a void update is void too.
+ */
+async function judgeDocumentSyncResponseUpdates(
+  input: SyncRemoteDocumentResultInput,
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>,
+) {
+  const { plan } = input.materializedPlan;
+  const decrypted = await judgeDocumentSyncUpdateDecryption({
+    contentKeysByEpoch,
+    documentId: plan.documentId,
+    organizationId: plan.organizationId,
+    updates: input.response.updates,
+  });
+  const importVoids =
+    (await input.validateIncomingUpdates({
+      decryptedUpdates: decrypted.accepted,
+      response: input.response,
+    })) ?? [];
+  return {
+    decryptedUpdates: withoutVoidedUpdates(decrypted.accepted, importVoids),
+    voidedUpdates: inServerOrder(input.response, [
+      ...decrypted.voided,
+      ...importVoids,
+    ]),
+  };
+}
+
 export async function syncRemoteDocumentResultFromResponse(
   input: SyncRemoteDocumentResultInput,
 ): Promise<SyncRemoteDocumentResult> {
   const { plan } = input.materializedPlan;
   const { contentKeysByEpoch, persistedState } =
     await resolveVerifiedResponseState(input);
-  const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
-    contentKeysByEpoch,
-    documentId: plan.documentId,
-    organizationId: plan.organizationId,
-    updates: input.response.updates,
-  });
-  await input.validateIncomingUpdates({
-    decryptedUpdates,
-    response: input.response,
-  });
+  const { decryptedUpdates, voidedUpdates } =
+    await judgeDocumentSyncResponseUpdates(input, contentKeysByEpoch);
+  const contentKeyFingerprintsByEpoch =
+    await deriveDocumentContentKeyFingerprints({
+      contentKeysByEpoch,
+      documentId: plan.documentId,
+    });
   const recoveryBaselineId =
     input.materializedPlan.staleRecoveryBaselineUpdateId;
   const acceptedRecoveryBaseline = responseAcceptedRecoveryBaseline(
@@ -205,6 +241,8 @@ export async function syncRemoteDocumentResultFromResponse(
     response: input.response,
     settledPendingUpdateIds,
     acceptedRecoveryBaseline,
+    contentKeyFingerprintsByEpoch,
+    voidedUpdates,
     writerProjection: input.writerProjection,
   };
 }

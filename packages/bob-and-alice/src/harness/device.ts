@@ -33,7 +33,8 @@ interface DeviceStorage {
 
 /**
  * One installed client: its own SQLite database and a full `Tearleads`
- * runtime. Nothing here reaches past the SDK's public surface, so a device
+ * runtime. Apart from `forgeQueuedUpdateSpans`, which plays a modified
+ * client, nothing here reaches past the SDK's public surface, so a device
  * can only do and see what a real host could.
  */
 export class Device {
@@ -226,6 +227,44 @@ export class Device {
   setOnline(online: boolean): void {
     this.sdk.network.setMode(online ? "online" : "offline");
     this.treeStore?.updateRuntime(this.sdk.containerContents.workflowRuntime());
+  }
+
+  /**
+   * Plays a dishonest or broken writer: rewrites the declared op spans of
+   * this install's queued document updates, as a modified client could, so
+   * the SDK signs spans its payloads do not carry. The only reach past the
+   * SDK's surface, and only into this device's own outgoing queue.
+   */
+  async forgeQueuedUpdateSpans(
+    forge: (span: { start: string; end: string }) => {
+      start: string;
+      end: string;
+    },
+  ): Promise<number> {
+    const rows = (
+      await this.storage.database.execSql(
+        `SELECT id, partial_start_version_vector AS start,
+                partial_end_version_vector AS end
+           FROM document_history_updates
+          WHERE app_kind = 'documents' AND update_id IS NOT NULL`,
+      )
+    ).flatMap(({ end, id, start }) =>
+      typeof end === "string" &&
+      typeof id === "string" &&
+      typeof start === "string"
+        ? [{ end, id, start }]
+        : [],
+    );
+    for (const row of rows) {
+      const forged = forge({ end: row.end, start: row.start });
+      await this.storage.database.execSql(
+        `UPDATE document_history_updates
+            SET partial_start_version_vector = ?, partial_end_version_vector = ?
+          WHERE id = ?`,
+        [forged.start, forged.end, row.id],
+      );
+    }
+    return rows.length;
   }
 
   /** Waits until every queued local write has settled with the API. */

@@ -66,7 +66,8 @@ Document write routes:
     `expectedLinkSetManifestHash`, `expectedTargetHash`, optional
     `authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`,
     required `supportsPullPagination: true`, optional read-only `pullCursor`
-    and `historyMode`, and `outgoingUpdates[]`
+    and `historyMode`, optional `processedThroughUpdateId`, and
+    `outgoingUpdates[]`
   - path references name stored signed container manifests;
     `expectedLinkSetManifestHash` pins the document [head](./glossary/sync.md#head)
   - each outgoing update includes `id`, encrypted `encryptedData`, visible
@@ -75,8 +76,8 @@ Document write routes:
     metadata hash commits the opaque, record-key-derived plaintext HMAC
   - response shape: `DocumentSyncResponse`
   - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
-    `commitLsnMode`, `contentKeyBundles[]`, `documentId`, required
-    `pullPage: {hasMore, nextCursor}`, and encrypted `updates[]`
+    `commitLsnMode`, `contentKeyBundles[]`, `documentId`, encrypted
+    `updates[]`, and required `pullPage: {hasMore, nextCursor, throughUpdateId}`
   - `contentKeyBundles[]` holds each older epoch a served update cites, once;
     the current bundle and KEK targets are the planned ones, never echoed
   - each returned update includes its stored `accessEpoch`, visible causal
@@ -450,10 +451,9 @@ they remain outside encrypted Loro payloads.
 
 ## Server Indexing
 
-Server-side indexing for Loro-native causal sync is `document_update_spans`
-plus SQL-side missing-update selection. Loro update metadata is indexed for
-causal sync and attachment metadata for lookup and GC; neither requires
-server-side plaintext inspection. Attachment indexes derive from explicit
+Loro update spans are indexed for causal sync and attachment metadata for lookup
+and GC; neither requires server-side plaintext inspection, so a declared span is
+[advisory](./advisory-op-spans.md). Attachment indexes derive from explicit
 attachment metadata, never from mining encrypted Loro diffs.
 
 ## Orphan Blob Detection

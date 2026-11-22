@@ -1,15 +1,15 @@
+import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
-import {
-  type DocumentSyncUpdateIsolationError,
-  importDecryptedDocumentSyncUpdates,
-  validateDocumentSyncUpdateImports,
-} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { importDecryptedDocumentSyncUpdates } from "../../../data/documents/shared/sync/documentSyncUpdateImport";
+import type { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
+import { recordUncursoredDocumentSyncVerdicts } from "../../documents/sync/processedCursor";
 import { reportDocumentSyncQuarantine } from "../../documents/sync/reportDocumentSyncQuarantine";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import type { ContainerMetadataState } from "./metadataTypes";
@@ -34,6 +34,34 @@ export async function recordCurrentMetadataSyncFailure(input: {
       },
       () => input.isCurrent?.() !== false,
     );
+  });
+}
+
+/**
+ * Records and reports a metadata pass's voids once its state is saved.
+ * Metadata keeps no processed cursor, so its voids are served and judged
+ * again on every pull; each is reported only when first recorded.
+ */
+/** Records and reports a metadata sync page's voids; metadata keeps no cursor. */
+export async function recordContainerMetadataVoids(
+  pass: {
+    readonly isCurrent: () => boolean;
+    readonly runtime: {
+      readonly infra: { readonly execSql: ExecSql };
+      readonly util: {
+        readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
+      };
+    };
+  },
+  localId: string,
+  synced: SyncRemoteDocumentResult,
+): Promise<void> {
+  await recordUncursoredDocumentSyncVerdicts({
+    execSql: pass.runtime.infra.execSql,
+    isCurrent: pass.isCurrent,
+    logError: pass.runtime.util.logError,
+    scope: { appKind: CONTAINER_METADATA_APP_KIND, localId },
+    synced,
   });
 }
 

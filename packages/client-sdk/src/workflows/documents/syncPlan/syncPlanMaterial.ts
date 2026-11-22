@@ -387,6 +387,7 @@ export async function buildMaterializedDocumentSyncPlan(
     inlineRekeyCommitId?: string | undefined;
     localVersionVector: string | null;
     minLsn?: string | undefined;
+    processedThroughUpdateId?: string | undefined;
     pullCursor?: string | undefined;
     /** Clipboard-safe trace sink (see syncTrace.ts); never receives content. */
     onSyncTrace?: DocumentSyncTraceEmitter | undefined;
@@ -485,6 +486,7 @@ export async function buildMaterializedDocumentSyncPlan(
     localVersionVector: input.localVersionVector,
     minLsn: input.minLsn,
     outgoingUpdates,
+    processedThroughUpdateId: input.processedThroughUpdateId,
     pullCursor: input.pullCursor,
     signedAt: input.signedAt,
   });

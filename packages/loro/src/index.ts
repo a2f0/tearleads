@@ -25,6 +25,7 @@ export {
   listSnapshotFieldEditors,
   listTextCharOpIds,
   listVersionVectorSpans,
+  loroDecoderIdentity,
   mergeVersionVectors,
   satisfiesVersionVector,
   type TextCharBlameSource,

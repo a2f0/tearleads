@@ -1,6 +1,6 @@
 import { encodeVersionVector } from "@tearleads/loro";
 import type { DecryptedDocumentSyncUpdate } from "../../../../data/documents/shared/sync/documentSyncTypes";
-import { importDecryptedDocumentSyncUpdates } from "../../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { importDecryptedDocumentSyncUpdates } from "../../../../data/documents/shared/sync/documentSyncUpdateImport";
 import type { DocumentRecord } from "../../../../workflows/documents";
 import type { DocumentSyncAttempt } from "../state";
 import {

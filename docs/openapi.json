@@ -3864,11 +3864,24 @@
               }
             ],
             "description": "Opaque cursor for the next page, or null on the last page; it grants nothing, and each page is reauthorized."
+          },
+          "throughUpdateId": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The last update committed when the pull began, the same on every page, or null when the document had none. Once the last page is processed, the client sends it back as `processedThroughUpdateId`."
           }
         },
         "required": [
           "hasMore",
-          "nextCursor"
+          "nextCursor",
+          "throughUpdateId"
         ],
         "additionalProperties": {},
         "description": "Whether more updates remain in this pull."
@@ -4137,6 +4150,11 @@
             },
             "maxItems": 64,
             "description": "Encrypted updates to upload."
+          },
+          "processedThroughUpdateId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "The `throughUpdateId` of the client's last completed pull: it has imported or voided every update committed up to that one, so the response returns only later updates its version vector does not cover. Needs a non-null `localVersionVector`; an id outside this document is ignored."
           },
           "pullCursor": {
             "maxLength": 512,
@@ -14456,6 +14474,10 @@
             "id": "request.raw-history-null-frontier"
           },
           {
+            "description": "processedThroughUpdateId requires a non-null localVersionVector, so a raw-history pull carries none",
+            "id": "request.processed-cursor-frontier"
+          },
+          {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
             "id": "request.rotation-checkpoint-fields"
           }
@@ -17629,6 +17651,10 @@
           {
             "description": "historyMode \"raw\" requires localVersionVector to be null so the complete retained history is requested",
             "id": "request.raw-history-null-frontier"
+          },
+          {
+            "description": "processedThroughUpdateId requires a non-null localVersionVector, so a raw-history pull carries none",
+            "id": "request.processed-cursor-frontier"
           },
           {
             "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",

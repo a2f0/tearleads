@@ -179,6 +179,14 @@ existing per-page deduplication and event budget. Reporting throws or rejections
 do not replace the quarantine or clear the write-queue error, and results from
 an invalidated sync generation are not reported.
 
+A [void update](../glossary/content.md#void-update) is not a quarantine. The
+pass goes on and no write-queue error is recorded, so the void is reported as
+`Documents: sync update voided`, once per update: the report follows the
+transaction that first records its `document_void_updates` row. A later pass
+that serves the same update again (after a decoder upgrade, say) reports
+nothing new. The `Error` and its handling match a quarantine report, and
+results from an invalidated sync generation are not reported either.
+
 Failed local document writes and failed
 [sync-lane](../sync-edge-cases.md#the-failure-isolation-model) runs report the
 same way. The document write chain deliberately swallows its errors so an

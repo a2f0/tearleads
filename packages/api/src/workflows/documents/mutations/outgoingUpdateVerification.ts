@@ -14,6 +14,10 @@ import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { assertStoredWriteHeaderVerbatim } from "../../../access/write/documentContentKeyStore";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
+import {
+  assertOutgoingDeclaredSpan,
+  assertOutgoingEnvelopeMatchesHeader,
+} from "./outgoingUpdateShape";
 import { readWriteHeader } from "./shared/records";
 import type { DocumentWriteAuthorizationProof } from "./types";
 
@@ -80,6 +84,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
   readonly update: DocumentOutgoingUpdate;
 }): Promise<void> {
   assertOutgoingCheckpointConsistency(input.update);
+  assertOutgoingDeclaredSpan(input.update);
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     ...(input.update.checkpointKind === undefined
       ? {}
@@ -112,6 +117,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
       400,
     );
   }
+  await assertOutgoingEnvelopeMatchesHeader(input);
 }
 
 function assertOutgoingCheckpointConsistency(

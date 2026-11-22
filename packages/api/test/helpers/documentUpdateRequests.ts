@@ -4,9 +4,7 @@ import { accessManifests, documentUpdates } from "@tearleads/api-shared/schema";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
-  computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
-  signWriteHeader,
 } from "@tearleads/crypto";
 import {
   createDocument,
@@ -27,6 +25,7 @@ import { eq } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
 import { currentDocumentLinkRows } from "./currentDocumentLinks";
 import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
+import { signWithDocumentEnvelope } from "./documentEnvelopeFixture";
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
 type ContainerPathRefs = NonNullable<
@@ -46,11 +45,21 @@ function rootPathRefs(
   ];
 }
 
+/**
+ * Vectors a writer signs in place of the ones its payload carries: the server
+ * cannot read the payload, so only the signed span is visible to it.
+ */
+export interface DeclaredSpan {
+  readonly partialEndVersionVector: string;
+  readonly partialStartVersionVector: string;
+}
+
 async function createSignedOrdinaryUpdate(input: {
   readonly authorizingContainerPathRefs: ContainerPathRefs;
   readonly checkpoint: boolean;
   readonly contentKeyBundle?: CreatedDocumentFixture["contentKeyBundle"];
   readonly created: CreatedDocumentFixture;
+  readonly declaredSpan?: DeclaredSpan | undefined;
   readonly owner: TestUser;
   readonly updateId?: string | undefined;
 }) {
@@ -68,13 +77,14 @@ async function createSignedOrdinaryUpdate(input: {
     ...(input.checkpoint
       ? { partialStartVersionVector: emptyVersionVector() }
       : {}),
+    ...input.declaredSpan,
   };
-  const encryptedData = `encrypted-sync-audit-update:${id}`;
   const plaintextHash = `plaintext-hash:${id}`;
   const organizationId = String(
     Reflect.get(input.created.accessManifest.state, "organizationId"),
   );
-  const writeHeader = await signWriteHeader(
+  const { encryptedData, writeHeader } = await signWithDocumentEnvelope(
+    `encrypted-sync-audit-update:${id}`,
     {
       version: 1,
       dependencyManifestHashes: [
@@ -115,8 +125,6 @@ async function createSignedOrdinaryUpdate(input: {
         plaintextHash,
         updateId: id,
       }),
-      ciphertextHash:
-        await computeDocumentContentRecordCiphertextHash(encryptedData),
       writerUserId: input.owner.userId,
       writerDeviceId: "test-device",
       writerKeyFingerprint: input.owner.fingerprint,
@@ -145,6 +153,7 @@ export async function createSignedDocumentSyncRequest(input: {
    */
   readonly contentKeyBundle?: CreatedDocumentFixture["contentKeyBundle"];
   readonly created: CreatedDocumentFixture;
+  readonly declaredSpan?: DeclaredSpan | undefined;
   readonly includeContentKeyBundle?: boolean;
   readonly owner: TestUser;
   readonly root: Pick<StoredRootFixture, "bundle" | "kekState">;
@@ -250,9 +259,9 @@ export async function createSignedAtomicRotationBaseline(input: {
     mergeVersionVectors(rows.map((row) => row.partialEndVersionVector));
   const id = crypto.randomUUID();
   const partialStartVersionVector = emptyVersionVector();
-  const encryptedData = `encrypted-rotation-baseline:${id}`;
   const plaintextHash = `plaintext-hash:${id}`;
-  const writeHeader = await signWriteHeader(
+  const { encryptedData, writeHeader } = await signWithDocumentEnvelope(
+    `encrypted-rotation-baseline:${id}`,
     {
       version: 1,
       dependencyManifestHashes: [...input.dependencyManifestHashes].sort(),
@@ -283,8 +292,6 @@ export async function createSignedAtomicRotationBaseline(input: {
         sourceVersionVector,
         updateId: id,
       }),
-      ciphertextHash:
-        await computeDocumentContentRecordCiphertextHash(encryptedData),
       writerUserId: input.owner.userId,
       writerDeviceId: "test-device",
       writerKeyFingerprint: input.owner.fingerprint,

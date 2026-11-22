@@ -7,7 +7,11 @@ import {
 } from "@tearleads/loro";
 import { readPullContinuation } from "../../../../data/documents/shared/sync/syncPagination";
 import {
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  type DocumentSyncVerdictOutcome,
+  recordDocumentSyncVerdicts,
+  reportDocumentSyncVoids,
   settleOutgoingPassAndDecideReArm,
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../../../workflows/documents";
@@ -151,6 +155,8 @@ async function persistSyncedDocument(
   const options = documentSyncSaveOptions(syncAttempt);
   const isCurrent = () =>
     isDocumentStoreSyncGenerationCurrent(state, generation);
+  // Written by the save's commit side effect, so only a committed save has one.
+  const recordedVerdicts: DocumentSyncVerdictOutcome[] = [];
   try {
     importSyncedDocumentUpdates(candidate, updates);
     if (state.pendingBaseVersion === null) {
@@ -175,7 +181,19 @@ async function persistSyncedDocument(
         }),
       },
       generation,
+      async (transactionExecSql) => {
+        recordedVerdicts.push(
+          await recordDocumentSyncVerdicts(transactionExecSql, {
+            scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+            synced,
+          }),
+        );
+      },
     );
+    const verdicts = recordedVerdicts.at(-1);
+    if (persisted && verdicts && isCurrent()) {
+      settleDocumentSyncVerdicts(state, synced, verdicts);
+    }
     if (
       persisted &&
       isCurrent() &&
@@ -207,6 +225,24 @@ async function persistSyncedDocument(
   } finally {
     candidate.free();
   }
+}
+
+/**
+ * After the save committed: report each void this device recorded for the
+ * first time, and re-arm a pass when a void judged under another key cleared
+ * the cursor, so the next pull serves that update again.
+ */
+function settleDocumentSyncVerdicts(
+  state: DocumentStoreState,
+  synced: DocumentSyncAttempt["synced"],
+  verdicts: DocumentSyncVerdictOutcome,
+): void {
+  reportDocumentSyncVoids(
+    state.runtime.util.logError,
+    synced,
+    verdicts.newlyVoidedUpdateIds,
+  );
+  if (verdicts.cursorCleared) requestDocumentStoreSync(state);
 }
 
 export function shouldReArmDocumentSync(

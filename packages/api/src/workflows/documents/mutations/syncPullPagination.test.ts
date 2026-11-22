@@ -196,7 +196,7 @@ test("pull cursor accepts stale-bundle reads pinned to the same bundle", async (
   });
 });
 
-test("final pull page has no continuation or storage sequence", () => {
+test("final pull page has no continuation, and names the pull's upper bound", () => {
   expect(
     createSyncPullPageResponse({
       cursorHmacKey: CURSOR_HMAC_KEY,
@@ -209,7 +209,11 @@ test("final pull page has no continuation or storage sequence", () => {
         upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
       },
     }),
-  ).toEqual({ hasMore: false, nextCursor: null });
+  ).toEqual({
+    hasMore: false,
+    nextCursor: null,
+    throughUpdateId: UPPER_BOUND_UPDATE_ID,
+  });
 });
 
 test("pull response rejects an oversized serialized envelope", () => {

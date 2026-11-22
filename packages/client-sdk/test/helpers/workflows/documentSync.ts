@@ -1,4 +1,4 @@
-import type { IncomingDocumentSyncUpdateValidator } from "../../../src/data/documents/shared/sync/documentSyncUpdateIsolation";
+import type { IncomingDocumentSyncUpdateValidator } from "../../../src/data/documents/shared/sync/documentSyncTypes";
 import type { RemoteDocumentSyncPass } from "../../../src/workflows/documents/sync/remoteDocumentSyncPass";
 import { syncRemoteDocumentForTest } from "./remoteDocumentServiceFixture";
 

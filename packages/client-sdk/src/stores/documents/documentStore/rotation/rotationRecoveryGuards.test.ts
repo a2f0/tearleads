@@ -55,7 +55,11 @@ test("rotation aborts a paged recovery when the runtime generation changes", asy
         });
         return {
           ...response,
-          pullPage: { hasMore: true, nextCursor: "generation-page-2" },
+          pullPage: {
+            hasMore: true,
+            nextCursor: "generation-page-2",
+            throughUpdateId: null,
+          },
           updates: [firstPageUpdate],
         };
       },

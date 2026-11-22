@@ -1,6 +1,7 @@
 import { encodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
+  assertNoVoidedDocumentSyncUpdates,
   createDocumentWriterPublicKeyResolver,
   type DocumentRotationProofMode,
   type DocumentSyncPullContinuation,
@@ -97,24 +98,30 @@ function rotationIncomingUpdateIsolation(input: {
     validateIncomingUpdates: async (
       result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
     ) => {
-      await validateDocumentSyncUpdateImports({
-        currentDocument: input.currentDocument,
-        decryptedUpdates: result.decryptedUpdates,
-        responseUpdates: result.response.updates,
-      });
+      // Rotation re-encrypts this history, so a void stays a failure here.
+      assertNoVoidedDocumentSyncUpdates(
+        await validateDocumentSyncUpdateImports({
+          currentDocument: input.currentDocument,
+          decryptedUpdates: result.decryptedUpdates,
+          responseUpdates: result.response.updates,
+        }),
+      );
       const decryptedUpdates = ordinaryRawHistoryUpdates(
         result.decryptedUpdates,
       );
       const ordinaryUpdateIds = new Set(
         decryptedUpdates.map((update) => update.id),
       );
-      await validateDocumentSyncUpdateImports({
-        currentDocument: input.currentDocument,
-        decryptedUpdates,
-        responseUpdates: result.response.updates.filter((update) =>
-          ordinaryUpdateIds.has(update.id),
-        ),
-      });
+      assertNoVoidedDocumentSyncUpdates(
+        await validateDocumentSyncUpdateImports({
+          currentDocument: input.currentDocument,
+          decryptedUpdates,
+          responseUpdates: result.response.updates.filter((update) =>
+            ordinaryUpdateIds.has(update.id),
+          ),
+        }),
+      );
+      return undefined;
     },
   };
 }
@@ -191,6 +198,7 @@ async function pullVerifiedRawHistoryForRotation(input: {
     }
 
     assertRotationRecoveryGeneration(input);
+    assertNoVoidedDocumentSyncUpdates(synced.voidedUpdates);
 
     importSyncedDocumentUpdates(
       input.rebuiltDocument,

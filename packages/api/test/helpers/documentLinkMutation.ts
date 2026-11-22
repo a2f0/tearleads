@@ -8,6 +8,7 @@ import {
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
+import { emptyVersionVector, versionVectorsEqual } from "@tearleads/loro";
 import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
@@ -279,7 +280,14 @@ export async function buildDocumentUnlinkRequest(input: {
           },
         ],
       },
-      rotationBaseline,
+      // A document with no committed history has nothing for a baseline to
+      // cover: the SDK unlinks it without one, as the API requires.
+      ...(versionVectorsEqual(
+        rotationBaseline.partialEndVersionVector,
+        emptyVersionVector(),
+      )
+        ? {}
+        : { rotationBaseline }),
     },
     manifest,
   );

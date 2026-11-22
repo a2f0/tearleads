@@ -13,7 +13,10 @@ import {
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../documents";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
-import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
+import {
+  applyIncomingContainerMetadataUpdates,
+  recordContainerMetadataVoids,
+} from "./metadataIncomingUpdateIsolation";
 import {
   currentMetadataPullContinuation,
   hasCurrentContainerMetadataReadState,
@@ -363,6 +366,7 @@ async function finalizeContainerMetadataSync(input: {
   }
   metadataState.container = persisted.container;
   installContainerMetadataRecord(metadataState, persisted.record);
+  await recordContainerMetadataVoids(input, persisted.record.id, synced);
   if (persisted.pullContinuationSuperseded) {
     // The response's accepted IDs were not durably settled. Treat every
     // pre-registration as unapplied so an early echo cannot hide work that the

@@ -18,6 +18,7 @@ import type {
   DocumentSyncRequestResultOptions,
   PersistedDocumentSyncState,
 } from "../types";
+import type { VoidedDocumentSyncUpdate } from "./documentUpdateVerdict";
 import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
 export interface DocumentSyncPreparedUpdate {
@@ -45,15 +46,6 @@ export interface DocumentEncryptedPendingUpdate {
   plaintextHash: string;
 }
 
-export interface ParsedDocumentEncryptedUpdate {
-  ciphertext: Uint8Array;
-  contentKeyEpoch: number;
-  contentRecordId: string;
-  metadataHash: string;
-  nonceDomainHash: string;
-  iv: Uint8Array;
-}
-
 export interface DecryptedDocumentSyncUpdate {
   checkpointKind?: "rotate_baseline";
   checkpointPayloadKind?: "full_history_snapshot";
@@ -77,6 +69,12 @@ export interface BuildDocumentSyncPlanInput {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;
+  /**
+   * The last update a completed pull reached, sent only with the version it
+   * was recorded with; see `processedCursor.ts`. A raw-history request or
+   * one without a version vector omits it.
+   */
+  processedThroughUpdateId?: string | undefined;
   pullCursor?: string | undefined;
   signedAt?: string | undefined;
 }
@@ -117,8 +115,20 @@ export interface MaterializedDocumentSyncPlan {
   staleRecoveryBaselineUpdateId?: string;
 }
 
+/**
+ * Judges a page's decrypted updates against the reader's document and returns
+ * the ones it voids; a validator that returns nothing accepts every update.
+ */
+export type IncomingDocumentSyncUpdateValidator = (
+  result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
+) =>
+  | undefined
+  | readonly VoidedDocumentSyncUpdate[]
+  | Promise<undefined | readonly VoidedDocumentSyncUpdate[]>;
+
 export interface SyncRemoteDocumentResult {
   contentKey: Uint8Array;
+  /** The served updates this pass accepted, in server order. */
   decryptedUpdates: DecryptedDocumentSyncUpdate[];
   /**
    * Pending updates whose persisted re-key bound is exhausted. Non-zero means
@@ -140,6 +150,17 @@ export interface SyncRemoteDocumentResult {
   response: DocumentSyncResponse;
   settledPendingUpdateIds: readonly string[];
   acceptedRecoveryBaseline: boolean;
+  /**
+   * A fingerprint of each content key the pass judged served updates under,
+   * by epoch; a void is final only for the key it was judged with.
+   */
+  contentKeyFingerprintsByEpoch: ReadonlyMap<number, string>;
+  /**
+   * Served updates this pass will never apply, in server order: each one's
+   * payload is not its declared update, or it cannot join the history built
+   * from every earlier served update. The pull continues past them.
+   */
+  voidedUpdates: readonly VoidedDocumentSyncUpdate[];
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 

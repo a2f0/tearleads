@@ -1,7 +1,7 @@
 import { createReadOnlyDocument, importUpdates } from "@tearleads/loro";
 import { readSeedTag } from "../../../data/documents/documentContent";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
-import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
 import { resolveDocumentCreateAuthor } from "../author";
 import { defaultDocumentsPersistence } from "../persistence";
 import { createDocumentProjectionUserKeyResolver } from "../projectionKeys";
