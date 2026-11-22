@@ -27,6 +27,7 @@ export function useHeldSyncActivity(
   delays: SyncActivityDelays = SYNC_ACTIVITY_DELAYS,
 ): boolean {
   const [state, setState] = useState(IDLE_SYNC_ACTIVITY_HOLD);
+  const { enterMs, exitMs } = delays;
 
   useEffect(() => {
     setState((current) =>
@@ -41,10 +42,10 @@ export function useHeldSyncActivity(
         setState((current) =>
           transitionSyncActivityHold(current, { type: "delay-elapsed" }),
         ),
-      state.status === "entering" ? delays.enterMs : delays.exitMs,
+      state.status === "entering" ? enterMs : exitMs,
     );
     return () => clearTimeout(timer);
-  }, [delays, state]);
+  }, [enterMs, exitMs, state]);
 
   return showsSyncActivity(state);
 }

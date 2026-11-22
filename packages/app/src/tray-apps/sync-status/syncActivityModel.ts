@@ -1,6 +1,7 @@
 import type {
   DomainSyncSnapshot,
   PendingDownloadQueueItem,
+  SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
 import type { QueueReadState } from "../../stores/sync-queues/queueReadMachine";
 
@@ -16,6 +17,17 @@ export interface SyncLaneSummary {
 
 const ABANDONED_RUN_ERROR = "Stopped responding";
 
+// A lane's failure as the tray names it, or undefined when it is healthy. The
+// SDK reports a lane as running or queued ahead of its failure, so a lane that
+// keeps failing and retrying would mostly look healthy by `status`. Its
+// `lastError` is set when a run fails and cleared only when one completes, so
+// it says whether the last finished run failed, whatever is queued after it.
+function laneFailure(lane: SyncLaneSnapshot): string | null | undefined {
+  if (lane.lastError !== null) return lane.lastError;
+  if (lane.runAbandoned) return ABANDONED_RUN_ERROR;
+  return lane.status === "error" ? null : undefined;
+}
+
 export function summarizeSyncLanes(
   snapshot: DomainSyncSnapshot,
 ): SyncLaneSummary {
@@ -24,17 +36,46 @@ export function summarizeSyncLanes(
   let firstError: string | null = null;
   for (const lane of snapshot.lanes) {
     if (lane.running) running += 1;
-    const laneError =
-      lane.status === "error"
-        ? (lane.lastError ?? null)
-        : lane.runAbandoned
-          ? ABANDONED_RUN_ERROR
-          : undefined;
+    const laneError = laneFailure(lane);
     if (laneError === undefined) continue;
     failed += 1;
     firstError ??= laneError;
   }
   return { failed, firstError, running };
+}
+
+/** What the lanes and pauses add to the tray's status on this device. */
+export interface SyncHolds {
+  readonly failedLaneCount: number;
+  readonly firstLaneError: string | null;
+  /** Sync work is running now; `useHeldSyncActivity` holds it for display. */
+  readonly laneActive: boolean;
+  /** Some organization's sync is paused, whether or not anything is queued. */
+  readonly syncPaused: boolean;
+}
+
+export function selectSyncHolds(input: {
+  readonly dbReady: boolean;
+  readonly lanes: SyncLaneSummary;
+  readonly online: boolean;
+  readonly pausedOrganizationIds: ReadonlySet<string>;
+}): SyncHolds {
+  const syncPaused = input.pausedOrganizationIds.size > 0;
+  // Offline, sync tasks fail or wait as a matter of course; the offline note
+  // explains them.
+  if (!input.online)
+    return {
+      failedLaneCount: 0,
+      firstLaneError: null,
+      laneActive: false,
+      syncPaused,
+    };
+  return {
+    failedLaneCount: input.lanes.failed,
+    firstLaneError: input.lanes.firstError,
+    laneActive: input.dbReady && input.lanes.running > 0,
+    syncPaused,
+  };
 }
 
 /** The download queue as the tray's popover reports it. */

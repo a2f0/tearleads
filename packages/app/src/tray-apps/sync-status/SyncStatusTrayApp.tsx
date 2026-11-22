@@ -1,41 +1,15 @@
 import { requestAllDomainSyncLanes } from "@tearleads/client-sdk";
 import { Menu, type MenuPosition } from "@tearleads/windowing";
-import {
-  type MouseEvent,
-  type ReactNode,
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
 import { SyncGlyph } from "../../components/shared/SyncGlyph";
 import { useAppNavigationActions } from "../../navigation/AppNavigationProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import {
-  SyncStatusPopover,
-  type SyncStatusPopoverAction,
-} from "./SyncStatusPopover";
+import { useDomainDocumentQueries } from "../../providers/sdk/useDomainDocumentQueries";
+import { SyncStatusPopoverBody } from "./SyncStatusPopoverBody";
 import type { SyncStatus } from "./syncStatusModel";
-import {
-  describeSyncStatusDetails,
-  listSyncStatusActions,
-  type SyncStatusActionId,
-} from "./syncStatusPopoverModel";
 import { usePopoverTransfers } from "./usePopoverTransfers";
 import { type SyncStatusResult, useSyncStatus } from "./useSyncStatus";
 import "./SyncStatusTrayApp.css";
-
-const SYNC_STATUS_ACTION_LABELS: Record<SyncStatusActionId, string> = {
-  "sync-now": "Sync now",
-  // Jumps to the Org Manager's Billing view — where the "Update billing to
-  // resume" instruction in the billing-paused status text can actually be
-  // done. That view bills the *active* org; when the block is another
-  // organization's, its org switcher is how the lapsed org is reached.
-  billing: "Update billing",
-  "write-queue": "View write queue",
-  downloads: "View downloads",
-  uploads: "View uploads",
-  "sync-lanes": "View sync lanes",
-};
 
 // Applied only while this popover is open: keep the trigger's own mousedown from
 // reaching Menu's document-level outside-click handler, so clicking the button
@@ -122,19 +96,8 @@ export function SyncStatusTrayControl({
   );
 }
 
-// Where each popover action leads: a request for every sync lane, or a view
-// opened through app navigation by id, since a tray app imports no mini-app.
-const ACTION_DESTINATIONS = {
-  billing: { appId: "org-manager", pathSegments: ["billing"] },
-  downloads: { appId: "explorer", pathSegments: ["downloads"] },
-  "sync-lanes": { appId: "explorer", pathSegments: ["sync", "lanes"] },
-  uploads: { appId: "explorer", pathSegments: ["uploads"] },
-  "write-queue": { appId: "explorer", pathSegments: ["writes"] },
-} as const;
-
 // The open popover: reads what only it shows (the download queue and the
-// Explorer's file uploads), then lists the status, the per-direction details,
-// and the actions that apply.
+// Explorer's file uploads) and hands the body its actions' effects.
 function SyncStatusPopoverContent({
   close,
   sync,
@@ -144,48 +107,28 @@ function SyncStatusPopoverContent({
 }) {
   const runtime = useTearleadsRuntime();
   const { openMiniApp } = useAppNavigationActions();
-  const { downloads, uploadingFileCount } = usePopoverTransfers();
   const domainScope = runtime.state.domainScope;
-  const canSync = runtime.state.online && runtime.auth.isAuthenticated;
-  const actions = useMemo(
-    () =>
-      listSyncStatusActions({
-        billingBlocked: sync.status === "billing",
-        canSync,
-        downloads,
-        lanes: sync.lanes,
-        pendingWriteCount: sync.pendingWriteCount,
-        queueReadFailed: sync.queueReadFailed,
-        uploadingFileCount,
-      }).map(
-        (id): SyncStatusPopoverAction => ({
-          id,
-          label: SYNC_STATUS_ACTION_LABELS[id],
-          onSelect: () => {
-            if (id === "sync-now") requestAllDomainSyncLanes(domainScope);
-            else openMiniApp(ACTION_DESTINATIONS[id]);
-            close();
-          },
-        }),
-      ),
-    [
-      canSync,
-      close,
-      domainScope,
-      downloads,
-      openMiniApp,
-      sync,
-      uploadingFileCount,
-    ],
-  );
-  const details = describeSyncStatusDetails({
-    downloads,
-    lanes: sync.lanes,
-    pendingWriteCount: sync.pendingWriteCount,
-    uploadingFileCount,
+  const dbReady = runtime.infra.dbStatus === "ready";
+  const documentQueries = useDomainDocumentQueries(runtime);
+  const { downloads, uploadingFileCount } = usePopoverTransfers({
+    dbReady,
+    documentQueries,
+    domainScope,
   });
+  const syncNow = useCallback(
+    () => requestAllDomainSyncLanes(domainScope),
+    [domainScope],
+  );
   return (
-    <SyncStatusPopover actions={actions} details={details} title={sync.title} />
+    <SyncStatusPopoverBody
+      canSync={dbReady && runtime.state.online && runtime.auth.isAuthenticated}
+      downloads={downloads}
+      onClose={close}
+      onOpenView={openMiniApp}
+      onSyncNow={syncNow}
+      sync={sync}
+      uploadingFileCount={uploadingFileCount}
+    />
   );
 }
 

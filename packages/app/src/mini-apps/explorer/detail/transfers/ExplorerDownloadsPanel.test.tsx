@@ -386,3 +386,29 @@ test("Refresh retries only the documents whose files are shown", async () => {
     localId: "local-99",
   });
 });
+
+test("Downloads reads nothing into the shared queue while the database is closed", async () => {
+  let reads = 0;
+  const documentQueries = {
+    listPendingDownloads: async () => {
+      reads += 1;
+      throw new Error("Database is locked");
+    },
+  } as unknown as ContainerDocumentQueries;
+  const view = render(
+    <ExplorerDownloadsPanel
+      destinations={noDestinations}
+      dbReady={false}
+      documentQueries={documentQueries}
+      domainScope={createDomainScope()}
+      online
+      isAuthenticated
+    />,
+  );
+  await act(async () => {
+    await Promise.resolve();
+  });
+  // A failure here would reach the tray's popover through the store.
+  expect(reads).toBe(0);
+  expect(view.queryByText("Database is locked")).toBeNull();
+});

@@ -29,6 +29,7 @@ test("a short run never shows and a sustained one does until it settles", async 
   // A gap shorter than the exit delay keeps it shown.
   rerender({ active: false });
   await wait(20);
+  expect(result.current).toBe(true);
   rerender({ active: true });
   await wait(80);
   expect(result.current).toBe(true);

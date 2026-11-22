@@ -7,7 +7,11 @@ import {
 import { useDomainDocumentQueries } from "../../providers/sdk/useDomainDocumentQueries";
 import { useDomainSyncSnapshot } from "../../providers/sdk/useDomainSyncSnapshot";
 import { usePausedOrganizationIds } from "../../providers/sdk/usePausedOrganizationIds";
-import { type SyncLaneSummary, summarizeSyncLanes } from "./syncActivityModel";
+import {
+  type SyncLaneSummary,
+  selectSyncHolds,
+  summarizeSyncLanes,
+} from "./syncActivityModel";
 import {
   describeSyncStatus,
   resolveSyncStatus,
@@ -59,17 +63,12 @@ export function useSyncStatus(): SyncStatusResult {
       organizations.loadBillingForOrganization(organizationId),
     [organizations],
   );
-  // A pause holds back both directions whether or not anything is queued for
-  // it, so it is named whenever one holds.
-  const syncPaused = usePausedOrganizationIds().size > 0;
+  const pausedOrganizationIds = usePausedOrganizationIds();
   const syncSnapshot = useDomainSyncSnapshot(domainScope);
   const lanes = useMemo(() => summarizeSyncLanes(syncSnapshot), [syncSnapshot]);
-  // Offline, sync tasks fail or wait as a matter of course; the offline note
-  // explains them.
-  const failedLaneCount = online ? lanes.failed : 0;
-  const syncActive = useHeldSyncActivity(
-    dbReady && online && lanes.running > 0,
-  );
+  const { failedLaneCount, firstLaneError, laneActive, syncPaused } =
+    selectSyncHolds({ dbReady, lanes, online, pausedOrganizationIds });
+  const syncActive = useHeldSyncActivity(laneActive);
   const billingNeedsAttention = billing.view?.needsAttention ?? false;
   const otherOrganizationBillingBlocked = useOtherOrganizationBillingBlocked({
     activeOrganizationId: appData.auth.organizationId,
@@ -96,7 +95,7 @@ export function useSyncStatus(): SyncStatusResult {
     firstWriteError: queue.firstError,
     queueReadError: queue.readError,
     failedLaneCount,
-    firstLaneError: lanes.firstError,
+    firstLaneError,
     syncActive,
     online,
     syncPaused,
@@ -106,11 +105,16 @@ export function useSyncStatus(): SyncStatusResult {
     billingBlockScope: billingNeedsAttention ? "active" : "other",
   });
 
-  return {
-    status,
-    title,
-    pendingWriteCount: queue.count,
-    queueReadFailed: queue.readError !== null,
-    lanes,
-  };
+  const queueReadFailed = queue.readError !== null;
+  // One object per change, so the popover's memoized actions follow it.
+  return useMemo(
+    () => ({
+      status,
+      title,
+      pendingWriteCount: queue.count,
+      queueReadFailed,
+      lanes,
+    }),
+    [lanes, queue.count, queueReadFailed, status, title],
+  );
 }

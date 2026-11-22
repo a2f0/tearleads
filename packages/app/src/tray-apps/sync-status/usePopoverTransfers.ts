@@ -1,6 +1,8 @@
+import type {
+  ContainerDocumentQueries,
+  DomainScope,
+} from "@tearleads/client-sdk";
 import { useMemo } from "react";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import { useDomainDocumentQueries } from "../../providers/sdk/useDomainDocumentQueries";
 import { useTearleadsExternalStoreSnapshot } from "../../providers/sdk/useTearleadsSubscription";
 import { getOrCreateExplorerUploadHistory } from "../../stores/explorer/explorerUploadHistory";
 import type { ExplorerUploadItem } from "../../stores/explorer/explorerUploadItemMachine";
@@ -10,8 +12,6 @@ import {
   type DownloadQueueSummary,
   summarizeDownloadQueue,
 } from "./syncActivityModel";
-
-const LOADING_DOWNLOADS: DownloadQueueSummary = { status: "loading" };
 
 // A file still on its way to the server: queued, importing, or imported and
 // awaiting its upload's confirmation.
@@ -26,27 +26,24 @@ function isUnfinishedUpload(item: ExplorerUploadItem): boolean {
 /**
  * What the open popover reads beyond the tray's own status: the download
  * queue, through the scope's shared store (watched only while the popover is
- * mounted, so the always-visible glyph adds no SQL), and the files the
- * Explorer is still uploading.
+ * mounted and the database is open, so the always-visible glyph adds no SQL),
+ * and the files the Explorer is still uploading.
  */
-export function usePopoverTransfers(): {
+export function usePopoverTransfers(input: {
+  dbReady: boolean;
+  documentQueries: ContainerDocumentQueries;
+  domainScope: DomainScope;
+}): {
   downloads: DownloadQueueSummary;
   uploadingFileCount: number;
 } {
-  const runtime = useTearleadsRuntime();
-  const domainScope = runtime.state.domainScope;
-  const dbReady = runtime.infra.dbStatus === "ready";
-  const documentQueries = useDomainDocumentQueries(runtime);
   const state = useQueueRead(
-    getOrCreatePendingDownloadQueueStore(domainScope),
-    dbReady ? documentQueries : null,
+    getOrCreatePendingDownloadQueueStore(input.domainScope),
+    input.dbReady ? input.documentQueries : null,
   );
-  const downloads = useMemo(
-    () => (dbReady ? summarizeDownloadQueue(state) : LOADING_DOWNLOADS),
-    [dbReady, state],
-  );
+  const downloads = useMemo(() => summarizeDownloadQueue(state), [state]);
   const uploads = useTearleadsExternalStoreSnapshot(
-    getOrCreateExplorerUploadHistory(domainScope),
+    getOrCreateExplorerUploadHistory(input.domainScope),
   );
   const uploadingFileCount = useMemo(
     () => uploads.filter(isUnfinishedUpload).length,

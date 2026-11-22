@@ -5,6 +5,7 @@ import type {
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
 import {
+  selectSyncHolds,
   summarizeDownloadQueue,
   summarizeSyncLanes,
 } from "./syncActivityModel";
@@ -164,6 +165,82 @@ test("a failed or abandoned sync task warns with its recorded error", () => {
   ).toBe("1 change failed to sync — Write access denied by the server (403)");
 });
 
+test("a lane that keeps failing stays failed while its retry waits or runs", () => {
+  const retrying = summarizeSyncLanes(
+    snapshot([
+      lane({
+        key: "documents:queued-retry",
+        lastAction: "failed",
+        lastError: "Sync failed (500)",
+        requested: true,
+        status: "queued",
+      }),
+      lane({
+        key: "blobs:running-retry",
+        lastAction: "started",
+        lastError: "Blob download failed (503)",
+        running: true,
+        status: "running",
+      }),
+      // A run that completed cleared its error, whatever is queued after it.
+      lane({ key: "documents:recovered", requested: true, status: "queued" }),
+    ]),
+  );
+  expect(retrying).toEqual({
+    failed: 2,
+    firstError: "Sync failed (500)",
+    running: 1,
+  });
+});
+
+test("offline hides lane failures and activity, and any pause is named", () => {
+  const lanes = { failed: 2, firstError: "Sync failed (500)", running: 1 };
+  const noPauses = new Set<string>();
+  expect(
+    selectSyncHolds({
+      dbReady: true,
+      lanes,
+      online: true,
+      pausedOrganizationIds: noPauses,
+    }),
+  ).toEqual({
+    failedLaneCount: 2,
+    firstLaneError: "Sync failed (500)",
+    laneActive: true,
+    syncPaused: false,
+  });
+  expect(
+    selectSyncHolds({
+      dbReady: true,
+      lanes,
+      online: false,
+      pausedOrganizationIds: noPauses,
+    }),
+  ).toEqual({
+    failedLaneCount: 0,
+    firstLaneError: null,
+    laneActive: false,
+    syncPaused: false,
+  });
+  // A closed database runs nothing worth showing as activity.
+  expect(
+    selectSyncHolds({
+      dbReady: false,
+      lanes,
+      online: true,
+      pausedOrganizationIds: noPauses,
+    }).laneActive,
+  ).toBe(false);
+  expect(
+    selectSyncHolds({
+      dbReady: true,
+      lanes: NO_LANES,
+      online: true,
+      pausedOrganizationIds: new Set(["org-paused"]),
+    }).syncPaused,
+  ).toBe(true);
+});
+
 test("a pending download with a recorded error is named in the popover", () => {
   const downloads = summarizeDownloadQueue({
     items: [pendingDownload("Unable to fetch content"), pendingDownload(null)],
@@ -232,6 +309,10 @@ test("a write being flushed reads differently from one that is waiting", () => {
     describeSyncStatus({ ...pending, pendingWriteCount: 1, syncActive: true }),
   ).toBe("Syncing 1 change…");
   expect(describeSyncStatus(pending)).toBe("3 changes not yet synced");
+  // Held writes are not being sent, whatever other lanes run.
+  expect(
+    describeSyncStatus({ ...pending, syncActive: true, syncPaused: true }),
+  ).toBe("3 changes not yet synced (sync is paused for an organization)");
   // Sync running does not hide unflushed data: the glyph stays red.
   expect(
     resolveSyncStatus({ ...SETTLED, pendingWriteCount: 3, syncActive: true }),

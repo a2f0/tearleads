@@ -223,7 +223,9 @@ function describeFailure(input: SyncStatusDescriptionInput): string {
 
 function describePending(input: SyncStatusDescriptionInput): string {
   const count = input.pendingWriteCount;
-  if (input.syncActive) {
+  // Lanes run for every organization, so with one paused its held writes
+  // would read as being sent; the pause note explains the wait instead.
+  if (input.syncActive && !input.syncPaused) {
     return count === 1
       ? SYNC_STATUS_LABELS.pendingSyncingOne
       : `${SYNC_STATUS_LABELS.pendingSyncingPrefix} ${count} ${SYNC_STATUS_LABELS.pendingSyncingOther}`;

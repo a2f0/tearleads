@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/client-sdk";
 import {
   createDomainScope,
+  type DomainScope,
   getDomainSyncCoordinatorSnapshot,
   getOrCreateDomainSyncCoordinator,
 } from "@tearleads/client-sdk";
@@ -23,7 +24,15 @@ function renderPanelLoader(
   domainScope = createDomainScope(),
   dbReady = true,
 ) {
-  return render(
+  return render(panel(documentQueries, domainScope, dbReady));
+}
+
+function panel(
+  documentQueries: ContainerDocumentQueries,
+  domainScope: DomainScope,
+  dbReady: boolean,
+) {
+  return (
     <ExplorerWriteQueuePanel
       billingBlockedOrganizationId={null}
       dbReady={dbReady}
@@ -37,7 +46,7 @@ function renderPanelLoader(
       openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
       selectedEntryKey={null}
-    />,
+    />
   );
 }
 
@@ -58,6 +67,23 @@ test("reads nothing into the shared queue while the database is closed", async (
   // A failure here would reach the tray and System Monitor through the store.
   expect(queryCount).toBe(0);
   expect(view.queryByText("Database is locked")).toBeNull();
+});
+
+test("closing the database hides the rows and their actions until it reopens", async () => {
+  const documentQueries = {
+    listPendingWrites: async () => [item()],
+  } as unknown as ContainerDocumentQueries;
+  const domainScope = createDomainScope();
+  const view = renderPanelLoader(documentQueries, domainScope);
+  const row = { name: "Open object: Offline note" };
+  expect(await view.findByRole("button", row)).toBeTruthy();
+
+  view.rerender(panel(documentQueries, domainScope, false));
+  expect(view.queryByRole("button", row)).toBeNull();
+  expect(view.getByText(EXPLORER_LABELS.writeQueueLoading)).toBeTruthy();
+
+  view.rerender(panel(documentQueries, domainScope, true));
+  expect(view.getByRole("button", row)).toBeTruthy();
 });
 
 test("coalesces a burst of sync signals and keeps stale rows while re-reading", async () => {
