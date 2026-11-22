@@ -14,6 +14,7 @@ export interface IdentitySwitcherState {
 export function useIdentitySwitcher(
   identity: IdentityContextValue,
   externalBusy = false,
+  onCreated?: () => void,
 ): IdentitySwitcherState {
   const [error, setError] = useState<string | null>(null);
 
@@ -30,10 +31,12 @@ export function useIdentitySwitcher(
   const createIdentity = useCallback(async () => {
     setError(null);
     const created = await identity.createIdentity();
-    if (!created) {
+    if (created) {
+      onCreated?.();
+    } else {
       setError("Could not create a new identity.");
     }
-  }, [identity.createIdentity]);
+  }, [identity.createIdentity, onCreated]);
 
   return useMemo(
     () => ({

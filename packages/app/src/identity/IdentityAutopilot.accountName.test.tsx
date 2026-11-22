@@ -3,6 +3,8 @@ import { fireEvent, waitFor, within } from "@testing-library/react";
 import {
   answerAccountNamePrompt,
   chooseNewIdentity,
+  confirmRecoveryKeyBackup,
+  RECOVERY_KEY_BACKUP_AGREEMENT_LABEL,
   sealedAccountNamingRecord as sealedAccountNaming,
 } from "../../test/helpers/accountNamePrompt";
 import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
@@ -52,6 +54,17 @@ test(
 
     // Identity Manager stays open behind the gate and carries the prompt.
     await answerAccountNamePrompt(manager);
+    // The created identity then waits for its recovery key to be backed up,
+    // and registers only once the user agrees that it is.
+    await within(manager).findAllByLabelText(
+      RECOVERY_KEY_BACKUP_AGREEMENT_LABEL,
+      {},
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+    );
+    expect(sdk().identity.signingKeyPair).not.toBeNull();
+    await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
+    expect(register).not.toHaveBeenCalled();
+    await confirmRecoveryKeyBackup(manager);
     await waitFor(
       () => {
         expect(getPaneStatusText(view)).not.toMatch(/userId:\s*none/);
@@ -148,6 +161,7 @@ test(
       "Bob",
       PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
     );
+    await confirmRecoveryKeyBackup(manager, PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
     await waitForPersistedPaneLocalIdentity(namespace);
     await waitFor(
       () => {

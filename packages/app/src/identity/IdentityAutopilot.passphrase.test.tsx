@@ -4,6 +4,7 @@ import { fireEvent, waitFor, within } from "@testing-library/react";
 import {
   answerAccountNamePrompt,
   chooseNewIdentity,
+  confirmRecoveryKeyBackup,
 } from "../../test/helpers/accountNamePrompt";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -34,6 +35,7 @@ test(
     await chooseNewIdentity(original.pane);
     expect(generate).not.toHaveBeenCalled();
     await answerAccountNamePrompt(original.pane);
+    await confirmRecoveryKeyBackup(original.pane);
     await waitFor(
       () => expect(original.sdk().session.snapshot.isAuthenticated).toBe(true),
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
