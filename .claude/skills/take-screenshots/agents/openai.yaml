@@ -1,0 +1,4 @@
+interface:
+  display_name: "Take Screenshots"
+  short_description: "Capture app screenshots once into the shared matrix-artifacts store"
+  default_prompt: "Use $take-screenshots to check this repository's screenshots and capture them into the shared store if they are stale."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SEO Optimization"
+  short_description: "Audit and fix search metadata and staging noindex"
+  default_prompt: "Use $seo-optimization to audit this repository's websites and fix their search and link-preview metadata, keeping staging out of search."

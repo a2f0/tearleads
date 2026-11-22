@@ -199,17 +199,20 @@ build test fails on a root-relative link that would redirect or miss a file.
 
 Screenshots are captured once and shared by every clone: the gitignored
 `.screenshots` at the repository root is a symlink into the local
-`matrix-artifacts` store (`~/github/matrix-artifacts/tearleads/screenshots`), so
-a website build or deploy from any clone publishes the newest capture. The
-matrix workspace's `artifacts link` creates that link; when the take-screenshots
-skill is installed, the website's `predev` and `prebuild` and the capture
-wrapper also create it in a clone or worktree that has no `.screenshots` yet,
-so a fresh clone never publishes an empty gallery. In a linked clone the
-skill's `artifacts capture` runs `bun run screenshots` under the store's lock
-and records the capture in `.screenshots/capture.json`; a direct
-`bun run screenshots` there refuses to start. A clone that is not linked keeps a
-plain local `.screenshots` directory and captures directly. Builds never
-capture. From the repository root of an unlinked clone, capture and then build:
+`matrix-artifacts` store (`<store>/tearleads/screenshots`, where the store is
+`MATRIX_ARTIFACTS_DIR`, else `matrix-artifacts` beside the matrix workspace or,
+outside one, beside the clone), so a website build or deploy from any clone
+publishes the newest capture. The pinned
+`agent-tool screenshots link --apply` creates that link; once the store exists,
+the website's `predev` and `prebuild` and the capture wrapper also create it in
+a clone or worktree that has no `.screenshots` yet, so a fresh clone never
+publishes an empty gallery. Where no store exists, as in CI, they create none.
+In a linked clone `agent-tool screenshots capture --apply` (the take-screenshots
+skill) runs `bun run screenshots` under the store's lock and records the capture
+in `.screenshots/capture.json`; a direct `bun run screenshots` there refuses to
+start. A clone that is not linked keeps a plain local `.screenshots` directory
+and captures directly. Builds never capture. From the repository root of an
+unlinked clone, capture and then build:
 
 ```sh
 bun install --frozen-lockfile

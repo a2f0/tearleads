@@ -1,0 +1,4 @@
+interface:
+  display_name: "Space Cleanup"
+  short_description: "Free disk space by removing regenerable output safely"
+  default_prompt: "Use $space-cleanup to free disk space here: dry run first, then remove only the tiers needed."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Trails"
+  short_description: "Find missing audit trails and report verified gaps"
+  default_prompt: "Use $audit-trails to review this app's audit coverage and report verified gaps."

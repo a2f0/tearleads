@@ -12,9 +12,9 @@ set -e
 # Extra args are forwarded to Playwright, e.g. `--project=mobile`.
 #
 # A clone with no .screenshots is linked to the shared screenshot store first
-# when the take-screenshots skill is installed. A linked clone's .screenshots is
-# a symlink into that store, where only the skill's `artifacts capture` may
-# write, so the capture is delegated to it there; an unlinked clone (no skill,
+# when that store already exists. A linked clone's .screenshots is a symlink
+# into that store, where only the pinned `agent-tool screenshots capture` may
+# write, so the capture is delegated to it there; an unlinked clone (no store,
 # or a local capture a person has not yet moved into the store) keeps a plain
 # local .screenshots directory and captures directly.
 
@@ -26,17 +26,18 @@ REPO_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/../.." && pwd -P)"
 screenshots_store_link "$REPO_ROOT"
 
 if [ -L "$REPO_ROOT/.screenshots" ]; then
-  artifacts=$(screenshots_store_script) || {
+  agent_tool=$(screenshots_store_cli "$REPO_ROOT") || {
     cat >&2 <<'EOF'
 .screenshots links to the shared screenshot store, so this script cannot
-capture directly. Install the take-screenshots skill, or point
-TAKE_SCREENSHOTS_ARTIFACTS at its scripts/artifacts.ts, then capture through
-`artifacts capture --apply`, which locks the store and records the capture.
+capture directly, and the pinned agent-tool is not installed. Run
+`bun install --frozen-lockfile`, then capture through
+`agent-tool screenshots capture --apply`, which locks the store and records
+the capture.
 EOF
     exit 1
   }
   cd "$REPO_ROOT" || exit 1
-  exec bun "$artifacts" capture --apply -- "$@"
+  exec "$agent_tool" screenshots capture --apply -- "$@"
 fi
 
 cd "$REPO_ROOT/packages/app-web" || exit 1

@@ -82,7 +82,7 @@ async function preflight(run: ResetRun) {
       await buildCheck("website");
     } catch {
       throw new Error(
-        "Website readiness failed; inspect private logs. For stale/incomplete provenance use the shared take-screenshots workflow before starting a new authorized run.",
+        "Website readiness failed; inspect private logs. For stale/incomplete provenance use the managed take-screenshots skill before starting a new authorized run.",
       );
     }
   });

@@ -1,0 +1,4 @@
+interface:
+  display_name: "App Store Readiness"
+  short_description: "Audit iOS, Android, and web release readiness"
+  default_prompt: "Use $app-store-readiness to check this app for release blockers, accessibility issues, and store review risks."
