@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.287",
+      "version": "0.1.288",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -271,7 +271,7 @@
     },
     "packages/diagnostics": {
       "name": "@tearleads/diagnostics",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "dependencies": {
         "@sentry/browser": "11.10.0",
         "@sentry/core": "11.10.0",
