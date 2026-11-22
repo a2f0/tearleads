@@ -28,11 +28,9 @@ import {
 } from "../../../test/helpers/data/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/data/trustedUserIdentity";
 import { createRemoteDocumentForTest as createRemoteDocument } from "../../../test/helpers/workflows/remoteDocumentServiceFixture";
-import {
-  importDecryptedDocumentSyncUpdates,
-  isDocumentSyncUpdateIsolationError,
-  validateDocumentSyncUpdateImports,
-} from "../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { validateDocumentSyncUpdateImports } from "../../data/documents/shared/sync/documentSyncImportVerdicts";
+import { importDecryptedDocumentSyncUpdates } from "../../data/documents/shared/sync/documentSyncUpdateImport";
+import { isDocumentSyncUpdateIsolationError } from "../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   clientSqlTables,
   containers,
@@ -303,13 +301,27 @@ test("two reset clients recreate one remote document and converge their Loro his
     importUpdates(leftRecovered, [leftUpdate.updateData]);
     importUpdates(rightRecovered, [rightUpdate.updateData]);
 
-    await validateDocumentSyncUpdateImports({
-      currentDocument: leftRecovered,
-      decryptedUpdates: [rightUpdate],
+    expect(
+      await validateDocumentSyncUpdateImports({
+        currentDocument: leftRecovered,
+        decryptedUpdates: [rightUpdate],
+      }),
+    ).toEqual({
+      deferredUpdateIds: [],
+      heldUpdateIds: [],
+      runtimeFailures: [],
+      voided: [],
     });
-    await validateDocumentSyncUpdateImports({
-      currentDocument: rightRecovered,
-      decryptedUpdates: [leftUpdate],
+    expect(
+      await validateDocumentSyncUpdateImports({
+        currentDocument: rightRecovered,
+        decryptedUpdates: [leftUpdate],
+      }),
+    ).toEqual({
+      deferredUpdateIds: [],
+      heldUpdateIds: [],
+      runtimeFailures: [],
+      voided: [],
     });
     importDecryptedDocumentSyncUpdates(leftRecovered, [rightUpdate]);
     importDecryptedDocumentSyncUpdates(rightRecovered, [leftUpdate]);
@@ -364,15 +376,13 @@ test("reset history with a same-peer collision is quarantined before live import
   try {
     const leftRecovered = await createDocument("collision-recovered-left");
     importUpdates(leftRecovered, [decryptedPendingUpdate(left).updateData]);
-    let isolated: unknown;
-    try {
-      await validateDocumentSyncUpdateImports({
-        currentDocument: leftRecovered,
-        decryptedUpdates: [decryptedPendingUpdate(right)],
-      });
-    } catch (error) {
-      isolated = error;
-    }
+    const {
+      voided: [voided],
+    } = await validateDocumentSyncUpdateImports({
+      currentDocument: leftRecovered,
+      decryptedUpdates: [decryptedPendingUpdate(right)],
+    });
+    const isolated = voided?.error;
 
     expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
     if (!isDocumentSyncUpdateIsolationError(isolated)) return;
@@ -387,7 +397,7 @@ test("reset history with a same-peer collision is quarantined before live import
   }
 });
 
-test("same-page same-peer collisions are quarantined at batch scope", async () => {
+test("a same-page same-peer collision voids the later carrier", async () => {
   const oldOrganizationId = crypto.randomUUID();
   const oldDocumentId = crypto.randomUUID();
   const replacementOrganizationId = crypto.randomUUID();
@@ -418,22 +428,17 @@ test("same-page same-peer collisions are quarantined at batch scope", async () =
   const current = await createDocument("same-page-collision-current");
   const currentIdentity = exportFullHistoryIdentity(current);
   try {
-    let isolated: unknown;
-    try {
-      await validateDocumentSyncUpdateImports({
-        currentDocument: current,
-        decryptedUpdates: [
-          decryptedPendingUpdate(left),
-          decryptedPendingUpdate(right),
-        ],
-      });
-    } catch (error) {
-      isolated = error;
+    const rightUpdate = decryptedPendingUpdate(right);
+    const { voided } = await validateDocumentSyncUpdateImports({
+      currentDocument: current,
+      decryptedUpdates: [decryptedPendingUpdate(left), rightUpdate],
+    });
+    expect(voided.map((entry) => entry.updateId)).toEqual([rightUpdate.id]);
+    const isolated = voided[0]?.error;
+    if (!isDocumentSyncUpdateIsolationError(isolated)) {
+      throw new Error("expected an attributed void");
     }
-
-    expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
-    if (!isDocumentSyncUpdateIsolationError(isolated)) return;
-    expect(isolated.attribution).toBe("batch");
+    expect(isolated.attribution).toBe("update");
     expect(isolated.stage).toBe("loro_import");
     expect(isolated.message).toContain("already-covered frontier");
     expect(exportFullHistoryIdentity(current)).toBe(currentIdentity);

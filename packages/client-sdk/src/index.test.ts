@@ -158,6 +158,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "abandonJournaledPrincipalMutation",
   "addDocumentAttachments",
   "addOrganizationGroupUser",
+  "assertNoVoidedDocumentSyncUpdates",
   "blobByteSourceInputLength",
   "bootstrapRootContainer",
   "buildInitialGroupPolicyRequest",

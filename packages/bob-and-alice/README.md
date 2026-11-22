@@ -14,6 +14,9 @@ can only do and observe what a deployed client could.
   a full `Tearleads` runtime. `Device.login` is a fresh install of an existing
   identity, with the same keys and an empty database. `Device.restart` reopens
   the runtime with the same database, blob store, identity, and trust pins.
+  `Device.forgeQueuedUpdateSpans` plays a dishonest or broken writer: it
+  rewrites the declared spans of the device's own queued updates before they
+  are signed, the only reach past the SDK's surface.
 - [`src/harness/transport.ts`](src/harness/transport.ts) puts a device-local
   HTTP proxy in front of the real
   API. A scenario can hold a selected request before submission or its response
@@ -72,6 +75,7 @@ request the API refuses with its error body.
 | `concurrentShareAndRevoke` | In both controlled orderings, a stale share or revoke retries once against the newer path, preserving the concurrent grant and the revocation. |
 | `concurrentGroupShareAndRevoke` | A direct share racing a group revocation succeeds in both orderings. The stale group-policy commit rebuilds its container batch once, preserves the new grant, and excludes old and fresh revoked readers. |
 | `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
+| `falseSpanUpdate` | A writer signs an update whose declared op span claims operations its payload does not carry. Each reader, including a fresh install, voids it once, reports it once, and keeps syncing: the other writer's edits settle and reach every device. |
 
 Pin a reproducible open issue in a scenario file as a `test.failing` case.
 It passes while the bug stands and fails once it is

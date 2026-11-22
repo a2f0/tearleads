@@ -34,6 +34,7 @@ function response(input: {
     pullPage: {
       hasMore: input.cursor !== null,
       nextCursor: input.cursor,
+      throughUpdateId: null,
     },
     updates: [{ id: input.updateId }] as DocumentSyncResponse["updates"],
   };
@@ -95,6 +96,7 @@ test("submitDocumentSync returns a completed single page", async () => {
   expect(result.response.pullPage).toEqual({
     hasMore: false,
     nextCursor: null,
+    throughUpdateId: null,
   });
 });
 

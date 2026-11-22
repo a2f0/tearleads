@@ -159,12 +159,16 @@ test("document sync falls back to a full pull when the local vector cannot fit",
     expectedTargetHash: "target-1",
     localVersionVector: "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
     outgoingUpdates: [],
+    processedThroughUpdateId: "00000000-0000-4000-8000-000000000009",
     supportsPullPagination: true,
   } as DocumentSyncRequest;
 
   const bounded = limitDocumentSyncRequestBytes(request);
 
   expect(bounded.localVersionVector).toBeNull();
+  // A full pull reads the whole history, so it carries no processed cursor;
+  // the server refuses a cursor without a version vector.
+  expect("processedThroughUpdateId" in bounded).toBe(false);
   expect(bounded.outgoingUpdates).toEqual([]);
   expect(
     new TextEncoder().encode(JSON.stringify(bounded)).byteLength,

@@ -7,7 +7,11 @@ import {
 } from "@tearleads/loro";
 import { readPullContinuation } from "../../../../data/documents/shared/sync/syncPagination";
 import {
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  type DocumentSyncVerdictOutcome,
+  recordDocumentSyncVerdicts,
+  reportDocumentSyncVoids,
   settleOutgoingPassAndDecideReArm,
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../../../workflows/documents";
@@ -103,7 +107,9 @@ function coveredSyncFrontier(
   if (synced.decryptedUpdates.length === 0) {
     // A completed empty pull distinguishes a real blank note from discovery.
     // An intermediate page cannot establish that no content exists yet.
-    return liveFrontier === "" && !synced.hasIncompletePull
+    return liveFrontier === "" &&
+      !synced.hasIncompletePull &&
+      !synced.hasHeldPull
       ? { snapshotEndVersion: emptyVersionVector() }
       : {};
   }
@@ -152,6 +158,9 @@ async function persistSyncedDocument(
   const options = documentSyncSaveOptions(syncAttempt);
   const isCurrent = () =>
     isDocumentStoreSyncGenerationCurrent(state, generation);
+  // Written by the save's commit side effect, so only a committed save has
+  // one; a retried transaction overwrites an attempt that rolled back.
+  let recordedVerdicts: DocumentSyncVerdictOutcome | undefined;
   try {
     importSyncedDocumentUpdates(candidate, updates);
     if (state.pendingBaseVersion === null) {
@@ -176,7 +185,20 @@ async function persistSyncedDocument(
         }),
       },
       generation,
+      async (transactionExecSql) => {
+        recordedVerdicts = await recordDocumentSyncVerdicts(
+          transactionExecSql,
+          {
+            scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+            synced,
+          },
+        );
+      },
     );
+    const verdicts = recordedVerdicts;
+    if (persisted && verdicts && isCurrent()) {
+      settleDocumentSyncVerdicts(state, synced, verdicts);
+    }
     if (
       persisted &&
       isCurrent() &&
@@ -208,6 +230,20 @@ async function persistSyncedDocument(
   } finally {
     candidate.free();
   }
+}
+
+/**
+ * After the save committed: report each void this device recorded for the
+ * first time, and re-arm a pass when a void judged under another key cleared
+ * the cursor, so the next pull serves that update again.
+ */
+function settleDocumentSyncVerdicts(
+  state: DocumentStoreState,
+  synced: DocumentSyncAttempt["synced"],
+  verdicts: DocumentSyncVerdictOutcome,
+): void {
+  reportDocumentSyncVoids(state.runtime.util.logError, synced, verdicts);
+  if (verdicts.cursorCleared) requestDocumentStoreSync(state);
 }
 
 export function shouldReArmDocumentSync(
@@ -321,7 +357,9 @@ export async function finalizeDocumentSync(
   // an intermediate page would let a failed/null continuation pass report the
   // original request as successful even though the server frontier was never
   // drained.
-  if (!synced.hasIncompletePull) {
+  // A held pull has not applied the update it stopped at, so the signal it
+  // consumed stays pending for the next scheduled pull to judge it again.
+  if (!synced.hasIncompletePull && !synced.hasHeldPull) {
     clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
     // The server's updates are applied and drained: a binding the detach
     // pass sighted before this pull no longer awaits its content update.

@@ -291,7 +291,7 @@ export async function createExplorerMetadataSyncResponse(input: {
     commitLsnMode: "tracked",
     contentKeyBundles: [],
     documentId: input.storedDocument.id,
-    pullPage: { hasMore: false, nextCursor: null },
+    pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
     updates,
   };
 }

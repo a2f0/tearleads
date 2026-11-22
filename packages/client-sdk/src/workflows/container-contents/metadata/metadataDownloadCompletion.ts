@@ -35,11 +35,14 @@ export function isFolderMetadataQueuedForDownload(
  * Record a finished folder download in the scope's history: a metadata pull
  * that took the folder out of the queue it was in when the request was made.
  * A one-page sync of a folder already stored, such as a rename, is not a
- * download; one that pages is queued until its last page lands.
+ * download; one that pages is queued until its last page lands. A pull left
+ * incomplete, as when judging deferred part of its page, has not finished,
+ * even with no continuation stored.
  */
 export function noteContainerMetadataDownloadDrained(input: {
   readonly container: ContainerRecord;
   readonly domainScope: DomainScope;
+  readonly pullIncomplete: boolean;
   readonly storedRecord: ContainerMetadataRecord;
   readonly syncAttempt: Pick<
     ContainerMetadataSyncAttempt,
@@ -48,6 +51,7 @@ export function noteContainerMetadataDownloadDrained(input: {
 }): void {
   const { container, storedRecord, syncAttempt } = input;
   if (
+    input.pullIncomplete ||
     !(
       resumedEarlierMetadataPull(syncAttempt) ||
       isFolderMetadataQueuedForDownload(syncAttempt.requestRecord)

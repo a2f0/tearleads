@@ -1,4 +1,5 @@
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
+import { emptyDocumentSyncImportVerdicts } from "../../../src/data/documents/shared/sync/documentUpdateVerdict";
 import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
@@ -46,7 +47,7 @@ async function setup(depth: number) {
       documentId: projection.documentId,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     },
   };
 }

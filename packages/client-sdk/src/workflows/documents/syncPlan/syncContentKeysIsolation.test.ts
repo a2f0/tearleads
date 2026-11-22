@@ -17,6 +17,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/workflow
 import { DocumentHistoryUnavailableError } from "../../../data/documents/shared/projection";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { syncRemoteDocumentResultFromResponse } from "../sync/syncResponseResult";
 import {
   DocumentRawHistoryUnavailableError,
@@ -301,7 +302,7 @@ test("a forged old-epoch header cannot bypass poison isolation through a missing
       resolveWriterPublicKey: writerKeyResolver(fixture),
       response,
       targetSecretKey: fixture.secretKey,
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       writerProjection: currentWriterProjection,
     }).then(
       () => null,
@@ -458,7 +459,7 @@ test("raw response validation poison-isolates a future content-key epoch", async
       resolveWriterPublicKey: writerKeyResolver(fixture),
       response,
       targetSecretKey: fixture.secretKey,
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       writerProjection: currentWriterProjection,
     }).then(
       () => null,

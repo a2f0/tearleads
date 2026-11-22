@@ -4,7 +4,11 @@ import { recordChangeTimestamps } from "./changeTimestamps";
 import { serializeCanonicalHistory } from "./historyCanonicalization";
 import { getImportBlobMetadata } from "./importMetadata";
 
-export { getImportBlobMetadata, type ImportBlobMode } from "./importMetadata";
+export {
+  getImportBlobMetadata,
+  type ImportBlobMode,
+  loroDecoderIdentity,
+} from "./importMetadata";
 
 function isPeerIdString(value: string): value is `${number}` {
   return /^\d+$/.test(value);
