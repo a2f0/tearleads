@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 // A linked clone's `.screenshots` is a symlink into the matrix-artifacts store
 // (`<store>/<project>/screenshots`) that every clone of this repository builds
-// and deploys from. Only the store's `artifacts capture` may write there: it
+// and deploys from. Only `agent-tool screenshots capture` may write there: it
 // takes the project's lock (`<store>/<project>/.capture.lock`, naming its pid,
 // host, checkout, and start time), writes a matching `running` record to
 // `.screenshots/capture.json`, and then runs `bun run screenshots` as its
@@ -24,7 +24,7 @@ const REPO_ROOT = path.resolve(
 );
 
 const REFUSAL =
-  ".screenshots links to the shared screenshot store; capture through its `artifacts capture`, which locks the store and records the capture.";
+  ".screenshots links to the shared screenshot store; capture through `agent-tool screenshots capture --apply`, which locks the store and records the capture.";
 
 interface CaptureLock {
   pid?: number;
@@ -97,7 +97,7 @@ function namesThisClone(
   );
 }
 
-/** Refuses a capture into the shared store that `artifacts capture` did not start. */
+/** Refuses a capture into the shared store that `agent-tool screenshots capture` did not start. */
 export function assertSharedCaptureRecorded(
   repoRoot = REPO_ROOT,
   chain: () => number[] = processChain,

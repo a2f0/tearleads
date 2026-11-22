@@ -108,9 +108,9 @@ dev-only URLs are rejected before simulator state changes. Tests can point
 These are native review screenshots, not App Store product-page marketing
 screenshots. Do not substitute the resized-browser output from the website
 capture (`bun run screenshots`, or the take-screenshots skill's
-`artifacts capture` in a linked clone): the web shell follows the Stripe
-purchase path, while App Review needs evidence of the native App Store
-subscription surface.
+`agent-tool screenshots capture --apply` in a linked clone): the web shell
+follows the Stripe purchase path, while App Review needs evidence of the native
+App Store subscription surface.
 
 ## Android (emulator)
 

@@ -5,7 +5,7 @@
     "": {
       "name": "tearleads",
       "devDependencies": {
-        "@a2f0/agent-tool": "0.1.65",
+        "@a2f0/agent-tool": "0.1.74",
         "@azure/storage-blob": "12.34.0",
         "@biomejs/biome": "2.5.15",
         "@commitlint/cli": "21.2.4",
@@ -129,7 +129,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.47",
+      "version": "0.0.48",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -189,7 +189,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.82",
+      "version": "0.1.83",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -366,9 +366,9 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.80",
+      "version": "0.1.81",
       "dependencies": {
-        "@a2f0/agent-tool": "0.1.65",
+        "@a2f0/agent-tool": "0.1.74",
         "@a2f0/ct-client": "0.1.6",
         "@astrojs/markdown-satteri": "0.4.6",
         "@astrojs/react": "7.1.2",
@@ -445,7 +445,7 @@
     },
   },
   "packages": {
-    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.65", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-yUdUOgsHOowZfzBQTTrampqWy0oH5o99NSrWOSloHv9vakp81GZY+o5b/ERoiTugHMAFBVhTXvg/TI0O5F21Lw=="],
+    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.74", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-1pTztRKSGBuBiYPA6Q0FbUrdgkr1XZP+duzYNxhkkmc+PLav/d/qpAqv5EjTqE8tFMNqbfgghMLzAL+9MGpLMw=="],
 
     "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 

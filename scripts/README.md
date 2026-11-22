@@ -99,13 +99,14 @@ detail captures assert decoded family/equipment photos and receipts, inventory
 fields, and tracker table rows and graph points. The browser locale and time
 zone are pinned so the dated readings render consistently. It writes below the
 gitignored `.screenshots`, which links to the `matrix-artifacts` store shared by
-every clone; in a linked clone it runs only under that store's
-`artifacts capture`, which records the capture. The
+every clone; in a linked clone it runs only under the pinned
+`agent-tool screenshots capture --apply`, which records the capture. The
 `scripts/testing/takeScreenshots.sh` wrapper first links a clone with no
-`.screenshots` to the store when the take-screenshots skill is installed, then
-delegates to that command in a linked clone and runs the package script
-directly otherwise. `packages/website/scripts/linkScreenshots.sh` does the same
-linking before the website stages screenshots (its `predev`, `prebuild`, and
+`.screenshots` through `agent-tool screenshots link --apply` when the store
+already exists, so CI, which has none, never gets one. It then delegates to that
+capture command in a linked clone and runs the package script directly
+otherwise. `packages/website/scripts/linkScreenshots.sh` does the same linking
+before the website stages screenshots (its `predev`, `prebuild`, and
 `screenshots` scripts), so a build or deploy from a fresh clone or worktree
 publishes the shared captures instead of an empty gallery; both share
 `scripts/lib/screenshotsStore.sh`, tested by `bun run test:screenshots-store`.

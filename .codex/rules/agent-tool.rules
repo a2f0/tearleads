@@ -28,6 +28,8 @@ prefix_rule(pattern=["bun", "run", "agent-tool", "images", "list"], decision="al
 prefix_rule(pattern=["bun", "run", "agent-tool", "graph", "check"], decision="allow", match=["bun run agent-tool graph check"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "permissions", ["show", "check"]], decision="allow", match=["bun run agent-tool permissions show"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "proc", "list"], decision="allow", match=["bun run agent-tool proc list"])
+prefix_rule(pattern=["bun", "run", "agent-tool", "perf", "diff"], decision="allow", match=["bun run agent-tool perf diff"])
+prefix_rule(pattern=["bun", "run", "agent-tool", "screenshots", "status"], decision="allow", match=["bun run agent-tool screenshots status"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", ["--help", "--version", "logs", "doctor", "state-machines", "checkVersions"]], decision="allow", match=["node_modules/.bin/agent-tool --help"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "runs", "list"], decision="allow", match=["node_modules/.bin/agent-tool runs list"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "config", "show"], decision="allow", match=["node_modules/.bin/agent-tool config show"])
@@ -51,6 +53,8 @@ prefix_rule(pattern=["node_modules/.bin/agent-tool", "images", "list"], decision
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "graph", "check"], decision="allow", match=["node_modules/.bin/agent-tool graph check"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "permissions", ["show", "check"]], decision="allow", match=["node_modules/.bin/agent-tool permissions show"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "proc", "list"], decision="allow", match=["node_modules/.bin/agent-tool proc list"])
+prefix_rule(pattern=["node_modules/.bin/agent-tool", "perf", "diff"], decision="allow", match=["node_modules/.bin/agent-tool perf diff"])
+prefix_rule(pattern=["node_modules/.bin/agent-tool", "screenshots", "status"], decision="allow", match=["node_modules/.bin/agent-tool screenshots status"])
 prefix_rule(pattern=["agent-tool", ["--help", "--version", "logs", "doctor", "state-machines", "checkVersions"]], decision="allow", match=["agent-tool --help"])
 prefix_rule(pattern=["agent-tool", "runs", "list"], decision="allow", match=["agent-tool runs list"])
 prefix_rule(pattern=["agent-tool", "config", "show"], decision="allow", match=["agent-tool config show"])
@@ -74,6 +78,8 @@ prefix_rule(pattern=["agent-tool", "images", "list"], decision="allow", match=["
 prefix_rule(pattern=["agent-tool", "graph", "check"], decision="allow", match=["agent-tool graph check"])
 prefix_rule(pattern=["agent-tool", "permissions", ["show", "check"]], decision="allow", match=["agent-tool permissions show"])
 prefix_rule(pattern=["agent-tool", "proc", "list"], decision="allow", match=["agent-tool proc list"])
+prefix_rule(pattern=["agent-tool", "perf", "diff"], decision="allow", match=["agent-tool perf diff"])
+prefix_rule(pattern=["agent-tool", "screenshots", "status"], decision="allow", match=["agent-tool screenshots status"])
 
 # local: Changes only this checkout: files, local branches, lockfile installs, and versions of declared or already-resolved dependencies.
 prefix_rule(pattern=["bun", "run", "agent-tool", "bun", ["install", "update", "remove", "test"]], decision="allow", match=["bun run agent-tool bun install"])
