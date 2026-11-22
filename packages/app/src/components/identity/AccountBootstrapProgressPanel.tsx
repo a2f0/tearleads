@@ -11,6 +11,7 @@ import {
   MiniAppToolbar,
 } from "../mini-app/MiniAppLayout";
 import "./AccountBootstrapProgressPanel.css";
+import { SavedPassphraseButton } from "./SavedPassphraseButton";
 
 function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
   const { accountNaming, onboarding, submitAccountName } =
@@ -60,6 +61,9 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
             placeholder="Bob"
             value={value}
           />
+        )}
+        {restoring && (
+          <SavedPassphraseButton disabled={false} onPick={setValue} />
         )}
         <MiniAppToolbar>
           {onboarding && (

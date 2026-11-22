@@ -64,6 +64,7 @@ export function IdentityManagerRecoveryKeySection() {
         {activeTab === "backup" ? (
           <>
             <RecoveryKeyDisplay
+              canSaveToKeychain={disclosure.canSaveToKeychain}
               onHide={disclosure.hide}
               onRequestDisclosure={disclosure.requestDisclosure}
               revealed={disclosure.revealed}

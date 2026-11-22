@@ -10,12 +10,15 @@ import type { RecoveryKeyDisclosure } from "../actions/recoveryKeyDisclosure";
 import { RecoveryKeyQrCode } from "./RecoveryKeyQrCode";
 
 export function RecoveryKeyDisplay({
+  canSaveToKeychain,
   onHide,
   onRequestDisclosure,
   revealed,
   qrRevealed,
   seedPhrase,
 }: {
+  /** Whether this device has a password manager to offer the key to. */
+  readonly canSaveToKeychain: boolean;
   readonly onHide: () => void;
   readonly onRequestDisclosure: (disclosure: RecoveryKeyDisclosure) => void;
   readonly revealed: boolean;
@@ -60,6 +63,11 @@ export function RecoveryKeyDisplay({
         <MiniAppButton onClick={() => onRequestDisclosure("download")}>
           Download Recovery Key
         </MiniAppButton>
+        {canSaveToKeychain && (
+          <MiniAppButton onClick={() => onRequestDisclosure("keychain")}>
+            Save to Password Manager
+          </MiniAppButton>
+        )}
         {!qrRevealed && (
           <MiniAppButton onClick={() => onRequestDisclosure("qr")}>
             Reveal Recovery QR Code

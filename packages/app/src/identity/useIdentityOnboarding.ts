@@ -5,6 +5,7 @@ import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
 import { normalizeAccountName } from "./accountNamingMachine";
+import { useOfferIdentityKeychainSave } from "./identityKeychain";
 import {
   type IdentityOnboardingState,
   INITIAL_ONBOARDING,
@@ -47,6 +48,12 @@ function useOnboardingTransitions() {
   return { state, send, isCurrent };
 }
 
+const ONBOARDING_FAILURE: Record<OnboardingForm, string> = {
+  "entering-passphrase":
+    "Could not restore your identity. Check your recovery passphrase and try again.",
+  "naming-account": "Could not create your identity. Try again.",
+};
+
 export function useIdentityOnboarding(
   enabled: boolean,
   onNamed: (fingerprint: string, name: string) => void,
@@ -71,6 +78,7 @@ export function useIdentityOnboarding(
     !identityTransitionInFlight &&
     signingKeyPair === null;
   const { state, send, isCurrent } = useOnboardingTransitions();
+  const offerKeychainSave = useOfferIdentityKeychainSave();
   const navigate = useCallback(
     (phase: OnboardingNavigation) => {
       if (available) send({ type: "navigate", phase });
@@ -106,16 +114,14 @@ export function useIdentityOnboarding(
               if (!created) throw new Error("Creation failed");
             });
       void operation.then(
-        () => send({ type: "finish", request }),
+        () => {
+          // Offered only while this request is still the one on screen, so a
+          // superseded or unmounted onboarding never prompts unasked.
+          if (isCurrent(request)) offerKeychainSave();
+          send({ type: "finish", request });
+        },
         () =>
-          send({
-            type: "finish",
-            request,
-            error:
-              form === "naming-account"
-                ? "Could not create your identity. Try again."
-                : "Could not restore your identity. Check your recovery passphrase and try again.",
-          }),
+          send({ type: "finish", request, error: ONBOARDING_FAILURE[form] }),
       );
     },
     [
@@ -124,6 +130,7 @@ export function useIdentityOnboarding(
       generateKey,
       isCurrent,
       localIdentityNamespace,
+      offerKeychainSave,
       onNamed,
       onRecovered,
       sdk,

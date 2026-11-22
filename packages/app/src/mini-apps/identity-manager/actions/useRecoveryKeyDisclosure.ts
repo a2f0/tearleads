@@ -1,4 +1,11 @@
+import type { FileSaver } from "@tearleads/client-sdk";
 import { useLayoutEffect, useRef, useState } from "react";
+import type { PasswordKeychain } from "../../../host/PasswordKeychain";
+import {
+  identityKeychainEntry,
+  KEYCHAIN_SAVE_STATUS,
+  usePasswordKeychain,
+} from "../../../identity/identityKeychain";
 import {
   createSeedPhraseFileName,
   downloadSeedPhraseFile,
@@ -22,12 +29,39 @@ async function copyRecoveryKey(recoveryKey: string) {
   await navigator.clipboard.writeText(recoveryKey);
 }
 
+function downloadRecoveryKey(
+  fileSaver: FileSaver,
+  signingFingerprint: string | null,
+  recoveryKey: string,
+) {
+  return downloadSeedPhraseFile(fileSaver, {
+    fileName: createSeedPhraseFileName({ signingFingerprint }),
+    seedPhrase: recoveryKey,
+  });
+}
+
+/** Offers the key to the password manager; returns the status to show. */
+async function saveRecoveryKeyToKeychain(
+  keychain: PasswordKeychain | null,
+  signingFingerprint: string | null,
+  recoveryKey: string,
+) {
+  if (!keychain || !signingFingerprint) {
+    throw new Error("This device has no password manager to save to.");
+  }
+  const outcome = await keychain.save(
+    identityKeychainEntry(signingFingerprint, recoveryKey),
+  );
+  return KEYCHAIN_SAVE_STATUS[outcome];
+}
+
 export function useRecoveryKeyDisclosure(
   feedback: RecoveryKeyFeedback,
   active: boolean,
 ) {
   const { seedPhrase, signingFingerprint } = useIdentity();
   const fileSaver = useFileSaver();
+  const keychain = usePasswordKeychain();
   const { log, logError } = useLog();
   const [pendingDisclosure, setPendingDisclosure] =
     useState<RecoveryKeyDisclosure | null>(null);
@@ -76,13 +110,6 @@ export function useRecoveryKeyDisclosure(
     }
   }
 
-  const downloadRecoveryKey = async (recoveryKey: string) => {
-    await downloadSeedPhraseFile(fileSaver, {
-      fileName: createSeedPhraseFileName({ signingFingerprint }),
-      seedPhrase: recoveryKey,
-    });
-  };
-
   // A copy or download can still be in flight when the identity changes. It
   // exported the key captured when it was acknowledged, so it is still worth
   // logging — but the status line describes whatever identity is on screen now,
@@ -95,6 +122,7 @@ export function useRecoveryKeyDisclosure(
 
   const runDisclosure = async (acknowledged: RecoveryKeyDisclosure) => {
     const disclosureCopy = RECOVERY_KEY_DISCLOSURES[acknowledged];
+    let successStatus = disclosureCopy.successStatus;
     const requestedFor = signingFingerprint;
     feedback.setError(null);
     feedback.setStatus(null);
@@ -106,7 +134,14 @@ export function useRecoveryKeyDisclosure(
       if (acknowledged === "copy") {
         await copyRecoveryKey(seedPhrase);
       } else if (acknowledged === "download") {
-        await downloadRecoveryKey(seedPhrase);
+        await downloadRecoveryKey(fileSaver, signingFingerprint, seedPhrase);
+      } else if (acknowledged === "keychain") {
+        // The password manager reports whether it kept the key, where it can.
+        successStatus = await saveRecoveryKeyToKeychain(
+          keychain,
+          signingFingerprint,
+          seedPhrase,
+        );
       } else if (acknowledged === "qr") {
         setQrRevealed(true);
       } else {
@@ -115,9 +150,7 @@ export function useRecoveryKeyDisclosure(
         setRevealed(true);
       }
       log(disclosureCopy.successLog);
-      reportIfCurrent(requestedFor, () =>
-        feedback.setStatus(disclosureCopy.successStatus),
-      );
+      reportIfCurrent(requestedFor, () => feedback.setStatus(successStatus));
     } catch (operationError: unknown) {
       logError(disclosureCopy.failureLog, operationError);
       reportIfCurrent(requestedFor, () =>
@@ -127,6 +160,7 @@ export function useRecoveryKeyDisclosure(
   };
 
   return {
+    canSaveToKeychain: keychain !== null,
     cancelDisclosure: () => setPendingDisclosure(null),
     confirmDisclosure: () => {
       const acknowledged = pendingDisclosure;

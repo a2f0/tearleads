@@ -5,7 +5,12 @@
  */
 export const RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE = "i understand";
 
-export type RecoveryKeyDisclosure = "copy" | "download" | "reveal" | "qr";
+export type RecoveryKeyDisclosure =
+  | "copy"
+  | "download"
+  | "keychain"
+  | "reveal"
+  | "qr";
 
 interface RecoveryKeyDisclosureCopy {
   readonly confirmLabel: string;
@@ -37,6 +42,16 @@ export const RECOVERY_KEY_DISCLOSURES: Record<
     title: "Download recovery key",
     warning:
       "Your recovery key derives the private encryption keys for this identity. Anyone who opens the downloaded file can decrypt your data and impersonate you, so move it to encrypted storage and remove the plaintext copy.",
+  },
+  keychain: {
+    confirmLabel: "Continue to Password Manager",
+    failureLog: "Failed to offer the recovery key to the password manager",
+    successLog: "Recovery key offered to the password manager",
+    // Replaced by what the password manager reports; see runDisclosure.
+    successStatus: "Offered to save the recovery key to your password manager.",
+    title: "Save recovery key to password manager",
+    warning:
+      "Your recovery key derives the private encryption keys for this identity. Your password manager keeps it and may sync it to your other devices and the account it is signed in to, so anyone who can open your saved passwords can decrypt your data and impersonate you.",
   },
   qr: {
     confirmLabel: "Show QR Code",
