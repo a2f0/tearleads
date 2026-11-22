@@ -95,8 +95,8 @@ function createMiniApps(
     "identity-manager": { createComponent: () => EmptyMiniApp, title: "Ident" },
     notes: { createComponent: () => EmptyMiniApp, title: "Notes" },
     "org-manager": { createComponent: () => EmptyMiniApp, title: "Org" },
-    organizations: { createComponent: () => EmptyMiniApp, title: "Orgs" },
     root: { createComponent: () => () => null, title: "Root" },
+    "shared-with-me": { createComponent: () => EmptyMiniApp, title: "Shared" },
     "system-monitor": { createComponent: () => EmptyMiniApp, title: "Sys" },
   };
 }

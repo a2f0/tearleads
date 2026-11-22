@@ -305,12 +305,12 @@ export const subsystems: readonly Subsystem[] = [
     paths: [`${app}/mini-apps/system-monitor/`],
   },
   {
-    name: "Organizations Dashboard",
+    name: "Shared with Me",
     package: "app",
     responsibility:
-      "The organizations mini-app: every organization the user belongs to and the folders they can reach in each, independent of the active workspace.",
-    seam: "mini-apps/organizations",
-    paths: [`${app}/mini-apps/organizations/`],
+      "The shared-with-me mini-app: every folder the user can reach, by organization, with each organization's sync and leave choices in its row menu.",
+    seam: "mini-apps/shared-with-me",
+    paths: [`${app}/mini-apps/shared-with-me/`],
   },
   {
     name: "Backup & Restore",

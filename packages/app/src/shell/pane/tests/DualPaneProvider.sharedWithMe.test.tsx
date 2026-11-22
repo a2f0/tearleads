@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@tearleads/client-sdk";
-import { cleanup, within } from "@testing-library/react";
+import { cleanup } from "@testing-library/react";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getPaneRoot,
@@ -12,12 +12,14 @@ import {
   createChildContainer,
   openExplorer,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
-import {
-  memberCardShowsFolder,
-  memberOrganizationCard,
-  openOrganizationsDashboard,
-} from "../../../../test/helpers/dual-pane/dualPaneOrganizationsKit";
 import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
+import {
+  memberOrganizationRow,
+  openSharedWithMe,
+  rowName,
+  rowShowsStatus,
+  sharedWithMeShowsFolder,
+} from "../../../../test/helpers/dual-pane/dualPaneSharedWithMeKit";
 import { shareContainerWithPeer } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -26,10 +28,10 @@ import {
 } from "../../../../test/helpers/msw/server";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
-import { ORGANIZATIONS_LABELS } from "../../../mini-apps/organizations/labels";
+import { SHARED_WITH_ME_LABELS } from "../../../mini-apps/shared-with-me/labels";
 
 const SHARED_FOLDER = "Team Folder";
-const DASHBOARD_TIMEOUT_MS = 20_000;
+const LIST_TIMEOUT_MS = 20_000;
 
 afterEach(async () => {
   cleanup();
@@ -54,23 +56,26 @@ test(
     await waitForPersonalBootstrap(2);
 
     await openExplorer(peerPane);
-    await openOrganizationsDashboard(peerPane);
-    expect(memberOrganizationCard(peerPane)).toBeNull();
+    await openSharedWithMe(peerPane);
+    expect(memberOrganizationRow(peerPane)).toBeNull();
 
     // Roster import enrolls the peer in Members only: no Admins grant, so the
     // founder's root stays out of reach and the org is no workspace for it.
     await importPeerIntoRoster(founderPane, getPaneUserId(peerPane));
+    // Nothing is shared yet, so the organization gets a row of its own.
     await waitForCondition(
       () =>
-        memberOrganizationCard(peerPane)?.querySelector("h3")?.textContent ===
+        rowName(memberOrganizationRow(peerPane)) ===
         DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
-      "The peer's dashboard did not surface the founder organization after the Members import.",
-      DASHBOARD_TIMEOUT_MS,
+      "Shared with Me did not surface the founder organization after the Members import.",
+      LIST_TIMEOUT_MS,
     );
-    const card = memberOrganizationCard(peerPane);
     expect(
-      card && within(card).getByText(ORGANIZATIONS_LABELS.noFolders),
-    ).toBeTruthy();
+      rowShowsStatus(
+        memberOrganizationRow(peerPane),
+        SHARED_WITH_ME_LABELS.nothingSharedStatus,
+      ),
+    ).toBe(true);
 
     await openExplorer(founderPane);
     await createChildContainer(founderPane, SHARED_FOLDER);
@@ -78,9 +83,9 @@ test(
 
     // No refresh: the share's user-scoped hint re-lists the peer's containers.
     await waitForCondition(
-      () => memberCardShowsFolder(peerPane, SHARED_FOLDER),
-      "The peer's dashboard did not list the folder shared from the founder organization.",
-      DASHBOARD_TIMEOUT_MS,
+      () => sharedWithMeShowsFolder(peerPane, SHARED_FOLDER),
+      "Shared with Me did not list the folder shared from the founder organization.",
+      LIST_TIMEOUT_MS,
     );
     // Explorer heads the shared folder with the organization's name rather
     // than the generic "Shared with me" bucket it used for rootless orgs.
@@ -90,7 +95,7 @@ test(
           DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
         ),
       `Explorer did not name the founder organization's section (headings=${JSON.stringify(explorerSectionHeadings(peerPane))}).`,
-      DASHBOARD_TIMEOUT_MS,
+      LIST_TIMEOUT_MS,
     );
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS * 2,

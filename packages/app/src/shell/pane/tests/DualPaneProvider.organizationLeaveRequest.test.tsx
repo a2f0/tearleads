@@ -12,11 +12,15 @@ import {
   openExplorer,
   refreshUntil,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
-import {
-  memberOrganizationCard,
-  openOrganizationsDashboard,
-} from "../../../../test/helpers/dual-pane/dualPaneOrganizationsKit";
 import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
+import {
+  clickRowMenuItem,
+  memberOrganizationRow,
+  openRowMenu,
+  openSharedWithMe,
+  rowMenuItem,
+  rowShowsStatus,
+} from "../../../../test/helpers/dual-pane/dualPaneSharedWithMeKit";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   resetMockServer,
@@ -25,7 +29,7 @@ import {
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
-import { ORGANIZATIONS_LABELS } from "../../../mini-apps/organizations/labels";
+import { SHARED_WITH_ME_LABELS } from "../../../mini-apps/shared-with-me/labels";
 
 const SYNC_TIMEOUT_MS = 20_000;
 
@@ -34,11 +38,6 @@ afterEach(async () => {
   globalThis.localStorage.clear();
   await resetMockServer();
 }, MOCK_SERVER_RESET_TIMEOUT_MS);
-
-function memberCardButton(pane: HTMLElement, name: string): HTMLElement | null {
-  const card = memberOrganizationCard(pane);
-  return card && within(card).queryByRole("button", { name });
-}
 
 /** The founder's roster row showing `status`. */
 function rosterRowWithStatus(
@@ -72,28 +71,34 @@ test(
     await waitForPersonalBootstrap(2);
 
     await importPeerIntoRoster(founderPane, getPaneUserId(peerPane));
-    await openOrganizationsDashboard(peerPane);
+    await openSharedWithMe(peerPane);
     await waitForCondition(
-      () =>
-        memberCardButton(peerPane, ORGANIZATIONS_LABELS.askToLeave) !== null,
-      "The peer's dashboard did not offer to leave the founder's organization.",
+      () => memberOrganizationRow(peerPane) !== null,
+      "Shared with Me did not list the founder's organization.",
       SYNC_TIMEOUT_MS,
     );
-
-    await interact(() => {
-      const button = memberCardButton(
-        peerPane,
-        ORGANIZATIONS_LABELS.askToLeave,
-      );
-      if (!button) throw new Error("Expected the Ask to leave button");
-      fireEvent.click(button);
-    });
+    // The open menu follows its row, so the offer appears once the server
+    // lists the membership.
+    await openRowMenu(memberOrganizationRow(peerPane));
     await waitForCondition(
       () =>
-        memberCardButton(
-          peerPane,
-          ORGANIZATIONS_LABELS.withdrawLeaveRequest,
+        rowMenuItem(
+          memberOrganizationRow(peerPane),
+          SHARED_WITH_ME_LABELS.askToLeave,
         ) !== null,
+      "Shared with Me did not offer to leave the founder's organization.",
+      SYNC_TIMEOUT_MS,
+    );
+    await clickRowMenuItem(
+      memberOrganizationRow(peerPane),
+      SHARED_WITH_ME_LABELS.askToLeave,
+    );
+    await waitForCondition(
+      () =>
+        rowShowsStatus(
+          memberOrganizationRow(peerPane),
+          SHARED_WITH_ME_LABELS.leaveRequestedStatus,
+        ),
       "The peer's leave request was not filed.",
       SYNC_TIMEOUT_MS,
     );
@@ -147,7 +152,7 @@ test(
     await openExplorer(peerPane);
     await refreshUntil(
       peerPane,
-      () => memberOrganizationCard(peerPane) === null,
+      () => memberOrganizationRow(peerPane) === null,
       "The approved leave request did not remove the organization from the peer.",
       SYNC_TIMEOUT_MS,
     );

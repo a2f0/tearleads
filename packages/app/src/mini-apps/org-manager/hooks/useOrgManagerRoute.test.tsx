@@ -21,8 +21,8 @@ const TEST_MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   "identity-manager": { createComponent: () => EmptyMiniApp, title: "ID" },
   notes: { createComponent: () => EmptyMiniApp, title: "Notes" },
   "org-manager": { createComponent: () => EmptyMiniApp, title: "Org Manager" },
-  organizations: { createComponent: () => EmptyMiniApp, title: "Orgs" },
   root: { createComponent: () => () => null, title: "Root" },
+  "shared-with-me": { createComponent: () => EmptyMiniApp, title: "Shared" },
   "system-monitor": {
     createComponent: () => EmptyMiniApp,
     title: "System Monitor",
