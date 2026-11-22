@@ -104,10 +104,8 @@ test("Downloads shows unknown items and failures, then drops a row that left unr
   const view = render(
     <ExplorerDownloadsPanel
       destinations={noDestinations}
-      documentListRevision={0}
       documentQueries={documentQueries}
       domainScope={domainScope}
-      nodes={[]}
       online
       isAuthenticated
     />,
@@ -148,26 +146,19 @@ test("Downloads distinguishes waiting offline from a failed queue read", async (
     },
   } as unknown as ContainerDocumentQueries;
   const domainScope = createDomainScope();
-  const renderPanel = (input: {
-    documentListRevision: number;
-    isAuthenticated: boolean;
-  }) => (
+  const renderPanel = (input: { isAuthenticated: boolean }) => (
     <WindowMenuProvider>
       <ExplorerDownloadsPanel
         destinations={noDestinations}
-        documentListRevision={input.documentListRevision}
         documentQueries={documentQueries}
         domainScope={domainScope}
-        nodes={[]}
         online={false}
         isAuthenticated={input.isAuthenticated}
       />
       <ToolbarProbe />
     </WindowMenuProvider>
   );
-  const view = render(
-    renderPanel({ documentListRevision: 0, isAuthenticated: true }),
-  );
+  const view = render(renderPanel({ isAuthenticated: true }));
   await waitFor(() =>
     expect(view.getByText("Waiting for connection")).toBeTruthy(),
   );
@@ -178,9 +169,13 @@ test("Downloads distinguishes waiting offline from a failed queue read", async (
     view.getByRole("button", { name: "Refresh" }).hasAttribute("disabled"),
   ).toBe(true);
   fail = true;
-  view.rerender(
-    renderPanel({ documentListRevision: 1, isAuthenticated: false }),
-  );
+  view.rerender(renderPanel({ isAuthenticated: false }));
+  // Sync activity re-reads the queue.
+  await act(async () => {
+    getOrCreateDomainSyncCoordinator(domainScope)
+      .registerLane("documents:folder", { run: async () => undefined })
+      .requestSync();
+  });
   await waitFor(() =>
     expect(view.getByRole("alert").textContent).toBe("Storage unavailable"),
   );
@@ -208,10 +203,8 @@ test("Downloads keeps the title of a hydrated document with pages remaining", as
   const view = render(
     <ExplorerDownloadsPanel
       destinations={noDestinations}
-      documentListRevision={0}
       documentQueries={documentQueries}
       domainScope={createDomainScope()}
-      nodes={[]}
       online
       isAuthenticated
     />,
@@ -280,10 +273,8 @@ test("Downloads lists first file downloads, retries each document once, and keep
     <WithToolbar>
       <ExplorerDownloadsPanel
         destinations={noDestinations}
-        documentListRevision={0}
         documentQueries={documentQueries}
         domainScope={domainScope}
-        nodes={[]}
         online
         isAuthenticated
       />
@@ -339,10 +330,8 @@ test("a failed retry request leaves the file pending", async () => {
     <WithToolbar>
       <ExplorerDownloadsPanel
         destinations={noDestinations}
-        documentListRevision={0}
         documentQueries={documentQueries}
         domainScope={createDomainScope()}
-        nodes={[]}
         online
         isAuthenticated
       />
@@ -373,10 +362,8 @@ test("Refresh retries only the documents whose files are shown", async () => {
     <WithToolbar>
       <ExplorerDownloadsPanel
         destinations={noDestinations}
-        documentListRevision={0}
         documentQueries={documentQueries}
         domainScope={createDomainScope()}
-        nodes={[]}
         online
         isAuthenticated
       />
