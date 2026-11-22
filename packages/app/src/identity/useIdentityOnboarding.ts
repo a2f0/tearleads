@@ -15,10 +15,19 @@ import {
   transitionIdentityOnboarding,
 } from "./identityOnboardingMachine";
 
+export interface OnboardingSubmitOptions {
+  /** The passphrase came from the password manager, so it is not offered back. */
+  readonly fromKeychain?: boolean | undefined;
+}
+
 export interface IdentityOnboarding {
   readonly state: IdentityOnboardingState;
   readonly navigate: (phase: OnboardingNavigation) => void;
-  readonly submit: (form: OnboardingForm, value: string) => void;
+  readonly submit: (
+    form: OnboardingForm,
+    value: string,
+    options?: OnboardingSubmitOptions,
+  ) => void;
 }
 
 function useOnboardingTransitions() {
@@ -85,8 +94,8 @@ export function useIdentityOnboarding(
     },
     [available, send],
   );
-  const submit = useCallback(
-    (form: OnboardingForm, value: string) => {
+  const submit = useCallback<IdentityOnboarding["submit"]>(
+    (form, value, options) => {
       const input =
         form === "naming-account" ? normalizeAccountName(value) : value.trim();
       if (!available || !input) return;
@@ -116,8 +125,9 @@ export function useIdentityOnboarding(
       void operation.then(
         () => {
           // Offered only while this request is still the one on screen, so a
-          // superseded or unmounted onboarding never prompts unasked.
-          if (isCurrent(request)) offerKeychainSave();
+          // superseded or unmounted onboarding never prompts unasked, and never
+          // for a passphrase the password manager itself supplied.
+          if (isCurrent(request) && !options?.fromKeychain) offerKeychainSave();
           send({ type: "finish", request });
         },
         () =>

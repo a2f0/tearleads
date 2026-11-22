@@ -1,6 +1,6 @@
-import { afterEach, expect, spyOn, test } from "bun:test";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import * as Crypto from "@tearleads/crypto";
-import { fireEvent, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import {
   answerAccountNamePrompt,
   chooseNewIdentity,
@@ -78,4 +78,45 @@ test(
     await unmountLifecyclePane(device);
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 3,
+);
+
+test(
+  "a passphrase filled from the password manager restores without being offered back",
+  async () => {
+    useTestApiAppHandlers();
+    const passphrase = Crypto.createIdentitySeedPhrase();
+    const save = mock(async () => "saved" as const);
+    const config = createTestHostConfig({
+      autoProvisionIdentity: true,
+      promptAccountName: true,
+    }).withOverrides({
+      createPasswordKeychain: () => ({ pick: async () => passphrase, save }),
+    });
+    const device = renderLifecyclePane(config);
+    const recovery = within(device.pane);
+    fireEvent.click(
+      await recovery.findByRole("button", { name: "Restore identity" }),
+    );
+    await act(async () => {
+      fireEvent.click(
+        recovery.getByRole("button", { name: "Use Saved Passphrase" }),
+      );
+    });
+    const phrase = recovery.getByRole("textbox", {
+      name: "Recovery passphrase",
+    }) as HTMLTextAreaElement;
+    await waitFor(() => expect(phrase.value).toBe(passphrase));
+    fireEvent.click(
+      recovery.getByRole("button", { name: "Restore from passphrase" }),
+    );
+    await waitFor(
+      () => expect(device.sdk().identity.seedPhrase).toBe(passphrase),
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+    );
+    // Let the restore's completion run: that is where an offer would be made.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(save).not.toHaveBeenCalled();
+    await unmountLifecyclePane(device);
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,
 );

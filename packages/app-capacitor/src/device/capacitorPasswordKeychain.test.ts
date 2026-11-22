@@ -21,10 +21,13 @@ test("saving passes the entry through and reports the native outcome", async () 
   );
   const keychain = keychainOver({ save });
   await expect(
-    keychain.save({ account: "Identity 0123456789ab", passphrase: "a b c" }),
+    keychain.save({
+      account: "Recovery key 0123456789ab",
+      passphrase: "a b c",
+    }),
   ).resolves.toBe("dismissed");
   expect(save).toHaveBeenCalledWith({
-    account: "Identity 0123456789ab",
+    account: "Recovery key 0123456789ab",
     passphrase: "a b c",
   });
 });
@@ -34,14 +37,20 @@ test("a device with no password manager is an outcome, not a failure", async () 
     save: async () => ({ outcome: "unavailable" }),
   });
   await expect(
-    keychain.save({ account: "Identity 0123456789ab", passphrase: "a b c" }),
+    keychain.save({
+      account: "Recovery key 0123456789ab",
+      passphrase: "a b c",
+    }),
   ).resolves.toBe("unavailable");
 });
 
 test("an outcome the web layer does not know is a failure", async () => {
   const keychain = keychainOver({ save: async () => ({ outcome: "maybe" }) });
   await expect(
-    keychain.save({ account: "Identity 0123456789ab", passphrase: "a b c" }),
+    keychain.save({
+      account: "Recovery key 0123456789ab",
+      passphrase: "a b c",
+    }),
   ).rejects.toThrow("unknown outcome");
 });
 

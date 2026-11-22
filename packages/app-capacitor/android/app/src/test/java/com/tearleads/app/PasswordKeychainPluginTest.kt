@@ -13,9 +13,9 @@ import org.junit.Test
 class PasswordKeychainPluginTest {
     @Test
     fun saveNeedsBothAnAccountAndAPassphrase() {
-        assertEquals("Identity 0123" to "a b c", passwordKeychainEntry("Identity 0123", "a b c"))
+        assertEquals("Recovery key 0123" to "a b c", passwordKeychainEntry("Recovery key 0123", "a b c"))
         assertNull(passwordKeychainEntry(null, "a b c"))
-        assertNull(passwordKeychainEntry("Identity 0123", ""))
+        assertNull(passwordKeychainEntry("Recovery key 0123", ""))
     }
 
     @Test

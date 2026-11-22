@@ -17,14 +17,16 @@ export type PasswordCredentialConstructor = new (init: {
   readonly password: string;
 }) => BrowserPasswordCredential;
 
-declare global {
-  interface CredentialRequestOptions {
-    /** Chromium: include saved `PasswordCredential`s. */
-    password?: boolean;
-  }
-  interface Window {
-    PasswordCredential?: PasswordCredentialConstructor;
-  }
+/** `credentials.get` options with Chromium's `password` member. */
+type PasswordCredentialRequestOptions = CredentialRequestOptions & {
+  /** Chromium: include saved `PasswordCredential`s. */
+  readonly password?: boolean;
+};
+
+/** The parts of `window` a browser keychain reads. */
+export interface PasswordKeychainBrowser {
+  readonly PasswordCredential?: PasswordCredentialConstructor | undefined;
+  readonly navigator: Pick<Navigator, "credentials">;
 }
 
 /**
@@ -38,10 +40,11 @@ export function createBrowserPasswordKeychain(
 ): PasswordKeychain {
   return {
     async pick() {
-      const credential = await credentials.get({
+      const options: PasswordCredentialRequestOptions = {
         mediation: "required",
         password: true,
-      });
+      };
+      const credential = await credentials.get(options);
       return credential instanceof PasswordCredential
         ? credential.password
         : null;
@@ -64,7 +67,7 @@ export function createBrowserPasswordKeychain(
  * `PasswordCredential` (Safari, Firefox), which then offers no save.
  */
 export function browserPasswordKeychainFactory(
-  browser: Pick<Window, "PasswordCredential" | "navigator"> = window,
+  browser: PasswordKeychainBrowser = window,
 ): CreatePasswordKeychainFn | undefined {
   const { PasswordCredential, navigator } = browser;
   const credentials: CredentialsContainer | undefined = navigator.credentials;

@@ -1,7 +1,10 @@
 /**
  * Disclosing the recovery key discloses every private key derived from it, so
- * every path that surfaces it — on screen, on the clipboard, in a file, or on
- * paper — is gated behind this typed acknowledgement.
+ * every path that surfaces it — on screen, on the clipboard, in a file, on
+ * paper, or in a password manager — is gated behind this typed acknowledgement.
+ * One exception: right after onboarding creates or restores an identity, the
+ * platform's own password manager prompt is offered without it, since that
+ * prompt is itself the consent (see useOfferIdentityKeychainSave).
  */
 export const RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE = "i understand";
 
@@ -52,7 +55,7 @@ export const RECOVERY_KEY_DISCLOSURES: Record<
     successStatus: "Offered to save the recovery key to your password manager.",
     title: "Save recovery key to password manager",
     warning:
-      "Your recovery key derives the private encryption keys for this identity. Your password manager keeps it and may sync it to your other devices and the account it is signed in to, so anyone who can open your saved passwords can decrypt your data and impersonate you.",
+      "Your recovery key derives the private encryption keys for this identity. Your password manager keeps it, may sync it to your other devices and the account it is signed in to, and may offer it to fill other password fields in this app, so anyone who can open your saved passwords can decrypt your data and impersonate you.",
   },
   print: {
     confirmLabel: "Print",

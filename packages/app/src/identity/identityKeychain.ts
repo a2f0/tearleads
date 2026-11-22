@@ -9,16 +9,18 @@ import { useLog } from "../providers/logging/LogProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
 /**
- * The keychain entry for an identity. It names the identity by its signing
- * fingerprint's first 12 characters, as a recovery key download's file name
- * does, so every save of one identity updates the same entry.
+ * The keychain entry for an identity. Its name says what the password manager
+ * is being asked to keep, since a save prompt shows only the name, and tells
+ * identities apart by their signing fingerprint's first 12 characters, as a
+ * recovery key download's file name does. Every save of one identity therefore
+ * updates the same entry.
  */
 export function identityKeychainEntry(
   signingFingerprint: string,
   passphrase: string,
 ): PasswordKeychainEntry {
   return {
-    account: `Identity ${signingFingerprint.slice(0, 12)}`,
+    account: `Recovery key ${signingFingerprint.slice(0, 12)}`,
     passphrase,
   };
 }
@@ -45,8 +47,10 @@ export function usePasswordKeychain(): PasswordKeychain | null {
 /**
  * Offers the current identity's recovery passphrase to the platform's password
  * keychain, once onboarding has created the identity or restored it from its
- * passphrase. The platform's own save prompt is the consent, so unlike
- * Identity Manager's Save to Password Manager this asks for no typed acknowledgement.
+ * passphrase. This is the one recovery key export without the typed
+ * acknowledgement (see RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE): the platform's
+ * own save prompt is the consent, and nothing is stored unless the user
+ * accepts it. Identity Manager's Save to Password Manager keeps the gate.
  * A failure is logged and never blocks onboarding; a device with no password
  * manager is an outcome, logged locally rather than reported as an error.
  */

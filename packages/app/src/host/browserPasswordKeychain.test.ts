@@ -35,22 +35,25 @@ test("saving stores a password credential under the entry's account", async () =
     container,
   );
   await expect(
-    keychain.save({ account: "Identity 0123456789ab", passphrase: "a b c" }),
+    keychain.save({
+      account: "Recovery key 0123456789ab",
+      passphrase: "a b c",
+    }),
   ).resolves.toBe("offered");
   expect(store).toHaveBeenCalledTimes(1);
   const [stored] = store.mock.calls[0] ?? [];
   expect(stored).toBeInstanceOf(FakePasswordCredential);
   expect(stored).toMatchObject({
-    id: "Identity 0123456789ab",
-    name: "Identity 0123456789ab",
+    id: "Recovery key 0123456789ab",
+    name: "Recovery key 0123456789ab",
     password: "a b c",
   });
 });
 
 test("picking asks for a password credential and returns its passphrase", async () => {
   const picked = new FakePasswordCredential({
-    id: "Identity 0123456789ab",
-    name: "Identity 0123456789ab",
+    id: "Recovery key 0123456789ab",
+    name: "Recovery key 0123456789ab",
     password: "a b c",
   });
   const { container, get } = fakeCredentials(picked);
