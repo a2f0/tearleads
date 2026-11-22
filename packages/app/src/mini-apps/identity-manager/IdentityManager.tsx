@@ -1,6 +1,7 @@
 import { useCompactRoutedMode } from "@tearleads/windowing";
 import { useEffect, useState } from "react";
 import { AccountBootstrapProgressPanel } from "../../components/identity/AccountBootstrapProgressPanel";
+import { RecoveryKeyBackupConfirmation } from "../../components/identity/recovery-key/RecoveryKeyBackupConfirmation";
 import {
   MiniAppButton,
   MiniAppRoot,
@@ -229,6 +230,15 @@ export function IdentityManager() {
     return (
       <MiniAppRoot className="identity-manager">
         <AccountBootstrapProgressPanel progress={progress} />
+      </MiniAppRoot>
+    );
+  }
+  if (model.backupPrompt.pending) {
+    // A just-created identity holds Identity Manager until its recovery key
+    // is backed up, as onboarding holds the first one.
+    return (
+      <MiniAppRoot className="identity-manager">
+        <RecoveryKeyBackupConfirmation onConfirm={model.backupPrompt.confirm} />
       </MiniAppRoot>
     );
   }

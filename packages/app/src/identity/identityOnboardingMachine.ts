@@ -1,21 +1,30 @@
 export type OnboardingForm = "naming-account" | "entering-passphrase";
 
+/**
+ * `confirming-backup` follows a created identity: the user backs up its new
+ * recovery key and types an agreement before the account is registered. A
+ * restored identity skips it, since its passphrase is the backup.
+ */
 export type IdentityOnboardingState =
   | { readonly status: "choosing-identity" }
   | { readonly status: OnboardingForm; readonly error?: string }
   | {
       readonly status: "creating-identity" | "restoring-identity";
       readonly request: symbol;
-    };
+    }
+  | { readonly status: "confirming-backup" };
 
 export type OnboardingNavigation = OnboardingForm | "choosing-identity";
 
 export type OnboardingEvent =
   | { type: "navigate"; phase: OnboardingNavigation }
   | { type: "submit"; form: OnboardingForm; request: symbol }
-  | { type: "finish"; request: symbol; error?: string };
+  | { type: "finish"; request: symbol; error?: string }
+  | { type: "confirm-backup" };
 
 export const INITIAL_ONBOARDING = { status: "choosing-identity" } as const;
+
+const CONFIRMING_BACKUP = { status: "confirming-backup" } as const;
 
 const operationFor = {
   "naming-account": "creating-identity",
@@ -27,17 +36,31 @@ const retryForm = {
   "restoring-identity": "entering-passphrase",
 } as const;
 
+const settledState = {
+  "creating-identity": CONFIRMING_BACKUP,
+  "restoring-identity": INITIAL_ONBOARDING,
+} as const;
+
+/** Moves between the choice and its forms; nothing leaves work or a backup. */
+function navigateOnboarding(
+  state: IdentityOnboardingState,
+  phase: OnboardingNavigation,
+): IdentityOnboardingState {
+  if ("request" in state || state.status === "confirming-backup") {
+    return state;
+  }
+  return state.status === "choosing-identity" || phase === "choosing-identity"
+    ? { status: phase }
+    : state;
+}
+
 export function transitionIdentityOnboarding(
   state: IdentityOnboardingState,
   event: OnboardingEvent,
 ): IdentityOnboardingState {
   switch (event.type) {
     case "navigate":
-      if ("request" in state) return state;
-      return state.status === "choosing-identity" ||
-        event.phase === "choosing-identity"
-        ? { status: event.phase }
-        : state;
+      return navigateOnboarding(state, event.phase);
     case "submit":
       return state.status === event.form
         ? {
@@ -53,6 +76,8 @@ export function transitionIdentityOnboarding(
             status: retryForm[state.status],
             error: event.error,
           }
-        : INITIAL_ONBOARDING;
+        : settledState[state.status];
+    case "confirm-backup":
+      return state.status === "confirming-backup" ? INITIAL_ONBOARDING : state;
   }
 }

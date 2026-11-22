@@ -1,15 +1,38 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type Locator,
+  type Page,
+} from "@playwright/test";
+import { BACKUP_AGREEMENT_LABEL } from "./createFirstIdentity";
 
 export { expect };
 
 const ACCOUNT_NAME = "Bob";
 const handlers = new WeakMap<Page, Promise<void>>();
 
+/** Answers a text prompt, then hands focus back to whatever held it. */
+async function answerPrompt(
+  page: Page,
+  prompt: Locator,
+  answer: string,
+): Promise<void> {
+  const focused = await page.evaluateHandle(() => document.activeElement);
+  await prompt.fill(answer);
+  await prompt.press("Enter");
+  await focused.evaluate((element) => {
+    if (element instanceof HTMLElement && element.isConnected) {
+      element.focus();
+    }
+  });
+  await focused.dispose();
+}
+
 /**
- * Fresh profiles wait for a choice and a name before creating an identity.
- * Playwright handles both prompts when they appear before an action or an
- * auto-waiting assertion, then hands focus back to whatever held it, so specs
- * read as if it were already answered.
+ * Fresh profiles wait for a choice and a name before creating an identity,
+ * then for the agreement that its recovery key is backed up. Playwright
+ * handles each prompt when it appears before an action or an auto-waiting
+ * assertion, so specs read as if they were already answered.
  */
 function answerAccountNamePrompt(page: Page): Promise<void> {
   let handler = handlers.get(page);
@@ -25,19 +48,11 @@ function answerAccountNamePrompt(page: Page): Promise<void> {
       );
       await page.addLocatorHandler(
         page.getByRole("textbox", { name: "What should we call you?" }).first(),
-        async (prompt) => {
-          const focused = await page.evaluateHandle(
-            () => document.activeElement,
-          );
-          await prompt.fill(ACCOUNT_NAME);
-          await prompt.press("Enter");
-          await focused.evaluate((element) => {
-            if (element instanceof HTMLElement && element.isConnected) {
-              element.focus();
-            }
-          });
-          await focused.dispose();
-        },
+        (prompt) => answerPrompt(page, prompt, ACCOUNT_NAME),
+      );
+      await page.addLocatorHandler(
+        page.getByLabel(BACKUP_AGREEMENT_LABEL).first(),
+        (agreement) => answerPrompt(page, agreement, "I agree"),
       );
     })();
     handlers.set(page, handler);

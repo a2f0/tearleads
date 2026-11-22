@@ -25,7 +25,38 @@ for (const [form, busy] of [
     const retrying = move(failed, { ...start, request: retry });
     expect(move(retrying, { type: "finish", request })).toBe(retrying);
     expect(move(retrying, { type: "finish", request: retry })).toEqual(
-      INITIAL_ONBOARDING,
+      form === "naming-account"
+        ? { status: "confirming-backup" }
+        : INITIAL_ONBOARDING,
     );
   });
 }
+
+test("a created identity waits for its backup agreement and cannot be navigated away from", () => {
+  const request = Symbol();
+  const creating = move(
+    move(INITIAL_ONBOARDING, { type: "navigate", phase: "naming-account" }),
+    { type: "submit", form: "naming-account", request },
+  );
+  const confirming = move(creating, { type: "finish", request });
+  expect(confirming).toEqual({ status: "confirming-backup" });
+  for (const phase of [
+    "choosing-identity",
+    "naming-account",
+    "entering-passphrase",
+  ] as const) {
+    expect(move(confirming, { type: "navigate", phase })).toBe(confirming);
+  }
+  expect(
+    move(confirming, { type: "submit", form: "naming-account", request }),
+  ).toBe(confirming);
+  expect(move(confirming, { type: "finish", request })).toBe(confirming);
+  expect(move(confirming, { type: "confirm-backup" })).toEqual(
+    INITIAL_ONBOARDING,
+  );
+  // Only a pending backup can be confirmed.
+  expect(move(INITIAL_ONBOARDING, { type: "confirm-backup" })).toBe(
+    INITIAL_ONBOARDING,
+  );
+  expect(move(creating, { type: "confirm-backup" })).toBe(creating);
+});

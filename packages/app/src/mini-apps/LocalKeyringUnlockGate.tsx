@@ -39,7 +39,10 @@ export function resolveMiniAppAccessGateState({
   hasSigningKeyPair: boolean;
   isLocked: boolean;
   localIdentityRestoreSettled: boolean;
-  /** The autopilot is still creating a new identity or waits for its name. */
+  /**
+   * The autopilot is still creating a new identity, or waits for its name or
+   * for its recovery key to be confirmed backed up.
+   */
   newIdentityPending?: boolean;
   requireLocalIdentity?: boolean;
 }): MiniAppAccessGateState {
@@ -52,7 +55,7 @@ export function resolveMiniAppAccessGateState({
   }
 
   // Progress replaces manual setup while keys are being prepared, and a new
-  // identity holds every app until it is created and named. Otherwise, once
+  // identity holds every app until it is created, named, and backed up. Otherwise, once
   // keys exist, each app owns its loading surface so stalled account
   // provisioning cannot block local content or unmount an editor during a
   // retry.
@@ -93,7 +96,8 @@ export function LocalKeyringUnlockGate({
       (accountNaming.status === "named" && !accountNaming.sealed) ||
       progress?.phase === "restoring-identity" ||
       progress?.phase === "creating-identity" ||
-      progress?.phase === "naming-account",
+      progress?.phase === "naming-account" ||
+      progress?.phase === "confirming-backup",
     requireLocalIdentity,
   });
 
