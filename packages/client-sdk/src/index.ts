@@ -383,7 +383,6 @@ export {
   wrapEncryptedBlobStore,
 } from "./workflows/blobs";
 export type {
-  CompletedDownloadItem,
   ContainerContentsRootAdopter,
   ContainerContentsRootAdoptionInput,
   ContainerContentsStoreWorkflowRuntime,
@@ -393,7 +392,6 @@ export type {
   // alias on the public surface.
   ContainerDocumentLinkInput as ContainerDocumentQueriesLinkInput,
   ContainerSystemSlotDefinition,
-  DownloadQueueItemRef,
   PendingDownloadQueueItem,
   RecoveryFolder,
 } from "./workflows/container-contents";
@@ -642,6 +640,9 @@ export {
 } from "./workflows/root";
 export type {
   ClearRemoteSyncStateResult,
+  CompletedDownloadItem,
+  DomainDownloadHistory,
+  DomainDownloadHistorySnapshot,
   DomainSyncCoordinator,
   DomainSyncSnapshot,
   RemoteResetInput,
@@ -656,10 +657,13 @@ export type {
 } from "./workflows/sync";
 export {
   clearRemoteSyncState,
+  getDomainDownloadHistorySnapshot,
   getDomainSyncCoordinatorSnapshot,
+  getOrCreateDomainDownloadHistory,
   getOrCreateDomainSyncCoordinator,
   hasDomainSyncCoordinatorPendingWork,
   requestAllDomainSyncLanes,
+  subscribeToDomainDownloadHistory,
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "./workflows/sync";

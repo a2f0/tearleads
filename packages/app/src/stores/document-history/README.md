@@ -92,10 +92,15 @@ first ready history and keeps open while History reloads after a restore or
 "Load newer edits", so a reload does not read them again
 ([`ExplorerDocumentHistoryPanel`](../../mini-apps/explorer/detail/history/ExplorerDocumentHistoryPanel.tsx)).
 Until their first read settles, the timeline says the time is being checked
-rather than show the device's own, and a Restore or Save as copy confirmation
-opened meanwhile names no time: the device's time could be a day ahead, and
-a dialog on it would change under the reader. Once a read has settled,
-loaded or failed, later refreshes never withhold it again.
+rather than show the device's own, which could be a day ahead. A Restore or
+Save as copy confirmation names the time shown when it was opened, or none if
+it opened before the time was known, and keeps that text while it is open
+([`documentHistoryRestoreMachine`](documentHistoryRestoreMachine.ts),
+[`documentHistoryCopyMachine`](documentHistoryCopyMachine.ts)). Once a read
+has settled, loaded or failed, later refreshes in the same scope never
+withhold the time again. The scope is the document, account, session, and
+sign-in, while online. Another scope, such as a refreshed sign-in or coming
+back online, starts with a first read of its own.
 
 ## Restoring
 

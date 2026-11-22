@@ -22,6 +22,7 @@ import type {
   SaveDocumentRecordOptions,
 } from "../state";
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
+import { noteDocumentDownloadDrained } from "./downloadCompletion";
 import { logRevalidationApplied as logApplied } from "./remoteRevalidationTelemetry";
 import { noteDocumentPullCompleted } from "./replacedBindingSightings";
 import {
@@ -325,6 +326,12 @@ export async function finalizeDocumentSync(
     // The server's updates are applied and drained: a binding the detach
     // pass sighted before this pull no longer awaits its content update.
     noteDocumentPullCompleted(state);
+    noteDocumentDownloadDrained({
+      requestRecord: syncAttempt.requestRecord,
+      requestedPage: syncAttempt.consumedPullContinuation !== null,
+      state,
+      storedRecord: nextRecord,
+    });
   }
 
   if (shouldReArmDocumentSync(state, syncAttempt)) {

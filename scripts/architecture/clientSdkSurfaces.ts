@@ -256,6 +256,7 @@ export const syncCoordinationSurface = [
   `${sdk}/workflows/sync/coordination.ts`,
   `${sdk}/data/shared/domainScope.ts`,
   `${sdk}/data/sync/crdtPeerSeed.ts`,
+  `${sdk}/data/sync/downloadHistory.ts`,
   `${sdk}/data/sync/organizationSyncPauses.ts`,
   `${sdk}/data/sync/originatedDocuments.ts`,
   `${sdk}/data/sync/outgoingUpdateSettlement.ts`,

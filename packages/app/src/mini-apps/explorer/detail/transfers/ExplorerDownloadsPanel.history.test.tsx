@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import {
-  type CompletedDownloadItem,
   type ContainerDocumentQueries,
   createDomainScope,
   type DomainScope,
-  type DownloadQueueItemRef,
+  getOrCreateDomainDownloadHistory,
   getOrCreateDomainSyncCoordinator,
   type PendingDownloadQueueItem,
   type Tearleads,
@@ -76,31 +75,26 @@ function queueItem(localId: string, title: string): PendingDownloadQueueItem {
   };
 }
 
-function createQueue() {
+// A durable queue the SDK finishes pulls from: a finished pull leaves the
+// queue and lands in the scope's download history, as the SDK records it.
+function createQueue(domainScope: DomainScope) {
   const queue = {
-    completed: new Set<string>(),
     items: [queueItem("alpha", "Alpha"), queueItem("beta", "Beta")],
   };
   const documentQueries = {
-    listCompletedDownloads: async (
-      refs: ReadonlyArray<DownloadQueueItemRef>,
-    ): Promise<ReadonlyArray<CompletedDownloadItem>> =>
-      refs.flatMap((ref): CompletedDownloadItem[] =>
-        ref.objectKind === "document" && queue.completed.has(ref.localId)
-          ? [
-              {
-                containerId: "root",
-                documentId: `remote-${ref.localId}`,
-                localId: ref.localId,
-                objectKind: "document",
-                title: ref.localId === "alpha" ? "Alpha" : "Beta",
-              },
-            ]
-          : [],
-      ),
     listPendingDownloads: async () => queue.items,
   } as unknown as ContainerDocumentQueries;
-  return { documentQueries, queue };
+  const finish = (localId: string) => {
+    queue.items = queue.items.filter((item) => item.localId !== localId);
+    getOrCreateDomainDownloadHistory(domainScope).recordCompleted({
+      containerId: "root",
+      documentId: `remote-${localId}`,
+      localId,
+      objectKind: "document",
+      title: localId === "alpha" ? "Alpha" : "Beta",
+    });
+  };
+  return { documentQueries, finish, queue };
 }
 
 function renderDownloads(input: {
@@ -164,12 +158,11 @@ function expectRow(
 
 test("a download that finishes stays Complete across a view switch and refresh", async () => {
   const domainScope = createDomainScope();
-  const { documentQueries, queue } = createQueue();
+  const { documentQueries, finish, queue } = createQueue(domainScope);
   const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
   coordinator.registerLane("documents:alpha", {
     run: async () => {
-      queue.items = queue.items.filter((item) => item.localId !== "alpha");
-      queue.completed.add("alpha");
+      finish("alpha");
     },
   });
   coordinator.registerLane("documents:beta", {
@@ -216,7 +209,7 @@ test("a download that finishes stays Complete across a view switch and refresh",
 
 test("a download that finishes while Downloads is closed is Complete on return", async () => {
   const domainScope = createDomainScope();
-  const { documentQueries, queue } = createQueue();
+  const { documentQueries, finish } = createQueue(domainScope);
   const view = render(renderDownloads({ documentQueries, domainScope }));
   await waitFor(() =>
     expect(view.getByText("2 pending downloads")).toBeTruthy(),
@@ -224,8 +217,7 @@ test("a download that finishes while Downloads is closed is Complete on return",
   view.rerender(
     renderDownloads({ documentQueries, domainScope, showDownloads: false }),
   );
-  queue.items = queue.items.filter((item) => item.localId !== "beta");
-  queue.completed.add("beta");
+  finish("beta");
   view.rerender(renderDownloads({ documentQueries, domainScope }));
   await waitFor(() =>
     expectRow(view, "Beta", { percent: "100", status: "Complete" }),
@@ -233,9 +225,31 @@ test("a download that finishes while Downloads is closed is Complete on return",
   expect(view.getByText("1 pending download")).toBeTruthy();
 });
 
+// Downloads that started and finished before any Downloads view opened in
+// this scope, as after a reload: the SDK recorded them anyway.
+test("downloads that finish before Downloads first opens are listed Complete", async () => {
+  const domainScope = createDomainScope();
+  const { documentQueries, finish } = createQueue(domainScope);
+  finish("alpha");
+  finish("beta");
+  const view = render(renderDownloads({ documentQueries, domainScope }));
+  await waitFor(() =>
+    expect(view.getByText("0 pending downloads")).toBeTruthy(),
+  );
+  expectRow(view, "Alpha", { percent: "100", status: "Complete" });
+  expectRow(view, "Beta", { percent: "100", status: "Complete" });
+  // Closing and reopening the panel keeps the history, which the SDK owns.
+  view.rerender(
+    renderDownloads({ documentQueries, domainScope, showDownloads: false }),
+  );
+  expect(view.queryByText("Alpha")).toBeNull();
+  view.rerender(renderDownloads({ documentQueries, domainScope }));
+  expect(view.getAllByText("Complete")).toHaveLength(2);
+});
+
 test("Downloads owns the toolbar Refresh only while it is open", async () => {
   const domainScope = createDomainScope();
-  const { documentQueries } = createQueue();
+  const { documentQueries } = createQueue(domainScope);
   let laneRuns = 0;
   getOrCreateDomainSyncCoordinator(domainScope).registerLane("lane", {
     run: async () => {
