@@ -367,6 +367,7 @@ async function submitRevocation(
 async function planRevoke(input: RevokeRemoteContainerInput) {
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
+    { stillCurrent: input.stillCurrent },
   );
   if (!previousProjection) {
     return null;

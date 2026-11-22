@@ -16,6 +16,9 @@ import {
 import { eq } from "drizzle-orm";
 import {
   computeDocumentEditAttribution,
+  createDocumentEditAttributionRangesPage,
+  createDocumentEditAttributionResponse,
+  DocumentEditAttributionIntegrityError,
   runPreparedDocumentEditAttributionDataWorkflow,
 } from "./documentEditAttribution";
 
@@ -45,8 +48,8 @@ async function insertUpdate(input: {
   checkpointSourceVersionVector?: string;
   /** When the server stored the update. */
   createdAt: string;
-  /** The time the writer signed into the write header. */
-  signedAt: string;
+  /** The time the writer signed into the write header; omitted when absent. */
+  signedAt?: string;
   writerUserId: string;
   writerKeyFingerprint: string;
 }): Promise<string> {
@@ -90,7 +93,7 @@ async function insertUpdate(input: {
     // Attribution reads only these three fields off the header JSON.
     header: {
       metadataHash,
-      signedAt: input.signedAt,
+      ...(input.signedAt === undefined ? {} : { signedAt: input.signedAt }),
       writerUserId: input.writerUserId,
       writerKeyFingerprint: input.writerKeyFingerprint,
     } as WriteHeader,
@@ -252,9 +255,72 @@ test("rejects attribution spans whose write-header identity is missing", async (
     updateId,
   });
 
-  await expect(computeDocumentEditAttribution(document.id, db)).rejects.toThrow(
+  const refusal = computeDocumentEditAttribution(document.id, db);
+  await expect(refusal).rejects.toBeInstanceOf(
+    DocumentEditAttributionIntegrityError,
+  );
+  await expect(refusal).rejects.toThrow(
     `Attribution update ${updateId} has no valid writerUserId in its write header.`,
   );
+});
+
+test("a header without a signed time fails only the ranges page, naming its update", async () => {
+  const { early } = await buildVersions();
+  const [document] = await db
+    .insert(documents)
+    .values({ createdByFingerprint: "attribution-signed-at-test" })
+    .returning({ id: documents.id });
+  if (!document) {
+    throw new Error("Failed to create document");
+  }
+  const updateId = await insertUpdate({
+    contentKeyEpoch: 1,
+    createdAt: "2030-01-01T10:00:00.000Z",
+    documentId: document.id,
+    encryptedData: "unsigned-time-payload",
+    partialEndVersionVector: early,
+    writerKeyFingerprint: "fp-alice",
+    writerUserId: "alice",
+  });
+  await insertSpan({
+    documentId: document.id,
+    endCounter: 1,
+    peerId: "1",
+    startCounter: 0,
+    updateId,
+  });
+
+  const attribution = await computeDocumentEditAttribution(document.id, db);
+  expect(attribution.segments.map((segment) => segment.signedAt)).toEqual([
+    null,
+  ]);
+
+  // The compact response never returns the time, so it still answers.
+  expect(createDocumentEditAttributionResponse(attribution).segments).toEqual([
+    {
+      authorityKind: "direct",
+      endCounter: 1,
+      peerId: "1",
+      startCounter: 0,
+      writerKeyFingerprint: "fp-alice",
+      writerUserId: "alice",
+    },
+  ]);
+
+  let refusal: unknown;
+  try {
+    createDocumentEditAttributionRangesPage(attribution, {});
+  } catch (error) {
+    refusal = error;
+  }
+  expect(refusal).toBeInstanceOf(DocumentEditAttributionIntegrityError);
+  expect(refusal).toMatchObject({
+    message: `Attribution update ${updateId} has no valid signedAt in its write header.`,
+    // The 500 handler reports an error by its name, not its message.
+    name: "DocumentEditAttributionIntegrityError",
+    property: "signedAt",
+    updateId,
+  });
 });
 
 test("returns the current attribution revision for a document with no spans", async () => {

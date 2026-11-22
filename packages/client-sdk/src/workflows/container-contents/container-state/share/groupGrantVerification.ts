@@ -68,6 +68,7 @@ async function containerStateHasCurrentGroupGrantInternal(input: {
   const projection = await loadContainerWriterProjectionForState({
     containerState: input.containerState,
     runtime: input.runtime,
+    stillCurrent: input.stillCurrent,
   });
   if (
     !projection ||

@@ -37,8 +37,12 @@ export interface AttributionSpanInput {
   readonly isBaseline: boolean;
   /** When the server stored the update (document_updates.created_at), ISO. */
   readonly createdAt: string;
-  /** The time the writer signed into the update's write header, ISO. */
-  readonly signedAt: string;
+  /**
+   * The time the writer signed into the update's write header, as stored, or
+   * null when the header has none. A header is only accepted with a canonical
+   * one, so anything else is a broken row; a range response refuses it.
+   */
+  readonly signedAt: string | null;
 }
 
 export interface DocumentEditAttributionSegment {
@@ -57,8 +61,11 @@ export interface DocumentEditAttributionSegment {
    * operation in the range existed by then, whatever its writer's clock said.
    */
   readonly createdAt: string;
-  /** The time the writer signed into that update's write header, ISO. */
-  readonly signedAt: string;
+  /**
+   * The time the writer signed into that update's write header, as stored, or
+   * null when the header has none (see `AttributionSpanInput.signedAt`).
+   */
+  readonly signedAt: string | null;
 }
 
 interface ClaimedInterval {

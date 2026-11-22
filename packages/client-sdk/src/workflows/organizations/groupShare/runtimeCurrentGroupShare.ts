@@ -7,12 +7,12 @@ import {
   buildMaterializedContainerSharePlan,
   resolveShareProjection,
   submitAcknowledgedContainerMutation,
-  submitPlainContainerMutation,
 } from "../../containers";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentShareGrant } from "./currentShareGrantMutation";
 import { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
 import { shareWithGroupReplanningOnce } from "./groupShareReplan";
+import { submitGroupShare } from "./groupShareSubmit";
 import type { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 /** Current evidence covers planning, any compound grant mint, and acknowledgement. */
@@ -86,17 +86,7 @@ export function createRuntimeCurrentGroupShare(
             recitationStillCurrent,
             containerKey: materialized.containerKey,
             plan: materialized.plan,
-            submit: () =>
-              submitPlainContainerMutation(() =>
-                input.apiClient.shareContainer(
-                  input.containerId,
-                  materialized.plan.request,
-                  {
-                    expectedPaymentRequiredOrganizationId:
-                      input.author.organizationId,
-                  },
-                ),
-              ),
+            submit: () => submitGroupShare(share, materialized.plan.request),
           });
         },
       ),

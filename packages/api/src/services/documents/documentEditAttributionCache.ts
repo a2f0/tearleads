@@ -129,7 +129,7 @@ function attributionDataWeight(
         (segment.peerId.length +
           segment.updateId.length +
           segment.createdAt.length +
-          segment.signedAt.length +
+          (segment.signedAt?.length ?? 0) +
           segment.writerUserId.length +
           segment.writerKeyFingerprint.length),
     CACHE_ENTRY_OVERHEAD +
