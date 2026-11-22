@@ -110,7 +110,9 @@ async function submittedDocumentSyncResult(
         rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
         settledPendingUpdateIds: result.settledPendingUpdateIds,
       }),
-    hasIncompletePull: result.hasIncompletePull || !input.pullComplete,
+    // A held pull ends here: its unjudged rest waits for a later pull.
+    hasIncompletePull:
+      !result.hasHeldPull && (result.hasIncompletePull || !input.pullComplete),
   };
 }
 

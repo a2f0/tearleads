@@ -157,13 +157,17 @@ function pullPosition(
 
 /** Judges a page against the live document, skipping this scope's known voids. */
 function documentImportJudge(
-  state: RequestRemoteDocumentSyncInput["state"],
-  currentDocument: RequestRemoteDocumentSyncInput["currentDoc"],
+  input: RequestRemoteDocumentSyncInput,
+  documentId: string,
 ): IncomingDocumentSyncUpdateValidator {
+  const { generation, state } = input;
   return (result) =>
     judgeDocumentSyncImports({
-      currentDocument,
+      currentDocument: input.currentDoc,
+      documentId,
       execSql: state.runtime.infra.execSql,
+      isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
+      logError: state.runtime.util.logError,
       result,
       scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
     });
@@ -246,7 +250,7 @@ function runRemoteDocumentSync(
       writerKeyLabel: "writer key",
     }),
     stillCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
-    validateIncomingUpdates: documentImportJudge(state, currentDoc),
+    validateIncomingUpdates: documentImportJudge(input, documentId),
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
     }),

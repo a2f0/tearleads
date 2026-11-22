@@ -2,6 +2,11 @@
 export interface PullPagePosition {
   /** The request consumed no continuation: this page starts a pull. */
   readonly first: boolean;
+  /**
+   * The pull stopped at an update the Loro runtime failed on and has not
+   * settled, so it judged less than its upper bound claims.
+   */
+  readonly held: boolean;
   /** The pull completed with this page. */
   readonly last: boolean;
   /** The processed cursor this page's request carried, if any. */
@@ -30,8 +35,9 @@ export interface PullPremise {
  *   pull goes by version alone and judges that update again.
  * - `pulling`: the first page of a pull that continues; its premise is kept
  *   for the pages after it.
- * - `abandoned`: a page ran under another premise than its pull's first page.
- *   The pull will not advance the cursor, and the earlier cursor stands.
+ * - `abandoned`: a page ran under another premise than its pull's first page,
+ *   or held an unsettled update. The pull will not advance the cursor, and
+ *   the earlier cursor stands, so a later pull is served the update again.
  * - `advanced`: the pull completed under one premise. `dropsOtherJudges`
  *   marks a pull sent without a cursor: it judged every update its frontier
  *   left uncovered, so a void row another judge wrote names an update the
@@ -70,6 +76,7 @@ export function processedCursorTransition(input: {
     ? { judge: input.judge, sentCursor: page.sentCursor }
     : input.storedPremise;
   if (
+    page.held ||
     premise === null ||
     premise.judge !== input.judge ||
     premise.sentCursor !== page.sentCursor

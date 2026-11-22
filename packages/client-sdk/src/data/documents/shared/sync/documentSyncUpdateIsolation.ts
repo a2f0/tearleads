@@ -6,6 +6,7 @@ type DocumentSyncUpdateIsolationStage =
   | "encrypted_record"
   | "loro_import"
   | "loro_metadata"
+  | "loro_runtime"
   | "plaintext_integrity"
   | "write_header";
 

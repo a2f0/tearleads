@@ -97,7 +97,9 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
   });
   return {
     ...result,
-    hasIncompletePull: result.hasIncompletePull || !input.pullComplete,
+    // A held pull ends here: its unjudged rest waits for a later pull.
+    hasIncompletePull:
+      !result.hasHeldPull && (result.hasIncompletePull || !input.pullComplete),
   };
 }
 
@@ -422,6 +424,7 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         decryptedUpdates: [],
         exhaustedPendingUpdateCount: 0,
         hasDeferredPendingUpdates: false,
+        hasHeldPull: false,
         hasIncompletePull: !submitted.pullComplete,
         persistedState,
         plan,

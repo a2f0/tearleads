@@ -129,7 +129,9 @@ operations are not the [version-vector](#version-vector) span its writer
 signed, the reader's decoder cannot read it, or it depends on operations no
 earlier accepted update carries. The reader records and reports it once and
 keeps syncing; its [processed cursor](./sync.md#processed-cursor) keeps the
-server from serving it again.
+server from serving it again. An update the Loro runtime fails on (a trap or
+exhausted memory) is unsettled instead, and void only once three process
+lifetimes have each failed it.
 
 Related docs:
 

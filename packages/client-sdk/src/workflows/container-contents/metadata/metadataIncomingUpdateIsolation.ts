@@ -93,6 +93,7 @@ export function applyIncomingContainerMetadataUpdates(
 
 export function metadataIncomingUpdateIsolation(input: {
   currentDocument: ContainerMetadataState["doc"];
+  documentId: string;
   execSql: ExecSql;
   isCurrent?: (() => boolean) | undefined;
   logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
@@ -125,7 +126,10 @@ export function metadataIncomingUpdateIsolation(input: {
     ) =>
       judgeDocumentSyncImports({
         currentDocument: input.currentDocument,
+        documentId: input.documentId,
         execSql: input.execSql,
+        isCurrent: input.isCurrent,
+        logError: input.logError,
         result,
         scope: input.metadataScope,
       }),

@@ -112,7 +112,7 @@ function rotationIncomingUpdateIsolation(input: {
       const ordinaryUpdateIds = new Set(
         decryptedUpdates.map((update) => update.id),
       );
-      assertNoVoidedDocumentSyncUpdates(
+      return assertNoVoidedDocumentSyncUpdates(
         await validateDocumentSyncUpdateImports({
           currentDocument: input.currentDocument,
           decryptedUpdates,
@@ -121,7 +121,6 @@ function rotationIncomingUpdateIsolation(input: {
           ),
         }),
       );
-      return undefined;
     },
   };
 }

@@ -138,7 +138,7 @@ test("an update this device already voided stays void without being imported", a
   const verdicts = await validateDocumentSyncUpdateImports({
     currentDocument: current,
     decryptedUpdates: [known, await independent(ids.b, "kept")],
-    knownVoids: new Set([ids.a]),
+    knownVoids: new Map([[ids.a, "loro_import"]]),
     rebuildBudgetBytes: 0,
   });
 
@@ -157,7 +157,7 @@ test("known voids after a deferral are still voided, so the next pass is served 
       await independent(ids.b, "deferred"),
       await independent(ids.c, "known"),
     ],
-    knownVoids: new Set([ids.c]),
+    knownVoids: new Map([[ids.c, "loro_import"]]),
     rebuildBudgetBytes: 0,
   });
 

@@ -140,6 +140,13 @@ makes one such omission durable. An update the server leaves out of a pull that
 completes is not served to that device again while its cursor stands, where a
 pull by version alone would serve it on the next pass.
 
+A document writer can also cost other devices availability. One that commits
+operations under another device's peer id first makes readers void that
+device's own update ([preempted operations](../advisory-op-spans.md#preempted-operations)),
+and one whose payload fails the Loro runtime holds a reader's sync of that
+document for up to three process lifetimes before it is void
+([runtime failures](../advisory-op-spans.md#loro-runtime-failures)).
+
 ## Information-Disclosure Scenarios
 
 ### Forged Group Or Organization Membership

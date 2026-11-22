@@ -7,6 +7,11 @@ import {
 } from "../../../sqlite/schema/documentSyncVerdictSchema";
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
+import {
+  type DocumentPeerPreemption,
+  deleteDocumentPeerPreemptionsInTransaction,
+  recordDocumentPeerPreemptions,
+} from "./documentPeerPreemptionPersistence";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {
   type ProcessedCursorTransition,
@@ -18,6 +23,11 @@ import {
 type VerdictReader = Pick<ClientSQLiteTransactionScope, "select">;
 
 export interface DocumentVoidVerdict {
+  /**
+   * For a `loro_runtime` verdict, the process lifetimes that have failed it;
+   * null keeps what the row recorded.
+   */
+  readonly attempts: number | null;
   readonly contentKeyEpoch: number | null;
   readonly message: string;
   readonly stage: string;
@@ -30,6 +40,8 @@ export interface DocumentSyncVerdictInput {
   readonly judge: string;
   readonly keyFingerprintsByEpoch: ReadonlyMap<number, string>;
   readonly now: string;
+  /** Voided updates that reused this device's own operation ids. */
+  readonly preemptions?: readonly DocumentPeerPreemption[] | undefined;
   /**
    * Where the page sits in its pull; a completed pull advances the cursor.
    * Undefined for a scope that keeps no cursor.
@@ -42,14 +54,16 @@ export interface DocumentSyncVerdictInput {
 export interface DocumentSyncVerdictOutcome {
   /** A void was judged under another key for its epoch; its cursor is gone. */
   readonly cursorCleared: boolean;
+  /** Preemption notices first recorded by this call, each reported once. */
+  readonly newlyPreemptedUpdateIds: readonly string[];
   /** Voids first recorded by this call, each to be reported once. */
   readonly newlyVoidedUpdateIds: readonly string[];
 }
 
 // Two binds name the scope; the rest carry update ids.
 const UPDATE_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 2);
-// The scope, the judge, and the stage; the rest carry update ids.
-const RECORDED_VOID_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 4);
+// The scope, the judge, and the stages; the rest carry update ids.
+const RECORDED_VOID_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 6);
 
 function chunks<T>(values: readonly T[], size: number): T[][] {
   const result: T[][] = [];
@@ -107,16 +121,22 @@ export async function readSendableProcessedCursor(
   return progress.throughUpdateId;
 }
 
-/** An import-stage void this scope recorded, with the key it was judged under. */
+/** A verdict the import judge reached, with the key it was judged under. */
 export interface RecordedImportVoid {
+  readonly attempts: number | null;
   readonly contentKeyEpoch: number | null;
   readonly keyFingerprint: string | null;
+  readonly stage: string;
   readonly updateId: string;
 }
 
+/** The stages the import judge decides, so a re-served update can skip it. */
+const IMPORT_JUDGE_STAGES = ["loro_import", "loro_metadata", "loro_runtime"];
+
 /**
- * The served updates this scope already voided at the import stage under
- * `judge`. A void judged under another judge is judged again.
+ * The served updates this scope already judged void, or unsettled, at a
+ * stage the import judge decides, under `judge`. A void judged under another
+ * judge is judged again.
  */
 export async function readRecordedImportVoids(
   db: VerdictReader,
@@ -134,8 +154,10 @@ export async function readRecordedImportVoids(
     recorded.push(
       ...(await db
         .select({
+          attempts: documentVoidUpdates.attempts,
           contentKeyEpoch: documentVoidUpdates.contentKeyEpoch,
           keyFingerprint: documentVoidUpdates.keyFingerprint,
+          stage: documentVoidUpdates.stage,
           updateId: documentVoidUpdates.updateId,
         })
         .from(documentVoidUpdates)
@@ -143,7 +165,7 @@ export async function readRecordedImportVoids(
           and(
             voidScope(input.scope),
             eq(documentVoidUpdates.judge, input.judge),
-            eq(documentVoidUpdates.stage, "loro_import"),
+            inArray(documentVoidUpdates.stage, IMPORT_JUDGE_STAGES),
             inArray(documentVoidUpdates.updateId, batch),
           ),
         )),
@@ -234,6 +256,7 @@ async function upsertVoidRows(
         ...verdict,
         appKind: input.scope.appKind,
         localId: input.scope.localId,
+        attempts: voided.attempts,
         message: voided.message,
         stage: voided.stage,
         updateId: voided.updateId,
@@ -247,6 +270,7 @@ async function upsertVoidRows(
         ],
         set: {
           ...verdict,
+          attempts: sql`COALESCE(excluded.attempts, ${documentVoidUpdates.attempts})`,
           message: sql`CASE WHEN ${documentVoidUpdates.stage} = excluded.stage
             THEN ${documentVoidUpdates.message} ELSE excluded.message END`,
           stage: voided.stage,
@@ -374,11 +398,21 @@ export async function recordDocumentSyncVerdictsInTransaction(
     )
     .limit(1);
   if (!record || record.documentId !== input.documentId) {
-    return { cursorCleared: false, newlyVoidedUpdateIds: [] };
+    return {
+      cursorCleared: false,
+      newlyPreemptedUpdateIds: [],
+      newlyVoidedUpdateIds: [],
+    };
   }
   const keyConflict = await deleteVoidsJudgedUnderOtherKeys(tx, input);
   await deleteVoidRows(tx, input.scope, input.acceptedUpdateIds);
   const newlyVoidedUpdateIds = await upsertVoidRows(tx, input);
+  const newlyPreemptedUpdateIds = await recordDocumentPeerPreemptions(tx, {
+    documentId: input.documentId,
+    now: input.now,
+    preemptions: input.preemptions ?? [],
+    scope: input.scope,
+  });
   const transition = processedCursorTransition({
     judge: input.judge,
     keyConflict,
@@ -391,6 +425,7 @@ export async function recordDocumentSyncVerdictsInTransaction(
   await applyProcessedCursorTransition(tx, input, transition);
   return {
     cursorCleared: transition.status === "cleared",
+    newlyPreemptedUpdateIds,
     newlyVoidedUpdateIds,
   };
 }
@@ -403,12 +438,13 @@ async function clearDocumentSyncProgressInTransaction(
   await tx.delete(documentSyncProgress).where(progressScope(scope)).run();
 }
 
-/** Remove a deleted or rebound scope's cursor and void rows. */
+/** Remove a deleted or rebound scope's cursor, void rows, and notices. */
 export async function deleteDocumentSyncVerdictsInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "delete">,
   appKind: string,
   localIds: readonly string[],
 ): Promise<void> {
+  await deleteDocumentPeerPreemptionsInTransaction(tx, appKind, localIds);
   for (const batch of chunks(localIds, UPDATE_IDS_PER_STATEMENT)) {
     await tx
       .delete(documentSyncProgress)

@@ -41,6 +41,7 @@ export {
   openHistoryViewer,
   orderHistoryStops,
 } from "./historyTimeline";
+export { isLoroRuntimeFailure } from "./runtimeFailure";
 export * from "./shared";
 export { updateMatchesDocumentHistory } from "./updateIdentity";
 export {

@@ -221,12 +221,19 @@ async function decryptPayload(input: {
   }
 }
 
+/**
+ * Decrypts a served update and checks its plaintext hash. With
+ * `verifyLoroMetadata` it also checks that the payload's Loro metadata is the
+ * signed span; a judged pull leaves that to the import judge, which reads
+ * every payload in server order and can tell a void from the runtime failing.
+ */
 export async function decryptDocumentSyncUpdate(input: {
   contentKeyEpoch: number;
   contentKeyMaterial: CryptoKey;
   documentId: string;
   organizationId: string;
   update: SyncResponseUpdate;
+  verifyLoroMetadata: boolean;
 }): Promise<DecryptedDocumentSyncUpdate> {
   const encrypted = await verifiedEncryptedSyncUpdate(input);
   const { plaintextHashKey, updateData } = await decryptPayload({
@@ -248,7 +255,9 @@ export async function decryptDocumentSyncUpdate(input: {
     });
   }
   try {
-    assertDecryptedDocumentUpdateMetadata(updateData, input.update);
+    if (input.verifyLoroMetadata) {
+      assertDecryptedDocumentUpdateMetadata(updateData, input.update);
+    }
   } catch (error) {
     throw isolateDocumentSyncUpdateError({
       cause: error,

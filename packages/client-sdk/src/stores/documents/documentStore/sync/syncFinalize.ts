@@ -107,7 +107,9 @@ function coveredSyncFrontier(
   if (synced.decryptedUpdates.length === 0) {
     // A completed empty pull distinguishes a real blank note from discovery.
     // An intermediate page cannot establish that no content exists yet.
-    return liveFrontier === "" && !synced.hasIncompletePull
+    return liveFrontier === "" &&
+      !synced.hasIncompletePull &&
+      !synced.hasHeldPull
       ? { snapshotEndVersion: emptyVersionVector() }
       : {};
   }
@@ -240,11 +242,7 @@ function settleDocumentSyncVerdicts(
   synced: DocumentSyncAttempt["synced"],
   verdicts: DocumentSyncVerdictOutcome,
 ): void {
-  reportDocumentSyncVoids(
-    state.runtime.util.logError,
-    synced,
-    verdicts.newlyVoidedUpdateIds,
-  );
+  reportDocumentSyncVoids(state.runtime.util.logError, synced, verdicts);
   if (verdicts.cursorCleared) requestDocumentStoreSync(state);
 }
 
@@ -359,7 +357,9 @@ export async function finalizeDocumentSync(
   // an intermediate page would let a failed/null continuation pass report the
   // original request as successful even though the server frontier was never
   // drained.
-  if (!synced.hasIncompletePull) {
+  // A held pull has not applied the update it stopped at, so the signal it
+  // consumed stays pending for the next scheduled pull to judge it again.
+  if (!synced.hasIncompletePull && !synced.hasHeldPull) {
     clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
     // The server's updates are applied and drained: a binding the detach
     // pass sighted before this pull no longer awaits its content update.

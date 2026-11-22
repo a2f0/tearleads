@@ -48,6 +48,7 @@ async function recordVoid(input: { judge: string; stage: string }) {
       scope: SCOPE,
       voids: [
         {
+          attempts: null,
           contentKeyEpoch: 1,
           message: "first verdict",
           stage: input.stage,
@@ -66,6 +67,7 @@ async function judge(keyFingerprint: string): Promise<string[]> {
   const data = exportUpdatesSince(source, undefined);
   const verdicts = await judgeDocumentSyncImports({
     currentDocument: await createDocument("imports-current"),
+    documentId: DOCUMENT_ID,
     execSql,
     result: {
       contentKeyFingerprintsByEpoch: new Map([[1, keyFingerprint]]),
@@ -106,6 +108,7 @@ test("an import void recorded under the running judge and key is not imported ag
       scope: SCOPE,
       voids: [
         {
+          attempts: null,
           contentKeyEpoch: 1,
           message: "this device already voided the update",
           stage: "loro_import",
@@ -117,7 +120,12 @@ test("an import void recorded under the running judge and key is not imported ag
   expect(await storedMessage()).toBe("first verdict");
 });
 
-test("an update voided under another key, another judge, or at another stage is judged again", async () => {
+test("a metadata void recorded under the running judge and key is not read again", async () => {
+  await recordVoid({ judge: documentVerdictJudge(), stage: "loro_metadata" });
+  expect(await judge("key-a")).toEqual([UPDATE_ID]);
+});
+
+test("an update voided under another key, another judge, or at a stage the import judge does not decide is judged again", async () => {
   await recordVoid({ judge: documentVerdictJudge(), stage: "loro_import" });
   expect(await judge("key-b")).toEqual([]);
 
@@ -128,7 +136,10 @@ test("an update voided under another key, another judge, or at another stage is 
   expect(await judge("key-a")).toEqual([]);
 
   await execSql("DELETE FROM document_void_updates");
-  await recordVoid({ judge: documentVerdictJudge(), stage: "loro_metadata" });
+  await recordVoid({
+    judge: documentVerdictJudge(),
+    stage: "plaintext_integrity",
+  });
   expect(await judge("key-a")).toEqual([]);
 });
 
@@ -149,6 +160,7 @@ test("a void judged again at another stage takes that stage and its reason", asy
       scope: SCOPE,
       voids: [
         {
+          attempts: null,
           contentKeyEpoch: 1,
           message: "depends on operations no update carries",
           stage: "loro_import",

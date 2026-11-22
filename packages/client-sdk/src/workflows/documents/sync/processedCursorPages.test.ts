@@ -31,6 +31,7 @@ afterEach(() => close());
 /** Records one page of a pull, as a store's record save does. */
 async function recordPage(page: {
   readonly continuation?: string;
+  readonly held?: boolean;
   readonly last: boolean;
   readonly sentCursor?: string;
   readonly throughUpdateId: string;
@@ -38,6 +39,7 @@ async function recordPage(page: {
   const synced = {
     contentKeyFingerprintsByEpoch: new Map<number, string>(),
     decryptedUpdates: [],
+    hasHeldPull: page.held === true,
     hasIncompletePull: !page.last,
     plan: {
       documentId: DOCUMENT_ID,
@@ -97,6 +99,17 @@ test("a continuation page sent without the first page's cursor leaves the cursor
   await recordPage({
     continuation: "page-2",
     last: true,
+    throughUpdateId: NEXT_THROUGH,
+  });
+  expect(await recordedCursor()).toBe(FIRST_THROUGH);
+});
+
+test("a pull held at an unsettled update leaves the cursor before it", async () => {
+  await recordPage({ last: true, throughUpdateId: FIRST_THROUGH });
+  await recordPage({
+    held: true,
+    last: true,
+    sentCursor: FIRST_THROUGH,
     throughUpdateId: NEXT_THROUGH,
   });
   expect(await recordedCursor()).toBe(FIRST_THROUGH);

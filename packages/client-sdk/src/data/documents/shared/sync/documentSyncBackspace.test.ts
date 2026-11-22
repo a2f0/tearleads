@@ -58,7 +58,12 @@ for (const backspacesPerUpdate of [1, 2, 3]) {
           currentDocument: original,
           decryptedUpdates: updates,
         }),
-      ).toEqual({ deferredUpdateIds: [], voided: [] });
+      ).toEqual({
+        deferredUpdateIds: [],
+        heldUpdateIds: [],
+        runtimeFailures: [],
+        voided: [],
+      });
       expect(original.getText("text").toString()).toBe(initialText);
       importDecryptedDocumentSyncUpdates(original, updates);
       expect(original.getText("text").toString()).toBe("aaaa");
@@ -70,7 +75,12 @@ for (const backspacesPerUpdate of [1, 2, 3]) {
           currentDocument: reloaded,
           decryptedUpdates: updates,
         }),
-      ).toEqual({ deferredUpdateIds: [], voided: [] });
+      ).toEqual({
+        deferredUpdateIds: [],
+        heldUpdateIds: [],
+        runtimeFailures: [],
+        voided: [],
+      });
       expect(reloaded.getText("text").toString()).toBe("aaaa");
       expect(getDocumentAttachments(reloaded)).toEqual([attachment]);
       // Rotation provenance compares a live, coalesced history with one rebuilt

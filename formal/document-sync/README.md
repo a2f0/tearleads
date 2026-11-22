@@ -61,9 +61,12 @@ models readers of a document whose server log can hold an update with a false
 op span. Each reader judges served updates in server order, voids the ones it
 can never apply, and records a processed cursor the server pulls after; a
 decoder upgrade or an older replaced state withholds the cursor so the device
-judges again. It requires that no void update's operations are applied, that
-devices that processed the same log with the same judge agree, and that every
-device eventually holds what a fresh reader on its decoder holds. See the
+judges again. A Loro runtime failure leaves its update unsettled until enough
+process lifetimes have each failed it. It requires that no void update's
+operations are applied, that devices that processed the same log with the same
+judge and final voids agree, that a runtime failure voids no update before its
+bounded attempts, and that every device eventually holds what a fresh reader on
+its decoder holds. See the
 [production mapping, negative controls, and bounds](./VoidUpdateProgress.md).
 
 ## Opened-Document Recovery Probes

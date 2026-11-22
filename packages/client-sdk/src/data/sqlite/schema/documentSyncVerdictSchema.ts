@@ -52,7 +52,12 @@ export const documentSyncProgress = sqliteTable(
  * Columns:
  * - `appKind`, `localId`, `documentId`: Document scope and server document.
  * - `updateId`: The voided update.
- * - `stage`, `message`: Where judging failed and why, for diagnostics.
+ * - `stage`, `message`: Where judging failed and why, for diagnostics. A
+ *   `loro_runtime` row is a void only once `attempts` reaches
+ *   `MAX_LORO_RUNTIME_ATTEMPTS`; until then the update is unsettled and
+ *   judged again.
+ * - `attempts`: For a `loro_runtime` row, how many process lifetimes have
+ *   each failed the Loro runtime on the update; null at other stages.
  * - `judge`: As in `document_sync_progress`.
  * - `contentKeyEpoch`, `keyFingerprint`: The epoch and a fingerprint of the
  *   content key the payload was judged under (`deriveDocumentContentKeyFingerprint`),
@@ -69,6 +74,7 @@ export const documentVoidUpdates = sqliteTable(
     updateId: text("update_id").notNull(),
     stage: text("stage").notNull(),
     message: text("message").notNull(),
+    attempts: integer("attempts"),
     judge: text("judge").notNull(),
     contentKeyEpoch: integer("content_key_epoch"),
     keyFingerprint: text("key_fingerprint"),
@@ -79,7 +85,41 @@ export const documentVoidUpdates = sqliteTable(
   ],
 );
 
+/**
+ * Served updates this device voided because they reused ids of operations it
+ * holds under its own peer id with other operations: their writer committed
+ * operations as this device, and a reader that judged that update before
+ * this device's own voids this device's. A notice outlives its void row and
+ * is reported once, when written.
+ *
+ * Columns:
+ * - `appKind`, `localId`, `documentId`: Document scope and server document.
+ * - `updateId`: The update that reused this device's operation ids.
+ * - `peerId`: This device's peer id it reused.
+ * - `writerUserId`, `authorFingerprint`: Who signed that update, when the
+ *   served write header said. For a rotation baseline this is the writer
+ *   that relayed the operations, not necessarily the one that forged them.
+ * - `noticedAt`: When this device first voided it.
+ */
+export const documentPeerPreemptions = sqliteTable(
+  "document_peer_preemptions",
+  {
+    appKind: text("app_kind").notNull(),
+    localId: text("local_id").notNull(),
+    documentId: text("document_id").notNull(),
+    updateId: text("update_id").notNull(),
+    peerId: text("peer_id").notNull(),
+    writerUserId: text("writer_user_id"),
+    authorFingerprint: text("author_fingerprint"),
+    noticedAt: text("noticed_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.appKind, table.localId, table.updateId] }),
+  ],
+);
+
 export const documentSyncVerdictTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentSyncProgress),
   defineSqlTableSchema(documentVoidUpdates),
+  defineSqlTableSchema(documentPeerPreemptions),
 ];

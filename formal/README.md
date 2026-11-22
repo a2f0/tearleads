@@ -121,8 +121,8 @@ Model-specific gaps:
   budget.
 - `VoidUpdateProgress` lets honest writers depend only on earlier updates;
   a dishonest writer's forged dependency on a later update is outside it. It
-  leaves out AEAD failures, which stay availability failures, and devices' own
-  writes.
+  leaves out AEAD failures, which stay availability failures, devices' own
+  writes, and a payload that kills the process rather than failing the runtime.
 - `RawHistoryRecovery` progress assumes awaited worker operations return; it
   does not cover retries, cancellation, or network failure.
 - `RestartProbeConvergence` and the honest `NoBrickedDevice` configuration bound

@@ -17,6 +17,18 @@ sends the cursor only while the device runs the same judge and its frontier
 still covers the recorded one. The server then starts the pull after the
 cursor.
 
+A reader's Loro runtime can also fail on an update: a WebAssembly trap or
+exhausted memory says nothing about the update, and may leave the module
+unusable for the rest of the process. Such an update is unsettled
+(`RuntimeFailure`). The pull applies what came before it, records no cursor,
+and a later pull judges it again. Only the first runtime failure in a process
+lifetime counts as an attempt (`failedInLife`, `Restart`); once `MaxAttempts`
+lifetimes have each failed the update, it is a final void on that device
+(`finalVoid`) until its decoder changes. An honest update that fails that many
+lifetimes on one device is void there and nowhere else, which is the accepted
+residual, so agreement and currency are stated for devices with equal final
+voids.
+
 The model collapses a pull's pages into one served inbox (`Pull`) and one
 judging step (`Process`). A decoder upgrade may land between the two, which
 stands for an SDK upgrade between pages while a continuation is persisted. The
@@ -24,8 +36,9 @@ server still serves from the cursor the first page sent, so such a pull leaves
 the cursor as it was (`pullJudge`).
 
 Writers are outside actors and devices only read. Commits, decoder upgrades,
-and state replacement have no fairness. Only server delivery (`Pull`) and the
-device's own processing (`Process`) are fair, so no device waits on another.
+state replacement, runtime failures, and restarts have no fairness. Only
+server delivery (`Pull`) and the device's own processing (`Process`) are fair,
+so no device waits on another.
 
 The abstraction maps to production at these seams:
 
@@ -36,8 +49,12 @@ The abstraction maps to production at these seams:
 | `Pull` / `Uncovered` | `resolveSyncPullPagePlan` starting after `readProcessedThroughSequence`, then filtering by the request's version vector |
 | `bound` | `createSyncPullPageResponse` returning the page plan's upper bound as `throughUpdateId` |
 | `CursorSendable` | `readSendableProcessedCursor`, read by `readProcessedCursorForSync` before each store pull |
-| `Judge` / `Accepts` | `validateDocumentSyncUpdateImports` and `voidedDocumentSyncUpdate`, after `decryptDocumentSyncUpdatesByEpoch` voids a payload whose decoded span differs from its signed one |
+| `Judge` / `Accepts` | `validateDocumentSyncUpdateImports` and `judgeUpdate`, which checks the decoded Loro metadata against the signed span before the scratch import, after `judgeDocumentSyncUpdateDecryption` checks the plaintext hash |
+| `RuntimeFailure` / `attempts` | `judgeUpdate` returning `runtime_failure` for `isLoroRuntimeFailure`, `LoroRuntimeFailureLedger.noteFailure`, and `recordDocumentSyncRuntimeFailures`, which records the `loro_runtime` row and its `attempts` before the page is saved |
+| `failedInLife` / `Restart` | `processLoroRuntimeFailures`, the ledger a process starts with, which counts only its first failure |
+| `finalVoid` | a `loro_runtime` row with `MAX_LORO_RUNTIME_ATTEMPTS` attempts, read back as a known void by `recordedImportJudgements` |
 | `pullJudge` | the pull premise in `processedCursorTransition`: a pull's first page records its judge and sent cursor (`pullJudge`, `pullSentCursor` on `document_sync_progress`), and a later page under another premise is `abandoned` |
+| `CursorPastUnsettled` | the `held` page position in `processedCursorTransition`, which abandons the pull, set from `hasHeldPull` |
 | `Process` / `cursorVersion` | `recordDocumentSyncVerdictsInTransaction` as the record save's commit side effect, recording the saved `snapshotEndVersion` |
 | `Upgrade` / `cursorJudge` | `documentVerdictJudge`, from `loroDecoderIdentity` and the void rules version |
 | `Replace` | a replaced local state whose frontier no longer satisfies the recorded one (`satisfiesVersionVector`); `deleteDocumentSyncVerdictsInTransaction` on a rebind or delete |
@@ -50,15 +67,22 @@ require that:
   (`VoidNeverApplied`);
 - the server never serves a device an update its cursor already stands for
   (`ServedOnceAfterProcessed`);
-- two devices that processed the whole log with the same judge hold the same
-  operations (`ProcessedDevicesAgree`).
+- two devices that processed the whole log with the same judge and the same
+  final voids hold the same operations (`ProcessedDevicesAgree`);
+- no update, an honest one the decoder can read included, is a final void
+  before `MaxAttempts` lifetimes have each failed it
+  (`RuntimeVoidOnlyAfterAttempts`);
+- each lifetime counts at most one runtime failure
+  (`AttemptsWithinLifetimes`), so a process a trap left unusable cannot spend
+  another update's attempts.
 
 Its liveness property `DeviceEventuallyCurrent` requires that, once writes
-stop, every device holds exactly what a fresh reader on its own decoder holds.
-So a device on the newest decoder eventually imports every honest update, even
-one an older decoder voided before the device upgraded.
+stop, every device holds exactly what a fresh reader on its own decoder holds,
+voiding its final voids too. So a device on the newest decoder eventually
+imports every honest update, even one an older decoder voided before the
+device upgraded, unless `MaxAttempts` lifetimes each failed it there.
 
-Six negative controls each relax one rule, and the negative-control check
+Nine negative controls each relax one rule, and the negative-control check
 asserts the named violation on every run:
 
 - `RefuseVoid = TRUE` is the behavior before #3135: a void fails the whole
@@ -80,6 +104,15 @@ asserts the named violation on every run:
   pages. The server served it from a cursor the old decoder stood for, so an
   update the old decoder voided is never judged again:
   `ProcessedDevicesAgree` fails.
+- `MemoizeRuntimeFailure = TRUE` makes a runtime failure a final void at once,
+  as a plain memoized void would, so an honest update one trap hit is lost on
+  that device: `RuntimeVoidOnlyAfterAttempts` fails.
+- `CountEveryFailure = TRUE` counts every runtime failure, so one poisoned
+  process spends several attempts: `AttemptsWithinLifetimes` fails.
+- `CursorPastUnsettled = TRUE` records the cursor of a pull held at an
+  unsettled update, so the update is never served again and the device never
+  holds it: `ProcessedDevicesAgree` fails against a device whose runtime did
+  not fail.
 
 Outside the model: AEAD failures, which stay availability failures until a
 writer-signed key commitment exists; the content-key fingerprint that drops a
@@ -87,7 +120,10 @@ void judged under another key; duplicate update ids, which still fail a page;
 container metadata documents, which void but keep no cursor; a pull's pages
 beyond the collapse above, and a cursor dropped between them, which abandons the
 pull as an upgrade does; the per-page rebuild budget, whose deferred updates are
-served again as a shorter page would leave them; the record of import voids
+served again as a shorter page would leave them; the retry delay between a
+process's attempts and its uncounted later failures, which only hold a pull as
+a stutter would; a payload that kills the process outright, which records no
+attempt; the record of import voids
 that spares a device a second import of an update under the same judge and key;
 and devices' own writes. An honest writer depends only on operations committed
 before its update. A dishonest writer that forges a dependency on a
@@ -95,8 +131,11 @@ later update can make a device that judges an update again (after an upgrade or
 a replaced state) accept what a device judging in server order voided; that is
 left to the forged-dependency follow-up.
 
-The configuration bounds two devices, two updates, two decoder versions, and
-one state replacement. TLC explores 143,601 generated and 51,547 distinct
-states at depth 16 in about 5 seconds with one worker. Three updates also pass
-(1,398,292 distinct states in about 5 minutes with one worker). This is
-exhaustive bounded model checking, not an unbounded proof.
+The configuration bounds two devices, two updates, two decoder versions, one
+state replacement, and two attempts over two process lifetimes on one device
+whose runtime can fail (`FaultyDevices`); the other device stands for readers
+whose runtime never fails. TLC explores 1,159,789 generated and 386,593
+distinct states at depth 21 in about 46 seconds with one worker. Before runtime
+failures the same bounds explored 51,547 distinct states, and three updates
+also passed (1,398,292 distinct states in about 5 minutes with one worker).
+This is exhaustive bounded model checking, not an unbounded proof.

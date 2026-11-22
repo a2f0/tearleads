@@ -371,7 +371,7 @@ async function finalizeContainerMetadataSync(input: {
     noteContainerMetadataDownloadDrained({
       container: persisted.container,
       domainScope: input.runtime.state.domainScope,
-      pullIncomplete: synced.hasIncompletePull,
+      pullIncomplete: synced.hasIncompletePull || synced.hasHeldPull,
       storedRecord: persisted.record,
       syncAttempt,
     });

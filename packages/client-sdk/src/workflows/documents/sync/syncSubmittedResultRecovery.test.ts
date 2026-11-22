@@ -9,6 +9,7 @@ import {
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/documentSync";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
@@ -163,6 +164,7 @@ test("raw submitted-result refresh keeps the frozen response plan", async () => 
             new Error("submitted response needs refreshed KEK paths"),
           );
         }
+        return emptyDocumentSyncImportVerdicts();
       },
       writerProjection: staleProjection,
     });

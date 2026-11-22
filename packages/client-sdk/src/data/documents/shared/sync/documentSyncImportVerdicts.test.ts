@@ -165,7 +165,8 @@ test("scratch import voids a poison update, keeps its sibling, and leaves live s
   expect(isDocumentSyncUpdateIsolationError(isolated)).toBe(true);
   if (!isDocumentSyncUpdateIsolationError(isolated)) return;
   expect(isolated.updateId).toBe(invalidId);
-  expect(isolated.stage).toBe("loro_import");
+  // Its bytes are no Loro blob, so its metadata is not its signed span.
+  expect(isolated.stage).toBe("loro_metadata");
   expect(isolated.writerUserId).toBe("writer-user");
   expect(isolated.authorFingerprint).toBe("writer-fingerprint");
   expect(isolated.contentKeyEpoch).toBe(4);
@@ -184,7 +185,12 @@ test("server order decides dependencies: a child served before its parent is voi
       currentDocument: current,
       decryptedUpdates: [parent, child],
     }),
-  ).resolves.toEqual({ deferredUpdateIds: [], voided: [] });
+  ).resolves.toEqual({
+    deferredUpdateIds: [],
+    heldUpdateIds: [],
+    runtimeFailures: [],
+    voided: [],
+  });
 
   // Every reader judges a page in server order, so the verdict cannot depend
   // on how a reader's pages happened to group the two updates.

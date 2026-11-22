@@ -306,13 +306,23 @@ test("two reset clients recreate one remote document and converge their Loro his
         currentDocument: leftRecovered,
         decryptedUpdates: [rightUpdate],
       }),
-    ).toEqual({ deferredUpdateIds: [], voided: [] });
+    ).toEqual({
+      deferredUpdateIds: [],
+      heldUpdateIds: [],
+      runtimeFailures: [],
+      voided: [],
+    });
     expect(
       await validateDocumentSyncUpdateImports({
         currentDocument: rightRecovered,
         decryptedUpdates: [leftUpdate],
       }),
-    ).toEqual({ deferredUpdateIds: [], voided: [] });
+    ).toEqual({
+      deferredUpdateIds: [],
+      heldUpdateIds: [],
+      runtimeFailures: [],
+      voided: [],
+    });
     importDecryptedDocumentSyncUpdates(leftRecovered, [rightUpdate]);
     importDecryptedDocumentSyncUpdates(rightRecovered, [leftUpdate]);
 

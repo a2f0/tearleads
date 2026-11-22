@@ -97,6 +97,7 @@ export async function pullRemoteDocumentForAttachments(
   return {
     canSyncAttachments:
       !syncAttempt.synced.hasIncompletePull &&
+      !syncAttempt.synced.hasHeldPull &&
       refreshedRecord.pullContinuation == null &&
       refreshedRecord.pullContinuationRecoveryRequired !== true &&
       isDocumentStoreSyncGenerationCurrent(state, generation),

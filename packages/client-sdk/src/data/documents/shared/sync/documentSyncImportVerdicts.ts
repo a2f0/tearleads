@@ -1,30 +1,29 @@
-import {
-  createDocument,
-  encodeVersionVector,
-  exportFullHistorySnapshot,
-  getImportBlobMetadata,
-  importSnapshot,
-  importUpdates,
-  LoroImportUnresolvedDependenciesError,
-  satisfiesVersionVector,
-  updateMatchesDocumentHistory,
-  versionVectorsEqual,
-} from "@tearleads/loro";
+import { exportFullHistorySnapshot } from "@tearleads/loro";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import {
+  ownPeerOf,
+  ScratchHistory,
+  type SyncDocument,
+} from "./documentSyncScratchHistory";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
-import { importDecryptedDocumentSyncUpdates } from "./documentSyncUpdateImport";
 import {
   isolateDocumentSyncBatchError,
   isolateDocumentSyncUpdateError,
 } from "./documentSyncUpdateIsolation";
 import {
   type DocumentSyncImportVerdicts,
+  type DocumentSyncRuntimeFailure,
+  type DocumentVoidStage,
   type VoidedDocumentSyncUpdate,
   voidedDocumentSyncUpdate,
 } from "./documentUpdateVerdict";
+import {
+  type LoroRuntimeFailureLedger,
+  MAX_LORO_RUNTIME_ATTEMPTS,
+  processLoroRuntimeFailures,
+} from "./loroRuntimeFailureLedger";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
-type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
 
 /**
  * What a page may spend rebuilding its scratch document (the reader's
@@ -33,18 +32,6 @@ type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
  * that crafts many such updates costs each pass a bounded amount of work.
  */
 const MAX_SCRATCH_REBUILD_BYTES = 32 * 1024 * 1024;
-
-const MISSING_DEPENDENCY_MESSAGE =
-  "incoming Loro update depends on operations no earlier served update carries";
-
-type ScratchJudgement =
-  | { readonly verdict: "accepted" }
-  | {
-      readonly failure: unknown;
-      /** Whether the failed import left operations in the scratch document. */
-      readonly scratchChanged: boolean;
-      readonly verdict: "void";
-    };
 
 function firstDuplicateUpdateId(
   updates: readonly { readonly id: string }[],
@@ -57,116 +44,28 @@ function firstDuplicateUpdateId(
   return null;
 }
 
-async function createValidationDocument(
-  snapshot: Uint8Array,
-  accepted: readonly DecryptedDocumentSyncUpdate[],
-): Promise<SyncDocument> {
-  const document = await createDocument(crypto.randomUUID());
-  try {
-    importSnapshot(document, snapshot);
-    importDecryptedDocumentSyncUpdates(document, accepted);
-    return document;
-  } catch (error) {
-    document.free();
-    throw error;
-  }
-}
-
-function isRotationBaseline(update: DecryptedDocumentSyncUpdate): boolean {
-  return (
-    update.checkpointKind === "rotate_baseline" &&
-    update.checkpointPayloadKind === "full_history_snapshot"
-  );
-}
-
-function totalBytes(updates: readonly DecryptedDocumentSyncUpdate[]): number {
-  return updates.reduce((sum, update) => sum + update.updateData.byteLength, 0);
-}
-
-/**
- * Whether `update` starts past an operation `held` lacks on one of its own
- * peers. Loro would keep such an update pending inside the scratch document,
- * so it is judged from its metadata alone. A blob whose metadata does not
- * decode is left to the import, which fails before changing anything.
- */
-function startsPastHeldCounters(
-  held: string,
+function isolatedAt(
   update: DecryptedDocumentSyncUpdate,
-): boolean {
-  if (isRotationBaseline(update)) return false;
-  let start: string;
-  try {
-    start = getImportBlobMetadata(update.updateData).partialStartVersionVector;
-  } catch {
-    return false;
-  }
-  return !satisfiesVersionVector(held, start);
-}
-
-/**
- * Whether `update` joins `document`, which holds the reader's history and
- * every update accepted before it in server order. A void reports whether its
- * import changed the document: an import that left pending or partial
- * operations behind needs a clean rebuild before the next update is judged.
- */
-function judgeOnScratch(
-  document: SyncDocument,
-  update: DecryptedDocumentSyncUpdate,
-): ScratchJudgement {
-  const held = encodeVersionVector(document);
-  if (startsPastHeldCounters(held, update)) {
-    return {
-      failure: new Error(MISSING_DEPENDENCY_MESSAGE),
-      scratchChanged: false,
-      verdict: "void",
-    };
-  }
-  const changed = () =>
-    !versionVectorsEqual(encodeVersionVector(document), held);
-  try {
-    if (isRotationBaseline(update)) {
-      importSnapshot(document, update.updateData);
-    } else {
-      importUpdates(document, [update.updateData]);
-    }
-  } catch (error) {
-    if (error instanceof LoroImportUnresolvedDependenciesError) {
-      // Loro keeps the operations it could not apply as pending.
-      return {
-        failure: new Error(MISSING_DEPENDENCY_MESSAGE, { cause: error }),
-        scratchChanged: true,
-        verdict: "void",
-      };
-    }
-    return { failure: error, scratchChanged: changed(), verdict: "void" };
-  }
-  // Loro keeps the first operation it holds for a peer/counter and ignores a
-  // later one, so an update that reuses held ids with different operations
-  // imports "successfully". Only the resulting history shows the reuse.
-  if (!updateMatchesDocumentHistory(document, update.updateData)) {
-    return {
-      failure: new Error(
-        "incoming Loro update reuses an already-covered frontier with different operations",
-      ),
-      scratchChanged: changed(),
-      verdict: "void",
-    };
-  }
-  return { verdict: "accepted" };
+  failure: unknown,
+  stage: DocumentVoidStage,
+  responseById: ReadonlyMap<string, SyncResponseUpdate>,
+) {
+  return isolateDocumentSyncUpdateError({
+    cause: failure,
+    responseUpdate: responseById.get(update.id),
+    stage,
+    updateId: update.id,
+  });
 }
 
 function voidOf(
   update: DecryptedDocumentSyncUpdate,
   failure: unknown,
+  stage: DocumentVoidStage,
   responseById: ReadonlyMap<string, SyncResponseUpdate>,
 ): VoidedDocumentSyncUpdate {
   const voided = voidedDocumentSyncUpdate(
-    isolateDocumentSyncUpdateError({
-      cause: failure,
-      responseUpdate: responseById.get(update.id),
-      stage: "loro_import",
-      updateId: update.id,
-    }),
+    isolatedAt(update, failure, stage, responseById),
   );
   if (!voided) throw failure;
   return voided;
@@ -194,80 +93,132 @@ function assertNoDuplicateUpdateIds(input: {
   });
 }
 
+/** The verdicts of one page, gathered in server order. */
+class PageVerdicts {
+  readonly deferredUpdateIds: string[] = [];
+  readonly heldUpdateIds: string[] = [];
+  readonly runtimeFailures: DocumentSyncRuntimeFailure[] = [];
+  readonly voided: VoidedDocumentSyncUpdate[] = [];
+  /** Set once an unsettled update holds the rest of the page. */
+  holding = false;
+
+  hold(updateId: string): void {
+    this.holding = true;
+    this.heldUpdateIds.push(updateId);
+  }
+
+  result(): DocumentSyncImportVerdicts {
+    return {
+      deferredUpdateIds: this.deferredUpdateIds,
+      heldUpdateIds: this.heldUpdateIds,
+      runtimeFailures: this.runtimeFailures,
+      voided: this.voided,
+    };
+  }
+}
+
+interface PageJudging {
+  readonly ledger: LoroRuntimeFailureLedger;
+  readonly responseById: ReadonlyMap<string, SyncResponseUpdate>;
+  readonly runtimeAttempts: ReadonlyMap<string, number>;
+  readonly scratch: ScratchHistory;
+  readonly verdicts: PageVerdicts;
+}
+
 /**
- * The page's scratch document: the reader's history plus every update
- * accepted so far. A void whose import changed it is rebuilt from those
- * before the next update is judged, while the page's budget allows.
+ * Records a Loro runtime failure on `update`. It is void once enough process
+ * lifetimes have each failed it; until then it holds the rest of the page.
  */
-class ScratchHistory {
-  private readonly accepted: DecryptedDocumentSyncUpdate[] = [];
-  private changed = false;
-
-  private constructor(
-    private readonly snapshot: Uint8Array,
-    private budgetBytesLeft: number,
-    private document: SyncDocument | null,
-  ) {}
-
-  static async open(
-    snapshot: Uint8Array,
-    budgetBytes: number,
-  ): Promise<ScratchHistory> {
-    return new ScratchHistory(
-      snapshot,
-      budgetBytes,
-      await createValidationDocument(snapshot, []),
+function noteRuntimeFailure(
+  page: PageJudging,
+  update: DecryptedDocumentSyncUpdate,
+  failure: unknown,
+): void {
+  const counted = page.ledger.noteFailure(update.id);
+  const attempts =
+    (page.runtimeAttempts.get(update.id) ?? 0) + (counted ? 1 : 0);
+  const final = attempts >= MAX_LORO_RUNTIME_ATTEMPTS;
+  const error = isolatedAt(update, failure, "loro_runtime", page.responseById);
+  page.verdicts.runtimeFailures.push({
+    attempts,
+    contentKeyEpoch: error.contentKeyEpoch,
+    counted,
+    error,
+    final,
+    updateId: update.id,
+  });
+  if (final) {
+    page.verdicts.voided.push(
+      voidOf(update, error, "loro_runtime", page.responseById),
     );
+  } else {
+    page.verdicts.hold(update.id);
   }
+}
 
-  /** False once a needed rebuild would pass the budget: defer the update. */
-  async ready(): Promise<boolean> {
-    if (!this.changed) return true;
-    const rebuildBytes = this.snapshot.byteLength + totalBytes(this.accepted);
-    if (rebuildBytes > this.budgetBytesLeft) return false;
-    this.budgetBytesLeft -= rebuildBytes;
-    this.free();
-    this.document = await createValidationDocument(
-      this.snapshot,
-      this.accepted,
+async function judgePageUpdate(
+  page: PageJudging,
+  update: DecryptedDocumentSyncUpdate,
+): Promise<void> {
+  const { verdicts } = page;
+  if (!page.ledger.mayAttempt(update.id)) {
+    verdicts.hold(update.id);
+    return;
+  }
+  const readiness = await page.scratch.ready();
+  if (readiness === "over_budget") {
+    verdicts.deferredUpdateIds.push(update.id);
+    return;
+  }
+  if (readiness === "runtime_failure") {
+    page.ledger.noteUnattributedFailure();
+    verdicts.hold(update.id);
+    return;
+  }
+  const judgement = page.scratch.judge(update);
+  if (judgement.verdict === "runtime_failure") {
+    noteRuntimeFailure(page, update, judgement.failure);
+  } else if (judgement.verdict === "void") {
+    const voided = voidOf(
+      update,
+      judgement.failure,
+      judgement.stage,
+      page.responseById,
     );
-    this.changed = false;
-    return true;
-  }
-
-  /** Judges `update`, keeping it for later rebuilds when it joins. */
-  judge(update: DecryptedDocumentSyncUpdate): ScratchJudgement {
-    if (!this.document) throw new Error("Scratch history was freed");
-    const judgement = judgeOnScratch(this.document, update);
-    if (judgement.verdict === "accepted") this.accepted.push(update);
-    else this.changed = judgement.scratchChanged;
-    return judgement;
-  }
-
-  free(): void {
-    this.document?.free();
-    this.document = null;
+    verdicts.voided.push(
+      judgement.preemptedPeerId === null
+        ? voided
+        : { ...voided, preemptedPeerId: judgement.preemptedPeerId },
+    );
   }
 }
 
 /**
  * Judges a page's decrypted updates in server order against the reader's
  * document, before the live document or any durable frontier changes. An
- * update joins when it imports onto the reader's history plus every update
- * accepted before it, and carries exactly its declared operations there.
- * Otherwise it is void: one that reuses held operation ids loses to the
- * earlier carrier, and one whose parents no earlier update carries is never
- * applied. Server order is commit order, and an honest writer depends only on
- * operations it holds, which are committed before its update, so this voids
- * no honest update, and readers judging the same history in order void the
- * same ones. A dishonest writer's dependency on a later update can still join
- * for a reader that judges the update again once it holds the later one.
+ * update joins when its payload is the update its signed metadata declares,
+ * it imports onto the reader's history plus every update accepted before it,
+ * and it carries exactly its declared operations there. Otherwise it is
+ * void: one that reuses held operation ids loses to the earlier carrier, and
+ * one whose parents no earlier update carries is never applied. Server order
+ * is commit order, and an honest writer depends only on operations it holds,
+ * which are committed before its update, so this voids no honest update, and
+ * readers judging the same history in order void the same ones. A dishonest
+ * writer's dependency on a later update can still join for a reader that
+ * judges the update again once it holds the later one.
  *
- * `knownVoids` names updates this device already voided at this stage under
- * the same judge and content key; they stay void without being imported
- * again. A void whose import changed the scratch document costs a rebuild;
- * once the page's rebuilds would pass `MAX_SCRATCH_REBUILD_BYTES`, every
- * later update not already known void is deferred.
+ * `knownVoids` names updates this device already voided, with the stage,
+ * under the same judge and content key; they stay void without a Loro call.
+ * A void whose import changed the scratch document costs a rebuild; once the
+ * page's rebuilds would pass `MAX_SCRATCH_REBUILD_BYTES`, every later update
+ * not already known void is deferred.
+ *
+ * A Loro runtime failure (a trap or exhausted memory) is no verdict about the
+ * update. Only the first such failure in a process counts as an attempt,
+ * added to `runtimeAttempts` (the attempts this device recorded for it), and
+ * the update is void once `MAX_LORO_RUNTIME_ATTEMPTS` lifetimes have each
+ * failed it. Until then it is unsettled: it and every later update are held,
+ * and in this process it is not imported again until its retry delay passed.
  *
  * A duplicated id still fails the page, because an honest server never
  * serves one.
@@ -275,41 +226,52 @@ class ScratchHistory {
 export async function validateDocumentSyncUpdateImports(input: {
   currentDocument: SyncDocument;
   decryptedUpdates: readonly DecryptedDocumentSyncUpdate[];
-  knownVoids?: ReadonlySet<string> | undefined;
+  knownVoids?: ReadonlyMap<string, DocumentVoidStage> | undefined;
   /** @internal The rebuild budget; tests lower it. */
   rebuildBudgetBytes?: number | undefined;
   responseUpdates?: readonly SyncResponseUpdate[] | undefined;
+  /** @internal This process's runtime failures; tests stand in a new one. */
+  runtimeLedger?: LoroRuntimeFailureLedger | undefined;
+  runtimeAttempts?: ReadonlyMap<string, number> | undefined;
 }): Promise<DocumentSyncImportVerdicts> {
-  if (input.decryptedUpdates.length === 0) {
-    return { deferredUpdateIds: [], voided: [] };
-  }
+  const verdicts = new PageVerdicts();
+  if (input.decryptedUpdates.length === 0) return verdicts.result();
   assertNoDuplicateUpdateIds(input);
   const responseById = new Map(
     (input.responseUpdates ?? []).map((update) => [update.id, update]),
   );
-  const deferredUpdateIds: string[] = [];
-  const voided: VoidedDocumentSyncUpdate[] = [];
-  const scratch = await ScratchHistory.open(
-    exportFullHistorySnapshot(input.currentDocument),
-    input.rebuildBudgetBytes ?? MAX_SCRATCH_REBUILD_BYTES,
-  );
+  const scratch = await ScratchHistory.open({
+    budgetBytes: input.rebuildBudgetBytes ?? MAX_SCRATCH_REBUILD_BYTES,
+    own: ownPeerOf(input.currentDocument),
+    snapshot: exportFullHistorySnapshot(input.currentDocument),
+  });
+  const page: PageJudging = {
+    ledger: input.runtimeLedger ?? processLoroRuntimeFailures,
+    responseById,
+    runtimeAttempts: input.runtimeAttempts ?? new Map(),
+    scratch,
+    verdicts,
+  };
   try {
     for (const update of input.decryptedUpdates) {
-      if (input.knownVoids?.has(update.id)) {
-        voided.push(
-          voidOf(update, new Error(KNOWN_VOID_MESSAGE), responseById),
+      const knownStage = input.knownVoids?.get(update.id);
+      if (verdicts.holding) {
+        verdicts.heldUpdateIds.push(update.id);
+      } else if (knownStage !== undefined) {
+        verdicts.voided.push(
+          voidOf(
+            update,
+            new Error(KNOWN_VOID_MESSAGE),
+            knownStage,
+            responseById,
+          ),
         );
-      } else if (!(await scratch.ready())) {
-        deferredUpdateIds.push(update.id);
       } else {
-        const judgement = scratch.judge(update);
-        if (judgement.verdict === "void") {
-          voided.push(voidOf(update, judgement.failure, responseById));
-        }
+        await judgePageUpdate(page, update);
       }
     }
   } finally {
     scratch.free();
   }
-  return { deferredUpdateIds, voided };
+  return verdicts.result();
 }

@@ -18,6 +18,7 @@ import type {
 } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { isolateDocumentSyncBatchError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
+  requireDocumentSyncImportVerdicts,
   type VoidedDocumentSyncUpdate,
   withoutVoidedUpdates,
 } from "../../../data/documents/shared/sync/documentUpdateVerdict";
@@ -173,14 +174,17 @@ async function judgeDocumentSyncResponseUpdates(
     organizationId: plan.organizationId,
     updates: input.response.updates,
   });
-  const importVerdicts = (await input.validateIncomingUpdates({
-    contentKeyFingerprintsByEpoch,
-    decryptedUpdates: decrypted.accepted,
-    response: input.response,
-  })) ?? { deferredUpdateIds: [], voided: [] };
+  const importVerdicts = requireDocumentSyncImportVerdicts(
+    await input.validateIncomingUpdates({
+      contentKeyFingerprintsByEpoch,
+      decryptedUpdates: decrypted.accepted,
+      response: input.response,
+    }),
+  );
   return {
     decryptedUpdates: withoutVoidedUpdates(decrypted.accepted, importVerdicts),
     deferred: importVerdicts.deferredUpdateIds.length > 0,
+    held: importVerdicts.heldUpdateIds.length > 0,
     voidedUpdates: inServerOrder(input.response, [
       ...decrypted.voided,
       ...importVerdicts.voided,
@@ -189,10 +193,11 @@ async function judgeDocumentSyncResponseUpdates(
 }
 
 /**
- * The response a pass that deferred part of its page hands on: no further
- * page and no continuation, so it still parses as a pull page, while the
- * result's `hasIncompletePull` makes the next pass start the pull again and
- * be served the deferred updates once more.
+ * The response a pass that deferred or held part of its page hands on: no
+ * further page and no continuation, so it still parses as a pull page. A
+ * deferral's `hasIncompletePull` makes the next pass start the pull again at
+ * once; a hold's `hasHeldPull` leaves that to the next scheduled pull. Either
+ * way it is served the unjudged updates once more.
  */
 function restartedPull(response: DocumentSyncResponse): DocumentSyncResponse {
   return response.pullPage
@@ -214,7 +219,7 @@ export async function syncRemoteDocumentResultFromResponse(
       contentKeysByEpoch,
       documentId: plan.documentId,
     });
-  const { decryptedUpdates, deferred, voidedUpdates } =
+  const { decryptedUpdates, deferred, held, voidedUpdates } =
     await judgeDocumentSyncResponseUpdates(
       input,
       contentKeysByEpoch,
@@ -255,11 +260,12 @@ export async function syncRemoteDocumentResultFromResponse(
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
     hasDeferredPendingUpdates: false,
+    hasHeldPull: held && !deferred,
     hasIncompletePull: deferred,
     persistedState,
     plan,
     rekeyedPendingUpdateIds,
-    response: deferred ? restartedPull(input.response) : input.response,
+    response: deferred || held ? restartedPull(input.response) : input.response,
     settledPendingUpdateIds,
     acceptedRecoveryBaseline,
     contentKeyFingerprintsByEpoch,

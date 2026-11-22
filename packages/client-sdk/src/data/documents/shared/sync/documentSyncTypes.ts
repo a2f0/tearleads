@@ -119,18 +119,17 @@ export interface MaterializedDocumentSyncPlan {
 }
 
 /**
- * Judges a page's decrypted updates against the reader's document and returns
- * the ones it voids; a validator that returns nothing accepts every update.
+ * Judges a page's decrypted updates against the reader's document, normally
+ * with `validateDocumentSyncUpdateImports`, which also checks each payload
+ * against its signed span. A validator must return verdicts: the pass fails
+ * when it returns anything else.
  */
 export type IncomingDocumentSyncUpdateValidator = (
   result: Pick<
     SyncRemoteDocumentResult,
     "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
   >,
-) =>
-  | undefined
-  | DocumentSyncImportVerdicts
-  | Promise<undefined | DocumentSyncImportVerdicts>;
+) => DocumentSyncImportVerdicts | Promise<DocumentSyncImportVerdicts>;
 
 export interface SyncRemoteDocumentResult {
   contentKey: Uint8Array;
@@ -148,6 +147,12 @@ export interface SyncRemoteDocumentResult {
    * pass. Terminal exhaustion reports false and uses the failure callback.
    */
   hasDeferredPendingUpdates: boolean;
+  /**
+   * The pull stopped at an update the Loro runtime failed on and has not
+   * settled: the pass applied what came before it, records no cursor, and
+   * does not pull again at once. A later pull judges it again.
+   */
+  hasHeldPull: boolean;
   /** Verified page progress was persisted, but remote pages remain. */
   hasIncompletePull: boolean;
   persistedState: PersistedDocumentSyncState;

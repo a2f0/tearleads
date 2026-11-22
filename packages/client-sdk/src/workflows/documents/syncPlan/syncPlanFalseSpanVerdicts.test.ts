@@ -15,7 +15,9 @@ import {
 import { replaceEncryptedPlaintext } from "../../../../test/helpers/data/replaceEncryptedPlaintext";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { judgeDocumentSyncUpdateDecryption } from "../../../data/documents/shared/crypto";
+import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { withoutVoidedUpdates } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
 const ids = {
@@ -83,15 +85,29 @@ async function judgePage(liar: ReturnType<typeof pending>) {
     contentKey,
     materialized,
     response,
-    judge: (updates: typeof response.updates) =>
-      judgeDocumentSyncUpdateDecryption({
+    // Decryption checks the plaintext hash; the import judge checks each
+    // payload against its signed span, as a sync pass runs them.
+    judge: async (updates: typeof response.updates) => {
+      const decrypted = await judgeDocumentSyncUpdateDecryption({
         contentKeysByEpoch: new Map([
           [materialized.plan.contentKeyEpoch, contentKey],
         ]),
         documentId: materialized.plan.documentId,
         organizationId: materialized.plan.organizationId,
         updates,
-      }),
+      });
+      const reader = await createDocument("verdict-reader");
+      const verdicts = await validateDocumentSyncUpdateImports({
+        currentDocument: reader,
+        decryptedUpdates: decrypted.accepted,
+        responseUpdates: updates,
+      });
+      reader.free();
+      return {
+        accepted: withoutVoidedUpdates(decrypted.accepted, verdicts),
+        voided: [...decrypted.voided, ...verdicts.voided],
+      };
+    },
   };
 }
 

@@ -16,16 +16,18 @@ any other span as declared.
 
 ## Void Updates
 
-A reader judges each served update in server order. It decrypts the update,
-checks the plaintext hash, decodes the Loro metadata, and imports the update
-into its history plus every update it accepted before. An update is a
+A reader judges each served update in server order. It decrypts the update
+and checks the plaintext hash; then its import judge, the only code that reads
+a payload with Loro, decodes the Loro metadata and imports the update into its
+history plus every update it accepted before. An update is a
 [void update](./glossary/content.md#void-update) when its decoded span is not
 its declared one, its decoder cannot read it, or its dependencies are on no
 earlier accepted update. The reader records it in `document_void_updates`,
 reports it once as `Documents: sync update voided`, and goes on. A void never
 fails the pass or sets the document's sync failure. An AES-GCM failure stays an
 availability failure, because a reader cannot prove its content key is the one
-the writer used.
+the writer used. A sync pass whose judge (`validateIncomingUpdates`) returns
+no verdicts fails, rather than applying updates nobody judged.
 
 A void whose import changed the scratch history the reader judges against
 forces it to rebuild that history before the next update. Each page may spend
@@ -34,9 +36,58 @@ the reader leaves the page's remaining updates unapplied, reports the pull
 incomplete, and drops the page's continuation, so its next pull serves them
 again. Voids that change nothing (a counter gap read from the update's
 metadata, a collision with operations already held, an undecodable payload)
-cost no rebuild. An update this device already voided at the import stage,
-under the same judge and the same content key, stays void without another
-import, so every pass judges at least one update the last one did not.
+cost no rebuild. An update this device already voided at a stage the import
+judge decides, under the same judge and the same content key, stays void
+without another Loro call, so every pass judges at least one update the last
+one did not.
+
+## Loro Runtime Failures
+
+A WebAssembly trap (a Rust panic, or an allocation that aborted) or a
+`RangeError` while the import judge reads a payload is no verdict about the
+update: an honest update can exhaust memory, and a trap can leave the module
+unusable for the rest of the process. Such an update is unsettled. The reader
+records it at stage `loro_runtime` with an attempt count, in its own
+transaction before anything else touches Loro, and holds it and every update
+after it on the page: the pass applies what came before, records no cursor,
+keeps the remote-update signal pending, and does not pull again at once. A
+later pull judges the update again. In the same process it waits out a retry
+delay (one minute, doubling to an hour) and is not read in the meantime.
+
+Only the first runtime failure in a process counts as an attempt, because a
+later one may be the module's state, not the update. Once three process
+lifetimes have each failed the update, it is a final void like the others, is
+reported as such, and is never read again under that judge and key. A new
+decoder or another content key judges it from zero. An update that imports on
+a retry joins.
+
+Two residuals remain. An honest update that fails the runtime in three
+separate process lifetimes on one device is void on that device. And while an
+update is unsettled, the device applies nothing served after it on that
+document and cannot bind attachments to it, for up to three process
+lifetimes; its own writes still push and settle. A payload that kills the
+process outright, rather than throwing, records no attempt.
+
+## Preempted Operations
+
+Earliest-wins voids the later of two updates that carry the same operation ids
+(peer and counter) with different operations. A writer that commits operations
+under another device's peer id at that device's next counters, before the
+device's own update lands, therefore makes every reader void the device's
+update. This is an accepted residual of #3135; the server does not yet tie a
+peer id to the writer that may use it. Before advisory spans, one such forged
+collision stopped every reader's sync of the document; now it drops the
+preempted operations on other readers.
+
+A device that is served such an update holds its own operations first, so it
+voids the forger's update instead. When that void reuses ids under the peer id
+the device writes with, it records a notice in `document_peer_preemptions` and
+reports once which writer (user and key fingerprint) signed the update. For a
+rotation baseline that is the writer that relayed the operations, not
+necessarily the one that forged them. A forger that declares exactly the
+counters the device already holds is not served to that device, because the
+device's frontier covers the declared span, so the notice catches only a
+forgery the device is served.
 
 ## The Processed Cursor
 
@@ -72,7 +123,8 @@ withheld. Before the cursor, the next version pull served it.
 [Withholding](./security-guarantees/boundaries.md#availability-is-out-of-scope)
 is outside the guarantees either way.
 
-Rebinding or deleting the local record drops its cursor and void rows.
+Rebinding or deleting the local record drops its cursor, void rows, and
+preemption notices.
 Rotation's raw history still fails on any void, because it re-encrypts a
 history that must be whole, and a founding view whose first update is void
 shows no founding update.
@@ -82,5 +134,6 @@ listing whose advertised version an overclaim left uncovered keeps that folder
 marked as behind. Attachment
 binds, rotation, unlink, and raw-history recovery still compare declared spans.
 [`VoidUpdateProgress`](../formal/document-sync/VoidUpdateProgress.md) checks
-that no void update is applied, that readers agree, and that a reader stays
-current.
+that no void update is applied, that readers agree, that a reader stays
+current, and that a runtime failure voids an update the decoder can read only
+after the bounded attempts.

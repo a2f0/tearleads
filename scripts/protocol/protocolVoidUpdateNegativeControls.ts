@@ -52,4 +52,28 @@ export const VOID_UPDATE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "ProcessedDevicesAgree" },
     why: "A pull upgraded between its pages, served from a cursor the old decoder stood for, records a cursor past updates the new decoder never judged (#3135).",
   },
+  {
+    id: "void-update-memoizes-runtime-failure",
+    module: MODULE,
+    config: CONFIG,
+    constants: { MemoizeRuntimeFailure: "TRUE" },
+    expect: { kind: "invariant", name: "RuntimeVoidOnlyAfterAttempts" },
+    why: "Voiding an update on its first Loro runtime failure loses an honest update that one trap or exhausted allocation hit (#3135).",
+  },
+  {
+    id: "void-update-counts-every-runtime-failure",
+    module: MODULE,
+    config: CONFIG,
+    constants: { CountEveryFailure: "TRUE" },
+    expect: { kind: "invariant", name: "AttemptsWithinLifetimes" },
+    why: "Counting every runtime failure lets one process a trap left unusable spend every attempt of the updates it reads next (#3135).",
+  },
+  {
+    id: "void-update-cursor-past-unsettled",
+    module: MODULE,
+    config: CONFIG,
+    constants: { CursorPastUnsettled: "TRUE" },
+    expect: { kind: "invariant", name: "ProcessedDevicesAgree" },
+    why: "A cursor recorded past an update the runtime failed on keeps it from being served again, so the device never holds it (#3135).",
+  },
 ];

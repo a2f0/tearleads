@@ -12,6 +12,7 @@ const UPGRADED = "void-rules-1:loro-crdt@2.0.0";
 function page(overrides: Partial<PullPagePosition> = {}): PullPagePosition {
   return {
     first: true,
+    held: false,
     last: true,
     sentCursor: "cursor",
     throughUpdateId: "through",
@@ -103,4 +104,16 @@ test("a later page under another judge or cursor, or with no premise, abandons t
       transition({ page: page({ first: false, last }), storedPremise: null }),
     ).toEqual({ status: "abandoned" });
   }
+});
+
+test("a page held at an unsettled update abandons the pull, first page or last", () => {
+  expect(transition({ page: page({ held: true }) })).toEqual({
+    status: "abandoned",
+  });
+  expect(
+    transition({
+      page: page({ first: false, held: true }),
+      storedPremise: { judge: JUDGE, sentCursor: "cursor" },
+    }),
+  ).toEqual({ status: "abandoned" });
 });

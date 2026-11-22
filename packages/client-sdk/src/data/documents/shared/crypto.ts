@@ -156,6 +156,7 @@ interface InspectionFailure {
 
 function inspectDocumentSyncUpdatesByEpoch(
   input: DocumentSyncDecryptionInput,
+  verifyLoroMetadata: boolean,
 ): Promise<PromiseSettledResult<DecryptedDocumentSyncUpdate>[]> {
   const contentKeyMaterialByEpoch = new Map<number, Promise<CryptoKey>>();
   const contentKeyMaterialForEpoch = (contentKeyEpoch: number) => {
@@ -208,6 +209,7 @@ function inspectDocumentSyncUpdatesByEpoch(
         documentId: input.documentId,
         organizationId: input.organizationId,
         update,
+        verifyLoroMetadata,
       });
     }),
   );
@@ -253,7 +255,7 @@ export async function decryptDocumentSyncUpdatesByEpoch(
   if (input.updates.length === 0) {
     return [];
   }
-  const inspections = await inspectDocumentSyncUpdatesByEpoch(input);
+  const inspections = await inspectDocumentSyncUpdatesByEpoch(input, true);
   throwInspectionFailures(
     inspections.flatMap((inspection, index) =>
       inspection.status === "rejected"
@@ -268,10 +270,12 @@ export async function decryptDocumentSyncUpdatesByEpoch(
 }
 
 /**
- * Decrypts served updates and voids each whose payload is not the update its
- * signed metadata declares, in server order. Any other failure (a header, an
+ * Decrypts served updates and voids each whose plaintext is not the one its
+ * signed hash names, in server order. Any other failure (a header, an
  * envelope, a key, or AES-GCM itself) still fails the pass: the reader cannot
- * prove its key is the writer's, so it cannot blame the writer.
+ * prove its key is the writer's, so it cannot blame the writer. Whether a
+ * payload is the Loro update its signed span declares is left to the import
+ * judge (`validateDocumentSyncUpdateImports`), the only reader of payloads.
  */
 export async function judgeDocumentSyncUpdateDecryption(
   input: DocumentSyncDecryptionInput,
@@ -282,7 +286,7 @@ export async function judgeDocumentSyncUpdateDecryption(
   if (input.updates.length === 0) {
     return { accepted: [], voided: [] };
   }
-  const inspections = await inspectDocumentSyncUpdatesByEpoch(input);
+  const inspections = await inspectDocumentSyncUpdatesByEpoch(input, false);
   const accepted: DecryptedDocumentSyncUpdate[] = [];
   const voided: VoidedDocumentSyncUpdate[] = [];
   const failures: InspectionFailure[] = [];
