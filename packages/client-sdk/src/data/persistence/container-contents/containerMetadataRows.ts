@@ -49,7 +49,7 @@ export function getContainerMetadataScope(containerId: string) {
 
 // The metadata document's content frontier, derived from its full updates
 // export. Empty or undecodable blobs read as "never hydrated".
-function deriveMetadataEndVersion(metadataUpdates: string): string {
+export function deriveMetadataEndVersion(metadataUpdates: string): string {
   if (metadataUpdates.length === 0) {
     return "";
   }

@@ -3,10 +3,17 @@ import {
   type CompletedDownloadItem,
   type ContainerDocumentQueries,
   createDomainScope,
+  getOrCreateDomainDownloadHistory,
   type PendingDownloadQueueItem,
   type Tearleads,
 } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  waitFor,
+} from "@testing-library/react";
 import * as TearleadsProvider from "../../../../providers/sdk/TearleadsProvider";
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerDownloadsPanel } from "./ExplorerDownloadsPanel";
@@ -97,6 +104,7 @@ const STORED: ReadonlyArray<CompletedDownloadItem> = [
     blobId: "drill-blob",
     containerId: "tools",
     documentId: "remote-drill",
+    fileName: "drill.png",
     localId: "drill",
     objectKind: "attachment",
     slotId: "photo",
@@ -109,7 +117,6 @@ test("a finished download opens its blob, document, or folder", async () => {
   // The saw's photo is still downloading.
   let items = PENDING;
   const documentQueries = {
-    listCompletedDownloads: async () => STORED,
     listPendingDownloads: async () => items,
   } as unknown as ContainerDocumentQueries;
   const opened: string[] = [];
@@ -141,7 +148,12 @@ test("a finished download opens its blob, document, or folder", async () => {
     }),
   ).toBeNull();
 
-  items = PENDING.filter((item) => item.localId === "saw");
+  // The SDK records each finished download as it leaves the queue.
+  await act(async () => {
+    items = PENDING.filter((item) => item.localId === "saw");
+    const history = getOrCreateDomainDownloadHistory(domainScope);
+    for (const item of STORED) history.recordCompleted(item);
+  });
   view.rerender(renderPanel(1));
   await waitFor(() => expect(view.getAllByText("Complete")).toHaveLength(4));
 

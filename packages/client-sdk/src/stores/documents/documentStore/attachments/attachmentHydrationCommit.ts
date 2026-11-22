@@ -6,6 +6,7 @@ import {
 } from "../../../../workflows/documents";
 import { saveHydratedDocumentAttachment } from "../../../../workflows/documents/attachments/attachmentPersistence";
 import type { DocumentState, DocumentStoreState } from "../state";
+import { noteAttachmentDownloaded } from "../sync/downloadCompletion";
 import {
   installLocalAttachmentRecords,
   removeLocalAttachmentSlot,
@@ -81,6 +82,12 @@ export async function commitHydratedAttachment(input: {
           copy: { blobStore, contentSha256, storageKey },
         });
         installLocalAttachmentRecords(state, [attachment], currentDoc);
+        if (expectedStorageKey === null)
+          noteAttachmentDownloaded({
+            attachment,
+            fileName: hydratedBlob.attachment.name,
+            state,
+          });
       } else if (!committed && stillCurrent())
         await refreshRefusedAttachmentSlot(input, stillCurrent);
     },

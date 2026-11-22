@@ -1,19 +1,51 @@
 import type {
   ContainerDocumentQueries,
   ContainerNode,
+  DomainDownloadHistorySnapshot,
   DomainScope,
   DomainSyncSnapshot,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useRef } from "react";
-import { useTearleadsExternalStoreSnapshot } from "../../../../providers/sdk/useTearleadsSubscription";
-import type { DownloadHistoryState } from "./downloadHistoryMachine";
-import { getOrCreateDownloadHistoryStore } from "./downloadHistoryStore";
+import {
+  getDomainDownloadHistorySnapshot,
+  subscribeToDomainDownloadHistory,
+} from "@tearleads/client-sdk";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  useTearleadsExternalStoreSnapshot,
+  useTearleadsExternalValue,
+} from "../../../../providers/sdk/useTearleadsSubscription";
+import {
+  type DownloadHistoryEntry,
+  mergeDownloadHistory,
+} from "./downloadHistory";
+import {
+  type DownloadQueueState,
+  getPendingDownloads,
+} from "./downloadQueueMachine";
+import { getOrCreateDownloadQueueStore } from "./downloadQueueStore";
+
+/** The downloads the SDK recorded finishing in this scope, newest first. */
+function useDomainDownloadHistory(
+  domainScope: DomainScope,
+): DomainDownloadHistorySnapshot {
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      subscribeToDomainDownloadHistory(domainScope, listener),
+    [domainScope],
+  );
+  const getSnapshot = useCallback(
+    () => getDomainDownloadHistorySnapshot(domainScope),
+    [domainScope],
+  );
+  return useTearleadsExternalValue(subscribe, getSnapshot);
+}
 
 /**
- * The Downloads rows for a scope, read from the SDK's durable queue. Opening
- * the panel reads at once, so a pull that finished while it was closed is
- * confirmed then; later discovery, persistence, and sync notifications are
- * coalesced. An idle panel does not poll SQLite.
+ * The Downloads rows for a scope: the SDK's durable queue, read here, then
+ * the downloads the SDK recorded finishing, which it records whether or not
+ * this panel is open, as the sync coordinator records lane runs. Opening the
+ * panel reads the queue at once; later discovery, persistence, sync, and
+ * completion notifications are coalesced. An idle panel does not poll SQLite.
  */
 export function useDownloadHistory(params: {
   documentQueries: ContainerDocumentQueries;
@@ -21,10 +53,15 @@ export function useDownloadHistory(params: {
   documentListRevision: number;
   nodes: ReadonlyArray<ContainerNode>;
   syncSnapshot: DomainSyncSnapshot;
-}): { readNow: () => void; state: DownloadHistoryState } {
+}): {
+  entries: ReadonlyArray<DownloadHistoryEntry>;
+  readNow: () => void;
+  state: DownloadQueueState;
+} {
   const { documentQueries, domainScope } = params;
-  const store = getOrCreateDownloadHistoryStore(domainScope);
+  const store = getOrCreateDownloadQueueStore(domainScope);
   const state = useTearleadsExternalStoreSnapshot(store);
+  const { completed } = useDomainDownloadHistory(domainScope);
   // Fresh per mount, so reopening the panel reads at once.
   const lastRead = useRef<{
     queries: ContainerDocumentQueries;
@@ -37,7 +74,8 @@ export function useDownloadHistory(params: {
     )
     .join("\0");
   // The change signals below only trigger a read; the read itself does not
-  // depend on their values.
+  // depend on their values. A recorded completion re-reads the queue so the
+  // finished row leaves the pending list.
   useEffect(() => {
     const immediate =
       lastRead.current?.store !== store ||
@@ -45,6 +83,7 @@ export function useDownloadHistory(params: {
     lastRead.current = { queries: documentQueries, store };
     store.requestRead(documentQueries, { immediate });
   }, [
+    completed,
     documentQueries,
     store,
     params.documentListRevision,
@@ -55,5 +94,10 @@ export function useDownloadHistory(params: {
   const readNow = useCallback(() => {
     store.requestRead(documentQueries, { immediate: true });
   }, [documentQueries, store]);
-  return { readNow, state };
+  const pending = getPendingDownloads(state);
+  const entries = useMemo(
+    () => mergeDownloadHistory(pending, completed),
+    [completed, pending],
+  );
+  return { entries, readNow, state };
 }
