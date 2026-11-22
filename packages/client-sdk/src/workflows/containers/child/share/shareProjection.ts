@@ -12,7 +12,9 @@ export async function resolveShareProjection(
 ): Promise<ContainerWriterProjectionResponse | null> {
   const servedProjection =
     input.previousProjection ??
-    (await input.apiClient.getContainerWriterProjection(input.containerId));
+    (await input.apiClient.getContainerWriterProjection(input.containerId, {
+      stillCurrent: input.stillCurrent,
+    }));
   if (!servedProjection || input.stillCurrent?.() === false) return null;
   const previousProjection = await projectionWithCurrentAncestors({
     ...input,

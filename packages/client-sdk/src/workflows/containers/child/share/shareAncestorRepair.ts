@@ -118,8 +118,8 @@ export async function projectionWithCurrentAncestors(input: {
     const repaired = await rekeyRemoteContainer(
       {
         api: {
-          getContainerWriterProjection: (containerId) =>
-            input.apiClient.getContainerWriterProjection(containerId),
+          getContainerWriterProjection: (containerId, options) =>
+            input.apiClient.getContainerWriterProjection(containerId, options),
           reciteContainer: (...args) =>
             input.apiClient.reciteContainer(...args),
           rekeyContainer: rekeyContainer.bind(input.apiClient),
@@ -149,6 +149,7 @@ export async function projectionWithCurrentAncestors(input: {
     if (!repaired) return serverDecides ? projection : null;
     const refreshed = await input.apiClient.getContainerWriterProjection(
       input.containerId,
+      { stillCurrent: input.stillCurrent },
     );
     if (!refreshed) return null;
     projection = refreshed;

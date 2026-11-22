@@ -37,19 +37,17 @@ sign-in, or a store generation change, the request is retired:
 These requests pass it:
 
 - the writer-projection reads of document creates and attachment uploads
-- the parent reads of container-contents folder creates
+- the projection reads of container creates, shares, moves, revokes, and
+  rekeys, including a create's stale-path refetch, a share's repair of a stale
+  chain above it, and a rotation's carried descendant rekeys
 - attachment uploads and downloads
-- signed container creates, recitations, moves, revokes, rekeys, and user
-  shares
-
-These do not pass it yet:
-
-- group shares
-- the projection reads before a move, revoke, rekey, or share
-- the parent reads inside a container create, including its stale-path repair
+- signed container creates, recitations, moves, revokes, rekeys, and user and
+  group shares
 
 Concurrent writer-projection reads still share one fetch and its cached result.
-The shared fetch stays current while any of its callers is current.
+The shared fetch stays current while any of its callers is current. A container
+mutation adapter receives the scope as the `stillCurrent` option of
+`getContainerWriterProjection`; the built-in API client honors it.
 
 An attachment upload checks its organization's sync pause before each stage or
 part request. A pause stops the upload and returns `null`. A stage created

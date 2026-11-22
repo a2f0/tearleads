@@ -89,7 +89,7 @@ interface RemoteContainerHydrationApi
   evictWriterProjectionsCiting(containerIds: readonly string[]): void;
   getContainerWriterProjection(
     containerId: string,
-    listing?: WriterProjectionListing,
+    options?: { readonly listing?: WriterProjectionListing | undefined },
   ): Promise<ContainerWriterProjectionResponse | null>;
   listContainerParentLanes(
     input: ListContainerParentLanesRequest,
