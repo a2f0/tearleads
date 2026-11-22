@@ -28,7 +28,12 @@ function setIframePageLoading(enabled: boolean): boolean | undefined {
  * creates on insertion, which happy-dom omits, and records the document of
  * every frame sent to print.
  */
-export function installPrintFrameStub(): {
+export function installPrintFrameStub({
+  frameWindow = true,
+}: {
+  /** False leaves frames without a window, as a detached frame has. */
+  readonly frameWindow?: boolean;
+} = {}): {
   readonly printed: Document[];
   readonly restore: () => void;
 } {
@@ -68,7 +73,7 @@ export function installPrintFrameStub(): {
   Object.defineProperty(HTMLIFrameElement.prototype, "contentWindow", {
     configurable: true,
     get(this: HTMLIFrameElement) {
-      return frameFor(this).window;
+      return frameWindow ? frameFor(this).window : null;
     },
   });
 

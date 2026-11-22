@@ -34,8 +34,10 @@ test("prints the numbered words, the QR code, and the identity on their own shee
   );
   expect(sheet.querySelector("svg path")).toBeTruthy();
   expect(sheet.body.textContent).toContain("fingerprint-123");
-  // The app around the frame never reaches the printout.
-  expect(document.body.contains(sheet.body)).toBe(false);
+  // The sheet replaces whatever the frame held, so nothing else prints.
+  expect(Array.from(sheet.body.children, (child) => child.tagName)).toEqual([
+    "MAIN",
+  ]);
 });
 
 test("removes the frame, and the key in it, once the print dialog closes", () => {
@@ -58,4 +60,13 @@ test("a later print replaces a frame whose dialog never reported closing", () =>
 
   expect(stub.printed).toHaveLength(2);
   expect(printFrames()).toHaveLength(1);
+});
+
+test("leaves no frame behind when the frame has no window to print", () => {
+  stub = installPrintFrameStub({ frameWindow: false });
+
+  expect(() =>
+    printRecoveryKey({ seedPhrase, signingFingerprint: null }),
+  ).toThrow("Printing is unavailable on this device.");
+  expect(printFrames()).toHaveLength(0);
 });

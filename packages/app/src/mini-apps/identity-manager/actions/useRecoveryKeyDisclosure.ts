@@ -1,6 +1,9 @@
 import type { FileSaver } from "@tearleads/client-sdk";
 import { useLayoutEffect, useRef, useState } from "react";
-import { printRecoveryKey } from "../../../identity/recoveryKeyPrint";
+import {
+  discardRecoveryKeyPrint,
+  printRecoveryKey,
+} from "../../../identity/recoveryKeyPrint";
 import {
   createSeedPhraseFileName,
   downloadSeedPhraseFile,
@@ -34,16 +37,19 @@ async function exportRecoveryKey(
   },
 ) {
   const { fileSaver, seedPhrase, signingFingerprint } = input;
-  if (kind === "copy") {
-    await copyRecoveryKey(seedPhrase);
-  } else if (kind === "download") {
-    await downloadSeedPhraseFile(fileSaver, {
-      fileName: createSeedPhraseFileName({ signingFingerprint }),
-      seedPhrase,
-    });
-  } else {
-    // Synchronous, so the print dialog opens inside the confirming click.
-    printRecoveryKey({ seedPhrase, signingFingerprint });
+  switch (kind) {
+    case "copy":
+      return copyRecoveryKey(seedPhrase);
+    case "download":
+      return downloadSeedPhraseFile(fileSaver, {
+        fileName: createSeedPhraseFileName({ signingFingerprint }),
+        seedPhrase,
+      });
+    case "print":
+      // Synchronous, so the print dialog opens inside the confirming click.
+      return printRecoveryKey({ seedPhrase, signingFingerprint });
+    default:
+      return kind satisfies never;
   }
 }
 
@@ -67,11 +73,15 @@ export function useRecoveryKeyDisclosure(
   useLayoutEffect(() => {
     activeRef.current = active;
   }, [active]);
+  // A sheet still waiting on its print dialog holds this identity's key, so it
+  // goes when the identity changes or the section unmounts.
+  useLayoutEffect(() => discardRecoveryKeyPrint, [signingFingerprint]);
 
   /** Hides the passphrase, the QR code, or (by default) both. */
   const hide = (shown: "reveal" | "qr" | "all" = "all") => {
     const hidesKey = shown !== "qr";
     const hidesQr = shown !== "reveal";
+    if (shown === "all") discardRecoveryKeyPrint();
     if (hidesKey) setRevealed(false);
     if (hidesQr) setQrRevealed(false);
     // The status line reports the last disclosure, so it must not keep

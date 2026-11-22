@@ -75,6 +75,9 @@ const hostConfig = createAppHostConfig({
   // byte-identical wrapping-key record — same database, store, and provider —
   // so existing installs keep reading the keyring they already wrote.
   localKeyringKeyMaterialStorage: "raw-bytes",
+  // Neither native WebView implements window.print(), so a print action would
+  // silently do nothing; the share sheet a download opens offers Print.
+  disablePrinting: Capacitor.isNativePlatform(),
   // The WebView has no browser download destination, so the default anchor
   // saver is a no-op; write the bytes and open the native share sheet instead.
   createFileSaver: createCapacitorFileSaver,

@@ -12,7 +12,7 @@ import {
   MiniAppTextarea,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
-import { canPrintRecoveryKey } from "../../../identity/recoveryKeyPrint";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import type { RecoveryKeyDisclosure } from "../actions/recoveryKeyDisclosure";
 import { RecoveryKeyQrCode } from "./RecoveryKeyQrCode";
 
@@ -50,6 +50,7 @@ export function RecoveryKeyDisplay({
   readonly qrRevealed: boolean;
   readonly seedPhrase: string | null;
 }) {
+  const { disablePrinting } = useAppHostConfig();
   if (!seedPhrase) {
     return <MiniAppStatus>No recovery key is available.</MiniAppStatus>;
   }
@@ -93,7 +94,7 @@ export function RecoveryKeyDisplay({
             qrRevealed ? onHide("qr") : onRequestDisclosure("qr")
           }
         />
-        {canPrintRecoveryKey() && (
+        {!disablePrinting && (
           <RecoveryKeyIconButton
             icon={PrinterIcon}
             label="Print Recovery Key"

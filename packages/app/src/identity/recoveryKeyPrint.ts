@@ -1,4 +1,3 @@
-import { isCapacitor } from "../host/isCapacitor";
 import { recoveryKeyQrSvg } from "./recoveryKeyQr";
 
 export interface RecoveryKeyPrintSheet {
@@ -22,15 +21,6 @@ ol { columns: 3; column-gap: 8mm; margin: 0 0 6mm; padding-left: 8mm; font-famil
 figure { margin: 0 0 6mm; break-inside: avoid; }
 svg { display: block; width: 60mm; height: 60mm; }
 `;
-
-/**
- * Whether this shell can print the recovery key. The native Capacitor shell's
- * WebView ignores `window.print()`; there the Download action hands the file
- * to the share sheet, which offers Print instead.
- */
-export function canPrintRecoveryKey(): boolean {
-  return !isCapacitor();
-}
 
 function element<Tag extends keyof HTMLElementTagNameMap>(
   doc: Document,
@@ -103,7 +93,11 @@ function buildRecoveryKeySheet(doc: Document, sheet: RecoveryKeyPrintSheet) {
 /** The frame holding the last sheet sent to print, until its dialog closes. */
 let printFrame: HTMLIFrameElement | null = null;
 
-function removePrintFrame() {
+/**
+ * Removes the sheet last sent to print, and the key it holds. Revoking a
+ * disclosure calls it too, in case the dialog never reported closing.
+ */
+export function discardRecoveryKeyPrint() {
   printFrame?.remove();
   printFrame = null;
 }
@@ -113,10 +107,11 @@ function removePrintFrame() {
  * code the Recovery tab scans, and how to restore from them. The sheet is
  * built in a hidden same-origin frame, so the printout never captures the app
  * around it. The frame holds the key in its DOM, so it is removed once the
- * print dialog closes, or at the latest when the next print replaces it.
+ * print dialog closes, when the disclosure is revoked, or at the latest when
+ * the next print replaces it.
  */
 export function printRecoveryKey(sheet: RecoveryKeyPrintSheet): void {
-  removePrintFrame();
+  discardRecoveryKeyPrint();
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   frame.tabIndex = -1;
@@ -134,14 +129,14 @@ export function printRecoveryKey(sheet: RecoveryKeyPrintSheet): void {
     frameWindow.addEventListener(
       "afterprint",
       () => {
-        if (printFrame === frame) removePrintFrame();
+        if (printFrame === frame) discardRecoveryKeyPrint();
       },
       { once: true },
     );
     frameWindow.focus();
     frameWindow.print();
   } catch (error) {
-    removePrintFrame();
+    discardRecoveryKeyPrint();
     throw error;
   }
 }
