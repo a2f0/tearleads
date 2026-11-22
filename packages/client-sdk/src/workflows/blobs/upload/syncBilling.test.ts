@@ -88,6 +88,7 @@ test("detachDocumentAttachment gates writes by the verified manifest organizatio
     bindingId: "550e8400-e29b-41d4-a716-446655440656",
     blobId: "550e8400-e29b-41d4-a716-446655440657",
     documentId: writerProjection.documentId,
+    documentVersionVector: "document-version-vector",
     isRemoteSyncBlocked: (organizationId) => {
       checkedOrganizationIds.push(organizationId);
       return true;

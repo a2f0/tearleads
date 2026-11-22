@@ -182,6 +182,15 @@ bind; the upload then returns `null` and keeps its stage for a later call.
 read from. See the
 [document version precondition](../../protocol-specification/blobs.md#document-version-precondition).
 
+`detachDocumentAttachment` requires `documentVersionVector`: the version of
+the document the caller read the slot removed at, holding none of its own
+unsent ops. The API refuses the detach with `409 attachment_document_changed`
+while the document holds a committed update that version lacks, or while the
+binding was bound at a version holding one. The service then calls the
+optional `onDocumentChanged` and returns `null`: pull, check that the slot is
+still removed, and detach again at the newer version. A document store does
+this itself at the end of a sync pass that left nothing to push.
+
 The methods that unwrap a blob content key (upload, hydrate, and decrypt) throw
 when the service has no encapsulation secret key. Requests no longer accept
 `apiClient`, `execSql`, `targetSecretKey`, `log`, or `reportSecurityIncident`,

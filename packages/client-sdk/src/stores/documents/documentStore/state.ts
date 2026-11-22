@@ -45,6 +45,7 @@ import type {
 } from "../types";
 import { getAttachmentSlotSnapshot } from "./attachments/attachmentSnapshot";
 import { sameValidationIssues, shallowEqualRecord } from "./snapshotEquality";
+import { observeRecordedAttachmentSlots } from "./sync/removedSlotDetaches";
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["crypto"]["encapsulationKeyPair"]
@@ -410,6 +411,7 @@ export function setReadySnapshot(
   structuredFieldsOverride?: DocumentSnapshot["structuredFields"],
 ) {
   const attachments = getSnapshotAttachments(state, currentDoc);
+  observeRecordedAttachmentSlots(state, attachments);
   const rows = getSnapshotRows(state, currentDoc);
   const documentState = readStoredDocumentState(
     currentDoc,

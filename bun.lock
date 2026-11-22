@@ -81,7 +81,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.41",
+      "version": "0.1.42",
       "dependencies": {
         "@electric-sql/pglite": "0.5.15",
         "@tearleads/crypto": "workspace:*",
@@ -224,7 +224,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",

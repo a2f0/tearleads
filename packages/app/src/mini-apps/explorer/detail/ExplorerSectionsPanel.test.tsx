@@ -2,9 +2,14 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import type {
   BlobStore,
   ContainerDocumentQueries,
+  DocumentSummary,
+  DomainScope,
   Tearleads,
 } from "@tearleads/client-sdk";
-import { createDomainScope } from "@tearleads/client-sdk";
+import {
+  createDomainScope,
+  getOrCreateDomainSyncCoordinator,
+} from "@tearleads/client-sdk";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import * as TearleadsProvider from "../../../providers/sdk/TearleadsProvider";
 import type { ExplorerUploadManager } from "../hooks/useExplorerUploadManager";
@@ -27,17 +32,22 @@ function createBlobStore(): BlobStore {
 function renderSectionsPanel(
   route: ExplorerRoute,
   overrides: {
+    domainScope?: DomainScope;
+    loadDocumentSummary?: (localId: string) => Promise<DocumentSummary | null>;
     onOpenSyncLaneDetailRoute?: (laneKey: string) => void;
     openBlobBrowserRoute?: () => void;
     openSyncLanesRoute?: () => void;
+    openDocumentInfoRoute?: (localId: string, containerId: string) => void;
     openDownloadsRoute?: () => void;
     openUploadsRoute?: () => void;
     openWriteQueueRoute?: () => void;
+    selectDocumentProjection?: (localId: string, containerId: string) => void;
   } = {},
 ) {
   const documentQueries = {
     listPendingDownloads: async () => [],
     listPendingWrites: async () => [],
+    loadDocumentSummary: overrides.loadDocumentSummary ?? (async () => null),
   } as unknown as ContainerDocumentQueries;
   const uploadManager: ExplorerUploadManager = {
     cancel: () => undefined,
@@ -56,7 +66,7 @@ function renderSectionsPanel(
       blobStore={createBlobStore()}
       documentListRevision={0}
       documentQueries={documentQueries}
-      domainScope={createDomainScope()}
+      domainScope={overrides.domainScope ?? createDomainScope()}
       isAuthenticated={true}
       loadBlobInfo={async () => ({ rows: [], totalCount: 0 })}
       nodes={[]}
@@ -69,14 +79,18 @@ function renderSectionsPanel(
       organizationNamesById={new Map()}
       openBlobBrowserRoute={overrides.openBlobBrowserRoute ?? (() => undefined)}
       openContainerInfoRoute={() => undefined}
-      openDocumentInfoRoute={() => undefined}
+      openDocumentInfoRoute={
+        overrides.openDocumentInfoRoute ?? (() => undefined)
+      }
       openSyncLanesRoute={overrides.openSyncLanesRoute ?? (() => undefined)}
       openDownloadsRoute={overrides.openDownloadsRoute ?? (() => undefined)}
       openUploadsRoute={overrides.openUploadsRoute ?? (() => undefined)}
       openWriteQueueRoute={overrides.openWriteQueueRoute ?? (() => undefined)}
       openWriteQueueEntryRoute={() => undefined}
       route={route}
-      selectDocumentProjection={() => undefined}
+      selectDocumentProjection={
+        overrides.selectDocumentProjection ?? (() => undefined)
+      }
       uploadManager={uploadManager}
     />,
   );
@@ -240,5 +254,41 @@ test("Downloads opens its route and shows an empty durable queue", async () => {
     );
   } finally {
     sdk.mockRestore();
+  }
+});
+
+test("a document lane's Label opens the document, not its info", async () => {
+  const domainScope = createDomainScope();
+  const coordinator = getOrCreateDomainSyncCoordinator(domainScope);
+  coordinator.registerLane("documents:local-1", {
+    label: "Notes",
+    run: async () => undefined,
+  });
+  const opened: string[] = [];
+  try {
+    const view = renderSectionsPanel(
+      { laneKey: "documents:local-1", view: "sync-lane-detail" },
+      {
+        domainScope,
+        loadDocumentSummary: async () =>
+          ({ containerId: "folder-1", id: "local-1" }) as DocumentSummary,
+        openDocumentInfoRoute: (localId, containerId) =>
+          opened.push(`info ${containerId}/${localId}`),
+        selectDocumentProjection: (localId, containerId) =>
+          opened.push(`document ${containerId}/${localId}`),
+      },
+    );
+
+    fireEvent.click(
+      await view.findByRole("button", {
+        name: `${EXPLORER_LABELS.syncLanesOpenDocumentAction}: Notes`,
+      }),
+    );
+
+    expect(opened).toEqual(["document folder-1/local-1"]);
+  } finally {
+    // Unmount first, so the coordinator's disposal does not update the panel.
+    cleanup();
+    coordinator.dispose();
   }
 });

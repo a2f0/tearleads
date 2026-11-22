@@ -252,7 +252,7 @@ export type paths = {
         put?: never;
         /**
          * Detach a blob attachment
-         * @description Removes an active attachment binding from its document slot through a signed `attachment.detach` event. Requires write access through an authorizing container path. A blob left with no active binding is kept for the attachment-retention grace period before garbage collection.
+         * @description Removes an active attachment binding from its document slot through a signed `attachment.detach` event. Requires write access through an authorizing container path. The detach carries the document version the client read when it found the slot removed; a document holding a committed op that version lacks, or a binding bound at a version holding such an op, returns `409 attachment_document_changed`. A blob left with no active binding is kept for the attachment-retention grace period before garbage collection.
          */
         post: operations["blobs.attachmentBindings.detach"];
         delete?: never;
@@ -1739,17 +1739,6 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A refused attachment bind. */
-        BlobAttachmentBindFailureResponse: {
-            /**
-             * @description `container_unavailable` when a container the write depends on no longer exists; `attachment_document_changed` when the document has a committed update the bind's `documentVersionVector` lacks, which the uploader resolves by pulling and binding again.
-             * @enum {string}
-             */
-            code?: "attachment_document_changed" | "container_unavailable";
-            error: string;
-        } & {
-            [key: string]: unknown;
-        };
         /** @description A signed `attachment.bind`: puts a blob in a document slot, optionally completing a blob stage and committing the document's first update. */
         BlobAttachmentBindRequest: {
             /** @description Container paths that authorize the write; the API resolves the document link-set manifest itself. */
@@ -1809,6 +1798,8 @@ export type components = {
             body: unknown;
             /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
+            /** @description Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed. */
+            documentVersionVector: string;
             event: {
                 [key: string]: unknown;
             };
@@ -1940,13 +1931,13 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A refused attachment detach. */
+        /** @description A refused attachment bind or detach. */
         BlobMutationFailureResponse: {
             /**
-             * @description `container_unavailable` when a container the write depends on no longer exists.
-             * @constant
+             * @description `container_unavailable` when a container the write depends on no longer exists; `attachment_document_changed` when the document has a committed update the request's `documentVersionVector` lacks, or, for a detach, when the binding was bound at a version holding an op it lacks. The client pulls, checks the slot again, and retries.
+             * @enum {string}
              */
-            code?: "container_unavailable";
+            code?: "attachment_document_changed" | "container_unavailable";
             error: string;
         } & {
             [key: string]: unknown;
@@ -5869,7 +5860,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BlobAttachmentBindFailureResponse"];
+                    "application/json": components["schemas"]["BlobMutationFailureResponse"];
                 };
             };
             /** @description Internal Server Error */

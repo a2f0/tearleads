@@ -42,7 +42,7 @@ export const EXPLORER_SYNC_LABELS = {
   syncLanesNoFilteredLanes: "No lanes match this filter.",
   syncLanesNoLanes: "No sync lanes.",
   syncLanesOpenBlobAction: "View in Blob Browser",
-  syncLanesOpenDocumentAction: "Open document info",
+  syncLanesOpenDocumentAction: "Open document",
   syncLanesOpenLaneAction: "Open lane detail",
   syncLanesPhaseColumn: "Phase",
   syncLanesPartsRow: "Parts",

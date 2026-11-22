@@ -12,7 +12,7 @@ current store's detach pass, as well as after a restart.
 | `Remove` / `KeepPendingMarker` | `applyStoredAttachmentRemoval` preserves the pending upload identity in a detached projection row |
 | `Remove` / `InstallPendingMarker` | `installCommittedAttachmentRemoval` installs the key into the open store's attachment map |
 | `Crash` / `Reload` | `installPersistedAttachments` rebuilds the attachment map from durable rows |
-| `Detach` | `syncDetachedAttachmentBindings` lists bindings and invokes `detachDocumentAttachment` for an active binding |
+| `Detach` | `syncDetachedAttachmentBindings` lists bindings, and `detachAttachmentBinding` invokes `detachDocumentAttachment` for an active binding |
 | `Drop` | `settleAttachmentRemovalMarker` drops the marker after detach or an empty remote listing |
 | `Reclaim` | `reclaimDocumentOrphanBlobs` retains bytes while a pending or projection row references them |
 
