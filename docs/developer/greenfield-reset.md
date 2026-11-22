@@ -96,7 +96,7 @@ only** for the website's Astro discovery, and prebuilds website, both browser
 variants, and the API bundle. API preflight is Wrangler dry-run only, without
 Sentry uploads, migrations, or secret synchronization. Website prebuild uses
 existing screenshot provenance validators: missing, stale, dirty, or incomplete
-captures fail before maintenance. Use the shared `take-screenshots` workflow
+captures fail before maintenance. Use the managed `take-screenshots` skill
 outside the reset to repair captures; this command never recaptures them.
 These builds do not guarantee that a later provider upload will succeed.
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance Pass"
+  short_description: "Speed up loading in measured rounds without changing output"
+  default_prompt: "Use $performance-pass to make this page load faster without changing what it shows: measure, change one thing, prove fidelity, measure again, and ship."

@@ -20,6 +20,7 @@
     },
     "build": {
       "env": ["PUBLIC_SUPPORT_EMAIL_ENABLED"],
+      "passThroughEnv": ["MATRIX_ARTIFACTS_DIR"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.screenshots/**",
