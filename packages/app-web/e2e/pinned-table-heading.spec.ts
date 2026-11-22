@@ -16,11 +16,17 @@ import { expect, test } from "./appTest";
 
 type Box = { height: number; width: number; x: number; y: number };
 
-async function addWeightEntry(page: Page, weight: string) {
+async function addWeightEntry(page: Page, ordinal: number, weight: string) {
   await page.getByRole("button", { name: "Add Entry" }).click();
   await page.getByLabel("Quick add weight").fill(weight);
-  await page.getByRole("button", { name: "Save Entry" }).click();
-  await expect(page.getByRole("button", { name: "Add Entry" })).toBeVisible();
+  // Exact, because a row that has not finished saving still carries its own
+  // "Save entry 1", which a substring match collides with.
+  await page.getByRole("button", { exact: true, name: "Save Entry" }).click();
+  // Wait for the row's saved presentation, not merely for the form to close,
+  // so the next entry is never added beside a still-saving one.
+  await expect(
+    page.getByRole("button", { name: `Entry ${ordinal} actions` }),
+  ).toBeVisible();
 }
 
 async function scrollFrame(table: Locator, top: number) {
@@ -129,8 +135,8 @@ test("a scrolled table keeps an opaque heading pinned over its rows", async ({
     .getByRole("button", { name: /Weight/u })
     .first()
     .click();
-  await addWeightEntry(page, "180");
-  await addWeightEntry(page, "175");
+  await addWeightEntry(page, 1, "180");
+  await addWeightEntry(page, 2, "175");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Edit" })).toBeVisible();
 
