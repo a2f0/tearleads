@@ -94,6 +94,7 @@ async function detachBlobAttachmentTransaction(
   await assertAttachmentDocumentVersionCurrent({
     documentId: activeBinding.documentId,
     executor: tx,
+    processedThroughUpdateId: input.request.processedThroughUpdateId,
     version: input.documentVersion,
   });
   assertDetachCoversBindVersion({

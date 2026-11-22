@@ -1,6 +1,6 @@
 import { encodeVersionVector } from "@tearleads/loro";
 import type { DecryptedDocumentSyncUpdate } from "../../../../data/documents/shared/sync/documentSyncTypes";
-import { importDecryptedDocumentSyncUpdates } from "../../../../data/documents/shared/sync/documentSyncUpdateImport";
+import { importLiveDocumentSyncUpdates } from "../../../../data/documents/shared/sync/documentSyncUpdateImport";
 import type { DocumentRecord } from "../../../../workflows/documents";
 import type { DocumentSyncAttempt } from "../state";
 import {
@@ -64,7 +64,7 @@ export function importSyncedDocumentUpdates(
   currentDoc: DocumentState,
   updates: readonly DecryptedDocumentSyncUpdate[],
 ): DocumentState {
-  importDecryptedDocumentSyncUpdates(currentDoc, updates);
+  importLiveDocumentSyncUpdates(currentDoc, updates);
   return currentDoc;
 }
 

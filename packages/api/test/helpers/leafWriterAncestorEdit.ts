@@ -1,5 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import {
+  assertNoVoidedDocumentSyncUpdates,
   type SyncRemoteDocumentRequest,
   validateDocumentSyncUpdateImports,
 } from "@tearleads/client-sdk";
@@ -79,7 +80,9 @@ export async function createLeafWriterAncestorEdit(input: {
         currentDocument: document,
         decryptedUpdates,
         responseUpdates: response.updates,
-      })) satisfies SyncRemoteDocumentRequest["validateIncomingUpdates"],
+      }).then(
+        assertNoVoidedDocumentSyncUpdates,
+      )) satisfies SyncRemoteDocumentRequest["validateIncomingUpdates"],
   };
   const read = await syncRemoteDocument(syncInput);
   if (!read) throw new Error("Expected cold ancestor recovery read");

@@ -1,5 +1,6 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { BLOB_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
+import { readProcessedThroughSequence } from "../../../documents/documentProcessedCursor";
 import {
   DocumentUpdateReadError,
   type DocumentVersionFrontier,
@@ -42,14 +43,25 @@ function documentChanged(): BlobMutationError {
  * first, so no update can commit between this read and the binding write.
  * The client recovers on its own: it pulls, checks the slot again, and
  * retries against the newer version.
+ *
+ * Only updates committed after the client's processed cursor are weighed.
+ * The client sends the cursor only with a version holding every update its
+ * pull imported up to there, and the rest it voided, so an update whose
+ * declared span no version can hold stops refusing once the client judged
+ * it. A cursor this document does not hold weighs every update.
  */
 export async function assertAttachmentDocumentVersionCurrent(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
+  readonly processedThroughUpdateId: string | undefined;
   readonly version: DocumentVersionFrontier;
 }): Promise<void> {
   if (
     await hasDocumentOpsBeyondVersion(input.executor, {
+      afterSequence: await readProcessedThroughSequence(input.executor, {
+        documentId: input.documentId,
+        processedThroughUpdateId: input.processedThroughUpdateId,
+      }),
       documentId: input.documentId,
       version: input.version,
     })

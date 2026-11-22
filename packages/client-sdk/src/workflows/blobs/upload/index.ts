@@ -195,6 +195,7 @@ interface StageAndBindInput {
   onStageResolved?: MultipartStageResolvedListener | undefined;
   onBindEnded?: PreparedUploadDocumentAttachmentRequest["onBindEnded"];
   onStageUnavailable?: ((stageId: string) => Promise<void>) | undefined;
+  processedCursorFor: BlobAttachmentCollaborators["processedCursorFor"];
   signedAt: string;
   slotId: string;
   verifiedDocumentVersion: UploadDocumentAttachmentRequest["verifiedDocumentVersion"];
@@ -278,6 +279,8 @@ async function stageAndBindBlobAttachment(input: StageAndBindInput): Promise<{
     documentSync: input.documentSync,
     organizationId: input.material.manifestIdentity.organizationId,
     plainRequest,
+    processedCursorFor: async (version) =>
+      input.processedCursorFor?.({ documentId: input.documentId, version }),
     stillCurrent: input.stillCurrent,
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
     verifiedDocumentVersion: input.verifiedDocumentVersion,
@@ -419,9 +422,7 @@ export async function uploadPreparedDocumentAttachment(
     apiClient.evictDocumentWriterProjection(documentId);
     material = await buildMaterial(undefined);
   }
-  if (!material) {
-    return null;
-  }
+  if (!material) return null;
   const result = await stageAndBindBlobAttachment({
     apiClient,
     author,
@@ -440,6 +441,7 @@ export async function uploadPreparedDocumentAttachment(
     onMultipartProgress,
     onStageResolved,
     onStageUnavailable,
+    processedCursorFor: blobs.processedCursorFor,
     signedAt,
     slotId,
     verifiedDocumentVersion,

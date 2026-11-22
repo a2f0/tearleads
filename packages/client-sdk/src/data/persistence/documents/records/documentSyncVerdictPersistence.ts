@@ -39,6 +39,12 @@ export interface DocumentSyncVerdictInput {
   readonly documentId: string;
   readonly judge: string;
   readonly keyFingerprintsByEpoch: ReadonlyMap<number, string>;
+  /**
+   * False for runtime failures recorded ahead of their page's save: voids
+   * judged under another key stay for that save to find, so it clears the
+   * cursor instead of advancing it past them.
+   */
+  readonly resolvesKeyConflicts?: boolean | undefined;
   readonly now: string;
   /** Voided updates that reused this device's own operation ids. */
   readonly preemptions?: readonly DocumentPeerPreemption[] | undefined;
@@ -404,7 +410,9 @@ export async function recordDocumentSyncVerdictsInTransaction(
       newlyVoidedUpdateIds: [],
     };
   }
-  const keyConflict = await deleteVoidsJudgedUnderOtherKeys(tx, input);
+  const keyConflict =
+    input.resolvesKeyConflicts !== false &&
+    (await deleteVoidsJudgedUnderOtherKeys(tx, input));
   await deleteVoidRows(tx, input.scope, input.acceptedUpdateIds);
   const newlyVoidedUpdateIds = await upsertVoidRows(tx, input);
   const newlyPreemptedUpdateIds = await recordDocumentPeerPreemptions(tx, {

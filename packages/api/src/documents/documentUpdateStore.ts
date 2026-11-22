@@ -343,21 +343,35 @@ export function documentVersionCovers(
 }
 
 /**
- * Whether a committed update of the document holds an op the version lacks.
- * Only spans count: an update with no span carries no op, so it cannot
- * change what the version saw.
+ * Whether an update of the document committed after `afterSequence` holds an
+ * op the version lacks. Only spans count: an update with no span carries no
+ * op, so it cannot change what the version saw.
  */
 export async function hasDocumentOpsBeyondVersion(
   executor: DatabaseSession,
   input: {
+    /** Updates at or before this commit position are not weighed. */
+    readonly afterSequence: number;
     readonly documentId: string;
     readonly version: DocumentVersionFrontier;
   },
 ): Promise<boolean> {
   const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
+  const spanUpdateId = aliasedColumn("s", documentUpdateSpans.updateId);
   const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
   const spanEndCounter = aliasedColumn("s", documentUpdateSpans.endCounter);
+  const updateId = aliasedColumn("u", documentUpdates.id);
+  const updateSequence = aliasedColumn("u", documentUpdates.sequence);
   const frontier = buildFrontierRecordset(input.version.frontierJson);
+  const afterCursor =
+    input.afterSequence > 0
+      ? sql`and exists (
+          select 1
+          from ${documentUpdates} u
+          where ${updateId} = ${spanUpdateId}
+            and ${updateSequence} > ${input.afterSequence}
+        )`
+      : sql``;
   const result = await executor.execute(sql`
     select 1 as "uncovered"
     from ${documentUpdateSpans} s
@@ -365,6 +379,7 @@ export async function hasDocumentOpsBeyondVersion(
       on ${frontier.peerId} = ${spanPeerId}
     where ${spanDocumentId} = ${uuidValue(input.documentId)}
       and coalesce(${frontier.counter}, 0) < ${spanEndCounter}
+      ${afterCursor}
     limit 1
   `);
   return result.rows.length > 0;
