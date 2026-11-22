@@ -1,14 +1,11 @@
-import encodeQR from "qr";
 import { useMemo } from "react";
 import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
+import { recoveryKeyQrSvg } from "../../../identity/recoveryKeyQr";
 
 export function RecoveryKeyQrCode({ seedPhrase }: { seedPhrase: string }) {
   const image = useMemo(
     () =>
-      `data:image/svg+xml,${encodeURIComponent(
-        // Alphanumeric mode produces larger modules for easier camera scans.
-        encodeQR(seedPhrase.toUpperCase(), "svg", { border: 4, ecc: "medium" }),
-      )}`,
+      `data:image/svg+xml,${encodeURIComponent(recoveryKeyQrSvg(seedPhrase))}`,
     [seedPhrase],
   );
 

@@ -54,9 +54,12 @@ test("QR disclosure is acknowledged, contains only the key, and can be hidden", 
   fireEvent.click(view.getByRole("button", { name: "Show Passphrase" }));
   expect(view.getByDisplayValue(seedPhrase)).toBeTruthy();
   expect(view.getByAltText("Recovery key QR code")).toBeTruthy();
+  // Each toggle hides only what it revealed.
   fireEvent.click(view.getByRole("button", { name: "Hide Recovery Key" }));
-  expect(view.queryByAltText("Recovery key QR code")).toBeNull();
   expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
+  expect(view.getByAltText("Recovery key QR code")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Hide Recovery QR Code" }));
+  expect(view.queryByAltText("Recovery key QR code")).toBeNull();
 });
 
 test("switching identities or leaving Backup revokes QR disclosure", async () => {
