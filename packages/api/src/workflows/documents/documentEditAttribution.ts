@@ -22,6 +22,7 @@ import {
 } from "../keyingReadAccess";
 import {
   DocumentEditAttributionError,
+  type DocumentEditAttributionHeaderField,
   DocumentEditAttributionIntegrityError,
 } from "./documentEditAttributionPagination";
 
@@ -56,7 +57,7 @@ export const MAX_COMPACT_ATTRIBUTION_SEGMENTS = 2_000;
 
 function requireAttributionText(
   value: string | null,
-  property: string,
+  property: DocumentEditAttributionHeaderField,
   updateId: string,
 ): string {
   if (typeof value !== "string" || value.length === 0) {
