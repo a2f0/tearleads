@@ -8,7 +8,6 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import type { AppHostConfig } from "../../src/host/AppHostConfig";
 import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
 import { IdentityManager } from "../../src/mini-apps/identity-manager/IdentityManager";
 import {
@@ -96,7 +95,7 @@ export function installDeferredClipboardWriteMock(): {
  */
 export async function renderRecoveryKeyView(
   entropyByte: number,
-  hostConfig: AppHostConfig = TEST_HOST_CONFIG,
+  hostConfig = TEST_HOST_CONFIG,
 ): Promise<{
   readonly seedPhrase: string;
   readonly tearleads: Tearleads;

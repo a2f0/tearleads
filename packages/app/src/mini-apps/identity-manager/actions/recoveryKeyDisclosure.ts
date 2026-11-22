@@ -1,7 +1,7 @@
 /**
  * Disclosing the recovery key discloses every private key derived from it, so
- * every path that surfaces it — on screen, on the clipboard, or in a file — is
- * gated behind this typed acknowledgement.
+ * every path that surfaces it — on screen, on the clipboard, in a file, or on
+ * paper — is gated behind this typed acknowledgement.
  */
 export const RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE = "i understand";
 
@@ -9,6 +9,7 @@ export type RecoveryKeyDisclosure =
   | "copy"
   | "download"
   | "keychain"
+  | "print"
   | "reveal"
   | "qr";
 
@@ -47,11 +48,20 @@ export const RECOVERY_KEY_DISCLOSURES: Record<
     confirmLabel: "Continue to Password Manager",
     failureLog: "Failed to offer the recovery key to the password manager",
     successLog: "Recovery key offered to the password manager",
-    // Replaced by what the password manager reports; see runDisclosure.
+    // Replaced by what the password manager reports; see useRecoveryKeyExport.
     successStatus: "Offered to save the recovery key to your password manager.",
     title: "Save recovery key to password manager",
     warning:
       "Your recovery key derives the private encryption keys for this identity. Your password manager keeps it and may sync it to your other devices and the account it is signed in to, so anyone who can open your saved passwords can decrypt your data and impersonate you.",
+  },
+  print: {
+    confirmLabel: "Print",
+    failureLog: "Failed to print recovery key",
+    successLog: "Recovery key sent to print",
+    successStatus: "Recovery key sent to print.",
+    title: "Print recovery key",
+    warning:
+      "Your recovery key derives the private encryption keys for this identity. Anyone who reads the printed page can decrypt your data and impersonate you, so collect it from the printer right away and store it somewhere safe.",
   },
   qr: {
     confirmLabel: "Show QR Code",

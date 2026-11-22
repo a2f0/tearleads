@@ -1,3 +1,10 @@
+import type { Icon } from "@phosphor-icons/react";
+import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
+import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
+import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
+import { PasswordIcon } from "@phosphor-icons/react/dist/csr/Password";
+import { PrinterIcon } from "@phosphor-icons/react/dist/csr/Printer";
+import { QrCodeIcon } from "@phosphor-icons/react/dist/csr/QrCode";
 import {
   MiniAppButton,
   MiniAppClipboardButton,
@@ -6,25 +13,47 @@ import {
   MiniAppTextarea,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
+import { usePasswordKeychain } from "../../../identity/identityKeychain";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import type { RecoveryKeyDisclosure } from "../actions/recoveryKeyDisclosure";
 import { RecoveryKeyQrCode } from "./RecoveryKeyQrCode";
 
+function RecoveryKeyIconButton({
+  icon: ButtonIcon,
+  label,
+  onClick,
+}: {
+  readonly icon: Icon;
+  readonly label: string;
+  readonly onClick: () => void;
+}) {
+  return (
+    <MiniAppButton
+      aria-label={label}
+      className="mini-app-icon-button"
+      onClick={onClick}
+      title={label}
+    >
+      <ButtonIcon aria-hidden size={16} />
+    </MiniAppButton>
+  );
+}
+
 export function RecoveryKeyDisplay({
-  canSaveToKeychain,
   onHide,
   onRequestDisclosure,
   revealed,
   qrRevealed,
   seedPhrase,
 }: {
-  /** Whether this device has a password manager to offer the key to. */
-  readonly canSaveToKeychain: boolean;
-  readonly onHide: () => void;
+  readonly onHide: (shown: "reveal" | "qr") => void;
   readonly onRequestDisclosure: (disclosure: RecoveryKeyDisclosure) => void;
   readonly revealed: boolean;
   readonly qrRevealed: boolean;
   readonly seedPhrase: string | null;
 }) {
+  const { disablePrinting } = useAppHostConfig();
+  const canSaveToKeychain = usePasswordKeychain() !== null;
   if (!seedPhrase) {
     return <MiniAppStatus>No recovery key is available.</MiniAppStatus>;
   }
@@ -48,7 +77,45 @@ export function RecoveryKeyDisplay({
         </MiniAppStatus>
       )}
       {qrRevealed && <RecoveryKeyQrCode seedPhrase={seedPhrase} />}
+      {/* Every control keeps its place: the reveal toggles swap glyph and
+          label rather than appearing and disappearing, and the copy button
+          sits at the trailing edge, where every other surface puts it. */}
       <MiniAppToolbar wrap>
+        <RecoveryKeyIconButton
+          icon={revealed ? EyeSlashIcon : EyeIcon}
+          label={revealed ? "Hide Recovery Key" : "Reveal Recovery Key"}
+          onClick={() =>
+            revealed ? onHide("reveal") : onRequestDisclosure("reveal")
+          }
+        />
+        <RecoveryKeyIconButton
+          icon={QrCodeIcon}
+          label={
+            qrRevealed ? "Hide Recovery QR Code" : "Reveal Recovery QR Code"
+          }
+          onClick={() =>
+            qrRevealed ? onHide("qr") : onRequestDisclosure("qr")
+          }
+        />
+        {!disablePrinting && (
+          <RecoveryKeyIconButton
+            icon={PrinterIcon}
+            label="Print Recovery Key"
+            onClick={() => onRequestDisclosure("print")}
+          />
+        )}
+        <RecoveryKeyIconButton
+          icon={DownloadSimpleIcon}
+          label="Download Recovery Key"
+          onClick={() => onRequestDisclosure("download")}
+        />
+        {canSaveToKeychain && (
+          <RecoveryKeyIconButton
+            icon={PasswordIcon}
+            label="Save to Password Manager"
+            onClick={() => onRequestDisclosure("keychain")}
+          />
+        )}
         <MiniAppClipboardButton
           label="Copy recovery key"
           // Suppress the button's own click-to-copy — the copy runs once the
@@ -60,31 +127,6 @@ export function RecoveryKeyDisplay({
           }}
           value={seedPhrase}
         />
-        <MiniAppButton onClick={() => onRequestDisclosure("download")}>
-          Download Recovery Key
-        </MiniAppButton>
-        {canSaveToKeychain && (
-          <MiniAppButton onClick={() => onRequestDisclosure("keychain")}>
-            Save to Password Manager
-          </MiniAppButton>
-        )}
-        {!qrRevealed && (
-          <MiniAppButton onClick={() => onRequestDisclosure("qr")}>
-            Reveal Recovery QR Code
-          </MiniAppButton>
-        )}
-        {!revealed && (
-          <MiniAppButton onClick={() => onRequestDisclosure("reveal")}>
-            Reveal Recovery Key
-          </MiniAppButton>
-        )}
-        {(revealed || qrRevealed) && (
-          <MiniAppButton onClick={onHide}>
-            {qrRevealed && !revealed
-              ? "Hide Recovery QR Code"
-              : "Hide Recovery Key"}
-          </MiniAppButton>
-        )}
       </MiniAppToolbar>
     </div>
   );
