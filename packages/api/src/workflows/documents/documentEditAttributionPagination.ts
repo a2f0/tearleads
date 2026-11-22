@@ -41,6 +41,26 @@ export class DocumentEditAttributionError extends Error {
   }
 }
 
+/**
+ * A stored attribution row that breaks what every accepted write keeps: a
+ * write header names its writer and signs a canonical time. It is a server
+ * fault, not a request error, so it fails the response rather than being
+ * served around, as a 500 that the API's error handler reports by this name
+ * (Sentry keeps an error's type and stack, not its message). The message,
+ * which names the update, goes to the server log.
+ */
+export class DocumentEditAttributionIntegrityError extends Error {
+  constructor(
+    readonly updateId: string,
+    readonly property: string,
+  ) {
+    super(
+      `Attribution update ${updateId} has no valid ${property} in its write header.`,
+    );
+    this.name = "DocumentEditAttributionIntegrityError";
+  }
+}
+
 function invalidRangeCursor(): DocumentEditAttributionError {
   return new DocumentEditAttributionError(
     "Document attribution range cursor is invalid",
@@ -145,12 +165,15 @@ function toRangeResponse(
   segment: DocumentEditAttributionSegment,
 ): DocumentEditAttributionRangeResponse {
   // A range promises its upload's signed time as a timestamp. A write header
-  // is only accepted with a canonical one, so a stored value that is not one
-  // is a broken row: it fails here, naming its update, rather than as a page
-  // the client rejects whole.
-  if (!isCanonicalSignedAt(segment.signedAt)) {
-    throw new Error(
-      `Attribution update ${segment.updateId} has no valid signedAt in its write header.`,
+  // is only accepted with a canonical one, so a stored value that is missing
+  // or not one is a broken row. It fails the page, as a missing writer
+  // identity does, rather than serving the range without the time: every
+  // range a client holds bounds its edits, and the server reports the row.
+  const { signedAt } = segment;
+  if (signedAt === null || !isCanonicalSignedAt(signedAt)) {
+    throw new DocumentEditAttributionIntegrityError(
+      segment.updateId,
+      "signedAt",
     );
   }
   return {
@@ -158,7 +181,7 @@ function toRangeResponse(
     createdAt: segment.createdAt,
     endCounter: segment.endCounter,
     peerId: segment.peerId,
-    signedAt: segment.signedAt,
+    signedAt,
     startCounter: segment.startCounter,
     updateId: segment.updateId,
     writerKeyFingerprint: segment.writerKeyFingerprint,
