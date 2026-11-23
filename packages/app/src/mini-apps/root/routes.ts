@@ -6,7 +6,8 @@ export const ROOT_ORGANIZATION_TABS = [
   { id: "data-usage", label: "Data Usage" },
 ] as const;
 export type RootOrganizationTab = (typeof ROOT_ORGANIZATION_TABS)[number]["id"];
-const ROOT_REPORT_IDS = [
+/** Every report, in the Reports listing's display order. */
+export const ROOT_REPORT_IDS = [
   "ops-health",
   "revenuecat",
   "data-usage",
