@@ -165,10 +165,11 @@ SHA-256 collision.
   failure is a [void update](../glossary/content.md#void-update) at stage
   `decrypt`, as a plaintext-hash mismatch is at `plaintext_integrity`, so every
   reader that judges an update reaches the same verdict. Some engines report a
-  backend fault as the same `OperationError`, so a refusal counts only once the
-  reader has sealed and opened a canary under the record's key and associated
-  data and the record is refused again. Any other failure while deriving keys
-  or decrypting, a failed canary included, is the reader's own runtime, not a
+  backend fault as the same `OperationError`, so a refusal counts only when the
+  record is refused twice and a canary as large as its plaintext, sealed and
+  opened under the record's key and associated data, round-trips before and
+  after the second refusal. Any other failure while deriving keys or
+  decrypting, a failed canary included, is the reader's own runtime, not a
   verdict: stage `decrypt_runtime`.
 
 The API cannot read a wrap, so a member that opens an epoch or carries its key
