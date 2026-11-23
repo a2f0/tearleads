@@ -1,3 +1,4 @@
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback } from "react";
 import {
   MiniAppButton,
@@ -58,13 +59,16 @@ export function OrganizationIdentities({
   );
   const { items, error, loading, nextCursor, loadMore, refresh } =
     useRootPage(request);
+  // Above the organization detail's Refresh while this tab is open, so the
+  // toolbar Refresh reloads the roster.
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    priority: 100,
+    refreshing: loading,
+  });
   return (
     <>
-      <MiniAppToolbar>
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          Refresh identities
-        </MiniAppButton>
-      </MiniAppToolbar>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       <MiniAppTableFrame>
         <MiniAppTable aria-label="Organization identities" columns={COLUMNS}>

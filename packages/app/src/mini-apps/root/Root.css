@@ -52,3 +52,15 @@
   cursor: pointer;
   overflow-wrap: anywhere;
 }
+/* Compound selector: outranks the shared table action's block display. */
+.mini-app-table-action.root-console-report-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+/* Under the report name, indented past its icon to align with the name. */
+.root-console-report-summary {
+  display: block;
+  margin-top: var(--space-xs);
+  padding-left: calc(18px + var(--space-sm));
+}

@@ -3,7 +3,10 @@ import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../test/helpers/identityManagerTestRuntime";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
-import { renderRootWithSession } from "../../../test/helpers/renderRootConsole";
+import {
+  clickRootToolbarButton,
+  renderRootWithSession,
+} from "../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
 
 afterEach(async () => {
@@ -32,7 +35,7 @@ test("operators suspend and lift a member account but not a root one", async () 
 
     await openIdentity(rootIdentity.signingKeyFingerprint);
     expect(view.queryByRole("button", { name: "Suspend account" })).toBeNull();
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await clickRootToolbarButton(view, "Back");
 
     await openIdentity(memberIdentity.signingKeyFingerprint);
     fireEvent.click(
