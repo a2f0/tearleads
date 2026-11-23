@@ -1,6 +1,14 @@
 import type { createDocument } from "@tearleads/loro";
-import { importSnapshot, importUpdates } from "@tearleads/loro";
+import {
+  importSnapshot,
+  importUpdates,
+  isLoroRuntimeFailure,
+} from "@tearleads/loro";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
+import {
+  type LoroRuntimeAttempts,
+  processLoroRuntimeFailures,
+} from "./loroRuntimeFailureLedger";
 
 type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
 
@@ -39,5 +47,24 @@ export function importDecryptedDocumentSyncUpdates(
       document,
       ordinaryUpdates.map((update) => update.updateData),
     );
+  }
+}
+
+/**
+ * Applies a judged page's updates to a live document. A Loro runtime failure
+ * here may leave the module unusable, so it marks this process as failed
+ * before it propagates, and a failure the sync judge meets later in this
+ * process counts toward no update.
+ */
+export function importLiveDocumentSyncUpdates(
+  document: SyncDocument,
+  updates: readonly DecryptedDocumentSyncUpdate[],
+  ledger: LoroRuntimeAttempts = processLoroRuntimeFailures,
+): void {
+  try {
+    importDecryptedDocumentSyncUpdates(document, updates);
+  } catch (error) {
+    if (isLoroRuntimeFailure(error)) ledger.noteUnattributedFailure();
+    throw error;
   }
 }

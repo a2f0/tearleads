@@ -1,4 +1,7 @@
-import { exportFullHistorySnapshot } from "@tearleads/loro";
+import {
+  exportFullHistorySnapshot,
+  isLoroRuntimeFailure,
+} from "@tearleads/loro";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import {
   ownPeerOf,
@@ -156,6 +159,31 @@ function noteRuntimeFailure(
   }
 }
 
+/**
+ * The reader's scratch history, or null when the Loro runtime failed while
+ * building it: no update is to blame, so the failure counts toward none, but
+ * it marks this process as failed, since the module may now be unusable.
+ */
+async function openScratchHistory(
+  input: {
+    readonly currentDocument: SyncDocument;
+    readonly rebuildBudgetBytes?: number | undefined;
+  },
+  ledger: LoroRuntimeAttempts,
+): Promise<ScratchHistory | null> {
+  try {
+    return await ScratchHistory.open({
+      budgetBytes: input.rebuildBudgetBytes ?? MAX_SCRATCH_REBUILD_BYTES,
+      own: ownPeerOf(input.currentDocument),
+      snapshot: exportFullHistorySnapshot(input.currentDocument),
+    });
+  } catch (error) {
+    if (!isLoroRuntimeFailure(error)) throw error;
+    ledger.noteUnattributedFailure();
+    return null;
+  }
+}
+
 async function judgePageUpdate(
   page: PageJudging,
   update: DecryptedDocumentSyncUpdate,
@@ -219,6 +247,7 @@ async function judgePageUpdate(
  * the update is void once `MAX_LORO_RUNTIME_ATTEMPTS` lifetimes have each
  * failed it. Until then it is unsettled: it and every later update are held,
  * and in this process it is not imported again until its retry delay passed.
+ * A failure building the reader's scratch history holds the whole page.
  *
  * A duplicated id still fails the page, because an honest server never
  * serves one.
@@ -226,6 +255,7 @@ async function judgePageUpdate(
 export async function validateDocumentSyncUpdateImports(input: {
   currentDocument: SyncDocument;
   decryptedUpdates: readonly DecryptedDocumentSyncUpdate[];
+  /** @internal Voids this device recorded; the sync pass reads them. */
   knownVoids?: ReadonlyMap<string, DocumentVoidStage> | undefined;
   /** @internal The rebuild budget; tests lower it. */
   rebuildBudgetBytes?: number | undefined;
@@ -236,6 +266,7 @@ export async function validateDocumentSyncUpdateImports(input: {
    * and tests stand in a new process's ledger.
    */
   runtimeLedger?: LoroRuntimeAttempts | undefined;
+  /** @internal Attempts this device recorded; the sync pass reads them. */
   runtimeAttempts?: ReadonlyMap<string, number> | undefined;
 }): Promise<DocumentSyncImportVerdicts> {
   const verdicts = new PageVerdicts();
@@ -244,13 +275,14 @@ export async function validateDocumentSyncUpdateImports(input: {
   const responseById = new Map(
     (input.responseUpdates ?? []).map((update) => [update.id, update]),
   );
-  const scratch = await ScratchHistory.open({
-    budgetBytes: input.rebuildBudgetBytes ?? MAX_SCRATCH_REBUILD_BYTES,
-    own: ownPeerOf(input.currentDocument),
-    snapshot: exportFullHistorySnapshot(input.currentDocument),
-  });
+  const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
+  const scratch = await openScratchHistory(input, ledger);
+  if (scratch === null) {
+    for (const update of input.decryptedUpdates) verdicts.hold(update.id);
+    return verdicts.result();
+  }
   const page: PageJudging = {
-    ledger: input.runtimeLedger ?? processLoroRuntimeFailures,
+    ledger,
     responseById,
     runtimeAttempts: input.runtimeAttempts ?? new Map(),
     scratch,

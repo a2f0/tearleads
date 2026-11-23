@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import {
   addDocumentAttachments,
+  assertNoVoidedDocumentSyncUpdates,
   type DocumentAttachment,
   type DocumentStore,
   defaultDocumentsPersistence,
@@ -82,7 +83,7 @@ export async function publishSeedEdit(
         currentDocument: doc,
         decryptedUpdates,
         responseUpdates: response.updates,
-      }),
+      }).then(assertNoVoidedDocumentSyncUpdates),
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer(),
   });
   expect(result?.settledPendingUpdateIds).toContain(id);

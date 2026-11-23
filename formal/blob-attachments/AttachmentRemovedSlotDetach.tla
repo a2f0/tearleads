@@ -1,8 +1,9 @@
 ------------------- MODULE AttachmentRemovedSlotDetach -------------------
 CONSTANTS CheckDocumentVersion, CoverBindVersion, DetachFromSyncedView,
-          DetachUnheldSlots
+          DetachUnheldSlots, DetachIgnoresCursor, CursorAheadOfVersion
 ASSUME {CheckDocumentVersion, CoverBindVersion, DetachFromSyncedView,
-        DetachUnheldSlots} \subseteq BOOLEAN
+        DetachUnheldSlots, DetachIgnoresCursor, CursorAheadOfVersion}
+         \subseteq BOOLEAN
 
 (* One attachment slot whose signed document content asks for the importer's
    fixture bytes. Documents are sets of ops: `made` holds every op a device
@@ -15,18 +16,25 @@ ASSUME {CheckDocumentVersion, CoverBindVersion, DetachFromSyncedView,
    - "rs": a restore of the slot with the fixture bytes, which adopts the
      active fixture binding rather than binding again.
    - "re": a restore with other bytes, bound before its content is pushed.
+   - "oc": a dishonest writer's overclaim, whose signed span names ops
+     nobody carries. Readers void it, so no version ever holds it.
 
    CheckDocumentVersion and CoverBindVersion are the API's two detach
    checks, DetachFromSyncedView the client's rule that a detach cites only a
    version with none of its own ops unsent, and DetachUnheldSlots whether a
-   device that never held the bytes detaches at all. *)
+   device that never held the bytes detaches at all. `observedCursor` is the
+   observer's processed cursor: the committed updates it had judged when it
+   read its view, each imported into that view or voided. *)
 VARIABLES made, committed, binding, bindVersion, restore, observer,
-          observedView, observedBinding, detachedNamed
+          observedView, observedBinding, observedCursor, detachedNamed
 vars == <<made, committed, binding, bindVersion, restore, observer,
-          observedView, observedBinding, detachedNamed>>
+          observedView, observedBinding, observedCursor, detachedNamed>>
 
-Ops == {"rm", "iu", "rs", "re"}
+Ops == {"rm", "iu", "rs", "re", "oc"}
 Bindings == {"none", "fixture", "other"}
+
+(* The ops a client's document can hold: never an overclaim's. *)
+Held(ops) == ops \ {"oc"}
 
 (* What a document version asks the slot for. A restore follows the
    removal it saw, so it wins whenever both are present. *)
@@ -41,7 +49,7 @@ Init ==
   /\ binding = "none" /\ bindVersion = {}
   /\ restore = "none"
   /\ observer = "idle" /\ observedView = {} /\ observedBinding = "none"
-  /\ detachedNamed = FALSE
+  /\ observedCursor = {} /\ detachedNamed = FALSE
 
 (* The importer pulled every committed update and the slot still asks for
    its fixture, so the bind's version check passes; the bind records the
@@ -51,16 +59,17 @@ ImporterBind(ahead) ==
   /\ "rm" \notin committed
   /\ made' = IF ahead THEN made \cup {"iu"} ELSE made
   /\ binding' = "fixture"
-  /\ bindVersion' = IF ahead THEN committed \cup {"iu"} ELSE committed
+  /\ bindVersion' = IF ahead THEN Held(committed) \cup {"iu"}
+                    ELSE Held(committed)
   /\ UNCHANGED <<committed, restore, observer, observedView, observedBinding,
-                 detachedNamed>>
+                 observedCursor, detachedNamed>>
 
 Push(op) ==
   /\ op \in made \ committed
   /\ op = "re" => restore = "bound"
   /\ committed' = committed \cup {op}
   /\ UNCHANGED <<made, binding, bindVersion, restore, observer, observedView,
-                 observedBinding, detachedNamed>>
+                 observedBinding, observedCursor, detachedNamed>>
 
 (* A device that pulled the committed removal restores the slot. The same
    bytes reuse the active binding; other bytes are bound first. *)
@@ -69,17 +78,25 @@ Restore(kind) ==
   /\ restore' = kind
   /\ made' = made \cup {IF kind = "same" THEN "rs" ELSE "re"}
   /\ UNCHANGED <<committed, binding, bindVersion, observer, observedView,
-                 observedBinding, detachedNamed>>
+                 observedBinding, observedCursor, detachedNamed>>
 
 (* The restoring device lists the slot's binding and replaces it with its
    own bytes at its version: everything committed plus its unsent re-add. *)
+(* A dishonest writer commits an overclaim. The server stores its declared
+   span; no client view ever holds its ops. *)
+Overclaim ==
+  /\ "oc" \notin made
+  /\ made' = made \cup {"oc"} /\ committed' = committed \cup {"oc"}
+  /\ UNCHANGED <<binding, bindVersion, restore, observer, observedView,
+                 observedBinding, observedCursor, detachedNamed>>
+
 RestoreBind ==
   /\ restore = "other"
   /\ restore' = "bound"
   /\ binding' = "other"
-  /\ bindVersion' = committed \cup {"re"}
+  /\ bindVersion' = Held(committed) \cup {"re"}
   /\ UNCHANGED <<made, committed, observer, observedView, observedBinding,
-                 detachedNamed>>
+                 observedCursor, detachedNamed>>
 
 (* Any device with write access that saw the slot removed lists the slot's
    binding and reads its document. The store does so only once its own ops
@@ -88,14 +105,23 @@ RestoreBind ==
 Observe(view) ==
   /\ observer = "idle"
   /\ observer' = "read"
-  /\ observedView' = view
+  /\ observedView' = Held(view)
   /\ observedBinding' = binding
+  /\ observedCursor' = committed
   /\ UNCHANGED <<made, committed, binding, bindVersion, restore, detachedNamed>>
 
 ObserveSynced == Observe(committed)
 ObserveUnsynced ==
   /\ ~DetachFromSyncedView /\ "rm" \in made \ committed
   /\ Observe(committed \cup {"rm"})
+
+(* What the detach's version check weighs: the committed ops after the
+   cursor it sends. The client sends the cursor recorded with the version it
+   read, or, in the negative control, the one it holds when it detaches. *)
+SentCursor ==
+  IF DetachIgnoresCursor THEN {}
+  ELSE IF CursorAheadOfVersion THEN committed
+  ELSE observedCursor
 
 (* The detach names the listed binding and carries the version the device
    read. The API refuses an inactive binding, a version missing a committed
@@ -108,18 +134,20 @@ Detach ==
         /\ observedBinding # "none"
         /\ SlotAt(observedView) = "removed"
         /\ binding = observedBinding
-        /\ ~CheckDocumentVersion \/ committed \subseteq observedView
+        /\ ~CheckDocumentVersion \/ committed \ SentCursor \subseteq observedView
         /\ ~CoverBindVersion \/ bindVersion \subseteq observedView
        THEN /\ binding' = "none" /\ bindVersion' = {}
             /\ detachedNamed' = (detachedNamed \/ SlotAt(committed) # "removed")
        ELSE UNCHANGED <<binding, bindVersion, detachedNamed>>
-  /\ UNCHANGED <<made, committed, restore, observedView, observedBinding>>
+  /\ UNCHANGED <<made, committed, restore, observedView, observedBinding,
+                 observedCursor>>
 
 Next ==
   \/ \E ahead \in BOOLEAN : ImporterBind(ahead)
   \/ \E op \in Ops : Push(op)
   \/ \E kind \in {"same", "other"} : Restore(kind)
   \/ RestoreBind \/ ObserveSynced \/ ObserveUnsynced \/ Detach
+  \/ Overclaim
 
 (* Fairness covers only the observing device's own steps: the importer, the
    remover, and the restoring device may stop at any point (no-brick). *)
@@ -131,7 +159,7 @@ TypeOK ==
   /\ restore \in {"none", "same", "other", "bound"}
   /\ observer \in {"idle", "read"}
   /\ observedView \subseteq Ops /\ observedBinding \in Bindings
-  /\ detachedNamed \in BOOLEAN
+  /\ observedCursor \subseteq committed /\ detachedNamed \in BOOLEAN
 
 (* A detach commits only while the committed document lacks the slot, so it
    never unbinds bytes the document asks for. *)

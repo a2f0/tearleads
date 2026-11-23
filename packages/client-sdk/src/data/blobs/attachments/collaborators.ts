@@ -22,6 +22,18 @@ export interface BlobAttachmentCollaborators {
   /** The local identity's encapsulation secret key; null before it has one. */
   readonly encapsulationSecretKey: Uint8Array | null;
   readonly log?: ((message: string) => void) | undefined;
+  /**
+   * The processed cursor a bind or detach citing `version` of a document may
+   * carry, so an update this device voided does not refuse it. The documents
+   * runtime reads the cursor its sync recorded; without this port every bind
+   * and detach is checked against all committed updates.
+   */
+  readonly processedCursorFor?:
+    | ((input: {
+        readonly documentId: string;
+        readonly version: string;
+      }) => Promise<string | undefined>)
+    | undefined;
   readonly reportSecurityIncident?: SecurityIncidentReporter | undefined;
 }
 

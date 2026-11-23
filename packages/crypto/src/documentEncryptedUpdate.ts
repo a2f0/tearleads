@@ -42,7 +42,7 @@ function readPositiveInteger(
   key: string,
 ): number {
   const value = record[key];
-  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`${LABEL}.${key} must be a positive integer`);
   }
   return value;

@@ -41,3 +41,18 @@ test("a detach names the document version it read the slot removed at", () => {
     }),
   ).toBe(false);
 });
+
+test("a detach may carry the processed cursor its version holds", () => {
+  expect(
+    isBlobAttachmentDetachRequest({
+      ...validRequest,
+      processedThroughUpdateId: "550e8400-e29b-41d4-a716-446655440005",
+    }),
+  ).toBe(true);
+  expect(
+    isBlobAttachmentDetachRequest({
+      ...validRequest,
+      processedThroughUpdateId: "not-an-update-id",
+    }),
+  ).toBe(false);
+});
