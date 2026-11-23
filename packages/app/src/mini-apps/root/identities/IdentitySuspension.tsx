@@ -1,4 +1,7 @@
+import { ProhibitIcon } from "@phosphor-icons/react/dist/csr/Prohibit";
+import { UserCheckIcon } from "@phosphor-icons/react/dist/csr/UserCheck";
 import type { RootIdentity } from "@tearleads/client-sdk";
+import { useWindowTitleBarAction } from "@tearleads/windowing";
 import { type FormEvent, useId, useState } from "react";
 import {
   MiniAppActions,
@@ -7,10 +10,13 @@ import {
   MiniAppModalForm,
   MiniAppModalPanel,
   MiniAppStatus,
-  MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { describeRootFailure, describeThrown } from "./rootDisplay";
+
+// Module-level so an unchanged action matches its registration structurally.
+const SUSPEND_ICON = <ProhibitIcon aria-hidden size={18} />;
+const LIFT_ICON = <UserCheckIcon aria-hidden size={18} />;
 
 function SuspendConfirmationDialog({
   busy,
@@ -59,10 +65,11 @@ function SuspendConfirmationDialog({
 }
 
 /**
- * Suspend and lift controls. A root identity, the operator's own among them,
- * is never offered suspension, which the server refuses anyway. One granted
- * root while suspended keeps the lift control, since granting root does not
- * lift a suspension.
+ * Suspend and lift, as a window toolbar action beside Audit activity; the
+ * confirmation and any failure render in the view. A root identity, the
+ * operator's own among them, is never offered suspension, which the server
+ * refuses anyway. One granted root while suspended keeps the lift action,
+ * since granting root does not lift a suspension.
  */
 export function IdentitySuspension({
   identity,
@@ -75,10 +82,21 @@ export function IdentitySuspension({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  if (identity.isRoot && !identity.suspendedAt) {
-    return null;
-  }
+  const suspended = identity.suspendedAt !== null;
+  useWindowTitleBarAction(
+    identity.isRoot && !suspended
+      ? null
+      : {
+          disabled: busy,
+          icon: suspended ? LIFT_ICON : SUSPEND_ICON,
+          id: suspended ? "root-lift-suspension" : "root-suspend-identity",
+          label: suspended ? "Lift suspension" : "Suspend account",
+          onClick: suspended
+            ? () => void run("lift")
+            : () => setConfirming(true),
+          priority: 110,
+        },
+  );
 
   const run = async (change: "lift" | "suspend") => {
     setBusy(true);
@@ -103,17 +121,6 @@ export function IdentitySuspension({
 
   return (
     <>
-      <MiniAppToolbar>
-        {identity.suspendedAt ? (
-          <MiniAppButton disabled={busy} onClick={() => void run("lift")}>
-            {busy ? "Lifting..." : "Lift suspension"}
-          </MiniAppButton>
-        ) : (
-          <MiniAppButton disabled={busy} onClick={() => setConfirming(true)}>
-            Suspend account
-          </MiniAppButton>
-        )}
-      </MiniAppToolbar>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {confirming && (
         <SuspendConfirmationDialog
