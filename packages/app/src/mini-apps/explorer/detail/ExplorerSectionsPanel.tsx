@@ -120,7 +120,6 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
         openDocument={params.selectDocumentProjection}
         openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
         organizationNamesById={params.organizationNamesById}
-        section={route.view === "outgoing" ? route.section : null}
         selectedEntryKey={
           route.view === "write-queue-entry" ? route.entryKey : null
         }
@@ -180,7 +179,6 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
         return;
       }
       if (tab === "outgoing") {
-        // The tab opens at its top; only a link scrolls to a section.
         openOutgoingRoute();
         return;
       }

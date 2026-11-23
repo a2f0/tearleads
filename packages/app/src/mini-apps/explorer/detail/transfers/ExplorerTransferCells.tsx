@@ -47,13 +47,28 @@ export interface ExplorerTransferOpenAction {
  */
 export function ExplorerTransferNameCell(params: {
   children: ReactNode;
+  /** Muted lines under the name, such as an object's type and id. */
+  details?: ReadonlyArray<string> | undefined;
   open?: ExplorerTransferOpenAction | null | undefined;
   title?: string | undefined;
   transfer: ExplorerTransferProgress;
 }) {
-  const name = (
+  const text = (
     <MiniAppTableText title={params.title}>{params.children}</MiniAppTableText>
   );
+  const name =
+    params.details && params.details.length > 0 ? (
+      <span className="explorer-transfer-copy">
+        {text}
+        {params.details.map((detail) => (
+          <MiniAppTableText key={detail} muted title={detail}>
+            {detail}
+          </MiniAppTableText>
+        ))}
+      </span>
+    ) : (
+      text
+    );
   return (
     <MiniAppTableCell>
       <span className="explorer-transfer-name">

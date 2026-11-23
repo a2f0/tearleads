@@ -14,7 +14,7 @@ import {
   getOperationLabel,
   getStatusLabel,
   getWriteQueueItemName,
-} from "./ExplorerWriteQueueTable";
+} from "./writeQueueItems";
 
 function formatEntryDateTime(value: string | null): string {
   return formatMiniAppDateTime(value, { emptyFallback: "-" });
