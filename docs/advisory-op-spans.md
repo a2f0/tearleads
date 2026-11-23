@@ -204,11 +204,18 @@ must cover every committed update. The API stores the cursor beside the
 baseline and authenticates it with the rest of the signed metadata, so a
 stored cursor that is not the signed one fails the pull closed.
 
-A document whose every update is void has an empty snapshot, which encodes no
-baseline, and the baseline-less unlink still requires no committed update, so
-it cannot be unlinked. A rotation by a device whose older decoder voids an
-update a newer one reads leaves that update out of the baseline for every
-reader. Both are accepted residuals of #3135.
+A document whose every update its author voided has an empty snapshot. Its
+baseline declares no operation and signs the cursor alone, so the gates weigh
+only the updates after it, and a new reader starts from the empty baseline
+without meeting the voids (#3194). The API admits an empty span only on a
+rotation baseline that signs a cursor. A document never written has no
+cursor, so its unlink carries no baseline and the API requires that no update
+is committed.
+
+A rotation by a device whose older decoder voids an update a newer one reads
+leaves that update out of the baseline for every reader. That is an accepted
+residual of #3135: greenfield clients are expected to run the current Loro,
+so the case is not designed for.
 [`BaselineCursorCoverage`](../formal/document-sync/BaselineCursorCoverage.md)
 models the cursor in the gates and the redirect, and
 [`RawHistoryRecovery`](../formal/document-sync/RawHistoryRecovery.md) the

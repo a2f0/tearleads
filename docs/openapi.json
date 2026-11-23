@@ -3450,7 +3450,7 @@
           },
           "rotationBaseline": {
             "$ref": "#/components/schemas/DocumentOutgoingUpdate",
-            "description": "For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link."
+            "description": "For an unlink, a rotation baseline covering every committed update after its signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link."
           },
           "targetContainerPathRefs": {
             "type": "array",
@@ -3604,7 +3604,7 @@
           "coversThroughUpdateId": {
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "type": "string",
-            "description": "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered."
+            "description": "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor."
           },
           "encryptedData": {
             "type": "string",
@@ -3619,7 +3619,7 @@
           "partialEndVersionVector": {
             "type": "string",
             "minLength": 1,
-            "description": "Version vector the update brings the document to."
+            "description": "Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on a rotation baseline that signs `coversThroughUpdateId`."
           },
           "partialStartVersionVector": {
             "type": "string",

@@ -15,8 +15,8 @@ import { assertStoredWriteHeaderVerbatim } from "../../../access/write/documentC
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 import {
-  assertOutgoingDeclaredSpan,
   assertOutgoingEnvelopeMatchesHeader,
+  assertOutgoingSpanOrCursoredEmptyBaseline,
 } from "./outgoingUpdateShape";
 import { readWriteHeader } from "./shared/records";
 import type { DocumentWriteAuthorizationProof } from "./types";
@@ -84,7 +84,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
   readonly update: DocumentOutgoingUpdate;
 }): Promise<void> {
   assertOutgoingCheckpointConsistency(input.update);
-  assertOutgoingDeclaredSpan(input.update);
+  assertOutgoingSpanOrCursoredEmptyBaseline(input.update);
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     ...(input.update.checkpointKind === undefined
       ? {}
