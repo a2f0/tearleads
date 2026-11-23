@@ -159,6 +159,8 @@ export async function submitDocumentSync(input: {
   apiClient: DocumentSyncApi;
   expectedCommitLsnMode?: DocumentSyncCommitLsnMode | undefined;
   plan: DocumentSyncPlan;
+  /** A retired pass neither renews for its submit nor receives the reply. */
+  stillCurrent?: (() => boolean) | undefined;
 }): Promise<DocumentSyncSubmission> {
   return submitDocumentSyncPage({
     expectedCommitLsnMode: input.expectedCommitLsnMode,
@@ -170,6 +172,7 @@ export async function submitDocumentSync(input: {
         {
           expectedPaymentRequiredOrganizationId: input.plan.organizationId,
           reportErrors: false,
+          stillCurrent: input.stillCurrent,
         },
       );
       return result.ok ? { ok: true, response: result.data } : result;

@@ -13,6 +13,7 @@ import {
   readWriteHeader,
 } from "../../../data/documents/shared/readers";
 import type { DocumentLinkSetMutationApi } from "../../../data/documents/shared/types";
+import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { decryptBlobChunk } from "../hydration/blobChunkDecryption";
 import { prepareDocumentAttachmentBlobDecryption } from "../hydration/decrypt";
 import { createAttachmentProofReader } from "./attachmentDecryptor";
@@ -43,7 +44,11 @@ async function authenticateAttachmentKey(
   input: AttachmentKeyInput,
   readProof: ProofReader,
 ): Promise<VerifiedKey> {
-  const blob = await api.getBlobBytes(input.binding.blobId);
+  const blob = await api.getBlobBytes(input.binding.blobId, {
+    stillCurrent: input.stillCurrent,
+  });
+  // A retired read is the cancellation verification would raise, not a gap.
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (!blob)
     throw new Error("Attachment ciphertext is unavailable for relinking");
   const body = new Response(blob.encryptedBytes).body;

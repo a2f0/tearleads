@@ -27,6 +27,7 @@ export interface GroupMetadataAccessInput {
     evictContainerWriterProjection(containerId: string): void;
     getContainerWriterProjection(
       containerId: string,
+      options?: { readonly stillCurrent?: (() => boolean) | undefined },
     ): Promise<ContainerWriterProjectionResponse | null>;
   };
   readonly verifyMetadataContainer: (
@@ -71,8 +72,12 @@ async function loadMetadataKeyringOnce(
   input: GroupMetadataAccessInput,
   containerId: string,
 ) {
-  const projection =
-    await input.apiClient.getContainerWriterProjection(containerId);
+  const projection = await input.apiClient.getContainerWriterProjection(
+    containerId,
+    { stillCurrent: input.stillCurrent },
+  );
+  // A retired read is the cancellation verification would raise, not a gap.
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (!projection) return null;
   if (
     projection.containerId !== containerId ||

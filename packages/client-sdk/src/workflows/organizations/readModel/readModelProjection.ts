@@ -196,7 +196,7 @@ async function requestReadModelPage(
   const result = await input.apiClient.getOrganizationReadModelResult(
     input.organizationId,
     state.requestCursor,
-    { reportErrors: false },
+    { reportErrors: false, stillCurrent: input.stillCurrent },
   );
   if (input.stillCurrent?.() === false)
     return { kind: "done", value: undefined };

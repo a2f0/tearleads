@@ -2,6 +2,10 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
 import { createBlobAttachmentServiceFixture } from "../../../test/helpers/workflows/blobAttachmentServiceFixture";
+import {
+  createExpiringApiServer,
+  SCOPE_RETIREMENTS,
+} from "../../../test/helpers/workflows/expiringApiServer";
 import { createMaterializedSyncFixture } from "../../../test/helpers/workflows/materializedSyncFixture";
 import { BlobAttachmentService } from "./blobAttachmentService";
 
@@ -151,4 +155,62 @@ test.each([
     expect(changed).toEqual(documentChanged ? ["changed"] : []);
     expect(reported).toEqual(documentChanged ? [] : ["reported"]);
   },
+);
+
+test.each(SCOPE_RETIREMENTS)(
+  "an attachment detach that expires after %s is not renewed or replayed",
+  async (change) => {
+    const { author, resolveProjectionUserKey, writerProjection } =
+      await createMaterializedSyncFixture();
+    const bindingId = crypto.randomUUID();
+    const blobId = crypto.randomUUID();
+    const { close, execSql } = await createTestExecSql(
+      `attachment-detach-scope-${change}`,
+    );
+    const server = createExpiringApiServer({
+      method: "POST",
+      path: /^\/blobs\/[^/]+\/attachment-bindings\/[^/]+\/detach$/,
+    });
+    let current = true;
+    const changed: string[] = [];
+    const reported: string[] = [];
+    server.api.setOnError((message) => reported.push(message));
+    try {
+      const detached = createBlobAttachmentServiceFixture({
+        api: {
+          detachBlobAttachment: server.api.detachBlobAttachment,
+          getDocumentWriterProjection: async () => writerProjection,
+          getRequestFailure: (input) => server.api.getRequestFailure(input),
+        },
+        execSql,
+      }).detachDocumentAttachment({
+        author,
+        bindingId,
+        blobId,
+        documentId: writerProjection.documentId,
+        documentVersionVector: "document-version-vector",
+        onDocumentChanged: () => changed.push("changed"),
+        resolveProjectionUserKey,
+        slotId: "preview",
+        stillCurrent: () => current,
+      });
+
+      await server.entered;
+      current = false;
+      server.retire(change);
+      server.release();
+      // A retired detach leaves its marker for a later pass.
+      expect(await detached).toBeNull();
+      expect(server.requests).toEqual([
+        `POST /blobs/${blobId}/attachment-bindings/${bindingId}/detach`,
+      ]);
+      expect(server.renewals.count).toBe(0);
+      expect(changed).toEqual([]);
+      expect(reported).toEqual([]);
+    } finally {
+      server.stop();
+      close();
+    }
+  },
+  15_000,
 );

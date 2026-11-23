@@ -287,7 +287,11 @@ async function planRematerializationTarget(
   for (const containerId of stale) {
     await carryLevel(
       batch,
-      await loadServedProjection(rematerialization.apiClient, containerId),
+      await loadServedProjection(
+        rematerialization.apiClient,
+        containerId,
+        rematerialization.stillCurrent,
+      ),
     );
   }
   if (!target.grantRow) {
@@ -363,6 +367,7 @@ async function planRematerializationBatch(
     apiClient: input.apiClient,
     carriedContainerIds,
     grants: input.grants,
+    stillCurrent: input.stillCurrent,
   });
   const batch: BatchPlanning = {
     knownContainerKeks: new Map(input.preceding?.knownContainerKeks),

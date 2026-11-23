@@ -33,6 +33,7 @@ export interface RematerializationApi
     Pick<ApiClient, "getContainerWriterProjectionResult"> {
   getContainerWriterProjection(
     containerId: string,
+    options?: { readonly stillCurrent?: (() => boolean) | undefined },
   ): Promise<ContainerWriterProjectionResponse | null>;
   evictContainerWriterProjection?(containerId: string): void;
 }

@@ -86,8 +86,15 @@ function pendingIntent(
   };
 }
 
+/** Serves a listed container's projection; a test can route it to a server. */
+type ProjectionRead = (
+  containerId: string,
+  options?: { readonly stillCurrent?: (() => boolean) | undefined },
+) => Promise<ContainerWriterProjectionResponse | null>;
+
 function runtimeFor(input: {
   readonly evicted: string[];
+  readonly read?: ProjectionRead | undefined;
   readonly execSql: Awaited<ReturnType<typeof createTestExecSql>>["execSql"];
   readonly incidents: string[];
   readonly parent: Parent;
@@ -101,8 +108,12 @@ function runtimeFor(input: {
       evictContainerWriterProjection: (containerId: string) => {
         input.evicted.push(containerId);
       },
-      getContainerWriterProjection: async (containerId: string) => {
+      getContainerWriterProjection: async (
+        containerId: string,
+        options?: { readonly stillCurrent?: (() => boolean) | undefined },
+      ) => {
         input.reads.push(containerId);
+        if (input.read) return input.read(containerId, options);
         return (
           input.served.find((listed) => listed.containerId === containerId) ??
           null
@@ -188,6 +199,9 @@ function localContainers(parent: Parent, intents: readonly ListedIntent[]) {
 export async function runListedCreateAdoption(input: {
   readonly blocked?: boolean;
   readonly intents: readonly ListedIntent[];
+  /** The pass's lifetime; it stays current unless a test retires it. */
+  readonly isCurrent?: (() => boolean) | undefined;
+  readonly read?: ProjectionRead | undefined;
   readonly parent: Parent;
   readonly served: readonly ContainerWriterProjectionResponse[];
   readonly sessionUser?: "another" | "creator" | "none";
@@ -237,6 +251,7 @@ export async function runListedCreateAdoption(input: {
       execSql,
       incidents,
       parent,
+      read: input.read,
       reads,
       served: input.served,
       sessionUser: input.sessionUser ?? "creator",
@@ -249,7 +264,7 @@ export async function runListedCreateAdoption(input: {
           throw new Error("an adopted container is never re-created");
         },
       },
-      isCurrent: () => true,
+      isCurrent: input.isCurrent ?? (() => true),
       isRemoteSyncBlocked: () => input.blocked === true,
       requestRemoteReconciliation: (parentId) => {
         reconciled.push(parentId);

@@ -47,6 +47,7 @@ test("remote deletion fences only an exactly coded missing container", async () 
       containerId: "container-1",
       organizationId: "organization-1",
       runtime: runtime(CONTAINER_NOT_FOUND_ERROR_CODE),
+      stillCurrent: undefined,
     }),
   ).resolves.toEqual({ deletedAt: "9999-12-31T23:59:59.999Z" });
 
@@ -61,6 +62,7 @@ test("remote deletion fences only an exactly coded missing container", async () 
         containerId: "container-1",
         organizationId: "organization-1",
         runtime: runtime(code, status),
+        stillCurrent: undefined,
       }),
     ).resolves.toBeNull();
   }
