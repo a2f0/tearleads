@@ -34,9 +34,10 @@ accepted. The reader records it in `document_void_updates`, reports it once as
 sets the document's sync failure. A reader whose key is not the committed one
 records no verdict for the update: that is an availability failure, and the pass
 fails as an unwrap failure does. So is a failure of its own runtime while it
-derives keys or decrypts (stage `decrypt_runtime`). A sync pass whose judge
-(`validateIncomingUpdates`) returns no verdicts fails, rather than applying
-updates nobody judged.
+derives keys or decrypts, including an AES-GCM refusal when the reader cannot
+round-trip a canary under the same key (stage `decrypt_runtime`). A sync pass
+whose judge (`validateIncomingUpdates`) returns no verdicts fails, rather than
+applying updates nobody judged.
 
 A void whose import changed the scratch history the reader judges against
 forces it to rebuild that history before the next update. Each page may spend

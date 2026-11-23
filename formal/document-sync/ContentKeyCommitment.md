@@ -37,7 +37,7 @@ The abstraction maps to production at these seams:
 | `ServerChecksCommitment` | `assertOutgoingEnvelopeCommitsToEpochKey` for appends, and `assertStoredCommitmentMatches` for a bundle submitted at a stored epoch |
 | `Fetch` / `held` | `unwrapDocumentContentKeyFromBundle` over the writer projection's bundle and each historical bundle from `syncResponseContentKeyBundlesByEpoch`, checked by `assertDocumentContentKeyCommitment` |
 | `StaleKey` | a bundle or wrap that is not the epoch's canonical one, which `assertDocumentContentKeyCommitment` refuses as `DocumentContentKeyCommitmentError` |
-| `Judge` / `Outcome` | `judgeDocumentSyncUpdateDecryption`: `assertEnvelopeCommitsToHeldKey` after `assertDocumentEncryptedUpdateMatchesHeader`, then AES-GCM, where `isAesGcmAuthenticationFailure` decides `decrypt` over `decrypt_runtime`, then the plaintext hash |
+| `Judge` / `Outcome` | `judgeDocumentSyncUpdateDecryption`: `assertEnvelopeCommitsToHeldKey` after `assertDocumentEncryptedUpdateMatchesHeader`, then AES-GCM, where `isAesGcmAuthenticationFailure` and a canary round trip (`aesGcmRoundTripsUnder`) decide `decrypt` over `decrypt_runtime`, then the plaintext hash |
 | `VoidOnAeadFailure` | `decrypt` in `VOID_STAGES` |
 | `cursor` / `Record` | `recordDocumentSyncVerdictsInTransaction` and `processedCursorTransition`, which record a cursor only for a pass that judged its whole page |
 
@@ -73,8 +73,9 @@ treats as ideal (a commitment names one key, `hashOk` holds at most one);
 an update whose envelope does not match its signed header, which the API
 refuses and a reader fails as non-void `encrypted_record` before comparing
 commitments, so a server that edits the commitment causes no void; a failure
-of the reader's own runtime while deriving keys or decrypting, which is the
-non-void stage `decrypt_runtime`; the import judge and its voids, which
+of the reader's own runtime while deriving keys or decrypting, or an AES-GCM
+refusal in a runtime that cannot round-trip a canary, which is the non-void
+stage `decrypt_runtime`; the import judge and its voids, which
 [`VoidUpdateProgress`](./VoidUpdateProgress.md) checks; and the server's
 choice of pages. A reader with an equivocated wrap cannot read that epoch
 until some member holding the committed key rotates, which is the accepted
