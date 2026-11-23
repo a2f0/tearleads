@@ -16,9 +16,10 @@ afterEach(() => {
 
 // A writer signs an update whose declared span claims operations its payload
 // does not carry. No version can hold them, so before the processed cursor
-// the API refused every later attachment bind on the document. A reader that
-// voided the update attaches a file, and the bind lands.
-test("a reader binds an attachment past a false-span update it voided", async () => {
+// the API refused every later attachment bind and detach on the document. A
+// reader that voided the update attaches a file, the bind lands, and removing
+// it detaches the binding.
+test("a reader binds and detaches an attachment past a false-span update it voided", async () => {
   world = await World.create();
   const alice = await world.register("alice");
   const bob = await world.register("bob");
@@ -67,15 +68,21 @@ test("a reader binds an attachment past a false-span update it voided", async ()
   const [slot] = store.getSnapshot().attachments;
   if (!slot) throw reader.failure("no attachment slot");
   const documentId = world.documentRef(document).documentId;
-  await until(async () => {
+  const bound = async () => {
     const bindings = await reader.sdk.documents
       .workflowRuntime()
       .apiClient.listDocumentAttachments(documentId, { refresh: true });
     return (bindings ?? []).some(({ slotId }) => slotId === slot.slotId);
-  }, "the attachment binding");
+  };
+  await until(bound, "the attachment binding");
   await reader.idle();
   expect(store.getSnapshot().attachmentStatusBySlotId[slot.slotId]).toBe(
     undefined,
   );
+
+  store.removeAttachment(slot.slotId);
+  await until(async () => !(await bound()), "the attachment detach");
+  await reader.idle();
+  expect(store.getSnapshot().attachments).toEqual([]);
   expectNoSecurityIncidents(world);
 }, 180_000);
