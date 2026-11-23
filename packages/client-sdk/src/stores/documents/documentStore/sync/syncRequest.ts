@@ -5,13 +5,16 @@ import {
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
   createDocumentWriterPublicKeyResolver,
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   deletePersistedDocument,
   type ExecSql,
+  type IncomingDocumentSyncUpdateValidator,
+  judgeDocumentSyncImports,
   type PendingUpdateRecord,
   RemoteDocumentService,
+  readProcessedCursorForSync,
   resolveDocumentCreateAuthor,
-  validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { requestDocumentStoreSync } from "../../registry";
@@ -130,23 +133,51 @@ interface RequestRemoteDocumentSyncInput {
   unavailableWriterLogMessage: string;
 }
 
-/** Where the document's pull stands, which decides whether a pause holds it. */
+/** The pull continuation a pass resumes and the processed cursor it sends. */
+interface PullStart {
+  readonly continuation: DocumentStoreState["pullContinuation"];
+  readonly processedThroughUpdateId: string | undefined;
+}
+
+/**
+ * Where the document's pull stands, which decides whether a pause holds it,
+ * and the processed cursor it starts after.
+ */
 function pullPosition(
   record: RequestRemoteDocumentSyncInput["currentRecord"],
-  continuation: DocumentStoreState["pullContinuation"],
+  { continuation, processedThroughUpdateId }: PullStart,
 ) {
   return {
     minLsn: record.lastCommitLsn ?? undefined,
+    processedThroughUpdateId,
     pullContinuation: continuation ?? undefined,
     pullRecoveryRequired: record.pullContinuationRecoveryRequired === true,
   };
+}
+
+/** Judges a page against the live document, skipping this scope's known voids. */
+function documentImportJudge(
+  input: RequestRemoteDocumentSyncInput,
+  documentId: string,
+): IncomingDocumentSyncUpdateValidator {
+  const { generation, state } = input;
+  return (result) =>
+    judgeDocumentSyncImports({
+      currentDocument: input.currentDoc,
+      documentId,
+      execSql: state.runtime.infra.execSql,
+      isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
+      logError: state.runtime.util.logError,
+      result,
+      scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+    });
 }
 
 function runRemoteDocumentSync(
   input: RequestRemoteDocumentSyncInput,
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>,
   documentId: string,
-  requestedPullContinuation: DocumentStoreState["pullContinuation"],
+  pullStart: PullStart,
 ) {
   const { currentDoc, currentRecord, generation, pendingUpdates, state } =
     input;
@@ -172,7 +203,7 @@ function runRemoteDocumentSync(
         }),
     documentId,
     localVersionVector: encodeVersionVector(currentDoc),
-    ...pullPosition(currentRecord, requestedPullContinuation),
+    ...pullPosition(currentRecord, pullStart),
     onRemoteDocumentDeleted: ({ commitPurgeProof, documentId }) =>
       deleteUpstreamDeletedDocument(
         state,
@@ -219,12 +250,7 @@ function runRemoteDocumentSync(
       writerKeyLabel: "writer key",
     }),
     stillCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
-    validateIncomingUpdates: (result) =>
-      validateDocumentSyncUpdateImports({
-        currentDocument: currentDoc,
-        decryptedUpdates: result.decryptedUpdates,
-        responseUpdates: result.response.updates,
-      }),
+    validateIncomingUpdates: documentImportJudge(input, documentId),
     warmReferencedPrincipalPolicies: runtime.principalPolicies.createWarmer({
       operation: input.policyOperation,
     }),
@@ -262,11 +288,20 @@ export async function requestRemoteDocumentSync(
     return null;
   }
 
+  const processedThroughUpdateId = await readProcessedCursorForSync(
+    generation.execSql,
+    {
+      documentId: currentRecord.documentId,
+      frontier: currentRecord.snapshotEndVersion,
+      scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+    },
+  );
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   const synced = await runRemoteDocumentSync(
     input,
     author,
     currentRecord.documentId,
-    requestedPullContinuation,
+    { continuation: requestedPullContinuation, processedThroughUpdateId },
   );
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   if (!synced) return null;

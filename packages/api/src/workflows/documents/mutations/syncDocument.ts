@@ -9,6 +9,7 @@ import {
   type StoredDocumentContentKeyBundle,
 } from "../../../access/read/documentContentKeyStore";
 import { readCommitCheckpoint } from "../../../documents/commitLsn";
+import { readProcessedThroughSequence } from "../../../documents/documentProcessedCursor";
 import {
   assertMinLsnSatisfied,
   readDocumentUpdateUpperBound,
@@ -88,6 +89,13 @@ async function buildSyncDocumentTransactionResult(input: {
   const pullPagePlan = await resolveSyncPullPagePlan({
     cursorHmacKey: input.cursorHmacKey,
     identity: pullIdentity,
+    processedThroughSequence: await readProcessedThroughSequence(
+      input.executor,
+      {
+        documentId: input.documentId,
+        processedThroughUpdateId: input.request.processedThroughUpdateId,
+      },
+    ),
     request: input.request,
     resolveCursorBounds: (cursor) =>
       resolveDocumentUpdateCursorBounds(input.executor, {

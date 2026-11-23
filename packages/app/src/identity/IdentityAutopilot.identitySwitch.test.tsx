@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import { useEffect } from "react";
+import { confirmRecoveryKeyBackup } from "../../test/helpers/accountNamePrompt";
 import { openIdentityManagerFromPane } from "../../test/helpers/identityPaneTestUtils";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../test/helpers/msw/server";
 import {
@@ -91,7 +92,8 @@ async function switchAwayWhileRegistering() {
   await waitForPersistedPaneLocalIdentity(namespace);
   const identityA = getPanePublicKey(view);
 
-  const identityManager = within(await openIdentityManagerFromPane(view));
+  const managerWindow = await openIdentityManagerFromPane(view);
+  const identityManager = within(managerWindow);
   fireEvent.click(
     identityManager.getByRole("combobox", { name: "Identities" }),
   );
@@ -99,6 +101,7 @@ async function switchAwayWhileRegistering() {
     await identityManager.findByText("New Identity", {}, { timeout: 10_000 }),
   );
   await waitForReadyIdentity(view, (current) => current !== identityA);
+  await confirmRecoveryKeyBackup(managerWindow);
   expect(register).toHaveBeenCalledTimes(1);
   return { identityA, identityManager, register, stalled, view };
 }

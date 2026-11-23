@@ -10,6 +10,7 @@ import { createPendingUpdateRecord } from "../../../../test/helpers/data/documen
 import { prepareDeepDocumentRepairFixture } from "../../../../test/helpers/workflows/deepDocumentRepairFixture";
 import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/workflows/staleBundleSyncFixture";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";
 
 let createFixture: Awaited<ReturnType<typeof prepareDeepDocumentRepairFixture>>;
@@ -46,7 +47,7 @@ test("a cold device can acknowledge repairs it commits through the prefix", asyn
       execSql: cold.execSql,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     // The mock serves no refreshed projection, so preparation stops after the
     // first prefix. What matters is how far it got: a full inline batch was
@@ -89,7 +90,7 @@ test("a refused standalone repair abandons the pass", async () => {
         terminal.push(failure.message);
       },
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     const result = await syncRemoteDocument({
       ...sync,
@@ -143,7 +144,7 @@ test("a refetched projection for another document is refused", async () => {
       execSql: cold.execSql,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     await expect(
       prepareAutomaticContainerRekeys(sync, projection),
@@ -188,7 +189,7 @@ test("a server replaying a stale chain cannot drive endless rekeys", async () =>
       execSql: cold.execSql,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     await expect(
       prepareAutomaticContainerRekeys(sync, projection),
@@ -240,7 +241,7 @@ test.each([
           terminal.push(failure.status);
         },
         resolveWriterPublicKey: writerKeyResolver(fixture.root),
-        validateIncomingUpdates: () => undefined,
+        validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       };
       await expect(
         prepareAutomaticContainerRekeys(sync, projection),

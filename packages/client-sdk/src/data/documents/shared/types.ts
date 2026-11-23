@@ -25,8 +25,7 @@ import type { ContainerMutationAuthor } from "../../containers/shared/types";
 import type { DocumentRecord } from "../../persistence/documents/records";
 import type { DocumentSyncSubmitFailure } from "./sync/syncSubmitFailure";
 
-export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
-  "tearleads.document.loro-update";
+export { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "@tearleads/crypto";
 export const DOCUMENT_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.document.content-record-key-info";
 export const DOCUMENT_CONTENT_RECORD_PLAINTEXT_HASH_KEY_INFO_DOMAIN =
@@ -35,17 +34,6 @@ export const DOCUMENT_CONTENT_RECORD_AAD_DOMAIN =
   "tearleads.document.content-record-aad";
 export const DOCUMENT_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =
   new TextEncoder().encode("tearleads.document.content-record-hkdf-salt");
-export const DOCUMENT_ENCRYPTED_UPDATE_KEYS = new Set([
-  "ciphertext",
-  "contentKeyEpoch",
-  "contentRecordId",
-  "encryptionSuite",
-  "format",
-  "iv",
-  "metadataHash",
-  "nonceDomainHash",
-  "version",
-]);
 export const TEXT_ENCODER = new TextEncoder();
 
 export type DocumentCreateAuthor = ContainerMutationAuthor;

@@ -80,7 +80,7 @@ test("the root console lists identities and opens their detail", async () => {
         rootToolbar(view).getByRole("button", { name }),
       ]);
     }
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     await waitFor(() => {
       expect(view.getByRole("table", { name: "Identities" })).toBeTruthy();
     });
@@ -196,7 +196,7 @@ test("operators browse organizations, inspect invoices, and traverse both direct
       }),
     );
     await view.findByRole("group", { name: "Identity" });
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     expect(
       view
         .getByRole("tab", { name: "Identities" })
@@ -279,7 +279,7 @@ test("reports show usage by org, paginate, search, and open the shared usage tab
       view.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected"),
     ).toBe("true");
     await view.findByRole("group", { name: "Organization" });
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     await view.findByRole("table", { name: "Data usage by organization" });
   } finally {
     restore();
@@ -302,7 +302,7 @@ test("usage failures show an error and refresh can recover", async () => {
     fireEvent.click(view.getByRole("tab", { name: "Data Usage" }));
     await view.findByText("Usage temporarily unavailable");
     expect(view.queryByText("0 B")).toBeNull();
-    clickRootToolbarButton(view, "Refresh");
+    await clickRootToolbarButton(view, "Refresh");
     await view.findByText("2.5 KB");
   } finally {
     usage.mockRestore();
@@ -336,14 +336,14 @@ for (const origin of ["Reports", "Organizations"] as const) {
         }),
       );
       await view.findByRole("group", { name: "Identity" });
-      clickRootToolbarButton(view, "Back");
+      await clickRootToolbarButton(view, "Back");
       expect(
         view
           .getByRole("tab", { name: "Identities" })
           .getAttribute("aria-selected"),
       ).toBe("true");
       await view.findByRole("table", { name: "Organization identities" });
-      clickRootToolbarButton(view, "Back");
+      await clickRootToolbarButton(view, "Back");
       await view.findByRole("table", { name: directory });
     } finally {
       restore();
@@ -389,7 +389,7 @@ test("the audit trail pages events, filters to a subject, and links to targets",
       ).value;
     fireEvent.click(within(table).getByTitle(member.userId));
     await view.findByRole("group", { name: "Identity" });
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     const returned = await view.findByRole("table", { name: "Audit events" });
     expect(filterValue()).toBe(member.userId);
 
@@ -400,13 +400,13 @@ test("the audit trail pages events, filters to a subject, and links to targets",
       await within(orgs).findByTitle(member.defaultOrganizationId),
     );
     await view.findByRole("group", { name: "Organization" });
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     const again = await view.findByRole("table", { name: "Audit events" });
     expect(filterValue()).toBe(member.userId);
 
     fireEvent.click(within(again).getByTitle(member.userId));
     await view.findByRole("group", { name: "Identity" });
-    clickRootToolbarButton(view, "Audit activity");
+    await clickRootToolbarButton(view, "Audit activity");
     const filtered = await view.findByRole("table", { name: "Audit events" });
     await within(filtered).findByText("Viewed identity");
     expect(filterValue()).toBe(member.userId);

@@ -29,6 +29,10 @@ import {
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
 } from "../../../../components/mini-app/MiniAppTable";
+import { useDomainSyncSnapshot } from "../../../../providers/sdk/useDomainSyncSnapshot";
+import { getQueueItems } from "../../../../stores/sync-queues/queueReadMachine";
+import { getOrCreatePendingWriteQueueStore } from "../../../../stores/sync-queues/syncQueueStores";
+import { useQueueRead } from "../../../../stores/sync-queues/useQueueRead";
 import {
   EXPLORER_LABELS,
   getExplorerWriteQueueSummaryLabel,
@@ -41,13 +45,14 @@ import {
   WRITE_QUEUE_COLUMNS,
   WRITE_QUEUE_COMPACT_COLUMNS,
 } from "./ExplorerWriteQueueTable";
-import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
-import { usePendingWriteQueueItems } from "./usePendingWriteQueueItems";
 import "./ExplorerWriteQueuePanel.css";
+
+const NO_ITEMS: ReadonlyArray<PendingWriteQueueItem> = [];
 
 interface ExplorerWriteQueuePanelProps {
   billingBlockedOrganizationId: string | null;
-  documentListRevision: number;
+  /** The queue is read only while the database is open. */
+  dbReady: boolean;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
   isAuthenticated: boolean;
@@ -66,7 +71,7 @@ interface ExplorerWriteQueuePanelProps {
 interface ExplorerWriteQueuePanelViewProps
   extends Omit<
     ExplorerWriteQueuePanelProps,
-    "documentListRevision" | "documentQueries" | "domainScope"
+    "dbReady" | "documentQueries" | "domainScope"
   > {
   // Requests the confirmation dialog; the destructive discard itself only
   // runs from the dialog's confirm action.
@@ -429,28 +434,25 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
     },
     [currentWindow, domainScope],
   );
-  const syncSettlementRevision = syncSnapshot.lanes
-    .map(
-      (lane) =>
-        `${lane.key}:${lane.runCount}:${lane.running}:${lane.lastCompletedAt ?? ""}:${lane.lastFailedAt ?? ""}`,
-    )
-    .join("\0");
-  const state = usePendingWriteQueueItems({
-    documentListRevision: params.documentListRevision,
-    documentQueries: params.documentQueries,
-    nodes: params.nodes,
-    syncHasPendingWork: syncSnapshot.hasPendingWork,
-    syncSettlementRevision,
-  });
+  // The shared store follows sync and persistence signals itself, so the
+  // panel, the Sync Status tray app, and System Monitor read the queue once.
+  // Like them, the panel reads only while the database is open, so a read
+  // that fails on a closed database never reaches their shared state.
+  const state = useQueueRead(
+    getOrCreatePendingWriteQueueStore(domainScope),
+    params.dbReady ? documentQueries : null,
+  );
+  // A failed read shows its error in place of the rows it could not refresh.
+  const items = state.status === "failed" ? NO_ITEMS : getQueueItems(state);
 
   return (
     <ExplorerWriteQueuePanelView
       billingBlockedOrganizationId={params.billingBlockedOrganizationId}
       discardPendingWrites={discardPendingWrites}
-      error={state.error}
+      error={state.status === "failed" ? state.message : null}
       isAuthenticated={params.isAuthenticated}
-      items={state.items}
-      loading={state.loading}
+      items={items}
+      loading={state.status === "loading"}
       nodes={params.nodes}
       online={params.online}
       openContainerInfoRoute={params.openContainerInfoRoute}

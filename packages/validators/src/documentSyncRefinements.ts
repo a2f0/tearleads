@@ -44,6 +44,11 @@ export const documentSyncRequestPullRefinements = [
       'historyMode "raw" requires localVersionVector to be null so the complete retained history is requested',
     id: "request.raw-history-null-frontier",
   },
+  {
+    description:
+      "processedThroughUpdateId requires a non-null localVersionVector, so a raw-history pull carries none",
+    id: "request.processed-cursor-frontier",
+  },
 ] as const;
 
 export const documentSyncRequestRuntimeRefinements = [

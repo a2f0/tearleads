@@ -128,18 +128,16 @@ test("a finished download opens its blob, document, or folder", async () => {
       opened.push(`document ${containerId}/${localId}`),
   };
   const domainScope = createDomainScope();
-  const renderPanel = (documentListRevision: number) => (
+  const view = render(
     <ExplorerDownloadsPanel
       destinations={destinations}
-      documentListRevision={documentListRevision}
+      dbReady
       documentQueries={documentQueries}
       domainScope={domainScope}
-      nodes={[]}
       online
       isAuthenticated
-    />
+    />,
   );
-  const view = render(renderPanel(0));
   await waitFor(() => expect(view.getByText("drill.png")).toBeTruthy());
   // Nothing is open while it is still downloading.
   expect(
@@ -148,13 +146,13 @@ test("a finished download opens its blob, document, or folder", async () => {
     }),
   ).toBeNull();
 
-  // The SDK records each finished download as it leaves the queue.
+  // The SDK records each finished download as it leaves the queue, and each
+  // recorded completion re-reads the queue.
   await act(async () => {
     items = PENDING.filter((item) => item.localId === "saw");
     const history = getOrCreateDomainDownloadHistory(domainScope);
     for (const item of STORED) history.recordCompleted(item);
   });
-  view.rerender(renderPanel(1));
   await waitFor(() => expect(view.getAllByText("Complete")).toHaveLength(4));
 
   // The name is the keyboard target; a click anywhere on the row follows it.

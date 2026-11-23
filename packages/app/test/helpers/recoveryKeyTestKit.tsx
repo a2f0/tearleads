@@ -8,7 +8,7 @@ import {
   render,
   waitFor,
 } from "@testing-library/react";
-import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../src/mini-apps/identity-manager/actions/recoveryKeyDisclosure";
+import { RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE } from "../../src/components/identity/recovery-key/recoveryKeyDisclosure";
 import { IdentityManager } from "../../src/mini-apps/identity-manager/IdentityManager";
 import {
   cleanupIdentityManagerTestEnvironment,
@@ -93,7 +93,10 @@ export function installDeferredClipboardWriteMock(): {
  * Renders the Identity Manager on its Recovery Key view with a seed-backed
  * identity imported, settled on the hidden (unacknowledged) state.
  */
-export async function renderRecoveryKeyView(entropyByte: number): Promise<{
+export async function renderRecoveryKeyView(
+  entropyByte: number,
+  hostConfig = TEST_HOST_CONFIG,
+): Promise<{
   readonly seedPhrase: string;
   readonly tearleads: Tearleads;
   readonly view: RenderResult;
@@ -101,7 +104,7 @@ export async function renderRecoveryKeyView(entropyByte: number): Promise<{
   const tearleadsRef: { current: Tearleads | null } = { current: null };
   const view = render(
     <IdentityManagerTestRuntime
-      hostConfig={TEST_HOST_CONFIG}
+      hostConfig={hostConfig}
       onTearleadsReady={(sdk) => {
         tearleadsRef.current = sdk;
       }}

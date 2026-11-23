@@ -39,3 +39,14 @@
   max-width: 16rem;
   color: var(--color-dark);
 }
+
+/* What waits in each direction, below the status line: quieter than it, and
+   still text rather than menu items. */
+.sync-status-popover-details {
+  margin: 0;
+  padding: 0 var(--space-md) var(--space-sm);
+  max-width: 16rem;
+  list-style: none;
+  color: color-mix(in srgb, var(--color-dark) 70%, transparent);
+  font-size: 0.875em;
+}

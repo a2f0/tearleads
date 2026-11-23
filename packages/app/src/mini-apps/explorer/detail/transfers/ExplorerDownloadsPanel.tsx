@@ -1,6 +1,5 @@
 import {
   type ContainerDocumentQueries,
-  type ContainerNode,
   type DomainScope,
   type PendingDownloadQueueItem,
   type RetryDocumentDownloadInput,
@@ -25,8 +24,8 @@ import {
   MiniAppTableRow,
 } from "../../../../components/mini-app/MiniAppTable";
 import { useTearleads } from "../../../../providers/sdk/TearleadsProvider";
+import { useDomainSyncSnapshot } from "../../../../providers/sdk/useDomainSyncSnapshot";
 import { EXPLORER_LABELS, getExplorerDownloadsCountLabel } from "../../labels";
-import { useDomainSyncSnapshot } from "../sync/useDomainSyncSnapshot";
 import {
   type DownloadHistoryEntry,
   getDownloadHistoryKey,
@@ -224,11 +223,11 @@ function DownloadRow(params: {
  * does, whether or not this view was open when they finished.
  */
 export function ExplorerDownloadsPanel(params: {
+  /** The queue is read only while the database is open. */
+  dbReady: boolean;
   destinations: ExplorerDownloadDestinations;
-  documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
-  nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   isAuthenticated: boolean;
 }) {
@@ -236,8 +235,9 @@ export function ExplorerDownloadsPanel(params: {
   const { documents } = useTearleads();
   const snapshot = useDomainSyncSnapshot(domainScope);
   const { entries, readNow, state } = useDownloadHistory({
-    ...params,
-    syncSnapshot: snapshot,
+    dbReady: params.dbReady,
+    documentQueries: params.documentQueries,
+    domainScope,
   });
   const [limit, setLimit] = useState(DOWNLOADS_ROW_LIMIT);
   const lanes = useMemo(

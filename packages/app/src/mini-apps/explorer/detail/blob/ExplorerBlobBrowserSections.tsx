@@ -9,7 +9,10 @@ import {
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../../components/mini-app/MiniAppTable";
+import {
+  MiniAppInfoRow,
+  MiniAppInfoTable,
+} from "../../../../components/mini-app/MiniAppTable";
 import {
   getMediaPreviewKind,
   MediaPreview,
@@ -43,44 +46,39 @@ function BlobMetadataSection(params: {
     <MiniAppInfoSection heading={EXPLORER_LABELS.blobBrowserMetadataHeading}>
       <MiniAppInfoTable className="mini-app-info-table--borderless">
         <tbody>
-          <tr>
-            <th>{EXPLORER_LABELS.blobBrowserIdRow}</th>
-            <td title={blob.blobId ?? undefined}>{compactId(blob.blobId)}</td>
-          </tr>
-          <tr>
-            <th>{EXPLORER_LABELS.blobBrowserStorageKeyRow}</th>
-            <td title={blob.storageKey}>{compactId(blob.storageKey)}</td>
-          </tr>
-          <tr>
-            <th>{EXPLORER_LABELS.blobBrowserMimeTypeRow}</th>
-            <td>{blob.mimeType ?? "-"}</td>
-          </tr>
-          <tr>
-            <th>{EXPLORER_LABELS.blobBrowserByteLengthRow}</th>
-            <td>
-              {formatByteLength(
-                preview.status === "ready"
-                  ? preview.byteLength
-                  : blob.byteLength,
-              )}
-            </td>
-          </tr>
-          <tr>
-            <th>{EXPLORER_LABELS.blobBrowserReferenceColumn}</th>
-            <td>
-              {getExplorerBlobBrowserReferenceCountLabel(blob.referenceCount)}
-              {", "}
-              {getExplorerBlobBrowserDocumentCountLabel(blob.documentCount)}
-            </td>
-          </tr>
-          <tr>
-            <th>{EXPLORER_LABELS.blobBrowserUpdatedRow}</th>
-            <td title={getBlobChangedAt(blob) ?? undefined}>
-              {formatMiniAppDateTime(getBlobChangedAt(blob), {
-                emptyFallback: "-",
-              })}
-            </td>
-          </tr>
+          <MiniAppInfoRow
+            label={EXPLORER_LABELS.blobBrowserIdRow}
+            title={blob.blobId ?? undefined}
+          >
+            {compactId(blob.blobId)}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
+            label={EXPLORER_LABELS.blobBrowserStorageKeyRow}
+            title={blob.storageKey}
+          >
+            {compactId(blob.storageKey)}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={EXPLORER_LABELS.blobBrowserMimeTypeRow}>
+            {blob.mimeType ?? "-"}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={EXPLORER_LABELS.blobBrowserByteLengthRow}>
+            {formatByteLength(
+              preview.status === "ready" ? preview.byteLength : blob.byteLength,
+            )}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow label={EXPLORER_LABELS.blobBrowserReferenceColumn}>
+            {getExplorerBlobBrowserReferenceCountLabel(blob.referenceCount)}
+            {", "}
+            {getExplorerBlobBrowserDocumentCountLabel(blob.documentCount)}
+          </MiniAppInfoRow>
+          <MiniAppInfoRow
+            label={EXPLORER_LABELS.blobBrowserUpdatedRow}
+            title={getBlobChangedAt(blob) ?? undefined}
+          >
+            {formatMiniAppDateTime(getBlobChangedAt(blob), {
+              emptyFallback: "-",
+            })}
+          </MiniAppInfoRow>
         </tbody>
       </MiniAppInfoTable>
     </MiniAppInfoSection>

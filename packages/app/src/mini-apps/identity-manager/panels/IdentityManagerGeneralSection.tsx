@@ -73,6 +73,7 @@ function IdentityDeveloperDetails({ model }: { model: IdentityManagerModel }) {
 }
 
 function getIdentitySectionActions({
+  backupPrompt,
   canAuthenticate,
   identity,
   identityMutations,
@@ -83,7 +84,10 @@ function getIdentitySectionActions({
     canAuthenticate,
     canGenerateKey: !localKeyringLocked,
     canRegisterCurrentIdentity: registration.canRegisterCurrentIdentity,
-    generateKey: () => void identity.generateKey(),
+    generateKey: () =>
+      void identity.generateKey().then((created) => {
+        if (created) backupPrompt.identityCreated();
+      }),
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,

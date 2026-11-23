@@ -4,14 +4,22 @@ export {
 } from "../../data/documents/shared/projection";
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 export { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
+export { validateDocumentSyncUpdateImports } from "../../data/documents/shared/sync/documentSyncImportVerdicts";
 export { selectDocumentSyncOutgoingBatch } from "../../data/documents/shared/sync/documentSyncOutgoingBatch";
-export type { SyncRemoteDocumentResult } from "../../data/documents/shared/sync/documentSyncTypes";
+export type {
+  IncomingDocumentSyncUpdateValidator,
+  SyncRemoteDocumentResult,
+} from "../../data/documents/shared/sync/documentSyncTypes";
 export {
   type DocumentSyncUpdateIsolationError,
-  type IncomingDocumentSyncUpdateValidator,
   isDocumentSyncUpdateIsolationError,
-  validateDocumentSyncUpdateImports,
 } from "../../data/documents/shared/sync/documentSyncUpdateIsolation";
+export {
+  assertNoVoidedDocumentSyncUpdates,
+  type DocumentSyncImportVerdicts,
+  type VoidedDocumentSyncUpdate,
+} from "../../data/documents/shared/sync/documentUpdateVerdict";
+export { processLoroRuntimeFailures } from "../../data/documents/shared/sync/loroRuntimeFailureLedger";
 export {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
@@ -30,6 +38,7 @@ export {
   DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
   DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
 } from "../../data/persistence/documents/records/documentHistoryPersistence";
+export type { DocumentSyncVerdictOutcome } from "../../data/persistence/documents/records/documentSyncVerdictPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {
@@ -131,6 +140,12 @@ export {
   type DocumentsWorkflowRuntimeSnapshot,
 } from "./runtime";
 export { documentCreateSeedCandidate } from "./sync/initialSync";
+export {
+  judgeDocumentSyncImports,
+  readProcessedCursorForSync,
+  recordDocumentSyncVerdicts,
+  reportDocumentSyncVoids,
+} from "./sync/processedCursor";
 export type { SyncRemoteDocumentRequest } from "./sync/remoteDocumentSyncPass";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {

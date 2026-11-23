@@ -237,7 +237,7 @@ export async function createMultiEpochDocumentFixture(input: {
       commitLsnMode: "tracked",
       contentKeyBundles: [historicalBundle],
       documentId: DOCUMENT_ID,
-      pullPage: { hasMore: false, nextCursor: null },
+      pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
       updates: updates.map(syncResponseUpdate),
     } satisfies DocumentSyncResponse,
   };

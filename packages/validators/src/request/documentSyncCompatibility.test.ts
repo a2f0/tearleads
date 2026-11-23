@@ -52,7 +52,7 @@ function createSyncResponse() {
     commitLsnMode: "tracked",
     contentKeyBundles: [],
     documentId: "document-1",
-    pullPage: { hasMore: false, nextCursor: null },
+    pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
     updates: [
       {
         accessEpoch: 1,

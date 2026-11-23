@@ -7,6 +7,7 @@ import {
   persistedStateFromProjection,
   readOnlySyncApi,
 } from "../../../../test/helpers/workflows/documentSyncFixtures";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 
 test.each([
@@ -145,6 +146,7 @@ test("raw history reprocesses a submitted response with one fresh projection", a
             new Error("cached projection omitted a predecessor key"),
           );
         }
+        return emptyDocumentSyncImportVerdicts();
       },
       targetSecretKey: fixture.secretKey,
       writerProjection: fixture.writerProjection,

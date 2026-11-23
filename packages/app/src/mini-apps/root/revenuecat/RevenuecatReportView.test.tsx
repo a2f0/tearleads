@@ -58,7 +58,7 @@ test("the RevenueCat report filters by disposition and opens the buyer", async (
       }),
     );
     await view.findByRole("group", { name: "Identity" });
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     await view.findByRole("heading", { name: REPORT_HEADING });
   } finally {
     restore();
@@ -94,13 +94,13 @@ test("a reported delivery opens its organization's billing, with its webhooks", 
       })[0] as HTMLElement,
     );
     await view.findByRole("group", { name: "Identity" });
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     await view.findByText(/RENEWAL · applied/);
     expect(
       view.getByRole("tab", { name: "Billing" }).getAttribute("aria-selected"),
     ).toBe("true");
 
-    clickRootToolbarButton(view, "Back");
+    await clickRootToolbarButton(view, "Back");
     await view.findByRole("heading", { name: REPORT_HEADING });
   } finally {
     restore();

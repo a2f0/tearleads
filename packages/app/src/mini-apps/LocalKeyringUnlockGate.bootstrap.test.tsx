@@ -3,6 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import {
   answerAccountNamePrompt,
   chooseNewIdentity,
+  confirmRecoveryKeyBackup,
 } from "../../test/helpers/accountNamePrompt";
 import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
@@ -46,7 +47,7 @@ for (const [appId, contentSelector] of [
   ["explorer", ".explorer"],
   ["contacts", ".contacts"],
   ["notes", ".notes-list-home, .note-document-editor"],
-  ["organizations", ".organizations-list"],
+  ["shared-with-me", ".shared-with-me-table-wrap"],
   ["root", ".root-console"],
 ] as const) {
   test(`${appId} boots directly into provisioning progress and the name prompt without a local-key prompt`, async () => {
@@ -105,6 +106,8 @@ for (const [appId, contentSelector] of [
       // prompt holds the app until it is given.
       await chooseNewIdentity(view.container);
       await answerAccountNamePrompt(view.container);
+      // The backup agreement holds the app just as the name prompt does.
+      await confirmRecoveryKeyBackup(view.container);
       await waitFor(
         () => {
           expect(view.getByTestId("session").textContent).toBe("true");

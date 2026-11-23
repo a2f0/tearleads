@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/bob-and-alice",
-  "version": "0.1.23",
+  "version": "0.1.24",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -11,6 +11,7 @@
     "@tearleads/api": "workspace:*",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/crypto": "workspace:*",
+    "@tearleads/loro": "workspace:*",
     "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:"
   }

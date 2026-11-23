@@ -41,7 +41,7 @@ test("Reports lists every report without loading one, and each row drills in and
       fireEvent.click(within(body).getByText(report.description));
       await view.findByRole("heading", { name: report.label });
       expect(view.queryByRole("table", { name: "Reports" })).toBeNull();
-      clickRootToolbarButton(view, "Back");
+      await clickRootToolbarButton(view, "Back");
     }
     await view.findByRole("table", { name: "Reports" });
     // The listing itself requests nothing; each report loaded once, on open.

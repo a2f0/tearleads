@@ -102,6 +102,8 @@ interface ExplorerDetailPanelProps {
   currentUserId: string | null | undefined;
   documentListRevision: number;
   onRecoveryChanged: () => void;
+  /** Whether the database is open, so the shared sync queues can be read. */
+  dbReady: boolean;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   domainScope: DomainScope;
@@ -243,8 +245,8 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         blobPickTarget={params.blobPickTarget}
         blobStore={params.blobStore}
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+        dbReady={params.dbReady}
         domainScope={params.domainScope}
-        documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
         isAuthenticated={params.isAuthenticated}
         loadBlobInfo={params.loadBlobInfo}

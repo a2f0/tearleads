@@ -61,6 +61,7 @@ import {
   recordDocumentSyncFailureInTransaction,
   selectHasRecordedTerminalSyncFailures,
 } from "./documentSyncFailurePersistence";
+import { deleteDocumentSyncVerdictsInTransaction } from "./documentSyncVerdictPersistence";
 
 /** The exact continuation `invalidateDocumentSyncPullContinuation` replaces. */
 export interface DocumentSyncPullContinuationInvalidation {
@@ -218,6 +219,9 @@ export class DocumentRecordRepository {
             ),
           )
           .run();
+        await deleteDocumentSyncVerdictsInTransaction(db, scope.appKind, [
+          scope.localId,
+        ]);
       },
     );
   }

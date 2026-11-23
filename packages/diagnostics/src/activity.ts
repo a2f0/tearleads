@@ -13,8 +13,8 @@ const DIAGNOSTIC_AREAS = [
   "identity-manager",
   "notes",
   "org-manager",
-  "organizations",
   "root",
+  "shared-with-me",
   "system-monitor",
 ] as const;
 const DIAGNOSTIC_ACTIONS = [

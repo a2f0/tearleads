@@ -129,6 +129,7 @@ function renderExplorerDetailPanelWithBlobPick(
 ) {
   const { appData, blobPick, model } = params;
   const { routeState } = model;
+  const dbReady = appData.infra.dbStatus === "ready";
 
   return (
     <ExplorerDetailPanel
@@ -138,7 +139,8 @@ function renderExplorerDetailPanelWithBlobPick(
       blobPickTarget={blobPick.pickTarget}
       blobStore={appData.infra.blobStore}
       billingBlockedOrganizationId={params.billingBlockedOrganizationId}
-      canActivateLinkedContainer={appData.infra.dbStatus === "ready"}
+      canActivateLinkedContainer={dbReady}
+      dbReady={dbReady}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
       canShareWithPeer={model.canShareWithPeer}
       contactAvatarUrlByLocalId={model.contactAvatarUrlByLocalId}

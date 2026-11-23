@@ -89,9 +89,14 @@ export function rootToolbar(view: RenderResult) {
   return within(view.getByRole("toolbar", { name: "Toolbar" }));
 }
 
-/** Clicks a window toolbar button: Back, Refresh, or Audit activity. */
-export function clickRootToolbarButton(view: RenderResult, name: string) {
-  fireEvent.click(rootToolbar(view).getByRole("button", { name }));
+/**
+ * Clicks a window toolbar button: Back, Refresh, or Audit activity. It waits
+ * for the button, since a view's registration reaches the toolbar a render
+ * after the view itself: a report's error can show while Refresh still reads
+ * "Refreshing...".
+ */
+export async function clickRootToolbarButton(view: RenderResult, name: string) {
+  fireEvent.click(await rootToolbar(view).findByRole("button", { name }));
 }
 
 /** Opens Reports, then the report the listing labels `label`. */

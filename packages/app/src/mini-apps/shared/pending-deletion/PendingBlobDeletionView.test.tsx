@@ -64,7 +64,9 @@ test("pending deletions refresh replaces collected rows and pagination appends t
   expect(view.getByText("first-blob")).toBeTruthy();
   refreshed = true;
   fireEvent.click(
-    within(view.getByRole("toolbar")).getByRole("button", { name: "Refresh" }),
+    await within(view.getByRole("toolbar")).findByRole("button", {
+      name: "Refresh",
+    }),
   );
   await view.findByText("still-pending");
   expect(view.queryByText("first-blob")).toBeNull();
@@ -105,7 +107,9 @@ test("access refusal clears earlier pages instead of displaying an empty success
   expect(view.queryByText("No blobs are pending deletion.")).toBeNull();
   denied = false;
   fireEvent.click(
-    within(view.getByRole("toolbar")).getByRole("button", { name: "Refresh" }),
+    await within(view.getByRole("toolbar")).findByRole("button", {
+      name: "Refresh",
+    }),
   );
   await waitFor(() => expect(view.getByText("private-blob")).toBeTruthy());
 });
