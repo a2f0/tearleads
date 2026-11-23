@@ -88,11 +88,11 @@ function carriesNoOperation(doc: LoroDoc, update: Uint8Array): boolean {
 
 /**
  * Prove that an update or snapshot blob contains the document's exact
- * operations for its declared version-vector range, which for an empty range
- * means none. Rebuild from the exact prefix and compare canonical operation
- * identity across current update and snapshot forms without letting
- * same-peer/counter conflicts hide in an import.
- * A Loro runtime failure (`isLoroRuntimeFailure`) is thrown, not reported as a
+ * operations for its declared version-vector range; for an empty range, a
+ * snapshot that carries none. Rebuild from the exact prefix and compare
+ * canonical operation identity across current update and snapshot forms
+ * without letting same-peer/counter conflicts hide in an import. A Loro
+ * runtime failure (`isLoroRuntimeFailure`) is thrown, not reported as a
  * mismatch.
  */
 export function updateMatchesDocumentHistory(
@@ -116,7 +116,9 @@ export function updateMatchesDocumentHistory(
         metadata.partialEndVersionVector,
       )
     ) {
-      return carriesNoOperation(doc, update);
+      // Only the empty rotation baseline, a snapshot, declares an empty
+      // range; the API refuses any other update that does.
+      return metadata.mode === "snapshot" && carriesNoOperation(doc, update);
     }
     const startVersion = decodeVersionVector(
       metadata.partialStartVersionVector,

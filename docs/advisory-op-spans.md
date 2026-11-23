@@ -206,11 +206,12 @@ stored cursor that is not the signed one fails the pull closed.
 
 A document whose every update its author voided has an empty snapshot. Its
 baseline declares no operation and signs the cursor alone, so the gates weigh
-only the updates after it, and a new reader starts from the empty baseline
-without meeting the voids (#3194). The API admits an empty span only on a
-rotation baseline that signs a cursor. A document never written has no
-cursor, so its unlink carries no baseline and the API requires that no update
-is committed.
+only the updates after it, and a new reader's first pull is redirected past
+the voids (#3194). The empty baseline carries nothing, so no pull serves it,
+though a pull's cursor still reaches it, and it never keeps a later baseline
+from redirecting. The API admits an empty span only on a rotation baseline
+that signs a cursor. A document never written has no cursor, so its unlink
+carries no baseline and the API requires that no update is committed.
 
 A rotation by a device whose older decoder voids an update a newer one reads
 leaves that update out of the baseline for every reader. That is an accepted

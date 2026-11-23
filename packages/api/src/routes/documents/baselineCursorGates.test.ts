@@ -289,13 +289,53 @@ test("POST /documents/:documentId/unlink takes an empty baseline that signs its 
   if (!baselineId) throw new Error("Expected a rotation baseline");
 
   // A new reader starts at the empty baseline and never meets the overclaim.
+  // The baseline carries no operation, so it is not served either, and the
+  // pull's cursor still reaches it.
   const pulled = await pullAsNewReader(owner, created.id, unlinked);
   expect(pulled.status).toBe(200);
   const synced = await pulled.json();
   expect(isDocumentSyncResponse(synced)).toBe(true);
-  expect(synced.updates.map((update: { id: string }) => update.id)).toEqual([
-    baselineId,
-  ]);
+  expect(synced.updates).toEqual([]);
+  expect(synced.pullPage?.throughUpdateId).toBe(baselineId);
+});
+
+// The sync gates weigh a checkpoint the same way: an empty one that signs
+// its cursor covers an all-void log, and one without a cursor does not.
+test("POST /documents/:documentId/sync takes an empty checkpoint that signs its cursor", async () => {
+  const { created, overclaimId, owner, root } = await documentWithOverclaim();
+  const emptyCheckpoint = (coversThroughUpdateId?: string) =>
+    createSignedDocumentSyncRequest({
+      checkpoint: true,
+      coversThroughUpdateId,
+      created,
+      declaredSpan: {
+        partialEndVersionVector: emptyVersionVector(),
+        partialStartVersionVector: emptyVersionVector(),
+      },
+      owner,
+      root,
+    });
+
+  const uncovered = await postDocumentSync(
+    owner,
+    created.id,
+    (await emptyCheckpoint()).request,
+  );
+  expect(uncovered.status).toBe(409);
+  expect((await uncovered.json()).code).toBe(
+    DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+  );
+  expect(
+    (
+      await postDocumentSync(
+        owner,
+        created.id,
+        (
+          await emptyCheckpoint(overclaimId)
+        ).request,
+      )
+    ).status,
+  ).toBe(200);
 });
 
 // No honest client sends an empty baseline without a cursor: a document never

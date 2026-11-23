@@ -25,7 +25,7 @@ function voidReports(device: { errors: readonly { message: unknown }[] }) {
 // the unlink went without one, and the API refused it while any update was
 // committed. The reader's baseline is now an empty snapshot that signs its
 // processed cursor, so the API weighs only the updates after it. A fresh
-// install starts from that baseline and never meets the voids.
+// install is redirected past the voids and never meets them.
 test("a reader unlinks a document whose every update it voided", async () => {
   world = await World.create();
   const alice = await world.register("alice");
@@ -74,10 +74,14 @@ test("a reader unlinks a document whose every update it voided", async () => {
   expect(voidReports(fresh)).toBe(0);
   expect(await readText(liar, world.documentRef(document))).toContain("bob");
 
-  // A second rotation replays raw history that holds the empty baseline.
+  // A second rotation replays history that holds the empty baseline, and a
+  // device installed after it starts from the new baseline.
   await world.linkDocument(bob, document, handoff);
   await world.unlinkDocument(bob, document, handoff);
   expect(voidReports(reader)).toBe(reported);
   expect(await readText(fresh, world.documentRef(document))).toBe("bob\n");
+  const later = await world.newDevice(bob);
+  expect(await readText(later, world.documentRef(document))).toBe("bob\n");
+  expect(voidReports(later)).toBe(0);
   expectNoSecurityIncidents(world);
 }, 240_000);

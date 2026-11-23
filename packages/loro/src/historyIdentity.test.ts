@@ -318,3 +318,17 @@ test("update identity accepts a blob that declares and carries no operation", as
     reader.free();
   }
 });
+
+// Only a snapshot may declare an empty range: an empty update blob is output
+// the API refuses, so it still proves nothing.
+test("update identity rejects an update blob that declares no operation", async () => {
+  const document = await createDocument("empty-range-update");
+  try {
+    document.getText("text").update("held history");
+    document.commit();
+    const empty = exportUpdatesSince(document, encodeVersionVector(document));
+    expect(updateMatchesDocumentHistory(document, empty)).toBe(false);
+  } finally {
+    document.free();
+  }
+});

@@ -22,7 +22,10 @@ baseline is the empty snapshot, which declares no operation and signs the
 cursor alone, so the gate weighs only later updates (#3194). Before, the
 author sent no baseline, and the unlink was refused while any update was
 committed. The server still refuses an empty baseline without a cursor,
-which no honest client sends.
+which no honest client sends. The model's cursor is a committed update; the
+server weighs a cursor that names none as signing none, so it admits an empty
+baseline with such a cursor only when no update is committed, where it
+carries nothing and no pull serves it.
 
 ## Production Mapping
 
@@ -34,7 +37,7 @@ which no honest client sends.
 | `Gate` / `CoversAfter` | `committedFrontierAfterBaselineCursor` in `assertSyncRotationBaselinesSound` and `assertAtomicRotationBaselineCoversCommittedFrontier` |
 | `Gate`'s empty-snapshot rule | `assertOutgoingSpanOrCursoredEmptyBaseline`, which admits an empty span only for a rotation baseline that signs a cursor |
 | `Rotate`'s empty-snapshot rule | `buildDocumentRotationBaseline`, which builds an empty baseline only when `readProcessedCursorForVersion` yields a cursor |
-| `RedirectJumps` | `resolveBaselineRedirectAfterSequence` |
+| `RedirectJumps` | `resolveBaselineRedirectAfterSequence`, over `listMissingDocumentUpdateCandidates`, which never counts an empty baseline as missing |
 | the signed cursor in `Baselines` | `coversThroughUpdateId`, signed in `documentContentRecordMetadata` and stored as `baselineCoversThroughUpdateId` |
 
 ## Checked Properties and Bounds
