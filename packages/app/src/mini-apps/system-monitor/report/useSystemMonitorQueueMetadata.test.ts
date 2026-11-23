@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import type { PendingWriteQueueItem } from "@tearleads/client-sdk";
-import { createDomainScope } from "@tearleads/client-sdk";
 import { selectSystemMonitorWriteQueue } from "./useSystemMonitorQueueMetadata";
 
 const QUEUED_ITEM = {
@@ -17,38 +16,38 @@ const QUEUED_ITEM = {
   updatedAt: null,
 } satisfies PendingWriteQueueItem;
 
-test("a scope switch hides the prior queue when the replacement read never reports", () => {
-  const previousScope = createDomainScope();
-  const nextScope = createDomainScope();
+test("the queue is reported once a read settles and the db is ready", () => {
+  const state = {
+    items: [QUEUED_ITEM],
+    read: 1,
+    status: "ready",
+  } as const;
 
-  expect(
-    selectSystemMonitorWriteQueue({
-      dbReady: true,
-      domainScope: nextScope,
-      observed: {
-        domainScope: previousScope,
-        report: { status: "available", items: [QUEUED_ITEM] },
-      },
-    }),
-  ).toEqual({ status: "unavailable" });
+  expect(selectSystemMonitorWriteQueue({ dbReady: true, state })).toEqual({
+    status: "available",
+    items: [QUEUED_ITEM],
+  });
+  expect(selectSystemMonitorWriteQueue({ dbReady: false, state })).toEqual({
+    status: "unavailable",
+  });
 });
 
-test("the queue is exposed only for the exact active scope", () => {
-  const domainScope = createDomainScope();
-  const report = { status: "available", items: [QUEUED_ITEM] } as const;
-
+test("a queue not yet read is unavailable, and a failed read leaves out its rows", () => {
   expect(
     selectSystemMonitorWriteQueue({
       dbReady: true,
-      domainScope,
-      observed: { domainScope, report },
-    }),
-  ).toBe(report);
-  expect(
-    selectSystemMonitorWriteQueue({
-      dbReady: false,
-      domainScope,
-      observed: { domainScope, report },
+      state: { read: 1, status: "loading" },
     }),
   ).toEqual({ status: "unavailable" });
+  expect(
+    selectSystemMonitorWriteQueue({
+      dbReady: true,
+      state: {
+        items: [QUEUED_ITEM],
+        message: "PRIVATE disk path",
+        read: 2,
+        status: "failed",
+      },
+    }),
+  ).toEqual({ status: "failed" });
 });

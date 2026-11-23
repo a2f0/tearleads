@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import type {
-  ContainerDocumentQueries,
-  DomainScope,
-  PendingWriteQueueItem,
+import {
+  type ContainerDocumentQueries,
+  createDomainScope,
+  type PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { usePendingWriteCount } from "./usePendingWriteCount";
@@ -11,7 +11,8 @@ afterEach(cleanup);
 
 // A stub exercising only the one method the hook calls; the real coordinator /
 // persisted-document subscriptions are harmless in-memory registrations keyed by
-// the (opaque) domain scope, so no SDK mocking is needed.
+// the domain scope, so no SDK mocking is needed. Each test takes a fresh scope,
+// since the write-queue store is shared per scope.
 function queriesWithCount(count: number): ContainerDocumentQueries {
   const item: PendingWriteQueueItem = {
     containerId: null,
@@ -43,10 +44,9 @@ function queriesWithCount(count: number): ContainerDocumentQueries {
   } as unknown as ContainerDocumentQueries;
 }
 
-const scope = {} as DomainScope;
-
 test("stays in the loading state until the db is ready", () => {
   const queries = queriesWithCount(2);
+  const scope = createDomainScope();
   const { result } = renderHook(() =>
     usePendingWriteCount(queries, scope, false),
   );
@@ -62,6 +62,7 @@ test("stays in the loading state until the db is ready", () => {
 
 test("populates the count once the first read resolves", async () => {
   const queries = queriesWithCount(2);
+  const scope = createDomainScope();
   const { result } = renderHook(() =>
     usePendingWriteCount(queries, scope, true),
   );
@@ -73,6 +74,7 @@ test("populates the count once the first read resolves", async () => {
 
 test("resets to loading when the db goes not-ready", async () => {
   const queries = queriesWithCount(3);
+  const scope = createDomainScope();
   const { result, rerender } = renderHook(
     ({ ready }: { ready: boolean }) =>
       usePendingWriteCount(queries, scope, ready),
@@ -97,6 +99,7 @@ test("reports a failed read instead of loading forever", async () => {
       throw new Error("Local database schema is obsolete");
     },
   } as unknown as ContainerDocumentQueries;
+  const scope = createDomainScope();
   const { result } = renderHook(() =>
     usePendingWriteCount(queries, scope, true),
   );

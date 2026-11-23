@@ -25,6 +25,7 @@ import {
   ContainerKekHistoryUnavailableError,
   DocumentHistoryUnavailableError,
 } from "../../../data/documents/shared/projection";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { readContainerKeyEpoch } from "../../../data/keyingProjectionVerification/readers";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
@@ -292,7 +293,7 @@ test("authenticated raw history reports a retained epoch with no predecessor key
       resolveWriterPublicKey: writerKeyResolver(fixture),
       response,
       targetSecretKey: fixture.secretKey,
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       writerProjection: writerProjectionWithUnavailableHistory,
     };
     const error = await syncRemoteDocumentResultFromResponse(syncInput).then(

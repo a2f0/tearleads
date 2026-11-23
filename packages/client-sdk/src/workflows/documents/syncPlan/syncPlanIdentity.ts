@@ -300,6 +300,11 @@ export async function buildDocumentSyncPlan(
     localVersionVector: input.localVersionVector,
     ...(input.minLsn === undefined ? {} : { minLsn: input.minLsn }),
     outgoingUpdates,
+    ...(input.processedThroughUpdateId === undefined ||
+    input.localVersionVector === null ||
+    input.historyMode === "raw"
+      ? {}
+      : { processedThroughUpdateId: input.processedThroughUpdateId }),
     ...(input.pullCursor === undefined ? {} : { pullCursor: input.pullCursor }),
     supportsPullPagination: true,
   };

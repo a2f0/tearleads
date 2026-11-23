@@ -18,6 +18,10 @@ import type {
   DocumentSyncRequestResultOptions,
   PersistedDocumentSyncState,
 } from "../types";
+import type {
+  DocumentSyncImportVerdicts,
+  VoidedDocumentSyncUpdate,
+} from "./documentUpdateVerdict";
 import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
 
 export interface DocumentSyncPreparedUpdate {
@@ -45,15 +49,6 @@ export interface DocumentEncryptedPendingUpdate {
   plaintextHash: string;
 }
 
-export interface ParsedDocumentEncryptedUpdate {
-  ciphertext: Uint8Array;
-  contentKeyEpoch: number;
-  contentRecordId: string;
-  metadataHash: string;
-  nonceDomainHash: string;
-  iv: Uint8Array;
-}
-
 export interface DecryptedDocumentSyncUpdate {
   checkpointKind?: "rotate_baseline";
   checkpointPayloadKind?: "full_history_snapshot";
@@ -77,6 +72,12 @@ export interface BuildDocumentSyncPlanInput {
   localVersionVector: string | null;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;
+  /**
+   * The last update a completed pull reached, sent only with the version it
+   * was recorded with; see `processedCursor.ts`. A raw-history request or
+   * one without a version vector omits it.
+   */
+  processedThroughUpdateId?: string | undefined;
   pullCursor?: string | undefined;
   signedAt?: string | undefined;
 }
@@ -117,8 +118,22 @@ export interface MaterializedDocumentSyncPlan {
   staleRecoveryBaselineUpdateId?: string;
 }
 
+/**
+ * Judges a page's decrypted updates against the reader's document, normally
+ * with `validateDocumentSyncUpdateImports`, which also checks each payload
+ * against its signed span. A validator must return verdicts: the pass fails
+ * when it returns anything else.
+ */
+export type IncomingDocumentSyncUpdateValidator = (
+  result: Pick<
+    SyncRemoteDocumentResult,
+    "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
+  >,
+) => DocumentSyncImportVerdicts | Promise<DocumentSyncImportVerdicts>;
+
 export interface SyncRemoteDocumentResult {
   contentKey: Uint8Array;
+  /** The served updates this pass accepted, in server order. */
   decryptedUpdates: DecryptedDocumentSyncUpdate[];
   /**
    * Pending updates whose persisted re-key bound is exhausted. Non-zero means
@@ -132,6 +147,12 @@ export interface SyncRemoteDocumentResult {
    * pass. Terminal exhaustion reports false and uses the failure callback.
    */
   hasDeferredPendingUpdates: boolean;
+  /**
+   * The pull stopped at an update the Loro runtime failed on and has not
+   * settled: the pass applied what came before it, records no cursor, and
+   * does not pull again at once. A later pull judges it again.
+   */
+  hasHeldPull: boolean;
   /** Verified page progress was persisted, but remote pages remain. */
   hasIncompletePull: boolean;
   persistedState: PersistedDocumentSyncState;
@@ -140,6 +161,17 @@ export interface SyncRemoteDocumentResult {
   response: DocumentSyncResponse;
   settledPendingUpdateIds: readonly string[];
   acceptedRecoveryBaseline: boolean;
+  /**
+   * A fingerprint of each content key the pass judged served updates under,
+   * by epoch; a void is final only for the key it was judged with.
+   */
+  contentKeyFingerprintsByEpoch: ReadonlyMap<number, string>;
+  /**
+   * Served updates this pass will never apply, in server order: each one's
+   * payload is not its declared update, or it cannot join the history built
+   * from every earlier served update. The pull continues past them.
+   */
+  voidedUpdates: readonly VoidedDocumentSyncUpdate[];
   writerProjection?: DocumentWriterProjectionResponse | undefined;
 }
 

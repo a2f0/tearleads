@@ -11,7 +11,10 @@ import {
   MiniAppStatePanel,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../components/mini-app/MiniAppTable";
+import {
+  MiniAppInfoRow,
+  MiniAppInfoTable,
+} from "../../../components/mini-app/MiniAppTable";
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import {
   compactFingerprint,
@@ -161,93 +164,74 @@ function GrantDetailView({
         </MiniAppSectionHeading>
         <MiniAppInfoTable className="mini-app-info-table--borderless">
           <tbody>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.principal}</th>
-              <td title={grant.subjectId}>{getGrantPrincipalLabel(grant)}</td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.subjectType}</th>
-              <td>{getGrantSubjectTypeLabel(grant.subjectType)}</td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.subjectId}</th>
-              <td>
-                <code>{grant.subjectId}</code>
-              </td>
-            </tr>
+            <MiniAppInfoRow
+              label={ORG_MANAGER_LABELS.principal}
+              title={grant.subjectId}
+            >
+              {getGrantPrincipalLabel(grant)}
+            </MiniAppInfoRow>
+            <MiniAppInfoRow label={ORG_MANAGER_LABELS.subjectType}>
+              {getGrantSubjectTypeLabel(grant.subjectType)}
+            </MiniAppInfoRow>
+            <MiniAppInfoRow label={ORG_MANAGER_LABELS.subjectId}>
+              <code>{grant.subjectId}</code>
+            </MiniAppInfoRow>
             {grant.subjectType === "group" ? (
-              <tr>
-                <th>{ORG_MANAGER_LABELS.group}</th>
-                <td>
-                  <MiniAppButton
-                    onClick={() => openGroupRoute(grant.subjectId)}
-                    type="button"
-                    variant="ghost"
-                  >
-                    {grant.groupName ?? compactFingerprint(grant.subjectId)}
-                  </MiniAppButton>
-                </td>
-              </tr>
+              <MiniAppInfoRow label={ORG_MANAGER_LABELS.group}>
+                <MiniAppButton
+                  onClick={() => openGroupRoute(grant.subjectId)}
+                  type="button"
+                  variant="ghost"
+                >
+                  {grant.groupName ?? compactFingerprint(grant.subjectId)}
+                </MiniAppButton>
+              </MiniAppInfoRow>
             ) : null}
-            <tr>
-              <th>{ORG_MANAGER_LABELS.container}</th>
-              <td title={getContainerDisplayTitle(grant)}>
-                {getContainerDisplayLabel(grant)}
-              </td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.containerId}</th>
-              <td>
-                <code>{grant.containerId}</code>
-              </td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.access}</th>
-              <td>{getAccessLabel(grant.accessLevel)}</td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.created}</th>
-              <td title={grant.createdAt}>
-                {formatMiniAppDate(grant.createdAt)}
-              </td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.updated}</th>
-              <td title={grant.updatedAt}>
-                {formatMiniAppDate(grant.updatedAt)}
-              </td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.metadataAccessEpoch}</th>
-              <td>{grant.metadataAccessEpoch}</td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.metadataAccessStateHash}</th>
-              <td>
-                <code>{grant.metadataAccessStateHash}</code>
-              </td>
-            </tr>
-            <tr>
-              <th>{ORG_MANAGER_LABELS.metadataDocumentId}</th>
-              <td>
-                {grant.metadataDocumentId ? (
-                  <code>{grant.metadataDocumentId}</code>
+            <MiniAppInfoRow
+              label={ORG_MANAGER_LABELS.container}
+              title={getContainerDisplayTitle(grant)}
+            >
+              {getContainerDisplayLabel(grant)}
+            </MiniAppInfoRow>
+            <MiniAppInfoRow label={ORG_MANAGER_LABELS.containerId}>
+              <code>{grant.containerId}</code>
+            </MiniAppInfoRow>
+            <MiniAppInfoRow label={ORG_MANAGER_LABELS.access}>
+              {getAccessLabel(grant.accessLevel)}
+            </MiniAppInfoRow>
+            <MiniAppInfoRow
+              label={ORG_MANAGER_LABELS.created}
+              title={grant.createdAt}
+            >
+              {formatMiniAppDate(grant.createdAt)}
+            </MiniAppInfoRow>
+            <MiniAppInfoRow
+              label={ORG_MANAGER_LABELS.updated}
+              title={grant.updatedAt}
+            >
+              {formatMiniAppDate(grant.updatedAt)}
+            </MiniAppInfoRow>
+            <MiniAppInfoRow label={ORG_MANAGER_LABELS.metadataAccessEpoch}>
+              {grant.metadataAccessEpoch}
+            </MiniAppInfoRow>
+            <MiniAppInfoRow label={ORG_MANAGER_LABELS.metadataAccessStateHash}>
+              <code>{grant.metadataAccessStateHash}</code>
+            </MiniAppInfoRow>
+            <MiniAppInfoRow label={ORG_MANAGER_LABELS.metadataDocumentId}>
+              {grant.metadataDocumentId ? (
+                <code>{grant.metadataDocumentId}</code>
+              ) : (
+                ORG_MANAGER_LABELS.none
+              )}
+            </MiniAppInfoRow>
+            {grant.subjectType === "user" ? (
+              <MiniAppInfoRow label={ORG_MANAGER_LABELS.signingKey}>
+                {grant.signingKeyFingerprint ? (
+                  <code>{grant.signingKeyFingerprint}</code>
                 ) : (
                   ORG_MANAGER_LABELS.none
                 )}
-              </td>
-            </tr>
-            {grant.subjectType === "user" ? (
-              <tr>
-                <th>{ORG_MANAGER_LABELS.signingKey}</th>
-                <td>
-                  {grant.signingKeyFingerprint ? (
-                    <code>{grant.signingKeyFingerprint}</code>
-                  ) : (
-                    ORG_MANAGER_LABELS.none
-                  )}
-                </td>
-              </tr>
+              </MiniAppInfoRow>
             ) : null}
           </tbody>
         </MiniAppInfoTable>

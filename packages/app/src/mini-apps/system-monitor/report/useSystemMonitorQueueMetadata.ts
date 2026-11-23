@@ -1,22 +1,15 @@
-import type { DomainScope, DomainSyncSnapshot } from "@tearleads/client-sdk";
-import {
-  getDomainSyncCoordinatorSnapshot,
-  subscribeToDomainSyncCoordinator,
-  subscribeToPersistedDocuments,
+import type {
+  DomainSyncSnapshot,
+  PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../../providers/sdk/TearleadsProvider";
-import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
-import { createPendingWriteWatcher } from "../../../stores/write-queue/pendingWriteWatcher";
+import { useMemo } from "react";
+import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
+import { useDomainDocumentQueries } from "../../../providers/sdk/useDomainDocumentQueries";
+import { useDomainSyncSnapshot } from "../../../providers/sdk/useDomainSyncSnapshot";
+import type { QueueReadState } from "../../../stores/sync-queues/queueReadMachine";
+import { getOrCreatePendingWriteQueueStore } from "../../../stores/sync-queues/syncQueueStores";
+import { useQueueRead } from "../../../stores/sync-queues/useQueueRead";
 import type { SystemMonitorWriteQueueReport } from "./systemMonitorReport";
-
-// `listPendingWrites()` is an identity-wide scan, so re-reads are throttled: a
-// burst of sync activity collapses into one scan per window. Matches the footer
-// indicator's cadence (`usePendingWriteCount`).
-const WRITE_QUEUE_READ_THROTTLE_MS = 750;
 
 interface SystemMonitorQueueMetadata {
   readonly writeQueue: SystemMonitorWriteQueueReport;
@@ -27,39 +20,36 @@ const UNAVAILABLE_WRITE_QUEUE: SystemMonitorWriteQueueReport = {
   status: "unavailable",
 };
 
+// The error text stays out of the report (see its redaction policy); the
+// Sync Status tray app and the Explorer Write Queue show it.
 const FAILED_WRITE_QUEUE: SystemMonitorWriteQueueReport = { status: "failed" };
-
-interface ScopedWriteQueueReport {
-  readonly domainScope: DomainScope | null;
-  readonly report: SystemMonitorWriteQueueReport;
-}
-
-const UNAVAILABLE_SCOPED_REPORT: ScopedWriteQueueReport = {
-  domainScope: null,
-  report: UNAVAILABLE_WRITE_QUEUE,
-};
 
 export function selectSystemMonitorWriteQueue(input: {
   readonly dbReady: boolean;
-  readonly domainScope: DomainScope;
-  readonly observed: ScopedWriteQueueReport;
+  readonly state: QueueReadState<PendingWriteQueueItem>;
 }): SystemMonitorWriteQueueReport {
-  return input.dbReady && input.observed.domainScope === input.domainScope
-    ? input.observed.report
-    : UNAVAILABLE_WRITE_QUEUE;
+  if (!input.dbReady) return UNAVAILABLE_WRITE_QUEUE;
+  switch (input.state.status) {
+    case "loading":
+      return UNAVAILABLE_WRITE_QUEUE;
+    case "failed":
+      return FAILED_WRITE_QUEUE;
+    case "ready":
+      return { status: "available", items: input.state.items };
+  }
 }
 
 /**
  * Gathers the durable write queue and the active domain scope's sync-lane
  * telemetry for the System Monitor report.
  *
- * Both are read the same way the Explorer sync panels and the footer indicator
- * read them — `containerContents.documentQueries().listPendingWrites()` for the
- * identity-wide queue and the domain sync coordinator snapshot for the lanes —
- * so the monitor agrees with them. The queue is kept in state via a throttled
- * subscription rather than fetched on click, because the copy button resolves
- * its value synchronously; the report therefore captures the latest observed
- * state.
+ * Both come from the sources the Explorer sync panels and the Sync Status tray
+ * app read — the scope's shared write-queue store and the domain sync
+ * coordinator snapshot — so the monitor agrees with them. The queue is kept
+ * current while the monitor is open rather than fetched on click, because the
+ * copy button resolves its value synchronously; the report therefore captures
+ * the latest observed state. The store belongs to the active domain scope, so
+ * a scope switch never shows the previous scope's queue.
  *
  * Only the active domain scope has a live sync coordinator (switching orgs
  * rotates the single scope), so the lanes cover the active scope while the
@@ -67,86 +57,23 @@ export function selectSystemMonitorWriteQueue(input: {
  */
 export function useSystemMonitorQueueMetadata(): SystemMonitorQueueMetadata {
   const runtime = useTearleadsRuntime();
-  const { containerContents } = useTearleads();
   const domainScope = runtime.state.domainScope;
-  const dbStatus = runtime.infra.dbStatus;
-  const dbReady = dbStatus === "ready";
-
-  const documentQueries = useMemo(
-    () => containerContents.documentQueries(),
-    // Keep this query handle stable across server events: rebuilding its
-    // watcher performs an immediate identity-wide scan outside the throttle.
-    // Match useExplorerDocumentQueries, which protects orphan visibility too.
-    [containerContents, dbStatus, domainScope],
+  const dbReady = runtime.infra.dbStatus === "ready";
+  const documentQueries = useDomainDocumentQueries(runtime);
+  const state = useQueueRead(
+    getOrCreatePendingWriteQueueStore(domainScope),
+    dbReady ? documentQueries : null,
   );
-
-  const [observedWriteQueue, setObservedWriteQueue] =
-    useState<ScopedWriteQueueReport>(UNAVAILABLE_SCOPED_REPORT);
-
-  useEffect(() => {
-    if (!dbReady) {
-      // Idempotent reset: the shared constant lets React's Object.is bail-out
-      // keep a re-render with unchanged not-ready inputs from looping.
-      setObservedWriteQueue(UNAVAILABLE_SCOPED_REPORT);
-      return;
-    }
-    const watcher = createPendingWriteWatcher({
-      listPendingWrites: () => documentQueries.listPendingWrites(),
-      // Subscribe to both signals the queue depends on: the sync coordinator
-      // (lane requests, completions, failures) and document persistence —
-      // deferred writes enqueue durable work without requesting a lane, so the
-      // coordinator alone would miss them.
-      subscribe: (onChange) => {
-        const unsubscribeCoordinator = subscribeToDomainSyncCoordinator(
-          domainScope,
-          onChange,
-        );
-        const unsubscribeDocuments = subscribeToPersistedDocuments(
-          domainScope,
-          onChange,
-        );
-        return () => {
-          unsubscribeCoordinator();
-          unsubscribeDocuments();
-        };
-      },
-      onSnapshot: (items) =>
-        setObservedWriteQueue({
-          domainScope,
-          report: { status: "available", items },
-        }),
-      // The error text stays out of the report (see its redaction policy); the
-      // footer sync indicator and the Explorer Write Queue show it.
-      onError: () =>
-        setObservedWriteQueue({ domainScope, report: FAILED_WRITE_QUEUE }),
-      throttleMs: WRITE_QUEUE_READ_THROTTLE_MS,
-    });
-    return () => watcher.stop();
-  }, [dbReady, documentQueries, domainScope]);
-
-  const subscribeSync = useCallback(
-    (listener: () => void) =>
-      subscribeToDomainSyncCoordinator(domainScope, listener),
-    [domainScope],
+  const writeQueue = useMemo(
+    () => selectSystemMonitorWriteQueue({ dbReady, state }),
+    [dbReady, state],
   );
-  const getSyncSnapshot = useCallback(
-    () => getDomainSyncCoordinatorSnapshot(domainScope),
-    [domainScope],
-  );
-  const syncSnapshot = useTearleadsExternalValue(
-    subscribeSync,
-    getSyncSnapshot,
-  );
+  const syncSnapshot = useDomainSyncSnapshot(domainScope);
 
   // An inactive scope yields an empty coordinator snapshot; report it as
   // unavailable until the database is ready rather than as a live-but-empty
   // coordinator.
   const syncLanes = dbReady ? syncSnapshot : null;
-  const writeQueue = selectSystemMonitorWriteQueue({
-    dbReady,
-    domainScope,
-    observed: observedWriteQueue,
-  });
 
   return { writeQueue, syncLanes };
 }

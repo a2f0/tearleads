@@ -114,6 +114,7 @@ export async function syncRemoteContainerMetadata(
       minLsn: input.lastCommitLsn ?? undefined,
       ...metadataIncomingUpdateIsolation({
         currentDocument: input.currentDocument,
+        documentId,
         execSql,
         isCurrent,
         logError: runtime.util.logError,

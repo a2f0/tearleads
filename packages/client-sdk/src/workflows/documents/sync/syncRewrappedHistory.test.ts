@@ -9,6 +9,7 @@ import {
 } from "../../../../test/helpers/data/documentFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { wrapDocumentContentKeyForCreate } from "../../../data/documents/shared/projection";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 
@@ -89,6 +90,7 @@ for (const historyMode of [undefined, "raw"] as const) {
               base64ToBytes(pendingUpdate.updateData),
             );
             authenticated = true;
+            return emptyDocumentSyncImportVerdicts();
           },
           writerProjection,
         });

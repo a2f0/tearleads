@@ -64,7 +64,9 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 
 - [Protocol specification](protocol-specification.md): messages, proofs, and
   validation rules.
-- [Loro E2EE sync protocol](loro-e2ee-sync-protocol.md).
+- [Loro E2EE sync protocol](loro-e2ee-sync-protocol.md) and
+  [advisory op spans](advisory-op-spans.md): void updates and the processed
+  cursor.
 - [Document link and sync protocol](document-link-and-sync-protocol.md).
 - [Document rekey and write history](document-rekey-and-audit-history.md),
   [raw history recovery](raw-document-history-recovery.md), and

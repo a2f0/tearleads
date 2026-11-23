@@ -1,5 +1,14 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { decodeImportBlobMeta } from "loro-crdt";
+import { decodeImportBlobMeta, LORO_VERSION } from "loro-crdt";
+
+/**
+ * The decoder whose verdicts a reader records: an update this decoder cannot
+ * read may be readable by a newer one, so a verdict about it holds only for
+ * the decoder that made it.
+ */
+export function loroDecoderIdentity(): string {
+  return `loro-crdt@${LORO_VERSION()}`;
+}
 
 export type ImportBlobMode = "snapshot" | "shallow-snapshot" | "update";
 

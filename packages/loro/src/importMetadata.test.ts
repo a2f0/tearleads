@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { requireCurrentImportBlobMode } from "./importMetadata";
+import {
+  loroDecoderIdentity,
+  requireCurrentImportBlobMode,
+} from "./importMetadata";
 
 test.each(["outdated-snapshot", "outdated-update"] as const)(
   "metadata refuses %s instead of adapting the obsolete encoding",
@@ -16,3 +19,7 @@ test.each(["snapshot", "shallow-snapshot", "update"] as const)(
     expect(requireCurrentImportBlobMode(mode)).toBe(mode);
   },
 );
+
+test("the decoder identity names the loaded loro-crdt version", () => {
+  expect(loroDecoderIdentity()).toMatch(/^loro-crdt@\d+\.\d+\.\d+/u);
+});

@@ -1,9 +1,11 @@
 import { encodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
+  assertNoVoidedDocumentSyncUpdates,
   createDocumentWriterPublicKeyResolver,
   type DocumentRotationProofMode,
   type DocumentSyncPullContinuation,
+  processLoroRuntimeFailures,
   RemoteDocumentService,
   readPullContinuation,
   resolveDocumentCreateAuthor,
@@ -97,24 +99,27 @@ function rotationIncomingUpdateIsolation(input: {
     validateIncomingUpdates: async (
       result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
     ) => {
-      await validateDocumentSyncUpdateImports({
-        currentDocument: input.currentDocument,
-        decryptedUpdates: result.decryptedUpdates,
-        responseUpdates: result.response.updates,
-      });
-      const decryptedUpdates = ordinaryRawHistoryUpdates(
-        result.decryptedUpdates,
+      // Rotation re-encrypts this history, so a void stays a failure here.
+      // It records no runtime attempts, so its failures count toward none.
+      const judgeWhole = async (
+        decryptedUpdates: SyncRemoteDocumentResult["decryptedUpdates"],
+        responseUpdates = result.response.updates,
+      ) =>
+        assertNoVoidedDocumentSyncUpdates(
+          await validateDocumentSyncUpdateImports({
+            currentDocument: input.currentDocument,
+            decryptedUpdates,
+            responseUpdates,
+            runtimeLedger: processLoroRuntimeFailures.unrecorded(),
+          }),
+        );
+      await judgeWhole(result.decryptedUpdates);
+      const ordinary = ordinaryRawHistoryUpdates(result.decryptedUpdates);
+      const ids = new Set(ordinary.map((update) => update.id));
+      return judgeWhole(
+        ordinary,
+        result.response.updates.filter((update) => ids.has(update.id)),
       );
-      const ordinaryUpdateIds = new Set(
-        decryptedUpdates.map((update) => update.id),
-      );
-      await validateDocumentSyncUpdateImports({
-        currentDocument: input.currentDocument,
-        decryptedUpdates,
-        responseUpdates: result.response.updates.filter((update) =>
-          ordinaryUpdateIds.has(update.id),
-        ),
-      });
     },
   };
 }
@@ -191,6 +196,7 @@ async function pullVerifiedRawHistoryForRotation(input: {
     }
 
     assertRotationRecoveryGeneration(input);
+    assertNoVoidedDocumentSyncUpdates(synced.voidedUpdates);
 
     importSyncedDocumentUpdates(
       input.rebuiltDocument,

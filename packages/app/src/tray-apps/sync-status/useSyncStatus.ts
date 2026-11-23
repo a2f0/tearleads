@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useDomainDocumentQueries } from "../../providers/sdk/useDomainDocumentQueries";
 import { usePausedOrganizationIds } from "../../providers/sdk/usePausedOrganizationIds";
 import {
   describeSyncStatus,
@@ -23,9 +24,9 @@ interface SyncStatusResult {
 }
 
 /**
- * The Sync Status tray app's data source. It reads the same durable write queue
- * the Explorer "Write Queue" panel does — `containerContents.documentQueries()
- * .listPendingWrites()` (see `usePendingWriteCount`) — treating a non-empty queue
+ * The Sync Status tray app's data source. It reads the durable write queue
+ * through the store the Explorer "Write Queue" panel shares (see
+ * `usePendingWriteCount`), treating a non-empty queue
  * as unflushed local data, and takes billing from the shared
  * `useOrganizationBilling` snapshot, so the widget agrees with the Explorer and
  * the billing banner about whether the org can sync. That snapshot is scoped to
@@ -37,19 +38,12 @@ interface SyncStatusResult {
 export function useSyncStatus(): SyncStatusResult {
   const appData = useTearleadsRuntime();
   const billing = useOrganizationBilling();
-  const { containerContents, organizations, syncBillingGate } = useTearleads();
+  const { organizations, syncBillingGate } = useTearleads();
   const domainScope = appData.state.domainScope;
-  const dbStatus = appData.infra.dbStatus;
-  const dbReady = dbStatus === "ready";
+  const dbReady = appData.infra.dbStatus === "ready";
   const online = appData.state.online;
 
-  const documentQueries = useMemo(
-    () => containerContents.documentQueries(),
-    // Keep this query handle stable across server events: rebuilding its
-    // watcher performs an immediate identity-wide scan outside the throttle.
-    // Match useExplorerDocumentQueries, which protects orphan visibility too.
-    [containerContents, dbStatus, domainScope],
-  );
+  const documentQueries = useDomainDocumentQueries(appData);
 
   const queue = usePendingWriteCount(documentQueries, domainScope, dbReady);
 

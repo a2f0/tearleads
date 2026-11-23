@@ -425,13 +425,13 @@ export const subsystems: readonly Subsystem[] = [
     name: "App Document & Device State",
     package: "app",
     responsibility:
-      "App-side domain state machines for documents, their history replay, and device-first projection, the write-queue watcher the Sync Status tray app and System Monitor share, plus the system-containers store and its org-aware Trash resolver.",
-    seam: "stores/documents; stores/device-first; stores/write-queue",
+      "App-side domain state machines for documents, their history replay, and device-first projection, the sync-queue read stores the tray, System Monitor, and Explorer share, plus the system-containers store and its org-aware Trash resolver.",
+    seam: "stores/documents; stores/device-first; stores/sync-queues",
     paths: [
       `${app}/stores/documents/`,
       `${app}/stores/document-history/`,
       `${app}/stores/device-first/`,
-      `${app}/stores/write-queue/`,
+      `${app}/stores/sync-queues/`,
       `${app}/stores/systemContainers.ts`,
       `${app}/stores/systemContainerTrash.ts`,
     ],

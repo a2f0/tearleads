@@ -72,6 +72,7 @@ export async function listMissingSyncUpdatesForResponse(input: {
                 contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,
                 documentId: input.documentId,
                 executor: input.executor,
+                firstPage: input.request.pullCursor === undefined,
                 localVersionVector: input.request.localVersionVector,
                 upperBoundSequence: input.pullPagePlan.upperBoundSequence,
               }),

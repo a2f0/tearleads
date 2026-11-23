@@ -17,6 +17,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
   localVersionVector?: string | null | undefined;
   minLsn?: string | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
+  processedThroughUpdateId?: string | undefined;
   pullCursor?: string | undefined;
   projection: DocumentWriterProjectionResponse;
   regenerateQueuedCheckpoints: boolean;
@@ -87,6 +88,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
     onSyncTrace: input.sync.onSyncTrace,
     pendingUpdates: input.pendingUpdates,
     persistVerificationCheckpoints: rekeyPlans?.length ? false : undefined,
+    processedThroughUpdateId: input.processedThroughUpdateId,
     pullCursor: input.pullCursor,
     regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,
     signedAt: input.sync.signedAt,

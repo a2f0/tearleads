@@ -249,6 +249,11 @@ async function runRemoteDocumentSyncAttempt(input: {
       input.state.recoveryPendingUpdatesById,
     ),
     pendingUpdates: input.state.pendingUpdates,
+    // A lowered version asks for updates the cursor would skip.
+    processedThroughUpdateId:
+      input.state.recoveryPendingUpdatesById.size === 0
+        ? input.sync.processedThroughUpdateId
+        : undefined,
     pullContinuation: input.state.pullContinuation,
     regenerateQueuedCheckpoints: input.state.regenerateQueuedCheckpoints,
     sync: input.sync,

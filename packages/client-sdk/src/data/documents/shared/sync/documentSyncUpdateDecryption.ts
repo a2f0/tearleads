@@ -1,13 +1,12 @@
 import {
-  assertAesGcmIv,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
+  type ParsedDocumentEncryptedUpdate,
+  parseDocumentEncryptedUpdate,
 } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import { versionVectorsEqual } from "@tearleads/loro";
-import { isPlainObject as isPlainRecord } from "@tearleads/validators/isPlainObject";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { contentRecordAdditionalDataBytes } from "../contentRecordAdditionalData";
 import {
@@ -17,95 +16,14 @@ import {
 import { assertDecryptedDocumentUpdateMetadata } from "../documentUpdateIntegrity";
 import { assertDocumentUpdatePlaintextHash } from "../plaintextHash";
 import {
-  assertOnlyRecordKeys,
   asWebCryptoBytes,
-  readRecordPositiveInteger,
   readRecordString,
   readWriteHeader,
 } from "../readers";
-import {
-  DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
-  DOCUMENT_ENCRYPTED_UPDATE_KEYS,
-} from "../types";
-import type {
-  DecryptedDocumentSyncUpdate,
-  ParsedDocumentEncryptedUpdate,
-} from "./documentSyncTypes";
+import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
 import { isolateDocumentSyncUpdateError } from "./documentSyncUpdateIsolation";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
-
-function parseDocumentEncryptedUpdate(
-  encryptedData: string,
-): ParsedDocumentEncryptedUpdate {
-  let value: unknown;
-  try {
-    value = JSON.parse(encryptedData);
-  } catch {
-    throw new Error("Document encrypted update is invalid JSON");
-  }
-  if (!isPlainRecord(value)) {
-    throw new Error("Document encrypted update must be an object");
-  }
-  assertOnlyRecordKeys(
-    value,
-    DOCUMENT_ENCRYPTED_UPDATE_KEYS,
-    "Document encrypted update",
-  );
-  if (
-    readRecordString(value, "format", "Document encrypted update") !==
-    DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT
-  ) {
-    throw new Error("Document encrypted update format is invalid");
-  }
-  const version = readRecordPositiveInteger(
-    value,
-    "version",
-    "Document encrypted update",
-  );
-  if (version !== 1) {
-    throw new Error(
-      `Document encrypted update version ${version} is invalid; expected 1`,
-    );
-  }
-  if (
-    readRecordString(value, "encryptionSuite", "Document encrypted update") !==
-    CONTENT_RECORD_ENCRYPTION_SUITE
-  ) {
-    throw new Error("Document encrypted update suite is invalid");
-  }
-
-  const iv = base64ToBytes(
-    readRecordString(value, "iv", "Document encrypted update"),
-  );
-  assertAesGcmIv(iv, "Document encrypted update IV is invalid");
-  return {
-    ciphertext: base64ToBytes(
-      readRecordString(value, "ciphertext", "Document encrypted update"),
-    ),
-    contentKeyEpoch: readRecordPositiveInteger(
-      value,
-      "contentKeyEpoch",
-      "Document encrypted update",
-    ),
-    contentRecordId: readRecordString(
-      value,
-      "contentRecordId",
-      "Document encrypted update",
-    ),
-    metadataHash: readRecordString(
-      value,
-      "metadataHash",
-      "Document encrypted update",
-    ),
-    nonceDomainHash: readRecordString(
-      value,
-      "nonceDomainHash",
-      "Document encrypted update",
-    ),
-    iv,
-  };
-}
 
 async function assertDocumentEncryptedUpdateMatchesHeader(input: {
   contentKeyEpoch: number;
@@ -303,12 +221,19 @@ async function decryptPayload(input: {
   }
 }
 
+/**
+ * Decrypts a served update and checks its plaintext hash. With
+ * `verifyLoroMetadata` it also checks that the payload's Loro metadata is the
+ * signed span; a judged pull leaves that to the import judge, which reads
+ * every payload in server order and can tell a void from the runtime failing.
+ */
 export async function decryptDocumentSyncUpdate(input: {
   contentKeyEpoch: number;
   contentKeyMaterial: CryptoKey;
   documentId: string;
   organizationId: string;
   update: SyncResponseUpdate;
+  verifyLoroMetadata: boolean;
 }): Promise<DecryptedDocumentSyncUpdate> {
   const encrypted = await verifiedEncryptedSyncUpdate(input);
   const { plaintextHashKey, updateData } = await decryptPayload({
@@ -330,7 +255,9 @@ export async function decryptDocumentSyncUpdate(input: {
     });
   }
   try {
-    assertDecryptedDocumentUpdateMetadata(updateData, input.update);
+    if (input.verifyLoroMetadata) {
+      assertDecryptedDocumentUpdateMetadata(updateData, input.update);
+    }
   } catch (error) {
     throw isolateDocumentSyncUpdateError({
       cause: error,
