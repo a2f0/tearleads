@@ -132,7 +132,8 @@ export async function buildDocumentLinkRequest(input: {
         })),
       ],
       contentKeyBundle: {
-        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
+        contentKeyCommitment:
+          input.createdDocument.contentKeyBundle.contentKeyCommitment,
         contentKeyEpoch: input.createdDocument.contentKeyEpoch,
         linkSetManifestHash: manifestHash,
         targetHash,
