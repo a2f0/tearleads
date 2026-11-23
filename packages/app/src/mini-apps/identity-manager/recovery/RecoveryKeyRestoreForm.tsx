@@ -1,4 +1,5 @@
 import { type FormEvent, useMemo } from "react";
+import { SavedPassphraseButton } from "../../../components/identity/SavedPassphraseButton";
 import {
   MiniAppButton,
   MiniAppField,
@@ -71,6 +72,10 @@ export function RecoveryKeyRestoreForm({
           onScan={setRestorePassphrase}
         />
       )}
+      <SavedPassphraseButton
+        disabled={busy !== null || !canRestore}
+        onPick={setRestorePassphrase}
+      />
       {restorePassphrase && canRestore && (
         <MiniAppStatus>
           Choose Restore from Passphrase to restore this identity and log in.

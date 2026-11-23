@@ -24,3 +24,10 @@
 # Kotlin Coroutines
 -keep class kotlin.coroutines.jvm.internal.SpillingKt { *; }
 -dontwarn kotlin.coroutines.jvm.internal.SpillingKt
+
+# Credential Manager finds its Play Services provider (Android 12 and 13) by
+# reflection, so keep it whenever the manager itself survives shrinking.
+-if class androidx.credentials.CredentialManager
+-keep class androidx.credentials.playservices.** {
+  *;
+}

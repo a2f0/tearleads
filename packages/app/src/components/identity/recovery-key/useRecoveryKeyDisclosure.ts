@@ -1,5 +1,10 @@
-import type { FileSaver } from "@tearleads/client-sdk";
 import { useLayoutEffect, useRef, useState } from "react";
+import type { PasswordKeychain } from "../../../host/PasswordKeychain";
+import {
+  identityKeychainEntry,
+  KEYCHAIN_SAVE_STATUS,
+  usePasswordKeychain,
+} from "../../../identity/identityKeychain";
 import {
   discardRecoveryKeyPrint,
   printRecoveryKey,
@@ -32,30 +37,59 @@ async function copyRecoveryKey(recoveryKey: string) {
   await navigator.clipboard.writeText(recoveryKey);
 }
 
-/** Sends the key off the screen: to the clipboard, a file, or the printer. */
-async function exportRecoveryKey(
-  kind: Exclude<RecoveryKeyDisclosure, "reveal" | "qr">,
-  input: {
-    readonly fileSaver: FileSaver;
-    readonly seedPhrase: string;
-    readonly signingFingerprint: string | null;
-  },
+/** Offers the key to the password manager; returns the status to show. */
+async function saveRecoveryKeyToKeychain(
+  keychain: PasswordKeychain | null,
+  signingFingerprint: string | null,
+  recoveryKey: string,
 ) {
-  const { fileSaver, seedPhrase, signingFingerprint } = input;
-  switch (kind) {
-    case "copy":
-      return copyRecoveryKey(seedPhrase);
-    case "download":
-      return downloadSeedPhraseFile(fileSaver, {
-        fileName: createSeedPhraseFileName({ signingFingerprint }),
-        seedPhrase,
-      });
-    case "print":
-      // Synchronous, so the print dialog opens inside the confirming click.
-      return printRecoveryKey({ seedPhrase, signingFingerprint });
-    default:
-      return kind satisfies never;
+  if (!keychain || !signingFingerprint) {
+    throw new Error("This device has no password manager to save to.");
   }
+  const outcome = await keychain.save(
+    identityKeychainEntry(signingFingerprint, recoveryKey),
+  );
+  return KEYCHAIN_SAVE_STATUS[outcome];
+}
+
+/**
+ * Sends the key off the screen: to the clipboard, a file, the printer, or the
+ * password manager. The export resolves to the status to show, which a
+ * password manager sets from what it reports.
+ */
+function useRecoveryKeyExport() {
+  const fileSaver = useFileSaver();
+  const keychain = usePasswordKeychain();
+  return async (
+    kind: Exclude<RecoveryKeyDisclosure, "reveal" | "qr">,
+    seedPhrase: string,
+    signingFingerprint: string | null,
+  ): Promise<string> => {
+    switch (kind) {
+      case "copy":
+        await copyRecoveryKey(seedPhrase);
+        break;
+      case "download":
+        await downloadSeedPhraseFile(fileSaver, {
+          fileName: createSeedPhraseFileName({ signingFingerprint }),
+          seedPhrase,
+        });
+        break;
+      case "keychain":
+        return saveRecoveryKeyToKeychain(
+          keychain,
+          signingFingerprint,
+          seedPhrase,
+        );
+      case "print":
+        // Synchronous, so the print dialog opens inside the confirming click.
+        printRecoveryKey({ seedPhrase, signingFingerprint });
+        break;
+      default:
+        return kind satisfies never;
+    }
+    return RECOVERY_KEY_DISCLOSURES[kind].successStatus;
+  };
 }
 
 export function useRecoveryKeyDisclosure(
@@ -63,7 +97,7 @@ export function useRecoveryKeyDisclosure(
   active: boolean,
 ) {
   const { seedPhrase, signingFingerprint } = useIdentity();
-  const fileSaver = useFileSaver();
+  const exportRecoveryKey = useRecoveryKeyExport();
   const { log, logError } = useLog();
   const [pendingDisclosure, setPendingDisclosure] =
     useState<RecoveryKeyDisclosure | null>(null);
@@ -135,6 +169,7 @@ export function useRecoveryKeyDisclosure(
 
   const runDisclosure = async (acknowledged: RecoveryKeyDisclosure) => {
     const disclosureCopy = RECOVERY_KEY_DISCLOSURES[acknowledged];
+    let successStatus = disclosureCopy.successStatus;
     const requestedFor = signingFingerprint;
     feedback.setError(null);
     feedback.setStatus(null);
@@ -150,16 +185,14 @@ export function useRecoveryKeyDisclosure(
         // identity the way an export can.
         setRevealed(true);
       } else {
-        await exportRecoveryKey(acknowledged, {
-          fileSaver,
+        successStatus = await exportRecoveryKey(
+          acknowledged,
           seedPhrase,
           signingFingerprint,
-        });
+        );
       }
-      log(disclosureCopy.successLog);
-      reportIfCurrent(requestedFor, () =>
-        feedback.setStatus(disclosureCopy.successStatus),
-      );
+      log(disclosureCopy.successLog ?? successStatus);
+      reportIfCurrent(requestedFor, () => feedback.setStatus(successStatus));
     } catch (operationError: unknown) {
       logError(disclosureCopy.failureLog, operationError);
       reportIfCurrent(requestedFor, () =>

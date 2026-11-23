@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     registerPlugin(RevenueCatPurchasePlugin.class);
+    registerPlugin(PasswordKeychainPlugin.class);
     super.onCreate(savedInstanceState);
     requestDebugLocalNetworkAccess();
   }

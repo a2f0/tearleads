@@ -16,10 +16,16 @@ import { APP_THEMES, type ThemeId } from "../theme/themes";
 import type { AppBuildInfo } from "./AppBuildInfo";
 import type { AppDiagnostics } from "./AppDiagnostics";
 import type { CreateFileViewerFn } from "./FileViewer";
+import type { CreatePasswordKeychainFn } from "./PasswordKeychain";
 import type { CreateScannerFn } from "./Scanner";
 
 export { createAppBuildInfo } from "./AppBuildInfo";
+export { browserPasswordKeychainFactory } from "./browserPasswordKeychain";
 export type { FileViewer } from "./FileViewer";
+export type {
+  PasswordKeychain,
+  PasswordKeychainSaveOutcome,
+} from "./PasswordKeychain";
 export { type Scanner, ScannerPhotoCleanupError } from "./Scanner";
 
 export type CreateSQLiteRuntimeFn = () => SQLiteRuntime;
@@ -252,6 +258,14 @@ export interface AppHostConfigOptions {
   readonly createFileSaver?: CreateFileSaverFn | undefined;
   readonly createFileViewer?: CreateFileViewerFn | undefined;
   readonly createNetworkStatus?: CreateNetworkStatusFn | undefined;
+  /**
+   * The platform's password keychain, offered an identity's recovery
+   * passphrase after it is created or restored, and from Identity Manager.
+   * Shells whose platform can show its own save prompt supply one: browsers
+   * with the Credential Management API's `PasswordCredential`, and Android's
+   * Credential Manager. Elsewhere it is omitted and no save is offered.
+   */
+  readonly createPasswordKeychain?: CreatePasswordKeychainFn | undefined;
   readonly createScanner?: CreateScannerFn | undefined;
   readonly subscribeConnectionRefresh?:
     | SubscribeConnectionRefreshFn

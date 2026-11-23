@@ -1,5 +1,6 @@
 import { renderApp } from "app/client";
 import {
+  browserPasswordKeychainFactory,
   createAppBuildInfo,
   createAppHostConfig,
   resolveAppHostProfile,
@@ -48,6 +49,9 @@ const hostConfig = createAppHostConfig({
     version: process.env.BUN_PUBLIC_APP_VERSION,
   }),
   createDirectCheckout: createWebDirectCheckout,
+  // Chromium browsers offer a new or restored identity's recovery passphrase
+  // to their password manager; others have no prompt to show.
+  createPasswordKeychain: browserPasswordKeychainFactory(),
   navigationMode:
     process.env.BUN_PUBLIC_NAVIGATION_MODE === "windowed"
       ? "windowed"
