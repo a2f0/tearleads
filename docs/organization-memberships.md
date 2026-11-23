@@ -81,7 +81,8 @@ While an organization is paused, a device:
   attachments, and key repairs for it stay queued. Sync Status says that sync
   is paused for an organization when nothing is queued, or when a queued write
   belongs to the paused organization; writes for other organizations still
-  read as sending. Its popover lists the paused organizations either way;
+  read as sending. Its popover shows how many organizations are paused either
+  way;
 - skips its containers when applying listed container pages, after tombstones
   have seen the full page, so the lane still completes and nothing below them
   is fetched. The device's own copy of each stays as it was;

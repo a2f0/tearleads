@@ -99,6 +99,15 @@ export function summarizePendingWrites(
  */
 export type BillingBlockScope = "active" | "other";
 
+/** Whose billing paused sync: the active org's lapse is the more specific. */
+export function selectBillingBlock(
+  activeOrganizationBlocked: boolean,
+  otherOrganizationBlocked: boolean,
+): BillingBlockScope | null {
+  if (activeOrganizationBlocked) return "active";
+  return otherOrganizationBlocked ? "other" : null;
+}
+
 interface SyncStatusInput {
   /**
    * Billing lapsed for the active org (expired trial or disabled) so
