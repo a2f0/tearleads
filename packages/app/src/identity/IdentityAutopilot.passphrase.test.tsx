@@ -1,4 +1,4 @@
-import { afterEach, expect, mock, spyOn, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import * as Crypto from "@tearleads/crypto";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import {
@@ -83,16 +83,18 @@ test(
 );
 
 test(
-  "a passphrase filled from the password manager restores without being offered back",
+  "onboarding restores from a passphrase filled from the password manager",
   async () => {
     useTestApiAppHandlers();
     const passphrase = Crypto.createIdentitySeedPhrase();
-    const save = mock(async () => "saved" as const);
     const config = createTestHostConfig({
       autoProvisionIdentity: true,
       promptAccountName: true,
     }).withOverrides({
-      createPasswordKeychain: () => ({ pick: async () => passphrase, save }),
+      createPasswordKeychain: () => ({
+        pick: async () => passphrase,
+        save: async () => "saved",
+      }),
     });
     const device = renderLifecyclePane(config);
     const recovery = within(device.pane);
@@ -115,9 +117,6 @@ test(
       () => expect(device.sdk().identity.seedPhrase).toBe(passphrase),
       { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
     );
-    // Let the restore's completion run: that is where an offer would be made.
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-    expect(save).not.toHaveBeenCalled();
     await unmountLifecyclePane(device);
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,

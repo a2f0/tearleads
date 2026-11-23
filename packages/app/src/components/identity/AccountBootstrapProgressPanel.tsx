@@ -25,13 +25,8 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
         ? accountNaming.error
         : undefined;
   const [value, setValue] = useState("");
-  // The passphrase the password manager filled in, which a restore does not
-  // offer back to it.
-  const [picked, setPicked] = useState<string | null>(null);
   useRecoveryKeyPrivacy(() => {
-    if (!restoring) return;
-    setValue("");
-    setPicked(null);
+    if (restoring) setValue("");
   });
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,7 +35,6 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
       onboarding.submit(
         restoring ? "entering-passphrase" : "naming-account",
         value,
-        { fromKeychain: restoring && value.trim() === picked?.trim() },
       );
     } else if (!restoring) {
       submitAccountName(value);
@@ -70,13 +64,7 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
           />
         )}
         {restoring && (
-          <SavedPassphraseButton
-            disabled={false}
-            onPick={(passphrase) => {
-              setValue(passphrase);
-              setPicked(passphrase);
-            }}
-          />
+          <SavedPassphraseButton disabled={false} onPick={setValue} />
         )}
         <MiniAppToolbar>
           {onboarding && (

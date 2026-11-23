@@ -50,7 +50,8 @@ ls:
     .dir: regex:(actions|menu|panels|recovery|sessions|switcher|toolbar)
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-8
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
-    # recovery/ keeps one integration test per export: QR, print, keychain.
+    # Applies to every identity-manager folder; recovery/ needs 3, one
+    # integration test per export: QR, print, keychain.
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
 
   packages/app/src/mini-apps/identity-manager/*/*:

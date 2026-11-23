@@ -1,12 +1,10 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import type {
   PasswordKeychain,
   PasswordKeychainEntry,
   PasswordKeychainSaveOutcome,
 } from "../host/PasswordKeychain";
 import { useAppHostConfig } from "../providers/host/AppHostConfigProvider";
-import { useLog } from "../providers/logging/LogProvider";
-import { useTearleads } from "../providers/sdk/TearleadsProvider";
 
 /**
  * The keychain entry for an identity. Its name says what the password manager
@@ -42,34 +40,4 @@ export function usePasswordKeychain(): PasswordKeychain | null {
     () => createPasswordKeychain?.() ?? null,
     [createPasswordKeychain],
   );
-}
-
-/**
- * Offers the current identity's recovery passphrase to the platform's password
- * keychain, once onboarding has created the identity or restored it from its
- * passphrase. This is the one recovery key export without the typed
- * acknowledgement (see RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE): the platform's
- * own save prompt is the consent, and nothing is stored unless the user
- * accepts it. Identity Manager's Save to Password Manager keeps the gate.
- * A failure is logged and never blocks onboarding; a device with no password
- * manager is an outcome, logged locally rather than reported as an error.
- */
-export function useOfferIdentityKeychainSave(): () => void {
-  const keychain = usePasswordKeychain();
-  const sdk = useTearleads();
-  const { log, logError } = useLog();
-  return useCallback(() => {
-    const { seedPhrase, signingFingerprint } = sdk.identity;
-    if (!keychain || !seedPhrase || !signingFingerprint) return;
-    void keychain
-      .save(identityKeychainEntry(signingFingerprint, seedPhrase))
-      .then(
-        (outcome) => log(KEYCHAIN_SAVE_STATUS[outcome]),
-        (error: unknown) =>
-          logError(
-            "Failed to offer the recovery key to the password manager",
-            error,
-          ),
-      );
-  }, [keychain, log, logError, sdk]);
 }

@@ -5,7 +5,6 @@ import { useIdentity } from "../providers/identity/IdentityProvider";
 import { useLocalKeyringLock } from "../providers/local-keyring/LocalKeyringLockProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
 import { normalizeAccountName } from "./accountNamingMachine";
-import { useOfferIdentityKeychainSave } from "./identityKeychain";
 import {
   type IdentityOnboardingState,
   INITIAL_ONBOARDING,
@@ -15,21 +14,12 @@ import {
   transitionIdentityOnboarding,
 } from "./identityOnboardingMachine";
 
-export interface OnboardingSubmitOptions {
-  /** The passphrase came from the password manager, so it is not offered back. */
-  readonly fromKeychain?: boolean | undefined;
-}
-
 export interface IdentityOnboarding {
   readonly state: IdentityOnboardingState;
   /** Records that the new identity's recovery key is backed up. */
   readonly confirmBackup: () => void;
   readonly navigate: (phase: OnboardingNavigation) => void;
-  readonly submit: (
-    form: OnboardingForm,
-    value: string,
-    options?: OnboardingSubmitOptions,
-  ) => void;
+  readonly submit: (form: OnboardingForm, value: string) => void;
 }
 
 const FAILURE_MESSAGE = {
@@ -101,15 +91,14 @@ export function useIdentityOnboarding(
     !identityTransitionInFlight &&
     signingKeyPair === null;
   const { confirmBackup, isCurrent, send, state } = useOnboardingTransitions();
-  const offerKeychainSave = useOfferIdentityKeychainSave();
   const navigate = useCallback(
     (phase: OnboardingNavigation) => {
       if (available) send({ type: "navigate", phase });
     },
     [available, send],
   );
-  const submit = useCallback<IdentityOnboarding["submit"]>(
-    (form, value, options) => {
+  const submit = useCallback(
+    (form: OnboardingForm, value: string) => {
       const input =
         form === "naming-account" ? normalizeAccountName(value) : value.trim();
       if (!available || !input) return;
@@ -137,13 +126,7 @@ export function useIdentityOnboarding(
               if (!created) throw new Error("Creation failed");
             });
       void operation.then(
-        () => {
-          // Offered only while this request is still the one on screen, so a
-          // superseded or unmounted onboarding never prompts unasked, and never
-          // for a passphrase the password manager itself supplied.
-          if (isCurrent(request) && !options?.fromKeychain) offerKeychainSave();
-          send({ type: "finish", request });
-        },
+        () => send({ type: "finish", request }),
         () => send({ type: "finish", request, error: FAILURE_MESSAGE[form] }),
       );
     },
@@ -153,7 +136,6 @@ export function useIdentityOnboarding(
       generateKey,
       isCurrent,
       localIdentityNamespace,
-      offerKeychainSave,
       onNamed,
       onRecovered,
       sdk,

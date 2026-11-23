@@ -4,7 +4,7 @@ import { usePasswordKeychain } from "../../identity/identityKeychain";
 import { useLog } from "../../providers/logging/LogProvider";
 import { MiniAppButton, MiniAppStatus } from "../mini-app/MiniAppLayout";
 
-type SavedPassphrasePick = "idle" | "picking" | "failed";
+type SavedPassphrasePick = "idle" | "picking" | "empty" | "failed";
 
 interface SavedPassphraseProps {
   readonly disabled: boolean;
@@ -13,8 +13,8 @@ interface SavedPassphraseProps {
 
 /**
  * Fills a recovery passphrase field from the platform's password keychain,
- * where Save to Password Manager or onboarding left one. Renders nothing on a
- * platform without a keychain.
+ * where Save to Password Manager left one. Renders nothing on a platform
+ * without a keychain.
  */
 export function SavedPassphraseButton(props: SavedPassphraseProps) {
   const keychain = usePasswordKeychain();
@@ -23,7 +23,10 @@ export function SavedPassphraseButton(props: SavedPassphraseProps) {
   ) : null;
 }
 
-/** Only the latest pick, made while this is still mounted, fills the field. */
+/**
+ * Only the latest pick, made while this is still mounted and enabled, fills the
+ * field.
+ */
 function SavedPassphrasePicker({
   disabled,
   keychain,
@@ -31,8 +34,14 @@ function SavedPassphrasePicker({
 }: SavedPassphraseProps & { readonly keychain: PasswordKeychain }) {
   const { logError } = useLog();
   const [pick, setPick] = useState<SavedPassphrasePick>("idle");
-  // The pick allowed to finish; cleared on unmount so a late one is dropped.
+  // The pick allowed to finish. Disabling the field or unmounting drops it, so
+  // a late pick never fills a field that no longer accepts one.
   const current = useRef<symbol | null>(null);
+  useEffect(() => {
+    if (!disabled) return;
+    current.current = null;
+    setPick((state) => (state === "picking" ? "idle" : state));
+  }, [disabled]);
   useEffect(
     () => () => {
       current.current = null;
@@ -47,7 +56,9 @@ function SavedPassphrasePicker({
       const passphrase = await keychain.pick();
       if (current.current !== request) return;
       current.current = null;
-      setPick("idle");
+      // Browsers return nothing, without showing a chooser, when no passphrase
+      // is saved, so an empty pick says so rather than looking broken.
+      setPick(passphrase ? "idle" : "empty");
       if (passphrase) onPick(passphrase);
     } catch (error: unknown) {
       if (current.current !== request) return;
@@ -66,6 +77,9 @@ function SavedPassphrasePicker({
       >
         Use Saved Passphrase
       </MiniAppButton>
+      {pick === "empty" && (
+        <MiniAppStatus>No saved passphrase was chosen.</MiniAppStatus>
+      )}
       {pick === "failed" && (
         <MiniAppStatus role="alert" tone="error">
           Could not read a saved passphrase from your password manager.

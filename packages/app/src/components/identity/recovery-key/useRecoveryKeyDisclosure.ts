@@ -191,7 +191,7 @@ export function useRecoveryKeyDisclosure(
           signingFingerprint,
         );
       }
-      log(disclosureCopy.successLog);
+      log(disclosureCopy.successLog ?? successStatus);
       reportIfCurrent(requestedFor, () => feedback.setStatus(successStatus));
     } catch (operationError: unknown) {
       logError(disclosureCopy.failureLog, operationError);
