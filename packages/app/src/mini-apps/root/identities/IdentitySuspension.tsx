@@ -15,8 +15,20 @@ import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { describeRootFailure, describeThrown } from "./rootDisplay";
 
 // Module-level so an unchanged action matches its registration structurally.
-const SUSPEND_ICON = <ProhibitIcon aria-hidden size={18} />;
-const LIFT_ICON = <UserCheckIcon aria-hidden size={18} />;
+// A lift has no dialog, so its label says it is running; a suspension's
+// confirmation dialog reads "Suspending..." instead.
+const LIFT_ACTION = {
+  busyLabel: "Lifting...",
+  icon: <UserCheckIcon aria-hidden size={18} />,
+  id: "root-lift-suspension",
+  label: "Lift suspension",
+};
+const SUSPEND_ACTION = {
+  busyLabel: "Suspend account",
+  icon: <ProhibitIcon aria-hidden size={18} />,
+  id: "root-suspend-identity",
+  label: "Suspend account",
+};
 
 function SuspendConfirmationDialog({
   busy,
@@ -83,20 +95,6 @@ export function IdentitySuspension({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const suspended = identity.suspendedAt !== null;
-  useWindowTitleBarAction(
-    identity.isRoot && !suspended
-      ? null
-      : {
-          disabled: busy,
-          icon: suspended ? LIFT_ICON : SUSPEND_ICON,
-          id: suspended ? "root-lift-suspension" : "root-suspend-identity",
-          label: suspended ? "Lift suspension" : "Suspend account",
-          onClick: suspended
-            ? () => void run("lift")
-            : () => setConfirming(true),
-          priority: 110,
-        },
-  );
 
   const run = async (change: "lift" | "suspend") => {
     setBusy(true);
@@ -118,6 +116,22 @@ export function IdentitySuspension({
       setConfirming(false);
     }
   };
+
+  const action = suspended ? LIFT_ACTION : SUSPEND_ACTION;
+  useWindowTitleBarAction(
+    identity.isRoot && !suspended
+      ? null
+      : {
+          disabled: busy,
+          icon: action.icon,
+          id: action.id,
+          label: busy ? action.busyLabel : action.label,
+          onClick: suspended
+            ? () => void run("lift")
+            : () => setConfirming(true),
+          priority: 110,
+        },
+  );
 
   return (
     <>

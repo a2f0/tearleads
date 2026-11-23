@@ -259,8 +259,9 @@ export interface AppHostConfigOptions {
   readonly createFileViewer?: CreateFileViewerFn | undefined;
   readonly createNetworkStatus?: CreateNetworkStatusFn | undefined;
   /**
-   * The platform's password keychain, offered an identity's recovery
-   * passphrase after it is created or restored, and from Identity Manager.
+   * The platform's password keychain. A recovery key is saved to it only when
+   * the user asks (Save to Password Manager, behind the typed acknowledgement),
+   * never on its own, and restore forms can fill a passphrase from it.
    * Shells whose platform can show its own save prompt supply one: browsers
    * with the Credential Management API's `PasswordCredential`, and Android's
    * Credential Manager. Elsewhere it is omitted and no save is offered.

@@ -49,8 +49,9 @@ const hostConfig = createAppHostConfig({
     version: process.env.BUN_PUBLIC_APP_VERSION,
   }),
   createDirectCheckout: createWebDirectCheckout,
-  // Chromium browsers offer a new or restored identity's recovery passphrase
-  // to their password manager; others have no prompt to show.
+  // Chromium browsers can save a recovery key to their password manager when
+  // the user asks, and fill it back in on restore; others have no
+  // PasswordCredential, so they offer neither.
   createPasswordKeychain: browserPasswordKeychainFactory(),
   navigationMode:
     process.env.BUN_PUBLIC_NAVIGATION_MODE === "windowed"

@@ -43,8 +43,12 @@ async function saveRecoveryKeyToKeychain(
   signingFingerprint: string | null,
   recoveryKey: string,
 ) {
-  if (!keychain || !signingFingerprint) {
+  if (!keychain) {
     throw new Error("This device has no password manager to save to.");
+  }
+  // The entry is named after the identity, so there must be one.
+  if (!signingFingerprint) {
+    throw new Error("No identity is loaded to save a recovery key for.");
   }
   const outcome = await keychain.save(
     identityKeychainEntry(signingFingerprint, recoveryKey),
