@@ -94,3 +94,78 @@ for (const [held, request] of Object.entries(HELD_REQUESTS)) {
     15_000,
   );
 }
+
+// The subtree scope declines once its own read retires, so a pass retired
+// during the pre-submit check must still read as cancelled, not refused.
+test.each(SCOPE_RETIREMENTS)(
+  "a purge whose pre-submit scope read expires after %s is cancelled",
+  async (change) => {
+    const { author, resolveProjectionUserKey, writerProjection } =
+      await createMaterializedSyncFixture();
+    const { documentId } = writerProjection;
+    const containerId =
+      writerProjection.authorizingContainerPaths[0]?.containerId;
+    if (!containerId) throw new Error("Expected authorizing container");
+    const { close, execSql } = await createTestExecSql(
+      `document-purge-scope-submit-${change}`,
+    );
+    const server = createExpiringApiServer({
+      method: "GET",
+      path: new RegExp(`^/containers/${containerId}/writer-projection$`),
+    });
+    let current = true;
+    const stillCurrent = () => current;
+    let submissions = 0;
+    let verifiedPurges = 0;
+    try {
+      const purged = createRemoteDocumentServiceFixture({
+        api: {
+          getDocumentPurgeProof: async () => {
+            throw new Error("Only a purged document reads its proof");
+          },
+          getDocumentWriterProjectionResult: async () => ({
+            data: writerProjection,
+            ok: true,
+          }),
+          purgeDocument: async () => {
+            submissions += 1;
+            throw new Error("A retired purge must not submit");
+          },
+        },
+        execSql,
+      })
+        .purgeRemoteDocument({
+          author,
+          beforeSubmit: async () =>
+            (await server.api.getContainerWriterProjection(containerId, {
+              stillCurrent,
+            })) !== null,
+          documentId,
+          onVerifiedPurge: async () => {
+            verifiedPurges += 1;
+          },
+          resolveProjectionUserKey,
+          stillCurrent,
+        })
+        .then(
+          () => null,
+          (error: unknown) => error,
+        );
+      await server.entered;
+      current = false;
+      server.retire(change);
+      server.release();
+      expect(isProjectionVerificationCancelledError(await purged)).toBe(true);
+      expect(server.requests).toEqual([
+        `GET /containers/${containerId}/writer-projection`,
+      ]);
+      expect(server.renewals.count).toBe(0);
+      expect(submissions).toBe(0);
+      expect(verifiedPurges).toBe(0);
+    } finally {
+      server.stop();
+      close();
+    }
+  },
+  15_000,
+);

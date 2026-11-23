@@ -322,8 +322,12 @@ export async function purgeRemoteDocument(
     expectedSubtreeRoot: input.expectedSubtreeRoot,
     writerProjection,
   });
-  if (input.beforeSubmit && !(await input.beforeSubmit())) return null;
-  if (input.stillCurrent?.() === false) return null;
+  const allowed = !input.beforeSubmit || (await input.beforeSubmit());
+  // A pass retired before submit is cancelled, even when its scope check
+  // declined because of it. A current scope that declines keeps the document:
+  // that is not purged, not cancelled.
+  assertProjectionVerificationCurrent(input.stillCurrent);
+  if (!allowed) return null;
   const response = await input.apiClient.purgeDocument(
     input.documentId,
     request,
