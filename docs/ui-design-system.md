@@ -123,7 +123,11 @@ overlays, and motion. Rules:
   host profile offers; the windowing package's `ThemeProvider` stamps
   `<html data-theme>` and `<html data-theme-scheme>` (`light` | `dark`). A rule
   that only cares whether surfaces are dark keys off the scheme, never a theme
-  id. Structural tokens are theme-independent by design. Dusk uses slate-blue
+  id. The scheme also sets `color-scheme`, at attribute specificity in the
+  windowing package's [`tokens.css`](../packages/windowing/src/tokens.css), so
+  a third-party `:root { color-scheme: light dark }` (pdf.js ships one) cannot
+  draw native controls dark under a light theme on a dark-mode OS. Structural
+  tokens are theme-independent by design. Dusk uses slate-blue
   surfaces, ivory text, and muted blue emphasis; it has no decorative text
   effects.
 - Each component ships a sibling `.css` file imported by its `.tsx`; class names
@@ -172,20 +176,20 @@ caps a column of entry controls.
 - A surface that **groups** fields caps the group too (`.backup-restore-main`,
   `.identity-manager-pin-forms`, `.identity-manager-recovery-key-form`,
   `.contact-document-fields`, `.contacts-detail-panel`). Otherwise the panel
-  border, tab strip, and section heading keep spanning the whole viewport around
-  a column of measure-width inputs, which reads worse than stretched fields. It
-  also catches the read-mode rows that `MiniAppField` never wraps — a contact's
-  value and its clipboard button are only adjacent if their row is capped.
+  border and section heading keep spanning the whole viewport around a column
+  of measure-width inputs, which reads worse than stretched fields. It also
+  catches the read-mode rows that `MiniAppField` never wraps — a contact's value
+  and its clipboard button are only adjacent if their row is capped. A tab strip
+  is the exception: it is chrome, so it spans the surface in every tier (see
+  [Tab strips](#tab-strips)) while the column below it keeps the measure.
 - **The mobile tier opts out.**
   [`RoutedPane.css`](../packages/windowing/src/routed/RoutedPane.css)
   re-declares `--form-measure: 100%` under `.routed-pane--mobile`, so nothing in
   that shell is capped below 760px. The tier is single-column and deliberately
-  edge-to-edge — its tab strip bleeds past the root padding to both screen edges
-  — and it runs to 759px, well past 34rem, so a cap there would strand the bleed
-  short of the screen
-  ([`e2e/mobile-chrome.spec.ts`](../packages/app-web/e2e/mobile-chrome.spec.ts)
-  and [`e2e/form-measure.spec.ts`](../packages/app-web/e2e/form-measure.spec.ts)
-  both assert this). Override the token, never the individual rules: `100%` and
+  edge-to-edge, and it runs to 759px, well past 34rem, so a cap there would
+  leave the pane empty beside the column
+  ([`e2e/form-measure.spec.ts`](../packages/app-web/e2e/form-measure.spec.ts)
+  asserts this). Override the token, never the individual rules: `100%` and
   not `none` because consumers also read it inside `min()`, where a keyword
   invalidates the whole declaration. The release covers the shell subtree, so
   portaled menus and modals keep the cap on this tier — fine while they stay
@@ -207,6 +211,29 @@ caps a column of entry controls.
   into as many columns as fit (`.file-document-metadata`,
   `.identity-manager-pin-forms`), and size a control to its content
   (`.explorer-container-icon-picker`).
+
+## Tab strips
+
+`MiniAppTabList`
+([`components/mini-app/layout/MiniAppTabs.tsx`](../packages/app/src/components/mini-app/layout/MiniAppTabs.tsx))
+draws every tab strip, and a strip is chrome, not content: in every tier it
+spans its surface edge to edge (the phone screen, the tablet pane beside the
+rail, or the window's sides) while the panel below keeps the content inset.
+
+- The strip cancels `--mini-app-edge-inset`, which `MiniAppRoot` publishes as
+  its own padding plus the window body's `--window-content-inset`, so one rule
+  holds in a window, a routed pane, and a root with no padding. A strip outside
+  any root, as in Settings, cancels only the window's padding.
+- Pass `leading` when the strip is the first thing on its surface (Settings,
+  System Monitor, the Explorer sections hub). It then also sits flush under the
+  app bar or window toolbar. A strip below a heading, as in Get Info or
+  Backup/Restore, keeps its place in the flow.
+- A negative margin cannot escape a scrollport, so a scrolling panel that holds
+  a strip takes over the inset as padding (`MiniAppPanel scroll`, Org Manager's
+  main region). A strip nested inside further inline padding, such as a framed
+  panel, needs its own rule.
+- [`e2e/tab-strip-bleed.spec.ts`](../packages/app-web/e2e/tab-strip-bleed.spec.ts)
+  asserts the painted edges in every tier.
 
 ## Component policy
 

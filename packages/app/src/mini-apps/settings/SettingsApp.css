@@ -1,16 +1,13 @@
 /* Keep the gallery's preferred width even in a smaller window;
-   its height remains intrinsic, so Fit to Content can measure every control. */
-.app-settings {
+   its height remains intrinsic, so Fit to Content can measure every control.
+   The width sits on the panel rather than the root, so the tab strip above it
+   still spans the whole window (see MiniAppTabs.css). */
+.app-settings > .mini-app-tab-panel {
   width: 420px;
 }
 
-.routed-pane-main .app-settings {
+.routed-pane-main .app-settings > .mini-app-tab-panel {
   width: auto;
-}
-
-/* Settings already spans the phone pane edge to edge. */
-.routed-pane--mobile .app-settings .mini-app-tabs {
-  margin-inline: 0;
 }
 
 .app-settings-network {

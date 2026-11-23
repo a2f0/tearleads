@@ -21,8 +21,10 @@
   gap: var(--space-2xs);
   min-width: 0;
   /* No bottom padding: tabs sit directly on the baseline so the selected one
-     can overlap it (see the negative margin below). */
-  padding: var(--space-2xs) var(--space-2xs) 0;
+     can overlap it (see the negative margin below). The strip runs to the
+     window's sides (see the bleed below), so it pads its ends like the window
+     bars above it, which lines the first tab up with their leading items. */
+  padding: var(--space-2xs) var(--window-bar-inline-padding) 0;
   border-bottom: var(--border-strong);
   background: var(--color-muted);
 }
@@ -144,31 +146,49 @@
 }
 
 /*
- * Mobile full-bleed (automatic, not opt-in): break the strip out of the mini-app
- * root's `--space-md` inline padding so its muted fill and its baseline reach the
- * screen edges. Inset, the strip read as a floating card — the baseline that is
- * supposed to be the panel's top edge stopped short of both sides, and the pane
- * background showed through beside a bar that is chrome, not content.
+ * Full bleed in every tier (automatic, not opt-in): break the strip out of its
+ * surface's inline inset so its muted fill and its baseline reach the edges of
+ * the phone screen, the tablet pane, or the window. Inset, the strip read as a
+ * floating card: the baseline that is supposed to be the panel's top edge
+ * stopped short of both sides, and the surface showed through beside a bar that
+ * is chrome, not content. Settings, which has no padded root, always drew this
+ * way; this rule makes every other tabbed surface match it.
  *
  * Unlike the list-frame bleeds (`mini-app-table-frame--bleed`,
  * `mini-app-virtual-list-frame--bleed`), this needs no opt-in modifier: a tab
  * strip is always chrome spanning its surface, so every tabbed mini-app wants it.
- * That makes the negative margin an assumption about the ancestor inset — it
- * cancels exactly `--space-md`, the padding `.mini-app-root` applies. Every
- * tabbed surface currently sits directly in that root (System Monitor,
- * Backup/Restore, and the Explorer info/sections/sync-lane panels), so a single
- * value is right for all of them; a future strip nested inside additional inline
- * padding (a framed panel, say) would overshoot and need its own rule. The
- * routed-shell e2e coverage asserts the strip reaches both edges.
+ * The distance comes from `--mini-app-edge-inset`, which `.mini-app-root`
+ * publishes as its own padding plus the window body's (MiniAppRoot.css), so one
+ * value is right in a window, in a routed pane, and for a padding-free root. A
+ * strip outside any root (Settings) cancels only the window body's padding. A
+ * future strip nested inside further inline padding (a framed panel, say) would
+ * overshoot and need its own rule. The routed and windowed e2e coverage asserts
+ * the strip reaches both edges.
  *
- * Horizontal only. The strip keeps its `--space-xs` inline padding, so the first
- * tab lands 8px off the edge — the same inset the app bar's leading button above
- * it uses, which lines the two up. The panel below deliberately does NOT bleed:
- * it is content, and its text needs the root's inset to stay readable (lists
- * inside it bleed on their own via the frame modifiers above).
+ * Horizontal only. The strip keeps its own inline padding, so the first tab
+ * lands a few pixels off the edge, in line with the leading control of the app
+ * bar or window toolbar above it. The panel below deliberately does NOT bleed:
+ * it is content, and its text needs the inset to stay readable (lists inside it
+ * bleed on their own via the frame modifiers above).
  */
-.routed-pane--mobile .mini-app-tabs {
-  margin-inline: calc(-1 * var(--space-md));
+.mini-app-tabs {
+  margin-inline: calc(
+    -1 *
+    var(--mini-app-edge-inset, var(--window-content-inset, 0px))
+  );
+}
+
+/*
+ * A strip that opens its surface (`leading` on MiniAppTabList) also cancels the
+ * inset above it, so it sits directly under the app bar or window toolbar, as
+ * Settings' does, instead of a padding-height below the chrome. A strip under a
+ * heading (Get Info, Backup/Restore) keeps its place in the flow.
+ */
+.mini-app-tabs--leading {
+  margin-top: calc(
+    -1 *
+    var(--mini-app-edge-inset, var(--window-content-inset, 0px))
+  );
 }
 
 /*
@@ -182,16 +202,17 @@
  * the panel's own `scrollWidth > clientWidth` catch it.
  *
  * So hand the inset to the scrollport instead of fighting it: bleed the panel to
- * the screen and re-apply the same `--space-md` as padding *inside* it. Its
+ * the surface edge and re-apply the same inset as padding *inside* it. Its
  * content lands exactly where it did before, but the strip's bleed now cancels
  * padding on the panel it lives in, so the strip fills the panel's padding box
- * edge to edge — clipping nothing and adding no scrollable overflow.
+ * edge to edge — clipping nothing and adding no scrollable overflow. A window
+ * body's own scroller is no obstacle: its padding sits inside its padding box,
+ * which is exactly where the bleed stops.
  *
  * Scoped with `:has()` so only tabbed panels move; a framed panel is excluded
- * because its own `--panel-padding` would make `--space-md` the wrong distance.
+ * because its own `--panel-padding` would make the edge inset the wrong distance.
  */
-.routed-pane--mobile
 .mini-app-panel--scroll:not(.mini-app-panel--framed):has(.mini-app-tabs) {
-  margin-inline: calc(-1 * var(--space-md));
-  padding-inline: var(--space-md);
+  margin-inline: calc(-1 * var(--mini-app-edge-inset, 0px));
+  padding-inline: var(--mini-app-edge-inset, 0px);
 }
