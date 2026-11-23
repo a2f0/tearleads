@@ -3,21 +3,25 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { decryptDocumentSyncUpdatesByEpoch } from "../../../data/documents/shared/crypto";
+import { judgeDocumentSyncUpdateDecryption } from "../../../data/documents/shared/crypto";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
 } from "../../../data/documents/shared/responses";
+import { deriveDocumentContentKeyFingerprints } from "../../../data/documents/shared/sync/contentKeyFingerprint";
 import type {
+  IncomingDocumentSyncUpdateValidator,
   MaterializedDocumentSyncPlan,
   SyncRemoteDocumentResult,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
+import { isolateDocumentSyncBatchError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
-  type IncomingDocumentSyncUpdateValidator,
-  isolateDocumentSyncBatchError,
-} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+  requireDocumentSyncImportVerdicts,
+  type VoidedDocumentSyncUpdate,
+  withoutVoidedUpdates,
+} from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import type { DocumentWriterPublicKeyResolver } from "../../../data/documents/shared/types";
 import type {
   ProjectionUserKeyResolver,
@@ -36,6 +40,7 @@ import {
   rekeyAndReportUnsettledRecoveryPendingUpdates,
   settledPendingUpdateIdsFromSync,
 } from "../syncRekeys/syncRecoveryRekey";
+import { documentPullOutcome } from "./pullOutcome";
 
 function isolateContentKeyResponseFailure(
   error: unknown,
@@ -77,22 +82,16 @@ export async function validateDecryptableRawHistorySiblings(input: {
   organizationId: string;
   response: DocumentSyncResponse;
   updates: readonly DocumentSyncResponse["updates"][number][];
-  validateIncomingUpdates: IncomingDocumentSyncUpdateValidator;
 }): Promise<void> {
   if (input.updates.length === 0) return;
-  const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
+  // A void sibling is not a failure, but an envelope, header, or key failure
+  // still outranks the unavailable epoch. Import verdicts are not judged:
+  // a missing parent may belong to the update this reader cannot decrypt.
+  await judgeDocumentSyncUpdateDecryption({
     contentKeysByEpoch: input.contentKeysByEpoch,
     documentId: input.documentId,
     organizationId: input.organizationId,
     updates: input.updates,
-  });
-  // The current wire contract authenticates each update's operation range but
-  // not its exact dependency set. An unresolved import therefore cannot prove
-  // that the missing parent belongs to an unavailable sibling; preserve the
-  // isolation failure instead of downgrading unrelated poison to availability.
-  await input.validateIncomingUpdates({
-    decryptedUpdates,
-    response: { ...input.response, updates: [...input.updates] },
   });
 }
 
@@ -137,7 +136,6 @@ async function resolveVerifiedResponseState(
         organizationId: plan.organizationId,
         response: input.response,
         updates,
-        validateIncomingUpdates: input.validateIncomingUpdates,
       }),
     response: input.response,
     targetSecretKey: input.targetSecretKey,
@@ -147,21 +145,91 @@ async function resolveVerifiedResponseState(
   return { contentKeysByEpoch, persistedState };
 }
 
+function inServerOrder(
+  response: DocumentSyncResponse,
+  voided: readonly VoidedDocumentSyncUpdate[],
+): VoidedDocumentSyncUpdate[] {
+  const order = new Map(
+    response.updates.map((update, index) => [update.id, index]),
+  );
+  return [...voided].sort(
+    (left, right) =>
+      (order.get(left.updateId) ?? 0) - (order.get(right.updateId) ?? 0),
+  );
+}
+
+/**
+ * Decrypts and judges the served updates in server order: a payload that is
+ * not its declared update is void before import, and the import verdicts run
+ * over what remains, so a writer's follow-up to a void update is void too.
+ */
+async function judgeDocumentSyncResponseUpdates(
+  input: SyncRemoteDocumentResultInput,
+  contentKeysByEpoch: ReadonlyMap<number, Uint8Array>,
+  contentKeyFingerprintsByEpoch: ReadonlyMap<number, string>,
+) {
+  const { plan } = input.materializedPlan;
+  const decrypted = await judgeDocumentSyncUpdateDecryption({
+    contentKeysByEpoch,
+    documentId: plan.documentId,
+    organizationId: plan.organizationId,
+    updates: input.response.updates,
+  });
+  const importVerdicts = requireDocumentSyncImportVerdicts(
+    await input.validateIncomingUpdates({
+      contentKeyFingerprintsByEpoch,
+      decryptedUpdates: decrypted.accepted,
+      response: input.response,
+    }),
+  );
+  return {
+    decryptedUpdates: withoutVoidedUpdates(decrypted.accepted, importVerdicts),
+    deferred: importVerdicts.deferredUpdateIds.length > 0,
+    held: importVerdicts.heldUpdateIds.length > 0,
+    voidedUpdates: inServerOrder(input.response, [
+      ...decrypted.voided,
+      ...importVerdicts.voided,
+    ]),
+  };
+}
+
+/**
+ * The response a pass that deferred or held part of its page hands on: no
+ * further page and no continuation, so it still parses as a pull page. A
+ * deferral's `hasIncompletePull` makes the next pass start the pull again at
+ * once; a hold's `hasHeldPull` leaves that to the next scheduled pull. Either
+ * way it is served the unjudged updates once more.
+ */
+function restartedPull(response: DocumentSyncResponse): DocumentSyncResponse {
+  return response.pullPage
+    ? {
+        ...response,
+        pullPage: { ...response.pullPage, hasMore: false, nextCursor: null },
+      }
+    : response;
+}
+
 export async function syncRemoteDocumentResultFromResponse(
   input: SyncRemoteDocumentResultInput,
 ): Promise<SyncRemoteDocumentResult> {
   const { plan } = input.materializedPlan;
   const { contentKeysByEpoch, persistedState } =
     await resolveVerifiedResponseState(input);
-  const decryptedUpdates = await decryptDocumentSyncUpdatesByEpoch({
-    contentKeysByEpoch,
-    documentId: plan.documentId,
-    organizationId: plan.organizationId,
-    updates: input.response.updates,
-  });
-  await input.validateIncomingUpdates({
-    decryptedUpdates,
-    response: input.response,
+  const contentKeyFingerprintsByEpoch =
+    await deriveDocumentContentKeyFingerprints({
+      contentKeysByEpoch,
+      documentId: plan.documentId,
+    });
+  const { decryptedUpdates, deferred, held, voidedUpdates } =
+    await judgeDocumentSyncResponseUpdates(
+      input,
+      contentKeysByEpoch,
+      contentKeyFingerprintsByEpoch,
+    );
+  const pageOutcome = documentPullOutcome({
+    deferred,
+    held,
+    pullComplete: true,
   });
   const recoveryBaselineId =
     input.materializedPlan.staleRecoveryBaselineUpdateId;
@@ -198,13 +266,17 @@ export async function syncRemoteDocumentResultFromResponse(
     contentKey: input.materializedPlan.contentKey,
     decryptedUpdates,
     hasDeferredPendingUpdates: false,
-    hasIncompletePull: false,
+    // This page's own outcome; `withPullCompletion` adds the server's.
+    hasHeldPull: pageOutcome === "held",
+    hasIncompletePull: pageOutcome === "deferred",
     persistedState,
     plan,
     rekeyedPendingUpdateIds,
-    response: input.response,
+    response: deferred || held ? restartedPull(input.response) : input.response,
     settledPendingUpdateIds,
     acceptedRecoveryBaseline,
+    contentKeyFingerprintsByEpoch,
+    voidedUpdates,
     writerProjection: input.writerProjection,
   };
 }

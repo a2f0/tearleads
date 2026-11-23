@@ -1,4 +1,5 @@
 import { createMockApiClient } from "@tearleads/test-utils";
+import { emptyDocumentSyncImportVerdicts } from "../../../src/data/documents/shared/sync/documentUpdateVerdict";
 import { buildMaterializedContainerRekeyPlan } from "../../../src/workflows/containers/child/rekey";
 import { buildRemoteDocumentSyncPlan } from "../../../src/workflows/documents/syncRekeys/syncContainerRekeys";
 import { writerKeyResolver } from "../data/documentFixtures";
@@ -45,7 +46,7 @@ export async function repairedAncestorDocument() {
         documentId: projection.documentId,
         localVersionVector: null,
         resolveWriterPublicKey: writerKeyResolver(fixture.root),
-        validateIncomingUpdates: () => undefined,
+        validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       },
     });
     return { ...context, repairedProjection: healed.writerProjection };

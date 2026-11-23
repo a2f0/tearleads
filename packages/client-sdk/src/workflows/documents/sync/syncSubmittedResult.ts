@@ -20,6 +20,7 @@ import {
   hasDeferredPendingUpdatesAfterSubmit,
   responseAcceptedRecoveryBaseline,
 } from "../syncPlan/syncPlanRequestBounds";
+import { withPullCompletion } from "./pullOutcome";
 import type { RemoteDocumentSyncPass } from "./remoteDocumentSyncPass";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 import { traceHealed } from "./syncTrace";
@@ -97,21 +98,23 @@ async function submittedDocumentSyncResult(
     response: input.response,
     stillCurrent: input.sync.stillCurrent,
   });
-  return {
-    ...result,
-    hasDeferredPendingUpdates:
-      (input.materializedPlan.plan.request.pullCursor !== undefined &&
-        input.pendingUpdateIds.length > 0 &&
-        result.exhaustedPendingUpdateCount === 0) ||
-      hasDeferredPendingUpdatesAfterSubmit({
-        acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
-        exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
-        pendingUpdateIds: input.pendingUpdateIds,
-        rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
-        settledPendingUpdateIds: result.settledPendingUpdateIds,
-      }),
-    hasIncompletePull: !input.pullComplete,
-  };
+  return withPullCompletion(
+    {
+      ...result,
+      hasDeferredPendingUpdates:
+        (input.materializedPlan.plan.request.pullCursor !== undefined &&
+          input.pendingUpdateIds.length > 0 &&
+          result.exhaustedPendingUpdateCount === 0) ||
+        hasDeferredPendingUpdatesAfterSubmit({
+          acceptedRecoveryBaseline: result.acceptedRecoveryBaseline,
+          exhaustedPendingUpdateCount: result.exhaustedPendingUpdateCount,
+          pendingUpdateIds: input.pendingUpdateIds,
+          rekeyedPendingUpdateIds: result.rekeyedPendingUpdateIds,
+          settledPendingUpdateIds: result.settledPendingUpdateIds,
+        }),
+    },
+    input.pullComplete,
+  );
 }
 
 async function retrySubmittedResponseWithFreshProjection(

@@ -124,7 +124,11 @@ test("a lost continuation response retries without skipped or duplicated updates
   );
   expect(retryResponse.status).toBe(200);
   const retriedPage = (await retryResponse.json()) as DocumentSyncResponse;
-  expect(retriedPage.pullPage).toEqual({ hasMore: false, nextCursor: null });
+  expect(retriedPage.pullPage).toEqual({
+    hasMore: false,
+    nextCursor: null,
+    throughUpdateId: lostPage.pullPage?.throughUpdateId ?? null,
+  });
   expect(retriedPage.updates.map(({ id }) => id)).toEqual(
     lostPage.updates.map(({ id }) => id),
   );

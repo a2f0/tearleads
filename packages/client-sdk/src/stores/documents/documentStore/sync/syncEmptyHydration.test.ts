@@ -41,7 +41,11 @@ for (const hasMore of [false, true]) {
           ...response,
           updates: [],
           commitLsn: "0/20",
-          pullPage: { hasMore, nextCursor: hasMore ? "page-2" : null },
+          pullPage: {
+            hasMore,
+            nextCursor: hasMore ? "page-2" : null,
+            throughUpdateId: null,
+          },
         }),
       });
       const state = createDocumentStoreState(

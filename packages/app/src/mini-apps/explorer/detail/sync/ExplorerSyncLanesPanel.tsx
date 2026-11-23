@@ -13,6 +13,7 @@ import {
   MiniAppHeaderCopy,
   MiniAppPanel,
 } from "../../../../components/mini-app/MiniAppLayout";
+import { useDomainSyncSnapshot } from "../../../../providers/sdk/useDomainSyncSnapshot";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import {
@@ -22,7 +23,6 @@ import {
 import { ExplorerSyncLaneList } from "./ExplorerSyncLaneList";
 import { ExplorerSyncLaneOverview } from "./ExplorerSyncLaneShared";
 import { filterSyncLanes, type SyncLaneFilter } from "./ExplorerSyncLaneUtils";
-import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 import "./ExplorerSyncLanesPanel.css";
 
 export { getExplorerSyncLaneProgress } from "./ExplorerSyncLaneUtils";

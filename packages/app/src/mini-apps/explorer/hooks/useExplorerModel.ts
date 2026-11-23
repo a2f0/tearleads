@@ -8,11 +8,11 @@ import {
   useContactAvatarUrls,
 } from "../../../document-types/contact/useContactAvatarUrls";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
+import { useDomainDocumentQueries } from "../../../providers/sdk/useDomainDocumentQueries";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
 import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
 import { useCurrentSelfContactIdentity } from "../../../stores/contacts/useCurrentSelfContactIdentity";
-import { useExplorerDocumentQueries } from "../../../stores/explorer/documentQueries";
 import {
   EXPLORER_TRASH_CONTAINER_ICON,
   isContactsSystemContainerNode,
@@ -118,7 +118,7 @@ export function useExplorerModel(
 ): ExplorerModel {
   const { documentLinkProjectionVersion, handleDocumentLinksChanged } =
     useDocumentLinkProjectionVersion();
-  const documentQueries = useExplorerDocumentQueries(appData);
+  const documentQueries = useDomainDocumentQueries(appData);
   const selfContactIdentity = useCurrentSelfContactIdentity();
   const {
     bumpDocumentListRevision,

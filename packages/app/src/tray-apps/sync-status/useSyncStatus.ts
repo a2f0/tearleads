@@ -4,52 +4,57 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
+import { useDomainDocumentQueries } from "../../providers/sdk/useDomainDocumentQueries";
+import { useDomainSyncSnapshot } from "../../providers/sdk/useDomainSyncSnapshot";
 import { usePausedOrganizationIds } from "../../providers/sdk/usePausedOrganizationIds";
+import {
+  type SyncLaneSummary,
+  selectSyncHolds,
+  summarizeSyncLanes,
+} from "./syncActivityModel";
 import {
   describeSyncStatus,
   resolveSyncStatus,
   type SyncStatus,
 } from "./syncStatusModel";
+import { useHeldSyncActivity } from "./useHeldSyncActivity";
 import { useOtherOrganizationBillingBlocked } from "./useOtherOrganizationBillingBlock";
 import { usePendingWriteCount } from "./usePendingWriteCount";
 
-interface SyncStatusResult {
+export interface SyncStatusResult {
   readonly status: SyncStatus;
   readonly title: string;
   /** Aggregate unflushed write-operation count; drives the "view queue" link. */
   readonly pendingWriteCount: number;
   /** The latest write-queue read failed; the queue view shows why. */
   readonly queueReadFailed: boolean;
+  /** The sync coordinator's lanes: what runs now and what failed. */
+  readonly lanes: SyncLaneSummary;
 }
 
 /**
- * The Sync Status tray app's data source. It reads the same durable write queue
- * the Explorer "Write Queue" panel does — `containerContents.documentQueries()
- * .listPendingWrites()` (see `usePendingWriteCount`) — treating a non-empty queue
+ * The Sync Status tray app's data source. It reads the durable write queue
+ * through the store the Explorer "Write Queue" panel shares (see
+ * `usePendingWriteCount`), treating a non-empty queue
  * as unflushed local data, and takes billing from the shared
  * `useOrganizationBilling` snapshot, so the widget agrees with the Explorer and
  * the billing banner about whether the org can sync. That snapshot is scoped to
  * the active organization while the queue is identity-wide, so the sync billing
  * gate covers the rest (see `useOtherOrganizationBillingBlocked`): an
  * organization whose billing lapsed raises the warning even when it is not the
- * one currently switched to.
+ * one currently switched to. The sync coordinator's lanes add what the queue
+ * cannot show: sync work running (held, so short runs do not blink the glyph)
+ * and sync tasks failing, including pulls.
  */
 export function useSyncStatus(): SyncStatusResult {
   const appData = useTearleadsRuntime();
   const billing = useOrganizationBilling();
-  const { containerContents, organizations, syncBillingGate } = useTearleads();
+  const { organizations, syncBillingGate } = useTearleads();
   const domainScope = appData.state.domainScope;
-  const dbStatus = appData.infra.dbStatus;
-  const dbReady = dbStatus === "ready";
+  const dbReady = appData.infra.dbStatus === "ready";
   const online = appData.state.online;
 
-  const documentQueries = useMemo(
-    () => containerContents.documentQueries(),
-    // Keep this query handle stable across server events: rebuilding its
-    // watcher performs an immediate identity-wide scan outside the throttle.
-    // Match useExplorerDocumentQueries, which protects orphan visibility too.
-    [containerContents, dbStatus, domainScope],
-  );
+  const documentQueries = useDomainDocumentQueries(appData);
 
   const queue = usePendingWriteCount(documentQueries, domainScope, dbReady);
 
@@ -59,9 +64,11 @@ export function useSyncStatus(): SyncStatusResult {
     [organizations],
   );
   const pausedOrganizationIds = usePausedOrganizationIds();
-  const syncPaused = queue.organizationIds.some((organizationId) =>
-    pausedOrganizationIds.has(organizationId),
-  );
+  const syncSnapshot = useDomainSyncSnapshot(domainScope);
+  const lanes = useMemo(() => summarizeSyncLanes(syncSnapshot), [syncSnapshot]);
+  const { failedLaneCount, firstLaneError, laneActive, syncPaused } =
+    selectSyncHolds({ dbReady, lanes, online, pausedOrganizationIds });
+  const syncActive = useHeldSyncActivity(laneActive);
   const billingNeedsAttention = billing.view?.needsAttention ?? false;
   const otherOrganizationBillingBlocked = useOtherOrganizationBillingBlocked({
     activeOrganizationId: appData.auth.organizationId,
@@ -78,6 +85,8 @@ export function useSyncStatus(): SyncStatusResult {
     pendingWriteCount: queue.count,
     failedWriteCount: queue.failedCount,
     queueReadError: queue.readError,
+    failedLaneCount,
+    syncActive,
   });
   const title = describeSyncStatus({
     status,
@@ -85,6 +94,9 @@ export function useSyncStatus(): SyncStatusResult {
     failedWriteCount: queue.failedCount,
     firstWriteError: queue.firstError,
     queueReadError: queue.readError,
+    failedLaneCount,
+    firstLaneError,
+    syncActive,
     online,
     syncPaused,
     billingStatus: billing.view?.status ?? null,
@@ -93,10 +105,16 @@ export function useSyncStatus(): SyncStatusResult {
     billingBlockScope: billingNeedsAttention ? "active" : "other",
   });
 
-  return {
-    status,
-    title,
-    pendingWriteCount: queue.count,
-    queueReadFailed: queue.readError !== null,
-  };
+  const queueReadFailed = queue.readError !== null;
+  // One object per change, so the popover's memoized actions follow it.
+  return useMemo(
+    () => ({
+      status,
+      title,
+      pendingWriteCount: queue.count,
+      queueReadFailed,
+      lanes,
+    }),
+    [lanes, queue.count, queueReadFailed, status, title],
+  );
 }

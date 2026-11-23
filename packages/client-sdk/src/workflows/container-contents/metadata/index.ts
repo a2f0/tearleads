@@ -14,7 +14,10 @@ import {
 } from "../../documents";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import { noteContainerMetadataDownloadDrained } from "./metadataDownloadCompletion";
-import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
+import {
+  applyIncomingContainerMetadataUpdates,
+  recordContainerMetadataVoids,
+} from "./metadataIncomingUpdateIsolation";
 import {
   currentMetadataPullContinuation,
   hasCurrentContainerMetadataReadState,
@@ -368,10 +371,12 @@ async function finalizeContainerMetadataSync(input: {
     noteContainerMetadataDownloadDrained({
       container: persisted.container,
       domainScope: input.runtime.state.domainScope,
+      pullIncomplete: synced.hasIncompletePull || synced.hasHeldPull,
       storedRecord: persisted.record,
       syncAttempt,
     });
   }
+  await recordContainerMetadataVoids(input, persisted, synced);
 
   return {
     ...persisted,

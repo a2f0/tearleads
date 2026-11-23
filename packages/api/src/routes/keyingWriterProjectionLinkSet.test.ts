@@ -8,7 +8,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { DocumentAccessEventBody } from "@tearleads/crypto";
 import { computeAccessEventHash } from "@tearleads/crypto";
-import { emptyVersionVector } from "@tearleads/loro";
+import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
 import {
@@ -229,7 +229,11 @@ test("POST /documents/:documentId/unlink rolls back a stale atomic rotation base
         linkedDocument,
         owner,
         root,
-        rotationBaselineSourceVersionVector: emptyVersionVector(),
+        // Covers another peer's operation but not the committed update. An
+        // empty baseline is refused before staleness is checked.
+        rotationBaselineSourceVersionVector: encodeVersionVectorCounters({
+          "4242": 1,
+        }),
       }),
     documentId: createdDocument.id,
     token: owner.token,

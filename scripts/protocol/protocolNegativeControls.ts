@@ -30,6 +30,7 @@ import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls"
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
 import { TERMINAL_ANCHOR_NEGATIVE_CONTROLS } from "./protocolTerminalAnchorNegativeControls";
 import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls";
+import { VOID_UPDATE_NEGATIVE_CONTROLS } from "./protocolVoidUpdateNegativeControls";
 
 /**
  * Registered fault injections into bounded protocol configurations. Each
@@ -61,6 +62,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
   ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
   ...OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS,
+  ...VOID_UPDATE_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   ...RESTART_PROBE_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,

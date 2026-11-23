@@ -9,6 +9,7 @@ import {
   versionVectorsEqual,
 } from "./document";
 import { serializeCanonicalHistory } from "./historyCanonicalization";
+import { isLoroRuntimeFailure } from "./runtimeFailure";
 import { operationSpans } from "./versionRange";
 
 function rangeDependencyFrontiers(
@@ -45,6 +46,8 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
  * operations for its declared version-vector range. Rebuild from the exact
  * prefix and compare canonical operation identity across current update and
  * snapshot forms without letting same-peer/counter conflicts hide in an import.
+ * A Loro runtime failure (`isLoroRuntimeFailure`) is thrown, not reported as a
+ * mismatch.
  */
 export function updateMatchesDocumentHistory(
   doc: LoroDoc,
@@ -105,7 +108,9 @@ export function updateMatchesDocumentHistory(
         candidate.exportJsonUpdates(startVersion, endVersion, false),
       ) === serializeCanonicalHistory(expectedRange)
     );
-  } catch {
+  } catch (error) {
+    // The runtime failing proves nothing about the update.
+    if (isLoroRuntimeFailure(error)) throw error;
     return false;
   } finally {
     candidate?.free();

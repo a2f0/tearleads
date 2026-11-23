@@ -1,9 +1,7 @@
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
-  computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
-  signWriteHeader,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
@@ -20,6 +18,7 @@ import {
   type ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { signWithDocumentEnvelope } from "./documentEnvelopeFixture";
 import { toWireRecord } from "./registration/wire";
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -161,7 +160,6 @@ export async function createProvisionedDocumentFixture(input: {
   const vectors = getUpdateVersionVectors(
     exportUpdatesSince(document, partialStartVersionVector),
   );
-  const encryptedData = `encrypted-${input.fixtureLabel}:${updateId}`;
   const plaintextHash = `plaintext-hash:${updateId}`;
   const bundle = input.document.contentKeyBundle;
   const nonceDomain = {
@@ -173,7 +171,8 @@ export async function createProvisionedDocumentFixture(input: {
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId: updateId,
   };
-  const writeHeader = await signWriteHeader(
+  const { encryptedData, writeHeader } = await signWithDocumentEnvelope(
+    `encrypted-${input.fixtureLabel}:${updateId}`,
     {
       ...nonceDomain,
       dependencyManifestHashes: input.containerProjection.path
@@ -189,8 +188,6 @@ export async function createProvisionedDocumentFixture(input: {
         plaintextHash,
         updateId,
       }),
-      ciphertextHash:
-        await computeDocumentContentRecordCiphertextHash(encryptedData),
       writerUserId: input.userId,
       writerDeviceId: input.signerDeviceId,
       writerKeyFingerprint: input.signerKeyFingerprint,
@@ -276,7 +273,8 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId: readHeaderString(header, "contentRecordId"),
   };
-  const writeHeader = await signWriteHeader(
+  const { encryptedData, writeHeader } = await signWithDocumentEnvelope(
+    `dependent-seed:${update.id}`,
     {
       ...nonceDomain,
       dependencyManifestHashes: [
@@ -296,9 +294,6 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
         plaintextHash: update.plaintextHash,
         updateId: update.id,
       }),
-      ciphertextHash: await computeDocumentContentRecordCiphertextHash(
-        update.encryptedData,
-      ),
       writerUserId: readHeaderString(header, "writerUserId"),
       writerDeviceId: readHeaderString(header, "writerDeviceId"),
       writerKeyFingerprint: readHeaderString(header, "writerKeyFingerprint"),
@@ -309,6 +304,7 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
 
   request.initialSync.outgoingUpdates[0] = {
     ...update,
+    encryptedData,
     partialStartVersionVector: vectors.partialStartVersionVector,
     partialEndVersionVector: vectors.partialEndVersionVector,
     writeHeader: toWireRecord(writeHeader, "dependency-bearing seed header"),

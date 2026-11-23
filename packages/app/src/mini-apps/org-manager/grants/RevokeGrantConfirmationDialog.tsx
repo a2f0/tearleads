@@ -8,7 +8,10 @@ import {
   MiniAppModalForm,
   MiniAppModalPanel,
 } from "../../../components/mini-app/MiniAppLayout";
-import { MiniAppInfoTable } from "../../../components/mini-app/MiniAppTable";
+import {
+  MiniAppInfoRow,
+  MiniAppInfoTable,
+} from "../../../components/mini-app/MiniAppTable";
 import {
   getAccessLabel,
   getContainerDisplayLabel,
@@ -66,20 +69,21 @@ export function RevokeGrantConfirmationDialog({
           </p>
           <MiniAppInfoTable>
             <tbody>
-              <tr>
-                <th>{ORG_MANAGER_LABELS.principal}</th>
-                <td title={grant.subjectId}>{getGrantPrincipalLabel(grant)}</td>
-              </tr>
-              <tr>
-                <th>{ORG_MANAGER_LABELS.container}</th>
-                <td title={getContainerDisplayTitle(grant)}>
-                  {getContainerDisplayLabel(grant)}
-                </td>
-              </tr>
-              <tr>
-                <th>{ORG_MANAGER_LABELS.access}</th>
-                <td>{getAccessLabel(grant.accessLevel)}</td>
-              </tr>
+              <MiniAppInfoRow
+                label={ORG_MANAGER_LABELS.principal}
+                title={grant.subjectId}
+              >
+                {getGrantPrincipalLabel(grant)}
+              </MiniAppInfoRow>
+              <MiniAppInfoRow
+                label={ORG_MANAGER_LABELS.container}
+                title={getContainerDisplayTitle(grant)}
+              >
+                {getContainerDisplayLabel(grant)}
+              </MiniAppInfoRow>
+              <MiniAppInfoRow label={ORG_MANAGER_LABELS.access}>
+                {getAccessLabel(grant.accessLevel)}
+              </MiniAppInfoRow>
             </tbody>
           </MiniAppInfoTable>
           <MiniAppActions>

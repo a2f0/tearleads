@@ -12,7 +12,10 @@ import {
   documentSyncResponsePullPageRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
-import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
+import {
+  registerJsonSchemaFragment,
+  registerJsonSchemaRuntimeRefinements,
+} from "../jsonSchema";
 import {
   arraySchema,
   boundedNonEmptyStringSchema,
@@ -27,6 +30,7 @@ import {
   MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
 } from "../util/documentSyncLimits";
+import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
 
 export const DocumentContentKeyTargetEnvelopeResponseSchema = loosePlainObject({
   containerId: nonEmptyStringSchema,
@@ -115,6 +119,10 @@ export const DocumentSyncPullPageResponseSchema = loosePlainObject({
   hasMore: z.boolean(),
   nextCursor: boundedNonEmptyStringSchema(
     MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
+  ).nullable(),
+  throughUpdateId: registerJsonSchemaFragment(
+    z.string().refine(isUuidV4String),
+    { pattern: UUID_V4_PATTERN.source, type: "string" },
   ).nullable(),
 });
 

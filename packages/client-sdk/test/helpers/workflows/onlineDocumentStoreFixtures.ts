@@ -34,7 +34,11 @@ export function createEchoDocumentSyncResponse(input: {
     commitLsnMode: "tracked",
     contentKeyBundles: [],
     documentId: input.storedDocument.id,
-    pullPage: input.pullPage ?? { hasMore: false, nextCursor: null },
+    pullPage: input.pullPage ?? {
+      hasMore: false,
+      nextCursor: null,
+      throughUpdateId: null,
+    },
     updates: input.request.outgoingUpdates.map((update) => {
       const writeHeader = readWriteHeader(
         update.writeHeader,

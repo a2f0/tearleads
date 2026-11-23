@@ -191,6 +191,38 @@ function exceedsCrossFieldScanBounds(
   );
 }
 
+/**
+ * A raw-history pull starts from a null version vector, and a processed
+ * cursor needs the non-null one it was recorded with.
+ */
+function addPullFrontierIssues(
+  request: {
+    readonly historyMode?: "raw" | undefined;
+    readonly localVersionVector: string | null;
+    readonly processedThroughUpdateId?: string | undefined;
+  },
+  context: z.RefinementCtx,
+): void {
+  if (
+    request.processedThroughUpdateId !== undefined &&
+    request.localVersionVector === null
+  ) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "a processed cursor needs the version vector it was recorded with",
+      path: ["processedThroughUpdateId"],
+    });
+  }
+  if (request.historyMode === "raw" && request.localVersionVector !== null) {
+    context.addIssue({
+      code: "custom",
+      message: "raw-history pulls must start from a null version vector",
+      path: ["localVersionVector"],
+    });
+  }
+}
+
 export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject({
     authorizingContainerPathRefs:
@@ -220,6 +252,10 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
       DocumentSyncOutgoingUpdateSchema,
       MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
     ),
+    processedThroughUpdateId: registerJsonSchemaFragment(
+      z.string().refine(isUuidV4String),
+      { pattern: UUID_V4_PATTERN.source, type: "string" },
+    ).optional(),
     pullCursor: boundedNonEmptyStringSchema(
       MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
     ).optional(),
@@ -268,13 +304,7 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
         path: ["historyMode"],
       });
     }
-    if (request.historyMode === "raw" && request.localVersionVector !== null) {
-      context.addIssue({
-        code: "custom",
-        message: "raw-history pulls must start from a null version vector",
-        path: ["localVersionVector"],
-      });
-    }
+    addPullFrontierIssues(request, context);
     const requestMode = classifyDocumentSyncRequestMode({
       authorizingContainerPathRefsPresent:
         request.authorizingContainerPathRefs !== undefined,

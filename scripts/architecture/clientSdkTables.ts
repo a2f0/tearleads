@@ -10,9 +10,12 @@ export const documentStoreTables = [
   "documentHistoryCheckpoints",
   "documentHistoryUpdates",
   "documentOrphanBlobReclaims",
+  "documentPeerPreemptions",
   "documentPendingAttachments",
   "documentProjection",
   "documentProjectionText",
+  "documentSyncProgress",
+  "documentVoidUpdates",
   "documents",
   "pendingDocumentDiscoveries",
 ];

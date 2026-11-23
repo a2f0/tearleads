@@ -28,6 +28,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/container-keying/ContainerGrantScope.md": 1,
   "formal/document-sync/EmptyFrontierUnlink.md": 1,
   "formal/document-sync/MetadataListingConvergence.md": 1,
+  "formal/document-sync/VoidUpdateProgress.md": 1,
   "formal/local-trust/PurgeRecovery.md": 1,
   "formal/local-trust/SubtreePurgeScope.md": 1,
   "formal/local-trust/SessionRetryIdentity.md": 1,

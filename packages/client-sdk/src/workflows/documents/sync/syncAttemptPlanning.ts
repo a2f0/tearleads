@@ -81,6 +81,8 @@ export async function planDocumentSyncAttempt(input: {
   /** The version the request advertises; defaults to the sync's live one. */
   localVersionVector?: string | null | undefined;
   pendingUpdates: readonly PendingUpdateRecord[];
+  /** The processed cursor the request may carry; see `processedCursor.ts`. */
+  processedThroughUpdateId?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   regenerateQueuedCheckpoints: boolean;
   sync: RemoteDocumentSyncPass;
@@ -114,6 +116,7 @@ export async function planDocumentSyncAttempt(input: {
             input.pullContinuation,
             input.sync.minLsn,
           ),
+          processedThroughUpdateId: input.processedThroughUpdateId,
           pullCursor: input.pullContinuation?.cursor,
           projection,
           regenerateQueuedCheckpoints: input.regenerateQueuedCheckpoints,

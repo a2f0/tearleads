@@ -1,9 +1,9 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import type { DocumentSyncApi } from "../../../data/documents/shared/sync/documentSyncTypes";
 import type {
-  DocumentSyncUpdateIsolationError,
+  DocumentSyncApi,
   IncomingDocumentSyncUpdateValidator,
-} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+} from "../../../data/documents/shared/sync/documentSyncTypes";
+import type { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/sync/syncPagination";
 import type {
   DocumentCreateAuthor,
@@ -41,6 +41,12 @@ export interface SyncRemoteDocumentRequest {
   historyMode?: "raw" | undefined;
   localVersionVector: string | null;
   minLsn?: string | undefined;
+  /**
+   * The processed cursor recorded with a version `localVersionVector`
+   * covers; the server starts the pull after it. A pass that lowers its
+   * advertised version to recover conflicted rows drops it.
+   */
+  processedThroughUpdateId?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
   /**
    * The document's last pull lost its cursor part way and has to start over,

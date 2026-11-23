@@ -51,7 +51,11 @@ for (const outcome of ["applied", "incomplete", "superseded"] as const) {
           if (outcome === "incomplete") {
             return {
               ...response,
-              pullPage: { hasMore: true, nextCursor: "page-2" },
+              pullPage: {
+                hasMore: true,
+                nextCursor: "page-2",
+                throughUpdateId: null,
+              },
             };
           }
           if (outcome === "superseded") {
