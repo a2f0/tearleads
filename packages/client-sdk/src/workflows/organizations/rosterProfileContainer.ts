@@ -10,8 +10,6 @@ import {
   initializeStoredDocumentKind,
   writeStoredDocumentFields,
 } from "../../data/documents/documentKinds";
-import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
-import { getScopedPeerSeed } from "../../data/sync/crdtPeerSeed";
 
 export const ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME = "Roster Profiles";
 export const ROSTER_PROFILE_DOCUMENT_KIND = "contact";
@@ -55,7 +53,9 @@ export async function createInitializedRosterProfileDocument(input: {
   readonly initialUpdate: Uint8Array;
   readonly snapshot: string;
 }> {
-  const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
+  // A create's ops go under a fresh peer: it writes once, and no other
+  // member can know it before that write commits and claims it.
+  const doc = await createDocument(crypto.randomUUID());
   initializeStoredDocumentKind(doc, ROSTER_PROFILE_DOCUMENT_KIND);
   writeStoredDocumentFields(doc, ROSTER_PROFILE_DOCUMENT_KIND, {
     ...buildRosterProfileDocumentPatch(input),
