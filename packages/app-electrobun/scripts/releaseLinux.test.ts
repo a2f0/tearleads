@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +7,13 @@ import {
   runLinuxNativeBuild,
   runLinuxRelease,
 } from "./releaseLinux.testUtils";
+
+// Every test runs the release script against a fixture Git repository with
+// stubbed Docker, AWS and Bun children, and the first in a run pays their cold
+// start: on a loaded CI runner it overran Bun's 5s default (CI run 45233291566).
+// The sibling source-map upload tests spawn the same kind of process and get
+// the same budget.
+setDefaultTimeout(60_000);
 
 const stagedPairs = [
   "bun/index.js",
