@@ -449,7 +449,7 @@ export async function readPaneRecoveryKey(pane: HTMLElement): Promise<string> {
   await interact(() => {
     fireEvent.click(
       within(identityManager).getByRole("button", {
-        name: "Reveal Recovery Key",
+        name: "View Recovery Key",
       }),
     );
   });

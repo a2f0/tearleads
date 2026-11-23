@@ -34,7 +34,7 @@ async function renderConfirmation() {
   await act(async () => {
     await sdk.current?.identity.importSeedPhrase(seedPhrase);
   });
-  await view.findByRole("button", { name: "Reveal Recovery Key" });
+  await view.findByRole("button", { name: "View Recovery Key" });
   return { onConfirm, seedPhrase, view };
 }
 
@@ -61,7 +61,7 @@ test("continuing requires the exact agreement phrase", async () => {
 test("the backup controls keep their own acknowledgement before revealing", async () => {
   const { onConfirm, seedPhrase, view } = await renderConfirmation();
 
-  fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+  fireEvent.click(view.getByRole("button", { name: "View Recovery Key" }));
   expect(view.queryByText(seedPhrase)).toBeNull();
   fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
     target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },

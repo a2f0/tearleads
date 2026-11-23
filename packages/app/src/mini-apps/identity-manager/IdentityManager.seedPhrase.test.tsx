@@ -62,12 +62,12 @@ test("identity manager exposes the recovery key for seed-backed identities", asy
     });
 
     expect(
-      await view.findByRole("button", { name: "Reveal Recovery Key" }),
+      await view.findByRole("button", { name: "View Recovery Key" }),
     ).toBeTruthy();
     // The passphrase stays off screen until the disclosure is acknowledged.
     expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
     expect(
-      await view.findByRole("button", { name: "Copy recovery key" }),
+      await view.findByRole("button", { name: "Copy Recovery Key" }),
     ).toBeTruthy();
     expect(
       await view.findByRole("button", { name: "Download Recovery Key" }),
@@ -115,7 +115,7 @@ test("identity manager restores a recovery key from a typed passphrase", async (
       view.getByRole("tab", { name: "Recovery" }).getAttribute("aria-selected"),
     ).toBe("true");
     expect(
-      view.queryByRole("button", { name: "Reveal Recovery Key" }),
+      view.queryByRole("button", { name: "View Recovery Key" }),
     ).toBeNull();
 
     fireEvent.change(restoreInput, {
@@ -133,7 +133,7 @@ test("identity manager restores a recovery key from a typed passphrase", async (
     // A restored key is a new key: it stays hidden until acknowledged.
     fireEvent.click(view.getByRole("tab", { name: "Backup" }));
     expect(
-      await view.findByRole("button", { name: "Reveal Recovery Key" }),
+      await view.findByRole("button", { name: "View Recovery Key" }),
     ).toBeTruthy();
     expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
     expect(view.getByText("Recovery key restored.")).toBeTruthy();
