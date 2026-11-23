@@ -56,6 +56,8 @@ describeSchema(
   DocumentContentKeyBundleRequestSchema,
   "A content-key bundle: one document content-key epoch wrapped to every linked container's KEK.",
   {
+    contentKeyCommitment:
+      "The epoch's content-key commitment: an HKDF output of the wrapped key. It opens an epoch and must repeat the stored one when a link adds targets.",
     linkSetManifestHash:
       "Document link-set manifest the targets were derived from.",
     targetHash:
@@ -67,6 +69,8 @@ describeSchema(
   DocumentContentKeyBundleResponseSchema,
   "A stored content-key bundle for one document content-key epoch.",
   {
+    contentKeyCommitment:
+      "The epoch's content-key commitment; every update of the epoch carries it in its signed envelope.",
     linkSetManifestHash:
       "Document link-set manifest the targets were derived from.",
     targetHash: "Hash of the key target set the wraps cover.",

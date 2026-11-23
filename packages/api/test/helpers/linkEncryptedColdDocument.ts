@@ -14,6 +14,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { TestUser } from "@tearleads/test-utils";
 import type { createAncestorSdkContext } from "./ancestorSdkRepair";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "./documentEnvelopeFixture";
 import { createSignedAccessEvent } from "./keyingWriterProjectionKit";
 
 /** A real, signed second link with the same DEK wrapped to a distinct target KEK. */
@@ -136,6 +137,7 @@ export async function linkEncryptedColdDocument(input: {
       manifestHash: bundle.manifestHash,
     })),
     contentKeyBundle: {
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch,
       linkSetManifestHash: manifestHash,
       targetHash,

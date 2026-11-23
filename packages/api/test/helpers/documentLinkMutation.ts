@@ -19,6 +19,7 @@ import type {
   CreatedDocumentFixture,
   LinkedDocumentFixture,
 } from "./documentAcknowledgementFixture";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "./documentEnvelopeFixture";
 import { createSignedAtomicRotationBaseline } from "./documentUpdateRequests";
 import {
   accessManifestFromContainerResponse,
@@ -131,6 +132,7 @@ export async function buildDocumentLinkRequest(input: {
         })),
       ],
       contentKeyBundle: {
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: input.createdDocument.contentKeyEpoch,
         linkSetManifestHash: manifestHash,
         targetHash,
@@ -156,12 +158,16 @@ export async function buildDocumentLinkRequest(input: {
 export async function buildDocumentUnlinkRequest(input: {
   readonly blobRewraps?: DocumentLinkAccessEventBody["blobRewraps"];
   readonly child: StoredContainerMutation;
+  /** The rotated epoch's commitment; defaults to the fixture's. */
+  readonly contentKeyCommitment?: string | undefined;
   readonly linkedDocument: LinkedDocumentFixture;
   readonly owner: TestUser;
   readonly remainingContainer?: StoredRootFixture | undefined;
   readonly remainingContainerPath?:
     | readonly AccessManifestBundleWire[]
     | undefined;
+  /** The commitment the baseline's envelope declares, if not the epoch's. */
+  readonly rotationBaselineContentKeyCommitment?: string | undefined;
   /** The rotation baseline's signed processed cursor. */
   readonly rotationBaselineCoversThroughUpdateId?: string | undefined;
   readonly rotationBaselineSourceVersionVector?: string;
@@ -236,11 +242,15 @@ export async function buildDocumentUnlinkRequest(input: {
     remainingTarget,
   ]);
   const contentKeyEpoch = input.linkedDocument.contentKeyEpoch + 1;
+  const contentKeyCommitment =
+    input.contentKeyCommitment ?? CONTENT_KEY_COMMITMENT_FIXTURE;
   const rotationBaseline = await createSignedAtomicRotationBaseline({
     dependencyManifestHashes: remainingContainerPath.map(
       (bundle) => bundle.manifestHash,
     ),
     accessManifestHash: manifestHash,
+    contentKeyCommitment:
+      input.rotationBaselineContentKeyCommitment ?? contentKeyCommitment,
     contentKeyEpoch,
     coversThroughUpdateId: input.rotationBaselineCoversThroughUpdateId,
     documentId,
@@ -270,6 +280,7 @@ export async function buildDocumentUnlinkRequest(input: {
         })),
       ],
       contentKeyBundle: {
+        contentKeyCommitment,
         contentKeyEpoch,
         linkSetManifestHash: manifestHash,
         targetHash,

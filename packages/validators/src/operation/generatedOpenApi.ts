@@ -2580,6 +2580,8 @@ export type components = {
         };
         /** @description A content-key bundle: one document content-key epoch wrapped to every linked container's KEK. */
         DocumentContentKeyBundleRequest: {
+            /** @description The epoch's content-key commitment: an HKDF output of the wrapped key. It opens an epoch and must repeat the stored one when a link adds targets. */
+            contentKeyCommitment: string;
             contentKeyEpoch: number;
             /** @description Document link-set manifest the targets were derived from. */
             linkSetManifestHash: string;
@@ -2591,6 +2593,8 @@ export type components = {
         };
         /** @description A stored content-key bundle for one document content-key epoch. */
         DocumentContentKeyBundleResponse: {
+            /** @description The epoch's content-key commitment; every update of the epoch carries it in its signed envelope. */
+            contentKeyCommitment: string;
             contentKeyEpoch: number;
             documentId: string;
             /** @description Document link-set manifest the targets were derived from. */

@@ -95,7 +95,10 @@ for (const historyMode of [undefined, "raw"] as const) {
           writerProjection,
         });
         if (wrongKey) {
-          await expect(result).rejects.toMatchObject({ stage: "decrypt" });
+          // The rewrap opens to a key the epoch never committed to: the
+          // reader refuses it at unwrap, before any update could be judged
+          // under it, so the failure is availability and voids nothing.
+          await expect(result).rejects.toMatchObject({ stage: "content_key" });
           expect(authenticated).toBe(false);
         } else {
           await result;

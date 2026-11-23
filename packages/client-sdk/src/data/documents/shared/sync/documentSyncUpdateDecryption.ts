@@ -20,6 +20,7 @@ import {
   readRecordString,
   readWriteHeader,
 } from "../readers";
+import type { DocumentContentKey } from "./contentKeyCommitment";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
 import { isolateDocumentSyncUpdateError } from "./documentSyncUpdateIsolation";
 
@@ -174,26 +175,76 @@ export async function assertDocumentSyncUpdateEncryptedRecord(
   });
 }
 
+/**
+ * The envelope's signed commitment must name the key this reader holds for
+ * its epoch. Checked only after the envelope matched its signed header and
+ * `ciphertextHash`, so a commitment the server altered fails that check
+ * instead. A mismatch means this reader holds another key than the writer
+ * committed to: it can judge nothing about the update, so it is no void.
+ */
+function assertEnvelopeCommitsToHeldKey(input: {
+  contentKey: DocumentContentKey;
+  encrypted: ParsedDocumentEncryptedUpdate;
+  update: SyncResponseUpdate;
+}): void {
+  if (input.encrypted.contentKeyCommitment === input.contentKey.commitment) {
+    return;
+  }
+  throw isolateDocumentSyncUpdateError({
+    cause: new Error(
+      "Document update commits to another content key than this reader holds",
+    ),
+    responseUpdate: input.update,
+    stage: "content_key",
+    updateId: input.update.id,
+  });
+}
+
+/**
+ * AES-GCM refusing the record: a failed tag check, or a ciphertext too short
+ * to hold one. WebCrypto reports both, and only these, as `OperationError`.
+ */
+function isAesGcmAuthenticationFailure(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    Reflect.get(error, "name") === "OperationError"
+  );
+}
+
 async function decryptPayload(input: {
+  contentKey: DocumentContentKey;
   contentKeyEpoch: number;
-  contentKeyMaterial: CryptoKey;
   documentId: string;
   encrypted: ParsedDocumentEncryptedUpdate;
   organizationId: string;
   update: SyncResponseUpdate;
 }): Promise<{ plaintextHashKey: CryptoKey; updateData: Uint8Array }> {
+  const isolate = (cause: unknown, stage: "decrypt" | "decrypt_runtime") =>
+    isolateDocumentSyncUpdateError({
+      cause,
+      responseUpdate: input.update,
+      stage,
+      updateId: input.update.id,
+    });
+  let recordKey: CryptoKey;
+  let plaintextHashKey: CryptoKey;
   try {
     const keyInput = {
-      contentKeyMaterial: input.contentKeyMaterial,
+      contentKeyMaterial: input.contentKey.material,
       contentKeyEpoch: input.contentKeyEpoch,
       contentRecordId: input.encrypted.contentRecordId,
       documentId: input.documentId,
       organizationId: input.organizationId,
     };
-    const [recordKey, plaintextHashKey] = await Promise.all([
+    [recordKey, plaintextHashKey] = await Promise.all([
       deriveDocumentContentRecordKey({ ...keyInput, usage: "decrypt" }),
       deriveDocumentPlaintextHashKey(keyInput),
     ]);
+  } catch (error) {
+    throw isolate(error, "decrypt_runtime");
+  }
+  try {
     const updateData = new Uint8Array(
       await crypto.subtle.decrypt(
         {
@@ -214,30 +265,34 @@ async function decryptPayload(input: {
     );
     return { plaintextHashKey, updateData };
   } catch (error) {
-    throw isolateDocumentSyncUpdateError({
-      cause: error,
-      responseUpdate: input.update,
-      stage: "decrypt",
-      updateId: input.update.id,
-    });
+    // Under the committed key, a refused record is the writer's: every
+    // reader holding that key refuses it. Anything else is this runtime's.
+    throw isolate(
+      error,
+      isAesGcmAuthenticationFailure(error) ? "decrypt" : "decrypt_runtime",
+    );
   }
 }
 
 /**
- * Decrypts a served update and checks its plaintext hash. With
- * `verifyLoroMetadata` it also checks that the payload's Loro metadata is the
- * signed span; a judged pull leaves that to the import judge, which reads
- * every payload in server order and can tell a void from the runtime failing.
+ * Decrypts a served update and checks its plaintext hash. The envelope must
+ * first match its signed header and commit to the key this reader holds.
+ * With `verifyLoroMetadata` it also checks that the payload's Loro metadata
+ * is the signed span; a judged pull leaves that to the import judge, which
+ * reads every payload in server order and can tell a void from the runtime
+ * failing.
  */
 export async function decryptDocumentSyncUpdate(input: {
+  /** The reader's key for the update's epoch, opened for this document. */
+  contentKey: DocumentContentKey;
   contentKeyEpoch: number;
-  contentKeyMaterial: CryptoKey;
   documentId: string;
   organizationId: string;
   update: SyncResponseUpdate;
   verifyLoroMetadata: boolean;
 }): Promise<DecryptedDocumentSyncUpdate> {
   const encrypted = await verifiedEncryptedSyncUpdate(input);
+  assertEnvelopeCommitsToHeldKey({ ...input, encrypted });
   const { plaintextHashKey, updateData } = await decryptPayload({
     ...input,
     encrypted,

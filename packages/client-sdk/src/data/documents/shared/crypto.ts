@@ -14,9 +14,12 @@ import { contentRecordAdditionalDataBytes } from "./contentRecordAdditionalData"
 import {
   deriveDocumentContentRecordKey,
   deriveDocumentPlaintextHashKey,
-  importContentKeyMaterial,
 } from "./contentRecordKeys";
 import { asWebCryptoBytes, readWriteHeader } from "./readers";
+import {
+  type DocumentContentKey,
+  openDocumentContentKey,
+} from "./sync/contentKeyCommitment";
 import type {
   DecryptedDocumentSyncUpdate,
   DocumentEncryptedPendingUpdate,
@@ -34,7 +37,8 @@ import {
 import { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "./types";
 
 export async function encryptDocumentPendingUpdate(input: {
-  contentKeyMaterial: CryptoKey;
+  /** The epoch's key, opened for this document and `contentKeyEpoch`. */
+  contentKey: DocumentContentKey;
   contentKeyEpoch: number;
   documentId: string;
   organizationId: string;
@@ -53,13 +57,14 @@ export async function encryptDocumentPendingUpdate(input: {
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     contentRecordId,
   });
-  const plaintextHashKey = await deriveDocumentPlaintextHashKey({
-    contentKeyMaterial: input.contentKeyMaterial,
+  const keyInput = {
+    contentKeyMaterial: input.contentKey.material,
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId,
     documentId: input.documentId,
     organizationId: input.organizationId,
-  });
+  };
+  const plaintextHashKey = await deriveDocumentPlaintextHashKey(keyInput);
   const plaintextHash = await computeDocumentContentRecordPlaintextHash(
     plaintext,
     plaintextHashKey,
@@ -82,11 +87,7 @@ export async function encryptDocumentPendingUpdate(input: {
     updateId: input.update.id,
   });
   const recordKey = await deriveDocumentContentRecordKey({
-    contentKeyMaterial: input.contentKeyMaterial,
-    contentKeyEpoch: input.contentKeyEpoch,
-    contentRecordId,
-    documentId: input.documentId,
-    organizationId: input.organizationId,
+    ...keyInput,
     usage: "encrypt",
   });
   const iv = createAesGcmIv();
@@ -112,6 +113,7 @@ export async function encryptDocumentPendingUpdate(input: {
     format: DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
     version: 1,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentKeyCommitment: input.contentKey.commitment,
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId,
     nonceDomainHash,
@@ -163,9 +165,9 @@ function inspectDocumentSyncUpdatesByEpoch(
   input: DocumentSyncDecryptionInput,
   verifyLoroMetadata: boolean,
 ): Promise<PromiseSettledResult<DecryptedDocumentSyncUpdate>[]> {
-  const contentKeyMaterialByEpoch = new Map<number, Promise<CryptoKey>>();
-  const contentKeyMaterialForEpoch = (contentKeyEpoch: number) => {
-    const existing = contentKeyMaterialByEpoch.get(contentKeyEpoch);
+  const contentKeysByEpoch = new Map<number, Promise<DocumentContentKey>>();
+  const contentKeyForEpoch = (contentKeyEpoch: number) => {
+    const existing = contentKeysByEpoch.get(contentKeyEpoch);
     if (existing) {
       return existing;
     }
@@ -174,9 +176,13 @@ function inspectDocumentSyncUpdatesByEpoch(
     if (!contentKey) {
       throw new Error("Document content key missing for sync update epoch");
     }
-    const imported = importContentKeyMaterial(contentKey);
-    contentKeyMaterialByEpoch.set(contentKeyEpoch, imported);
-    return imported;
+    const opened = openDocumentContentKey({
+      contentKey,
+      contentKeyEpoch,
+      documentId: input.documentId,
+    });
+    contentKeysByEpoch.set(contentKeyEpoch, opened);
+    return opened;
   };
 
   return Promise.allSettled(
@@ -196,9 +202,9 @@ function inspectDocumentSyncUpdatesByEpoch(
         });
       }
 
-      let contentKeyMaterial: CryptoKey;
+      let contentKey: DocumentContentKey;
       try {
-        contentKeyMaterial = await contentKeyMaterialForEpoch(contentKeyEpoch);
+        contentKey = await contentKeyForEpoch(contentKeyEpoch);
       } catch (error) {
         throw isolateDocumentSyncUpdateError({
           cause: error,
@@ -209,7 +215,7 @@ function inspectDocumentSyncUpdatesByEpoch(
       }
 
       return decryptDocumentSyncUpdate({
-        contentKeyMaterial,
+        contentKey,
         contentKeyEpoch,
         documentId: input.documentId,
         organizationId: input.organizationId,
@@ -275,12 +281,14 @@ export async function decryptDocumentSyncUpdatesByEpoch(
 }
 
 /**
- * Decrypts served updates and voids each whose plaintext is not the one its
- * signed hash names, in server order. Any other failure (a header, an
- * envelope, a key, or AES-GCM itself) still fails the pass: the reader cannot
- * prove its key is the writer's, so it cannot blame the writer. Whether a
- * payload is the Loro update its signed span declares is left to the import
- * judge (`validateDocumentSyncUpdateImports`), the only reader of payloads.
+ * Decrypts served updates in server order and voids each that fails AES-GCM
+ * under the content key its writer signed a commitment to, or whose plaintext
+ * is not the one its signed hash names: every reader holding that key reaches
+ * the same verdict. Any other failure (a header, an envelope, a key that is
+ * not the committed one, or the local runtime) still fails the pass, because
+ * it says nothing about the writer. Whether a payload is the Loro update its
+ * signed span declares is left to the import judge
+ * (`validateDocumentSyncUpdateImports`), the only reader of payloads.
  */
 export async function judgeDocumentSyncUpdateDecryption(
   input: DocumentSyncDecryptionInput,

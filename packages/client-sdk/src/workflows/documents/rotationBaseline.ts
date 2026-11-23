@@ -8,8 +8,8 @@ import type {
   DocumentOutgoingUpdate,
 } from "@tearleads/validators/request";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
-import { importContentKeyMaterial } from "../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../data/documents/shared/crypto";
+import { openDocumentContentKey } from "../../data/documents/shared/sync/contentKeyCommitment";
 import type {
   DocumentCreateAuthor,
   DocumentLinkSetMutationOperation,
@@ -101,7 +101,7 @@ export async function buildDocumentRotationBaseline(input: {
     },
   );
   const encrypted = await encryptDocumentPendingUpdate({
-    contentKeyMaterial: await importContentKeyMaterial(input.contentKey),
+    contentKey: await openDocumentContentKey(input),
     contentKeyEpoch: input.contentKeyEpoch,
     coversThroughUpdateId,
     documentId: input.documentId,

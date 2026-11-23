@@ -10,7 +10,7 @@ import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
 } from "../../../data/documents/shared/responses";
-import { deriveDocumentContentKeyFingerprints } from "../../../data/documents/shared/sync/contentKeyFingerprint";
+import { deriveDocumentContentKeyCommitments } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import type {
   IncomingDocumentSyncUpdateValidator,
   MaterializedDocumentSyncPlan,
@@ -216,7 +216,7 @@ export async function syncRemoteDocumentResultFromResponse(
   const { contentKeysByEpoch, persistedState } =
     await resolveVerifiedResponseState(input);
   const contentKeyFingerprintsByEpoch =
-    await deriveDocumentContentKeyFingerprints({
+    await deriveDocumentContentKeyCommitments({
       contentKeysByEpoch,
       documentId: plan.documentId,
     });

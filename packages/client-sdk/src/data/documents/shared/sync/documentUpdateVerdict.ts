@@ -7,13 +7,16 @@ import {
 /**
  * The stages whose failure is a fact about the signed record alone, so every
  * reader judging the same served history in server order reaches the same
- * verdict. A reader that fails at any other stage (a missing key, an envelope
- * the server should have refused, AES-GCM under a key nobody committed to)
+ * verdict. `decrypt` is AES-GCM refusing the record under the key its writer
+ * signed a commitment to, which every reader holding that key refuses too. A
+ * reader that fails at any other stage (a missing key, a key that is not the
+ * committed one, an envelope the server should have refused, its own runtime)
  * cannot tell its own state from the writer's fault, and fails the pass.
  * `loro_runtime` is a void only once `MAX_LORO_RUNTIME_ATTEMPTS` process
  * lifetimes have each failed the update; before that it is unsettled.
  */
 const VOID_STAGES = new Set<DocumentSyncUpdateIsolationError["stage"]>([
+  "decrypt",
   "loro_import",
   "loro_metadata",
   "loro_runtime",
@@ -22,6 +25,7 @@ const VOID_STAGES = new Set<DocumentSyncUpdateIsolationError["stage"]>([
 
 /** A stage at which a served update can be void. */
 export type DocumentVoidStage =
+  | "decrypt"
   | "loro_import"
   | "loro_metadata"
   | "loro_runtime"
@@ -33,7 +37,7 @@ export type DocumentVoidStage =
  * judges every update it voided again: a format an older decoder could not
  * read is not a fault of the writer.
  */
-const DOCUMENT_VOID_RULES_VERSION = "void-rules-2";
+const DOCUMENT_VOID_RULES_VERSION = "void-rules-3";
 
 export function documentVerdictJudge(): string {
   return `${DOCUMENT_VOID_RULES_VERSION}:${loroDecoderIdentity()}`;

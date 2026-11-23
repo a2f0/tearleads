@@ -3,7 +3,6 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { importContentKeyMaterial } from "../../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../../data/documents/shared/crypto";
 import {
   ContainerKekHistoryUnavailableError,
@@ -15,6 +14,7 @@ import {
 import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
+import { openDocumentContentKey } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { assertDocumentSyncUpdateEncryptedRecord } from "../../../data/documents/shared/sync/documentSyncUpdateDecryption";
 import {
@@ -132,7 +132,7 @@ export async function prepareDocumentOutgoingUpdates(input: {
   if (input.pendingUpdates.length === 0) {
     return [];
   }
-  const contentKeyMaterial = await importContentKeyMaterial(input.contentKey);
+  const contentKey = await openDocumentContentKey(input);
   const baselineCursors = await resolveBaselineCursors(input);
 
   return Promise.all(
@@ -141,7 +141,7 @@ export async function prepareDocumentOutgoingUpdates(input: {
         ? baselineCursors.get(update.id)
         : undefined;
       const encrypted = await encryptDocumentPendingUpdate({
-        contentKeyMaterial,
+        contentKey,
         contentKeyEpoch: input.contentKeyEpoch,
         coversThroughUpdateId,
         documentId: input.documentId,

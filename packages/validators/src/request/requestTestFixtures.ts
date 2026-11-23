@@ -3,6 +3,7 @@ export function createDocumentContentKeyBundle(
   overrides: Record<string, unknown> = {},
 ) {
   return {
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch: 1,
     linkSetManifestHash: "document-link-set-hash",
     targetHash: "target-hash",

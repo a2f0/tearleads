@@ -8,6 +8,7 @@ import {
   setupDocumentTargets,
   targetEnvelopes,
 } from "../../../test/helpers/documentContentKeyStoreFixtures";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "../../../test/helpers/documentEnvelopeFixture";
 import { getLatestCurrentDocumentContentKeyBundle } from "../read/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../read/documentKekTargets";
 import { storeVerifiedAccessManifest } from "./accessManifestStore";
@@ -27,6 +28,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
   await storeDocumentContentKeyBundle(
     {
       documentId: setup.documentId,
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: initialTargets.linkSetManifestHash,
       targetHash: initialTargets.documentKeyTargetHash,
@@ -80,6 +82,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
     storeDocumentContentKeyBundle(
       {
         documentId: setup.documentId,
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 1,
         linkSetManifestHash: movedTargets.linkSetManifestHash,
         targetHash: movedTargets.documentKeyTargetHash,
@@ -99,6 +102,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
     storeDocumentContentKeyBundle(
       {
         documentId: setup.documentId,
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 2,
         linkSetManifestHash: movedTargets.linkSetManifestHash,
         targetHash: movedTargets.documentKeyTargetHash,
@@ -121,6 +125,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
   const createdBundle = await storeDocumentContentKeyBundle(
     {
       documentId: setup.documentId,
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: initialTargets.linkSetManifestHash,
       targetHash: initialTargets.documentKeyTargetHash,
@@ -171,6 +176,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
     storeDocumentContentKeyBundle(
       {
         documentId: setup.documentId,
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 1,
         linkSetManifestHash: rekeyedTargets.linkSetManifestHash,
         targetHash: rekeyedTargets.documentKeyTargetHash,
@@ -191,6 +197,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after conta
       storeDocumentContentKeyBundleInTransaction(
         {
           documentId: setup.documentId,
+          contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
           contentKeyEpoch: 2,
           linkSetManifestHash: rekeyedTargets.linkSetManifestHash,
           targetHash: rekeyedTargets.documentKeyTargetHash,
@@ -216,6 +223,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after targe
   await storeDocumentContentKeyBundle(
     {
       documentId: setup.documentId,
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: initialTargets.linkSetManifestHash,
       targetHash: initialTargets.documentKeyTargetHash,
@@ -242,6 +250,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after targe
     storeDocumentContentKeyBundle(
       {
         documentId: setup.documentId,
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 1,
         linkSetManifestHash: shrunkTargets.linkSetManifestHash,
         targetHash: shrunkTargets.documentKeyTargetHash,
@@ -260,6 +269,7 @@ test("storeDocumentContentKeyBundle requires a new content key epoch after targe
     storeDocumentContentKeyBundle(
       {
         documentId: setup.documentId,
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 2,
         linkSetManifestHash: shrunkTargets.linkSetManifestHash,
         targetHash: shrunkTargets.documentKeyTargetHash,

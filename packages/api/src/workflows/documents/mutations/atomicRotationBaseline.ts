@@ -121,6 +121,8 @@ export async function assertBaselinelessUnlinkHasEmptyCommittedFrontier(
 
 export async function appendAtomicRotationBaseline(input: {
   readonly baseline: DocumentOutgoingUpdate;
+  /** The stored commitment of the epoch the unlink opened. */
+  readonly contentKeyCommitment: string;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
@@ -131,6 +133,7 @@ export async function appendAtomicRotationBaseline(input: {
 }): Promise<readonly string[]> {
   const appendResult = await appendDocumentUpdates({
     accessEpoch: input.manifest.state.epoch,
+    contentKeyCommitment: input.contentKeyCommitment,
     documentId: input.documentId,
     executor: input.executor,
     fingerprint: input.fingerprint,

@@ -12,6 +12,7 @@ import {
   type DocumentWriterProjectionResponse,
   documentKekTargetsFromContentKeyBundle,
 } from "@tearleads/validators/response";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "./documentEnvelopeFixture";
 import {
   rememberedRequestManifest,
   rememberRequestManifest,
@@ -74,6 +75,7 @@ export function withDocumentMutationArtifacts<
   };
   const contentKeyBundle: DocumentContentKeyBundleResponse = {
     documentId: response.id,
+    contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
     contentKeyEpoch: response.contentKeyEpoch,
     linkSetManifestHash: response.manifestHash,
     targetHash: response.targetHash,
