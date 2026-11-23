@@ -80,6 +80,7 @@ function useAutoProvisionIdentity(enabled: boolean) {
     onboarding,
     recovered,
     registration: useAutoRegisterIdentity(enabled, {
+      backupPending: onboarding?.state.status === "confirming-backup",
       generation,
       naming: naming.state,
       namingSettled: naming.settled,
@@ -154,6 +155,8 @@ function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
 }
 
 interface PendingRegistration {
+  /** The created identity's recovery key is not yet confirmed backed up. */
+  readonly backupPending: boolean;
   readonly recovered: boolean;
   readonly generation: AutoProvisioningStep;
   readonly naming: AccountNamingState;
@@ -164,13 +167,15 @@ interface PendingRegistration {
  * Whether registration must wait for the user, and the name it carries. A
  * key the autopilot is still installing may yet need a name, a name given
  * before a restart may still be on its way back, a name still owed holds the
- * identity's first registration, and a name given holds it until stored.
+ * identity's first registration, a name given holds it until stored, and a
+ * created identity holds it until its recovery key is confirmed backed up.
  */
 function pendingRegistration(pending: PendingRegistration) {
   return {
     accountName:
       pending.naming.status === "named" ? pending.naming.name : undefined,
     awaitingInput:
+      pending.backupPending ||
       pending.generation.status === "running" ||
       !pending.namingSettled ||
       pending.naming.status === "awaiting" ||

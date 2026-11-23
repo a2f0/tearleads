@@ -187,7 +187,13 @@ test("real document projections cite held manifests through links, rotations and
         localVersionVector: null,
         pendingUpdates: [],
         resolveWriterPublicKey: writerResolver(owner),
-        validateIncomingUpdates: () => undefined,
+        // Accepts every served update without judging it.
+        validateIncomingUpdates: () => ({
+          deferredUpdateIds: [],
+          heldUpdateIds: [],
+          runtimeFailures: [],
+          voided: [],
+        }),
       });
       if (!result) throw new Error("Expected verified document read");
       expect(result.contentKey).toEqual(created.contentKey);

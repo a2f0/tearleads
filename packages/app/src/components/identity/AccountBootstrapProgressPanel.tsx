@@ -11,6 +11,7 @@ import {
   MiniAppToolbar,
 } from "../mini-app/MiniAppLayout";
 import "./AccountBootstrapProgressPanel.css";
+import { RecoveryKeyBackupConfirmation } from "./recovery-key/RecoveryKeyBackupConfirmation";
 
 function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
   const { accountNaming, onboarding, submitAccountName } =
@@ -108,6 +109,11 @@ export function AccountBootstrapProgressPanel({
           </MiniAppButton>
         </MiniAppToolbar>
       </MiniAppStatePanel>
+    );
+  }
+  if (progress.phase === "confirming-backup" && onboarding) {
+    return (
+      <RecoveryKeyBackupConfirmation onConfirm={onboarding.confirmBackup} />
     );
   }
   if (

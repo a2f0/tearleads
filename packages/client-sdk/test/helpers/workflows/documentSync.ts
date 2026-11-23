@@ -1,4 +1,5 @@
-import type { IncomingDocumentSyncUpdateValidator } from "../../../src/data/documents/shared/sync/documentSyncUpdateIsolation";
+import type { IncomingDocumentSyncUpdateValidator } from "../../../src/data/documents/shared/sync/documentSyncTypes";
+import { emptyDocumentSyncImportVerdicts } from "../../../src/data/documents/shared/sync/documentUpdateVerdict";
 import type { RemoteDocumentSyncPass } from "../../../src/workflows/documents/sync/remoteDocumentSyncPass";
 import { syncRemoteDocumentForTest } from "./remoteDocumentServiceFixture";
 
@@ -13,7 +14,10 @@ type TestRemoteDocumentSyncPass = Omit<
 export function syncRemoteDocumentWithoutImportValidationForTest(
   input: TestRemoteDocumentSyncPass,
 ) {
-  const { validateIncomingUpdates = () => undefined, ...syncInput } = input;
+  const {
+    validateIncomingUpdates = emptyDocumentSyncImportVerdicts,
+    ...syncInput
+  } = input;
   return syncRemoteDocumentForTest({
     ...syncInput,
     validateIncomingUpdates,

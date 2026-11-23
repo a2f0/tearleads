@@ -17,6 +17,7 @@ import {
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { syncRemoteDocumentForTest as syncRemoteDocument } from "../../../../test/helpers/workflows/remoteDocumentServiceFixture";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";
 
@@ -93,7 +94,7 @@ test("response validation precedes guarded conflict recovery mutations", async (
       response,
       stillCurrent: () => current,
       targetSecretKey: secretKey,
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       writerProjection,
     };
 
@@ -115,6 +116,7 @@ test("response validation precedes guarded conflict recovery mutations", async (
       ...commonInput,
       validateIncomingUpdates: () => {
         current = false;
+        return emptyDocumentSyncImportVerdicts();
       },
     });
     expect(rekeyCount).toBe(1);
@@ -190,7 +192,7 @@ test("pre-auth content-key failures quarantine the batch without naming a writer
         }),
         signedAt: "2026-04-27T00:00:00.000Z",
         targetSecretKey: secretKey,
-        validateIncomingUpdates: () => undefined,
+        validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
         writerProjection: rotatedProjection,
       }),
     ).rejects.toMatchObject({
@@ -278,7 +280,7 @@ test("forged pre-auth write headers cannot frame a writer", async () => {
           signingPublicKey,
         }),
         targetSecretKey: secretKey,
-        validateIncomingUpdates: () => undefined,
+        validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
         writerProjection,
       }),
     ).rejects.toMatchObject({
@@ -350,7 +352,7 @@ test("pre-auth content-key wording preserves writer-key integrity errors", async
           throw integrityError;
         },
         targetSecretKey: secretKey,
-        validateIncomingUpdates: () => undefined,
+        validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
         writerProjection,
       }),
     ).rejects.toBe(integrityError);
@@ -432,7 +434,7 @@ test("content-key recovery preserves projection integrity errors", async () => {
         }),
         signedAt: "2026-04-27T00:00:00.000Z",
         targetSecretKey: secretKey,
-        validateIncomingUpdates: () => undefined,
+        validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
         writerProjection: rotatedProjection,
       }),
     ).rejects.toBe(integrityError);

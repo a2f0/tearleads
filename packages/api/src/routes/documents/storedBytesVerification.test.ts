@@ -195,7 +195,13 @@ test("a cold device verifies every hash-acknowledged write from its stored bytes
       localVersionVector: null,
       pendingUpdates: [],
       resolveWriterPublicKey: writerResolver(owner),
-      validateIncomingUpdates: () => undefined,
+      // Accepts every served update without judging it.
+      validateIncomingUpdates: () => ({
+        deferredUpdateIds: [],
+        heldUpdateIds: [],
+        runtimeFailures: [],
+        voided: [],
+      }),
     });
     if (!read) throw new Error("Expected a verified document read");
     expect(read.contentKey).toEqual(created.contentKey);

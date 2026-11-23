@@ -24,13 +24,15 @@ independent system [container](./glossary/access.md#container) holding the organ
 profile and group names. A device therefore learns about an organization from
 local state alone: `listLocalOrganizations` lists every organization the device
 holds a container of, with `rootContainerId` null when the user cannot reach the
-organization's workspace root. The Organizations mini-app shows each one with
-the folders the user can reach in it, the containers whose parent is not on the
-device, each labeled with the user's effective permission there (read, write, or
-admin). A Contacts or Trash folder shared on its own is one of them; the
-metadata root and roster profiles never are. The Org Manager switcher lists only
-workspaces, because activating an organization makes its root the session
-container.
+organization's workspace root. The Shared with Me mini-app lists the folders
+the user can reach in each, the containers whose parent is not on the device,
+each with its organization and the user's effective permission there (read,
+write, or admin); an organization with none listed gets a row of its own. A
+Contacts or Trash folder shared on its own is one of them; the metadata root
+and roster profiles never are. Each row's context menu offers to pause or
+resume sync for its organization and to ask to leave it. The Org Manager
+switcher lists only workspaces, because activating an organization makes its
+root the session container.
 
 ## Membership list
 
@@ -77,7 +79,7 @@ While an organization is paused, a device:
   [sync lane](./client-sync-ordering.md), the same per-organization check a
   lapsed billing status uses, so document updates, creates, moves, metadata,
   attachments, and key repairs for it stay queued. Sync Status says that sync
-  is paused when it counts them;
+  is paused for an organization while any pause holds, queued writes or not;
 - skips its containers when applying listed container pages, after tombstones
   have seen the full page, so the lane still completes and nothing below them
   is fetched. The device's own copy of each stays as it was;
@@ -133,7 +135,7 @@ re-file a withdrawn request. It also checks that `membersHead` is a stored state
 of the organization's Members group and that the member is in every Members
 state from that one on. It refuses a personal organization and a member who is
 the organization's only administrator, since no one else could approve the
-removal. Organizations offers to ask on every listed membership except the
+removal. Shared with Me offers to ask on every listed membership except the
 personal one, and to withdraw once asked.
 
 The request is stored on the member's roster row and reaches administrators in

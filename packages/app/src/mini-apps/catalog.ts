@@ -1,9 +1,9 @@
 import type { Icon } from "@phosphor-icons/react";
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { ArchiveIcon } from "@phosphor-icons/react/dist/csr/Archive";
-import { BuildingOfficeIcon } from "@phosphor-icons/react/dist/csr/BuildingOffice";
 import { BuildingsIcon } from "@phosphor-icons/react/dist/csr/Buildings";
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
+import { FolderUserIcon } from "@phosphor-icons/react/dist/csr/FolderUser";
 import { IdentificationCardIcon } from "@phosphor-icons/react/dist/csr/IdentificationCard";
 import { MonitorIcon } from "@phosphor-icons/react/dist/csr/Monitor";
 import { NoteIcon } from "@phosphor-icons/react/dist/csr/Note";
@@ -24,8 +24,8 @@ export const MINI_APP_TITLES: Readonly<Record<MiniAppId, string>> = {
   "identity-manager": "Identity Manager",
   notes: "Notes",
   "org-manager": "Org Manager",
-  organizations: "Organizations",
   root: "Root",
+  "shared-with-me": "Shared with Me",
   "system-monitor": "System Monitor",
 };
 
@@ -40,8 +40,8 @@ export const MINI_APP_ICONS: Readonly<Record<MiniAppId, Icon>> = {
   "identity-manager": IdentificationCardIcon,
   notes: NoteIcon,
   "org-manager": BuildingsIcon,
-  organizations: BuildingOfficeIcon,
   root: ShieldCheckIcon,
+  "shared-with-me": FolderUserIcon,
   "system-monitor": SystemMonitorIcon,
 };
 
@@ -54,7 +54,7 @@ interface MiniAppMenuItem {
 export const MINI_APP_ORDER = [
   "explorer",
   "contacts",
-  "organizations",
+  "shared-with-me",
   "org-manager",
   "notes",
   "identity-manager",

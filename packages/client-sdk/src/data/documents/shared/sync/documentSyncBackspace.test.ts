@@ -12,11 +12,9 @@ import {
   addDocumentAttachments,
   getDocumentAttachments,
 } from "../../documentContent";
+import { validateDocumentSyncUpdateImports } from "./documentSyncImportVerdicts";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
-import {
-  importDecryptedDocumentSyncUpdates,
-  validateDocumentSyncUpdateImports,
-} from "./documentSyncUpdateIsolation";
+import { importDecryptedDocumentSyncUpdates } from "./documentSyncUpdateImport";
 
 for (const backspacesPerUpdate of [1, 2, 3]) {
   test(`attached note validates ${backspacesPerUpdate} backspaces per update before and after reload`, async () => {
@@ -55,9 +53,16 @@ for (const backspacesPerUpdate of [1, 2, 3]) {
         });
       }
 
-      await validateDocumentSyncUpdateImports({
-        currentDocument: original,
-        decryptedUpdates: updates,
+      expect(
+        await validateDocumentSyncUpdateImports({
+          currentDocument: original,
+          decryptedUpdates: updates,
+        }),
+      ).toEqual({
+        deferredUpdateIds: [],
+        heldUpdateIds: [],
+        runtimeFailures: [],
+        voided: [],
       });
       expect(original.getText("text").toString()).toBe(initialText);
       importDecryptedDocumentSyncUpdates(original, updates);
@@ -65,9 +70,16 @@ for (const backspacesPerUpdate of [1, 2, 3]) {
       expect(getDocumentAttachments(original)).toEqual([attachment]);
 
       importSnapshot(reloaded, exportFullHistorySnapshot(original));
-      await validateDocumentSyncUpdateImports({
-        currentDocument: reloaded,
-        decryptedUpdates: updates,
+      expect(
+        await validateDocumentSyncUpdateImports({
+          currentDocument: reloaded,
+          decryptedUpdates: updates,
+        }),
+      ).toEqual({
+        deferredUpdateIds: [],
+        heldUpdateIds: [],
+        runtimeFailures: [],
+        voided: [],
       });
       expect(reloaded.getText("text").toString()).toBe("aaaa");
       expect(getDocumentAttachments(reloaded)).toEqual([attachment]);

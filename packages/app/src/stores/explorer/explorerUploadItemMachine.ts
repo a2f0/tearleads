@@ -54,6 +54,11 @@ export function isOutstandingUploadItem(item: ExplorerUploadItem): boolean {
   return item.status === "queued" || item.status === "importing";
 }
 
+/** A file still on its way to the server: outstanding, or imported and awaiting its upload. */
+export function isUnfinishedUploadItem(item: ExplorerUploadItem): boolean {
+  return isOutstandingUploadItem(item) || item.status === "imported";
+}
+
 /**
  * Pure transition; returns the same reference for ignored events. `uploaded`,
  * `removed`, `failed`, and `cancelled` are terminal.
@@ -85,7 +90,7 @@ export function transitionExplorerUploadItem(
           }
         : item;
     case "file-failed":
-      return isOutstandingUploadItem(item) || item.status === "imported"
+      return isUnfinishedUploadItem(item)
         ? { ...item, error: event.error, status: "failed" }
         : item;
     case "selection-failed":

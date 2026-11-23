@@ -27,8 +27,8 @@ const TEST_MINI_APPS = {
   },
   notes: { createComponent: () => EmptyMiniApp, title: "Notes" },
   "org-manager": { createComponent: () => EmptyMiniApp, title: "Org Manager" },
-  organizations: { createComponent: () => EmptyMiniApp, title: "Orgs" },
   root: { createComponent: () => () => null, title: "Root" },
+  "shared-with-me": { createComponent: () => EmptyMiniApp, title: "Shared" },
   "system-monitor": {
     createComponent: () => EmptyMiniApp,
     title: "System Monitor",

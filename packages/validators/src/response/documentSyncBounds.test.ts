@@ -15,7 +15,7 @@ test("document sync responses reject more than one bounded update page", () => {
   expect(
     DocumentSyncResponseSchema.safeParse({
       ...response,
-      pullPage: { hasMore: false, nextCursor: null },
+      pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
       updates,
     }).success,
   ).toBe(false);
@@ -26,13 +26,21 @@ test("document sync responses require a consistent pull continuation", () => {
   expect(
     DocumentSyncResponseSchema.safeParse({
       ...response,
-      pullPage: { hasMore: true, nextCursor: "next-page" },
+      pullPage: {
+        hasMore: true,
+        nextCursor: "next-page",
+        throughUpdateId: null,
+      },
     }).success,
   ).toBe(true);
   expect(
     DocumentSyncResponseSchema.safeParse({
       ...response,
-      pullPage: { hasMore: false, nextCursor: "next-page" },
+      pullPage: {
+        hasMore: false,
+        nextCursor: "next-page",
+        throughUpdateId: null,
+      },
     }).success,
   ).toBe(false);
 });

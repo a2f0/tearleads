@@ -45,12 +45,14 @@ block several tray apps share goes in `shared/`.
   `app-mini-apps-do-not-import-tray-apps`). Code both need lives in a lower
   layer they share: [`components/`](../components/) for UI (the Sync Status
   glyph is `components/shared/SyncGlyph`), [`stores/`](../stores/) for state
-  machines (the write-queue watcher is `stores/write-queue/`),
+  machines (the write- and download-queue read stores are
+  `stores/sync-queues/`),
   [`providers/`](../providers/), [`navigation/`](../navigation/), or
   [`utils/`](../utils/).
 - A tray app opens a mini-app by id through
   [`navigation/AppNavigationProvider`](../navigation/AppNavigationProvider.tsx),
-  as Sync Status opens the Explorer's Write Queue.
+  as Sync Status opens the Explorer's Write Queue, Downloads, Uploads, and
+  Sync Lanes.
 - Tray apps sit below the shell and do not import it
   (`app-tray-apps-stay-below-the-shell`); only the shell loads them
   (`app-only-the-shell-loads-tray-apps`), and only through `registry.ts` and

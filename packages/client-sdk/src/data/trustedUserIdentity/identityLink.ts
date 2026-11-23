@@ -1,10 +1,11 @@
-import { computeUserIdentityBundleFingerprint } from "@tearleads/crypto";
-import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import { resolveIdentityTrustDomain } from "./trustDomain";
+import {
+  computeUserIdentityBundleFingerprint,
+  decodeIdentityLink,
+  encodeIdentityLinkToken,
+  IDENTITY_LINK_PATH,
+  type IdentityLinkExpectation,
+} from "@tearleads/crypto";
 import type { ValidatedUserIdentityCandidate } from "./types";
-import { assertTrustedUserIdentityUserId } from "./validation";
-
-const LINK_PATH = "/app/contacts/import/";
 
 /** A supplied link alone cannot establish evidence of server tampering. */
 class IdentityLinkMismatchError extends Error {
@@ -14,12 +15,6 @@ class IdentityLinkMismatchError extends Error {
     );
     this.name = "IdentityLinkMismatchError";
   }
-}
-
-interface IdentityLinkExpectation {
-  readonly identityTrustDomain: string;
-  readonly userId: string;
-  readonly fingerprint: string;
 }
 
 function invalidLink(): never {
@@ -42,69 +37,8 @@ function httpUrl(value: string): URL {
   return url;
 }
 
-function encodeExpectation(expectation: IdentityLinkExpectation): string {
-  return bytesToBase64(
-    new TextEncoder().encode(
-      JSON.stringify([
-        1,
-        expectation.identityTrustDomain,
-        expectation.userId,
-        expectation.fingerprint,
-      ]),
-    ),
-  )
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/u, "");
-}
-
 export function parseIdentityLink(value: string): IdentityLinkExpectation {
-  if (value.length > 4096) return invalidLink();
-  const url = httpUrl(value.trim());
-  if (url.search || url.hash || !url.pathname.startsWith(LINK_PATH)) {
-    return invalidLink();
-  }
-  const token = url.pathname.slice(LINK_PATH.length);
-  if (!/^[A-Za-z0-9_-]+$/u.test(token)) return invalidLink();
-  let payload: unknown;
-  try {
-    const base64 = token.replaceAll("-", "+").replaceAll("_", "/");
-    payload = JSON.parse(
-      new TextDecoder("utf-8", { fatal: true }).decode(
-        base64ToBytes(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")),
-      ),
-    );
-  } catch {
-    return invalidLink();
-  }
-  if (
-    !Array.isArray(payload) ||
-    payload.length !== 4 ||
-    payload[0] !== 1 ||
-    typeof payload[1] !== "string" ||
-    typeof payload[2] !== "string" ||
-    typeof payload[3] !== "string" ||
-    !/^[a-f0-9]{64}$/u.test(payload[3])
-  )
-    return invalidLink();
-  const expectation = {
-    identityTrustDomain: payload[1],
-    userId: payload[2],
-    fingerprint: payload[3],
-  };
-  try {
-    assertTrustedUserIdentityUserId(expectation.userId);
-    if (
-      resolveIdentityTrustDomain({
-        apiBaseUrl: expectation.identityTrustDomain,
-      }) !== expectation.identityTrustDomain
-    )
-      return invalidLink();
-  } catch {
-    return invalidLink();
-  }
-  if (encodeExpectation(expectation) !== token) return invalidLink();
-  return expectation;
+  return decodeIdentityLink(value) ?? invalidLink();
 }
 
 /** Versioned, domain-separated tuple: exact keys, algorithms and account scope. */
@@ -120,8 +54,8 @@ export async function createIdentityLink(
 ): Promise<string> {
   const url = httpUrl(appUrl);
   url.pathname =
-    LINK_PATH +
-    encodeExpectation({
+    IDENTITY_LINK_PATH +
+    encodeIdentityLinkToken({
       identityTrustDomain: identity.identityTrustDomain,
       userId: identity.userId,
       fingerprint: await identityLinkFingerprint(identity),

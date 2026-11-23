@@ -109,10 +109,9 @@ function renderDownloads(input: {
       {input.showDownloads === false ? null : (
         <ExplorerDownloadsPanel
           destinations={noDestinations}
-          documentListRevision={0}
+          dbReady
           documentQueries={input.documentQueries}
           domainScope={input.domainScope}
-          nodes={[]}
           online
           isAuthenticated
         />

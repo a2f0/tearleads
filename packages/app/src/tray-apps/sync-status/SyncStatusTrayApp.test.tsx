@@ -5,9 +5,9 @@ import {
   SystemTrayProvider,
 } from "@tearleads/windowing";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { SyncStatusPopover } from "./SyncStatusPopover";
 import {
   SyncStatusIndicatorView,
-  SyncStatusPopover,
   SyncStatusTrayControl,
 } from "./SyncStatusTrayApp";
 
@@ -30,6 +30,22 @@ test("renders a green synced dot with the status as the button label", () => {
   expect(button.getAttribute("aria-expanded")).toBe("false");
   expect(
     container.querySelector(".sync-glyph--dot.sync-glyph--synced"),
+  ).not.toBeNull();
+  expect(container.querySelector("svg")).toBeNull();
+});
+
+test("renders a syncing ring, not an alarm, while content is still arriving", () => {
+  const { container } = render(
+    <SyncStatusIndicatorView
+      expanded={false}
+      onToggle={noop}
+      status="syncing"
+      title="All changes synced, syncing updates…"
+    />,
+  );
+
+  expect(
+    container.querySelector(".sync-glyph--dot.sync-glyph--syncing"),
   ).not.toBeNull();
   expect(container.querySelector("svg")).toBeNull();
 });
@@ -102,10 +118,13 @@ test("reflects the expanded state and calls onToggle when clicked", () => {
 function SyncedTrayControl() {
   return (
     <SyncStatusTrayControl
-      billingBlocked={false}
-      onOpenBilling={noop}
-      onOpenWriteQueue={noop}
-      showWriteQueueLink={false}
+      renderPopover={() => (
+        <SyncStatusPopover
+          actions={[]}
+          details={[]}
+          title="All changes synced"
+        />
+      )}
       status="synced"
       title="All changes synced"
     />
@@ -159,75 +178,39 @@ for (const gesture of ["right-click", "long press"] as const) {
   });
 }
 
-test("popover shows the status detail and no link when nothing is unflushed", () => {
+test("popover shows the status and its details, and no action when none applies", () => {
   const { getByText, queryByRole } = render(
     <SyncStatusPopover
-      billingBlocked={false}
-      showWriteQueueLink={false}
-      onOpenBilling={noop}
-      onOpenWriteQueue={noop}
+      actions={[]}
+      details={["Changes to upload: none", "Downloads: none waiting"]}
       title="All changes synced"
     />,
   );
 
   expect(getByText("All changes synced")).not.toBeNull();
+  expect(getByText("Changes to upload: none")).not.toBeNull();
+  expect(getByText("Downloads: none waiting")).not.toBeNull();
   expect(queryByRole("button")).toBeNull();
 });
 
-test("popover links to the write queue when there is unflushed data", () => {
-  const onOpenWriteQueue = mock(() => {});
-  const { getByRole } = render(
-    <SyncStatusPopover
-      billingBlocked={false}
-      showWriteQueueLink={true}
-      onOpenBilling={noop}
-      onOpenWriteQueue={onOpenWriteQueue}
-      title="3 changes not yet synced"
-    />,
-  );
-
-  const action = getByRole("button");
-  expect(action.textContent).toContain("write queue");
-  fireEvent.click(action);
-  expect(onOpenWriteQueue).toHaveBeenCalledTimes(1);
-});
-
-test("popover links to billing when billing blocks sync", () => {
-  const onOpenBilling = mock(() => {});
-  const { getByRole } = render(
-    <SyncStatusPopover
-      billingBlocked={true}
-      showWriteQueueLink={false}
-      onOpenBilling={onOpenBilling}
-      onOpenWriteQueue={noop}
-      title="Subscription disabled — sync paused. Update billing to resume."
-    />,
-  );
-
-  const action = getByRole("button");
-  expect(action.textContent).toContain("Update billing");
-  fireEvent.click(action);
-  expect(onOpenBilling).toHaveBeenCalledTimes(1);
-});
-
-test("popover shows both links when billing is blocked and data is unflushed", () => {
-  const onOpenBilling = mock(() => {});
-  const onOpenWriteQueue = mock(() => {});
+test("popover lists its actions in order and runs the one chosen", () => {
+  const syncNow = mock(() => {});
+  const openDownloads = mock(() => {});
   const { getAllByRole } = render(
     <SyncStatusPopover
-      billingBlocked={true}
-      showWriteQueueLink={true}
-      onOpenBilling={onOpenBilling}
-      onOpenWriteQueue={onOpenWriteQueue}
-      title="Free trial ended — sync paused. Update billing to resume."
+      actions={[
+        { id: "sync-now", label: "Sync now", onSelect: syncNow },
+        { id: "downloads", label: "View downloads", onSelect: openDownloads },
+      ]}
+      details={["42 items to download"]}
+      title="All changes synced, syncing updates…"
     />,
   );
 
-  const [billingAction, writeQueueAction] = getAllByRole("button");
-  expect(billingAction?.textContent).toContain("Update billing");
-  expect(writeQueueAction?.textContent).toContain("write queue");
-  fireEvent.click(billingAction as HTMLElement);
-  fireEvent.click(writeQueueAction as HTMLElement);
-  expect(onOpenBilling).toHaveBeenCalledTimes(1);
-  expect(onOpenWriteQueue).toHaveBeenCalledTimes(1);
+  const [syncAction, downloadsAction] = getAllByRole("button");
+  expect(syncAction?.textContent).toBe("Sync now");
+  expect(downloadsAction?.textContent).toBe("View downloads");
+  fireEvent.click(downloadsAction as HTMLElement);
+  expect(openDownloads).toHaveBeenCalledTimes(1);
+  expect(syncNow).not.toHaveBeenCalled();
 });

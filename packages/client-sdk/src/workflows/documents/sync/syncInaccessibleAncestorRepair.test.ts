@@ -12,6 +12,7 @@ import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/work
 import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { normalizeContainerKeyWrap } from "../../../data/documents/shared/readers";
+import { emptyDocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import {
@@ -107,7 +108,7 @@ test("a writer below an inaccessible stale intermediate parks its writes", async
       },
       pendingUpdates: [createPendingUpdateRecord()],
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       writerProjection: projection,
     });
     expect(result).toBeNull();
@@ -144,7 +145,7 @@ test("the planner names the container the writer cannot repair", async () => {
       documentId: projection.documentId,
       localVersionVector: null,
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
     };
     const failure = await buildAutomaticContainerRekeys(sync, projection).then(
       () => null,
@@ -189,7 +190,7 @@ test("the writer repairs its own leaf once the intermediate is repaired", async 
         documentId: projection.documentId,
         localVersionVector: null,
         resolveWriterPublicKey: writerKeyResolver(fixture.root),
-        validateIncomingUpdates: () => undefined,
+        validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       },
     });
     const repairs = write.plan.request.containerRekeys ?? [];
@@ -274,7 +275,7 @@ test("losing write access on the document's own container is a refusal, not a pa
       },
       pendingUpdates: [createPendingUpdateRecord()],
       resolveWriterPublicKey: writerKeyResolver(fixture.root),
-      validateIncomingUpdates: () => undefined,
+      validateIncomingUpdates: emptyDocumentSyncImportVerdicts,
       writerProjection: repaired,
     });
     expect(result).toBeNull();

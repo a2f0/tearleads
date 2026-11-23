@@ -14,8 +14,8 @@ import { useSystemMonitorQueueMetadata } from "./useSystemMonitorQueueMetadata";
  * Every tab's data is read here, in the monitor's root, rather than in the tabs
  * themselves: the toolbar copy action must capture all of them no matter which
  * one is mounted. Most of these are free context reads; the
- * write-queue/sync-lane metadata is the exception — it keeps a throttled
- * subscription alive while the monitor is open (see `useSystemMonitorQueueMetadata`)
+ * write-queue/sync-lane metadata is the exception — it keeps the shared
+ * write-queue store watched while the monitor is open (see `useSystemMonitorQueueMetadata`)
  * so the report can capture it synchronously on click.
  *
  * Returns a builder rather than the report string, so the (potentially large)

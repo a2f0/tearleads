@@ -7,7 +7,10 @@ import type { DocumentSyncResponse } from "@tearleads/validators/response";
 
 export function assertDecryptedDocumentUpdateMetadata(
   updateData: Uint8Array,
-  update: DocumentSyncResponse["updates"][number],
+  update: Pick<
+    DocumentSyncResponse["updates"][number],
+    "checkpointKind" | "partialEndVersionVector" | "partialStartVersionVector"
+  >,
 ): void {
   const decodedMetadata = getImportBlobMetadata(updateData);
   if (

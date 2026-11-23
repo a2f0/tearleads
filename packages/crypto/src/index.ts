@@ -45,6 +45,11 @@ export {
   unwrapContentKey,
   wrapContentKey,
 } from "./contentKeyEnvelope";
+export {
+  DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
+  type ParsedDocumentEncryptedUpdate,
+  parseDocumentEncryptedUpdate,
+} from "./documentEncryptedUpdate";
 export { decryptAsRecipient } from "./encapsulation/decryptAsRecipient";
 export { encryptForRecipients } from "./encapsulation/encryptForRecipients";
 export type { EncapsulationKeyPair } from "./encapsulation/generateKeyPair";
@@ -69,6 +74,12 @@ export {
   readGroupMetadata,
 } from "./groupMetadata";
 export { bytesToHex, hexToBytes } from "./hex";
+export {
+  decodeIdentityLink,
+  encodeIdentityLinkToken,
+  IDENTITY_LINK_PATH,
+  type IdentityLinkExpectation,
+} from "./identityLink";
 export {
   createIdentitySeedPhrase,
   createIdentitySeedPhraseFromEntropy,

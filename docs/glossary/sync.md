@@ -55,6 +55,18 @@ Related docs:
 - [protocol-specification.md](../protocol-specification/container-access.md#container-access-and-kek-protocol)
 - [security-guarantees.md](../security-guarantees/properties.md#held-descendant-re-citation)
 
+## Processed Cursor
+
+The last update of a document pull a client completed, sent on its next pull as
+`processedThroughUpdateId`. The client has imported or recorded as a
+[void update](./content.md#void-update) every update served to it up to there,
+so the server starts the next pull after it. The client sends it only while its
+frontier still covers the one recorded with it and its decoder is unchanged.
+
+Related docs:
+
+- [advisory-op-spans.md](../advisory-op-spans.md)
+
 ## Projection Row
 
 A relational index or cache derived from signed protocol state. Projection rows

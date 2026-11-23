@@ -14,8 +14,19 @@ import type {
 // failing (e.g. an obsolete local schema) would otherwise leave the indicator
 // "checking" forever. `loading` covers the window before the local write queue
 // has been read once (or while the database is still booting), so a fresh mount
-// never flashes a misleading green before the first read resolves.
-export type SyncStatus = "loading" | "synced" | "pending" | "error" | "billing";
+// never flashes a misleading green before the first read resolves. A failed
+// sync task (a lane whose last run failed or stopped responding) is `error` as
+// well, while online: sync is failing now, whatever the queue holds. `syncing`
+// is `synced` while sync work has been running for a moment (see
+// `useHeldSyncActivity`): nothing local is waiting, but content is still
+// arriving, so it is not alarming.
+export type SyncStatus =
+  | "loading"
+  | "synced"
+  | "syncing"
+  | "pending"
+  | "error"
+  | "billing";
 
 type BillingStatus = OrganizationBillingView["status"];
 
@@ -47,8 +58,6 @@ export interface PendingWriteQueueSummary {
   readonly failedCount: number;
   /** The first failed item's recorded error, for the tooltip/popover. */
   readonly firstError: string | null;
-  /** The organizations the queued items belong to, where known. */
-  readonly organizationIds: ReadonlyArray<string>;
 }
 
 export function summarizePendingWrites(
@@ -67,13 +76,6 @@ export function summarizePendingWrites(
     count: countPendingWrites(items),
     failedCount: failedItems.length,
     firstError,
-    organizationIds: [
-      ...new Set(
-        items.flatMap((item) =>
-          item.organizationId === null ? [] : [item.organizationId],
-        ),
-      ),
-    ].sort(),
   };
 }
 
@@ -106,6 +108,10 @@ interface SyncStatusInput {
   readonly failedWriteCount: number;
   /** Why the latest write-queue read failed, or null when it succeeded. */
   readonly queueReadError: string | null;
+  /** Sync tasks failing now; zero while offline, where failures are expected. */
+  readonly failedLaneCount: number;
+  /** Sync work has been running for a moment (see `useHeldSyncActivity`). */
+  readonly syncActive: boolean;
 }
 
 export function resolveSyncStatus(input: SyncStatusInput): SyncStatus {
@@ -118,22 +124,28 @@ export function resolveSyncStatus(input: SyncStatusInput): SyncStatus {
   if (!input.ready) {
     return "loading";
   }
-  if (input.failedWriteCount > 0) {
+  if (input.failedWriteCount > 0 || input.failedLaneCount > 0) {
     return "error";
   }
   if (input.pendingWriteCount > 0) {
     return "pending";
   }
-  return "synced";
+  return input.syncActive ? "syncing" : "synced";
 }
 
 const SYNC_STATUS_LABELS = {
   loading: "Checking sync status…",
   synced: "All changes synced",
+  syncing: "All changes synced, syncing updates…",
   pendingOne: "1 change not yet synced",
   pendingOther: "changes not yet synced",
+  pendingSyncingOne: "Syncing 1 change…",
+  pendingSyncingPrefix: "Syncing",
+  pendingSyncingOther: "changes…",
   errorOne: "1 change failed to sync",
   errorOther: "changes failed to sync",
+  laneErrorOne: "1 sync task failed",
+  laneErrorOther: "sync tasks failed",
   queueReadFailed: "Unable to check sync status",
   offlineSuffix: " (offline)",
   syncPausedSuffix: " (sync is paused for an organization)",
@@ -165,16 +177,62 @@ interface SyncStatusDescriptionInput {
   readonly failedWriteCount: number;
   readonly firstWriteError: string | null;
   readonly queueReadError: string | null;
+  readonly failedLaneCount: number;
+  /** The first failed sync task's recorded error. */
+  readonly firstLaneError: string | null;
+  /** Sync work has been running for a moment (see `useHeldSyncActivity`). */
+  readonly syncActive: boolean;
   readonly online: boolean;
   /**
-   * Some queued write belongs to an organization whose sync the user paused
-   * on this device. It waits in the same identity-wide queue, so a pending
-   * count names the pause rather than reading as a stall.
+   * The user paused some organization's sync on this device. Its writes wait
+   * in the same identity-wide queue and its content is not pulled, so the
+   * status names the pause rather than reading as a stall or as complete.
    */
   readonly syncPaused: boolean;
   readonly billingStatus: BillingStatus | null;
   /** Whose billing paused sync; only read when `status` is `billing`. */
   readonly billingBlockScope: BillingBlockScope;
+}
+
+// What holds sync back on this device, if anything: offline is the nearer
+// reason, since nothing would send even without a pause.
+function describeHold(input: SyncStatusDescriptionInput): string {
+  if (!input.online) return SYNC_STATUS_LABELS.offlineSuffix;
+  return input.syncPaused ? SYNC_STATUS_LABELS.syncPausedSuffix : "";
+}
+
+function describeFailure(input: SyncStatusDescriptionInput): string {
+  // A failed queue read outranks the failed-write count, which is only the
+  // last successful read's and may be stale.
+  if (input.queueReadError !== null) {
+    return `${SYNC_STATUS_LABELS.queueReadFailed} — ${input.queueReadError}`;
+  }
+  const writes = input.failedWriteCount > 0;
+  const count = writes ? input.failedWriteCount : input.failedLaneCount;
+  const base =
+    count === 1
+      ? writes
+        ? SYNC_STATUS_LABELS.errorOne
+        : SYNC_STATUS_LABELS.laneErrorOne
+      : `${count} ${writes ? SYNC_STATUS_LABELS.errorOther : SYNC_STATUS_LABELS.laneErrorOther}`;
+  // The recorded failure (e.g. "Write access denied by the server (403)") is
+  // the actionable part, so it rides along in the same label.
+  const reason = writes ? input.firstWriteError : input.firstLaneError;
+  return reason ? `${base} — ${reason}` : base;
+}
+
+function describePending(input: SyncStatusDescriptionInput): string {
+  const count = input.pendingWriteCount;
+  // Lanes run for every organization, so with one paused its held writes
+  // would read as being sent; the pause note explains the wait instead.
+  if (input.syncActive && !input.syncPaused) {
+    return count === 1
+      ? SYNC_STATUS_LABELS.pendingSyncingOne
+      : `${SYNC_STATUS_LABELS.pendingSyncingPrefix} ${count} ${SYNC_STATUS_LABELS.pendingSyncingOther}`;
+  }
+  return count === 1
+    ? SYNC_STATUS_LABELS.pendingOne
+    : `${count} ${SYNC_STATUS_LABELS.pendingOther}`;
 }
 
 /** Human-readable tooltip / accessible label for the current status. */
@@ -183,36 +241,16 @@ export function describeSyncStatus(input: SyncStatusDescriptionInput): string {
     case "loading":
       return SYNC_STATUS_LABELS.loading;
     case "synced":
-      return SYNC_STATUS_LABELS.synced;
+      return `${SYNC_STATUS_LABELS.synced}${describeHold(input)}`;
+    case "syncing":
+      return `${SYNC_STATUS_LABELS.syncing}${describeHold(input)}`;
     case "billing":
       return input.billingBlockScope === "other"
         ? SYNC_STATUS_LABELS.billingOtherOrganization
         : describeBillingBlock(input.billingStatus);
-    case "error": {
-      // A failed queue read outranks the failed-write count, which is only the
-      // last successful read's and may be stale.
-      if (input.queueReadError !== null) {
-        return `${SYNC_STATUS_LABELS.queueReadFailed} — ${input.queueReadError}`;
-      }
-      const base =
-        input.failedWriteCount === 1
-          ? SYNC_STATUS_LABELS.errorOne
-          : `${input.failedWriteCount} ${SYNC_STATUS_LABELS.errorOther}`;
-      // The recorded failure (e.g. "Write access denied by the server (403)")
-      // is the actionable part, so it rides along in the same label.
-      return input.firstWriteError
-        ? `${base} — ${input.firstWriteError}`
-        : base;
-    }
-    case "pending": {
-      const base =
-        input.pendingWriteCount === 1
-          ? SYNC_STATUS_LABELS.pendingOne
-          : `${input.pendingWriteCount} ${SYNC_STATUS_LABELS.pendingOther}`;
-      if (!input.online) return `${base}${SYNC_STATUS_LABELS.offlineSuffix}`;
-      return input.syncPaused
-        ? `${base}${SYNC_STATUS_LABELS.syncPausedSuffix}`
-        : base;
-    }
+    case "error":
+      return describeFailure(input);
+    case "pending":
+      return `${describePending(input)}${describeHold(input)}`;
   }
 }

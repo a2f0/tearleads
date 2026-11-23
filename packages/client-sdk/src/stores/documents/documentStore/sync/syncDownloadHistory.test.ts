@@ -91,13 +91,22 @@ test("a discovered document's paged first pull is one download, recorded when it
       requireRawHistory: false,
       responseForRequest: async (_request, response) => {
         requests += 1;
+        // Every page names the pull's upper bound.
+        const throughUpdateId = response.updates.at(-1)?.id ?? null;
         // The first page carries the content; the second only drains.
         return requests === 1
-          ? { ...response, pullPage: { hasMore: true, nextCursor: "page-2" } }
+          ? {
+              ...response,
+              pullPage: {
+                hasMore: true,
+                nextCursor: "page-2",
+                throughUpdateId,
+              },
+            }
           : {
               ...response,
               updates: [],
-              pullPage: { hasMore: false, nextCursor: null },
+              pullPage: { hasMore: false, nextCursor: null, throughUpdateId },
             };
       },
     });
@@ -203,14 +212,18 @@ test("a discovered document's single-page first pull is a download", async () =>
   }
 });
 
-test("a pull of a document already stored is a sync, not a download", async () => {
-  const { close, execSql } = await createTestExecSql("download-history-sync");
+/**
+ * Sync a document this device already stores, in one page or two, checking
+ * the queue between pages, and return what the download history recorded.
+ */
+async function syncStoredDocument(name: string, paged: boolean) {
+  const { close, execSql } = await createTestExecSql(name);
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
     const fixture = await createRemoteHistoryFixture();
-    const localId = "download-history-stored-local";
+    const localId = `${name}-local`;
     const documentId = fixture.writerProjection.documentId;
-    const behind = await createDocument("download-history-behind");
+    const behind = await createDocument(`${name}-behind`);
     importSnapshot(behind, fixture.behindSnapshot);
     await persistFullHistoryDocument({
       doc: behind,
@@ -218,10 +231,45 @@ test("a pull of a document already stored is a sync, not a download", async () =
       execSql,
       localId,
     });
+    let requests = 0;
+    let pullBound: string | null = null;
     const runtime = createRotationRecoveryRuntime({
       execSql,
       fixture,
       requireRawHistory: false,
+      ...(paged
+        ? {
+            responseForRequest: async (_request, response) => {
+              requests += 1;
+              // The pull's upper bound is the same on every page.
+              if (requests === 1) {
+                pullBound = response.updates.at(-1)?.id ?? null;
+              }
+              const throughUpdateId = pullBound;
+              return requests === 1
+                ? {
+                    ...response,
+                    pullPage: {
+                      hasMore: true,
+                      nextCursor: "page-2",
+                      throughUpdateId,
+                    },
+                  }
+                : {
+                    ...response,
+                    updates: [],
+                    pullPage: {
+                      hasMore: false,
+                      nextCursor: null,
+                      throughUpdateId,
+                    },
+                  };
+            },
+          }
+        : {}),
+    });
+    const queries = createContainerDocumentQueriesFromRuntime({
+      infra: { execSql },
     });
     const state = createDocumentStoreState(
       localId,
@@ -234,14 +282,41 @@ test("a pull of a document already stored is a sync, not a download", async () =
     state.syncLane = { requestSync: () => undefined } as NonNullable<
       typeof state.syncLane
     >;
+    const history = () =>
+      getDomainDownloadHistorySnapshot(runtime.state.domainScope).completed;
 
+    expect(await queries.listPendingDownloads()).toEqual([]);
+    if (paged) {
+      expect(await pullOnce(state, fixture)).toBe(true);
+      expect(await queries.listPendingDownloads()).toMatchObject([
+        { localId, reason: "continuation" },
+      ]);
+      expect(history()).toEqual([]);
+    }
     expect(await pullOnce(state, fixture)).toBe(false);
-    expect(
-      getDomainDownloadHistorySnapshot(runtime.state.domainScope).completed,
-    ).toEqual([]);
+    expect(await queries.listPendingDownloads()).toEqual([]);
     state.doc?.free();
     fixture.remoteDocument.free();
+    return { completed: history(), localId };
   } finally {
     close();
   }
+}
+
+test("a pull of a document already stored is a sync, not a download", async () => {
+  const { completed } = await syncStoredDocument(
+    "download-history-sync",
+    false,
+  );
+  expect(completed).toEqual([]);
+});
+
+// The queue lists an update's remaining pages, so its last page leaves the
+// queue the way any listed pull does: recorded once, as finished.
+test("a paged update of a stored document is recorded when its last page lands", async () => {
+  const { completed, localId } = await syncStoredDocument(
+    "download-history-paged-sync",
+    true,
+  );
+  expect(completed).toMatchObject([{ localId, objectKind: "document" }]);
 });

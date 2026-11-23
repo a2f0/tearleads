@@ -3,6 +3,7 @@ import { type RenderResult, waitFor, within } from "@testing-library/react";
 import {
   answerAccountNamePrompt,
   chooseNewIdentity,
+  confirmRecoveryKeyBackup,
   sealedAccountNamingKey,
   waitForPaneKey,
 } from "../../test/helpers/accountNamePrompt";
@@ -81,12 +82,17 @@ function hostConfig(namespace: string) {
   });
 }
 
-/** Answers the prompt, then waits for registration under that name. */
+/**
+ * Answers the prompt, and the backup agreement when the answer creates the
+ * identity, then waits for registration under that name.
+ */
 async function answerAndRegister(
   view: RenderResult,
   register: { readonly mock: { readonly calls: readonly unknown[][] } },
+  { createsIdentity = true } = {},
 ): Promise<void> {
   await answerAccountNamePrompt(view.container);
+  if (createsIdentity) await confirmRecoveryKeyBackup(view.container);
   await waitFor(
     () => {
       expect(getPaneStatusText(view)).toMatch(/userId:\s*[0-9a-f-]{36}/u);
@@ -208,7 +214,9 @@ test(
     );
     await waitForPaneRuntimeToSettle(PANE_ASYNC_TEST_TIMEOUT_MS);
     expect(register).not.toHaveBeenCalled();
-    await answerAndRegister(second.view, register);
+    // The identity already exists, so naming it registers without a backup
+    // agreement.
+    await answerAndRegister(second.view, register, { createsIdentity: false });
     second.view.unmount();
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 3,
