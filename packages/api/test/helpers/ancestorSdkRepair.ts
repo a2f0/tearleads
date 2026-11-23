@@ -1,4 +1,5 @@
 import {
+  assertNoVoidedDocumentSyncUpdates,
   ContainerMutationService,
   cacheReferencedPrincipalPolicies,
   type SyncRemoteDocumentRequest,
@@ -251,7 +252,9 @@ export async function editColdDocumentAfterAncestorRotation(input: {
         currentDocument: document,
         decryptedUpdates,
         responseUpdates: response.updates,
-      })) satisfies SyncRemoteDocumentRequest["validateIncomingUpdates"],
+      }).then(
+        assertNoVoidedDocumentSyncUpdates,
+      )) satisfies SyncRemoteDocumentRequest["validateIncomingUpdates"],
   };
   try {
     const read = await syncRemoteDocument(syncInput);

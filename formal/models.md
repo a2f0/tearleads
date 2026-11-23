@@ -337,7 +337,10 @@ edits stop ([mapping](./blob-attachments/AttachmentBindDocumentVersion.md)).
 [`AttachmentRemovedSlotDetach.tla`](./blob-attachments/AttachmentRemovedSlotDetach.tla)
 models a removal that syncs after the bind, detached at a version holding
 every committed op and the bind's own unsent ops
-([mapping](./blob-attachments/AttachmentRemovedSlotDetach.md)).
+([mapping](./blob-attachments/AttachmentRemovedSlotDetach.md)). Both let a
+writer overclaim a span every reader voids: the bind or detach carries the
+client's processed cursor, the API weighs only updates after it, and each
+still settles.
 
 ### Pending Attachment Detach
 

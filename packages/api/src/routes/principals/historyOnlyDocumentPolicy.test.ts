@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { validateDocumentSyncUpdateImports } from "@tearleads/client-sdk";
+import {
+  assertNoVoidedDocumentSyncUpdates,
+  validateDocumentSyncUpdateImports,
+} from "@tearleads/client-sdk";
 import {
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   wrapContentKey,
@@ -98,7 +101,7 @@ test("an organization member verifies a document's inaccessible sibling-containe
           currentDocument: document,
           decryptedUpdates,
           responseUpdates: response.updates,
-        }),
+        }).then(assertNoVoidedDocumentSyncUpdates),
       writerProjection: created.writerProjection,
       pendingUpdates: [
         { id: updateId, ...vectors, updateData: bytesToBase64(updateData) },

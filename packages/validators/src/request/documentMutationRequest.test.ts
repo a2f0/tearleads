@@ -79,6 +79,18 @@ test("isBlobAttachmentBindRequest", () => {
   expect(
     isBlobAttachmentBindRequest({
       ...validRequest,
+      processedThroughUpdateId: "550e8400-e29b-41d4-a716-446655440005",
+    }),
+  ).toBe(true);
+  expect(
+    isBlobAttachmentBindRequest({
+      ...validRequest,
+      processedThroughUpdateId: "not-an-update-id",
+    }),
+  ).toBe(false);
+  expect(
+    isBlobAttachmentBindRequest({
+      ...validRequest,
       contentKeyBundle: createBlobContentKeyBundle({ targetHash: "" }),
     }),
   ).toBe(false);

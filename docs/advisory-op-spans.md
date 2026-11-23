@@ -57,6 +57,9 @@ In the same process it waits out a retry delay (one minute, doubling to an
 hour) and is not read in the meantime. Rotation and a founding view judge
 updates without recording attempts: a runtime failure there fails that
 operation, counts toward no update, and still marks the process as failed.
+So does a runtime failure while the judge builds the reader's own history
+(the page is held whole) or while a judged page is applied to the live
+document.
 
 Only the first runtime failure in a process counts as an attempt, because a
 later one may be the module's state, not the update. Once three process
@@ -137,8 +140,8 @@ shows no founding update.
 Container metadata documents void the same way but keep no cursor, so every
 pull of one judges its voids again (each is still reported once), and a folder
 listing whose advertised version an overclaim left uncovered keeps that folder
-marked as behind. Attachment
-binds, rotation, unlink, and raw-history recovery still compare declared spans.
+marked as behind. Rotation, unlink, and raw-history recovery still compare
+declared spans.
 A rotation baseline must cover the committed frontier its updates declare, so
 after an overclaim an honest rotation's baseline is refused, and a first page
 goes straight to a baseline only when the baseline covers every update it
@@ -147,3 +150,27 @@ would skip.
 that no void update is applied, that readers agree, that a reader stays
 current, and that a runtime failure voids an update the decoder can read only
 after the bounded attempts.
+
+## Attachment Binds and Detaches
+
+An attachment bind or detach names the document version its client checked
+the slot at, and the API refuses it while a committed update holds an op that
+version lacks ([document version
+precondition](./protocol-specification/blobs.md#document-version-precondition)).
+An overclaim's ops are in no version, so on its own that check would refuse
+every later bind and detach on the document. Each request therefore also
+carries `processedThroughUpdateId`, and the API weighs only updates committed
+after it. The SDK sends a cursor only with a version that covers the frontier
+recorded with it, so the version holds every update the cursor's pull imported
+and the pull voided the rest; a version read before that pull finished goes
+without one. Any local record of the same server document may supply the
+cursor, because what it judged is the server's history, not the record's.
+
+While an update is unsettled after a runtime failure, the cursor stays before
+it, so a bind or detach on that document is refused until the update imports
+or is voided: at most `MAX_LORO_RUNTIME_ATTEMPTS` process lifetimes, never a
+wait on another device.
+[`AttachmentBindDocumentVersion`](../formal/blob-attachments/AttachmentBindDocumentVersion.md)
+and
+[`AttachmentRemovedSlotDetach`](../formal/blob-attachments/AttachmentRemovedSlotDetach.md)
+model an overclaim and the cursor.

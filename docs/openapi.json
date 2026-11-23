@@ -122,6 +122,10 @@
             "properties": {},
             "additionalProperties": {}
           },
+          "processedThroughUpdateId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
+          },
           "stagedBlob": {
             "$ref": "#/components/schemas/BlobStagedBlobRequest",
             "description": "The blob stage to promote; absent when binding a blob that is already committed."
@@ -277,6 +281,10 @@
             "type": "object",
             "properties": {},
             "additionalProperties": {}
+          },
+          "processedThroughUpdateId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string"
           }
         },
         "required": [

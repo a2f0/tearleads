@@ -367,6 +367,7 @@ async function bindBlobAttachmentTransaction(
   await assertAttachmentDocumentVersionCurrent({
     documentId: bindBody.documentId,
     executor: tx,
+    processedThroughUpdateId: input.request.processedThroughUpdateId,
     version: input.documentVersion,
   });
   const stagedBlob = await promoteStagedBlobIfPresent({

@@ -19,6 +19,8 @@ every committed op and every op of the version the binding was bound at.
 | `ObserveSynced` | `listRemovedAttachmentSlots` names the seen slots the view lacks that the store neither holds nor uploads, and `listDocumentAttachments` lists their bindings |
 | `Detach` | `detachRemovedSlotBindings` sends `detachAttachmentBinding` with the view's version |
 | `Detach` | `assertAttachmentDocumentVersionCurrent` runs `hasDocumentOpsBeyondVersion` under the document head lock `lockAttachmentAuthorizationForShare` took |
+| `SentCursor` | `readProcessedCursorForVersion` gives the detach the processed cursor whose recorded version the view's version covers, and `readProcessedThroughSequence` resolves it for `hasDocumentOpsBeyondVersion` |
+| `Overclaim` / `Held` | `appendDocumentUpdates` stores the declared span of an update every reader voids (`validateDocumentSyncUpdateImports`), so no client version holds its ops |
 | `Detach` | `assertDetachCoversBindVersion` runs `documentVersionCovers` against the binding's stored version |
 | `Detach` (refused) | `isAttachmentDocumentChanged` reads the refusal, and `planRemovedSlotDetach` waits for a newer view before sending that binding's detach again |
 | `Detach` (refused) | `isRemovedSlotDetachWaiting` keeps a waiting slot out of `listRemovedAttachmentSlots`, so a pass with no marker lists bindings again only once the view moves; a refused marker detach (`AttachmentDetachOutcome`) waits without holding up the markers after it |
@@ -43,6 +45,15 @@ it, the binding stays. The API now enforces what the removal marker's
 replaced-binding sighting
 ([AttachmentReaddReconcile](./AttachmentReaddReconcile.md)) waits for on the
 client.
+
+A dishonest writer may commit an update whose declared span names ops no
+client holds (`Overclaim`). Every reader voids it, so no view ever covers it,
+and a detach checked against every committed op would be refused forever.
+The detach therefore carries the observer's processed cursor, recorded with
+the view it read, and the API weighs only ops committed after it: the
+observer imported or voided everything up to there. A cursor recorded after
+the view would skip a restore the view lacks, so the client sends only the
+cursor whose recorded version the view's version covers.
 
 `RemovedSlotEventuallyUnbound` puts fairness only on the observing device's
 own reads and detaches, following the
@@ -72,12 +83,15 @@ memory, so a device that restarts between seeing
 the slot and reading it removed does not detach; another device that saw both
 still can.
 
-Negative controls drop each API check and the client's synced-view rule, and
-stop devices that never held the bytes from detaching. Without the version
-check a detach lands after a committed restore; without the bind-version
-cover it removes a restore bound ahead of its content; detaching from a view
-holding the remover's unsent removal unbinds a slot the committed document
-still asks for; and without the new path the binding is never removed. The
+Negative controls drop each API check and the client's synced-view rule,
+stop devices that never held the bytes from detaching, ignore the cursor,
+and send a cursor recorded after the view. Without the version check a
+detach lands after a committed restore; without the bind-version cover it
+removes a restore bound ahead of its content; detaching from a view holding
+the remover's unsent removal unbinds a slot the committed document still
+asks for; without the new path, or without the cursor once a writer
+overclaims, the binding is never removed; and a cursor ahead of the view
+skips a committed restore. The
 API regressions in
 [`detachDocumentVersion.test.ts`](../../packages/api/src/services/blobs/detachDocumentVersion.test.ts)
 refuse a detach behind a committed edit and one that lacks the binding's

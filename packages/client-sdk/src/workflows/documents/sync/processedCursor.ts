@@ -19,6 +19,7 @@ import {
   readSendableProcessedCursor,
   recordDocumentSyncVerdictsInTransaction,
 } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
+import { readProcessedCursorCoveredBy } from "../../../data/persistence/documents/records/processedCursorForVersion";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
@@ -42,6 +43,23 @@ export async function readProcessedCursorForSync(
 ): Promise<string | undefined> {
   await ensureDocumentTables(execSql);
   return readSendableProcessedCursor(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    { ...input, judge: documentVerdictJudge() },
+  );
+}
+
+/**
+ * The processed cursor an attachment bind or detach may carry with the
+ * document version it cites, so the API skips the updates this device
+ * already judged; undefined when no cursor's recorded version is covered by
+ * `version`, and the API then weighs every committed update.
+ */
+export async function readProcessedCursorForVersion(
+  execSql: ExecSql,
+  input: { readonly documentId: string; readonly version: string },
+): Promise<string | undefined> {
+  await ensureDocumentTables(execSql);
+  return readProcessedCursorCoveredBy(
     getClientSQLitePersistenceRuntime(execSql).db,
     { ...input, judge: documentVerdictJudge() },
   );
@@ -167,6 +185,7 @@ async function recordDocumentSyncRuntimeFailures(input: {
             judge: documentVerdictJudge(),
             keyFingerprintsByEpoch: input.result.contentKeyFingerprintsByEpoch,
             now: new Date().toISOString(),
+            resolvesKeyConflicts: false,
             scope: input.scope,
             voids: failures.map((failure) => ({
               attempts: failure.attempts,

@@ -1755,6 +1755,7 @@ export type components = {
             event: {
                 [key: string]: unknown;
             };
+            processedThroughUpdateId?: string;
             /** @description The blob stage to promote; absent when binding a blob that is already committed. */
             stagedBlob?: components["schemas"]["BlobStagedBlobRequest"];
         } & {
@@ -1803,6 +1804,7 @@ export type components = {
             event: {
                 [key: string]: unknown;
             };
+            processedThroughUpdateId?: string;
         } & {
             [key: string]: unknown;
         };
