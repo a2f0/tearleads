@@ -1,18 +1,23 @@
 import type { DomainSyncSnapshot } from "@tearleads/client-sdk";
-import { type LaneFailureMarks, markLaneFailures } from "./syncActivityModel";
+import type { OfflineWindow } from "./syncActivityModel";
 
 /**
- * Whether the device is online, and which lane failures it carried back from
- * being offline. Lanes fail while offline as a matter of course, and a lane
- * keeps its error until a later run completes, so without this the tray would
- * flash its warning on every reconnect for failures that the reconnect is
- * about to retry. A failure recorded after the reconnect is a new one.
+ * Whether the device is online, and when it was last offline. Lanes fail
+ * while offline as a matter of course, and a failed lane keeps its error
+ * until a later run completes, so without this the tray would flash its
+ * warning on every reconnect for failures that a queued retry is about to
+ * revisit. Times come from the sync snapshot, not a clock (see
+ * `OfflineWindow`), so the transition stays pure.
  */
 export type LaneReconnectState =
-  | { readonly status: "offline" }
   | {
-      /** Failures recorded when the device came back online. */
-      readonly staleFailures: LaneFailureMarks;
+      /** The latest snapshot time before the device went offline. */
+      readonly offlineSince: string;
+      readonly status: "offline";
+    }
+  | {
+      /** When the device was last offline; null if it has not been. */
+      readonly offlineWindow: OfflineWindow | null;
       readonly status: "online";
     };
 
@@ -22,16 +27,17 @@ export interface LaneReconnectEvent {
   readonly type: "observed";
 }
 
-const OFFLINE: LaneReconnectState = { status: "offline" };
-
-// Online from the start: whatever failed was not caused by being offline here.
-const ONLINE_FROM_START: LaneReconnectState = {
-  staleFailures: new Map(),
-  status: "online",
-};
-
-export function initialLaneReconnectState(online: boolean): LaneReconnectState {
-  return online ? ONLINE_FROM_START : OFFLINE;
+/**
+ * Mounting offline counts failures recorded before the mount as recorded
+ * online: nothing here says they were not, so they are reported.
+ */
+export function initialLaneReconnectState(
+  online: boolean,
+  snapshot: DomainSyncSnapshot,
+): LaneReconnectState {
+  return online
+    ? { offlineWindow: null, status: "online" }
+    : { offlineSince: snapshot.updatedAt, status: "offline" };
 }
 
 /** Returns `state` itself when nothing changed. */
@@ -43,11 +49,16 @@ export function transitionLaneReconnect(
     case "offline":
       return event.online
         ? {
-            staleFailures: markLaneFailures(event.snapshot),
+            offlineWindow: {
+              from: state.offlineSince,
+              to: event.snapshot.updatedAt,
+            },
             status: "online",
           }
         : state;
     case "online":
-      return event.online ? state : OFFLINE;
+      return event.online
+        ? state
+        : { offlineSince: event.snapshot.updatedAt, status: "offline" };
   }
 }

@@ -20,9 +20,9 @@ import {
   type SyncStatus,
 } from "./syncStatusModel";
 import { useHeldSyncActivity } from "./useHeldSyncActivity";
+import { useLastOfflineWindow } from "./useLastOfflineWindow";
 import { useOtherOrganizationBillingBlocked } from "./useOtherOrganizationBillingBlock";
 import { usePendingWriteCount } from "./usePendingWriteCount";
-import { useStaleLaneFailures } from "./useStaleLaneFailures";
 
 export interface SyncStatusResult {
   readonly status: SyncStatus;
@@ -42,6 +42,30 @@ export interface SyncStatusResult {
   readonly pausedOrganizationCount: number;
 }
 
+// The lanes, pauses, and held activity, as the status reports them.
+function useSyncLaneHolds(input: {
+  readonly dbReady: boolean;
+  readonly domainScope: DomainScope;
+  readonly online: boolean;
+  readonly writeOrganizationIds: ReadonlyArray<string>;
+}) {
+  const pausedOrganizationIds = usePausedOrganizationIds();
+  const syncSnapshot = useDomainSyncSnapshot(input.domainScope);
+  const offlineWindow = useLastOfflineWindow(input.online, syncSnapshot);
+  const allLanes = useMemo(
+    () => summarizeSyncLanes(syncSnapshot, offlineWindow),
+    [offlineWindow, syncSnapshot],
+  );
+  const { laneActive, ...holds } = selectSyncHolds({
+    dbReady: input.dbReady,
+    lanes: allLanes,
+    online: input.online,
+    pausedOrganizationIds,
+    writeOrganizationIds: input.writeOrganizationIds,
+  });
+  return { ...holds, syncActive: useHeldSyncActivity(laneActive) };
+}
+
 /**
  * The Sync Status tray app's data source. It reads the durable write queue
  * through the store the Explorer "Write Queue" panel shares (see
@@ -55,32 +79,9 @@ export interface SyncStatusResult {
  * one currently switched to. The sync coordinator's lanes add what the queue
  * cannot show: sync work running (held, so short runs do not blink the glyph)
  * and sync tasks failing, including pulls. Failures recorded while offline are
- * left out once the device reconnects (see `useStaleLaneFailures`).
+ * left out after the reconnect while a retry revisits them (see
+ * `useLastOfflineWindow`).
  */
-// The lanes, pauses, and held activity, as the status reports them.
-function useSyncLaneHolds(input: {
-  readonly dbReady: boolean;
-  readonly domainScope: DomainScope;
-  readonly online: boolean;
-  readonly writeOrganizationIds: ReadonlyArray<string>;
-}) {
-  const pausedOrganizationIds = usePausedOrganizationIds();
-  const syncSnapshot = useDomainSyncSnapshot(input.domainScope);
-  const staleFailures = useStaleLaneFailures(input.online, syncSnapshot);
-  const allLanes = useMemo(
-    () => summarizeSyncLanes(syncSnapshot, staleFailures),
-    [staleFailures, syncSnapshot],
-  );
-  const { laneActive, ...holds } = selectSyncHolds({
-    dbReady: input.dbReady,
-    lanes: allLanes,
-    online: input.online,
-    pausedOrganizationIds,
-    writeOrganizationIds: input.writeOrganizationIds,
-  });
-  return { ...holds, syncActive: useHeldSyncActivity(laneActive) };
-}
-
 export function useSyncStatus(): SyncStatusResult {
   const appData = useTearleadsRuntime();
   const billing = useOrganizationBilling();

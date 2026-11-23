@@ -26,13 +26,15 @@ const NO_SYNC_LANES: SyncLaneSummary = {
 const ABANDONED_RUN_ERROR = "Stopped responding";
 
 /**
- * Which failure a lane records, by key, so a later snapshot can tell the same
- * failure from a new one: an abandoned run by when it started, a failed run
- * by when it failed. A lane with no failure has no entry.
+ * When the device was offline, as two snapshot times: the latest snapshot
+ * before it went offline and the latest before it came back. Every recorded
+ * failure publishes a snapshot, so a failure recorded in between happened
+ * while offline. ISO timestamps compare as strings.
  */
-export type LaneFailureMarks = ReadonlyMap<string, string>;
-
-const NO_FAILURE_MARKS: LaneFailureMarks = new Map();
+export interface OfflineWindow {
+  readonly from: string;
+  readonly to: string;
+}
 
 // A lane's failure as the tray names it, or undefined when it is healthy. The
 // SDK reports a lane as running or queued ahead of its failure, so a lane that
@@ -49,32 +51,32 @@ function laneFailure(lane: SyncLaneSnapshot): string | null | undefined {
   return lane.status === "error" ? null : undefined;
 }
 
-function laneFailureMark(lane: SyncLaneSnapshot): string {
-  return lane.runAbandoned
-    ? `abandoned:${lane.lastStartedAt ?? ""}`
-    : `failed:${lane.lastFailedAt ?? ""}`;
-}
-
-/** The failure each lane records now (see `LaneFailureMarks`). */
-export function markLaneFailures(
-  snapshot: DomainSyncSnapshot,
-): LaneFailureMarks {
-  const marks = new Map<string, string>();
-  for (const lane of snapshot.lanes) {
-    if (laneFailure(lane) !== undefined)
-      marks.set(lane.key, laneFailureMark(lane));
-  }
-  return marks;
+// A failure recorded while offline that a retry will revisit: the lane has a
+// request queued or a run in flight. Being offline is what failed it, and the
+// retry either clears it or records a new failure. An abandoned run is left
+// alone: it holds its lane until it settles, so nothing retries it.
+function isOfflineFailureAwaitingRetry(
+  lane: SyncLaneSnapshot,
+  offlineWindow: OfflineWindow | null,
+): boolean {
+  if (offlineWindow === null || lane.runAbandoned) return false;
+  if (!lane.requested && !lane.running) return false;
+  const failedAt = lane.lastFailedAt;
+  return (
+    failedAt !== null &&
+    failedAt > offlineWindow.from &&
+    failedAt <= offlineWindow.to
+  );
 }
 
 /**
- * Counts the lanes running and failing. A failure listed in `staleFailures`
- * is left out: it was recorded before the device came back online, and the
- * lane's next run either clears it or records a new one.
+ * Counts the lanes running and failing. A failure recorded during
+ * `offlineWindow` is left out while a retry is queued or running (see
+ * `laneReconnectMachine`).
  */
 export function summarizeSyncLanes(
   snapshot: DomainSyncSnapshot,
-  staleFailures: LaneFailureMarks = NO_FAILURE_MARKS,
+  offlineWindow: OfflineWindow | null = null,
 ): SyncLaneSummary {
   let running = 0;
   let failed = 0;
@@ -83,7 +85,7 @@ export function summarizeSyncLanes(
     if (lane.running) running += 1;
     const laneError = laneFailure(lane);
     if (laneError === undefined) continue;
-    if (staleFailures.get(lane.key) === laneFailureMark(lane)) continue;
+    if (isOfflineFailureAwaitingRetry(lane, offlineWindow)) continue;
     failed += 1;
     firstError ??= laneError;
   }

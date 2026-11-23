@@ -12,107 +12,144 @@ import { selectSyncHolds, summarizeSyncLanes } from "./syncActivityModel";
 import { DESCRIBED, lane, NO_LANES, snapshot } from "./syncStatus.testFixtures";
 import { describeSyncStatus, summarizePendingWrites } from "./syncStatusModel";
 import { describeSyncStatusDetails } from "./syncStatusPopoverModel";
-import { useStaleLaneFailures } from "./useStaleLaneFailures";
+import { useLastOfflineWindow } from "./useLastOfflineWindow";
 
+// The device goes offline after the snapshot at 10:00 and comes back after
+// the one at 10:10.
+const WENT_OFFLINE = "2026-11-22T10:00:00.000Z";
+const CAME_BACK = "2026-11-22T10:10:00.000Z";
+
+// A lane that failed while offline and has its retry queued.
 const OFFLINE_FAILURE: Partial<SyncLaneSnapshot> = {
   key: "documents:note",
   lastAction: "failed",
   lastError: "Failed to fetch",
-  lastFailedAt: "2026-11-22T10:00:00.000Z",
+  lastFailedAt: "2026-11-22T10:05:00.000Z",
   requested: true,
   status: "queued",
 };
 
-test("failures recorded while offline are left out after the reconnect, new ones are not", () => {
-  const offline = initialLaneReconnectState(false);
-  const before = snapshot([lane(OFFLINE_FAILURE)]);
+function reconnect(lanes: ReadonlyArray<SyncLaneSnapshot>) {
+  const offline = transitionLaneReconnect(
+    initialLaneReconnectState(true, snapshot([], "2026-11-22T09:00:00.000Z")),
+    { online: false, snapshot: snapshot([], WENT_OFFLINE), type: "observed" },
+  );
   const online = transitionLaneReconnect(offline, {
     online: true,
-    snapshot: before,
+    snapshot: snapshot(lanes, CAME_BACK),
     type: "observed",
   });
   if (online.status !== "online") throw new Error("expected online");
-  expect(summarizeSyncLanes(before, online.staleFailures)).toEqual(NO_LANES);
-  // Staying online keeps the same state, so the hook does not re-render.
-  expect(
-    transitionLaneReconnect(online, {
-      online: true,
-      snapshot: before,
-      type: "observed",
-    }),
-  ).toBe(online);
+  return online;
+}
 
-  // The retry after the reconnect fails again: that failure is today's.
-  const failedAgain = snapshot([
-    lane({
-      ...OFFLINE_FAILURE,
-      lastError: "Sync failed (500)",
-      lastFailedAt: "2026-11-22T10:00:05.000Z",
-    }),
-  ]);
-  expect(summarizeSyncLanes(failedAgain, online.staleFailures)).toEqual({
-    failed: 1,
-    firstError: "Sync failed (500)",
-    running: 0,
-  });
-
-  // A run abandoned before the reconnect is the same run until it restarts.
-  const abandoned: Partial<SyncLaneSnapshot> = {
-    key: "documents:stuck",
-    lastStartedAt: "2026-11-22T09:58:00.000Z",
-    runAbandoned: true,
-    running: true,
-    status: "running",
-  };
-  const stuck = transitionLaneReconnect(offline, {
-    online: true,
-    snapshot: snapshot([lane(abandoned)]),
-    type: "observed",
-  });
-  if (stuck.status !== "online") throw new Error("expected online");
+test("a failure from being offline is left out while its retry is queued or running", () => {
+  const before = snapshot([lane(OFFLINE_FAILURE)], CAME_BACK);
+  const { offlineWindow } = reconnect(before.lanes);
+  expect(offlineWindow).toEqual({ from: WENT_OFFLINE, to: CAME_BACK });
+  expect(summarizeSyncLanes(before, offlineWindow)).toEqual(NO_LANES);
   expect(
-    summarizeSyncLanes(snapshot([lane(abandoned)]), stuck.staleFailures).failed,
-  ).toBe(0);
+    summarizeSyncLanes(
+      snapshot([lane({ ...OFFLINE_FAILURE, requested: false, running: true })]),
+      offlineWindow,
+    ),
+  ).toEqual({ failed: 0, firstError: null, running: 1 });
+
+  // The retry fails again after the reconnect: that failure is today's.
   expect(
     summarizeSyncLanes(
       snapshot([
-        lane({ ...abandoned, lastStartedAt: "2026-11-22T10:01:00.000Z" }),
+        lane({
+          ...OFFLINE_FAILURE,
+          lastError: "Sync failed (500)",
+          lastFailedAt: "2026-11-22T10:10:05.000Z",
+        }),
       ]),
-      stuck.staleFailures,
-    ).failed,
-  ).toBe(1);
-
-  // Online from the start, nothing is blamed on being offline.
-  const fresh = initialLaneReconnectState(true);
-  if (fresh.status !== "online") throw new Error("expected online");
-  expect(summarizeSyncLanes(before, fresh.staleFailures).failed).toBe(1);
-  // Going offline forgets the old baseline; the next reconnect takes a new one.
-  expect(
-    transitionLaneReconnect(online, {
-      online: false,
-      snapshot: before,
-      type: "observed",
-    }).status,
-  ).toBe("offline");
+      offlineWindow,
+    ),
+  ).toEqual({ failed: 1, firstError: "Sync failed (500)", running: 0 });
 });
 
-test("the first render back online already leaves the offline failures out", () => {
-  const before = snapshot([lane(OFFLINE_FAILURE)]);
+test("a brief drop hides no failure that a retry will not revisit", () => {
+  const { offlineWindow } = reconnect([]);
+  const counted = (overrides: Partial<SyncLaneSnapshot>) =>
+    summarizeSyncLanes(snapshot([lane(overrides)]), offlineWindow).failed;
+  // Recorded before the device went offline: not caused by being offline.
+  expect(
+    counted({ ...OFFLINE_FAILURE, lastFailedAt: "2026-11-22T09:59:00.000Z" }),
+  ).toBe(1);
+  // Recorded offline, but nothing is queued to retry it.
+  expect(
+    counted({ ...OFFLINE_FAILURE, requested: false, status: "error" }),
+  ).toBe(1);
+  // An abandoned run holds its lane until it settles; nothing retries it,
+  // even when the lane also recorded an offline failure before it hung.
+  expect(
+    counted({
+      ...OFFLINE_FAILURE,
+      key: "documents:stuck",
+      lastFailedAt: "2026-11-22T10:01:00.000Z",
+      lastStartedAt: "2026-11-22T10:02:00.000Z",
+      runAbandoned: true,
+      running: true,
+      status: "running",
+    }),
+  ).toBe(1);
+  // Online from the start, nothing is blamed on being offline.
+  const fresh = initialLaneReconnectState(true, snapshot([]));
+  expect(fresh).toEqual({ offlineWindow: null, status: "online" });
+  expect(
+    summarizeSyncLanes(snapshot([lane(OFFLINE_FAILURE)]), null).failed,
+  ).toBe(1);
+  // Staying online keeps the same state, so the hook does not re-render.
+  const online = reconnect([]);
+  expect(
+    transitionLaneReconnect(online, {
+      online: true,
+      snapshot: snapshot([], "2026-11-22T11:00:00.000Z"),
+      type: "observed",
+    }),
+  ).toBe(online);
+});
+
+test("the first render back online already leaves the offline failures out, and later failures count", () => {
   const failedPerRender: number[] = [];
-  const { rerender } = renderHook(
-    ({ online }) => {
-      const stale = useStaleLaneFailures(online, before);
-      const lanes = summarizeSyncLanes(before, stale);
+  const { rerender, result } = renderHook(
+    ({ online, current }) => {
+      const window = useLastOfflineWindow(online, current);
+      const lanes = summarizeSyncLanes(current, window);
       // Offline hides failures anyway; what matters is every online render.
       if (online) failedPerRender.push(lanes.failed);
       return lanes;
     },
-    { initialProps: { online: false } },
+    { initialProps: { current: snapshot([], WENT_OFFLINE), online: false } },
   );
-  rerender({ online: true });
-  rerender({ online: true });
+  rerender({
+    current: snapshot([lane(OFFLINE_FAILURE)], CAME_BACK),
+    online: true,
+  });
+  rerender({
+    current: snapshot([lane(OFFLINE_FAILURE)], CAME_BACK),
+    online: true,
+  });
   expect(failedPerRender.length).toBeGreaterThan(0);
   expect(failedPerRender.every((failed) => failed === 0)).toBe(true);
+
+  // The retry fails after the reconnect, in a later snapshot.
+  rerender({
+    current: snapshot(
+      [
+        lane({
+          ...OFFLINE_FAILURE,
+          lastError: "Sync failed (500)",
+          lastFailedAt: "2026-11-22T10:10:05.000Z",
+        }),
+      ],
+      "2026-11-22T10:10:05.000Z",
+    ),
+    online: true,
+  });
+  expect(result.current.failed).toBe(1);
 });
 
 test("a run the watchdog abandoned is named in plain words", () => {

@@ -59,11 +59,14 @@ export function lane(overrides: Partial<SyncLaneSnapshot>): SyncLaneSnapshot {
   };
 }
 
-export function snapshot(lanes: SyncLaneSnapshot[]): DomainSyncSnapshot {
+export function snapshot(
+  lanes: ReadonlyArray<SyncLaneSnapshot>,
+  updatedAt = "2026-11-22T00:00:00.000Z",
+): DomainSyncSnapshot {
   return {
     hasPendingWork: lanes.some((entry) => entry.running || entry.requested),
     lanes,
     pumpActive: lanes.some((entry) => entry.running),
-    updatedAt: "2026-11-22T00:00:00.000Z",
+    updatedAt,
   };
 }
