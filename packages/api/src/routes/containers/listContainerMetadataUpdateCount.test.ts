@@ -10,7 +10,7 @@ import {
 } from "../../../test/helpers/containerParentLaneQuery";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerAndAuthenticate } from "../../../test/helpers/registerUser";
-import { countDocumentUpdatesThrough } from "../../documents/documentUpdateStore";
+import { countDocumentUpdatesThrough } from "../../documents/documentUpdateCount";
 
 /** One child's listed row. */
 async function listedChild(input: {

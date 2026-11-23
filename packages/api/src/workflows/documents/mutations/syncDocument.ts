@@ -10,9 +10,9 @@ import {
 } from "../../../access/read/documentContentKeyStore";
 import { readCommitCheckpoint } from "../../../documents/commitLsn";
 import { readProcessedThroughSequence } from "../../../documents/documentProcessedCursor";
+import { countDocumentUpdatesThrough } from "../../../documents/documentUpdateCount";
 import {
   assertMinLsnSatisfied,
-  countDocumentUpdatesThrough,
   readDocumentUpdateUpperBound,
   resolveDocumentUpdateCursorBounds,
 } from "../../../documents/documentUpdateStore";

@@ -7,7 +7,7 @@ import {
 import { decodeVersionVector } from "@tearleads/loro";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
 
-import { and, count, desc, eq, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { textExpression, uuidValue } from "../utils/postgresSql";
 import { isMinLsnSatisfied } from "./commitLsn";
@@ -246,27 +246,6 @@ export async function readDocumentUpdateUpperBound(
     throw new Error("Invalid document update sequence upper bound");
   }
   return row;
-}
-
-/**
- * How many updates the document holds at or before `sequence`. Updates are
- * deleted only with their whole document, so for a fixed `sequence` this
- * never decreases while the document exists.
- */
-export async function countDocumentUpdatesThrough(
-  executor: DatabaseSession,
-  input: { readonly documentId: string; readonly sequence: number },
-): Promise<number> {
-  const [row] = await executor
-    .select({ updates: count() })
-    .from(documentUpdates)
-    .where(
-      and(
-        eq(documentUpdates.documentId, input.documentId),
-        lte(documentUpdates.sequence, input.sequence),
-      ),
-    );
-  return row?.updates ?? 0;
 }
 
 export async function readDocumentUpdateSequenceUpperBound(
