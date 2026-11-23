@@ -87,7 +87,6 @@ function renderSync(
 ) {
   const mergeDocumentSummaries = mock(() => {});
   const onDocumentLinksChanged = mock(() => {});
-  const primeDiscoveredDocuments = mock(() => {});
 
   const utils = renderHook(
     (props: { view: LocalProjectionView }) =>
@@ -95,7 +94,6 @@ function renderSync(
         activeContainerId,
         mergeDocumentSummaries,
         onDocumentLinksChanged,
-        primeDiscoveredDocuments,
         view: props.view,
       }),
     { initialProps: { view } },
@@ -105,7 +103,6 @@ function renderSync(
     ...utils,
     mergeDocumentSummaries,
     onDocumentLinksChanged,
-    primeDiscoveredDocuments,
   };
 }
 
@@ -256,57 +253,31 @@ test("a new view rotation re-bumps once and re-points the active container", () 
   expect(rendered.onDocumentLinksChanged).toHaveBeenCalledTimes(2);
 });
 
-test("primes each distinct summary-list instance once per view", () => {
-  const listA = [createSummary("you")];
-  const { view, emit } = createFakeView(contactsMap(listA));
-  const { primeDiscoveredDocuments } = renderSync(view);
-
-  // Mount primes the initial list once.
-  expect(primeDiscoveredDocuments).toHaveBeenCalledTimes(1);
-  expect(primeDiscoveredDocuments).toHaveBeenLastCalledWith(listA);
-
-  // Re-emitting the SAME list instance must not re-prime (the projection only
-  // swaps the array when its contents change).
-  act(() => {
-    emit(contactsMap(listA));
-  });
-  expect(primeDiscoveredDocuments).toHaveBeenCalledTimes(1);
-
-  // A fresh list instance (new membership) primes again.
-  const listB = [createSummary("you"), createSummary("teammate")];
-  act(() => {
-    emit(contactsMap(listB));
-  });
-  expect(primeDiscoveredDocuments).toHaveBeenCalledTimes(2);
-  expect(primeDiscoveredDocuments).toHaveBeenLastCalledWith(listB);
-});
-
-test("callback rotation does not re-prime an unchanged projection", () => {
-  const list = [createSummary("you")];
-  const { view } = createFakeView(contactsMap(list));
-  const mergeDocumentSummaries = mock(() => {});
+test("callback rotation does not re-bump an unchanged projection", () => {
+  const { view } = createFakeView(contactsMap([createSummary("you")]));
   const onDocumentLinksChanged = mock(() => {});
-  const firstPrime = mock(() => {});
-  const secondPrime = mock(() => {});
+  const firstMerge = mock(() => {});
+  const secondMerge = mock(() => {});
   const rendered = renderHook(
-    (props: { primeDiscoveredDocuments: typeof firstPrime }) =>
+    (props: { mergeDocumentSummaries: typeof firstMerge }) =>
       useExplorerViewProjectionSync({
         activeContainerId: "contacts",
-        mergeDocumentSummaries,
+        mergeDocumentSummaries: props.mergeDocumentSummaries,
         onDocumentLinksChanged,
-        primeDiscoveredDocuments: props.primeDiscoveredDocuments,
         view,
       }),
-    { initialProps: { primeDiscoveredDocuments: firstPrime } },
+    { initialProps: { mergeDocumentSummaries: firstMerge } },
   );
 
-  expect(firstPrime).toHaveBeenCalledTimes(1);
+  expect(firstMerge).toHaveBeenCalledTimes(1);
   expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1);
 
   act(() => {
-    rendered.rerender({ primeDiscoveredDocuments: secondPrime });
+    rendered.rerender({ mergeDocumentSummaries: secondMerge });
   });
 
-  expect(secondPrime).not.toHaveBeenCalled();
+  // The same view and rows were already applied: neither is re-merged, and the
+  // unchanged membership must not invalidate document links.
+  expect(secondMerge).not.toHaveBeenCalled();
   expect(onDocumentLinksChanged).toHaveBeenCalledTimes(1);
 });

@@ -1,4 +1,5 @@
 import type { DomainScope } from "../../data/shared/domainScope";
+import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import {
   type DomainSyncCoordinator,
   getOrCreateDomainSyncCoordinator,
@@ -41,6 +42,10 @@ import {
 } from "../containerContents";
 import { discoverContainerDocumentLanesForRuntime } from "../containerContents/documentDiscovery";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
+import {
+  type DiscoveredDocumentPrimerHost,
+  startDiscoveredDocumentPrimer,
+} from "./discoveredDocumentPrimer";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
 export type { LocalProjectionView } from "../../stores/local-projection";
@@ -85,6 +90,7 @@ interface DeviceFirstScopeEntry {
   coordinator: DomainSyncCoordinator;
   contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
+  stopDocumentPrimer: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
   unsubscribePersistedDocuments: () => void;
 }
@@ -93,6 +99,7 @@ function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
   entry.coordinator.dispose();
   entry.contents.reconciler.stop();
   entry.disconnectReconciliationTriggers();
+  entry.stopDocumentPrimer();
   entry.unsubscribePersistedDocumentDeletions();
   entry.unsubscribePersistedDocuments();
 }
@@ -139,6 +146,51 @@ function createInitialDocumentProbeHost(
         .util.log(
           `Initial document hydration probe requested ${requestedCount} syncs`,
         );
+    },
+  };
+}
+
+/**
+ * Binds the discovered-document primer to one scope: it primes only while
+ * this scope's runtime can sync, and honors the scope's organization pauses.
+ */
+function createDiscoveredDocumentPrimerHost(input: {
+  readonly containerContents: ContainerContents;
+  readonly domainScope: DomainScope;
+  readonly runtimeService: InternalRuntime;
+  readonly store: LocalProjectionStore;
+}): DiscoveredDocumentPrimerHost {
+  const { containerContents, domainScope, runtimeService, store } = input;
+  const syncPauses = getOrCreateOrganizationSyncPauses(domainScope);
+  return {
+    projection: store,
+    canPrime: () => {
+      const runtime = runtimeService.workflowInput();
+      return (
+        runtime.state.domainScope === domainScope &&
+        runtime.infra.dbStatus === "ready" &&
+        runtime.auth.isAuthenticated &&
+        runtime.state.online
+      );
+    },
+    loadSyncPauses: () =>
+      syncPauses.load(runtimeService.workflowInput().infra.execSql),
+    isContainerPaused: (container) => syncPauses.isContainerPaused(container),
+    subscribeToSyncPauses: (listener) => syncPauses.subscribe(listener),
+    openDocuments: (targets) => {
+      const documentLinks = containerContents.documentLinks();
+      for (const target of targets) {
+        try {
+          documentLinks.openDocument(target);
+        } catch (error) {
+          // One store that cannot open must not keep the rest from syncing.
+          logReconciliationFailure(
+            createDeviceFirstWorkflowRuntime(runtimeService),
+            "Failed to open a discovered document for background sync",
+            error,
+          );
+        }
+      }
     },
   };
 }
@@ -221,6 +273,14 @@ class DeviceFirstService implements DeviceFirst {
       service,
       store,
     });
+    const stopDocumentPrimer = startDiscoveredDocumentPrimer(
+      createDiscoveredDocumentPrimerHost({
+        containerContents: this.containerContents,
+        domainScope,
+        runtimeService: this.runtimeService,
+        store,
+      }),
+    );
     const unsubscribePersistedDocumentDeletions =
       subscribeToPersistedDocumentDeletions(domainScope, (localId) => {
         store.removePersistedDocument(localId);
@@ -246,6 +306,7 @@ class DeviceFirstService implements DeviceFirst {
         view,
       },
       disconnectReconciliationTriggers,
+      stopDocumentPrimer,
       unsubscribePersistedDocumentDeletions,
       unsubscribePersistedDocuments,
     };

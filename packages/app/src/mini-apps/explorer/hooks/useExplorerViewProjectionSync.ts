@@ -8,43 +8,6 @@ import {
   diffChangedContainerIds,
 } from "../../../stores/explorer/documentSummaryUtils";
 
-// Priming a discovered document opens its store in the SDK's module-level cache,
-// which lives above the routed-pane remount boundary. Tracking which summary-list
-// instances have already been primed in a per-mount ref re-primed every document
-// each time the compact/mobile breakpoint remounted Explorer. Key the tracking by
-// the persistent projection view instead, so it survives those remounts and
-// rotates automatically when the domain scope (and its view) changes.
-const primedSummaryListsByView = new WeakMap<
-  LocalProjectionView,
-  WeakSet<ReadonlyArray<unknown>>
->();
-
-function primeNewSummaryLists(
-  summaryLists: Iterable<ReadonlyArray<DocumentSummary>>,
-  primedSummaryLists: WeakSet<ReadonlyArray<unknown>>,
-  primeDiscoveredDocuments: (
-    discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
-  ) => void,
-): void {
-  for (const summaries of summaryLists) {
-    if (summaries.length > 0 && !primedSummaryLists.has(summaries)) {
-      primedSummaryLists.add(summaries);
-      primeDiscoveredDocuments(summaries);
-    }
-  }
-}
-
-function primedSummaryListsForView(
-  view: LocalProjectionView,
-): WeakSet<ReadonlyArray<unknown>> {
-  let primed = primedSummaryListsByView.get(view);
-  if (!primed) {
-    primed = new WeakSet();
-    primedSummaryListsByView.set(view, primed);
-  }
-  return primed;
-}
-
 function trackContainerSignatures(
   previous: ReadonlyMap<string, string> | null,
   next: ReadonlyMap<string, string>,
@@ -56,10 +19,9 @@ function trackContainerSignatures(
  * Sync the local projection view into the explorer view model.
  *
  * Split out of `useExplorerInteractionState` so the flicker-prone gating can be
- * exercised without the SDK provider that priming needs: `view` is a fake, and
- * `primeDiscoveredDocuments` / the merge + link-change callbacks are plain
- * functions here rather than the provider-backed hooks the parent wires.
- * Behaviour is identical to the inlined effects it replaced.
+ * exercised with a fake `view` and plain merge and link-change callbacks.
+ * Opening discovered documents is not Explorer's job: the SDK's device-first
+ * scope does it in the background whether or not Explorer is open.
  */
 export function useExplorerViewProjectionSync(params: {
   activeContainerId: string | null;
@@ -67,16 +29,12 @@ export function useExplorerViewProjectionSync(params: {
     nextDocuments: ReadonlyArray<DocumentSummary>,
   ) => void;
   onDocumentLinksChanged: (changedContainerIds: Iterable<string>) => void;
-  primeDiscoveredDocuments: (
-    discoveredDocumentSummaries: ReadonlyArray<DocumentSummary>,
-  ) => void;
   view: LocalProjectionView;
 }) {
   const {
     activeContainerId,
     mergeDocumentSummaries,
     onDocumentLinksChanged,
-    primeDiscoveredDocuments,
     view,
   } = params;
 
@@ -97,7 +55,6 @@ export function useExplorerViewProjectionSync(params: {
   const lastContainerSignaturesRef = useRef<ReadonlyMap<string, string> | null>(
     null,
   );
-  // Primed document stores are tracked per view (module scope) and need no reset.
   const lastViewRef = useRef(view);
   useEffect(() => {
     // When the view (domain scope) rotates, reset the per-mount active-summaries +
@@ -109,20 +66,8 @@ export function useExplorerViewProjectionSync(params: {
       lastActiveSummariesRef.current = null;
       lastContainerSignaturesRef.current = null;
     }
-    const primedSummaryLists = primedSummaryListsForView(view);
     const applyFromView = () => {
       const summariesMap = view.getSnapshot().documentSummariesByContainerId;
-
-      // Prime document stores for every container whose summaries are new, so
-      // discovered documents sync their content (and titles) even when they
-      // land outside the active container. Each summary-list instance is primed
-      // once per view; the local projection only swaps the list when it changes.
-      primeNewSummaryLists(
-        summariesMap.values(),
-        primedSummaryLists,
-        primeDiscoveredDocuments,
-      );
-
       const activeSummaries = activeContainerId
         ? (summariesMap.get(activeContainerId) ?? [])
         : [];
@@ -150,11 +95,5 @@ export function useExplorerViewProjectionSync(params: {
 
     applyFromView();
     return view.subscribe(applyFromView);
-  }, [
-    activeContainerId,
-    mergeDocumentSummaries,
-    onDocumentLinksChanged,
-    primeDiscoveredDocuments,
-    view,
-  ]);
+  }, [activeContainerId, mergeDocumentSummaries, onDocumentLinksChanged, view]);
 }
