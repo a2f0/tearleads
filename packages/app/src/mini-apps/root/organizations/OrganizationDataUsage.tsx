@@ -1,10 +1,7 @@
 import type { OrganizationDataUsage as Usage } from "@tearleads/client-sdk";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  MiniAppButton,
-  MiniAppStatus,
-  MiniAppToolbar,
-} from "../../../components/mini-app/MiniAppLayout";
+import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { DataUsageView } from "../../shared/DataUsageView";
 import { describeRootFailure, describeThrown } from "../identities/rootDisplay";
@@ -42,18 +39,17 @@ export function OrganizationDataUsage({
       sequence.current += 1;
     };
   }, [load]);
-  return (
-    <>
-      <MiniAppToolbar>
-        <MiniAppButton disabled={loading} onClick={() => void load()}>
-          {loading ? "Loading..." : "Refresh usage"}
-        </MiniAppButton>
-      </MiniAppToolbar>
-      {error ? (
-        <MiniAppStatus tone="error">{error}</MiniAppStatus>
-      ) : (
-        <DataUsageView canSync={null} dataUsage={usage} pending={loading} />
-      )}
-    </>
+  // Above the organization detail's Refresh while this tab is open, so the
+  // toolbar Refresh re-measures usage.
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: load,
+    priority: 100,
+    refreshing: loading,
+  });
+  return error ? (
+    <MiniAppStatus tone="error">{error}</MiniAppStatus>
+  ) : (
+    <DataUsageView canSync={null} dataUsage={usage} pending={loading} />
   );
 }

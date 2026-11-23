@@ -1,3 +1,4 @@
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useState } from "react";
 import {
   MiniAppButton,
@@ -52,6 +53,11 @@ export function OrganizationsView({
   );
   const { items, error, loading, nextCursor, loadMore, refresh } =
     useRootPage(request);
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    refreshing: loading,
+  });
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>

@@ -1,4 +1,5 @@
 import type { RootAuditEvent } from "@tearleads/client-sdk";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback } from "react";
 import {
   MiniAppButton,
@@ -148,6 +149,11 @@ export function AuditView({
   );
   const { items, error, loading, nextCursor, loadMore, refresh } =
     useRootPage(request);
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    refreshing: loading,
+  });
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
@@ -166,9 +172,6 @@ export function AuditView({
           spellCheck={false}
           value={draft}
         />
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          {loading ? "Loading..." : "Refresh"}
-        </MiniAppButton>
       </MiniAppToolbar>
       {draftIsIncomplete && (
         <MiniAppStatus>Enter a full user or organization ID.</MiniAppStatus>
