@@ -39,6 +39,7 @@ function page(
       },
     ],
     nextCursor: more ? "next" : null,
+    voidUpdateIds: [],
   };
 }
 

@@ -80,6 +80,7 @@ async function loadSyncedDocumentInfo(execSql: ExecSql) {
           },
         ];
       },
+      listDocumentEditAttributionRanges: async () => null,
       getDocumentEditAttribution: async () => ({
         attributionRevision: 1,
         documentId: "document-1",
@@ -246,6 +247,7 @@ test("loadDocumentInfo avoids remote calls for local-only documents", async () =
         listDocumentAttachments: async () => {
           throw new Error("Unexpected attachment fetch.");
         },
+        listDocumentEditAttributionRanges: async () => null,
         getDocumentEditAttribution: async () => {
           throw new Error("Unexpected attribution fetch.");
         },

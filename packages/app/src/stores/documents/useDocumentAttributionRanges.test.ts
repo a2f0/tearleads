@@ -38,6 +38,7 @@ function pagedRanges(pageCount: number) {
           hasMore,
           items: [range(`update-${page}`)],
           nextCursor: hasMore ? String(page + 1) : null,
+          voidUpdateIds: [],
         };
       },
     },
@@ -166,6 +167,7 @@ test("a document that gained an upload is read again in full", async () => {
     ranges: [range("update-0")],
     revision: 11,
     status: "complete" as const,
+    voidUpdateIds: [],
   };
 
   const read = await loadAllDocumentAttributionRanges(
@@ -196,6 +198,7 @@ test("a document that gained an upload is read again in full", async () => {
     ranges: [range("update-x")],
     revision: 12,
     status: "complete" as const,
+    voidUpdateIds: [],
   };
   expect(
     (
@@ -206,6 +209,41 @@ test("a document that gained an upload is read again in full", async () => {
       )
     )?.ranges,
   ).toHaveLength(2);
+});
+
+test("a read is read again once this device voids an update it showed", async () => {
+  const api = pagedRanges(2);
+  const held = await loadAllDocumentAttributionRanges(
+    api.containerContents,
+    "document-1",
+  );
+  if (held === null) throw new Error("the first read failed");
+  // The same revision and first update, but the device has since voided
+  // update-1: the held read still credits it.
+  const voided = {
+    loadDocumentAttributionRanges: async (
+      input: DocumentAttributionRangesInput,
+    ): Promise<DocumentAttributionRangesPage> => {
+      const page =
+        await api.containerContents.loadDocumentAttributionRanges(input);
+      return {
+        ...page,
+        items: page.items.filter((item) => item.updateId !== "update-1"),
+        voidUpdateIds: ["update-1"],
+      };
+    },
+  };
+
+  const read = await loadAllDocumentAttributionRanges(voided, "document-1", {
+    held,
+  });
+
+  expect(read).not.toBe(held);
+  expect(read).toMatchObject({
+    status: "complete",
+    voidUpdateIds: ["update-1"],
+  });
+  expect(read?.ranges.map((item) => item.updateId)).toEqual(["update-0"]);
 });
 
 /** `total` ranges served as many at a time as asked for, at one revision. */
@@ -225,6 +263,7 @@ function servedRanges(total: number) {
         hasMore: end < total,
         items,
         nextCursor: end < total ? String(end) : null,
+        voidUpdateIds: [],
       };
     },
   };
@@ -237,6 +276,7 @@ test("a refresh gives up exactly where a first read does", async () => {
     ranges: [range("update-0")],
     revision: 11,
     status: "complete" as const,
+    voidUpdateIds: [],
   };
 
   for (const [total, status] of [

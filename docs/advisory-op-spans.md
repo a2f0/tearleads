@@ -148,10 +148,11 @@ is outside the guarantees either way.
 Rebinding or deleting the local record drops its cursor, void rows, and
 preemption notices.
 A founding view whose first update is void shows no founding update.
-Container metadata documents void the same way but keep no cursor, so every
-pull of one judges its voids again (each is still reported once), and a folder
-listing whose advertised version an overclaim left uncovered keeps that folder
-marked as behind.
+Container metadata documents void and keep a cursor the same way. A metadata
+pass records its verdicts and cursor in the transaction that saves the
+folder's metadata, and a save a concurrent one superseded records neither, so
+the next pull judges that page again. A folder listing whose advertised
+version an overclaim left uncovered still keeps that folder marked as behind.
 [`VoidUpdateProgress`](../formal/document-sync/VoidUpdateProgress.md) checks
 that no void update is applied, that readers agree, that a reader stays
 current, and that a runtime failure voids an update the decoder can read only
@@ -209,16 +210,49 @@ cursor's pull imported and the pull voided the rest. The sync and unlink gates
 weigh only the updates committed after that cursor, and a first page goes
 straight to a baseline when the baseline covers every later update it would
 skip. A baseline without a cursor, or with one the document does not hold,
-must cover every committed update. The API stores the cursor beside the
+must cover every committed update. A container metadata baseline signs the
+cursor its metadata pulls recorded, so an overclaim in a folder's metadata no
+longer refuses the folder's rotations. The API stores the cursor beside the
 baseline and authenticates it with the rest of the signed metadata, so a
 stored cursor that is not the signed one fails the pull closed.
 
-A document whose every update is void has an empty snapshot, which encodes no
-baseline, and the baseline-less unlink still requires no committed update, so
-it cannot be unlinked. A rotation by a device whose older decoder voids an
-update a newer one reads leaves that update out of the baseline for every
-reader. Both are accepted residuals of #3135.
+A document whose every update its author voided has an empty snapshot. Its
+baseline declares no operation and signs the cursor alone, so the gates weigh
+only the updates after it, and a new reader's first pull is redirected past
+the voids (#3194). The empty baseline carries nothing, so no pull serves it,
+though a pull's cursor still reaches it, and it never keeps a later baseline
+from redirecting. The API admits an empty span only on a rotation baseline
+that signs a cursor. A document never written has no cursor, so its unlink
+carries no baseline and the API requires that no update is committed.
+
+A rotation by a device whose older decoder voids an update a newer one reads
+leaves that update out of the baseline for every reader. That is an accepted
+residual of #3135: greenfield clients are expected to run the current Loro,
+so the case is not designed for.
 [`BaselineCursorCoverage`](../formal/document-sync/BaselineCursorCoverage.md)
 models the cursor in the gates and the redirect, and
 [`RawHistoryRecovery`](../formal/document-sync/RawHistoryRecovery.md) the
 history recovery rebuilds and the voids it leaves out.
+
+## Edit Attribution
+
+The API credits each operation to the earliest update whose declared span covers
+it (`GET /documents/{documentId}/attribution` and its `ranges`). A void update's
+span is false, so an earlier void update could take the credit for operations a
+later update really carried, and History would bound a change by the void
+update's upload time and could report a clock running ahead.
+
+Every reader of attribution in the SDK leaves out the ranges of updates the
+device voided for good: rows in `document_void_updates` under its running judge,
+in any local record of the document, except an update still unsettled after a
+Loro runtime failure. Ranges drop those updates page by page. Compact segments
+stay the API's list while the device holds no void update of the document;
+otherwise the SDK builds them from the ranges without the void ones, merging
+runs as the API does. Info's contributors and blame, row writers, Explorer's
+edit ranges, and History's upload-time bound therefore agree, and the operations
+a void update declared are credited to nobody.
+
+The update that later carried those operations is not credited either, because
+the API credits each operation once and does not know the reader's verdicts.
+Readers whose judges differ can show different attribution. Both are accepted
+residuals of #3194.

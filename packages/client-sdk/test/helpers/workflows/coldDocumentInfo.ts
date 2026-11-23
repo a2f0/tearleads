@@ -106,6 +106,7 @@ export async function loadColdRecoveredDocumentInfo(input: {
   let attributionGetCount = 0;
   const info = await loadDocumentInfo({
     apiClient: {
+      listDocumentEditAttributionRanges: async () => null,
       getDocumentEditAttribution: async (documentId) => {
         attributionGetCount += 1;
         if (documentId !== response.documentId) {

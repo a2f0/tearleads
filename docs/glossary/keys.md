@@ -178,10 +178,11 @@ its author's processed cursor as `coversThroughUpdateId`. An unlink must carry
 one whose source [version vector](./content.md#version-vector) covers the
 committed update frontier after that cursor (every committed update when it
 signs none), unless the document has no committed updates; a link must not
-carry one. The first valid writer for the new epoch
-becomes the canonical baseline, and normal sync can then omit older ciphertext
-its declared coverage dominates. That coverage is trusted, not verified, because
-the server cannot open the snapshot.
+carry one. A baseline whose author voided every update is an empty snapshot,
+which declares no operations and must sign its cursor. The first valid writer
+for the new epoch becomes the canonical baseline, and normal sync can then omit
+older ciphertext its declared coverage dominates. That coverage is trusted, not
+verified, because the server cannot open the snapshot.
 
 Related docs:
 

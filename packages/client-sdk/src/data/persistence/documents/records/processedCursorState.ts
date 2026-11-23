@@ -62,7 +62,7 @@ export function processedCursorTransition(input: {
   readonly judge: string;
   /** Whether a recorded void was judged under another key for its epoch. */
   readonly keyConflict: boolean;
-  /** Undefined for a scope that keeps no cursor. */
+  /** Undefined for a judge that keeps no cursor, such as rotation's. */
   readonly page: PullPagePosition | undefined;
   /** The frontier the record holds once the page is saved. */
   readonly recordedFrontier: string;
