@@ -2,8 +2,10 @@ import type { Icon } from "@phosphor-icons/react";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimple";
 import { EyeIcon } from "@phosphor-icons/react/dist/csr/Eye";
 import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
+import { PasswordIcon } from "@phosphor-icons/react/dist/csr/Password";
 import { PrinterIcon } from "@phosphor-icons/react/dist/csr/Printer";
 import { QrCodeIcon } from "@phosphor-icons/react/dist/csr/QrCode";
+import { usePasswordKeychain } from "../../../identity/identityKeychain";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import {
   MiniAppButton,
@@ -51,6 +53,7 @@ export function RecoveryKeyDisplay({
   readonly seedPhrase: string | null;
 }) {
   const { disablePrinting } = useAppHostConfig();
+  const canSaveToKeychain = usePasswordKeychain() !== null;
   if (!seedPhrase) {
     return <MiniAppStatus>No recovery key is available.</MiniAppStatus>;
   }
@@ -106,6 +109,13 @@ export function RecoveryKeyDisplay({
           label="Download Recovery Key"
           onClick={() => onRequestDisclosure("download")}
         />
+        {canSaveToKeychain && (
+          <RecoveryKeyIconButton
+            icon={PasswordIcon}
+            label="Save to Password Manager"
+            onClick={() => onRequestDisclosure("keychain")}
+          />
+        )}
         <MiniAppClipboardButton
           label="Copy recovery key"
           // Suppress the button's own click-to-copy — the copy runs once the
