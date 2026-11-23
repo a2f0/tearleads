@@ -1,10 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
-import {
-  createDomainScope,
-  getDomainSyncCoordinatorSnapshot,
-  type PendingWriteQueueItem,
-} from "@tearleads/client-sdk";
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import type { PendingWriteQueueItem } from "@tearleads/client-sdk";
+import { act, cleanup, fireEvent } from "@testing-library/react";
+import { renderOutgoingView } from "../../../../../test/helpers/explorer/outgoingViewFixtures";
 import {
   ARCHIVE_NODE,
   CREATED_AT,
@@ -12,7 +9,6 @@ import {
   operation,
 } from "../../../../../test/helpers/explorer/syncPanelFixtures";
 import { EXPLORER_LABELS } from "../../labels";
-import { ExplorerWriteQueuePanelView } from "./ExplorerWriteQueuePanel";
 
 // The row menu's Copy action: what lands on the clipboard for a bug report.
 
@@ -55,30 +51,10 @@ async function copyEntry(
   billingBlockedOrganizationId: string | null = null,
 ): Promise<string[]> {
   const written = installClipboard();
-  const view = render(
-    <ExplorerWriteQueuePanelView
-      billingBlockedOrganizationId={billingBlockedOrganizationId}
-      discardPendingWrites={() => undefined}
-      error={null}
-      isAuthenticated
-      items={[queueItem]}
-      loading={false}
-      nodes={[ARCHIVE_NODE]}
-      online
-      openContainerInfoRoute={() => undefined}
-      openDocument={() => undefined}
-      openWriteQueueEntryRoute={() => undefined}
-      organizationNamesById={
-        new Map([
-          ["custom-org", "Acme"],
-          ["personal-org", "Personal"],
-        ])
-      }
-      retryPendingWrites={() => undefined}
-      selectedEntryKey={null}
-      snapshot={getDomainSyncCoordinatorSnapshot(createDomainScope())}
-    />,
-  );
+  const view = renderOutgoingView({
+    billingBlockedOrganizationId,
+    writes: [queueItem],
+  });
   fireEvent.click(
     view.getByRole("button", {
       name: `${EXPLORER_LABELS.writeQueueRowActionsLabel}: ${queueItem.name}`,

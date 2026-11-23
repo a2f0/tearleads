@@ -148,9 +148,7 @@ test("explorer sync-lane detail route does not require a selected container", ()
 });
 
 test("explorer direction routes do not require a selected container", () => {
-  expect(
-    isExplorerRouteAvailable({ section: null, view: "outgoing" }, []),
-  ).toBe(true);
+  expect(isExplorerRouteAvailable({ view: "outgoing" }, [])).toBe(true);
   expect(isExplorerRouteAvailable({ view: "incoming" }, [])).toBe(true);
   expect(
     isExplorerRouteAvailable(
@@ -174,20 +172,19 @@ test("explorer write-queue entry route round-trips its entry key", () => {
   ).toEqual(["outgoing", "writes", "document::document-1"]);
 });
 
-test("explorer Outgoing routes round-trip the section a link scrolls to", () => {
-  for (const [segments, section] of [
-    [["outgoing"], null],
-    [["outgoing", "uploads"], "uploads"],
-    [["outgoing", "writes"], "writes"],
-  ] as const) {
-    const route = { section, view: "outgoing" } as const;
-    expect(parseExplorerRouteSegments(segments)).toEqual({ route });
-    expect(formatExplorerRouteSegments(route)).toEqual(segments);
-  }
-  // An unknown section opens the tab at its top.
-  expect(parseExplorerRouteSegments(["outgoing", "elsewhere"])).toEqual({
-    route: { section: null, view: "outgoing" },
+test("explorer Outgoing route round-trips, and any other path under it opens the table", () => {
+  expect(parseExplorerRouteSegments(["outgoing"])).toEqual({
+    route: { view: "outgoing" },
   });
+  expect(formatExplorerRouteSegments({ view: "outgoing" })).toEqual([
+    "outgoing",
+  ]);
+  // The table has no sections, so the old section paths open it too.
+  for (const second of ["uploads", "writes", "elsewhere"]) {
+    expect(parseExplorerRouteSegments(["outgoing", second])).toEqual({
+      route: { view: "outgoing" },
+    });
+  }
 });
 
 test("explorer Incoming route round-trips", () => {

@@ -6,28 +6,7 @@
   opacity: var(--opacity-subtle);
 }
 
-.explorer-write-queue-table-wrap {
-  flex: 1;
-}
-
-.explorer-write-queue-more {
-  display: flex;
-  justify-content: center;
-}
-
-.explorer-write-queue-object-copy,
-.explorer-write-queue-status-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs);
-  min-width: 0;
-}
-
-.explorer-write-queue-table-wrap .mini-app-table-action {
-  line-height: normal;
-  white-space: normal;
-}
-
+/* The entry detail's status badge. */
 .explorer-write-queue-status {
   width: max-content;
   max-width: 100%;
@@ -41,10 +20,6 @@
 .explorer-write-queue-status--blocked,
 .explorer-write-queue-status--error {
   color: var(--color-danger);
-}
-
-.explorer-write-queue-status-stack .mini-app-table-text {
-  white-space: normal;
 }
 
 /*

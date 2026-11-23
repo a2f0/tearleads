@@ -58,8 +58,8 @@ interface HarnessProps {
 }
 
 // The manager lives above the tabs, as in Explorer, so switching tabs keeps it.
-// The Outgoing tab renders the Uploads section; its write queue reads nothing
-// while the database is closed.
+// The Outgoing tab lists the files; its write queue reads nothing while the
+// database is closed.
 function Harness(props: HarnessProps) {
   const manager = useExplorerUploadManager({
     documentQueries: props.documentQueries,
@@ -83,7 +83,6 @@ function Harness(props: HarnessProps) {
           openDocument={() => undefined}
           openWriteQueueEntryRoute={() => undefined}
           organizationNamesById={new Map()}
-          section={null}
           selectedEntryKey={props.selectedEntryKey ?? null}
           uploadManager={manager}
         />
@@ -192,7 +191,7 @@ test("the first file to finish stays Complete across a tab switch and refresh", 
     ]),
   );
   await waitFor(() =>
-    expect(view.getByText("2 files · 2 in progress")).toBeTruthy(),
+    expect(view.getByText(/· 2 files · 2 in progress$/)).toBeTruthy(),
   );
   // Transferred bytes drive Beta's bar before sync is even requested.
   expectRow(view, "beta.txt", { percent: "50", status: "Pending sync" });
@@ -203,7 +202,7 @@ test("the first file to finish stays Complete across a tab switch and refresh", 
     expectRow(view, "alpha.txt", { percent: "100", status: "Complete" }),
   );
   expectRow(view, "beta.txt", { percent: "50", status: "Pending sync" });
-  expect(view.getByText("2 files · 1 in progress")).toBeTruthy();
+  expect(view.getByText(/· 2 files · 1 in progress$/)).toBeTruthy();
 
   // Switch to Incoming and back, then refresh again.
   view.rerender(<Harness {...props} showOutgoing={false} />);
@@ -213,7 +212,7 @@ test("the first file to finish stays Complete across a tab switch and refresh", 
   expect(view.getAllByText("alpha.txt")).toHaveLength(1);
   expectRow(view, "alpha.txt", { percent: "100", status: "Complete" });
   expect(view.getAllByText("Complete")).toHaveLength(1);
-  expect(view.getByText("2 files · 1 in progress")).toBeTruthy();
+  expect(view.getByText(/· 2 files · 1 in progress$/)).toBeTruthy();
   // Refresh re-drove the existing uploads; nothing was imported again.
   expect(world.imports).toEqual(["alpha.txt", "beta.txt"]);
 });
@@ -241,8 +240,8 @@ test("Outgoing owns the toolbar Refresh while open and keeps it off offline", as
   expect(explorerRefreshes).toBe(1);
 });
 
-// The tab registers Refresh, not its Uploads section, so an entry's detail,
-// which hides that section, still re-requests the scope's lanes.
+// The tab registers Refresh, not its table, so an entry's detail, which
+// replaces the table, still re-requests the scope's lanes.
 test("Refresh stays the Outgoing one on a write-queue entry's detail", async () => {
   const world = createUploadWorld();
   const startRef = { current: (_files: ReadonlyArray<File>) => {} };
@@ -256,7 +255,7 @@ test("Refresh stays the Outgoing one on a write-queue entry's detail", async () 
     startRef,
   };
   const view = render(<Harness {...props} />);
-  expect(view.queryByRole("region")).toBeNull();
+  expect(view.queryByRole("table")).toBeNull();
   await refreshAndSettle(view, world.domainScope);
   expect(explorerRefreshes).toBe(0);
   expect(

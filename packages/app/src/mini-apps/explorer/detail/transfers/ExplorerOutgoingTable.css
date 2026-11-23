@@ -1,0 +1,10 @@
+.explorer-outgoing-table {
+  flex: 1;
+}
+
+/* An object's name, identity and (on phones) pending writes stack in its open
+   action, so the action wraps instead of holding one line. */
+.explorer-outgoing-table .mini-app-table-action {
+  line-height: normal;
+  white-space: normal;
+}
