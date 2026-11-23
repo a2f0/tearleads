@@ -14,7 +14,8 @@ import { openWindowedDesktop } from "./windowedDesktop";
  * Backup/Restore is the subject because it reaches every tier without auth or
  * seeded data, and it exercises both halves of the rule at once: the fields
  * carry the cap through `.mini-app-field`, and `.backup-restore-main` caps the
- * group so the frame and tab strip track their contents.
+ * group, measured here at its tab panel, so the frame tracks its contents. The
+ * tab strip is chrome and spans the surface instead (tab-strip-bleed.spec.ts).
  */
 
 interface ColumnGeometry {
@@ -25,7 +26,7 @@ interface ColumnGeometry {
 }
 
 async function readColumnGeometry(page: Page): Promise<ColumnGeometry> {
-  const column = page.locator(".backup-restore-main");
+  const column = page.locator('.backup-restore-main > [role="tabpanel"]');
   await expect(column).toBeVisible({ timeout: 30_000 });
   await expect(page.locator(".backup-restore-panel")).toBeVisible();
 
@@ -40,7 +41,7 @@ async function readColumnGeometry(page: Page): Promise<ColumnGeometry> {
       const parent = element.parentElement;
       if (!parent) {
         throw new Error(
-          "backup-restore-main has no parent to measure against.",
+          "The backup-restore tab panel has no parent to measure against.",
         );
       }
       const parentStyle = getComputedStyle(parent);
@@ -250,8 +251,8 @@ test("a field caps itself inside an uncapped panel", async ({ page }) => {
 // The mobile tier opts out (`--form-measure: 100%` in RoutedPane.css). 759px is
 // the case that matters: it is the top of that tier (ROUTED_TABLET_BREAKPOINT_PX
 // is 760) and the furthest past 34rem the release ever has to stretch, so a cap
-// that forgot to release strands the widest gap here — 215px of column the tab
-// strip's edge-to-edge bleed would fall short by.
+// that forgot to release strands the widest gap here — 215px of empty pane
+// beside a column that should reach the screen edge.
 test("mobile form column keeps the full width", async ({ page }) => {
   await page.setViewportSize({ width: 759, height: 800 });
   await page.goto("/app/backup-restore");

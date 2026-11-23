@@ -382,3 +382,32 @@ test("Network radios use the active theme for selection and keyboard focus", {
   }
   expect(painted.size).toBe(3);
 });
+
+// pdf.js's viewer stylesheet declares `:root { color-scheme: light dark }`, and
+// against the base `:root { color-scheme: light }` it won by load order: on a
+// dark-mode OS the Light theme then drew every native control dark, so each
+// unchecked Network radio was a solid disc that read as selected. The rule is
+// injected here because whether pdf.js's sheet is loaded depends on chunking.
+test.describe("on a dark-mode OS", () => {
+  test.use({ colorScheme: "dark" });
+
+  test("the Light theme keeps native controls light", {
+    tag: "@themed-control",
+  }, async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("tearleads.theme.choice", "light");
+    });
+    await page.goto("/app/display-properties/network");
+    await page.addStyleTag({ content: ":root { color-scheme: light dark; }" });
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    const radio = page.getByRole("radio", { name: "Force Online" });
+    await expect(radio).not.toBeChecked();
+    await expect(radio).toHaveCSS("color-scheme", "light");
+    const { row } = await controlPixels(radio);
+    const center = row[Math.floor(row.length / 2)] ?? "";
+    const channels = center.match(/\d+/g)?.map(Number) ?? [];
+    expect(channels).toHaveLength(3);
+    // Light: near white. The regression filled it near black.
+    expect(Math.min(...channels)).toBeGreaterThan(200);
+  });
+});

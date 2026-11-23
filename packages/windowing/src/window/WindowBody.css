@@ -30,9 +30,17 @@
   overflow: hidden;
 }
 
+/*
+ * `--window-content-inset` publishes this padding to the content, so chrome
+ * that should run edge to edge (a host's tab strip, say) can cancel exactly
+ * it. Only this scroller pads; a window with a sidebar does not, so the
+ * property is unset there.
+ */
 .window-body-content-scroll {
+  --window-content-inset: var(--space-md);
+
   height: 100%;
-  padding: var(--space-md);
+  padding: var(--window-content-inset);
   overflow: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
 }

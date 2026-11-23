@@ -81,10 +81,19 @@
 }
 
 /*
- * A dark theme (see ThemeProvider) darkens the browser's own controls, such as
- * form fields. Zero specificity, so a theme that sets its own wins.
+ * The active theme's scheme (see ThemeProvider) draws the browser's own
+ * controls, such as radios, form fields, and scrollbars, light or dark. Unlike
+ * the tokens above these outrank a bare `:root`: any stylesheet may declare
+ * `:root { color-scheme: light dark }` (pdf.js's viewer CSS does), and against
+ * a zero-specificity rule it won, so a light theme on a dark-mode OS drew every
+ * native control dark, filling unchecked radios solid. A theme's own
+ * `color-scheme` still applies before the provider stamps the attribute.
  */
-:where(:root[data-theme-scheme="dark"]) {
+:root[data-theme-scheme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme-scheme="dark"] {
   color-scheme: dark;
 }
 
