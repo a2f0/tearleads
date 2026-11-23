@@ -51,7 +51,8 @@ block several tray apps share goes in `shared/`.
   [`utils/`](../utils/).
 - A tray app opens a mini-app by id through
   [`navigation/AppNavigationProvider`](../navigation/AppNavigationProvider.tsx),
-  as Sync Status opens the Explorer's Write Queue.
+  as Sync Status opens the Explorer's Write Queue, Downloads, Uploads, and
+  Sync Lanes.
 - Tray apps sit below the shell and do not import it
   (`app-tray-apps-stay-below-the-shell`); only the shell loads them
   (`app-only-the-shell-loads-tray-apps`), and only through `registry.ts` and

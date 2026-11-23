@@ -46,6 +46,7 @@ const EXPLORER_SECTION_TABS: ReadonlyArray<
 interface ExplorerSectionsPanelProps {
   route: ExplorerRoute;
   billingBlockedOrganizationId: string | null;
+  dbReady: boolean;
   domainScope: DomainScope;
   documentQueries: ContainerDocumentQueries;
   isAuthenticated: boolean;
@@ -103,6 +104,7 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
     };
     return (
       <ExplorerDownloadsPanel
+        dbReady={params.dbReady}
         destinations={downloadDestinations}
         documentQueries={params.documentQueries}
         domainScope={params.domainScope}
@@ -125,6 +127,7 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
     return (
       <ExplorerWriteQueuePanel
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+        dbReady={params.dbReady}
         documentQueries={params.documentQueries}
         domainScope={params.domainScope}
         isAuthenticated={params.isAuthenticated}

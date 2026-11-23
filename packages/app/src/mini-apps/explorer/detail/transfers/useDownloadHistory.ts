@@ -22,9 +22,11 @@ import {
  * open, as the sync coordinator records lane runs. The shared queue store
  * reads at once when the panel opens and then follows discovery, persistence,
  * sync, and completion signals itself; an unwatched queue does not poll
- * SQLite.
+ * SQLite. Like the other views of the queue, it reads only while the
+ * database is open.
  */
 export function useDownloadHistory(params: {
+  dbReady: boolean;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
 }): {
@@ -33,7 +35,10 @@ export function useDownloadHistory(params: {
   state: QueueReadState<PendingDownloadQueueItem>;
 } {
   const store = getOrCreatePendingDownloadQueueStore(params.domainScope);
-  const state = useQueueRead(store, params.documentQueries);
+  const state = useQueueRead(
+    store,
+    params.dbReady ? params.documentQueries : null,
+  );
   const { completed } = useDomainDownloadHistory(params.domainScope);
   const pending = getQueueItems(state);
   // Finished downloads are known before the first queue read settles, so

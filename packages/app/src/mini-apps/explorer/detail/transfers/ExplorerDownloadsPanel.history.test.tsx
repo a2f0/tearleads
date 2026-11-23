@@ -109,6 +109,7 @@ function renderDownloads(input: {
       {input.showDownloads === false ? null : (
         <ExplorerDownloadsPanel
           destinations={noDestinations}
+          dbReady
           documentQueries={input.documentQueries}
           domainScope={input.domainScope}
           online

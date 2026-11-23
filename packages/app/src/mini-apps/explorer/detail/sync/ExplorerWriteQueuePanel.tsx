@@ -51,6 +51,8 @@ const NO_ITEMS: ReadonlyArray<PendingWriteQueueItem> = [];
 
 interface ExplorerWriteQueuePanelProps {
   billingBlockedOrganizationId: string | null;
+  /** The queue is read only while the database is open. */
+  dbReady: boolean;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
   isAuthenticated: boolean;
@@ -69,7 +71,7 @@ interface ExplorerWriteQueuePanelProps {
 interface ExplorerWriteQueuePanelViewProps
   extends Omit<
     ExplorerWriteQueuePanelProps,
-    "documentQueries" | "domainScope"
+    "dbReady" | "documentQueries" | "domainScope"
   > {
   // Requests the confirmation dialog; the destructive discard itself only
   // runs from the dialog's confirm action.
@@ -434,9 +436,11 @@ export function ExplorerWriteQueuePanel(params: ExplorerWriteQueuePanelProps) {
   );
   // The shared store follows sync and persistence signals itself, so the
   // panel, the Sync Status tray app, and System Monitor read the queue once.
+  // Like them, the panel reads only while the database is open, so a read
+  // that fails on a closed database never reaches their shared state.
   const state = useQueueRead(
     getOrCreatePendingWriteQueueStore(domainScope),
-    documentQueries,
+    params.dbReady ? documentQueries : null,
   );
   // A failed read shows its error in place of the rows it could not refresh.
   const items = state.status === "failed" ? NO_ITEMS : getQueueItems(state);

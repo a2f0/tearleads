@@ -111,14 +111,16 @@ export function createQueueReadStore<TSource, TItem>(
       // kept whichever watch's source produced it.
       dispatch({ items, read: request, type: "read-finished" });
     } catch (error) {
-      // A failure from a source another watch has since replaced (a
-      // reopened database) is dropped; that watch's own read follows.
       if (source === currentSource())
         dispatch({
           message: unknownErrorMessage(error),
           read: request,
           type: "read-failed",
         });
+      // A failure from a source no longer read (a reopened database, or a
+      // closed view's handle) is dropped, and the current source reads next,
+      // so the views still watching never wait on a failure they cannot see.
+      else if (watches.length > 0) step({ immediate: true, type: "requested" });
     } finally {
       step({ type: "read-settled", watched: watches.length > 0 });
     }
