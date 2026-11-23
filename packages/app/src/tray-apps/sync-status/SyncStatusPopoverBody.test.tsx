@@ -9,7 +9,9 @@ import type { SyncStatusResult } from "./useSyncStatus";
 afterEach(cleanup);
 
 const SYNCED: SyncStatusResult = {
+  billingBlock: null,
   lanes: { failed: 0, firstError: null, running: 0 },
+  pausedOrganizationCount: 0,
   pendingWriteCount: 0,
   queueReadFailed: false,
   status: "synced",
@@ -77,11 +79,24 @@ test("Sync now is not offered when sync cannot run, and billing links instead", 
   expect(offline.view.queryByRole("button", { name: "Sync now" })).toBeNull();
   cleanup();
 
-  const billing = renderBody({ sync: { ...SYNCED, status: "billing" } });
+  const billing = renderBody({
+    sync: { ...SYNCED, billingBlock: "active", status: "billing" },
+  });
   expect(billing.view.queryByRole("button", { name: "Sync now" })).toBeNull();
   fireEvent.click(billing.view.getByRole("button", { name: "Update billing" }));
   expect(billing.onOpenView).toHaveBeenCalledWith({
     appId: "org-manager",
     pathSegments: ["billing"],
   });
+  cleanup();
+
+  // Another organization's lapse blocks only its own sync, so the rest can
+  // still be synced now.
+  const other = renderBody({
+    sync: { ...SYNCED, billingBlock: "other", status: "billing" },
+  });
+  expect(other.view.getByRole("button", { name: "Sync now" })).toBeTruthy();
+  expect(
+    other.view.getByRole("button", { name: "Update billing" }),
+  ).toBeTruthy();
 });

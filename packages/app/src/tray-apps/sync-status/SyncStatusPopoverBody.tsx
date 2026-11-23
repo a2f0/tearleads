@@ -68,7 +68,7 @@ export function SyncStatusPopoverBody({
   const actions = useMemo(
     () =>
       listSyncStatusActions({
-        billingBlocked: sync.status === "billing",
+        billingBlock: sync.billingBlock,
         canSync,
         downloads,
         lanes: sync.lanes,
@@ -99,6 +99,7 @@ export function SyncStatusPopoverBody({
   const details = describeSyncStatusDetails({
     downloads,
     lanes: sync.lanes,
+    pausedOrganizationCount: sync.pausedOrganizationCount,
     pendingWriteCount: sync.pendingWriteCount,
     uploadingFileCount,
   });
