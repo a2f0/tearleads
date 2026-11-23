@@ -17,6 +17,10 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
+import {
+  assertProjectionVerificationCurrent,
+  nullOnProjectionVerificationCancellation,
+} from "../../../data/keyingProjectionVerification/types";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import { waitForRead } from "../../../data/shared/waitForRead";
@@ -326,6 +330,11 @@ async function decryptLoadedDocumentAttachmentBlob(
   };
 }
 
+/**
+ * `null` is no answer about the bindings: the listing was unavailable, or the
+ * caller retired, at whichever step. `[]` means the run checked and has
+ * nothing to install.
+ */
 export async function hydrateDocumentAttachmentBlobs(
   blobs: BlobAttachmentCollaborators,
   request: HydrateDocumentAttachmentBlobsRequest,
@@ -348,7 +357,12 @@ export async function hydrateDocumentAttachmentBlobs(
       "Document attachment hydration",
     ),
   };
-  return waitForRead(hydrateCurrentAttachments(input, request), signal);
+  return waitForRead(
+    nullOnProjectionVerificationCancellation(() =>
+      hydrateCurrentAttachments(input, request),
+    ),
+    signal,
+  );
 }
 
 /** A bounded verifier owns its projection requests, including a proof refresh. */
@@ -366,6 +380,29 @@ function projectionReader(
     : api;
 }
 
+function selectHydrationTargets(
+  input: DocumentAttachmentHydrationContext,
+  attachments: ReadonlyArray<DocumentAttachment>,
+  attachmentBindings: ReadonlyArray<BlobAttachmentSummary>,
+): DocumentAttachmentHydrationTarget[] {
+  const bindingBySlotId = new Map(
+    attachmentBindings.map((binding) => [binding.slotId, binding]),
+  );
+  return attachments.flatMap((attachment) => {
+    const binding = bindingBySlotId.get(attachment.slotId);
+    return binding &&
+      shouldHydrateAttachment({
+        attachment,
+        binding,
+        localBlobIdBySlotId: input.localBlobIdBySlotId,
+        localStorageKeyBySlotId: input.localStorageKeyBySlotId,
+        rejectedServedBindings: input.rejectedServedBindings,
+      })
+      ? [{ attachment, binding }]
+      : [];
+  });
+}
+
 async function hydrateCurrentAttachments(
   input: DocumentAttachmentHydrationContext,
   request: HydrateDocumentAttachmentBlobsRequest,
@@ -381,25 +418,14 @@ async function hydrateCurrentAttachments(
     signal,
   );
   signal?.throwIfAborted();
-  if (!attachmentBindings || input.stillCurrent?.() === false) return null;
+  assertProjectionVerificationCurrent(input.stillCurrent);
+  if (!attachmentBindings) return null;
 
-  const bindingBySlotId = new Map(
-    attachmentBindings.map((binding) => [binding.slotId, binding]),
+  const hydrationTargets = selectHydrationTargets(
+    input,
+    request.attachments,
+    attachmentBindings,
   );
-  const hydrationTargets: DocumentAttachmentHydrationTarget[] =
-    request.attachments.flatMap((attachment) => {
-      const binding = bindingBySlotId.get(attachment.slotId);
-      return binding &&
-        shouldHydrateAttachment({
-          attachment,
-          binding,
-          localBlobIdBySlotId: input.localBlobIdBySlotId,
-          localStorageKeyBySlotId: input.localStorageKeyBySlotId,
-          rejectedServedBindings: input.rejectedServedBindings,
-        })
-        ? [{ attachment, binding }]
-        : [];
-    });
   if (hydrationTargets.length === 0) {
     request.onBindingsChecked?.();
     return [];
@@ -413,6 +439,9 @@ async function hydrateCurrentAttachments(
     }),
   );
   signal?.throwIfAborted();
+  // A retired download yields no bytes; that is the run retiring, not an
+  // attachment that has none.
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (!loadedBlobs.length) return [];
 
   const projectionApi = projectionReader(input.apiClient, signal);
@@ -424,7 +453,7 @@ async function hydrateCurrentAttachments(
   );
   signal?.throwIfAborted();
   // A retired read is a superseded run, not a missing projection.
-  if (input.stillCurrent?.() === false) return [];
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (!writerProjection) {
     input.log?.(
       `Documents: cannot hydrate attachments for document ${input.documentId} without a writer projection.`,
@@ -454,10 +483,10 @@ async function hydrateCurrentAttachments(
     (item): item is HydratedDocumentAttachmentBlob => item !== null,
   );
   for (const item of complete) {
-    if (input.stillCurrent?.() === false) return [];
+    assertProjectionVerificationCurrent(input.stillCurrent);
     expectedDownloads?.onVerifiedBinding?.(item.binding);
   }
-  if (input.stillCurrent?.() === false) return [];
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (complete.length === hydrationTargets.length)
     request.onBindingsChecked?.();
   return complete;
