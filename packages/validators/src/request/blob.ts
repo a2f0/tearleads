@@ -91,7 +91,11 @@ const OptionalContainerRekeysSchema = arraySchema(
  * `documentVersionVector` is the document version the uploader checked the
  * slot against: the bind refuses while the document has a committed update
  * that version lacks, so it never binds bytes into a slot another device
- * removed or changed after that check.
+ * removed or changed after that check. `processedThroughUpdateId` is the
+ * uploader's processed cursor, sent only when that version holds every
+ * update the cursor's pull judged: the check then weighs only updates
+ * committed after it, so an update every reader voids (one whose declared
+ * span no version can hold) stops refusing binds once the uploader judged it.
  */
 export const BlobAttachmentBindRequestSchema =
   registerJsonSchemaRuntimeRefinements(
@@ -108,6 +112,7 @@ export const BlobAttachmentBindRequestSchema =
         MAX_DOCUMENT_SYNC_REQUEST_BYTES,
       ),
       event: plainObjectSchema,
+      processedThroughUpdateId: uuidV4StringSchema.optional(),
       stagedBlob: BlobStagedBlobRequestSchema.optional(),
     }).superRefine((value, context) => {
       refineSingleUpdateSeed(value.documentSync, context, {
@@ -134,6 +139,8 @@ export type BlobAttachmentBindRequest = z.infer<
  * found the slot removed: the detach refuses while the document has a
  * committed update that version lacks, or while the binding's own bind
  * version holds an op it lacks, so it never unbinds bytes a restore asks for.
+ * `processedThroughUpdateId` is the client's processed cursor, as on a bind:
+ * the first check then weighs only updates committed after it.
  */
 export const BlobAttachmentDetachRequestSchema = loosePlainObject({
   authorizingContainerPathRefs: ContainerManifestRefArrayArraySchema,
@@ -143,6 +150,7 @@ export const BlobAttachmentDetachRequestSchema = loosePlainObject({
     MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   ),
   event: plainObjectSchema,
+  processedThroughUpdateId: uuidV4StringSchema.optional(),
 });
 
 export type BlobAttachmentDetachRequest = z.infer<

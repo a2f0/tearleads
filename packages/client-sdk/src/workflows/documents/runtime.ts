@@ -18,6 +18,7 @@ import type {
   WorkflowRuntimeStateInput,
   WorkflowRuntimeUtilInput,
 } from "../shared/runtimeInput";
+import { readProcessedCursorForVersion } from "./sync/processedCursor";
 
 interface DocumentsWorkflowRuntimeUtilInput
   extends Omit<WorkflowRuntimeUtilInput, "logError"> {
@@ -114,6 +115,8 @@ export function createDocumentsWorkflowRuntimeFromSnapshot(
         snapshot.crypto.encapsulationKeyPair?.secretKey ?? null,
       execSql: snapshot.infra.execSql,
       log: snapshot.util.log,
+      processedCursorFor: (input) =>
+        readProcessedCursorForVersion(snapshot.infra.execSql, input),
       reportSecurityIncident: snapshot.util.reportSecurityIncident,
     }),
     auth: snapshot.auth,

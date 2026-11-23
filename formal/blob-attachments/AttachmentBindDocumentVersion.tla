@@ -1,35 +1,63 @@
 -------------------- MODULE AttachmentBindDocumentVersion --------------------
-EXTENDS Naturals
-CONSTANTS MaxEdits, CheckDocumentVersion, RecheckOnRefresh, PullOnRefusal
-ASSUME /\ MaxEdits \in Nat
-       /\ {CheckDocumentVersion, RecheckOnRefresh, PullOnRefusal}
-            \subseteq BOOLEAN
+EXTENDS Naturals, FiniteSets
+CONSTANTS MaxEdits, MaxOverclaims, CheckDocumentVersion, RecheckOnRefresh,
+          PullOnRefusal, BindIgnoresCursor, CursorAheadOfVersion
+ASSUME /\ MaxEdits \in Nat /\ MaxOverclaims \in Nat
+       /\ {CheckDocumentVersion, RecheckOnRefresh, PullOnRefusal,
+           BindIgnoresCursor, CursorAheadOfVersion} \subseteq BOOLEAN
 
 (* One slot whose signed document content asks the uploader for its fixture
    bytes. Another device keeps editing the document; the server orders its
-   committed updates, so a document version is the count of edits the
-   uploader has pulled. `boundSlot` is a ghost: what the committed document
-   asked for when the binding committed, which the server cannot read. *)
-VARIABLES slot, edits, binding, boundSlot, uploader, checked
-vars == <<slot, edits, binding, boundSlot, uploader, checked>>
+   committed updates, so a document version is the count of updates the
+   uploader has pulled. A dishonest writer can also commit an overclaim: an
+   update whose signed span names operations nobody carries, which no
+   version ever covers and every reader voids. `phantom` holds the commit
+   positions of overclaims. `cursor` is the uploader's processed cursor: the
+   position through which it judged every committed update. `boundSlot` is a
+   ghost: what the committed document asked for when the binding committed,
+   which the server cannot read. *)
+VARIABLES slot, edits, phantom, binding, boundSlot, uploader, checked, cursor
+vars == <<slot, edits, phantom, binding, boundSlot, uploader, checked, cursor>>
 
 SlotStates == {"fixture", "removed", "other"}
 Bindings == {"none", "fixture", "other"}
 UploaderStates == {"check", "ready", "refused", "bound", "abandoned"}
 
-Init == /\ slot = "fixture" /\ edits = 0
+Init == /\ slot = "fixture" /\ edits = 0 /\ phantom = {}
         /\ binding = "none" /\ boundSlot = "none"
-        /\ uploader = "check" /\ checked = 0
+        /\ uploader = "check" /\ checked = 0 /\ cursor = 0
 
-(* The uploader pulls every committed update, then checks that the slot still
-   asks for its bytes and holds no binding. Otherwise it leaves the slot to
-   the edit (Continuity throws; the web store drops the pending upload). *)
+(* The uploader pulls every committed update, judging each (an overclaim is
+   void), records its cursor, then checks that the slot still asks for its
+   bytes and holds no binding. Otherwise it leaves the slot to the edit
+   (Continuity throws; the web store drops the pending upload). *)
 Check ==
   /\ uploader = "check"
   /\ checked' = edits
+  /\ cursor' = edits
   /\ uploader' = IF slot = "fixture" /\ binding = "none"
                    THEN "ready" ELSE "abandoned"
-  /\ UNCHANGED <<slot, edits, binding, boundSlot>>
+  /\ UNCHANGED <<slot, edits, phantom, binding, boundSlot>>
+
+(* The uploader's own sync, outside the bind, pulls and judges every
+   committed update and advances its cursor, but not the version its slot
+   check read. *)
+BackgroundPull ==
+  /\ cursor < edits
+  /\ cursor' = edits
+  /\ UNCHANGED <<slot, edits, phantom, binding, boundSlot, uploader, checked>>
+
+(* The cursor a bind sends: the one its slot check's version covers, or none.
+   A cursor recorded after the check stands for updates that version lacks. *)
+SentCursor ==
+  IF BindIgnoresCursor THEN 0
+  ELSE IF CursorAheadOfVersion THEN cursor
+  ELSE IF cursor <= checked THEN cursor ELSE 0
+
+(* A committed update the bind's version lacks and its cursor does not
+   cover: an overclaim after the cursor, or any update past the version. *)
+Uncovered ==
+  \E i \in (SentCursor + 1)..edits : i \in phantom \/ i > checked
 
 (* The bind transaction locks the document head, under which no update
    commits, so its checks and its insert are one atomic step. It verifies the
@@ -42,12 +70,13 @@ Bind ==
   /\ IF binding # "none"
        THEN /\ uploader' = "check"
             /\ UNCHANGED <<slot, edits, binding, boundSlot, checked>>
-       ELSE IF CheckDocumentVersion /\ checked < edits
+       ELSE IF CheckDocumentVersion /\ Uncovered
        THEN /\ uploader' = "refused"
             /\ UNCHANGED <<slot, edits, binding, boundSlot, checked>>
        ELSE /\ binding' = "fixture" /\ boundSlot' = slot
             /\ uploader' = "bound"
             /\ UNCHANGED <<slot, edits, checked>>
+  /\ UNCHANGED <<phantom, cursor>>
 
 (* After a refusal the uploader pulls and checks the slot again. Without a
    re-check it retries at once, adopting the pulled version if it pulled. *)
@@ -55,14 +84,21 @@ Retry ==
   /\ uploader = "refused"
   /\ uploader' = IF RecheckOnRefresh THEN "check" ELSE "ready"
   /\ checked' = IF RecheckOnRefresh \/ ~PullOnRefusal THEN checked ELSE edits
-  /\ UNCHANGED <<slot, edits, binding, boundSlot>>
+  /\ UNCHANGED <<slot, edits, phantom, binding, boundSlot, cursor>>
 
 (* Another device's edits commit regardless of any binding: the server never
    refuses an update because of an attachment. *)
 Edit(next) ==
   /\ edits < MaxEdits
   /\ slot' = next /\ edits' = edits + 1
-  /\ UNCHANGED <<binding, boundSlot, uploader, checked>>
+  /\ UNCHANGED <<phantom, binding, boundSlot, uploader, checked, cursor>>
+
+(* A dishonest writer's overclaim. Readers void it, so it changes no slot;
+   the server stores its span as declared. *)
+Overclaim ==
+  /\ edits < MaxEdits /\ Cardinality(phantom) < MaxOverclaims
+  /\ edits' = edits + 1 /\ phantom' = phantom \cup {edits + 1}
+  /\ UNCHANGED <<slot, binding, boundSlot, uploader, checked, cursor>>
 
 Remove == Edit("removed")
 (* A rename, or a time-machine restore, asks for the same bytes again. *)
@@ -74,19 +110,21 @@ Unrelated == Edit(slot)
 OtherBind ==
   /\ slot = "other" /\ binding # "other"
   /\ binding' = "other" /\ boundSlot' = slot
-  /\ UNCHANGED <<slot, edits, uploader, checked>>
+  /\ UNCHANGED <<slot, edits, phantom, uploader, checked, cursor>>
 
 Idle == UNCHANGED vars
-Next == Check \/ Bind \/ Retry \/ Remove \/ Restore \/ Replace
-        \/ Unrelated \/ OtherBind \/ Idle
+Next == Check \/ Bind \/ Retry \/ BackgroundPull \/ Remove \/ Restore
+        \/ Replace \/ Unrelated \/ Overclaim \/ OtherBind \/ Idle
 (* Fairness covers only the uploader's own steps: no-brick forbids waiting
    on another device's write, which may never come. *)
 Spec == Init /\ [][Next]_vars
         /\ WF_vars(Check) /\ WF_vars(Bind) /\ WF_vars(Retry)
 
 TypeOK == /\ slot \in SlotStates /\ edits \in 0..MaxEdits
+          /\ phantom \subseteq 1..MaxEdits
           /\ binding \in Bindings /\ boundSlot \in {"none"} \cup SlotStates
           /\ uploader \in UploaderStates /\ checked \in 0..MaxEdits
+          /\ cursor \in 0..MaxEdits
 
 (* The uploader binds only when the committed document still asks for its
    bytes, so an edit committed before the bind always wins. An edit that

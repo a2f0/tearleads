@@ -1,4 +1,5 @@
 import {
+  assertNoVoidedDocumentSyncUpdates,
   buildMaterializedContainerRekeyPlan,
   cacheReferencedPrincipalPolicies,
   validateDocumentSyncUpdateImports,
@@ -251,7 +252,7 @@ export async function createEncryptedColdDocument(input: {
           currentDocument: document,
           decryptedUpdates,
           responseUpdates: response.updates,
-        }),
+        }).then(assertNoVoidedDocumentSyncUpdates),
       warmReferencedPrincipalPolicies,
       writerProjection: created.writerProjection,
     });
@@ -365,7 +366,7 @@ export async function syncDocumentWithInlineRootRekey(input: {
           currentDocument: document,
           decryptedUpdates,
           responseUpdates: response.updates,
-        }),
+        }).then(assertNoVoidedDocumentSyncUpdates),
       warmReferencedPrincipalPolicies,
       writerProjection: created.writerProjection,
     });
@@ -461,7 +462,7 @@ export async function coldRematerializeEncryptedDocument(input: {
           currentDocument: recovered,
           decryptedUpdates,
           responseUpdates: response.updates,
-        }),
+        }).then(assertNoVoidedDocumentSyncUpdates),
       warmReferencedPrincipalPolicies,
     });
     if (!synced) {

@@ -146,6 +146,13 @@ device's own update ([preempted operations](../advisory-op-spans.md#preempted-op
 and one whose payload fails the Loro runtime holds a reader's sync of that
 document for up to three process lifetimes before it is void
 ([runtime failures](../advisory-op-spans.md#loro-runtime-failures)).
+One update whose declared span overclaims operations also blocks content-key
+rotation and unlink of that document for every writer: rotation re-encrypts
+a raw history that must apply whole, and the API refuses a rotation baseline
+that does not cover the frontier the committed updates declare
+([processed cursor](../advisory-op-spans.md#the-processed-cursor)). Edits,
+reads, and attachment binds continue; the document keeps its content key
+until a signed baseline can say which updates it covers (issue #3135).
 
 ## Information-Disclosure Scenarios
 

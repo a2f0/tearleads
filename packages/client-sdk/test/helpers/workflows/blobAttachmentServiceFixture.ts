@@ -16,6 +16,7 @@ export function createBlobAttachmentServiceFixture(input: {
   readonly encapsulationSecretKey?: Uint8Array | null | undefined;
   readonly execSql: ExecSql;
   readonly log?: BlobAttachmentCollaborators["log"];
+  readonly processedCursorFor?: BlobAttachmentCollaborators["processedCursorFor"];
   readonly reportSecurityIncident?: BlobAttachmentCollaborators["reportSecurityIncident"];
   readonly expectedDownloads?: ConstructorParameters<
     typeof BlobAttachmentService
@@ -27,6 +28,7 @@ export function createBlobAttachmentServiceFixture(input: {
       encapsulationSecretKey: input.encapsulationSecretKey ?? null,
       execSql: input.execSql,
       log: input.log,
+      processedCursorFor: input.processedCursorFor,
       reportSecurityIncident: input.reportSecurityIncident,
     },
     input.expectedDownloads,

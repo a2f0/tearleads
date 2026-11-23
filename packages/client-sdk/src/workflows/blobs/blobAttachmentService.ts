@@ -142,11 +142,17 @@ export class BlobAttachmentService {
       slotId,
       authorizingContainerPathRefs: pathRefs,
     });
+    // Updates this device voided would refuse the detach at any version.
+    const cursor = await this.blobs.processedCursorFor?.({
+      documentId,
+      version: documentVersionVector,
+    });
     const request: BlobAttachmentDetachRequest = {
       event: readCanonicalRecord(event, "Blob attachment detach event"),
       body: readCanonicalRecord(body, "Blob attachment detach body"),
       authorizingContainerPathRefs: pathRefs,
       documentVersionVector,
+      ...(cursor === undefined ? {} : { processedThroughUpdateId: cursor }),
     };
     assertProjectionVerificationCurrent(stillCurrent);
     const failurePath = {

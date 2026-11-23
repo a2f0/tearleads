@@ -212,3 +212,30 @@ test("a judge that records no attempts holds a failure without counting or delay
     { attempts: 0, counted: false, final: false, updateId: ids.trap },
   ]);
 });
+
+test("a runtime failure building the reader's history holds the whole page, blames no update, and poisons the process", async () => {
+  const { ledger } = clock();
+  const page = [await honest(ids.before, "before")];
+  // The reader's document traps as its history is exported.
+  const trappingReader = {
+    export: () => {
+      throw new WebAssembly.RuntimeError("unreachable");
+    },
+    peerIdStr: "1",
+    version: () => new Map<string, number>(),
+  } as unknown as Parameters<
+    typeof validateDocumentSyncUpdateImports
+  >[0]["currentDocument"];
+
+  const verdicts = await validateDocumentSyncUpdateImports({
+    currentDocument: trappingReader,
+    decryptedUpdates: page,
+    runtimeLedger: ledger,
+  });
+  expect(verdicts.heldUpdateIds).toEqual([ids.before]);
+  expect(verdicts.voided).toEqual([]);
+  expect(verdicts.runtimeFailures).toEqual([]);
+  // The module may be unusable now, so a later failure here counts as none.
+  expect(ledger.mayAttempt(ids.before)).toBe(true);
+  expect(ledger.noteFailure(ids.other)).toBe(false);
+});

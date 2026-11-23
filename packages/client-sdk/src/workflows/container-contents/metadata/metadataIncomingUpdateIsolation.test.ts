@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
   createDocument,
   exportFullHistorySnapshot,
@@ -7,6 +7,7 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { processLoroRuntimeFailures } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import {
   DocumentRecordRepository,
   ensureDocumentTables,
@@ -168,5 +169,33 @@ test("metadata failure recording rolls back when generation expires before commi
     expect(await records.hasRecordedTerminalSyncFailures()).toBe(false);
   } finally {
     close();
+  }
+});
+
+test("a runtime failure applying judged metadata updates marks the process as failed", async () => {
+  const noted = spyOn(
+    processLoroRuntimeFailures,
+    "noteUnattributedFailure",
+  ).mockImplementation(() => undefined);
+  const document = await createDocument("metadata-live-import");
+  try {
+    const trap = new WebAssembly.RuntimeError("unreachable");
+    const trapped = {
+      id: crypto.randomUUID(),
+      partialEndVersionVector: "",
+      partialStartVersionVector: "",
+      get updateData(): Uint8Array {
+        throw trap;
+      },
+    };
+    expect(() =>
+      applyIncomingContainerMetadataUpdates(document, {
+        decryptedUpdates: [trapped],
+      }),
+    ).toThrow(trap);
+    expect(noted).toHaveBeenCalledTimes(1);
+  } finally {
+    noted.mockRestore();
+    document.free();
   }
 });

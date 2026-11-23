@@ -8,6 +8,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
+import { desc, eq } from "drizzle-orm";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   hasDocumentOpsBeyondVersion,
@@ -56,8 +57,13 @@ async function commitEdit(
   return bytes;
 }
 
-function beyond(documentId: string, doc: LoroDoc): Promise<boolean> {
+function beyond(
+  documentId: string,
+  doc: LoroDoc,
+  afterSequence = 0,
+): Promise<boolean> {
   return hasDocumentOpsBeyondVersion(db, {
+    afterSequence,
     documentId,
     version: parseDocumentVersionFrontier(encodeVersionVector(doc)),
   });
@@ -97,4 +103,32 @@ test("an update with no span is ignored", async () => {
 
   const empty = await createDocument("ops-spanless-empty");
   expect(await beyond(documentId, empty)).toBe(false);
+});
+
+async function lastSequence(documentId: string): Promise<number> {
+  const [row] = await db
+    .select({ sequence: documentUpdates.sequence })
+    .from(documentUpdates)
+    .where(eq(documentUpdates.documentId, documentId))
+    .orderBy(desc(documentUpdates.sequence))
+    .limit(1);
+  if (!row) throw new Error("Expected a committed update");
+  return row.sequence;
+}
+
+test("updates committed at or before the cursor's position are not weighed", async () => {
+  const documentId = await createStoredDocument();
+  const alice = await createDocument("ops-cursor-alice");
+  const bob = await createDocument("ops-cursor-bob");
+  await commitEdit(documentId, alice, "from alice");
+  const aliceSequence = await lastSequence(documentId);
+  await commitEdit(documentId, bob, "from bob");
+
+  // Bob's version lacks Alice's ops; past her update, nothing it lacks.
+  expect(await beyond(documentId, bob)).toBe(true);
+  expect(await beyond(documentId, bob, aliceSequence)).toBe(false);
+
+  // An op committed after the cursor still counts.
+  await commitEdit(documentId, alice, "from alice again");
+  expect(await beyond(documentId, bob, aliceSequence)).toBe(true);
 });
