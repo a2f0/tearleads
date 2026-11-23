@@ -55,7 +55,6 @@ test("stays in the loading state until the db is ready", () => {
     count: 0,
     failedCount: 0,
     firstError: null,
-    organizationIds: [],
     readError: null,
   });
 });
@@ -88,7 +87,6 @@ test("resets to loading when the db goes not-ready", async () => {
     count: 0,
     failedCount: 0,
     firstError: null,
-    organizationIds: [],
     readError: null,
   });
 });
