@@ -179,7 +179,10 @@ a refusal the service calls it again with `refresh: true`, up to three times,
 retrying the same signed bind on the kept stage. Return `null` to abandon the
 bind; the upload then returns `null` and keeps its stage for a later call.
 `DocumentSnapshot.versionVector` is the version the snapshot's attachments were
-read from. See the
+read from. With each version, the service also sends the document's processed
+cursor when that version covers the frontier recorded with it, so an update
+this device voided does not refuse the bind; callers pass nothing for it. See
+the
 [document version precondition](../../protocol-specification/blobs.md#document-version-precondition).
 
 `detachDocumentAttachment` requires `documentVersionVector`: the version of
@@ -189,7 +192,8 @@ while the document holds a committed update that version lacks, or while the
 binding was bound at a version holding one. The service then calls the
 optional `onDocumentChanged` and returns `null`: pull, check that the slot is
 still removed, and detach again at the newer version. A document store does
-this itself at the end of a sync pass that left nothing to push.
+this itself at the end of a sync pass that left nothing to push. The service
+sends the processed cursor with the version as a bind does.
 
 The methods that unwrap a blob content key (upload, hydrate, and decrypt) throw
 when the service has no encapsulation secret key. Requests no longer accept

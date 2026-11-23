@@ -20,7 +20,7 @@ export const MAX_DOCUMENT_VERSION_REFRESHES = 3;
 
 type PlainBindRequest = Omit<
   BlobAttachmentBindRequest,
-  "documentVersionVector"
+  "documentVersionVector" | "processedThroughUpdateId"
 >;
 
 function bindFailure(apiClient: BlobAttachmentApi, blobId: string) {
@@ -145,10 +145,18 @@ async function bindCarryingDocumentSync(
  * another device committed an update after that check, the API refuses; the
  * caller pulls, checks the slot again, and the same signed bind is retried at
  * the newer version. Only the uploader's own steps are needed to recover.
+ *
+ * Each bind also carries the processed cursor that version covers, if any, so
+ * an update this device voided (one whose declared span no version holds)
+ * does not refuse it forever.
  */
 export async function bindAtVerifiedDocumentVersion(
   input: Omit<BindInput, "plainRequest"> & {
     readonly plainRequest: PlainBindRequest;
+    /** The processed cursor a bind citing `version` may carry. */
+    readonly processedCursorFor: (
+      version: string,
+    ) => Promise<string | undefined>;
     readonly verifiedDocumentVersion: UploadDocumentAttachmentRequest["verifiedDocumentVersion"];
   },
 ): Promise<DocumentVersionBindEnd> {
@@ -157,9 +165,14 @@ export async function bindAtVerifiedDocumentVersion(
       refresh: refreshes > 0,
     });
     if (documentVersionVector === null) return { status: "abandoned" };
+    const cursor = await input.processedCursorFor(documentVersionVector);
     const { refusal, request, response } = await bindCarryingDocumentSync({
       ...input,
-      plainRequest: { ...input.plainRequest, documentVersionVector },
+      plainRequest: {
+        ...input.plainRequest,
+        documentVersionVector,
+        ...(cursor === undefined ? {} : { processedThroughUpdateId: cursor }),
+      },
     });
     if (response) return { request, response, status: "bound" };
     if (refusal !== "documentChanged") return { status: "failed" };

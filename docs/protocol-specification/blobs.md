@@ -102,6 +102,9 @@ Binding uses:
 - required `documentVersionVector`: the encoded Loro version vector of the
   document the uploader read when it checked that the slot still asks for
   these bytes
+- optional `processedThroughUpdateId`: the uploader's
+  [processed cursor](../advisory-op-spans.md#the-processed-cursor), sent only
+  when `documentVersionVector` holds every update the cursor's pull imported
 - optional `documentSync`: the document's deferred first update, a complete
   document sync request holding one outgoing update from an empty start, no
   container rekeys, within the sync request limit (a create's `initialSync`
@@ -118,8 +121,9 @@ For bind, the API verifies:
 - document manifest and authorizing paths are active heads
 - referenced principal policies resolve and verify
 - expected previous binding matches the active slot binding
-- `documentVersionVector` covers every op of every committed update of the
-  document (see [document version precondition](#document-version-precondition))
+- `documentVersionVector` covers every op of every update of the document
+  committed after the processed cursor, or of every committed update without
+  one (see [document version precondition](#document-version-precondition))
 - staged blob owner and expiry when `stagedBlob` is supplied
 - existing blob presence when no staged blob is supplied
 - submitted blob content-key targets and their hash match only the new binding's
@@ -184,6 +188,17 @@ still binds. The check runs only after the signed bind, its write authority,
 and its binding generation are verified, so a caller without write access to
 the document learns nothing about its updates.
 
+A bind may carry `processedThroughUpdateId`, the uploader's processed cursor:
+the update through which its last completed pull imported or voided every
+update served to it. The check then weighs only updates committed after that
+update. The client SDK sends the cursor only with a version that covers the
+version it recorded with the cursor, so the version holds every update the
+cursor's pull imported, and the rest were void. An update whose declared span
+names ops no client holds, which every reader voids, therefore stops refusing
+binds once the uploader has judged it. A cursor the document does not hold
+counts as none. The cursor guards only the uploader's own race: a writer can
+always bind at a current version, so a false cursor gains it nothing.
+
 The check is scoped to the whole document, not the slot, because the server
 learns nothing about which update touches which slot. A refusal therefore needs
 another device's commit inside the uploader's pull-then-bind window. The
@@ -194,10 +209,11 @@ pulls in the same sync pass, so each window is one pull and one bind. Recovery
 needs only the uploader's own steps; a busy document can delay a bind until it
 is quiet for one window, never indefinitely once edits stop. The comparison
 trusts the span each update declares, which the API cannot check against the
-ciphertext. A client already rejects a pulled update whose decrypted ops differ
-from its declared span and records the document's sync as failed, so a false
-span stops every device's pulls of that document; the refused binds add no new
-failure there. The client SDK bounds the immediate retries (three re-checks
+ciphertext; the processed cursor is what keeps a false span from refusing
+binds forever. An update the Loro runtime fails on is held for up to
+`MAX_LORO_RUNTIME_ATTEMPTS` process lifetimes before it is voided, and the
+cursor stays before it meanwhile, so binds to that document wait at most that
+long. The client SDK bounds the immediate retries (three re-checks
 per upload call, then three re-armed passes in a row per pending upload in a
 document store) and then records the stuck upload until a later sync signal.
 The API never refuses a document update because of a binding: an edit that
@@ -212,9 +228,10 @@ Detach uses:
 - `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
 
 `BlobAttachmentDetachRequest` carries the signed `attachment.detach` event and
-body, `authorizingContainerPathRefs`, optional `containerRekeys[]`, and a
+body, `authorizingContainerPathRefs`, optional `containerRekeys[]`, a
 required `documentVersionVector`: the version of the document the client read
-the slot removed at, holding none of its own unsent ops. The API verifies the
+the slot removed at, holding none of its own unsent ops, and an optional
+`processedThroughUpdateId`, sent and weighed as on a bind. The API verifies the
 active binding, signed event, document manifest, authorizing paths, and
 referenced principal policies. Then, still under the document head lock, it
 refuses the detach with `409 attachment_document_changed` when a committed

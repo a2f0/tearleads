@@ -76,6 +76,7 @@ request the API refuses with its error body.
 | `concurrentGroupShareAndRevoke` | A direct share racing a group revocation succeeds in both orderings. The stale group-policy commit rebuilds its container batch once, preserves the new grant, and excludes old and fresh revoked readers. |
 | `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 | `falseSpanUpdate` | A writer signs an update whose declared op span claims operations its payload does not carry. Each reader, including a fresh install, voids it once, reports it once, and keeps syncing: the other writer's edits settle and reach every device. |
+| `falseSpanAttachment` | After a writer signs a false-span update, a reader that voided it attaches a file and then removes it. The bind and the detach both land: each carries the reader's processed cursor, so the API skips the update no version can hold. |
 
 Pin a reproducible open issue in a scenario file as a `test.failing` case.
 It passes while the bug stands and fails once it is

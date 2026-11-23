@@ -1,5 +1,5 @@
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
-import { importDecryptedDocumentSyncUpdates } from "../../../data/documents/shared/sync/documentSyncUpdateImport";
+import { importLiveDocumentSyncUpdates } from "../../../data/documents/shared/sync/documentSyncUpdateImport";
 import type { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { DocumentRecordRepository } from "../../../data/persistence/documents/records";
@@ -88,7 +88,7 @@ export function applyIncomingContainerMetadataUpdates(
   currentDocument: ContainerMetadataState["doc"],
   result: Pick<SyncRemoteDocumentResult, "decryptedUpdates">,
 ): void {
-  importDecryptedDocumentSyncUpdates(currentDocument, result.decryptedUpdates);
+  importLiveDocumentSyncUpdates(currentDocument, result.decryptedUpdates);
 }
 
 export function metadataIncomingUpdateIsolation(input: {

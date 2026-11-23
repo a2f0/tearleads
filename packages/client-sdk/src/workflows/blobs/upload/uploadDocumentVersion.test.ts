@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   BlobAttachmentBindRequest,
@@ -12,6 +13,9 @@ import {
 import { createBlobAttachmentServiceFixture } from "../../../../test/helpers/workflows/blobAttachmentServiceFixture";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
+import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import { ensureDocumentTables } from "../../../data/persistence/documents/records";
+import { readProcessedCursorForVersion } from "../../documents/sync/processedCursor";
 import { MAX_DOCUMENT_VERSION_REFRESHES } from "./bindAtDocumentVersion";
 
 // Only its presence on the wire matters here; the API validates the content.
@@ -39,6 +43,11 @@ const bindingChanged = {
  */
 async function uploadAtDocumentVersions(input: {
   readonly carry?: boolean;
+  /** A processed cursor this device recorded for the document. */
+  readonly cursor?: {
+    readonly throughUpdateId: string;
+    readonly throughVersion: string;
+  };
   readonly currentForBinds?: number;
   readonly refusal?: typeof documentChanged | typeof bindingChanged;
   readonly refusals: number;
@@ -63,6 +72,20 @@ async function uploadAtDocumentVersions(input: {
     | null = null;
   const { close, execSql } = await createTestExecSql(`version-${blobId}`);
   try {
+    if (input.cursor) {
+      await ensureDocumentTables(execSql);
+      await execSql(
+        `INSERT INTO document_sync_progress (app_kind, local_id, document_id,
+           through_update_id, through_version, judge)
+         VALUES ('documents', 'local', ?, ?, ?, ?)`,
+        [
+          writerProjection.documentId,
+          input.cursor.throughUpdateId,
+          input.cursor.throughVersion,
+          documentVerdictJudge(),
+        ],
+      );
+    }
     const uploaded = await createBlobAttachmentServiceFixture({
       api: {
         ...multipartApi,
@@ -91,6 +114,8 @@ async function uploadAtDocumentVersions(input: {
       },
       encapsulationSecretKey: secretKey,
       execSql,
+      processedCursorFor: (cursorInput) =>
+        readProcessedCursorForVersion(execSql, cursorInput),
     }).uploadDocumentAttachment({
       author,
       blobId,
@@ -215,4 +240,27 @@ test("only a refusal the call does not retry is reported", async () => {
   expect(refused.checks).toEqual([false]);
   expect(refused.uploaded).toBeNull();
   expect(refused.reported).toEqual([bindingChanged.message]);
+});
+
+test("each bind carries the processed cursor its version covers, and only that one", async () => {
+  const throughUpdateId = "550e8400-e29b-41d4-a716-446655440779";
+  const judged = encodeVersionVectorCounters({ "1": 4, "2": 2 });
+  const { binds, uploaded } = await uploadAtDocumentVersions({
+    cursor: { throughUpdateId, throughVersion: judged },
+    refusals: 2,
+    versions: [
+      // Recorded before the cursor's pull finished: it lacks updates the
+      // cursor stands for, so the bind is checked by version alone.
+      encodeVersionVectorCounters({ "1": 4 }),
+      judged,
+      encodeVersionVectorCounters({ "1": 5, "2": 2, "3": 1 }),
+    ],
+  });
+
+  expect(binds.map((bind) => bind.processedThroughUpdateId)).toEqual([
+    undefined,
+    throughUpdateId,
+    throughUpdateId,
+  ]);
+  expect(uploaded?.request.processedThroughUpdateId).toBe(throughUpdateId);
 });
