@@ -28,8 +28,8 @@ function shouldForceDocument(
  *
  * System-container contents cannot rely on a mini-app opening them on this
  * device, especially during identity recovery. Pull each remote version once.
- * Ordinary documents stay lazy unless an explicit refresh asks an already-open
- * store to revalidate.
+ * Ordinary documents are not opened here: the scope's discovered-document
+ * primer opens them, and this only asks an already-open store to revalidate.
  */
 export function createReconciledDocumentContentPuller(
   host: ReconciledDocumentContentPullHost,

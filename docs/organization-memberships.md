@@ -95,6 +95,11 @@ While an organization is paused, a device:
   document's first pull still runs, so one the device has listed can still be
   opened; a pull that has fetched a page runs to its end, so no document is
   left half pulled; and so does an explicit read of a document's history;
+- opens none of its documents in the background. The device-first scope opens
+  every discovered document so its content arrives without a window, but it
+  skips the paused organization's containers and opens them after resume.
+  Because a document's first pull still runs when it is opened, this keeps a
+  document listed before the pause from being pulled during it;
 - keeps listing the organization's metadata root, a parentless system
   container, and its documents, so a device that has never synced the
   organization still lists and names it and can resume it. Those documents

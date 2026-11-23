@@ -19,7 +19,7 @@ export function AppSwitch({
     <label className={`display-properties-app-switch ${className}`}>
       {Icon && (
         <Icon
-          className={`${className}-icon`}
+          className={`display-properties-app-switch-icon ${className}-icon`}
           aria-hidden="true"
           focusable="false"
           size={16}

@@ -311,12 +311,12 @@ generation. A second failure settles the coordinator while retaining the force
 for a later event, reconnect, hydration, navigation, or manual sync signal;
 persistent failures therefore cannot keep synchronization non-idle.
 
-Ordinary unopened documents remain lazy: container reconciliation updates their
-local summaries and links but does not instantiate every document store. Forced
-targeted reconciliation must propagate its force flag into document-content
-pull policy; that policy revalidates registered ordinary stores, while returning
-without opening unregistered ones. System-container documents remain the eager
-exception because their projections may have no document window to open them.
+Reconciliation updates local summaries and links without opening stores; the
+[discovered-document primer](developer/device-first.md#document-content-pull-policy)
+then opens every listed document of an unpaused organization. Forced targeted
+reconciliation propagates its force flag into content pull policy, which
+revalidates registered ordinary stores and eagerly pulls system-container
+documents, whose projections may have no document window to open them.
 
 The server sends `known_containers_ack` immediately after authorizing and
 installing the declaration's readable subset in its process-local event router.
