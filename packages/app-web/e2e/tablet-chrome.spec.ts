@@ -212,6 +212,38 @@ test("desktop tablet launcher can open from the bottom", async ({ page }) => {
   ).toBeFocused();
 });
 
+// In tablet side mode the taskbar's centered Menu button opens the rail, and
+// the open rail is the only open-state signal. A fill kept on the button while
+// the rail was open read as a focus ring around the logo after every click.
+// Both the windowing shell (the fill) and the app (the logo's inverted tones)
+// style the button, so read the drawn background and the resolved logo tone.
+test("tablet Menu button stays unfilled while the rail is open", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const pane = page.locator(".routed-pane--tablet");
+  await expect(pane).toHaveAttribute("data-launcher-placement", "side");
+  const menu = page.getByRole("button", { name: "Menu", exact: true });
+  const logoTone = () =>
+    menu.evaluate((element) =>
+      getComputedStyle(element).getPropertyValue("--tearleads-logo-secondary"),
+    );
+  const restingTone = await logoTone();
+
+  await menu.click();
+  await expect(pane.locator(".routed-pane-rail")).toHaveAttribute(
+    "data-state",
+    "open",
+  );
+  await expect(menu).toBeFocused();
+  // Hover fills the button too; take the pointer off it before reading.
+  await page.mouse.move(0, 450);
+  await expect(menu).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  expect(await logoTone()).toBe(restingTone);
+});
+
 test("routed internal sidebar has its own surface color", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/app/explorer");
