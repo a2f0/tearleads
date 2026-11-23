@@ -31,6 +31,10 @@ import {
 import { ExplorerContextMenuLayer } from "./context-menu/ExplorerContextMenuLayer";
 import type { ExplorerAttributionUserLabelResolver } from "./detail/attributionDisplay";
 import { ExplorerDetailPanel } from "./detail/ExplorerDetailPanel";
+import {
+  ExplorerItemViewProvider,
+  useExplorerItemViewState,
+} from "./detail/item-views/explorerItemViewContext";
 import { useExplorerViewBreadcrumb } from "./diagnostics/useExplorerViewBreadcrumb";
 import { useExplorerRoutedChromeActions } from "./ExplorerRoutedChrome";
 import type { ExplorerAttributionProfileHydrationRequester } from "./hooks/explorerAttributionReadModel";
@@ -321,8 +325,10 @@ function ExplorerContent() {
     [model.markDocumentStartsInEditMode, routeState.selectExplorerDocument],
   );
   const toolbarUpload = useExplorerToolbarUpload(model.uploadManager);
+  const itemView = useExplorerItemViewState();
   useExplorerRoutedChromeActions({
     historyCanGoBack,
+    itemView,
     model,
     openStructuredDocumentGrid,
     triggerUpload: toolbarUpload.triggerUpload,
@@ -386,21 +392,23 @@ function ExplorerContent() {
         openBlobBrowserRoute={routeState.openBlobBrowserRoute}
         returnToDocumentRoute={returnToDocumentFromBlobPick}
       >
-        <ExplorerDetailPanelWithBlobPick
-          appData={appData}
-          billingBlockedOrganizationId={billingBlockedOrganizationId}
-          model={model}
-          readModelProjection={organizationPresentation.projection}
-          readModelRevision={organizationPresentation.revision}
-          readModelScope={organizationPresentation.scope}
-          requestAttributionProfileHydration={
-            organizationPresentation.requestAttributionProfileHydration
-          }
-          resolveAttributionUserLabel={
-            organizationPresentation.resolveAttributionUserLabel
-          }
-          onOpenGrant={openGrantInOrgManager}
-        />
+        <ExplorerItemViewProvider value={itemView.view}>
+          <ExplorerDetailPanelWithBlobPick
+            appData={appData}
+            billingBlockedOrganizationId={billingBlockedOrganizationId}
+            model={model}
+            readModelProjection={organizationPresentation.projection}
+            readModelRevision={organizationPresentation.revision}
+            readModelScope={organizationPresentation.scope}
+            requestAttributionProfileHydration={
+              organizationPresentation.requestAttributionProfileHydration
+            }
+            resolveAttributionUserLabel={
+              organizationPresentation.resolveAttributionUserLabel
+            }
+            onOpenGrant={openGrantInOrgManager}
+          />
+        </ExplorerItemViewProvider>
       </BlobPickProvider>
       <ExplorerContextMenuLayer
         canEditContextMenuContact={model.canEditContextMenuContact}

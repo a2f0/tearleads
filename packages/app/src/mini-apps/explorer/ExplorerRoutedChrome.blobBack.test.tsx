@@ -96,6 +96,7 @@ function BlobBackHarness({
 }) {
   useExplorerRoutedChromeActions({
     historyCanGoBack,
+    itemView: { cycleView: () => undefined, nextView: "large-rows" },
     model,
     openStructuredDocumentGrid: () => undefined,
     triggerUpload: () => undefined,

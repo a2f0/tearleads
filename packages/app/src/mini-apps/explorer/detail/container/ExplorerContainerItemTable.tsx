@@ -1,10 +1,6 @@
-import type {
-  ContainerItemRow,
-  ContainerItemSort,
-  ContainerItemSortKey,
-  ContainerNode,
-} from "@tearleads/client-sdk";
-import { type DragEvent, type MouseEvent, useMemo } from "react";
+import type { ContainerItemRow } from "@tearleads/client-sdk";
+import { useMemo } from "react";
+import type { MiniAppItemView } from "../../../../components/mini-app/item-view/miniAppItemView";
 import {
   MiniAppColumnMenuButton,
   type MiniAppColumnMenuOption,
@@ -19,9 +15,16 @@ import {
   MiniAppVirtualTableSpacerRow,
 } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../../../components/shared/classNames";
-import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { EXPLORER_LABELS, getExplorerItemTableLabel } from "../../labels";
+import {
+  type ExplorerItemListProps,
+  getExplorerContainerItemRowKey,
+  getExplorerItemListFrameHandlers,
+  getExplorerItemListStatus,
+  isExplorerContainerItemContextTarget,
+  openExplorerItem,
+} from "../item-views/explorerItemList";
 import {
   type ExplorerItemColumnId,
   getVisibleExplorerItemColumnIds,
@@ -30,15 +33,9 @@ import {
 import {
   type ExplorerItemCellContext,
   getExplorerItemTableColumns,
-  openExplorerItem,
   renderExplorerItemCell,
 } from "./explorerItemTableColumns";
-
-function getExplorerContainerItemRowKey(row: ContainerItemRow): string {
-  return row.itemKind === "container"
-    ? `container:${row.id}`
-    : `document:${row.localId}:${row.containerId}`;
-}
+import "../../../../components/mini-app/item-view/MiniAppItemView.css";
 
 function getExplorerItemColumnLabel(id: ExplorerItemColumnId): string {
   switch (id) {
@@ -65,30 +62,6 @@ const EXPLORER_COLUMN_MENU_OPTIONS: ReadonlyArray<
   label: getExplorerItemColumnLabel(id),
 }));
 
-// The row right-clicked into the context menu stays highlighted while the menu
-// is open: opening the menu does not move the selection (that would navigate the
-// pane away), so without this the user loses track of which row the menu acts on.
-function isExplorerContainerItemContextTarget(
-  row: ContainerItemRow,
-  contextTarget: ExplorerContextMenuTarget | null,
-): boolean {
-  if (!contextTarget) {
-    return false;
-  }
-
-  if (row.itemKind === "container") {
-    return (
-      contextTarget.kind === "container" && contextTarget.containerId === row.id
-    );
-  }
-
-  return (
-    contextTarget.kind === "document" &&
-    contextTarget.localId === row.localId &&
-    contextTarget.containerId === row.containerId
-  );
-}
-
 // The row's params are its cell context plus the table-level column list and
 // selection flag, so cells receive the params object directly.
 function ExplorerContainerItemTableRow(
@@ -109,17 +82,6 @@ function ExplorerContainerItemTableRow(
         renderExplorerItemCell(columnId, params),
       )}
     </MiniAppTableRow>
-  );
-}
-
-function isExplorerItemTableBlankContextTarget(
-  target: EventTarget | null,
-): boolean {
-  return (
-    target instanceof Element &&
-    !target.closest(
-      "button, a, input, select, textarea, th, thead, .explorer-item-table-row",
-    )
   );
 }
 
@@ -149,6 +111,7 @@ function ExplorerContainerItemTableBody(
     totalCount,
     ...rowContext
   } = params;
+  const status = getExplorerItemListStatus(params);
   const topPadding = rowOffset * rowHeight;
   const bottomPadding =
     Math.max(0, totalCount - rowOffset - rows.length) * rowHeight;
@@ -170,17 +133,9 @@ function ExplorerContainerItemTableBody(
             selected={isExplorerContainerItemContextTarget(row, contextTarget)}
           />
         ))
-      ) : isLoading ? (
+      ) : status ? (
         <MiniAppTableEmptyRow colSpan={columns.length}>
-          Loading...
-        </MiniAppTableEmptyRow>
-      ) : error ? (
-        <MiniAppTableEmptyRow colSpan={columns.length}>
-          {error}
-        </MiniAppTableEmptyRow>
-      ) : totalCount === 0 ? (
-        <MiniAppTableEmptyRow colSpan={columns.length}>
-          {emptyLabel}
+          {status}
         </MiniAppTableEmptyRow>
       ) : null}
       {bottomPadding > 0 ? (
@@ -193,46 +148,15 @@ function ExplorerContainerItemTableBody(
   );
 }
 
-interface ItemTableProps {
+interface ItemTableProps extends ExplorerItemListProps {
   // Both resolved by ExplorerContainerDetail, which owns the scroll frame and
   // therefore the only measurement of it. Deriving either here would risk a
   // second answer that disagrees with the one the window query already used.
   compact: boolean;
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
-  contextTarget: ExplorerContextMenuTarget | null;
-  currentSigningFingerprint: string | null | undefined;
-  currentSelfContactLocalId: string | null | undefined;
-  currentUserId: string | null | undefined;
-  dragActive: boolean;
-  dragDisabled: boolean;
-  emptyLabel: string;
-  error: string | null;
-  frameRef: (frame: HTMLDivElement | null) => void;
-  handleDragEnter: (event: DragEvent<HTMLElement>) => void;
-  handleDragLeave: (event: DragEvent<HTMLElement>) => void;
-  handleDragOver: (event: DragEvent<HTMLElement>) => void;
-  handleDrop: (event: DragEvent<HTMLElement>) => void;
   hiddenColumns: ReadonlySet<ExplorerItemColumnId>;
-  isImporting: boolean;
-  isLoading: boolean;
-  online: boolean;
-  onBlankContextMenu:
-    | ((event: MouseEvent<HTMLElement>, containerId: string) => void)
-    | undefined;
-  onItemContextMenu: (
-    event: MouseEvent<HTMLElement>,
-    row: ContainerItemRow,
-  ) => void;
-  onSort: (key: ContainerItemSortKey) => void;
-  rows: ReadonlyArray<ContainerItemRow>;
-  rowHeight: number;
-  rowOffset: number;
-  selectedNode: ContainerNode;
-  selectDocumentProjection: (documentId: string, containerId: string) => void;
-  setSelectedId: (id: string | null) => void;
-  sort: ContainerItemSort;
   toggleColumn: (id: ExplorerItemColumnId) => void;
-  totalCount: number;
+  // The table draws the two row views; the grid is its own component.
+  view: Exclude<MiniAppItemView, "grid">;
 }
 
 function useExplorerContainerItemTableColumns({
@@ -305,20 +229,6 @@ function getExplorerItemTableFrameClassName(params: {
   );
 }
 
-function createExplorerItemTableBlankContextMenuHandler(
-  onBlankContextMenu: ItemTableProps["onBlankContextMenu"],
-  selectedNodeId: string,
-) {
-  return (event: MouseEvent<HTMLDivElement>) => {
-    if (!isExplorerItemTableBlankContextTarget(event.target)) {
-      return;
-    }
-
-    event.preventDefault();
-    onBlankContextMenu?.(event, selectedNodeId);
-  };
-}
-
 export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
     compact,
@@ -328,29 +238,19 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     currentSelfContactLocalId,
     currentUserId,
     dragActive,
-    dragDisabled,
-    emptyLabel,
-    error,
     frameRef,
-    handleDragEnter,
-    handleDragLeave,
-    handleDragOver,
-    handleDrop,
     hiddenColumns,
     isImporting,
-    isLoading,
     online,
-    onBlankContextMenu,
     onItemContextMenu,
     onSort,
-    rows,
     rowHeight,
-    rowOffset,
     selectedNode,
     selectDocumentProjection,
     setSelectedId,
     sort,
     toggleColumn,
+    view,
   } = params;
   const { columnIds, columns } = useExplorerContainerItemTableColumns({
     compact,
@@ -361,16 +261,10 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
   });
   return (
     <MiniAppTableFrame
+      {...getExplorerItemListFrameHandlers(params)}
       aria-busy={isImporting}
       className={getExplorerItemTableFrameClassName({ compact, dragActive })}
-      onDragEnter={dragDisabled ? undefined : handleDragEnter}
-      onDragLeave={dragDisabled ? undefined : handleDragLeave}
-      onDragOver={dragDisabled ? undefined : handleDragOver}
-      onContextMenu={createExplorerItemTableBlankContextMenuHandler(
-        onBlankContextMenu,
-        selectedNode.id,
-      )}
-      onDrop={dragDisabled ? undefined : handleDrop}
+      data-item-view={view}
       ref={frameRef}
       style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
@@ -386,14 +280,15 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
           currentSigningFingerprint={currentSigningFingerprint}
           currentSelfContactLocalId={currentSelfContactLocalId}
           currentUserId={currentUserId}
-          error={error}
-          emptyLabel={emptyLabel}
-          isLoading={isLoading}
+          error={params.error}
+          emptyLabel={params.emptyLabel}
+          isLoading={params.isLoading}
+          largeRows={view === "large-rows"}
           online={online}
           onItemContextMenu={onItemContextMenu}
-          rows={rows}
+          rows={params.rows}
           rowHeight={rowHeight}
-          rowOffset={rowOffset}
+          rowOffset={params.rowOffset}
           selectDocumentProjection={selectDocumentProjection}
           setSelectedId={setSelectedId}
           totalCount={params.totalCount}
