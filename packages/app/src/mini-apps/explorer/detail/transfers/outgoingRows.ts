@@ -82,7 +82,7 @@ export function isBillingBlockedWrite(
 }
 
 /** How a queued entry reads when no upload of this session explains it. */
-export function getWriteTransfer(
+function getWriteTransfer(
   write: PendingWriteQueueItem,
   billingBlocked: boolean,
 ): ExplorerTransferProgress {
