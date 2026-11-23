@@ -10,7 +10,11 @@ import {
 } from "./laneReconnectMachine";
 import { selectSyncHolds, summarizeSyncLanes } from "./syncActivityModel";
 import { DESCRIBED, lane, NO_LANES, snapshot } from "./syncStatus.testFixtures";
-import { describeSyncStatus, summarizePendingWrites } from "./syncStatusModel";
+import {
+  describeSyncStatus,
+  selectBillingBlock,
+  summarizePendingWrites,
+} from "./syncStatusModel";
 import { describeSyncStatusDetails } from "./syncStatusPopoverModel";
 import { useLastOfflineWindow } from "./useLastOfflineWindow";
 
@@ -46,8 +50,21 @@ function reconnect(lanes: ReadonlyArray<SyncLaneSnapshot>) {
 test("a failure from being offline is left out while its retry is queued or running", () => {
   const before = snapshot([lane(OFFLINE_FAILURE)], CAME_BACK);
   const { offlineWindow } = reconnect(before.lanes);
-  expect(offlineWindow).toEqual({ from: WENT_OFFLINE, to: CAME_BACK });
+  // The window opens a few seconds before the drop was noticed.
+  expect(offlineWindow).toEqual({
+    from: "2026-11-22T09:59:55.000Z",
+    to: CAME_BACK,
+  });
   expect(summarizeSyncLanes(before, offlineWindow)).toEqual(NO_LANES);
+  // A request that failed as the connection dropped, published in the very
+  // snapshot that went offline or just before the browser noticed.
+  for (const lastFailedAt of [WENT_OFFLINE, "2026-11-22T09:59:57.000Z"])
+    expect(
+      summarizeSyncLanes(
+        snapshot([lane({ ...OFFLINE_FAILURE, lastFailedAt })]),
+        offlineWindow,
+      ).failed,
+    ).toBe(0);
   expect(
     summarizeSyncLanes(
       snapshot([lane({ ...OFFLINE_FAILURE, requested: false, running: true })]),
@@ -271,4 +288,10 @@ test("the popover lists paused organizations whatever the status line names", ()
   expect(
     describeSyncStatusDetails({ ...details, pausedOrganizationCount: 0 }),
   ).toEqual(["Changes to upload: 3", "Downloads: none waiting"]);
+});
+
+test("the active organization's billing block is named over another's", () => {
+  expect(selectBillingBlock(true, true)).toBe("active");
+  expect(selectBillingBlock(false, true)).toBe("other");
+  expect(selectBillingBlock(false, false)).toBeNull();
 });

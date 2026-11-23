@@ -1,14 +1,9 @@
-import { requestAllDomainSyncLanes } from "@tearleads/client-sdk";
 import { Menu, type MenuPosition } from "@tearleads/windowing";
 import { type MouseEvent, type ReactNode, useCallback, useState } from "react";
 import { SyncGlyph } from "../../components/shared/SyncGlyph";
-import { useAppNavigationActions } from "../../navigation/AppNavigationProvider";
-import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
-import { useDomainDocumentQueries } from "../../providers/sdk/useDomainDocumentQueries";
-import { SyncStatusPopoverBody } from "./SyncStatusPopoverBody";
+import { SyncStatusPopoverContent } from "./SyncStatusPopoverContent";
 import type { SyncStatus } from "./syncStatusModel";
-import { usePopoverTransfers } from "./usePopoverTransfers";
-import { type SyncStatusResult, useSyncStatus } from "./useSyncStatus";
+import { useSyncStatus } from "./useSyncStatus";
 import "./SyncStatusTrayApp.css";
 
 // Applied only while this popover is open: keep the trigger's own mousedown from
@@ -93,42 +88,6 @@ export function SyncStatusTrayControl({
         </Menu>
       )}
     </>
-  );
-}
-
-// The open popover: reads what only it shows (the download queue and the
-// Explorer's file uploads) and hands the body its actions' effects.
-function SyncStatusPopoverContent({
-  close,
-  sync,
-}: {
-  close: () => void;
-  sync: SyncStatusResult;
-}) {
-  const runtime = useTearleadsRuntime();
-  const { openMiniApp } = useAppNavigationActions();
-  const domainScope = runtime.state.domainScope;
-  const dbReady = runtime.infra.dbStatus === "ready";
-  const documentQueries = useDomainDocumentQueries(runtime);
-  const { downloads, uploadingFileCount } = usePopoverTransfers({
-    dbReady,
-    documentQueries,
-    domainScope,
-  });
-  const syncNow = useCallback(
-    () => requestAllDomainSyncLanes(domainScope),
-    [domainScope],
-  );
-  return (
-    <SyncStatusPopoverBody
-      canSync={dbReady && runtime.state.online && runtime.auth.isAuthenticated}
-      downloads={downloads}
-      onClose={close}
-      onOpenView={openMiniApp}
-      onSyncNow={syncNow}
-      sync={sync}
-      uploadingFileCount={uploadingFileCount}
-    />
   );
 }
 
