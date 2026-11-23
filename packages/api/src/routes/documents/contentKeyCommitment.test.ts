@@ -2,12 +2,16 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   documentContentKeyEpochs,
+  documents,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
 import { asc, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { withDocumentMutationArtifacts } from "../../../test/helpers/documentAcknowledgementFixture";
+import {
+  type CreatedDocumentFixture,
+  withDocumentMutationArtifacts,
+} from "../../../test/helpers/documentAcknowledgementFixture";
 import { CONTENT_KEY_COMMITMENT_FIXTURE } from "../../../test/helpers/documentEnvelopeFixture";
 import {
   buildDocumentLinkRequest,
@@ -18,6 +22,7 @@ import { createChildContainer } from "../../../test/helpers/keyingWriterProjecti
 import {
   bootstrapRoot,
   createDocument,
+  createDocumentRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { postDocumentSync } from "../../../test/helpers/staleBundleHealKit";
@@ -27,6 +32,8 @@ const OTHER_COMMITMENT = "d".repeat(64);
 const ROTATED_COMMITMENT = "e".repeat(64);
 const ENVELOPE_MISMATCH =
   "Document update envelope does not commit to its epoch's content key";
+const BUNDLE_MISMATCH =
+  "Document content-key commitment does not match its epoch";
 
 async function ownedDocument() {
   const owner = createTestUser();
@@ -100,6 +107,79 @@ test("an update committing to another key than its epoch's is refused", async ()
   ).toBe(200);
 });
 
+test("a sync carrying its epoch's bundle must repeat its commitment", async () => {
+  const { created, owner, root } = await ownedDocument();
+  const carried = await createSignedDocumentSyncRequest({
+    created,
+    includeContentKeyBundle: true,
+    owner,
+    root,
+  });
+  const bundle = carried.request.contentKeyBundle;
+  if (!bundle) throw new Error("expected a carried bundle");
+  // The envelope stays honest: only the carried bundle names another key.
+  const refused = await postDocumentSync(owner, created.id, {
+    ...carried.request,
+    contentKeyBundle: { ...bundle, contentKeyCommitment: OTHER_COMMITMENT },
+  });
+  expect(refused.status).toBe(400);
+  expect((await refused.json()).error).toBe(BUNDLE_MISMATCH);
+  expect(await storedUpdateIds(created.id)).not.toContain(carried.updateId);
+  expect(await storedCommitments(created.id)).toEqual([
+    {
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
+      contentKeyEpoch: 1,
+    },
+  ]);
+
+  expect(
+    (await postDocumentSync(owner, created.id, carried.request)).status,
+  ).toBe(200);
+});
+
+test("a create's seed must commit to the key its bundle opens", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const create = await createDocumentRequest({ owner, root });
+  const documentId = String(Reflect.get(create.event, "objectId"));
+  const planned = {
+    accessManifest: { state: create.event },
+    contentKeyBundle: create.contentKeyBundle,
+    id: documentId,
+  } as unknown as CreatedDocumentFixture;
+  const seeded = async (contentKeyCommitment?: string) => {
+    const { request } = await createSignedDocumentSyncRequest({
+      contentKeyCommitment,
+      created: planned,
+      owner,
+      root,
+    });
+    return {
+      ...create,
+      initialSync: { outgoingUpdates: request.outgoingUpdates },
+    };
+  };
+
+  const refused = await postJson(
+    owner.token,
+    "/documents",
+    await seeded(OTHER_COMMITMENT),
+  );
+  expect(refused.status).toBe(400);
+  expect((await refused.json()).error).toBe(ENVELOPE_MISMATCH);
+  const stored = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.id, documentId));
+  expect(stored).toEqual([]);
+
+  expect(
+    (await postJson(owner.token, "/documents", await seeded())).status,
+  ).toBe(200);
+});
+
 test("a link must repeat the commitment of the epoch it carries", async () => {
   const { created, owner, root } = await ownedDocument();
   const child = await createChildContainer({ parent: root, signer: owner });
@@ -117,9 +197,7 @@ test("a link must repeat the commitment of the epoch it carries", async () => {
     },
   });
   expect(refused.status).toBe(400);
-  expect((await refused.json()).error).toBe(
-    "Document content-key commitment does not match its epoch",
-  );
+  expect((await refused.json()).error).toBe(BUNDLE_MISMATCH);
   expect(await storedCommitments(created.id)).toEqual([
     {
       contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
