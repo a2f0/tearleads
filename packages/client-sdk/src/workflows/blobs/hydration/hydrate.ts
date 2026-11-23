@@ -417,10 +417,14 @@ async function hydrateCurrentAttachments(
 
   const projectionApi = projectionReader(input.apiClient, signal);
   const writerProjection = await waitForRead(
-    projectionApi.getDocumentWriterProjection(input.documentId),
+    projectionApi.getDocumentWriterProjection(input.documentId, {
+      stillCurrent: input.stillCurrent,
+    }),
     signal,
   );
   signal?.throwIfAborted();
+  // A retired read is a superseded run, not a missing projection.
+  if (input.stillCurrent?.() === false) return [];
   if (!writerProjection) {
     input.log?.(
       `Documents: cannot hydrate attachments for document ${input.documentId} without a writer projection.`,
