@@ -40,7 +40,7 @@ test("loadDocumentAttributionRanges forwards pagination and returns the page", a
         limit: 50,
       },
     }),
-  ).resolves.toEqual(response);
+  ).resolves.toEqual({ ...response, voidUpdateIds: [] });
   expect(calls).toEqual([
     {
       documentId: "document-1",

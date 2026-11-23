@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, setSystemTime, test } from "bun:test";
 import {
   encodeVersionVectorCounters,
   mergeVersionVectors,
@@ -10,9 +10,13 @@ import { World } from "../harness/world";
 
 let world: World | null = null;
 afterEach(() => {
+  setSystemTime();
   world?.dispose();
   world = null;
 });
+
+/** How far past its upload a change's time may be before History says so. */
+const CLOCK_AHEAD_NOTICE_MS = 60_000;
 
 interface CreditedRun {
   readonly peerId: string;
@@ -21,9 +25,14 @@ interface CreditedRun {
   readonly writerUserId: string;
 }
 
+interface UploadRun extends CreditedRun {
+  readonly createdAt: string;
+  readonly updateId: string;
+}
+
 /** Every range `device` reads for the document, page by page. */
 async function attributionRanges(device: Device, documentId: string) {
-  const ranges: (CreditedRun & { readonly updateId: string })[] = [];
+  const ranges: UploadRun[] = [];
   let cursor: string | null = null;
   do {
     const page =
@@ -38,20 +47,26 @@ async function attributionRanges(device: Device, documentId: string) {
   return ranges;
 }
 
+function covering<T extends CreditedRun>(
+  runs: readonly T[],
+  peerId: string,
+  counter: number,
+): T[] {
+  return runs.filter(
+    (run) =>
+      run.peerId === peerId &&
+      run.startCounter <= counter &&
+      counter < run.endCounter,
+  );
+}
+
 /** Who each source credits with operation `counter` of `peerId`. */
 function creditedWith(
   runs: readonly CreditedRun[],
   peerId: string,
   counter: number,
 ): string[] {
-  return runs
-    .filter(
-      (run) =>
-        run.peerId === peerId &&
-        run.startCounter <= counter &&
-        counter < run.endCounter,
-    )
-    .map((run) => run.writerUserId);
+  return covering(runs, peerId, counter).map((run) => run.writerUserId);
 }
 
 /** The ids of the updates a device sent after `from` exchanges, in order. */
@@ -123,10 +138,12 @@ test("a reader credits no void update with another writer's later edit", async (
   const [forgedId] = sentUpdateIds(liar, sentBefore);
   if (!forgedId) throw new Error("Expected the forged update to be sent");
 
-  // Bob voids it, then makes the operations it claimed.
+  // Bob voids it, then makes the operations it claimed two minutes on, as a
+  // change of its own in History.
   expect(await readText(reader, world.documentRef(document))).toBe(
     "seed\nbob\n",
   );
+  setSystemTime(new Date(Date.now() + 2 * CLOCK_AHEAD_NOTICE_MS));
   await world.editDocument(bob, document, "seed\nbob\nbob again\n", reader);
 
   const ranges = await attributionRanges(reader, document.documentId);
@@ -155,5 +172,37 @@ test("a reader credits no void update with another writer's later edit", async (
   const segments = info.remoteInfo?.attributionSegments ?? [];
   expect(creditedWith(segments, bobPeer, next)).toEqual([]);
   expect(creditedWith(segments, bobPeer, 0)).toEqual([bob.userId]);
+
+  // History dates and credits each change by the range covering its first
+  // operation; Info and row writers by the compact segments. They agree on
+  // every change. Bob's new change has no range, so no upload-time bound:
+  // the void update's upload would date it two minutes early and say Bob's
+  // clock ran ahead.
+  const history = await reader.sdk.documents.openHistory(localId);
+  if (!history) throw new Error("Expected Bob's document history");
+  try {
+    expect(
+      history.stops.filter(
+        (stop) => stop.peerId === bobPeer && stop.startCounter === next,
+      ),
+    ).toHaveLength(1);
+    for (const stop of history.stops) {
+      const [upload] = covering(ranges, stop.peerId, stop.startCounter);
+      if (upload && stop.committedAt !== null) {
+        expect(stop.committedAt - Date.parse(upload.createdAt)).toBeLessThan(
+          CLOCK_AHEAD_NOTICE_MS,
+        );
+      }
+      const credited = creditedWith(ranges, stop.peerId, stop.startCounter);
+      expect(
+        creditedWith(compact?.segments ?? [], stop.peerId, stop.startCounter),
+      ).toEqual(credited);
+      expect(creditedWith(segments, stop.peerId, stop.startCounter)).toEqual(
+        credited,
+      );
+    }
+  } finally {
+    history.close();
+  }
   expectNoSecurityIncidents(world);
 }, 240_000);

@@ -17,6 +17,13 @@ import { compactAttributionSegment } from "./ExplorerDocumentInfoSections.testFi
 
 afterEach(() => cleanup());
 
+/** The fields of a last page this device left nothing out of. */
+const LAST_PAGE = {
+  hasMore: false,
+  nextCursor: null,
+  voidUpdateIds: [],
+} satisfies Partial<DocumentAttributionRangesPage>;
+
 function createDocumentInfo(input?: {
   attributionRevision?: number | undefined;
   currentManifestHash?: string | undefined;
@@ -91,7 +98,7 @@ test("loads only after expansion and lists detailed uploads", async () => {
     return {
       attributionRevision: 7,
       documentId: "document-1",
-      hasMore: false,
+      ...LAST_PAGE,
       items: [
         {
           ...compactAttributionSegment,
@@ -108,7 +115,6 @@ test("loads only after expansion and lists detailed uploads", async () => {
           writerUserId: "writer-2",
         },
       ],
-      nextCursor: null,
     };
   };
   const view = render(
@@ -166,6 +172,7 @@ test("appends a revision-bound next page", async () => {
         },
       ],
       nextCursor: isSecondPage ? null : "next-page",
+      voidUpdateIds: [],
     };
   };
   const view = render(
@@ -196,14 +203,13 @@ test("shows an error and retries the failed page", async () => {
       return {
         attributionRevision: 7,
         documentId: "document-1",
-        hasMore: false,
+        ...LAST_PAGE,
         items: [
           {
             ...compactAttributionSegment,
             updateId: "update-retried",
           },
         ],
-        nextCursor: null,
       };
     };
   const view = render(
@@ -228,14 +234,13 @@ test("closes and clears when the compact revision changes", async () => {
       return {
         attributionRevision: 7,
         documentId: "document-1",
-        hasMore: false,
+        ...LAST_PAGE,
         items: [
           {
             ...compactAttributionSegment,
             updateId: "update-1",
           },
         ],
-        nextCursor: null,
       };
     };
   const view = render(
@@ -269,14 +274,13 @@ test("closes and clears when the attribution manifest scope changes", async () =
       return {
         attributionRevision: 7,
         documentId: "document-1",
-        hasMore: false,
+        ...LAST_PAGE,
         items: [
           {
             ...compactAttributionSegment,
             updateId: "old-scope-update",
           },
         ],
-        nextCursor: null,
       };
     };
   const view = render(
@@ -330,14 +334,13 @@ test("ignores a stale page that resolves after the revision changes", async () =
     resolvePage?.({
       attributionRevision: 7,
       documentId: "document-1",
-      hasMore: false,
+      ...LAST_PAGE,
       items: [
         {
           ...compactAttributionSegment,
           updateId: "stale-update",
         },
       ],
-      nextCursor: null,
     });
     await pendingPage;
   });
@@ -371,6 +374,7 @@ test("surfaces a page revision mismatch without mixing its rows", async () => {
         },
       ],
       nextCursor: isSecondPage || isRestart ? null : "next-page",
+      voidUpdateIds: [],
     };
   };
   const view = render(
@@ -407,14 +411,13 @@ test("rejects an initial page from a newer compact attribution revision", async 
       loadDocumentAttributionRanges: async () => ({
         attributionRevision: 8,
         documentId: "document-1",
-        hasMore: false,
+        ...LAST_PAGE,
         items: [
           {
             ...compactAttributionSegment,
             updateId: "newer-update",
           },
         ],
-        nextCursor: null,
       }),
     }),
   );
@@ -451,9 +454,8 @@ test("truncated attribution hydrates paginated range writers", async () => {
     loadDocumentAttributionRanges: async () => ({
       attributionRevision: 7,
       documentId: "document-1",
-      hasMore: false,
+      ...LAST_PAGE,
       items: [{ ...compactAttributionSegment, updateId: "page-update" }],
-      nextCursor: null,
     }),
   };
   const view = render(

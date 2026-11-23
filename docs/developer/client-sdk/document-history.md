@@ -16,7 +16,9 @@ runtime can call the documents facade's `openDocumentHistory` directly.
   segments. The per-upload ranges (`loadDocumentAttributionRanges`) also carry
   `createdAt`, when the server stored each upload: the range that covers a
   stop's `startCounter` bounds `committedAt` from above, since a change cannot
-  have been made after it was stored.
+  have been made after it was stored. A stop that only a void update's range
+  would cover has none, and so no such bound (see
+  [edit attribution](../../advisory-op-spans.md#edit-attribution)).
 - `viewAt(index)` returns the document after `stops[0..index]` as a
   `DocumentHistoryView`: the content fields of a `DocumentSnapshot` (`text`,
   `structuredFields`, `rows`, `attachments`, `documentKind`, `title`,

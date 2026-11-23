@@ -19,6 +19,12 @@ export interface DocumentAttributionRangesPage {
   readonly hasMore: boolean;
   readonly items: DocumentEditAttributionRangeResponse[];
   readonly nextCursor: string | null;
+  /**
+   * The updates whose ranges this read left out, sorted. A held read is
+   * current only while the revision and these are unchanged: a device can
+   * void an update after it read the update's ranges.
+   */
+  readonly voidUpdateIds: readonly string[];
 }
 
 /**
@@ -57,5 +63,9 @@ export async function loadDocumentAttributionRanges(input: {
     input.execSql,
     input.query.documentId,
   );
-  return { ...page, items: withoutVoidRanges(page.items, voids) };
+  return {
+    ...page,
+    items: withoutVoidRanges(page.items, voids),
+    voidUpdateIds: [...voids].sort(),
+  };
 }
