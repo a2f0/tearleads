@@ -1,6 +1,5 @@
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import type { DocumentSyncVerdictOutcome } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   readProcessedCursorForSync,
@@ -45,7 +44,9 @@ export function containerMetadataVerdictRecorder(
   containerId: string,
   synced: SyncRemoteDocumentResult,
 ) {
-  let recorded: DocumentSyncVerdictOutcome | undefined;
+  let recorded:
+    | Awaited<ReturnType<typeof recordDocumentSyncVerdicts>>
+    | undefined;
   return {
     commitSideEffect: async (transactionExecSql: ExecSql): Promise<void> => {
       recorded = await recordDocumentSyncVerdicts(transactionExecSql, {
