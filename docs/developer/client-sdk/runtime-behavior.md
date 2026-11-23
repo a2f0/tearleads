@@ -36,20 +36,23 @@ sign-in, or a store generation change, the request is retired:
 
 These requests pass it:
 
-- the writer-projection reads of document creates, purges, syncs, and
-  attachment uploads, and the read that adopts a create whose response was lost
+- the writer-projection reads of document creates, purges, syncs, link-set
+  mutations, and attachment uploads and hydrations, and the read that adopts a
+  create whose response was lost
 - the projection reads of container creates, shares, moves, revokes, rekeys,
   and purges, including a create's stale-path refetch, a share's repair of a
   stale chain above it, a custom-named group's metadata read, a rotation's
-  carried descendant rekeys and rematerialized levels, and the probes of a
-  document move that cites a vanished container
+  carried descendant rekeys and rematerialized levels, the probes of a
+  document move that cites a vanished container, and a link-set mutation's
+  target container
 - the projection reads that verify a hydrated destination, and an attachment
   verifier's one proof refresh
 - attachment uploads, downloads, relink ciphertext reads, and detaches
 - signed container creates, recitations, moves, revokes, rekeys, deletes, and
   user and group shares
 - document sync submits, purge requests, and purge proof reads
-- organization read-model pages and pending blob deletion listings
+- organization read-model pages, policy-history pages, and pending blob
+  deletion listings
 
 Concurrent writer-projection reads still share one fetch and its cached result.
 The shared fetch stays current while any of its callers is current. A container
@@ -62,9 +65,11 @@ commits, including the commit a group share makes when it mints keys, and group
 creates and deletes. A retired request reports `cancelled`, and the journal
 clears its saved request on that refusal even when the server may have
 committed the change. These writes keep their outcome classification and are
-bound to the sign-in instead. Principal-policy and organization policy-history
-reads use the principal-history transport, which is also bound to the sign-in
-and does not read `stillCurrent`.
+bound to the sign-in instead. Principal-policy and policy-history requests use
+the principal-history transport, which honors `stillCurrent` like any other
+request; document purges and purge proof reads rely on it. Current
+principal-policy reads pass no scope: given any option, a principal-policy read
+skips the shared deduplicated fetch.
 
 An attachment upload checks its organization's sync pause before each stage or
 part request. A pause stops the upload and returns `null`. A stage created

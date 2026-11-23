@@ -126,6 +126,8 @@ async function resolveDocumentPurgeWriterProjection(input: {
     input.documentId,
     { reportErrors: false, stillCurrent: input.stillCurrent },
   );
+  // A retired read is a cancelled pass, not a failed purge.
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (result.ok) {
     return result.data;
   }
@@ -330,6 +332,8 @@ export async function purgeRemoteDocument(
       stillCurrent: input.stillCurrent,
     },
   );
+  // Its reply is dropped; the next pass settles the purge from the server.
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (!response) {
     return null;
   }

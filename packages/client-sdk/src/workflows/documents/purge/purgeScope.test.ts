@@ -72,19 +72,15 @@ for (const [held, request] of Object.entries(HELD_REQUESTS)) {
             stillCurrent: () => current,
           })
           .then(
-            (response) => ({ response }),
-            (error: unknown) => ({ error }),
+            () => null,
+            (error: unknown) => error,
           );
         await server.entered;
         current = false;
         server.retire(change);
         server.release();
-        const outcome = await purged;
-        if ("error" in outcome)
-          expect(isProjectionVerificationCancelledError(outcome.error)).toBe(
-            true,
-          );
-        else expect(outcome.response).toBeNull();
+        // Each retired step cancels the pass rather than failing the purge.
+        expect(isProjectionVerificationCancelledError(await purged)).toBe(true);
         expect(server.requests).toEqual([
           `${request.method} /documents/${documentId}/${request.path}`,
         ]);
