@@ -165,3 +165,27 @@ test("a restore that a store replacement overtakes queues nothing", async () => 
     close();
   }
 });
+
+test("a debt keeps the largest update count any listing advertised", async () => {
+  const { close, execSql } = await openDatabase();
+  try {
+    const advertised = async () =>
+      (await persistence.listContainerMetadataRevalidations(execSql)).map(
+        ({ advertisedUpdateCount }) => advertisedUpdateCount,
+      );
+    for (const [count, kept] of [
+      [3, 3],
+      [2, 3],
+      [5, 5],
+    ] as const) {
+      await oweContainerMetadataRead(storeState(execSql), {
+        advertisedUpdateCount: count,
+        documentId: "metadata-1",
+      });
+      // A listing read from a lagging replica never lowers the debt.
+      expect(await advertised()).toEqual([kept]);
+    }
+  } finally {
+    close();
+  }
+});
