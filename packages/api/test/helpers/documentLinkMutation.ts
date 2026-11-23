@@ -284,11 +284,12 @@ export async function buildDocumentUnlinkRequest(input: {
         ],
       },
       // A document with no committed history has nothing for a baseline to
-      // cover: the SDK unlinks it without one, as the API requires.
+      // cover: the SDK unlinks it without one, as the API requires. An empty
+      // snapshot that signs a processed cursor is still sent.
       ...(versionVectorsEqual(
         rotationBaseline.partialEndVersionVector,
         emptyVersionVector(),
-      )
+      ) && input.rotationBaselineCoversThroughUpdateId === undefined
         ? {}
         : { rotationBaseline }),
     },
