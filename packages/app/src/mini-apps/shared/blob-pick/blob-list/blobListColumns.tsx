@@ -108,7 +108,7 @@ function buildBlobInfoColumn(
       return {
         header: getBlobInfoColumnLabel(id),
         id,
-        width: "var(--blob-list-identity-width, 4rem)",
+        width: "var(--mini-app-item-thumb-column-width, 4rem)",
       };
     case "filename":
       return { header: getBlobInfoColumnLabel(id), id, width: "12rem" };

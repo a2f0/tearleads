@@ -23,7 +23,8 @@
   scrollbar-gutter: var(--scrollbar-gutter);
 }
 
-.explorer-item-table-wrap {
+.explorer-item-table-wrap,
+.explorer-item-grid-frame {
   flex: 1;
 }
 
@@ -56,7 +57,8 @@
   line-height: 1.2;
 }
 
-.explorer-item-table-wrap--drop-active {
+.explorer-item-table-wrap--drop-active,
+.explorer-item-grid-frame--drop-active {
   box-shadow: inset 0 0 0 2px currentColor;
 }
 
@@ -418,12 +420,16 @@
  *
  * Scoped rather than `.explorer-item-icon` alone: the compact (folded) row
  * promotes that same icon to a 32px summary visual, which is already larger.
+ * Direct children only: a large row wraps the visual in the shared large-row
+ * square (MiniAppItemView.css), which sizes it instead.
  */
 :root[data-navigation-mode="routed"]
   .explorer-sidebar-item
   .explorer-folder-icon,
-:root[data-navigation-mode="routed"] .explorer-item-name .explorer-folder-icon,
-:root[data-navigation-mode="routed"] .explorer-item-name .explorer-item-icon {
+:root[data-navigation-mode="routed"]
+  .explorer-item-name
+  > .explorer-folder-icon,
+:root[data-navigation-mode="routed"] .explorer-item-name > .explorer-item-icon {
   width: var(--control-icon-size);
   height: var(--control-icon-size);
 }
@@ -434,7 +440,7 @@
    the multiplier keeps the glyph-to-circle ratio the avatar's own size variants
    use (12/20, 20/32). */
 :root[data-navigation-mode="routed"] .explorer-sidebar-item .contact-avatar,
-:root[data-navigation-mode="routed"] .explorer-item-name .contact-avatar {
+:root[data-navigation-mode="routed"] .explorer-item-name > .contact-avatar {
   width: var(--control-icon-size);
   height: var(--control-icon-size);
   font-size: calc(var(--control-icon-size) * 0.6);

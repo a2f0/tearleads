@@ -81,6 +81,7 @@ export function renderContainerItemTable(
       sort: { direction: "asc", key: "name" },
       toggleColumn: () => undefined,
       totalCount: 0,
+      view: "rows",
       ...overrides,
     }),
   );

@@ -1,4 +1,3 @@
-import type { Icon } from "@phosphor-icons/react";
 import type {
   ContainerItemRow,
   ContainerItemSort,
@@ -15,18 +14,17 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
 } from "../../../../components/mini-app/MiniAppTable";
-import { ContactAvatar } from "../../../../document-types/contact/ContactAvatar";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
-import { getDocumentTypeIcon } from "../../../../document-types/registry";
-import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
-import { explorerDocumentRouteContainerId } from "../../../../stores/explorer/orphanedDocuments";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { capitalizeExplorerLabel, EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
-import { getExplorerContactAvatar } from "../../shared/explorerContactAvatar";
-import { getExplorerContainerIcon } from "../../shared/explorerContainerIcons";
 import { ExplorerCompactSortHeader } from "../ExplorerCompactSortHeader";
+import { openExplorerItem } from "../item-views/explorerItemList";
+import {
+  getExplorerContainerItemName,
+  renderExplorerItemRowVisual,
+} from "../item-views/explorerItemVisual";
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
 import "./ExplorerContainerDetail.css";
 
@@ -135,6 +133,8 @@ export interface ExplorerItemCellContext {
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
+  // Large rows draw the visual in the shared large-row square.
+  largeRows: boolean;
   online: boolean;
   row: ContainerItemRow;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
@@ -143,105 +143,6 @@ export interface ExplorerItemCellContext {
     row: ContainerItemRow,
   ) => void;
   setSelectedId: (id: string | null) => void;
-}
-
-function getExplorerContainerItemName(ctx: ExplorerItemCellContext): string {
-  const { row } = ctx;
-  if (row.itemKind !== "document") {
-    return row.name;
-  }
-
-  return getViewerRelativeContactDocumentLabel({
-    currentSigningFingerprint: ctx.currentSigningFingerprint,
-    currentSelfContactLocalId: ctx.currentSelfContactLocalId,
-    currentUserId: ctx.currentUserId,
-    documentKind: row.documentKind,
-    fallbackLabel: row.name,
-    localId: row.localId,
-  });
-}
-
-// A configured glyph for containers, otherwise the document kind's shared icon
-// (the same mapping the "New Document" picker uses).
-function getExplorerItemIcon(row: ContainerItemRow): {
-  containerIcon: string | null;
-  Icon: Icon;
-  name: string;
-} {
-  if (row.itemKind === "container") {
-    const containerIcon = getExplorerContainerIcon({
-      icon: row.icon,
-      isOpen: false,
-    });
-    return {
-      containerIcon: containerIcon.containerIcon,
-      Icon: containerIcon.Component,
-      name: containerIcon.name,
-    };
-  }
-
-  return {
-    containerIcon: null,
-    Icon: getDocumentTypeIcon(row.documentKind),
-    name: row.documentKind,
-  };
-}
-
-// Opening an item: containers become the pane's selection, documents route to
-// their projection. Shared by the name cell's button and the row-wide click
-// target (see `onActivate` on MiniAppTableRow) so both do exactly the same thing.
-export function openExplorerItem(
-  ctx: Pick<
-    ExplorerItemCellContext,
-    "row" | "selectDocumentProjection" | "setSelectedId"
-  >,
-): void {
-  const { row } = ctx;
-  if (row.itemKind === "container") {
-    ctx.setSelectedId(row.id);
-    return;
-  }
-
-  ctx.selectDocumentProjection(
-    row.localId,
-    explorerDocumentRouteContainerId(row.containerId),
-  );
-}
-
-function getExplorerItemVisual(
-  ctx: ExplorerItemCellContext,
-  options: { compact: boolean },
-): ReactNode {
-  const { row } = ctx;
-  const itemIcon = getExplorerItemIcon(row);
-  const ItemIcon = itemIcon.Icon;
-  const contactAvatar =
-    row.itemKind === "document"
-      ? getExplorerContactAvatar(
-          row.documentKind,
-          row.localId,
-          ctx.contactAvatarUrlByLocalId,
-        )
-      : null;
-
-  return contactAvatar ? (
-    // ContactAvatar owns both the image and the shared no-avatar silhouette.
-    // It also shrink-proofs itself without the generic glyph opacity.
-    <ContactAvatar
-      imageUrl={contactAvatar.imageUrl}
-      size={options.compact ? "medium" : "small"}
-    />
-  ) : (
-    <ItemIcon
-      aria-hidden="true"
-      className="explorer-item-icon"
-      data-container-icon={itemIcon.containerIcon ?? undefined}
-      data-icon={itemIcon.name}
-      focusable="false"
-      size={options.compact ? 32 : 16}
-      weight="regular"
-    />
-  );
 }
 
 // Keep standard table-row semantics: a native button owns click and keyboard
@@ -264,9 +165,7 @@ function ExplorerItemNameButton(
       type="button"
     >
       <span className="explorer-item-name">
-        {options.showVisual
-          ? getExplorerItemVisual(ctx, { compact: false })
-          : null}
+        {options.showVisual ? renderExplorerItemRowVisual(ctx, "inline") : null}
         <MiniAppTableText title={name}>{name}</MiniAppTableText>
       </span>
     </button>
@@ -288,7 +187,7 @@ function ExplorerItemSummaryCell(ctx: ExplorerItemCellContext): ReactNode {
     <MiniAppTableCell key="summary">
       <span className="explorer-item-summary">
         <span className="explorer-item-summary-visual">
-          {getExplorerItemVisual(ctx, { compact: true })}
+          {renderExplorerItemRowVisual(ctx, "summary")}
         </span>
         <span className="explorer-item-summary-copy">
           {ExplorerItemNameButton(ctx, { showVisual: false })}

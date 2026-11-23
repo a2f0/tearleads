@@ -15,6 +15,7 @@ import type { useExplorerModel } from "./hooks/useExplorerModel";
 import { EXPLORER_LABELS } from "./labels";
 import { useExplorerHubToolbarActions } from "./toolbar/ExplorerHubToolbarActions";
 import { getExplorerContainerToolbarVisibility } from "./toolbar/explorerContainerToolbarVisibility";
+import { useExplorerItemViewToolbarAction } from "./toolbar/useExplorerItemViewToolbarAction";
 
 type ExplorerModel = ReturnType<typeof useExplorerModel>;
 
@@ -33,11 +34,16 @@ const UPLOAD_ICON = <UploadSimpleIcon aria-hidden size={18} />;
 
 export function useExplorerRoutedChromeActions({
   historyCanGoBack,
+  itemView,
   model,
   openStructuredDocumentGrid,
   triggerUpload,
 }: {
   historyCanGoBack: boolean;
+  itemView: Pick<
+    Parameters<typeof useExplorerItemViewToolbarAction>[0],
+    "cycleView" | "nextView"
+  >;
   model: ExplorerModel;
   openStructuredDocumentGrid: () => void;
   triggerUpload: (containerId: string) => void;
@@ -56,11 +62,14 @@ export function useExplorerRoutedChromeActions({
   const selectedDocumentContainerId =
     selectedDocument?.containerId ??
     (route.view === "document-selection" ? route.containerId : null);
-  const showContainerToolbar =
+  // Any container listing, the Recovery collection included, can switch how
+  // its items are drawn; the rest of the container toolbar skips Recovery.
+  const showItemList =
     route.view === "selection" &&
     activeContainerId !== null &&
-    !isExplorerOrphanedDocumentsId(activeContainerId) &&
     selectedDocument === undefined;
+  const showContainerToolbar =
+    showItemList && !isExplorerOrphanedDocumentsId(activeContainerId);
   const showContactsContainerToolbar =
     showContainerToolbar && model.isActiveContactsContainer;
   const showStandardContainerToolbar =
@@ -84,6 +93,7 @@ export function useExplorerRoutedChromeActions({
 
   useExplorerRoutedBackAction({ historyCanGoBack, model, route });
   useExplorerHubToolbarActions({ model, route });
+  useExplorerItemViewToolbarAction({ ...itemView, show: showItemList });
   useExplorerContainerToolbarActions({
     containerId: activeContainerId,
     model,

@@ -50,6 +50,12 @@
   height: 32px;
 }
 
+/* A large row's square sets its own size (MiniAppItemView.css). */
+[data-item-view="large-rows"] .explorer-item-summary-visual {
+  width: auto;
+  height: auto;
+}
+
 .explorer-item-summary-copy {
   display: grid;
   gap: var(--space-2xs);

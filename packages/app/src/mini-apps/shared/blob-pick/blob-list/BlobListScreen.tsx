@@ -90,7 +90,7 @@ export function BlobListScreen(params: {
       ) : null}
       <div
         className="explorer-blob-browser-screen"
-        data-large-thumbnails={params.largeThumbnails || undefined}
+        data-item-view={params.largeThumbnails ? "large-rows" : "rows"}
       >
         <BlobInfoTable
           activeBlob={null}
