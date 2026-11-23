@@ -435,6 +435,7 @@ export async function commitStoredMetadataMutation(
         });
         await resetAccessDiscovery(tx, currentState.container, saved);
         await settleMetadataStructuralIntents(tx, input);
+        await input.commitSideEffect?.(lockedExecSql);
         return committedMetadataMutationResult({
           container: saved,
           createIntentSettled: input.createIntentSettlement !== undefined,

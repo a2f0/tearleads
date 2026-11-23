@@ -24,6 +24,9 @@ import type {
 export interface PersistContainerMetadataStateInput {
   acceptedPendingUpdateIds?: readonly string[] | undefined;
   clearSyncFailure?: boolean | undefined;
+  commitSideEffect?: Parameters<
+    ContainerContentsPersistence["commitMetadataMutation"]
+  >[1]["commitSideEffect"];
   execSql: ExecSql;
   expectedSyncState?: ExpectedContainerMetadataSyncState | undefined;
   localMetadataPatch?:
