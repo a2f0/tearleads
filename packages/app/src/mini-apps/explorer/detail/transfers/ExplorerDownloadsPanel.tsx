@@ -218,9 +218,10 @@ function DownloadRow(params: {
 }
 
 /**
- * The scope's download queue plus the downloads the SDK recorded finishing,
- * which stay listed as Complete until the domain scope rotates, as Sync Lanes
- * does, whether or not this view was open when they finished.
+ * The diagnostics hub's Incoming tab: the scope's download queue plus the
+ * downloads the SDK recorded finishing, which stay listed as Complete until
+ * the domain scope rotates, as Sync Lanes does, whether or not this view was
+ * open when they finished.
  */
 export function ExplorerDownloadsPanel(params: {
   /** The queue is read only while the database is open. */
@@ -263,10 +264,10 @@ export function ExplorerDownloadsPanel(params: {
     priority: 200,
   });
   return (
-    <MiniAppPanel className="explorer-detail explorer-detail--downloads" scroll>
+    <MiniAppPanel className="explorer-detail explorer-detail--incoming" scroll>
       <MiniAppHeader>
         <MiniAppHeaderCopy>
-          <strong>{EXPLORER_LABELS.downloadsAction}</strong>
+          <strong>{EXPLORER_LABELS.incomingAction}</strong>
           <span>{EXPLORER_LABELS.downloadsDescription}</span>
         </MiniAppHeaderCopy>
       </MiniAppHeader>
@@ -281,7 +282,7 @@ export function ExplorerDownloadsPanel(params: {
       )}
       <MiniAppTableFrame className="mini-app-table-frame--bleed">
         <MiniAppTable
-          aria-label={EXPLORER_LABELS.downloadsAction}
+          aria-label={EXPLORER_LABELS.downloadsTitle}
           columns={COLUMNS}
         >
           {entries.slice(0, limit).map((entry) => (

@@ -1,16 +1,11 @@
-import {
-  type DomainScope,
-  requestAllDomainSyncLanes,
-  type SyncLaneSnapshot,
-  type SyncLaneStatus,
+import type {
+  DomainScope,
+  SyncLaneSnapshot,
+  SyncLaneStatus,
 } from "@tearleads/client-sdk";
-import { useWindowRefreshMenuItem } from "@tearleads/windowing";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   MiniAppButton,
-  MiniAppHeader,
-  MiniAppHeaderCopy,
-  MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
@@ -32,6 +27,7 @@ import {
   getExplorerSyncLaneUploadProgressLabel,
   getExplorerUploadsSummaryLabel,
 } from "../../labels";
+import { ExplorerOutgoingSectionFrame } from "./ExplorerOutgoingSectionFrame";
 import {
   ExplorerTransferNameCell,
   type ExplorerTransferProgress,
@@ -244,22 +240,20 @@ function useUploadRows(
 
 interface ExplorerUploadsPanelProps {
   domainScope: DomainScope;
-  isAuthenticated: boolean;
-  online: boolean;
   uploadManager: ExplorerUploadManager;
 }
 
 /**
- * The scope's upload history: every file from every upload entry point,
- * newest selection first, traceable from "Queued" through "Complete". Files
- * whose upload the SDK confirmed stay listed as Complete for the scope's
- * lifetime, as Downloads and Sync Lanes do. The Cancel here stops this
- * window's queued and importing files (the container detail's status line
- * only covers the folder it targets); another Explorer window's files are
- * listed but cancelled from that window.
+ * The Outgoing tab's Uploads section: every file from every upload entry
+ * point, newest selection first, traceable from "Queued" through "Complete".
+ * Files whose upload the SDK confirmed stay listed as Complete for the
+ * scope's lifetime, as Downloads and Sync Lanes do. The Cancel here stops
+ * this window's queued and importing files (the container detail's status
+ * line only covers the folder it targets); another Explorer window's files
+ * are listed but cancelled from that window. The tab owns Refresh.
  */
 export function ExplorerUploadsPanel(params: ExplorerUploadsPanelProps) {
-  const { domainScope, isAuthenticated, online, uploadManager } = params;
+  const { domainScope, uploadManager } = params;
   const syncSnapshot = useDomainSyncSnapshot(domainScope);
   const rows = useUploadRows(uploadManager.items, syncSnapshot.lanes);
   const outstandingCount = rows.filter((row) =>
@@ -269,31 +263,16 @@ export function ExplorerUploadsPanel(params: ExplorerUploadsPanelProps) {
     uploadManager.run,
     uploadManager.queuedFileCount,
   );
-  const handleRefresh = useCallback(
-    () => requestAllDomainSyncLanes(domainScope),
-    [domainScope],
-  );
-  // The same Refresh as Downloads: re-request sync for the scope, which only
-  // re-drives each imported file's existing upload and never re-imports it.
-  useWindowRefreshMenuItem({
-    disabled: !online || !isAuthenticated,
-    onRefresh: handleRefresh,
-    priority: 200,
-  });
 
   return (
-    <MiniAppPanel className="explorer-detail explorer-detail--uploads" scroll>
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{EXPLORER_LABELS.uploadsTitle}</strong>
-          <span>
-            {getExplorerUploadsSummaryLabel({
-              outstandingCount,
-              totalCount: rows.length,
-            })}
-          </span>
-        </MiniAppHeaderCopy>
-      </MiniAppHeader>
+    <ExplorerOutgoingSectionFrame
+      section="uploads"
+      summary={getExplorerUploadsSummaryLabel({
+        outstandingCount,
+        totalCount: rows.length,
+      })}
+      title={EXPLORER_LABELS.uploadsTitle}
+    >
       {activeStatusText !== null &&
       (uploadManager.isImporting || uploadManager.queuedFileCount > 0) ? (
         <MiniAppStatus as="span" className="explorer-detail-import-status">
@@ -317,6 +296,6 @@ export function ExplorerUploadsPanel(params: ExplorerUploadsPanelProps) {
       ) : (
         <UploadsTable rows={rows} />
       )}
-    </MiniAppPanel>
+    </ExplorerOutgoingSectionFrame>
   );
 }

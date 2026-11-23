@@ -18,29 +18,23 @@ import { EXPLORER_LABELS } from "../labels";
 import type { ExplorerRoute } from "../routes";
 import { ExplorerBlobBrowserPanel } from "./blob/ExplorerBlobBrowserPanel";
 import { ExplorerSyncLanesPanel } from "./sync/ExplorerSyncLanesPanel";
-import { ExplorerWriteQueuePanel } from "./sync/ExplorerWriteQueuePanel";
 import {
   type ExplorerDownloadDestinations,
   ExplorerDownloadsPanel,
 } from "./transfers/ExplorerDownloadsPanel";
-import { ExplorerUploadsPanel } from "./transfers/ExplorerUploadsPanel";
+import { ExplorerOutgoingPanel } from "./transfers/ExplorerOutgoingPanel";
 import "./ExplorerSectionsPanel.css";
 
-type ExplorerSectionTabId =
-  | "sync"
-  | "blobs"
-  | "writes"
-  | "downloads"
-  | "uploads";
+type ExplorerSectionTabId = "sync" | "blobs" | "outgoing" | "incoming";
 
+// The engine view and local blobs, then what waits in each direction.
 const EXPLORER_SECTION_TABS: ReadonlyArray<
   MiniAppTabDescriptor<ExplorerSectionTabId>
 > = [
   { id: "sync", label: EXPLORER_LABELS.syncLanesAction },
   { id: "blobs", label: EXPLORER_LABELS.blobBrowserAction },
-  { id: "writes", label: EXPLORER_LABELS.writeQueueAction },
-  { id: "downloads", label: EXPLORER_LABELS.downloadsAction },
-  { id: "uploads", label: EXPLORER_LABELS.uploadsAction },
+  { id: "outgoing", label: EXPLORER_LABELS.outgoingAction },
+  { id: "incoming", label: EXPLORER_LABELS.incomingAction },
 ];
 
 interface ExplorerSectionsPanelProps {
@@ -63,9 +57,8 @@ interface ExplorerSectionsPanelProps {
   }) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  openDownloadsRoute: () => void;
-  openUploadsRoute: () => void;
-  openWriteQueueRoute: () => void;
+  openIncomingRoute: () => void;
+  openOutgoingRoute: () => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
   selectDocumentProjection: (documentId: string, containerId: string) => void;
   blobPickTarget: BlobPickTarget | null;
@@ -95,7 +88,7 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
       />
     );
   }
-  if (route.view === "downloads") {
+  if (route.view === "incoming") {
     const downloadDestinations: ExplorerDownloadDestinations = {
       openBlobDetail: (storageKey) =>
         params.openBlobBrowserRoute({ storageKey }),
@@ -113,19 +106,9 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
       />
     );
   }
-  if (route.view === "uploads") {
+  if (route.view === "outgoing" || route.view === "write-queue-entry") {
     return (
-      <ExplorerUploadsPanel
-        domainScope={params.domainScope}
-        isAuthenticated={params.isAuthenticated}
-        online={params.online}
-        uploadManager={params.uploadManager}
-      />
-    );
-  }
-  if (route.view === "write-queue" || route.view === "write-queue-entry") {
-    return (
-      <ExplorerWriteQueuePanel
+      <ExplorerOutgoingPanel
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
         dbReady={params.dbReady}
         documentQueries={params.documentQueries}
@@ -137,9 +120,11 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
         openDocument={params.selectDocumentProjection}
         openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
         organizationNamesById={params.organizationNamesById}
+        section={route.view === "outgoing" ? route.section : null}
         selectedEntryKey={
           route.view === "write-queue-entry" ? route.entryKey : null
         }
+        uploadManager={params.uploadManager}
       />
     );
   }
@@ -165,29 +150,26 @@ function getActiveExplorerSectionTab(
   if (route.view === "blob-browser") {
     return "blobs";
   }
-  if (route.view === "write-queue" || route.view === "write-queue-entry") {
-    return "writes";
+  if (route.view === "outgoing" || route.view === "write-queue-entry") {
+    return "outgoing";
   }
-  if (route.view === "downloads") return "downloads";
-  if (route.view === "uploads") {
-    return "uploads";
-  }
+  if (route.view === "incoming") return "incoming";
   return "sync";
 }
 
 /**
  * The full-screen Explorer diagnostics hub: route-backed tabs for transient
- * sync-lane telemetry, local blob state, durable pending writes/downloads,
- * and the session upload queue.
+ * sync-lane telemetry (both directions), local blob state, what waits to
+ * leave this device (uploads and the durable write queue), and what waits to
+ * reach it (the download queue and finished downloads).
  */
 export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
   const idPrefix = useId();
   const {
     openBlobBrowserRoute,
+    openIncomingRoute,
+    openOutgoingRoute,
     openSyncLanesRoute,
-    openDownloadsRoute,
-    openUploadsRoute,
-    openWriteQueueRoute,
     route,
   } = params;
   const activeTab = getActiveExplorerSectionTab(route);
@@ -197,26 +179,22 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
         openBlobBrowserRoute();
         return;
       }
-      if (tab === "writes") {
-        openWriteQueueRoute();
+      if (tab === "outgoing") {
+        // The tab opens at its top; only a link scrolls to a section.
+        openOutgoingRoute();
         return;
       }
-      if (tab === "downloads") {
-        openDownloadsRoute();
-        return;
-      }
-      if (tab === "uploads") {
-        openUploadsRoute();
+      if (tab === "incoming") {
+        openIncomingRoute();
         return;
       }
       openSyncLanesRoute();
     },
     [
       openBlobBrowserRoute,
+      openIncomingRoute,
+      openOutgoingRoute,
       openSyncLanesRoute,
-      openDownloadsRoute,
-      openUploadsRoute,
-      openWriteQueueRoute,
     ],
   );
 

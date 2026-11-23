@@ -66,9 +66,9 @@ test("each view link opens the path its destination writes", () => {
   ])
     fireEvent.click(view.getByRole("button", { name }));
   expect(onOpenView.mock.calls).toEqual([
-    [{ appId: "explorer", pathSegments: ["writes"] }],
-    [{ appId: "explorer", pathSegments: ["downloads"] }],
-    [{ appId: "explorer", pathSegments: ["uploads"] }],
+    [{ appId: "explorer", pathSegments: ["outgoing", "writes"] }],
+    [{ appId: "explorer", pathSegments: ["incoming"] }],
+    [{ appId: "explorer", pathSegments: ["outgoing", "uploads"] }],
     [{ appId: "explorer", pathSegments: ["sync"] }],
   ]);
   expect(onClose).toHaveBeenCalledTimes(4);

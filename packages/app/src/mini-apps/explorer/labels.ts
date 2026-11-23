@@ -2,6 +2,7 @@ import { formatByteLength } from "../../utils/formatByteLength";
 import { EXPLORER_LABELS as CATALOG_LABELS } from "./labelCatalog";
 import { EXPLORER_BLOB_BROWSER_LABELS } from "./shared/blobBrowserLabels";
 import { EXPLORER_CONTAINER_INFO_LABELS } from "./shared/containerInfoLabels";
+import { EXPLORER_DIRECTION_LABELS } from "./shared/directionLabels";
 import { EXPLORER_DOCUMENT_HISTORY_LABELS } from "./shared/documentHistoryLabels";
 import { EXPLORER_DOCUMENT_INFO_LABELS } from "./shared/documentInfoLabels";
 import { EXPLORER_DOWNLOAD_LABELS } from "./shared/downloadLabels";
@@ -16,6 +17,7 @@ export const EXPLORER_LABELS = {
   ...EXPLORER_BLOB_BROWSER_LABELS,
   ...EXPLORER_CONTAINER_INFO_LABELS,
   ...EXPLORER_DOCUMENT_HISTORY_LABELS,
+  ...EXPLORER_DIRECTION_LABELS,
   ...EXPLORER_DOCUMENT_INFO_LABELS,
   ...EXPLORER_INFO_ROW_DETAIL_LABELS,
   ...EXPLORER_SYNC_LABELS,
@@ -436,7 +438,7 @@ export function getExplorerUploadQueuedSuffix(queuedFileCount: number): string {
   return ` ${queuedFileCount} more file${queuedFileCount === 1 ? "" : "s"} queued.`;
 }
 
-// The Uploads panel subtitle: total tracked files this session, plus how many
+// The Uploads section summary: total tracked files this session, plus how many
 // are still moving (importing, waiting, or syncing).
 export function getExplorerUploadsSummaryLabel(input: {
   outstandingCount: number;

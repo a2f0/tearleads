@@ -105,8 +105,6 @@ test("renders the session empty state", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
-      isAuthenticated
-      online
       uploadManager={manager()}
     />,
   );
@@ -118,8 +116,6 @@ test("lists items newest-first with per-item statuses and summary", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
-      isAuthenticated
-      online
       uploadManager={manager({
         items: [
           item({ fileName: "first.txt", id: "upload-1", status: "cancelled" }),
@@ -154,8 +150,6 @@ test("an active run shows the global status line with a working cancel", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
-      isAuthenticated
-      online
       uploadManager={manager({
         cancel: () => {
           cancelCount += 1;
@@ -195,8 +189,6 @@ test("bounds large lists until more rows are requested", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
-      isAuthenticated
-      online
       uploadManager={manager({ items })}
     />,
   );
@@ -212,8 +204,6 @@ test("a failed upload announces its status with the error beneath", () => {
   const view = render(
     <ExplorerUploadsPanel
       domainScope={createDomainScope()}
-      isAuthenticated
-      online
       uploadManager={manager({
         items: [
           item({ error: "read failed", status: "failed" }),

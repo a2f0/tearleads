@@ -412,7 +412,7 @@ test("the Sync toolbar action opens the Explorer diagnostics hub", async () => {
   expect(openedSyncLanes).toEqual([1]);
 });
 
-test("the Write Queue route returns to Explorer", async () => {
+test("the Outgoing route returns to Explorer", async () => {
   const returned: number[] = [];
   const baseModel = createExplorerModel();
   const view = render(
@@ -421,7 +421,7 @@ test("the Write Queue route returns to Explorer", async () => {
         model={createExplorerModel({
           routeState: {
             ...baseModel.routeState,
-            route: { view: "write-queue" },
+            route: { section: null, view: "outgoing" },
             showSelectionRoute: () => returned.push(1),
           },
         })}

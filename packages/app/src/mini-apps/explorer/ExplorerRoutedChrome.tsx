@@ -322,15 +322,19 @@ function useExplorerRoutedBackAction({
           label: EXPLORER_LABELS.syncLanesBackToListAction,
           onBack: () => model.routeState.openSyncLanesRoute({ replace: true }),
         };
+      // Back to the Outgoing tab, scrolled to the write queue the entry is in.
       case "write-queue-entry":
         return {
-          label: EXPLORER_LABELS.writeQueueBackToListAction,
-          onBack: () => model.routeState.openWriteQueueRoute({ replace: true }),
+          label: EXPLORER_LABELS.outgoingBackAction,
+          onBack: () =>
+            model.routeState.openOutgoingRoute({
+              replace: true,
+              section: "writes",
+            }),
         };
       case "sync-lanes":
-      case "write-queue":
-      case "downloads":
-      case "uploads":
+      case "outgoing":
+      case "incoming":
         return {
           label: EXPLORER_LABELS.syncLanesBackAction,
           onBack: () => model.routeState.showSelectionRoute({ replace: true }),
@@ -351,8 +355,8 @@ function useExplorerRoutedBackAction({
     }
   }, [
     model.routeState.navigateBackFromBlobBrowser,
+    model.routeState.openOutgoingRoute,
     model.routeState.openSyncLanesRoute,
-    model.routeState.openWriteQueueRoute,
     model.routeState.showSelectionRoute,
     model.selectDocumentProjection,
     ownsDetailBack,

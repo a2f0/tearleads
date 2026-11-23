@@ -35,7 +35,7 @@ import {
 } from "./explorerUploadState";
 
 export interface ExplorerUploadManager {
-  // Cancels everything outstanding across all containers (the Uploads panel).
+  // Cancels everything outstanding across all containers (Outgoing's Uploads).
   cancel: () => void;
   // Cancels only what targets one container: its queued selections, and the
   // active run when it is importing into that container.
@@ -157,7 +157,7 @@ async function runUploadSelection(input: {
   }
 }
 
-// The two cancel affordances: global (the Uploads panel) and per-container
+// The two cancel affordances: global (Outgoing's Uploads) and per-container
 // (a container detail's status line). Both drop matching queued selections
 // immediately; a matching ACTIVE run is aborted at its next batch boundary.
 function useUploadCancellation(input: {
