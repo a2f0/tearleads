@@ -1,13 +1,17 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import { documentUpdates } from "@tearleads/api-shared/schema";
-import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
+import { satisfiesVersionVector } from "@tearleads/loro";
 import type {
   DocumentOutgoingUpdate,
   DocumentSyncRequest,
 } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { getLatestDocumentContentKeyEpoch } from "../../../access/read/documentContentKeyStore";
+import {
+  committedFrontierAfterBaselineCursor,
+  hasCommittedDocumentUpdate,
+} from "./committedDocumentUpdates";
 import { DocumentMutationError } from "./errors";
 import { readWriteHeader } from "./shared/records";
 
@@ -73,10 +77,10 @@ function assertNewBaselineSound(input: {
  * A request that ADVANCES the content-key epoch is a rotation (e.g. the
  * stale-bundle heal after a container KEK rotation). Rotated-away epochs
  * become undecryptable for every reader, so the advance must be anchored by a
- * NEWLY WRITTEN rotation baseline that dominates the whole committed
- * frontier — otherwise uncovered old-epoch updates are served forever, poison
- * every reader's all-or-nothing decrypt, and the document never converges
- * (mirrors the atomic unlink's
+ * NEWLY WRITTEN rotation baseline that dominates the committed frontier
+ * after its signed cursor — otherwise uncovered old-epoch updates are served
+ * forever, poison every reader's all-or-nothing decrypt, and the document
+ * never converges (mirrors the atomic unlink's
  * assertAtomicRotationBaselineCoversCommittedFrontier). A replayed,
  * already-committed baseline id cannot anchor it: the append path's
  * idempotent-retry equality check would keep its ORIGINAL (old-epoch) write
@@ -116,13 +120,7 @@ export async function assertSyncRotationBaselinesSound(input: {
     return;
   }
 
-  const committedUpdates = await input.executor
-    .select({
-      partialEndVersionVector: documentUpdates.partialEndVersionVector,
-    })
-    .from(documentUpdates)
-    .where(eq(documentUpdates.documentId, input.documentId));
-  if (committedUpdates.length === 0) {
+  if (!(await hasCommittedDocumentUpdate(input.executor, input.documentId))) {
     return;
   }
   if (baselines.length === 0) {
@@ -152,13 +150,16 @@ export async function assertSyncRotationBaselinesSound(input: {
     );
   }
 
-  const committedFrontier = mergeVersionVectors(
-    committedUpdates.map((update) => update.partialEndVersionVector),
-  );
   for (const baseline of newBaselines) {
     assertNewBaselineSound({
       baseline,
-      committedFrontier,
+      committedFrontier: await committedFrontierAfterBaselineCursor(
+        input.executor,
+        {
+          coversThroughUpdateId: baseline.coversThroughUpdateId,
+          documentId: input.documentId,
+        },
+      ),
       requestContentKeyEpoch: input.request.contentKeyEpoch,
     });
   }

@@ -69,6 +69,18 @@ bounded attempts, and that every device eventually holds what a fresh reader on
 its decoder holds. See the
 [production mapping, negative controls, and bounds](./VoidUpdateProgress.md).
 
+## Rotation Baselines Past a False Op Span
+
+[`BaselineCursorCoverage.tla`](./BaselineCursorCoverage.tla)
+models the server's coverage checks for a rotation baseline over a log that
+can hold an overclaimed op span. A baseline signs its author's processed
+cursor only when its snapshot holds the frontier the cursor was recorded
+with, and the gate and the redirect weigh only updates committed after it. It
+requires that no accepted baseline lacks a truthful operation, that an author
+that judged the whole log is never refused, and that a new reader starts at
+the latest accepted baseline. See the
+[production mapping, negative controls, and bounds](./BaselineCursorCoverage.md).
+
 ## Opened-Document Recovery Probes
 
 [Raw-history reconstruction](../../docs/raw-document-history-recovery.md) before

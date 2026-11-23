@@ -106,6 +106,10 @@ function createDocumentOutgoingUpdateSchema(
       checkpointPayloadKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
         .optional(),
+      coversThroughUpdateId: registerJsonSchemaFragment(
+        z.string().refine(isUuidV4String),
+        { pattern: UUID_V4_PATTERN.source, type: "string" },
+      ).optional(),
       encryptedData: encryptedDataSchema,
       id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
         pattern: UUID_V4_PATTERN.source,

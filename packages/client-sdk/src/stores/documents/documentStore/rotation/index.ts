@@ -1,16 +1,12 @@
 import { encodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
-  assertNoVoidedDocumentSyncUpdates,
   createDocumentWriterPublicKeyResolver,
   type DocumentRotationProofMode,
   type DocumentSyncPullContinuation,
-  processLoroRuntimeFailures,
   RemoteDocumentService,
   readPullContinuation,
   resolveDocumentCreateAuthor,
-  type SyncRemoteDocumentResult,
-  validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
 
 import { requestDocumentStoreSync } from "../../registry";
@@ -29,7 +25,6 @@ import {
   isDocumentStoreSyncGenerationCurrent,
 } from "../sync/syncGeneration";
 import { deleteUpstreamDeletedDocument } from "../sync/syncRequest";
-import { documentIncomingUpdateIsolationFailureHandler } from "../sync/syncShared";
 import { importSyncedDocumentUpdates } from "../sync/syncUpdateImport";
 import {
   currentRecordedRotationProof,
@@ -40,16 +35,14 @@ import {
   importProvenOrdinaryPendingHistory,
 } from "./rotationProvenance";
 import {
+  RotationRawHistoryVoids,
+  rotationIncomingUpdateIsolation,
+} from "./rotationRawHistoryJudge";
+import {
   invalidatePullContinuationBeforeRotation,
   RotationPendingUpdatesChangedError,
   settleOrdinaryDocumentUpdatesBeforeRotation,
 } from "./rotationSettlement";
-
-function ordinaryRawHistoryUpdates<T extends { checkpointKind?: string }>(
-  updates: readonly T[],
-): T[] {
-  return updates.filter((update) => update.checkpointKind === undefined);
-}
 
 function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
   if (state.persistence.supportsAtomicRecoveryHistoryPruning !== true) {
@@ -85,50 +78,12 @@ function assertRotationRecoveryGeneration(input: {
   }
 }
 
-function rotationIncomingUpdateIsolation(input: {
-  currentDocument: DocumentState;
-  generation: DocumentStoreSyncGeneration;
-  state: DocumentStoreState;
-}) {
-  return {
-    onIncomingUpdateIsolationFailure:
-      documentIncomingUpdateIsolationFailureHandler(
-        input.state,
-        input.generation,
-      ),
-    validateIncomingUpdates: async (
-      result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
-    ) => {
-      // Rotation re-encrypts this history, so a void stays a failure here.
-      // It records no runtime attempts, so its failures count toward none.
-      const judgeWhole = async (
-        decryptedUpdates: SyncRemoteDocumentResult["decryptedUpdates"],
-        responseUpdates = result.response.updates,
-      ) =>
-        assertNoVoidedDocumentSyncUpdates(
-          await validateDocumentSyncUpdateImports({
-            currentDocument: input.currentDocument,
-            decryptedUpdates,
-            responseUpdates,
-            runtimeLedger: processLoroRuntimeFailures.unrecorded(),
-          }),
-        );
-      await judgeWhole(result.decryptedUpdates);
-      const ordinary = ordinaryRawHistoryUpdates(result.decryptedUpdates);
-      const ids = new Set(ordinary.map((update) => update.id));
-      return judgeWhole(
-        ordinary,
-        result.response.updates.filter((update) => ids.has(update.id)),
-      );
-    },
-  };
-}
-
 async function pullVerifiedRawHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   generation: DocumentStoreSyncGeneration;
   rebuiltDocument: DocumentState;
   state: DocumentStoreState;
+  voids: RotationRawHistoryVoids;
 }) {
   const { author, documentId, encapsulationKeyPair } =
     assertRotationRecoveryPrerequisites(input.state);
@@ -196,12 +151,10 @@ async function pullVerifiedRawHistoryForRotation(input: {
     }
 
     assertRotationRecoveryGeneration(input);
-    assertNoVoidedDocumentSyncUpdates(synced.voidedUpdates);
-
-    importSyncedDocumentUpdates(
-      input.rebuiltDocument,
-      ordinaryRawHistoryUpdates(synced.decryptedUpdates),
-    );
+    input.voids.notePage(synced);
+    // Exactly what a sync pass applies: every accepted served update,
+    // checkpoints included. A void or unsettled one never gets here.
+    importSyncedDocumentUpdates(input.rebuiltDocument, synced.decryptedUpdates);
     if (!synced.hasIncompletePull) return synced;
 
     const nextContinuation = readPullContinuation(synced.response);
@@ -230,16 +183,19 @@ async function collectVerifiedRawHistoryForRotation(input: {
   const consumedPullContinuation = input.state.pullContinuation;
   const writerProjectionGeneration = input.state.writerProjectionGeneration;
   const rebuiltDocument = await createStoredDocument(input.state);
+  const voids = new RotationRawHistoryVoids();
   try {
     const synced = await pullVerifiedRawHistoryForRotation({
       ...input,
       rebuiltDocument,
+      voids,
     });
     return {
       consumedPullContinuation,
       currentRecord: input.currentRecord,
       rebuiltDocument,
       synced,
+      voids,
       writerProjectionGeneration,
     };
   } catch (error) {
@@ -300,6 +256,9 @@ function installRotationRecovery(input: {
           currentDocument: currentDoc,
           rebuiltDocument: collection.rebuiltDocument,
         });
+        // Only a proven rebuild vouches for the voids it left out. They are
+        // recorded while the pass is current, which the install ends.
+        await collection.voids.record({ generation, state });
         return installRebuiltDocument({
           consumedPullContinuation: collection.consumedPullContinuation,
           currentRecord: collection.currentRecord,
@@ -355,9 +314,11 @@ async function recoverFullHistoryForRotation(
 
   // A raw recovery starts from an empty scratch document, bypasses untrusted
   // rotation-baseline redirects, drains every retained page in memory, and
-  // publishes nothing until all response updates have validated. Checkpoints
-  // are authenticated and decrypted but are not reconstruction inputs: the
-  // original ordinary update stream is the source of truth in this mode.
+  // publishes nothing until all response updates have validated. It rebuilds
+  // what an honest sync pass applied, no more and no less: every ordinary
+  // update, so no checkpoint's coverage stands in for one, and every served
+  // checkpoint the judge accepted, which can only add its writer's signed
+  // operations. A checkpoint queued or installed locally is never an input.
   let collection = await collectVerifiedRawHistoryForRotation({
     currentRecord,
     generation,

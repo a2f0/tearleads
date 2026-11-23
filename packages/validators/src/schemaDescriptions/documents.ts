@@ -93,6 +93,8 @@ describeSchema(
       "`rotate_baseline` when the update is a rotation baseline; absent for an ordinary update.",
     checkpointPayloadKind:
       "`full_history_snapshot` for a rotation baseline; absent otherwise.",
+    coversThroughUpdateId:
+      "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered.",
     encryptedData:
       "Base64 ciphertext of the update under the document content key.",
     id: "Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical.",
@@ -149,6 +151,8 @@ describeSchema(
     authorFingerprint: "Signing key fingerprint of the writer.",
     checkpointKind: "`rotate_baseline` when the update is a rotation baseline.",
     checkpointPayloadKind: "`full_history_snapshot` for a rotation baseline.",
+    coversThroughUpdateId:
+      "For a rotation baseline, the signed processed cursor it was written with.",
     encryptedData: "Base64 ciphertext of the update.",
     partialEndVersionVector:
       "Version vector the update brings the document to.",

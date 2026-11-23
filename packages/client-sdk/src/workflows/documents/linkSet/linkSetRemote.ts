@@ -342,6 +342,7 @@ async function relinkRemoteDocumentOnce(
   if (!materializedPlan) return null;
   const request = await completeLinkSetMutationRequest({
     author: input.author,
+    execSql: input.execSql,
     materializedPlan,
     operation: input.operation,
     rotationSnapshot: input.rotationSnapshot,

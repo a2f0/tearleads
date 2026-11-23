@@ -81,7 +81,10 @@ async function createForgedRotationBaseline(
   };
 }
 
-test("raw recovery quarantines a same-page forged rotation baseline", async () => {
+// A checkpoint whose snapshot reuses the honest writer's operation ids with
+// other content is void, as an ordinary pull judges it: the rotation keeps it
+// out of the history it proves and goes on.
+test("raw recovery voids a same-page forged rotation baseline", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-forged-baseline",
   );
@@ -119,72 +122,27 @@ test("raw recovery quarantines a same-page forged rotation baseline", async () =
         return request.historyMode === "raw" ? rawResponse : response;
       },
     });
-    let injectCheckpointBeforeInstall = true;
-    const racingPersistence = {
-      ...sqlDocumentsPersistence,
-      commitDocumentMutation: async (
-        ...args: Parameters<
-          typeof sqlDocumentsPersistence.commitDocumentMutation
-        >
-      ) => {
-        if (injectCheckpointBeforeInstall && args[1].historyCheckpoint) {
-          injectCheckpointBeforeInstall = false;
-          await sqlDocumentsPersistence.enqueuePendingUpdate(
-            args[0],
-            {
-              localId,
-              partialEndVersionVector: forged.vectors.partialEndVersionVector,
-              partialStartVersionVector:
-                forged.vectors.partialStartVersionVector,
-              sourceVersionVector: forged.vectors.partialEndVersionVector,
-              updateData: bytesToBase64(forged.snapshot),
-            },
-            {
-              expectedDocumentId: fixture.writerProjection.documentId,
-              expectedRecoveryGeneration: 0,
-            },
-          );
-        }
-        return sqlDocumentsPersistence.commitDocumentMutation(...args);
-      },
-    };
     const state = createDocumentStoreState(
       localId,
       runtime,
-      racingPersistence,
+      sqlDocumentsPersistence,
       noopDocumentStorePersistenceEffects,
       fixture.writerProjection.documentId,
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
-    expect(
-      await enqueuePendingUpdate(
-        state,
-        forged.snapshot,
-        forged.vectors.partialEndVersionVector,
-      ),
-    ).toBe(true);
-
-    const historyBefore = await sqlDocumentsPersistence.loadHistoryRestoreState(
-      execSql,
-      localId,
-    );
     const pendingBefore = await listPendingUpdates(state);
-    const error = await assertDocumentStoreCanRotateContentKey(state).then(
-      () => null,
-      (thrown: unknown) => thrown,
-    );
 
-    expect(isDocumentSyncUpdateIsolationError(error)).toBe(true);
-    if (!isDocumentSyncUpdateIsolationError(error)) return;
-    // Judged one update at a time, the forged baseline is named exactly.
-    expect(error.attribution).toBe("update");
-    expect(error.updateId).toBe("550e8400-e29b-41d4-a716-446655440445");
-    expect(error.stage).toBe("loro_import");
-    expect(await hasTerminalFailures(execSql)).toBe(true);
-    expect(await listPendingUpdates(state)).toEqual(pendingBefore);
+    await assertDocumentStoreCanRotateContentKey(state);
+    // An import void depends on the history it is judged against, so the
+    // rotation leaves it out unrecorded; a sync pass that meets it records it.
     expect(
-      await sqlDocumentsPersistence.loadHistoryRestoreState(execSql, localId),
-    ).toEqual(historyBefore);
+      await execSql(
+        "SELECT update_id, stage FROM document_void_updates WHERE local_id = ?",
+        [localId],
+      ),
+    ).toEqual([]);
+    expect(await hasTerminalFailures(execSql)).toBe(false);
+    expect(await listPendingUpdates(state)).toEqual(pendingBefore);
     expect(state.doc && getTextValue(state.doc)).toBe("survives key rotation");
     expect(requests).toEqual([{ historyMode: "raw", outgoingIds: [] }]);
   } finally {

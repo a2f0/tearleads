@@ -150,6 +150,9 @@ async function assertDocumentSyncResponseUpdateHashes(input: {
     ...(update.checkpointPayloadKind === undefined
       ? {}
       : { checkpointPayloadKind: update.checkpointPayloadKind }),
+    ...(update.coversThroughUpdateId === undefined
+      ? {}
+      : { coversThroughUpdateId: update.coversThroughUpdateId }),
     documentId: update.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,

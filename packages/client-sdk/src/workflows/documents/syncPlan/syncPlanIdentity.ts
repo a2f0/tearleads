@@ -169,6 +169,9 @@ export async function signDocumentOutgoingUpdate(input: {
     ...(input.update.checkpointPayloadKind === undefined
       ? {}
       : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
+    ...(input.update.coversThroughUpdateId === undefined
+      ? {}
+      : { coversThroughUpdateId: input.update.coversThroughUpdateId }),
     id: input.update.id,
     encryptedData: input.update.encryptedData,
     partialStartVersionVector: input.update.partialStartVersionVector,

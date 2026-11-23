@@ -58,6 +58,51 @@ test("snapshot identity matches replay of separately exported commits", async ()
   }
 });
 
+// A reader that held the seed before a checkpoint arrived and a rotation
+// rebuild that imported the checkpoint first hold the same operations, split
+// at different places. Rotation proved its rebuild against the reader's
+// document and failed on every attempt.
+test("full-history identity ignores how imports split the same operations", async () => {
+  const author = await createDocument("segmentation-author");
+  const live = await createDocument("segmentation-live");
+  const rebuilt = await createDocument("segmentation-rebuilt");
+  try {
+    author.getText("text").update("seed\n");
+    author.commit();
+    const seed = exportUpdatesSince(author);
+    const seedVersion = encodeVersionVector(author);
+    author.getText("text").update("seed\nalice\n");
+    author.commit();
+    const checkpoint = exportFullHistorySnapshot(author);
+    const checkpointVersion = encodeVersionVector(author);
+    author.getText("text").update("seed\nalice\nchild\n");
+    author.commit();
+    const child = exportUpdatesSince(author, checkpointVersion);
+    expect(seedVersion).not.toBe(checkpointVersion);
+
+    importUpdates(live, [seed]);
+    importSnapshot(live, checkpoint);
+    importUpdates(live, [child]);
+    importSnapshot(rebuilt, checkpoint);
+    importUpdates(rebuilt, [seed, child]);
+    const split = (document: typeof live) =>
+      document
+        .exportJsonUpdates(undefined, undefined, false)
+        .changes.flatMap((change) => change.ops.map((op) => op.content));
+    expect(split(live)).not.toEqual(split(rebuilt));
+    expect(exportFullHistoryIdentity(rebuilt)).toBe(
+      exportFullHistoryIdentity(live),
+    );
+    expect(exportFullHistoryIdentity(live)).toBe(
+      exportFullHistoryIdentity(author),
+    );
+  } finally {
+    author.free();
+    live.free();
+    rebuilt.free();
+  }
+});
+
 test("full-history identity detects forged operations at the same frontier", async () => {
   const genuine = await createDocument("history-identity-fork");
   genuine.getText("text").update("genuine first");
@@ -168,6 +213,37 @@ test("update identity matches only the document's exact operation range", async 
 
   expect(updateMatchesDocumentHistory(genuine, genuineUpdate)).toBe(true);
   expect(updateMatchesDocumentHistory(genuine, forgedUpdate)).toBe(false);
+});
+
+// A reader that pulled the first half of a change on its own splits it where
+// a snapshot carrying the whole change does not. The sync judge voided such a
+// checkpoint, and with it every update built on the operations it carried.
+test("update identity accepts a snapshot that completes a change the document holds part of", async () => {
+  const author = await createDocument("partial-change-author");
+  const reader = await createDocument("partial-change-reader");
+  try {
+    author.getText("text").update("seed\n");
+    author.commit();
+    const seed = exportUpdatesSince(author);
+    author.getText("text").update("seed\nalice\n");
+    author.commit();
+    const checkpoint = exportFullHistorySnapshot(author);
+
+    importUpdates(reader, [seed]);
+    importSnapshot(reader, checkpoint);
+    expect(updateMatchesDocumentHistory(reader, checkpoint)).toBe(true);
+
+    const forged = await createDocument("partial-change-author");
+    forged.getText("text").update("seed\nalicE\n");
+    forged.commit();
+    expect(
+      updateMatchesDocumentHistory(reader, exportFullHistorySnapshot(forged)),
+    ).toBe(false);
+    forged.free();
+  } finally {
+    author.free();
+    reader.free();
+  }
 });
 
 test("update identity rejects malformed bytes", async () => {

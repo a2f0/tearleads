@@ -41,6 +41,14 @@ function baselineSourceVersionVector(
     : (update.sourceVersionVector ?? null);
 }
 
+function baselineCoversThroughUpdateId(
+  update: DocumentOutgoingUpdate,
+): string | null {
+  return update.checkpointKind === undefined
+    ? null
+    : (update.coversThroughUpdateId ?? null);
+}
+
 function acceptedOutgoingUpdateIds(
   updates: readonly DocumentOutgoingUpdate[],
   acceptedUpdateIds: ReadonlySet<string>,
@@ -80,6 +88,7 @@ async function insertNewDocumentUpdates(input: {
         partialEndVersionVector: update.partialEndVersionVector,
         plaintextHash: update.plaintextHash,
         baselineSourceVersionVector: baselineSourceVersionVector(update),
+        baselineCoversThroughUpdateId: baselineCoversThroughUpdateId(update),
       })),
     )
     .onConflictDoNothing({ target: documentUpdates.id })

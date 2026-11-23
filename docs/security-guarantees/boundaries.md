@@ -146,13 +146,15 @@ device's own update ([preempted operations](../advisory-op-spans.md#preempted-op
 and one whose payload fails the Loro runtime holds a reader's sync of that
 document for up to three process lifetimes before it is void
 ([runtime failures](../advisory-op-spans.md#loro-runtime-failures)).
-One update whose declared span overclaims operations also blocks content-key
-rotation and unlink of that document for every writer: rotation re-encrypts
-a raw history that must apply whole, and the API refuses a rotation baseline
-that does not cover the frontier the committed updates declare
-([processed cursor](../advisory-op-spans.md#the-processed-cursor)). Edits,
-reads, and attachment binds continue; the document keeps its content key
-until a signed baseline can say which updates it covers (issue #3135).
+A writer whose updates are all void leaves a document with an empty snapshot,
+which encodes no rotation baseline, and the baseline-less unlink requires no
+committed update, so no writer can unlink that document. A device that rotates
+with an older decoder leaves an update a newer decoder reads out of the
+baseline, and so out of what new readers start from
+([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks)). A
+rotation judges raw history with no rebuild budget, so a writer who commits
+many voids behind a large update makes each rotation, and so each unlink, of
+that document rebuild once per void.
 
 ## Information-Disclosure Scenarios
 

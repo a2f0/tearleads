@@ -21,6 +21,7 @@ import { writeHeaderRecord } from "./shared/records";
 export interface SyncCheckpointMetadata {
   readonly checkpointKind: "rotate_baseline";
   readonly checkpointPayloadKind: "full_history_snapshot";
+  readonly coversThroughUpdateId?: string | undefined;
   readonly sourceVersionVector: string;
 }
 
@@ -63,6 +64,7 @@ export async function authenticateSyncCheckpointForResponse(
 
   const authenticated = await isAuthenticatedReplayableBaseline({
     checkpointKind: input.checkpoint.checkpointKind,
+    coversThroughUpdateId: input.checkpoint.coversThroughUpdateId,
     documentId: input.documentId,
     metadataHash: input.metadataHash,
     partialEndVersionVector: input.partialEndVersionVector,
@@ -96,6 +98,9 @@ function storedSyncCheckpoint(
     : {
         checkpointKind: "rotate_baseline",
         checkpointPayloadKind: "full_history_snapshot",
+        ...(update.baselineCoversThroughUpdateId === null
+          ? {}
+          : { coversThroughUpdateId: update.baselineCoversThroughUpdateId }),
         sourceVersionVector: update.baselineSourceVersionVector,
       };
 }
@@ -134,6 +139,9 @@ function toSyncUpdate(
       : {
           checkpointKind: checkpoint.checkpointKind,
           checkpointPayloadKind: checkpoint.checkpointPayloadKind,
+          ...(checkpoint.coversThroughUpdateId === undefined
+            ? {}
+            : { coversThroughUpdateId: checkpoint.coversThroughUpdateId }),
         }),
     id: update.id,
     documentId: update.documentId,

@@ -242,7 +242,9 @@ describeSchema(
     documentSync:
       "The document's first queued update, committed with the bind under every check a standalone sync makes.",
     documentVersionVector:
-      "Encoded Loro version vector of the document the uploader checked the slot against. The API refuses the bind with `409 attachment_document_changed` while the document has a committed update this version lacks; the uploader pulls, checks the slot still asks for these bytes, and retries with the newer version.",
+      "Encoded Loro version vector of the document the uploader checked the slot against. The API refuses the bind with `409 attachment_document_changed` while the document has a committed update, after `processedThroughUpdateId` when one is sent, that this version lacks; the uploader pulls, checks the slot still asks for these bytes, and retries with the newer version.",
+    processedThroughUpdateId:
+      "The uploader's processed cursor, sent only with a version that covers the frontier recorded with it. The API weighs only the updates committed after it, so an update the uploader voided does not refuse the bind; an id this document does not hold weighs every update.",
     stagedBlob:
       "The blob stage to promote; absent when binding a blob that is already committed.",
   },
@@ -275,7 +277,9 @@ describeSchema(
     containerRekeys:
       "Container rekeys to commit first in the same transaction.",
     documentVersionVector:
-      "Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed.",
+      "Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update, after `processedThroughUpdateId` when one is sent, that this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed.",
+    processedThroughUpdateId:
+      "The client's processed cursor, sent as on a bind: the API weighs only the updates committed after it; an id this document does not hold weighs every update.",
   },
 );
 

@@ -109,6 +109,45 @@ function recordedImportJudgements(
   return { knownVoids, runtimeAttempts };
 }
 
+async function readRecordedImportJudgements(input: {
+  readonly execSql: ExecSql;
+  readonly result: Pick<
+    SyncRemoteDocumentResult,
+    "contentKeyFingerprintsByEpoch" | "decryptedUpdates"
+  >;
+  readonly scope: DocumentScope;
+}): Promise<RecordedImportJudgements> {
+  await ensureDocumentTables(input.execSql);
+  const recorded = await readRecordedImportVoids(
+    getClientSQLitePersistenceRuntime(input.execSql).db,
+    {
+      judge: documentVerdictJudge(),
+      scope: input.scope,
+      updateIds: input.result.decryptedUpdates.map((update) => update.id),
+    },
+  );
+  return recordedImportJudgements(
+    recorded,
+    input.result.contentKeyFingerprintsByEpoch,
+  );
+}
+
+/**
+ * The final voids this scope recorded for a page's updates, under the running
+ * judge and the keys the page holds: a judge that records nothing, such as a
+ * rotation's raw-history judge, keeps them void without a Loro call.
+ */
+export async function readRecordedDocumentSyncVoids(input: {
+  readonly execSql: ExecSql;
+  readonly result: Pick<
+    SyncRemoteDocumentResult,
+    "contentKeyFingerprintsByEpoch" | "decryptedUpdates"
+  >;
+  readonly scope: DocumentScope;
+}): Promise<ReadonlyMap<string, DocumentVoidStage>> {
+  return (await readRecordedImportJudgements(input)).knownVoids;
+}
+
 /**
  * Judges a sync page's imports against `currentDocument`. An update this
  * scope already voided at a stage the import judge decides, under the
@@ -138,17 +177,8 @@ export async function judgeDocumentSyncImports(input: {
   readonly scope: DocumentScope;
 }): Promise<DocumentSyncImportVerdicts> {
   const { result } = input;
-  await ensureDocumentTables(input.execSql);
-  const recorded = await readRecordedImportVoids(
-    getClientSQLitePersistenceRuntime(input.execSql).db,
-    {
-      judge: documentVerdictJudge(),
-      scope: input.scope,
-      updateIds: result.decryptedUpdates.map((update) => update.id),
-    },
-  );
   const verdicts = await validateDocumentSyncUpdateImports({
-    ...recordedImportJudgements(recorded, result.contentKeyFingerprintsByEpoch),
+    ...(await readRecordedImportJudgements(input)),
     currentDocument: input.currentDocument,
     decryptedUpdates: result.decryptedUpdates,
     responseUpdates: result.response.updates,

@@ -115,7 +115,7 @@
             "maxLength": 16777216,
             "minLength": 1,
             "type": "string",
-            "description": "Encoded Loro version vector of the document the uploader checked the slot against. The API refuses the bind with `409 attachment_document_changed` while the document has a committed update this version lacks; the uploader pulls, checks the slot still asks for these bytes, and retries with the newer version."
+            "description": "Encoded Loro version vector of the document the uploader checked the slot against. The API refuses the bind with `409 attachment_document_changed` while the document has a committed update, after `processedThroughUpdateId` when one is sent, that this version lacks; the uploader pulls, checks the slot still asks for these bytes, and retries with the newer version."
           },
           "event": {
             "type": "object",
@@ -124,7 +124,8 @@
           },
           "processedThroughUpdateId": {
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "type": "string"
+            "type": "string",
+            "description": "The uploader's processed cursor, sent only with a version that covers the frontier recorded with it. The API weighs only the updates committed after it, so an update the uploader voided does not refuse the bind; an id this document does not hold weighs every update."
           },
           "stagedBlob": {
             "$ref": "#/components/schemas/BlobStagedBlobRequest",
@@ -275,7 +276,7 @@
             "maxLength": 16777216,
             "minLength": 1,
             "type": "string",
-            "description": "Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed."
+            "description": "Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update, after `processedThroughUpdateId` when one is sent, that this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed."
           },
           "event": {
             "type": "object",
@@ -284,7 +285,8 @@
           },
           "processedThroughUpdateId": {
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-            "type": "string"
+            "type": "string",
+            "description": "The client's processed cursor, sent as on a bind: the API weighs only the updates committed after it; an id this document does not hold weighs every update."
           }
         },
         "required": [
@@ -3166,6 +3168,10 @@
                   "type": "string",
                   "const": "full_history_snapshot"
                 },
+                "coversThroughUpdateId": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
                 "encryptedData": {
                   "maxLength": 16777216,
                   "minLength": 1,
@@ -3594,6 +3600,11 @@
             "type": "string",
             "const": "full_history_snapshot",
             "description": "`full_history_snapshot` for a rotation baseline; absent otherwise."
+          },
+          "coversThroughUpdateId": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+            "type": "string",
+            "description": "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered."
           },
           "encryptedData": {
             "type": "string",
@@ -4100,6 +4111,10 @@
                   "type": "string",
                   "const": "full_history_snapshot"
                 },
+                "coversThroughUpdateId": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "type": "string"
+                },
                 "encryptedData": {
                   "maxLength": 16777216,
                   "minLength": 1,
@@ -4300,6 +4315,10 @@
             "type": "string",
             "const": "full_history_snapshot",
             "description": "`full_history_snapshot` for a rotation baseline."
+          },
+          "coversThroughUpdateId": {
+            "type": "string",
+            "description": "For a rotation baseline, the signed processed cursor it was written with."
           },
           "createdAt": {
             "type": "string"
@@ -13002,7 +13021,7 @@
         "security": [],
         "x-tearleads-runtime-refinements": [
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "request.rotation-checkpoint-fields"
           },
           {
@@ -14474,7 +14493,7 @@
             "id": "request.processed-cursor-frontier"
           },
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "request.rotation-checkpoint-fields"
           }
         ]
@@ -15196,7 +15215,7 @@
             "id": "request.container-create-metadata-seed"
           },
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "request.rotation-checkpoint-fields"
           }
         ]
@@ -17186,7 +17205,7 @@
             "id": "request.post-link-authorization-path-total-references"
           },
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "request.rotation-checkpoint-fields"
           }
         ]
@@ -17653,11 +17672,11 @@
             "id": "request.processed-cursor-frontier"
           },
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "request.rotation-checkpoint-fields"
           },
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "response.rotation-checkpoint-fields"
           },
           {
@@ -17812,7 +17831,7 @@
             "id": "request.post-link-authorization-path-total-references"
           },
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "request.rotation-checkpoint-fields"
           }
         ]
@@ -18089,7 +18108,7 @@
             "id": "request.document-create-seed"
           },
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "request.rotation-checkpoint-fields"
           }
         ]
@@ -21378,7 +21397,7 @@
         ],
         "x-tearleads-runtime-refinements": [
           {
-            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+            "description": "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
             "id": "request.rotation-checkpoint-fields"
           },
           {

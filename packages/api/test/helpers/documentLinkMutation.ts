@@ -162,6 +162,8 @@ export async function buildDocumentUnlinkRequest(input: {
   readonly remainingContainerPath?:
     | readonly AccessManifestBundleWire[]
     | undefined;
+  /** The rotation baseline's signed processed cursor. */
+  readonly rotationBaselineCoversThroughUpdateId?: string | undefined;
   readonly rotationBaselineSourceVersionVector?: string;
   readonly root: StoredRootFixture;
   readonly unlinkedContainer?: StoredRootFixture | undefined;
@@ -240,6 +242,7 @@ export async function buildDocumentUnlinkRequest(input: {
     ),
     accessManifestHash: manifestHash,
     contentKeyEpoch,
+    coversThroughUpdateId: input.rotationBaselineCoversThroughUpdateId,
     documentId,
     organizationId: state.organizationId,
     owner: input.owner,
