@@ -25,7 +25,11 @@ test("the Billing tab's Refresh reloads the organization and its deliveries, bus
     );
     fireEvent.click(view.getByRole("tab", { name: "Billing" }));
     await view.findByText(/RENEWAL · applied/);
-    const refresh = rootToolbar(view).getByRole("button", { name: "Refresh" });
+    // The toolbar shows a registration a render after the view, so the
+    // deliveries can show while Refresh still reads "Refreshing...".
+    const refresh = await rootToolbar(view).findByRole("button", {
+      name: "Refresh",
+    });
     await waitFor(() =>
       expect(refresh.getAttribute("aria-busy")).toBe("false"),
     );
@@ -47,7 +51,9 @@ test("the Billing tab's Refresh reloads the organization and its deliveries, bus
       held.resolve({ ok: true, data: { events: [], nextCursor: null } }),
     );
     await view.findByText("No RevenueCat deliveries.");
-    expect(refresh.getAttribute("aria-busy")).toBe("false");
+    await waitFor(() =>
+      expect(refresh.getAttribute("aria-busy")).toBe("false"),
+    );
   } finally {
     detail.mockRestore();
     deliveries.mockRestore();

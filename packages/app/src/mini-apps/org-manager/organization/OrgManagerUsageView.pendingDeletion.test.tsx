@@ -122,9 +122,12 @@ test("the pending deletion tab takes the window Refresh over from Org Manager's 
     sdk.organizations,
     "listPendingBlobDeletions",
   ).mockResolvedValue(PENDING_PAGE);
-  const clickRefresh = () =>
+  // Waits for an idle Refresh: the toolbar shows a registration a render
+  // after the view, so the queue can show while it still reads
+  // "Refreshing...".
+  const clickRefresh = async () =>
     fireEvent.click(
-      within(view.getByRole("toolbar")).getByRole("button", {
+      await within(view.getByRole("toolbar")).findByRole("button", {
         name: "Refresh",
       }),
     );
@@ -137,7 +140,7 @@ test("the pending deletion tab takes the window Refresh over from Org Manager's 
     );
     await view.findByText("private-pending-blob");
     expect(request).toHaveBeenCalledTimes(1);
-    clickRefresh();
+    await clickRefresh();
     await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
     expect(orgManagerRefresh).not.toHaveBeenCalled();
 
@@ -145,7 +148,7 @@ test("the pending deletion tab takes the window Refresh over from Org Manager's 
     fireEvent.click(
       view.getByRole("tab", { name: DATA_USAGE_LABELS.usageSyncedTab }),
     );
-    clickRefresh();
+    await clickRefresh();
     expect(orgManagerRefresh).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledTimes(2);
   } finally {
