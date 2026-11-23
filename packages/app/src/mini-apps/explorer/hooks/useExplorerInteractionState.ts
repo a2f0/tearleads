@@ -2,7 +2,6 @@ import type { DocumentSummary } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { useTearleadsExternalValue } from "../../../providers/sdk/useTearleadsSubscription";
 import { explorerDocumentQueryContainerId } from "../../../stores/explorer/orphanedDocuments";
-import { usePrimeDiscoveredDocuments } from "../../../stores/explorer/primeDiscoveredDocuments";
 import {
   cancelExplorerRefresh,
   explorerRefreshState,
@@ -37,13 +36,11 @@ export function useExplorerInteractionState(params: {
     onDocumentLinksChanged,
   } = params;
   const { reconciler, view } = explorer;
-  const { primeDiscoveredDocuments } = usePrimeDiscoveredDocuments();
 
   useExplorerViewProjectionSync({
     activeContainerId: explorerDocumentQueryContainerId(activeContainerId),
     mergeDocumentSummaries,
     onDocumentLinksChanged,
-    primeDiscoveredDocuments,
     view,
   });
 

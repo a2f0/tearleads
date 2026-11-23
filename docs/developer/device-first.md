@@ -168,8 +168,25 @@ stores own encrypted content sync and attachment hydration. Hint-driven
 reconciliation passes `force` and `documentId` to the content puller, and hints
 merge their targets into one trailing pass that revalidates only the named
 registered stores. A full force without a target, including Refresh and
-reconnect, revalidates every registered store. Ordinary discovery does not open
-every document.
+reconnect, revalidates every registered store. Discovery itself does not open
+documents.
+
+The device-first scope opens them instead, in the background, whatever the
+host is showing. Its discovered-document primer
+([`discoveredDocumentPrimer.ts`](../../packages/client-sdk/src/client/deviceFirst/discoveredDocumentPrimer.ts)),
+started and stopped with the scope's reconciler, watches the local
+projection and opens the store of every remote document in each summary list
+it publishes. Opening a store pulls the document's content and attachments,
+and a registered store is what later hints revalidate. Each published list is
+opened once; the projection swaps a container's list when its documents
+change, so only new lists are new work. The primer runs only while the scope
+can sync (database ready, authenticated, online), so local-only mode and an
+offline device open nothing, and it batches a burst of projection changes
+into one pass. It honors
+[organization sync pauses](../organization-memberships.md#pausing-sync): a
+container whose organization is paused is skipped and left unmarked, so
+resuming opens it, and while the pause set cannot be read nothing is opened.
+Pausing does not close stores already open; their pulls are held as usual.
 
 Three bounded probes close gaps that container discovery cannot observe:
 
@@ -220,9 +237,9 @@ pin or signed transitions from a pin or genesis. Later container pins
 purge is unsigned. Missing history without a local pin defers deletion without
 an incident; bare 404s remain non-destructive, and 403s keep normal parking
 behavior. The same coded-404 path completes a purge whose successful POST
-response was lost. After the initial missing-listing convergence pass, ordinary
-documents that have never been opened remain lazy until a document window,
-explicit registered-store revalidation, or other owning workflow opens them.
+response was lost. Beyond that pass, the scope's discovered-document primer
+(above) opens each discovered document, so ordinary documents are not left
+lazy while the scope can sync and their organization is not paused.
 
 Remote document discovery requires a current metadata document for every
 container. Local-first [roots](../glossary/access.md#root-container), regular folders,
@@ -289,7 +306,9 @@ The app subscribes rather than orchestrating network:
 - [`useExplorerViewProjectionSync.ts`](../../packages/app/src/mini-apps/explorer/hooks/useExplorerViewProjectionSync.ts)
   calls `view.setActiveContainer(activeContainerId)`, which drives Layer B
   priority, and surfaces the active container's summaries from the
-  `LocalProjectionView` snapshot into the Explorer view model.
+  `LocalProjectionView` snapshot into the Explorer view model. It opens no
+  documents: the SDK's discovered-document primer does that whether or not
+  Explorer is mounted.
 - [`useExplorerInteractionState.ts`](../../packages/app/src/mini-apps/explorer/hooks/useExplorerInteractionState.ts)
   runs Refresh through `reconciler.reconcileNow()` and open-time catch-up
   through `reconciler.reconcileRootContainersNow()`, each with a signal. The

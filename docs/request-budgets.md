@@ -211,8 +211,10 @@ local application.
   one its projection applied: the author's echo of its own post-mutation read
   or committed delta costs nothing, and a sibling client still refreshes.
 - Explicit Refresh or Sync is a recovery signal. Opened documents probe on
-  startup, acknowledged reconnect or forced invalidation; unopened ordinary
-  documents stay lazy, and system projections are eager.
+  startup, acknowledged reconnect or forced invalidation. While the scope can
+  sync, the device-first scope opens every discovered document of an unpaused
+  organization in the background, so each one costs one probe per session
+  whichever view is showing; system projections are eager.
 - A held container whose listed metadata version vector the local copy does
   not cover owes its metadata document one read, so a lost metadata hint is
   recovered at the next reconnect, restart or refresh
