@@ -1,7 +1,6 @@
 import { ClipboardTextIcon } from "@phosphor-icons/react/dist/csr/ClipboardText";
 import {
   type MiniAppRouteSetOptions,
-  useMiniAppRouteSegments,
   useWindowTitleBarAction,
 } from "@tearleads/windowing";
 import { useMiniAppDetailBackAction } from "../../components/mini-app/useMiniAppDetailBackAction";
@@ -32,18 +31,18 @@ function rootAuditSubjectId(route: RootRoute): string | null {
  * {@link chromeOwnsRouteBackedDetailBack}.
  */
 export function useRootRoutedChromeActions({
+  historyCanGoBack,
   openAudit,
   route,
   setRoute,
 }: {
+  /** Whether the host can step back: `useMiniAppRouteSegments().canGoBack`. */
+  historyCanGoBack: boolean;
   openAudit: (subjectId: string) => void;
   route: RootRoute;
   setRoute: (route: RootRoute, options?: MiniAppRouteSetOptions) => void;
 }) {
-  const { canGoBack } = useMiniAppRouteSegments("root");
-  const parentRoute = chromeOwnsRouteBackedDetailBack({
-    historyCanGoBack: canGoBack,
-  })
+  const parentRoute = chromeOwnsRouteBackedDetailBack({ historyCanGoBack })
     ? rootDetailParentRoute(route)
     : null;
   useMiniAppDetailBackAction(

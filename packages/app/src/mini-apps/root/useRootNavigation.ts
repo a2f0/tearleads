@@ -6,56 +6,26 @@ import {
   REPORTS_ROOT_ROUTE,
   type RootOrganizationTab,
   type RootReportId,
-  type RootReturn,
+  type RootReturnRoute,
   type RootRoute,
   type RootView,
   rootRouteForView,
 } from "./routes";
-
-/** The return fields a detail route already carries, without empty ones. */
-function carriedReturn({
-  returnReportId,
-  returnSubjectId,
-  returnView,
-}: RootReturn): RootReturn {
-  if (!returnView) return {};
-  return {
-    returnView,
-    ...(returnReportId ? { returnReportId } : {}),
-    ...(returnSubjectId ? { returnSubjectId } : {}),
-  };
-}
 
 /**
  * The return a detail opened from `route` carries, so Back comes back here. A
  * detail opened from another detail passes that one's return along, so a walk
  * that started in the audit trail or a report still ends back there.
  */
-function returnTo(route: RootRoute): RootReturn {
-  if (route.view === "reports")
-    return carriedReturn({
-      returnView: "reports",
-      ...(route.reportId ? { returnReportId: route.reportId } : {}),
-    });
-  if (route.view === "audit")
-    return carriedReturn({
-      returnView: "audit",
-      ...(route.subjectId ? { returnSubjectId: route.subjectId } : {}),
-    });
-  if (route.view === "organizations" || route.view === "identities")
-    return carriedReturn(route);
+function returnFrom(route: RootRoute): { readonly returnTo?: RootReturnRoute } {
+  if (route.view === "reports" || route.view === "audit")
+    return { returnTo: route };
+  if (
+    (route.view === "organizations" || route.view === "identities") &&
+    route.returnTo
+  )
+    return { returnTo: route.returnTo };
   return {};
-}
-
-function routeForReturn(
-  { returnReportId, returnSubjectId, returnView }: RootReturn,
-  fallback: RootRoute,
-): RootRoute {
-  if (returnView === "reports")
-    return { reportId: returnReportId ?? null, view: "reports" };
-  if (returnView === "audit")
-    return { subjectId: returnSubjectId ?? null, view: "audit" };
-  return fallback;
 }
 
 /**
@@ -70,15 +40,15 @@ export function rootDetailParentRoute(route: RootRoute): RootRoute | null {
   if (route.view === "organizations")
     return route.organizationId === null
       ? null
-      : routeForReturn(route, ORGANIZATIONS_ROOT_ROUTE);
+      : (route.returnTo ?? ORGANIZATIONS_ROOT_ROUTE);
   if (route.view !== "identities" || route.userId === null) return null;
   if (!route.returnOrganizationId)
-    return routeForReturn(route, IDENTITIES_ROOT_ROUTE);
+    return route.returnTo ?? IDENTITIES_ROOT_ROUTE;
   return {
     view: "organizations",
     organizationId: route.returnOrganizationId,
     tab: route.returnOrganizationTab ?? "identities",
-    ...carriedReturn(route),
+    ...returnFrom(route),
   };
 }
 
@@ -101,7 +71,7 @@ export function useRootNavigation(
               returnOrganizationTab: route.tab ?? "overview",
             }
           : {}),
-        ...returnTo(route),
+        ...returnFrom(route),
       }),
     [route, setRoute],
   );
@@ -111,7 +81,7 @@ export function useRootNavigation(
         view: "organizations",
         organizationId,
         ...(tab ? { tab } : {}),
-        ...returnTo(route),
+        ...returnFrom(route),
       }),
     [route, setRoute],
   );
