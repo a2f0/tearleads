@@ -137,6 +137,45 @@ new target if the target set only grows. For shrink, subsequent writes require a
 new document content-key epoch and a fresh baseline. Revocation remains
 forward-only unless old ciphertext is re-encrypted.
 
+### Content-Key Commitment
+
+AES-GCM does not commit to its key: a ciphertext can be crafted to open under
+two keys, and any ciphertext fails under a key its writer did not use. From a
+failure alone, a reader cannot tell a bad update from a key that is not the
+writer's. Each document content-key epoch therefore commits to its key (#3194).
+The commitment is an HKDF-SHA-256 output of the content key under the
+content-record salt, in the domain `tearleads.document.content-key-commitment`
+with the document id and epoch: 32 bytes, written as lowercase hex. It derives
+no record or plaintext-hash key, and two keys with one commitment would be a
+SHA-256 collision.
+
+- The bundle that opens an epoch declares its `contentKeyCommitment`, and the
+  API stores it once with the epoch. A bundle submitted again at a stored
+  epoch, such as a link that carries the key to a new target, must declare the
+  stored value; the API refuses (400) any other.
+- Every document update's encrypted envelope names the commitment of the key
+  it was encrypted under, and the signed `ciphertextHash` covers the envelope.
+  The API refuses (400) an update whose commitment is not its epoch's, so every
+  update of an epoch commits to one key.
+- A reader checks each key it unwraps against its epoch's commitment and
+  refuses one that does not match. Before decrypting an update, and only after
+  the update matches its signed header and ciphertext hash, it compares the
+  envelope's commitment with its key. A mismatch is an availability failure
+  that records no verdict. Under the committed key, an AES-GCM authentication
+  failure is a [void update](../glossary/content.md#void-update) at stage
+  `decrypt`, as a plaintext-hash mismatch is at `plaintext_integrity`, so every
+  reader that judges an update reaches the same verdict. Any other failure
+  while deriving keys or decrypting is the reader's own runtime, not a verdict:
+  stage `decrypt_runtime`.
+
+The API cannot read a wrap, so a member that opens an epoch or carries its key
+to a new target can still wrap another key to some target. A reader of that
+target fails the epoch's commitment and cannot read the epoch until a member
+holding the committed key opens a new one; see [Availability Is Out Of
+Scope](../security-guarantees/boundaries.md#availability-is-out-of-scope).
+[`ContentKeyCommitment.tla`](../../formal/document-sync/ContentKeyCommitment.tla)
+model checks these rules. Blob content keys and records carry no commitment.
+
 ### Content-Key And KEK Wrapping Suites
 
 Content-key and KEK wraps do not use the content-record HKDF suite. Their

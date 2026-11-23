@@ -22,6 +22,7 @@ formal/document-sync/BaselineCursorCoverage.tla|formal/document-sync/BaselineCur
 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg
 formal/document-sync/BaselineDominanceTraceExport.tla|formal/document-sync/BaselineDominanceTraceExport.cfg
 formal/document-sync/BlobEnvelopeAuthority.tla|formal/document-sync/BlobEnvelopeAuthority.cfg
+formal/document-sync/ContentKeyCommitment.tla|formal/document-sync/ContentKeyCommitment.cfg
 formal/document-sync/ContentWriteAuthority.tla|formal/document-sync/ContentWriteAuthority.cfg
 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
 formal/document-sync/DiscoveryPublication.tla|formal/document-sync/DiscoveryPublication.cfg

@@ -20,7 +20,10 @@ document. Document create and link-set mutation routes use signed document
   manifestHash}` citations of stored manifests; the API resolves the previous
   link-set manifest from its own store, and a create has none)
 - optional `containerRekeys[]`
-- a document [content-key bundle](./glossary/keys.md#content-key-bundle)
+- a document [content-key bundle](./glossary/keys.md#content-key-bundle),
+  which declares its epoch's
+  [content-key commitment](./glossary/keys.md#content-key-commitment): a new
+  epoch's commitment is stored, and a bundle at a stored epoch must repeat it
 
 The API verifies the event, verifies
 [container path](./glossary/access.md#authorizing-container-path)
@@ -167,6 +170,9 @@ For accepted writes, the API verifies:
 - content-key targets match the active document KEK target hash
 - the write header matches document id, organization id, manifest hash, target
   hash, content-key epoch, metadata hash, and ciphertext hash
+- the encrypted envelope names the
+  [content-key commitment](./glossary/keys.md#content-key-commitment) stored
+  for its epoch
 - duplicate update ids are idempotent only when the encrypted content and write
   header match the already accepted update
 
