@@ -68,17 +68,17 @@ test("identity routes return to Reports directly or through an organization", ()
     view: "identities",
     userId: "user-1",
     returnOrganizationId: "org-1",
-    returnView: "reports",
+    returnTo: { reportId: null, view: "reports" },
   });
   // The RevenueCat report links a delivery's buyer straight to identity detail.
   expect(parseRootRouteSegments(["identities", "user-1", "reports"])).toEqual({
     view: "identities",
     userId: "user-1",
-    returnView: "reports",
+    returnTo: { reportId: null, view: "reports" },
   });
   expect(
     formatRootRouteSegments({
-      returnView: "reports",
+      returnTo: { reportId: null, view: "reports" },
       userId: "user-1",
       view: "identities",
     }),
@@ -125,8 +125,7 @@ test("details opened from the audit trail return to it with its subject", () => 
     ]),
   ).toEqual({
     organizationId: "org-1",
-    returnSubjectId: "user-2",
-    returnView: "audit",
+    returnTo: { subjectId: "user-2", view: "audit" },
     tab: "overview",
     view: "organizations",
   });
@@ -177,8 +176,7 @@ test("reports open one at a time and details return to the report they came from
     ]),
   ).toEqual({
     organizationId: "org-1",
-    returnReportId: "data-usage",
-    returnView: "reports",
+    returnTo: { reportId: "data-usage", view: "reports" },
     tab: "data-usage",
     view: "organizations",
   });

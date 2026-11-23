@@ -1,6 +1,7 @@
 import {
   type MiniAppRouteSetOptions,
   useCompactRoutedMode,
+  useMiniAppRouteSegments,
   useWindowToolbarReservation,
 } from "@tearleads/windowing";
 import { useCallback } from "react";
@@ -64,7 +65,15 @@ function RootContent({
 }) {
   const { openAudit, openIdentity, openOrganization, openReport, setView } =
     useRootNavigation(route, setRoute);
-  useRootRoutedChromeActions({ openAudit, route, setRoute });
+  // Ask the host, not the global router: in a window this is the window's own
+  // Back stack, in the routed shell it is browser history.
+  const { canGoBack } = useMiniAppRouteSegments("root");
+  useRootRoutedChromeActions({
+    historyCanGoBack: canGoBack,
+    openAudit,
+    route,
+    setRoute,
+  });
 
   if (route.view === "menu") {
     return <RootMenu setView={setView} />;

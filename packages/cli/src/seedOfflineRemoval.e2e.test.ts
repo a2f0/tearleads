@@ -123,5 +123,6 @@ test.each(["seed", "personal"] as const)(
       server.stop(true);
     }
   },
-  90_000,
+  // Up to 52s on CI, and runners have run 1.8x slower; keep ~3x headroom.
+  180_000,
 );
