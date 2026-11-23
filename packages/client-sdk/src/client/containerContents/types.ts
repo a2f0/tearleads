@@ -257,13 +257,20 @@ export interface ContainerContents {
    * intervals) on their own, without the writer-projection/attachment work
    * `loadDocumentInfo` also does. Resolves to `null` on any request failure.
    * Callers must ignore the segments when `truncated` is set — a truncated
-   * interval list can drop a peer's segments and mis-resolve it.
+   * interval list can drop a peer's segments and mis-resolve it. Updates this
+   * device voided for good credit nothing (see `loadDocumentAttributionRanges`).
    */
   loadDocumentEditAttribution(
     documentId: string,
   ): Promise<DocumentEditAttributionResponse | null>;
 
-  /** Load one revision-bound page of detailed per-upload edit attribution. */
+  /**
+   * Load one revision-bound page of detailed per-upload edit attribution,
+   * without the ranges of updates this device voided for good: their declared
+   * spans are false, so the operations they claimed are credited to nobody.
+   * A page may therefore hold fewer ranges than its limit, or none while more
+   * follow.
+   */
   loadDocumentAttributionRanges(
     input: DocumentAttributionRangesInput,
   ): Promise<DocumentAttributionRangesPage>;
