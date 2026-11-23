@@ -62,8 +62,8 @@ test.each<
   ],
   ["a lift starts from rest", idle("denied"), startLift(), lifting],
   [
-    "a suspension starts from its confirmation",
-    confirming(),
+    "a suspension starts from its confirmation, clearing the last failure",
+    confirming("denied"),
     startSuspend(),
     suspending,
   ],

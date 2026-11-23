@@ -27,7 +27,6 @@ import {
 } from "./identitySuspensionMachine";
 import { describeRootFailure, describeThrown } from "./rootDisplay";
 
-// Module-level so an unchanged action matches its registration structurally.
 interface SuspensionAction {
   /** What the action reads while it runs, when that differs. */
   readonly busyLabel?: string;
@@ -35,6 +34,8 @@ interface SuspensionAction {
   readonly id: string;
   readonly label: string;
 }
+
+// Module-level so an unchanged action matches its registration structurally.
 // A lift has no dialog, so its label says it is running; a suspension's
 // confirmation dialog reads "Suspending..." instead.
 const LIFT_ACTION: SuspensionAction = {
@@ -62,6 +63,8 @@ function SuspendConfirmationDialog({
   const messageId = useId();
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Reflects the last render only; the suspension machine is what keeps a
+    // second submit from starting a second change.
     if (!busy) {
       onConfirm();
     }
