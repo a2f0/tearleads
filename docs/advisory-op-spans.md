@@ -139,10 +139,11 @@ is outside the guarantees either way.
 Rebinding or deleting the local record drops its cursor, void rows, and
 preemption notices.
 A founding view whose first update is void shows no founding update.
-Container metadata documents void the same way but keep no cursor, so every
-pull of one judges its voids again (each is still reported once), and a folder
-listing whose advertised version an overclaim left uncovered keeps that folder
-marked as behind.
+Container metadata documents void and keep a cursor the same way. A metadata
+pass records its verdicts and cursor in the transaction that saves the
+folder's metadata, and a save a concurrent one superseded records neither, so
+the next pull judges that page again. A folder listing whose advertised
+version an overclaim left uncovered still keeps that folder marked as behind.
 [`VoidUpdateProgress`](../formal/document-sync/VoidUpdateProgress.md) checks
 that no void update is applied, that readers agree, that a reader stays
 current, and that a runtime failure voids an update the decoder can read only
@@ -200,7 +201,9 @@ cursor's pull imported and the pull voided the rest. The sync and unlink gates
 weigh only the updates committed after that cursor, and a first page goes
 straight to a baseline when the baseline covers every later update it would
 skip. A baseline without a cursor, or with one the document does not hold,
-must cover every committed update. The API stores the cursor beside the
+must cover every committed update. A container metadata baseline signs the
+cursor its metadata pulls recorded, so an overclaim in a folder's metadata no
+longer refuses the folder's rotations. The API stores the cursor beside the
 baseline and authenticates it with the rest of the signed metadata, so a
 stored cursor that is not the signed one fails the pull closed.
 

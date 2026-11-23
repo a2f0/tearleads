@@ -119,6 +119,7 @@ async function settleSupersededMetadataMutation(input: {
 }
 async function persistPreparedMetadataMutation(input: {
   clearSyncFailure?: boolean | undefined;
+  commitSideEffect?: PersistContainerMetadataStateInput["commitSideEffect"];
   createIntentSettlement?: Parameters<
     ContainerContentsPersistence["commitMetadataMutation"]
   >[1]["createIntentSettlement"];
@@ -186,6 +187,7 @@ async function persistPreparedMetadataMutation(input: {
   const committed = await persistence.commitMetadataMutation(input.execSql, {
     acceptedPendingUpdateIds: input.acceptedPendingUpdateIds ?? [],
     clearSyncFailure: input.clearSyncFailure,
+    commitSideEffect: input.commitSideEffect,
     container: nextContainer,
     createIntentSettlement: input.createIntentSettlement,
     expectedContainer: prepared.mutationContainer,
@@ -310,6 +312,7 @@ async function persistContainerMetadataState(
       const persisted = await persistPreparedMetadataMutation({
         acceptedPendingUpdateIds: input.acceptedPendingUpdateIds,
         clearSyncFailure: input.clearSyncFailure,
+        commitSideEffect: input.commitSideEffect,
         createIntentSettlement: input.createIntentSettlement,
         execSql: lockedExecSql,
         metadataState: input.metadataState,
