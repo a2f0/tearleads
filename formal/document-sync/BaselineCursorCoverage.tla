@@ -27,24 +27,30 @@ EXTENDS Naturals, Sequences
 (* decoders, dependencies, and runtime failures). A rotation's author has  *)
 (* judged a prefix of the log for its cursor and built its snapshot from a *)
 (* prefix no longer than that, as a device whose snapshot predates its     *)
-(* latest pull does. A snapshot with no operations encodes no baseline;    *)
-(* EmptyFrontierUnlink covers the unlink that carries none.               *)
+(* latest pull does. An author that voided every update it judged holds an *)
+(* empty snapshot, and sends it as a baseline only with its cursor; with   *)
+(* neither, it sends no baseline, and EmptyFrontierUnlink covers that      *)
+(* unlink. The server refuses an empty baseline without a cursor, output   *)
+(* no honest client produces (#3194).                                      *)
 (*                                                                         *)
-(* Three switches each relax one rule, set safe in the registered config:  *)
+(* Four switches each relax one rule, set safe in the registered config:   *)
 (*   WeighAfterCursor       FALSE: the gate weighs every committed update   *)
 (*   SignCoveredCursorOnly  FALSE: a baseline signs its author's cursor     *)
 (*                          though its snapshot predates the cursor        *)
 (*   RedirectAfterCursor    FALSE: the redirect weighs every update it      *)
 (*                          would skip                                     *)
+(*   AcceptCursoredEmptyBaseline FALSE: the server refuses every empty     *)
+(*                          baseline, as it did before #3194               *)
 (***************************************************************************)
 
 CONSTANTS MaxWrites, MaxRotations,
-          WeighAfterCursor, SignCoveredCursorOnly, RedirectAfterCursor
+          WeighAfterCursor, SignCoveredCursorOnly, RedirectAfterCursor,
+          AcceptCursoredEmptyBaseline
 
 ASSUME /\ MaxWrites \in Nat \ {0}
        /\ MaxRotations \in Nat \ {0}
-       /\ {WeighAfterCursor, SignCoveredCursorOnly, RedirectAfterCursor}
-            \subseteq BOOLEAN
+       /\ {WeighAfterCursor, SignCoveredCursorOnly, RedirectAfterCursor,
+           AcceptCursoredEmptyBaseline} \subseteq BOOLEAN
 
 (* Write w carries id w; an overclaim also declares MaxWrites + w. *)
 Ops == 1..(2 * MaxWrites)
@@ -75,8 +81,10 @@ TruthfulOps == Judged(Len(log))
 CoversAfter(from, snapshot) ==
   \A i \in (from + 1)..Len(log) : log[i].declared \subseteq snapshot
 
+(* The server admits an empty baseline only when it signs a cursor.      *)
 Gate(snapshot, cursor) ==
-  CoversAfter(IF WeighAfterCursor THEN cursor ELSE 0, snapshot)
+  /\ snapshot # {} \/ (AcceptCursoredEmptyBaseline /\ cursor > 0)
+  /\ CoversAfter(IF WeighAfterCursor THEN cursor ELSE 0, snapshot)
 
 (* A fresh reader's first pull jumps to the latest baseline when the       *)
 (* baseline's source covers every update between where the pull starts    *)
@@ -126,7 +134,7 @@ Rotate ==
                           \/ ~SignCoveredCursorOnly
                        THEN cursor ELSE 0
        IN /\ prefix <= cursor
-          /\ snapshot # {}
+          /\ snapshot # {} \/ signed > 0
           /\ rotations' = rotations + 1
           /\ IF Gate(snapshot, signed)
                THEN /\ log' = Append(log,
@@ -152,8 +160,9 @@ Spec == Init /\ [][Next]_vars
 RotationKeepsTruthfulOps == ~lost
 
 (* An author that judged the whole log and holds what it imported is never *)
-(* refused, however many overclaims the log holds: only its own device     *)
-(* acts, so no device waits on another.                                   *)
+(* refused, however many overclaims the log holds, even when it voided     *)
+(* every update and its snapshot is empty: only its own device acts, so no *)
+(* device waits on another.                                               *)
 HonestRotationAccepted == ~refusedHonest
 
 (* A jump never skips a truthful operation the baseline lacks. *)
