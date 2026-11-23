@@ -143,7 +143,9 @@ export { documentCreateSeedCandidate } from "./sync/initialSync";
 export {
   judgeDocumentSyncImports,
   readProcessedCursorForSync,
+  readRecordedDocumentSyncVoids,
   recordDocumentSyncVerdicts,
+  recordUncursoredDocumentSyncVerdicts,
   reportDocumentSyncVoids,
 } from "./sync/processedCursor";
 export type { SyncRemoteDocumentRequest } from "./sync/remoteDocumentSyncPass";

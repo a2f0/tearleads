@@ -66,3 +66,18 @@ test("classifies source-vector presence by definedness", () => {
     }),
   ).toBe("rotation-baseline");
 });
+
+test("a processed cursor belongs only to a rotation baseline", () => {
+  const cursor = "550e8400-e29b-41d4-a716-446655440000";
+  expect(
+    classifyDocumentSyncCheckpointFields({ coversThroughUpdateId: cursor }),
+  ).toBe("invalid");
+  expect(
+    classifyDocumentSyncCheckpointFields({
+      checkpointKind: DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND,
+      checkpointPayloadKind: DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND,
+      coversThroughUpdateId: cursor,
+      sourceVersionVector: '{"actor":1}',
+    }),
+  ).toBe("rotation-baseline");
+});

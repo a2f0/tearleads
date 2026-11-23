@@ -41,6 +41,11 @@ export interface WriteHeader extends UnsignedWriteHeader {
 export interface DocumentContentRecordMetadataInput {
   checkpointKind?: "rotate_baseline";
   checkpointPayloadKind?: "full_history_snapshot";
+  /**
+   * A rotation baseline's processed cursor: every update committed at or
+   * before it was imported into the baseline or void for its author.
+   */
+  coversThroughUpdateId?: string | undefined;
   documentId: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;

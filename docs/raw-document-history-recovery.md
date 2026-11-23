@@ -18,38 +18,66 @@ Ordinary sync omits `historyMode`.
 A raw consumer must:
 
 1. start with an empty scratch document;
-2. authenticate, decrypt, and poison-isolate every response update;
+2. authenticate, decrypt, and poison-isolate every response update, and leave
+   out each [void update](./glossary/content.md#void-update) the import judge
+   names, as a sync pass does;
 3. retain the cursor and each page's verified projection state only in memory,
    then drain every bounded page;
-4. reconstruct from original ordinary updates, not `rotate_baseline`
-   checkpoints;
+4. reconstruct exactly what a sync pass applied: every original ordinary
+   update and every served `rotate_baseline` checkpoint the judge accepted,
+   and no checkpoint queued or installed on this device;
 5. use a preliminary raw pull to prove each ordinary pending delta
    operation-for-operation against the live history, settle only those proven
    rows, and then perform a definitive raw pull;
 6. publish the rebuilt document once through a guarded atomic install.
 
-Rotation checkpoints are still authenticated, decrypted, and scratch-imported
-during validation. They are excluded only from reconstruction, because their
-declared version-vector coverage is the value raw recovery is designed not to
-trust. The server retains original ciphertext, so the ordinary stream remains
-the recovery source of truth.
+Raw recovery never trusts a checkpoint's declared version-vector coverage:
+every ordinary update is imported whether or not a checkpoint claims to cover
+it, so a checkpoint can only add operations. A served checkpoint is
+reconstructed exactly when sync applies it to the live document: the judge
+accepted it, so it is signed by a writer of the document, authenticated, and
+consistent with every operation served before it. Its operations are in the
+live document, and a rebuild without them could never equal the live history,
+so every rotation and unlink of the document would fail. That makes the
+reconstruction no wider than sync: each page's judged updates go through the
+same import a sync pass applies to the live document. A checkpoint the judge
+voided, or whose verdict is unsettled, is one sync has not applied, and a
+checkpoint queued or installed on this device was never served, so none of
+them enters the rebuild.
 
 The built-in document content-key [rotation](./glossary/keys.md#rotate) preflight
-implements this contract. An interrupted page, a poison update, a changing
+implements this contract. It judges each page's stream as a sync pass does and
+leaves out its voids; a sync pass never applied a void either, so the rebuilt
+history must still equal the live one. A void this device already recorded
+stays void without a Loro call, and the judge has no rebuild budget, so it
+defers nothing. Once the rebuild proves equal to the live history, the
+rotation records each void its payload alone decides (a metadata or
+plaintext-integrity void) and reports it the first time this device meets it.
+An import void depends on the history it is judged against, which a sync pass
+may have started from a baseline, so the rotation leaves it out without
+recording it. An update held after a Loro runtime failure fails the rotation,
+which retries later
+([advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)).
+An interrupted page, a poison update, a changing
 document generation, or a superseding pane leaves the previous durable document
 intact. Durable pending ordinary rows are settled remotely before the baseline
 can be returned. Queued rotation checkpoints remain excluded from
 reconstruction.
 
-If a checkpoint is the only durable carrier of an operation, the client cannot
-prove that operation originated locally rather than in a forged checkpoint. A
-preliminary raw reconstruction therefore imports only queued ordinary local
+A checkpoint only this device holds, queued or installed locally, proves
+nothing about where its operations came from: the client cannot tell a local
+edit from one a forged checkpoint introduced. A preliminary raw reconstruction
+therefore imports, besides the served history, only queued ordinary local
 deltas and must contain the exact live operation history before settlement (it
 may also contain concurrent remote work). The deterministic operation-log
 identity type-tags binary, string, and structural values so distinct operation
 payloads cannot collapse to the same serialized identity. Each change's
 recorded commit time is part of that identity, so the same operations under
-different times are a different history. It detects a forged
+different times are a different history. Two holders of the same operations
+can split them into different runs by the path that imported them, as a
+reader that held part of a change does when a checkpoint brings the rest, so
+the identity replays each history into an empty document before comparing.
+It detects a forged
 checkpoint that reuses genuine version-vector identities, and per-row range
 comparison proves that each queued binary delta contains the live document's
 exact operations. The comparison reconstructs a partial peer range from its
@@ -68,11 +96,11 @@ included.
 
 A successful guarded install atomically retires every queued checkpoint and its
 matching local-history tail, whether or not its declared frontier is covered,
-because checkpoints are never recovery sources. Every other tail row must match
-the verified rebuild's exact operations for its declared range. This canonical
-comparison treats the two directions of a single-element deletion as
-equivalent: coalescing backspaces can change that span's length from `1` to
-`-1` without changing its target or position. Targets, positions, counters, and
+because a queued checkpoint is never a recovery source. Every other tail row
+must match the verified rebuild's exact operations for its declared range. This
+canonical comparison treats the two directions of a single-element deletion as
+equivalent: coalescing backspaces can change that span's length from `1` to `-1`
+without changing its target or position. Targets, positions, counters, and
 multi-element deletion order remain exact. The comparison is independent of
 Loro's update-versus-full-snapshot encoding, so a settled rotation baseline
 retained in the tail can be quarantined by a later recovery; version-vector
@@ -168,8 +196,9 @@ ordinary-sync request shape.
 
 The bounded TLA+ model
 [`RawHistoryRecovery.tla`](../formal/document-sync/RawHistoryRecovery.tla)
-explores arbitrary page assignment, ordinary/checkpoint classification,
-per-update validity, epoch availability, a bounded remote update arriving
+explores arbitrary page assignment, ordinary/served/local checkpoint
+classification, per-update validity, void and unsettled verdicts, epoch
+availability, a bounded remote update arriving
 between the preliminary and definitive pulls, and arbitrary preexisting
 durable history for three updates, two epochs, and two pages.
 
@@ -178,6 +207,10 @@ durable history for three updates, two epochs, and two pages.
 | `CommitPendingOrdinary` | identity-write-serialized bounded ordinary queue settlement only when every initial pending row belongs to the explicit `preliminaryProven` set |
 | `ValidatePreliminaryPage` | the first complete raw pull validates every bounded page before ordinary provenance settlement can start |
 | `ValidatePage` | `rotationIncomingUpdateIsolation` plus scratch import and verified projection-state carry-forward in `pullVerifiedRawHistoryForRotation`; invalid empty continuations fail instead of retrying |
+| `VoidUpdates` | the voids `rotationIncomingUpdateIsolation` leaves out of the rebuild, recorded by `RotationRawHistoryVoids` once the rebuild is proven |
+| `AcceptedServedCheckpoints` / `RebuildCheckpoints` | served `rotate_baseline` checkpoints the judge accepted, imported with each page through `importSyncedDocumentUpdates`, the import sync applies to the live document |
+| `UnsettledUpdates` | `assertRotationVerdictsSettled` fails the pass on a held or runtime-pending verdict |
+| `RejectInexactHistory` | `assertExactDocumentHistory` fails with unverified local history when the rebuild differs from the live history |
 | `RejectPreliminaryUnavailablePage` / `RejectUnavailablePage` | `DocumentRawHistoryUnavailableError` after a present verified bundle cannot yield a key on either pull |
 | `RejectPreliminaryInvalidPage` / `RejectInvalidPage` | poison isolation on either pull, which takes precedence over availability reporting |
 | `VerifyOrdinaryProvenance` / `RejectUnverifiedLocalGap` | preliminary raw reconstruction plus exact full-history comparison proves queued ordinary deltas before settlement and rejects checkpoint substitution |
@@ -191,6 +224,7 @@ durable history for three updates, two epochs, and two pages.
 | `FinishBlockedWriterAfterRecovery` / `blockedWriterFence` | recovery advances the durable generation, so a writer that captured the prior generation is rejected; the model fault control disables this check and lets its stale checkpoint overwrite recovered history |
 | `PublishRecovery` | identity-write-serialized final verification and guarded `installRebuiltDocument`, including commit-time generation revalidation and atomic quarantine of every queued checkpoint artifact |
 | `ordinaryUpdates` | raw decrypted updates without `rotate_baseline` checkpoints |
+| `initialQueuedCheckpoints` | checkpoints queued or installed on this device, which the raw pull never serves and the rebuild never imports |
 
 The checked invariants require that:
 
@@ -201,9 +235,13 @@ The checked invariants require that:
 - definitive raw collection starts only after settlement, and publication only
   from the exact-history-proven `ready` state;
 - incomplete or failed recovery preserves the old durable history;
-- successful recovery contains every retained ordinary update and retires every
-  queued checkpoint artifact;
-- scratch state never trusts a rotation checkpoint, and checkpoint artifacts
+- successful recovery contains exactly the history a sync pass applies, every
+  retained ordinary update and accepted served checkpoint and no void update,
+  and retires every queued checkpoint artifact;
+- every failure has a cause in the recovery's inputs, never a void update or
+  a served checkpoint sync applied;
+- scratch state never holds a checkpoint queued or installed on this device,
+  a voided one, or one whose verdict is unsettled, and checkpoint artifacts
   appended during collection survive every failure or retire with the
   successful transaction;
 - unverified local history never publishes;

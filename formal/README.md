@@ -125,6 +125,10 @@ Model-specific gaps:
   writes, and a payload that kills the process rather than failing the runtime.
 - `RawHistoryRecovery` progress assumes awaited worker operations return; it
   does not cover retries, cancellation, or network failure.
+- `BaselineCursorCoverage` treats every reader as voiding exactly the
+  overclaims; decoders, dependencies, and runtime failures are
+  `VoidUpdateProgress`'s. A writer that signs a cursor past its own snapshot
+  is outside it.
 - `RestartProbeConvergence` and the honest `NoBrickedDevice` configuration bound
   the number of server writes, so their eventual-convergence checks reach a
   quiescent server; they do not show catch-up under unbounded writes.

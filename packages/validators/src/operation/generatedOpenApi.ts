@@ -1750,11 +1750,12 @@ export type components = {
             contentKeyBundle: components["schemas"]["BlobContentKeyBundleRequest"];
             /** @description The document's first queued update, committed with the bind under every check a standalone sync makes. */
             documentSync?: components["schemas"]["DocumentSyncRequest"];
-            /** @description Encoded Loro version vector of the document the uploader checked the slot against. The API refuses the bind with `409 attachment_document_changed` while the document has a committed update this version lacks; the uploader pulls, checks the slot still asks for these bytes, and retries with the newer version. */
+            /** @description Encoded Loro version vector of the document the uploader checked the slot against. The API refuses the bind with `409 attachment_document_changed` while the document has a committed update, after `processedThroughUpdateId` when one is sent, that this version lacks; the uploader pulls, checks the slot still asks for these bytes, and retries with the newer version. */
             documentVersionVector: string;
             event: {
                 [key: string]: unknown;
             };
+            /** @description The uploader's processed cursor, sent only with a version that covers the frontier recorded with it. The API weighs only the updates committed after it, so an update the uploader voided does not refuse the bind; an id this document does not hold weighs every update. */
             processedThroughUpdateId?: string;
             /** @description The blob stage to promote; absent when binding a blob that is already committed. */
             stagedBlob?: components["schemas"]["BlobStagedBlobRequest"];
@@ -1799,11 +1800,12 @@ export type components = {
             body: unknown;
             /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
-            /** @description Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed. */
+            /** @description Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update, after `processedThroughUpdateId` when one is sent, that this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed. */
             documentVersionVector: string;
             event: {
                 [key: string]: unknown;
             };
+            /** @description The client's processed cursor, sent as on a bind: the API weighs only the updates committed after it; an id this document does not hold weighs every update. */
             processedThroughUpdateId?: string;
         } & {
             [key: string]: unknown;
@@ -2683,6 +2685,7 @@ export type components = {
                 checkpointKind?: "rotate_baseline";
                 /** @constant */
                 checkpointPayloadKind?: "full_history_snapshot";
+                coversThroughUpdateId?: string;
                 encryptedData: string;
                 id: string;
                 partialEndVersionVector: string;
@@ -2824,6 +2827,8 @@ export type components = {
              * @constant
              */
             checkpointPayloadKind?: "full_history_snapshot";
+            /** @description For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. */
+            coversThroughUpdateId?: string;
             /** @description Base64 ciphertext of the update under the document content key. */
             encryptedData: string;
             /** @description Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical. */
@@ -2976,6 +2981,7 @@ export type components = {
                 checkpointKind?: "rotate_baseline";
                 /** @constant */
                 checkpointPayloadKind?: "full_history_snapshot";
+                coversThroughUpdateId?: string;
                 encryptedData: string;
                 id: string;
                 partialEndVersionVector: string;
@@ -3042,6 +3048,8 @@ export type components = {
              * @constant
              */
             checkpointPayloadKind?: "full_history_snapshot";
+            /** @description For a rotation baseline, the signed processed cursor it was written with. */
+            coversThroughUpdateId?: string;
             createdAt: string;
             documentId: string;
             /** @description Base64 ciphertext of the update. */

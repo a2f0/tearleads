@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { verifyWriteHeader, type WriteHeader } from "@tearleads/crypto";
+import {
+  computeDocumentContentRecordMetadataHash,
+  verifyWriteHeader,
+  type WriteHeader,
+} from "@tearleads/crypto";
 import {
   createDocument,
   emptyVersionVector,
@@ -9,12 +13,19 @@ import {
   importSnapshot,
   versionVectorsEqual,
 } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createAuthor,
   fixtureHash,
 } from "../../../test/helpers/data/documentFixtures";
 import { decryptDocumentSyncUpdates } from "../../data/documents/shared/crypto";
+import { documentVerdictJudge } from "../../data/documents/shared/sync/documentUpdateVerdict";
+import { ensureDocumentTables } from "../../data/persistence/documents/records";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { buildDocumentRotationBaseline } from "./rotationBaseline";
+
+/** A device that has recorded no processed cursor. */
+const noCursorExecSql: ExecSql = async () => [];
 
 test("buildDocumentRotationBaseline encrypts and signs against the new access boundary", async () => {
   const { author, signingPublicKey } = await createAuthor();
@@ -31,6 +42,7 @@ test("buildDocumentRotationBaseline encrypts and signs against the new access bo
   const baseline = await buildDocumentRotationBaseline({
     authorizingContainerPathRefs: [],
     author,
+    execSql: noCursorExecSql,
     contentKey,
     contentKeyEpoch: 2,
     documentId,
@@ -104,6 +116,7 @@ test("buildDocumentRotationBaseline returns null for a zero-span empty document"
   const baseline = await buildDocumentRotationBaseline({
     authorizingContainerPathRefs: [],
     author,
+    execSql: noCursorExecSql,
     contentKey: crypto.getRandomValues(new Uint8Array(32)),
     contentKeyEpoch: 2,
     documentId: crypto.randomUUID(),
@@ -115,4 +128,81 @@ test("buildDocumentRotationBaseline returns null for a zero-span empty document"
   });
 
   expect(baseline).toBeNull();
+});
+
+// The API weighs only updates committed after a baseline's signed cursor, so
+// a baseline signs one only when its snapshot holds what that cursor's pull
+// imported: otherwise it would stand for updates it does not hold.
+test("an unlink baseline signs the processed cursor its snapshot covers", async () => {
+  const { author } = await createAuthor();
+  const document = await createDocument("cursor-rotation-baseline");
+  document.getText("text").update("judged");
+  document.commit();
+  const judged = getImportBlobMetadata(
+    exportFullHistorySnapshot(document),
+  ).partialEndVersionVector;
+  const documentId = crypto.randomUUID();
+  const throughUpdateId = crypto.randomUUID();
+  const { close, execSql } = await createTestExecSql("baseline-cursor");
+  try {
+    await ensureDocumentTables(execSql);
+    const build = async (snapshot: Uint8Array) =>
+      buildDocumentRotationBaseline({
+        authorizingContainerPathRefs: [],
+        author,
+        contentKey: crypto.getRandomValues(new Uint8Array(32)),
+        contentKeyEpoch: 2,
+        documentId,
+        execSql,
+        expectedLinkSetManifestHash: await fixtureHash("cursor-manifest"),
+        expectedTargetHash: await fixtureHash("cursor-target"),
+        organizationId: author.organizationId,
+        signedAt: "2026-07-14T00:00:00.000Z",
+        snapshot,
+      });
+    const recordCursor = (throughVersion: string) =>
+      execSql(
+        `INSERT OR REPLACE INTO document_sync_progress (app_kind, local_id,
+           document_id, through_update_id, through_version, judge)
+         VALUES ('documents', 'local', ?, ?, ?, ?)`,
+        [documentId, throughUpdateId, throughVersion, documentVerdictJudge()],
+      );
+
+    expect(
+      (await build(exportFullHistorySnapshot(document)))?.coversThroughUpdateId,
+    ).toBeUndefined();
+    await recordCursor(judged);
+    const covering = await build(exportFullHistorySnapshot(document));
+    expect(covering?.coversThroughUpdateId).toBe(throughUpdateId);
+    const header = covering?.writeHeader as unknown as WriteHeader;
+    expect(header.metadataHash).toBe(
+      await computeDocumentContentRecordMetadataHash({
+        checkpointKind: "rotate_baseline",
+        checkpointPayloadKind: "full_history_snapshot",
+        coversThroughUpdateId: throughUpdateId,
+        documentId,
+        partialEndVersionVector: judged,
+        partialStartVersionVector: emptyVersionVector(),
+        plaintextHash: covering?.plaintextHash ?? "",
+        sourceVersionVector: judged,
+        updateId: covering?.id ?? "",
+      }),
+    );
+
+    // A cursor recorded past what the snapshot holds is not signed.
+    document.getText("text").update("judged later");
+    document.commit();
+    await recordCursor(
+      getImportBlobMetadata(exportFullHistorySnapshot(document))
+        .partialEndVersionVector,
+    );
+    const behind = await createDocument("behind-rotation-baseline");
+    behind.getText("text").update("judged");
+    behind.commit();
+    expect(
+      (await build(exportFullHistorySnapshot(behind)))?.coversThroughUpdateId,
+    ).toBeUndefined();
+  } finally {
+    close();
+  }
 });

@@ -2,6 +2,8 @@ import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const MODULE = "formal/document-sync/VoidUpdateProgress.tla";
 const CONFIG = "formal/document-sync/VoidUpdateProgress.cfg";
+const BASELINE_MODULE = "formal/document-sync/BaselineCursorCoverage.tla";
+const BASELINE_CONFIG = "formal/document-sync/BaselineCursorCoverage.cfg";
 
 export const VOID_UPDATE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
@@ -75,5 +77,29 @@ export const VOID_UPDATE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { CursorPastUnsettled: "TRUE" },
     expect: { kind: "invariant", name: "ProcessedDevicesAgree" },
     why: "A cursor recorded past an update the runtime failed on keeps it from being served again, so the device never holds it (#3135).",
+  },
+  {
+    id: "baseline-cursor-gate-weighs-all",
+    module: BASELINE_MODULE,
+    config: BASELINE_CONFIG,
+    constants: { WeighAfterCursor: "FALSE" },
+    expect: { kind: "invariant", name: "HonestRotationAccepted" },
+    why: "A gate that weighs every committed update refuses each rotation, and so each unlink, of a document holding one overclaim (#3135).",
+  },
+  {
+    id: "baseline-cursor-signed-past-snapshot",
+    module: BASELINE_MODULE,
+    config: BASELINE_CONFIG,
+    constants: { SignCoveredCursorOnly: "FALSE" },
+    expect: { kind: "invariant", name: "RotationKeepsTruthfulOps" },
+    why: "A baseline that signs a cursor its snapshot predates is accepted without updates the author imported after the snapshot (#3135).",
+  },
+  {
+    id: "baseline-cursor-redirect-weighs-all",
+    module: BASELINE_MODULE,
+    config: BASELINE_CONFIG,
+    constants: { RedirectAfterCursor: "FALSE" },
+    expect: { kind: "invariant", name: "AcceptedBaselineRedirects" },
+    why: "A redirect that weighs every skipped update never starts a new reader at a baseline accepted past an overclaim (#3135).",
   },
 ];

@@ -117,6 +117,13 @@ The server does not turn that source frontier into a compare-and-set gate on
 accepted sync updates. A retained client that loses a rotate race adopts the
 canonical bundle and re-emits from local CRDT state if needed.
 
+A baseline can also sign its author's processed cursor as
+`coversThroughUpdateId`: every update committed at or before it was imported
+into the snapshot or void for its author. The rotation gates and the redirect
+ask the source frontier to cover only the updates committed after that
+cursor, so an update whose op span overclaims no longer refuses every
+rotation ([advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)).
+
 ### Declared Coverage Is Trusted, Not Verified
 
 Normal sync can omit older ciphertext when an authenticated replayable baseline
@@ -331,7 +338,9 @@ flattened state-only snapshots.
 
 A retained update that carries `checkpointKind` stores its signed
 `sourceVersionVector` in the nullable `baseline_source_version_vector` column
-of its own `document_updates` row; every other update leaves it null. The
+of its own `document_updates` row, and its signed `coversThroughUpdateId`, if
+any, in `baseline_covers_through_update_id`; every other update leaves both
+null. The
 checkpoint and payload kinds are the rotation constants, so they are not
 stored. A partial index on `(document_id, sequence)` where the column is set
 serves the redirect.
@@ -350,13 +359,14 @@ Three readers consume it:
   authorship
 
 The redirect and the sync response recompute the signed metadata hash from the
-constant kinds, this column, and the update row before they serve a baseline,
-so a tampered column fails closed.
+constant kinds, these columns, and the update row before they serve a
+baseline, so a tampered column fails closed.
 
 The write contract marks baselines explicitly on outgoing updates:
 `checkpointKind: "rotate_baseline"`, `checkpointPayloadKind:
 "full_history_snapshot"`, and `sourceVersionVector` are present together or
-absent together. Only marked updates set the column.
+absent together, and `coversThroughUpdateId` only with them. Only marked
+updates set the columns.
 
 ### `blob_audit_objects`
 
@@ -423,8 +433,9 @@ When new active-epoch updates are accepted, the transaction:
 - verifies and stores each update's signed write header in
   `document_content_write_headers`
 - writes `document_updates` and `document_update_spans`
-- sets `baseline_source_version_vector` on each newly inserted update marked
-  as a baseline, in the same insert
+- sets `baseline_source_version_vector`, and
+  `baseline_covers_through_update_id` when the baseline signs a cursor, on
+  each newly inserted update marked as a baseline, in the same insert
 
 Only updates the transaction inserts are written, so a retried sync stays
 idempotent. An unlink that carries an atomic rotation baseline uses the same

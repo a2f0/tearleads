@@ -48,6 +48,10 @@ export const documentUpdates = pgTable(
     // signed checkpoint metadata declares it covers. The checkpoint and
     // payload kinds are the rotation constants, so they are not stored.
     baselineSourceVersionVector: text("baseline_source_version_vector"),
+    // Set only on a rotation baseline that signed one: its author's processed
+    // cursor. Updates committed at or before it need no coverage by the
+    // source version vector.
+    baselineCoversThroughUpdateId: uuid("baseline_covers_through_update_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

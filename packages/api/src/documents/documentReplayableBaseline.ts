@@ -7,6 +7,7 @@ import {
 
 interface ReplayableBaselineMetadata {
   readonly checkpointKind: string;
+  readonly coversThroughUpdateId?: string | undefined;
   readonly documentId: string;
   readonly metadataHash: string;
   readonly partialEndVersionVector: string;
@@ -52,6 +53,9 @@ export async function isAuthenticatedReplayableBaseline(
   const expectedMetadataHash = await computeDocumentContentRecordMetadataHash({
     checkpointKind: "rotate_baseline",
     checkpointPayloadKind: "full_history_snapshot",
+    ...(input.coversThroughUpdateId === undefined
+      ? {}
+      : { coversThroughUpdateId: input.coversThroughUpdateId }),
     documentId: input.documentId,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector: input.partialStartVersionVector,

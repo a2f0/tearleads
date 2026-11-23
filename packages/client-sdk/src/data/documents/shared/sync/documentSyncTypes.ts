@@ -31,6 +31,7 @@ export interface DocumentSyncPreparedUpdate {
     | undefined;
   ciphertextHash: string;
   contentRecordId?: string | undefined;
+  coversThroughUpdateId?: string | undefined;
   encryptedData: string;
   id: string;
   metadataHash: string;

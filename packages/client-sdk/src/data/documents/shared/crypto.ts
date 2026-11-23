@@ -39,6 +39,8 @@ export async function encryptDocumentPendingUpdate(input: {
   documentId: string;
   organizationId: string;
   update: PendingUpdateRecord;
+  /** A queued rotation baseline's signed processed cursor, if it has one. */
+  coversThroughUpdateId?: string | undefined;
 }): Promise<DocumentEncryptedPendingUpdate> {
   const plaintext = base64ToBytes(input.update.updateData);
   const contentRecordId = input.update.id;
@@ -68,6 +70,9 @@ export async function encryptDocumentPendingUpdate(input: {
           checkpointKind: "rotate_baseline" as const,
           checkpointPayloadKind: "full_history_snapshot" as const,
           sourceVersionVector: input.update.sourceVersionVector,
+          ...(input.coversThroughUpdateId === undefined
+            ? {}
+            : { coversThroughUpdateId: input.coversThroughUpdateId }),
         }
       : {}),
     documentId: input.documentId,

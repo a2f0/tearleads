@@ -465,6 +465,7 @@ export async function buildMaterializedDocumentSyncPlan(
     contentKey,
     contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
     documentId,
+    execSql: input.execSql,
     organizationId: manifestIdentity.organizationId,
     pendingUpdates,
   });

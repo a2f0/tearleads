@@ -14,9 +14,12 @@ can only do and observe what a deployed client could.
   a full `Tearleads` runtime. `Device.login` is a fresh install of an existing
   identity, with the same keys and an empty database. `Device.restart` reopens
   the runtime with the same database, blob store, identity, and trust pins.
-  `Device.forgeQueuedUpdateSpans` plays a dishonest or broken writer: it
-  rewrites the declared spans of the device's own queued updates before they
-  are signed, the only reach past the SDK's surface.
+  `Device.forgeQueuedUpdateSpans` and `Device.forgeQueuedCheckpoint` play a
+  dishonest or broken writer: the first rewrites the declared spans of the
+  device's own queued updates before they are signed, and the second rewrites
+  its first queued update into a full-history rotation checkpoint. They are
+  the only reaches past the SDK's surface, and only into the device's own
+  outgoing queue.
 - [`src/harness/transport.ts`](src/harness/transport.ts) puts a device-local
   HTTP proxy in front of the real
   API. A scenario can hold a selected request before submission or its response
@@ -77,6 +80,8 @@ request the API refuses with its error body.
 | `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 | `falseSpanUpdate` | A writer signs an update whose declared op span claims operations its payload does not carry. Each reader, including a fresh install, voids it once, reports it once, and keeps syncing: the other writer's edits settle and reach every device. |
 | `falseSpanAttachment` | After a writer signs a false-span update, a reader that voided it attaches a file and then removes it. The bind and the detach both land: each carries the reader's processed cursor, so the API skips the update no version can hold. |
+| `checkpointCarriedEdit` | A writer signs a rotation checkpoint that is the only update carrying one of its edits, then an ordinary update built on that edit. A reader that synced both unlinks the document: its rotation rebuilds what sync applied, the accepted checkpoint included, so the proof holds and the baseline keeps the edit. A fresh install starts from that baseline. |
+| `falseSpanUnlink` | After a writer signs a false-span update, a reader that voided it unlinks the document: its rotation leaves the void out of the history it proves, and its baseline signs the reader's processed cursor, so the API asks it to cover only later updates. A fresh install starts from the baseline and never meets the update. |
 
 Pin a reproducible open issue in a scenario file as a `test.failing` case.
 It passes while the bug stands and fails once it is

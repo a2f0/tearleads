@@ -15,12 +15,16 @@ import type {
   DocumentLinkSetMutationOperation,
   MaterializedDocumentLinkSetMutationPlan,
 } from "../../data/documents/shared/types";
+import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { readProcessedCursorForVersion } from "./sync/processedCursor";
 import { signDocumentOutgoingUpdate } from "./syncPlan/syncPlanIdentity";
 
 // A zero-span snapshot (empty document) yields no baseline; the unlink is
 // sent without one and the server verifies the committed frontier is empty.
 export async function completeLinkSetMutationRequest(input: {
   author: DocumentCreateAuthor;
+  /** Reads the processed cursor the unlink baseline signs. */
+  execSql: ExecSql;
   materializedPlan: MaterializedDocumentLinkSetMutationPlan;
   operation: DocumentLinkSetMutationOperation;
   rotationSnapshot: Uint8Array | undefined;
@@ -35,6 +39,7 @@ export async function completeLinkSetMutationRequest(input: {
           contentKey: input.materializedPlan.contentKey,
           contentKeyEpoch: input.materializedPlan.plan.contentKeyEpoch,
           documentId: input.materializedPlan.plan.documentId,
+          execSql: input.execSql,
           expectedLinkSetManifestHash: input.materializedPlan.plan.manifestHash,
           expectedTargetHash: input.materializedPlan.plan.targetHash,
           organizationId: input.materializedPlan.plan.state.organizationId,
@@ -53,6 +58,7 @@ export async function buildDocumentRotationBaseline(input: {
   readonly contentKey: Uint8Array;
   readonly contentKeyEpoch: number;
   readonly documentId: string;
+  readonly execSql: ExecSql;
   readonly expectedLinkSetManifestHash: string;
   readonly expectedTargetHash: string;
   readonly organizationId: string;
@@ -86,9 +92,18 @@ export async function buildDocumentRotationBaseline(input: {
     id: crypto.randomUUID(),
     ...pendingFields,
   };
+  // Updates the snapshot's author voided need no coverage past its cursor.
+  const coversThroughUpdateId = await readProcessedCursorForVersion(
+    input.execSql,
+    {
+      documentId: input.documentId,
+      version: metadata.partialEndVersionVector,
+    },
+  );
   const encrypted = await encryptDocumentPendingUpdate({
     contentKeyMaterial: await importContentKeyMaterial(input.contentKey),
     contentKeyEpoch: input.contentKeyEpoch,
+    coversThroughUpdateId,
     documentId: input.documentId,
     organizationId: input.organizationId,
     update: pendingUpdate,
@@ -108,6 +123,7 @@ export async function buildDocumentRotationBaseline(input: {
       checkpointPayloadKind: "full_history_snapshot",
       ciphertextHash: encrypted.ciphertextHash,
       contentRecordId: encrypted.contentRecordId,
+      ...(coversThroughUpdateId === undefined ? {} : { coversThroughUpdateId }),
       encryptedData: encrypted.encryptedData,
       id: pendingUpdate.id,
       metadataHash: encrypted.metadataHash,

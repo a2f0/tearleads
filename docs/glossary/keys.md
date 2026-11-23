@@ -173,10 +173,12 @@ A signed full-history Loro snapshot that a [rotate](#rotate) writes under the
 new epoch's [DEK](#dek), bridging old readable state to the new epoch. Its
 update carries `checkpointKind` `"rotate_baseline"`, `checkpointPayloadKind`
 `"full_history_snapshot"`, and a `sourceVersionVector`, all committed by its
-[signed write header](./content.md#signed-write-header). An unlink must carry
+[signed write header](./content.md#signed-write-header). It may also sign
+its author's processed cursor as `coversThroughUpdateId`. An unlink must carry
 one whose source [version vector](./content.md#version-vector) covers the
-complete committed update frontier, unless the document has no committed
-updates; a link must not carry one. The first valid writer for the new epoch
+committed update frontier after that cursor (every committed update when it
+signs none), unless the document has no committed updates; a link must not
+carry one. The first valid writer for the new epoch
 becomes the canonical baseline, and normal sync can then omit older ciphertext
 its declared coverage dominates. That coverage is trusted, not verified, because
 the server cannot open the snapshot.
