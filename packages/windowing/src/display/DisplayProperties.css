@@ -146,8 +146,24 @@
   white-space: normal;
 }
 
+/* The app's glyph leads the row the way a menu item's or a host's list row's
+ * does: drawn at the shared muted `--opacity-icon`, so the label carries the
+ * row and the switch carries its state. */
 .display-properties-app-switch svg {
   flex: 0 0 auto;
+  opacity: var(--opacity-icon);
+}
+
+/* Touch (routed): the same 44px row and 24px glyph as the launcher, menus,
+ * and a host's list rows, so this list does not read denser than the rest.
+ * Author CSS outranks the icon's `size={16}` attributes. */
+:root[data-navigation-mode="routed"] .display-properties-app-switch {
+  min-height: var(--control-height);
+}
+
+:root[data-navigation-mode="routed"] .display-properties-app-switch svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
 }
 
 /* A checkbox drawn as a sliding switch: a pill track and a round thumb that
