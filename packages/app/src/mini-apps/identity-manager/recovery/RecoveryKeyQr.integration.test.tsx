@@ -26,7 +26,7 @@ test("QR disclosure is acknowledged, contains only the key, and can be hidden", 
   const { seedPhrase, view } = await renderRecoveryKeyView(0x12);
   expect(view.queryByAltText("Recovery key QR code")).toBeNull();
   fireEvent.click(
-    view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+    view.getByRole("button", { name: "QR Code for Recovery Key" }),
   );
   expect(
     (view.getByRole("button", { name: "Show QR Code" }) as HTMLButtonElement)
@@ -36,7 +36,7 @@ test("QR disclosure is acknowledged, contains only the key, and can be hidden", 
   fireEvent.click(view.getByRole("button", { name: "Cancel" }));
   expect(view.queryByAltText("Recovery key QR code")).toBeNull();
   fireEvent.click(
-    view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+    view.getByRole("button", { name: "QR Code for Recovery Key" }),
   );
   fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
     target: { value: "i understand" },
@@ -47,7 +47,7 @@ test("QR disclosure is acknowledged, contains only the key, and can be hidden", 
   expect(decodeURIComponent(source.slice("data:image/svg+xml,".length))).toBe(
     encodeQR(seedPhrase.toUpperCase(), "svg", { border: 4, ecc: "medium" }),
   );
-  fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+  fireEvent.click(view.getByRole("button", { name: "View Recovery Key" }));
   fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
     target: { value: "i understand" },
   });
@@ -58,7 +58,7 @@ test("QR disclosure is acknowledged, contains only the key, and can be hidden", 
   fireEvent.click(view.getByRole("button", { name: "Hide Recovery Key" }));
   expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
   expect(view.getByAltText("Recovery key QR code")).toBeTruthy();
-  fireEvent.click(view.getByRole("button", { name: "Hide Recovery QR Code" }));
+  fireEvent.click(view.getByRole("button", { name: "Hide QR Code" }));
   expect(view.queryByAltText("Recovery key QR code")).toBeNull();
 });
 
@@ -66,7 +66,7 @@ test("switching identities or leaving Backup revokes QR disclosure", async () =>
   const { tearleads, view } = await renderRecoveryKeyView(0x13);
   const reveal = () => {
     fireEvent.click(
-      view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+      view.getByRole("button", { name: "QR Code for Recovery Key" }),
     );
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
       target: { value: "i understand" },
@@ -155,7 +155,7 @@ test("losing and restoring the seed for the same identity revokes QR disclosure"
   const { tearleads, view } = await renderRecoveryKeyView(0x19);
   const keyPackage = await tearleads.identity.exportKeyPackage();
   fireEvent.click(
-    view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+    view.getByRole("button", { name: "QR Code for Recovery Key" }),
   );
   fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
     target: { value: "i understand" },
@@ -182,7 +182,7 @@ test("losing the seed revokes a pending QR acknowledgement", async () => {
   const { tearleads, view } = await renderRecoveryKeyView(0x21);
   const keyPackage = await tearleads.identity.exportKeyPackage();
   fireEvent.click(
-    view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+    view.getByRole("button", { name: "QR Code for Recovery Key" }),
   );
   fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
     target: { value: "i understand" },
@@ -198,7 +198,7 @@ test("losing the seed revokes a pending QR acknowledgement", async () => {
     await tearleads.identity.importKeyPackage(keyPackage);
   });
   fireEvent.click(
-    view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+    view.getByRole("button", { name: "QR Code for Recovery Key" }),
   );
   expect(
     (view.getByRole("button", { name: "Show QR Code" }) as HTMLButtonElement)
@@ -211,7 +211,7 @@ test.each(["visibilitychange", "pagehide"])(
   async (event) => {
     const { view } = await renderRecoveryKeyView(0x22);
     fireEvent.click(
-      view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+      view.getByRole("button", { name: "QR Code for Recovery Key" }),
     );
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
       target: { value: "i understand" },
@@ -242,7 +242,7 @@ test.each(["visibilitychange", "pagehide"])(
       }
       expect(view.queryByAltText("Recovery key QR code")).toBeNull();
       fireEvent.click(
-        view.getByRole("button", { name: "Reveal Recovery QR Code" }),
+        view.getByRole("button", { name: "QR Code for Recovery Key" }),
       );
       expect(
         (

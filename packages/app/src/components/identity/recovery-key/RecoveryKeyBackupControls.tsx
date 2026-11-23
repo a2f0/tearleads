@@ -4,7 +4,7 @@ import type { RecoveryKeyDisclosureState } from "./useRecoveryKeyDisclosure";
 import "./RecoveryKeyBackup.css";
 
 /**
- * The recovery key's backup controls (reveal, QR code, print, download, copy)
+ * The recovery key's backup actions (view, QR code, print, download, save, copy)
  * and the typed acknowledgement each one asks for before the key leaves its
  * hidden state.
  */

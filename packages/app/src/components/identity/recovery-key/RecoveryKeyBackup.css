@@ -23,9 +23,40 @@
   background: white;
 }
 
-/* The onboarding-style panel centers its contents; keep the controls with it. */
-.recovery-key-backup-confirmation .mini-app-toolbar {
-  justify-content: center;
+/* The actions read as a menu, not a row of framed buttons: one borderless row
+ * per action, a glyph and a short label, with the window toolbar's hover. The
+ * rows are list rows (MiniAppRowButton), so they share that surface's hover and
+ * its 44px touch target in the routed shell. Windowed, a list row is shorter
+ * than a control, so these take the control height a framed button had.
+ *
+ * Glyphs draw at the touch glyph size (24px), and never below 20px, larger than
+ * the 16px toolbar glyphs they replace. The floor is in px because the windowed
+ * rem is ~13px (see the monospace quirk in packages/ui/src/styles.routed.css).
+ * The size attribute an icon carries yields to author CSS, as in the shared
+ * menu (windowing's Menu.css). */
+.recovery-key-actions {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recovery-key-actions .mini-app-row {
+  min-height: var(--control-height);
+}
+
+.recovery-key-actions .mini-app-row svg {
+  flex: 0 0 auto;
+  width: max(20px, var(--control-icon-size));
+  height: max(20px, var(--control-icon-size));
+}
+
+/* The onboarding-style panel centers its contents; center the menu as one
+ * block at the agreement form's width, keeping its rows aligned to the start. */
+.recovery-key-backup-confirmation .recovery-key-actions {
+  justify-self: center;
+  width: min(100%, 20rem);
 }
 
 .recovery-key-backup-agreement {
