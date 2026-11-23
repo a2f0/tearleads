@@ -284,7 +284,10 @@ const documentContentKeyStore = createContentKeyStore<
  * An epoch's commitment never changes: a submission at a stored epoch (a link
  * adding targets, a refresh, a lost create race) must repeat it. An honest
  * submitter wraps the key it unwrapped and checked against that commitment,
- * so only a client that names another key reaches this.
+ * so only a client that names another key reaches this. It runs after the
+ * store on purpose: a losing healer must still get the store's coded stale
+ * 409, which it recovers from, never this 400. The throw rolls back the
+ * caller's transaction, so nothing the store wrote survives it.
  */
 function assertStoredCommitmentMatches<
   Bundle extends StoredDocumentContentKeyBundle,

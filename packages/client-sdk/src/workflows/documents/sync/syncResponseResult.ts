@@ -215,6 +215,8 @@ export async function syncRemoteDocumentResultFromResponse(
   const { plan } = input.materializedPlan;
   const { contentKeysByEpoch, persistedState } =
     await resolveVerifiedResponseState(input);
+  // The ledger's key fingerprints are the content-key commitments of the
+  // keys this pass held, which the envelopes it accepted also name.
   const contentKeyFingerprintsByEpoch =
     await deriveDocumentContentKeyCommitments({
       contentKeysByEpoch,

@@ -202,7 +202,8 @@ function assertEnvelopeCommitsToHeldKey(input: {
 
 /**
  * AES-GCM refusing the record: a failed tag check, or a ciphertext too short
- * to hold one. WebCrypto reports both, and only these, as `OperationError`.
+ * to hold one. WebCrypto reports both as `OperationError`, which some engines
+ * also use for a backend fault, so a refusal is retried once.
  */
 function isAesGcmAuthenticationFailure(error: unknown): boolean {
   return (
@@ -244,8 +245,8 @@ async function decryptPayload(input: {
   } catch (error) {
     throw isolate(error, "decrypt_runtime");
   }
-  try {
-    const updateData = new Uint8Array(
+  const decrypt = async () =>
+    new Uint8Array(
       await crypto.subtle.decrypt(
         {
           name: "AES-GCM",
@@ -263,7 +264,8 @@ async function decryptPayload(input: {
         asWebCryptoBytes(input.encrypted.ciphertext),
       ),
     );
-    return { plaintextHashKey, updateData };
+  try {
+    return { plaintextHashKey, updateData: await decryptRefusedTwice(decrypt) };
   } catch (error) {
     // Under the committed key, a refused record is the writer's: every
     // reader holding that key refuses it. Anything else is this runtime's.
@@ -271,6 +273,22 @@ async function decryptPayload(input: {
       error,
       isAesGcmAuthenticationFailure(error) ? "decrypt" : "decrypt_runtime",
     );
+  }
+}
+
+/**
+ * Runs `decrypt`, and once more if AES-GCM refuses the record. A tag check
+ * refuses the same bytes every time, while an engine may report a passing
+ * backend fault the same way, so only a second refusal is the record's.
+ */
+async function decryptRefusedTwice(
+  decrypt: () => Promise<Uint8Array>,
+): Promise<Uint8Array> {
+  try {
+    return await decrypt();
+  } catch (error) {
+    if (!isAesGcmAuthenticationFailure(error)) throw error;
+    return decrypt();
   }
 }
 

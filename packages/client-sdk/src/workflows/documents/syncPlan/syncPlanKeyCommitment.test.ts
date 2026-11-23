@@ -116,3 +116,17 @@ test("a decryption failure of the local runtime voids nothing", async () => {
     deriveKey.mockRestore();
   }
 });
+
+test("one AES-GCM refusal that does not repeat voids nothing", async () => {
+  const { judge, update } = await servedUpdate();
+  const decrypt = spyOn(crypto.subtle, "decrypt").mockImplementationOnce(() =>
+    Promise.reject(new DOMException("backend", "OperationError")),
+  );
+  try {
+    const { accepted, voided } = await judge(update);
+    expect(accepted.map((entry) => entry.id)).toEqual([update.id]);
+    expect(voided).toEqual([]);
+  } finally {
+    decrypt.mockRestore();
+  }
+});
