@@ -145,6 +145,7 @@ export const containerContentsSurface = [
   `${sdk}/workflows/container-contents/remoteHydration/destination/destinationRoleCache.ts`,
   `${sdk}/workflows/container-contents/remoteReset/containerRemoteReset.ts`,
   `${sdk}/workflows/container-contents/syncLane.ts`,
+  `${sdk}/workflows/container-contents/attribution/attributionVoids.ts`,
   `${sdk}/workflows/container-contents/attribution/documentAttributionRanges.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryEvidence.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryLanes.ts`,

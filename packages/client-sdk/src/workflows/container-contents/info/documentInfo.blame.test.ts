@@ -58,6 +58,7 @@ test("loadDocumentInfo blames live characters using the persisted snapshot", asy
         getDocumentWriterProjection: async () =>
           createDocumentWriterProjection(),
         listDocumentAttachments: async () => [],
+        listDocumentEditAttributionRanges: async () => null,
         getDocumentEditAttribution: async () => ({
           attributionRevision: 1,
           documentId: "document-1",
@@ -182,6 +183,7 @@ test("loadDocumentInfo blames structured-document fields using the snapshot", as
         getDocumentWriterProjection: async () =>
           createDocumentWriterProjection(),
         listDocumentAttachments: async () => [],
+        listDocumentEditAttributionRanges: async () => null,
         getDocumentEditAttribution: async () => ({
           attributionRevision: 1,
           documentId: "document-1",
@@ -265,6 +267,7 @@ test("loadDocumentInfo degrades to null blame for an unreadable snapshot", async
         getDocumentWriterProjection: async () =>
           createDocumentWriterProjection(),
         listDocumentAttachments: async () => [],
+        listDocumentEditAttributionRanges: async () => null,
         getDocumentEditAttribution: async () => ({
           attributionRevision: 1,
           documentId: "document-1",
