@@ -135,4 +135,12 @@ export const VOID_UPDATE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "AcceptedBaselineRedirects" },
     why: "A redirect that weighs every skipped update never starts a new reader at a baseline accepted past an overclaim (#3135).",
   },
+  {
+    id: "baseline-cursor-empty-refused",
+    module: BASELINE_MODULE,
+    config: BASELINE_CONFIG,
+    constants: { AcceptCursoredEmptyBaseline: "FALSE" },
+    expect: { kind: "invariant", name: "HonestRotationAccepted" },
+    why: "A server that refuses every empty baseline refuses the rotation, and so the unlink, of a document whose every update its author voided (#3194).",
+  },
 ];

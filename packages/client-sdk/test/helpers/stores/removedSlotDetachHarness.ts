@@ -141,6 +141,8 @@ export interface RemovedSlotDetachHarness {
     heldSlotIds?: readonly string[],
     accessLevel?: "admin" | "read",
   ): Promise<DocumentStoreState>;
+  /** A fresh store over the opened document, as after a restart. */
+  reopen(): Promise<DocumentStoreState>;
 }
 
 /** A store over a document whose remote bindings `run` controls. */
@@ -154,24 +156,28 @@ export async function withRemovedSlotDetachHarness(
   });
   const blobStore = createMemoryBlobStore();
   let failure: object | null = null;
+  const openStore = async () => {
+    const store = createDocumentStoreState(
+      "doc-a",
+      runtime,
+      defaultDocumentsPersistence,
+      noopDocumentStorePersistenceEffects,
+      null,
+    );
+    expect(await ensureDocumentStoreReady(store, () => undefined)).toBe(true);
+    store.resolveProjectionUserKey = fixture.resolveProjectionUserKey;
+    return store;
+  };
   const harness: RemovedSlotDetachHarness = {
     bound: new Map(),
     detachRequests: [],
     listings: 0,
     open: async (slotIds, heldSlotIds = [], accessLevel = "admin") => {
       await seedDocument(execSql, blobStore, slotIds, heldSlotIds, accessLevel);
-      const store = createDocumentStoreState(
-        "doc-a",
-        runtime,
-        defaultDocumentsPersistence,
-        noopDocumentStorePersistenceEffects,
-        null,
-      );
-      expect(await ensureDocumentStoreReady(store, () => undefined)).toBe(true);
-      store.resolveProjectionUserKey = fixture.resolveProjectionUserKey;
-      return store;
+      return openStore();
     },
     refused: new Set(),
+    reopen: openStore,
   };
   const runtime = createDocumentsWorkflowRuntime({
     apiClient: {

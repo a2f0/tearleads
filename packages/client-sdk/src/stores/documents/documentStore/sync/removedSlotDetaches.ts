@@ -1,9 +1,16 @@
 import {
+  DOCUMENTS_APP_KIND,
+  type ExecSql,
+  RecordedAttachmentSlotRepository,
+} from "../../../../workflows/documents";
+import {
   isRemovedSlotDetachWaiting,
   planRemovedSlotDetach,
   type RemovedSlotDetachEvent,
   type RemovedSlotDetachState,
   type RemovedSlotDetachStep,
+  type RemovedSlotSightingWrite,
+  removedSlotSightingWrite,
   transitionRemovedSlotDetach,
 } from "./removedSlotDetachMachine";
 
@@ -13,17 +20,22 @@ import {
  */
 interface ObservingStore {
   readonly attachmentStorageKeyBySlotId: Readonly<Record<string, string>>;
+  readonly localId: string;
   readonly pendingAttachments: readonly { readonly slotId: string }[];
   readonly record: { readonly documentId?: string | null } | null;
+  readonly runtime: { readonly infra: { readonly execSql: ExecSql } };
 }
 
 interface SlotObservations {
   documentId: string | null;
   readonly slots: Map<string, RemovedSlotDetachState>;
+  /** The one read of what earlier stores over this record persisted. */
+  restored?: Promise<void>;
 }
 
-// In memory, per store: a store reloaded for the same document keeps what it
-// saw, and one relinked to another document starts over.
+// Per store, backed by the local database: a store reloaded or reopened
+// after a restart for the same document restores what was seen, and one
+// relinked to another document starts over.
 const observations = new WeakMap<ObservingStore, SlotObservations>();
 
 function observationsFor(state: ObservingStore): SlotObservations {
@@ -35,7 +47,11 @@ function observationsFor(state: ObservingStore): SlotObservations {
       current.documentId === null ||
       current.documentId === documentId)
   ) {
-    current.documentId ??= documentId;
+    if (current.documentId === null && documentId !== null) {
+      // Sightings wait for a server id to be stored under.
+      current.documentId = documentId;
+      writeSightings(state, current, "record", [...current.slots.keys()]);
+    }
     return current;
   }
   const fresh: SlotObservations = { documentId, slots: new Map() };
@@ -43,14 +59,54 @@ function observationsFor(state: ObservingStore): SlotObservations {
   return fresh;
 }
 
+/**
+ * Queues the durable side of transitions. A write that fails loses only the
+ * restart it was for: the store still holds the slot in memory.
+ */
+function writeSightings(
+  state: ObservingStore,
+  observed: SlotObservations,
+  write: RemovedSlotSightingWrite,
+  slotIds: readonly string[],
+): void {
+  const { documentId } = observed;
+  if (write === "keep" || documentId === null || slotIds.length === 0) return;
+  const repository = new RecordedAttachmentSlotRepository(
+    state.runtime.infra.execSql,
+  );
+  const scope = { appKind: DOCUMENTS_APP_KIND, localId: state.localId };
+  void (
+    write === "record"
+      ? repository.record(scope, {
+          documentId,
+          seenAt: new Date().toISOString(),
+          slotIds,
+        })
+      : repository.forget(scope, slotIds)
+  ).catch(() => undefined);
+}
+
+function transition(
+  observed: SlotObservations,
+  slotId: string,
+  event: RemovedSlotDetachEvent,
+): RemovedSlotSightingWrite {
+  const previous = observed.slots.get(slotId);
+  const next = transitionRemovedSlotDetach(previous, event);
+  if (next) observed.slots.set(slotId, next);
+  else observed.slots.delete(slotId);
+  return removedSlotSightingWrite(previous, next, event);
+}
+
 function dispatch(
+  state: ObservingStore,
   observed: SlotObservations,
   slotId: string,
   event: RemovedSlotDetachEvent,
 ): void {
-  const next = transitionRemovedSlotDetach(observed.slots.get(slotId), event);
-  if (next) observed.slots.set(slotId, next);
-  else observed.slots.delete(slotId);
+  writeSightings(state, observed, transition(observed, slotId, event), [
+    slotId,
+  ]);
 }
 
 /**
@@ -64,26 +120,57 @@ export function observeRecordedAttachmentSlots(
 ): void {
   if (attachments.length === 0) return;
   const observed = observationsFor(state);
-  for (const { slotId } of attachments) {
-    if (observed.slots.get(slotId)?.status !== "seen") {
-      dispatch(observed, slotId, { type: "recorded" });
-    }
-  }
+  const recorded = attachments.flatMap(({ slotId }) =>
+    observed.slots.get(slotId)?.status !== "seen" &&
+    transition(observed, slotId, { type: "recorded" }) === "record"
+      ? [slotId]
+      : [],
+  );
+  writeSightings(state, observed, "record", recorded);
 }
 
 /**
- * Slots this store saw recorded that `view` lacks and whose bytes it neither
- * holds nor is uploading: a held copy settles through its removal marker. A
- * slot whose detach was refused at this very version is left out, so a pass
- * lists bindings again only once the view moves.
+ * Adds the slots earlier stores over this record saw recorded, once per
+ * observation set. A slot this store already tracks keeps its own state.
  */
-export function listRemovedAttachmentSlots(
+function restoreRecordedSlots(state: ObservingStore): Promise<void> {
+  const observed = observationsFor(state);
+  const { documentId } = observed;
+  if (documentId === null) return Promise.resolve();
+  observed.restored ??= new RecordedAttachmentSlotRepository(
+    state.runtime.infra.execSql,
+  )
+    .restore(
+      { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+      documentId,
+    )
+    .then(
+      (slotIds) => {
+        for (const slotId of slotIds) {
+          transition(observed, slotId, { type: "restored" });
+        }
+      },
+      // Unreadable: the store keeps only what it sees itself.
+      () => undefined,
+    );
+  return observed.restored;
+}
+
+/**
+ * Slots this store, or an earlier one over its record, saw recorded that
+ * `view` lacks and whose bytes it neither holds nor is uploading: a held copy
+ * settles through its removal marker. A slot whose detach was refused at this
+ * very version is left out, so a pass lists bindings again only once the view
+ * moves.
+ */
+export async function listRemovedAttachmentSlots(
   state: ObservingStore,
   view: {
     readonly slotIds: ReadonlySet<string>;
     readonly versionVector: string;
   },
-): string[] {
+): Promise<string[]> {
+  await restoreRecordedSlots(state);
   const uploading = new Set(state.pendingAttachments.map((row) => row.slotId));
   return [...observationsFor(state).slots].flatMap(([slotId, slot]) =>
     !view.slotIds.has(slotId) &&
@@ -113,5 +200,5 @@ export function recordAttachmentSlotDetach(
   slotId: string,
   event: RemovedSlotDetachEvent,
 ): void {
-  dispatch(observationsFor(state), slotId, event);
+  dispatch(state, observationsFor(state), slotId, event);
 }

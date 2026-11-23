@@ -94,12 +94,12 @@ describeSchema(
     checkpointPayloadKind:
       "`full_history_snapshot` for a rotation baseline; absent otherwise.",
     coversThroughUpdateId:
-      "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered.",
+      "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor.",
     encryptedData:
       "Base64 ciphertext of the update under the document content key.",
     id: "Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical.",
     partialEndVersionVector:
-      "Version vector the update brings the document to.",
+      "Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on a rotation baseline that signs `coversThroughUpdateId`.",
     partialStartVersionVector: "Version vector the update starts from.",
     plaintextHash:
       "Hash of the plaintext update, committed by the write header.",
@@ -250,7 +250,7 @@ describeSchema(
     expectedManifestHash:
       "Hash of the link-set manifest this mutation derives.",
     rotationBaseline:
-      "For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link.",
+      "For an unlink, a rotation baseline covering every committed update after its signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link.",
     targetContainerPathRefs: "Path to the container being linked or unlinked.",
   },
 );
