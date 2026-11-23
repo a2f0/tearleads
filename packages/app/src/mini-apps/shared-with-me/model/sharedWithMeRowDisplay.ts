@@ -49,13 +49,18 @@ function rowStatuses(
     ];
   }
   const { organization } = row;
-  const statuses: SharedWithMeRowStatus[] = [];
-  if (organization.syncPaused) {
-    statuses.push({
-      detail: SHARED_WITH_ME_LABELS.syncPausedStatusDetail,
-      label: SHARED_WITH_ME_LABELS.syncPausedStatus,
-    });
-  }
+  // Sync is always one of two states, so the row always names it.
+  const statuses: SharedWithMeRowStatus[] = [
+    organization.syncPaused
+      ? {
+          detail: SHARED_WITH_ME_LABELS.syncPausedStatusDetail,
+          label: SHARED_WITH_ME_LABELS.syncPausedStatus,
+        }
+      : {
+          detail: SHARED_WITH_ME_LABELS.syncEnabledStatusDetail,
+          label: SHARED_WITH_ME_LABELS.syncEnabledStatus,
+        },
+  ];
   if (organization.leaveRequested) {
     statuses.push({
       detail: SHARED_WITH_ME_LABELS.leaveRequestedStatusDetail,
@@ -74,19 +79,16 @@ function rowStatuses(
 }
 
 /**
- * The row's status column: what the user chose for its organization, or the
- * change still running for it.
+ * The row's status column: whether its organization syncs and what else the
+ * user chose for it, or the change still running for it.
  */
 export function rowStatusText(
   row: SharedWithMeRow,
   changing: boolean,
-): { readonly label: string; readonly title: string | undefined } {
+): { readonly label: string; readonly title: string } {
   const statuses = rowStatuses(row, changing);
   return {
     label: statuses.map((status) => status.label).join(", "),
-    title:
-      statuses.length === 0
-        ? undefined
-        : statuses.map((status) => status.detail).join(" "),
+    title: statuses.map((status) => status.detail).join(" "),
   };
 }
