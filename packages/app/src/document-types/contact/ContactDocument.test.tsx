@@ -73,14 +73,16 @@ function setupRuntime() {
   return { runtime, sdkSpy };
 }
 
-function documentTree(store: DocumentStore, readOnly = false) {
+// `viewing` opens the document in read mode beside its toolbar edit toggle.
+function documentTree(store: DocumentStore, readOnly = false, viewing = false) {
   return (
     <AppHostConfigProvider value={hostConfig}>
       <WindowMenuProvider>
         <DocumentContext.Provider value={store}>
           <DocumentReadOnlyContext.Provider value={readOnly}>
             <LogProvider>
-              <ContactDocument initialEditing />
+              {viewing ? <ToolbarProbe /> : null}
+              <ContactDocument initialEditing={!viewing} />
             </LogProvider>
           </DocumentReadOnlyContext.Provider>
         </DocumentContext.Provider>
@@ -130,6 +132,24 @@ test("the avatar picker offers a photo once its local bytes match the document",
   expect(
     await view.findByRole("combobox", { name: "Avatar photo" }),
   ).toBeTruthy();
+});
+
+test("a contact without photos shows the photo gallery only while editing", async () => {
+  setupRuntime();
+  const fixture = documentFixture();
+  fixture.publish({ canAttach: true });
+  const view = render(documentTree(fixture.store, false, true));
+  const gallery = () =>
+    view.container.querySelector(".structured-document-attachments");
+
+  expect(gallery()).toBeNull();
+  expect(view.queryByText("No image selected")).toBeNull();
+
+  fireEvent.click(await view.findByRole("button", { name: "Edit" }));
+  expect(await view.findByRole("button", { name: "Add Photos" })).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "Done" }));
+  await waitFor(() => expect(gallery()).toBeNull());
 });
 
 test("Explorer renders contact rows and saves only the edited address field", async () => {
