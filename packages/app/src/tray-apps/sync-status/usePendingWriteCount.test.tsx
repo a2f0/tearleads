@@ -51,10 +51,12 @@ test("stays in the loading state until the db is ready", () => {
     usePendingWriteCount(queries, scope, false),
   );
   expect(result.current).toEqual({
+    blockedCount: 0,
     loaded: false,
     count: 0,
     failedCount: 0,
     firstError: null,
+    organizationIds: [],
     readError: null,
   });
 });
@@ -83,10 +85,12 @@ test("resets to loading when the db goes not-ready", async () => {
   await waitFor(() => expect(result.current.loaded).toBe(true));
   rerender({ ready: false });
   expect(result.current).toEqual({
+    blockedCount: 0,
     loaded: false,
     count: 0,
     failedCount: 0,
     firstError: null,
+    organizationIds: [],
     readError: null,
   });
 });

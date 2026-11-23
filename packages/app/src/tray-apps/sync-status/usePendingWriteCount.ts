@@ -24,10 +24,12 @@ interface PendingWriteCount extends PendingWriteQueueSummary {
 }
 
 const EMPTY_PENDING_WRITE_COUNT: PendingWriteCount = {
+  blockedCount: 0,
   loaded: false,
   count: 0,
   failedCount: 0,
   firstError: null,
+  organizationIds: [],
   readError: null,
 };
 
