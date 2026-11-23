@@ -5,6 +5,10 @@ import { satisfiesVersionVector } from "@tearleads/loro";
  * the slot stays recorded. Once a synced view lacks it, a binding the server
  * still lists for it is detached at that view's version, whether or not this
  * device ever held its bytes.
+ *
+ * Only `seen` is durable: a restart keeps that the slot was seen recorded.
+ * A refusal lives in memory, so after a restart the slot is plainly seen and
+ * its detach is sent once more, at the version the view then has.
  */
 export type RemovedSlotDetachState =
   | { readonly status: "seen" }
@@ -22,6 +26,8 @@ export type RemovedSlotDetachState =
 export type RemovedSlotDetachEvent =
   /** A published snapshot records the slot. */
   | { readonly type: "recorded" }
+  /** An earlier store over this record saw it recorded and persisted that. */
+  | { readonly type: "restored" }
   | {
       readonly bindingId: string;
       readonly type: "detachRefused";
@@ -40,6 +46,8 @@ export function transitionRemovedSlotDetach(
   switch (event.type) {
     case "recorded":
       return state?.status === "seen" ? state : SEEN;
+    case "restored":
+      return state ?? SEEN;
     case "detachRefused":
       return {
         bindingId: event.bindingId,
@@ -49,6 +57,21 @@ export function transitionRemovedSlotDetach(
     case "settled":
       return undefined;
   }
+}
+
+/**
+ * The durable sighting a transition writes: entering the machine records the
+ * slot, leaving it forgets the slot, and a restored slot is already durable.
+ */
+export type RemovedSlotSightingWrite = "forget" | "keep" | "record";
+
+export function removedSlotSightingWrite(
+  previous: RemovedSlotDetachState | undefined,
+  next: RemovedSlotDetachState | undefined,
+  event: RemovedSlotDetachEvent,
+): RemovedSlotSightingWrite {
+  if (!next) return previous ? "forget" : "keep";
+  return previous || event.type === "restored" ? "keep" : "record";
 }
 
 export type RemovedSlotDetachStep = "detach" | "settle" | "wait";

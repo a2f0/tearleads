@@ -82,10 +82,11 @@ export async function syncDetachedAttachmentBindings(
   // Only a writer can sign a detach the API accepts; a reader that saw the
   // slot removed leaves its binding to one.
   const removedSlotIds = canWriteDocument(state)
-    ? listRemovedAttachmentSlots(state, view).filter(
+    ? (await listRemovedAttachmentSlots(state, view)).filter(
         (slotId) => !markerSlotIds.has(slotId),
       )
     : [];
+  if (!contextIsCurrent()) return;
   if (markers.length === 0 && removedSlotIds.length === 0) return;
 
   const activeBindingBySlotId = await listActiveBindings(
