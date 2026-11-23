@@ -133,12 +133,13 @@ async function fetchLinkSetProjection<TProjection>(input: {
 function fetchLinkSetDocumentProjection(
   apiClient: DocumentLinkSetMutationApi,
   documentId: string,
+  stillCurrent: (() => boolean) | undefined,
 ): Promise<LinkSetProjectionFetch<DocumentWriterProjectionResponse>> {
   return fetchLinkSetProjection({
     fetchProjectionResult: apiClient.getDocumentWriterProjectionResult.bind(
       apiClient,
       documentId,
-      { reportErrors: false },
+      { reportErrors: false, stillCurrent },
     ),
   });
 }
@@ -146,12 +147,13 @@ function fetchLinkSetDocumentProjection(
 function fetchLinkSetContainerProjection(
   apiClient: DocumentLinkSetMutationApi,
   containerId: string,
+  stillCurrent: (() => boolean) | undefined,
 ): Promise<LinkSetProjectionFetch<ContainerWriterProjectionResponse>> {
   return fetchLinkSetProjection({
     fetchProjectionResult: apiClient.getContainerWriterProjectionResult.bind(
       apiClient,
       containerId,
-      { reportErrors: false },
+      { reportErrors: false, stillCurrent },
     ),
   });
 }
@@ -304,8 +306,16 @@ async function relinkRemoteDocumentOnce(
     "Remote document link-set mutation",
   );
   const [writerFetch, targetContainerFetch] = await Promise.all([
-    fetchLinkSetDocumentProjection(input.apiClient, input.documentId),
-    fetchLinkSetContainerProjection(input.apiClient, input.targetContainerId),
+    fetchLinkSetDocumentProjection(
+      input.apiClient,
+      input.documentId,
+      input.stillCurrent,
+    ),
+    fetchLinkSetContainerProjection(
+      input.apiClient,
+      input.targetContainerId,
+      input.stillCurrent,
+    ),
   ]);
   if (!writerFetch.projection || !targetContainerFetch.projection) {
     // A failure the operation no longer waits for is not reported.
