@@ -469,4 +469,5 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
     bothFolders.resolve();
     server.stop(true);
   }
-}, 240_000);
+  // About 107s on CI, and runners have run 1.8x slower; keep ~3x headroom.
+}, 360_000);
