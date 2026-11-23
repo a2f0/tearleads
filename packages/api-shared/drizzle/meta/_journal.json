@@ -50,6 +50,13 @@
       "when": 1795359060763,
       "tag": "0006_attachment_bind_document_version",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795389566604,
+      "tag": "0007_baseline_covers_through_update",
+      "breakpoints": true
     }
   ]
 }

@@ -21,8 +21,12 @@ and checks the plaintext hash; then its import judge, the only code that reads
 a payload with Loro, decodes the Loro metadata and imports the update into its
 history plus every update it accepted before. An update is a
 [void update](./glossary/content.md#void-update) when its decoded span is not
-its declared one, its decoder cannot read it, or its dependencies are on no
-earlier accepted update. The reader records it in `document_void_updates`,
+its declared one, its decoder cannot read it, its dependencies are on no
+earlier accepted update, or it carries other operations under ids the reader
+already holds. That comparison replays both copies of the operations onto one
+history first, so the runs an import happened to split them into never make an
+honest update void: a checkpoint completing a change the reader holds part of
+is accepted. The reader records it in `document_void_updates`,
 reports it once as `Documents: sync update voided`, and goes on. A void never
 fails the pass or sets the document's sync failure. An AES-GCM failure stays an
 availability failure, because a reader cannot prove its content key is the one
@@ -134,18 +138,11 @@ is outside the guarantees either way.
 
 Rebinding or deleting the local record drops its cursor, void rows, and
 preemption notices.
-Rotation's raw history still fails on any void, because it re-encrypts a
-history that must be whole, and a founding view whose first update is void
-shows no founding update.
+A founding view whose first update is void shows no founding update.
 Container metadata documents void the same way but keep no cursor, so every
 pull of one judges its voids again (each is still reported once), and a folder
 listing whose advertised version an overclaim left uncovered keeps that folder
-marked as behind. Rotation, unlink, and raw-history recovery still compare
-declared spans.
-A rotation baseline must cover the committed frontier its updates declare, so
-after an overclaim an honest rotation's baseline is refused, and a first page
-goes straight to a baseline only when the baseline covers every update it
-would skip.
+marked as behind.
 [`VoidUpdateProgress`](../formal/document-sync/VoidUpdateProgress.md) checks
 that no void update is applied, that readers agree, that a reader stays
 current, and that a runtime failure voids an update the decoder can read only
@@ -174,3 +171,45 @@ wait on another device.
 and
 [`AttachmentRemovedSlotDetach`](../formal/blob-attachments/AttachmentRemovedSlotDetach.md)
 model an overclaim and the cursor.
+
+## Rotations and Unlinks
+
+A rotation re-encrypts the document under a new content key from a
+[rotation baseline](./glossary/keys.md#rotation-baseline), and the API
+refuses one whose source version does not cover the committed frontier. An
+overclaim's ops are in no version, so on its own that check would refuse
+every rotation of the document, and with it every unlink.
+
+Rotation's [raw-history recovery](./raw-document-history-recovery.md) judges
+the whole history with the import judge a sync pass uses, keeping each void
+this device recorded void without a Loro call and with no rebuild budget. It
+rebuilds exactly what a sync pass applied: every ordinary update and every
+served checkpoint the judge accepted, so the operations a writer's checkpoint
+alone carries reach the new baseline, and no checkpoint queued or installed on
+this device. It leaves out each void, which sync never applied either, and the
+rebuilt history must still equal the live one. Only then does it record each
+void its payload alone decides and report it the first time this device meets
+it; an import void, which depends on the history it is judged against, is left
+out unrecorded. An update held after a runtime failure fails the rotation,
+which retries later.
+
+Each baseline then signs its author's processed cursor in its content-record
+metadata as `coversThroughUpdateId`, but only when its snapshot holds the
+frontier the cursor was recorded with, so the snapshot holds every update the
+cursor's pull imported and the pull voided the rest. The sync and unlink gates
+weigh only the updates committed after that cursor, and a first page goes
+straight to a baseline when the baseline covers every later update it would
+skip. A baseline without a cursor, or with one the document does not hold,
+must cover every committed update. The API stores the cursor beside the
+baseline and authenticates it with the rest of the signed metadata, so a
+stored cursor that is not the signed one fails the pull closed.
+
+A document whose every update is void has an empty snapshot, which encodes no
+baseline, and the baseline-less unlink still requires no committed update, so
+it cannot be unlinked. A rotation by a device whose older decoder voids an
+update a newer one reads leaves that update out of the baseline for every
+reader. Both are accepted residuals of #3135.
+[`BaselineCursorCoverage`](../formal/document-sync/BaselineCursorCoverage.md)
+models the cursor in the gates and the redirect, and
+[`RawHistoryRecovery`](../formal/document-sync/RawHistoryRecovery.md) the
+history recovery rebuilds and the voids it leaves out.

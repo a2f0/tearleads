@@ -257,7 +257,10 @@ export async function validateDocumentSyncUpdateImports(input: {
   decryptedUpdates: readonly DecryptedDocumentSyncUpdate[];
   /** @internal Voids this device recorded; the sync pass reads them. */
   knownVoids?: ReadonlyMap<string, DocumentVoidStage> | undefined;
-  /** @internal The rebuild budget; tests lower it. */
+  /**
+   * @internal The rebuild budget; tests lower it, and a rotation, which
+   * must settle every update, lifts it.
+   */
   rebuildBudgetBytes?: number | undefined;
   responseUpdates?: readonly SyncResponseUpdate[] | undefined;
   /**

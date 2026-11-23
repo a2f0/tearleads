@@ -109,8 +109,10 @@ and never a wrong commit.
 
 An unlink [rotates](./glossary/keys.md#rotate) the document content key and must
 carry a `rotationBaseline` — a signed `rotate_baseline` full-history snapshot
-whose source [version vector](./glossary/content.md#version-vector) covers the complete
-committed update frontier — with one exception: a document with **no committed
+whose source [version vector](./glossary/content.md#version-vector) covers the
+committed update frontier after the baseline's signed processed cursor
+(`coversThroughUpdateId`, or every committed update when it signs none) — with
+one exception: a document with **no committed
 updates** may be unlinked without a baseline. The server proves that emptiness
 inside the mutation transaction under the document manifest-head write lock.
 Sync writers hold the corresponding exclusive lock, so no update can commit
@@ -152,7 +154,8 @@ the content-key bundle it planned against and re-hashes it against the signed
 `targetHash`, so a set omitted under any other hash fails closed. The stored
 write header keeps its target set. Checkpoint fields are either all absent or
 the tuple `rotate_baseline`, `full_history_snapshot`, and a non-empty source
-vector. Writes require path refs; the API requires an active path. Reads may
+vector, with an optional `coversThroughUpdateId` UUID only beside them. Writes
+require path refs; the API requires an active path. Reads may
 omit refs and carry no rekeys or bundle. `expectedLinkSetManifestHash` pins the
 server-resolved document head instead of echoing the full manifest.
 
@@ -200,8 +203,11 @@ it. Cursor tampering or deployment-key rotation rejects the continuation as
 stale so the client restarts from a fresh bounded snapshot. A readable
 authenticated rotation baseline may move the initial lower bound forward before
 page selection only after its source frontier proves that it covers every update
-the client is missing before that baseline. An explicit read-only
-`historyMode: "raw"` request bypasses that redirect and returns every retained
+the client is missing before that baseline, other than those at or before the
+baseline's signed processed cursor, which its author imported or voided (see
+[advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)). An
+explicit read-only `historyMode: "raw"` request bypasses that redirect and
+returns every retained
 update missing from the supplied frontier. Each page includes the content-key
 bundle for every epoch represented by its updates.
 [Raw mode](./raw-document-history-recovery.md) is for deliberate recovery or

@@ -2,19 +2,20 @@ import type {
   DatabaseSession,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
-import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
+import { satisfiesVersionVector } from "@tearleads/loro";
 import type {
   DocumentLinkSetMutationRequest,
   DocumentOutgoingUpdate,
 } from "@tearleads/validators/request";
 import { DOCUMENT_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
-import { hasCommittedDocumentUpdate } from "./committedDocumentUpdates";
+import {
+  committedFrontierAfterBaselineCursor,
+  hasCommittedDocumentUpdate,
+} from "./committedDocumentUpdates";
 import { DocumentMutationError } from "./errors";
 import { readWriteHeader } from "./shared/records";
 import type { DocumentWriteAuthorizationProof } from "./types";
@@ -34,13 +35,14 @@ function requireRotationBaselineMetadata(update: DocumentOutgoingUpdate) {
   return {
     checkpointKind: update.checkpointKind,
     checkpointPayloadKind: update.checkpointPayloadKind,
+    coversThroughUpdateId: update.coversThroughUpdateId,
     sourceVersionVector: update.sourceVersionVector,
   };
 }
 
 /**
  * Prove that the baseline carried by an unlink is authenticated and covers the
- * complete committed frontier. The caller must hold the document manifest-head
+ * committed frontier after its signed cursor. The caller must hold the document manifest-head
  * write lock through this read and the subsequent append; sync writers take the
  * same exclusive lock, so no old-key update can appear between them.
  */
@@ -59,6 +61,7 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
   if (
     !(await isAuthenticatedReplayableBaseline({
       checkpointKind: metadata.checkpointKind,
+      coversThroughUpdateId: metadata.coversThroughUpdateId,
       documentId: input.documentId,
       metadataHash: header.metadataHash,
       partialEndVersionVector: input.baseline.partialEndVersionVector,
@@ -74,14 +77,12 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
     );
   }
 
-  const committedUpdates = await executor
-    .select({
-      partialEndVersionVector: documentUpdates.partialEndVersionVector,
-    })
-    .from(documentUpdates)
-    .where(eq(documentUpdates.documentId, input.documentId));
-  const committedFrontier = mergeVersionVectors(
-    committedUpdates.map((update) => update.partialEndVersionVector),
+  const committedFrontier = await committedFrontierAfterBaselineCursor(
+    executor,
+    {
+      coversThroughUpdateId: metadata.coversThroughUpdateId,
+      documentId: input.documentId,
+    },
   );
   if (
     !satisfiesVersionVector(metadata.sourceVersionVector, committedFrontier)

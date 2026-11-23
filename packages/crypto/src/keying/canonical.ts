@@ -167,6 +167,9 @@ export function documentContentRecordMetadata(
     ...(input.sourceVersionVector === undefined
       ? {}
       : { sourceVersionVector: input.sourceVersionVector }),
+    ...(input.coversThroughUpdateId === undefined
+      ? {}
+      : { coversThroughUpdateId: input.coversThroughUpdateId }),
   };
 }
 

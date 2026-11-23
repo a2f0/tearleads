@@ -181,8 +181,11 @@ bind; the upload then returns `null` and keeps its stage for a later call.
 `DocumentSnapshot.versionVector` is the version the snapshot's attachments were
 read from. With each version, the service also sends the document's processed
 cursor when that version covers the frontier recorded with it, so an update
-this device voided does not refuse the bind; callers pass nothing for it. See
-the
+this device voided does not refuse the bind. The documents runtime supplies the
+cursor through the optional `processedCursorFor` collaborator, and callers pass
+nothing for it per call. A service constructed without that collaborator, as
+above, sends no cursor, so an update whose declared op span overclaims refuses
+its binds and detaches. See the
 [document version precondition](../../protocol-specification/blobs.md#document-version-precondition).
 
 `detachDocumentAttachment` requires `documentVersionVector`: the version of

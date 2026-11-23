@@ -92,6 +92,9 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
     ...(input.update.checkpointPayloadKind === undefined
       ? {}
       : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
+    ...(input.update.coversThroughUpdateId === undefined
+      ? {}
+      : { coversThroughUpdateId: input.update.coversThroughUpdateId }),
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
@@ -126,7 +129,8 @@ function assertOutgoingCheckpointConsistency(
   const isCheckpoint =
     update.checkpointKind !== undefined ||
     update.checkpointPayloadKind !== undefined ||
-    update.sourceVersionVector !== undefined;
+    update.sourceVersionVector !== undefined ||
+    update.coversThroughUpdateId !== undefined;
   if (!isCheckpoint) {
     return;
   }

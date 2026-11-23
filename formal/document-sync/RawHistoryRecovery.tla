@@ -4,41 +4,49 @@ EXTENDS Naturals
 (* Every served update is authenticated: updateValid abstracts identity, *)
 (* dependency closure, encrypted bindings, isolation priority and unresolved *)
 (* dependencies. Recovery verifies history, settles proven rows, and pulls *)
-(* again for races; checkpoints never supply ordinary provenance. *)
-(* hasUnverifiedLocalGap includes malformed/forked tail rows. Publication *)
-(* checks exact history, generation and CAS, then fences waiting writers. *)
-(* See RawHistoryRecovery.md for mapping and bounds. *)
+(* again for races. The rebuild holds exactly what sync applied: every     *)
+(* ordinary update and every served checkpoint the judge accepted, never a *)
+(* void, an unsettled verdict, or a checkpoint only this device holds      *)
+(* (#3135). hasUnverifiedLocalGap includes malformed/forked tail rows.     *)
+(* Publication checks exact history, generation and CAS, then fences       *)
+(* waiting writers. See RawHistoryRecovery.md for mapping and bounds. *)
 
 CONSTANTS MaxUpdate, MaxEpoch, MaxPage, RequireCurrentGeneration,
           RequireWinningInstall, RetireCheckpoints, FenceBlockedWriters,
-          FinishVerifiedRecovery
+          FinishVerifiedRecovery, ExcludeVoids, RebuildServedCheckpoints,
+          RebuildOnlyServedCheckpoints, RequireSettledVerdicts
 
 ASSUME /\ MaxUpdate \in Nat \ {0}
        /\ MaxEpoch \in Nat \ {0}
        /\ MaxPage \in Nat \ {0}
        /\ {RequireCurrentGeneration, RequireWinningInstall,
            RetireCheckpoints, FenceBlockedWriters,
-           FinishVerifiedRecovery} \subseteq BOOLEAN
+           FinishVerifiedRecovery, ExcludeVoids, RebuildServedCheckpoints,
+           RebuildOnlyServedCheckpoints, RequireSettledVerdicts}
+         \subseteq BOOLEAN
 
 UpdateIds == 1..MaxUpdate
 Epochs == 1..MaxEpoch
 Pages == 1..MaxPage
-VARIABLES phase, nextPage, pageOf, updateEpoch, updateValid, epochAvailable,
+VARIABLES phase, nextPage, pageOf, updateEpoch, updateValid, updateVoid,
+          updateSettled, epochAvailable,
           ordinaryUpdates, initialLocalPending, localPending,
           queuedCheckpoints, initialQueuedCheckpoints, hasUnverifiedLocalGap,
           generationCurrent, installSuperseded, scratchHistory, preliminaryProven,
           initialDurableHistory, durableHistory, durablePublished,
           reportedUnavailableEpoch, blockedWriterFence
 
-vars == << phase, nextPage, pageOf, updateEpoch, updateValid,
-           epochAvailable, ordinaryUpdates, initialLocalPending, localPending,
+vars == << phase, nextPage, pageOf, updateEpoch, updateValid, updateVoid,
+           updateSettled, epochAvailable, ordinaryUpdates,
+           initialLocalPending, localPending,
            queuedCheckpoints, initialQueuedCheckpoints,
            hasUnverifiedLocalGap, generationCurrent, installSuperseded,
            scratchHistory, preliminaryProven,
            initialDurableHistory, durableHistory, durablePublished,
            reportedUnavailableEpoch, blockedWriterFence >>
 
-fixedModel == << pageOf, updateEpoch, updateValid, epochAvailable,
+fixedModel == << pageOf, updateEpoch, updateValid, updateVoid, updateSettled,
+                 epochAvailable,
                  ordinaryUpdates, initialLocalPending, initialQueuedCheckpoints,
                  installSuperseded, initialDurableHistory >>
 (* Preliminary proof is retained with commit state after verification. *)
@@ -51,12 +59,43 @@ PreliminaryOrdinaryUpdates == ordinaryUpdates \ LateRemoteUpdates
 DefinitiveOrdinaryUpdates == ordinaryUpdates \cup initialLocalPending
 RotationCheckpoints ==
   UpdateIds \ (ordinaryUpdates \cup initialLocalPending)
+(* A checkpoint queued or installed on this device has not been served. *)
+ServedCheckpoints == RotationCheckpoints \ initialQueuedCheckpoints
 PreliminaryPageUpdates(page) ==
   PageUpdates(page) \cap
-    (PreliminaryOrdinaryUpdates \cup RotationCheckpoints)
+    (PreliminaryOrdinaryUpdates \cup ServedCheckpoints)
 DefinitivePageUpdates(page) ==
   PageUpdates(page) \cap
-    (DefinitiveOrdinaryUpdates \cup RotationCheckpoints)
+    (DefinitiveOrdinaryUpdates \cup ServedCheckpoints)
+VoidUpdates == {id \in UpdateIds : updateVoid[id]}
+UnsettledUpdates == {id \in UpdateIds : ~updateSettled[id]}
+(* A checkpoint sync applied: served, authenticated, settled, not void. *)
+AcceptedServedCheckpoints ==
+  {id \in ServedCheckpoints : updateValid[id]} \
+    (VoidUpdates \cup UnsettledUpdates)
+(* What sync applied, and so what the rebuilt history must equal. *)
+AppliedUpdates ==
+  (DefinitiveOrdinaryUpdates \ VoidUpdates) \cup AcceptedServedCheckpoints
+PreliminaryAppliedUpdates ==
+  (PreliminaryOrdinaryUpdates \ VoidUpdates) \cup AcceptedServedCheckpoints
+(* The checkpoints the rebuild imports. The pre-#3135 rotation rebuilt      *)
+(* ordinary updates alone; the other faults import a local checkpoint or   *)
+(* one still unsettled (negative controls only).                           *)
+RebuildCheckpoints ==
+  IF ~RebuildServedCheckpoints THEN {}
+  ELSE IF RebuildOnlyServedCheckpoints THEN ServedCheckpoints
+  ELSE RotationCheckpoints
+PageRebuild(page, ordinary) ==
+  (PageUpdates(page) \cap (ordinary \cup RebuildCheckpoints)) \ VoidUpdates
+PageHasUnsettledUpdate(page) ==
+  RequireSettledVerdicts /\
+    \E id \in DefinitivePageUpdates(page) : ~updateSettled[id]
+PreliminaryPageHasUnsettledUpdate(page) ==
+  RequireSettledVerdicts /\
+    \E id \in PreliminaryPageUpdates(page) : ~updateSettled[id]
+PageHasVoid(page) == \E id \in DefinitivePageUpdates(page) : updateVoid[id]
+PreliminaryPageHasVoid(page) ==
+  \E id \in PreliminaryPageUpdates(page) : updateVoid[id]
 LocalPendingProvenanceValid ==
   \A id \in initialLocalPending : updateValid[id]
 UnavailableEpochs(page) ==
@@ -83,6 +122,8 @@ TypeOK ==
   /\ pageOf \in [UpdateIds -> Pages]
   /\ updateEpoch \in [UpdateIds -> Epochs]
   /\ updateValid \in [UpdateIds -> BOOLEAN]
+  /\ updateVoid \in [UpdateIds -> BOOLEAN]
+  /\ updateSettled \in [UpdateIds -> BOOLEAN]
   /\ epochAvailable \in [Epochs -> BOOLEAN]
   /\ ordinaryUpdates \in SUBSET UpdateIds
   /\ initialLocalPending \in SUBSET (UpdateIds \ ordinaryUpdates)
@@ -93,7 +134,7 @@ TypeOK ==
   /\ hasUnverifiedLocalGap \in BOOLEAN
   /\ generationCurrent \in BOOLEAN
   /\ installSuperseded \in BOOLEAN
-  /\ scratchHistory \subseteq DefinitiveOrdinaryUpdates
+  /\ scratchHistory \subseteq UpdateIds
   /\ preliminaryProven \subseteq initialLocalPending
   /\ initialDurableHistory \in SUBSET UpdateIds
   /\ durableHistory \in SUBSET UpdateIds
@@ -114,6 +155,20 @@ Init ==
   /\ initialQueuedCheckpoints \in
        SUBSET (UpdateIds \ DefinitiveOrdinaryUpdates)
   /\ queuedCheckpoints = initialQueuedCheckpoints
+  (* A served update another device wrote can be void; voids are judged    *)
+  (* only after authentication, so an invalid update is never one.         *)
+  /\ updateVoid \in {void \in [UpdateIds -> BOOLEAN] :
+                       \A id \in UpdateIds :
+                         void[id] =>
+                           /\ id \in ordinaryUpdates \cup ServedCheckpoints
+                           /\ updateValid[id]}
+  (* A judged checkpoint can wait on its verdict (held, runtime-pending). *)
+  /\ updateSettled \in {settled \in [UpdateIds -> BOOLEAN] :
+                          \A id \in UpdateIds :
+                            ~settled[id] =>
+                              /\ id \in ServedCheckpoints
+                              /\ updateValid[id] /\ ~updateVoid[id]
+                              /\ epochAvailable[updateEpoch[id]]}
   /\ hasUnverifiedLocalGap \in BOOLEAN
   /\ generationCurrent = TRUE
   /\ installSuperseded \in BOOLEAN
@@ -130,7 +185,7 @@ VerifyOrdinaryProvenance ==
   /\ phase = "verifying"
   /\ generationCurrent
   /\ nextPage = MaxPage + 1
-  /\ scratchHistory = PreliminaryOrdinaryUpdates
+  /\ scratchHistory = PreliminaryAppliedUpdates
   /\ ~hasUnverifiedLocalGap
   /\ LocalPendingProvenanceValid
   /\ phase' = "settling"
@@ -148,8 +203,10 @@ ValidatePreliminaryPage ==
   /\ nextPage \in Pages
   /\ PreliminaryUnavailableEpochs(nextPage) = {}
   /\ ~PreliminaryPageHasInvalidUpdate(nextPage)
+  /\ ExcludeVoids \/ ~PreliminaryPageHasVoid(nextPage)
+  /\ ~PreliminaryPageHasUnsettledUpdate(nextPage)
   /\ scratchHistory' = scratchHistory \cup
-       (PageUpdates(nextPage) \cap PreliminaryOrdinaryUpdates)
+       PageRebuild(nextPage, PreliminaryOrdinaryUpdates)
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, fixedModel, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, durableState,
@@ -213,8 +270,10 @@ ValidatePage ==
   /\ nextPage \in Pages
   /\ UnavailableEpochs(nextPage) = {}
   /\ ~PageHasInvalidUpdate(nextPage)
+  /\ ExcludeVoids \/ ~PageHasVoid(nextPage)
+  /\ ~PageHasUnsettledUpdate(nextPage)
   /\ scratchHistory' = scratchHistory \cup
-       (PageUpdates(nextPage) \cap DefinitiveOrdinaryUpdates)
+       PageRebuild(nextPage, DefinitiveOrdinaryUpdates)
   /\ nextPage' = nextPage + 1
   /\ UNCHANGED << phase, fixedModel, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, durableState,
@@ -232,11 +291,29 @@ RejectPreliminaryUnavailablePage ==
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
                   durableState, blockedWriterFence >>
 
+(* Before #3135 a void was poison too (ExcludeVoids = FALSE). A verdict the *)
+(* judge has not settled fails the pass too; a later rotation retries.      *)
 RejectPreliminaryInvalidPage ==
   /\ phase = "verifying"
   /\ nextPage \in Pages
-  /\ PreliminaryPageHasInvalidUpdate(nextPage)
+  /\ \/ PreliminaryPageHasInvalidUpdate(nextPage)
+     \/ (~ExcludeVoids /\ PreliminaryPageHasVoid(nextPage))
+     \/ PreliminaryPageHasUnsettledUpdate(nextPage)
   /\ phase' = "preliminary_failed"
+  /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
+                  hasUnverifiedLocalGap, generationCurrent, scratchHistory,
+                  durableState, reportedUnavailableEpoch,
+                  blockedWriterFence >>
+
+(* The exact-history proof fails when the rebuild differs from what sync    *)
+(* applied; with every accepted served update rebuilt, it never does.       *)
+RejectInexactHistory ==
+  /\ phase \in {"verifying", "collecting"}
+  /\ nextPage = MaxPage + 1
+  /\ scratchHistory #
+       IF phase = "verifying" THEN PreliminaryAppliedUpdates
+       ELSE AppliedUpdates
+  /\ phase' = IF phase = "verifying" THEN "preliminary_failed" ELSE "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
                   durableState, reportedUnavailableEpoch,
@@ -256,7 +333,9 @@ RejectUnavailablePage ==
 RejectInvalidPage ==
   /\ phase = "collecting"
   /\ nextPage \in Pages
-  /\ PageHasInvalidUpdate(nextPage)
+  /\ \/ PageHasInvalidUpdate(nextPage)
+     \/ (~ExcludeVoids /\ PageHasVoid(nextPage))
+     \/ PageHasUnsettledUpdate(nextPage)
   /\ phase' = "failed"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
@@ -325,7 +404,7 @@ VerifyExactLocalHistoryBeforeInstall ==
   /\ phase = "collecting"
   /\ nextPage = MaxPage + 1
   /\ ~hasUnverifiedLocalGap
-  /\ scratchHistory = DefinitiveOrdinaryUpdates
+  /\ scratchHistory = AppliedUpdates
   /\ phase' = "ready"
   /\ UNCHANGED << fixedModel, nextPage, localPending, queuedCheckpoints,
                   hasUnverifiedLocalGap, generationCurrent, scratchHistory,
@@ -409,6 +488,7 @@ RecoveryStep ==
   \/ ValidatePage
   \/ RejectUnavailablePage
   \/ RejectInvalidPage
+  \/ RejectInexactHistory
   \/ RejectUnverifiedLocalGap
   \/ RejectChangedGeneration
   \/ RejectSupersededInstall
@@ -440,12 +520,16 @@ FailedRecoveryPreservesDurableHistory ==
     (~durablePublished /\ durableHistory = initialDurableHistory /\
       initialQueuedCheckpoints \subseteq queuedCheckpoints)
 
-CompleteRecoveryContainsAllOrdinaryHistory ==
-  phase # "complete" \/ durableHistory = DefinitiveOrdinaryUpdates
+CompleteRecoveryContainsAppliedHistory ==
+  phase # "complete" \/ durableHistory = AppliedUpdates
 CompleteRecoveryRetiresQueuedCheckpoints ==
   phase # "complete" \/ queuedCheckpoints = {}
-ScratchNeverTrustsRotationCheckpoints ==
-  scratchHistory \subseteq DefinitiveOrdinaryUpdates
+(* No laundering: a checkpoint enters the rebuild only once sync would apply *)
+(* it, never one queued or installed locally, voided, or unsettled.          *)
+ScratchNeverLaundersCheckpoints ==
+  scratchHistory \subseteq
+    DefinitiveOrdinaryUpdates \cup AcceptedServedCheckpoints
+ScratchNeverHoldsVoids == scratchHistory \cap VoidUpdates = {}
 RawCollectionStartsAfterLocalSettlement ==
   phase \notin {"collecting", "ready", "complete"} \/ localPending = {}
 
@@ -461,8 +545,22 @@ PreliminaryValidationPrecedesSettlement ==
 
 PublicationRequiresExactHistoryProvenance ==
   phase \notin {"ready", "complete"} \/
-    (~hasUnverifiedLocalGap /\
-      scratchHistory = DefinitiveOrdinaryUpdates)
+    (~hasUnverifiedLocalGap /\ scratchHistory = AppliedUpdates)
+
+(* Every failure has a cause in its inputs, never history sync applied or   *)
+(* left out: neither a void nor a served checkpoint stops every rotation,   *)
+(* and with it every unlink, of its document (#3135).                        *)
+RecoveryFailsOnlyForCause ==
+  phase \notin {"preliminary_failed", "failed"} \/
+    hasUnverifiedLocalGap \/ ~generationCurrent \/ installSuperseded \/
+    ~LocalPendingProvenanceValid \/ localPending # {} \/
+    \E page \in Pages :
+      \/ PreliminaryPageHasInvalidUpdate(page)
+      \/ PreliminaryUnavailableEpochs(page) # {}
+      \/ PreliminaryPageHasUnsettledUpdate(page)
+      \/ PageHasInvalidUpdate(page)
+      \/ UnavailableEpochs(page) # {}
+      \/ PageHasUnsettledUpdate(page)
 
 UnverifiedLocalHistoryNeverPublishes ==
   ~hasUnverifiedLocalGap \/ phase # "complete"

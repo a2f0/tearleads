@@ -9,6 +9,7 @@ import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContainerKekMaterialId,
   computeDocumentContentKeyTargetHash,
+  computeDocumentContentRecordMetadataHash,
   computeDocumentContentRecordPlaintextHash,
   DOCUMENT_CONTENT_KEY_WRAP_SUITE,
   isContainerKekMaterialId,
@@ -169,4 +170,40 @@ test("canonical JSON rejects lone surrogates in values and property names", () =
   expect(
     serializeKeyingCanonicalJson({ emoji: "😀", decomposed: "e\u0301" }),
   ).toBe('{"decomposed":"e\u0301","emoji":"😀"}');
+});
+
+// The API weighs only updates committed after a baseline's cursor, so the
+// cursor is signed: a baseline without one keeps its old hash, and a server
+// that changes or drops it breaks the writer's signature.
+test("document content-record metadata commits to a baseline's cursor", async () => {
+  const baseline = {
+    checkpointKind: "rotate_baseline" as const,
+    checkpointPayloadKind: "full_history_snapshot" as const,
+    documentId: "document-1",
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+    plaintextHash: "plaintext",
+    sourceVersionVector: "end",
+    updateId: "baseline-1",
+  };
+  const withoutCursor =
+    await computeDocumentContentRecordMetadataHash(baseline);
+  const hashes = new Set([
+    withoutCursor,
+    await computeDocumentContentRecordMetadataHash({
+      ...baseline,
+      coversThroughUpdateId: "update-1",
+    }),
+    await computeDocumentContentRecordMetadataHash({
+      ...baseline,
+      coversThroughUpdateId: "update-2",
+    }),
+  ]);
+  expect(hashes.size).toBe(3);
+  expect(
+    await computeDocumentContentRecordMetadataHash({
+      ...baseline,
+      coversThroughUpdateId: undefined,
+    }),
+  ).toBe(withoutCursor);
 });

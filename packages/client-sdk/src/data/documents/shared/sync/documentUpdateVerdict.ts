@@ -33,7 +33,7 @@ export type DocumentVoidStage =
  * judges every update it voided again: a format an older decoder could not
  * read is not a fault of the writer.
  */
-const DOCUMENT_VOID_RULES_VERSION = "void-rules-1";
+const DOCUMENT_VOID_RULES_VERSION = "void-rules-2";
 
 export function documentVerdictJudge(): string {
   return `${DOCUMENT_VOID_RULES_VERSION}:${loroDecoderIdentity()}`;
@@ -151,9 +151,9 @@ export function voidedDocumentSyncUpdate(
 }
 
 /**
- * For callers that verify their own or a single trusted history (a founding
- * update, a rotation's raw history): any void, or any update left unjudged,
- * is still a failure. Returns the verdicts it was given.
+ * For callers that verify their own or a single trusted history, such as a
+ * founding update: any void, or any update left unjudged, is still a failure.
+ * Returns the verdicts it was given.
  */
 export function assertNoVoidedDocumentSyncUpdates<
   Verdicts extends

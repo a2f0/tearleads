@@ -36,6 +36,31 @@ function rangeDependencyFrontiers(
   return [...externalDependencies.values()];
 }
 
+/**
+ * `range` replayed onto `doc` forked at `frontiers`. Holders of the same
+ * operations can split them differently by the path that imported them, as a
+ * reader holding part of a change does when a snapshot brings the rest.
+ * Replayed onto one prefix, equal operations split alike, and an operation's
+ * content is kept.
+ */
+function replayedRange(
+  doc: LoroDoc,
+  frontiers: ReturnType<typeof rangeDependencyFrontiers>,
+  range: JsonSchema,
+  startVersion: ReturnType<typeof decodeVersionVector>,
+  endVersion: ReturnType<typeof decodeVersionVector>,
+): string {
+  const replay = doc.forkAt(frontiers);
+  try {
+    replay.importJsonUpdates(range);
+    return serializeCanonicalHistory(
+      replay.exportJsonUpdates(startVersion, endVersion, false),
+    );
+  } finally {
+    replay.free();
+  }
+}
+
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
   if (left.byteLength !== right.byteLength) return false;
   return left.every((value, index) => value === right[index]);
@@ -91,9 +116,12 @@ export function updateMatchesDocumentHistory(
       endVersion,
       false,
     );
-    candidate = doc.forkAt(
-      rangeDependencyFrontiers(expectedRange, startVersion, endVersion),
+    const frontiers = rangeDependencyFrontiers(
+      expectedRange,
+      startVersion,
+      endVersion,
     );
+    candidate = doc.forkAt(frontiers);
     if (metadata.mode === "snapshot" || metadata.mode === "shallow-snapshot") {
       importSnapshot(candidate, update);
     } else {
@@ -104,9 +132,14 @@ export function updateMatchesDocumentHistory(
         encodeVersionVector(candidate),
         metadata.partialEndVersionVector,
       ) &&
-      serializeCanonicalHistory(
+      replayedRange(
+        doc,
+        frontiers,
         candidate.exportJsonUpdates(startVersion, endVersion, false),
-      ) === serializeCanonicalHistory(expectedRange)
+        startVersion,
+        endVersion,
+      ) ===
+        replayedRange(doc, frontiers, expectedRange, startVersion, endVersion)
     );
   } catch (error) {
     // The runtime failing proves nothing about the update.

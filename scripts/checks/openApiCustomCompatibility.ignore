@@ -1,0 +1,23 @@
+# Issue #3135 (advisory op spans, PR 3): a rotation baseline may carry the
+# optional, writer-signed `coversThroughUpdateId`, and the rotation-checkpoint
+# refinement now also rejects that field on anything but a rotation baseline.
+# No existing client sends the field, so no existing request is rejected.
+# Every request that embeds a document sync update reports the reworded
+# request refinement. Remove these exact diagnostics, and this file, as soon
+# as main contains the new contract.
+POST /auth/register: refinement 'request.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.
+POST /blobs/{blobId}/attachment-bindings: refinement 'request.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.
+POST /containers/with-metadata-document: refinement 'request.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.
+POST /documents/{documentId}/link: refinement 'request.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.
+POST /documents/{documentId}/sync: refinement 'request.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.
+POST /documents/{documentId}/unlink: refinement 'request.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.
+POST /documents: refinement 'request.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.
+POST /organizations: refinement 'request.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.
+
+# Issue #3135 PR 3: a served rotation baseline may carry the signed cursor,
+# and the response refinement rejects it on anything else, which tightens what
+# the server may send. A client built before this contract recomputes a
+# cursor-signed baseline's metadata hash without the cursor and fails closed
+# on it: a flag day for the greenfield SDK, which ships with the API. Remove
+# this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/sync: refinement 'response.rotation-checkpoint-fields' was reworded; treat semantic changes as breaking.

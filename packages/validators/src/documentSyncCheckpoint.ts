@@ -12,6 +12,7 @@ interface DocumentSyncCheckpointFields {
     | typeof DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND
     | undefined;
   readonly sourceVersionVector?: string | undefined;
+  readonly coversThroughUpdateId?: string | undefined;
 }
 
 export type DocumentSyncCheckpointFieldClassification =
@@ -22,12 +23,14 @@ export type DocumentSyncCheckpointFieldClassification =
 export function classifyDocumentSyncCheckpointFields({
   checkpointKind,
   checkpointPayloadKind,
+  coversThroughUpdateId,
   sourceVersionVector,
 }: DocumentSyncCheckpointFields): DocumentSyncCheckpointFieldClassification {
   if (
     checkpointKind === undefined &&
     checkpointPayloadKind === undefined &&
-    sourceVersionVector === undefined
+    sourceVersionVector === undefined &&
+    coversThroughUpdateId === undefined
   ) {
     return "absent";
   }

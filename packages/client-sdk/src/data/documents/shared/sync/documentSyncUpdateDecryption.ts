@@ -37,7 +37,8 @@ async function assertDocumentEncryptedUpdateMatchesHeader(input: {
   const hasCheckpointMetadata =
     update.checkpointKind !== undefined ||
     update.checkpointPayloadKind !== undefined ||
-    update.sourceVersionVector !== undefined;
+    update.sourceVersionVector !== undefined ||
+    update.coversThroughUpdateId !== undefined;
   if (
     hasCheckpointMetadata &&
     (update.checkpointKind !== "rotate_baseline" ||
@@ -70,6 +71,7 @@ async function assertDocumentEncryptedUpdateMatchesHeader(input: {
     ...(update.checkpointPayloadKind === undefined
       ? {}
       : { checkpointPayloadKind: update.checkpointPayloadKind }),
+    coversThroughUpdateId: update.coversThroughUpdateId,
     documentId: input.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,

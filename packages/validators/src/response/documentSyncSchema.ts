@@ -91,6 +91,7 @@ export const DocumentSyncUpdateResponseSchema =
       checkpointPayloadKind: z
         .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
         .optional(),
+      coversThroughUpdateId: z.string().optional(),
       createdAt: z.string(),
       documentId: z.string(),
       encryptedData: z.string(),

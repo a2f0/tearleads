@@ -58,6 +58,7 @@ async function createSignedOrdinaryUpdate(input: {
   readonly authorizingContainerPathRefs: ContainerPathRefs;
   readonly checkpoint: boolean;
   readonly contentKeyBundle?: CreatedDocumentFixture["contentKeyBundle"];
+  readonly coversThroughUpdateId?: string | undefined;
   readonly created: CreatedDocumentFixture;
   readonly declaredSpan?: DeclaredSpan | undefined;
   readonly owner: TestUser;
@@ -116,6 +117,7 @@ async function createSignedOrdinaryUpdate(input: {
           ? {
               checkpointKind: "rotate_baseline" as const,
               checkpointPayloadKind: "full_history_snapshot" as const,
+              coversThroughUpdateId: input.coversThroughUpdateId,
               sourceVersionVector: vectors.partialEndVersionVector,
             }
           : {}),
@@ -152,6 +154,8 @@ export async function createSignedDocumentSyncRequest(input: {
    * bundle in the request so the server stores it.
    */
   readonly contentKeyBundle?: CreatedDocumentFixture["contentKeyBundle"];
+  /** A checkpoint's signed processed cursor. */
+  readonly coversThroughUpdateId?: string | undefined;
   readonly created: CreatedDocumentFixture;
   readonly declaredSpan?: DeclaredSpan | undefined;
   readonly includeContentKeyBundle?: boolean;
@@ -196,6 +200,9 @@ export async function createSignedDocumentSyncRequest(input: {
             ? {
                 checkpointKind: "rotate_baseline" as const,
                 checkpointPayloadKind: "full_history_snapshot" as const,
+                ...(input.coversThroughUpdateId === undefined
+                  ? {}
+                  : { coversThroughUpdateId: input.coversThroughUpdateId }),
                 sourceVersionVector: update.vectors.partialEndVersionVector,
               }
             : {}),
@@ -242,6 +249,7 @@ export async function createSignedAtomicRotationBaseline(input: {
   readonly dependencyManifestHashes: readonly string[];
   readonly accessManifestHash: string;
   readonly contentKeyEpoch: number;
+  readonly coversThroughUpdateId?: string | undefined;
   readonly documentId: string;
   readonly organizationId: string;
   readonly owner: TestUser;
@@ -285,6 +293,7 @@ export async function createSignedAtomicRotationBaseline(input: {
       metadataHash: await computeDocumentContentRecordMetadataHash({
         checkpointKind: "rotate_baseline",
         checkpointPayloadKind: "full_history_snapshot",
+        coversThroughUpdateId: input.coversThroughUpdateId,
         documentId: input.documentId,
         partialEndVersionVector: sourceVersionVector,
         partialStartVersionVector,
@@ -302,6 +311,9 @@ export async function createSignedAtomicRotationBaseline(input: {
   return {
     checkpointKind: "rotate_baseline",
     checkpointPayloadKind: "full_history_snapshot",
+    ...(input.coversThroughUpdateId === undefined
+      ? {}
+      : { coversThroughUpdateId: input.coversThroughUpdateId }),
     id,
     encryptedData,
     partialStartVersionVector,

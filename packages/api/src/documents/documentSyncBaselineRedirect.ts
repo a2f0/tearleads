@@ -6,6 +6,7 @@ import {
 import { mergeVersionVectors } from "@tearleads/loro";
 import { and, desc, eq, isNotNull, lte } from "drizzle-orm";
 import { isDocumentUpdateDominatedByBaseline } from "./documentBaselineDominance";
+import { readProcessedThroughSequence } from "./documentProcessedCursor";
 import { isAuthenticatedReplayableBaseline } from "./documentReplayableBaseline";
 import { hasMissingDocumentUpdatesThroughSequence } from "./documentUpdateStore";
 
@@ -100,12 +101,14 @@ async function loadLatestReadableBaseline(
     readonly upperBoundSequence?: number | undefined;
   },
 ): Promise<{
+  readonly coversThroughUpdateId: string | undefined;
   readonly sequence: number;
   readonly sourceVersionVector: string;
   readonly updateId: string;
 } | null> {
   const rows = await executor
     .select({
+      coversThroughUpdateId: documentUpdates.baselineCoversThroughUpdateId,
       header: documentContentWriteHeaders.header,
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
@@ -134,12 +137,14 @@ async function loadLatestReadableBaseline(
   for (const row of rows) {
     const { sourceVersionVector } = row;
     if (sourceVersionVector === null) continue;
+    const coversThroughUpdateId = row.coversThroughUpdateId ?? undefined;
     // The kind is the rotation constant; the recomputed signed metadata hash
     // still binds it, the vector, and the update row, so a tampered column
     // fails closed rather than redirecting.
     if (
       await isAuthenticatedReplayableBaseline({
         checkpointKind: "rotate_baseline",
+        coversThroughUpdateId,
         documentId: input.documentId,
         metadataHash: row.header.metadataHash,
         partialEndVersionVector: row.partialEndVersionVector,
@@ -150,6 +155,7 @@ async function loadLatestReadableBaseline(
       })
     ) {
       return {
+        coversThroughUpdateId,
         sequence: row.sequence,
         sourceVersionVector,
         updateId: row.updateId,
@@ -178,7 +184,9 @@ export async function loadLatestReadableBaselineCoverage(
  * every update the client is missing between where the page starts and that
  * baseline. A first page starts after the client's processed cursor, if it
  * sent one, and updates at or before the cursor were judged already, so they
- * neither need the baseline nor keep it from serving. A continuation page
+ * neither need the baseline nor keep it from serving. A baseline covers every
+ * update at or before its own signed cursor, which its author imported or
+ * voided, and each later one its source version holds. A continuation page
  * keeps its position. This decision happens before the bounded page query,
  * so a long run of covered old-epoch updates cannot consume empty pages and
  * starve the baseline itself.
@@ -203,22 +211,39 @@ export async function resolveBaselineRedirectAfterSequence(input: {
 
   const beforeBaseline = baseline.sequence - 1;
   if (beforeBaseline <= input.afterSequence) return input.afterSequence;
-  const missingBeforeBaseline = (localVersionVector: string | null) =>
+  const missingBeforeBaseline = (
+    afterSequence: number,
+    localVersionVector: string | null,
+  ) =>
     hasMissingDocumentUpdatesThroughSequence(input.executor, {
-      afterSequence: input.afterSequence,
+      afterSequence,
       documentId: input.documentId,
       localVersionVector,
       upperBoundSequence: beforeBaseline,
     });
-  if (!(await missingBeforeBaseline(input.localVersionVector))) {
+  if (
+    !(await missingBeforeBaseline(
+      input.afterSequence,
+      input.localVersionVector,
+    ))
+  ) {
     return input.afterSequence;
   }
 
+  // The baseline's author imported or voided every update up to its signed
+  // cursor, so the snapshot stands for those; later ones must be covered.
+  const coveredThrough = await readProcessedThroughSequence(input.executor, {
+    documentId: input.documentId,
+    processedThroughUpdateId: baseline.coversThroughUpdateId,
+  });
   const coveredFrontier = mergeVersionVectors([
     ...(input.localVersionVector === null ? [] : [input.localVersionVector]),
     baseline.sourceVersionVector,
   ]);
-  return (await missingBeforeBaseline(coveredFrontier))
+  return (await missingBeforeBaseline(
+    Math.max(input.afterSequence, coveredThrough),
+    coveredFrontier,
+  ))
     ? input.afterSequence
     : beforeBaseline;
 }

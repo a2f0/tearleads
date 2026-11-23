@@ -2,7 +2,7 @@ import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS } from "./util/documentSyncLi
 
 export const documentSyncRequestRotationRefinement = {
   description:
-    "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+    "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
   id: "request.rotation-checkpoint-fields",
 } as const;
 
@@ -64,7 +64,7 @@ export const documentLinkSetPathRefinement = {
 
 export const documentSyncResponseRotationRefinement = {
   description:
-    "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline",
+    "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
   id: "response.rotation-checkpoint-fields",
 } as const;
 

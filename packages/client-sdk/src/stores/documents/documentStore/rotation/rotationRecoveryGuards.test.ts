@@ -155,7 +155,10 @@ async function soloEdit(name: string) {
   return { data, ...getUpdateVersionVectors(data) };
 }
 
-test("rotation fails on a void in the raw history it re-encrypts", async () => {
+// A writer's false span used to fail every rotation of the document, and with
+// it every unlink: the raw history now leaves the update out, as a sync pass
+// does, records it once, and proves the rest.
+test("rotation leaves a void out of the raw history it re-encrypts", async () => {
   const { close, execSql } = await createTestExecSql(
     "rotation-recovery-void-history",
   );
@@ -205,12 +208,21 @@ test("rotation fails on a void in the raw history it re-encrypts", async () => {
     );
     expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
 
-    await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
-      "during loro_metadata",
-    );
+    await assertDocumentStoreCanRotateContentKey(state);
     expect(
       (await sqlDocumentsPersistence.loadDocument(execSql, localId))?.text,
     ).toBe("survives key rotation");
+    expect(
+      await execSql(
+        "SELECT update_id, stage FROM document_void_updates WHERE local_id = ?",
+        [localId],
+      ),
+    ).toEqual([
+      {
+        stage: "loro_metadata",
+        update_id: "550e8400-e29b-41d4-a716-446655440443",
+      },
+    ]);
   } finally {
     close();
   }

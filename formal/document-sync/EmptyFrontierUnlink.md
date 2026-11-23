@@ -57,6 +57,16 @@ accepts an empty baseline for the next, which strands the first baseline: the
 control `empty-frontier-baseline-skips-earlier-baseline` asserts it across two
 consecutive rotations.
 
+The committed frontier a covering baseline must cover is the one after the
+baseline's signed processed cursor: its author imported or voided every update
+up to the cursor, so the snapshot stands for those (#3135).
+[BaselineCursorCoverage](./BaselineCursorCoverage.md) models that cursor;
+here `total` counts the updates after it. A document whose every update is
+void has an empty snapshot, which encodes no baseline, and the baseline-less
+gate still refuses it while any update is committed: new members would lack
+the old key for those rows. That document cannot be unlinked, an accepted
+residual of #3135.
+
 A link's emptiness check and its commit are separate steps under the same
 manifest-head lock as an unlink, so `LockedUnlink = FALSE` also lets a writer
 commit between them. The bounds stay small (`MaxUpdates = 3` committed

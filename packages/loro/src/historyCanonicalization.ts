@@ -1,5 +1,6 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import type { JsonOp, JsonSchema } from "loro-crdt";
+import { type JsonOp, type JsonSchema, LoroDoc } from "loro-crdt";
+import { recordChangeTimestamps } from "./changeTimestamps";
 
 type CanonicalHistoryValue =
   | readonly ["array", CanonicalHistoryValue[]]
@@ -94,4 +95,25 @@ export function serializeCanonicalHistory(history: JsonSchema): string {
     ...history,
     changes: canonicalChanges,
   });
+}
+
+/**
+ * The canonical identity of `history` as an empty document segments it.
+ * Documents holding the same operations can split them differently by the
+ * path that imported them: a snapshot imported into a populated document, or
+ * a batch repeating operations already held, keeps adjacent operations apart
+ * that other imports merge. Replaying the history segments it the same way
+ * for every holder, and keeps every operation's content.
+ */
+export function serializeReplayedHistory(history: JsonSchema): string {
+  const replay = new LoroDoc();
+  try {
+    recordChangeTimestamps(replay);
+    replay.importJsonUpdates(history);
+    return serializeCanonicalHistory(
+      replay.exportJsonUpdates(undefined, undefined, false),
+    );
+  } finally {
+    replay.free();
+  }
 }

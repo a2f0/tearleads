@@ -1,0 +1,1 @@
+ALTER TABLE "document_updates" ADD COLUMN "baseline_covers_through_update_id" uuid;

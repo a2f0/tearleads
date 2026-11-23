@@ -25,6 +25,7 @@ import {
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { isKeyingVerificationError } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { resolveBaselineCursors } from "./baselineCursors";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];
 type RawHistoryUnavailableCause =
@@ -123,6 +124,8 @@ export async function prepareDocumentOutgoingUpdates(input: {
   contentKey: Uint8Array;
   contentKeyEpoch: number;
   documentId: string;
+  /** Reads the processed cursor each queued rotation baseline signs. */
+  execSql?: ExecSql | undefined;
   organizationId: string;
   pendingUpdates: readonly PendingUpdateRecord[];
 }): Promise<DocumentSyncPreparedUpdate[]> {
@@ -130,12 +133,17 @@ export async function prepareDocumentOutgoingUpdates(input: {
     return [];
   }
   const contentKeyMaterial = await importContentKeyMaterial(input.contentKey);
+  const baselineCursors = await resolveBaselineCursors(input);
 
   return Promise.all(
     input.pendingUpdates.map(async (update) => {
+      const coversThroughUpdateId = update.sourceVersionVector
+        ? baselineCursors.get(update.id)
+        : undefined;
       const encrypted = await encryptDocumentPendingUpdate({
         contentKeyMaterial,
         contentKeyEpoch: input.contentKeyEpoch,
+        coversThroughUpdateId,
         documentId: input.documentId,
         organizationId: input.organizationId,
         update,
@@ -155,6 +163,9 @@ export async function prepareDocumentOutgoingUpdates(input: {
               checkpointKind: "rotate_baseline" as const,
               checkpointPayloadKind: "full_history_snapshot" as const,
               sourceVersionVector: update.sourceVersionVector,
+              ...(coversThroughUpdateId === undefined
+                ? {}
+                : { coversThroughUpdateId }),
             }
           : {}),
       };
