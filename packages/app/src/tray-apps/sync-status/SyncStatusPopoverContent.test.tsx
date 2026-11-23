@@ -88,7 +88,7 @@ test("Sync now requests every lane of the runtime's scope, and links open their 
   fireEvent.click(view.getByRole("button", { name: "View write queue" }));
   expect(openMiniApp).toHaveBeenCalledWith({
     appId: "explorer",
-    pathSegments: ["writes"],
+    pathSegments: ["outgoing", "writes"],
   });
 });
 

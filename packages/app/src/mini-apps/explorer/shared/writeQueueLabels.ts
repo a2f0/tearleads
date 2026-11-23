@@ -1,8 +1,6 @@
 export const EXPLORER_WRITE_QUEUE_LABELS = {
-  writeQueueAction: "Write Queue",
   writeQueueAttachmentCountOne: "blob upload",
   writeQueueAttachmentCountOther: "blob uploads",
-  writeQueueBackToListAction: "Back to Write Queue",
   writeQueueBillingPaused: "Billing paused",
   writeQueueBillingPausedMessage: "Billing is pausing sync for",
   writeQueueBlockedStatus: "Blocked",

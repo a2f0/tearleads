@@ -155,9 +155,8 @@ interface ExplorerDetailPanelProps {
   }) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
-  openDownloadsRoute: () => void;
-  openUploadsRoute: () => void;
-  openWriteQueueRoute: () => void;
+  openIncomingRoute: () => void;
+  openOutgoingRoute: () => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
   peerUserId: string | null;
   folderState: ExplorerFolderState;
@@ -235,10 +234,9 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     route.view === "sync-lanes" ||
     route.view === "sync-lane-detail" ||
     route.view === "blob-browser" ||
-    route.view === "write-queue" ||
+    route.view === "outgoing" ||
     route.view === "write-queue-entry" ||
-    route.view === "downloads" ||
-    route.view === "uploads"
+    route.view === "incoming"
   ) {
     return (
       <ExplorerSectionsPanel
@@ -260,9 +258,8 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         openContainerInfoRoute={params.openContainerInfoRoute}
         openDocumentInfoRoute={params.openDocumentInfoRoute}
         openSyncLanesRoute={params.openSyncLanesRoute}
-        openDownloadsRoute={params.openDownloadsRoute}
-        openUploadsRoute={params.openUploadsRoute}
-        openWriteQueueRoute={params.openWriteQueueRoute}
+        openIncomingRoute={params.openIncomingRoute}
+        openOutgoingRoute={params.openOutgoingRoute}
         openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}
         route={route}
         selectDocumentProjection={params.selectDocumentProjection}

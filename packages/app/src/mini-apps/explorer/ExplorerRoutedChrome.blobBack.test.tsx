@@ -66,7 +66,7 @@ function createBlobRouteModel(
       openContainerInfoRoute: () => undefined,
       openDocumentInfoRoute: () => undefined,
       openSyncLanesRoute: () => undefined,
-      openWriteQueueRoute: () => undefined,
+      openOutgoingRoute: () => undefined,
       route,
       showSelectionRoute: () => undefined,
     },
