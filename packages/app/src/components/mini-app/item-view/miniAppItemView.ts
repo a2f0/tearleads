@@ -14,7 +14,7 @@ import { getMiniAppCompactTableRowHeight } from "../tables/MiniAppCompactTable";
  */
 export type MiniAppItemView = "rows" | "large-rows" | "grid";
 
-export const MINI_APP_ITEM_VIEWS: ReadonlyArray<MiniAppItemView> = [
+const MINI_APP_ITEM_VIEWS: ReadonlyArray<MiniAppItemView> = [
   "rows",
   "large-rows",
   "grid",
