@@ -7,7 +7,6 @@ import type { ExplorerRouteDocumentSummaryResult } from "../../../stores/explore
 import type { MiniAppId } from "../../types";
 import {
   DEFAULT_EXPLORER_ROUTE,
-  type ExplorerOutgoingRouteOptions,
   type ExplorerRoute,
   type ExplorerRouteNavigationOptions,
   type ExplorerRouteSetter,
@@ -31,7 +30,7 @@ export interface ExplorerRouteState {
   openSyncLaneDetailRoute: (laneKey: string) => void;
   openSyncLanesRoute: (options?: ExplorerRouteNavigationOptions) => void;
   openIncomingRoute: () => void;
-  openOutgoingRoute: (options?: ExplorerOutgoingRouteOptions) => void;
+  openOutgoingRoute: (options?: ExplorerRouteNavigationOptions) => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
   selectCreatedExplorerItem: (id: string) => void;
   selectExplorerDocument: (
@@ -297,12 +296,8 @@ function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
   );
 
   const openOutgoingRoute = useCallback(
-    ({ section, ...options }: ExplorerOutgoingRouteOptions = {}) => {
-      setRoute(
-        { section: section ?? null, view: "outgoing" },
-        undefined,
-        options,
-      );
+    (options?: ExplorerRouteNavigationOptions) => {
+      setRoute({ view: "outgoing" }, undefined, options);
     },
     [setRoute],
   );

@@ -101,16 +101,9 @@ const EXPLORER_DIAGNOSTICS_LISTS = [
     selector: ".explorer-sync-lane-table-wrap",
   },
   {
-    name: "outgoing uploads",
+    name: "outgoing",
     path: "/app/explorer/outgoing",
-    selector:
-      '.explorer-detail--outgoing [data-outgoing-section="uploads"] .mini-app-table-frame',
-  },
-  {
-    name: "outgoing write queue",
-    path: "/app/explorer/outgoing",
-    selector:
-      '.explorer-detail--outgoing [data-outgoing-section="writes"] .mini-app-table-frame',
+    selector: ".explorer-detail--outgoing .mini-app-table-frame",
   },
   {
     name: "incoming",
@@ -166,51 +159,6 @@ for (const surface of EXPLORER_DIAGNOSTICS_LISTS) {
     expect(geometry.escaped).toEqual([]);
   });
 }
-
-// On a phone the Outgoing tab stacks its two tables in the tab's one scroller
-// rather than switching between them, so the write queue sits below however
-// many uploads the session listed. The Sync Status popover's "View write
-// queue" link names that section, and the tab scrolls its heading to the top:
-// as far as the scroller goes, when too little follows it to reach the top.
-// The viewport is short so the two tables overflow the tab.
-test("mobile Outgoing stacks its sections and a link scrolls to the write queue", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 480 });
-  await page.goto("/app/explorer/outgoing/writes");
-  // A new identity queues its root folder and Contacts for upload.
-  const writes = page.locator('[data-outgoing-section="writes"]');
-  await expect(
-    writes.getByRole("button", { name: "Open object: Contacts" }),
-  ).toBeVisible({ timeout: 30_000 });
-
-  const geometry = await measureAttached("outgoing sections", () =>
-    page.locator(".explorer-detail--outgoing").evaluate((panel) => {
-      const uploads = panel.querySelector('[data-outgoing-section="uploads"]');
-      const writes = panel.querySelector('[data-outgoing-section="writes"]');
-      if (!panel.isConnected || !uploads || !writes) return null;
-      const writesTop = writes.getBoundingClientRect().top;
-      return {
-        maxScroll: panel.scrollHeight - panel.clientHeight,
-        scrollTop: panel.scrollTop,
-        stacked: uploads.getBoundingClientRect().bottom <= writesTop,
-        // Where the section sits in the scrolled content, which no scroll moves.
-        writesContentTop:
-          writesTop - panel.getBoundingClientRect().top + panel.scrollTop,
-      };
-    }),
-  );
-
-  expect(geometry.stacked).toBe(true);
-  expect(geometry.maxScroll).toBeGreaterThan(0);
-  expect(geometry.scrollTop).toBeGreaterThan(0);
-  expect(
-    Math.abs(
-      geometry.scrollTop -
-        Math.min(geometry.maxScroll, geometry.writesContentTop),
-    ),
-  ).toBeLessThanOrEqual(1);
-});
 
 // One shared popover menu backs every context menu in the app, so this covers
 // Contacts, Notes, Org Manager and the rest as much as it covers Explorer. Its

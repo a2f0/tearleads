@@ -13,9 +13,12 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import {
   ARCHIVE_NODE,
   item,
+  uploadManager,
 } from "../../../../../test/helpers/explorer/syncPanelFixtures";
 import { EXPLORER_LABELS } from "../../labels";
-import { ExplorerWriteQueuePanel } from "./ExplorerWriteQueuePanel";
+import { ExplorerOutgoingPanel } from "../transfers/ExplorerOutgoingPanel";
+
+// How the Outgoing tab reads the durable write queue through its shared store.
 
 afterEach(() => cleanup());
 
@@ -33,7 +36,7 @@ function panel(
   dbReady: boolean,
 ) {
   return (
-    <ExplorerWriteQueuePanel
+    <ExplorerOutgoingPanel
       billingBlockedOrganizationId={null}
       dbReady={dbReady}
       documentQueries={documentQueries}
@@ -46,6 +49,7 @@ function panel(
       openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
       selectedEntryKey={null}
+      uploadManager={uploadManager()}
     />
   );
 }
@@ -131,7 +135,7 @@ test("coalesces a burst of sync signals and keeps stale rows while re-reading", 
   });
 
   await waitFor(() =>
-    expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy(),
+    expect(view.getByText(EXPLORER_LABELS.outgoingEmpty)).toBeTruthy(),
   );
   expect(queryCount).toBe(2);
 });
@@ -143,7 +147,7 @@ test("surfaces a durable-write query failure", async () => {
     },
   } as unknown as ContainerDocumentQueries;
   const view = render(
-    <ExplorerWriteQueuePanel
+    <ExplorerOutgoingPanel
       billingBlockedOrganizationId={null}
       dbReady
       documentQueries={documentQueries}
@@ -156,6 +160,7 @@ test("surfaces a durable-write query failure", async () => {
       openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
       selectedEntryKey={null}
+      uploadManager={uploadManager()}
     />,
   );
 
@@ -193,7 +198,7 @@ test("a scope switch never shows the previous scope's late rows", async () => {
   // The domain scope rotates (org switch, logout) while the previous scope's
   // scan is still pending: the new scope is read at once.
   view.rerender(
-    <ExplorerWriteQueuePanel
+    <ExplorerOutgoingPanel
       billingBlockedOrganizationId={null}
       dbReady
       documentQueries={nextQueries}
@@ -206,6 +211,7 @@ test("a scope switch never shows the previous scope's late rows", async () => {
       openWriteQueueEntryRoute={() => undefined}
       organizationNamesById={new Map()}
       selectedEntryKey={null}
+      uploadManager={uploadManager()}
     />,
   );
   expect(nextCalls).toHaveLength(1);
@@ -224,7 +230,7 @@ test("a scope switch never shows the previous scope's late rows", async () => {
     nextCalls[0]?.([]);
   });
   await waitFor(() =>
-    expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy(),
+    expect(view.getByText(EXPLORER_LABELS.outgoingEmpty)).toBeTruthy(),
   );
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 900));
@@ -262,7 +268,7 @@ test("reloads a settled write while another sync lane remains active", async () 
   try {
     await waitFor(() => {
       expect(queryCount).toBeGreaterThanOrEqual(2);
-      expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy();
+      expect(view.getByText(EXPLORER_LABELS.outgoingEmpty)).toBeTruthy();
     });
     const snapshot = getDomainSyncCoordinatorSnapshot(domainScope);
     expect(snapshot.hasPendingWork).toBe(true);

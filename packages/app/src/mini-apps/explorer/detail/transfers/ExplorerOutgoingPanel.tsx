@@ -1,61 +1,257 @@
-import { requestAllDomainSyncLanes } from "@tearleads/client-sdk";
+import {
+  type ContainerDocumentQueries,
+  type ContainerNode,
+  type DomainScope,
+  type DomainSyncSnapshot,
+  type PendingWriteQueueItem,
+  requestAllDomainSyncLanes,
+} from "@tearleads/client-sdk";
 import { useWindowRefreshMenuItem } from "@tearleads/windowing";
+import { useCallback, useMemo, useState } from "react";
 import {
-  type ComponentProps,
-  type RefObject,
-  useCallback,
-  useLayoutEffect,
-  useRef,
-} from "react";
-import {
+  MiniAppButton,
   MiniAppHeader,
   MiniAppHeaderCopy,
   MiniAppPanel,
+  MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
+import { useDomainSyncSnapshot } from "../../../../providers/sdk/useDomainSyncSnapshot";
+import { getQueueItems } from "../../../../stores/sync-queues/queueReadMachine";
+import { getOrCreatePendingWriteQueueStore } from "../../../../stores/sync-queues/syncQueueStores";
+import { useQueueRead } from "../../../../stores/sync-queues/useQueueRead";
+import { getExplorerUploadStatusText } from "../../hooks/explorerUploadState";
 import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
-import { EXPLORER_LABELS } from "../../labels";
-import type { ExplorerOutgoingSection } from "../../routes";
-import { ExplorerWriteQueuePanel } from "../sync/ExplorerWriteQueuePanel";
-import { getOutgoingSectionSelector } from "./ExplorerOutgoingSectionFrame";
-import { ExplorerUploadsPanel } from "./ExplorerUploadsPanel";
-import { pinSectionToTop } from "./pinSectionToTop";
+import {
+  EXPLORER_LABELS,
+  getExplorerUploadsSummaryLabel,
+  getExplorerWriteQueueSummaryLabel,
+} from "../../labels";
+import {
+  ExplorerWriteQueueEntryView,
+  WriteQueueBlockers,
+  WriteQueueDiscardConfirmDialog,
+  WriteQueueLoadError,
+} from "../sync/ExplorerWriteQueueViews";
+import {
+  useWriteQueueActions,
+  type WriteQueueActions,
+} from "../sync/useWriteQueueActions";
+import { countWriteQueueWrites } from "../sync/writeQueueItems";
+import { ExplorerOutgoingTable } from "./ExplorerOutgoingTable";
+import { deriveOutgoingRows, type OutgoingRow } from "./outgoingRows";
+import { isOutstandingUploadStatus } from "./uploadTransfer";
 
-interface ExplorerOutgoingPanelProps
-  extends ComponentProps<typeof ExplorerWriteQueuePanel> {
-  /** The section a link asked to scroll to the top, or null for the top. */
-  section: ExplorerOutgoingSection | null;
+const NO_ITEMS: ReadonlyArray<PendingWriteQueueItem> = [];
+
+interface ExplorerOutgoingSharedProps {
+  billingBlockedOrganizationId: string | null;
+  isAuthenticated: boolean;
+  nodes: ReadonlyArray<ContainerNode>;
+  online: boolean;
+  openContainerInfoRoute: (containerId: string) => void;
+  openDocument: (localId: string, containerId: string) => void;
+  openWriteQueueEntryRoute: (entryKey: string) => void;
+  organizationNamesById: ReadonlyMap<string, string>;
+  /**
+   * The full (objectKind, namespace, localId) key of the write-queue entry
+   * whose detail replaces the list, or null for the list.
+   */
+  selectedEntryKey: string | null;
   uploadManager: ExplorerUploadManager;
 }
 
-// A link into one section (the Sync Status popover's) scrolls that section's
-// heading to the top of the tab, since another section may sit above it. A
-// layout effect, so the tab never paints at its top first.
-function useOutgoingSectionScroll(
-  panelRef: RefObject<HTMLDivElement | null>,
-  section: ExplorerOutgoingSection | null,
-) {
-  useLayoutEffect(() => {
-    const panel = panelRef.current;
-    if (panel === null || section === null) return undefined;
-    return pinSectionToTop(panel, getOutgoingSectionSelector(section));
-  }, [panelRef, section]);
+export interface ExplorerOutgoingViewProps
+  extends ExplorerOutgoingSharedProps,
+    WriteQueueActions {
+  // Why the latest pending-write read failed, or null when it succeeded.
+  error: string | null;
+  loading: boolean;
+  snapshot: DomainSyncSnapshot;
+  writes: ReadonlyArray<PendingWriteQueueItem>;
+}
+
+function getOutgoingSummary(
+  params: ExplorerOutgoingViewProps,
+  rows: ReadonlyArray<OutgoingRow>,
+): string {
+  const writes =
+    params.loading && params.writes.length === 0
+      ? EXPLORER_LABELS.writeQueueSummaryLoading
+      : params.error !== null
+        ? EXPLORER_LABELS.writeQueueSummaryUnavailable
+        : getExplorerWriteQueueSummaryLabel({
+            objectCount: params.writes.length,
+            writeCount: countWriteQueueWrites(params.writes),
+          });
+  const uploads = rows.flatMap((row) =>
+    row.kind === "write" ? [] : [row.upload],
+  );
+  if (uploads.length === 0) return writes;
+  const files = getExplorerUploadsSummaryLabel({
+    outstandingCount: uploads.filter((upload) =>
+      isOutstandingUploadStatus(upload.status),
+    ).length,
+    totalCount: uploads.length,
+  });
+  return `${writes} · ${files}`;
+}
+
+function OutgoingEmptyMessage(params: {
+  error: string | null;
+  loading: boolean;
+}) {
+  if (params.error !== null)
+    return <WriteQueueLoadError error={params.error} />;
+  return (
+    <span role="status">
+      {params.loading
+        ? EXPLORER_LABELS.writeQueueLoading
+        : EXPLORER_LABELS.outgoingEmpty}
+    </span>
+  );
+}
+
+function ExplorerOutgoingList(params: ExplorerOutgoingViewProps) {
+  const { uploadManager } = params;
+  const [discardCandidate, setDiscardCandidate] =
+    useState<PendingWriteQueueItem | null>(null);
+  const rows = useMemo(
+    () =>
+      deriveOutgoingRows({
+        billingBlockedOrganizationId: params.billingBlockedOrganizationId,
+        lanes: params.snapshot.lanes,
+        uploads: uploadManager.items,
+        writes: params.writes,
+      }),
+    [
+      params.billingBlockedOrganizationId,
+      params.snapshot.lanes,
+      params.writes,
+      uploadManager.items,
+    ],
+  );
+  const containerNamesById = useMemo(
+    () => new Map(params.nodes.map((node) => [node.id, node.name])),
+    [params.nodes],
+  );
+  const uploadStatusText = getExplorerUploadStatusText(
+    uploadManager.run,
+    uploadManager.queuedFileCount,
+  );
+
+  return (
+    <>
+      <MiniAppHeader>
+        <MiniAppHeaderCopy>
+          <strong>{EXPLORER_LABELS.outgoingAction}</strong>
+          <span>{EXPLORER_LABELS.outgoingDescription}</span>
+        </MiniAppHeaderCopy>
+      </MiniAppHeader>
+      <MiniAppStatus>{getOutgoingSummary(params, rows)}</MiniAppStatus>
+      <WriteQueueBlockers
+        billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+        isAuthenticated={params.isAuthenticated}
+        online={params.online}
+        organizationNamesById={params.organizationNamesById}
+      />
+      {/* Stops this window's queued and importing files; another Explorer
+          window's files are listed but cancelled from that window. */}
+      {uploadStatusText !== null &&
+      (uploadManager.isImporting || uploadManager.queuedFileCount > 0) ? (
+        <MiniAppStatus as="span" className="explorer-detail-import-status">
+          {uploadStatusText}
+          <MiniAppButton onClick={uploadManager.cancel} variant="ghost">
+            {EXPLORER_LABELS.fileImportCancelAction}
+          </MiniAppButton>
+        </MiniAppStatus>
+      ) : null}
+      {/* With rows to show, a failed read is reported above them; without,
+          in their place. */}
+      {params.error !== null && rows.length > 0 ? (
+        <MiniAppStatus>
+          <WriteQueueLoadError error={params.error} />
+        </MiniAppStatus>
+      ) : null}
+      <ExplorerOutgoingTable
+        actions={{
+          billingBlockedOrganizationId: params.billingBlockedOrganizationId,
+          containerNamesById,
+          openContainerInfoRoute: params.openContainerInfoRoute,
+          openDocument: params.openDocument,
+          openWriteQueueEntryRoute: params.openWriteQueueEntryRoute,
+          organizationNamesById: params.organizationNamesById,
+          requestDiscardPendingWrites: setDiscardCandidate,
+          retryPendingWrites: params.retryPendingWrites,
+        }}
+        emptyMessage={
+          <OutgoingEmptyMessage error={params.error} loading={params.loading} />
+        }
+        rows={rows}
+      />
+      {discardCandidate ? (
+        <WriteQueueDiscardConfirmDialog
+          item={discardCandidate}
+          onCancel={() => setDiscardCandidate(null)}
+          onConfirm={() => {
+            setDiscardCandidate(null);
+            params.discardPendingWrites(discardCandidate);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** The Outgoing tab's content, from what its panel read. */
+export function ExplorerOutgoingView(params: ExplorerOutgoingViewProps) {
+  if (params.selectedEntryKey === null) {
+    return <ExplorerOutgoingList {...params} />;
+  }
+  return (
+    <ExplorerWriteQueueEntryView
+      billingBlockedOrganizationId={params.billingBlockedOrganizationId}
+      error={params.error}
+      isAuthenticated={params.isAuthenticated}
+      items={params.writes}
+      loading={params.loading}
+      nodes={params.nodes}
+      online={params.online}
+      organizationNamesById={params.organizationNamesById}
+      selectedEntryKey={params.selectedEntryKey}
+      snapshot={params.snapshot}
+    />
+  );
+}
+
+interface ExplorerOutgoingPanelProps extends ExplorerOutgoingSharedProps {
+  /** The queue is read only while the database is open. */
+  dbReady: boolean;
+  documentQueries: ContainerDocumentQueries;
+  domainScope: DomainScope;
 }
 
 /**
- * The diagnostics hub's Outgoing tab: what waits to leave this device. One
- * scroller holds the Uploads section and the Write Queue section; a selected
- * write-queue entry replaces both with its detail. The tab, not a section,
- * owns Refresh, so it stays on the entry detail too.
+ * The diagnostics hub's Outgoing tab: what waits to leave this device, and
+ * this session's uploads, in one table where each file appears once. A
+ * selected write-queue entry replaces the table with its detail. The tab owns
+ * Refresh, so it stays on the entry detail too.
  */
 export function ExplorerOutgoingPanel({
-  section,
-  uploadManager,
-  ...writeQueue
+  dbReady,
+  documentQueries,
+  domainScope,
+  ...shared
 }: ExplorerOutgoingPanelProps) {
-  const { domainScope, isAuthenticated, online, selectedEntryKey } = writeQueue;
-  const listing = selectedEntryKey === null;
-  const panelRef = useRef<HTMLDivElement>(null);
-  useOutgoingSectionScroll(panelRef, listing ? section : null);
+  const snapshot = useDomainSyncSnapshot(domainScope);
+  // The shared store follows sync and persistence signals itself, so this
+  // tab, the Sync Status tray app, and System Monitor read the queue once.
+  // Like them, the tab reads only while the database is open, so a read
+  // that fails on a closed database never reaches their shared state.
+  const state = useQueueRead(
+    getOrCreatePendingWriteQueueStore(domainScope),
+    dbReady ? documentQueries : null,
+  );
+  const actions = useWriteQueueActions(documentQueries, domainScope);
   const handleRefresh = useCallback(
     () => requestAllDomainSyncLanes(domainScope),
     [domainScope],
@@ -64,34 +260,23 @@ export function ExplorerOutgoingPanel({
   // re-drives each imported file's existing upload (never re-importing it)
   // and every queued write, an entry's included.
   useWindowRefreshMenuItem({
-    disabled: !online || !isAuthenticated,
+    disabled: !shared.online || !shared.isAuthenticated,
     onRefresh: handleRefresh,
     priority: 200,
   });
 
-  // The write queue keeps its position among the children, so opening an
-  // entry does not remount it.
   return (
-    <MiniAppPanel
-      className="explorer-detail explorer-detail--outgoing"
-      ref={panelRef}
-      scroll
-    >
-      {listing ? (
-        <MiniAppHeader>
-          <MiniAppHeaderCopy>
-            <strong>{EXPLORER_LABELS.outgoingAction}</strong>
-            <span>{EXPLORER_LABELS.outgoingDescription}</span>
-          </MiniAppHeaderCopy>
-        </MiniAppHeader>
-      ) : null}
-      {listing ? (
-        <ExplorerUploadsPanel
-          domainScope={domainScope}
-          uploadManager={uploadManager}
-        />
-      ) : null}
-      <ExplorerWriteQueuePanel {...writeQueue} />
+    <MiniAppPanel className="explorer-detail explorer-detail--outgoing" scroll>
+      <ExplorerOutgoingView
+        {...shared}
+        {...actions}
+        // A failed read shows its error in place of the rows it could not
+        // refresh.
+        error={state.status === "failed" ? state.message : null}
+        loading={state.status === "loading"}
+        snapshot={snapshot}
+        writes={state.status === "failed" ? NO_ITEMS : getQueueItems(state)}
+      />
     </MiniAppPanel>
   );
 }
