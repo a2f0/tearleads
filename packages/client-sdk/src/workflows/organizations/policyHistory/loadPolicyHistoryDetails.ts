@@ -77,7 +77,7 @@ export async function loadPolicyHistoryDetails(input: {
     const response = await input.apiClient.getOrganizationPolicyHistoryResult(
       input.organizationId,
       input.head.stateHash,
-      { beforeVersion, reportErrors: false },
+      { beforeVersion, reportErrors: false, stillCurrent: input.stillCurrent },
     );
     if (!input.stillCurrent()) return null;
     if (!response.ok) {
