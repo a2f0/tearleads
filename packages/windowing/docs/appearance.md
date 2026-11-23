@@ -171,7 +171,9 @@ the host writes overrides it. Tearleads overrides them with its own themes in
 [`packages/app/src/shell/layout/AppChrome.css`][app-chrome].
 The routed shell also reads the screen's safe areas (`--safe-area-*`) and, under
 `:root[data-navigation-mode="routed"]`, a 44px `--control-height` and 24px
-`--control-icon-size`, which [`tokens.css`][tokens] defines the same way.
+`--control-icon-size`, which [`tokens.css`][tokens] defines the same way. Menus
+and `DisplayProperties`' app switches size their rows and glyphs from the same
+two tokens, so they match a host's list rows that read them.
 
 Several defaults derive from `--color-dark`, the foreground: the window edge
 (`--border-strong-color`), the hover and selection chip (`--emphasis-surface`

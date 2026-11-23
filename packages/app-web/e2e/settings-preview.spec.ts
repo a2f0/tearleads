@@ -300,6 +300,30 @@ test("Network radio labels meet the phone touch target", async ({ page }) => {
   }
 });
 
+test("app switch rows match the phone's list rows", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const [tab, group] of [
+    ["system-tray", "System Tray"],
+    ["start-menu", "Start menu"],
+  ] as const) {
+    await page.goto(`/app/display-properties/${tab}`);
+    const rows = page
+      .getByRole("group", { name: group })
+      .locator(".display-properties-app-switch");
+    await expect(rows.first()).toBeVisible();
+    for (const row of await rows.all()) {
+      // Explorer's tree and item list, menus, and the launcher draw a 44px
+      // row around a 24px glyph at the shared muted icon opacity.
+      expect((await row.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      const icon = row.locator(".display-properties-app-switch-icon");
+      await expect(icon).toHaveCount(1);
+      const box = await icon.boundingBox();
+      expect([box?.width, box?.height]).toEqual([24, 24]);
+      await expect(icon).toHaveCSS("opacity", "0.6");
+    }
+  }
+});
+
 test("Network radios use the active theme for selection and keyboard focus", {
   tag: "@themed-control",
 }, async ({ browserName, page }) => {
