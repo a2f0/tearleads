@@ -281,7 +281,7 @@ export interface DetachDocumentAttachmentRequest {
    * The encoded version of the document the caller read the slot removed
    * at, holding none of the caller's unsent ops. The API refuses the detach
    * while the document holds a committed op this version lacks, or while the
-   * binding was bound at a version holding one.
+   * binding was bound at a version holding an op not yet committed.
    */
   documentVersionVector: string;
   eventId?: string | undefined;

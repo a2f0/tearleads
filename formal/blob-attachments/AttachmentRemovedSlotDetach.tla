@@ -1,8 +1,10 @@
 ------------------- MODULE AttachmentRemovedSlotDetach -------------------
-CONSTANTS CheckDocumentVersion, CoverBindVersion, DetachFromSyncedView,
-          DetachUnheldSlots, DetachIgnoresCursor, CursorAheadOfVersion
-ASSUME {CheckDocumentVersion, CoverBindVersion, DetachFromSyncedView,
-        DetachUnheldSlots, DetachIgnoresCursor, CursorAheadOfVersion}
+CONSTANTS CheckDocumentVersion, WaitForBindVersion, CoverBindVersion,
+          DetachFromSyncedView, DetachUnheldSlots, DetachIgnoresCursor,
+          CursorAheadOfVersion
+ASSUME {CheckDocumentVersion, WaitForBindVersion, CoverBindVersion,
+        DetachFromSyncedView, DetachUnheldSlots, DetachIgnoresCursor,
+        CursorAheadOfVersion}
          \subseteq BOOLEAN
 
 (* One attachment slot whose signed document content asks for the importer's
@@ -19,8 +21,11 @@ ASSUME {CheckDocumentVersion, CoverBindVersion, DetachFromSyncedView,
    - "oc": a dishonest writer's overclaim, whose signed span names ops
      nobody carries. Readers void it, so no version ever holds it.
 
-   CheckDocumentVersion and CoverBindVersion are the API's two detach
-   checks, DetachFromSyncedView the client's rule that a detach cites only a
+   CheckDocumentVersion and WaitForBindVersion are the API's two detach
+   checks: the detach version holds every committed op, and every op of the
+   bind version is committed. CoverBindVersion is the rule the second
+   replaced, that the detach version hold every op of the bind version.
+   DetachFromSyncedView is the client's rule that a detach cites only a
    version with none of its own ops unsent, and DetachUnheldSlots whether a
    device that never held the bytes detaches at all. `observedCursor` is the
    observer's processed cursor: the committed updates it had judged when it
@@ -53,14 +58,19 @@ Init ==
 
 (* The importer pulled every committed update and the slot still asks for
    its fixture, so the bind's version check passes; the bind records the
-   version it checked, which may hold the importer's own unsent op. *)
-ImporterBind(ahead) ==
+   version it checked, which may hold the importer's own unsent op. It may
+   also name a committed overclaim's ops (`named`): a dishonest uploader can
+   send any committed counter, and an uploader may hold an update the
+   observer voided. *)
+ImporterBind(ahead, named) ==
   /\ binding = "none" /\ "iu" \notin made
   /\ "rm" \notin committed
+  /\ named => "oc" \in committed
   /\ made' = IF ahead THEN made \cup {"iu"} ELSE made
   /\ binding' = "fixture"
-  /\ bindVersion' = IF ahead THEN Held(committed) \cup {"iu"}
-                    ELSE Held(committed)
+  /\ bindVersion' = Held(committed)
+                    \cup (IF ahead THEN {"iu"} ELSE {})
+                    \cup (IF named THEN {"oc"} ELSE {})
   /\ UNCHANGED <<committed, restore, observer, observedView, observedBinding,
                  observedCursor, detachedNamed>>
 
@@ -125,7 +135,7 @@ SentCursor ==
 
 (* The detach names the listed binding and carries the version the device
    read. The API refuses an inactive binding, a version missing a committed
-   op, and a binding whose bind version holds an op that version lacks. A
+   op, and a binding whose bind version holds an op not yet committed. A
    device that never held the bytes detaches only when DetachUnheldSlots. *)
 Detach ==
   /\ observer = "read"
@@ -135,6 +145,7 @@ Detach ==
         /\ SlotAt(observedView) = "removed"
         /\ binding = observedBinding
         /\ ~CheckDocumentVersion \/ committed \ SentCursor \subseteq observedView
+        /\ ~WaitForBindVersion \/ bindVersion \subseteq committed
         /\ ~CoverBindVersion \/ bindVersion \subseteq observedView
        THEN /\ binding' = "none" /\ bindVersion' = {}
             /\ detachedNamed' = (detachedNamed \/ SlotAt(committed) # "removed")
@@ -143,7 +154,7 @@ Detach ==
                  observedCursor>>
 
 Next ==
-  \/ \E ahead \in BOOLEAN : ImporterBind(ahead)
+  \/ \E ahead, named \in BOOLEAN : ImporterBind(ahead, named)
   \/ \E op \in Ops : Push(op)
   \/ \E kind \in {"same", "other"} : Restore(kind)
   \/ RestoreBind \/ ObserveSynced \/ ObserveUnsynced \/ Detach
@@ -169,9 +180,10 @@ DetachOnlyRemovedSlot == ~detachedNamed
    update is still unsent and the committed document still lacks the slot. *)
 RestoreKeepsBinding == [][binding = "other" => binding' = "other"]_vars
 
-(* Once the removal stands and the importer's view is committed, the
-   fixture binding goes. An importer that never pushes the op its bind
-   version holds keeps the binding: its content may yet ask for the slot. *)
+(* Once the removal stands and the importer's bind version is committed,
+   the fixture binding goes, even when that version names ops no reader
+   holds. An importer that never pushes the op its bind version holds keeps
+   the binding: its content may yet ask for the slot. *)
 RemovalStands ==
   /\ SlotAt(committed) = "removed"
   /\ bindVersion \subseteq committed

@@ -319,29 +319,6 @@ export function parseDocumentVersionFrontier(
   return { frontierJson: buildClientFrontierJson(versionVector) };
 }
 
-const frontierRowsSchema = z.array(
-  z.object({ counter: z.number().int().nonnegative(), peer_id: z.string() }),
-);
-
-/**
- * Whether `version` holds every op `covered` holds, compared per peer. Both
- * are frontiers this module encoded, such as a bind version stored with its
- * binding.
- */
-export function documentVersionCovers(
-  version: DocumentVersionFrontier,
-  covered: DocumentVersionFrontier,
-): boolean {
-  const counters = new Map(
-    frontierRowsSchema
-      .parse(JSON.parse(version.frontierJson))
-      .map((row) => [row.peer_id, row.counter]),
-  );
-  return frontierRowsSchema
-    .parse(JSON.parse(covered.frontierJson))
-    .every((row) => (counters.get(row.peer_id) ?? 0) >= row.counter);
-}
-
 /**
  * Whether an update of the document committed after `afterSequence` holds an
  * op the version lacks. Only spans count: an update with no span carries no

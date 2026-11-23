@@ -53,9 +53,17 @@ export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     id: "removed-slot-detach-skips-bind-version",
     module: "formal/blob-attachments/AttachmentRemovedSlotDetach.tla",
     config: "formal/blob-attachments/AttachmentRemovedSlotDetach.cfg",
-    constants: { CoverBindVersion: "FALSE" },
+    constants: { WaitForBindVersion: "FALSE" },
     expect: { kind: "action", name: "RestoreKeepsBinding" },
     why: "A restore bound before its content update commits must keep its binding until the detaching device reads that update.",
+  },
+  {
+    id: "removed-slot-detach-covers-bind-version",
+    module: "formal/blob-attachments/AttachmentRemovedSlotDetach.tla",
+    config: "formal/blob-attachments/AttachmentRemovedSlotDetach.cfg",
+    constants: { CoverBindVersion: "TRUE" },
+    expect: { kind: "liveness", name: "RemovedSlotEventuallyUnbound" },
+    why: "A detach whose own version must cover the bind version is refused forever once that version names an op every reader voided.",
   },
   {
     id: "removed-slot-detach-from-unsent-removal",

@@ -34,10 +34,11 @@ export function detachedSyncContextIsCurrent(
 }
 
 /**
- * The API refused the detach because the document, or the version the
- * binding was bound at, holds an op the view lacks. Ask once for a pass that
- * pulls: a slot restored meanwhile then keeps its binding, and a removal that
- * stands is detached at the newer version.
+ * The API refused the detach because the document holds a committed op the
+ * view lacks, or the version the binding was bound at holds an op not yet
+ * committed. Ask once for a pass that pulls: a slot restored meanwhile then
+ * keeps its binding, and a removal that stands is detached at the newer
+ * version.
  */
 function recordDocumentChanged(
   state: DocumentStoreState,

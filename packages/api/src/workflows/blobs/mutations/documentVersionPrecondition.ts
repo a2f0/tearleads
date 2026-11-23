@@ -4,10 +4,10 @@ import { readProcessedThroughSequence } from "../../../documents/documentProcess
 import {
   DocumentUpdateReadError,
   type DocumentVersionFrontier,
-  documentVersionCovers,
   hasDocumentOpsBeyondVersion,
   parseDocumentVersionFrontier,
 } from "../../../documents/documentUpdateStore";
+import { hasUncommittedVersionOps } from "../../../documents/documentVersionCommitted";
 import { BlobMutationError } from "./types";
 
 /**
@@ -71,17 +71,29 @@ export async function assertAttachmentDocumentVersionCurrent(input: {
 }
 
 /**
- * Refuses a detach whose version lacks an op of the version the binding was
- * bound at. A bind version can hold its uploader's unsent ops, such as a
- * restore whose content update is still on its way: until that op commits
- * and the detaching client reads it, a slot that looks removed may yet ask
- * for these bytes again.
+ * Refuses a detach while the version the binding was bound at names an op
+ * the document has not committed. A bind version runs ahead of the committed
+ * document only by its uploader's unsent ops, such as a restore whose content
+ * update is still on its way: until that op commits, a slot that looks
+ * removed may yet ask for these bytes again. Once it commits,
+ * `assertAttachmentDocumentVersionCurrent` makes the detaching client hold
+ * it, or have voided it, like any other committed op, so the detach version
+ * itself need not cover the bind version. A bind version naming an op every
+ * reader voided, or one its uploader made up within the committed frontier,
+ * therefore never holds the binding. The caller holds the document head
+ * lock, so no update commits between this read and the detach.
  */
-export function assertDetachCoversBindVersion(input: {
+export async function assertBindVersionCommitted(input: {
   readonly bindVersion: DocumentVersionFrontier;
-  readonly version: DocumentVersionFrontier;
-}): void {
-  if (!documentVersionCovers(input.version, input.bindVersion)) {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+}): Promise<void> {
+  if (
+    await hasUncommittedVersionOps(input.executor, {
+      documentId: input.documentId,
+      version: input.bindVersion,
+    })
+  ) {
     throw documentChanged();
   }
 }

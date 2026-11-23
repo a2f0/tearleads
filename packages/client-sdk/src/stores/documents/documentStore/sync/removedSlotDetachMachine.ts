@@ -10,8 +10,9 @@ export type RemovedSlotDetachState =
   | { readonly status: "seen" }
   /**
    * The API refused a detach of `bindingId` at `versionVector` because the
-   * document, or the version the binding was bound at, holds an op that
-   * version lacks. It is not sent again until the view moves past it.
+   * document holds a committed op that version lacks, or the version the
+   * binding was bound at holds an op not yet committed. It is not sent again
+   * until the view moves past it.
    */
   | {
       readonly bindingId: string;
