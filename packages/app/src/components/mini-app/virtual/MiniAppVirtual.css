@@ -111,13 +111,6 @@
   height: var(--mini-app-virtual-row-height);
 }
 
-.mini-app-table-frame--virtual .mini-app-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--color-light);
-}
-
 .mini-app-virtual-table-spacer-row,
 .mini-app-virtual-table-spacer-row .mini-app-table-cell {
   padding: 0;
