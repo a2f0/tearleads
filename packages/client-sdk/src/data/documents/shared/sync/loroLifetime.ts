@@ -150,24 +150,27 @@ export function createLoroLifetimes(host: {
 }
 
 function browserLocks(): LifetimeLockManager | undefined {
-  const locks = quietly(
-    () => (globalThis.navigator as { locks?: unknown } | undefined)?.locks,
-    undefined,
-  );
-  if (
-    typeof locks === "object" &&
-    locks !== null &&
-    typeof Reflect.get(locks, "request") === "function" &&
-    typeof Reflect.get(locks, "query") === "function"
-  ) {
-    return locks as LifetimeLockManager;
-  }
-  return undefined;
+  return quietly(() => {
+    if (typeof navigator !== "object") return undefined;
+    const locks: LockManager | undefined = navigator.locks;
+    if (
+      typeof locks?.request !== "function" ||
+      typeof locks.query !== "function"
+    ) {
+      return undefined;
+    }
+    const manager: LifetimeLockManager = {
+      query: () => locks.query(),
+      request: (name, options, callback) =>
+        locks.request(name, options, callback),
+    };
+    return manager;
+  }, undefined);
 }
 
 function browserStorage(): LifetimeMarkerStorage | undefined {
   return quietly(
-    () => (globalThis as { localStorage?: LifetimeMarkerStorage }).localStorage,
+    () => (typeof localStorage === "object" ? localStorage : undefined),
     undefined,
   );
 }
@@ -178,25 +181,20 @@ function browserStorage(): LifetimeMarkerStorage | undefined {
  * itself hidden.
  */
 function browserVisibility(): LifetimeVisibility | undefined {
-  const page = globalThis as {
-    addEventListener?: (type: string, listener: () => void) => void;
-    document?: {
-      addEventListener?: (type: string, listener: () => void) => void;
-      visibilityState?: string;
-    };
-  };
-  const document = page.document;
-  if (!document?.addEventListener || !page.addEventListener) return undefined;
+  if (typeof document !== "object" || typeof addEventListener !== "function") {
+    return undefined;
+  }
+  const page = document;
   let pageHidden = false;
   return {
-    hidden: () => pageHidden || document.visibilityState === "hidden",
+    hidden: () => pageHidden || page.visibilityState === "hidden",
     onChange(listener) {
-      document.addEventListener?.("visibilitychange", listener);
-      page.addEventListener?.("pagehide", () => {
+      page.addEventListener("visibilitychange", listener);
+      addEventListener("pagehide", () => {
         pageHidden = true;
         listener();
       });
-      page.addEventListener?.("pageshow", () => {
+      addEventListener("pageshow", () => {
         pageHidden = false;
         listener();
       });
