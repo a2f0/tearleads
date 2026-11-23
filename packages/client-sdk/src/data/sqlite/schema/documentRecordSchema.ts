@@ -8,6 +8,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
+import { documentLoroWindowTables } from "./documentLoroWindowSchema";
 import { documentSyncVerdictTables } from "./documentSyncVerdictSchema";
 
 const accessLevelColumn = "effective_access_level";
@@ -213,4 +214,5 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
     requiredColumns: ["update_id"],
   },
   ...documentSyncVerdictTables,
+  ...documentLoroWindowTables,
 ];
