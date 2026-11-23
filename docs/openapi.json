@@ -4093,6 +4093,12 @@
             ],
             "description": "The client's current version vector; the response returns updates it does not cover."
           },
+          "maxPageUpdates": {
+            "maximum": 64,
+            "minimum": 1,
+            "type": "integer",
+            "description": "The most updates this page may hold, below the server's own limit. A client sends 1 while it isolates the updates a process death left unattributed, so each is read alone and a death counts toward it; absent, the server's limit applies."
+          },
           "minLsn": {
             "pattern": "^[0-9A-Fa-f]{1,8}\\/[0-9A-Fa-f]{1,8}$",
             "type": "string",
