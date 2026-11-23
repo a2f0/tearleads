@@ -114,7 +114,8 @@ optional `contentKeyBundle`, optional `containerRekeys`, `inlineRekeyCommitId`
 exactly when that rekey array is non-empty, optional
 `authorizingContainerPathRefs`, `localVersionVector`, optional `minLsn`,
 required `supportsPullPagination: true`, optional `pullCursor`, optional
-`historyMode: "raw"`, and `outgoingUpdates[]` with a per-update `writeHeader`.
+`maxPageUpdates`, optional `historyMode: "raw"`, and `outgoingUpdates[]`
+with a per-update `writeHeader`.
 Cursor continuations and raw-history pulls are read-only. The path references
 identify signed [container manifests](./glossary/access.md#access-manifest) already
 held by the API; the expected link-set hash pins the server-resolved

@@ -143,8 +143,9 @@ pull by version alone would serve it on the next pass.
 A document writer can also cost other devices availability. One that commits
 operations under another device's peer id first makes readers void that
 device's own update ([preempted operations](../advisory-op-spans.md#preempted-operations)),
-and one whose payload fails the Loro runtime holds a reader's sync of that
-document for up to three process lifetimes before it is void
+and one whose payload fails the Loro runtime, or ends the reader's process
+while the app is visible, holds a reader's sync of that document for up to
+three process lifetimes before it is void
 ([runtime failures](../advisory-op-spans.md#loro-runtime-failures)).
 A writer whose updates are all void leaves a document with an empty snapshot,
 which encodes no rotation baseline, and the baseline-less unlink requires no

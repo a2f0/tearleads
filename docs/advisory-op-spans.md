@@ -72,12 +72,32 @@ reported as such, and is never read again under that judge and key. A new
 decoder or another content key judges it from zero. An update that imports on
 a retry joins.
 
-Two residuals remain. An honest update that fails the runtime in three
-separate process lifetimes on one device is void on that device. And while an
-update is unsettled, the device applies nothing served after it on that
-document and cannot bind attachments to it, for up to three process
-lifetimes; its own writes still push and settle. A payload that kills the
-process outright, rather than throwing, records no attempt.
+A payload can also kill the process outright (an out-of-memory crash, or a
+tab the browser discards) rather than throw. Document sync reads a page
+inside a read window: a local row naming the page's unsettled updates,
+committed before the first Loro call and deleted by the page's save. Each
+process lifetime holds a Web Lock named after it, so the next lifetime knows
+a window whose lock is gone was left by a dead one. A window that held one
+update, in a lifetime that met no runtime failure, records one `loro_runtime`
+attempt toward it, so a killing payload is voided after three deaths. Any
+other window says nothing about one update: its updates become suspects, and
+the document pulls one update a page (`maxPageUpdates: 1`) until it has
+passed them, so a later death names the update alone. A lifetime that ends
+while the app is hidden, with a window open, leaves a `localStorage` marker,
+and its window counts nothing and isolates nothing: the user closed the app,
+which says nothing about the update. A host without Web Locks never claims a
+window. The command line's database is memory-only, so its windows die with
+it; a host whose database outlives its process must hold such a lock or mark
+its clean exits.
+
+Three residuals remain. An honest update that fails the runtime, or ends the
+process while the app is visible, in three separate process lifetimes on one
+device is void on that device. While an update is unsettled, the device
+applies nothing served after it on that document and cannot bind attachments
+to it, for up to three process lifetimes; its own writes still push and
+settle. And container metadata, rotation, and a founding view open no window
+yet, nor does the live apply after a page's save, so a payload that kills the
+process there records no attempt.
 
 ## Preempted Operations
 
