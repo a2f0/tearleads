@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   computeDocumentContentRecordCiphertextHash,
   signWriteHeader,
+  type WriteHeader,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
@@ -67,7 +68,8 @@ async function undecryptableUpdate(
   const envelope = JSON.parse(update.encryptedData) as { iv: string };
   envelope.iv = bytesToBase64(new Uint8Array(12));
   const encryptedData = JSON.stringify(envelope);
-  const { signature: _signature, ...unsigned } = update.writeHeader;
+  const { signature: _signature, ...unsigned } =
+    update.writeHeader as unknown as WriteHeader;
   const writeHeader = await signWriteHeader(
     {
       ...unsigned,
@@ -76,7 +78,7 @@ async function undecryptableUpdate(
     },
     fixture.author.signerPrivateKey,
   );
-  return { ...update, encryptedData, writeHeader };
+  return { ...update, encryptedData, writeHeader: { ...writeHeader } };
 }
 
 // An AES-GCM failure under the committed key is decided by the update alone,
