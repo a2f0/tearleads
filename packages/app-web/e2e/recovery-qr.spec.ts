@@ -12,7 +12,7 @@ test("a second device scans the displayed recovery QR into its restore form", as
   await page.setViewportSize({ width: 900, height: 900 });
   await page.goto("/app/identity-manager/recovery-key");
   await createFirstIdentity(page);
-  const reveal = page.getByRole("button", { name: "Reveal Recovery QR Code" });
+  const reveal = page.getByRole("button", { name: "QR Code for Recovery Key" });
   await expect(reveal).toBeVisible({ timeout: 30_000 });
   await reveal.click();
   await page.getByLabel(/Type i understand to continue/u).fill("i understand");
@@ -22,7 +22,7 @@ test("a second device scans the displayed recovery QR into its restore form", as
   const source = await qr.getAttribute("src");
   if (!source) throw new Error("Missing recovery QR image.");
 
-  await page.getByRole("button", { name: "Reveal Recovery Key" }).click();
+  await page.getByRole("button", { name: "View Recovery Key" }).click();
   await page.getByLabel(/Type i understand to continue/u).fill("i understand");
   await page.getByRole("button", { name: "Show Passphrase" }).click();
   const phrase = await page
@@ -38,7 +38,7 @@ test("a second device scans the displayed recovery QR into its restore form", as
     await phonePage.goto("/app/identity-manager/recovery-key");
     await createFirstIdentity(phonePage);
     await expect(
-      phonePage.getByRole("button", { name: "Reveal Recovery QR Code" }),
+      phonePage.getByRole("button", { name: "QR Code for Recovery Key" }),
     ).toBeVisible({ timeout: 30_000 });
     await phonePage.getByRole("tab", { name: "Recovery", exact: true }).click();
     // Feed the actual rendered SVG into a real video stream. The production

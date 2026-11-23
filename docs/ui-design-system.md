@@ -249,6 +249,14 @@ The de-facto component library is [`packages/app/src/components`](../packages/ap
   grid placement, media-query behavior) layered on top of the component.
   Exception: window/pane/routed chrome and the `@tearleads/ui` header
   (`.tearleads-action-button`) own their own button chrome deliberately.
+- **Action menus**: a set of actions that reads as a menu, one per line, uses
+  `MiniAppRowButton` rows in a labelled list instead of framed buttons. Each row
+  is a glyph and a short visible label, borderless until hover (the window
+  toolbar's highlight), at least the control height, with the glyph at
+  `--control-icon-size` and never below 20px. Give each row an accessible name
+  that starts with its visible label and adds the context it leaves out. See
+  the recovery key actions
+  ([`components/identity/recovery-key/RecoveryKeyDisplay.tsx`](../packages/app/src/components/identity/recovery-key/RecoveryKeyDisplay.tsx)).
 - **Layout**: `MiniAppRoot` / `MiniAppHeader` / `MiniAppSection` /
   `MiniAppPanel` / `MiniAppSidebar` / `MiniAppToolbar`
   ([`components/mini-app/layout/`](../packages/app/src/components/mini-app/layout/)),

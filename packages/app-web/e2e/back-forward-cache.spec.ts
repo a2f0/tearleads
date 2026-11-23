@@ -33,7 +33,7 @@ test("a page in the back/forward cache is evicted when a later page announces it
   await page.goto("/app/identity-manager/recovery-key");
   await createFirstIdentity(page);
   await expect(
-    page.getByRole("button", { name: "Reveal Recovery QR Code" }),
+    page.getByRole("button", { name: "QR Code for Recovery Key" }),
   ).toBeVisible({ timeout: 30_000 });
   await page.goBack({ waitUntil: "commit" });
 

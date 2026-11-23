@@ -130,7 +130,7 @@ export async function renderRecoveryKeyView(
   await act(async () => {
     await tearleads.identity.importSeedPhrase(seedPhrase);
   });
-  await view.findByRole("button", { name: "Reveal Recovery Key" });
+  await view.findByRole("button", { name: "View Recovery Key" });
 
   return { seedPhrase, tearleads, view };
 }

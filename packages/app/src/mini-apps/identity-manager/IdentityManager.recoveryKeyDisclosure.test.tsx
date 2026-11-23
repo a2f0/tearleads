@@ -23,7 +23,7 @@ test("copying the recovery key requires the acknowledgement phrase", async () =>
     const writes = installClipboardWriteMock();
     const { seedPhrase, view } = await renderRecoveryKeyView(0xab);
 
-    fireEvent.click(view.getByRole("button", { name: "Copy recovery key" }));
+    fireEvent.click(view.getByRole("button", { name: "Copy Recovery Key" }));
 
     const confirmButton = view.getByRole("button", {
       name: "Copy to Clipboard",
@@ -120,7 +120,7 @@ test("revealing the recovery key requires the acknowledgement phrase", async () 
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const { seedPhrase, view } = await renderRecoveryKeyView(0x11);
 
-    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.click(view.getByRole("button", { name: "View Recovery Key" }));
 
     const confirmButton = view.getByRole("button", {
       name: "Show Passphrase",
@@ -131,7 +131,7 @@ test("revealing the recovery key requires the acknowledgement phrase", async () 
     fireEvent.click(view.getByRole("button", { name: "Cancel" }));
     expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
 
-    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.click(view.getByRole("button", { name: "View Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
       target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
     });
@@ -158,7 +158,7 @@ test("switching identities revokes an existing reveal", async () => {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x22);
 
-    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.click(view.getByRole("button", { name: "View Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
       target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
     });
@@ -178,7 +178,7 @@ test("switching identities revokes an existing reveal", async () => {
     expect(view.queryByDisplayValue(nextSeedPhrase)).toBeNull();
     expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
     expect(
-      view.getByRole("button", { name: "Reveal Recovery Key" }),
+      view.getByRole("button", { name: "View Recovery Key" }),
     ).toBeTruthy();
     // Feedback about the outgoing key must not carry over either.
     expect(view.queryByText("Recovery key revealed.")).toBeNull();
@@ -194,7 +194,7 @@ test("returning to a previously revealed identity stays hidden", async () => {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x66);
 
-    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.click(view.getByRole("button", { name: "View Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
       target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
     });
@@ -216,7 +216,7 @@ test("returning to a previously revealed identity stays hidden", async () => {
     // The round trip must not restore the earlier acknowledgement.
     expect(view.queryByDisplayValue(seedPhrase)).toBeNull();
     expect(
-      view.getByRole("button", { name: "Reveal Recovery Key" }),
+      view.getByRole("button", { name: "View Recovery Key" }),
     ).toBeTruthy();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
@@ -231,7 +231,7 @@ test("a copy landing after an identity switch reports nothing", async () => {
     const clipboard = installDeferredClipboardWriteMock();
     const { seedPhrase, tearleads, view } = await renderRecoveryKeyView(0x88);
 
-    fireEvent.click(view.getByRole("button", { name: "Copy recovery key" }));
+    fireEvent.click(view.getByRole("button", { name: "Copy Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
       target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
     });
@@ -267,12 +267,12 @@ test("an acknowledgement cannot be moved to another disclosure", async () => {
     const writes = installClipboardWriteMock();
     const { view } = await renderRecoveryKeyView(0xaa);
 
-    fireEvent.click(view.getByRole("button", { name: "Copy recovery key" }));
+    fireEvent.click(view.getByRole("button", { name: "Copy Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
       target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
     });
 
-    // The dialog does not trap focus, so the toolbar behind it stays reachable.
+    // The dialog does not trap focus, so the action menu behind it stays reachable.
     fireEvent.click(
       view.getByRole("button", { name: "Download Recovery Key" }),
     );
@@ -297,7 +297,7 @@ test("switching identities discards a pending acknowledgement", async () => {
     Reflect.set(globalThis, "WebSocket", TestWebSocket);
     const { tearleads, view } = await renderRecoveryKeyView(0x44);
 
-    fireEvent.click(view.getByRole("button", { name: "Reveal Recovery Key" }));
+    fireEvent.click(view.getByRole("button", { name: "View Recovery Key" }));
     fireEvent.change(view.getByLabelText(ACKNOWLEDGEMENT_LABEL), {
       target: { value: RECOVERY_KEY_ACKNOWLEDGEMENT_PHRASE },
     });
