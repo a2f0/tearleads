@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, setSystemTime, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
@@ -201,20 +201,72 @@ test("rotation keeps an update this device voided out of the rebuild", async () 
   });
 });
 
-/** A writer's checkpoint carrying one edit, then an ordinary child of it. */
-async function checkpointAndChild(fixture: Fixture) {
-  // The writer's own history, then one edit only the checkpoint carries.
-  const branch = await createDocument("rotation-recovery-remote");
-  for (const text of ["survives key", "survives key rotation", "then more"]) {
-    branch.getText("text").update(text);
-    branch.commit();
+/**
+ * When the writer commits: its served history, the checkpoint's own edit,
+ * then the child. Loro merges a peer's commits within its change-merge
+ * interval into one change stamped with its first commit's time, in whole
+ * seconds. These give one change, one change spanning a second boundary, a
+ * merged checkpoint edit with a separate child, and three changes.
+ */
+const writerClocks = [
+  {
+    checkpoint: "00:00:00.500",
+    child: "00:00:00.500",
+    name: "one instant",
+    served: "00:00:00.500",
+  },
+  {
+    checkpoint: "00:00:01.400",
+    child: "00:00:01.400",
+    name: "merged across a second",
+    served: "00:00:00.400",
+  },
+  {
+    checkpoint: "00:00:00.900",
+    child: "00:00:01.700",
+    name: "child apart",
+    served: "00:00:00.100",
+  },
+  {
+    checkpoint: "00:00:05.000",
+    child: "00:00:10.000",
+    name: "far apart",
+    served: "00:00:00.500",
+  },
+] as const;
+
+/** Runs `run` with the clock at `time` on a fixed day. */
+async function withClock<T>(time: string, run: () => T): Promise<Awaited<T>> {
+  setSystemTime(new Date(`2026-11-23T${time}Z`));
+  try {
+    return await run();
+  } finally {
+    setSystemTime();
   }
-  const snapshot = exportFullHistorySnapshot(branch);
+}
+
+/**
+ * A writer's checkpoint carrying one edit, then an ordinary child of it. The
+ * writer continues the history it served, as an honest writer does, so every
+ * holder of an operation holds it with the same commit time.
+ */
+async function checkpointAndChild(
+  fixture: Fixture,
+  clock: (typeof writerClocks)[number],
+) {
+  const writer = fixture.remoteDocument;
+  const checkpointEnd = await withClock(clock.checkpoint, () => {
+    writer.getText("text").update("then more");
+    writer.commit();
+    return encodeVersionVector(writer);
+  });
+  const snapshot = exportFullHistorySnapshot(writer);
   const vectors = getUpdateVersionVectors(snapshot);
-  const checkpointEnd = encodeVersionVector(branch);
-  branch.getText("text").update("a child of the checkpoint");
-  branch.commit();
-  const child = exportUpdatesSince(branch, checkpointEnd);
+  await withClock(clock.child, () => {
+    writer.getText("text").update("a child of the checkpoint");
+    writer.commit();
+  });
+  const child = exportUpdatesSince(writer, checkpointEnd);
   const [checkpointUpdate] = await signedUpdates(fixture, [
     createPendingUpdateRecord({
       id: "550e8400-e29b-41d4-a716-446655440452",
@@ -231,8 +283,8 @@ async function checkpointAndChild(fixture: Fixture) {
     }),
   ]);
   if (!checkpointUpdate || !childUpdate) throw new Error("Expected updates");
-  // What a sync pass that imports both leaves in the live document.
-  return { checkpointUpdate, childUpdate, synced: branch };
+  // Every holder of these operations, a reader that synced them included.
+  return { checkpointUpdate, childUpdate, synced: writer };
 }
 
 // A sync pass accepts a writer's checkpoint and the ordinary update that
@@ -240,14 +292,18 @@ async function checkpointAndChild(fixture: Fixture) {
 // too: otherwise the proof fails on every attempt, and no rotation or unlink
 // of the document completes, or a baseline drops the writer's edits.
 for (const split of [false, true]) {
-  test(`rotation keeps a synced checkpoint's operations (${split ? "pages split" : "one page"})`, async () => {
-    await withDatabase(
-      `rotation-synced-checkpoint-${split}`,
-      async (execSql) => {
-        const fixture = await createRemoteHistoryFixture();
-        const localId = `rotation-synced-checkpoint-${split}-local`;
+  for (const [index, clock] of writerClocks.entries()) {
+    const pages = split ? "pages split" : "one page";
+    test(`rotation keeps a synced checkpoint's operations (${pages}, ${clock.name})`, async () => {
+      const name = `rotation-synced-checkpoint-${split}-${index}`;
+      await withDatabase(name, async (execSql) => {
+        const localId = `${name}-local`;
+        const fixture = await withClock(
+          clock.served,
+          createRemoteHistoryFixture,
+        );
         const { checkpointUpdate, childUpdate, synced } =
-          await checkpointAndChild(fixture);
+          await checkpointAndChild(fixture, clock);
         const state = await rotationState({
           execSql,
           extraUpdates: split
@@ -269,9 +325,9 @@ for (const split of [false, true]) {
         expect(await voidRows(execSql, localId)).toEqual([]);
         baseline.free();
         synced.free();
-      },
-    );
-  });
+      });
+    });
+  }
 }
 
 // A checkpoint can only add operations: the rebuild still imports every
