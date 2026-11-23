@@ -28,6 +28,30 @@
   color: var(--sync-glyph-synced-color);
 }
 
+/* Sync work running with nothing local waiting: the synced hue drawn as a
+   ring, so it reads as "in progress" rather than as a problem. Declared after
+   the dot so its transparent fill wins. */
+.sync-glyph--syncing {
+  color: var(--sync-glyph-synced-color);
+}
+
+.sync-glyph--syncing.sync-glyph--dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sync-glyph--syncing.sync-glyph--dot {
+    animation: sync-glyph-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes sync-glyph-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
 .sync-glyph--pending {
   color: var(--color-danger);
 }

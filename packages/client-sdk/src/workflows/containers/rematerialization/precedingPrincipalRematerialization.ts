@@ -28,9 +28,11 @@ export function withPrecedingRematerialization(
     apiClient: {
       ...input.apiClient,
       reciteContainer: input.apiClient.reciteContainer.bind(input.apiClient),
-      getContainerWriterProjection: async (containerId) => {
-        const projection =
-          await input.apiClient.getContainerWriterProjection(containerId);
+      getContainerWriterProjection: async (containerId, options) => {
+        const projection = await input.apiClient.getContainerWriterProjection(
+          containerId,
+          options,
+        );
         return projection ? rebase(projection) : null;
       },
       getContainerWriterProjectionResult: async (containerId, options) => {

@@ -358,8 +358,10 @@ function projectionReader(
 ) {
   return signal
     ? {
-        getDocumentWriterProjection: (id: string) =>
-          api.getDocumentWriterProjection(id, { signal }),
+        getDocumentWriterProjection: (
+          id: string,
+          options?: { readonly stillCurrent?: (() => boolean) | undefined },
+        ) => api.getDocumentWriterProjection(id, { ...options, signal }),
       }
     : api;
 }

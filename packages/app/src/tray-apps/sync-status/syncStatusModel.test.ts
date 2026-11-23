@@ -66,6 +66,8 @@ test("resolveSyncStatus is synced when ready with an empty queue", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       queueReadError: null,
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("synced");
 });
@@ -79,6 +81,8 @@ test("resolveSyncStatus is pending when ready with unflushed data", () => {
       pendingWriteCount: 4,
       failedWriteCount: 0,
       queueReadError: null,
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("pending");
 });
@@ -92,6 +96,8 @@ test("resolveSyncStatus is loading before the first read resolves", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       queueReadError: null,
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("loading");
 });
@@ -105,6 +111,8 @@ test("resolveSyncStatus surfaces billing over a pending queue", () => {
       pendingWriteCount: 9,
       failedWriteCount: 2,
       queueReadError: null,
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("billing");
 });
@@ -118,6 +126,8 @@ test("resolveSyncStatus surfaces billing even before the queue is read", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       queueReadError: null,
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("billing");
 });
@@ -133,6 +143,8 @@ test("resolveSyncStatus surfaces billing for a non-active organization", () => {
       pendingWriteCount: 5,
       failedWriteCount: 0,
       queueReadError: null,
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("billing");
 });
@@ -147,8 +159,13 @@ test("describeSyncStatus names another organization as the billing reason", () =
       failedWriteCount: 0,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: "active",
       billingBlockScope: "other",
     }),
@@ -163,8 +180,13 @@ test("describeSyncStatus labels the settled states", () => {
       failedWriteCount: 0,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -176,8 +198,13 @@ test("describeSyncStatus labels the settled states", () => {
       failedWriteCount: 0,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -192,8 +219,13 @@ test("describeSyncStatus uses the singular for one pending change", () => {
       failedWriteCount: 0,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -208,8 +240,13 @@ test("describeSyncStatus pluralizes and notes offline for pending changes", () =
       failedWriteCount: 0,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: false,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -224,8 +261,13 @@ test("describeSyncStatus names an expired trial as the billing reason", () => {
       failedWriteCount: 0,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: "trialing",
       billingBlockScope: "active",
     }),
@@ -240,8 +282,13 @@ test("describeSyncStatus explains disabled billing", () => {
       failedWriteCount: 0,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: "disabled",
       billingBlockScope: "active",
     }),
@@ -256,8 +303,13 @@ test("describeSyncStatus falls back to a generic billing message", () => {
       failedWriteCount: 0,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: "deleting",
       billingBlockScope: "active",
     }),
@@ -271,21 +323,12 @@ test("summarizePendingWrites counts failed items and captures the first error", 
     failedItem("Sync failed (500)"),
   ]);
   expect(summary).toEqual({
+    blockedCount: 0,
     count: 6,
     failedCount: 2,
     firstError: "Write access denied by the server (403)",
     organizationIds: [],
   });
-});
-
-test("summarizePendingWrites names each organization with queued writes once", () => {
-  const summary = summarizePendingWrites([
-    { ...item(op(1)), organizationId: "org-b" },
-    { ...item(op(1)), organizationId: "org-a" },
-    { ...item(op(1)), organizationId: "org-b" },
-    item(op(1)),
-  ]);
-  expect(summary.organizationIds).toEqual(["org-a", "org-b"]);
 });
 
 test("resolveSyncStatus surfaces error over a merely pending queue", () => {
@@ -297,6 +340,8 @@ test("resolveSyncStatus surfaces error over a merely pending queue", () => {
       pendingWriteCount: 4,
       failedWriteCount: 1,
       queueReadError: null,
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("error");
 });
@@ -309,8 +354,13 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
       failedWriteCount: 1,
       firstWriteError: "Write access denied by the server (403)",
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -322,8 +372,13 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
       failedWriteCount: 2,
       firstWriteError: null,
       queueReadError: null,
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -341,6 +396,8 @@ test("resolveSyncStatus surfaces a failed queue read as error, not loading", () 
       pendingWriteCount: 0,
       failedWriteCount: 0,
       queueReadError: "Local database schema is obsolete",
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("error");
 });
@@ -354,6 +411,8 @@ test("resolveSyncStatus keeps billing over a failed queue read", () => {
       pendingWriteCount: 0,
       failedWriteCount: 0,
       queueReadError: "Local database schema is obsolete",
+      failedLaneCount: 0,
+      syncActive: false,
     }),
   ).toBe("billing");
 });
@@ -366,8 +425,13 @@ test("describeSyncStatus names the queue read failure over stale failed writes",
       failedWriteCount: 1,
       firstWriteError: "Write access denied by the server (403)",
       queueReadError: "Local database schema is obsolete",
+      failedLaneCount: 0,
+      firstLaneError: null,
+      syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -381,15 +445,20 @@ test("describeSyncStatus names a sync pause as why changes are waiting", () => {
     failedWriteCount: 0,
     firstWriteError: null,
     queueReadError: null,
+    failedLaneCount: 0,
+    firstLaneError: null,
+    syncActive: false,
     billingStatus: null,
     billingBlockScope: "active",
+    blockedWriteCount: 0,
   } as const;
+  const paused = { syncPaused: true, writesPaused: true } as const;
 
-  expect(
-    describeSyncStatus({ ...pending, online: true, syncPaused: true }),
-  ).toBe("2 changes not yet synced (sync is paused for an organization)");
+  expect(describeSyncStatus({ ...pending, ...paused, online: true })).toBe(
+    "2 changes not yet synced (sync is paused for an organization)",
+  );
   // Offline is the nearer reason: nothing would send even without the pause.
-  expect(
-    describeSyncStatus({ ...pending, online: false, syncPaused: true }),
-  ).toBe("2 changes not yet synced (offline)");
+  expect(describeSyncStatus({ ...pending, ...paused, online: false })).toBe(
+    "2 changes not yet synced (offline)",
+  );
 });

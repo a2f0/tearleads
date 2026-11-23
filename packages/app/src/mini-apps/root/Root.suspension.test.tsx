@@ -3,7 +3,11 @@ import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../test/helpers/identityManagerTestRuntime";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
-import { renderRootWithSession } from "../../../test/helpers/renderRootConsole";
+import {
+  clickRootToolbarButton,
+  renderRootWithSession,
+  rootToolbar,
+} from "../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
 
 afterEach(async () => {
@@ -31,13 +35,15 @@ test("operators suspend and lift a member account but not a root one", async () 
     };
 
     await openIdentity(rootIdentity.signingKeyFingerprint);
-    expect(view.queryByRole("button", { name: "Suspend account" })).toBeNull();
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    expect(
+      rootToolbar(view).queryByRole("button", { name: "Suspend account" }),
+    ).toBeNull();
+    await clickRootToolbarButton(view, "Back");
 
     await openIdentity(memberIdentity.signingKeyFingerprint);
     fireEvent.click(
       await waitFor(() =>
-        view.getByRole("button", { name: "Suspend account" }),
+        rootToolbar(view).getByRole("button", { name: "Suspend account" }),
       ),
     );
     const dialog = view.getByRole("dialog", { name: "Suspend account?" });
@@ -48,7 +54,7 @@ test("operators suspend and lift a member account but not a root one", async () 
 
     await waitFor(() => {
       expect(
-        view.getByRole("button", { name: "Lift suspension" }),
+        rootToolbar(view).getByRole("button", { name: "Lift suspension" }),
       ).toBeTruthy();
     });
     expect(view.queryByRole("dialog")).toBeNull();
@@ -57,10 +63,12 @@ test("operators suspend and lift a member account but not a root one", async () 
       within(summary).getByText("Suspended").parentElement?.textContent,
     ).not.toContain("No");
 
-    fireEvent.click(view.getByRole("button", { name: "Lift suspension" }));
+    fireEvent.click(
+      rootToolbar(view).getByRole("button", { name: "Lift suspension" }),
+    );
     await waitFor(() => {
       expect(
-        view.getByRole("button", { name: "Suspend account" }),
+        rootToolbar(view).getByRole("button", { name: "Suspend account" }),
       ).toBeTruthy();
     });
   } finally {

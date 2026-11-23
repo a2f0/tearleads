@@ -3,7 +3,10 @@ import { useCallback } from "react";
 import {
   IDENTITIES_ROOT_ROUTE,
   ORGANIZATIONS_ROOT_ROUTE,
-  type RootReturn,
+  REPORTS_ROOT_ROUTE,
+  type RootOrganizationTab,
+  type RootReportId,
+  type RootReturnRoute,
   type RootRoute,
   type RootView,
   rootRouteForView,
@@ -12,36 +15,41 @@ import {
 /**
  * The return a detail opened from `route` carries, so Back comes back here. A
  * detail opened from another detail passes that one's return along, so a walk
- * that started in the audit trail or Reports still ends back there.
+ * that started in the audit trail or a report still ends back there.
  */
-function returnTo(route: RootRoute): RootReturn {
-  if (route.view === "reports") return { returnView: "reports" };
-  if (route.view === "audit")
-    return {
-      returnView: "audit",
-      ...(route.subjectId ? { returnSubjectId: route.subjectId } : {}),
-    };
+function returnFrom(route: RootRoute): { readonly returnTo?: RootReturnRoute } {
+  if (route.view === "reports" || route.view === "audit")
+    return { returnTo: route };
   if (
-    (route.view !== "organizations" && route.view !== "identities") ||
-    !route.returnView
+    (route.view === "organizations" || route.view === "identities") &&
+    route.returnTo
   )
-    return {};
-  return {
-    returnView: route.returnView,
-    ...(route.returnSubjectId
-      ? { returnSubjectId: route.returnSubjectId }
-      : {}),
-  };
+    return { returnTo: route.returnTo };
+  return {};
 }
 
-function routeForReturn(
-  { returnSubjectId, returnView }: RootReturn,
-  fallback: RootRoute,
-): RootRoute {
-  if (returnView === "reports") return { view: "reports" };
-  if (returnView === "audit")
-    return { subjectId: returnSubjectId ?? null, view: "audit" };
-  return fallback;
+/**
+ * Where leaving the detail `route` shows leads, or null when `route` is a
+ * top-level list. Leaving replaces the detail's history entry rather than
+ * pushing the list again, so a later Back does not reopen the detail just
+ * left.
+ */
+export function rootDetailParentRoute(route: RootRoute): RootRoute | null {
+  if (route.view === "reports")
+    return route.reportId === null ? null : REPORTS_ROOT_ROUTE;
+  if (route.view === "organizations")
+    return route.organizationId === null
+      ? null
+      : (route.returnTo ?? ORGANIZATIONS_ROOT_ROUTE);
+  if (route.view !== "identities" || route.userId === null) return null;
+  if (!route.returnOrganizationId)
+    return route.returnTo ?? IDENTITIES_ROOT_ROUTE;
+  return {
+    view: "organizations",
+    organizationId: route.returnOrganizationId,
+    tab: route.returnOrganizationTab ?? "identities",
+    ...returnFrom(route),
+  };
 }
 
 export function useRootNavigation(
@@ -63,53 +71,24 @@ export function useRootNavigation(
               returnOrganizationTab: route.tab ?? "overview",
             }
           : {}),
-        ...returnTo(route),
+        ...returnFrom(route),
       }),
     [route, setRoute],
   );
-  // Leaving the detail replaces the history entry rather than pushing the
-  // list again, so the browser's Back does not reopen the detail just left.
-  const closeIdentity = useCallback(
-    () =>
-      setRoute(
-        route.view !== "identities"
-          ? IDENTITIES_ROOT_ROUTE
-          : route.returnOrganizationId
-            ? {
-                view: "organizations",
-                organizationId: route.returnOrganizationId,
-                tab: route.returnOrganizationTab ?? "identities",
-                ...(route.returnView ? { returnView: route.returnView } : {}),
-                ...(route.returnSubjectId
-                  ? { returnSubjectId: route.returnSubjectId }
-                  : {}),
-              }
-            : routeForReturn(route, IDENTITIES_ROOT_ROUTE),
-        { replace: true },
-      ),
-    [route, setRoute],
-  );
-
   const openOrganization = useCallback(
-    (organizationId: string) =>
+    (organizationId: string, tab?: RootOrganizationTab) =>
       setRoute({
         view: "organizations",
         organizationId,
-        ...returnTo(route),
+        ...(tab ? { tab } : {}),
+        ...returnFrom(route),
       }),
     [route, setRoute],
   );
-  const closeOrganization = useCallback(
-    () =>
-      setRoute(
-        route.view === "organizations"
-          ? routeForReturn(route, ORGANIZATIONS_ROOT_ROUTE)
-          : ORGANIZATIONS_ROOT_ROUTE,
-        { replace: true },
-      ),
-    [route, setRoute],
+  const openReport = useCallback(
+    (reportId: RootReportId) => setRoute({ reportId, view: "reports" }),
+    [setRoute],
   );
-
   const openAudit = useCallback(
     (subjectId: string) => setRoute({ subjectId, view: "audit" }),
     [setRoute],
@@ -117,10 +96,9 @@ export function useRootNavigation(
 
   return {
     openAudit,
-    setView,
     openIdentity,
-    closeIdentity,
     openOrganization,
-    closeOrganization,
+    openReport,
+    setView,
   };
 }

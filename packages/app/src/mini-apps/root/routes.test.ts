@@ -36,6 +36,7 @@ test("organization routes and identity return paths survive URL round trips", ()
     ["organizations"],
     ["organizations", "org-1"],
     ["reports"],
+    ["reports", "ops-health"],
     ["organizations", "org-1", "data-usage", "reports"],
     ["organizations", "org-1", "data-usage"],
     ["organizations", "org-1", "identities"],
@@ -67,17 +68,17 @@ test("identity routes return to Reports directly or through an organization", ()
     view: "identities",
     userId: "user-1",
     returnOrganizationId: "org-1",
-    returnView: "reports",
+    returnTo: { reportId: null, view: "reports" },
   });
   // The RevenueCat report links a delivery's buyer straight to identity detail.
   expect(parseRootRouteSegments(["identities", "user-1", "reports"])).toEqual({
     view: "identities",
     userId: "user-1",
-    returnView: "reports",
+    returnTo: { reportId: null, view: "reports" },
   });
   expect(
     formatRootRouteSegments({
-      returnView: "reports",
+      returnTo: { reportId: null, view: "reports" },
       userId: "user-1",
       view: "identities",
     }),
@@ -124,9 +125,59 @@ test("details opened from the audit trail return to it with its subject", () => 
     ]),
   ).toEqual({
     organizationId: "org-1",
-    returnSubjectId: "user-2",
-    returnView: "audit",
+    returnTo: { subjectId: "user-2", view: "audit" },
     tab: "overview",
+    view: "organizations",
+  });
+});
+
+test("reports open one at a time and details return to the report they came from", () => {
+  expect(parseRootRouteSegments(["reports"])).toEqual({
+    reportId: null,
+    view: "reports",
+  });
+  expect(parseRootRouteSegments(["reports", "revenuecat"])).toEqual({
+    reportId: "revenuecat",
+    view: "reports",
+  });
+  // An unknown report falls back to the listing rather than an empty page.
+  expect(parseRootRouteSegments(["reports", "nope"])).toEqual({
+    reportId: null,
+    view: "reports",
+  });
+  expect(rootRouteForView("reports")).toEqual({
+    reportId: null,
+    view: "reports",
+  });
+  for (const segments of [
+    ["identities", "user-1", "reports", "revenuecat"],
+    ["organizations", "org-1", "billing", "reports", "ops-health"],
+    [
+      "identities",
+      "user-1",
+      "organizations",
+      "org-1",
+      "billing",
+      "reports",
+      "ops-health",
+    ],
+  ]) {
+    expect(formatRootRouteSegments(parseRootRouteSegments(segments))).toEqual(
+      segments,
+    );
+  }
+  expect(
+    parseRootRouteSegments([
+      "organizations",
+      "org-1",
+      "data-usage",
+      "reports",
+      "data-usage",
+    ]),
+  ).toEqual({
+    organizationId: "org-1",
+    returnTo: { reportId: "data-usage", view: "reports" },
+    tab: "data-usage",
     view: "organizations",
   });
 });

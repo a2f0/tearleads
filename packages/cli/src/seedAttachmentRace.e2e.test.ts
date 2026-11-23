@@ -223,5 +223,6 @@ test.each([
       server.stop(true);
     }
   },
-  60_000,
+  // Up to 36s on CI, and runners have run 1.8x slower; keep ~3x headroom.
+  120_000,
 );

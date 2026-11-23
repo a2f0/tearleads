@@ -1,3 +1,4 @@
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback } from "react";
 import {
   MiniAppButton,
@@ -10,10 +11,16 @@ import { useRootPage } from "../organizations/useRootPage";
 import { RevenuecatDeliveries } from "./RevenuecatDeliveries";
 
 export function OrganizationRevenuecatEvents({
+  detailLoading,
   organizationId,
+  onRefreshDetail,
   onSelectIdentity,
 }: {
+  /** Whether the organization these deliveries sit beside is reloading. */
+  detailLoading: boolean;
   organizationId: string;
+  /** Reloads that organization, alongside these deliveries. */
+  onRefreshDetail: () => void;
   onSelectIdentity: (userId: string) => void;
 }) {
   const tearleads = useTearleads();
@@ -37,6 +44,19 @@ export function OrganizationRevenuecatEvents({
   );
   const { items, error, loading, nextCursor, loadMore, refresh } =
     useRootPage(request);
+  // Above the organization's own Refresh while the Billing tab is open, so one
+  // Refresh reloads the billing and the deliveries beside it, and stays busy
+  // until both settle.
+  const refreshing = loading || detailLoading;
+  useWindowRefreshMenuItem({
+    disabled: refreshing,
+    onRefresh: () => {
+      onRefreshDetail();
+      refresh();
+    },
+    priority: 100,
+    refreshing,
+  });
   return (
     <>
       <MiniAppInfoHeading>RevenueCat webhooks</MiniAppInfoHeading>
@@ -45,11 +65,6 @@ export function OrganizationRevenuecatEvents({
         ignored, and transfers that moved a purchase away from it, newest first
         by event time.
       </MiniAppStatus>
-      <MiniAppToolbar>
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          Refresh deliveries
-        </MiniAppButton>
-      </MiniAppToolbar>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {items.length === 0 ? (
         <MiniAppStatus>

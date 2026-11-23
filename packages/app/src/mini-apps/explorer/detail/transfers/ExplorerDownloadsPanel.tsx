@@ -223,6 +223,8 @@ function DownloadRow(params: {
  * does, whether or not this view was open when they finished.
  */
 export function ExplorerDownloadsPanel(params: {
+  /** The queue is read only while the database is open. */
+  dbReady: boolean;
   destinations: ExplorerDownloadDestinations;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
@@ -233,6 +235,7 @@ export function ExplorerDownloadsPanel(params: {
   const { documents } = useTearleads();
   const snapshot = useDomainSyncSnapshot(domainScope);
   const { entries, readNow, state } = useDownloadHistory({
+    dbReady: params.dbReady,
     documentQueries: params.documentQueries,
     domainScope,
   });

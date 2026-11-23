@@ -1,4 +1,5 @@
 import type { RootRevenuecatDisposition } from "@tearleads/validators/response";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useState } from "react";
 import {
   MiniAppButton,
@@ -55,10 +56,15 @@ export function RevenuecatReportView({
   );
   const { items, error, loading, nextCursor, loadMore, refresh } =
     useRootPage(request);
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    refreshing: loading,
+  });
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
-        <h2>Reports · RevenueCat webhooks needing attention</h2>
+        <h2>RevenueCat webhooks</h2>
       </MiniAppSectionHeading>
       <MiniAppStatus>
         Deliveries that resolved to no organization, or that the webhook handler
@@ -81,9 +87,6 @@ export function RevenuecatReportView({
             </option>
           ))}
         </MiniAppSelect>
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          Refresh webhooks
-        </MiniAppButton>
       </MiniAppToolbar>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {items.length === 0 ? (

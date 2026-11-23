@@ -58,6 +58,7 @@ export async function adoptExistingRemoteDocument(
 ): Promise<CreateRemoteDocumentResult | null> {
   const writerProjection = await input.apiClient.getDocumentWriterProjection(
     input.documentId,
+    { stillCurrent: input.stillCurrent },
   );
   if (!writerProjection) return null;
 

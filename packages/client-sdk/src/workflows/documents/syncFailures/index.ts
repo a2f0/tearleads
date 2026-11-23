@@ -195,6 +195,7 @@ async function submitDocumentSyncAttempt(input: {
     apiClient: input.apiClient,
     expectedCommitLsnMode: input.expectedCommitLsnMode,
     plan: input.plan,
+    stillCurrent: input.stillCurrent,
   });
   if (input.stillCurrent?.() === false) return "cancelled";
   if (!submitted) {
@@ -299,7 +300,7 @@ async function resolveDocumentSyncWriterProjection(input: {
 
   const result = await input.apiClient.getDocumentWriterProjectionResult(
     input.documentId,
-    { reportErrors: false },
+    { reportErrors: false, stillCurrent: input.stillCurrent },
   );
   if (input.stillCurrent?.() === false) return null;
   if (result.ok) {
