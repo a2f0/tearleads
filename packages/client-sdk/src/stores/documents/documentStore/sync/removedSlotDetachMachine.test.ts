@@ -4,6 +4,7 @@ import {
   isRemovedSlotDetachWaiting,
   planRemovedSlotDetach,
   type RemovedSlotDetachState,
+  removedSlotSightingWrite,
   transitionRemovedSlotDetach,
 } from "./removedSlotDetachMachine";
 
@@ -60,4 +61,44 @@ test("a refused detach waits only for the same binding at the same version", asy
   expect(
     planRemovedSlotDetach(refused, { bindingId: "binding-2" }, older),
   ).toBe("detach");
+});
+
+test("a restored slot is seen unless the store already tracks it", () => {
+  const seen = transitionRemovedSlotDetach(undefined, { type: "restored" });
+  expect(seen).toEqual({ status: "seen" });
+  const refused: RemovedSlotDetachState = {
+    bindingId: "binding-1",
+    status: "refused",
+    versionVector: "v1",
+  };
+  // What this store learned since outranks what an earlier one persisted.
+  expect(transitionRemovedSlotDetach(refused, { type: "restored" })).toBe(
+    refused,
+  );
+});
+
+test("only entering and leaving the machine write the durable sighting", () => {
+  const seen: RemovedSlotDetachState = { status: "seen" };
+  const refused: RemovedSlotDetachState = {
+    bindingId: "binding-1",
+    status: "refused",
+    versionVector: "v1",
+  };
+  const recorded = { type: "recorded" } as const;
+  const restored = { type: "restored" } as const;
+  const settled = { type: "settled" } as const;
+  const refusal = {
+    bindingId: "binding-1",
+    type: "detachRefused",
+    versionVector: "v1",
+  } as const;
+  expect(removedSlotSightingWrite(undefined, seen, recorded)).toBe("record");
+  expect(removedSlotSightingWrite(undefined, refused, refusal)).toBe("record");
+  // A restored slot is already durable.
+  expect(removedSlotSightingWrite(undefined, seen, restored)).toBe("keep");
+  // A refusal waits in memory only.
+  expect(removedSlotSightingWrite(seen, refused, refusal)).toBe("keep");
+  expect(removedSlotSightingWrite(refused, seen, recorded)).toBe("keep");
+  expect(removedSlotSightingWrite(refused, undefined, settled)).toBe("forget");
+  expect(removedSlotSightingWrite(undefined, undefined, settled)).toBe("keep");
 });
