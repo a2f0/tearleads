@@ -74,8 +74,8 @@ test("a reader unlinks a document whose every update it voided", async () => {
   expect(voidReports(fresh)).toBe(0);
   expect(await readText(liar, world.documentRef(document))).toContain("bob");
 
-  // A second rotation replays history that holds the empty baseline, and a
-  // device installed after it starts from the new baseline.
+  // A second rotation past the empty baseline is accepted, and a device
+  // installed after it starts from the new baseline.
   await world.linkDocument(bob, document, handoff);
   await world.unlinkDocument(bob, document, handoff);
   expect(voidReports(reader)).toBe(reported);

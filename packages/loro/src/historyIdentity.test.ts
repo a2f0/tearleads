@@ -6,7 +6,6 @@ import {
   exportFullHistoryIdentity,
   exportFullHistorySnapshot,
   exportUpdatesSince,
-  getTextValue,
   importSnapshot,
   importUpdates,
   versionVectorsEqual,
@@ -296,39 +295,4 @@ test("history artifact identity accepts snapshots without trusting their frontie
   expect(encodeVersionVector(forged)).toBe(encodeVersionVector(genuine));
   expect(updateMatchesDocumentHistory(genuine, genuineSnapshot)).toBe(true);
   expect(updateMatchesDocumentHistory(genuine, forgedSnapshot)).toBe(false);
-});
-
-// The rotation baseline of a document whose every update was void is an
-// empty snapshot. It holds exactly the operations of its empty range, none,
-// so every holder's history matches it, and recovery and compaction can
-// prove it like any other row.
-test("update identity accepts a blob that declares and carries no operation", async () => {
-  const empty = await createDocument("empty-range-author");
-  const reader = await createDocument("empty-range-reader");
-  try {
-    const emptySnapshot = exportFullHistorySnapshot(empty);
-    expect(updateMatchesDocumentHistory(empty, emptySnapshot)).toBe(true);
-    reader.getText("text").update("held history");
-    reader.commit();
-    expect(updateMatchesDocumentHistory(reader, emptySnapshot)).toBe(true);
-    importSnapshot(reader, emptySnapshot);
-    expect(getTextValue(reader)).toBe("held history");
-  } finally {
-    empty.free();
-    reader.free();
-  }
-});
-
-// Only a snapshot may declare an empty range: an empty update blob is output
-// the API refuses, so it still proves nothing.
-test("update identity rejects an update blob that declares no operation", async () => {
-  const document = await createDocument("empty-range-update");
-  try {
-    document.getText("text").update("held history");
-    document.commit();
-    const empty = exportUpdatesSince(document, encodeVersionVector(document));
-    expect(updateMatchesDocumentHistory(document, empty)).toBe(false);
-  } finally {
-    document.free();
-  }
 });

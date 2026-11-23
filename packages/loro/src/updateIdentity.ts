@@ -1,7 +1,6 @@
 import { idStrToId, type JsonSchema, type LoroDoc } from "loro-crdt";
 import {
   decodeVersionVector,
-  emptyVersionVector,
   encodeVersionVector,
   getImportBlobMetadata,
   importSnapshot,
@@ -68,31 +67,11 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
 }
 
 /**
- * Whether a blob that declares an empty range carries no operation: imported
- * into an empty fork of `doc`, it leaves nothing applied and nothing pending.
- * The empty rotation baseline of a document whose every update was void is
- * such a blob.
- */
-function carriesNoOperation(doc: LoroDoc, update: Uint8Array): boolean {
-  const empty = doc.forkAt([]);
-  try {
-    const status = empty.import(update);
-    return (
-      (status.pending == null || status.pending.size === 0) &&
-      versionVectorsEqual(encodeVersionVector(empty), emptyVersionVector())
-    );
-  } finally {
-    empty.free();
-  }
-}
-
-/**
  * Prove that an update or snapshot blob contains the document's exact
- * operations for its declared version-vector range; for an empty range, a
- * snapshot that carries none. Rebuild from the exact prefix and compare
- * canonical operation identity across current update and snapshot forms
- * without letting same-peer/counter conflicts hide in an import. A Loro
- * runtime failure (`isLoroRuntimeFailure`) is thrown, not reported as a
+ * operations for its declared version-vector range. Rebuild from the exact
+ * prefix and compare canonical operation identity across current update and
+ * snapshot forms without letting same-peer/counter conflicts hide in an import.
+ * A Loro runtime failure (`isLoroRuntimeFailure`) is thrown, not reported as a
  * mismatch.
  */
 export function updateMatchesDocumentHistory(
@@ -116,9 +95,7 @@ export function updateMatchesDocumentHistory(
         metadata.partialEndVersionVector,
       )
     ) {
-      // Only the empty rotation baseline, a snapshot, declares an empty
-      // range; the API refuses any other update that does.
-      return metadata.mode === "snapshot" && carriesNoOperation(doc, update);
+      return false;
     }
     const startVersion = decodeVersionVector(
       metadata.partialStartVersionVector,
