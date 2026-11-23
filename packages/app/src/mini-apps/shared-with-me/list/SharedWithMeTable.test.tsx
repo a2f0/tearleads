@@ -86,7 +86,7 @@ test("lists each folder with its organization, permission, and status", () => {
     SHARED_WITH_ME_LABELS.workspaceRoot,
     "Acme",
     SHARED_WITH_ME_LABELS.permissionAdmin,
-    "",
+    SHARED_WITH_ME_LABELS.syncEnabledStatus,
     "",
   ]);
   expect(cellTexts("Design")).toEqual([
@@ -98,6 +98,21 @@ test("lists each folder with its organization, permission, and status", () => {
   ]);
 });
 
+test("explains whether each row's organization syncs", () => {
+  const { rowNamed } = renderTable();
+
+  expect(
+    within(rowNamed(SHARED_WITH_ME_LABELS.workspaceRoot))
+      .getByText(SHARED_WITH_ME_LABELS.syncEnabledStatus)
+      .getAttribute("title"),
+  ).toBe(SHARED_WITH_ME_LABELS.syncEnabledStatusDetail);
+  expect(
+    within(rowNamed("Design"))
+      .getByText(SHARED_WITH_ME_LABELS.syncPausedStatus)
+      .getAttribute("title"),
+  ).toBe(SHARED_WITH_ME_LABELS.syncPausedStatusDetail);
+});
+
 test("gives an organization with no listed folder a row of its own", () => {
   const { cellTexts } = renderTable();
 
@@ -105,7 +120,7 @@ test("gives an organization with no listed folder a row of its own", () => {
     SHARED_WITH_ME_LABELS.unnamedOrganization,
     SHARED_WITH_ME_LABELS.unnamedOrganization,
     SHARED_WITH_ME_LABELS.permissionNone,
-    `${SHARED_WITH_ME_LABELS.leaveRequestedStatus}, ${SHARED_WITH_ME_LABELS.nothingSharedStatus}`,
+    `${SHARED_WITH_ME_LABELS.syncEnabledStatus}, ${SHARED_WITH_ME_LABELS.leaveRequestedStatus}, ${SHARED_WITH_ME_LABELS.nothingSharedStatus}`,
     "",
   ]);
 });

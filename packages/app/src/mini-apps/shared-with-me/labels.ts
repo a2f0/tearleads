@@ -26,6 +26,9 @@ export const SHARED_WITH_ME_LABELS = {
     `Resume sync for ${organizationName}`,
   statusColumn: "Status",
   syncChangeFailed: "Sync could not be changed for this organization.",
+  syncEnabledStatus: "Sync enabled",
+  syncEnabledStatusDetail:
+    "Sync is on. This device uploads and downloads this organization's content.",
   syncPausedStatus: "Sync paused",
   syncPausedStatusDetail:
     "Sync is paused. Nothing uploads or downloads for this organization, and changes you make stay on this device until you resume.",
