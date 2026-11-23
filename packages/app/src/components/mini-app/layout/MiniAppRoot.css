@@ -1,4 +1,16 @@
+/*
+ * `--mini-app-edge-inset` is how far this root's content sits from the edges
+ * of the surface showing it: the root's own padding plus whatever the host
+ * adds (a window body pads its content by `--window-content-inset`; a routed
+ * pane adds nothing). Chrome that spans the surface, such as the tab strip in
+ * MiniAppTabs.css, cancels exactly this distance.
+ */
 .mini-app-root {
+  --mini-app-edge-inset: calc(
+    var(--window-content-inset, 0px) +
+    var(--space-md)
+  );
+
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -10,6 +22,8 @@
 }
 
 .mini-app-root--padding-none {
+  --mini-app-edge-inset: var(--window-content-inset, 0px);
+
   gap: 0;
   padding: 0;
 }

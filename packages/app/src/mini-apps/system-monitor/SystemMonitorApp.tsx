@@ -178,6 +178,7 @@ function SystemMonitorContent() {
         activeTab={activeTab}
         idPrefix={idPrefix}
         label={SYSTEM_MONITOR_TABS_LABEL}
+        leading
         onSelect={setActiveTab}
         tabs={visibleTabs}
       />

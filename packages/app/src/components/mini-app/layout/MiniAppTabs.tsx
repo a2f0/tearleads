@@ -33,12 +33,17 @@ function miniAppTabPanelId(idPrefix: string, tabId: string): string {
  * chrome from MiniAppTabs.css. `className` is for per-surface layout only (flex
  * sizing and the like) — the look belongs to the shared stylesheet so a change
  * there reaches every tabbed mini-app at once.
+ *
+ * Every strip spans its surface edge to edge. Pass `leading` when the strip is
+ * the first thing on its surface, so it also sits flush under the app bar or
+ * window toolbar instead of below the surface's top padding.
  */
 export function MiniAppTabList<TabId extends string>({
   activeTab,
   className,
   idPrefix,
   label,
+  leading = false,
   onSelect,
   tabs,
 }: {
@@ -46,6 +51,7 @@ export function MiniAppTabList<TabId extends string>({
   className?: string | undefined;
   idPrefix: string;
   label: string;
+  leading?: boolean | undefined;
   onSelect: (tab: TabId) => void;
   tabs: ReadonlyArray<MiniAppTabDescriptor<TabId>>;
 }) {
@@ -107,7 +113,11 @@ export function MiniAppTabList<TabId extends string>({
   return (
     <div
       aria-label={label}
-      className={classNames("mini-app-tabs", className)}
+      className={classNames(
+        "mini-app-tabs",
+        leading && "mini-app-tabs--leading",
+        className,
+      )}
       ref={stripRef}
       role="tablist"
     >

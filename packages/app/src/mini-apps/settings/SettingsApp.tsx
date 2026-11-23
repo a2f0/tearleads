@@ -35,12 +35,20 @@ export function SettingsApp() {
   const [contentSize, setContentSize] = useState<WindowSize>();
   useWindowContentSize(contentSize);
 
+  // The natural size Fit to Content sizes the window to. Its width is the
+  // panel's (SettingsApp.css), since the tab strip spans whatever width the
+  // window has. A leading strip sits in the window body's top padding, so that
+  // part of the height is already provided by the padding and is not counted.
   useLayoutEffect(() => {
     const element = contentRef.current;
-    if (!element) return;
+    const panel = element?.querySelector(':scope > [role="tabpanel"]');
+    const strip = element?.querySelector(':scope > [role="tablist"]');
+    if (!element || !panel || !strip) return;
     const measure = () => {
-      const { width, height } = element.getBoundingClientRect();
-      if (width === 0 || height === 0) return;
+      const { width } = panel.getBoundingClientRect();
+      const tucked = Number.parseFloat(getComputedStyle(strip).marginTop) || 0;
+      const height = element.getBoundingClientRect().height + tucked;
+      if (width === 0 || height <= 0) return;
       setContentSize((previous) =>
         previous?.width === width && previous.height === height
           ? previous
@@ -50,6 +58,7 @@ export function SettingsApp() {
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
+    observer.observe(panel);
     return () => observer.disconnect();
   }, []);
 
@@ -60,6 +69,7 @@ export function SettingsApp() {
           activeTab={activeTab}
           idPrefix={idPrefix}
           label="Settings"
+          leading
           onSelect={(tab) => setPathSegments(tab === "desktop" ? [] : [tab])}
           tabs={SETTINGS_TABS}
         />

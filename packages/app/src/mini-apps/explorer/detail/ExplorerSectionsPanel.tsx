@@ -233,6 +233,7 @@ export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
         className="explorer-sections-tabs"
         idPrefix={idPrefix}
         label={EXPLORER_LABELS.compactSectionsTabsLabel}
+        leading
         onSelect={selectTab}
         tabs={EXPLORER_SECTION_TABS}
       />

@@ -190,7 +190,17 @@ test("Settings fits measured fractional content without automatic resizing", () 
       ".window-body-content-scroll",
     );
     const content = window.querySelector<HTMLElement>(".app-settings");
-    if (!pane || !content) throw new Error("Missing settings content");
+    const panel = content?.querySelector<HTMLElement>('[role="tabpanel"]');
+    const strip = content?.querySelector<HTMLElement>('[role="tablist"]');
+    if (!pane || !content || !panel || !strip) {
+      throw new Error("Missing settings content");
+    }
+    // Settings' natural width is its panel's: the tab strip spans whatever
+    // width the window has. Its height is the whole content's.
+    const measure = (width: number, height: number) => {
+      rect(panel, width, height);
+      rect(content, width, height);
+    };
     rect(window, 1200, 900);
     rect(pane, 1180, 840);
     pane.style.padding = "16px";
@@ -208,7 +218,7 @@ test("Settings fits measured fractional content without automatic resizing", () 
       offsetWidth: { configurable: true, value: 420 },
       offsetHeight: { configurable: true, value: 252 },
     });
-    rect(content, 420.25, 252.25);
+    measure(420.25, 252.25);
     act(resize);
     expect(window.style.width).toBe("1200px");
     expect(window.style.height).toBe("900px");
@@ -223,7 +233,7 @@ test("Settings fits measured fractional content without automatic resizing", () 
     expect(window.style.width).toBe("473px");
     expect(window.style.height).toBe("345px");
 
-    rect(content, 430.25, 282.25);
+    measure(430.25, 282.25);
     act(resize);
     expect(window.style.width).toBe("473px");
     expect(window.style.height).toBe("345px");
@@ -231,11 +241,20 @@ test("Settings fits measured fractional content without automatic resizing", () 
     expect(window.style.width).toBe("483px");
     expect(window.style.height).toBe("375px");
 
-    rect(content, 0, 0);
+    measure(0, 0);
     act(resize);
     fitWindow();
     expect(window.style.width).toBe("483px");
     expect(window.style.height).toBe("375px");
+
+    // A leading strip is pulled up into the body's top padding, so the
+    // padding already provides that part of the height.
+    strip.style.marginTop = "-16px";
+    measure(430.25, 282.25);
+    act(resize);
+    fitWindow();
+    expect(window.style.width).toBe("483px");
+    expect(window.style.height).toBe("359px");
     view.unmount();
     expect(observers.has(content)).toBe(false);
   } finally {
