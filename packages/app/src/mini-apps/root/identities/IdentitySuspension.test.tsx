@@ -2,6 +2,7 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import type { RootIdentity } from "@tearleads/client-sdk";
 import { WindowMenuProvider, WindowToolBar } from "@tearleads/windowing";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -62,6 +63,31 @@ test("a root identity left suspended can still be lifted but never suspended", a
 
     view.rerender(inToolbar(ROOT_IDENTITY));
     expect(view.queryByRole("button")).toBeNull();
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+test("Lift suspension reads Lifting... and is disabled until the lift settles", async () => {
+  type Lifted = { data: RootIdentity; ok: true };
+  const held = Promise.withResolvers<Lifted>();
+  const spy = spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+    root: { liftIdentitySuspension: () => held.promise },
+  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>);
+  try {
+    const view = render(
+      inToolbar({ ...ROOT_IDENTITY, suspendedAt: "2026-09-07T12:00:00.000Z" }),
+    );
+    const toolbar = within(view.getByRole("toolbar"));
+    fireEvent.click(toolbar.getByRole("button", { name: "Lift suspension" }));
+    const lifting = toolbar.getByRole("button", { name: "Lifting..." });
+    expect((lifting as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () =>
+      held.resolve({ data: { ...ROOT_IDENTITY, suspendedAt: null }, ok: true }),
+    );
+    const lift = toolbar.getByRole("button", { name: "Lift suspension" });
+    expect((lift as HTMLButtonElement).disabled).toBe(false);
   } finally {
     spy.mockRestore();
   }
