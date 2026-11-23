@@ -10,6 +10,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import type { PrincipalPolicyCache } from "../../../data/keyingProjectionVerification";
 import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
+import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principalContracts/principalPolicyEvidence";
 import type { SpeculativePath } from "../child/rekey/carriedDescendantRekeys";
 
@@ -62,6 +63,7 @@ export function orderRematerializationsParentFirst<
 interface ProjectionApi {
   getContainerWriterProjection(
     containerId: string,
+    options?: { readonly stillCurrent?: (() => boolean) | undefined },
   ): Promise<ContainerWriterProjectionResponse | null>;
 }
 
@@ -69,8 +71,13 @@ interface ProjectionApi {
 export async function loadServedProjection(
   apiClient: ProjectionApi,
   containerId: string,
+  stillCurrent: (() => boolean) | undefined,
 ): Promise<ContainerWriterProjectionResponse> {
-  const projection = await apiClient.getContainerWriterProjection(containerId);
+  const projection = await apiClient.getContainerWriterProjection(containerId, {
+    stillCurrent,
+  });
+  // A retired read is the cancellation verification would raise, not a gap.
+  assertProjectionVerificationCurrent(stillCurrent);
   if (!projection) {
     throw new Error(
       `Container ${containerId} could not be prepared for principal rotation`,
@@ -92,6 +99,7 @@ export async function loadRematerializationTargets(input: {
   readonly apiClient: Pick<ApiClient, "getContainerWriterProjectionResult">;
   readonly carriedContainerIds: readonly string[];
   readonly grants: readonly PrincipalContainerGrant[];
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<{
   targets: RematerializationTarget[];
   retiredContainerIds: string[];
@@ -110,8 +118,9 @@ export async function loadRematerializationTargets(input: {
     const grantRow = grantByContainerId.get(containerId) ?? null;
     const result = await input.apiClient.getContainerWriterProjectionResult(
       containerId,
-      { reportErrors: false },
+      { reportErrors: false, stillCurrent: input.stillCurrent },
     );
+    assertProjectionVerificationCurrent(input.stillCurrent);
     if (!result.ok) {
       // This is only a planning hint. Keep the signed grant intact; the API
       // independently requires every live grant under the organization lock.

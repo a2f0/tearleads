@@ -36,6 +36,7 @@ export async function listPendingBlobDeletions(
     await active.runtime.apiClient.listOrganizationPendingBlobDeletionsResult(
       organizationId,
       query,
+      { stillCurrent },
     );
   if (
     !stillCurrent() ||

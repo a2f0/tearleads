@@ -30,6 +30,7 @@ import {
 // it for the access-restored signal (row 7).
 async function fetchMoveWriterProjection(input: {
   documentId: string;
+  isCurrent: (() => boolean) | undefined;
   onFailure?: DocumentLinkSetFailureHandler | undefined;
   runtime: ContainerDocumentLinkRuntime;
 }): Promise<Awaited<
@@ -38,11 +39,13 @@ async function fetchMoveWriterProjection(input: {
   const { apiClient } = input.runtime;
   const result = await apiClient.getDocumentWriterProjectionResult(
     input.documentId,
-    { reportErrors: false },
+    { reportErrors: false, stillCurrent: input.isCurrent },
   );
   if (result.ok) {
     return result.data;
   }
+  // A retired read is no failure of the move.
+  if (input.isCurrent?.() === false) return null;
   result.report();
   input.onFailure?.({ message: result.message, status: result.status });
   return null;
@@ -183,6 +186,7 @@ export async function moveRemoteContainerDocument(input: {
   const attachmentReuse = createLinkSetAttachmentReuse();
   const writerProjection = await fetchMoveWriterProjection({
     documentId,
+    isCurrent: input.isCurrent,
     onFailure: input.onFailure,
     runtime,
   });

@@ -274,6 +274,7 @@ export async function deleteRemoteContainer(input: {
   organizationId: string;
   requiredAncestorId?: string | undefined;
   runtime: ContainerWorkflowRuntime;
+  stillCurrent: (() => boolean) | undefined;
 }): Promise<{ deletedAt: string } | null> {
   const deleteResult = await input.runtime.apiClient.deleteContainerResult(
     input.containerId,
@@ -281,6 +282,7 @@ export async function deleteRemoteContainer(input: {
       expectedPaymentRequiredOrganizationId: input.organizationId,
       reportErrors: false,
       requiredAncestorId: input.requiredAncestorId,
+      stillCurrent: input.stillCurrent,
     },
   );
   if (!deleteResult.ok && !isContainerNotFoundFailure(deleteResult)) {
@@ -311,6 +313,7 @@ export async function discardOrphanedRemoteContainer(input: {
     containerId: input.created.containerId,
     organizationId: input.created.organizationId,
     runtime: input.state.runtime,
+    stillCurrent: input.isCurrent,
   }).then(
     (deleted) => (deleted ? null : "the server rejected the delete"),
     (error: unknown) => errorMessage(error),

@@ -34,6 +34,7 @@ import {
   verifyDocumentWriterProjection,
 } from "../../../data/keyingProjectionVerification";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
+import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { openPrincipalPolicyBundleReader } from "../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { ProjectionDependencyUnavailableError } from "../../../data/shared/dependencyUnavailable";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -85,8 +86,11 @@ async function loadAuthenticatedDocumentPurgeProof(input: {
     undefined,
     {
       expectedPaymentRequiredOrganizationId: input.expectedOrganizationId,
+      stillCurrent: input.stillCurrent,
     },
   );
+  // A retired read is the cancellation verification would raise, not a gap.
+  assertProjectionVerificationCurrent(input.stillCurrent);
   if (!initialProof) {
     // ApiClient returns null for transport, HTTP and response-shape failures.
     // Even after a deletion hint, absence cannot prove signed-data tampering.
@@ -112,6 +116,7 @@ async function loadAuthenticatedDocumentPurgeProof(input: {
 async function resolveDocumentPurgeWriterProjection(input: {
   readonly apiClient: DocumentPurgeApi;
   readonly documentId: string;
+  readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<
   | DocumentWriterProjectionResponse
   | typeof REMOTE_DOCUMENT_ALREADY_PURGED
@@ -119,7 +124,7 @@ async function resolveDocumentPurgeWriterProjection(input: {
 > {
   const result = await input.apiClient.getDocumentWriterProjectionResult(
     input.documentId,
-    { reportErrors: false },
+    { reportErrors: false, stillCurrent: input.stillCurrent },
   );
   if (result.ok) {
     return result.data;
@@ -267,6 +272,7 @@ export async function purgeRemoteDocument(
   const writerProjection = await resolveDocumentPurgeWriterProjection({
     apiClient: input.apiClient,
     documentId: input.documentId,
+    stillCurrent: input.stillCurrent,
   });
   if (!writerProjection) {
     return null;
@@ -321,6 +327,7 @@ export async function purgeRemoteDocument(
     request,
     {
       expectedPaymentRequiredOrganizationId: input.author.organizationId,
+      stillCurrent: input.stillCurrent,
     },
   );
   if (!response) {
