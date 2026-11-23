@@ -28,6 +28,7 @@ export async function deleteContainerState(input: {
       requiredAncestorId: input.requiredAncestorId,
       organizationId: input.containerState.container.organizationId,
       runtime: input.runtime,
+      stillCurrent: input.stillCurrent,
     });
     if (!deletedRemoteContainer) {
       return "remote-failed";

@@ -8,7 +8,6 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
   ReferencedPrincipalStateResponse,
-  WriterProjectionListing,
 } from "@tearleads/validators/response";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import type { PrincipalPolicyHistoryReader } from "../../principals/principalPolicyHistoryReader";
@@ -89,7 +88,7 @@ interface RemoteContainerHydrationApi
   evictWriterProjectionsCiting(containerIds: readonly string[]): void;
   getContainerWriterProjection(
     containerId: string,
-    options?: { readonly listing?: WriterProjectionListing | undefined },
+    options?: Parameters<ApiClient["getContainerWriterProjection"]>[1],
   ): Promise<ContainerWriterProjectionResponse | null>;
   listContainerParentLanes(
     input: ListContainerParentLanesRequest,

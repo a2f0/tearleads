@@ -19,6 +19,7 @@ export interface DocumentPurgeApi {
     },
     requestOptions?: {
       readonly expectedPaymentRequiredOrganizationId?: string;
+      readonly stillCurrent?: (() => boolean) | undefined;
     },
   ): Promise<DocumentPurgeProofResponse | null>;
   getDocumentWriterProjectionResult: NonNullable<
@@ -29,6 +30,7 @@ export interface DocumentPurgeApi {
     request: DocumentPurgeRequest,
     options?: {
       readonly expectedPaymentRequiredOrganizationId?: string;
+      readonly stillCurrent?: (() => boolean) | undefined;
     },
   ): Promise<DocumentPurgeResponse | null>;
 }

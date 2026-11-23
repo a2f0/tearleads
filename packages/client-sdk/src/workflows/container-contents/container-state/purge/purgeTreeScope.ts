@@ -42,8 +42,10 @@ async function verifiedRemoteScope(
     },
     async () => {
       runtime.apiClient.evictContainerWriterProjection(targetId);
-      const projection =
-        await runtime.apiClient.getContainerWriterProjection(targetId);
+      const projection = await runtime.apiClient.getContainerWriterProjection(
+        targetId,
+        { stillCurrent: input.stillCurrent },
+      );
       if (!projection || input.stillCurrent?.() === false) return false;
       if (
         projection.containerId !== targetId ||
