@@ -43,6 +43,12 @@
   /* Transparent (not absent) so an inactive tab reserves the selected tab's
      border box and selecting one never shifts the strip's layout. */
   border: var(--border-width) solid transparent;
+  /* Round only the top corners. The button's radius on the bottom corners
+     curved a tab's sides in before they reached the baseline and left the
+     baseline showing at both corners, so the selected tab sat on the strip
+     instead of opening into the panel. */
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
   /* Pull the bottom edge onto the strip's baseline, so a selected tab can
      repaint that 1px in the panel color and merge with the panel. */
   margin-bottom: calc(-1 * var(--border-width));
@@ -89,7 +95,7 @@
 
 /* Roving tabindex parks focus on the active tab, which already carries the
    selected fill — so focus needs its own mark. A dotted inset ring matches the
-   app's square, classic-desktop chrome. */
+   app's classic-desktop chrome. */
 .mini-app-tabs .mini-app-tab:focus-visible {
   outline: var(--border-width) dotted var(--color-dark);
   outline-offset: calc(-1 * var(--space-2xs));
@@ -211,8 +217,13 @@
  *
  * Scoped with `:has()` so only tabbed panels move; a framed panel is excluded
  * because its own `--panel-padding` would make the edge inset the wrong distance.
+ *
+ * A surface whose strips scroll in its own container rather than a
+ * `MiniAppPanel` (Org Manager's main region) adds `mini-app-tabs-scrollport` to
+ * that container to get the same treatment, so the rule lives here once.
  */
-.mini-app-panel--scroll:not(.mini-app-panel--framed):has(.mini-app-tabs) {
+.mini-app-panel--scroll:not(.mini-app-panel--framed):has(.mini-app-tabs),
+.mini-app-tabs-scrollport:has(.mini-app-tabs) {
   margin-inline: calc(-1 * var(--mini-app-edge-inset, 0px));
   padding-inline: var(--mini-app-edge-inset, 0px);
 }

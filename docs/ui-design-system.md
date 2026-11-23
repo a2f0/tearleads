@@ -219,7 +219,13 @@ caps a column of entry controls.
 draws every tab strip, and a strip is chrome, not content: in every tier it
 spans its surface edge to edge (the phone screen, the tablet pane beside the
 rail, or the window's sides) while the panel below keeps the content inset.
+The strip's look and its layout rules both live in
+[`MiniAppTabs.css`](../packages/app/src/components/mini-app/layout/MiniAppTabs.css);
+a surface's own CSS keeps only its layout around the strip and the panel.
 
+- Tabs round their top corners only. Their bottom edge sits on the strip's
+  baseline, and the selected tab's panel-colored bottom border opens it into
+  the panel below.
 - The strip cancels `--mini-app-edge-inset`, which `MiniAppRoot` publishes as
   its own padding plus the window body's `--window-content-inset`, so one rule
   holds in a window, a routed pane, and a root with no padding. A strip outside
@@ -229,9 +235,11 @@ rail, or the window's sides) while the panel below keeps the content inset.
   app bar or window toolbar. A strip below a heading, as in Get Info or
   Backup/Restore, keeps its place in the flow.
 - A negative margin cannot escape a scrollport, so a scrolling panel that holds
-  a strip takes over the inset as padding (`MiniAppPanel scroll`, Org Manager's
-  main region). A strip nested inside further inline padding, such as a framed
-  panel, needs its own rule.
+  a strip takes over the inset as padding. `MiniAppPanel scroll` gets this
+  automatically; any other scroll container that holds a strip, such as Org
+  Manager's main region, adds the `mini-app-tabs-scrollport` class. A strip
+  nested inside further inline padding, such as a framed panel, needs its own
+  rule.
 - [`e2e/tab-strip-bleed.spec.ts`](../packages/app-web/e2e/tab-strip-bleed.spec.ts)
   asserts the painted edges in every tier.
 
