@@ -1,3 +1,4 @@
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import {
   MiniAppButton,
   MiniAppSection,
@@ -18,6 +19,14 @@ export function PendingBlobDeletionView({
 }) {
   const { state, refresh, loadMore } = usePendingBlobDeletions(request);
   const loading = state.status === "idle" || state.status === "loading";
+  // Above a host's own Refresh while this view is open, as Org Manager's On
+  // device tab does, so the toolbar Refresh reloads the queue.
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    priority: 100,
+    refreshing: loading,
+  });
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
@@ -29,11 +38,6 @@ export function PendingBlobDeletionView({
         collection cancels deletion. This is not a recovery or
         attachment-history view.
       </MiniAppStatus>
-      <MiniAppToolbar>
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          {loading ? "Loading..." : "Refresh"}
-        </MiniAppButton>
-      </MiniAppToolbar>
       {state.status === "failed" ? (
         <MiniAppStatus tone="error">{state.message}</MiniAppStatus>
       ) : (

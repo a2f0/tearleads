@@ -4,7 +4,12 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../test/helpers/identityManagerTestRuntime";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../test/helpers/msw/server";
-import { renderRootWithSession } from "../../../test/helpers/renderRootConsole";
+import {
+  clickRootToolbarButton,
+  openRootReport,
+  renderRootWithSession,
+  rootToolbar,
+} from "../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
 
 afterEach(async () => {
@@ -69,7 +74,13 @@ test("the root console lists identities and opens their detail", async () => {
     expect(view.getByText("Not paused")).toBeTruthy();
     expect(view.getAllByText("203.0.113.7").length).toBeGreaterThanOrEqual(2);
 
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    // Back, Refresh, and Audit activity are toolbar chrome, not view buttons.
+    for (const name of ["Back", "Refresh", "Audit activity"]) {
+      expect(view.getAllByRole("button", { name })).toEqual([
+        rootToolbar(view).getByRole("button", { name }),
+      ]);
+    }
+    await clickRootToolbarButton(view, "Back");
     await waitFor(() => {
       expect(view.getByRole("table", { name: "Identities" })).toBeTruthy();
     });
@@ -185,7 +196,7 @@ test("operators browse organizations, inspect invoices, and traverse both direct
       }),
     );
     await view.findByRole("group", { name: "Identity" });
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await clickRootToolbarButton(view, "Back");
     expect(
       view
         .getByRole("tab", { name: "Identities" })
@@ -231,7 +242,7 @@ test("organization search handles empty results and restores the directory", asy
 test("reports show usage by org, paginate, search, and open the shared usage tab", async () => {
   const { restore, view } = await renderRootWithSession(true);
   try {
-    fireEvent.click(view.getByRole("button", { name: "Reports" }));
+    await openRootReport(view, "Data usage");
     const table = await view.findByRole("table", {
       name: "Data usage by organization",
     });
@@ -268,7 +279,7 @@ test("reports show usage by org, paginate, search, and open the shared usage tab
       view.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected"),
     ).toBe("true");
     await view.findByRole("group", { name: "Organization" });
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await clickRootToolbarButton(view, "Back");
     await view.findByRole("table", { name: "Data usage by organization" });
   } finally {
     restore();
@@ -291,7 +302,7 @@ test("usage failures show an error and refresh can recover", async () => {
     fireEvent.click(view.getByRole("tab", { name: "Data Usage" }));
     await view.findByText("Usage temporarily unavailable");
     expect(view.queryByText("0 B")).toBeNull();
-    fireEvent.click(view.getByRole("button", { name: "Refresh usage" }));
+    await clickRootToolbarButton(view, "Refresh");
     await view.findByText("2.5 KB");
   } finally {
     usage.mockRestore();
@@ -305,7 +316,8 @@ for (const origin of ["Reports", "Organizations"] as const) {
     const directory =
       origin === "Reports" ? "Data usage by organization" : "Organizations";
     try {
-      fireEvent.click(view.getByRole("button", { name: origin }));
+      if (origin === "Reports") await openRootReport(view, "Data usage");
+      else fireEvent.click(view.getByRole("button", { name: origin }));
       const table = await view.findByRole("table", { name: directory });
       fireEvent.click(
         await within(table).findByText(
@@ -324,14 +336,14 @@ for (const origin of ["Reports", "Organizations"] as const) {
         }),
       );
       await view.findByRole("group", { name: "Identity" });
-      fireEvent.click(view.getByRole("button", { name: "Back" }));
+      await clickRootToolbarButton(view, "Back");
       expect(
         view
           .getByRole("tab", { name: "Identities" })
           .getAttribute("aria-selected"),
       ).toBe("true");
       await view.findByRole("table", { name: "Organization identities" });
-      fireEvent.click(view.getByRole("button", { name: "Back" }));
+      await clickRootToolbarButton(view, "Back");
       await view.findByRole("table", { name: directory });
     } finally {
       restore();
@@ -377,7 +389,7 @@ test("the audit trail pages events, filters to a subject, and links to targets",
       ).value;
     fireEvent.click(within(table).getByTitle(member.userId));
     await view.findByRole("group", { name: "Identity" });
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await clickRootToolbarButton(view, "Back");
     const returned = await view.findByRole("table", { name: "Audit events" });
     expect(filterValue()).toBe(member.userId);
 
@@ -388,13 +400,13 @@ test("the audit trail pages events, filters to a subject, and links to targets",
       await within(orgs).findByTitle(member.defaultOrganizationId),
     );
     await view.findByRole("group", { name: "Organization" });
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await clickRootToolbarButton(view, "Back");
     const again = await view.findByRole("table", { name: "Audit events" });
     expect(filterValue()).toBe(member.userId);
 
     fireEvent.click(within(again).getByTitle(member.userId));
     await view.findByRole("group", { name: "Identity" });
-    fireEvent.click(view.getByRole("button", { name: "Audit activity" }));
+    await clickRootToolbarButton(view, "Audit activity");
     const filtered = await view.findByRole("table", { name: "Audit events" });
     await within(filtered).findByText("Viewed identity");
     expect(filterValue()).toBe(member.userId);
