@@ -79,6 +79,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
     containerRekeys: rekeyPlans?.map(({ plan }) => plan.request),
     execSql: input.sync.execSql,
     historyMode: input.sync.historyMode,
+    maxPageUpdates: input.sync.maxPageUpdates,
     inlineRekeyCommitId,
     localVersionVector:
       input.localVersionVector === undefined

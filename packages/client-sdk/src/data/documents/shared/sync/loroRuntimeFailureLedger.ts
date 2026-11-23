@@ -10,6 +10,8 @@ const MAX_RETRY_DELAY_MS = 60 * 60_000;
 
 /** How a judge learns whether to read an update and notes a failure. */
 export interface LoroRuntimeAttempts {
+  /** Whether this process has met a Loro runtime failure. */
+  hasFailed(): boolean;
   /** Whether `updateId` may be imported now. */
   mayAttempt(updateId: string): boolean;
   /** Notes `updateId` failing; true when the failure counts as an attempt. */
@@ -33,6 +35,11 @@ export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
   >();
 
   constructor(private readonly now: () => number = Date.now) {}
+
+  /** Whether this process has met a Loro runtime failure. */
+  hasFailed(): boolean {
+    return this.failedInProcess;
+  }
 
   /** Whether `updateId` may be imported now. */
   mayAttempt(updateId: string): boolean {
@@ -66,6 +73,7 @@ export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
    */
   unrecorded(): LoroRuntimeAttempts {
     return {
+      hasFailed: () => this.failedInProcess,
       mayAttempt: () => true,
       noteFailure: () => {
         this.noteUnattributedFailure();

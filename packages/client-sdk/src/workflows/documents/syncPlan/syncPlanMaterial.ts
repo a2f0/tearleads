@@ -386,6 +386,7 @@ export async function buildMaterializedDocumentSyncPlan(
     historyMode?: "raw" | undefined;
     inlineRekeyCommitId?: string | undefined;
     localVersionVector: string | null;
+    maxPageUpdates?: number | undefined;
     minLsn?: string | undefined;
     processedThroughUpdateId?: string | undefined;
     pullCursor?: string | undefined;
@@ -485,6 +486,7 @@ export async function buildMaterializedDocumentSyncPlan(
     historyMode: input.historyMode,
     inlineRekeyCommitId: input.inlineRekeyCommitId,
     localVersionVector: input.localVersionVector,
+    maxPageUpdates: input.maxPageUpdates,
     minLsn: input.minLsn,
     outgoingUpdates,
     processedThroughUpdateId: input.processedThroughUpdateId,

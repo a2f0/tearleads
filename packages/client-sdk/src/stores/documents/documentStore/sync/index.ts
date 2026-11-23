@@ -1,11 +1,13 @@
 import { reportAndRethrowKeyingVerificationError } from "../../../../data/shared/securityIncidents";
 import {
+  DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentSyncLane,
   isDatabaseUnavailableError,
   type PendingUpdateRecord,
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
+  settleDocumentSyncLoroWindow,
 } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { requestDocumentStoreSync } from "../../registry";
@@ -411,6 +413,12 @@ async function runScheduledSyncLoop(
   try {
     await runScheduledSyncIteration(state, syncLaneGeneration, policyOperation);
   } finally {
+    // A page judged but never saved leaves no window to count against it.
+    await settleDocumentSyncLoroWindow({
+      committed: false,
+      execSql: state.runtime.infra.execSql,
+      scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+    });
     if (
       syncingGeneration &&
       isDocumentStoreSyncGenerationCurrent(state, syncingGeneration) &&

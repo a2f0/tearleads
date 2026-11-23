@@ -13,6 +13,7 @@ import {
   judgeDocumentSyncImports,
   type PendingUpdateRecord,
   RemoteDocumentService,
+  readDocumentSyncPageLimit,
   readProcessedCursorForSync,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
@@ -133,9 +134,14 @@ interface RequestRemoteDocumentSyncInput {
   unavailableWriterLogMessage: string;
 }
 
-/** The pull continuation a pass resumes and the processed cursor it sends. */
+/**
+ * The pull continuation a pass resumes, the processed cursor it sends, and
+ * the page limit it asks for while isolating updates a death left
+ * unattributed.
+ */
 interface PullStart {
   readonly continuation: DocumentStoreState["pullContinuation"];
+  readonly maxPageUpdates: number | undefined;
   readonly processedThroughUpdateId: string | undefined;
 }
 
@@ -145,9 +151,10 @@ interface PullStart {
  */
 function pullPosition(
   record: RequestRemoteDocumentSyncInput["currentRecord"],
-  { continuation, processedThroughUpdateId }: PullStart,
+  { continuation, maxPageUpdates, processedThroughUpdateId }: PullStart,
 ) {
   return {
+    maxPageUpdates,
     minLsn: record.lastCommitLsn ?? undefined,
     processedThroughUpdateId,
     pullContinuation: continuation ?? undefined,
@@ -168,6 +175,7 @@ function documentImportJudge(
       execSql: state.runtime.infra.execSql,
       isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
       logError: state.runtime.util.logError,
+      opensLoroWindow: true,
       result,
       scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
     });
@@ -288,20 +296,29 @@ export async function requestRemoteDocumentSync(
     return null;
   }
 
+  const scope = { appKind: DOCUMENTS_APP_KIND, localId: state.localId };
   const processedThroughUpdateId = await readProcessedCursorForSync(
     generation.execSql,
     {
       documentId: currentRecord.documentId,
       frontier: currentRecord.snapshotEndVersion,
-      scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+      scope,
     },
   );
+  const maxPageUpdates = await readDocumentSyncPageLimit(generation.execSql, {
+    documentId: currentRecord.documentId,
+    scope,
+  });
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   const synced = await runRemoteDocumentSync(
     input,
     author,
     currentRecord.documentId,
-    { continuation: requestedPullContinuation, processedThroughUpdateId },
+    {
+      continuation: requestedPullContinuation,
+      maxPageUpdates,
+      processedThroughUpdateId,
+    },
   );
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   if (!synced) return null;

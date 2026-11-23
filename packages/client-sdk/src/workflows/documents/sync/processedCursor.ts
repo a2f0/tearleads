@@ -6,8 +6,13 @@ import {
   documentVerdictJudge,
 } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
+  type LoroLifetimes,
+  processLoroLifetimes,
+} from "../../../data/documents/shared/sync/loroLifetime";
+import {
   type LoroRuntimeAttempts,
   MAX_LORO_RUNTIME_ATTEMPTS,
+  processLoroRuntimeFailures,
 } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
@@ -19,6 +24,7 @@ import {
   readSendableProcessedCursor,
   recordDocumentSyncVerdictsInTransaction,
 } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
+import { markLoroWindowsNotCountingInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { readProcessedCursorCoveredBy } from "../../../data/persistence/documents/records/processedCursorForVersion";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
@@ -26,6 +32,11 @@ import {
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
+import {
+  claimDocumentSyncOrphanWindows,
+  openDocumentSyncLoroWindow,
+  stopCountingLoroWindows,
+} from "./loroWindows";
 
 /**
  * The processed cursor a document's next pull may carry: the upper bound of
@@ -159,6 +170,10 @@ export async function readRecordedDocumentSyncVoids(input: {
  * transaction: a trap can leave the module unusable, so the save that would
  * otherwise record it may fail, and an attempt that is never recorded would
  * be made again in every process.
+ *
+ * With `opensLoroWindow`, the reads run inside a window the page's save
+ * closes (`loroWindows.ts`), so a death inside them is found by the next
+ * lifetime, and the windows ended lifetimes left are claimed first.
  */
 export async function judgeDocumentSyncImports(input: {
   readonly currentDocument: Parameters<
@@ -167,7 +182,11 @@ export async function judgeDocumentSyncImports(input: {
   readonly documentId: string;
   readonly execSql: ExecSql;
   readonly isCurrent?: (() => boolean) | undefined;
+  /** @internal This realm's lifetime; tests stand in another one. */
+  readonly lifetimes?: LoroLifetimes | undefined;
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
+  /** Reads inside a window this page's save closes. */
+  readonly opensLoroWindow?: boolean | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,
     "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
@@ -177,15 +196,31 @@ export async function judgeDocumentSyncImports(input: {
   readonly scope: DocumentScope;
 }): Promise<DocumentSyncImportVerdicts> {
   const { result } = input;
+  const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
+  const lifetimes = input.lifetimes ?? processLoroLifetimes;
+  if (input.opensLoroWindow) {
+    await claimDocumentSyncOrphanWindows({ ...input, lifetimes });
+  }
+  const recorded = await readRecordedImportJudgements(input);
+  const windowCounts =
+    input.opensLoroWindow === true &&
+    (await openDocumentSyncLoroWindow({
+      ...input,
+      knownVoids: recorded.knownVoids,
+      ledger,
+      lifetimes,
+    }));
   const verdicts = await validateDocumentSyncUpdateImports({
-    ...(await readRecordedImportJudgements(input)),
+    ...recorded,
     currentDocument: input.currentDocument,
     decryptedUpdates: result.decryptedUpdates,
     responseUpdates: result.response.updates,
-    runtimeLedger: input.runtimeLedger,
+    runtimeLedger: ledger,
   });
   if (verdicts.runtimeFailures.length > 0) {
-    await recordDocumentSyncRuntimeFailures({ ...input, verdicts });
+    await recordDocumentSyncRuntimeFailures({ ...input, lifetimes, verdicts });
+  } else if (windowCounts && ledger.hasFailed()) {
+    await stopCountingLoroWindows(input.execSql, lifetimes);
   }
   return verdicts;
 }
@@ -194,6 +229,7 @@ async function recordDocumentSyncRuntimeFailures(input: {
   readonly documentId: string;
   readonly execSql: ExecSql;
   readonly isCurrent?: (() => boolean) | undefined;
+  readonly lifetimes: LoroLifetimes;
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,
@@ -208,8 +244,10 @@ async function recordDocumentSyncRuntimeFailures(input: {
     input.execSql,
     (lockedExecSql) =>
       getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
-        (tx) =>
-          recordDocumentSyncVerdictsInTransaction(tx, {
+        async (tx) => {
+          // This lifetime failed: a death later in it counts nothing more.
+          await markLoroWindowsNotCountingInTransaction(tx, input.lifetimes.id);
+          return recordDocumentSyncVerdictsInTransaction(tx, {
             acceptedUpdateIds: [],
             documentId: input.documentId,
             judge: documentVerdictJudge(),
@@ -224,7 +262,8 @@ async function recordDocumentSyncRuntimeFailures(input: {
               stage: "loro_runtime",
               updateId: failure.updateId,
             })),
-          }),
+          });
+        },
         isCurrent,
       ),
   );

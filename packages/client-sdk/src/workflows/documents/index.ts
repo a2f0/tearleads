@@ -141,6 +141,11 @@ export {
 } from "./runtime";
 export { documentCreateSeedCandidate } from "./sync/initialSync";
 export {
+  closeDocumentSyncLoroWindowInTransaction,
+  readDocumentSyncPageLimit,
+  settleDocumentSyncLoroWindow,
+} from "./sync/loroWindows";
+export {
   judgeDocumentSyncImports,
   readProcessedCursorForSync,
   readRecordedDocumentSyncVoids,

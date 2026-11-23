@@ -7,11 +7,13 @@ import {
 } from "@tearleads/loro";
 import { readPullContinuation } from "../../../../data/documents/shared/sync/syncPagination";
 import {
+  closeDocumentSyncLoroWindowInTransaction,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentSyncVerdictOutcome,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
+  settleDocumentSyncLoroWindow,
   settleOutgoingPassAndDecideReArm,
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../../../workflows/documents";
@@ -158,9 +160,11 @@ async function persistSyncedDocument(
   const options = documentSyncSaveOptions(syncAttempt);
   const isCurrent = () =>
     isDocumentStoreSyncGenerationCurrent(state, generation);
+  const scope = { appKind: DOCUMENTS_APP_KIND, localId: state.localId };
   // Written by the save's commit side effect, so only a committed save has
   // one; a retried transaction overwrites an attempt that rolled back.
   let recordedVerdicts: DocumentSyncVerdictOutcome | undefined;
+  let committed = false;
   try {
     importSyncedDocumentUpdates(candidate, updates);
     if (state.pendingBaseVersion === null) {
@@ -188,14 +192,18 @@ async function persistSyncedDocument(
       async (transactionExecSql) => {
         recordedVerdicts = await recordDocumentSyncVerdicts(
           transactionExecSql,
-          {
-            scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-            synced,
-          },
+          { scope, synced },
         );
+        // The page's Loro reads are over and saved: its window closes.
+        await closeDocumentSyncLoroWindowInTransaction(transactionExecSql, {
+          documentId: synced.plan.documentId,
+          scope,
+          synced,
+        });
       },
     );
     const verdicts = recordedVerdicts;
+    committed = Boolean(persisted) && verdicts !== undefined;
     if (persisted && verdicts && isCurrent()) {
       settleDocumentSyncVerdicts(state, synced, verdicts);
     }
@@ -229,6 +237,11 @@ async function persistSyncedDocument(
     );
   } finally {
     candidate.free();
+    await settleDocumentSyncLoroWindow({
+      committed,
+      execSql: generation.execSql,
+      scope,
+    });
   }
 }
 
