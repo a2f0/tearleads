@@ -26,10 +26,11 @@ const NO_SYNC_LANES: SyncLaneSummary = {
 const ABANDONED_RUN_ERROR = "Stopped responding";
 
 /**
- * When the device was offline, as two snapshot times: the latest snapshot
- * before it went offline and the latest before it came back. Every recorded
- * failure publishes a snapshot, so a failure recorded in between happened
- * while offline. ISO timestamps compare as strings.
+ * When the device was offline, as two snapshot times: shortly before the
+ * latest snapshot before it went offline (see `laneReconnectMachine`), and
+ * the latest snapshot before it came back. Every recorded failure publishes a
+ * snapshot, so a failure recorded in between happened while offline, or as
+ * the connection dropped. ISO timestamps compare as strings.
  */
 export interface OfflineWindow {
   readonly from: string;

@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, jest, test } from "bun:test";
 import {
   type ContainerDocumentQueries,
   createDomainScope,
@@ -18,6 +18,7 @@ const scopes: DomainScope[] = [];
 
 afterEach(() => {
   cleanup();
+  jest.useRealTimers();
   for (const scope of scopes.splice(0))
     getOrCreateDomainSyncCoordinator(scope).dispose();
 });
@@ -68,7 +69,19 @@ async function settle() {
   });
 }
 
+// Fake time well past the download queue's 300 ms coalescing delay, letting
+// the lane run and the read it triggers settle along the way.
+async function elapse(ms: number) {
+  await act(async () => {
+    for (let step = 0; step < 10; step += 1) {
+      jest.advanceTimersByTime(ms / 10);
+      for (let turn = 0; turn < 5; turn += 1) await Promise.resolve();
+    }
+  });
+}
+
 test("the download queue is read while the popover is open, and only then", async () => {
+  jest.useFakeTimers();
   const domainScope = createScope();
   const { counter, queries } = countingQueries();
   const popover = renderHook(() =>
@@ -87,14 +100,20 @@ test("the download queue is read while the popover is open, and only then", asyn
     status: "read",
   });
 
+  // A lane run while the popover is open re-reads the queue...
+  const lane = getOrCreateDomainSyncCoordinator(domainScope).registerLane(
+    "documents:folder",
+    { run: async () => undefined },
+  );
+  lane.requestSync();
+  await elapse(1000);
+  expect(counter.reads).toBe(2);
+
+  // ...and the same signal after it closes reads nothing.
   popover.unmount();
-  getOrCreateDomainSyncCoordinator(domainScope)
-    .registerLane("documents:folder", { run: async () => undefined })
-    .requestSync();
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 400));
-  });
-  expect(counter.reads).toBe(1);
+  lane.requestSync();
+  await elapse(1000);
+  expect(counter.reads).toBe(2);
 });
 
 test("a closed database reads nothing and shows downloads as loading", async () => {

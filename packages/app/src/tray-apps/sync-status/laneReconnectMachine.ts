@@ -21,6 +21,22 @@ export type LaneReconnectState =
       readonly status: "online";
     };
 
+/**
+ * How long before the browser reports a drop the drop may already be failing
+ * requests: the connection goes, fetches in flight fail and record their
+ * lanes' failures, and the `offline` event follows. Failures that close to the
+ * drop count as offline ones too. Leaving one out lasts only while its retry
+ * is queued or running, so a real failure returns when that retry fails.
+ */
+const OFFLINE_DETECTION_GRACE_MS = 5_000;
+
+function beforeDetection(snapshotTime: string): string {
+  const time = Date.parse(snapshotTime);
+  return Number.isNaN(time)
+    ? snapshotTime
+    : new Date(time - OFFLINE_DETECTION_GRACE_MS).toISOString();
+}
+
 export interface LaneReconnectEvent {
   readonly online: boolean;
   readonly snapshot: DomainSyncSnapshot;
@@ -50,7 +66,7 @@ export function transitionLaneReconnect(
       return event.online
         ? {
             offlineWindow: {
-              from: state.offlineSince,
+              from: beforeDetection(state.offlineSince),
               to: event.snapshot.updatedAt,
             },
             status: "online",

@@ -5,7 +5,7 @@ import {
   transitionSyncActivityHold,
 } from "./syncActivityHoldMachine";
 
-interface SyncActivityDelays {
+export interface SyncActivityDelays {
   /** A run shorter than this never shows, so a realtime nudge does not blink. */
   readonly enterMs: number;
   /** Runs that follow each other within this gap read as one stretch. */

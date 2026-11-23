@@ -1,4 +1,3 @@
-import type { DomainScope } from "@tearleads/client-sdk";
 import { useCallback, useMemo } from "react";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
 import {
@@ -6,23 +5,18 @@ import {
   useTearleadsRuntime,
 } from "../../providers/sdk/TearleadsProvider";
 import { useDomainDocumentQueries } from "../../providers/sdk/useDomainDocumentQueries";
-import { useDomainSyncSnapshot } from "../../providers/sdk/useDomainSyncSnapshot";
 import { usePausedOrganizationIds } from "../../providers/sdk/usePausedOrganizationIds";
-import {
-  type SyncLaneSummary,
-  selectSyncHolds,
-  summarizeSyncLanes,
-} from "./syncActivityModel";
+import type { SyncLaneSummary } from "./syncActivityModel";
 import {
   type BillingBlockScope,
   describeSyncStatus,
   resolveSyncStatus,
   type SyncStatus,
+  selectBillingBlock,
 } from "./syncStatusModel";
-import { useHeldSyncActivity } from "./useHeldSyncActivity";
-import { useLastOfflineWindow } from "./useLastOfflineWindow";
 import { useOtherOrganizationBillingBlocked } from "./useOtherOrganizationBillingBlock";
 import { usePendingWriteCount } from "./usePendingWriteCount";
+import { useSyncLaneHolds } from "./useSyncLaneHolds";
 
 export interface SyncStatusResult {
   readonly status: SyncStatus;
@@ -40,30 +34,6 @@ export interface SyncStatusResult {
   readonly billingBlock: BillingBlockScope | null;
   /** Organizations whose sync is paused on this device. */
   readonly pausedOrganizationCount: number;
-}
-
-// The lanes, pauses, and held activity, as the status reports them.
-function useSyncLaneHolds(input: {
-  readonly dbReady: boolean;
-  readonly domainScope: DomainScope;
-  readonly online: boolean;
-  readonly writeOrganizationIds: ReadonlyArray<string>;
-}) {
-  const pausedOrganizationIds = usePausedOrganizationIds();
-  const syncSnapshot = useDomainSyncSnapshot(input.domainScope);
-  const offlineWindow = useLastOfflineWindow(input.online, syncSnapshot);
-  const allLanes = useMemo(
-    () => summarizeSyncLanes(syncSnapshot, offlineWindow),
-    [offlineWindow, syncSnapshot],
-  );
-  const { laneActive, ...holds } = selectSyncHolds({
-    dbReady: input.dbReady,
-    lanes: allLanes,
-    online: input.online,
-    pausedOrganizationIds,
-    writeOrganizationIds: input.writeOrganizationIds,
-  });
-  return { ...holds, syncActive: useHeldSyncActivity(laneActive) };
 }
 
 /**
@@ -99,9 +69,11 @@ export function useSyncStatus(): SyncStatusResult {
       organizations.loadBillingForOrganization(organizationId),
     [organizations],
   );
+  const pausedOrganizationIds = usePausedOrganizationIds();
   const { lanes, pausedOrganizationCount, syncActive, writesPaused } =
     useSyncLaneHolds({
       dbReady,
+      pausedOrganizationIds,
       domainScope,
       online,
       writeOrganizationIds: queue.organizationIds,
@@ -145,11 +117,10 @@ export function useSyncStatus(): SyncStatusResult {
   });
 
   const queueReadFailed = queue.readError !== null;
-  const billingBlock: BillingBlockScope | null = billingNeedsAttention
-    ? "active"
-    : otherOrganizationBillingBlocked
-      ? "other"
-      : null;
+  const billingBlock = selectBillingBlock(
+    billingNeedsAttention,
+    otherOrganizationBillingBlocked,
+  );
   // One object per change, so the popover's memoized actions follow it.
   return useMemo(
     () => ({

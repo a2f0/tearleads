@@ -12,7 +12,9 @@ import type { OfflineWindow } from "./syncActivityModel";
  * transition runs during render, so the render that first sees the device
  * online already has the window, with no frame of warning in between. Null
  * while offline, where every failure is hidden anyway, and before any offline
- * spell.
+ * spell. The window outlives a change of domain scope on purpose: a scope
+ * opened while offline fails inside it like the one before, and a scope
+ * opened after the reconnect fails after it.
  */
 export function useLastOfflineWindow(
   online: boolean,
