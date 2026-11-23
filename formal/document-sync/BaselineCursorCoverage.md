@@ -23,7 +23,7 @@ committed after that cursor.
 | --- | --- |
 | `Write` | a writer's update committed with its signed span by `appendDocumentUpdates` |
 | `Judged` | `validateDocumentSyncUpdateImports`, which voids an update whose span is false |
-| `Rotate` signing rule | `readProcessedCursorForVersion`, called by `buildDocumentRotationBaseline` and `resolveBaselineCursors` |
+| `Rotate` signing rule | `readProcessedCursorForVersion`, called by `buildDocumentRotationBaseline` and `resolveBaselineCursors`; a container metadata baseline signs the cursor its metadata pulls record |
 | `Gate` / `CoversAfter` | `committedFrontierAfterBaselineCursor` in `assertSyncRotationBaselinesSound` and `assertAtomicRotationBaselineCoversCommittedFrontier` |
 | `RedirectJumps` | `resolveBaselineRedirectAfterSequence` |
 | the signed cursor in `Baselines` | `coversThroughUpdateId`, signed in `documentContentRecordMetadata` and stored as `baselineCoversThroughUpdateId` |
