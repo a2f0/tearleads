@@ -7,6 +7,10 @@ import type {
 import { useLongPress } from "@tearleads/windowing";
 import { type MouseEvent, useCallback, useEffect, useState } from "react";
 import {
+  getMiniAppItemGridColumns,
+  getMiniAppItemGridItemWindow,
+} from "../../../../components/mini-app/item-view/MiniAppItemGrid";
+import {
   MiniAppActions,
   MiniAppButton,
   MiniAppHeader,
@@ -27,6 +31,8 @@ import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
 import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
+import { ExplorerContainerItemGrid } from "../item-views/ExplorerContainerItemGrid";
+import { useExplorerItemView } from "../item-views/explorerItemViewContext";
 import { ExplorerRecoveryFolders } from "../recovery/ExplorerRecoveryFolders";
 import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
@@ -157,7 +163,16 @@ function useExplorerContainerItems(
     direction: "asc",
     key: "name",
   });
-  const resetKey = `${params.selectedNode.id}:${sort.key}:${sort.direction}`;
+  const view = useExplorerItemView();
+  // Between the two row views the window keeps the top row in place (the
+  // pitch change rescales the offset). The grid counts lines of several items
+  // each, so a switch to or from it starts again at the top.
+  const resetKey = [
+    params.selectedNode.id,
+    sort.key,
+    sort.direction,
+    view === "grid" ? "grid" : "rows",
+  ].join(":");
   // This pane owns the scroll frame, so it is the only place that can measure
   // it — the pitch is then handed to the item table as a prop rather than
   // re-derived there, because two derivations that disagree would leave the
@@ -167,11 +182,15 @@ function useExplorerContainerItems(
   // continuously, so a drag re-issues the window query at most once per fold
   // rather than once per pixel.
   const [narrowFrame, setNarrowFrame] = useState(false);
-  const { compact, rowHeight } = useExplorerItemTableLayout(narrowFrame);
+  const { compact, rowHeight } = useExplorerItemTableLayout(narrowFrame, view);
   const { frameRef, frameWidth, limit, offset } = useMiniAppVirtualWindow({
     resetKey,
     rowHeight,
   });
+  // A table line holds one item; a grid line holds as many tiles as the
+  // measured frame fits, and the window fetches whole lines of them.
+  const columns = view === "grid" ? getMiniAppItemGridColumns(frameWidth) : 1;
+  const itemRange = getMiniAppItemGridItemWindow({ columns, limit, offset });
 
   useEffect(() => {
     setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
@@ -184,8 +203,8 @@ function useExplorerContainerItems(
   const itemWindow = useExplorerContainerItemWindow({
     ...params,
     enabled: true,
-    limit,
-    offset,
+    limit: itemRange.limit,
+    offset: itemRange.offset,
     sort,
   });
   const handleSort = useCallback((key: ContainerItemSort["key"]) => {
@@ -193,12 +212,14 @@ function useExplorerContainerItems(
   }, []);
 
   return {
+    columns,
     compact,
     frameRef,
     handleSort,
     itemWindow,
     rowHeight,
     sort,
+    view,
   };
 }
 
@@ -246,21 +267,67 @@ function ExplorerContainerWindowError(params: {
   );
 }
 
+// The item list in the chosen view: the table draws both row sizes, the grid
+// draws tiles. Both take the same window, handlers, and drop target.
+function ExplorerContainerItemList(props: {
+  columnVisibility: ReturnType<typeof useExplorerColumnVisibility>;
+  fileDropTarget: ReturnType<typeof useExplorerContainerFileDropTarget>;
+  items: ReturnType<typeof useExplorerContainerItems>;
+  params: ExplorerContainerDetailProps;
+  recoveryCollection: boolean;
+}) {
+  const { fileDropTarget, items, params, recoveryCollection } = props;
+  const listProps = {
+    contactAvatarUrlByLocalId: params.contactAvatarUrlByLocalId,
+    contextTarget: params.contextTarget,
+    currentSigningFingerprint: params.currentSigningFingerprint,
+    currentSelfContactLocalId: params.currentSelfContactLocalId,
+    currentUserId: params.currentUserId,
+    dragActive: fileDropTarget.dragActive,
+    dragDisabled: recoveryCollection,
+    emptyLabel: getExplorerContainerEmptyLabel(recoveryCollection),
+    error: items.itemWindow.error,
+    frameRef: items.frameRef,
+    handleDragEnter: fileDropTarget.handleDragEnter,
+    handleDragLeave: fileDropTarget.handleDragLeave,
+    handleDragOver: fileDropTarget.handleDragOver,
+    handleDrop: fileDropTarget.handleDrop,
+    isImporting: fileDropTarget.isImporting,
+    isLoading: items.itemWindow.isLoading,
+    online: params.online,
+    onBlankContextMenu: recoveryCollection
+      ? undefined
+      : params.onContainerContextMenu,
+    onItemContextMenu: params.onItemContextMenu,
+    onSort: items.handleSort,
+    rowHeight: items.rowHeight,
+    rowOffset: items.itemWindow.offset,
+    rows: items.itemWindow.rows,
+    selectedNode: params.selectedNode,
+    selectDocumentProjection: params.selectDocumentProjection,
+    setSelectedId: params.setSelectedId,
+    sort: items.sort,
+    totalCount: items.itemWindow.totalCount,
+  };
+
+  return items.view === "grid" ? (
+    <ExplorerContainerItemGrid {...listProps} columns={items.columns} />
+  ) : (
+    <ExplorerContainerItemTable
+      {...listProps}
+      compact={items.compact}
+      hiddenColumns={props.columnVisibility.hiddenColumns}
+      toggleColumn={props.columnVisibility.toggleColumn}
+      view={items.view}
+    />
+  );
+}
+
 export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
-  const {
-    contactAvatarUrlByLocalId,
-    currentSigningFingerprint,
-    currentSelfContactLocalId,
-    online,
-    uploadManager,
-    onItemContextMenu,
-    selectDocumentProjection,
-    selectedNode,
-    setSelectedId,
-  } = params;
+  const { online, uploadManager, selectedNode } = params;
   const recoveryCollection = isExplorerOrphanedDocumentsId(selectedNode.id);
-  const { compact, frameRef, handleSort, itemWindow, rowHeight, sort } =
-    useExplorerContainerItems(params);
+  const items = useExplorerContainerItems(params);
+  const { itemWindow } = items;
   const columnVisibility = useExplorerColumnVisibility();
   const fileDropTarget = useExplorerContainerFileDropTarget({
     selectedNode,
@@ -295,40 +362,12 @@ export function ExplorerContainerDetail(params: ExplorerContainerDetailProps) {
         error={itemWindow.error}
         rowCount={itemWindow.rows.length}
       />
-      <ExplorerContainerItemTable
-        compact={compact}
-        contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
-        contextTarget={params.contextTarget}
-        currentSigningFingerprint={currentSigningFingerprint}
-        currentSelfContactLocalId={currentSelfContactLocalId}
-        currentUserId={params.currentUserId}
-        dragActive={fileDropTarget.dragActive}
-        dragDisabled={recoveryCollection}
-        emptyLabel={getExplorerContainerEmptyLabel(recoveryCollection)}
-        error={itemWindow.error}
-        frameRef={frameRef}
-        handleDragEnter={fileDropTarget.handleDragEnter}
-        handleDragLeave={fileDropTarget.handleDragLeave}
-        handleDragOver={fileDropTarget.handleDragOver}
-        handleDrop={fileDropTarget.handleDrop}
-        hiddenColumns={columnVisibility.hiddenColumns}
-        isImporting={fileDropTarget.isImporting}
-        isLoading={itemWindow.isLoading}
-        online={online}
-        onBlankContextMenu={
-          recoveryCollection ? undefined : params.onContainerContextMenu
-        }
-        onItemContextMenu={onItemContextMenu}
-        onSort={handleSort}
-        rowHeight={rowHeight}
-        rowOffset={itemWindow.offset}
-        rows={itemWindow.rows}
-        selectedNode={selectedNode}
-        selectDocumentProjection={selectDocumentProjection}
-        setSelectedId={setSelectedId}
-        sort={sort}
-        toggleColumn={columnVisibility.toggleColumn}
-        totalCount={itemWindow.totalCount}
+      <ExplorerContainerItemList
+        columnVisibility={columnVisibility}
+        fileDropTarget={fileDropTarget}
+        items={items}
+        params={params}
+        recoveryCollection={recoveryCollection}
       />
     </MiniAppPanel>
   );

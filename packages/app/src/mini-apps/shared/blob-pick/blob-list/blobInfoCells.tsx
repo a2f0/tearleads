@@ -5,6 +5,7 @@ import {
   createContainerDocumentObjectSyncState,
 } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
+import { MiniAppItemThumb } from "../../../../components/mini-app/item-view/MiniAppItemThumb";
 import {
   MiniAppCompactTableCell,
   type MiniAppCompactTableField,
@@ -95,7 +96,9 @@ function BlobIdentityButton(params: {
       disabled={!selectable}
       onClick={() => onSelectBlob(blob)}
     >
-      <span
+      {/* The shared square: the large-thumbnail toggle sizes it through the
+          list's large-rows view (MiniAppItemView.css). */}
+      <MiniAppItemThumb
         className={classNames(
           "explorer-blob-browser-thumb",
           compact && "explorer-blob-browser-thumb--compact",
@@ -118,7 +121,7 @@ function BlobIdentityButton(params: {
             size={compact ? "100%" : 20}
           />
         )}
-      </span>
+      </MiniAppItemThumb>
     </MiniAppTableActionButton>
   );
 }

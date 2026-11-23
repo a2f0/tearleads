@@ -1,0 +1,105 @@
+/* The grid view (see MiniAppItemGrid.tsx). Geometry arrives as custom
+   properties from the component, which shares the numbers with the virtual
+   window math: each line of tiles is exactly one row-height tall, tile plus
+   the gap under it, so the spacers and the drawn lines always agree. */
+
+.mini-app-item-grid-body {
+  padding: var(--mini-app-item-grid-padding);
+}
+
+.mini-app-item-grid {
+  display: grid;
+  grid-template-columns: repeat(
+      var(--mini-app-item-grid-columns, 1),
+      minmax(0, 1fr)
+    );
+  grid-auto-rows: var(--mini-app-item-grid-row-height);
+  column-gap: var(--mini-app-item-grid-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mini-app-item-grid-cell {
+  min-width: 0;
+  height: calc(
+    var(--mini-app-item-grid-row-height) -
+    var(--mini-app-item-grid-gap)
+  );
+}
+
+.mini-app-item-grid-status {
+  margin: 0;
+  padding: var(--space-sm);
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-muted);
+}
+
+/* Pinned like a table's column headings, so its controls stay in reach. */
+.mini-app-item-grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  min-height: var(--mini-app-table-row-height-compact);
+  padding: var(--info-table-cell-padding) var(--space-sm);
+  border-bottom: var(--border-width) solid var(--color-hairline);
+  background: var(--color-light);
+  font-size: var(--font-size-sm);
+}
+
+.mini-app-item-tile {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  width: 100%;
+  height: 100%;
+  padding: var(--space-sm);
+  border: var(--border-width) solid var(--color-hairline);
+  background: var(--color-light);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* The same emphasis a selected or hovered table row takes. */
+.mini-app-item-tile--selected,
+.mini-app-item-tile:hover,
+.mini-app-item-tile:focus-visible {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+/* Square, and the whole of the tile above its name. Whatever it holds fills
+   it, as in a large row. */
+.mini-app-item-tile-visual {
+  width: 4rem;
+  height: 4rem;
+}
+
+.mini-app-item-tile-visual > * {
+  width: 100%;
+  height: 100%;
+}
+
+.mini-app-item-tile-visual > .contact-avatar {
+  font-size: 2.4rem;
+}
+
+/* Two lines of name at most, centred under the square. */
+.mini-app-item-tile-label {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
