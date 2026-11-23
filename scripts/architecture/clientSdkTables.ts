@@ -14,6 +14,7 @@ export const documentStoreTables = [
   "documentPendingAttachments",
   "documentProjection",
   "documentProjectionText",
+  "documentRecordedAttachmentSlots",
   "documentSyncProgress",
   "documentVoidUpdates",
   "documents",

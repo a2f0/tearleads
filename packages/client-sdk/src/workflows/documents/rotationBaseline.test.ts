@@ -109,7 +109,7 @@ test("buildDocumentRotationBaseline encrypts and signs against the new access bo
   expect(getTextValue(freshReader)).toBe("atomic baseline state");
 });
 
-test("buildDocumentRotationBaseline returns null for a zero-span empty document", async () => {
+test("buildDocumentRotationBaseline returns null for an empty document with no cursor", async () => {
   const { author } = await createAuthor();
   const document = await createDocument("empty-rotation-baseline");
   const snapshot = exportFullHistorySnapshot(document);
@@ -202,6 +202,98 @@ test("an unlink baseline signs the processed cursor its snapshot covers", async 
     expect(
       (await build(exportFullHistorySnapshot(behind)))?.coversThroughUpdateId,
     ).toBeUndefined();
+  } finally {
+    close();
+  }
+});
+
+// A reader that voided every update holds an empty document. Its baseline is
+// the empty snapshot signing the cursor, so the API weighs only the updates
+// after it; with no baseline the API would refuse the unlink while any update
+// is committed.
+test("an empty document's unlink baseline signs the cursor alone", async () => {
+  const { author } = await createAuthor();
+  const document = await createDocument("all-void-rotation-baseline");
+  const snapshot = exportFullHistorySnapshot(document);
+  const documentId = crypto.randomUUID();
+  const throughUpdateId = crypto.randomUUID();
+  const contentKey = crypto.getRandomValues(new Uint8Array(32));
+  const { close, execSql } = await createTestExecSql("all-void-baseline");
+  try {
+    await ensureDocumentTables(execSql);
+    const build = async () =>
+      buildDocumentRotationBaseline({
+        authorizingContainerPathRefs: [],
+        author,
+        contentKey,
+        contentKeyEpoch: 2,
+        documentId,
+        execSql,
+        expectedLinkSetManifestHash: await fixtureHash("all-void-manifest"),
+        expectedTargetHash: await fixtureHash("all-void-target"),
+        organizationId: author.organizationId,
+        signedAt: "2026-07-14T00:00:00.000Z",
+        snapshot,
+      });
+    const recordCursor = (throughVersion: string) =>
+      execSql(
+        `INSERT OR REPLACE INTO document_sync_progress (app_kind, local_id,
+           document_id, through_update_id, through_version, judge)
+         VALUES ('documents', 'local', ?, ?, ?, ?)`,
+        [documentId, throughUpdateId, throughVersion, documentVerdictJudge()],
+      );
+
+    // A cursor recorded at a version the empty snapshot lacks is not signed.
+    document.getText("text").update("judged");
+    document.commit();
+    await recordCursor(
+      getImportBlobMetadata(exportFullHistorySnapshot(document))
+        .partialEndVersionVector,
+    );
+    expect(await build()).toBeNull();
+
+    await recordCursor(emptyVersionVector());
+    const baseline = await build();
+    if (!baseline) throw new Error("Expected an empty rotation baseline");
+    expect(baseline.coversThroughUpdateId).toBe(throughUpdateId);
+    for (const vector of [
+      baseline.partialStartVersionVector,
+      baseline.partialEndVersionVector,
+      baseline.sourceVersionVector,
+    ]) {
+      expect(versionVectorsEqual(vector, emptyVersionVector())).toBe(true);
+    }
+    const [decrypted] = await decryptDocumentSyncUpdates({
+      contentKey,
+      contentKeyEpoch: 2,
+      documentId,
+      organizationId: author.organizationId,
+      updates: [
+        {
+          ...baseline,
+          authorizationTargets: [],
+          accessEpoch: 2,
+          authorFingerprint: author.signerKeyFingerprint,
+          createdAt: "2026-07-14T00:00:00.000Z",
+          documentId,
+        },
+      ],
+    });
+    expect(decrypted?.updateData).toEqual(snapshot);
+    const header = baseline.writeHeader as unknown as WriteHeader;
+    expect(header.metadataHash).toBe(
+      await computeDocumentContentRecordMetadataHash({
+        checkpointKind: "rotate_baseline",
+        checkpointPayloadKind: "full_history_snapshot",
+        coversThroughUpdateId: throughUpdateId,
+        documentId,
+        partialEndVersionVector: baseline.partialEndVersionVector,
+        partialStartVersionVector: baseline.partialStartVersionVector,
+        plaintextHash: baseline.plaintextHash,
+        sourceVersionVector: baseline.partialEndVersionVector,
+        updateId: baseline.id,
+      }),
+    );
   } finally {
     close();
   }

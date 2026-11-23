@@ -2781,7 +2781,7 @@ export type components = {
             };
             /** @description Hash of the link-set manifest this mutation derives. */
             expectedManifestHash: string;
-            /** @description For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link. */
+            /** @description For an unlink, a rotation baseline covering every committed update after its signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link. */
             rotationBaseline?: components["schemas"]["DocumentOutgoingUpdate"];
             /** @description Path to the container being linked or unlinked. */
             targetContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
@@ -2831,13 +2831,13 @@ export type components = {
              * @constant
              */
             checkpointPayloadKind?: "full_history_snapshot";
-            /** @description For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. */
+            /** @description For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor. */
             coversThroughUpdateId?: string;
             /** @description Base64 ciphertext of the update under the document content key. */
             encryptedData: string;
             /** @description Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical. */
             id: string;
-            /** @description Version vector the update brings the document to. */
+            /** @description Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on a rotation baseline that signs `coversThroughUpdateId`. */
             partialEndVersionVector: string;
             /** @description Version vector the update starts from. */
             partialStartVersionVector: string;

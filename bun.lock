@@ -69,7 +69,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.83",
+      "version": "0.1.82",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -83,7 +83,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.44",
+      "version": "0.1.43",
       "dependencies": {
         "@electric-sql/pglite": "0.5.15",
         "@tearleads/crypto": "workspace:*",
@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.312",
+      "version": "0.1.311",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -214,7 +214,7 @@
     },
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
-      "version": "0.1.27",
+      "version": "0.1.28",
       "devDependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -240,7 +240,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.291",
+      "version": "0.1.292",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -257,7 +257,7 @@
     },
     "packages/crypto": {
       "name": "@tearleads/crypto",
-      "version": "0.1.46",
+      "version": "0.1.45",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@noble/post-quantum": "0.7.1",

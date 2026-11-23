@@ -116,7 +116,10 @@ whose source [version vector](./glossary/content.md#version-vector) covers the
 committed update frontier after the baseline's signed processed cursor
 (`coversThroughUpdateId`, or every committed update when it signs none) — with
 one exception: a document with **no committed
-updates** may be unlinked without a baseline. The server proves that emptiness
+updates** may be unlinked without a baseline. A baseline may declare no
+operations only when it signs a cursor: the author voided every update through
+the cursor, so its snapshot is empty; the server refuses an empty baseline
+without one with 400. The server proves that emptiness
 inside the mutation transaction under the document manifest-head write lock.
 Sync writers hold the corresponding exclusive lock, so no update can commit
 between the emptiness proof and the unlink. A baseline-less unlink against a

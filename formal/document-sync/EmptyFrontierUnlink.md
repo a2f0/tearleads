@@ -5,10 +5,11 @@ gates for the two content-key epoch advances that carry no
 [rotation baseline](../../docs/glossary/keys.md#rotation-baseline): a document unlink
 submitted without one, and a link that advances the epoch. A rotation strands
 every committed update that no baseline sealed to the new epoch covers. A
-document with an empty committed frontier cannot produce a baseline at all — a
-zero-span full-history snapshot encodes no replayable history — so the server
-accepts a baseline-less unlink only after proving the committed frontier is
-empty inside the mutation transaction, under the document manifest-head write
+document with an empty committed frontier has nothing for a baseline to cover,
+and its client sends none: an empty snapshot is sent as a baseline only with a
+processed cursor, which a document never written lacks. The server accepts a
+baseline-less unlink only after proving the committed frontier is empty inside
+the mutation transaction, under the document manifest-head write
 lock that sync writers also take exclusively. A link never carries a baseline,
 so it may advance the epoch only under the same emptiness proof.
 
@@ -22,7 +23,7 @@ The abstraction maps to production at these seams:
 | `BeginLinkAdvance` / `LinkAdvancesEpoch` / `RejectLinkAdvance` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
 | `FrontierEmpty` | `hasCommittedDocumentUpdate`, the emptiness proof both gates share |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
-| the client never sending an empty baseline (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
+| the client sending an empty baseline only with a processed cursor (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot with no cursor; the server refuses an empty one without a cursor in `assertOutgoingSpanOrCursoredEmptyBaseline` |
 
 The checked configuration sets `LockedUnlink = TRUE`, matching production, and
 the invariants require that no rotation ever orphans a committed update and
@@ -61,11 +62,11 @@ The committed frontier a covering baseline must cover is the one after the
 baseline's signed processed cursor: its author imported or voided every update
 up to the cursor, so the snapshot stands for those (#3135).
 [BaselineCursorCoverage](./BaselineCursorCoverage.md) models that cursor;
-here `total` counts the updates after it. A document whose every update is
-void has an empty snapshot, which encodes no baseline, and the baseline-less
-gate still refuses it while any update is committed: new members would lack
-the old key for those rows. That document cannot be unlinked, an accepted
-residual of #3135.
+here `total` counts the updates after it. A document whose every update its
+author voided has an empty snapshot. Its baseline is that empty snapshot
+signing the cursor, so `total` is zero and the covering unlink commits
+(#3194). The baseline-less gate would refuse that document while any update
+is committed, since new members would lack the old key for those rows.
 
 A link's emptiness check and its commit are separate steps under the same
 manifest-head lock as an unlink, so `LockedUnlink = FALSE` also lets a writer

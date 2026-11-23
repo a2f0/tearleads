@@ -16,6 +16,7 @@ import {
   assertOutgoingDeclaredSpan,
   assertOutgoingEnvelopeCommitsToEpochKey,
   assertOutgoingEnvelopeMatchesHeader,
+  assertOutgoingSpanOrCursoredEmptyBaseline,
 } from "./outgoingUpdateShape";
 
 const DOCUMENT_ID = "6f1b1f8e-4f5a-4c4e-9a52-6f0a1b2c3d4e";
@@ -43,6 +44,35 @@ test("a declared span must name at least one operation", () => {
       }),
     ).toThrow("Document update declares no operations");
   }
+});
+
+test("only a rotation baseline that signs a cursor may declare no operations", () => {
+  const empty = {
+    partialEndVersionVector: emptyVersionVector(),
+    partialStartVersionVector: emptyVersionVector(),
+  };
+  expect(() =>
+    assertOutgoingSpanOrCursoredEmptyBaseline({
+      ...empty,
+      checkpointKind: "rotate_baseline",
+      coversThroughUpdateId: RECORD_ID,
+    }),
+  ).not.toThrow();
+  for (const refused of [
+    { ...empty, checkpointKind: "rotate_baseline" as const },
+    { ...empty, coversThroughUpdateId: RECORD_ID },
+    empty,
+  ]) {
+    expect(() => assertOutgoingSpanOrCursoredEmptyBaseline(refused)).toThrow(
+      "Document update declares no operations",
+    );
+  }
+  expect(() =>
+    assertOutgoingSpanOrCursoredEmptyBaseline({
+      partialEndVersionVector: vector({ "7": 5 }),
+      partialStartVersionVector: vector({ "7": 3 }),
+    }),
+  ).not.toThrow();
 });
 
 test("a declared span whose end does not cover its start is refused", () => {

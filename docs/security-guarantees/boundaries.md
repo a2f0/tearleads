@@ -146,12 +146,12 @@ device's own update ([preempted operations](../advisory-op-spans.md#preempted-op
 and one whose payload fails the Loro runtime holds a reader's sync of that
 document for up to three process lifetimes before it is void
 ([runtime failures](../advisory-op-spans.md#loro-runtime-failures)).
-A writer whose updates are all void leaves a document with an empty snapshot,
-which encodes no rotation baseline, and the baseline-less unlink requires no
-committed update, so no writer can unlink that document. A device that rotates
-with an older decoder leaves an update a newer decoder reads out of the
-baseline, and so out of what new readers start from
-([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks)). A
+A device that rotates with an older decoder leaves an update a newer decoder
+reads out of the baseline, and so out of what new readers start from
+([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks));
+greenfield clients are expected to run the current Loro. A writer whose
+updates are all void no longer blocks the unlink of its document: the
+baseline is the empty snapshot signing the reader's processed cursor. A
 rotation judges raw history with no rebuild budget, so a writer who commits
 many voids behind a large update makes each rotation, and so each unlink, of
 that document rebuild once per void.

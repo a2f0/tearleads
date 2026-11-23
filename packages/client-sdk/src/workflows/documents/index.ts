@@ -39,6 +39,7 @@ export {
   DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
 } from "../../data/persistence/documents/records/documentHistoryPersistence";
 export type { DocumentSyncVerdictOutcome } from "../../data/persistence/documents/records/documentSyncVerdictPersistence";
+export { RecordedAttachmentSlotRepository } from "../../data/persistence/documents/records/recordedAttachmentSlotPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {
