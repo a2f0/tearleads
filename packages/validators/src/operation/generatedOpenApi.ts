@@ -2391,8 +2391,8 @@ export type components = {
             metadataDocumentId: string;
             /** @description Principal policy heads the metadata document's access depends on. */
             metadataReferencedPrincipals: components["schemas"]["ReferencedPrincipalStateResponse"][];
-            /** @description Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read. */
-            metadataVersionVector: string;
+            /** @description How many updates the server holds for the metadata document. It only grows while the document exists. A client owes the document a read unless it is 0 or the client's processed cursor for the document came from a completed pull whose `throughUpdateCount` is at least this. */
+            metadataUpdateCount: number;
             organizationId: string;
             parentId: string | null;
             restorationId?: string;
@@ -2909,6 +2909,8 @@ export type components = {
             hasMore: boolean;
             /** @description Opaque cursor for the next page, or null on the last page; it grants nothing, and each page is reauthorized. */
             nextCursor: string | null;
+            /** @description How many updates the document held through `throughUpdateId`, counting it, the same on every page: 0 exactly when `throughUpdateId` is null. Updates are deleted only with their document, so a later pull never counts fewer; a container listing's `metadataUpdateCount` at or below it was read no later than this pull's bound. */
+            throughUpdateCount: number;
             /** @description The last update committed when the pull began, the same on every page, or null when the document had none. Once the last page is processed, the client sends it back as `processedThroughUpdateId`. */
             throughUpdateId: string | null;
         } & {

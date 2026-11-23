@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument,
-  emptyVersionVector,
   encodeVersionVector,
   exportAllUpdates,
   importUpdates,
@@ -10,9 +9,18 @@ import {
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/workflows/cachedContainerHydrationRuntime";
-import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
+import { documentVerdictJudge } from "../../../../data/documents/shared/sync/documentUpdateVerdict";
+import {
+  CONTAINER_METADATA_APP_KIND,
+  sqlContainerContentsPersistence,
+} from "../../../../data/persistence/container-contents/containerContentsPersistence";
+import { ensureDocumentTables } from "../../../../data/persistence/documents/records";
 import { createClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
-import type { SqlArrayRow, SqlRow } from "../../../../data/sqlite/sqlSchema";
+import type {
+  ExecSql,
+  SqlArrayRow,
+  SqlRow,
+} from "../../../../data/sqlite/sqlSchema";
 import {
   installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
@@ -49,7 +57,7 @@ async function metadataVersions() {
 
 function listed(input: {
   updatedAt: string;
-  versionVector: string;
+  updateCount: number;
 }): RemoteContainer {
   return {
     createdAt: CREATED,
@@ -59,7 +67,7 @@ function listed(input: {
     metadataAccessStateHash: "access-1",
     metadataDocumentId: "metadata-1",
     metadataReferencedPrincipals: [],
-    metadataVersionVector: input.versionVector,
+    metadataUpdateCount: input.updateCount,
     organizationId: "organization-1",
     parentId: "parent-1",
     systemSlot: null,
@@ -82,11 +90,43 @@ async function openRuntime() {
   return { close: () => db.close(), execSql: sqlRuntime.execSql };
 }
 
+/**
+ * The processed cursor a completed metadata pull left: it counted
+ * `updateCount` updates and was recorded at `version`.
+ */
+interface ProcessedCursor {
+  readonly updateCount: number;
+  readonly version: string;
+}
+
+async function recordCursor(
+  execSql: ExecSql,
+  listing: RemoteContainer,
+  cursor: ProcessedCursor,
+) {
+  await ensureDocumentTables(execSql);
+  await execSql(
+    `INSERT INTO document_sync_progress (app_kind, local_id, document_id,
+       through_update_id, through_update_count, through_version, judge)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      CONTAINER_METADATA_APP_KIND,
+      listing.id,
+      listing.metadataDocumentId,
+      "update-through",
+      cursor.updateCount,
+      cursor.version,
+      documentVerdictJudge(),
+    ],
+  );
+}
+
 /** Hydrates one listing and returns the host calls in the order they ran. */
 async function hydrateListing(
   listing: RemoteContainer,
   heldUpdates: string,
-  earlierVersion?: string,
+  cursor: ProcessedCursor | null,
+  earlierUpdateCount?: number,
 ) {
   const { close, execSql } = await openRuntime();
   try {
@@ -122,6 +162,7 @@ async function hydrateListing(
         listed.id,
       );
     if (!stored) throw new Error("Expected the held container");
+    if (cursor !== null) await recordCursor(execSql, listed, cursor);
     const held = await hydrateStoredContainerState({
       execSql,
       persistence: sqlContainerContentsPersistence,
@@ -153,7 +194,7 @@ async function hydrateListing(
       },
       updateSnapshot: () => {},
     };
-    if (earlierVersion !== undefined) {
+    if (earlierUpdateCount !== undefined) {
       let pages = 0;
       state.runtime.apiClient.listContainerParentLanes = async ({ lanes }) => ({
         results: lanes.map(({ laneId }) => {
@@ -168,10 +209,10 @@ async function hydrateListing(
                 {
                   ...listed,
                   depth: 1,
-                  metadataVersionVector:
+                  metadataUpdateCount:
                     pages === 1
-                      ? earlierVersion
-                      : listing.metadataVersionVector,
+                      ? earlierUpdateCount
+                      : listing.metadataUpdateCount,
                 },
               ],
             },
@@ -195,51 +236,66 @@ async function hydrateListing(
   }
 }
 
-test("a listing whose metadata version the held copy lacks owes a read first", async () => {
+test("a listing that counts more updates than this device processed owes a read first", async () => {
   const versions = await metadataVersions();
-  // The container timestamp did not move: the version alone reveals the edit.
+  const cursor = { updateCount: 1, version: versions.heldVersion };
+  // The container timestamp did not move: the count alone reveals the edit.
   expect(
     await hydrateListing(
-      listed({ updatedAt: RECORDED, versionVector: versions.peerVersion }),
+      listed({ updatedAt: RECORDED, updateCount: 2 }),
       versions.heldUpdates,
+      cursor,
     ),
   ).toEqual(["owe metadata-1", `persist ${RECORDED}`]);
 });
 
-test("a listing the held copy covers owes no read, even after other writes", async () => {
+test("a listing the processed cursor covers owes no read, even after other writes", async () => {
   const versions = await metadataVersions();
-  // A write into the folder or a move advanced the timestamp only.
-  expect(
-    await hydrateListing(
-      listed({ updatedAt: LATER, versionVector: versions.heldVersion }),
-      versions.heldUpdates,
-    ),
-  ).toEqual([`persist ${LATER}`]);
-  expect(
-    await hydrateListing(
-      listed({ updatedAt: LATER, versionVector: emptyVersionVector() }),
-      versions.heldUpdates,
-    ),
-  ).toEqual([`persist ${LATER}`]);
+  // A write into the folder or a move advanced the timestamp only. The held
+  // copy lacks the second update, which the pull voided: this device judged
+  // it, so the listing's count is covered all the same.
+  for (const updateCount of [1, 2]) {
+    expect(
+      await hydrateListing(
+        listed({ updatedAt: LATER, updateCount }),
+        versions.heldUpdates,
+        { updateCount: 2, version: versions.heldVersion },
+      ),
+    ).toEqual([`persist ${LATER}`]);
+  }
 });
 
-test("an unreadable listed version owes a read instead of failing the page", async () => {
+test("without a cursor the held copy may send, only an empty document is covered", async () => {
   const versions = await metadataVersions();
+  const listing = listed({ updatedAt: LATER, updateCount: 1 });
+  expect(await hydrateListing(listing, versions.heldUpdates, null)).toEqual([
+    "owe metadata-1",
+    `persist ${LATER}`,
+  ]);
+  // A cursor recorded at a version the held copy no longer covers.
+  expect(
+    await hydrateListing(listing, versions.heldUpdates, {
+      updateCount: 2,
+      version: versions.peerVersion,
+    }),
+  ).toEqual(["owe metadata-1", `persist ${LATER}`]);
   expect(
     await hydrateListing(
-      listed({ updatedAt: LATER, versionVector: "not a version vector" }),
+      listed({ updatedAt: LATER, updateCount: 0 }),
       versions.heldUpdates,
+      null,
     ),
-  ).toEqual(["owe metadata-1", `persist ${LATER}`]);
+  ).toEqual([`persist ${LATER}`]);
 });
 
 test("a metadata publication between two pages schedules its missing read", async () => {
   const versions = await metadataVersions();
   expect(
     await hydrateListing(
-      listed({ updatedAt: RECORDED, versionVector: versions.peerVersion }),
+      listed({ updatedAt: RECORDED, updateCount: 2 }),
       versions.heldUpdates,
-      versions.heldVersion,
+      { updateCount: 1, version: versions.heldVersion },
+      1,
     ),
   ).toContain("owe metadata-1");
 });

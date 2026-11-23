@@ -1,8 +1,11 @@
 import { expect, mock, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
-import { encodeVersionVectorCounters } from "@tearleads/loro";
+import { encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createContainerContentsTestRuntime } from "../../../../test/helpers/workflows/containerContentsTestRuntime";
+import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { createTestContainerState } from "../../../workflows/container-contents/container-state/containerState.testFixtures";
 import {
@@ -34,14 +37,39 @@ function synced(folder: ContainerState): SyncedContainerMetadataState {
   };
 }
 
+/** The processed cursor a completed metadata pull of `folder` records. */
+async function recordMetadataCursor(
+  execSql: Parameters<typeof ensureDocumentTables>[0],
+  folder: ContainerState,
+  input: { readonly documentId: string; readonly updateCount: number },
+) {
+  await ensureDocumentTables(execSql);
+  await execSql(
+    `INSERT INTO document_sync_progress (app_kind, local_id, document_id,
+       through_update_id, through_update_count, through_version, judge)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      CONTAINER_METADATA_APP_KIND,
+      folder.container.id,
+      input.documentId,
+      crypto.randomUUID(),
+      input.updateCount,
+      encodeVersionVector(folder.doc),
+      documentVerdictJudge(),
+    ],
+  );
+}
+
 /**
  * A folder whose metadata a listing owed a read, and a pass runner whose
  * metadata sync records whether each read was forced and, when it resumed the
  * earlier pull, reads that pull's last page.
  */
 async function owedFolder(input: {
-  /** The version the listing advertised; empty when the read reaches it. */
-  advertisedVersionVector?: string;
+  /** The update count the listing advertised; 0 when any read reaches it. */
+  advertisedUpdateCount?: number;
+  /** How many updates the read's completed pull counted, as its cursor. */
+  processedUpdateCount?: number;
   /** An older pull cursor appears only once the read is under way. */
   continuationInstalledDuringRead?: boolean;
   resetDuringSettle?: boolean;
@@ -88,7 +116,7 @@ async function owedFolder(input: {
   const followups = mock(() => {});
   state.syncLane = { requestSync: followups } as never;
   await oweContainerMetadataRead(state, {
-    advertisedVersionVector: input.advertisedVersionVector ?? "",
+    advertisedUpdateCount: input.advertisedUpdateCount ?? 0,
     documentId: documentId,
   });
 
@@ -101,6 +129,12 @@ async function owedFolder(input: {
       reads.push({ forced: sync.forceReadSync === true, resumed });
       // This pass reads the earlier pull's last page.
       delete folder.record.pullContinuation;
+      if (input.processedUpdateCount !== undefined) {
+        await recordMetadataCursor(database.execSql, folder, {
+          documentId,
+          updateCount: input.processedUpdateCount,
+        });
+      }
       return {
         ...synced(folder),
         ...(resumed ? { resumedEarlierPull: true as const } : {}),
@@ -218,10 +252,25 @@ test("a read settles by the pull it actually resumed, not the one seen at the st
   }
 });
 
-test("a read that does not reach the advertised version keeps the debt without a loop", async () => {
+test("a read whose cursor counts the advertised updates pays the debt", async () => {
+  const folder = await owedFolder({
+    advertisedUpdateCount: 3,
+    processedUpdateCount: 3,
+    resumesEarlierPull: false,
+  });
+  try {
+    await folder.runPass();
+    expect(await folder.owed()).toEqual({ durable: [], queued: false });
+  } finally {
+    folder.close();
+  }
+});
+
+test("a read that does not reach the advertised count keeps the debt without a loop", async () => {
   // A replica lagging the listing answers without the peer's edit.
   const folder = await owedFolder({
-    advertisedVersionVector: encodeVersionVectorCounters({ "7": 3 }),
+    advertisedUpdateCount: 3,
+    processedUpdateCount: 2,
     resumesEarlierPull: false,
   });
   try {

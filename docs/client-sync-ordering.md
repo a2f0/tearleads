@@ -200,32 +200,32 @@ identity editing a folder this device has just created or registered. Without
 recovery such an edit would stay unread until a later hint or local edit named
 the same document.
 
-Each container in a listing carries `metadataVersionVector`: the Loro version
-vector of every update the server holds for its metadata document, the highest
-counter per peer across the document's stored update spans. It changes exactly
-when the document gains an update, independent of any clock. Recovery compares
-it with the client's own copy:
+Each container in a listing carries `metadataUpdateCount`: how many updates
+the server holds for its metadata document. Updates are deleted only with their
+whole document, so the count grows exactly when the document gains an update,
+independent of any clock. Recovery compares it with what the client processed:
 
-- Owing a read. When a listing shows a held container whose metadata version
-  the local copy does not cover, the document is owed one forced read. The
-  client's own edits, seeds, moves and writes into the folder never trigger
-  one, because the local copy already covers every update they produced. An
-  unreadable version also owes a read, and the rest of the page still
-  hydrates.
+- Owing a read. Every completed pull saves its
+  [processed cursor](./advisory-op-spans.md#the-processed-cursor) with
+  `pullPage.throughUpdateCount`, the updates through the pull's bound. A held
+  container listed with more updates than the cursor the client may still
+  send counts owes one forced read; a count of 0 never does. A void update
+  counts as processed, since the pull that judged it counted it. Without a
+  sendable cursor, any update owes one read, which saves a new cursor.
 - Durability. Hydration queues the forced read in memory and then writes it to
   `container_metadata_revalidations`, before the lane watermark advances past
   the row. A store's first sync pass requeues what a previous run still owed,
   and an owed read alone schedules that pass at startup.
 - Settling. A completed sync pulls every update the client lacks, so it settles
   the debt, unless a newer signal queued the document while the read was in
-  flight. Each request records the version the listing advertised, and a read
-  settles it only once the local copy covers that version; a replica lagging
-  the listing can answer without the edit, and the debt then waits for a later
-  pass. Each request also carries a revision, and a read settles only the one
-  it saw before it began, so a newer request from another tab survives. A pass
-  that resumes an earlier paginated pull reads only up to that pull's upper
-  bound, and a superseded result discarded what it pulled; neither settles,
-  and each hands the read to a fresh pass.
+  flight. Each request keeps the larger count a listing advertised, and a read
+  settles it only once the cursor its pull saved counts as many; a replica
+  lagging the listing can answer without the edit, and the debt then waits for
+  a later pass. Each request also carries a revision, and a read settles only
+  the one it saw before it began, so a newer request from another tab
+  survives. A pass that resumes an earlier paginated pull reads only up to
+  that pull's upper bound, and a superseded result discarded what it pulled;
+  neither settles, and each hands the read to a fresh pass.
 - Coverage. A metadata write advances its container's publication position.
   The next delta listing of its lane returns the row. Every acknowledged
   connection re-lists the root lane and every held lane from their

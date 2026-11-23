@@ -137,7 +137,7 @@ for (const scenario of [
           metadataDocumentId: created.plan.metadataDocumentId,
           metadataAccessEpoch: 1,
           metadataAccessStateHash: "metadata-hash",
-          metadataVersionVector: "",
+          metadataUpdateCount: 0,
           metadataReferencedPrincipals: [],
           effectiveAccessLevel: "admin",
           createdAt: "2026-10-01T00:00:00.000Z",

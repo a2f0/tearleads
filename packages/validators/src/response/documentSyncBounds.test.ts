@@ -15,7 +15,12 @@ test("document sync responses reject more than one bounded update page", () => {
   expect(
     DocumentSyncResponseSchema.safeParse({
       ...response,
-      pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
+      pullPage: {
+        hasMore: false,
+        nextCursor: null,
+        throughUpdateCount: 0,
+        throughUpdateId: null,
+      },
       updates,
     }).success,
   ).toBe(false);
@@ -29,6 +34,7 @@ test("document sync responses require a consistent pull continuation", () => {
       pullPage: {
         hasMore: true,
         nextCursor: "next-page",
+        throughUpdateCount: 0,
         throughUpdateId: null,
       },
     }).success,
@@ -39,8 +45,29 @@ test("document sync responses require a consistent pull continuation", () => {
       pullPage: {
         hasMore: false,
         nextCursor: "next-page",
+        throughUpdateCount: 0,
         throughUpdateId: null,
       },
     }).success,
   ).toBe(false);
+});
+
+test("a pull page names an upper bound exactly when it counts updates", () => {
+  const response = createSyncResponse();
+  const page = (throughUpdateCount: number, throughUpdateId: string | null) =>
+    DocumentSyncResponseSchema.safeParse({
+      ...response,
+      pullPage: {
+        hasMore: false,
+        nextCursor: null,
+        throughUpdateCount,
+        throughUpdateId,
+      },
+    }).success;
+  const bound = "22222222-2222-4222-8222-222222222222";
+  expect(page(0, null)).toBe(true);
+  expect(page(3, bound)).toBe(true);
+  expect(page(1, null)).toBe(false);
+  expect(page(0, bound)).toBe(false);
+  expect(page(-1, null)).toBe(false);
 });

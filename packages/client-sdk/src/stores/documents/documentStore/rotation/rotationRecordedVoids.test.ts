@@ -111,6 +111,7 @@ async function rotationState(input: {
               pullPage: {
                 hasMore: true,
                 nextCursor: "rotation-page-2",
+                throughUpdateCount: 0,
                 throughUpdateId: null,
               },
               updates: [...response.updates, ...input.extraUpdates],

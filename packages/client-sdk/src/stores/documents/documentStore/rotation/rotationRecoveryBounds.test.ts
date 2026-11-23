@@ -61,6 +61,7 @@ test("rotation validates every bounded page before one durable install", async (
             pullPage: {
               hasMore: true,
               nextCursor: "rotation-page-2",
+              throughUpdateCount: 0,
               throughUpdateId: null,
             },
             updates: [firstPageUpdate],
@@ -76,6 +77,7 @@ test("rotation validates every bounded page before one durable install", async (
             pullPage: {
               hasMore: false,
               nextCursor: null,
+              throughUpdateCount: 0,
               throughUpdateId: null,
             },
             updates: [secondPageUpdate],

@@ -19,7 +19,7 @@ test.each(["manifest", "permission", "unchanged", "canceled"] as const)(
       metadataAccessStateHash:
         change === "manifest" ? "new-head" : "access-folder",
       metadataDocumentId: "metadata-folder",
-      metadataVersionVector: "",
+      metadataUpdateCount: 0,
       metadataReferencedPrincipals: [],
       organizationId: "organization",
       parentId: "root",

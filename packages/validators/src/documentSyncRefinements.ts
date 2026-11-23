@@ -86,6 +86,12 @@ export const documentSyncResponsePullPageRefinement = {
   id: "response.pull-page-continuation",
 } as const;
 
+export const documentSyncResponsePullPageCountRefinement = {
+  description:
+    "pullPage.throughUpdateId is null exactly when pullPage.throughUpdateCount is 0",
+  id: "response.pull-page-update-count",
+} as const;
+
 export const documentSyncResponseHistoricalBundlesRefinement = {
   description: "contentKeyBundles carries each content-key epoch at most once",
   id: "response.historical-content-key-bundles",
@@ -96,5 +102,6 @@ export const documentSyncResponseRuntimeRefinements = [
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
   documentSyncResponsePullPageRefinement,
+  documentSyncResponsePullPageCountRefinement,
   documentSyncResponseHistoricalBundlesRefinement,
 ] as const;

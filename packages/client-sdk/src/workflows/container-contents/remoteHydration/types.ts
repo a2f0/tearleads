@@ -44,7 +44,7 @@ export type RemoteContainer = Pick<
   | "metadataAccessStateHash"
   | "metadataDocumentId"
   | "metadataReferencedPrincipals"
-  | "metadataVersionVector"
+  | "metadataUpdateCount"
   | "organizationId"
   | "parentId"
   | "updatedAt"
@@ -178,7 +178,7 @@ export interface RemoteContainerHydrationHost {
    */
   requestMetadataRevalidation?:
     | ((request: {
-        readonly advertisedVersionVector: string;
+        readonly advertisedUpdateCount: number;
         readonly documentId: string;
       }) => Promise<void>)
     | undefined;

@@ -9,7 +9,6 @@ import {
   syncPendingDocumentMoveIntents,
 } from "../../../workflows/container-contents/documentMove/documentMoveIntentSync";
 import { syncContainerMetadataState } from "../../../workflows/container-contents/metadata";
-import type { SyncedContainerMetadataState } from "../../../workflows/container-contents/metadata/metadataTypes";
 import type {
   ContainerState,
   RemoteContainerHydrationHost,
@@ -28,8 +27,8 @@ import {
 } from "../documentWork/documentRecovery";
 import { createAcceptedMoveRetry } from "./acceptedMoveRetry";
 import {
-  coversAdvertisedMetadataVersion,
   findOwedContainerMetadataRead,
+  keptContainerMetadataSignals,
   restoreOwedContainerMetadataReads,
   settleOwedContainerMetadataRead,
 } from "./metadataRevalidation";
@@ -225,7 +224,13 @@ async function syncSingleContainerMetadata(input: {
     return;
   }
 
-  const kept = keptMetadataSignals({ containerState, owedRead, synced });
+  const kept = await keptContainerMetadataSignals({
+    containerState,
+    execSql: readExecSql,
+    owedRead,
+    synced,
+  });
+  if (!isCurrent()) return;
   const stillCurrent = await settleConsumedMetadataSignals({
     consumedSeqById,
     documentIds: [metadataDocumentId, synced.record.documentId],
@@ -250,42 +255,6 @@ async function syncSingleContainerMetadata(input: {
   ) {
     requestContainerContentsStoreSync(state);
   }
-}
-
-/**
- * Whether a completed read keeps its signals for another read, and whether to
- * ask for that read now. A resumed pull reads only to its earlier bound, and a
- * superseded result discarded what it pulled: both hand the read to a fresh
- * pass. A replica lagging the listing can answer without the advertised edit;
- * that debt waits for a later pass rather than a follow-up loop.
- */
-function keptMetadataSignals(input: {
-  containerState: ContainerState;
-  owedRead: ContainerMetadataRevalidation | null;
-  synced: SyncedContainerMetadataState;
-}): { followUp: boolean; keep: boolean } {
-  const followUp =
-    input.synced.resumedEarlierPull === true ||
-    isSupersededMetadataSync(input.synced);
-  const behindListing =
-    input.owedRead !== null &&
-    !coversAdvertisedMetadataVersion(input.containerState.doc, input.owedRead);
-  return { followUp, keep: followUp || behindListing };
-}
-
-function isSupersededMetadataSync(
-  synced: Pick<
-    SyncedContainerMetadataState,
-    | "mutationSuperseded"
-    | "pullContinuationSuperseded"
-    | "syncIdentitySuperseded"
-  >,
-): boolean {
-  return (
-    synced.mutationSuperseded === true ||
-    synced.pullContinuationSuperseded === true ||
-    synced.syncIdentitySuperseded === true
-  );
 }
 
 function isQueuedForRead(

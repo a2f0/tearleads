@@ -81,7 +81,7 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
     metadataDocumentId: "decoy-team-document",
     metadataAccessEpoch: 1,
     metadataAccessStateHash: "listed",
-    metadataVersionVector: "",
+    metadataUpdateCount: 0,
     metadataReferencedPrincipals: [],
     effectiveAccessLevel: "admin",
     createdAt: "2026-09-28T00:00:00.000Z",

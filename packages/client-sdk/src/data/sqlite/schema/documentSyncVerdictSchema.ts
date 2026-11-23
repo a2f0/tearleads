@@ -18,6 +18,9 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  *   completes. Every update committed at or before it was either served and
  *   processed (imported or voided) or had a declared span the request's
  *   version already covered.
+ * - `throughUpdateCount`: How many updates the document held through
+ *   `throughUpdateId`, as the server counted them, or null when unknown. A
+ *   container listing's metadata update count at or below it owes no read.
  * - `throughVersion`: The persisted content frontier (`snapshotEndVersion`)
  *   when the cursor was written. The cursor is sent only while the current
  *   frontier covers it, so a restore to older state pulls by version alone.
@@ -35,6 +38,7 @@ export const documentSyncProgress = sqliteTable(
     localId: text("local_id").notNull(),
     documentId: text("document_id").notNull(),
     throughUpdateId: text("through_update_id"),
+    throughUpdateCount: integer("through_update_count"),
     throughVersion: text("through_version"),
     judge: text("judge"),
     pullJudge: text("pull_judge"),
@@ -119,7 +123,10 @@ export const documentPeerPreemptions = sqliteTable(
 );
 
 export const documentSyncVerdictTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(documentSyncProgress),
+  {
+    ...defineSqlTableSchema(documentSyncProgress),
+    requiredColumns: ["through_update_count"],
+  },
   defineSqlTableSchema(documentVoidUpdates),
   defineSqlTableSchema(documentPeerPreemptions),
 ];

@@ -107,6 +107,30 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 6,
   },
+  {
+    // A container listing advertises its metadata document's update count,
+    // which a processed cursor covers, instead of a version vector. A cursor
+    // recorded before its pull's count is known covers no count. An owed
+    // read keeps its debt at a count of 1, which only a completed pull of a
+    // document with an update settles, so no debt is lost.
+    name: "count_metadata_listing_updates",
+    up: async (execSql, context) => {
+      if (await context.hasTable("document_sync_progress")) {
+        await execSql(
+          "ALTER TABLE document_sync_progress ADD COLUMN through_update_count INTEGER",
+        );
+      }
+      if (await context.hasTable("container_metadata_revalidations")) {
+        await execSql(
+          "ALTER TABLE container_metadata_revalidations ADD COLUMN advertised_update_count INTEGER NOT NULL DEFAULT 1",
+        );
+        await execSql(
+          "ALTER TABLE container_metadata_revalidations DROP COLUMN advertised_version_vector",
+        );
+      }
+    },
+    version: 7,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

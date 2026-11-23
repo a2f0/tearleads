@@ -401,7 +401,7 @@ export const ContainerSummaryResponseSchema = loosePlainObject({
   metadataReferencedPrincipals: arraySchema(
     ReferencedPrincipalStateResponseSchema,
   ),
-  metadataVersionVector: z.string(),
+  metadataUpdateCount: nonNegativeIntegerSchema,
   organizationId: z.string(),
   parentId: z.string().nullable(),
   systemSlot: ContainerSystemSlotSchema.nullable().optional(),

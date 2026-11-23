@@ -88,6 +88,7 @@ async function createServerHarness(name: string) {
           pullPage: {
             hasMore: false,
             nextCursor: null,
+            throughUpdateCount: (committed.at(-1)?.id ?? null) === null ? 0 : 1,
             throughUpdateId: committed.at(-1)?.id ?? null,
           },
           updates,

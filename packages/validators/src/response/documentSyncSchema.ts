@@ -9,6 +9,7 @@ import {
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
   documentSyncResponseHistoricalBundlesRefinement,
+  documentSyncResponsePullPageCountRefinement,
   documentSyncResponsePullPageRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
@@ -22,6 +23,7 @@ import {
   loosePlainObject,
   nonEmptyArraySchema,
   nonEmptyStringSchema,
+  nonNegativeIntegerSchema,
   plainObjectSchema,
   positiveIntegerSchema,
 } from "../schema";
@@ -121,6 +123,7 @@ export const DocumentSyncPullPageResponseSchema = loosePlainObject({
   nextCursor: boundedNonEmptyStringSchema(
     MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
   ).nullable(),
+  throughUpdateCount: nonNegativeIntegerSchema,
   throughUpdateId: registerJsonSchemaFragment(
     z.string().refine(isUuidV4String),
     { pattern: UUID_V4_PATTERN.source, type: "string" },
@@ -218,6 +221,17 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
         path: ["pullPage", "nextCursor"],
       });
     }
+    if (
+      response.pullPage !== undefined &&
+      (response.pullPage.throughUpdateId === null) !==
+        (response.pullPage.throughUpdateCount === 0)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "pull page update count does not match its upper bound",
+        path: ["pullPage", "throughUpdateCount"],
+      });
+    }
     addCommitLsnIssues(response, context);
     addHistoricalContentKeyBundleIssues(response, context);
   }),
@@ -225,6 +239,7 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
     documentSyncResponseCommitLsnModeRefinement,
     documentSyncResponseCommitLsnSentinelRefinement,
     documentSyncResponsePullPageRefinement,
+    documentSyncResponsePullPageCountRefinement,
     documentSyncResponseHistoricalBundlesRefinement,
   ],
 );

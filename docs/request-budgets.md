@@ -215,12 +215,13 @@ local application.
   sync, the device-first scope opens every discovered document of an unpaused
   organization in the background, so each one costs one probe per session
   whichever view is showing; system projections are eager.
-- A held container whose listed metadata version vector the local copy does
-  not cover owes its metadata document one read, so a lost metadata hint is
+- A held container whose listed metadata update count this device's
+  processed cursor does not cover owes its metadata document one read, so a
+  lost metadata hint is
   recovered at the next reconnect, restart or refresh
   ([container metadata under lost hints](./client-sync-ordering.md#container-metadata-under-lost-hints)).
-  A listing whose metadata nobody else edited owes none, so the budgets below
-  are unchanged.
+  A listing whose metadata nobody else edited owes none, nor does one whose
+  only new updates this device voided, so the budgets below are unchanged.
 
 There is no periodic full-tree sweep on a healthy socket: a lost hint waits for
 another relevant signal, reconnect, startup or explicit refresh. Server

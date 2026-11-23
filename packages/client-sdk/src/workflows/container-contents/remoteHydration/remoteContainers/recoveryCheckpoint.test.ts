@@ -140,7 +140,7 @@ test.each(["before verification", "before insertion"])(
         metadataDocumentId: "untrusted-listed-metadata",
         metadataAccessEpoch: 1,
         metadataAccessStateHash: "untrusted-listed-hash",
-        metadataVersionVector: "",
+        metadataUpdateCount: 0,
         metadataReferencedPrincipals: [],
         effectiveAccessLevel: "admin",
         createdAt: "2026-09-25T00:00:00.000Z",

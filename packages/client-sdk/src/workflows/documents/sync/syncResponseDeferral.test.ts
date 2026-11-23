@@ -81,6 +81,7 @@ async function judgePage(
       pullPage: {
         hasMore: true,
         nextCursor: "next-page",
+        throughUpdateCount: 1,
         throughUpdateId: ids.deferred,
       },
       updates,

@@ -49,13 +49,14 @@ async function createPaginatedDocumentHistory() {
   const lastWrite = await postSync(owner.token, created.id, last.request);
   expect(lastWrite.status).toBe(200);
 
-  return { created, owner, signed };
+  return { created, owner, root, signed };
 }
 
 test("the sync route traverses more than 64 updates exactly once", async () => {
   const { created, owner, signed } = await createPaginatedDocumentHistory();
 
   const receivedIds: string[] = [];
+  const counts: number[] = [];
   let pullCursor: string | undefined;
   let pageCount = 0;
   do {
@@ -71,11 +72,14 @@ test("the sync route traverses more than 64 updates exactly once", async () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as DocumentSyncResponse;
     receivedIds.push(...body.updates.map(({ id }) => id));
+    counts.push(body.pullPage.throughUpdateCount);
     pullCursor = body.pullPage.nextCursor ?? undefined;
     pageCount += 1;
   } while (pullCursor !== undefined);
 
   expect(pageCount).toBe(2);
+  // Every page counts the whole document through the pull's bound.
+  expect(counts).toEqual([signed.length, signed.length]);
   expect(receivedIds).toHaveLength(signed.length);
   expect(new Set(receivedIds)).toEqual(
     new Set(signed.map(({ updateId }) => updateId)),
@@ -127,6 +131,7 @@ test("a lost continuation response retries without skipped or duplicated updates
   expect(retriedPage.pullPage).toEqual({
     hasMore: false,
     nextCursor: null,
+    throughUpdateCount: signed.length,
     throughUpdateId: lostPage.pullPage?.throughUpdateId ?? null,
   });
   expect(retriedPage.updates.map(({ id }) => id)).toEqual(
@@ -142,6 +147,38 @@ test("a lost continuation response retries without skipped or duplicated updates
   expect(new Set(convergedIds)).toEqual(
     new Set(signed.map(({ updateId }) => updateId)),
   );
+});
+
+test("a write between pages leaves the pull's count at its bound, and the next pull counts it", async () => {
+  const { created, owner, root, signed } =
+    await createPaginatedDocumentHistory();
+  const pull = async (pullCursor?: string) => {
+    const response = await postSync(owner.token, created.id, {
+      contentKeyEpoch: created.contentKeyEpoch,
+      expectedLinkSetManifestHash: created.manifestHash,
+      expectedTargetHash: created.targetHash,
+      localVersionVector: null,
+      outgoingUpdates: [],
+      ...(pullCursor === undefined ? {} : { pullCursor }),
+      supportsPullPagination: true,
+    });
+    expect(response.status).toBe(200);
+    return ((await response.json()) as DocumentSyncResponse).pullPage;
+  };
+  const firstPage = await pull();
+  expect(firstPage.throughUpdateCount).toBe(signed.length);
+  // A peer commits after the pull froze its bound.
+  const later = await createSignedDocumentSyncRequest({ created, owner, root });
+  expect((await postSync(owner.token, created.id, later.request)).status).toBe(
+    200,
+  );
+  const lastPage = await pull(firstPage.nextCursor ?? undefined);
+  expect(lastPage).toMatchObject({
+    hasMore: false,
+    throughUpdateCount: signed.length,
+  });
+  // The next pull's bound includes the write, and its count does too.
+  expect((await pull()).throughUpdateCount).toBe(signed.length + 1);
 });
 
 test("each paginated sync checks supplied minLsn once before its snapshot", async () => {

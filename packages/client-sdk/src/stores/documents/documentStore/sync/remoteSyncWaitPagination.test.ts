@@ -25,6 +25,7 @@ test("a failed continuation keeps a paginated remote probe incomplete", async ()
           pullPage: {
             hasMore: true,
             nextCursor: "profile-page-2",
+            throughUpdateCount: 0,
             throughUpdateId: null,
           },
           updates: [],
@@ -79,6 +80,7 @@ test("aborting a waiter preserves every page of an independent refresh", async (
           pullPage: {
             hasMore: true,
             nextCursor: "profile-page-2",
+            throughUpdateCount: 0,
             throughUpdateId: null,
           },
           updates: [],

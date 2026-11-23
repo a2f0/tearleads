@@ -44,6 +44,7 @@ for (const hasMore of [false, true]) {
           pullPage: {
             hasMore,
             nextCursor: hasMore ? "page-2" : null,
+            throughUpdateCount: 0,
             throughUpdateId: null,
           },
         }),

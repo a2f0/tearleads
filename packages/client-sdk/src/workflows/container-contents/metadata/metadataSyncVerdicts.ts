@@ -1,8 +1,10 @@
+import { encodeVersionVector } from "@tearleads/loro";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   readProcessedCursorForSync,
+  readProcessedUpdateCountForSync,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
 } from "../../documents/sync/processedCursor";
@@ -32,6 +34,33 @@ export async function readContainerMetadataProcessedCursor(
     frontier: input.localVersionVector,
     scope: containerMetadataScope(input.containerId),
   });
+}
+
+/**
+ * Whether this device has processed every update a container listing
+ * counted for the container's metadata document: none were counted, or the
+ * completed pull behind the cursor this device may still send counted at
+ * least as many. A void update counts as processed, so it never owes another
+ * read. The count only grows, so a listing read before that pull's bound
+ * never shows more.
+ */
+export async function coversMetadataUpdateCount(
+  execSql: ExecSql,
+  input: {
+    readonly containerId: string;
+    /** The held metadata document, whose frontier the cursor must be under. */
+    readonly doc: Parameters<typeof encodeVersionVector>[0];
+    readonly documentId: string;
+    readonly updateCount: number;
+  },
+): Promise<boolean> {
+  if (input.updateCount === 0) return true;
+  const processed = await readProcessedUpdateCountForSync(execSql, {
+    documentId: input.documentId,
+    frontier: encodeVersionVector(input.doc),
+    scope: containerMetadataScope(input.containerId),
+  });
+  return processed !== null && processed >= input.updateCount;
 }
 
 /**

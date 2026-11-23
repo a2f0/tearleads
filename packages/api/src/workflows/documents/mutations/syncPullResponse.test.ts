@@ -83,6 +83,7 @@ function fixture(
     plan: {
       afterSequence: 0,
       upperBoundSequence: 2,
+      upperBoundUpdateCount: 2,
       upperBoundUpdateId: "update-2",
     },
   };
@@ -168,6 +169,7 @@ test("content-key bundles load only through the first response overflow", async 
     plan: {
       afterSequence: 0,
       upperBoundSequence: 3,
+      upperBoundUpdateCount: 3,
       upperBoundUpdateId: "update-3",
     },
   });

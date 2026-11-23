@@ -15,6 +15,7 @@ function page(overrides: Partial<PullPagePosition> = {}): PullPagePosition {
     held: false,
     last: true,
     sentCursor: "cursor",
+    throughUpdateCount: 1,
     throughUpdateId: "through",
     ...overrides,
   };
@@ -56,11 +57,17 @@ test("a single-page pull advances to its bound at the recorded frontier", () => 
   expect(transition({ page: page() })).toEqual({
     dropsOtherJudges: false,
     status: "advanced",
-    through: { updateId: "through", version: FRONTIER },
+    through: { updateCount: 1, updateId: "through", version: FRONTIER },
   });
   // Without a cursor the pull judged everything uncovered again.
   expect(
-    transition({ page: page({ sentCursor: null, throughUpdateId: null }) }),
+    transition({
+      page: page({
+        sentCursor: null,
+        throughUpdateCount: 0,
+        throughUpdateId: null,
+      }),
+    }),
   ).toEqual({ dropsOtherJudges: true, status: "advanced", through: null });
 });
 
@@ -76,7 +83,7 @@ test("a pull's first page keeps its premise for the pages after it", () => {
   expect(transition({ page: page({ first: false }), storedPremise })).toEqual({
     dropsOtherJudges: false,
     status: "advanced",
-    through: { updateId: "through", version: FRONTIER },
+    through: { updateCount: 1, updateId: "through", version: FRONTIER },
   });
 });
 
