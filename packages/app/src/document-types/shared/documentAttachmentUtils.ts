@@ -27,19 +27,21 @@ export function resolveAttachmentUploadSlot(
 export function expandAttachmentSlots(
   slots: ReadonlyArray<DocumentAttachmentSlot>,
   attachments: ReadonlyArray<DocumentAttachment>,
-  canAttach: boolean,
+  mode: { canAttach: boolean; isEditing: boolean },
 ): ReadonlyArray<DocumentAttachmentSlot> {
   return slots.flatMap((slot) => {
     if (!slot.multiple) return [slot];
     // Each photo lives in its own `<slot>:<uuid>` slot; the bare slot is only
-    // the collection's append action.
+    // the collection's append action. An empty collection keeps it while
+    // editing, so the card holds its place until attaching becomes possible;
+    // a reader has nothing to append, so an empty collection shows nothing.
     const expanded: DocumentAttachmentSlot[] = attachments
       .filter((attachment) => attachment.slotId.startsWith(`${slot.slotId}:`))
       .map((photo, index) => ({
         label: `${slot.itemLabel ?? slot.label} ${index + 1}`,
         slotId: photo.slotId,
       }));
-    if (canAttach || expanded.length === 0) {
+    if (mode.canAttach || (mode.isEditing && expanded.length === 0)) {
       expanded.push(slot);
     }
     return expanded;

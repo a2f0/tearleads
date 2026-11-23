@@ -261,6 +261,8 @@ export function DocumentAttachmentSlots(params: {
   blobPicker?: DocumentAttachmentBlobPickerConfig | undefined;
   canAttach: boolean;
   imageUrlBySlotId: Readonly<Record<string, string | undefined>>;
+  /** A photo collection with no photos is listed only while editing. */
+  isEditing: boolean;
   onClearAttachment: (slotId: string) => void;
   /** Fetch an unavailable copy from the server again. */
   onRetryDownload?: (() => void) | undefined;
@@ -275,17 +277,24 @@ export function DocumentAttachmentSlots(params: {
     blobPicker,
     canAttach,
     imageUrlBySlotId,
+    isEditing,
     onClearAttachment,
     onRetryDownload,
     onSelectedAttachment,
     previewNotice,
     slots,
   } = params;
+  const cards = expandAttachmentSlots(slots, attachments, {
+    canAttach,
+    isEditing,
+  });
+  // Nothing to list: leave no empty row in the document's grid.
+  if (cards.length === 0) return null;
 
   return (
     <div className="structured-document-attachments">
       {previewNotice ? <AttachmentPreviewNotice {...previewNotice} /> : null}
-      {expandAttachmentSlots(slots, attachments, canAttach).map((slot) => (
+      {cards.map((slot) => (
         <DocumentAttachmentSlotCard
           key={slot.slotId}
           attachmentStorageKey={attachmentStorageKeyBySlotId[slot.slotId]}
