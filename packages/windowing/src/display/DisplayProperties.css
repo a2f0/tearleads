@@ -149,7 +149,7 @@
 /* The app's glyph leads the row the way a menu item's or a host's list row's
  * does: drawn at the shared muted `--opacity-icon`, so the label carries the
  * row and the switch carries its state. */
-.display-properties-app-switch svg {
+.display-properties-app-switch-icon {
   flex: 0 0 auto;
   opacity: var(--opacity-icon);
 }
@@ -161,7 +161,7 @@
   min-height: var(--control-height);
 }
 
-:root[data-navigation-mode="routed"] .display-properties-app-switch svg {
+:root[data-navigation-mode="routed"] .display-properties-app-switch-icon {
   width: var(--control-icon-size);
   height: var(--control-icon-size);
 }

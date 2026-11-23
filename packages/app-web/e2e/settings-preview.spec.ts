@@ -315,7 +315,8 @@ test("app switch rows match the phone's list rows", async ({ page }) => {
       // Explorer's tree and item list, menus, and the launcher draw a 44px
       // row around a 24px glyph at the shared muted icon opacity.
       expect((await row.boundingBox())?.height).toBeGreaterThanOrEqual(44);
-      const icon = row.locator("svg");
+      const icon = row.locator(".display-properties-app-switch-icon");
+      await expect(icon).toHaveCount(1);
       const box = await icon.boundingBox();
       expect([box?.width, box?.height]).toEqual([24, 24]);
       await expect(icon).toHaveCSS("opacity", "0.6");
