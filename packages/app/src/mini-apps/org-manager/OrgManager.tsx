@@ -362,7 +362,10 @@ export function OrgManager() {
   return (
     <MiniAppRoot>
       <OrgSwitcher switcher={model.orgSwitcher} />
-      <main className="org-manager-main" onContextMenu={handleMainContextMenu}>
+      <main
+        className="org-manager-main mini-app-tabs-scrollport"
+        onContextMenu={handleMainContextMenu}
+      >
         <OrgManagerFeedback model={model} />
         {organizationId && model.showCompactMenu ? (
           <OrgManagerMenu setView={model.openSection} />
