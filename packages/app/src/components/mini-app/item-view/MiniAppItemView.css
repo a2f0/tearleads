@@ -1,0 +1,68 @@
+/* The row views every item list shares (see miniAppItemView.ts). A list opts
+   in by stamping `data-item-view` on its frame, or on any ancestor of it, and
+   wrapping each row's leading visual in `.mini-app-item-thumb`. The dense
+   `rows` view needs nothing here: each list sizes its own small visual. */
+
+.mini-app-item-thumb {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Large rows. MINI_APP_LARGE_ROW_HEIGHT (96px) budgets an 80px square plus the
+   cell's block padding and its bottom border.
+
+   The square is capped at what the row has left to give, because the pitch is
+   a fixed pixel count while the cell padding is not: a reader whose browser
+   sets a larger default font enlarges the padding but not the 96px the
+   virtualization math has budgeted. Past that point rows would grow while the
+   scroll spacers stayed put, and the list would drift out of step with its
+   scroll position — so the square gives up the pixels instead. `min()` keeps it
+   square; capping width and height separately would not.
+
+   Declared on the square rather than on the `data-item-view` element: a list
+   may stamp the attribute above its frame, where the frame's row-height
+   variable is not yet defined. */
+[data-item-view="large-rows"] {
+  /* Width for a table column that holds only the square (the Blob Browser's
+     identity column); it does not depend on the row height. */
+  --mini-app-item-thumb-column-width: calc(80px + 2 * var(--space-sm));
+}
+
+[data-item-view="large-rows"] .mini-app-item-thumb {
+  --mini-app-item-thumb-size: min(
+    80px,
+    calc(
+      var(--mini-app-virtual-row-height) -
+      2 *
+      var(--info-table-cell-padding) -
+      1px
+    )
+  );
+  width: var(--mini-app-item-thumb-size);
+  height: var(--mini-app-item-thumb-size);
+}
+
+/* Whatever the square holds fills it: an image thumbnail, a type glyph (CSS
+   size beats the glyph's own size attribute), or a contact avatar. */
+[data-item-view="large-rows"] .mini-app-item-thumb > * {
+  width: 100%;
+  height: 100%;
+}
+
+/* An avatar draws its no-image silhouette at 1em; scale it with the circle at
+   the ratio the avatar's own size variants use. */
+[data-item-view="large-rows"] .mini-app-item-thumb > .contact-avatar {
+  font-size: calc(var(--mini-app-item-thumb-size) * 0.6);
+}
+
+/* Every row takes the large pitch, over the routed touch floor, the dense
+   compact height, and the folded two-line pitch alike. Spacer rows keep their
+   inline heights, which stand for the rows outside the window. */
+[data-item-view="large-rows"]
+  .mini-app-table
+  tbody
+  .mini-app-table-row:not(.mini-app-virtual-table-spacer-row) {
+  height: var(--mini-app-virtual-row-height);
+}

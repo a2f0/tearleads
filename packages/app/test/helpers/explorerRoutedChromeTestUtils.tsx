@@ -2,6 +2,7 @@ import {
   useWindowBackActionValue,
   useWindowTitleBarActions,
 } from "@tearleads/windowing";
+import { useExplorerItemViewState } from "../../src/mini-apps/explorer/detail/item-views/explorerItemViewContext";
 import { useExplorerRoutedChromeActions } from "../../src/mini-apps/explorer/ExplorerRoutedChrome";
 import type { useExplorerModel } from "../../src/mini-apps/explorer/hooks/useExplorerModel";
 
@@ -96,8 +97,11 @@ export function ExplorerRoutedChromeHarness({
   openStructuredDocumentGrid?: () => void;
   triggerUpload?: (containerId: string) => void;
 }) {
+  // The real view state, so a test can cycle the switch and read its label.
+  const itemView = useExplorerItemViewState();
   useExplorerRoutedChromeActions({
     historyCanGoBack,
+    itemView,
     model,
     openStructuredDocumentGrid,
     triggerUpload,

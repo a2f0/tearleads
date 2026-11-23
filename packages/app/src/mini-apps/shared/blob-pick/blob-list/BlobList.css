@@ -58,14 +58,11 @@
 }
 
 /* Blob identity cell: a compact thumbnail (image blobs) or file-type icon
-   (everything else) sized to sit within the fixed compact row height. */
+   (everything else) sized to sit within the fixed compact row height. The box
+   itself is the shared `.mini-app-item-thumb` square. */
 .explorer-blob-browser-thumb {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  flex: 0 0 auto;
 }
 
 /* A folded row spends its whole height on the thumbnail, so the blob reads as the
@@ -96,40 +93,12 @@
   height: min(2.75rem, var(--explorer-blob-browser-thumb-budget));
 }
 
-/* The list data hook budgets a 96px row for enlarged thumbnails. */
-.explorer-blob-browser-screen[data-large-thumbnails] {
-  --blob-list-identity-width: calc(80px + 2 * var(--space-sm));
-}
-
-[data-large-thumbnails] .explorer-blob-browser-thumb {
-  --blob-list-thumb-size: min(
-    80px,
-    calc(
-      var(--mini-app-virtual-row-height) -
-      2 *
-      var(--info-table-cell-padding) -
-      1px
-    )
-  );
-  width: var(--blob-list-thumb-size);
-  height: var(--blob-list-thumb-size);
-}
-
-[data-large-thumbnails] .explorer-blob-browser-thumb-icon {
-  width: 100%;
-  height: 100%;
-}
-
-[data-large-thumbnails] .explorer-blob-browser-row-button {
+/* Large thumbnails are the shared large-rows view: the pitch, the square, what
+   fills it, and the identity column's width all come from MiniAppItemView.css.
+   Only this row button's own layout stays here — flex for the reason the
+   compact rule above gives. */
+[data-item-view="large-rows"] .explorer-blob-browser-row-button {
   display: flex;
-}
-
-[data-large-thumbnails]
-  .explorer-blob-browser-table-wrap
-  .mini-app-table
-  tbody
-  .explorer-blob-browser-table-row {
-  height: var(--mini-app-virtual-row-height);
 }
 
 .explorer-blob-browser-thumb-image {

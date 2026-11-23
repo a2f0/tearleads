@@ -438,6 +438,7 @@ test("an orphaned document renders an empty actions cell", () => {
             currentSelfContactLocalId: null,
             currentSigningFingerprint: null,
             currentUserId: null,
+            largeRows: false,
             onItemContextMenu: () => undefined,
             online: true,
             row: { ...alphaNoteRow, containerId: null },
