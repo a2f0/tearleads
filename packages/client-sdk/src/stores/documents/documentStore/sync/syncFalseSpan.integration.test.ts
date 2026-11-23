@@ -298,3 +298,55 @@ test("a cursor judged by another decoder or rule set is not sent", async () => {
     harness.close();
   }
 });
+
+// The page's save closes its Loro read window and clears the suspects it
+// passed. A window left open after a committed page would be claimed by the
+// next lifetime as a death, and suspects left after the pull completed would
+// keep the document pulling one update a page.
+test("a committed page closes its read window and ends isolation", async () => {
+  const localId = "read-window-close";
+  const harness = await createServerHarness(localId);
+  try {
+    const store = createDocumentStore(
+      localId,
+      harness.runtime,
+      defaultDocumentsPersistence,
+      null,
+      "",
+      "note",
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    await store.setText("mine");
+    expect(await store.requestRemoteSyncAndWait()).toBe(true);
+    const [served] = await otherWriterEdits("served", 1);
+    if (!served) throw new Error("expected an edit");
+    await harness.commitFromAnotherWriter([
+      createPendingUpdateRecord({
+        id: HONEST_ID,
+        partialEndVersionVector: served.end,
+        partialStartVersionVector: served.start,
+        updateData: bytesToBase64(served.data),
+      }),
+    ]);
+    await harness.execSql(
+      `INSERT INTO document_loro_isolation
+         (app_kind, local_id, document_id, suspects)
+       SELECT app_kind, local_id, document_id, '["${HONEST_ID}"]'
+       FROM documents WHERE local_id = ?`,
+      [localId],
+    );
+
+    expect(await store.requestRemoteSyncAndWait()).toBe(true);
+
+    expect(store.getSnapshot().text).toContain("served-0");
+    expect(harness.requests.at(-1)?.maxPageUpdates).toBe(1);
+    expect(
+      await harness.execSql("SELECT lifetime_id FROM document_loro_windows"),
+    ).toEqual([]);
+    expect(
+      await harness.execSql("SELECT local_id FROM document_loro_isolation"),
+    ).toEqual([]);
+  } finally {
+    harness.close();
+  }
+});
