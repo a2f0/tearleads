@@ -3,12 +3,11 @@ import {
   ROOT_OPS_HEALTH_OVERDUE_MINUTES,
   ROOT_OPS_HEALTH_UPCOMING_DAYS,
 } from "@tearleads/validators/response";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import {
-  MiniAppButton,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
-  MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import { formatRootTimestamp } from "../identities/rootDisplay";
 import { type OpsHealthColumn, OpsHealthTable } from "./OpsHealthTable";
@@ -115,22 +114,22 @@ export function OpsHealthReportView({
   onSelectOrganization: (organizationId: string) => void;
 }) {
   const { error, loading, refresh, report } = useRootOpsHealthReport();
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    refreshing: loading,
+  });
   const overdue = `${ROOT_OPS_HEALTH_OVERDUE_MINUTES} minutes`;
   const upcoming = `${ROOT_OPS_HEALTH_UPCOMING_DAYS} days`;
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
-        <h2>Reports · Operations health</h2>
+        <h2>Operations health</h2>
       </MiniAppSectionHeading>
       <MiniAppStatus>
         Billing maintenance across every organization.
         {report && ` Generated ${formatRootTimestamp(report.generatedAt)}.`}
       </MiniAppStatus>
-      <MiniAppToolbar>
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          {loading ? "Loading..." : "Refresh"}
-        </MiniAppButton>
-      </MiniAppToolbar>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       {report && (
         <>

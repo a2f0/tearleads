@@ -1,6 +1,7 @@
 import {
   type MiniAppRouteSetOptions,
   useCompactRoutedMode,
+  useWindowToolbarReservation,
 } from "@tearleads/windowing";
 import { useCallback } from "react";
 import { AccountBootstrapPanel } from "../../components/identity/AccountBootstrapPanel";
@@ -18,11 +19,10 @@ import { IdentityDetailView } from "./identities/IdentityDetailView";
 import { OrganizationDetailView } from "./organizations/OrganizationDetailView";
 import { OrganizationsView } from "./organizations/OrganizationsView";
 import { RootMenu } from "./RootMenu";
+import { useRootRoutedChromeActions } from "./RootRoutedChrome";
 import { useRootSidebarPanel } from "./RootSidebar";
-import { DataUsageReportView } from "./reports/DataUsageReportView";
-import { OpsHealthReportView } from "./reports/OpsHealthReportView";
-import { PendingBlobDeletionReport } from "./reports/PendingBlobDeletionReport";
-import { RevenuecatReportView } from "./revenuecat/RevenuecatReportView";
+import { ReportsView } from "./reports/ReportsView";
+import { RootReportView } from "./reports/RootReportView";
 import {
   IDENTITIES_ROOT_ROUTE,
   type RootRoute,
@@ -62,14 +62,9 @@ function RootContent({
   route: RootRoute;
   setRoute: (route: RootRoute, options?: MiniAppRouteSetOptions) => void;
 }) {
-  const {
-    openAudit,
-    setView,
-    openIdentity,
-    closeIdentity,
-    openOrganization,
-    closeOrganization,
-  } = useRootNavigation(route, setRoute);
+  const { openAudit, openIdentity, openOrganization, openReport, setView } =
+    useRootNavigation(route, setRoute);
+  useRootRoutedChromeActions({ openAudit, route, setRoute });
 
   if (route.view === "menu") {
     return <RootMenu setView={setView} />;
@@ -87,28 +82,15 @@ function RootContent({
     );
   }
   if (route.view === "reports") {
-    const openReportedOrganization =
-      (tab: "billing" | "data-usage") => (organizationId: string) =>
-        setRoute({
-          view: "organizations",
-          organizationId,
-          tab,
-          returnView: "reports",
-        });
-    return (
-      <>
-        <OpsHealthReportView
-          onSelectOrganization={openReportedOrganization("billing")}
-        />
-        <RevenuecatReportView
-          onSelectIdentity={openIdentity}
-          onSelectOrganization={openReportedOrganization("billing")}
-        />
-        <DataUsageReportView
-          onSelectOrganization={openReportedOrganization("data-usage")}
-        />
-        <PendingBlobDeletionReport />
-      </>
+    return route.reportId === null ? (
+      <ReportsView onSelectReport={openReport} />
+    ) : (
+      <RootReportView
+        key={route.reportId}
+        reportId={route.reportId}
+        onSelectIdentity={openIdentity}
+        onSelectOrganization={openOrganization}
+      />
     );
   }
   if (route.view === "organizations") {
@@ -120,9 +102,7 @@ function RootContent({
         organizationId={route.organizationId}
         activeTab={route.tab ?? "overview"}
         onTabChange={(tab) => setRoute({ ...route, tab }, { replace: true })}
-        onBack={closeOrganization}
         onSelectIdentity={openIdentity}
-        onShowAudit={openAudit}
       />
     );
   }
@@ -130,10 +110,8 @@ function RootContent({
     return (
       <IdentityDetailView
         key={route.userId}
-        onBack={closeIdentity}
         userId={route.userId}
         onSelectOrganization={openOrganization}
-        onShowAudit={openAudit}
       />
     );
   }
@@ -154,11 +132,15 @@ export function Root() {
   );
 
   useRootSidebarPanel({ setView, view: effectiveRoute.view });
+  // A toolbar row on every console route, blank where a route has no action,
+  // so it does not appear and collapse as the operator moves between views.
+  const showConsole = isAuthenticated && isRoot;
+  useWindowToolbarReservation(showConsole);
 
   return (
     <MiniAppRoot className="root-console">
       <main className="root-console-main">
-        {isAuthenticated && isRoot ? (
+        {showConsole ? (
           <RootContent route={effectiveRoute} setRoute={setRoute} />
         ) : (
           <RootAccessGate isAuthenticated={isAuthenticated} />

@@ -1,13 +1,12 @@
 import type { RootOrganizationDetail } from "@tearleads/client-sdk";
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
-  MiniAppButton,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
   MiniAppTabList,
   MiniAppTabPanel,
-  MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { describeRootFailure, describeThrown } from "../identities/rootDisplay";
@@ -25,11 +24,13 @@ function OrganizationDetailTabs({
   detail,
   organizationId,
   onSelectIdentity,
+  refreshGeneration,
 }: {
   activeTab: RootOrganizationTab;
   detail: RootOrganizationDetail;
   organizationId: string;
   onSelectIdentity: (userId: string) => void;
+  refreshGeneration: number;
 }) {
   return (
     <>
@@ -40,7 +41,10 @@ function OrganizationDetailTabs({
             billing={detail.billing}
             stripe={detail.stripe}
           />
+          {/* Remounted by each Refresh, so its deliveries reload with the
+              billing they sit beside. */}
           <OrganizationRevenuecatEvents
+            key={refreshGeneration}
             organizationId={organizationId}
             onSelectIdentity={onSelectIdentity}
           />
@@ -57,16 +61,12 @@ export function OrganizationDetailView({
   organizationId,
   activeTab,
   onTabChange,
-  onBack,
   onSelectIdentity,
-  onShowAudit,
 }: {
   organizationId: string;
   activeTab: RootOrganizationTab;
   onTabChange: (tab: RootOrganizationTab) => void;
-  onBack: () => void;
   onSelectIdentity: (userId: string) => void;
-  onShowAudit: (subjectId: string) => void;
 }) {
   const tearleads = useTearleads();
   const idPrefix = useId();
@@ -95,22 +95,23 @@ export function OrganizationDetailView({
       sequence.current += 1;
     };
   }, [load]);
+  const [refreshGeneration, setRefreshGeneration] = useState(0);
+  const refresh = useCallback(() => {
+    setRefreshGeneration((generation) => generation + 1);
+    void load();
+  }, [load]);
+  // The Identities and Data Usage tabs register their own Refresh above this
+  // one while open.
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    refreshing: loading,
+  });
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
         <h2>{detail?.organization.organizationId || "Organization"}</h2>
       </MiniAppSectionHeading>
-      <MiniAppToolbar>
-        <MiniAppButton onClick={onBack}>Back</MiniAppButton>
-        {activeTab !== "data-usage" && activeTab !== "identities" && (
-          <MiniAppButton disabled={loading} onClick={() => void load()}>
-            {loading ? "Loading..." : "Refresh"}
-          </MiniAppButton>
-        )}
-        <MiniAppButton onClick={() => onShowAudit(organizationId)}>
-          Audit activity
-        </MiniAppButton>
-      </MiniAppToolbar>
       <MiniAppTabList
         activeTab={activeTab}
         idPrefix={idPrefix}
@@ -135,6 +136,7 @@ export function OrganizationDetailView({
                 detail={detail}
                 organizationId={organizationId}
                 onSelectIdentity={onSelectIdentity}
+                refreshGeneration={refreshGeneration}
               />
             ) : (
               loading && <MiniAppStatus>Loading organization...</MiniAppStatus>

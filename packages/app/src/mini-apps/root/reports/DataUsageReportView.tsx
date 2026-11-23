@@ -1,3 +1,4 @@
+import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useState } from "react";
 import {
   MiniAppButton,
@@ -54,10 +55,15 @@ export function DataUsageReportView({
   );
   const { items, error, loading, nextCursor, loadMore, refresh } =
     useRootPage(request);
+  useWindowRefreshMenuItem({
+    disabled: loading,
+    onRefresh: refresh,
+    refreshing: loading,
+  });
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
-        <h2>Reports · Data usage by organization</h2>
+        <h2>Data usage</h2>
       </MiniAppSectionHeading>
       <MiniAppStatus>
         {DATA_USAGE_LABELS.usageDefinition} Shared data is counted for each

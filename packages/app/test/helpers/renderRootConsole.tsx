@@ -1,11 +1,14 @@
 import { expect, spyOn } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import { WindowMenuProvider, WindowToolBar } from "@tearleads/windowing";
 import {
   act,
+  fireEvent,
   type RenderResult,
   render,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { Root } from "../../src/mini-apps/root/Root";
 import {
@@ -16,7 +19,10 @@ import {
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
-/** Renders the root console for a logged-in session, root or not. */
+/**
+ * Renders the root console for a logged-in session, root or not, under the
+ * window toolbar that carries its Back, Refresh, and Audit activity.
+ */
 export async function renderRootWithSession(isRoot: boolean): Promise<{
   readonly restore: () => void;
   readonly tearleads: Tearleads;
@@ -65,7 +71,10 @@ export async function renderRootWithSession(isRoot: boolean): Promise<{
         tearleadsRef.current = sdk;
       }}
     >
-      <Root />
+      <WindowMenuProvider>
+        <WindowToolBar />
+        <Root />
+      </WindowMenuProvider>
     </IdentityManagerTestRuntime>,
   );
   return {
@@ -73,4 +82,29 @@ export async function renderRootWithSession(isRoot: boolean): Promise<{
     restore: () => Reflect.set(globalThis, "WebSocket", originalWebSocket),
     view,
   };
+}
+
+/** The window toolbar the console registers its Back, Refresh, and actions in. */
+export function rootToolbar(view: RenderResult) {
+  return within(view.getByRole("toolbar", { name: "Toolbar" }));
+}
+
+/**
+ * Clicks a window toolbar button: Back, Refresh, or Audit activity. It waits
+ * for the button, since a view's registration reaches the toolbar a render
+ * after the view itself: a report's error can show while Refresh still reads
+ * "Refreshing...".
+ */
+export async function clickRootToolbarButton(view: RenderResult, name: string) {
+  fireEvent.click(await rootToolbar(view).findByRole("button", { name }));
+}
+
+/** Opens Reports, then the report the listing labels `label`. */
+export async function openRootReport(
+  view: RenderResult,
+  label: string,
+): Promise<void> {
+  fireEvent.click(view.getByRole("button", { name: "Reports" }));
+  const listing = await view.findByRole("table", { name: "Reports" });
+  fireEvent.click(within(listing).getByRole("button", { name: label }));
 }

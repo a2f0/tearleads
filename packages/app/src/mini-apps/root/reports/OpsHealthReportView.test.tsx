@@ -3,7 +3,11 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { fireEvent, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../../test/helpers/identityManagerTestRuntime";
 import { MOCK_SERVER_RESET_TIMEOUT_MS } from "../../../../test/helpers/msw/server";
-import { renderRootWithSession } from "../../../../test/helpers/renderRootConsole";
+import {
+  clickRootToolbarButton,
+  openRootReport,
+  renderRootWithSession,
+} from "../../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_ORGANIZATION } from "../../../../test/helpers/rootConsoleFixtures";
 
 afterEach(async () => {
@@ -13,7 +17,7 @@ afterEach(async () => {
 test("ops health lists maintenance trouble and opens an organization's billing", async () => {
   const { restore, view } = await renderRootWithSession(true);
   try {
-    fireEvent.click(view.getByRole("button", { name: "Reports" }));
+    await openRootReport(view, "Operations health");
     const seatSync = await view.findByRole("table", { name: "Seat sync" });
     await within(seatSync).findByText("Failing, Lease lapsed");
     expect(within(seatSync).getByText("3 / 5")).toBeTruthy();
@@ -37,7 +41,7 @@ test("ops health lists maintenance trouble and opens an organization's billing",
     expect(
       view.getByRole("tab", { name: "Billing" }).getAttribute("aria-selected"),
     ).toBe("true");
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await clickRootToolbarButton(view, "Back");
     await view.findByRole("table", { name: "Seat sync" });
   } finally {
     restore();
@@ -53,14 +57,10 @@ test("an ops health failure shows an error and refresh can recover", async () =>
     message: "Report temporarily unavailable",
   });
   try {
-    fireEvent.click(view.getByRole("button", { name: "Reports" }));
+    await openRootReport(view, "Operations health");
     await view.findByText("Report temporarily unavailable");
     expect(view.queryByRole("table", { name: "Seat sync" })).toBeNull();
-    const section = view
-      .getByRole("heading", { name: "Reports · Operations health" })
-      .closest("section");
-    if (!section) throw new Error("Expected the ops health section");
-    fireEvent.click(within(section).getByRole("button", { name: "Refresh" }));
+    await clickRootToolbarButton(view, "Refresh");
     await view.findByRole("table", { name: "Seat sync" });
   } finally {
     report.mockRestore();
