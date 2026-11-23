@@ -7,18 +7,21 @@ import type {
 } from "@tearleads/client-sdk";
 import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useEffect, useMemo, useState } from "react";
+import { MINI_APP_ITEM_GRID_ROW_HEIGHT } from "../../../../components/mini-app/item-view/MiniAppItemGrid";
 import {
-  getMiniAppCompactTableRowHeight,
-  useMiniAppCompactTableLayout,
-} from "../../../../components/mini-app/MiniAppTable";
+  getMiniAppItemViewRowHeight,
+  type MiniAppItemView,
+} from "../../../../components/mini-app/item-view/miniAppItemView";
+import { useMiniAppCompactTableLayout } from "../../../../components/mini-app/MiniAppTable";
 import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
 import { explorerDocumentQueryContainerId } from "../../../../stores/explorer/orphanedDocuments";
 import { CONTACTS_CONTAINER_NAME } from "../../../../stores/systemContainers";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 
 /**
- * The one row pitch for the explorer item list, and whether the row folds into
- * a two-line summary.
+ * The one row pitch for the explorer item list in its current view — a table
+ * row, or a line of grid tiles — and whether a table row folds into a two-line
+ * summary.
  *
  * Three places have to agree on the pitch — the virtual window math (which
  * derives the fetched limit/offset in ExplorerContainerDetail), the spacer
@@ -34,13 +37,20 @@ import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
  * routed tablets (44px), not just on phones (56px) and desktop (36px). It is
  * `Math.max`-based, so it is a no-op at the two-line pitch.
  */
-export function useExplorerItemTableLayout(narrowFrame: boolean): {
+export function useExplorerItemTableLayout(
+  narrowFrame: boolean,
+  view: MiniAppItemView,
+): {
   compact: boolean;
   rowHeight: number;
 } {
   const { compact: tierCompact } = useMiniAppCompactTableLayout();
   const compact = tierCompact || narrowFrame;
-  const rowHeight = useTouchRowHeight(getMiniAppCompactTableRowHeight(compact));
+  const rowHeight = useTouchRowHeight(
+    view === "grid"
+      ? MINI_APP_ITEM_GRID_ROW_HEIGHT
+      : getMiniAppItemViewRowHeight(view, compact),
+  );
   return { compact, rowHeight };
 }
 

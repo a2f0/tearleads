@@ -90,9 +90,36 @@ function expectMenu(
   }
 }
 
-/** Moves the pointer off the menu, which the last click can leave it over. */
+/**
+ * Waits out the finite animations on the menu and the surfaces holding it. A
+ * panel's entrance slides it up by a fraction of a pixel per frame, and a box
+ * read mid-slide rounds to sizes like 24.00003.
+ */
+function settleMenu(menu: Locator): Promise<void> {
+  return menu.evaluate(async (list) => {
+    const entrances = document.getAnimations().filter((animation) => {
+      const effect = animation.effect;
+      const target = effect instanceof KeyframeEffect ? effect.target : null;
+      return (
+        target !== null &&
+        (target.contains(list) || list.contains(target)) &&
+        effect?.getComputedTiming().endTime !== Infinity
+      );
+    });
+    // A cancelled animation rejects `finished`, but has stopped moving too.
+    await Promise.all(
+      entrances.map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+}
+
+/**
+ * Moves the pointer off the menu, which the last click can leave it over, and
+ * reads it once it has stopped moving.
+ */
 async function readMenuAtRest(page: Page, menu: Locator) {
   await page.mouse.move(0, 0);
+  await settleMenu(menu);
   return readMenu(menu);
 }
 

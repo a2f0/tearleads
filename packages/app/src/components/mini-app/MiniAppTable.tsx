@@ -10,7 +10,6 @@ export {
   useMiniAppColumnVisibility,
 } from "./tables/MiniAppColumnVisibility";
 export {
-  getMiniAppCompactTableRowHeight,
   MiniAppCompactTableCell,
   type MiniAppCompactTableField,
   MiniAppCompactTableHeader,

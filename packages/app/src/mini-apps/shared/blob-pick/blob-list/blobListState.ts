@@ -7,8 +7,8 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useReducer, useState } from "react";
+import { getMiniAppItemViewRowHeight } from "../../../../components/mini-app/item-view/miniAppItemView";
 import {
-  getMiniAppCompactTableRowHeight,
   shouldFoldCompactRows,
   useMiniAppCompactTableLayout,
 } from "../../../../components/mini-app/MiniAppTable";
@@ -73,9 +73,13 @@ function useBlobListTableLayout(narrowFrame: boolean) {
     setLargeThumbnails(large);
     saveStoredPreference(LARGE_THUMBNAILS_KEY, String(large));
   };
-  // The rendered rows, scroll spacers, and fetch window all use this pitch.
+  // The rendered rows, scroll spacers, and fetch window all use this pitch:
+  // the large-thumbnail toggle is the shared large-rows view.
   const rowHeight = useTouchRowHeight(
-    largeThumbnails ? 96 : getMiniAppCompactTableRowHeight(compact),
+    getMiniAppItemViewRowHeight(
+      largeThumbnails ? "large-rows" : "rows",
+      compact,
+    ),
   );
   return { changeThumbnailSize, compact, largeThumbnails, rowHeight };
 }
