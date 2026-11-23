@@ -164,6 +164,8 @@ test("describeSyncStatus names another organization as the billing reason", () =
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: "active",
       billingBlockScope: "other",
     }),
@@ -183,6 +185,8 @@ test("describeSyncStatus labels the settled states", () => {
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -199,6 +203,8 @@ test("describeSyncStatus labels the settled states", () => {
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -218,6 +224,8 @@ test("describeSyncStatus uses the singular for one pending change", () => {
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -237,6 +245,8 @@ test("describeSyncStatus pluralizes and notes offline for pending changes", () =
       syncActive: false,
       online: false,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -256,6 +266,8 @@ test("describeSyncStatus names an expired trial as the billing reason", () => {
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: "trialing",
       billingBlockScope: "active",
     }),
@@ -275,6 +287,8 @@ test("describeSyncStatus explains disabled billing", () => {
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: "disabled",
       billingBlockScope: "active",
     }),
@@ -294,6 +308,8 @@ test("describeSyncStatus falls back to a generic billing message", () => {
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: "deleting",
       billingBlockScope: "active",
     }),
@@ -307,9 +323,11 @@ test("summarizePendingWrites counts failed items and captures the first error", 
     failedItem("Sync failed (500)"),
   ]);
   expect(summary).toEqual({
+    blockedCount: 0,
     count: 6,
     failedCount: 2,
     firstError: "Write access denied by the server (403)",
+    organizationIds: [],
   });
 });
 
@@ -341,6 +359,8 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -357,6 +377,8 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -408,6 +430,8 @@ test("describeSyncStatus names the queue read failure over stale failed writes",
       syncActive: false,
       online: true,
       syncPaused: false,
+      writesPaused: false,
+      blockedWriteCount: 0,
       billingStatus: null,
       billingBlockScope: "active",
     }),
@@ -426,13 +450,15 @@ test("describeSyncStatus names a sync pause as why changes are waiting", () => {
     syncActive: false,
     billingStatus: null,
     billingBlockScope: "active",
+    blockedWriteCount: 0,
   } as const;
+  const paused = { syncPaused: true, writesPaused: true } as const;
 
-  expect(
-    describeSyncStatus({ ...pending, online: true, syncPaused: true }),
-  ).toBe("2 changes not yet synced (sync is paused for an organization)");
+  expect(describeSyncStatus({ ...pending, ...paused, online: true })).toBe(
+    "2 changes not yet synced (sync is paused for an organization)",
+  );
   // Offline is the nearer reason: nothing would send even without the pause.
-  expect(
-    describeSyncStatus({ ...pending, online: false, syncPaused: true }),
-  ).toBe("2 changes not yet synced (offline)");
+  expect(describeSyncStatus({ ...pending, ...paused, online: false })).toBe(
+    "2 changes not yet synced (offline)",
+  );
 });
