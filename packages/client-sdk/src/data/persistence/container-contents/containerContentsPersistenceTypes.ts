@@ -371,6 +371,10 @@ export interface ContainerContentsPersistence
     input: {
       acceptedPendingUpdateIds: readonly string[];
       clearSyncFailure?: boolean | undefined;
+      /** Runs in the committing transaction, after the record is saved. */
+      commitSideEffect?:
+        | ((transactionExecSql: ExecSql) => Promise<void>)
+        | undefined;
       container: ContainerRecord;
       expectedContainer: ContainerRecord;
       expectedRecord: ContainerMetadataRecord;
