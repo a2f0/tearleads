@@ -359,8 +359,10 @@
   cursor: pointer;
 }
 
-.routed-pane-taskbar-menu-button:focus-visible,
-.routed-pane-taskbar-menu-button[aria-expanded="true"] {
+/* Only keyboard focus fills the button. Open is not marked: the launcher sheet
+   covers the button while it is open, and in tablet side mode the expanded
+   rail already shows the state, where a lasting fill read as a focus ring. */
+.routed-pane-taskbar-menu-button:focus-visible {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
 }

@@ -25,8 +25,8 @@
   );
 }
 
-.routed-pane-taskbar-menu-button:focus-visible,
-.routed-pane-taskbar-menu-button[aria-expanded="true"] {
+/* Inverted tones on the fill RoutedPane.css draws for keyboard focus only. */
+.routed-pane-taskbar-menu-button:focus-visible {
   --tearleads-logo-primary: color-mix(
     in srgb,
     var(--emphasis-text) 62%,
