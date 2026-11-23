@@ -1,4 +1,4 @@
-import { afterEach, expect, spyOn, test } from "bun:test";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import type { RootIdentity } from "@tearleads/client-sdk";
 import { WindowMenuProvider, WindowToolBar } from "@tearleads/windowing";
 import {
@@ -88,6 +88,122 @@ test("Lift suspension reads Lifting... and is disabled until the lift settles", 
     );
     const lift = toolbar.getByRole("button", { name: "Lift suspension" });
     expect((lift as HTMLButtonElement).disabled).toBe(false);
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+const MEMBER: RootIdentity = { ...ROOT_IDENTITY, isRoot: false };
+const SUSPENDED = { ...MEMBER, suspendedAt: "2026-09-07T12:00:00.000Z" };
+type Outcome =
+  | { data: RootIdentity; ok: true }
+  | { message: string; ok: false; status: number | null };
+
+/** Stubs the root client with held suspend and lift calls. */
+function holdRootChanges() {
+  const pending: Array<PromiseWithResolvers<Outcome>> = [];
+  const hold = mock(() => {
+    const call = Promise.withResolvers<Outcome>();
+    pending.push(call);
+    return call.promise;
+  });
+  const spy = spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+    root: { liftIdentitySuspension: hold, suspendIdentity: hold },
+  } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>);
+  return { hold, pending, spy };
+}
+
+test("two clicks in one batch start one lift", async () => {
+  const { hold, pending, spy } = holdRootChanges();
+  try {
+    const view = render(inToolbar(SUSPENDED));
+    const lift = within(view.getByRole("toolbar")).getByRole("button", {
+      name: "Lift suspension",
+    });
+    // Both clicks land before React renders the action disabled.
+    act(() => {
+      lift.click();
+      lift.click();
+    });
+    expect(hold).toHaveBeenCalledTimes(1);
+    await act(async () => pending[0]?.resolve({ data: MEMBER, ok: true }));
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+test("two submits in one batch start one suspension", async () => {
+  const { hold, pending, spy } = holdRootChanges();
+  try {
+    const view = render(inToolbar(MEMBER));
+    fireEvent.click(
+      within(view.getByRole("toolbar")).getByRole("button", {
+        name: "Suspend account",
+      }),
+    );
+    const suspend = within(view.getByRole("dialog")).getByRole("button", {
+      name: "Suspend",
+    });
+    act(() => {
+      suspend.click();
+      suspend.click();
+    });
+    expect(hold).toHaveBeenCalledTimes(1);
+    await act(async () => pending[0]?.resolve({ data: SUSPENDED, ok: true }));
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+test("a suspension keeps its dialog open while it runs, then closes showing a failure that Cancel keeps", async () => {
+  const { pending, spy } = holdRootChanges();
+  try {
+    const view = render(inToolbar(MEMBER));
+    const toolbar = within(view.getByRole("toolbar"));
+    const ask = () =>
+      fireEvent.click(toolbar.getByRole("button", { name: "Suspend account" }));
+    ask();
+    fireEvent.click(
+      within(view.getByRole("dialog")).getByRole("button", { name: "Suspend" }),
+    );
+    const dialog = within(view.getByRole("dialog"));
+    expect(
+      (
+        dialog.getByRole("button", {
+          name: "Suspending...",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (dialog.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        toolbar.getByRole("button", {
+          name: "Suspend account",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+
+    await act(async () =>
+      pending[0]?.resolve({
+        message: "Suspension denied",
+        ok: false,
+        status: 409,
+      }),
+    );
+    expect(view.queryByRole("dialog")).toBeNull();
+    expect(view.getByText("Suspension denied")).toBeTruthy();
+
+    ask();
+    expect(view.getByRole("dialog")).toBeTruthy();
+    expect(view.getByText("Suspension denied")).toBeTruthy();
+    fireEvent.click(
+      within(view.getByRole("dialog")).getByRole("button", { name: "Cancel" }),
+    );
+    expect(view.queryByRole("dialog")).toBeNull();
+    expect(view.getByText("Suspension denied")).toBeTruthy();
   } finally {
     spy.mockRestore();
   }
