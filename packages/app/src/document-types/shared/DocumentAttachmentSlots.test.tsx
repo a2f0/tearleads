@@ -45,6 +45,7 @@ function renderAttachmentSlots(params?: {
   blobPicker?: Parameters<typeof DocumentAttachmentSlots>[0]["blobPicker"];
   canAttach?: boolean;
   imageUrlBySlotId?: Readonly<Record<string, string | undefined>>;
+  isEditing?: boolean;
   onClearAttachment?: (slotId: string) => void;
   onOpenBlob?: (request: DocumentBlobOpenRequest) => void;
 }) {
@@ -56,6 +57,7 @@ function renderAttachmentSlots(params?: {
       blobPicker={params?.blobPicker}
       canAttach={params?.canAttach ?? true}
       imageUrlBySlotId={params?.imageUrlBySlotId ?? {}}
+      isEditing={params?.isEditing ?? params?.canAttach ?? true}
       onClearAttachment={params?.onClearAttachment ?? (() => undefined)}
       onSelectedAttachment={() => undefined}
       slots={params?.slots ?? slots}
@@ -201,6 +203,36 @@ test("photo collection actions and append card are hidden in read mode", () => {
   expect(view.queryByRole("button", { name: "Clear Photos 2" })).toBeNull();
 });
 
+test("an empty photo collection is listed only while editing", () => {
+  const photos = { label: "Photos", slotId: "photos", multiple: true };
+  const receipt = { label: "Receipt", slotId: "receipt" };
+  const empty = { attachments: [], canAttach: false };
+
+  // A reader has nothing to append to, so the collection leaves no card, and
+  // a document with no other slot leaves no row at all.
+  const reading = renderAttachmentSlots({ ...empty, slots: [photos] });
+  expect(reading.container.childElementCount).toBe(0);
+  reading.unmount();
+
+  const readingWithReceipt = renderAttachmentSlots({
+    ...empty,
+    slots: [photos, receipt],
+  });
+  expect(readingWithReceipt.queryByText("Photos")).toBeNull();
+  expect(readingWithReceipt.getByText("Receipt")).toBeTruthy();
+  readingWithReceipt.unmount();
+
+  // While editing, the card holds its place until attaching becomes possible.
+  const editing = renderAttachmentSlots({
+    ...empty,
+    isEditing: true,
+    slots: [photos],
+  });
+  expect(editing.getByText("Photos")).toBeTruthy();
+  expect(editing.getByText("No image selected")).toBeTruthy();
+  expect(editing.queryByRole("button", { name: "Add Photos" })).toBeNull();
+});
+
 test("empty image upload actions are hidden when attachments cannot be changed", () => {
   const view = renderAttachmentSlots({
     attachments: [],
@@ -228,6 +260,7 @@ test("an unavailable image says so and retries its download", () => {
       attachments={attachments}
       canAttach={false}
       imageUrlBySlotId={{}}
+      isEditing={false}
       onClearAttachment={() => undefined}
       onRetryDownload={() => {
         retries += 1;

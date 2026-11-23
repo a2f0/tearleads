@@ -54,6 +54,7 @@ export function useContactPhotos({
         {...document}
         slots={slots}
         imageUrlBySlotId={imageUrlBySlotId}
+        isEditing={isEditing}
         canAttach={
           document.ready && isEditing && document.canWrite && document.canAttach
         }

@@ -111,6 +111,7 @@ async function readPublicPages(
         afterVersion: progress.afterVersion,
         knownCurrentState,
         signal: input.signal,
+        stillCurrent: input.stillCurrent,
       },
     )) {
       assertProjectionVerificationCurrent(current);
