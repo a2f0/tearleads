@@ -113,8 +113,8 @@ test("the hub shows four tabs, by direction, with Sync Lanes active by default",
   ]);
 });
 
-test("the Outgoing route stacks Uploads over the Write Queue in one scroller", async () => {
-  const view = renderSectionsPanel({ section: null, view: "outgoing" });
+test("the Outgoing route shows one table in one scroller under one header", async () => {
+  const view = renderSectionsPanel({ view: "outgoing" });
 
   expect(selectedTabs(view)).toEqual([
     "Sync Lanes:false",
@@ -123,16 +123,9 @@ test("the Outgoing route stacks Uploads over the Write Queue in one scroller", a
     "Incoming:false",
   ]);
   await waitFor(() =>
-    expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy(),
+    expect(view.getByText(EXPLORER_LABELS.outgoingEmpty)).toBeTruthy(),
   );
-  expect(
-    view
-      .getAllByRole("region")
-      .map((region) => region.getAttribute("aria-labelledby"))
-      .map((id) => (id ? document.getElementById(id)?.textContent : null)),
-  ).toEqual([EXPLORER_LABELS.uploadsTitle, EXPLORER_LABELS.writeQueueTitle]);
-  expect(view.getByText(EXPLORER_LABELS.uploadsEmpty)).toBeTruthy();
-  // One scroller and one header for the tab, not one per section.
+  expect(view.getAllByRole("table")).toHaveLength(1);
   expect(
     view.container.querySelectorAll(".mini-app-panel--scroll"),
   ).toHaveLength(1);
@@ -142,7 +135,7 @@ test("the Outgoing route stacks Uploads over the Write Queue in one scroller", a
   ).toBeTruthy();
 });
 
-test("a write-queue entry keeps the Outgoing tab and hides the Uploads section", async () => {
+test("a write-queue entry keeps the Outgoing tab and replaces its table", async () => {
   const view = renderSectionsPanel({
     entryKey: "document::missing",
     view: "write-queue-entry",
@@ -159,8 +152,7 @@ test("a write-queue entry keeps the Outgoing tab and hides the Uploads section",
   expect(
     view.getByText(EXPLORER_LABELS.writeQueueEntryDetailTitle),
   ).toBeTruthy();
-  expect(view.queryByText(EXPLORER_LABELS.uploadsEmpty)).toBeNull();
-  expect(view.queryAllByRole("region")).toHaveLength(0);
+  expect(view.queryByRole("table")).toBeNull();
 });
 
 test("the blob-browser route marks the Blob Browser tab active", async () => {

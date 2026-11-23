@@ -1,15 +1,12 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { isExplorerOrphanedDocumentsId } from "../../stores/explorer/orphanedDocuments";
 
-/** A section of the Outgoing tab a link can scroll to the top. */
-export type ExplorerOutgoingSection = "uploads" | "writes";
-
 export type ExplorerRoute =
   | { view: "selection" }
   | { view: "blob-browser"; blobId: string | null; storageKey: string | null }
   | { view: "sync-lanes" }
   | { view: "sync-lane-detail"; laneKey: string }
-  | { view: "outgoing"; section: ExplorerOutgoingSection | null }
+  | { view: "outgoing" }
   | { view: "write-queue-entry"; entryKey: string }
   | { view: "incoming" }
   | { view: "new-structured-document"; containerId: string }
@@ -34,12 +31,6 @@ export interface ExplorerRouteSnapshot {
  */
 export interface ExplorerRouteNavigationOptions {
   replace?: boolean | undefined;
-}
-
-export interface ExplorerOutgoingRouteOptions
-  extends ExplorerRouteNavigationOptions {
-  /** The section to scroll to the top; omitted opens the tab at its top. */
-  section?: ExplorerOutgoingSection | undefined;
 }
 
 export type ExplorerRouteSetter = (
@@ -137,18 +128,10 @@ function parseExplorerSyncRoute(
 function parseExplorerOutgoingRoute(
   pathSegments: ReadonlyArray<string>,
 ): ExplorerRouteSnapshot {
-  const [, section, entryKey] = pathSegments;
-  if (section === "writes") {
-    return entryKey
-      ? { route: { entryKey, view: "write-queue-entry" } }
-      : { route: { section, view: "outgoing" } };
-  }
-  return {
-    route: {
-      section: section === "uploads" ? section : null,
-      view: "outgoing",
-    },
-  };
+  const [, second, entryKey] = pathSegments;
+  return second === "writes" && entryKey
+    ? { route: { entryKey, view: "write-queue-entry" } }
+    : { route: { view: "outgoing" } };
 }
 
 export function parseExplorerRouteSegments(
@@ -199,7 +182,7 @@ export function formatExplorerRouteSegments(
     case "sync-lane-detail":
       return ["sync", "lanes", route.laneKey];
     case "outgoing":
-      return route.section ? ["outgoing", route.section] : ["outgoing"];
+      return ["outgoing"];
     case "write-queue-entry":
       return ["outgoing", "writes", route.entryKey];
     case "incoming":
