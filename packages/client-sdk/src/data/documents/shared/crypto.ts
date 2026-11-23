@@ -244,7 +244,8 @@ function throwInspectionFailures(
           reason.stage === firstReason.stage,
       )
         ? firstReason.stage
-        : "decrypt";
+        : // A batch names no single update, so it is never a verdict.
+          "decrypt_runtime";
     throw isolateDocumentSyncBatchError({
       // The per-update errors carry authenticated writer attribution. Once
       // more than one update fails, retaining those errors beneath an

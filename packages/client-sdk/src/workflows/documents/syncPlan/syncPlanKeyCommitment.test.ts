@@ -130,3 +130,15 @@ test("one AES-GCM refusal that does not repeat voids nothing", async () => {
     decrypt.mockRestore();
   }
 });
+
+test("an engine that refuses even its own canary voids nothing", async () => {
+  const { judge, update } = await servedUpdate();
+  const decrypt = spyOn(crypto.subtle, "decrypt").mockImplementation(() =>
+    Promise.reject(new DOMException("backend", "OperationError")),
+  );
+  try {
+    expect(await failedStage(judge(update))).toBe("decrypt_runtime");
+  } finally {
+    decrypt.mockRestore();
+  }
+});

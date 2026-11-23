@@ -3,6 +3,7 @@ import {
   computeContentRecordNonceDomainHash,
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
+  createAesGcmIv,
   type ParsedDocumentEncryptedUpdate,
   parseDocumentEncryptedUpdate,
 } from "@tearleads/crypto";
@@ -203,7 +204,8 @@ function assertEnvelopeCommitsToHeldKey(input: {
 /**
  * AES-GCM refusing the record: a failed tag check, or a ciphertext too short
  * to hold one. WebCrypto reports both as `OperationError`, which some engines
- * also use for a backend fault, so a refusal is retried once.
+ * also use for a backend fault, so a refusal is the record's only once
+ * {@link aesGcmRoundTripsUnder} shows this runtime works.
  */
 function isAesGcmAuthenticationFailure(error: unknown): boolean {
   return (
@@ -211,6 +213,58 @@ function isAesGcmAuthenticationFailure(error: unknown): boolean {
     error !== null &&
     Reflect.get(error, "name") === "OperationError"
   );
+}
+
+const AES_GCM_CANARY = new TextEncoder().encode(
+  "tearleads.document.decrypt-canary",
+);
+
+type AesGcmDecrypt = (
+  iv: Uint8Array<ArrayBuffer>,
+  ciphertext: Uint8Array<ArrayBuffer>,
+) => Promise<ArrayBuffer>;
+
+/**
+ * Seals a fixed plaintext under the record's key and associated data with a
+ * fresh IV, then opens it the way the record was opened. If that fails too,
+ * this runtime cannot do AES-GCM right now, and the record's refusal says
+ * nothing about the record. The canary never leaves this device.
+ */
+async function aesGcmRoundTripsUnder(input: {
+  additionalData: Uint8Array<ArrayBuffer>;
+  decrypt: AesGcmDecrypt;
+  encryptKey: () => Promise<CryptoKey>;
+}): Promise<void> {
+  const iv = createAesGcmIv();
+  const sealed = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv, additionalData: input.additionalData },
+    await input.encryptKey(),
+    AES_GCM_CANARY,
+  );
+  const opened = new Uint8Array(
+    await input.decrypt(iv, new Uint8Array(sealed)),
+  );
+  if (
+    opened.length !== AES_GCM_CANARY.length ||
+    opened.some((byte, index) => byte !== AES_GCM_CANARY[index])
+  ) {
+    throw new Error("AES-GCM canary did not round-trip");
+  }
+}
+
+interface RecordKeys {
+  readonly plaintextHashKey: CryptoKey;
+  readonly recordKey: CryptoKey;
+}
+
+async function deriveRecordKeys(
+  keyInput: Omit<Parameters<typeof deriveDocumentContentRecordKey>[0], "usage">,
+): Promise<RecordKeys> {
+  const [recordKey, plaintextHashKey] = await Promise.all([
+    deriveDocumentContentRecordKey({ ...keyInput, usage: "decrypt" }),
+    deriveDocumentPlaintextHashKey(keyInput),
+  ]);
+  return { plaintextHashKey, recordKey };
 }
 
 async function decryptPayload(input: {
@@ -228,67 +282,74 @@ async function decryptPayload(input: {
       stage,
       updateId: input.update.id,
     });
-  let recordKey: CryptoKey;
-  let plaintextHashKey: CryptoKey;
+  const keyInput = {
+    contentKeyMaterial: input.contentKey.material,
+    contentKeyEpoch: input.contentKeyEpoch,
+    contentRecordId: input.encrypted.contentRecordId,
+    documentId: input.documentId,
+    organizationId: input.organizationId,
+  };
+  let keys: RecordKeys;
   try {
-    const keyInput = {
-      contentKeyMaterial: input.contentKey.material,
-      contentKeyEpoch: input.contentKeyEpoch,
-      contentRecordId: input.encrypted.contentRecordId,
-      documentId: input.documentId,
-      organizationId: input.organizationId,
-    };
-    [recordKey, plaintextHashKey] = await Promise.all([
-      deriveDocumentContentRecordKey({ ...keyInput, usage: "decrypt" }),
-      deriveDocumentPlaintextHashKey(keyInput),
-    ]);
+    keys = await deriveRecordKeys(keyInput);
   } catch (error) {
     throw isolate(error, "decrypt_runtime");
   }
-  const decrypt = async () =>
+  const additionalData = contentRecordAdditionalDataBytes({
+    contentKeyEpoch: input.contentKeyEpoch,
+    contentRecordId: input.encrypted.contentRecordId,
+    documentId: input.documentId,
+    metadataHash: input.encrypted.metadataHash,
+    nonceDomainHash: input.encrypted.nonceDomainHash,
+    organizationId: input.organizationId,
+  });
+  const decrypt: AesGcmDecrypt = (iv, ciphertext) =>
+    crypto.subtle.decrypt(
+      { name: "AES-GCM", iv, additionalData },
+      keys.recordKey,
+      ciphertext,
+    );
+  const openRecord = async () =>
     new Uint8Array(
-      await crypto.subtle.decrypt(
-        {
-          name: "AES-GCM",
-          iv: asWebCryptoBytes(input.encrypted.iv),
-          additionalData: contentRecordAdditionalDataBytes({
-            contentKeyEpoch: input.contentKeyEpoch,
-            contentRecordId: input.encrypted.contentRecordId,
-            documentId: input.documentId,
-            metadataHash: input.encrypted.metadataHash,
-            nonceDomainHash: input.encrypted.nonceDomainHash,
-            organizationId: input.organizationId,
-          }),
-        },
-        recordKey,
+      await decrypt(
+        asWebCryptoBytes(input.encrypted.iv),
         asWebCryptoBytes(input.encrypted.ciphertext),
       ),
     );
   try {
-    return { plaintextHashKey, updateData: await decryptRefusedTwice(decrypt) };
+    return {
+      plaintextHashKey: keys.plaintextHashKey,
+      updateData: await openRecord(),
+    };
   } catch (error) {
-    // Under the committed key, a refused record is the writer's: every
-    // reader holding that key refuses it. Anything else is this runtime's.
+    if (!isAesGcmAuthenticationFailure(error)) {
+      throw isolate(error, "decrypt_runtime");
+    }
+  }
+  try {
+    await aesGcmRoundTripsUnder({
+      additionalData,
+      decrypt,
+      encryptKey: () =>
+        deriveDocumentContentRecordKey({ ...keyInput, usage: "encrypt" }),
+    });
+  } catch (error) {
+    throw isolate(error, "decrypt_runtime");
+  }
+  try {
+    // A passing fault would open the record now; a refused record stays so.
+    return {
+      plaintextHashKey: keys.plaintextHashKey,
+      updateData: await openRecord(),
+    };
+  } catch (error) {
+    // Under the committed key, in a runtime that just round-tripped AES-GCM,
+    // a refused record is the writer's: every reader holding that key
+    // refuses it. Anything else is this runtime's.
     throw isolate(
       error,
       isAesGcmAuthenticationFailure(error) ? "decrypt" : "decrypt_runtime",
     );
-  }
-}
-
-/**
- * Runs `decrypt`, and once more if AES-GCM refuses the record. A tag check
- * refuses the same bytes every time, while an engine may report a passing
- * backend fault the same way, so only a second refusal is the record's.
- */
-async function decryptRefusedTwice(
-  decrypt: () => Promise<Uint8Array>,
-): Promise<Uint8Array> {
-  try {
-    return await decrypt();
-  } catch (error) {
-    if (!isAesGcmAuthenticationFailure(error)) throw error;
-    return decrypt();
   }
 }
 
