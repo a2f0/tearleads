@@ -1,14 +1,17 @@
 import { expect, test } from "bun:test";
-import type {
-  DomainSyncSnapshot,
-  PendingDownloadQueueItem,
-  SyncLaneSnapshot,
-} from "@tearleads/client-sdk";
+import type { PendingDownloadQueueItem } from "@tearleads/client-sdk";
 import {
   selectSyncHolds,
   summarizeDownloadQueue,
   summarizeSyncLanes,
 } from "./syncActivityModel";
+import {
+  DESCRIBED,
+  lane,
+  NO_LANES,
+  SETTLED,
+  snapshot,
+} from "./syncStatus.testFixtures";
 import { describeSyncStatus, resolveSyncStatus } from "./syncStatusModel";
 import {
   describeSyncStatusDetails,
@@ -18,69 +21,6 @@ import {
 // Each test here covers a row of issue #3160's gaps table: a situation the
 // tray reported as plain green before it read the sync lanes, the download
 // queue, and every sync hold.
-
-const SETTLED = {
-  billingNeedsAttention: false,
-  otherOrganizationBillingBlocked: false,
-  ready: true,
-  pendingWriteCount: 0,
-  failedWriteCount: 0,
-  queueReadError: null,
-  failedLaneCount: 0,
-  syncActive: false,
-} as const;
-
-const DESCRIBED = {
-  pendingWriteCount: 0,
-  failedWriteCount: 0,
-  firstWriteError: null,
-  queueReadError: null,
-  failedLaneCount: 0,
-  firstLaneError: null,
-  syncActive: false,
-  online: true,
-  syncPaused: false,
-  billingStatus: null,
-  billingBlockScope: "active",
-} as const;
-
-const NO_LANES = { failed: 0, firstError: null, running: 0 } as const;
-
-function lane(overrides: Partial<SyncLaneSnapshot>): SyncLaneSnapshot {
-  return {
-    blobStorageKey: null,
-    errorCount: 0,
-    key: "documents:note",
-    label: "Note",
-    lastAction: "completed",
-    lastActionAt: "2026-11-22T00:00:00.000Z",
-    lastCompletedAt: "2026-11-22T00:00:00.000Z",
-    lastError: null,
-    lastFailedAt: null,
-    lastRequestedAt: null,
-    lastStartedAt: null,
-    phase: "document",
-    progress: null,
-    registrationIndex: 0,
-    requestCount: 1,
-    requested: false,
-    runAbandoned: false,
-    runCount: 1,
-    runDurations: null,
-    running: false,
-    status: "complete",
-    ...overrides,
-  };
-}
-
-function snapshot(lanes: SyncLaneSnapshot[]): DomainSyncSnapshot {
-  return {
-    hasPendingWork: lanes.some((entry) => entry.running || entry.requested),
-    lanes,
-    pumpActive: lanes.some((entry) => entry.running),
-    updatedAt: "2026-11-22T00:00:00.000Z",
-  };
-}
 
 function pendingDownload(lastError: string | null): PendingDownloadQueueItem {
   return {
@@ -107,6 +47,7 @@ test("a first sign-in still pulling content reads as syncing, with what is left"
     describeSyncStatusDetails({
       downloads,
       lanes: { ...NO_LANES, running: 3 },
+      pausedOrganizationCount: 0,
       pendingWriteCount: 0,
       uploadingFileCount: 0,
     }),
@@ -212,52 +153,42 @@ test("a failed upload is left to the write queue, not counted as a failed lane",
   ).toEqual({ failed: 0, firstError: null, running: 0 });
 });
 
-test("offline hides lane failures and activity, and any pause is named", () => {
+test("offline hides lane failures and activity from the status and the popover", () => {
   const lanes = { failed: 2, firstError: "Sync failed (500)", running: 1 };
-  const noPauses = new Set<string>();
-  expect(
-    selectSyncHolds({
-      dbReady: true,
-      lanes,
-      online: true,
-      pausedOrganizationIds: noPauses,
-    }),
-  ).toEqual({
-    failedLaneCount: 2,
-    firstLaneError: "Sync failed (500)",
+  const holds = {
+    dbReady: true,
+    lanes,
+    online: true,
+    pausedOrganizationIds: new Set<string>(),
+    writeOrganizationIds: [],
+  };
+  expect(selectSyncHolds(holds)).toEqual({
+    lanes,
     laneActive: true,
-    syncPaused: false,
+    pausedOrganizationCount: 0,
+    writesPaused: false,
   });
-  expect(
-    selectSyncHolds({
-      dbReady: true,
-      lanes,
-      online: false,
-      pausedOrganizationIds: noPauses,
-    }),
-  ).toEqual({
-    failedLaneCount: 0,
-    firstLaneError: null,
+  // Offline, sync tasks fail or wait as a matter of course, so the popover
+  // gets the same empty summary the status line reads.
+  expect(selectSyncHolds({ ...holds, online: false })).toEqual({
+    lanes: NO_LANES,
     laneActive: false,
-    syncPaused: false,
+    pausedOrganizationCount: 0,
+    writesPaused: false,
   });
+  expect(
+    listSyncStatusActions({
+      billingBlock: null,
+      canSync: false,
+      downloads: { failed: 0, firstError: null, pending: 0, status: "read" },
+      lanes: selectSyncHolds({ ...holds, online: false }).lanes,
+      pendingWriteCount: 0,
+      queueReadFailed: false,
+      uploadingFileCount: 0,
+    }),
+  ).toEqual([]);
   // A closed database runs nothing worth showing as activity.
-  expect(
-    selectSyncHolds({
-      dbReady: false,
-      lanes,
-      online: true,
-      pausedOrganizationIds: noPauses,
-    }).laneActive,
-  ).toBe(false);
-  expect(
-    selectSyncHolds({
-      dbReady: true,
-      lanes: NO_LANES,
-      online: true,
-      pausedOrganizationIds: new Set(["org-paused"]),
-    }).syncPaused,
-  ).toBe(true);
+  expect(selectSyncHolds({ ...holds, dbReady: false }).laneActive).toBe(false);
 });
 
 test("a pending download with a recorded error is named in the popover", () => {
@@ -276,6 +207,7 @@ test("a pending download with a recorded error is named in the popover", () => {
     describeSyncStatusDetails({
       downloads,
       lanes: NO_LANES,
+      pausedOrganizationCount: 0,
       pendingWriteCount: 1,
       uploadingFileCount: 2,
     }),
@@ -294,6 +226,7 @@ test("a pending download with a recorded error is named in the popover", () => {
         status: "failed",
       }),
       lanes: NO_LANES,
+      pausedOrganizationCount: 0,
       pendingWriteCount: 0,
       uploadingFileCount: 0,
     }),
@@ -330,7 +263,12 @@ test("a write being flushed reads differently from one that is waiting", () => {
   expect(describeSyncStatus(pending)).toBe("3 changes not yet synced");
   // Held writes are not being sent, whatever other lanes run.
   expect(
-    describeSyncStatus({ ...pending, syncActive: true, syncPaused: true }),
+    describeSyncStatus({
+      ...pending,
+      syncActive: true,
+      syncPaused: true,
+      writesPaused: true,
+    }),
   ).toBe("3 changes not yet synced (sync is paused for an organization)");
   // Sync running does not hide unflushed data: the glyph stays red.
   expect(
@@ -340,7 +278,7 @@ test("a write being flushed reads differently from one that is waiting", () => {
 
 test("the popover offers Sync now and a view for each line that needs one", () => {
   const quiet = {
-    billingBlocked: false,
+    billingBlock: null,
     canSync: true,
     downloads: { failed: 0, firstError: null, pending: 0, status: "read" },
     lanes: NO_LANES,
@@ -359,11 +297,11 @@ test("the popover offers Sync now and a view for each line that needs one", () =
       uploadingFileCount: 1,
     }),
   ).toEqual(["sync-now", "write-queue", "downloads", "uploads", "sync-lanes"]);
-  // Billing replaces Sync now, which would only be refused.
+  // The active organization's billing replaces Sync now, which it would refuse.
   expect(
     listSyncStatusActions({
       ...quiet,
-      billingBlocked: true,
+      billingBlock: "active",
       downloads: { message: "Storage unavailable", status: "unreadable" },
       queueReadFailed: true,
     }),

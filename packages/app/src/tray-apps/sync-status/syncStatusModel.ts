@@ -58,12 +58,23 @@ export interface PendingWriteQueueSummary {
   readonly failedCount: number;
   /** The first failed item's recorded error, for the tooltip/popover. */
   readonly firstError: string | null;
+  /**
+   * Queue items waiting on something else (status `blocked`), which running
+   * sync does not send.
+   */
+  readonly blockedCount: number;
+  /** The organizations the queued items belong to, each once. */
+  readonly organizationIds: ReadonlyArray<string>;
 }
 
 export function summarizePendingWrites(
   items: ReadonlyArray<PendingWriteQueueItem>,
 ): PendingWriteQueueSummary {
   const failedItems = items.filter((item) => item.status === "error");
+  const organizationIds = new Set<string>();
+  for (const item of items) {
+    if (item.organizationId !== null) organizationIds.add(item.organizationId);
+  }
   const firstError =
     failedItems
       .flatMap((item) =>
@@ -73,9 +84,11 @@ export function summarizePendingWrites(
       )
       .at(0) ?? null;
   return {
+    blockedCount: items.filter((item) => item.status === "blocked").length,
     count: countPendingWrites(items),
     failedCount: failedItems.length,
     firstError,
+    organizationIds: [...organizationIds],
   };
 }
 
@@ -84,7 +97,7 @@ export function summarizePendingWrites(
  * covers the active org, so a block on any other org is known only from its 402
  * (see `SyncBillingGate`) and cannot name a billing status.
  */
-type BillingBlockScope = "active" | "other";
+export type BillingBlockScope = "active" | "other";
 
 interface SyncStatusInput {
   /**
@@ -184,11 +197,18 @@ interface SyncStatusDescriptionInput {
   readonly syncActive: boolean;
   readonly online: boolean;
   /**
-   * The user paused some organization's sync on this device. Its writes wait
-   * in the same identity-wide queue and its content is not pulled, so the
-   * status names the pause rather than reading as a stall or as complete.
+   * The user paused some organization's sync on this device. Its content is
+   * not pulled, so "All changes synced" names the pause rather than reading
+   * as complete.
    */
   readonly syncPaused: boolean;
+  /**
+   * Some queued write belongs to a paused organization. Only then does a
+   * pending status name the pause: writes for other organizations still send.
+   */
+  readonly writesPaused: boolean;
+  /** Queued items waiting on something else, which running sync skips. */
+  readonly blockedWriteCount: number;
   readonly billingStatus: BillingStatus | null;
   /** Whose billing paused sync; only read when `status` is `billing`. */
   readonly billingBlockScope: BillingBlockScope;
@@ -199,6 +219,14 @@ interface SyncStatusDescriptionInput {
 function describeHold(input: SyncStatusDescriptionInput): string {
   if (!input.online) return SYNC_STATUS_LABELS.offlineSuffix;
   return input.syncPaused ? SYNC_STATUS_LABELS.syncPausedSuffix : "";
+}
+
+// What holds the queued writes back. A pause on an organization none of them
+// belong to holds nothing, so naming it would blame it for the wait; the
+// popover lists it instead.
+function describeWriteHold(input: SyncStatusDescriptionInput): string {
+  if (!input.online) return SYNC_STATUS_LABELS.offlineSuffix;
+  return input.writesPaused ? SYNC_STATUS_LABELS.syncPausedSuffix : "";
 }
 
 function describeFailure(input: SyncStatusDescriptionInput): string {
@@ -221,11 +249,14 @@ function describeFailure(input: SyncStatusDescriptionInput): string {
   return reason ? `${base} — ${reason}` : base;
 }
 
-function describePending(input: SyncStatusDescriptionInput): string {
+function describePendingCount(input: SyncStatusDescriptionInput): string {
   const count = input.pendingWriteCount;
-  // Lanes run for every organization, so with one paused its held writes
-  // would read as being sent; the pause note explains the wait instead.
-  if (input.syncActive && !input.syncPaused) {
+  // Running sync sends the queued writes unless some wait on a pause or on
+  // something else; then they read as waiting, whatever else runs. (A write
+  // whose last attempt failed is already the `error` status.)
+  const sending =
+    input.syncActive && !input.writesPaused && input.blockedWriteCount === 0;
+  if (sending) {
     return count === 1
       ? SYNC_STATUS_LABELS.pendingSyncingOne
       : `${SYNC_STATUS_LABELS.pendingSyncingPrefix} ${count} ${SYNC_STATUS_LABELS.pendingSyncingOther}`;
@@ -251,6 +282,6 @@ export function describeSyncStatus(input: SyncStatusDescriptionInput): string {
     case "error":
       return describeFailure(input);
     case "pending":
-      return `${describePending(input)}${describeHold(input)}`;
+      return `${describePendingCount(input)}${describeWriteHold(input)}`;
   }
 }

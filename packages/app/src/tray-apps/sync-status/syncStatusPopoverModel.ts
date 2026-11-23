@@ -2,6 +2,7 @@ import type {
   DownloadQueueSummary,
   SyncLaneSummary,
 } from "./syncActivityModel";
+import type { BillingBlockScope } from "./syncStatusModel";
 
 const DETAIL_LABELS = {
   changesToUpload: "Changes to upload:",
@@ -14,6 +15,8 @@ const DETAIL_LABELS = {
   uploading: "Uploading",
   file: ["file", "files"],
   syncTaskRunning: ["sync task running", "sync tasks running"],
+  syncPausedFor: "Sync paused for",
+  organization: ["organization", "organizations"],
 } as const;
 
 function counted(
@@ -29,6 +32,8 @@ interface SyncStatusDetailsInput {
   readonly lanes: SyncLaneSummary;
   /** Files imported into the Explorer that have not finished uploading. */
   readonly uploadingFileCount: number;
+  /** Organizations whose sync is paused on this device. */
+  readonly pausedOrganizationCount: number;
 }
 
 function describeDownloads(downloads: DownloadQueueSummary): string[] {
@@ -57,8 +62,9 @@ function describeDownloads(downloads: DownloadQueueSummary): string[] {
 /**
  * The popover's lines below the status, one direction each: local changes
  * waiting to upload, content waiting to download (and why it failed), files
- * the Explorer is still uploading, and sync tasks running. Failed sync tasks
- * are named by the status line itself.
+ * the Explorer is still uploading, sync tasks running, and organizations
+ * whose sync is paused (the status line names a pause only where it holds
+ * the queued writes). Failed sync tasks are named by the status line itself.
  */
 export function describeSyncStatusDetails(
   input: SyncStatusDetailsInput,
@@ -79,6 +85,11 @@ export function describeSyncStatusDetails(
   if (input.lanes.running > 0) {
     lines.push(counted(input.lanes.running, DETAIL_LABELS.syncTaskRunning));
   }
+  if (input.pausedOrganizationCount > 0) {
+    lines.push(
+      `${DETAIL_LABELS.syncPausedFor} ${counted(input.pausedOrganizationCount, DETAIL_LABELS.organization)}`,
+    );
+  }
   return lines;
 }
 
@@ -94,7 +105,8 @@ export type SyncStatusActionId =
 interface SyncStatusActionsInput {
   /** Online, signed in, and the database open: a sync request can run. */
   readonly canSync: boolean;
-  readonly billingBlocked: boolean;
+  /** Whose billing paused sync, if any organization's did. */
+  readonly billingBlock: BillingBlockScope | null;
   readonly pendingWriteCount: number;
   readonly queueReadFailed: boolean;
   readonly downloads: DownloadQueueSummary;
@@ -103,8 +115,9 @@ interface SyncStatusActionsInput {
 }
 
 /**
- * The popover's actions: Sync now while a request can run and billing allows
- * it, Update billing when billing paused sync, and a link into each Explorer
+ * The popover's actions: Sync now while a request can run and the active
+ * organization's billing allows it (another organization's block leaves the
+ * rest to sync), Update billing when billing paused sync, and a link into each Explorer
  * view that explains a line above it (the write queue when it holds or could
  * not read changes, Downloads when content waits or could not be read,
  * Uploads while files are uploading, and Sync Lanes while tasks run or fail).
@@ -113,8 +126,9 @@ export function listSyncStatusActions(
   input: SyncStatusActionsInput,
 ): ReadonlyArray<SyncStatusActionId> {
   const actions: SyncStatusActionId[] = [];
-  if (input.canSync && !input.billingBlocked) actions.push("sync-now");
-  if (input.billingBlocked) actions.push("billing");
+  if (input.canSync && input.billingBlock !== "active")
+    actions.push("sync-now");
+  if (input.billingBlock !== null) actions.push("billing");
   if (input.pendingWriteCount > 0 || input.queueReadFailed)
     actions.push("write-queue");
   if (
