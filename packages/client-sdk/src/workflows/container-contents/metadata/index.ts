@@ -14,10 +14,7 @@ import {
 } from "../../documents";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import { noteContainerMetadataDownloadDrained } from "./metadataDownloadCompletion";
-import {
-  applyIncomingContainerMetadataUpdates,
-  recordContainerMetadataVoids,
-} from "./metadataIncomingUpdateIsolation";
+import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
 import {
   currentMetadataPullContinuation,
   hasCurrentContainerMetadataReadState,
@@ -37,6 +34,7 @@ import {
   resumedEarlierMetadataPull,
   shouldRequestContainerMetadataFollowup,
 } from "./metadataSyncFollowup";
+import { containerMetadataVerdictRecorder } from "./metadataSyncVerdicts";
 
 export {
   hasContainerMetadataDocumentUpdateEvent,
@@ -326,12 +324,17 @@ async function finalizeContainerMetadataSync(input: {
   if (synced.decryptedUpdates.length > 0) {
     applyIncomingContainerMetadataUpdates(metadataState.doc, synced);
   }
+  const verdicts = containerMetadataVerdictRecorder(
+    metadataState.container.id,
+    synced,
+  );
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
     clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
       synced,
       outgoingUpdateCount,
     ),
+    commitSideEffect: verdicts.commitSideEffect,
     expectedSyncState: {
       pullContinuation: syncAttempt.consumedPullContinuation ?? null,
       record: syncAttempt.requestRecord,
@@ -376,17 +379,19 @@ async function finalizeContainerMetadataSync(input: {
       syncAttempt,
     });
   }
-  await recordContainerMetadataVoids(input, persisted, synced);
+  // A superseded save ran no recorder; the next pull judges its page again.
+  const cursorCleared = verdicts.settle(input.runtime.util.logError);
 
   return {
     ...persisted,
     ...(resumedEarlierMetadataPull(syncAttempt)
       ? { resumedEarlierPull: true as const }
       : {}),
-    shouldRequestFollowupSync: shouldRequestContainerMetadataFollowup({
-      persisted,
-      settleOutgoingPass: () =>
-        settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
-    }),
+    shouldRequestFollowupSync:
+      shouldRequestContainerMetadataFollowup({
+        persisted,
+        settleOutgoingPass: () =>
+          settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
+      }) || cursorCleared,
   };
 }

@@ -62,7 +62,7 @@ for (const run of RUNS) {
         current = false;
         server.retire(change);
         server.release();
-        expect(await hydrating).toEqual([]);
+        expect(await hydrating).toBeNull();
         expect(logs).toEqual([]);
         expect(server.requests).toEqual([
           `GET /documents/${documentId}/writer-projection`,

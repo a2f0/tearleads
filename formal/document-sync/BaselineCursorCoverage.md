@@ -33,7 +33,7 @@ carries nothing and no pull serves it.
 | --- | --- |
 | `Write` | a writer's update committed with its signed span by `appendDocumentUpdates` |
 | `Judged` | `validateDocumentSyncUpdateImports`, which voids an update whose span is false |
-| `Rotate` signing rule | `readProcessedCursorForVersion`, called by `buildDocumentRotationBaseline` and `resolveBaselineCursors` |
+| `Rotate` signing rule | `readProcessedCursorForVersion`, called by `buildDocumentRotationBaseline` and `resolveBaselineCursors`; a container metadata baseline signs the cursor its metadata pulls record |
 | `Gate` / `CoversAfter` | `committedFrontierAfterBaselineCursor` in `assertSyncRotationBaselinesSound` and `assertAtomicRotationBaselineCoversCommittedFrontier` |
 | `Gate`'s empty-snapshot rule | `assertOutgoingSpanOrCursoredEmptyBaseline`, which admits an empty span only for a rotation baseline that signs a cursor |
 | `Rotate`'s empty-snapshot rule | `buildDocumentRotationBaseline`, which builds an empty baseline only when `readProcessedCursorForVersion` yields a cursor |

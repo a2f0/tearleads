@@ -77,7 +77,7 @@ test("an existing photo replaces in place while the collection slot appends", as
         mimeType: "image/jpeg",
       },
     ],
-    true,
+    { canAttach: true, isEditing: true },
   );
   expect(slots.map((slot) => slot.slotId)).toEqual([
     "equipment-photos:existing",
