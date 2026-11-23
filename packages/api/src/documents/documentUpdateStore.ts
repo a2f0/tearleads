@@ -115,6 +115,15 @@ export async function assertMinLsnSatisfied(
   }
 }
 
+/**
+ * Updates the client's frontier lacks, in commit order. An update is missing
+ * when the frontier lacks one of its spans. A row without spans is served
+ * too, failing safe, unless it declares an empty range: the empty rotation
+ * baseline of a document whose every update was void carries no operation,
+ * so every frontier holds it. Counted as missing, it would be served again to
+ * every pull that starts before it and keep a later baseline whose cursor
+ * precedes it from redirecting a new reader.
+ */
 async function listMissingDocumentUpdateCandidates(
   executor: DatabaseSession,
   input: {
@@ -128,6 +137,11 @@ async function listMissingDocumentUpdateCandidates(
   const updateId = aliasedColumn("u", documentUpdates.id);
   const updateDocumentId = aliasedColumn("u", documentUpdates.documentId);
   const updateSequence = aliasedColumn("u", documentUpdates.sequence);
+  const updateStart = aliasedColumn(
+    "u",
+    documentUpdates.partialStartVersionVector,
+  );
+  const updateEnd = aliasedColumn("u", documentUpdates.partialEndVersionVector);
   const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
   const spanUpdateId = aliasedColumn("s", documentUpdateSpans.updateId);
   const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
@@ -152,11 +166,14 @@ async function listMissingDocumentUpdateCandidates(
       ${lowerBound}
       ${upperBound}
       and (
-        not exists (
-          select 1
-          from ${documentUpdateSpans} s
-          where ${spanDocumentId} = ${uuidValue(input.documentId)}
-            and ${spanUpdateId} = ${updateId}
+        (
+          ${updateStart} <> ${updateEnd}
+          and not exists (
+            select 1
+            from ${documentUpdateSpans} s
+            where ${spanDocumentId} = ${uuidValue(input.documentId)}
+              and ${spanUpdateId} = ${updateId}
+          )
         )
         or exists (
           select 1

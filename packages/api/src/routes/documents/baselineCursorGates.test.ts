@@ -20,9 +20,13 @@ import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
 } from "../../../test/helpers/documentLinkMutation";
-import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
+import {
+  createSignedAtomicRotationBaseline,
+  createSignedDocumentSyncRequest,
+} from "../../../test/helpers/documentUpdateRequests";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
+  asVerifiedContainerManifest,
   bootstrapRoot,
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
@@ -63,6 +67,66 @@ async function postJson(token: string, path: string, body: unknown) {
     },
     body: JSON.stringify(body),
   });
+}
+
+type Owner = Awaited<ReturnType<typeof documentWithOverclaim>>["owner"];
+type Root = Awaited<ReturnType<typeof documentWithOverclaim>>["root"];
+type Created = Awaited<ReturnType<typeof documentWithOverclaim>>["created"];
+
+/** Links the document into a child folder; returns its unlink builder. */
+async function linkedForUnlink(input: {
+  readonly created: Created;
+  readonly owner: Owner;
+  readonly root: Root;
+}) {
+  const { created, owner, root } = input;
+  const child = await createChildContainer({ parent: root, signer: owner });
+  const linkRequest = await buildDocumentLinkRequest({
+    child,
+    createdDocument: created,
+    owner,
+    root,
+  });
+  const linkResponse = await postJson(
+    owner.token,
+    `/documents/${created.id}/link`,
+    linkRequest,
+  );
+  expect(linkResponse.status).toBe(200);
+  const linkedDocument = withDocumentMutationArtifacts(
+    linkRequest,
+    await linkResponse.json(),
+  );
+  expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
+  return (unlink: { readonly cursor?: string; readonly source: string }) =>
+    buildDocumentUnlinkRequest({
+      child,
+      linkedDocument,
+      owner,
+      root,
+      rotationBaselineCoversThroughUpdateId: unlink.cursor,
+      rotationBaselineSourceVersionVector: unlink.source,
+    });
+}
+
+/** A first pull by a reader that holds nothing. */
+function pullAsNewReader(
+  owner: Owner,
+  documentId: string,
+  unlinked: {
+    readonly contentKeyEpoch: number;
+    readonly manifestHash: string;
+    readonly targetHash: string;
+  },
+) {
+  return postDocumentSync(owner, documentId, {
+    contentKeyEpoch: unlinked.contentKeyEpoch,
+    expectedLinkSetManifestHash: unlinked.manifestHash,
+    expectedTargetHash: unlinked.targetHash,
+    localVersionVector: null,
+    outgoingUpdates: [],
+    supportsPullPagination: true,
+  } satisfies DocumentSyncRequest);
 }
 
 // A baseline's author imported or voided every update up to its signed
@@ -133,36 +197,7 @@ test("POST /documents/:documentId/unlink weighs updates after the baseline curso
   ).toBe(200);
   const honestEnd = honest.request.outgoingUpdates[0]?.partialEndVersionVector;
   if (!honestEnd) throw new Error("Expected the honest update");
-  const child = await createChildContainer({ parent: root, signer: owner });
-  const linkRequest = await buildDocumentLinkRequest({
-    child,
-    createdDocument: created,
-    owner,
-    root,
-  });
-  const linkResponse = await postJson(
-    owner.token,
-    `/documents/${created.id}/link`,
-    linkRequest,
-  );
-  expect(linkResponse.status).toBe(200);
-  const linkedDocument = withDocumentMutationArtifacts(
-    linkRequest,
-    await linkResponse.json(),
-  );
-  expect(isDocumentLinkSetMutationResponse(linkedDocument)).toBe(true);
-  const unlink = (input: {
-    readonly cursor?: string;
-    readonly source: string;
-  }) =>
-    buildDocumentUnlinkRequest({
-      child,
-      linkedDocument,
-      owner,
-      root,
-      rotationBaselineCoversThroughUpdateId: input.cursor,
-      rotationBaselineSourceVersionVector: input.source,
-    });
+  const unlink = await linkedForUnlink({ created, owner, root });
 
   // Without a cursor the overclaim is weighed; with one, the honest update
   // after it still is.
@@ -198,15 +233,7 @@ test("POST /documents/:documentId/unlink weighs updates after the baseline curso
   const baselineId = unlinkRequest.rotationBaseline?.id;
   if (!baselineId) throw new Error("Expected a rotation baseline");
 
-  const pull = () =>
-    postDocumentSync(owner, created.id, {
-      contentKeyEpoch: unlinked.contentKeyEpoch,
-      expectedLinkSetManifestHash: unlinked.manifestHash,
-      expectedTargetHash: unlinked.targetHash,
-      localVersionVector: null,
-      outgoingUpdates: [],
-      supportsPullPagination: true,
-    } satisfies DocumentSyncRequest);
+  const pull = () => pullAsNewReader(owner, created.id, unlinked);
   // The overclaim is at or before the baseline's cursor, so a new reader
   // starts at the baseline.
   const pulled = await pull();
@@ -227,5 +254,125 @@ test("POST /documents/:documentId/unlink weighs updates after the baseline curso
   expect(tampered.status).toBe(409);
   expect((await tampered.json()).error).toBe(
     "Document rotation checkpoint failed integrity validation",
+  );
+});
+
+// A reader that voided every update holds an empty document, whose snapshot
+// declares no operation. Its baseline signs the cursor alone, and the API
+// weighs only the updates after it. Before #3194 the client sent no
+// baseline, and the API refused the unlink while any update was committed.
+test("POST /documents/:documentId/unlink takes an empty baseline that signs its cursor", async () => {
+  const { created, overclaimId, owner, root } = await documentWithOverclaim();
+  const unlink = await linkedForUnlink({ created, owner, root });
+  const empty = emptyVersionVector();
+
+  // Without the cursor, the empty baseline does not cover the overclaim.
+  const uncovered = await postJson(
+    owner.token,
+    `/documents/${created.id}/unlink`,
+    await unlink({ source: empty }),
+  );
+  expect(uncovered.status).toBe(409);
+  expect((await uncovered.json()).code).toBe(
+    DOCUMENT_MUTATION_ERROR_CODES.unlinkRotationBaselineStale,
+  );
+  const unlinkRequest = await unlink({ cursor: overclaimId, source: empty });
+  const unlinkResponse = await postJson(
+    owner.token,
+    `/documents/${created.id}/unlink`,
+    unlinkRequest,
+  );
+  expect(unlinkResponse.status).toBe(200);
+  const unlinked = await unlinkResponse.json();
+  expect(isDocumentLinkSetMutationResponse(unlinked)).toBe(true);
+  const baselineId = unlinkRequest.rotationBaseline?.id;
+  if (!baselineId) throw new Error("Expected a rotation baseline");
+
+  // A new reader starts at the empty baseline and never meets the overclaim.
+  // The baseline carries no operation, so it is not served either, and the
+  // pull's cursor still reaches it.
+  const pulled = await pullAsNewReader(owner, created.id, unlinked);
+  expect(pulled.status).toBe(200);
+  const synced = await pulled.json();
+  expect(isDocumentSyncResponse(synced)).toBe(true);
+  expect(synced.updates).toEqual([]);
+  expect(synced.pullPage?.throughUpdateId).toBe(baselineId);
+});
+
+// The sync gates weigh a checkpoint the same way: an empty one that signs
+// its cursor covers an all-void log, and one without a cursor does not.
+test("POST /documents/:documentId/sync takes an empty checkpoint that signs its cursor", async () => {
+  const { created, overclaimId, owner, root } = await documentWithOverclaim();
+  const emptyCheckpoint = (coversThroughUpdateId?: string) =>
+    createSignedDocumentSyncRequest({
+      checkpoint: true,
+      coversThroughUpdateId,
+      created,
+      declaredSpan: {
+        partialEndVersionVector: emptyVersionVector(),
+        partialStartVersionVector: emptyVersionVector(),
+      },
+      owner,
+      root,
+    });
+
+  const uncovered = await postDocumentSync(
+    owner,
+    created.id,
+    (await emptyCheckpoint()).request,
+  );
+  expect(uncovered.status).toBe(409);
+  expect((await uncovered.json()).code).toBe(
+    DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
+  );
+  expect(
+    (
+      await postDocumentSync(
+        owner,
+        created.id,
+        (
+          await emptyCheckpoint(overclaimId)
+        ).request,
+      )
+    ).status,
+  ).toBe(200);
+});
+
+// No honest client sends an empty baseline without a cursor: a document never
+// written has nothing to rotate, so its unlink carries no baseline at all.
+test("POST /documents/:documentId/unlink refuses an empty baseline without a cursor", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const unlink = await linkedForUnlink({ created, owner, root });
+  const request = await unlink({ source: emptyVersionVector() });
+  expect(request.rotationBaseline).toBeUndefined();
+
+  // A modified client sends the empty baseline the SDK omits.
+  const refused = await postJson(
+    owner.token,
+    `/documents/${created.id}/unlink`,
+    {
+      ...request,
+      rotationBaseline: await createSignedAtomicRotationBaseline({
+        accessManifestHash: request.contentKeyBundle.linkSetManifestHash,
+        contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
+        dependencyManifestHashes: (
+          request.authorizingContainerPathRefs[0] ?? []
+        ).map((ref) => ref.manifestHash),
+        documentId: created.id,
+        organizationId: asVerifiedContainerManifest(root.bundle).state
+          .organizationId,
+        owner,
+        sourceVersionVector: emptyVersionVector(),
+        targetHash: request.contentKeyBundle.targetHash,
+      }),
+    },
+  );
+  expect(refused.status).toBe(400);
+  expect((await refused.json()).error).toBe(
+    "Document update declares no operations",
   );
 });

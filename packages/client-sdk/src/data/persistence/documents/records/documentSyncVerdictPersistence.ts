@@ -18,6 +18,7 @@ import {
   type PullPremise,
   processedCursorTransition,
 } from "./processedCursorState";
+import { deleteRecordedAttachmentSlotsInTransaction } from "./recordedAttachmentSlotPersistence";
 
 type VerdictReader = Pick<ClientSQLiteTransactionScope, "select">;
 
@@ -419,6 +420,7 @@ export async function deleteDocumentSyncVerdictsInTransaction(
   localIds: readonly string[],
 ): Promise<void> {
   await deleteDocumentPeerPreemptionsInTransaction(tx, appKind, localIds);
+  await deleteRecordedAttachmentSlotsInTransaction(tx, appKind, localIds);
   for (const batch of chunks(localIds, UPDATE_IDS_PER_STATEMENT)) {
     await tx
       .delete(documentSyncProgress)

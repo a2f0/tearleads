@@ -9,6 +9,7 @@ import {
   rebindDocumentRowInTransaction,
 } from "./documentRowsInTransaction";
 import { recordDocumentSyncVerdictsInTransaction } from "./documentSyncVerdictPersistence";
+import { RecordedAttachmentSlotRepository } from "./recordedAttachmentSlotPersistence";
 
 const APP_KIND = "container-metadata";
 const KEPT = "kept";
@@ -20,7 +21,10 @@ const LIAR = "550e8400-e29b-41d4-a716-446655440f02";
 let close: () => void = () => undefined;
 let execSql: ExecSql;
 
-/** A scope with a cursor, a void row, and a preemption notice. */
+/**
+ * A scope with a cursor, a void row, a preemption notice, and a slot its
+ * store saw recorded.
+ */
 async function judgedScope(localId: string) {
   await execSql(
     `INSERT INTO documents (app_kind, local_id, document_id,
@@ -64,6 +68,14 @@ async function judgedScope(localId: string) {
       ],
     },
   );
+  await new RecordedAttachmentSlotRepository(execSql).record(
+    { appKind: APP_KIND, localId },
+    {
+      documentId: DOCUMENT_ID,
+      seenAt: "2026-11-22T00:00:01.000Z",
+      slotIds: ["contact-photos:portrait"],
+    },
+  );
 }
 
 async function scopesWith(table: string): Promise<unknown[]> {
@@ -75,6 +87,7 @@ async function judgedScopes() {
   return {
     notices: await scopesWith("document_peer_preemptions"),
     progress: await scopesWith("document_sync_progress"),
+    sightings: await scopesWith("document_recorded_attachment_slots"),
     voids: await scopesWith("document_void_updates"),
   };
 }
@@ -89,13 +102,14 @@ beforeEach(async () => {
   expect(await judgedScopes()).toEqual({
     notices: [CLEARED, KEPT],
     progress: [CLEARED, KEPT],
+    sightings: [CLEARED, KEPT],
     voids: [CLEARED, KEPT],
   });
 });
 
 afterEach(() => close());
 
-test("rebinding a scope to another server document drops its cursor, voids, and notices", async () => {
+test("rebinding a scope to another server document drops its cursor, voids, notices, and sightings", async () => {
   await rebindDocumentRowInTransaction(
     getClientSQLitePersistenceRuntime(execSql).db,
     { appKind: APP_KIND, localId: CLEARED },
@@ -107,11 +121,12 @@ test("rebinding a scope to another server document drops its cursor, voids, and 
   expect(await judgedScopes()).toEqual({
     notices: [KEPT],
     progress: [KEPT],
+    sightings: [KEPT],
     voids: [KEPT],
   });
 });
 
-test("deleting a scope's rows drops its cursor, voids, and notices", async () => {
+test("deleting a scope's rows drops its cursor, voids, notices, and sightings", async () => {
   await deleteDocumentScopeRowsInTransaction(
     getClientSQLitePersistenceRuntime(execSql).db,
     APP_KIND,
@@ -120,6 +135,7 @@ test("deleting a scope's rows drops its cursor, voids, and notices", async () =>
   expect(await judgedScopes()).toEqual({
     notices: [KEPT],
     progress: [KEPT],
+    sightings: [KEPT],
     voids: [KEPT],
   });
 });
