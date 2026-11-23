@@ -150,12 +150,6 @@ function ExplorerRouteSelectionHarness() {
       <button type="button" onClick={() => routeState.openOutgoingRoute()}>
         Open Outgoing
       </button>
-      <button
-        type="button"
-        onClick={() => routeState.openOutgoingRoute({ section: "writes" })}
-      >
-        Open Outgoing Writes
-      </button>
       <button type="button" onClick={routeState.openIncomingRoute}>
         Open Incoming
       </button>
@@ -210,7 +204,6 @@ function renderExplorerRouteSelectionHarness(
 
 for (const [name, pathname] of [
   ["Open Outgoing", "/app/explorer/outgoing"],
-  ["Open Outgoing Writes", "/app/explorer/outgoing/writes"],
   ["Open Incoming", "/app/explorer/incoming"],
 ] as const) {
   test(`${name} updates the routed path`, async () => {

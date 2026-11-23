@@ -421,7 +421,7 @@ test("the Outgoing route returns to Explorer", async () => {
         model={createExplorerModel({
           routeState: {
             ...baseModel.routeState,
-            route: { section: null, view: "outgoing" },
+            route: { view: "outgoing" },
             showSelectionRoute: () => returned.push(1),
           },
         })}

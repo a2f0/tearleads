@@ -312,15 +312,10 @@ function useExplorerRoutedBackAction({
           label: EXPLORER_LABELS.syncLanesBackToListAction,
           onBack: () => model.routeState.openSyncLanesRoute({ replace: true }),
         };
-      // Back to the Outgoing tab, scrolled to the write queue the entry is in.
       case "write-queue-entry":
         return {
           label: EXPLORER_LABELS.outgoingBackAction,
-          onBack: () =>
-            model.routeState.openOutgoingRoute({
-              replace: true,
-              section: "writes",
-            }),
+          onBack: () => model.routeState.openOutgoingRoute({ replace: true }),
         };
       case "sync-lanes":
       case "outgoing":

@@ -6,7 +6,7 @@ import {
   ExplorerRoutedChromeHarness,
 } from "../../../test/helpers/explorerRoutedChromeTestUtils";
 import { EXPLORER_LABELS } from "./labels";
-import type { ExplorerOutgoingRouteOptions, ExplorerRoute } from "./routes";
+import type { ExplorerRoute, ExplorerRouteNavigationOptions } from "./routes";
 
 afterEach(() => cleanup());
 
@@ -18,7 +18,7 @@ function renderDetailBackChrome({
   showSelectionRoute = () => undefined,
 }: {
   historyCanGoBack: boolean;
-  openOutgoingRoute?: (options?: ExplorerOutgoingRouteOptions) => void;
+  openOutgoingRoute?: (options?: ExplorerRouteNavigationOptions) => void;
   route: ExplorerRoute;
   selectDocumentProjection?: (
     localId: string,
@@ -116,7 +116,7 @@ test("diagnostics hub leaves Back to host history", async () => {
   const returned: Array<{ replace?: boolean | undefined } | undefined> = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: true,
-    route: { section: null, view: "outgoing" },
+    route: { view: "outgoing" },
     showSelectionRoute: (options) => returned.push(options),
   });
 
@@ -136,7 +136,7 @@ test("diagnostics hub with no history replaces itself with the list", async () =
   const returned: Array<{ replace?: boolean | undefined } | undefined> = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: false,
-    route: { section: "writes", view: "outgoing" },
+    route: { view: "outgoing" },
     showSelectionRoute: (options) => returned.push(options),
   });
 
@@ -176,10 +176,10 @@ for (const historyCanGoBack of [true, false]) {
   });
 }
 
-// An entry opens from the Outgoing tab's write queue, so its Back lands there,
-// scrolled to that section, and replaces the dead-end entry.
-test("a write-queue entry with no history returns to Outgoing's write queue", async () => {
-  const opened: Array<ExplorerOutgoingRouteOptions | undefined> = [];
+// An entry opens from the Outgoing table, so its Back lands there and replaces
+// the dead-end entry.
+test("a write-queue entry with no history returns to Outgoing", async () => {
+  const opened: Array<ExplorerRouteNavigationOptions | undefined> = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: false,
     openOutgoingRoute: (options) => opened.push(options),
@@ -192,11 +192,11 @@ test("a write-queue entry with no history returns to Outgoing's write queue", as
     }),
   );
 
-  expect(opened).toEqual([{ replace: true, section: "writes" }]);
+  expect(opened).toEqual([{ replace: true }]);
 });
 
 test("a write-queue entry leaves Back to host history", async () => {
-  const opened: Array<ExplorerOutgoingRouteOptions | undefined> = [];
+  const opened: Array<ExplorerRouteNavigationOptions | undefined> = [];
   const view = renderDetailBackChrome({
     historyCanGoBack: true,
     openOutgoingRoute: (options) => opened.push(options),

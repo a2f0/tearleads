@@ -6,6 +6,8 @@ import type {
   SyncLaneSnapshot,
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
+import type { ExplorerUploadManager } from "../../../src/mini-apps/explorer/hooks/useExplorerUploadManager";
+import type { ExplorerUploadItem } from "../../../src/stores/explorer/explorerUploadItemMachine";
 
 export const CREATED_AT = "2026-07-16T12:00:00.000Z";
 
@@ -85,5 +87,69 @@ export function stubPhoneMatchMedia(): () => void {
   })) as unknown as typeof window.matchMedia;
   return () => {
     window.matchMedia = originalMatchMedia;
+  };
+}
+
+/** A file uploaded this session; queued until overridden. */
+export function upload(
+  overrides: Partial<ExplorerUploadItem> = {},
+): ExplorerUploadItem {
+  return {
+    containerId: "documents-container",
+    error: null,
+    fileName: "a.txt",
+    fileSize: 1024,
+    id: "upload-1",
+    localId: null,
+    status: "queued",
+    storageKeys: [],
+    ...overrides,
+  };
+}
+
+export function uploadManager(
+  overrides: Partial<ExplorerUploadManager> = {},
+): ExplorerUploadManager {
+  return {
+    cancel: () => undefined,
+    cancelForContainer: () => undefined,
+    isImporting: false,
+    items: [],
+    queuedFileCount: 0,
+    queuedFileCounts: new Map(),
+    run: null,
+    startImport: () => undefined,
+    ...overrides,
+  };
+}
+
+/** A document's sync lane, idle until overridden. */
+export function lane(
+  overrides: Partial<SyncLaneSnapshot> = {},
+): SyncLaneSnapshot {
+  const status = overrides.status ?? "idle";
+  return {
+    blobStorageKey: null,
+    errorCount: 0,
+    key: "documents:document-local-id",
+    label: "documents:document-local-id",
+    lastAction: "registered",
+    lastActionAt: updatedAt,
+    lastCompletedAt: null,
+    lastError: null,
+    lastFailedAt: null,
+    lastRequestedAt: null,
+    lastStartedAt: null,
+    phase: "document",
+    progress: null,
+    registrationIndex: 0,
+    requestCount: 0,
+    requested: false,
+    runAbandoned: false,
+    runCount: 0,
+    runDurations: null,
+    running: status === "running",
+    status,
+    ...overrides,
   };
 }
