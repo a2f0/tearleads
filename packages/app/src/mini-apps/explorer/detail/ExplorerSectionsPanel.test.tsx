@@ -38,9 +38,8 @@ function renderSectionsPanel(
     openBlobBrowserRoute?: () => void;
     openSyncLanesRoute?: () => void;
     openDocumentInfoRoute?: (localId: string, containerId: string) => void;
-    openDownloadsRoute?: () => void;
-    openUploadsRoute?: () => void;
-    openWriteQueueRoute?: () => void;
+    openIncomingRoute?: () => void;
+    openOutgoingRoute?: (options?: unknown) => void;
     selectDocumentProjection?: (localId: string, containerId: string) => void;
   } = {},
 ) {
@@ -83,9 +82,8 @@ function renderSectionsPanel(
         overrides.openDocumentInfoRoute ?? (() => undefined)
       }
       openSyncLanesRoute={overrides.openSyncLanesRoute ?? (() => undefined)}
-      openDownloadsRoute={overrides.openDownloadsRoute ?? (() => undefined)}
-      openUploadsRoute={overrides.openUploadsRoute ?? (() => undefined)}
-      openWriteQueueRoute={overrides.openWriteQueueRoute ?? (() => undefined)}
+      openIncomingRoute={overrides.openIncomingRoute ?? (() => undefined)}
+      openOutgoingRoute={overrides.openOutgoingRoute ?? (() => undefined)}
       openWriteQueueEntryRoute={() => undefined}
       route={route}
       selectDocumentProjection={
@@ -96,41 +94,73 @@ function renderSectionsPanel(
   );
 }
 
-test("the default route shows all diagnostics tabs with Sync Lanes active", () => {
+function selectedTabs(view: ReturnType<typeof render>) {
+  return view
+    .getAllByRole("tab")
+    .map(
+      (tab) => `${tab.textContent}:${tab.getAttribute("aria-selected") ?? ""}`,
+    );
+}
+
+test("the hub shows four tabs, by direction, with Sync Lanes active by default", () => {
   const view = renderSectionsPanel({ view: "selection" });
 
-  expect(
-    view
-      .getByRole("tab", { name: EXPLORER_LABELS.syncLanesAction })
-      .getAttribute("aria-selected"),
-  ).toBe("true");
-  expect(
-    view
-      .getByRole("tab", { name: EXPLORER_LABELS.blobBrowserAction })
-      .getAttribute("aria-selected"),
-  ).toBe("false");
-  expect(
-    view
-      .getByRole("tab", { name: EXPLORER_LABELS.writeQueueAction })
-      .getAttribute("aria-selected"),
-  ).toBe("false");
+  expect(selectedTabs(view)).toEqual([
+    "Sync Lanes:true",
+    "Blob Browser:false",
+    "Outgoing:false",
+    "Incoming:false",
+  ]);
 });
 
-test("the write-queue route marks the Write Queue tab active", async () => {
-  const view = renderSectionsPanel({ view: "write-queue" });
+test("the Outgoing route stacks Uploads over the Write Queue in one scroller", async () => {
+  const view = renderSectionsPanel({ section: null, view: "outgoing" });
 
-  await waitFor(() => {
-    expect(
-      view
-        .getByRole("tab", { name: EXPLORER_LABELS.writeQueueAction })
-        .getAttribute("aria-selected"),
-    ).toBe("true");
-  });
+  expect(selectedTabs(view)).toEqual([
+    "Sync Lanes:false",
+    "Blob Browser:false",
+    "Outgoing:true",
+    "Incoming:false",
+  ]);
+  await waitFor(() =>
+    expect(view.getByText(EXPLORER_LABELS.writeQueueEmpty)).toBeTruthy(),
+  );
   expect(
     view
-      .getByRole("tab", { name: EXPLORER_LABELS.syncLanesAction })
-      .getAttribute("aria-selected"),
-  ).toBe("false");
+      .getAllByRole("region")
+      .map((region) => region.getAttribute("aria-labelledby"))
+      .map((id) => (id ? document.getElementById(id)?.textContent : null)),
+  ).toEqual([EXPLORER_LABELS.uploadsTitle, EXPLORER_LABELS.writeQueueTitle]);
+  expect(view.getByText(EXPLORER_LABELS.uploadsEmpty)).toBeTruthy();
+  // One scroller and one header for the tab, not one per section.
+  expect(
+    view.container.querySelectorAll(".mini-app-panel--scroll"),
+  ).toHaveLength(1);
+  expect(view.container.querySelectorAll(".mini-app-header")).toHaveLength(1);
+  expect(
+    view.getByText(EXPLORER_LABELS.outgoingAction, { selector: "strong" }),
+  ).toBeTruthy();
+});
+
+test("a write-queue entry keeps the Outgoing tab and hides the Uploads section", async () => {
+  const view = renderSectionsPanel({
+    entryKey: "document::missing",
+    view: "write-queue-entry",
+  });
+
+  expect(selectedTabs(view)).toContain("Outgoing:true");
+  await waitFor(() =>
+    expect(
+      view.getByText(EXPLORER_LABELS.writeQueueEntryNotQueued, {
+        exact: false,
+      }),
+    ).toBeTruthy(),
+  );
+  expect(
+    view.getByText(EXPLORER_LABELS.writeQueueEntryDetailTitle),
+  ).toBeTruthy();
+  expect(view.queryByText(EXPLORER_LABELS.uploadsEmpty)).toBeNull();
+  expect(view.queryAllByRole("region")).toHaveLength(0);
 });
 
 test("the blob-browser route marks the Blob Browser tab active", async () => {
@@ -184,44 +214,31 @@ test("arrow keys move the active tab and navigate", () => {
   expect(opened).toEqual(["blobs"]);
 });
 
-test("End moves selection to the last tab (Uploads)", () => {
+test("End moves selection to the last tab (Incoming)", () => {
   const opened: string[] = [];
   const view = renderSectionsPanel(
     { view: "sync-lanes" },
-    { openUploadsRoute: () => opened.push("uploads") },
+    { openIncomingRoute: () => opened.push("incoming") },
   );
 
   fireEvent.keyDown(
     view.getByRole("tab", { name: EXPLORER_LABELS.syncLanesAction }),
     { key: "End" },
   );
-  expect(opened).toEqual(["uploads"]);
+  expect(opened).toEqual(["incoming"]);
 });
 
-test("the uploads route marks the Uploads tab active and shows the panel", async () => {
-  const view = renderSectionsPanel({ view: "uploads" });
-
-  await waitFor(() => {
-    expect(
-      view
-        .getByRole("tab", { name: EXPLORER_LABELS.uploadsAction })
-        .getAttribute("aria-selected"),
-    ).toBe("true");
-  });
-  expect(view.getByText(EXPLORER_LABELS.uploadsEmpty)).toBeTruthy();
-});
-
-test("tapping the Uploads tab navigates via its route opener", () => {
-  const opened: string[] = [];
+test("tapping the Outgoing tab opens it at its top", () => {
+  const opened: unknown[][] = [];
   const view = renderSectionsPanel(
     { view: "sync-lanes" },
-    { openUploadsRoute: () => opened.push("uploads") },
+    { openOutgoingRoute: (...args: unknown[]) => opened.push(args) },
   );
 
   fireEvent.click(
-    view.getByRole("tab", { name: EXPLORER_LABELS.uploadsAction }),
+    view.getByRole("tab", { name: EXPLORER_LABELS.outgoingAction }),
   );
-  expect(opened).toEqual(["uploads"]);
+  expect(opened).toEqual([[]]);
 });
 
 test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {
@@ -233,22 +250,22 @@ test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {
   ).toBeNull();
 });
 
-test("Downloads opens its route and shows an empty durable queue", async () => {
+test("Incoming opens its route and shows an empty durable queue", async () => {
   const sdk = spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
     documents: { retryDownload: async () => false },
   } as unknown as Tearleads);
   try {
     const opened: string[] = [];
     const view = renderSectionsPanel(
-      { view: "downloads" },
+      { view: "incoming" },
       {
-        openDownloadsRoute: () => opened.push("downloads"),
+        openIncomingRoute: () => opened.push("incoming"),
       },
     );
-    const tab = view.getByRole("tab", { name: "Downloads" });
+    const tab = view.getByRole("tab", { name: "Incoming" });
     expect(tab.getAttribute("aria-selected")).toBe("true");
     fireEvent.click(tab);
-    expect(opened).toEqual(["downloads"]);
+    expect(opened).toEqual(["incoming"]);
     await waitFor(() =>
       expect(view.getByText("No pending downloads.")).toBeTruthy(),
     );

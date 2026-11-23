@@ -32,7 +32,7 @@ export function createExplorerModel(
       openContainerInfoRoute: () => undefined,
       openDocumentInfoRoute: () => undefined,
       openSyncLanesRoute: () => undefined,
-      openWriteQueueRoute: () => undefined,
+      openOutgoingRoute: () => undefined,
       route: { view: "selection" },
       selectExplorerDocument: () => undefined,
       selectExplorerItem: () => undefined,

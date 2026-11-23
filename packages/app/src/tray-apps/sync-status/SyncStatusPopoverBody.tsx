@@ -32,14 +32,17 @@ export interface SyncStatusViewRequest {
 
 type SyncStatusViewActionId = Exclude<SyncStatusActionId, "sync-now">;
 
-// Each path is the one the destination itself writes for that view.
+// Each path is the one the destination itself writes for that view. Uploads
+// and the write queue are sections of Explorer's Outgoing tab, so each link
+// names its section, which the tab scrolls to the top; downloads are its
+// Incoming tab.
 const VIEW_DESTINATIONS: Record<SyncStatusViewActionId, SyncStatusViewRequest> =
   {
     billing: { appId: "org-manager", pathSegments: ["billing"] },
-    downloads: { appId: "explorer", pathSegments: ["downloads"] },
+    downloads: { appId: "explorer", pathSegments: ["incoming"] },
     "sync-lanes": { appId: "explorer", pathSegments: ["sync"] },
-    uploads: { appId: "explorer", pathSegments: ["uploads"] },
-    "write-queue": { appId: "explorer", pathSegments: ["writes"] },
+    uploads: { appId: "explorer", pathSegments: ["outgoing", "uploads"] },
+    "write-queue": { appId: "explorer", pathSegments: ["outgoing", "writes"] },
   };
 
 /**

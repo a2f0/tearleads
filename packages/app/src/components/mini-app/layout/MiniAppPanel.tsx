@@ -1,4 +1,4 @@
-import type { FormHTMLAttributes, HTMLAttributes } from "react";
+import type { ComponentProps, FormHTMLAttributes } from "react";
 import { classNames } from "../../shared/classNames";
 import "./MiniAppPanel.css";
 
@@ -9,7 +9,7 @@ export function MiniAppPanel({
   scroll = false,
   variant = "plain",
   ...props
-}: HTMLAttributes<HTMLDivElement> & {
+}: ComponentProps<"div"> & {
   scroll?: boolean | undefined;
   variant?: MiniAppPanelVariant | undefined;
 }) {

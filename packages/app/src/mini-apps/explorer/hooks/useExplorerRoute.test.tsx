@@ -147,11 +147,17 @@ function ExplorerRouteSelectionHarness() {
       >
         Create Document
       </button>
-      <button type="button" onClick={() => routeState.openWriteQueueRoute()}>
-        Open Writes
+      <button type="button" onClick={() => routeState.openOutgoingRoute()}>
+        Open Outgoing
       </button>
-      <button type="button" onClick={routeState.openUploadsRoute}>
-        Open Uploads
+      <button
+        type="button"
+        onClick={() => routeState.openOutgoingRoute({ section: "writes" })}
+      >
+        Open Outgoing Writes
+      </button>
+      <button type="button" onClick={routeState.openIncomingRoute}>
+        Open Incoming
       </button>
       <button
         type="button"
@@ -202,27 +208,24 @@ function renderExplorerRouteSelectionHarness(
   );
 }
 
-test("write queue opener updates the routed path", async () => {
-  const view = renderExplorerRouteSelectionHarness("routed");
+for (const [name, pathname] of [
+  ["Open Outgoing", "/app/explorer/outgoing"],
+  ["Open Outgoing Writes", "/app/explorer/outgoing/writes"],
+  ["Open Incoming", "/app/explorer/incoming"],
+] as const) {
+  test(`${name} updates the routed path`, async () => {
+    const view = renderExplorerRouteSelectionHarness("routed");
 
-  fireEvent.click(view.getByRole("button", { name: "Open Writes" }));
+    fireEvent.click(view.getByRole("button", { name }));
 
-  await waitFor(() => {
-    expect(view.getByTestId("route-view").textContent).toBe("write-queue");
-    expect(window.location.pathname).toBe("/app/explorer/writes");
+    await waitFor(() => {
+      expect(view.getByTestId("route-view").textContent).toBe(
+        name === "Open Incoming" ? "incoming" : "outgoing",
+      );
+      expect(window.location.pathname).toBe(pathname);
+    });
   });
-});
-
-test("uploads opener updates the routed path", async () => {
-  const view = renderExplorerRouteSelectionHarness("routed");
-
-  fireEvent.click(view.getByRole("button", { name: "Open Uploads" }));
-
-  await waitFor(() => {
-    expect(view.getByTestId("route-view").textContent).toBe("uploads");
-    expect(window.location.pathname).toBe("/app/explorer/uploads");
-  });
-});
+}
 
 test("document route sync preserves pending sidebar document selection", async () => {
   const view = renderExplorerRouteSelectionHarness("routed");

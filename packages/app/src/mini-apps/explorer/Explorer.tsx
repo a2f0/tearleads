@@ -117,9 +117,8 @@ interface BlobPickPanelRenderParams extends BlobPickPanelProps {
 
 function explorerQueueRoutes(model: BlobPickPanelRenderParams["model"]) {
   return {
-    openDownloadsRoute: model.routeState.openDownloadsRoute,
-    openUploadsRoute: model.routeState.openUploadsRoute,
-    openWriteQueueRoute: model.routeState.openWriteQueueRoute,
+    openIncomingRoute: model.routeState.openIncomingRoute,
+    openOutgoingRoute: model.routeState.openOutgoingRoute,
     openWriteQueueEntryRoute: model.routeState.openWriteQueueEntryRoute,
   };
 }

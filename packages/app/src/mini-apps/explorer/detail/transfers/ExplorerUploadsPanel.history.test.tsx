@@ -21,7 +21,7 @@ import {
 } from "@testing-library/react";
 import type { ImportExplorerDroppedFiles } from "../../../../stores/explorer/useExplorerDroppedFileImport";
 import { useExplorerUploadManager } from "../../hooks/useExplorerUploadManager";
-import { ExplorerUploadsPanel } from "./ExplorerUploadsPanel";
+import { ExplorerOutgoingPanel } from "./ExplorerOutgoingPanel";
 
 const scopes: DomainScope[] = [];
 
@@ -52,11 +52,14 @@ interface HarnessProps {
   importDroppedFiles: ImportExplorerDroppedFiles;
   onExplorerRefresh?: () => void;
   online?: boolean;
-  showUploads?: boolean;
+  selectedEntryKey?: string;
+  showOutgoing?: boolean;
   startRef: { current: (files: ReadonlyArray<File>) => void };
 }
 
 // The manager lives above the tabs, as in Explorer, so switching tabs keeps it.
+// The Outgoing tab renders the Uploads section; its write queue reads nothing
+// while the database is closed.
 function Harness(props: HarnessProps) {
   const manager = useExplorerUploadManager({
     documentQueries: props.documentQueries,
@@ -67,11 +70,21 @@ function Harness(props: HarnessProps) {
   return (
     <WindowMenuProvider>
       <ExplorerRefresh onRefresh={props.onExplorerRefresh ?? (() => {})} />
-      {props.showUploads === false ? null : (
-        <ExplorerUploadsPanel
+      {props.showOutgoing === false ? null : (
+        <ExplorerOutgoingPanel
+          billingBlockedOrganizationId={null}
+          dbReady={false}
+          documentQueries={props.documentQueries as ContainerDocumentQueries}
           domainScope={props.domainScope}
           isAuthenticated
+          nodes={[]}
           online={props.online ?? true}
+          openContainerInfoRoute={() => undefined}
+          openDocument={() => undefined}
+          openWriteQueueEntryRoute={() => undefined}
+          organizationNamesById={new Map()}
+          section={null}
+          selectedEntryKey={props.selectedEntryKey ?? null}
           uploadManager={manager}
         />
       )}
@@ -192,8 +205,8 @@ test("the first file to finish stays Complete across a tab switch and refresh", 
   expectRow(view, "beta.txt", { percent: "50", status: "Pending sync" });
   expect(view.getByText("2 files · 1 in progress")).toBeTruthy();
 
-  // Switch to Downloads and back, then refresh again.
-  view.rerender(<Harness {...props} showUploads={false} />);
+  // Switch to Incoming and back, then refresh again.
+  view.rerender(<Harness {...props} showOutgoing={false} />);
   expect(view.queryByText("alpha.txt")).toBeNull();
   view.rerender(<Harness {...props} />);
   await refreshAndSettle(view, world.domainScope);
@@ -205,7 +218,7 @@ test("the first file to finish stays Complete across a tab switch and refresh", 
   expect(world.imports).toEqual(["alpha.txt", "beta.txt"]);
 });
 
-test("Uploads owns the toolbar Refresh while open and keeps it off offline", async () => {
+test("Outgoing owns the toolbar Refresh while open and keeps it off offline", async () => {
   const world = createUploadWorld();
   const startRef = { current: (_files: ReadonlyArray<File>) => {} };
   let explorerRefreshes = 0;
@@ -223,7 +236,32 @@ test("Uploads owns the toolbar Refresh while open and keeps it off offline", asy
   view.rerender(<Harness {...props} />);
   await refreshAndSettle(view, world.domainScope);
   expect(explorerRefreshes).toBe(0);
-  view.rerender(<Harness {...props} showUploads={false} />);
+  view.rerender(<Harness {...props} showOutgoing={false} />);
   fireEvent.click(view.getByRole("button", { name: "Refresh" }));
   expect(explorerRefreshes).toBe(1);
+});
+
+// The tab registers Refresh, not its Uploads section, so an entry's detail,
+// which hides that section, still re-requests the scope's lanes.
+test("Refresh stays the Outgoing one on a write-queue entry's detail", async () => {
+  const world = createUploadWorld();
+  const startRef = { current: (_files: ReadonlyArray<File>) => {} };
+  let explorerRefreshes = 0;
+  const props = {
+    ...world,
+    onExplorerRefresh: () => {
+      explorerRefreshes += 1;
+    },
+    selectedEntryKey: "document::local-1",
+    startRef,
+  };
+  const view = render(<Harness {...props} />);
+  expect(view.queryByRole("region")).toBeNull();
+  await refreshAndSettle(view, world.domainScope);
+  expect(explorerRefreshes).toBe(0);
+  expect(
+    getOrCreateDomainSyncCoordinator(world.domainScope)
+      .getSnapshot()
+      .lanes.find((lane) => lane.key === "documents:alpha")?.status,
+  ).toBe("complete");
 });
