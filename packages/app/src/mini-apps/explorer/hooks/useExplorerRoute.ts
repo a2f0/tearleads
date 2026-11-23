@@ -7,7 +7,10 @@ import type { ExplorerRouteDocumentSummaryResult } from "../../../stores/explore
 import type { MiniAppId } from "../../types";
 import {
   DEFAULT_EXPLORER_ROUTE,
+  type ExplorerOutgoingRouteOptions,
   type ExplorerRoute,
+  type ExplorerRouteNavigationOptions,
+  type ExplorerRouteSetter,
   type ExplorerRouteSnapshot,
   formatExplorerRouteSegments,
   isExplorerRouteAvailable,
@@ -27,9 +30,8 @@ export interface ExplorerRouteState {
   openNewStructuredDocumentRoute: (containerId: string) => void;
   openSyncLaneDetailRoute: (laneKey: string) => void;
   openSyncLanesRoute: (options?: ExplorerRouteNavigationOptions) => void;
-  openDownloadsRoute: () => void;
-  openUploadsRoute: () => void;
-  openWriteQueueRoute: (options?: ExplorerRouteNavigationOptions) => void;
+  openIncomingRoute: () => void;
+  openOutgoingRoute: (options?: ExplorerOutgoingRouteOptions) => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
   selectCreatedExplorerItem: (id: string) => void;
   selectExplorerDocument: (
@@ -43,23 +45,6 @@ export interface ExplorerRouteState {
   ) => void;
   showSelectionRoute: (options?: ExplorerRouteNavigationOptions) => void;
 }
-
-/**
- * Navigation options for the route actions a detail "Back" fallback uses. That
- * fallback only exists where the host has NO history entry to pop, so it must
- * replace the dead-end entry rather than push its parent on top: pushing would
- * create the single history entry that makes Back alternate between the two
- * routes forever (see chromeOwnsRouteBackedDetailBack).
- */
-export interface ExplorerRouteNavigationOptions {
-  replace?: boolean | undefined;
-}
-
-type ExplorerRouteSetter = (
-  nextRoute: ExplorerRoute,
-  selectedId?: string | null | undefined,
-  options?: { replace?: boolean | undefined },
-) => void;
 
 function useExplorerRouteBinding() {
   const appRoute = useMiniAppRouteSegments("explorer" satisfies MiniAppId);
@@ -294,9 +279,8 @@ function useExplorerBlobBrowserRouteActions(params: {
   return { navigateBackFromBlobBrowser, openBlobBrowserRoute };
 }
 
-// The full-screen diagnostics hub's route openers (sync lanes, blob/upload
-// queues, durable writes). Grouped into their own hook so the main actions hook
-// stays small.
+// The full-screen diagnostics hub's route openers: sync lanes, and what waits
+// to leave (Outgoing) or reach (Incoming) this device.
 function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
   const openSyncLanesRoute = useCallback(
     (options: ExplorerRouteNavigationOptions = {}) => {
@@ -312,9 +296,13 @@ function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
     [setRoute],
   );
 
-  const openWriteQueueRoute = useCallback(
-    (options: ExplorerRouteNavigationOptions = {}) => {
-      setRoute({ view: "write-queue" }, undefined, options);
+  const openOutgoingRoute = useCallback(
+    ({ section, ...options }: ExplorerOutgoingRouteOptions = {}) => {
+      setRoute(
+        { section: section ?? null, view: "outgoing" },
+        undefined,
+        options,
+      );
     },
     [setRoute],
   );
@@ -326,21 +314,16 @@ function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
     [setRoute],
   );
 
-  const openDownloadsRoute = useCallback(() => {
-    setRoute({ view: "downloads" }, undefined);
-  }, [setRoute]);
-
-  const openUploadsRoute = useCallback(() => {
-    setRoute({ view: "uploads" }, undefined);
+  const openIncomingRoute = useCallback(() => {
+    setRoute({ view: "incoming" }, undefined);
   }, [setRoute]);
 
   return {
+    openIncomingRoute,
+    openOutgoingRoute,
     openSyncLaneDetailRoute,
     openSyncLanesRoute,
-    openDownloadsRoute,
-    openUploadsRoute,
     openWriteQueueEntryRoute,
-    openWriteQueueRoute,
   };
 }
 

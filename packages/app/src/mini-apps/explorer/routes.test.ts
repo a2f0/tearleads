@@ -147,12 +147,11 @@ test("explorer sync-lane detail route does not require a selected container", ()
   ).toBe(true);
 });
 
-test("explorer uploads route does not require a selected container", () => {
-  expect(isExplorerRouteAvailable({ view: "uploads" }, [])).toBe(true);
-});
-
-test("explorer write-queue route does not require a selected container", () => {
-  expect(isExplorerRouteAvailable({ view: "write-queue" }, [])).toBe(true);
+test("explorer direction routes do not require a selected container", () => {
+  expect(
+    isExplorerRouteAvailable({ section: null, view: "outgoing" }, []),
+  ).toBe(true);
+  expect(isExplorerRouteAvailable({ view: "incoming" }, [])).toBe(true);
   expect(
     isExplorerRouteAvailable(
       { entryKey: "document::document-1", view: "write-queue-entry" },
@@ -163,7 +162,7 @@ test("explorer write-queue route does not require a selected container", () => {
 
 test("explorer write-queue entry route round-trips its entry key", () => {
   expect(
-    parseExplorerRouteSegments(["writes", "document::document-1"]),
+    parseExplorerRouteSegments(["outgoing", "writes", "document::document-1"]),
   ).toEqual({
     route: { entryKey: "document::document-1", view: "write-queue-entry" },
   });
@@ -172,7 +171,41 @@ test("explorer write-queue entry route round-trips its entry key", () => {
       entryKey: "document::document-1",
       view: "write-queue-entry",
     }),
-  ).toEqual(["writes", "document::document-1"]);
+  ).toEqual(["outgoing", "writes", "document::document-1"]);
+});
+
+test("explorer Outgoing routes round-trip the section a link scrolls to", () => {
+  for (const [segments, section] of [
+    [["outgoing"], null],
+    [["outgoing", "uploads"], "uploads"],
+    [["outgoing", "writes"], "writes"],
+  ] as const) {
+    const route = { section, view: "outgoing" } as const;
+    expect(parseExplorerRouteSegments(segments)).toEqual({ route });
+    expect(formatExplorerRouteSegments(route)).toEqual(segments);
+  }
+  // An unknown section opens the tab at its top.
+  expect(parseExplorerRouteSegments(["outgoing", "elsewhere"])).toEqual({
+    route: { section: null, view: "outgoing" },
+  });
+});
+
+test("explorer Incoming route round-trips", () => {
+  expect(parseExplorerRouteSegments(["incoming"])).toEqual({
+    route: { view: "incoming" },
+  });
+  expect(formatExplorerRouteSegments({ view: "incoming" })).toEqual([
+    "incoming",
+  ]);
+});
+
+test("the replaced per-panel paths no longer open a hub tab", () => {
+  for (const first of ["writes", "uploads", "downloads"]) {
+    expect(parseExplorerRouteSegments([first])).toEqual({
+      route: { view: "selection" },
+      selectedId: null,
+    });
+  }
 });
 
 test("explorer route segments cover selection and detail routes", () => {
@@ -224,12 +257,6 @@ test("explorer route segments cover selection and detail routes", () => {
       view: "sync-lanes",
     },
   });
-  expect(parseExplorerRouteSegments(["uploads"])).toEqual({
-    route: { view: "uploads" },
-  });
-  expect(parseExplorerRouteSegments(["writes"])).toEqual({
-    route: { view: "write-queue" },
-  });
   expect(
     parseExplorerRouteSegments(["sync", "lanes", "documents:local-1"]),
   ).toEqual({
@@ -256,24 +283,10 @@ test("explorer route segments cover selection and detail routes", () => {
     formatExplorerRouteSegments({ view: "selection" }, "document-1"),
   ).toEqual(["items", "document-1"]);
   expect(formatExplorerRouteSegments({ view: "sync-lanes" })).toEqual(["sync"]);
-  expect(formatExplorerRouteSegments({ view: "uploads" })).toEqual(["uploads"]);
-  expect(formatExplorerRouteSegments({ view: "write-queue" })).toEqual([
-    "writes",
-  ]);
   expect(
     formatExplorerRouteSegments({
       laneKey: "documents:local-1",
       view: "sync-lane-detail",
     }),
   ).toEqual(["sync", "lanes", "documents:local-1"]);
-});
-
-test("Downloads round trips through an Explorer route", () => {
-  expect(parseExplorerRouteSegments(["downloads"])).toEqual({
-    route: { view: "downloads" },
-  });
-  expect(formatExplorerRouteSegments({ view: "downloads" })).toEqual([
-    "downloads",
-  ]);
-  expect(isExplorerRouteAvailable({ view: "downloads" }, [])).toBe(true);
 });

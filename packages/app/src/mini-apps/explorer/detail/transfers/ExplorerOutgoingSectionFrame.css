@@ -1,0 +1,17 @@
+/*
+ * A grid track sized to the section, not to its widest child: an auto track
+ * would let a wide table push the section past the panel instead of scrolling
+ * inside its own frame.
+ */
+.explorer-outgoing-section {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.explorer-outgoing-section-summary {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: normal;
+  opacity: var(--opacity-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

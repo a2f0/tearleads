@@ -1,15 +1,17 @@
 import type { ContainerNode } from "@tearleads/client-sdk";
 import { isExplorerOrphanedDocumentsId } from "../../stores/explorer/orphanedDocuments";
 
+/** A section of the Outgoing tab a link can scroll to the top. */
+export type ExplorerOutgoingSection = "uploads" | "writes";
+
 export type ExplorerRoute =
   | { view: "selection" }
   | { view: "blob-browser"; blobId: string | null; storageKey: string | null }
   | { view: "sync-lanes" }
   | { view: "sync-lane-detail"; laneKey: string }
-  | { view: "write-queue" }
+  | { view: "outgoing"; section: ExplorerOutgoingSection | null }
   | { view: "write-queue-entry"; entryKey: string }
-  | { view: "downloads" }
-  | { view: "uploads" }
+  | { view: "incoming" }
   | { view: "new-structured-document"; containerId: string }
   | { view: "container-info"; containerId: string }
   | { view: "document-selection"; containerId: string; localId: string }
@@ -22,6 +24,29 @@ export interface ExplorerRouteSnapshot {
   route: ExplorerRoute;
   selectedId?: string | null | undefined;
 }
+
+/**
+ * Navigation options for the route actions a detail "Back" fallback uses. That
+ * fallback only exists where the host has NO history entry to pop, so it must
+ * replace the dead-end entry rather than push its parent on top: pushing would
+ * create the single history entry that makes Back alternate between the two
+ * routes forever (see chromeOwnsRouteBackedDetailBack).
+ */
+export interface ExplorerRouteNavigationOptions {
+  replace?: boolean | undefined;
+}
+
+export interface ExplorerOutgoingRouteOptions
+  extends ExplorerRouteNavigationOptions {
+  /** The section to scroll to the top; omitted opens the tab at its top. */
+  section?: ExplorerOutgoingSection | undefined;
+}
+
+export type ExplorerRouteSetter = (
+  nextRoute: ExplorerRoute,
+  selectedId?: string | null | undefined,
+  options?: ExplorerRouteNavigationOptions,
+) => void;
 
 function parseExplorerBlobRoute(
   pathSegments: ReadonlyArray<string>,
@@ -109,6 +134,23 @@ function parseExplorerSyncRoute(
   return { route: { view: "sync-lanes" } };
 }
 
+function parseExplorerOutgoingRoute(
+  pathSegments: ReadonlyArray<string>,
+): ExplorerRouteSnapshot {
+  const [, section, entryKey] = pathSegments;
+  if (section === "writes") {
+    return entryKey
+      ? { route: { entryKey, view: "write-queue-entry" } }
+      : { route: { section, view: "outgoing" } };
+  }
+  return {
+    route: {
+      section: section === "uploads" ? section : null,
+      view: "outgoing",
+    },
+  };
+}
+
 export function parseExplorerRouteSegments(
   pathSegments: ReadonlyArray<string>,
 ): ExplorerRouteSnapshot {
@@ -130,17 +172,11 @@ export function parseExplorerRouteSegments(
     return parseExplorerSyncRoute(pathSegments);
   }
 
-  if (first === "writes") {
-    return second
-      ? { route: { view: "write-queue-entry", entryKey: second } }
-      : { route: { view: "write-queue" } };
+  if (first === "outgoing") {
+    return parseExplorerOutgoingRoute(pathSegments);
   }
 
-  if (first === "downloads") return { route: { view: "downloads" } };
-
-  if (first === "uploads") {
-    return { route: { view: "uploads" } };
-  }
+  if (first === "incoming") return { route: { view: "incoming" } };
 
   if (first === "containers") {
     return parseExplorerContainerRoute(pathSegments);
@@ -162,14 +198,12 @@ export function formatExplorerRouteSegments(
       return ["sync"];
     case "sync-lane-detail":
       return ["sync", "lanes", route.laneKey];
-    case "write-queue":
-      return ["writes"];
+    case "outgoing":
+      return route.section ? ["outgoing", route.section] : ["outgoing"];
     case "write-queue-entry":
-      return ["writes", route.entryKey];
-    case "downloads":
-      return ["downloads"];
-    case "uploads":
-      return ["uploads"];
+      return ["outgoing", "writes", route.entryKey];
+    case "incoming":
+      return ["incoming"];
     case "container-info":
       return ["containers", route.containerId, "info"];
     case "new-structured-document":

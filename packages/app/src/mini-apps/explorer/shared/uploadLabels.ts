@@ -5,7 +5,6 @@ export const EXPLORER_UPLOAD_LABELS = {
   fileImportGenericFailure: "Failed to import files.",
   fileImportStoreNotReady: "Document store was not ready.",
   uploadAction: "Upload",
-  uploadsAction: "Uploads",
   uploadsCancelledStatus: "Cancelled",
   uploadsEmpty: "No uploads this session.",
   uploadsFailedStatus: "Failed",

@@ -8,9 +8,8 @@
 .explorer-detail--blob-browser,
 .explorer-detail--new-structured-document,
 .explorer-detail--sync-lanes,
-.explorer-detail--downloads,
-.explorer-detail--uploads,
-.explorer-detail--write-queue {
+.explorer-detail--incoming,
+.explorer-detail--outgoing {
   flex: 1;
   min-height: 0;
 }

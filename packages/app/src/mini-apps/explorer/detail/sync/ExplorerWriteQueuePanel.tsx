@@ -21,7 +21,6 @@ import {
   MiniAppModalForm,
   MiniAppModalHighlight,
   MiniAppModalPanel,
-  MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
 import {
@@ -37,6 +36,7 @@ import {
   EXPLORER_LABELS,
   getExplorerWriteQueueSummaryLabel,
 } from "../../labels";
+import { ExplorerOutgoingSectionFrame } from "../transfers/ExplorerOutgoingSectionFrame";
 import { ExplorerWriteQueueEntryDetail } from "./ExplorerWriteQueueEntryDetail";
 import {
   ExplorerWriteQueueTable,
@@ -319,43 +319,55 @@ function getWriteQueuePanelTitles(params: ExplorerWriteQueuePanelViewProps): {
   };
 }
 
+/**
+ * The Outgoing tab's Write Queue section, or, with an entry selected, that
+ * entry's detail under its own header in place of the whole tab. The panel
+ * around it owns the scroller and Refresh.
+ */
 export function ExplorerWriteQueuePanelView(
   params: ExplorerWriteQueuePanelViewProps,
 ) {
   const [discardCandidate, setDiscardCandidate] =
     useState<PendingWriteQueueItem | null>(null);
   const { subtitle, title } = getWriteQueuePanelTitles(params);
+  const discardDialog = discardCandidate ? (
+    <WriteQueueDiscardConfirmDialog
+      item={discardCandidate}
+      onCancel={() => setDiscardCandidate(null)}
+      onConfirm={() => {
+        setDiscardCandidate(null);
+        params.discardPendingWrites(discardCandidate);
+      }}
+    />
+  ) : null;
+
+  if (params.selectedEntryKey !== null) {
+    return (
+      <>
+        <MiniAppHeader>
+          <MiniAppHeaderCopy>
+            <strong>{title}</strong>
+            <span>{subtitle}</span>
+          </MiniAppHeaderCopy>
+        </MiniAppHeader>
+        <WriteQueueEntryBody {...params} />
+        {discardDialog}
+      </>
+    );
+  }
 
   return (
-    <MiniAppPanel
-      className="explorer-detail explorer-detail--write-queue"
-      scroll
+    <ExplorerOutgoingSectionFrame
+      section="writes"
+      summary={subtitle}
+      title={title}
     >
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{title}</strong>
-          <span>{subtitle}</span>
-        </MiniAppHeaderCopy>
-      </MiniAppHeader>
-      {params.selectedEntryKey !== null ? (
-        <WriteQueueEntryBody {...params} />
-      ) : (
-        <WriteQueueListBody
-          {...params}
-          requestDiscardPendingWrites={setDiscardCandidate}
-        />
-      )}
-      {discardCandidate ? (
-        <WriteQueueDiscardConfirmDialog
-          item={discardCandidate}
-          onCancel={() => setDiscardCandidate(null)}
-          onConfirm={() => {
-            setDiscardCandidate(null);
-            params.discardPendingWrites(discardCandidate);
-          }}
-        />
-      ) : null}
-    </MiniAppPanel>
+      <WriteQueueListBody
+        {...params}
+        requestDiscardPendingWrites={setDiscardCandidate}
+      />
+      {discardDialog}
+    </ExplorerOutgoingSectionFrame>
   );
 }
 
