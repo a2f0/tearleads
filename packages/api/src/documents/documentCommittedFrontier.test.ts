@@ -3,13 +3,15 @@ import { db } from "@tearleads/api-shared/postgres";
 import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
-import { parseDocumentVersionFrontier } from "./documentUpdateStore";
-import { hasUncommittedVersionOps } from "./documentVersionCommitted";
+import {
+  hasDocumentOpsBeyondCommittedFrontier,
+  parseDocumentVersionFrontier,
+} from "./documentUpdateStore";
 
 async function createStoredDocument(): Promise<string> {
   const [document] = await db
     .insert(documents)
-    .values({ createdByFingerprint: "document-version-committed-test" })
+    .values({ createdByFingerprint: "document-committed-frontier-test" })
     .returning({ id: documents.id });
   if (!document) throw new Error("Failed to create stored document");
   return document.id;
@@ -34,7 +36,7 @@ async function commitSpans(
   await db.insert(documentUpdates).values({
     ...update,
     accessEpoch: 1,
-    authorFingerprint: "document-version-committed-author",
+    authorFingerprint: "document-committed-frontier-author",
     byteLength: 1,
     documentId,
     encryptedData: `encrypted-${update.id}`,
@@ -47,7 +49,7 @@ function uncommitted(
   documentId: string,
   counters: Readonly<Record<string, number>>,
 ): Promise<boolean> {
-  return hasUncommittedVersionOps(db, {
+  return hasDocumentOpsBeyondCommittedFrontier(db, {
     documentId,
     version: parseDocumentVersionFrontier(
       encodeVersionVectorCounters(counters),
@@ -55,7 +57,7 @@ function uncommitted(
   });
 }
 
-test("a version is committed while every peer's counter is within a committed span", async () => {
+test("a version is within the frontier while no peer's counter passes its furthest committed end", async () => {
   const documentId = await createStoredDocument();
   expect(await uncommitted(documentId, {})).toBe(false);
   expect(await uncommitted(documentId, { "11": 1 })).toBe(true);
@@ -65,6 +67,10 @@ test("a version is committed while every peer's counter is within a committed sp
   // Any counter up to the furthest committed end, over any of the updates.
   expect(await uncommitted(documentId, { "11": 5, "22": 2 })).toBe(false);
   expect(await uncommitted(documentId, { "11": 2 })).toBe(false);
+  // A counter in a gap between spans is still within the frontier.
+  await commitSpans(documentId, { "44": [0, 3] });
+  await commitSpans(documentId, { "44": [5, 7] });
+  expect(await uncommitted(documentId, { "44": 4 })).toBe(false);
   // One op past a peer's committed end, or a peer never committed.
   expect(await uncommitted(documentId, { "11": 6 })).toBe(true);
   expect(await uncommitted(documentId, { "11": 5, "22": 3 })).toBe(true);

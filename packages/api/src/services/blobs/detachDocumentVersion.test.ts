@@ -82,7 +82,7 @@ test("a detach behind a committed edit is refused until it pulls", async () => {
   expect(await activeBoundBlobIds(fixture.document.id)).toEqual([]);
 }, 20_000);
 
-test("a binding bound with its uploader's unsent op keeps it until that op is read", async () => {
+test("a binding bound with its uploader's unsent op keeps it until that op commits", async () => {
   const fixture = await documentWithRoot();
   const { binding, blobId, request } = await stagedBind(fixture);
   // The uploader binds before pushing the update that records its slot.

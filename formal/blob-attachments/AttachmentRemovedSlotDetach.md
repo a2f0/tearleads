@@ -23,7 +23,7 @@ bound at is committed.
 | `Detach` | `assertAttachmentDocumentVersionCurrent` runs `hasDocumentOpsBeyondVersion` under the document head lock `lockAttachmentAuthorizationForShare` took |
 | `SentCursor` | `readProcessedCursorForVersion` gives the detach the processed cursor whose recorded version the view's version covers, and `readProcessedThroughSequence` resolves it for `hasDocumentOpsBeyondVersion` |
 | `Overclaim` / `Held` | `appendDocumentUpdates` stores the declared span of an update every reader voids (`validateDocumentSyncUpdateImports`), so no client version holds its ops |
-| `Detach` | `assertBindVersionCommitted` runs `hasUncommittedVersionOps` against the binding's stored version under the same lock |
+| `Detach` | `assertBindVersionCommitted` runs `hasDocumentOpsBeyondCommittedFrontier` against the binding's stored version under the same lock |
 | `Detach` (refused) | `isAttachmentDocumentChanged` reads the refusal, and `planRemovedSlotDetach` waits for a newer view before sending that binding's detach again |
 | `Detach` (refused) | `isRemovedSlotDetachWaiting` keeps a waiting slot out of `listRemovedAttachmentSlots`, so a pass with no marker lists bindings again only once the view moves; a refused marker detach (`AttachmentDetachOutcome`) waits without holding up the markers after it |
 | `Detach` | only a store that `canWriteDocument` lists removed slots: a reader leaves the binding to a writer |
@@ -66,6 +66,15 @@ forever (`CoverBindVersion`). The API asks only that every op of the bind
 version be committed, which an overclaim's ops are, and leaves what the
 detaching device read to the version check and its cursor.
 
+That reading of the committed frontier needs peer ownership
+(`PeerOwnership`). The frontier counts every declared span, so without it a
+dishonest writer could overclaim a span on the restorer's peer
+(`ForgeFrontier`), putting the unsent re-add inside the frontier and letting a
+detach land before the re-add commits. The API refuses another user's span
+past the frontier of a peer its writer owns, and a peer stays secret until
+its first commit claims it, so only the restorer moves its own peer's
+frontier.
+
 `RemovedSlotEventuallyUnbound` puts fairness only on the observing device's
 own reads and detaches, following the
 [no-brick](../container-keying/NoBrickedDevice.md) standard: the importer,
@@ -103,8 +112,10 @@ removes a restore bound ahead of its content; detaching from a view holding
 the remover's unsent removal unbinds a slot the committed document still
 asks for; without the new path, or without the cursor once a writer
 overclaims, the binding is never removed; a detach that must cover the bind
-version never removes a binding whose bind version names a voided op; and a
-cursor ahead of the view skips a committed restore. The
+version never removes a binding whose bind version names a voided op;
+without peer ownership an overclaim on the restorer's peer removes a restore
+bound ahead of its content; and a cursor ahead of the view skips a committed
+restore. The
 API regressions in
 [`detachDocumentVersion.test.ts`](../../packages/api/src/services/blobs/detachDocumentVersion.test.ts)
 refuse a detach behind a committed edit and one while the binding's bind

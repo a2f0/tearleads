@@ -4,10 +4,10 @@ import { readProcessedThroughSequence } from "../../../documents/documentProcess
 import {
   DocumentUpdateReadError,
   type DocumentVersionFrontier,
+  hasDocumentOpsBeyondCommittedFrontier,
   hasDocumentOpsBeyondVersion,
   parseDocumentVersionFrontier,
 } from "../../../documents/documentUpdateStore";
-import { hasUncommittedVersionOps } from "../../../documents/documentVersionCommitted";
 import { BlobMutationError } from "./types";
 
 /**
@@ -72,15 +72,21 @@ export async function assertAttachmentDocumentVersionCurrent(input: {
 
 /**
  * Refuses a detach while the version the binding was bound at names an op
- * the document has not committed. A bind version runs ahead of the committed
- * document only by its uploader's unsent ops, such as a restore whose content
+ * past the document's committed frontier. A bind version runs ahead of that
+ * frontier only by its uploader's unsent ops, such as a restore whose content
  * update is still on its way: until that op commits, a slot that looks
  * removed may yet ask for these bytes again. Once it commits,
  * `assertAttachmentDocumentVersionCurrent` makes the detaching client hold
  * it, or have voided it, like any other committed op, so the detach version
  * itself need not cover the bind version. A bind version naming an op every
- * reader voided, or one its uploader made up within the committed frontier,
- * therefore never holds the binding. The caller holds the document head
+ * reader voided, or one its uploader made up within the frontier, therefore
+ * never holds the binding.
+ *
+ * The frontier counts declared spans, overclaims included, so it stands for
+ * the uploader's commits only because no other user can move it on the
+ * uploader's peer: peer ownership refuses another user's span past the
+ * frontier of a peer the uploader owns, and the peer is secret until the
+ * uploader's first commit claims it. The caller holds the document head
  * lock, so no update commits between this read and the detach.
  */
 export async function assertBindVersionCommitted(input: {
@@ -89,7 +95,7 @@ export async function assertBindVersionCommitted(input: {
   readonly executor: DatabaseTransaction;
 }): Promise<void> {
   if (
-    await hasUncommittedVersionOps(input.executor, {
+    await hasDocumentOpsBeyondCommittedFrontier(input.executor, {
       documentId: input.documentId,
       version: input.bindVersion,
     })
