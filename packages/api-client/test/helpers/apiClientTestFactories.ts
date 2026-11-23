@@ -362,7 +362,12 @@ export function createDocumentSyncResponse(): DocumentSyncResponse {
     commitLsnMode: "tracked",
     contentKeyBundles: [],
     documentId: mutationResponse.id,
-    pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
+    pullPage: {
+      hasMore: false,
+      nextCursor: null,
+      throughUpdateCount: 0,
+      throughUpdateId: null,
+    },
     updates: [],
   };
 }
