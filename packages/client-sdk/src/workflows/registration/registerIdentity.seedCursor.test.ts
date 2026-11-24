@@ -15,7 +15,7 @@ test("every container metadata seed registration commits keeps the cursor it sta
     "registration-seed-cursor",
   );
   try {
-    const seeds: { documentId: string; updateId: string | undefined }[] = [];
+    const seeds: { documentId: string; updateId: string }[] = [];
     const response = await registerIdentity({
       identityTrustDomain: "https://api.example.test",
       apiClient: {
@@ -42,8 +42,9 @@ test("every container metadata seed registration commits keeps the cursor it sta
                 ] as const,
             ),
           ] as const) {
-            if (documentId === undefined) continue;
-            seeds.push({ documentId, updateId: sync?.outgoingUpdates[0]?.id });
+            const updateId = sync?.outgoingUpdates[0]?.id;
+            if (documentId === undefined || updateId === undefined) continue;
+            seeds.push({ documentId, updateId });
           }
           return acknowledged;
         },
