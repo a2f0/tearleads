@@ -1,5 +1,4 @@
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
-import { optionalHeaderEpoch } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
   type LoroLifetimes,
@@ -33,10 +32,7 @@ import {
  * window for its next lifetime to claim (`loroWindows.ts`).
  */
 
-type PageResult = Pick<
-  SyncRemoteDocumentResult,
-  "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
->;
+type PageResult = Pick<SyncRemoteDocumentResult, "decryptedUpdates">;
 
 interface WindowScopeInput {
   readonly execSql: ExecSql;
@@ -170,10 +166,6 @@ export async function openDocumentSyncLoroWindow(
     lifetimes,
   });
   await stopCountingElsewhere(held);
-  const [only] = unsettled;
-  const epoch = optionalHeaderEpoch(
-    input.result.response.updates.find((update) => update.id === only),
-  );
   // Without markers a close would read as a death: such a window isolates.
   const keepsMarkers = lifetimes.keepsMarkers();
   let counts = false;
@@ -191,15 +183,9 @@ export async function openDocumentSyncLoroWindow(
           tx,
           input.scope,
           {
-            contentKeyEpoch: counts ? epoch : null,
             counts,
             documentId: input.documentId,
             judge: documentVerdictJudge(),
-            keyFingerprint:
-              counts && epoch !== null
-                ? (input.result.contentKeyFingerprintsByEpoch.get(epoch) ??
-                  null)
-                : null,
             lifetimeId: lifetimes.id,
             updateIds: unsettled,
             windowId: held.id,

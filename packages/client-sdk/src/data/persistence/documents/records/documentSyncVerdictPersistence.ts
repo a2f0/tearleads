@@ -30,7 +30,6 @@ export interface DocumentVoidVerdict {
    * null keeps what the row recorded.
    */
   readonly attempts: number | null;
-  readonly contentKeyEpoch: number | null;
   readonly message: string;
   readonly stage: string;
   readonly updateId: string;
@@ -40,13 +39,6 @@ export interface DocumentSyncVerdictInput {
   readonly acceptedUpdateIds: readonly string[];
   readonly documentId: string;
   readonly judge: string;
-  readonly keyFingerprintsByEpoch: ReadonlyMap<number, string>;
-  /**
-   * False for runtime failures recorded ahead of their page's save: voids
-   * judged under another key stay for that save to find, so it clears the
-   * cursor instead of advancing it past them.
-   */
-  readonly resolvesKeyConflicts?: boolean | undefined;
   readonly now: string;
   /** Voided updates that reused this device's own operation ids. */
   readonly preemptions?: readonly DocumentPeerPreemption[] | undefined;
@@ -60,8 +52,6 @@ export interface DocumentSyncVerdictInput {
 }
 
 export interface DocumentSyncVerdictOutcome {
-  /** A void was judged under another key for its epoch; its cursor is gone. */
-  readonly cursorCleared: boolean;
   /** Preemption notices first recorded by this call, each reported once. */
   readonly newlyPreemptedUpdateIds: readonly string[];
   /** Voids first recorded by this call, each to be reported once. */
@@ -129,11 +119,9 @@ export async function readSendableProcessedCursor(
   return progress.throughUpdateId;
 }
 
-/** A verdict the import judge reached, with the key it was judged under. */
+/** A verdict the import judge reached. */
 export interface RecordedImportVoid {
   readonly attempts: number | null;
-  readonly contentKeyEpoch: number | null;
-  readonly keyFingerprint: string | null;
   readonly stage: string;
   readonly updateId: string;
 }
@@ -163,8 +151,6 @@ export async function readRecordedImportVoids(
       ...(await db
         .select({
           attempts: documentVoidUpdates.attempts,
-          contentKeyEpoch: documentVoidUpdates.contentKeyEpoch,
-          keyFingerprint: documentVoidUpdates.keyFingerprint,
           stage: documentVoidUpdates.stage,
           updateId: documentVoidUpdates.updateId,
         })
@@ -180,37 +166,6 @@ export async function readRecordedImportVoids(
     );
   }
   return recorded;
-}
-
-/** Void rows of the scope judged under another key for an epoch this pass held. */
-async function deleteVoidsJudgedUnderOtherKeys(
-  tx: ClientSQLiteTransactionScope,
-  input: DocumentSyncVerdictInput,
-): Promise<boolean> {
-  const epochs = [...input.keyFingerprintsByEpoch.keys()];
-  if (epochs.length === 0) return false;
-  const rows = await tx
-    .select({
-      contentKeyEpoch: documentVoidUpdates.contentKeyEpoch,
-      keyFingerprint: documentVoidUpdates.keyFingerprint,
-      updateId: documentVoidUpdates.updateId,
-    })
-    .from(documentVoidUpdates)
-    .where(
-      and(
-        voidScope(input.scope),
-        inArray(documentVoidUpdates.contentKeyEpoch, epochs),
-      ),
-    );
-  const conflicting = rows.flatMap((row) =>
-    row.contentKeyEpoch !== null &&
-    row.keyFingerprint !== null &&
-    input.keyFingerprintsByEpoch.get(row.contentKeyEpoch) !== row.keyFingerprint
-      ? [row.updateId]
-      : [],
-  );
-  await deleteVoidRows(tx, input.scope, conflicting);
-  return conflicting.length > 0;
 }
 
 async function deleteVoidRows(
@@ -249,15 +204,7 @@ async function upsertVoidRows(
   for (const voided of input.voids) {
     // A row keeps the reason it was first voided for while its stage holds;
     // a verdict at another stage (a new decoder reads further) replaces both.
-    const verdict = {
-      contentKeyEpoch: voided.contentKeyEpoch,
-      documentId: input.documentId,
-      judge: input.judge,
-      keyFingerprint:
-        voided.contentKeyEpoch === null
-          ? null
-          : (input.keyFingerprintsByEpoch.get(voided.contentKeyEpoch) ?? null),
-    };
+    const verdict = { documentId: input.documentId, judge: input.judge };
     await tx
       .insert(documentVoidUpdates)
       .values({
@@ -337,9 +284,6 @@ async function applyProcessedCursorTransition(
   switch (transition.status) {
     case "unchanged":
       return;
-    case "cleared":
-      await clearDocumentSyncProgressInTransaction(tx, input.scope);
-      return;
     case "pulling":
       await upsertProgress(tx, input.scope, {
         documentId: input.documentId,
@@ -382,9 +326,14 @@ async function applyProcessedCursorTransition(
  * Records one sync page's verdicts in the transaction that saves its record:
  * voids are written or refreshed, updates now accepted lose their void row,
  * and a pull that completed under the premise its first page recorded
- * advances the processed cursor to its upper bound. A void judged under a
- * different key for its epoch than this pass held drops that row and the
- * cursor, so the next pull serves the update again.
+ * advances the processed cursor to its upper bound.
+ *
+ * No verdict depends on the content key a pass held. A void or an acceptance
+ * is recorded only for an update whose signed envelope committed to the key
+ * the reader judged it under, and every reader holding that key reaches the
+ * same verdict. A reader holding another key reaches none: its pass fails at
+ * that update, before this runs. A later pass holding another key for an
+ * epoch therefore has nothing here to undo.
  */
 export async function recordDocumentSyncVerdictsInTransaction(
   tx: ClientSQLiteTransactionScope,
@@ -406,15 +355,8 @@ export async function recordDocumentSyncVerdictsInTransaction(
     )
     .limit(1);
   if (!record || record.documentId !== input.documentId) {
-    return {
-      cursorCleared: false,
-      newlyPreemptedUpdateIds: [],
-      newlyVoidedUpdateIds: [],
-    };
+    return { newlyPreemptedUpdateIds: [], newlyVoidedUpdateIds: [] };
   }
-  const keyConflict =
-    input.resolvesKeyConflicts !== false &&
-    (await deleteVoidsJudgedUnderOtherKeys(tx, input));
   await deleteVoidRows(tx, input.scope, input.acceptedUpdateIds);
   const newlyVoidedUpdateIds = await upsertVoidRows(tx, input);
   const newlyPreemptedUpdateIds = await recordDocumentPeerPreemptions(tx, {
@@ -425,7 +367,6 @@ export async function recordDocumentSyncVerdictsInTransaction(
   });
   const transition = processedCursorTransition({
     judge: input.judge,
-    keyConflict,
     page: input.pullPage,
     recordedFrontier: record.snapshotEndVersion,
     storedPremise: input.pullPage?.first
@@ -433,19 +374,7 @@ export async function recordDocumentSyncVerdictsInTransaction(
       : await readPullPremise(tx, input.scope, input.documentId),
   });
   await applyProcessedCursorTransition(tx, input, transition);
-  return {
-    cursorCleared: transition.status === "cleared",
-    newlyPreemptedUpdateIds,
-    newlyVoidedUpdateIds,
-  };
-}
-
-/** Forget where a scope's pulls reached, so the next one pulls by version. */
-async function clearDocumentSyncProgressInTransaction(
-  tx: Pick<ClientSQLiteTransactionScope, "delete">,
-  scope: DocumentScope,
-): Promise<void> {
-  await tx.delete(documentSyncProgress).where(progressScope(scope)).run();
+  return { newlyPreemptedUpdateIds, newlyVoidedUpdateIds };
 }
 
 /** Remove a deleted or rebound scope's cursor, void rows, and notices. */

@@ -265,6 +265,7 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 | -------------------------------------------- | ---------------------------------------------- |
 | `document_sync_checkpoint_coverage_conflict` | Regenerate the queued rotation checkpoint.     |
 | `document_sync_descendant_rekeys_required`   | Commit the container rekeys standalone, retry. |
+| `document_sync_peer_owned`                   | Move unsent ops off the named peers, retry.    |
 | `document_sync_state_stale`                  | Refetch the writer projection and replan.      |
 | `document_sync_update_id_conflict`           | Run pending-update ID recovery.                |
 | `document_sync_conflict`                     | Report the terminal conflict without retrying. |
@@ -287,3 +288,14 @@ principals named by its submitted rekeys, before it refetches the
 alone never admit checkpoints. Exact scoped references and the original runtime
 lifetime must remain valid throughout recovery, and the retry stays bounded by
 the normal stale-state budget. Other conflict codes ignore repair heads.
+
+A sync that extends a Loro peer past its committed frontier when another user
+is that peer's [owner](./glossary/sync.md#peer-owner) is refused whole with
+`document_sync_peer_owned`. Its `peerFrontiers[]` names at most 64 refused
+peers in canonical order, each as a decimal `peerId` with the
+`committedEndCounter` (exclusive) committed before the request; a request
+refused on more peers is refused again for the rest after its retry. Counters
+below that frontier may be re-asserted by any writer, so the client keeps
+everything there, moves its unsent operations past it onto a fresh peer, and
+resubmits. Other conflict codes ignore `peerFrontiers`. The rule is in
+[advisory op spans](./advisory-op-spans.md#what-the-server-checks).

@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { documents, documentUpdates } from "@tearleads/api-shared/schema";
+import {
+  documentPeerOwners,
+  documents,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
 import type { UnsignedWriteHeader } from "@tearleads/crypto";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
@@ -114,6 +118,12 @@ test("a seeded create commits its seed in the create transaction", async () => {
   expect(created.initialSync?.acceptedOutgoingUpdateIds).toEqual([updateId]);
   expect(created.initialSync?.commitLsnMode).toBeDefined();
   expect(await storedUpdateIds(created.id)).toEqual([updateId]);
+  // A new document has no committed peers, so the seed claims its own.
+  const owners = await db
+    .select({ ownerUserId: documentPeerOwners.ownerUserId })
+    .from(documentPeerOwners)
+    .where(eq(documentPeerOwners.documentId, created.id));
+  expect(owners).toEqual([{ ownerUserId: owner.userId }]);
 });
 
 test("a seed skips its billing check only for the organization the create admitted", async () => {

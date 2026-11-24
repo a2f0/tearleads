@@ -74,7 +74,6 @@ async function judgeInNewProcess(
         reports.push(String(message));
       },
       result: {
-        contentKeyFingerprintsByEpoch: new Map(),
         decryptedUpdates: [update],
         response: EMPTY_RESPONSE,
       },

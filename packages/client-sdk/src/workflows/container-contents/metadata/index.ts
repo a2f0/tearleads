@@ -18,6 +18,7 @@ import {
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import { noteContainerMetadataDownloadDrained } from "./metadataDownloadCompletion";
 import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
+import { containerMetadataPeerRebaser } from "./metadataPeerRebase";
 import {
   currentMetadataPullContinuation,
   hasCurrentContainerMetadataReadState,
@@ -197,6 +198,13 @@ async function requestContainerMetadataSync(input: {
         policyOperation: syncInput.policyOperation,
         pullContinuation:
           currentMetadataPullContinuation(metadataState) ?? undefined,
+        rebaseOntoFreshPeer: containerMetadataPeerRebaser({
+          execSql: runtime.infra.execSql,
+          isCurrent,
+          metadataState: syncInput.metadataState,
+          onRebased: () => syncInput.onDurableStateNeedsReload?.(),
+          persistence,
+        }),
         rekeyPendingUpdate: persistence.rekeyPendingUpdate,
         resolveProjectionUserKey: syncInput.resolveProjectionUserKey,
         runtime,
@@ -424,18 +432,17 @@ async function finalizeContainerMetadataSync(input: {
     });
   }
   // A superseded save ran no recorder; the next pull judges its page again.
-  const cursorCleared = verdicts.settle(input.runtime.util.logError);
+  verdicts.settle(input.runtime.util.logError);
 
   return {
     ...persisted,
     ...(resumedEarlierMetadataPull(syncAttempt)
       ? { resumedEarlierPull: true as const }
       : {}),
-    shouldRequestFollowupSync:
-      shouldRequestContainerMetadataFollowup({
-        persisted,
-        settleOutgoingPass: () =>
-          settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
-      }) || cursorCleared,
+    shouldRequestFollowupSync: shouldRequestContainerMetadataFollowup({
+      persisted,
+      settleOutgoingPass: () =>
+        settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
+    }),
   };
 }

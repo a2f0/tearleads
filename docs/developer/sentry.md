@@ -196,7 +196,7 @@ reading one update is reported by the next lifetime that claims its
 ended while reading a sync update (attempt n of 3)`, with the same `; voided`
 ending. A void that reused
 operation ids under this device's own peer id
-([preempted operations](../advisory-op-spans.md#preempted-operations)) is
+([peer ownership](../advisory-op-spans.md#preemption-notices)) is
 reported once more, after its `document_peer_preemptions` notice is recorded,
 as `Documents: writer <user> (fingerprint <key>) committed operations under
 this device's peer id <peer>; ...`. The writer's user id, key fingerprint, and

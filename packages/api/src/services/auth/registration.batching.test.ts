@@ -75,7 +75,8 @@ for (const full of [false, true]) {
     // Verifying the Admins head as a strict authority beside its policy costs
     // two statements here and spares the first Admins-governed group create a
     // 202 preparation round. Reading the commit position after the
-    // transaction, for the seeded documents' first reads, costs one.
+    // transaction, for the seeded documents' first reads, costs one. Each seed
+    // claims its new peer with one insert (200 / 400 before).
     console.info("create-seed-registration", {
       full,
       statements: counter.statements,

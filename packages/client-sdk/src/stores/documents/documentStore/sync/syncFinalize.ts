@@ -206,7 +206,8 @@ async function persistSyncedDocument(
     const verdicts = recordedVerdicts;
     committed = Boolean(persisted) && verdicts !== undefined;
     if (persisted && verdicts && isCurrent()) {
-      settleDocumentSyncVerdicts(state, synced, verdicts);
+      // After the save committed: report each void first recorded here.
+      reportDocumentSyncVoids(state.runtime.util.logError, synced, verdicts);
     }
     if (
       persisted &&
@@ -255,20 +256,6 @@ async function settleUnsavedLoroWindow(
   committedTo: DocumentStoreSyncGeneration["execSql"] | null = null,
 ): Promise<void> {
   await settleDocumentSyncLoroWindow(syncAttempt.loroWindow, committedTo);
-}
-
-/**
- * After the save committed: report each void this device recorded for the
- * first time, and re-arm a pass when a void judged under another key cleared
- * the cursor, so the next pull serves that update again.
- */
-function settleDocumentSyncVerdicts(
-  state: DocumentStoreState,
-  synced: DocumentSyncAttempt["synced"],
-  verdicts: DocumentSyncVerdictOutcome,
-): void {
-  reportDocumentSyncVoids(state.runtime.util.logError, synced, verdicts);
-  if (verdicts.cursorCleared) requestDocumentStoreSync(state);
 }
 
 export function shouldReArmDocumentSync(

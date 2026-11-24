@@ -6,7 +6,8 @@ import {
 import type { Device } from "../harness/device";
 import { readDocument, readText } from "../harness/documentReads";
 import { expectNoSecurityIncidents } from "../harness/expectations";
-import { World } from "../harness/world";
+import { documentWrite } from "../harness/transport";
+import { type SharedDocument, type User, World } from "../harness/world";
 
 let world: World | null = null;
 afterEach(() => {
@@ -83,14 +84,72 @@ function sentUpdateIds(device: Device, from: number): string[] {
     );
 }
 
+/** The status and code of each write of `documentId` after `from` exchanges. */
+function documentWrites(device: Device, documentId: string, from: number) {
+  return device.transport.history
+    .slice(from)
+    .filter(documentWrite(documentId))
+    .map(({ errorCode, status }) => ({ errorCode, status }));
+}
+
+/**
+ * `forger` queues an edit offline and, on the next start, signs it with a
+ * declared span that also claims `peerId`'s counters from `next` on, which
+ * that peer's writer has not made yet. Returns the forged update's id and
+ * the forger's document writes.
+ */
+async function forgeSpanOnPeer(input: {
+  readonly document: SharedDocument;
+  readonly forger: Device;
+  readonly next: number;
+  readonly peerId: string;
+  readonly text: string;
+  readonly user: User;
+  readonly world: World;
+}) {
+  const { document, forger, next, peerId, world } = input;
+  const ref = world.documentRef(document);
+  const store = await readDocument(forger, ref);
+  if (!store) throw forger.failure("cannot open the document");
+  forger.setOnline(false);
+  await store.setText(input.text);
+  const liar = await world.restartDevice(input.user, forger, false);
+  expect(
+    await liar.forgeQueuedUpdateSpans(({ end, start }) => ({
+      end: mergeVersionVectors([
+        end,
+        encodeVersionVectorCounters({ [peerId]: next + 64 }),
+      ]),
+      start: mergeVersionVectors([
+        start,
+        encodeVersionVectorCounters({ [peerId]: next }),
+      ]),
+    })),
+  ).toBe(1);
+  const sentBefore = liar.transport.history.length;
+  liar.setOnline(true);
+  await readDocument(liar, ref);
+  await liar.idle();
+  const [forgedId] = sentUpdateIds(liar, sentBefore);
+  if (!forgedId) throw new Error("Expected the forged update to be sent");
+  return {
+    forgedId,
+    writes: documentWrites(liar, document.documentId, sentBefore),
+  };
+}
+
 // A writer signs an update whose declared span claims operations of another
 // writer's peer that the other writer has not made yet. The API credits each
-// operation to the earliest update whose span covers it, so it credits the
-// other writer's later edit to the false update, and History would bound
+// operation to the earliest update whose span covers it, so it would credit
+// the other writer's later edit to the false update, and History would bound
 // that edit by the false update's upload time. A reader that voided the
 // false update credits nobody with those operations, in its per-upload
 // ranges (History, Explorer), its compact segments (row writers), and
 // Info's contributors alike.
+//
+// Peer ownership refuses such a span from another user, so the false update
+// here comes from the same user's other device: each device writes on its
+// own peer, and ownership is per user.
 test("a reader credits no void update with another writer's later edit", async () => {
   world = await World.create();
   const alice = await world.register("alice");
@@ -110,33 +169,40 @@ test("a reader credits no void update with another writer's later edit", async (
   const bobPeer = bobRun.peerId;
   const next = bobRun.endCounter;
 
-  // Alice's edit queues offline; a modified client then claims Bob's next
-  // operations in its span and signs that on the next start.
-  const offline = alice.devices[0];
-  if (!offline) throw new Error("Expected Alice's device");
-  const liarStore = await readDocument(offline, world.documentRef(document));
-  if (!liarStore) throw offline.failure("cannot open the document");
-  offline.setOnline(false);
-  await liarStore.setText("seed\nbob\nalice\n");
-  const liar = await world.restartDevice(alice, offline, false);
+  // Another user's claim on Bob's next operations is refused outright: Bob
+  // owns his peer, so the API never stores it.
+  const alicesDevice = alice.devices[0];
+  if (!alicesDevice) throw new Error("Expected Alice's device");
+  const refused = await forgeSpanOnPeer({
+    document,
+    forger: alicesDevice,
+    next,
+    peerId: bobPeer,
+    text: "seed\nbob\nalice\n",
+    user: alice,
+    world,
+  });
+  expect(refused.writes.length).toBeGreaterThan(0);
   expect(
-    await liar.forgeQueuedUpdateSpans(({ end, start }) => ({
-      end: mergeVersionVectors([
-        end,
-        encodeVersionVectorCounters({ [bobPeer]: next + 64 }),
-      ]),
-      start: mergeVersionVectors([
-        start,
-        encodeVersionVectorCounters({ [bobPeer]: next }),
-      ]),
-    })),
-  ).toBe(1);
-  const sentBefore = liar.transport.history.length;
-  liar.setOnline(true);
-  await readDocument(liar, world.documentRef(document));
-  await liar.idle();
-  const [forgedId] = sentUpdateIds(liar, sentBefore);
-  if (!forgedId) throw new Error("Expected the forged update to be sent");
+    refused.writes.every(
+      ({ errorCode, status }) =>
+        status === 409 && errorCode === "document_sync_peer_owned",
+    ),
+  ).toBe(true);
+
+  // Bob's other device, on its own peer, makes the same claim. The API
+  // stores it, since Bob owns the peer, and every reader voids it.
+  const forged = await forgeSpanOnPeer({
+    document,
+    forger: await world.newDevice(bob),
+    next,
+    peerId: bobPeer,
+    text: "seed\nbob\nother device\n",
+    user: bob,
+    world,
+  });
+  expect(forged.writes.at(-1)).toEqual({ errorCode: undefined, status: 200 });
+  const forgedId = forged.forgedId;
 
   // Bob voids it, then makes the operations it claimed two minutes on, as a
   // change of its own in History.

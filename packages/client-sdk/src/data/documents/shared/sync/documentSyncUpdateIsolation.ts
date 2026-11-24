@@ -36,7 +36,7 @@ function optionalHeaderString(
 }
 
 /** The content-key epoch a served update's write header names, if any. */
-export function optionalHeaderEpoch(
+function optionalHeaderEpoch(
   update: SyncResponseUpdate | undefined,
 ): number | null {
   const value = optionalHeaderField(update, "contentKeyEpoch");

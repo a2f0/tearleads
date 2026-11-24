@@ -1,4 +1,7 @@
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type {
+  DocumentPeerFrontier,
+  DocumentWriterProjectionResponse,
+} from "@tearleads/validators/response";
 import type {
   DocumentSyncApi,
   IncomingDocumentSyncUpdateValidator,
@@ -24,6 +27,26 @@ import type {
 import type { RekeyPendingUpdate } from "../syncRekeys/syncRecoveryRekey";
 import type { DocumentSyncContainerRekeyBuilder } from "./syncAttemptState";
 import type { DocumentSyncTraceEmitter } from "./syncTrace";
+
+/**
+ * What a peer rebase did: installed the rebased document and queued its
+ * update; lost to a concurrent change of the document, so a later pass is
+ * refused and rebases again; or found nothing past the named frontiers, which
+ * leaves the refusal terminal.
+ */
+export type DocumentPeerRebaseOutcome =
+  | "nothing_to_cut"
+  | "rebased"
+  | "superseded";
+
+/**
+ * Rebases the record's unsent operations on the refused peers onto a fresh
+ * peer, replaces its queued updates with one update of the rebased document,
+ * and requests a new sync.
+ */
+export type DocumentPeerRebaser = (
+  peerFrontiers: readonly DocumentPeerFrontier[],
+) => Promise<DocumentPeerRebaseOutcome>;
 
 /** What one `RemoteDocumentService.syncRemoteDocument` call varies. */
 export interface SyncRemoteDocumentRequest {
@@ -86,6 +109,12 @@ export interface SyncRemoteDocumentRequest {
   onTerminalSubmitFailure?: TerminalSubmitFailureHandler | undefined;
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
+  /**
+   * Answers a `document_sync_peer_owned` refusal: another user owns a peer
+   * the queued updates extend. The pass calls it and ends without a result.
+   * Without it, that refusal is terminal.
+   */
+  rebaseOntoFreshPeer?: DocumentPeerRebaser | undefined;
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   resolveWriterPublicKey: DocumentWriterPublicKeyResolver;

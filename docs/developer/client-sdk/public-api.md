@@ -407,6 +407,17 @@ and `settleAttachmentRemovalMarker` (`SettleAttachmentRemovalMarkerInput`,
 `AttachmentRemovalMarker`); create and commit persist `attachmentNames`. See
 [custom document persistence](../custom-document-persistence.md).
 
+### Peer rebase
+
+`SyncRemoteDocumentRequest.rebaseOntoFreshPeer` takes a `DocumentPeerRebaser`,
+which resolves to a `DocumentPeerRebaseOutcome`
+([sync](configuration.md#sync-and-container-recitation)). Adapters may
+implement `DocumentsPersistence.installPeerRebase`, which takes a
+`DocumentPeerRebaseInstall` whose `record` is a `DocumentPeerRebaseRecord`
+([custom document persistence](../custom-document-persistence.md)). A
+`document` record's `peerSalt` comes back as `DocumentRecord.peerSalt`, which
+moves every later load of the record onto the rebased writer peer.
+
 ### Organization data usage
 
 `Organizations.loadDataUsage()` returns the active organization's synced usage

@@ -170,7 +170,6 @@ export function createLoroWindowBench() {
           logError: () => undefined,
           loroWindow: pass.window ?? createDocumentSyncLoroWindow(),
           result: {
-            contentKeyFingerprintsByEpoch: new Map(),
             decryptedUpdates: [...updates],
             response: EMPTY_RESPONSE,
           },

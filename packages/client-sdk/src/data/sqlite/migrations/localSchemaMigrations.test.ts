@@ -6,9 +6,11 @@ import {
   containerParentSyncLane,
 } from "../../persistence/container-contents/containerSyncWatermarkPersistence";
 import { organizationReadModelTables } from "../schema";
+import { documentLoroWindowTables } from "../schema/documentLoroWindowSchema";
 import { documentProjectionTables } from "../schema/documentProjectionSchema";
 import { documentTables } from "../schema/documentRecordSchema";
-import { ensureSqlTables } from "../sqlSchema";
+import { documentSyncVerdictTables } from "../schema/documentSyncVerdictSchema";
+import { type ExecSql, ensureSqlTables } from "../sqlSchema";
 import { localSchemaMigrations } from "./localSchemaMigrations";
 import {
   LOCAL_SCHEMA_MIGRATIONS_TABLE,
@@ -115,10 +117,12 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
     const [documents] = documentTables;
     if (!documents) throw new Error("Documents table schema is missing");
     await execSql(
-      documents.createSql.replace(
-        '  "sync_failure_message" TEXT,\n',
-        '  "sync_failure_status" INTEGER,\n  "sync_failure_message" TEXT,\n',
-      ),
+      documents.createSql
+        .replace('  "peer_salt" TEXT,\n', "")
+        .replace(
+          '  "sync_failure_message" TEXT,\n',
+          '  "sync_failure_status" INTEGER,\n  "sync_failure_message" TEXT,\n',
+        ),
     );
     for (const index of documents.indexes ?? []) await execSql(index);
     await execSql(
@@ -157,7 +161,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5, 6]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
@@ -237,6 +241,206 @@ test("step 6 marks a version-5 database's pending uploads as first attaches", as
       ),
     ).toEqual([{ requeued: 0, slot_id: "photo" }]);
     await ensureSqlTables(execSql, documentProjectionTables);
+  } finally {
+    close();
+  }
+});
+
+// The version-6 shapes, as the table definitions created them before step 7.
+const VERSION_6_VOID_UPDATES = `CREATE TABLE "document_void_updates" (
+  "app_kind" TEXT NOT NULL,
+  "local_id" TEXT NOT NULL,
+  "document_id" TEXT NOT NULL,
+  "update_id" TEXT NOT NULL,
+  "stage" TEXT NOT NULL,
+  "message" TEXT NOT NULL,
+  "attempts" INTEGER,
+  "judge" TEXT NOT NULL,
+  "content_key_epoch" INTEGER,
+  "key_fingerprint" TEXT,
+  "voided_at" TEXT NOT NULL,
+  PRIMARY KEY ("app_kind", "local_id", "update_id")
+)`;
+const VERSION_6_LORO_WINDOWS = `CREATE TABLE "document_loro_windows" (
+  "app_kind" TEXT NOT NULL,
+  "local_id" TEXT NOT NULL,
+  "lifetime_id" TEXT NOT NULL,
+  "window_id" TEXT NOT NULL,
+  "document_id" TEXT NOT NULL,
+  "update_ids" TEXT NOT NULL,
+  "counts" INTEGER NOT NULL,
+  "content_key_epoch" INTEGER,
+  "key_fingerprint" TEXT,
+  "judge" TEXT NOT NULL,
+  "opened_at" TEXT NOT NULL,
+  PRIMARY KEY ("app_kind", "local_id", "lifetime_id")
+)`;
+const JUDGE = "void-rules-3:loro-crdt@1.0.0";
+
+async function columnsOf(execSql: ExecSql, table: string) {
+  return (
+    await execSql(`SELECT name FROM pragma_table_info('${table}') ORDER BY cid`)
+  ).map(({ name }) => String(name));
+}
+
+test("step 7 drops the void rows' and read windows' key columns and keeps the rows", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-sync-key-columns",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 5),
+    });
+    await execSql(VERSION_6_VOID_UPDATES);
+    await execSql(VERSION_6_LORO_WINDOWS);
+    await execSql(
+      `INSERT INTO document_void_updates (app_kind, local_id, document_id,
+         update_id, stage, message, attempts, judge, content_key_epoch,
+         key_fingerprint, voided_at)
+       VALUES ('documents', 'note', 'doc', 'liar', 'loro_import', 'false span',
+         NULL, ?, 1, ?, ?)`,
+      [JUDGE, "a".repeat(64), CREATED_AT],
+    );
+    await execSql(
+      `INSERT INTO document_loro_windows (app_kind, local_id, lifetime_id,
+         window_id, document_id, update_ids, counts, content_key_epoch,
+         key_fingerprint, judge, opened_at)
+       VALUES ('documents', 'note', 'dead', 'dead-window', 'doc', '["liar"]',
+         1, 1, ?, ?, ?)`,
+      ["a".repeat(64), JUDGE, CREATED_AT],
+    );
+
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+
+    expect(await columnsOf(execSql, "document_void_updates")).toEqual([
+      "app_kind",
+      "local_id",
+      "document_id",
+      "update_id",
+      "stage",
+      "message",
+      "attempts",
+      "judge",
+      "voided_at",
+    ]);
+    expect(await execSql("SELECT * FROM document_void_updates")).toEqual([
+      {
+        app_kind: "documents",
+        attempts: null,
+        document_id: "doc",
+        judge: JUDGE,
+        local_id: "note",
+        message: "false span",
+        stage: "loro_import",
+        update_id: "liar",
+        voided_at: CREATED_AT,
+      },
+    ]);
+    expect(await columnsOf(execSql, "document_loro_windows")).toEqual([
+      "app_kind",
+      "local_id",
+      "lifetime_id",
+      "window_id",
+      "document_id",
+      "update_ids",
+      "counts",
+      "judge",
+      "opened_at",
+    ]);
+    expect(await execSql("SELECT * FROM document_loro_windows")).toEqual([
+      {
+        app_kind: "documents",
+        counts: 1,
+        document_id: "doc",
+        judge: JUDGE,
+        lifetime_id: "dead",
+        local_id: "note",
+        opened_at: CREATED_AT,
+        update_ids: '["liar"]',
+        window_id: "dead-window",
+      },
+    ]);
+    // The migrated tables are the shapes the current definitions check.
+    await ensureSqlTables(execSql, [
+      ...documentSyncVerdictTables,
+      ...documentLoroWindowTables,
+    ]);
+  } finally {
+    close();
+  }
+});
+
+// Step 6 shipped a day before the void table and two before the window
+// table, and no step creates either, so a database a build between them
+// wrote reaches step 7 without one or both.
+test("step 7 migrates a version-6 database from before the window table", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-sync-key-columns-absent",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 5),
+    });
+    await execSql(VERSION_6_VOID_UPDATES);
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+    expect(await columnsOf(execSql, "document_void_updates")).not.toContain(
+      "key_fingerprint",
+    );
+    expect(
+      await execSql(
+        "SELECT name FROM sqlite_master WHERE name = 'document_loro_windows'",
+      ),
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("step 7 skips a version-6 database with neither table", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-sync-key-columns-none",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 5),
+    });
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+    expect(
+      await execSql(
+        "SELECT name FROM sqlite_master WHERE name IN ('document_void_updates', 'document_loro_windows')",
+      ),
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("step 8 adds an empty peer salt to a version-7 database's documents", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-document-peer-salt",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 6),
+    });
+    const [documents] = documentTables;
+    if (!documents) throw new Error("Documents table schema is missing");
+    // The version-7 shape: the current table without its peer salt.
+    const previous = documents.createSql.replace('  "peer_salt" TEXT,\n', "");
+    expect(previous).not.toContain('"peer_salt"');
+    await execSql(previous);
+    await execSql(
+      `INSERT INTO documents (app_kind, local_id, updated_at)
+       VALUES ('documents', 'note', ?)`,
+      [CREATED_AT],
+    );
+
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+
+    expect(await execSql("SELECT local_id, peer_salt FROM documents")).toEqual([
+      { local_id: "note", peer_salt: null },
+    ]);
+    await ensureSqlTables(execSql, documentTables);
   } finally {
     close();
   }

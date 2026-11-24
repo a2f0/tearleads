@@ -161,10 +161,10 @@ Outside the model: the rotation-baseline redirect of a pull's first page, which
 skips only updates after the cursor that the baseline covers
 ([`BaselineDominance`](./BaselineDominance.md) checks that gate); AEAD failures
 and content keys, which [`ContentKeyCommitment`](./ContentKeyCommitment.md)
-checks; the content-key commitment that drops a void judged under another key;
-duplicate update ids, which still fail a page; a pull's pages beyond the
-collapse above, and a cursor dropped between them, which abandons the pull as an
-upgrade does; the per-page rebuild budget, whose deferred updates are served
+checks, so no verdict or cursor depends on the key a reader holds; duplicate
+update ids, which still fail a page; a pull's pages beyond the
+collapse above, and a cursor withheld between them, which abandons the pull as
+an upgrade does; the per-page rebuild budget, whose deferred updates are served
 again as a shorter page would leave them; the retry delay between a process's
 attempts and its uncounted later failures, which only hold a pull as a stutter
 would; a rotation's or founding view's window, which reads raw history the
@@ -177,7 +177,7 @@ document isolating suspects that waits longer than the window gate allows (30
 seconds) for other documents' windows to close, which then reads beside them
 and counts nothing, so it only delays progress as a stutter would; the
 record of import voids that spares a device a second import of an update under
-the same judge and key; and devices' own writes. An honest writer depends only
+the same judge; and devices' own writes. An honest writer depends only
 on operations committed before its update. A dishonest writer that forges a
 dependency on a later update can make a device that judges an update again
 (after an upgrade or a replaced state) accept what a device judging in server

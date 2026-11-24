@@ -30,6 +30,7 @@ import {
   type EncapsulationKeyPair,
   markDocumentStoreRemoved,
 } from "../state";
+import { documentStorePeerRebaser } from "./peerRebase";
 import { invalidateDocumentStorePullContinuation } from "./pullContinuationInvalidation";
 import {
   type DocumentStoreSyncGeneration,
@@ -260,6 +261,7 @@ function runRemoteDocumentSync(
     ),
     pendingUpdates,
     persistedState: currentRecord,
+    rebaseOntoFreshPeer: documentStorePeerRebaser(input),
     rekeyPendingUpdate: state.persistence.rekeyPendingUpdate,
     resolveProjectionUserKey: state.resolveProjectionUserKey,
     resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
