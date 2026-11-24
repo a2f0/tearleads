@@ -12,6 +12,7 @@ import {
 } from "../mini-app/MiniAppLayout";
 import "./AccountBootstrapProgressPanel.css";
 import { RecoveryKeyBackupConfirmation } from "./recovery-key/RecoveryKeyBackupConfirmation";
+import { RecoveryKeyScan } from "./recovery-key/RecoveryKeyScan";
 import { SavedPassphraseButton } from "./SavedPassphraseButton";
 
 function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
@@ -61,6 +62,17 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
             onChange={(event) => setValue(event.currentTarget.value)}
             placeholder="Bob"
             value={value}
+          />
+        )}
+        {restoring && onboarding && (
+          // A scan is already a validated key, so it restores without a
+          // second step and the key never sits in the field.
+          <RecoveryKeyScan
+            disabled={false}
+            label="Restore from QR code"
+            onScan={(phrase) =>
+              onboarding.submit("entering-passphrase", phrase)
+            }
           />
         )}
         {restoring && (
