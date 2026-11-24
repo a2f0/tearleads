@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readlink, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -16,6 +16,11 @@ beforeAll(async () => {
   await cp(
     join(sourceScripts, "desktopRelease.sh"),
     join(root, "scripts/release/desktopRelease.sh"),
+  );
+  await mkdir(join(root, "scripts/lib"), { recursive: true });
+  await cp(
+    join(sourceScripts, "../lib/secretsStore.sh"),
+    join(root, "scripts/lib/secretsStore.sh"),
   );
   for (const platform of ["Macos", "Linux"]) {
     await Bun.write(
@@ -49,7 +54,11 @@ afterAll(async () => {
   if (root) await rm(root, { recursive: true, force: true });
 });
 
-async function run(command: string[], failure = false) {
+async function run(
+  command: string[],
+  failure = false,
+  env: Record<string, string> = {},
+) {
   const { PATH: inheritedPath } = process.env;
   const child = Bun.spawn(command, {
     // Match invoking a convenience script from outside its checkout.
@@ -57,6 +66,7 @@ async function run(command: string[], failure = false) {
     env: {
       PATH: inheritedPath,
       DESKTOP_WRAPPER_TEST_EXIT: failure ? "7" : "0",
+      ...env,
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -142,3 +152,34 @@ for (const [name, platform, action, tier] of [
     ]);
   });
 }
+
+test("a desktop shortcut links a fresh clone's secrets at its root first", async () => {
+  const store = await realpath(
+    await mkdtemp(join(tmpdir(), "tearleads desktop secrets-")),
+  );
+  await mkdir(join(store, "tearleads/prod"), { recursive: true, mode: 0o700 });
+  // Marks the fixture as a fresh Git checkout for this test only.
+  await mkdir(join(root, ".git"));
+  try {
+    const result = await run(
+      ["sh", join(root, "scripts/release/buildMacosRelease.sh")],
+      false,
+      { MATRIX_SECRETS_DIR: store },
+    );
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(await readlink(join(root, ".secrets"))).toBe(
+      join(store, "tearleads"),
+    );
+    expect(result.stdout.trim().split("\n")).toEqual([
+      `Linked .secrets to ${join(store, "tearleads")}`,
+      "macos",
+      root,
+      "build",
+      "production",
+    ]);
+  } finally {
+    await rm(join(root, ".secrets"), { force: true });
+    await rm(join(root, ".git"), { recursive: true, force: true });
+    await rm(store, { recursive: true, force: true });
+  }
+});
