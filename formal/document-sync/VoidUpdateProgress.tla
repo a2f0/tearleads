@@ -43,6 +43,19 @@ EXTENDS FiniteSets, Naturals, Sequences
 (* (HiddenKill): the user ended that lifetime, not the update. The command *)
 (* line's database is memory-only, so its windows end with it.            *)
 (*                                                                         *)
+(* A key rotation rebuilds history the device already accepted (Rotate),   *)
+(* reading it one update a window. A death there is far likelier the       *)
+(* rebuild's size or state than the update: it counts toward the device's  *)
+(* rotation, never an update, and isolates the update. After MaxAttempts  *)
+(* such deaths under one decoder the device starts no rotation and leaves *)
+(* it to other members; a completed rebuild below that, or a new decoder,  *)
+(* starts over. A window the process outlives (Process, RotateDone) clears *)
+(* the attempts of the updates it read, so deaths far apart cannot add up  *)
+(* to a void. A page a runtime failure cut short is not modelled as such a *)
+(* read: clearing fewer attempts only makes voids likelier. A founding     *)
+(* view reads accepted history in a window that counts as a pull's does;  *)
+(* it is left out (VoidUpdateProgress.md).                                *)
+(*                                                                         *)
 (* Readers are devices with no local writes; writers are outside actors.  *)
 (* Commits, decoder upgrades, state replacement, runtime failures,         *)
 (* restarts, and deaths have no fairness; only server delivery (Pull) and  *)
@@ -50,9 +63,10 @@ EXTENDS FiniteSets, Naturals, Sequences
 (* lifetime (Start), and dying on a killer (Kill with KillerPending).      *)
 (* Other deaths, hidden or not, are bounded (MaxDeaths): a device whose   *)
 (* user hides the app at every death never counts a killer, the accepted  *)
-(* residual. Restarts are bounded too (MaxRestarts).                      *)
+(* residual. Restarts and rotations are bounded too (MaxRestarts,         *)
+(* MaxRotations); a rotation closing its window is the device's own step. *)
 (*                                                                         *)
-(* Thirteen switches each relax one rule, set safe in the registered      *)
+(* Fifteen switches each relax one rule, set safe in the registered       *)
 (* config:                                                                 *)
 (*   RefuseVoid           a void fails the whole pass (the old behavior)   *)
 (*   ImportCarriedOps     a span mismatch imports what the payload carries *)
@@ -75,14 +89,20 @@ EXTENDS FiniteSets, Naturals, Sequences
 (*                        toward its first                                 *)
 (*   CountHiddenKills     a death after the app was hidden counts as one   *)
 (*                        while visible                                    *)
+(*   CountRotationKills   a death in a rotation's window counts toward the *)
+(*                        update it read, not the rotation                 *)
+(*   KeepAttemptsOnCleanRead  a window the process outlived leaves the     *)
+(*                        attempts of the updates it read                  *)
 (***************************************************************************)
 
 CONSTANTS Devices, MaxUpdates, MaxDecoder, MaxReplacements,
           MaxAttempts, MaxRestarts, FaultyDevices, Killers, MaxDeaths,
+          MaxRotations,
           RefuseVoid, ImportCarriedOps, PullUsesCursor,
           KeepCursorOnUpgrade, IgnoreCursorVersion, IgnorePullPremise,
           MemoizeRuntimeFailure, CountEveryFailure, CursorPastUnsettled,
-          RecordBeforeImport, IsolateKills, CountPageKills, CountHiddenKills
+          RecordBeforeImport, IsolateKills, CountPageKills, CountHiddenKills,
+          CountRotationKills, KeepAttemptsOnCleanRead
 
 ASSUME /\ Devices # {}
        /\ IsFiniteSet(Devices)
@@ -94,6 +114,7 @@ ASSUME /\ Devices # {}
        /\ FaultyDevices \subseteq Devices
        /\ Killers \subseteq 1..MaxUpdates
        /\ MaxDeaths \in Nat
+       /\ MaxRotations \in Nat
        /\ RefuseVoid \in BOOLEAN
        /\ ImportCarriedOps \in BOOLEAN
        /\ PullUsesCursor \in BOOLEAN
@@ -107,14 +128,17 @@ ASSUME /\ Devices # {}
        /\ IsolateKills \in BOOLEAN
        /\ CountPageKills \in BOOLEAN
        /\ CountHiddenKills \in BOOLEAN
+       /\ CountRotationKills \in BOOLEAN
+       /\ KeepAttemptsOnCleanRead \in BOOLEAN
 
 (* An overclaim reserves a second id that no update ever carries. *)
 Ops == 1..(2 * MaxUpdates)
 Decoders == 1..MaxDecoder
 Updates == [declared : SUBSET Ops, carried : SUBSET Ops, deps : SUBSET Ops,
             format : Decoders]
-(* "dead": the process died in a pull; its next lifetime has not begun. *)
-Phases == {"idle", "pulled", "dead"}
+(* "dead": the process died in a pull; its next lifetime has not begun.   *)
+(* "rotating": a rotation reads an accepted update to rebuild history.     *)
+Phases == {"idle", "pulled", "dead", "rotating"}
 
 (* `log` is the server's committed history in server (commit) order. Per    *)
 (* device: `decoder` is the running judge, `held` the operations its       *)
@@ -129,19 +153,33 @@ Phases == {"idle", "pulled", "dead"}
 (* `restarts` the restarts so far. `suspects` are the updates of a window  *)
 (* a death isolated, `deaths` counts deaths other than a killer's, and     *)
 (* `misattributed` is a history variable: a death counted toward an update *)
-(* that was not alone in its window.                                       *)
+(* that was not alone in its window. `rebuilding` is the accepted update a *)
+(* rotation's window holds open (0 when none), `rotations` the rotations  *)
+(* so far, and `rotationDeaths` the rotation deaths counted under the      *)
+(* decoder since the last completed rebuild. History variables: `strikes`  *)
+(* counts, per update, the attempts since a read of it the process        *)
+(* outlived, and                                                           *)
+(* `rotationMisattributed` records a rotation death counted toward an      *)
+(* update.                                                                 *)
 VARIABLES log, nextOp, decoder, held, cursor, cursorJudge, cursorVersion,
           phase, inbox, bound, pullJudge, replacements,
           attempts, finalVoid, failedInLife, lifeAttempts, restarts,
-          suspects, deaths, misattributed
+          suspects, deaths, misattributed,
+          rebuilding, rotations, rotationDeaths, strikes,
+          rotationMisattributed
 
 vars == << log, nextOp, decoder, held, cursor, cursorJudge, cursorVersion,
            phase, inbox, bound, pullJudge, replacements,
            attempts, finalVoid, failedInLife, lifeAttempts, restarts,
-           suspects, deaths, misattributed >>
+           suspects, deaths, misattributed,
+           rebuilding, rotations, rotationDeaths, strikes,
+           rotationMisattributed >>
 
 KillVars == << suspects, deaths, misattributed >>
-RuntimeVars == << attempts, finalVoid, failedInLife, lifeAttempts, restarts >>
+RuntimeVars == << attempts, finalVoid, failedInLife, lifeAttempts, restarts,
+                 strikes >>
+ReadVars == << rebuilding, rotations, rotationDeaths,
+              rotationMisattributed >>
 
 Truthful(u) == u.declared = u.carried
 TruthfulOps ==
@@ -209,6 +247,11 @@ TypeOK ==
   /\ suspects \in [Devices -> SUBSET (1..MaxUpdates)]
   /\ deaths \in 0..MaxDeaths
   /\ misattributed \in BOOLEAN
+  /\ rebuilding \in [Devices -> 0..MaxUpdates]
+  /\ rotations \in 0..MaxRotations
+  /\ rotationDeaths \in [Devices -> 0..MaxAttempts]
+  /\ strikes \in [Devices -> [1..MaxUpdates -> 0..MaxAttempts]]
+  /\ rotationMisattributed \in BOOLEAN
 
 Init ==
   /\ log = << >>
@@ -231,11 +274,15 @@ Init ==
   /\ suspects = [d \in Devices |-> {}]
   /\ deaths = 0
   /\ misattributed = FALSE
+  /\ rebuilding = [d \in Devices |-> 0]
+  /\ rotations = 0
+  /\ rotationDeaths = [d \in Devices |-> 0]
+  /\ strikes = [d \in Devices |-> [i \in 1..MaxUpdates |-> 0]]
+  /\ rotationMisattributed = FALSE
 
 DeviceVars == << decoder, held, cursor, cursorJudge, cursorVersion, phase,
-                 inbox, bound, pullJudge, replacements, attempts, finalVoid,
-                 failedInLife, lifeAttempts, restarts, suspects, deaths,
-                 misattributed >>
+                 inbox, bound, pullJudge, replacements, RuntimeVars, KillVars,
+                 ReadVars >>
 
 (* An honest writer, on any decoder, depends only on operations committed  *)
 (* before its update, which it holds; it never holds a voided payload.     *)
@@ -280,7 +327,7 @@ Pull(d) ==
   /\ phase' = [phase EXCEPT ![d] = "pulled"]
   /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
                   cursorVersion, replacements >>
-  /\ UNCHANGED << RuntimeVars, KillVars >>
+  /\ UNCHANGED << RuntimeVars, KillVars, ReadVars >>
 
 (* Judges the pull in one transaction. A completed pull records the cursor *)
 (* with the running judge and the frontier it reached, unless the judge is *)
@@ -306,16 +353,32 @@ Pending(d) == {inbox[d][k] : k \in 1..Len(inbox[d])} \ finalVoid[d]
 (* runtime can fail, so the device cannot process the pull it is in.       *)
 KillerPending(d) == d \in FaultyDevices /\ Pending(d) \cap Killers # {}
 
-(* The window commits with the page: the suspects it passed are cleared. *)
+(* Per-update counts `c` with those of `read` cleared: a window the process *)
+(* outlived read them, so the deaths and failures counted before were not  *)
+(* theirs.                                                                 *)
+ClearedFor(d, c, read) ==
+  [c EXCEPT ![d] = [i \in 1..MaxUpdates |-> IF i \in read THEN 0 ELSE c[d][i]]]
+
+(* Clears the attempts and strikes of `read`, the updates a window the     *)
+(* process outlived read; KeepAttemptsOnCleanRead leaves the attempts.    *)
+CleanRead(d, read) ==
+  /\ attempts' = IF KeepAttemptsOnCleanRead THEN attempts
+                                            ELSE ClearedFor(d, attempts, read)
+  /\ strikes' = ClearedFor(d, strikes, read)
+
+(* The window commits with the page: the suspects it passed are cleared,  *)
+(* and so are the attempts of the updates it read.                        *)
 Process(d) ==
   /\ phase[d] = "pulled"
   /\ ~KillerPending(d)
   /\ Complete(d, Judge(inbox[d], decoder[d], held[d], finalVoid[d]))
+  /\ CleanRead(d, Pending(d))
   /\ phase' = [phase EXCEPT ![d] = "idle"]
   /\ inbox' = [inbox EXCEPT ![d] = << >>]
   /\ suspects' = [suspects EXCEPT ![d] = {i \in @ : i > bound[d]}]
   /\ UNCHANGED << log, nextOp, decoder, bound, pullJudge, replacements >>
-  /\ UNCHANGED << RuntimeVars, deaths, misattributed >>
+  /\ UNCHANGED << finalVoid, failedInLife, lifeAttempts, restarts, deaths,
+                  misattributed, ReadVars >>
 
 (* The runtime fails on the served update at inbox position `k`, one not   *)
 (* already a final void, on a device in FaultyDevices (one is enough: the  *)
@@ -334,6 +397,7 @@ RuntimeFailure(d) ==
            final == counted >= MaxAttempts \/ MemoizeRuntimeFailure
        IN /\ i \notin finalVoid[d]
           /\ attempts' = [attempts EXCEPT ![d][i] = counted]
+          /\ strikes' = [strikes EXCEPT ![d][i] = @ + 1]
           /\ failedInLife' = [failedInLife EXCEPT ![d] = TRUE]
           /\ lifeAttempts' = [lifeAttempts EXCEPT ![d] = @ + 1]
           /\ UNCHANGED restarts
@@ -356,7 +420,7 @@ RuntimeFailure(d) ==
   /\ phase' = [phase EXCEPT ![d] = "idle"]
   /\ inbox' = [inbox EXCEPT ![d] = << >>]
   /\ UNCHANGED << log, nextOp, decoder, bound, pullJudge, replacements >>
-  /\ UNCHANGED KillVars
+  /\ UNCHANGED << KillVars, ReadVars >>
 
 (* A new process: its first runtime failure counts again. A restart of a   *)
 (* process that met none changes nothing the model tracks, so it is left   *)
@@ -370,8 +434,8 @@ Restart(d) ==
   /\ lifeAttempts' = [lifeAttempts EXCEPT ![d] = 0]
   /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
                   cursorVersion, phase, inbox, bound, pullJudge,
-                  replacements, attempts, finalVoid >>
-  /\ UNCHANGED KillVars
+                  replacements, attempts, finalVoid, strikes >>
+  /\ UNCHANGED << KillVars, ReadVars >>
 
 (* The process dies while reading its pull; nothing the window held is     *)
 (* applied. The next lifetime finds the window. If it held one update and  *)
@@ -390,13 +454,14 @@ Die(d, counting) ==
          isolates == counting /\ RecordBeforeImport /\ IsolateKills /\ ~counts
      IN /\ IF counts
              THEN /\ attempts' = [attempts EXCEPT ![d][first] = @ + 1]
+                  /\ strikes' = [strikes EXCEPT ![d][first] = @ + 1]
                   /\ finalVoid' =
                        IF attempts[d][first] + 1 >= MaxAttempts
                          THEN [finalVoid EXCEPT ![d] = @ \cup {first}]
                          ELSE finalVoid
                   /\ lifeAttempts' = [lifeAttempts EXCEPT ![d] = @ + 1]
                   /\ misattributed' = (misattributed \/ ~alone)
-             ELSE UNCHANGED << attempts, finalVoid, lifeAttempts,
+             ELSE UNCHANGED << attempts, strikes, finalVoid, lifeAttempts,
                                misattributed >>
         /\ suspects' = IF isolates
                           THEN [suspects EXCEPT ![d] = @ \cup Pending(d)]
@@ -405,7 +470,39 @@ Die(d, counting) ==
   /\ inbox' = [inbox EXCEPT ![d] = << >>]
   /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
                   cursorVersion, bound, pullJudge, replacements, failedInLife,
-                  restarts >>
+                  restarts, ReadVars >>
+
+(* A death in a rotation's window, which holds one accepted update open.  *)
+(* It counts toward the rotation, never the update, and isolates it;      *)
+(* CountRotationKills counts it toward the update as a pull's death would. *)
+DieRotating(d, counting) ==
+  /\ phase[d] = "rotating"
+  /\ LET i == rebuilding[d]
+         charged == counting /\ RecordBeforeImport /\ ~failedInLife[d]
+         counts == charged /\ CountRotationKills
+         isolates == counting /\ RecordBeforeImport /\ IsolateKills /\ ~counts
+     IN /\ IF counts
+             THEN /\ attempts' = [attempts EXCEPT ![d][i] = @ + 1]
+                  /\ strikes' = [strikes EXCEPT ![d][i] = @ + 1]
+                  /\ finalVoid' =
+                       IF attempts[d][i] + 1 >= MaxAttempts
+                         THEN [finalVoid EXCEPT ![d] = @ \cup {i}]
+                         ELSE finalVoid
+                  /\ lifeAttempts' = [lifeAttempts EXCEPT ![d] = @ + 1]
+             ELSE UNCHANGED << attempts, strikes, finalVoid, lifeAttempts >>
+        /\ rotationMisattributed' = (rotationMisattributed \/ counts)
+        /\ rotationDeaths' =
+             IF charged /\ ~counts
+               THEN [rotationDeaths EXCEPT ![d] = @ + 1]
+               ELSE rotationDeaths
+        /\ suspects' = IF isolates
+                          THEN [suspects EXCEPT ![d] = @ \cup {i}]
+                          ELSE suspects
+  /\ phase' = [phase EXCEPT ![d] = "dead"]
+  /\ rebuilding' = [rebuilding EXCEPT ![d] = 0]
+  /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
+                  cursorVersion, inbox, bound, pullJudge, replacements,
+                  failedInLife, restarts, rotations, misattributed >>
 
 (* A death on a device whose runtime can fail, while the app is visible:   *)
 (* a killer's import, exhausted memory, or a crash.                        *)
@@ -413,7 +510,7 @@ Kill(d) ==
   /\ d \in FaultyDevices
   /\ KillerPending(d) \/ deaths < MaxDeaths
   /\ deaths' = IF KillerPending(d) THEN deaths ELSE deaths + 1
-  /\ Die(d, TRUE)
+  /\ Die(d, TRUE) \/ DieRotating(d, TRUE)
 
 (* A death on any device after the app was hidden, or after the command   *)
 (* line exited cleanly: the OS reclaiming a background app, or the user    *)
@@ -421,7 +518,7 @@ Kill(d) ==
 HiddenKill(d) ==
   /\ deaths < MaxDeaths
   /\ deaths' = deaths + 1
-  /\ Die(d, CountHiddenKills)
+  /\ Die(d, CountHiddenKills) \/ DieRotating(d, CountHiddenKills)
 
 (* The next lifetime starts: it has met no failure and counted nothing. *)
 Start(d) ==
@@ -431,21 +528,60 @@ Start(d) ==
   /\ lifeAttempts' = [lifeAttempts EXCEPT ![d] = 0]
   /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
                   cursorVersion, inbox, bound, pullJudge, replacements,
-                  attempts, finalVoid, restarts >>
-  /\ UNCHANGED KillVars
+                  attempts, finalVoid, restarts, strikes >>
+  /\ UNCHANGED << KillVars, ReadVars >>
+
+(* A key rotation, on a device whose runtime can fail, reads an update the *)
+(* device accepted to rebuild its history, alone in its window. A device  *)
+(* whose rotations died MaxAttempts times under its decoder starts none,  *)
+(* and nothing else it does waits on that. (On a device whose runtime     *)
+(* never fails a rotation closes again and changes nothing the model      *)
+(* tracks, so it is left out.)                                            *)
+Rotate(d) ==
+  /\ d \in FaultyDevices
+  /\ phase[d] = "idle"
+  /\ rotations < MaxRotations
+  /\ rotationDeaths[d] < MaxAttempts
+  /\ \E i \in DOMAIN log :
+       /\ log[i].carried \subseteq held[d]
+       /\ i \notin finalVoid[d]
+       /\ rebuilding' = [rebuilding EXCEPT ![d] = i]
+  /\ rotations' = rotations + 1
+  /\ phase' = [phase EXCEPT ![d] = "rotating"]
+  /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
+                  cursorVersion, inbox, bound, pullJudge, replacements >>
+  /\ UNCHANGED << RuntimeVars, KillVars, rotationDeaths,
+                  rotationMisattributed >>
+
+(* The rotation closes its window with the process alive: the update's    *)
+(* attempts clear, and the rebuild completed, which clears the rotation's *)
+(* deaths below the limit.                                                *)
+RotateDone(d) ==
+  /\ phase[d] = "rotating"
+  /\ CleanRead(d, {rebuilding[d]})
+  /\ rotationDeaths' = [rotationDeaths EXCEPT ![d] = 0]
+  /\ phase' = [phase EXCEPT ![d] = "idle"]
+  /\ rebuilding' = [rebuilding EXCEPT ![d] = 0]
+  /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
+                  cursorVersion, inbox, bound, pullJudge, replacements >>
+  /\ UNCHANGED << finalVoid, failedInLife, lifeAttempts, restarts, KillVars,
+                  rotations, rotationMisattributed >>
 
 (* A newer SDK, whose decoder reads formats the older one voided. It may    *)
 (* land between a pull's pages, while its continuation is persisted. Every *)
-(* runtime verdict belonged to the old decoder, so attempts start over.    *)
+(* runtime verdict belonged to the old decoder, so attempts start over,    *)
+(* and so do its rotation deaths.                                         *)
 Upgrade(d) ==
   /\ decoder[d] < MaxDecoder
   /\ decoder' = [decoder EXCEPT ![d] = @ + 1]
   /\ attempts' = [attempts EXCEPT ![d] = [i \in 1..MaxUpdates |-> 0]]
+  /\ strikes' = [strikes EXCEPT ![d] = [i \in 1..MaxUpdates |-> 0]]
   /\ finalVoid' = [finalVoid EXCEPT ![d] = {}]
+  /\ rotationDeaths' = [rotationDeaths EXCEPT ![d] = 0]
   /\ UNCHANGED << log, nextOp, held, cursor, cursorJudge, cursorVersion,
                   phase, inbox, bound, pullJudge, replacements,
                   failedInLife, lifeAttempts, restarts >>
-  /\ UNCHANGED KillVars
+  /\ UNCHANGED << KillVars, rebuilding, rotations, rotationMisattributed >>
 
 (* The document's local state is replaced by an older copy; the cursor row *)
 (* is left as it was.                                                      *)
@@ -457,7 +593,7 @@ Replace(d) ==
   /\ replacements' = replacements + 1
   /\ UNCHANGED << log, nextOp, decoder, cursor, cursorJudge, cursorVersion,
                   phase, inbox, bound, pullJudge >>
-  /\ UNCHANGED << RuntimeVars, KillVars >>
+  /\ UNCHANGED << RuntimeVars, KillVars, ReadVars >>
 
 Next ==
   \/ HonestCommit
@@ -473,13 +609,15 @@ Next ==
        \/ Start(d)
        \/ Upgrade(d)
        \/ Replace(d)
+       \/ Rotate(d)
+       \/ RotateDone(d)
 
 (* Dying on a killer is the device's own processing outcome, so it is fair; *)
-(* every other death is not.                                               *)
+(* every other death is not. A rotation closing its window is its own.    *)
 Fairness ==
   \A d \in Devices :
     /\ WF_vars(Pull(d)) /\ WF_vars(Process(d)) /\ WF_vars(Start(d))
-    /\ WF_vars(Kill(d) /\ KillerPending(d))
+    /\ WF_vars(Kill(d) /\ KillerPending(d)) /\ WF_vars(RotateDone(d))
 
 Spec == Init /\ [][Next]_vars /\ Fairness
 
@@ -529,6 +667,17 @@ KilledAttemptsAreIsolated == ~misattributed
 FaultFreeDevicesCountNothing ==
   \A d \in Devices \ FaultyDevices :
     \A i \in 1..MaxUpdates : attempts[d][i] = 0
+
+(* An update is a final void only after MaxAttempts counted lifetimes with *)
+(* no read of it the process outlived between them: deaths far apart, an  *)
+(* accepted read between them, never add up to a void.                    *)
+VoidOnlyAfterUninterruptedAttempts ==
+  \A d \in Devices : \A i \in finalVoid[d] : strikes[d][i] >= MaxAttempts
+
+(* A death rebuilding accepted history for a rotation never spends an      *)
+(* update's attempts: it counts toward the rotation, which the device then *)
+(* leaves to other members, and no device waits on it.                    *)
+RotationDeathsSpareUpdates == ~rotationMisattributed
 
 (* Once writes stop, every device holds exactly what a fresh reader on its *)
 (* decoder holds that voids its final runtime voids too, so an honest      *)

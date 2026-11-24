@@ -25,13 +25,13 @@ import {
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../data/documentFixtures";
-import { device } from "./loroWindowBench";
-import { createMaterializedSyncFixture } from "./materializedSyncFixture";
+import { device } from "../workflows/loroWindowBench";
+import { createMaterializedSyncFixture } from "../workflows/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,
   createOnlineDocumentsRuntime,
   createStoredDocumentWriterProjection,
-} from "./onlineDocumentStoreFixtures";
+} from "../workflows/onlineDocumentStoreFixtures";
 
 /**
  * Two devices holding one document's accepted history, for tests of deaths

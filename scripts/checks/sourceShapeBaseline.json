@@ -81,8 +81,8 @@
       "bytes": 21345
     },
     "formal/document-sync/VoidUpdateProgress.tla": {
-      "lines": 540,
-      "bytes": 27113
+      "lines": 689,
+      "bytes": 35612
     },
     "packages/client-sdk/src/index.ts": {
       "lines": 676,

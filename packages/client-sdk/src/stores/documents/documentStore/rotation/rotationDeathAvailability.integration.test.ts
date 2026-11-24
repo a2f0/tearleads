@@ -5,7 +5,7 @@ import {
   openSyncedDevices,
   runtimeAttempts,
   twoDeviceHarness,
-} from "../../../../../test/helpers/workflows/acceptedHistoryDevices";
+} from "../../../../../test/helpers/stores/acceptedHistoryDevices";
 import {
   DocumentRotationUnavailableError,
   readDocumentFoundingUpdate,
