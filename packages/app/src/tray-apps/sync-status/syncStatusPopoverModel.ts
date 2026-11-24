@@ -27,7 +27,6 @@ const DETAIL_LABELS = {
 const UNAVAILABLE_LABELS: Record<SyncUnavailableReason, string> = {
   "no-identity": "Create or restore an identity to start syncing.",
   locked: "Unlock this device to read and sync its data.",
-  "database-failed": "Nothing can sync until this device's data opens.",
 };
 
 function counted(

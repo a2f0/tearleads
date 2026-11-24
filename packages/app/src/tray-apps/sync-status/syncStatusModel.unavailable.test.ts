@@ -41,7 +41,7 @@ test("the database is still on its way while the identity is looked for or switc
   ).toBeNull();
 });
 
-test("locked keys and a failed database each name their own reason", () => {
+test("locked keys name their reason, even once the database failed to open", () => {
   expect(resolveSyncUnavailableReason({ ...NO_IDENTITY, isLocked: true })).toBe(
     "locked",
   );
@@ -49,9 +49,22 @@ test("locked keys and a failed database each name their own reason", () => {
     resolveSyncUnavailableReason({
       ...NO_IDENTITY,
       databaseStatus: "error",
+      isLocked: true,
+    }),
+  ).toBe("locked");
+});
+
+test("a database that failed to open is still being retried, not given up on", () => {
+  expect(
+    resolveSyncUnavailableReason({
+      ...NO_IDENTITY,
+      databaseStatus: "error",
       hasIdentity: true,
     }),
-  ).toBe("database-failed");
+  ).toBeNull();
+  expect(
+    resolveSyncStatus({ ...SETTLED, ready: false, unavailableReason: null }),
+  ).toBe("loading");
 });
 
 test("an open database can always be read", () => {
@@ -71,23 +84,6 @@ test("nothing to read is inactive, not loading, whatever else is reported", () =
       }),
     ).toBe("inactive");
   }
-});
-
-test("a database that did not open is an error rather than loading forever", () => {
-  expect(
-    resolveSyncStatus({
-      ...SETTLED,
-      ready: false,
-      unavailableReason: "database-failed",
-    }),
-  ).toBe("error");
-  expect(
-    describeSyncStatus({
-      ...DESCRIBED,
-      status: "error",
-      unavailableReason: "database-failed",
-    }),
-  ).toBe("Unable to check sync status — this device's data did not open");
 });
 
 test("an inactive status says why nothing syncs", () => {
@@ -129,12 +125,6 @@ test("the popover says what would let the device sync instead of checking downlo
     }),
   ).toEqual(["Unlock this device to read and sync its data."]);
   expect(
-    describeSyncStatusDetails({
-      ...LOADING_DETAILS,
-      unavailableReason: "database-failed",
-    }),
-  ).toEqual(["Nothing can sync until this device's data opens."]);
-  expect(
     describeSyncStatusDetails({ ...LOADING_DETAILS, unavailableReason: null }),
   ).toContain("Downloads: checking…");
 });
@@ -148,7 +138,7 @@ test("the popover offers no view of a queue the device cannot read", () => {
       lanes: { failed: 1, firstError: "x", running: 1 },
       pendingWriteCount: 2,
       queueReadFailed: true,
-      unavailableReason: "database-failed",
+      unavailableReason: "locked",
       uploadingFileCount: 1,
     }),
   ).toEqual([]);

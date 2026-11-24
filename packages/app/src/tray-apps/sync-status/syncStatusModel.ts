@@ -38,12 +38,9 @@ type BillingStatus = OrganizationBillingView["status"];
 /**
  * Why this device's data cannot be read at all, so nothing syncs until the
  * user acts: it has no identity yet (first launch, or after a device reset),
- * its keys are locked behind the PIN, or its database gave up opening.
+ * or its keys are locked behind the PIN.
  */
-export type SyncUnavailableReason =
-  | "no-identity"
-  | "locked"
-  | "database-failed";
+export type SyncUnavailableReason = "no-identity" | "locked";
 
 export function resolveSyncUnavailableReason(input: {
   readonly databaseStatus: DatabaseStatus;
@@ -56,7 +53,10 @@ export function resolveSyncUnavailableReason(input: {
 }): SyncUnavailableReason | null {
   if (input.databaseStatus === "ready") return null;
   if (input.isLocked) return "locked";
-  if (input.databaseStatus === "error") return "database-failed";
+  // A database that failed to open is retried a few times on its own
+  // (`useEnsureDatabaseForIdentity`), so its error is not yet the user's to
+  // act on and reads as still checking.
+  if (input.databaseStatus === "error") return null;
   // Until the stored identity is found, or while a switch opens the next
   // one, the database is still on its way.
   if (!input.identityRestoreSettled || input.identityTransitionInFlight) {
@@ -174,7 +174,6 @@ interface SyncStatusInput {
 }
 
 export function resolveSyncStatus(input: SyncStatusInput): SyncStatus {
-  if (input.unavailableReason === "database-failed") return "error";
   if (input.unavailableReason !== null) return "inactive";
   if (input.billingNeedsAttention || input.otherOrganizationBillingBlocked) {
     return "billing";
@@ -197,8 +196,6 @@ export function resolveSyncStatus(input: SyncStatusInput): SyncStatus {
 const SYNC_STATUS_LABELS = {
   noIdentity: "Not syncing — this device has no identity yet",
   locked: "Not syncing — this device is locked",
-  databaseFailed:
-    "Unable to check sync status — this device's data did not open",
   loading: "Checking sync status…",
   synced: "All changes synced",
   syncing: "All changes synced, syncing updates…",
@@ -283,9 +280,6 @@ function describeWriteHold(input: SyncStatusDescriptionInput): string {
 }
 
 function describeFailure(input: SyncStatusDescriptionInput): string {
-  if (input.unavailableReason === "database-failed") {
-    return SYNC_STATUS_LABELS.databaseFailed;
-  }
   // A failed queue read outranks the failed-write count, which is only the
   // last successful read's and may be stale.
   if (input.queueReadError !== null) {
