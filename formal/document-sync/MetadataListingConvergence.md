@@ -39,7 +39,7 @@ local copy survive, and the store's first pass requeues the debt.
 | `AdvanceWatermark` | the page's `saveWatermark` after its rows are applied |
 | `BeginRead` | `syncSingleContainerMetadata` snapshotting the signal sequence before its forced read |
 | `ResumeRead` | a pass whose metadata record still holds a pull continuation (`currentMetadataPullContinuation`), reading up to an earlier pull's bound |
-| `FinishRead` | `processedCursorTransition` advancing the cursor to the pull's bound and count, then `coversAdvertisedMetadataUpdates` in `keptMetadataSignals`, `clearMetadataSyncQueueIfUnchanged` and `settleOwedContainerMetadataRead` |
+| `FinishRead` | `processedCursorTransition` advancing the cursor to the pull's bound and count, then `coversAdvertisedMetadataUpdates` in `keptContainerMetadataSignals`, `clearMetadataSyncQueueIfUnchanged` and `settleOwedContainerMetadataRead` |
 | `Start` | `restoreOwedContainerMetadataReads` on a store's first sync pass |
 
 `EvidenceRetained` requires that while the client is behind, something still
