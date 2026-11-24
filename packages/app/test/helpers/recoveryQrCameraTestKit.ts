@@ -83,29 +83,3 @@ export function installRecoveryQrCamera(value: string) {
     },
   };
 }
-
-export function installRecoveryQrPhoto(value: string) {
-  const camera = installRecoveryQrCamera(value);
-  const original = Object.getOwnPropertyDescriptor(
-    globalThis,
-    "createImageBitmap",
-  );
-  const close = mock(() => undefined);
-  const bitmap = { width: 320, height: 320, close } as ImageBitmap;
-  const createBitmap = mock(() => Promise.resolve(bitmap));
-  Object.defineProperty(globalThis, "createImageBitmap", {
-    configurable: true,
-    value: createBitmap,
-  });
-  return {
-    camera,
-    close,
-    createBitmap,
-    restore: () => {
-      camera.restore();
-      if (original)
-        Object.defineProperty(globalThis, "createImageBitmap", original);
-      else Reflect.deleteProperty(globalThis, "createImageBitmap");
-    },
-  };
-}

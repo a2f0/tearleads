@@ -13,7 +13,7 @@ import {
 import "./AccountBootstrapProgressPanel.css";
 import { TelemetryConsentSwitch } from "../shared/TelemetryConsentSwitch";
 import { RecoveryKeyBackupConfirmation } from "./recovery-key/RecoveryKeyBackupConfirmation";
-import { RecoveryKeyScan } from "./recovery-key/RecoveryKeyScan";
+import { RecoveryKeyScanControl } from "./recovery-key/RecoveryKeyScanControl";
 import { SavedPassphraseButton } from "./SavedPassphraseButton";
 
 function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
@@ -68,7 +68,7 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
         {restoring && onboarding && (
           // A scan is already a validated key, so it restores without a
           // second step and the key never sits in the field.
-          <RecoveryKeyScan
+          <RecoveryKeyScanControl
             disabled={false}
             label="Restore from QR code"
             onScan={(phrase) =>
