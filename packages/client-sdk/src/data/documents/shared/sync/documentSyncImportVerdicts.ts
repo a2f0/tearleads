@@ -20,6 +20,7 @@ import {
   type VoidedDocumentSyncUpdate,
   voidedDocumentSyncUpdate,
 } from "./documentUpdateVerdict";
+import { type LoroLifetimes, processLoroLifetimes } from "./loroLifetime";
 import {
   type LoroRuntimeAttempts,
   MAX_LORO_RUNTIME_ATTEMPTS,
@@ -271,6 +272,15 @@ export async function validateDocumentSyncUpdateImports(input: {
   runtimeLedger?: LoroRuntimeAttempts | undefined;
   /** @internal Attempts this device recorded; the sync pass reads them. */
   runtimeAttempts?: ReadonlyMap<string, number> | undefined;
+  /**
+   * @internal Runs once the reader's history is built, before the first
+   * update is read, and resolves true when a read window now covers the
+   * reads: the sync pass opens its window here, so a death building that
+   * history, which no update caused, is outside it.
+   */
+  beforeUpdateReads?: (() => Promise<boolean>) | undefined;
+  /** @internal This realm's lifetime; tests stand in another one. */
+  lifetimes?: LoroLifetimes | undefined;
 }): Promise<DocumentSyncImportVerdicts> {
   const verdicts = new PageVerdicts();
   if (input.decryptedUpdates.length === 0) return verdicts.result();
@@ -278,7 +288,18 @@ export async function validateDocumentSyncUpdateImports(input: {
   const responseById = new Map(
     (input.responseUpdates ?? []).map((update) => [update.id, update]),
   );
-  const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
+  return judgeUpdateReads(input, {
+    ledger: input.runtimeLedger ?? processLoroRuntimeFailures,
+    responseById,
+    verdicts,
+  });
+}
+
+async function judgeUpdateReads(
+  input: Parameters<typeof validateDocumentSyncUpdateImports>[0],
+  judging: Omit<PageJudging, "runtimeAttempts" | "scratch">,
+): Promise<DocumentSyncImportVerdicts> {
+  const { ledger, responseById, verdicts } = judging;
   const scratch = await openScratchHistory(input, ledger);
   if (scratch === null) {
     for (const update of input.decryptedUpdates) verdicts.hold(update.id);
@@ -291,7 +312,15 @@ export async function validateDocumentSyncUpdateImports(input: {
     scratch,
     verdicts,
   };
+  // The reader's history holds only accepted data, like the editor's work.
+  // The served updates read below are another matter: unless a window covers
+  // them, a death meanwhile may be theirs, so every window of the lifetime
+  // then counts nothing (#3194).
+  let release = () => {};
   try {
+    if (!(await input.beforeUpdateReads?.())) {
+      release = (input.lifetimes ?? processLoroLifetimes).beginUnwindowedRead();
+    }
     for (const update of input.decryptedUpdates) {
       const knownStage = input.knownVoids?.get(update.id);
       if (verdicts.holding) {
@@ -310,6 +339,7 @@ export async function validateDocumentSyncUpdateImports(input: {
       }
     }
   } finally {
+    release();
     scratch.free();
   }
   return verdicts.result();

@@ -2,12 +2,6 @@ import type {
   VerifiedContainerAccessManifest,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
-import {
-  emptyVersionVector,
-  getImportBlobMetadata,
-  satisfiesVersionVector,
-  versionVectorsEqual,
-} from "@tearleads/loro";
 import type {
   AccessManifestBundleWireResponse,
   DocumentContentKeyBundleResponse,
@@ -15,7 +9,6 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { documentKekTargetsFromContentKeyBundle } from "@tearleads/validators/response";
-import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import { assertDocumentKekPathsCurrent } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import {
   assertDocumentWriterProjectionConsistent,
@@ -46,51 +39,13 @@ import {
   traceStaleBundle,
   traceStaleRead,
 } from "../sync/syncTrace";
+import {
+  assertRecoveryBaselineCoversCheckpoints,
+  buildStaleRecoveryBaselinePendingUpdate,
+} from "./staleRecoveryBaseline";
 import { prepareDocumentOutgoingUpdates } from "./syncContentKeys";
 import { buildDocumentSyncPlan } from "./syncPlanIdentity";
 import { finalizeMaterializedDocumentSyncPlan } from "./syncPlanProjection";
-
-/**
- * Builds the rotation baseline that anchors a stale-bundle heal: a full
- * history snapshot of the local document, re-encrypted under the fresh
- * content key so every current member (including post-rotation newcomers)
- * has an efficient current-epoch redirect. Predecessor KEKs remain the
- * correctness path when no covering baseline exists.
- */
-async function buildStaleRecoveryBaselinePendingUpdate(
-  buildRotationSnapshot: (() => Promise<Uint8Array | null>) | undefined,
-): Promise<PendingUpdateRecord> {
-  const snapshot = buildRotationSnapshot ? await buildRotationSnapshot() : null;
-  if (!snapshot) {
-    throw new Error(
-      "Document content-key bundle is stale and no rotation snapshot is available to heal it",
-    );
-  }
-  const metadata = getImportBlobMetadata(snapshot);
-  if (
-    metadata.mode !== "snapshot" ||
-    !versionVectorsEqual(
-      metadata.partialStartVersionVector,
-      emptyVersionVector(),
-    )
-  ) {
-    throw new Error(
-      "Document stale-bundle recovery requires a full-history rotation snapshot",
-    );
-  }
-  const pendingFields = createPendingUpdateFields(
-    snapshot,
-    metadata.partialEndVersionVector,
-  );
-  if (!pendingFields) {
-    throw new Error("Document stale-bundle recovery snapshot is empty");
-  }
-
-  return {
-    id: crypto.randomUUID(),
-    ...pendingFields,
-  };
-}
 
 /**
  * Resolves the content material a sync plan encrypts and carries. A stale
@@ -125,29 +80,6 @@ function staleBundleDocumentManifest(
     );
   }
   return historicalManifest;
-}
-
-/**
- * Settling a superseded checkpoint deletes its queue row, so the fresh
- * baseline must PROVABLY subsume it — assumed coverage would silently drop
- * any ops the checkpoint alone carried.
- */
-function assertRecoveryBaselineCoversCheckpoints(
-  recoveryBaseline: PendingUpdateRecord,
-  checkpoints: readonly PendingUpdateRecord[],
-): void {
-  for (const checkpoint of checkpoints) {
-    if (
-      !satisfiesVersionVector(
-        recoveryBaseline.partialEndVersionVector,
-        checkpoint.partialEndVersionVector,
-      )
-    ) {
-      throw new Error(
-        "Document stale-bundle recovery snapshot does not cover a queued rotation checkpoint",
-      );
-    }
-  }
 }
 
 interface ResolvedSyncPlanContentMaterial {
@@ -386,6 +318,7 @@ export async function buildMaterializedDocumentSyncPlan(
     historyMode?: "raw" | undefined;
     inlineRekeyCommitId?: string | undefined;
     localVersionVector: string | null;
+    maxPageUpdates?: number | undefined;
     minLsn?: string | undefined;
     processedThroughUpdateId?: string | undefined;
     pullCursor?: string | undefined;
@@ -485,6 +418,7 @@ export async function buildMaterializedDocumentSyncPlan(
     historyMode: input.historyMode,
     inlineRekeyCommitId: input.inlineRekeyCommitId,
     localVersionVector: input.localVersionVector,
+    maxPageUpdates: input.maxPageUpdates,
     minLsn: input.minLsn,
     outgoingUpdates,
     processedThroughUpdateId: input.processedThroughUpdateId,

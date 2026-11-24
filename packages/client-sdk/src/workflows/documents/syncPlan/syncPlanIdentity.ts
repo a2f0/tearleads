@@ -235,6 +235,18 @@ function assertDocumentSyncRequestMode(
   }
 }
 
+/** The pull's page limit and consistency floor, when it sends them. */
+function pullBounds(
+  input: Pick<BuildDocumentSyncPlanInput, "maxPageUpdates" | "minLsn">,
+) {
+  return {
+    ...(input.maxPageUpdates === undefined
+      ? {}
+      : { maxPageUpdates: input.maxPageUpdates }),
+    ...(input.minLsn === undefined ? {} : { minLsn: input.minLsn }),
+  };
+}
+
 export async function buildDocumentSyncPlan(
   input: BuildDocumentSyncPlanInput,
 ): Promise<DocumentSyncPlan> {
@@ -301,7 +313,7 @@ export async function buildDocumentSyncPlan(
       ? {}
       : { inlineRekeyCommitId: input.inlineRekeyCommitId }),
     localVersionVector: input.localVersionVector,
-    ...(input.minLsn === undefined ? {} : { minLsn: input.minLsn }),
+    ...pullBounds(input),
     outgoingUpdates,
     ...(input.processedThroughUpdateId === undefined ||
     input.localVersionVector === null ||

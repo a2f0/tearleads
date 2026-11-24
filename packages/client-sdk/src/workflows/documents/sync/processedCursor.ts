@@ -6,8 +6,13 @@ import {
   documentVerdictJudge,
 } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
+  type LoroLifetimes,
+  processLoroLifetimes,
+} from "../../../data/documents/shared/sync/loroLifetime";
+import {
   type LoroRuntimeAttempts,
   MAX_LORO_RUNTIME_ATTEMPTS,
+  processLoroRuntimeFailures,
 } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
@@ -20,6 +25,7 @@ import {
   recordDocumentSyncVerdictsInTransaction,
 } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import { readFinalVoidUpdateIds } from "../../../data/persistence/documents/records/finalVoidUpdates";
+import { markLoroWindowsNotCountingInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { readProcessedCursorCoveredBy } from "../../../data/persistence/documents/records/processedCursorForVersion";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
@@ -27,6 +33,13 @@ import {
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
+import {
+  type DocumentSyncLoroWindow,
+  type LoroWindowOpening,
+  openDocumentSyncLoroWindow,
+  stopCountingLoroWindows,
+} from "./loroPassWindow";
+import { reportQuietly } from "./reportQuietly";
 
 /**
  * The processed cursor a document's next pull may carry: the upper bound of
@@ -176,6 +189,13 @@ export async function readRecordedDocumentSyncVoids(input: {
  * transaction: a trap can leave the module unusable, so the save that would
  * otherwise record it may fail, and an attempt that is never recorded would
  * be made again in every process.
+ *
+ * With `loroWindow`, the update reads run inside the pass's window, which
+ * the page's save closes (`loroPassWindow.ts`), opened once the reader's
+ * history is built, so a death inside them is found by the next lifetime.
+ * The caller claims the windows ended lifetimes left before its pull asks
+ * for the page (`claimDocumentSyncOrphanWindows`), so their counts are
+ * recorded first.
  */
 export async function judgeDocumentSyncImports(input: {
   readonly currentDocument: Parameters<
@@ -184,7 +204,11 @@ export async function judgeDocumentSyncImports(input: {
   readonly documentId: string;
   readonly execSql: ExecSql;
   readonly isCurrent?: (() => boolean) | undefined;
+  /** @internal This realm's lifetime; tests stand in another one. */
+  readonly lifetimes?: LoroLifetimes | undefined;
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
+  /** The pass's read window, which this page's save closes. */
+  readonly loroWindow?: DocumentSyncLoroWindow | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,
     "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
@@ -194,15 +218,35 @@ export async function judgeDocumentSyncImports(input: {
   readonly scope: DocumentScope;
 }): Promise<DocumentSyncImportVerdicts> {
   const { result } = input;
+  const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
+  const lifetimes = input.lifetimes ?? processLoroLifetimes;
+  const recorded = await readRecordedImportJudgements(input);
+  const opened: { current: LoroWindowOpening } = { current: "none" };
+  const window = input.loroWindow;
   const verdicts = await validateDocumentSyncUpdateImports({
-    ...(await readRecordedImportJudgements(input)),
+    ...recorded,
+    beforeUpdateReads: window
+      ? async () => {
+          opened.current = await openDocumentSyncLoroWindow({
+            ...input,
+            knownVoids: recorded.knownVoids,
+            ledger,
+            lifetimes,
+            window,
+          });
+          return opened.current !== "none";
+        }
+      : undefined,
     currentDocument: input.currentDocument,
     decryptedUpdates: result.decryptedUpdates,
+    lifetimes,
     responseUpdates: result.response.updates,
-    runtimeLedger: input.runtimeLedger,
+    runtimeLedger: ledger,
   });
   if (verdicts.runtimeFailures.length > 0) {
-    await recordDocumentSyncRuntimeFailures({ ...input, verdicts });
+    await recordDocumentSyncRuntimeFailures({ ...input, lifetimes, verdicts });
+  } else if (opened.current === "counting" && ledger.hasFailed()) {
+    await stopCountingLoroWindows(input.execSql, lifetimes);
   }
   return verdicts;
 }
@@ -211,6 +255,7 @@ async function recordDocumentSyncRuntimeFailures(input: {
   readonly documentId: string;
   readonly execSql: ExecSql;
   readonly isCurrent?: (() => boolean) | undefined;
+  readonly lifetimes: LoroLifetimes;
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,
@@ -225,8 +270,10 @@ async function recordDocumentSyncRuntimeFailures(input: {
     input.execSql,
     (lockedExecSql) =>
       getClientSQLitePersistenceRuntime(lockedExecSql).guardedTransaction(
-        (tx) =>
-          recordDocumentSyncVerdictsInTransaction(tx, {
+        async (tx) => {
+          // This lifetime failed: a death later in it counts nothing more.
+          await markLoroWindowsNotCountingInTransaction(tx, input.lifetimes.id);
+          return recordDocumentSyncVerdictsInTransaction(tx, {
             acceptedUpdateIds: [],
             documentId: input.documentId,
             judge: documentVerdictJudge(),
@@ -241,7 +288,8 @@ async function recordDocumentSyncRuntimeFailures(input: {
               stage: "loro_runtime",
               updateId: failure.updateId,
             })),
-          }),
+          });
+        },
         isCurrent,
       ),
   );
@@ -322,19 +370,6 @@ function documentSyncVerdictInput(input: {
       updateId: voided.updateId,
     })),
   };
-}
-
-function reportQuietly(
-  logError: WorkflowRuntimeUtilInput["logError"] | undefined,
-  message: string,
-  error: unknown,
-): void {
-  if (!logError) return;
-  try {
-    void Promise.resolve(logError(message, error)).catch(() => undefined);
-  } catch {
-    // Hosts may throw synchronously or return a rejected promise.
-  }
 }
 
 /**

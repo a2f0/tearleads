@@ -2988,6 +2988,8 @@ export type components = {
             inlineRekeyCommitId?: string;
             /** @description The client's current version vector; the response returns updates it does not cover. */
             localVersionVector: string | null;
+            /** @description The most updates this page may hold, below the server's own limit. A client sends 1 while it isolates the updates a process death left unattributed, so each is read alone and a death counts toward it; absent, the server's limit applies. */
+            maxPageUpdates?: number;
             /** @description Commit LSN the server must have reached before answering, for read-after-write consistency. */
             minLsn?: string;
             /** @description Encrypted updates to upload. */

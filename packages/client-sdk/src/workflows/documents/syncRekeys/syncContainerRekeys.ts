@@ -84,6 +84,7 @@ export async function buildRemoteDocumentSyncPlan(input: {
       input.localVersionVector === undefined
         ? input.sync.localVersionVector
         : input.localVersionVector,
+    maxPageUpdates: input.sync.maxPageUpdates,
     minLsn: input.minLsn,
     onSyncTrace: input.sync.onSyncTrace,
     pendingUpdates: input.pendingUpdates,

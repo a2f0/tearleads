@@ -63,6 +63,11 @@ export interface SyncRemoteDocumentRequest {
   /** Explicit read-only recovery that bypasses rotation-baseline redirect. */
   historyMode?: "raw" | undefined;
   localVersionVector: string | null;
+  /**
+   * The most updates a page may hold, while the document isolates updates a
+   * process death left unattributed (`loroWindows.ts`).
+   */
+  maxPageUpdates?: number | undefined;
   minLsn?: string | undefined;
   /**
    * The processed cursor recorded with a version `localVersionVector`

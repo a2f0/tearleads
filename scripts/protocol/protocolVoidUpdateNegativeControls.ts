@@ -2,6 +2,7 @@ import type { NegativeControl } from "./protocolNegativeControlTypes";
 
 const MODULE = "formal/document-sync/VoidUpdateProgress.tla";
 const CONFIG = "formal/document-sync/VoidUpdateProgress.cfg";
+const KILLS_CONFIG = "formal/document-sync/VoidUpdateProgressKills.cfg";
 const BASELINE_MODULE = "formal/document-sync/BaselineCursorCoverage.tla";
 const BASELINE_CONFIG = "formal/document-sync/BaselineCursorCoverage.cfg";
 
@@ -77,6 +78,38 @@ export const VOID_UPDATE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { CursorPastUnsettled: "TRUE" },
     expect: { kind: "invariant", name: "ProcessedDevicesAgree" },
     why: "A cursor recorded past an update the runtime failed on keeps it from being served again, so the device never holds it (#3135).",
+  },
+  {
+    id: "void-update-kill-unrecorded",
+    module: MODULE,
+    config: KILLS_CONFIG,
+    constants: { RecordBeforeImport: "FALSE" },
+    expect: { kind: "liveness", name: "DeviceEventuallyCurrent" },
+    why: "A process that dies importing a killer and leaves no window counts nothing, so every lifetime dies on it again (#3194).",
+  },
+  {
+    id: "void-update-kill-not-isolated",
+    module: MODULE,
+    config: KILLS_CONFIG,
+    constants: { IsolateKills: "FALSE" },
+    expect: { kind: "liveness", name: "DeviceEventuallyCurrent" },
+    why: "A death in a window of several updates that isolates nothing serves the same page again, so a killer behind another update is never counted (#3194).",
+  },
+  {
+    id: "void-update-kill-counts-page",
+    module: MODULE,
+    config: KILLS_CONFIG,
+    constants: { CountPageKills: "TRUE" },
+    expect: { kind: "invariant", name: "KilledAttemptsAreIsolated" },
+    why: "A death counted toward the first update of a window that held several spends an innocent update's attempts (#3194).",
+  },
+  {
+    id: "void-update-hidden-kill-counts",
+    module: MODULE,
+    config: KILLS_CONFIG,
+    constants: { CountHiddenKills: "TRUE" },
+    expect: { kind: "invariant", name: "FaultFreeDevicesCountNothing" },
+    why: "A death after the user hid the app, counted as a visible one, spends attempts on a device whose runtime never failed (#3194).",
   },
   {
     id: "baseline-cursor-gate-weighs-all",

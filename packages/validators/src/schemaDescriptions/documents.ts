@@ -135,6 +135,8 @@ describeSchema(
       "Marker that makes carried rekeys and the write replay-safe as one transaction; present exactly when `containerRekeys` is non-empty.",
     localVersionVector:
       "The client's current version vector; the response returns updates it does not cover.",
+    maxPageUpdates:
+      "The most updates this page may hold, below the server's own limit. A client sends 1 while it isolates the updates a process death left unattributed, so each is read alone and a death counts toward it; absent, the server's limit applies.",
     minLsn:
       "Commit LSN the server must have reached before answering, for read-after-write consistency.",
     outgoingUpdates: "Encrypted updates to upload.",

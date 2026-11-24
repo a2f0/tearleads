@@ -146,9 +146,13 @@ refuses a write that extends a peer another user owns
 committed, another user can preempt its later operations only by recreating
 the purged document from history; the refused device then moves them to a
 fresh peer ([peer ownership](../advisory-op-spans.md#peer-ownership)).
-One whose payload fails the Loro runtime holds a reader's sync of that
-document for up to three process lifetimes before it is void
-([runtime failures](../advisory-op-spans.md#loro-runtime-failures)).
+One whose payload fails the Loro runtime, or ends the reader's process
+while the app is visible, holds a reader's sync of that document for up to
+three process lifetimes before it is void
+([runtime failures](../advisory-op-spans.md#loro-runtime-failures)). In a
+browser, tabs can share one process, so a killer one tab reads can also end
+another tab's read of an honest update read alone, and spend that update's
+attempts on the device until it too is void there.
 A device that rotates with an older decoder leaves an update a newer decoder
 reads out of the baseline, and so out of what new readers start from
 ([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks));

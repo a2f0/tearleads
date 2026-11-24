@@ -97,12 +97,60 @@ reported as such, and is never read again under that judge and key. A new
 decoder or another content key judges it from zero. An update that imports on
 a retry joins.
 
-Two residuals remain. An honest update that fails the runtime in three
-separate process lifetimes on one device is void on that device. And while an
-update is unsettled, the device applies nothing served after it on that
-document and cannot bind attachments to it, for up to three process
-lifetimes; its own writes still push and settle. A payload that kills the
-process outright, rather than throwing, records no attempt.
+A payload can also kill the process outright (an out-of-memory crash, or a
+renderer crash) rather than throw. Document sync reads a page inside a read
+window: a local row naming the page's unsettled updates, committed once the
+reader's history is built, before the first update is read, and deleted by the
+page's save. Each process lifetime holds a Web Lock named after it, so the
+next lifetime knows a window whose lock is gone was left by a dead one. A
+window that held one update, in a lifetime that met no runtime failure,
+records one `loro_runtime` attempt toward it, so a killing payload is voided
+after three deaths. Any other window says nothing about one update: its
+updates become suspects, and the document pulls one update a page
+(`maxPageUpdates: 1`) until it has passed them, so a later death names the
+update alone. Documents sync in parallel, so a window counts only while it is
+its lifetime's only open one: opening a second stops every window of that
+lifetime counting, in every database it has open, and a death then isolates
+them all. Each sync pass holds a window of its own and settles only that one,
+so a stale pass still running after the store moved to another database
+cannot close the window of the pass that replaced it. Container metadata,
+rotation, and a founding view read served updates with no window yet; while
+such a read runs, the lifetime's failure marker stands, so a death then
+isolates the open windows' updates instead of counting it toward one. A
+document isolating
+suspects waits to read until its window would be the lifetime's only one;
+after 30 seconds it reads beside the others, and counts nothing. A lifetime
+that ends while the app is hidden, with a window open, leaves a `localStorage`
+marker, and its window counts nothing and isolates nothing: the user closed
+the app, which says nothing about the update. A lifetime that met a runtime
+failure anywhere, with a window open, leaves a marker too, and its window
+isolates instead of counting, since the module may be unusable. A lifetime
+that cannot delete a window's row keeps its failure marker too, so its death
+isolates that row's updates. A host that cannot keep these markers (no working
+`localStorage` or page visibility) opens windows that count nothing, since a
+close could not be told from a death; a death there isolates. A lifetime's
+markers stay until a claim finds none of its windows left in the database.
+A lifetime that could not settle a window keeps them for good, since its
+windows may stand in a database that claim cannot see. A host without
+Web Locks, or whose lock request is refused, opens no window. The command
+line's database is memory-only, so its windows die with it; a host whose
+database outlives its process must hold such a lock or mark its clean exits.
+
+Four residuals remain. An honest update that fails the runtime, or ends the
+process while the app is visible, in three separate process lifetimes on one
+device is void on that device. A window opens once the reader's history is
+built and closes with the page's save, which imports the update, so a visible
+death inside it counts toward the update whatever caused it: Loro work on
+local or accepted data the process runs meanwhile (the editor, a live apply,
+another document's reader history being built), the document's own size while
+saving, or a killer read by another tab that shares the browser process. A
+claim counts at most one attempt per update, so
+tabs that die together in one browser process count one. While an update is
+unsettled, the device applies nothing served after it on that document and
+cannot bind attachments to it, for up to three process lifetimes; its own
+writes still push and settle. And container metadata, rotation, and a founding
+view open no window yet, nor does the live apply after a page's save, so a
+payload that kills the process there records no attempt.
 
 ## Peer Ownership
 
