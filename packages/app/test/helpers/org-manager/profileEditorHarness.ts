@@ -244,6 +244,7 @@ export function installProfileEditorHost(
       ensureRosterProfileDocument: async () => null,
       ensureOrganizationProfileDocument: async () => null,
       ensureRosterProfileContainer: async () => container,
+      findRosterProfileContainer: async () => container,
       ensureOrganizationMetadataContainer: async () => container,
     },
   );

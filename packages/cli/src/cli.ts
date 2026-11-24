@@ -8,6 +8,7 @@ import { createTracer } from "./trace";
 
 export const usage = `Usage: tearleads <command> [--env production|staging|development] [--org <id>] [--trace]
        tearleads register|seed|verify-seed --key-stdin [--api-url <origin>]
+       tearleads seed --roster
 
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
@@ -31,6 +32,10 @@ and keeps it out of the Keychain.
 --api-url <origin> uses that API instead of an --env target, such as a local
 test API. It needs --key-stdin, so no target's saved key is sent to it, and
 plain http only for a loopback host.
+
+seed --roster also gives each member of the dataset's groups (today a Family
+group) an account derived from yours, adds them to your organization's roster,
+and then to the group. Each member takes a seat on a billed organization.
 
 --trace (or TEARLEADS_TRACE=1) prints timestamped progress to stderr: each
 step, API request, and sync lane run with its duration, then a summary of
@@ -62,6 +67,7 @@ function parse(argv: readonly string[]) {
       help: { type: "boolean", short: "h", default: false },
       org: { type: "string" },
       "key-stdin": { type: "boolean", default: false },
+      roster: { type: "boolean", default: false },
       trace: { type: "boolean", default: false },
     },
     strict: true,
@@ -90,6 +96,9 @@ function commandOptions(
   const target = values.env ?? "production";
   if (!isTargetName(target)) {
     return `Unknown --env ${target}; use production, staging, or development.`;
+  }
+  if (values.roster && commandName !== "seed") {
+    return "--roster applies to seed.";
   }
   if (values["key-stdin"] && !KEY_STDIN_COMMANDS.has(commandName)) {
     return "--key-stdin applies to register, seed, and verify-seed.";
@@ -156,6 +165,7 @@ export async function runCli(
       ...options,
       keyFromStdin: values["key-stdin"],
       organizationId: values.org,
+      roster: values.roster,
       tracer,
     });
     return 0;

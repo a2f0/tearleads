@@ -1,8 +1,7 @@
-import {
-  type ContainerNode,
-  type OrganizationDirectoryUser,
-  type Organizations,
-  UnverifiedUserIdentityError,
+import type {
+  ContainerNode,
+  OrganizationDirectoryUser,
+  Organizations,
 } from "@tearleads/client-sdk";
 import {
   createContext,
@@ -31,9 +30,9 @@ import {
 } from "./orgManagerOperationScope";
 import {
   createOrganizationProfileDocument,
-  createRosterProfileDocument,
   type RosterProfileNames,
 } from "./profileDocuments";
+import { ensureRosterProfileForUser } from "./rosterProfile";
 
 interface OrgManagerBehavior {
   captureOperationScope: () => OrgManagerOperationScope | null;
@@ -46,6 +45,8 @@ interface OrgManagerBehavior {
   ) => Promise<string | null>;
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   ensureOrganizationMetadataContainer: () => Promise<ContainerNode | null>;
+  /** The Roster Profiles container this device holds; never provisions it. */
+  findRosterProfileContainer: () => Promise<ContainerNode | null>;
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
 }
 
@@ -200,18 +201,6 @@ function activeOperationScope(
     : null;
 }
 
-// A roster profile carries the user's keys, so only an identity a verified
-// link (or this device's own keys) established may seed one.
-function requireVerifiedIdentity<Identity>(
-  trustedIdentity: Identity | null | undefined,
-  userId: string,
-): Identity {
-  if (!trustedIdentity) {
-    throw new UnverifiedUserIdentityError(userId);
-  }
-  return trustedIdentity;
-}
-
 function useEnsureRosterProfileDocument(
   input: Pick<
     OrgManagerBehavior,
@@ -221,7 +210,6 @@ function useEnsureRosterProfileDocument(
   >,
 ): OrgManagerBehavior["ensureRosterProfileDocument"] {
   const tearleads = useTearleads();
-  const { documents, organizations, userIdentities } = tearleads;
   const {
     captureOperationScope,
     ensureRosterProfileContainer,
@@ -239,47 +227,21 @@ function useEnsureRosterProfileDocument(
       if (!operationScope) {
         return null;
       }
-
-      const ensuredContainer = await ensureRosterProfileContainer();
-      if (!ensuredContainer?.id || !isOperationScopeActive(operationScope)) {
-        return null;
-      }
-
-      // A roster profile carries the user's keys, so only an identity a
-      // verified link (or this device's own keys) established may seed one.
-      const trustedIdentity = await userIdentities.resolveVerified(user.userId);
-      if (!isOperationScopeActive(operationScope)) {
-        return null;
-      }
-      const identity = requireVerifiedIdentity(trustedIdentity, user.userId);
-      // Creation can wait for a remote id; realtime notifications in that
-      // window must not drop the pointer, but an authority change does.
-      const authorityCurrent = captureDocumentsAuthority(tearleads);
-      const stillCurrent = () =>
-        authorityCurrent() && isOperationScopeActive(operationScope);
-      const profileDocumentId = await createRosterProfileDocument({
-        containerId: ensuredContainer.id,
-        documents,
-        identity,
-        isSelf: identity.userId === operationScope.userId,
+      return ensureRosterProfileForUser({
+        tearleads,
+        user,
         names,
         organizationId: operationScope.organizationId,
-        stillCurrent,
+        selfUserId: operationScope.userId,
+        ensureRosterProfileContainer,
+        scopeActive: () => isOperationScopeActive(operationScope),
       });
-      if (!profileDocumentId || !stillCurrent()) {
-        return null;
-      }
-
-      return organizations.updateRosterEntry(user.userId, profileDocumentId);
     },
     [
       captureOperationScope,
-      documents,
       ensureRosterProfileContainer,
       isOperationScopeActive,
-      organizations,
       tearleads,
-      userIdentities,
     ],
   );
 }
@@ -352,12 +314,15 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     useDeviceFirstContainerContents();
   // DeviceFirstProvider owns the shared store's runtime lifecycle. This
   // provider only invokes its mutations after the authenticated root exists.
-  const { ensureOrganizationMetadataContainer, ensureRosterProfileContainer } =
-    useOrganizationProfileContainers({
-      captureOperationScope,
-      containerContentsStore,
-      isOperationScopeActive,
-    });
+  const {
+    ensureOrganizationMetadataContainer,
+    ensureRosterProfileContainer,
+    findRosterProfileContainer,
+  } = useOrganizationProfileContainers({
+    captureOperationScope,
+    containerContentsStore,
+    isOperationScopeActive,
+  });
   const ensureRosterProfileDocument = useEnsureRosterProfileDocument({
     captureOperationScope,
     ensureRosterProfileContainer,
@@ -378,6 +343,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         ensureOrganizationProfileDocument,
         ensureRosterProfileContainer,
         ensureRosterProfileDocument,
+        findRosterProfileContainer,
         isOperationScopeActive,
       }),
     [
@@ -386,6 +352,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       ensureOrganizationProfileDocument,
       ensureRosterProfileContainer,
       ensureRosterProfileDocument,
+      findRosterProfileContainer,
       isOperationScopeActive,
       organizations,
     ],

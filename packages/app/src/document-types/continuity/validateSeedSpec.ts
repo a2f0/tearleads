@@ -47,31 +47,49 @@ function document(value: unknown): boolean {
   );
 }
 
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function distinct(values: readonly unknown[]): boolean {
+  return new Set(values).size === values.length;
+}
+
+// Each group names existing contacts, once each, and no two groups share a name.
+function validGroups(groups: unknown, contactIds: ReadonlySet<unknown>) {
+  return (
+    optionalArray(groups, (item) => {
+      if (!record(item)) return false;
+      const { name, members } = item;
+      return (
+        nonEmptyString(name) &&
+        Array.isArray(members) &&
+        distinct(members) &&
+        members.every((member) => contactIds.has(member))
+      );
+    }) &&
+    (!Array.isArray(groups) ||
+      distinct(groups.map(({ name }: { name?: unknown }) => name)))
+  );
+}
+
 export function validateSeedSpec(value: unknown): asserts value is SeedSpec {
   if (!record(value)) throw new Error("Invalid Continuity seed object");
-  const {
-    schemaVersion,
-    password,
-    identitySeedPhrase,
-    contacts,
-    notes,
-    files,
-  } = value;
-  if (
-    schemaVersion !== 2 ||
-    typeof password !== "string" ||
-    !password ||
-    typeof identitySeedPhrase !== "string" ||
-    !identitySeedPhrase
-  )
+  const { schemaVersion, identitySeedPhrase, contacts, notes, files, groups } =
+    value;
+  if (schemaVersion !== 3 || !nonEmptyString(identitySeedPhrase))
     throw new Error(
-      "Unsupported or invalid Continuity seed: expected schemaVersion 2 and credentials",
+      "Unsupported or invalid Continuity seed: expected schemaVersion 3 and an identity seed phrase",
     );
   if (
     !optionalArray(contacts, (item) => {
       if (!record(item)) return false;
-      const { fields, avatar } = item;
-      return strings(fields) && (avatar === undefined || attachment(avatar));
+      const { id, fields, avatar } = item;
+      return (
+        nonEmptyString(id) &&
+        strings(fields) &&
+        (avatar === undefined || attachment(avatar))
+      );
     }) ||
     !optionalArray(notes, (item) => {
       if (!record(item)) return false;
@@ -82,4 +100,9 @@ export function validateSeedSpec(value: unknown): asserts value is SeedSpec {
     throw new Error("Invalid seed contacts or notes");
   if (!optionalArray(files, document))
     throw new Error("Invalid seed document, attachment, or tracker rows");
+  const contactIds = Array.isArray(contacts)
+    ? contacts.map(({ id }: { id?: unknown }) => id)
+    : [];
+  if (!distinct(contactIds) || !validGroups(groups, new Set(contactIds)))
+    throw new Error("Invalid seed contact ids or groups");
 }

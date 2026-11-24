@@ -112,6 +112,7 @@ the API in-process for its request mocks.
 ## Headless Continuity import
 
 The `app/continuity` entry point exposes the app document projectors, pinned
-dataset loader, Contacts folder resolver, and seed writer used by the
+dataset loader, Contacts folder resolver, seed writer, and the roster and group
+seeders (the Org Manager's own writes, built for a headless host) used by the
 [CLI](../cli/README.md#seed-an-account-with-continuity), which also seeds the
 shared screenshots.

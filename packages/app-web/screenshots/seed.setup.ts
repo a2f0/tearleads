@@ -5,9 +5,11 @@ import { seedIdentity } from "./continuity";
 
 // Each capture project depends on one of these setup projects, which seeds the
 // fixture account on that project's fresh in-memory API exactly as a person
-// seeds their own: the `tearleads` CLI registers the Continuity identity and
-// syncs the pinned dataset into it. The capture then signs a new browser in as
-// that identity, like a second device, and the app downloads what was seeded.
+// seeds their own: the `tearleads` CLI registers the Continuity identity, syncs
+// the pinned dataset into it, and, with `--roster`, gives each group member an
+// account on the roster and in the group. The capture then signs a new browser
+// in as that identity, like a second device, and the app downloads what was
+// seeded.
 const CLI = fileURLToPath(new URL("../../cli/src/index.ts", import.meta.url));
 
 // The CLI's own deadline is far longer; a seed of the local API takes about a
@@ -51,9 +53,9 @@ test("seed the capture account through the CLI", async () => {
   if (typeof apiUrl !== "string") {
     throw new Error(`Missing API URL for ${test.info().project.name}.`);
   }
-  for (const command of ["register", "seed"]) {
+  for (const command of [["register"], ["seed", "--roster"]]) {
     await tearleads(
-      [command, "--api-url", apiUrl],
+      [...command, "--api-url", apiUrl],
       seedIdentity.identitySeedPhrase,
     );
   }

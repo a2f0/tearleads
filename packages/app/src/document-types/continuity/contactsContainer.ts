@@ -42,19 +42,30 @@ export async function continuityContactsDefinition(sdk: Tearleads) {
   return contactsSystemContainer;
 }
 
+/**
+ * The SDK's container tree, hydrated for a headless host. openTree() does not
+ * hydrate on its own; the app drives it via updateRuntime when the runtime
+ * changes. Push the current runtime once, then refresh from the local root so
+ * the store reports ready.
+ */
+export async function openReadyContainerTree(
+  sdk: Tearleads,
+  scope: ReturnType<typeof captureContinuityScope>,
+) {
+  const tree = sdk.containerContents.openTree();
+  tree.updateRuntime(scope.runtime);
+  await tree.refreshLocalContainers();
+  await waitForStoreReady(tree);
+  scope.assertCurrent();
+  return tree;
+}
+
 // Use the same identity-scoped Contacts folder as the Contacts mini-app.
 export async function ensureContactsContainer(sdk: Tearleads): Promise<string> {
   const scope = captureContinuityScope(sdk);
   const contactsSystemContainer = await continuityContactsDefinition(sdk);
   scope.assertCurrent();
-  const tree = sdk.containerContents.openTree();
-  // openTree() does not hydrate on its own; the app drives it via updateRuntime
-  // when the runtime changes. Push the current runtime once, then refresh from
-  // the local root so the store reports ready.
-  tree.updateRuntime(scope.runtime);
-  await tree.refreshLocalContainers();
-  await waitForStoreReady(tree);
-  scope.assertCurrent();
+  const tree = await openReadyContainerTree(sdk, scope);
   const contactsNode = await tree.ensureSystemContainer(
     contactsSystemContainer.systemSlot,
     CONTACTS_CONTAINER_NAME,

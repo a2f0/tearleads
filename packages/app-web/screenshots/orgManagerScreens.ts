@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { disableAnimations, waitForBooted } from "./appShell";
+import { seedExpectations } from "./continuity";
 import { screenshotDeviceScreen } from "./deviceScreen";
 
 type ScreenshotOrgManagerView =
@@ -94,6 +95,10 @@ export async function assertOrgManagerCaptureReady(
       await expect(roster).toContainText("You", {
         timeout: 60_000,
       });
+      // The seed setup's `--roster` added each group member under their name.
+      for (const name of seedExpectations.groups.flatMap((g) => g.members)) {
+        await expect(roster).toContainText(name, { timeout: 60_000 });
+      }
       await expect(roster).toBeVisible({ timeout: 60_000 });
       break;
     }
@@ -102,6 +107,9 @@ export async function assertOrgManagerCaptureReady(
       await expect(groups).toContainText("Admins", {
         timeout: 60_000,
       });
+      for (const { name } of seedExpectations.groups) {
+        await expect(groups).toContainText(name, { timeout: 60_000 });
+      }
       await expect(groups).toBeVisible({ timeout: 60_000 });
       break;
     }

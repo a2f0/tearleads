@@ -54,6 +54,7 @@ test("Org Manager keeps its narrow bound surface and positional adapters", async
     ensureOrganizationMetadataContainer: unused,
     ensureOrganizationProfileDocument: unused,
     ensureRosterProfileContainer: unused,
+    findRosterProfileContainer: unused,
     ensureRosterProfileDocument: unused,
     isOperationScopeActive: () => true,
   };
@@ -83,6 +84,7 @@ test("Org Manager keeps its narrow bound surface and positional adapters", async
       "ensureOrganizationProfileDocument",
       "ensureRosterProfileContainer",
       "ensureRosterProfileDocument",
+      "findRosterProfileContainer",
       "isOperationScopeActive",
       "loadDataUsage",
       "loadDeviceDataUsage",
