@@ -10,7 +10,8 @@ areas:
   management, and the native-store contract tests.
 - [`device/`](device/) owns app-lifecycle connection refresh, keyboard,
   network, camera
-  scanning, and status-bar integration.
+  scanning, the password keychain (Credential Manager on Android, iCloud
+  Keychain on iOS), and status-bar integration.
 - [`diagnostics/`](diagnostics/) owns the native Sentry configuration and the
   source-map
   release pipeline tests.
