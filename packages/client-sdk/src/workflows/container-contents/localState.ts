@@ -1,9 +1,11 @@
 import type { ContainerContentsPersistence } from "./containerPersistence";
+import type { ContainerMetadataWriter } from "./metadata/containerMetadataDocument";
 import type { ContainerState } from "./remoteHydration";
 import type { ContainerContentsWorkflowSqlRuntime } from "./runtime";
 import { hydrateStoredContainerState } from "./storedContainerState";
 
-type LocalContainerStateRuntime = ContainerContentsWorkflowSqlRuntime;
+type LocalContainerStateRuntime = ContainerContentsWorkflowSqlRuntime &
+  ContainerMetadataWriter;
 
 export async function loadLocalContainerStates(input: {
   isCurrent?: (() => boolean) | undefined;
@@ -24,6 +26,7 @@ export async function loadLocalContainerStates(input: {
         isCurrent: input.isCurrent,
         persistence,
         storedContainer,
+        writer: runtime,
       }),
     );
   }
