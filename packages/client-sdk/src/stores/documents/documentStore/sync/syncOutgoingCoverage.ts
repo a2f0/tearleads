@@ -104,11 +104,17 @@ export async function prepareDocumentOutgoingCoverage(input: {
 
   if (!satisfiesVersionVector(queuedCoverage, documentVersion)) {
     const deferredUpdate = exportUpdatesSince(currentDoc, queuedCoverage);
+    // A local write applies its edit before its row commits, so a pass that
+    // listed the queue in between exports that edit's operations again,
+    // byte for byte. The enqueue skips a delta a queued local row already
+    // holds; the other order, where the write's row commits after this one,
+    // is left to the queue merge before the send (#3230).
     const enqueued = await enqueuePendingUpdate(
       state,
       deferredUpdate,
       undefined,
       generation,
+      { unlessQueued: true },
     );
     if (!enqueued) {
       await rebaseDocumentAfterPendingUpdateRefusal(state, generation);
