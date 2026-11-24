@@ -67,7 +67,12 @@ export interface LoroLifetimes {
   endedHidden(id: string): boolean;
   /** Whether lifetime `id` met a Loro runtime failure with a window open. */
   endedFailed(id: string): boolean;
-  /** Drops the markers an ended lifetime left. */
+  /**
+   * Drops the markers an ended lifetime left, once a claim finds none of its
+   * windows left in its database. A lifetime that left a window it could not
+   * settle keeps them: its windows may stand in databases that claim cannot
+   * see, and they must still not count its death.
+   */
   forget(id: string): void;
   /**
    * Whether this lifetime can leave the markers that tell a death from the
@@ -117,6 +122,12 @@ const LOCK_WAIT_MS = 10_000;
 function markerKey(prefix: string, id: string): string {
   return `${prefix}${id}`;
 }
+
+/** The failure marker's value: an unsettled lifetime's survives a claim. */
+const FAILED_MARKER_VALUE = {
+  failed: "1",
+  unsettled: "unsettled",
+} as const;
 
 /** Whether this host can write and read back a lifetime's markers. */
 function probeMarkers(
@@ -285,27 +296,32 @@ export function createLoroLifetimes(host: {
   let markersKept: boolean | undefined;
   let watching = false;
 
-  const setMarker = (prefix: string, standing: boolean) => {
+  const setMarker = (prefix: string, value: string | null) => {
     quietly(() => {
-      if (standing) storage?.setItem(markerKey(prefix, id), "1");
+      if (value !== null) storage?.setItem(markerKey(prefix, id), value);
       else storage?.removeItem(markerKey(prefix, id));
     }, undefined);
   };
+  const failedMarker = (): string | null => {
+    if (health === "unsettled") return FAILED_MARKER_VALUE.unsettled;
+    if (windows.count() === 0) return null;
+    return health === "failed" || unwindowedReads > 0
+      ? FAILED_MARKER_VALUE.failed
+      : null;
+  };
   const syncMarkers = () => {
     const open = windows.count() > 0 || health === "unsettled";
-    setMarker(HIDDEN_MARKER_PREFIX, open && (visibility?.hidden() ?? false));
-    setMarker(
-      FAILED_MARKER_PREFIX,
-      open && (health !== "healthy" || unwindowedReads > 0),
-    );
+    const hidden = open && (visibility?.hidden() ?? false);
+    setMarker(HIDDEN_MARKER_PREFIX, hidden ? "1" : null);
+    setMarker(FAILED_MARKER_PREFIX, failedMarker());
   };
   const moveHealth = (event: LifetimeHealthEvent) => {
     health = transitionLifetimeHealth(health, event);
     syncMarkers();
   };
   const windows = lifetimeWindows(host.gateWaitMs ?? GATE_WAIT_MS, syncMarkers);
-  const marked = (prefix: string, other: string) =>
-    quietly(() => storage?.getItem(markerKey(prefix, other)) === "1", false);
+  const markerOf = (prefix: string, other: string) =>
+    quietly(() => storage?.getItem(markerKey(prefix, other)) ?? null, null);
 
   return {
     id,
@@ -314,9 +330,11 @@ export function createLoroLifetimes(host: {
       () => (typeof host.locks === "function" ? host.locks() : host.locks),
       host.lockWaitMs ?? LOCK_WAIT_MS,
     ),
-    endedHidden: (other) => marked(HIDDEN_MARKER_PREFIX, other),
-    endedFailed: (other) => marked(FAILED_MARKER_PREFIX, other),
+    endedHidden: (other) => markerOf(HIDDEN_MARKER_PREFIX, other) !== null,
+    endedFailed: (other) => markerOf(FAILED_MARKER_PREFIX, other) !== null,
     forget(other) {
+      const failed = markerOf(FAILED_MARKER_PREFIX, other);
+      if (failed === FAILED_MARKER_VALUE.unsettled) return;
       quietly(() => {
         storage?.removeItem(markerKey(HIDDEN_MARKER_PREFIX, other));
         storage?.removeItem(markerKey(FAILED_MARKER_PREFIX, other));

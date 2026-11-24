@@ -88,13 +88,15 @@ test("a read outside any window keeps the failure marker while it runs", async (
 });
 
 // A row the lifetime could not delete outlives its window, so the failure
-// marker stands with no window open, and a later failure does not drop it.
-test("an unsettled row keeps the failure marker through a later failure", () => {
+// marker stands with no window open; neither a later failure nor a claim
+// that finds no row in one database drops it, as rows may stand in others.
+test("an unsettled row keeps the failure marker through failures and claims", () => {
   const surfaces = host();
   const lifetimes = createLoroLifetimes({ id: "tab", ...surfaces });
 
   lifetimes.noteUnsettledWindow();
   lifetimes.noteFailed();
+  lifetimes.forget("tab");
 
   expect(lifetimes.openWindowCount()).toBe(0);
   expect(lifetimes.endedFailed("tab")).toBe(true);

@@ -110,7 +110,9 @@ that cannot delete a window's row keeps its failure marker too, so its death
 isolates that row's updates. A host that cannot keep these markers (no working
 `localStorage` or page visibility) opens windows that count nothing, since a
 close could not be told from a death; a death there isolates. A lifetime's
-markers stay until its windows on every document are claimed. A host without
+markers stay until a claim finds none of its windows left in the database.
+A lifetime that could not settle a window keeps them for good, since its
+windows may stand in a database that claim cannot see. A host without
 Web Locks, or whose lock request is refused, opens no window. The command
 line's database is memory-only, so its windows die with it; a host whose
 database outlives its process must hold such a lock or mark its clean exits.
