@@ -1,9 +1,9 @@
-import { createHmac } from "node:crypto";
+import { hkdfSync } from "node:crypto";
 import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import {
   type ContinuityGroup,
   continuityRosterActions,
-  seedGroupMembers,
+  createGroupMembersSeed,
   seedRosterEntry,
 } from "app/continuity";
 import { registerAccount } from "./registerAccount";
@@ -14,6 +14,11 @@ import { type CliSession, withSession } from "./session";
 const SETTLE_ATTEMPTS = 40;
 const SETTLE_DELAY_MS = 250;
 
+// HKDF's own salt keeps member keys apart from the container system slots,
+// which the SDK derives (and publishes) as an HMAC keyed directly by the same
+// signing key.
+const MEMBER_KEY_SALT = "tearleads.continuity/member-recovery-key/v1";
+
 /**
  * A group member's recovery key, derived from the owner's signing key and the
  * member's Continuity ID, so every run reaches the same member accounts and
@@ -23,9 +28,13 @@ export function memberRecoveryKey(
   ownerSigningPrivateKey: Uint8Array,
   contactId: string,
 ): string {
-  const entropy = createHmac("sha256", ownerSigningPrivateKey)
-    .update(`tearleads.continuity/member/${contactId}`)
-    .digest();
+  const entropy = hkdfSync(
+    "sha256",
+    ownerSigningPrivateKey,
+    MEMBER_KEY_SALT,
+    contactId,
+    32,
+  );
   return createIdentitySeedPhraseFromEntropy(new Uint8Array(entropy));
 }
 
@@ -104,7 +113,7 @@ export async function seedRoster(
     }
     await tracer.span(`group ${group.name}`, () =>
       settle(
-        () => seedGroupMembers(actions, group.name, groupUserIds),
+        createGroupMembersSeed(actions, group.name, groupUserIds),
         `Could not add the members of ${group.name}.`,
       ),
     );

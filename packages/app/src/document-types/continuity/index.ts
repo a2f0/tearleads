@@ -8,7 +8,7 @@ export {
   type ContinuityGroup,
   continuityGroups,
   continuityRosterActions,
-  seedGroupMembers,
+  createGroupMembersSeed,
   seedRosterEntry,
 } from "./continuityRoster";
 export { captureContinuityScope } from "./continuityScope";

@@ -9,7 +9,10 @@ import {
   getRosterProfileDocumentBindingKey,
   type RosterProfileBinding,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
-import { hydrateRosterProfileDocument } from "../../../stores/org-manager/rosterProfileHydration";
+import {
+  getRosterProfileHydrationLocalId,
+  hydrateRosterProfileDocument,
+} from "../../../stores/org-manager/rosterProfileHydration";
 
 interface ExplorerAttributionOrganizations {
   loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
@@ -96,14 +99,6 @@ export interface ExplorerAttributionProfileHydrationTarget {
   readonly bindingKey: string;
   readonly profileDocumentId: string;
   readonly userId: string;
-}
-
-export function getExplorerAttributionProfileDocumentLocalId(input: {
-  readonly organizationId: string;
-  readonly profileDocumentId: string;
-  readonly userId: string;
-}): string {
-  return `${getRosterProfileDocumentLocalId(input)}:remote:${input.profileDocumentId}`;
 }
 
 /** Selects bounded contributor profiles visible to an organization admin. */
@@ -200,13 +195,10 @@ export function hydrateExplorerAttributionProfileDocument(input: {
   return hydrateRosterProfileDocument({
     containerId: input.containerId,
     documents: input.documents,
-    localId: getExplorerAttributionProfileDocumentLocalId({
-      organizationId: input.organizationId,
-      profileDocumentId: target.profileDocumentId,
-      userId: target.userId,
-    }),
+    organizationId: input.organizationId,
     profileDocumentId: target.profileDocumentId,
     signal: input.signal,
+    userId: target.userId,
   });
 }
 
@@ -257,7 +249,7 @@ export function getExplorerAttributionProfileBindingsByLocalId(input: {
       userId: user.userId,
     });
     bindings.set(
-      getExplorerAttributionProfileDocumentLocalId({
+      getRosterProfileHydrationLocalId({
         organizationId: input.organizationId,
         profileDocumentId: user.profileDocumentId,
         userId: user.userId,

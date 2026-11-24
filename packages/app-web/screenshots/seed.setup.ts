@@ -31,6 +31,9 @@ function tearleads(args: readonly string[], recoveryKey: string) {
       output += chunk.toString();
     });
     child.on("error", reject);
+    // A CLI that exits before reading the key (a usage error) closes stdin;
+    // the close handler then reports its output, so ignore the EPIPE here.
+    child.stdin.on("error", () => undefined);
     child.on("close", (code, signal) => {
       if (code === 0) resolve();
       else

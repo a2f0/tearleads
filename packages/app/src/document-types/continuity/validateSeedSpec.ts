@@ -55,9 +55,13 @@ function distinct(values: readonly unknown[]): boolean {
   return new Set(values).size === values.length;
 }
 
+// Every organization already has these built-in groups.
+const BUILT_IN_GROUP_NAMES = new Set(["admins", "members"]);
+
 // Each group names existing contacts with a first and last name, once each, and
-// no two groups share a name. Members are admitted under those names, so a
-// nameless member must fail here, before the seed writes anything.
+// no two groups share a name or take a built-in group's. Members are admitted
+// under those names, so a nameless member must fail here, before the seed
+// writes anything.
 function validGroups(groups: unknown, contactIds: ReadonlySet<unknown>) {
   return (
     optionalArray(groups, (item) => {
@@ -65,6 +69,7 @@ function validGroups(groups: unknown, contactIds: ReadonlySet<unknown>) {
       const { name, members } = item;
       return (
         nonEmptyString(name) &&
+        !BUILT_IN_GROUP_NAMES.has(name.trim().toLowerCase()) &&
         Array.isArray(members) &&
         distinct(members) &&
         members.every((member) => contactIds.has(member))

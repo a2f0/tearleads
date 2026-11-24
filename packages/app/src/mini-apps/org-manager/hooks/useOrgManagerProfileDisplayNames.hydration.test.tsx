@@ -5,6 +5,8 @@ import {
   type OrganizationDirectory,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { getRosterProfileHydrationLocalId } from "../../../stores/org-manager/rosterProfileHydration";
+import { MAX_ROSTER_PROFILE_PULL_FAILURES } from "../../../stores/org-manager/rosterProfilePullLedger";
 import {
   MAX_ROSTER_PROFILE_HYDRATIONS_PER_LOAD,
   useOrgManagerProfileDisplayNames,
@@ -101,8 +103,9 @@ test("an admin's device pulls missing roster profiles, capped per load", async (
     {
       containerId: ROSTER_CONTAINER.id,
       documentId: "profile-document-0",
-      localId: getRosterProfileDocumentLocalId({
+      localId: getRosterProfileHydrationLocalId({
         organizationId: ORGANIZATION_ID,
+        profileDocumentId: "profile-document-0",
         userId: "profile-user-0",
       }),
     },
@@ -129,6 +132,33 @@ test("an admin's device pulls missing roster profiles, capped per load", async (
   expect(harness.open).toHaveBeenCalledTimes(
     MAX_ROSTER_PROFILE_HYDRATIONS_PER_LOAD,
   );
+});
+
+test("a replaced profile pointer pulls into its own local identity", async () => {
+  const canonicalLocalId = getRosterProfileDocumentLocalId({
+    organizationId: ORGANIZATION_ID,
+    userId: USER_ID,
+  });
+  // The device still holds the member's previous profile under the canonical
+  // id. Opening the new profile there would reuse that profile's store.
+  const harness = createTearleadsHarness([
+    profileSummary({
+      profileDocumentId: "old-profile-id",
+      title: "Old Name",
+      userId: USER_ID,
+    }),
+  ]);
+  renderDisplayNames({
+    activeDirectory: directory([
+      rosterUser({ profileDocumentId: "new-profile-id", userId: USER_ID }),
+    ]),
+    harness,
+  });
+
+  await waitFor(() => expect(harness.open).toHaveBeenCalledTimes(1));
+  const [opened] = harness.open.mock.calls[0] ?? [];
+  expect(opened).toMatchObject({ documentId: "new-profile-id" });
+  expect(opened).not.toMatchObject({ localId: canonicalLocalId });
 });
 
 test("profiles this device already holds are never pulled", async () => {
@@ -196,6 +226,48 @@ test("a profile that fails to pull does not stop the others", async () => {
   expect(harness.logError).toHaveBeenCalledTimes(1);
 });
 
+test("a profile that keeps failing goes last, then waits for a new session", async () => {
+  const harness = createTearleadsHarness();
+  const failingPull = mock((_signal?: AbortSignal) =>
+    Promise.reject(new Error("offline")),
+  );
+  harness.open.mockImplementation((input: object) => ({
+    requestRemoteSyncAndWait:
+      Reflect.get(input, "documentId") === "profile-document-0"
+        ? failingPull
+        : harness.requestRemoteSyncAndWait,
+    requestSync: harness.requestSync,
+  }));
+  const loadOnce = async (opens: number, failures: number) => {
+    const { view } = renderDisplayNames({
+      activeDirectory: directory(rosterUsers(2)),
+      harness,
+    });
+    await waitFor(() => expect(harness.open).toHaveBeenCalledTimes(opens));
+    await waitFor(() =>
+      expect(harness.logError).toHaveBeenCalledTimes(failures),
+    );
+    await act(async () => Promise.resolve());
+    view.unmount();
+  };
+  for (let load = 1; load <= MAX_ROSTER_PROFILE_PULL_FAILURES; load++) {
+    await loadOnce(2 * load, load);
+  }
+  await loadOnce(2 * MAX_ROSTER_PROFILE_PULL_FAILURES + 1, 3);
+
+  expect(
+    harness.open.mock.calls.map(([input]) => Reflect.get(input, "documentId")),
+  ).toEqual([
+    "profile-document-0",
+    "profile-document-1",
+    "profile-document-1",
+    "profile-document-0",
+    "profile-document-1",
+    "profile-document-0",
+    "profile-document-1",
+  ]);
+});
+
 test("a member who is not an admin pulls no roster profiles", async () => {
   const harness = createTearleadsHarness();
   const { containers, findRosterProfileContainer } = renderDisplayNames({
@@ -208,6 +280,23 @@ test("a member who is not an admin pulls no roster profiles", async () => {
   expect(findRosterProfileContainer).toHaveBeenCalledTimes(0);
   expect(containers.subscribe).toHaveBeenCalledTimes(0);
   expect(harness.open).toHaveBeenCalledTimes(0);
+});
+
+test("a member promoted to admin pulls without a roster change", async () => {
+  const harness = createTearleadsHarness();
+  const users = rosterUsers(2);
+  const { view } = renderDisplayNames({
+    activeDirectory: directory(users, ORGANIZATION_ID, false),
+    harness,
+  });
+  await waitFor(() => expect(harness.list).toHaveBeenCalledTimes(1));
+  await act(async () => Promise.resolve());
+  expect(harness.open).toHaveBeenCalledTimes(0);
+
+  view.rerender(directory(users, ORGANIZATION_ID, true));
+  await waitFor(() =>
+    expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(2),
+  );
 });
 
 test("unmounting cancels the pass between pulls", async () => {

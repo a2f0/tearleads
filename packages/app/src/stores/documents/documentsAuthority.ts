@@ -1,6 +1,8 @@
 import type { DocumentsRuntime, Tearleads } from "@tearleads/client-sdk";
-import { useTearleads } from "../../providers/sdk/TearleadsProvider";
-import { useTearleadsExternalValue } from "../../providers/sdk/useTearleadsSubscription";
+
+// React-free, so headless hosts (the CLI's roster seeding) can capture the
+// authority without loading the provider tree. The React hook lives in
+// `useDocumentsAuthorityGeneration.ts`.
 
 /**
  * The documents authority: the domain, database, principal and keys that
@@ -80,13 +82,4 @@ export function isDocumentsAuthorityCurrent(
 export function captureDocumentsAuthority(sdk: Tearleads): () => boolean {
   const generation = documentsAuthorityGeneration(sdk);
   return () => isDocumentsAuthorityCurrent(sdk, generation);
-}
-
-/** A memo key that, unlike the runtime snapshot, survives notifications
- * which leave the documents authority unchanged. */
-export function useDocumentsAuthorityGeneration(): number {
-  const sdk = useTearleads();
-  return useTearleadsExternalValue(sdk.runtime.subscribe, () =>
-    documentsAuthorityGeneration(sdk),
-  );
 }

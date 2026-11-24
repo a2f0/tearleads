@@ -13,7 +13,7 @@ import { captureContinuityScope } from "./continuityScope";
 import type { SeedSpec } from "./seedTypes";
 
 export {
-  seedGroupMembers,
+  createGroupMembersSeed,
   seedRosterEntry,
 } from "../../stores/org-manager/rosterSeed";
 

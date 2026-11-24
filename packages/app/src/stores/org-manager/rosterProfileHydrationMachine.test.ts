@@ -36,14 +36,15 @@ test("an admin's load pulls once, then ignores later events", () => {
     type: "profilesMissing",
     bindings: first,
   });
-  expect(running).toEqual({ status: "running", bindings: first });
-  expect(
-    run(
-      running,
-      { type: "profilesMissing", bindings: latest },
-      { type: "containersChanged" },
-    ),
-  ).toEqual(running);
+  expect(running).toEqual({
+    status: "running",
+    attempt: 0,
+    bindings: first,
+    containersChanged: false,
+  });
+  expect(run(running, { type: "profilesMissing", bindings: latest })).toEqual(
+    running,
+  );
   const done = run(running, { type: "finished" });
   expect(done).toEqual({ status: "done" });
   expect(
@@ -73,6 +74,27 @@ test("a missing container waits for the listing, keeping the latest profiles", (
   expect(updated).toEqual({ status: "awaitingContainer", bindings: latest });
   expect(run(updated, { type: "containersChanged" })).toEqual({
     status: "running",
+    attempt: 0,
     bindings: latest,
+    containersChanged: false,
   });
+});
+
+test("a listing change during a pass that found no container retries at once", () => {
+  const running = run(initialRosterProfileHydration(true), {
+    type: "profilesMissing",
+    bindings: first,
+  });
+  expect(
+    run(running, { type: "containersChanged" }, { type: "containerMissing" }),
+  ).toEqual({
+    status: "running",
+    attempt: 1,
+    bindings: first,
+    containersChanged: false,
+  });
+  // A change during a pass that then finishes needs nothing more.
+  expect(
+    run(running, { type: "containersChanged" }, { type: "finished" }),
+  ).toEqual({ status: "done" });
 });

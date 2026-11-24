@@ -5,12 +5,12 @@ import type {
   OrganizationDirectoryUser,
 } from "@tearleads/client-sdk";
 import { getRosterProfileDocumentLocalId } from "@tearleads/client-sdk";
+import { getRosterProfileHydrationLocalId } from "../../../stores/org-manager/rosterProfileHydration";
 import {
   getExplorerAttributionHydrationDocumentSelection,
   getExplorerAttributionProfileBindingsByLocalId,
   getExplorerAttributionProfileContainerId,
   getExplorerAttributionProfileDisplayNames,
-  getExplorerAttributionProfileDocumentLocalId,
   hydrateExplorerAttributionProfileDocument,
   loadExplorerAttributionDirectoryAndGroups,
   MAX_EXPLORER_ATTRIBUTION_HYDRATION_DOCUMENTS,
@@ -312,7 +312,7 @@ test("cold and cached profiles open by retained identity and remote-probe", asyn
     {
       containerId: "roster-profile-container-id",
       documentId: "disabled-profile-id",
-      localId: getExplorerAttributionProfileDocumentLocalId({
+      localId: getRosterProfileHydrationLocalId({
         organizationId: ORGANIZATION_ID,
         profileDocumentId: "disabled-profile-id",
         userId: "disabled-user-id",
@@ -411,7 +411,7 @@ test("profile pointer replacements hydrate through distinct local identities", a
             containerId: "roster-profile-container-id",
             documentId: "old-profile-id",
             documentKind: "contact",
-            id: getExplorerAttributionProfileDocumentLocalId({
+            id: getRosterProfileHydrationLocalId({
               organizationId: ORGANIZATION_ID,
               profileDocumentId: "old-profile-id",
               userId: "disabled-user-id",
@@ -423,7 +423,7 @@ test("profile pointer replacements hydrate through distinct local identities", a
             containerId: "roster-profile-container-id",
             documentId: "new-profile-id",
             documentKind: "contact",
-            id: getExplorerAttributionProfileDocumentLocalId({
+            id: getRosterProfileHydrationLocalId({
               organizationId: ORGANIZATION_ID,
               profileDocumentId: "new-profile-id",
               userId: "disabled-user-id",
@@ -449,7 +449,7 @@ test("the deterministic profile row outranks a newer Explorer hydration shell", 
     directoryAndGroups: projection({ users: [user] }),
     organizationId: ORGANIZATION_ID,
   });
-  const remoteLocalId = getExplorerAttributionProfileDocumentLocalId({
+  const remoteLocalId = getRosterProfileHydrationLocalId({
     organizationId: ORGANIZATION_ID,
     profileDocumentId: "current-profile-id",
     userId: "disabled-user-id",

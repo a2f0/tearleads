@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import type { OrganizationGroupSummary } from "@tearleads/client-sdk";
 import {
+  createGroupMembersSeed,
   isUserInGroup,
   isUserOnRoster,
   planRosterAdmission,
-  seedGroupMembers,
   seedRosterEntry,
 } from "./rosterSeed";
 import {
@@ -259,6 +259,8 @@ test("seedRosterEntry waits when directory, members, or peer import is unavailab
 function fakeGroupSeedActions(input: {
   groups: OrganizationGroupSummary[];
   memberIds: string[];
+  /** False models a read model that has not caught up with a create. */
+  surfaceCreatedGroups?: boolean;
 }) {
   const { actions } = fakeRosterSeedActions({
     directoryAndGroups: directoryAndGroups({ users: [], memberGroupId: "mg" }),
@@ -280,7 +282,7 @@ function fakeGroupSeedActions(input: {
       createGroup: async (name: string) => {
         writes.push(`create ${name}`);
         const created = group(`group-${name}`, name);
-        groups.push(created);
+        if (input.surfaceCreatedGroups !== false) groups.push(created);
         return created;
       },
       addUserToGroup: async (
@@ -307,27 +309,56 @@ function group(groupId: string, name: string): OrganizationGroupSummary {
   };
 }
 
-test("seedGroupMembers creates a missing group and adds every missing member", async () => {
+test("the group seed creates a missing group and adds every missing member", async () => {
   const { actions, writes } = fakeGroupSeedActions({
     groups: [],
     memberIds: ["rosa"],
   });
-  expect(await seedGroupMembers(actions, "Family", ["rosa", "theo"])).toBe(
-    false,
-  );
+  const seed = createGroupMembersSeed(actions, "Family", ["rosa", "theo"]);
+  expect(await seed()).toBe(false);
   expect(writes).toEqual([
     "create Family",
     "add theo to group-Family (Family)",
   ]);
 });
 
-test("seedGroupMembers reuses the named group and settles once all are members", async () => {
+test("the group seed reuses the named group and settles once all are members", async () => {
   const { actions, writes } = fakeGroupSeedActions({
     groups: [group("other", "Friends"), group("family", "Family")],
     memberIds: ["rosa", "theo"],
   });
-  expect(await seedGroupMembers(actions, "Family", ["rosa", "theo"])).toBe(
-    true,
-  );
+  const seed = createGroupMembersSeed(actions, "Family", ["rosa", "theo"]);
+  expect(await seed()).toBe(true);
   expect(writes).toEqual([]);
+});
+
+test("a retry before the created group surfaces adds to it, not a second group", async () => {
+  const { actions, writes } = fakeGroupSeedActions({
+    groups: [],
+    memberIds: [],
+    surfaceCreatedGroups: false,
+  });
+  const seed = createGroupMembersSeed(actions, "Family", ["rosa"]);
+  expect(await seed()).toBe(false);
+  expect(await seed()).toBe(false);
+  expect(writes).toEqual([
+    "create Family",
+    "add rosa to group-Family (Family)",
+    "add rosa to group-Family (Family)",
+  ]);
+});
+
+test("built-in and unreadable groups never match by name", async () => {
+  const { actions, writes } = fakeGroupSeedActions({
+    groups: [
+      { ...group("members", "Family"), isBuiltin: true },
+      { ...group("forged", "Family"), nameUnreadable: true },
+    ],
+    memberIds: [],
+  });
+  await createGroupMembersSeed(actions, "Family", ["rosa"])();
+  expect(writes).toEqual([
+    "create Family",
+    "add rosa to group-Family (Family)",
+  ]);
 });

@@ -67,6 +67,8 @@ test("seed groups name existing, named contacts once each, under distinct names"
     { ...seed, contacts, groups: [{ ...family, members: ["sam"] }] },
     { ...seed, contacts, groups: [{ ...family, members: ["rosa", "rosa"] }] },
     { ...seed, contacts, groups: [family, family] },
+    { ...seed, contacts, groups: [{ ...family, name: "Admins" }] },
+    { ...seed, contacts, groups: [{ ...family, name: " members " }] },
     {
       ...seed,
       contacts: [

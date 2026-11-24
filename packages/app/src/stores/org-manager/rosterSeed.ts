@@ -147,31 +147,46 @@ export async function seedRosterEntry(
 }
 
 /**
- * Creates the named group when the organization has none and adds each user
- * not yet a member. The users must already be on the roster. Returns `true`
- * once every user is a member, and `false` while a write has not surfaced yet.
+ * A retryable step that creates the named group when the organization has
+ * none and adds each user not yet a member. The users must already be on the
+ * roster. The step resolves `true` once every user is a member, and `false`
+ * while a write has not surfaced yet. It remembers a group it created, so a
+ * retry made before that group reaches the read model adds to it instead of
+ * creating another group of the same name. Built-in groups and groups whose
+ * name does not open never match by name.
  */
-export async function seedGroupMembers(
+export function createGroupMembersSeed(
   actions: GroupSeedActions,
   groupName: string,
   userIds: readonly string[],
-): Promise<boolean> {
-  const directoryAndGroups = await actions.loadDirectoryAndGroups();
-  if (!directoryAndGroups) {
-    return false;
-  }
-  const existing = directoryAndGroups.groups.find(
-    (group) => group.name === groupName,
-  );
-  const groupId =
-    existing?.groupId ?? (await actions.createGroup(groupName)).groupId;
-  const members = await actions.loadGroupMembers(groupId);
-  if (!members) {
-    return false;
-  }
-  const missing = userIds.filter((userId) => !isUserInGroup(members, userId));
-  for (const userId of missing) {
-    await actions.addUserToGroup(groupId, userId, groupName);
-  }
-  return missing.length === 0;
+): () => Promise<boolean> {
+  let createdGroupId: string | null = null;
+  const resolveGroupId = async (
+    groups: OrganizationDirectoryAndGroups["groups"],
+  ): Promise<string> => {
+    if (createdGroupId) return createdGroupId;
+    const existing = groups.find(
+      (group) =>
+        !group.isBuiltin && !group.nameUnreadable && group.name === groupName,
+    );
+    if (existing) return existing.groupId;
+    createdGroupId = (await actions.createGroup(groupName)).groupId;
+    return createdGroupId;
+  };
+  return async () => {
+    const directoryAndGroups = await actions.loadDirectoryAndGroups();
+    if (!directoryAndGroups) {
+      return false;
+    }
+    const groupId = await resolveGroupId(directoryAndGroups.groups);
+    const members = await actions.loadGroupMembers(groupId);
+    if (!members) {
+      return false;
+    }
+    const missing = userIds.filter((userId) => !isUserInGroup(members, userId));
+    for (const userId of missing) {
+      await actions.addUserToGroup(groupId, userId, groupName);
+    }
+    return missing.length === 0;
+  };
 }
