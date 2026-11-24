@@ -1,7 +1,7 @@
 # Limits
 
 Every bound the protocol enforces, what enforces it, and what happens on the
-far side of it. Limits are of three kinds:
+far side of it. Most limits are of three kinds:
 
 - **Refusal.** The request is rejected and the client must change what it
   sends. These are wire-contract bounds against hostile or runaway input.
@@ -12,7 +12,9 @@ far side of it. Limits are of three kinds:
   for a later writer, and a client that meets it
   [parks](./sync-edge-cases.md) rather than fails.
 
-Only the third kind trades away write liveness;
+The [Loro runtime](#loro-runtime) bounds are counts and waits inside the SDK,
+not wire bounds. Lazy remainders, the rotation-death limits, and one known
+defect trade away write liveness;
 [the last section](#limits-that-trade-write-liveness) names each such trade.
 For shared terminology, see [glossary.md](./glossary.md).
 
@@ -116,8 +118,39 @@ for the exact-length rule.
 | Authorization paths per request | 64 (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS`), each at most 100 deep, so 6,400 path refs (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS`) | Validators; derived from the structural limits so every valid link set stays syncable after later moves deepen its paths. | Refusal. |
 | Content-key targets per document | 64 (`MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS`) | API create and link validation; SDK link preflight in [`workflows/documents/linkSet/`](../packages/client-sdk/src/workflows/documents/linkSet/). | Refusal at link time, so no document can be created that does not fit the sync contract. |
 | Response page | 48 MiB (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES`), of which 16 MiB is envelope (`MAX_DOCUMENT_SYNC_RESPONSE_ENVELOPE_BYTES`) | API. Sized to carry the largest accepted atomic rotation baseline plus its signed metadata, while the page and its serialized copy both fit the 128 MB Workers isolate. A page is sized from stored byte lengths before it loads, so it holds at most the 32 MiB update share plus 64 entries' fixed-size fields. | Pagination. |
-| Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`) | API. | Pagination via the pull cursor. |
+| Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`); a request's `maxPageUpdates`, 1 to 64, lowers it but never raises it | Validators bound `maxPageUpdates`; API: [`workflows/documents/mutations/syncResponseUpdates.ts`](../packages/api/src/workflows/documents/mutations/syncResponseUpdates.ts) serves the smaller. The SDK asks for 1 while it [isolates](#loro-runtime) updates a death left unattributed. | Pagination via the pull cursor. |
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
+| Refused peers named per refusal | 64 (`MAX_DOCUMENT_PEER_FRONTIERS`, [`validators/src/response/documentSyncError.ts`](../packages/validators/src/response/documentSyncError.ts)) in the `peerFrontiers` of a 409 `document_sync_peer_owned` or `document_sync_dependency_uncommitted` | API: [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) names the first 64 refused peers in canonical order, each with the frontier committed before the request; the response schema bounds the list. | Pagination. The client [rebases](./advisory-op-spans.md#rebasing-onto-a-fresh-peer) the named peers onto a fresh peer, and its retry draws a refusal naming the rest. |
+| Span rows per write | 13,107, with no constant of its own: Postgres binds at most 65,535 parameters to one statement, and each row binds five | API: [`documents/documentUpdateSpans.ts`](../packages/api/src/documents/documentUpdateSpans.ts) inserts one row per peer of each new update's declared span, for the whole request, in one statement. Document sync and a link-set mutation's rotation baseline both write through it. | The insert fails at the database, the request rolls back, and the response is 500. An ordinary update has one span row per peer it changed, and a request carries at most 64 updates (the request schema refuses more), so honest edits stay far below it. A rotation baseline has one row per peer in the document's history, and nothing caps those peers: see [the known defect](#known-defect-unbounded-peers-per-document). |
+
+## Loro runtime
+
+These bounds are the SDK's own. They decide what a WebAssembly trap or a
+process death while reading served updates with Loro counts toward, and how
+long the [read windows](./glossary/sync.md#loro-read-window) that tell one
+from the other wait.
+[Loro runtime failures](./advisory-op-spans.md#loro-runtime-failures)
+describes the windows, and [rotation deaths](./rotation-deaths.md) the count a
+key rotation keeps.
+
+| Limit | Value | Where enforced | Past the limit |
+| --- | --- | --- | --- |
+| Runtime attempts that void an update | 3 process lifetimes (`MAX_LORO_RUNTIME_ATTEMPTS`, [`data/documents/shared/sync/loroRuntimeFailureLedger.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroRuntimeFailureLedger.ts)) | SDK: a process's first runtime failure while sync judges the update counts one attempt toward it, and so does a death in a read window that held the update alone, which the next lifetime claims ([`workflows/documents/sync/loroWindows.ts`](../packages/client-sdk/src/workflows/documents/sync/loroWindows.ts)). Attempts persist at stage `loro_runtime` in `document_void_updates`. | The update is a final void under that judge, reported, and never read again; a new judge (a decoder or void-rules change) judges it from zero. Below the limit it is unsettled: it holds every later update of its page, and in the same process it waits out a retry delay of one minute, doubling to an hour. |
+| Updates per pull while isolating | 1 (`maxPageUpdates: 1`, from `loroIsolationPageLimit` in [`data/documents/shared/sync/loroWindowMachine.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroWindowMachine.ts)) | SDK: after a death that names no single update, the document's sync and container-metadata pulls ask for one update a page (`claimThenReadDocumentSyncPageLimit`), and a rotation's raw-history pulls do while deaths stand against it (`claimThenReadDocumentRotationPageLimit`), so a later death names one update. | Pagination. Sync keeps to one update a page until its pages have passed every suspect or a pull completes; a rotation, until a rebuild completes. |
+| Window gate wait | 30 s (`GATE_WAIT_MS`, [`data/documents/shared/sync/loroLifetime.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroLifetime.ts)) | SDK: a window isolating suspects waits to be its lifetime's only open one, and other windows wait while it reads ([`loroWindowGate.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroWindowGate.ts)). | The window opens outside the gate. Opening beside another window stops every window of the lifetime counting a death, so the wait costs isolation progress, never accuracy. |
+| Lifetime lock wait | 10 s (`LOCK_WAIT_MS`, `loroLifetime.ts`) | SDK: each lifetime holds a Web Lock named after it, so the next lifetime can tell a dead lifetime's windows from a live tab's. | The lifetime opens no read window for the rest of its life, as on a host without Web Locks, so its deaths count toward nothing. Sync still reads. |
+| Restart drain wait | 10 s (`DRAIN_WAIT_MS`, [`loroRuntimeHealth.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroRuntimeHealth.ts)) | SDK: `prepareRuntimeRestart()` admits no new read window until the open ones close. | It resolves anyway. A window still open at the reload ends with the page hidden, so the next lifetime counts nothing for it. |
+| Restart hold | 5 s (`RESTART_HOLD_MS`, [`loroWindowDrain.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroWindowDrain.ts)) | SDK: after the drain the page still admits no window, so a reload that follows at once finds none open. A window asked for meanwhile waits, at most the gate's 30 s. | In a page its host kept, held windows open again and the runtime health returns to `restartRequired` ([runtime restart](./developer/client-sdk/runtime-behavior.md#runtime-restart)). |
+| Rotation deaths per document | 3 under one judge with no completed rebuild between them (`MAX_ROTATION_DEATHS`, [`data/documents/shared/sync/rotationAvailabilityMachine.ts`](../packages/client-sdk/src/data/documents/shared/sync/rotationAvailabilityMachine.ts)), held equal to `MAX_LORO_RUNTIME_ATTEMPTS` | SDK: a death alone in a rotation's raw-history window, on a page the live document already covers, counts toward the device's rotation of the document, never toward an update (`loroWindows.ts`); the count persists in `document_rotation_availability`. | If the third death read one update alone, the next rebuild [leaves it out](./rotation-deaths.md#leaving-an-update-out); otherwise the device's rotation of the document is [unavailable](./rotation-deaths.md#unavailable-rotation). A rotation, unlink, or purge-unlink it starts is then refused with `DocumentRotationUnavailableError` and a queued move parks, leaving those writes to other members until a new judge starts the count over. Below the limit, a completed rebuild starts it over. |
+| Updates left out of one document's rebuilds | 8 (`MAX_ROTATION_LEFT_OUT`) | SDK: `rotationAvailabilityMachine.ts`. | The next death that would leave one more out makes the device's rotation of the document unavailable instead, as above. Each update left out cost the device the deaths that found it, so a writer must spend eight crashing updates on a device before one more stops its rotations. |
+
+## Edit attribution
+
+| Limit | Value | Where enforced | Past the limit |
+| --- | --- | --- | --- |
+| Compact attribution segments | 2,000 (`MAX_COMPACT_ATTRIBUTION_SEGMENTS`, [`api/src/workflows/documents/documentEditAttribution.ts`](../packages/api/src/workflows/documents/documentEditAttribution.ts)) | API: `GET /documents/{documentId}/attribution` merges adjacent ranges under one authority up to the limit. SDK: a device holding a void update of the document builds the list itself from the ranges without the void ones, to the same limit (`MAX_COMPACT_SEGMENTS`, [`workflows/container-contents/attribution/attributionVoids.ts`](../packages/client-sdk/src/workflows/container-contents/attribution/attributionVoids.ts)). | The list stops at the limit with `truncated: true`. Info then reports attribution as `truncated` and computes no blame, and row writers use no segments. |
+| Attribution range page | 500 ranges; 100 when the request names no limit (`MAX_ATTRIBUTION_RANGE_LIMIT`, [`api/src/workflows/documents/documentEditAttributionPagination.ts`](../packages/api/src/workflows/documents/documentEditAttributionPagination.ts)) | Validators and API, for `GET /documents/{documentId}/attribution/ranges`. The SDK and the app page at 500 (`RANGE_PAGE_LIMIT`). | Refusal (400). |
+| Ranges one reader pages through | 20,000 (`MAX_RANGES`, `attributionVoids.ts`) | SDK: building compact segments without void updates. App: the History panel's upload times read to the same bound ([`stores/documents/useDocumentAttributionRanges.ts`](../packages/app/src/stores/documents/useDocumentAttributionRanges.ts)). | The SDK stops paging and returns the segments built so far with `truncated: true`. The app reads the document as having no ranges, since part of the list would date a change from whichever uploads were on the pages read. |
 
 ## Database connections
 
@@ -177,9 +210,12 @@ size or aggregate load across API replicas.
 ## Limits that trade write liveness
 
 The no-bricked-device invariant says no device may be unable to read or write
-because another device must write first. Reads are never affected by any limit
-above: a reader resolves a retired parent pin through retained history. The
-following exceptions can leave a writer waiting on another authorized member:
+because another device must write first. No limit above makes a reader wait on
+another device: a reader resolves a retired parent pin through retained
+history, and an update the reader's own Loro runtime cannot read holds back
+later updates only until the reader's own retries and restarts settle it
+([runtime attempts](#loro-runtime)). The following exceptions can leave a
+writer waiting on another authorized member:
 
 - **Carried descendant rekeys past 64.** Levels beyond the parent-first prefix
   stay stale after the rotation commits. A writer granted only below such a
@@ -196,6 +232,12 @@ following exceptions can leave a writer waiting on another authorized member:
   The trade avoids exposing inaccessible folders'
   [grant](./glossary/access.md#grant) lists.
   Ordinary writes need only one writable link while the bundle is current.
+- **Rotation deaths past either limit.** A device whose rotation of a
+  document is [unavailable](./rotation-deaths.md#unavailable-rotation) leaves
+  that document's rotations, unlinks, moves, and purge-unlinks to other
+  members: one it starts is refused, and a queued move it cannot prove parks,
+  until a new judge (a decoder or void-rules change) starts the count over. It
+  still opens, edits, and syncs the document, and no other device waits on it.
 
 For the single-path case within the carried-rekey bound, the model in
 [InaccessibleIntermediateRepair.md](../formal/container-keying/InaccessibleIntermediateRepair.md)
@@ -207,3 +249,22 @@ beneath the stale level first performs it. See
 [NoBrickedDevice.md](../formal/container-keying/NoBrickedDevice.md) for the
 invariant and [client-sdk.md](./developer/client-sdk/public-api.md#public-api-entry-points)
 for how the SDK reports the parked state.
+
+### Known defect: unbounded peers per document
+
+This defect stops writes outright rather than making a writer wait. Nothing
+caps how many peers a document's history holds, and a
+[rotation baseline](./glossary/keys.md#rotation-baseline), a full-history
+snapshot, grows with them. A member can commit valid operations under more
+than 13,107 peers of one document, in requests that each stay under the
+span-row bound in [Document sync](#document-sync). Every rotation baseline of
+that document then needs more span rows than one insert binds, and fails with
+500. No member can rotate its content key, unlink, move, or purge-unlink it,
+and unlink can no longer remove a link's access to it
+([#3230](https://github.com/a2f0/tearleads/issues/3230), item 3). Writing the
+span rows in batches would not close this alone: with more peers the baseline
+also outgrows its one request. Past 16 MiB a sync abandons it with
+`document_sync_request_too_large`, and past the 32 MiB route ceiling a
+link-set mutation is refused
+([#3238](https://github.com/a2f0/tearleads/issues/3238)). Writes other than
+rotation baselines stay far below both bounds.
