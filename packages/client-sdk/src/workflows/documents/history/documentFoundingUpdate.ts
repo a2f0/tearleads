@@ -99,15 +99,20 @@ export async function readDocumentFoundingUpdate(input: {
       !stillCurrent()
     )
       return null;
-    runDocumentSyncLoroWork(loroWindow, () =>
-      importUpdates(scratch, [update.updateData]),
-    );
+    // The import and every read of the imported state are the page's Loro
+    // work: a trap in any of them ends the window uncleanly.
+    const founded = runDocumentSyncLoroWork(loroWindow, () => {
+      importUpdates(scratch, [update.updateData]);
+      return {
+        content: readDocumentHistoryView(
+          scratch,
+          runtime.infra.documentProjectors,
+        ),
+        seedTag: readSeedTag(scratch),
+      };
+    });
     return {
-      content: readDocumentHistoryView(
-        scratch,
-        runtime.infra.documentProjectors,
-      ),
-      seedTag: readSeedTag(scratch),
+      ...founded,
       writerUserId: readWriteHeader(
         first.writeHeader,
         "Document founding update write header",
