@@ -48,6 +48,8 @@ interface OrgManagerBehavior {
   /** The Roster Profiles container this device holds; never provisions it. */
   findRosterProfileContainer: () => Promise<ContainerNode | null>;
   isOperationScopeActive: (scope: OrgManagerOperationScope) => boolean;
+  /** Calls `listener` whenever this device's container listing changes. */
+  subscribeToContainers: (listener: () => void) => () => void;
 }
 
 type OrgManagerOrganizationActions = Pick<
@@ -318,6 +320,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     ensureOrganizationMetadataContainer,
     ensureRosterProfileContainer,
     findRosterProfileContainer,
+    subscribeToContainers,
   } = useOrganizationProfileContainers({
     captureOperationScope,
     containerContentsStore,
@@ -345,6 +348,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         ensureRosterProfileDocument,
         findRosterProfileContainer,
         isOperationScopeActive,
+        subscribeToContainers,
       }),
     [
       captureOperationScope,
@@ -355,6 +359,7 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       findRosterProfileContainer,
       isOperationScopeActive,
       organizations,
+      subscribeToContainers,
     ],
   );
 

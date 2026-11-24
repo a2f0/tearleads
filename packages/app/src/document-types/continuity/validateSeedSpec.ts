@@ -55,7 +55,9 @@ function distinct(values: readonly unknown[]): boolean {
   return new Set(values).size === values.length;
 }
 
-// Each group names existing contacts, once each, and no two groups share a name.
+// Each group names existing contacts with a first and last name, once each, and
+// no two groups share a name. Members are admitted under those names, so a
+// nameless member must fail here, before the seed writes anything.
 function validGroups(groups: unknown, contactIds: ReadonlySet<unknown>) {
   return (
     optionalArray(groups, (item) => {
@@ -100,9 +102,22 @@ export function validateSeedSpec(value: unknown): asserts value is SeedSpec {
     throw new Error("Invalid seed contacts or notes");
   if (!optionalArray(files, document))
     throw new Error("Invalid seed document, attachment, or tracker rows");
-  const contactIds = Array.isArray(contacts)
-    ? contacts.map(({ id }: { id?: unknown }) => id)
-    : [];
-  if (!distinct(contactIds) || !validGroups(groups, new Set(contactIds)))
+  const contactList: ReadonlyArray<{
+    readonly fields: {
+      readonly firstName?: unknown;
+      readonly lastName?: unknown;
+    };
+    readonly id: unknown;
+  }> = Array.isArray(contacts) ? contacts : [];
+  const contactIds = contactList.map(({ id }) => id);
+  const namedContactIds = new Set(
+    contactList
+      .filter(
+        ({ fields }) =>
+          nonEmptyString(fields.firstName) && nonEmptyString(fields.lastName),
+      )
+      .map(({ id }) => id),
+  );
+  if (!distinct(contactIds) || !validGroups(groups, namedContactIds))
     throw new Error("Invalid seed contact ids or groups");
 }

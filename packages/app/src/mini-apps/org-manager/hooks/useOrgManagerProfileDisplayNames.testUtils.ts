@@ -142,3 +142,6 @@ export function createTearleadsHarness(
 
 /** A device that has not listed the Roster Profiles container. */
 export const findNoRosterProfileContainer = () => Promise.resolve(null);
+
+/** A container listing that never changes. */
+export const subscribeToNoContainerChanges = () => () => undefined;

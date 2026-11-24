@@ -49,8 +49,11 @@ test("seed attachment references are local file names and row lists belong to tr
   ).toThrow();
 });
 
-test("seed groups name existing contacts once each, under distinct names", () => {
-  const contact = (id: string) => ({ id, fields: { firstName: id } });
+test("seed groups name existing, named contacts once each, under distinct names", () => {
+  const contact = (id: string) => ({
+    id,
+    fields: { firstName: id, lastName: "Reyes" },
+  });
   const contacts = [contact("rosa"), contact("theo")];
   const family = { name: "Family", members: ["rosa", "theo"] };
   expect(() =>
@@ -64,6 +67,14 @@ test("seed groups name existing contacts once each, under distinct names", () =>
     { ...seed, contacts, groups: [{ ...family, members: ["sam"] }] },
     { ...seed, contacts, groups: [{ ...family, members: ["rosa", "rosa"] }] },
     { ...seed, contacts, groups: [family, family] },
+    {
+      ...seed,
+      contacts: [
+        contact("rosa"),
+        { id: "theo", fields: { firstName: "Theo" } },
+      ],
+      groups: [family],
+    },
   ]) {
     expect(() => validateSeedSpec(value)).toThrow();
   }

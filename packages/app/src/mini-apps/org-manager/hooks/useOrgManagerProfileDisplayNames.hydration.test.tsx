@@ -35,13 +35,34 @@ function rosterUsers(count: number) {
   );
 }
 
+/** The device's container listing, which may list the roster container late. */
+function createContainerListing(initial: ContainerNode | null) {
+  let current = initial;
+  const listeners = new Set<() => void>();
+  return {
+    find: mock(() => Promise.resolve(current)),
+    list(container: ContainerNode) {
+      current = container;
+      for (const listener of listeners) listener();
+    },
+    listenerCount: () => listeners.size,
+    subscribe: mock((listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    }),
+  };
+}
+
 function renderDisplayNames(input: {
   readonly activeDirectory: OrganizationDirectory;
+  readonly containers?: ReturnType<typeof createContainerListing>;
   readonly harness: ReturnType<typeof createTearleadsHarness>;
 }) {
-  const findRosterProfileContainer = mock(() =>
-    Promise.resolve<ContainerNode | null>(ROSTER_CONTAINER),
-  );
+  const containers =
+    input.containers ?? createContainerListing(ROSTER_CONTAINER);
+  const findRosterProfileContainer = containers.find;
   const appData = runtime();
   const selectedUserIdRef = { current: null };
   const view = renderHook(
@@ -52,11 +73,12 @@ function renderDisplayNames(input: {
         directory: activeDirectory,
         findRosterProfileContainer,
         selectedUserIdRef,
+        subscribeToContainers: containers.subscribe,
         tearleads: input.harness.tearleads,
       }),
     { initialProps: input.activeDirectory },
   );
-  return { findRosterProfileContainer, view };
+  return { containers, findRosterProfileContainer, view };
 }
 
 test("an admin's device pulls missing roster profiles, capped per load", async () => {
@@ -135,9 +157,48 @@ test("profiles this device already holds are never pulled", async () => {
   expect(harness.open).toHaveBeenCalledTimes(0);
 });
 
+test("a device that lists the roster container late still pulls", async () => {
+  const harness = createTearleadsHarness();
+  const containers = createContainerListing(null);
+  renderDisplayNames({
+    activeDirectory: directory(rosterUsers(2)),
+    containers,
+    harness,
+  });
+
+  await waitFor(() => expect(containers.find).toHaveBeenCalledTimes(1));
+  await act(async () => Promise.resolve());
+  expect(harness.open).toHaveBeenCalledTimes(0);
+
+  act(() => containers.list(ROSTER_CONTAINER));
+  await waitFor(() =>
+    expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(2),
+  );
+  expect(harness.open.mock.calls[0]?.[0]).toMatchObject({
+    containerId: ROSTER_CONTAINER.id,
+  });
+  // Later listing changes never start a second pass in the same load.
+  act(() => containers.list(ROSTER_CONTAINER));
+  await act(async () => Promise.resolve());
+  expect(harness.open).toHaveBeenCalledTimes(2);
+});
+
+test("a profile that fails to pull does not stop the others", async () => {
+  const harness = createTearleadsHarness();
+  harness.requestRemoteSyncAndWait.mockImplementationOnce(() =>
+    Promise.reject(new Error("offline")),
+  );
+  renderDisplayNames({ activeDirectory: directory(rosterUsers(3)), harness });
+
+  await waitFor(() =>
+    expect(harness.requestRemoteSyncAndWait).toHaveBeenCalledTimes(3),
+  );
+  expect(harness.logError).toHaveBeenCalledTimes(1);
+});
+
 test("a member who is not an admin pulls no roster profiles", async () => {
   const harness = createTearleadsHarness();
-  const { findRosterProfileContainer } = renderDisplayNames({
+  const { containers, findRosterProfileContainer } = renderDisplayNames({
     activeDirectory: directory(rosterUsers(3), ORGANIZATION_ID, false),
     harness,
   });
@@ -145,6 +206,7 @@ test("a member who is not an admin pulls no roster profiles", async () => {
   await waitFor(() => expect(harness.list).toHaveBeenCalledTimes(1));
   await act(async () => Promise.resolve());
   expect(findRosterProfileContainer).toHaveBeenCalledTimes(0);
+  expect(containers.subscribe).toHaveBeenCalledTimes(0);
   expect(harness.open).toHaveBeenCalledTimes(0);
 });
 
@@ -157,7 +219,7 @@ test("unmounting cancels the pass between pulls", async () => {
         finishFirstPull = resolve;
       }),
   );
-  const { view } = renderDisplayNames({
+  const { containers, view } = renderDisplayNames({
     activeDirectory: directory(rosterUsers(3)),
     harness,
   });
@@ -168,6 +230,7 @@ test("unmounting cancels the pass between pulls", async () => {
   const [signal] = harness.requestRemoteSyncAndWait.mock.calls[0] ?? [];
   view.unmount();
   expect(signal?.aborted).toBe(true);
+  expect(containers.listenerCount()).toBe(0);
 
   await act(async () => finishFirstPull(false));
   expect(harness.open).toHaveBeenCalledTimes(1);

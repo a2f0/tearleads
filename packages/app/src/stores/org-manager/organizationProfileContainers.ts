@@ -39,6 +39,7 @@ export function useOrganizationProfileContainers(
   ensureOrganizationMetadataContainer: () => Promise<ContainerNode | null>;
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
   findRosterProfileContainer: () => Promise<ContainerNode | null>;
+  subscribeToContainers: (listener: () => void) => () => void;
 } {
   const {
     captureOperationScope,
@@ -115,16 +116,23 @@ export function useOrganizationProfileContainers(
     [ensureSystemContainer],
   );
 
+  const subscribeToContainers = useCallback(
+    (listener: () => void) => containerContentsStore.subscribe(listener),
+    [containerContentsStore],
+  );
+
   return useMemo(
     () => ({
       ensureOrganizationMetadataContainer,
       ensureRosterProfileContainer,
       findRosterProfileContainer,
+      subscribeToContainers,
     }),
     [
       ensureOrganizationMetadataContainer,
       ensureRosterProfileContainer,
       findRosterProfileContainer,
+      subscribeToContainers,
     ],
   );
 }

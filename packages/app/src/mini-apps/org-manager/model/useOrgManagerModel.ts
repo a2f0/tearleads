@@ -182,6 +182,7 @@ export function useOrgManagerModel() {
       directory: activeDirectory,
       findRosterProfileContainer: orgManagerActions.findRosterProfileContainer,
       selectedUserIdRef,
+      subscribeToContainers: orgManagerActions.subscribeToContainers,
       tearleads,
     });
   useOrgManagerRouteMessages(openGroupRoute, openGrantRoute);

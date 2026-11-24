@@ -23,6 +23,11 @@ import {
   type RosterProfileBinding,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
 import { hydrateRosterProfileDocument } from "../../../stores/org-manager/rosterProfileHydration";
+import {
+  initialRosterProfileHydration,
+  type RosterProfileHydrationEvent,
+  transitionRosterProfileHydration,
+} from "../../../stores/org-manager/rosterProfileHydrationMachine";
 import { EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 
 interface OrgManagerProfileDisplayNamesParams {
@@ -31,6 +36,7 @@ interface OrgManagerProfileDisplayNamesParams {
   directory: OrganizationDirectory | null;
   findRosterProfileContainer: () => Promise<ContainerNode | null>;
   selectedUserIdRef: { current: string | null };
+  subscribeToContainers: (listener: () => void) => () => void;
   tearleads: ReturnType<typeof useTearleads>;
 }
 
@@ -77,44 +83,109 @@ function matchesScope(
 /** One load's hydration budget, matching Explorer's attribution probe. */
 export const MAX_ROSTER_PROFILE_HYDRATIONS_PER_LOAD = 32;
 
+interface RosterProfileHydrationInput {
+  readonly findRosterProfileContainer: () => Promise<ContainerNode | null>;
+  readonly subscribeToContainers: (listener: () => void) => () => void;
+  readonly tearleads: ReturnType<typeof useTearleads>;
+}
+
 /**
  * Pulls, one at a time, the roster profiles this device holds no row for.
  * Profiles never reach a device through container discovery, so without this
  * an admin's new device shows user IDs. Rows persist, so a later load only
  * hydrates what is still missing. Each pulled profile reaches the caller
- * through `documents.subscribe`.
+ * through `documents.subscribe`. A profile that fails to pull is logged and
+ * skipped.
  */
-async function hydrateMissingRosterProfiles(input: {
-  readonly bindings: ReadonlyArray<RosterProfileBinding>;
-  readonly findRosterProfileContainer: () => Promise<ContainerNode | null>;
-  readonly signal: AbortSignal;
-  readonly tearleads: ReturnType<typeof useTearleads>;
-}): Promise<void> {
+async function hydrateMissingRosterProfiles(
+  input: RosterProfileHydrationInput & {
+    readonly bindings: ReadonlyArray<RosterProfileBinding>;
+    readonly signal: AbortSignal;
+  },
+): Promise<"containerMissing" | "finished"> {
   const container = await input.findRosterProfileContainer();
-  if (!container || input.signal.aborted) return;
+  if (!container) return "containerMissing";
   const bindings = input.bindings.slice(
     0,
     MAX_ROSTER_PROFILE_HYDRATIONS_PER_LOAD,
   );
   for (const binding of bindings) {
-    if (input.signal.aborted) return;
-    await hydrateRosterProfileDocument({
-      containerId: container.id,
-      documents: input.tearleads.documents,
-      localId: binding.canonicalLocalId,
-      profileDocumentId: binding.profileDocumentId,
-      signal: input.signal,
-    });
+    if (input.signal.aborted) break;
+    try {
+      await hydrateRosterProfileDocument({
+        containerId: container.id,
+        documents: input.tearleads.documents,
+        localId: binding.canonicalLocalId,
+        profileDocumentId: binding.profileDocumentId,
+        signal: input.signal,
+      });
+    } catch (error) {
+      if (!input.signal.aborted) {
+        input.tearleads.logError(
+          "Failed to hydrate an organization roster profile",
+          error,
+        );
+      }
+    }
   }
+  return "finished";
 }
 
-function startLocalProfileDisplayNameLoad(input: {
-  readonly directory: OrganizationDirectory;
-  readonly findRosterProfileContainer: () => Promise<ContainerNode | null>;
-  readonly scope: ProfileDisplayNameScope;
-  readonly setState: Dispatch<SetStateAction<ProfileDisplayNameState | null>>;
-  readonly tearleads: ReturnType<typeof useTearleads>;
-}): (() => void) | undefined {
+/** Runs one load's `RosterProfileHydration` machine and its pulls. */
+function startRosterProfileHydration(
+  input: RosterProfileHydrationInput & { readonly isOrgAdmin: boolean },
+) {
+  let state = initialRosterProfileHydration(input.isOrgAdmin);
+  const abort = new AbortController();
+  const pull = async (bindings: ReadonlyArray<RosterProfileBinding>) => {
+    let outcome: "containerMissing" | "finished" = "finished";
+    try {
+      outcome = await hydrateMissingRosterProfiles({
+        ...input,
+        bindings,
+        signal: abort.signal,
+      });
+    } catch (error) {
+      if (!abort.signal.aborted) {
+        input.tearleads.logError(
+          "Failed to hydrate organization roster profiles",
+          error,
+        );
+      }
+    }
+    dispatch({ type: outcome });
+  };
+  const dispatch = (event: RosterProfileHydrationEvent) => {
+    if (abort.signal.aborted) return;
+    const previous = state;
+    state = transitionRosterProfileHydration(previous, event);
+    if (state.status === "running" && previous.status !== "running") {
+      void pull(state.bindings);
+    }
+  };
+  const unsubscribe =
+    state.status === "disabled"
+      ? undefined
+      : input.subscribeToContainers(() =>
+          dispatch({ type: "containersChanged" }),
+        );
+  return {
+    profilesMissing: (bindings: ReadonlyArray<RosterProfileBinding>) =>
+      dispatch({ type: "profilesMissing", bindings }),
+    stop: () => {
+      abort.abort();
+      unsubscribe?.();
+    },
+  };
+}
+
+function startLocalProfileDisplayNameLoad(
+  input: RosterProfileHydrationInput & {
+    readonly directory: OrganizationDirectory;
+    readonly scope: ProfileDisplayNameScope;
+    readonly setState: Dispatch<SetStateAction<ProfileDisplayNameState | null>>;
+  },
+): (() => void) | undefined {
   const profileBindingsByLocalId = getRosterProfileBindingsByLocalId({
     organizationId: input.scope.organizationId,
     users: input.directory.users,
@@ -126,31 +197,13 @@ function startLocalProfileDisplayNameLoad(input: {
     profileBindingsByLocalId,
   );
   let cancelled = false;
-  const hydration = new AbortController();
-  // Only an admin can read the Roster Profiles container. One hydration per
-  // load: a new member changes the binding key, which starts a new load.
-  let hydrationState: "idle" | "started" = input.directory.currentUser
-    .isOrgAdmin
-    ? "idle"
-    : "started";
+  const hydration = startRosterProfileHydration({
+    findRosterProfileContainer: input.findRosterProfileContainer,
+    isOrgAdmin: input.directory.currentUser.isOrgAdmin,
+    subscribeToContainers: input.subscribeToContainers,
+    tearleads: input.tearleads,
+  });
   let loadSequence = 0;
-  const hydrateMissing = (bindings: ReadonlyArray<RosterProfileBinding>) => {
-    if (hydrationState === "started" || bindings.length === 0) return;
-    hydrationState = "started";
-    void hydrateMissingRosterProfiles({
-      bindings,
-      findRosterProfileContainer: input.findRosterProfileContainer,
-      signal: hydration.signal,
-      tearleads: input.tearleads,
-    }).catch((error: unknown) => {
-      if (!cancelled) {
-        input.tearleads.logError(
-          "Failed to hydrate organization roster profiles",
-          error,
-        );
-      }
-    });
-  };
   const reload = async () => {
     const sequence = ++loadSequence;
     try {
@@ -163,7 +216,7 @@ function startLocalProfileDisplayNameLoad(input: {
       });
       if (!cancelled && sequence === loadSequence) {
         input.setState({ ...input.scope, names });
-        hydrateMissing(
+        hydration.profilesMissing(
           getRosterProfileBindingsWithoutLocalRow({
             documents,
             profileBindingsByLocalId,
@@ -187,7 +240,7 @@ function startLocalProfileDisplayNameLoad(input: {
   void reload();
   return () => {
     cancelled = true;
-    hydration.abort();
+    hydration.stop();
     loadSequence += 1;
     unsubscribe();
   };
@@ -270,6 +323,7 @@ export function useOrgManagerProfileDisplayNames(
     directory,
     findRosterProfileContainer,
     selectedUserIdRef,
+    subscribeToContainers,
     tearleads,
   } = params;
   const [state, setState] = useState<ProfileDisplayNameState | null>(null);
@@ -303,6 +357,7 @@ export function useOrgManagerProfileDisplayNames(
       findRosterProfileContainer,
       scope: { bindingKey, domainScope, organizationId, userId },
       setState,
+      subscribeToContainers,
       tearleads,
     });
   }, [
@@ -311,6 +366,7 @@ export function useOrgManagerProfileDisplayNames(
     domainScope,
     findRosterProfileContainer,
     organizationId,
+    subscribeToContainers,
     tearleads,
     userId,
   ]);

@@ -55,6 +55,7 @@ test("Org Manager keeps its narrow bound surface and positional adapters", async
     ensureOrganizationProfileDocument: unused,
     ensureRosterProfileContainer: unused,
     findRosterProfileContainer: unused,
+    subscribeToContainers: () => () => undefined,
     ensureRosterProfileDocument: unused,
     isOperationScopeActive: () => true,
   };
@@ -100,6 +101,7 @@ test("Org Manager keeps its narrow bound surface and positional adapters", async
       "loadUserDetail",
       "removeUserFromGroup",
       "revokeGrant",
+      "subscribeToContainers",
       "updateProfile",
       "updateRosterEntry",
     ].sort(),

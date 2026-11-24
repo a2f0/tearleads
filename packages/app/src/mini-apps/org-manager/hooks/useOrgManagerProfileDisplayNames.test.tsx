@@ -20,6 +20,7 @@ import {
   rosterUser,
   runtime,
   SECOND_PROFILE_DOCUMENT_ID,
+  subscribeToNoContainerChanges,
   USER_ID,
 } from "./useOrgManagerProfileDisplayNames.testUtils";
 
@@ -43,6 +44,7 @@ test("59 roster profiles use one local query and no fanout without a listed cont
         directory: activeDirectory,
         findRosterProfileContainer: findNoRosterProfileContainer,
         selectedUserIdRef,
+        subscribeToContainers: subscribeToNoContainerChanges,
         tearleads: harness.tearleads,
       }),
     { initialProps: directory(users) as OrganizationDirectory | null },
@@ -85,6 +87,7 @@ test("reused-store changes repaint and current bindings reject stale rows", asyn
         directory: activeDirectory,
         findRosterProfileContainer: findNoRosterProfileContainer,
         selectedUserIdRef,
+        subscribeToContainers: subscribeToNoContainerChanges,
         tearleads: harness.tearleads,
       }),
     { initialProps: directory([user]) as OrganizationDirectory | null },
@@ -180,6 +183,7 @@ test("scope loss clears names and selected-editor updates remain immediate", asy
         directory: props.directory,
         findRosterProfileContainer: findNoRosterProfileContainer,
         selectedUserIdRef,
+        subscribeToContainers: subscribeToNoContainerChanges,
         tearleads: harness.tearleads,
       }),
     {
