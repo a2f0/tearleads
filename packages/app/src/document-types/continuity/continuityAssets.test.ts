@@ -16,7 +16,6 @@ async function fixture() {
   const contents = {
     "seed.json": JSON.stringify({
       schemaVersion: 2,
-      password: "test",
       identitySeedPhrase: "fixture",
       contacts: [
         {

@@ -119,11 +119,17 @@ async function assertIdentityRegistered(
   const response = await page.request.post(`${apiBaseUrl}/auth/challenge`, {
     data: { fingerprint: signingFingerprint },
   });
-  if (response.status() !== 200) {
+  if (response.status() === 200) {
+    return;
+  }
+  if (response.status() === 404) {
     throw new Error(
-      `The seed setup did not register the screenshot identity on ${apiBaseUrl} (challenge ${response.status()}).`,
+      `The seed setup did not register the screenshot identity on ${apiBaseUrl}.`,
     );
   }
+  throw new Error(
+    `Screenshot identity registration probe failed with ${response.status()}.`,
+  );
 }
 
 /**

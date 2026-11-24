@@ -3,7 +3,6 @@ import { validateSeedSpec } from "./validateSeedSpec";
 
 const seed = {
   schemaVersion: 2,
-  password: "fixture",
   identitySeedPhrase: "validated by the SDK",
 };
 

@@ -47,13 +47,11 @@ export interface SeedFile {
 
 export interface SeedSpec {
   readonly schemaVersion: 2;
-  /** Password the artifact is encrypted with; the Playwright restore reuses it. */
-  readonly password: string;
   /**
-   * Fixed BIP39 seed phrase the artifact's identity is derived from. The seeder
-   * imports it (deterministic signing key), so the Contacts system slot —
-   * HMAC(definition, signingPrivateKey) — is reproducible. The Playwright run
-   * imports the SAME phrase before restoring, so that slot re-derives and the
+   * Fixed BIP39 seed phrase the screenshot identity is derived from. The CLI
+   * seeds the account with it (deterministic signing key), so the Contacts
+   * system slot — HMAC(definition, signingPrivateKey) — is reproducible. The
+   * Playwright run imports the SAME phrase, so that slot re-derives and the
    * Contacts mini-app resolves the seeded container. Must be a valid phrase.
    */
   readonly identitySeedPhrase: string;
