@@ -10,6 +10,7 @@ import {
   MiniAppTextarea,
   MiniAppToolbar,
 } from "../mini-app/MiniAppLayout";
+import { useMiniAppDetailBackAction } from "../mini-app/useMiniAppDetailBackAction";
 import "./AccountBootstrapProgressPanel.css";
 import { TelemetryConsentSwitch } from "../shared/TelemetryConsentSwitch";
 import { RecoveryKeyBackupConfirmation } from "./recovery-key/RecoveryKeyBackupConfirmation";
@@ -30,6 +31,16 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
   useRecoveryKeyPrivacy(() => {
     if (restoring) setValue("");
   });
+  const leaveForm = onboarding
+    ? () => onboarding.navigate("choosing-identity")
+    : null;
+  // The form is a phase of the onboarding machine, not a route, so the host's
+  // history Back (browser history routed, the window's stack windowed) cannot
+  // leave it. Register the toolbar Back in every host, above a mini-app's own
+  // detail Back, since the form is what the user is looking at.
+  useMiniAppDetailBackAction(
+    leaveForm ? { label: "Back", onBack: leaveForm, priority: 200 } : null,
+  );
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!value.trim()) return;
@@ -80,12 +91,8 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
           <SavedPassphraseButton disabled={false} onPick={setValue} />
         )}
         <MiniAppToolbar>
-          {onboarding && (
-            <MiniAppButton
-              type="button"
-              variant="ghost"
-              onClick={() => onboarding.navigate("choosing-identity")}
-            >
+          {leaveForm && (
+            <MiniAppButton type="button" variant="ghost" onClick={leaveForm}>
               Back
             </MiniAppButton>
           )}
