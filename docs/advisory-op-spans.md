@@ -100,9 +100,9 @@ a founding view read served updates in windows of their own, claimed and
 isolated the same way; a rotation or founding window closes once its Loro work
 on the page is over, since it saves no page. Every read of served updates is
 then inside a window. A caller of the import judge that opens none, as a host
-calling it directly may, marks the lifetime failed, so its death counts toward
-no update. A document isolating suspects waits to read until its window would
-be the lifetime's only one;
+calling it directly may, marks the lifetime failed once it reads an update, so
+its death counts toward no update. A document isolating suspects waits to read
+until its window would be the lifetime's only one;
 after 30 seconds it reads beside the others, and counts nothing. A lifetime
 that ends while the app is hidden, with a window open, leaves a `localStorage`
 marker, and its window counts nothing and isolates nothing: the user closed
@@ -145,7 +145,9 @@ opens, edits, and syncs it, a pull that serves the update again voids it
 without a read, and every other device rotates as before. A completed sync
 pull of the document clears the suspects a rotation's death left, though it
 never reads them, so a rotation that dies on every attempt counts toward an
-update only when it runs before that pull.
+update only when it runs before that pull. Until that pull, a rotation of the
+document reads its raw history one update a page, since rotation pages save
+nothing that would clear the suspects.
 
 ## Preempted Operations
 

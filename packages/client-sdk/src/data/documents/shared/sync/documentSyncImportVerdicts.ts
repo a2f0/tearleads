@@ -296,6 +296,21 @@ export async function validateDocumentSyncUpdateImports(input: {
   });
 }
 
+/**
+ * Whether the page reads any served update with Loro: one neither a known
+ * void nor out of attempts, as a read window's unsettled updates are.
+ */
+function readsAnyUpdate(
+  input: Parameters<typeof validateDocumentSyncUpdateImports>[0],
+  ledger: LoroRuntimeAttempts,
+): boolean {
+  return input.decryptedUpdates.some(
+    (update) =>
+      input.knownVoids?.get(update.id) === undefined &&
+      ledger.mayAttempt(update.id),
+  );
+}
+
 async function judgeUpdateReads(
   input: Parameters<typeof validateDocumentSyncUpdateImports>[0],
   judging: Omit<PageJudging, "runtimeAttempts" | "scratch">,
@@ -319,7 +334,9 @@ async function judgeUpdateReads(
   // be theirs, so no window of the lifetime counts one from then on (#3194).
   try {
     if (input.beforeUpdateReads) await input.beforeUpdateReads();
-    else (input.lifetimes ?? processLoroLifetimes).noteFailed();
+    else if (readsAnyUpdate(input, ledger)) {
+      (input.lifetimes ?? processLoroLifetimes).noteFailed();
+    }
     for (const update of input.decryptedUpdates) {
       const knownStage = input.knownVoids?.get(update.id);
       if (verdicts.holding) {

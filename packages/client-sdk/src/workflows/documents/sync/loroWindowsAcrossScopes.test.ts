@@ -235,6 +235,32 @@ test("a death in a read no window covers counts toward no window", async () => {
   expect(await pageLimit(MAIN)).toBe(1);
 });
 
+// A host call whose every update is a known void reads none with Loro, so
+// the lifetime's lone window elsewhere still counts its death.
+test("a host validation that reads no update leaves windows counting", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const lifetime = host.lifetime("unread");
+  await judgeIn(lifetime, [first]);
+  const reader = await createDocument("unread-reader");
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: reader,
+      decryptedUpdates: [second],
+      knownVoids: new Map([[SECOND, "loro_import"]]),
+      lifetimes: lifetime,
+      runtimeLedger: new LoroRuntimeFailureLedger(),
+    });
+  } finally {
+    reader.free();
+  }
+  host.kill("unread");
+  await claimIn(host.lifetime("next"), MAIN);
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
+});
+
 /** A rotation's or founding view's read of `update` alone in `lifetimes`. */
 async function readUnrecordedIn(
   lifetimes: LoroLifetimes,
