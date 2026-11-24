@@ -178,6 +178,23 @@ test("left-out updates gather up to the bound", () => {
   });
 });
 
+// A rebuild never reads an update it leaves out, so a death alone on one
+// read it in a rotation started before it was left out: it names nothing
+// new, and the deaths were the rebuild's.
+test("a death alone on an update already left out stops rotation", () => {
+  const unavailable: RotationAvailability = {
+    ...JUDGED,
+    deaths: MAX_ROTATION_DEATHS,
+    status: "unavailable",
+  };
+  expect(die(leavingOut(), ["alone"])).toEqual(unavailable);
+  const provenOut = transitionRotationAvailability(
+    leavingOut(),
+    proven(["alone"]),
+  );
+  expect(die(provenOut, ["alone"], MAX_ROTATION_DEATHS)).toEqual(unavailable);
+});
+
 // Left out, the rebuild still differs from the live document, which holds
 // the update: the deaths were the rebuild's. A device that comes to hold an
 // update it once proved it never held reads them all again.
