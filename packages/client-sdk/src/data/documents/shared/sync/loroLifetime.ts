@@ -17,6 +17,7 @@
 
 import {
   LORO_WINDOW_GATE_IDLE,
+  type LoroGateWaiter,
   type LoroWindowGate,
   type LoroWindowGateEvent,
   loroGateHolders,
@@ -106,6 +107,13 @@ export interface LoroLifetimes {
   openWindow(exclusive: boolean): Promise<string>;
   /** Notes window `id` gone; false when it was not open. */
   closeWindow(id: string): boolean;
+  /**
+   * Admits no window until every open one has closed, or until `waitMs`
+   * has passed, so a restart of the realm leaves no window behind; resolves
+   * true when none was left open. Windows asked for meanwhile wait, at most
+   * the gate's limit, and enter once the drain ends.
+   */
+  drainWindows(waitMs: number): Promise<boolean>;
 }
 
 /** How long a window waits for the gate before reading outside it. */
@@ -223,16 +231,56 @@ function lifetimeLock(
   };
 }
 
+/** A drain of the lifetime's windows, and the requests it holds back. */
+interface WindowDrain {
+  readonly held: LoroGateWaiter[];
+  readonly settled: Promise<boolean>;
+  readonly finish: (drained: boolean) => void;
+}
+
 /** The windows this lifetime holds, admitted through its window gate. */
 function lifetimeWindows(gateWaitMs: number, onChange: () => void) {
   const windows = new Set<string>();
   const entering = new Map<string, () => void>();
   let gate: LoroWindowGate = LORO_WINDOW_GATE_IDLE;
+  let drain: WindowDrain | null = null;
   const moveGate = (event: LoroWindowGateEvent) => {
     gate = transitionLoroWindowGate(gate, event);
     for (const holder of loroGateHolders(gate)) entering.get(holder)?.();
   };
+  const request = (waiter: LoroGateWaiter) => {
+    if (drain) drain.held.push(waiter);
+    else moveGate({ type: "requested", waiter });
+  };
+  const startDrain = (waitMs: number): WindowDrain => {
+    // Take every queued request out of the gate, last first, so none is
+    // admitted on the way; they ask again, in order, once the drain ends.
+    const held = [...gate.waiting];
+    for (const waiter of [...held].reverse()) {
+      moveGate({ type: "released", window: waiter.window });
+    }
+    const { promise, resolve } = Promise.withResolvers<boolean>();
+    const timer = setTimeout(() => started.finish(false), waitMs);
+    const started: WindowDrain = {
+      finish(drained) {
+        if (drain !== started) return;
+        clearTimeout(timer);
+        drain = null;
+        for (const waiter of held) request(waiter);
+        resolve(drained);
+      },
+      held,
+      settled: promise,
+    };
+    return started;
+  };
   return {
+    drain(waitMs: number): Promise<boolean> {
+      if (drain) return drain.settled;
+      if (windows.size === 0) return Promise.resolve(true);
+      drain = startDrain(waitMs);
+      return drain.settled;
+    },
     count: () => windows.size,
     has: (id: string) => windows.has(id),
     open(exclusive: boolean): Promise<string> {
@@ -247,17 +295,20 @@ function lifetimeWindows(gateWaitMs: number, onChange: () => void) {
       };
       const timer = setTimeout(() => {
         // Leaves the queue and reads outside the gate: it may not count.
+        const heldAt = drain?.held.findIndex((w) => w.window === window);
+        if (heldAt !== undefined && heldAt >= 0) drain?.held.splice(heldAt, 1);
         moveGate({ type: "released", window });
         enter();
       }, gateWaitMs);
       entering.set(window, enter);
-      moveGate({ type: "requested", waiter: { exclusive, window } });
+      request({ exclusive, window });
       return promise;
     },
     close(id: string): boolean {
       if (!windows.delete(id)) return false;
       moveGate({ type: "released", window: id });
       onChange();
+      if (windows.size === 0) drain?.finish(true);
       return true;
     },
   };
@@ -348,6 +399,7 @@ export function createLoroLifetimes(host: {
       return windows.open(exclusive);
     },
     closeWindow: windows.close,
+    drainWindows: windows.drain,
   };
 }
 

@@ -194,3 +194,53 @@ test("a lock request that never settles leaves the lifetime unready", async () =
 
   expect(await lifetimes.ready()).toBe(false);
 });
+
+// A restart drains the lifetime's windows: none is admitted, queued ones
+// included, until the open ones close, and those asked for meanwhile enter
+// in order once the drain ends.
+test("a drain admits no window until the open ones close", async () => {
+  const lifetimes = createLoroLifetimes({ id: "tab" });
+  const order: string[] = [];
+  const open = await lifetimes.openWindow(false);
+  const queued = lifetimes.openWindow(true).then((window) => {
+    order.push("queued");
+    return window;
+  });
+
+  const drained = lifetimes.drainWindows(60_000);
+  const asked = lifetimes.openWindow(false).then((window) => {
+    order.push("asked");
+    return window;
+  });
+  await Promise.resolve();
+  expect(lifetimes.openWindowCount()).toBe(1);
+
+  lifetimes.closeWindow(open);
+  expect(await drained).toBe(true);
+  lifetimes.closeWindow(await queued);
+  await asked;
+
+  expect(order).toEqual(["queued", "asked"]);
+});
+
+// A drain never holds the restart past its wait, nor a window past the
+// gate's: either goes ahead, reading outside the gate.
+test("a drain ends after its wait, and a held window after the gate's", async () => {
+  expect(await createLoroLifetimes({ id: "idle" }).drainWindows(60_000)).toBe(
+    true,
+  );
+  const lifetimes = createLoroLifetimes({ gateWaitMs: 5, id: "tab" });
+  const open = await lifetimes.openWindow(false);
+  const draining = lifetimes.drainWindows(60_000);
+
+  const outside = await lifetimes.openWindow(false);
+  expect(lifetimes.openWindowCount()).toBe(2);
+  lifetimes.closeWindow(open);
+  lifetimes.closeWindow(outside);
+  expect(await draining).toBe(true);
+
+  const short = createLoroLifetimes({ id: "short" });
+  const stuck = await short.openWindow(false);
+  expect(await short.drainWindows(5)).toBe(false);
+  expect(await short.openWindow(false)).not.toBe(stuck);
+});

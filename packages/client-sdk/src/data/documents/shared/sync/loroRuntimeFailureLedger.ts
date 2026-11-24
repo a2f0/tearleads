@@ -1,4 +1,5 @@
 import { processLoroLifetimes } from "./loroLifetime";
+import { processLoroRuntimeHealth } from "./loroRuntimeHealth";
 
 /**
  * How many process lifetimes must each fail the Loro runtime on a served
@@ -38,7 +39,8 @@ export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
 
   /**
    * `onFirstFailure` runs once, at the process's first failure, so a Loro
-   * read window open anywhere stops counting a death (`loroLifetime.ts`).
+   * read window open anywhere stops counting a death (`loroLifetime.ts`),
+   * and the realm asks its host for a restart (`loroRuntimeHealth.ts`).
    */
   constructor(
     private readonly now: () => number = Date.now,
@@ -102,5 +104,8 @@ export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
 /** The process's ledger; tests pass their own to stand for a new process. */
 export const processLoroRuntimeFailures = new LoroRuntimeFailureLedger(
   Date.now,
-  () => processLoroLifetimes.noteFailed(),
+  () => {
+    processLoroLifetimes.noteFailed();
+    processLoroRuntimeHealth.noteRuntimeFailed();
+  },
 );

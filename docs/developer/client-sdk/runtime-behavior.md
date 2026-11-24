@@ -246,3 +246,25 @@ orphaned), and a file's `storageKey` and `blobId`. Read it through
 `getOrCreateDomainSyncCoordinator` returns its coordinator; its
 `recordCompleted` exists for host tests, since the SDK records downloads
 itself.
+
+## Runtime restart
+
+A Loro runtime failure, such as a WebAssembly trap, can leave the module
+unusable for the rest of the page, and only a new page loads a fresh one
+([Loro runtime failures](../../advisory-op-spans.md#loro-runtime-failures)).
+The update that failed waits for this device's next lifetime, so the SDK asks
+its host for a restart. `getRuntimeHealth()` returns the page's
+`RuntimeHealthStatus` and `subscribeRuntimeHealth(listener)` reports each
+change: `healthy`, then `restartRequired` after the first failure.
+
+The SDK never restarts the page itself. When the user asks to, the host calls
+`prepareRuntimeRestart()` and then reloads. It moves to `draining`, admits no
+new Loro read window until the open ones close, or until a 10-second wait
+ends, and resolves at `ready`. It never rejects, and a second call while one
+drains joins it. A window still open at the reload ends with the page hidden,
+so the next lifetime counts nothing for it. A window asked for meanwhile waits
+at most the window gate's 30 seconds and then opens. A host that keeps the
+page after `ready`, as when the user cancels an unload prompt for queued
+edits, may prepare again. The app shows a notice with a Reload button and
+reloads only on that press. The command line runs one lifetime per command,
+so its next command is fresh.

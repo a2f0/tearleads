@@ -167,6 +167,12 @@ export type {
   DocumentPeerRebaser,
   SyncRemoteDocumentRequest,
 } from "./sync/remoteDocumentSyncPass";
+export {
+  getRuntimeHealth,
+  prepareRuntimeRestart,
+  type RuntimeHealthStatus,
+  subscribeRuntimeHealth,
+} from "./sync/runtimeRestart";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
   type DocumentSyncLane,
