@@ -45,18 +45,35 @@ function checkoutEnv(): Record<string, string | undefined> {
   );
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+function isChange(value: unknown): value is HooksCheck["changes"][number] {
+  if (!isRecord(value)) return false;
+  const { target, status } = value;
+  return typeof target === "string" && typeof status === "string";
+}
+
+function isHooksCheck(value: unknown): value is HooksCheck {
+  if (!isRecord(value)) return false;
+  const { ok, configure, changes, blockers } = value;
+  return (
+    typeof ok === "boolean" &&
+    (configure === undefined || typeof configure === "boolean") &&
+    Array.isArray(changes) &&
+    changes.every(isChange) &&
+    Array.isArray(blockers) &&
+    blockers.every((blocker) => typeof blocker === "string")
+  );
+}
+
 function parseCheck(output: string): HooksCheck | null {
   try {
-    const check = JSON.parse(output) as Partial<HooksCheck>;
-    if (
-      typeof check.ok === "boolean" &&
-      Array.isArray(check.changes) &&
-      Array.isArray(check.blockers)
-    ) {
-      return check as HooksCheck;
-    }
-  } catch {}
-  return null;
+    const check: unknown = JSON.parse(output);
+    return isHooksCheck(check) ? check : null;
+  } catch {
+    return null;
+  }
 }
 
 function planFor(check: HooksCheck | null): Plan {
@@ -69,7 +86,7 @@ function planFor(check: HooksCheck | null): Plan {
     return {
       status: "blocked",
       reasons: [
-        "core.hooksPath names another directory; installing would override it.",
+        "core.hooksPath in your Git configuration names another directory; installing would override it.",
       ],
     };
   }
@@ -114,9 +131,14 @@ function report(plan: Plan, install: () => boolean): void {
   }
 }
 
+/** True when CI is set to anything but empty, 0, or false. */
+function inCi(): boolean {
+  const { CI = "" } = process.env;
+  return !["", "0", "false"].includes(CI.toLowerCase());
+}
+
 function main(): void {
-  const { CI } = process.env;
-  if (CI) return;
+  if (inCi()) return;
   if (!existsSync(join(root, ".git"))) return;
   if (!existsSync(join(root, "node_modules/@a2f0/agent-tool/package.json"))) {
     return;

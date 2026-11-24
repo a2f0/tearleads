@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterAll, afterEach, expect, test } from "bun:test";
 import {
   chmodSync,
   cpSync,
@@ -21,11 +21,13 @@ import { join } from "node:path";
 
 const repositoryRoot = join(import.meta.dir, "../..");
 const hooks = ["commit-msg", "pre-commit", "pre-push"];
-const { HOME = "", PATH = "" } = process.env;
-// The developer's own Git configuration (template hooks, a global
+const { PATH = "" } = process.env;
+// The developer's home and Git configuration (template hooks, a global
 // core.hooksPath) must not reach the fixture or the installer.
+const home = realpathSync(mkdtempSync(join(tmpdir(), "postinstall-home-")));
+afterAll(() => rmSync(home, { recursive: true, force: true }));
 const env = {
-  HOME,
+  HOME: home,
   PATH,
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_SYSTEM: "/dev/null",
@@ -60,8 +62,14 @@ function git(cwd: string, ...args: string[]): void {
   if (result.exitCode) throw new Error(result.stderr.toString());
 }
 
-/** A checkout holding the hook sources, the installers, and agent-tool. */
-function checkout(options: { git?: boolean; agentTool?: boolean } = {}) {
+/**
+ * A checkout holding the hook sources, the installers, and agent-tool. With
+ * `stubCheck`, `bun run agent-tool` prints it for `hooks check` and fails
+ * anything else.
+ */
+function checkout(
+  options: { git?: boolean; agentTool?: boolean; stubCheck?: string } = {},
+) {
   const parent = realpathSync(mkdtempSync(join(tmpdir(), "postinstall-")));
   temporary.push(parent);
   const root = join(parent, "clone");
@@ -77,10 +85,18 @@ function checkout(options: { git?: boolean; agentTool?: boolean } = {}) {
       { recursive: true },
     );
   }
+  const agentTool = options.stubCheck ? "sh agent-tool-stub.sh" : "agent-tool";
   writeFileSync(
     join(root, "package.json"),
-    '{"private":true,"scripts":{"agent-tool":"agent-tool"}}\n',
+    `${JSON.stringify({ private: true, scripts: { "agent-tool": agentTool } })}\n`,
   );
+  if (options.stubCheck) {
+    writeFileSync(join(root, "check.json"), options.stubCheck);
+    writeFileSync(
+      join(root, "agent-tool-stub.sh"),
+      '[ "$1 $2" != "hooks check" ] || cat check.json\nexit 1\n',
+    );
+  }
   writeFileSync(join(root, ".gitignore"), "node_modules\n");
   if (options.agentTool !== false) linkModules(root);
   if (options.git !== false) {
@@ -226,14 +242,79 @@ test("a locally edited hook is kept and reported", () => {
   expect(readFileSync(preCommit, "utf8")).toEndWith("# local edit\n");
 }, 30_000);
 
-test("CI installs nothing", () => {
+test("a core.hooksPath from the user's Git configuration is not overridden", () => {
   const root = checkout();
+  const config = join(root, "..", "gitconfig");
+  const shared = join(root, "..", "shared-hooks");
+  writeFileSync(config, `[core]\n\thooksPath = ${shared}\n`);
 
-  expect(postinstall(root, { CI: "true" })).toEqual(quiet);
+  expect(postinstall(root, { GIT_CONFIG_GLOBAL: config })).toEqual({
+    ...quiet,
+    stderr: [
+      `warning: the Git hooks were left as they are ${guide}`,
+      "  core.hooksPath in your Git configuration names another directory; installing would override it.",
+      "",
+    ].join("\n"),
+  });
   for (const hook of hooks) {
     expect(existsSync(join(root, ".git/hooks", hook))).toBe(false);
+    expect(existsSync(join(shared, hook))).toBe(false);
   }
+  expect(readFileSync(join(root, ".git/config"), "utf8")).not.toContain(
+    "hooksPath",
+  );
+}, 30_000);
+
+for (const [label, output] of [
+  ["text", "not JSON\n"],
+  [
+    "a malformed change",
+    JSON.stringify({ ok: false, changes: [{ target: 1 }], blockers: [] }),
+  ],
+] as const) {
+  test(`an unreadable check (${label}) warns without failing the install`, () => {
+    const root = checkout({ stubCheck: output });
+
+    expect(postinstall(root)).toEqual({
+      ...quiet,
+      stderr: `warning: could not check the Git hooks; run bun run agent-tool hooks check ${guide}\n`,
+    });
+  });
+}
+
+test("a failed install warns without failing the install", () => {
+  const root = checkout({
+    stubCheck: JSON.stringify({
+      ok: false,
+      changes: [{ target: "pre-push", status: "create" }],
+      blockers: [],
+    }),
+  });
+
+  expect(postinstall(root)).toEqual({
+    ...quiet,
+    stderr: `warning: installing the Git hooks failed; run sh scripts/git/install-hooks.sh to see why ${guide}\n`,
+  });
 });
+
+for (const value of ["true", "1"]) {
+  test(`CI=${value} installs nothing`, () => {
+    const root = checkout();
+
+    expect(postinstall(root, { CI: value })).toEqual(quiet);
+    for (const hook of hooks) {
+      expect(existsSync(join(root, ".git/hooks", hook))).toBe(false);
+    }
+  });
+}
+
+test("CI=false still installs", () => {
+  const root = checkout();
+
+  expect(postinstall(root, { CI: "false" }).stdout).toBe(
+    "Installed the Git hooks (commit-msg, pre-commit, pre-push).\n",
+  );
+}, 30_000);
 
 test("a copy without its own Git directory is left alone", () => {
   const root = checkout({ git: false });
