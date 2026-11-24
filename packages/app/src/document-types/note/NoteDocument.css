@@ -52,9 +52,9 @@
   color: inherit;
 }
 
-/* So its focus ring is drawn on its own edge, against the pane's rules and
-   sides, not a pixel inside it (the shared ring is 2px, AppChrome.css). */
-.note-document-editor:focus-visible {
+/* Its ring sits on its own edge, against the pane's rules and sides. Chained to
+   outrank the 2px editor ring's -3px (MiniAppFormControls.css) in any order. */
+.mini-app-editor.note-document-editor:focus-visible {
   outline-offset: -2px;
 }
 

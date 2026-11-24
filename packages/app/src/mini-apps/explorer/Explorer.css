@@ -62,9 +62,9 @@
 }
 
 /*
- * Mobile full-bleed is shared across list tables — see
- * `mini-app-table-frame--bleed` in components/mini-app/tables/MiniAppTable.css.
- * The explorer item table opts in via that modifier class.
+ * The item list reaches the surface's edges in every tier
+ * (detail/item-views/ExplorerItemListEdges.css). On a phone it also takes the
+ * shared mobile bleed, `mini-app-table-frame--bleed` in MiniAppTable.css.
  */
 
 .explorer-inline-note {
