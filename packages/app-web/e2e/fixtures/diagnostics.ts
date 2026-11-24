@@ -1,14 +1,18 @@
 import { configureSentry } from "../../src/diagnostics/sentry";
 
 const secret = "SYNTHETIC_PRIVATE_DOCUMENT_KEY";
-const diagnostics = configureSentry({
-  dsn: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/11`,
-  commit: "b".repeat(40),
-  environment: "staging",
-  variant: "app",
-  origin: window.location.origin,
-  scriptUrl: import.meta.url,
-});
+// The user has opted in; the gate itself is covered by the diagnostics tests.
+const diagnostics = configureSentry(
+  {
+    dsn: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/11`,
+    commit: "b".repeat(40),
+    environment: "staging",
+    variant: "app",
+    origin: window.location.origin,
+    scriptUrl: import.meta.url,
+  },
+  { enabled: () => true, subscribe: () => () => {} },
+);
 if (!diagnostics) throw new Error("Diagnostic fixture did not initialize");
 
 const button = document.createElement("button");

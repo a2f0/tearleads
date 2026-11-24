@@ -22,10 +22,16 @@ const configured = {
 const mocks: Record<string, string> = {
   "@tearleads/client-sdk/sqlite": `export const PERSISTENT_STORAGE_POLICY = "persistent";
     export function createSQLiteRuntime() { return {}; }`,
-  "@tearleads/diagnostics/browser": `export function createBrowserDiagnostics(config) {
+  "@tearleads/diagnostics/browser": `export function createBrowserDiagnostics(config, consent) {
     const state = globalThis.fixture; state.created++;
     if (state.factoryThrow) throw new Error("Synthetic factory failure");
-    state.config = config; return { flush: async () => true };
+    state.config = config; state.consent = consent;
+    return { flush: async () => true };
+  }`,
+  "app/host/telemetryConsent": `export function createTelemetryConsent() {
+    const consent = { enabled: () => false, subscribe: () => () => {} };
+    globalThis.fixture.telemetryConsent = consent;
+    return consent;
   }`,
   "app/client": `export function renderApp(root, options) {
     globalThis.fixture.hostConfig = options.hostConfig;
@@ -71,19 +77,30 @@ function mount(state) {
 mount({ ...base, ...JSON.parse(process.env.ELECTROBUN_FIXTURE) });
 globalThis.location = { protocol: "http:" };
 globalThis.document = { getElementById: () => ({}) };
+globalThis.fetch = async (_url, init) => {
+  globalThis.fixture.posted = init?.headers?.["x-electrobun-telemetry-consent"];
+  return new Response(null, { status: 204 });
+};
 // Imported dynamically so the globals above exist before the module entrypoint
 // evaluates, and before the gate matrix below reassigns the fixture.
 await import(${JSON.stringify(join(import.meta.dirname, "../renderer/index.tsx"))});
-const { config, created, hostConfig } = globalThis.fixture;
+await new Promise((resolve) => setTimeout(resolve, 0));
+const { config, consent, created, hostConfig, posted, telemetryConsent } =
+  globalThis.fixture;
 const renderer = {
   declared: "diagnostics" in hostConfig, enabled: Boolean(hostConfig.diagnostics),
+  consent: hostConfig.telemetryConsent === telemetryConsent &&
+    (config === undefined || consent === telemetryConsent),
+  posted,
   created, release: config?.release, dist: config?.dist,
   origin: config?.origin, scriptPath: config?.scriptPath,
 };
 const gate = [];
 for (const [name, changes] of ${gateCases}) {
   mount({ ...base, ...changes });
-  const diagnostics = configureElectrobunSentry();
+  const diagnostics = configureElectrobunSentry({
+    enabled: () => false, subscribe: () => () => {},
+  });
   gate.push({
     name, enabled: Boolean(diagnostics), created: globalThis.fixture.created,
     release: globalThis.fixture.config?.release,
@@ -116,7 +133,7 @@ console.log(JSON.stringify({ renderer, gate }));
             build.onResolve(
               {
                 filter:
-                  /^(?:app\/(?:client|host\/AppHostConfig)|react-dom\/client|@tearleads\/(?:client-sdk\/sqlite|diagnostics\/browser))$/u,
+                  /^(?:app\/(?:client|host\/(?:AppHostConfig|telemetryConsent))|react-dom\/client|@tearleads\/(?:client-sdk\/sqlite|diagnostics\/browser))$/u,
               },
               (args) => ({ path: args.path, namespace: "electrobun-fixture" }),
             );
@@ -148,6 +165,9 @@ console.log(JSON.stringify({ renderer, gate }));
       expect(renderer).toEqual({
         declared: true,
         enabled,
+        // One consent reaches the client, the host config, and the main process.
+        consent: true,
+        posted: "disabled",
         created: enabled ? 1 : 0,
         release: enabled ? `tearleads-electrobun@${commit}` : undefined,
         dist: enabled ? "staging-app-macos-arm64" : undefined,

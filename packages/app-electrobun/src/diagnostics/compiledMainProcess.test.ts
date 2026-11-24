@@ -31,7 +31,7 @@ async function runPackagedMainProcess(options: {
 import { configureMainProcessDiagnostics } from ${JSON.stringify(join(import.meta.dirname, "mainProcess.ts"))};
 globalThis.fetch = async (_url, init) => { console.log(String(init?.body)); return new Response(null, { status: 200 }); };
 process.on("uncaughtException", () => { console.log("SHUTDOWN"); process.exit(1); });
-console.log(\`CONFIGURED \${Boolean(configureMainProcessDiagnostics(import.meta.url))}\`);
+console.log(\`CONFIGURED \${Boolean(configureMainProcessDiagnostics(import.meta.url, { enabled: () => true }))}\`);
 setTimeout(() => { void (async () => { throw new RangeError(${JSON.stringify(secret)}); })(); }, 1);
 setTimeout(() => { [1].map(() => { throw new TypeError(${JSON.stringify(secret)}); }); }, 80);
 setTimeout(() => process.exit(3), 6000);

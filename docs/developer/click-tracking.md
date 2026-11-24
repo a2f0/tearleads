@@ -17,6 +17,12 @@ document identifiers are omitted. The client captures trusted clicks on generic
 element types, excludes editable controls and `data-ct-ignore` subtrees, and
 does not create persistent visitor identifiers. Do not add user data to CT labels.
 
+The web app and demo capture only while the user opts in to anonymous
+telemetry, which starts off: on onboarding's first screen or in **Settings >
+General** (see [Sentry consent](sentry.md#consent)). Turning it off destroys the
+tracker, which discards queued clicks; turning it on starts it again. The
+website has no such setting and follows only the signals below.
+
 Tearleads honors Global Privacy Control and Do Not Track. Keep `overrideGpc`
 false. The CT extension and saved per-origin `ct:opt-out` preference also stop
 capture and discard queued events. Automated browsers and local development do
@@ -31,8 +37,8 @@ is disabled and accounts are provisioned through CT's CLI. See the
 [CT repository](https://github.com/a2f0/ct) for administration and retention.
 
 [`packages/app-web/e2e/click-tracking.spec.ts`](../../packages/app-web/e2e/click-tracking.spec.ts)
-tests all six origins and privacy signals with real browser clicks and
-intercepted HTTP requests. The website's publication test
+tests all six origins, privacy signals, and the app's opt-in with real browser
+clicks and intercepted HTTP requests. The website's publication test
 ([`packages/website/src/legalPublication.test.ts`](../../packages/website/src/legalPublication.test.ts))
 checks that built pages load the CT initializer and publish the full privacy
 notice. Frontend-only deployment uses `packages/app-web/scripts/deployAppWeb.sh

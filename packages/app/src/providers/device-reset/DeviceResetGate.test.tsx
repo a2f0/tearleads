@@ -1,6 +1,10 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { installFakeLockManager } from "../../../test/helpers/fakeLockManager";
+import {
+  createTelemetryConsent,
+  TELEMETRY_CONSENT_STORAGE_KEY,
+} from "../../host/telemetryConsent";
 import { DeviceResetGate } from "./DeviceResetGate";
 import { requestDeviceReset } from "./deviceReset";
 import { runWithoutAppPages } from "./deviceResetTabs";
@@ -15,10 +19,42 @@ function requestReset(): void {
   requestDeviceReset(localStorage, () => {});
 }
 
+// For tests where nothing was read from storage before the wipe.
+function keepNothing(): void {}
+
+test("a reset turns off telemetry the page loaded before the wipe, before the app mounts", async () => {
+  localStorage.setItem(TELEMETRY_CONSENT_STORAGE_KEY, "enabled");
+  // As the shell's entry point does, before the gate wipes the device.
+  const consent = createTelemetryConsent();
+  const seen: boolean[] = [];
+  const unsubscribe = consent.subscribe(() => seen.push(consent.enabled()));
+  requestReset();
+  let enabledAtMount: boolean | undefined;
+  function AppProbe() {
+    enabledAtMount ??= consent.enabled();
+    return <p>app</p>;
+  }
+
+  const view = render(
+    <DeviceResetGate
+      completeReset={async () => localStorage.clear()}
+      onWiped={consent.refresh}
+    >
+      <AppProbe />
+    </DeviceResetGate>,
+  );
+
+  expect(await view.findByText("app")).toBeTruthy();
+  expect(enabledAtMount).toBe(false);
+  expect(seen).toEqual([false]);
+  unsubscribe();
+});
+
 test("without a reset request the app renders without waiting on a wipe", () => {
   let resets = 0;
   const view = render(
     <DeviceResetGate
+      onWiped={keepNothing}
       completeReset={async () => {
         resets += 1;
       }}
@@ -41,7 +77,7 @@ test("a page that starts during a wipe mounts the app only once the wipe is done
       return wipe.promise;
     });
     const view = render(
-      <DeviceResetGate completeReset={async () => {}}>
+      <DeviceResetGate onWiped={keepNothing} completeReset={async () => {}}>
         <p>app</p>
       </DeviceResetGate>,
     );
@@ -68,7 +104,7 @@ test("a page that gets its lock while a reset is pending stops at the notice", a
       return otherPage.promise;
     });
     const view = render(
-      <DeviceResetGate completeReset={async () => {}}>
+      <DeviceResetGate onWiped={keepNothing} completeReset={async () => {}}>
         <p>app</p>
       </DeviceResetGate>,
     );
@@ -97,6 +133,7 @@ test("a requested reset holds the app back until the wipe finishes", async () =>
   const wipe = Promise.withResolvers<void>();
   const view = render(
     <DeviceResetGate
+      onWiped={keepNothing}
       completeReset={async () => {
         await wipe.promise;
         // The wipe clears localStorage, request included.
@@ -122,7 +159,7 @@ test("another page's reset reloads this one into a notice instead of the app", a
   const otherTab = new BroadcastChannel("tearleads.device-reset");
   try {
     const before = render(
-      <DeviceResetGate completeReset={async () => {}}>
+      <DeviceResetGate onWiped={keepNothing} completeReset={async () => {}}>
         <p>app</p>
       </DeviceResetGate>,
     );
@@ -138,7 +175,7 @@ test("another page's reset reloads this one into a notice instead of the app", a
 
     // The reloaded page.
     const after = render(
-      <DeviceResetGate completeReset={async () => {}}>
+      <DeviceResetGate onWiped={keepNothing} completeReset={async () => {}}>
         <p>app</p>
       </DeviceResetGate>,
     );
@@ -159,6 +196,7 @@ test("a failed reset reports why and never renders the app", async () => {
   requestReset();
   const view = render(
     <DeviceResetGate
+      onWiped={keepNothing}
       completeReset={async () => {
         throw new Error('Could not remove "tearleads-sqlite" from OPFS.');
       }}

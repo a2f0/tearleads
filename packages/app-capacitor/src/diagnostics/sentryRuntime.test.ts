@@ -13,10 +13,11 @@ const mocks: Record<string, string> = {
     if (state.listenerReject) throw new Error("Synthetic listener failure");
     state.pause = listener; return { remove: async () => {} };
   } };`,
-  "@tearleads/diagnostics/browser": `export function createBrowserDiagnostics(config) {
+  "@tearleads/diagnostics/browser": `export function createBrowserDiagnostics(config, consent) {
     const state = globalThis.fixture;
     if (state.factoryReject) throw new Error("Synthetic factory failure");
     state.config = config;
+    state.consent = consent;
     return { flush: async () => {
       state.flushed++;
       if (state.flushReject) throw new Error("Synthetic flush failure");
@@ -58,13 +59,15 @@ for (const [name, changes] of cases) {
     dsn: "https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1", commit: "b".repeat(40),
     fetches: 0, flushed: 0, ...changes,
   };
-  const diagnostics = await configureNativeSentry();
+  const consent = { enabled: () => false, subscribe: () => () => {} };
+  const diagnostics = await configureNativeSentry(consent);
   state.pause?.();
   await Promise.resolve();
   results.push({
     name, enabled: Boolean(diagnostics), fetches: state.fetches, url: state.url,
     flushed: state.flushed, listener: state.listener,
     release: state.config?.release, environment: state.config?.environment,
+    consent: state.consent === consent,
   });
 }
 console.log(JSON.stringify(results));
@@ -128,6 +131,7 @@ console.log(JSON.stringify(results));
         expect(row.url).toBe("https://localhost/sentry-assets.json");
       }
       if (row.enabled) {
+        expect(row.consent).toBe(true);
         expect(row.listener).toBe("pause");
         expect(row.flushed).toBe(row.name === "listener" ? 0 : 1);
         const platform = row.name === "android" ? "android" : "ios";
