@@ -50,6 +50,23 @@ test("step 9 reads a version-8 database's open windows as read windows", async (
   }
 });
 
+// A table that somehow missed the step is refused, not read with no kind.
+test("the current definition refuses a window table without its kind", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-loro-kind-missing",
+  );
+  try {
+    await migrateLocalSchema(execSql);
+    await execSql(VERSION_8_LORO_WINDOWS);
+
+    await expect(
+      ensureSqlTables(execSql, documentLoroWindowTables),
+    ).rejects.toThrow("obsolete");
+  } finally {
+    close();
+  }
+});
+
 test("step 9 skips a version-8 database without the window table", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-loro-kind-absent",

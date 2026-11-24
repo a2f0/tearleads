@@ -43,8 +43,9 @@ export const documentLoroWindows = sqliteTable(
     counts: integer("counts").notNull(),
     judge: text("judge").notNull(),
     openedAt: text("opened_at").notNull(),
-    // Last, where migration step 9 added it to existing tables.
-    kind: text("kind").notNull(),
+    // Last, where migration step 9 added it to existing tables, with the
+    // same default.
+    kind: text("kind").notNull().default("read"),
   },
   (table) => [
     primaryKey({
@@ -107,7 +108,7 @@ export const documentRotationAvailability = sqliteTable(
 );
 
 export const documentLoroWindowTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(documentLoroWindows),
+  { ...defineSqlTableSchema(documentLoroWindows), requiredColumns: ["kind"] },
   defineSqlTableSchema(documentLoroIsolation),
   defineSqlTableSchema(documentRotationAvailability),
 ];

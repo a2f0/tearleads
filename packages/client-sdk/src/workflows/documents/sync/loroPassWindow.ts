@@ -16,8 +16,8 @@ import {
   transitionLoroIsolation,
 } from "../../../data/documents/shared/sync/loroWindowMachine";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
+import { clearSurvivedLoroAttemptsInTransaction } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import {
-  clearSurvivedLoroAttemptsInTransaction,
   deleteOwnLoroWindowInTransaction,
   markLoroWindowsNotCountingInTransaction,
   readLoroIsolation,
