@@ -76,16 +76,19 @@ function listed(input: {
   };
 }
 
-async function openRuntime() {
+async function openRuntime(onSql: (sql: string) => void) {
   const db = await initTestSqliteDatabase({
     cipher: "chacha20",
     dbName: `/${crypto.randomUUID()}.db`,
     key: "metadata-revalidation",
   });
   const sqlRuntime = createClientSQLitePersistenceRuntime({
-    exec: async (options) => ({
-      rows: execDatabaseStatement(db, options) as Array<SqlRow | SqlArrayRow>,
-    }),
+    exec: async (options) => {
+      onSql(options.sql);
+      return {
+        rows: execDatabaseStatement(db, options) as Array<SqlRow | SqlArrayRow>,
+      };
+    },
   });
   await sqlContainerContentsPersistence.ensureSchema(sqlRuntime.execSql);
   return { close: () => db.close(), execSql: sqlRuntime.execSql };
@@ -122,14 +125,24 @@ async function recordCursor(
   );
 }
 
-/** Hydrates one listing and returns the host calls in the order they ran. */
+/**
+ * Hydrates one listing and returns the host calls in the order they ran.
+ * `supersededAtCursorRead` supersedes the hydration as it reads the cursor.
+ */
 async function hydrateListing(
   listing: RemoteContainer,
   heldUpdates: string,
   cursor: ProcessedCursor | null,
   earlierUpdateCount?: number,
+  supersededAtCursorRead = false,
 ) {
-  const { close, execSql } = await openRuntime();
+  let hydrating = false;
+  let superseded = false;
+  const { close, execSql } = await openRuntime((sql) => {
+    if (hydrating && supersededAtCursorRead) {
+      superseded ||= sql.includes("document_sync_progress");
+    }
+  });
   try {
     const listed = listing;
     await sqlContainerContentsPersistence.saveContainer(
@@ -225,13 +238,16 @@ async function hydrateListing(
       expect(pages).toBe(2);
       return calls;
     }
+    hydrating = true;
     await upsertRemoteContainerState({
       containerIdsWithPendingMetadataUpdates: new Set(),
       containerIdsWithPendingStructuralIntents: new Set(),
       host,
+      isCurrent: () => !superseded,
       remoteContainer: listed,
       state,
     });
+    expect(superseded).toBe(supersededAtCursorRead);
     return calls;
   } finally {
     close();
@@ -300,4 +316,16 @@ test("a metadata publication between two pages schedules its missing read", asyn
       1,
     ),
   ).toContain("owe metadata-1");
+});
+
+test("a hydration superseded while it reads the cursor owes no read", async () => {
+  const versions = await metadataVersions();
+  const calls = await hydrateListing(
+    listed({ updatedAt: RECORDED, updateCount: 2 }),
+    versions.heldUpdates,
+    { updateCount: 1, version: versions.heldVersion },
+    undefined,
+    true,
+  );
+  expect(calls).not.toContain("owe metadata-1");
 });

@@ -173,21 +173,25 @@ function installUpdatedRemoteContainerState(
  * while this client was offline or not yet subscribed is lost. The listing
  * counts the updates the server holds for the metadata document; unless this
  * client's processed cursor covers that count, an edit is unread. Owe the
- * read before this hydration advances the lane watermark past the row.
+ * read before this hydration advances the lane watermark past the row. A
+ * hydration superseded while the cursor was read owes nothing: it neither
+ * applies the row nor advances the watermark past it.
  */
-async function oweMetadataReadIfBehind(
-  host: RemoteContainerHydrationHost,
-  state: RemoteContainerHydrationState,
-  existingState: ContainerState,
-  remoteContainer: RemoteContainer,
-): Promise<void> {
+async function oweMetadataReadIfBehind(input: {
+  readonly existingState: ContainerState;
+  readonly host: RemoteContainerHydrationHost;
+  readonly isCurrent?: (() => boolean) | undefined;
+  readonly remoteContainer: RemoteContainer;
+  readonly state: RemoteContainerHydrationState;
+}): Promise<void> {
+  const { existingState, host, isCurrent, remoteContainer, state } = input;
   const covered = await coversMetadataUpdateCount(state.runtime.infra.execSql, {
     containerId: existingState.container.id,
     doc: existingState.doc,
     documentId: remoteContainer.metadataDocumentId,
     updateCount: remoteContainer.metadataUpdateCount,
   });
-  if (!covered) {
+  if (!covered && isCurrent?.() !== false) {
     await host.requestMetadataRevalidation?.({
       advertisedUpdateCount: remoteContainer.metadataUpdateCount,
       documentId: remoteContainer.metadataDocumentId,
@@ -226,7 +230,7 @@ async function updateExistingRemoteContainerState(input: {
     previousLocalUpdatedAt,
     remoteContainer,
   });
-  await oweMetadataReadIfBehind(host, state, existingState, remoteContainer);
+  await oweMetadataReadIfBehind(input);
   const nextState = createUpdatedRemoteContainerState(
     existingState,
     remoteContainer,
