@@ -279,10 +279,10 @@ def install_ios_appstore_signing_assets!
   )
 end
 
-# Capabilities the App target's entitlements need on the tier's App ID. A
-# profile carries only the capabilities its App ID had when the profile was
-# made. Associated Domains backs a `webcredentials:` entitlement, which lets
-# the app save passwords to iCloud Keychain and read them back.
+# Capabilities to enable on the tier's App ID. A profile carries only the
+# capabilities its App ID had when the profile was made, so each must be on
+# before the App target's entitlements ask for it. Associated Domains backs the
+# `webcredentials:` entitlement that saves passwords to iCloud Keychain (#3162).
 IOS_APP_ID_CAPABILITIES = %w[ASSOCIATED_DOMAINS].freeze
 
 def missing_ios_app_id_capabilities(bundle_id)

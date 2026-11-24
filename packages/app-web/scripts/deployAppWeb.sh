@@ -35,10 +35,11 @@ validate_domain_env
 validate_stripe_env "$TIER"
 export_wrangler_env
 
-# iOS saves an identity's recovery passphrase to iCloud Keychain, and reads it
-# back, only for a domain whose association file names the app: the tier's
-# bundle ID under the Apple team that signs it. TEAM_ID is the name fastlane
-# reads from the same shared.env.
+# iOS saves an app's passwords to iCloud Keychain, and reads them back, only
+# for a host named in the app's `webcredentials:` entitlement whose association
+# file names the app: the tier's bundle ID under the Apple team that signs it.
+# TEAM_ID is that team in the tier's shared.env, which the release lanes sign
+# with unless the caller overrides it.
 case "$TIER" in
   prod) IOS_APP_IDENTIFIER=com.tearleads.app ;;
   staging) IOS_APP_IDENTIFIER=com.tearleads.staging.app ;;
