@@ -70,7 +70,7 @@ export function OrganizationsView({
         onRefresh={refresh}
       />
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
-      <MiniAppTableFrame>
+      <MiniAppTableFrame className="mini-app-table-frame--bleed mini-app-table-frame--edges">
         <MiniAppTable aria-label="Organizations" columns={COLUMNS}>
           {items.length === 0 ? (
             <MiniAppTableEmptyRow colSpan={COLUMNS.length}>

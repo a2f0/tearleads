@@ -71,7 +71,7 @@ export function IdentitiesTable({
   onSelect: (userId: string) => void;
 }) {
   return (
-    <MiniAppTableFrame>
+    <MiniAppTableFrame className="mini-app-table-frame--bleed mini-app-table-frame--edges">
       <MiniAppTable aria-label="Identities" columns={IDENTITY_COLUMNS}>
         {identities.length === 0 ? (
           <MiniAppTableEmptyRow colSpan={IDENTITY_COLUMNS.length}>

@@ -219,11 +219,11 @@
  * because its own `--panel-padding` would make the edge inset the wrong distance.
  *
  * A surface whose strips scroll in its own container rather than a
- * `MiniAppPanel` (Org Manager's main region) adds `mini-app-tabs-scrollport` to
- * that container to get the same treatment, so the rule lives here once.
+ * `MiniAppPanel` (Org Manager's main region) marks that container
+ * `mini-app-edge-scrollport` instead (MiniAppRoot.css), which gives a list
+ * running to the edges the same room.
  */
-.mini-app-panel--scroll:not(.mini-app-panel--framed):has(.mini-app-tabs),
-.mini-app-tabs-scrollport:has(.mini-app-tabs) {
+.mini-app-panel--scroll:not(.mini-app-panel--framed):has(.mini-app-tabs) {
   margin-inline: calc(-1 * var(--mini-app-edge-inset, 0px));
   padding-inline: var(--mini-app-edge-inset, 0px);
 }
