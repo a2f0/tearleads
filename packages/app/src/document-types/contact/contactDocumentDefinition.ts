@@ -1,4 +1,5 @@
 import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
+import { UserIcon } from "@phosphor-icons/react/dist/csr/User";
 import {
   type DocumentFieldValidationIssue,
   readStringDocumentField,
@@ -6,14 +7,17 @@ import {
   type ValidatedDocumentFields,
 } from "@tearleads/client-sdk";
 import { structuredFieldsProjector } from "../shared/documentFieldUtils";
+import type { DocumentPhotoCapability } from "../shared/documentPhotos";
 import type { AppDocumentProjectorDefinition } from "../types";
 
 export const CONTACT_DOCUMENT_KIND = "contact" satisfies StoredDocumentKind;
 
-export const CONTACT_PHOTOS = {
+// A person reads as a silhouette until a photo is chosen, not as the
+// address-book glyph that stands for the document kind.
+export const CONTACT_PHOTOS: DocumentPhotoCapability = {
   slotId: "contact-photos",
-  avatar: true,
-} as const;
+  avatarFallbackIcon: UserIcon,
+};
 
 export type ContactDocumentFields = {
   encapsulationPublicKey: string;

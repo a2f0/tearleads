@@ -14,8 +14,8 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
 } from "../../../../components/mini-app/MiniAppTable";
-import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../../document-types/projectors";
+import type { AvatarUrlById } from "../../../../document-types/shared/avatar/useAvatarUrls";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { capitalizeExplorerLabel, EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
@@ -126,10 +126,10 @@ function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
 }
 
 export interface ExplorerItemCellContext {
-  // Object URLs for contact avatars, keyed by the contact document's local id.
-  // Covers only contacts in the Explorer's contacts container; ContactAvatar
-  // supplies the shared silhouette when a row has no entry.
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
+  // Object URLs for listed documents' avatars, keyed by local id. Covers the
+  // loaded window's documents whose kind keeps a photo gallery;
+  // DocumentAvatarImage draws the kind's fallback glyph when a row has none.
+  avatarUrlByLocalId: AvatarUrlById;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;

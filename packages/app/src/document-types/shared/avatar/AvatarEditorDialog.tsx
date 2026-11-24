@@ -5,23 +5,23 @@ import {
   MiniAppModalBackdrop,
   MiniAppModalPanel,
   MiniAppStatus,
-} from "../../components/mini-app/MiniAppLayout";
+} from "../../../components/mini-app/MiniAppLayout";
 import {
   AVATAR_CROP_MAX_ZOOM,
   AVATAR_CROP_MIN_ZOOM,
   getAvatarImageLayout,
 } from "./avatarCropGeometry";
-import "./ContactAvatarEditorDialog.css";
+import "./AvatarEditorDialog.css";
 import { useAvatarCropEditorState } from "./useAvatarCropEditorState";
 
 const AVATAR_EDITOR_VIEWPORT_SIZE = 260;
 
-interface ContactAvatarEditorViewportStyle extends CSSProperties {
-  "--contact-avatar-editor-size": string;
+interface AvatarEditorViewportStyle extends CSSProperties {
+  "--avatar-editor-size": string;
 }
 
-const CONTACT_AVATAR_EDITOR_VIEWPORT_STYLE: ContactAvatarEditorViewportStyle = {
-  "--contact-avatar-editor-size": `${AVATAR_EDITOR_VIEWPORT_SIZE}px`,
+const AVATAR_EDITOR_VIEWPORT_STYLE: AvatarEditorViewportStyle = {
+  "--avatar-editor-size": `${AVATAR_EDITOR_VIEWPORT_SIZE}px`,
 };
 
 const AVATAR_EDITOR_LABELS = {
@@ -47,14 +47,14 @@ function AvatarCropViewport({
   return (
     <div
       aria-describedby={hintId}
-      className="contact-avatar-editor-viewport"
+      className="avatar-editor-viewport"
       ref={editor.viewportRef}
-      style={CONTACT_AVATAR_EDITOR_VIEWPORT_STYLE}
+      style={AVATAR_EDITOR_VIEWPORT_STYLE}
       {...editor.pointerHandlers}
     >
       <img
         alt=""
-        className="contact-avatar-editor-image"
+        className="avatar-editor-image"
         draggable={false}
         onError={editor.handleImageError}
         onLoad={editor.handleImageLoad}
@@ -71,12 +71,12 @@ function AvatarCropViewport({
             : { visibility: "hidden" }
         }
       />
-      <div aria-hidden className="contact-avatar-editor-mask" />
+      <div aria-hidden className="avatar-editor-mask" />
     </div>
   );
 }
 
-export function ContactAvatarEditorDialog({
+export function AvatarEditorDialog({
   onCancel,
   onConfirm,
   source,
@@ -111,16 +111,16 @@ export function ContactAvatarEditorDialog({
       <MiniAppModalPanel
         aria-labelledby={titleId}
         aria-modal="true"
-        className="contact-avatar-editor"
+        className="avatar-editor"
         role="dialog"
       >
         <h2 id={titleId}>{title}</h2>
         {error ? <MiniAppStatus tone="error">{error}</MiniAppStatus> : null}
         <AvatarCropViewport editor={editor} hintId={hintId} />
-        <p className="contact-avatar-editor-hint" id={hintId}>
+        <p className="avatar-editor-hint" id={hintId}>
           {AVATAR_EDITOR_LABELS.hint}
         </p>
-        <div className="contact-avatar-editor-zoom">
+        <div className="avatar-editor-zoom">
           <label htmlFor={zoomInputId}>{AVATAR_EDITOR_LABELS.zoom}</label>
           <input
             disabled={!editor.imageSize || editor.saving}

@@ -51,7 +51,7 @@ export function renderContainerItemTable(
   return render(
     createElement(ExplorerContainerItemTable, {
       compact: false,
-      contactAvatarUrlByLocalId: {},
+      avatarUrlByLocalId: {},
       contextTarget: null,
       currentSigningFingerprint: null,
       currentSelfContactLocalId: null,
