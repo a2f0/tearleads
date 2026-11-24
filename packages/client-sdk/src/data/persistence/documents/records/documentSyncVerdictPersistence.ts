@@ -1,4 +1,3 @@
-import { satisfiesVersionVector } from "@tearleads/loro";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import {
@@ -83,40 +82,6 @@ function progressScope(scope: DocumentScope) {
     eq(documentSyncProgress.appKind, scope.appKind),
     eq(documentSyncProgress.localId, scope.localId),
   );
-}
-
-/**
- * The processed cursor a pull may send, or undefined to pull by version
- * alone. It needs a row for this server document, reached by the running
- * judge, whose recorded frontier the current one still covers. A row reached
- * by the running judge implies every void row was too: the judge changes
- * only between pulls, the next pull then goes without a cursor, and its
- * completion drops each void row it did not judge again.
- */
-export async function readSendableProcessedCursor(
-  db: VerdictReader,
-  input: {
-    readonly documentId: string;
-    readonly frontier: string;
-    readonly judge: string;
-    readonly scope: DocumentScope;
-  },
-): Promise<string | undefined> {
-  const [progress] = await db
-    .select()
-    .from(documentSyncProgress)
-    .where(progressScope(input.scope))
-    .limit(1);
-  if (
-    !progress?.throughUpdateId ||
-    progress.throughVersion === null ||
-    progress.documentId !== input.documentId ||
-    progress.judge !== input.judge ||
-    !satisfiesVersionVector(input.frontier, progress.throughVersion)
-  ) {
-    return undefined;
-  }
-  return progress.throughUpdateId;
 }
 
 /** A verdict the import judge reached. */
@@ -316,6 +281,7 @@ async function applyProcessedCursorTransition(
       ? {}
       : {
           judge: input.judge,
+          throughUpdateCount: transition.through.updateCount,
           throughUpdateId: transition.through.updateId,
           throughVersion: transition.through.version,
         }),

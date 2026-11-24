@@ -102,8 +102,9 @@ test("document create, sync write, and sync pull stay within their statement bud
 
   // Guard batching removes three create statements. The ordinary sync write
   // and pull retain their existing ceilings and fresh-resolution paths. The
-  // write measured 34 before its peer-ownership read; a write that claims a
-  // new peer adds one insert.
+  // write measured 34 before its peer-ownership read, and 35 before it
+  // counted the updates through its pull's bound for the processed cursor; a
+  // write that claims a new peer adds one insert.
   console.info(
     "locked-head-create-baseline",
     JSON.stringify({
@@ -116,7 +117,7 @@ test("document create, sync write, and sync pull stay within their statement bud
     28 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(write.statements).toBeLessThanOrEqual(
-    35 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    36 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(pull.statements).toBeLessThanOrEqual(
     25 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
@@ -173,9 +174,10 @@ test("a rotation baseline write and its pull stay within their statement budgets
   // and adjacent reads now use write 38 / 39 and pull 26 / 27 (PGlite /
   // SQLite), plus the Postgres transaction-control allowance. The write
   // measured 36 on PGlite before it read its peers' owners and claimed the
-  // baseline's new peer, 38 after.
+  // baseline's new peer, 38 after, and 39 once it counted the updates
+  // through its pull's bound for the processed cursor.
   expect(write.statements).toBeLessThanOrEqual(
-    38 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    39 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(pull.statements).toBeLessThanOrEqual(
     26 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),

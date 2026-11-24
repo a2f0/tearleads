@@ -377,7 +377,11 @@ a computed index or destructuring key, counts as writing every table it holds;
 `db.query` passed along that way counts as reading every table it serves, or
 every table when its type is `any` or `unknown`. Schema modules are exempt, and
 so is the schema SQLite Runtime passes to `drizzle`, whose `db.query` reads are
-checked where they happen. The surface check sees none of this: schema imports
+checked where they happen. Raw SQL in the
+[local schema step registry](../../packages/client-sdk/src/data/sqlite/migrations/localSchemaMigrations.ts)
+names no table use: a step is written against a table's shape before it, not
+the current definition, and may backfill any table. Its Drizzle references are
+still checked. The surface check sees none of this: schema imports
 land in SQLite Runtime, which declares no surface, and raw SQL imports nothing.
 Tolerated uses are listed by table in
 [`scripts/architecture/subsystemTableBaseline.json`](../../scripts/architecture/subsystemTableBaseline.json),

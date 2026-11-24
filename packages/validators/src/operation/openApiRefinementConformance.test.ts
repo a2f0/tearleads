@@ -6,6 +6,7 @@ import {
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
   documentSyncResponseHistoricalBundlesRefinement,
+  documentSyncResponsePullPageCountRefinement,
   documentSyncResponsePullPageRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
@@ -164,10 +165,24 @@ const witnesses = {
       pullPage: {
         hasMore: true,
         nextCursor: null,
+        throughUpdateCount: 0,
         throughUpdateId: null,
       },
     }),
     expectedMessage: "pull page continuation does not match hasMore",
+    kind: "response",
+  },
+  [documentSyncResponsePullPageCountRefinement.id]: {
+    createInput: () => ({
+      ...createSyncResponse(),
+      pullPage: {
+        hasMore: false,
+        nextCursor: null,
+        throughUpdateCount: 1,
+        throughUpdateId: null,
+      },
+    }),
+    expectedMessage: "pull page update count does not match its upper bound",
     kind: "response",
   },
   [documentSyncResponseHistoricalBundlesRefinement.id]: {

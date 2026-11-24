@@ -95,7 +95,9 @@ The last update of a document pull a client completed, sent on its next pull as
 keep one. The client has imported or recorded as a
 [void update](./content.md#void-update) every update served to it up to there,
 so the server starts the next pull after it. The client sends it only while its
-frontier still covers the one recorded with it and its decoder is unchanged.
+frontier still covers the one recorded with it and its decoder is unchanged. It
+also keeps the pull's count of updates through that one, which covers a
+container listing's metadata update count.
 
 Related docs:
 

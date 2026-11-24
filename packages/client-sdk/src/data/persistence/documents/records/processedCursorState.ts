@@ -11,6 +11,8 @@ export interface PullPagePosition {
   readonly last: boolean;
   /** The processed cursor this page's request carried, if any. */
   readonly sentCursor: string | null;
+  /** How many updates the document held through the upper bound. */
+  readonly throughUpdateCount: number;
   /** The pull's upper bound, as the server named it. */
   readonly throughUpdateId: string | null;
 }
@@ -38,7 +40,8 @@ export interface PullPremise {
  * - `advanced`: the pull completed under one premise. `dropsOtherJudges`
  *   marks a pull sent without a cursor: it judged every update its frontier
  *   left uncovered, so a void row another judge wrote names an update the
- *   frontier now covers. `through` is null when the server named no update.
+ *   frontier now covers. `through` is null when the server named no update,
+ *   and carries how many updates the server counted through its bound.
  */
 export type ProcessedCursorTransition =
   | { readonly status: "unchanged" }
@@ -48,6 +51,7 @@ export type ProcessedCursorTransition =
       readonly dropsOtherJudges: boolean;
       readonly status: "advanced";
       readonly through: {
+        readonly updateCount: number;
         readonly updateId: string;
         readonly version: string;
       } | null;
@@ -87,6 +91,10 @@ export function processedCursorTransition(input: {
     through:
       page.throughUpdateId === null
         ? null
-        : { updateId: page.throughUpdateId, version: input.recordedFrontier },
+        : {
+            updateCount: page.throughUpdateCount,
+            updateId: page.throughUpdateId,
+            version: input.recordedFrontier,
+          },
   };
 }

@@ -263,9 +263,19 @@ rows along with the history they were judged against.
 ## The Processed Cursor
 
 Every page returns `pullPage.throughUpdateId`, the last update committed when
-the pull began. After the last page, the reader stores that id as its
+the pull began, and `pullPage.throughUpdateCount`, how many updates the
+document held through it (0 exactly when the id is null). After the last page,
+the reader stores both as its
 [processed cursor](./glossary/sync.md#processed-cursor), with the frontier it
 reached and its judge (the void-rules version and the Loro decoder version).
+The count includes the updates the reader voided and those a rotation baseline
+replaced, so a container listing's `metadataUpdateCount` at or below it owes no
+read
+([container metadata under lost hints](./client-sync-ordering.md#container-metadata-under-lost-hints)).
+A create or registration that commits a container's metadata seed stores the
+cursor that seed stands for (`recordCommittedSeedProgressInTransaction`): the
+seed is its new document's one update, so the cursor names it with a count of
+1, and a listing of a container this device created owes it no read.
 Its next pull sends the cursor as `processedThroughUpdateId`. The server then
 starts the pull after the cursor's commit position, never past the pull's upper
 bound, so a void update is served once instead of on every pull. An id that is

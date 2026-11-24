@@ -1,0 +1,7 @@
+# Issue #3194 (section 2b, flag day): a container listing row advertises
+# `metadataUpdateCount`, the number of updates the server holds for its
+# metadata document, instead of `metadataVersionVector`, the spans those
+# updates declare. A client covers the count with its processed cursor, so a
+# void update no longer leaves the row owing a read on every listing. Remove
+# this whole file as soon as main contains the new contract.
+POST /containers/parent-lanes/query removed the required property `results/items/page/items/items/metadataVersionVector` from the response with the `200` status

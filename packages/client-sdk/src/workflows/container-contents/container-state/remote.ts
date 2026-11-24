@@ -1,5 +1,4 @@
 import type { ContainerAccessManifestState } from "@tearleads/crypto";
-import { emptyVersionVector } from "@tearleads/loro";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerMutationResponse,
@@ -262,8 +261,8 @@ export async function moveRemoteContainer(input: {
       metadataAccessStateHash: response.manifestHead.manifestHash,
       metadataReferencedPrincipals:
         signedContainerReferencedPrincipalHeads(plan),
-      // A move says nothing about the metadata document's version.
-      metadataVersionVector: emptyVersionVector(),
+      // A move says nothing about the metadata document's updates.
+      metadataUpdateCount: 0,
       updatedAt: response.updatedAt,
     },
   };

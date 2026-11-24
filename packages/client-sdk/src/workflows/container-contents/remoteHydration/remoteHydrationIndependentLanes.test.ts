@@ -29,7 +29,7 @@ function container(
     metadataAccessEpoch: 1,
     metadataAccessStateHash: `access-${id}`,
     metadataDocumentId: `metadata-${id}`,
-    metadataVersionVector: "",
+    metadataUpdateCount: 0,
     metadataReferencedPrincipals: [],
     organizationId: "organization-1",
     parentId,

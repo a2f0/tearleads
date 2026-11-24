@@ -91,6 +91,17 @@ async function recordContainerCreateFailure(input: {
   return currentCreateResult(input.isCurrent, "failed");
 }
 
+/** How a create's container saves: at the server's times, with its seed. */
+function createdContainerSaveOptions(created: CreatedRemoteContainerState) {
+  return {
+    committedSeedUpdateId: created.metadataSeed?.updateId,
+    serverTimestamps: {
+      createdAt: created.createdAt,
+      updatedAt: created.updatedAt,
+    },
+  };
+}
+
 async function persistCreatedRemoteContainerStateFromIntent(input: {
   containerState: ContainerState;
   created: CreatedRemoteContainerState;
@@ -136,12 +147,7 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
         ...created.persistedMetadataState,
       },
       false,
-      {
-        serverTimestamps: {
-          createdAt: created.createdAt,
-          updatedAt: created.updatedAt,
-        },
-      },
+      createdContainerSaveOptions(created),
       {
         ...(created.metadataSeed
           ? {

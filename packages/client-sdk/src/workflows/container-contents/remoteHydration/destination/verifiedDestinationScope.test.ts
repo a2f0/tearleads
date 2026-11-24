@@ -21,7 +21,7 @@ test.each(SCOPE_RETIREMENTS)(
       metadataAccessStateHash: "metadata-hash",
       metadataDocumentId: "listed-metadata",
       metadataReferencedPrincipals: [],
-      metadataVersionVector: "",
+      metadataUpdateCount: 0,
       organizationId: crypto.randomUUID(),
       parentId: crypto.randomUUID(),
       systemSlot: null,
