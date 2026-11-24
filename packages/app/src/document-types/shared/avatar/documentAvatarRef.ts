@@ -1,8 +1,12 @@
 import type { DocumentSnapshot } from "@tearleads/client-sdk";
-import { findAvatarCrop, findDocumentAvatar } from "../shared/documentPhotos";
-import { CONTACT_PHOTOS } from "./contactDocumentDefinition";
+import {
+  type DocumentPhotoCapability,
+  findAvatarCrop,
+  findDocumentAvatar,
+} from "../documentPhotos";
 
-export interface ContactAvatarRef {
+/** The blob a list row loads to show a document's avatar. */
+export interface DocumentAvatarRef {
   byteLength: number;
   mimeType: string | null;
   // Null while the blob has not been hydrated locally yet (e.g. an avatar set
@@ -10,13 +14,15 @@ export interface ContactAvatarRef {
   storageKey: string | null;
 }
 
-export function getContactAvatarRef(
+/** The chosen photo's square crop when it has one, else the photo itself. */
+export function getDocumentAvatarRef(
+  photos: DocumentPhotoCapability,
   snapshot: Pick<
     DocumentSnapshot,
     "attachments" | "attachmentStorageKeyBySlotId" | "structuredFields"
   >,
-): ContactAvatarRef | null {
-  const photo = findDocumentAvatar(CONTACT_PHOTOS, snapshot);
+): DocumentAvatarRef | null {
+  const photo = findDocumentAvatar(photos, snapshot);
   const attachment =
     photo && (findAvatarCrop(snapshot.attachments, photo) ?? photo);
   if (!attachment) {
@@ -31,9 +37,9 @@ export function getContactAvatarRef(
   };
 }
 
-export function sameContactAvatarRef(
-  left: ContactAvatarRef | null | undefined,
-  right: ContactAvatarRef | null | undefined,
+export function sameDocumentAvatarRef(
+  left: DocumentAvatarRef | null | undefined,
+  right: DocumentAvatarRef | null | undefined,
 ): boolean {
   if (!left || !right) {
     return !left === !right;

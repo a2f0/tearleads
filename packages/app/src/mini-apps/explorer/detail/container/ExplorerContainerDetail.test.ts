@@ -403,7 +403,7 @@ test("container item table labels only the current self contact as You", () => {
 
 test("container item table uses contact avatars and their shared placeholder", () => {
   const view = renderContainerItemTable({
-    contactAvatarUrlByLocalId: {
+    avatarUrlByLocalId: {
       [namedCurrentSelfContactRow.localId]: "blob:avatar",
     },
     rows: [namedCurrentSelfContactRow, ownerSelfContactRow],
@@ -413,15 +413,46 @@ test("container item table uses contact avatars and their shared placeholder", (
   const withoutAvatar = view.getByRole("button", { name: "owner-user-id" });
 
   expect(
-    withAvatar.querySelector(".contact-avatar-image")?.getAttribute("src"),
+    withAvatar.querySelector(".document-avatar-image")?.getAttribute("src"),
   ).toBe("blob:avatar");
   expect(withAvatar.querySelector(".explorer-item-icon")).toBeNull();
-  expect(withoutAvatar.querySelector(".contact-avatar")).not.toBeNull();
-  expect(withoutAvatar.querySelector(".contact-avatar-image")).toBeNull();
+  expect(withoutAvatar.querySelector(".document-avatar")).not.toBeNull();
+  expect(withoutAvatar.querySelector(".document-avatar-image")).toBeNull();
   expect(
-    withoutAvatar.querySelector(".contact-avatar-silhouette"),
+    withoutAvatar.querySelector(".document-avatar-fallback"),
   ).not.toBeNull();
   expect(withoutAvatar.querySelector(".explorer-item-icon")).toBeNull();
+});
+
+test("container item table lists every avatar kind by its avatar and other documents by their glyph", () => {
+  const toolRow = {
+    ...noteRow,
+    documentKind: "tool",
+    localId: "tool-local",
+    name: "Drill",
+  };
+  const applianceRow = {
+    ...noteRow,
+    documentKind: "appliance",
+    localId: "appliance-local",
+    name: "Washer",
+  };
+  const view = renderContainerItemTable({
+    avatarUrlByLocalId: { [toolRow.localId]: "blob:drill" },
+    rows: [toolRow, applianceRow, noteRow],
+    totalCount: 3,
+  });
+  const tool = view.getByRole("button", { name: "Drill" });
+  const appliance = view.getByRole("button", { name: "Washer" });
+  const note = view.getByRole("button", { name: "Note" });
+
+  expect(
+    tool.querySelector(".document-avatar-image")?.getAttribute("src"),
+  ).toBe("blob:drill");
+  expect(appliance.querySelector(".document-avatar-fallback")).not.toBeNull();
+  expect(appliance.querySelector(".explorer-item-icon")).toBeNull();
+  expect(note.querySelector(".document-avatar")).toBeNull();
+  expect(note.querySelector(".explorer-item-icon")).not.toBeNull();
 });
 
 test("container item table renders configured container icons", () => {

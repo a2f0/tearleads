@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
 import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
+import { UserIcon } from "@phosphor-icons/react/dist/csr/User";
+import { WashingMachineIcon } from "@phosphor-icons/react/dist/csr/WashingMachine";
+import { WrenchIcon } from "@phosphor-icons/react/dist/csr/Wrench";
 import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "@tearleads/client-sdk";
 import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
@@ -8,6 +11,7 @@ import {
 import {
   CREATABLE_DOCUMENT_TYPE_DEFINITIONS,
   DOCUMENT_TYPE_DEFINITIONS,
+  getDocumentPhotoCapability,
   getDocumentTypeDefinition,
 } from "./registry";
 
@@ -115,18 +119,23 @@ test("unregistered stored Loro document kinds use a read-only fallback app", () 
   ).toContain(ORGANIZATION_PROFILE_DOCUMENT_KIND);
 });
 
-test("contact and appliance photos support an optional avatar, tools support photos, and weight has neither", () => {
+test("contacts, appliances, and tools keep photos with an optional avatar, and weight has neither", () => {
   expect(getDocumentTypeDefinition("contact").photos).toEqual({
     slotId: "contact-photos",
-    avatar: true,
+    avatarFallbackIcon: UserIcon,
   });
   expect(getDocumentTypeDefinition("appliance").photos).toEqual({
     slotId: "equipment-photos",
-    avatar: true,
+    avatarFallbackIcon: WashingMachineIcon,
   });
   expect(getDocumentTypeDefinition("tool").photos).toEqual({
     slotId: "equipment-photos",
-    avatar: false,
+    avatarFallbackIcon: WrenchIcon,
   });
   expect(getDocumentTypeDefinition("weight").photos).toBeUndefined();
+  expect(getDocumentPhotoCapability("tool")).toBe(
+    getDocumentTypeDefinition("tool").photos,
+  );
+  expect(getDocumentPhotoCapability("weight")).toBeUndefined();
+  expect(getDocumentPhotoCapability("unregistered-kind")).toBeUndefined();
 });

@@ -27,7 +27,7 @@ export function structuredFieldsProjector<
   return ({ structuredFields }) => {
     const validated = readFields(structuredFields);
     const fields: Record<string, string> = { ...validated.fields };
-    if (photos?.avatar && structuredFields[AVATAR_PHOTO_FIELD] !== undefined) {
+    if (photos && structuredFields[AVATAR_PHOTO_FIELD] !== undefined) {
       fields[AVATAR_PHOTO_FIELD] = readStringDocumentField(
         structuredFields,
         AVATAR_PHOTO_FIELD,

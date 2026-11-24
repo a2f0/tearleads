@@ -1,14 +1,15 @@
 import type { Icon } from "@phosphor-icons/react";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
 import { useMemo, useRef } from "react";
-import { MiniAppSelectMenu } from "../../components/mini-app/controls/MiniAppSelectMenu";
-import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
-import { useAppHostConfig } from "../../providers/host/AppHostConfigProvider";
-import { ContactAvatar } from "../contact/ContactAvatar";
-import { ContactAvatarEditorDialog } from "../contact/ContactAvatarEditorDialog";
-import { AttachmentActionButton } from "./AttachmentActionButton";
+import { MiniAppSelectMenu } from "../../../components/mini-app/controls/MiniAppSelectMenu";
+import { MiniAppStatus } from "../../../components/mini-app/MiniAppLayout";
+import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
+import { AttachmentActionButton } from "../AttachmentActionButton";
+import type { AvatarChoice } from "../documentPhotos";
+import { AvatarEditorDialog } from "./AvatarEditorDialog";
 import type { AvatarSource } from "./avatarPickerMachine";
-import type { AvatarChoice } from "./documentPhotos";
+import { DocumentAvatarImage } from "./DocumentAvatarImage";
+import "./DocumentAvatarControl.css";
 import { useAvatarPicker } from "./useAvatarPicker";
 
 const AVATAR_LABELS = {
@@ -120,7 +121,7 @@ function AvatarActions({
   }
   return (
     <>
-      <div className="contact-avatar-control-actions">
+      <div className="document-avatar-control-actions">
         {photos.length > 0 && onChoosePhoto && (
           <AvatarPhotoSelect
             photos={photos}
@@ -159,7 +160,7 @@ function AvatarActions({
         disabled={capturing}
         accept="image/*"
         aria-label={scanner ? AVATAR_LABELS.choosePhoto : editorTitle}
-        className="contact-avatar-control-file-input"
+        className="document-avatar-control-file-input"
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = "";
@@ -185,8 +186,8 @@ export function DocumentAvatarControl(props: AvatarControlProps) {
   const { state, dispatch, save } = picker;
   const editorTitle = hasAvatar ? AVATAR_LABELS.replace : AVATAR_LABELS.set;
   return (
-    <div className="contact-avatar-control">
-      <ContactAvatar
+    <div className="document-avatar-control">
+      <DocumentAvatarImage
         alt={`${AVATAR_LABELS.altPrefix} ${displayName}`.trim()}
         fallbackIcon={fallbackIcon}
         imageUrl={avatarUrl}
@@ -201,7 +202,7 @@ export function DocumentAvatarControl(props: AvatarControlProps) {
         </MiniAppStatus>
       ) : null}
       {canEdit && state.status === "editing" ? (
-        <ContactAvatarEditorDialog
+        <AvatarEditorDialog
           onCancel={() => dispatch({ type: "close" })}
           onConfirm={(crop) =>
             save(() => onApplyAvatar(croppedChoice(state.source, crop)))
