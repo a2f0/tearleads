@@ -35,5 +35,9 @@ desktop_release_main() {
   esac
   desktop_repo_root="$(CDPATH='' cd -- "$SCRIPT_DIR/../.." && pwd -P)"
   cd "$desktop_repo_root" || return 1
+  # A fresh clone has no .secrets yet; link it before the driver loads the tier.
+  # shellcheck source=scripts/lib/secretsStore.sh
+  . "$desktop_repo_root/scripts/lib/secretsStore.sh"
+  secrets_store_link "$desktop_repo_root"
   exec bash "$desktop_repo_root/packages/app-electrobun/scripts/$desktop_driver" "$desktop_action" "$desktop_tier"
 }
