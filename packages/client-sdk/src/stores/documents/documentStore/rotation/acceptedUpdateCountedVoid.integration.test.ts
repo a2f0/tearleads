@@ -105,10 +105,7 @@ function onlyUpdate(
         (update) => update.id === updateId,
       ),
     },
-  } satisfies Pick<
-    SyncRemoteDocumentResult,
-    "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
-  >;
+  } satisfies Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">;
 }
 
 /**

@@ -125,11 +125,9 @@ test("rotation reads each raw page in its own window, isolating as sync does", a
     getClientSQLitePersistenceRuntime(execSql).db,
     { appKind: "documents", localId },
     {
-      contentKeyEpoch: null,
       counts: false,
       documentId,
       judge: documentVerdictJudge(),
-      keyFingerprint: null,
       lifetimeId: "dead",
       updateIds: ["first-suspect", "second-suspect"],
       windowId: "dead-window",

@@ -32,7 +32,7 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   readonly rebuildBudgetBytes?: number | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,
-    "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
+    "decryptedUpdates" | "response"
   >;
   readonly scope: DocumentScope;
 }): Promise<DocumentSyncImportVerdicts> {

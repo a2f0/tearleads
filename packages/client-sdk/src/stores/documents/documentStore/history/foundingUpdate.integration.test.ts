@@ -207,11 +207,9 @@ test("a founding view claims dead windows and reads in a window it settles", asy
       getClientSQLitePersistenceRuntime(harness.execSql).db,
       { appKind: "documents", localId: "founding-window" },
       {
-        contentKeyEpoch: null,
         counts: false,
         documentId,
         judge: documentVerdictJudge(),
-        keyFingerprint: null,
         lifetimeId: "dead",
         updateIds: ["first-suspect", "second-suspect"],
         windowId: "dead-window",

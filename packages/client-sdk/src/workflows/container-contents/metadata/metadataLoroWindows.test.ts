@@ -150,11 +150,9 @@ test("a metadata pull claims a dead lifetime's window first", async () => {
       getClientSQLitePersistenceRuntime(database.execSql).db,
       containerMetadataScope(CONTAINER_ID),
       {
-        contentKeyEpoch: null,
         counts: false,
         documentId,
         judge: documentVerdictJudge(),
-        keyFingerprint: null,
         lifetimeId: "dead",
         updateIds: ["first-suspect", "second-suspect"],
         windowId: "dead-window",
@@ -198,7 +196,6 @@ test("a metadata page reads inside its window, which its save closes", async () 
       loroWindow,
       metadataScope: containerMetadataScope(CONTAINER_ID),
     }).validateIncomingUpdates({
-      contentKeyFingerprintsByEpoch: new Map(),
       decryptedUpdates: [update],
       response: EMPTY_RESPONSE,
     });
@@ -209,7 +206,6 @@ test("a metadata page reads inside its window, which its save closes", async () 
     const recorder = containerMetadataVerdictRecorder(
       CONTAINER_ID,
       {
-        contentKeyFingerprintsByEpoch: new Map(),
         decryptedUpdates: [update],
         hasHeldPull: false,
         hasIncompletePull: false,
