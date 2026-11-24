@@ -226,7 +226,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
@@ -234,6 +234,7 @@
       },
       "devDependencies": {
         "@tearleads/api": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
         "@tearleads/loro": "workspace:*",
         "@types/bun": "catalog:",
       },
