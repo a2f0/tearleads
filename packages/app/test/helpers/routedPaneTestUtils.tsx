@@ -1,4 +1,5 @@
 import { type RenderResult, render } from "@testing-library/react";
+import type { AppHostConfig } from "../../src/host/AppHostConfig";
 import {
   DualPaneProvider,
   PaneSideProvider,
@@ -8,14 +9,16 @@ import { Pane } from "../../src/shell/pane/shell/Pane";
 import { AppLayoutTestProviders } from "./appLayoutTestProviders";
 import { createTestHostConfig } from "./paneTestUtils";
 
-export function renderRoutedPane(): RenderResult {
+export function renderRoutedPane(
+  hostConfig: AppHostConfig = createTestHostConfig(),
+): RenderResult {
   window.history.replaceState(null, "", "/");
 
   return render(
     <AppLayoutTestProviders>
       <DualPaneProvider>
         <PaneSideProvider side="left">
-          <PaneProvider hostConfig={createTestHostConfig()}>
+          <PaneProvider hostConfig={hostConfig}>
             <Pane className="pane" navigationMode="routed" routedVisible />
           </PaneProvider>
         </PaneSideProvider>
