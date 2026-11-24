@@ -7,16 +7,17 @@ import { useCallback } from "react";
 import { useTearleadsExternalValue } from "./useTearleadsSubscription";
 
 /**
- * The scope's sync coordinator snapshot. Lanes can register while a provider
- * renders (the SDK builds its runtimes in render-time memos), so a snapshot can
- * publish in the middle of another component's render. Telling React then
- * would update this view during that render, so the change is handed over in
- * a microtask, once per burst, and React reads the latest snapshot.
+ * Subscribes to the scope's sync coordinator. Lanes can register while a
+ * provider renders (the SDK builds its runtimes in render-time memos), so a
+ * snapshot can publish in the middle of another component's render. Telling
+ * React then would update that view during the render, so the change is
+ * handed over in a microtask, once per burst, and React reads the latest
+ * snapshot.
  */
-export function useDomainSyncSnapshot(
+function useDomainSyncSubscription(
   domainScope: DomainScope,
-): DomainSyncSnapshot {
-  const subscribe = useCallback(
+): (listener: () => void) => () => void {
+  return useCallback(
     (listener: () => void) => {
       let subscribed = true;
       let scheduled = false;
@@ -35,10 +36,31 @@ export function useDomainSyncSnapshot(
     },
     [domainScope],
   );
+}
+
+/** The scope's sync coordinator snapshot, on every lane change. */
+export function useDomainSyncSnapshot(
+  domainScope: DomainScope,
+): DomainSyncSnapshot {
+  const subscribe = useDomainSyncSubscription(domainScope);
   const getSnapshot = useCallback(
     () => getDomainSyncCoordinatorSnapshot(domainScope),
     [domainScope],
   );
 
   return useTearleadsExternalValue(subscribe, getSnapshot);
+}
+
+/**
+ * Whether the scope's sync has work requested or running. A view that only
+ * needs to know that re-renders when it flips, not on every lane's progress.
+ */
+export function useDomainSyncPendingWork(domainScope: DomainScope): boolean {
+  const subscribe = useDomainSyncSubscription(domainScope);
+  const getPendingWork = useCallback(
+    () => getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork,
+    [domainScope],
+  );
+
+  return useTearleadsExternalValue(subscribe, getPendingWork);
 }
