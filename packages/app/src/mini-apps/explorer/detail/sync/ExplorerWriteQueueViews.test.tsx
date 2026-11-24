@@ -62,10 +62,8 @@ test("explains why an errored entry is stuck in its detail view", () => {
   expect(
     view.getByText(EXPLORER_LABELS.writeQueueEntryOperationsHeading),
   ).toBeTruthy();
-  // The entry's own title and name head the view.
-  expect(
-    view.getByText(EXPLORER_LABELS.writeQueueEntryDetailTitle),
-  ).toBeTruthy();
+  // The General section names the entry; no header repeats it.
+  expect(view.container.querySelector(".mini-app-header")).toBeNull();
   expect(view.getAllByText("Offline note").length).toBeGreaterThan(0);
 });
 

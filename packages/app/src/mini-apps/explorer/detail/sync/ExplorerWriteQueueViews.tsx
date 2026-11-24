@@ -7,8 +7,6 @@ import { useId, useMemo } from "react";
 import {
   MiniAppActions,
   MiniAppButton,
-  MiniAppHeader,
-  MiniAppHeaderCopy,
   MiniAppModalBackdrop,
   MiniAppModalForm,
   MiniAppModalHighlight,
@@ -169,8 +167,8 @@ function WriteQueueEntryBody(
 }
 
 /**
- * One queued entry's detail, under its own header in place of the whole
- * Outgoing list: why it has not synced yet and each of its pending writes.
+ * One queued entry's detail in place of the whole Outgoing list: why it has
+ * not synced yet and each of its pending writes. Its General section names it.
  */
 export function ExplorerWriteQueueEntryView(
   params: ExplorerWriteQueueEntryViewProps,
@@ -179,19 +177,5 @@ export function ExplorerWriteQueueEntryView(
     params.items.find(
       (item) => getWriteQueueItemKey(item) === params.selectedEntryKey,
     ) ?? null;
-  return (
-    <>
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{EXPLORER_LABELS.writeQueueEntryDetailTitle}</strong>
-          <span>
-            {selectedEntry
-              ? getWriteQueueItemName(selectedEntry)
-              : params.selectedEntryKey}
-          </span>
-        </MiniAppHeaderCopy>
-      </MiniAppHeader>
-      <WriteQueueEntryBody {...params} selectedEntry={selectedEntry} />
-    </>
-  );
+  return <WriteQueueEntryBody {...params} selectedEntry={selectedEntry} />;
 }

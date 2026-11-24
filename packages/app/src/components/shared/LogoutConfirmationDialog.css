@@ -1,7 +1,3 @@
-.logout-confirmation-dialog-backdrop {
-  z-index: 2000;
-}
-
 .logout-confirmation-keep-data {
   display: flex;
   align-items: center;
