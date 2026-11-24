@@ -14,7 +14,8 @@ import type { DocumentStoreSyncGeneration } from "./syncGeneration";
  * recorded and `view` lacks, and forget a slot that has none. Bytes this
  * store never held leave no removal marker, so a removal that reached it
  * after the slot's bind is reconciled here. The API keeps the binding while
- * the document, or the version it was bound at, holds an op the view lacks.
+ * the document holds a committed op the view lacks, or the version it was
+ * bound at holds an op not yet committed.
  */
 export async function detachRemovedSlotBindings(input: {
   activeBindingBySlotId: ReadonlyMap<string, DocumentAttachmentBinding>;

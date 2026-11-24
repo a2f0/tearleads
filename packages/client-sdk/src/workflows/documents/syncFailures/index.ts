@@ -184,10 +184,10 @@ async function classifyFailedDocumentSyncAction(input: {
 
   // Another user owns a peer this request extends. The pass rebases the
   // record's unsent ops on the named peers onto a fresh peer and ends; the
-  // next pass sends the rebased update.
+  // next pass sends the rebased update. Ending spends no retry, so the last
+  // attempt rebases too.
   const peerFrontiers = input.failure.peerFrontiers ?? [];
   if (
-    input.attempt < input.maxAttempts &&
     input.canRebaseOntoFreshPeer === true &&
     input.failure.code === DOCUMENT_SYNC_ERROR_CODES.peerOwned &&
     peerFrontiers.length > 0

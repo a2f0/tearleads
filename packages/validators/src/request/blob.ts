@@ -138,7 +138,8 @@ export type BlobAttachmentBindRequest = z.infer<
  * `documentVersionVector` is the document version the client read when it
  * found the slot removed: the detach refuses while the document has a
  * committed update that version lacks, or while the binding's own bind
- * version holds an op it lacks, so it never unbinds bytes a restore asks for.
+ * version holds an op not yet committed, so it never unbinds bytes a restore
+ * asks for.
  * `processedThroughUpdateId` is the client's processed cursor, as on a bind:
  * the first check then weighs only updates committed after it.
  */
