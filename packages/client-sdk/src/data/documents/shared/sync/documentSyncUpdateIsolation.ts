@@ -3,6 +3,7 @@ import type { DocumentSyncResponse } from "@tearleads/validators/response";
 type DocumentSyncUpdateIsolationStage =
   | "content_key"
   | "decrypt"
+  | "decrypt_runtime"
   | "encrypted_record"
   | "loro_import"
   | "loro_metadata"

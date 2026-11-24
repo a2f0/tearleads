@@ -24,6 +24,7 @@ import {
   nonEmptyStringSchema,
   plainObjectSchema,
   positiveIntegerSchema,
+  sha256HexStringSchema,
 } from "../schema";
 import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
@@ -66,6 +67,7 @@ export type DocumentKekTargetsResponse = z.infer<
 >;
 
 export const DocumentContentKeyBundleResponseSchema = loosePlainObject({
+  contentKeyCommitment: sha256HexStringSchema,
   contentKeyEpoch: positiveIntegerSchema,
   documentId: z.string(),
   linkSetManifestHash: nonEmptyStringSchema,

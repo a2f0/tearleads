@@ -157,6 +157,15 @@ rotation judges raw history with no rebuild budget, so a writer who commits
 many voids behind a large update makes each rotation, and so each unlink, of
 that document rebuild once per void.
 
+The API cannot read a document content-key wrap, so a member that opens an epoch
+or carries its key to a new target (by creating, linking, unlinking, or healing
+the document) can wrap a key other than the committed one to some target. A
+reader of that target fails the epoch's [content-key
+commitment](../glossary/keys.md#content-key-commitment), records no verdict, and
+cannot read the epoch until a member holding the committed key opens a new epoch
+for the document, as an unlink or a stale-bundle heal does. Bundles are not
+signed, so the reader cannot tell which member wrapped the wrong key.
+
 ## Information-Disclosure Scenarios
 
 ### Forged Group Or Organization Membership

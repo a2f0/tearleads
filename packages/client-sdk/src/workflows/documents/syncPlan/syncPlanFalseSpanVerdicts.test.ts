@@ -16,7 +16,6 @@ import { replaceEncryptedPlaintext } from "../../../../test/helpers/data/replace
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { judgeDocumentSyncUpdateDecryption } from "../../../data/documents/shared/crypto";
 import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
-import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { withoutVoidedUpdates } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 
@@ -202,7 +201,7 @@ test("a payload whose signed plaintext hash does not match is void", async () =>
   expect(voided.map((entry) => entry.stage)).toEqual(["plaintext_integrity"]);
 });
 
-test("AES-GCM failure still fails the pass: the reader cannot prove its key is the writer's", async () => {
+test("AES-GCM failure under the committed key is void for every reader", async () => {
   const [carried] = await edits("verdict-aead", 1);
   if (!carried) throw new Error("expected an edit");
   const { judge, response } = await judgePage(
@@ -212,8 +211,9 @@ test("AES-GCM failure still fails the pass: the reader cannot prove its key is t
     response.updates.map(async (update) => {
       if (update.id !== ids.liar) return update;
       const envelope = JSON.parse(update.encryptedData) as { iv: string };
-      // A different IV authenticates under no key, as a wrong epoch key would
-      // not; the signed header still names this exact ciphertext.
+      // A writer that signs a ciphertext its committed key does not open: the
+      // envelope still commits to the epoch's key, and the signed header
+      // names this exact ciphertext.
       envelope.iv = bytesToBase64(new Uint8Array(12));
       const encryptedData = JSON.stringify(envelope);
       return {
@@ -227,11 +227,14 @@ test("AES-GCM failure still fails the pass: the reader cannot prove its key is t
       };
     }),
   );
-  const failure = await judge(tampered).then(
-    () => null,
-    (error: unknown) => error,
-  );
-  expect(isDocumentSyncUpdateIsolationError(failure)).toBe(true);
-  if (!isDocumentSyncUpdateIsolationError(failure)) return;
-  expect(failure.stage).toBe("decrypt");
+  // Every reader holding the committed key reaches the same verdict.
+  for (const verdict of [await judge(tampered), await judge(tampered)]) {
+    expect(verdict.accepted.map((update) => update.id)).toEqual([
+      ids.before,
+      ids.after,
+    ]);
+    expect(
+      verdict.voided.map(({ stage, updateId }) => ({ stage, updateId })),
+    ).toEqual([{ stage: "decrypt", updateId: ids.liar }]);
+  }
 });

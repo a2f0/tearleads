@@ -134,6 +134,7 @@ export function createDocumentLinkSetMutationRequest(): DocumentLinkSetMutationR
       [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
     ],
     contentKeyBundle: {
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 1,
       linkSetManifestHash: "document-manifest-hash",
       targetHash: "target-hash",
@@ -221,6 +222,7 @@ export function createDocumentLinkSetMutationResponse(): DocumentLinkSetMutation
     },
     contentKeyBundle: {
       documentId: "document-1",
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 1,
       linkSetManifestHash: "document-manifest-hash",
       targetHash: "target-hash",
@@ -262,6 +264,7 @@ export function createDocumentCreateRequest(): DocumentCreateRequest {
       { containerId: "container-1", manifestHash: "container-manifest-hash" },
     ],
     contentKeyBundle: {
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 1,
       linkSetManifestHash: "document-manifest-hash",
       targetHash: "target-hash",

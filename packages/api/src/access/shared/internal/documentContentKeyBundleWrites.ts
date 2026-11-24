@@ -16,6 +16,11 @@ import {
 import type { DocumentKekTargetsRead } from "./documentKekTargets";
 
 export interface StoreDocumentContentKeyBundleInput {
+  /**
+   * The content-key commitment the submitter derived from the key it wraps.
+   * It opens a new epoch; at an existing epoch it must equal the stored one.
+   */
+  readonly contentKeyCommitment: string;
   /** Genuine immediate-create result, with no intervening bundle writes. */
   readonly createdBundle?: StoredDocumentContentKeyBundle | undefined;
   readonly documentId: string;

@@ -172,7 +172,7 @@ export async function seedOrganizationDataUsage(input: {
       breakdown: [
         {
           category: "containerMetadata",
-          byteLength: 979,
+          byteLength: 1159,
           documentCount: 3,
           updateCount: 3,
         },
@@ -190,10 +190,10 @@ export async function seedOrganizationDataUsage(input: {
         },
         { category: "user", byteLength: 24, documentCount: 1, updateCount: 2 },
       ],
-      byteLength: 1003,
+      byteLength: 1183,
       documentCount: 4,
       updateCount: 5,
     },
-    totalByteLength: 1020,
+    totalByteLength: 1200,
   } satisfies Omit<OrganizationDataUsageResponse, "organizationId">;
 }

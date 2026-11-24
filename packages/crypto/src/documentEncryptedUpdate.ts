@@ -8,6 +8,7 @@ export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
 
 const DOCUMENT_ENCRYPTED_UPDATE_KEYS: ReadonlySet<string> = new Set([
   "ciphertext",
+  "contentKeyCommitment",
   "contentKeyEpoch",
   "contentRecordId",
   "encryptionSuite",
@@ -22,6 +23,12 @@ const LABEL = "Document encrypted update";
 
 export interface ParsedDocumentEncryptedUpdate {
   ciphertext: Uint8Array;
+  /**
+   * The writer's content-key commitment for this document and epoch: the
+   * envelope is signed through the write header's `ciphertextHash`, so a
+   * reader holding the key it names can blame the writer for AES-GCM.
+   */
+  contentKeyCommitment: string;
   contentKeyEpoch: number;
   contentRecordId: string;
   iv: Uint8Array;
@@ -33,6 +40,14 @@ function readString(record: Record<string, unknown>, key: string): string {
   const value = record[key];
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`${LABEL}.${key} must be a non-empty string`);
+  }
+  return value;
+}
+
+function readLowerHex64(record: Record<string, unknown>, key: string): string {
+  const value = readString(record, key);
+  if (!/^[0-9a-f]{64}$/.test(value)) {
+    throw new Error(`${LABEL}.${key} must be 64 lowercase hex characters`);
   }
   return value;
 }
@@ -98,6 +113,7 @@ export function parseDocumentEncryptedUpdate(
   assertAesGcmIv(iv, `${LABEL} IV is invalid`);
   return {
     ciphertext: base64ToBytes(readString(record, "ciphertext")),
+    contentKeyCommitment: readLowerHex64(record, "contentKeyCommitment"),
     contentKeyEpoch: readPositiveInteger(record, "contentKeyEpoch"),
     contentRecordId: readString(record, "contentRecordId"),
     iv,

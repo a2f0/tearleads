@@ -12,6 +12,7 @@ import {
 
 const create = {
   contentKeyBundle: {
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch: 1,
     linkSetManifestHash: "document-link-set-hash",
     targetHash: "target-hash",

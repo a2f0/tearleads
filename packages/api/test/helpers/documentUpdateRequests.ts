@@ -25,7 +25,10 @@ import { eq } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
 import { currentDocumentLinkRows } from "./currentDocumentLinks";
 import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
-import { signWithDocumentEnvelope } from "./documentEnvelopeFixture";
+import {
+  CONTENT_KEY_COMMITMENT_FIXTURE,
+  signWithDocumentEnvelope,
+} from "./documentEnvelopeFixture";
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
 type ContainerPathRefs = NonNullable<
@@ -57,6 +60,7 @@ export interface DeclaredSpan {
 async function createSignedOrdinaryUpdate(input: {
   readonly authorizingContainerPathRefs: ContainerPathRefs;
   readonly checkpoint: boolean;
+  readonly contentKeyCommitment?: string | undefined;
   readonly contentKeyBundle?: CreatedDocumentFixture["contentKeyBundle"];
   readonly coversThroughUpdateId?: string | undefined;
   readonly created: CreatedDocumentFixture;
@@ -133,6 +137,7 @@ async function createSignedOrdinaryUpdate(input: {
       signedAt: "2026-04-27T12:00:00.000Z",
     },
     input.owner.signing.signingPrivateKey,
+    input.contentKeyCommitment,
   );
   return {
     encryptedData,
@@ -147,6 +152,11 @@ export async function createSignedDocumentSyncRequest(input: {
   /** Defaults to the root alone; the update's header cites every path. */
   readonly authorizingContainerPathRefs?: ContainerPathRefs | undefined;
   readonly checkpoint?: boolean;
+  /**
+   * The commitment the update's envelope and any carried bundle declare;
+   * defaults to `CONTENT_KEY_COMMITMENT_FIXTURE`.
+   */
+  readonly contentKeyCommitment?: string | undefined;
   /**
    * Signs the update (and the request expectations) against this bundle
    * instead of the create-time one — e.g. a healed epoch+1 bundle re-wrapped
@@ -185,6 +195,8 @@ export async function createSignedDocumentSyncRequest(input: {
       ...(input.includeContentKeyBundle
         ? {
             contentKeyBundle: {
+              contentKeyCommitment:
+                input.contentKeyCommitment ?? CONTENT_KEY_COMMITMENT_FIXTURE,
               contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
               linkSetManifestHash: contentKeyBundle.linkSetManifestHash,
               targetHash: contentKeyBundle.targetHash,
@@ -248,6 +260,7 @@ export async function createFirstUpdateSyncRequest(input: {
 export async function createSignedAtomicRotationBaseline(input: {
   readonly dependencyManifestHashes: readonly string[];
   readonly accessManifestHash: string;
+  readonly contentKeyCommitment?: string | undefined;
   readonly contentKeyEpoch: number;
   readonly coversThroughUpdateId?: string | undefined;
   readonly documentId: string;
@@ -307,6 +320,7 @@ export async function createSignedAtomicRotationBaseline(input: {
       signedAt: "2026-07-14T12:00:00.000Z",
     },
     input.owner.signing.signingPrivateKey,
+    input.contentKeyCommitment,
   );
   return {
     checkpointKind: "rotate_baseline",

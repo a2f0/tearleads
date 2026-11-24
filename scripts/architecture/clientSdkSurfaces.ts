@@ -62,7 +62,7 @@ export const principalPolicyContractsSurface = [
 // Container Data, Client Blob Storage, and Document Store & Sync build on.
 // Document sync also uses the KEK currency, content crypto, event, outgoing
 // batch, pagination, decryption, import, verdict, Loro runtime-failure ledger,
-// Loro lifetime and read-window, key-fingerprint, acknowledgement, and
+// Loro lifetime and read-window, content-key commitment, acknowledgement, and
 // submit-failure contracts.
 export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/containerKek/index.ts`,
@@ -77,7 +77,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/readers.ts`,
   `${sdk}/data/documents/shared/responses.ts`,
   `${sdk}/data/documents/shared/stableDocumentId.ts`,
-  `${sdk}/data/documents/shared/sync/contentKeyFingerprint.ts`,
+  `${sdk}/data/documents/shared/sync/contentKeyCommitment.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncImportVerdicts.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncOutgoingBatch.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncTypes.ts`,

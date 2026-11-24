@@ -230,6 +230,7 @@ async function appendMutationRotationBaseline(
   }
   return appendAtomicRotationBaseline({
     baseline: rotationBaseline,
+    contentKeyCommitment: contentKeyBundle.contentKeyCommitment,
     documentId: input.documentId,
     executor: input.executor,
     fingerprint: input.fingerprint,

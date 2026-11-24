@@ -94,6 +94,13 @@ The stored shapes enforce:
 - Document and blob [content-key](../glossary/keys.md#content-key) wraps authenticate
   the suite, object id, content-key epoch, and target as AES-GCM associated
   data.
+- Each document content-key epoch stores the
+  [content-key commitment](../glossary/keys.md#content-key-commitment) its
+  opening bundle declared, and every document update envelope names it
+  ([#3194](https://github.com/a2f0/tearleads/issues/3194)). Migration `0008`
+  adds `content_key_commitment` as `NOT NULL` with no default, so it fails, and
+  rolls back, on a database that still holds epoch rows: deploying it requires
+  the reset above and fresh client databases.
 - Signed write headers are the write-integrity mechanism (see
   [document write integrity](../document-rekey-and-audit-history.md#write-integrity));
   there is no server-side audit hash chain. A

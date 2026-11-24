@@ -33,6 +33,7 @@ import type {
 export async function buildDocumentCreatePlan({
   author,
   containerProjection,
+  contentKeyCommitment,
   contentKeyEpoch = 1,
   documentId = crypto.randomUUID(),
   eventId = crypto.randomUUID(),
@@ -111,6 +112,7 @@ export async function buildDocumentCreatePlan({
       expectedManifestHash: manifestHash,
       targetContainerPathRefs: containerPathRefs(containerProjection.path),
       contentKeyBundle: {
+        contentKeyCommitment,
         contentKeyEpoch,
         linkSetManifestHash: manifestHash,
         targetHash,

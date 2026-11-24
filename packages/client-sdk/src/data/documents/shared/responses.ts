@@ -80,6 +80,7 @@ function assertDocumentMutationAcknowledgement(input: {
 }
 
 function acknowledgedDocumentMutationFromPlan(input: {
+  contentKeyCommitment: string;
   contentKeyEpoch: number;
   contentKeyTargets: DocumentContentKeyBundleResponse["targets"];
   plan: DocumentMutationPlan;
@@ -98,6 +99,7 @@ function acknowledgedDocumentMutationFromPlan(input: {
     },
     contentKeyBundle: {
       documentId: plan.documentId,
+      contentKeyCommitment: input.contentKeyCommitment,
       contentKeyEpoch: input.contentKeyEpoch,
       linkSetManifestHash: plan.manifestHash,
       targetHash: plan.targetHash,
@@ -138,6 +140,7 @@ export function acknowledgedDocumentCreate(
 ): AcknowledgedDocumentMutation {
   assertDocumentCreateResponseMatchesPlan(plan, response);
   return acknowledgedDocumentMutationFromPlan({
+    contentKeyCommitment: plan.request.contentKeyBundle.contentKeyCommitment,
     contentKeyEpoch: plan.request.contentKeyBundle.contentKeyEpoch,
     contentKeyTargets: plan.request.contentKeyBundle.targets,
     plan,
@@ -156,6 +159,7 @@ export function acknowledgedDocumentLinkSetMutation(
     response,
   });
   return acknowledgedDocumentMutationFromPlan({
+    contentKeyCommitment: plan.request.contentKeyBundle.contentKeyCommitment,
     contentKeyEpoch: plan.contentKeyEpoch,
     contentKeyTargets: plan.request.contentKeyBundle.targets,
     plan,

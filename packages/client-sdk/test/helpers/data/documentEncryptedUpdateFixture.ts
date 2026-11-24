@@ -7,7 +7,12 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "../../../src/data/documents/shared/types";
 
+/**
+ * An envelope over placeholder ciphertext, for checks that never decrypt. It
+ * commits to a placeholder key unless the caller names a commitment.
+ */
 export async function createDocumentEncryptedUpdateFixture(input: {
+  contentKeyCommitment?: string | undefined;
   contentKeyEpoch: number;
   documentId: string;
   id: string;
@@ -40,6 +45,7 @@ export async function createDocumentEncryptedUpdateFixture(input: {
     format: DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
     version: 1,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentKeyCommitment: input.contentKeyCommitment ?? "c".repeat(64),
     contentKeyEpoch: input.contentKeyEpoch,
     contentRecordId: input.id,
     nonceDomainHash,

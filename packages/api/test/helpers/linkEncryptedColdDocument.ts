@@ -136,6 +136,7 @@ export async function linkEncryptedColdDocument(input: {
       manifestHash: bundle.manifestHash,
     })),
     contentKeyBundle: {
+      contentKeyCommitment: projection.contentKeyBundle.contentKeyCommitment,
       contentKeyEpoch,
       linkSetManifestHash: manifestHash,
       targetHash,

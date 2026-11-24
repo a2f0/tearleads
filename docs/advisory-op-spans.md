@@ -9,28 +9,34 @@ readers and the server do when a span is false (#3135).
 
 ## What the Server Checks
 
-The server refuses (400) a span that is empty or inverted, and an encrypted
+The server refuses (400) a span that is empty or inverted, an encrypted
 envelope whose record id, content-key epoch, metadata hash, or nonce domain
-differs from its signed write header. No honest client sends either. It stores
-any other span as declared.
+differs from its signed write header, and an envelope that does not name its
+epoch's [content-key commitment](./glossary/keys.md#content-key-commitment). No
+honest client sends any of them. It stores any other span as declared.
 
 ## Void Updates
 
-A reader judges each served update in server order. It decrypts the update
-and checks the plaintext hash; then its import judge, the only code that reads
-a payload with Loro, decodes the Loro metadata and imports the update into its
-history plus every update it accepted before. An update is a
-[void update](./glossary/content.md#void-update) when its decoded span is not
-its declared one, its decoder cannot read it, its dependencies are on no
+A reader judges each served update in server order. It checks the envelope
+against the signed header, then that the content key it holds is the one the
+envelope commits to, decrypts the update, and checks the plaintext hash; then
+its import judge, the only code that reads a payload with Loro, decodes the Loro
+metadata and imports the update into its history plus every update it accepted
+before. An update is a [void update](./glossary/content.md#void-update) when
+AES-GCM or the plaintext hash fails under the committed key, its decoded span is
+not its declared one, its decoder cannot read it, its dependencies are on no
 earlier accepted update, or it carries other operations under ids the reader
 already holds. That comparison replays both copies of the operations onto one
 history first, so the runs an import happened to split them into never make an
-honest update void: a checkpoint completing a change the reader holds part of
-is accepted. The reader records it in `document_void_updates`,
-reports it once as `Documents: sync update voided`, and goes on. A void never
-fails the pass or sets the document's sync failure. An AES-GCM failure stays an
-availability failure, because a reader cannot prove its content key is the one
-the writer used. A sync pass whose judge (`validateIncomingUpdates`) returns
+honest update void: a checkpoint completing a change the reader holds part of is
+accepted. The reader records it in `document_void_updates`, reports it once as
+`Documents: sync update voided`, and goes on. A void never fails the pass or
+sets the document's sync failure. A reader whose key is not the committed one
+records no verdict for the update: that is an availability failure, and the pass
+fails as an unwrap failure does. So is a failure of its own runtime while it
+derives keys or decrypts, including an AES-GCM refusal when the reader cannot
+round-trip a canary of the record's size under the same key (stage
+`decrypt_runtime`). A sync pass whose judge (`validateIncomingUpdates`) returns
 no verdicts fails, rather than applying updates nobody judged.
 
 A void whose import changed the scratch history the reader judges against
