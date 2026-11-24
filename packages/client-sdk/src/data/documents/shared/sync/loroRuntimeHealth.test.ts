@@ -25,12 +25,13 @@ test("a runtime failure asks the host for a restart", async () => {
   expect(changes).toBe(1);
 });
 
-// The restart waits for the realm's open windows, so a reload leaves none
-// behind, and a second request joins the first.
+// The restart waits for every open window of the realm, so a reload
+// leaves none behind, and a second request joins the first.
 test("a restart is ready once the open windows close", async () => {
   const lifetimes = createLoroLifetimes({ id: "tab", restartHoldMs: 1 });
   const health = createLoroRuntimeHealth({ lifetimes });
-  const window = await lifetimes.openWindow(false);
+  const first = await lifetimes.openWindow(false);
+  const second = await lifetimes.openWindow(false);
   health.noteRuntimeFailed();
   let prepared = false;
 
@@ -38,11 +39,13 @@ test("a restart is ready once the open windows close", async () => {
     prepared = true;
   });
   expect(health.prepareRestart()).toBe(health.prepareRestart());
+  lifetimes.closeWindow(first);
+  await Promise.resolve();
   await Promise.resolve();
   expect(health.current().status).toBe("draining");
   expect(prepared).toBe(false);
 
-  lifetimes.closeWindow(window);
+  lifetimes.closeWindow(second);
   await preparing;
 
   expect(health.current()).toEqual({ status: "ready" });
