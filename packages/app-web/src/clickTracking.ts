@@ -1,4 +1,5 @@
 import { createTracker, type Tracker } from "@a2f0/ct-client";
+import type { CollectionConsent } from "@tearleads/diagnostics/browser";
 
 const hosts = new Map<
   string,
@@ -21,12 +22,19 @@ const hosts = new Map<
 
 let tracker: Tracker | undefined;
 
-/** Only the hosted browser entry calls this; reusable and native apps stay inert. */
-export function initializeClickTracking(productionBuild: boolean): void {
+/**
+ * Only the hosted browser entry calls this; reusable and native apps stay
+ * inert. Capture runs only while the user consents to anonymous telemetry:
+ * withdrawing it stops capture and discards queued clicks.
+ */
+export function initializeClickTracking(
+  productionBuild: boolean,
+  consent: CollectionConsent,
+): void {
   if (!productionBuild || tracker || typeof window === "undefined") return;
   const host = hosts.get(window.location.origin);
   if (!host) return;
-  tracker = createTracker({
+  const created = createTracker({
     site: "tearleads",
     ...host,
     capture: "all",
@@ -34,5 +42,11 @@ export function initializeClickTracking(productionBuild: boolean): void {
     // App routes can contain private organization, document, and workflow IDs.
     page: () => "/",
   });
-  tracker.init();
+  tracker = created;
+  const follow = () => {
+    if (consent.enabled()) created.init();
+    else created.destroy();
+  };
+  follow();
+  consent.subscribe(follow);
 }

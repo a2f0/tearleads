@@ -10,6 +10,7 @@
   width: auto;
 }
 
+.app-settings-group,
 .app-settings-network {
   display: grid;
   gap: var(--space-sm);
@@ -19,6 +20,7 @@
   font-size: var(--font-size-sm);
 }
 
+.app-settings-group legend,
 .app-settings-network legend {
   margin-bottom: var(--space-sm);
   font-weight: 600;

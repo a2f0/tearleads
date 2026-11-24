@@ -1,7 +1,10 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import type { RootRevenuecatEvent } from "@tearleads/client-sdk";
-import { render, within } from "@testing-library/react";
+import { cleanup, render, within } from "@testing-library/react";
 import { RevenuecatDeliveries } from "./RevenuecatDeliveries";
+
+// Without isolation the next file in this worker shares document.body.
+afterEach(cleanup);
 
 const delivery: RootRevenuecatEvent = {
   appUserId: "buyer",
