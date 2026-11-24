@@ -57,8 +57,8 @@ interface OrphanClaim {
 
 /**
  * Records one more `loro_runtime` attempt toward the update a death held,
- * and returns the attempts; null when the update is already settled under
- * the same key (another tab voided it since, at any stage), which stands.
+ * and returns the attempts; null when the update is already settled
+ * (another tab voided it since, at any stage), which stands.
  */
 async function countOrphanAttemptInTransaction(
   tx: ClientSQLiteTransactionScope,
@@ -70,35 +70,25 @@ async function countOrphanAttemptInTransaction(
     scope: claim.scope,
     updateIds: [verdict.updateId],
   });
-  const sameKey =
-    recorded !== undefined &&
-    recorded.keyFingerprint === verdict.keyFingerprint;
   const priorAttempts =
-    sameKey && recorded.stage === "loro_runtime" ? (recorded.attempts ?? 0) : 0;
+    recorded?.stage === "loro_runtime" ? (recorded.attempts ?? 0) : 0;
   if (
-    sameKey &&
+    recorded !== undefined &&
     (recorded.stage !== "loro_runtime" ||
       priorAttempts >= MAX_LORO_RUNTIME_ATTEMPTS)
   ) {
     return null;
   }
   const attempts = priorAttempts + 1;
-  const { contentKeyEpoch, keyFingerprint } = verdict;
   await recordDocumentSyncVerdictsInTransaction(tx, {
     acceptedUpdateIds: [],
     documentId: claim.documentId,
     judge: claim.judge,
-    keyFingerprintsByEpoch:
-      contentKeyEpoch === null || keyFingerprint === null
-        ? new Map()
-        : new Map([[contentKeyEpoch, keyFingerprint]]),
     now: new Date().toISOString(),
-    resolvesKeyConflicts: false,
     scope: claim.scope,
     voids: [
       {
         attempts,
-        contentKeyEpoch,
         message: KILLED_MESSAGE,
         stage: "loro_runtime",
         updateId: verdict.updateId,

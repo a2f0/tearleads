@@ -37,7 +37,6 @@ async function recordPage(page: {
   readonly throughUpdateId: string;
 }): Promise<void> {
   const synced = {
-    contentKeyFingerprintsByEpoch: new Map<number, string>(),
     decryptedUpdates: [],
     hasHeldPull: page.held === true,
     hasIncompletePull: !page.last,

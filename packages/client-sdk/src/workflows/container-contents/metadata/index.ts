@@ -380,18 +380,17 @@ async function finalizeContainerMetadataSync(input: {
     });
   }
   // A superseded save ran no recorder; the next pull judges its page again.
-  const cursorCleared = verdicts.settle(input.runtime.util.logError);
+  verdicts.settle(input.runtime.util.logError);
 
   return {
     ...persisted,
     ...(resumedEarlierMetadataPull(syncAttempt)
       ? { resumedEarlierPull: true as const }
       : {}),
-    shouldRequestFollowupSync:
-      shouldRequestContainerMetadataFollowup({
-        persisted,
-        settleOutgoingPass: () =>
-          settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
-      }) || cursorCleared,
+    shouldRequestFollowupSync: shouldRequestContainerMetadataFollowup({
+      persisted,
+      settleOutgoingPass: () =>
+        settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
+    }),
   };
 }

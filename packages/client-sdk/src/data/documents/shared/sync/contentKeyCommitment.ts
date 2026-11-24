@@ -48,27 +48,6 @@ export async function deriveDocumentContentKeyCommitment(input: {
   return bytesToHex(new Uint8Array(bits));
 }
 
-/** One commitment per epoch whose key the pass held. */
-export async function deriveDocumentContentKeyCommitments(input: {
-  readonly contentKeysByEpoch: ReadonlyMap<number, Uint8Array>;
-  readonly documentId: string;
-}): Promise<ReadonlyMap<number, string>> {
-  const entries = await Promise.all(
-    [...input.contentKeysByEpoch].map(
-      async ([contentKeyEpoch, contentKey]) =>
-        [
-          contentKeyEpoch,
-          await deriveDocumentContentKeyCommitment({
-            contentKey,
-            contentKeyEpoch,
-            documentId: input.documentId,
-          }),
-        ] as const,
-    ),
-  );
-  return new Map(entries);
-}
-
 /** A content key ready to encrypt or decrypt, with the commitment it signs. */
 export interface DocumentContentKey {
   readonly commitment: string;

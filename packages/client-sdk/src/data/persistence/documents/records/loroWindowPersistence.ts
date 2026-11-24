@@ -54,11 +54,9 @@ export async function readForeignLoroWindows(
     )
     .all();
   return rows.map((row) => ({
-    contentKeyEpoch: row.contentKeyEpoch,
     counts: row.counts === 1,
     documentId: row.documentId,
     judge: row.judge,
-    keyFingerprint: row.keyFingerprint,
     lifetimeId: row.lifetimeId,
     updateIds: stringArray(row.updateIds),
   }));
@@ -75,11 +73,9 @@ export async function writeLoroWindowInTransaction(
   openedAt: string,
 ): Promise<void> {
   const values = {
-    contentKeyEpoch: window.contentKeyEpoch,
     counts: window.counts ? 1 : 0,
     documentId: window.documentId,
     judge: window.judge,
-    keyFingerprint: window.keyFingerprint,
     openedAt,
     updateIds: JSON.stringify(window.updateIds),
     windowId: window.windowId,
@@ -163,7 +159,7 @@ export async function markLoroWindowsNotCountingInTransaction(
 ): Promise<void> {
   await tx
     .update(documentLoroWindows)
-    .set({ contentKeyEpoch: null, counts: 0, keyFingerprint: null })
+    .set({ counts: 0 })
     .where(eq(documentLoroWindows.lifetimeId, lifetimeId))
     .run();
 }

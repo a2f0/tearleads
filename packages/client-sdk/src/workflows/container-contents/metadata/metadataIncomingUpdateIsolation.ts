@@ -70,10 +70,7 @@ export function metadataIncomingUpdateIsolation(input: {
       );
     },
     validateIncomingUpdates: (
-      result: Pick<
-        SyncRemoteDocumentResult,
-        "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
-      >,
+      result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
     ) =>
       judgeDocumentSyncImports({
         currentDocument: input.currentDocument,

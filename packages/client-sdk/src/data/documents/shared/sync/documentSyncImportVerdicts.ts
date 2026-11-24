@@ -145,7 +145,6 @@ function noteRuntimeFailure(
   const error = isolatedAt(update, failure, "loro_runtime", page.responseById);
   page.verdicts.runtimeFailures.push({
     attempts,
-    contentKeyEpoch: error.contentKeyEpoch,
     counted,
     error,
     final,
