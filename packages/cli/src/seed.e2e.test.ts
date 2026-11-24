@@ -246,7 +246,6 @@ test("seed uploads the pinned dataset and a fresh device can read it", async () 
       // that intent available for recovery by its original writer.
       await expect(
         writeContinuityDocument({
-          destination: "account",
           sdk,
           localId,
           containerId: summary.containerId,
