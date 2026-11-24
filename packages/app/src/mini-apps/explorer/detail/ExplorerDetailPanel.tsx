@@ -15,7 +15,7 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type { MouseEvent } from "react";
 import { ContainerDocumentView } from "../../../document-types/container-views/ContainerDocumentView";
 import { ContainerPrimaryDocumentField } from "../../../document-types/container-views/ContainerPrimaryDocumentField";
-import type { DocumentAvatarSource } from "../../../document-types/shared/avatar/useDocumentAvatarUrls";
+import type { DocumentAvatarSource } from "../../../document-types/shared/avatar/documentAvatarSource";
 import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";

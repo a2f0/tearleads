@@ -23,7 +23,7 @@ import {
   shouldFoldCompactRows,
 } from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
-import type { DocumentAvatarSource } from "../../../../document-types/shared/avatar/useDocumentAvatarUrls";
+import type { DocumentAvatarSource } from "../../../../document-types/shared/avatar/documentAvatarSource";
 import { isExplorerOrphanedDocumentsId } from "../../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { useExplorerContainerFileDropTarget } from "../../hooks/useExplorerContainerFileDropTarget";

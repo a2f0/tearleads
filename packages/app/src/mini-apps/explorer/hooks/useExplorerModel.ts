@@ -6,7 +6,7 @@ import { type ReactNode, useEffect, useMemo } from "react";
 import {
   type DocumentAvatarSource,
   useDocumentAvatarSource,
-} from "../../../document-types/shared/avatar/useDocumentAvatarUrls";
+} from "../../../document-types/shared/avatar/documentAvatarSource";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useDomainDocumentQueries } from "../../../providers/sdk/useDomainDocumentQueries";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
@@ -161,7 +161,10 @@ export function useExplorerModel(
   const contactsSnapshot = useTearleadsExternalStoreSnapshot(contactsStore);
   // Every listed document whose kind keeps a photo gallery (contacts,
   // appliances, tools) shows its avatar in place of the kind's glyph.
-  const documentAvatarSource = useDocumentAvatarSource(appData);
+  const documentAvatarSource = useDocumentAvatarSource(
+    appData,
+    documentQueries,
+  );
   const currentSelfContactLocalId = useMemo(
     () =>
       findCurrentSelfContactLocalId(

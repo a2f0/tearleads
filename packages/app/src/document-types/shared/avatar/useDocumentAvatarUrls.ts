@@ -1,72 +1,18 @@
-import type {
-  BlobStore,
-  DocumentStore,
-  StoredDocumentKind,
-} from "@tearleads/client-sdk";
-import { useEffect, useMemo, useState } from "react";
-import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import type { DocumentPhotoCapability } from "../documentPhotos";
+import type { DocumentStore } from "@tearleads/client-sdk";
+import { useEffect, useState } from "react";
 import {
   getDocumentAvatarRef,
   sameDocumentAvatarRef,
 } from "./documentAvatarRef";
+import type {
+  AvatarDocument,
+  DocumentAvatarSource,
+} from "./documentAvatarSource";
 import {
   type AvatarEntry,
   type AvatarUrlById,
   useAvatarUrls,
 } from "./useAvatarUrls";
-
-/** A listed document whose kind keeps a photo gallery, so it may have an avatar. */
-export interface AvatarDocument {
-  readonly containerId: string;
-  readonly documentId: string | null;
-  readonly documentKind: StoredDocumentKind;
-  readonly localId: string;
-  readonly photos: DocumentPhotoCapability;
-}
-
-/** Where listed documents' avatars come from: their stores, then their blobs. */
-export interface DocumentAvatarSource {
-  readonly blobStore: BlobStore;
-  /** Null while there is no open database to read the document from. */
-  readonly openDocument: (document: AvatarDocument) => DocumentStore | null;
-}
-
-interface DocumentAvatarSourceRuntime {
-  readonly infra: { readonly blobStore: BlobStore; readonly dbStatus: string };
-}
-
-/**
- * Opens listed documents for their avatars. A listing reads each document's
- * local copy and never starts a remote sync of its own; opening the document
- * itself still syncs it. Stores are shared per domain, so a document another
- * view already loaded is read without loading it again. A database or domain
- * switch lists new rows, which reopens them in the current scope.
- */
-export function useDocumentAvatarSource(
-  runtime: DocumentAvatarSourceRuntime,
-): DocumentAvatarSource {
-  const { documents } = useTearleads();
-  const { blobStore, dbStatus } = runtime.infra;
-  return useMemo(
-    () => ({
-      blobStore,
-      openDocument: (document) =>
-        dbStatus !== "ready"
-          ? null
-          : documents.open(
-              {
-                containerId: document.containerId,
-                documentId: document.documentId,
-                initialDocumentKind: document.documentKind,
-                localId: document.localId,
-              },
-              { remoteSyncMode: "on-demand" },
-            ),
-    }),
-    [blobStore, dbStatus, documents],
-  );
-}
 
 const NO_AVATAR_ENTRIES: ReadonlyArray<AvatarEntry> = [];
 
@@ -109,8 +55,6 @@ function sameAvatarDocuments(
       return (
         other !== undefined &&
         document.localId === other.localId &&
-        document.containerId === other.containerId &&
-        document.documentId === other.documentId &&
         document.documentKind === other.documentKind &&
         document.photos === other.photos
       );
@@ -132,8 +76,8 @@ function useStableAvatarDocuments(
 
 /**
  * Object URLs for listed documents' chosen avatars, keyed by local id. A
- * document without one, or whose copy is not loaded yet, has no entry, so
- * its row shows the kind's fallback glyph.
+ * document without one, or whose copy is not local or not loaded yet, has no
+ * entry, so its row shows the kind's fallback glyph.
  */
 export function useDocumentAvatarUrls(
   source: DocumentAvatarSource | null,
@@ -147,21 +91,38 @@ export function useDocumentAvatarUrls(
       return;
     }
 
-    const opened = documents.flatMap((document) => {
-      const store = source.openDocument(document);
-      return store ? [{ document, store }] : [];
-    });
+    // Opens finish in any order; only this run's listing may publish, and
+    // only once its stores are subscribed.
+    let current = true;
+    const storesByLocalId = new Map<string, DocumentStore>();
+    const unsubscribes: Array<() => void> = [];
     const read = () => {
-      const next = opened.map(({ document, store }) =>
-        readAvatarEntry(document, store),
-      );
-      setEntries((current) =>
-        sameAvatarEntries(current, next) ? current : next,
+      if (!current) {
+        return;
+      }
+      const next = documents.flatMap((document) => {
+        const store = storesByLocalId.get(document.localId);
+        return store ? [readAvatarEntry(document, store)] : [];
+      });
+      setEntries((previous) =>
+        sameAvatarEntries(previous, next) ? previous : next,
       );
     };
-    const unsubscribes = opened.map(({ store }) => store.subscribe(read));
-    read();
+    const opens = documents.map((document) =>
+      source.openDocument(document).then((store) => {
+        if (!current || !store) {
+          return;
+        }
+        storesByLocalId.set(document.localId, store);
+        unsubscribes.push(store.subscribe(read));
+        read();
+      }),
+    );
+    // A failed lookup leaves its row on the fallback glyph; once every open
+    // settles, rows from an earlier listing that this one dropped clear too.
+    void Promise.allSettled(opens).then(read);
     return () => {
+      current = false;
       for (const unsubscribe of unsubscribes) {
         unsubscribe();
       }

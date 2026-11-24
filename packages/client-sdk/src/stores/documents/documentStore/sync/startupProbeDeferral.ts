@@ -2,6 +2,7 @@ import type { DocumentStoreState } from "../state";
 import { logRevalidationScheduled } from "./remoteRevalidationTelemetry";
 import {
   allowDocumentStoreRemoteSync,
+  isDocumentStoreRemoteSyncBlocked,
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
 
@@ -57,4 +58,33 @@ export function settleDeferredStartupProbe(
   scheduleSync();
   logRevalidationScheduled(state.runtime, "startup");
   return true;
+}
+
+/**
+ * A later opener that wants the startup probe joins a store an on-demand
+ * opener created first, so the first open's mode cannot cancel it for every
+ * later view. Before the store loads, initialization runs the probe as though
+ * this open came first. Once loaded, the probe it skipped runs now, unless a
+ * remote pass was already allowed (a requested sync or a server hint).
+ */
+export function joinDocumentStoreStartupProbe(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+): void {
+  if (state.scheduleStartupRemoteSync) {
+    return;
+  }
+  state.scheduleStartupRemoteSync = true;
+  if (
+    !state.initialized ||
+    !isDocumentStoreRemoteSyncBlocked(state) ||
+    !state.record?.documentId ||
+    deferStartupProbeToPendingConnect(state)
+  ) {
+    return;
+  }
+  allowDocumentStoreRemoteSync(state);
+  markDocumentStoreRemoteSyncPending(state, "independent");
+  scheduleSync();
+  logRevalidationScheduled(state.runtime, "startup");
 }

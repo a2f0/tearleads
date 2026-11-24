@@ -144,7 +144,11 @@ unknown, and no network work starts. A host may generate a local id when no row
 exists, then call `documents.open({ localId, documentId }, {
 remoteSyncMode: "on-demand" })`. On-demand mode suppresses the initial remote
 pull only when creating the backing store; an already-registered store keeps
-its owners.
+its owners. A later open in the default startup mode joins an on-demand store:
+it gets the startup probe the store skipped, at initialization when the store
+has not loaded yet, or at once when it has, unless a remote pass was already
+allowed. So a listing that reads documents on demand never cancels the probe
+for a view that opens one of them normally.
 
 `requestRemoteSyncAndWait(signal)` returns `true` only after its requested sync
 generation completes. Abort, coordinator invalidation, missing prerequisites,

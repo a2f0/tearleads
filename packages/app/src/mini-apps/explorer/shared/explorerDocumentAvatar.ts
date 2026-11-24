@@ -2,12 +2,12 @@ import type { Icon } from "@phosphor-icons/react";
 import type { ContainerItemRow } from "@tearleads/client-sdk";
 import { useMemo } from "react";
 import { getDocumentPhotoCapability } from "../../../document-types/registry";
+import type {
+  AvatarDocument,
+  DocumentAvatarSource,
+} from "../../../document-types/shared/avatar/documentAvatarSource";
 import type { AvatarUrlById } from "../../../document-types/shared/avatar/useAvatarUrls";
-import {
-  type AvatarDocument,
-  type DocumentAvatarSource,
-  useDocumentAvatarUrls,
-} from "../../../document-types/shared/avatar/useDocumentAvatarUrls";
+import { useDocumentAvatarUrls } from "../../../document-types/shared/avatar/useDocumentAvatarUrls";
 
 interface ExplorerDocumentAvatar {
   fallbackIcon: Icon;
@@ -39,16 +39,14 @@ function getExplorerAvatarDocuments(
 ): ReadonlyArray<AvatarDocument> {
   const documentsByLocalId = new Map<string, AvatarDocument>();
   for (const row of rows) {
-    // An orphaned document has no container to open it in; it keeps its glyph.
-    if (row.itemKind !== "document" || row.containerId === null) {
+    if (row.itemKind !== "document") {
       continue;
     }
 
+    // A linked document lists once per container but has one avatar.
     const photos = getDocumentPhotoCapability(row.documentKind);
     if (photos && !documentsByLocalId.has(row.localId)) {
       documentsByLocalId.set(row.localId, {
-        containerId: row.containerId,
-        documentId: row.documentId,
         documentKind: row.documentKind,
         localId: row.localId,
         photos,

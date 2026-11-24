@@ -30,9 +30,14 @@ with galleries through `getDocumentPhotoCapability` in the
   blob a list row loads.
 - [`useAvatarUrls.ts`](useAvatarUrls.ts) turns refs into object URLs and
   revokes them when they change.
-- [`useDocumentAvatarUrls.ts`](useDocumentAvatarUrls.ts) reads listed
-  documents' avatars from their stores. It opens each store on demand, so a
-  listing never starts a remote sync. Explorer uses it for the loaded window of
-  its item list.
+- [`documentAvatarSource.ts`](documentAvatarSource.ts) opens a listed
+  document to read it without changing it. It opens only a document with a
+  local copy, so a stale row is never created. It uses the document's own
+  container, not the listing's, and opens on demand, so a listing never starts
+  a remote sync. A view that later opens the document normally still gets its
+  startup probe.
+- [`useDocumentAvatarUrls.ts`](useDocumentAvatarUrls.ts) follows those stores
+  and maps each chosen avatar to an object URL. Explorer uses it for the loaded
+  window of its item list.
 - [`DocumentAvatarImage.tsx`](DocumentAvatarImage.tsx) draws the circle on
   every surface: the document, the Contacts list, and Explorer rows and tiles.

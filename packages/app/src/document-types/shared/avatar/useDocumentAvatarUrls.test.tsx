@@ -8,11 +8,11 @@ import type {
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { DocumentPhotoCapability } from "../documentPhotos";
-import {
-  type AvatarDocument,
-  type DocumentAvatarSource,
-  useDocumentAvatarUrls,
-} from "./useDocumentAvatarUrls";
+import type {
+  AvatarDocument,
+  DocumentAvatarSource,
+} from "./documentAvatarSource";
+import { useDocumentAvatarUrls } from "./useDocumentAvatarUrls";
 
 afterEach(cleanup);
 
@@ -90,7 +90,7 @@ function fakeSource(stores: Record<string, ReturnType<typeof fakeStore>>) {
   } as unknown as BlobStore;
   const source: DocumentAvatarSource = {
     blobStore,
-    openDocument: (document) => {
+    openDocument: async (document) => {
       opened.push(document.localId);
       return stores[document.localId]?.store ?? null;
     },
@@ -99,13 +99,7 @@ function fakeSource(stores: Record<string, ReturnType<typeof fakeStore>>) {
 }
 
 function listed(localId: string): AvatarDocument {
-  return {
-    containerId: "root",
-    documentId: null,
-    documentKind: "tool",
-    localId,
-    photos,
-  };
+  return { documentKind: "tool", localId, photos };
 }
 
 test("lists a chosen avatar and follows the document when it changes", async () => {
@@ -114,6 +108,7 @@ test("lists a chosen avatar and follows the document when it changes", async () 
   const view = renderHook(() =>
     useDocumentAvatarUrls(source, [listed("drill")]),
   );
+  await waitFor(() => expect(drill.listeners.size).toBe(1));
   expect(view.result.current).toEqual({});
 
   act(() => drill.update(withAvatar("drill-key")));
@@ -133,31 +128,57 @@ test("a document of another kind, or not yet loaded, shows no avatar", async () 
     documentKind: "appliance",
   });
   const loading = fakeStore({ ...withAvatar("loading-key"), ready: false });
-  const { source } = fakeSource({ loading, relabeled });
+  const { opened, source } = fakeSource({ loading, relabeled });
   const view = renderHook(() =>
-    useDocumentAvatarUrls(source, [listed("relabeled"), listed("loading")]),
+    useDocumentAvatarUrls(source, [
+      listed("relabeled"),
+      listed("loading"),
+      listed("missing"),
+    ]),
   );
 
-  await act(async () => {
-    await Promise.resolve();
-  });
+  await waitFor(() => expect(opened).toHaveLength(3));
+  await waitFor(() => expect(loading.listeners.size).toBe(1));
   expect(view.result.current).toEqual({});
 });
 
-test("a refreshed listing of the same documents keeps their stores open", () => {
+test("a refreshed listing of the same documents keeps their stores open", async () => {
   const drill = fakeStore(withAvatar("drill-key"));
   const { opened, source } = fakeSource({ drill });
   const view = renderHook(
     ({ documents }) => useDocumentAvatarUrls(source, documents),
     { initialProps: { documents: [listed("drill")] } },
   );
+  await waitFor(() => expect(drill.listeners.size).toBe(1));
   view.rerender({ documents: [listed("drill")] });
   expect(opened).toEqual(["drill"]);
 
-  view.rerender({ documents: [listed("drill"), listed("saw")] });
-  expect(opened).toEqual(["drill", "drill", "saw"]);
+  view.rerender({ documents: [listed("saw")] });
+  expect(opened).toEqual(["drill", "saw"]);
+  expect(drill.listeners.size).toBe(0);
+  // The dropped document's avatar clears once the new listing settles.
+  await waitFor(() => expect(view.result.current).toEqual({}));
+});
 
+test("an open that finishes after its listing changed is not kept", async () => {
+  const drill = fakeStore(withAvatar("drill-key"));
+  let finishOpen: (store: DocumentStore) => void = () => undefined;
+  const source: DocumentAvatarSource = {
+    ...fakeSource({}).source,
+    openDocument: () =>
+      new Promise((resolve) => {
+        finishOpen = resolve;
+      }),
+  };
+  const view = renderHook(() =>
+    useDocumentAvatarUrls(source, [listed("drill")]),
+  );
   view.unmount();
+
+  await act(async () => {
+    finishOpen(drill.store);
+    await Promise.resolve();
+  });
   expect(drill.listeners.size).toBe(0);
 });
 
