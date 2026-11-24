@@ -4,7 +4,7 @@
  * peer the write claims. A request names as many peers as its byte ceiling
  * admits, and Postgres binds at most 65,535 parameters to a statement, so a
  * single statement holds at most 13,107 five-column span rows. 8,192 rows of
- * up to eight bound columns stay under that limit.
+ * up to seven bound columns stay under that limit; eight would bind 65,536.
  */
 const DOCUMENT_PEER_ROWS_PER_INSERT = 8_192;
 
