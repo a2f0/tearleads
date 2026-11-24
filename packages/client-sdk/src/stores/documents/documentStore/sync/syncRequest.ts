@@ -99,7 +99,7 @@ export async function deleteUpstreamDeletedDocument(
 
 function createDocumentSyncAttempt(input: {
   currentRecord: DocumentRecord;
-  loroWindow: DocumentSyncLoroWindow | undefined;
+  loroWindow: DocumentSyncLoroWindow;
   outgoingUpdateCount: number;
   policyOperation: PrincipalPolicyOperation;
   requestedPullContinuation: DocumentStoreState["pullContinuation"];
@@ -111,7 +111,7 @@ function createDocumentSyncAttempt(input: {
       input.synced.plan.request.pullCursor === undefined
         ? null
         : input.requestedPullContinuation,
-    loroWindow: input.loroWindow ?? null,
+    loroWindow: input.loroWindow,
     outgoingUpdateCount: input.outgoingUpdateCount,
     policyOperation: input.policyOperation,
     requestRecord: input.currentRecord,
@@ -134,12 +134,12 @@ interface RequestRemoteDocumentSyncInput {
   policyOperation: PrincipalPolicyOperation;
   queuedUpdateCount?: number | undefined;
   /**
-   * The pass's Loro read window (`loroPassWindow.ts`), which the page is
-   * read in. Only a scheduled pass, whose pages `finalizeDocumentSync` saves
-   * and which settles the window as it ends, has one; rotation settlement
-   * reads without.
+   * The Loro read window (`loroPassWindow.ts`) the page is read in. A
+   * scheduled pass's pages `finalizeDocumentSync` saves, closing it, and the
+   * pass settles it as it ends; rotation settlement settles its own once its
+   * request is over.
    */
-  loroWindow?: DocumentSyncLoroWindow | undefined;
+  loroWindow: DocumentSyncLoroWindow;
   state: DocumentStoreState;
   unavailableWriterLogMessage: string;
 }
@@ -315,16 +315,13 @@ export async function requestRemoteDocumentSync(
       scope,
     },
   );
-  const maxPageUpdates = input.loroWindow
-    ? await claimThenReadDocumentSyncPageLimit({
-        documentId: currentRecord.documentId,
-        execSql: generation.execSql,
-        isCurrent: () =>
-          isDocumentStoreSyncGenerationCurrent(state, generation),
-        logError: state.runtime.util.logError,
-        scope,
-      })
-    : undefined;
+  const maxPageUpdates = await claimThenReadDocumentSyncPageLimit({
+    documentId: currentRecord.documentId,
+    execSql: generation.execSql,
+    isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
+    logError: state.runtime.util.logError,
+    scope,
+  });
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   const synced = await runRemoteDocumentSync(
     input,

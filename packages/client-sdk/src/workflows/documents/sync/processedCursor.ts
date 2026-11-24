@@ -190,12 +190,12 @@ export async function readRecordedDocumentSyncVoids(input: {
  * otherwise record it may fail, and an attempt that is never recorded would
  * be made again in every process.
  *
- * With `loroWindow`, the update reads run inside the pass's window, which
- * the page's save closes (`loroPassWindow.ts`), opened once the reader's
- * history is built, so a death inside them is found by the next lifetime.
- * The caller claims the windows ended lifetimes left before its pull asks
- * for the page (`claimDocumentSyncOrphanWindows`), so their counts are
- * recorded first.
+ * The update reads run inside the pass's `loroWindow`, which the page's
+ * save closes (`loroPassWindow.ts`), opened once the reader's history is
+ * built, so a death inside them is found by the next lifetime. The caller
+ * claims the windows ended lifetimes left before its pull asks for the
+ * page (`claimDocumentSyncOrphanWindows`), so their counts are recorded
+ * first.
  */
 export async function judgeDocumentSyncImports(input: {
   readonly currentDocument: Parameters<
@@ -208,7 +208,7 @@ export async function judgeDocumentSyncImports(input: {
   readonly lifetimes?: LoroLifetimes | undefined;
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
   /** The pass's read window, which this page's save closes. */
-  readonly loroWindow?: DocumentSyncLoroWindow | undefined;
+  readonly loroWindow: DocumentSyncLoroWindow;
   readonly result: Pick<
     SyncRemoteDocumentResult,
     "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
@@ -222,21 +222,17 @@ export async function judgeDocumentSyncImports(input: {
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
   const recorded = await readRecordedImportJudgements(input);
   const opened: { current: LoroWindowOpening } = { current: "none" };
-  const window = input.loroWindow;
   const verdicts = await validateDocumentSyncUpdateImports({
     ...recorded,
-    beforeUpdateReads: window
-      ? async () => {
-          opened.current = await openDocumentSyncLoroWindow({
-            ...input,
-            knownVoids: recorded.knownVoids,
-            ledger,
-            lifetimes,
-            window,
-          });
-          return opened.current !== "none";
-        }
-      : undefined,
+    beforeUpdateReads: async () => {
+      opened.current = await openDocumentSyncLoroWindow({
+        ...input,
+        knownVoids: recorded.knownVoids,
+        ledger,
+        lifetimes,
+        window: input.loroWindow,
+      });
+    },
     currentDocument: input.currentDocument,
     decryptedUpdates: result.decryptedUpdates,
     lifetimes,

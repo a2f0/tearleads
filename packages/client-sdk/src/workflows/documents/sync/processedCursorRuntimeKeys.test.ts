@@ -17,6 +17,7 @@ import {
 } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { createDocumentSyncLoroWindow } from "./loroPassWindow";
 import {
   judgeDocumentSyncImports,
   recordDocumentSyncVerdicts,
@@ -123,6 +124,7 @@ test("a final runtime failure leaves a key conflict for its page's save, which c
   const currentDocument = await createDocument("runtime-keys-reader");
   const update = await trapping();
   const verdicts = await judgeDocumentSyncImports({
+    loroWindow: createDocumentSyncLoroWindow(),
     currentDocument,
     documentId: DOCUMENT_ID,
     execSql,

@@ -11,6 +11,7 @@ import { ensureDocumentTables } from "../../../data/persistence/documents/record
 import { recordDocumentSyncVerdictsInTransaction } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { createDocumentSyncLoroWindow } from "./loroPassWindow";
 import { judgeDocumentSyncImports } from "./processedCursor";
 
 const SCOPE = { appKind: "documents", localId: "judged" } as const;
@@ -66,6 +67,7 @@ async function judge(keyFingerprint: string): Promise<string[]> {
   source.commit();
   const data = exportUpdatesSince(source, undefined);
   const verdicts = await judgeDocumentSyncImports({
+    loroWindow: createDocumentSyncLoroWindow(),
     currentDocument: await createDocument("imports-current"),
     documentId: DOCUMENT_ID,
     execSql,

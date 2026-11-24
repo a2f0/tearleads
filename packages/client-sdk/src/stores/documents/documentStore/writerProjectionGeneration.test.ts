@@ -7,6 +7,7 @@ import {
   persistFullHistoryDocument,
 } from "../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { createDocumentSyncLoroWindow } from "../../../workflows/documents/sync/loroPassWindow";
 import { createPrincipalPolicyOperation } from "../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
@@ -73,6 +74,7 @@ test("a sync whose request straddles a hint does not reinstall its pre-hint proj
     } as NonNullable<typeof state.syncLane>;
 
     const attempt = await requestRemoteDocumentSync({
+      loroWindow: createDocumentSyncLoroWindow(),
       policyOperation: createPrincipalPolicyOperation(),
       currentDoc,
       currentRecord,
@@ -150,6 +152,7 @@ test("an undisturbed sync settlement installs its projection", async () => {
       requestSync: () => undefined,
     } as NonNullable<typeof state.syncLane>;
     const attempt = await requestRemoteDocumentSync({
+      loroWindow: createDocumentSyncLoroWindow(),
       policyOperation: createPrincipalPolicyOperation(),
       currentDoc,
       currentRecord,

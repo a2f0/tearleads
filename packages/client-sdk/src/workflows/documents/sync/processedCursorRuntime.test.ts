@@ -13,6 +13,7 @@ import {
 } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { createDocumentSyncLoroWindow } from "./loroPassWindow";
 import { judgeDocumentSyncImports } from "./processedCursor";
 
 const SCOPE = { appKind: "documents", localId: "runtime" } as const;
@@ -65,6 +66,7 @@ async function judgeInNewProcess(
   const currentDocument = await createDocument("runtime-reader");
   try {
     return await judgeDocumentSyncImports({
+      loroWindow: createDocumentSyncLoroWindow(),
       currentDocument,
       documentId: DOCUMENT_ID,
       execSql,

@@ -39,13 +39,13 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   const knownVoids = await readRecordedDocumentSyncVoids(input);
   const ledger = processLoroRuntimeFailures.unrecorded();
   return validateDocumentSyncUpdateImports({
-    beforeUpdateReads: async () =>
-      (await openDocumentSyncLoroWindow({
+    beforeUpdateReads: () =>
+      openDocumentSyncLoroWindow({
         ...input,
         knownVoids,
         ledger,
         window: input.loroWindow,
-      })) !== "none",
+      }),
     currentDocument: input.currentDocument,
     decryptedUpdates: input.result.decryptedUpdates,
     knownVoids,
