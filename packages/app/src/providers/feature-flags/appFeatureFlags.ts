@@ -1,4 +1,5 @@
 import {
+  clearStoredPreference,
   loadStoredPreference,
   saveStoredPreference,
 } from "../../utils/storedPreference";
@@ -8,6 +9,7 @@ export const APP_FEATURE_FLAG_IDS = [
   "document-edit-ranges",
   "explorer-header-sync-indicator",
   "hide-org-manager-system-grants",
+  "hide-table-divider-lines",
   "linked-document-activation-controls",
   "stripe-hosted-checkout",
   "workspace-switcher",
@@ -25,6 +27,7 @@ const APP_FEATURE_FLAG_DEFAULTS: Record<AppFeatureFlagId, AppFeatureFlagMode> =
     "document-edit-ranges": "disabled",
     "explorer-header-sync-indicator": "disabled",
     "hide-org-manager-system-grants": "enabled",
+    "hide-table-divider-lines": "disabled",
     "linked-document-activation-controls": "disabled",
     "stripe-hosted-checkout": "disabled",
     "workspace-switcher": "disabled",
@@ -52,6 +55,11 @@ export function loadAppFeatureFlag(flag: AppFeatureFlagId): AppFeatureFlagMode {
   return loadStoredPreference(appFeatureFlagStorageKey(flag), (stored) =>
     isAppFeatureFlagMode(stored) ? stored : defaultAppFeatureFlagMode(flag),
   );
+}
+
+/** Forgets this device's choice for a flag, so it reads its default again. */
+export function clearAppFeatureFlag(flag: AppFeatureFlagId): void {
+  clearStoredPreference(appFeatureFlagStorageKey(flag));
 }
 
 export function saveAppFeatureFlag(

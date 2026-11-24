@@ -1,5 +1,11 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { SHARED_WITH_ME_LABELS } from "../labels";
 import type {
   SharedOrganization,
@@ -7,7 +13,11 @@ import type {
 } from "../model/sharedWithMeRows";
 import { SharedWithMeTable } from "./SharedWithMeTable";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // The column menu remembers hidden columns on this device.
+  globalThis.localStorage.clear();
+});
 
 const acme: SharedOrganization = {
   canAskToLeave: true,
@@ -181,4 +191,33 @@ test("highlights the row whose menu is open", () => {
   expect(rowNamed(SHARED_WITH_ME_LABELS.workspaceRoot).className).not.toContain(
     "mini-app-table-row--selected",
   );
+});
+
+test("hides a detail column from the heading's column menu, and remembers it", () => {
+  const { cellTexts } = renderTable();
+  const designWithoutOrganization = [
+    "Design",
+    SHARED_WITH_ME_LABELS.permissionWrite,
+    SHARED_WITH_ME_LABELS.syncPausedStatus,
+    "",
+  ];
+
+  fireEvent.click(
+    screen.getByRole("button", { name: SHARED_WITH_ME_LABELS.columnsMenu }),
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: `${SHARED_WITH_ME_LABELS.organizationColumn} ${SHARED_WITH_ME_LABELS.columnsMenuStateOn}`,
+    }),
+  );
+
+  expect(
+    screen.queryByRole("columnheader", {
+      name: SHARED_WITH_ME_LABELS.organizationColumn,
+    }),
+  ).toBeNull();
+  expect(cellTexts("Design")).toEqual(designWithoutOrganization);
+
+  cleanup();
+  expect(renderTable().cellTexts("Design")).toEqual(designWithoutOrganization);
 });

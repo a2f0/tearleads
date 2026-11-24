@@ -177,8 +177,13 @@ for (const host of ["routed", "window"] as const) {
     await controls
       .getByRole("button", { name: "Contact", exact: true })
       .click();
+    // The first field on screen, as measureDocument takes it: the avatar's
+    // hidden file input can come first once it mounts.
     await expect(
-      scope.locator(".explorer-inline-note input").first(),
+      scope
+        .locator(".explorer-inline-note input")
+        .filter({ visible: true })
+        .first(),
     ).toBeVisible({ timeout: 30_000 });
 
     const fit = await measureDocument(scope, host);
