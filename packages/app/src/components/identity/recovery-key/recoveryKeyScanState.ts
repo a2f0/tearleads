@@ -59,13 +59,13 @@ function holdRejection(
   state: Extract<RecoveryKeyScanState, { status: "rejected" }>,
   frame: RecoveryQrFrame,
 ): RecoveryKeyScanState {
+  const size = frameSize(frame);
   if (frame.outline) {
-    return {
-      ...state,
-      frame: frameSize(frame),
-      outline: frame.outline,
-      seenAt: frame.at,
-    };
+    return { ...state, frame: size, outline: frame.outline, seenAt: frame.at };
+  }
+  // A rotated frame invalidates the outline's coordinates at once.
+  if (!sameSize(state.frame, size)) {
+    return { ...state, frame: size, outline: undefined };
   }
   if (state.outline && frame.at - state.seenAt >= LOCATED_HOLD_MS) {
     return { ...state, outline: undefined };
@@ -101,7 +101,11 @@ function onFrame(
       seenAt: frame.at,
     };
   }
-  if (state.status === "located" && frame.at - state.seenAt < LOCATED_HOLD_MS) {
+  if (
+    state.status === "located" &&
+    sameSize(state.frame, size) &&
+    frame.at - state.seenAt < LOCATED_HOLD_MS
+  ) {
     return state;
   }
   if (state.status === "searching" && sameSize(state.frame, size)) {

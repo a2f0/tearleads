@@ -36,6 +36,11 @@
   pointer-events: none;
 }
 
+/*
+ * Stroke widths below are screen pixels on drawn camera marks, kept constant
+ * by non-scaling-stroke at any frame size; no border token fits a halo.
+ */
+
 .recovery-key-scan-guide-halo {
   fill: none;
   stroke: rgb(0 0 0 / 0.45);

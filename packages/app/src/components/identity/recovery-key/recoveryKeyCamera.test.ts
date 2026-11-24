@@ -72,6 +72,25 @@ test("reports each unfinished frame with the code it located", async () => {
   expect(empty?.outline).toBeUndefined();
 });
 
+test("a decode callback that closes the scan stops frame reports", async () => {
+  camera = installRecoveryQrCamera("unrelated QR");
+  const onFrame = mock(() => undefined);
+  const onDecode = mock(() => {
+    cancel?.();
+    return false;
+  });
+  cancel = startRecoveryKeyCamera(document.createElement("video"), {
+    onDecode,
+    onError: () => undefined,
+    onFrame,
+  });
+  await waitFor(() => expect(onDecode).toHaveBeenCalledTimes(1));
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  expect(onDecode).toHaveBeenCalledTimes(1);
+  expect(onFrame).not.toHaveBeenCalled();
+  expect(camera.stopTrack).toHaveBeenCalledTimes(1);
+});
+
 test("an accepted frame is not reported as feedback", async () => {
   camera = installRecoveryQrCamera("recovery test");
   const onFrame = mock(() => undefined);

@@ -5,6 +5,8 @@ import encodeQR from "qr";
  * Real QR pixels keep camera tests exercising the production decoder. An
  * unreadable code keeps its finder patterns but scrambles the data between
  * them, so the decoder locates it without reading it, as during focusing.
+ * The band starts 12 modules in (border 4, finder 7, separator 1), which
+ * leaves data rows only for the short payloads these tests encode.
  */
 function recoveryQrPixels(value: string, unreadable = false): ImageData {
   const matrix = encodeQR(value, "raw", { border: 4 });

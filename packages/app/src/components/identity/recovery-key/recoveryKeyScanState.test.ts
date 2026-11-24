@@ -144,6 +144,18 @@ test.each([
     { status: "searching", frame: { width: 480, height: 640 } },
   ],
   [
+    "located + rotated empty frame within the hold",
+    located,
+    frame(1100, {}, { width: 480, height: 640 }),
+    { status: "searching", frame: { width: 480, height: 640 } },
+  ],
+  [
+    "rejected + rotated empty frame within the hold",
+    rejected,
+    frame(1100, {}, { width: 480, height: 640 }),
+    { ...rejected, frame: { width: 480, height: 640 }, outline: undefined },
+  ],
+  [
     "searching + camera failure",
     searching,
     { type: "fail", message: "lost" },
