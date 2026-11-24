@@ -15,8 +15,11 @@
  * mark its clean exits, or its deaths count nothing.
  */
 
+import { createListenerSet } from "../../../shared/listenerSet";
+import { createLoroWindowDrainer, RESTART_HOLD_MS } from "./loroWindowDrain";
 import {
   LORO_WINDOW_GATE_IDLE,
+  type LoroGateWaiter,
   type LoroWindowGate,
   type LoroWindowGateEvent,
   loroGateHolders,
@@ -106,6 +109,19 @@ export interface LoroLifetimes {
   openWindow(exclusive: boolean): Promise<string>;
   /** Notes window `id` gone; false when it was not open. */
   closeWindow(id: string): boolean;
+  /**
+   * Admits no window until every open one has closed, or until `waitMs`
+   * has passed, and then for a short hold, so a restart of the realm that
+   * follows at once leaves no window behind; resolves true when none was
+   * left open. Windows asked for meanwhile wait, at most the gate's limit,
+   * and enter once the hold ends in a realm its host kept running.
+   */
+  drainWindows(waitMs: number): Promise<boolean>;
+  /**
+   * Calls `listener` each time a drain's hold ends in a realm its host kept
+   * running; returns its removal.
+   */
+  subscribeWindowsReopened(listener: () => void): () => void;
 }
 
 /** How long a window waits for the gate before reading outside it. */
@@ -224,15 +240,38 @@ function lifetimeLock(
 }
 
 /** The windows this lifetime holds, admitted through its window gate. */
-function lifetimeWindows(gateWaitMs: number, onChange: () => void) {
+function lifetimeWindows(
+  waits: { readonly gateMs: number; readonly restartHoldMs: number },
+  onChange: () => void,
+) {
   const windows = new Set<string>();
   const entering = new Map<string, () => void>();
+  const reopened = createListenerSet();
   let gate: LoroWindowGate = LORO_WINDOW_GATE_IDLE;
   const moveGate = (event: LoroWindowGateEvent) => {
     gate = transitionLoroWindowGate(gate, event);
     for (const holder of loroGateHolders(gate)) entering.get(holder)?.();
   };
+  const drainer = createLoroWindowDrainer({
+    holdMs: waits.restartHoldMs,
+    openWindows: () => windows.size,
+    readmit: (waiter) => moveGate({ type: "requested", waiter }),
+    reopened: reopened.notify,
+    takeQueued() {
+      // Last first, so none is admitted on the way.
+      const queued = [...gate.waiting];
+      for (const waiter of [...queued].reverse()) {
+        moveGate({ type: "released", window: waiter.window });
+      }
+      return queued;
+    },
+  });
+  const request = (waiter: LoroGateWaiter) => {
+    if (!drainer.hold(waiter)) moveGate({ type: "requested", waiter });
+  };
   return {
+    drain: drainer.drain,
+    subscribeReopened: reopened.subscribe,
     count: () => windows.size,
     has: (id: string) => windows.has(id),
     open(exclusive: boolean): Promise<string> {
@@ -247,17 +286,19 @@ function lifetimeWindows(gateWaitMs: number, onChange: () => void) {
       };
       const timer = setTimeout(() => {
         // Leaves the queue and reads outside the gate: it may not count.
+        drainer.drop(window);
         moveGate({ type: "released", window });
         enter();
-      }, gateWaitMs);
+      }, waits.gateMs);
       entering.set(window, enter);
-      moveGate({ type: "requested", waiter: { exclusive, window } });
+      request({ exclusive, window });
       return promise;
     },
     close(id: string): boolean {
       if (!windows.delete(id)) return false;
       moveGate({ type: "released", window: id });
       onChange();
+      drainer.noteClosed();
       return true;
     },
   };
@@ -282,6 +323,8 @@ export function createLoroLifetimes(host: {
   readonly gateWaitMs?: number | undefined;
   /** @internal How long the lifetime waits for its lock; tests shorten it. */
   readonly lockWaitMs?: number | undefined;
+  /** @internal How long a drained realm admits no window; tests shorten it. */
+  readonly restartHoldMs?: number | undefined;
 }): LoroLifetimes {
   const id = host.id ?? crypto.randomUUID();
   const { storage, visibility } = host;
@@ -310,7 +353,13 @@ export function createLoroLifetimes(host: {
     health = transitionLifetimeHealth(health, event);
     syncMarkers();
   };
-  const windows = lifetimeWindows(host.gateWaitMs ?? GATE_WAIT_MS, syncMarkers);
+  const windows = lifetimeWindows(
+    {
+      gateMs: host.gateWaitMs ?? GATE_WAIT_MS,
+      restartHoldMs: host.restartHoldMs ?? RESTART_HOLD_MS,
+    },
+    syncMarkers,
+  );
   const markerOf = (prefix: string, other: string) =>
     quietly(() => storage?.getItem(markerKey(prefix, other)) ?? null, null);
 
@@ -348,6 +397,8 @@ export function createLoroLifetimes(host: {
       return windows.open(exclusive);
     },
     closeWindow: windows.close,
+    drainWindows: windows.drain,
+    subscribeWindowsReopened: windows.subscribeReopened,
   };
 }
 
