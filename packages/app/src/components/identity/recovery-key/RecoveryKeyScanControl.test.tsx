@@ -13,17 +13,29 @@ test("locking during a scan releases the camera and does not restart on unlock",
   camera = installRecoveryQrCamera("unrelated QR");
   const onScan = mock(() => undefined);
   const view = render(
-    <RecoveryKeyScanControl disabled={false} onScan={onScan} />,
+    <RecoveryKeyScanControl
+      label="Scan QR Code"
+      disabled={false}
+      onScan={onScan}
+    />,
   );
   fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
   await view.findByText(/does not contain a valid recovery key/u);
-  view.rerender(<RecoveryKeyScanControl disabled onScan={onScan} />);
+  view.rerender(
+    <RecoveryKeyScanControl label="Scan QR Code" disabled onScan={onScan} />,
+  );
   expect(camera.stopTrack).toHaveBeenCalledTimes(1);
   expect(
     (view.getByRole("button", { name: "Scan QR Code" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
-  view.rerender(<RecoveryKeyScanControl disabled={false} onScan={onScan} />);
+  view.rerender(
+    <RecoveryKeyScanControl
+      label="Scan QR Code"
+      disabled={false}
+      onScan={onScan}
+    />,
+  );
   expect(view.queryByLabelText("Recovery QR code camera")).toBeNull();
   expect(camera.getUserMedia).toHaveBeenCalledTimes(1);
   expect(onScan).not.toHaveBeenCalled();
@@ -33,7 +45,11 @@ test("leaving the page releases the camera", async () => {
   camera = installRecoveryQrCamera("unrelated QR");
   const onScan = mock(() => undefined);
   const view = render(
-    <RecoveryKeyScanControl disabled={false} onScan={onScan} />,
+    <RecoveryKeyScanControl
+      label="Scan QR Code"
+      disabled={false}
+      onScan={onScan}
+    />,
   );
   fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
   await view.findByText(/does not contain a valid recovery key/u);
@@ -46,7 +62,11 @@ test("leaving the page releases the camera", async () => {
 test("unmounting a scanner releases the camera", async () => {
   camera = installRecoveryQrCamera("unrelated QR");
   const view = render(
-    <RecoveryKeyScanControl disabled={false} onScan={() => undefined} />,
+    <RecoveryKeyScanControl
+      label="Scan QR Code"
+      disabled={false}
+      onScan={() => undefined}
+    />,
   );
   fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
   await view.findByText(/does not contain a valid recovery key/u);
@@ -58,7 +78,11 @@ test("backgrounding the app releases the camera without restarting on return", a
   camera = installRecoveryQrCamera("unrelated QR");
   const onScan = mock(() => undefined);
   const view = render(
-    <RecoveryKeyScanControl disabled={false} onScan={onScan} />,
+    <RecoveryKeyScanControl
+      label="Scan QR Code"
+      disabled={false}
+      onScan={onScan}
+    />,
   );
   fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
   await view.findByText(/does not contain a valid recovery key/u);

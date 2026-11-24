@@ -12,7 +12,7 @@ import { installRecoveryQrPhoto } from "../../../../test/helpers/recoveryQrCamer
 import { ScannerPhotoCleanupError } from "../../../host/Scanner";
 import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { RecoveryKeyNativeScan } from "./RecoveryKeyNativeScan";
-import { RecoveryKeyRestoreForm } from "./RecoveryKeyRestoreForm";
+import { RecoveryKeyScan } from "./RecoveryKeyScan";
 
 const phrase = createIdentitySeedPhraseFromEntropy(
   new Uint8Array(32).fill(0x20),
@@ -33,15 +33,7 @@ test("a host camera captures and decodes recovery without browser camera APIs", 
   });
   const view = render(
     <AppHostConfigProvider value={host}>
-      <RecoveryKeyRestoreForm
-        busy={null}
-        canRestore
-        identityTransitionInFlight={false}
-        localKeyringLocked={false}
-        onRestore={async () => undefined}
-        restorePassphrase=""
-        setRestorePassphrase={onScan}
-      />
+      <RecoveryKeyScan disabled={false} label="Scan QR Code" onScan={onScan} />
     </AppHostConfigProvider>,
   );
   fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
@@ -57,6 +49,7 @@ test("native camera cancellation does not decode or change the phrase", async ()
   const onScan = mock(() => undefined);
   const view = render(
     <RecoveryKeyNativeScan
+      label="Scan QR Code"
       disabled={false}
       onScan={onScan}
       scanner={{ capturePhoto: async () => null }}
@@ -75,6 +68,7 @@ test("invalid native QR contents announce an error and permit retry", async () =
   const onScan = mock(() => undefined);
   const view = render(
     <RecoveryKeyNativeScan
+      label="Scan QR Code"
       disabled={false}
       onScan={onScan}
       scanner={{ capturePhoto: async () => new Blob() }}
@@ -99,6 +93,7 @@ test.each(["lock", "unmount"])(
     const onScan = mock(() => undefined);
     const view = render(
       <RecoveryKeyNativeScan
+        label="Scan QR Code"
         disabled={false}
         onScan={onScan}
         scanner={scanner}
@@ -107,7 +102,12 @@ test.each(["lock", "unmount"])(
     fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
     if (action === "lock")
       view.rerender(
-        <RecoveryKeyNativeScan disabled onScan={onScan} scanner={scanner} />,
+        <RecoveryKeyNativeScan
+          disabled
+          label="Scan QR Code"
+          onScan={onScan}
+          scanner={scanner}
+        />,
       );
     else view.unmount();
     await act(async () => {
@@ -123,6 +123,7 @@ test("native camera failures show an actionable error without exception details"
   const onScan = mock(() => undefined);
   const view = render(
     <RecoveryKeyNativeScan
+      label="Scan QR Code"
       disabled={false}
       onScan={onScan}
       scanner={{
@@ -148,6 +149,7 @@ test("a photo decoded after locking is released without delivering the key", asy
   const onScan = mock(() => undefined);
   const view = render(
     <RecoveryKeyNativeScan
+      label="Scan QR Code"
       disabled={false}
       onScan={onScan}
       scanner={scanner}
@@ -156,7 +158,12 @@ test("a photo decoded after locking is released without delivering the key", asy
   fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
   await waitFor(() => expect(photo?.createBitmap).toHaveBeenCalled());
   view.rerender(
-    <RecoveryKeyNativeScan disabled onScan={onScan} scanner={scanner} />,
+    <RecoveryKeyNativeScan
+      disabled
+      label="Scan QR Code"
+      onScan={onScan}
+      scanner={scanner}
+    />,
   );
   await act(async () => {
     pending.resolve({ width: 320, height: 320, close } as ImageBitmap);
@@ -170,6 +177,7 @@ test("native photo cleanup failures explain that the capture remains on the devi
   const onScan = mock(() => undefined);
   const view = render(
     <RecoveryKeyNativeScan
+      label="Scan QR Code"
       disabled={false}
       onScan={onScan}
       scanner={{
@@ -197,6 +205,7 @@ test("a photo with no QR code asks for the recovery code without blaming camera 
   const onScan = mock(() => undefined);
   const view = render(
     <RecoveryKeyNativeScan
+      label="Scan QR Code"
       disabled={false}
       onScan={onScan}
       scanner={{ capturePhoto: async () => new Blob() }}

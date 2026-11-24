@@ -1,18 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  MiniAppButton,
-  MiniAppStatus,
-} from "../../../components/mini-app/MiniAppLayout";
 import { type Scanner, ScannerPhotoCleanupError } from "../../../host/Scanner";
-import { recoveryKeyScanPhrase } from "../actions/recoveryKeyScanPhrase";
+import { recoveryKeyScanPhrase } from "../../../identity/recoveryKeyScanPhrase";
+import { MiniAppButton, MiniAppStatus } from "../../mini-app/MiniAppLayout";
 import { decodeRecoveryKeyPhoto } from "./recoveryKeyPhoto";
 
 export function RecoveryKeyNativeScan({
   disabled,
+  label,
   onScan,
   scanner,
 }: {
   disabled: boolean;
+  label: string;
   onScan: (phrase: string) => void;
   scanner: Scanner;
 }) {
@@ -43,7 +42,7 @@ export function RecoveryKeyNativeScan({
     if (generation.current !== request) return;
     if (!phrase) {
       setError(
-        "This photo does not contain a valid recovery key. Capture the QR code shown in Identity Manager.",
+        "This photo does not contain a valid recovery key. Capture the recovery QR code from Identity Manager or your printed recovery key.",
       );
       return;
     }
@@ -82,12 +81,9 @@ export function RecoveryKeyNativeScan({
   };
 
   return (
-    <div className="identity-manager-recovery-key-form">
-      <MiniAppStatus>
-        Capture the recovery QR code on your other device using the camera.
-      </MiniAppStatus>
+    <div className="recovery-key-scan">
       <MiniAppButton disabled={disabled || busy} onClick={() => void capture()}>
-        {busy ? "Scanning..." : "Scan QR Code"}
+        {busy ? "Scanning..." : label}
       </MiniAppButton>
       {error && (
         <MiniAppStatus role="alert" tone="error">
