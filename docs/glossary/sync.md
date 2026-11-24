@@ -94,6 +94,7 @@ the updates it read.
 Related docs:
 
 - [advisory-op-spans.md](../advisory-op-spans.md#loro-runtime-failures)
+- [rotation-deaths.md](../rotation-deaths.md)
 - [VoidUpdateProgress.md](../../formal/document-sync/VoidUpdateProgress.md)
 
 ## Peer Owner
