@@ -6,6 +6,7 @@ import {
   runtimeAttempts,
   twoDeviceHarness,
 } from "../../../../../test/helpers/stores/acceptedHistoryDevices";
+import { DatabaseUnavailableError } from "../../../../data/sqlite/availability/databaseUnavailable";
 import * as documentWorkflows from "../../../../workflows/documents";
 import {
   DocumentRotationUnavailableError,
@@ -13,6 +14,22 @@ import {
 } from "../../../../workflows/documents";
 
 type Devices = Awaited<ReturnType<typeof openSyncedDevices>>;
+
+/**
+ * The causes of the rotation availability notes `owner`'s stores report as
+ * not written, through the host's `logError`.
+ */
+function reportNoteFailures(owner: Devices["first"]): string[] {
+  const reported: string[] = [];
+  Object.assign(owner.runtime.util, {
+    logError: (message: string | Error, cause?: unknown) => {
+      if (String(message).includes("availability note")) {
+        reported.push(cause instanceof Error ? cause.message : String(cause));
+      }
+    },
+  });
+  return reported;
+}
 
 const availability = (owner: Devices["first"]) =>
   owner.runtime.infra.execSql(
@@ -228,11 +245,13 @@ test("a failed divergence note keeps the rotation's own error", async () => {
     await countDeaths(first, harness.documentId(), founding.id, 3, {
       kind: "rotation",
     });
+    const reported = reportNoteFailures(first);
 
     await expect(store.assertCanRotateContentKey("prove")).rejects.toThrow(
       "unverified local history",
     );
     expect(noting).toHaveBeenCalledTimes(1);
+    expect(reported).toEqual(["database is locked"]);
   } finally {
     noting.mockRestore();
     removeWebLocks();
@@ -242,7 +261,7 @@ test("a failed divergence note keeps the rotation's own error", async () => {
 
 // Availability is bookkeeping beside the rotation: notes that cannot be
 // written leave the state for a later attempt, and the proven rotation
-// goes ahead.
+// goes ahead. Each failure is reported, except a database gone in teardown.
 test("failed availability notes do not fail a proven rotation", async () => {
   const harness = await twoDeviceHarness("rotation-notes-fail");
   const removeWebLocks = installFakeWebLocks();
@@ -251,12 +270,24 @@ test("failed availability notes do not fail a proven rotation", async () => {
     spyOn(documentWorkflows, "noteDocumentRotationProven"),
   ].map((spy) => spy.mockRejectedValue(new Error("database is locked")));
   try {
-    const { store } = await openSyncedDevices(harness);
+    const { first, store } = await openSyncedDevices(harness);
+    const reported = reportNoteFailures(first);
 
     expect(await store.assertCanRotateContentKey("prove")).toBeInstanceOf(
       Uint8Array,
     );
     for (const spy of failing) expect(spy).toHaveBeenCalled();
+    const notes = failing.reduce((sum, spy) => sum + spy.mock.calls.length, 0);
+    expect(reported).toEqual(Array(notes).fill("database is locked"));
+
+    reported.length = 0;
+    for (const spy of failing) {
+      spy.mockRejectedValue(new DatabaseUnavailableError("Database closed"));
+    }
+    expect(await store.assertCanRotateContentKey("prove")).toBeInstanceOf(
+      Uint8Array,
+    );
+    expect(reported).toEqual([]);
   } finally {
     for (const spy of failing) spy.mockRestore();
     removeWebLocks();
