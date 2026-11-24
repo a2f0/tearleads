@@ -10,6 +10,11 @@
  * stores the state.
  */
 
+/**
+ * As many deaths as void an update (`MAX_LORO_RUNTIME_ATTEMPTS`), so the
+ * bounded model's one limit (`VoidUpdateProgress`'s MaxAttempts) stands for
+ * both; a test holds them equal.
+ */
 export const MAX_ROTATION_DEATHS = 3;
 
 /** The document and judge a state is about. */

@@ -12,7 +12,7 @@ import { processLoroLifetimes } from "../../../../data/documents/shared/sync/lor
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { writeLoroWindowInTransaction } from "../../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import { createExecSql, type ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,
@@ -39,6 +39,31 @@ interface SeenRequest {
 }
 
 /**
+ * The database, noting the kind of each window this process writes as its
+ * row is written: the row is gone once the page settles.
+ */
+function watchWindowKinds(execSql: ExecSql) {
+  const kinds: string[] = [];
+  const watched = createExecSql({
+    async exec({ sql, bind, rowMode }) {
+      const rows =
+        rowMode === "array"
+          ? await execSql(sql, bind, { rowMode: "array" })
+          : await execSql(sql, bind);
+      if (/^insert into "document_loro_windows"/i.test(sql)) {
+        const own = await execSql(
+          "SELECT kind FROM document_loro_windows WHERE lifetime_id = ?",
+          [processLoroLifetimes.id],
+        );
+        for (const { kind } of own) kinds.push(String(kind));
+      }
+      return { rows };
+    },
+  });
+  return { kinds, watched };
+}
+
+/**
  * A rotation's store against a server that commits what it is sent and
  * serves raw history one update a page when asked to, noting each request.
  */
@@ -49,7 +74,7 @@ async function rotationWindowsState(name: string) {
   cleanups.push(installFakeWebLocks());
   const opening = spyOn(processLoroLifetimes, "openWindow");
   cleanups.push(() => opening.mockRestore());
-  const { execSql } = database;
+  const { kinds, watched: execSql } = watchWindowKinds(database.execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
   const fixture = await createRemoteHistoryFixture();
   const localId = `${name}-local`;
@@ -104,6 +129,7 @@ async function rotationWindowsState(name: string) {
   return {
     documentId: fixture.writerProjection.documentId,
     execSql,
+    kinds,
     localId,
     opening,
     seen,
@@ -118,8 +144,10 @@ const windowRows = (execSql: ExecSql) =>
 // there must be found like a sync pass's (#3194): each page claims the
 // windows dead lifetimes left, asks for one update while their suspects
 // stand, and reads in a window of its own that it settles before the next.
+// Each is a rotation window, whose death counts toward the rotation, never
+// an update.
 test("rotation reads each raw page in its own window, isolating as sync does", async () => {
-  const { documentId, execSql, localId, opening, seen, state } =
+  const { documentId, execSql, kinds, localId, opening, seen, state } =
     await rotationWindowsState("rotation-raw-windows");
   await writeLoroWindowInTransaction(
     getClientSQLitePersistenceRuntime(execSql).db,
@@ -145,14 +173,16 @@ test("rotation reads each raw page in its own window, isolating as sync does", a
     { maxPageUpdates: 1, open: 0, opened: 1, raw: true },
   ]);
   expect(opening).toHaveBeenCalledTimes(2);
+  expect(kinds).toEqual(["rotation", "rotation"]);
   expect(await windowRows(execSql)).toEqual([]);
 });
 
 // Settling queued edits first, rotation's sync request reads the served
 // updates its judge weighs, so it too reads in a window, settled once the
-// request is over and before the raw history that follows.
+// request is over and before the raw history that follows. It reads new
+// updates as any sync does, so its window counts toward them.
 test("rotation settlement reads in a window it settles before the raw pull", async () => {
-  const { execSql, opening, seen, state } = await rotationWindowsState(
+  const { execSql, kinds, opening, seen, state } = await rotationWindowsState(
     "rotation-settlement-window",
   );
   await setDocumentText(state, () => undefined, "Edited before rotation");
@@ -167,5 +197,6 @@ test("rotation settlement reads in a window it settles before the raw pull", asy
     { maxPageUpdates: undefined, open: 0, opened: 2, raw: true },
   ]);
   expect(opening).toHaveBeenCalledTimes(3);
+  expect(kinds).toEqual(["rotation", "read", "rotation"]);
   expect(await windowRows(execSql)).toEqual([]);
 });

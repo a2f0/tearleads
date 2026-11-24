@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { MAX_LORO_RUNTIME_ATTEMPTS } from "./loroRuntimeFailureLedger";
 import {
   currentRotationAvailability,
   MAX_ROTATION_DEATHS,
@@ -22,6 +23,11 @@ function dieTimes(
   }
   return state;
 }
+
+// VoidUpdateProgress models both limits as its one MaxAttempts.
+test("a rotation stops after as many deaths as void an update", () => {
+  expect(MAX_ROTATION_DEATHS).toBe(MAX_LORO_RUNTIME_ATTEMPTS);
+});
 
 test("rotation deaths below the limit leave the device rotating", () => {
   expect(dieTimes(MAX_ROTATION_DEATHS - 1)).toEqual({
