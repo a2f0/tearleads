@@ -56,17 +56,26 @@ EXTENDS FiniteSets, Naturals, Sequences
 (* view reads accepted history in a window that counts as a pull's does;  *)
 (* it is left out (VoidUpdateProgress.md).                                *)
 (*                                                                         *)
+(* An update whose import always fails the runtime without ending the     *)
+(* process (Trappers) holds the device once its lifetime has failed: only *)
+(* the first failure counts. The app then asks its user to reload, and    *)
+(* the reload (Recycle) starts a lifetime whose failure counts again, so  *)
+(* the update is a final void after MaxAttempts reloads.                  *)
+(*                                                                         *)
 (* Readers are devices with no local writes; writers are outside actors.  *)
 (* Commits, decoder upgrades, state replacement, runtime failures,         *)
 (* restarts, and deaths have no fairness; only server delivery (Pull) and  *)
 (* the device's own steps do: processing (Process), starting a new        *)
-(* lifetime (Start), and dying on a killer (Kill with KillerPending).      *)
+(* lifetime (Start), dying on a killer (Kill with KillerPending), failing *)
+(* on a trapper (RuntimeFailure with TrapperPending), and its user's      *)
+(* reload after a failure (Recycle), which the app asks for and only the  *)
+(* user starts.                                                           *)
 (* Other deaths, hidden or not, are bounded (MaxDeaths): a device whose   *)
 (* user hides the app at every death never counts a killer, the accepted  *)
 (* residual. Restarts and rotations are bounded too (MaxRestarts,         *)
 (* MaxRotations); a rotation closing its window is the device's own step. *)
 (*                                                                         *)
-(* Fifteen switches each relax one rule, set safe in the registered       *)
+(* Sixteen switches each relax one rule, set safe in the registered       *)
 (* config:                                                                 *)
 (*   RefuseVoid           a void fails the whole pass (the old behavior)   *)
 (*   ImportCarriedOps     a span mismatch imports what the payload carries *)
@@ -93,16 +102,18 @@ EXTENDS FiniteSets, Naturals, Sequences
 (*                        update it read, not the rotation                 *)
 (*   KeepAttemptsOnCleanRead  a window the process outlived leaves the     *)
 (*                        attempts of the updates it read                  *)
+(*   RecycleRuntime       FALSE: the app asks for no reload, so a trapper  *)
+(*                        holds the device until an unfair restart         *)
 (***************************************************************************)
 
 CONSTANTS Devices, MaxUpdates, MaxDecoder, MaxReplacements,
-          MaxAttempts, MaxRestarts, FaultyDevices, Killers, MaxDeaths,
-          MaxRotations,
+          MaxAttempts, MaxRestarts, FaultyDevices, Killers, Trappers,
+          MaxDeaths, MaxRotations,
           RefuseVoid, ImportCarriedOps, PullUsesCursor,
           KeepCursorOnUpgrade, IgnoreCursorVersion, IgnorePullPremise,
           MemoizeRuntimeFailure, CountEveryFailure, CursorPastUnsettled,
           RecordBeforeImport, IsolateKills, CountPageKills, CountHiddenKills,
-          CountRotationKills, KeepAttemptsOnCleanRead
+          CountRotationKills, KeepAttemptsOnCleanRead, RecycleRuntime
 
 ASSUME /\ Devices # {}
        /\ IsFiniteSet(Devices)
@@ -113,6 +124,8 @@ ASSUME /\ Devices # {}
        /\ MaxRestarts \in Nat
        /\ FaultyDevices \subseteq Devices
        /\ Killers \subseteq 1..MaxUpdates
+       /\ Trappers \subseteq 1..MaxUpdates
+       /\ Killers \cap Trappers = {}
        /\ MaxDeaths \in Nat
        /\ MaxRotations \in Nat
        /\ RefuseVoid \in BOOLEAN
@@ -130,6 +143,7 @@ ASSUME /\ Devices # {}
        /\ CountHiddenKills \in BOOLEAN
        /\ CountRotationKills \in BOOLEAN
        /\ KeepAttemptsOnCleanRead \in BOOLEAN
+       /\ RecycleRuntime \in BOOLEAN
 
 (* An overclaim reserves a second id that no update ever carries. *)
 Ops == 1..(2 * MaxUpdates)
@@ -353,6 +367,10 @@ Pending(d) == {inbox[d][k] : k \in 1..Len(inbox[d])} \ finalVoid[d]
 (* runtime can fail, so the device cannot process the pull it is in.       *)
 KillerPending(d) == d \in FaultyDevices /\ Pending(d) \cap Killers # {}
 
+(* A served update whose import always fails the runtime on such a device, *)
+(* leaving the process running: it cannot process the pull either.        *)
+TrapperPending(d) == d \in FaultyDevices /\ Pending(d) \cap Trappers # {}
+
 (* Per-update counts `c` with those of `read` cleared: a window the process *)
 (* outlived read them, so the deaths and failures counted before were not  *)
 (* theirs.                                                                 *)
@@ -371,6 +389,7 @@ CleanRead(d, read) ==
 Process(d) ==
   /\ phase[d] = "pulled"
   /\ ~KillerPending(d)
+  /\ ~TrapperPending(d)
   /\ Complete(d, Judge(inbox[d], decoder[d], held[d], finalVoid[d]))
   /\ CleanRead(d, Pending(d))
   /\ phase' = [phase EXCEPT ![d] = "idle"]
@@ -435,6 +454,24 @@ Restart(d) ==
   /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
                   cursorVersion, phase, inbox, bound, pullJudge,
                   replacements, attempts, finalVoid, strikes >>
+  /\ UNCHANGED << KillVars, ReadVars >>
+
+(* The user reloads the app after a runtime failure, which the app asks    *)
+(* for (`prepareRuntimeRestart`): it drains the read windows first, so a   *)
+(* pull it cut short applies nothing and leaves no window, and the new     *)
+(* lifetime's first failure counts again. RecycleRuntime FALSE leaves only *)
+(* the bounded, unfair Restart.                                            *)
+Recycle(d) ==
+  /\ RecycleRuntime
+  /\ failedInLife[d]
+  /\ phase[d] \in {"idle", "pulled"}
+  /\ phase' = [phase EXCEPT ![d] = "idle"]
+  /\ inbox' = [inbox EXCEPT ![d] = << >>]
+  /\ failedInLife' = [failedInLife EXCEPT ![d] = FALSE]
+  /\ lifeAttempts' = [lifeAttempts EXCEPT ![d] = 0]
+  /\ UNCHANGED << log, nextOp, decoder, held, cursor, cursorJudge,
+                  cursorVersion, bound, pullJudge, replacements, attempts,
+                  finalVoid, restarts, strikes >>
   /\ UNCHANGED << KillVars, ReadVars >>
 
 (* The process dies while reading its pull; nothing the window held is     *)
@@ -604,6 +641,7 @@ Next ==
        \/ Process(d)
        \/ RuntimeFailure(d)
        \/ Restart(d)
+       \/ Recycle(d)
        \/ Kill(d)
        \/ HiddenKill(d)
        \/ Start(d)
@@ -613,11 +651,16 @@ Next ==
        \/ RotateDone(d)
 
 (* Dying on a killer is the device's own processing outcome, so it is fair; *)
-(* every other death is not. A rotation closing its window is its own.    *)
+(* every other death is not. A rotation closing its window is its own, and *)
+(* so is failing on a trapper. A reload after a failure is the device's   *)
+(* user answering the app's notice: their own step, never another         *)
+(* device's.                                                              *)
 Fairness ==
   \A d \in Devices :
     /\ WF_vars(Pull(d)) /\ WF_vars(Process(d)) /\ WF_vars(Start(d))
     /\ WF_vars(Kill(d) /\ KillerPending(d)) /\ WF_vars(RotateDone(d))
+    /\ WF_vars(RuntimeFailure(d) /\ TrapperPending(d))
+    /\ WF_vars(Recycle(d))
 
 Spec == Init /\ [][Next]_vars /\ Fairness
 

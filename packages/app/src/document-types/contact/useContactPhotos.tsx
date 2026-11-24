@@ -4,8 +4,8 @@ import {
   DocumentContext,
   useDocument,
 } from "../../stores/documents/DocumentsProvider";
+import { DocumentAvatar } from "../shared/avatar/DocumentAvatar";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
-import { DocumentAvatar } from "../shared/DocumentAvatar";
 import {
   photoCollectionSlot,
   removeDocumentPhoto,

@@ -62,8 +62,8 @@ export const principalPolicyContractsSurface = [
 // Container Data, Client Blob Storage, and Document Store & Sync build on.
 // Document sync also uses the KEK currency, content crypto, event, outgoing
 // batch, pagination, decryption, import, verdict, Loro runtime-failure ledger,
-// Loro lifetime and read-window, content-key commitment, acknowledgement, and
-// submit-failure contracts.
+// runtime health, Loro lifetime and read-window, content-key commitment,
+// acknowledgement, and submit-failure contracts.
 export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/containerKek/index.ts`,
   `${sdk}/data/documents/shared/projection/index.ts`,
@@ -87,6 +87,10 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/sync/documentUpdateVerdict.ts`,
   `${sdk}/data/documents/shared/sync/loroLifetime.ts`,
   `${sdk}/data/documents/shared/sync/loroRuntimeFailureLedger.ts`,
+  `${sdk}/data/documents/shared/sync/loroRuntimeHealth.ts`,
+  `${sdk}/data/documents/shared/sync/loroRuntimeHealthMachine.ts`,
+  `${sdk}/data/documents/shared/sync/loroWindowDrain.ts`,
+  `${sdk}/data/documents/shared/sync/loroWindowDrainMachine.ts`,
   `${sdk}/data/documents/shared/sync/loroWindowGate.ts`,
   `${sdk}/data/documents/shared/sync/loroWindowMachine.ts`,
   `${sdk}/data/documents/shared/sync/mutationAcknowledgement.ts`,

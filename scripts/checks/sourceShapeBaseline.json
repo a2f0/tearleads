@@ -61,8 +61,8 @@
       "bytes": 16141
     },
     "docs/developer/client-sdk/public-api.md": {
-      "lines": 511,
-      "bytes": 35562
+      "lines": 517,
+      "bytes": 35800
     },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
@@ -81,16 +81,16 @@
       "bytes": 21345
     },
     "formal/document-sync/VoidUpdateProgress.tla": {
-      "lines": 689,
-      "bytes": 35612
+      "lines": 732,
+      "bytes": 38101
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 676,
-      "bytes": 20070
+      "lines": 680,
+      "bytes": 20164
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 503,
-      "bytes": 38278
+      "lines": 508,
+      "bytes": 38471
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 601,

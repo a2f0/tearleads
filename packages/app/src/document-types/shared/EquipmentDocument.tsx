@@ -7,9 +7,9 @@ import {
   type useDocument,
 } from "../../stores/documents/DocumentsProvider";
 import type { DocumentTypeAppProps } from "../types";
+import { DocumentAvatar } from "./avatar/DocumentAvatar";
 import { createDocumentTypeApp } from "./createDocumentTypeApp";
 import { DocumentAttachmentSlots } from "./DocumentAttachmentSlots";
-import { DocumentAvatar } from "./DocumentAvatar";
 import { removeDocumentPhoto } from "./documentPhotos";
 import {
   type EquipmentDocumentFields,
@@ -214,18 +214,16 @@ function EquipmentDocument(params: EquipmentDocumentProps) {
   return (
     <StructuredDocument
       leading={
-        definition.photos.avatar && (
-          <DocumentAvatar
-            definition={definition}
-            displayName={
-              [doc.fields.make, doc.fields.model].filter(Boolean).join(" ") ||
-              definition.createLabel
-            }
-            isEditing={doc.isEditing}
-            imageUrlBySlotId={doc.slotsProps.imageUrlBySlotId}
-            blobStore={infra.blobStore}
-          />
-        )
+        <DocumentAvatar
+          definition={definition}
+          displayName={
+            [doc.fields.make, doc.fields.model].filter(Boolean).join(" ") ||
+            definition.createLabel
+          }
+          isEditing={doc.isEditing}
+          imageUrlBySlotId={doc.slotsProps.imageUrlBySlotId}
+          blobStore={infra.blobStore}
+        />
       }
       attachments={
         <DocumentAttachmentSlots

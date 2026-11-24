@@ -1,6 +1,6 @@
 import type { DocumentRow } from "@tearleads/client-sdk";
-import { sameContactAvatarRef } from "../../document-types/contact/contactAvatarSlot";
 import type { ContactEntry } from "../../document-types/contact/contactDocumentModel";
+import { sameDocumentAvatarRef } from "../../document-types/shared/avatar/documentAvatarRef";
 
 const contactCollator = new Intl.Collator(undefined, { sensitivity: "base" });
 
@@ -88,6 +88,6 @@ export function sameContactEntry(
     left.userId === right.userId &&
     left.encapsulationPublicKey === right.encapsulationPublicKey &&
     left.isSelf === right.isSelf &&
-    sameContactAvatarRef(left.avatar, right.avatar)
+    sameDocumentAvatarRef(left.avatar, right.avatar)
   );
 }
