@@ -46,6 +46,17 @@ import { reportQuietly } from "./reportQuietly";
  * its last completed pull, while the persisted frontier still covers the
  * version recorded with it and every verdict behind it came from the running
  * judge. Otherwise undefined, and the pull goes by version alone.
+ *
+ * The content key this pass holds is no input. The running judge accepts or
+ * voids an update only under the key its writer-signed envelope commits to,
+ * and a pass holding another key fails at that update and records no
+ * verdict for it, so every verdict behind the cursor is the one the
+ * committed key gives. A cursor recorded before readers checked the commitment carries an
+ * older judge and is withheld. A pass that now holds another key for an
+ * epoch cannot judge those updates differently: it can only fail on the
+ * epoch's updates after the cursor. `ContentKeyCommitment.tla` checks this:
+ * `Fetch` and `StaleKey` change a reader's keys and leave its cursor, and
+ * `VerdictsAreCanonical` holds.
  */
 export async function readProcessedCursorForSync(
   execSql: ExecSql,

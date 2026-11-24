@@ -184,9 +184,13 @@ frontier does not cover again, when:
 
 The content key the reader holds is not among them. Every verdict behind a
 cursor was reached under the key its update's envelope commits to, and every
-reader holding that key reaches the same one, so neither a void row nor a
-cursor records a key, and a later pass holding another key for an epoch
-leaves both as they are.
+reader holding that key reaches the same one. A cursor recorded before readers
+checked the commitment carries an older judge, so it is withheld. Neither a
+void row nor a cursor records a key, and a later pass holding another key for
+an epoch leaves both as they are: it cannot judge the updates behind the
+cursor differently, only fail on that epoch's later ones.
+[`ContentKeyCommitment`](../formal/document-sync/ContentKeyCommitment.md)
+checks this, since its key changes leave every reader's cursor where it is.
 
 A pull of several pages advances the cursor only if every page after the first
 went out under the judge and the cursor its first page was sent with. The
