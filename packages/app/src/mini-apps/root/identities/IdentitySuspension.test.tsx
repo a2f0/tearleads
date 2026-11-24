@@ -131,7 +131,7 @@ test("two clicks in one batch start one lift", async () => {
       action.click();
     });
     expect(lift).toHaveBeenCalledTimes(1);
-    expect(lift).toHaveBeenCalledWith(MEMBER.userId);
+    expect(lift).toHaveBeenCalledWith(SUSPENDED.userId);
     expect(suspend).not.toHaveBeenCalled();
     await act(async () => pending[0]?.resolve({ data: MEMBER, ok: true }));
   } finally {
