@@ -8,6 +8,7 @@ import {
   type PropsWithChildren,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -20,6 +21,15 @@ import {
   DocumentBlobPickProvider,
   type DocumentBlobPickRequest,
 } from "../../../document-types/shared/DocumentBlobPickContext";
+import {
+  type BlobPickEvent,
+  type BlobPickTarget,
+  blobPickTarget,
+  IDLE_BLOB_PICK,
+  transitionBlobPick,
+} from "./blobPickMachine";
+
+export type { BlobPickTarget } from "./blobPickMachine";
 
 // Shared mini-app host for the document-types blob-pick seam. A "pick" routes a
 // document's "Choose Blob" action over to the host mini-app's blob-browser panel
@@ -27,14 +37,8 @@ import {
 // in React state rather than the URL: picking a blob for a slot is an in-session
 // interaction, not a deep-linkable destination. Any mini-app that renders a
 // blob-browser surface can mount this provider (currently the Explorer) so it
-// need not be imported across mini-app boundaries.
-export interface BlobPickTarget {
-  containerId: string;
-  // localId of the document the pick returns to once a blob is chosen.
-  localId: string;
-  slotId: string;
-  slotLabel: string;
-}
+// need not be imported across mini-app boundaries. The pick's lifecycle is the
+// machine in blobPickMachine.ts; this provider runs its navigation.
 
 interface BlobPickResult {
   blob: BlobInfo;
@@ -53,80 +57,95 @@ interface BlobPickContextValue {
 
 const BlobPickContext = createContext<BlobPickContextValue | null>(null);
 
-export function BlobPickProvider(
-  params: PropsWithChildren<{
-    // Lists every blob in the identity-local projection, across organizations;
-    // used to hide "Choose Blob" only when that global picker would be empty.
-    loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
-    // Navigates the host's detail surface to the blob-browser route. Called when
-    // a pick starts; clearing the target on resolve/cancel routes back. Optional:
-    // a host that derives the picker's visibility directly from `pickTarget`
-    // (e.g. the Notes mini-app, which swaps the editor for the picker) needs no
-    // routing and can omit both callbacks.
-    openBlobBrowserRoute?:
-      | ((input?: DocumentBlobOpenRequest | undefined) => void)
-      | undefined;
-    returnToDocumentRoute?:
-      | ((localId: string, containerId: string) => void)
-      | undefined;
-  }>,
-) {
-  const {
-    children,
-    loadBlobInfo,
-    openBlobBrowserRoute,
-    returnToDocumentRoute,
-  } = params;
-  const [pickTarget, setPickTarget] = useState<BlobPickTarget | null>(null);
+interface BlobPickRouting {
+  // Navigates the host's detail surface to the blob-browser route. Called when
+  // a pick starts; resolve/cancel route back. Optional: a host that derives
+  // the picker's visibility directly from `pickTarget` (e.g. the Notes
+  // mini-app, which swaps the editor for the picker) needs no routing and can
+  // omit these.
+  openBlobBrowserRoute?:
+    | ((input?: DocumentBlobOpenRequest | undefined) => void)
+    | undefined;
+  // Whether the host's route shows the blob browser right now. A host that
+  // routes the picker passes it: the target is held until the return
+  // navigation leaves that route, and leaving it mid-pick abandons the pick.
+  pickerRouteActive?: boolean | undefined;
+  returnToDocumentRoute?:
+    | ((localId: string, containerId: string) => void)
+    | undefined;
+}
+
+// Runs one pick at a time through blobPickMachine: request, then resolve or
+// cancel, each with its navigation, and the one-shot result the document reads.
+function useBlobPickLifecycle(routing: BlobPickRouting) {
+  const { openBlobBrowserRoute, returnToDocumentRoute } = routing;
+  const pickerRouteActive = routing.pickerRouteActive === true;
+  const [pick, setPick] = useState(IDLE_BLOB_PICK);
+  // Read by the callbacks below, so a second resolve or cancel in the same
+  // tick already sees the pick as finished and does not navigate twice.
+  const pickRef = useRef(pick);
+  const send = useCallback((event: BlobPickEvent) => {
+    pickRef.current = transitionBlobPick(pickRef.current, event);
+    setPick(pickRef.current);
+  }, []);
   // The picked result is one-shot and read on the next render of the document,
   // so a ref avoids an extra state update / re-render race with the route swap.
   const resultRef = useRef<BlobPickResult | null>(null);
 
+  const wasPickerRouteActive = useRef(pickerRouteActive);
+  useEffect(() => {
+    if (wasPickerRouteActive.current && !pickerRouteActive) {
+      send({ type: "picker-route-left" });
+    }
+    wasPickerRouteActive.current = pickerRouteActive;
+  }, [pickerRouteActive, send]);
+
   const requestBlobPick = useCallback(
     (request: DocumentBlobPickRequest) => {
       resultRef.current = null;
-      setPickTarget({
-        containerId: request.containerId,
-        localId: request.localId,
-        slotId: request.slot.slotId,
-        slotLabel: request.slot.label,
+      send({
+        type: "requested",
+        target: {
+          containerId: request.containerId,
+          localId: request.localId,
+          slotId: request.slot.slotId,
+          slotLabel: request.slot.label,
+        },
       });
       openBlobBrowserRoute?.();
     },
-    [openBlobBrowserRoute],
-  );
-  const openBlob = useCallback(
-    (request: DocumentBlobOpenRequest) => {
-      openBlobBrowserRoute?.(request);
-    },
-    [openBlobBrowserRoute],
+    [openBlobBrowserRoute, send],
   );
 
-  const resolveBlobPick = useCallback(
-    (blob: BlobInfo) => {
-      setPickTarget((target) => {
-        if (target) {
-          resultRef.current = {
-            blob,
-            localId: target.localId,
-            slotId: target.slotId,
-          };
-          returnToDocumentRoute?.(target.localId, target.containerId);
-        }
-        return null;
-      });
-    },
-    [returnToDocumentRoute],
-  );
-
-  const cancelBlobPick = useCallback(() => {
-    setPickTarget((target) => {
-      if (target) {
-        returnToDocumentRoute?.(target.localId, target.containerId);
+  // Ends the pick in progress, with the chosen blob or (null) without one, and
+  // routes back to its document.
+  const finishBlobPick = useCallback(
+    (blob: BlobInfo | null) => {
+      const current = pickRef.current;
+      if (current.status !== "picking") {
+        return;
       }
-      return null;
-    });
-  }, [returnToDocumentRoute]);
+      const { target } = current;
+      if (blob) {
+        resultRef.current = {
+          blob,
+          localId: target.localId,
+          slotId: target.slotId,
+        };
+      }
+      send({ type: "finished", awaitsRoute: pickerRouteActive });
+      returnToDocumentRoute?.(target.localId, target.containerId);
+    },
+    [pickerRouteActive, returnToDocumentRoute, send],
+  );
+  const resolveBlobPick = useCallback(
+    (blob: BlobInfo) => finishBlobPick(blob),
+    [finishBlobPick],
+  );
+  const cancelBlobPick = useCallback(
+    () => finishBlobPick(null),
+    [finishBlobPick],
+  );
 
   const consumeBlobPick = useCallback(
     (localId: string, slotId: string): BlobInfo | null => {
@@ -138,6 +157,42 @@ export function BlobPickProvider(
       return result.blob;
     },
     [],
+  );
+
+  return {
+    cancelBlobPick,
+    consumeBlobPick,
+    pickTarget: blobPickTarget(pick),
+    requestBlobPick,
+    resolveBlobPick,
+  };
+}
+
+export function BlobPickProvider(
+  params: PropsWithChildren<
+    BlobPickRouting & {
+      // Lists every blob in the identity-local projection, across
+      // organizations; used to hide "Choose Blob" only when that global picker
+      // would be empty.
+      loadBlobInfo: (
+        query?: BlobInfoInput | undefined,
+      ) => Promise<BlobInfoList>;
+    }
+  >,
+) {
+  const { children, loadBlobInfo, openBlobBrowserRoute } = params;
+  const {
+    cancelBlobPick,
+    consumeBlobPick,
+    pickTarget,
+    requestBlobPick,
+    resolveBlobPick,
+  } = useBlobPickLifecycle(params);
+  const openBlob = useCallback(
+    (request: DocumentBlobOpenRequest) => {
+      openBlobBrowserRoute?.(request);
+    },
+    [openBlobBrowserRoute],
   );
 
   // Only the total is needed, so cap the page at one row.
