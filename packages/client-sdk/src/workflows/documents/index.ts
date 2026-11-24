@@ -147,6 +147,7 @@ export {
   closeDocumentSyncLoroWindowInTransaction,
   createDocumentSyncLoroWindow,
   type DocumentSyncLoroWindow,
+  noteDocumentSyncLoroWorkFailed,
   runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
 } from "./sync/loroPassWindow";

@@ -200,7 +200,7 @@ key rotation (death n of 3)`; the third ends in `; this device starts no more
 rotations of the document and leaves them to other members`, or, when it read
 one update alone, in `; the next rebuild leaves out the update it died
 reading`. A death in that rebuild is reported as `(the rebuild leaving out the
-update its deaths read)` in place of the count, with the same ending as the
+updates its deaths read)` in place of the count, with the same endings as the
 third. A rebuild leaving that update out that does not match the device's
 history, where the device holds counters only that update declares, is
 reported as `Documents: a key rotation's rebuild leaving out the update it

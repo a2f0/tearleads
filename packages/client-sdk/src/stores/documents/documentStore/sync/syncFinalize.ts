@@ -11,9 +11,9 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentSyncVerdictOutcome,
+  noteDocumentSyncLoroWorkFailed,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
-  runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
   settleOutgoingPassAndDecideReArm,
   shouldClearDocumentSyncFailureAfterPass,
@@ -167,9 +167,7 @@ async function persistSyncedDocument(
   let recordedVerdicts: DocumentSyncVerdictOutcome | undefined;
   let committed = false;
   try {
-    runDocumentSyncLoroWork(syncAttempt.loroWindow, () =>
-      importSyncedDocumentUpdates(candidate, updates),
-    );
+    importSyncedDocumentUpdates(candidate, updates);
     if (state.pendingBaseVersion === null) {
       throw new Error("Document sync requires an initialized pending base");
     }
@@ -240,6 +238,12 @@ async function persistSyncedDocument(
       options,
       isCurrent,
     );
+  } catch (error) {
+    // Loro work on the imported state runs on through the version vector
+    // and the save's snapshot: a throw before the commit ends the page
+    // uncleanly.
+    if (!committed) noteDocumentSyncLoroWorkFailed(syncAttempt.loroWindow);
+    throw error;
   } finally {
     candidate.free();
     await settleUnsavedLoroWindow(

@@ -96,8 +96,8 @@ export const documentLoroIsolation = sqliteTable(
  *   rotation, alone in their windows, since its last completed rebuild.
  * - `leftOut`: The updates a `leftOut` or `leavingOut` state's rebuilds
  *   leave out, unread, as a JSON array of update ids; null otherwise.
- * - `trying`: The update a `leavingOut` rebuild tries leaving out; null
- *   otherwise.
+ * - `trying`: The updates a `leavingOut` rebuild tries leaving out, not yet
+ *   proven, as a JSON array of update ids; null otherwise.
  * - `changedAt`: When the row last changed, for diagnostics.
  */
 export const documentRotationAvailability = sqliteTable(

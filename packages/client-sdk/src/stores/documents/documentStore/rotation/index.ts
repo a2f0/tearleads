@@ -45,6 +45,18 @@ import {
   settleOrdinaryDocumentUpdatesBeforeRotation,
 } from "./rotationSettlement";
 
+/**
+ * Rotation availability is bookkeeping beside the rotation: a note that
+ * fails to write leaves the stored state for a later attempt to decide, and
+ * neither fails a proven rotation nor hides a failed one's own error.
+ */
+function noteBesideRotation(note: Promise<unknown>): Promise<void> {
+  return note.then(
+    () => undefined,
+    () => undefined,
+  );
+}
+
 async function collectVerifiedRawHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   documentId: string;
@@ -66,13 +78,15 @@ async function collectVerifiedRawHistoryForRotation(input: {
       voids,
     });
     // The rebuild outlived every page: earlier deaths were not its to keep.
-    await noteDocumentRotationRebuilt({
-      documentId: input.documentId,
-      execSql: input.state.runtime.infra.execSql,
-      isCurrent: () =>
-        isDocumentStoreSyncGenerationCurrent(input.state, input.generation),
-      scope: { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
-    });
+    await noteBesideRotation(
+      noteDocumentRotationRebuilt({
+        documentId: input.documentId,
+        execSql: input.state.runtime.infra.execSql,
+        isCurrent: () =>
+          isDocumentStoreSyncGenerationCurrent(input.state, input.generation),
+        scope: { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
+      }),
+    );
     return {
       consumedPullContinuation,
       currentRecord: input.currentRecord,
@@ -154,14 +168,16 @@ function installRotationRecovery(input: {
         // an update it left out unread (`leavingOut`). They are recorded
         // while the pass is current, which the install ends.
         await collection.voids.record({ generation, state });
-        await noteDocumentRotationProven({
-          documentId,
-          execSql: state.runtime.infra.execSql,
-          leftOut,
-          isCurrent: () =>
-            isDocumentStoreSyncGenerationCurrent(state, generation),
-          scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-        });
+        await noteBesideRotation(
+          noteDocumentRotationProven({
+            documentId,
+            execSql: state.runtime.infra.execSql,
+            leftOut,
+            isCurrent: () =>
+              isDocumentStoreSyncGenerationCurrent(state, generation),
+            scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+          }),
+        );
         return installRebuiltDocument({
           consumedPullContinuation: collection.consumedPullContinuation,
           currentRecord: collection.currentRecord,
@@ -353,13 +369,12 @@ async function proveFullHistoryForRotation(
         leftOut,
       );
     } catch (error) {
-      // A rebuild that left out the update its deaths came to rest on, and
-      // still differs from the live document, shows the device holds it.
-      // The rotation's own failure is what the caller needs, so a failed
-      // note leaves the state for the next attempt to decide.
+      // A rebuild that left out updates its deaths came to rest on, and
+      // differs from the live document within their spans, shows the
+      // device holds one.
       if (error instanceof RotationHistoryMismatchError && error.heldLeftOut) {
-        await noteDocumentRotationDiverged({ ...rotation, leftOut }).catch(
-          () => undefined,
+        await noteBesideRotation(
+          noteDocumentRotationDiverged({ ...rotation, leftOut }),
         );
       }
       // Autosaves and conflict re-keying can invalidate the proven frontier.

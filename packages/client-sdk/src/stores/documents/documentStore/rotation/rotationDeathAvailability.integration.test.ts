@@ -45,7 +45,7 @@ test("rotation deaths stop this device rotating without voiding the update", asy
         deaths: 3,
         left_out: "[]",
         status: "leavingOut",
-        trying: founding.id,
+        trying: JSON.stringify([founding.id]),
       },
     ]);
     expect(logged).toEqual([expect.stringContaining("leaves out the update")]);
@@ -133,7 +133,7 @@ test("a rebuild leaving out an update the device never held rotates", async () =
         deaths: 3,
         left_out: "[]",
         status: "leavingOut",
-        trying: forged.id,
+        trying: JSON.stringify([forged.id]),
       },
     ]);
 
@@ -163,6 +163,55 @@ test("a rebuild leaving out an update the device never held rotates", async () =
   }
 }, 20_000);
 
+// Two forged updates side by side: the rebuild leaving out the first gets
+// past it and dies on the second alone, which it leaves out too, and one
+// rebuild without both decides. Two crashing updates cannot stop a device.
+test("a rebuild dying on a second forged update leaves both out", async () => {
+  const harness = await twoDeviceHarness("rotation-deaths-two-forged", {
+    stopsAtVersionVector: true,
+  });
+  const removeWebLocks = installFakeWebLocks();
+  try {
+    const { first, peer, store } = await openSyncedDevices(harness);
+    await peer.setText("A first forged span");
+    expect(await peer.requestRemoteSyncAndWait()).toBe(true);
+    await peer.setText("A second forged span");
+    expect(await peer.requestRemoteSyncAndWait()).toBe(true);
+    const [x, y] = harness.committed.slice(-2);
+    if (!x || !y) throw new Error("Expected the peer's two updates");
+    const forging = {
+      acceptedVersion: y.partialEndVersionVector,
+      kind: "rotation",
+    } as const;
+
+    await countDeaths(first, harness.documentId(), x.id, 3, forging);
+    await countDeaths(first, harness.documentId(), y.id, 1, forging);
+    expect(await availability(first)).toEqual([
+      {
+        deaths: 3,
+        left_out: "[]",
+        status: "leavingOut",
+        trying: JSON.stringify([x.id, y.id]),
+      },
+    ]);
+
+    expect(await store.assertCanRotateContentKey("prove")).toBeInstanceOf(
+      Uint8Array,
+    );
+    expect(await availability(first)).toEqual([
+      {
+        deaths: 0,
+        left_out: JSON.stringify([x.id, y.id]),
+        status: "leftOut",
+        trying: null,
+      },
+    ]);
+  } finally {
+    removeWebLocks();
+    harness.close();
+  }
+}, 20_000);
+
 // The rotation's own failure is what its caller needs: a divergence note
 // that cannot be written leaves the state for the next attempt to decide.
 test("a failed divergence note keeps the rotation's own error", async () => {
@@ -186,6 +235,30 @@ test("a failed divergence note keeps the rotation's own error", async () => {
     expect(noting).toHaveBeenCalledTimes(1);
   } finally {
     noting.mockRestore();
+    removeWebLocks();
+    harness.close();
+  }
+}, 20_000);
+
+// Availability is bookkeeping beside the rotation: notes that cannot be
+// written leave the state for a later attempt, and the proven rotation
+// goes ahead.
+test("failed availability notes do not fail a proven rotation", async () => {
+  const harness = await twoDeviceHarness("rotation-notes-fail");
+  const removeWebLocks = installFakeWebLocks();
+  const failing = [
+    spyOn(documentWorkflows, "noteDocumentRotationRebuilt"),
+    spyOn(documentWorkflows, "noteDocumentRotationProven"),
+  ].map((spy) => spy.mockRejectedValue(new Error("database is locked")));
+  try {
+    const { store } = await openSyncedDevices(harness);
+
+    expect(await store.assertCanRotateContentKey("prove")).toBeInstanceOf(
+      Uint8Array,
+    );
+    for (const spy of failing) expect(spy).toHaveBeenCalled();
+  } finally {
+    for (const spy of failing) spy.mockRestore();
     removeWebLocks();
     harness.close();
   }

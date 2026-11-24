@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { installFakeWebLocks } from "../../../../../test/helpers/data/fakeWebLocks";
 import {
   countDeaths,
@@ -13,6 +13,7 @@ import {
 } from "../../../../workflows/documents";
 import { readFinalDocumentVoidUpdateIds } from "../../../../workflows/documents/sync/processedCursor";
 import { createDocumentStore } from "../index";
+import * as storePersistence from "../persistence";
 
 // A founding view reads served history this device already accepted, so
 // the deaths it counts can void an update the live document holds (#3194).
@@ -107,6 +108,37 @@ test("one counted death on an accepted update holds nothing the device syncs", a
     expect(await store.assertCanRotateContentKey("prove")).toBeInstanceOf(
       Uint8Array,
     );
+  } finally {
+    removeWebLocks();
+    harness.close();
+  }
+}, 20_000);
+
+// The judge read the served update and survived, but the save of the page's
+// result threw before it committed: the page did not end cleanly, so its
+// window keeps the attempts deaths counted toward what it read.
+test("a sync save that fails before committing keeps the attempts", async () => {
+  const harness = await twoDeviceHarness("accepted-save-fails");
+  const removeWebLocks = installFakeWebLocks();
+  try {
+    const { first, founding, peer, store } = await openSyncedDevices(harness);
+    await countDeaths(first, harness.documentId(), founding.id, 1);
+    await peer.setText("Edited on the other device");
+    expect(await peer.requestRemoteSyncAndWait()).toBe(true);
+    const saving = spyOn(
+      storePersistence,
+      "saveDocumentRecord",
+    ).mockRejectedValueOnce(new Error("disk I/O error"));
+    try {
+      await store.requestRemoteSyncAndWait().catch(() => false);
+      expect(saving).toHaveBeenCalled();
+    } finally {
+      saving.mockRestore();
+    }
+
+    expect(await runtimeAttempts(first, founding.id)).toEqual([
+      { attempts: 1 },
+    ]);
   } finally {
     removeWebLocks();
     harness.close();

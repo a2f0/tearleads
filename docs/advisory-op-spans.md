@@ -135,7 +135,8 @@ process outlives, closed by a save or settled without one, clears the
 `loro_runtime` attempts earlier deaths and failures counted toward the updates
 it read, except one the runtime failed on inside it: the process read them and
 lived, so those deaths were not theirs, and deaths months apart never add up
-to a void. A final void stands. Every read of served updates is
+to a void. A window whose page's Loro work, or the save of its result, threw
+clears none. A final void stands. Every read of served updates is
 then inside a window. A caller of the import judge that opens none, as a host
 calling it directly may, marks the lifetime failed once it reads an update, so
 its death counts toward no update. A document isolating suspects waits to read

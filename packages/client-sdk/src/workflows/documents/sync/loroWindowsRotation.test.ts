@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import {
+  createDocument,
+  encodeVersionVector,
+  importUpdates,
+} from "@tearleads/loro";
 import {
   createLoroWindowBench,
   device,
@@ -8,6 +12,7 @@ import {
   MAIN,
   SECOND,
 } from "../../../../test/helpers/workflows/loroWindowBench";
+import type { DecryptedDocumentSyncUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { MAX_ROTATION_DEATHS } from "../../../data/documents/shared/sync/rotationAvailabilityMachine";
 import { writeRotationAvailabilityInTransaction } from "../../../data/persistence/documents/records/rotationAvailabilityPersistence";
@@ -18,6 +23,7 @@ import {
   settleDocumentSyncLoroWindow,
 } from "./loroPassWindow";
 
+const THIRD = "550e8400-e29b-41d4-a716-446655440e03";
 const bench = createLoroWindowBench();
 const { judgeIn, pageLimit, recordedAttempts, rotateIn, rotationDeaths } =
   bench;
@@ -124,11 +130,11 @@ test("a rotation window's close clears the attempts of the updates it read", asy
   expect(await rotationDeaths()).toEqual([]);
 });
 
-// The rebuild trying an update's absence is no further death of the count
-// that led to it: its death stops the rotation, reported as that rebuild's.
-test("a death trying an update's absence stops rotation and says so", async () => {
+/** A rebuild trying `SECOND`'s absence that died reading `updates`. */
+async function dieTryingSecond(
+  updates: readonly DecryptedDocumentSyncUpdate[],
+) {
   const host = device();
-  const { update } = await honest(FIRST);
   await writeRotationAvailabilityInTransaction(
     getClientSQLitePersistenceRuntime(execSql).db,
     MAIN.scope,
@@ -138,28 +144,66 @@ test("a death trying an update's absence stops rotation and says so", async () =
       judge: documentVerdictJudge(),
       leftOut: [],
       status: "leavingOut",
-      trying: SECOND,
+      trying: [SECOND],
     },
     "2026-11-24T00:00:00.000Z",
   );
-  await rotateIn(
-    host.lifetime("dead"),
-    [update],
-    update.partialEndVersionVector,
+  // The device accepted every update the page reads.
+  const accepted = await createDocument("accepted-all");
+  importUpdates(
+    accepted,
+    updates.map(({ updateData }) => updateData),
   );
+  await rotateIn(host.lifetime("dead"), updates, encodeVersionVector(accepted));
+  accepted.free();
   host.kill("dead");
   const logged: string[] = [];
-
   await bench.claimIn(host.lifetime("next"), MAIN, (message) => {
     logged.push(String(message));
   });
+  return logged;
+}
+
+// The rebuild trying an update's absence got past it, and died on another
+// alone: that one is left out too, for one exact-history check to decide
+// them all. Its death is that rebuild's, not one more of the count.
+test("a death alone trying an update's absence leaves that update out too", async () => {
+  const { update } = await honest(FIRST);
+
+  const logged = await dieTryingSecond([update]);
+
+  expect(
+    await execSql(
+      "SELECT status, deaths, trying FROM document_rotation_availability",
+    ),
+  ).toEqual([
+    {
+      deaths: MAX_ROTATION_DEATHS,
+      status: "leavingOut",
+      trying: JSON.stringify([SECOND, FIRST]),
+    },
+  ]);
+  expect(logged).toEqual([
+    expect.stringContaining(
+      "(the rebuild leaving out the updates its deaths read); the next rebuild leaves out the update it died reading",
+    ),
+  ]);
+});
+
+// A death reading several updates names none: the deaths were the
+// rebuild's, and the device leaves rotation to other members.
+test("a death on several trying an update's absence stops rotation", async () => {
+  const first = await honest(FIRST);
+  const third = await honest(THIRD);
+
+  const logged = await dieTryingSecond([first.update, third.update]);
 
   expect(await rotationDeaths()).toEqual([
     { deaths: MAX_ROTATION_DEATHS, status: "unavailable" },
   ]);
   expect(logged).toEqual([
     expect.stringContaining(
-      "(the rebuild leaving out the update its deaths read); this device starts no more rotations",
+      "(the rebuild leaving out the updates its deaths read); this device starts no more rotations",
     ),
   ]);
 });

@@ -32,8 +32,8 @@ export async function readRotationAvailability(
   return row ? parseRotationAvailability(row) : ROTATION_AVAILABLE;
 }
 
-/** Left-out update ids as stored, or null when this build cannot read them. */
-function parseLeftOut(text: string | null): readonly string[] | null {
+/** Update ids as stored, or null when this build cannot read them. */
+function parseUpdateIds(text: string | null): readonly string[] | null {
   if (text === null) return null;
   let parsed: unknown;
   try {
@@ -67,7 +67,8 @@ function parseRotationAvailability(
     documentId: row.documentId,
     judge: row.judge,
   };
-  const leftOut = parseLeftOut(row.leftOut);
+  const leftOut = parseUpdateIds(row.leftOut);
+  const trying = parseUpdateIds(row.trying);
   switch (row.status) {
     case "dying":
     case "unavailable":
@@ -77,8 +78,12 @@ function parseRotationAvailability(
         ? { ...judged, leftOut, status: "leftOut" }
         : ROTATION_AVAILABLE;
     case "leavingOut":
-      return leftOut && row.trying && !leftOut.includes(row.trying)
-        ? { ...judged, leftOut, status: "leavingOut", trying: row.trying }
+      return leftOut &&
+        trying &&
+        trying.length > 0 &&
+        leftOut.length + trying.length <= MAX_ROTATION_LEFT_OUT &&
+        !trying.some((id) => leftOut.includes(id))
+        ? { ...judged, leftOut, status: "leavingOut", trying }
         : ROTATION_AVAILABLE;
     default:
       return ROTATION_AVAILABLE;
@@ -108,7 +113,7 @@ export async function writeRotationAvailabilityInTransaction(
         ? JSON.stringify(state.leftOut)
         : null,
     status: state.status,
-    trying: state.status === "leavingOut" ? state.trying : null,
+    trying: state.status === "leavingOut" ? JSON.stringify(state.trying) : null,
   };
   await tx
     .insert(documentRotationAvailability)

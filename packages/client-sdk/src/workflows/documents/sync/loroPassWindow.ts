@@ -311,9 +311,19 @@ export function runDocumentSyncLoroWork<T>(
   try {
     return work();
   } catch (error) {
-    window.held?.survived.clear();
+    noteDocumentSyncLoroWorkFailed(window);
     throw error;
   }
+}
+
+/**
+ * Notes that the page's Loro work, or the save of its result, ended in a
+ * throw: the window's close then clears no attempt of the updates it read.
+ */
+export function noteDocumentSyncLoroWorkFailed(
+  window: DocumentSyncLoroWindow,
+): void {
+  window.held?.survived.clear();
 }
 
 /**

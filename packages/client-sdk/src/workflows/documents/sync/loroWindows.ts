@@ -323,11 +323,11 @@ function reportRotationDeath(
   { after, before }: RotationDeath,
 ): void {
   if (after.status === "available") return;
-  // The rebuild trying an update's absence is no further death of the
-  // count that led to it.
+  // The rebuild trying updates' absence is no further death of the count
+  // that led to it.
   const death =
     before.status === "leavingOut"
-      ? "the rebuild leaving out the update its deaths read"
+      ? "the rebuild leaving out the updates its deaths read"
       : `death ${after.deaths} of ${MAX_ROTATION_DEATHS}`;
   reportQuietly(
     input.logError,

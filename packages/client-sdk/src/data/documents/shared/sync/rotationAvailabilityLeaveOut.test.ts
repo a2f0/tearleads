@@ -42,21 +42,41 @@ const leavingOut = (
 ) => die(die(from, SEVERAL, MAX_ROTATION_DEATHS - 1), [alone]);
 
 // The limit's death reading one update alone may be that update's, whose
-// span claimed counters the device holds: the next rebuild leaves it out,
-// and a death in that rebuild is the rebuild's own.
+// span claimed counters the device holds: the next rebuild leaves it out.
+// That rebuild got past it if it dies alone on another, which it leaves out
+// too; dying on several, the deaths were the rebuild's own.
 test("the limit's death alone on one update leaves that update out", () => {
   expect(leavingOut()).toEqual({
     ...JUDGED,
     deaths: MAX_ROTATION_DEATHS,
     leftOut: [],
     status: "leavingOut",
-    trying: "alone",
+    trying: ["alone"],
   });
   expect(rotationLeftOut(leavingOut())).toEqual(["alone"]);
-  expect(die(leavingOut(), ["other"])).toEqual({
+  const both = die(leavingOut(), ["other"]);
+  expect(both).toEqual({
+    ...JUDGED,
+    deaths: MAX_ROTATION_DEATHS,
+    leftOut: [],
+    status: "leavingOut",
+    trying: ["alone", "other"],
+  });
+  expect(rotationLeftOut(both)).toEqual(["alone", "other"]);
+  expect(die(leavingOut(), SEVERAL)).toEqual({
     ...JUDGED,
     deaths: MAX_ROTATION_DEATHS,
     status: "unavailable",
+  });
+  // Proven only by a rebuild that left them all out.
+  expect(transitionRotationAvailability(both, proven(["alone"]))).toBe(both);
+  expect(
+    transitionRotationAvailability(both, proven(["alone", "other"])),
+  ).toEqual({
+    ...JUDGED,
+    deaths: 0,
+    leftOut: ["alone", "other"],
+    status: "leftOut",
   });
   // Outliving the pull decides nothing: the exact-history check does.
   expect(transitionRotationAvailability(leavingOut(), rebuilt)).toEqual(
@@ -117,7 +137,7 @@ test("left-out updates gather up to the bound", () => {
     deaths: MAX_ROTATION_DEATHS,
     leftOut: ["alone"],
     status: "leavingOut",
-    trying: "second",
+    trying: ["second"],
   });
   expect(rotationLeftOut(second)).toEqual(["alone", "second"]);
   // The new update alone does not decide: the rebuild left out both.
@@ -140,6 +160,18 @@ test("left-out updates gather up to the bound", () => {
     status: "leftOut",
   };
   expect(leavingOut("one-more", full)).toEqual({
+    ...JUDGED,
+    deaths: MAX_ROTATION_DEATHS,
+    status: "unavailable",
+  });
+  // The bound counts the updates a trying rebuild leaves out as well.
+  const nearlyFull: RotationAvailability = {
+    ...full,
+    leftOut: full.status === "leftOut" ? full.leftOut.slice(1) : [],
+  };
+  const lastRoom = leavingOut("last", nearlyFull);
+  expect(rotationLeftOut(lastRoom)).toHaveLength(MAX_ROTATION_LEFT_OUT);
+  expect(die(lastRoom, ["one-more"])).toEqual({
     ...JUDGED,
     deaths: MAX_ROTATION_DEATHS,
     status: "unavailable",

@@ -186,7 +186,7 @@ test("raw recovery rejects a checkpoint-only local history gap", async () => {
       judge: documentVerdictJudge(),
       leftOut: [],
       status: "leavingOut",
-      trying: "left-out-update",
+      trying: ["left-out-update"],
     } as const;
     await writeRotationAvailabilityInTransaction(
       getClientSQLitePersistenceRuntime(execSql).db,

@@ -32,23 +32,27 @@ set to counters already committed
 an update the device never held can pass as accepted. When the third death
 under one judge, with no completed rebuild between them, read one update
 alone, the device's next rebuild leaves that update out, unread and
-unrecorded, and the exact-history check decides. A rebuild without it that
-still equals the live document shows the device never held it, so the
-rotation goes ahead and leaves it out from then on, and deaths count anew. A
-rebuild that differs, where the live document holds counters within the
-update's span that the rebuild lacks, shows the device holds it; a difference
-the update's span does not explain decides nothing, and the rotation fails as
-any unverified history does. Later updates found the same way join the ones
-left out, up to eight a document; a device that comes to hold one it left
-out, so that a rebuild without them differs within their spans, reads them
-all again from the start.
+unrecorded. That rebuild got past it if it dies reading another update
+alone, which it leaves out too, so two writers' forged updates side by side
+cost no more than one each. When a rebuild leaving them out completes, the
+exact-history check decides for them all. A rebuild without them that still
+equals the live document shows the device never held them, so the rotation
+goes ahead and leaves them out from then on, and deaths count anew. A
+rebuild that differs, where the live document holds counters within a
+left-out update's span that the rebuild lacks, shows the device holds one; a
+difference their spans do not explain decides nothing, and the rotation
+fails as any unverified history does. Later updates found the same way join
+the ones left out, up to eight a document; a device that comes to hold one
+it left out, so that a rebuild without them differs within their spans,
+reads them all again from the start.
 
 ## Unavailable Rotation
 
 The device records the document's rotation as unavailable and starts no more
-when the rebuild trying an update's absence shows the device holds it or
-ends the process too, when the third death read several updates, or when
-eight updates are already left out (`DocumentRotationUnavailableError`). It
+when a rebuild leaving updates out shows the device holds one or ends the
+process reading several updates, when the third death read several updates,
+or when eight updates are already left out
+(`DocumentRotationUnavailableError`). It
 cannot unlink, move, or purge-unlink that document, and leaves those to other
 members, none of which waits on it. A queued move it cannot prove parks as a
 denied one does, replaying once a launch. It still opens, edits, and syncs

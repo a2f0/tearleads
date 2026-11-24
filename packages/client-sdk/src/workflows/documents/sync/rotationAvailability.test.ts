@@ -59,7 +59,7 @@ test("a diverged rebuild leaving an update out makes rotation unavailable", asyn
     deaths: 3,
     leftOut: [],
     status: "leavingOut",
-    trying: "alone",
+    trying: ["alone"],
   });
   expect(await readDocumentRotationLeftOut({ ...ROTATION, execSql })).toEqual([
     "alone",
@@ -116,18 +116,22 @@ test("a diverged rebuild leaving nothing out changes nothing", async () => {
 // A row this build cannot read stands for none, so it never keeps a device
 // from rotating.
 test("an unreadable availability row reads as available", async () => {
-  const tooMany = JSON.stringify(
-    Array.from({ length: MAX_ROTATION_LEFT_OUT + 1 }, (_, i) => `u${i}`),
-  );
+  const ids = (length: number) =>
+    JSON.stringify(Array.from({ length }, (_, i) => `u${i}`));
+  const tooMany = ids(MAX_ROTATION_LEFT_OUT + 1);
+  const fullSet = ids(MAX_ROTATION_LEFT_OUT);
   for (const [status, deaths, leftOut, trying] of [
     ["future", 3, null, null],
     ["unavailable", 0, null, null],
     ["unavailable", 1.5, null, null],
     ["leavingOut", 3, "[]", null],
-    ["leavingOut", 3, null, "alone"],
-    ["leavingOut", 0, "[]", "alone"],
-    ["leavingOut", 3, '["alone"]', "alone"],
-    ["leavingOut", 3, "not json", "alone"],
+    ["leavingOut", 3, "[]", "[]"],
+    ["leavingOut", 3, "[]", "not json"],
+    ["leavingOut", 3, null, '["alone"]'],
+    ["leavingOut", 0, "[]", '["alone"]'],
+    ["leavingOut", 3, '["alone"]', '["alone"]'],
+    ["leavingOut", 3, "not json", '["alone"]'],
+    ["leavingOut", 3, fullSet, '["one-more"]'],
     ["leftOut", 0, null, null],
     ["leftOut", 0, "[]", null],
     ["leftOut", 0, "not json", null],
@@ -177,12 +181,13 @@ test("left-out updates read back as stored", async () => {
     deaths: 3,
     leftOut: ["alone"],
     status: "leavingOut",
-    trying: "second",
+    trying: ["second", "third"],
   } as const;
   await store(trying);
   expect(await stored()).toEqual(trying);
   expect(await readDocumentRotationLeftOut({ ...ROTATION, execSql })).toEqual([
     "alone",
     "second",
+    "third",
   ]);
 });

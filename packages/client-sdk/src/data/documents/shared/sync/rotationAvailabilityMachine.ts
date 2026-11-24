@@ -7,9 +7,10 @@
  * rebuild between them, the device stops starting rotations of the document
  * and leaves them to other members, which never wait on it. When the last
  * read one update alone, the next rebuild leaves that update out first
- * (`leavingOut`), and the exact-history check decides between rotating
- * without it (`leftOut`) and stopping. A new judge (decoder or void rules)
- * starts over. `rotationAvailabilityPersistence.ts` stores the state.
+ * (`leavingOut`), as it does each further update it dies on alone, and the
+ * exact-history check decides between rotating without them (`leftOut`) and
+ * stopping. A new judge (decoder or void rules) starts over.
+ * `rotationAvailabilityPersistence.ts` stores the state.
  */
 
 /**
@@ -50,17 +51,18 @@ export type RotationAvailability =
       readonly leftOut: readonly string[];
     })
   /**
-   * The limit's death came reading `trying` alone. The device takes it as
-   * accepted only on its declared span, which any writer may set to
-   * counters already committed, so the next rebuild leaves it out too, for
-   * the exact-history check to decide: one without it that equals the live
-   * document shows the device never held it.
+   * The limit's death came reading an update alone, and each later death
+   * reading another alone added that one: `trying`, never empty. The device
+   * takes them as accepted only on their declared spans, which any writer
+   * may set to counters already committed, so the next rebuild leaves them
+   * out too, for the exact-history check to decide: one without them that
+   * equals the live document shows the device never held them.
    */
   | (RotationJudgement & {
       readonly status: "leavingOut";
       readonly deaths: number;
       readonly leftOut: readonly string[];
-      readonly trying: string;
+      readonly trying: readonly string[];
     })
   /** This device starts no rotation of the document under this judge. */
   | (RotationJudgement & {
@@ -118,7 +120,7 @@ export function rotationLeftOut(
 ): readonly string[] {
   switch (state.status) {
     case "leavingOut":
-      return [...state.leftOut, state.trying];
+      return [...state.leftOut, ...state.trying];
     case "leftOut":
       return state.leftOut;
     case "available":
@@ -140,25 +142,44 @@ export function rotationIsolates(state: RotationAvailability): boolean {
   );
 }
 
-/** The state the limit's death leaves: one more update out, or none. */
-function atTheLimit(
-  judged: RotationJudgement,
-  leftOut: readonly string[],
+/**
+ * The update a death at or past the limit adds to those the next rebuild
+ * leaves out: the one it read alone, while the bound leaves room; null when
+ * the device leaves rotation to other members instead.
+ */
+function nextToLeaveOut(
+  current: RotationAvailability,
   suspects: readonly string[],
-): RotationAvailability {
+): string | null {
   const [alone, ...others] = suspects;
+  const leftOut = rotationLeftOut(current);
   return alone !== undefined &&
     others.length === 0 &&
     !leftOut.includes(alone) &&
     leftOut.length < MAX_ROTATION_LEFT_OUT
-    ? {
+    ? alone
+    : null;
+}
+
+/** The state the limit's death leaves: one more update out, or none. */
+function atTheLimit(
+  judged: RotationJudgement,
+  current: RotationAvailability,
+  suspects: readonly string[],
+): RotationAvailability {
+  const next = nextToLeaveOut(current, suspects);
+  if (next === null) {
+    return { ...judged, deaths: MAX_ROTATION_DEATHS, status: "unavailable" };
+  }
+  return current.status === "leavingOut"
+    ? { ...current, trying: [...current.trying, next] }
+    : {
         ...judged,
         deaths: MAX_ROTATION_DEATHS,
-        leftOut,
+        leftOut: rotationLeftOut(current),
         status: "leavingOut",
-        trying: alone,
-      }
-    : { ...judged, deaths: MAX_ROTATION_DEATHS, status: "unavailable" };
+        trying: [next],
+      };
 }
 
 function rotationDied(
@@ -171,18 +192,19 @@ function rotationDied(
     // reached; the device already leaves rotation to others.
     case "unavailable":
       return current;
-    // The rebuild trying the update's absence died too: the deaths were
+    // The rebuild trying the updates' absence got past them and died on
+    // another alone, which it leaves out too; on several, the deaths were
     // the rebuild's.
     case "leavingOut":
-      return { ...judged, deaths: current.deaths, status: "unavailable" };
+      return atTheLimit(judged, current, event.suspects);
     case "available":
     case "dying":
     case "leftOut": {
       const deaths = (current.status === "available" ? 0 : current.deaths) + 1;
-      const leftOut = rotationLeftOut(current);
       if (deaths >= MAX_ROTATION_DEATHS) {
-        return atTheLimit(judged, leftOut, event.suspects);
+        return atTheLimit(judged, current, event.suspects);
       }
+      const leftOut = rotationLeftOut(current);
       return leftOut.length > 0
         ? { ...judged, deaths, leftOut, status: "leftOut" }
         : { ...judged, deaths, status: "dying" };
