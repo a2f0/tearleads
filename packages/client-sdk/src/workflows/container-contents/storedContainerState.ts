@@ -9,7 +9,8 @@ import type {
 } from "./containerPersistence";
 import { requireAtomicContainerSave } from "./containerPersistence";
 import {
-  createContainerMetadataDocument,
+  type ContainerMetadataWriter,
+  createWriterContainerMetadataDocument,
   getDefaultContainerName,
   readContainerMetadataValue,
   writeContainerMetadataValue,
@@ -58,10 +59,14 @@ export async function hydrateStoredContainerState(input: {
   isCurrent?: (() => boolean) | undefined;
   persistence: ContainerContentsPersistence;
   storedContainer: StoredContainerState;
+  writer: ContainerMetadataWriter;
 }): Promise<ContainerState> {
   const { execSql, persistence, storedContainer } = input;
   const { container } = storedContainer;
-  const doc = await createContainerMetadataDocument(container.id);
+  const doc = await createWriterContainerMetadataDocument(
+    container.id,
+    input.writer,
+  );
   let nextContainer = container;
   let nextRecord = storedContainer.record;
 
@@ -123,10 +128,14 @@ export async function hydrateStoredContainerState(input: {
 /** Materialize a CAS winner without writing repair rows from a stale caller. */
 export async function materializeStoredContainerStateReadOnly(input: {
   storedContainer: StoredContainerState;
+  writer: ContainerMetadataWriter;
 }): Promise<ContainerState | null> {
   const { container, record } = input.storedContainer;
   if (!record) return null;
-  const doc = await createContainerMetadataDocument(container.id);
+  const doc = await createWriterContainerMetadataDocument(
+    container.id,
+    input.writer,
+  );
   let nextContainer = container;
   if (record.metadataUpdates) {
     importUpdates(doc, [base64ToBytes(record.metadataUpdates)]);

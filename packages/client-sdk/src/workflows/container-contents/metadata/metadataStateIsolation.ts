@@ -14,6 +14,11 @@ import {
 } from "./containerMetadataDocument";
 import { metadataSyncSecurityContextMatches } from "./metadataSyncSettlement";
 import type { ContainerMetadataState } from "./metadataTypes";
+import {
+  adoptInstalledMetadataCopy,
+  releaseMergedMetadataCopy,
+  trackDetachedMetadataCopy,
+} from "./metadataWriterPeers";
 
 export interface DetachedContainerMetadataState extends ContainerMetadataState {
   readonly detachedSource: {
@@ -66,6 +71,7 @@ export async function createDetachedContainerMetadataState(
 ): Promise<DetachedContainerMetadataState> {
   const doc = await createContainerMetadataDocument(metadataState.container.id);
   importSnapshot(doc, exportFullHistorySnapshot(metadataState.doc));
+  trackDetachedMetadataCopy(doc, metadataState.doc);
   return {
     ...metadataState,
     container: { ...metadataState.container },
@@ -100,6 +106,7 @@ export function installDetachedContainerMetadataState(
 
   if (preserveConcurrentLiveMetadata) {
     importUpdates(target.doc, [exportAllUpdates(candidate.doc)]);
+    releaseMergedMetadataCopy(candidate.doc);
     const metadata = readContainerMetadataValue(
       target.doc,
       getDefaultContainerName(candidate.container.parentId),
@@ -110,6 +117,7 @@ export function installDetachedContainerMetadataState(
       name: metadata.name,
     };
   } else {
+    adoptInstalledMetadataCopy(candidate.doc, target.doc);
     target.container = candidate.container;
     target.doc = candidate.doc;
   }

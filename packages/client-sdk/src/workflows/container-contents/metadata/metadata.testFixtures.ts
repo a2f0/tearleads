@@ -5,9 +5,17 @@ import type {
   StoredContainerState,
 } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../../data/persistence/container-contents/containerPersistence";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { ContainerMetadataWriter } from "./containerMetadataDocument";
 
 export const metadataTestExecSql: ExecSql = async () => [];
+
+/** A signed-in runtime whose user writes the containers a test loads. */
+export const testContainerMetadataWriter: ContainerMetadataWriter = {
+  auth: { userId: "metadata-test-user" },
+  state: { domainScope: createDomainScope() },
+};
 
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]

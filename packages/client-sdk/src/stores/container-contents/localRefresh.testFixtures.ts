@@ -1,4 +1,5 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { createDomainScope } from "../../data/shared/domainScope";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
@@ -44,6 +45,7 @@ export function createRefreshState(input: {
         rootContainerId: "remote-root",
         userId: "user-1",
       },
+      state: { domainScope: createDomainScope() },
       infra: {
         dbStatus: "ready",
         execSql: {} as ContainerContentsWorkflowRuntime["infra"]["execSql"],

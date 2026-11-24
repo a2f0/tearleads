@@ -2,7 +2,10 @@ import { createDocument } from "@tearleads/loro";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
 import { DOCUMENTS_APP_KIND } from "../../../workflows/documents";
-import { getRuntimePeerSeed } from "../../../workflows/sync/coordination";
+import {
+  getRuntimePeerSeed,
+  recordPeerSeed,
+} from "../../../workflows/sync/coordination";
 import type { DocumentState, DocumentStoreState } from "./state";
 
 async function createStoredDocumentWithSeed(
@@ -14,18 +17,31 @@ async function createStoredDocumentWithSeed(
   return createdDoc;
 }
 
+/**
+ * The record's own document under this writer's peer for it. Persistent pane
+ * namespaces retain stable runtime seeds. Concurrent runtimes in one
+ * namespace receive distinct memory-only seeds after the first owner, while
+ * the usual single runtime can reuse its device seed after a page reload. The
+ * peer is one per record and user (`recordPeerSeed`), so another member
+ * cannot learn it from this writer's other documents before it first commits
+ * here.
+ */
 export async function createStoredDocument(
   state: DocumentStoreState,
 ): Promise<DocumentState> {
-  // Persistent pane namespaces retain stable seeds. Concurrent runtimes in one
-  // namespace receive distinct memory-only seeds after the first owner, while
-  // the usual single runtime can reuse its device seed after a page reload.
   const peerScope = state.runtime.state.peerScope;
   const scope = peerScope
     ? `${DOCUMENTS_APP_KIND}:${peerScope}`
     : DOCUMENTS_APP_KIND;
   return createStoredDocumentWithSeed(
-    await getRuntimePeerSeed(scope, state.runtime.state.domainScope),
+    recordPeerSeed({
+      recordId: state.localId,
+      runtimeSeed: await getRuntimePeerSeed(
+        scope,
+        state.runtime.state.domainScope,
+      ),
+      userId: state.runtime.auth.userId,
+    }),
   );
 }
 
