@@ -149,6 +149,7 @@ export {
 } from "./sync/loroPassWindow";
 export {
   claimDocumentSyncOrphanWindows,
+  claimThenReadDocumentSyncPageLimit,
   readDocumentSyncPageLimit,
 } from "./sync/loroWindows";
 export {

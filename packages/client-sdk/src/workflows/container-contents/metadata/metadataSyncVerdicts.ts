@@ -2,6 +2,11 @@ import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sy
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  closeDocumentSyncLoroWindowInTransaction,
+  type DocumentSyncLoroWindow,
+  settleDocumentSyncLoroWindow,
+} from "../../documents/sync/loroPassWindow";
+import {
   readProcessedCursorForSync,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
@@ -43,16 +48,36 @@ export async function readContainerMetadataProcessedCursor(
 export function containerMetadataVerdictRecorder(
   containerId: string,
   synced: SyncRemoteDocumentResult,
+  loroWindow: DocumentSyncLoroWindow | null = null,
 ) {
   let recorded:
     | Awaited<ReturnType<typeof recordDocumentSyncVerdicts>>
     | undefined;
   return {
     commitSideEffect: async (transactionExecSql: ExecSql): Promise<void> => {
+      const scope = containerMetadataScope(containerId);
       recorded = await recordDocumentSyncVerdicts(transactionExecSql, {
-        scope: containerMetadataScope(containerId),
+        scope,
         synced,
       });
+      // The page's Loro reads are over and saved: its window closes.
+      await closeDocumentSyncLoroWindowInTransaction(transactionExecSql, {
+        documentId: synced.plan.documentId,
+        scope,
+        synced,
+        window: loroWindow,
+      });
+    },
+    /**
+     * Settles the page's window once its save is over: a save that ran the
+     * recorder committed the window's row away with it.
+     */
+    settleWindow: async (execSql: ExecSql): Promise<void> => {
+      if (!loroWindow) return;
+      await settleDocumentSyncLoroWindow(
+        loroWindow,
+        recorded === undefined ? null : execSql,
+      );
     },
     /**
      * Reports each void the committed save first recorded. True when it

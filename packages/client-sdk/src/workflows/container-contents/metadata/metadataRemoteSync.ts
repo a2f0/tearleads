@@ -2,7 +2,9 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import {
+  claimThenReadDocumentSyncPageLimit,
   createDocumentWriterPublicKeyResolver,
+  type DocumentSyncLoroWindow,
   describeDocumentSyncSubmitFailure,
   type RekeyPendingUpdate,
   RemoteDocumentService,
@@ -53,6 +55,8 @@ interface SyncRemoteContainerMetadataInput {
   isCurrent: () => boolean;
   lastCommitLsn?: string | null | undefined;
   localVersionVector: string | null;
+  /** The pass's read window, which the metadata save closes. */
+  loroWindow: DocumentSyncLoroWindow;
   onOutgoingUpdatesMaterialized?:
     | ((updateIds: readonly string[]) => void)
     | undefined;
@@ -95,6 +99,32 @@ function resolveMetadataSyncAuthor(runtime: ContainerMetadataSyncRuntime) {
   return author;
 }
 
+/**
+ * The processed cursor a metadata pull starts after, and the page limit it
+ * asks for once the windows ended lifetimes left on the scope are claimed.
+ */
+async function readMetadataPullStart(
+  input: SyncRemoteContainerMetadataInput & {
+    readonly documentId: string;
+    readonly metadataScope: ReturnType<typeof containerMetadataScope>;
+  },
+) {
+  const { execSql } = input.runtime.infra;
+  return {
+    maxPageUpdates: await claimThenReadDocumentSyncPageLimit({
+      documentId: input.documentId,
+      execSql,
+      isCurrent: input.isCurrent,
+      logError: input.runtime.util.logError,
+      scope: input.metadataScope,
+    }),
+    processedThroughUpdateId: await readContainerMetadataProcessedCursor(
+      execSql,
+      input,
+    ),
+  };
+}
+
 export async function syncRemoteContainerMetadata(
   input: SyncRemoteContainerMetadataInput,
 ): Promise<ContainerMetadataSyncAttempt | null> {
@@ -104,10 +134,8 @@ export async function syncRemoteContainerMetadata(
   if (!author) return null;
   const execSql = runtime.infra.execSql;
   const metadataScope = containerMetadataScope(input.containerId);
-  const processedThroughUpdateId = await readContainerMetadataProcessedCursor(
-    execSql,
-    { ...input, documentId },
-  );
+  const { maxPageUpdates, processedThroughUpdateId } =
+    await readMetadataPullStart({ ...input, documentId, metadataScope });
   if (!isCurrent()) return null;
   const remoteDocuments = new RemoteDocumentService({
     api: runtime.apiClient,
@@ -121,6 +149,7 @@ export async function syncRemoteContainerMetadata(
       buildRotationSnapshot: input.buildRotationSnapshot,
       documentId,
       localVersionVector: input.localVersionVector,
+      maxPageUpdates,
       minLsn: input.lastCommitLsn ?? undefined,
       ...metadataIncomingUpdateIsolation({
         currentDocument: input.currentDocument,
@@ -128,6 +157,7 @@ export async function syncRemoteContainerMetadata(
         execSql,
         isCurrent,
         logError: runtime.util.logError,
+        loroWindow: input.loroWindow,
         metadataScope,
       }),
       onOutgoingUpdatesMaterialized: input.onOutgoingUpdatesMaterialized,

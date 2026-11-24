@@ -7,6 +7,7 @@ import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
+import type { DocumentSyncLoroWindow } from "../../documents/sync/loroPassWindow";
 import { judgeDocumentSyncImports } from "../../documents/sync/processedCursor";
 import { reportDocumentSyncQuarantine } from "../../documents/sync/reportDocumentSyncQuarantine";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
@@ -48,6 +49,8 @@ export function metadataIncomingUpdateIsolation(input: {
   execSql: ExecSql;
   isCurrent?: (() => boolean) | undefined;
   logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
+  /** The pass's read window, which the metadata save closes. */
+  loroWindow: DocumentSyncLoroWindow;
   metadataScope: { appKind: string; localId: string };
 }) {
   return {
@@ -81,6 +84,7 @@ export function metadataIncomingUpdateIsolation(input: {
         execSql: input.execSql,
         isCurrent: input.isCurrent,
         logError: input.logError,
+        loroWindow: input.loroWindow,
         result,
         scope: input.metadataScope,
       }),
