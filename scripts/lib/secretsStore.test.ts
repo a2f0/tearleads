@@ -40,8 +40,13 @@ function store(path: string): string {
 }
 
 /** Runs the library under `set -e`, as its callers are. */
-function link(repo: string, env: Record<string, string> = {}) {
+function link(
+  repo: string,
+  env: Record<string, string> = {},
+  cwd: string = repo,
+) {
   const result = Bun.spawnSync({
+    cwd,
     cmd: [
       "sh",
       "-c",
@@ -115,6 +120,17 @@ test("MATRIX_SECRETS_DIR wins and links by absolute path", () => {
 
   const result = link(repo, { MATRIX_SECRETS_DIR: `${chosen}/` });
   expect(result.exitCode).toBe(0);
+  expect(readlinkSync(join(repo, ".secrets"))).toBe(join(chosen, "tearleads"));
+});
+
+test("a relative MATRIX_SECRETS_DIR resolves against the clone, not the caller's directory", () => {
+  const { root, repo } = workspace();
+  const chosen = store(join(root, "chosen"));
+  const elsewhere = join(repo, "packages/app-capacitor");
+  mkdirSync(elsewhere, { recursive: true });
+
+  const result = link(repo, { MATRIX_SECRETS_DIR: "../chosen" }, elsewhere);
+  expect(result.exitCode, result.stderr).toBe(0);
   expect(readlinkSync(join(repo, ".secrets"))).toBe(join(chosen, "tearleads"));
 });
 

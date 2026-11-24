@@ -13,13 +13,18 @@
 SECRETS_STORE_PROJECT=tearleads
 
 # Prints the link target for the clone at $1 the way matrix's secrets guide
-# writes it: $MATRIX_SECRETS_DIR/<project> when that variable is set, else
+# writes it: $MATRIX_SECRETS_DIR/<project> when that variable is set (a relative
+# value resolves against the clone, whatever directory the caller is in), else
 # matrix-secrets beside the matrix workspace for one of its checkouts/<name>,
 # else matrix-secrets beside the clone. The last two stay relative, like the
 # links in other clones. Fails when MATRIX_SECRETS_DIR names no folder.
 secrets_store_target() {
   if [ -n "${MATRIX_SECRETS_DIR:-}" ]; then
-    secrets_store_root=$(CDPATH='' cd -- "$MATRIX_SECRETS_DIR" 2>/dev/null && pwd -P) || return 1
+    case "$MATRIX_SECRETS_DIR" in
+      /*) secrets_store_root=$MATRIX_SECRETS_DIR ;;
+      *) secrets_store_root=$1/$MATRIX_SECRETS_DIR ;;
+    esac
+    secrets_store_root=$(CDPATH='' cd -- "$secrets_store_root" 2>/dev/null && pwd -P) || return 1
     printf '%s/%s\n' "$secrets_store_root" "$SECRETS_STORE_PROJECT"
     return 0
   fi
