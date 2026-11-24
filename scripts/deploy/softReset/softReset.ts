@@ -12,7 +12,7 @@ import {
 } from "./softResetChecks";
 import { applyPlan, type Identity, parse, savedPlan } from "./softResetPlans";
 import type { InterruptPolicy } from "./softResetProcessState";
-import { ResetRun, refuseOverrides } from "./softResetRuntime";
+import { LOCAL_ONLY_STEP, ResetRun, refuseOverrides } from "./softResetRuntime";
 import { readResetSchema } from "./softResetSchema";
 
 async function preflight(run: ResetRun) {
@@ -26,7 +26,7 @@ async function preflight(run: ResetRun) {
       ],
       mode === "api" ? "terraform-state" : "bounded-command",
     );
-  const { identity, schema } = await run.step("credentials", async () => {
+  const { identity, schema } = await run.step(LOCAL_ONLY_STEP, async () => {
     refuseOverrides(run);
     const schema = readResetSchema(run.root);
     const { account, organization, domain } = parse(

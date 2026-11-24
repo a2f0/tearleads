@@ -31,6 +31,12 @@ function formatElapsed(ms: number) {
   return `${Math.floor(ms / 60_000)}m${seconds}.${millis}s`;
 }
 
+// The first step checks only local state (clean source, overrides, schema,
+// secrets, tools) and calls no provider. softReset.ts declares it under this
+// name, so a run that fails there has nothing to recover and may release its
+// lock for a rerun.
+export const LOCAL_ONLY_STEP = "credentials";
+
 export function refuseOverrides(run: Pick<ResetRun, "root" | "tier">) {
   for (const stack of ["postgres", "storage"]) {
     const dir = join(run.root, "terraform/stacks", run.tier, stack);
@@ -262,12 +268,9 @@ export class ResetRun {
     }
   }
 
-  // The credentials step checks only local state (clean source, overrides,
-  // schema, secrets, tools) and calls no cloud API, so a run that fails there
-  // has nothing to recover and may release its lock for a rerun.
   private failedBeforeCloud() {
     const last = this.steps.at(-1);
-    return last?.label === "credentials" && last.status === "failed";
+    return last?.label === LOCAL_ONLY_STEP && last.status === "failed";
   }
 
   // Removes each path while this run still owns the lock, as one timed step.
@@ -285,7 +288,7 @@ export class ResetRun {
     } catch {
       step.status = "failed";
       console.error(
-        "Cleanup failed; inspect the remaining private record and lock ownership.",
+        `${label === "cleanup" ? "Cleanup" : "Releasing the lock"} failed; inspect the remaining private record and lock ownership.`,
       );
       return false;
     } finally {
@@ -319,7 +322,7 @@ export class ResetRun {
     console.log(`total\t${this.status}\t${formatElapsed(total)}`);
     if (released) {
       console.error(
-        `Stopped at credentials, before any cloud call, so no cloud resource changed. Released lock: ${this.lock}\nRead ${this.dir}/timings.json and the private command logs beside it, fix the reported configuration, then rerun the reset.`,
+        `Stopped at ${LOCAL_ONLY_STEP}, before any cloud call, so no cloud resource changed. Released lock: ${this.lock}\nRead ${this.dir}/timings.json and the private command logs beside it, fix the reported configuration, then rerun the reset.`,
       );
     } else if (this.status !== "succeeded") {
       console.error(
