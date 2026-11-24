@@ -215,14 +215,17 @@ span against the live document's version, so a writer that declares a span of
 counters already committed passes an update the device never held as
 accepted (an honest server accepts such a span, per
 [advisory op spans](../../docs/advisory-op-spans.md)): rotation deaths on it
-count toward the rotation, and when the limit's death read one update alone
+count toward the rotation, which then reads one update a page while deaths
+stand (`rotationIsolates`), and when the limit's death read one update alone
 production does not stop at once but rebuilds once more leaving that update
 out (`leavingOut` in `rotationAvailabilityMachine.ts`), and
 `assertExactDocumentHistory` decides: a rebuild without it that still equals
 the live document rotates and leaves it out from then on (`leftOut`, through
-`noteDocumentRotationProven`), and one that does not shows the device holds it
-and stops this device's rotations (`noteDocumentRotationDiverged`), where the
-model stops at once; a
+`noteDocumentRotationProven`, up to `MAX_ROTATION_LEFT_OUT` updates), and one
+whose live document holds counters within its span that the rebuild lacks
+(`heldLeftOut`) shows the device holds it and stops this device's rotations
+(`noteDocumentRotationDiverged`), where the model stops at once
+([rotation deaths](../../docs/rotation-deaths.md)); a
 document isolating suspects that waits longer than the window gate allows (30
 seconds) for other documents' windows to close, which then reads beside them
 and counts nothing, so it only delays progress as a stutter would; the

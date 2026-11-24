@@ -116,8 +116,8 @@ async function countOrphanAttemptInTransaction(
 
 interface ClaimedOrphans {
   readonly counted: readonly { attempts: number; updateId: string }[];
-  /** The scope's rotation availability after a counted rotation death. */
-  readonly rotation: RotationAvailability | null;
+  /** The scope's rotation availability around a counted rotation death. */
+  readonly rotation: RotationDeath | null;
   /** Claimed lifetimes with no window left on any scope. */
   readonly settled: readonly string[];
 }
@@ -127,7 +127,13 @@ interface ClaimTally {
   readonly counted: { attempts: number; updateId: string }[];
   readonly countedUpdates: Set<string>;
   isolation: LoroIsolation;
-  rotation: RotationAvailability | null;
+  rotation: RotationDeath | null;
+}
+
+/** A counted rotation death: the rotation's state before it and after. */
+interface RotationDeath {
+  readonly after: RotationAvailability;
+  readonly before: RotationAvailability;
 }
 
 /**
@@ -157,11 +163,14 @@ async function applyOrphanVerdict(
     );
     // An unavailable rotation counts and reports no more deaths.
     if (before.status !== "unavailable") {
-      tally.rotation = transitionRotationAvailability(before, {
-        ...claim,
-        suspects: verdict.suspects,
-        type: "rotationDied",
-      });
+      tally.rotation = {
+        after: transitionRotationAvailability(before, {
+          ...claim,
+          suspects: verdict.suspects,
+          type: "rotationDied",
+        }),
+        before,
+      };
     }
   }
   tally.isolation = transitionLoroIsolation(tally.isolation, {
@@ -226,7 +235,7 @@ async function claimOrphansInTransaction(
     await writeRotationAvailabilityInTransaction(
       tx,
       claim.scope,
-      tally.rotation,
+      tally.rotation.after,
       new Date().toISOString(),
     );
   }
@@ -311,13 +320,19 @@ function reportRotationDeath(
   input: {
     readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
   },
-  rotation: RotationAvailability,
+  { after, before }: RotationDeath,
 ): void {
-  if (rotation.status === "available") return;
+  if (after.status === "available") return;
+  // The rebuild trying an update's absence is no further death of the
+  // count that led to it.
+  const death =
+    before.status === "leavingOut"
+      ? "the rebuild leaving out the update its deaths read"
+      : `death ${after.deaths} of ${MAX_ROTATION_DEATHS}`;
   reportQuietly(
     input.logError,
-    `Documents: the process ended rebuilding history for a key rotation (death ${rotation.deaths} of ${MAX_ROTATION_DEATHS})${ROTATION_DEATH_OUTCOMES[rotation.status]}`,
-    new Error(`${ROTATION_KILLED_MESSAGE}: ${rotation.documentId}`),
+    `Documents: the process ended rebuilding history for a key rotation (${death})${ROTATION_DEATH_OUTCOMES[after.status]}`,
+    new Error(`${ROTATION_KILLED_MESSAGE}: ${after.documentId}`),
   );
 }
 

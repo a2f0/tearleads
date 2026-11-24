@@ -8,14 +8,27 @@ import type { PendingUpdateRecord } from "../../../../workflows/documents";
 import { provenOrdinaryUpdateBytes } from "../history/ordinaryUpdateProof";
 import type { DocumentState } from "../state";
 
-/** The rebuilt history did not equal the live document's. */
-export class RotationUnverifiedHistoryError extends Error {}
+const UNVERIFIED_LOCAL_HISTORY =
+  "Rotation raw-history recovery found unverified local history; key rotation was not started";
 
-function unverifiedLocalHistory(cause?: unknown): Error {
-  return new RotationUnverifiedHistoryError(
-    "Rotation raw-history recovery found unverified local history; key rotation was not started",
-    cause === undefined ? undefined : { cause },
-  );
+/**
+ * The rebuilt history did not equal the live document's, as compared: no
+ * failure along the way, which would say nothing of the rebuild.
+ */
+export class RotationHistoryMismatchError extends Error {
+  constructor(
+    /**
+     * Whether the live document holds counters that only an update the
+     * rebuild left out declares, and so holds that update.
+     */
+    readonly heldLeftOut: boolean,
+  ) {
+    super(UNVERIFIED_LOCAL_HISTORY);
+  }
+}
+
+function unverifiedLocalHistory(cause: unknown): Error {
+  return new Error(UNVERIFIED_LOCAL_HISTORY, { cause });
 }
 
 function ordinaryPendingUpdateBytes(input: {
@@ -34,18 +47,24 @@ function ordinaryPendingUpdateBytes(input: {
 
 export function assertExactDocumentHistory(input: {
   currentDocument: DocumentState;
+  /** The declared end versions of updates the rebuild left out, unread. */
+  leftOutEnds?: readonly string[] | undefined;
   rebuiltDocument: DocumentState;
 }): void {
   const currentVersion = encodeVersionVector(input.currentDocument);
+  const rebuiltVersion = encodeVersionVector(input.rebuiltDocument);
   if (
-    !satisfiesVersionVector(
-      encodeVersionVector(input.rebuiltDocument),
-      currentVersion,
-    ) ||
+    !satisfiesVersionVector(rebuiltVersion, currentVersion) ||
     exportFullHistoryIdentity(input.currentDocument) !==
       exportFullHistoryIdentity(input.rebuiltDocument, currentVersion)
   ) {
-    throw unverifiedLocalHistory();
+    throw new RotationHistoryMismatchError(
+      (input.leftOutEnds ?? []).some(
+        (end) =>
+          satisfiesVersionVector(currentVersion, end) &&
+          !satisfiesVersionVector(rebuiltVersion, end),
+      ),
+    );
   }
 }
 
@@ -56,6 +75,7 @@ export function assertExactDocumentHistory(input: {
  */
 export function importProvenOrdinaryPendingHistory(input: {
   currentDocument: DocumentState;
+  leftOutEnds: readonly string[];
   pendingUpdates: readonly PendingUpdateRecord[];
   rebuiltDocument: DocumentState;
 }): string {
@@ -68,9 +88,7 @@ export function importProvenOrdinaryPendingHistory(input: {
     assertExactDocumentHistory(input);
     return encodeVersionVector(input.currentDocument);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("unverified local")) {
-      throw error;
-    }
+    if (error instanceof RotationHistoryMismatchError) throw error;
     throw unverifiedLocalHistory(error);
   }
 }

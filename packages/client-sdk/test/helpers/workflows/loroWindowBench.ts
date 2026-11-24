@@ -195,11 +195,16 @@ export function createLoroWindowBench() {
     pageLimit(target: Target = MAIN) {
       return readDocumentSyncPageLimit(current(), target);
     },
-    claimIn(lifetimes: LoroLifetimes, target: Target) {
+    claimIn(
+      lifetimes: LoroLifetimes,
+      target: Target,
+      logError?: (message: string | Error, cause?: unknown) => void,
+    ) {
       return claimDocumentSyncOrphanWindows({
         ...target,
         execSql: current(),
         lifetimes,
+        ...(logError ? { logError } : {}),
       });
     },
     /**

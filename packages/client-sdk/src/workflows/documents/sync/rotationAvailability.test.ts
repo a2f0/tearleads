@@ -5,6 +5,7 @@ import {
   SCOPE,
 } from "../../../../test/helpers/workflows/loroWindowBench";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import { MAX_ROTATION_LEFT_OUT } from "../../../data/documents/shared/sync/rotationAvailabilityMachine";
 import {
   readRotationAvailability,
   writeRotationAvailabilityInTransaction,
@@ -53,7 +54,13 @@ const stored = () =>
 // deaths were the rebuild's, and the device stops rotating the document.
 test("a diverged rebuild leaving an update out makes rotation unavailable", async () => {
   const judged = { documentId: DOCUMENT_ID, judge: documentVerdictJudge() };
-  await store({ ...judged, deaths: 3, leftOut: "alone", status: "leavingOut" });
+  await store({
+    ...judged,
+    deaths: 3,
+    leftOut: [],
+    status: "leavingOut",
+    trying: "alone",
+  });
   expect(await readDocumentRotationLeftOut({ ...ROTATION, execSql })).toEqual([
     "alone",
   ]);
@@ -109,19 +116,30 @@ test("a diverged rebuild leaving nothing out changes nothing", async () => {
 // A row this build cannot read stands for none, so it never keeps a device
 // from rotating.
 test("an unreadable availability row reads as available", async () => {
-  for (const [status, deaths, leftOut] of [
-    ["future", 3, null],
-    ["unavailable", 0, null],
-    ["unavailable", 1.5, null],
-    ["leavingOut", 3, null],
-    ["leftOut", 0, null],
-    ["leavingOut", 0, "alone"],
+  const tooMany = JSON.stringify(
+    Array.from({ length: MAX_ROTATION_LEFT_OUT + 1 }, (_, i) => `u${i}`),
+  );
+  for (const [status, deaths, leftOut, trying] of [
+    ["future", 3, null, null],
+    ["unavailable", 0, null, null],
+    ["unavailable", 1.5, null, null],
+    ["leavingOut", 3, "[]", null],
+    ["leavingOut", 3, null, "alone"],
+    ["leavingOut", 0, "[]", "alone"],
+    ["leavingOut", 3, '["alone"]', "alone"],
+    ["leftOut", 0, null, null],
+    ["leftOut", 0, "[]", null],
+    ["leftOut", 0, "not json", null],
+    ["leftOut", 0, '["alone","alone"]', null],
+    ["leftOut", 0, '["alone",7]', null],
+    ["leftOut", 0, '{"0":"alone"}', null],
+    ["leftOut", 0, tooMany, null],
   ] as const) {
     await execSql("DELETE FROM document_rotation_availability");
     await execSql(
       `INSERT INTO document_rotation_availability (app_kind, local_id,
-         document_id, judge, status, deaths, left_out, changed_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, '2026-11-24T00:00:00.000Z')`,
+         document_id, judge, status, deaths, left_out, trying, changed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, '2026-11-24T00:00:00.000Z')`,
       [
         SCOPE.appKind,
         SCOPE.localId,
@@ -130,25 +148,40 @@ test("an unreadable availability row reads as available", async () => {
         status,
         deaths,
         leftOut,
+        trying,
       ],
     );
     expect(await stored()).toEqual({ status: "available" });
   }
 });
 
-// A rotation proven without its left-out update counts its deaths from
-// zero, and keeps leaving the update out.
-test("a left-out update with no deaths since reads back", async () => {
+// A rotation proven without its left-out updates counts its deaths from
+// zero, and keeps leaving them out, with any update it is trying.
+test("left-out updates read back as stored", async () => {
+  const judged = { documentId: DOCUMENT_ID, judge: documentVerdictJudge() };
   const leftOut = {
+    ...judged,
     deaths: 0,
-    documentId: DOCUMENT_ID,
-    judge: documentVerdictJudge(),
-    leftOut: "alone",
+    leftOut: ["alone", "second"],
     status: "leftOut",
   } as const;
   await store(leftOut);
   expect(await stored()).toEqual(leftOut);
   expect(await readDocumentRotationLeftOut({ ...ROTATION, execSql })).toEqual([
     "alone",
+    "second",
+  ]);
+  const trying = {
+    ...judged,
+    deaths: 3,
+    leftOut: ["alone"],
+    status: "leavingOut",
+    trying: "second",
+  } as const;
+  await store(trying);
+  expect(await stored()).toEqual(trying);
+  expect(await readDocumentRotationLeftOut({ ...ROTATION, execSql })).toEqual([
+    "alone",
+    "second",
   ]);
 });

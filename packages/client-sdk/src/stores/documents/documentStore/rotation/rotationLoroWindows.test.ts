@@ -12,6 +12,7 @@ import { documentVerdictJudge } from "../../../../data/documents/shared/sync/doc
 import { processLoroLifetimes } from "../../../../data/documents/shared/sync/loroLifetime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { writeLoroWindowInTransaction } from "../../../../data/persistence/documents/records/loroWindowPersistence";
+import { writeRotationAvailabilityInTransaction } from "../../../../data/persistence/documents/records/rotationAvailabilityPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
 import { createExecSql, type ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
@@ -183,6 +184,27 @@ test("rotation reads each raw page in its own window, isolating as sync does", a
   expect(opening).toHaveBeenCalledTimes(2);
   expect(kinds).toEqual(["rotation", "rotation"]);
   expect(await windowRows(execSql)).toEqual([]);
+});
+
+// A completed sync pull clears the suspects a rotation's death left, so
+// while deaths stand against the rotation it reads one update a page of its
+// own accord: every death after the first then names one update, which the
+// limit's death can leave out (`rotationAvailabilityMachine.ts`).
+test("rotation reads one update a page while deaths stand against it", async () => {
+  const { documentId, execSql, localId, seen, state } =
+    await rotationWindowsState("rotation-dying-isolates");
+  await writeRotationAvailabilityInTransaction(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    { appKind: "documents", localId },
+    { deaths: 1, documentId, judge: documentVerdictJudge(), status: "dying" },
+    "2026-11-24T00:00:00.000Z",
+  );
+
+  expect(await assertDocumentStoreCanRotateContentKey(state)).toBeInstanceOf(
+    Uint8Array,
+  );
+
+  expect(seen.map(({ maxPageUpdates }) => maxPageUpdates)).toEqual([1, 1]);
 });
 
 // Raw history also holds updates this device has not accepted, which the

@@ -31,7 +31,7 @@ import {
 import {
   assertExactDocumentHistory,
   importProvenOrdinaryPendingHistory,
-  RotationUnverifiedHistoryError,
+  RotationHistoryMismatchError,
 } from "./rotationProvenance";
 import { RotationRawHistoryVoids } from "./rotationRawHistoryJudge";
 import {
@@ -58,7 +58,7 @@ async function collectVerifiedRawHistoryForRotation(input: {
     input.state,
     input.currentRecord.peerSalt,
   );
-  const voids = new RotationRawHistoryVoids();
+  const voids = new RotationRawHistoryVoids(input.leftOut);
   try {
     const synced = await pullVerifiedRawHistoryForRotation({
       ...input,
@@ -147,6 +147,7 @@ function installRotationRecovery(input: {
         });
         assertExactDocumentHistory({
           currentDocument: currentDoc,
+          leftOutEnds: collection.voids.leftOutEnds,
           rebuiltDocument: collection.rebuiltDocument,
         });
         // Only a proven rebuild vouches for the voids it left out, and for
@@ -241,6 +242,7 @@ async function recoverFullHistoryForRotation(
     assertCurrent();
     const verifiedOrdinaryVersion = importProvenOrdinaryPendingHistory({
       currentDocument: currentDoc,
+      leftOutEnds: collection.voids.leftOutEnds,
       pendingUpdates,
       rebuiltDocument: collection.rebuiltDocument,
     });
@@ -353,8 +355,12 @@ async function proveFullHistoryForRotation(
     } catch (error) {
       // A rebuild that left out the update its deaths came to rest on, and
       // still differs from the live document, shows the device holds it.
-      if (error instanceof RotationUnverifiedHistoryError) {
-        await noteDocumentRotationDiverged({ ...rotation, leftOut });
+      // The rotation's own failure is what the caller needs, so a failed
+      // note leaves the state for the next attempt to decide.
+      if (error instanceof RotationHistoryMismatchError && error.heldLeftOut) {
+        await noteDocumentRotationDiverged({ ...rotation, leftOut }).catch(
+          () => undefined,
+        );
       }
       // Autosaves and conflict re-keying can invalidate the proven frontier.
       // Repeat the complete proof without blocking new local edits; repeated

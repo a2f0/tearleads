@@ -90,11 +90,14 @@ export const documentLoroIsolation = sqliteTable(
  *   they reach it, after which this device starts no rotation of the
  *   document and leaves it to other members; `leavingOut` when the limit's
  *   death came reading one update alone, which the next rebuild leaves out;
- *   `leftOut` once a rebuild without it equalled the live document.
+ *   `leftOut` once rebuilds without the left-out updates equal the live
+ *   document (`rotationAvailabilityMachine.ts`).
  * - `deaths`: Lifetimes that died rebuilding the document's history for a
  *   rotation, alone in their windows, since its last completed rebuild.
- * - `leftOut`: The update `leavingOut` and `leftOut` rebuilds leave out;
- *   null otherwise.
+ * - `leftOut`: The updates a `leftOut` or `leavingOut` state's rebuilds
+ *   leave out, unread, as a JSON array of update ids; null otherwise.
+ * - `trying`: The update a `leavingOut` rebuild tries leaving out; null
+ *   otherwise.
  * - `changedAt`: When the row last changed, for diagnostics.
  */
 export const documentRotationAvailability = sqliteTable(
@@ -107,6 +110,7 @@ export const documentRotationAvailability = sqliteTable(
     status: text("status").notNull(),
     deaths: integer("deaths").notNull(),
     leftOut: text("left_out"),
+    trying: text("trying"),
     changedAt: text("changed_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.appKind, table.localId] })],

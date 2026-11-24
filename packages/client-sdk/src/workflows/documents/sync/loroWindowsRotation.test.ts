@@ -8,6 +8,11 @@ import {
   MAIN,
   SECOND,
 } from "../../../../test/helpers/workflows/loroWindowBench";
+import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import { MAX_ROTATION_DEATHS } from "../../../data/documents/shared/sync/rotationAvailabilityMachine";
+import { writeRotationAvailabilityInTransaction } from "../../../data/persistence/documents/records/rotationAvailabilityPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   createDocumentSyncLoroWindow,
   settleDocumentSyncLoroWindow,
@@ -17,8 +22,10 @@ const bench = createLoroWindowBench();
 const { judgeIn, pageLimit, recordedAttempts, rotateIn, rotationDeaths } =
   bench;
 
+let execSql: ExecSql;
+
 beforeEach(async () => {
-  await bench.open();
+  execSql = await bench.open();
 });
 
 afterEach(() => bench.close());
@@ -115,4 +122,44 @@ test("a rotation window's close clears the attempts of the updates it read", asy
 
   expect(await recordedAttempts(FIRST)).toBeNull();
   expect(await rotationDeaths()).toEqual([]);
+});
+
+// The rebuild trying an update's absence is no further death of the count
+// that led to it: its death stops the rotation, reported as that rebuild's.
+test("a death trying an update's absence stops rotation and says so", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await writeRotationAvailabilityInTransaction(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    MAIN.scope,
+    {
+      deaths: MAX_ROTATION_DEATHS,
+      documentId: MAIN.documentId,
+      judge: documentVerdictJudge(),
+      leftOut: [],
+      status: "leavingOut",
+      trying: SECOND,
+    },
+    "2026-11-24T00:00:00.000Z",
+  );
+  await rotateIn(
+    host.lifetime("dead"),
+    [update],
+    update.partialEndVersionVector,
+  );
+  host.kill("dead");
+  const logged: string[] = [];
+
+  await bench.claimIn(host.lifetime("next"), MAIN, (message) => {
+    logged.push(String(message));
+  });
+
+  expect(await rotationDeaths()).toEqual([
+    { deaths: MAX_ROTATION_DEATHS, status: "unavailable" },
+  ]);
+  expect(logged).toEqual([
+    expect.stringContaining(
+      "(the rebuild leaving out the update its deaths read); this device starts no more rotations",
+    ),
+  ]);
 });

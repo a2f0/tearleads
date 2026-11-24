@@ -55,12 +55,30 @@ function isPayloadVoid(
  * The voids a rotation's raw pages found, recorded once the rebuilt history
  * proves equal to the live one. Each stays out of the rebuild, but only one
  * its payload alone decides is recorded and reported, as a sync pass would.
- * An update the rotation accepts deletes no void row.
+ * The record deletes no void row of an update the rotation accepts; the
+ * pages' windows clear non-final runtime attempts as they close. It also
+ * keeps the declared spans of the updates the rebuild leaves out, unread,
+ * for the exact-history check to say whether the device holds one.
  */
 export class RotationRawHistoryVoids {
   private readonly pages: SyncRemoteDocumentResult[] = [];
+  private readonly ends = new Map<string, string>();
+
+  /** `leftOut`: updates the rebuild leaves out, unread. */
+  constructor(private readonly leftOut: readonly string[] = []) {}
+
+  /** The declared end versions of the left-out updates the pull served. */
+  get leftOutEnds(): readonly string[] {
+    return [...this.ends.values()];
+  }
 
   notePage(synced: SyncRemoteDocumentResult): void {
+    // The served envelopes declare each update's span, read or not.
+    for (const update of synced.response.updates) {
+      if (this.leftOut.includes(update.id)) {
+        this.ends.set(update.id, update.partialEndVersionVector);
+      }
+    }
     // Recording reads the verdicts, not the page's payloads.
     this.pages.push({
       ...synced,

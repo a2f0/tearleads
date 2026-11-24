@@ -1,6 +1,6 @@
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
-  claimThenReadDocumentSyncPageLimit,
+  claimThenReadDocumentRotationPageLimit,
   createDocumentSyncLoroWindow,
   createDocumentWriterPublicKeyResolver,
   DOCUMENTS_APP_KIND,
@@ -128,7 +128,7 @@ async function pullRawRotationPage(
 ) {
   const { author, documentId, encapsulationKeyPair } = page;
   const { planningRecord, pullContinuation, writerProjection } = page;
-  const maxPageUpdates = await claimThenReadDocumentSyncPageLimit({
+  const maxPageUpdates = await claimThenReadDocumentRotationPageLimit({
     documentId,
     execSql: input.state.runtime.infra.execSql,
     isCurrent: () =>

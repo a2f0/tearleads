@@ -170,6 +170,7 @@ export type {
 } from "./sync/remoteDocumentSyncPass";
 export {
   claimThenAssertDocumentRotationAvailable,
+  claimThenReadDocumentRotationPageLimit,
   DocumentRotationUnavailableError,
   noteDocumentRotationDiverged,
   noteDocumentRotationProven,

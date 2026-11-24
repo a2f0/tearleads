@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { installFakeWebLocks } from "../../../../../test/helpers/data/fakeWebLocks";
 import {
   countDeaths,
@@ -6,6 +6,7 @@ import {
   runtimeAttempts,
   twoDeviceHarness,
 } from "../../../../../test/helpers/stores/acceptedHistoryDevices";
+import * as documentWorkflows from "../../../../workflows/documents";
 import {
   DocumentRotationUnavailableError,
   readDocumentFoundingUpdate,
@@ -15,7 +16,7 @@ type Devices = Awaited<ReturnType<typeof openSyncedDevices>>;
 
 const availability = (owner: Devices["first"]) =>
   owner.runtime.infra.execSql(
-    "SELECT status, deaths, left_out FROM document_rotation_availability",
+    "SELECT status, deaths, left_out, trying FROM document_rotation_availability",
   );
 
 // A death in a rotation page of history this device already accepted is
@@ -40,7 +41,12 @@ test("rotation deaths stop this device rotating without voiding the update", asy
     });
     expect(await runtimeAttempts(first, founding.id)).toEqual([]);
     expect(await availability(first)).toEqual([
-      { deaths: 3, left_out: founding.id, status: "leavingOut" },
+      {
+        deaths: 3,
+        left_out: "[]",
+        status: "leavingOut",
+        trying: founding.id,
+      },
     ]);
     expect(logged).toEqual([expect.stringContaining("leaves out the update")]);
 
@@ -49,7 +55,7 @@ test("rotation deaths stop this device rotating without voiding the update", asy
       "unverified local history",
     );
     expect(await availability(first)).toEqual([
-      { deaths: 3, left_out: null, status: "unavailable" },
+      { deaths: 3, left_out: null, status: "unavailable", trying: null },
     ]);
     // Left out unread, the update is not recorded as void.
     expect(await runtimeAttempts(first, founding.id)).toEqual([]);
@@ -60,7 +66,7 @@ test("rotation deaths stop this device rotating without voiding the update", asy
       logError,
     });
     expect(await availability(first)).toEqual([
-      { deaths: 3, left_out: null, status: "unavailable" },
+      { deaths: 3, left_out: null, status: "unavailable", trying: null },
     ]);
     expect(logged).toHaveLength(1);
 
@@ -123,7 +129,12 @@ test("a rebuild leaving out an update the device never held rotates", async () =
       kind: "rotation",
     });
     expect(await availability(first)).toEqual([
-      { deaths: 3, left_out: forged.id, status: "leavingOut" },
+      {
+        deaths: 3,
+        left_out: "[]",
+        status: "leavingOut",
+        trying: forged.id,
+      },
     ]);
 
     const text = store.getSnapshot().text;
@@ -134,7 +145,12 @@ test("a rebuild leaving out an update the device never held rotates", async () =
     expect(store.getSnapshot().text).toBe(text);
     expect(text).not.toBe("A peer edit under a forged span");
     expect(await availability(first)).toEqual([
-      { deaths: 0, left_out: forged.id, status: "leftOut" },
+      {
+        deaths: 0,
+        left_out: JSON.stringify([forged.id]),
+        status: "leftOut",
+        trying: null,
+      },
     ]);
     // Later rotations leave it out too.
     expect(await store.assertCanRotateContentKey("prove")).toBeInstanceOf(
@@ -142,6 +158,34 @@ test("a rebuild leaving out an update the device never held rotates", async () =
     );
     expect(await runtimeAttempts(first, forged.id)).toEqual([]);
   } finally {
+    removeWebLocks();
+    harness.close();
+  }
+}, 20_000);
+
+// The rotation's own failure is what its caller needs: a divergence note
+// that cannot be written leaves the state for the next attempt to decide.
+test("a failed divergence note keeps the rotation's own error", async () => {
+  const harness = await twoDeviceHarness("rotation-divergence-note-fails", {
+    stopsAtVersionVector: true,
+  });
+  const removeWebLocks = installFakeWebLocks();
+  const noting = spyOn(
+    documentWorkflows,
+    "noteDocumentRotationDiverged",
+  ).mockRejectedValue(new Error("database is locked"));
+  try {
+    const { first, founding, store } = await openSyncedDevices(harness);
+    await countDeaths(first, harness.documentId(), founding.id, 3, {
+      kind: "rotation",
+    });
+
+    await expect(store.assertCanRotateContentKey("prove")).rejects.toThrow(
+      "unverified local history",
+    );
+    expect(noting).toHaveBeenCalledTimes(1);
+  } finally {
+    noting.mockRestore();
     removeWebLocks();
     harness.close();
   }
@@ -195,7 +239,7 @@ test("a completed rebuild clears rotation deaths below the limit", async () => {
       });
     await die(2);
     expect(await availability(first)).toEqual([
-      { deaths: 2, left_out: null, status: "dying" },
+      { deaths: 2, left_out: null, status: "dying", trying: null },
     ]);
 
     expect(await store.assertCanRotateContentKey("prove")).toBeInstanceOf(
@@ -205,7 +249,7 @@ test("a completed rebuild clears rotation deaths below the limit", async () => {
 
     await die(1);
     expect(await availability(first)).toEqual([
-      { deaths: 1, left_out: null, status: "dying" },
+      { deaths: 1, left_out: null, status: "dying", trying: null },
     ]);
     expect(await runtimeAttempts(first, founding.id)).toEqual([]);
   } finally {

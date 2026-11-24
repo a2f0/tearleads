@@ -4,6 +4,8 @@ import {
   MAX_ROTATION_DEATHS,
   type RotationAvailability,
   type RotationJudgement,
+  rotationIsolates,
+  rotationLeftOut,
   transitionRotationAvailability,
 } from "../../../data/documents/shared/sync/rotationAvailabilityMachine";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
@@ -19,6 +21,7 @@ import {
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import {
   claimDocumentSyncOrphanWindows,
+  claimThenReadDocumentSyncPageLimit,
   ROTATION_UNAVAILABLE_NOTE,
 } from "./loroWindows";
 import { reportQuietly } from "./reportQuietly";
@@ -164,22 +167,44 @@ export async function noteDocumentRotationDiverged(
 
 /**
  * The updates a rotation of the document leaves out of its rebuild under
- * the running judge: the one a `leavingOut` or `leftOut` state names.
+ * the running judge, unread (`rotationLeftOut`).
  */
 export async function readDocumentRotationLeftOut(input: {
   readonly documentId: string;
   readonly execSql: ExecSql;
   readonly scope: DocumentScope;
 }): Promise<readonly string[]> {
-  const availability = currentRotationAvailability(
+  return rotationLeftOut(await readCurrentRotationAvailability(input));
+}
+
+async function readCurrentRotationAvailability(input: {
+  readonly documentId: string;
+  readonly execSql: ExecSql;
+  readonly scope: DocumentScope;
+}): Promise<RotationAvailability> {
+  return currentRotationAvailability(
     await readRotationAvailability(
       getClientSQLitePersistenceRuntime(input.execSql).db,
       input.scope,
     ),
     judgementOf(input.documentId),
   );
-  return availability.status === "leavingOut" ||
-    availability.status === "leftOut"
-    ? [availability.leftOut]
-    : [];
+}
+
+/**
+ * The page limit a rotation's raw pull asks for, once the windows ended
+ * lifetimes left on its scope are claimed. While deaths stand against the
+ * rotation it reads one update a page whatever the scope's suspects, which
+ * a completed sync pull clears, so each further death names one update.
+ */
+export async function claimThenReadDocumentRotationPageLimit(
+  input: Parameters<typeof claimThenReadDocumentSyncPageLimit>[0],
+): Promise<1 | undefined> {
+  const limit = await claimThenReadDocumentSyncPageLimit(input);
+  return (
+    limit ??
+    (rotationIsolates(await readCurrentRotationAvailability(input))
+      ? 1
+      : undefined)
+  );
 }

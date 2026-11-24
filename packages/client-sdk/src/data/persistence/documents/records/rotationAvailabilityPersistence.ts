@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import {
+  MAX_ROTATION_LEFT_OUT,
   ROTATION_AVAILABLE,
   type RotationAvailability,
 } from "../../../documents/shared/sync/rotationAvailabilityMachine";
@@ -28,9 +29,37 @@ export async function readRotationAvailability(
     .where(availabilityScope(scope))
     .limit(1)
     .all();
-  // Only a rotation proven without its left-out update counts from zero.
-  const fewest = row?.status === "leftOut" ? 0 : 1;
-  if (!row || !Number.isSafeInteger(row.deaths) || row.deaths < fewest) {
+  return row ? parseRotationAvailability(row) : ROTATION_AVAILABLE;
+}
+
+/** Left-out update ids as stored, or null when this build cannot read them. */
+function parseLeftOut(text: string | null): readonly string[] | null {
+  if (text === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (
+    !Array.isArray(parsed) ||
+    parsed.length > MAX_ROTATION_LEFT_OUT ||
+    new Set(parsed).size !== parsed.length
+  ) {
+    return null;
+  }
+  const ids = parsed.filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+  return ids.length === parsed.length ? ids : null;
+}
+
+function parseRotationAvailability(
+  row: typeof documentRotationAvailability.$inferSelect,
+): RotationAvailability {
+  // Only a rotation proven without its left-out updates counts from zero.
+  const fewest = row.status === "leftOut" ? 0 : 1;
+  if (!Number.isSafeInteger(row.deaths) || row.deaths < fewest) {
     return ROTATION_AVAILABLE;
   }
   const judged = {
@@ -38,14 +67,18 @@ export async function readRotationAvailability(
     documentId: row.documentId,
     judge: row.judge,
   };
+  const leftOut = parseLeftOut(row.leftOut);
   switch (row.status) {
     case "dying":
     case "unavailable":
       return { ...judged, status: row.status };
-    case "leavingOut":
     case "leftOut":
-      return row.leftOut
-        ? { ...judged, leftOut: row.leftOut, status: row.status }
+      return leftOut && leftOut.length > 0
+        ? { ...judged, leftOut, status: "leftOut" }
+        : ROTATION_AVAILABLE;
+    case "leavingOut":
+      return leftOut && row.trying && !leftOut.includes(row.trying)
+        ? { ...judged, leftOut, status: "leavingOut", trying: row.trying }
         : ROTATION_AVAILABLE;
     default:
       return ROTATION_AVAILABLE;
@@ -72,9 +105,10 @@ export async function writeRotationAvailabilityInTransaction(
     judge: state.judge,
     leftOut:
       state.status === "leavingOut" || state.status === "leftOut"
-        ? state.leftOut
+        ? JSON.stringify(state.leftOut)
         : null,
     status: state.status,
+    trying: state.status === "leavingOut" ? state.trying : null,
   };
   await tx
     .insert(documentRotationAvailability)

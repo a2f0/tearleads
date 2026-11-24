@@ -14,8 +14,14 @@ import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
 } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
+import { documentVerdictJudge } from "../../../../data/documents/shared/sync/documentUpdateVerdict";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
+import {
+  readRotationAvailability,
+  writeRotationAvailabilityInTransaction,
+} from "../../../../data/persistence/documents/records/rotationAvailabilityPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
 import type { DocumentsRuntime } from "../../types";
 import {
   createRemoteHistoryFixture,
@@ -172,10 +178,32 @@ test("raw recovery rejects a checkpoint-only local history gap", async () => {
     );
     const queuedCheckpoint = (await listPendingUpdates(state))[0];
     if (!queuedCheckpoint) throw new Error("Expected queued checkpoint");
+    // A rebuild trying an update's absence that fails on the local gap, not
+    // on its comparison, says nothing of that update.
+    const trying = {
+      deaths: 3,
+      documentId: fixture.writerProjection.documentId,
+      judge: documentVerdictJudge(),
+      leftOut: [],
+      status: "leavingOut",
+      trying: "left-out-update",
+    } as const;
+    await writeRotationAvailabilityInTransaction(
+      getClientSQLitePersistenceRuntime(execSql).db,
+      { appKind: "documents", localId },
+      trying,
+      "2026-11-24T00:00:00.000Z",
+    );
 
     await expect(assertDocumentStoreCanRotateContentKey(state)).rejects.toThrow(
       "unverified local history",
     );
+    expect(
+      await readRotationAvailability(
+        getClientSQLitePersistenceRuntime(execSql).db,
+        { appKind: "documents", localId },
+      ),
+    ).toEqual(trying);
 
     expect(submittedIds).toHaveLength(1);
     expect(submittedIds[0]).toEqual([]);
