@@ -16,6 +16,8 @@ function recoveryQrPixels(value: string, unreadable = false): ImageData {
     unreadable &&
     row > 12 &&
     row < matrix.length - 12 &&
+    column >= 4 &&
+    column < matrix.length - 4 &&
     (row * 3 + column * 7) % 2 === 0;
   for (let y = 0; y < width; y++) {
     for (let x = 0; x < width; x++) {

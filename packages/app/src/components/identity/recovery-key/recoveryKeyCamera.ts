@@ -75,6 +75,7 @@ function readRecoveryQrFrame(
       at: performance.now(),
       height: pixels.height,
       outline: located.outline,
+      // Only frames onDecode turned down are reported, so a read is a rejection.
       rejected: value !== undefined,
       width: pixels.width,
     },

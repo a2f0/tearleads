@@ -92,7 +92,9 @@ function RecoveryKeyCamera({
         />
         <RecoveryKeyScanOverlay state={state} />
       </div>
-      {hint && <MiniAppStatus aria-live="polite">{hint}</MiniAppStatus>}
+      {/* Visual only: a code drifting in and out of focus would make a live
+          region chatter. Failures and rejections still announce as alerts. */}
+      {hint && <MiniAppStatus>{hint}</MiniAppStatus>}
       {alert && (
         <MiniAppStatus role="alert" tone="error">
           {alert}

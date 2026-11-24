@@ -79,6 +79,23 @@ test.each([
     { status: "located", frame: size, outline, seenAt: 7 },
   ],
   [
+    "starting + rejected code",
+    INITIAL_RECOVERY_KEY_SCAN_STATE,
+    frame(3, { outline, rejected: true }),
+    { status: "rejected", frame: size, outline, seenAt: 3, rejectedAt: 3 },
+  ],
+  [
+    "rejected + located code in a rotated frame within the hold",
+    rejected,
+    frame(1200, { outline: moved }, { width: 480, height: 640 }),
+    {
+      ...rejected,
+      frame: { width: 480, height: 640 },
+      outline: moved,
+      seenAt: 1200,
+    },
+  ],
+  [
     "searching + rejected code",
     searching,
     frame(9, { outline, rejected: true }),
