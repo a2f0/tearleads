@@ -2,8 +2,42 @@
 
 The web app, Android and iOS WebViews, the Electrobun desktop renderer and main
 process, and the API report to separate Sentry projects for staging and
-production. Reporting is disabled without the corresponding DSN. Development,
-the two-identity demo, and the website remain local.
+production. Reporting is disabled without the corresponding DSN, and clients
+report only after the user opts in (see [Consent](#consent)). Development, the
+two-identity demo, and the website remain local.
+
+## Consent
+
+Client reporting is anonymous telemetry the user opts in to, and it starts off.
+Onboarding offers **Share anonymous telemetry** on its first screen, and
+**Settings > General** keeps the same switch. Both change one device-wide choice,
+stored as `tearleads.telemetry` in the origin's `localStorage` (`enabled` or
+`disabled`), so it covers every identity on the device. A device reset clears it
+along with the rest of `localStorage`.
+
+Each shell creates the store with `createTelemetryConsent()` (from
+`app/host/telemetryConsent`) before its collectors and passes it to them and to
+the app's host config. The private browser client takes it as a required
+`CollectionConsent`:
+
+- While it is off, the client records no breadcrumbs, network failures never
+  reach the reporter (so none uses up its once-per-class event), and
+  `beforeSend` drops every event, whichever path captured it.
+- Turning it off clears the breadcrumb trail, so a report made after turning it
+  on again carries nothing from before.
+- Another tab's change arrives as a `storage` event while anything subscribes.
+
+The Electrobun main process cannot read the renderer's storage. It starts with
+reporting off, and the renderer posts the choice to
+`/__electrobun/telemetry-consent` at boot and on each change, one post at a
+time, with the `x-electrobun-telemetry-consent` header (`enabled` or
+`disabled`). Like the save-file bridge, the custom header keeps cross-origin
+simple POSTs out. A crash before the renderer reports consent is logged and
+shut down unreported.
+
+The same choice governs [hosted click analytics](click-tracking.md) in the web
+app and demo. The API's own server reports are not client telemetry and are not
+governed by it.
 
 ## Account setup
 
@@ -386,7 +420,8 @@ synthetic private values; live verification needs the account configuration
 above.
 
 Verify staging before enabling production. After a client release uploads its
-maps, trigger a new handled failure in each process; Sentry does not
+maps, turn on **Settings > General > Share anonymous telemetry**, then trigger
+a new handled failure in each process; Sentry does not
 symbolicate events it received before the upload. On desktop, a backup export
 the main process cannot write reports from both the main process and the
 renderer's file saver. Each event must reach the expected project with the

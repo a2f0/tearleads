@@ -1,7 +1,10 @@
-import { createBrowserDiagnostics } from "@tearleads/diagnostics/browser";
+import {
+  type CollectionConsent,
+  createBrowserDiagnostics,
+} from "@tearleads/diagnostics/browser";
 import { resolveElectrobunSentryConfig } from "./sentryConfig";
 
-export function configureElectrobunSentry() {
+export function configureElectrobunSentry(consent: CollectionConsent) {
   try {
     const config = resolveElectrobunSentryConfig({
       // Inlined by the renderer defines (see ../rendererEnvironment), which
@@ -14,7 +17,7 @@ export function configureElectrobunSentry() {
       origin: window.location.origin,
       scriptUrl: import.meta.url,
     });
-    return config ? createBrowserDiagnostics(config) : undefined;
+    return config ? createBrowserDiagnostics(config, consent) : undefined;
   } catch {
     // Diagnostics must not prevent the application from booting.
     return undefined;

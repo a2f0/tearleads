@@ -32,3 +32,27 @@
   align-items: center;
   justify-content: center;
 }
+
+/*
+ * A region inside the root that scrolls on its own clips whatever breaks out of
+ * the root's padding: a tab strip (MiniAppTabs.css) or a list running to the
+ * edges (MiniAppTableEdges.css). Its leading edge is cut off and its trailing
+ * edge turns into sideways scroll, while the breakout's layout box still
+ * measures flush, so only painting and the region's own overflow show it.
+ *
+ * So the region reaches the surface's edges itself and pads its content back
+ * in by the same distance: its content stays where it was, and the breakouts
+ * land inside its padding box, clipping nothing and adding no sideways scroll.
+ * A scrolling `MiniAppPanel` (Explorer's info and diagnostics panels) gets this
+ * whenever it holds one; a framed panel does not, because its own
+ * `--panel-padding` would make the edge inset the wrong distance. Any other
+ * such region (Org Manager's main region) is marked `mini-app-edge-scrollport`.
+ */
+.mini-app-panel--scroll:not(.mini-app-panel--framed):has(
+  .mini-app-tabs,
+  .mini-app-table-frame--edges
+),
+.mini-app-edge-scrollport:has(.mini-app-tabs, .mini-app-table-frame--edges) {
+  margin-inline: calc(-1 * var(--mini-app-edge-inset, 0px));
+  padding-inline: var(--mini-app-edge-inset, 0px);
+}

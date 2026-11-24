@@ -18,6 +18,16 @@ export interface WebDiagnostics extends AppDiagnostics {
   dispose: () => PromiseLike<boolean>;
 }
 
+/**
+ * The user's choice to share anonymous diagnostics from this device. While it
+ * is off nothing is recorded or sent, and turning it off forgets the trail
+ * gathered so far, so a later report carries nothing from before the choice.
+ */
+export interface CollectionConsent {
+  readonly enabled: () => boolean;
+  readonly subscribe: (listener: () => void) => () => void;
+}
+
 // The first failure of a class is an event; the rest are breadcrumbs.
 function apiNetworkFailureReporter(scope: Scope, config: SentryConfig) {
   return createApiNetworkFailureReporter(
@@ -48,6 +58,7 @@ function apiNetworkFailureReporter(scope: Scope, config: SentryConfig) {
 
 export function createBrowserDiagnostics(
   hostConfig: SentryConfig,
+  consent: CollectionConsent,
 ): WebDiagnostics {
   // Network reports may name only the operation path templates the app
   // registers (setApiRouteTemplates); until then every route is `other`. The
@@ -68,14 +79,25 @@ export function createBrowserDiagnostics(
     dataCollection: privateDataCollection(),
     sendClientReports: false,
     maxBreadcrumbs: 30,
-    beforeSend: (event) => sanitizeSentryEvent(event, config),
+    // Every event passes here, whichever path captured it.
+    beforeSend: (event) =>
+      consent.enabled() ? sanitizeSentryEvent(event, config) : null,
   });
   const scope = new Scope();
   scope.setClient(client);
   client.init();
   const network = apiNetworkFailureReporter(scope, config);
+  const unsubscribe = consent.subscribe(() => {
+    if (consent.enabled()) return;
+    scope.clearBreadcrumbs();
+    network.noteActivity();
+  });
   const diagnostics: WebDiagnostics = {
-    reportApiNetworkFailure: network,
+    // Unconsented failures stay out of the reporter, so none uses up the
+    // once-per-class event a consented failure of that class would send.
+    reportApiNetworkFailure(failure) {
+      if (consent.enabled()) network(failure);
+    },
     setApiRouteTemplates: (routes) => {
       config.routeTemplates = new Set(routes);
     },
@@ -84,6 +106,7 @@ export function createBrowserDiagnostics(
       network.noteActivity();
     },
     addBreadcrumb({ area, action }) {
+      if (!consent.enabled()) return;
       if (!isDiagnosticArea(area) || !isDiagnosticAction(action)) return;
       scope.addBreadcrumb(
         { category: "app.activity", data: { area, action } },
@@ -111,6 +134,7 @@ export function createBrowserDiagnostics(
     setApiVersion: (version) => scope.setTag("api_version", String(version)),
     flush: () => client.flush(2000),
     dispose() {
+      unsubscribe();
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
       window.removeEventListener("pagehide", onPageHide);

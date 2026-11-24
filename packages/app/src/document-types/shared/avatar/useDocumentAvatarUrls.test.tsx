@@ -63,6 +63,7 @@ function fakeStore(initial: DocumentSnapshot) {
   let snapshot = initial;
   const listeners = new Set<() => void>();
   const store = {
+    ensureInitialized: async () => true,
     getSnapshot: () => snapshot,
     subscribe: (listener: () => void) => {
       listeners.add(listener);
@@ -160,20 +161,7 @@ test("a document of another kind, or not yet loaded, shows no avatar", async () 
 test("a still-listed avatar keeps its URL while a new listing opens", async () => {
   const drill = fakeStore(withAvatar("drill-key"));
   const saw = fakeStore(EMPTY_SNAPSHOT);
-  const base = fakeSource({ drill, saw });
-  // Reopening drill would be slow, so a listing that reopened it would show
-  // saw's open first and drop drill's avatar meanwhile.
-  const source: DocumentAvatarSource = {
-    ...base.source,
-    openDocument: async (document) => {
-      const reopen = base.opened.includes(document.localId);
-      const store = await base.source.openDocument(document);
-      if (reopen) {
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-      return store;
-    },
-  };
+  const { opened, source } = fakeSource({ drill, saw });
   const seen: AvatarUrlById[] = [];
   const view = renderHook(
     ({ documents }) => {
@@ -191,10 +179,11 @@ test("a still-listed avatar keeps its URL while a new listing opens", async () =
   const { drill: drillUrl = "" } = view.result.current;
   const settled = seen.length;
 
+  // Drill is read from the source's store, not reopened, so every render
+  // while saw opens still shows drill's avatar.
   view.rerender({ documents: [listed("saw"), listed("drill")] });
   await waitFor(() => expect(saw.listeners.size).toBe(1));
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  expect(base.opened).toEqual(["drill", "saw"]);
+  expect(opened).toEqual(["drill", "saw"]);
   for (const urls of seen.slice(settled)) {
     expect(urls).toEqual({ drill: drillUrl });
   }

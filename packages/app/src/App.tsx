@@ -12,7 +12,10 @@ export function App({ hostConfig }: AppProps) {
   return (
     <DiagnosticsProvider value={hostConfig.diagnostics}>
       <AppErrorBoundary area="app" diagnostics={hostConfig.diagnostics}>
-        <DeviceResetGate clearNativeCache={hostConfig.clearNativeCache}>
+        <DeviceResetGate
+          clearNativeCache={hostConfig.clearNativeCache}
+          onWiped={hostConfig.telemetryConsent.refresh}
+        >
           <Layout hostConfig={hostConfig} />
         </DeviceResetGate>
       </AppErrorBoundary>

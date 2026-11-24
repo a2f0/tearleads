@@ -13,24 +13,45 @@ import { AppWindow } from "../AppWindow";
 import "./SettingsApp.css";
 import { MINI_APP_MENU_ITEMS } from "../catalog";
 import { useVisibleMiniAppItems } from "../useVisibleMiniAppItems";
+import { GeneralSettings } from "./GeneralSettings";
 import { NetworkSettings } from "./NetworkSettings";
 
 const SETTINGS_TABS = [
+  { id: "general", label: "General" },
   { id: "desktop", label: "Desktop" },
   { id: "system-tray", label: "System tray" },
   { id: "start-menu", label: "Start menu" },
   { id: "network", label: "Network" },
 ] as const;
 
+type SettingsTab = (typeof SETTINGS_TABS)[number]["id"];
+
+function SettingsTabContent({ tab }: { tab: SettingsTab }) {
+  const menuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
+  switch (tab) {
+    case "general":
+      return <GeneralSettings />;
+    case "network":
+      return <NetworkSettings />;
+    default:
+      return (
+        <DisplayProperties
+          section={tab}
+          startMenuAppIds={menuItems.map(({ appId }) => appId)}
+        />
+      );
+  }
+}
+
 // Wallpaper, theme, and tray preferences come from the app-wide providers
-// in Layout, so Settings can open before an identity or database exists.
+// in Layout, and the telemetry choice from the host config, so Settings can
+// open before an identity or database exists.
 export function SettingsApp() {
   const idPrefix = useId();
   const { pathSegments, setPathSegments } =
     useMiniAppRouteSegments("display-properties");
   const activeTab =
-    SETTINGS_TABS.find(({ id }) => id === pathSegments[0])?.id ?? "desktop";
-  const menuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
+    SETTINGS_TABS.find(({ id }) => id === pathSegments[0])?.id ?? "general";
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentSize, setContentSize] = useState<WindowSize>();
   useWindowContentSize(contentSize);
@@ -70,18 +91,11 @@ export function SettingsApp() {
           idPrefix={idPrefix}
           label="Settings"
           leading
-          onSelect={(tab) => setPathSegments(tab === "desktop" ? [] : [tab])}
+          onSelect={(tab) => setPathSegments(tab === "general" ? [] : [tab])}
           tabs={SETTINGS_TABS}
         />
         <MiniAppTabPanel activeTab={activeTab} idPrefix={idPrefix}>
-          {activeTab === "network" ? (
-            <NetworkSettings />
-          ) : (
-            <DisplayProperties
-              section={activeTab}
-              startMenuAppIds={menuItems.map(({ appId }) => appId)}
-            />
-          )}
+          <SettingsTabContent tab={activeTab} />
         </MiniAppTabPanel>
       </div>
     </AppWindow>
