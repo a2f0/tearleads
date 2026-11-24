@@ -5,7 +5,7 @@ import {
   closeDocumentSyncLoroWindowInTransaction,
   type DocumentSyncLoroWindow,
   settleDocumentSyncLoroWindow,
-} from "../../documents/sync/loroPassWindow";
+} from "../../documents";
 import {
   readProcessedCursorForSync,
   recordDocumentSyncVerdicts,

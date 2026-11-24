@@ -7,7 +7,7 @@ import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
-import type { DocumentSyncLoroWindow } from "../../documents/sync/loroPassWindow";
+import type { DocumentSyncLoroWindow } from "../../documents";
 import { judgeDocumentSyncImports } from "../../documents/sync/processedCursor";
 import { reportDocumentSyncQuarantine } from "../../documents/sync/reportDocumentSyncQuarantine";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
