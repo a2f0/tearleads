@@ -79,6 +79,13 @@ case "${1:-}" in
 esac
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)"
+# A fresh clone has no .secrets yet; link the shared store before Fastlane reads
+# the tier's App Store key. NATIVE_RELEASE_SECRETS_DIR names another folder.
+if [ -z "$(printf '%s' "${NATIVE_RELEASE_SECRETS_DIR:-}" | tr -d '[:space:]')" ]; then
+  # shellcheck source=scripts/lib/secretsStore.sh
+  . "$SCRIPT_DIR/../lib/secretsStore.sh"
+  secrets_store_link "$(CDPATH='' cd -- "$SCRIPT_DIR/../.." && pwd -P)" >&2
+fi
 cd "$SCRIPT_DIR/../../packages/app-capacitor"
 
 FETCH_LOG="$(mktemp "${TMPDIR:-/tmp}/app-store-build-numbers.XXXXXX")"

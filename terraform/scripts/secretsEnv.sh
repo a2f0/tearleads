@@ -1,6 +1,9 @@
 #!/bin/bash
 # Load deployment env files atomically with strict shell semantics.
 
+# shellcheck source=scripts/lib/secretsStore.sh
+. "$(dirname -- "${BASH_SOURCE[0]}")/../../scripts/lib/secretsStore.sh"
+
 _source_env_file() {
   local env_file="$1"
   local encoded_env_entry
@@ -109,23 +112,34 @@ _source_optional_env_file() {
 # follow; `worker.env` holds values generated for the Workers deployment, such
 # as the document sync cursor HMAC key, which must persist across deploys.
 # Without a tier, only production's shared values load.
+#
+# A fresh clone has no .secrets yet, so this links it to the shared store first
+# (on stderr, since callers capture stdout). A tier folder still missing after
+# that is an error naming the fix, not a warning that ends in a misleading
+# missing-variable error later.
 load_secrets_env() {
   local tier="${1:-}"
-  local secrets_dir
-  secrets_dir="$(get_repo_root)/.secrets"
-
-  if [[ -z "$tier" ]]; then
-    _source_env_file "$secrets_dir/prod/shared.env" || return 1
-    return 0
-  fi
+  local repo_root secrets_dir
+  repo_root="$(get_repo_root)"
+  secrets_dir="$repo_root/.secrets"
 
   case "$tier" in
-    staging | prod) ;;
+    "" | staging | prod) ;;
     *)
       echo "ERROR: Unknown deployment tier: $tier" >&2
       return 1
       ;;
   esac
+  secrets_store_link "$repo_root" >&2
+  if [[ ! -d "$secrets_dir/${tier:-prod}" ]]; then
+    echo "ERROR: $secrets_dir/${tier:-prod} is missing, so no ${tier:-prod} secrets load. A clone's .secrets links to matrix-secrets/$SECRETS_STORE_PROJECT; see docs/developer/infrastructure.md." >&2
+    return 1
+  fi
+
+  if [[ -z "$tier" ]]; then
+    _source_env_file "$secrets_dir/prod/shared.env" || return 1
+    return 0
+  fi
   _source_env_file "$secrets_dir/$tier/shared.env" || return 1
   _source_env_file "$secrets_dir/$tier/app.env" || return 1
   _source_optional_env_file "$secrets_dir/$tier/healthchecks.env" || return 1
