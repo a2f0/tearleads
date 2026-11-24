@@ -112,9 +112,10 @@ restoring another person's QR selects that person's identity, and onboarding
 offers no chance to review the phrase first. Revealed keys are hidden and
 staged restore phrases are cleared on page hiding or backgrounding, but this
 cannot prevent screenshots or photographs. Every platform, native shells
-included, scans from live camera frames held only in memory and zeroed after
-each decode; no photo or temporary file is written. Any retained image of the
-QR grants the same identity access as the recovery phrase itself.
+included, scans live camera frames in memory: each frame's pixel copy is
+zeroed after decoding, the scratch canvas is released when the scan stops, and
+no photo or temporary file is written. Any retained image of the QR grants the
+same identity access as the recovery phrase itself.
 
 ## Document Decrypt Verdicts Do Not Depend On The Reader's Key
 

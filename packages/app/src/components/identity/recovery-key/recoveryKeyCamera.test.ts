@@ -8,7 +8,7 @@ import { startRecoveryKeyCamera } from "./recoveryKeyCamera";
 let camera: ReturnType<typeof installRecoveryQrCamera> | undefined;
 let cancel: (() => void) | undefined;
 
-test("both camera paths normalize valid phrases and reject oversized scan payloads", () => {
+test("scanned phrases are normalized and oversized payloads are rejected", () => {
   const phrase = createIdentitySeedPhraseFromEntropy(
     new Uint8Array(32).fill(0x23),
   );
