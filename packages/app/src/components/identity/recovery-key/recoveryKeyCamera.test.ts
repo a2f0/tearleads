@@ -1,7 +1,10 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { waitFor } from "@testing-library/react";
-import { installRecoveryQrCamera } from "../../../../test/helpers/recoveryQrCameraTestKit";
+import {
+  installRecoveryQrCamera,
+  recoveryQrSide,
+} from "../../../../test/helpers/recoveryQrCameraTestKit";
 import { recoveryKeyScanPhrase } from "../../../identity/recoveryKeyScanPhrase";
 import { startRecoveryKeyCamera } from "./recoveryKeyCamera";
 import type { RecoveryQrFrame } from "./recoveryKeyScanState";
@@ -70,6 +73,29 @@ test("reports each unfinished frame with the code it located", async () => {
   const empty = onFrame.mock.calls.at(-1)?.[0];
   expect(empty?.rejected).toBe(false);
   expect(empty?.outline).toBeUndefined();
+});
+
+test("outlines are in the decoded frame's own pixels on a wide frame", async () => {
+  camera = installRecoveryQrCamera("unrelated QR");
+  const side = recoveryQrSide("unrelated QR");
+  const placement = { width: 480, height: 320, x: 320, y: 120 };
+  camera.setCodeInFrame("unrelated QR", placement);
+  const onFrame = mock((_frame: RecoveryQrFrame) => undefined);
+  cancel = startRecoveryKeyCamera(document.createElement("video"), {
+    onDecode: () => false,
+    onError: () => undefined,
+    onFrame,
+  });
+  await waitFor(() => expect(onFrame).toHaveBeenCalled());
+  const reported = onFrame.mock.calls[0]?.[0];
+  expect(reported).toMatchObject({ width: 480, height: 320, rejected: true });
+  for (const point of reported?.outline ?? []) {
+    expect(point.x).toBeGreaterThanOrEqual(placement.x);
+    expect(point.x).toBeLessThanOrEqual(placement.x + side);
+    expect(point.y).toBeGreaterThanOrEqual(placement.y);
+    expect(point.y).toBeLessThanOrEqual(placement.y + side);
+  }
+  expect(reported?.outline).toHaveLength(4);
 });
 
 test("a decode callback that closes the scan stops frame reports", async () => {

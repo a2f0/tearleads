@@ -159,6 +159,29 @@ test("a code that is not a recovery key is outlined as rejected", async () => {
   expect(onScan).not.toHaveBeenCalled();
 });
 
+test("the preview and overlay take a wide frame's shape and coordinates", async () => {
+  camera = installRecoveryQrCamera("unrelated QR");
+  camera.setCodeInFrame("unrelated QR", {
+    width: 480,
+    height: 320,
+    x: 320,
+    y: 120,
+  });
+  const { outline, overlay, view } = renderOpenScanner();
+  await view.findByText(/does not contain a valid recovery key/u);
+  expect(overlay()?.getAttribute("viewBox")).toBe("0 0 480 320");
+  expect(
+    view.container
+      .querySelector(".recovery-key-scan-viewport")
+      ?.getAttribute("style"),
+  ).toContain("aspect-ratio: 480 / 320");
+  const xs = (outline()?.getAttribute("points") ?? "")
+    .split(" ")
+    .map((point) => Number(point.split(",")[0]));
+  expect(xs).toHaveLength(4);
+  expect(Math.min(...xs)).toBeGreaterThanOrEqual(320);
+});
+
 test("the camera says it is starting until its first frame", async () => {
   camera = installRecoveryQrCamera("unrelated QR");
   const pending = Promise.withResolvers<MediaStream>();

@@ -25,7 +25,7 @@ const DECODE_MAX_SIDE = 960;
 const MIN_SCAN_GAP_MS = 80;
 
 interface RecoveryQrRead {
-  readonly frame: RecoveryQrFrame;
+  readonly frame: Omit<RecoveryQrFrame, "rejected">;
   readonly value: string | undefined;
 }
 
@@ -75,8 +75,6 @@ function readRecoveryQrFrame(
       at: performance.now(),
       height: pixels.height,
       outline: located.outline,
-      // Only frames onDecode turned down are reported, so a read is a rejection.
-      rejected: value !== undefined,
       width: pixels.width,
     },
     value,
@@ -118,7 +116,9 @@ export function startRecoveryKeyCamera(
       return;
     }
     // A callback may have closed the scan; report nothing after that.
-    if (!stopped && read) onFrame?.(read.frame);
+    if (stopped || !read) return;
+    // A value that reaches here is one onDecode turned down.
+    onFrame?.({ ...read.frame, rejected: read.value !== undefined });
   };
 
   const start = async () => {
