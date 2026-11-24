@@ -184,6 +184,7 @@ test("a runtime failure applying judged metadata updates marks the process as fa
   try {
     const trap = new WebAssembly.RuntimeError("unreachable");
     const trapped = {
+      dependencyVersionVector: "",
       id: crypto.randomUUID(),
       partialEndVersionVector: "",
       partialStartVersionVector: "",

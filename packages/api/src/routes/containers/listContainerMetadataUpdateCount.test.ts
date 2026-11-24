@@ -41,6 +41,7 @@ async function storeUpdate(documentId: string): Promise<number> {
       documentId,
       encryptedData: "x",
       id,
+      dependencyVersionVector: "",
       partialEndVersionVector: "",
       partialStartVersionVector: "",
       plaintextHash: `plaintext-${id}`,

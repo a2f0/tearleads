@@ -147,6 +147,7 @@ async function insertBaselineCheckpoint(input: {
     : await computeDocumentContentRecordMetadataHash({
         checkpointKind: "rotate_baseline",
         checkpointPayloadKind: "full_history_snapshot",
+        dependencyVersionVector: emptyVersionVector(),
         documentId: input.documentId,
         partialEndVersionVector: input.sourceVersionVector,
         partialStartVersionVector,
@@ -163,6 +164,7 @@ async function insertBaselineCheckpoint(input: {
       authorFingerprint: "baseline-redirect-test",
       encryptedData: "encrypted-baseline",
       byteLength: 18,
+      dependencyVersionVector: emptyVersionVector(),
       partialStartVersionVector,
       partialEndVersionVector: input.sourceVersionVector,
       plaintextHash,
@@ -242,6 +244,7 @@ test("pagination redirects past a long covered history to its readable baseline"
       accessEpoch: 1,
       authorFingerprint: "baseline-pagination-author",
       byteLength: 16,
+      dependencyVersionVector: vectors.dependencyVersionVector,
       documentId,
       encryptedData: `encrypted-${index}`,
       id: randomUUID(),

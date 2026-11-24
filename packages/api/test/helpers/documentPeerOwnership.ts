@@ -96,6 +96,22 @@ export function peerSpan(
   };
 }
 
+/** One update of a request: its span, and the dependencies it declares. */
+export interface PeerUpdate extends DeclaredSpan {
+  readonly dependencyVersionVector?: string;
+}
+
+/** `span`, declaring that it depends on each peer up to its end (exclusive). */
+export function dependingOn(
+  span: DeclaredSpan,
+  ends: Readonly<Record<string, number>>,
+): PeerUpdate {
+  return {
+    ...span,
+    dependencyVersionVector: encodeVersionVectorCounters(ends),
+  };
+}
+
 /** A rotation baseline declaring every peer from counter 0 to its end. */
 export function baselineSpan(
   ends: Readonly<Record<string, number>>,
@@ -110,19 +126,20 @@ export function baselineSpan(
 async function peerSyncRequest(
   fixture: SharedWriterDocument,
   user: TestUser,
-  spans: readonly DeclaredSpan[],
+  spans: readonly PeerUpdate[],
   options: { readonly checkpoint?: boolean } = {},
 ): Promise<{
   readonly request: DocumentSyncRequest;
   readonly updateIds: readonly string[];
 }> {
   const signed = [];
-  for (const declaredSpan of spans) {
+  for (const { dependencyVersionVector, ...declaredSpan } of spans) {
     signed.push(
       await createSignedDocumentSyncRequest({
         checkpoint: options.checkpoint ?? false,
         created: fixture.created,
         declaredSpan,
+        dependencyVersionVector,
         owner: user,
         root: fixture.root,
       }),
@@ -143,7 +160,7 @@ async function peerSyncRequest(
 export async function syncPeerSpans(
   fixture: SharedWriterDocument,
   user: TestUser,
-  spans: readonly DeclaredSpan[],
+  spans: readonly PeerUpdate[],
   options: { readonly checkpoint?: boolean } = {},
 ) {
   const { request, updateIds } = await peerSyncRequest(

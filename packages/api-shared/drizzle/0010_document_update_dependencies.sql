@@ -1,0 +1,13 @@
+-- Each document update stores the dependency version vector its writer signed
+-- in the content-record metadata (#3194): the ops it depends on outside
+-- itself, which the API requires to be committed and every reader checks
+-- against the payload. This is a signed-shape flag day (see "Signed-shape
+-- invariants" in docs/developer/api-persistence.md) and breaks
+-- expand-then-contract on purpose: no default could stand for a vector the
+-- writer signed, and updates signed before this change declare none. So
+-- there is no default, and on a database that still holds update rows this
+-- fails and the migrator's transaction rolls back. Deploy it only through
+-- the greenfield reset, which stops old writers with the API maintenance
+-- Worker before dropping data, applies this to empty tables, and only then
+-- publishes the API Worker, so no earlier Worker writes to this table.
+ALTER TABLE "document_updates" ADD COLUMN "dependency_version_vector" text NOT NULL;

@@ -277,6 +277,7 @@ export async function createExplorerMetadataSyncResponse(input: {
         encryptedData: update.encryptedData,
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
+        dependencyVersionVector: update.dependencyVersionVector,
         plaintextHash: update.plaintextHash,
         createdAt: "2026-04-27T00:00:00.000Z",
         writeHeader: update.writeHeader,

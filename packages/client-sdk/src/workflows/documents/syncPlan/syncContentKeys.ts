@@ -151,6 +151,7 @@ export async function prepareDocumentOutgoingUpdates(input: {
 
       return {
         contentRecordId: encrypted.contentRecordId,
+        dependencyVersionVector: encrypted.dependencyVersionVector,
         encryptedData: encrypted.encryptedData,
         id: update.id,
         partialStartVersionVector: update.partialStartVersionVector,

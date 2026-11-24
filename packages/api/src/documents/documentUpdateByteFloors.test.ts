@@ -23,6 +23,7 @@ const jsonBytes = (value: unknown) => bytes(JSON.stringify(value));
 
 interface StoredUpdate {
   readonly authorFingerprint: string;
+  readonly dependencyVersionVector: string;
   readonly encryptedData: string;
   readonly id: string;
   readonly partialEndVersionVector: string;
@@ -33,6 +34,7 @@ interface StoredUpdate {
 function storedUpdate(overrides: Partial<StoredUpdate> = {}): StoredUpdate {
   return {
     authorFingerprint: "author",
+    dependencyVersionVector: "deps",
     encryptedData: "x",
     id: crypto.randomUUID(),
     partialEndVersionVector: "end",
@@ -95,6 +97,7 @@ test("response byte floors count the UTF-8 bytes of every variable-size part", a
   // Multibyte text tells bytes apart from characters on every dialect.
   const ordinary = storedUpdate({
     authorFingerprint: "author-✓",
+    dependencyVersionVector: "deps-✓✓✓✓",
     encryptedData: "cipher-✓✓",
     partialEndVersionVector: "end-✓",
     partialStartVersionVector: "start-✓",
@@ -119,6 +122,7 @@ test("response byte floors count the UTF-8 bytes of every variable-size part", a
 
   const stringBytes =
     bytes(ordinary.authorFingerprint) +
+    bytes(ordinary.dependencyVersionVector) +
     bytes(ordinary.encryptedData) +
     bytes(ordinary.partialEndVersionVector) +
     bytes(ordinary.partialStartVersionVector) +

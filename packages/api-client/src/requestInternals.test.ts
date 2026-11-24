@@ -158,21 +158,22 @@ test("describeErrorResponse preserves sync stale-policy repair heads", async () 
   });
 });
 
-test("describeErrorResponse preserves sync peer-owned frontiers", async () => {
-  const peerFrontiers = [{ committedEndCounter: 5, peerId: "900" }];
-  const response = Response.json(
-    {
-      code: "document_sync_peer_owned",
-      error: "Document peer is owned by another user",
-      peerFrontiers,
-    },
-    { status: 409 },
-  );
+for (const code of [
+  "document_sync_peer_owned",
+  "document_sync_dependency_uncommitted",
+]) {
+  test(`describeErrorResponse preserves ${code} frontiers`, async () => {
+    const peerFrontiers = [{ committedEndCounter: 5, peerId: "900" }];
+    const response = Response.json(
+      { code, error: "Document peer refused", peerFrontiers },
+      { status: 409 },
+    );
 
-  expect(
-    await describeErrorResponse(response, documentSyncOperation),
-  ).toMatchObject({ code: "document_sync_peer_owned", peerFrontiers });
-});
+    expect(
+      await describeErrorResponse(response, documentSyncOperation),
+    ).toMatchObject({ code, peerFrontiers });
+  });
+}
 
 test("describeErrorResponse ignores peer frontiers on other sync conflicts", async () => {
   const response = Response.json(

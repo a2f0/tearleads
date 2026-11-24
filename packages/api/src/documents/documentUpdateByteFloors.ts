@@ -43,6 +43,7 @@ export async function listDocumentUpdateResponseByteFloors(
       textBytes: sql<unknown>`${textBytes(documentUpdates.authorFingerprint)}
         + ${textBytes(documentUpdates.partialStartVersionVector)}
         + ${textBytes(documentUpdates.partialEndVersionVector)}
+        + ${textBytes(documentUpdates.dependencyVersionVector)}
         + ${textBytes(documentUpdates.plaintextHash)}
         + coalesce(${textBytes(documentUpdates.baselineSourceVersionVector)}, 0)
         + coalesce(${jsonBytes(documentContentWriteHeaders.header)}, 0)

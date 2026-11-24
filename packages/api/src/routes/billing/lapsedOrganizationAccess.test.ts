@@ -8,6 +8,7 @@ import {
 } from "@tearleads/crypto";
 import {
   createDocument as createLoroDocument,
+  emptyVersionVector,
   encodeVersionVector,
   exportUpdatesSince,
   getUpdateVersionVectors,
@@ -73,6 +74,7 @@ async function createSignedDocumentSyncRequest(input: {
         contentRecordId: updateId,
       }),
       metadataHash: await computeDocumentContentRecordMetadataHash({
+        dependencyVersionVector: emptyVersionVector(),
         documentId: input.created.id,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,
@@ -102,6 +104,7 @@ async function createSignedDocumentSyncRequest(input: {
     localVersionVector: null,
     outgoingUpdates: [
       {
+        dependencyVersionVector: emptyVersionVector(),
         encryptedData,
         id: updateId,
         partialStartVersionVector: vectors.partialStartVersionVector,

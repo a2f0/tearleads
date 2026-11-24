@@ -1,0 +1,114 @@
+# Issue #3194 (greenfield flag day): each document update signs and sends the
+# operations it depends on as a required `dependencyVersionVector`, so every
+# request that embeds an outgoing update or a rotation baseline gains a
+# required property. Remove these exact diagnostics as soon as main contains
+# the new contract.
+POST /auth/register added the new required request property `initialOrganizationMetadataContainer/initialMetadataSync/outgoingUpdates/items/dependencyVersionVector` (shared schema: `DocumentCreateSeedRequest`, also at `initialRosterProfileContainer/initialMetadataSync/outgoingUpdates/items/dependencyVersionVector`, `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/dependencyVersionVector` and 3 more)
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings added the new required request property `documentSync/outgoingUpdates/items/dependencyVersionVector`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document added the new required request property `initialMetadataSync/outgoingUpdates/items/dependencyVersionVector`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents added the new required request property `initialSync/outgoingUpdates/items/dependencyVersionVector`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link added the new required request property `rotationBaseline/dependencyVersionVector`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/sync added the new required request property `outgoingUpdates/items/dependencyVersionVector`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink added the new required request property `rotationBaseline/dependencyVersionVector`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /organizations added the new required request property `initialOrganizationMetadataContainer/initialMetadataSync/outgoingUpdates/items/dependencyVersionVector` (shared schema: `DocumentCreateSeedRequest`, also at `initialRosterProfileContainer/initialMetadataSync/outgoingUpdates/items/dependencyVersionVector`, `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/dependencyVersionVector` and 3 more)
+
+# Issue #3194 (greenfield flag day): the server refuses a sync whose update
+# depends on an uncommitted operation with 409
+# `document_sync_dependency_uncommitted`. Every document mutation code enum
+# shares the sync codes, so each operation that advertises them gains the
+# value. Remove these exact diagnostics as soon as main contains the new
+# contract.
+POST /containers added the new `document_sync_dependency_uncommitted` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/with-metadata-document added the new `document_sync_dependency_uncommitted` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+DELETE /containers/{containerId} added the new `document_sync_dependency_uncommitted` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/move added the new `document_sync_dependency_uncommitted` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/recite added the new `document_sync_dependency_uncommitted` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/rekey added the new `document_sync_dependency_uncommitted` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/revoke added the new `document_sync_dependency_uncommitted` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /containers/{containerId}/share added the new `document_sync_dependency_uncommitted` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/link added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /documents/{documentId}/purge added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+GET /documents/{documentId}/purge added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/purge added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/purge added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/sync added the new `document_sync_dependency_uncommitted` enum value to the `code` response property for the response status `409`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+
+# Issue #3194: see above.
+# Remove this exact diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/unlink added the new `document_sync_dependency_uncommitted` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`

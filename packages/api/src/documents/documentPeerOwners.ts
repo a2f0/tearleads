@@ -5,6 +5,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { compareCanonicalStrings } from "@tearleads/crypto";
 import {
+  decodeVersionVector,
   listVersionVectorSpans,
   type VersionVectorSpan,
 } from "@tearleads/loro";
@@ -12,9 +13,10 @@ import {
   type DocumentPeerFrontier,
   MAX_DOCUMENT_PEER_FRONTIERS,
 } from "@tearleads/validators/response";
-import { and, eq, inArray, max, sql } from "drizzle-orm";
+import { and, type Column, eq, max, type SQL, sql } from "drizzle-orm";
 
-interface DocumentUpdateSpanSource {
+interface DocumentUpdatePeerSource {
+  readonly dependencyVersionVector: string;
   readonly partialEndVersionVector: string;
   readonly partialStartVersionVector: string;
 }
@@ -25,56 +27,158 @@ export interface CommittedDocumentPeer {
   readonly ownerUserId: string | null;
 }
 
-export interface DocumentPeerVerdict {
-  /** Unowned peers the request extends, claimed for its writer. */
-  readonly claimedPeerIds: readonly string[];
-  /** Other users' peers the request extends, canonical order, bounded. */
-  readonly refused: readonly DocumentPeerFrontier[];
+/** One op an update depends on: its peer, and one past its counter. */
+export interface DocumentPeerDependency {
+  readonly endCounter: number;
+  readonly peerId: string;
+}
+
+/** What one update of a request names: its dependencies, then its spans. */
+export interface DocumentUpdatePeers {
+  readonly dependencies: readonly DocumentPeerDependency[];
+  readonly spans: readonly VersionVectorSpan[];
+}
+
+/** Why a request is refused, with the peers to name and their frontiers. */
+export type DocumentPeerRefusal =
+  | {
+      readonly kind: "peer_owned";
+      readonly peerFrontiers: readonly DocumentPeerFrontier[];
+    }
+  | {
+      readonly kind: "dependency_uncommitted";
+      readonly peerFrontiers: readonly DocumentPeerFrontier[];
+    };
+
+/** An accepted request names the unowned peers it claims for its writer. */
+export type DocumentPeerVerdict =
+  | { readonly kind: "accepted"; readonly claimedPeerIds: readonly string[] }
+  | DocumentPeerRefusal;
+
+function namedFrontiers(
+  peerIds: ReadonlySet<string>,
+  committedPeers: ReadonlyMap<string, CommittedDocumentPeer>,
+): DocumentPeerFrontier[] {
+  return [...peerIds]
+    .sort(compareCanonicalStrings)
+    .slice(0, MAX_DOCUMENT_PEER_FRONTIERS)
+    .map((peerId) => ({
+      peerId,
+      committedEndCounter: committedPeers.get(peerId)?.committedEndCounter ?? 0,
+    }));
+}
+
+/** The walk's state: each peer's reached frontier and owner, and its findings. */
+interface DocumentPeerWalk {
+  readonly claimed: Set<string>;
+  readonly frontiers: Map<string, number>;
+  readonly owned: Set<string>;
+  readonly owners: Map<string, string>;
+  readonly uncommitted: Set<string>;
+}
+
+function startDocumentPeerWalk(
+  committedPeers: ReadonlyMap<string, CommittedDocumentPeer>,
+): DocumentPeerWalk {
+  const walk: DocumentPeerWalk = {
+    claimed: new Set(),
+    frontiers: new Map(),
+    owned: new Set(),
+    owners: new Map(),
+    uncommitted: new Set(),
+  };
+  for (const [peerId, peer] of committedPeers) {
+    walk.frontiers.set(peerId, peer.committedEndCounter);
+    if (peer.ownerUserId !== null) walk.owners.set(peerId, peer.ownerUserId);
+  }
+  return walk;
+}
+
+/** Every dependency must lie within the frontier the walk has reached. */
+function walkDependencies(
+  walk: DocumentPeerWalk,
+  dependencies: readonly DocumentPeerDependency[],
+): void {
+  for (const { endCounter, peerId } of dependencies) {
+    if (endCounter > (walk.frontiers.get(peerId) ?? 0)) {
+      walk.uncommitted.add(peerId);
+    }
+  }
+}
+
+function walkSpans(
+  walk: DocumentPeerWalk,
+  spans: readonly VersionVectorSpan[],
+  userId: string,
+): void {
+  for (const span of spans) {
+    if (span.endCounter <= (walk.frontiers.get(span.peerId) ?? 0)) continue;
+    walk.frontiers.set(span.peerId, span.endCounter);
+    const owner = walk.owners.get(span.peerId);
+    if (owner === undefined) {
+      walk.owners.set(span.peerId, userId);
+      walk.claimed.add(span.peerId);
+    } else if (owner !== userId) {
+      walk.owned.add(span.peerId);
+    }
+  }
 }
 
 /**
- * Walks the spans in request order. A span ending at or below the frontier
- * re-asserts committed counters, which any writer may do. One ending past it
- * claims an unowned peer, extends the writer's own, or is refused when
- * another user owns the peer. The frontier rises as the walk goes, so a
- * request may chain updates on one peer; refused peers report the frontier
- * committed before the request, which rolls back.
+ * Walks the updates in request order. Each update's dependencies must lie
+ * within the frontier the walk has reached: committed, or written by an
+ * earlier update of the request. Then each of its spans: one ending at or
+ * below the frontier re-asserts committed counters, which any writer may do;
+ * one ending past it claims an unowned peer, extends the writer's own, or is
+ * refused when another user owns the peer. The frontier rises as the walk
+ * goes, so a request may chain updates on one peer. Refused peers report the
+ * frontier committed before the request, which rolls back; a peer another
+ * user owns outranks an uncommitted dependency.
  */
 export function judgeDocumentPeerSpans(input: {
   readonly committedPeers: ReadonlyMap<string, CommittedDocumentPeer>;
-  readonly spans: readonly VersionVectorSpan[];
+  readonly updates: readonly DocumentUpdatePeers[];
   readonly userId: string;
 }): DocumentPeerVerdict {
-  const frontiers = new Map<string, number>();
-  const owners = new Map<string, string>();
-  for (const [peerId, peer] of input.committedPeers) {
-    frontiers.set(peerId, peer.committedEndCounter);
-    if (peer.ownerUserId !== null) owners.set(peerId, peer.ownerUserId);
+  const walk = startDocumentPeerWalk(input.committedPeers);
+  for (const update of input.updates) {
+    walkDependencies(walk, update.dependencies);
+    walkSpans(walk, update.spans, input.userId);
   }
-  const claimed = new Set<string>();
-  const refused = new Set<string>();
-  for (const span of input.spans) {
-    if (span.endCounter <= (frontiers.get(span.peerId) ?? 0)) continue;
-    frontiers.set(span.peerId, span.endCounter);
-    const owner = owners.get(span.peerId);
-    if (owner === undefined) {
-      owners.set(span.peerId, input.userId);
-      claimed.add(span.peerId);
-    } else if (owner !== input.userId) {
-      refused.add(span.peerId);
-    }
+  if (walk.owned.size > 0) {
+    return {
+      kind: "peer_owned",
+      peerFrontiers: namedFrontiers(walk.owned, input.committedPeers),
+    };
+  }
+  if (walk.uncommitted.size > 0) {
+    return {
+      kind: "dependency_uncommitted",
+      peerFrontiers: namedFrontiers(walk.uncommitted, input.committedPeers),
+    };
   }
   return {
-    claimedPeerIds: [...claimed].sort(compareCanonicalStrings),
-    refused: [...refused]
-      .sort(compareCanonicalStrings)
-      .slice(0, MAX_DOCUMENT_PEER_FRONTIERS)
-      .map((peerId) => ({
-        peerId,
-        committedEndCounter:
-          input.committedPeers.get(peerId)?.committedEndCounter ?? 0,
-      })),
+    kind: "accepted",
+    claimedPeerIds: [...walk.claimed].sort(compareCanonicalStrings),
   };
+}
+
+/** The ops an update's signed dependency vector names, zero counters aside. */
+function listDocumentPeerDependencies(
+  dependencyVersionVector: string,
+): DocumentPeerDependency[] {
+  return [...decodeVersionVector(dependencyVersionVector).toJSON()]
+    .filter(([, endCounter]) => endCounter > 0)
+    .map(([peerId, endCounter]) => ({ endCounter, peerId }));
+}
+
+/**
+ * `column` is one of `peerIdsJson`, bound as one parameter: a request names
+ * as many peers as its byte ceiling admits, and Postgres binds at most 65,535
+ * parameters to a statement.
+ */
+function isNamedPeer(column: Column, peerIdsJson: string): SQL {
+  return sql`${column} in (select jsonb_array_elements_text(${peerIdsJson}::jsonb))`;
 }
 
 /**
@@ -87,6 +191,7 @@ async function readCommittedDocumentPeers(
   documentId: string,
   peerIds: readonly string[],
 ): Promise<Map<string, CommittedDocumentPeer>> {
+  const peerIdsJson = JSON.stringify(peerIds);
   const rows = await executor
     .select({
       peerId: documentUpdateSpans.peerId,
@@ -97,7 +202,7 @@ async function readCommittedDocumentPeers(
     .where(
       and(
         eq(documentUpdateSpans.documentId, documentId),
-        inArray(documentUpdateSpans.peerId, [...peerIds]),
+        isNamedPeer(documentUpdateSpans.peerId, peerIdsJson),
       ),
     )
     .groupBy(documentUpdateSpans.peerId)
@@ -112,7 +217,7 @@ async function readCommittedDocumentPeers(
         .where(
           and(
             eq(documentPeerOwners.documentId, documentId),
-            inArray(documentPeerOwners.peerId, [...peerIds]),
+            isNamedPeer(documentPeerOwners.peerId, peerIdsJson),
           ),
         ),
     );
@@ -130,44 +235,50 @@ async function readCommittedDocumentPeers(
 
 /**
  * Claims every unowned peer a write extends for its writer, unless the write
- * extends a peer another user owns: then it claims nothing and returns those
- * peers with their committed frontiers, and the caller refuses the whole
+ * extends a peer another user owns or depends on an op nobody committed: then
+ * it claims nothing and returns the refusal, and the caller refuses the whole
  * request. Pass only the request's newly verified updates, in request order.
  * The caller holds the document head lock from this read through the insert
  * of the updates' spans, so no other write moves a frontier or an owner in
- * between. A document this transaction inserted has nothing
- * committed: every delete of a document row deletes its spans and owners, so
- * a create's seed skips the read and claims every peer it carries.
+ * between. A document this transaction inserted has nothing committed: every
+ * delete of a document row deletes its spans and owners, so a create's seed
+ * skips the read, may depend on nothing, and claims every peer it carries.
  */
 export async function claimDocumentPeers(
   executor: DatabaseSession,
   input: {
     readonly documentId: string;
     readonly documentInsertedInTransaction: boolean;
-    readonly updates: readonly DocumentUpdateSpanSource[];
+    readonly updates: readonly DocumentUpdatePeerSource[];
     readonly userId: string;
   },
-): Promise<readonly DocumentPeerFrontier[]> {
-  const spans = input.updates.flatMap((update) =>
-    listVersionVectorSpans({
+): Promise<DocumentPeerRefusal | null> {
+  const updates = input.updates.map((update) => ({
+    dependencies: listDocumentPeerDependencies(update.dependencyVersionVector),
+    spans: listVersionVectorSpans({
       partialEndVersionVector: update.partialEndVersionVector,
       partialStartVersionVector: update.partialStartVersionVector,
     }),
-  );
-  if (spans.length === 0) return [];
+  }));
+  const peerIds = [
+    ...new Set(
+      updates.flatMap((update) => [
+        ...update.dependencies.map((dependency) => dependency.peerId),
+        ...update.spans.map((span) => span.peerId),
+      ]),
+    ),
+  ].sort(compareCanonicalStrings);
+  if (peerIds.length === 0) return null;
 
-  const peerIds = [...new Set(spans.map((span) => span.peerId))].sort(
-    compareCanonicalStrings,
-  );
   const verdict = judgeDocumentPeerSpans({
     committedPeers: input.documentInsertedInTransaction
       ? new Map()
       : await readCommittedDocumentPeers(executor, input.documentId, peerIds),
-    spans,
+    updates,
     userId: input.userId,
   });
-  if (verdict.refused.length > 0) return verdict.refused;
-  if (verdict.claimedPeerIds.length === 0) return [];
+  if (verdict.kind !== "accepted") return verdict;
+  if (verdict.claimedPeerIds.length === 0) return null;
 
   // No conflict clause: under the lock no other writer can have claimed one of
   // these peers since the read (nor before a create's seed), and if one did,
@@ -180,5 +291,5 @@ export async function claimDocumentPeers(
       peerId,
     })),
   );
-  return [];
+  return null;
 }

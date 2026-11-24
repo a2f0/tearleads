@@ -179,6 +179,7 @@ test("document content-record metadata commits to a baseline's cursor", async ()
   const baseline = {
     checkpointKind: "rotate_baseline" as const,
     checkpointPayloadKind: "full_history_snapshot" as const,
+    dependencyVersionVector: "",
     documentId: "document-1",
     partialEndVersionVector: "end",
     partialStartVersionVector: "start",
@@ -206,4 +207,25 @@ test("document content-record metadata commits to a baseline's cursor", async ()
       coversThroughUpdateId: undefined,
     }),
   ).toBe(withoutCursor);
+});
+
+// The API refuses an update whose dependencies it has not committed, and every
+// reader voids one whose payload depends on other ops, so the declared
+// dependencies are signed: a server that changes them breaks the signature.
+test("document content-record metadata commits to its declared dependencies", async () => {
+  const update = {
+    dependencyVersionVector: "deps-1",
+    documentId: "document-1",
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+    plaintextHash: "plaintext",
+    updateId: "update-1",
+  };
+
+  expect(
+    await computeDocumentContentRecordMetadataHash({
+      ...update,
+      dependencyVersionVector: "deps-2",
+    }),
+  ).not.toBe(await computeDocumentContentRecordMetadataHash(update));
 });

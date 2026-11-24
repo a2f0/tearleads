@@ -204,8 +204,8 @@ Create and commit store supplied `attachmentNames` with the document projection.
 Maintenance uses `orphanBlobs` to retain bytes until their last reference is
 removed; `reclaimDocumentOrphanBlobs(runtime, persistence)` awaits the run.
 An adapter that implements the optional `installPeerRebase` lets the document
-store recover from `document_sync_peer_owned` by rebasing onto a fresh peer;
-without it that refusal is terminal.
+store recover from a peer or dependency refusal by rebasing onto a fresh peer;
+else the refusal is terminal.
 
 ### Deferred initial update
 

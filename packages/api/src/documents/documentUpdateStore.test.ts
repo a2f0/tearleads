@@ -50,6 +50,7 @@ async function insertStoredUpdate(input: {
       input.authorFingerprint ?? "document-update-store-author",
     encryptedData: input.encryptedData,
     byteLength: textEncoder.encode(input.encryptedData).byteLength,
+    dependencyVersionVector: "AA==",
     partialStartVersionVector: input.partialStartVersionVector,
     partialEndVersionVector: input.partialEndVersionVector,
     plaintextHash: `plaintext-${input.id}`,

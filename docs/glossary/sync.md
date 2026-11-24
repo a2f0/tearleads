@@ -34,6 +34,21 @@ Related docs:
 
 - [loro-e2ee-sync-protocol.md](../loro-e2ee-sync-protocol.md#protocol-shape)
 
+## Dependency Frontier
+
+One operation a document update depends on, written as its Loro peer and one
+past its counter. Each update signs its dependency frontiers in
+`dependencyVersionVector`, taken from its payload's Loro start frontiers; a
+snapshot has none. The API refuses an update with one past its peer's
+committed frontier with 409 `document_sync_dependency_uncommitted`, and a
+reader voids an update whose payload depends on other operations than it
+declares.
+
+Related docs:
+
+- [advisory-op-spans.md](../advisory-op-spans.md#dependencies)
+- [document-link-and-sync-protocol.md](../document-link-and-sync-protocol.md#document-sync-conflict-codes)
+
 ## Head
 
 The current signed state of an access-controlled object or a
@@ -81,7 +96,9 @@ frontier, the highest span end committed on that peer. The API keeps one
 that extends an unowned peer claims it for its writer's user, so every device
 of that user may continue the peer. Any writer may re-assert counters below the
 frontier, but a sync or unlink that extends another user's peer is refused with
-409 `document_sync_peer_owned` and rolls back. A purge deletes the rows.
+409 `document_sync_peer_owned` and rolls back. A purge deletes the rows. A
+[dependency frontier](#dependency-frontier) past the committed frontier is
+refused the same way, with its own code.
 
 Related docs:
 

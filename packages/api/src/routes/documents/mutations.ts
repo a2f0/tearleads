@@ -99,7 +99,10 @@ export function documentSyncErrorBody(
         : {}),
     };
   }
-  if (code === DOCUMENT_SYNC_ERROR_CODES.peerOwned) {
+  if (
+    code === DOCUMENT_SYNC_ERROR_CODES.peerOwned ||
+    code === DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted
+  ) {
     return {
       code,
       error: error.error,

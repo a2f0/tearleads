@@ -99,7 +99,8 @@ writer can rebase and a sync response can adopt the winner. A failed comparison
 must not enqueue the optional outgoing update.
 
 `installPeerRebase(...)` is optional. Without it a sync the server refuses
-with `document_sync_peer_owned` records a terminal failure; with it the
+with `document_sync_peer_owned` or `document_sync_dependency_uncommitted`
+records a terminal failure; with it the
 document store [rebases onto a fresh peer](../advisory-op-spans.md#rebasing-onto-a-fresh-peer)
 and retries. In one transaction, it confirms the record still has the expected
 `documentId` and `recoveryGeneration`, that no checkpoint or history row

@@ -8,6 +8,7 @@ import {
 interface ReplayableBaselineMetadata {
   readonly checkpointKind: string;
   readonly coversThroughUpdateId?: string | undefined;
+  readonly dependencyVersionVector: string;
   readonly documentId: string;
   readonly metadataHash: string;
   readonly partialEndVersionVector: string;
@@ -38,7 +39,9 @@ export async function isAuthenticatedReplayableBaseline(
       !versionVectorsEqual(
         input.partialStartVersionVector,
         emptyVersionVector(),
-      )
+      ) ||
+      // A full-history snapshot builds on nothing.
+      !versionVectorsEqual(input.dependencyVersionVector, emptyVersionVector())
     ) {
       return false;
     }
@@ -56,6 +59,7 @@ export async function isAuthenticatedReplayableBaseline(
     ...(input.coversThroughUpdateId === undefined
       ? {}
       : { coversThroughUpdateId: input.coversThroughUpdateId }),
+    dependencyVersionVector: input.dependencyVersionVector,
     documentId: input.documentId,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector: input.partialStartVersionVector,

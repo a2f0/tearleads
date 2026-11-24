@@ -65,9 +65,13 @@ async function createSignedOrdinaryUpdate(input: {
   readonly coversThroughUpdateId?: string | undefined;
   readonly created: CreatedDocumentFixture;
   readonly declaredSpan?: DeclaredSpan | undefined;
+  /** The dependency vector to sign and send; none when absent. */
+  readonly dependencyVersionVector?: string | undefined;
   readonly owner: TestUser;
   readonly updateId?: string | undefined;
 }) {
+  const dependencyVersionVector =
+    input.dependencyVersionVector ?? emptyVersionVector();
   const contentKeyBundle =
     input.contentKeyBundle ?? input.created.contentKeyBundle;
   const id = input.updateId ?? crypto.randomUUID();
@@ -125,6 +129,7 @@ async function createSignedOrdinaryUpdate(input: {
               sourceVersionVector: vectors.partialEndVersionVector,
             }
           : {}),
+        dependencyVersionVector,
         documentId: input.created.id,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,
@@ -140,6 +145,7 @@ async function createSignedOrdinaryUpdate(input: {
     input.contentKeyCommitment,
   );
   return {
+    dependencyVersionVector,
     encryptedData,
     id,
     plaintextHash,
@@ -168,6 +174,8 @@ export async function createSignedDocumentSyncRequest(input: {
   readonly coversThroughUpdateId?: string | undefined;
   readonly created: CreatedDocumentFixture;
   readonly declaredSpan?: DeclaredSpan | undefined;
+  /** The dependency vector to sign and send; none when absent. */
+  readonly dependencyVersionVector?: string | undefined;
   readonly includeContentKeyBundle?: boolean;
   readonly owner: TestUser;
   readonly root: Pick<StoredRootFixture, "bundle" | "kekState">;
@@ -218,6 +226,7 @@ export async function createSignedDocumentSyncRequest(input: {
                 sourceVersionVector: update.vectors.partialEndVersionVector,
               }
             : {}),
+          dependencyVersionVector: update.dependencyVersionVector,
           encryptedData: update.encryptedData,
           id: update.id,
           partialStartVersionVector: update.vectors.partialStartVersionVector,
@@ -307,6 +316,7 @@ export async function createSignedAtomicRotationBaseline(input: {
         checkpointKind: "rotate_baseline",
         checkpointPayloadKind: "full_history_snapshot",
         coversThroughUpdateId: input.coversThroughUpdateId,
+        dependencyVersionVector: emptyVersionVector(),
         documentId: input.documentId,
         partialEndVersionVector: sourceVersionVector,
         partialStartVersionVector,
@@ -329,6 +339,7 @@ export async function createSignedAtomicRotationBaseline(input: {
       ? {}
       : { coversThroughUpdateId: input.coversThroughUpdateId }),
     id,
+    dependencyVersionVector: emptyVersionVector(),
     encryptedData,
     partialStartVersionVector,
     partialEndVersionVector: sourceVersionVector,

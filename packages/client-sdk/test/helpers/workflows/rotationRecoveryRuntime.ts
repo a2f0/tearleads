@@ -99,6 +99,7 @@ export function createRotationRecoveryRuntime(input: {
           : { checkpointPayloadKind: update.checkpointPayloadKind }),
         authorFingerprint: author.signerKeyFingerprint,
         createdAt: "2026-04-27T00:00:00.000Z",
+        dependencyVersionVector: update.dependencyVersionVector,
         documentId,
         encryptedData: update.encryptedData,
         id: update.id,

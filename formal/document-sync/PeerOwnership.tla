@@ -27,25 +27,36 @@ EXTENDS FiniteSets, Naturals, Sequences
 (* resubmits; the fresh peer is unknown to anyone, so the resubmission     *)
 (* claims it.                                                              *)
 (*                                                                         *)
+(* Each update also depends on the op ids it builds on, and a reader that  *)
+(* lacks one voids it (B2). A writer who reads a device's peer can make    *)
+(* its own update depend on the device's next counter: the device holds    *)
+(* that op while it is unsent and accepts the update, while every other    *)
+(* reader voids it, and so voids each later update the device builds on   *)
+(* it. Each update now signs the dependencies it declares; the server     *)
+(* refuses a declared dependency past F, naming its peer with F, and every *)
+(* reader voids an update whose payload depends on other ops than it      *)
+(* declares. Every reader then judges dependencies against committed ops. *)
+(*                                                                         *)
 (* A request is collapsed into one update, and the device's request and    *)
 (* the server's locked processing into one step. The honest devices' own  *)
 (* submit, rebase, and pull steps are fair. Edits, the dishonest writer,   *)
 (* and the republisher have no fairness, so no device waits on another.    *)
 (*                                                                         *)
-(* Four switches each relax one rule, set safe in the registered config:  *)
+(* Six switches each relax one rule, set safe in the registered config:   *)
 (*   NoOwnership         the server skips the owner rule                   *)
 (*   RefuseForeignSpans  the server refuses any span on a peer another     *)
 (*                       user owns, even one within F                      *)
 (*   NoRebase            a refused device retries without rebasing         *)
 (*   PublicPeers         device-stable peers the dishonest writer can name *)
 (*                       before their first commit                         *)
-(*                                                                         *)
-(* B2 (dependencies on a peer's predicted op ids) adds a switch and a      *)
-(* ReadersAgree invariant; it is not modeled here.                         *)
+(*   NoDependencyCheck   the server skips the dependency rule              *)
+(*   NoDeclaredJudge     readers do not compare an update's dependencies   *)
+(*                       with those it declares                            *)
 (***************************************************************************)
 
 CONSTANTS MaxEdits, MaxRecreations, MaxForges,
-          NoOwnership, RefuseForeignSpans, NoRebase, PublicPeers
+          NoOwnership, RefuseForeignSpans, NoRebase, PublicPeers,
+          NoDependencyCheck, NoDeclaredJudge
 
 ASSUME /\ MaxEdits \in Nat \ {0}
        /\ MaxRecreations \in Nat
@@ -54,6 +65,8 @@ ASSUME /\ MaxEdits \in Nat \ {0}
        /\ RefuseForeignSpans \in BOOLEAN
        /\ NoRebase \in BOOLEAN
        /\ PublicPeers \in BOOLEAN
+       /\ NoDependencyCheck \in BOOLEAN
+       /\ NoDeclaredJudge \in BOOLEAN
 
 (* Two honest devices, each its own user, a dishonest member, and a member *)
 (* who republishes a purged document.                                      *)
@@ -65,8 +78,11 @@ NoOwner == "none"
 Users == {UserOf(d) : d \in Devices} \cup {Dishonest, Republisher}
 
 (* Device d's secret peer of generation g. A device rebases at most once  *)
-(* per recreation, so MaxRecreations + 1 generations suffice.             *)
+(* per recreation, so MaxRecreations + 1 generations suffice. The         *)
+(* dishonest member writes its own ops on peer 0.                         *)
 Peers == 1..(2 * (MaxRecreations + 1))
+DishonestPeer == 0
+AllPeers == {DishonestPeer} \cup Peers
 PeerOf(d, g) == 2 * g + d
 PeerDevice(p) == 2 - (p % 2)
 RightfulUser(p) == UserOf(PeerDevice(p))
@@ -77,12 +93,14 @@ Counters == 0..(MaxEdits - 1)
 Content(d, k) == 10 * d + k
 Forged == 0
 Contents == {Forged} \cup {Content(d, k) : d \in Devices, k \in 1..MaxEdits}
-Ops == Peers \X Counters \X Contents
+Ops == AllPeers \X Counters \X Contents
+OpIds == AllPeers \X Counters
 
 Max(S) == CHOOSE m \in S : \A n \in S : n <= m
 Min(S) == CHOOSE m \in S : \A n \in S : m <= n
 
 PeersIn(ops) == {op[1] : op \in ops}
+IdsOf(ops) == {<< op[1], op[2] >> : op \in ops}
 
 (* The end of the span `ops` declares on peer p (0 when it carries none). *)
 End(ops, p) ==
@@ -90,7 +108,8 @@ End(ops, p) ==
   IN IF cs = {} THEN 0 ELSE Max(cs) + 1
 
 (* `log` is the server's committed history in server order: each entry's   *)
-(* writer, whether an honest actor wrote it, and its operations. Per       *)
+(* writer, whether an honest actor wrote it, its operations, the op ids    *)
+(* its payload depends on (`deps`), and those it declares. Per             *)
 (* device: `gen` its peer generation, `doc` the operations it holds,      *)
 (* `pending` its own operations not yet committed, `phase` and `refusal`  *)
 (* (the frontier a 409 returned for the request's peers), and `edits` the  *)
@@ -127,25 +146,36 @@ Preempting(w, req) ==
 (* Every span on a peer another user owns, within F or not. *)
 Foreign(w, req) == {p \in PeersIn(req) : Owner(p) \notin {NoOwner, w}}
 
+(* The peers of the declared dependencies past F: nobody committed them. *)
+Uncommitted(declared) ==
+  {dep[1] : dep \in {x \in declared : x[2] >= Frontier(x[1])}}
+
 (* The peers the server refuses the request on, which a refusal names     *)
 (* with their frontiers.                                                   *)
-RefusedPeers(w, req) ==
+RefusedPeers(w, req, declared) ==
   (IF NoOwnership THEN {} ELSE Preempting(w, req)) \cup
-    (IF RefuseForeignSpans THEN Foreign(w, req) ELSE {})
+    (IF RefuseForeignSpans THEN Foreign(w, req) ELSE {}) \cup
+    (IF NoDependencyCheck THEN {} ELSE Uncommitted(declared))
 
-Refuses(w, req) == RefusedPeers(w, req) # {}
+Refuses(w, req, declared) == RefusedPeers(w, req, declared) # {}
 
 (* --- Readers ----------------------------------------------------------- *)
 
 Conflicts(ops, held) ==
   \E o \in ops, h \in held : o[1] = h[1] /\ o[2] = h[2] /\ o[3] # h[3]
 
+(* An entry whose payload depends on other ops than it declares, or on an *)
+(* op id not yet held, is void.                                            *)
+Unreadable(entry, held) ==
+  \/ ~NoDeclaredJudge /\ entry.declared # entry.deps
+  \/ ~(entry.deps \subseteq IdsOf(held))
+
 (* Judges entries i.. in server order from operations `held`: an entry     *)
 (* reusing a held op id with other content is void, the earliest wins.    *)
 RECURSIVE JudgeFrom(_, _, _)
 JudgeFrom(i, held, voids) ==
   IF i > Len(log) THEN [held |-> held, voids |-> voids]
-  ELSE IF Conflicts(log[i].ops, held)
+  ELSE IF Conflicts(log[i].ops, held) \/ Unreadable(log[i], held)
          THEN JudgeFrom(i + 1, held, voids \cup {i})
          ELSE JudgeFrom(i + 1, held \cup log[i].ops, voids)
 
@@ -183,22 +213,25 @@ Edit(d) ==
 
 (* Sends the unsent operations, alone or with everything the device holds *)
 (* (a lagging delta or a rotation baseline re-asserting every peer from    *)
-(* counter 0), and the server answers under its lock.                      *)
+(* counter 0), and the server answers under its lock. The update depends   *)
+(* on every op the device holds that it does not carry, and declares so.  *)
 Submit(d) ==
   /\ phase[d] = "idle"
   /\ pending[d] # {}
   /\ \E carryHistory \in BOOLEAN :
        LET req == IF carryHistory THEN doc[d] ELSE pending[d]
+           deps == IdsOf(doc[d] \ req)
            w == UserOf(d)
-       IN IF Refuses(w, req)
+       IN IF Refuses(w, req, deps)
             THEN /\ phase' = [phase EXCEPT ![d] = "refused"]
                  /\ refusal' = [refusal EXCEPT ![d] =
                                   {<< p, Frontier(p) >> :
-                                     p \in RefusedPeers(w, req)}]
+                                     p \in RefusedPeers(w, req, deps)}]
                  /\ wrongRefusal' = (wrongRefusal \/ Preempting(w, req) = {})
                  /\ UNCHANGED << log, pending, ownerEnd >>
             ELSE /\ log' = Append(log, [user |-> w, honest |-> TRUE,
-                                        ops |-> req])
+                                        ops |-> req, deps |-> deps,
+                                        declared |-> deps])
                  /\ pending' = [pending EXCEPT ![d] = {}]
                  /\ ownerEnd' = [p \in Peers |->
                                    IF PeerDevice(p) = d
@@ -260,20 +293,42 @@ Forge(p, c) ==
   /\ forges < MaxForges
   /\ p \in Nameable
   /\ c <= Frontier(p)
-  /\ ~Refuses(Dishonest, {<< p, c, Forged >>})
+  /\ ~Refuses(Dishonest, {<< p, c, Forged >>}, {})
   /\ log' = Append(log, [user |-> Dishonest, honest |-> FALSE,
-                         ops |-> {<< p, c, Forged >>}])
+                         ops |-> {<< p, c, Forged >>}, deps |-> {},
+                         declared |-> {}])
+  /\ forges' = forges + 1
+  /\ UNCHANGED << recreations, ownerEnd, wrongRefusal >>
+  /\ UNCHANGED DeviceVars
+
+(* Commits an op on the dishonest member's own peer whose payload depends *)
+(* on the next counter of a nameable peer, which the peer's device may    *)
+(* hold unsent, declaring that dependency or none. A dependency on a      *)
+(* committed op is one any honest writer may have.                        *)
+ForgeDependent(p) ==
+  /\ forges < MaxForges
+  /\ p \in Nameable
+  /\ Frontier(p) \in Counters
+  /\ LET op == << DishonestPeer, 0, Forged >>
+         deps == {<< p, Frontier(p) >>}
+     IN \E declared \in {deps, {}} :
+          /\ ~Refuses(Dishonest, {op}, declared)
+          /\ log' = Append(log, [user |-> Dishonest, honest |-> FALSE,
+                                 ops |-> {op}, deps |-> deps,
+                                 declared |-> declared])
   /\ forges' = forges + 1
   /\ UNCHANGED << recreations, ownerEnd, wrongRefusal >>
   /\ UNCHANGED DeviceVars
 
 (* Purges the document and recreates it from the committed history a       *)
 (* reader holds. F starts at 0 and the owner rows are gone, so the         *)
-(* recreation claims every peer it carries for the republisher.            *)
+(* recreation claims every peer it carries for the republisher. A full     *)
+(* history depends on nothing.                                             *)
 Recreate ==
   /\ recreations < MaxRecreations
   /\ Reader.held # {}
-  /\ log' = << [user |-> Republisher, honest |-> TRUE, ops |-> Reader.held] >>
+  /\ log' = << [user |-> Republisher, honest |-> TRUE, ops |-> Reader.held,
+                deps |-> {}, declared |-> {}] >>
   /\ recreations' = recreations + 1
   /\ UNCHANGED << forges, ownerEnd, wrongRefusal >>
   /\ UNCHANGED DeviceVars
@@ -286,7 +341,8 @@ Next ==
        \/ Submit(d)
        \/ Rebase(d)
        \/ Pull(d)
-  \/ \E p \in Peers, c \in Counters : Forge(p, c)
+  \/ \E p \in AllPeers, c \in Counters : Forge(p, c)
+  \/ \E p \in AllPeers : ForgeDependent(p)
   \/ Recreate
   \/ Idle
 
@@ -301,7 +357,8 @@ Spec == Init /\ [][Next]_vars /\ Fairness
 (* --- Properties -------------------------------------------------------- *)
 
 TypeOK ==
-  /\ log \in Seq([user : Users, honest : BOOLEAN, ops : SUBSET Ops])
+  /\ log \in Seq([user : Users, honest : BOOLEAN, ops : SUBSET Ops,
+                  deps : SUBSET OpIds, declared : SUBSET OpIds])
   /\ recreations \in 0..MaxRecreations
   /\ forges \in 0..MaxForges
   /\ gen \in [Devices -> 0..MaxRecreations]
@@ -309,7 +366,7 @@ TypeOK ==
   /\ pending \in [Devices -> SUBSET Ops]
   /\ \A d \in Devices : pending[d] \subseteq doc[d]
   /\ phase \in [Devices -> {"idle", "refused"}]
-  /\ refusal \in [Devices -> SUBSET (Peers \X (0..MaxEdits))]
+  /\ refusal \in [Devices -> SUBSET (AllPeers \X (0..MaxEdits))]
   /\ edits \in [Devices -> 0..MaxEdits]
   /\ ownerEnd \in [Peers -> 0..MaxEdits]
   /\ wrongRefusal \in BOOLEAN
@@ -320,12 +377,19 @@ HonestUpdatesAccepted == \A i \in Reader.voids : ~log[i].honest
 (* No committed update by another user occupies a device's counters beyond *)
 (* what that device has had committed.                                    *)
 NoPreemption ==
-  \A i \in DOMAIN log : \A p \in PeersIn(log[i].ops) :
+  \A i \in DOMAIN log : \A p \in PeersIn(log[i].ops) \cap Peers :
     log[i].user # RightfulUser(p) => End(log[i].ops, p) <= ownerEnd[p]
 
 (* An honest request is refused only for a beyond-F span on a peer another *)
-(* user owns, never for a re-assertion within F.                           *)
+(* user owns: never for a re-assertion within F, nor for a dependency.     *)
 ReassertionsNeverRefused == ~wrongRefusal
+
+(* No device accepts a committed update that a fresh reader voids, so      *)
+(* nothing a device builds on is void for the other readers. A device     *)
+(* voiding what a fresh reader accepts is a preemption of its unsent ops, *)
+(* which NoPreemption excludes.                                           *)
+ReadersAgree ==
+  \A d \in Devices : Reader.voids \subseteq JudgeFrom(1, doc[d], {}).voids
 
 (* Every refusal of a device, and so every rebase, is paid for by its own  *)
 (* recreation: the resubmission after a rebase is never refused.           *)

@@ -46,6 +46,13 @@ export interface DocumentContentRecordMetadataInput {
    * before it was imported into the baseline or void for its author.
    */
   coversThroughUpdateId?: string | undefined;
+  /**
+   * The operations the update depends on outside itself, as a version
+   * vector: one past each peer's latest such op. The API refuses an update
+   * that depends on an op it has not committed, and a reader voids one whose
+   * payload depends on other ops than it declares.
+   */
+  dependencyVersionVector: string;
   documentId: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;

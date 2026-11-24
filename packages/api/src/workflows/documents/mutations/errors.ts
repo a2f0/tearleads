@@ -81,6 +81,23 @@ export function documentPeerOwned(
   );
 }
 
+/**
+ * The request depends, past its committed frontier, on a peer's op the
+ * server has not committed and the request does not carry earlier. Names
+ * those peers with their frontiers from before the request, so the client
+ * rebases its unsent operations off them onto a fresh peer.
+ */
+export function documentDependencyUncommitted(
+  peerFrontiers: readonly DocumentPeerFrontier[],
+): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document update depends on an uncommitted operation",
+    409,
+    DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted,
+    { peerFrontiers },
+  );
+}
+
 export function documentManifestAlreadyExists(): DocumentMutationError {
   return new DocumentMutationError(
     "Document manifest already exists",

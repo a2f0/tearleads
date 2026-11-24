@@ -74,6 +74,7 @@ async function assertDocumentEncryptedUpdateMatchesHeader(input: {
       ? {}
       : { checkpointPayloadKind: update.checkpointPayloadKind }),
     coversThroughUpdateId: update.coversThroughUpdateId,
+    dependencyVersionVector: update.dependencyVersionVector,
     documentId: input.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,
@@ -331,6 +332,7 @@ export async function decryptDocumentSyncUpdate(input: {
     ...(input.update.checkpointPayloadKind === undefined
       ? {}
       : { checkpointPayloadKind: input.update.checkpointPayloadKind }),
+    dependencyVersionVector: input.update.dependencyVersionVector,
     id: input.update.id,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,

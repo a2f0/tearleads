@@ -37,6 +37,7 @@ function createSyncRequest() {
       {
         encryptedData: "ciphertext",
         id: UPDATE_ID,
+        dependencyVersionVector: "{}",
         partialEndVersionVector: '{"actor":1}',
         partialStartVersionVector: "{}",
         plaintextHash: "plaintext-hash",
@@ -75,6 +76,7 @@ function createSyncResponse() {
         documentId: "document-1",
         encryptedData: "ciphertext",
         id: UPDATE_ID,
+        dependencyVersionVector: "{}",
         partialEndVersionVector: '{"actor":1}',
         partialStartVersionVector: "{}",
         plaintextHash: "plaintext-hash",
@@ -380,6 +382,7 @@ test("document sync response guard preserves permissive envelope behavior", () =
           createdAt: "",
           documentId: "",
           encryptedData: "",
+          dependencyVersionVector: "",
           id: "",
           partialEndVersionVector: "",
           partialStartVersionVector: "",

@@ -3,6 +3,7 @@ import {
   type DocumentPeerFrontier,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
+  isDocumentPeerRebaseErrorCode,
 } from "@tearleads/validators/response";
 import {
   isUpstreamDeletedDocumentSyncFailure,
@@ -182,14 +183,14 @@ async function classifyFailedDocumentSyncAction(input: {
     return { kind: "regenerate_queued_checkpoints" };
   }
 
-  // Another user owns a peer this request extends. The pass rebases the
-  // record's unsent ops on the named peers onto a fresh peer and ends; the
-  // next pass sends the rebased update. Ending spends no retry, so the last
-  // attempt rebases too.
+  // Another user owns a peer this request extends, or it depends on an op
+  // nobody committed. The pass rebases the record's unsent ops past the named
+  // peers' frontiers onto a fresh peer and ends; the next pass sends the
+  // rebased update. Ending spends no retry, so the last attempt rebases too.
   const peerFrontiers = input.failure.peerFrontiers ?? [];
   if (
     input.canRebaseOntoFreshPeer === true &&
-    input.failure.code === DOCUMENT_SYNC_ERROR_CODES.peerOwned &&
+    isDocumentPeerRebaseErrorCode(input.failure.code) &&
     peerFrontiers.length > 0
   ) {
     return { failure: input.failure, kind: "rebase_peer", peerFrontiers };

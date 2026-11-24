@@ -41,6 +41,7 @@ function entry(sequence: number, contentKeyEpoch: number) {
       documentId: DOCUMENT_ID,
       encryptedData: `encrypted-${sequence}`,
       id: `update-${sequence}`,
+      dependencyVersionVector: `dependencies-${sequence}`,
       partialEndVersionVector: `end-${sequence}`,
       partialStartVersionVector: `start-${sequence}`,
       plaintextHash: `plaintext-${sequence}`,

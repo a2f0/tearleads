@@ -113,6 +113,7 @@ test("voids that leave the scratch document unchanged cost no rebuild", async ()
   const gap = decrypted(ids.gap, exportUpdatesSince(gapSource, afterFirst));
   const garbage = {
     id: ids.garbage,
+    dependencyVersionVector: "AA==",
     partialEndVersionVector: "AA==",
     partialStartVersionVector: "AA==",
     updateData: new Uint8Array([1, 2, 3]),

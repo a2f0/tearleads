@@ -270,6 +270,7 @@ export async function createPreparedUpdate(
     checkpointPayloadKind?: "full_history_snapshot" | undefined;
     ciphertextHash?: string | undefined;
     contentRecordId?: string | undefined;
+    dependencyVersionVector?: string | undefined;
     encryptedData?: string | undefined;
     id?: string | undefined;
     metadataHash?: string | undefined;
@@ -284,6 +285,7 @@ export async function createPreparedUpdate(
     overrides.partialEndVersionVector ?? '{"actor":1}';
   return {
     id: overrides.id ?? "550e8400-e29b-41d4-a716-446655440111",
+    dependencyVersionVector: overrides.dependencyVersionVector ?? "{}",
     encryptedData: overrides.encryptedData ?? "encrypted-update",
     partialStartVersionVector: overrides.partialStartVersionVector ?? "{}",
     partialEndVersionVector,
@@ -376,6 +378,7 @@ export async function createSyncResponse(
         id: update.id,
         documentId: plan.documentId,
         authorFingerprint: writeHeader.writerKeyFingerprint,
+        dependencyVersionVector: update.dependencyVersionVector,
         encryptedData: update.encryptedData,
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,

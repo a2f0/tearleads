@@ -6,6 +6,7 @@ import {
   encodeVersionVector,
   exportFullHistoryIdentity,
   exportFullHistorySnapshot,
+  getImportBlobMetadata,
   getTextValue,
   importSnapshot,
   importUpdates,
@@ -157,9 +158,12 @@ async function resetClient(input: {
 }
 
 function decryptedPendingUpdate(client: RecoveryClient) {
+  const updateData = base64ToBytes(client.pending.updateData);
   return {
     ...client.pending,
-    updateData: base64ToBytes(client.pending.updateData),
+    dependencyVersionVector:
+      getImportBlobMetadata(updateData).dependencyVersionVector,
+    updateData,
   };
 }
 

@@ -19,6 +19,7 @@ import { assertStoredWriteHeaderVerbatim } from "../../../access/write/documentC
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 import {
+  assertOutgoingDeclaredDependencies,
   assertOutgoingEnvelopeCommitsToEpochKey,
   assertOutgoingEnvelopeMatchesHeader,
   assertOutgoingSpanOrCursoredEmptyBaseline,
@@ -95,6 +96,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
 }): Promise<ParsedDocumentEncryptedUpdate> {
   assertOutgoingCheckpointConsistency(input.update);
   assertOutgoingSpanOrCursoredEmptyBaseline(input.update);
+  assertOutgoingDeclaredDependencies(input.update);
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     ...(input.update.checkpointKind === undefined
       ? {}
@@ -105,6 +107,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
     ...(input.update.coversThroughUpdateId === undefined
       ? {}
       : { coversThroughUpdateId: input.update.coversThroughUpdateId }),
+    dependencyVersionVector: input.update.dependencyVersionVector,
     documentId: input.documentId,
     partialEndVersionVector: input.update.partialEndVersionVector,
     partialStartVersionVector: input.update.partialStartVersionVector,
@@ -200,6 +203,7 @@ async function assertRetryWriteHeaderMatches(input: {
 }
 
 interface StoredDocumentUpdateContent {
+  readonly dependencyVersionVector: string;
   readonly encryptedData: string;
   readonly partialEndVersionVector: string;
   readonly partialStartVersionVector: string;
@@ -210,6 +214,7 @@ export function storedDocumentUpdateMatchesOutgoingContent(
   existing: StoredDocumentUpdateContent | undefined,
   update: Pick<
     DocumentOutgoingUpdate,
+    | "dependencyVersionVector"
     | "encryptedData"
     | "partialEndVersionVector"
     | "partialStartVersionVector"
@@ -219,6 +224,7 @@ export function storedDocumentUpdateMatchesOutgoingContent(
   return (
     existing !== undefined &&
     existing.encryptedData === update.encryptedData &&
+    existing.dependencyVersionVector === update.dependencyVersionVector &&
     existing.partialStartVersionVector === update.partialStartVersionVector &&
     existing.partialEndVersionVector === update.partialEndVersionVector &&
     existing.plaintextHash === update.plaintextHash
@@ -258,6 +264,7 @@ function assertDuplicateOutgoingUpdateMatches(
 ): void {
   if (
     first.encryptedData === next.encryptedData &&
+    first.dependencyVersionVector === next.dependencyVersionVector &&
     first.partialStartVersionVector === next.partialStartVersionVector &&
     first.partialEndVersionVector === next.partialEndVersionVector &&
     first.plaintextHash === next.plaintextHash &&

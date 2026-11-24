@@ -1,8 +1,8 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
 import {
   ContainerMutationFailureResponseSchema,
-  DOCUMENT_SYNC_ERROR_CODES,
   DocumentSyncErrorResponseSchema,
+  isDocumentPeerRebaseErrorCode,
   isDocumentSyncErrorResponse,
   isDocumentSyncStateStaleErrorResponse,
   isPrincipalPolicyStaleErrorResponse,
@@ -34,15 +34,16 @@ export function stalePrincipalHeadsField(
       : {};
 }
 
-// A sync that extends another user's peer names each refused peer and the
-// frontier committed on it, so the client can move its unsent ops off it.
+// A sync that extends another user's peer, or depends on an op nobody
+// committed, names each refused peer and the frontier committed on it, so the
+// client can move its unsent ops off it.
 export function peerFrontiersField(
   value: object,
   schema?: FailureResponseSchema,
 ) {
   return schema === DocumentSyncErrorResponseSchema &&
     isDocumentSyncErrorResponse(value) &&
-    value.code === DOCUMENT_SYNC_ERROR_CODES.peerOwned &&
+    isDocumentPeerRebaseErrorCode(value.code) &&
     value.peerFrontiers !== undefined
     ? { peerFrontiers: value.peerFrontiers }
     : {};

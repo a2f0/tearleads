@@ -9,7 +9,10 @@ export function assertDecryptedDocumentUpdateMetadata(
   updateData: Uint8Array,
   update: Pick<
     DocumentSyncResponse["updates"][number],
-    "checkpointKind" | "partialEndVersionVector" | "partialStartVersionVector"
+    | "checkpointKind"
+    | "dependencyVersionVector"
+    | "partialEndVersionVector"
+    | "partialStartVersionVector"
   >,
 ): void {
   const decodedMetadata = getImportBlobMetadata(updateData);
@@ -24,6 +27,19 @@ export function assertDecryptedDocumentUpdateMetadata(
     )
   ) {
     throw new Error("Document decrypted update version-vector mismatch");
+  }
+  // The API committed every op the update declares it depends on before it
+  // accepted it. A payload that depends on other ops, such as one its writer
+  // could predict but nobody committed, is void for every reader alike. Loro
+  // reads these from the same encoded dependencies its import applies, so
+  // the comparison needs no trust in the blob's checksum.
+  if (
+    !versionVectorsEqual(
+      decodedMetadata.dependencyVersionVector,
+      update.dependencyVersionVector,
+    )
+  ) {
+    throw new Error("Document decrypted update dependency mismatch");
   }
   if (
     update.checkpointKind === "rotate_baseline" &&

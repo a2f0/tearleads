@@ -71,6 +71,13 @@
       "when": 1795486154047,
       "tag": "0009_document_peer_owners",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795501148437,
+      "tag": "0010_document_update_dependencies",
+      "breakpoints": true
     }
   ]
 }

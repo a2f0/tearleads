@@ -145,7 +145,14 @@ refuses a write that extends a peer another user owns
 ([peer owner](../glossary/sync.md#peer-owner)), so once a device's peer has
 committed, another user can preempt its later operations only by recreating
 the purged document from history; the refused device then moves them to a
-fresh peer ([peer ownership](../advisory-op-spans.md#peer-ownership)).
+fresh peer ([peer ownership](../advisory-op-spans.md#peer-ownership)). The
+server also refuses an update that depends on an operation nobody committed,
+and readers void one whose payload depends on other operations than it
+declares, so another user cannot make a device alone accept an update by
+depending on that device's unsent operations
+([dependencies](../advisory-op-spans.md#dependencies)), except on a peer that
+a recreation from a stale copy left unowned
+([residuals](../advisory-op-spans.md#residuals)).
 One whose payload fails the Loro runtime, or ends the reader's process
 while the app is visible, holds a reader's sync of that document for up to
 three process lifetimes before it is void
