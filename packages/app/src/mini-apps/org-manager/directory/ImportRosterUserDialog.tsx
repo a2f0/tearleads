@@ -91,7 +91,6 @@ function ImportRosterUserForm({
         aria-busy={mutating}
         aria-labelledby={titleId}
         aria-modal="true"
-        className="org-manager-import-user-dialog"
         role="dialog"
       >
         <MiniAppModalForm onSubmit={handleSubmit}>

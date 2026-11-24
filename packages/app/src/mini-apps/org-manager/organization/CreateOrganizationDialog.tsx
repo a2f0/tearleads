@@ -13,7 +13,6 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { ORG_MANAGER_BUSY_LABELS } from "../grants/busyLabels";
 import { ORG_MANAGER_LABELS } from "../labels";
-import "./CreateOrganizationDialog.css";
 
 export function CreateOrganizationDialog({
   closeCreateOrganizationDialog,
@@ -58,10 +57,7 @@ export function CreateOrganizationDialog({
   };
 
   const dialog = (
-    <MiniAppModalBackdrop
-      className="org-manager-create-organization-dialog-backdrop"
-      role="presentation"
-    >
+    <MiniAppModalBackdrop layer="viewport" role="presentation">
       <MiniAppModalPanel
         role="dialog"
         aria-labelledby={titleId}
