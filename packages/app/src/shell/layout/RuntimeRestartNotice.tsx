@@ -121,8 +121,9 @@ async function waitForSavedEdits(
 /**
  * Shows the notice while the SDK asks for a restart, and runs a press
  * through `transitionRuntimeRestartNotice`: entering `saving` waits for
- * edits to reach SQLite, and entering `reloading` lets the SDK drain its
- * read windows (`prepareRuntimeRestart`) before the reload.
+ * edits to reach SQLite, entering `preparing` lets the SDK drain its read
+ * windows (`prepareRuntimeRestart`) and asks again about edits, and
+ * entering `reloading` reloads the page, once.
  */
 export function RuntimeRestartNotice({
   saveWaitMs = SAVE_WAIT_MS,
@@ -137,9 +138,10 @@ export function RuntimeRestartNotice({
     RUNTIME_RESTART_NOTICE_OFFERED,
   );
   const attempts = useRef(0);
+  const reloaded = useRef<RuntimeRestartNoticeStep | null>(null);
   useEffect(() => {
     // A run this effect has left (a new step, source, or unmount) acts no
-    // further, so a press reloads at most once.
+    // further, so only the current source's work moves the notice.
     let cancelled = false;
     const isCancelled = () => cancelled;
     if (step.status === "saving") {
@@ -151,18 +153,30 @@ export function RuntimeRestartNotice({
       ).then((unsaved) => {
         if (!cancelled) dispatch({ attempt, type: "settled", unsaved });
       });
-    } else if (step.status === "reloading") {
+    } else if (step.status === "preparing") {
       const { attempt } = step;
       void source.prepare().then(() => {
         if (cancelled) return;
-        source.reload();
-        dispatch({ attempt, type: "reloadReturned" });
+        dispatch({
+          attempt,
+          type: "prepared",
+          unsaved: source.hasPendingWrites(),
+        });
       });
+    } else if (step.status === "reloading" && reloaded.current !== step) {
+      reloaded.current = step;
+      source.reload();
     }
     return () => {
       cancelled = true;
     };
   }, [step, source, saveWaitMs]);
+  useEffect(() => {
+    // The SDK asks again only once its hold ended with the page still here.
+    if (step.status === "reloading" && status === "restartRequired") {
+      dispatch({ attempt: step.attempt, type: "pageKept" });
+    }
+  }, [step, status]);
   return (
     <RuntimeRestartNoticeView
       onDiscard={() => dispatch({ type: "discardConfirmed" })}

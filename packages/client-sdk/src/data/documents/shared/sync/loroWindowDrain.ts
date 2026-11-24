@@ -16,6 +16,8 @@ export interface LoroWindowDrainHost {
   readonly takeQueued: () => LoroGateWaiter[];
   /** Asks the gate again for a request the drain held. */
   readonly readmit: (waiter: LoroGateWaiter) => void;
+  /** Hears that a hold ended in a realm its host kept running. */
+  readonly reopened: () => void;
   readonly holdMs: number;
 }
 
@@ -34,7 +36,7 @@ export interface LoroWindowDrainer {
  * Runs the drain machine (`transitionLoroWindowDrain`): entering `draining`
  * takes the gate's queue and starts the wait, entering `holding` settles
  * the drain and starts the hold, and entering `open` asks the gate again
- * for every held request, in order. Timers carry their drain's tag, so a
+ * for every held request, in order, then tells the host. Timers carry their drain's tag, so a
  * stale one changes nothing.
  */
 export function createLoroWindowDrainer(
@@ -73,6 +75,7 @@ export function createLoroWindowDrainer(
       }
       case "open":
         for (const waiter of held.splice(0)) host.readmit(waiter);
+        host.reopened();
         return;
     }
   };

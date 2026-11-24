@@ -16,7 +16,11 @@ export type LoroRuntimeHealth =
    * close, or the drain's wait ends. `drain` tags the request.
    */
   | { readonly status: "draining"; readonly drain: number }
-  /** Drained: the host may restart the realm now. */
+  /**
+   * Drained, and admitting no window for a short hold: the host may restart
+   * the realm now. A realm its host kept running past the hold needs a
+   * restart again.
+   */
   | { readonly status: "ready" };
 
 export type LoroRuntimeHealthEvent =
@@ -25,7 +29,9 @@ export type LoroRuntimeHealthEvent =
   /** The host asked to restart, as drain `drain`. */
   | { readonly type: "restartRequested"; readonly drain: number }
   /** Drain `drain` ended, with every window closed or its wait over. */
-  | { readonly type: "windowsDrained"; readonly drain: number };
+  | { readonly type: "windowsDrained"; readonly drain: number }
+  /** A drain's hold ended: the realm admits read windows again. */
+  | { readonly type: "windowsReopened" };
 
 export const LORO_RUNTIME_HEALTHY: LoroRuntimeHealth = { status: "healthy" };
 
@@ -41,13 +47,18 @@ export function transitionLoroRuntimeHealth(
         ? { status: "restartRequired" }
         : current;
     case "restartRequested":
-      // One drain at a time: a second request joins the first.
-      return current.status === "draining"
-        ? current
-        : { drain: event.drain, status: "draining" };
+      // Only a failed realm drains, one drain at a time: a second request
+      // joins the first, and a healthy realm has nothing to restart for.
+      return current.status === "restartRequired" || current.status === "ready"
+        ? { drain: event.drain, status: "draining" }
+        : current;
     case "windowsDrained":
       return current.status === "draining" && current.drain === event.drain
         ? { status: "ready" }
+        : current;
+    case "windowsReopened":
+      return current.status === "ready"
+        ? { status: "restartRequired" }
         : current;
   }
 }

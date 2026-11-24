@@ -15,6 +15,7 @@
  * mark its clean exits, or its deaths count nothing.
  */
 
+import { createListenerSet } from "../../../shared/listenerSet";
 import { createLoroWindowDrainer, RESTART_HOLD_MS } from "./loroWindowDrain";
 import {
   LORO_WINDOW_GATE_IDLE,
@@ -116,6 +117,11 @@ export interface LoroLifetimes {
    * and enter once the hold ends in a realm its host kept running.
    */
   drainWindows(waitMs: number): Promise<boolean>;
+  /**
+   * Calls `listener` each time a drain's hold ends in a realm its host kept
+   * running; returns its removal.
+   */
+  subscribeWindowsReopened(listener: () => void): () => void;
 }
 
 /** How long a window waits for the gate before reading outside it. */
@@ -240,6 +246,7 @@ function lifetimeWindows(
 ) {
   const windows = new Set<string>();
   const entering = new Map<string, () => void>();
+  const reopened = createListenerSet();
   let gate: LoroWindowGate = LORO_WINDOW_GATE_IDLE;
   const moveGate = (event: LoroWindowGateEvent) => {
     gate = transitionLoroWindowGate(gate, event);
@@ -249,6 +256,7 @@ function lifetimeWindows(
     holdMs: waits.restartHoldMs,
     openWindows: () => windows.size,
     readmit: (waiter) => moveGate({ type: "requested", waiter }),
+    reopened: reopened.notify,
     takeQueued() {
       // Last first, so none is admitted on the way.
       const queued = [...gate.waiting];
@@ -263,6 +271,7 @@ function lifetimeWindows(
   };
   return {
     drain: drainer.drain,
+    subscribeReopened: reopened.subscribe,
     count: () => windows.size,
     has: (id: string) => windows.has(id),
     open(exclusive: boolean): Promise<string> {
@@ -389,6 +398,7 @@ export function createLoroLifetimes(host: {
     },
     closeWindow: windows.close,
     drainWindows: windows.drain,
+    subscribeWindowsReopened: windows.subscribeReopened,
   };
 }
 

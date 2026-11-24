@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -163,35 +164,118 @@ test("the app's source asks the page's runtimes for unsaved edits", () => {
 });
 
 // A run the notice has left acts no further: a source replaced mid-press
-// neither asks about edits early nor reloads twice.
-test("a source replaced mid-press neither asks early nor reloads twice", async () => {
+// neither asks about edits early nor reloads before its own drain, and the
+// page reloads once.
+test("a source replaced mid-press neither asks early nor reloads early", async () => {
   let pending = true;
-  const prepared = Promise.withResolvers<void>();
   let reloads = 0;
-  const makeSource = (): RuntimeRestartSource => ({
+  const makeSource = (prepared: Promise<void>): RuntimeRestartSource => ({
     getStatus: () => "restartRequired",
     hasPendingWrites: () => pending,
-    prepare: () => prepared.promise,
+    prepare: () => prepared,
     reload: () => {
       reloads += 1;
     },
     subscribe: () => () => {},
   });
-  const { rerender } = render(
-    <RuntimeRestartNotice saveWaitMs={5_000} source={makeSource()} />,
+  const first = Promise.withResolvers<void>();
+  const second = Promise.withResolvers<void>();
+  const notice = (prepared: Promise<void>) => (
+    <RuntimeRestartNotice saveWaitMs={5_000} source={makeSource(prepared)} />
   );
+  const { rerender } = render(notice(first.promise));
   fireEvent.click(
     screen.getByRole("button", { name: RUNTIME_RESTART_LABELS.reload }),
   );
 
-  rerender(<RuntimeRestartNotice saveWaitMs={5_000} source={makeSource()} />);
+  rerender(notice(first.promise));
   await new Promise((resolve) => setTimeout(resolve, 150));
   expect(screen.queryByText(RUNTIME_RESTART_LABELS.unsaved)).toBeNull();
   pending = false;
   await new Promise((resolve) => setTimeout(resolve, 150));
-  rerender(<RuntimeRestartNotice saveWaitMs={5_000} source={makeSource()} />);
-  prepared.resolve();
+  rerender(notice(second.promise));
+  first.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(reloads).toBe(0);
+
+  second.resolve();
   await waitFor(() => expect(reloads).toBe(1));
+  rerender(notice(second.promise));
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(reloads).toBe(1);
+});
+
+// Native shells ignore the unload prompt, so edits typed while the SDK
+// drained ask too, unless the user already chose to lose them.
+test("edits made while draining ask before the reload", async () => {
+  let pending = false;
+  const steps: string[] = [];
+  const source: RuntimeRestartSource = {
+    getStatus: () => "restartRequired",
+    hasPendingWrites: () => pending,
+    prepare: () => {
+      steps.push("prepare");
+      pending = true;
+      return Promise.resolve();
+    },
+    reload: () => steps.push("reload"),
+    subscribe: () => () => {},
+  };
+  render(<RuntimeRestartNotice saveWaitMs={5_000} source={source} />);
+
+  fireEvent.click(
+    screen.getByRole("button", { name: RUNTIME_RESTART_LABELS.reload }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: RUNTIME_RESTART_LABELS.discard }),
+  );
+
+  await waitFor(() => expect(steps).toEqual(["prepare", "prepare", "reload"]));
+});
+
+// `location.reload()` returns before the page unloads, so the notice waits;
+// it offers Reload again only once the SDK asks again, after its hold, in a
+// page that was kept.
+test("a reload offers itself again only when the SDK asks again", async () => {
+  let health: "ready" | "restartRequired" = "restartRequired";
+  const listeners = new Set<() => void>();
+  let reloads = 0;
+  const source: RuntimeRestartSource = {
+    getStatus: () => health,
+    hasPendingWrites: () => false,
+    prepare: () => {
+      health = "ready";
+      for (const listener of listeners) listener();
+      return Promise.resolve();
+    },
+    reload: () => {
+      reloads += 1;
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  render(<RuntimeRestartNotice saveWaitMs={5_000} source={source} />);
+
+  fireEvent.click(
+    screen.getByRole("button", { name: RUNTIME_RESTART_LABELS.reload }),
+  );
+  await waitFor(() => expect(reloads).toBe(1));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const waiting = screen.getByRole("button", {
+    name: RUNTIME_RESTART_LABELS.reloading,
+  });
+  expect(waiting.hasAttribute("disabled")).toBe(true);
+
+  act(() => {
+    health = "restartRequired";
+    for (const listener of listeners) listener();
+  });
+
+  expect(
+    (
+      await screen.findByRole("button", { name: RUNTIME_RESTART_LABELS.reload })
+    ).hasAttribute("disabled"),
+  ).toBe(false);
 });

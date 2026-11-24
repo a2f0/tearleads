@@ -1,3 +1,4 @@
+import { createListenerSet } from "../../../shared/listenerSet";
 import { type LoroLifetimes, processLoroLifetimes } from "./loroLifetime";
 import {
   LORO_RUNTIME_HEALTHY,
@@ -21,38 +22,43 @@ export interface LoroRuntimeHealthMonitor {
   /** Notes a Loro runtime failure anywhere in the realm. */
   noteRuntimeFailed(): void;
   /**
-   * Drains the realm's read windows for a restart and resolves once the host
-   * may restart. It never rejects; a request while one drains joins it.
+   * Drains a failed realm's read windows for a restart and resolves once the
+   * host may restart; a healthy realm resolves at once. It never rejects; a
+   * request while one drains joins it.
    */
   prepareRestart(): Promise<void>;
 }
 
 export function createLoroRuntimeHealth(input: {
-  readonly lifetimes: Pick<LoroLifetimes, "drainWindows">;
+  readonly lifetimes: Pick<
+    LoroLifetimes,
+    "drainWindows" | "subscribeWindowsReopened"
+  >;
   /** @internal How long a drain waits; tests shorten it. */
   readonly drainWaitMs?: number | undefined;
 }): LoroRuntimeHealthMonitor {
   let health = LORO_RUNTIME_HEALTHY;
   let drains = 0;
   let draining: Promise<void> | null = null;
-  const listeners = new Set<() => void>();
+  // Isolated listeners: a host's throw must not stop a failure being noted
+  // (the ledger notes it here) nor make a restart reject.
+  const listeners = createListenerSet();
   const move = (event: LoroRuntimeHealthEvent) => {
     const next = transitionLoroRuntimeHealth(health, event);
     if (next === health) return;
     health = next;
-    for (const listener of [...listeners]) listener();
+    listeners.notify();
   };
+  input.lifetimes.subscribeWindowsReopened(() =>
+    move({ type: "windowsReopened" }),
+  );
   return {
     current: () => health,
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    subscribe: listeners.subscribe,
     noteRuntimeFailed: () => move({ type: "runtimeFailed" }),
     prepareRestart() {
       if (health.status === "draining" && draining) return draining;
+      if (health.status === "healthy") return Promise.resolve();
       drains += 1;
       const drain = drains;
       // The promise stands before listeners hear `draining`, so one that

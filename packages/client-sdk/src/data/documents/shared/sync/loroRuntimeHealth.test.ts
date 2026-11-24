@@ -56,6 +56,7 @@ test("a restart is ready after a bounded wait", async () => {
   const lifetimes = createLoroLifetimes({ id: "tab", restartHoldMs: 1 });
   const health = createLoroRuntimeHealth({ drainWaitMs: 5, lifetimes });
   await lifetimes.openWindow(false);
+  health.noteRuntimeFailed();
 
   await health.prepareRestart();
 
@@ -73,8 +74,10 @@ test("a request from a listener joins the drain it hears", async () => {
         drains += 1;
         return Promise.resolve(true);
       },
+      subscribeWindowsReopened: () => () => {},
     },
   });
+  health.noteRuntimeFailed();
   const joined: Promise<void>[] = [];
   health.subscribe(() => {
     if (health.current().status === "draining") {
@@ -87,6 +90,63 @@ test("a request from a listener joins the drain it hears", async () => {
   expect(joined).toEqual([first]);
   await first;
   expect(drains).toBe(1);
+});
+
+// A healthy realm has nothing to restart for: preparing drains nothing.
+test("a healthy realm prepares at once", async () => {
+  let drains = 0;
+  const health = createLoroRuntimeHealth({
+    lifetimes: {
+      drainWindows: () => {
+        drains += 1;
+        return Promise.resolve(true);
+      },
+      subscribeWindowsReopened: () => () => {},
+    },
+  });
+
+  await health.prepareRestart();
+
+  expect(health.current()).toEqual({ status: "healthy" });
+  expect(drains).toBe(0);
+});
+
+// `ready` lasts only while the hold admits no window: a realm its host kept
+// running past the hold needs its restart again, and its listeners hear it.
+test("a kept realm asks for its restart again once the hold ends", async () => {
+  const lifetimes = createLoroLifetimes({ id: "tab", restartHoldMs: 5 });
+  const health = createLoroRuntimeHealth({ lifetimes });
+  health.noteRuntimeFailed();
+  const heard: string[] = [];
+  health.subscribe(() => heard.push(health.current().status));
+
+  await health.prepareRestart();
+  expect(health.current()).toEqual({ status: "ready" });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  expect(health.current()).toEqual({ status: "restartRequired" });
+  expect(heard).toEqual(["draining", "ready", "restartRequired"]);
+});
+
+// A host listener that throws neither stops a failure being noted nor makes
+// the restart reject.
+test("a throwing listener breaks neither a failure nor a restart", async () => {
+  const health = createLoroRuntimeHealth({
+    lifetimes: createLoroLifetimes({ id: "tab", restartHoldMs: 1 }),
+  });
+  let heard = 0;
+  health.subscribe(() => {
+    throw new Error("host listener");
+  });
+  health.subscribe(() => {
+    heard += 1;
+  });
+
+  expect(() => health.noteRuntimeFailed()).not.toThrow();
+  await health.prepareRestart();
+
+  expect(health.current()).toEqual({ status: "ready" });
+  expect(heard).toBe(3);
 });
 
 // The realm's ledger is what tells the host: its first failure, wherever it
