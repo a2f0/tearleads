@@ -150,8 +150,8 @@ test("a failed grant exits non-zero and still removes the connection file", asyn
   expect(run.leftovers).toEqual([]);
 });
 
-test("local grants with the inherited connection and never reads Terraform", async () => {
-  const run = await runMakeRoot(["local", FINGERPRINT], {
+test("dev grants with the inherited connection and never reads Terraform", async () => {
+  const run = await runMakeRoot(["dev", FINGERPRINT], {
     DATABASE_URL: "postgres://local/db",
   });
   expect(run.exitCode, run.stderr).toBe(0);
@@ -171,7 +171,7 @@ test("local grants with the inherited connection and never reads Terraform", asy
 test.each([
   ["no arguments", []],
   ["a missing fingerprint", ["prod"]],
-  ["an unknown tier", ["dev", FINGERPRINT]],
+  ["an unknown tier", ["local", FINGERPRINT]],
   ["an extra argument", ["prod", FINGERPRINT, "extra"]],
   ["a malformed fingerprint", ["prod", FINGERPRINT.toUpperCase()]],
 ])("%s fails before reading any connection", async (_name, args) => {

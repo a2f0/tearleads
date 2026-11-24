@@ -6,7 +6,7 @@ import { printable } from "./printable";
 import { isTargetName } from "./targets";
 import { createTracer } from "./trace";
 
-export const usage = `Usage: tearleads <command> [--env production|staging] [--org <id>] [--trace]
+export const usage = `Usage: tearleads <command> [--env production|staging|development] [--org <id>] [--trace]
 
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
@@ -18,7 +18,8 @@ Commands:
   verify-seed  Check the original fixture contents and bytes from a fresh session.
   ls       List the folders of your organization, or of --org <id>.
 
---env defaults to production. Every command signs in, works on an in-memory
+--env defaults to production; development is the local API at
+http://localhost:3001. Every command signs in, works on an in-memory
 database, and revokes its session before exiting.
 
 --key-stdin reads a one-time recovery key for seed or verify-seed.
@@ -84,7 +85,9 @@ export async function runCli(
     return 2;
   }
   if (!isTargetName(values.env)) {
-    context.stderr(`Unknown --env ${values.env}; use production or staging.`);
+    context.stderr(
+      `Unknown --env ${values.env}; use production, staging, or development.`,
+    );
     return 2;
   }
 
