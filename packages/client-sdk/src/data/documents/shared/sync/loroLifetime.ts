@@ -87,6 +87,13 @@ export interface LoroLifetimes {
    * isolates that row's updates instead of counting them.
    */
   noteUnsettledWindow(): void;
+  /**
+   * Notes Loro reads of served updates that no window covers, until the
+   * returned release runs: a death meanwhile may be theirs, so the failure
+   * marker stands and the lifetime's open windows isolate instead of
+   * counting. Releasing twice is harmless.
+   */
+  beginUnwindowedRead(): () => void;
   /** Whether this lifetime holds window `id` open. */
   hasWindow(id: string): boolean;
   /** How many windows this lifetime holds open. */
@@ -125,6 +132,28 @@ function probeMarkers(
     storage.removeItem(probe);
     return kept;
   }, false);
+}
+
+/**
+ * Whether a death of the lifetime may count: `failed` once it met a Loro
+ * runtime failure, `unsettled` once a window row it could not settle or
+ * stop counting outlived its window, which keeps the failure marker
+ * standing with no window open.
+ */
+type LifetimeHealth = "healthy" | "failed" | "unsettled";
+
+type LifetimeHealthEvent = "runtimeFailed" | "windowUnsettled";
+
+function transitionLifetimeHealth(
+  health: LifetimeHealth,
+  event: LifetimeHealthEvent,
+): LifetimeHealth {
+  switch (event) {
+    case "runtimeFailed":
+      return health === "unsettled" ? health : "failed";
+    case "windowUnsettled":
+      return "unsettled";
+  }
 }
 
 function quietly<T>(read: () => T, fallback: T): T {
@@ -251,8 +280,8 @@ export function createLoroLifetimes(host: {
 }): LoroLifetimes {
   const id = host.id ?? crypto.randomUUID();
   const { storage, visibility } = host;
-  let failed = false;
-  let unsettled = false;
+  let health: LifetimeHealth = "healthy";
+  let unwindowedReads = 0;
   let markersKept: boolean | undefined;
   let watching = false;
 
@@ -263,9 +292,16 @@ export function createLoroLifetimes(host: {
     }, undefined);
   };
   const syncMarkers = () => {
-    const open = windows.count() > 0 || unsettled;
+    const open = windows.count() > 0 || health === "unsettled";
     setMarker(HIDDEN_MARKER_PREFIX, open && (visibility?.hidden() ?? false));
-    setMarker(FAILED_MARKER_PREFIX, open && failed);
+    setMarker(
+      FAILED_MARKER_PREFIX,
+      open && (health !== "healthy" || unwindowedReads > 0),
+    );
+  };
+  const moveHealth = (event: LifetimeHealthEvent) => {
+    health = transitionLifetimeHealth(health, event);
+    syncMarkers();
   };
   const windows = lifetimeWindows(host.gateWaitMs ?? GATE_WAIT_MS, syncMarkers);
   const marked = (prefix: string, other: string) =>
@@ -291,14 +327,18 @@ export function createLoroLifetimes(host: {
       markersKept ??= probeMarkers(storage, visibility, id);
       return markersKept;
     },
-    noteFailed() {
-      failed = true;
+    noteFailed: () => moveHealth("runtimeFailed"),
+    noteUnsettledWindow: () => moveHealth("windowUnsettled"),
+    beginUnwindowedRead() {
+      unwindowedReads += 1;
       syncMarkers();
-    },
-    noteUnsettledWindow() {
-      failed = true;
-      unsettled = true;
-      syncMarkers();
+      let reading = true;
+      return () => {
+        if (!reading) return;
+        reading = false;
+        unwindowedReads -= 1;
+        syncMarkers();
+      };
     },
     hasWindow: windows.has,
     openWindowCount: windows.count,

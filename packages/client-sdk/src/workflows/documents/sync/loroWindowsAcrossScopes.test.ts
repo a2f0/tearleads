@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createLoroWindowBench,
@@ -11,7 +12,9 @@ import {
   SCOPE,
   SECOND,
 } from "../../../../test/helpers/workflows/loroWindowBench";
+import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import { LoroRuntimeFailureLedger } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { writeLoroWindowInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -329,4 +332,70 @@ test("a pass's settle leaves the row a later pass on the scope wrote", async () 
 
   expect(await recordedAttempts(SECOND)).toBeNull();
   expect(await pageLimit(MAIN)).toBe(1);
+});
+
+/**
+ * A copy of `update` whose read notes the markers then standing, for a
+ * death inside it: `restore` puts them back as the dead process left them.
+ */
+function readNoting(
+  update: Awaited<ReturnType<typeof honest>>["update"],
+  markers: Map<string, string>,
+) {
+  let leftAtDeath = new Map<string, string>();
+  return {
+    restore() {
+      markers.clear();
+      for (const [key, value] of leftAtDeath) markers.set(key, value);
+    },
+    update: {
+      id: update.id,
+      partialEndVersionVector: update.partialEndVersionVector,
+      partialStartVersionVector: update.partialStartVersionVector,
+      get updateData(): Uint8Array {
+        leftAtDeath = new Map(markers);
+        return update.updateData;
+      },
+    },
+  };
+}
+
+// Container metadata, rotation, and a founding view read served updates
+// with no window. A death in such a read may be theirs, so a lone counting
+// window elsewhere must not count it.
+test("a death in a read no window covers counts toward no window", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const killer = readNoting((await honest(SECOND)).update, host.markers);
+  const lifetime = host.lifetime("unwindowed");
+  await judgeIn(lifetime, [first]);
+  const reader = await createDocument("unwindowed-reader");
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: reader,
+      decryptedUpdates: [killer.update],
+      lifetimes: lifetime,
+      runtimeLedger: new LoroRuntimeFailureLedger(),
+    });
+  } finally {
+    reader.free();
+  }
+  killer.restore();
+  host.kill("unwindowed");
+  await claimIn(host.lifetime("next"), MAIN);
+
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(await pageLimit(MAIN)).toBe(1);
+});
+
+// A read its own window covers is no stray read: a death inside it counts.
+test("a death inside a read its window covers still counts", async () => {
+  const host = device();
+  const killer = readNoting((await honest(FIRST)).update, host.markers);
+  await judgeIn(host.lifetime("windowed"), [killer.update]);
+  killer.restore();
+  host.kill("windowed");
+  await claimIn(host.lifetime("next"), MAIN);
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
 });

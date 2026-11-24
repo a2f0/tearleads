@@ -69,6 +69,37 @@ test("a failure marker covers the windows open after the lifetime failed", async
   expect(surfaces.markers.size).toBe(0);
 });
 
+// A read no window covers may cause the death, so while it runs beside an
+// open window the failure marker stands; it drops once the read is over.
+test("a read outside any window keeps the failure marker while it runs", async () => {
+  const surfaces = host();
+  const lifetimes = createLoroLifetimes({ id: "tab", ...surfaces });
+  const release = lifetimes.beginUnwindowedRead();
+  expect(lifetimes.endedFailed("tab")).toBe(false);
+  const window = await lifetimes.openWindow(false);
+  expect(lifetimes.endedFailed("tab")).toBe(true);
+
+  release();
+  release();
+  expect(lifetimes.endedFailed("tab")).toBe(false);
+  lifetimes.beginUnwindowedRead();
+  lifetimes.closeWindow(window);
+  expect(surfaces.markers.size).toBe(0);
+});
+
+// A row the lifetime could not delete outlives its window, so the failure
+// marker stands with no window open, and a later failure does not drop it.
+test("an unsettled row keeps the failure marker through a later failure", () => {
+  const surfaces = host();
+  const lifetimes = createLoroLifetimes({ id: "tab", ...surfaces });
+
+  lifetimes.noteUnsettledWindow();
+  lifetimes.noteFailed();
+
+  expect(lifetimes.openWindowCount()).toBe(0);
+  expect(lifetimes.endedFailed("tab")).toBe(true);
+});
+
 // Without Web Locks nothing tells a dead lifetime from a live one, so every
 // other lifetime counts as alive, and this one opens no window to claim.
 test("a host without Web Locks opens no window and claims none", async () => {

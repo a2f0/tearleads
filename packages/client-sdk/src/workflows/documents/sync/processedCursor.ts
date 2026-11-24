@@ -35,6 +35,7 @@ import {
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import {
   type DocumentSyncLoroWindow,
+  type LoroWindowOpening,
   openDocumentSyncLoroWindow,
   stopCountingLoroWindows,
 } from "./loroPassWindow";
@@ -220,29 +221,31 @@ export async function judgeDocumentSyncImports(input: {
   const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
   const recorded = await readRecordedImportJudgements(input);
-  let windowCounts = false;
+  const opened: { current: LoroWindowOpening } = { current: "none" };
   const window = input.loroWindow;
   const verdicts = await validateDocumentSyncUpdateImports({
     ...recorded,
     beforeUpdateReads: window
       ? async () => {
-          windowCounts = await openDocumentSyncLoroWindow({
+          opened.current = await openDocumentSyncLoroWindow({
             ...input,
             knownVoids: recorded.knownVoids,
             ledger,
             lifetimes,
             window,
           });
+          return opened.current !== "none";
         }
       : undefined,
     currentDocument: input.currentDocument,
     decryptedUpdates: result.decryptedUpdates,
+    lifetimes,
     responseUpdates: result.response.updates,
     runtimeLedger: ledger,
   });
   if (verdicts.runtimeFailures.length > 0) {
     await recordDocumentSyncRuntimeFailures({ ...input, lifetimes, verdicts });
-  } else if (windowCounts && ledger.hasFailed()) {
+  } else if (opened.current === "counting" && ledger.hasFailed()) {
     await stopCountingLoroWindows(input.execSql, lifetimes);
   }
   return verdicts;

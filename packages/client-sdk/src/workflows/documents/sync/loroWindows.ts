@@ -23,7 +23,10 @@ import {
   readLoroIsolation,
   writeLoroIsolationInTransaction,
 } from "../../../data/persistence/documents/records/loroWindowPersistence";
-import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   runSerializedSqlMutation,
@@ -46,12 +49,6 @@ interface WindowScopeInput {
   readonly scope: DocumentScope;
 }
 
-type ClaimTransaction = Parameters<
-  Parameters<
-    ReturnType<typeof getClientSQLitePersistenceRuntime>["guardedTransaction"]
-  >[0]
->[0];
-
 interface OrphanClaim {
   readonly documentId: string;
   readonly judge: string;
@@ -64,7 +61,7 @@ interface OrphanClaim {
  * the same key (another tab voided it since, at any stage), which stands.
  */
 async function countOrphanAttemptInTransaction(
-  tx: ClaimTransaction,
+  tx: ClientSQLiteTransactionScope,
   claim: OrphanClaim,
   verdict: Extract<OrphanVerdict, { kind: "count" }>,
 ): Promise<number | null> {
@@ -122,10 +119,11 @@ interface ClaimedOrphans {
  * deletes them. Each is settled only by the claim whose delete removed it:
  * the database worker does not isolate one tab's transaction from another
  * tab's statements, so two tabs may read the same orphan, and a window is
- * counted at most once.
+ * counted at most once. A claim counts at most one attempt per update: tabs
+ * reading one update in a browser process that crashes die together.
  */
 async function claimOrphansInTransaction(
-  tx: ClaimTransaction,
+  tx: ClientSQLiteTransactionScope,
   claim: OrphanClaim,
   ended: ReadonlySet<string>,
   lifetimes: LoroLifetimes,
@@ -136,6 +134,7 @@ async function claimOrphansInTransaction(
   const counted: { attempts: number; updateId: string }[] = [];
   let isolation = await readLoroIsolation(tx, claim.scope);
   const claimed: string[] = [];
+  const countedUpdates = new Set<string>();
   for (const orphan of orphans) {
     if (
       !(await deleteLoroWindowInTransaction(tx, claim.scope, orphan.lifetimeId))
@@ -150,6 +149,8 @@ async function claimOrphansInTransaction(
       judge: claim.judge,
     });
     if (verdict.kind === "count") {
+      if (countedUpdates.has(verdict.updateId)) continue;
+      countedUpdates.add(verdict.updateId);
       const attempts = await countOrphanAttemptInTransaction(
         tx,
         claim,

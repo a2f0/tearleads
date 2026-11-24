@@ -78,6 +78,13 @@ function windowDatabasesOf(lifetimes: LoroLifetimes): Map<string, ExecSql> {
 }
 
 /**
+ * What opening a page's window left: no window over its reads, one whose
+ * death isolates the page's updates, or one whose death counts toward its
+ * single update.
+ */
+export type LoroWindowOpening = "none" | "isolating" | "counting";
+
+/**
  * The pass's window for this page: the one it holds, when a later page of
  * the pass reads the same database, or a new one once the held window is
  * settled. The new window is noted before its row is written, so a death
@@ -132,8 +139,8 @@ async function stopCountingElsewhere(held: HeldLoroWindow): Promise<void> {
  * A death counts only toward the update alone in the lifetime's only open
  * window, so opening this window stops every other window of the lifetime
  * counting, in any database. A page isolating the updates a death left
- * waits to read alone (`loroWindowGate.ts`). Returns whether the window
- * counts.
+ * waits to read alone (`loroWindowGate.ts`). Returns whether a window now
+ * covers the page's reads, and whether it counts a death.
  */
 export async function openDocumentSyncLoroWindow(
   input: WindowScopeInput & {
@@ -143,12 +150,12 @@ export async function openDocumentSyncLoroWindow(
     readonly result: PageResult;
     readonly window: DocumentSyncLoroWindow;
   },
-): Promise<boolean> {
+): Promise<LoroWindowOpening> {
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
   const unsettled = input.result.decryptedUpdates
     .map((update) => update.id)
     .filter((id) => !input.knownVoids.has(id) && input.ledger.mayAttempt(id));
-  if (unsettled.length === 0 || !(await lifetimes.ready())) return false;
+  if (unsettled.length === 0 || !(await lifetimes.ready())) return "none";
   const isolating =
     loroIsolationPageLimit(
       await readLoroIsolation(
@@ -204,7 +211,7 @@ export async function openDocumentSyncLoroWindow(
       () => true,
     ),
   );
-  return counts;
+  return counts ? "counting" : "isolating";
 }
 
 /**

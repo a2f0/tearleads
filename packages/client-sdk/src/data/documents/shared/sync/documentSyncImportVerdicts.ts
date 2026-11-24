@@ -20,6 +20,7 @@ import {
   type VoidedDocumentSyncUpdate,
   voidedDocumentSyncUpdate,
 } from "./documentUpdateVerdict";
+import { type LoroLifetimes, processLoroLifetimes } from "./loroLifetime";
 import {
   type LoroRuntimeAttempts,
   MAX_LORO_RUNTIME_ATTEMPTS,
@@ -273,10 +274,13 @@ export async function validateDocumentSyncUpdateImports(input: {
   runtimeAttempts?: ReadonlyMap<string, number> | undefined;
   /**
    * @internal Runs once the reader's history is built, before the first
-   * update is read: the sync pass opens its read window here, so a death
-   * building that history, which no update caused, is outside it.
+   * update is read, and resolves true when a read window now covers the
+   * reads: the sync pass opens its window here, so a death building that
+   * history, which no update caused, is outside it.
    */
-  beforeUpdateReads?: (() => Promise<void>) | undefined;
+  beforeUpdateReads?: (() => Promise<boolean>) | undefined;
+  /** @internal This realm's lifetime; tests stand in another one. */
+  lifetimes?: LoroLifetimes | undefined;
 }): Promise<DocumentSyncImportVerdicts> {
   const verdicts = new PageVerdicts();
   if (input.decryptedUpdates.length === 0) return verdicts.result();
@@ -285,6 +289,30 @@ export async function validateDocumentSyncUpdateImports(input: {
     (input.responseUpdates ?? []).map((update) => [update.id, update]),
   );
   const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
+  // Until a window covers them, these Loro reads leave every other window
+  // of the lifetime unable to count a death: it may be theirs (#3194).
+  const release = (
+    input.lifetimes ?? processLoroLifetimes
+  ).beginUnwindowedRead();
+  try {
+    return await judgeUpdateReads(input, {
+      ledger,
+      release,
+      responseById,
+      verdicts,
+    });
+  } finally {
+    release();
+  }
+}
+
+async function judgeUpdateReads(
+  input: Parameters<typeof validateDocumentSyncUpdateImports>[0],
+  judging: Omit<PageJudging, "runtimeAttempts" | "scratch"> & {
+    readonly release: () => void;
+  },
+): Promise<DocumentSyncImportVerdicts> {
+  const { ledger, responseById, verdicts } = judging;
   const scratch = await openScratchHistory(input, ledger);
   if (scratch === null) {
     for (const update of input.decryptedUpdates) verdicts.hold(update.id);
@@ -298,7 +326,7 @@ export async function validateDocumentSyncUpdateImports(input: {
     verdicts,
   };
   try {
-    await input.beforeUpdateReads?.();
+    if (await input.beforeUpdateReads?.()) judging.release();
     for (const update of input.decryptedUpdates) {
       const knownStage = input.knownVoids?.get(update.id);
       if (verdicts.holding) {

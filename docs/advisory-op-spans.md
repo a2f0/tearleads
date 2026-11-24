@@ -94,7 +94,11 @@ its lifetime's only open one: opening a second stops every window of that
 lifetime counting, in every database it has open, and a death then isolates
 them all. Each sync pass holds a window of its own and settles only that one,
 so a stale pass still running after the store moved to another database
-cannot close the window of the pass that replaced it. A document isolating
+cannot close the window of the pass that replaced it. Container metadata,
+rotation, and a founding view read served updates with no window yet; while
+such a read runs, the lifetime's failure marker stands, so a death then
+isolates the open windows' updates instead of counting it toward one. A
+document isolating
 suspects waits to read until its window would be the lifetime's only one;
 after 30 seconds it reads beside the others, and counts nothing. A lifetime
 that ends while the app is hidden, with a window open, leaves a `localStorage`
@@ -115,9 +119,11 @@ Four residuals remain. An honest update that fails the runtime, or ends the
 process while the app is visible, in three separate process lifetimes on one
 device is void on that device. A window opens once the reader's history is
 built and closes with the page's save, which imports the update, so a visible
-death inside it counts toward the update whatever caused it: other Loro work
-the process runs meanwhile, the document's own size while saving, or a killer
-read by another tab that shares the browser process. While an update is
+death inside it counts toward the update whatever caused it: Loro work on
+local or accepted data the process runs meanwhile (the editor, a live apply),
+the document's own size while saving, or a killer read by another tab that
+shares the browser process. A claim counts at most one attempt per update, so
+tabs that die together in one browser process count one. While an update is
 unsettled, the device applies nothing served after it on that document and
 cannot bind attachments to it, for up to three process lifetimes; its own
 writes still push and settle. And container metadata, rotation, and a founding

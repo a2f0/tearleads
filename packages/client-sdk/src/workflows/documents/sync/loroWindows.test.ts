@@ -294,6 +294,21 @@ test("two tabs claiming one orphan count its death once", async () => {
   expect(await recordedAttempts(FIRST)).toBe(1);
 });
 
+// Tabs reading one update in a browser process that crashes die together:
+// one event, so the claim that finds their windows counts one attempt.
+test("tabs dying together on one update count one attempt", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await judgeIn(host.lifetime("tab-a"), [update]);
+  await judgeIn(host.lifetime("tab-b"), [update]);
+  host.kill("tab-a");
+  host.kill("tab-b");
+
+  await judgeIn(host.lifetime("next"), [update]);
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
+});
+
 // A refused lock must not stop sync: the page is judged without a window.
 test("a lifetime whose lock is refused judges without a window", async () => {
   const { update } = await honest(FIRST);
