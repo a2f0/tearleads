@@ -232,7 +232,7 @@ function getExplorerItemTableFrameClassName(params: {
 export function ExplorerContainerItemTable(params: ItemTableProps) {
   const {
     compact,
-    contactAvatarUrlByLocalId,
+    avatarUrlByLocalId,
     contextTarget,
     currentSigningFingerprint,
     currentSelfContactLocalId,
@@ -275,7 +275,7 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
         <ExplorerContainerItemTableBody
           columnIds={columnIds}
           columns={columns}
-          contactAvatarUrlByLocalId={contactAvatarUrlByLocalId}
+          avatarUrlByLocalId={avatarUrlByLocalId}
           contextTarget={contextTarget}
           currentSigningFingerprint={currentSigningFingerprint}
           currentSelfContactLocalId={currentSelfContactLocalId}

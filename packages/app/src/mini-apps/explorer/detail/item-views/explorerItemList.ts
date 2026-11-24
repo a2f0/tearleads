@@ -5,7 +5,7 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import type { DragEvent, MouseEvent } from "react";
-import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
+import type { AvatarUrlById } from "../../../../document-types/shared/avatar/useAvatarUrls";
 import { explorerDocumentRouteContainerId } from "../../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 
@@ -14,7 +14,7 @@ import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerConte
 // gives its scroll frame.
 
 export interface ExplorerItemListProps {
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
+  avatarUrlByLocalId: AvatarUrlById;
   contextTarget: ExplorerContextMenuTarget | null;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;

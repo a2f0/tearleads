@@ -42,6 +42,7 @@ import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS,
 } from "./projectors";
+import type { DocumentPhotoCapability } from "./shared/documentPhotos";
 import { ToolDocumentApp } from "./tool/ToolApp";
 import { TOOL_DOCUMENT_KIND } from "./tool/toolDocumentDefinition";
 import type {
@@ -175,6 +176,17 @@ export function getDocumentTypeDefinition(
   }
 
   return createFallbackDocumentTypeDefinition(kind);
+}
+
+/**
+ * The photo gallery a document kind keeps, whose chosen photo is the
+ * document's avatar. Undefined for kinds without one, which list with their
+ * kind's icon instead.
+ */
+export function getDocumentPhotoCapability(
+  kind: StoredDocumentKind,
+): DocumentPhotoCapability | undefined {
+  return documentTypeDefinitionByKind.get(kind)?.photos;
 }
 
 // The icon representing a document kind, shared by the "New Document" picker

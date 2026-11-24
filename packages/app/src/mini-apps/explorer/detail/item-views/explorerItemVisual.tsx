@@ -2,12 +2,12 @@ import type { Icon } from "@phosphor-icons/react";
 import type { ContainerItemRow } from "@tearleads/client-sdk";
 import type { ReactNode } from "react";
 import { MiniAppItemThumb } from "../../../../components/mini-app/item-view/MiniAppItemThumb";
-import { ContactAvatar } from "../../../../document-types/contact/ContactAvatar";
-import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { getDocumentTypeIcon } from "../../../../document-types/registry";
+import { DocumentAvatarImage } from "../../../../document-types/shared/avatar/DocumentAvatarImage";
+import type { AvatarUrlById } from "../../../../document-types/shared/avatar/useAvatarUrls";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
-import { getExplorerContactAvatar } from "../../shared/explorerContactAvatar";
 import { getExplorerContainerIcon } from "../../shared/explorerContainerIcons";
+import { getExplorerDocumentAvatar } from "../../shared/explorerDocumentAvatar";
 
 // The item's name and its leading visual, shared by every view of the item
 // list: the table's name and summary cells, and the grid's tiles.
@@ -76,7 +76,7 @@ const EXPLORER_ITEM_GLYPH_SIZES: Readonly<
 
 export function renderExplorerItemVisual(
   ctx: {
-    contactAvatarUrlByLocalId: AvatarUrlByContactId;
+    avatarUrlByLocalId: AvatarUrlById;
     row: ContainerItemRow;
   },
   size: ExplorerItemVisualSize,
@@ -84,20 +84,14 @@ export function renderExplorerItemVisual(
   const { row } = ctx;
   const itemIcon = getExplorerItemIcon(row);
   const ItemIcon = itemIcon.Icon;
-  const contactAvatar =
-    row.itemKind === "document"
-      ? getExplorerContactAvatar(
-          row.documentKind,
-          row.localId,
-          ctx.contactAvatarUrlByLocalId,
-        )
-      : null;
+  const avatar = getExplorerDocumentAvatar(row, ctx.avatarUrlByLocalId);
 
-  return contactAvatar ? (
-    // ContactAvatar owns both the image and the shared no-avatar silhouette.
+  return avatar ? (
+    // DocumentAvatarImage owns both the image and the kind's no-avatar glyph.
     // It also shrink-proofs itself without the generic glyph opacity.
-    <ContactAvatar
-      imageUrl={contactAvatar.imageUrl}
+    <DocumentAvatarImage
+      fallbackIcon={avatar.fallbackIcon}
+      imageUrl={avatar.imageUrl}
       size={size === "inline" ? "small" : "medium"}
     />
   ) : (
@@ -119,7 +113,7 @@ export function renderExplorerItemVisual(
  */
 export function renderExplorerItemRowVisual(
   ctx: {
-    contactAvatarUrlByLocalId: AvatarUrlByContactId;
+    avatarUrlByLocalId: AvatarUrlById;
     largeRows: boolean;
     row: ContainerItemRow;
   },

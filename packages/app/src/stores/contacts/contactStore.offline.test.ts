@@ -9,8 +9,8 @@ import {
   seedDuplicateSelfContacts,
 } from "../../../test/helpers/contactStoreRecovery";
 import { waitForCondition } from "../../../test/helpers/waitForCondition";
-import { getContactAvatarRef } from "../../document-types/contact/contactAvatarSlot";
 import { CONTACT_PHOTOS } from "../../document-types/contact/contactDocumentDefinition";
+import { getDocumentAvatarRef } from "../../document-types/shared/avatar/documentAvatarRef";
 import { selectDocumentAvatar } from "../../document-types/shared/documentPhotos";
 import { type ContactsRuntime, createContactsStore } from "./contactStore";
 
@@ -259,7 +259,7 @@ for (const target of ["canonical", "distinct"] as const) {
       expect(snapshot.structuredFields).toMatchObject({
         firstName: "Saved on original",
       });
-      const avatar = getContactAvatarRef(snapshot);
+      const avatar = getDocumentAvatarRef(CONTACT_PHOTOS, snapshot);
       if (!avatar?.storageKey)
         throw new Error("Durable original avatar missing");
       expect(

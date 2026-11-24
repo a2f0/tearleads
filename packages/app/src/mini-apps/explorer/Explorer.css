@@ -462,13 +462,13 @@
   height: var(--control-icon-size);
 }
 
-/* A contact takes its avatar in place of the document glyph, so it takes the
-   same box too — otherwise one contacts container mixes 24px folders with 20px
-   portraits. The silhouette carries no size attribute and so renders at 1em;
-   the multiplier keeps the glyph-to-circle ratio the avatar's own size variants
-   use (12/20, 20/32). */
-:root[data-navigation-mode="routed"] .explorer-sidebar-item .contact-avatar,
-:root[data-navigation-mode="routed"] .explorer-item-name > .contact-avatar {
+/* A document with an avatar takes it in place of the document glyph, so it
+   takes the same box too — otherwise one container mixes 24px folders with
+   20px portraits. The fallback glyph carries no size attribute and so renders
+   at 1em; the multiplier keeps the glyph-to-circle ratio the avatar's own size
+   variants use (12/20, 20/32). */
+:root[data-navigation-mode="routed"] .explorer-sidebar-item .document-avatar,
+:root[data-navigation-mode="routed"] .explorer-item-name > .document-avatar {
   width: var(--control-icon-size);
   height: var(--control-icon-size);
   font-size: calc(var(--control-icon-size) * 0.6);

@@ -4,9 +4,9 @@ import type {
 } from "@tearleads/client-sdk";
 import { type ReactNode, useEffect, useMemo } from "react";
 import {
-  type AvatarUrlByContactId,
-  useContactAvatarUrls,
-} from "../../../document-types/contact/useContactAvatarUrls";
+  type DocumentAvatarSource,
+  useDocumentAvatarSource,
+} from "../../../document-types/shared/avatar/useDocumentAvatarUrls";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useDomainDocumentQueries } from "../../../providers/sdk/useDomainDocumentQueries";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
@@ -66,7 +66,6 @@ interface ExplorerModel {
   canPurgeSelectedDocument: boolean;
   canShareWithPeer: boolean;
   canUnlinkSelectedDocument: boolean;
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   /** The Tearleads user a context-menu contact document names, if any. */
   contextMenuContactUserId: string | null;
   contextMenuState: ExplorerPanelState["contextMenuState"];
@@ -76,6 +75,7 @@ interface ExplorerModel {
   documentListRevision: number;
   documentLinkProjectionVersion: number;
   onRecoveryChanged: () => void;
+  documentAvatarSource: DocumentAvatarSource;
   documentQueries: ContainerDocumentQueries;
   documentSummaries: ReadonlyArray<DocumentSummary>;
   documentVersionCopy: ExplorerPanelState["documentVersionCopy"];
@@ -159,14 +159,9 @@ export function useExplorerModel(
   // never removes contacts, so it needs no Trash resolver.
   const contactsStore = useContactsStoreForContainer(contactsContainerId);
   const contactsSnapshot = useTearleadsExternalStoreSnapshot(contactsStore);
-  // Contact rows across the Explorer show the contact's avatar in place of the
-  // document-kind glyph, the same swap the Contacts mini-app's rows make. Only
-  // this container's avatar images are loaded; contacts living elsewhere use
-  // the shared no-avatar silhouette.
-  const contactAvatarUrlByLocalId = useContactAvatarUrls(
-    contactsSnapshot.entries,
-    appData.infra.blobStore,
-  );
+  // Every listed document whose kind keeps a photo gallery (contacts,
+  // appliances, tools) shows its avatar in place of the kind's glyph.
+  const documentAvatarSource = useDocumentAvatarSource(appData);
   const currentSelfContactLocalId = useMemo(
     () =>
       findCurrentSelfContactLocalId(
@@ -379,13 +374,13 @@ export function useExplorerModel(
     canMutateDocumentLinks,
     canShareWithPeer,
     consumeInitialDocumentEditing,
-    contactAvatarUrlByLocalId,
     contextMenuContactUserId,
     contextMenuState,
     deleteDocument,
     purgeDocument,
     documentLinkProjectionVersion,
     documentListRevision,
+    documentAvatarSource,
     documentQueries,
     documentSummaries,
     documentVersionCopy,

@@ -2,12 +2,13 @@ import type {
   DocumentStore,
   ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
-import { getContactAvatarRef } from "../../document-types/contact/contactAvatarSlot";
+import { CONTACT_PHOTOS } from "../../document-types/contact/contactDocumentDefinition";
 import {
   type ContactEntry,
   contactFieldsToEntry,
   readContactFields,
 } from "../../document-types/contact/contactDocumentModel";
+import { getDocumentAvatarRef } from "../../document-types/shared/avatar/documentAvatarRef";
 import type { ContactsStoreState } from "./contactStoreTypes";
 
 interface ContactKeyLookupDependencies {
@@ -65,7 +66,7 @@ export function contactEntryFromDocumentStore(
     contactId,
     readContactFields(snapshot.structuredFields),
     {
-      avatar: getContactAvatarRef(snapshot),
+      avatar: getDocumentAvatarRef(CONTACT_PHOTOS, snapshot),
       canWrite: snapshot.canWrite,
       rows: snapshot.rows,
       documentId: snapshot.documentId,

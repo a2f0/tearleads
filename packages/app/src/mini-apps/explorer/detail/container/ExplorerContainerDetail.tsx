@@ -23,7 +23,7 @@ import {
   shouldFoldCompactRows,
 } from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
-import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
+import type { DocumentAvatarSource } from "../../../../document-types/shared/avatar/useDocumentAvatarUrls";
 import { isExplorerOrphanedDocumentsId } from "../../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
 import { useExplorerContainerFileDropTarget } from "../../hooks/useExplorerContainerFileDropTarget";
@@ -31,6 +31,7 @@ import type { ExplorerUploadManager } from "../../hooks/useExplorerUploadManager
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
 import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
+import { useExplorerItemAvatarUrls } from "../../shared/explorerDocumentAvatar";
 import { ExplorerContainerItemGrid } from "../item-views/ExplorerContainerItemGrid";
 import { useExplorerItemView } from "../item-views/explorerItemViewContext";
 import { ExplorerRecoveryFolders } from "../recovery/ExplorerRecoveryFolders";
@@ -122,12 +123,14 @@ function ExplorerContainerDetailHeader(params: {
 
 interface ExplorerContainerDetailProps {
   containerNodes: ReadonlyArray<ContainerNode>;
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
   contextTarget: ExplorerContextMenuTarget | null;
   currentOrganizationId: string | null | undefined;
   currentSigningFingerprint: string | null | undefined;
   currentSelfContactLocalId: string | null | undefined;
   currentUserId: string | null | undefined;
+  // Reads listed documents' avatars; with none, avatar kinds show only their
+  // fallback glyph.
+  documentAvatarSource: DocumentAvatarSource | null;
   documentListRevision: number;
   onRecoveryChanged: () => void;
   documentQueries: ContainerDocumentQueries;
@@ -278,8 +281,12 @@ function ExplorerContainerItemList(props: {
   recoveryCollection: boolean;
 }) {
   const { fileDropTarget, items, params, recoveryCollection } = props;
+  const avatarUrlByLocalId = useExplorerItemAvatarUrls(
+    params.documentAvatarSource,
+    items.itemWindow.rows,
+  );
   const listProps = {
-    contactAvatarUrlByLocalId: params.contactAvatarUrlByLocalId,
+    avatarUrlByLocalId,
     contextTarget: params.contextTarget,
     currentSigningFingerprint: params.currentSigningFingerprint,
     currentSelfContactLocalId: params.currentSelfContactLocalId,

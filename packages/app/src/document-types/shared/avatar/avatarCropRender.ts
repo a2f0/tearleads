@@ -6,12 +6,12 @@ import {
 
 // Cap the persisted avatar edge length; smaller source crops are kept at
 // their native resolution instead of upscaling.
-const CONTACT_AVATAR_OUTPUT_MAX_SIZE = 512;
+const AVATAR_OUTPUT_MAX_SIZE = 512;
 
 function getAvatarOutputSize(sourceRectSize: number): number {
   return Math.max(
     1,
-    Math.min(CONTACT_AVATAR_OUTPUT_MAX_SIZE, Math.round(sourceRectSize)),
+    Math.min(AVATAR_OUTPUT_MAX_SIZE, Math.round(sourceRectSize)),
   );
 }
 
