@@ -3,16 +3,13 @@ import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import type { MouseEvent } from "react";
 import {
   MiniAppCompactTableCell,
-  MiniAppCompactTableHeader,
   MiniAppRowActionsCell,
   MiniAppTable,
   MiniAppTableActionButton,
   MiniAppTableCell,
-  type MiniAppTableColumn,
   MiniAppTableFrame,
   MiniAppTableRow,
   MiniAppTableText,
-  miniAppRowActionsColumn,
   useMiniAppCompactTableFrame,
 } from "../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../components/mini-app/virtual/MiniAppVirtual";
@@ -25,49 +22,16 @@ import {
   rowStatusText,
 } from "../model/sharedWithMeRowDisplay";
 import type { SharedWithMeRow } from "../model/sharedWithMeRows";
-
-const ACTIONS_COLUMN = miniAppRowActionsColumn(
-  SHARED_WITH_ME_LABELS.actionsColumn,
-);
-
-const WIDE_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
-  { header: SHARED_WITH_ME_LABELS.nameColumn, id: "name", width: "36%" },
-  { header: SHARED_WITH_ME_LABELS.organizationColumn, id: "organization" },
-  {
-    header: SHARED_WITH_ME_LABELS.permissionColumn,
-    id: "permission",
-    width: "7rem",
-  },
-  { header: SHARED_WITH_ME_LABELS.statusColumn, id: "status", width: "9rem" },
-  ACTIONS_COLUMN,
-];
-
-/** The folded row's muted second line, in order. */
-const SECONDARY_FIELDS = [
-  { id: "organization", label: SHARED_WITH_ME_LABELS.organizationColumn },
-  { id: "permission", label: SHARED_WITH_ME_LABELS.permissionColumn },
-  { id: "status", label: SHARED_WITH_ME_LABELS.statusColumn },
-] as const;
-
-const COMPACT_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
-  {
-    header: (
-      <MiniAppCompactTableHeader
-        primary={[{ id: "name", text: SHARED_WITH_ME_LABELS.nameColumn }]}
-        secondary={SECONDARY_FIELDS.map((field) => ({
-          id: field.id,
-          text: field.label,
-        }))}
-      />
-    ),
-    id: "summary",
-  },
-  ACTIONS_COLUMN,
-];
+import {
+  SHARED_WITH_ME_DETAIL_COLUMN_LABELS,
+  type SharedWithMeDetailColumnId,
+  useSharedWithMeColumns,
+} from "./sharedWithMeColumns";
 
 interface RowParams {
   changing: boolean;
   compact: boolean;
+  detailColumnIds: ReadonlyArray<SharedWithMeDetailColumnId>;
   onOpenFolder: (folderId: string) => void;
   onRowContextMenu: (event: MouseEvent<HTMLElement>, rowKey: string) => void;
   row: SharedWithMeRow;
@@ -112,11 +76,28 @@ function RowName({
   );
 }
 
+/** A detail column's text for a row, and the fuller text its tooltip gives. */
+function rowDetail(
+  row: SharedWithMeRow,
+  columnId: SharedWithMeDetailColumnId,
+  changing: boolean,
+): { text: string; title?: string | undefined } {
+  switch (columnId) {
+    case "organization": {
+      const name = organizationDisplayName(row.organization);
+      return { text: name, title: name };
+    }
+    case "permission":
+      return { text: rowPermissionLabel(row) };
+    case "status": {
+      const status = rowStatusText(row, changing);
+      return { text: status.label, title: status.title };
+    }
+  }
+}
+
 function RowCells(params: RowParams) {
-  const { changing, compact, onOpenFolder, row } = params;
-  const organizationName = organizationDisplayName(row.organization);
-  const permission = rowPermissionLabel(row);
-  const status = rowStatusText(row, changing);
+  const { changing, compact, detailColumnIds, onOpenFolder, row } = params;
 
   if (compact) {
     return (
@@ -129,11 +110,11 @@ function RowCells(params: RowParams) {
             id: "name",
           },
         ]}
-        secondary={[
-          { ...SECONDARY_FIELDS[0], text: organizationName },
-          { ...SECONDARY_FIELDS[1], text: permission },
-          { ...SECONDARY_FIELDS[2], text: status.label, title: status.title },
-        ]}
+        secondary={detailColumnIds.map((id) => ({
+          id,
+          label: SHARED_WITH_ME_DETAIL_COLUMN_LABELS[id],
+          ...rowDetail(row, id, changing),
+        }))}
         visual={<RowIcon row={row} size={32} />}
       />
     );
@@ -144,17 +125,16 @@ function RowCells(params: RowParams) {
       <MiniAppTableCell>
         <RowName onOpenFolder={onOpenFolder} row={row} showIcon />
       </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText title={organizationName}>
-          {organizationName}
-        </MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText>{permission}</MiniAppTableText>
-      </MiniAppTableCell>
-      <MiniAppTableCell>
-        <MiniAppTableText title={status.title}>{status.label}</MiniAppTableText>
-      </MiniAppTableCell>
+      {detailColumnIds.map((id) => {
+        const detail = rowDetail(row, id, changing);
+        return (
+          <MiniAppTableCell key={id}>
+            <MiniAppTableText title={detail.title}>
+              {detail.text}
+            </MiniAppTableText>
+          </MiniAppTableCell>
+        );
+      })}
     </>
   );
 }
@@ -202,28 +182,28 @@ export function SharedWithMeTable({
   rows: ReadonlyArray<SharedWithMeRow>;
 }) {
   const { compact, frameRef, rowHeight } = useMiniAppCompactTableFrame();
+  const { columns, detailColumnIds } = useSharedWithMeColumns(compact);
   return (
     <MiniAppTableFrame
       className={classNames(
         "shared-with-me-table-wrap",
         "mini-app-table-frame--compact",
         "mini-app-table-frame--bleed",
+        "mini-app-table-frame--edges",
         "mini-app-table-frame--bleed-block-end",
         compact && "mini-app-table-frame--two-line",
       )}
       ref={frameRef}
       style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
-      <MiniAppTable
-        aria-label={SHARED_WITH_ME_LABELS.title}
-        columns={compact ? COMPACT_COLUMNS : WIDE_COLUMNS}
-      >
+      <MiniAppTable aria-label={SHARED_WITH_ME_LABELS.title} columns={columns}>
         {rows.map((row) => (
           <SharedWithMeTableRow
             changing={
               changingOrganizationId === row.organization.organizationId
             }
             compact={compact}
+            detailColumnIds={detailColumnIds}
             key={row.key}
             onOpenFolder={onOpenFolder}
             onRowContextMenu={onRowContextMenu}
