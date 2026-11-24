@@ -148,7 +148,6 @@ test.each([
               await expect(
                 writeContinuityDocument({
                   sdk,
-                  destination: "account",
                   containerId: rootContainerId,
                   localId: crypto.randomUUID(),
                   document: {
@@ -281,7 +280,6 @@ test("a later edit identical to a fixture cannot stand in for its original seed"
         expect(store.getSnapshot().text).toBe(text);
         await expect(
           writeContinuityDocument({
-            destination: "account",
             sdk,
             existing: { documentId, localId: summary.id },
             localId: summary.id,

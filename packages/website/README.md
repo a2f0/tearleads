@@ -252,9 +252,8 @@ starts during the copy. Without a record, a plain `.screenshots` directory (CI,
 or an unlinked clone) stages as before, but a linked store that holds images is
 refused, since their commit is unknown until a capture records them.
 
-Use `bun run screenshots --project=web` for a desktop-only recapture or
-`bun run screenshots:seed` to generate just `tearleads-seed.tlbackup.json` for
-manual restore. PNGs and the backup stay gitignored. Update the Continuity SHA
+Use `bun run screenshots --project=web` for a desktop-only recapture; it still
+seeds that project's API first. PNGs stay gitignored. Update the Continuity SHA
 in the root [`package.json`](../../package.json) catalog, run
 `bun install`, then rebuild the screenshots and website to adopt new canon.
 The website consumes PNGs and a manifest; it does not import application code.

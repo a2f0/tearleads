@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "version": "0.1.329",
+  "version": "0.1.330",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -13,7 +13,7 @@
     "./host/telemetryConsent": "./src/host/telemetryConsent.ts"
   },
   "scripts": {
-    "test": "bun test src test/screenshot-seed --max-concurrency=1 --parallel=2 --no-isolate"
+    "test": "bun test src --max-concurrency=1 --parallel=2 --no-isolate"
   },
   "dependencies": {
     "@a2f0/continuity": "catalog:",

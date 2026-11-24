@@ -49,23 +49,14 @@ function document(value: unknown): boolean {
 
 export function validateSeedSpec(value: unknown): asserts value is SeedSpec {
   if (!record(value)) throw new Error("Invalid Continuity seed object");
-  const {
-    schemaVersion,
-    password,
-    identitySeedPhrase,
-    contacts,
-    notes,
-    files,
-  } = value;
+  const { schemaVersion, identitySeedPhrase, contacts, notes, files } = value;
   if (
     schemaVersion !== 2 ||
-    typeof password !== "string" ||
-    !password ||
     typeof identitySeedPhrase !== "string" ||
     !identitySeedPhrase
   )
     throw new Error(
-      "Unsupported or invalid Continuity seed: expected schemaVersion 2 and credentials",
+      "Unsupported or invalid Continuity seed: expected schemaVersion 2 and an identity seed phrase",
     );
   if (
     !optionalArray(contacts, (item) => {

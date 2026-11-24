@@ -141,7 +141,6 @@ export async function seed(input: CommandInput): Promise<void> {
           );
           assertCurrent();
           const store = await writeContinuityDocument({
-            destination: "account",
             traceAttachment: (event) =>
               tracer.event(`seed ${document.key} ${event}`),
             onRecoveredStaleTarget: () =>
