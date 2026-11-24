@@ -97,6 +97,7 @@ export async function buildDocumentCreateSeedRequest(input: {
     signedAt: new Date().toISOString(),
     update: {
       contentRecordId: encrypted.contentRecordId,
+      dependencyVersionVector: encrypted.dependencyVersionVector,
       encryptedData: encrypted.encryptedData,
       id: pendingUpdate.id,
       partialEndVersionVector: pendingUpdate.partialEndVersionVector,

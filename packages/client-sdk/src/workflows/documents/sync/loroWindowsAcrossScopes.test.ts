@@ -195,6 +195,7 @@ function readNoting(
       for (const [key, value] of leftAtDeath) markers.set(key, value);
     },
     update: {
+      dependencyVersionVector: update.dependencyVersionVector,
       id: update.id,
       partialEndVersionVector: update.partialEndVersionVector,
       partialStartVersionVector: update.partialStartVersionVector,

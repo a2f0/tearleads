@@ -7,6 +7,7 @@ import {
 import {
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentPeerFrontier,
+  type DocumentPeerRebaseErrorCode,
 } from "@tearleads/validators/response";
 import {
   createPendingUpdateRecord,
@@ -33,12 +34,15 @@ const REFUSED: readonly DocumentPeerFrontier[] = [
   { committedEndCounter: 5, peerId: "11" },
 ];
 
-function peerOwnedFailure(peerFrontiers: readonly DocumentPeerFrontier[]) {
+function peerRefusal(
+  code: DocumentPeerRebaseErrorCode,
+  peerFrontiers: readonly DocumentPeerFrontier[],
+) {
   // Built apart from the return so the field reads as the wire carries it.
   const failure = {
     ...createMockRequestFailure({
-      code: DOCUMENT_SYNC_ERROR_CODES.peerOwned,
-      message: "POST /documents/sync: 409 Conflict: Document peer is owned",
+      code,
+      message: `POST /documents/sync: 409 Conflict: ${code}`,
       status: 409,
     }),
     peerFrontiers,
@@ -47,6 +51,7 @@ function peerOwnedFailure(peerFrontiers: readonly DocumentPeerFrontier[]) {
 }
 
 async function syncRefusedPass(input: {
+  code?: DocumentPeerRebaseErrorCode;
   peerFrontiers?: readonly DocumentPeerFrontier[];
   /** Submits answered with a retryable stale-state 409 before the refusal. */
   staleSubmits?: number;
@@ -72,7 +77,10 @@ async function syncRefusedPass(input: {
             status: 409,
           });
         }
-        return peerOwnedFailure(input.peerFrontiers ?? REFUSED);
+        return peerRefusal(
+          input.code ?? DOCUMENT_SYNC_ERROR_CODES.peerOwned,
+          input.peerFrontiers ?? REFUSED,
+        );
       },
     }),
     author,
@@ -109,6 +117,21 @@ describe("document sync peer-owned refusal", () => {
     expect(pass.trace.some((line) => line.endsWith("action=rebase-peer"))).toBe(
       true,
     );
+  });
+
+  test("hands an uncommitted dependency's peers to the rebase too", async () => {
+    const calls: (readonly DocumentPeerFrontier[])[] = [];
+    const pass = await syncRefusedPass({
+      code: DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted,
+      rebase: async (peerFrontiers) => {
+        calls.push(peerFrontiers);
+        return "rebased";
+      },
+    });
+
+    expect(pass.synced).toBeNull();
+    expect(calls).toEqual([REFUSED]);
+    expect(pass.terminal).toEqual([]);
   });
 
   test("rebases a refusal on the pass's last attempt", async () => {

@@ -3190,6 +3190,11 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                   "type": "string"
                 },
+                "dependencyVersionVector": {
+                  "maxLength": 16777216,
+                  "minLength": 1,
+                  "type": "string"
+                },
                 "encryptedData": {
                   "maxLength": 16777216,
                   "minLength": 1,
@@ -3225,6 +3230,7 @@
                 }
               },
               "required": [
+                "dependencyVersionVector",
                 "encryptedData",
                 "id",
                 "partialEndVersionVector",
@@ -3546,6 +3552,7 @@
             "enum": [
               "document_sync_checkpoint_coverage_conflict",
               "document_sync_conflict",
+              "document_sync_dependency_uncommitted",
               "document_sync_descendant_rekeys_required",
               "document_sync_peer_owned",
               "document_sync_state_stale",
@@ -3625,6 +3632,11 @@
             "type": "string",
             "description": "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor."
           },
+          "dependencyVersionVector": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Version vector of the operations the update depends on outside itself: one past each peer's latest such operation, as Loro decodes the payload's start frontiers. Signed in the content-record metadata. The server refuses an update that depends on an operation it has not committed (`document_sync_dependency_uncommitted`), and a reader voids one whose payload depends on other operations. Empty on a rotation baseline."
+          },
           "encryptedData": {
             "type": "string",
             "minLength": 1,
@@ -3663,6 +3675,7 @@
           }
         },
         "required": [
+          "dependencyVersionVector",
           "encryptedData",
           "id",
           "partialEndVersionVector",
@@ -3695,7 +3708,7 @@
           "committedEndCounter"
         ],
         "additionalProperties": {},
-        "description": "A Loro peer the request extended that another user owns."
+        "description": "A Loro peer the request extended that another user owns, or depends on past its committed frontier."
       },
       "DocumentPurgeProofResponse": {
         "type": "object",
@@ -3870,6 +3883,7 @@
             "enum": [
               "document_sync_checkpoint_coverage_conflict",
               "document_sync_conflict",
+              "document_sync_dependency_uncommitted",
               "document_sync_descendant_rekeys_required",
               "document_sync_peer_owned",
               "document_sync_state_stale",
@@ -3886,7 +3900,7 @@
               "$ref": "#/components/schemas/DocumentPeerFrontier"
             },
             "maxItems": 64,
-            "description": "With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request."
+            "description": "With `document_sync_peer_owned`, up to 64 peers another user owns that the request extends; with `document_sync_dependency_uncommitted`, up to 64 peers the request depends on past their committed frontier. Each carries the frontier committed before the request."
           },
           "principalHeads": {
             "type": "array",
@@ -3902,7 +3916,7 @@
           "error"
         ],
         "additionalProperties": {},
-        "description": "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop."
+        "description": "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop."
       },
       "DocumentSyncPullPageResponse": {
         "type": "object",
@@ -4180,6 +4194,11 @@
                   "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
                   "type": "string"
                 },
+                "dependencyVersionVector": {
+                  "maxLength": 16777216,
+                  "minLength": 1,
+                  "type": "string"
+                },
                 "encryptedData": {
                   "maxLength": 16777216,
                   "minLength": 1,
@@ -4215,6 +4234,7 @@
                 }
               },
               "required": [
+                "dependencyVersionVector",
                 "encryptedData",
                 "id",
                 "partialEndVersionVector",
@@ -4388,6 +4408,10 @@
           "createdAt": {
             "type": "string"
           },
+          "dependencyVersionVector": {
+            "type": "string",
+            "description": "Version vector of the operations the update depends on outside itself, as its writer signed it; every one was committed when the update was accepted."
+          },
           "documentId": {
             "type": "string"
           },
@@ -4427,6 +4451,7 @@
           "accessEpoch",
           "authorFingerprint",
           "createdAt",
+          "dependencyVersionVector",
           "documentId",
           "encryptedData",
           "id",

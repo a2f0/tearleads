@@ -28,6 +28,18 @@ to a fresh secret peer, writes everything past A again on it (the content
 stays, the attribution does not), and resubmits. Nobody knows the fresh peer,
 so the resubmission claims it, and everything else it carries is within F.
 
+Each update also depends on op ids its payload builds on, and a reader that
+lacks one voids it (part B2). Before the rule below, a member who had read a
+device's peer could commit an update on its own peer that depends on the
+device's next counter. Its spans name only its own peer, so ownership passed
+it. The device held that op unsent and accepted the update, while every other
+reader voided it, and then every later update the device built on it. Each
+update now declares its dependencies under its signature. The server refuses
+a declared dependency past F, naming its peer with F, and every reader voids
+an update whose payload depends on other op ids than it declares. Every reader
+then judges dependencies against committed ops, so all of them void the
+forged update.
+
 ## Actors
 
 - Two honest devices, each its own user, edit at the next counter of their
@@ -37,30 +49,39 @@ so the resubmission claims it, and everything else it carries is within F.
   every peer from counter 0. They rebase on a refusal (`Rebase`) and import
   the committed log (`Pull`).
 - A dishonest member commits forged content at one counter of a peer it can
-  name (`Forge`): a re-assertion below F, or the peer's next counter. It can
+  name (`Forge`): a re-assertion below F, or the peer's next counter. Or it
+  commits an op on its own peer whose payload depends on a nameable peer's
+  next counter, declaring that dependency or none (`ForgeDependent`). It can
   name only peers in the committed log (`Nameable`).
 - A republisher purges the document and recreates it from the committed
   history a reader holds (`Recreate`), at most `MaxRecreations` times.
-- Readers judge the committed log in server order (`Reader`, `JudgeFrom`).
+- Readers judge the committed log in server order (`Reader`, `JudgeFrom`): an
+  entry is void when it reuses a held op id with other content, depends on an
+  op id they do not hold, or depends on other op ids than it declares
+  (`Unreadable`). A device judges from what it holds, unsent ops included.
 
 A request is one update here, and the device's request and the server's
 locked processing are one step. The owner row is the writer of the first
 committed entry carrying a peer, because that entry is past F = 0 and claims
-it. Every writer declares exactly the operations it carries.
+it. Every writer declares exactly the operations it carries. An honest update
+depends on every op the device holds that it does not carry, and declares
+exactly that; a recreation's full history depends on nothing.
 
 ## Production Mapping
 
 | Model action or predicate | Production implementation |
 | --- | --- |
-| `Submit` / `Refuses` / `Preempting` | `claimDocumentPeers`, called from `appendDocumentUpdates` with the request's newly verified updates while the document head lock is held; its pure core `judgeDocumentPeerSpans` walks the spans in request order and raises each frontier as it goes |
+| `Submit` / `Refuses` / `Preempting` / `Uncommitted` | `claimDocumentPeers`, called from `appendDocumentUpdates` with the request's newly verified updates while the document head lock is held; its pure core `judgeDocumentPeerSpans` walks each update's declared dependencies, then its spans, in request order and raises each frontier as it goes |
 | `Owner` | a `document_peer_owners` row (`documentPeerOwners`), written by `claimDocumentPeers` when a span past the frontier extends an unowned peer |
 | `Frontier` | `readCommittedDocumentPeers`, which reads each named peer's highest committed span end with its owner row |
-| `RefusedPeers` / `refusal` | the 409 `document_sync_peer_owned`, whose `peerFrontiers` name at most `MAX_DOCUMENT_PEER_FRONTIERS` refused peers with the frontier committed before the request, which rolls back |
+| `RefusedPeers` / `refusal` | the 409 `document_sync_peer_owned`, or `document_sync_dependency_uncommitted` when no span is refused, whose `peerFrontiers` name at most `MAX_DOCUMENT_PEER_FRONTIERS` refused peers with the frontier committed before the request, which rolls back |
+| `deps` and an entry's declared set | the `dependencyVersionVector` that `encryptDocumentPendingUpdate` reads from the payload with `getImportBlobMetadata` and signs in `computeDocumentContentRecordMetadataHash`; the server stores it in `documentUpdates.dependencyVersionVector` and serves it |
 | `Rebase` / `ForkPoint` / `Renumber` | `rebaseOntoFreshPeer`, which cuts each refused peer at min(live, F), keeps every other peer whole, and writes the cut operations' net effect under a fresh peer; the sync failure action `rebase_peer` runs it and resubmits |
 | `CurrentPeer` / `Nameable` | `recordPeerSeed`, which derives a record's peer from a device-local secret seed |
 | `Recreate` | `runPurgeDocumentWorkflow`, whose `deleteDocumentRows` deletes the document's owner rows, followed by a member recreating the document from its copy |
-| `Reader` / `JudgeFrom` / `Pull` | `judgeOnScratch`, which voids the later carrier of a reused op id |
-| `Forge` | a modified client's request, judged by the same `claimDocumentPeers` |
+| `Reader` / `JudgeFrom` / `Pull` | `judgeOnScratch`, which voids the later carrier of a reused op id and an update whose dependencies it lacks |
+| `Unreadable` | `assertDecryptedDocumentUpdateMetadata`, which voids at stage `loro_metadata` an update whose decoded dependencies differ from its declared ones |
+| `Forge` / `ForgeDependent` | a modified client's request, judged by the same `claimDocumentPeers` |
 
 The server rule is in
 [`documentPeerOwners.ts`](../../packages/api/src/documents/documentPeerOwners.ts),
@@ -72,8 +93,10 @@ and the purge in
 [`purgeDocument.ts`](../../packages/api/src/workflows/documents/mutations/purgeDocument.ts)
 deletes its rows through
 [`purgeDocumentRows.ts`](../../packages/api/src/workflows/documents/mutations/purgeDocumentRows.ts).
-The refusal is declared in
-[`documentSyncError.ts`](../../packages/validators/src/response/documentSyncError.ts).
+The refusals are declared in
+[`documentSyncError.ts`](../../packages/validators/src/response/documentSyncError.ts),
+and the reader's dependency check is in
+[`documentUpdateIntegrity.ts`](../../packages/client-sdk/src/data/documents/shared/documentUpdateIntegrity.ts).
 The device side is
 [`peerRebase.ts`](../../packages/client-sdk/src/data/documents/shared/sync/peerRebase.ts),
 the failure action in
@@ -94,10 +117,15 @@ that:
   device committed passes, and the invariant does not depend on the server's
   own owner rows;
 - an honest request is refused only for a span past F on a peer another user
-  owns, never for a re-assertion within F (`ReassertionsNeverRefused`);
+  owns, never for a re-assertion within F nor for a dependency
+  (`ReassertionsNeverRefused`);
 - every refusal of a device, and so every rebase, is paid for by its own
   recreation (`RebaseCannotLoop`), so the resubmission after a rebase is never
-  refused.
+  refused;
+- no device accepts a committed update that a fresh reader voids
+  (`ReadersAgree`), so nothing a device builds on is void for the other
+  readers. A device voiding what a fresh reader accepts is a preemption of its
+  unsent operations, which `NoPreemption` excludes.
 
 An honest request here holds unsent operations on one peer, its current one,
 so a refusal names one peer and `MAX_DOCUMENT_PEER_FRONTIERS` never binds. A
@@ -127,12 +155,18 @@ named violation on every run:
 | `RefuseForeignSpans = TRUE` | `ReassertionsNeverRefused`: a device that pulled another device's operation is refused for re-asserting it within F alongside its own first edit |
 | `NoRebase = TRUE` | `HonestWorkEventuallyCommitted`: a recreation claims a device's peer, and the device's unsent edit is refused on every retry |
 | `PublicPeers = TRUE` | `HonestUpdatesAccepted`: the dishonest member claims a device's peer at counter 0 before its first commit, so the device's update is a re-assertion within F that every reader voids |
+| `NoDependencyCheck = TRUE` | `ReadersAgree`: after a device's first commit, while it holds its next counter unsent, the dishonest member commits an op depending on that counter; the device accepts it and a fresh reader voids it |
+| `NoDeclaredJudge = TRUE` | `ReadersAgree`: the same forged op declares no dependency, so the server's dependency rule passes it, and only the device accepts it |
 
 ## Outside the Model
 
-- Dependencies on a peer's predicted op ids (part B2), and so the causal
-  closure `rebaseOntoFreshPeer` takes before it cuts. B2 adds a switch and a
-  `ReadersAgree` invariant.
+- The causal closure `rebaseOntoFreshPeer` takes before it cuts, and a
+  dependency refusal of an honest update, which needs a recreation that lost
+  an op the update depends on. A recreation here carries everything a reader
+  holds, so it loses nothing.
+- Dependencies as Loro records them: the frontier of the ops a change was made
+  on. An honest update here depends on everything the device holds that it
+  does not carry, which is that frontier's closure.
 - Overclaims on one's own peer, which
   [VoidUpdateProgress](./VoidUpdateProgress.md) covers.
 - Several devices of one user, which share ownership of each other's peers.
@@ -143,16 +177,26 @@ named violation on every run:
   resubmission is a re-assertion that readers void. This is an accepted
   residual.
 - A recreation from a stale copy, which loses what the copy lacks, as any
-  purge does; the in-order walk across several updates of one request, which
-  the collapse into one update leaves out; and lost acknowledgements.
+  purge does. A peer the copy lacks entirely is left unowned while a device
+  still holds operations on it, so a member who knows it can claim it: with
+  forged operations at the device's counters, which other readers accept and
+  the device voids, or with a void span over them and then an update that
+  depends on them, which the device accepts and other readers void. F counts
+  the spans of void updates, so the dependency rule cannot tell such a cover
+  from committed operations.
+- The in-order walk across several updates of one request, in which an
+  update may depend on an earlier one, which the collapse into one update
+  leaves out; and lost acknowledgements.
 
 ## Bounds
 
 The configuration bounds two edits per device, one recreation, and one
-forgery. TLC explores 90,450 generated and 27,087 distinct states at depth 19
-in about 18 seconds with one worker. Two forgeries also passed (560,419
-generated and 165,500 distinct states in about 2 minutes). Within these
-bounds both devices can be refused by one recreation and rebase, a rebased
-resubmission re-asserts the old peer the republisher owns, and a forged
-re-assertion within F is committed and voided. This is exhaustive bounded
-model checking, not an unbounded proof.
+forgery. TLC explores 200,386 generated and 64,487 distinct states at depth 19
+in about 55 seconds with one worker. Two forgeries also passed (2,784,619
+generated and 893,624 distinct states at depth 20 in about 4.5 minutes with
+four workers). Within these bounds both devices can be refused by one
+recreation and rebase, a rebased resubmission re-asserts the old peer the
+republisher owns, a forged re-assertion within F is committed and voided, a
+forged dependency on a device's unsent counter is refused, and one that
+declares no dependency is committed and voided by every reader. This is
+exhaustive bounded model checking, not an unbounded proof.

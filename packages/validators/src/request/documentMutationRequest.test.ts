@@ -227,6 +227,7 @@ test("isDocumentLinkSetMutationRequest", () => {
     checkpointPayloadKind: "full_history_snapshot" as const,
     id: "550e8400-e29b-41d4-a716-446655440111",
     encryptedData: "ciphertext",
+    dependencyVersionVector: "{}",
     partialStartVersionVector: "{}",
     partialEndVersionVector: '{"actor":1}',
     plaintextHash: "plaintext-hash",
@@ -269,6 +270,7 @@ test("isDocumentLinkSetMutationRequest", () => {
       event: { eventType: "document.unlink" },
       rotationBaseline: {
         ...rotationBaseline,
+        dependencyVersionVector: "{}",
         partialEndVersionVector: largeRotationVector,
         partialStartVersionVector: largeRotationVector,
         sourceVersionVector: largeRotationVector,
@@ -398,6 +400,7 @@ test("isDocumentSyncRequest", () => {
     checkpointPayloadKind: "full_history_snapshot" as const,
     id: "550e8400-e29b-41d4-a716-446655440111",
     encryptedData: "ciphertext",
+    dependencyVersionVector: "{}",
     partialStartVersionVector: "{}",
     partialEndVersionVector: '{"actor":1}',
     plaintextHash: "plaintext-hash",

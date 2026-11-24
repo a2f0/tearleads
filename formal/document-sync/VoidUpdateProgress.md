@@ -227,11 +227,14 @@ document isolating suspects that waits longer than the window gate allows (30
 seconds) for other documents' windows to close, which then reads beside them
 and counts nothing, so it only delays progress as a stutter would; the
 record of import voids that spares a device a second import of an update under
-the same judge; and devices' own writes. An honest writer depends only
-on operations committed before its update. A dishonest writer that forges a
-dependency on a later update can make a device that judges an update again
-(after an upgrade or a replaced state) accept what a device judging in server
-order voided; that is left to the forged-dependency follow-up.
+the same judge; and devices' own writes. Every update's dependencies are on
+operations committed before it: the server refuses a declared dependency past
+its peer's committed frontier, and readers void an update whose payload
+depends on other operations than it declares (#3194, B2). So a dishonest
+writer can no longer forge a dependency on a later update that a device
+judging an update again (after an upgrade or a replaced state) would accept
+while a device judging in server order voided it.
+[PeerOwnership](./PeerOwnership.md) models that rule.
 
 The configuration bounds two devices, two updates, two decoder versions, one
 state replacement, and two attempts over two process lifetimes on one device

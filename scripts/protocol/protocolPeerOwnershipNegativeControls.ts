@@ -36,4 +36,20 @@ export const PEER_OWNERSHIP_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "HonestUpdatesAccepted" },
     why: "A peer named before its first commit lets a squatter claim the device's first counters, so the device's update is a re-assertion every reader voids (#3194).",
   },
+  {
+    id: "peer-ownership-no-dependency-check",
+    module: MODULE,
+    config: CONFIG,
+    constants: { NoDependencyCheck: "TRUE" },
+    expect: { kind: "invariant", name: "ReadersAgree" },
+    why: "Without the dependency rule a member commits an update depending on a device's next counter: the device, holding that op unsent, accepts it while every other reader voids it (#3194).",
+  },
+  {
+    id: "peer-ownership-undeclared-dependency",
+    module: MODULE,
+    config: CONFIG,
+    constants: { NoDeclaredJudge: "TRUE" },
+    expect: { kind: "invariant", name: "ReadersAgree" },
+    why: "Unless readers compare an update's dependencies with those it declares, a member declares none, passes the dependency rule, and the device alone accepts its update (#3194).",
+  },
 ];

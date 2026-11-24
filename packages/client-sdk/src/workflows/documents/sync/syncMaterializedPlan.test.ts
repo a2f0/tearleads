@@ -2,6 +2,11 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { type AccessEvent, generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
+  createDocument,
+  exportAllUpdates,
+  getUpdateVersionVectors,
+} from "@tearleads/loro";
+import {
   createContainerWriterProjectionFixture,
   createTestExecSql,
 } from "@tearleads/test-utils";
@@ -353,12 +358,25 @@ test("buildMaterializedDocumentSyncPlan verifies linked document manifest histor
   );
 });
 
+/** A real Loro update, since encryption reads its dependencies. */
+async function loroPayload(text: string) {
+  const document = await createDocument(`fresh-iv-${text}`);
+  document.getText("text").update(text);
+  document.commit();
+  const update = exportAllUpdates(document);
+  document.free();
+  return {
+    ...getUpdateVersionVectors(update),
+    updateData: bytesToBase64(update),
+  };
+}
+
 test("buildMaterializedDocumentSyncPlan uses a fresh IV for same-domain re-encryption", async () => {
   const { author, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
-  const sharedUpdate = createPendingUpdateRecord({
-    updateData: bytesToBase64(new TextEncoder().encode("first payload")),
-  });
+  const sharedUpdate = createPendingUpdateRecord(
+    await loroPayload("first payload"),
+  );
   const first = await buildMaterializedDocumentSyncPlan({
     author,
     localVersionVector: null,
@@ -372,10 +390,7 @@ test("buildMaterializedDocumentSyncPlan uses a fresh IV for same-domain re-encry
     author,
     localVersionVector: null,
     pendingUpdates: [
-      {
-        ...sharedUpdate,
-        updateData: bytesToBase64(new TextEncoder().encode("second payload")),
-      },
+      { ...sharedUpdate, ...(await loroPayload("second payload")) },
     ],
     signedAt: "2026-04-27T00:00:00.000Z",
     targetSecretKey: secretKey,

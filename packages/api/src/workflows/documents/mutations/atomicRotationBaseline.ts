@@ -62,6 +62,7 @@ export async function assertAtomicRotationBaselineCoversCommittedFrontier(
     !(await isAuthenticatedReplayableBaseline({
       checkpointKind: metadata.checkpointKind,
       coversThroughUpdateId: metadata.coversThroughUpdateId,
+      dependencyVersionVector: input.baseline.dependencyVersionVector,
       documentId: input.documentId,
       metadataHash: header.metadataHash,
       partialEndVersionVector: input.baseline.partialEndVersionVector,

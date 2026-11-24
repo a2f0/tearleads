@@ -33,6 +33,7 @@ async function checkpointFixture() {
   };
   return {
     checkpoint,
+    dependencyVersionVector: emptyVersionVector(),
     documentId,
     partialEndVersionVector,
     partialStartVersionVector,
@@ -46,6 +47,7 @@ test("authenticates checkpoint metadata before adding it to a sync response", as
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     checkpointKind: fixture.checkpoint.checkpointKind,
     checkpointPayloadKind: fixture.checkpoint.checkpointPayloadKind,
+    dependencyVersionVector: fixture.dependencyVersionVector,
     documentId: fixture.documentId,
     partialEndVersionVector: fixture.partialEndVersionVector,
     partialStartVersionVector: fixture.partialStartVersionVector,
@@ -65,6 +67,7 @@ test("authenticates checkpoint metadata before adding it to a sync response", as
 test("fails closed when signed metadata omits checkpoint fields", async () => {
   const fixture = await checkpointFixture();
   const ordinaryMetadataHash = await computeDocumentContentRecordMetadataHash({
+    dependencyVersionVector: fixture.dependencyVersionVector,
     documentId: fixture.documentId,
     partialEndVersionVector: fixture.partialEndVersionVector,
     partialStartVersionVector: fixture.partialStartVersionVector,
@@ -102,6 +105,7 @@ test("fails closed when the stored plaintext hash differs from signed metadata",
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     checkpointKind: fixture.checkpoint.checkpointKind,
     checkpointPayloadKind: fixture.checkpoint.checkpointPayloadKind,
+    dependencyVersionVector: fixture.dependencyVersionVector,
     documentId: fixture.documentId,
     partialEndVersionVector: fixture.partialEndVersionVector,
     partialStartVersionVector: fixture.partialStartVersionVector,
@@ -125,6 +129,7 @@ test("fails closed when the stored plaintext hash differs from signed metadata",
 test("fails closed when an ordinary update plaintext hash differs from signed metadata", async () => {
   const fixture = await checkpointFixture();
   const metadataHash = await computeDocumentContentRecordMetadataHash({
+    dependencyVersionVector: fixture.dependencyVersionVector,
     documentId: fixture.documentId,
     partialEndVersionVector: fixture.partialEndVersionVector,
     partialStartVersionVector: fixture.partialStartVersionVector,
@@ -135,6 +140,7 @@ test("fails closed when an ordinary update plaintext hash differs from signed me
   await expect(
     authenticateSyncCheckpointForResponse({
       checkpoint: undefined,
+      dependencyVersionVector: fixture.dependencyVersionVector,
       documentId: fixture.documentId,
       metadataHash,
       partialEndVersionVector: fixture.partialEndVersionVector,
@@ -153,6 +159,7 @@ test("fails closed when an authenticated checkpoint lost its checkpoint row", as
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     checkpointKind: fixture.checkpoint.checkpointKind,
     checkpointPayloadKind: fixture.checkpoint.checkpointPayloadKind,
+    dependencyVersionVector: fixture.dependencyVersionVector,
     documentId: fixture.documentId,
     partialEndVersionVector: fixture.partialEndVersionVector,
     partialStartVersionVector: fixture.partialStartVersionVector,

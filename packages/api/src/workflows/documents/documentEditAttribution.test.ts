@@ -66,6 +66,7 @@ async function insertUpdate(input: {
           sourceVersionVector: input.checkpointSourceVersionVector,
         }
       : {}),
+    dependencyVersionVector: emptyVersionVector(),
     documentId: input.documentId,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector,
@@ -77,6 +78,7 @@ async function insertUpdate(input: {
     authorFingerprint: input.writerKeyFingerprint,
     byteLength: new TextEncoder().encode(input.encryptedData).byteLength,
     createdAt: new Date(input.createdAt),
+    dependencyVersionVector: emptyVersionVector(),
     documentId: input.documentId,
     encryptedData: input.encryptedData,
     id,
@@ -240,6 +242,7 @@ test("rejects attribution spans whose write-header identity is missing", async (
     accessEpoch: 1,
     authorFingerprint: "missing-header",
     byteLength: 7,
+    dependencyVersionVector: emptyVersionVector(),
     documentId: document.id,
     encryptedData: "payload",
     id: updateId,

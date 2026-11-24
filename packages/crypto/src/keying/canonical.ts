@@ -157,6 +157,7 @@ export function documentContentRecordMetadata(
     updateId: input.updateId,
     partialStartVersionVector: input.partialStartVersionVector,
     partialEndVersionVector: input.partialEndVersionVector,
+    dependencyVersionVector: input.dependencyVersionVector,
     plaintextHash: input.plaintextHash,
     ...(input.checkpointKind === undefined
       ? {}

@@ -6,6 +6,7 @@ import {
 } from "./outgoingUpdateVerification";
 
 const stored = {
+  dependencyVersionVector: "dependency-vector",
   encryptedData: "encrypted-update",
   partialEndVersionVector: "end-vector",
   partialStartVersionVector: "start-vector",
@@ -16,6 +17,7 @@ test("stored update matching commits to every persisted content field", () => {
   expect(storedDocumentUpdateMatchesOutgoingContent(stored, stored)).toBe(true);
 
   for (const changed of [
+    { ...stored, dependencyVersionVector: "other-dependency-vector" },
     { ...stored, encryptedData: "other-encrypted-update" },
     { ...stored, partialEndVersionVector: "other-end-vector" },
     { ...stored, partialStartVersionVector: "other-start-vector" },

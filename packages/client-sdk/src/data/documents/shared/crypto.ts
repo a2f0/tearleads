@@ -8,6 +8,7 @@ import {
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { getImportBlobMetadata } from "@tearleads/loro";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import type { PendingUpdateRecord } from "../../persistence/documents/records";
 import { contentRecordAdditionalDataBytes } from "./contentRecordAdditionalData";
@@ -36,6 +37,34 @@ import {
 } from "./sync/documentUpdateVerdict";
 import { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "./types";
 
+/** The content-record metadata a pending update signs and readers recompute. */
+function pendingUpdateMetadataHash(input: {
+  coversThroughUpdateId?: string | undefined;
+  dependencyVersionVector: string;
+  documentId: string;
+  plaintextHash: string;
+  update: PendingUpdateRecord;
+}): Promise<string> {
+  return computeDocumentContentRecordMetadataHash({
+    ...(input.update.sourceVersionVector
+      ? {
+          checkpointKind: "rotate_baseline" as const,
+          checkpointPayloadKind: "full_history_snapshot" as const,
+          sourceVersionVector: input.update.sourceVersionVector,
+          ...(input.coversThroughUpdateId === undefined
+            ? {}
+            : { coversThroughUpdateId: input.coversThroughUpdateId }),
+        }
+      : {}),
+    dependencyVersionVector: input.dependencyVersionVector,
+    documentId: input.documentId,
+    partialEndVersionVector: input.update.partialEndVersionVector,
+    partialStartVersionVector: input.update.partialStartVersionVector,
+    plaintextHash: input.plaintextHash,
+    updateId: input.update.id,
+  });
+}
+
 export async function encryptDocumentPendingUpdate(input: {
   /** The epoch's key, opened for this document and `contentKeyEpoch`. */
   contentKey: DocumentContentKey;
@@ -47,6 +76,8 @@ export async function encryptDocumentPendingUpdate(input: {
   coversThroughUpdateId?: string | undefined;
 }): Promise<DocumentEncryptedPendingUpdate> {
   const plaintext = base64ToBytes(input.update.updateData);
+  // Declared as Loro decodes the bytes sent, so every reader finds it equal.
+  const { dependencyVersionVector } = getImportBlobMetadata(plaintext);
   const contentRecordId = input.update.id;
   const nonceDomainHash = await computeContentRecordNonceDomainHash({
     version: 1,
@@ -69,22 +100,10 @@ export async function encryptDocumentPendingUpdate(input: {
     plaintext,
     plaintextHashKey,
   );
-  const metadataHash = await computeDocumentContentRecordMetadataHash({
-    ...(input.update.sourceVersionVector
-      ? {
-          checkpointKind: "rotate_baseline" as const,
-          checkpointPayloadKind: "full_history_snapshot" as const,
-          sourceVersionVector: input.update.sourceVersionVector,
-          ...(input.coversThroughUpdateId === undefined
-            ? {}
-            : { coversThroughUpdateId: input.coversThroughUpdateId }),
-        }
-      : {}),
-    documentId: input.documentId,
-    partialEndVersionVector: input.update.partialEndVersionVector,
-    partialStartVersionVector: input.update.partialStartVersionVector,
+  const metadataHash = await pendingUpdateMetadataHash({
+    ...input,
+    dependencyVersionVector,
     plaintextHash,
-    updateId: input.update.id,
   });
   const recordKey = await deriveDocumentContentRecordKey({
     ...keyInput,
@@ -124,6 +143,7 @@ export async function encryptDocumentPendingUpdate(input: {
 
   return {
     contentRecordId,
+    dependencyVersionVector,
     encryptedData,
     metadataHash,
     plaintextHash,

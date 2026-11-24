@@ -7,7 +7,10 @@ export interface DocumentSyncSubmitFailure {
   readonly code?: string | undefined;
   readonly message: string;
   readonly ok: false;
-  /** The refused peers of a `document_sync_peer_owned` refusal. */
+  /**
+   * The refused peers of a `document_sync_peer_owned` or
+   * `document_sync_dependency_uncommitted` refusal.
+   */
   readonly peerFrontiers?: readonly DocumentPeerFrontier[] | undefined;
   readonly report: () => void;
   readonly stalePrincipalHeads?:

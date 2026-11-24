@@ -21,6 +21,7 @@ export async function createSignedSyncResponseUpdate(input: {
   const id = input.id ?? "550e8400-e29b-41d4-a716-446655440555";
   const partialStartVersionVector = "{}";
   const partialEndVersionVector = '{"actor":3}';
+  const dependencyVersionVector = "{}";
   const plaintextHash = await fixtureHash(`plaintext:${id}`);
   const contentKeyEpoch = input.contentKeyEpoch ?? input.plan.contentKeyEpoch;
   const nonceDomain = {
@@ -35,6 +36,7 @@ export async function createSignedSyncResponseUpdate(input: {
   const { encryptedData, metadataHash, nonceDomainHash } =
     await createDocumentEncryptedUpdateFixture({
       contentKeyEpoch,
+      dependencyVersionVector,
       documentId: input.plan.documentId,
       id,
       organizationId: input.plan.organizationId,
@@ -74,6 +76,7 @@ export async function createSignedSyncResponseUpdate(input: {
     id,
     documentId: input.plan.documentId,
     authorFingerprint: input.author.signerKeyFingerprint,
+    dependencyVersionVector,
     encryptedData,
     partialStartVersionVector,
     partialEndVersionVector,

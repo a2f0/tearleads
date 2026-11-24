@@ -173,6 +173,7 @@ export async function signDocumentOutgoingUpdate(input: {
       ? {}
       : { coversThroughUpdateId: input.update.coversThroughUpdateId }),
     id: input.update.id,
+    dependencyVersionVector: input.update.dependencyVersionVector,
     encryptedData: input.update.encryptedData,
     partialStartVersionVector: input.update.partialStartVersionVector,
     partialEndVersionVector: input.update.partialEndVersionVector,

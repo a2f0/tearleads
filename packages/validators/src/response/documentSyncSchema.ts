@@ -97,6 +97,7 @@ export const DocumentSyncUpdateResponseSchema =
         .optional(),
       coversThroughUpdateId: z.string().optional(),
       createdAt: z.string(),
+      dependencyVersionVector: z.string(),
       documentId: z.string(),
       encryptedData: z.string(),
       id: z.string(),

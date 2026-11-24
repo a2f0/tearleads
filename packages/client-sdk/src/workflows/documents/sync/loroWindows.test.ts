@@ -248,6 +248,7 @@ test("a trap stops its lifetime's window counting", async () => {
   const host = device();
   const { update: readable } = await honest(FIRST);
   const trapping: DecryptedDocumentSyncUpdate = {
+    dependencyVersionVector: readable.dependencyVersionVector,
     id: readable.id,
     partialEndVersionVector: readable.partialEndVersionVector,
     partialStartVersionVector: readable.partialStartVersionVector,

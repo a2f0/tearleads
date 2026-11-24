@@ -87,6 +87,7 @@ test("an unrelated existing update is not an inline rekey commit", async () => {
     accessEpoch: 1,
     authorFingerprint: "inline-rekey-ordinary-update-test",
     byteLength: 16,
+    dependencyVersionVector: "AA==",
     documentId,
     encryptedData: "encrypted-update",
     id: updateId,

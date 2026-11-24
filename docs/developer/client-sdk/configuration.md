@@ -288,7 +288,8 @@ chains; sync derives successor targets and coded retries. Preserve
 epochs throw `DocumentRawHistoryUnavailableError`.
 
 A request may pass `rebaseOntoFreshPeer`, a `DocumentPeerRebaser`. When the
-API refuses the pass with `document_sync_peer_owned` and names
+API refuses the pass with `document_sync_peer_owned` or
+`document_sync_dependency_uncommitted` and names
 `peerFrontiers`, the pass hands them to it and returns `null`. The hook moves
 the document's unsent operations onto a fresh peer
 ([peer ownership](../../advisory-op-spans.md#rebasing-onto-a-fresh-peer)) and

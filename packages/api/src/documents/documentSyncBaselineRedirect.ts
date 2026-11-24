@@ -109,6 +109,7 @@ async function loadLatestReadableBaseline(
   const rows = await executor
     .select({
       coversThroughUpdateId: documentUpdates.baselineCoversThroughUpdateId,
+      dependencyVersionVector: documentUpdates.dependencyVersionVector,
       header: documentContentWriteHeaders.header,
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
@@ -145,6 +146,7 @@ async function loadLatestReadableBaseline(
       await isAuthenticatedReplayableBaseline({
         checkpointKind: "rotate_baseline",
         coversThroughUpdateId,
+        dependencyVersionVector: row.dependencyVersionVector,
         documentId: input.documentId,
         metadataHash: row.header.metadataHash,
         partialEndVersionVector: row.partialEndVersionVector,

@@ -63,6 +63,7 @@ test.skipIf(databaseKind !== "postgres")(
         accessEpoch: currentTargets.linkSetEpoch,
         authorFingerprint: owner.fingerprint,
         byteLength: new TextEncoder().encode(update.encryptedData).byteLength,
+        dependencyVersionVector: update.dependencyVersionVector,
         documentId: created.id,
         encryptedData: update.encryptedData,
         id: updateId,

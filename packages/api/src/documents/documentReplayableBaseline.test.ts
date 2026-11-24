@@ -16,9 +16,11 @@ async function fixture() {
   const partialStartVersionVector = emptyVersionVector();
   const partialEndVersionVector = encodeVersionVector(document);
   const plaintextHash = "replayable-baseline-plaintext-hash";
+  const dependencyVersionVector = emptyVersionVector();
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     checkpointKind: "rotate_baseline",
     checkpointPayloadKind: "full_history_snapshot",
+    dependencyVersionVector,
     documentId,
     partialEndVersionVector,
     partialStartVersionVector,
@@ -28,6 +30,7 @@ async function fixture() {
   });
   return {
     checkpointKind: "rotate_baseline",
+    dependencyVersionVector,
     documentId,
     metadataHash,
     partialEndVersionVector,
@@ -45,6 +48,7 @@ test("accepts a consistent checkpoint with an authenticated replayable-snapshot 
 test("rejects a legacy checkpoint whose metadata hash did not bind checkpoint fields", async () => {
   const baseline = await fixture();
   const legacyMetadataHash = await computeDocumentContentRecordMetadataHash({
+    dependencyVersionVector: baseline.dependencyVersionVector,
     documentId: baseline.documentId,
     partialEndVersionVector: baseline.partialEndVersionVector,
     partialStartVersionVector: baseline.partialStartVersionVector,
@@ -78,6 +82,7 @@ test("rejects an authenticated dependency-bearing rotation baseline", async () =
   const metadataHash = await computeDocumentContentRecordMetadataHash({
     checkpointKind: "rotate_baseline",
     checkpointPayloadKind: "full_history_snapshot",
+    dependencyVersionVector: baseline.dependencyVersionVector,
     documentId: baseline.documentId,
     partialEndVersionVector: baseline.partialEndVersionVector,
     partialStartVersionVector,
@@ -91,6 +96,30 @@ test("rejects an authenticated dependency-bearing rotation baseline", async () =
       ...baseline,
       metadataHash,
       partialStartVersionVector,
+    }),
+  ).toBe(false);
+});
+
+test("rejects an authenticated rotation baseline that declares dependencies", async () => {
+  const baseline = await fixture();
+  const dependencyVersionVector = baseline.partialEndVersionVector;
+  const metadataHash = await computeDocumentContentRecordMetadataHash({
+    checkpointKind: "rotate_baseline",
+    checkpointPayloadKind: "full_history_snapshot",
+    dependencyVersionVector,
+    documentId: baseline.documentId,
+    partialEndVersionVector: baseline.partialEndVersionVector,
+    partialStartVersionVector: baseline.partialStartVersionVector,
+    plaintextHash: baseline.plaintextHash,
+    sourceVersionVector: baseline.sourceVersionVector,
+    updateId: baseline.updateId,
+  });
+
+  expect(
+    await isAuthenticatedReplayableBaseline({
+      ...baseline,
+      dependencyVersionVector,
+      metadataHash,
     }),
   ).toBe(false);
 });

@@ -264,6 +264,7 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 | Code                                         | Client action                                  |
 | -------------------------------------------- | ---------------------------------------------- |
 | `document_sync_checkpoint_coverage_conflict` | Regenerate the queued rotation checkpoint.     |
+| `document_sync_dependency_uncommitted`       | Move unsent ops off the named peers, retry.    |
 | `document_sync_descendant_rekeys_required`   | Commit the container rekeys standalone, retry. |
 | `document_sync_peer_owned`                   | Move unsent ops off the named peers, retry.    |
 | `document_sync_state_stale`                  | Refetch the writer projection and replan.      |
@@ -297,5 +298,11 @@ peers in canonical order, each as a decimal `peerId` with the
 refused on more peers is refused again for the rest after its retry. Counters
 below that frontier may be re-asserted by any writer, so the client keeps
 everything there, moves its unsent operations past it onto a fresh peer, and
-resubmits. Other conflict codes ignore `peerFrontiers`. The rule is in
+resubmits. A sync with an update that depends on an operation past its peer's
+committed frontier (a [dependency frontier](./glossary/sync.md#dependency-frontier)
+neither committed nor carried by an earlier update of the request) is refused
+whole with `document_sync_dependency_uncommitted` and the same
+`peerFrontiers[]`, and the client recovers the same way. A request refused for
+both carries `document_sync_peer_owned`. Other conflict codes ignore
+`peerFrontiers`. The rules are in
 [advisory op spans](./advisory-op-spans.md#what-the-server-checks).

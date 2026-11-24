@@ -59,6 +59,7 @@ test("duplicate response ids receive anonymous batch attribution", async () => {
     documentId: "document-id",
     encryptedData: "encrypted-data",
     id: duplicateId,
+    dependencyVersionVector: "AA==",
     partialEndVersionVector: "AA==",
     partialStartVersionVector: "AA==",
     plaintextHash: "plaintext-hash",
@@ -77,12 +78,14 @@ test("duplicate response ids receive anonymous batch attribution", async () => {
       decryptedUpdates: [
         {
           id: duplicateId,
+          dependencyVersionVector: "AA==",
           partialEndVersionVector: "AA==",
           partialStartVersionVector: "AA==",
           updateData: new Uint8Array([1, 2, 3]),
         },
         {
           id: duplicateId,
+          dependencyVersionVector: "AA==",
           partialEndVersionVector: "AA==",
           partialStartVersionVector: "AA==",
           updateData: new Uint8Array([4, 5, 6]),
@@ -131,6 +134,7 @@ test("scratch import voids a poison update, keeps its sibling, and leaves live s
     documentId: "document-id",
     encryptedData: "encrypted-data",
     id: invalidId,
+    dependencyVersionVector: "AA==",
     partialEndVersionVector: "AA==",
     partialStartVersionVector: "AA==",
     plaintextHash: "plaintext-hash",
@@ -152,6 +156,7 @@ test("scratch import voids a poison update, keeps its sibling, and leaves live s
       },
       {
         id: invalidId,
+        dependencyVersionVector: "AA==",
         partialEndVersionVector: "AA==",
         partialStartVersionVector: "AA==",
         updateData: new Uint8Array([1, 2, 3]),
@@ -329,6 +334,7 @@ test("each poison update is voided on its own and the valid sibling is kept", as
     decryptedUpdates: [
       ...poisonIds.map((id, index) => ({
         id,
+        dependencyVersionVector: "AA==",
         partialEndVersionVector: "AA==",
         partialStartVersionVector: "AA==",
         updateData: new Uint8Array([index + 1, 2, 3]),
@@ -356,12 +362,14 @@ test("poison checkpoints and deltas are each voided", async () => {
         checkpointKind: "rotate_baseline",
         checkpointPayloadKind: "full_history_snapshot",
         id: checkpointId,
+        dependencyVersionVector: "AA==",
         partialEndVersionVector: "AA==",
         partialStartVersionVector: "AA==",
         updateData: new Uint8Array([1, 2, 3]),
       },
       {
         id: deltaId,
+        dependencyVersionVector: "AA==",
         partialEndVersionVector: "AA==",
         partialStartVersionVector: "AA==",
         updateData: new Uint8Array([4, 5, 6]),

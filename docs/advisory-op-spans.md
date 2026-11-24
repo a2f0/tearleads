@@ -34,6 +34,19 @@ were backfilled to the user of their first update, or to the nil id, which no
 user has, when that author names no user. The rule is modeled in
 [`PeerOwnership.tla`](../formal/document-sync/PeerOwnership.md).
 
+Each update also signs, as `dependencyVersionVector`, the operations its
+payload depends on: its Loro start frontiers, each written as one past the
+operation's counter. A snapshot depends on nothing. In the same walk, before an
+update's spans, the server checks each of its
+[dependency frontiers](./glossary/sync.md#dependency-frontier) against the
+frontier the walk has reached, which counts earlier updates of the request. One
+past it rolls the request back with 409
+`document_sync_dependency_uncommitted`, whose `peerFrontiers` name the peers
+the same way. A peer another user owns outranks it, so a request refused for
+both carries `document_sync_peer_owned`. A dependency vector that does not
+decode, and a rotation baseline that declares any dependency, are refused with
+400 ([dependencies](#dependencies)).
+
 ## Void Updates
 
 A reader judges each served update in server order. It checks the envelope
@@ -43,20 +56,21 @@ its import judge, the only code that reads a payload with Loro, decodes the Loro
 metadata and imports the update into its history plus every update it accepted
 before. An update is a [void update](./glossary/content.md#void-update) when
 AES-GCM or the plaintext hash fails under the committed key, its decoded span is
-not its declared one, its decoder cannot read it, its dependencies are on no
-earlier accepted update, or it carries other operations under ids the reader
-already holds. That comparison replays both copies of the operations onto one
-history first, so the runs an import happened to split them into never make an
-honest update void: a checkpoint completing a change the reader holds part of is
-accepted. The reader records it in `document_void_updates`, reports it once as
-`Documents: sync update voided`, and goes on. A void never fails the pass or
-sets the document's sync failure. A reader whose key is not the committed one
-records no verdict for the update: that is an availability failure, and the pass
-fails as an unwrap failure does. So is a failure of its own runtime while it
-derives keys or decrypts, including an AES-GCM refusal when the reader cannot
-round-trip a canary of the record's size under the same key (stage
-`decrypt_runtime`). A sync pass whose judge (`validateIncomingUpdates`) returns
-no verdicts fails, rather than applying updates nobody judged.
+not its declared one, its decoded dependencies are not its declared ones, its
+decoder cannot read it, its dependencies are on no earlier accepted update, or
+it carries other operations under ids the reader already holds. That comparison
+replays both copies of the operations onto one history first, so the runs an
+import happened to split them into never make an honest update void: a
+checkpoint completing a change the reader holds part of is accepted. The reader
+records it in `document_void_updates`, reports it once as `Documents: sync
+update voided`, and goes on. A void never fails the pass or sets the document's
+sync failure. A reader whose key is not the committed one records no verdict for
+the update: that is an availability failure, and the pass fails as an unwrap
+failure does. So is a failure of its own runtime while it derives keys or
+decrypts, including an AES-GCM refusal when the reader cannot round-trip a
+canary of the record's size under the same key (stage `decrypt_runtime`). A sync
+pass whose judge (`validateIncomingUpdates`) returns no verdicts fails, rather
+than applying updates nobody judged.
 
 A void whose import changed the scratch history the reader judges against
 forces it to rebuild that history before the next update. Each page may spend
@@ -221,11 +235,39 @@ user owns it. Two identities on one device also never write one history under
 one peer id. The first update of a new container's metadata, organization
 profile, or roster profile goes under a fresh peer id that is never reused.
 
+### Dependencies
+
+A Loro update depends on the operations outside it that its changes were made
+on, and a reader that lacks one cannot import it. Before the server checked
+dependencies, a member who had read a device's peer could commit an update on
+its own peer that depends on the device's next counter. Its spans name only
+its own peer, so ownership passed it. Every reader that lacked that operation
+voided it, but the device held it unsent and accepted it. Its later updates
+then built on the forged one, and every other reader voided each of them: the
+device was silenced on the document without notice.
+
+Now the server refuses an update whose declared dependencies are not
+committed ([what the server checks](#what-the-server-checks)), and every
+reader voids at stage `loro_metadata` an update whose payload depends on other
+operations than it declares. Loro reads the dependencies it reports for a blob
+from the same encoded data its import applies, so the comparison needs no
+trust in the blob's checksum, which anyone can recompute. Every reader then
+judges a dependency against operations committed before the update, so the
+device voids the forged update too.
+
+An honest update depends on operations its writer holds: foreign ones it
+pulled, which are committed, and its own, which are committed or carried by
+an earlier update of the same request. Its dependencies are refused only when
+a purge and a recreation lost an operation it depends on. The device then
+rebases as for a peer another user owns, cutting the named peers at the
+frontiers the refusal gives.
+
 ### Rebasing onto a fresh peer
 
-A device whose sync is refused with `document_sync_peer_owned` recovers by its
-own steps. For each refused peer it keeps the operations below the frontier the
-server named and cuts the rest, then cuts every operation that depends on a cut
+A device whose sync is refused with `document_sync_peer_owned` or
+`document_sync_dependency_uncommitted` recovers by its own steps. For each
+refused peer it keeps the operations below the frontier the server named and
+cuts the rest, then cuts every operation that depends on a cut
 one. It writes the cut operations' net effect again under a fresh peer, on a
 fork of what it kept, and replaces the record's queued updates with one update
 holding every fork operation from where its unsent operations start: on each
@@ -235,14 +277,14 @@ writer may do, and extends only the fresh peer, so the retry lands. Operations
 committed on a refused peer stay under their ids in the fork whoever committed
 them, so no reader sees them twice.
 
-Before the server checks dependencies, a forged committed operation could
-depend on a cut one. The rebase never cuts what the device knows is committed
-(on a refused peer, below the named frontier; on any other peer, below where
-its unsent operations start): writing it again under the fresh peer would
-duplicate it for every reader, so the rebase fails loudly instead. Honest
-histories never get there. A refusal that names no frontiers, such as an
-unlink's, fails that operation; the document's next sync draws the refusal with
-its frontiers and rebases, so a retry builds on the fork.
+The server refuses an update that depends on an uncommitted operation, so no
+committed operation depends on a cut one. The rebase still never cuts what the
+device knows is committed (on a refused peer, below the named frontier; on any
+other peer, below where its unsent operations start): writing it again under the
+fresh peer would duplicate it for every reader, so the rebase fails loudly
+instead. Honest histories never get there. A refusal that names no frontiers,
+such as an unlink's, fails that operation; the document's next sync draws the
+refusal with its frontiers and rebases, so a retry builds on the fork.
 
 A document's fresh peer comes from a new random salt its record keeps
 (`peer_salt`), so a reload writes on that peer and not the refused one. One
@@ -267,6 +309,18 @@ container and session.
   keeping their own operations below the forger's frontier as committed, and
   readers, who hold the forger's operations there first, void the update that
   re-asserts them.
+- **Dependencies on void spans.** The server judges a dependency against the
+  committed frontier, which also counts the spans of updates every reader
+  voided, since it cannot read a payload. Only a peer's owner raises that
+  frontier, so a member can cover operations nobody committed only on its own
+  peer, where no honest device holds any, or on a peer a purge left unowned.
+  A recreation from a stale copy that lacks a device's peer entirely leaves it
+  unowned. A member who knows that peer can claim it with a void span over the
+  counters the device still holds, then commit an update that depends on
+  them: the device accepts that update and other readers void it. The same
+  member could instead claim the peer with forged operations at those
+  counters, which other readers accept and the device voids. Both are the
+  cost of a recreation that lost the peer.
 - **Overclaims on one's own peer.** The server cannot read a payload, so an
   owner may declare a span past the operations it carries. The counters below
   that frontier are committed, so any writer may then fill them first, and
