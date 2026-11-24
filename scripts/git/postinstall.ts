@@ -86,7 +86,7 @@ function planFor(check: HooksCheck | null): Plan {
     return {
       status: "blocked",
       reasons: [
-        "core.hooksPath in your Git configuration names another directory; installing would override it.",
+        "core.hooksPath in your Git configuration names another directory; sh scripts/git/install-hooks.sh would override it for this checkout.",
       ],
     };
   }

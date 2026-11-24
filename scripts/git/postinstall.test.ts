@@ -205,6 +205,18 @@ test("hooks that differ from the branch's are never replaced", () => {
   expect(installed(root, "pre-push")).toBe(current);
 }, 30_000);
 
+test("a hook removed from an installed checkout is not restored", () => {
+  const root = checkout();
+  expect(postinstall(root).exitCode).toBe(0);
+  rmSync(join(root, ".git/hooks/pre-push"));
+
+  expect(postinstall(root)).toEqual({
+    ...quiet,
+    stderr: `warning: the installed Git hooks differ from this branch's and were left as they are; once the branch includes the latest main, run sh scripts/git/install-hooks.sh ${guide}\n`,
+  });
+  expect(existsSync(join(root, ".git/hooks/pre-push"))).toBe(false);
+}, 30_000);
+
 test("an unmanaged hook is kept and reported without failing the install", () => {
   const root = checkout();
   const prePush = join(root, ".git/hooks/pre-push");
@@ -252,7 +264,7 @@ test("a core.hooksPath from the user's Git configuration is not overridden", () 
     ...quiet,
     stderr: [
       `warning: the Git hooks were left as they are ${guide}`,
-      "  core.hooksPath in your Git configuration names another directory; installing would override it.",
+      "  core.hooksPath in your Git configuration names another directory; sh scripts/git/install-hooks.sh would override it for this checkout.",
       "",
     ].join("\n"),
   });

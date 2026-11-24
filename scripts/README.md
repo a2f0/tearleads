@@ -83,8 +83,8 @@ the shared `matrix-secrets/tearleads` folder when it exists, as
 [`lib/screenshotsStore.sh`](lib/screenshotsStore.sh) does for `.screenshots`,
 and [`lib/gradleWrapper.sh`](lib/gradleWrapper.sh) regenerates the
 gitignored Gradle wrapper jar in a scratch build, since the Android build
-cannot configure before `cap sync`. `bun run test:clone-setup` covers both,
-the loader's link, and the hook
+cannot configure before `cap sync`. `bun run test:clone-setup` covers these,
+the loader's link, and the hook-installing
 [`git/postinstall.ts`](git/postinstall.ts), and is part of `check:fast`.
 
 [`release/publishNpmPackage.sh`](release/publishNpmPackage.sh) publishes a
