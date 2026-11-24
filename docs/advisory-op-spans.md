@@ -273,6 +273,18 @@ container and session.
   keeping their own operations below the forger's frontier as committed, and
   readers, who hold the forger's operations there first, void the update that
   re-asserts them.
+- **Dependencies on void spans.** The server judges a dependency against the
+  committed frontier, which also counts the spans of updates every reader
+  voided, since it cannot read a payload. Only a peer's owner raises that
+  frontier, so a member can cover operations nobody committed only on its own
+  peer, where no honest device holds any, or on a peer a purge left unowned.
+  A recreation from a stale copy that lacks a device's peer entirely leaves it
+  unowned. A member who knows that peer can claim it with a void span over the
+  counters the device still holds, then commit an update that depends on
+  them: the device accepts that update and other readers void it. The same
+  member could instead claim the peer with forged operations at those
+  counters, which other readers accept and the device voids. Both are the
+  cost of a recreation that lost the peer.
 - **Overclaims on one's own peer.** The server cannot read a payload, so an
   owner may declare a span past the operations it carries. The counters below
   that frontier are committed, so any writer may then fill them first, and

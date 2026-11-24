@@ -150,7 +150,9 @@ server also refuses an update that depends on an operation nobody committed,
 and readers void one whose payload depends on other operations than it
 declares, so another user cannot make a device alone accept an update by
 depending on that device's unsent operations
-([dependencies](../advisory-op-spans.md#dependencies)).
+([dependencies](../advisory-op-spans.md#dependencies)), except on a peer that
+a recreation from a stale copy left unowned
+([residuals](../advisory-op-spans.md#residuals)).
 One whose payload fails the Loro runtime, or ends the reader's process
 while the app is visible, holds a reader's sync of that document for up to
 three process lifetimes before it is void

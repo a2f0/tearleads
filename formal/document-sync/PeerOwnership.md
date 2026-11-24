@@ -177,9 +177,16 @@ named violation on every run:
   resubmission is a re-assertion that readers void. This is an accepted
   residual.
 - A recreation from a stale copy, which loses what the copy lacks, as any
-  purge does; the in-order walk across several updates of one request, in
-  which an update may depend on an earlier one, which the collapse into one
-  update leaves out; and lost acknowledgements.
+  purge does. A peer the copy lacks entirely is left unowned while a device
+  still holds operations on it, so a member who knows it can claim it: with
+  forged operations at the device's counters, which other readers accept and
+  the device voids, or with a void span over them and then an update that
+  depends on them, which the device accepts and other readers void. F counts
+  the spans of void updates, so the dependency rule cannot tell such a cover
+  from committed operations.
+- The in-order walk across several updates of one request, in which an
+  update may depend on an earlier one, which the collapse into one update
+  leaves out; and lost acknowledgements.
 
 ## Bounds
 
