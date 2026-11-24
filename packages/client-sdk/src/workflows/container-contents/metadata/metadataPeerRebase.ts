@@ -9,6 +9,7 @@ import {
 import type { DocumentPeerFrontier } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import {
+  asPeerId,
   rebaseOntoFreshPeer,
   unsentStartOf,
 } from "../../../data/documents/shared/sync/peerRebase";
@@ -39,7 +40,7 @@ interface MetadataPeerRebaseContext {
 function freshPeer(): `${number}` {
   const [high = 0, low = 0] = crypto.getRandomValues(new Uint32Array(2));
   const peer = (BigInt(high) << 32n) | BigInt(low) || 1n;
-  return peer.toString() as `${number}`;
+  return asPeerId(peer.toString());
 }
 
 /**

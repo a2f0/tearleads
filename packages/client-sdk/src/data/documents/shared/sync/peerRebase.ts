@@ -149,9 +149,14 @@ function opLamport(doc: RebaseDocument, peer: string, counter: number) {
   return change.lamport + (counter - change.counter);
 }
 
-function asPeerId(peer: string): `${number}` {
-  if (!/^\d+$/u.test(peer)) throw new Error("Peer id must be numeric");
-  return peer as `${number}`;
+function isPeerId(peer: string): peer is `${number}` {
+  return /^\d+$/u.test(peer);
+}
+
+/** A Loro peer id from its decimal string; throws on anything else. */
+export function asPeerId(peer: string): `${number}` {
+  if (!isPeerId(peer)) throw new Error("Peer id must be numeric");
+  return peer;
 }
 
 /** The smallest Lamport timestamp of any cut operation, or null. */
