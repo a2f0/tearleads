@@ -4,6 +4,8 @@ const METADATA_LISTING_MODULE =
   "formal/document-sync/MetadataListingConvergence.tla";
 const METADATA_LISTING_CONFIG =
   "formal/document-sync/MetadataListingConvergence.cfg";
+const METADATA_LISTING_VOIDS_CONFIG =
+  "formal/document-sync/MetadataListingConvergenceVoids.cfg";
 
 export const METADATA_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
@@ -27,16 +29,24 @@ export const METADATA_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     module: METADATA_LISTING_MODULE,
     config: METADATA_LISTING_CONFIG,
     constants: { SettleOnlyIfUnchanged: "FALSE" },
-    expect: { kind: "invariant", name: "EvidenceRetained" },
-    why: "A read that started before a listing owed a newer edit must not settle that debt with its older snapshot.",
+    expect: { kind: "liveness", name: "Converges" },
+    why: "A read that started before a peer's hinted edit must not clear that hint with its older snapshot: the lane watermark may already have passed the row, and nothing re-lists it until the next connection.",
   },
   {
     id: "metadata-listing-resumed-pull-settles",
     module: METADATA_LISTING_MODULE,
     config: METADATA_LISTING_CONFIG,
     constants: { SettleResumedPull: "TRUE" },
-    expect: { kind: "invariant", name: "EvidenceRetained" },
-    why: "A pass that resumes an earlier paginated pull stops at that pull's upper bound and must not settle a debt for a newer edit.",
+    expect: { kind: "liveness", name: "Converges" },
+    why: "A pass that resumes an earlier paginated pull stops at that pull's upper bound and must not clear a hint for a newer edit.",
+  },
+  {
+    id: "metadata-listing-covers-by-content",
+    module: METADATA_LISTING_MODULE,
+    config: METADATA_LISTING_VOIDS_CONFIG,
+    constants: { CoverByProcessedCount: "FALSE" },
+    expect: { kind: "liveness", name: "DebtsSettle" },
+    why: "A listing covered only by the updates whose content the client holds never counts a void update, so the read it owes can never settle and is owed again on every listing.",
   },
   {
     id: "metadata-listing-forgets-durable-debt",

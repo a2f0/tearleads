@@ -183,6 +183,8 @@ describeSchema(
     hasMore: "True exactly when `nextCursor` is set.",
     nextCursor:
       "Opaque cursor for the next page, or null on the last page; it grants nothing, and each page is reauthorized.",
+    throughUpdateCount:
+      "How many updates the document held through `throughUpdateId`, counting it, the same on every page: 0 exactly when `throughUpdateId` is null. Updates are deleted only with their document, so a later pull never counts fewer; a container listing's `metadataUpdateCount` at or below it was read no later than this pull's bound.",
     throughUpdateId:
       "The last update committed when the pull began, the same on every page, or null when the document had none. Once the last page is processed, the client sends it back as `processedThroughUpdateId`.",
   },

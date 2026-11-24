@@ -77,6 +77,8 @@ const BASE64URL_SHA256_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
 
 export interface SyncPullPagePlan {
   readonly afterSequence: number;
+  /** How many updates the document held through the upper bound. */
+  readonly upperBoundUpdateCount: number;
   readonly upperBoundUpdateId: string | null;
   readonly upperBoundSequence: number;
 }
@@ -271,6 +273,7 @@ function afterProcessedCursor(
 }
 
 export async function resolveSyncPullPagePlan(input: {
+  readonly countUpdatesThrough: (upperBoundSequence: number) => Promise<number>;
   readonly cursorHmacKey: string | null;
   readonly identity: SyncPullIdentity;
   /** The commit position of the request's processed cursor, if any. */
@@ -289,10 +292,15 @@ export async function resolveSyncPullPagePlan(input: {
     return null;
   }
   if (input.request.pullCursor === undefined) {
+    const upperBoundSequence = input.upperBound?.sequence ?? 0;
     return afterProcessedCursor(
       {
         afterSequence: 0,
-        upperBoundSequence: input.upperBound?.sequence ?? 0,
+        upperBoundSequence,
+        upperBoundUpdateCount:
+          input.upperBound === null
+            ? 0
+            : await input.countUpdatesThrough(upperBoundSequence),
         upperBoundUpdateId: input.upperBound?.id ?? null,
       },
       input.processedThroughSequence ?? 0,
@@ -331,7 +339,13 @@ export async function resolveSyncPullPagePlan(input: {
     throw error;
   }
   return afterProcessedCursor(
-    { ...bounds, upperBoundUpdateId: cursor.upperBoundUpdateId },
+    {
+      ...bounds,
+      upperBoundUpdateCount: await input.countUpdatesThrough(
+        bounds.upperBoundSequence,
+      ),
+      upperBoundUpdateId: cursor.upperBoundUpdateId,
+    },
     input.processedThroughSequence ?? 0,
   );
 }
@@ -370,6 +384,7 @@ export function createSyncPullPageResponse(input: {
   return {
     hasMore: input.hasMore,
     nextCursor,
+    throughUpdateCount: input.plan.upperBoundUpdateCount,
     throughUpdateId: input.plan.upperBoundUpdateId,
   };
 }

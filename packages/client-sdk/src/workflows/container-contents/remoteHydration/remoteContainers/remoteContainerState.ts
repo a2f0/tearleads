@@ -1,9 +1,4 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
-import {
-  decodeVersionVector,
-  encodeVersionVector,
-  satisfiesVersionVector,
-} from "@tearleads/loro";
 import { isProjectionVerificationCancelledError } from "../../../../data/keyingProjectionVerification/types";
 import {
   heldContainerBinding,
@@ -17,6 +12,7 @@ import {
 import { invalidateContainerProjectionCaches } from "../../container-state/projectionCache";
 import type { ContainerHydrationTombstone } from "../../containerPersistence";
 import { installContainerMetadataRecord } from "../../metadata/metadataPersistence";
+import { coversMetadataUpdateCount } from "../../metadata/metadataSyncVerdicts";
 import { projectionGeneration } from "../../projectionGeneration";
 import type { PrefetchedDestinationProjection } from "../destination/destinationPrefetch";
 import { verifyRemoteContainerDestination } from "../destination/verifiedDestination";
@@ -175,37 +171,29 @@ function installUpdatedRemoteContainerState(
 /**
  * A clean metadata document is read only when a hint names it, and a hint sent
  * while this client was offline or not yet subscribed is lost. The listing
- * reports the version vector of every update the server holds for the metadata
- * document; when this client's copy does not cover it, an edit is unread. Owe
- * the read before this hydration advances the lane watermark past the row.
+ * counts the updates the server holds for the metadata document; unless this
+ * client's processed cursor covers that count, an edit is unread. Owe the
+ * read before this hydration advances the lane watermark past the row. A
+ * hydration superseded while the cursor was read owes nothing: it neither
+ * applies the row nor advances the watermark past it.
  */
-function coversMetadataVersion(
-  existingState: ContainerState,
-  remoteContainer: RemoteContainer,
-): boolean {
-  const listed = remoteContainer.metadataVersionVector;
-  try {
-    // A document with no stored update is covered by any copy.
-    if (decodeVersionVector(listed).toJSON().size === 0) return true;
-    return satisfiesVersionVector(
-      encodeVersionVector(existingState.doc),
-      listed,
-    );
-  } catch {
-    // An unreadable version proves nothing: owe the read, which pulls the
-    // truth, and let the rest of the page hydrate.
-    return false;
-  }
-}
-
-async function oweMetadataReadIfBehind(
-  host: RemoteContainerHydrationHost,
-  existingState: ContainerState,
-  remoteContainer: RemoteContainer,
-): Promise<void> {
-  if (!coversMetadataVersion(existingState, remoteContainer)) {
+async function oweMetadataReadIfBehind(input: {
+  readonly existingState: ContainerState;
+  readonly host: RemoteContainerHydrationHost;
+  readonly isCurrent?: (() => boolean) | undefined;
+  readonly remoteContainer: RemoteContainer;
+  readonly state: RemoteContainerHydrationState;
+}): Promise<void> {
+  const { existingState, host, isCurrent, remoteContainer, state } = input;
+  const covered = await coversMetadataUpdateCount(state.runtime.infra.execSql, {
+    containerId: existingState.container.id,
+    doc: existingState.doc,
+    documentId: remoteContainer.metadataDocumentId,
+    updateCount: remoteContainer.metadataUpdateCount,
+  });
+  if (!covered && isCurrent?.() !== false) {
     await host.requestMetadataRevalidation?.({
-      advertisedVersionVector: remoteContainer.metadataVersionVector,
+      advertisedUpdateCount: remoteContainer.metadataUpdateCount,
       documentId: remoteContainer.metadataDocumentId,
     });
   }
@@ -242,7 +230,7 @@ async function updateExistingRemoteContainerState(input: {
     previousLocalUpdatedAt,
     remoteContainer,
   });
-  await oweMetadataReadIfBehind(host, existingState, remoteContainer);
+  await oweMetadataReadIfBehind(input);
   const nextState = createUpdatedRemoteContainerState(
     existingState,
     remoteContainer,

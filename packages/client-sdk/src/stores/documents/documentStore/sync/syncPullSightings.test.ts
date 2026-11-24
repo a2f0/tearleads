@@ -55,6 +55,7 @@ for (const outcome of ["applied", "incomplete", "superseded"] as const) {
               pullPage: {
                 hasMore: true,
                 nextCursor: "page-2",
+                throughUpdateCount: 0,
                 throughUpdateId: null,
               },
             };

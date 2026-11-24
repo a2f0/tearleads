@@ -52,7 +52,7 @@ const staleRemoteContainer: RemoteContainer = {
   metadataAccessEpoch: 1,
   metadataAccessStateHash: "access-1",
   metadataDocumentId: "metadata-1",
-  metadataVersionVector: "",
+  metadataUpdateCount: 0,
   metadataReferencedPrincipals: [],
   organizationId: "organization-1",
   parentId: "stale-parent",

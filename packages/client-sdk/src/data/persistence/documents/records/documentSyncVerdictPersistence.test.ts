@@ -8,10 +8,10 @@ import { ensureSqlTables } from "../../../sqlite/sqlSchema";
 import { DocumentRecordRepository } from "./documentRecordRepository";
 import {
   type DocumentSyncVerdictInput,
-  readSendableProcessedCursor,
   recordDocumentSyncVerdictsInTransaction,
 } from "./documentSyncVerdictPersistence";
 import type { PullPagePosition } from "./processedCursorState";
+import { readSendableProcessedCursor } from "./sendableProcessedCursor";
 
 const SCOPE = { appKind: "documents", localId: "held" } as const;
 const DOCUMENT_ID = "550e8400-e29b-41d4-a716-446655440900";
@@ -97,6 +97,7 @@ const completed: PullPagePosition = {
   held: false,
   last: true,
   sentCursor: null,
+  throughUpdateCount: 1,
   throughUpdateId: THROUGH,
 };
 
@@ -179,6 +180,7 @@ test("a pull whose later page runs under another judge leaves the cursor and the
       held: false,
       last: false,
       sentCursor: THROUGH,
+      throughUpdateCount: 1,
       throughUpdateId: NEXT_THROUGH,
     },
   });
@@ -191,6 +193,7 @@ test("a pull whose later page runs under another judge leaves the cursor and the
       held: false,
       last: true,
       sentCursor: null,
+      throughUpdateCount: 1,
       throughUpdateId: NEXT_THROUGH,
     },
   });
@@ -201,7 +204,11 @@ test("a pull whose later page runs under another judge leaves the cursor and the
   // A whole pull under the new judge judges the liar again and advances.
   await record({
     judge: UPGRADED,
-    pullPage: { ...completed, throughUpdateId: NEXT_THROUGH },
+    pullPage: {
+      ...completed,
+      throughUpdateCount: 2,
+      throughUpdateId: NEXT_THROUGH,
+    },
   });
   expect(await voidIds()).toEqual([]);
   expect(await sendable({ judge: UPGRADED })).toBe(NEXT_THROUGH);
@@ -212,6 +219,7 @@ test("a pull whose pages keep one premise advances on its last page", async () =
   const premise = {
     held: false,
     sentCursor: THROUGH,
+    throughUpdateCount: 1,
     throughUpdateId: NEXT_THROUGH,
   };
   await record({ pullPage: { ...premise, first: true, last: false } });

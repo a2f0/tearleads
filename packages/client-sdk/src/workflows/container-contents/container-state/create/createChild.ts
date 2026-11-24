@@ -52,6 +52,12 @@ async function createChildContainerId(
     : crypto.randomUUID();
 }
 
+/** The seed a child's create committed, and the acknowledged create time. */
+interface CommittedChildSeed {
+  readonly at: string;
+  readonly updateId: string;
+}
+
 async function buildRemoteContainerContentsChildContainerState(input: {
   childId: string;
   icon: string | null;
@@ -68,8 +74,7 @@ async function buildRemoteContainerContentsChildContainerState(input: {
   trimmedName: string;
 }): Promise<{
   readonly containerState: ContainerState;
-  /** The acknowledged create time, when the create committed the seed. */
-  readonly seedCommittedAt: string | null;
+  readonly committedSeed: CommittedChildSeed | null;
 } | null> {
   const {
     childId,
@@ -151,7 +156,9 @@ async function buildRemoteContainerContentsChildContainerState(input: {
         ...created.persistedMetadataState,
       },
     },
-    seedCommittedAt: created.metadataSeed ? created.updatedAt : null,
+    committedSeed: created.metadataSeed
+      ? { at: created.updatedAt, updateId: created.metadataSeed.updateId }
+      : null,
   };
 }
 
@@ -209,15 +216,21 @@ function createInitialChildContainerDocumentRecord(input: {
 }
 
 function childContainerSaveOptions(input: {
+  committedSeed: CommittedChildSeed | null;
   createIntent: { parentContainerId: string } | undefined;
-  localUpdatedAt: string | null;
   stillCurrent?: (() => boolean) | undefined;
 }) {
-  const { createIntent, localUpdatedAt, stillCurrent } = input;
-  return createIntent || localUpdatedAt || stillCurrent
+  const { committedSeed, createIntent, stillCurrent } = input;
+  return createIntent || committedSeed || stillCurrent
     ? {
         ...(createIntent ? { createIntent } : {}),
-        ...(localUpdatedAt ? { localUpdatedAt } : {}),
+        // Nothing local is newer than the acknowledged create.
+        ...(committedSeed
+          ? {
+              committedSeedUpdateId: committedSeed.updateId,
+              localUpdatedAt: committedSeed.at,
+            }
+          : {}),
         stillCurrent,
       }
     : undefined;
@@ -227,14 +240,13 @@ async function persistCreatedChildContainer(input: {
   containerState: ContainerState;
   initialUpdate: Uint8Array;
   /** Set once the create committed the initial update as its seed. */
-  localUpdatedAt: string | null;
+  committedSeed: CommittedChildSeed | null;
   persistence: ContainerContentsPersistence;
   queueRemoteSync: boolean;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<boolean | null> {
-  const { containerState, localUpdatedAt, persistence, queueRemoteSync } =
-    input;
+  const { committedSeed, containerState, persistence, queueRemoteSync } = input;
   const { runtime } = input;
   const createIntent =
     queueRemoteSync &&
@@ -247,8 +259,8 @@ async function persistCreatedChildContainer(input: {
     (!containerState.record.documentId ||
       Boolean(containerState.record.contentKeyBundle));
   const saveOptions = childContainerSaveOptions({
+    committedSeed,
     createIntent,
-    localUpdatedAt,
     stillCurrent: input.stillCurrent,
   });
   const pendingUpdate = shouldRequestSync
@@ -357,11 +369,10 @@ export async function createChildContainerState(input: {
   const shouldRequestSync = await persistCreatedChildContainer({
     containerState,
     initialUpdate,
-    // A committed seed leaves nothing to queue or sync: nothing local is
-    // newer than the acknowledged create.
-    localUpdatedAt: remoteChild?.seedCommittedAt ?? null,
+    // A committed seed leaves nothing to queue or sync.
+    committedSeed: remoteChild?.committedSeed ?? null,
     persistence,
-    queueRemoteSync: queueRemoteSync && !remoteChild?.seedCommittedAt,
+    queueRemoteSync: queueRemoteSync && !remoteChild?.committedSeed,
     runtime,
     stillCurrent: input.stillCurrent,
   });

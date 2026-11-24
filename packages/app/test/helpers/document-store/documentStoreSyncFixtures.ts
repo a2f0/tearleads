@@ -87,7 +87,7 @@ export function createListedContainers(
         metadataAccessStateHash,
         metadataDocumentId: `metadata-${containerId}`,
         metadataReferencedPrincipals: [],
-        metadataVersionVector: "",
+        metadataUpdateCount: 0,
         organizationId,
         parentId: null,
         updatedAt,
@@ -342,7 +342,12 @@ export async function createDocumentSyncResponse(input: {
     commitLsnMode: "tracked",
     contentKeyBundles: [],
     documentId: input.storedDocument.id,
-    pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
+    pullPage: {
+      hasMore: false,
+      nextCursor: null,
+      throughUpdateCount: 0,
+      throughUpdateId: null,
+    },
     updates,
   };
 }

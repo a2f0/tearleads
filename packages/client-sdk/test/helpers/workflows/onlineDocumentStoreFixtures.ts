@@ -37,6 +37,7 @@ export function createEchoDocumentSyncResponse(input: {
     pullPage: input.pullPage ?? {
       hasMore: false,
       nextCursor: null,
+      throughUpdateCount: 0,
       throughUpdateId: null,
     },
     updates: input.request.outgoingUpdates.map((update) => {

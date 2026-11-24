@@ -83,6 +83,7 @@ async function rotationWindowsState(name: string) {
       pullPage: {
         hasMore,
         nextCursor: hasMore ? String(index + 1) : null,
+        throughUpdateCount: 0,
         throughUpdateId: null,
       },
       updates: updates.slice(index, index + 1),

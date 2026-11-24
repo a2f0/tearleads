@@ -134,9 +134,9 @@ export const containerMetadataRevalidations = sqliteTable(
   "container_metadata_revalidations",
   {
     documentId: text("document_id").notNull(),
-    // The metadata version the listing advertised; a read settles the request
-    // only once the local copy covers it.
-    advertisedVersionVector: text("advertised_version_vector").notNull(),
+    // The metadata update count the listing advertised; a read settles the
+    // request only once a processed cursor covers it.
+    advertisedUpdateCount: integer("advertised_update_count").notNull(),
     // Replaced on every request, so a read settles only the request it saw.
     revision: text("revision").notNull(),
     requestedAt: text("requested_at").notNull(),
@@ -153,7 +153,10 @@ export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
     ...defineSqlTableSchema(containerHydrationTombstones),
     requiredColumns: ["cleared"],
   },
-  defineSqlTableSchema(containerMetadataRevalidations),
+  {
+    ...defineSqlTableSchema(containerMetadataRevalidations),
+    requiredColumns: ["advertised_update_count"],
+  },
   defineSqlTableSchema(dormantContainerMetadata),
   defineSqlTableSchema(dormantMetadataSweepRequests),
   defineSqlTableSchema(supersededContainerBindings),

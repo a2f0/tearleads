@@ -58,7 +58,7 @@ test("an owed metadata read survives a restart until a read pays it", async () =
   try {
     const before = storeState(execSql);
     await oweContainerMetadataRead(before, {
-      advertisedVersionVector: "",
+      advertisedUpdateCount: 1,
       documentId: "metadata-1",
     });
     expect([...before.metadataDocumentIdsNeedingSync]).toEqual(["metadata-1"]);
@@ -101,7 +101,7 @@ test("a read settles only the request it saw, not a newer one from another tab",
   try {
     const reader = storeState(execSql);
     await oweContainerMetadataRead(reader, {
-      advertisedVersionVector: "",
+      advertisedUpdateCount: 1,
       documentId: "metadata-1",
     });
     const seen = await findOwedContainerMetadataRead(reader, {
@@ -111,7 +111,7 @@ test("a read settles only the request it saw, not a newer one from another tab",
     if (!seen) throw new Error("Expected the owed read");
     // Another tab sharing the database owes the read again meanwhile.
     await oweContainerMetadataRead(storeState(execSql), {
-      advertisedVersionVector: "",
+      advertisedUpdateCount: 1,
       documentId: "metadata-1",
     });
 
@@ -130,11 +130,11 @@ test("startup leaves a debt for a container this tab does not hold", async () =>
   const { close, execSql } = await openDatabase();
   try {
     await oweContainerMetadataRead(storeState(execSql), {
-      advertisedVersionVector: "",
+      advertisedUpdateCount: 1,
       documentId: "metadata-1",
     });
     await oweContainerMetadataRead(storeState(execSql), {
-      advertisedVersionVector: "",
+      advertisedUpdateCount: 1,
       documentId: "metadata-gone",
     });
     const after = storeState(execSql);
@@ -154,13 +154,37 @@ test("a restore that a store replacement overtakes queues nothing", async () => 
   const { close, execSql } = await openDatabase();
   try {
     await oweContainerMetadataRead(storeState(execSql), {
-      advertisedVersionVector: "",
+      advertisedUpdateCount: 1,
       documentId: "metadata-1",
     });
     const stale = storeState(execSql);
     expect(await restoreOwedContainerMetadataReads(stale, () => false)).toBe(0);
     expect([...stale.metadataDocumentIdsNeedingSync]).toEqual([]);
     expect(await owedDocumentIds(execSql)).toEqual(["metadata-1"]);
+  } finally {
+    close();
+  }
+});
+
+test("a debt keeps the largest update count any listing advertised", async () => {
+  const { close, execSql } = await openDatabase();
+  try {
+    const advertised = async () =>
+      (await persistence.listContainerMetadataRevalidations(execSql)).map(
+        ({ advertisedUpdateCount }) => advertisedUpdateCount,
+      );
+    for (const [count, kept] of [
+      [3, 3],
+      [2, 3],
+      [5, 5],
+    ] as const) {
+      await oweContainerMetadataRead(storeState(execSql), {
+        advertisedUpdateCount: count,
+        documentId: "metadata-1",
+      });
+      // A listing read from a lagging replica never lowers the debt.
+      expect(await advertised()).toEqual([kept]);
+    }
   } finally {
     close();
   }

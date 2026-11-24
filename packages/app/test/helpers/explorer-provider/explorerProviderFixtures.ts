@@ -59,7 +59,7 @@ export function listedContainer(
     | "depth"
     | "effectiveAccessLevel"
     | "metadataReferencedPrincipals"
-    | "metadataVersionVector"
+    | "metadataUpdateCount"
     | "updatedAt"
   > &
     Partial<
@@ -68,7 +68,7 @@ export function listedContainer(
         | "createdAt"
         | "depth"
         | "metadataReferencedPrincipals"
-        | "metadataVersionVector"
+        | "metadataUpdateCount"
         | "updatedAt"
       >
     >,
@@ -79,7 +79,7 @@ export function listedContainer(
     effectiveAccessLevel: "admin",
     metadataReferencedPrincipals: [],
     // No stored metadata update: any local copy covers it.
-    metadataVersionVector: "",
+    metadataUpdateCount: 0,
     updatedAt: TEST_SYNC_TIMESTAMP,
     ...overrides,
   };
@@ -293,7 +293,12 @@ export async function createExplorerMetadataSyncResponse(input: {
     commitLsnMode: "tracked",
     contentKeyBundles: [],
     documentId: input.storedDocument.id,
-    pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
+    pullPage: {
+      hasMore: false,
+      nextCursor: null,
+      throughUpdateCount: 0,
+      throughUpdateId: null,
+    },
     updates,
   };
 }

@@ -101,6 +101,7 @@ test("raw continuation pages use projection state verified by the prior page", a
               pullPage: {
                 hasMore: true,
                 nextCursor: "fresh-page-2",
+                throughUpdateCount: 0,
                 throughUpdateId: null,
               },
               updates: [firstPageUpdate],
@@ -117,6 +118,7 @@ test("raw continuation pages use projection state verified by the prior page", a
             pullPage: {
               hasMore: false,
               nextCursor: null,
+              throughUpdateCount: 0,
               throughUpdateId: null,
             },
             updates: [secondPageUpdate],
@@ -175,7 +177,12 @@ test("raw rotation recovery rejects a multi-page cursor cycle", async () => {
               : "cycle-a";
         return {
           ...response,
-          pullPage: { hasMore: true, nextCursor, throughUpdateId: null },
+          pullPage: {
+            hasMore: true,
+            nextCursor,
+            throughUpdateCount: 0,
+            throughUpdateId: null,
+          },
           updates: [],
         };
       },

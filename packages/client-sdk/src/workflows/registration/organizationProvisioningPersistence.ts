@@ -65,14 +65,15 @@ type PersistBootstrapInput = Parameters<
   typeof persistRegistrationBootstrapFromExecSql
 >[1];
 
-function coreMetadataInitialUpdateCommitted(
+/** The seed's update id when provisioning reports it committed. */
+function committedCoreMetadataSeed(
   response: OrganizationProvisioningResponse,
   updateId?: string,
-): boolean {
-  return (
-    updateId !== undefined &&
+): string | undefined {
+  return updateId !== undefined &&
     response.committedCoreMetadataUpdateIds.includes(updateId)
-  );
+    ? updateId
+    : undefined;
 }
 
 function buildCoreContainerBootstrapInput(
@@ -94,7 +95,7 @@ function buildCoreContainerBootstrapInput(
     createdAt: container.container.createdAt,
     metadataDocumentId: container.metadataDocument.id,
     metadataInitialUpdate: bootstrap.containerMetadataInitialUpdate,
-    metadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
+    metadataSeedUpdateId: committedCoreMetadataSeed(
       response,
       bootstrap.containerRequest.initialMetadataSync.outgoingUpdates[0]?.id,
     ),
@@ -131,6 +132,10 @@ function buildSystemContainersBootstrapInput(
       createdAt: response.container.createdAt,
       icon: bootstrap.icon,
       metadataDocumentId: response.metadataDocument.id,
+      // Provisioning commits every system container's seed in its own
+      // transaction, so a response that names the container committed it.
+      metadataSeedUpdateId:
+        bootstrap.containerRequest.initialMetadataSync.outgoingUpdates[0]?.id,
       metadataSnapshot: bytesToBase64(bootstrap.containerMetadataInitialUpdate),
       metadataState: persistedDocumentCreateStateFromResponse(
         bootstrap.containerMetadataDocument.plan,
@@ -297,7 +302,7 @@ export async function persistOrganizationProvisioningState(
         rootMetadataAccessStateHash: input.response.rootMetadataAccessStateHash,
         rootMetadataDocumentId: input.response.rootMetadataDocumentId,
         rootMetadataInitialUpdate: input.bootstrap.initialUpdate,
-        rootMetadataInitialUpdateCommitted: coreMetadataInitialUpdateCommitted(
+        rootMetadataSeedUpdateId: committedCoreMetadataSeed(
           input.response,
           input.rootMetadataDocumentRequest.initialSync.outgoingUpdates[0]?.id,
         ),

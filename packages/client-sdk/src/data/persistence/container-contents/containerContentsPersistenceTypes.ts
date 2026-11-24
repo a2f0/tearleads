@@ -139,6 +139,12 @@ export interface ContainerDeletionGuard {
 }
 
 export interface SaveContainerOptions {
+  /**
+   * The update id of the metadata seed the create committed. The save
+   * records the processed cursor that seed stands for, so a listing that
+   * counts it owes this device no read.
+   */
+  committedSeedUpdateId?: string | undefined;
   verifiedPlacement?: AccessManifestCheckpoint | undefined;
   createIntent?: ContainerCreateIntentInput;
   stillCurrent?: (() => boolean) | undefined;

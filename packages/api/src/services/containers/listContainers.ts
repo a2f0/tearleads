@@ -1,5 +1,4 @@
 import { containerSyncTombstones } from "@tearleads/api-shared/schema";
-import { encodeVersionVectorCounters } from "@tearleads/loro";
 import { isContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerSummary,
@@ -247,9 +246,7 @@ async function resolveVisibleContainerSummaries(input: {
       metadataDocumentId: containerRow.metadataDocumentId,
       metadataReferencedPrincipals:
         collectReferencedPrincipalsFromContainerAccess([accessResult.value]),
-      metadataVersionVector: encodeVersionVectorCounters(
-        containerRow.metadataVersion,
-      ),
+      metadataUpdateCount: containerRow.metadataUpdateCount,
       organizationId: containerRow.organizationId,
       parentId: containerRow.parentId,
       updatedAt: syncItemTimestamp(containerRow.updatedAt),
