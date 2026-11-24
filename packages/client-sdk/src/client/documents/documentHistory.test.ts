@@ -68,3 +68,21 @@ test("openHistory waits for a ready database", async () => {
     close();
   }
 });
+
+test("open passes createIfMissing through to the store", async () => {
+  const { close, execSql } = await createTestExecSql("client-open-no-create");
+  try {
+    const documents = offlineDocuments(execSql);
+    const reader = documents.open(
+      { localId: "listed-note" },
+      { createIfMissing: false },
+    );
+    expect(await reader.ensureInitialized()).toBe(false);
+
+    const creator = documents.open({ localId: "listed-note" });
+    expect(creator).toBe(reader);
+    expect(await creator.ensureInitialized()).toBe(true);
+  } finally {
+    close();
+  }
+});

@@ -14,6 +14,14 @@ const DISABLE_ANIMATIONS_CSS = `
 `;
 
 const windowedScreenshotPages = new WeakSet<Page>();
+// A quiet app loads its assets in under a second.
+const ASSET_SETTLE_TIMEOUT_MS = 2_000;
+
+/**
+ * How `waitForBooted` lets the network settle: "idle" waits until it goes
+ * idle, "assets" for at most two seconds, enough for a quiet app's assets.
+ */
+export type BootSettle = "idle" | "assets";
 
 export function preferWindowedScreenshotLayout(page: Page): void {
   windowedScreenshotPages.add(page);
@@ -44,7 +52,10 @@ export async function closeDefaultExplorerWindows(page: Page): Promise<void> {
   await expect(explorers).toHaveCount(0);
 }
 
-export async function waitForBooted(page: Page): Promise<void> {
+export async function waitForBooted(
+  page: Page,
+  settle: BootSettle = "idle",
+): Promise<void> {
   // Windowed shell mounts `.pane`; the routed (tablet/mobile) shell mounts
   // `.routed-pane`. Either means the app tree has rendered.
   await page
@@ -66,8 +77,17 @@ export async function waitForBooted(page: Page): Promise<void> {
   }
 
   // Best-effort: let initial asset loads and any host-enabled identity autopilot
-  // work settle. Never block on background network activity.
-  await page.waitForLoadState("networkidle").catch(() => {});
+  // work settle. Setup steps wait for idle: a second device reloaded before it
+  // went idle after importing the identity and signing in showed only its own
+  // contact, never the seeded ones. Capture loops pass "assets": the seeded data
+  // is on the device by then, and every full load re-syncs it for about 10 s,
+  // which ran the routed captures past the test timeout.
+  await page
+    .waitForLoadState(
+      "networkidle",
+      settle === "assets" ? { timeout: ASSET_SETTLE_TIMEOUT_MS } : {},
+    )
+    .catch(() => {});
 
   // Autopilot clears the first-run "Generate Key Pair" affordance once it has
   // derived the identity. If it never appears this resolves immediately.

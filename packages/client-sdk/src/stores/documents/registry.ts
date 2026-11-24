@@ -8,7 +8,7 @@ import type {
   DocumentSnapshot,
   DocumentStore,
   DocumentStoreFacade,
-  DocumentStoreOpenOptions,
+  DocumentStoreJoiningOpen,
   DocumentsRuntime,
   PersistedDocumentListener,
 } from "./types";
@@ -270,39 +270,37 @@ export function registerDocumentStoreSupersedeHandler(
   supersedeHandlers.set(store, handler);
 }
 
-const startupProbeJoins = new WeakMap<DocumentStore, () => void>();
+const openJoins = new WeakMap<
+  DocumentStore,
+  (open: DocumentStoreJoiningOpen) => void
+>();
 
-/** How a backing store runs the startup probe a later opener asks for. */
-export function registerDocumentStoreStartupProbeJoin(
+/** How a backing store takes in a later open of it; see `openJoin.ts`. */
+export function registerDocumentStoreOpenJoin(
   store: DocumentStore,
-  join: () => void,
+  join: (open: DocumentStoreJoiningOpen) => void,
 ): void {
-  startupProbeJoins.set(store, join);
+  openJoins.set(store, join);
 }
 
-/** A facade joins the startup probe through the store it wraps. */
-export function forwardDocumentStoreStartupProbeJoin(
+/** A facade takes in a later open through the store it wraps. */
+export function forwardDocumentStoreOpenJoin(
   facade: DocumentStore,
   target: DocumentStore,
 ): void {
-  startupProbeJoins.set(facade, () => startupProbeJoins.get(target)?.());
+  openJoins.set(facade, (open) => openJoins.get(target)?.(open));
 }
 
 /**
- * An open in the default startup mode gives an already-open store the startup
- * probe its first, on-demand opener skipped: the open that wants the probe
- * wins, whichever opened first. A store that already scheduled it is unchanged.
- * An open can run during a render, so the join waits until it returns and never
- * publishes a lane or snapshot change to subscribers mid-render.
+ * A later open of an already-registered store joins it: the open that wants
+ * more (a startup probe, or a record created when missing) wins, whichever
+ * opened first.
  */
-export function requestDocumentStoreStartupProbe(
+export function joinDocumentStoreOpen(
   store: DocumentStore,
-  options: DocumentStoreOpenOptions,
+  open: DocumentStoreJoiningOpen,
 ): void {
-  const join = startupProbeJoins.get(store);
-  if (join && (options.remoteSyncMode ?? "startup") === "startup") {
-    queueMicrotask(join);
-  }
+  openJoins.get(store)?.(open);
 }
 
 export function createDocumentStoreFacade(
