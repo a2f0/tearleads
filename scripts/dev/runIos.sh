@@ -12,6 +12,10 @@ cd "$SCRIPT_DIR/../../packages/app-capacitor" || exit 1
 export VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://localhost:3001}"
 echo "Building with VITE_API_BASE_URL=$VITE_API_BASE_URL"
 
+# shellcheck source=scripts/lib/secretsStore.sh
+. "$SCRIPT_DIR/../lib/secretsStore.sh"
+secrets_store_link "$(CDPATH='' cd -- "$SCRIPT_DIR/../.." && pwd -P)"
+
 # Store releases get the RevenueCat public SDK key from Fastlane's selectively
 # loaded dotenv environment; this script reads production's shared file directly.
 # Without it the build inlines no key and billing degrades to the unavailable
