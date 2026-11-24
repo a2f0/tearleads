@@ -453,8 +453,20 @@ export async function deleteDocumentSyncVerdictsInTransaction(
   appKind: string,
   localIds: readonly string[],
 ): Promise<void> {
-  await deleteDocumentPeerPreemptionsInTransaction(tx, appKind, localIds);
+  await clearDocumentSyncVerdictsInTransaction(tx, appKind, localIds);
   await deleteRecordedAttachmentSlotsInTransaction(tx, appKind, localIds);
+}
+
+/**
+ * Forget a scope's cursor, void rows, and notices, but keep the attachment
+ * slots it saw recorded: they belong to the document, not to its sync state.
+ */
+export async function clearDocumentSyncVerdictsInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "delete">,
+  appKind: string,
+  localIds: readonly string[],
+): Promise<void> {
+  await deleteDocumentPeerPreemptionsInTransaction(tx, appKind, localIds);
   for (const batch of chunks(localIds, UPDATE_IDS_PER_STATEMENT)) {
     await tx
       .delete(documentSyncProgress)

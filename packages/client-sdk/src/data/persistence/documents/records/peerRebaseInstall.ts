@@ -17,7 +17,7 @@ import type {
   DocumentScope,
   PendingUpdateFields,
 } from "./documentPersistenceTypes";
-import { deleteDocumentSyncVerdictsInTransaction } from "./documentSyncVerdictPersistence";
+import { clearDocumentSyncVerdictsInTransaction } from "./documentSyncVerdictPersistence";
 
 /**
  * How the record follows its fork. A document keeps the salt of its fresh
@@ -163,8 +163,10 @@ async function replaceHistoryWithFork(
     updateId: crypto.randomUUID(),
   });
   // The refused updates' void rows and preemption notices name ids the
-  // rebase removed; the processed cursor named the old frontier.
-  await deleteDocumentSyncVerdictsInTransaction(tx, scope.appKind, [
+  // rebase removed; the processed cursor named the old frontier. The slots
+  // the record saw recorded stay: the rebase changes no content, and a live
+  // store, which already counts them seen, would not record them again.
+  await clearDocumentSyncVerdictsInTransaction(tx, scope.appKind, [
     scope.localId,
   ]);
 }
