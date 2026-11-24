@@ -252,16 +252,19 @@ for how the SDK reports the parked state.
 
 ### Known defect: unbounded peers per document
 
-Tracked in #3230 (item 3), and it stops writes outright rather than making a
-writer wait. Nothing caps how many peers a document's history holds, and a
+This defect stops writes outright rather than making a writer wait. Nothing
+caps how many peers a document's history holds, and a
 [rotation baseline](./glossary/keys.md#rotation-baseline), a full-history
 snapshot, grows with them. A member can commit valid operations under more
 than 13,107 peers of one document, in requests that each stay under the
 span-row bound in [Document sync](#document-sync). Every rotation baseline of
 that document then needs more span rows than one insert binds, and fails with
 500. No member can rotate its content key, unlink, move, or purge-unlink it,
-and unlink can no longer remove a link's access to it. Writing the span rows
-in batches would not close this alone: with more peers the baseline also
-outgrows its request body. Past 16 MiB a sync abandons it with
-`document_sync_request_too_large`, and past the 32 MiB route ceiling an unlink
-is refused. Writes other than rotation baselines stay far below both bounds.
+and unlink can no longer remove a link's access to it
+([#3230](https://github.com/a2f0/tearleads/issues/3230), item 3). Writing the
+span rows in batches would not close this alone: with more peers the baseline
+also outgrows its one request. Past 16 MiB a sync abandons it with
+`document_sync_request_too_large`, and past the 32 MiB route ceiling a
+link-set mutation is refused
+([#3238](https://github.com/a2f0/tearleads/issues/3238)). Writes other than
+rotation baselines stay far below both bounds.
