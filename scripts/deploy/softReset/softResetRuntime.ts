@@ -269,8 +269,12 @@ export class ResetRun {
   }
 
   private failedBeforeCloud() {
-    const last = this.steps.at(-1);
-    return last?.label === LOCAL_ONLY_STEP && last.status === "failed";
+    const [first, ...later] = this.steps;
+    return (
+      later.length === 0 &&
+      first?.label === LOCAL_ONLY_STEP &&
+      first.status === "failed"
+    );
   }
 
   // Removes each path while this run still owns the lock, as one timed step.

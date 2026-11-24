@@ -6,7 +6,7 @@ ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
 # read or created, so a new real .secrets folder never blocks the link.
 # shellcheck source=scripts/lib/secretsStore.sh
 . "${ROOT_DIR}/scripts/lib/secretsStore.sh"
-secrets_store_link "${ROOT_DIR}"
+secrets_store_link "${ROOT_DIR}" >&2
 DEV_ENV_FILE="${ROOT_DIR}/.secrets/staging/dev.env"
 
 read_env_value() {
