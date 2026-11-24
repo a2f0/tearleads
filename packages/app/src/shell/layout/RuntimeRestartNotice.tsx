@@ -5,7 +5,10 @@ import {
   subscribeRuntimeHealth,
 } from "@tearleads/client-sdk";
 import { useEffect, useReducer, useRef } from "react";
-import { hasPendingPageDocumentWrites } from "../../providers/db/pageDocumentWrites";
+import {
+  hasPendingPageDocumentWrites,
+  reloadDiscardingPageDocumentWrites,
+} from "../../providers/db/pageDocumentWrites";
 import { useTearleadsExternalValue } from "../../providers/sdk/useTearleadsSubscription";
 import {
   RUNTIME_RESTART_NOTICE_OFFERED,
@@ -16,10 +19,13 @@ import "./RuntimeRestartNotice.css";
 
 export const RUNTIME_RESTART_LABELS = {
   discard: "Reload anyway",
+  failed:
+    "Couldn't prepare the reload. Reloading anyway may lose unsaved edits.",
   keep: "Not now",
   message: "A document needs a reload to finish syncing.",
   reload: "Reload",
   reloading: "Reloading…",
+  retry: "Try again",
   unsaved: "Some edits haven't been saved yet. Reloading now loses them.",
 } as const;
 
@@ -49,10 +55,17 @@ export function RuntimeRestartNoticeView({
   if (status === "healthy") {
     return null;
   }
-  if (step === "unsaved") {
+  if (step === "unsaved" || step === "failed") {
+    // Either way the user may reload anyway. Asked about unsaved edits, the
+    // user may keep them instead; after a step threw, try the press again.
+    const unsaved = step === "unsaved";
     return (
       <div className="runtime-restart-notice" role="status">
-        <span>{RUNTIME_RESTART_LABELS.unsaved}</span>
+        <span>
+          {unsaved
+            ? RUNTIME_RESTART_LABELS.unsaved
+            : RUNTIME_RESTART_LABELS.failed}
+        </span>
         <button
           className="runtime-restart-notice-button"
           onClick={onDiscard}
@@ -60,8 +73,8 @@ export function RuntimeRestartNoticeView({
         >
           {RUNTIME_RESTART_LABELS.discard}
         </button>
-        <button onClick={onKeep} type="button">
-          {RUNTIME_RESTART_LABELS.keep}
+        <button onClick={unsaved ? onKeep : onReload} type="button">
+          {unsaved ? RUNTIME_RESTART_LABELS.keep : RUNTIME_RESTART_LABELS.retry}
         </button>
       </div>
     );
@@ -89,7 +102,8 @@ export interface RuntimeRestartSource {
   readonly getStatus: () => RuntimeHealthStatus;
   readonly hasPendingWrites: () => boolean;
   readonly prepare: () => Promise<void>;
-  readonly reload: () => void;
+  /** Reloads the page; `discard` once the user chose to lose unsaved edits. */
+  readonly reload: (discard: boolean) => void;
   readonly subscribe: (listener: () => void) => () => void;
 }
 
@@ -101,9 +115,25 @@ export const SDK_RUNTIME_RESTART: RuntimeRestartSource = {
   getStatus: () => getRuntimeHealth(),
   hasPendingWrites: () => hasPendingPageDocumentWrites(),
   prepare: () => prepareRuntimeRestart(),
-  reload: () => window.location.reload(),
+  reload: (discard) => {
+    const reload = () => window.location.reload();
+    if (discard) reloadDiscardingPageDocumentWrites(reload);
+    else reload();
+  },
   subscribe: (listener) => subscribeRuntimeHealth(listener),
 };
+
+/**
+ * Lets the SDK drain its read windows, then tells whether edits are pending
+ * now, unless the user already chose to lose them.
+ */
+async function prepareRestart(
+  source: RuntimeRestartSource,
+  discard: boolean,
+): Promise<boolean> {
+  await source.prepare();
+  return !discard && source.hasPendingWrites();
+}
 
 /** Waits up to `waitMs` for no edit to be pending; true if some still are. */
 async function waitForSavedEdits(
@@ -123,7 +153,8 @@ async function waitForSavedEdits(
  * through `transitionRuntimeRestartNotice`: entering `saving` waits for
  * edits to reach SQLite, entering `preparing` lets the SDK drain its read
  * windows (`prepareRuntimeRestart`) and asks again about edits, and
- * entering `reloading` reloads the page, once.
+ * entering `reloading` reloads the page, once. A step that throws moves the
+ * notice to `failed`.
  */
 export function RuntimeRestartNotice({
   saveWaitMs = SAVE_WAIT_MS,
@@ -144,6 +175,9 @@ export function RuntimeRestartNotice({
     // further, so only the current source's work moves the notice.
     let cancelled = false;
     const isCancelled = () => cancelled;
+    const fail = (attempt: number) => () => {
+      if (!cancelled) dispatch({ attempt, type: "failed" });
+    };
     if (step.status === "saving") {
       const { attempt } = step;
       void waitForSavedEdits(
@@ -152,20 +186,19 @@ export function RuntimeRestartNotice({
         isCancelled,
       ).then((unsaved) => {
         if (!cancelled) dispatch({ attempt, type: "settled", unsaved });
-      });
+      }, fail(attempt));
     } else if (step.status === "preparing") {
       const { attempt } = step;
-      void source.prepare().then(() => {
-        if (cancelled) return;
-        dispatch({
-          attempt,
-          type: "prepared",
-          unsaved: source.hasPendingWrites(),
-        });
-      });
+      void prepareRestart(source, step.discard).then((unsaved) => {
+        if (!cancelled) dispatch({ attempt, type: "prepared", unsaved });
+      }, fail(attempt));
     } else if (step.status === "reloading" && reloaded.current !== step) {
       reloaded.current = step;
-      source.reload();
+      try {
+        source.reload(step.discard);
+      } catch {
+        fail(step.attempt)();
+      }
     }
     return () => {
       cancelled = true;
