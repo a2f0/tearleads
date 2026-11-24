@@ -1,141 +1,31 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import {
-  type DocumentSummary,
   getRosterProfileDocumentLocalId,
   type OrganizationDirectory,
-  type OrganizationDirectoryUser,
-  type PersistedDocumentListener,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type {
-  useTearleads,
-  useTearleadsRuntime,
-} from "../../../providers/sdk/TearleadsProvider";
+import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import {
   getLocalRosterProfileDisplayNames,
   getRosterProfileBindingsByLocalId,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
 import { useOrgManagerProfileDisplayNames } from "./useOrgManagerProfileDisplayNames";
-
-const ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
-const USER_ID = "00000000-0000-4000-8000-000000000002";
-const PROFILE_DOCUMENT_ID = "00000000-0000-4000-8000-000000000003";
-const SECOND_PROFILE_DOCUMENT_ID = "00000000-0000-4000-8000-000000000004";
+import {
+  createTearleadsHarness,
+  directory,
+  findNoRosterProfileContainer,
+  ORGANIZATION_ID,
+  PROFILE_DOCUMENT_ID,
+  profileSummary,
+  rosterUser,
+  runtime,
+  SECOND_PROFILE_DOCUMENT_ID,
+  USER_ID,
+} from "./useOrgManagerProfileDisplayNames.testUtils";
 
 afterEach(() => cleanup());
 
-function rosterUser(input: {
-  profileDocumentId: string | null;
-  userId: string;
-}): OrganizationDirectoryUser {
-  return {
-    createdAt: "2026-05-20T12:00:00.000Z",
-    disabledAt: null,
-    disabledByUserId: null,
-    encapsulationKeyFingerprint: `encapsulation-${input.userId}`,
-    isPersonalOrganizationOwner: false,
-    isSelf: false,
-    joinedAt: "2026-05-20T12:00:00.000Z",
-    leaveRequest: null,
-    profileDocumentId: input.profileDocumentId,
-    signingKeyFingerprint: `signing-${input.userId}`,
-    status: "active",
-    updatedAt: "2026-05-20T12:00:00.000Z",
-    userId: input.userId,
-  };
-}
-
-function directory(
-  users: OrganizationDirectoryUser[],
-  organizationId = ORGANIZATION_ID,
-): OrganizationDirectory {
-  return {
-    currentUser: { isOrgAdmin: true },
-    organizationId,
-    profileDocumentId: null,
-    users,
-  };
-}
-
-function profileSummary(input: {
-  profileDocumentId: string;
-  title: string;
-  userId: string;
-}): DocumentSummary {
-  return {
-    containerId: "local-profile-container",
-    documentId: input.profileDocumentId,
-    documentKind: "contact",
-    id: getRosterProfileDocumentLocalId({
-      organizationId: ORGANIZATION_ID,
-      userId: input.userId,
-    }),
-    title: input.title,
-    updatedAt: "2026-05-20T12:00:00.000Z",
-  };
-}
-
-function runtime(input?: {
-  dbStatus?: string;
-  domainScope?: object;
-  isAuthenticated?: boolean;
-  organizationId?: string | null;
-  userId?: string | null;
-}) {
-  return {
-    auth: {
-      isAuthenticated: input?.isAuthenticated ?? true,
-      organizationId: input?.organizationId ?? ORGANIZATION_ID,
-      userId: input?.userId ?? "viewer-user-id",
-    },
-    infra: { dbStatus: input?.dbStatus ?? "ready" },
-    state: { domainScope: input?.domainScope ?? {} },
-  } as unknown as ReturnType<typeof useTearleadsRuntime>;
-}
-
-function createTearleadsHarness(
-  rowsInput: ReadonlyArray<DocumentSummary> = [],
-) {
-  let rows = rowsInput;
-  const listeners = new Set<PersistedDocumentListener>();
-  const requestSync = mock(() => undefined);
-  const open = mock(() => ({ requestSync }));
-  const list = mock(() => Promise.resolve({ rows, totalCount: rows.length }));
-  const subscribe = mock((listener: PersistedDocumentListener) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  });
-  const loadDirectoryAndGroups = mock(() => Promise.resolve(null));
-  const loadLocalDirectoryAndGroups = mock(() => Promise.resolve(null));
-  const logError = mock(() => undefined);
-  const tearleads = {
-    documents: { list, open, subscribe },
-    logError,
-    organizations: {
-      loadDirectoryAndGroups,
-      loadLocalDirectoryAndGroups,
-    },
-  } as unknown as ReturnType<typeof useTearleads>;
-
-  return {
-    emit(document: DocumentSummary) {
-      rows = [...rows.filter((row) => row.id !== document.id), document];
-      for (const listener of listeners) {
-        listener(document, { placementChanged: false });
-      }
-    },
-    list,
-    loadDirectoryAndGroups,
-    loadLocalDirectoryAndGroups,
-    logError,
-    open,
-    requestSync,
-    subscribe,
-    tearleads,
-  };
-}
-
-test("59 roster profiles use one local query and no hydration fanout", async () => {
+test("59 roster profiles use one local query and no fanout without a listed container", async () => {
   const users = Array.from({ length: 59 }, (_, index) =>
     rosterUser({
       profileDocumentId: `profile-document-${index}`,
@@ -151,6 +41,7 @@ test("59 roster profiles use one local query and no hydration fanout", async () 
         appData,
         canLoadAuthenticatedOrgData: true,
         directory: activeDirectory,
+        findRosterProfileContainer: findNoRosterProfileContainer,
         selectedUserIdRef,
         tearleads: harness.tearleads,
       }),
@@ -192,6 +83,7 @@ test("reused-store changes repaint and current bindings reject stale rows", asyn
         appData,
         canLoadAuthenticatedOrgData: true,
         directory: activeDirectory,
+        findRosterProfileContainer: findNoRosterProfileContainer,
         selectedUserIdRef,
         tearleads: harness.tearleads,
       }),
@@ -286,6 +178,7 @@ test("scope loss clears names and selected-editor updates remain immediate", asy
         appData: props.appData,
         canLoadAuthenticatedOrgData: props.canLoad,
         directory: props.directory,
+        findRosterProfileContainer: findNoRosterProfileContainer,
         selectedUserIdRef,
         tearleads: harness.tearleads,
       }),

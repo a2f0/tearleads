@@ -180,6 +180,7 @@ export function useOrgManagerModel() {
       appData,
       canLoadAuthenticatedOrgData,
       directory: activeDirectory,
+      findRosterProfileContainer: orgManagerActions.findRosterProfileContainer,
       selectedUserIdRef,
       tearleads,
     });

@@ -9,6 +9,7 @@ import {
   getRosterProfileDocumentBindingKey,
   type RosterProfileBinding,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
+import { hydrateRosterProfileDocument } from "../../../stores/org-manager/rosterProfileHydration";
 
 interface ExplorerAttributionOrganizations {
   loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
@@ -188,7 +189,7 @@ export function selectExplorerAttributionHydrationTargetsForDocument(input: {
 }
 
 /** Opens one requested encrypted profile document and probes remote state. */
-export async function hydrateExplorerAttributionProfileDocument(input: {
+export function hydrateExplorerAttributionProfileDocument(input: {
   readonly containerId: string;
   readonly documents: Documents;
   readonly organizationId: string;
@@ -196,33 +197,17 @@ export async function hydrateExplorerAttributionProfileDocument(input: {
   readonly target: ExplorerAttributionProfileHydrationTarget;
 }): Promise<boolean> {
   const { target } = input;
-  if (input.signal?.aborted) {
-    return false;
-  }
-  const persistedLocalId = await input.documents.findLocalIdByDocumentId(
-    target.profileDocumentId,
-  );
-  if (input.signal?.aborted) {
-    return false;
-  }
-  return input.documents
-    .open(
-      {
-        containerId: input.containerId,
-        documentId: target.profileDocumentId,
-        localId:
-          persistedLocalId ??
-          getExplorerAttributionProfileDocumentLocalId({
-            organizationId: input.organizationId,
-            profileDocumentId: target.profileDocumentId,
-            userId: target.userId,
-          }),
-      },
-      {
-        remoteSyncMode: "on-demand",
-      },
-    )
-    .requestRemoteSyncAndWait(input.signal);
+  return hydrateRosterProfileDocument({
+    containerId: input.containerId,
+    documents: input.documents,
+    localId: getExplorerAttributionProfileDocumentLocalId({
+      organizationId: input.organizationId,
+      profileDocumentId: target.profileDocumentId,
+      userId: target.userId,
+    }),
+    profileDocumentId: target.profileDocumentId,
+    signal: input.signal,
+  });
 }
 
 export function getExplorerAttributionProjectionKey(input: {

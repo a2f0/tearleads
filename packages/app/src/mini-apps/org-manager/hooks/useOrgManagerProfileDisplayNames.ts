@@ -1,4 +1,7 @@
-import type { OrganizationDirectory } from "@tearleads/client-sdk";
+import type {
+  ContainerNode,
+  OrganizationDirectory,
+} from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -14,15 +17,19 @@ import type {
 import {
   getLocalRosterProfileDisplayNames,
   getRosterProfileBindingsByLocalId,
+  getRosterProfileBindingsWithoutLocalRow,
   getRosterProfileDocumentBindingKey,
   getRosterProfileDocumentIds,
+  type RosterProfileBinding,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
+import { hydrateRosterProfileDocument } from "../../../stores/org-manager/rosterProfileHydration";
 import { EMPTY_PROFILE_DISPLAY_NAMES } from "../display";
 
 interface OrgManagerProfileDisplayNamesParams {
   appData: ReturnType<typeof useTearleadsRuntime>;
   canLoadAuthenticatedOrgData: boolean;
   directory: OrganizationDirectory | null;
+  findRosterProfileContainer: () => Promise<ContainerNode | null>;
   selectedUserIdRef: { current: string | null };
   tearleads: ReturnType<typeof useTearleads>;
 }
@@ -67,8 +74,43 @@ function matchesScope(
   );
 }
 
+/** One load's hydration budget, matching Explorer's attribution probe. */
+export const MAX_ROSTER_PROFILE_HYDRATIONS_PER_LOAD = 32;
+
+/**
+ * Pulls, one at a time, the roster profiles this device holds no row for.
+ * Profiles never reach a device through container discovery, so without this
+ * an admin's new device shows user IDs. Rows persist, so a later load only
+ * hydrates what is still missing. Each pulled profile reaches the caller
+ * through `documents.subscribe`.
+ */
+async function hydrateMissingRosterProfiles(input: {
+  readonly bindings: ReadonlyArray<RosterProfileBinding>;
+  readonly findRosterProfileContainer: () => Promise<ContainerNode | null>;
+  readonly signal: AbortSignal;
+  readonly tearleads: ReturnType<typeof useTearleads>;
+}): Promise<void> {
+  const container = await input.findRosterProfileContainer();
+  if (!container || input.signal.aborted) return;
+  const bindings = input.bindings.slice(
+    0,
+    MAX_ROSTER_PROFILE_HYDRATIONS_PER_LOAD,
+  );
+  for (const binding of bindings) {
+    if (input.signal.aborted) return;
+    await hydrateRosterProfileDocument({
+      containerId: container.id,
+      documents: input.tearleads.documents,
+      localId: binding.canonicalLocalId,
+      profileDocumentId: binding.profileDocumentId,
+      signal: input.signal,
+    });
+  }
+}
+
 function startLocalProfileDisplayNameLoad(input: {
   readonly directory: OrganizationDirectory;
+  readonly findRosterProfileContainer: () => Promise<ContainerNode | null>;
   readonly scope: ProfileDisplayNameScope;
   readonly setState: Dispatch<SetStateAction<ProfileDisplayNameState | null>>;
   readonly tearleads: ReturnType<typeof useTearleads>;
@@ -84,7 +126,31 @@ function startLocalProfileDisplayNameLoad(input: {
     profileBindingsByLocalId,
   );
   let cancelled = false;
+  const hydration = new AbortController();
+  // Only an admin can read the Roster Profiles container. One hydration per
+  // load: a new member changes the binding key, which starts a new load.
+  let hydrationState: "idle" | "started" = input.directory.currentUser
+    .isOrgAdmin
+    ? "idle"
+    : "started";
   let loadSequence = 0;
+  const hydrateMissing = (bindings: ReadonlyArray<RosterProfileBinding>) => {
+    if (hydrationState === "started" || bindings.length === 0) return;
+    hydrationState = "started";
+    void hydrateMissingRosterProfiles({
+      bindings,
+      findRosterProfileContainer: input.findRosterProfileContainer,
+      signal: hydration.signal,
+      tearleads: input.tearleads,
+    }).catch((error: unknown) => {
+      if (!cancelled) {
+        input.tearleads.logError(
+          "Failed to hydrate organization roster profiles",
+          error,
+        );
+      }
+    });
+  };
   const reload = async () => {
     const sequence = ++loadSequence;
     try {
@@ -97,6 +163,12 @@ function startLocalProfileDisplayNameLoad(input: {
       });
       if (!cancelled && sequence === loadSequence) {
         input.setState({ ...input.scope, names });
+        hydrateMissing(
+          getRosterProfileBindingsWithoutLocalRow({
+            documents,
+            profileBindingsByLocalId,
+          }),
+        );
       }
     } catch (error) {
       if (!cancelled) {
@@ -115,6 +187,7 @@ function startLocalProfileDisplayNameLoad(input: {
   void reload();
   return () => {
     cancelled = true;
+    hydration.abort();
     loadSequence += 1;
     unsubscribe();
   };
@@ -195,6 +268,7 @@ export function useOrgManagerProfileDisplayNames(
     appData,
     canLoadAuthenticatedOrgData,
     directory,
+    findRosterProfileContainer,
     selectedUserIdRef,
     tearleads,
   } = params;
@@ -226,6 +300,7 @@ export function useOrgManagerProfileDisplayNames(
     }
     return startLocalProfileDisplayNameLoad({
       directory: activeDirectory,
+      findRosterProfileContainer,
       scope: { bindingKey, domainScope, organizationId, userId },
       setState,
       tearleads,
@@ -234,6 +309,7 @@ export function useOrgManagerProfileDisplayNames(
     bindingKey,
     canReadLocalProfiles,
     domainScope,
+    findRosterProfileContainer,
     organizationId,
     tearleads,
     userId,
