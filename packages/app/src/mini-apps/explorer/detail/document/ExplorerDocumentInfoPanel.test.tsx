@@ -133,6 +133,7 @@ test("document info does not load detailed edit ranges until requested", async (
           },
         ],
         nextCursor: null,
+        voidUpdateIds: [],
       };
     },
   });

@@ -246,3 +246,26 @@ so the case is not designed for.
 models the cursor in the gates and the redirect, and
 [`RawHistoryRecovery`](../formal/document-sync/RawHistoryRecovery.md) the
 history recovery rebuilds and the voids it leaves out.
+
+## Edit Attribution
+
+The API credits each operation to the earliest update whose declared span covers
+it (`GET /documents/{documentId}/attribution` and its `ranges`). A void update's
+span is false, so an earlier void update could take the credit for operations a
+later update really carried, and History would bound a change by the void
+update's upload time and could report a clock running ahead.
+
+Every reader of attribution in the SDK leaves out the ranges of updates the
+device voided for good: rows in `document_void_updates` under its running judge,
+in any local record of the document, except an update still unsettled after a
+Loro runtime failure. Ranges drop those updates page by page. Compact segments
+stay the API's list while the device holds no void update of the document;
+otherwise the SDK builds them from the ranges without the void ones, merging
+runs as the API does. Info's contributors and blame, row writers, Explorer's
+edit ranges, and History's upload-time bound therefore agree, and the operations
+a void update declared are credited to nobody.
+
+The update that later carried those operations is not credited either, because
+the API credits each operation once and does not know the reader's verdicts.
+Readers whose judges differ can show different attribution. Both are accepted
+residuals of #3194.

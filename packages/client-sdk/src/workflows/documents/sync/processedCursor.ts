@@ -24,6 +24,7 @@ import {
   readSendableProcessedCursor,
   recordDocumentSyncVerdictsInTransaction,
 } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
+import { readFinalVoidUpdateIds } from "../../../data/persistence/documents/records/finalVoidUpdates";
 import { markLoroWindowsNotCountingInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { readProcessedCursorCoveredBy } from "../../../data/persistence/documents/records/processedCursorForVersion";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -74,6 +75,22 @@ export async function readProcessedCursorForVersion(
     getClientSQLitePersistenceRuntime(execSql).db,
     { ...input, judge: documentVerdictJudge() },
   );
+}
+
+/**
+ * The updates of a server document this device voided for good under its
+ * running judge. Readers of edit attribution leave them out, so an
+ * operation a void update declared is credited to nobody rather than to it.
+ */
+export async function readFinalDocumentVoidUpdateIds(
+  execSql: ExecSql,
+  documentId: string,
+): Promise<ReadonlySet<string>> {
+  await ensureDocumentTables(execSql);
+  return readFinalVoidUpdateIds(getClientSQLitePersistenceRuntime(execSql).db, {
+    documentId,
+    judge: documentVerdictJudge(),
+  });
 }
 
 interface RecordedImportJudgements {
