@@ -279,25 +279,25 @@ container and session.
 ### Residuals
 
 - **Recreation preemption.** Only an organization's billing purge frees a
-  document's id (a purge of one document is permanent: 409 "Document was
-  permanently purged"), and only that organization's owner recreates it, from
-  local history (`recoverPurgedOrganization`). A malicious owner owns the
-  peers of every record that survived, and can commit their next counters
-  before the devices' offline edits land. Those devices then rebase keeping
-  their own operations below the forger's frontier as committed, and readers,
-  holding the forger's operations there first, void the re-asserting update.
+  document's id; a purge of one document is permanent (409 "Document was
+  permanently purged"). The owner's devices recreate it from local history
+  (`recoverPurgedOrganization`), but no freed id is reserved: a member who
+  knows it can create it first, which the owner's devices refuse to adopt.
+  A recreator owns the peers its copy carries, so a malicious one can commit
+  their next counters before the devices' offline edits land. Those devices
+  rebase keeping their operations below its frontier as committed, and
+  readers, holding its operations there first, void the re-assertion.
 - **Dependencies on void spans.** The server judges a dependency against the
   committed frontier, which also counts the spans of updates every reader
   voided, since it cannot read a payload. Only a peer's owner raises that
   frontier, so a member can cover operations nobody committed only on its own
   peer, where no honest device holds any, or on a peer a purge left unowned.
   The owner's recovery from a stale copy lacking a device's peer entirely
-  leaves it unowned. A member the owner re-invites, who knows that peer, can
-  claim it before a device holding its operations relays them: with a void
-  span over them and then a dependent update, which the device accepts and
-  other readers void, or with forged operations there, which other readers
-  accept and the device voids. Accepted (#3230): keeping owner rows across
-  the purge would also refuse honest relays, whose rebase duplicates content.
+  leaves it unowned, and a re-invited member who knows it can claim it before
+  a device holding its operations relays them: with a void span over them and
+  a dependent update, which the device accepts and other readers void, or
+  with forged operations, which other readers accept and the device voids.
+  Accepted (#3230): kept owner rows would turn honest relays into duplicates.
 - **Overclaims on one's own peer.** The server cannot read a payload, so an
   owner may declare a span past the operations it carries. The counters below
   that frontier are committed, so any writer may then fill them first, and

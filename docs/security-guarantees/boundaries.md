@@ -146,17 +146,18 @@ refuses a write that extends a peer another user owns
 committed, another user can preempt its later operations only by recreating
 the document from history; the refused device then moves them to a fresh peer
 ([peer ownership](../advisory-op-spans.md#peer-ownership)). Only a billing
-purge of a whole organization frees a document's id, and only that
-organization's owner recreates it, by republishing local history under the
-same id (`recoverPurgedOrganization`). A purge of one document is permanent: a
-create of its id is refused with 409 "Document was permanently purged". The
-server also refuses an update that depends on an operation nobody committed,
-and readers void one whose payload depends on other operations than it
-declares, so another user cannot make a device alone accept an update by
-depending on that device's unsent operations
-([dependencies](../advisory-op-spans.md#dependencies)), except on a peer that
-the owner's recovery from a stale copy left unowned. A member the owner
-re-invites can claim such a peer if it acts before a device holding the
+purge of a whole organization frees a document's id, and the owner's devices
+recreate it by republishing local history under the same id
+(`recoverPurgedOrganization`). The server reserves no freed id, so a member who
+knows it can create it first, which stalls the owner's recovery of that
+document. A purge of one document is permanent: a create of its id is refused
+with 409 "Document was permanently purged". The server also refuses an update
+that depends on an operation nobody committed, and readers void one whose
+payload depends on other operations than it declares, so another user cannot
+make a device alone accept an update by depending on that device's unsent
+operations ([dependencies](../advisory-op-spans.md#dependencies)), except on a
+peer that the owner's recovery from a stale copy left unowned. A member the
+owner re-invites can claim such a peer if it acts before a device holding the
 peer's operations relays them, an accepted residual
 ([residuals](../advisory-op-spans.md#residuals)).
 One whose payload fails the Loro runtime, or ends the reader's process

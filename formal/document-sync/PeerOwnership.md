@@ -22,15 +22,17 @@ commit, and that first commit claims it.
 
 Only a billing purge of a whole organization frees a document's id. It deletes
 the document's rows, owner rows included, and the organization's owner then
-recovers by republishing the document from local history under the same id. A
-purge of one document is permanent: a create of its id is refused with 409
-"Document was permanently purged". The owner's recreation claims every peer
-in the history it carries, since F starts at 0. A device still holding unsent
-operations on such a peer is refused. It forks its document at
-A = min(live, F) on each refused peer, moves to a fresh secret peer, writes
-everything past A again on it (the content stays, the attribution does not),
-and resubmits. Nobody knows the fresh peer, so the resubmission claims it, and
-everything else it carries is within F.
+recovers by republishing the document from local history under the same id.
+The server reserves no freed id, so a member who knows it can create it first,
+and the owner's devices refuse to adopt that copy. A purge of one document is
+permanent: a create of its id is refused with 409 "Document was permanently
+purged". A recreation claims every peer in the history it carries, since F
+starts at 0. A device still holding unsent operations on such a peer is
+refused. It forks its document at A = min(live, F) on each refused peer,
+moves to a fresh secret peer, writes everything past A again on it (the
+content stays, the attribution does not), and resubmits. Nobody knows the
+fresh peer, so the resubmission claims it, and everything else it carries is
+within F.
 
 Each update also depends on op ids its payload builds on, and a reader that
 lacks one voids it (part B2). Before the rule below, a member who had read a
@@ -57,9 +59,10 @@ forged update.
   commits an op on its own peer whose payload depends on a nameable peer's
   next counter, declaring that dependency or none (`ForgeDependent`). It can
   name only peers in the committed log (`Nameable`).
-- A republisher, the owner of an organization a billing purge deleted,
-  recreates the document from the committed history a reader holds
-  (`Recreate`), at most `MaxRecreations` times.
+- A republisher recreates the document from the committed history a reader
+  holds (`Recreate`), at most `MaxRecreations` times. In production it is the
+  owner of an organization a billing purge deleted, or a member who creates
+  the freed id first.
 - Readers judge the committed log in server order (`Reader`, `JudgeFrom`): an
   entry is void when it reuses a held op id with other content, depends on an
   op id they do not hold, or depends on other op ids than it declares
@@ -83,7 +86,7 @@ exactly that; a recreation's full history depends on nothing.
 | `deps` and an entry's declared set | the `dependencyVersionVector` that `encryptDocumentPendingUpdate` reads from the payload with `getImportBlobMetadata` and signs in `computeDocumentContentRecordMetadataHash`; the server stores it in `documentUpdates.dependencyVersionVector` and serves it |
 | `Rebase` / `ForkPoint` / `Renumber` | `rebaseOntoFreshPeer`, which cuts each refused peer at min(live, F), keeps every other peer whole, and writes the cut operations' net effect under a fresh peer; the sync failure action `rebase_peer` runs it and resubmits |
 | `CurrentPeer` / `Nameable` | `recordPeerSeed`, which derives a record's peer from a device-local secret seed |
-| `Recreate` | the organization billing purge, whose `deleteOrganizationRemoteRows` deletes each document's rows, owner rows included, through `deleteDocumentRows`, followed by the owner's `recoverPurgedOrganization`, which republishes each document's local history under its `recoveryDocumentId`. A single-document purge (`runPurgeDocumentWorkflow`) keeps its signed purge event, so a create of that id is refused |
+| `Recreate` | the organization billing purge, whose `deleteOrganizationRemoteRows` deletes each document's rows, owner rows included, through `deleteDocumentRows`, followed by the owner's `session.recoverPurgedOrganization` (`recoverPurgedSessionOrganization`), whose remote reset queues each document's local history; document sync then creates the document under its `recoveryDocumentId` with that history as its seed. The create guard reserves no id an organization purge freed, so another writer may create it first. A single-document purge (`runPurgeDocumentWorkflow`) keeps its signed purge event, so a create of that id is refused |
 | `Reader` / `JudgeFrom` / `Pull` | `judgeOnScratch`, which voids the later carrier of a reused op id and an update whose dependencies it lacks |
 | `Unreadable` | `assertDecryptedDocumentUpdateMetadata`, which voids at stage `loro_metadata` an update whose decoded dependencies differ from its declared ones |
 | `Forge` / `ForgeDependent` | a modified client's request, judged by the same `claimDocumentPeers` |
@@ -98,8 +101,10 @@ and the organization purge in
 [`organizationPurgeRows.ts`](../../packages/api/src/workflows/billing/organizationPurgeRows.ts)
 deletes its rows through
 [`purgeDocumentRows.ts`](../../packages/api/src/workflows/documents/mutations/purgeDocumentRows.ts).
-The owner's recovery is in
-[`sessionPurgeRecovery.ts`](../../packages/client-sdk/src/client/session/sessionPurgeRecovery.ts).
+The owner's recovery, `recoverPurgedSessionOrganization`, is in
+[`sessionPurgeRecovery.ts`](../../packages/client-sdk/src/client/session/sessionPurgeRecovery.ts),
+and its remote reset queues the republish in
+[`remoteReset.ts`](../../packages/client-sdk/src/workflows/sync/remoteReset.ts).
 The single-document purge in
 [`purgeDocument.ts`](../../packages/api/src/workflows/documents/mutations/purgeDocument.ts)
 keeps its purge event, which
@@ -183,14 +188,15 @@ named violation on every run:
   [VoidUpdateProgress](./VoidUpdateProgress.md) covers.
 - Several devices of one user, which share ownership of each other's peers.
   Each device here is its own user.
-- A malicious republisher of offline edits on a surviving record, which only
-  the purged organization's owner can be. The republisher here carries only
-  what a reader holds. One that commits forged content at a device's unsent
+- A malicious republisher of offline edits on a surviving record: the purged
+  organization's owner, or a member who creates the freed id first, which the
+  owner's devices then refuse to adopt. The republisher here carries only what
+  a reader holds. One that commits forged content at a device's unsent
   counters raises F over them, so the device's resubmission is a re-assertion
   that readers void. This is an accepted residual.
-- A recreation from a stale copy, which loses what the copy lacks. Only the
-  purged organization's owner recreates, so this needs the owner to recover
-  from a device whose copy lacks a peer entirely. That peer is left unowned
+- A recreation from a stale copy, which loses what the copy lacks. The honest
+  recreation is the owner's recovery, so this needs the owner to recover from
+  a device whose copy lacks a peer entirely. That peer is left unowned
   while a device still holds operations on it. A member the owner re-invites
   into the replacement organization, who knows the peer from history before
   the purge, can claim it if it acts before a device holding those operations
