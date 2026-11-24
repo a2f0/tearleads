@@ -148,6 +148,7 @@ test("the shared runner links a fresh clone's secrets at its root unless overrid
   );
   await mkdir(resolve(workspace, "matrix-secrets/tearleads/prod"), {
     recursive: true,
+    mode: 0o700,
   });
   // As native_release_main sets it: the wrapper's own scripts/release folder.
   const link = (secretsDirOverride?: string) =>
@@ -162,8 +163,10 @@ test("the shared runner links a fresh clone's secrets at its root unless overrid
       ],
       {
         env: {
-          PATH: environmentValue("PATH"),
-          NATIVE_RELEASE_SECRETS_DIR: secretsDirOverride,
+          PATH: environmentValue("PATH") ?? "",
+          ...(secretsDirOverride === undefined
+            ? {}
+            : { NATIVE_RELEASE_SECRETS_DIR: secretsDirOverride }),
         },
       },
     );

@@ -157,7 +157,7 @@ test("a desktop shortcut links a fresh clone's secrets at its root first", async
   const store = await realpath(
     await mkdtemp(join(tmpdir(), "tearleads desktop secrets-")),
   );
-  await mkdir(join(store, "tearleads/prod"), { recursive: true });
+  await mkdir(join(store, "tearleads/prod"), { recursive: true, mode: 0o700 });
   // Marks the fixture as a fresh Git checkout for this test only.
   await mkdir(join(root, ".git"));
   try {

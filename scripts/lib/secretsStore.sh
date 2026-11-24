@@ -36,15 +36,19 @@ secrets_store_target() {
   fi
 }
 
-# Whether the current user owns folder $1. Release scripts source the env files
-# inside as shell code, so a folder someone else planted beside a clone in a
-# shared directory must not be linked. `find -user` keeps this POSIX.
-secrets_store_owned() {
-  [ -n "$(find -H "$1" -prune -user "$(id -u)" 2>/dev/null)" ]
+# Whether folder $1 is private to the current user: a real directory, not a
+# link, that the user owns and no group or other user can write. Release scripts
+# source the env files inside as shell code, so the link is made only when both
+# matrix-secrets and its project folder pass; then no one else can plant or
+# swap anything the link resolves through below the clone's parent, whatever
+# secrets_store_target guessed from the layout. `find -user` keeps this POSIX.
+secrets_store_private() {
+  [ -d "$1" ] && [ ! -L "$1" ] \
+    && [ -n "$(find "$1" -prune -user "$(id -u)" ! -perm -0020 ! -perm -0002 2>/dev/null)" ]
 }
 
 # Links the clone at $1 to its secrets folder when it has no .secrets at all and
-# the folder exists and is the user's own, so a release or native build from a
+# the folder exists and is private to the user, so a release or native build from a
 # fresh clone (or a worktree beside the other clones) reads the shared signing
 # keys and store credentials. A clone that already holds a .secrets, a link
 # included, is left alone. Outside a Git checkout it does nothing; without the
@@ -63,8 +67,9 @@ secrets_store_link() {
     echo "warning: no matrix-secrets/$SECRETS_STORE_PROJECT folder found, so .secrets stays unlinked" >&2
     return 0
   fi
-  if ! secrets_store_owned "$secrets_store_link_folder"; then
-    echo "warning: $secrets_store_link_target is not owned by $(id -un), so .secrets stays unlinked" >&2
+  if ! secrets_store_private "${secrets_store_link_folder%/*}" \
+    || ! secrets_store_private "$secrets_store_link_folder"; then
+    echo "warning: $secrets_store_link_target and its matrix-secrets folder must be directories only $(id -un) owns and can write, so .secrets stays unlinked" >&2
     return 0
   fi
   if ln -s "$secrets_store_link_target" "$1/.secrets"; then

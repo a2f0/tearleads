@@ -33,11 +33,26 @@ function workspace(clonePath = "clone"): { root: string; repo: string } {
   return { root, repo };
 }
 
-/** Creates a project folder with a tier inside, as matrix-secrets holds it. */
+/**
+ * Creates a project folder with a tier inside, as matrix-secrets holds it,
+ * private to the user whatever the umask.
+ */
 function store(path: string): string {
   mkdirSync(join(path, "tearleads/prod"), { recursive: true });
+  chmodSync(path, 0o700);
+  chmodSync(join(path, "tearleads"), 0o700);
   writeFileSync(join(path, "tearleads/prod/shared.env"), "MARKER=linked\n");
   return path;
+}
+
+const refused = (target: string) => ({
+  exitCode: 0,
+  stdout: "",
+  stderr: `warning: ${target} and its matrix-secrets folder must be directories only ${userName()} owns and can write, so .secrets stays unlinked\n`,
+});
+
+function userName(): string {
+  return Bun.spawnSync(["id", "-un"]).stdout.toString().trim();
 }
 
 /** Runs the library under `set -e`, as its callers are. */
@@ -171,14 +186,53 @@ test("a folder owned by another user is not linked", () => {
   chmodSync(join(bin, "id"), 0o755);
 
   const result = link(repo, { PATH: `${bin}:${PATH}` });
-  expect(result).toEqual({
-    exitCode: 0,
-    stdout: "",
-    stderr:
-      "warning: ../matrix-secrets/tearleads is not owned by someone, so .secrets stays unlinked\n",
-  });
+  expect(result.stderr).toContain(
+    "folder must be directories only someone owns and can write",
+  );
+  expect(result.exitCode).toBe(0);
   expect(present(join(repo, ".secrets"))).toBe(false);
 });
+
+test("a project folder that is a link, even to the user's own folder, is not linked", () => {
+  const { root, repo } = workspace();
+  const secrets = store(join(root, "matrix-secrets"));
+  const own = store(join(root, "own"));
+  rmSync(join(secrets, "tearleads"), { recursive: true });
+  symlinkSync(join(own, "tearleads"), join(secrets, "tearleads"));
+
+  expect(link(repo)).toEqual(refused("../matrix-secrets/tearleads"));
+  expect(present(join(repo, ".secrets"))).toBe(false);
+});
+
+test("a matrix-secrets folder that is a link is not linked", () => {
+  const { root, repo } = workspace();
+  const own = store(join(root, "own"));
+  symlinkSync(own, join(root, "matrix-secrets"));
+
+  expect(link(repo)).toEqual(refused("../matrix-secrets/tearleads"));
+  expect(present(join(repo, ".secrets"))).toBe(false);
+});
+
+for (const [who, mode] of [
+  ["group", 0o770],
+  ["other users", 0o707],
+] as const) {
+  test(`a matrix-secrets folder ${who} can write is not linked`, () => {
+    const { root, repo } = workspace();
+    chmodSync(store(join(root, "matrix-secrets")), mode);
+
+    expect(link(repo)).toEqual(refused("../matrix-secrets/tearleads"));
+    expect(present(join(repo, ".secrets"))).toBe(false);
+  });
+
+  test(`a project folder ${who} can write is not linked`, () => {
+    const { root, repo } = workspace();
+    chmodSync(join(store(join(root, "matrix-secrets")), "tearleads"), mode);
+
+    expect(link(repo)).toEqual(refused("../matrix-secrets/tearleads"));
+    expect(present(join(repo, ".secrets"))).toBe(false);
+  });
+}
 
 test("an existing .secrets, even a dangling link, is left alone", () => {
   const { root, repo } = workspace();
