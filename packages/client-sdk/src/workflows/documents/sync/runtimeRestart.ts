@@ -21,8 +21,10 @@ export function subscribeRuntimeHealth(listener: () => void): () => void {
 
 /**
  * Prepares this realm for a restart its user asked for: no Loro read window
- * opens until the open ones close, or a bounded wait ends. Resolves once the
- * host may reload; never rejects. The SDK never restarts the realm itself.
+ * opens until the open ones close, or a bounded wait ends, and then for a
+ * few seconds more, so a reload that follows at once leaves none open.
+ * Resolves once the host may reload; never rejects. The SDK never restarts
+ * the realm itself.
  */
 export function prepareRuntimeRestart(): Promise<void> {
   return processLoroRuntimeHealth.prepareRestart();

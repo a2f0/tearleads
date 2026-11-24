@@ -7,7 +7,7 @@ import { createLoroRuntimeHealth } from "./loroRuntimeHealth";
 // listener hears each change until it unsubscribes.
 test("a runtime failure asks the host for a restart", async () => {
   const health = createLoroRuntimeHealth({
-    lifetimes: createLoroLifetimes({ id: "tab" }),
+    lifetimes: createLoroLifetimes({ id: "tab", restartHoldMs: 1 }),
   });
   let changes = 0;
   const unsubscribe = health.subscribe(() => {
@@ -28,7 +28,7 @@ test("a runtime failure asks the host for a restart", async () => {
 // The restart waits for the realm's open windows, so a reload leaves none
 // behind, and a second request joins the first.
 test("a restart is ready once the open windows close", async () => {
-  const lifetimes = createLoroLifetimes({ id: "tab" });
+  const lifetimes = createLoroLifetimes({ id: "tab", restartHoldMs: 1 });
   const health = createLoroRuntimeHealth({ lifetimes });
   const window = await lifetimes.openWindow(false);
   health.noteRuntimeFailed();
@@ -50,7 +50,7 @@ test("a restart is ready once the open windows close", async () => {
 
 // A window that never closes must not keep the user's reload waiting.
 test("a restart is ready after a bounded wait", async () => {
-  const lifetimes = createLoroLifetimes({ id: "tab" });
+  const lifetimes = createLoroLifetimes({ id: "tab", restartHoldMs: 1 });
   const health = createLoroRuntimeHealth({ drainWaitMs: 5, lifetimes });
   await lifetimes.openWindow(false);
 
