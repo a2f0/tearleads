@@ -2,6 +2,11 @@
 set -eu
 
 ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
+# A fresh clone has no .secrets yet; link the shared store before dev.env is
+# read or created, so a new real .secrets folder never blocks the link.
+# shellcheck source=scripts/lib/secretsStore.sh
+. "${ROOT_DIR}/scripts/lib/secretsStore.sh"
+secrets_store_link "${ROOT_DIR}"
 DEV_ENV_FILE="${ROOT_DIR}/.secrets/staging/dev.env"
 
 read_env_value() {

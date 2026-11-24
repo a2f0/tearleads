@@ -262,15 +262,24 @@ export class ResetRun {
     }
   }
 
-  private cleanup() {
+  // The credentials step checks only local state (clean source, overrides,
+  // schema, secrets, tools) and calls no cloud API, so a run that fails there
+  // has nothing to recover and may release its lock for a rerun.
+  private failedBeforeCloud() {
+    const last = this.steps.at(-1);
+    return last?.label === "credentials" && last.status === "failed";
+  }
+
+  // Removes each path while this run still owns the lock, as one timed step.
+  private release(label: string, paths: readonly string[]) {
     const started = performance.now();
-    const step: Step = { label: "cleanup", status: "running", elapsedMs: 0 };
+    const step: Step = { label, status: "running", elapsedMs: 0 };
     this.steps.push(step);
     try {
-      this.requireLock();
-      rmSync(this.privateDir, { recursive: true });
-      this.requireLock();
-      rmSync(this.lock, { recursive: true });
+      for (const path of paths) {
+        this.requireLock();
+        rmSync(path, { recursive: true });
+      }
       step.status = "succeeded";
       return true;
     } catch {
@@ -286,7 +295,14 @@ export class ResetRun {
 
   async finish(success: boolean) {
     await new Promise<void>((resolve) => setImmediate(resolve));
-    if (success && !this.interrupted) success = this.cleanup();
+    if (success && !this.interrupted)
+      success = this.release("cleanup", [this.privateDir, this.lock]);
+    // Keep the private logs: they hold the reason the credentials step failed.
+    const released =
+      !success &&
+      !this.interrupted &&
+      this.failedBeforeCloud() &&
+      this.release("release-lock", [this.lock]);
     this.status = this.interrupted
       ? "interrupted"
       : success
@@ -301,7 +317,11 @@ export class ResetRun {
       );
     const total = Math.round(performance.now() - this.started);
     console.log(`total\t${this.status}\t${formatElapsed(total)}`);
-    if (this.status !== "succeeded") {
+    if (released) {
+      console.error(
+        `Stopped at credentials, before any cloud call, so no cloud resource changed. Released lock: ${this.lock}\nRead ${this.dir}/timings.json and the private command logs beside it, fix the reported configuration, then rerun the reset.`,
+      );
+    } else if (this.status !== "succeeded") {
       console.error(
         `Stopped at ${this.steps.at(-1)?.label ?? "startup"}. Maintenance or a partial rebuild may remain. No rollback occurred.\nPreserved lock: ${this.lock}\nRead ${this.dir}/timings.json and docs/developer/greenfield-reset.md before manual recovery; do not rerun the reset.`,
       );

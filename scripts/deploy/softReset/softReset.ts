@@ -250,4 +250,5 @@ Drop owned application objects; recreate PostgreSQL and application blob R2.
 Deploy API (migrations), verify schema/empty data, deploy app/demo and website.
 Verify public health without creating accounts. Record step and total timings.
 No native mobile/desktop builds or releases. Hostnames and downloads stay intact.
-Failures preserve a blocking lock; recovery is manual, never a blind rerun.`);
+A credentials failure releases the lock; fix it and rerun. Later failures
+preserve a blocking lock; recovery is manual, never a blind rerun.`);

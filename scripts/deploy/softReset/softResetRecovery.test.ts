@@ -25,6 +25,42 @@ test("screenshot/build readiness failure explains recovery before downtime", () 
   }
 }, 30_000);
 
+test("a credentials failure releases the lock so a fixed rerun proceeds", () => {
+  const f = fixture();
+  const lock = join(f.home, ".local/state/tearleads-soft-reset/prod.lock");
+  const providerCalls = join(f.root, "calls.jsonl");
+  try {
+    writeFileSync(join(f.root, "missing-secrets"), "");
+    const failed = f.run();
+    expect(failed.exitCode).toBe(1);
+    const { dir, record } = f.records();
+    expect(record.status).toBe("failed");
+    expect(
+      record.steps.map((step: { label: string; status: string }) => [
+        step.label,
+        step.status,
+      ]),
+    ).toEqual([
+      ["credentials", "failed"],
+      ["release-lock", "succeeded"],
+    ]);
+    // No provider ran, the private logs that explain the failure stay, and the
+    // lock is gone.
+    expect(existsSync(providerCalls)).toBe(false);
+    expect(existsSync(join(dir, "private"))).toBe(true);
+    expect(existsSync(lock)).toBe(false);
+    expect(failed.stderr.toString()).toContain(`Released lock: ${lock}`);
+    expect(failed.stderr.toString()).not.toContain("do not rerun");
+
+    rmSync(join(f.root, "missing-secrets"));
+    const rerun = f.run();
+    expect(rerun.exitCode, rerun.stderr.toString()).toBe(0);
+    expect(existsSync(lock)).toBe(false);
+  } finally {
+    rmSync(f.root, { recursive: true, force: true });
+  }
+}, 30_000);
+
 test("API preflight supports empty worker defines under Bash nounset", () => {
   const f = fixture();
   try {
