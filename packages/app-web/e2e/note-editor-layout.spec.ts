@@ -174,10 +174,14 @@ test("a reopened long note focuses its editor at the end of the text", async ({
   const noteUrl = page.url();
 
   // Leave for another note, then come back: the editor stays mounted while the
-  // note under it is swapped out and loaded again.
+  // note under it is swapped out. Wait for the new note to open and take
+  // focus, so the editor goes back to a note that is already loaded while it
+  // still has focus.
   await page.getByRole("button", { name: "New Note", exact: true }).click();
   await expect(page).not.toHaveURL(noteUrl);
   await expect(editor).toHaveValue("");
+  await expect(editor).toBeEditable();
+  await expect(editor).toBeFocused();
   await page.goBack();
   await expect(page).toHaveURL(noteUrl);
   await expect(editor).toHaveValue(`${LONG_NOTE}\nThe last line`, {
