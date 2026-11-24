@@ -19,7 +19,7 @@ test("unknown commands, options, and targets are usage errors", async () => {
   const { context, output } = testContext();
   expect(await runCli(["whoami", "--env", "dev"], context)).toBe(2);
   expect(output.stderr).toEqual([
-    "Unknown --env dev; use production or staging.",
+    "Unknown --env dev; use production, staging, or development.",
   ]);
 });
 

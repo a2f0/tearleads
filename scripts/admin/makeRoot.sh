@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/admin/makeRoot.sh <local|staging|prod> <fingerprint|identity-link>
+Usage: scripts/admin/makeRoot.sh <dev|staging|prod> <fingerprint|identity-link>
 
 Grants root (the /root operator routes and root console) to an identity, using
 the API CLI's make-admin command. Name the identity by its 64-character
@@ -12,7 +12,7 @@ from Identity Manager; a link is honored only when it matches the keys
 registered for its user. The change is recorded in the root audit trail; a run
 against an identity that is already root changes nothing.
 
-With local, the CLI uses the inherited Postgres environment or the development
+With dev, the CLI uses the inherited Postgres environment or the development
 defaults. With staging or prod, it uses the tier's migration login from its
 Postgres Terraform stack output, as the API deploy does.
 EOF
@@ -31,7 +31,7 @@ main() {
   local tier="$1"
   local identity="$2"
   case "$tier" in
-    local | staging | prod) ;;
+    dev | staging | prod) ;;
     *)
       usage >&2
       return 1
@@ -50,7 +50,7 @@ main() {
   unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS
   repo_root="$(CDPATH='' cd -P -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
-  if [[ "$tier" == local ]]; then
+  if [[ "$tier" == dev ]]; then
     cd "$repo_root/packages/api-cli"
     exec bun src/index.ts make-admin "$identity"
   fi

@@ -145,10 +145,10 @@ suspension; lift it from the root console.
 To grant root, use the repo wrapper. For `staging` or `prod` it reads the
 tier's migration login from the `postgres` Terraform stack output
 (`api_connection`), as the API deploy does, and runs the command from source;
-`local` uses the inherited Postgres environment or the development defaults:
+`dev` uses the inherited Postgres environment or the development defaults:
 
 ```bash
-scripts/admin/makeRoot.sh <local|staging|prod> <fingerprint|identity-link>
+scripts/admin/makeRoot.sh <dev|staging|prod> <fingerprint|identity-link>
 ```
 
 To revoke root on a deployed tier, give `revoke-admin` the same connection in a
