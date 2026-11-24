@@ -84,12 +84,15 @@ test("an intact record opens", async () => {
   );
 });
 
-/** A canary builder that records the length of each canary it builds. */
+/**
+ * A canary builder that records the length of each canary it builds, with
+ * the production builder's non-uniform bytes.
+ */
 function countingCanaries() {
   const lengths: number[] = [];
   const build = (length: number) => {
     lengths.push(length);
-    return new Uint8Array(length).fill(0x5a);
+    return Uint8Array.from({ length }, (_, index) => (index * 31 + 7) & 0xff);
   };
   return { build, lengths };
 }
