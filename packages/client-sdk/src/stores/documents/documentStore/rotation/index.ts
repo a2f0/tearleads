@@ -1,5 +1,10 @@
 import { encodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
-import type { DocumentRotationProofMode } from "../../../../workflows/documents";
+import {
+  claimThenAssertDocumentRotationAvailable,
+  DOCUMENTS_APP_KIND,
+  type DocumentRotationProofMode,
+  noteDocumentRotationRebuilt,
+} from "../../../../workflows/documents";
 
 import { requestDocumentStoreSync } from "../../registry";
 import { installRebuiltDocument } from "../history/historyRebuild";
@@ -38,6 +43,7 @@ import {
 
 async function collectVerifiedRawHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
+  documentId: string;
   generation: DocumentStoreSyncGeneration;
   state: DocumentStoreState;
 }) {
@@ -53,6 +59,14 @@ async function collectVerifiedRawHistoryForRotation(input: {
       ...input,
       rebuiltDocument,
       voids,
+    });
+    // The rebuild outlived every page: earlier deaths were not its to keep.
+    await noteDocumentRotationRebuilt({
+      documentId: input.documentId,
+      execSql: input.state.runtime.infra.execSql,
+      isCurrent: () =>
+        isDocumentStoreSyncGenerationCurrent(input.state, input.generation),
+      scope: { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
     });
     return {
       consumedPullContinuation,
@@ -150,7 +164,7 @@ async function recoverFullHistoryForRotation(
   state: DocumentStoreState,
   laneGeneration: DocumentStoreSyncLaneGeneration,
 ): Promise<Uint8Array> {
-  assertRotationRecoveryPrerequisites(state);
+  const { documentId } = assertRotationRecoveryPrerequisites(state);
   await invalidatePullContinuationBeforeRotation(state);
   const currentDoc = state.doc;
   const currentRecord = state.record;
@@ -185,6 +199,7 @@ async function recoverFullHistoryForRotation(
   // operations. A checkpoint queued or installed locally is never an input.
   let collection = await collectVerifiedRawHistoryForRotation({
     currentRecord,
+    documentId,
     generation,
     state,
   });
@@ -226,6 +241,7 @@ async function recoverFullHistoryForRotation(
       });
       const definitiveCollection = await collectVerifiedRawHistoryForRotation({
         currentRecord: currentRotationRecoveryRecord(state),
+        documentId,
         generation,
         state,
       });
@@ -301,6 +317,14 @@ async function proveFullHistoryForRotation(
   laneGeneration: DocumentStoreSyncLaneGeneration,
   generation: DocumentStoreSyncGeneration,
 ): Promise<Uint8Array> {
+  // A device whose rebuilds of this history keep ending the process starts
+  // no rotation of it; other members rotate it (#3194).
+  await claimThenAssertDocumentRotationAvailable({
+    documentId: assertRotationRecoveryPrerequisites(state).documentId,
+    execSql: state.runtime.infra.execSql,
+    logError: state.runtime.util.logError,
+    scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+  });
   for (let attempt = 0; ; attempt += 1) {
     try {
       return await recoverFullHistoryForRotation(state, laneGeneration);

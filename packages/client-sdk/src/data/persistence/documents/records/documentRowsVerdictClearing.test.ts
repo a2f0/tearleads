@@ -85,6 +85,7 @@ async function judgedScope(localId: string) {
       counts: false,
       documentId: DOCUMENT_ID,
       judge: "void-rules-1:loro-crdt@1.0.0",
+      kind: "read",
       lifetimeId: "dead",
       updateIds: [THROUGH],
       windowId: "dead-window",

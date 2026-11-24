@@ -1,4 +1,5 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, lt, ne } from "drizzle-orm";
+import { MAX_LORO_RUNTIME_ATTEMPTS } from "../../../documents/shared/sync/loroRuntimeFailureLedger";
 import {
   LORO_ISOLATION_FREE,
   type LoroIsolation,
@@ -7,13 +8,17 @@ import {
 import {
   documentLoroIsolation,
   documentLoroWindows,
+  documentRotationAvailability,
 } from "../../../sqlite/schema/documentLoroWindowSchema";
+import { documentVoidUpdates } from "../../../sqlite/schema/documentSyncVerdictSchema";
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentScope } from "./documentPersistenceTypes";
 
 // One bind names the app kind; the rest carry local ids.
 const LOCAL_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 1);
+// The scope, the stage, and the limit; the rest carry update ids.
+const CLEAN_READS_PER_STATEMENT = sqliteRowsPerStatement(1, 4);
 
 function windowScope(scope: DocumentScope) {
   return and(
@@ -57,6 +62,8 @@ export async function readForeignLoroWindows(
     counts: row.counts === 1,
     documentId: row.documentId,
     judge: row.judge,
+    // A kind this build does not know charges its death to no rotation.
+    kind: row.kind === "rotation" ? "rotation" : "read",
     lifetimeId: row.lifetimeId,
     updateIds: stringArray(row.updateIds),
   }));
@@ -76,6 +83,7 @@ export async function writeLoroWindowInTransaction(
     counts: window.counts ? 1 : 0,
     documentId: window.documentId,
     judge: window.judge,
+    kind: window.kind,
     openedAt,
     updateIds: JSON.stringify(window.updateIds),
     windowId: window.windowId,
@@ -203,7 +211,10 @@ export async function writeLoroIsolationInTransaction(
     .run();
 }
 
-/** Drops the windows and isolation of deleted or rebound scopes. */
+/**
+ * Drops the windows, isolation, and rotation availability of deleted or
+ * rebound scopes.
+ */
 export async function deleteDocumentLoroWindowsInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "delete">,
   appKind: string,
@@ -230,6 +241,48 @@ export async function deleteDocumentLoroWindowsInTransaction(
         and(
           eq(documentLoroIsolation.appKind, appKind),
           inArray(documentLoroIsolation.localId, batch),
+        ),
+      )
+      .run();
+    await tx
+      .delete(documentRotationAvailability)
+      .where(
+        and(
+          eq(documentRotationAvailability.appKind, appKind),
+          inArray(documentRotationAvailability.localId, batch),
+        ),
+      )
+      .run();
+  }
+}
+
+/**
+ * Clears the `loro_runtime` attempts deaths counted toward updates a window
+ * then read and survived: those deaths were not theirs, so deaths months
+ * apart cannot add up to a void. A final void stands.
+ */
+export async function clearSurvivedLoroAttemptsInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "delete">,
+  scope: DocumentScope,
+  updateIds: readonly string[],
+): Promise<void> {
+  for (
+    let offset = 0;
+    offset < updateIds.length;
+    offset += CLEAN_READS_PER_STATEMENT
+  ) {
+    await tx
+      .delete(documentVoidUpdates)
+      .where(
+        and(
+          eq(documentVoidUpdates.appKind, scope.appKind),
+          eq(documentVoidUpdates.localId, scope.localId),
+          eq(documentVoidUpdates.stage, "loro_runtime"),
+          lt(documentVoidUpdates.attempts, MAX_LORO_RUNTIME_ATTEMPTS),
+          inArray(
+            documentVoidUpdates.updateId,
+            updateIds.slice(offset, offset + CLEAN_READS_PER_STATEMENT),
+          ),
         ),
       )
       .run();

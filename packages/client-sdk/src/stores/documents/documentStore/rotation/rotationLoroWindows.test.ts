@@ -128,6 +128,7 @@ test("rotation reads each raw page in its own window, isolating as sync does", a
       counts: false,
       documentId,
       judge: documentVerdictJudge(),
+      kind: "read",
       lifetimeId: "dead",
       updateIds: ["first-suspect", "second-suspect"],
       windowId: "dead-window",

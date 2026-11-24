@@ -161,7 +161,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
@@ -346,6 +346,7 @@ test("step 7 drops the void rows' and read windows' key columns and keeps the ro
       "counts",
       "judge",
       "opened_at",
+      "kind",
     ]);
     expect(await execSql("SELECT * FROM document_loro_windows")).toEqual([
       {
@@ -353,6 +354,7 @@ test("step 7 drops the void rows' and read windows' key columns and keeps the ro
         counts: 1,
         document_id: "doc",
         judge: JUDGE,
+        kind: "read",
         lifetime_id: "dead",
         local_id: "note",
         opened_at: CREATED_AT,

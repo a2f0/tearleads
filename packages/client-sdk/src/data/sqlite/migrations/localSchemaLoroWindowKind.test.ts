@@ -1,0 +1,68 @@
+import { expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { documentLoroWindowTables } from "../schema/documentLoroWindowSchema";
+import { ensureSqlTables } from "../sqlSchema";
+import { localSchemaMigrations } from "./localSchemaMigrations";
+import { migrateLocalSchema } from "./migrateLocalSchema";
+
+const OPENED_AT = "2026-11-20T00:00:00.000Z";
+
+// The version-8 shape: the current table without its window kind.
+const VERSION_8_LORO_WINDOWS = `CREATE TABLE "document_loro_windows" (
+  "app_kind" TEXT NOT NULL,
+  "local_id" TEXT NOT NULL,
+  "lifetime_id" TEXT NOT NULL,
+  "window_id" TEXT NOT NULL,
+  "document_id" TEXT NOT NULL,
+  "update_ids" TEXT NOT NULL,
+  "counts" INTEGER NOT NULL,
+  "judge" TEXT NOT NULL,
+  "opened_at" TEXT NOT NULL,
+  PRIMARY KEY ("app_kind", "local_id", "lifetime_id")
+)`;
+
+const VERSION_8_STEPS = localSchemaMigrations.filter(
+  (migration) => migration.version <= 8,
+);
+
+test("step 9 reads a version-8 database's open windows as read windows", async () => {
+  const { close, execSql } = await createTestExecSql("local-schema-loro-kind");
+  try {
+    await migrateLocalSchema(execSql, { migrations: VERSION_8_STEPS });
+    await execSql(VERSION_8_LORO_WINDOWS);
+    await execSql(
+      `INSERT INTO document_loro_windows (app_kind, local_id, lifetime_id,
+         window_id, document_id, update_ids, counts, judge, opened_at)
+       VALUES ('documents', 'note', 'dead', 'dead-window', 'doc', '["u1"]',
+         1, 'judge', ?)`,
+      [OPENED_AT],
+    );
+
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+
+    expect(
+      await execSql("SELECT lifetime_id, kind FROM document_loro_windows"),
+    ).toEqual([{ kind: "read", lifetime_id: "dead" }]);
+    // The migrated table is the shape the current definition checks.
+    await ensureSqlTables(execSql, documentLoroWindowTables);
+  } finally {
+    close();
+  }
+});
+
+test("step 9 skips a version-8 database without the window table", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-loro-kind-absent",
+  );
+  try {
+    await migrateLocalSchema(execSql, { migrations: VERSION_8_STEPS });
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+    expect(
+      await execSql(
+        "SELECT name FROM sqlite_master WHERE name = 'document_loro_windows'",
+      ),
+    ).toEqual([]);
+  } finally {
+    close();
+  }
+});

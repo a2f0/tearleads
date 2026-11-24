@@ -153,6 +153,7 @@ test("a metadata pull claims a dead lifetime's window first", async () => {
         counts: false,
         documentId,
         judge: documentVerdictJudge(),
+        kind: "read",
         lifetimeId: "dead",
         updateIds: ["first-suspect", "second-suspect"],
         windowId: "dead-window",

@@ -167,6 +167,11 @@ export type {
   DocumentPeerRebaser,
   SyncRemoteDocumentRequest,
 } from "./sync/remoteDocumentSyncPass";
+export {
+  claimThenAssertDocumentRotationAvailable,
+  DocumentRotationUnavailableError,
+  noteDocumentRotationRebuilt,
+} from "./sync/rotationAvailability";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
   type DocumentSyncLane,

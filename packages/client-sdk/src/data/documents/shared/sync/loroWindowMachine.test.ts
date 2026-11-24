@@ -12,6 +12,7 @@ const WINDOW: LoroWindow = {
   counts: true,
   documentId: "doc",
   judge: "judge",
+  kind: "read",
   lifetimeId: "dead",
   updateIds: ["u1"],
 };
@@ -23,9 +24,38 @@ const CONTEXT = {
 };
 
 test("a window counts only for one update in a lifetime that has not failed", () => {
-  expect(loroWindowCounts(1, false)).toBe(true);
-  expect(loroWindowCounts(2, false)).toBe(false);
-  expect(loroWindowCounts(1, true)).toBe(false);
+  expect(loroWindowCounts("read", 1, false)).toBe(true);
+  expect(loroWindowCounts("read", 2, false)).toBe(false);
+  expect(loroWindowCounts("read", 1, true)).toBe(false);
+});
+
+test("a rotation window counts toward the rotation whatever its page held", () => {
+  expect(loroWindowCounts("rotation", 1, false)).toBe(true);
+  expect(loroWindowCounts("rotation", 2, false)).toBe(true);
+  expect(loroWindowCounts("rotation", 1, true)).toBe(false);
+});
+
+test("a rotation orphan charges the rotation, never an update", () => {
+  const rotation: LoroWindow = { ...WINDOW, kind: "rotation" };
+  expect(judgeOrphanWindow(rotation, CONTEXT)).toEqual({
+    kind: "rotationDeath",
+    suspects: ["u1"],
+  });
+  expect(
+    judgeOrphanWindow({ ...rotation, updateIds: ["u1", "u2"] }, CONTEXT),
+  ).toEqual({ kind: "rotationDeath", suspects: ["u1", "u2"] });
+  for (const [window, context] of [
+    [{ ...rotation, counts: false }, CONTEXT],
+    [rotation, { ...CONTEXT, endedFailed: true }],
+  ] as const) {
+    expect(judgeOrphanWindow(window, context)).toEqual({
+      kind: "isolate",
+      suspects: ["u1"],
+    });
+  }
+  expect(
+    judgeOrphanWindow(rotation, { ...CONTEXT, endedHidden: true }),
+  ).toEqual({ kind: "discard" });
 });
 
 test("an orphan counts, isolates, or says nothing", () => {
