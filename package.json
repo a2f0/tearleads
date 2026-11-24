@@ -105,7 +105,7 @@
     "test:architecture": "bun scripts/testing/testArchitecture.ts",
     "test:step-timings": "cd scripts/lib && bun test stepTimings.test.ts",
     "test:screenshots-store": "cd scripts/lib && bun test screenshotsStore.test.ts",
-    "test:clone-setup": "cd scripts/lib && bun test secretsStore.test.ts gradleWrapper.test.ts",
+    "test:clone-setup": "cd scripts/lib && bun test secretsStore.test.ts secretsLoader.test.ts gradleWrapper.test.ts",
     "test:soft-reset": "bun test ./scripts/deploy/softReset/",
     "test:install-dependencies": "cd scripts/lib && bun test installDependencies.test.ts",
     "test:npm-publish": "cd scripts/release && bun test releasePlan.test.ts publishPolicy.test.ts publishNpmPackage.test.ts waitForCi.test.ts",
