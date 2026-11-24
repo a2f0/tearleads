@@ -129,7 +129,14 @@ cannot close the window of the pass that replaced it. Container metadata,
 rotation (its raw history, and the sync that settles queued edits first), and
 a founding view read served updates in windows of their own, claimed and
 isolated the same way; a rotation or founding window closes once its Loro work
-on the page is over, since it saves no page. Every read of served updates is
+on the page is over, since it saves no page. A rotation's raw-history window
+can charge a death to the rotation instead of an update (below). A window the
+process outlives, closed by a save or settled without one, clears the
+`loro_runtime` attempts earlier deaths and failures counted toward the updates
+it read, except one the runtime failed on inside it: the process read them and
+lived, so those deaths were not theirs, and deaths months apart never add up
+to a void. A window whose page's Loro work, or the save of its result, threw
+clears none. A final void stands. Every read of served updates is
 then inside a window. A caller of the import judge that opens none, as a host
 calling it directly may, marks the lifetime failed once it reads an update, so
 its death counts toward no update. A document isolating suspects waits to read
@@ -153,7 +160,8 @@ database outlives its process must hold such a lock or mark its clean exits.
 
 Five residuals remain. An honest update that fails the runtime, or ends the
 process while the app is visible, in three separate process lifetimes on one
-device is void on that device. A window opens once the reader's history is
+device, with no read of it the process outlived between them, is void on that
+device. A window opens once the reader's history is
 built and closes with the page's save, which imports the update, so a visible
 death inside it counts toward the update whatever caused it: Loro work on
 local or accepted data the process runs meanwhile (the editor, a live apply,
@@ -166,19 +174,19 @@ cannot bind attachments to it, for up to three process lifetimes; its own
 writes still push and settle. The live apply after a page's save opens no
 window, so a payload that kills the process there records no attempt.
 
-And a rotation or founding view reads history the device already accepted, so
-the deaths it counts can void an update the live document holds. The device
-keeps that update's operations, which every other device holds too, and stops
+And a founding view reads history the device already accepted, so the
+deaths it counts can void an update the live document holds. The device keeps
+that update's operations, which every other device holds too, and stops
 vouching for it: its founding view and edit attribution leave it out, and its
 rotation proof, which rebuilds history without it, fails without a write, so
 this device cannot unlink, move, or purge-unlink that document. It still
 opens, edits, and syncs it, a pull that serves the update again voids it
-without a read, and every other device rotates as before. A completed sync
-pull of the document clears the suspects a rotation's death left, though it
-never reads them, so a rotation that dies on every attempt counts toward an
-update only when it runs before that pull. Until that pull, a rotation of the
-document reads its raw history one update a page, since rotation pages save
-nothing that would clear the suspects.
+without a read, and every other device rotates as before.
+
+A rotation's raw-history pages count deaths toward the device's rotation of
+the document when the live document already covers them;
+[rotation deaths](./rotation-deaths.md) covers that count, the update a
+rotation can leave out, and when a device leaves rotations to other members.
 
 ## Peer Ownership
 
@@ -427,7 +435,10 @@ rebuilt history must still equal the live one. Only then does it record each
 void its payload alone decides and report it the first time this device meets
 it; an import void, which depends on the history it is judged against, is left
 out unrecorded. An update held after a runtime failure fails the rotation,
-which retries later.
+which retries later. A death in the rebuild counts toward the device's
+rotation of the document, not the update; three under one judge leave the
+document's rotations to other members
+([Loro runtime failures](#loro-runtime-failures)).
 
 Each baseline then signs its author's processed cursor in its content-record
 metadata as `coversThroughUpdateId`, but only when its snapshot holds the

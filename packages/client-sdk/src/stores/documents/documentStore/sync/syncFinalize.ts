@@ -11,6 +11,7 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentSyncVerdictOutcome,
+  noteDocumentSyncLoroWorkFailed,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
   settleDocumentSyncLoroWindow,
@@ -237,6 +238,12 @@ async function persistSyncedDocument(
       options,
       isCurrent,
     );
+  } catch (error) {
+    // Loro work on the imported state runs on through the version vector
+    // and the save's snapshot: a throw before the commit ends the page
+    // uncleanly.
+    if (!committed) noteDocumentSyncLoroWorkFailed(syncAttempt.loroWindow);
+    throw error;
   } finally {
     candidate.free();
     await settleUnsavedLoroWindow(

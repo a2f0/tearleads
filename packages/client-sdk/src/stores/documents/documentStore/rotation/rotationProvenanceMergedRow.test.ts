@@ -50,6 +50,7 @@ test("raw-history recovery accepts a merged ordinary row", async () => {
   expect(
     importProvenOrdinaryPendingHistory({
       currentDocument: current,
+      leftOutEnds: [],
       pendingUpdates: [{ id: "merged", ...fields }],
       rebuiltDocument: rebuilt,
     }),

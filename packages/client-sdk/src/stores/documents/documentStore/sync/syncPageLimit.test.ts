@@ -144,6 +144,7 @@ test("the first pull after such a death already asks for one update", async () =
         counts: false,
         documentId,
         judge: documentVerdictJudge(),
+        kind: "read",
         lifetimeId: "dead",
         updateIds: ["first-suspect", "second-suspect"],
         windowId: "dead-window",

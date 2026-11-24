@@ -81,11 +81,20 @@ any other window makes the document pull
 one update a page (`maxPageUpdates: 1`) until it has passed those updates. A
 window left by a lifetime that ended while the app was hidden counts nothing.
 Each sync pass holds its own window and settles only that one, as do container
-metadata pulls, each page of a rotation's raw history, and a founding view.
+metadata pulls, each page of a rotation's raw history, and a founding view. A
+rotation page whose updates the live document covers counts a death toward the
+device's rotation of the document, never toward an update; three under one
+judge leave that document's rotations to other members, unless the third read
+one update alone: the next rebuild leaves it out and rotates if the result
+still equals the live document. A rotation page reading
+an update the device has not accepted counts a death as a sync pass does. A
+window the process outlives clears the attempts earlier deaths counted toward
+the updates it read.
 
 Related docs:
 
 - [advisory-op-spans.md](../advisory-op-spans.md#loro-runtime-failures)
+- [rotation-deaths.md](../rotation-deaths.md)
 - [VoidUpdateProgress.md](../../formal/document-sync/VoidUpdateProgress.md)
 
 ## Peer Owner

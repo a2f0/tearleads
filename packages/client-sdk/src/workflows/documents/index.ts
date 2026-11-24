@@ -147,6 +147,8 @@ export {
   closeDocumentSyncLoroWindowInTransaction,
   createDocumentSyncLoroWindow,
   type DocumentSyncLoroWindow,
+  noteDocumentSyncLoroWorkFailed,
+  runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
 } from "./sync/loroPassWindow";
 export {
@@ -167,6 +169,15 @@ export type {
   DocumentPeerRebaser,
   SyncRemoteDocumentRequest,
 } from "./sync/remoteDocumentSyncPass";
+export {
+  claimThenAssertDocumentRotationAvailable,
+  claimThenReadDocumentRotationPageLimit,
+  DocumentRotationUnavailableError,
+  noteDocumentRotationDiverged,
+  noteDocumentRotationProven,
+  noteDocumentRotationRebuilt,
+  readDocumentRotationLeftOut,
+} from "./sync/rotationAvailability";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
   type DocumentSyncLane,

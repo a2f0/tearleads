@@ -4,11 +4,21 @@
  * these functions read and return.
  */
 
+/**
+ * What a death in a window is charged to. A `read` window's death counts
+ * toward the update it read alone. A `rotation` window reads history this
+ * device already accepted, to rebuild it for a key rotation, so its death
+ * is far likelier the rebuild's size or state than the update: it counts
+ * toward the rotation, never an update.
+ */
+export type LoroWindowKind = "read" | "rotation";
+
 /** A window another lifetime left, as stored. */
 export interface LoroWindow {
   readonly counts: boolean;
   readonly documentId: string;
   readonly judge: string;
+  readonly kind: LoroWindowKind;
   readonly lifetimeId: string;
   /** The unsettled updates it read, in server order. */
   readonly updateIds: readonly string[];
@@ -18,6 +28,11 @@ export interface LoroWindow {
 export type OrphanVerdict =
   /** The lifetime died reading this update alone: one attempt toward it. */
   | { readonly kind: "count"; readonly updateId: string }
+  /**
+   * The lifetime died rebuilding history for a rotation: one death toward
+   * the device's rotation of the document. Its updates are read alone.
+   */
+  | { readonly kind: "rotationDeath"; readonly suspects: readonly string[] }
   /** The death says nothing about any one update: read each alone. */
   | { readonly kind: "isolate"; readonly suspects: readonly string[] }
   /**
@@ -27,14 +42,17 @@ export type OrphanVerdict =
   | { readonly kind: "discard" };
 
 /**
- * A window counts when it holds one unsettled update and its lifetime has
- * met no Loro runtime failure: a lifetime counts at most one failure.
+ * A window counts when its lifetime has met no Loro runtime failure, so a
+ * lifetime counts at most one failure. A read window counts only when it
+ * holds one unsettled update; a rotation window counts its death toward the
+ * rotation whatever its page held.
  */
 export function loroWindowCounts(
+  kind: LoroWindowKind,
   unsettledUpdates: number,
   lifetimeFailed: boolean,
 ): boolean {
-  return unsettledUpdates === 1 && !lifetimeFailed;
+  return (kind === "rotation" || unsettledUpdates === 1) && !lifetimeFailed;
 }
 
 export function judgeOrphanWindow(
@@ -55,13 +73,14 @@ export function judgeOrphanWindow(
   ) {
     return { kind: "discard" };
   }
+  const charged = window.counts && !context.endedFailed;
+  if (window.kind === "rotation") {
+    return charged
+      ? { kind: "rotationDeath", suspects: window.updateIds }
+      : { kind: "isolate", suspects: window.updateIds };
+  }
   const [only] = window.updateIds;
-  if (
-    window.counts &&
-    !context.endedFailed &&
-    window.updateIds.length === 1 &&
-    only !== undefined
-  ) {
+  if (charged && window.updateIds.length === 1 && only !== undefined) {
     return { kind: "count", updateId: only };
   }
   return { kind: "isolate", suspects: window.updateIds };

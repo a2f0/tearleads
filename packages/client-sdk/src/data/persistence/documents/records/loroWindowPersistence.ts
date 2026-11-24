@@ -3,10 +3,12 @@ import {
   LORO_ISOLATION_FREE,
   type LoroIsolation,
   type LoroWindow,
+  type LoroWindowKind,
 } from "../../../documents/shared/sync/loroWindowMachine";
 import {
   documentLoroIsolation,
   documentLoroWindows,
+  documentRotationAvailability,
 } from "../../../sqlite/schema/documentLoroWindowSchema";
 import { sqliteRowsPerStatement } from "../../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
@@ -14,6 +16,10 @@ import type { DocumentScope } from "./documentPersistenceTypes";
 
 // One bind names the app kind; the rest carry local ids.
 const LOCAL_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 1);
+const LORO_WINDOW_KINDS: ReadonlySet<string> = new Set<string>([
+  "read",
+  "rotation",
+] satisfies LoroWindowKind[]);
 
 function windowScope(scope: DocumentScope) {
   return and(
@@ -54,9 +60,12 @@ export async function readForeignLoroWindows(
     )
     .all();
   return rows.map((row) => ({
-    counts: row.counts === 1,
+    // A kind this build does not know counts toward nothing, update or
+    // rotation: its death only isolates the window's updates.
+    counts: row.counts === 1 && LORO_WINDOW_KINDS.has(row.kind),
     documentId: row.documentId,
     judge: row.judge,
+    kind: row.kind === "rotation" ? "rotation" : "read",
     lifetimeId: row.lifetimeId,
     updateIds: stringArray(row.updateIds),
   }));
@@ -76,6 +85,7 @@ export async function writeLoroWindowInTransaction(
     counts: window.counts ? 1 : 0,
     documentId: window.documentId,
     judge: window.judge,
+    kind: window.kind,
     openedAt,
     updateIds: JSON.stringify(window.updateIds),
     windowId: window.windowId,
@@ -203,7 +213,10 @@ export async function writeLoroIsolationInTransaction(
     .run();
 }
 
-/** Drops the windows and isolation of deleted or rebound scopes. */
+/**
+ * Drops the windows, isolation, and rotation availability of deleted or
+ * rebound scopes.
+ */
 export async function deleteDocumentLoroWindowsInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "delete">,
   appKind: string,
@@ -230,6 +243,15 @@ export async function deleteDocumentLoroWindowsInTransaction(
         and(
           eq(documentLoroIsolation.appKind, appKind),
           inArray(documentLoroIsolation.localId, batch),
+        ),
+      )
+      .run();
+    await tx
+      .delete(documentRotationAvailability)
+      .where(
+        and(
+          eq(documentRotationAvailability.appKind, appKind),
+          inArray(documentRotationAvailability.localId, batch),
         ),
       )
       .run();

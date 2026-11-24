@@ -179,6 +179,21 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 9,
   },
+  {
+    // A read window names what its death is charged to: an update, or a key
+    // rotation's rebuild of accepted history (#3194). A window open across
+    // the upgrade was a read window. No step creates the table: its ensure
+    // does, after migrating.
+    name: "add_loro_window_kind",
+    up: async (execSql, context) => {
+      if (await context.hasTable("document_loro_windows")) {
+        await execSql(
+          `ALTER TABLE "document_loro_windows" ADD COLUMN "kind" TEXT NOT NULL DEFAULT 'read'`,
+        );
+      }
+    },
+    version: 10,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

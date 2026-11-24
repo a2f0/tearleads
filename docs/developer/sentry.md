@@ -194,8 +194,20 @@ attempt after its `document_void_updates` row is recorded. A process that died
 reading one update is reported by the next lifetime that claims its
 [read window](../glossary/sync.md#loro-read-window), as `Documents: the process
 ended while reading a sync update (attempt n of 3)`, with the same `; voided`
-ending. A void that reused
-operation ids under this device's own peer id
+ending. One that died in a key rotation's rebuild of history the device
+accepted is reported as `Documents: the process ended rebuilding history for a
+key rotation (death n of 3)`; the third ends in `; this device starts no more
+rotations of the document and leaves them to other members`, or, when it read
+one update alone, in `; the next rebuild leaves out the update it died
+reading`. A death in that rebuild is reported as `(the rebuild leaving out the
+updates its deaths read)` in place of the count, with the same endings as the
+third. A rebuild leaving that update out that does not match the device's
+history, where the device holds counters only that update declares, is
+reported as `Documents: a key rotation's rebuild leaving out the update it
+died reading did not match this device's history; this device starts no more
+rotations of the document and leaves them to other members` (see
+[rotation deaths](../rotation-deaths.md)). A void that reused operation ids
+under this device's own peer id
 ([peer ownership](../advisory-op-spans.md#preemption-notices)) is
 reported once more, after its `document_peer_preemptions` notice is recorded,
 as `Documents: writer <user> (fingerprint <key>) committed operations under

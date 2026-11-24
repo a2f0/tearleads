@@ -6,7 +6,9 @@ import { processLoroRuntimeFailures } from "../../../data/documents/shared/sync/
 import type { DocumentScope } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  type DocumentSyncLoroReads,
   type DocumentSyncLoroWindow,
+  noteDocumentSyncLoroWindowVerdicts,
   openDocumentSyncLoroWindow,
 } from "./loroPassWindow";
 import { readRecordedDocumentSyncVoids } from "./processedCursor";
@@ -16,9 +18,12 @@ import { readRecordedDocumentSyncVoids } from "./processedCursor";
  * rotation's raw history and a founding view. A trap there fails the work,
  * which retries later. An update the scope voided for good stays void
  * without a Loro call, and the reads run inside `loroWindow`, so a payload
- * that ends the process there is found and counted by the next lifetime as
- * a sync pass's would be. The caller settles the window once its Loro work
- * on the page is over (#3194).
+ * that ends the process there is found by the next lifetime: a founding
+ * view's `read` window counts it as a sync pass's would, and a rotation's
+ * page of updates the device accepted counts it toward the rotation instead
+ * (`DocumentSyncLoroReads`). The caller
+ * settles the window once its Loro work on the page is over, which clears
+ * the attempts of the updates it survived (#3194).
  */
 export async function judgeUnrecordedDocumentSyncImports(input: {
   readonly currentDocument: Parameters<
@@ -29,6 +34,13 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   /** @internal This realm's lifetime; tests stand in another one. */
   readonly lifetimes?: LoroLifetimes | undefined;
   readonly loroWindow: DocumentSyncLoroWindow;
+  /**
+   * Updates a rotation leaves out of its rebuild, unread, as a runtime void
+   * it does not record (`rotationAvailabilityMachine.ts`).
+   */
+  readonly leftOut?: readonly string[] | undefined;
+  /** What the page's reads are, and so what a death there is charged to. */
+  readonly reads: DocumentSyncLoroReads;
   readonly rebuildBudgetBytes?: number | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,
@@ -36,9 +48,10 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   >;
   readonly scope: DocumentScope;
 }): Promise<DocumentSyncImportVerdicts> {
-  const knownVoids = await readRecordedDocumentSyncVoids(input);
+  const knownVoids = new Map(await readRecordedDocumentSyncVoids(input));
+  for (const id of input.leftOut ?? []) knownVoids.set(id, "loro_runtime");
   const ledger = processLoroRuntimeFailures.unrecorded();
-  return validateDocumentSyncUpdateImports({
+  const verdicts = await validateDocumentSyncUpdateImports({
     beforeUpdateReads: () =>
       openDocumentSyncLoroWindow({
         ...input,
@@ -54,4 +67,6 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
     responseUpdates: input.result.response.updates,
     runtimeLedger: ledger,
   });
+  noteDocumentSyncLoroWindowVerdicts(input.loroWindow, verdicts);
+  return verdicts;
 }
