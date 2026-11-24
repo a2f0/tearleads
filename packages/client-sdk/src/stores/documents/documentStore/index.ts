@@ -12,13 +12,13 @@ import {
 import {
   createDocumentStoreFacade,
   emitPersistedDocument,
-  forwardDocumentStoreStartupProbeJoin,
+  forwardDocumentStoreOpenJoin,
   getOrCreateDocumentStoreRegistry,
+  joinDocumentStoreOpen,
   registerDocumentStore,
   registerDocumentStoreIdentity,
-  registerDocumentStoreStartupProbeJoin,
+  registerDocumentStoreOpenJoin,
   registerDocumentStoreSupersedeHandler,
-  requestDocumentStoreStartupProbe,
   requestDocumentStoreSync,
   resolveDocumentStoreKey,
 } from "../registry";
@@ -42,7 +42,8 @@ import {
   ensureDocumentStoreReady,
   relinkDocumentStore,
 } from "./initialization";
-import { assertInitialContentFitsKind } from "./initialization/initialContent";
+import { applyDocumentStoreCreationOptions } from "./initialization/initialContent";
+import { joinBackingDocumentStoreOpen } from "./initialization/openJoin";
 import { registerInternalDocumentRelink } from "./internalRelink";
 import { countQueuedWrite } from "./localWriteQueue";
 import { setDocumentStructuredFields, setDocumentText } from "./mutations";
@@ -57,10 +58,7 @@ import {
 } from "./state";
 import { registerDocumentStoreSyncLane } from "./sync";
 import { logRevalidationScheduled } from "./sync/remoteRevalidationTelemetry";
-import {
-  joinDocumentStoreStartupProbe,
-  settleDeferredStartupProbe,
-} from "./sync/startupProbeDeferral";
+import { settleDeferredStartupProbe } from "./sync/startupProbeDeferral";
 import {
   allowDocumentStoreRemoteSync,
   captureDocumentStoreRemoteSyncRequestGeneration,
@@ -277,10 +275,8 @@ function registerBackingStoreHooks(input: {
   registerDocumentStoreSupersedeHandler(input.store, () => {
     input.state.relinkedElsewhere = true;
   });
-  registerDocumentStoreStartupProbeJoin(input.store, () =>
-    input.withLiveSyncLane(() =>
-      joinDocumentStoreStartupProbe(input.state, input.scheduleSync),
-    ),
+  registerDocumentStoreOpenJoin(input.store, (open) =>
+    joinBackingDocumentStoreOpen(input, open),
   );
   registerInternalDocumentRelink(input.store, (relinkInput, commitSideEffect) =>
     input.withLiveSyncLane(() =>
@@ -317,10 +313,7 @@ function createBackingStoreContext(
     documentKind,
     (options.remoteSyncMode ?? "startup") === "startup",
   );
-  if (options.deferInitialUpdate) state.deferInitialUpdate = true;
-  const { initialRows, initialStructuredFields } = options;
-  assertInitialContentFitsKind({ initialStructuredFields }, documentKind);
-  state.initialContent = { initialRows, initialStructuredFields };
+  applyDocumentStoreCreationOptions(state, options);
   refreshDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
   return {
@@ -436,7 +429,7 @@ export function createDocumentStore(
     options,
   );
   const facade = createDocumentStoreFacade(backingStore);
-  forwardDocumentStoreStartupProbeJoin(facade, backingStore);
+  forwardDocumentStoreOpenJoin(facade, backingStore);
   return facade;
 }
 
@@ -460,7 +453,11 @@ export function getOrCreateDocumentStore(
       existingStore,
       initialDocumentId,
     );
-    requestDocumentStoreStartupProbe(existingStore, options);
+    joinDocumentStoreOpen(existingStore, {
+      initialDocumentKind,
+      initialText,
+      options,
+    });
     return existingStore;
   }
 

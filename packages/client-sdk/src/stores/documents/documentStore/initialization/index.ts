@@ -184,6 +184,8 @@ async function restoreOrCreateInitialDocument(input: {
   if (persistedState.document) {
     return restoreLoadedInitialDocument(input);
   }
+  // Only readers opened this store: leave the record missing until a join.
+  if (state.createIfMissing === false) return null;
   const created = await createInitialDocumentRecord(state, input.nextDoc);
   if (!created || state.localWriteGeneration !== initializeGeneration) {
     return null;

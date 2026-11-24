@@ -4,7 +4,11 @@ import {
   addDocumentRow,
   createDocumentRowId,
 } from "../../../../data/documents/documentRowList";
-import type { DocumentStructuredFieldPatch } from "../../types";
+import type {
+  DocumentStoreJoiningOpen,
+  DocumentStoreOpenOptions,
+  DocumentStructuredFieldPatch,
+} from "../../types";
 import { resolveRowAttribution } from "../rows/rowAttribution";
 import type { DocumentState, DocumentStoreState } from "../state";
 
@@ -35,6 +39,54 @@ export function assertInitialContentFitsKind(
   ) {
     throw new Error("Initial structured fields need a structured kind");
   }
+}
+
+/**
+ * Records what an open asks a created record to start with. An open with
+ * `createIfMissing: false` asks for no record, so initialization leaves a
+ * missing one missing until an open that may create joins the store.
+ */
+export function applyDocumentStoreCreationOptions(
+  state: Pick<
+    DocumentStoreState,
+    | "createIfMissing"
+    | "deferInitialUpdate"
+    | "initialContent"
+    | "initialDocumentKind"
+  >,
+  options: DocumentStoreOpenOptions,
+): void {
+  const { initialRows, initialStructuredFields } = options;
+  assertInitialContentFitsKind(
+    { initialStructuredFields },
+    state.initialDocumentKind,
+  );
+  state.initialContent = { initialRows, initialStructuredFields };
+  if (options.deferInitialUpdate) state.deferInitialUpdate = true;
+  if (options.createIfMissing === false) state.createIfMissing = false;
+}
+
+/**
+ * An open that may create joins a store whose openers so far only read. The
+ * readers set no content for a record, so a record still missing is created
+ * from this open's kind, text and content. It runs inside the open, so an
+ * initialization already in flight sees it before deciding to create.
+ */
+export function joinDocumentStoreCreation(
+  state: DocumentStoreState,
+  open: DocumentStoreJoiningOpen,
+): void {
+  if (
+    state.createIfMissing !== false ||
+    open.options.createIfMissing === false
+  ) {
+    return;
+  }
+  assertInitialContentFitsKind(open.options, open.initialDocumentKind);
+  state.createIfMissing = undefined;
+  state.initialDocumentKind = open.initialDocumentKind;
+  state.initialText = open.initialText;
+  applyDocumentStoreCreationOptions(state, open.options);
 }
 
 /**
