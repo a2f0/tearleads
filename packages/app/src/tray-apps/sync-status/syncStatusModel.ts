@@ -54,8 +54,8 @@ export function resolveSyncUnavailableReason(input: {
   if (input.databaseStatus === "ready") return null;
   if (input.isLocked) return "locked";
   // A database that failed to open is retried a few times on its own
-  // (`useEnsureDatabaseForIdentity`), so its error is not yet the user's to
-  // act on and reads as still checking.
+  // (`useEnsureDatabaseForIdentity`), and nothing here tells a retry from a
+  // boot that gave up, so it reads as still checking, as it did before.
   if (input.databaseStatus === "error") return null;
   // Until the stored identity is found, or while a switch opens the next
   // one, the database is still on its way.

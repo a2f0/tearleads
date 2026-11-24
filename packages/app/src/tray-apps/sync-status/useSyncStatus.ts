@@ -91,9 +91,10 @@ function useOtherBillingBlocked(appData: RuntimeSnapshot): boolean {
  * cannot show: sync work running (held, so short runs do not blink the glyph)
  * and sync tasks failing, including pulls. Failures recorded while offline are
  * left out after the reconnect while a retry revisits them (see
- * `useLastOfflineWindow`). With no identity on this device, its keys locked,
- * or its database failed, there is nothing to read, so the status says what
- * the user can do rather than waiting on a read.
+ * `useLastOfflineWindow`). With no identity on this device, or its keys
+ * locked, there is nothing to read, so the status says what the user can do
+ * rather than waiting on a read. A database that failed to open still reads
+ * as checking (see `resolveSyncUnavailableReason`).
  */
 export function useSyncStatus(): SyncStatusResult {
   const appData = useTearleadsRuntime();

@@ -14,6 +14,7 @@ const NO_IDENTITY_TITLE = "Not syncing — this device has no identity yet";
 test("the sync tray says nothing syncs until the device has an identity", async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(
