@@ -71,3 +71,16 @@
 .sync-glyph--loading {
   color: color-mix(in srgb, var(--color-dark) 35%, transparent);
 }
+
+/* Nothing on this device can sync until the user acts (no identity yet, or
+   its keys locked): the muted hue drawn as a ring, so it reads as "off"
+   rather than as the "checking" dot. Declared after the dot so its
+   transparent fill wins. */
+.sync-glyph--inactive {
+  color: color-mix(in srgb, var(--color-dark) 35%, transparent);
+}
+
+.sync-glyph--inactive.sync-glyph--dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px currentColor;
+}

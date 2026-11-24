@@ -4,6 +4,7 @@ import type {
 } from "@tearleads/client-sdk";
 
 export const SETTLED = {
+  unavailableReason: null,
   billingNeedsAttention: false,
   otherOrganizationBillingBlocked: false,
   ready: true,
@@ -15,6 +16,7 @@ export const SETTLED = {
 } as const;
 
 export const DESCRIBED = {
+  unavailableReason: null,
   pendingWriteCount: 0,
   failedWriteCount: 0,
   firstWriteError: null,

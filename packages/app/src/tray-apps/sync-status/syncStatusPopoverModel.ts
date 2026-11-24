@@ -2,7 +2,10 @@ import type {
   DownloadQueueSummary,
   SyncLaneSummary,
 } from "./syncActivityModel";
-import type { BillingBlockScope } from "./syncStatusModel";
+import type {
+  BillingBlockScope,
+  SyncUnavailableReason,
+} from "./syncStatusModel";
 
 const DETAIL_LABELS = {
   changesToUpload: "Changes to upload:",
@@ -19,6 +22,14 @@ const DETAIL_LABELS = {
   organization: ["organization", "organizations"],
 } as const;
 
+// What the user can do when this device's data cannot be read at all; until
+// then there is no queue to count in either direction.
+const UNAVAILABLE_LABELS: Record<SyncUnavailableReason, string> = {
+  "no-identity": "Create or restore an identity to start syncing.",
+  locked: "Unlock this device to read and sync its data.",
+  "database-failed": "Nothing can sync until this device's data opens.",
+};
+
 function counted(
   count: number,
   [one, other]: readonly [string, string],
@@ -27,6 +38,8 @@ function counted(
 }
 
 interface SyncStatusDetailsInput {
+  /** Why nothing on this device can sync until the user acts, if so. */
+  readonly unavailableReason: SyncUnavailableReason | null;
   readonly pendingWriteCount: number;
   readonly downloads: DownloadQueueSummary;
   readonly lanes: SyncLaneSummary;
@@ -65,10 +78,15 @@ function describeDownloads(downloads: DownloadQueueSummary): string[] {
  * the Explorer is still uploading, sync tasks running, and organizations
  * whose sync is paused (the status line names a pause only where it holds
  * the queued writes). Failed sync tasks are named by the status line itself.
+ * While this device's data cannot be read, one line says what would let it
+ * sync instead.
  */
 export function describeSyncStatusDetails(
   input: SyncStatusDetailsInput,
 ): ReadonlyArray<string> {
+  if (input.unavailableReason !== null) {
+    return [UNAVAILABLE_LABELS[input.unavailableReason]];
+  }
   const lines = [
     `${DETAIL_LABELS.changesToUpload} ${
       input.pendingWriteCount === 0
@@ -103,6 +121,8 @@ export type SyncStatusActionId =
   | "sync-lanes";
 
 interface SyncStatusActionsInput {
+  /** Why nothing on this device can sync until the user acts, if so. */
+  readonly unavailableReason: SyncUnavailableReason | null;
   /** Online, signed in, and the database open: a sync request can run. */
   readonly canSync: boolean;
   /** Whose billing paused sync, if any organization's did. */
@@ -121,10 +141,13 @@ interface SyncStatusActionsInput {
  * view that explains a line above it (the write queue when it holds or could
  * not read changes, Downloads when content waits or could not be read,
  * Uploads while files are uploading, and Sync Lanes while tasks run or fail).
+ * None while this device's data cannot be read.
  */
 export function listSyncStatusActions(
   input: SyncStatusActionsInput,
 ): ReadonlyArray<SyncStatusActionId> {
+  // No view can show a queue this device cannot read.
+  if (input.unavailableReason !== null) return [];
   const actions: SyncStatusActionId[] = [];
   if (input.canSync && input.billingBlock !== "active")
     actions.push("sync-now");

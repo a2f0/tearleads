@@ -60,6 +60,7 @@ test("countPendingWrites sums operation counts across items", () => {
 test("resolveSyncStatus is synced when ready with an empty queue", () => {
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: false,
       otherOrganizationBillingBlocked: false,
       ready: true,
@@ -75,6 +76,7 @@ test("resolveSyncStatus is synced when ready with an empty queue", () => {
 test("resolveSyncStatus is pending when ready with unflushed data", () => {
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: false,
       otherOrganizationBillingBlocked: false,
       ready: true,
@@ -90,6 +92,7 @@ test("resolveSyncStatus is pending when ready with unflushed data", () => {
 test("resolveSyncStatus is loading before the first read resolves", () => {
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: false,
       otherOrganizationBillingBlocked: false,
       ready: false,
@@ -105,6 +108,7 @@ test("resolveSyncStatus is loading before the first read resolves", () => {
 test("resolveSyncStatus surfaces billing over a pending queue", () => {
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: true,
       otherOrganizationBillingBlocked: false,
       ready: true,
@@ -120,6 +124,7 @@ test("resolveSyncStatus surfaces billing over a pending queue", () => {
 test("resolveSyncStatus surfaces billing even before the queue is read", () => {
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: true,
       otherOrganizationBillingBlocked: false,
       ready: false,
@@ -137,6 +142,7 @@ test("resolveSyncStatus surfaces billing for a non-active organization", () => {
   // too — surface the reason instead of an unexplained red "pending" dot.
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: false,
       otherOrganizationBillingBlocked: true,
       ready: true,
@@ -154,6 +160,7 @@ test("describeSyncStatus names another organization as the billing reason", () =
   // no status to name — the active org's own status must not be borrowed.
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "billing",
       pendingWriteCount: 0,
       failedWriteCount: 0,
@@ -175,6 +182,7 @@ test("describeSyncStatus names another organization as the billing reason", () =
 test("describeSyncStatus labels the settled states", () => {
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "loading",
       pendingWriteCount: 0,
       failedWriteCount: 0,
@@ -193,6 +201,7 @@ test("describeSyncStatus labels the settled states", () => {
   ).toBe("Checking sync status…");
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "synced",
       pendingWriteCount: 0,
       failedWriteCount: 0,
@@ -214,6 +223,7 @@ test("describeSyncStatus labels the settled states", () => {
 test("describeSyncStatus uses the singular for one pending change", () => {
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "pending",
       pendingWriteCount: 1,
       failedWriteCount: 0,
@@ -235,6 +245,7 @@ test("describeSyncStatus uses the singular for one pending change", () => {
 test("describeSyncStatus pluralizes and notes offline for pending changes", () => {
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "pending",
       pendingWriteCount: 3,
       failedWriteCount: 0,
@@ -256,6 +267,7 @@ test("describeSyncStatus pluralizes and notes offline for pending changes", () =
 test("describeSyncStatus names an expired trial as the billing reason", () => {
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "billing",
       pendingWriteCount: 0,
       failedWriteCount: 0,
@@ -277,6 +289,7 @@ test("describeSyncStatus names an expired trial as the billing reason", () => {
 test("describeSyncStatus explains disabled billing", () => {
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "billing",
       pendingWriteCount: 0,
       failedWriteCount: 0,
@@ -298,6 +311,7 @@ test("describeSyncStatus explains disabled billing", () => {
 test("describeSyncStatus falls back to a generic billing message", () => {
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "billing",
       pendingWriteCount: 0,
       failedWriteCount: 0,
@@ -334,6 +348,7 @@ test("summarizePendingWrites counts failed items and captures the first error", 
 test("resolveSyncStatus surfaces error over a merely pending queue", () => {
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: false,
       otherOrganizationBillingBlocked: false,
       ready: true,
@@ -349,6 +364,7 @@ test("resolveSyncStatus surfaces error over a merely pending queue", () => {
 test("describeSyncStatus appends the recorded failure to the error label", () => {
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "error",
       pendingWriteCount: 4,
       failedWriteCount: 1,
@@ -367,6 +383,7 @@ test("describeSyncStatus appends the recorded failure to the error label", () =>
   ).toBe("1 change failed to sync — Write access denied by the server (403)");
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "error",
       pendingWriteCount: 4,
       failedWriteCount: 2,
@@ -390,6 +407,7 @@ test("resolveSyncStatus surfaces a failed queue read as error, not loading", () 
   // a read that keeps failing must not leave the indicator checking forever.
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: false,
       otherOrganizationBillingBlocked: false,
       ready: false,
@@ -405,6 +423,7 @@ test("resolveSyncStatus surfaces a failed queue read as error, not loading", () 
 test("resolveSyncStatus keeps billing over a failed queue read", () => {
   expect(
     resolveSyncStatus({
+      unavailableReason: null,
       billingNeedsAttention: true,
       otherOrganizationBillingBlocked: false,
       ready: false,
@@ -420,6 +439,7 @@ test("resolveSyncStatus keeps billing over a failed queue read", () => {
 test("describeSyncStatus names the queue read failure over stale failed writes", () => {
   expect(
     describeSyncStatus({
+      unavailableReason: null,
       status: "error",
       pendingWriteCount: 4,
       failedWriteCount: 1,
@@ -440,6 +460,7 @@ test("describeSyncStatus names the queue read failure over stale failed writes",
 
 test("describeSyncStatus names a sync pause as why changes are waiting", () => {
   const pending = {
+    unavailableReason: null,
     status: "pending",
     pendingWriteCount: 2,
     failedWriteCount: 0,

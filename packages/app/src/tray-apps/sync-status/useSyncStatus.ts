@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useOrganizationBilling } from "../../providers/billing/BillingProvider";
+import { useIdentity } from "../../providers/identity/IdentityProvider";
+import { useLocalKeyringLock } from "../../providers/local-keyring/LocalKeyringLockProvider";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -11,7 +13,9 @@ import {
   type BillingBlockScope,
   describeSyncStatus,
   resolveSyncStatus,
+  resolveSyncUnavailableReason,
   type SyncStatus,
+  type SyncUnavailableReason,
   selectBillingBlock,
 } from "./syncStatusModel";
 import { useOtherOrganizationBillingBlocked } from "./useOtherOrganizationBillingBlock";
@@ -34,6 +38,8 @@ export interface SyncStatusResult {
   readonly billingBlock: BillingBlockScope | null;
   /** Organizations whose sync is paused on this device. */
   readonly pausedOrganizationCount: number;
+  /** Why nothing on this device can sync until the user acts, if so. */
+  readonly unavailableReason: SyncUnavailableReason | null;
 }
 
 /**
@@ -50,25 +56,58 @@ export interface SyncStatusResult {
  * cannot show: sync work running (held, so short runs do not blink the glyph)
  * and sync tasks failing, including pulls. Failures recorded while offline are
  * left out after the reconnect while a retry revisits them (see
- * `useLastOfflineWindow`).
+ * `useLastOfflineWindow`). With no identity on this device, its keys locked,
+ * or its database failed, there is nothing to read, so the status says what
+ * the user can do rather than waiting on a read.
  */
-export function useSyncStatus(): SyncStatusResult {
-  const appData = useTearleadsRuntime();
-  const billing = useOrganizationBilling();
+type RuntimeSnapshot = ReturnType<typeof useTearleadsRuntime>;
+
+/** Why nothing on this device can sync until the user acts, if so. */
+function useSyncUnavailableReason(
+  databaseStatus: RuntimeSnapshot["infra"]["dbStatus"],
+): SyncUnavailableReason | null {
+  const { isLocked } = useLocalKeyringLock();
+  const identity = useIdentity();
+  return resolveSyncUnavailableReason({
+    databaseStatus,
+    hasIdentity: identity.signingKeyPair !== null,
+    identitySettled:
+      identity.localIdentityRestoreSettled &&
+      !identity.identityTransitionInFlight,
+    isLocked,
+  });
+}
+
+/** Whether an organization other than the active one is billing-blocked. */
+function useOtherBillingBlocked(appData: RuntimeSnapshot): boolean {
   const { organizations, syncBillingGate } = useTearleads();
-  const domainScope = appData.state.domainScope;
-  const dbReady = appData.infra.dbStatus === "ready";
-  const online = appData.state.online;
-
-  const documentQueries = useDomainDocumentQueries(appData);
-
-  const queue = usePendingWriteCount(documentQueries, domainScope, dbReady);
-
   const loadBlockedOrganizationBilling = useCallback(
     (organizationId: string) =>
       organizations.loadBillingForOrganization(organizationId),
     [organizations],
   );
+  return useOtherOrganizationBillingBlocked({
+    activeOrganizationId: appData.auth.organizationId,
+    gate: syncBillingGate,
+    // The gate outlives a logout, so its blocks are scoped to the session that
+    // earned them rather than leaking into the next identity.
+    identityKey: appData.auth.isAuthenticated ? appData.auth.userId : null,
+    loadBilling: loadBlockedOrganizationBilling,
+  });
+}
+
+export function useSyncStatus(): SyncStatusResult {
+  const appData = useTearleadsRuntime();
+  const billing = useOrganizationBilling();
+  const domainScope = appData.state.domainScope;
+  const dbReady = appData.infra.dbStatus === "ready";
+  const online = appData.state.online;
+  const unavailableReason = useSyncUnavailableReason(appData.infra.dbStatus);
+
+  const documentQueries = useDomainDocumentQueries(appData);
+
+  const queue = usePendingWriteCount(documentQueries, domainScope, dbReady);
+
   const pausedOrganizationIds = usePausedOrganizationIds();
   const { lanes, pausedOrganizationCount, syncActive, writesPaused } =
     useSyncLaneHolds({
@@ -79,15 +118,9 @@ export function useSyncStatus(): SyncStatusResult {
       writeOrganizationIds: queue.organizationIds,
     });
   const billingNeedsAttention = billing.view?.needsAttention ?? false;
-  const otherOrganizationBillingBlocked = useOtherOrganizationBillingBlocked({
-    activeOrganizationId: appData.auth.organizationId,
-    gate: syncBillingGate,
-    // The gate outlives a logout, so its blocks are scoped to the session that
-    // earned them rather than leaking into the next identity.
-    identityKey: appData.auth.isAuthenticated ? appData.auth.userId : null,
-    loadBilling: loadBlockedOrganizationBilling,
-  });
+  const otherOrganizationBillingBlocked = useOtherBillingBlocked(appData);
   const status = resolveSyncStatus({
+    unavailableReason,
     billingNeedsAttention,
     otherOrganizationBillingBlocked,
     ready: dbReady && queue.loaded,
@@ -99,6 +132,7 @@ export function useSyncStatus(): SyncStatusResult {
   });
   const title = describeSyncStatus({
     status,
+    unavailableReason,
     pendingWriteCount: queue.count,
     failedWriteCount: queue.failedCount,
     firstWriteError: queue.firstError,
@@ -131,6 +165,7 @@ export function useSyncStatus(): SyncStatusResult {
       lanes,
       billingBlock,
       pausedOrganizationCount,
+      unavailableReason,
     }),
     [
       billingBlock,
@@ -140,6 +175,7 @@ export function useSyncStatus(): SyncStatusResult {
       queueReadFailed,
       status,
       title,
+      unavailableReason,
     ],
   );
 }
