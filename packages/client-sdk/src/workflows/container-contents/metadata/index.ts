@@ -11,6 +11,7 @@ import { settleOutgoingPassAndDecideReArm } from "../../../data/sync/outgoingUpd
 import {
   createDocumentSyncLoroWindow,
   type DocumentSyncLoroWindow,
+  noteDocumentSyncLoroWorkFailed,
   readPullContinuation,
   runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
@@ -356,7 +357,7 @@ async function finalizeContainerMetadataSync(input: {
   SyncedContainerMetadataState | MissingContainerMetadataState | null
 > {
   const { metadataState, syncAttempt, verdicts } = input;
-  const { outgoingUpdateCount, synced } = syncAttempt;
+  const { synced } = syncAttempt;
   const discardAllSent = () =>
     discardUnacceptedContainerMetadataUpdateIds(
       input.locallyAcceptedUpdateIds,
@@ -381,31 +382,7 @@ async function finalizeContainerMetadataSync(input: {
       applyIncomingContainerMetadataUpdates(metadataState.doc, synced),
     );
   }
-  const persisted = await persistContainerMetadataStateFromRuntime({
-    acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
-    clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
-      synced,
-      outgoingUpdateCount,
-    ),
-    commitSideEffect: verdicts.commitSideEffect,
-    expectedSyncState: {
-      pullContinuation: syncAttempt.consumedPullContinuation ?? null,
-      record: syncAttempt.requestRecord,
-    },
-    metadataState,
-    onDurableStateNeedsReload: input.onDurableStateNeedsReload,
-    patch: {
-      ...synced.persistedState,
-      documentId: input.documentId,
-      lastCommitLsn:
-        synced.response.commitLsn ?? metadataState.record.lastCommitLsn ?? null,
-      metadataDocumentId: input.documentId,
-      pullContinuation: readPullContinuation(synced.response),
-    },
-    persistence: input.persistence,
-    runtime: input.runtime,
-    stillCurrent: input.isCurrent,
-  });
+  const persisted = await saveContainerMetadataPage(input);
   // A save that lost currency at commit returns null: it rolled back.
   await verdicts.settleWindow(input.runtime.infra.execSql, {
     committed: persisted !== null,
@@ -450,4 +427,50 @@ async function finalizeContainerMetadataSync(input: {
         settleContainerMetadataOutgoingPass(metadataState, syncAttempt),
     }),
   };
+}
+
+/**
+ * Saves the page's result, recording its verdicts and closing its window in
+ * the save's transaction. Loro work on the imported state runs on through
+ * the save's snapshot, so a save that throws before it commits ends the
+ * page uncleanly, as a document page's does: the window's settle then
+ * clears no attempt of the updates it read.
+ */
+async function saveContainerMetadataPage(
+  input: Parameters<typeof finalizeContainerMetadataSync>[0],
+) {
+  const { metadataState, syncAttempt, verdicts } = input;
+  const { outgoingUpdateCount, synced } = syncAttempt;
+  try {
+    return await persistContainerMetadataStateFromRuntime({
+      acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
+      clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
+        synced,
+        outgoingUpdateCount,
+      ),
+      commitSideEffect: verdicts.commitSideEffect,
+      expectedSyncState: {
+        pullContinuation: syncAttempt.consumedPullContinuation ?? null,
+        record: syncAttempt.requestRecord,
+      },
+      metadataState,
+      onDurableStateNeedsReload: input.onDurableStateNeedsReload,
+      patch: {
+        ...synced.persistedState,
+        documentId: input.documentId,
+        lastCommitLsn:
+          synced.response.commitLsn ??
+          metadataState.record.lastCommitLsn ??
+          null,
+        metadataDocumentId: input.documentId,
+        pullContinuation: readPullContinuation(synced.response),
+      },
+      persistence: input.persistence,
+      runtime: input.runtime,
+      stillCurrent: input.isCurrent,
+    });
+  } catch (error) {
+    noteDocumentSyncLoroWorkFailed(input.loroWindow);
+    throw error;
+  }
 }

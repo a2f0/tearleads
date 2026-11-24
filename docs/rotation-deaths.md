@@ -44,7 +44,10 @@ difference their spans do not explain decides nothing, and the rotation
 fails as any unverified history does. Later updates found the same way join
 the ones left out, up to eight a document; a device that comes to hold one
 it left out, so that a rebuild without them differs within their spans,
-reads them all again from the start.
+reads them all again from the start. A rebuild leaving them out that keeps
+failing for an unrelated reason, such as a gap in local history, decides
+nothing, so that document's rotations keep reading one update a page until a
+rebuild leaving them out proves or diverges, or a new judge arrives.
 
 ## Unavailable Rotation
 
