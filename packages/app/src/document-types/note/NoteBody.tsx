@@ -1,13 +1,16 @@
+import type { DocumentStore } from "@tearleads/client-sdk";
 import {
   type ChangeEvent,
   type RefObject,
   type SyntheticEvent,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
 } from "react";
 import { MiniAppEditor } from "../../components/mini-app/MiniAppLayout";
+import { DocumentContext } from "../../stores/documents/DocumentsProvider";
 import "./NoteDocument.css";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
@@ -156,14 +159,16 @@ function useNoteEditorTextarea(
 
 // Move focus into the editor body the moment a note becomes editable — whether
 // it was just created, loaded from storage, or had write access resolve in — so
-// the user can start typing without first clicking it. Each note is backed by a
-// fresh documents-store snapshot that starts not-ready and flips to ready once
-// loaded, so this ready false→true edge fires for new notes, opened notes, and
-// in-place switches between notes (the shared editor stays mounted while only
-// the store swaps). The caret lands at the end of any existing text — a no-op
-// for an empty new note — matching the "keep writing" expectation of a notes
-// editor. Focusing the editor scrolls its text to that caret. The editor only
-// exists while the note is writable (a read-only note renders NoteReadOnlyBody
+// the user can start typing without first clicking it. The shared editor stays
+// mounted while only the document store under it swaps, so it focuses once per
+// note and ready spell: when a note becomes ready, and when it switches to
+// another note. A note opened earlier keeps its store, already ready, so a
+// switch back to it has no ready edge of its own. The caret lands at the end
+// of any existing text — a no-op for an empty new note — matching the "keep
+// writing" expectation of a notes editor, and the text scrolls to it:
+// focusing an editor that already had focus, as after a switch, scrolls
+// nothing, and setting the selection never scrolls. The editor only exists
+// while the note is writable (a read-only note renders NoteReadOnlyBody
 // instead), so a note that loads read-only and later becomes writable mounts
 // this editor already ready and is focused then; a note that never becomes
 // writable has no editor to focus.
@@ -171,21 +176,33 @@ function useAutoFocusEditorOnReady(
   ref: RefObject<HTMLTextAreaElement | null>,
   ready: boolean,
 ) {
-  const wasReadyRef = useRef(false);
+  const note = useContext(DocumentContext);
+  // The note whose current ready spell the editor was focused for; null
+  // while no note is ready.
+  const focusedRef = useRef<{ readonly note: DocumentStore | null } | null>(
+    null,
+  );
 
   useEffect(() => {
-    const becameReady = ready && !wasReadyRef.current;
-    wasReadyRef.current = ready;
+    if (!ready) {
+      focusedRef.current = null;
+      return;
+    }
+    if (focusedRef.current?.note === note) {
+      return;
+    }
+    focusedRef.current = { note };
 
     const editor = ref.current;
-    if (!editor || !becameReady) {
+    if (!editor) {
       return;
     }
 
     editor.focus();
     const caret = editor.value.length;
     editor.setSelectionRange(caret, caret);
-  }, [ready, ref]);
+    editor.scrollTop = editor.scrollHeight;
+  }, [note, ready, ref]);
 }
 
 // The editable note body: a caret-preserving textarea that fills its pane. Owns
