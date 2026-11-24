@@ -12,10 +12,13 @@ import {
 import {
   createDocumentStoreFacade,
   emitPersistedDocument,
+  forwardDocumentStoreStartupProbeJoin,
   getOrCreateDocumentStoreRegistry,
   registerDocumentStore,
   registerDocumentStoreIdentity,
+  registerDocumentStoreStartupProbeJoin,
   registerDocumentStoreSupersedeHandler,
+  requestDocumentStoreStartupProbe,
   requestDocumentStoreSync,
   resolveDocumentStoreKey,
 } from "../registry";
@@ -54,7 +57,10 @@ import {
 } from "./state";
 import { registerDocumentStoreSyncLane } from "./sync";
 import { logRevalidationScheduled } from "./sync/remoteRevalidationTelemetry";
-import { settleDeferredStartupProbe } from "./sync/startupProbeDeferral";
+import {
+  joinDocumentStoreStartupProbe,
+  settleDeferredStartupProbe,
+} from "./sync/startupProbeDeferral";
 import {
   allowDocumentStoreRemoteSync,
   captureDocumentStoreRemoteSyncRequestGeneration,
@@ -261,12 +267,21 @@ function createLiveSyncLaneRequest(state: DocumentStoreState) {
   };
 }
 
-function registerBackingStoreInternalRelink(input: {
+// The internal hooks the registry reaches a backing store through.
+function registerBackingStoreHooks(input: {
   scheduleSync: () => void;
   state: DocumentStoreState;
   store: DocumentStore;
   withLiveSyncLane: ReturnType<typeof createLiveSyncLaneRequest>;
 }): DocumentStore {
+  registerDocumentStoreSupersedeHandler(input.store, () => {
+    input.state.relinkedElsewhere = true;
+  });
+  registerDocumentStoreStartupProbeJoin(input.store, () =>
+    input.withLiveSyncLane(() =>
+      joinDocumentStoreStartupProbe(input.state, input.scheduleSync),
+    ),
+  );
   registerInternalDocumentRelink(input.store, (relinkInput, commitSideEffect) =>
     input.withLiveSyncLane(() =>
       relinkDocumentStore(
@@ -399,10 +414,7 @@ function createBackingDocumentStore(
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };
-  registerDocumentStoreSupersedeHandler(store, () => {
-    context.state.relinkedElsewhere = true;
-  });
-  return registerBackingStoreInternalRelink({ ...context, store });
+  return registerBackingStoreHooks({ ...context, store });
 }
 
 export function createDocumentStore(
@@ -414,17 +426,18 @@ export function createDocumentStore(
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
   options: DocumentStoreOpenOptions = {},
 ): DocumentStoreFacade {
-  return createDocumentStoreFacade(
-    createBackingDocumentStore(
-      localId,
-      initialRuntime,
-      persistence,
-      initialDocumentId,
-      initialText,
-      initialDocumentKind,
-      options,
-    ),
+  const backingStore = createBackingDocumentStore(
+    localId,
+    initialRuntime,
+    persistence,
+    initialDocumentId,
+    initialText,
+    initialDocumentKind,
+    options,
   );
+  const facade = createDocumentStoreFacade(backingStore);
+  forwardDocumentStoreStartupProbeJoin(facade, backingStore);
+  return facade;
 }
 
 export function getOrCreateDocumentStore(
@@ -447,6 +460,7 @@ export function getOrCreateDocumentStore(
       existingStore,
       initialDocumentId,
     );
+    requestDocumentStoreStartupProbe(existingStore, options);
     return existingStore;
   }
 

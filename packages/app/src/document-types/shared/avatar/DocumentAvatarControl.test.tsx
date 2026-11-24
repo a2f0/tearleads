@@ -4,8 +4,8 @@ import {
   createAppHostConfig,
   type Scanner,
   ScannerPhotoCleanupError,
-} from "../../host/AppHostConfig";
-import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
+} from "../../../host/AppHostConfig";
+import { AppHostConfigProvider } from "../../../providers/host/AppHostConfigProvider";
 import { DocumentAvatarControl } from "./DocumentAvatarControl";
 
 afterEach(cleanup);
@@ -89,9 +89,7 @@ test("enables zoom and apply once the source image loads", () => {
     target: { files: [file] },
   });
 
-  const image = view
-    .getByRole("dialog")
-    .querySelector(".contact-avatar-editor-image");
+  const image = view.getByRole("dialog").querySelector(".avatar-editor-image");
   if (!image) {
     throw new Error("Editor image not rendered.");
   }

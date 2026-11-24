@@ -146,7 +146,7 @@ function renderExplorerDetailPanelWithBlobPick(
       dbReady={dbReady}
       canMutateDocumentLinks={model.canMutateDocumentLinks}
       canShareWithPeer={model.canShareWithPeer}
-      contactAvatarUrlByLocalId={model.contactAvatarUrlByLocalId}
+      documentAvatarSource={model.documentAvatarSource}
       contextTarget={model.contextMenuState.contextMenu?.id ?? null}
       currentOrganizationId={appData.auth.organizationId}
       currentSigningFingerprint={appData.crypto.signingFingerprint}

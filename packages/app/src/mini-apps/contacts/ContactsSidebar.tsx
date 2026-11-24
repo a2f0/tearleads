@@ -19,9 +19,9 @@ import {
   useMiniAppVirtualRows,
 } from "../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../components/shared/classNames";
-import { ContactAvatar } from "../../document-types/contact/ContactAvatar";
 import { getContactDisplayName } from "../../document-types/contact/contactDocumentModel";
-import { useContactAvatarUrls } from "../../document-types/contact/useContactAvatarUrls";
+import { DocumentAvatarImage } from "../../document-types/shared/avatar/DocumentAvatarImage";
+import { useAvatarUrls } from "../../document-types/shared/avatar/useAvatarUrls";
 import { getViewerRelativeContactLabel } from "../../stores/contacts/contactLabels";
 import {
   createAreaContextMenuHandler,
@@ -91,7 +91,7 @@ function ContactsList({
     rowHeight,
     rows: entries,
   });
-  const avatarUrlByContactId = useContactAvatarUrls(entries, blobStore);
+  const avatarUrlByContactId = useAvatarUrls(entries, blobStore);
   // The roomy list-home rows fit the larger thumbnail; the narrow sidebar
   // keeps the small one.
   const avatarSize = showMetadata ? "medium" : "small";
@@ -162,7 +162,7 @@ function ContactsList({
                 onContextMenu={(event) => handleContextMenu(event, entry.id)}
                 selected={selectedContactId === entry.id}
               >
-                <ContactAvatar
+                <DocumentAvatarImage
                   imageUrl={avatarUrlByContactId[entry.id]}
                   size={avatarSize}
                 />

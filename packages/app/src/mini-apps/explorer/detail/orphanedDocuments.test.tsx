@@ -42,7 +42,7 @@ test("the orphan recovery collection queries null scope without folder actions",
   const view = render(
     <ExplorerContainerDetail
       containerNodes={[node]}
-      contactAvatarUrlByLocalId={{}}
+      documentAvatarSource={null}
       contextTarget={null}
       currentOrganizationId="org-1"
       currentSigningFingerprint={null}

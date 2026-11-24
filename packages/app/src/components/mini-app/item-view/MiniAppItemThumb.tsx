@@ -4,7 +4,7 @@ import "./MiniAppItemView.css";
 
 /**
  * The square that holds an item's leading visual — a thumbnail, a type glyph,
- * a contact avatar. Its size comes from the list's view: inside a
+ * a document avatar. Its size comes from the list's view: inside a
  * `data-item-view="large-rows"` frame it takes the shared large-row square, and
  * whatever it holds fills it. Outside one, the caller sizes it.
  */
