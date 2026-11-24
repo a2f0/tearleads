@@ -155,6 +155,35 @@ test("a heal classifies a queued checkpoint beyond the outgoing batch prefix", a
   expect(materialized.heldBackPendingUpdateIds).toEqual([tailCheckpoint.id]);
 });
 
+/**
+ * A real Loro update (encryption reads its dependencies) whose base64 fits
+ * the preliminary plaintext-character bound with little to spare.
+ */
+async function updateNearRequestLimit() {
+  // Loro frames this incompressible text in about a hundred bytes.
+  const characters = new Uint8Array(
+    (MAX_DOCUMENT_SYNC_REQUEST_BYTES / 4) * 3 - 128,
+  );
+  let seed = 7;
+  for (let index = 0; index < characters.length; index += 1) {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    characters[index] = 33 + ((seed >>> 24) % 94);
+  }
+  const document = await createDocument("near-request-limit");
+  document.getText("text").insert(0, new TextDecoder().decode(characters));
+  document.commit();
+  const update = exportAllUpdates(document);
+  document.free();
+  const updateData = bytesToBase64(update);
+  expect(updateData.length).toBeLessThanOrEqual(
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  );
+  expect(updateData.length).toBeGreaterThan(
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES - 1024,
+  );
+  return { ...getUpdateVersionVectors(update), updateData };
+}
+
 test("an encrypted update that cannot fit records a terminal queue failure", async () => {
   const {
     author,
@@ -184,11 +213,9 @@ test("an encrypted update that cannot fit records a terminal queue failure", asy
       terminalFailures.push(failure);
     },
     pendingUpdates: [
-      createPendingUpdateRecord({
-        // This fits the preliminary plaintext-character bound. Encryption and
-        // the signed request envelope make the final JSON exceed 16 MiB.
-        updateData: "A".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES),
-      }),
+      // This fits the preliminary plaintext-character bound. Encryption and
+      // the signed request envelope make the final JSON exceed 16 MiB.
+      createPendingUpdateRecord(await updateNearRequestLimit()),
     ],
     resolveProjectionUserKey,
     resolveWriterPublicKey: writerKeyResolver({ author, signingPublicKey }),
