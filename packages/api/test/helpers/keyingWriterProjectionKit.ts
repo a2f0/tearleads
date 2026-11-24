@@ -51,6 +51,7 @@ import {
   type CreatedDocumentFixture,
   withDocumentMutationArtifacts,
 } from "./documentAcknowledgementFixture";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "./documentEnvelopeFixture";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 import { rememberRequestManifest } from "./requestManifests";
 import {
@@ -453,6 +454,7 @@ export async function createDocumentRequest(input: {
         }),
       ),
       contentKeyBundle: {
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 1,
         linkSetManifestHash: manifestHash,
         targetHash,

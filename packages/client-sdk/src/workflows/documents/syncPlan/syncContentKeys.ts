@@ -3,7 +3,6 @@ import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { importContentKeyMaterial } from "../../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../../data/documents/shared/crypto";
 import {
   ContainerKekHistoryUnavailableError,
@@ -15,6 +14,7 @@ import {
 import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
+import { openDocumentContentKey } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import type { DocumentSyncPreparedUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { assertDocumentSyncUpdateEncryptedRecord } from "../../../data/documents/shared/sync/documentSyncUpdateDecryption";
 import {
@@ -132,7 +132,7 @@ export async function prepareDocumentOutgoingUpdates(input: {
   if (input.pendingUpdates.length === 0) {
     return [];
   }
-  const contentKeyMaterial = await importContentKeyMaterial(input.contentKey);
+  const contentKey = await openDocumentContentKey(input);
   const baselineCursors = await resolveBaselineCursors(input);
 
   return Promise.all(
@@ -141,7 +141,7 @@ export async function prepareDocumentOutgoingUpdates(input: {
         ? baselineCursors.get(update.id)
         : undefined;
       const encrypted = await encryptDocumentPendingUpdate({
-        contentKeyMaterial,
+        contentKey,
         contentKeyEpoch: input.contentKeyEpoch,
         coversThroughUpdateId,
         documentId: input.documentId,
@@ -246,9 +246,11 @@ function assertBundleMatchesUpdateHeaders(input: {
 
 /**
  * Linking can rewrap a retained key at the same content epoch. Its latest bundle
- * then has newer targets than older signed updates. A usable key is validated
- * by the caller's authenticated record decryption; the update's own historical
- * manifest, targets and signature are verified independently before this step.
+ * then has newer targets than older signed updates. An unwrapped key must match
+ * the epoch's content-key commitment (`unwrapDocumentContentKeyFromBundle`),
+ * and each update's signed envelope must name that commitment before it is
+ * decrypted; the update's own historical manifest, targets and signature are
+ * verified independently before this step.
  *
  * If the key cannot be recovered, require the original target commitments before
  * calling that an availability failure. Substituted unavailable targets must

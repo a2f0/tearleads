@@ -9,6 +9,7 @@ import { isDocumentCreateRequest } from "@tearleads/validators/request";
 import {
   createAuthor,
   createProjection,
+  FIXTURE_CONTENT_KEY_COMMITMENT,
   fixtureHash,
   getOnlyTarget,
 } from "../../../../test/helpers/data/documentFixtures";
@@ -21,6 +22,7 @@ test("buildDocumentCreatePlan signs an initial document link manifest from a con
   const plan = await buildDocumentCreatePlan({
     author,
     containerProjection: projection,
+    contentKeyCommitment: FIXTURE_CONTENT_KEY_COMMITMENT,
     documentId: "document-1",
     eventId: "event-1",
     signedAt: "2026-04-27T00:00:00.000Z",
@@ -73,6 +75,7 @@ test("buildDocumentCreatePlan rejects missing or stale content-key target envelo
     buildDocumentCreatePlan({
       author,
       containerProjection: projection,
+      contentKeyCommitment: FIXTURE_CONTENT_KEY_COMMITMENT,
       documentId: "document-1",
       targetEnvelopes: [],
     }),
@@ -82,6 +85,7 @@ test("buildDocumentCreatePlan rejects missing or stale content-key target envelo
     buildDocumentCreatePlan({
       author,
       containerProjection: projection,
+      contentKeyCommitment: FIXTURE_CONTENT_KEY_COMMITMENT,
       documentId: "document-1",
       targetEnvelopes: [
         {

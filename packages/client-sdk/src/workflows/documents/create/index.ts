@@ -8,6 +8,7 @@ import { wrapDocumentContentKeyForCreate } from "../../../data/documents/shared/
 import { shouldRetryWithFreshProjection } from "../../../data/documents/shared/projection/freshProjectionRetry";
 import type { ProjectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
 import { projectionVerificationOptions } from "../../../data/documents/shared/projection/projectionVerificationOptions";
+import { deriveDocumentContentKeyCommitment } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import type {
   CreateRemoteDocumentResult,
   DocumentCreateApi,
@@ -112,6 +113,11 @@ export async function buildMaterializedDocumentCreatePlan(
   const plan = await buildDocumentCreatePlan({
     author: input.author,
     containerProjection: input.containerProjection,
+    contentKeyCommitment: await deriveDocumentContentKeyCommitment({
+      contentKey,
+      contentKeyEpoch,
+      documentId,
+    }),
     contentKeyEpoch,
     documentId,
     ...(input.eventId === undefined ? {} : { eventId: input.eventId }),

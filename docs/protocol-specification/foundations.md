@@ -125,6 +125,29 @@ type WriteHeader = {
 };
 ```
 
+A document update's `encryptedData` is a JSON envelope whose bytes the header's
+`ciphertextHash` covers:
+
+```ts
+type DocumentEncryptedUpdate = {
+  format: "tearleads.document.loro-update";
+  version: 1;
+  encryptionSuite: "aes-256-gcm-hkdf-sha256-record-key";
+  contentKeyEpoch: number;
+  contentRecordId: string;
+  nonceDomainHash: string;
+  metadataHash: string;
+  contentKeyCommitment: string;
+  iv: string;
+  ciphertext: string;
+};
+```
+
+Its epoch, record id, nonce domain, and metadata hash must equal the header's.
+`contentKeyCommitment` names the
+[content-key commitment](../glossary/keys.md#content-key-commitment) of the key
+that encrypted the update and must equal the one stored for its epoch.
+
 The header's `dependencyManifestHashes` is the sorted, unique union of all
 manifest hashes in the complete
 [authorizing container paths](../glossary/access.md#authorizing-container-path).

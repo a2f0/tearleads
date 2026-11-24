@@ -68,6 +68,7 @@ function createMetadataWriterProjection(
     },
     authorizingContainerPaths: [],
     contentKeyBundle: {
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 1,
       documentId,
       linkSetManifestHash: manifestHash,

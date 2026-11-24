@@ -121,8 +121,13 @@ Model-specific gaps:
   budget.
 - `VoidUpdateProgress` lets honest writers depend only on earlier updates;
   a dishonest writer's forged dependency on a later update is outside it. It
-  leaves out AEAD failures, which stay availability failures, devices' own
-  writes, and a payload that kills the process rather than failing the runtime.
+  leaves out content keys and AEAD failures, which `ContentKeyCommitment`
+  checks, devices' own writes, and a payload that kills the process rather
+  than failing the runtime.
+- `ContentKeyCommitment` treats the key derivations and AES-GCM as ideal: a
+  commitment names one key, and a plaintext hash matches under at most one.
+  Its liveness covers a reader whose stored wraps hold the committed keys; a
+  reader handed an equivocated wrap waits for a rotation.
 - `RawHistoryRecovery` progress assumes awaited worker operations return; it
   does not cover retries, cancellation, or network failure.
 - `BaselineCursorCoverage` treats every reader as voiding exactly the

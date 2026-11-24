@@ -8,9 +8,13 @@ import {
   emptyVersionVector,
   encodeVersionVectorCounters,
 } from "@tearleads/loro";
-import { documentEnvelopeFixture } from "../../../../test/helpers/documentEnvelopeFixture";
+import {
+  CONTENT_KEY_COMMITMENT_FIXTURE,
+  documentEnvelopeFixture,
+} from "../../../../test/helpers/documentEnvelopeFixture";
 import {
   assertOutgoingDeclaredSpan,
+  assertOutgoingEnvelopeCommitsToEpochKey,
   assertOutgoingEnvelopeMatchesHeader,
   assertOutgoingSpanOrCursoredEmptyBaseline,
 } from "./outgoingUpdateShape";
@@ -134,7 +138,25 @@ test("an envelope carrying its header's bindings is accepted", async () => {
       header,
       update: { encryptedData: envelopeFor(header) },
     }),
-  ).resolves.toBeUndefined();
+  ).resolves.toMatchObject({
+    contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
+    contentRecordId: RECORD_ID,
+  });
+});
+
+test("an envelope must commit to its epoch's content key", () => {
+  const envelope = { contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE };
+  expect(() =>
+    assertOutgoingEnvelopeCommitsToEpochKey(
+      envelope,
+      CONTENT_KEY_COMMITMENT_FIXTURE,
+    ),
+  ).not.toThrow();
+  expect(() =>
+    assertOutgoingEnvelopeCommitsToEpochKey(envelope, "d".repeat(64)),
+  ).toThrow(
+    "Document update envelope does not commit to its epoch's content key",
+  );
 });
 
 test("an envelope naming another epoch, record, metadata, or nonce domain is refused", async () => {

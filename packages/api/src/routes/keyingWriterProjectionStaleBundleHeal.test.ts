@@ -8,6 +8,7 @@ import {
 } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { contentKeyEnvelopeFixture } from "../../test/helpers/contentKeyEnvelope";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "../../test/helpers/documentEnvelopeFixture";
 import {
   createSignedAtomicRotationBaseline,
   createSignedDocumentSyncRequest,
@@ -23,6 +24,10 @@ import {
   postDocumentSync,
   shareAndRevokeRoot,
 } from "../../test/helpers/staleBundleHealKit";
+
+/** The healed epoch's key differs from the first epoch's, and so does a loser's. */
+const HEALED_COMMITMENT = "e".repeat(64);
+const LOSING_COMMITMENT = "f".repeat(64);
 
 // The epoch-advance invariants of the stale-bundle heal: a sync that installs a
 // current-epoch redirect must anchor it with a NEWLY WRITTEN rotation baseline
@@ -105,6 +110,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
     expectedLinkSetManifestHash: healedBundle.linkSetManifestHash,
     expectedTargetHash: healedBundle.targetHash,
     contentKeyBundle: {
+      contentKeyCommitment: HEALED_COMMITMENT,
       contentKeyEpoch: healedBundle.contentKeyEpoch,
       linkSetManifestHash: healedBundle.linkSetManifestHash,
       targetHash: healedBundle.targetHash,
@@ -118,6 +124,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // An epoch advance with no baseline would orphan the committed pre-rotation
   // update for every reader; the server refuses it.
   const baselinelessHeal = await createSignedDocumentSyncRequest({
+    contentKeyCommitment: HEALED_COMMITMENT,
     contentKeyBundle: healedBundle,
     created,
     includeContentKeyBundle: true,
@@ -137,6 +144,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // A baseline built by a device that never saw the committed update does not
   // dominate the frontier; the server refuses that too.
   const underCoveringHeal = await createSignedDocumentSyncRequest({
+    contentKeyCommitment: HEALED_COMMITMENT,
     checkpoint: true,
     contentKeyBundle: healedBundle,
     created,
@@ -159,6 +167,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // A baseline whose source vector does not decode is a client error, never
   // a 500 out of the vector decoder.
   const malformedVectorHeal = await createSignedDocumentSyncRequest({
+    contentKeyCommitment: HEALED_COMMITMENT,
     checkpoint: true,
     contentKeyBundle: healedBundle,
     created,
@@ -189,10 +198,32 @@ test("a heal that advances the content-key epoch must carry a newly written base
     "Document content-key rotation baseline must be newly written",
   );
 
+  // A baseline encrypted under another key than the one the heal's bundle
+  // commits to would be unreadable to every reader of the new epoch.
+  const otherKeyBaseline = await createSignedAtomicRotationBaseline({
+    dependencyManifestHashes: [revokedRoot.bundle.manifestHash],
+    accessManifestHash: created.manifestHash,
+    contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
+    contentKeyEpoch: healedBundle.contentKeyEpoch,
+    documentId: created.id,
+    organizationId,
+    owner,
+    targetHash: healedBundle.targetHash,
+  });
+  const otherKeyResponse = await postDocumentSync(owner, created.id, {
+    ...healedRequestEnvelope,
+    outgoingUpdates: [otherKeyBaseline],
+  });
+  expect(otherKeyResponse.status).toBe(400);
+  expect((await otherKeyResponse.json()).error).toBe(
+    "Document update envelope does not commit to its epoch's content key",
+  );
+
   // The device holding the full history heals with a covering baseline.
   const coveringBaseline = await createSignedAtomicRotationBaseline({
     dependencyManifestHashes: [revokedRoot.bundle.manifestHash],
     accessManifestHash: created.manifestHash,
+    contentKeyCommitment: HEALED_COMMITMENT,
     contentKeyEpoch: healedBundle.contentKeyEpoch,
     documentId: created.id,
     organizationId,
@@ -215,6 +246,9 @@ test("a heal that advances the content-key epoch must carry a newly written base
   expect(healedProjection.contentKeyBundleStale).toBeUndefined();
   expect(healedProjection.contentKeyBundle.contentKeyEpoch).toBe(
     healedBundle.contentKeyEpoch,
+  );
+  expect(healedProjection.contentKeyBundle.contentKeyCommitment).toBe(
+    HEALED_COMMITMENT,
   );
 
   // Once healed, the stale read tolerance must not pin pre-heal readers to
@@ -246,6 +280,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   // after a lost heal ack — must not shadow the covering baseline as the
   // newest one the redirect reads.
   const regressingCheckpoint = await createSignedDocumentSyncRequest({
+    contentKeyCommitment: HEALED_COMMITMENT,
     checkpoint: true,
     contentKeyBundle: healedBundle,
     created,
@@ -271,6 +306,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
   const losingBaseline = await createSignedAtomicRotationBaseline({
     dependencyManifestHashes: [revokedRoot.bundle.manifestHash],
     accessManifestHash: created.manifestHash,
+    contentKeyCommitment: LOSING_COMMITMENT,
     contentKeyEpoch: healedBundle.contentKeyEpoch,
     documentId: created.id,
     organizationId,
@@ -281,6 +317,7 @@ test("a heal that advances the content-key epoch must carry a newly written base
     ...healedRequestEnvelope,
     contentKeyBundle: {
       ...healedRequestEnvelope.contentKeyBundle,
+      contentKeyCommitment: LOSING_COMMITMENT,
       targets: healedBundle.targets.map((target) => ({
         ...target,
         ...contentKeyEnvelopeFixture(

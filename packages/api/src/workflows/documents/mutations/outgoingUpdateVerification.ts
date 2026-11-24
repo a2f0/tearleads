@@ -1,4 +1,8 @@
-import type { VerifiedWriteHeader, WriteHeader } from "@tearleads/crypto";
+import type {
+  ParsedDocumentEncryptedUpdate,
+  VerifiedWriteHeader,
+  WriteHeader,
+} from "@tearleads/crypto";
 import {
   computeDocumentContentRecordCiphertextHash,
   computeDocumentContentRecordMetadataHash,
@@ -15,6 +19,7 @@ import { assertStoredWriteHeaderVerbatim } from "../../../access/write/documentC
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 import {
+  assertOutgoingEnvelopeCommitsToEpochKey,
   assertOutgoingEnvelopeMatchesHeader,
   assertOutgoingSpanOrCursoredEmptyBaseline,
 } from "./outgoingUpdateShape";
@@ -27,6 +32,8 @@ import type { DocumentWriteAuthorizationProof } from "./types";
  * the byte-exact matching rules for idempotent retries and duplicate ids.
  */
 export async function verifyOutgoingWriteHeader(input: {
+  /** The commitment of the epoch the request writes at. */
+  readonly contentKeyCommitment: string;
   readonly documentId: string;
   readonly expectedLinkSetManifestHash: string;
   readonly expectedTargetHash: string;
@@ -69,11 +76,14 @@ export async function verifyOutgoingWriteHeader(input: {
   if (!verified.ok) {
     throw verified.error;
   }
-  await assertOutgoingUpdatePayloadMatchesHeader({
-    documentId: input.documentId,
-    header: verified.value.header,
-    update: input.update,
-  });
+  assertOutgoingEnvelopeCommitsToEpochKey(
+    await assertOutgoingUpdatePayloadMatchesHeader({
+      documentId: input.documentId,
+      header: verified.value.header,
+      update: input.update,
+    }),
+    input.contentKeyCommitment,
+  );
 
   return verified.value;
 }
@@ -82,7 +92,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
   readonly documentId: string;
   readonly header: WriteHeader;
   readonly update: DocumentOutgoingUpdate;
-}): Promise<void> {
+}): Promise<ParsedDocumentEncryptedUpdate> {
   assertOutgoingCheckpointConsistency(input.update);
   assertOutgoingSpanOrCursoredEmptyBaseline(input.update);
   const metadataHash = await computeDocumentContentRecordMetadataHash({
@@ -120,7 +130,7 @@ async function assertOutgoingUpdatePayloadMatchesHeader(input: {
       400,
     );
   }
-  await assertOutgoingEnvelopeMatchesHeader(input);
+  return assertOutgoingEnvelopeMatchesHeader(input);
 }
 
 function assertOutgoingCheckpointConsistency(

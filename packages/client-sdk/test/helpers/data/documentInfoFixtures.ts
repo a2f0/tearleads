@@ -41,6 +41,7 @@ export function createDocumentWriterProjection(): DocumentWriterProjectionRespon
       },
     ],
     contentKeyBundle: {
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 2,
       documentId: "document-1",
       linkSetManifestHash: "document-manifest-hash",

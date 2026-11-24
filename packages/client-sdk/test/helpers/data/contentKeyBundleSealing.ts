@@ -8,11 +8,13 @@ import type {
   DocumentContentKeyBundleResponse,
 } from "@tearleads/validators/response";
 import { unwrapContainerKekPath } from "../../../src/data/documents/shared/containerKek/containerKekPath";
+import { deriveDocumentContentKeyCommitment } from "../../../src/data/documents/shared/sync/contentKeyCommitment";
 
 /**
  * A document content-key bundle sealed for another content-key epoch or key.
- * Each wrap binds its document and epoch, so a fixture cannot relabel an
- * existing bundle's epoch and still expect it to open.
+ * Each wrap binds its document and epoch, and the commitment binds both to
+ * the key, so a fixture cannot relabel an existing bundle's epoch and still
+ * expect it to open.
  */
 export async function sealContentKeyBundle(input: {
   bundle: DocumentContentKeyBundleResponse;
@@ -47,7 +49,16 @@ export async function sealContentKeyBundle(input: {
       };
     }),
   );
-  return { ...input.bundle, contentKeyEpoch: input.contentKeyEpoch, targets };
+  return {
+    ...input.bundle,
+    contentKeyCommitment: await deriveDocumentContentKeyCommitment({
+      contentKey: input.contentKey,
+      contentKeyEpoch: input.contentKeyEpoch,
+      documentId: input.bundle.documentId,
+    }),
+    contentKeyEpoch: input.contentKeyEpoch,
+    targets,
+  };
 }
 
 /** A materialized fixture's content key sealed again at its next epoch. */

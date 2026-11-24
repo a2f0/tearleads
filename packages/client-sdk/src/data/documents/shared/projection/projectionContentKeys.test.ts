@@ -7,6 +7,11 @@ import {
   wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { targetEnvelopeReference } from "../readers";
+import {
+  DocumentContentKeyCommitmentError,
+  deriveDocumentContentKeyCommitment,
+} from "../sync/contentKeyCommitment";
 import {
   unwrapContentKeyTargetForKind,
   unwrapDocumentContentKeyFromBundle,
@@ -105,6 +110,7 @@ test("a bundle naming another document is refused before any unwrap", async () =
   await expect(
     unwrapDocumentContentKeyFromBundle(
       {
+        contentKeyCommitment: "c".repeat(64),
         contentKeyEpoch: SEALED.contentKeyEpoch,
         documentId: "document-b",
         linkSetManifestHash: "link-set",
@@ -115,4 +121,40 @@ test("a bundle naming another document is refused before any unwrap", async () =
       new Map(),
     ),
   ).rejects.toThrow("Document content-key bundle names another document");
+});
+
+test("an unwrapped key the epoch did not commit to is refused", async () => {
+  const { containerKek, contentKey, envelope } = await wrapFor("Document");
+  const target = {
+    ...envelope,
+    containerKeyEpoch: 1,
+    containerManifestHash: "a".repeat(64),
+  };
+  const bundle = {
+    contentKeyCommitment: await deriveDocumentContentKeyCommitment({
+      contentKey,
+      contentKeyEpoch: SEALED.contentKeyEpoch,
+      documentId: SEALED.objectId,
+    }),
+    contentKeyEpoch: SEALED.contentKeyEpoch,
+    documentId: SEALED.objectId,
+    linkSetManifestHash: "link-set",
+    targetHash: await computeDocumentContentKeyTargetHash([
+      targetEnvelopeReference(target),
+    ]),
+    targets: [target],
+  };
+  const keks = new Map([[SEALED.containerKeyEpochId, containerKek]]);
+  expect(
+    await unwrapDocumentContentKeyFromBundle(bundle, SEALED.objectId, keks),
+  ).toEqual(contentKey);
+  // A wrap of another key than the one the epoch's opener committed to: no
+  // update of the epoch could be judged under it, so it opens nothing.
+  await expect(
+    unwrapDocumentContentKeyFromBundle(
+      { ...bundle, contentKeyCommitment: "d".repeat(64) },
+      SEALED.objectId,
+      keks,
+    ),
+  ).rejects.toBeInstanceOf(DocumentContentKeyCommitmentError);
 });

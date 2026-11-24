@@ -124,7 +124,9 @@ Related docs:
 
 ## Void Update
 
-A served [Loro update](#loro-update) a reader will never apply: its decoded
+A served [Loro update](#loro-update) a reader will never apply: it fails AES-GCM
+or its plaintext hash under the key its epoch's
+[content-key commitment](./keys.md#content-key-commitment) names, its decoded
 operations are not the [version-vector](#version-vector) span its writer
 signed, the reader's decoder cannot read it, or it depends on operations no
 earlier accepted update carries. The reader records and reports it once and

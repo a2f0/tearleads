@@ -19,6 +19,11 @@ export interface DocumentContentKeyTargetEnvelope
 
 export interface StoredDocumentContentKeyBundle {
   readonly documentId: string;
+  /**
+   * The epoch's content-key commitment, fixed by the bundle that opened it:
+   * a link must repeat it and every update of the epoch must carry it.
+   */
+  readonly contentKeyCommitment: string;
   readonly contentKeyEpoch: number;
   readonly linkSetManifestHash: string;
   readonly targetHash: string;

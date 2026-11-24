@@ -39,6 +39,7 @@ import {
   loadPrincipalPoliciesForContainerPaths,
 } from "./containerMutationRotations";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "./documentEnvelopeFixture";
 import { principalPolicyRefs } from "./principalPolicyRefs";
 import { rememberRequestManifest } from "./requestManifests";
 
@@ -293,6 +294,7 @@ export async function buildMetadataDocumentCreateRequest(input: {
         },
       ],
       contentKeyBundle: {
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 1,
         linkSetManifestHash: manifestHash,
         targetHash,

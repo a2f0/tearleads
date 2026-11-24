@@ -35,9 +35,10 @@ afterEach(async () => {
 // this only covers the upload itself (local import -> document sync -> blob
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining. The document create sends its
-// manifest hash alone: 34,208 request bytes (34,756 with the manifest, which
-// exceeds this ceiling).
-const EXPLORER_UPLOAD_BODY_BYTES = { request: 34_500, response: 2_300 };
+// manifest hash alone: 34,525 request bytes, with each content-key bundle and
+// envelope naming its epoch's content-key commitment (about 35,073 with the
+// manifest, which exceeds this ceiling).
+const EXPLORER_UPLOAD_BODY_BYTES = { request: 34_800, response: 2_300 };
 
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Seven mutation/blob requests and three directory discovery reads (one per

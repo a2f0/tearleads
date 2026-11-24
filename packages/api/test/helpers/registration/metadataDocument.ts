@@ -11,6 +11,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "../documentEnvelopeFixture";
 import { rememberRequestManifest } from "../requestManifests";
 import { signRegistrationEvent } from "./signing";
 import { toWireRecord } from "./wire";
@@ -92,6 +93,7 @@ export async function createRootMetadataDocumentRequest(input: {
         manifestHash: bundle.manifestHash,
       })),
       contentKeyBundle: {
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 1,
         linkSetManifestHash: manifestHash,
         targetHash,

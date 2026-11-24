@@ -221,6 +221,7 @@ export async function createExplorerMetadataCreateResponse(
     },
     contentKeyBundle: {
       documentId,
+      contentKeyCommitment: request.contentKeyBundle.contentKeyCommitment,
       contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
       linkSetManifestHash: request.contentKeyBundle.linkSetManifestHash,
       targetHash: request.contentKeyBundle.targetHash,
