@@ -17,7 +17,7 @@ import {
 
 afterEach(cleanup);
 
-test("one header and one table list queued writes and this session's files", () => {
+test("one table lists queued writes and this session's files", () => {
   const view = renderOutgoingView({
     uploadManager: uploadManager({
       items: [
@@ -43,9 +43,6 @@ test("one header and one table list queued writes and this session's files", () 
   });
 
   expect(view.getAllByRole("table")).toHaveLength(1);
-  expect(
-    view.getAllByText(EXPLORER_LABELS.outgoingAction, { selector: "strong" }),
-  ).toHaveLength(1);
   // 2 entries with 6 writes; 3 files, 2 still moving (importing + imported).
   expect(
     view.getByText(
@@ -187,7 +184,7 @@ test("discard runs only after an explicit confirmation", () => {
   ).toBeNull();
 });
 
-test("an entry's detail replaces the header and the table", () => {
+test("an entry's detail replaces the table", () => {
   const view = renderOutgoingView({
     selectedEntryKey: "document::document-local-id",
     uploadManager: uploadManager({ items: [upload()] }),
@@ -196,10 +193,7 @@ test("an entry's detail replaces the header and the table", () => {
 
   expect(view.queryByRole("table")).toBeNull();
   expect(
-    view.queryByText(EXPLORER_LABELS.outgoingAction, { selector: "strong" }),
-  ).toBeNull();
-  expect(
-    view.getByText(EXPLORER_LABELS.writeQueueEntryDetailTitle),
+    view.getByText(EXPLORER_LABELS.writeQueueEntryReasonHeading),
   ).toBeTruthy();
 });
 

@@ -3,8 +3,6 @@ export const EXPLORER_DIRECTION_LABELS = {
   incomingAction: "Incoming",
   outgoingAction: "Outgoing",
   outgoingBackAction: "Back to Outgoing",
-  outgoingDescription:
-    "Files and changes waiting to leave this device, and the files uploaded this session.",
   outgoingEmpty: "Nothing is waiting to leave this device.",
   outgoingShowMoreAction: "Show more",
 } as const;

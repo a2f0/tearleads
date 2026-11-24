@@ -50,7 +50,6 @@ function renderPanel(
   };
   return render(
     <ExplorerSyncLanesPanelView
-      onBackToSelectionRoute={() => undefined}
       onOpenLaneDetail={() => undefined}
       selectedLaneKey={selectedLaneKey}
       snapshot={snapshot}
