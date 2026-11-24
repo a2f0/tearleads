@@ -23,6 +23,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
 import { buildMaterializedDocumentSyncPlan } from "../../../../workflows/documents/syncPlan/syncPlanMaterial";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import type { DocumentsRuntime } from "../../types";
@@ -234,6 +235,7 @@ test("a store durably invalidates a regressed cursor before a failed fresh retry
 
   try {
     const attempt = await requestRemoteDocumentSync({
+      loroWindow: createDocumentSyncLoroWindow(),
       policyOperation: createPrincipalPolicyOperation(),
       currentDoc: document,
       currentRecord: record,

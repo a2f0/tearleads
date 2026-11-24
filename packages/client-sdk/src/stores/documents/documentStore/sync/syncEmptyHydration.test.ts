@@ -4,6 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createRotationRecoveryRuntime } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "../../../../workflows/container-contents/documentQueries";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
@@ -69,6 +70,7 @@ for (const hasMore of [false, true]) {
         }),
       ).toBeNull();
       const attempt = await requestRemoteDocumentSync({
+        loroWindow: createDocumentSyncLoroWindow(),
         policyOperation: createPrincipalPolicyOperation(),
         currentDoc,
         currentRecord,

@@ -273,11 +273,12 @@ export async function validateDocumentSyncUpdateImports(input: {
   runtimeAttempts?: ReadonlyMap<string, number> | undefined;
   /**
    * @internal Runs once the reader's history is built, before the first
-   * update is read, and resolves true when a read window now covers the
-   * reads: the sync pass opens its window here, so a death building that
-   * history, which no update caused, is outside it.
+   * update is read: every SDK judge opens its read window here, so a death
+   * building that history, which no update caused, is outside it. Without
+   * it no window covers the reads, and this lifetime counts no death from
+   * then on (#3194).
    */
-  beforeUpdateReads?: (() => Promise<boolean>) | undefined;
+  beforeUpdateReads?: (() => Promise<unknown>) | undefined;
   /** @internal This realm's lifetime; tests stand in another one. */
   lifetimes?: LoroLifetimes | undefined;
 }): Promise<DocumentSyncImportVerdicts> {
@@ -292,6 +293,21 @@ export async function validateDocumentSyncUpdateImports(input: {
     responseById,
     verdicts,
   });
+}
+
+/**
+ * Whether the page reads any served update with Loro: one neither a known
+ * void nor out of attempts, as a read window's unsettled updates are.
+ */
+function readsAnyUpdate(
+  input: Parameters<typeof validateDocumentSyncUpdateImports>[0],
+  ledger: LoroRuntimeAttempts,
+): boolean {
+  return input.decryptedUpdates.some(
+    (update) =>
+      input.knownVoids?.get(update.id) === undefined &&
+      ledger.mayAttempt(update.id),
+  );
 }
 
 async function judgeUpdateReads(
@@ -312,13 +328,13 @@ async function judgeUpdateReads(
     verdicts,
   };
   // The reader's history holds only accepted data, like the editor's work.
-  // The served updates read below are another matter: unless a window covers
-  // them, a death meanwhile may be theirs, so every window of the lifetime
-  // then counts nothing (#3194).
-  let release = () => {};
+  // The served updates read below run in the caller's window. A caller that
+  // opens none, such as a host calling this itself, reads where a death may
+  // be theirs, so no window of the lifetime counts one from then on (#3194).
   try {
-    if (!(await input.beforeUpdateReads?.())) {
-      release = (input.lifetimes ?? processLoroLifetimes).beginUnwindowedRead();
+    if (input.beforeUpdateReads) await input.beforeUpdateReads();
+    else if (readsAnyUpdate(input, ledger)) {
+      (input.lifetimes ?? processLoroLifetimes).noteFailed();
     }
     for (const update of input.decryptedUpdates) {
       const knownStage = input.knownVoids?.get(update.id);
@@ -338,7 +354,6 @@ async function judgeUpdateReads(
       }
     }
   } finally {
-    release();
     scratch.free();
   }
   return verdicts.result();

@@ -6,6 +6,7 @@ import {
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/data/documentFixtures";
+import { installFakeWebLocks } from "../../../../../test/helpers/data/fakeWebLocks";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,
@@ -13,6 +14,10 @@ import {
   createStoredDocumentWriterProjection,
 } from "../../../../../test/helpers/workflows/onlineDocumentStoreFixtures";
 import type { SyncRemoteDocumentResult } from "../../../../data/documents/shared/sync/documentSyncTypes";
+import { documentVerdictJudge } from "../../../../data/documents/shared/sync/documentUpdateVerdict";
+import { processLoroLifetimes } from "../../../../data/documents/shared/sync/loroLifetime";
+import { writeLoroWindowInTransaction } from "../../../../data/persistence/documents/records/loroWindowPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   defaultDocumentsPersistence,
   RemoteDocumentService,
@@ -174,6 +179,72 @@ test("a rotation baseline or an empty history is not a founding update", async (
     ).toBeNull();
   } finally {
     sync.mockRestore();
+    harness.close();
+  }
+}, 10_000);
+
+// A founding view reads an update this device may already hold, so a death
+// there must be found like a sync pass's (#3194): it claims the windows dead
+// lifetimes left before its pull, and judges and replays the update in a
+// window of its own, settled once the view is read.
+test("a founding view claims dead windows and reads in a window it settles", async () => {
+  const harness = await createFoundingHarness("founding-update-window");
+  const removeWebLocks = installFakeWebLocks();
+  const opening = spyOn(processLoroLifetimes, "openWindow");
+  const store = createDocumentStore(
+    "founding-window",
+    harness.runtime,
+    defaultDocumentsPersistence,
+    null,
+    "Founding text",
+  );
+  try {
+    expect(await store.ensureInitialized()).toBe(true);
+    expect(await store.requestRemoteSyncAndWait()).toBe(true);
+    const documentId = store.getSnapshot().documentId;
+    if (!documentId) throw new Error("Expected a remote document");
+    await writeLoroWindowInTransaction(
+      getClientSQLitePersistenceRuntime(harness.execSql).db,
+      { appKind: "documents", localId: "founding-window" },
+      {
+        counts: false,
+        documentId,
+        judge: documentVerdictJudge(),
+        lifetimeId: "dead",
+        updateIds: ["first-suspect", "second-suspect"],
+        windowId: "dead-window",
+      },
+      "2026-11-23T00:00:00.000Z",
+    );
+    const openBefore = processLoroLifetimes.openWindowCount();
+    const openWhileCurrent: number[] = [];
+    opening.mockClear();
+
+    const founding = await readDocumentFoundingUpdate({
+      localId: "founding-window",
+      runtime: harness.runtime,
+      stillCurrent: () => {
+        openWhileCurrent.push(processLoroLifetimes.openWindowCount());
+        return true;
+      },
+    });
+
+    expect(founding?.content.text).toBe("Founding text");
+    expect(opening).toHaveBeenCalledTimes(1);
+    // Asked as the replay begins: the judge's window is still open.
+    expect(openWhileCurrent.at(-1)).toBe(openBefore + 1);
+    expect(processLoroLifetimes.openWindowCount()).toBe(openBefore);
+    expect(
+      await harness.execSql("SELECT lifetime_id FROM document_loro_windows"),
+    ).toEqual([]);
+    expect(
+      await harness.execSql("SELECT suspects FROM document_loro_isolation"),
+    ).toEqual([
+      { suspects: JSON.stringify(["first-suspect", "second-suspect"]) },
+    ]);
+  } finally {
+    opening.mockRestore();
+    removeWebLocks();
     harness.close();
   }
 }, 10_000);

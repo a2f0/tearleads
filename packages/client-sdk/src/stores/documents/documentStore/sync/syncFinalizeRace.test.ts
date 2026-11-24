@@ -8,6 +8,7 @@ import {
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { DocumentRecordRepository } from "../../../../data/persistence/documents/records";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
@@ -127,6 +128,7 @@ test("a superseded finalize keeps its signal and requests another pass", async (
     );
 
     const attempt = await requestRemoteDocumentSync({
+      loroWindow: createDocumentSyncLoroWindow(),
       policyOperation: createPrincipalPolicyOperation(),
       currentDoc,
       currentRecord,
@@ -240,6 +242,7 @@ for (const typeDuringClaim of [false, true]) {
       const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
       if (!generation) throw new Error("Expected current generation");
       const attempt = await requestRemoteDocumentSync({
+        loroWindow: createDocumentSyncLoroWindow(),
         policyOperation: createPrincipalPolicyOperation(),
         currentDoc,
         currentRecord,

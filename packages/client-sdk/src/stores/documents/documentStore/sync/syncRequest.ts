@@ -4,7 +4,7 @@ import {
 } from "@tearleads/loro";
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
-  claimDocumentSyncOrphanWindows,
+  claimThenReadDocumentSyncPageLimit,
   createDocumentWriterPublicKeyResolver,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
@@ -15,7 +15,6 @@ import {
   judgeDocumentSyncImports,
   type PendingUpdateRecord,
   RemoteDocumentService,
-  readDocumentSyncPageLimit,
   readProcessedCursorForSync,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
@@ -101,7 +100,7 @@ export async function deleteUpstreamDeletedDocument(
 
 function createDocumentSyncAttempt(input: {
   currentRecord: DocumentRecord;
-  loroWindow: DocumentSyncLoroWindow | undefined;
+  loroWindow: DocumentSyncLoroWindow;
   outgoingUpdateCount: number;
   policyOperation: PrincipalPolicyOperation;
   requestedPullContinuation: DocumentStoreState["pullContinuation"];
@@ -113,7 +112,7 @@ function createDocumentSyncAttempt(input: {
       input.synced.plan.request.pullCursor === undefined
         ? null
         : input.requestedPullContinuation,
-    loroWindow: input.loroWindow ?? null,
+    loroWindow: input.loroWindow,
     outgoingUpdateCount: input.outgoingUpdateCount,
     policyOperation: input.policyOperation,
     requestRecord: input.currentRecord,
@@ -136,12 +135,12 @@ interface RequestRemoteDocumentSyncInput {
   policyOperation: PrincipalPolicyOperation;
   queuedUpdateCount?: number | undefined;
   /**
-   * The pass's Loro read window (`loroPassWindow.ts`), which the page is
-   * read in. Only a scheduled pass, whose pages `finalizeDocumentSync` saves
-   * and which settles the window as it ends, has one; rotation settlement
-   * reads without.
+   * The Loro read window (`loroPassWindow.ts`) the page is read in. A
+   * scheduled pass's pages `finalizeDocumentSync` saves, closing it, and the
+   * pass settles it as it ends; rotation settlement settles its own once its
+   * request is over.
    */
-  loroWindow?: DocumentSyncLoroWindow | undefined;
+  loroWindow: DocumentSyncLoroWindow;
   state: DocumentStoreState;
   unavailableWriterLogMessage: string;
 }
@@ -191,25 +190,6 @@ function documentImportJudge(
       result,
       scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
     });
-}
-
-/**
- * The page limit this pull asks for, once the windows ended lifetimes left
- * on the scope are claimed: a pull after a death that named no update then
- * isolates at once, instead of reading the whole page and dying again.
- */
-async function claimThenReadPageLimit(
-  state: DocumentStoreState,
-  generation: DocumentStoreSyncGeneration,
-  page: Parameters<typeof readDocumentSyncPageLimit>[1],
-): Promise<1 | undefined> {
-  await claimDocumentSyncOrphanWindows({
-    ...page,
-    execSql: generation.execSql,
-    isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
-    logError: state.runtime.util.logError,
-  });
-  return readDocumentSyncPageLimit(generation.execSql, page);
 }
 
 function runRemoteDocumentSync(
@@ -337,12 +317,13 @@ export async function requestRemoteDocumentSync(
       scope,
     },
   );
-  const maxPageUpdates = input.loroWindow
-    ? await claimThenReadPageLimit(state, generation, {
-        documentId: currentRecord.documentId,
-        scope,
-      })
-    : undefined;
+  const maxPageUpdates = await claimThenReadDocumentSyncPageLimit({
+    documentId: currentRecord.documentId,
+    execSql: generation.execSql,
+    isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
+    logError: state.runtime.util.logError,
+    scope,
+  });
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   const synced = await runRemoteDocumentSync(
     input,

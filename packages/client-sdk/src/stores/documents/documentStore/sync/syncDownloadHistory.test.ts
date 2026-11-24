@@ -8,6 +8,7 @@ import {
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { getDomainDownloadHistorySnapshot } from "../../../../data/sync/downloadHistory";
 import { createContainerDocumentQueriesFromRuntime } from "../../../../workflows/container-contents/documentQueries";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
@@ -44,6 +45,7 @@ async function pullOnce(state: DocumentStoreState, fixture: Fixture) {
   const { currentDoc, currentRecord, generation } =
     await prepareCoverage(state);
   const attempt = await requestRemoteDocumentSync({
+    loroWindow: createDocumentSyncLoroWindow(),
     policyOperation: createPrincipalPolicyOperation(),
     currentDoc,
     currentRecord,

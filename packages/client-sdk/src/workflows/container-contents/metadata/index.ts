@@ -9,7 +9,10 @@ import type { ContainerContentsPersistence } from "../../../data/persistence/con
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { settleOutgoingPassAndDecideReArm } from "../../../data/sync/outgoingUpdateSettlement";
 import {
+  createDocumentSyncLoroWindow,
+  type DocumentSyncLoroWindow,
   readPullContinuation,
+  settleDocumentSyncLoroWindow,
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../documents";
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
@@ -152,6 +155,7 @@ interface SyncContainerMetadataStateInput {
 
 async function requestContainerMetadataSync(input: {
   documentId: string;
+  loroWindow: DocumentSyncLoroWindow;
   metadataState: ContainerMetadataState;
   pendingUpdates: readonly PendingUpdateRecord[];
   sentUpdateIds: string[];
@@ -171,6 +175,7 @@ async function requestContainerMetadataSync(input: {
         isCurrent,
         lastCommitLsn: metadataState.record.lastCommitLsn,
         localVersionVector: encodeVersionVector(metadataState.doc),
+        loroWindow: input.loroWindow,
         onOutgoingUpdatesMaterialized: (updateIds) => {
           if (isCurrent()) {
             preRegisterMaterializedContainerMetadataUpdateIds(
@@ -252,13 +257,45 @@ export async function syncContainerMetadataState(
   if (!isCurrent()) {
     return null;
   }
+  // The pass reads served updates with Loro only inside this window, which
+  // the save closes; a pass that ends without one settles it here (#3194).
+  const loroWindow = createDocumentSyncLoroWindow();
+  try {
+    return await syncDetachedContainerMetadataState(input, {
+      documentId,
+      liveMetadataState,
+      loroWindow,
+      metadataState,
+      pendingUpdates,
+    });
+  } finally {
+    await settleDocumentSyncLoroWindow(loroWindow, null);
+  }
+}
 
+async function syncDetachedContainerMetadataState(
+  input: SyncContainerMetadataStateInput,
+  pass: {
+    readonly documentId: string;
+    readonly liveMetadataState: ContainerMetadataState;
+    readonly loroWindow: DocumentSyncLoroWindow;
+    readonly metadataState: Awaited<
+      ReturnType<typeof createDetachedContainerMetadataState>
+    >;
+    readonly pendingUpdates: readonly PendingUpdateRecord[];
+  },
+): Promise<
+  SyncedContainerMetadataState | MissingContainerMetadataState | null
+> {
+  const { persistence, runtime, isCurrent } = input;
+  const { documentId, liveMetadataState, loroWindow, metadataState } = pass;
   const sentUpdateIds: string[] = [];
 
   const syncAttempt = await requestContainerMetadataSync({
     documentId,
+    loroWindow,
     metadataState,
-    pendingUpdates,
+    pendingUpdates: pass.pendingUpdates,
     sentUpdateIds,
     syncInput: input,
   });
@@ -273,6 +310,11 @@ export async function syncContainerMetadataState(
     );
     return null;
   }
+  const verdicts = containerMetadataVerdictRecorder(
+    metadataState.container.id,
+    syncAttempt.synced,
+    loroWindow,
+  );
   const finalized = await finalizeContainerMetadataSync({
     documentId,
     isCurrent,
@@ -283,6 +325,7 @@ export async function syncContainerMetadataState(
     runtime,
     sentUpdateIds,
     syncAttempt,
+    verdicts,
   });
   if (!isCurrent() || !finalized) {
     return null;
@@ -305,10 +348,11 @@ async function finalizeContainerMetadataSync(input: {
   runtime: ContainerMetadataSyncRuntime;
   sentUpdateIds: readonly string[];
   syncAttempt: ContainerMetadataSyncAttempt;
+  verdicts: ReturnType<typeof containerMetadataVerdictRecorder>;
 }): Promise<
   SyncedContainerMetadataState | MissingContainerMetadataState | null
 > {
-  const { metadataState, syncAttempt } = input;
+  const { metadataState, syncAttempt, verdicts } = input;
   const { outgoingUpdateCount, synced } = syncAttempt;
   const discardAllSent = () =>
     discardUnacceptedContainerMetadataUpdateIds(
@@ -332,10 +376,6 @@ async function finalizeContainerMetadataSync(input: {
   if (synced.decryptedUpdates.length > 0) {
     applyIncomingContainerMetadataUpdates(metadataState.doc, synced);
   }
-  const verdicts = containerMetadataVerdictRecorder(
-    metadataState.container.id,
-    synced,
-  );
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,
     clearSyncFailure: shouldClearDocumentSyncFailureAfterPass(
@@ -360,6 +400,10 @@ async function finalizeContainerMetadataSync(input: {
     persistence: input.persistence,
     runtime: input.runtime,
     stillCurrent: input.isCurrent,
+  });
+  // A save that lost currency at commit returns null: it rolled back.
+  await verdicts.settleWindow(input.runtime.infra.execSql, {
+    committed: persisted !== null,
   });
   if (!input.isCurrent()) {
     discardAllSent();
