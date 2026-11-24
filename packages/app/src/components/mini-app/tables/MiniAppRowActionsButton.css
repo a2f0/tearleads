@@ -123,10 +123,12 @@
  * Tablet-scoped, and neither of the other two tiers wants it. A windowed pane
  * draws the desktop-sized button in a cell whose padding already lands it on
  * the header button's trailing edge (measured: under 2px apart), so the inset
- * would push it back off. On a phone the list bleeds out through the panel's
- * `--space-md` padding and re-insets its kebabs by `--space-sm`, so the header
- * and the column deliberately sit on different edges there — adding this inset
- * would widen that gap rather than close it.
+ * would push it back off. Explorer's list runs out to the pane's edges and
+ * adds that distance back to its trailing cells (ExplorerItemListEdges.css),
+ * so its kebabs land where this assumes. On a phone the list bleeds out
+ * through the panel's `--space-md` padding and re-insets its kebabs by
+ * `--space-sm`, so the header and the column deliberately sit on different
+ * edges there — adding this inset would widen that gap rather than close it.
  */
 .routed-pane--tablet .mini-app-header .mini-app-row-actions-button {
   margin-inline-end: var(--mini-app-row-actions-inset);

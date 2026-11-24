@@ -36,6 +36,7 @@ import {
   renderExplorerItemCell,
 } from "./explorerItemTableColumns";
 import "../../../../components/mini-app/item-view/MiniAppItemView.css";
+import "../item-views/ExplorerItemListEdges.css";
 
 function getExplorerItemColumnLabel(id: ExplorerItemColumnId): string {
   switch (id) {

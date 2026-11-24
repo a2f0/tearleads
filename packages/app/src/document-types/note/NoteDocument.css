@@ -37,8 +37,8 @@
   /* Let the textarea shrink to the pane instead of forcing its intrinsic
      `cols` width, which would overflow the editor horizontally. */
   min-inline-size: 0;
-  /* Trailing gap before the attachments tray. */
-  margin-block-end: var(--space-sm);
+  /* Flush with its pane on every side, the tray included. */
+  margin: 0;
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-gutter: var(--scrollbar-gutter);
@@ -50,6 +50,12 @@
   line-height: 1.5;
   background: transparent;
   color: inherit;
+}
+
+/* Its ring sits on its own edge, against the pane's rules and sides. Chained to
+   outrank the 2px editor ring's -3px (MiniAppFormControls.css) in any order. */
+.mini-app-editor.note-document-editor:focus-visible {
+  outline-offset: -2px;
 }
 
 /* The read-only body is plain text in the editor's box: it wraps and keeps
@@ -71,17 +77,13 @@
 
 /* === Attachments panel === */
 /*
- * The tray is the foot of the note's pane: it spans the pane and ends where the
- * pane does, so in a window it meets the bottom edge (or the status bar, which
- * runs under it) and in the routed shell the bar below. It has no margin for
- * that reason. `.note-document-scroll` clips the inline axis, so the tray
- * reaches an edge only where its host puts the pane there: the Notes mini-app
- * on an unpadded root, the Explorer by running its note pane out to the
- * surface (Explorer.css). A host that lists notes inside other content draws
- * the tray as a card instead (ContainerNotes.css).
- *
- * `--note-tray-padding-inline` lets a host line the tray's content up with the
- * note body it sets in from the pane's edge.
+ * The tray is the foot of the note's pane, with no margin: in a window it meets
+ * the bottom edge (or the status bar under it), in the routed shell the bar
+ * below. `.note-document-scroll` clips the inline axis, so it reaches an edge
+ * only where its host puts the pane there: the Notes mini-app on an unpadded
+ * root, the Explorer by running its note pane out (Explorer.css). A host that
+ * lists notes inside other content draws a card instead (ContainerNotes.css).
+ * `--note-tray-padding-inline` lets a host line its content up with the body.
  */
 .note-document-dropzone {
   flex: 0 0 auto;
