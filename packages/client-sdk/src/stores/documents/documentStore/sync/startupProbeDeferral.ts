@@ -1,6 +1,10 @@
 import type { DocumentStoreState } from "../state";
 import { logRevalidationScheduled } from "./remoteRevalidationTelemetry";
 import {
+  type StartupProbeEvent,
+  transitionStartupProbe,
+} from "./startupProbeMachine";
+import {
   allowDocumentStoreRemoteSync,
   isDocumentStoreRemoteSyncBlocked,
   markDocumentStoreRemoteSyncPending,
@@ -11,10 +15,27 @@ import {
  * deferral, and a joining opener all arm it here; the caller schedules the
  * sync lane.
  */
-export function armDocumentStoreStartupProbe(state: DocumentStoreState): void {
+function armDocumentStoreStartupProbe(state: DocumentStoreState): void {
   allowDocumentStoreRemoteSync(state);
   markDocumentStoreRemoteSyncPending(state, "independent");
   logRevalidationScheduled(state.runtime, "startup");
+}
+
+/**
+ * Moves the store's startup probe through `startupProbeMachine.ts` and runs
+ * the probe when the transition says so. The caller schedules the sync lane.
+ */
+function applyStartupProbeEvent(
+  state: DocumentStoreState,
+  event: StartupProbeEvent,
+): boolean {
+  const { arm, state: next } = transitionStartupProbe(
+    state.startupProbe,
+    event,
+  );
+  state.startupProbe = next;
+  if (arm) armDocumentStoreStartupProbe(state);
+  return arm;
 }
 
 /**
@@ -27,17 +48,18 @@ export function armDocumentStoreStartupProbe(state: DocumentStoreState): void {
  * wait: when the attempt ends without an acknowledgement (ticket or socket
  * failure, gateway refusal, sync turned off), the deferred probe runs at once.
  * Without a pending attempt (offline, local-only, between retries), the
- * startup probe runs as before.
+ * startup probe runs as before. Returns whether it armed.
  */
-export function deferStartupProbeToPendingConnect(
+export function loadDocumentStoreStartupProbe(
   state: DocumentStoreState,
+  remote: boolean,
 ): boolean {
-  const attempt = state.runtime.state.serverEventsPendingConnectAttempt;
-  if (attempt === undefined) {
-    return false;
-  }
-  state.startupProbeDeferredAttempt = attempt;
-  return true;
+  return applyStartupProbeEvent(state, {
+    pendingConnectAttempt:
+      state.runtime.state.serverEventsPendingConnectAttempt,
+    remote,
+    type: "loaded",
+  });
 }
 
 /**
@@ -52,21 +74,14 @@ export function settleDeferredStartupProbe(
   serverEventsReconnected: boolean,
   scheduleSync: () => void,
 ): boolean {
-  const deferred = state.startupProbeDeferredAttempt;
-  if (deferred === null) {
-    return false;
-  }
-  if (serverEventsReconnected) {
-    state.startupProbeDeferredAttempt = null;
-    return false;
-  }
-  if (state.runtime.state.serverEventsPendingConnectAttempt === deferred) {
-    return false;
-  }
-  state.startupProbeDeferredAttempt = null;
-  armDocumentStoreStartupProbe(state);
-  scheduleSync();
-  return true;
+  const armed = applyStartupProbeEvent(state, {
+    pendingConnectAttempt:
+      state.runtime.state.serverEventsPendingConnectAttempt,
+    reconnected: serverEventsReconnected,
+    type: "runtimeInstalled",
+  });
+  if (armed) scheduleSync();
+  return armed;
 }
 
 /**
@@ -80,18 +95,14 @@ export function joinDocumentStoreStartupProbe(
   state: DocumentStoreState,
   scheduleSync: () => void,
 ): void {
-  if (state.scheduleStartupRemoteSync) {
-    return;
-  }
-  state.scheduleStartupRemoteSync = true;
-  if (
-    !state.initialized ||
-    !isDocumentStoreRemoteSyncBlocked(state) ||
-    !state.record?.documentId ||
-    deferStartupProbeToPendingConnect(state)
-  ) {
-    return;
-  }
-  armDocumentStoreStartupProbe(state);
-  scheduleSync();
+  const armed = applyStartupProbeEvent(state, {
+    pendingConnectAttempt:
+      state.runtime.state.serverEventsPendingConnectAttempt,
+    probeOwed:
+      state.initialized &&
+      isDocumentStoreRemoteSyncBlocked(state) &&
+      Boolean(state.record?.documentId),
+    type: "joined",
+  });
+  if (armed) scheduleSync();
 }

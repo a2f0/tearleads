@@ -78,6 +78,8 @@ export interface OpenDocumentInput {
 export { DEFAULT_LOCAL_DOCUMENT_ID as DEFAULT_DOCUMENT_ID };
 
 export interface OpenDocumentOptions {
+  /** False opens only an existing record; see `DocumentStoreOpenOptions`. */
+  readonly createIfMissing?: boolean | undefined;
   readonly remoteSyncMode?: "on-demand" | "startup" | undefined;
   readonly workflowRuntime?: DocumentsRuntime | undefined;
 }
@@ -236,6 +238,7 @@ class DocumentsService implements Documents {
       initialText,
       initialDocumentKind,
       {
+        createIfMissing: options.createIfMissing,
         initialRows,
         initialStructuredFields,
         remoteSyncMode: options.remoteSyncMode,

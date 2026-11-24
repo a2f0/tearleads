@@ -123,6 +123,10 @@ test("retrying a pending first download fetches the file once it is bound", asyn
     );
     expect(reader.hydrations).toEqual([reader.documentId, reader.documentId]);
     expect(await reader.queries.listPendingDownloads()).toEqual([]);
+    // A retry that is the first to open the store runs no startup probe.
+    expect(reader.logs).not.toContain(
+      "Documents: remote revalidation scheduled reason=startup",
+    );
     expect(
       await reader.runtime.infra.blobStore.readBytes("blob-drill-photo"),
     ).toEqual(new Uint8Array([1, 2, 3]));
