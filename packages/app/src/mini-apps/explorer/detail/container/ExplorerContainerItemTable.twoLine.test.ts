@@ -157,17 +157,17 @@ test("phone container item table spans a large visual beside name and type", () 
 
 test("phone container item table spans a medium contact avatar beside both lines", () => {
   const view = renderFoldedItemTable({
-    contactAvatarUrlByLocalId: { [contactRow.localId]: "blob:ada" },
+    avatarUrlByLocalId: { [contactRow.localId]: "blob:ada" },
     rows: [contactRow],
     totalCount: 1,
   });
 
   const summary = view.container.querySelector(".explorer-item-summary");
-  const avatar = summary?.querySelector(".contact-avatar");
+  const avatar = summary?.querySelector(".document-avatar");
 
-  expect(avatar?.classList.contains("contact-avatar--medium")).toBe(true);
+  expect(avatar?.classList.contains("document-avatar--medium")).toBe(true);
   expect(
-    avatar?.querySelector(".contact-avatar-image")?.getAttribute("src"),
+    avatar?.querySelector(".document-avatar-image")?.getAttribute("src"),
   ).toBe("blob:ada");
   expect(
     view

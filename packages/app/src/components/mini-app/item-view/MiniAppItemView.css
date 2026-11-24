@@ -45,15 +45,15 @@
 }
 
 /* Whatever the square holds fills it: an image thumbnail, a type glyph (CSS
-   size beats the glyph's own size attribute), or a contact avatar. */
+   size beats the glyph's own size attribute), or a document avatar. */
 [data-item-view="large-rows"] .mini-app-item-thumb > * {
   width: 100%;
   height: 100%;
 }
 
-/* An avatar draws its no-image silhouette at 1em; scale it with the circle at
+/* An avatar draws its no-image fallback glyph at 1em; scale it with the circle at
    the ratio the avatar's own size variants use. */
-[data-item-view="large-rows"] .mini-app-item-thumb > .contact-avatar {
+[data-item-view="large-rows"] .mini-app-item-thumb > .document-avatar {
   font-size: calc(var(--mini-app-item-thumb-size) * 0.6);
 }
 

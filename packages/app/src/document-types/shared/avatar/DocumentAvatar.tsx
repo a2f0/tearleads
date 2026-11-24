@@ -4,16 +4,16 @@ import {
   DocumentContext,
   DocumentWriteScopeContext,
   useDocument,
-} from "../../stores/documents/DocumentsProvider";
-import type { AppDocumentProjectorDefinition } from "../types";
-import { DocumentAvatarControl } from "./DocumentAvatarControl";
-import { isAutomaticBlobPreviewAllowed } from "./documentAttachmentUtils";
+} from "../../../stores/documents/DocumentsProvider";
+import type { AppDocumentProjectorDefinition } from "../../types";
+import { isAutomaticBlobPreviewAllowed } from "../documentAttachmentUtils";
 import {
   findAvatarCrop,
   findDocumentAvatar,
   isDocumentPhoto,
   selectDocumentAvatar,
-} from "./documentPhotos";
+} from "../documentPhotos";
+import { DocumentAvatarControl } from "./DocumentAvatarControl";
 
 export function DocumentAvatar({
   definition,
@@ -45,7 +45,7 @@ export function DocumentAvatar({
     };
   }, [writable, lifetime]);
   const capability = definition.photos;
-  if (!store || !capability?.avatar) return null;
+  if (!store || !capability) return null;
   const photos = snapshot.attachments.filter(
     (item) =>
       isDocumentPhoto(capability, item) &&
@@ -68,9 +68,7 @@ export function DocumentAvatar({
       avatarUrl={preview && imageUrlBySlotId[preview.slotId]}
       canEdit={canEdit}
       displayName={displayName}
-      fallbackIcon={
-        definition.kind === "contact" ? undefined : definition.createIcon
-      }
+      fallbackIcon={capability.avatarFallbackIcon}
       hasAvatar={!!selected}
       onApplyAvatar={apply}
       onRemoveAvatar={() => apply(null)}

@@ -1,5 +1,5 @@
-import { ContactAvatar } from "../../../document-types/contact/ContactAvatar";
 import { useContactPhotos } from "../../../document-types/contact/useContactPhotos";
+import { DocumentAvatarImage } from "../../../document-types/shared/avatar/DocumentAvatarImage";
 import { getViewerRelativeContactLabel } from "../../../stores/contacts/contactLabels";
 import type { ContactsStore } from "../../../stores/contacts/contactStore";
 import { DocumentContext } from "../../../stores/documents/DocumentsProvider";
@@ -54,7 +54,7 @@ export function ContactsAvatarSection({
     );
   return (
     <div className="contacts-detail-header">
-      <ContactAvatar size="large" />
+      <DocumentAvatarImage size="large" />
       <h2 className="contacts-detail-name">{displayName}</h2>
     </div>
   );

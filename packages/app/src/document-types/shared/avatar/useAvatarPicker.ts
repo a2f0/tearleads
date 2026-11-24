@@ -1,5 +1,5 @@
 import { useReducer, useRef } from "react";
-import { ScannerPhotoCleanupError } from "../../host/Scanner";
+import { ScannerPhotoCleanupError } from "../../../host/Scanner";
 import {
   type AvatarSource,
   transitionAvatarPicker,

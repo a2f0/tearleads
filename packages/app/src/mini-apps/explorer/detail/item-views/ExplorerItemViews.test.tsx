@@ -138,7 +138,7 @@ test("a grid tile opens, right-clicks, and highlights like a row", () => {
   const view = render(
     <ExplorerContainerItemGrid
       columns={3}
-      contactAvatarUrlByLocalId={{}}
+      avatarUrlByLocalId={{}}
       contextTarget={{
         containerId: "root-container",
         kind: "document",
