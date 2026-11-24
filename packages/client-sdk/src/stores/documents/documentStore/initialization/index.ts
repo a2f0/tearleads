@@ -39,14 +39,14 @@ import {
   setReadySnapshot,
 } from "../state";
 import { createStoredDocument } from "../storedDocument";
-import { logRevalidationScheduled } from "../sync/remoteRevalidationTelemetry";
-import { deferStartupProbeToPendingConnect } from "../sync/startupProbeDeferral";
 import {
-  allowDocumentStoreRemoteSync,
+  armDocumentStoreStartupProbe,
+  deferStartupProbeToPendingConnect,
+} from "../sync/startupProbeDeferral";
+import {
   captureDocumentStoreSyncGeneration,
   invalidateDocumentStoreRemoteSync,
   isDocumentStoreSyncGenerationCurrent,
-  markDocumentStoreRemoteSyncPending,
 } from "../sync/syncGeneration";
 import { writeInitialDocumentContent } from "./initialContent";
 import {
@@ -347,9 +347,7 @@ async function initializeDocumentStore(
     state.scheduleStartupRemoteSync &&
     !deferStartupProbeToPendingConnect(state)
   ) {
-    allowDocumentStoreRemoteSync(state);
-    markDocumentStoreRemoteSyncPending(state, "independent");
-    logRevalidationScheduled(state.runtime, "startup");
+    armDocumentStoreStartupProbe(state);
   }
   scheduleSync();
   void runDocumentOrphanMaintenance(state);

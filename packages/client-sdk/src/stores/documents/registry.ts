@@ -292,13 +292,16 @@ export function forwardDocumentStoreStartupProbeJoin(
  * An open in the default startup mode gives an already-open store the startup
  * probe its first, on-demand opener skipped: the open that wants the probe
  * wins, whichever opened first. A store that already scheduled it is unchanged.
+ * An open can run during a render, so the join waits until it returns and never
+ * publishes a lane or snapshot change to subscribers mid-render.
  */
 export function requestDocumentStoreStartupProbe(
   store: DocumentStore,
   options: DocumentStoreOpenOptions,
 ): void {
-  if ((options.remoteSyncMode ?? "startup") === "startup") {
-    startupProbeJoins.get(store)?.();
+  const join = startupProbeJoins.get(store);
+  if (join && (options.remoteSyncMode ?? "startup") === "startup") {
+    queueMicrotask(join);
   }
 }
 

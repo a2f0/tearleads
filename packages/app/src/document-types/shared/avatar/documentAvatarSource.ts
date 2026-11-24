@@ -36,13 +36,16 @@ interface DocumentAvatarSourceInput {
 }
 
 /**
- * Opens listed documents to read their avatars without changing them:
+ * Opens listed documents to read their avatars, and never creates one:
  * - Only a document with a local copy opens. A listed row can be stale, and
  *   opening a missing one would create it.
  * - It opens in its own container, never the listing's, so an editor of a
  *   linked document keeps its container scope.
- * - It opens on demand, so a listing never starts a remote sync of its own;
- *   a later view that opens it normally still runs the startup probe.
+ * - It opens on demand, so opening starts no remote sync; a later view that
+ *   opens it normally still runs the startup probe.
+ * Each is a full store, loaded as any view loads one (load-time maintenance
+ * included), and the SDK keeps it for the session. Once open, it takes part in
+ * domain-wide sync requests and reconnect probes like any open document.
  * Stores are shared per domain, so one another view already loaded is read
  * without loading it again.
  */

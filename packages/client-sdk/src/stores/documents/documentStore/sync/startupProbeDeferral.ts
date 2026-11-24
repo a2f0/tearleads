@@ -7,6 +7,17 @@ import {
 } from "./syncGeneration";
 
 /**
+ * Let the startup probe through and queue it. Initialization, a released
+ * deferral, and a joining opener all arm it here; the caller schedules the
+ * sync lane.
+ */
+export function armDocumentStoreStartupProbe(state: DocumentStoreState): void {
+  allowDocumentStoreRemoteSync(state);
+  markDocumentStoreRemoteSyncPending(state, "independent");
+  logRevalidationScheduled(state.runtime, "startup");
+}
+
+/**
  * An opened remote document needs one probe after a restart, because no
  * websocket hint survives it. When a server-events connect attempt is in
  * flight, the acknowledgement of its interest declaration advances the
@@ -53,10 +64,8 @@ export function settleDeferredStartupProbe(
     return false;
   }
   state.startupProbeDeferredAttempt = null;
-  allowDocumentStoreRemoteSync(state);
-  markDocumentStoreRemoteSyncPending(state, "independent");
+  armDocumentStoreStartupProbe(state);
   scheduleSync();
-  logRevalidationScheduled(state.runtime, "startup");
   return true;
 }
 
@@ -83,8 +92,6 @@ export function joinDocumentStoreStartupProbe(
   ) {
     return;
   }
-  allowDocumentStoreRemoteSync(state);
-  markDocumentStoreRemoteSyncPending(state, "independent");
+  armDocumentStoreStartupProbe(state);
   scheduleSync();
-  logRevalidationScheduled(state.runtime, "startup");
 }

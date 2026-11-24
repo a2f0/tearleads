@@ -12,6 +12,7 @@ import type {
   AvatarDocument,
   DocumentAvatarSource,
 } from "./documentAvatarSource";
+import type { AvatarUrlById } from "./useAvatarUrls";
 import { useDocumentAvatarUrls } from "./useDocumentAvatarUrls";
 
 afterEach(cleanup);
@@ -105,9 +106,8 @@ function listed(localId: string): AvatarDocument {
 test("lists a chosen avatar and follows the document when it changes", async () => {
   const drill = fakeStore(EMPTY_SNAPSHOT);
   const { source } = fakeSource({ drill });
-  const view = renderHook(() =>
-    useDocumentAvatarUrls(source, [listed("drill")]),
-  );
+  const listing = [listed("drill")];
+  const view = renderHook(() => useDocumentAvatarUrls(source, listing));
   await waitFor(() => expect(drill.listeners.size).toBe(1));
   expect(view.result.current).toEqual({});
 
@@ -129,17 +129,55 @@ test("a document of another kind, or not yet loaded, shows no avatar", async () 
   });
   const loading = fakeStore({ ...withAvatar("loading-key"), ready: false });
   const { opened, source } = fakeSource({ loading, relabeled });
-  const view = renderHook(() =>
-    useDocumentAvatarUrls(source, [
-      listed("relabeled"),
-      listed("loading"),
-      listed("missing"),
-    ]),
-  );
+  const listing = [listed("relabeled"), listed("loading"), listed("missing")];
+  const view = renderHook(() => useDocumentAvatarUrls(source, listing));
 
-  await waitFor(() => expect(opened).toHaveLength(3));
   await waitFor(() => expect(loading.listeners.size).toBe(1));
+  expect(opened).toEqual(["relabeled", "loading", "missing"]);
   expect(view.result.current).toEqual({});
+});
+
+test("a still-listed avatar keeps its URL while a new listing opens", async () => {
+  const drill = fakeStore(withAvatar("drill-key"));
+  const saw = fakeStore(EMPTY_SNAPSHOT);
+  const base = fakeSource({ drill, saw });
+  // Reopening drill would be slow, so a listing that reopened it would show
+  // saw's open first and drop drill's avatar meanwhile.
+  const source: DocumentAvatarSource = {
+    ...base.source,
+    openDocument: async (document) => {
+      const reopen = base.opened.includes(document.localId);
+      const store = await base.source.openDocument(document);
+      if (reopen) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      return store;
+    },
+  };
+  const seen: AvatarUrlById[] = [];
+  const view = renderHook(
+    ({ documents }) => {
+      const urls = useDocumentAvatarUrls(source, documents);
+      seen.push(urls);
+      return urls;
+    },
+    { initialProps: { documents: [listed("drill")] } },
+  );
+  await waitFor(() =>
+    expect(view.result.current).toEqual({
+      drill: expect.stringMatching(/^blob:/u),
+    }),
+  );
+  const { drill: drillUrl = "" } = view.result.current;
+  const settled = seen.length;
+
+  view.rerender({ documents: [listed("saw"), listed("drill")] });
+  await waitFor(() => expect(saw.listeners.size).toBe(1));
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(base.opened).toEqual(["drill", "saw"]);
+  for (const urls of seen.slice(settled)) {
+    expect(urls).toEqual({ drill: drillUrl });
+  }
 });
 
 test("a refreshed listing of the same documents keeps their stores open", async () => {
