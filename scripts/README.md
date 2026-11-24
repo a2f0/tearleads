@@ -16,7 +16,7 @@ below. Invoke them by path from the checkout or its parent workspace, for exampl
 | [`checks/`](checks/) | Check entry points, static analysis helpers, baselines, and regression fixtures. |
 | [`deploy/`](deploy/) | Tier and website deployments, teardown, and their shared helpers. |
 | [`dev/`](dev/) | Local launchers, shell setup, seed generation, and cache maintenance. |
-| [`git/`](git/) | Hook installation and hook sources; the pre-push hook is agent-tool's push gate, and the root `postinstall` installs the hooks after `bun install`. |
+| [`git/`](git/) | Hook installation and hook sources; the pre-push hook is agent-tool's push gate, and the root `postinstall` installs them after `bun install` in a checkout with none. |
 | [`keychain/`](keychain/) | Manual macOS keychain utilities. |
 | [`lib/`](lib/) | Helpers shared across script groups, including timings, build metadata, release environment guards, and the retried CI dependency install. |
 | [`localstack/`](localstack/) | Local S3 setup, shutdown, and reset commands. |
@@ -84,7 +84,8 @@ the shared `matrix-secrets/tearleads` folder when it exists, as
 and [`lib/gradleWrapper.sh`](lib/gradleWrapper.sh) regenerates the
 gitignored Gradle wrapper jar in a scratch build, since the Android build
 cannot configure before `cap sync`. `bun run test:clone-setup` covers both,
-and the loader's link, and is part of `check:fast`.
+the loader's link, and the hook
+[`git/postinstall.ts`](git/postinstall.ts), and is part of `check:fast`.
 
 [`release/publishNpmPackage.sh`](release/publishNpmPackage.sh) publishes a
 package to npm by its directory name: `windowing` or `client-sdk`.

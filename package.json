@@ -29,7 +29,7 @@
     }
   },
   "scripts": {
-    "postinstall": "sh scripts/git/postinstall.sh",
+    "postinstall": "bun scripts/git/postinstall.ts",
     "agent:logs": "agent-tool logs",
     "agent:run": "agent-tool run",
     "agent-tool": "agent-tool",
