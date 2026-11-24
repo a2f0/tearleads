@@ -93,3 +93,26 @@ test("register --api-url uses that API and keeps the key out of the Keychain", a
   expect(keyStore.items.size).toBe(0);
   expect(await openSessions(seedPhrase)).toBe(0);
 }, 60_000);
+
+test("seed and verify-seed sign in to the --api-url API", async () => {
+  const unknown = createIdentitySeedPhrase();
+  for (const command of ["seed", "verify-seed"]) {
+    const { context, output } = testContext({ recoveryKey: unknown });
+    const targetless = {
+      ...context,
+      apiBaseUrl: () => {
+        throw new Error("--api-url must replace the target's API");
+      },
+    };
+    // The API on --api-url answers, and refuses a key it has no account for.
+    expect(
+      await runCli(
+        [command, "--key-stdin", "--api-url", apiBaseUrl.toUpperCase()],
+        targetless,
+      ),
+    ).toBe(1);
+    expect(output.stderr).toEqual([
+      "The API refused to sign in with this recovery key. Check that the account exists on this target.",
+    ]);
+  }
+}, 60_000);

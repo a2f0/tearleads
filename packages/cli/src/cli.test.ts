@@ -45,12 +45,17 @@ test("--api-url is a one-time-key origin in place of --env", async () => {
       ],
       "Use either --env or --api-url.",
     ],
-    ...["ftp://127.0.0.1", "http://127.0.0.1:1/api", "localhost:1"].map(
-      (url): [string[], string] => [
-        ["register", "--key-stdin", "--api-url", url],
-        `--api-url ${url} is not an http(s) origin such as http://127.0.0.1:3001.`,
-      ],
-    ),
+    ...[
+      "ftp://127.0.0.1",
+      "http://127.0.0.1:1/api",
+      "http://127.0.0.1:1/?q",
+      "http://user@127.0.0.1:1",
+      "http://api.example.com",
+      "localhost:1",
+    ].map((url): [string[], string] => [
+      ["register", "--key-stdin", "--api-url", url],
+      `--api-url ${url} is not an https origin, or an http origin on a loopback host such as http://127.0.0.1:3001.`,
+    ]),
   ];
   for (const [argv, message] of cases) {
     const { context, output } = testContext();

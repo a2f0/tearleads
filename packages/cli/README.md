@@ -45,12 +45,14 @@ started by `scripts/dev/runApi.sh` (`http://localhost:3001`, the URL the app
 uses in dev). Each target keeps its own saved key.
 
 `register` creates the account a recovery key derives, the way a new app
-install does, and is a no-op for a key whose account already exists.
+install does, then saves the key like `login`. An account that already exists
+is left as it is.
 
 `--key-stdin` reads a one-time recovery key for `register`, `seed`, or
 `verify-seed` and keeps it out of the Keychain. `--api-url <origin>` points
 those commands at an API other than the named targets, such as a test API on
 a random port; it requires `--key-stdin`, so no saved key is ever sent there.
+Plain `http` is accepted only for a loopback host.
 
 ```sh
 printf '%s\n' "$RECOVERY_KEY" |

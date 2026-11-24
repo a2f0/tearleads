@@ -7,6 +7,7 @@ import { isTargetName } from "./targets";
 import { createTracer } from "./trace";
 
 export const usage = `Usage: tearleads <command> [--env production|staging|development] [--org <id>] [--trace]
+       tearleads register|seed|verify-seed --key-stdin [--api-url <origin>]
 
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
@@ -27,8 +28,9 @@ database, and revokes its session before exiting.
 --key-stdin reads a one-time recovery key for register, seed, or verify-seed,
 and keeps it out of the Keychain.
 
---api-url <url> uses that API instead of an --env target, such as a local test
-API. It needs --key-stdin, so no target's saved key is sent to it.
+--api-url <origin> uses that API instead of an --env target, such as a local
+test API. It needs --key-stdin, so no target's saved key is sent to it, and
+plain http only for a loopback host.
 
 --trace (or TEARLEADS_TRACE=1) prints timestamped progress to stderr: each
 step, API request, and sync lane run with its duration, then a summary of
@@ -73,6 +75,13 @@ const KEY_STDIN_COMMANDS: ReadonlySet<string> = new Set([
   "verify-seed",
 ]);
 
+// Plain http would send the session token unencrypted anywhere else.
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set([
+  "127.0.0.1",
+  "[::1]",
+  "localhost",
+]);
+
 /** The command's API, or the usage error that stops it before any request. */
 function commandOptions(
   commandName: string,
@@ -92,10 +101,17 @@ function commandOptions(
   const parsed = URL.canParse(apiUrl) ? new URL(apiUrl) : null;
   if (
     !parsed ||
-    (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
-    parsed.origin !== apiUrl.replace(/\/$/u, "")
+    !(
+      parsed.protocol === "https:" ||
+      (parsed.protocol === "http:" && LOOPBACK_HOSTS.has(parsed.hostname))
+    ) ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.username ||
+    parsed.password
   ) {
-    return `--api-url ${apiUrl} is not an http(s) origin such as http://127.0.0.1:3001.`;
+    return `--api-url ${apiUrl} is not an https origin, or an http origin on a loopback host such as http://127.0.0.1:3001.`;
   }
   return { apiUrl: parsed.origin, target };
 }
