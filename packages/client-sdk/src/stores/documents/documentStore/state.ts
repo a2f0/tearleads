@@ -98,7 +98,7 @@ export interface SaveDocumentRecordOptions {
 export interface DocumentSyncAttempt {
   consumedPullContinuation: DocumentSyncPullContinuation | null;
   /** The pass's read window the page was read in; its save closes it. */
-  loroWindow: DocumentSyncLoroWindow | null;
+  loroWindow: DocumentSyncLoroWindow;
   outgoingUpdateCount: number;
   /** The request's policy operation; finalizing hydration reuses it. */
   policyOperation: PrincipalPolicyOperation;

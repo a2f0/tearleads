@@ -18,6 +18,7 @@ import {
   type DocumentPeerRebaseOutcome,
   RemoteDocumentService,
 } from "../../../../workflows/documents";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { openHistoryTestStore } from "../history/historyDurability.testFixtures";
 import { setDocumentText } from "../mutations";
@@ -277,6 +278,7 @@ test("the store's sync pass hands its own rebase to the refused pass", async () 
         secretKey: new Uint8Array(32),
       },
       generation,
+      loroWindow: createDocumentSyncLoroWindow(),
       pendingUpdates: await listPendingUpdates(state),
       policyOperation: createPrincipalPolicyOperation(),
       state,

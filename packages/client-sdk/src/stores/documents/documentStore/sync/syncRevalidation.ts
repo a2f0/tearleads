@@ -62,8 +62,8 @@ export async function pullRemoteDocumentForAttachments(
   encapsulationKeyPair: EncapsulationKeyPair,
   generation: DocumentStoreSyncGeneration,
   policyOperation: PrincipalPolicyOperation,
-  /** The pass's read window; a pull outside a pass reads without one. */
-  loroWindow: DocumentSyncLoroWindow | undefined,
+  /** The pass's read window, which the pull reads in. */
+  loroWindow: DocumentSyncLoroWindow,
 ): Promise<AttachmentRevalidation> {
   if (!nextRecord.documentId) {
     return { canSyncAttachments: true, nextRecord };

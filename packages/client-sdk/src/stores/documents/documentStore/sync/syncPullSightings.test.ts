@@ -6,6 +6,7 @@ import {
   persistFullHistoryDocument,
 } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
@@ -99,6 +100,7 @@ for (const outcome of ["applied", "incomplete", "superseded"] as const) {
       sightings.sight(SLOT_ID, BINDING_ID);
 
       const attempt = await requestRemoteDocumentSync({
+        loroWindow: createDocumentSyncLoroWindow(),
         policyOperation: createPrincipalPolicyOperation(),
         currentDoc,
         currentRecord,

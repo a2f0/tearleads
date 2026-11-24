@@ -4,6 +4,7 @@ import {
   createLoroWindowBench,
   DOCUMENT_ID,
   device,
+  EMPTY_RESPONSE,
   FIRST,
   honest,
   MAIN,
@@ -12,7 +13,9 @@ import {
   SECOND,
 } from "../../../../test/helpers/workflows/loroWindowBench";
 import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
+import type { DecryptedDocumentSyncUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import type { LoroLifetimes } from "../../../data/documents/shared/sync/loroLifetime";
 import { LoroRuntimeFailureLedger } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import { writeLoroWindowInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
@@ -21,6 +24,7 @@ import {
   createDocumentSyncLoroWindow,
   settleDocumentSyncLoroWindow,
 } from "./loroPassWindow";
+import { judgeUnrecordedDocumentSyncImports } from "./unrecordedImports";
 
 const bench = createLoroWindowBench();
 const { claimIn, judgeIn, pageLimit, recordedAttempts } = bench;
@@ -202,9 +206,9 @@ function readNoting(
   };
 }
 
-// Container metadata, rotation, and a founding view read served updates
-// with no window. A death in such a read may be theirs, so a lone counting
-// window elsewhere must not count it.
+// Every SDK judge reads in a window, but a host may call the validator
+// itself and open none. A death in such a read may be its own, so a lone
+// counting window elsewhere must not count it.
 test("a death in a read no window covers counts toward no window", async () => {
   const host = device();
   const { update: first } = await honest(FIRST);
@@ -228,6 +232,86 @@ test("a death in a read no window covers counts toward no window", async () => {
 
   expect(await recordedAttempts(FIRST)).toBeNull();
   expect(await pageLimit(MAIN)).toBe(1);
+});
+
+// A host call whose every update is a known void reads none with Loro, so
+// the lifetime's lone window elsewhere still counts its death.
+test("a host validation that reads no update leaves windows counting", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const lifetime = host.lifetime("unread");
+  await judgeIn(lifetime, [first]);
+  const reader = await createDocument("unread-reader");
+  try {
+    await validateDocumentSyncUpdateImports({
+      currentDocument: reader,
+      decryptedUpdates: [second],
+      knownVoids: new Map([[SECOND, "loro_import"]]),
+      lifetimes: lifetime,
+      runtimeLedger: new LoroRuntimeFailureLedger(),
+    });
+  } finally {
+    reader.free();
+  }
+  host.kill("unread");
+  await claimIn(host.lifetime("next"), MAIN);
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
+});
+
+/** A rotation's or founding view's read of `update` alone in `lifetimes`. */
+async function readUnrecordedIn(
+  lifetimes: LoroLifetimes,
+  update: DecryptedDocumentSyncUpdate,
+  target: typeof OTHER,
+): Promise<void> {
+  const currentDocument = await createDocument("unrecorded-reader");
+  try {
+    await judgeUnrecordedDocumentSyncImports({
+      currentDocument,
+      documentId: target.documentId,
+      execSql,
+      lifetimes,
+      loroWindow: createDocumentSyncLoroWindow(),
+      result: {
+        decryptedUpdates: [update],
+        response: EMPTY_RESPONSE,
+      },
+      scope: target.scope,
+    });
+  } finally {
+    currentDocument.free();
+  }
+}
+
+// A rotation or founding view reads served updates in a window of its own:
+// beside a sync window, a death in it says nothing about either update, and
+// once it reads an update alone, the death counts toward that update.
+test("a death in a rotation or founding read counts only when it reads alone", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const killer = readNoting((await honest(SECOND)).update, host.markers);
+  const beside = host.lifetime("beside");
+  await judgeIn(beside, [first]);
+  await readUnrecordedIn(beside, killer.update, OTHER);
+  killer.restore();
+  host.kill("beside");
+  const next = host.lifetime("next");
+  await claimIn(next, MAIN);
+  await claimIn(next, OTHER);
+
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(await recordedAttempts(SECOND, OTHER)).toBeNull();
+  expect(await pageLimit(MAIN)).toBe(1);
+  expect(await pageLimit(OTHER)).toBe(1);
+
+  await readUnrecordedIn(next, killer.update, OTHER);
+  killer.restore();
+  host.kill("next");
+  await claimIn(host.lifetime("last"), OTHER);
+
+  expect(await recordedAttempts(SECOND, OTHER)).toBe(1);
 });
 
 // A read its own window covers is no stray read: a death inside it counts.

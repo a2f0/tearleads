@@ -13,6 +13,7 @@ import {
   ensureDocumentTables,
 } from "../../../data/persistence/documents/records";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
+import { createDocumentSyncLoroWindow } from "../../documents/sync/loroPassWindow";
 import {
   applyIncomingContainerMetadataUpdates,
   metadataIncomingUpdateIsolation,
@@ -74,6 +75,7 @@ test("expired metadata quarantine cannot record or report across the SQL lock", 
       currentDocument: await createDocument("metadata-expired"),
       documentId: "550e8400-e29b-41d4-a716-446655440990",
       execSql,
+      loroWindow: createDocumentSyncLoroWindow(),
       isCurrent: () => current,
       logError: (_message, error) => reported.push(error),
       metadataScope: {
@@ -118,6 +120,7 @@ test("metadata quarantine preserves the original error and durable row when repo
       currentDocument: await createDocument("metadata-quarantined"),
       documentId: "550e8400-e29b-41d4-a716-446655440990",
       execSql,
+      loroWindow: createDocumentSyncLoroWindow(),
       isCurrent: () => true,
       logError: (_message, error) => {
         reported.push(error);

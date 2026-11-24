@@ -126,11 +126,14 @@ lifetime counting, in every database it has open, and a death then isolates
 them all. Each sync pass holds a window of its own and settles only that one,
 so a stale pass still running after the store moved to another database
 cannot close the window of the pass that replaced it. Container metadata,
-rotation, and a founding view read served updates with no window yet; while
-such a read runs, the lifetime's failure marker stands, so a death then
-isolates the open windows' updates instead of counting it toward one. A
-document isolating
-suspects waits to read until its window would be the lifetime's only one;
+rotation (its raw history, and the sync that settles queued edits first), and
+a founding view read served updates in windows of their own, claimed and
+isolated the same way; a rotation or founding window closes once its Loro work
+on the page is over, since it saves no page. Every read of served updates is
+then inside a window. A caller of the import judge that opens none, as a host
+calling it directly may, marks the lifetime failed once it reads an update, so
+its death counts toward no update. A document isolating suspects waits to read
+until its window would be the lifetime's only one;
 after 30 seconds it reads beside the others, and counts nothing. A lifetime
 that ends while the app is hidden, with a window open, leaves a `localStorage`
 marker, and its window counts nothing and isolates nothing: the user closed
@@ -148,7 +151,7 @@ Web Locks, or whose lock request is refused, opens no window. The command
 line's database is memory-only, so its windows die with it; a host whose
 database outlives its process must hold such a lock or mark its clean exits.
 
-Four residuals remain. An honest update that fails the runtime, or ends the
+Five residuals remain. An honest update that fails the runtime, or ends the
 process while the app is visible, in three separate process lifetimes on one
 device is void on that device. A window opens once the reader's history is
 built and closes with the page's save, which imports the update, so a visible
@@ -160,9 +163,22 @@ claim counts at most one attempt per update, so
 tabs that die together in one browser process count one. While an update is
 unsettled, the device applies nothing served after it on that document and
 cannot bind attachments to it, for up to three process lifetimes; its own
-writes still push and settle. And container metadata, rotation, and a founding
-view open no window yet, nor does the live apply after a page's save, so a
-payload that kills the process there records no attempt.
+writes still push and settle. The live apply after a page's save opens no
+window, so a payload that kills the process there records no attempt.
+
+And a rotation or founding view reads history the device already accepted, so
+the deaths it counts can void an update the live document holds. The device
+keeps that update's operations, which every other device holds too, and stops
+vouching for it: its founding view and edit attribution leave it out, and its
+rotation proof, which rebuilds history without it, fails without a write, so
+this device cannot unlink, move, or purge-unlink that document. It still
+opens, edits, and syncs it, a pull that serves the update again voids it
+without a read, and every other device rotates as before. A completed sync
+pull of the document clears the suspects a rotation's death left, though it
+never reads them, so a rotation that dies on every attempt counts toward an
+update only when it runs before that pull. Until that pull, a rotation of the
+document reads its raw history one update a page, since rotation pages save
+nothing that would clear the suspects.
 
 ## Peer Ownership
 

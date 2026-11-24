@@ -11,6 +11,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState } from "../state";
@@ -127,6 +128,7 @@ test.each(["document", "api-client", "container"] as const)(
       if (!generation) throw new Error("Expected a live sync generation");
 
       const attempt = await requestRemoteDocumentSync({
+        loroWindow: createDocumentSyncLoroWindow(),
         policyOperation: createPrincipalPolicyOperation(),
         currentDoc,
         currentRecord: record,
