@@ -6,6 +6,10 @@ import {
 } from "./trackerAssertions";
 import { openWindowedDesktop } from "./windowedDesktop";
 
+// Each test first waits up to 30 s for a cold boot, so leave room for the
+// steps that follow it.
+test.describe.configure({ timeout: 60_000 });
+
 function visiblePane(page: Page): Locator {
   return page.locator(".pane:not(.pane-hidden)").first();
 }
