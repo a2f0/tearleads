@@ -99,6 +99,21 @@ test("immediate cancellation never requests camera permission", async () => {
   expect(camera.getUserMedia).not.toHaveBeenCalled();
 });
 
+test("every frame's pixels are zeroed once decoded", async () => {
+  camera = installRecoveryQrCamera("unrelated QR");
+  const onDecode = mock(() => false);
+  cancel = startRecoveryKeyCamera(document.createElement("video"), {
+    onDecode,
+    onError: () => undefined,
+  });
+  await waitFor(() => expect(onDecode).toHaveBeenCalled());
+  cancel();
+  expect(camera.readFrames.length).toBeGreaterThan(0);
+  for (const frame of camera.readFrames) {
+    expect(frame.data.some((value) => value !== 0)).toBe(false);
+  }
+});
+
 test("missing camera support preserves manual recovery", async () => {
   camera = installRecoveryQrCamera("recovery test");
   Object.defineProperty(Navigator.prototype, "mediaDevices", {

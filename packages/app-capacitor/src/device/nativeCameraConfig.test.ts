@@ -8,9 +8,11 @@ const read = (path: string) => Bun.file(resolve(packageRoot, path)).text();
 // turns that request into Android's runtime CAMERA grant, which Android
 // refuses for a permission the manifest does not declare.
 test("Android declares the camera the WebView's live QR scanner asks for", async () => {
-  const manifest = await read("android/app/src/main/AndroidManifest.xml");
+  const manifest = (
+    await read("android/app/src/main/AndroidManifest.xml")
+  ).replaceAll(/<!--[\s\S]*?-->/g, "");
   const declarations = manifest.match(
-    /<uses-permission[^>]*android:name="android\.permission\.CAMERA"[^>]*\/>/g,
+    /<uses-permission\s[^>]*android:name="android\.permission\.CAMERA"[^>]*\/>/g,
   );
   // One unconditional declaration: a maxSdkVersion would drop it on new Android.
   expect(declarations).toHaveLength(1);
