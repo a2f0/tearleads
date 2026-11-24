@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
+  createDocument,
+  exportUpdatesSince,
+  getUpdateVersionVectors,
+} from "@tearleads/loro";
+import {
   createLoroWindowBench,
   device,
   FIRST,
   honest,
   SECOND,
 } from "../../../../test/helpers/workflows/loroWindowBench";
+import type { DecryptedDocumentSyncUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { LoroRuntimeFailureLedger } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import {
   createDocumentSyncLoroWindow,
@@ -71,4 +77,40 @@ test("a close clears only the updates its window read", async () => {
 
   expect(await recordedAttempts(FIRST)).toBeNull();
   expect(await recordedAttempts(SECOND)).toBe(1);
+});
+
+/** An update whose payload traps the Loro runtime on every read. */
+async function trapping(id: string): Promise<DecryptedDocumentSyncUpdate> {
+  const source = await createDocument(`trapping-${id}`);
+  source.getText("text").update(id);
+  source.commit();
+  const data = exportUpdatesSince(source, undefined);
+  source.free();
+  return {
+    id,
+    ...getUpdateVersionVectors(data),
+    get updateData(): Uint8Array {
+      throw new WebAssembly.RuntimeError("unreachable");
+    },
+  };
+}
+
+// The runtime failing on an update inside the window is an attempt the
+// window recorded, not one it outlived: its close keeps it, so failures in
+// one process still add up to a void.
+test("a close keeps the attempt the runtime failed on inside it", async () => {
+  const host = device();
+  const window = createDocumentSyncLoroWindow();
+  await judgeIn(
+    host.lifetime("failing"),
+    [await trapping(FIRST)],
+    new LoroRuntimeFailureLedger(),
+    undefined,
+    { window },
+  );
+  expect(await recordedAttempts(FIRST)).toBe(1);
+
+  await settleDocumentSyncLoroWindow(window, null);
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
 });
