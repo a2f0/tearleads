@@ -24,6 +24,7 @@ bound at is committed.
 | `Detach` | `assertAttachmentDocumentVersionCurrent` runs `hasDocumentOpsBeyondVersion` under the document head lock `lockAttachmentAuthorizationForShare` took |
 | `SentCursor` | `readProcessedCursorForVersion` gives the detach the processed cursor whose recorded version the view's version covers, and `readProcessedThroughSequence` resolves it for `hasDocumentOpsBeyondVersion` |
 | `Overclaim` / `Held` | `appendDocumentUpdates` stores the declared span of an update every reader voids (`validateDocumentSyncUpdateImports`), so no client version holds its ops |
+| `PeerOwnership` bars `ForgeFrontier` | `claimDocumentPeers` runs in `appendDocumentUpdates` under the document head lock and refuses a span past a peer's committed frontier (`readCommittedDocumentPeers`) when another user owns the peer (`judgeDocumentPeerSpans`); `recordPeerSeed` keeps each record's writer peer secret until its first commit claims it |
 | `Detach` | `assertBindVersionCommitted` runs `hasDocumentOpsBeyondCommittedFrontier` against the binding's stored version under the same lock |
 | `Detach` (refused) | `isAttachmentDocumentChanged` reads the refusal, and `planRemovedSlotDetach` waits for a newer view before sending that binding's detach again |
 | `Detach` (refused) | `isRemovedSlotDetachWaiting` keeps a waiting slot out of `listRemovedAttachmentSlots`, so a pass with no marker lists bindings again only once the view moves; a refused marker detach (`AttachmentDetachOutcome`) waits without holding up the markers after it |
