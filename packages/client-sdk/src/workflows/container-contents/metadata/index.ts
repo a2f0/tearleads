@@ -12,6 +12,7 @@ import {
   createDocumentSyncLoroWindow,
   type DocumentSyncLoroWindow,
   readPullContinuation,
+  runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../documents";
@@ -319,6 +320,7 @@ async function syncDetachedContainerMetadataState(
     documentId,
     isCurrent,
     locallyAcceptedUpdateIds: input.locallyAcceptedUpdateIds,
+    loroWindow,
     metadataState,
     onDurableStateNeedsReload: input.onDurableStateNeedsReload,
     persistence,
@@ -342,6 +344,7 @@ async function finalizeContainerMetadataSync(input: {
   documentId: string;
   isCurrent: () => boolean;
   locallyAcceptedUpdateIds: Set<string> | undefined;
+  loroWindow: DocumentSyncLoroWindow;
   metadataState: ContainerMetadataState;
   onDurableStateNeedsReload?: (() => void) | undefined;
   persistence: ContainerContentsPersistence;
@@ -374,7 +377,9 @@ async function finalizeContainerMetadataSync(input: {
   metadataState.metadataWriterProjection =
     resolveSyncedContainerMetadataWriterProjection(metadataState, synced);
   if (synced.decryptedUpdates.length > 0) {
-    applyIncomingContainerMetadataUpdates(metadataState.doc, synced);
+    runDocumentSyncLoroWork(input.loroWindow, () =>
+      applyIncomingContainerMetadataUpdates(metadataState.doc, synced),
+    );
   }
   const persisted = await persistContainerMetadataStateFromRuntime({
     acceptedPendingUpdateIds: synced.settledPendingUpdateIds,

@@ -26,6 +26,7 @@ import {
   readDocumentSyncPageLimit,
 } from "../../../src/workflows/documents/sync/loroWindows";
 import { judgeDocumentSyncImports } from "../../../src/workflows/documents/sync/processedCursor";
+import { judgeUnrecordedDocumentSyncImports } from "../../../src/workflows/documents/sync/unrecordedImports";
 
 /**
  * A device whose Loro lifetimes read sync pages on two documents, for the
@@ -194,12 +195,58 @@ export function createLoroWindowBench() {
     pageLimit(target: Target = MAIN) {
       return readDocumentSyncPageLimit(current(), target);
     },
-    claimIn(lifetimes: LoroLifetimes, target: Target) {
+    claimIn(
+      lifetimes: LoroLifetimes,
+      target: Target,
+      logError?: (message: string | Error, cause?: unknown) => void,
+    ) {
       return claimDocumentSyncOrphanWindows({
         ...target,
         execSql: current(),
         lifetimes,
+        ...(logError ? { logError } : {}),
       });
+    },
+    /**
+     * One lifetime's rotation page reading `updates`, whose save never
+     * runs, on a device whose live document is at `acceptedVersion`. Like
+     * the rotation, it claims dead lifetimes' windows before the pull.
+     */
+    async rotateIn(
+      lifetimes: LoroLifetimes,
+      updates: readonly DecryptedDocumentSyncUpdate[],
+      acceptedVersion: string,
+      window: DocumentSyncLoroWindow = createDocumentSyncLoroWindow(),
+    ) {
+      await claimDocumentSyncOrphanWindows({
+        ...MAIN,
+        execSql: current(),
+        lifetimes,
+      });
+      const currentDocument = await createDocument("windows-rebuild");
+      try {
+        return await judgeUnrecordedDocumentSyncImports({
+          currentDocument,
+          documentId: DOCUMENT_ID,
+          execSql: current(),
+          lifetimes,
+          loroWindow: window,
+          reads: { acceptedVersion, kind: "rotation" },
+          result: {
+            decryptedUpdates: [...updates],
+            response: EMPTY_RESPONSE,
+          },
+          scope: SCOPE,
+        });
+      } finally {
+        currentDocument.free();
+      }
+    },
+    /** The scope's stored rotation deaths. */
+    rotationDeaths() {
+      return current()(
+        "SELECT status, deaths FROM document_rotation_availability",
+      );
     },
   };
 }

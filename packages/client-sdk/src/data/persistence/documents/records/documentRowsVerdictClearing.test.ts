@@ -14,6 +14,7 @@ import {
   writeLoroWindowInTransaction,
 } from "./loroWindowPersistence";
 import { RecordedAttachmentSlotRepository } from "./recordedAttachmentSlotPersistence";
+import { writeRotationAvailabilityInTransaction } from "./rotationAvailabilityPersistence";
 
 const APP_KIND = "container-metadata";
 const KEPT = "kept";
@@ -27,7 +28,8 @@ let execSql: ExecSql;
 
 /**
  * A scope with a cursor, a void row, a preemption notice, a slot its store
- * saw recorded, and a Loro read window and isolation a death left.
+ * saw recorded, a Loro read window and isolation a death left, and a
+ * rotation death.
  */
 async function judgedScope(localId: string) {
   await execSql(
@@ -86,6 +88,7 @@ async function judgedScope(localId: string) {
       counts: false,
       documentId: DOCUMENT_ID,
       judge: "void-rules-1:loro-crdt@1.0.0",
+      kind: "read",
       lifetimeId: "dead",
       updateIds: [THROUGH],
       windowId: "dead-window",
@@ -96,6 +99,17 @@ async function judgedScope(localId: string) {
     db,
     { appKind: APP_KIND, localId },
     { status: "isolating", documentId: DOCUMENT_ID, suspects: [THROUGH] },
+  );
+  await writeRotationAvailabilityInTransaction(
+    db,
+    { appKind: APP_KIND, localId },
+    {
+      deaths: 1,
+      documentId: DOCUMENT_ID,
+      judge: "void-rules-1:loro-crdt@1.0.0",
+      status: "dying",
+    },
+    "2026-11-22T00:00:01.000Z",
   );
 }
 
@@ -109,6 +123,7 @@ async function judgedScopes() {
     notices: await scopesWith("document_peer_preemptions"),
     progress: await scopesWith("document_sync_progress"),
     isolation: await scopesWith("document_loro_isolation"),
+    rotations: await scopesWith("document_rotation_availability"),
     sightings: await scopesWith("document_recorded_attachment_slots"),
     voids: await scopesWith("document_void_updates"),
     windows: await scopesWith("document_loro_windows"),
@@ -126,6 +141,7 @@ beforeEach(async () => {
     isolation: [CLEARED, KEPT],
     notices: [CLEARED, KEPT],
     progress: [CLEARED, KEPT],
+    rotations: [CLEARED, KEPT],
     sightings: [CLEARED, KEPT],
     voids: [CLEARED, KEPT],
     windows: [CLEARED, KEPT],
@@ -134,7 +150,7 @@ beforeEach(async () => {
 
 afterEach(() => close());
 
-test("rebinding a scope to another server document drops its cursor, voids, notices, sightings, and Loro windows", async () => {
+test("rebinding a scope to another server document drops its cursor, voids, notices, sightings, Loro windows, and rotation deaths", async () => {
   await rebindDocumentRowInTransaction(
     getClientSQLitePersistenceRuntime(execSql).db,
     { appKind: APP_KIND, localId: CLEARED },
@@ -147,13 +163,14 @@ test("rebinding a scope to another server document drops its cursor, voids, noti
     isolation: [KEPT],
     notices: [KEPT],
     progress: [KEPT],
+    rotations: [KEPT],
     sightings: [KEPT],
     voids: [KEPT],
     windows: [KEPT],
   });
 });
 
-test("deleting a scope's rows drops its cursor, voids, notices, sightings, and Loro windows", async () => {
+test("deleting a scope's rows drops its cursor, voids, notices, sightings, Loro windows, and rotation deaths", async () => {
   await deleteDocumentScopeRowsInTransaction(
     getClientSQLitePersistenceRuntime(execSql).db,
     APP_KIND,
@@ -163,6 +180,7 @@ test("deleting a scope's rows drops its cursor, voids, notices, sightings, and L
     isolation: [KEPT],
     notices: [KEPT],
     progress: [KEPT],
+    rotations: [KEPT],
     sightings: [KEPT],
     voids: [KEPT],
     windows: [KEPT],

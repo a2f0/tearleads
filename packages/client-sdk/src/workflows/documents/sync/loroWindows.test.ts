@@ -98,6 +98,24 @@ test("a death in a window of several updates isolates them", async () => {
   expect(await pageLimit()).toBeUndefined();
 });
 
+// A newer build's window says nothing this build can charge a death to, so
+// it neither counts toward the update nor ends a rotation: it isolates.
+test("a death in a window of a kind this build does not know isolates", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await judgeIn(host.lifetime("dead"), [update]);
+  await execSql("UPDATE document_loro_windows SET kind = 'future'");
+  host.kill("dead");
+
+  await judgeIn(host.lifetime("next"), [update]);
+
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(
+    await execSql("SELECT local_id FROM document_rotation_availability"),
+  ).toEqual([]);
+  expect(await pageLimit()).toBe(1);
+});
+
 /** Saves a page that accepted `ids`, closing its window. */
 function commitPage(
   ids: readonly string[],

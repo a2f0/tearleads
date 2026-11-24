@@ -211,6 +211,7 @@ test("a founding view claims dead windows and reads in a window it settles", asy
         counts: false,
         documentId,
         judge: documentVerdictJudge(),
+        kind: "read",
         lifetimeId: "dead",
         updateIds: ["first-suspect", "second-suspect"],
         windowId: "dead-window",

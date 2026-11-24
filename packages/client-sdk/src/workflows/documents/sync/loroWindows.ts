@@ -6,10 +6,17 @@ import {
 import { MAX_LORO_RUNTIME_ATTEMPTS } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import {
   judgeOrphanWindow,
+  type LoroIsolation,
   loroIsolationPageLimit,
   type OrphanVerdict,
   transitionLoroIsolation,
 } from "../../../data/documents/shared/sync/loroWindowMachine";
+import {
+  currentRotationAvailability,
+  MAX_ROTATION_DEATHS,
+  type RotationAvailability,
+  transitionRotationAvailability,
+} from "../../../data/documents/shared/sync/rotationAvailabilityMachine";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
 import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import {
@@ -23,6 +30,10 @@ import {
   readLoroIsolation,
   writeLoroIsolationInTransaction,
 } from "../../../data/persistence/documents/records/loroWindowPersistence";
+import {
+  readRotationAvailability,
+  writeRotationAvailabilityInTransaction,
+} from "../../../data/persistence/documents/records/rotationAvailabilityPersistence";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -41,6 +52,11 @@ import { reportQuietly } from "./reportQuietly";
  */
 
 const KILLED_MESSAGE = "The process ended while reading this update";
+const ROTATION_KILLED_MESSAGE =
+  "The process ended rebuilding history for a key rotation";
+/** How a report ends once this device's rotation is unavailable. */
+export const ROTATION_UNAVAILABLE_NOTE =
+  "this device starts no more rotations of the document and leaves them to other members";
 
 interface WindowScopeInput {
   readonly execSql: ExecSql;
@@ -100,8 +116,68 @@ async function countOrphanAttemptInTransaction(
 
 interface ClaimedOrphans {
   readonly counted: readonly { attempts: number; updateId: string }[];
+  /** The scope's rotation availability around a counted rotation death. */
+  readonly rotation: RotationDeath | null;
   /** Claimed lifetimes with no window left on any scope. */
   readonly settled: readonly string[];
+}
+
+/** What one claim has decided so far, as its orphans are judged. */
+interface ClaimTally {
+  readonly counted: { attempts: number; updateId: string }[];
+  readonly countedUpdates: Set<string>;
+  isolation: LoroIsolation;
+  rotation: RotationDeath | null;
+}
+
+/** A counted rotation death: the rotation's state before it and after. */
+interface RotationDeath {
+  readonly after: RotationAvailability;
+  readonly before: RotationAvailability;
+}
+
+/**
+ * Applies one claimed orphan's verdict. A claim counts at most one rotation
+ * death, as it counts at most one attempt per update.
+ */
+async function applyOrphanVerdict(
+  tx: ClientSQLiteTransactionScope,
+  claim: OrphanClaim,
+  verdict: OrphanVerdict,
+  tally: ClaimTally,
+): Promise<void> {
+  if (verdict.kind === "count") {
+    if (tally.countedUpdates.has(verdict.updateId)) return;
+    tally.countedUpdates.add(verdict.updateId);
+    const attempts = await countOrphanAttemptInTransaction(tx, claim, verdict);
+    if (attempts !== null) {
+      tally.counted.push({ attempts, updateId: verdict.updateId });
+    }
+    return;
+  }
+  if (verdict.kind === "discard") return;
+  if (verdict.kind === "rotationDeath" && tally.rotation === null) {
+    const before = currentRotationAvailability(
+      await readRotationAvailability(tx, claim.scope),
+      claim,
+    );
+    // An unavailable rotation counts and reports no more deaths.
+    if (before.status !== "unavailable") {
+      tally.rotation = {
+        after: transitionRotationAvailability(before, {
+          ...claim,
+          suspects: verdict.suspects,
+          type: "rotationDied",
+        }),
+        before,
+      };
+    }
+  }
+  tally.isolation = transitionLoroIsolation(tally.isolation, {
+    type: "orphanIsolated",
+    documentId: claim.documentId,
+    suspects: verdict.suspects,
+  });
 }
 
 /**
@@ -121,8 +197,12 @@ async function claimOrphansInTransaction(
   const orphans = (
     await readForeignLoroWindows(tx, claim.scope, lifetimes.id)
   ).filter((window) => ended.has(window.lifetimeId));
-  const counted: { attempts: number; updateId: string }[] = [];
-  let isolation = await readLoroIsolation(tx, claim.scope);
+  const tally: ClaimTally = {
+    counted: [],
+    countedUpdates: new Set(),
+    isolation: await readLoroIsolation(tx, claim.scope),
+    rotation: null,
+  };
   // Read before any delete: another tab's claim may forget a lifetime's
   // markers once its rows are gone.
   const marked = new Map(
@@ -135,7 +215,6 @@ async function claimOrphansInTransaction(
     ]),
   );
   const claimed: string[] = [];
-  const countedUpdates = new Set<string>();
   for (const orphan of orphans) {
     if (
       !(await deleteLoroWindowInTransaction(tx, claim.scope, orphan.lifetimeId))
@@ -149,35 +228,32 @@ async function claimOrphansInTransaction(
       endedHidden: marked.get(orphan.lifetimeId)?.endedHidden ?? false,
       judge: claim.judge,
     });
-    if (verdict.kind === "count") {
-      if (countedUpdates.has(verdict.updateId)) continue;
-      countedUpdates.add(verdict.updateId);
-      const attempts = await countOrphanAttemptInTransaction(
-        tx,
-        claim,
-        verdict,
-      );
-      if (attempts !== null) {
-        counted.push({ attempts, updateId: verdict.updateId });
-      }
-    } else if (verdict.kind === "isolate") {
-      isolation = transitionLoroIsolation(isolation, {
-        type: "orphanIsolated",
-        documentId: claim.documentId,
-        suspects: verdict.suspects,
-      });
-    }
+    await applyOrphanVerdict(tx, claim, verdict, tally);
   }
-  await writeLoroIsolationInTransaction(tx, claim.scope, isolation);
+  await writeLoroIsolationInTransaction(tx, claim.scope, tally.isolation);
+  if (tally.rotation !== null) {
+    await writeRotationAvailabilityInTransaction(
+      tx,
+      claim.scope,
+      tally.rotation.after,
+      new Date().toISOString(),
+    );
+  }
   // A lifetime's markers stay until its windows on other scopes are claimed.
   const remaining = await readLifetimesWithWindows(tx, claimed);
-  return { counted, settled: claimed.filter((id) => !remaining.has(id)) };
+  return {
+    counted: tally.counted,
+    rotation: tally.rotation,
+    settled: claimed.filter((id) => !remaining.has(id)),
+  };
 }
 
 /**
  * Claims the windows ended lifetimes left on this scope, before the page's
- * recorded judgements are read: a window that held one update records one
- * `loro_runtime` attempt toward it, a final void at the limit; any other
+ * recorded judgements are read: a read window that held one update records
+ * one `loro_runtime` attempt toward it, a final void at the limit; a
+ * rotation window records one death toward the scope's rotation
+ * (`rotationAvailabilityMachine.ts`) and isolates its updates; any other
  * window isolates its updates, as does one whose lifetime had met a runtime
  * failure; a window whose lifetime the user ended by hiding the app counts
  * nothing. A live lifetime's window is left alone.
@@ -206,7 +282,7 @@ export async function claimDocumentSyncOrphanWindows(
     judge: documentVerdictJudge(),
     scope: input.scope,
   };
-  let claimed: ClaimedOrphans = { counted: [], settled: [] };
+  let claimed: ClaimedOrphans = { counted: [], rotation: null, settled: [] };
   const outcome = await runSerializedSqlMutation(input.execSql, (locked) =>
     getClientSQLitePersistenceRuntime(locked).guardedTransaction(
       async (tx) => {
@@ -226,6 +302,38 @@ export async function claimDocumentSyncOrphanWindows(
       new Error(`${KILLED_MESSAGE}: ${updateId}`),
     );
   }
+  if (claimed.rotation !== null) reportRotationDeath(input, claimed.rotation);
+}
+
+/** What a counted rotation death left the rotation, after its count. */
+const ROTATION_DEATH_OUTCOMES: Readonly<
+  Record<Exclude<RotationAvailability["status"], "available">, string>
+> = {
+  dying: "",
+  leavingOut: "; the next rebuild leaves out the update it died reading",
+  leftOut: "",
+  unavailable: `; ${ROTATION_UNAVAILABLE_NOTE}`,
+};
+
+/** Reports a counted rotation death, and what it made of the rotation. */
+function reportRotationDeath(
+  input: {
+    readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
+  },
+  { after, before }: RotationDeath,
+): void {
+  if (after.status === "available") return;
+  // The rebuild trying updates' absence is no further death of the count
+  // that led to it.
+  const death =
+    before.status === "leavingOut"
+      ? "the rebuild leaving out the updates its deaths read"
+      : `death ${after.deaths} of ${MAX_ROTATION_DEATHS}`;
+  reportQuietly(
+    input.logError,
+    `Documents: the process ended rebuilding history for a key rotation (${death})${ROTATION_DEATH_OUTCOMES[after.status]}`,
+    new Error(`${ROTATION_KILLED_MESSAGE}: ${after.documentId}`),
+  );
 }
 
 /**

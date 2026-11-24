@@ -112,6 +112,22 @@ export const VOID_UPDATE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A death after the user hid the app, counted as a visible one, spends attempts on a device whose runtime never failed (#3194).",
   },
   {
+    id: "void-update-rotation-kill-counts-update",
+    module: MODULE,
+    config: KILLS_CONFIG,
+    constants: { CountRotationKills: "TRUE" },
+    expect: { kind: "invariant", name: "RotationDeathsSpareUpdates" },
+    why: "A death rebuilding accepted history for a key rotation, counted toward the update it read, voids an honest update one crash in three rotations at a time (#3194).",
+  },
+  {
+    id: "void-update-clean-read-keeps-attempts",
+    module: MODULE,
+    config: CONFIG,
+    constants: { KeepAttemptsOnCleanRead: "TRUE" },
+    expect: { kind: "invariant", name: "VoidOnlyAfterUninterruptedAttempts" },
+    why: "A window the process outlived that leaves the attempts of the updates it read lets failures far apart, with clean reads between them, add up to a void (#3194).",
+  },
+  {
     id: "baseline-cursor-gate-weighs-all",
     module: BASELINE_MODULE,
     config: BASELINE_CONFIG,

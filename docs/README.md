@@ -69,7 +69,8 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
   cursor.
 - [Document link and sync protocol](document-link-and-sync-protocol.md).
 - [Document rekey and write history](document-rekey-and-audit-history.md),
-  [raw history recovery](raw-document-history-recovery.md), and
+  [raw history recovery](raw-document-history-recovery.md),
+  [rotation deaths](rotation-deaths.md), and
   [purge verification](document-purge-verification.md).
 - [Attachment retention](attachment-retention.md).
 - [Client sync ordering](client-sync-ordering.md),

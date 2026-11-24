@@ -11,6 +11,7 @@ import type { DocumentsWorkflowRuntime } from "../runtime";
 import {
   createDocumentSyncLoroWindow,
   type DocumentSyncLoroWindow,
+  runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
 } from "../sync/loroPassWindow";
 import { claimDocumentSyncOrphanWindows } from "../sync/loroWindows";
@@ -98,7 +99,9 @@ export async function readDocumentFoundingUpdate(input: {
       !stillCurrent()
     )
       return null;
-    importUpdates(scratch, [update.updateData]);
+    runDocumentSyncLoroWork(loroWindow, () =>
+      importUpdates(scratch, [update.updateData]),
+    );
     return {
       content: readDocumentHistoryView(
         scratch,
@@ -171,6 +174,8 @@ function pullFoundingPage(input: {
         documentId,
         execSql,
         loroWindow,
+        // The founding update is read as a sync pass reads it.
+        reads: { kind: "read" },
         result: {
           ...result,
           decryptedUpdates: result.decryptedUpdates.slice(0, 1),

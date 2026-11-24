@@ -26,6 +26,10 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  * - `judge`: The judge (`documentVerdictJudge`) the window read with. A
  *   window left by another judge counts nothing.
  * - `openedAt`: When it was opened, for diagnostics.
+ * - `kind`: What a death inside it is charged to (`LoroWindowKind`): `read`
+ *   counts toward the update it held alone; `rotation`, a key rotation's
+ *   page of updates the live document covers, counts toward that rotation
+ *   (`document_rotation_availability`) and never toward an update.
  */
 export const documentLoroWindows = sqliteTable(
   "document_loro_windows",
@@ -39,6 +43,9 @@ export const documentLoroWindows = sqliteTable(
     counts: integer("counts").notNull(),
     judge: text("judge").notNull(),
     openedAt: text("opened_at").notNull(),
+    // Last, where migration step 10 added it to existing tables, with the
+    // same default.
+    kind: text("kind").notNull().default("read"),
   },
   (table) => [
     primaryKey({
@@ -69,7 +76,48 @@ export const documentLoroIsolation = sqliteTable(
   (table) => [primaryKey({ columns: [table.appKind, table.localId] })],
 );
 
+/**
+ * Whether this device still starts key rotations of a document, given the
+ * deaths its rotations' history rebuilds met (`rotationAvailabilityMachine`).
+ * No row means available. One row per document scope.
+ *
+ * Columns:
+ * - `appKind`, `localId`, `documentId`: Document scope and server document.
+ * - `judge`: The judge (`documentVerdictJudge`) the deaths came under. A row
+ *   for another judge or server document stands for nothing: a new decoder
+ *   starts over.
+ * - `status`: `dying` while deaths are below the limit; `unavailable` once
+ *   they reach it, after which this device starts no rotation of the
+ *   document and leaves it to other members; `leavingOut` when the limit's
+ *   death came reading one update alone, which the next rebuild leaves out;
+ *   `leftOut` once rebuilds without the left-out updates equal the live
+ *   document (`rotationAvailabilityMachine.ts`).
+ * - `deaths`: Lifetimes that died rebuilding the document's history for a
+ *   rotation, alone in their windows, since its last completed rebuild.
+ * - `leftOut`: The updates a `leftOut` or `leavingOut` state's rebuilds
+ *   leave out, unread, as a JSON array of update ids; null otherwise.
+ * - `trying`: The updates a `leavingOut` rebuild tries leaving out, not yet
+ *   proven, as a JSON array of update ids; null otherwise.
+ * - `changedAt`: When the row last changed, for diagnostics.
+ */
+export const documentRotationAvailability = sqliteTable(
+  "document_rotation_availability",
+  {
+    appKind: text("app_kind").notNull(),
+    localId: text("local_id").notNull(),
+    documentId: text("document_id").notNull(),
+    judge: text("judge").notNull(),
+    status: text("status").notNull(),
+    deaths: integer("deaths").notNull(),
+    leftOut: text("left_out"),
+    trying: text("trying"),
+    changedAt: text("changed_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.appKind, table.localId] })],
+);
+
 export const documentLoroWindowTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(documentLoroWindows),
+  { ...defineSqlTableSchema(documentLoroWindows), requiredColumns: ["kind"] },
   defineSqlTableSchema(documentLoroIsolation),
+  defineSqlTableSchema(documentRotationAvailability),
 ];

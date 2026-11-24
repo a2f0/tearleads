@@ -49,6 +49,21 @@ runtime never fails nor ends their process while the app is visible, so on
 them `FaultFreeDevicesCountNothing` checks that a hidden death counts nothing.
 Production counts a visible death on any device.
 
+A key rotation rebuilds history the device already accepted (`Rotate`), one
+update a window while the scope isolates. A death there is far likelier the
+rebuild's size or state than the update, so it counts toward the device's
+rotation of the document, never toward an update, and isolates the update
+(`DieRotating`, `rotationDeaths`). After `MaxAttempts` such deaths under one
+decoder the device starts no rotation of the document and leaves it to other
+members; nothing else it does waits on that, and no other device waits on it.
+A rebuild that completes below the limit (`RotateDone`), or a new decoder
+(`Upgrade`), starts over. Raw history also holds updates the device has not
+accepted; production reads a rotation page holding one as a sync pass reads
+it, so the model's pull reads stand for it. A window the process outlives
+clears the attempts of the updates it read (`CleanRead` in `Process` and
+`RotateDone`), so deaths far apart, with a read of the update between them,
+never add up to a void.
+
 The model collapses a pull's pages into one served inbox (`Pull`) and one
 judging step (`Process`). A decoder upgrade may land between the two, which
 stands for an SDK upgrade between pages while a continuation is persisted. The
@@ -86,6 +101,10 @@ The abstraction maps to production at these seams:
 | `Upgrade` / `cursorJudge` | `documentVerdictJudge`, from `loroDecoderIdentity` and the void rules version |
 | `Replace` | a replaced local state whose frontier no longer satisfies the recorded one (`satisfiesVersionVector`); `deleteDocumentSyncVerdictsInTransaction` on a rebind or delete |
 | `RefuseVoid` | `assertNoVoidedDocumentSyncUpdates`, which rotation still uses for the history it re-encrypts |
+| `Rotate` / `rebuilding` | `pullVerifiedRawHistoryForRotation`, whose pages `rotationIncomingUpdateIsolation` judges with `judgeUnrecordedDocumentSyncImports` against the live document's version (`DocumentSyncLoroReads`); `pageWindowKind` opens a rotation window (`LoroWindowKind`) only when that version covers every update the page reads, and a `read` window otherwise; `loroWindowCounts` lets a rotation window count whatever its page held, since its death is charged to the rotation. `claimThenAssertDocumentRotationAvailable` claims the scope's orphans first and refuses with `DocumentRotationUnavailableError` once the rotation is unavailable under the running judge |
+| `DieRotating` / `rotationDeaths` | `judgeOrphanWindow` returning a rotation-death `OrphanVerdict` for a counting rotation window, which `applyOrphanVerdict` records through `transitionRotationAvailability` in `document_rotation_availability` (`writeRotationAvailabilityInTransaction`), at most once a claim, and isolates the window's updates; `reportRotationDeath` reports each death to the host's diagnostics and Sentry, and the one that makes the rotation unavailable. At the limit production first passes through `leavingOut` when that death's window read one update alone (out of the model, below). The model's limit, MaxAttempts, stands for `MAX_ROTATION_DEATHS`, equal to `MAX_LORO_RUNTIME_ATTEMPTS` |
+| `RotateDone` | `noteDocumentRotationRebuilt` once a rotation's raw pull completed, which clears a dying state, and a `leftOut` one's deaths, but neither an unavailable nor a `leavingOut` one; `currentRotationAvailability` reads a state under another judge or server document as available |
+| `CleanRead` / `strikes` | `noteDocumentSyncLoroWindowVerdicts`, which notes the updates a page's window read except one the runtime failed on or left unread, and `clearSurvivedLoroAttemptsInTransaction`, which deletes their non-final `loro_runtime` rows when the window closes, in the page's save (`closeDocumentSyncLoroWindowInTransaction`) or when no save commits (`settleDocumentSyncLoroWindow`), for sync, metadata, rotation, and founding-view windows alike. A save also deletes the void rows of the updates it accepted (`recordDocumentSyncVerdictsInTransaction`) |
 
 The checked configuration sets every switch to its safe value. Its invariants
 require that:
@@ -108,7 +127,12 @@ require that:
   a death there that other work caused is the residual above;
 - a device whose runtime never fails counts no attempt
   (`FaultFreeDevicesCountNothing`), so a user hiding or closing the app is no
-  evidence against an update.
+  evidence against an update;
+- an update is a final void only after `MaxAttempts` counted lifetimes with no
+  read of it the process outlived between them
+  (`VoidOnlyAfterUninterruptedAttempts`);
+- a death rebuilding accepted history for a rotation never spends an update's
+  attempts (`RotationDeathsSpareUpdates`).
 
 Its liveness property `DeviceEventuallyCurrent` requires that, once writes
 stop, every device holds exactly what a fresh reader on its own decoder holds,
@@ -116,7 +140,7 @@ voiding its final voids too. So a device on the newest decoder eventually
 imports every honest update, even one an older decoder voided before the
 device upgraded, unless `MaxAttempts` lifetimes each failed it there.
 
-Thirteen negative controls each relax one rule, and the negative-control check
+Fifteen negative controls each relax one rule, and the negative-control check
 asserts the named violation on every run:
 
 - `RefuseVoid = TRUE` is the behavior before #3135: a void fails the whole
@@ -156,6 +180,14 @@ asserts the named violation on every run:
   that held several: `KilledAttemptsAreIsolated` fails.
 - `CountHiddenKills = TRUE` counts a death after the app was hidden as a
   visible one: `FaultFreeDevicesCountNothing` fails.
+- `CountRotationKills = TRUE` counts a death in a rotation's window toward the
+  update it read, the behavior before this rule:
+  `RotationDeathsSpareUpdates` fails, and an honest update the device accepted
+  is voided one crash in a rotation at a time.
+- `KeepAttemptsOnCleanRead = TRUE` leaves the attempts of the updates a window
+  the process outlived read. Failures on an update far apart, with a clean
+  read of it between them, add up to a void:
+  `VoidOnlyAfterUninterruptedAttempts` fails.
 
 Outside the model: the rotation-baseline redirect of a pull's first page, which
 skips only updates after the cursor that the baseline covers
@@ -167,12 +199,35 @@ collapse above, and a cursor withheld between them, which abandons the pull as
 an upgrade does; the per-page rebuild budget, whose deferred updates are served
 again as a shorter page would leave them; the retry delay between a process's
 attempts and its uncounted later failures, which only hold a pull as a stutter
-would; a rotation's or founding view's window, which reads raw history the
-device may already have accepted and records no verdict of its own, so the
-model's `Die` there is one more lifetime death toward the update (a final void
-the device already accepted then fails its rotation proof, outside the model's
-cursor and sync); a death in the live apply after a page's save, when the
-update is already accepted; a
+would; a rotation page that reads several updates, whose death counts toward
+the rotation as one alone does, so the model reads one; a founding view's
+window, which reads raw history the device may already have accepted and
+counts a death toward the update as a pull's window does (a final void the
+device already accepted then fails its rotation proof and founding view, while
+the device keeps holding it, outside the model's cursor and sync); a page cut
+short by a runtime failure, whose earlier updates' attempts production also
+clears and the model keeps, which only makes voids likelier; deaths outside a
+rotation page's window, between pages or in its final comparison, which count
+toward nothing; a death in the live apply after a page's save, when the update
+is already accepted; acceptance itself, which the model's `Rotate` checks
+against what the device holds and production reads off the update's declared
+span against the live document's version, so a writer that declares a span of
+counters already committed passes an update the device never held as
+accepted (an honest server accepts such a span, per
+[advisory op spans](../../docs/advisory-op-spans.md)): rotation deaths on it
+count toward the rotation, which then reads one update a page while deaths
+stand (`rotationIsolates`), and when the limit's death read one update alone
+production does not stop at once but rebuilds once more leaving that update
+out (`leavingOut` in `rotationAvailabilityMachine.ts`), adding each update
+that rebuild then dies reading alone, and `assertExactDocumentHistory`
+decides: a rebuild without them that still equals the live document rotates
+and leaves them out from then on (`leftOut`, through
+`noteDocumentRotationProven`, up to `MAX_ROTATION_LEFT_OUT` updates), and one
+whose live document holds counters within a left-out span that the rebuild
+lacks (`heldLeftOut`) shows the device holds one and stops this device's
+rotations
+(`noteDocumentRotationDiverged`), where the model stops at once
+([rotation deaths](../../docs/rotation-deaths.md)); a
 document isolating suspects that waits longer than the window gate allows (30
 seconds) for other documents' windows to close, which then reads beside them
 and counts nothing, so it only delays progress as a stutter would; the
@@ -189,14 +244,18 @@ while a device judging in server order voided it.
 The configuration bounds two devices, two updates, two decoder versions, one
 state replacement, and two attempts over two process lifetimes on one device
 whose runtime can fail (`FaultyDevices`); the other device stands for readers
-whose runtime never fails. TLC explores 1,159,789 generated and 386,593
-distinct states at depth 21 in about 46 seconds with one worker. Before runtime
-failures the same bounds explored 51,547 distinct states, and three updates
-also passed (1,398,292 distinct states in about 5 minutes with one worker).
-[`VoidUpdateProgressKills.cfg`](./VoidUpdateProgressKills.cfg) checks deaths
-with one decoder and no replacement: a killer at the second update and two
-other deaths, hidden or not. TLC explores 187,782 generated and 72,460
-distinct states at depth 27 in about 8 seconds; the four death controls run
-against it. The main configuration has no killer and no other death, so its
-state space is the one above. This is exhaustive bounded model checking, not
-an unbounded proof.
+whose runtime never fails, and no rotation. TLC explores 1,090,974 generated
+and 360,786 distinct states at depth 21 in about a minute with one worker;
+clearing the attempts of a read update merges states the count kept apart
+before (386,593 distinct). Before runtime failures the same bounds explored
+51,547 distinct states, and three updates also passed (1,398,292 distinct
+states in about 5 minutes with one worker). The clean-read control runs
+against it, since only a replaced state serves an accepted update to a pull
+again. [`VoidUpdateProgressKills.cfg`](./VoidUpdateProgressKills.cfg) checks
+deaths with one decoder and no replacement: a killer at the second update, two
+other deaths, hidden or not, and two rotations, enough for two rotation deaths
+to make the rotation unavailable. TLC explores 444,933 generated and 166,125
+distinct states at depth 29 in about 30 seconds; the four death controls and
+the rotation control run against it. The main configuration has no killer and
+no other death, so its state space is the one above. This is exhaustive
+bounded model checking, not an unbounded proof.

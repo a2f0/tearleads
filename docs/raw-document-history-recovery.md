@@ -57,7 +57,15 @@ An import void depends on the history it is judged against, which a sync pass
 may have started from a baseline, so the rotation leaves it out without
 recording it. An update held after a Loro runtime failure fails the rotation,
 which retries later
-([advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)).
+([advisory op spans](./advisory-op-spans.md#rotations-and-unlinks)). Each
+page reads in a read window. When the live document covers every update the
+page reads, the window's death counts toward this device's rotation of the
+document rather than any update; after three under one judge the device starts
+no rotation of it and leaves rotation to other members, unless the third read
+one update alone: the next rebuild leaves it out, and rotates when the result
+still equals the live document. A page reading an
+update the device has not accepted counts a death toward it, as a sync pass
+does ([Loro runtime failures](./advisory-op-spans.md#loro-runtime-failures)).
 An interrupted page, a poison update, a changing
 document generation, or a superseding pane leaves the previous durable document
 intact. Durable pending ordinary rows are settled remotely before the baseline

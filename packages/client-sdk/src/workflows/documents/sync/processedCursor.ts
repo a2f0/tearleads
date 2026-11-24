@@ -39,6 +39,7 @@ import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import {
   type DocumentSyncLoroWindow,
   type LoroWindowOpening,
+  noteDocumentSyncLoroWindowVerdicts,
   openDocumentSyncLoroWindow,
   stopCountingLoroWindows,
 } from "./loroPassWindow";
@@ -252,6 +253,7 @@ export async function judgeDocumentSyncImports(input: {
         knownVoids: recorded.knownVoids,
         ledger,
         lifetimes,
+        reads: { kind: "read" },
         window: input.loroWindow,
       });
     },
@@ -261,6 +263,7 @@ export async function judgeDocumentSyncImports(input: {
     responseUpdates: result.response.updates,
     runtimeLedger: ledger,
   });
+  noteDocumentSyncLoroWindowVerdicts(input.loroWindow, verdicts);
   if (verdicts.runtimeFailures.length > 0) {
     await recordDocumentSyncRuntimeFailures({ ...input, lifetimes, verdicts });
   } else if (opened.current === "counting" && ledger.hasFailed()) {

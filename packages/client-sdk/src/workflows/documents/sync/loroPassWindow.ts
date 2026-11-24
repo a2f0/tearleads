@@ -1,5 +1,12 @@
-import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
-import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import { satisfiesVersionVector } from "@tearleads/loro";
+import type {
+  DecryptedDocumentSyncUpdate,
+  SyncRemoteDocumentResult,
+} from "../../../data/documents/shared/sync/documentSyncTypes";
+import {
+  type DocumentSyncImportVerdicts,
+  documentVerdictJudge,
+} from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
   type LoroLifetimes,
   processLoroLifetimes,
@@ -7,11 +14,13 @@ import {
 import type { LoroRuntimeAttempts } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import {
   type LoroIsolation,
+  type LoroWindowKind,
   loroIsolationPageLimit,
   loroWindowCounts,
   transitionLoroIsolation,
 } from "../../../data/documents/shared/sync/loroWindowMachine";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
+import { clearSurvivedLoroAttemptsInTransaction } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import {
   deleteOwnLoroWindowInTransaction,
   markLoroWindowsNotCountingInTransaction,
@@ -19,7 +28,10 @@ import {
   writeLoroIsolationInTransaction,
   writeLoroWindowInTransaction,
 } from "../../../data/persistence/documents/records/loroWindowPersistence";
-import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import {
+  type ClientSQLiteTransactionScope,
+  getClientSQLitePersistenceRuntime,
+} from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   runSerializedSqlMutation,
@@ -46,7 +58,16 @@ interface HeldLoroWindow {
   readonly execSql: ExecSql;
   readonly id: string;
   readonly lifetimes: LoroLifetimes;
+  /** The updates the window's current page reads, until judged. */
+  reading: readonly string[];
   readonly scope: DocumentScope;
+  /**
+   * Updates the window read and judged without the runtime failing on them.
+   * The window's close clears the attempts earlier deaths counted toward
+   * them: the process outlived reading them, so those deaths were not
+   * theirs.
+   */
+  readonly survived: Set<string>;
 }
 
 /**
@@ -81,6 +102,46 @@ function windowDatabasesOf(lifetimes: LoroLifetimes): Map<string, ExecSql> {
 export type LoroWindowOpening = "none" | "isolating" | "counting";
 
 /**
+ * What a page's reads are. A sync pass, container metadata, and a founding
+ * view `read` served updates. A key rotation rebuilds raw history, which
+ * holds the updates this device accepted, all covered by its live document
+ * (`acceptedVersion`), and past them any it has not, which the rotation
+ * installs with the rest. Null names no live document, so none is accepted.
+ */
+export type DocumentSyncLoroReads =
+  | { readonly kind: "read" }
+  | { readonly kind: "rotation"; readonly acceptedVersion: string | null };
+
+function acceptedBy(
+  version: string,
+  update: DecryptedDocumentSyncUpdate,
+): boolean {
+  try {
+    return satisfiesVersionVector(version, update.partialEndVersionVector);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The page's window kind. A rotation's page reads history this device
+ * accepted only when its live document covers every update the page reads:
+ * a death there is likelier the rebuild's size or state, so it counts toward
+ * the rotation. A page reading an update new to the device reads it as a
+ * sync pass would, and its death counts toward the update.
+ */
+function pageWindowKind(
+  reads: DocumentSyncLoroReads,
+  updates: readonly DecryptedDocumentSyncUpdate[],
+): LoroWindowKind {
+  const accepted = reads.kind === "rotation" ? reads.acceptedVersion : null;
+  if (accepted === null) return "read";
+  return updates.every((update) => acceptedBy(accepted, update))
+    ? "rotation"
+    : "read";
+}
+
+/**
  * The pass's window for this page: the one it holds, when a later page of
  * the pass reads the same database, or a new one once the held window is
  * settled. The new window is noted before its row is written, so a death
@@ -104,7 +165,14 @@ async function holdLoroWindow(
   }
   await settleDocumentSyncLoroWindow(window, null);
   const id = await target.lifetimes.openWindow(target.isolating);
-  const next = { ...target, id };
+  const next: HeldLoroWindow = {
+    execSql: target.execSql,
+    id,
+    lifetimes: target.lifetimes,
+    reading: [],
+    scope: target.scope,
+    survived: new Set(),
+  };
   window.held = next;
   windowDatabasesOf(target.lifetimes).set(id, target.execSql);
   return next;
@@ -134,24 +202,30 @@ async function stopCountingElsewhere(held: HeldLoroWindow): Promise<void> {
  *
  * A death counts only toward the update alone in the lifetime's only open
  * window, so opening this window stops every other window of the lifetime
- * counting, in any database. A page isolating the updates a death left
- * waits to read alone (`loroWindowGate.ts`). Returns whether a window now
- * covers the page's reads, and whether it counts a death.
+ * counting, in any database. A `rotation` window counts a death toward the
+ * rotation instead, never an update. A page isolating the updates a death
+ * left waits to read alone (`loroWindowGate.ts`). Returns whether a window
+ * now covers the page's reads, and whether it counts a death.
  */
 export async function openDocumentSyncLoroWindow(
   input: WindowScopeInput & {
     readonly documentId: string;
     readonly knownVoids: ReadonlyMap<string, unknown>;
     readonly ledger: LoroRuntimeAttempts;
+    readonly reads: DocumentSyncLoroReads;
     readonly result: PageResult;
     readonly window: DocumentSyncLoroWindow;
   },
 ): Promise<LoroWindowOpening> {
+  // Until this page's window is written, it covers no reads of the page.
+  if (input.window.held) input.window.held.reading = [];
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
-  const unsettled = input.result.decryptedUpdates
-    .map((update) => update.id)
-    .filter((id) => !input.knownVoids.has(id) && input.ledger.mayAttempt(id));
+  const read = input.result.decryptedUpdates.filter(
+    ({ id }) => !input.knownVoids.has(id) && input.ledger.mayAttempt(id),
+  );
+  const unsettled = read.map((update) => update.id);
   if (unsettled.length === 0 || !(await lifetimes.ready())) return "none";
+  const kind = pageWindowKind(input.reads, read);
   const isolating =
     loroIsolationPageLimit(
       await readLoroIsolation(
@@ -175,7 +249,7 @@ export async function openDocumentSyncLoroWindow(
         counts =
           keepsMarkers &&
           lifetimes.openWindowCount() === 1 &&
-          loroWindowCounts(unsettled.length, input.ledger.hasFailed());
+          loroWindowCounts(kind, unsettled.length, input.ledger.hasFailed());
         // Beside another window none counts, nor does a row a failed settle
         // left; this window's own row is replaced below.
         await markLoroWindowsNotCountingInTransaction(tx, lifetimes.id);
@@ -186,6 +260,7 @@ export async function openDocumentSyncLoroWindow(
             counts,
             documentId: input.documentId,
             judge: documentVerdictJudge(),
+            kind,
             lifetimeId: lifetimes.id,
             updateIds: unsettled,
             windowId: held.id,
@@ -197,7 +272,58 @@ export async function openDocumentSyncLoroWindow(
       () => true,
     ),
   );
+  held.reading = unsettled;
   return counts ? "counting" : "isolating";
+}
+
+/**
+ * Notes the page's judged reads: every update the window read except one the
+ * runtime failed on, or left unread behind it or past the rebuild budget.
+ * Called once the page's verdicts are in, so a judge that throws notes none.
+ */
+export function noteDocumentSyncLoroWindowVerdicts(
+  window: DocumentSyncLoroWindow,
+  verdicts: DocumentSyncImportVerdicts,
+): void {
+  const { held } = window;
+  if (!held) return;
+  const unread = new Set([
+    ...verdicts.heldUpdateIds,
+    ...verdicts.deferredUpdateIds,
+    ...verdicts.runtimeFailures.map((failure) => failure.updateId),
+  ]);
+  for (const id of held.reading) {
+    if (!unread.has(id)) held.survived.add(id);
+  }
+  held.reading = [];
+}
+
+/**
+ * Runs the page's Loro work after its judge, such as a live import or a
+ * rebuild. Work that throws ends the window uncleanly: it clears none of
+ * the attempts counted toward the updates it read, even those the judge
+ * read and survived.
+ */
+export function runDocumentSyncLoroWork<T>(
+  window: DocumentSyncLoroWindow,
+  work: () => T,
+): T {
+  try {
+    return work();
+  } catch (error) {
+    noteDocumentSyncLoroWorkFailed(window);
+    throw error;
+  }
+}
+
+/**
+ * Notes that the page's Loro work, or the save of its result, ended in a
+ * throw: the window's close then clears no attempt of the updates it read.
+ */
+export function noteDocumentSyncLoroWorkFailed(
+  window: DocumentSyncLoroWindow,
+): void {
+  window.held?.survived.clear();
 }
 
 /**
@@ -218,10 +344,11 @@ export async function stopCountingLoroWindows(
 }
 
 /**
- * Closes the pass's window in the transaction that saves the page, and
- * clears the suspects the page passed (accepted or voided, not held or
- * deferred); a completed pull clears them all. A save with no window, such
- * as rotation's, still clears the suspects it passed.
+ * Closes the pass's window in the transaction that saves the page, clears
+ * the attempts counted toward the updates it read and survived, and clears
+ * the suspects the page passed (accepted or voided, not held or deferred); a
+ * completed pull clears them all. A save with no window, such as rotation's,
+ * still clears the suspects it passed.
  */
 export async function closeDocumentSyncLoroWindowInTransaction(
   transactionExecSql: ExecSql,
@@ -242,12 +369,7 @@ export async function closeDocumentSyncLoroWindowInTransaction(
   const { synced } = input;
   const db = getClientSQLitePersistenceRuntime(transactionExecSql).db;
   const held = input.window?.held;
-  if (held) {
-    await deleteOwnLoroWindowInTransaction(db, held.scope, {
-      lifetimeId: held.lifetimes.id,
-      windowId: held.id,
-    });
-  }
+  if (held) await closeHeldWindowInTransaction(db, held);
   const isolation = await readLoroIsolation(db, input.scope);
   if (isolation.status === "free") return;
   const next: LoroIsolation = transitionLoroIsolation(isolation, {
@@ -266,14 +388,29 @@ export async function closeDocumentSyncLoroWindowInTransaction(
   await writeLoroIsolationInTransaction(db, input.scope, next);
 }
 
+/** Deletes the window's row and clears the attempts of what it survived. */
+async function closeHeldWindowInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "delete">,
+  held: HeldLoroWindow,
+): Promise<void> {
+  await deleteOwnLoroWindowInTransaction(tx, held.scope, {
+    lifetimeId: held.lifetimes.id,
+    windowId: held.id,
+  });
+  await clearSurvivedLoroAttemptsInTransaction(tx, held.scope, [
+    ...held.survived,
+  ]);
+}
+
 /**
  * Settles the pass's window once a page's save is over, or as the pass
  * ends. `committedTo` is the database a save of the page committed to,
- * which already deleted the row there; otherwise the row is deleted here,
- * from the database the window was opened in, so a later death of this
- * lifetime cannot count a page it left. A row that cannot be deleted
- * leaves the lifetime's failure marker standing, so its death isolates
- * that row's updates instead of counting them.
+ * which already closed the window there; otherwise it is closed here, in
+ * the database the window was opened in, so a later death of this lifetime
+ * cannot count a page it left, and the attempts of the updates it survived
+ * are cleared. A row that cannot be deleted leaves the lifetime's failure
+ * marker standing, so its death isolates that row's updates instead of
+ * counting them.
  */
 export async function settleDocumentSyncLoroWindow(
   window: DocumentSyncLoroWindow,
@@ -286,11 +423,7 @@ export async function settleDocumentSyncLoroWindow(
     try {
       await runSerializedSqlMutation(held.execSql, (locked) =>
         getClientSQLitePersistenceRuntime(locked).guardedTransaction(
-          (tx) =>
-            deleteOwnLoroWindowInTransaction(tx, held.scope, {
-              lifetimeId: held.lifetimes.id,
-              windowId: held.id,
-            }),
+          (tx) => closeHeldWindowInTransaction(tx, held),
           () => true,
         ),
       );

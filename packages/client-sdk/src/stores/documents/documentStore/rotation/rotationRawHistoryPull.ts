@@ -1,6 +1,6 @@
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
-  claimThenReadDocumentSyncPageLimit,
+  claimThenReadDocumentRotationPageLimit,
   createDocumentSyncLoroWindow,
   createDocumentWriterPublicKeyResolver,
   DOCUMENTS_APP_KIND,
@@ -8,6 +8,7 @@ import {
   RemoteDocumentService,
   readPullContinuation,
   resolveDocumentCreateAuthor,
+  runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
 } from "../../../../workflows/documents";
 import type { DocumentState, DocumentStoreState } from "../state";
@@ -59,6 +60,8 @@ export function assertRotationRecoveryGeneration(input: {
 export async function pullVerifiedRawHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   generation: DocumentStoreSyncGeneration;
+  /** Updates the rebuild leaves out, unread (`rotationAvailabilityMachine`). */
+  leftOut: readonly string[];
   rebuiltDocument: DocumentState;
   state: DocumentStoreState;
   voids: RotationRawHistoryVoids;
@@ -125,7 +128,7 @@ async function pullRawRotationPage(
 ) {
   const { author, documentId, encapsulationKeyPair } = page;
   const { planningRecord, pullContinuation, writerProjection } = page;
-  const maxPageUpdates = await claimThenReadDocumentSyncPageLimit({
+  const maxPageUpdates = await claimThenReadDocumentRotationPageLimit({
     documentId,
     execSql: input.state.runtime.infra.execSql,
     isCurrent: () =>
@@ -168,6 +171,7 @@ async function pullRawRotationPage(
         currentDocument: input.rebuiltDocument,
         documentId,
         generation: input.generation,
+        leftOut: input.leftOut,
         loroWindow,
         state: input.state,
       }),
@@ -195,7 +199,12 @@ async function pullRawRotationPage(
     input.voids.notePage(synced);
     // Exactly what a sync pass applies: every accepted served update,
     // checkpoints included. A void or unsettled one never gets here.
-    importSyncedDocumentUpdates(input.rebuiltDocument, synced.decryptedUpdates);
+    runDocumentSyncLoroWork(loroWindow, () =>
+      importSyncedDocumentUpdates(
+        input.rebuiltDocument,
+        synced.decryptedUpdates,
+      ),
+    );
     return synced;
   } finally {
     await settleDocumentSyncLoroWindow(loroWindow, null);

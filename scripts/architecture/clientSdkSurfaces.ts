@@ -94,6 +94,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/sync/mutationAcknowledgement.ts`,
   `${sdk}/data/documents/shared/sync/peerRebase.ts`,
   `${sdk}/data/documents/shared/sync/pullContinuation.ts`,
+  `${sdk}/data/documents/shared/sync/rotationAvailabilityMachine.ts`,
   `${sdk}/data/documents/shared/sync/syncPagination.ts`,
   `${sdk}/data/documents/shared/sync/syncSubmitFailure.ts`,
   `${sdk}/data/documents/shared/types.ts`,

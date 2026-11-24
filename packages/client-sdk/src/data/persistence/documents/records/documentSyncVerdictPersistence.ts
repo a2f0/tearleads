@@ -1,4 +1,5 @@
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, ne, sql } from "drizzle-orm";
+import { MAX_LORO_RUNTIME_ATTEMPTS } from "../../../documents/shared/sync/loroRuntimeFailureLedger";
 import { documents } from "../../../sqlite/schema/documentRecordSchema";
 import {
   documentSyncProgress,
@@ -61,6 +62,8 @@ export interface DocumentSyncVerdictOutcome {
 const UPDATE_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 2);
 // The scope, the judge, and the stages; the rest carry update ids.
 const RECORDED_VOID_IDS_PER_STATEMENT = sqliteRowsPerStatement(1, 6);
+// The scope, the stage, and the limit; the rest carry update ids.
+const CLEAN_READS_PER_STATEMENT = sqliteRowsPerStatement(1, 4);
 
 function chunks<T>(values: readonly T[], size: number): T[][] {
   const result: T[][] = [];
@@ -381,6 +384,39 @@ export async function clearDocumentSyncVerdictsInTransaction(
         and(
           eq(documentVoidUpdates.appKind, appKind),
           inArray(documentVoidUpdates.localId, batch),
+        ),
+      )
+      .run();
+  }
+}
+
+/**
+ * Clears the `loro_runtime` attempts deaths counted toward updates a window
+ * then read and survived: those deaths were not theirs, so deaths months
+ * apart cannot add up to a void. A final void stands.
+ */
+export async function clearSurvivedLoroAttemptsInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "delete">,
+  scope: DocumentScope,
+  updateIds: readonly string[],
+): Promise<void> {
+  for (
+    let offset = 0;
+    offset < updateIds.length;
+    offset += CLEAN_READS_PER_STATEMENT
+  ) {
+    await tx
+      .delete(documentVoidUpdates)
+      .where(
+        and(
+          eq(documentVoidUpdates.appKind, scope.appKind),
+          eq(documentVoidUpdates.localId, scope.localId),
+          eq(documentVoidUpdates.stage, "loro_runtime"),
+          lt(documentVoidUpdates.attempts, MAX_LORO_RUNTIME_ATTEMPTS),
+          inArray(
+            documentVoidUpdates.updateId,
+            updateIds.slice(offset, offset + CLEAN_READS_PER_STATEMENT),
+          ),
         ),
       )
       .run();
