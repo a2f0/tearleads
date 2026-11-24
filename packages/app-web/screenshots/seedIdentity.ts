@@ -1,15 +1,14 @@
 import { expect, type Page } from "@playwright/test";
 import { openWindowedApp, visiblePane, waitForBooted } from "./appShell";
 
-// Imports the fixed recovery-key passphrase the seed artifact was authored under,
-// via the shipping identity-manager mini-app ("Restore from Passphrase").
+// Imports the fixed recovery-key passphrase the seed setup registered and seeded
+// on this project's API, via the shipping identity-manager mini-app ("Restore
+// from Passphrase").
 //
-// This MUST run before restoring the backup. Restore writes into the ACTIVE
-// identity's database, and only this identity's signing key re-derives the
-// Contacts system slot the seeded Contacts container carries — so importing it
-// first is what lets the Contacts mini-app resolve that container after reload.
-// (Notes/Explorer surface their documents by kind and would work without it; the
-// Contacts app would not.)
+// Only this identity can sign in to the seeded account, and only its signing
+// key re-derives the Contacts system slot the seeded Contacts container
+// carries, so the Contacts mini-app can resolve that container once the
+// account's documents download.
 export async function importSeedIdentity(
   page: Page,
   routed: boolean,
@@ -48,9 +47,9 @@ export async function importSeedIdentity(
   });
 
   if (!routed) {
-    // Close the identity-manager window so the later backup-restore window is the
-    // only one on the desktop; page-global locators (the Restore tab, file input,
-    // password field) would otherwise be ambiguous across two open windows.
+    // Close the identity-manager window so the desktop is empty for the sign-in
+    // step, whose page-global locators would otherwise match across two
+    // open windows.
     const pane = visiblePane(page);
     await pane.locator(".window").first().locator(".window-close").click();
     await expect(pane.locator(".window")).toHaveCount(0);

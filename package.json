@@ -88,7 +88,6 @@
     "report:dependencies:mermaid": "bun scripts/architecture/reportDependencyGraph.ts --format mermaid",
     "report:lines": "bun scripts/checks/countLines.ts",
     "screenshots": "bun run --filter=app-web screenshots",
-    "screenshots:seed": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk && bun packages/app/test/screenshot-seed/buildScreenshotSeed.ts",
     "scope": "bun scripts/dev/scope.ts",
     "scope:register": "bun scripts/dev/scope.ts register",
     "soft-reset": "bun scripts/deploy/softReset/softReset.ts",

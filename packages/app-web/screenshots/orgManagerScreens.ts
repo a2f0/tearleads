@@ -158,7 +158,7 @@ export async function captureRoutedOrgManagerSections(
   // every section tears down its provider and can discard the freshly-created,
   // not-yet-synced organization profile before the next route boots.
   await page.goto("/app/org-manager");
-  await waitForBooted(page);
+  await waitForBooted(page, "assets");
   await disableAnimations(page);
   const compact = await page.locator(".routed-pane--mobile").isVisible();
   for (const screen of ORG_MANAGER_SCREENS) {

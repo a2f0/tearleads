@@ -3,9 +3,8 @@ import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { Page, TestInfo } from "@playwright/test";
-import { clearStaleLocalState } from "../screenshots/appShell";
-import { restoreSeedBackup } from "../screenshots/seedRestore";
 import { expect, test } from "./appTest";
+import { clearStaleLocalState, restoreBackupArtifact } from "./backupRestore";
 
 let artifactPath: string;
 let folderId: string;
@@ -220,7 +219,7 @@ for (const viewport of [
     const errors = await observeBrowserErrors(page);
     await page.setViewportSize(viewport);
     await page.goto("/app/backup-restore");
-    await restoreSeedBackup(page, {
+    await restoreBackupArtifact(page, {
       artifactPath,
       password: "container-view-test-only",
     });

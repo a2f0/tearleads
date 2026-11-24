@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { seedTrackerRow } from "../../src/document-types/continuity/seedTrackerRows";
+import { seedTrackerRow } from "./seedTrackerRows";
 
 test("seed tracker times preserve the recorded wall clock across offsets", () => {
   for (const offset of ["-07:00", "+05:30", "Z", ""]) {
