@@ -122,9 +122,10 @@ process while the app is visible, in three separate process lifetimes on one
 device is void on that device. A window opens once the reader's history is
 built and closes with the page's save, which imports the update, so a visible
 death inside it counts toward the update whatever caused it: Loro work on
-local or accepted data the process runs meanwhile (the editor, a live apply),
-the document's own size while saving, or a killer read by another tab that
-shares the browser process. A claim counts at most one attempt per update, so
+local or accepted data the process runs meanwhile (the editor, a live apply,
+another document's reader history being built), the document's own size while
+saving, or a killer read by another tab that shares the browser process. A
+claim counts at most one attempt per update, so
 tabs that die together in one browser process count one. While an update is
 unsettled, the device applies nothing served after it on that document and
 cannot bind attachments to it, for up to three process lifetimes; its own

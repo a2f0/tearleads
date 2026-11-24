@@ -243,6 +243,41 @@ test("a death inside a read its window covers still counts", async () => {
   expect(await recordedAttempts(FIRST)).toBe(1);
 });
 
+// Lanes build their readers' histories from accepted data at once, as at
+// startup. Like the editor's work, a build leaves an isolating window that
+// reads alone counting, or a killer there would never be counted.
+test("building a reader's history leaves the lifetime's windows counting", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  const lifetime = host.lifetime("building");
+  const isolating = await lifetime.openWindow(true);
+  const reader = await createDocument("building-reader");
+  const markedWhileBuilding: boolean[] = [];
+  const watched = new Proxy(reader, {
+    get(target, key) {
+      if (key === "export") {
+        markedWhileBuilding.push(lifetime.endedFailed("building"));
+      }
+      const value = Reflect.get(target, key, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  try {
+    await validateDocumentSyncUpdateImports({
+      beforeUpdateReads: async () => true,
+      currentDocument: watched,
+      decryptedUpdates: [update],
+      lifetimes: lifetime,
+      runtimeLedger: new LoroRuntimeFailureLedger(),
+    });
+  } finally {
+    reader.free();
+    lifetime.closeWindow(isolating);
+  }
+
+  expect(markedWhileBuilding).toEqual([false]);
+});
+
 // A lane waiting at the gate runs no Loro work, so it must not keep the
 // isolating window it waits behind from counting a killer read alone.
 test("a lane waiting at the gate leaves the isolating window counting", async () => {

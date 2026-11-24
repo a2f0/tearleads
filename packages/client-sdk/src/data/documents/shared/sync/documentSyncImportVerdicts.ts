@@ -288,30 +288,16 @@ export async function validateDocumentSyncUpdateImports(input: {
   const responseById = new Map(
     (input.responseUpdates ?? []).map((update) => [update.id, update]),
   );
-  const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
-  const lifetimes = input.lifetimes ?? processLoroLifetimes;
-  // Loro work no window covers leaves every other window of the lifetime
-  // unable to count a death: it may be this work's (#3194).
-  const hold = { release: lifetimes.beginUnwindowedRead() };
-  try {
-    return await judgeUpdateReads(input, {
-      hold,
-      ledger,
-      lifetimes,
-      responseById,
-      verdicts,
-    });
-  } finally {
-    hold.release();
-  }
+  return judgeUpdateReads(input, {
+    ledger: input.runtimeLedger ?? processLoroRuntimeFailures,
+    responseById,
+    verdicts,
+  });
 }
 
 async function judgeUpdateReads(
   input: Parameters<typeof validateDocumentSyncUpdateImports>[0],
-  judging: Omit<PageJudging, "runtimeAttempts" | "scratch"> & {
-    readonly hold: { release: () => void };
-    readonly lifetimes: LoroLifetimes;
-  },
+  judging: Omit<PageJudging, "runtimeAttempts" | "scratch">,
 ): Promise<DocumentSyncImportVerdicts> {
   const { ledger, responseById, verdicts } = judging;
   const scratch = await openScratchHistory(input, ledger);
@@ -326,12 +312,14 @@ async function judgeUpdateReads(
     scratch,
     verdicts,
   };
+  // The reader's history holds only accepted data, like the editor's work.
+  // The served updates read below are another matter: unless a window covers
+  // them, a death meanwhile may be theirs, so every window of the lifetime
+  // then counts nothing (#3194).
+  let release = () => {};
   try {
-    // Opening the window may wait at its gate, with no Loro work running, so
-    // the hold drops meanwhile; it stands again if no window covers reads.
-    judging.hold.release();
     if (!(await input.beforeUpdateReads?.())) {
-      judging.hold.release = judging.lifetimes.beginUnwindowedRead();
+      release = (input.lifetimes ?? processLoroLifetimes).beginUnwindowedRead();
     }
     for (const update of input.decryptedUpdates) {
       const knownStage = input.knownVoids?.get(update.id);
@@ -351,6 +339,7 @@ async function judgeUpdateReads(
       }
     }
   } finally {
+    release();
     scratch.free();
   }
   return verdicts.result();
