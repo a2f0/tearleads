@@ -39,10 +39,7 @@ import {
   setReadySnapshot,
 } from "../state";
 import { createStoredDocument } from "../storedDocument";
-import {
-  armDocumentStoreStartupProbe,
-  deferStartupProbeToPendingConnect,
-} from "../sync/startupProbeDeferral";
+import { loadDocumentStoreStartupProbe } from "../sync/startupProbeDeferral";
 import {
   captureDocumentStoreSyncGeneration,
   invalidateDocumentStoreRemoteSync,
@@ -271,6 +268,13 @@ async function initializeDocumentStore(
   if (state.localWriteGeneration !== initializeGeneration) {
     return;
   }
+  // Only readers opened this store: leave the record missing until a join.
+  // Ending in this same step means a creator that joins later starts its own
+  // initialization instead of waiting on this one.
+  if (!persistedState.document && state.createIfMissing === false) {
+    state.initializePromise = null;
+    return;
+  }
   const restored = await restoreOrCreateInitialDocument({
     initializeGeneration,
     nextDoc,
@@ -342,13 +346,10 @@ async function initializeDocumentStore(
   // lazy, while body and attachment state for a restored window converges.
   // A connect attempt in flight arms a later probe on its acknowledgement,
   // which covers this one, so the startup probe waits on that attempt.
-  if (
-    restored.activeRecord.documentId &&
-    state.scheduleStartupRemoteSync &&
-    !deferStartupProbeToPendingConnect(state)
-  ) {
-    armDocumentStoreStartupProbe(state);
-  }
+  loadDocumentStoreStartupProbe(
+    state,
+    Boolean(restored.activeRecord.documentId),
+  );
   scheduleSync();
   void runDocumentOrphanMaintenance(state);
 }

@@ -40,16 +40,25 @@ interface DocumentAvatarSourceInput {
   readonly documents: Pick<Documents, "open">;
 }
 
+/** One listed document's store, while it opens and once it is open. */
+type OpenedAvatarStore =
+  | { readonly status: "opening"; readonly open: Promise<DocumentStore | null> }
+  | { readonly status: "open"; readonly store: DocumentStore };
+
+function isRelinkedElsewhere(store: DocumentStore): boolean {
+  return store.getSnapshot().relinkedElsewhere === true;
+}
+
 /**
  * Opens listed documents to read their avatars, and never creates one:
- * - Only a document with a local copy opens. A listed row can be stale, and
- *   opening a missing one would create it.
+ * - Only a document with a local copy opens, and it opens with
+ *   `createIfMissing: false`, so a row deleted after the read stays deleted.
  * - It opens in its own container, never the listing's, so an editor of a
  *   linked document keeps its container scope.
  * - It opens on demand, so opening starts no remote sync; a later view that
  *   opens it normally still runs the startup probe.
  * Each is a full store, loaded as any view loads one, and the SDK keeps it for
- * the session. The source keeps the stores it opened too, so a list that
+ * the session. The source keeps the stores it loaded too, so a list that
  * remounts or scrolls back reads them without reopening: a reopen replaces the
  * store's runtime and can arm a reconnect probe. A store a relink displaced is
  * dropped, and the next open follows the record that now owns the document.
@@ -58,16 +67,18 @@ export function createDocumentAvatarSource(
   input: DocumentAvatarSourceInput,
 ): DocumentAvatarSource {
   const { blobStore, dbStatus, documentQueries, documents } = input;
-  const opened = new Map<string, DocumentStore>();
-  const opening = new Map<string, Promise<DocumentStore | null>>();
+  const stores = new Map<string, OpenedAvatarStore>();
 
   const openedDocument = (localId: string): DocumentStore | null => {
-    const store = opened.get(localId);
-    if (store?.getSnapshot().relinkedElsewhere) {
-      opened.delete(localId);
+    const entry = stores.get(localId);
+    if (entry?.status !== "open") {
       return null;
     }
-    return store ?? null;
+    if (isRelinkedElsewhere(entry.store)) {
+      stores.delete(localId);
+      return null;
+    }
+    return entry.store;
   };
 
   const openLocalCopy = async (
@@ -85,14 +96,21 @@ export function createDocumentAvatarSource(
       return null;
     }
 
-    return documents.open(
+    const store = documents.open(
       {
         containerId: summary.containerId,
         documentId: summary.documentId,
         localId: summary.id,
       },
-      { remoteSyncMode: "on-demand" },
+      { createIfMissing: false, remoteSyncMode: "on-demand" },
     );
+    // A displaced view never shows again, and a record deleted while it
+    // opened leaves a store that never loads. Neither is kept: the next
+    // listing opens the owner, or tries the document again.
+    if (isRelinkedElsewhere(store) || !(await store.ensureInitialized())) {
+      return null;
+    }
+    return store;
   };
 
   return {
@@ -102,25 +120,24 @@ export function createDocumentAvatarSource(
       if (store) {
         return Promise.resolve(store);
       }
-      const pending = opening.get(document.localId);
-      if (pending) {
-        return pending;
+      const entry = stores.get(document.localId);
+      if (entry?.status === "opening") {
+        return entry.open;
       }
 
-      // A document with no local copy yet is not remembered, so a later
-      // listing tries it again.
+      // A document with no local copy yet, or whose open failed, is not
+      // remembered, so a later listing tries it again.
       const open = openLocalCopy(document)
-        .then(
-          (next) => {
-            if (next) {
-              opened.set(document.localId, next);
-            }
-            return next;
-          },
-          () => null,
-        )
-        .finally(() => opening.delete(document.localId));
-      opening.set(document.localId, open);
+        .catch(() => null)
+        .then((next) => {
+          if (next) {
+            stores.set(document.localId, { status: "open", store: next });
+          } else {
+            stores.delete(document.localId);
+          }
+          return next;
+        });
+      stores.set(document.localId, { open, status: "opening" });
       return open;
     },
     openedDocument,
