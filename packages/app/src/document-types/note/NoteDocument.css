@@ -70,32 +70,32 @@
 }
 
 /* === Attachments panel === */
+/*
+ * The tray is the foot of the note's pane: it spans the pane and ends where the
+ * pane does, so in a window it meets the bottom edge (or the status bar, which
+ * runs under it) and in the routed shell the bar below. It has no margin for
+ * that reason. `.note-document-scroll` clips the inline axis, so the tray
+ * reaches an edge only where its host puts the pane there: the Notes mini-app
+ * on an unpadded root, the Explorer by running its note pane out to the
+ * surface (Explorer.css). A host that lists notes inside other content draws
+ * the tray as a card instead (ContainerNotes.css).
+ *
+ * `--note-tray-padding-inline` lets a host line the tray's content up with the
+ * note body it sets in from the pane's edge.
+ */
 .note-document-dropzone {
   flex: 0 0 auto;
   min-inline-size: 0;
-  margin-block: 0 var(--space-md);
-  margin-inline: var(--space-md);
-  padding: var(--space-sm);
-  /* A soft "tray" that sits under the note body without competing with it. The
-     hairline keeps it recessive; a drag-over promotes it to a solid outline. */
-  border: var(--border-width) solid var(--color-hairline);
+  margin: 0;
+  padding-block: var(--space-sm);
+  padding-inline: var(--note-tray-padding-inline, var(--space-sm));
+  /* A soft "tray" that sits under the note body without competing with it. One
+     hairline separates it from the body; at the pane's edges side and bottom
+     rules would only double the surface's own border. A drag-over promotes it
+     to a solid outline. */
+  border: 0;
+  border-block-start: var(--border-width) solid var(--color-hairline);
   background: color-mix(in srgb, currentColor 3%, transparent);
-}
-
-/*
- * Mobile: horizontal room is scarce, so the tray spans the screen rather than
- * floating as an inset card. Dropping its inline margin is enough — every host
- * renders the note flush to the pane (the notes mini-app on an unpadded root,
- * the explorer on a full-bleed document pane), and `.note-document-scroll`
- * clips the inline axis, so the tray can only reach the edge by not leaving it.
- * The side rules go with the margin: at the screen edge they would read as two
- * stray hairlines, so the tray closes with a top and bottom rule instead.
- *
- * The block-end margin stays: the tray still needs its gap above the taskbar.
- */
-.routed-pane--mobile .note-document-dropzone {
-  margin-inline: 0;
-  border-inline: 0;
 }
 
 .note-document-dropzone--active {

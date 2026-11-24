@@ -1,12 +1,11 @@
-import type {
-  ContainerNode,
-  DocumentInfo,
-  DocumentSummary,
+import {
+  type ContainerNode,
+  DEFAULT_DOCUMENT_KIND,
+  type DocumentInfo,
+  type DocumentSummary,
 } from "@tearleads/client-sdk";
 import { useEffect, useId, useMemo, useState } from "react";
 import {
-  MiniAppHeader,
-  MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
   type MiniAppTabDescriptor,
@@ -18,8 +17,10 @@ import type { ExplorerAttributionProfileHydrationRequester } from "../../hooks/e
 import { EXPLORER_LABELS } from "../../labels";
 import { canWriteDocumentSummary } from "../../model/containerRules";
 import { getDocumentLinkedContainerIds } from "../../model/targetOptions";
+import { ExplorerDocumentIcon } from "../../shared/ExplorerDocumentIcon";
 import type { ExplorerAttributionUserLabelResolver } from "../attributionDisplay";
 import { compactId } from "../compactId";
+import { ExplorerInfoHeader } from "../ExplorerInfoHeader";
 import { ExplorerDocumentInfoAttachmentsSection } from "./ExplorerDocumentInfoAttachmentsSection";
 import {
   ExplorerDocumentInfoAuthorizingContainersSection,
@@ -302,6 +303,12 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     params.documentTitle ??
     documentInfo?.local.title ??
     compactId(params.localId);
+  // The summary is at hand when Get Info opens from the document; a cold link
+  // shows the default glyph until the kind loads, so the header never shifts.
+  const documentKind =
+    documentSummary?.documentKind ??
+    documentInfo?.local.documentKind ??
+    DEFAULT_DOCUMENT_KIND;
   const linkedContainerIds = getDocumentInfoLinkedContainerIds({
     documentInfo,
     documentSummary,
@@ -348,6 +355,7 @@ function useExplorerDocumentInfoPanelState(params: Props) {
     containersById,
     documentInfo,
     documentInfoError,
+    documentKind,
     documentSummaryError,
     isLoadingDocumentInfo,
     isLoadingDocumentSummary,
@@ -367,12 +375,16 @@ export function ExplorerDocumentInfoPanel(params: Props) {
       key={params.localId}
       scroll
     >
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{EXPLORER_LABELS.documentInfoTitle}</strong>
-          <span>{model.title}</span>
-        </MiniAppHeaderCopy>
-      </MiniAppHeader>
+      <ExplorerInfoHeader
+        icon={
+          <ExplorerDocumentIcon
+            className="explorer-detail-header-icon"
+            documentKind={model.documentKind}
+          />
+        }
+        subject={model.title}
+        title={EXPLORER_LABELS.documentInfoTitle}
+      />
       <div className="explorer-info">
         <ExplorerDocumentInfoTabs
           activeTab={model.activeTab}
