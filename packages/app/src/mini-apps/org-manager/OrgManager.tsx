@@ -363,7 +363,7 @@ export function OrgManager() {
     <MiniAppRoot>
       <OrgSwitcher switcher={model.orgSwitcher} />
       <main
-        className="org-manager-main mini-app-tabs-scrollport"
+        className="org-manager-main mini-app-edge-scrollport"
         onContextMenu={handleMainContextMenu}
       >
         <OrgManagerFeedback model={model} />
