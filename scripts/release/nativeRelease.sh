@@ -34,7 +34,9 @@ Environment:
 Fastlane loads the tier's secrets folder (.secrets/prod or .secrets/staging, or
 NATIVE_RELEASE_SECRETS_DIR): shared.env, then app.env, importing only store
 credentials, signing passwords, and the tier's allowlisted Vite client
-settings. Explicitly exported environment variables take precedence.
+settings. Explicitly exported environment variables take precedence. Without
+NATIVE_RELEASE_SECRETS_DIR, a clone with no .secrets is first linked to the
+shared matrix-secrets/tearleads folder when one exists.
 
 When the platform/tier Sentry DSN is configured, the build uploads JavaScript
 source maps before native packaging. Maps and the private SENTRY_AUTH_TOKEN are
@@ -93,20 +95,21 @@ EOF
 }
 
 native_release_ensure_android_wrapper() {
-  native_wrapper_jar="android/gradle/wrapper/gradle-wrapper.jar"
-  if [ -f "$native_wrapper_jar" ]; then
+  # shellcheck source=scripts/lib/gradleWrapper.sh
+  . "$native_script_dir/../lib/gradleWrapper.sh"
+  ensure_gradle_wrapper_jar android
+}
+
+# A fresh clone has no .secrets yet; link it to the shared store before Fastlane
+# and the native web build look for the tier's folder. NATIVE_RELEASE_SECRETS_DIR
+# names another folder, so a link would go unread.
+native_release_link_secrets() {
+  if [ -n "$(printf '%s' "${NATIVE_RELEASE_SECRETS_DIR:-}" | tr -d '[:space:]')" ]; then
     return 0
   fi
-
-  echo "Generating $native_wrapper_jar from repo-managed Gradle..."
-  if command -v gradle > /dev/null 2>&1; then
-    gradle -p android wrapper --distribution-type all
-  elif command -v mise > /dev/null 2>&1; then
-    mise exec -- gradle -p android wrapper --distribution-type all
-  else
-    echo "Error: Gradle is unavailable. Run \`mise install\` from the repo root." >&2
-    return 1
-  fi
+  # shellcheck source=scripts/lib/secretsStore.sh
+  . "$native_script_dir/../lib/secretsStore.sh"
+  secrets_store_link "$(CDPATH='' cd -- "$native_script_dir/../.." && pwd -P)"
 }
 
 native_release_url_host() {
@@ -290,6 +293,7 @@ native_release_main() {
   . "$native_script_dir/../lib/releaseGuards.sh"
 
   export NATIVE_RELEASE_TIER="$native_tier"
+  native_release_link_secrets
   native_release_guard_environment "$native_platform" "$native_tier"
   [ "$native_platform" != android ] || native_release_ensure_android_wrapper
   native_command="$(native_release_bun_command "$native_platform" "$native_action" "$native_tier")"

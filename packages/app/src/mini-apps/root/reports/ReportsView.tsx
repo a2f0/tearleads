@@ -38,7 +38,7 @@ export function ReportsView({
       <MiniAppSectionHeading>
         <h2>Reports</h2>
       </MiniAppSectionHeading>
-      <MiniAppTableFrame>
+      <MiniAppTableFrame className="mini-app-table-frame--bleed mini-app-table-frame--edges">
         <MiniAppTable aria-label="Reports" columns={columns}>
           {ROOT_REPORTS.map(({ description, icon: ReportIcon, id, label }) => (
             <MiniAppTableRow
