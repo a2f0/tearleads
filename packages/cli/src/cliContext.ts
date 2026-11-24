@@ -16,6 +16,8 @@ export interface CliContext {
 }
 
 export interface CommandInput {
+  /** `--api-url`: an API to use in place of the target's. */
+  readonly apiUrl?: string | undefined;
   readonly context: CliContext;
   readonly keyFromStdin?: boolean;
   readonly organizationId: string | undefined;

@@ -1,7 +1,18 @@
 import type { CommandInput } from "../cliContext";
 import { printable } from "../printable";
 import { normalizeRecoveryKey } from "../recoveryKey";
+import { registerAccount } from "../registerAccount";
 import { type CliSession, type SessionOptions, withSession } from "../session";
+
+/** The API a command talks to: `--api-url`, or else the target's. */
+function apiBaseUrl(input: CommandInput): string {
+  return input.apiUrl ?? input.context.apiBaseUrl(input.target);
+}
+
+/** How messages name the API: the target, or the `--api-url` origin. */
+export function apiLabel(input: CommandInput): string {
+  return input.apiUrl ?? input.target;
+}
 
 async function requireRecoveryKey({
   context,
@@ -33,7 +44,7 @@ export async function withSavedSession<T>(
   const recoveryKey = await requireRecoveryKey(input);
   return withSession(
     {
-      apiBaseUrl: input.context.apiBaseUrl(input.target),
+      apiBaseUrl: apiBaseUrl(input),
       registerShutdown: input.context.registerShutdown,
       recoveryKey,
       ...options,
@@ -60,6 +71,30 @@ export async function login(input: CommandInput): Promise<void> {
   context.stdout("The recovery key is saved in the Keychain.");
 }
 
+export async function register(input: CommandInput): Promise<void> {
+  const { context, keyFromStdin, target, tracer } = input;
+  const recoveryKey = normalizeRecoveryKey(
+    await context.readRecoveryKey("Recovery key: "),
+  );
+  const account = await registerAccount({
+    apiBaseUrl: apiBaseUrl(input),
+    recoveryKey,
+    tracer,
+  });
+  context.stdout(
+    printable(
+      account.created
+        ? `Registered ${account.userId} on ${apiLabel(input)}.`
+        : `This recovery key already has an account on ${apiLabel(input)}: ${account.userId}.`,
+    ),
+  );
+  if (keyFromStdin) return;
+  await tracer.span("save recovery key in the Keychain", () =>
+    context.keyStore.save(target, recoveryKey),
+  );
+  context.stdout("The recovery key is saved in the Keychain.");
+}
+
 export async function logout({ context, target }: CommandInput): Promise<void> {
   const removed = await context.keyStore.remove(target);
   context.stdout(
@@ -71,7 +106,7 @@ export async function logout({ context, target }: CommandInput): Promise<void> {
 
 export async function whoami(input: CommandInput): Promise<void> {
   const lines = await withSavedSession(input, async ({ sdk, userId }) => [
-    `target        ${input.target} (${input.context.apiBaseUrl(input.target)})`,
+    `target        ${input.target} (${apiBaseUrl(input)})`,
     `user          ${userId}`,
     `fingerprint   ${sdk.identity.signingFingerprint ?? "-"}`,
     `organization  ${sdk.session.organizationId ?? "-"}`,
