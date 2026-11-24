@@ -100,17 +100,22 @@ binds only to its own user's create. Transactions recheck the durable binding.
 
 ## Recovery Key Disclosure
 
-Identity Manager's recovery QR contains the plaintext recovery phrase. It is
-generated and decoded locally, with the same acknowledgement as revealing the
-phrase. Scanning stages a validated phrase for the existing restore/login flow.
-Validation proves the phrase's format and checksum, not its ownership; users
-must scan their own backup, since restoring another person's QR selects that
-person's identity. Revealed keys are hidden and staged restore phrases are
-cleared on page hiding or backgrounding, but this cannot prevent screenshots or
-photographs. A native camera capture uses a temporary file that the adapter
-deletes before returning the photo for decoding; deletion failures are
-reported and the capture is rejected. Any retained image of the QR grants
-the same identity access as the recovery phrase itself.
+Identity Manager's recovery QR, like the printed recovery key, contains the
+plaintext recovery phrase. It is generated and decoded locally, with the same
+acknowledgement as revealing the phrase. In Identity Manager, scanning stages a
+validated phrase for the existing restore/login flow. During onboarding, a
+device with no identity has nothing a restore could replace, so a validated
+scan restores at once, from the first valid recovery QR the live camera reads,
+and the phrase is never shown in a field. Validation proves the phrase's format
+and checksum, not its ownership; users must scan their own backup, since
+restoring another person's QR selects that person's identity, and onboarding
+offers no chance to review the phrase first. Revealed keys are hidden and
+staged restore phrases are cleared on page hiding or backgrounding, but this
+cannot prevent screenshots or photographs. A native camera capture uses a
+temporary file that the adapter deletes before returning the photo for
+decoding; deletion failures are reported and the capture is rejected. Any
+retained image of the QR grants the same identity access as the recovery phrase
+itself.
 
 ## Document Decrypt Verdicts Do Not Depend On The Reader's Key
 
