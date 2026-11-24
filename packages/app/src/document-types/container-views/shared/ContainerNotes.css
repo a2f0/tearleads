@@ -23,9 +23,13 @@
 
 /*
  * A note listed here is one of several inside the container view, not a pane
- * of its own, so its attachments tray is an inset card under the note rather
- * than the foot of a surface (NoteDocument.css).
+ * of its own, so its attachments tray is an inset card a gap below the note
+ * rather than the foot of a surface flush under it (NoteDocument.css).
  */
+.container-view-note .note-document-editor {
+  margin-block-end: var(--space-sm);
+}
+
 .container-view-note .note-document-dropzone {
   margin-block-end: var(--space-md);
   margin-inline: var(--space-md);
