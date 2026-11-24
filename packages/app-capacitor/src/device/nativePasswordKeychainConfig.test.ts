@@ -59,6 +59,42 @@ test("every App configuration claims the web credential domain of its bundle ID"
   );
 });
 
+test("each tier's app host names the bundle ID that claims it, and its App ID has the capability", async () => {
+  const [deployAppWeb, terraformCommon, iosLanes] = await Promise.all([
+    read("../app-web/scripts/deployAppWeb.sh"),
+    read("../../terraform/scripts/common.sh"),
+    read("fastlane/lanes/ios.rb"),
+  ]);
+  const tierCases = (source: string, pattern: RegExp) => {
+    const values: Record<string, string> = {};
+    for (const [, tier = "", value = ""] of source.matchAll(pattern)) {
+      values[tier] = value;
+    }
+    return values;
+  };
+  // deployAppWeb.sh writes the association file naming this bundle ID.
+  const bundleIds = tierCases(
+    deployAppWeb,
+    /^\s*(prod|staging)\) IOS_APP_IDENTIFIER=([\w.]+) ;;$/gm,
+  );
+  // The host that file is served from, under production's tearleads.com.
+  const hostnames = tierCases(
+    terraformCommon.match(/tier_app_hostname\(\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+    /^\s*(prod|staging)\) echo "([\w-]+)\.\$\{TF_VAR_domain:\?\}" ;;$/gm,
+  );
+  expect(Object.keys(bundleIds).sort()).toEqual(["prod", "staging"]);
+  for (const [tier, bundleId = ""] of Object.entries(bundleIds)) {
+    expect(`${hostnames[tier]}.tearleads.com`).toBe(
+      WEB_CREDENTIAL_DOMAINS[bundleId] ?? "",
+    );
+  }
+  // App.entitlements asks for Associated Domains, which the profiles lane
+  // enables on each App ID before it makes the profile.
+  expect(iosLanes).toMatch(
+    /IOS_APP_ID_CAPABILITIES = %w\[[^\]]*\bASSOCIATED_DOMAINS\b[^\]]*\]/,
+  );
+});
+
 test("the iOS app registers, compiles, and tests the PasswordKeychain plugin", async () => {
   const [project, bridgeController, plugin, nativeCheck] = await Promise.all([
     read("ios/App/App.xcodeproj/project.pbxproj"),
