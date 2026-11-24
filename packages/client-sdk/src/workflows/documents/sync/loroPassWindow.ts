@@ -1,4 +1,8 @@
-import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
+import { satisfiesVersionVector } from "@tearleads/loro";
+import type {
+  DecryptedDocumentSyncUpdate,
+  SyncRemoteDocumentResult,
+} from "../../../data/documents/shared/sync/documentSyncTypes";
 import {
   type DocumentSyncImportVerdicts,
   documentVerdictJudge,
@@ -98,6 +102,46 @@ function windowDatabasesOf(lifetimes: LoroLifetimes): Map<string, ExecSql> {
 export type LoroWindowOpening = "none" | "isolating" | "counting";
 
 /**
+ * What a page's reads are. A sync pass, container metadata, and a founding
+ * view `read` served updates. A key rotation rebuilds raw history, which
+ * holds the updates this device accepted, all covered by its live document
+ * (`acceptedVersion`), and past them any it has not, which the rotation
+ * installs with the rest. Null names no live document, so none is accepted.
+ */
+export type DocumentSyncLoroReads =
+  | { readonly kind: "read" }
+  | { readonly kind: "rotation"; readonly acceptedVersion: string | null };
+
+function acceptedBy(
+  version: string,
+  update: DecryptedDocumentSyncUpdate,
+): boolean {
+  try {
+    return satisfiesVersionVector(version, update.partialEndVersionVector);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The page's window kind. A rotation's page reads history this device
+ * accepted only when its live document covers every update the page reads:
+ * a death there is likelier the rebuild's size or state, so it counts toward
+ * the rotation. A page reading an update new to the device reads it as a
+ * sync pass would, and its death counts toward the update.
+ */
+function pageWindowKind(
+  reads: DocumentSyncLoroReads,
+  updates: readonly DecryptedDocumentSyncUpdate[],
+): LoroWindowKind {
+  const accepted = reads.kind === "rotation" ? reads.acceptedVersion : null;
+  if (accepted === null) return "read";
+  return updates.every((update) => acceptedBy(accepted, update))
+    ? "rotation"
+    : "read";
+}
+
+/**
  * The pass's window for this page: the one it holds, when a later page of
  * the pass reads the same database, or a new one once the held window is
  * settled. The new window is noted before its row is written, so a death
@@ -166,19 +210,22 @@ async function stopCountingElsewhere(held: HeldLoroWindow): Promise<void> {
 export async function openDocumentSyncLoroWindow(
   input: WindowScopeInput & {
     readonly documentId: string;
-    readonly kind?: LoroWindowKind | undefined;
     readonly knownVoids: ReadonlyMap<string, unknown>;
     readonly ledger: LoroRuntimeAttempts;
+    readonly reads: DocumentSyncLoroReads;
     readonly result: PageResult;
     readonly window: DocumentSyncLoroWindow;
   },
 ): Promise<LoroWindowOpening> {
-  const kind = input.kind ?? "read";
+  // Until this page's window is written, it covers no reads of the page.
+  if (input.window.held) input.window.held.reading = [];
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
-  const unsettled = input.result.decryptedUpdates
-    .map((update) => update.id)
-    .filter((id) => !input.knownVoids.has(id) && input.ledger.mayAttempt(id));
+  const read = input.result.decryptedUpdates.filter(
+    ({ id }) => !input.knownVoids.has(id) && input.ledger.mayAttempt(id),
+  );
+  const unsettled = read.map((update) => update.id);
   if (unsettled.length === 0 || !(await lifetimes.ready())) return "none";
+  const kind = pageWindowKind(input.reads, read);
   const isolating =
     loroIsolationPageLimit(
       await readLoroIsolation(
@@ -192,7 +239,6 @@ export async function openDocumentSyncLoroWindow(
     isolating,
     lifetimes,
   });
-  held.reading = unsettled;
   await stopCountingElsewhere(held);
   // Without markers a close would read as a death: such a window isolates.
   const keepsMarkers = lifetimes.keepsMarkers();
@@ -226,6 +272,7 @@ export async function openDocumentSyncLoroWindow(
       () => true,
     ),
   );
+  held.reading = unsettled;
   return counts ? "counting" : "isolating";
 }
 
@@ -249,6 +296,24 @@ export function noteDocumentSyncLoroWindowVerdicts(
     if (!unread.has(id)) held.survived.add(id);
   }
   held.reading = [];
+}
+
+/**
+ * Runs the page's Loro work after its judge, such as a live import or a
+ * rebuild. Work that throws ends the window uncleanly: it clears none of
+ * the attempts counted toward the updates it read, even those the judge
+ * read and survived.
+ */
+export function runDocumentSyncLoroWork<T>(
+  window: DocumentSyncLoroWindow,
+  work: () => T,
+): T {
+  try {
+    return work();
+  } catch (error) {
+    window.held?.survived.clear();
+    throw error;
+  }
 }
 
 /**

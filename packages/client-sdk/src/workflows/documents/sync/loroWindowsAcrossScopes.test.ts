@@ -274,6 +274,7 @@ async function readUnrecordedIn(
       execSql,
       lifetimes,
       loroWindow: createDocumentSyncLoroWindow(),
+      reads: { kind: "read" },
       result: {
         decryptedUpdates: [update],
         response: EMPTY_RESPONSE,

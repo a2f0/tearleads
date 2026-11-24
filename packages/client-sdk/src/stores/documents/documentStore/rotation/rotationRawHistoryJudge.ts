@@ -1,3 +1,4 @@
+import { encodeVersionVector } from "@tearleads/loro";
 import {
   DOCUMENTS_APP_KIND,
   type DocumentSyncImportVerdicts,
@@ -110,17 +111,22 @@ export function rotationIncomingUpdateIsolation(input: {
       // A void this device recorded stays void without a Loro call, as in a
       // sync pass, so an update that failed the runtime for good is not
       // imported again. The judge records no runtime attempts, so its traps
-      // count toward none; a death in its `rotation` window counts toward
-      // this device's rotation of the document, never an update, and
-      // isolates the page's updates. Checkpoints are judged with the
-      // stream, as the rebuild imports them with it.
+      // count toward none. A death reading updates the live document covers
+      // counts toward this device's rotation of the document, never an
+      // update, and isolates the page's updates; one reading an update the
+      // device has not accepted counts as a sync pass's would. Checkpoints
+      // are judged with the stream, as the rebuild imports them with it.
+      const live = input.state.doc;
       return assertRotationVerdictsSettled(
         await judgeUnrecordedDocumentSyncImports({
           currentDocument: input.currentDocument,
           documentId: input.documentId,
           execSql: input.state.runtime.infra.execSql,
-          kind: "rotation",
           loroWindow: input.loroWindow,
+          reads: {
+            acceptedVersion: live ? encodeVersionVector(live) : null,
+            kind: "rotation",
+          },
           rebuildBudgetBytes: Number.POSITIVE_INFINITY,
           result,
           scope: { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },

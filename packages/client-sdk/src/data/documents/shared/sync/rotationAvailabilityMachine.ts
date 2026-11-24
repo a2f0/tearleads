@@ -1,8 +1,8 @@
 /**
  * Whether this device still starts key rotations of a document (#3194), as
- * pure decisions. A rotation rebuilds the document's whole history in Loro,
- * which this device already accepted, so a death there is far likelier the
- * rebuild's size or state than any update: it counts toward the rotation.
+ * pure decisions. A rotation rebuilds the document's whole history in Loro;
+ * a death reading a page this device already accepted is far likelier the
+ * rebuild's size or state than any update, so it counts toward the rotation.
  * After `MAX_ROTATION_DEATHS` such deaths under one judge, with no completed
  * rebuild between them, the device stops starting rotations of the document
  * and leaves them to other members, which never wait on it. A new judge
@@ -68,6 +68,9 @@ export function transitionRotationAvailability(
   const current = currentRotationAvailability(state, event);
   switch (event.type) {
     case "rotationDied": {
+      // A rotation started before the limit can still die once it is
+      // reached; the device already leaves rotation to others.
+      if (current.status === "unavailable") return current;
       const deaths = (current.status === "available" ? 0 : current.deaths) + 1;
       const judged = { documentId: event.documentId, judge: event.judge };
       return deaths >= MAX_ROTATION_DEATHS

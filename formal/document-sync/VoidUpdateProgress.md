@@ -57,9 +57,12 @@ rotation of the document, never toward an update, and isolates the update
 decoder the device starts no rotation of the document and leaves it to other
 members; nothing else it does waits on that, and no other device waits on it.
 A rebuild that completes below the limit (`RotateDone`), or a new decoder
-(`Upgrade`), starts over. A window the process outlives clears the attempts of
-the updates it read (`CleanRead` in `Process` and `RotateDone`), so deaths far
-apart, with a read of the update between them, never add up to a void.
+(`Upgrade`), starts over. Raw history also holds updates the device has not
+accepted; production reads a rotation page holding one as a sync pass reads
+it, so the model's pull reads stand for it. A window the process outlives
+clears the attempts of the updates it read (`CleanRead` in `Process` and
+`RotateDone`), so deaths far apart, with a read of the update between them,
+never add up to a void.
 
 The model collapses a pull's pages into one served inbox (`Pull`) and one
 judging step (`Process`). A decoder upgrade may land between the two, which
@@ -98,7 +101,7 @@ The abstraction maps to production at these seams:
 | `Upgrade` / `cursorJudge` | `documentVerdictJudge`, from `loroDecoderIdentity` and the void rules version |
 | `Replace` | a replaced local state whose frontier no longer satisfies the recorded one (`satisfiesVersionVector`); `deleteDocumentSyncVerdictsInTransaction` on a rebind or delete |
 | `RefuseVoid` | `assertNoVoidedDocumentSyncUpdates`, which rotation still uses for the history it re-encrypts |
-| `Rotate` / `rebuilding` | `pullVerifiedRawHistoryForRotation`, whose pages `rotationIncomingUpdateIsolation` judges with `judgeUnrecordedDocumentSyncImports` in a rotation window (`LoroWindowKind`); `loroWindowCounts` lets such a window count whatever its page held, since its death is charged to the rotation. `claimThenAssertDocumentRotationAvailable` claims the scope's orphans first and refuses with `DocumentRotationUnavailableError` once the rotation is unavailable under the running judge |
+| `Rotate` / `rebuilding` | `pullVerifiedRawHistoryForRotation`, whose pages `rotationIncomingUpdateIsolation` judges with `judgeUnrecordedDocumentSyncImports` against the live document's version (`DocumentSyncLoroReads`); `pageWindowKind` opens a rotation window (`LoroWindowKind`) only when that version covers every update the page reads, and a `read` window otherwise; `loroWindowCounts` lets a rotation window count whatever its page held, since its death is charged to the rotation. `claimThenAssertDocumentRotationAvailable` claims the scope's orphans first and refuses with `DocumentRotationUnavailableError` once the rotation is unavailable under the running judge |
 | `DieRotating` / `rotationDeaths` | `judgeOrphanWindow` returning a rotation-death `OrphanVerdict` for a counting rotation window, which `applyOrphanVerdict` records through `transitionRotationAvailability` in `document_rotation_availability` (`writeRotationAvailabilityInTransaction`), at most once a claim, and isolates the window's updates; `reportRotationDeath` reports each death to the host's diagnostics and Sentry, and the one that makes the rotation unavailable. The model's limit, MaxAttempts, stands for `MAX_ROTATION_DEATHS`, equal to `MAX_LORO_RUNTIME_ATTEMPTS` |
 | `RotateDone` | `noteDocumentRotationRebuilt` once a rotation's raw pull completed, which clears a dying state but not an unavailable one; `currentRotationAvailability` reads a state under another judge or server document as available |
 | `CleanRead` / `strikes` | `noteDocumentSyncLoroWindowVerdicts`, which notes the updates a page's window read except one the runtime failed on or left unread, and `clearSurvivedLoroAttemptsInTransaction`, which deletes their non-final `loro_runtime` rows when the window closes, in the page's save (`closeDocumentSyncLoroWindowInTransaction`) or when no save commits (`settleDocumentSyncLoroWindow`), for sync, metadata, rotation, and founding-view windows alike. A save also deletes the void rows of the updates it accepted (`recordDocumentSyncVerdictsInTransaction`) |

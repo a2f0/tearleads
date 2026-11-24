@@ -13,6 +13,7 @@ import {
   type DocumentSyncVerdictOutcome,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
+  runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
   settleOutgoingPassAndDecideReArm,
   shouldClearDocumentSyncFailureAfterPass,
@@ -166,7 +167,9 @@ async function persistSyncedDocument(
   let recordedVerdicts: DocumentSyncVerdictOutcome | undefined;
   let committed = false;
   try {
-    importSyncedDocumentUpdates(candidate, updates);
+    runDocumentSyncLoroWork(syncAttempt.loroWindow, () =>
+      importSyncedDocumentUpdates(candidate, updates),
+    );
     if (state.pendingBaseVersion === null) {
       throw new Error("Document sync requires an initialized pending base");
     }

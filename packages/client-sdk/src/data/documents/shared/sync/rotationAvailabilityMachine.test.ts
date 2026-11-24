@@ -45,6 +45,13 @@ test("the limit's death makes rotation unavailable under that judge", () => {
   });
 });
 
+// A rotation started before the limit can still die once it is reached.
+test("a death once rotation is unavailable changes nothing", () => {
+  expect(dieTimes(1, dieTimes(MAX_ROTATION_DEATHS))).toEqual(
+    dieTimes(MAX_ROTATION_DEATHS),
+  );
+});
+
 test("a completed rebuild clears deaths below the limit, not unavailability", () => {
   const rebuilt = { ...JUDGED, type: "rotationRebuilt" } as const;
   expect(

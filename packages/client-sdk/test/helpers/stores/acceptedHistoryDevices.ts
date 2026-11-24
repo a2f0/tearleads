@@ -192,9 +192,13 @@ async function readAloneAndDie(
           currentDocument: scratch,
           documentId,
           execSql,
-          kind,
           lifetimes,
           loroWindow: createDocumentSyncLoroWindow(),
+          reads:
+            kind === "rotation"
+              ? // As a rotation does, against what the device accepted.
+                { acceptedVersion: record.snapshotEndVersion, kind }
+              : { kind },
           result: onlyUpdate(result, updateId),
           scope,
         }),

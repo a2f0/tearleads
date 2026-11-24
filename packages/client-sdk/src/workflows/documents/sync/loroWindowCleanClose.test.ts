@@ -15,6 +15,7 @@ import type { DecryptedDocumentSyncUpdate } from "../../../data/documents/shared
 import { LoroRuntimeFailureLedger } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import {
   createDocumentSyncLoroWindow,
+  runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
 } from "./loroPassWindow";
 
@@ -113,4 +114,33 @@ test("a close keeps the attempt the runtime failed on inside it", async () => {
   await settleDocumentSyncLoroWindow(window, null);
 
   expect(await recordedAttempts(FIRST)).toBe(1);
+});
+
+// The judge read the update and survived, but the page's Loro work after
+// it, a live import or a rebuild, failed: the window did not end cleanly,
+// so its close keeps the attempts deaths counted toward what it read.
+test("a close after the page's Loro work failed keeps the attempts", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  for (const lifetime of ["dead-1", "dead-2"]) {
+    await judgeIn(host.lifetime(lifetime), [update]);
+    host.kill(lifetime);
+  }
+  const window = createDocumentSyncLoroWindow();
+  await judgeIn(
+    host.lifetime("survivor"),
+    [update],
+    new LoroRuntimeFailureLedger(),
+    undefined,
+    { window },
+  );
+  expect(() =>
+    runDocumentSyncLoroWork(window, () => {
+      throw new WebAssembly.RuntimeError("unreachable");
+    }),
+  ).toThrow("unreachable");
+
+  await settleDocumentSyncLoroWindow(window, null);
+
+  expect(await recordedAttempts(FIRST)).toBe(2);
 });

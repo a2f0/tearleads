@@ -1,4 +1,5 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
+import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
@@ -66,8 +67,12 @@ function watchWindowKinds(execSql: ExecSql) {
 /**
  * A rotation's store against a server that commits what it is sent and
  * serves raw history one update a page when asked to, noting each request.
+ * A store `behind` has accepted only the first of the two served updates.
  */
-async function rotationWindowsState(name: string) {
+async function rotationWindowsState(
+  name: string,
+  options: { readonly behind?: boolean } = {},
+) {
   const database = await createTestExecSql(name);
   cleanups.push(database.close);
   // Holding a lifetime lock, as a tab does, so rotation opens read windows.
@@ -78,8 +83,10 @@ async function rotationWindowsState(name: string) {
   await sqlDocumentsPersistence.ensureSchema(execSql);
   const fixture = await createRemoteHistoryFixture();
   const localId = `${name}-local`;
+  const behind = await createDocument(`${name}-behind`);
+  importSnapshot(behind, fixture.behindSnapshot);
   await persistFullHistoryDocument({
-    doc: fixture.remoteDocument,
+    doc: options.behind ? behind : fixture.remoteDocument,
     documentId: fixture.writerProjection.documentId,
     execSql,
     localId,
@@ -175,6 +182,50 @@ test("rotation reads each raw page in its own window, isolating as sync does", a
   ]);
   expect(opening).toHaveBeenCalledTimes(2);
   expect(kinds).toEqual(["rotation", "rotation"]);
+  expect(await windowRows(execSql)).toEqual([]);
+});
+
+// Raw history also holds updates this device has not accepted, which the
+// rotation installs with the rest. A death reading one alone says what it
+// says in a sync pass, so such a page reads in a `read` window.
+test("rotation reads an update the device has not accepted in a read window", async () => {
+  const { documentId, execSql, kinds, localId, state } =
+    await rotationWindowsState("rotation-unaccepted-window", { behind: true });
+  await writeLoroWindowInTransaction(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    { appKind: "documents", localId },
+    {
+      counts: false,
+      documentId,
+      judge: documentVerdictJudge(),
+      kind: "read",
+      lifetimeId: "dead",
+      updateIds: ["first-suspect", "second-suspect"],
+      windowId: "dead-window",
+    },
+    "2026-11-23T00:00:00.000Z",
+  );
+
+  expect(await assertDocumentStoreCanRotateContentKey(state)).toBeInstanceOf(
+    Uint8Array,
+  );
+
+  expect(kinds).toEqual(["rotation", "read"]);
+  expect(await windowRows(execSql)).toEqual([]);
+});
+
+// A page holding both kinds of update cannot charge a death to the rotation.
+test("a rotation page mixing accepted and new updates reads in a read window", async () => {
+  const { execSql, kinds, state } = await rotationWindowsState(
+    "rotation-mixed-window",
+    { behind: true },
+  );
+
+  expect(await assertDocumentStoreCanRotateContentKey(state)).toBeInstanceOf(
+    Uint8Array,
+  );
+
+  expect(kinds).toEqual(["read"]);
   expect(await windowRows(execSql)).toEqual([]);
 });
 

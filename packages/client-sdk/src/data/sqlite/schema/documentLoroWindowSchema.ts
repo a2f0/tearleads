@@ -28,7 +28,7 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  * - `openedAt`: When it was opened, for diagnostics.
  * - `kind`: What a death inside it is charged to (`LoroWindowKind`): `read`
  *   counts toward the update it held alone; `rotation`, a key rotation's
- *   rebuild of history the device accepted, counts toward that rotation
+ *   page of updates the live document covers, counts toward that rotation
  *   (`document_rotation_availability`) and never toward an update.
  */
 export const documentLoroWindows = sqliteTable(

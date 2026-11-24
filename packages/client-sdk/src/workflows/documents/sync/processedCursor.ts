@@ -253,6 +253,7 @@ export async function judgeDocumentSyncImports(input: {
         knownVoids: recorded.knownVoids,
         ledger,
         lifetimes,
+        reads: { kind: "read" },
         window: input.loroWindow,
       });
     },

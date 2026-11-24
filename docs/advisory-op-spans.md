@@ -168,11 +168,20 @@ this device cannot unlink, move, or purge-unlink that document. It still
 opens, edits, and syncs it, a pull that serves the update again voids it
 without a read, and every other device rotates as before.
 
-A rotation also rebuilds that accepted history, but a death there is far
+A rotation rebuilds the document's raw history, which holds that accepted
+history and, past it, any update the device has not yet pulled; the rotation
+installs those with the rest. A rotation page whose every update the live
+document already covers reads accepted history, and a death there is far
 likelier the rebuild's size or state than any update, so it counts toward the
 device's rotation of the document, never toward an update, and isolates the
-page's updates. Each counted death is reported to the host's diagnostics and
-Sentry. After three under one judge, with no completed rebuild between them,
+page's updates. A page reading an update the device has not accepted reads it
+as a sync pass would, so a death there counts toward that update, and a
+crashing update cannot stop a device's rotations by reaching it there first.
+The acceptance check trusts the update's declared span, which any writer may
+set to counters already committed; such an update that ends the process in
+every rebuild leaves the rotations of the devices it reaches that way to a new
+judge. Each counted death is reported to the host's diagnostics and Sentry.
+After three under one judge, with no completed rebuild between them,
 the device records the document's rotation as unavailable and starts no more
 (`DocumentRotationUnavailableError`): it cannot unlink, move, or purge-unlink
 that document, and leaves those to other members, none of which waits on it.

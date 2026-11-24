@@ -8,6 +8,7 @@ import {
   RemoteDocumentService,
   readPullContinuation,
   resolveDocumentCreateAuthor,
+  runDocumentSyncLoroWork,
   settleDocumentSyncLoroWindow,
 } from "../../../../workflows/documents";
 import type { DocumentState, DocumentStoreState } from "../state";
@@ -195,7 +196,12 @@ async function pullRawRotationPage(
     input.voids.notePage(synced);
     // Exactly what a sync pass applies: every accepted served update,
     // checkpoints included. A void or unsettled one never gets here.
-    importSyncedDocumentUpdates(input.rebuiltDocument, synced.decryptedUpdates);
+    runDocumentSyncLoroWork(loroWindow, () =>
+      importSyncedDocumentUpdates(
+        input.rebuiltDocument,
+        synced.decryptedUpdates,
+      ),
+    );
     return synced;
   } finally {
     await settleDocumentSyncLoroWindow(loroWindow, null);

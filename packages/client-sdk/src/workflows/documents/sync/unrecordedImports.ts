@@ -3,10 +3,10 @@ import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sy
 import type { DocumentSyncImportVerdicts } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import type { LoroLifetimes } from "../../../data/documents/shared/sync/loroLifetime";
 import { processLoroRuntimeFailures } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
-import type { LoroWindowKind } from "../../../data/documents/shared/sync/loroWindowMachine";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  type DocumentSyncLoroReads,
   type DocumentSyncLoroWindow,
   noteDocumentSyncLoroWindowVerdicts,
   openDocumentSyncLoroWindow,
@@ -20,7 +20,8 @@ import { readRecordedDocumentSyncVoids } from "./processedCursor";
  * without a Loro call, and the reads run inside `loroWindow`, so a payload
  * that ends the process there is found by the next lifetime: a founding
  * view's `read` window counts it as a sync pass's would, and a rotation's
- * `rotation` window counts it toward the rotation instead. The caller
+ * page of updates the device accepted counts it toward the rotation instead
+ * (`DocumentSyncLoroReads`). The caller
  * settles the window once its Loro work on the page is over, which clears
  * the attempts of the updates it survived (#3194).
  */
@@ -30,11 +31,11 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   >[0]["currentDocument"];
   readonly documentId: string;
   readonly execSql: ExecSql;
-  /** What a death in the window is charged to; `read` by default. */
-  readonly kind?: LoroWindowKind | undefined;
   /** @internal This realm's lifetime; tests stand in another one. */
   readonly lifetimes?: LoroLifetimes | undefined;
   readonly loroWindow: DocumentSyncLoroWindow;
+  /** What the page's reads are, and so what a death there is charged to. */
+  readonly reads: DocumentSyncLoroReads;
   readonly rebuildBudgetBytes?: number | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,

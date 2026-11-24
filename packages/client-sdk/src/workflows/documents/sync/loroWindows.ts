@@ -12,6 +12,7 @@ import {
   transitionLoroIsolation,
 } from "../../../data/documents/shared/sync/loroWindowMachine";
 import {
+  currentRotationAvailability,
   MAX_ROTATION_DEATHS,
   type RotationAvailability,
   transitionRotationAvailability,
@@ -147,10 +148,17 @@ async function applyOrphanVerdict(
   }
   if (verdict.kind === "discard") return;
   if (verdict.kind === "rotationDeath" && tally.rotation === null) {
-    tally.rotation = transitionRotationAvailability(
+    const before = currentRotationAvailability(
       await readRotationAvailability(tx, claim.scope),
-      { ...claim, type: "rotationDied" },
+      claim,
     );
+    // An unavailable rotation counts and reports no more deaths.
+    if (before.status !== "unavailable") {
+      tally.rotation = transitionRotationAvailability(before, {
+        ...claim,
+        type: "rotationDied",
+      });
+    }
   }
   tally.isolation = transitionLoroIsolation(tally.isolation, {
     type: "orphanIsolated",

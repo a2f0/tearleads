@@ -194,9 +194,9 @@ attempt after its `document_void_updates` row is recorded. A process that died
 reading one update is reported by the next lifetime that claims its
 [read window](../glossary/sync.md#loro-read-window), as `Documents: the process
 ended while reading a sync update (attempt n of 3)`, with the same `; voided`
-ending. One that died in a key rotation's rebuild of accepted history is
-reported as `Documents: the process ended rebuilding history for a key
-rotation (death n of 3)`; the third ends in `; this device starts no more
+ending. One that died in a key rotation's rebuild of history the device
+accepted is reported as `Documents: the process ended rebuilding history for a
+key rotation (death n of 3)`; the third ends in `; this device starts no more
 rotations of the document and leaves them to other members`. A void that
 reused
 operation ids under this device's own peer id
