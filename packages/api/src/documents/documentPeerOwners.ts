@@ -13,7 +13,7 @@ import {
   type DocumentPeerFrontier,
   MAX_DOCUMENT_PEER_FRONTIERS,
 } from "@tearleads/validators/response";
-import { and, eq, inArray, max, sql } from "drizzle-orm";
+import { and, type Column, eq, max, type SQL, sql } from "drizzle-orm";
 
 interface DocumentUpdatePeerSource {
   readonly dependencyVersionVector: string;
@@ -173,6 +173,15 @@ function listDocumentPeerDependencies(
 }
 
 /**
+ * `column` is one of `peerIdsJson`, bound as one parameter: a request names
+ * as many peers as its byte ceiling admits, and Postgres binds at most 65,535
+ * parameters to a statement.
+ */
+function isNamedPeer(column: Column, peerIdsJson: string): SQL {
+  return sql`${column} in (select jsonb_array_elements_text(${peerIdsJson}::jsonb))`;
+}
+
+/**
  * One statement: each named peer's committed frontier from its spans and its
  * owner, as separate rows so a peer with spans but no owner row (or the
  * reverse) still reads correctly. Never depend on UNION order.
@@ -182,6 +191,7 @@ async function readCommittedDocumentPeers(
   documentId: string,
   peerIds: readonly string[],
 ): Promise<Map<string, CommittedDocumentPeer>> {
+  const peerIdsJson = JSON.stringify(peerIds);
   const rows = await executor
     .select({
       peerId: documentUpdateSpans.peerId,
@@ -192,7 +202,7 @@ async function readCommittedDocumentPeers(
     .where(
       and(
         eq(documentUpdateSpans.documentId, documentId),
-        inArray(documentUpdateSpans.peerId, [...peerIds]),
+        isNamedPeer(documentUpdateSpans.peerId, peerIdsJson),
       ),
     )
     .groupBy(documentUpdateSpans.peerId)
@@ -207,7 +217,7 @@ async function readCommittedDocumentPeers(
         .where(
           and(
             eq(documentPeerOwners.documentId, documentId),
-            inArray(documentPeerOwners.peerId, [...peerIds]),
+            isNamedPeer(documentPeerOwners.peerId, peerIdsJson),
           ),
         ),
     );

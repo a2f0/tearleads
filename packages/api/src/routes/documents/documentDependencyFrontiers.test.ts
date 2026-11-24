@@ -3,6 +3,7 @@ import { encodeVersionVectorCounters } from "@tearleads/loro";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
   isDocumentSyncErrorResponse,
+  MAX_DOCUMENT_PEER_FRONTIERS,
 } from "@tearleads/validators/response";
 import {
   baselineSpan,
@@ -116,3 +117,24 @@ test("a dependency vector that does not decode is refused", async () => {
     error: "Document update dependency version vector is invalid",
   });
 }, 30_000);
+
+test("a dependency vector naming more peers than one statement can bind is still judged", async () => {
+  const fixture = await sharedWriterDocument();
+  // Postgres binds at most 65,535 parameters to one statement, and the read
+  // names each peer twice; the byte ceiling admits far more peers than that.
+  const peerCount = 40_000;
+  const ends = Object.fromEntries(
+    Array.from({ length: peerCount }, (_, index) => [`${index + 1000}`, 1]),
+  );
+
+  const refused = await syncPeerSpans(fixture, fixture.writer, [
+    dependingOn(peerSpan(freshPeer, 0, 2), ends),
+  ]);
+
+  expect(refused.response.status).toBe(409);
+  const body = await refused.response.json();
+  expect(body).toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted,
+  });
+  expect(body.peerFrontiers).toHaveLength(MAX_DOCUMENT_PEER_FRONTIERS);
+}, 60_000);
