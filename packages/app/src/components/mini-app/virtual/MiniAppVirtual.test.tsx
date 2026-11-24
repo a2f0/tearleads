@@ -6,6 +6,7 @@ import {
   MiniAppVirtualList,
   MiniAppVirtualListFrame,
   MiniAppVirtualListRow,
+  useMiniAppFrameBox,
   useMiniAppVirtualRows,
   useMiniAppVirtualWindow,
 } from "./MiniAppVirtual";
@@ -109,4 +110,39 @@ test("a row-pitch change keeps the same row at the top of the viewport", () => {
   expect(
     offsets.slice(rendersBeforePitchChange).every((o) => o === settledOffset),
   ).toBe(true);
+});
+
+function FrameWidthHarness() {
+  const { frameRef, frameWidth } = useMiniAppFrameBox();
+  return (
+    <div
+      data-testid="frame"
+      ref={frameRef}
+      style={{ paddingLeft: "16px", paddingRight: "24px" }}
+    >
+      {frameWidth}
+    </div>
+  );
+}
+
+test("a frame's width is its content box, without its inline padding", async () => {
+  // happy-dom has no layout, so stand in for the width a browser measures.
+  const clientWidth = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "clientWidth",
+  );
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+    configurable: true,
+    get: () => 400,
+  });
+  try {
+    const result = render(<FrameWidthHarness />);
+    await waitFor(() => {
+      expect(result.getByTestId("frame").textContent).toBe("360");
+    });
+  } finally {
+    if (clientWidth) {
+      Object.defineProperty(HTMLElement.prototype, "clientWidth", clientWidth);
+    }
+  }
 });

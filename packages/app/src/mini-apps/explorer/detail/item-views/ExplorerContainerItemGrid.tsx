@@ -21,6 +21,7 @@ import {
   getExplorerContainerItemName,
   renderExplorerItemVisual,
 } from "./explorerItemVisual";
+import "./ExplorerItemListEdges.css";
 
 function ExplorerContainerItemTile(
   params: ExplorerItemListProps & { row: ContainerItemRow },

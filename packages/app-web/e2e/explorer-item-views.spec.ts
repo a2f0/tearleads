@@ -87,9 +87,18 @@ test("the Explorer item list switches between small rows, large rows, and a grid
     await expect(tiles.first()).toBeVisible();
     const tileCount = await tiles.count();
     expect(tileCount).toBeGreaterThan(1);
+    // The content box: the frame runs out to the pane's edges and pads its
+    // tiles back in, and the window math counts columns without that padding.
     const frameWidth = await page
       .locator(".explorer-item-grid-frame")
-      .evaluate((frame) => frame.clientWidth);
+      .evaluate((frame) => {
+        const style = getComputedStyle(frame);
+        return (
+          frame.clientWidth -
+          Number.parseFloat(style.paddingLeft) -
+          Number.parseFloat(style.paddingRight)
+        );
+      });
     const expectedColumns = Math.max(1, Math.floor((frameWidth - 8) / 120));
     const boxes = await Promise.all(
       Array.from({ length: tileCount }, (_, index) => boxOf(tiles.nth(index))),

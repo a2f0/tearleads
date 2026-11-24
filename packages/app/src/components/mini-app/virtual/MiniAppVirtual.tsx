@@ -69,6 +69,20 @@ export function getMiniAppVirtualWindowRange(params: {
 }
 
 /**
+ * The width a frame's rows and tiles lay out in: its content box. A frame that
+ * runs out to its surface's edges and pads its contents back in (Explorer's
+ * item list) would otherwise count that padding as room, and fold its rows or
+ * count its grid columns as if it had grown by it.
+ */
+function measureFrameContentWidth(frame: Element): number {
+  const style = getComputedStyle(frame);
+  const padding =
+    (Number.parseFloat(style.paddingLeft) || 0) +
+    (Number.parseFloat(style.paddingRight) || 0);
+  return Math.max(0, frame.clientWidth - padding);
+}
+
+/**
  * A frame element and its observed box.
  *
  * Split out of the virtual viewport below so a table that folds on its frame's
@@ -103,12 +117,12 @@ export function useMiniAppFrameBox<
     }
 
     setViewportHeight(frame.clientHeight);
-    setFrameWidth(frame.clientWidth);
+    setFrameWidth(measureFrameContentWidth(frame));
     const resizeObserver = new ResizeObserver((entries) => {
       const [entry] = entries;
       if (entry) {
         setViewportHeight(entry.target.clientHeight);
-        setFrameWidth(entry.target.clientWidth);
+        setFrameWidth(measureFrameContentWidth(entry.target));
       }
     });
     resizeObserver.observe(frame);

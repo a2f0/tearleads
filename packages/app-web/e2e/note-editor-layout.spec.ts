@@ -102,10 +102,8 @@ function expectTrayAtFootOfPane(layout: NoteLayout): void {
   );
   expect(layout.trayTop).toBeGreaterThanOrEqual(layout.paneTop);
   expect(layout.trayBottom).toBeLessThanOrEqual(layout.paneBottom + 0.5);
-  // The editor runs down to the tray, leaving only the editor's trailing gap
-  // (`--space-sm`) between them.
-  expect(layout.trayTop - layout.editorBottom).toBeGreaterThanOrEqual(0);
-  expect(layout.trayTop - layout.editorBottom).toBeLessThanOrEqual(8.5);
+  // The editor runs down to the tray and meets it: no gap between the two.
+  expect(layout.trayTop).toBeCloseTo(layout.editorBottom, 0);
 }
 
 // The last line's glyphs are in view. A browser reveals the caret, which is as
