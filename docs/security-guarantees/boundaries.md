@@ -152,7 +152,11 @@ three process lifetimes before it is void
 ([runtime failures](../advisory-op-spans.md#loro-runtime-failures)). In a
 browser, tabs can share one process, so a killer one tab reads can also end
 another tab's read of an honest update read alone, and spend that update's
-attempts on the device until it too is void there.
+attempts on the device until it too is void there. Rotation and a founding
+view read history the device already accepted, so attempts counted there can
+void an update its live document holds: that device then cannot prove its
+history for a rotation, so cannot unlink or move the document, while it still
+edits and syncs it and every other device rotates it.
 A device that rotates with an older decoder leaves an update a newer decoder
 reads out of the baseline, and so out of what new readers start from
 ([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks));

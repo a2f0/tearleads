@@ -1,13 +1,5 @@
 import { encodeVersionVector, versionVectorsEqual } from "@tearleads/loro";
-import { isRejectedDecodedProjection } from "@tearleads/validators/response";
-import {
-  createDocumentWriterPublicKeyResolver,
-  type DocumentRotationProofMode,
-  type DocumentSyncPullContinuation,
-  RemoteDocumentService,
-  readPullContinuation,
-  resolveDocumentCreateAuthor,
-} from "../../../../workflows/documents";
+import type { DocumentRotationProofMode } from "../../../../workflows/documents";
 
 import { requestDocumentStoreSync } from "../../registry";
 import { installRebuiltDocument } from "../history/historyRebuild";
@@ -24,8 +16,6 @@ import {
   type DocumentStoreSyncLaneGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "../sync/syncGeneration";
-import { deleteUpstreamDeletedDocument } from "../sync/syncRequest";
-import { importSyncedDocumentUpdates } from "../sync/syncUpdateImport";
 import {
   currentRecordedRotationProof,
   recordRotationProof,
@@ -34,146 +24,17 @@ import {
   assertExactDocumentHistory,
   importProvenOrdinaryPendingHistory,
 } from "./rotationProvenance";
+import { RotationRawHistoryVoids } from "./rotationRawHistoryJudge";
 import {
-  RotationRawHistoryVoids,
-  rotationIncomingUpdateIsolation,
-} from "./rotationRawHistoryJudge";
+  assertRotationRecoveryGeneration,
+  assertRotationRecoveryPrerequisites,
+  pullVerifiedRawHistoryForRotation,
+} from "./rotationRawHistoryPull";
 import {
   invalidatePullContinuationBeforeRotation,
   RotationPendingUpdatesChangedError,
   settleOrdinaryDocumentUpdatesBeforeRotation,
 } from "./rotationSettlement";
-
-function assertRotationRecoveryPrerequisites(state: DocumentStoreState) {
-  if (state.persistence.supportsAtomicRecoveryHistoryPruning !== true) {
-    throw new Error(
-      "Rotation raw-history recovery requires an adapter with atomic local-history pruning",
-    );
-  }
-  const author = resolveDocumentCreateAuthor(state.runtime);
-  const encapsulationKeyPair = state.runtime.crypto.encapsulationKeyPair;
-  const documentId = state.record?.documentId;
-  if (
-    !author ||
-    !encapsulationKeyPair ||
-    !documentId ||
-    !state.runtime.auth.isAuthenticated ||
-    !state.runtime.state.online
-  ) {
-    throw new Error(
-      "Rotation requires verified full-history recovery, but remote sync prerequisites are unavailable",
-    );
-  }
-  return { author, documentId, encapsulationKeyPair };
-}
-
-function assertRotationRecoveryGeneration(input: {
-  generation: DocumentStoreSyncGeneration;
-  state: DocumentStoreState;
-}): void {
-  if (!isDocumentStoreSyncGenerationCurrent(input.state, input.generation)) {
-    throw new Error(
-      "Document changed during rotation recovery; retry key rotation",
-    );
-  }
-}
-
-async function pullVerifiedRawHistoryForRotation(input: {
-  currentRecord: NonNullable<DocumentStoreState["record"]>;
-  generation: DocumentStoreSyncGeneration;
-  rebuiltDocument: DocumentState;
-  state: DocumentStoreState;
-  voids: RotationRawHistoryVoids;
-}) {
-  const { author, documentId, encapsulationKeyPair } =
-    assertRotationRecoveryPrerequisites(input.state);
-  let pullContinuation: DocumentSyncPullContinuation | undefined;
-  const seenPullCursors = new Set<string>();
-  let planningRecord = input.currentRecord;
-  let writerProjection =
-    input.state.writerProjection?.documentId === documentId &&
-    !isRejectedDecodedProjection(input.state.writerProjection)
-      ? input.state.writerProjection
-      : undefined;
-
-  while (true) {
-    let abandonReason: string | null = null;
-    // Each page reads the live runtime, as the bag it replaced did; the key
-    // stays the one the prerequisites checked.
-    const remoteDocuments = new RemoteDocumentService({
-      api: input.state.runtime.apiClient,
-      encapsulationSecretKey: encapsulationKeyPair.secretKey,
-      execSql: input.state.runtime.infra.execSql,
-      isRemoteSyncBlocked: input.state.runtime.util.isRemoteSyncBlocked,
-    });
-    const synced = await remoteDocuments.syncRemoteDocument({
-      author,
-      documentId,
-      historyMode: "raw",
-      localVersionVector: null,
-      minLsn: input.currentRecord.lastCommitLsn ?? undefined,
-      onRemoteDocumentDeleted: ({ commitPurgeProof, documentId }) =>
-        deleteUpstreamDeletedDocument(
-          input.state,
-          input.generation,
-          input.currentRecord,
-          documentId,
-          commitPurgeProof,
-        ),
-      // Recorded, never parked: this pass submits no writes, so it plans no
-      // ancestor repair and cannot abandon as `inaccessible`.
-      onSyncAbandoned: (reason) => {
-        abandonReason = reason;
-      },
-      ...rotationIncomingUpdateIsolation({
-        currentDocument: input.rebuiltDocument,
-        generation: input.generation,
-        state: input.state,
-      }),
-      onSyncTrace: (line) => input.state.runtime.util.log(`Documents: ${line}`),
-      pendingUpdates: [],
-      persistedState: planningRecord,
-      pullContinuation,
-      resolveProjectionUserKey: input.state.resolveProjectionUserKey,
-      resolveWriterPublicKey: createDocumentWriterPublicKeyResolver({
-        logPrefix: "Documents",
-        runtime: input.state.runtime,
-        writerKeyLabel: "writer key",
-      }),
-      warmReferencedPrincipalPolicies:
-        input.state.runtime.principalPolicies.createWarmer(),
-      writerProjection,
-    });
-    if (!synced) {
-      throw new Error(
-        `Rotation raw-history recovery could not complete (${abandonReason ?? "sync did not finish"}); key rotation was not started`,
-      );
-    }
-
-    assertRotationRecoveryGeneration(input);
-    input.voids.notePage(synced);
-    // Exactly what a sync pass applies: every accepted served update,
-    // checkpoints included. A void or unsettled one never gets here.
-    importSyncedDocumentUpdates(input.rebuiltDocument, synced.decryptedUpdates);
-    if (!synced.hasIncompletePull) return synced;
-
-    const nextContinuation = readPullContinuation(synced.response);
-    if (!nextContinuation) {
-      throw new Error(
-        "Rotation raw-history recovery ended before the retained history was complete",
-      );
-    }
-    if (seenPullCursors.has(nextContinuation.cursor)) {
-      throw new Error(
-        "Rotation raw-history recovery encountered a repeated pull cursor",
-      );
-    }
-    seenPullCursors.add(nextContinuation.cursor);
-    pullContinuation = nextContinuation;
-    planningRecord = { ...planningRecord, ...synced.persistedState };
-    writerProjection = synced.writerProjection;
-  }
-}
 
 async function collectVerifiedRawHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;

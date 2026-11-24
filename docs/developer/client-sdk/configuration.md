@@ -277,7 +277,11 @@ Loop `remoteDocuments.syncRemoteDocument(...)`; resume with
 [void update](../../glossary/content.md#void-update), reporting it in
 `voidedUpdates`, and pulls deferred ones again; a host that must apply every
 update passes the verdicts to `assertNoVoidedDocumentSyncUpdates(...)`, which
-throws the first void's isolation error. Inline callbacks pass
+throws the first void's isolation error. A host's own call reads served
+updates outside every [Loro read window](../../glossary/sync.md#loro-read-window):
+from its first such read, no window of that process counts a death, so the
+SDK's own pulls there isolate an update that kills the process but never void
+it. Inline callbacks pass
 `verification` to `buildMaterializedContainerRekeyPlan(...)`, including
 chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../../raw-document-history-recovery.md)

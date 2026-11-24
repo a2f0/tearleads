@@ -82,8 +82,9 @@ export interface LoroLifetimes {
    */
   keepsMarkers(): boolean;
   /**
-   * Notes this lifetime's first Loro runtime failure, wherever it happened:
-   * a window open now counts nothing if the lifetime then dies.
+   * Notes this lifetime's first Loro runtime failure, wherever it happened,
+   * or its first read of served updates that no window covers: a window
+   * open now or later counts nothing if the lifetime then dies.
    */
   noteFailed(): void;
   /**
@@ -92,13 +93,6 @@ export interface LoroLifetimes {
    * isolates that row's updates instead of counting them.
    */
   noteUnsettledWindow(): void;
-  /**
-   * Notes Loro reads of served updates that no window covers, until the
-   * returned release runs: a death meanwhile may be theirs, so the failure
-   * marker stands and the lifetime's open windows isolate instead of
-   * counting. Releasing twice is harmless.
-   */
-  beginUnwindowedRead(): () => void;
   /** Whether this lifetime holds window `id` open. */
   hasWindow(id: string): boolean;
   /** How many windows this lifetime holds open. */
@@ -147,9 +141,9 @@ function probeMarkers(
 
 /**
  * Whether a death of the lifetime may count: `failed` once it met a Loro
- * runtime failure, `unsettled` once a window row it could not settle or
- * stop counting outlived its window, which keeps the failure marker
- * standing with no window open.
+ * runtime failure or read served updates outside every window, `unsettled`
+ * once a window row it could not settle or stop counting outlived its
+ * window, which keeps the failure marker standing with no window open.
  */
 type LifetimeHealth = "healthy" | "failed" | "unsettled";
 
@@ -292,7 +286,6 @@ export function createLoroLifetimes(host: {
   const id = host.id ?? crypto.randomUUID();
   const { storage, visibility } = host;
   let health: LifetimeHealth = "healthy";
-  let unwindowedReads = 0;
   let markersKept: boolean | undefined;
   let watching = false;
 
@@ -305,9 +298,7 @@ export function createLoroLifetimes(host: {
   const failedMarker = (): string | null => {
     if (health === "unsettled") return FAILED_MARKER_VALUE.unsettled;
     if (windows.count() === 0) return null;
-    return health === "failed" || unwindowedReads > 0
-      ? FAILED_MARKER_VALUE.failed
-      : null;
+    return health === "failed" ? FAILED_MARKER_VALUE.failed : null;
   };
   const syncMarkers = () => {
     const open = windows.count() > 0 || health === "unsettled";
@@ -347,17 +338,6 @@ export function createLoroLifetimes(host: {
     },
     noteFailed: () => moveHealth("runtimeFailed"),
     noteUnsettledWindow: () => moveHealth("windowUnsettled"),
-    beginUnwindowedRead() {
-      unwindowedReads += 1;
-      syncMarkers();
-      let reading = true;
-      return () => {
-        if (!reading) return;
-        reading = false;
-        unwindowedReads -= 1;
-        syncMarkers();
-      };
-    },
     hasWindow: windows.has,
     openWindowCount: windows.count,
     openWindow(exclusive) {

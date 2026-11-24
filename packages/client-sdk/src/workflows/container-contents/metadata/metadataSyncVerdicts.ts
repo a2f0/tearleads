@@ -2,6 +2,11 @@ import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sy
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  closeDocumentSyncLoroWindowInTransaction,
+  type DocumentSyncLoroWindow,
+  settleDocumentSyncLoroWindow,
+} from "../../documents";
+import {
   readProcessedCursorForSync,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
@@ -43,16 +48,41 @@ export async function readContainerMetadataProcessedCursor(
 export function containerMetadataVerdictRecorder(
   containerId: string,
   synced: SyncRemoteDocumentResult,
+  loroWindow: DocumentSyncLoroWindow | null = null,
 ) {
   let recorded:
     | Awaited<ReturnType<typeof recordDocumentSyncVerdicts>>
     | undefined;
   return {
     commitSideEffect: async (transactionExecSql: ExecSql): Promise<void> => {
+      const scope = containerMetadataScope(containerId);
       recorded = await recordDocumentSyncVerdicts(transactionExecSql, {
-        scope: containerMetadataScope(containerId),
+        scope,
         synced,
       });
+      // The page's Loro reads are over and saved: its window closes.
+      await closeDocumentSyncLoroWindowInTransaction(transactionExecSql, {
+        documentId: synced.plan.documentId,
+        scope,
+        synced,
+        window: loroWindow,
+      });
+    },
+    /**
+     * Settles the page's window once its save is over. Only a save that ran
+     * the recorder and committed took the window's row away with it; one
+     * that lost currency at commit rolled the close back, so the settle
+     * deletes the row itself.
+     */
+    settleWindow: async (
+      execSql: ExecSql,
+      saved: { readonly committed: boolean },
+    ): Promise<void> => {
+      if (!loroWindow) return;
+      await settleDocumentSyncLoroWindow(
+        loroWindow,
+        saved.committed && recorded !== undefined ? execSql : null,
+      );
     },
     /**
      * Reports each void the committed save first recorded. A save that never
