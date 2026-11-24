@@ -9,6 +9,10 @@ import {
   getRosterProfileDocumentBindingKey,
   type RosterProfileBinding,
 } from "../../../stores/org-manager/rosterProfileDisplayNames";
+import {
+  getRosterProfileHydrationLocalId,
+  hydrateRosterProfileDocument,
+} from "../../../stores/org-manager/rosterProfileHydration";
 
 interface ExplorerAttributionOrganizations {
   loadLocalDirectoryAndGroups: () => Promise<OrganizationDirectoryAndGroups | null>;
@@ -97,14 +101,6 @@ export interface ExplorerAttributionProfileHydrationTarget {
   readonly userId: string;
 }
 
-export function getExplorerAttributionProfileDocumentLocalId(input: {
-  readonly organizationId: string;
-  readonly profileDocumentId: string;
-  readonly userId: string;
-}): string {
-  return `${getRosterProfileDocumentLocalId(input)}:remote:${input.profileDocumentId}`;
-}
-
 /** Selects bounded contributor profiles visible to an organization admin. */
 export function selectExplorerAttributionProfileHydrationTargets(input: {
   readonly contributorUserIds: ReadonlyArray<string>;
@@ -188,7 +184,7 @@ export function selectExplorerAttributionHydrationTargetsForDocument(input: {
 }
 
 /** Opens one requested encrypted profile document and probes remote state. */
-export async function hydrateExplorerAttributionProfileDocument(input: {
+export function hydrateExplorerAttributionProfileDocument(input: {
   readonly containerId: string;
   readonly documents: Documents;
   readonly organizationId: string;
@@ -196,33 +192,14 @@ export async function hydrateExplorerAttributionProfileDocument(input: {
   readonly target: ExplorerAttributionProfileHydrationTarget;
 }): Promise<boolean> {
   const { target } = input;
-  if (input.signal?.aborted) {
-    return false;
-  }
-  const persistedLocalId = await input.documents.findLocalIdByDocumentId(
-    target.profileDocumentId,
-  );
-  if (input.signal?.aborted) {
-    return false;
-  }
-  return input.documents
-    .open(
-      {
-        containerId: input.containerId,
-        documentId: target.profileDocumentId,
-        localId:
-          persistedLocalId ??
-          getExplorerAttributionProfileDocumentLocalId({
-            organizationId: input.organizationId,
-            profileDocumentId: target.profileDocumentId,
-            userId: target.userId,
-          }),
-      },
-      {
-        remoteSyncMode: "on-demand",
-      },
-    )
-    .requestRemoteSyncAndWait(input.signal);
+  return hydrateRosterProfileDocument({
+    containerId: input.containerId,
+    documents: input.documents,
+    organizationId: input.organizationId,
+    profileDocumentId: target.profileDocumentId,
+    signal: input.signal,
+    userId: target.userId,
+  });
 }
 
 export function getExplorerAttributionProjectionKey(input: {
@@ -272,7 +249,7 @@ export function getExplorerAttributionProfileBindingsByLocalId(input: {
       userId: user.userId,
     });
     bindings.set(
-      getExplorerAttributionProfileDocumentLocalId({
+      getRosterProfileHydrationLocalId({
         organizationId: input.organizationId,
         profileDocumentId: user.profileDocumentId,
         userId: user.userId,

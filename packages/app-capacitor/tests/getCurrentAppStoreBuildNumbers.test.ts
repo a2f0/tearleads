@@ -1,5 +1,15 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  chmod,
+  cp,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readlink,
+  realpath,
+  rm,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
@@ -23,6 +33,7 @@ async function runWithStubbedBun(
   scriptArguments: readonly string[],
   options: {
     readonly environment?: Readonly<Record<string, string>>;
+    readonly script?: string;
     readonly stubBody?: string;
   } = {},
 ): Promise<StubbedRun> {
@@ -45,7 +56,8 @@ async function runWithStubbedBun(
   await chmod(bunStub, 0o755);
 
   try {
-    const child = Bun.spawn([buildNumbersScript, ...scriptArguments], {
+    const script = options.script ?? buildNumbersScript;
+    const child = Bun.spawn([script, ...scriptArguments], {
       env: {
         ...process.env,
         APP_STORE_LIVE: "",
@@ -139,4 +151,73 @@ test("propagates a failing lane exit code and stops", async () => {
   expect(run.bunCalls).toEqual([
     "run store:build-numbers skip_google:true apple_live:false",
   ]);
+});
+
+/** A fresh clone holding the script, beside a private matrix-secrets store. */
+async function freshClone() {
+  const root = await realpath(
+    await mkdtemp(resolve(tmpdir(), "tearleads-build-numbers-clone-")),
+  );
+  const clone = resolve(root, "clone");
+  for (const path of [
+    "scripts/release/getCurrentAppStoreBuildNumbers.sh",
+    "scripts/lib/secretsStore.sh",
+  ]) {
+    await mkdir(resolve(clone, path, ".."), { recursive: true });
+    await cp(resolve(import.meta.dir, "../../..", path), resolve(clone, path));
+  }
+  await mkdir(resolve(clone, ".git"), { recursive: true });
+  await mkdir(resolve(clone, "packages/app-capacitor"), { recursive: true });
+  await mkdir(resolve(root, "matrix-secrets/tearleads/prod"), {
+    recursive: true,
+  });
+  await chmod(resolve(root, "matrix-secrets"), 0o700);
+  await chmod(resolve(root, "matrix-secrets/tearleads"), 0o700);
+  return {
+    root,
+    clone,
+    script: resolve(clone, "scripts/release/getCurrentAppStoreBuildNumbers.sh"),
+  };
+}
+
+test("a fresh clone links .secrets on stderr, leaving stdout to the lane", async () => {
+  const { root, clone, script } = await freshClone();
+  try {
+    const run = await runWithStubbedBun(["production"], {
+      script,
+      environment: { MATRIX_SECRETS_DIR: "", NATIVE_RELEASE_SECRETS_DIR: "" },
+    });
+
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect(run.stderr).toContain(
+      "Linked .secrets to ../matrix-secrets/tearleads",
+    );
+    expect(run.stdout).not.toContain("Linked");
+    expect(await readlink(resolve(clone, ".secrets"))).toBe(
+      "../matrix-secrets/tearleads",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("NATIVE_RELEASE_SECRETS_DIR leaves a fresh clone unlinked", async () => {
+  const { root, clone, script } = await freshClone();
+  try {
+    const run = await runWithStubbedBun(["production"], {
+      script,
+      environment: {
+        MATRIX_SECRETS_DIR: "",
+        NATIVE_RELEASE_SECRETS_DIR: resolve(root, "matrix-secrets/tearleads"),
+      },
+    });
+
+    expect(run.exitCode, run.stderr).toBe(0);
+    expect(run.stderr).not.toContain("Linked");
+    expect(await lstat(resolve(clone, ".secrets")).catch(() => null)).toBe(
+      null,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

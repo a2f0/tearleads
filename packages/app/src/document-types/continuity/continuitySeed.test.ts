@@ -6,6 +6,7 @@ import {
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
 import { trackerGraphTimestamp } from "../shared/timeSeriesGraphData";
 import { loadContinuityAssets } from "./continuityAssets";
+import { continuityGroups } from "./continuityRoster";
 import { continuityDocuments, type SeedDocument } from "./seedDocuments";
 
 interface Detail {
@@ -117,4 +118,19 @@ test("single-image slots refuse unknown aliases and duplicates", async () => {
       "Unknown or duplicate drivers_license attachment slot",
     );
   }
+});
+
+test("pinned Continuity groups resolve to the roster names the screenshot run asserts", async () => {
+  const { spec, readAttachment } = await loadContinuityAssets();
+  const expected = JSON.parse(
+    new TextDecoder().decode(await readAttachment("expectations.json")),
+  );
+  expect(
+    continuityGroups(spec).map(({ name, members }) => ({
+      name,
+      members: members.map(
+        ({ firstName, lastName }) => `${firstName} ${lastName}`,
+      ),
+    })),
+  ).toEqual(expected.groups);
 });

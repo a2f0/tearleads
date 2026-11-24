@@ -8,9 +8,9 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../../document-types/projectors";
 import { getLocalRosterProfileDisplayNames } from "../../../stores/org-manager/rosterProfileDisplayNames";
+import { getRosterProfileHydrationLocalId } from "../../../stores/org-manager/rosterProfileHydration";
 import {
   getExplorerAttributionProfileBindingsByLocalId,
-  getExplorerAttributionProfileDocumentLocalId,
   hydrateExplorerAttributionProfileDocument,
 } from "../hooks/explorerAttributionReadModel";
 
@@ -55,7 +55,7 @@ test("restart hydration adopts the canonical profile row and its pending edits",
     organizationId: ORGANIZATION_ID,
     userId: PROFILE_USER_ID,
   });
-  const staleSyntheticLocalId = getExplorerAttributionProfileDocumentLocalId({
+  const staleSyntheticLocalId = getRosterProfileHydrationLocalId({
     organizationId: ORGANIZATION_ID,
     profileDocumentId: PROFILE_DOCUMENT_ID,
     userId: PROFILE_USER_ID,

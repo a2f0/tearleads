@@ -74,14 +74,17 @@ to publish it to R2 with local credentials. See the
 
 The native and desktop release shortcuts, and the Android and iOS dev
 launchers, prepare a fresh clone, or a worktree beside the other clones,
-before building.
+before building. Every script that loads a tier through `load_secrets_env` in
+[`../terraform/scripts/secretsEnv.sh`](../terraform/scripts/secretsEnv.sh)
+(deploys, destroys, Terraform stacks, and the soft reset) links `.secrets`
+the same way and stops when the tier folder is still missing.
 [`lib/secretsStore.sh`](lib/secretsStore.sh) links a missing `.secrets` to
 the shared `matrix-secrets/tearleads` folder when it exists, as
 [`lib/screenshotsStore.sh`](lib/screenshotsStore.sh) does for `.screenshots`,
 and [`lib/gradleWrapper.sh`](lib/gradleWrapper.sh) regenerates the
 gitignored Gradle wrapper jar in a scratch build, since the Android build
-cannot configure before `cap sync`. `bun run test:clone-setup` covers both and
-is part of `check:fast`.
+cannot configure before `cap sync`. `bun run test:clone-setup` covers both,
+and the loader's link, and is part of `check:fast`.
 
 [`release/publishNpmPackage.sh`](release/publishNpmPackage.sh) publishes a
 package to npm by its directory name: `windowing` or `client-sdk`.
@@ -102,8 +105,9 @@ authentication, versioning, and consumer smoke checks.
 their own. Each capture API (one for desktop, one shared by tablet and phone)
 starts empty, and a Playwright setup project
 ([`seed.setup.ts`](../packages/app-web/screenshots/seed.setup.ts)) runs
-`tearleads register` and then `tearleads seed` against it with the Continuity
-identity's recovery key on stdin. The CLI verifies the pinned Continuity
+`tearleads register` and then `tearleads seed --roster` against it with the
+Continuity identity's recovery key on stdin, so the Org Manager captures show
+the Family group and its members on the roster. The CLI verifies the pinned Continuity
 manifest and seed contract before writing anything. The capture then imports
 that identity into a fresh browser, signs in, and waits for the app to download
 the seeded documents before capturing desktop, tablet, and phone layouts in

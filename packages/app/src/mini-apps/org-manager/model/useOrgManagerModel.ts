@@ -180,7 +180,9 @@ export function useOrgManagerModel() {
       appData,
       canLoadAuthenticatedOrgData,
       directory: activeDirectory,
+      findRosterProfileContainer: orgManagerActions.findRosterProfileContainer,
       selectedUserIdRef,
+      subscribeToContainers: orgManagerActions.subscribeToContainers,
       tearleads,
     });
   useOrgManagerRouteMessages(openGroupRoute, openGrantRoute);
