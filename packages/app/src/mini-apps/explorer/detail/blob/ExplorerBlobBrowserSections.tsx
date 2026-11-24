@@ -2,8 +2,6 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/dist/csr/DownloadSimpl
 import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { Menu, MenuItem, type MenuPosition } from "@tearleads/windowing";
 import {
-  MiniAppHeader,
-  MiniAppHeaderCopy,
   MiniAppImageViewer,
   MiniAppInfoSection,
   MiniAppPanel,
@@ -44,8 +42,13 @@ function BlobMetadataSection(params: {
 
   return (
     <MiniAppInfoSection heading={EXPLORER_LABELS.blobBrowserMetadataHeading}>
-      <MiniAppInfoTable className="mini-app-info-table--borderless">
+      {/* Pinned: a long filename wraps in the value column rather than
+          squeezing the labels onto two lines. */}
+      <MiniAppInfoTable className="mini-app-info-table--borderless mini-app-info-table--pinned">
         <tbody>
+          <MiniAppInfoRow label={EXPLORER_LABELS.blobBrowserFilenameColumn}>
+            {getBlobDisplayName(blob)}
+          </MiniAppInfoRow>
           <MiniAppInfoRow
             label={EXPLORER_LABELS.blobBrowserIdRow}
             title={blob.blobId ?? undefined}
@@ -255,22 +258,6 @@ export function BlobDetail(params: {
         />
       ) : null}
     </>
-  );
-}
-
-export function BlobBrowserHeader(params: { selectedBlob: BlobInfo | null }) {
-  const { selectedBlob } = params;
-  return (
-    <MiniAppHeader>
-      <MiniAppHeaderCopy>
-        <strong>{EXPLORER_LABELS.blobBrowserTitle}</strong>
-        <span>
-          {selectedBlob
-            ? getBlobDisplayName(selectedBlob)
-            : EXPLORER_LABELS.blobBrowserNoSelection}
-        </span>
-      </MiniAppHeaderCopy>
-    </MiniAppHeader>
   );
 }
 

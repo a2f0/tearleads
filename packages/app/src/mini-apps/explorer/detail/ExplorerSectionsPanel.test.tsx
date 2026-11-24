@@ -113,7 +113,7 @@ test("the hub shows four tabs, by direction, with Sync Lanes active by default",
   ]);
 });
 
-test("the Outgoing route shows one table in one scroller under one header", async () => {
+test("the Outgoing route shows one table in one scroller", async () => {
   const view = renderSectionsPanel({ view: "outgoing" });
 
   expect(selectedTabs(view)).toEqual([
@@ -129,10 +129,6 @@ test("the Outgoing route shows one table in one scroller under one header", asyn
   expect(
     view.container.querySelectorAll(".mini-app-panel--scroll"),
   ).toHaveLength(1);
-  expect(view.container.querySelectorAll(".mini-app-header")).toHaveLength(1);
-  expect(
-    view.getByText(EXPLORER_LABELS.outgoingAction, { selector: "strong" }),
-  ).toBeTruthy();
 });
 
 test("a write-queue entry keeps the Outgoing tab and replaces its table", async () => {
@@ -149,9 +145,6 @@ test("a write-queue entry keeps the Outgoing tab and replaces its table", async 
       }),
     ).toBeTruthy(),
   );
-  expect(
-    view.getByText(EXPLORER_LABELS.writeQueueEntryDetailTitle),
-  ).toBeTruthy();
   expect(view.queryByRole("table")).toBeNull();
 });
 
@@ -233,13 +226,35 @@ test("tapping the Outgoing tab opens it at its top", () => {
   expect(opened).toEqual([[]]);
 });
 
-test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {
-  const view = renderSectionsPanel({ view: "sync-lanes" });
+test.each<[string, ExplorerRoute]>([
+  ["Sync Lanes", { view: "sync-lanes" }],
+  ["a sync lane", { laneKey: "documents:missing", view: "sync-lane-detail" }],
+  ["Blob Browser", { blobId: null, storageKey: null, view: "blob-browser" }],
+  ["Outgoing", { view: "outgoing" }],
+  [
+    "a write-queue entry",
+    { entryKey: "document::missing", view: "write-queue-entry" },
+  ],
+  ["Incoming", { view: "incoming" }],
+])("%s opens on its content, with no header above it", async (_name, route) => {
+  const sdk = spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+    documents: { retryDownload: async () => false },
+  } as unknown as Tearleads);
+  try {
+    const view = renderSectionsPanel(route);
 
-  // The tab bar owns top-level navigation, so the list-mode back button is gone.
-  expect(
-    view.queryByRole("button", { name: EXPLORER_LABELS.syncLanesBackAction }),
-  ).toBeNull();
+    // The tab names the view, so no panel header (title, timestamp, or
+    // description) repeats it, and no back button competes with the tab bar.
+    await waitFor(() =>
+      expect(view.getByRole("tabpanel").textContent).not.toBe(""),
+    );
+    expect(view.container.querySelector(".mini-app-header")).toBeNull();
+    expect(
+      view.queryByRole("button", { name: EXPLORER_LABELS.syncLanesBackAction }),
+    ).toBeNull();
+  } finally {
+    sdk.mockRestore();
+  }
 });
 
 test("Incoming opens its route and shows an empty durable queue", async () => {

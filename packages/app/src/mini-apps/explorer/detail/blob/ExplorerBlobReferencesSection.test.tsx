@@ -10,10 +10,10 @@ import { compactId } from "../compactId";
 import { BlobReferencesSection } from "./ExplorerBlobReferencesSection";
 
 /**
- * The blob browser's Document Links table carries a document beside three
- * squeezable ids/states, so a phone — or any pane narrow enough to fold the
- * explorer's own item list — folds it onto two lines instead of shaving each
- * column to an ellipsis. The section renders every reference (it scrolls with
+ * The blob browser's Document Links table carries a document beside its
+ * filename, state, container, and slot, so a phone — or any pane narrow enough
+ * to fold the explorer's own item list — folds it onto two lines instead of
+ * shaving each column to an ellipsis. The section renders every reference (it scrolls with
  * the detail panel rather than windowing), so the fold rides on the frame width
  * alone; these assert both halves of that rule and that the row's way into the
  * document survives it.
@@ -137,6 +137,12 @@ function getFrame(table: HTMLElement): HTMLElement {
   return frame;
 }
 
+const SECONDARY_LABEL = [
+  EXPLORER_LABELS.blobBrowserStateColumn,
+  EXPLORER_LABELS.documentInfoContainerColumn,
+  EXPLORER_LABELS.blobBrowserFilenameColumn,
+].join(" · ");
+
 test("document links fold onto two lines on phones", () => {
   mockRoutedLayout();
   const view = renderReferences();
@@ -150,39 +156,34 @@ test("document links fold onto two lines on phones", () => {
 
   expect(table.querySelectorAll("thead th")).toHaveLength(1);
   expect(headerLines).toHaveLength(2);
-  expect(
-    within(headerLines.item(0)).getByText(
-      EXPLORER_LABELS.blobBrowserDocumentColumn,
-    ),
-  ).toBeTruthy();
-  expect(
+  const fieldTexts = (line: HTMLElement) =>
     Array.from(
-      headerLines.item(1).querySelectorAll(".mini-app-compact-table-field"),
+      line.querySelectorAll(".mini-app-compact-table-field"),
       (field) => field.textContent,
-    ),
-  ).toEqual([
-    EXPLORER_LABELS.documentInfoContainerColumn,
-    EXPLORER_LABELS.blobBrowserStateColumn,
-    EXPLORER_LABELS.blobBrowserSlotColumn,
+    );
+  expect(fieldTexts(headerLines.item(0))).toEqual([
+    EXPLORER_LABELS.blobBrowserDocumentColumn,
   ]);
+  expect(fieldTexts(headerLines.item(1))).toEqual([SECONDARY_LABEL]);
 
-  // One cell, and the container/state/slot trio muted beneath the document.
+  // One cell: the document's kind glyph spans both lines, the document leads
+  // alone, and its state, container, and filename share one muted line, so
+  // no value is squeezed into a third of a phone. The slot id stays wide-only.
   expect(table.querySelectorAll("tbody .mini-app-table-cell")).toHaveLength(1);
+  expect(
+    table.querySelector(
+      'tbody .mini-app-compact-table-visual [data-icon="note"]',
+    ),
+  ).not.toBeNull();
   expect(bodyLines).toHaveLength(2);
-  expect(within(bodyLines.item(0)).getByText("example.txt")).toBeTruthy();
+  expect(fieldTexts(bodyLines.item(0))).toEqual(["Roadmap notes"]);
   expect(
     within(bodyLines.item(0)).getByRole("button", { name: "Roadmap notes" }),
   ).toBeTruthy();
-  expect(
-    Array.from(
-      bodyLines.item(1).querySelectorAll(".mini-app-compact-table-field"),
-      (field) => field.textContent,
-    ),
-  ).toEqual([
-    `${EXPLORER_LABELS.documentInfoContainerColumn}: Roadmap`,
-    `${EXPLORER_LABELS.blobBrowserStateColumn}: ${EXPLORER_LABELS.documentInfoAttachmentStateLocal}`,
-    `${EXPLORER_LABELS.blobBrowserSlotColumn}: ${compactId(SLOT_ID)}`,
+  expect(fieldTexts(bodyLines.item(1))).toEqual([
+    `${SECONDARY_LABEL}: ${EXPLORER_LABELS.documentInfoAttachmentStateLocal} · Roadmap · example.txt`,
   ]);
+  expect(within(table).queryByText(compactId(SLOT_ID))).toBeNull();
   expect(
     bodyLines.item(1).classList.contains("mini-app-compact-table-line--muted"),
   ).toBe(true);
