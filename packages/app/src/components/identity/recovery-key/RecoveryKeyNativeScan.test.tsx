@@ -118,6 +118,36 @@ test.each(["lock", "unmount"])(
   },
 );
 
+test("a native capture delivers to the owner rendered when it finishes", async () => {
+  photo = installRecoveryQrPhoto(phrase);
+  const pending = Promise.withResolvers<Blob | null>();
+  const scanner = { capturePhoto: () => pending.promise };
+  const started = mock(() => undefined);
+  const latest = mock(() => undefined);
+  const view = render(
+    <RecoveryKeyNativeScan
+      disabled={false}
+      label="Scan QR Code"
+      onScan={started}
+      scanner={scanner}
+    />,
+  );
+  fireEvent.click(view.getByRole("button", { name: "Scan QR Code" }));
+  view.rerender(
+    <RecoveryKeyNativeScan
+      disabled={false}
+      label="Scan QR Code"
+      onScan={latest}
+      scanner={scanner}
+    />,
+  );
+  await act(async () => {
+    pending.resolve(new Blob(["host photo"], { type: "image/jpeg" }));
+  });
+  await waitFor(() => expect(latest).toHaveBeenCalledWith(phrase));
+  expect(started).not.toHaveBeenCalled();
+});
+
 test("native camera failures show an actionable error without exception details", async () => {
   photo = installRecoveryQrPhoto(phrase);
   const onScan = mock(() => undefined);

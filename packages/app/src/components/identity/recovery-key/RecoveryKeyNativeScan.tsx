@@ -20,6 +20,11 @@ export function RecoveryKeyNativeScan({
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
   const busyRef = useRef(false);
+  // A capture outlives the render that started it; deliver to the latest owner.
+  const latestOnScan = useRef(onScan);
+  useLayoutEffect(() => {
+    latestOnScan.current = onScan;
+  });
   useEffect(
     () => () => {
       generation.current++;
@@ -47,7 +52,7 @@ export function RecoveryKeyNativeScan({
       );
       return;
     }
-    onScan(phrase);
+    latestOnScan.current(phrase);
   };
 
   const capture = async () => {
@@ -83,6 +88,7 @@ export function RecoveryKeyNativeScan({
 
   return (
     <div className="recovery-key-scan">
+      <MiniAppStatus>Take a photo of your recovery QR code.</MiniAppStatus>
       <MiniAppButton disabled={disabled || busy} onClick={() => void capture()}>
         {busy ? "Scanning..." : label}
       </MiniAppButton>

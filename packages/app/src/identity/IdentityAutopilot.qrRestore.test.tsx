@@ -1,4 +1,4 @@
-import { afterEach, expect, mock, test } from "bun:test";
+import { afterEach, expect, mock, spyOn, test } from "bun:test";
 import { createIdentitySeedPhrase } from "@tearleads/crypto";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import {
@@ -62,6 +62,44 @@ test(
     );
     expect(camera.stopTrack).toHaveBeenCalledTimes(1);
     expect(camera.getUserMedia).toHaveBeenCalledTimes(1);
+    await unmountLifecyclePane(device);
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,
+);
+
+test(
+  "a valid recovery QR whose restore fails reports it and offers the scan again",
+  async () => {
+    useTestApiAppHandlers();
+    const passphrase = createIdentitySeedPhrase();
+    const device = renderLifecyclePane(onboardingConfig());
+    const recovery = within(device.pane);
+    fireEvent.click(
+      await recovery.findByRole("button", { name: "Restore identity" }),
+    );
+    // Onboarding derives the restored key package through the SDK identity.
+    using importSeedPhrase = spyOn(
+      Object.getPrototypeOf(device.sdk().identity),
+      "importSeedPhrase",
+    ).mockImplementationOnce(async () => {
+      throw new Error("Import failed");
+    });
+    const camera = installRecoveryQrCamera(passphrase.toUpperCase());
+    restoreCamera = camera.restore;
+    fireEvent.click(
+      recovery.getByRole("button", { name: "Restore from QR code" }),
+    );
+    const alert = await recovery.findByRole("alert", undefined, {
+      timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
+    });
+    expect(alert.textContent).toContain("Could not restore your identity");
+    expect(importSeedPhrase).toHaveBeenCalledTimes(1);
+    expect(camera.stopTrack).toHaveBeenCalledTimes(1);
+    expect(device.sdk().identity.signingKeyPair).toBeNull();
+    expect(
+      recovery.getByRole("button", { name: "Restore from QR code" }),
+    ).toBeTruthy();
+    expect(recovery.queryByLabelText("Recovery QR code camera")).toBeNull();
     await unmountLifecyclePane(device);
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,
