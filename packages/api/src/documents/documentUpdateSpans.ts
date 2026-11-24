@@ -1,6 +1,7 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { documentUpdateSpans } from "@tearleads/api-shared/schema";
 import { listVersionVectorSpans } from "@tearleads/loro";
+import { chunkDocumentPeerRows } from "./documentPeerRowChunks";
 
 interface DocumentUpdateSpanSource {
   id: string;
@@ -28,9 +29,10 @@ export async function insertDocumentUpdateSpans(
     })),
   );
 
-  if (rows.length === 0) {
-    return;
+  // One update may declare as many peers as the request's bytes admit, more
+  // than one statement can bind, so the rows go in chunks within the
+  // caller's transaction.
+  for (const chunk of chunkDocumentPeerRows(rows)) {
+    await executor.insert(documentUpdateSpans).values(chunk);
   }
-
-  await executor.insert(documentUpdateSpans).values(rows);
 }

@@ -6,6 +6,7 @@ import {
   resolveAppHostProfile,
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
+import { createTelemetryConsent } from "app/host/telemetryConsent";
 import { createRoot } from "react-dom/client";
 import { initializeClickTracking } from "./clickTracking";
 import { configureSentry } from "./diagnostics/sentry";
@@ -25,14 +26,19 @@ const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
   wsUrl: process.env.BUN_PUBLIC_WS_URL,
 });
 
-const diagnostics = configureSentry({
-  dsn: process.env.BUN_PUBLIC_SENTRY_DSN,
-  environment: process.env.BUN_PUBLIC_SENTRY_ENVIRONMENT,
-  commit: process.env.BUN_PUBLIC_SENTRY_COMMIT,
-  variant: process.env.BUN_PUBLIC_APP_VARIANT,
-  origin: window.location.origin,
-  scriptUrl: import.meta.url,
-});
+// Every collector below follows the user's opt-in, which starts off.
+const telemetryConsent = createTelemetryConsent();
+const diagnostics = configureSentry(
+  {
+    dsn: process.env.BUN_PUBLIC_SENTRY_DSN,
+    environment: process.env.BUN_PUBLIC_SENTRY_ENVIRONMENT,
+    commit: process.env.BUN_PUBLIC_SENTRY_COMMIT,
+    variant: process.env.BUN_PUBLIC_APP_VARIANT,
+    origin: window.location.origin,
+    scriptUrl: import.meta.url,
+  },
+  telemetryConsent,
+);
 if (import.meta.hot)
   import.meta.hot.dispose(() => {
     void diagnostics?.dispose();
@@ -60,6 +66,7 @@ const hostConfig = createAppHostConfig({
   probeApiNetworkFailures: true,
   wsUrl,
   profile: resolveAppHostProfile(process.env.BUN_PUBLIC_APP_VARIANT),
+  telemetryConsent,
 });
 
 await prepareControllingServiceWorker();
@@ -72,4 +79,7 @@ if (import.meta.hot) {
 }
 
 registerServiceWorkerAfterLoad();
-initializeClickTracking(process.env.NODE_ENV === "production");
+initializeClickTracking(
+  process.env.NODE_ENV === "production",
+  telemetryConsent,
+);

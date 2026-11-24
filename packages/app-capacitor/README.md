@@ -80,7 +80,7 @@ Google Play access, and App Store signing profile.
 | --- | --- | --- |
 | `ios build_release` | Signed App Store IPA, without uploading | `build_number:` |
 | `ios upload_release` | `build_release`, then uploads to TestFlight | `build_number:` |
-| `ios profiles` | Creates or renews the match App Store profiles | `force:true` regenerates them |
+| `ios profiles` | Enables the App ID's capabilities, then creates or renews the match App Store profiles | `force:true` regenerates them |
 | `ios fetch_profiles` | Installs the match App Store profiles read-only | |
 | `android build_release` | Signed release App Bundle, without uploading | `build_number:` |
 | `android upload_release` | `build_release`, then uploads to a Google Play track | `build_number:`, `track:` (`internal`), `release_status:` (`completed`) |
@@ -192,6 +192,14 @@ previous default comes back afterwards, even when the throwaway keychain is
 already gone. Signing needs a team ID from `team_id:`, `IOS_TEAM_ID`,
 `APPLE_TEAM_ID`, `DEVELOPMENT_TEAM`, `FASTLANE_TEAM_ID`, or `TEAM_ID`.
 
+Every configuration signs with [`App.entitlements`](ios/App/App/App.entitlements),
+which claims `webcredentials:$(WEB_CREDENTIAL_DOMAIN)`: `app.tearleads.com` for
+`com.tearleads.app` (Debug and Release) and `app-staging.tearleads.com` for
+`com.tearleads.staging.app` (Release-Staging). The `PasswordKeychain` plugin
+saves recovery passphrases to iCloud Keychain under that domain, which iOS
+allows only while the host's association file names the bundle ID. The App
+Store profiles must include Associated Domains, or the archive fails to sign.
+
 The archive resolves Swift packages only from `Package.resolved`
 (`-disableAutomaticPackageResolution`), and the lane refuses to build or return
 the IPA while that file differs from `HEAD`. Its `originHash` covers the
@@ -213,11 +221,15 @@ distributes only a processed build, and submits for review.
 `skip_submission:`, override either default; skipping the wait distributes
 nothing.
 
-`ios profiles` creates the tier's App Store profile in the match repository
-with the API key, reusing the team's distribution certificate there, or renews
-one that is missing or invalid; `force:true` regenerates it, as after the
-bundle ID's capabilities change. `ios fetch_profiles` only verifies and
-installs the existing profile.
+`ios profiles` first enables, with the API key, each capability the app's
+entitlements need that the tier's App ID lacks (Associated Domains, for the
+`webcredentials:` domain behind iCloud Keychain). It then creates the tier's
+App Store profile in the match repository, reusing the team's distribution
+certificate there, or renews one that is missing or invalid. A capability it
+enabled is in no existing profile, so it regenerates the profile then;
+`force:true` also regenerates it, as after the certificate changes or after a
+run that enabled a capability but failed before the profile was made.
+`ios fetch_profiles` only verifies and installs the existing profile.
 
 ### Android releases
 

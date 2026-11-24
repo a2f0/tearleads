@@ -209,7 +209,7 @@ function GroupTable({
 
   return (
     <MiniAppTableFrame
-      className={`mini-app-table-frame--virtual mini-app-table-frame--compact org-manager-virtual-table${
+      className={`mini-app-table-frame--virtual mini-app-table-frame--compact mini-app-table-frame--bleed mini-app-table-frame--edges org-manager-virtual-table${
         compact ? " mini-app-table-frame--two-line" : ""
       }`}
       onContextMenu={(event) => {

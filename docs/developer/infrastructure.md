@@ -3,6 +3,11 @@
 Deployment and release credentials live in `.secrets`, a gitignored link to
 `../matrix-secrets/tearleads`. The a2f0/matrix repository manages and backs them
 up; see its [`docs/secrets.md`](https://github.com/a2f0/matrix/blob/main/docs/secrets.md).
+The native and desktop release shortcuts and the Android and iOS dev launchers
+create that link in a clone that has none, through
+[`scripts/lib/secretsStore.sh`](../../scripts/lib/secretsStore.sh): beside the
+clone, beside the matrix workspace for a `checkouts/<name>` checkout, or under
+`MATRIX_SECRETS_DIR` when set.
 Each tier reads only `.secrets/staging/` or `.secrets/prod/`: `shared.env`, then
 `app.env`, which wins. Commands without a tier use `prod`.
 
@@ -25,6 +30,14 @@ builds the app with `APP_WEB_TIER`, which
 [`scripts/injectTierMeta.ts`](../../packages/app-web/scripts/injectTierMeta.ts)
 reads, then adds the header while staging the assets and refuses a build whose
 tags do not match its tier.
+
+Each app host serves `/.well-known/apple-app-site-association` as JSON, naming
+the tier's iOS app (`com.tearleads.app`, or `com.tearleads.staging.app` on
+staging) under the Apple team in the tier's `TEAM_ID`. iOS saves passwords to
+iCloud Keychain for a host named in an app's `webcredentials:` entitlement
+only when that host's file names the app. `TEAM_ID` must be the team that signs
+the app, as the release lanes do by default, and the app-web deploy refuses to
+start without a 10-character one.
 
 Every proxied tearleads.com host, staging and continuity included, answers
 `http://` with a 301 to `https://` before any Worker runs. That is the zone's

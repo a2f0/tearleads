@@ -11,7 +11,9 @@ import {
   MiniAppToolbar,
 } from "../mini-app/MiniAppLayout";
 import "./AccountBootstrapProgressPanel.css";
+import { TelemetryConsentSwitch } from "../shared/TelemetryConsentSwitch";
 import { RecoveryKeyBackupConfirmation } from "./recovery-key/RecoveryKeyBackupConfirmation";
+import { RecoveryKeyScan } from "./recovery-key/RecoveryKeyScan";
 import { SavedPassphraseButton } from "./SavedPassphraseButton";
 
 function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
@@ -63,6 +65,17 @@ function IdentityForm({ copy }: { copy: AccountBootstrapCopy }) {
             value={value}
           />
         )}
+        {restoring && onboarding && (
+          // A scan is already a validated key, so it restores without a
+          // second step and the key never sits in the field.
+          <RecoveryKeyScan
+            disabled={false}
+            label="Restore from QR code"
+            onScan={(phrase) =>
+              onboarding.submit("entering-passphrase", phrase)
+            }
+          />
+        )}
         {restoring && (
           <SavedPassphraseButton disabled={false} onPick={setValue} />
         )}
@@ -112,6 +125,8 @@ export function AccountBootstrapProgressPanel({
             Restore identity
           </MiniAppButton>
         </MiniAppToolbar>
+        {/* Asked once at the start, so creating and restoring both offer it. */}
+        <TelemetryConsentSwitch />
       </MiniAppStatePanel>
     );
   }

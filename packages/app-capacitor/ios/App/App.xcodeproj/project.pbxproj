@@ -17,6 +17,8 @@
 		A21D60B12E3C18A1001DA001 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21D60B02E3C18A1001DA001 /* SceneDelegate.swift */; };
 		A21D60AE2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A21D60AD2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift */; };
 		A21D60AC2E3C18A1001DA001 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = A21D60AB2E3C18A1001DA001 /* RevenueCat */; };
+		B31E70A22F0A2B3C001DA001 /* PasswordKeychainPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31E70A12F0A2B3C001DA001 /* PasswordKeychainPlugin.swift */; };
+		B31E70A42F0A2B3C001DA001 /* PasswordKeychainResults.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31E70A32F0A2B3C001DA001 /* PasswordKeychainResults.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -32,6 +34,9 @@
 		A21D60A62E3C18A1001DA001 /* SubscriptionManagementPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManagementPlugin.swift; sourceTree = "<group>"; };
 		A21D60A82E3C18A1001DA001 /* RevenueCatPurchasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevenueCatPurchasePlugin.swift; sourceTree = "<group>"; };
 		A21D60B02E3C18A1001DA001 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		B31E70A12F0A2B3C001DA001 /* PasswordKeychainPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordKeychainPlugin.swift; sourceTree = "<group>"; };
+		B31E70A32F0A2B3C001DA001 /* PasswordKeychainResults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PasswordKeychainResults.swift; path = ../PasswordKeychainState/Sources/PasswordKeychainState/PasswordKeychainResults.swift; sourceTree = "<group>"; };
+		B31E70A52F0A2B3C001DA001 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		A21D60AD2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RevenueCatPreparedPackageStore.swift; path = ../RevenueCatPurchaseState/Sources/RevenueCatPurchaseState/RevenueCatPreparedPackageStore.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -75,8 +80,11 @@
 			isa = PBXGroup;
 			children = (
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
+				B31E70A52F0A2B3C001DA001 /* App.entitlements */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				A21D60A42E3C18A1001DA001 /* BridgeViewController.swift */,
+				B31E70A12F0A2B3C001DA001 /* PasswordKeychainPlugin.swift */,
+				B31E70A32F0A2B3C001DA001 /* PasswordKeychainResults.swift */,
 				A21D60A82E3C18A1001DA001 /* RevenueCatPurchasePlugin.swift */,
 				A21D60AD2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift */,
 				A21D60B02E3C18A1001DA001 /* SceneDelegate.swift */,
@@ -132,6 +140,9 @@
 							com.apple.InAppPurchase = {
 								enabled = 1;
 							};
+							com.apple.SafariKeychain = {
+								enabled = 1;
+							};
 						};
 					};
 				};
@@ -181,6 +192,8 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				A21D60A52E3C18A1001DA001 /* BridgeViewController.swift in Sources */,
+				B31E70A22F0A2B3C001DA001 /* PasswordKeychainPlugin.swift in Sources */,
+				B31E70A42F0A2B3C001DA001 /* PasswordKeychainResults.swift in Sources */,
 				A21D60A92E3C18A1001DA001 /* RevenueCatPurchasePlugin.swift in Sources */,
 				A21D60AE2E3C18A1001DA001 /* RevenueCatPreparedPackageStore.swift in Sources */,
 				A21D60B12E3C18A1001DA001 /* SceneDelegate.swift in Sources */,
@@ -376,6 +389,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = Tearleads;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
@@ -391,6 +405,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				WEB_CREDENTIAL_DOMAIN = app.tearleads.com;
 			};
 			name = Debug;
 		};
@@ -399,6 +414,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = Tearleads;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
@@ -413,6 +429,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				WEB_CREDENTIAL_DOMAIN = app.tearleads.com;
 			};
 			name = Release;
 		};
@@ -421,6 +438,7 @@
 			buildSettings = {
 				APP_DISPLAY_NAME = "TL Staging";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = App/Info.plist;
@@ -435,6 +453,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				WEB_CREDENTIAL_DOMAIN = "app-staging.tearleads.com";
 			};
 			name = "Release-Staging";
 		};

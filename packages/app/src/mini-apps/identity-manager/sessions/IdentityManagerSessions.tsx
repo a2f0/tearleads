@@ -51,7 +51,7 @@ export function SessionsSection({
           <MiniAppStatus tone="error">{sessionError}</MiniAppStatus>
         )}
         <MiniAppTableFrame
-          className={`identity-manager-session-table mini-app-table-frame--compact mini-app-table-frame--bleed${
+          className={`identity-manager-session-table mini-app-table-frame--compact mini-app-table-frame--bleed mini-app-table-frame--edges${
             compact ? " mini-app-table-frame--two-line" : ""
           }`}
           ref={frameRef}

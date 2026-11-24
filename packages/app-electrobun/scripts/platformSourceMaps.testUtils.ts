@@ -51,13 +51,13 @@ for (const [options, naming, packaged] of [
 // through its real client, whose transport prints the envelope.
 const mainProbe = `import { configureMainProcessDiagnostics } from ${modulePath("src/diagnostics/mainProcess.ts")};
 globalThis.fetch = async (_url, init) => { console.log(String(init?.body)); return new Response(null, { status: 200 }); };
-const reporter = configureMainProcessDiagnostics(import.meta.url);
+const reporter = configureMainProcessDiagnostics(import.meta.url, { enabled: () => true });
 reporter?.captureError(new Error("probe"), "request-error");
 await reporter?.flush();
 process.exit(0);
 `;
 const rendererProbe = `import { configureElectrobunSentry } from ${modulePath("src/diagnostics/sentry.ts")};
-configureElectrobunSentry();
+configureElectrobunSentry({ enabled: () => true, subscribe: () => () => {} });
 `;
 const releaseHarness = `import { runDesktopSentryRelease } from ${modulePath("scripts/withSentryReleaseEnv.ts")};
 const [intended, packageRoot, repoRoot, ...command] = process.argv.slice(2);

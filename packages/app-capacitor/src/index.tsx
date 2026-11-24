@@ -7,6 +7,7 @@ import {
   createAppHostConfig,
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
+import { createTelemetryConsent } from "app/host/telemetryConsent";
 import { createRoot } from "react-dom/client";
 import { createCapacitorPurchases } from "./billing/capacitorPurchases";
 import { openCapacitorSubscriptionManagement } from "./billing/capacitorSubscriptionManagement";
@@ -14,7 +15,7 @@ import { createCapacitorSQLiteRuntime } from "./database/capacitorSQLiteRuntime"
 import { subscribeCapacitorConnectionRefresh } from "./device/capacitorConnectionRefresh";
 import { subscribeCapacitorKeyboardVisibility } from "./device/capacitorKeyboardVisibility";
 import { createCapacitorNetworkStatus } from "./device/capacitorNetworkStatus";
-import { createAndroidPasswordKeychain } from "./device/capacitorPasswordKeychain";
+import { createNativePasswordKeychain } from "./device/capacitorPasswordKeychain";
 import { createCapacitorScanner } from "./device/capacitorScanner";
 import { syncStatusBarWithTheme } from "./device/statusBar";
 import { configureNativeSentry } from "./diagnostics/sentry";
@@ -44,9 +45,12 @@ const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
   wsUrl: import.meta.env.VITE_WS_URL,
 });
 
+// Error reports follow the user's anonymous-telemetry opt-in, which starts off.
+const telemetryConsent = createTelemetryConsent();
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
-  diagnostics: await configureNativeSentry(),
+  diagnostics: await configureNativeSentry(telemetryConsent),
+  telemetryConsent,
   // Resolved and inlined by vite.config.ts.
   buildInfo: createAppBuildInfo({
     commit: import.meta.env.VITE_GIT_SHA,
@@ -88,12 +92,11 @@ const hostConfig = createAppHostConfig({
   // Native connectivity via @capacitor/network — the Android WebView's
   // navigator.onLine reports offline while genuinely connected.
   createNetworkStatus: createCapacitorNetworkStatus,
-  // Google Password Manager through Credential Manager. iOS offers no save
-  // until the app carries the Associated Domains entitlement its sheet needs.
-  createPasswordKeychain:
-    Capacitor.getPlatform() === "android"
-      ? createAndroidPasswordKeychain
-      : undefined,
+  // Google Password Manager through Credential Manager on Android, and iCloud
+  // Keychain on iOS for the domain the build's entitlement associates.
+  createPasswordKeychain: Capacitor.isNativePlatform()
+    ? createNativePasswordKeychain
+    : undefined,
   createPurchases: createCapacitorPurchases,
   createScanner: Capacitor.isNativePlatform()
     ? createCapacitorScanner

@@ -118,13 +118,6 @@
   line-height: 1.45;
 }
 
-.identity-manager-recovery-camera {
-  width: min(24rem, 100%);
-  aspect-ratio: 4 / 3;
-  background: black;
-  object-fit: contain;
-}
-
 .identity-manager-pin-form {
   display: grid;
   gap: var(--space-sm);

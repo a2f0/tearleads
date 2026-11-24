@@ -10,7 +10,8 @@ import type { IdentityOnboardingState } from "./identityOnboardingMachine";
  * - `creating-identity`: the autopilot is deriving a new identity key pair.
  * - `choosing-identity`: a fresh device offers creation or recovery.
  * - `naming-account`: creation or a previously pending registration awaits a name.
- * - `entering-passphrase`: the user can paste their recovery passphrase.
+ * - `entering-passphrase`: the user can paste their recovery passphrase or scan
+ *   its QR code.
  * - `confirming-backup`: a created identity waits for the user to back up its
  *   recovery key and agree that they have.
  * - `restoring-identity`: the app is importing the recovered keys.
@@ -138,7 +139,7 @@ const ACCOUNT_BOOTSTRAP_COPY: {
   "choosing-identity": {
     title: "Set up your identity",
     description:
-      "Create an identity or restore one with your recovery passphrase.",
+      "Create an identity or restore one with your recovery passphrase or its QR code.",
     phase: "choosing-identity",
   },
   "confirming-backup": {
@@ -150,7 +151,7 @@ const ACCOUNT_BOOTSTRAP_COPY: {
   "entering-passphrase": {
     title: "Restore your identity",
     description:
-      "Paste your recovery passphrase to use this identity on this device.",
+      "Paste your recovery passphrase or scan its QR code to use this identity on this device.",
     phase: "entering-passphrase",
   },
   "restoring-identity": {
