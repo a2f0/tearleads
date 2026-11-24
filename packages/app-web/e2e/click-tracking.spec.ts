@@ -113,6 +113,43 @@ for (const host of clickTrackingHosts) {
     expect(errors).toEqual([]);
   });
 
+  if (host.app !== "website") {
+    test(`${host.origin} collects only while the user opts in`, async ({
+      page,
+    }) => {
+      const { requests, errors } = await openClickTrackingFixture(
+        page,
+        output,
+        host.origin,
+        host.app,
+        "none",
+        true,
+        false,
+      );
+      const setConsent = (value: boolean) =>
+        page.evaluate(
+          (next) => Reflect.get(window, "setTelemetryConsent")(next),
+          value,
+        );
+      await page.locator("button").click();
+      await flushClickFixture(page);
+      expect(requests).toEqual([]);
+
+      await setConsent(true);
+      await page.locator("button").click();
+      await flushClickFixture(page);
+      await expect.poll(() => requests.length).toBe(1);
+
+      // Withdrawing discards what is queued and stops capture.
+      await page.locator("#surface").click();
+      await setConsent(false);
+      await page.locator("a").click();
+      await flushClickFixture(page);
+      expect(requests).toHaveLength(1);
+      expect(errors).toEqual([]);
+    });
+  }
+
   test(`${host.origin} remains inert in development`, async ({ page }) => {
     const { requests, errors } = await openClickTrackingFixture(
       page,

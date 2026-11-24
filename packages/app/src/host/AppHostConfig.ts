@@ -18,6 +18,10 @@ import type { AppDiagnostics } from "./AppDiagnostics";
 import type { CreateFileViewerFn } from "./FileViewer";
 import type { CreatePasswordKeychainFn } from "./PasswordKeychain";
 import type { CreateScannerFn } from "./Scanner";
+import {
+  createTelemetryConsent,
+  type TelemetryConsent,
+} from "./telemetryConsent";
 
 export { createAppBuildInfo } from "./AppBuildInfo";
 export { browserPasswordKeychainFactory } from "./browserPasswordKeychain";
@@ -328,15 +332,24 @@ export interface AppHostConfigOptions {
    * have OPFS can pass `PERSISTENT_STORAGE_POLICY` explicitly.
    */
   readonly storagePersistence?: StoragePersistencePolicy | undefined;
+  /**
+   * The device's anonymous-telemetry choice, which the shell's collectors
+   * follow. Shells create it before their collectors; when omitted, as in
+   * tests, the config makes one over the same stored preference.
+   */
+  readonly telemetryConsent?: TelemetryConsent | undefined;
   readonly wsUrl: string;
 }
 
 /**
  * The app's resolved host configuration: {@link AppHostConfigOptions} with the
- * profile defaulted. A plain object built by {@link createAppHostConfig}.
+ * profile and telemetry consent defaulted. A plain object built by
+ * {@link createAppHostConfig}.
  */
-export interface AppHostConfig extends Omit<AppHostConfigOptions, "profile"> {
+export interface AppHostConfig
+  extends Omit<AppHostConfigOptions, "profile" | "telemetryConsent"> {
   readonly profile: AppHostProfile;
+  readonly telemetryConsent: TelemetryConsent;
   /**
    * Returns a copy with key-presence semantics: spread copies explicit
    * `undefined`, letting callers reset fields like `localIdentityNamespace`
@@ -353,6 +366,7 @@ export function createAppHostConfig(
   return {
     ...options,
     profile: options.profile ?? DEFAULT_APP_HOST_PROFILE,
+    telemetryConsent: options.telemetryConsent ?? createTelemetryConsent(),
     // Receiver-based on purpose: a spread-composed copy (`{ ...config, extra }`)
     // carries this method along, and cloning must read the copy's own fields —
     // a closure over this factory's inputs would silently drop the additions.

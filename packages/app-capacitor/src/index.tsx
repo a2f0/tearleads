@@ -7,6 +7,7 @@ import {
   createAppHostConfig,
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
+import { createTelemetryConsent } from "app/host/telemetryConsent";
 import { createRoot } from "react-dom/client";
 import { createCapacitorPurchases } from "./billing/capacitorPurchases";
 import { openCapacitorSubscriptionManagement } from "./billing/capacitorSubscriptionManagement";
@@ -44,9 +45,12 @@ const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
   wsUrl: import.meta.env.VITE_WS_URL,
 });
 
+// Error reports follow the user's anonymous-telemetry opt-in, which starts off.
+const telemetryConsent = createTelemetryConsent();
 const hostConfig = createAppHostConfig({
   apiBaseUrl,
-  diagnostics: await configureNativeSentry(),
+  diagnostics: await configureNativeSentry(telemetryConsent),
+  telemetryConsent,
   // Resolved and inlined by vite.config.ts.
   buildInfo: createAppBuildInfo({
     commit: import.meta.env.VITE_GIT_SHA,

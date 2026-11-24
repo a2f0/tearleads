@@ -11,6 +11,7 @@ import {
   MiniAppToolbar,
 } from "../mini-app/MiniAppLayout";
 import "./AccountBootstrapProgressPanel.css";
+import { TelemetryConsentSwitch } from "../shared/TelemetryConsentSwitch";
 import { RecoveryKeyBackupConfirmation } from "./recovery-key/RecoveryKeyBackupConfirmation";
 import { SavedPassphraseButton } from "./SavedPassphraseButton";
 
@@ -112,6 +113,8 @@ export function AccountBootstrapProgressPanel({
             Restore identity
           </MiniAppButton>
         </MiniAppToolbar>
+        {/* Asked once at the start, so creating and restoring both offer it. */}
+        <TelemetryConsentSwitch />
       </MiniAppStatePanel>
     );
   }
