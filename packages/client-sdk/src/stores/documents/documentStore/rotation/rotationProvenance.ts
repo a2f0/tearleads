@@ -8,8 +8,11 @@ import type { PendingUpdateRecord } from "../../../../workflows/documents";
 import { provenOrdinaryUpdateBytes } from "../history/ordinaryUpdateProof";
 import type { DocumentState } from "../state";
 
+/** The rebuilt history did not equal the live document's. */
+export class RotationUnverifiedHistoryError extends Error {}
+
 function unverifiedLocalHistory(cause?: unknown): Error {
-  return new Error(
+  return new RotationUnverifiedHistoryError(
     "Rotation raw-history recovery found unverified local history; key rotation was not started",
     cause === undefined ? undefined : { cause },
   );

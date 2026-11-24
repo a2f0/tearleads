@@ -197,7 +197,13 @@ ended while reading a sync update (attempt n of 3)`, with the same `; voided`
 ending. One that died in a key rotation's rebuild of history the device
 accepted is reported as `Documents: the process ended rebuilding history for a
 key rotation (death n of 3)`; the third ends in `; this device starts no more
-rotations of the document and leaves them to other members`. A void that
+rotations of the document and leaves them to other members`, or, when it read
+one update alone, in `; the next rebuild leaves out the update it died
+reading`. A rebuild leaving that update out that does not match the device's
+history is reported as `Documents: a key rotation's rebuild leaving out the
+update it died reading did not match this device's history; this device
+starts no more rotations of the document and leaves them to other members`.
+A void that
 reused
 operation ids under this device's own peer id
 ([peer ownership](../advisory-op-spans.md#preemption-notices)) is

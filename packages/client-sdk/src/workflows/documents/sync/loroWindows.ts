@@ -54,6 +54,9 @@ import { reportQuietly } from "./reportQuietly";
 const KILLED_MESSAGE = "The process ended while reading this update";
 const ROTATION_KILLED_MESSAGE =
   "The process ended rebuilding history for a key rotation";
+/** How a report ends once this device's rotation is unavailable. */
+export const ROTATION_UNAVAILABLE_NOTE =
+  "this device starts no more rotations of the document and leaves them to other members";
 
 interface WindowScopeInput {
   readonly execSql: ExecSql;
@@ -156,6 +159,7 @@ async function applyOrphanVerdict(
     if (before.status !== "unavailable") {
       tally.rotation = transitionRotationAvailability(before, {
         ...claim,
+        suspects: verdict.suspects,
         type: "rotationDied",
       });
     }
@@ -292,7 +296,17 @@ export async function claimDocumentSyncOrphanWindows(
   if (claimed.rotation !== null) reportRotationDeath(input, claimed.rotation);
 }
 
-/** Reports a counted rotation death, and the rotation it made unavailable. */
+/** What a counted rotation death left the rotation, after its count. */
+const ROTATION_DEATH_OUTCOMES: Readonly<
+  Record<Exclude<RotationAvailability["status"], "available">, string>
+> = {
+  dying: "",
+  leavingOut: "; the next rebuild leaves out the update it died reading",
+  leftOut: "",
+  unavailable: `; ${ROTATION_UNAVAILABLE_NOTE}`,
+};
+
+/** Reports a counted rotation death, and what it made of the rotation. */
 function reportRotationDeath(
   input: {
     readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
@@ -302,9 +316,7 @@ function reportRotationDeath(
   if (rotation.status === "available") return;
   reportQuietly(
     input.logError,
-    rotation.status === "unavailable"
-      ? `Documents: the process ended rebuilding history for a key rotation (death ${rotation.deaths} of ${MAX_ROTATION_DEATHS}); this device starts no more rotations of the document and leaves them to other members`
-      : `Documents: the process ended rebuilding history for a key rotation (death ${rotation.deaths} of ${MAX_ROTATION_DEATHS})`,
+    `Documents: the process ended rebuilding history for a key rotation (death ${rotation.deaths} of ${MAX_ROTATION_DEATHS})${ROTATION_DEATH_OUTCOMES[rotation.status]}`,
     new Error(`${ROTATION_KILLED_MESSAGE}: ${rotation.documentId}`),
   );
 }

@@ -102,8 +102,8 @@ The abstraction maps to production at these seams:
 | `Replace` | a replaced local state whose frontier no longer satisfies the recorded one (`satisfiesVersionVector`); `deleteDocumentSyncVerdictsInTransaction` on a rebind or delete |
 | `RefuseVoid` | `assertNoVoidedDocumentSyncUpdates`, which rotation still uses for the history it re-encrypts |
 | `Rotate` / `rebuilding` | `pullVerifiedRawHistoryForRotation`, whose pages `rotationIncomingUpdateIsolation` judges with `judgeUnrecordedDocumentSyncImports` against the live document's version (`DocumentSyncLoroReads`); `pageWindowKind` opens a rotation window (`LoroWindowKind`) only when that version covers every update the page reads, and a `read` window otherwise; `loroWindowCounts` lets a rotation window count whatever its page held, since its death is charged to the rotation. `claimThenAssertDocumentRotationAvailable` claims the scope's orphans first and refuses with `DocumentRotationUnavailableError` once the rotation is unavailable under the running judge |
-| `DieRotating` / `rotationDeaths` | `judgeOrphanWindow` returning a rotation-death `OrphanVerdict` for a counting rotation window, which `applyOrphanVerdict` records through `transitionRotationAvailability` in `document_rotation_availability` (`writeRotationAvailabilityInTransaction`), at most once a claim, and isolates the window's updates; `reportRotationDeath` reports each death to the host's diagnostics and Sentry, and the one that makes the rotation unavailable. The model's limit, MaxAttempts, stands for `MAX_ROTATION_DEATHS`, equal to `MAX_LORO_RUNTIME_ATTEMPTS` |
-| `RotateDone` | `noteDocumentRotationRebuilt` once a rotation's raw pull completed, which clears a dying state but not an unavailable one; `currentRotationAvailability` reads a state under another judge or server document as available |
+| `DieRotating` / `rotationDeaths` | `judgeOrphanWindow` returning a rotation-death `OrphanVerdict` for a counting rotation window, which `applyOrphanVerdict` records through `transitionRotationAvailability` in `document_rotation_availability` (`writeRotationAvailabilityInTransaction`), at most once a claim, and isolates the window's updates; `reportRotationDeath` reports each death to the host's diagnostics and Sentry, and the one that makes the rotation unavailable. At the limit production first passes through `leavingOut` when that death's window read one update alone (out of the model, below). The model's limit, MaxAttempts, stands for `MAX_ROTATION_DEATHS`, equal to `MAX_LORO_RUNTIME_ATTEMPTS` |
+| `RotateDone` | `noteDocumentRotationRebuilt` once a rotation's raw pull completed, which clears a dying state, and a `leftOut` one's deaths, but neither an unavailable nor a `leavingOut` one; `currentRotationAvailability` reads a state under another judge or server document as available |
 | `CleanRead` / `strikes` | `noteDocumentSyncLoroWindowVerdicts`, which notes the updates a page's window read except one the runtime failed on or left unread, and `clearSurvivedLoroAttemptsInTransaction`, which deletes their non-final `loro_runtime` rows when the window closes, in the page's save (`closeDocumentSyncLoroWindowInTransaction`) or when no save commits (`settleDocumentSyncLoroWindow`), for sync, metadata, rotation, and founding-view windows alike. A save also deletes the void rows of the updates it accepted (`recordDocumentSyncVerdictsInTransaction`) |
 
 The checked configuration sets every switch to its safe value. Its invariants
@@ -209,7 +209,20 @@ short by a runtime failure, whose earlier updates' attempts production also
 clears and the model keeps, which only makes voids likelier; deaths outside a
 rotation page's window, between pages or in its final comparison, which count
 toward nothing; a death in the live apply after a page's save, when the update
-is already accepted; a
+is already accepted; acceptance itself, which the model's `Rotate` checks
+against what the device holds and production reads off the update's declared
+span against the live document's version, so a writer that declares a span of
+counters already committed passes an update the device never held as
+accepted (an honest server accepts such a span, per
+[advisory op spans](../../docs/advisory-op-spans.md)): rotation deaths on it
+count toward the rotation, and when the limit's death read one update alone
+production does not stop at once but rebuilds once more leaving that update
+out (`leavingOut` in `rotationAvailabilityMachine.ts`), and
+`assertExactDocumentHistory` decides: a rebuild without it that still equals
+the live document rotates and leaves it out from then on (`leftOut`, through
+`noteDocumentRotationProven`), and one that does not shows the device holds it
+and stops this device's rotations (`noteDocumentRotationDiverged`), where the
+model stops at once; a
 document isolating suspects that waits longer than the window gate allows (30
 seconds) for other documents' windows to close, which then reads beside them
 and counts nothing, so it only delays progress as a stutter would; the

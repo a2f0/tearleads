@@ -3,7 +3,10 @@ import {
   claimThenAssertDocumentRotationAvailable,
   DOCUMENTS_APP_KIND,
   type DocumentRotationProofMode,
+  noteDocumentRotationDiverged,
+  noteDocumentRotationProven,
   noteDocumentRotationRebuilt,
+  readDocumentRotationLeftOut,
 } from "../../../../workflows/documents";
 
 import { requestDocumentStoreSync } from "../../registry";
@@ -28,6 +31,7 @@ import {
 import {
   assertExactDocumentHistory,
   importProvenOrdinaryPendingHistory,
+  RotationUnverifiedHistoryError,
 } from "./rotationProvenance";
 import { RotationRawHistoryVoids } from "./rotationRawHistoryJudge";
 import {
@@ -45,6 +49,7 @@ async function collectVerifiedRawHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   documentId: string;
   generation: DocumentStoreSyncGeneration;
+  leftOut: readonly string[];
   state: DocumentStoreState;
 }) {
   const consumedPullContinuation = input.state.pullContinuation;
@@ -114,12 +119,22 @@ function currentRotationRecoveryRecord(
 
 function installRotationRecovery(input: {
   capturedVersion: string;
+  documentId: string;
+  leftOut: readonly string[];
   collection: Awaited<ReturnType<typeof collectVerifiedRawHistoryForRotation>>;
   currentDoc: DocumentState;
   generation: DocumentStoreSyncGeneration;
   state: DocumentStoreState;
 }) {
-  const { capturedVersion, collection, currentDoc, generation, state } = input;
+  const {
+    capturedVersion,
+    collection,
+    currentDoc,
+    documentId,
+    generation,
+    leftOut,
+    state,
+  } = input;
   const installation = state.writeChain
     .catch(() => undefined)
     .then(() =>
@@ -134,9 +149,18 @@ function installRotationRecovery(input: {
           currentDocument: currentDoc,
           rebuiltDocument: collection.rebuiltDocument,
         });
-        // Only a proven rebuild vouches for the voids it left out. They are
-        // recorded while the pass is current, which the install ends.
+        // Only a proven rebuild vouches for the voids it left out, and for
+        // an update it left out unread (`leavingOut`). They are recorded
+        // while the pass is current, which the install ends.
         await collection.voids.record({ generation, state });
+        await noteDocumentRotationProven({
+          documentId,
+          execSql: state.runtime.infra.execSql,
+          leftOut,
+          isCurrent: () =>
+            isDocumentStoreSyncGenerationCurrent(state, generation),
+          scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+        });
         return installRebuiltDocument({
           consumedPullContinuation: collection.consumedPullContinuation,
           currentRecord: collection.currentRecord,
@@ -163,6 +187,7 @@ function installRotationRecovery(input: {
 async function recoverFullHistoryForRotation(
   state: DocumentStoreState,
   laneGeneration: DocumentStoreSyncLaneGeneration,
+  leftOut: readonly string[],
 ): Promise<Uint8Array> {
   const { documentId } = assertRotationRecoveryPrerequisites(state);
   await invalidatePullContinuationBeforeRotation(state);
@@ -188,6 +213,14 @@ async function recoverFullHistoryForRotation(
   }
 
   const capturedVersion = encodeVersionVector(currentDoc);
+  const assertCurrent = () =>
+    assertCapturedDocumentCurrent({
+      capturedVersion,
+      currentDocument: currentDoc,
+      generation,
+      state,
+    });
+  const recovery = { documentId, generation, leftOut, state };
   let settlementRequiresRetry = false;
 
   // A raw recovery starts from an empty scratch document, bypasses untrusted
@@ -198,26 +231,14 @@ async function recoverFullHistoryForRotation(
   // checkpoint the judge accepted, which can only add its writer's signed
   // operations. A checkpoint queued or installed locally is never an input.
   let collection = await collectVerifiedRawHistoryForRotation({
+    ...recovery,
     currentRecord,
-    documentId,
-    generation,
-    state,
   });
 
   try {
-    assertCapturedDocumentCurrent({
-      capturedVersion,
-      currentDocument: currentDoc,
-      generation,
-      state,
-    });
+    assertCurrent();
     const pendingUpdates = await listPendingUpdates(state);
-    assertCapturedDocumentCurrent({
-      capturedVersion,
-      currentDocument: currentDoc,
-      generation,
-      state,
-    });
+    assertCurrent();
     const verifiedOrdinaryVersion = importProvenOrdinaryPendingHistory({
       currentDocument: currentDoc,
       pendingUpdates,
@@ -233,27 +254,19 @@ async function recoverFullHistoryForRotation(
         pendingUpdates,
         generation,
       );
-      assertCapturedDocumentCurrent({
-        capturedVersion,
-        currentDocument: currentDoc,
-        generation,
-        state,
-      });
+      assertCurrent();
       const definitiveCollection = await collectVerifiedRawHistoryForRotation({
+        ...recovery,
         currentRecord: currentRotationRecoveryRecord(state),
-        documentId,
-        generation,
-        state,
       });
       collection.rebuiltDocument.free();
       collection = definitiveCollection;
     }
     const installed = await installRotationRecovery({
+      ...recovery,
       capturedVersion,
       collection,
       currentDoc,
-      generation,
-      state,
     });
     settlementRequiresRetry = installed.settlementRequiresRetry;
     if (settlementRequiresRetry) {
@@ -319,16 +332,30 @@ async function proveFullHistoryForRotation(
 ): Promise<Uint8Array> {
   // A device whose rebuilds of this history keep ending the process starts
   // no rotation of it; other members rotate it (#3194).
-  await claimThenAssertDocumentRotationAvailable({
+  const rotation = {
     documentId: assertRotationRecoveryPrerequisites(state).documentId,
     execSql: state.runtime.infra.execSql,
+    isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
     logError: state.runtime.util.logError,
     scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-  });
+  };
+  await claimThenAssertDocumentRotationAvailable(rotation);
   for (let attempt = 0; ; attempt += 1) {
+    // An update the rotation's deaths came to rest on alone is left out,
+    // unread, and the exact-history check then decides the rotation.
+    const leftOut = await readDocumentRotationLeftOut(rotation);
     try {
-      return await recoverFullHistoryForRotation(state, laneGeneration);
+      return await recoverFullHistoryForRotation(
+        state,
+        laneGeneration,
+        leftOut,
+      );
     } catch (error) {
+      // A rebuild that left out the update its deaths came to rest on, and
+      // still differs from the live document, shows the device holds it.
+      if (error instanceof RotationUnverifiedHistoryError) {
+        await noteDocumentRotationDiverged({ ...rotation, leftOut });
+      }
       // Autosaves and conflict re-keying can invalidate the proven frontier.
       // Repeat the complete proof without blocking new local edits; repeated
       // changes remain bounded and leave the durable queue retryable.

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import { encodeVersionVector, exportAllUpdates } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
@@ -19,9 +19,10 @@ import {
   ensureDocumentTables,
   type PendingUpdateRecord,
 } from "../../../data/persistence/documents/records";
+import { readRecordedImportVoids } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import { writeLoroWindowInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
-import { createExecSql } from "../../../data/sqlite/sqlSchema";
+import { createExecSql, type ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createDocumentSyncLoroWindow } from "../../documents/sync/loroPassWindow";
 import { buildMaterializedDocumentSyncPlan } from "../../documents/syncPlan/syncPlanMaterial";
 import { createPrincipalPolicyOperation } from "../../principals/principalPolicyService";
@@ -34,6 +35,7 @@ import {
   createContainerRecord,
   createDocumentRecord,
 } from "./metadata.testFixtures";
+import * as incomingUpdates from "./metadataIncomingUpdateIsolation";
 import { metadataIncomingUpdateIsolation } from "./metadataIncomingUpdateIsolation";
 import { syncRemoteContainerMetadata } from "./metadataRemoteSync";
 import {
@@ -42,6 +44,11 @@ import {
 } from "./metadataSyncVerdicts";
 
 const CONTAINER_ID = "metadata-loro-windows";
+const restores: (() => void)[] = [];
+
+afterEach(() => {
+  for (const restore of restores.splice(0)) restore();
+});
 
 /** A metadata pull against a server that serves an empty page. */
 async function createMetadataPull() {
@@ -238,35 +245,20 @@ async function servedMetadataUpdate(): Promise<PendingUpdateRecord> {
   return { id: crypto.randomUUID(), ...fields };
 }
 
-// A save that loses currency at commit rolls back the close of the window
-// its page read in. The pass deletes the row itself: a row left for a live
-// lifetime would read its clean close as a death against an honest update.
-test("a metadata save rolled back at commit leaves no window row", async () => {
+/**
+ * A full metadata sync against a server that serves `served`, another
+ * device's update, through `wrap` around the client database.
+ */
+async function createServedMetadataSync(
+  served: PendingUpdateRecord,
+  wrap: (database: ExecSql) => ExecSql = (database) => database,
+) {
   const fixture = await createMaterializedSyncFixture();
   const { documentId } = fixture.writerProjection;
   const database = await createTestExecSql(`metadata-${crypto.randomUUID()}`);
   const server = await createTestExecSql(`server-${crypto.randomUUID()}`);
   await ensureDocumentTables(server.execSql);
-  const removeWebLocks = installFakeWebLocks();
-  const served = await servedMetadataUpdate();
-  let current = true;
-  let windowWritten = false;
-  // The pass loses currency as its save closes the window it wrote.
-  const execSql = createExecSql({
-    async exec({ sql, bind, rowMode }) {
-      if (/^insert into "document_loro_windows"/i.test(sql)) {
-        windowWritten = true;
-      }
-      if (windowWritten && /^delete from "document_loro_windows"/i.test(sql)) {
-        current = false;
-      }
-      const rows =
-        rowMode === "array"
-          ? await database.execSql(sql, bind, { rowMode: "array" })
-          : await database.execSql(sql, bind);
-      return { rows };
-    },
-  });
+  const execSql = wrap(database.execSql);
   const apiClient = createMockApiClient({
     getDocumentWriterProjection: async () => fixture.writerProjection,
     syncDocumentResult: async () => {
@@ -305,37 +297,124 @@ test("a metadata save rolled back at commit leaves no window row", async () => {
     lastCommitLsn: "0/1",
   });
   const doc = await createContainerMetadataDocument(container.id);
+  await sqlContainerContentsPersistence.ensureSchema(execSql);
+  await sqlContainerContentsPersistence.saveContainer(
+    execSql,
+    container,
+    record,
+  );
+  return {
+    close() {
+      doc.free();
+      server.close();
+      database.close();
+    },
+    doc,
+    documentId,
+    execSql,
+    sync: (isCurrent: () => boolean) =>
+      syncContainerMetadataState({
+        forceReadSync: true,
+        isCurrent,
+        metadataState: { container, doc, record },
+        persistence: sqlContainerContentsPersistence,
+        policyOperation: createPrincipalPolicyOperation(),
+        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+        runtime: createOnlineDocumentsRuntime({ apiClient, execSql, fixture }),
+        targetSecretKey: fixture.secretKey,
+      }),
+  };
+}
+
+// A save that loses currency at commit rolls back the close of the window
+// its page read in. The pass deletes the row itself: a row left for a live
+// lifetime would read its clean close as a death against an honest update.
+test("a metadata save rolled back at commit leaves no window row", async () => {
+  const removeWebLocks = installFakeWebLocks();
+  let current = true;
+  let windowWritten = false;
+  // The pass loses currency as its save closes the window it wrote.
+  const sync = await createServedMetadataSync(
+    await servedMetadataUpdate(),
+    (database) =>
+      createExecSql({
+        async exec({ sql, bind, rowMode }) {
+          if (/^insert into "document_loro_windows"/i.test(sql)) {
+            windowWritten = true;
+          }
+          if (
+            windowWritten &&
+            /^delete from "document_loro_windows"/i.test(sql)
+          ) {
+            current = false;
+          }
+          const rows =
+            rowMode === "array"
+              ? await database(sql, bind, { rowMode: "array" })
+              : await database(sql, bind);
+          return { rows };
+        },
+      }),
+  );
   try {
-    await sqlContainerContentsPersistence.ensureSchema(execSql);
-    await sqlContainerContentsPersistence.saveContainer(
-      execSql,
-      container,
-      record,
-    );
-
-    const synced = await syncContainerMetadataState({
-      forceReadSync: true,
-      isCurrent: () => current,
-      metadataState: { container, doc, record },
-      persistence: sqlContainerContentsPersistence,
-      policyOperation: createPrincipalPolicyOperation(),
-      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
-      runtime: createOnlineDocumentsRuntime({ apiClient, execSql, fixture }),
-      targetSecretKey: fixture.secretKey,
-    });
-
-    expect(synced).toBeNull();
+    expect(await sync.sync(() => current)).toBeNull();
     expect({ current, windowWritten }).toEqual({
       current: false,
       windowWritten: true,
     });
     expect(
-      await execSql("SELECT lifetime_id FROM document_loro_windows"),
+      await sync.execSql("SELECT lifetime_id FROM document_loro_windows"),
     ).toEqual([]);
   } finally {
     removeWebLocks();
-    doc.free();
-    server.close();
-    database.close();
+    sync.close();
+  }
+});
+
+// The judge read the update and survived, but the live import after it
+// failed: the window did not end cleanly, so its close keeps the attempt a
+// dead lifetime's window counted toward the update.
+test("a metadata close after the live import failed keeps the attempts", async () => {
+  const removeWebLocks = installFakeWebLocks();
+  const served = await servedMetadataUpdate();
+  const sync = await createServedMetadataSync(served);
+  try {
+    await writeLoroWindowInTransaction(
+      getClientSQLitePersistenceRuntime(sync.execSql).db,
+      containerMetadataScope(CONTAINER_ID),
+      {
+        counts: true,
+        documentId: sync.documentId,
+        judge: documentVerdictJudge(),
+        kind: "read",
+        lifetimeId: "dead",
+        updateIds: [served.id],
+        windowId: "dead-window",
+      },
+      "2026-11-24T00:00:00.000Z",
+    );
+    const importing = spyOn(
+      incomingUpdates,
+      "applyIncomingContainerMetadataUpdates",
+    ).mockImplementation(() => {
+      throw new WebAssembly.RuntimeError("unreachable");
+    });
+    restores.push(() => importing.mockRestore());
+
+    await expect(sync.sync(() => true)).rejects.toThrow("unreachable");
+    expect(importing).toHaveBeenCalledTimes(1);
+
+    const [attempts] = await readRecordedImportVoids(
+      getClientSQLitePersistenceRuntime(sync.execSql).db,
+      {
+        judge: documentVerdictJudge(),
+        scope: containerMetadataScope(CONTAINER_ID),
+        updateIds: [served.id],
+      },
+    );
+    expect(attempts).toMatchObject({ attempts: 1, stage: "loro_runtime" });
+  } finally {
+    removeWebLocks();
+    sync.close();
   }
 });

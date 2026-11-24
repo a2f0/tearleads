@@ -138,14 +138,17 @@ function onlyUpdate(
  * A founding-view (`read`) or rotation read in `lifetimes` that pulls raw
  * history and reads `updateId` alone in its window, as a page isolating that
  * update does, then never settles it: the lifetime died there. It claims the
- * windows dead lifetimes left first, as each of those reads does.
+ * windows dead lifetimes left first, as each of those reads does. A
+ * rotation weighs the update against what the device accepted, or against
+ * `acceptedVersion`, as a span forged to claim held counters would have it.
  */
 async function readAloneAndDie(
   owner: DeviceOwner,
   lifetimes: LoroLifetimes,
   updateId: string,
-  kind: LoroWindowKind,
+  reading: { readonly acceptedVersion?: string; readonly kind: LoroWindowKind },
 ): Promise<void> {
+  const { kind } = reading;
   const { localId, runtime } = owner;
   const { execSql } = runtime.infra;
   const record = await defaultDocumentsPersistence.loadDocument(
@@ -197,7 +200,11 @@ async function readAloneAndDie(
           reads:
             kind === "rotation"
               ? // As a rotation does, against what the device accepted.
-                { acceptedVersion: record.snapshotEndVersion, kind }
+                {
+                  acceptedVersion:
+                    reading.acceptedVersion ?? record.snapshotEndVersion,
+                  kind,
+                }
               : { kind },
           result: onlyUpdate(result, updateId),
           scope,
@@ -257,6 +264,7 @@ export async function countDeaths(
   updateId: string,
   deaths: number,
   options: {
+    readonly acceptedVersion?: string;
     readonly kind?: LoroWindowKind;
     readonly logError?: (message: string | Error, cause?: unknown) => void;
   } = {},
@@ -264,7 +272,12 @@ export async function countDeaths(
   const lifetimes = device();
   for (let index = 1; index <= deaths; index += 1) {
     const dying = lifetimes.lifetime(`counted-${index}`);
-    await readAloneAndDie(owner, dying, updateId, options.kind ?? "read");
+    await readAloneAndDie(owner, dying, updateId, {
+      ...(options.acceptedVersion
+        ? { acceptedVersion: options.acceptedVersion }
+        : {}),
+      kind: options.kind ?? "read",
+    });
     lifetimes.kill(dying.id);
   }
   await claimDocumentSyncOrphanWindows({

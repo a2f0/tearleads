@@ -95,6 +95,11 @@ export function rotationIncomingUpdateIsolation(input: {
   currentDocument: DocumentState;
   documentId: string;
   generation: DocumentStoreSyncGeneration;
+  /**
+   * Updates the rebuild leaves out, unread, for the exact-history check to
+   * decide (`readDocumentRotationLeftOut`).
+   */
+  leftOut: readonly string[];
   /** The page's read window, which the caller settles after the rebuild. */
   loroWindow: DocumentSyncLoroWindow;
   state: DocumentStoreState;
@@ -122,6 +127,7 @@ export function rotationIncomingUpdateIsolation(input: {
           currentDocument: input.currentDocument,
           documentId: input.documentId,
           execSql: input.state.runtime.infra.execSql,
+          leftOut: input.leftOut,
           loroWindow: input.loroWindow,
           reads: {
             acceptedVersion: live ? encodeVersionVector(live) : null,

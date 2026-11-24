@@ -28,7 +28,9 @@ export async function readRotationAvailability(
     .where(availabilityScope(scope))
     .limit(1)
     .all();
-  if (!row || !Number.isSafeInteger(row.deaths) || row.deaths < 1) {
+  // Only a rotation proven without its left-out update counts from zero.
+  const fewest = row?.status === "leftOut" ? 0 : 1;
+  if (!row || !Number.isSafeInteger(row.deaths) || row.deaths < fewest) {
     return ROTATION_AVAILABLE;
   }
   const judged = {
@@ -36,9 +38,18 @@ export async function readRotationAvailability(
     documentId: row.documentId,
     judge: row.judge,
   };
-  if (row.status === "dying") return { ...judged, status: "dying" };
-  if (row.status === "unavailable") return { ...judged, status: "unavailable" };
-  return ROTATION_AVAILABLE;
+  switch (row.status) {
+    case "dying":
+    case "unavailable":
+      return { ...judged, status: row.status };
+    case "leavingOut":
+    case "leftOut":
+      return row.leftOut
+        ? { ...judged, leftOut: row.leftOut, status: row.status }
+        : ROTATION_AVAILABLE;
+    default:
+      return ROTATION_AVAILABLE;
+  }
 }
 
 export async function writeRotationAvailabilityInTransaction(
@@ -59,6 +70,10 @@ export async function writeRotationAvailabilityInTransaction(
     deaths: state.deaths,
     documentId: state.documentId,
     judge: state.judge,
+    leftOut:
+      state.status === "leavingOut" || state.status === "leftOut"
+        ? state.leftOut
+        : null,
     status: state.status,
   };
   await tx

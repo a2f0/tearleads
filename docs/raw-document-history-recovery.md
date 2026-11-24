@@ -61,7 +61,9 @@ which retries later
 page reads in a read window. When the live document covers every update the
 page reads, the window's death counts toward this device's rotation of the
 document rather than any update; after three under one judge the device starts
-no rotation of it and leaves rotation to other members. A page reading an
+no rotation of it and leaves rotation to other members, unless the third read
+one update alone: the next rebuild leaves it out, and rotates when the result
+still equals the live document. A page reading an
 update the device has not accepted counts a death toward it, as a sync pass
 does ([Loro runtime failures](./advisory-op-spans.md#loro-runtime-failures)).
 An interrupted page, a poison update, a changing

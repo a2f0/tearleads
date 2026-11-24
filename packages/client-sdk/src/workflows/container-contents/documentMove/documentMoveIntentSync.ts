@@ -8,6 +8,7 @@ import { reportAndRethrowKeyingVerificationError } from "../../../data/shared/se
 import {
   type DocumentLinkSetFailureHandler,
   type DocumentRecord,
+  DocumentRotationUnavailableError,
   defaultDocumentsPersistence,
 } from "../../documents";
 import { availableDocumentLinkIntent } from "../documentLinks/availableDocumentLinkIntent";
@@ -424,6 +425,10 @@ async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
     if (!input.isCurrent()) return "abandoned";
     const message = errorMessage(error);
     await recordPendingDocumentMoveIntentError({
+      // A device that starts no rotation of the document parks the move as
+      // a denial: it replays once a launch, not every pass, and other
+      // members can still move the document (#3194).
+      denied: error instanceof DocumentRotationUnavailableError,
       documentId: intent.documentId,
       expectedIntentId: intent.id,
       expectedUpdatedAt: intent.updatedAt,

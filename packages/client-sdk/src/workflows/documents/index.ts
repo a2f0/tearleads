@@ -171,7 +171,10 @@ export type {
 export {
   claimThenAssertDocumentRotationAvailable,
   DocumentRotationUnavailableError,
+  noteDocumentRotationDiverged,
+  noteDocumentRotationProven,
   noteDocumentRotationRebuilt,
+  readDocumentRotationLeftOut,
 } from "./sync/rotationAvailability";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {

@@ -34,6 +34,11 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   /** @internal This realm's lifetime; tests stand in another one. */
   readonly lifetimes?: LoroLifetimes | undefined;
   readonly loroWindow: DocumentSyncLoroWindow;
+  /**
+   * Updates a rotation leaves out of its rebuild, unread, as a runtime void
+   * it does not record (`rotationAvailabilityMachine.ts`).
+   */
+  readonly leftOut?: readonly string[] | undefined;
   /** What the page's reads are, and so what a death there is charged to. */
   readonly reads: DocumentSyncLoroReads;
   readonly rebuildBudgetBytes?: number | undefined;
@@ -43,7 +48,8 @@ export async function judgeUnrecordedDocumentSyncImports(input: {
   >;
   readonly scope: DocumentScope;
 }): Promise<DocumentSyncImportVerdicts> {
-  const knownVoids = await readRecordedDocumentSyncVoids(input);
+  const knownVoids = new Map(await readRecordedDocumentSyncVoids(input));
+  for (const id of input.leftOut ?? []) knownVoids.set(id, "loro_runtime");
   const ledger = processLoroRuntimeFailures.unrecorded();
   const verdicts = await validateDocumentSyncUpdateImports({
     beforeUpdateReads: () =>

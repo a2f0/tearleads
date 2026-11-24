@@ -60,6 +60,8 @@ export function assertRotationRecoveryGeneration(input: {
 export async function pullVerifiedRawHistoryForRotation(input: {
   currentRecord: NonNullable<DocumentStoreState["record"]>;
   generation: DocumentStoreSyncGeneration;
+  /** Updates the rebuild leaves out, unread (`rotationAvailabilityMachine`). */
+  leftOut: readonly string[];
   rebuiltDocument: DocumentState;
   state: DocumentStoreState;
   voids: RotationRawHistoryVoids;
@@ -169,6 +171,7 @@ async function pullRawRotationPage(
         currentDocument: input.rebuiltDocument,
         documentId,
         generation: input.generation,
+        leftOut: input.leftOut,
         loroWindow,
         state: input.state,
       }),
