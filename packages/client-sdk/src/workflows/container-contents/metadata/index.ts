@@ -319,7 +319,6 @@ async function syncDetachedContainerMetadataState(
     syncAttempt,
     verdicts,
   });
-  await verdicts.settleWindow(runtime.infra.execSql);
   if (!isCurrent() || !finalized) {
     return null;
   }
@@ -393,6 +392,10 @@ async function finalizeContainerMetadataSync(input: {
     persistence: input.persistence,
     runtime: input.runtime,
     stillCurrent: input.isCurrent,
+  });
+  // A save that lost currency at commit returns null: it rolled back.
+  await verdicts.settleWindow(input.runtime.infra.execSql, {
+    committed: persisted !== null,
   });
   if (!input.isCurrent()) {
     discardAllSent();

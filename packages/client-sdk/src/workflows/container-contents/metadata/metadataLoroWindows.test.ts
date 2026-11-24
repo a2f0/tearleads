@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { encodeVersionVector } from "@tearleads/loro";
+import { encodeVersionVector, exportAllUpdates } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { createSyncResponse } from "../../../../test/helpers/data/documentFixtures";
@@ -11,15 +11,25 @@ import {
 } from "../../../../test/helpers/workflows/loroWindowBench";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/workflows/materializedSyncFixture";
 import { createOnlineDocumentsRuntime } from "../../../../test/helpers/workflows/onlineDocumentStoreFixtures";
+import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
-import { ensureDocumentTables } from "../../../data/persistence/documents/records";
+import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import {
+  ensureDocumentTables,
+  type PendingUpdateRecord,
+} from "../../../data/persistence/documents/records";
 import { writeLoroWindowInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
+import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { createDocumentSyncLoroWindow } from "../../documents/sync/loroPassWindow";
 import { buildMaterializedDocumentSyncPlan } from "../../documents/syncPlan/syncPlanMaterial";
 import { createPrincipalPolicyOperation } from "../../principals/principalPolicyService";
-import { createContainerMetadataDocument } from "./containerMetadataDocument";
+import {
+  createContainerMetadataDocument,
+  writeContainerMetadataValue,
+} from "./containerMetadataDocument";
+import { syncContainerMetadataState } from "./index";
 import {
   createContainerRecord,
   createDocumentRecord,
@@ -210,13 +220,125 @@ test("a metadata page reads inside its window, which its save closes", async () 
       loroWindow,
     );
     await recorder.commitSideEffect(database.execSql);
-    await recorder.settleWindow(database.execSql);
+    await recorder.settleWindow(database.execSql, { committed: true });
 
     expect(await windowRows()).toEqual([]);
     expect(loroWindow.held).toBeNull();
   } finally {
     removeWebLocks();
     doc.free();
+    database.close();
+  }
+});
+
+/** A metadata update another device wrote, as the server would serve it. */
+async function servedMetadataUpdate(): Promise<PendingUpdateRecord> {
+  const source = await createContainerMetadataDocument(CONTAINER_ID);
+  writeContainerMetadataValue(source, { icon: null, name: "Elsewhere" });
+  const fields = createPendingUpdateFields(exportAllUpdates(source));
+  source.free();
+  if (!fields) throw new Error("Expected a metadata update");
+  return { id: crypto.randomUUID(), ...fields };
+}
+
+// A save that loses currency at commit rolls back the close of the window
+// its page read in. The pass deletes the row itself: a row left for a live
+// lifetime would read its clean close as a death against an honest update.
+test("a metadata save rolled back at commit leaves no window row", async () => {
+  const fixture = await createMaterializedSyncFixture();
+  const { documentId } = fixture.writerProjection;
+  const database = await createTestExecSql(`metadata-${crypto.randomUUID()}`);
+  const server = await createTestExecSql(`server-${crypto.randomUUID()}`);
+  await ensureDocumentTables(server.execSql);
+  const removeWebLocks = installFakeWebLocks();
+  const served = await servedMetadataUpdate();
+  let current = true;
+  let windowWritten = false;
+  // The pass loses currency as its save closes the window it wrote.
+  const execSql = createExecSql({
+    async exec({ sql, bind, rowMode }) {
+      if (/^insert into "document_loro_windows"/i.test(sql)) {
+        windowWritten = true;
+      }
+      if (windowWritten && /^delete from "document_loro_windows"/i.test(sql)) {
+        current = false;
+      }
+      const rows =
+        rowMode === "array"
+          ? await database.execSql(sql, bind, { rowMode: "array" })
+          : await database.execSql(sql, bind);
+      return { rows };
+    },
+  });
+  const apiClient = createMockApiClient({
+    getDocumentWriterProjection: async () => fixture.writerProjection,
+    syncDocumentResult: async () => {
+      const materialized = await buildMaterializedDocumentSyncPlan({
+        author: fixture.author,
+        execSql: server.execSql,
+        localVersionVector: null,
+        pendingUpdates: [served],
+        resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+        targetSecretKey: fixture.secretKey,
+        writerProjection: fixture.writerProjection,
+      });
+      const data = await createSyncResponse(
+        // The server serves the other device's update, sent in its plan.
+        materialized.plan,
+        { acceptedOutgoingUpdateIds: [], commitLsn: "0/2" },
+      );
+      return { data, ok: true };
+    },
+  });
+  const container = createContainerRecord({
+    id: CONTAINER_ID,
+    metadataDocumentId: documentId,
+    parentId: null,
+  });
+  const record = createDocumentRecord({
+    contentKeyBundle: JSON.stringify(fixture.writerProjection.contentKeyBundle),
+    documentId,
+    documentKekTargets: JSON.stringify(
+      fixture.writerProjection.documentKekTargets,
+    ),
+    documentManifestBundle: JSON.stringify(
+      fixture.writerProjection.documentManifest,
+    ),
+    id: container.id,
+    lastCommitLsn: "0/1",
+  });
+  const doc = await createContainerMetadataDocument(container.id);
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    await sqlContainerContentsPersistence.saveContainer(
+      execSql,
+      container,
+      record,
+    );
+
+    const synced = await syncContainerMetadataState({
+      forceReadSync: true,
+      isCurrent: () => current,
+      metadataState: { container, doc, record },
+      persistence: sqlContainerContentsPersistence,
+      policyOperation: createPrincipalPolicyOperation(),
+      resolveProjectionUserKey: fixture.resolveProjectionUserKey,
+      runtime: createOnlineDocumentsRuntime({ apiClient, execSql, fixture }),
+      targetSecretKey: fixture.secretKey,
+    });
+
+    expect(synced).toBeNull();
+    expect({ current, windowWritten }).toEqual({
+      current: false,
+      windowWritten: true,
+    });
+    expect(
+      await execSql("SELECT lifetime_id FROM document_loro_windows"),
+    ).toEqual([]);
+  } finally {
+    removeWebLocks();
+    doc.free();
+    server.close();
     database.close();
   }
 });

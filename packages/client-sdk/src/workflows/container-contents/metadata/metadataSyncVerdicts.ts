@@ -69,14 +69,19 @@ export function containerMetadataVerdictRecorder(
       });
     },
     /**
-     * Settles the page's window once its save is over: a save that ran the
-     * recorder committed the window's row away with it.
+     * Settles the page's window once its save is over. Only a save that ran
+     * the recorder and committed took the window's row away with it; one
+     * that lost currency at commit rolled the close back, so the settle
+     * deletes the row itself.
      */
-    settleWindow: async (execSql: ExecSql): Promise<void> => {
+    settleWindow: async (
+      execSql: ExecSql,
+      saved: { readonly committed: boolean },
+    ): Promise<void> => {
       if (!loroWindow) return;
       await settleDocumentSyncLoroWindow(
         loroWindow,
-        recorded === undefined ? null : execSql,
+        saved.committed && recorded !== undefined ? execSql : null,
       );
     },
     /**

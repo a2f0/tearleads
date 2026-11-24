@@ -254,9 +254,7 @@ async function settleUnsavedLoroWindow(
   syncAttempt: DocumentSyncAttempt,
   committedTo: DocumentStoreSyncGeneration["execSql"] | null = null,
 ): Promise<void> {
-  if (syncAttempt.loroWindow) {
-    await settleDocumentSyncLoroWindow(syncAttempt.loroWindow, committedTo);
-  }
+  await settleDocumentSyncLoroWindow(syncAttempt.loroWindow, committedTo);
 }
 
 /**
