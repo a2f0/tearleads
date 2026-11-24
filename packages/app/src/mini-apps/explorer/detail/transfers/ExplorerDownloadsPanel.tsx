@@ -280,7 +280,7 @@ export function ExplorerDownloadsPanel(params: {
             : getExplorerDownloadsCountLabel(pendingCount)}
         </MiniAppStatus>
       )}
-      <MiniAppTableFrame className="mini-app-table-frame--bleed">
+      <MiniAppTableFrame className="mini-app-table-frame--bleed mini-app-table-frame--edges">
         <MiniAppTable
           aria-label={EXPLORER_LABELS.downloadsTitle}
           columns={COLUMNS}

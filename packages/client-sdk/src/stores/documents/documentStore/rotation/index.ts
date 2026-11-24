@@ -3,11 +3,13 @@ import {
   claimThenAssertDocumentRotationAvailable,
   DOCUMENTS_APP_KIND,
   type DocumentRotationProofMode,
+  isDatabaseUnavailableError,
   noteDocumentRotationDiverged,
   noteDocumentRotationProven,
   noteDocumentRotationRebuilt,
   readDocumentRotationLeftOut,
 } from "../../../../workflows/documents";
+import { reportQuietly } from "../../../../workflows/documents/sync/reportQuietly";
 
 import { requestDocumentStoreSync } from "../../registry";
 import { installRebuiltDocument } from "../history/historyRebuild";
@@ -48,12 +50,23 @@ import {
 /**
  * Rotation availability is bookkeeping beside the rotation: a note that
  * fails to write leaves the stored state for a later attempt to decide, and
- * neither fails a proven rotation nor hides a failed one's own error.
+ * neither fails a proven rotation nor hides a failed one's own error. The
+ * failure is reported to the host, unless the database is gone (teardown).
  */
-function noteBesideRotation(note: Promise<unknown>): Promise<void> {
+function noteBesideRotation(
+  state: DocumentStoreState,
+  note: Promise<unknown>,
+): Promise<void> {
   return note.then(
     () => undefined,
-    () => undefined,
+    (error: unknown) => {
+      if (isDatabaseUnavailableError(error)) return;
+      reportQuietly(
+        state.runtime.util.logError,
+        "Documents: a key rotation's availability note was not written; the stored state stands for a later rotation",
+        error,
+      );
+    },
   );
 }
 
@@ -79,6 +92,7 @@ async function collectVerifiedRawHistoryForRotation(input: {
     });
     // The rebuild outlived every page: earlier deaths were not its to keep.
     await noteBesideRotation(
+      input.state,
       noteDocumentRotationRebuilt({
         documentId: input.documentId,
         execSql: input.state.runtime.infra.execSql,
@@ -169,6 +183,7 @@ function installRotationRecovery(input: {
         // while the pass is current, which the install ends.
         await collection.voids.record({ generation, state });
         await noteBesideRotation(
+          state,
           noteDocumentRotationProven({
             documentId,
             execSql: state.runtime.infra.execSql,
@@ -374,6 +389,7 @@ async function proveFullHistoryForRotation(
       // device holds one.
       if (error instanceof RotationHistoryMismatchError && error.heldLeftOut) {
         await noteBesideRotation(
+          state,
           noteDocumentRotationDiverged({ ...rotation, leftOut }),
         );
       }

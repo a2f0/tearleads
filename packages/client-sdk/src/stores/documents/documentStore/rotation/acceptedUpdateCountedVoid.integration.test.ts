@@ -7,10 +7,12 @@ import {
   runtimeAttempts,
   twoDeviceHarness,
 } from "../../../../../test/helpers/stores/acceptedHistoryDevices";
+import * as documentContent from "../../../../data/documents/documentContent";
 import {
   defaultDocumentsPersistence,
   readDocumentFoundingUpdate,
 } from "../../../../workflows/documents";
+import * as documentHistory from "../../../../workflows/documents/history/documentHistory";
 import { readFinalDocumentVoidUpdateIds } from "../../../../workflows/documents/sync/processedCursor";
 import { createDocumentStore } from "../index";
 import * as storePersistence from "../persistence";
@@ -190,3 +192,47 @@ test("a clean read between deaths clears an accepted update's attempts", async (
     harness.close();
   }
 }, 20_000);
+
+// The founding view's reads of the imported state are Loro work after the
+// judge, as its import is: a trap there ends the window uncleanly, so its
+// close keeps the attempts deaths counted toward the founding update.
+test.each([
+  ["history view", () => spyOn(documentHistory, "readDocumentHistoryView")],
+  ["seed tag", () => spyOn(documentContent, "readSeedTag")],
+] as const)(
+  "a founding view whose %s read traps keeps the attempts",
+  async (_read, spyOnRead) => {
+    const harness = await twoDeviceHarness("accepted-founding-read-traps", {
+      stopsAtVersionVector: true,
+    });
+    const removeWebLocks = installFakeWebLocks();
+    try {
+      const { first, founding } = await openSyncedDevices(harness);
+      await countDeaths(first, harness.documentId(), founding.id, 2);
+      const reading = spyOnRead().mockImplementation(() => {
+        throw new WebAssembly.RuntimeError("unreachable");
+      });
+      try {
+        await expect(
+          readDocumentFoundingUpdate({
+            localId: first.localId,
+            runtime: first.runtime,
+            stillCurrent: () => true,
+          }),
+        ).rejects.toThrow("unreachable");
+        expect(reading).toHaveBeenCalledTimes(1);
+      } finally {
+        reading.mockRestore();
+      }
+
+      expect(await loroWindowRows(first.runtime)).toEqual([]);
+      expect(await runtimeAttempts(first, founding.id)).toEqual([
+        { attempts: 2 },
+      ]);
+    } finally {
+      removeWebLocks();
+      harness.close();
+    }
+  },
+  20_000,
+);

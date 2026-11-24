@@ -1,7 +1,7 @@
 /**
  * An identity's recovery passphrase as the platform's password keychain holds
- * it: the browser's password manager, or Google Password Manager through
- * Android's Credential Manager.
+ * it: the browser's password manager, Google Password Manager through
+ * Android's Credential Manager, or iCloud Keychain on iOS.
  */
 export interface PasswordKeychainEntry {
   /** What the keychain lists the entry under, as its username. */

@@ -10,7 +10,8 @@ import type { DocumentsRuntime } from "./types";
  *
  * The store is resolved by local id only, so an already-open store is reused
  * as-is (its runtime, draft and identity untouched) and a retry never maps one
- * local record onto another document's store.
+ * local record onto another document's store. It opens on demand: the pull it
+ * requests is the one it wants, so it neither runs nor joins a startup probe.
  */
 export async function retryDocumentDownload(input: {
   documentId: string;
@@ -32,6 +33,7 @@ export async function retryDocumentDownload(input: {
     null,
     "",
     record.documentKind,
+    { remoteSyncMode: "on-demand" },
   );
   // A store nothing has opened yet loads its record before it can sync.
   if (!(await store.ensureInitialized())) return false;

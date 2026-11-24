@@ -21,14 +21,17 @@ for (const platform of ["web", "android", "ios"] as const) {
       platform === "web" ? "https://app.tearleads.com" : "https://localhost";
     const scriptPath =
       platform === "web" ? "/chunk-test.js" : "/assets/index-test.js";
-    const diagnostics = createBrowserDiagnostics({
-      dsn: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`,
-      origin,
-      scriptPath,
-      environment: "production",
-      release: `tearleads-${platform}@${"b".repeat(40)}`,
-      dist: "production-app",
-    });
+    const diagnostics = createBrowserDiagnostics(
+      {
+        dsn: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`,
+        origin,
+        scriptPath,
+        environment: "production",
+        release: `tearleads-${platform}@${"b".repeat(40)}`,
+        dist: "production-app",
+      },
+      { enabled: () => true, subscribe: () => () => {} },
+    );
     const secret = "SYNTHETIC_PRIVATE_QUARANTINE_VALUE";
     const error = new Error(`Document sync quarantined: ${secret}`, {
       cause: new Error(secret),
