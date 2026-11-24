@@ -73,7 +73,8 @@ to publish it to R2 with local credentials. See the
 [Windows release guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).
 
 The native and desktop release shortcuts, and the Android and iOS dev
-launchers, prepare a fresh clone or worktree before building.
+launchers, prepare a fresh clone, or a worktree beside the other clones,
+before building.
 [`lib/secretsStore.sh`](lib/secretsStore.sh) links a missing `.secrets` to
 the shared `matrix-secrets/tearleads` folder when it exists, as
 [`lib/screenshotsStore.sh`](lib/screenshotsStore.sh) does for `.screenshots`,

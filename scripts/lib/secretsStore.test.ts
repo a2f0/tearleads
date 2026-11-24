@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import {
+  chmodSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -153,6 +154,28 @@ test("without the store it warns, links nothing, and never fails", () => {
     stdout: "",
     stderr:
       "warning: no matrix-secrets/tearleads folder found, so .secrets stays unlinked\n",
+  });
+  expect(present(join(repo, ".secrets"))).toBe(false);
+});
+
+test("a folder owned by another user is not linked", () => {
+  const { root, repo } = workspace();
+  store(join(root, "matrix-secrets"));
+  // An `id` that reports a different user than the one owning the fixture.
+  const bin = join(root, "bin");
+  mkdirSync(bin);
+  writeFileSync(
+    join(bin, "id"),
+    '#!/bin/sh\nif [ "$1" = -un ]; then echo someone; else echo 4242424; fi\n',
+  );
+  chmodSync(join(bin, "id"), 0o755);
+
+  const result = link(repo, { PATH: `${bin}:${PATH}` });
+  expect(result).toEqual({
+    exitCode: 0,
+    stdout: "",
+    stderr:
+      "warning: ../matrix-secrets/tearleads is not owned by someone, so .secrets stays unlinked\n",
   });
   expect(present(join(repo, ".secrets"))).toBe(false);
 });

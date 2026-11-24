@@ -150,7 +150,7 @@ test("the shared runner links a fresh clone's secrets at its root unless overrid
     recursive: true,
   });
   // As native_release_main sets it: the wrapper's own scripts/release folder.
-  const link = (secretsDirOverride: string) =>
+  const link = (secretsDirOverride?: string) =>
     Bun.spawnSync(
       [
         "sh",
@@ -174,11 +174,15 @@ test("the shared runner links a fresh clone's secrets at its root unless overrid
     expect(overridden.stdout.toString()).toBe("");
     await expect(lstat(resolve(clone, ".secrets"))).rejects.toThrow("ENOENT");
 
-    const linked = link(" ");
-    expect(linked.exitCode, linked.stderr.toString()).toBe(0);
-    expect(await readlink(resolve(clone, ".secrets"))).toBe(
-      "../matrix-secrets/tearleads",
-    );
+    // Unset, as normally, and blank both mean no override.
+    for (const secretsDirOverride of [undefined, " "]) {
+      await rm(resolve(clone, ".secrets"), { force: true });
+      const linked = link(secretsDirOverride);
+      expect(linked.exitCode, linked.stderr.toString()).toBe(0);
+      expect(await readlink(resolve(clone, ".secrets"))).toBe(
+        "../matrix-secrets/tearleads",
+      );
+    }
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }

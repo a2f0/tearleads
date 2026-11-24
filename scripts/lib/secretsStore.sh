@@ -36,12 +36,19 @@ secrets_store_target() {
   fi
 }
 
+# Whether the current user owns folder $1. Release scripts source the env files
+# inside as shell code, so a folder someone else planted beside a clone in a
+# shared directory must not be linked. `find -user` keeps this POSIX.
+secrets_store_owned() {
+  [ -n "$(find -H "$1" -prune -user "$(id -u)" 2>/dev/null)" ]
+}
+
 # Links the clone at $1 to its secrets folder when it has no .secrets at all and
-# the folder exists, so a release or native build from a fresh clone or worktree
-# reads the shared signing keys and store credentials. A clone that already
-# holds a .secrets, a link included, is left alone. Outside a Git checkout it
-# does nothing; without the folder (CI, or a machine without matrix) it warns.
-# It never fails its caller.
+# the folder exists and is the user's own, so a release or native build from a
+# fresh clone (or a worktree beside the other clones) reads the shared signing
+# keys and store credentials. A clone that already holds a .secrets, a link
+# included, is left alone. Outside a Git checkout it does nothing; without the
+# folder (CI, or a machine without matrix) it warns. It never fails its caller.
 secrets_store_link() {
   if [ -e "$1/.secrets" ] || [ -L "$1/.secrets" ] || [ ! -e "$1/.git" ]; then
     return 0
@@ -54,6 +61,10 @@ secrets_store_link() {
   esac
   if [ -z "$secrets_store_link_folder" ] || [ ! -d "$secrets_store_link_folder" ]; then
     echo "warning: no matrix-secrets/$SECRETS_STORE_PROJECT folder found, so .secrets stays unlinked" >&2
+    return 0
+  fi
+  if ! secrets_store_owned "$secrets_store_link_folder"; then
+    echo "warning: $secrets_store_link_target is not owned by $(id -un), so .secrets stays unlinked" >&2
     return 0
   fi
   if ln -s "$secrets_store_link_target" "$1/.secrets"; then
