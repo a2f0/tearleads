@@ -373,6 +373,12 @@ write in flight and one queued: a queued `setText` superseded by a newer
 every field newer unguarded, non-deferred patches set again, never persists on
 its own.
 
+### Runtime restart
+
+`getRuntimeHealth`, `subscribeRuntimeHealth`, and `prepareRuntimeRestart` (with
+`RuntimeHealthStatus`) let a host offer a reload after a Loro runtime failure
+([runtime restart](runtime-behavior.md#runtime-restart)).
+
 ### Host-controlled mutation admission
 
 `DocumentMutationGuard` and `DocumentMutationOptions` are named SDK root type

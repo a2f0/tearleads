@@ -22,6 +22,7 @@ import { WallpaperProvider } from "../../theme/WallpaperProvider";
 import { TRAY_APPS } from "../../tray-apps/registry";
 import { AppScreensaverHost } from "./AppScreensaverHost";
 import { BillingBanner } from "./BillingBanner";
+import { RuntimeRestartNotice } from "./RuntimeRestartNotice";
 import "./Layout.css";
 import "./AppChrome.css";
 import { useTableDividerLinesDocumentAttribute } from "./useTableDividerLinesDocumentAttribute";
@@ -134,6 +135,9 @@ function LayoutInner({ hostConfig }: LayoutProps) {
       }
       showHeader={false}
     >
+      {/* One realm runs every pane's documents, so one notice serves both
+          runtime policies. */}
+      <RuntimeRestartNotice />
       <WorkspaceRuntimeHost hostConfig={hostConfig}>
         {workspaceIds.map((id) => (
           <Workspace
