@@ -260,6 +260,7 @@ export function ExplorerContainerInfoPanel(
       scroll
     >
       <ExplorerContainerInfoHeader
+        containerIcon={params.containerIcon}
         containerId={params.containerId}
         containerName={params.containerName}
       />

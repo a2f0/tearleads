@@ -23,6 +23,33 @@ function openAttributionTab(view: ReturnType<typeof renderDocumentInfoPanel>) {
   fireEvent.click(view.getByRole("tab", { name: "Attribution" }));
 }
 
+test("the document info header shows the document type's icon", async () => {
+  const headerIcon = (view: ReturnType<typeof renderDocumentInfoPanel>) =>
+    view.container
+      .querySelector(".mini-app-header .explorer-detail-header-icon")
+      ?.getAttribute("data-icon");
+
+  // Opened from the document: its summary names the kind at once.
+  const opened = renderDocumentInfoPanel({
+    fallbackDocumentSummary: { ...documentSummary, documentKind: "contact" },
+  });
+  expect(headerIcon(opened)).toBe("contact");
+  await opened.findByText("General Details");
+  opened.unmount();
+
+  // A cold link holds the default glyph until the loaded info names the kind.
+  const cold = renderDocumentInfoPanel({
+    fallbackDocumentSummary: null,
+    loadDocumentInfo: async () => ({
+      ...documentInfo,
+      local: { ...documentInfo.local, documentKind: "passport" },
+    }),
+    loadDocumentSummary: async () => null,
+  });
+  expect(headerIcon(cold)).toBe("note");
+  await waitFor(() => expect(headerIcon(cold)).toBe("passport"));
+});
+
 test("attribution sections live on their own tab, not the general tab", async () => {
   const view = renderDocumentInfoPanel({
     fallbackDocumentSummary: documentSummary,
