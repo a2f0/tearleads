@@ -119,7 +119,7 @@ export function RecoveryKeyDisplay({
           onClick={() => onRequestDisclosure("copy")}
         />
       </ul>
-      {revealed ? (
+      {revealed && (
         <MiniAppField>
           <span>Passphrase</span>
           <MiniAppTextarea
@@ -130,10 +130,6 @@ export function RecoveryKeyDisplay({
             value={seedPhrase}
           />
         </MiniAppField>
-      ) : (
-        <MiniAppStatus>
-          The passphrase is hidden. Choose View to show it here.
-        </MiniAppStatus>
       )}
       {qrRevealed && <RecoveryKeyQrCode seedPhrase={seedPhrase} />}
     </div>
