@@ -10,7 +10,7 @@ afterEach(() => cleanup());
 
 // A healthy page shows nothing, and the shared runtime starts healthy.
 test("a healthy runtime shows no notice", () => {
-  const { container } = render(<RuntimeRestartNotice reload={() => {}} />);
+  const { container } = render(<RuntimeRestartNotice />);
   expect(container.innerHTML).toBe("");
   render(<RuntimeRestartNoticeView onReload={() => {}} status="healthy" />);
   expect(screen.queryByRole("status")).toBeNull();
@@ -56,4 +56,33 @@ test("the button waits for the drain and returns after it", () => {
       .getByRole("button", { name: RUNTIME_RESTART_LABELS.reload })
       .hasAttribute("disabled"),
   ).toBe(false);
+});
+
+// The page reloads only after the SDK has drained its read windows.
+test("Reload prepares the restart before reloading", async () => {
+  const steps: string[] = [];
+  const prepared = Promise.withResolvers<void>();
+  render(
+    <RuntimeRestartNotice
+      source={{
+        getStatus: () => "restartRequired",
+        prepare: () => {
+          steps.push("prepare");
+          return prepared.promise;
+        },
+        reload: () => steps.push("reload"),
+        subscribe: () => () => {},
+      }}
+    />,
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: RUNTIME_RESTART_LABELS.reload }),
+  );
+  expect(steps).toEqual(["prepare"]);
+  prepared.resolve();
+  await prepared.promise;
+  await Promise.resolve();
+
+  expect(steps).toEqual(["prepare", "reload"]);
 });

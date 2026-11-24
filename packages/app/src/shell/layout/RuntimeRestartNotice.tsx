@@ -47,9 +47,20 @@ export function RuntimeRestartNoticeView({
   );
 }
 
-function reloadPage(): void {
-  window.location.reload();
+/** The SDK's runtime health and restart; tests pass their own. */
+export interface RuntimeRestartSource {
+  readonly getStatus: () => RuntimeHealthStatus;
+  readonly prepare: () => Promise<void>;
+  readonly reload: () => void;
+  readonly subscribe: (listener: () => void) => () => void;
 }
+
+const SDK_RUNTIME_RESTART: RuntimeRestartSource = {
+  getStatus: getRuntimeHealth,
+  prepare: prepareRuntimeRestart,
+  reload: () => window.location.reload(),
+  subscribe: subscribeRuntimeHealth,
+};
 
 /**
  * Shows the notice while the SDK asks for a restart. Reload first lets the
@@ -58,18 +69,15 @@ function reloadPage(): void {
  * (`useWarnBeforeUnloadWithPendingDocumentWrites`).
  */
 export function RuntimeRestartNotice({
-  reload = reloadPage,
+  source = SDK_RUNTIME_RESTART,
 }: {
-  readonly reload?: () => void;
+  readonly source?: RuntimeRestartSource;
 }) {
-  const status = useTearleadsExternalValue(
-    subscribeRuntimeHealth,
-    getRuntimeHealth,
-  );
+  const status = useTearleadsExternalValue(source.subscribe, source.getStatus);
   return (
     <RuntimeRestartNoticeView
       onReload={() => {
-        void prepareRuntimeRestart().then(reload);
+        void source.prepare().then(source.reload);
       }}
       status={status}
     />

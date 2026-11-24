@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createLoroLifetimes } from "./loroLifetime";
+import { createRealmLoroRuntimeFailures } from "./loroRuntimeFailureLedger";
 import { createLoroRuntimeHealth } from "./loroRuntimeHealth";
 
 // A failure anywhere in the realm asks the host for a restart, once.
@@ -54,4 +55,19 @@ test("a restart is ready after a bounded wait", async () => {
 
   expect(health.current()).toEqual({ status: "ready" });
   expect(lifetimes.openWindowCount()).toBe(1);
+});
+
+// The realm's ledger is what tells the host: its first failure, wherever it
+// happened, stops the realm's windows counting and asks for a restart.
+test("a realm's first runtime failure asks for a restart once", () => {
+  const calls: string[] = [];
+  const ledger = createRealmLoroRuntimeFailures({
+    health: { noteRuntimeFailed: () => calls.push("health") },
+    lifetimes: { noteFailed: () => calls.push("lifetimes") },
+  });
+
+  ledger.noteFailure("update");
+  ledger.unrecorded().noteFailure("other");
+
+  expect(calls).toEqual(["lifetimes", "health"]);
 });

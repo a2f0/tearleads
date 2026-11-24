@@ -238,6 +238,17 @@ test("a drain ends after its wait, and a held window after the gate's", async ()
   lifetimes.closeWindow(open);
   lifetimes.closeWindow(outside);
   expect(await draining).toBe(true);
+  // The window that left the drain to read outside the gate holds no place
+  // in it: an isolating window then enters at once.
+  let alone = false;
+  const isolating = lifetimes.openWindow(true).then((window) => {
+    alone = true;
+    return window;
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(alone).toBe(true);
+  lifetimes.closeWindow(await isolating);
 
   const short = createLoroLifetimes({ id: "short" });
   const stuck = await short.openWindow(false);
