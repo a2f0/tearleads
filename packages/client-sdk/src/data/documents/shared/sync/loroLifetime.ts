@@ -26,6 +26,7 @@ import {
 const LOCK_PREFIX = "tearleads-loro-lifetime:";
 const HIDDEN_MARKER_PREFIX = "tearleads-loro-hidden:";
 const FAILED_MARKER_PREFIX = "tearleads-loro-failed:";
+const PROBE_MARKER_PREFIX = "tearleads-loro-probe:";
 
 /** The Web Locks surface a lifetime uses. */
 export interface LifetimeLockManager {
@@ -68,6 +69,13 @@ export interface LoroLifetimes {
   endedFailed(id: string): boolean;
   /** Drops the markers an ended lifetime left. */
   forget(id: string): void;
+  /**
+   * Whether this lifetime can leave the markers that tell a death from the
+   * user closing the app: it needs working storage and page visibility. A
+   * window opened without them counts nothing, so a close is never charged
+   * to an update.
+   */
+  keepsMarkers(): boolean;
   /**
    * Notes this lifetime's first Loro runtime failure, wherever it happened:
    * a window open now counts nothing if the lifetime then dies.
@@ -248,6 +256,16 @@ export function createLoroLifetimes(host: {
         storage?.removeItem(markerKey(HIDDEN_MARKER_PREFIX, other));
         storage?.removeItem(markerKey(FAILED_MARKER_PREFIX, other));
       }, undefined);
+    },
+    keepsMarkers() {
+      if (!storage || !visibility) return false;
+      const probe = markerKey(PROBE_MARKER_PREFIX, id);
+      return quietly(() => {
+        storage.setItem(probe, "1");
+        const kept = storage.getItem(probe) === "1";
+        storage.removeItem(probe);
+        return kept;
+      }, false);
     },
     noteFailed() {
       failed = true;

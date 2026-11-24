@@ -79,32 +79,34 @@ decoder or another content key judges it from zero. An update that imports on
 a retry joins.
 
 A payload can also kill the process outright (an out-of-memory crash, or a
-tab the browser discards) rather than throw. Document sync reads a page
-inside a read window: a local row naming the page's unsettled updates,
-committed before the first Loro call and deleted by the page's save. Each
-process lifetime holds a Web Lock named after it, so the next lifetime knows
-a window whose lock is gone was left by a dead one. A window that held one
-update, in a lifetime that met no runtime failure, records one `loro_runtime`
-attempt toward it, so a killing payload is voided after three deaths. Any
-other window says nothing about one update: its updates become suspects, and
-the document pulls one update a page (`maxPageUpdates: 1`) until it has
-passed them, so a later death names the update alone. Documents sync in
-parallel, so a window counts only while it is its lifetime's only open one:
-opening a second stops every window of that lifetime counting, and a death
-then isolates them all. A document isolating suspects waits to read until
-its window would be the lifetime's only one; after 30 seconds it reads beside
-the others, and counts nothing. A lifetime that ends
-while the app is hidden, with a window open, leaves a `localStorage` marker,
-and its window counts nothing and isolates nothing: the user closed the app,
-which says nothing about the update. A lifetime that met a runtime failure
-anywhere, with a window open, leaves a marker too, and its window isolates
-instead of counting, since the module may be unusable. A lifetime that
-cannot delete a window's row keeps its failure marker too, so its death
-isolates that row's updates. A lifetime's markers stay until its windows on
-every document are claimed. A host without Web
-Locks, or whose lock request is refused, opens no window. The command line's
-database is memory-only, so its windows die with it; a host whose database
-outlives its process must hold such a lock or mark its clean exits.
+renderer crash) rather than throw. Document sync reads a page inside a read
+window: a local row naming the page's unsettled updates, committed once the
+reader's history is built, before the first update is read, and deleted by the
+page's save. Each process lifetime holds a Web Lock named after it, so the
+next lifetime knows a window whose lock is gone was left by a dead one. A
+window that held one update, in a lifetime that met no runtime failure,
+records one `loro_runtime` attempt toward it, so a killing payload is voided
+after three deaths. Any other window says nothing about one update: its
+updates become suspects, and the document pulls one update a page
+(`maxPageUpdates: 1`) until it has passed them, so a later death names the
+update alone. Documents sync in parallel, so a window counts only while it is
+its lifetime's only open one: opening a second stops every window of that
+lifetime counting, and a death then isolates them all. A document isolating
+suspects waits to read until its window would be the lifetime's only one;
+after 30 seconds it reads beside the others, and counts nothing. A lifetime
+that ends while the app is hidden, with a window open, leaves a `localStorage`
+marker, and its window counts nothing and isolates nothing: the user closed
+the app, which says nothing about the update. A lifetime that met a runtime
+failure anywhere, with a window open, leaves a marker too, and its window
+isolates instead of counting, since the module may be unusable. A lifetime
+that cannot delete a window's row keeps its failure marker too, so its death
+isolates that row's updates. A host that cannot keep these markers (no working
+`localStorage` or page visibility) opens windows that count nothing, since a
+close could not be told from a death; a death there isolates. A lifetime's
+markers stay until its windows on every document are claimed. A host without
+Web Locks, or whose lock request is refused, opens no window. The command
+line's database is memory-only, so its windows die with it; a host whose
+database outlives its process must hold such a lock or mark its clean exits.
 
 Four residuals remain. An honest update that fails the runtime, or ends the
 process while the app is visible, in three separate process lifetimes on one

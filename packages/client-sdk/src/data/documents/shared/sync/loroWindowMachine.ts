@@ -95,12 +95,15 @@ export type LoroIsolationEvent =
       readonly documentId: string;
       readonly suspects: readonly string[];
     }
-  /** A page of `documentId` committed, having served these updates. */
+  /**
+   * A page of `documentId` committed, having passed these updates: accepted
+   * or voided them. An update it held or deferred is not passed.
+   */
   | {
       readonly type: "pageCommitted";
       readonly documentId: string;
+      readonly passedUpdateIds: readonly string[];
       readonly pullCompleted: boolean;
-      readonly servedUpdateIds: readonly string[];
     };
 
 export const LORO_ISOLATION_FREE: LoroIsolation = { status: "free" };
@@ -128,8 +131,8 @@ export function transitionLoroIsolation(
       ) {
         return LORO_ISOLATION_FREE;
       }
-      const served = new Set(event.servedUpdateIds);
-      const suspects = state.suspects.filter((id) => !served.has(id));
+      const passed = new Set(event.passedUpdateIds);
+      const suspects = state.suspects.filter((id) => !passed.has(id));
       return suspects.length === 0
         ? LORO_ISOLATION_FREE
         : { status: "isolating", documentId: state.documentId, suspects };

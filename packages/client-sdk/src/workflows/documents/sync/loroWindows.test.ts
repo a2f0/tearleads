@@ -13,11 +13,17 @@ import {
   SECOND,
 } from "../../../../test/helpers/workflows/loroWindowBench";
 import type { DecryptedDocumentSyncUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
+import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import { createLoroLifetimes } from "../../../data/documents/shared/sync/loroLifetime";
 import {
   LoroRuntimeFailureLedger,
   MAX_LORO_RUNTIME_ATTEMPTS,
 } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
+import {
+  readRecordedImportVoids,
+  recordDocumentSyncVerdictsInTransaction,
+} from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
+import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   claimDocumentSyncOrphanWindows,
@@ -85,21 +91,111 @@ test("a death in a window of several updates isolates them", async () => {
   expect(await recordedAttempts(FIRST)).toBeNull();
   expect(await recordedAttempts(SECOND)).toBeNull();
   expect(await pageLimit()).toBe(1);
-  const page = (ids: string[], hasMore: boolean) =>
-    closeDocumentSyncLoroWindowInTransaction(execSql, {
-      documentId: DOCUMENT_ID,
-      scope: SCOPE,
-      synced: {
-        response: {
-          pullPage: { hasMore },
-          updates: ids.map((id) => ({ id })),
-        } as unknown as DocumentSyncResponse,
-      },
-    });
-  await page([FIRST], true);
+  await commitPage([FIRST], { hasMore: true });
   expect(await pageLimit()).toBe(1);
-  await page([SECOND], true);
+  await commitPage([SECOND], { hasMore: true });
   expect(await pageLimit()).toBeUndefined();
+});
+
+/** Saves a page that accepted `ids`, closing its window. */
+function commitPage(
+  ids: readonly string[],
+  outcome: { readonly hasMore: boolean; readonly held?: readonly string[] },
+) {
+  const held = outcome.held ?? [];
+  return closeDocumentSyncLoroWindowInTransaction(execSql, {
+    documentId: DOCUMENT_ID,
+    scope: SCOPE,
+    synced: {
+      decryptedUpdates: ids.map((id) => ({
+        id,
+      })) as unknown as DecryptedDocumentSyncUpdate[],
+      hasHeldPull: held.length > 0,
+      hasIncompletePull: outcome.hasMore,
+      response: {
+        pullPage: { hasMore: outcome.hasMore },
+        updates: [...ids, ...held].map((id) => ({ id })),
+      } as unknown as DocumentSyncResponse,
+      voidedUpdates: [],
+    },
+  });
+}
+
+// A page that held a suspect behind a runtime failure is handed on as if
+// the pull were complete; it did not pass the suspect, so isolation stays.
+test("a page that holds a suspect keeps isolating it", async () => {
+  const host = device();
+  const first = await honest(FIRST);
+  const second = await honest(SECOND);
+  await judgeIn(host.lifetime("dead"), [first.update, second.update]);
+  host.kill("dead");
+  await judgeIn(host.lifetime("next"), [first.update]);
+
+  await commitPage([], { hasMore: false, held: [FIRST] });
+  expect(await pageLimit()).toBe(1);
+  await commitPage([SECOND], { hasMore: true });
+
+  expect(await pageLimit()).toBe(1);
+});
+
+// Another tab may settle the update between the death and the claim: its
+// verdict stands, and the death adds no attempt over it.
+test("a death toward an update another tab voided leaves that void", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await judgeIn(host.lifetime("dead"), [update]);
+  host.kill("dead");
+  await recordDocumentSyncVerdictsInTransaction(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    {
+      acceptedUpdateIds: [],
+      documentId: DOCUMENT_ID,
+      judge: documentVerdictJudge(),
+      keyFingerprintsByEpoch: new Map(),
+      now: "2026-11-23T00:00:00.000Z",
+      resolvesKeyConflicts: false,
+      scope: SCOPE,
+      voids: [
+        {
+          attempts: null,
+          contentKeyEpoch: null,
+          message: "voided elsewhere",
+          stage: "loro_import",
+          updateId: FIRST,
+        },
+      ],
+    },
+  );
+
+  await claimDocumentSyncOrphanWindows({
+    ...MAIN,
+    execSql,
+    lifetimes: host.lifetime("next"),
+  });
+
+  const [row] = await readRecordedImportVoids(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    { judge: documentVerdictJudge(), scope: SCOPE, updateIds: [FIRST] },
+  );
+  expect(row?.stage).toBe("loro_import");
+});
+
+// Without storage or page visibility a close cannot be told from a death,
+// so such a lifetime's window isolates its update instead of counting it.
+test("a lifetime that cannot keep markers counts no death", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await judgeIn(host.unmarkedLifetime("unmarked"), [update]);
+  host.kill("unmarked");
+
+  await claimDocumentSyncOrphanWindows({
+    ...MAIN,
+    execSql,
+    lifetimes: host.lifetime("next"),
+  });
+
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(await pageLimit()).toBe(1);
 });
 
 test("a live lifetime's window is never claimed", async () => {

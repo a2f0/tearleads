@@ -71,7 +71,7 @@ test("isolation clears as pages serve its suspects or the pull completes", () =>
       type: "pageCommitted",
       documentId: "doc",
       pullCompleted,
-      servedUpdateIds: ids,
+      passedUpdateIds: ids,
     });
   expect(served(["u1"])).toEqual({
     status: "isolating",

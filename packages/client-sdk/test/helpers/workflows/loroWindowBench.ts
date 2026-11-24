@@ -63,6 +63,8 @@ export function device() {
     kill(id: string) {
       held.delete(`tearleads-loro-lifetime:${id}`);
     },
+    /** A lifetime of a host with Web Locks but no storage or visibility. */
+    unmarkedLifetime: (id: string) => createLoroLifetimes({ id, locks }),
     lifetime: (id: string) =>
       createLoroLifetimes({
         id,

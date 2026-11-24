@@ -103,21 +103,34 @@ interface OrphanClaim {
   readonly scope: DocumentScope;
 }
 
-/** Records one more `loro_runtime` attempt toward the update a death held. */
+/**
+ * Records one more `loro_runtime` attempt toward the update a death held,
+ * and returns the attempts; null when the update is already settled under
+ * the same key (another tab voided it since, at any stage), which stands.
+ */
 async function countOrphanAttemptInTransaction(
   tx: ClaimTransaction,
   claim: OrphanClaim,
   verdict: Extract<OrphanVerdict, { kind: "count" }>,
-): Promise<number> {
+): Promise<number | null> {
   const [recorded] = await readRecordedImportVoids(tx, {
     judge: claim.judge,
     scope: claim.scope,
     updateIds: [verdict.updateId],
   });
   const sameKey =
-    recorded?.stage === "loro_runtime" &&
+    recorded !== undefined &&
     recorded.keyFingerprint === verdict.keyFingerprint;
-  const attempts = (sameKey ? (recorded.attempts ?? 0) : 0) + 1;
+  const priorAttempts =
+    sameKey && recorded.stage === "loro_runtime" ? (recorded.attempts ?? 0) : 0;
+  if (
+    sameKey &&
+    (recorded.stage !== "loro_runtime" ||
+      priorAttempts >= MAX_LORO_RUNTIME_ATTEMPTS)
+  ) {
+    return null;
+  }
+  const attempts = priorAttempts + 1;
   const { contentKeyEpoch, keyFingerprint } = verdict;
   await recordDocumentSyncVerdictsInTransaction(tx, {
     acceptedUpdateIds: [],
@@ -178,7 +191,9 @@ async function claimOrphansInTransaction(
         claim,
         verdict,
       );
-      counted.push({ attempts, updateId: verdict.updateId });
+      if (attempts !== null) {
+        counted.push({ attempts, updateId: verdict.updateId });
+      }
     } else if (verdict.kind === "isolate") {
       isolation = transitionLoroIsolation(isolation, {
         type: "orphanIsolated",
@@ -288,11 +303,14 @@ export async function openDocumentSyncLoroWindow(
   const epoch = optionalHeaderEpoch(
     input.result.response.updates.find((update) => update.id === only),
   );
+  // Without markers a close would read as a death: such a window isolates.
+  const keepsMarkers = lifetimes.keepsMarkers();
   let counts = false;
   await runSerializedSqlMutation(input.execSql, (locked) =>
     getClientSQLitePersistenceRuntime(locked).guardedTransaction(
       async (tx) => {
         counts =
+          keepsMarkers &&
           lifetimes.openWindowCount() === 1 &&
           loroWindowCounts(unsettled.length, input.ledger.hasFailed());
         // Beside another window none counts, nor does a row a failed settle
@@ -343,7 +361,8 @@ export async function stopCountingLoroWindows(
 
 /**
  * Closes this lifetime's window in the transaction that saves the page, and
- * clears the suspects the page served; a completed pull clears them all.
+ * clears the suspects the page passed (accepted or voided, not held or
+ * deferred); a completed pull clears them all.
  */
 export async function closeDocumentSyncLoroWindowInTransaction(
   transactionExecSql: ExecSql,
@@ -351,9 +370,17 @@ export async function closeDocumentSyncLoroWindowInTransaction(
     readonly documentId: string;
     readonly lifetimes?: LoroLifetimes | undefined;
     readonly scope: DocumentScope;
-    readonly synced: Pick<SyncRemoteDocumentResult, "response">;
+    readonly synced: Pick<
+      SyncRemoteDocumentResult,
+      | "decryptedUpdates"
+      | "hasHeldPull"
+      | "hasIncompletePull"
+      | "response"
+      | "voidedUpdates"
+    >;
   },
 ): Promise<void> {
+  const { synced } = input;
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
   const db = getClientSQLitePersistenceRuntime(transactionExecSql).db;
   if (lifetimes.hasWindow(scopeKey(input.scope))) {
@@ -364,8 +391,15 @@ export async function closeDocumentSyncLoroWindowInTransaction(
   const next: LoroIsolation = transitionLoroIsolation(isolation, {
     type: "pageCommitted",
     documentId: input.documentId,
-    pullCompleted: !input.synced.response.pullPage.hasMore,
-    servedUpdateIds: input.synced.response.updates.map((update) => update.id),
+    // A held or deferred page is handed on as if complete; it is not.
+    pullCompleted:
+      !synced.response.pullPage.hasMore &&
+      !synced.hasHeldPull &&
+      !synced.hasIncompletePull,
+    passedUpdateIds: [
+      ...synced.decryptedUpdates.map((update) => update.id),
+      ...synced.voidedUpdates.map((voided) => voided.updateId),
+    ],
   });
   await writeLoroIsolationInTransaction(db, input.scope, next);
 }
