@@ -1,4 +1,5 @@
-import { type FormEvent, useMemo } from "react";
+import type { FormEvent } from "react";
+import { RecoveryKeyScan } from "../../../components/identity/recovery-key/RecoveryKeyScan";
 import { SavedPassphraseButton } from "../../../components/identity/SavedPassphraseButton";
 import {
   MiniAppButton,
@@ -7,10 +8,7 @@ import {
   MiniAppTextarea,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
-import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import type { RecoveryKeyBusyState } from "../actions/useRecoveryKeyRestore";
-import { RecoveryKeyNativeScan } from "./RecoveryKeyNativeScan";
-import { RecoveryKeyScanControl } from "./RecoveryKeyScanControl";
 
 export function RecoveryKeyRestoreForm({
   busy,
@@ -29,8 +27,6 @@ export function RecoveryKeyRestoreForm({
   readonly restorePassphrase: string;
   readonly setRestorePassphrase: (passphrase: string) => void;
 }) {
-  const { createScanner } = useAppHostConfig();
-  const scanner = useMemo(() => createScanner?.(), [createScanner]);
   return (
     <form
       className="identity-manager-recovery-key-form"
@@ -60,18 +56,11 @@ export function RecoveryKeyRestoreForm({
           Wait for the current identity change to finish.
         </MiniAppStatus>
       )}
-      {scanner ? (
-        <RecoveryKeyNativeScan
-          disabled={busy !== null || !canRestore}
-          onScan={setRestorePassphrase}
-          scanner={scanner}
-        />
-      ) : (
-        <RecoveryKeyScanControl
-          disabled={busy !== null || !canRestore}
-          onScan={setRestorePassphrase}
-        />
-      )}
+      <RecoveryKeyScan
+        disabled={busy !== null || !canRestore}
+        label="Scan QR Code"
+        onScan={setRestorePassphrase}
+      />
       <SavedPassphraseButton
         disabled={busy !== null || !canRestore}
         onPick={setRestorePassphrase}
