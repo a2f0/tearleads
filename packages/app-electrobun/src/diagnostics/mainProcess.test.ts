@@ -2,6 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { pathToFileURL } from "node:url";
 import {
   configureMainProcessDiagnostics,
+  gateOnConsent,
   installMainProcessReporting,
   type MainProcessReporter,
 } from "./mainProcess";
@@ -72,10 +73,33 @@ test("an unbundled main process configures nothing and leaves Electrobun's crash
     expect(
       configureMainProcessDiagnostics(
         pathToFileURL("/x/app/bun/index.js").href,
+        { enabled: () => true },
       ),
     ).toBeUndefined();
     expect(process.listenerCount("uncaughtException")).toBe(1);
     expect(process.listenerCount("unhandledRejection")).toBe(0);
+  });
+});
+
+test("without consent a crash is logged and shut down, never reported", async () => {
+  await withProcessListeners(async (shutdowns) => {
+    let enabled = false;
+    const { calls, reporter, settle } = fakeReporter();
+    installMainProcessReporting(
+      gateOnConsent(reporter, { enabled: () => enabled }),
+    );
+    rejectionListener()(new Error("before consent"), Promise.resolve());
+    const error = new TypeError("synthetic crash");
+    crashListener()(error, "uncaughtException");
+    await tick();
+    expect(calls).toEqual(["flush"]);
+    settle(true);
+    await tick();
+    expect(shutdowns).toEqual([[error, "uncaughtException"]]);
+
+    enabled = true;
+    rejectionListener()(new Error("after consent"), Promise.resolve());
+    expect(calls).toEqual(["flush", "capture unhandled-rejection"]);
   });
 });
 

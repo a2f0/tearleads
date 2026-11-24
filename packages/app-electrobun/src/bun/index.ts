@@ -7,6 +7,7 @@ import pdfjsPackage from "pdfjs-dist/package.json" with { type: "json" };
 import { configureMainProcessDiagnostics } from "../diagnostics/mainProcess";
 import { createRendererBuildConfig } from "../rendererEnvironment";
 import { planSaveFileRequest } from "../saveFileHandler";
+import { planTelemetryConsentRequest } from "../telemetryConsentHandler";
 import { installApplicationMenu } from "./applicationMenu";
 import { resolvePdfAssetPath } from "./pdfAssetPaths";
 
@@ -16,9 +17,29 @@ const isDev = process.env.NODE_ENV !== "production";
 // Keep the origin stable across launches: OPFS and localStorage are scoped
 // to its port. Stay off app-web's :3000 origin and its service workers.
 const appServerPort = 3002;
+// The user's anonymous-telemetry choice as the renderer last reported it (see
+// ../telemetryConsentBridge); nothing is reported until it says yes.
+let telemetryEnabled = false;
 // Inert unless a release tier inlined its configuration; installed before the
 // app server binds.
-const mainDiagnostics = configureMainProcessDiagnostics(import.meta.url);
+const mainDiagnostics = configureMainProcessDiagnostics(import.meta.url, {
+  enabled: () => telemetryEnabled,
+});
+
+function handleTelemetryConsentRequest(req: Request): Response | null {
+  const plan = planTelemetryConsentRequest(req);
+  if (plan.kind === "ignore") return null;
+  if (plan.kind === "reject") {
+    return new Response("Invalid telemetry consent", { status: plan.status });
+  }
+  telemetryEnabled = plan.enabled;
+  return new Response(null, { status: 204 });
+}
+
+// The renderer's same-origin calls into the main process.
+async function handleBridgeRequest(req: Request): Promise<Response | null> {
+  return handleTelemetryConsentRequest(req) ?? handleSaveFileRequest(req);
+}
 
 // The renderer's WKWebView has no browser download destination, so the app posts
 // a file's bytes here (same origin, see src/renderer/electrobunFileSaver.ts) and
@@ -154,9 +175,9 @@ function createPackagedServerConfig() {
 
   return {
     async fetch(req: Request) {
-      const saveResponse = await handleSaveFileRequest(req);
-      if (saveResponse) {
-        return saveResponse;
+      const bridgeResponse = await handleBridgeRequest(req);
+      if (bridgeResponse) {
+        return bridgeResponse;
       }
 
       const { pathname } = new URL(req.url);
@@ -233,9 +254,9 @@ async function createDevServerConfig() {
 
   return {
     async fetch(req: Request) {
-      const saveResponse = await handleSaveFileRequest(req);
-      if (saveResponse) {
-        return saveResponse;
+      const bridgeResponse = await handleBridgeRequest(req);
+      if (bridgeResponse) {
+        return bridgeResponse;
       }
 
       const { pathname } = new URL(req.url);

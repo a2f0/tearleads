@@ -9,6 +9,29 @@ export interface MainProcessReporter {
   flush(): PromiseLike<boolean>;
 }
 
+/** The user's anonymous-telemetry choice, as the renderer last reported it. */
+export interface MainProcessConsent {
+  readonly enabled: () => boolean;
+}
+
+/**
+ * Reports only while the user consents. The choice lives in the renderer's
+ * storage and reaches this process over the telemetry-consent bridge, so the
+ * process starts with reporting off; a crash before the renderer says
+ * otherwise is logged and handed to Electrobun's shutdown, unreported.
+ */
+export function gateOnConsent(
+  reporter: MainProcessReporter,
+  consent: MainProcessConsent,
+): MainProcessReporter {
+  return {
+    captureError(error, source) {
+      if (consent.enabled()) reporter.captureError(error, source);
+    },
+    flush: () => reporter.flush(),
+  };
+}
+
 function inlinedSentryValues() {
   const values =
     typeof TEARLEADS_ELECTROBUN_MAIN_SENTRY === "object"
@@ -78,6 +101,7 @@ export function installMainProcessReporting(
 
 export function configureMainProcessDiagnostics(
   moduleUrl: string,
+  consent: MainProcessConsent,
 ): MainProcessReporter | undefined {
   try {
     const config = resolveElectrobunMainSentryConfig({
@@ -86,13 +110,16 @@ export function configureMainProcessDiagnostics(
     });
     if (!config) return undefined;
     const client = createServerDiagnostics(config);
-    const reporter: MainProcessReporter = {
-      captureError: (error, source) => captureQuietly(client, error, source),
-      flush: () =>
-        Promise.resolve()
-          .then(() => client.flush())
-          .catch(() => false),
-    };
+    const reporter = gateOnConsent(
+      {
+        captureError: (error, source) => captureQuietly(client, error, source),
+        flush: () =>
+          Promise.resolve()
+            .then(() => client.flush())
+            .catch(() => false),
+      },
+      consent,
+    );
     installMainProcessReporting(reporter);
     return reporter;
   } catch {

@@ -12,7 +12,10 @@ async function openSettings(page: Page) {
     .locator(".pane-main")
     .click({ button: "right", position: { x: 600, y: 100 } });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
-  return pane.getByRole("region", { name: "Settings", exact: true });
+  const settings = pane.getByRole("region", { name: "Settings", exact: true });
+  // Settings opens on General; wallpapers and themes are on Desktop.
+  await settings.getByRole("tab", { name: "Desktop", exact: true }).click();
+  return settings;
 }
 
 test("designed wallpapers switch, persist, and leave legacy choices reachable", async ({
