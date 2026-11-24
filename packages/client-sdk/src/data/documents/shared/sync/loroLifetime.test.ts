@@ -42,14 +42,14 @@ test("the hidden marker covers open windows only while the app is hidden", async
 
   surfaces.setHidden(true);
   expect(surfaces.markers.has(key)).toBe(false);
-  await lifetimes.openWindow("scope", false);
+  const window = await lifetimes.openWindow(false);
   expect(lifetimes.endedHidden("tab")).toBe(true);
   surfaces.setHidden(false);
   expect(surfaces.markers.has(key)).toBe(false);
   surfaces.setHidden(true);
-  expect(lifetimes.closeWindow("scope")).toBe(true);
+  expect(lifetimes.closeWindow(window)).toBe(true);
   expect(surfaces.markers.has(key)).toBe(false);
-  expect(lifetimes.closeWindow("scope")).toBe(false);
+  expect(lifetimes.closeWindow(window)).toBe(false);
 });
 
 // A failure anywhere in the lifetime, even outside document sync, may leave
@@ -61,11 +61,11 @@ test("a failure marker covers the windows open after the lifetime failed", async
 
   lifetimes.noteFailed();
   expect(lifetimes.endedFailed("tab")).toBe(false);
-  await lifetimes.openWindow("scope", false);
+  const window = await lifetimes.openWindow(false);
   expect(lifetimes.endedFailed("tab")).toBe(true);
   lifetimes.forget("tab");
   expect(lifetimes.endedFailed("tab")).toBe(false);
-  lifetimes.closeWindow("scope");
+  lifetimes.closeWindow(window);
   expect(surfaces.markers.size).toBe(0);
 });
 
@@ -112,25 +112,24 @@ test("a page that hides, closes, or comes back reports it", () => {
   expect(changes).toEqual([true, false, true]);
 });
 
-// An isolating scope reads alone, so the death it may cause names it alone;
-// other scopes wait behind it and share the gate with each other.
-test("an isolating scope's window waits to be the lifetime's only one", async () => {
+// An isolating window reads alone, so the death it may cause names it alone;
+// other windows wait behind it and share the gate with each other.
+test("an isolating window waits to be the lifetime's only one", async () => {
   const lifetimes = createLoroLifetimes({ id: "tab" });
   const order: string[] = [];
-  await lifetimes.openWindow("shared-a", false);
-  const isolating = lifetimes
-    .openWindow("isolating", true)
-    .then(() => order.push("isolating"));
-  const later = lifetimes
-    .openWindow("shared-b", false)
-    .then(() => order.push("shared-b"));
+  const first = await lifetimes.openWindow(false);
+  const isolating = lifetimes.openWindow(true).then((window) => {
+    order.push("isolating");
+    return window;
+  });
+  const later = lifetimes.openWindow(false).then(() => order.push("shared-b"));
   await Promise.resolve();
   expect(order).toEqual([]);
 
-  lifetimes.closeWindow("shared-a");
-  await isolating;
+  lifetimes.closeWindow(first);
+  const alone = await isolating;
   expect(lifetimes.openWindowCount()).toBe(1);
-  lifetimes.closeWindow("isolating");
+  lifetimes.closeWindow(alone);
   await later;
 
   expect(order).toEqual(["isolating", "shared-b"]);
@@ -140,26 +139,29 @@ test("an isolating scope's window waits to be the lifetime's only one", async ()
 // beside the others, and so does not count.
 test("a window that waits too long opens outside the gate", async () => {
   const lifetimes = createLoroLifetimes({ gateWaitMs: 5, id: "tab" });
-  await lifetimes.openWindow("stuck", false);
+  await lifetimes.openWindow(false);
 
-  await lifetimes.openWindow("isolating", true);
+  await lifetimes.openWindow(true);
 
   expect(lifetimes.openWindowCount()).toBe(2);
 });
 
-// Only an open window closes: a scope still waiting keeps its place, and
-// enters once the gate frees, with nothing left open behind it.
-test("closing a scope that is still waiting for the gate keeps its place", async () => {
-  const lifetimes = createLoroLifetimes({ gateWaitMs: 60_000, id: "tab" });
-  await lifetimes.openWindow("shared", false);
-  const isolating = lifetimes.openWindow("isolating", true);
+// Two passes may read one scope at once, as when a store's runtime moved
+// mid-pass: each holds a window of its own, and closing one leaves the other
+// open, so the lifetime's markers still cover the pass still reading.
+test("each open is a window of its own, closed only by its id", async () => {
+  const surfaces = host();
+  const lifetimes = createLoroLifetimes({ id: "tab", ...surfaces });
+  surfaces.setHidden(true);
+  const stale = await lifetimes.openWindow(false);
+  const current = await lifetimes.openWindow(false);
 
-  expect(lifetimes.closeWindow("isolating")).toBe(false);
-  lifetimes.closeWindow("shared");
-  await isolating;
-
-  expect(lifetimes.hasWindow("isolating")).toBe(true);
-  expect(lifetimes.closeWindow("isolating")).toBe(true);
+  expect(stale).not.toBe(current);
+  expect(lifetimes.openWindowCount()).toBe(2);
+  expect(lifetimes.closeWindow(stale)).toBe(true);
+  expect(lifetimes.hasWindow(current)).toBe(true);
+  expect(lifetimes.endedHidden("tab")).toBe(true);
+  expect(lifetimes.closeWindow(current)).toBe(true);
   expect(lifetimes.openWindowCount()).toBe(0);
 });
 

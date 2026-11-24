@@ -91,7 +91,10 @@ updates become suspects, and the document pulls one update a page
 (`maxPageUpdates: 1`) until it has passed them, so a later death names the
 update alone. Documents sync in parallel, so a window counts only while it is
 its lifetime's only open one: opening a second stops every window of that
-lifetime counting, and a death then isolates them all. A document isolating
+lifetime counting, in every database it has open, and a death then isolates
+them all. Each sync pass holds a window of its own and settles only that one,
+so a stale pass still running after the store moved to another database
+cannot close the window of the pass that replaced it. A document isolating
 suspects waits to read until its window would be the lifetime's only one;
 after 30 seconds it reads beside the others, and counts nothing. A lifetime
 that ends while the app is hidden, with a window open, leaves a `localStorage`

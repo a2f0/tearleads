@@ -8,6 +8,7 @@ import {
   createDocumentWriterPublicKeyResolver,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  type DocumentSyncLoroWindow,
   deletePersistedDocument,
   type ExecSql,
   type IncomingDocumentSyncUpdateValidator,
@@ -99,6 +100,7 @@ export async function deleteUpstreamDeletedDocument(
 
 function createDocumentSyncAttempt(input: {
   currentRecord: DocumentRecord;
+  loroWindow: DocumentSyncLoroWindow | undefined;
   outgoingUpdateCount: number;
   policyOperation: PrincipalPolicyOperation;
   requestedPullContinuation: DocumentStoreState["pullContinuation"];
@@ -110,6 +112,7 @@ function createDocumentSyncAttempt(input: {
       input.synced.plan.request.pullCursor === undefined
         ? null
         : input.requestedPullContinuation,
+    loroWindow: input.loroWindow ?? null,
     outgoingUpdateCount: input.outgoingUpdateCount,
     policyOperation: input.policyOperation,
     requestRecord: input.currentRecord,
@@ -132,11 +135,12 @@ interface RequestRemoteDocumentSyncInput {
   policyOperation: PrincipalPolicyOperation;
   queuedUpdateCount?: number | undefined;
   /**
-   * Reads the page inside a Loro read window (`loroWindows.ts`). Only a pass
-   * whose page `finalizeDocumentSync` saves, inside the scheduled sync loop
-   * that settles an unsaved window, may set it; rotation settlement does not.
+   * The pass's Loro read window (`loroPassWindow.ts`), which the page is
+   * read in. Only a scheduled pass, whose pages `finalizeDocumentSync` saves
+   * and which settles the window as it ends, has one; rotation settlement
+   * reads without.
    */
-  readsInLoroWindow?: boolean | undefined;
+  loroWindow?: DocumentSyncLoroWindow | undefined;
   state: DocumentStoreState;
   unavailableWriterLogMessage: string;
 }
@@ -182,7 +186,7 @@ function documentImportJudge(
       execSql: state.runtime.infra.execSql,
       isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
       logError: state.runtime.util.logError,
-      opensLoroWindow: input.readsInLoroWindow === true,
+      loroWindow: input.loroWindow,
       result,
       scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
     });
@@ -331,7 +335,7 @@ export async function requestRemoteDocumentSync(
       scope,
     },
   );
-  const maxPageUpdates = input.readsInLoroWindow
+  const maxPageUpdates = input.loroWindow
     ? await claimThenReadPageLimit(state, generation, {
         documentId: currentRecord.documentId,
         scope,
@@ -354,6 +358,7 @@ export async function requestRemoteDocumentSync(
   const outgoingUpdateCount = input.queuedUpdateCount ?? pendingUpdates.length;
   return createDocumentSyncAttempt({
     currentRecord,
+    loroWindow: input.loroWindow,
     outgoingUpdateCount,
     policyOperation: input.policyOperation,
     requestedPullContinuation,

@@ -18,6 +18,10 @@ import { readRecordedImportVoids } from "../../../src/data/persistence/documents
 import { getClientSQLitePersistenceRuntime } from "../../../src/data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
 import {
+  createDocumentSyncLoroWindow,
+  type DocumentSyncLoroWindow,
+} from "../../../src/workflows/documents/sync/loroPassWindow";
+import {
   claimDocumentSyncOrphanWindows,
   readDocumentSyncPageLimit,
 } from "../../../src/workflows/documents/sync/loroWindows";
@@ -129,7 +133,8 @@ export function createLoroWindowBench() {
     },
     /**
      * One lifetime pulling and judging a page, whose save never runs. Like
-     * the store, it claims dead lifetimes' windows before the pull.
+     * the store, it claims dead lifetimes' windows before the pull. Each
+     * call is a pass of its own unless it names the pass's `window`.
      */
     async judgeIn(
       lifetimes: LoroLifetimes,
@@ -139,6 +144,7 @@ export function createLoroWindowBench() {
       pass: {
         readonly execSql?: ExecSql;
         readonly isCurrent?: () => boolean;
+        readonly window?: DocumentSyncLoroWindow;
       } = {},
     ) {
       await claimDocumentSyncOrphanWindows({
@@ -156,7 +162,7 @@ export function createLoroWindowBench() {
           isCurrent: pass.isCurrent,
           lifetimes,
           logError: () => undefined,
-          opensLoroWindow: true,
+          loroWindow: pass.window ?? createDocumentSyncLoroWindow(),
           result: {
             contentKeyFingerprintsByEpoch: new Map(),
             decryptedUpdates: [...updates],

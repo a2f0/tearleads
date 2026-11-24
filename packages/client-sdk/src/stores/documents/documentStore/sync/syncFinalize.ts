@@ -199,6 +199,7 @@ async function persistSyncedDocument(
           documentId: synced.plan.documentId,
           scope,
           synced,
+          window: syncAttempt.loroWindow,
         });
       },
     );
@@ -237,27 +238,25 @@ async function persistSyncedDocument(
     );
   } finally {
     candidate.free();
-    await settleDocumentSyncLoroWindow({
-      committed,
-      execSql: generation.execSql,
-      scope,
-    });
+    await settleUnsavedLoroWindow(
+      syncAttempt,
+      committed ? generation.execSql : null,
+    );
   }
 }
 
 /**
- * Settles a read window no save closed, before the pass goes on to other
- * work: a death there says nothing about the page's updates.
+ * Settles the read window the request read in, once its save is over or
+ * before the pass goes on to other work without one: a death after that
+ * says nothing about the page's updates.
  */
-function settleUnsavedLoroWindow(
-  state: DocumentStoreState,
-  generation: DocumentStoreSyncGeneration,
+async function settleUnsavedLoroWindow(
+  syncAttempt: DocumentSyncAttempt,
+  committedTo: DocumentStoreSyncGeneration["execSql"] | null = null,
 ): Promise<void> {
-  return settleDocumentSyncLoroWindow({
-    committed: false,
-    execSql: generation.execSql,
-    scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-  });
+  if (syncAttempt.loroWindow) {
+    await settleDocumentSyncLoroWindow(syncAttempt.loroWindow, committedTo);
+  }
 }
 
 /**
@@ -276,7 +275,7 @@ function settleDocumentSyncVerdicts(
 
 export function shouldReArmDocumentSync(
   state: DocumentStoreState,
-  syncAttempt: DocumentSyncAttempt,
+  syncAttempt: Pick<DocumentSyncAttempt, "outgoingUpdateCount" | "synced">,
 ): boolean {
   const { synced } = syncAttempt;
   const shouldReArmOutgoing = settleOutgoingPassAndDecideReArm(state, {
@@ -305,7 +304,7 @@ export async function finalizeDocumentSync(
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
-    await settleUnsavedLoroWindow(state, generation);
+    await settleUnsavedLoroWindow(syncAttempt);
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
     requestDocumentStoreSync(state);
     return state.record ?? currentRecord;
@@ -371,7 +370,7 @@ export async function finalizeDocumentSync(
     return persisted;
   });
   // A save settled its window; an exit before the save settles it here.
-  await settleUnsavedLoroWindow(state, generation);
+  await settleUnsavedLoroWindow(syncAttempt);
   if (!responseApplied) {
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
     requestDocumentStoreSync(state);

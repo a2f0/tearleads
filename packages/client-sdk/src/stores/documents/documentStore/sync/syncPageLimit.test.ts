@@ -10,6 +10,7 @@ import { documentVerdictJudge } from "../../../../data/documents/shared/sync/doc
 import { writeLoroWindowInTransaction } from "../../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
 import {
+  createDocumentSyncLoroWindow,
   type DocumentRecord,
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
@@ -94,7 +95,7 @@ async function createPageLimitStore() {
       },
       generation,
       pendingUpdates: [],
-      readsInLoroWindow: true,
+      loroWindow: createDocumentSyncLoroWindow(),
       state,
       unavailableWriterLogMessage: "unexpected unavailable writer",
     });
@@ -147,6 +148,7 @@ test("the first pull after such a death already asks for one update", async () =
         keyFingerprint: null,
         lifetimeId: "dead",
         updateIds: ["first-suspect", "second-suspect"],
+        windowId: "dead-window",
       },
       "2026-11-23T00:00:00.000Z",
     );

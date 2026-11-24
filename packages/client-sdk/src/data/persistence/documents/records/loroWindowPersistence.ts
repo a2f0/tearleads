@@ -64,11 +64,14 @@ export async function readForeignLoroWindows(
   }));
 }
 
-/** Opens (or replaces) this lifetime's window on the scope. */
+/**
+ * Opens window `windowId` of this lifetime on the scope, replacing the row
+ * another of its windows wrote there.
+ */
 export async function writeLoroWindowInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "insert">,
   scope: DocumentScope,
-  window: LoroWindow,
+  window: LoroWindow & { readonly windowId: string },
   openedAt: string,
 ): Promise<void> {
   const values = {
@@ -79,6 +82,7 @@ export async function writeLoroWindowInTransaction(
     keyFingerprint: window.keyFingerprint,
     openedAt,
     updateIds: JSON.stringify(window.updateIds),
+    windowId: window.windowId,
   };
   await tx
     .insert(documentLoroWindows)
@@ -99,7 +103,28 @@ export async function writeLoroWindowInTransaction(
     .run();
 }
 
-/** Deletes a lifetime's window on the scope, its own or a claimed orphan's. */
+/**
+ * Deletes the row window `windowId` of the lifetime wrote on the scope; a
+ * row another of its windows wrote since stays.
+ */
+export async function deleteOwnLoroWindowInTransaction(
+  tx: Pick<ClientSQLiteTransactionScope, "delete">,
+  scope: DocumentScope,
+  owner: { readonly lifetimeId: string; readonly windowId: string },
+): Promise<void> {
+  await tx
+    .delete(documentLoroWindows)
+    .where(
+      and(
+        windowScope(scope),
+        eq(documentLoroWindows.lifetimeId, owner.lifetimeId),
+        eq(documentLoroWindows.windowId, owner.windowId),
+      ),
+    )
+    .run();
+}
+
+/** Deletes an ended lifetime's window on the scope; true when it was there. */
 export async function deleteLoroWindowInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "delete">,
   scope: DocumentScope,

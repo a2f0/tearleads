@@ -22,6 +22,7 @@ import {
   createOnlineDocumentsRuntime,
   createStoredDocumentWriterProjection,
 } from "../../../../../test/helpers/workflows/onlineDocumentStoreFixtures";
+import { processLoroLifetimes } from "../../../../data/documents/shared/sync/loroLifetime";
 import { defaultDocumentsPersistence } from "../../../../workflows/documents";
 import { buildMaterializedDocumentSyncPlan } from "../../../../workflows/documents/syncPlan/syncPlanMaterial";
 import { createDocumentStore } from "../index";
@@ -358,6 +359,52 @@ test("a committed page closes its read window and ends isolation", async () => {
     expect(
       await harness.execSql("SELECT local_id FROM document_loro_isolation"),
     ).toEqual([]);
+  } finally {
+    removeWebLocks();
+    harness.close();
+  }
+});
+
+// A pass that ends before any save, here because its window's row cannot
+// be written, still settles the window it opened: one left open would keep
+// the lifetime's later windows from counting, and its markers standing.
+test("a pass that fails after opening its read window settles it", async () => {
+  const localId = "read-window-failed-pass";
+  const harness = await createServerHarness(localId);
+  const removeWebLocks = installFakeWebLocks();
+  try {
+    const store = createDocumentStore(
+      localId,
+      harness.runtime,
+      defaultDocumentsPersistence,
+      null,
+      "",
+      "note",
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    await store.setText("mine");
+    expect(await store.requestRemoteSyncAndWait()).toBe(true);
+    const [served] = await otherWriterEdits("unsaved", 1);
+    if (!served) throw new Error("expected an edit");
+    await harness.commitFromAnotherWriter([
+      createPendingUpdateRecord({
+        id: HONEST_ID,
+        partialEndVersionVector: served.end,
+        partialStartVersionVector: served.start,
+        updateData: bytesToBase64(served.data),
+      }),
+    ]);
+    await harness.execSql(
+      `CREATE TRIGGER refuse_window BEFORE INSERT ON document_loro_windows
+       BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END`,
+    );
+    const openBefore = processLoroLifetimes.openWindowCount();
+
+    await store.requestRemoteSyncAndWait().catch(() => false);
+
+    expect(harness.requests.at(-1)?.maxPageUpdates).toBeUndefined();
+    expect(store.getSnapshot().text).not.toContain("unsaved-0");
+    expect(processLoroLifetimes.openWindowCount()).toBe(openBefore);
   } finally {
     removeWebLocks();
     harness.close();

@@ -26,9 +26,10 @@ import {
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
-  claimDocumentSyncOrphanWindows,
   closeDocumentSyncLoroWindowInTransaction,
-} from "./loroWindows";
+  createDocumentSyncLoroWindow,
+} from "./loroPassWindow";
+import { claimDocumentSyncOrphanWindows } from "./loroWindows";
 import { judgeDocumentSyncImports } from "./processedCursor";
 
 const bench = createLoroWindowBench();
@@ -118,6 +119,7 @@ function commitPage(
       } as unknown as DocumentSyncResponse,
       voidedUpdates: [],
     },
+    window: null,
   });
 }
 
@@ -352,7 +354,7 @@ test("a death building the reader's history opens no window", async () => {
     execSql,
     lifetimes: host.lifetime("dying"),
     logError: () => undefined,
-    opensLoroWindow: true,
+    loroWindow: createDocumentSyncLoroWindow(),
     result: {
       contentKeyFingerprintsByEpoch: new Map(),
       decryptedUpdates: [update],

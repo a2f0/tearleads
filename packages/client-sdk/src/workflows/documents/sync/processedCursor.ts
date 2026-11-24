@@ -34,9 +34,10 @@ import {
 } from "../../../data/sqlite/sqlSchema";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import {
+  type DocumentSyncLoroWindow,
   openDocumentSyncLoroWindow,
   stopCountingLoroWindows,
-} from "./loroWindows";
+} from "./loroPassWindow";
 import { reportQuietly } from "./reportQuietly";
 
 /**
@@ -188,11 +189,12 @@ export async function readRecordedDocumentSyncVoids(input: {
  * otherwise record it may fail, and an attempt that is never recorded would
  * be made again in every process.
  *
- * With `opensLoroWindow`, the update reads run inside a window the page's
- * save closes (`loroWindows.ts`), opened once the reader's history is built,
- * so a death inside them is found by the next lifetime. The caller claims
- * the windows ended lifetimes left before its pull asks for the page
- * (`claimDocumentSyncOrphanWindows`), so their counts are recorded first.
+ * With `loroWindow`, the update reads run inside the pass's window, which
+ * the page's save closes (`loroPassWindow.ts`), opened once the reader's
+ * history is built, so a death inside them is found by the next lifetime.
+ * The caller claims the windows ended lifetimes left before its pull asks
+ * for the page (`claimDocumentSyncOrphanWindows`), so their counts are
+ * recorded first.
  */
 export async function judgeDocumentSyncImports(input: {
   readonly currentDocument: Parameters<
@@ -204,8 +206,8 @@ export async function judgeDocumentSyncImports(input: {
   /** @internal This realm's lifetime; tests stand in another one. */
   readonly lifetimes?: LoroLifetimes | undefined;
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
-  /** Reads inside a window this page's save closes. */
-  readonly opensLoroWindow?: boolean | undefined;
+  /** The pass's read window, which this page's save closes. */
+  readonly loroWindow?: DocumentSyncLoroWindow | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,
     "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
@@ -219,15 +221,17 @@ export async function judgeDocumentSyncImports(input: {
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
   const recorded = await readRecordedImportJudgements(input);
   let windowCounts = false;
+  const window = input.loroWindow;
   const verdicts = await validateDocumentSyncUpdateImports({
     ...recorded,
-    beforeUpdateReads: input.opensLoroWindow
+    beforeUpdateReads: window
       ? async () => {
           windowCounts = await openDocumentSyncLoroWindow({
             ...input,
             knownVoids: recorded.knownVoids,
             ledger,
             lifetimes,
+            window,
           });
         }
       : undefined,

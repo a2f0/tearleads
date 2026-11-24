@@ -91,6 +91,7 @@ async function judgedScope(localId: string) {
       keyFingerprint: null,
       lifetimeId: "dead",
       updateIds: [THROUGH],
+      windowId: "dead-window",
     },
     "2026-11-22T00:00:01.000Z",
   );

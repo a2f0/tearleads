@@ -65,6 +65,7 @@ and was its lifetime's only open window, counts a runtime attempt toward it;
 any other window makes the document pull
 one update a page (`maxPageUpdates: 1`) until it has passed those updates. A
 window left by a lifetime that ended while the app was hidden counts nothing.
+Each sync pass holds its own window and settles only that one.
 
 Related docs:
 

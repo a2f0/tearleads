@@ -142,10 +142,14 @@ export {
 } from "./runtime";
 export { documentCreateSeedCandidate } from "./sync/initialSync";
 export {
-  claimDocumentSyncOrphanWindows,
   closeDocumentSyncLoroWindowInTransaction,
-  readDocumentSyncPageLimit,
+  createDocumentSyncLoroWindow,
+  type DocumentSyncLoroWindow,
   settleDocumentSyncLoroWindow,
+} from "./sync/loroPassWindow";
+export {
+  claimDocumentSyncOrphanWindows,
+  readDocumentSyncPageLimit,
 } from "./sync/loroWindows";
 export {
   judgeDocumentSyncImports,

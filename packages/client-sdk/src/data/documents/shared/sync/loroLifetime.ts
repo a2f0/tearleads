@@ -82,23 +82,24 @@ export interface LoroLifetimes {
    */
   noteFailed(): void;
   /**
-   * Notes a window whose row could not be deleted: the failure marker then
-   * stands for the rest of the lifetime, so its death isolates that row's
-   * updates instead of counting them.
+   * Notes a window row that could not be deleted or stopped counting: the
+   * failure marker then stands for the rest of the lifetime, so its death
+   * isolates that row's updates instead of counting them.
    */
   noteUnsettledWindow(): void;
-  /** Whether this lifetime holds a window on `scope`. */
-  hasWindow(scope: string): boolean;
+  /** Whether this lifetime holds window `id` open. */
+  hasWindow(id: string): boolean;
   /** How many windows this lifetime holds open. */
   openWindowCount(): number;
   /**
-   * Notes a window on `scope`, which the lifetime's markers then cover,
-   * once the window gate admits it (alone when `exclusive`). A wait longer
-   * than the gate's limit opens it anyway, outside the gate.
+   * Opens a window once the window gate admits it (alone when `exclusive`)
+   * and resolves to its id; the lifetime's markers then cover it. A wait
+   * longer than the gate's limit opens it anyway, outside the gate. Each
+   * call opens a window of its own, even beside another on the same scope.
    */
-  openWindow(scope: string, exclusive: boolean): Promise<void>;
-  /** Notes the window on `scope` gone; false when none was open. */
-  closeWindow(scope: string): boolean;
+  openWindow(exclusive: boolean): Promise<string>;
+  /** Notes window `id` gone; false when it was not open. */
+  closeWindow(id: string): boolean;
 }
 
 /** How long a window waits for the gate before reading outside it. */
@@ -191,40 +192,37 @@ function lifetimeLock(
 /** The windows this lifetime holds, admitted through its window gate. */
 function lifetimeWindows(gateWaitMs: number, onChange: () => void) {
   const windows = new Set<string>();
-  const entering = new Map<string, { enter(): void; entered: Promise<void> }>();
+  const entering = new Map<string, () => void>();
   let gate: LoroWindowGate = LORO_WINDOW_GATE_IDLE;
   const moveGate = (event: LoroWindowGateEvent) => {
     gate = transitionLoroWindowGate(gate, event);
-    for (const holder of loroGateHolders(gate)) entering.get(holder)?.enter();
+    for (const holder of loroGateHolders(gate)) entering.get(holder)?.();
   };
   return {
     count: () => windows.size,
-    has: (scope: string) => windows.has(scope),
-    open(scope: string, exclusive: boolean): Promise<void> {
-      if (windows.has(scope)) return Promise.resolve();
-      const pending = entering.get(scope);
-      if (pending) return pending.entered;
-      const { promise, resolve } = Promise.withResolvers<void>();
+    has: (id: string) => windows.has(id),
+    open(exclusive: boolean): Promise<string> {
+      const window = crypto.randomUUID();
+      const { promise, resolve } = Promise.withResolvers<string>();
       const enter = () => {
         clearTimeout(timer);
-        entering.delete(scope);
-        windows.add(scope);
+        entering.delete(window);
+        windows.add(window);
         onChange();
-        resolve();
+        resolve(window);
       };
       const timer = setTimeout(() => {
         // Leaves the queue and reads outside the gate: it may not count.
-        moveGate({ type: "released", scope });
+        moveGate({ type: "released", window });
         enter();
       }, gateWaitMs);
-      entering.set(scope, { enter, entered: promise });
-      moveGate({ type: "requested", waiter: { exclusive, scope } });
+      entering.set(window, enter);
+      moveGate({ type: "requested", waiter: { exclusive, window } });
       return promise;
     },
-    close(scope: string): boolean {
-      // A scope still waiting for the gate keeps its place.
-      if (!windows.delete(scope)) return false;
-      moveGate({ type: "released", scope });
+    close(id: string): boolean {
+      if (!windows.delete(id)) return false;
+      moveGate({ type: "released", window: id });
       onChange();
       return true;
     },
@@ -304,12 +302,12 @@ export function createLoroLifetimes(host: {
     },
     hasWindow: windows.has,
     openWindowCount: windows.count,
-    openWindow(scope, exclusive) {
+    openWindow(exclusive) {
       if (!watching && visibility) {
         watching = true;
         visibility.onChange(syncMarkers);
       }
-      return windows.open(scope, exclusive);
+      return windows.open(exclusive);
     },
     closeWindow: windows.close,
   };

@@ -1,19 +1,12 @@
-import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
-import { optionalHeaderEpoch } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
 import {
   type LoroLifetimes,
   processLoroLifetimes,
 } from "../../../data/documents/shared/sync/loroLifetime";
-import {
-  type LoroRuntimeAttempts,
-  MAX_LORO_RUNTIME_ATTEMPTS,
-} from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
+import { MAX_LORO_RUNTIME_ATTEMPTS } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import {
   judgeOrphanWindow,
-  type LoroIsolation,
   loroIsolationPageLimit,
-  loroWindowCounts,
   type OrphanVerdict,
   transitionLoroIsolation,
 } from "../../../data/documents/shared/sync/loroWindowMachine";
@@ -25,12 +18,10 @@ import {
 } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import {
   deleteLoroWindowInTransaction,
-  markLoroWindowsNotCountingInTransaction,
   readForeignLoroWindows,
   readLifetimesWithWindows,
   readLoroIsolation,
   writeLoroIsolationInTransaction,
-  writeLoroWindowInTransaction,
 } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
@@ -41,55 +32,18 @@ import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import { reportQuietly } from "./reportQuietly";
 
 /**
- * Loro read windows for a document's sync pages (#3194). A page's reads of
- * served payloads run inside a window committed before the first Loro call
- * and deleted by the page's save, so a process that dies inside it leaves
- * the window for its next lifetime to find.
+ * Claims the Loro read windows ended lifetimes left (#3194), and the page
+ * limit a scope isolating their updates asks for. A pass opens and settles
+ * its own window (`loroPassWindow.ts`).
  */
 
 const KILLED_MESSAGE = "The process ended while reading this update";
-
-type PageResult = Pick<
-  SyncRemoteDocumentResult,
-  "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
->;
 
 interface WindowScopeInput {
   readonly execSql: ExecSql;
   /** @internal This realm's lifetime; tests stand in another one. */
   readonly lifetimes?: LoroLifetimes | undefined;
   readonly scope: DocumentScope;
-}
-
-function scopeKey(scope: DocumentScope): string {
-  return `${scope.appKind}\u0000${scope.localId}`;
-}
-
-/**
- * The database each open window's row was written to, so its settle deletes
- * it there even after the store's runtime moved to another database.
- */
-const windowDatabases = new WeakMap<LoroLifetimes, Map<string, ExecSql>>();
-
-function rememberWindowDatabase(
-  lifetimes: LoroLifetimes,
-  key: string,
-  execSql: ExecSql,
-): void {
-  const databases =
-    windowDatabases.get(lifetimes) ?? new Map<string, ExecSql>();
-  databases.set(key, execSql);
-  windowDatabases.set(lifetimes, databases);
-}
-
-function takeWindowDatabase(
-  lifetimes: LoroLifetimes,
-  key: string,
-): ExecSql | undefined {
-  const databases = windowDatabases.get(lifetimes);
-  const database = databases?.get(key);
-  databases?.delete(key);
-  return database;
 }
 
 type ClaimTransaction = Parameters<
@@ -270,176 +224,6 @@ export async function claimDocumentSyncOrphanWindows(
       new Error(`${KILLED_MESSAGE}: ${updateId}`),
     );
   }
-}
-
-/**
- * Opens this lifetime's window on the page's unsettled updates: those it
- * will read with Loro, not its known voids or updates still waiting out a
- * retry delay. A page with none opens no window and writes nothing.
- *
- * A death counts only toward the update alone in the lifetime's only open
- * window, so the transaction that writes this window stops every other
- * window of the lifetime counting. A scope isolating
- * the updates a death left waits to read alone (`loroWindowGate.ts`).
- * Returns whether the window counts.
- */
-export async function openDocumentSyncLoroWindow(
-  input: WindowScopeInput & {
-    readonly documentId: string;
-    readonly knownVoids: ReadonlyMap<string, unknown>;
-    readonly ledger: LoroRuntimeAttempts;
-    readonly result: PageResult;
-  },
-): Promise<boolean> {
-  const lifetimes = input.lifetimes ?? processLoroLifetimes;
-  const unsettled = input.result.decryptedUpdates
-    .map((update) => update.id)
-    .filter((id) => !input.knownVoids.has(id) && input.ledger.mayAttempt(id));
-  if (unsettled.length === 0 || !(await lifetimes.ready())) return false;
-  const isolating =
-    loroIsolationPageLimit(
-      await readLoroIsolation(
-        getClientSQLitePersistenceRuntime(input.execSql).db,
-        input.scope,
-      ),
-      input.documentId,
-    ) !== undefined;
-  // Noted first, so a death once the row commits leaves its markers.
-  await lifetimes.openWindow(scopeKey(input.scope), isolating);
-  rememberWindowDatabase(lifetimes, scopeKey(input.scope), input.execSql);
-  const [only] = unsettled;
-  const epoch = optionalHeaderEpoch(
-    input.result.response.updates.find((update) => update.id === only),
-  );
-  // Without markers a close would read as a death: such a window isolates.
-  const keepsMarkers = lifetimes.keepsMarkers();
-  let counts = false;
-  await runSerializedSqlMutation(input.execSql, (locked) =>
-    getClientSQLitePersistenceRuntime(locked).guardedTransaction(
-      async (tx) => {
-        counts =
-          keepsMarkers &&
-          lifetimes.openWindowCount() === 1 &&
-          loroWindowCounts(unsettled.length, input.ledger.hasFailed());
-        // Beside another window none counts, nor does a row a failed settle
-        // left; this window's own row is replaced below.
-        await markLoroWindowsNotCountingInTransaction(tx, lifetimes.id);
-        await writeLoroWindowInTransaction(
-          tx,
-          input.scope,
-          {
-            contentKeyEpoch: counts ? epoch : null,
-            counts,
-            documentId: input.documentId,
-            judge: documentVerdictJudge(),
-            keyFingerprint:
-              counts && epoch !== null
-                ? (input.result.contentKeyFingerprintsByEpoch.get(epoch) ??
-                  null)
-                : null,
-            lifetimeId: lifetimes.id,
-            updateIds: unsettled,
-          },
-          new Date().toISOString(),
-        );
-      },
-      // The page is read whatever the pass's generation: its window too.
-      () => true,
-    ),
-  );
-  return counts;
-}
-
-/**
- * After a Loro runtime failure no update recorded, this lifetime's windows
- * count nothing more. A counted failure does the same in the transaction
- * that records it (`recordDocumentSyncRuntimeFailures`).
- */
-export async function stopCountingLoroWindows(
-  execSql: ExecSql,
-  lifetimes: LoroLifetimes = processLoroLifetimes,
-): Promise<void> {
-  await runSerializedSqlMutation(execSql, (locked) =>
-    getClientSQLitePersistenceRuntime(locked).guardedTransaction(
-      (tx) => markLoroWindowsNotCountingInTransaction(tx, lifetimes.id),
-      () => true,
-    ),
-  );
-}
-
-/**
- * Closes this lifetime's window in the transaction that saves the page, and
- * clears the suspects the page passed (accepted or voided, not held or
- * deferred); a completed pull clears them all.
- */
-export async function closeDocumentSyncLoroWindowInTransaction(
-  transactionExecSql: ExecSql,
-  input: {
-    readonly documentId: string;
-    readonly lifetimes?: LoroLifetimes | undefined;
-    readonly scope: DocumentScope;
-    readonly synced: Pick<
-      SyncRemoteDocumentResult,
-      | "decryptedUpdates"
-      | "hasHeldPull"
-      | "hasIncompletePull"
-      | "response"
-      | "voidedUpdates"
-    >;
-  },
-): Promise<void> {
-  const { synced } = input;
-  const lifetimes = input.lifetimes ?? processLoroLifetimes;
-  const db = getClientSQLitePersistenceRuntime(transactionExecSql).db;
-  if (lifetimes.hasWindow(scopeKey(input.scope))) {
-    await deleteLoroWindowInTransaction(db, input.scope, lifetimes.id);
-  }
-  const isolation = await readLoroIsolation(db, input.scope);
-  if (isolation.status === "free") return;
-  const next: LoroIsolation = transitionLoroIsolation(isolation, {
-    type: "pageCommitted",
-    documentId: input.documentId,
-    // A held or deferred page is handed on as if complete; it is not.
-    pullCompleted:
-      !synced.response.pullPage.hasMore &&
-      !synced.hasHeldPull &&
-      !synced.hasIncompletePull,
-    passedUpdateIds: [
-      ...synced.decryptedUpdates.map((update) => update.id),
-      ...synced.voidedUpdates.map((voided) => voided.updateId),
-    ],
-  });
-  await writeLoroIsolationInTransaction(db, input.scope, next);
-}
-
-/**
- * Settles this lifetime's window once the page's save is over. A save that
- * committed to the window's database already deleted the row; any other
- * outcome deletes it here, from the database the window was opened in, so a
- * later death of this lifetime cannot count a page it left. A row that
- * cannot be deleted leaves the lifetime's failure marker standing, so its
- * death isolates that row's updates instead of counting them.
- */
-export async function settleDocumentSyncLoroWindow(
-  input: WindowScopeInput & { readonly committed: boolean },
-): Promise<void> {
-  const lifetimes = input.lifetimes ?? processLoroLifetimes;
-  const key = scopeKey(input.scope);
-  if (!lifetimes.hasWindow(key)) return;
-  const database = takeWindowDatabase(lifetimes, key) ?? input.execSql;
-  if (!input.committed || database !== input.execSql) {
-    try {
-      await runSerializedSqlMutation(database, (locked) =>
-        getClientSQLitePersistenceRuntime(locked).guardedTransaction(
-          (tx) => deleteLoroWindowInTransaction(tx, input.scope, lifetimes.id),
-          () => true,
-        ),
-      );
-    } catch {
-      lifetimes.noteUnsettledWindow();
-    }
-  }
-  lifetimes.closeWindow(key);
 }
 
 /** The page limit the scope's next pull asks for while it isolates. */

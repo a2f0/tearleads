@@ -11,11 +11,13 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  * the reader's history is built, before the page's first update is read,
  * and deleted when the page's save commits, so a row whose lifetime has
  * ended was left by a process that died inside it (#3194). One row per
- * document scope and lifetime.
+ * document scope and lifetime: a second pass reading the scope at once
+ * replaces it, and each pass deletes only the row it wrote.
  *
  * Columns:
  * - `appKind`, `localId`, `documentId`: Document scope and server document.
  * - `lifetimeId`: The lifetime (`loroLifetime.ts`) that opened it.
+ * - `windowId`: The window, of the lifetime's, that wrote the row.
  * - `updateIds`: The page's unsettled updates in server order, as a JSON
  *   array: those it reads with Loro, not its known voids.
  * - `counts`: 1 when the window held one update and its lifetime had met no
@@ -34,6 +36,7 @@ export const documentLoroWindows = sqliteTable(
     appKind: text("app_kind").notNull(),
     localId: text("local_id").notNull(),
     lifetimeId: text("lifetime_id").notNull(),
+    windowId: text("window_id").notNull(),
     documentId: text("document_id").notNull(),
     updateIds: text("update_ids").notNull(),
     counts: integer("counts").notNull(),

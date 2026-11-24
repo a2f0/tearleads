@@ -17,9 +17,10 @@ import { writeLoroWindowInTransaction } from "../../../data/persistence/document
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { createExecSql, type ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
-  claimDocumentSyncOrphanWindows,
+  createDocumentSyncLoroWindow,
   settleDocumentSyncLoroWindow,
-} from "./loroWindows";
+} from "./loroPassWindow";
+import { claimDocumentSyncOrphanWindows } from "./loroWindows";
 
 const bench = createLoroWindowBench();
 const { claimIn, judgeIn, pageLimit, recordedAttempts } = bench;
@@ -80,7 +81,8 @@ test("an isolating scope reads alone, so a killer there counts", async () => {
   const { update: first } = await honest(FIRST);
   const { update: second } = await honest(SECOND);
   const lifetime = host.lifetime("isolating");
-  await judgeIn(lifetime, [second], undefined, OTHER);
+  const otherPass = createDocumentSyncLoroWindow();
+  await judgeIn(lifetime, [second], undefined, OTHER, { window: otherPass });
   await execSql(
     `INSERT INTO document_loro_isolation
        (app_kind, local_id, document_id, suspects)
@@ -94,12 +96,7 @@ test("an isolating scope reads alone, so a killer there counts", async () => {
   await Bun.sleep(20);
   expect(judged).toBe(false);
 
-  await settleDocumentSyncLoroWindow({
-    committed: false,
-    execSql,
-    lifetimes: lifetime,
-    scope: OTHER.scope,
-  });
+  await settleDocumentSyncLoroWindow(otherPass, null);
   await judging;
   host.kill("isolating");
   await claimIn(host.lifetime("next"), MAIN);
@@ -125,6 +122,7 @@ test("a row a failed settle left stops counting when the lifetime reads again", 
       keyFingerprint: null,
       lifetimeId: "stale",
       updateIds: [SECOND],
+      windowId: "stale-window",
     },
     "2026-11-23T00:00:00.000Z",
   );
@@ -165,17 +163,14 @@ test("a settle deletes the window from the database it was opened in", async () 
   const host = device();
   const { update } = await honest(FIRST);
   const lifetime = host.lifetime("moved");
+  const pass = createDocumentSyncLoroWindow();
   const moved = await createTestExecSql(`windows-moved-${crypto.randomUUID()}`);
   try {
     await ensureDocumentTables(moved.execSql);
-    await judgeIn(lifetime, [update]);
+    await judgeIn(lifetime, [update], undefined, MAIN, { window: pass });
 
-    await settleDocumentSyncLoroWindow({
-      committed: false,
-      execSql: moved.execSql,
-      lifetimes: lifetime,
-      scope: SCOPE,
-    });
+    // The save committed to the store's new database, not the window's.
+    await settleDocumentSyncLoroWindow(pass, moved.execSql);
 
     expect(
       await execSql("SELECT lifetime_id FROM document_loro_windows"),
@@ -202,21 +197,19 @@ test("a window whose row cannot be deleted no longer counts its death", async ()
       };
     },
   });
-  await judgeIn(lifetime, [update], undefined, MAIN, { execSql: flaky });
+  const pass = createDocumentSyncLoroWindow();
+  await judgeIn(lifetime, [update], undefined, MAIN, {
+    execSql: flaky,
+    window: pass,
+  });
   failDeletes = true;
 
-  await settleDocumentSyncLoroWindow({
-    committed: false,
-    execSql: flaky,
-    lifetimes: lifetime,
-    scope: SCOPE,
-  });
+  await settleDocumentSyncLoroWindow(pass, null);
   host.kill("stuck");
   await claimIn(host.lifetime("next"), MAIN);
 
-  expect(lifetime.hasWindow(`${SCOPE.appKind}\u0000${SCOPE.localId}`)).toBe(
-    false,
-  );
+  expect(pass.held).toBeNull();
+  expect(lifetime.openWindowCount()).toBe(0);
   expect(await recordedAttempts(FIRST)).toBeNull();
   expect(await pageLimit(MAIN)).toBe(1);
 });
@@ -253,4 +246,87 @@ test("an orphan another tab claims mid-claim is not counted again", async () => 
 
   expect(claimedElsewhere).toBe(true);
   expect(await recordedAttempts(FIRST)).toBeNull();
+});
+
+/** A second database, as the store's runtime moves to mid-pass. */
+async function movedDatabase() {
+  const moved = await createTestExecSql(`windows-moved-${crypto.randomUUID()}`);
+  await ensureDocumentTables(moved.execSql);
+  return moved;
+}
+
+// When the store's runtime moves mid-pass, a new pass reads the scope while
+// the stale one still runs. Each settles only its own window: the stale
+// pass's row leaves its database, and the markers still cover the new pass.
+test("a stale pass settles only its own window", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const lifetime = host.lifetime("swapped");
+  const stale = createDocumentSyncLoroWindow();
+  const moved = await movedDatabase();
+  try {
+    await judgeIn(lifetime, [first], undefined, MAIN, { window: stale });
+    await judgeIn(lifetime, [second], undefined, MAIN, {
+      execSql: moved.execSql,
+    });
+
+    await settleDocumentSyncLoroWindow(stale, null);
+    host.hide();
+    host.kill("swapped");
+    await claimIn(host.lifetime("next"), MAIN);
+
+    expect(lifetime.openWindowCount()).toBe(1);
+    expect(lifetime.endedHidden("swapped")).toBe(true);
+    expect(
+      await moved.execSql("SELECT lifetime_id FROM document_loro_windows"),
+    ).toEqual([{ lifetime_id: "swapped" }]);
+    expect(await recordedAttempts(FIRST)).toBeNull();
+    expect(await pageLimit(MAIN)).toBeUndefined();
+  } finally {
+    moved.close();
+  }
+});
+
+// A window in one database must stop counting once the lifetime reads in
+// another: a death then could be either page's.
+test("a window opened in another database stops the first counting", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const lifetime = host.lifetime("two-databases");
+  const moved = await movedDatabase();
+  try {
+    await judgeIn(lifetime, [first]);
+    await judgeIn(lifetime, [second], undefined, MAIN, {
+      execSql: moved.execSql,
+    });
+    host.kill("two-databases");
+    await claimIn(host.lifetime("next"), MAIN);
+
+    expect(await recordedAttempts(FIRST)).toBeNull();
+    expect(await pageLimit(MAIN)).toBe(1);
+  } finally {
+    moved.close();
+  }
+});
+
+// Two passes reading one scope in one database share its row: the later
+// replaces it, and the earlier pass's settle leaves the row it no longer
+// owns, so a death in the later pass's reads still isolates its update.
+test("a pass's settle leaves the row a later pass on the scope wrote", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const lifetime = host.lifetime("two-passes");
+  const earlier = createDocumentSyncLoroWindow();
+  await judgeIn(lifetime, [first], undefined, MAIN, { window: earlier });
+  await judgeIn(lifetime, [second]);
+
+  await settleDocumentSyncLoroWindow(earlier, null);
+  host.kill("two-passes");
+  await claimIn(host.lifetime("next"), MAIN);
+
+  expect(await recordedAttempts(SECOND)).toBeNull();
+  expect(await pageLimit(MAIN)).toBe(1);
 });
