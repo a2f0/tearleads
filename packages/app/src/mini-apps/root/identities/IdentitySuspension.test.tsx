@@ -99,33 +99,40 @@ type Outcome =
   | { data: RootIdentity; ok: true }
   | { message: string; ok: false; status: number | null };
 
-/** Stubs the root client with held suspend and lift calls. */
+/**
+ * Stubs the root client with held suspend and lift calls, one mock per
+ * endpoint so a test can tell which one an action reached and with which user.
+ */
 function holdRootChanges() {
   const pending: Array<PromiseWithResolvers<Outcome>> = [];
-  const hold = mock(() => {
+  const hold = (_userId: string) => {
     const call = Promise.withResolvers<Outcome>();
     pending.push(call);
     return call.promise;
-  });
+  };
+  const lift = mock(hold);
+  const suspend = mock(hold);
   const spy = spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
-    root: { liftIdentitySuspension: hold, suspendIdentity: hold },
+    root: { liftIdentitySuspension: lift, suspendIdentity: suspend },
   } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>);
-  return { hold, pending, spy };
+  return { lift, pending, spy, suspend };
 }
 
 test("two clicks in one batch start one lift", async () => {
-  const { hold, pending, spy } = holdRootChanges();
+  const { lift, pending, spy, suspend } = holdRootChanges();
   try {
     const view = render(inToolbar(SUSPENDED));
-    const lift = within(view.getByRole("toolbar")).getByRole("button", {
+    const action = within(view.getByRole("toolbar")).getByRole("button", {
       name: "Lift suspension",
     });
     // Both clicks land before React renders the action disabled.
     act(() => {
-      lift.click();
-      lift.click();
+      action.click();
+      action.click();
     });
-    expect(hold).toHaveBeenCalledTimes(1);
+    expect(lift).toHaveBeenCalledTimes(1);
+    expect(lift).toHaveBeenCalledWith(MEMBER.userId);
+    expect(suspend).not.toHaveBeenCalled();
     await act(async () => pending[0]?.resolve({ data: MEMBER, ok: true }));
   } finally {
     spy.mockRestore();
@@ -133,7 +140,7 @@ test("two clicks in one batch start one lift", async () => {
 });
 
 test("two submits in one batch start one suspension", async () => {
-  const { hold, pending, spy } = holdRootChanges();
+  const { lift, pending, spy, suspend } = holdRootChanges();
   try {
     const view = render(inToolbar(MEMBER));
     fireEvent.click(
@@ -141,14 +148,16 @@ test("two submits in one batch start one suspension", async () => {
         name: "Suspend account",
       }),
     );
-    const suspend = within(view.getByRole("dialog")).getByRole("button", {
+    const confirm = within(view.getByRole("dialog")).getByRole("button", {
       name: "Suspend",
     });
     act(() => {
-      suspend.click();
-      suspend.click();
+      confirm.click();
+      confirm.click();
     });
-    expect(hold).toHaveBeenCalledTimes(1);
+    expect(suspend).toHaveBeenCalledTimes(1);
+    expect(suspend).toHaveBeenCalledWith(MEMBER.userId);
+    expect(lift).not.toHaveBeenCalled();
     await act(async () => pending[0]?.resolve({ data: SUSPENDED, ok: true }));
   } finally {
     spy.mockRestore();
