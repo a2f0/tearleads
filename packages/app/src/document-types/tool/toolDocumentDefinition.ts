@@ -2,7 +2,6 @@ import { WrenchIcon } from "@phosphor-icons/react/dist/csr/Wrench";
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import {
   createEquipmentDocumentType,
-  EQUIPMENT_PHOTO_SLOT_ID,
   type EquipmentTypeOption,
 } from "../shared/equipmentDocumentDefinition";
 
@@ -24,7 +23,6 @@ export const TOOL_TYPE_OPTIONS: ReadonlyArray<EquipmentTypeOption> = [
 ];
 
 export const toolDocumentProjectorDefinition = createEquipmentDocumentType({
-  photos: { slotId: EQUIPMENT_PHOTO_SLOT_ID, avatar: false },
   createIcon: WrenchIcon,
   createLabel: "Tool",
   kind: TOOL_DOCUMENT_KIND,

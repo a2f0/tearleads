@@ -1,6 +1,6 @@
 import type { DocumentRow } from "@tearleads/client-sdk";
+import type { DocumentAvatarRef } from "../shared/avatar/documentAvatarRef";
 import { isTruthyStructuredField } from "../shared/documentFieldUtils";
-import type { ContactAvatarRef } from "./contactAvatarSlot";
 import {
   type ContactDocumentFields,
   readContactFieldsFromRecord,
@@ -10,7 +10,7 @@ export interface ContactEntry {
   // Present only when the contact's document store reports a bound avatar
   // attachment. Entries loaded from the SQLite projection omit it (attachments
   // live only in the document store); consumers render a silhouette either way.
-  avatar?: ContactAvatarRef | undefined;
+  avatar?: DocumentAvatarRef | undefined;
   canWrite?: boolean | undefined;
   documentId?: string | null | undefined;
   rows?: ReadonlyArray<DocumentRow> | undefined;
@@ -63,7 +63,7 @@ export function contactFieldsToEntry(
   id: string,
   fields: ContactDocumentFields,
   options: {
-    avatar?: ContactAvatarRef | null | undefined;
+    avatar?: DocumentAvatarRef | null | undefined;
     canWrite?: boolean | undefined;
     documentId?: string | null | undefined;
     rows?: ReadonlyArray<DocumentRow> | undefined;

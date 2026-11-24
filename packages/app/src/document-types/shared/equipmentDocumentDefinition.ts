@@ -40,7 +40,7 @@ export interface EquipmentDocumentTypeDefinition
   readonly untitledTitle: string;
 }
 
-export const EQUIPMENT_PHOTO_SLOT_ID = "equipment-photos";
+const EQUIPMENT_PHOTO_SLOT_ID = "equipment-photos";
 const EQUIPMENT_RECEIPT_IMAGE_SLOT_ID = "receipt-image";
 
 export function readEquipmentFieldsFromRecord(
@@ -93,7 +93,6 @@ export function getEquipmentTypeLabel(
 }
 
 interface EquipmentDocumentTypeConfig {
-  photos: DocumentPhotoCapability;
   createIcon: Icon;
   createLabel: string;
   kind: StoredDocumentKind;
@@ -129,16 +128,23 @@ function deriveEquipmentTitle(
 export function createEquipmentDocumentType(
   config: EquipmentDocumentTypeConfig,
 ): EquipmentDocumentTypeDefinition {
+  // Every equipment kind keeps a photo gallery whose chosen photo is its
+  // avatar, shown over the kind's own glyph until one is picked.
+  const photos: DocumentPhotoCapability = {
+    slotId: EQUIPMENT_PHOTO_SLOT_ID,
+    avatarFallbackIcon: config.createIcon,
+  };
   return {
     ...config,
+    photos,
     slots: [
-      photoCollectionSlot(config.photos.slotId),
+      photoCollectionSlot(photos.slotId),
       { label: "Receipt", slotId: EQUIPMENT_RECEIPT_IMAGE_SLOT_ID },
     ],
     project: structuredFieldsProjector(
       readEquipmentFieldsFromRecord,
       (fields) => deriveEquipmentTitle(config, fields),
-      config.photos,
+      photos,
     ),
   };
 }

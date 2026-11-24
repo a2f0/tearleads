@@ -89,3 +89,32 @@ test("pinned Continuity yields every promised document, title, image, and tracke
     }
   }
 });
+
+test("single-image slots refuse unknown aliases and duplicates", async () => {
+  const { spec } = await loadContinuityAssets();
+  const withSlots = (slots: readonly string[]) => ({
+    ...spec,
+    files: [
+      {
+        kind: "drivers_license" as const,
+        fields: { licenseId: "TEST" },
+        attachments: slots.map((slot) => ({
+          file: "front.png",
+          mimeType: "image/png",
+          slot,
+        })),
+      },
+    ],
+  });
+  // The accepted aliases resolve, so each refusal below is the slot guard's.
+  expect(continuityDocuments(withSlots(["front", "back"]))).toBeDefined();
+  for (const slots of [
+    ["f"],
+    ["front", "front"],
+    ["front", "driver-license-front-image"],
+  ]) {
+    expect(() => continuityDocuments(withSlots(slots))).toThrow(
+      "Unknown or duplicate drivers_license attachment slot",
+    );
+  }
+});

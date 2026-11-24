@@ -99,7 +99,7 @@ export function containerDetailElement(props: {
   return (
     <ExplorerContainerDetail
       containerNodes={[containerA, containerB]}
-      contactAvatarUrlByLocalId={{}}
+      documentAvatarSource={null}
       contextTarget={null}
       currentOrganizationId="org-1"
       currentSigningFingerprint={null}

@@ -2,7 +2,6 @@ import { WashingMachineIcon } from "@phosphor-icons/react/dist/csr/WashingMachin
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 import {
   createEquipmentDocumentType,
-  EQUIPMENT_PHOTO_SLOT_ID,
   type EquipmentTypeOption,
 } from "../shared/equipmentDocumentDefinition";
 
@@ -24,7 +23,6 @@ export const APPLIANCE_TYPE_OPTIONS: ReadonlyArray<EquipmentTypeOption> = [
 
 export const applianceDocumentProjectorDefinition = createEquipmentDocumentType(
   {
-    photos: { slotId: EQUIPMENT_PHOTO_SLOT_ID, avatar: true },
     createIcon: WashingMachineIcon,
     createLabel: "Appliance",
     kind: APPLIANCE_DOCUMENT_KIND,

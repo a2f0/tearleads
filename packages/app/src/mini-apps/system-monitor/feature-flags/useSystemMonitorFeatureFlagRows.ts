@@ -16,6 +16,7 @@ export const FEATURE_FLAG_DETAILS = {
     label: "Show Explorer header sync indicator",
   },
   "hide-org-manager-system-grants": { label: "Hide Org Manager system grants" },
+  "hide-table-divider-lines": { label: "Hide table divider lines" },
   "linked-document-activation-controls": {
     label: "Enable linked document activation controls",
   },

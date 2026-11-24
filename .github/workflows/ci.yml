@@ -385,6 +385,17 @@ jobs:
       - name: Run E2E tests
         run: bun run test:turbo:e2e
 
+      # Playwright keeps a failing spec's trace and page snapshot
+      # (playwright.config.ts); the job log alone cannot show what the page did.
+      - name: Upload Playwright failure output
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-e2e-test-results-${{ github.run_attempt }}
+          path: packages/app-web/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
   postgres-concurrency:
     name: Postgres concurrency
     runs-on: ubuntu-latest

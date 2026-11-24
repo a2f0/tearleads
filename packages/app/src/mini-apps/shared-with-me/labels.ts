@@ -2,6 +2,9 @@ export const SHARED_WITH_ME_LABELS = {
   actionsColumn: "Actions",
   actionsFor: (name: string) => `Actions for ${name}`,
   askToLeave: (organizationName: string) => `Ask to leave ${organizationName}`,
+  columnsMenu: "Columns",
+  columnsMenuStateOff: "Off",
+  columnsMenuStateOn: "On",
   empty: "Nothing shared with you yet",
   emptyDescription:
     "Folders shared with you appear here once this device has synced them, with the organization that shared them.",

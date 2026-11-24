@@ -3,6 +3,7 @@ import type { NegativeControl } from "./protocolNegativeControlTypes";
 const MODULE = "formal/document-sync/VoidUpdateProgress.tla";
 const CONFIG = "formal/document-sync/VoidUpdateProgress.cfg";
 const KILLS_CONFIG = "formal/document-sync/VoidUpdateProgressKills.cfg";
+const TRAPS_CONFIG = "formal/document-sync/VoidUpdateProgressTraps.cfg";
 const BASELINE_MODULE = "formal/document-sync/BaselineCursorCoverage.tla";
 const BASELINE_CONFIG = "formal/document-sync/BaselineCursorCoverage.cfg";
 
@@ -126,6 +127,14 @@ export const VOID_UPDATE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { KeepAttemptsOnCleanRead: "TRUE" },
     expect: { kind: "invariant", name: "VoidOnlyAfterUninterruptedAttempts" },
     why: "A window the process outlived that leaves the attempts of the updates it read lets failures far apart, with clean reads between them, add up to a void (#3194).",
+  },
+  {
+    id: "void-update-trap-without-reload",
+    module: MODULE,
+    config: TRAPS_CONFIG,
+    constants: { RecycleRuntime: "FALSE" },
+    expect: { kind: "liveness", name: "DeviceEventuallyCurrent" },
+    why: "An app that never asks its user to reload after a Loro trap leaves the device held behind an update that always traps, since a lifetime counts only its first failure (#3194).",
   },
   {
     id: "baseline-cursor-gate-weighs-all",

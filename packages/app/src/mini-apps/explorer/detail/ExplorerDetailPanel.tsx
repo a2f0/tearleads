@@ -13,9 +13,9 @@ import type {
 } from "@tearleads/client-sdk";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { MouseEvent } from "react";
-import type { AvatarUrlByContactId } from "../../../document-types/contact/useContactAvatarUrls";
 import { ContainerDocumentView } from "../../../document-types/container-views/ContainerDocumentView";
 import { ContainerPrimaryDocumentField } from "../../../document-types/container-views/ContainerPrimaryDocumentField";
+import type { DocumentAvatarSource } from "../../../document-types/shared/avatar/documentAvatarSource";
 import type { ExplorerBlobInfoLoader } from "../../../stores/explorer/blobInfo";
 import type { ExplorerDocumentAttributionRangesLoader } from "../../../stores/explorer/documentInfo";
 import { isContainerUnderTrash } from "../../../stores/explorer/ExplorerSystemContainers";
@@ -90,7 +90,7 @@ interface ExplorerDetailPanelProps {
   canActivateLinkedContainer: boolean;
   canMutateDocumentLinks: boolean;
   canShareWithPeer: boolean;
-  contactAvatarUrlByLocalId: AvatarUrlByContactId;
+  documentAvatarSource: DocumentAvatarSource | null;
   // The open row context menu's target, so the container listing can keep the
   // right-clicked row highlighted while the menu is open (it does not select).
   contextTarget: ExplorerContextMenuTarget | null;
@@ -402,7 +402,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         <ExplorerContainerDetail
           onRecoveryChanged={params.onRecoveryChanged}
           containerNodes={params.nodes}
-          contactAvatarUrlByLocalId={params.contactAvatarUrlByLocalId}
+          documentAvatarSource={params.documentAvatarSource}
           contextTarget={params.contextTarget}
           currentOrganizationId={params.currentOrganizationId}
           currentSigningFingerprint={params.currentSigningFingerprint}
