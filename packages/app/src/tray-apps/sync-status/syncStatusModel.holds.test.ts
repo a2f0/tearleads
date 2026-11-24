@@ -268,6 +268,7 @@ test("a pause is blamed for queued writes only when it holds one of them", () =>
 
 test("the popover lists paused organizations whatever the status line names", () => {
   const details = {
+    unavailableReason: null,
     downloads: { failed: 0, firstError: null, pending: 0, status: "read" },
     lanes: NO_LANES,
     pendingWriteCount: 3,

@@ -50,6 +50,25 @@ test("renders a syncing ring, not an alarm, while content is still arriving", ()
   expect(container.querySelector("svg")).toBeNull();
 });
 
+test("renders a muted ring, not the checking dot, when nothing can sync yet", () => {
+  const { getByRole, container } = render(
+    <SyncStatusIndicatorView
+      expanded={false}
+      onToggle={noop}
+      status="inactive"
+      title="Not syncing — this device has no identity yet"
+    />,
+  );
+
+  expect(getByRole("button").getAttribute("aria-label")).toBe(
+    "Not syncing — this device has no identity yet",
+  );
+  expect(
+    container.querySelector(".sync-glyph--dot.sync-glyph--inactive"),
+  ).not.toBeNull();
+  expect(container.querySelector(".sync-glyph--loading")).toBeNull();
+});
+
 test("renders a red dot for unflushed data", () => {
   const { container } = render(
     <SyncStatusIndicatorView
