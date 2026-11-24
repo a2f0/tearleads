@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocument, getTextValue, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { installFakeWebLocks } from "../../../../../test/helpers/data/fakeWebLocks";
 import { settleWithin } from "../../../../../test/helpers/workflows/remoteSyncWait";
 import {
   createRotationRecoveryRuntime,
@@ -27,6 +28,8 @@ for (const editCount of [1, 3]) {
       started: Promise.withResolvers<void>(),
       release: Promise.withResolvers<void>(),
     }));
+    // Holding a lifetime lock, as a tab does, so sync opens read windows.
+    const removeWebLocks = installFakeWebLocks();
     try {
       const fixture = await createRemoteHistoryFixture();
       const localId = "rotation-concurrent-edit-local";
@@ -113,6 +116,7 @@ for (const editCount of [1, 3]) {
         await execSql("SELECT lifetime_id FROM document_loro_windows"),
       ).toEqual([]);
     } finally {
+      removeWebLocks();
       for (const gate of gates) gate.release.resolve();
       close();
     }

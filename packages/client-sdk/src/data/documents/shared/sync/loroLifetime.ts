@@ -93,12 +93,18 @@ function quietly<T>(read: () => T, fallback: T): T {
  */
 export function createLoroLifetimes(host: {
   readonly id?: string | undefined;
-  readonly locks?: LifetimeLockManager | undefined;
+  /** The lock manager, or how to find it each time it is needed. */
+  readonly locks?:
+    | LifetimeLockManager
+    | (() => LifetimeLockManager | undefined)
+    | undefined;
   readonly storage?: LifetimeMarkerStorage | undefined;
   readonly visibility?: LifetimeVisibility | undefined;
 }): LoroLifetimes {
   const id = host.id ?? crypto.randomUUID();
-  const { locks, storage, visibility } = host;
+  const { storage, visibility } = host;
+  const lockManager = () =>
+    typeof host.locks === "function" ? host.locks() : host.locks;
   const windows = new Set<string>();
   let failed = false;
   let held: Promise<boolean> | undefined;
@@ -121,6 +127,7 @@ export function createLoroLifetimes(host: {
   return {
     id,
     ready() {
+      const locks = lockManager();
       if (!locks) return Promise.resolve(false);
       held ??= new Promise<boolean>((settle) => {
         try {
@@ -138,6 +145,7 @@ export function createLoroLifetimes(host: {
       return held;
     },
     async endedAmong(ids) {
+      const locks = lockManager();
       if (!locks || ids.length === 0) return new Set();
       let names: Set<string>;
       try {
@@ -253,7 +261,7 @@ function browserVisibility(): LifetimeVisibility | undefined {
 
 /** This realm's lifetime; tests pass their own to stand for another one. */
 export const processLoroLifetimes: LoroLifetimes = createLoroLifetimes({
-  locks: browserLocks(),
+  locks: browserLocks,
   storage: browserStorage(),
   visibility: browserVisibility(),
 });

@@ -15,6 +15,7 @@ import {
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/data/documentFixtures";
+import { installFakeWebLocks } from "../../../../../test/helpers/data/fakeWebLocks";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,
@@ -306,6 +307,8 @@ test("a cursor judged by another decoder or rule set is not sent", async () => {
 test("a committed page closes its read window and ends isolation", async () => {
   const localId = "read-window-close";
   const harness = await createServerHarness(localId);
+  // Holding a lifetime lock, as a tab does, so the page opens a window.
+  const removeWebLocks = installFakeWebLocks();
   try {
     const store = createDocumentStore(
       localId,
@@ -335,10 +338,19 @@ test("a committed page closes its read window and ends isolation", async () => {
        FROM documents WHERE local_id = ?`,
       [localId],
     );
+    // Logs each window the page opens, since its save deletes the row.
+    await harness.execSql("CREATE TABLE opened_windows (update_ids TEXT)");
+    await harness.execSql(
+      `CREATE TRIGGER log_opened_window AFTER INSERT ON document_loro_windows
+       BEGIN INSERT INTO opened_windows VALUES (NEW.update_ids); END`,
+    );
 
     expect(await store.requestRemoteSyncAndWait()).toBe(true);
 
     expect(store.getSnapshot().text).toContain("served-0");
+    expect(
+      await harness.execSql("SELECT update_ids FROM opened_windows"),
+    ).toEqual([{ update_ids: JSON.stringify([HONEST_ID]) }]);
     expect(harness.requests.at(-1)?.maxPageUpdates).toBe(1);
     expect(
       await harness.execSql("SELECT lifetime_id FROM document_loro_windows"),
@@ -347,6 +359,7 @@ test("a committed page closes its read window and ends isolation", async () => {
       await harness.execSql("SELECT local_id FROM document_loro_isolation"),
     ).toEqual([]);
   } finally {
+    removeWebLocks();
     harness.close();
   }
 });
