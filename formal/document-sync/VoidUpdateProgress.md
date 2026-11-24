@@ -27,7 +27,12 @@ lifetimes have each failed the update, it is a final void on that device
 (`finalVoid`) until its decoder changes. An honest update that fails that many
 lifetimes on one device is void there and nowhere else, which is the accepted
 residual, so agreement and currency are stated for devices with equal final
-voids.
+voids. An update whose import always fails the runtime without ending the
+process is a trapper (`Trappers`, `TrapperPending`): once the lifetime has
+failed, it holds the device, since later failures count nothing. The app then
+asks its user to reload, and the reload (`Recycle`) starts a lifetime whose
+first failure counts again, so a trapper is a final void after `MaxAttempts`
+reloads.
 
 The process can also die while it reads a pull (#3194): a payload that kills
 it, or any other death. Its reads run inside a durable window naming the
@@ -73,10 +78,14 @@ the cursor as it was (`pullJudge`).
 Writers are outside actors and devices only read. Commits, decoder upgrades,
 state replacement, runtime failures, restarts, and deaths have no fairness.
 Only server delivery (`Pull`) and the device's own steps are fair: processing
-(`Process`), starting a new lifetime (`Start`), and dying on a killer (`Kill`
-while `KillerPending`). So no device waits on another. Deaths other than a
-killer's are bounded (`MaxDeaths`): a device whose user hides the app at every
-death on a killer never counts it, which is the accepted residual.
+(`Process`), starting a new lifetime (`Start`), dying on a killer (`Kill`
+while `KillerPending`), failing on a trapper (`RuntimeFailure` while
+`TrapperPending`), and the user's reload after a failure (`Recycle`), which
+the app asks for and only that device's user starts. So no device waits on
+another. A user who never reloads keeps the hold until the app next starts.
+Deaths other than a killer's are bounded (`MaxDeaths`): a device whose user
+hides the app at every death on a killer never counts it, which is the
+accepted residual.
 
 The abstraction maps to production at these seams:
 
@@ -90,6 +99,7 @@ The abstraction maps to production at these seams:
 | `Judge` / `Accepts` | `validateDocumentSyncUpdateImports` and `judgeUpdate`, which checks the decoded Loro metadata against the signed span before the scratch import, after `judgeDocumentSyncUpdateDecryption` checks the plaintext hash |
 | `RuntimeFailure` / `attempts` | `judgeUpdate` returning `runtime_failure` for `isLoroRuntimeFailure`, `LoroRuntimeFailureLedger.noteFailure`, and `recordDocumentSyncRuntimeFailures`, which records the `loro_runtime` row and its `attempts` before the page is saved, and in the same transaction stops the lifetime's windows counting (`markLoroWindowsNotCountingInTransaction`) |
 | `failedInLife` / `Restart` / `lifeAttempts` | `processLoroRuntimeFailures`, the ledger a process starts with, which counts only its first failure (`LoroRuntimeFailureLedger.hasFailed`); its first failure anywhere also calls `noteFailed`, whose marker makes `judgeOrphanWindow` isolate a window that lifetime held open (`endedFailed`); a window row `settleDocumentSyncLoroWindow` cannot delete keeps that marker standing (`noteUnsettledWindow`), and a claim in one database does not drop it (`forget`), since that lifetime's windows may stand in another |
+| `TrapperPending` / `Recycle` | the realm's runtime health (`transitionLoroRuntimeHealth`), which the process ledger's first failure moves to `restartRequired` (`createRealmLoroRuntimeFailures`); the app's `RuntimeRestartNotice` offers Reload, and only the user's press calls `prepareRuntimeRestart`, which drains the lifetime's read windows (`drainWindows`: no window admitted until the open ones close, or 10 seconds pass) before the page reloads. A window still open at the reload ends with the page hidden, so it counts nothing, as the model's dropped inbox does |
 | `Die` / `Pending` | `openDocumentSyncLoroWindow`, which commits the page's unsettled updates as a `document_loro_windows` row once `validateDocumentSyncUpdateImports` has built the reader's history and before it reads the first update (`beforeUpdateReads`); `closeDocumentSyncLoroWindowInTransaction` deletes it in the page's save, and `settleDocumentSyncLoroWindow` deletes it when no save commits. Each sync pass holds its own window (`DocumentSyncLoroWindow`) and deletes only the row that window wrote (`deleteOwnLoroWindowInTransaction`), so two passes on one scope never settle each other's. The model's one window is the union of a lifetime's open windows across documents, passes, and databases: a row counts only while it is the lifetime's only open window (`openWindowCount`), and opening a second stops every row of the lifetime counting, in its transaction (`markLoroWindowsNotCountingInTransaction`) and in each other database the lifetime has a window open in (`stopCountingElsewhere`). Container metadata pulls, each page of a rotation's raw history and its settlement, and a founding view read served updates in windows of their own (`judgeUnrecordedDocumentSyncImports` for rotation's raw history and the founding view), so every read of served updates is inside a window; a caller of `validateDocumentSyncUpdateImports` that passes no `beforeUpdateReads` marks the lifetime failed (`noteFailed`), so its death counts toward no update. A claim judges each orphan by the markers it read before deleting any row |
 | `Kill` / `Start` | `claimDocumentSyncOrphanWindows` in the next lifetime: `createLoroLifetimes` tells an ended lifetime by its released Web Lock, `claimOrphansInTransaction` settles only an orphan its own delete removed (`deleteLoroWindowInTransaction`), so two tabs count one death once even though the database worker does not isolate their transactions, and `judgeOrphanWindow` counts a window `loroWindowCounts` opened as counting. A window isolating suspects reads alone through the lifetime's window gate (`transitionLoroWindowGate`), as the model's fairness on deaths assumes an isolated read does: no other window of the lifetime is open, and no read of a served update runs outside one. Loro work on accepted data may run beside it (another lane building its reader's history, the editor), which the residual on other work covers |
 | `HiddenKill` | the hidden marker `createLoroLifetimes` keeps in `localStorage` while the app is hidden with a window open; `judgeOrphanWindow` discards a window whose lifetime `endedHidden`. A lifetime that cannot keep markers (`keepsMarkers`) opens only windows that count nothing |
@@ -188,6 +198,9 @@ asserts the named violation on every run:
   the process outlived read. Failures on an update far apart, with a clean
   read of it between them, add up to a void:
   `VoidOnlyAfterUninterruptedAttempts` fails.
+- `RecycleRuntime = FALSE` leaves only the bounded, unfair `Restart`: the app
+  never asks for a reload, so after one counted failure a trapper holds the
+  device for good: `DeviceEventuallyCurrent` fails.
 
 Outside the model: the rotation-baseline redirect of a pull's first page, which
 skips only updates after the cursor that the baseline covers
@@ -244,18 +257,23 @@ while a device judging in server order voided it.
 The configuration bounds two devices, two updates, two decoder versions, one
 state replacement, and two attempts over two process lifetimes on one device
 whose runtime can fail (`FaultyDevices`); the other device stands for readers
-whose runtime never fails, and no rotation. TLC explores 1,090,974 generated
-and 360,786 distinct states at depth 21 in about a minute with one worker;
-clearing the attempts of a read update merges states the count kept apart
-before (386,593 distinct). Before runtime failures the same bounds explored
-51,547 distinct states, and three updates also passed (1,398,292 distinct
-states in about 5 minutes with one worker). The clean-read control runs
+whose runtime never fails, and no rotation. TLC explores 2,579,790 generated
+and 741,916 distinct states at depth 30 in about 3 minutes with one worker,
+reloads after a failure included (360,786 distinct without them); clearing the
+attempts of a read update merges states the count kept apart before. Before
+runtime failures the same bounds explored 51,547 distinct states, and three
+updates also passed (1,398,292 distinct states in about 5 minutes with one
+worker). The clean-read control runs
 against it, since only a replaced state serves an accepted update to a pull
 again. [`VoidUpdateProgressKills.cfg`](./VoidUpdateProgressKills.cfg) checks
 deaths with one decoder and no replacement: a killer at the second update, two
 other deaths, hidden or not, and two rotations, enough for two rotation deaths
-to make the rotation unavailable. TLC explores 444,933 generated and 166,125
+to make the rotation unavailable. TLC explores 579,394 generated and 202,145
 distinct states at depth 29 in about 30 seconds; the four death controls and
-the rotation control run against it. The main configuration has no killer and
-no other death, so its state space is the one above. This is exhaustive
-bounded model checking, not an unbounded proof.
+the rotation control run against it.
+[`VoidUpdateProgressTraps.cfg`](./VoidUpdateProgressTraps.cfg) checks a
+trapper at the first update with one decoder, no replacement, and no restart
+but reloads: 7,689 generated and 2,940 distinct states at depth 19, in about
+a second; the reload control runs against it. The main configuration has no
+killer, trapper, or other death, so its state space is the one above. This is
+exhaustive bounded model checking, not an unbounded proof.
