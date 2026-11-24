@@ -192,6 +192,14 @@ previous default comes back afterwards, even when the throwaway keychain is
 already gone. Signing needs a team ID from `team_id:`, `IOS_TEAM_ID`,
 `APPLE_TEAM_ID`, `DEVELOPMENT_TEAM`, `FASTLANE_TEAM_ID`, or `TEAM_ID`.
 
+Every configuration signs with [`App.entitlements`](ios/App/App/App.entitlements),
+which claims `webcredentials:$(WEB_CREDENTIAL_DOMAIN)`: `app.tearleads.com` for
+`com.tearleads.app` (Debug and Release) and `app-staging.tearleads.com` for
+`com.tearleads.staging.app` (Release-Staging). The `PasswordKeychain` plugin
+saves recovery passphrases to iCloud Keychain under that domain, which iOS
+allows only while the host's association file names the bundle ID. The App
+Store profiles must include Associated Domains, or the archive fails to sign.
+
 The archive resolves Swift packages only from `Package.resolved`
 (`-disableAutomaticPackageResolution`), and the lane refuses to build or return
 the IPA while that file differs from `HEAD`. Its `originHash` covers the
