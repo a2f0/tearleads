@@ -1,9 +1,11 @@
 const SERVICE_WORKER_URL = "/sw.js";
 const CONTROLLED_UPDATE_TIMEOUT_MS = 1_500;
 
+// Only production builds cache the app for offline use. Development and E2E
+// servers serve every path as the app shell, so /sw.js would not be a script.
 function canUseServiceWorker(): boolean {
   return (
-    !import.meta.hot &&
+    process.env.NODE_ENV === "production" &&
     typeof navigator !== "undefined" &&
     "serviceWorker" in navigator
   );
