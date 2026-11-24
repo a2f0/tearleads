@@ -112,6 +112,7 @@ function createDocumentOutgoingUpdateSchema(
         z.string().refine(isUuidV4String),
         { pattern: UUID_V4_PATTERN.source, type: "string" },
       ).optional(),
+      dependencyVersionVector: versionVectorSchema,
       encryptedData: encryptedDataSchema,
       id: registerJsonSchemaFragment(z.string().refine(isUuidV4String), {
         pattern: UUID_V4_PATTERN.source,

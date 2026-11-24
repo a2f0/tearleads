@@ -32,6 +32,8 @@ export interface DocumentSyncPreparedUpdate {
   ciphertextHash: string;
   contentRecordId?: string | undefined;
   coversThroughUpdateId?: string | undefined;
+  /** The ops the update depends on, decoded from its bytes and signed. */
+  dependencyVersionVector: string;
   encryptedData: string;
   id: string;
   metadataHash: string;
@@ -44,6 +46,7 @@ export interface DocumentSyncPreparedUpdate {
 
 export interface DocumentEncryptedPendingUpdate {
   contentRecordId: string;
+  dependencyVersionVector: string;
   encryptedData: string;
   metadataHash: string;
   ciphertextHash: string;
@@ -53,6 +56,8 @@ export interface DocumentEncryptedPendingUpdate {
 export interface DecryptedDocumentSyncUpdate {
   checkpointKind?: "rotate_baseline";
   checkpointPayloadKind?: "full_history_snapshot";
+  /** The ops its writer signed it as depending on; the judge checks them. */
+  dependencyVersionVector: string;
   id: string;
   partialEndVersionVector: string;
   partialStartVersionVector: string;

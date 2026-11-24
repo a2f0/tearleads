@@ -98,6 +98,7 @@ test("isRegistrationRequest", () => {
   };
   const initialUpdate = {
     id: "550e8400-e29b-41d4-a716-446655440111",
+    dependencyVersionVector: "{}",
     encryptedData: "ciphertext",
     partialStartVersionVector: "{}",
     partialEndVersionVector: '{"actor":1}',

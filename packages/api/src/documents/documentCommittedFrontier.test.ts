@@ -29,6 +29,7 @@ async function commitSpans(
     end[peerId] = to;
   }
   const update = {
+    dependencyVersionVector: encodeVersionVectorCounters({}),
     id: crypto.randomUUID(),
     partialEndVersionVector: encodeVersionVectorCounters(end),
     partialStartVersionVector: encodeVersionVectorCounters(start),

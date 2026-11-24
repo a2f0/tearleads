@@ -42,6 +42,7 @@ function createContainerMutationRequest(
 function seedUpdate(encryptedData = "ciphertext") {
   return {
     id: "550e8400-e29b-41d4-a716-446655440111",
+    dependencyVersionVector: "{}",
     encryptedData,
     partialStartVersionVector: "{}",
     partialEndVersionVector: '{"actor":1}',

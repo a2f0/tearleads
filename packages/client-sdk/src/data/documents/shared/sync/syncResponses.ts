@@ -153,6 +153,7 @@ async function assertDocumentSyncResponseUpdateHashes(input: {
     ...(update.coversThroughUpdateId === undefined
       ? {}
       : { coversThroughUpdateId: update.coversThroughUpdateId }),
+    dependencyVersionVector: update.dependencyVersionVector,
     documentId: update.documentId,
     partialEndVersionVector: update.partialEndVersionVector,
     partialStartVersionVector: update.partialStartVersionVector,

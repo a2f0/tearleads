@@ -6,6 +6,7 @@ import {
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   createDocument as createLoroDocument,
+  emptyVersionVector,
   encodeVersionVector,
   exportUpdatesSince,
   getUpdateVersionVectors,
@@ -182,6 +183,7 @@ export async function createProvisionedDocumentFixture(input: {
       targetHash: bundle.targetHash,
       nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
       metadataHash: await computeDocumentContentRecordMetadataHash({
+        dependencyVersionVector: emptyVersionVector(),
         documentId: input.documentId,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,
@@ -203,6 +205,7 @@ export async function createProvisionedDocumentFixture(input: {
     initialSync: {
       outgoingUpdates: [
         {
+          dependencyVersionVector: emptyVersionVector(),
           encryptedData,
           id: updateId,
           partialStartVersionVector: vectors.partialStartVersionVector,
@@ -288,6 +291,7 @@ export async function makeProvisionedDocumentSeedDependencyBearing(
       targetHash: sync.expectedTargetHash,
       nonceDomainHash: await computeContentRecordNonceDomainHash(nonceDomain),
       metadataHash: await computeDocumentContentRecordMetadataHash({
+        dependencyVersionVector: update.dependencyVersionVector,
         documentId: nonceDomain.objectId,
         partialEndVersionVector: vectors.partialEndVersionVector,
         partialStartVersionVector: vectors.partialStartVersionVector,

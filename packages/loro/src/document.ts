@@ -174,13 +174,16 @@ export function decodeVersionVector(
   return VersionVector.decode(base64ToBytes(encodedVersionVector));
 }
 
+/** The vectors an update blob declares: its span, and the ops it builds on. */
 export function getUpdateVersionVectors(update: Uint8Array): {
+  dependencyVersionVector: string;
   partialStartVersionVector: string;
   partialEndVersionVector: string;
 } {
   const metadata = getImportBlobMetadata(update);
 
   return {
+    dependencyVersionVector: metadata.dependencyVersionVector,
     partialStartVersionVector: metadata.partialStartVersionVector,
     partialEndVersionVector: metadata.partialEndVersionVector,
   };

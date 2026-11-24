@@ -230,6 +230,7 @@ export function createSyncRequest() {
     minLsn: "0/16B6C50",
     outgoingUpdates: [
       {
+        dependencyVersionVector: "{}",
         encryptedData: "ciphertext",
         futureUpdateField: true,
         id: UPDATE_ID,
@@ -423,6 +424,7 @@ export function createSyncResponse() {
         ],
         authorFingerprint: "author-fingerprint",
         createdAt: "2026-07-17T00:00:00.000Z",
+        dependencyVersionVector: "{}",
         documentId: "document-1",
         encryptedData: "ciphertext",
         futureUpdateField: true,

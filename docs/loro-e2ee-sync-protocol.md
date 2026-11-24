@@ -71,9 +71,9 @@ Document write routes:
   - path references name stored signed container manifests;
     `expectedLinkSetManifestHash` pins the document [head](./glossary/sync.md#head)
   - each outgoing update includes `id`, encrypted `encryptedData`, visible
-    `partialStartVersionVector`, visible `partialEndVersionVector`, required
-    `plaintextHash`, optional checkpoint fields, and a signed `writeHeader`; its
-    metadata hash commits the opaque, record-key-derived plaintext HMAC
+    start, end, and dependency version vectors, required `plaintextHash`,
+    optional checkpoint fields, and a signed `writeHeader`; its metadata hash
+    commits the vectors and the opaque, record-key-derived plaintext HMAC
   - response shape: `DocumentSyncResponse`
   - response fields: `acceptedOutgoingUpdateIds[]`, `commitLsn | null`,
     `commitLsnMode`, `contentKeyBundles[]`, `documentId`, encrypted
@@ -262,9 +262,9 @@ drive document kind selection. Each change also [records its commit time](./docu
 
 The server never needs plaintext CRDT state. The visible metadata of an update
 is its `id`, `documentId`, `authorFingerprint`, `createdAt`, `accessEpoch`,
-partial start and end version vectors, opaque `plaintextHash`, optional
-checkpoint fields, and signed `writeHeader`. One update may cover many local
-writes: the client merges consecutive queued local updates under a fresh `id`
+partial start, end, and dependency version vectors, opaque `plaintextHash`,
+optional checkpoint fields, and signed `writeHeader`. One update may cover
+many local writes: the client merges queued local updates under a fresh `id`
 before sending ([limits](./limits.md#document-sync)), so attribution is per
 upload, and another runtime's in-flight writes may be stored twice, which the
 CRDT ignores.

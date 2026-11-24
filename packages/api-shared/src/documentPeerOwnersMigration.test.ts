@@ -65,8 +65,10 @@ test("the peer-owner backfill gives each committed peer the user of its first up
     await insertSpan(first, aliceAfterUnknown, "3", [1, 2]);
     await insertSpan(second, aliceElsewhere, "1", [0, 2]);
 
+    // Only the backfill step: later steps may refuse a database that still
+    // holds pre-cutover update rows, as 0010 does.
     for (const migration of migrations.filter(
-      (m) => m.tag >= OWNERS_MIGRATION,
+      (m) => m.tag === OWNERS_MIGRATION,
     )) {
       await runMigration(migration.sql);
     }

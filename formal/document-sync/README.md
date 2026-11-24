@@ -103,10 +103,14 @@ request on another user's, while a re-assertion within the frontier is open to
 every writer. Peers stay secret until their first commit. A dishonest member
 commits forged spans on peers it has seen, and a republisher recreates a
 purged document from its history. A device refused on a peer the recreation
-claimed rebases onto a fresh peer. It requires that no reader voids an honest
-update, that no other user occupies a device's counters past what it
-committed, that a re-assertion is never the cause of a refusal, and that every
-honest edit is eventually committed. See the
+claimed rebases onto a fresh peer. Each update also declares the op ids it
+depends on: the server refuses one past a peer's committed frontier, and
+readers void an update that depends on other ops than it declares, so the
+dishonest member cannot depend on a device's unsent ops. It requires that no
+reader voids an honest update, that no other user occupies a device's
+counters past what it committed, that a re-assertion or a dependency is never
+the cause of an honest refusal, that no device accepts an update a fresh
+reader voids, and that every honest edit is eventually committed. See the
 [production mapping, negative controls, and bounds](./PeerOwnership.md).
 
 ## Opened-Document Recovery Probes

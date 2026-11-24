@@ -15,6 +15,10 @@ export const DOCUMENT_SYNC_ERROR_CODES = {
   // container. The write rolled back; the client repairs those containers
   // standalone, where each rekey carries its own descendants, then retries.
   descendantRekeysRequired: "document_sync_descendant_rekeys_required",
+  // The request depends on an operation the server has not committed. The
+  // write rolled back; the client rebases its unsent ops past those peers'
+  // frontiers onto a fresh peer and retries.
+  dependencyUncommitted: "document_sync_dependency_uncommitted",
   // The request extends a peer another user owns. The write rolled back; the
   // client rebases its unsent ops on that peer onto a fresh peer and retries.
   peerOwned: "document_sync_peer_owned",
@@ -25,6 +29,7 @@ export const DOCUMENT_SYNC_ERROR_CODES = {
 export const DocumentSyncErrorCodeSchema = z.literal([
   DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
   DOCUMENT_SYNC_ERROR_CODES.conflict,
+  DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted,
   DOCUMENT_SYNC_ERROR_CODES.descendantRekeysRequired,
   DOCUMENT_SYNC_ERROR_CODES.peerOwned,
   DOCUMENT_SYNC_ERROR_CODES.stateStale,
@@ -32,9 +37,10 @@ export const DocumentSyncErrorCodeSchema = z.literal([
 ]);
 
 /**
- * Most refused peers one `document_sync_peer_owned` body names. A request's
- * spans are bounded only by its byte ceiling, so the server names the first
- * this many in canonical order and a retry names the rest.
+ * Most refused peers one `document_sync_peer_owned` or
+ * `document_sync_dependency_uncommitted` body names. A request's spans and
+ * dependencies are bounded only by its byte ceiling, so the server names the
+ * first this many in canonical order and a retry names the rest.
  */
 export const MAX_DOCUMENT_PEER_FRONTIERS = 64;
 
@@ -65,6 +71,24 @@ export const DocumentPeerFrontierSchema = loosePlainObject({
 export type DocumentPeerFrontier = z.infer<typeof DocumentPeerFrontierSchema>;
 
 export type DocumentSyncErrorCode = z.infer<typeof DocumentSyncErrorCodeSchema>;
+
+/**
+ * The refusals whose body names peers with their committed frontiers, for the
+ * client to rebase its unsent ops past them onto a fresh peer: one extends a
+ * peer another user owns, the other depends on an op nobody committed.
+ */
+export type DocumentPeerRebaseErrorCode =
+  | typeof DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted
+  | typeof DOCUMENT_SYNC_ERROR_CODES.peerOwned;
+
+export function isDocumentPeerRebaseErrorCode(
+  value: unknown,
+): value is DocumentPeerRebaseErrorCode {
+  return (
+    value === DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted ||
+    value === DOCUMENT_SYNC_ERROR_CODES.peerOwned
+  );
+}
 
 export function isDocumentSyncErrorCode(
   value: unknown,

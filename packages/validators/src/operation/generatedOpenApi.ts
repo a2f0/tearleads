@@ -2690,6 +2690,7 @@ export type components = {
                 /** @constant */
                 checkpointPayloadKind?: "full_history_snapshot";
                 coversThroughUpdateId?: string;
+                dependencyVersionVector: string;
                 encryptedData: string;
                 id: string;
                 partialEndVersionVector: string;
@@ -2803,7 +2804,7 @@ export type components = {
             [key: string]: unknown;
         };
         /** @description A machine-readable reason a document mutation was refused. */
-        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
+        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
         /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
             code?: components["schemas"]["DocumentMutationErrorCode"];
@@ -2833,6 +2834,8 @@ export type components = {
             checkpointPayloadKind?: "full_history_snapshot";
             /** @description For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor. */
             coversThroughUpdateId?: string;
+            /** @description Version vector of the operations the update depends on outside itself: one past each peer's latest such operation, as Loro decodes the payload's start frontiers. Signed in the content-record metadata. The server refuses an update that depends on an operation it has not committed (`document_sync_dependency_uncommitted`), and a reader voids one whose payload depends on other operations. Empty on a rotation baseline. */
+            dependencyVersionVector: string;
             /** @description Base64 ciphertext of the update under the document content key. */
             encryptedData: string;
             /** @description Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical. */
@@ -2852,7 +2855,7 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A Loro peer the request extended that another user owns. */
+        /** @description A Loro peer the request extended that another user owns, or depends on past its committed frontier. */
         DocumentPeerFrontier: {
             /** @description End (exclusive) of the peer's committed operations; the request may re-assert counters below it. */
             committedEndCounter: number;
@@ -2906,12 +2909,12 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop. */
+        /** @description A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer or off uncommitted dependencies, or stop. */
         DocumentSyncErrorResponse: {
             /** @enum {string} */
-            code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict";
+            code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_dependency_uncommitted" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict";
             error: string;
-            /** @description With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request. */
+            /** @description With `document_sync_peer_owned`, up to 64 peers another user owns that the request extends; with `document_sync_dependency_uncommitted`, up to 64 peers the request depends on past their committed frontier. Each carries the frontier committed before the request. */
             peerFrontiers?: components["schemas"]["DocumentPeerFrontier"][];
             /** @description With `document_sync_state_stale` from a carried rekey, up to 16 current principal heads to recover before replanning; advisory only. */
             principalHeads?: components["schemas"]["ReferencedPrincipalStateResponse"][];
@@ -2999,6 +3002,7 @@ export type components = {
                 /** @constant */
                 checkpointPayloadKind?: "full_history_snapshot";
                 coversThroughUpdateId?: string;
+                dependencyVersionVector: string;
                 encryptedData: string;
                 id: string;
                 partialEndVersionVector: string;
@@ -3068,6 +3072,8 @@ export type components = {
             /** @description For a rotation baseline, the signed processed cursor it was written with. */
             coversThroughUpdateId?: string;
             createdAt: string;
+            /** @description Version vector of the operations the update depends on outside itself, as its writer signed it; every one was committed when the update was accepted. */
+            dependencyVersionVector: string;
             documentId: string;
             /** @description Base64 ciphertext of the update. */
             encryptedData: string;

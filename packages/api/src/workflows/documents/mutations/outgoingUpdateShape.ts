@@ -7,7 +7,7 @@ import {
   computeContentRecordNonceDomainHash,
   parseDocumentEncryptedUpdate,
 } from "@tearleads/crypto";
-import { listVersionVectorSpans } from "@tearleads/loro";
+import { decodeVersionVector, listVersionVectorSpans } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { DocumentMutationError } from "./errors";
 
@@ -35,6 +35,37 @@ export function assertOutgoingDeclaredSpan(
   if (spanCount === 0) {
     throw new DocumentMutationError(
       "Document update declares no operations",
+      400,
+    );
+  }
+}
+
+/**
+ * An update's declared dependencies must be a version vector, and a rotation
+ * baseline, a full-history snapshot, depends on nothing. Every honest writer
+ * reads them from the bytes it sends, so this refuses only output no honest
+ * client produces.
+ */
+export function assertOutgoingDeclaredDependencies(
+  update: Pick<
+    DocumentOutgoingUpdate,
+    "checkpointKind" | "dependencyVersionVector"
+  >,
+): void {
+  let dependencyCount: number;
+  try {
+    dependencyCount = [
+      ...decodeVersionVector(update.dependencyVersionVector).toJSON().values(),
+    ].filter((endCounter) => endCounter > 0).length;
+  } catch {
+    throw new DocumentMutationError(
+      "Document update dependency version vector is invalid",
+      400,
+    );
+  }
+  if (update.checkpointKind === "rotate_baseline" && dependencyCount > 0) {
+    throw new DocumentMutationError(
+      "Document rotation baseline declares dependencies",
       400,
     );
   }

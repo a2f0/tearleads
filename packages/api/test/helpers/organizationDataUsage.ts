@@ -66,6 +66,7 @@ export async function seedUsageDocument(input: {
       byteLength: update.byteLength,
       partialStartVersionVector: `${input.documentId}-start-${index}`,
       partialEndVersionVector: `${input.documentId}-end-${index}`,
+      dependencyVersionVector: `${input.documentId}-dependencies-${index}`,
       plaintextHash: `${input.documentId}-plaintext-${index}`,
     })),
   );

@@ -110,9 +110,10 @@ export interface SyncRemoteDocumentRequest {
   pendingUpdates?: readonly PendingUpdateRecord[] | undefined;
   persistedState?: PersistedDocumentSyncState | null | undefined;
   /**
-   * Answers a `document_sync_peer_owned` refusal: another user owns a peer
-   * the queued updates extend. The pass calls it and ends without a result.
-   * Without it, that refusal is terminal.
+   * Answers a `document_sync_peer_owned` refusal (another user owns a peer
+   * the queued updates extend) or a `document_sync_dependency_uncommitted`
+   * one (they depend on an op nobody committed). The pass calls it and ends
+   * without a result. Without it, either refusal is terminal.
    */
   rebaseOntoFreshPeer?: DocumentPeerRebaser | undefined;
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;

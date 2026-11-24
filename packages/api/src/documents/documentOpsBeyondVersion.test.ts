@@ -38,6 +38,7 @@ async function commitEdit(
   const bytes = exportUpdatesSince(doc, start);
   const vectors = getUpdateVersionVectors(bytes);
   const update = {
+    dependencyVersionVector: vectors.dependencyVersionVector,
     id: crypto.randomUUID(),
     partialEndVersionVector: vectors.partialEndVersionVector,
     partialStartVersionVector: vectors.partialStartVersionVector,

@@ -26,6 +26,7 @@ const TARGET = {
 const UPDATE = {
   encryptedData: "ciphertext",
   id: "550e8400-e29b-41d4-a716-446655440111",
+  dependencyVersionVector: "{}",
   partialEndVersionVector: '{"actor":1}',
   partialStartVersionVector: "{}",
   plaintextHash: "plaintext-hash",
@@ -200,6 +201,7 @@ test("document sync accepts high-actor vectors above the old ceiling", () => {
       outgoingUpdates: [
         {
           ...UPDATE,
+          dependencyVersionVector: "{}",
           partialEndVersionVector: highActorVector,
           partialStartVersionVector: highActorVector,
         },

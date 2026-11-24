@@ -33,6 +33,7 @@ function syncWithData(encryptedData: string): DocumentSyncRequest {
     localVersionVector: '{"actor":1}',
     outgoingUpdates: [
       {
+        dependencyVersionVector: "{}",
         encryptedData,
         id: "550e8400-e29b-41d4-a716-446655440111",
         partialEndVersionVector: '{"actor":1}',

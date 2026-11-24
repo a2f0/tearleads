@@ -56,6 +56,7 @@ export function createEchoDocumentSyncResponse(input: {
         ),
         authorFingerprint: writeHeader.writerKeyFingerprint,
         createdAt: "2026-04-27T00:00:00.000Z",
+        dependencyVersionVector: update.dependencyVersionVector,
         documentId: input.storedDocument.id,
         encryptedData: update.encryptedData,
         id: update.id,

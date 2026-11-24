@@ -14,6 +14,7 @@ import { DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT } from "../../../src/data/documen
 export async function createDocumentEncryptedUpdateFixture(input: {
   contentKeyCommitment?: string | undefined;
   contentKeyEpoch: number;
+  dependencyVersionVector: string;
   documentId: string;
   id: string;
   organizationId: string;
@@ -35,6 +36,7 @@ export async function createDocumentEncryptedUpdateFixture(input: {
     contentRecordId: input.id,
   });
   const metadataHash = await computeDocumentContentRecordMetadataHash({
+    dependencyVersionVector: input.dependencyVersionVector,
     documentId: input.documentId,
     partialEndVersionVector: input.partialEndVersionVector,
     partialStartVersionVector: input.partialStartVersionVector,

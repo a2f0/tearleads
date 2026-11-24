@@ -43,6 +43,10 @@ export const documentUpdates = pgTable(
     byteLength: integer("byte_length").notNull(),
     partialStartVersionVector: text("partial_start_version_vector").notNull(),
     partialEndVersionVector: text("partial_end_version_vector").notNull(),
+    // The ops the update depends on outside itself, as its writer signed
+    // them: committed when it was accepted, and what readers check the
+    // payload's own dependencies against.
+    dependencyVersionVector: text("dependency_version_vector").notNull(),
     plaintextHash: text("plaintext_hash").notNull(),
     // Set only on a rotation baseline: the Loro source version vector its
     // signed checkpoint metadata declares it covers. The checkpoint and

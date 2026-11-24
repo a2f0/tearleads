@@ -27,6 +27,7 @@ export interface SyncCheckpointMetadata {
 
 interface SyncCheckpointAuthenticationInput {
   readonly checkpoint: SyncCheckpointMetadata | undefined;
+  readonly dependencyVersionVector: string;
   readonly documentId: string;
   readonly metadataHash: string;
   readonly partialEndVersionVector: string;
@@ -46,6 +47,7 @@ export async function authenticateSyncCheckpointForResponse(
   if (input.checkpoint === undefined) {
     const ordinaryMetadataHash = await computeDocumentContentRecordMetadataHash(
       {
+        dependencyVersionVector: input.dependencyVersionVector,
         documentId: input.documentId,
         partialEndVersionVector: input.partialEndVersionVector,
         partialStartVersionVector: input.partialStartVersionVector,
@@ -65,6 +67,7 @@ export async function authenticateSyncCheckpointForResponse(
   const authenticated = await isAuthenticatedReplayableBaseline({
     checkpointKind: input.checkpoint.checkpointKind,
     coversThroughUpdateId: input.checkpoint.coversThroughUpdateId,
+    dependencyVersionVector: input.dependencyVersionVector,
     documentId: input.documentId,
     metadataHash: input.metadataHash,
     partialEndVersionVector: input.partialEndVersionVector,
@@ -149,6 +152,7 @@ function toSyncUpdate(
     encryptedData: update.encryptedData,
     partialStartVersionVector: update.partialStartVersionVector,
     partialEndVersionVector: update.partialEndVersionVector,
+    dependencyVersionVector: update.dependencyVersionVector,
     plaintextHash: update.plaintextHash,
     ...(checkpoint === undefined
       ? {}
@@ -174,6 +178,7 @@ async function toSyncResponseEntry(
   }
   const checkpoint = await authenticateSyncCheckpointForResponse({
     checkpoint: storedSyncCheckpoint(update),
+    dependencyVersionVector: update.dependencyVersionVector,
     documentId: update.documentId,
     metadataHash: writeHeader.header.metadataHash,
     partialEndVersionVector: update.partialEndVersionVector,

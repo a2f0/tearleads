@@ -65,6 +65,7 @@ function initialDocumentSync(): RegistrationRequest["initialRootMetadataDocument
   return {
     outgoingUpdates: [
       {
+        dependencyVersionVector: "{}",
         encryptedData: "ciphertext",
         id: initialUpdateId,
         partialEndVersionVector: '{"actor":1}',

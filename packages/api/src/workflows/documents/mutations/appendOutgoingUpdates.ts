@@ -11,6 +11,7 @@ import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpan
 import { uniqueSortedStrings } from "../../../utils/array";
 import {
   DocumentMutationError,
+  documentDependencyUncommitted,
   documentPeerOwned,
   documentUpdateIdConflict,
 } from "./errors";
@@ -91,6 +92,7 @@ async function insertNewDocumentUpdates(input: {
         byteLength: documentUpdateByteLength(update),
         partialStartVersionVector: update.partialStartVersionVector,
         partialEndVersionVector: update.partialEndVersionVector,
+        dependencyVersionVector: update.dependencyVersionVector,
         plaintextHash: update.plaintextHash,
         baselineSourceVersionVector: baselineSourceVersionVector(update),
         baselineCoversThroughUpdateId: baselineCoversThroughUpdateId(update),
@@ -116,6 +118,7 @@ async function loadExistingDocumentUpdateRows(input: {
     .select({
       documentId: documentUpdates.documentId,
       encryptedData: documentUpdates.encryptedData,
+      dependencyVersionVector: documentUpdates.dependencyVersionVector,
       id: documentUpdates.id,
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
@@ -275,15 +278,21 @@ export async function appendDocumentUpdates(
     existingRowsById,
     outgoingUpdates,
   });
-  // Retried ids already committed skip the ownership check as they skip the
-  // insert; the caller's document head lock spans the check and the insert.
-  const refusedPeers = await claimDocumentPeers(input.executor, {
+  // Retried ids already committed skip the ownership and dependency checks
+  // as they skip the insert; the caller's document head lock spans the checks
+  // and the insert.
+  const refusal = await claimDocumentPeers(input.executor, {
     documentId: input.documentId,
     documentInsertedInTransaction: input.documentInsertedInTransaction,
     updates: newUpdates,
     userId: input.userId,
   });
-  if (refusedPeers.length > 0) throw documentPeerOwned(refusedPeers);
+  if (refusal?.kind === "peer_owned") {
+    throw documentPeerOwned(refusal.peerFrontiers);
+  }
+  if (refusal?.kind === "dependency_uncommitted") {
+    throw documentDependencyUncommitted(refusal.peerFrontiers);
+  }
 
   const insertedUpdateIds = await insertNewDocumentUpdates({
     accessEpoch: input.accessEpoch,

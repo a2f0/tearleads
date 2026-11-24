@@ -154,6 +154,7 @@ function syncResponseUpdate(
       Reflect.get(update.writeHeader, "writerKeyFingerprint"),
     ),
     createdAt: "2026-08-12T12:00:00.000Z",
+    dependencyVersionVector: update.dependencyVersionVector,
     documentId: DOCUMENT_ID,
     encryptedData: update.encryptedData,
     id: update.id,

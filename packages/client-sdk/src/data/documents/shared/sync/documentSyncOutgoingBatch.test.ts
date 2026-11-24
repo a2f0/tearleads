@@ -80,6 +80,7 @@ test("document sync outgoing batches fit the serialized request byte limit", () 
     outgoingUpdates: Array.from(
       { length: MAX_DOCUMENT_SYNC_OUTGOING_UPDATES },
       (_, index) => ({
+        dependencyVersionVector: vector,
         encryptedData: "A".repeat(300_000),
         id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
         partialEndVersionVector: vector,
@@ -117,6 +118,7 @@ test("document sync fitting stops before serializing a large deferred tail", () 
     { length: MAX_DOCUMENT_SYNC_OUTGOING_UPDATES },
     (_, index) => {
       const update = {
+        dependencyVersionVector: "AA==",
         encryptedData: "ciphertext",
         id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
         partialEndVersionVector: largeVector,
@@ -185,6 +187,7 @@ test("document sync preserves a high-actor write above the old vector ceiling", 
     localVersionVector: vector,
     outgoingUpdates: [
       {
+        dependencyVersionVector: "AA==",
         encryptedData: "ciphertext",
         id: "00000000-0000-4000-8000-000000000001",
         partialEndVersionVector: vector,

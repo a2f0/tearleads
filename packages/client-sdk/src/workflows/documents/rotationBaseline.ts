@@ -138,6 +138,7 @@ export async function buildDocumentRotationBaseline(input: {
       ciphertextHash: encrypted.ciphertextHash,
       contentRecordId: encrypted.contentRecordId,
       ...(coversThroughUpdateId === undefined ? {} : { coversThroughUpdateId }),
+      dependencyVersionVector: encrypted.dependencyVersionVector,
       encryptedData: encrypted.encryptedData,
       id: pendingUpdate.id,
       metadataHash: encrypted.metadataHash,
