@@ -27,9 +27,11 @@ test("a peer's metadata hint during an eager system create queues its read", asy
   );
   try {
     await defaultContainerContentsPersistence.ensureSchema(execSql);
+    const seedIds: (string | undefined)[] = [];
     const runtime = createContainerContentsStoreTestRuntime({
       apiClient: createMockApiClient({
         createContainerWithMetadataDocumentResult: async (request) => {
+          seedIds.push(request.initialMetadataSync?.outgoingUpdates[0]?.id);
           // A peer renames the committed slot before this response arrives,
           // while no local record names its metadata document yet.
           deliverPeerRename(request);
@@ -135,6 +137,15 @@ test("a peer's metadata hint during an eager system create queues its read", asy
     // The seed committed, so only the peer's queued read asks for a pass, and
     // it asks after the created record is installed for that pass to sync.
     expect(finalized?.containerState.record.lastCommitLsn).toBe("0/20");
+    // It also stands for the first pull, so a listing that counts it owes
+    // this device no read of its own update.
+    expect(
+      await execSql(
+        `SELECT through_update_count AS "count", through_update_id AS "updateId"
+         FROM document_sync_progress WHERE local_id = ?`,
+        [finalized?.containerState.container.id ?? ""],
+      ),
+    ).toEqual([{ count: 1, updateId: seedIds[0] }]);
     expect(state.metadataDocumentIdsNeedingSync).toEqual(
       new Set([metadataDocumentId ?? ""]),
     );
