@@ -2,10 +2,14 @@
  * A list that fills its mini-app runs to the edges of the surface that shows
  * it, in every tier: its column headings, the rule above them, and every row's
  * line and highlight reach the window's sides (or the routed pane's). Opt in
- * with `mini-app-table-frame--edges` (Explorer's item list and grid, Shared
- * with Me). The frame breaks out of the mini-app root's padding by
- * `--mini-app-edge-inset`, the same distance the tab strip uses
- * (MiniAppRoot.css).
+ * with `mini-app-table-frame--edges`, which every list a mini-app shows as a
+ * view's content takes (Explorer's item list, grid, and diagnostics lists;
+ * Shared with Me; Org Manager's roster, groups, and grants; Identity Manager's
+ * sessions; Root's section lists). A table inside an info or detail view (Get
+ * Info, a group's links) keeps its inset. The frame breaks out of the
+ * mini-app root's padding by `--mini-app-edge-inset`, the same distance the tab
+ * strip uses (MiniAppRoot.css). A region between the two that scrolls on its
+ * own takes `mini-app-edge-scrollport` so the frame is not clipped.
  *
  * The text stays where it was. The frame pads itself back in by
  * `--mini-app-table-edge-inset`, so its content box, which is what the frame's
@@ -34,6 +38,23 @@
 
 .routed-pane--mobile .mini-app-table-frame--edges {
   --mini-app-table-edge-inset: 0px;
+}
+
+/*
+ * A list with nothing above it in its mini-app (Shared with Me) also cancels
+ * the inset above it, so its column headings sit directly under the app bar
+ * or window toolbar, as a leading tab strip does (MiniAppTabs.css), rather than
+ * under a blank band. Anything rendered ahead of it, such as an error status,
+ * keeps it in the flow.
+ */
+.mini-app-root > .mini-app-table-frame--edges:first-child {
+  margin-block-start: calc(-1 * var(--mini-app-edge-inset, 0px));
+}
+
+/* The routed app bar already rules its bottom edge, where a window's toolbar
+   does not, so there the frame's own top rule would draw a second line. */
+.routed-pane-main .mini-app-root > .mini-app-table-frame--edges:first-child {
+  border-block-start: 0;
 }
 
 /* Exactly the padding box: no sideways scroll. */
