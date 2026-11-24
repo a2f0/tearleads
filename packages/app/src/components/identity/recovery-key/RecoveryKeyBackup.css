@@ -52,10 +52,11 @@
   height: max(20px, var(--control-icon-size));
 }
 
-/* The onboarding-style panel centers its contents; center the menu as one
- * block at the agreement form's width, keeping its rows aligned to the start. */
-.recovery-key-backup-confirmation .recovery-key-actions {
-  justify-self: center;
+/* The onboarding-style panel centers its contents and sizes each one to fit,
+ * so the backup block takes the agreement form's width outright rather than
+ * its contents': the menu (rows aligned to the start), the passphrase, and the
+ * QR code fill one centered column under the prompt's copy. */
+.recovery-key-backup-confirmation .recovery-key-backup {
   width: min(100%, 20rem);
 }
 
