@@ -56,6 +56,7 @@ async function createCheckout(root: string, label: string) {
     `${scripts}/releaseMacos.sh`,
     `${scripts}/releaseLinux.sh`,
     `${scripts}/macosSigning.sh`,
+    "scripts/lib/secretsStore.sh",
     "scripts/release/desktopRelease.sh",
     "scripts/release/uploadMacosRelease.sh",
     "terraform/scripts/cloudflareCache.sh",

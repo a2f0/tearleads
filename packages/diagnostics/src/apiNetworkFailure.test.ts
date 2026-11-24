@@ -332,10 +332,13 @@ test("the browser client sends reviewed network events and breadcrumbs only", as
     removeEventListener: () => {},
   });
   try {
-    const diagnostics = createBrowserDiagnostics({
-      ...unroutedConfig,
-      dsn: `https://${"c".repeat(32)}@o1.ingest.us.sentry.io/1`,
-    });
+    const diagnostics = createBrowserDiagnostics(
+      {
+        ...unroutedConfig,
+        dsn: `https://${"c".repeat(32)}@o1.ingest.us.sentry.io/1`,
+      },
+      { enabled: () => true, subscribe: () => () => {} },
+    );
     diagnostics.setApiRouteTemplates?.(routes);
     for (let index = 0; index < 20; index++)
       diagnostics.reportApiNetworkFailure?.(failure());

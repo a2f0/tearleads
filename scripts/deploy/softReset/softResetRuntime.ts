@@ -31,6 +31,22 @@ function formatElapsed(ms: number) {
   return `${Math.floor(ms / 60_000)}m${seconds}.${millis}s`;
 }
 
+// The first step checks only local state (clean source, overrides, schema,
+// secrets, tools) and calls no provider. softReset.ts declares it under this
+// name, so a run that fails there has nothing to recover and may release its
+// lock for a rerun.
+export const LOCAL_ONLY_STEP = "credentials";
+
+// How a run that did not succeed leaves its lock: released after a failure in
+// the local-only step, still held because that release failed, or preserved
+// for manual recovery after any later failure or an interruption.
+type LockEnding = "released" | "release-failed" | "preserved";
+
+function lockEnding(localFailure: boolean, released: boolean): LockEnding {
+  if (!localFailure) return "preserved";
+  return released ? "released" : "release-failed";
+}
+
 export function refuseOverrides(run: Pick<ResetRun, "root" | "tier">) {
   for (const stack of ["postgres", "storage"]) {
     const dir = join(run.root, "terraform/stacks", run.tier, stack);
@@ -262,21 +278,31 @@ export class ResetRun {
     }
   }
 
-  private cleanup() {
+  private failedBeforeCloud() {
+    const [first, ...later] = this.steps;
+    return (
+      later.length === 0 &&
+      first?.label === LOCAL_ONLY_STEP &&
+      first.status === "failed"
+    );
+  }
+
+  // Removes each path while this run still owns the lock, as one timed step.
+  private release(label: string, paths: readonly string[]) {
     const started = performance.now();
-    const step: Step = { label: "cleanup", status: "running", elapsedMs: 0 };
+    const step: Step = { label, status: "running", elapsedMs: 0 };
     this.steps.push(step);
     try {
-      this.requireLock();
-      rmSync(this.privateDir, { recursive: true });
-      this.requireLock();
-      rmSync(this.lock, { recursive: true });
+      for (const path of paths) {
+        this.requireLock();
+        rmSync(path, { recursive: true });
+      }
       step.status = "succeeded";
       return true;
     } catch {
       step.status = "failed";
       console.error(
-        "Cleanup failed; inspect the remaining private record and lock ownership.",
+        `${label === "cleanup" ? "Cleanup" : "Releasing the lock"} failed; inspect the remaining private record and lock ownership.`,
       );
       return false;
     } finally {
@@ -284,9 +310,26 @@ export class ResetRun {
     }
   }
 
+  // What the operator does next, by how the stopped run left its lock.
+  private recoveryAdvice(ending: LockEnding) {
+    const record = `${this.dir}/timings.json`;
+    switch (ending) {
+      case "released":
+        return `Stopped at ${LOCAL_ONLY_STEP}, before any cloud call, so no cloud resource changed. Released lock: ${this.lock}\nRead ${record} and the private command logs beside it, fix the reported configuration, then rerun the reset.`;
+      case "release-failed":
+        return `Stopped at ${LOCAL_ONLY_STEP}, before any cloud call, so no cloud resource changed, but the lock could not be released: ${this.lock}\nIdentify its owner from ${record} and docs/developer/greenfield-reset.md before removing it.`;
+      case "preserved":
+        return `Stopped at ${this.steps.at(-1)?.label ?? "startup"}. Maintenance or a partial rebuild may remain. No rollback occurred.\nPreserved lock: ${this.lock}\nRead ${record} and docs/developer/greenfield-reset.md before manual recovery; do not rerun the reset.`;
+    }
+  }
+
   async finish(success: boolean) {
     await new Promise<void>((resolve) => setImmediate(resolve));
-    if (success && !this.interrupted) success = this.cleanup();
+    if (success && !this.interrupted)
+      success = this.release("cleanup", [this.privateDir, this.lock]);
+    // Keep the private logs: they hold the reason the credentials step failed.
+    const local = !success && !this.interrupted && this.failedBeforeCloud();
+    const released = local && this.release("release-lock", [this.lock]);
     this.status = this.interrupted
       ? "interrupted"
       : success
@@ -301,11 +344,8 @@ export class ResetRun {
       );
     const total = Math.round(performance.now() - this.started);
     console.log(`total\t${this.status}\t${formatElapsed(total)}`);
-    if (this.status !== "succeeded") {
-      console.error(
-        `Stopped at ${this.steps.at(-1)?.label ?? "startup"}. Maintenance or a partial rebuild may remain. No rollback occurred.\nPreserved lock: ${this.lock}\nRead ${this.dir}/timings.json and docs/developer/greenfield-reset.md before manual recovery; do not rerun the reset.`,
-      );
-    }
+    if (this.status !== "succeeded")
+      console.error(this.recoveryAdvice(lockEnding(local, released)));
     return this.status === "succeeded"
       ? 0
       : this.interrupted

@@ -60,6 +60,11 @@ test(
       clickPaneAppMenuItem(view, "Settings");
     });
 
+    // Settings opens on General; wallpapers and themes are on Desktop.
+    await view.findByRole("tab", { name: "General", selected: true });
+    await act(async () => {
+      fireEvent.click(view.getByRole("tab", { name: "Desktop" }));
+    });
     const background = await view.findByRole("group", { name: "Background" });
     const dialog = background.closest<HTMLElement>(".window");
     expect(dialog?.querySelector(".window-titlebar-title")?.textContent).toBe(

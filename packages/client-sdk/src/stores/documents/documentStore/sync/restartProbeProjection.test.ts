@@ -8,7 +8,8 @@ import type { DocumentsRuntime } from "../../types";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState, type DocumentStoreState } from "../state";
 import {
-  deferStartupProbeToPendingConnect,
+  joinDocumentStoreStartupProbe,
+  loadDocumentStoreStartupProbe,
   settleDeferredStartupProbe,
 } from "./startupProbeDeferral";
 import {
@@ -36,7 +37,9 @@ import {
 
 const DOCUMENT_ID = "44444444-4444-4444-8444-444444444444";
 
-function createProbeState(): DocumentStoreState {
+function createProbeState(
+  remoteSyncMode: "on-demand" | "startup" = "startup",
+): DocumentStoreState {
   const deliveredEvents: unknown[] = [];
   const runtime = {
     apiClient: {},
@@ -57,11 +60,15 @@ function createProbeState(): DocumentStoreState {
     {} as never,
     noopDocumentStorePersistenceEffects,
     DOCUMENT_ID,
+    "",
+    undefined,
+    remoteSyncMode,
   );
   state.record = { documentId: DOCUMENT_ID } as DocumentStoreState["record"];
-  // The scenario starts at the model's Init: connected and settled, no
-  // outstanding probe.
-  state.remoteSyncBlocked = false;
+  // A startup-mode scenario starts at the model's Init: connected and
+  // settled, no outstanding probe. An on-demand store keeps remote sync
+  // blocked until something asks for it.
+  if (remoteSyncMode === "startup") state.remoteSyncBlocked = false;
   return state;
 }
 
@@ -247,7 +254,8 @@ test("startup probe deferral replays onto the RestartProbeConvergence model", ()
   // waits on that attempt instead of arming the startup probe.
   const deferred = createProbeState();
   deferred.runtime = withPendingConnectAttempt(deferred, 3);
-  expect(deferStartupProbeToPendingConnect(deferred)).toBe(true);
+  expect(loadDocumentStoreStartupProbe(deferred, true)).toBe(false);
+  expect(deferred.startupProbe).toEqual({ attempt: 3, status: "deferred" });
   recorder.record({
     action: "InitializeOpenedPersistedDocument",
     observed: { probeRequested: projectedProbeRequested(deferred, null) },
@@ -279,6 +287,44 @@ test("startup probe deferral replays onto the RestartProbeConvergence model", ()
     "InitializeOpenedPersistedDocument",
     "OpenEventsSocket",
     "AbandonEventsConnect",
+    "BeginProbe",
+    "FinishProbe",
+  ]);
+  persistRestartProbeTrace(trace);
+});
+
+test("a startup open joining an on-demand store replays onto the RestartProbeConvergence model", () => {
+  const recorder = createRestartProbeTraceRecorder("startup-probe-join");
+  recorder.record({ action: "Restart" });
+
+  // A listing reopened the document on demand to read it: it loaded without
+  // a probe, which the model does not see as an opened document.
+  const state = createProbeState("on-demand");
+  state.initialized = true;
+  expect(loadDocumentStoreStartupProbe(state, true)).toBe(false);
+  expect(state.remoteUpdatePending).toBe(false);
+
+  // A view opens it normally: the real join kernel arms the probe the
+  // listing skipped, which projects as the model's opening step.
+  let scheduled = false;
+  joinDocumentStoreStartupProbe(state, () => {
+    scheduled = true;
+  });
+  expect(scheduled).toBe(true);
+  recorder.record({
+    action: "InitializeOpenedPersistedDocument",
+    observed: { probeRequested: projectedProbeRequested(state, null) },
+  });
+  expect(state.remoteUpdatePending).toBe(true);
+
+  const flight = beginProbe(recorder, state);
+  finishProbe(recorder, state, flight);
+  expect(state.remoteUpdatePending).toBe(false);
+
+  const trace = recorder.trace();
+  expect(trace.steps.map((step) => step.action)).toEqual([
+    "Restart",
+    "InitializeOpenedPersistedDocument",
     "BeginProbe",
     "FinishProbe",
   ]);

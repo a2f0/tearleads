@@ -35,6 +35,14 @@ command -v sips >/dev/null 2>&1 || {
   exit 1
 }
 
+# A fresh clone has no .secrets yet; link the shared store before reading
+# production's shared file. An explicit env file is read instead, so no link.
+if [ -z "${SUBSCRIPTION_SCREENSHOT_REVENUECAT_ENV_FILE:-}" ]; then
+  # shellcheck source=scripts/lib/secretsStore.sh
+  . "$REPO_ROOT/scripts/lib/secretsStore.sh"
+  secrets_store_link "$REPO_ROOT" >&2
+fi
+
 # Store releases load this public SDK key through Fastlane. The review capture
 # uses the same selectively loaded value without sourcing unrelated secrets.
 # shellcheck source=scripts/lib/exportRevenueCatKeys.sh

@@ -32,7 +32,10 @@ test("both private clients deny Sentry's expanded collection defaults", async ()
     origin: "https://app.tearleads.com",
     scriptPath: "/index.js",
   };
-  const browser = createBrowserDiagnostics(config);
+  const browser = createBrowserDiagnostics(config, {
+    enabled: () => true,
+    subscribe: () => () => {},
+  });
   const server = createServerDiagnostics(config);
   try {
     server.captureError(new Error("SYNTHETIC_POLICY_CHECK"), "request-error");

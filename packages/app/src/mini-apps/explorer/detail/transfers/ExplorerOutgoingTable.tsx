@@ -253,7 +253,7 @@ export function ExplorerOutgoingTable(params: {
   const [rowLimit, setRowLimit] = useState(OUTGOING_ROW_LIMIT);
 
   return (
-    <MiniAppTableFrame className="explorer-outgoing-table mini-app-table-frame--bleed">
+    <MiniAppTableFrame className="explorer-outgoing-table mini-app-table-frame--bleed mini-app-table-frame--edges">
       <MiniAppTable
         aria-label={EXPLORER_LABELS.outgoingAction}
         columns={columns}

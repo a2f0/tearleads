@@ -4,7 +4,10 @@ import type {
   PasswordKeychainSaveOutcome,
 } from "app/host/AppHostConfig";
 
-/** The native PasswordKeychain plugin: Android's Credential Manager. */
+/**
+ * The native PasswordKeychain plugin: Android's Credential Manager, or iCloud
+ * Keychain on iOS under the domain the build's entitlement names.
+ */
 export interface NativePasswordKeychainPlugin {
   pick(): Promise<{ readonly passphrase?: unknown }>;
   save(options: {
@@ -49,10 +52,10 @@ export function createCapacitorPasswordKeychain(
 let nativePasswordKeychain: NativePasswordKeychainPlugin | undefined;
 
 /**
- * Android's keychain. iOS has none yet: its save sheet needs the Associated
- * Domains entitlement for app.tearleads.com, which the app does not carry.
+ * The device's keychain: Google Password Manager through Android's Credential
+ * Manager, or iCloud Keychain on iOS for the build's `webcredentials:` domain.
  */
-export function createAndroidPasswordKeychain(): PasswordKeychain {
+export function createNativePasswordKeychain(): PasswordKeychain {
   return createCapacitorPasswordKeychain(() => {
     nativePasswordKeychain ??=
       Capacitor.registerPlugin<NativePasswordKeychainPlugin>(

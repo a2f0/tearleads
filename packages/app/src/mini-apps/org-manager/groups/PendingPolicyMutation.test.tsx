@@ -98,6 +98,8 @@ async function fixture() {
     ensureOrganizationMetadataContainer: unused,
     ensureOrganizationProfileDocument: unused,
     ensureRosterProfileContainer: unused,
+    findRosterProfileContainer: unused,
+    subscribeToContainers: () => () => undefined,
     ensureRosterProfileDocument: unused,
   });
   const resolved = mock(async () => {});

@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "version": "0.1.324",
+  "version": "0.1.332",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -9,10 +9,11 @@
     "./host/AppDiagnostics": "./src/host/AppDiagnostics.ts",
     "./App": "./src/App.tsx",
     "./client": "./src/client.tsx",
-    "./host/AppHostConfig": "./src/host/AppHostConfig.ts"
+    "./host/AppHostConfig": "./src/host/AppHostConfig.ts",
+    "./host/telemetryConsent": "./src/host/telemetryConsent.ts"
   },
   "scripts": {
-    "test": "bun test src test/screenshot-seed --max-concurrency=1 --parallel=2 --no-isolate"
+    "test": "bun test src --max-concurrency=1 --parallel=2 --no-isolate"
   },
   "dependencies": {
     "@a2f0/continuity": "catalog:",

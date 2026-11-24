@@ -100,7 +100,7 @@ The abstraction maps to production at these seams:
 | `QueueEdit` / `DeferEdit` | `pendingDeltaSinceBase`, `enqueuePendingUpdate`, `persistDocument`, and `advancePendingBaseVersion` |
 | `QueueRetainedTail` | `settleDeferredInitialUpdate` after the first attach on a store opened with `deferInitialUpdate`, whose creation left the marker at `emptyVersionVector` |
 | `CapturePreparation` | `prepareDocumentOutgoingCoverage` using `extendDocumentVersionCoverage` before its first await |
-| `MaterializeCapturedTail` | `prepareDocumentOutgoingCoverage` exporting and durably enqueuing an uncovered captured delta, whether its capture stays live or becomes stale |
+| `MaterializeCapturedTail` | `prepareDocumentOutgoingCoverage` exporting and durably enqueuing an uncovered captured delta, whether its capture stays live or becomes stale; the enqueue (`unlessQueued`) inserts nothing when a queued local row already holds the same bytes, as when a local write's row committed after the pass listed the queue, which leaves `queued` as the model's union does |
 | `AbortStalePreparation` | post-enqueue generation checks in `prepareDocumentOutgoingCoverage` returning without marker publication; an enqueue already submitted to persistence may still finish |
 | `PlanMarkerPersist` / `StartMarkerPersist` / `CompleteLiveMarkerPersist` | freezing `nextBaseVersion` before adapter awaits, the later successful `canStartDurableMutation` check and mutation claim, and post-await non-null persistence result in `prepareDocumentOutgoingCoverage` |
 | `CompleteStaleMarkerPersist` | a claimed marker mutation (`runSerializedSqlMutation`) returning after reset, with a null persistence result suppressing replacement-store publication and effects |

@@ -21,6 +21,8 @@ export interface CommandInput {
   readonly context: CliContext;
   readonly keyFromStdin?: boolean;
   readonly organizationId: string | undefined;
+  /** `seed --roster`: also seed the dataset's groups and their members. */
+  readonly roster?: boolean;
   readonly target: TargetName;
   readonly tracer: Tracer;
 }
