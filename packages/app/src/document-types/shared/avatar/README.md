@@ -31,10 +31,12 @@ with galleries through `getDocumentPhotoCapability` in the
 - [`useAvatarUrls.ts`](useAvatarUrls.ts) turns refs into object URLs and
   revokes them when they change.
 - [`documentAvatarSource.ts`](documentAvatarSource.ts) opens a listed
-  document to read its avatar. It opens only a document with a local copy, so
-  a stale row is never created. It uses the document's own container, not the
-  listing's, and opens on demand, so opening starts no remote sync. A view that
-  later opens the document normally still gets its startup probe. The source
+  document to read its avatar. It opens only a document with a local copy, and
+  with `createIfMissing: false`, so a stale row is never created, even when
+  the document is deleted while it opens. It uses the document's own
+  container, not the listing's, and opens on demand, so opening starts no
+  remote sync. A view that later opens the document normally still gets its
+  startup probe. The source
   keeps each store it opened, so a list that scrolls back or remounts reads it
   without reopening, and drops one a relink displaced.
 - [`useDocumentAvatarUrls.ts`](useDocumentAvatarUrls.ts) follows those stores
