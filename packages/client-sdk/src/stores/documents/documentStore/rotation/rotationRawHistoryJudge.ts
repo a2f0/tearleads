@@ -44,7 +44,11 @@ function assertRotationVerdictsSettled(
 function isPayloadVoid(
   stage: SyncRemoteDocumentResult["voidedUpdates"][number]["stage"],
 ): boolean {
-  return stage === "loro_metadata" || stage === "plaintext_integrity";
+  return (
+    stage === "decrypt" ||
+    stage === "loro_metadata" ||
+    stage === "plaintext_integrity"
+  );
 }
 
 /**

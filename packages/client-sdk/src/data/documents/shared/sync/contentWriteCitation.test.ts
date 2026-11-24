@@ -70,6 +70,7 @@ test("historical content writes retain a grant added after the leaf parent pin",
   const targetHash = await computeDocumentContentKeyTargetHash(targets);
   const contentKeyBundle = {
     documentId,
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch: 1,
     linkSetManifestHash: document.manifestHash,
     targetHash,

@@ -116,9 +116,9 @@ asserts the named violation on every run:
 
 Outside the model: the rotation-baseline redirect of a pull's first page, which
 skips only updates after the cursor that the baseline covers
-([`BaselineDominance`](./BaselineDominance.md) checks that gate); AEAD failures,
-which stay availability failures until a writer-signed key commitment exists;
-the content-key fingerprint that drops a void judged under another key;
+([`BaselineDominance`](./BaselineDominance.md) checks that gate); AEAD failures
+and content keys, which [`ContentKeyCommitment`](./ContentKeyCommitment.md)
+checks; the content-key commitment that drops a void judged under another key;
 duplicate update ids, which still fail a page; a pull's pages beyond the
 collapse above, and a cursor dropped between them, which abandons the pull as an
 upgrade does; the per-page rebuild budget, whose deferred updates are served

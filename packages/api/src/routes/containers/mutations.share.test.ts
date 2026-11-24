@@ -116,6 +116,7 @@ async function seedDownstreamContentKeyRows(input: {
     .insert(documentContentKeyEpochs)
     .values({
       documentId,
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 1,
       linkSetManifestHash: documentLinkSetManifestHash,
       targetHash: `document-targets:${documentId}`,

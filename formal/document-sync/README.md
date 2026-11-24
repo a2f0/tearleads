@@ -69,6 +69,19 @@ bounded attempts, and that every device eventually holds what a fresh reader on
 its decoder holds. See the
 [production mapping, negative controls, and bounds](./VoidUpdateProgress.md).
 
+## Content-Key Commitment
+
+[`ContentKeyCommitment.tla`](./ContentKeyCommitment.tla)
+models readers of a document across its content-key epochs. Each epoch commits
+to its key, the API refuses an update that commits to another, and a reader
+judges an update only under the committed key: an AES-GCM or plaintext-hash
+failure under it is a void, and holding another key leaves the update
+unavailable without moving the cursor. Openers may wrap another key to some
+targets, and a reader may be handed a stale key. It requires that every
+recorded verdict is the one the committed key gives, so readers agree, and that
+a reader whose wraps hold the committed keys eventually judges the whole log.
+See the [production mapping, negative controls, and bounds](./ContentKeyCommitment.md).
+
 ## Rotation Baselines Past a False Op Span
 
 [`BaselineCursorCoverage.tla`](./BaselineCursorCoverage.tla)

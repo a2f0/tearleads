@@ -30,6 +30,7 @@ async function bundleWithTargets(
   targets: DocumentContentKeyBundleResponse["targets"],
 ): Promise<DocumentContentKeyBundleResponse> {
   return {
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch: 1,
     documentId: "document-id",
     linkSetManifestHash: "link-set-manifest",

@@ -6,6 +6,7 @@ import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
 import { contentKeyEnvelopeFixture } from "./contentKeyEnvelope";
 import type { CreatedDocumentFixture } from "./documentAcknowledgementFixture";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "./documentEnvelopeFixture";
 import {
   accessManifestFromContainerResponse,
   buildRootGrantRequest,
@@ -143,6 +144,7 @@ export async function buildHealedContentKeyBundle(input: {
   ];
 
   return {
+    contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
     contentKeyEpoch: input.created.contentKeyEpoch + 1,
     documentId: input.created.id,
     linkSetManifestHash: input.created.manifestHash,

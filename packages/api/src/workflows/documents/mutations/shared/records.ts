@@ -116,6 +116,7 @@ export function toStoredContentKeyBundleInput(
 ) {
   return {
     documentId,
+    contentKeyCommitment: bundle.contentKeyCommitment,
     contentKeyEpoch: bundle.contentKeyEpoch,
     linkSetManifestHash: bundle.linkSetManifestHash,
     targetHash: bundle.targetHash,
@@ -167,6 +168,7 @@ export function toContentKeyBundleResponse(
 ): DocumentContentKeyBundleResponse {
   return {
     documentId: bundle.documentId,
+    contentKeyCommitment: bundle.contentKeyCommitment,
     contentKeyEpoch: bundle.contentKeyEpoch,
     linkSetManifestHash: bundle.linkSetManifestHash,
     targetHash: bundle.targetHash,

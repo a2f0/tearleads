@@ -42,6 +42,10 @@ import {
  * - `targetHash`: Hash of the normalized target rows in
  *   `documentContentKeyTargets`. Write headers include this hash so ciphertexts
  *   are bound to the exact recipient target set.
+ * - `contentKeyCommitment`: The epoch's content-key commitment, an HKDF output
+ *   of the content key that the bundle opening the epoch declared. It never
+ *   changes: a link that adds targets must repeat it, and every update of the
+ *   epoch must carry it in its signed encrypted envelope.
  *
  * Indexes:
  * - `(documentId, contentKeyEpoch)` is unique because a document can have only
@@ -57,6 +61,7 @@ export const documentContentKeyEpochs = pgTable(
     contentKeyEpoch: integer("content_key_epoch").notNull(),
     linkSetManifestHash: text("link_set_manifest_hash").notNull(),
     targetHash: text("target_hash").notNull(),
+    contentKeyCommitment: text("content_key_commitment").notNull(),
   },
   (table) => [
     uniqueIndex("document_content_key_epochs_document_epoch_idx").on(

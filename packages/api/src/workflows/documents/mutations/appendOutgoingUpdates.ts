@@ -203,6 +203,7 @@ async function verifyAndCollectNewOutgoingUpdates(input: {
     }
 
     const verifiedHeader = await verifyOutgoingWriteHeader({
+      contentKeyCommitment: appendInput.contentKeyCommitment,
       documentId: appendInput.documentId,
       expectedLinkSetManifestHash:
         appendInput.request.expectedLinkSetManifestHash,

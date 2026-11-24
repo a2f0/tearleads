@@ -134,6 +134,17 @@ test("isDocumentContentKeyBundleRequest", () => {
       createDocumentContentKeyBundle({ targets: [{ wrappedKey: "" }] }),
     ),
   ).toBe(false);
+  for (const contentKeyCommitment of [
+    undefined,
+    "C".repeat(64),
+    "c".repeat(63),
+  ]) {
+    expect(
+      isDocumentContentKeyBundleRequest(
+        createDocumentContentKeyBundle({ contentKeyCommitment }),
+      ),
+    ).toBe(false);
+  }
   expect(isDocumentContentKeyBundleRequest(null)).toBe(false);
 });
 

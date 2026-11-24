@@ -112,6 +112,23 @@ deletes before returning the photo for decoding; deletion failures are
 reported and the capture is rejected. Any retained image of the QR grants
 the same identity access as the recovery phrase itself.
 
+## Document Decrypt Verdicts Do Not Depend On The Reader's Key
+
+Each document content-key epoch has one
+[content-key commitment](../glossary/keys.md#content-key-commitment), stored by
+the API when the epoch opens, and every update's signed envelope names the
+commitment of the key it was encrypted under. The API refuses an update or a
+bundle whose commitment is not its epoch's. A reader judges an update only under
+a key that matches the commitment, and only after the update matches its signed
+header and ciphertext hash. Under that key an AES-GCM or plaintext-hash failure
+is a [void update](../glossary/content.md#void-update), which every reader
+holding the committed key reaches alike. A reader holding any other key, or
+whose own runtime fails, records no verdict and keeps the update for a later
+pass. A server that edits an envelope's commitment fails the signed ciphertext
+hash, so it can withhold an update from a reader but never make one void.
+[`ContentKeyCommitment.tla`](../../formal/document-sync/ContentKeyCommitment.tla)
+model checks that recorded verdicts depend only on the update.
+
 ## Protocol Handshake
 
 The access and policy handshake has these layers:

@@ -8,6 +8,7 @@ import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegat
 import { CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS } from "./protocolContainerGrantScopeNegativeControls";
 import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInterestNegativeControls";
 import { CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS } from "./protocolContainerMoveReplayNegativeControls";
+import { CONTENT_KEY_COMMITMENT_NEGATIVE_CONTROLS } from "./protocolContentKeyCommitmentNegativeControls";
 import { CONTENT_WRITE_NEGATIVE_CONTROLS } from "./protocolContentWriteNegativeControls";
 import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
@@ -63,6 +64,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
   ...OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS,
   ...VOID_UPDATE_NEGATIVE_CONTROLS,
+  ...CONTENT_KEY_COMMITMENT_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   ...RESTART_PROBE_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,

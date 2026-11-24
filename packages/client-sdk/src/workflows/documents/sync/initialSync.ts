@@ -12,9 +12,9 @@ import {
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
-import { importContentKeyMaterial } from "../../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../../data/documents/shared/crypto";
 import { containerPathRefs } from "../../../data/documents/shared/projection";
+import { openDocumentContentKey } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import type {
   DocumentCreateAuthor,
   MaterializedDocumentCreatePlan,
@@ -74,9 +74,11 @@ export async function buildDocumentCreateSeedRequest(input: {
   const contentKeyBundle =
     input.materializedDocument.plan.request.contentKeyBundle;
   const encrypted = await encryptDocumentPendingUpdate({
-    contentKeyMaterial: await importContentKeyMaterial(
-      input.materializedDocument.contentKey,
-    ),
+    contentKey: await openDocumentContentKey({
+      contentKey: input.materializedDocument.contentKey,
+      contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
+      documentId,
+    }),
     contentKeyEpoch: contentKeyBundle.contentKeyEpoch,
     documentId,
     organizationId: input.containerProjection.organizationId,

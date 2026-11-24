@@ -74,6 +74,7 @@ export function withDocumentMutationArtifacts<
   };
   const contentKeyBundle: DocumentContentKeyBundleResponse = {
     documentId: response.id,
+    contentKeyCommitment: request.contentKeyBundle.contentKeyCommitment,
     contentKeyEpoch: response.contentKeyEpoch,
     linkSetManifestHash: response.manifestHash,
     targetHash: response.targetHash,
