@@ -119,9 +119,10 @@ test("a bind commits the document sync it carries after its binding", async () =
     updateIds: [updateId],
   });
   console.info("locked-head-bind-carry", counter.statements);
-  // One statement is the bind's document-version precondition.
+  // One statement is the bind's document-version precondition; two are the
+  // carried update's peer-ownership read and claim of its new peer.
   expect(counter.statements).toBeLessThanOrEqual(
-    77 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    79 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 }, 20_000);
 

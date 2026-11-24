@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { arraySchema } from "../schema";
+import { registerJsonSchemaFragment } from "../jsonSchema";
+import {
+  arraySchema,
+  loosePlainObject,
+  safeNonNegativeIntegerSchema,
+} from "../schema";
 import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "../util/principalHistoryWire";
 import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
 
@@ -10,6 +15,9 @@ export const DOCUMENT_SYNC_ERROR_CODES = {
   // container. The write rolled back; the client repairs those containers
   // standalone, where each rekey carries its own descendants, then retries.
   descendantRekeysRequired: "document_sync_descendant_rekeys_required",
+  // The request extends a peer another user owns. The write rolled back; the
+  // client rebases its unsent ops on that peer onto a fresh peer and retries.
+  peerOwned: "document_sync_peer_owned",
   stateStale: "document_sync_state_stale",
   updateIdConflict: "document_sync_update_id_conflict",
 } as const;
@@ -18,9 +26,43 @@ export const DocumentSyncErrorCodeSchema = z.literal([
   DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
   DOCUMENT_SYNC_ERROR_CODES.conflict,
   DOCUMENT_SYNC_ERROR_CODES.descendantRekeysRequired,
+  DOCUMENT_SYNC_ERROR_CODES.peerOwned,
   DOCUMENT_SYNC_ERROR_CODES.stateStale,
   DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
 ]);
+
+/**
+ * Most refused peers one `document_sync_peer_owned` body names. A request's
+ * spans are bounded only by its byte ceiling, so the server names the first
+ * this many in canonical order and a retry names the rest.
+ */
+export const MAX_DOCUMENT_PEER_FRONTIERS = 64;
+
+// A Loro peer id is an unsigned 64-bit integer, at most 20 decimal digits.
+const MAX_LORO_PEER_ID_DIGITS = 20;
+
+const loroPeerIdSchema = registerJsonSchemaFragment(
+  z.custom<string>(
+    (value) =>
+      typeof value === "string" &&
+      value.length <= MAX_LORO_PEER_ID_DIGITS &&
+      /^[0-9]+$/u.test(value),
+  ),
+  {
+    maxLength: MAX_LORO_PEER_ID_DIGITS,
+    minLength: 1,
+    pattern: "^[0-9]+$",
+    type: "string",
+  },
+);
+
+/** A refused peer and the server's committed frontier on it. */
+export const DocumentPeerFrontierSchema = loosePlainObject({
+  peerId: loroPeerIdSchema,
+  committedEndCounter: safeNonNegativeIntegerSchema,
+});
+
+export type DocumentPeerFrontier = z.infer<typeof DocumentPeerFrontierSchema>;
 
 export type DocumentSyncErrorCode = z.infer<typeof DocumentSyncErrorCodeSchema>;
 
@@ -42,6 +84,10 @@ export const DocumentSyncStateStaleErrorResponseSchema = z.looseObject({
 export const DocumentSyncErrorResponseSchema = z.looseObject({
   code: DocumentSyncErrorCodeSchema,
   error: z.string().min(1),
+  peerFrontiers: arraySchema(
+    DocumentPeerFrontierSchema,
+    MAX_DOCUMENT_PEER_FRONTIERS,
+  ).optional(),
   principalHeads: arraySchema(
     ReferencedPrincipalStateResponseSchema,
     PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT,

@@ -20,6 +20,7 @@ import {
   DocumentMutationErrorCodeSchema,
   DocumentMutationFailureResponseSchema,
   DocumentNotFoundErrorResponseSchema,
+  DocumentPeerFrontierSchema,
   DocumentPurgeProofResponseSchema,
   DocumentPurgeResponseSchema,
   DocumentSyncErrorResponseSchema,
@@ -199,10 +200,22 @@ describeSchema(
 
 describeSchema(
   DocumentSyncErrorResponseSchema,
-  "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, or stop.",
+  "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop.",
   {
+    peerFrontiers:
+      "With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request.",
     principalHeads:
       "With `document_sync_state_stale` from a carried rekey, up to 16 current principal heads to recover before replanning; advisory only.",
+  },
+);
+
+describeSchema(
+  DocumentPeerFrontierSchema,
+  "A Loro peer the request extended that another user owns.",
+  {
+    committedEndCounter:
+      "End (exclusive) of the peer's committed operations; the request may re-assert counters below it.",
+    peerId: "Loro peer id, in decimal.",
   },
 );
 

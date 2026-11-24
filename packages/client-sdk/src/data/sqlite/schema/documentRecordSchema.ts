@@ -49,6 +49,9 @@ const accessLevelColumn = "effective_access_level";
  * - `recoveryGeneration`: Atomic raw-history recovery writer fence.
  * - `recoveryDocumentId`: Former server id for cross-client post-purge recreation.
  * - `pullContinuation`: Durable progress for the next bounded remote pull.
+ * - `peerSalt`: Salt that moved this record's writer peer after the server
+ *   refused its old one as another user's (`recordPeerSeed`); `null` while
+ *   the record writes on its first derived peer.
  * - `syncFailureMessage`, `syncFailureAttemptedAt`: The last terminal sync
  *   failure or quarantined incoming update for this scope.
  *   The durable write queue (queued rows of `documentHistoryUpdates`) has no
@@ -83,6 +86,7 @@ export const documents = sqliteTable(
     documentKekTargets: text("document_kek_targets"),
     pendingBaseVersion: text("pending_base_version"),
     pullContinuation: text("pull_continuation"),
+    peerSalt: text("peer_salt"),
     recoveryGeneration: integer("recovery_generation").notNull().default(0),
     recoveryDocumentId: text("recovery_document_id"),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
@@ -202,6 +206,7 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
     ...defineSqlTableSchema(documents),
     requiredColumns: [
       "pull_continuation",
+      "peer_salt",
       "recovery_generation",
       "recovery_document_id",
       "sync_failure_message",

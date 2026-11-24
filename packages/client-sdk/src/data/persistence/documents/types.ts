@@ -25,6 +25,7 @@ import type {
   PendingUpdateFields,
   QueuedPendingUpdateRecord,
 } from "./records";
+import type { DocumentPeerRebaseInstall } from "./records/peerRebaseInstall";
 
 export type {
   AttachmentRemovalMarkerObservation,
@@ -36,6 +37,10 @@ export type {
   PendingAttachmentUploadIdentity,
   SettleAttachmentRemovalMarkerInput,
 } from "./attachmentRecords";
+export type {
+  DocumentPeerRebaseInstall,
+  DocumentPeerRebaseRecord,
+} from "./records/peerRebaseInstall";
 
 export interface StoredDocumentRecord extends BaseDocumentRecord {
   containerId: string | null;
@@ -114,6 +119,15 @@ export interface DocumentsPersistence
    * must abort that transaction.
    */
   readonly supportsAtomicRecoveryHistoryPruning: boolean;
+  /**
+   * Move a record onto the fork a peer rebase built, atomically, or write
+   * nothing and return false when the record or its history moved past what
+   * the rebase read. An adapter without it leaves a peer refusal terminal.
+   */
+  installPeerRebase?: (
+    execSql: ExecSql,
+    input: DocumentPeerRebaseInstall,
+  ) => Promise<boolean>;
   /**
    * Atomically create the canonical row, standard projections, and birth
    * checkpoint. Returns null when another initializer already owns localId.

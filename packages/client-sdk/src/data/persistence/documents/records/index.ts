@@ -26,3 +26,7 @@ export {
   mapSelectedDocumentRecord,
 } from "./documentRecordPersistence";
 export { DocumentRecordRepository } from "./documentRecordRepository";
+export {
+  type DocumentPeerRebaseInstall,
+  installDocumentPeerRebase,
+} from "./peerRebaseInstall";

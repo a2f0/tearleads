@@ -1,5 +1,6 @@
 import {
   DOCUMENT_SYNC_ERROR_CODES,
+  type DocumentPeerFrontier,
   type DocumentSyncResponse,
   type DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -63,7 +64,19 @@ type FailedDocumentSyncAction =
       readonly kind: "recover_update_id_conflict";
       readonly recoveryPendingUpdatesById: Map<string, PendingUpdateRecord>;
     }
-  | { readonly kind: "regenerate_queued_checkpoints" };
+  | { readonly kind: "regenerate_queued_checkpoints" }
+  | {
+      readonly kind: "rebase_peer";
+      /** Reported as terminal when the rebase finds nothing to cut. */
+      readonly failure: DocumentSyncSubmitFailure;
+      readonly peerFrontiers: readonly DocumentPeerFrontier[];
+    };
+
+const SUBMIT_FAILURE_TRACE_ACTIONS = {
+  rebase_peer: "rebase-peer",
+  recover_update_id_conflict: "recover-update-ids",
+  regenerate_queued_checkpoints: "regenerate-checkpoints",
+} as const;
 
 type DocumentSyncAttemptSubmission =
   | {
@@ -77,6 +90,7 @@ type DocumentSyncAttemptSubmission =
 
 async function resolveFailedDocumentSyncAction(input: {
   attempt: number;
+  canRebaseOntoFreshPeer?: boolean | undefined;
   canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
   failure: DocumentSyncSubmitFailure;
@@ -92,9 +106,7 @@ async function resolveFailedDocumentSyncAction(input: {
     action:
       action === "retry" || action === "stop"
         ? action
-        : action.kind === "recover_update_id_conflict"
-          ? "recover-update-ids"
-          : "regenerate-checkpoints",
+        : SUBMIT_FAILURE_TRACE_ACTIONS[action.kind],
     code: input.failure.code,
     documentId: input.documentId,
     status: input.failure.status,
@@ -104,6 +116,7 @@ async function resolveFailedDocumentSyncAction(input: {
 
 async function classifyFailedDocumentSyncAction(input: {
   attempt: number;
+  canRebaseOntoFreshPeer?: boolean | undefined;
   canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
   failure: DocumentSyncSubmitFailure;
@@ -169,6 +182,19 @@ async function classifyFailedDocumentSyncAction(input: {
     return { kind: "regenerate_queued_checkpoints" };
   }
 
+  // Another user owns a peer this request extends. The pass rebases the
+  // record's unsent ops on the named peers onto a fresh peer and ends; the
+  // next pass sends the rebased update.
+  const peerFrontiers = input.failure.peerFrontiers ?? [];
+  if (
+    input.attempt < input.maxAttempts &&
+    input.canRebaseOntoFreshPeer === true &&
+    input.failure.code === DOCUMENT_SYNC_ERROR_CODES.peerOwned &&
+    peerFrontiers.length > 0
+  ) {
+    return { failure: input.failure, kind: "rebase_peer", peerFrontiers };
+  }
+
   input.failure.report();
   await input.onTerminalSubmitFailure?.(input.failure);
   return "stop";
@@ -177,6 +203,7 @@ async function classifyFailedDocumentSyncAction(input: {
 async function submitDocumentSyncAttempt(input: {
   apiClient: DocumentSyncApi;
   attempt: number;
+  canRebaseOntoFreshPeer?: boolean | undefined;
   canRegenerateQueuedCheckpoints?: boolean | undefined;
   documentId: string;
   expectedCommitLsnMode?: DocumentSyncCommitLsnMode | undefined;
@@ -219,6 +246,7 @@ async function submitDocumentSyncAttempt(input: {
 
   return resolveFailedDocumentSyncAction({
     attempt: input.attempt,
+    canRebaseOntoFreshPeer: input.canRebaseOntoFreshPeer,
     canRegenerateQueuedCheckpoints: input.canRegenerateQueuedCheckpoints,
     documentId: input.documentId,
     failure: submitted,

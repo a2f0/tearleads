@@ -18,6 +18,7 @@ import {
   traceDocumentCreate,
   unseededTouchCount,
 } from "../../../../test/helpers/documentCreateTouchFixture";
+import { peerSpan } from "../../../../test/helpers/documentPeerOwnership";
 import { createSignedDocumentSyncRequest } from "../../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -25,6 +26,8 @@ import {
 } from "../../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../../test/helpers/registerUser";
 import { routeApp } from "../../../routeApp";
+
+const budgetPeer = "4242";
 
 function post(token: string, path: string, body: unknown) {
   return routeApp.request(path, {
@@ -62,13 +65,20 @@ test("document create, sync write, and sync pull stay within their statement bud
 
   expect(await unseededTouchCount(create.queries, created.id)).toBe(1);
 
-  const first = await createSignedDocumentSyncRequest({ created, owner, root });
-  const second = await createSignedDocumentSyncRequest({
+  // The measured write is not the document's first, and extends the peer the
+  // first claimed, as a device's later writes do.
+  const first = await createSignedDocumentSyncRequest({
     created,
+    declaredSpan: peerSpan(budgetPeer, 0, 3),
     owner,
     root,
   });
-  // The measured write is not the document's first.
+  const second = await createSignedDocumentSyncRequest({
+    created,
+    declaredSpan: peerSpan(budgetPeer, 3, 6),
+    owner,
+    root,
+  });
   expect(
     (await post(owner.token, `/documents/${created.id}/sync`, first.request))
       .status,
@@ -91,7 +101,9 @@ test("document create, sync write, and sync pull stay within their statement bud
   expect(pull.result.status).toBe(200);
 
   // Guard batching removes three create statements. The ordinary sync write
-  // and pull retain their existing ceilings and fresh-resolution paths.
+  // and pull retain their existing ceilings and fresh-resolution paths. The
+  // write measured 34 before its peer-ownership read; a write that claims a
+  // new peer adds one insert.
   console.info(
     "locked-head-create-baseline",
     JSON.stringify({
@@ -104,7 +116,7 @@ test("document create, sync write, and sync pull stay within their statement bud
     28 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(write.statements).toBeLessThanOrEqual(
-    36 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    35 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
   expect(pull.statements).toBeLessThanOrEqual(
     25 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
@@ -159,7 +171,9 @@ test("a rotation baseline write and its pull stay within their statement budgets
   // read that table for checkpoints; 48 / 49 / 50 and 33 / 34 / 35 once the
   // update row carries the baseline's source version vector. Batched history
   // and adjacent reads now use write 38 / 39 and pull 26 / 27 (PGlite /
-  // SQLite), plus the Postgres transaction-control allowance.
+  // SQLite), plus the Postgres transaction-control allowance. The write
+  // measured 36 on PGlite before it read its peers' owners and claimed the
+  // baseline's new peer, 38 after.
   expect(write.statements).toBeLessThanOrEqual(
     38 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
@@ -203,8 +217,10 @@ test("a seeded document create stays within its statement budget", async () => {
   console.info("locked-head-seeded-create", seeded.statements);
   // Reuse the create frontier, strict targets and stored bundle, not access or
   // signature checks. The public seed already touched its containers once.
+  // 43 before the seed claimed its new peer; a new document has no committed
+  // peers to read.
   expect(seeded.statements).toBeLessThanOrEqual(
-    43 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    44 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 }, 30_000);
 

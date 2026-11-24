@@ -15,6 +15,7 @@ import {
 import type { PrincipalPolicyOperation } from "../../principals/principalPolicyService";
 import { noteContainerMetadataDownloadDrained } from "./metadataDownloadCompletion";
 import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
+import { containerMetadataPeerRebaser } from "./metadataPeerRebase";
 import {
   currentMetadataPullContinuation,
   hasCurrentContainerMetadataReadState,
@@ -192,6 +193,13 @@ async function requestContainerMetadataSync(input: {
         policyOperation: syncInput.policyOperation,
         pullContinuation:
           currentMetadataPullContinuation(metadataState) ?? undefined,
+        rebaseOntoFreshPeer: containerMetadataPeerRebaser({
+          execSql: runtime.infra.execSql,
+          isCurrent,
+          metadataState: syncInput.metadataState,
+          onRebased: () => syncInput.onDurableStateNeedsReload?.(),
+          persistence,
+        }),
         rekeyPendingUpdate: persistence.rekeyPendingUpdate,
         resolveProjectionUserKey: syncInput.resolveProjectionUserKey,
         runtime,

@@ -55,6 +55,21 @@ Related docs:
 - [protocol-specification.md](../protocol-specification/container-access.md#container-access-and-kek-protocol)
 - [security-guarantees.md](../security-guarantees/properties.md#held-descendant-re-citation)
 
+## Peer Owner
+
+The user the server lets extend a Loro peer of one document past its committed
+frontier, the highest span end committed on that peer. The API keeps one
+`document_peer_owners` row per document and peer. The first committed update
+that extends an unowned peer claims it for its writer's user, so every device
+of that user may continue the peer. Any writer may re-assert counters below the
+frontier, but a sync or unlink that extends another user's peer is refused with
+409 `document_sync_peer_owned` and rolls back. A purge deletes the rows.
+
+Related docs:
+
+- [advisory-op-spans.md](../advisory-op-spans.md#what-the-server-checks)
+- [document-link-and-sync-protocol.md](../document-link-and-sync-protocol.md#document-sync-conflict-codes)
+
 ## Processed Cursor
 
 The last update of a document pull a client completed, sent on its next pull as

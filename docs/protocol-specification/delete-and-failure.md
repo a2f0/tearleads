@@ -14,10 +14,12 @@ every manifest hash in the exact current root-to-leaf container path that
 authorized the purge. The API independently verifies the event, exact heads,
 root completeness, path contiguity, organization scope, and signer write access,
 stores the terminal event, and then removes the document's mutable row, content
-keys, encrypted updates, attachments, and live-head pointer. It retains the
-signed document manifest chain and the exact signed authorization path plus its
-verification dependencies so a device authorized through that purge-time path
-can retrieve the [proof](../document-purge-verification.md) from
+keys, encrypted updates with their spans and
+[peer owners](../glossary/sync.md#peer-owner), attachments, and live-head
+pointer. It retains the signed document manifest chain and the exact signed
+authorization path plus its verification dependencies so a device authorized
+through that purge-time path can retrieve the
+[proof](../document-purge-verification.md) from
 `GET /documents/:documentId/purge` after the live document is gone. A user whose
 only access came through a path unlinked before the purge cannot retrieve it.
 
@@ -98,6 +100,11 @@ The protocol is fail-closed:
   are committed, returns `409 document_unlink_rotation_baseline_stale`; the
   client proves the full history again and retries instead of resubmitting the
   refused snapshot
+- a sync or unlink whose update extends a Loro peer past its committed
+  frontier when another user is the peer's
+  [owner](../glossary/sync.md#peer-owner) returns
+  `409 document_sync_peer_owned` and commits nothing; a sync's refusal names
+  the refused peers and their committed frontiers in `peerFrontiers`
 - missing signed policy material prevents managed-principal key derivation
 - signer/session mismatches return forbidden
 - unavailable policy, key, blob, or document material is an availability

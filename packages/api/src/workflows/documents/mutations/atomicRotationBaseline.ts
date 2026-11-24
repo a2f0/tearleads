@@ -135,6 +135,7 @@ export async function appendAtomicRotationBaseline(input: {
     accessEpoch: input.manifest.state.epoch,
     contentKeyCommitment: input.contentKeyCommitment,
     documentId: input.documentId,
+    documentInsertedInTransaction: false,
     executor: input.executor,
     fingerprint: input.fingerprint,
     organizationId: input.manifest.state.organizationId,

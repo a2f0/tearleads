@@ -21,6 +21,7 @@ import type { NegativeControl } from "./protocolNegativeControlTypes";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
 import { ORGANIZATION_DIRECTORY_KEY_NEGATIVE_CONTROLS } from "./protocolOrganizationDirectoryKeyNegativeControls";
 import { OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS } from "./protocolOutgoingQueueMergeNegativeControls";
+import { PEER_OWNERSHIP_NEGATIVE_CONTROLS } from "./protocolPeerOwnershipNegativeControls";
 import { PURGE_SCOPE_NEGATIVE_CONTROLS } from "./protocolPurgeScopeNegativeControls";
 import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNegativeControls";
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
@@ -65,6 +66,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...OUTGOING_QUEUE_MERGE_NEGATIVE_CONTROLS,
   ...VOID_UPDATE_NEGATIVE_CONTROLS,
   ...CONTENT_KEY_COMMITMENT_NEGATIVE_CONTROLS,
+  ...PEER_OWNERSHIP_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   ...RESTART_PROBE_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,

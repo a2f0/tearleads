@@ -197,6 +197,49 @@ test("a record's peer seed differs by runtime seed, user, and record", async () 
   );
 });
 
+test("a salt moves a record to another peer that every load derives again", async () => {
+  const salted = (peerSalt: string | undefined) =>
+    recordPeerSeed({
+      peerSalt,
+      recordId: "doc-1",
+      runtimeSeed: "DEVICE",
+      userId: "alice",
+    });
+  const unsalted = salted(undefined);
+
+  expect(unsalted).toBe(
+    recordPeerSeed({
+      recordId: "doc-1",
+      runtimeSeed: "DEVICE",
+      userId: "alice",
+    }),
+  );
+  expect(salted("salt-1")).toBe(salted("salt-1"));
+  const peers = new Set([
+    await derivePeerId(unsalted),
+    await derivePeerId(salted("salt-1")),
+    await derivePeerId(salted("salt-2")),
+    // An empty salt is still a salt.
+    await derivePeerId(salted("")),
+  ]);
+  expect(peers.size).toBe(4);
+  // A salt cannot run together with the record id.
+  expect(
+    recordPeerSeed({
+      peerSalt: "1",
+      recordId: "doc",
+      runtimeSeed: "DEVICE",
+      userId: "alice",
+    }),
+  ).not.toBe(
+    recordPeerSeed({
+      recordId: "doc1",
+      runtimeSeed: "DEVICE",
+      userId: "alice",
+    }),
+  );
+});
+
 test("without device storage a runtime keeps one memory-only seed per scope", async () => {
   const runtime = {};
   const seed = await getRuntimePeerSeed("documents", runtime);

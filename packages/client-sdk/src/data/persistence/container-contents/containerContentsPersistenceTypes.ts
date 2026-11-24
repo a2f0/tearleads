@@ -3,6 +3,7 @@ import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/p
 import type { CONTAINER_CREATE_INTENT_TYPE } from "../../sqlite/schema";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type {
+  DocumentPeerRebaseInstall,
   DocumentRecord,
   PendingUpdateFields,
   PendingUpdateRecord,
@@ -229,6 +230,11 @@ export interface ContainerContentsPersistence
   ) => Promise<void>;
   deletePendingUpdate: (execSql: ExecSql, id: string) => Promise<void>;
   ensureSchema: (execSql: ExecSql) => Promise<void>;
+  /** Moves metadata onto a peer rebase's fork; see `DocumentsPersistence`. */
+  installPeerRebase?: (
+    execSql: ExecSql,
+    input: DocumentPeerRebaseInstall,
+  ) => Promise<boolean>;
   enqueuePendingUpdate: (
     execSql: ExecSql,
     input: PendingUpdateFields & { containerId: string },
