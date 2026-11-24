@@ -64,6 +64,7 @@ async function deployFixture(tier: "staging" | "production", failure = "") {
   case "$WEB_DEPLOY_FAILURE" in
     missing-team-id) ;;
     lowercase-team-id) TEAM_ID=abcde12345 ;;
+    short-team-id) TEAM_ID=ABCDE1234 ;;
     *) TEAM_ID=ABCDE12345 ;;
   esac
 }
@@ -305,6 +306,7 @@ test.each([
 test.each([
   ["staging", "missing-team-id"],
   ["production", "lowercase-team-id"],
+  ["production", "short-team-id"],
 ] as const)(
   "%s %s stops the deploy before anything is built",
   async (tier, failure) => {

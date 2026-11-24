@@ -219,7 +219,8 @@ entitlements need that the tier's App ID lacks (Associated Domains, for the
 App Store profile in the match repository, reusing the team's distribution
 certificate there, or renews one that is missing or invalid. A capability it
 enabled is in no existing profile, so it regenerates the profile then;
-`force:true` also regenerates it, as after the certificate changes.
+`force:true` also regenerates it, as after the certificate changes or after a
+run that enabled a capability but failed before the profile was made.
 `ios fetch_profiles` only verifies and installs the existing profile.
 
 ### Android releases

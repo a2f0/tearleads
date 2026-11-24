@@ -279,10 +279,10 @@ def install_ios_appstore_signing_assets!
   )
 end
 
-# Capabilities App/App.entitlements needs on the tier's App ID. A profile
-# carries only the capabilities its App ID had when the profile was made.
-# Associated Domains backs `webcredentials:`, which lets the app save to and
-# read from iCloud Keychain.
+# Capabilities the App target's entitlements need on the tier's App ID. A
+# profile carries only the capabilities its App ID had when the profile was
+# made. Associated Domains backs a `webcredentials:` entitlement, which lets
+# the app save passwords to iCloud Keychain and read them back.
 IOS_APP_ID_CAPABILITIES = %w[ASSOCIATED_DOMAINS].freeze
 
 def missing_ios_app_id_capabilities(bundle_id)
@@ -392,6 +392,7 @@ platform :ios do
   desc 'Enable App ID capabilities, then create or renew the match App Store profiles (force:true regenerates them)'
   lane :profiles do |options|
     load_ios_release_secrets_env
+    # Also sets the Spaceship token the App ID lookup below authenticates with.
     api_key = app_store_connect_api_key(app_store_connect_api_key_options)
     enabled_capabilities = enable_ios_app_id_capabilities!
     with_ios_signing_keychain do
