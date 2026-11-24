@@ -12,7 +12,8 @@ which every deploy, destroy, Terraform stack, soft reset, and desktop release
 calls, links first and stops with an error when the tier folder is still
 missing. The native release shortcuts, App Store build-number lookup,
 subscription review screenshots, LocalStack scripts, and Android and iOS dev
-launchers link the same way.
+launchers link the same way, so LocalStack's `staging/dev.env` is shared by
+every linked clone.
 Each tier reads only `.secrets/staging/` or `.secrets/prod/`: `shared.env`, then
 `app.env`, which wins. Commands without a tier use `prod`.
 
