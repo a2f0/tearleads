@@ -58,6 +58,11 @@ interface ProvisionedContainerBootstrapInput {
     | "documentKekTargets"
     | "documentManifestBundle"
   >;
+  /**
+   * The update id of the metadata seed provisioning committed; absent when it
+   * committed none, and the initial update is queued instead.
+   */
+  metadataSeedUpdateId?: string | undefined;
   systemSlot: ContainerSystemSlot;
   updatedAt: string;
 }
@@ -106,16 +111,15 @@ export interface RegistrationBootstrapInput {
   rootContainerServerTimestamp: string;
   rootMetadataDocumentId: string;
   rootMetadataInitialUpdate: Uint8Array;
-  rootMetadataInitialUpdateCommitted?: boolean | undefined;
+  /** The root's committed metadata seed; see `metadataSeedUpdateId`. */
+  rootMetadataSeedUpdateId?: string | undefined;
   rootMetadataSnapshot: string;
   rootMetadataState: ProvisionedContainerBootstrapInput["metadataState"];
   rosterProfileContainer?: ProvisionedContainerBootstrapInput & {
     metadataInitialUpdate: Uint8Array;
-    metadataInitialUpdateCommitted?: boolean | undefined;
   };
   organizationMetadataContainer?: ProvisionedContainerBootstrapInput & {
     metadataInitialUpdate: Uint8Array;
-    metadataInitialUpdateCommitted?: boolean | undefined;
   };
   organizationProfileDocument?: ProvisionedProfileDocumentBootstrapInput;
   rosterProfileDocument?: ProvisionedProfileDocumentBootstrapInput;
@@ -175,6 +179,7 @@ async function persistProvisionedContainerBootstrap(
     },
     record,
     {
+      committedSeedUpdateId: container.metadataSeedUpdateId,
       localUpdatedAt: container.updatedAt,
       serverTimestamps: {
         createdAt: container.createdAt,
@@ -219,6 +224,7 @@ async function persistRootContainerBootstrap(
     },
     rootRecord,
     {
+      committedSeedUpdateId: input.rootMetadataSeedUpdateId,
       localUpdatedAt: input.rootContainerServerTimestamp,
       serverTimestamps: {
         createdAt: input.rootContainerServerTimestamp,
@@ -231,7 +237,7 @@ async function persistRootContainerBootstrap(
     execSql,
     input.containerId,
     input.rootMetadataInitialUpdate,
-    input.rootMetadataInitialUpdateCommitted,
+    input.rootMetadataSeedUpdateId !== undefined,
   );
 }
 
@@ -267,7 +273,7 @@ async function persistNamedChildContainerBootstrap(
     execSql,
     container.containerId,
     container.metadataInitialUpdate,
-    container.metadataInitialUpdateCommitted,
+    container.metadataSeedUpdateId !== undefined,
   );
 }
 

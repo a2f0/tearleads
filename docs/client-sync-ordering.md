@@ -210,8 +210,8 @@ independent of any clock. Recovery compares it with what the client processed:
   `pullPage.throughUpdateCount`, the updates through the pull's bound. A held
   container listed with more updates than the cursor the client may still
   send counts owes one forced read; a count of 0 never does. A void update
-  counts as processed, since the pull that judged it counted it. Without a
-  sendable cursor, any update owes one read, which saves a new cursor.
+  counts as processed, since the pull that judged it counted it. A committed
+  seed saves its cursor too. Without one, any update owes one read.
 - Durability. Hydration queues the forced read in memory and then writes it to
   `container_metadata_revalidations`, before the lane watermark advances past
   the row. A store's first sync pass requeues what a previous run still owed,

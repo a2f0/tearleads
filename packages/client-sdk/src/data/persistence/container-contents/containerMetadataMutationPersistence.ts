@@ -425,6 +425,7 @@ export async function commitStoredMetadataMutation(
             tx,
           });
         const saved = await saveContainerContentsContainerRows({
+          committedSeedUpdateId: input.saveOptions?.committedSeedUpdateId,
           container,
           createIntent: input.saveOptions?.createIntent,
           localUpdatedAt,

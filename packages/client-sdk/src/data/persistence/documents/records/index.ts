@@ -12,6 +12,7 @@ export function ensureDocumentProjectionTables(
   return ensureSqlTables(execSql, documentProjectionTables);
 }
 
+export { recordCommittedSeedProgressInTransaction } from "./committedSeedProgress";
 export { MAX_PENDING_UPDATE_REKEYS } from "./documentPendingUpdatePersistence";
 export type {
   DocumentRecord,

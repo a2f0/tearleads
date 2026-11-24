@@ -1,6 +1,7 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { getImportBlobMetadata } from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
+import { documentVerdictJudge } from "../../documents/shared/sync/documentUpdateVerdict";
 import { serializeDocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import { containers } from "../../sqlite/schema";
 import {
@@ -15,6 +16,7 @@ import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   documentRecordSelection,
   mapSelectedDocumentRecord,
+  recordCommittedSeedProgressInTransaction,
 } from "../documents/records";
 import {
   upsertDocumentHistoryCheckpointInTransaction,
@@ -120,6 +122,8 @@ async function saveContainerMetadataRecord(input: {
 }
 
 export async function saveContainerContentsContainerRows(input: {
+  /** The metadata seed the create committed; see `SaveContainerOptions`. */
+  committedSeedUpdateId?: string | undefined;
   container: ContainerRecord;
   createIntent?: ContainerCreateIntentInput | undefined;
   moveIntent?: ContainerMoveIntentInput | undefined;
@@ -171,6 +175,14 @@ export async function saveContainerContentsContainerRows(input: {
       tx,
       updatedAt: localUpdatedAt,
     });
+    if (input.committedSeedUpdateId !== undefined && record.documentId) {
+      await recordCommittedSeedProgressInTransaction(tx, {
+        documentId: record.documentId,
+        judge: documentVerdictJudge(),
+        scope: getContainerMetadataScope(container.id),
+        seedUpdateId: input.committedSeedUpdateId,
+      });
+    }
   }
 
   if (createIntent) {
