@@ -271,6 +271,12 @@ export async function validateDocumentSyncUpdateImports(input: {
   runtimeLedger?: LoroRuntimeAttempts | undefined;
   /** @internal Attempts this device recorded; the sync pass reads them. */
   runtimeAttempts?: ReadonlyMap<string, number> | undefined;
+  /**
+   * @internal Runs once the reader's history is built, before the first
+   * update is read: the sync pass opens its read window here, so a death
+   * building that history, which no update caused, is outside it.
+   */
+  beforeUpdateReads?: (() => Promise<void>) | undefined;
 }): Promise<DocumentSyncImportVerdicts> {
   const verdicts = new PageVerdicts();
   if (input.decryptedUpdates.length === 0) return verdicts.result();
@@ -292,6 +298,7 @@ export async function validateDocumentSyncUpdateImports(input: {
     verdicts,
   };
   try {
+    await input.beforeUpdateReads?.();
     for (const update of input.decryptedUpdates) {
       const knownStage = input.knownVoids?.get(update.id);
       if (verdicts.holding) {

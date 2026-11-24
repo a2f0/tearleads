@@ -246,6 +246,21 @@ async function persistSyncedDocument(
 }
 
 /**
+ * Settles a read window no save closed, before the pass goes on to other
+ * work: a death there says nothing about the page's updates.
+ */
+function settleUnsavedLoroWindow(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+): Promise<void> {
+  return settleDocumentSyncLoroWindow({
+    committed: false,
+    execSql: generation.execSql,
+    scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+  });
+}
+
+/**
  * After the save committed: report each void this device recorded for the
  * first time, and re-arm a pass when a void judged under another key cleared
  * the cursor, so the next pull serves that update again.
@@ -290,6 +305,7 @@ export async function finalizeDocumentSync(
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    await settleUnsavedLoroWindow(state, generation);
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
     requestDocumentStoreSync(state);
     return state.record ?? currentRecord;
@@ -354,6 +370,8 @@ export async function finalizeDocumentSync(
     responseApplied = !persisted.pullContinuationSuperseded;
     return persisted;
   });
+  // A save settled its window; an exit before the save settles it here.
+  await settleUnsavedLoroWindow(state, generation);
   if (!responseApplied) {
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
     requestDocumentStoreSync(state);

@@ -30,19 +30,23 @@ residual, so agreement and currency are stated for devices with equal final
 voids.
 
 The process can also die while it reads a pull (#3194): a payload that kills
-it, or any other death. Its reads run inside a durable window naming the pull's
-unsettled updates, and the next lifetime finds the window (`Die`, `Start`). A
-window that held one update, in a lifetime that met no failure, counts an
-attempt toward it (`Kill`). Any other window makes its updates suspects
-(`suspects`), and the device then pulls one update at a time until it has
-passed them, so each is read alone and a later death counts toward it. A
-death after the app was hidden counts nothing and isolates nothing
-(`HiddenKill`): the user ended that lifetime, not the update. A payload whose
-import always kills the process is a killer (`KillerPending`); dying on it is
-the device's own processing outcome. Only devices in `FaultyDevices` die
-visibly (`Kill`): the others stand for readers whose runtime never fails nor
-ends their process while the app is visible, so on them
-`FaultFreeDevicesCountNothing` checks that a hidden death counts nothing.
+it, or any other death. Its reads run inside a durable window naming the
+pull's unsettled updates, and the next lifetime finds the window (`Die`,
+`Start`). The window opens once the reader's history is built and closes with
+the page's save, which imports the update, so a visible death inside it counts
+whatever caused it: other work the process runs meanwhile, the document's own
+size while saving, or a killer another tab in the same browser process read.
+That falls in the residual above. A window that held one update, in a lifetime
+that met no failure, counts an attempt toward it (`Kill`). Any other window
+makes its updates suspects (`suspects`), and the device then pulls one update
+at a time until it has passed them, so each is read alone and a later death
+counts toward it. A death after the app was hidden counts nothing and isolates
+nothing (`HiddenKill`): the user ended that lifetime, not the update. A
+payload whose import always kills the process is a killer (`KillerPending`);
+dying on it is the device's own processing outcome. Only devices in
+`FaultyDevices` die visibly (`Kill`): the others stand for readers whose
+runtime never fails nor ends their process while the app is visible, so on
+them `FaultFreeDevicesCountNothing` checks that a hidden death counts nothing.
 Production counts a visible death on any device.
 
 The model collapses a pull's pages into one served inbox (`Pull`) and one
@@ -71,7 +75,7 @@ The abstraction maps to production at these seams:
 | `Judge` / `Accepts` | `validateDocumentSyncUpdateImports` and `judgeUpdate`, which checks the decoded Loro metadata against the signed span before the scratch import, after `judgeDocumentSyncUpdateDecryption` checks the plaintext hash |
 | `RuntimeFailure` / `attempts` | `judgeUpdate` returning `runtime_failure` for `isLoroRuntimeFailure`, `LoroRuntimeFailureLedger.noteFailure`, and `recordDocumentSyncRuntimeFailures`, which records the `loro_runtime` row and its `attempts` before the page is saved, and in the same transaction stops the lifetime's windows counting (`markLoroWindowsNotCountingInTransaction`) |
 | `failedInLife` / `Restart` / `lifeAttempts` | `processLoroRuntimeFailures`, the ledger a process starts with, which counts only its first failure (`LoroRuntimeFailureLedger.hasFailed`); its first failure anywhere also calls `noteFailed`, whose marker makes `judgeOrphanWindow` isolate a window that lifetime held open (`endedFailed`) |
-| `Die` / `Pending` | `openDocumentSyncLoroWindow`, which commits the page's unsettled updates as a `document_loro_windows` row before `validateDocumentSyncUpdateImports` reads them; `closeDocumentSyncLoroWindowInTransaction` deletes it in the page's save, and `settleDocumentSyncLoroWindow` deletes it when no save commits. The model's one window is the union of a lifetime's open windows across documents: a row counts only while it is the lifetime's only open window (`openWindowCount`), and opening a second stops every row of the lifetime counting in its transaction (`markLoroWindowsNotCountingInTransaction`) |
+| `Die` / `Pending` | `openDocumentSyncLoroWindow`, which commits the page's unsettled updates as a `document_loro_windows` row once `validateDocumentSyncUpdateImports` has built the reader's history and before it reads the first update (`beforeUpdateReads`); `closeDocumentSyncLoroWindowInTransaction` deletes it in the page's save, and `settleDocumentSyncLoroWindow` deletes it when no save commits. The model's one window is the union of a lifetime's open windows across documents: a row counts only while it is the lifetime's only open window (`openWindowCount`), and opening a second stops every row of the lifetime counting in its transaction (`markLoroWindowsNotCountingInTransaction`) |
 | `Kill` / `Start` | `claimDocumentSyncOrphanWindows` in the next lifetime: `createLoroLifetimes` tells an ended lifetime by its released Web Lock, `claimOrphansInTransaction` reads the orphans again in its transaction so two tabs count one death once, and `judgeOrphanWindow` counts a window `loroWindowCounts` opened as counting. A scope isolating suspects reads alone through the lifetime's window gate (`transitionLoroWindowGate`), as the model's fairness on deaths assumes an isolated read does |
 | `HiddenKill` | the hidden marker `createLoroLifetimes` keeps in `localStorage` while the app is hidden with a window open; `judgeOrphanWindow` discards a window whose lifetime `endedHidden` |
 | `suspects` | `document_loro_isolation`, through `transitionLoroIsolation`; `readDocumentSyncPageLimit` makes the next pull send `maxPageUpdates`, and `listMissingDocumentUpdatePage` caps its page there |
@@ -99,8 +103,9 @@ require that:
   (`AttemptsWithinLifetimes`), so a process a trap left unusable cannot spend
   another update's attempts;
 - a death counts only toward the update alone in its window
-  (`KilledAttemptsAreIsolated`), so it never spends an innocent update's
-  attempts;
+  (`KilledAttemptsAreIsolated`), so it never spends the attempts of an update
+  read beside others; a window spans the update's judgement and its save, and
+  a death there that other work caused is the residual above;
 - a device whose runtime never fails counts no attempt
   (`FaultFreeDevicesCountNothing`), so a user hiding or closing the app is no
   evidence against an update.

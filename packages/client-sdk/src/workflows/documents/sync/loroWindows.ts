@@ -228,8 +228,8 @@ export async function claimDocumentSyncOrphanWindows(
  * retry delay. A page with none opens no window and writes nothing.
  *
  * A death counts only toward the update alone in the lifetime's only open
- * window, so the transaction that writes this window stops every window of
- * the lifetime counting when another is open beside it. A scope isolating
+ * window, so the transaction that writes this window stops every other
+ * window of the lifetime counting. A scope isolating
  * the updates a death left waits to read alone (`loroWindowGate.ts`).
  * Returns whether the window counts.
  */
@@ -265,12 +265,12 @@ export async function openDocumentSyncLoroWindow(
   await runSerializedSqlMutation(input.execSql, (locked) =>
     getClientSQLitePersistenceRuntime(locked).guardedTransaction(
       async (tx) => {
-        const alone = lifetimes.openWindowCount() === 1;
         counts =
-          alone && loroWindowCounts(unsettled.length, input.ledger.hasFailed());
-        if (!alone) {
-          await markLoroWindowsNotCountingInTransaction(tx, lifetimes.id);
-        }
+          lifetimes.openWindowCount() === 1 &&
+          loroWindowCounts(unsettled.length, input.ledger.hasFailed());
+        // Beside another window none counts, nor does a row a failed settle
+        // left; this window's own row is replaced below.
+        await markLoroWindowsNotCountingInTransaction(tx, lifetimes.id);
         await writeLoroWindowInTransaction(
           tx,
           input.scope,
@@ -362,8 +362,8 @@ export async function settleDocumentSyncLoroWindow(
         ),
       );
     } catch {
-      // The row stays until this scope's next page replaces it.
-      return;
+      // The row stays until this scope's next page replaces it, or this
+      // lifetime's next window stops it counting.
     }
   }
   lifetimes.closeWindow(key);

@@ -146,3 +146,19 @@ test("a window that waits too long opens outside the gate", async () => {
 
   expect(lifetimes.openWindowCount()).toBe(2);
 });
+
+// Only an open window closes: a scope still waiting keeps its place, and
+// enters once the gate frees, with nothing left open behind it.
+test("closing a scope that is still waiting for the gate keeps its place", async () => {
+  const lifetimes = createLoroLifetimes({ gateWaitMs: 60_000, id: "tab" });
+  await lifetimes.openWindow("shared", false);
+  const isolating = lifetimes.openWindow("isolating", true);
+
+  expect(lifetimes.closeWindow("isolating")).toBe(false);
+  lifetimes.closeWindow("shared");
+  await isolating;
+
+  expect(lifetimes.hasWindow("isolating")).toBe(true);
+  expect(lifetimes.closeWindow("isolating")).toBe(true);
+  expect(lifetimes.openWindowCount()).toBe(0);
+});

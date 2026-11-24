@@ -98,14 +98,18 @@ Locks, or whose lock request is refused, opens no window. The command line's
 database is memory-only, so its windows die with it; a host whose database
 outlives its process must hold such a lock or mark its clean exits.
 
-Three residuals remain. An honest update that fails the runtime, or ends the
+Four residuals remain. An honest update that fails the runtime, or ends the
 process while the app is visible, in three separate process lifetimes on one
-device is void on that device. While an update is unsettled, the device
-applies nothing served after it on that document and cannot bind attachments
-to it, for up to three process lifetimes; its own writes still push and
-settle. And container metadata, rotation, and a founding view open no window
-yet, nor does the live apply after a page's save, so a payload that kills the
-process there records no attempt.
+device is void on that device. A window opens once the reader's history is
+built and closes with the page's save, which imports the update, so a visible
+death inside it counts toward the update whatever caused it: other Loro work
+the process runs meanwhile, the document's own size while saving, or a killer
+read by another tab that shares the browser process. While an update is
+unsettled, the device applies nothing served after it on that document and
+cannot bind attachments to it, for up to three process lifetimes; its own
+writes still push and settle. And container metadata, rotation, and a founding
+view open no window yet, nor does the live apply after a page's save, so a
+payload that kills the process there records no attempt.
 
 ## Preempted Operations
 

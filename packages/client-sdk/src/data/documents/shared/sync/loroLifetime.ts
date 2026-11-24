@@ -182,10 +182,11 @@ function lifetimeWindows(gateWaitMs: number, onChange: () => void) {
       return promise;
     },
     close(scope: string): boolean {
-      const closed = windows.delete(scope);
+      // A scope still waiting for the gate keeps its place.
+      if (!windows.delete(scope)) return false;
       moveGate({ type: "released", scope });
       onChange();
-      return closed;
+      return true;
     },
   };
 }

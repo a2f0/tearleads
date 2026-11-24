@@ -188,9 +188,10 @@ export async function readRecordedDocumentSyncVoids(input: {
  * otherwise record it may fail, and an attempt that is never recorded would
  * be made again in every process.
  *
- * With `opensLoroWindow`, the reads run inside a window the page's save
- * closes (`loroWindows.ts`), so a death inside them is found by the next
- * lifetime, and the windows ended lifetimes left are claimed first.
+ * With `opensLoroWindow`, the update reads run inside a window the page's
+ * save closes (`loroWindows.ts`), opened once the reader's history is built,
+ * so a death inside them is found by the next lifetime; the windows ended
+ * lifetimes left are claimed first.
  */
 export async function judgeDocumentSyncImports(input: {
   readonly currentDocument: Parameters<
@@ -219,16 +220,19 @@ export async function judgeDocumentSyncImports(input: {
     await claimDocumentSyncOrphanWindows({ ...input, lifetimes });
   }
   const recorded = await readRecordedImportJudgements(input);
-  const windowCounts =
-    input.opensLoroWindow === true &&
-    (await openDocumentSyncLoroWindow({
-      ...input,
-      knownVoids: recorded.knownVoids,
-      ledger,
-      lifetimes,
-    }));
+  let windowCounts = false;
   const verdicts = await validateDocumentSyncUpdateImports({
     ...recorded,
+    beforeUpdateReads: input.opensLoroWindow
+      ? async () => {
+          windowCounts = await openDocumentSyncLoroWindow({
+            ...input,
+            knownVoids: recorded.knownVoids,
+            ledger,
+            lifetimes,
+          });
+        }
+      : undefined,
     currentDocument: input.currentDocument,
     decryptedUpdates: result.decryptedUpdates,
     responseUpdates: result.response.updates,

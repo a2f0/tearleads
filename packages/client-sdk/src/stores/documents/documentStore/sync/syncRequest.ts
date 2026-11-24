@@ -4,6 +4,7 @@ import {
 } from "@tearleads/loro";
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
+  claimDocumentSyncOrphanWindows,
   createDocumentWriterPublicKeyResolver,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
@@ -187,6 +188,25 @@ function documentImportJudge(
     });
 }
 
+/**
+ * The page limit this pull asks for, once the windows ended lifetimes left
+ * on the scope are claimed: a pull after a death that named no update then
+ * isolates at once, instead of reading the whole page and dying again.
+ */
+async function claimThenReadPageLimit(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+  page: Parameters<typeof readDocumentSyncPageLimit>[1],
+): Promise<1 | undefined> {
+  await claimDocumentSyncOrphanWindows({
+    ...page,
+    execSql: generation.execSql,
+    isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
+    logError: state.runtime.util.logError,
+  });
+  return readDocumentSyncPageLimit(generation.execSql, page);
+}
+
 function runRemoteDocumentSync(
   input: RequestRemoteDocumentSyncInput,
   author: NonNullable<ReturnType<typeof resolveDocumentCreateAuthor>>,
@@ -312,7 +332,7 @@ export async function requestRemoteDocumentSync(
     },
   );
   const maxPageUpdates = input.readsInLoroWindow
-    ? await readDocumentSyncPageLimit(generation.execSql, {
+    ? await claimThenReadPageLimit(state, generation, {
         documentId: currentRecord.documentId,
         scope,
       })
