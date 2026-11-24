@@ -42,6 +42,7 @@ import type {
   RemoteDocumentSyncAttemptOutcome,
   RemoteDocumentSyncAttemptState,
 } from "./syncAttemptState";
+import { rebaseAfterPeerRefusal } from "./syncPeerRebase";
 import { resolveSubmittedDocumentSyncResult } from "./syncSubmittedResult";
 
 /**
@@ -87,6 +88,7 @@ async function submitPlannedSyncAttempt(args: {
     return await submitDocumentSyncAttemptIfAllowed({
       apiClient: args.sync.apiClient,
       attempt: args.attempt,
+      canRebaseOntoFreshPeer: args.sync.rebaseOntoFreshPeer !== undefined,
       canRegenerateQueuedCheckpoints: canRegenerateQueuedCheckpoints({
         materializedPlan: args.materializedPlan,
         pendingUpdates: args.pendingUpdates,
@@ -218,6 +220,37 @@ async function retryRemoteSyncAttempt(
   };
 }
 
+type SubmittedSyncAttempt = Awaited<
+  ReturnType<typeof submitPlannedSyncAttempt>
+>;
+
+/** A submit the server answered with a recovery to run instead of a result. */
+type SyncRecoveryRequest = Exclude<
+  SubmittedSyncAttempt,
+  string | { readonly kind: "completed" }
+>;
+
+async function recoveryOutcome(
+  sync: RemoteDocumentSyncPass,
+  request: SyncRecoveryRequest,
+): Promise<RemoteDocumentSyncAttemptOutcome> {
+  if (request.kind === "regenerate_queued_checkpoints") {
+    return { kind: "regenerate" };
+  }
+  if (request.kind === "rebase_peer") {
+    // The host's rebase changes the queue and requests the pass that sends it.
+    return {
+      kind: "complete",
+      result: await rebaseAfterPeerRefusal(sync, request),
+    };
+  }
+  // A lost response may mean the server committed both this update id and an
+  // inline container rekey. Force the read-only recovery pass to observe that
+  // committed successor projection instead of reusing a cached predecessor.
+  evictStaleProjectionForRetry(sync);
+  return { kind: "recover", updates: request.recoveryPendingUpdatesById };
+}
+
 async function runRemoteDocumentSyncAttempt(input: {
   attempt: number;
   maxAttempts: number;
@@ -298,15 +331,8 @@ async function runRemoteDocumentSyncAttempt(input: {
     input.sync.onSyncAbandoned?.("the sync submit failed terminally");
     return { kind: "complete", result: null };
   }
-  if (submitted.kind === "regenerate_queued_checkpoints") {
-    return { kind: "regenerate" };
-  }
-  if (submitted.kind === "recover_update_id_conflict") {
-    // A lost response may mean the server committed both this update id and an
-    // inline container rekey. Force the read-only recovery pass to observe that
-    // committed successor projection instead of reusing a cached predecessor.
-    evictStaleProjectionForRetry(input.sync);
-    return { kind: "recover", updates: submitted.recoveryPendingUpdatesById };
+  if (submitted.kind !== "completed") {
+    return recoveryOutcome(input.sync, submitted);
   }
   const result = await resolveSubmittedDocumentSyncResult({
     materializedPlan,

@@ -26,6 +26,7 @@ import {
   unwrapDocumentContentKeyFromBundle,
 } from "../projection";
 import { targetEnvelopeReference } from "../readers";
+import { deriveDocumentContentKeyCommitment } from "../sync/contentKeyCommitment";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 
@@ -75,6 +76,11 @@ async function wrapContentKeyToEpoch1(rotated: KeyringRotationFixture) {
     },
   };
   const bundle = {
+    contentKeyCommitment: await deriveDocumentContentKeyCommitment({
+      contentKey,
+      contentKeyEpoch: 1,
+      documentId,
+    }),
     contentKeyEpoch: 1,
     documentId,
     linkSetManifestHash: await fixtureHash("history-link-set"),

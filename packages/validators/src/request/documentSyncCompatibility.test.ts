@@ -14,6 +14,7 @@ function createSyncRequest() {
       [{ containerId: "container-1", manifestHash: "container-manifest-hash" }],
     ],
     contentKeyBundle: {
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 1,
       linkSetManifestHash: "document-link-set-hash",
       targetHash: "target-hash",

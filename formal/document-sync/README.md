@@ -69,6 +69,19 @@ bounded attempts, and that every device eventually holds what a fresh reader on
 its decoder holds. See the
 [production mapping, negative controls, and bounds](./VoidUpdateProgress.md).
 
+## Content-Key Commitment
+
+[`ContentKeyCommitment.tla`](./ContentKeyCommitment.tla)
+models readers of a document across its content-key epochs. Each epoch commits
+to its key, the API refuses an update that commits to another, and a reader
+judges an update only under the committed key: an AES-GCM or plaintext-hash
+failure under it is a void, and holding another key leaves the update
+unavailable without moving the cursor. Openers may wrap another key to some
+targets, and a reader may be handed a stale key. It requires that every
+recorded verdict is the one the committed key gives, so readers agree, and that
+a reader whose wraps hold the committed keys eventually judges the whole log.
+See the [production mapping, negative controls, and bounds](./ContentKeyCommitment.md).
+
 ## Rotation Baselines Past a False Op Span
 
 [`BaselineCursorCoverage.tla`](./BaselineCursorCoverage.tla)
@@ -80,6 +93,21 @@ requires that no accepted baseline lacks a truthful operation, that an author
 that judged the whole log is never refused, and that a new reader starts at
 the latest accepted baseline. See the
 [production mapping, negative controls, and bounds](./BaselineCursorCoverage.md).
+
+## Document Peer Ownership
+
+[`PeerOwnership.tla`](./PeerOwnership.tla)
+models the server's peer-ownership rule. A span past a peer's committed
+frontier claims an unowned peer, passes on its writer's own, and refuses the
+request on another user's, while a re-assertion within the frontier is open to
+every writer. Peers stay secret until their first commit. A dishonest member
+commits forged spans on peers it has seen, and a republisher recreates a
+purged document from its history. A device refused on a peer the recreation
+claimed rebases onto a fresh peer. It requires that no reader voids an honest
+update, that no other user occupies a device's counters past what it
+committed, that a re-assertion is never the cause of a refusal, and that every
+honest edit is eventually committed. See the
+[production mapping, negative controls, and bounds](./PeerOwnership.md).
 
 ## Opened-Document Recovery Probes
 

@@ -49,6 +49,7 @@ export async function replaceSupersededMetadataIdentity(input: {
   durableRecord: DocumentRecord | null;
   metadataState: ContainerMetadataState;
 }): Promise<void> {
+  // A fresh peer: the dropped local ops already used the live peer's counters.
   const replacementDoc = await createContainerMetadataDocument(
     input.metadataState.container.id,
   );

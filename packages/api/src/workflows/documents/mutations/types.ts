@@ -48,7 +48,14 @@ export interface PurgeDocumentInput {
 
 export interface AppendDocumentUpdatesInput {
   readonly accessEpoch: number;
+  /**
+   * The stored commitment of the epoch the request writes at; every new
+   * update's signed envelope must carry it.
+   */
+  readonly contentKeyCommitment: string;
   readonly documentId: string;
+  /** A create's seed: the document has no committed spans or peer owners. */
+  readonly documentInsertedInTransaction: boolean;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly organizationId: string;

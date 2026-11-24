@@ -140,21 +140,33 @@ makes one such omission durable. An update the server leaves out of a pull that
 completes is not served to that device again while its cursor stands, where a
 pull by version alone would serve it on the next pass.
 
-A document writer can also cost other devices availability. One that commits
-operations under another device's peer id first makes readers void that
-device's own update ([preempted operations](../advisory-op-spans.md#preempted-operations)),
-and one whose payload fails the Loro runtime holds a reader's sync of that
+A document writer can also cost other devices availability. The server
+refuses a write that extends a peer another user owns
+([peer owner](../glossary/sync.md#peer-owner)), so once a device's peer has
+committed, another user can preempt its later operations only by recreating
+the purged document from history; the refused device then moves them to a
+fresh peer ([peer ownership](../advisory-op-spans.md#peer-ownership)).
+One whose payload fails the Loro runtime holds a reader's sync of that
 document for up to three process lifetimes before it is void
 ([runtime failures](../advisory-op-spans.md#loro-runtime-failures)).
-A writer whose updates are all void leaves a document with an empty snapshot,
-which encodes no rotation baseline, and the baseline-less unlink requires no
-committed update, so no writer can unlink that document. A device that rotates
-with an older decoder leaves an update a newer decoder reads out of the
-baseline, and so out of what new readers start from
-([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks)). A
+A device that rotates with an older decoder leaves an update a newer decoder
+reads out of the baseline, and so out of what new readers start from
+([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks));
+greenfield clients are expected to run the current Loro. A writer whose
+updates are all void no longer blocks the unlink of its document: the
+baseline is the empty snapshot signing the reader's processed cursor. A
 rotation judges raw history with no rebuild budget, so a writer who commits
 many voids behind a large update makes each rotation, and so each unlink, of
 that document rebuild once per void.
+
+The API cannot read a document content-key wrap, so a member that opens an epoch
+or carries its key to a new target (by creating, linking, unlinking, or healing
+the document) can wrap a key other than the committed one to some target. A
+reader of that target fails the epoch's [content-key
+commitment](../glossary/keys.md#content-key-commitment), records no verdict, and
+cannot read the epoch until a member holding the committed key opens a new epoch
+for the document, as an unlink or a stale-bundle heal does. Bundles are not
+signed, so the reader cannot tell which member wrapped the wrong key.
 
 ## Information-Disclosure Scenarios
 

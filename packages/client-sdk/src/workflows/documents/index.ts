@@ -39,6 +39,7 @@ export {
   DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
 } from "../../data/persistence/documents/records/documentHistoryPersistence";
 export type { DocumentSyncVerdictOutcome } from "../../data/persistence/documents/records/documentSyncVerdictPersistence";
+export { RecordedAttachmentSlotRepository } from "../../data/persistence/documents/records/recordedAttachmentSlotPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {
@@ -100,6 +101,8 @@ export {
   type AttachmentStagingRows,
   DOCUMENTS_APP_KIND,
   type DocumentBirthResult,
+  type DocumentPeerRebaseInstall,
+  type DocumentPeerRebaseRecord,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
@@ -148,7 +151,11 @@ export {
   recordUncursoredDocumentSyncVerdicts,
   reportDocumentSyncVoids,
 } from "./sync/processedCursor";
-export type { SyncRemoteDocumentRequest } from "./sync/remoteDocumentSyncPass";
+export type {
+  DocumentPeerRebaseOutcome,
+  DocumentPeerRebaser,
+  SyncRemoteDocumentRequest,
+} from "./sync/remoteDocumentSyncPass";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
   type DocumentSyncLane,

@@ -34,6 +34,11 @@ export type DocumentAttributionRangesRead =
       readonly ranges: DocumentAttributionRanges;
       /** The revision every page was read at; it moves with each upload. */
       readonly revision: number;
+      /**
+       * The updates this device held void, whose ranges the read left out.
+       * Voiding one after the read changes what the same revision reads as.
+       */
+      readonly voidUpdateIds: readonly string[];
     }
   | {
       /**
@@ -76,7 +81,7 @@ type ContainerContents = Tearleads["containerContents"];
 /** What tells one history of a document from another, and from itself later. */
 type AttributionHistory = Pick<
   Extract<DocumentAttributionRangesRead, { status: "complete" }>,
-  "firstUpdateId" | "revision"
+  "firstUpdateId" | "revision" | "voidUpdateIds"
 >;
 
 function historyOnPage(
@@ -85,17 +90,20 @@ function historyOnPage(
   return {
     firstUpdateId: page.items[0]?.updateId ?? null,
     revision: page.attributionRevision,
+    voidUpdateIds: page.voidUpdateIds,
   };
 }
 
-/** Nothing was uploaded since `held` was read. */
+/** Nothing was uploaded, or voided here, since `held` was read. */
 function isSameHistory(
   held: AttributionHistory,
   found: AttributionHistory,
 ): boolean {
   return (
     held.revision === found.revision &&
-    held.firstUpdateId === found.firstUpdateId
+    held.firstUpdateId === found.firstUpdateId &&
+    held.voidUpdateIds.length === found.voidUpdateIds.length &&
+    held.voidUpdateIds.every((id, index) => id === found.voidUpdateIds[index])
   );
 }
 
@@ -108,9 +116,10 @@ function isSameHistory(
  *   stops there.
  * - `held` is what the caller already has for this document and session.
  *   A held "too many" stands without a request. A held complete read is
- *   checked with a one-range probe: the same revision and first update mean
- *   nothing was uploaded since, and `held` is returned as it is. Otherwise
- *   the read goes on from the probe in full pages.
+ *   checked with a one-range probe: the same revision, first update, and
+ *   void updates mean nothing was uploaded or voided since, and `held` is
+ *   returned as it is. Otherwise the read goes on from the probe in full
+ *   pages.
  */
 export async function loadAllDocumentAttributionRanges(
   containerContents: Pick<ContainerContents, "loadDocumentAttributionRanges">,

@@ -41,6 +41,8 @@ export type DocumentCreateAuthor = ContainerMutationAuthor;
 export interface BuildDocumentCreatePlanInput {
   author: DocumentCreateAuthor;
   containerProjection: ContainerWriterProjectionResponse;
+  /** Commits to the key `targetEnvelopes` wrap, at `contentKeyEpoch`. */
+  contentKeyCommitment: string;
   contentKeyEpoch?: number;
   documentId?: string;
   eventId?: string;
@@ -140,6 +142,8 @@ export interface DocumentLinkSetTargetState {
 export interface BuildDocumentLinkSetMutationPlanInput {
   blobRewraps: DocumentLinkAccessEventBody["blobRewraps"];
   author: DocumentCreateAuthor;
+  /** Commits to the key `targetEnvelopes` wrap, at `contentKeyEpoch`. */
+  contentKeyCommitment: string;
   contentKeyEpoch: number;
   eventId?: string | undefined;
   operation: DocumentLinkSetMutationOperation;

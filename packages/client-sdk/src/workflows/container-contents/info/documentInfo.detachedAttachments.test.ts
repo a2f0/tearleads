@@ -57,6 +57,7 @@ test("loadDocumentInfo hides attachments unlinked before the detach flushes", as
         listDocumentAttachments: async () => {
           throw new Error("Unexpected attachment fetch.");
         },
+        listDocumentEditAttributionRanges: async () => null,
         getDocumentEditAttribution: async () => {
           throw new Error("Unexpected attribution fetch.");
         },

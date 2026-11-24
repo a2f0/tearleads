@@ -81,6 +81,7 @@ export type DocumentContentKeyTargetEnvelope = z.infer<
 >;
 
 export const DocumentContentKeyBundleRequestSchema = loosePlainObject({
+  contentKeyCommitment: sha256HexStringSchema,
   contentKeyEpoch: positiveIntegerSchema,
   linkSetManifestHash: nonEmptyStringSchema,
   targetHash: nonEmptyStringSchema,

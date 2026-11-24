@@ -9,6 +9,7 @@ import {
   setupDocumentTargets,
   targetEnvelopes,
 } from "../../../test/helpers/documentContentKeyStoreFixtures";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "../../../test/helpers/documentEnvelopeFixture";
 import { getLatestCurrentDocumentContentKeyBundle } from "../read/documentContentKeyStore";
 import { resolveCurrentDocumentKekTargets } from "../read/documentKekTargets";
 import { storeVerifiedAccessManifest } from "./accessManifestStore";
@@ -25,6 +26,7 @@ test("storeDocumentContentKeyBundle stores one canonical bundle for current targ
   const stored = await storeDocumentContentKeyBundle(
     {
       documentId,
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: currentTargets.linkSetManifestHash,
       targetHash: currentTargets.documentKeyTargetHash,
@@ -45,6 +47,7 @@ test("storeDocumentContentKeyBundle stores one canonical bundle for current targ
     storeDocumentContentKeyBundle(
       {
         documentId,
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 1,
         linkSetManifestHash: currentTargets.linkSetManifestHash,
         targetHash: currentTargets.documentKeyTargetHash,
@@ -94,6 +97,7 @@ test("storeDocumentContentKeyBundle rejects missing extra duplicate and stale ta
       storeDocumentContentKeyBundle(
         {
           documentId,
+          contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
           contentKeyEpoch: 1,
           linkSetManifestHash: currentTargets.linkSetManifestHash,
           targetHash: currentTargets.documentKeyTargetHash,
@@ -108,6 +112,7 @@ test("storeDocumentContentKeyBundle rejects missing extra duplicate and stale ta
     storeDocumentContentKeyBundle(
       {
         documentId,
+        contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
         contentKeyEpoch: 1,
         linkSetManifestHash: currentTargets.linkSetManifestHash,
         targetHash: staleTargetHash,
@@ -134,6 +139,7 @@ test("storeDocumentContentKeyBundle allows additive target growth on the same co
   await storeDocumentContentKeyBundle(
     {
       documentId: setup.documentId,
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: initialTargets.linkSetManifestHash,
       targetHash: initialTargets.documentKeyTargetHash,
@@ -175,6 +181,7 @@ test("storeDocumentContentKeyBundle allows additive target growth on the same co
   const stored = await storeDocumentContentKeyBundle(
     {
       documentId: setup.documentId,
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: expandedTargets.linkSetManifestHash,
       targetHash: expandedTargets.documentKeyTargetHash,
@@ -197,6 +204,7 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
   await storeDocumentContentKeyBundle(
     {
       documentId: setup.documentId,
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: initialTargets.linkSetManifestHash,
       targetHash: initialTargets.documentKeyTargetHash,
@@ -266,6 +274,7 @@ test("storeDocumentContentKeyBundle refreshes same-epoch container manifest targ
   const stored = await storeDocumentContentKeyBundle(
     {
       documentId: setup.documentId,
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: refreshedTargets.linkSetManifestHash,
       targetHash: refreshedTargets.documentKeyTargetHash,

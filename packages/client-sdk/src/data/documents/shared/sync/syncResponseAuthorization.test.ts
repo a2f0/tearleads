@@ -65,6 +65,7 @@ test("a new-to-device document head and its historical write retain cited ancest
   const targetHash = await computeDocumentContentKeyTargetHash(targets);
   const contentKeyBundle = {
     documentId,
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch: 1,
     linkSetManifestHash: document.manifestHash,
     targetHash,

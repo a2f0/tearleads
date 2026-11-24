@@ -2580,6 +2580,8 @@ export type components = {
         };
         /** @description A content-key bundle: one document content-key epoch wrapped to every linked container's KEK. */
         DocumentContentKeyBundleRequest: {
+            /** @description The epoch's content-key commitment: an HKDF output of the wrapped key. It opens an epoch and must repeat the stored one when a link adds targets. */
+            contentKeyCommitment: string;
             contentKeyEpoch: number;
             /** @description Document link-set manifest the targets were derived from. */
             linkSetManifestHash: string;
@@ -2591,6 +2593,8 @@ export type components = {
         };
         /** @description A stored content-key bundle for one document content-key epoch. */
         DocumentContentKeyBundleResponse: {
+            /** @description The epoch's content-key commitment; every update of the epoch carries it in its signed envelope. */
+            contentKeyCommitment: string;
             contentKeyEpoch: number;
             documentId: string;
             /** @description Document link-set manifest the targets were derived from. */
@@ -2777,7 +2781,7 @@ export type components = {
             };
             /** @description Hash of the link-set manifest this mutation derives. */
             expectedManifestHash: string;
-            /** @description For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link. */
+            /** @description For an unlink, a rotation baseline covering every committed update after its signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link. */
             rotationBaseline?: components["schemas"]["DocumentOutgoingUpdate"];
             /** @description Path to the container being linked or unlinked. */
             targetContainerPathRefs: components["schemas"]["ContainerManifestRef"][];
@@ -2799,7 +2803,7 @@ export type components = {
             [key: string]: unknown;
         };
         /** @description A machine-readable reason a document mutation was refused. */
-        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
+        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
         /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
             code?: components["schemas"]["DocumentMutationErrorCode"];
@@ -2827,13 +2831,13 @@ export type components = {
              * @constant
              */
             checkpointPayloadKind?: "full_history_snapshot";
-            /** @description For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. */
+            /** @description For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor. */
             coversThroughUpdateId?: string;
             /** @description Base64 ciphertext of the update under the document content key. */
             encryptedData: string;
             /** @description Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical. */
             id: string;
-            /** @description Version vector the update brings the document to. */
+            /** @description Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on a rotation baseline that signs `coversThroughUpdateId`. */
             partialEndVersionVector: string;
             /** @description Version vector the update starts from. */
             partialStartVersionVector: string;
@@ -2845,6 +2849,15 @@ export type components = {
             writeHeader: {
                 [key: string]: unknown;
             };
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A Loro peer the request extended that another user owns. */
+        DocumentPeerFrontier: {
+            /** @description End (exclusive) of the peer's committed operations; the request may re-assert counters below it. */
+            committedEndCounter: number;
+            /** @description Loro peer id, in decimal. */
+            peerId: string;
         } & {
             [key: string]: unknown;
         };
@@ -2893,11 +2906,13 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, or stop. */
+        /** @description A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop. */
         DocumentSyncErrorResponse: {
             /** @enum {string} */
-            code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict";
+            code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict";
             error: string;
+            /** @description With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request. */
+            peerFrontiers?: components["schemas"]["DocumentPeerFrontier"][];
             /** @description With `document_sync_state_stale` from a carried rekey, up to 16 current principal heads to recover before replanning; advisory only. */
             principalHeads?: components["schemas"]["ReferencedPrincipalStateResponse"][];
         } & {

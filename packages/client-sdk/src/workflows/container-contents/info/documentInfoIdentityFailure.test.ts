@@ -33,6 +33,7 @@ test("document info propagates attribution identity failures instead of returnin
     await expect(
       loadDocumentInfo({
         apiClient: {
+          listDocumentEditAttributionRanges: async () => null,
           getDocumentEditAttribution: async () => {
             throw integrityError;
           },

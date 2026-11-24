@@ -159,8 +159,8 @@ container history. See the [mapping and boundaries](./container-keying/Principal
 
 Models under [`document-sync/`](./document-sync), summarized in its
 [index](./document-sync/README.md): sync lanes, baselines, deferred tails, the
-outgoing-queue merge, false-span voids, recovery probes, metadata listings,
-epoch advances, and attachment keys and content.
+outgoing-queue merge, false-span voids, content-key commitments, recovery
+probes, metadata listings, epoch advances, and attachment keys and content.
 
 ## Local Trust
 

@@ -31,6 +31,7 @@ export async function replaceEncryptedPlaintext(input: {
   // Header signature verification is upstream of this unit. Model a writer
   // committing this ciphertext while retaining a hash for different bytes.
   const encrypted = JSON.parse(input.update.encryptedData) as {
+    contentKeyCommitment: string;
     contentKeyEpoch: number;
     contentRecordId: string;
     metadataHash: string;
@@ -72,6 +73,7 @@ export async function replaceEncryptedPlaintext(input: {
     format: DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
     version: 1,
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
+    contentKeyCommitment: encrypted.contentKeyCommitment,
     contentKeyEpoch: encrypted.contentKeyEpoch,
     contentRecordId: encrypted.contentRecordId,
     nonceDomainHash: encrypted.nonceDomainHash,

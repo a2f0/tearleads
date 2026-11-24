@@ -2,7 +2,10 @@ export {
   createDomainScope,
   type DomainScope,
 } from "../../data/shared/domainScope";
-export { getRuntimePeerSeed } from "../../data/sync/crdtPeerSeed";
+export {
+  getRuntimePeerSeed,
+  recordPeerSeed,
+} from "../../data/sync/crdtPeerSeed";
 export {
   type CompletedDownloadItem,
   type DomainDownloadHistory,

@@ -356,8 +356,10 @@ test("folder creation, document linking, unlinking and trash have separate reque
       // acknowledgement: 19.3 KB received; keep about 8% headroom. The move
       // sends its manifest hash alone: 16.0 KB sent (16.6 KB with it).
       // Projections cite the held organization directory: 18.0 KB received
-      // (19.3 KB with it, which exceeds this ceiling).
-      bodyBytes: { request: 16_350, response: 18_700 },
+      // (19.3 KB with it). Bundles and envelopes name their content-key
+      // commitment: 18.8 KB received (about 20.1 KB with the directory, which
+      // exceeds this ceiling).
+      bodyBytes: { request: 16_350, response: 19_100 },
       byRequest: {
         "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,

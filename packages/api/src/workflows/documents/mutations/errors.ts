@@ -6,6 +6,7 @@ import {
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentMutationErrorCode,
+  type DocumentPeerFrontier,
   isPrincipalPolicyStaleErrorResponse,
   type ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
@@ -31,6 +32,8 @@ export class DocumentMutationError extends Error {
     readonly code?: DocumentMutationErrorCode | undefined,
     readonly details?:
       | {
+          /** With `document_sync_peer_owned`: each refused peer's frontier. */
+          readonly peerFrontiers?: readonly DocumentPeerFrontier[] | undefined;
           readonly principalHeads?:
             | readonly ReferencedPrincipalStateResponse[]
             | undefined;
@@ -59,6 +62,22 @@ export function documentUpdateIdConflict(): DocumentMutationError {
     "Document update id conflict",
     409,
     DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+  );
+}
+
+/**
+ * The request extends, beyond its committed frontier, a peer another user
+ * owns. Names those peers with their frontiers from before the request, so
+ * the client rebases its unsent operations on them onto a fresh peer.
+ */
+export function documentPeerOwned(
+  peerFrontiers: readonly DocumentPeerFrontier[],
+): DocumentMutationError {
+  return new DocumentMutationError(
+    "Document peer is owned by another user",
+    409,
+    DOCUMENT_SYNC_ERROR_CODES.peerOwned,
+    { peerFrontiers },
   );
 }
 

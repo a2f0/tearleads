@@ -16,6 +16,7 @@ bound at is committed.
 | `ImporterBind` | `assertAttachmentDocumentVersionCurrent` checks the bind's version, and `storeVerifiedAttachmentBindingInTransaction` stores it with the binding as `bindDocumentVersion` |
 | `ImporterBind` naming `Overclaim` ops | `parseAttachmentDocumentVersion` accepts any version vector, so a bind version may name ops of an update the detaching client voided |
 | `Observe` | `observeRecordedAttachmentSlots` records each slot a published snapshot holds, so only a slot this client parsed can count as removed |
+| `Observe` | `RecordedAttachmentSlotRepository` keeps each seen slot in the local database while the record stays bound to the document, and `listRemovedAttachmentSlots` restores them first, so a device that restarts between seeing the slot and reading it removed still detaches |
 | `ObserveSynced` | `captureSyncedDocumentView` reads the live document only while `pendingBaseVersion` covers it and no local write is queued, before the pass lists pending updates; `canSyncDetachedAttachmentBindings` then requires none |
 | `ObserveSynced` | `listRecordedAttachmentSlotIds` reads the view's slots from the content map's keys, so an entry this client cannot parse still counts as recorded |
 | `ObserveSynced` | `listRemovedAttachmentSlots` names the seen slots the view lacks that the store neither holds nor uploads, and `listDocumentAttachments` lists their bindings |
@@ -99,10 +100,12 @@ bytes binds them. Before this change every device that held the bytes
 detached as soon as it read the removal, so the window is not new. What is
 new is that a device that never held them detaches too, as #3134 asks: where
 no device held the bytes, the binding used to stay, and with it the bytes
-such a late re-record could still reach. The observation also lives in
-memory, so a device that restarts between seeing
-the slot and reading it removed does not detach; another device that saw both
-still can.
+such a late re-record could still reach. The observation survives a restart
+or a store reload: a device that restarts between seeing the slot and reading
+it removed still detaches. A refusal's wait lives only in memory, so after a
+restart the device sends that detach once more at the version it then reads,
+and the API refuses it again while the reason holds. The model has no restart
+action, since a restart keeps what the device saw.
 
 Negative controls drop each API check and the client's synced-view rule,
 stop devices that never held the bytes from detaching, ignore the cursor,

@@ -1,5 +1,6 @@
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { createSessionMetadataReader } from "./boundedMetadataResponse";
+import { requestFailureHints } from "./failureResponseHints";
 import { measureApiRequest } from "./measureApiRequest";
 import {
   type ApiNetworkError,
@@ -180,6 +181,7 @@ export class ApiRequestRuntime {
     networkError?: ApiNetworkError | undefined;
     path: string;
     reportErrors: boolean;
+    peerFrontiers?: RequestFailure["peerFrontiers"];
     requiredContainerIds?: RequestFailure["requiredContainerIds"];
     stalePrincipalHeads: RequestFailure["stalePrincipalHeads"];
     status: number | null;
@@ -198,12 +200,7 @@ export class ApiRequestRuntime {
       },
       status: input.status,
       statusText: input.statusText,
-      ...(input.stalePrincipalHeads
-        ? { stalePrincipalHeads: input.stalePrincipalHeads }
-        : {}),
-      ...(input.requiredContainerIds
-        ? { requiredContainerIds: input.requiredContainerIds }
-        : {}),
+      ...requestFailureHints(input),
     };
     if (!input.isolated)
       this.requestFailuresByKey.set(
@@ -475,6 +472,7 @@ export class ApiRequestRuntime {
       method: input.method,
       path: input.path,
       reportErrors: !cancelled && reportErrors,
+      peerFrontiers: input.errorDescription.peerFrontiers,
       requiredContainerIds: input.errorDescription.requiredContainerIds,
       stalePrincipalHeads: input.errorDescription.stalePrincipalHeads,
       status: input.response.status,

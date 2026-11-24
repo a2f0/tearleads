@@ -4,6 +4,7 @@ import {
   createAuthor,
   createProjection,
   createResponse,
+  FIXTURE_CONTENT_KEY_COMMITMENT,
   fixtureHash,
   getOnlyTarget,
 } from "../../../../test/helpers/data/documentFixtures";
@@ -17,6 +18,7 @@ test("persistedDocumentCreateStateFromResponse stores verified create bundles", 
   const plan = await buildDocumentCreatePlan({
     author,
     containerProjection: projection,
+    contentKeyCommitment: FIXTURE_CONTENT_KEY_COMMITMENT,
     documentId: "document-1",
     targetEnvelopes: [
       {

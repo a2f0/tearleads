@@ -49,6 +49,7 @@ test("document content key schema stores epochs, targets, and write headers thro
   await db.insert(documentContentKeyEpochs).values({
     id: documentContentEpochId,
     documentId,
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch: 1,
     linkSetManifestHash: documentManifestHash,
     targetHash: documentTargetHash,

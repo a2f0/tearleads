@@ -290,7 +290,10 @@ export async function commitSyncDocumentWrites(
     });
   const appendResult = await appendDocumentUpdates({
     accessEpoch: resolveSyncAccessEpoch({ currentTargets, writeAuthorization }),
+    contentKeyCommitment: contentKeyBundle.contentKeyCommitment,
     documentId: input.documentId,
+    documentInsertedInTransaction:
+      input.seed?.documentInsertedInTransaction ?? false,
     executor: input.tx,
     fingerprint: input.fingerprint,
     organizationId: currentTargets.organizationId,

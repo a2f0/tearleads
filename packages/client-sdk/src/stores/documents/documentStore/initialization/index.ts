@@ -199,7 +199,10 @@ async function restoreOrCreateInitialDocument(input: {
   if (!activePersistedState.document) {
     throw new Error("Document creation completed without a durable record");
   }
-  const replacementDoc = await createStoredDocument(state);
+  const replacementDoc = await createStoredDocument(
+    state,
+    activePersistedState.document.peerSalt,
+  );
   return restoreLoadedInitialDocument({
     initializeGeneration,
     nextDoc: replacementDoc,
@@ -247,12 +250,16 @@ async function initializeDocumentStore(
   // generation, so a stale capture here aborts before each assignment batch.
   const initializeGeneration = state.localWriteGeneration;
 
-  const nextDoc = await createStoredDocument(state);
   const persistedState = await loadPersistedDocumentStoreState({
     execSql: state.runtime.infra.execSql,
     localId: state.localId,
     persistence: state.persistence,
   });
+  // A record a peer rebase moved writes on its salted peer.
+  const nextDoc = await createStoredDocument(
+    state,
+    persistedState.document?.peerSalt,
+  );
   if (state.localWriteGeneration !== initializeGeneration) {
     return;
   }

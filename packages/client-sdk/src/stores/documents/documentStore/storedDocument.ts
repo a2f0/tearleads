@@ -1,8 +1,11 @@
-import { createDocument } from "@tearleads/loro";
+import { createDocument, derivePeerId } from "@tearleads/loro";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
 import { DOCUMENTS_APP_KIND } from "../../../workflows/documents";
-import { getRuntimePeerSeed } from "../../../workflows/sync/coordination";
+import {
+  getRuntimePeerSeed,
+  recordPeerSeed,
+} from "../../../workflows/sync/coordination";
 import type { DocumentState, DocumentStoreState } from "./state";
 
 async function createStoredDocumentWithSeed(
@@ -14,19 +17,50 @@ async function createStoredDocumentWithSeed(
   return createdDoc;
 }
 
-export async function createStoredDocument(
+async function storedDocumentPeerSeed(
   state: DocumentStoreState,
-): Promise<DocumentState> {
-  // Persistent pane namespaces retain stable seeds. Concurrent runtimes in one
-  // namespace receive distinct memory-only seeds after the first owner, while
-  // the usual single runtime can reuse its device seed after a page reload.
+  peerSalt: string | undefined,
+): Promise<string> {
   const peerScope = state.runtime.state.peerScope;
   const scope = peerScope
     ? `${DOCUMENTS_APP_KIND}:${peerScope}`
     : DOCUMENTS_APP_KIND;
+  return recordPeerSeed({
+    peerSalt,
+    recordId: state.localId,
+    runtimeSeed: await getRuntimePeerSeed(
+      scope,
+      state.runtime.state.domainScope,
+    ),
+    userId: state.runtime.auth.userId,
+  });
+}
+
+/**
+ * The record's own document under this writer's peer for it. Persistent pane
+ * namespaces retain stable runtime seeds. Concurrent runtimes in one
+ * namespace receive distinct memory-only seeds after the first owner, while
+ * the usual single runtime can reuse its device seed after a page reload. The
+ * peer is one per record and user (`recordPeerSeed`), so another member
+ * cannot learn it from this writer's other documents before it first commits
+ * here. Pass the record's `peerSalt`: after a peer rebase it names the fresh
+ * peer the record moved to.
+ */
+export async function createStoredDocument(
+  state: DocumentStoreState,
+  peerSalt: string | undefined,
+): Promise<DocumentState> {
   return createStoredDocumentWithSeed(
-    await getRuntimePeerSeed(scope, state.runtime.state.domainScope),
+    await storedDocumentPeerSeed(state, peerSalt),
   );
+}
+
+/** The peer `createStoredDocument` writes on under `peerSalt`. */
+export async function storedDocumentPeer(
+  state: DocumentStoreState,
+  peerSalt: string,
+): Promise<`${number}`> {
+  return derivePeerId(await storedDocumentPeerSeed(state, peerSalt));
 }
 
 /**

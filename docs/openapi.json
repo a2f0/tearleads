@@ -2834,6 +2834,13 @@
       "DocumentContentKeyBundleRequest": {
         "type": "object",
         "properties": {
+          "contentKeyCommitment": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "The epoch's content-key commitment: an HKDF output of the wrapped key. It opens an epoch and must repeat the stored one when a link adds targets."
+          },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
             "maximum": 1.7976931348623157e+308,
@@ -2858,6 +2865,7 @@
           }
         },
         "required": [
+          "contentKeyCommitment",
           "contentKeyEpoch",
           "linkSetManifestHash",
           "targetHash",
@@ -2869,6 +2877,13 @@
       "DocumentContentKeyBundleResponse": {
         "type": "object",
         "properties": {
+          "contentKeyCommitment": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "The epoch's content-key commitment; every update of the epoch carries it in its signed envelope."
+          },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
             "maximum": 1.7976931348623157e+308,
@@ -2896,6 +2911,7 @@
           }
         },
         "required": [
+          "contentKeyCommitment",
           "contentKeyEpoch",
           "documentId",
           "linkSetManifestHash",
@@ -3450,7 +3466,7 @@
           },
           "rotationBaseline": {
             "$ref": "#/components/schemas/DocumentOutgoingUpdate",
-            "description": "For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link."
+            "description": "For an unlink, a rotation baseline covering every committed update after its signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link."
           },
           "targetContainerPathRefs": {
             "type": "array",
@@ -3529,6 +3545,7 @@
               "document_sync_checkpoint_coverage_conflict",
               "document_sync_conflict",
               "document_sync_descendant_rekeys_required",
+              "document_sync_peer_owned",
               "document_sync_state_stale",
               "document_sync_update_id_conflict"
             ]
@@ -3604,7 +3621,7 @@
           "coversThroughUpdateId": {
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "type": "string",
-            "description": "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered."
+            "description": "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor."
           },
           "encryptedData": {
             "type": "string",
@@ -3619,7 +3636,7 @@
           "partialEndVersionVector": {
             "type": "string",
             "minLength": 1,
-            "description": "Version vector the update brings the document to."
+            "description": "Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on a rotation baseline that signs `coversThroughUpdateId`."
           },
           "partialStartVersionVector": {
             "type": "string",
@@ -3653,6 +3670,30 @@
         ],
         "additionalProperties": {},
         "description": "One encrypted Loro update a client uploads, with its signed write header."
+      },
+      "DocumentPeerFrontier": {
+        "type": "object",
+        "properties": {
+          "peerId": {
+            "maxLength": 20,
+            "minLength": 1,
+            "pattern": "^[0-9]+$",
+            "type": "string",
+            "description": "Loro peer id, in decimal."
+          },
+          "committedEndCounter": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer",
+            "description": "End (exclusive) of the peer's committed operations; the request may re-assert counters below it."
+          }
+        },
+        "required": [
+          "peerId",
+          "committedEndCounter"
+        ],
+        "additionalProperties": {},
+        "description": "A Loro peer the request extended that another user owns."
       },
       "DocumentPurgeProofResponse": {
         "type": "object",
@@ -3828,6 +3869,7 @@
               "document_sync_checkpoint_coverage_conflict",
               "document_sync_conflict",
               "document_sync_descendant_rekeys_required",
+              "document_sync_peer_owned",
               "document_sync_state_stale",
               "document_sync_update_id_conflict"
             ]
@@ -3835,6 +3877,14 @@
           "error": {
             "type": "string",
             "minLength": 1
+          },
+          "peerFrontiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentPeerFrontier"
+            },
+            "maxItems": 64,
+            "description": "With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request."
           },
           "principalHeads": {
             "type": "array",
@@ -3850,7 +3900,7 @@
           "error"
         ],
         "additionalProperties": {},
-        "description": "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, or stop."
+        "description": "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop."
       },
       "DocumentSyncPullPageResponse": {
         "type": "object",

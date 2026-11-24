@@ -26,10 +26,43 @@ async function folderName(device: Device, folderId: string) {
   return tree.getSnapshot().nodes.find((node) => node.id === folderId)?.name;
 }
 
+/** Each update id a device's sync responses serve it, once per serving. */
+function observeServedUpdates(device: Device): string[] {
+  const served: string[] = [];
+  device.transport.rewriteResponses(
+    (request) => request.method === "POST" && request.path.endsWith("/sync"),
+    (body) => {
+      const updates =
+        typeof body === "object" && body !== null && "updates" in body
+          ? body.updates
+          : [];
+      for (const update of Array.isArray(updates) ? updates : []) {
+        if (typeof update?.id === "string") served.push(update.id);
+      }
+      return body;
+    },
+  );
+  return served;
+}
+
+/** The ids of the updates a device sent after `from` exchanges, in order. */
+function sentUpdateIds(device: Device, from: number): string[] {
+  return device.transport.history
+    .slice(from)
+    .flatMap(({ body }) =>
+      typeof body === "object" &&
+      body !== null &&
+      "outgoingUpdates" in body &&
+      Array.isArray(body.outgoingUpdates)
+        ? body.outgoingUpdates.map((update: { id: string }) => update.id)
+        : [],
+    );
+}
+
 // Folder metadata documents void a false-span update as document content
-// does: the reader keeps the folder's earlier name, reports the update once
-// although metadata keeps no processed cursor and judges it on every pull,
-// and its own renames still settle and reach the writer.
+// does: the reader keeps the folder's earlier name, reports the update once,
+// and its own renames still settle and reach the writer. Metadata keeps a
+// processed cursor too, so the update is served to the reader only once.
 test("a reader voids a false-span folder rename and keeps syncing the folder", async () => {
   world = await World.create();
   const alice = await world.register("alice");
@@ -39,6 +72,7 @@ test("a reader voids a false-span folder rename and keeps syncing the folder", a
   await world.shareWithUser(alice, folder, bob);
   const reader = bob.devices[0];
   if (!reader) throw new Error("Expected Bob's device");
+  const served = observeServedUpdates(reader);
   await reader.holdFolder(folder.id);
   expect(await folderName(reader, folder.id)).toBe("Shared");
 
@@ -60,9 +94,12 @@ test("a reader voids a false-span folder rename and keeps syncing the folder", a
     "container-metadata",
   );
   expect(forged).toBe(1);
+  const sentBefore = liar.transport.history.length;
   liar.setOnline(true);
   await (await liar.tree()).refresh();
   await liar.idle();
+  const [forgedId] = sentUpdateIds(liar, sentBefore);
+  if (!forgedId) throw new Error("Expected the forged rename to be sent");
 
   for (let pass = 0; pass < 3; pass += 1) {
     expect(await folderName(reader, folder.id)).toBe("Shared");
@@ -77,6 +114,8 @@ test("a reader voids a false-span folder rename and keeps syncing the folder", a
     await reader.idle();
   }
   expect(await folderName(liar, folder.id)).toBe("Bob's name");
+  expect(await folderName(reader, folder.id)).toBe("Bob's name");
   expect(voidReports(reader)).toBe(1);
+  expect(served.filter((id) => id === forgedId)).toHaveLength(1);
   expectNoSecurityIncidents(world);
 }, 180_000);

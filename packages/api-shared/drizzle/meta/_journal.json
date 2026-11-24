@@ -57,6 +57,20 @@
       "when": 1795389566604,
       "tag": "0007_baseline_covers_through_update",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795467305434,
+      "tag": "0008_document_content_key_commitment",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795486154047,
+      "tag": "0009_document_peer_owners",
+      "breakpoints": true
     }
   ]
 }

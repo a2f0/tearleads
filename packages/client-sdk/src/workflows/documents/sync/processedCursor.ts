@@ -19,6 +19,7 @@ import {
   readSendableProcessedCursor,
   recordDocumentSyncVerdictsInTransaction,
 } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
+import { readFinalVoidUpdateIds } from "../../../data/persistence/documents/records/finalVoidUpdates";
 import { readProcessedCursorCoveredBy } from "../../../data/persistence/documents/records/processedCursorForVersion";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
@@ -63,6 +64,22 @@ export async function readProcessedCursorForVersion(
     getClientSQLitePersistenceRuntime(execSql).db,
     { ...input, judge: documentVerdictJudge() },
   );
+}
+
+/**
+ * The updates of a server document this device voided for good under its
+ * running judge. Readers of edit attribution leave them out, so an
+ * operation a void update declared is credited to nobody rather than to it.
+ */
+export async function readFinalDocumentVoidUpdateIds(
+  execSql: ExecSql,
+  documentId: string,
+): Promise<ReadonlySet<string>> {
+  await ensureDocumentTables(execSql);
+  return readFinalVoidUpdateIds(getClientSQLitePersistenceRuntime(execSql).db, {
+    documentId,
+    judge: documentVerdictJudge(),
+  });
 }
 
 interface RecordedImportJudgements {
@@ -258,8 +275,8 @@ export function recordDocumentSyncVerdicts(
 }
 
 /**
- * The verdicts of one sync page. A scope that keeps no cursor (container
- * metadata, which pulls by version alone) records its voids only.
+ * The verdicts of one sync page. A judge that keeps no cursor, such as a
+ * rotation's raw-history judge, records its voids only.
  */
 function documentSyncVerdictInput(input: {
   readonly advancesCursor: boolean;
@@ -351,9 +368,9 @@ export function reportDocumentSyncVoids(
 }
 
 /**
- * Records a sync page's voids for a scope that keeps no cursor (container
- * metadata, which pulls by version alone) in its own serialized transaction,
- * then reports each new one while the pass is still current.
+ * Records a page's voids for a judge that keeps no cursor, such as a
+ * rotation's raw-history judge, in its own serialized transaction, then
+ * reports each new one while the pass is still current.
  */
 export async function recordUncursoredDocumentSyncVerdicts(input: {
   readonly execSql: ExecSql;

@@ -20,7 +20,10 @@ document. Document create and link-set mutation routes use signed document
   manifestHash}` citations of stored manifests; the API resolves the previous
   link-set manifest from its own store, and a create has none)
 - optional `containerRekeys[]`
-- a document [content-key bundle](./glossary/keys.md#content-key-bundle)
+- a document [content-key bundle](./glossary/keys.md#content-key-bundle),
+  which declares its epoch's
+  [content-key commitment](./glossary/keys.md#content-key-commitment): a new
+  epoch's commitment is stored, and a bundle at a stored epoch must repeat it
 
 The API verifies the event, verifies
 [container path](./glossary/access.md#authorizing-container-path)
@@ -113,7 +116,10 @@ whose source [version vector](./glossary/content.md#version-vector) covers the
 committed update frontier after the baseline's signed processed cursor
 (`coversThroughUpdateId`, or every committed update when it signs none) — with
 one exception: a document with **no committed
-updates** may be unlinked without a baseline. The server proves that emptiness
+updates** may be unlinked without a baseline. A baseline may declare no
+operations only when it signs a cursor: the author voided every update through
+the cursor, so its snapshot is empty; the server refuses an empty baseline
+without one with 400. The server proves that emptiness
 inside the mutation transaction under the document manifest-head write lock.
 Sync writers hold the corresponding exclusive lock, so no update can commit
 between the emptiness proof and the unlink. A baseline-less unlink against a
@@ -167,6 +173,9 @@ For accepted writes, the API verifies:
 - content-key targets match the active document KEK target hash
 - the write header matches document id, organization id, manifest hash, target
   hash, content-key epoch, metadata hash, and ciphertext hash
+- the encrypted envelope names the
+  [content-key commitment](./glossary/keys.md#content-key-commitment) stored
+  for its epoch
 - duplicate update ids are idempotent only when the encrypted content and write
   header match the already accepted update
 
@@ -252,6 +261,7 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 | -------------------------------------------- | ---------------------------------------------- |
 | `document_sync_checkpoint_coverage_conflict` | Regenerate the queued rotation checkpoint.     |
 | `document_sync_descendant_rekeys_required`   | Commit the container rekeys standalone, retry. |
+| `document_sync_peer_owned`                   | Move unsent ops off the named peers, retry.    |
 | `document_sync_state_stale`                  | Refetch the writer projection and replan.      |
 | `document_sync_update_id_conflict`           | Run pending-update ID recovery.                |
 | `document_sync_conflict`                     | Report the terminal conflict without retrying. |
@@ -274,3 +284,14 @@ principals named by its submitted rekeys, before it refetches the
 alone never admit checkpoints. Exact scoped references and the original runtime
 lifetime must remain valid throughout recovery, and the retry stays bounded by
 the normal stale-state budget. Other conflict codes ignore repair heads.
+
+A sync that extends a Loro peer past its committed frontier when another user
+is that peer's [owner](./glossary/sync.md#peer-owner) is refused whole with
+`document_sync_peer_owned`. Its `peerFrontiers[]` names at most 64 refused
+peers in canonical order, each as a decimal `peerId` with the
+`committedEndCounter` (exclusive) committed before the request; a request
+refused on more peers is refused again for the rest after its retry. Counters
+below that frontier may be re-asserted by any writer, so the client keeps
+everything there, moves its unsent operations past it onto a fresh peer, and
+resubmits. Other conflict codes ignore `peerFrontiers`. The rule is in
+[advisory op spans](./advisory-op-spans.md#what-the-server-checks).

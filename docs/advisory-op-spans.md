@@ -9,28 +9,51 @@ readers and the server do when a span is false (#3135).
 
 ## What the Server Checks
 
-The server refuses (400) a span that is empty or inverted, and an encrypted
+The server refuses (400) a span that is empty or inverted, an encrypted
 envelope whose record id, content-key epoch, metadata hash, or nonce domain
-differs from its signed write header. No honest client sends either. It stores
-any other span as declared.
+differs from its signed write header, and an envelope that does not name its
+epoch's [content-key commitment](./glossary/keys.md#content-key-commitment). No
+honest client sends any of them. It stores any other span as declared.
+
+It also ties each peer to the user that may extend it (#3194). A peer's
+committed frontier is the highest declared span end on it. Under the document
+lock, the server walks a request's new updates in request order, raising each
+frontier as it goes. A span ending at or below the frontier re-asserts
+committed counters, which any writer may do. A span past it claims an unowned
+peer for the writer's user, who becomes its
+[peer owner](./glossary/sync.md#peer-owner); passes on a peer that user owns;
+and is refused on a peer another user owns. A refusal rolls the whole request
+back with 409 `document_sync_peer_owned`, whose `peerFrontiers` name at most
+64 refused peers in canonical order, each with the frontier committed before
+the request. Update ids the document already holds are retries and are not
+judged again. A rotation baseline is judged the same way whether a sync or an
+unlink carries it, so it may re-assert every user's peers but extend only its
+writer's; the unlink's refusal carries the code without `peerFrontiers`. A
+purge deletes the owner rows with the spans. The rule is modeled in
+[`PeerOwnership.tla`](../formal/document-sync/PeerOwnership.md).
 
 ## Void Updates
 
-A reader judges each served update in server order. It decrypts the update
-and checks the plaintext hash; then its import judge, the only code that reads
-a payload with Loro, decodes the Loro metadata and imports the update into its
-history plus every update it accepted before. An update is a
-[void update](./glossary/content.md#void-update) when its decoded span is not
-its declared one, its decoder cannot read it, its dependencies are on no
+A reader judges each served update in server order. It checks the envelope
+against the signed header, then that the content key it holds is the one the
+envelope commits to, decrypts the update, and checks the plaintext hash; then
+its import judge, the only code that reads a payload with Loro, decodes the Loro
+metadata and imports the update into its history plus every update it accepted
+before. An update is a [void update](./glossary/content.md#void-update) when
+AES-GCM or the plaintext hash fails under the committed key, its decoded span is
+not its declared one, its decoder cannot read it, its dependencies are on no
 earlier accepted update, or it carries other operations under ids the reader
 already holds. That comparison replays both copies of the operations onto one
 history first, so the runs an import happened to split them into never make an
-honest update void: a checkpoint completing a change the reader holds part of
-is accepted. The reader records it in `document_void_updates`,
-reports it once as `Documents: sync update voided`, and goes on. A void never
-fails the pass or sets the document's sync failure. An AES-GCM failure stays an
-availability failure, because a reader cannot prove its content key is the one
-the writer used. A sync pass whose judge (`validateIncomingUpdates`) returns
+honest update void: a checkpoint completing a change the reader holds part of is
+accepted. The reader records it in `document_void_updates`, reports it once as
+`Documents: sync update voided`, and goes on. A void never fails the pass or
+sets the document's sync failure. A reader whose key is not the committed one
+records no verdict for the update: that is an availability failure, and the pass
+fails as an unwrap failure does. So is a failure of its own runtime while it
+derives keys or decrypts, including an AES-GCM refusal when the reader cannot
+round-trip a canary of the record's size under the same key (stage
+`decrypt_runtime`). A sync pass whose judge (`validateIncomingUpdates`) returns
 no verdicts fails, rather than applying updates nobody judged.
 
 A void whose import changed the scratch history the reader judges against
@@ -79,26 +102,99 @@ document and cannot bind attachments to it, for up to three process
 lifetimes; its own writes still push and settle. A payload that kills the
 process outright, rather than throwing, records no attempt.
 
-## Preempted Operations
+## Peer Ownership
 
 Earliest-wins voids the later of two updates that carry the same operation ids
-(peer and counter) with different operations. A writer that commits operations
-under another device's peer id at that device's next counters, before the
-device's own update lands, therefore makes every reader void the device's
-update. This is an accepted residual of #3135; the server does not yet tie a
-peer id to the writer that may use it. Before advisory spans, one such forged
-collision stopped every reader's sync of the document; now it drops the
-preempted operations on other readers.
+(peer and counter) with different operations. A writer that committed
+operations under another device's peer id at that device's next counters,
+before the device's own update landed, would make every reader void the
+device's update. The server now refuses that: past a peer's committed
+frontier, only its [peer owner](./glossary/sync.md#peer-owner) may write
+([what the server checks](#what-the-server-checks)).
 
-A device that is served such an update holds its own operations first, so it
-voids the forger's update instead. When that void reuses ids under the peer id
-the device writes with, it records a notice in `document_peer_preemptions` and
-reports once which writer (user and key fingerprint) signed the update. For a
-rotation baseline that is the writer that relayed the operations, not
-necessarily the one that forged them. A forger that declares exactly the
-counters the device already holds is not served to that device, because the
-device's frontier covers the declared span, so the notice catches only a
-forgery the device is served.
+A writer derives a separate peer id for each document or container it writes,
+from a seed that never leaves its device, the signed-in user, and the record
+(`recordPeerSeed`). Another member therefore cannot read a device's peer id on
+a document from that device's updates to other documents: it first sees the
+peer id in the device's first commit on the document, and by then the device's
+user owns it. Two identities on one device also never write one history under
+one peer id. The first update of a new container's metadata, organization
+profile, or roster profile goes under a fresh peer id that is never reused.
+
+### Rebasing onto a fresh peer
+
+A device whose sync is refused with `document_sync_peer_owned` recovers by its
+own steps. For each refused peer it keeps the operations below the frontier the
+server named and cuts the rest, then cuts every operation that depends on a cut
+one. It writes the cut operations' net effect again under a fresh peer, on a
+fork of what it kept, and replaces the record's queued updates with one update
+holding every fork operation from where its unsent operations start: on each
+peer, the lowest of its pending base and every queued update's start on that
+peer. That update re-asserts the refused peer's committed counters, which any
+writer may do, and extends only the fresh peer, so the retry lands. Operations
+committed on a refused peer stay under their ids in the fork whoever committed
+them, so no reader sees them twice.
+
+Before the server checks dependencies, a forged committed operation could
+depend on a cut one. The rebase never cuts what the device knows is committed
+(on a refused peer, below the named frontier; on any other peer, below where
+its unsent operations start): writing it again under the fresh peer would
+duplicate it for every reader, so the rebase fails loudly instead. Honest
+histories never get there. A refusal that names no frontiers, such as an
+unlink's, fails that operation; the document's next sync draws the refusal with
+its frontiers and rebases, so a retry builds on the fork.
+
+A document's fresh peer comes from a new random salt its record keeps
+(`peer_salt`), so a reload writes on that peer and not the refused one. One
+transaction replaces the record's history with the fork's full history, its
+queue with the one update, and its void rows and preemption notices with none,
+and moves the record to the next recovery generation, which fences out every
+writer that read the old history. It writes nothing if the record or its
+history moved past what the rebase read: another tab's queued edit is merged
+into the fork before the cut, and one queued after that read makes the device
+rebase again on its next refusal. Container metadata rebases the same way, with
+its stored content as the fence, onto a random peer it keeps in memory only. A
+reload derives the writer's own metadata peer again, which the server still
+refuses, so the next write after a reload rebases again, once per written
+container and session.
+
+### Residuals
+
+- **Recreation preemption.** A purge deletes a document's owner rows with its
+  spans. A malicious member who republishes the purged document from history
+  owns the peers of every record that survived it, and can commit their next
+  counters before the devices' offline edits land. Those devices then rebase
+  keeping their own operations below the forger's frontier as committed, and
+  readers, who hold the forger's operations there first, void the update that
+  re-asserts them.
+- **Overclaims on one's own peer.** The server cannot read a payload, so an
+  owner may declare a span past the operations it carries. The counters below
+  that frontier are committed, so any writer may then fill them first, and
+  readers void the owner's later operations there. Only a dishonest or broken
+  client overclaims, and the cost falls on its own peer.
+- **Same-user devices share ownership.** A peer belongs to a user, not a
+  device. A modified client signed in as the same user can extend the peer of
+  that user's other device, which honest devices never share, and readers void
+  the later operations.
+- **Operation references outside dependencies.** The rebase cuts by Loro
+  dependencies. An operation that names another (a move or delete target)
+  without depending on it is left to another track.
+
+### Preemption notices
+
+A device that is served a colliding update holds its own operations first, so
+it voids the other writer's update instead. When that void reuses ids under
+the peer id the device writes with, it records a notice in
+`document_peer_preemptions` and reports once which writer (user and key
+fingerprint) signed the update. For a rotation baseline that is the writer
+that relayed the operations, not necessarily the one that forged them. A
+forger that declares exactly the counters the device already holds is not
+served to that device, because the device's frontier covers the declared
+span, so the notice catches only a forgery the device is served. Under an
+honest server a notice comes only from a non-owner re-asserting committed
+counters with other operations, or from a residual above; under a dishonest
+server it is the only signal. A rebase clears the document's notices and void
+rows along with the history they were judged against.
 
 ## The Processed Cursor
 
@@ -139,10 +235,11 @@ is outside the guarantees either way.
 Rebinding or deleting the local record drops its cursor, void rows, and
 preemption notices.
 A founding view whose first update is void shows no founding update.
-Container metadata documents void the same way but keep no cursor, so every
-pull of one judges its voids again (each is still reported once), and a folder
-listing whose advertised version an overclaim left uncovered keeps that folder
-marked as behind.
+Container metadata documents void and keep a cursor the same way. A metadata
+pass records its verdicts and cursor in the transaction that saves the
+folder's metadata, and a save a concurrent one superseded records neither, so
+the next pull judges that page again. A folder listing whose advertised
+version an overclaim left uncovered still keeps that folder marked as behind.
 [`VoidUpdateProgress`](../formal/document-sync/VoidUpdateProgress.md) checks
 that no void update is applied, that readers agree, that a reader stays
 current, and that a runtime failure voids an update the decoder can read only
@@ -203,16 +300,49 @@ cursor's pull imported and the pull voided the rest. The sync and unlink gates
 weigh only the updates committed after that cursor, and a first page goes
 straight to a baseline when the baseline covers every later update it would
 skip. A baseline without a cursor, or with one the document does not hold,
-must cover every committed update. The API stores the cursor beside the
+must cover every committed update. A container metadata baseline signs the
+cursor its metadata pulls recorded, so an overclaim in a folder's metadata no
+longer refuses the folder's rotations. The API stores the cursor beside the
 baseline and authenticates it with the rest of the signed metadata, so a
 stored cursor that is not the signed one fails the pull closed.
 
-A document whose every update is void has an empty snapshot, which encodes no
-baseline, and the baseline-less unlink still requires no committed update, so
-it cannot be unlinked. A rotation by a device whose older decoder voids an
-update a newer one reads leaves that update out of the baseline for every
-reader. Both are accepted residuals of #3135.
+A document whose every update its author voided has an empty snapshot. Its
+baseline declares no operation and signs the cursor alone, so the gates weigh
+only the updates after it, and a new reader's first pull is redirected past
+the voids (#3194). The empty baseline carries nothing, so no pull serves it,
+though a pull's cursor still reaches it, and it never keeps a later baseline
+from redirecting. The API admits an empty span only on a rotation baseline
+that signs a cursor. A document never written has no cursor, so its unlink
+carries no baseline and the API requires that no update is committed.
+
+A rotation by a device whose older decoder voids an update a newer one reads
+leaves that update out of the baseline for every reader. That is an accepted
+residual of #3135: greenfield clients are expected to run the current Loro,
+so the case is not designed for.
 [`BaselineCursorCoverage`](../formal/document-sync/BaselineCursorCoverage.md)
 models the cursor in the gates and the redirect, and
 [`RawHistoryRecovery`](../formal/document-sync/RawHistoryRecovery.md) the
 history recovery rebuilds and the voids it leaves out.
+
+## Edit Attribution
+
+The API credits each operation to the earliest update whose declared span covers
+it (`GET /documents/{documentId}/attribution` and its `ranges`). A void update's
+span is false, so an earlier void update could take the credit for operations a
+later update really carried, and History would bound a change by the void
+update's upload time and could report a clock running ahead.
+
+Every reader of attribution in the SDK leaves out the ranges of updates the
+device voided for good: rows in `document_void_updates` under its running judge,
+in any local record of the document, except an update still unsettled after a
+Loro runtime failure. Ranges drop those updates page by page. Compact segments
+stay the API's list while the device holds no void update of the document;
+otherwise the SDK builds them from the ranges without the void ones, merging
+runs as the API does. Info's contributors and blame, row writers, Explorer's
+edit ranges, and History's upload-time bound therefore agree, and the operations
+a void update declared are credited to nobody.
+
+The update that later carried those operations is not credited either, because
+the API credits each operation once and does not know the reader's verdicts.
+Readers whose judges differ can show different attribution. Both are accepted
+residuals of #3194.

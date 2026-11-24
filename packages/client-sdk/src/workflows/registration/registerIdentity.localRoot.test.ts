@@ -7,6 +7,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
+import { testContainerMetadataWriter } from "../container-contents/metadata/metadata.testFixtures";
 import { hydrateStoredContainerState } from "../container-contents/storedContainerState";
 import { bootstrapRootContainer } from "./bootstrapRootContainer";
 import { registerIdentity } from "./registerIdentity";
@@ -25,6 +26,7 @@ test("registration binds a device-first root with locally hydrated metadata", as
       execSql,
       persistence: sqlContainerContentsPersistence,
       storedContainer: placeholder,
+      writer: testContainerMetadataWriter,
     });
     expect(local.record).toMatchObject({
       accessStateHash: null,

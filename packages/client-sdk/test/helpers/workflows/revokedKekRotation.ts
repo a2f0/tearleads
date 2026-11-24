@@ -226,6 +226,8 @@ export async function createDocumentAfterRevoke(
     authorizingContainerPaths: [revokedProjection],
     contentKeyBundle: {
       documentId: createdDocument.plan.documentId,
+      contentKeyCommitment:
+        createdDocument.plan.request.contentKeyBundle.contentKeyCommitment,
       contentKeyEpoch:
         createdDocument.plan.request.contentKeyBundle.contentKeyEpoch,
       linkSetManifestHash:

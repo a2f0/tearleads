@@ -1,9 +1,9 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
-import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import {
   createDocumentWriterPublicKeyResolver,
+  type DocumentPeerRebaser,
   describeDocumentSyncSubmitFailure,
   type RekeyPendingUpdate,
   RemoteDocumentService,
@@ -19,6 +19,10 @@ import {
   recordCurrentMetadataSyncFailure,
 } from "./metadataIncomingUpdateIsolation";
 import { deferRecoverableMetadataSyncError } from "./metadataSyncErrors";
+import {
+  containerMetadataScope,
+  readContainerMetadataProcessedCursor,
+} from "./metadataSyncVerdicts";
 import type { ContainerMetadataState } from "./metadataTypes";
 
 export interface ContainerMetadataSyncRuntime
@@ -58,6 +62,8 @@ interface SyncRemoteContainerMetadataInput {
   persistedState: ContainerMetadataState["record"];
   policyOperation: PrincipalPolicyOperation;
   pullContinuation?: ContainerMetadataState["pullContinuation"];
+  /** Moves the live metadata off peers the server refused as another user's. */
+  rebaseOntoFreshPeer?: DocumentPeerRebaser | undefined;
   rekeyPendingUpdate: RekeyPendingUpdate;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
@@ -82,23 +88,30 @@ function createContainerMetadataSyncAttempt(input: {
   };
 }
 
-export async function syncRemoteContainerMetadata(
-  input: SyncRemoteContainerMetadataInput,
-): Promise<ContainerMetadataSyncAttempt | null> {
-  const { documentId, isCurrent, runtime } = input;
-  if (!documentId) return null;
+function resolveMetadataSyncAuthor(runtime: ContainerMetadataSyncRuntime) {
   const author = resolveDocumentCreateAuthor(runtime);
   if (!author) {
     runtime.util.log(
       "Container contents: skipped metadata sync because the writer context is unavailable.",
     );
-    return null;
   }
+  return author;
+}
+
+export async function syncRemoteContainerMetadata(
+  input: SyncRemoteContainerMetadataInput,
+): Promise<ContainerMetadataSyncAttempt | null> {
+  const { documentId, isCurrent, runtime } = input;
+  if (!documentId) return null;
+  const author = resolveMetadataSyncAuthor(runtime);
+  if (!author) return null;
   const execSql = runtime.infra.execSql;
-  const metadataScope = {
-    appKind: CONTAINER_METADATA_APP_KIND,
-    localId: input.containerId,
-  };
+  const metadataScope = containerMetadataScope(input.containerId);
+  const processedThroughUpdateId = await readContainerMetadataProcessedCursor(
+    execSql,
+    { ...input, documentId },
+  );
+  if (!isCurrent()) return null;
   const remoteDocuments = new RemoteDocumentService({
     api: runtime.apiClient,
     encapsulationSecretKey: input.targetSecretKey,
@@ -137,9 +150,11 @@ export async function syncRemoteContainerMetadata(
       },
       pendingUpdates: input.pendingUpdates,
       persistedState: input.persistedState,
+      processedThroughUpdateId,
       pullContinuation: input.pullContinuation ?? undefined,
       pullRecoveryRequired:
         input.persistedState.pullContinuationRecoveryRequired === true,
+      rebaseOntoFreshPeer: input.rebaseOntoFreshPeer,
       rekeyPendingUpdate: (rekeyExecSql, updateId) =>
         isCurrent()
           ? input.rekeyPendingUpdate(rekeyExecSql, updateId)

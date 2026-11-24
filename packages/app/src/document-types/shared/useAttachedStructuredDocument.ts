@@ -107,7 +107,11 @@ export function useAttachedStructuredDocument<Fields>(
     infra.blobStore,
   );
   const uploadSlots = useMemo(
-    () => expandAttachmentSlots(slots, attachments, true),
+    () =>
+      expandAttachmentSlots(slots, attachments, {
+        canAttach: true,
+        isEditing: true,
+      }),
     [slots, attachments],
   );
   const handleSelectedAttachment = useDocumentAttachmentSelection({
@@ -136,6 +140,7 @@ export function useAttachedStructuredDocument<Fields>(
       blobPicker,
       canAttach: canAttach && isEditing && canWrite,
       imageUrlBySlotId,
+      isEditing,
       onClearAttachment: removeAttachment,
       onRetryDownload: requestRemoteSync,
       onSelectedAttachment: handleSelectedAttachment,

@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
+import { derivePeerId } from "@tearleads/loro";
 import {
   getRuntimePeerSeed,
   getScopedPeerSeed,
   type PeerSeedEnvironment,
+  recordPeerSeed,
 } from "./crdtPeerSeed";
 
 function memStorage() {
@@ -169,4 +171,79 @@ test("distinct (per-pane) scopes get distinct seeds and separate locks", async (
     "tearleads.documents:pane.left.device-peer",
     "tearleads.documents:pane.right.device-peer",
   ]);
+});
+
+test("a record's peer seed differs by runtime seed, user, and record", async () => {
+  const seed = (runtimeSeed: string, userId: string | null, recordId: string) =>
+    recordPeerSeed({ recordId, runtimeSeed, userId });
+  const base = seed("DEVICE", "alice", "doc-1");
+
+  // The same writer reloading the same record keeps its peer.
+  expect(seed("DEVICE", "alice", "doc-1")).toBe(base);
+  const peers = new Set([
+    await derivePeerId(base),
+    // Another record on the same device: another peer.
+    await derivePeerId(seed("DEVICE", "alice", "doc-2")),
+    // Another identity on the same device and record.
+    await derivePeerId(seed("DEVICE", "bob", "doc-1")),
+    await derivePeerId(seed("DEVICE", null, "doc-1")),
+    // Another tab or device.
+    await derivePeerId(seed("TAB", "alice", "doc-1")),
+  ]);
+  expect(peers.size).toBe(5);
+  // The parts cannot run together into another record's seed.
+  expect(seed("DEVICE", "alice:doc", "1")).not.toBe(
+    seed("DEVICE", "alice", "doc:1"),
+  );
+});
+
+test("a salt moves a record to another peer that every load derives again", async () => {
+  const salted = (peerSalt: string | undefined) =>
+    recordPeerSeed({
+      peerSalt,
+      recordId: "doc-1",
+      runtimeSeed: "DEVICE",
+      userId: "alice",
+    });
+  const unsalted = salted(undefined);
+
+  expect(unsalted).toBe(
+    recordPeerSeed({
+      recordId: "doc-1",
+      runtimeSeed: "DEVICE",
+      userId: "alice",
+    }),
+  );
+  expect(salted("salt-1")).toBe(salted("salt-1"));
+  const peers = new Set([
+    await derivePeerId(unsalted),
+    await derivePeerId(salted("salt-1")),
+    await derivePeerId(salted("salt-2")),
+    // An empty salt is still a salt.
+    await derivePeerId(salted("")),
+  ]);
+  expect(peers.size).toBe(4);
+  // A salt cannot run together with the record id.
+  expect(
+    recordPeerSeed({
+      peerSalt: "1",
+      recordId: "doc",
+      runtimeSeed: "DEVICE",
+      userId: "alice",
+    }),
+  ).not.toBe(
+    recordPeerSeed({
+      recordId: "doc1",
+      runtimeSeed: "DEVICE",
+      userId: "alice",
+    }),
+  );
+});
+
+test("without device storage a runtime keeps one memory-only seed per scope", async () => {
+  const runtime = {};
+  const seed = await getRuntimePeerSeed("documents", runtime);
+  expect(await getRuntimePeerSeed("documents", runtime)).toBe(seed);
+  expect(await getRuntimePeerSeed("documents:pane-2", runtime)).not.toBe(seed);
+  expect(await getRuntimePeerSeed("documents", {})).not.toBe(seed);
 });

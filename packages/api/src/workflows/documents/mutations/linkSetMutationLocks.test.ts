@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import type { DocumentLinkSetMutationRequest } from "@tearleads/validators/request";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "../../../../test/helpers/documentEnvelopeFixture";
 import {
   createDocumentLinkSetMutationLockPlan,
   executeDocumentLinkSetMutationLockPlan,
@@ -27,6 +28,7 @@ function mutationRequest(input: {
       })),
     ],
     contentKeyBundle: {
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: 1,
       linkSetManifestHash: "manifest-hash",
       targetHash: "target-hash",

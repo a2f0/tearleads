@@ -45,6 +45,9 @@ export type DocumentLinkSetFixture = DocumentLinkSetMutationResponse &
  */
 const UNMATCHED_BUNDLE_DIGEST = "b".repeat(64);
 
+/** Stands for the commitment of a fixture's placeholder content key. */
+export const FIXTURE_CONTENT_KEY_COMMITMENT = "c".repeat(64);
+
 export function createResponse(
   plan: DocumentCreatePlan,
 ): DocumentCreateFixture {
@@ -68,6 +71,7 @@ export function createResponse(
     },
     contentKeyBundle: {
       documentId: plan.documentId,
+      contentKeyCommitment: plan.request.contentKeyBundle.contentKeyCommitment,
       contentKeyEpoch: plan.request.contentKeyBundle.contentKeyEpoch,
       linkSetManifestHash: plan.request.contentKeyBundle.linkSetManifestHash,
       targetHash: plan.request.contentKeyBundle.targetHash,
@@ -132,6 +136,7 @@ export async function createResponseFromRequest(
     },
     contentKeyBundle: {
       documentId,
+      contentKeyCommitment: request.contentKeyBundle.contentKeyCommitment,
       contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
       linkSetManifestHash: request.contentKeyBundle.linkSetManifestHash,
       targetHash: request.contentKeyBundle.targetHash,
@@ -197,6 +202,7 @@ export async function createLinkSetResponseFromRequest(
     },
     contentKeyBundle: {
       documentId,
+      contentKeyCommitment: request.contentKeyBundle.contentKeyCommitment,
       contentKeyEpoch: request.contentKeyBundle.contentKeyEpoch,
       linkSetManifestHash: request.contentKeyBundle.linkSetManifestHash,
       targetHash: request.contentKeyBundle.targetHash,
@@ -234,6 +240,7 @@ export async function createSyncFixture() {
   const createPlan = await buildDocumentCreatePlan({
     author,
     containerProjection: projection,
+    contentKeyCommitment: FIXTURE_CONTENT_KEY_COMMITMENT,
     documentId: "550e8400-e29b-41d4-a716-446655440001",
     eventId: "event-sync",
     signedAt: "2026-04-27T00:00:00.000Z",

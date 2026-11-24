@@ -29,6 +29,10 @@ import { documentProjection } from "../../../data/sqlite/schema/documentProjecti
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents";
+import {
+  type DocumentAttributionApi,
+  loadReaderDocumentEditAttribution,
+} from "../attribution/attributionVoids";
 import { computeDocumentBlame } from "../attribution/documentCharacterBlame";
 import { computeFieldBlame } from "../attribution/documentFieldBlame";
 import type {
@@ -51,11 +55,7 @@ export type {
   DocumentInfoRemoteMode,
 } from "./documentInfoTypes";
 
-interface DocumentInfoApi {
-  getDocumentEditAttribution: (
-    documentId: string,
-    requestKey?: string,
-  ) => Promise<DocumentEditAttributionResponse | null>;
+interface DocumentInfoApi extends DocumentAttributionApi {
   getDocumentWriterProjection: (
     documentId: string,
   ) => Promise<DocumentWriterProjectionResponse | null>;
@@ -437,20 +437,23 @@ export async function loadDocumentInfo(input: {
     return { attachments, local, remoteInfo: null };
   }
 
-  const attributionPromise = input.apiClient
-    .getDocumentEditAttribution(local.documentId, input.attributionRequestKey)
-    .catch(async (error: unknown) => {
-      await reportAndRethrowKeyingVerificationError(
-        error,
-        input.reportSecurityIncident,
-        {
-          objectId: local.documentId ?? input.localId,
-          objectKind: "document",
-          operation: "document.info.attribution",
-        },
-      );
-      return null;
-    });
+  const attributionPromise = loadReaderDocumentEditAttribution({
+    apiClient: input.apiClient,
+    documentId: local.documentId,
+    execSql: input.execSql ?? null,
+    requestKey: input.attributionRequestKey,
+  }).catch(async (error: unknown) => {
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      input.reportSecurityIncident,
+      {
+        objectId: local.documentId ?? input.localId,
+        objectKind: "document",
+        operation: "document.info.attribution",
+      },
+    );
+    return null;
+  });
   const [projection, attachmentBindings, attribution] = await Promise.all([
     input.apiClient.getDocumentWriterProjection(local.documentId),
     input.apiClient.listDocumentAttachments(local.documentId),

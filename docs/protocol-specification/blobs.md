@@ -250,9 +250,13 @@ A client detaches a listed binding once its synced document holds no entry
 for the slot, readable or not: a device that held the bytes settles its
 removal marker first, and any device with write access that saw the slot
 recorded and now reads it removed detaches the binding too, including one
-that removed the slot before the bind arrived.
+that removed the slot before the bind arrived. The client keeps which slots it
+saw recorded in its local database, scoped to the local record and the
+document it is bound to, so a restart between seeing the slot and reading it
+removed does not lose the detach; deleting or rebinding the record drops them.
 After a refusal the client asks for one pull and retries only at a newer
-version that still lacks the slot.
+version that still lacks the slot. That wait is held in memory, so a restart
+sends the refused detach once more.
 [`AttachmentRemovedSlotDetach.tla`](../../formal/blob-attachments/AttachmentRemovedSlotDetach.tla)
 models it.
 

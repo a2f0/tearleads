@@ -5,7 +5,7 @@ import {
 } from "../../../../data/persistence/container-contents/containerBinding";
 import type { ContainerHydrationTombstone } from "../../containerPersistence";
 import {
-  createContainerMetadataDocument,
+  createWriterContainerMetadataDocument,
   getDefaultContainerName,
 } from "../../metadata/containerMetadataDocument";
 import { materializeStoredContainerStateReadOnly } from "../../storedContainerState";
@@ -97,7 +97,10 @@ export async function insertRemoteContainerState(
   const { childIdsByParentId, host, remoteContainer, state } = input;
   const execSql = state.runtime.infra.execSql;
   const persistence = state.persistence;
-  const doc = await createContainerMetadataDocument(remoteContainer.id);
+  const doc = await createWriterContainerMetadataDocument(
+    remoteContainer.id,
+    state.runtime,
+  );
   if (input.isCurrent?.() === false) {
     return null;
   }
@@ -158,6 +161,7 @@ export async function insertRemoteContainerState(
     });
     const winningState = await materializeStoredContainerStateReadOnly({
       storedContainer: winningStoredState,
+      writer: state.runtime,
     });
     if (
       !winningState ||

@@ -20,6 +20,7 @@ import {
   DocumentMutationErrorCodeSchema,
   DocumentMutationFailureResponseSchema,
   DocumentNotFoundErrorResponseSchema,
+  DocumentPeerFrontierSchema,
   DocumentPurgeProofResponseSchema,
   DocumentPurgeResponseSchema,
   DocumentSyncErrorResponseSchema,
@@ -56,6 +57,8 @@ describeSchema(
   DocumentContentKeyBundleRequestSchema,
   "A content-key bundle: one document content-key epoch wrapped to every linked container's KEK.",
   {
+    contentKeyCommitment:
+      "The epoch's content-key commitment: an HKDF output of the wrapped key. It opens an epoch and must repeat the stored one when a link adds targets.",
     linkSetManifestHash:
       "Document link-set manifest the targets were derived from.",
     targetHash:
@@ -67,6 +70,8 @@ describeSchema(
   DocumentContentKeyBundleResponseSchema,
   "A stored content-key bundle for one document content-key epoch.",
   {
+    contentKeyCommitment:
+      "The epoch's content-key commitment; every update of the epoch carries it in its signed envelope.",
     linkSetManifestHash:
       "Document link-set manifest the targets were derived from.",
     targetHash: "Hash of the key target set the wraps cover.",
@@ -94,12 +99,12 @@ describeSchema(
     checkpointPayloadKind:
       "`full_history_snapshot` for a rotation baseline; absent otherwise.",
     coversThroughUpdateId:
-      "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered.",
+      "For a rotation baseline, its author's processed cursor: every update committed up to this one was imported into the snapshot or void for the author, so only later updates must be covered by `sourceVersionVector`. Signed in the content-record metadata; absent means every committed update must be covered. Required on a baseline whose vectors declare no operations, an empty snapshot whose author voided every update through the cursor.",
     encryptedData:
       "Base64 ciphertext of the update under the document content key.",
     id: "Client-chosen update id; a retry with the same id is accepted only if the ciphertext and header are identical.",
     partialEndVersionVector:
-      "Version vector the update brings the document to.",
+      "Version vector the update brings the document to. It must declare at least one operation past `partialStartVersionVector`, except on a rotation baseline that signs `coversThroughUpdateId`.",
     partialStartVersionVector: "Version vector the update starts from.",
     plaintextHash:
       "Hash of the plaintext update, committed by the write header.",
@@ -195,10 +200,22 @@ describeSchema(
 
 describeSchema(
   DocumentSyncErrorResponseSchema,
-  "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, or stop.",
+  "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop.",
   {
+    peerFrontiers:
+      "With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request.",
     principalHeads:
       "With `document_sync_state_stale` from a carried rekey, up to 16 current principal heads to recover before replanning; advisory only.",
+  },
+);
+
+describeSchema(
+  DocumentPeerFrontierSchema,
+  "A Loro peer the request extended that another user owns.",
+  {
+    committedEndCounter:
+      "End (exclusive) of the peer's committed operations; the request may re-assert counters below it.",
+    peerId: "Loro peer id, in decimal.",
   },
 );
 
@@ -248,7 +265,7 @@ describeSchema(
     expectedManifestHash:
       "Hash of the link-set manifest this mutation derives.",
     rotationBaseline:
-      "For an unlink, a rotation baseline covering every committed update; omitted only when the document has none, and never sent with a link.",
+      "For an unlink, a rotation baseline covering every committed update after its signed `coversThroughUpdateId` (every committed update when it signs none); omitted only when the document has none, and never sent with a link.",
     targetContainerPathRefs: "Path to the container being linked or unlinked.",
   },
 );

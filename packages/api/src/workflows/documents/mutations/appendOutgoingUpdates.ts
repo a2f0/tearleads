@@ -6,9 +6,14 @@ import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { storeDocumentContentWriteHeader } from "../../../access/write/documentContentKeyStore";
+import { claimDocumentPeers } from "../../../documents/documentPeerOwners";
 import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpans";
 import { uniqueSortedStrings } from "../../../utils/array";
-import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
+import {
+  DocumentMutationError,
+  documentPeerOwned,
+  documentUpdateIdConflict,
+} from "./errors";
 import {
   assertRetryUpdateMatchesAcceptedContent,
   storedDocumentUpdateMatchesOutgoingContent,
@@ -203,6 +208,7 @@ async function verifyAndCollectNewOutgoingUpdates(input: {
     }
 
     const verifiedHeader = await verifyOutgoingWriteHeader({
+      contentKeyCommitment: appendInput.contentKeyCommitment,
       documentId: appendInput.documentId,
       expectedLinkSetManifestHash:
         appendInput.request.expectedLinkSetManifestHash,
@@ -269,6 +275,15 @@ export async function appendDocumentUpdates(
     existingRowsById,
     outgoingUpdates,
   });
+  // Retried ids already committed skip the ownership check as they skip the
+  // insert; the caller's document head lock spans the check and the insert.
+  const refusedPeers = await claimDocumentPeers(input.executor, {
+    documentId: input.documentId,
+    documentInsertedInTransaction: input.documentInsertedInTransaction,
+    updates: newUpdates,
+    userId: input.userId,
+  });
+  if (refusedPeers.length > 0) throw documentPeerOwned(refusedPeers);
 
   const insertedUpdateIds = await insertNewDocumentUpdates({
     accessEpoch: input.accessEpoch,

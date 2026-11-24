@@ -62,7 +62,7 @@ export const principalPolicyContractsSurface = [
 // Container Data, Client Blob Storage, and Document Store & Sync build on.
 // Document sync also uses the KEK currency, content crypto, event, outgoing
 // batch, pagination, decryption, import, verdict, Loro runtime-failure ledger,
-// key-fingerprint, acknowledgement, and submit-failure contracts.
+// content-key commitment, acknowledgement, and submit-failure contracts.
 export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/containerKek/index.ts`,
   `${sdk}/data/documents/shared/projection/index.ts`,
@@ -76,7 +76,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/readers.ts`,
   `${sdk}/data/documents/shared/responses.ts`,
   `${sdk}/data/documents/shared/stableDocumentId.ts`,
-  `${sdk}/data/documents/shared/sync/contentKeyFingerprint.ts`,
+  `${sdk}/data/documents/shared/sync/contentKeyCommitment.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncImportVerdicts.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncOutgoingBatch.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncTypes.ts`,
@@ -86,6 +86,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/sync/documentUpdateVerdict.ts`,
   `${sdk}/data/documents/shared/sync/loroRuntimeFailureLedger.ts`,
   `${sdk}/data/documents/shared/sync/mutationAcknowledgement.ts`,
+  `${sdk}/data/documents/shared/sync/peerRebase.ts`,
   `${sdk}/data/documents/shared/sync/pullContinuation.ts`,
   `${sdk}/data/documents/shared/sync/syncPagination.ts`,
   `${sdk}/data/documents/shared/sync/syncSubmitFailure.ts`,
@@ -145,6 +146,7 @@ export const containerContentsSurface = [
   `${sdk}/workflows/container-contents/remoteHydration/destination/destinationRoleCache.ts`,
   `${sdk}/workflows/container-contents/remoteReset/containerRemoteReset.ts`,
   `${sdk}/workflows/container-contents/syncLane.ts`,
+  `${sdk}/workflows/container-contents/attribution/attributionVoids.ts`,
   `${sdk}/workflows/container-contents/attribution/documentAttributionRanges.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryEvidence.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryLanes.ts`,

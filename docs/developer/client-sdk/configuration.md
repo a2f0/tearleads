@@ -283,6 +283,17 @@ chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../../raw-document-history-recovery.md)
 epochs throw `DocumentRawHistoryUnavailableError`.
 
+A request may pass `rebaseOntoFreshPeer`, a `DocumentPeerRebaser`. When the
+API refuses the pass with `document_sync_peer_owned` and names
+`peerFrontiers`, the pass hands them to it and returns `null`. The hook moves
+the document's unsent operations onto a fresh peer
+([peer ownership](../../advisory-op-spans.md#rebasing-onto-a-fresh-peer)) and
+returns `"rebased"` or `"superseded"`, after which the host requests another
+pass, or `"nothing_to_cut"`, which, like a refusal without frontiers or a
+request without the hook, reports the failure to `onTerminalSubmitFailure`.
+A hook that throws reports it too, and the error propagates. Built-in document
+stores and container metadata pass their own hook.
+
 Custom [sync lanes](../../glossary/sync.md#sync-lane) may provide
 `SyncLaneConfig.priority()`: lower finite numbers start first within a
 [phase](../../client-sync-ordering.md), with fair rotation among ties. Missing,
@@ -380,7 +391,10 @@ follow `nextCursor` only while a view that needs every range is open (Edit
 Ranges, or History, which reads when each change was uploaded). Each range
 carries its upload's `createdAt` (when the server stored it) and `signedAt`
 (the time its writer signed). Cursors bind the document incarnation and
-attribution revision, so stale pages fail instead of mixing histories.
+attribution revision, so stale pages fail instead of mixing histories. Both
+reads leave out the updates this device voided for good, so a page may hold
+fewer ranges than its limit (see
+[edit attribution](../../advisory-op-spans.md#edit-attribution)).
 
 ### Device-first reads, writes, and background reconciliation
 
@@ -433,6 +447,8 @@ blob storage (OPFS after identity setup), manual identity provisioning, ignored
 array of `DocumentProjectorDefinition` values; prefer definitions for an
 app-owned document type list, and the SDK normalizes and caches the registry.
 `peerScope` gives each pane distinct Loro peer ids; omit it for a single pane.
+Within a pane, each document and container is written under its own peer id
+for the signed-in user.
 `provisionedSystemContainers` names app-owned system containers, such as a
 trash bin, that every new organization is created with.
 `principalHistoryKeyProvider` is covered in

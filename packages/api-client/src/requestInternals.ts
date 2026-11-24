@@ -9,21 +9,22 @@ import type {
   ListContainerParentLanesRequest,
 } from "@tearleads/validators/request";
 import type {
+  DocumentPeerFrontier,
   DocumentWriterProjectionResponse,
   ReferencedPrincipalStateResponse,
   SyncWatermark,
 } from "@tearleads/validators/response";
 import {
   CONTAINER_MUTATION_ERROR_CODES,
-  ContainerMutationFailureResponseSchema,
-  DocumentSyncErrorResponseSchema,
-  isDocumentSyncStateStaleErrorResponse,
   isPaymentRequiredErrorResponse,
-  isPrincipalPolicyStaleErrorResponse,
   PaymentRequiredErrorResponseSchema,
   SESSION_ERROR_CODES,
 } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
+import {
+  peerFrontiersField,
+  stalePrincipalHeadsField,
+} from "./failureResponseHints";
 import type { RequestBody } from "./types";
 
 /**
@@ -95,6 +96,8 @@ export interface ErrorResponseDescription {
   readonly detail: string;
   readonly error: string | null;
   readonly stalePrincipalHeads?: ReferencedPrincipalStateResponse[] | undefined;
+  /** With `document_sync_peer_owned`: each refused peer's committed frontier. */
+  readonly peerFrontiers?: readonly DocumentPeerFrontier[] | undefined;
   /** Descendant rekeys a refused rotation must carry, parent-first. */
   readonly requiredContainerIds?: readonly string[] | undefined;
   /** Set on a 402 body — the organization whose billing blocked the sync write. */
@@ -135,22 +138,6 @@ function validatedFailureCode(
     : value.code;
 }
 
-// Container mutations and document sync with inline container rekeys can
-// carry advisory heads whose signed evidence can be recovered in pages.
-function stalePrincipalHeadsField(
-  value: object,
-  schema?: NonNullable<HttpOperation["failureResponses"]>[number],
-) {
-  return schema === ContainerMutationFailureResponseSchema &&
-    isPrincipalPolicyStaleErrorResponse(value)
-    ? { stalePrincipalHeads: value.principalHeads }
-    : schema === DocumentSyncErrorResponseSchema &&
-        isDocumentSyncStateStaleErrorResponse(value) &&
-        value.principalHeads !== undefined
-      ? { stalePrincipalHeads: value.principalHeads }
-      : {};
-}
-
 function parsedErrorResponseDescription(
   value: unknown,
   schema?: NonNullable<HttpOperation["failureResponses"]>[number],
@@ -174,6 +161,7 @@ function parsedErrorResponseDescription(
     detail: error.length === 0 ? "" : `: ${error}`,
     error: error.length === 0 ? null : error,
     ...stalePrincipalHeadsField(value, schema),
+    ...peerFrontiersField(value, schema),
     ...((code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
       code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysInaccessible) &&
     "requiredContainerIds" in value &&

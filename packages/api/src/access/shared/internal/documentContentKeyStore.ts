@@ -223,6 +223,7 @@ const documentContentKeyStore = createContentKeyStore<
       .insert(documentContentKeyEpochs)
       .values({
         documentId: input.documentId,
+        contentKeyCommitment: input.contentKeyCommitment,
         contentKeyEpoch: input.contentKeyEpoch,
         linkSetManifestHash: input.linkSetManifestHash,
         targetHash: input.targetHash,
@@ -279,23 +280,49 @@ const documentContentKeyStore = createContentKeyStore<
   validateCurrentTargets: validateCurrentTargetsForBundle,
 });
 
+/**
+ * An epoch's commitment never changes: a submission at a stored epoch (a link
+ * adding targets, a refresh, a lost create race) must repeat it. An honest
+ * submitter wraps the key it unwrapped and checked against that commitment,
+ * so only a client that names another key reaches this. It runs after the
+ * store on purpose: a losing healer must still get the store's coded stale
+ * 409, which it recovers from, never this 400. The throw rolls back the
+ * caller's transaction, so nothing the store wrote survives it.
+ */
+function assertStoredCommitmentMatches<
+  Bundle extends StoredDocumentContentKeyBundle,
+>(bundle: Bundle, input: StoreDocumentContentKeyBundleInput): Bundle {
+  if (bundle.contentKeyCommitment !== input.contentKeyCommitment) {
+    throw new DocumentContentKeyBundleError(
+      "Document content-key commitment does not match its epoch",
+      400,
+    );
+  }
+  return bundle;
+}
+
 export async function storeDocumentContentKeyBundle(
   input: StoreDocumentContentKeyBundleInput,
   database: ApiDatabase,
 ): Promise<StoredDocumentContentKeyBundleWithTargets> {
-  return documentContentKeyStore.store(input, database);
+  return database.transaction((tx) =>
+    storeDocumentContentKeyBundleInTransaction(input, tx),
+  );
 }
 
 export async function storeDocumentContentKeyBundleInTransaction(
   input: StoreDocumentContentKeyBundleInput,
   executor: DatabaseTransaction,
 ): Promise<StoredDocumentContentKeyBundleWithTargets> {
-  return documentContentKeyStore.storeInTransaction(
+  return assertStoredCommitmentMatches(
+    await documentContentKeyStore.storeInTransaction(
+      input,
+      executor,
+      input.createdBundle?.documentId === input.documentId
+        ? input.createdBundle
+        : undefined,
+    ),
     input,
-    executor,
-    input.createdBundle?.documentId === input.documentId
-      ? input.createdBundle
-      : undefined,
   );
 }
 
