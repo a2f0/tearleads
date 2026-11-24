@@ -3,6 +3,7 @@ import { type Scanner, ScannerPhotoCleanupError } from "../../../host/Scanner";
 import { recoveryKeyScanPhrase } from "../../../identity/recoveryKeyScanPhrase";
 import { MiniAppButton, MiniAppStatus } from "../../mini-app/MiniAppLayout";
 import { decodeRecoveryKeyPhoto } from "./recoveryKeyPhoto";
+import "./RecoveryKeyScan.css";
 
 export function RecoveryKeyNativeScan({
   disabled,

@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import { RecoveryKeyNativeScan } from "./RecoveryKeyNativeScan";
 import { RecoveryKeyScanControl } from "./RecoveryKeyScanControl";
-import "./RecoveryKeyScan.css";
 
 /**
  * Reads a recovery key from its QR code with whatever camera this device has:

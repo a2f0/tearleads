@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { recoveryKeyScanPhrase } from "../../../identity/recoveryKeyScanPhrase";
 import { MiniAppButton, MiniAppStatus } from "../../mini-app/MiniAppLayout";
 import { startRecoveryKeyCamera } from "./recoveryKeyCamera";
+import "./RecoveryKeyScan.css";
 
 function RecoveryKeyCamera({
   onCancel,
