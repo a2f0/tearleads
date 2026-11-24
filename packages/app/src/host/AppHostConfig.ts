@@ -180,10 +180,10 @@ export const APP_HOST_PROFILES = {
     preferredNavigationMode: "windowed",
     themes: APP_THEMES,
   },
-  // Screenshot fixture setup imports a fixed identity and restores its database
-  // before registering. Suppress only the automatic registration step so it
-  // cannot bind the temporary first-boot root; the Playwright harness explicitly
-  // logs in or registers once the restored root is authoritative.
+  // The screenshot run imports a fixed identity that the CLI already registered
+  // and seeded. Suppress only the automatic registration step, so the throwaway
+  // first-boot identity never registers its own account; the Playwright
+  // harness logs in once the fixed identity is imported.
   screenshot: {
     defaultSplit: false,
     features: {

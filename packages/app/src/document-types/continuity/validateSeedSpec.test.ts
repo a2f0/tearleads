@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { validateSeedSpec } from "../../src/document-types/continuity/validateSeedSpec";
+import { validateSeedSpec } from "./validateSeedSpec";
 
 const seed = {
   schemaVersion: 2,

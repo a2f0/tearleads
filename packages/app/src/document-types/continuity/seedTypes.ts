@@ -1,7 +1,8 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 
-// Declarative description of the data seeded into a screenshot backup artifact.
-// Supplied by Continuity and interpreted by buildSeedArtifact.ts. Kept
+// Declarative description of the data seeded into an account. Supplied by
+// Continuity and written by the CLI's `seed` command (continuityDocuments, then
+// writeContinuityDocument), which also seeds the screenshot run. Kept
 // deliberately small: it maps to the mini-apps (Contacts / Notes / Explorer),
 // not to raw SQLite rows, so authors never touch the encrypted schema.
 

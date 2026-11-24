@@ -25,6 +25,10 @@ const IPHONE = {
  * apart from the e2e behavior suite (playwright.config.ts) so screenshotting
  * never blocks or is blocked by the assertion tests.
  *
+ * Each capture API is seeded by a setup project first (screenshots/
+ * seed.setup.ts), which runs the `tearleads` CLI against it. Playwright runs a
+ * selected project's dependencies, so `--project=mobile` still seeds its API.
+ *
  * Run: bun run screenshots
  */
 export default defineConfig({
@@ -45,8 +49,20 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "seed-web",
+      metadata: { screenshotApiBaseUrl: WEB_API_BASE_URL },
+      testMatch: "**/seed.setup.ts",
+    },
+    {
+      // iPad and mobile share one API, seeded once.
+      name: "seed-mobile",
+      metadata: { screenshotApiBaseUrl: MOBILE_API_BASE_URL },
+      testMatch: "**/seed.setup.ts",
+    },
+    {
       // Desktop / windowed capture; the screenshot helper selects windowed mode.
       name: "web",
+      dependencies: ["seed-web"],
       metadata: { screenshotApiBaseUrl: WEB_API_BASE_URL },
       testMatch: "**/capture.spec.ts",
       use: {
@@ -60,6 +76,7 @@ export default defineConfig({
       // screenshot API/host with mobile because projects run serially and each
       // receives an isolated browser context.
       name: "ipad",
+      dependencies: ["seed-mobile"],
       metadata: { screenshotApiBaseUrl: MOBILE_API_BASE_URL },
       testMatch: "**/capture.spec.ts",
       use: {
@@ -76,6 +93,7 @@ export default defineConfig({
       // phone-style "mobile" tier (top app bar + slide-in nav drawer). See
       // packages/app/src/navigation/breakpoints.ts.
       name: "mobile",
+      dependencies: ["seed-mobile"],
       metadata: { screenshotApiBaseUrl: MOBILE_API_BASE_URL },
       testMatch: "**/capture.spec.ts",
       use: {

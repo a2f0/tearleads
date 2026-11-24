@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
-// Shared helpers for driving the booted app shell in the screenshot run, used by
-// both the capture spec and the seed-restore step.
+// Shared helpers for driving the booted app shell, used by the screenshot run
+// and by e2e specs.
 
 const DISABLE_ANIMATIONS_CSS = `
   *, *::before, *::after {
@@ -120,32 +120,4 @@ export async function setStoredTheme(page: Page, theme: string): Promise<void> {
     },
     [THEME_CHOICE_STORAGE_KEY, theme] as const,
   );
-}
-
-// Restoring a backup authored under a different identity replaces the DB's root
-// container, but the persisted session + document/container caches still point
-// at the pre-restore root, so a plain reload re-bootstraps an empty root.
-// Clearing them makes the next reload re-derive the root container + read models
-// from the restored DB. (localStorage only; the identity registry is preserved
-// so the same per-identity DB file is reopened.)
-//
-// The shipping backup-restore mini-app clears the same caches before its
-// post-restore reload via clearRestoredLocalCaches (packages/app/src/providers/
-// db/clearRestoredLocalCaches.ts), except the session: it rewrites that signed
-// out and keeps the identity's root acknowledgements (#2365 finding 24). A
-// screenshot seed wants a clean session, so this helper still clears it. It runs
-// in the browser page context (page.evaluate), so it cannot import that module
-// and keeps its own copy of the prefixes.
-export async function clearStaleLocalState(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    for (const key of Object.keys(localStorage)) {
-      if (
-        key.startsWith("tearleads.local-session") ||
-        key.startsWith("tearleads.documents") ||
-        key.startsWith("tearleads.container-metadata")
-      ) {
-        localStorage.removeItem(key);
-      }
-    }
-  });
 }

@@ -9,7 +9,7 @@ export const seedIdentity = JSON.parse(
     require.resolve("@a2f0/continuity/genesis/tearleads/seed.json"),
     "utf8",
   ),
-) as { password: string; identitySeedPhrase: string };
+) as { identitySeedPhrase: string };
 
 export interface DocumentExpectation {
   title: string;

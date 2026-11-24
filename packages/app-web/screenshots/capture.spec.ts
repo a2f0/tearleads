@@ -3,7 +3,6 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import {
-  clearStaleLocalState,
   disableAnimations,
   openWindowedApp,
   preferWindowedScreenshotLayout,
@@ -22,11 +21,9 @@ import {
 } from "./orgManagerScreens";
 import {
   assertAuthenticatedOrgManager,
-  authenticateOrRegisterScreenshotIdentity,
+  signInScreenshotIdentity,
 } from "./screenshotAuth";
-import { assertSeedArtifactCurrent } from "./seedArtifact";
 import { importSeedIdentity } from "./seedIdentity";
-import { restoreSeedBackup } from "./seedRestore";
 
 // This file lives at packages/app-web/screenshots/, so the repo root is three
 // levels up. Screenshots are written to
@@ -39,14 +36,12 @@ const REPO_ROOT = path.resolve(
   "..",
 );
 
-// Regenerated from the pinned Continuity package by prescreenshots.
-const SEED_ARTIFACT_PATH = path.join(REPO_ROOT, "tearleads-seed.tlbackup.json");
-
-// The app self-provisions an identity on boot via IdentityAutopilot (the default
-// "app" host profile sets autoGenerateIdentity) and the local keychain is
-// unlocked on a fresh context. We then restore the seed artifact through the
-// backup-restore mini-app and reload so the app reopens the populated DB under
-// the same persisted identity. Both layouts are captured from one spec:
+// The project's seed setup (seed.setup.ts) has already registered the
+// Continuity identity on this project's API and synced the dataset into it
+// through the `tearleads` CLI. The app self-provisions a throwaway identity on
+// boot via IdentityAutopilot; we import the Continuity phrase in its place and
+// sign in, and the app downloads the seeded account like any new device. Both
+// layouts are captured from one spec:
 //
 //   mobile -> routed layout: one mini-app per URL; screenshot the viewport.
 //   web    -> windowed desktop: open each mini-app as a floating window from the
@@ -98,24 +93,16 @@ const WINDOWED_MENU_APPS: readonly WindowedApp[] = [
   { name: "system-monitor", menuLabel: "System Monitor" },
 ];
 
-// Opens the backup-restore mini-app for whichever shell is rendered.
-async function openBackupRestore(page: Page, routed: boolean): Promise<void> {
-  if (routed) {
-    await page.goto("/app/backup-restore");
-    await waitForBooted(page);
-    return;
-  }
-  await openWindowedApp(page, "Backup / Restore");
-}
-
-// Fails loudly if the restore + reload did not actually surface seeded data
-// (wrong password/identity, tab race, schema drift), so we never emit blank
+// Fails loudly if signing in did not actually surface the seeded data (wrong
+// identity, an unfinished download, schema drift), so we never emit blank
 // screenshots that look "successful". Checks two independent read paths:
-//  - Explorer lists the restored root, so the seeded driver's-license document is
-//    a layout-independent signal the backup restored.
+//  - Explorer lists the account's root, so the seeded driver's-license document
+//    is a layout-independent signal the documents downloaded.
 //  - Contacts reads the identity-scoped Contacts system container, so a seeded
 //    contact there proves the imported identity re-derived that container's slot.
 const SEEDED_CONTACT_NAME = seedExpectations.contact.displayName;
+// A fresh device downloads every seeded document after sign-in.
+const SEEDED_DATA_TIMEOUT_MS = 60_000;
 
 async function assertSeededDataVisible(
   page: Page,
@@ -129,12 +116,12 @@ async function assertSeededDataVisible(
         .getByText(seedExpectations.driversLicense.title, { exact: true })
         .first(),
     ).toBeVisible({
-      timeout: 20_000,
+      timeout: SEEDED_DATA_TIMEOUT_MS,
     });
     await page.goto("/app/contacts");
     await waitForBooted(page);
     await expect(page.getByText(SEEDED_CONTACT_NAME).first()).toBeVisible({
-      timeout: 20_000,
+      timeout: SEEDED_DATA_TIMEOUT_MS,
     });
     return;
   }
@@ -147,7 +134,7 @@ async function assertSeededDataVisible(
       .getByText(seedExpectations.driversLicense.title, { exact: true })
       .first(),
   ).toBeVisible({
-    timeout: 20_000,
+    timeout: SEEDED_DATA_TIMEOUT_MS,
   });
   await explorerWindow.locator(".window-close").click();
   await expect(explorerPane.locator(".window")).toHaveCount(0);
@@ -158,7 +145,7 @@ async function assertSeededDataVisible(
   await expect(
     contactsWindow.getByText(SEEDED_CONTACT_NAME).first(),
   ).toBeVisible({
-    timeout: 20_000,
+    timeout: SEEDED_DATA_TIMEOUT_MS,
   });
   await contactsWindow.locator(".window-close").click();
   await expect(contactsPane.locator(".window")).toHaveCount(0);
@@ -307,7 +294,6 @@ async function applyTheme(page: Page, theme: string): Promise<void> {
 }
 
 test("capture screenshots", async ({ page }, testInfo) => {
-  assertSeedArtifactCurrent(SEED_ARTIFACT_PATH);
   const project = testInfo.project.name;
   if (project === "web") {
     preferWindowedScreenshotLayout(page);
@@ -320,31 +306,16 @@ test("capture screenshots", async ({ page }, testInfo) => {
 
   await page.goto("/");
   await waitForBooted(page);
-  // Disable animations up front so the restore flow (tab switch, inputs) runs
-  // instantly; the later reload resets injected styles, so it is re-applied then.
+  // Disable animations up front so the import flow (tab switch, inputs) runs
+  // instantly; later reloads reset injected styles, so it is re-applied then.
   await disableAnimations(page);
   const routed = (await page.locator(".routed-pane").count()) > 0;
 
-  // Seed the DB in three steps:
-  //  1. Import the artifact's fixed identity so restore writes into ITS database
-  //     and its signing key re-derives the seeded Contacts container's slot.
-  //  2. Restore the seed backup through the shipping backup-restore mini-app.
-  //  3. Clear the stale session/caches so the reload adopts the restored root,
-  //     then reload so the populated DB is reopened under the imported identity.
+  // Import the Continuity identity, whose signing key also re-derives the
+  // seeded Contacts container's slot, then sign in as the account the seed
+  // setup registered. The app then downloads that account's documents.
   await importSeedIdentity(page, routed, seedIdentity.identitySeedPhrase);
-  await openBackupRestore(page, routed);
-  await restoreSeedBackup(page, {
-    artifactPath: SEED_ARTIFACT_PATH,
-    password: seedIdentity.password,
-  });
-  await clearStaleLocalState(page);
-  await page.reload();
-  await waitForBooted(page);
-  await authenticateOrRegisterScreenshotIdentity(
-    screenshotApiBaseUrl,
-    page,
-    routed,
-  );
+  await signInScreenshotIdentity(screenshotApiBaseUrl, page, routed);
   // Disable animations before asserting so a still-animating window/pane can't
   // flake the visibility check (capture phases re-inject after their navigations).
   await disableAnimations(page);
@@ -359,11 +330,7 @@ test("capture screenshots", async ({ page }, testInfo) => {
     // A theme reload is also a fresh auth boundary. Re-establish (or confirm)
     // the session before every pass so both themes are captured from the same
     // authenticated organization state.
-    await authenticateOrRegisterScreenshotIdentity(
-      screenshotApiBaseUrl,
-      page,
-      routed,
-    );
+    await signInScreenshotIdentity(screenshotApiBaseUrl, page, routed);
     await assertAuthenticatedOrgManager(page, routed);
     const outputDir = path.join(projectDir, theme);
     await mkdir(outputDir, { recursive: true });
