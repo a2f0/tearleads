@@ -8,9 +8,10 @@ import type {
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { DocumentPhotoCapability } from "../documentPhotos";
-import type {
-  AvatarDocument,
-  DocumentAvatarSource,
+import {
+  type AvatarDocument,
+  createDocumentAvatarSource,
+  type DocumentAvatarSource,
 } from "./documentAvatarSource";
 import type { AvatarUrlById } from "./useAvatarUrls";
 import { useDocumentAvatarUrls } from "./useDocumentAvatarUrls";
@@ -89,13 +90,31 @@ function fakeSource(stores: Record<string, ReturnType<typeof fakeStore>>) {
       };
     },
   } as unknown as BlobStore;
-  const source: DocumentAvatarSource = {
+  const source = createDocumentAvatarSource({
     blobStore,
-    openDocument: async (document) => {
-      opened.push(document.localId);
-      return stores[document.localId]?.store ?? null;
+    dbStatus: "ready",
+    documentQueries: {
+      loadDocumentSummary: async (localId) =>
+        stores[localId]
+          ? {
+              containerId: "garage",
+              documentId: null,
+              id: localId,
+              title: localId,
+              updatedAt: "2026-11-24T00:00:00.000Z",
+            }
+          : null,
     },
-  };
+    documents: {
+      open: (input = {}) => {
+        const localId = input.localId ?? "";
+        opened.push(localId);
+        const store = stores[localId]?.store;
+        if (!store) throw new Error(`no fake store for ${localId}`);
+        return store;
+      },
+    },
+  });
   return { opened, source };
 }
 
@@ -133,7 +152,8 @@ test("a document of another kind, or not yet loaded, shows no avatar", async () 
   const view = renderHook(() => useDocumentAvatarUrls(source, listing));
 
   await waitFor(() => expect(loading.listeners.size).toBe(1));
-  expect(opened).toEqual(["relabeled", "loading", "missing"]);
+  // "missing" has no local copy, so it is never opened.
+  expect(opened).toEqual(["relabeled", "loading"]);
   expect(view.result.current).toEqual({});
 });
 
@@ -182,7 +202,8 @@ test("a still-listed avatar keeps its URL while a new listing opens", async () =
 
 test("a refreshed listing of the same documents keeps their stores open", async () => {
   const drill = fakeStore(withAvatar("drill-key"));
-  const { opened, source } = fakeSource({ drill });
+  const saw = fakeStore(EMPTY_SNAPSHOT);
+  const { opened, source } = fakeSource({ drill, saw });
   const view = renderHook(
     ({ documents }) => useDocumentAvatarUrls(source, documents),
     { initialProps: { documents: [listed("drill")] } },
@@ -192,13 +213,66 @@ test("a refreshed listing of the same documents keeps their stores open", async 
   expect(opened).toEqual(["drill"]);
 
   view.rerender({ documents: [listed("saw")] });
-  expect(opened).toEqual(["drill", "saw"]);
   expect(drill.listeners.size).toBe(0);
+  await waitFor(() => expect(opened).toEqual(["drill", "saw"]));
   // The dropped document's avatar clears once the new listing settles.
   await waitFor(() => expect(view.result.current).toEqual({}));
 });
 
-test("an open that finishes after its listing changed is not kept", async () => {
+test("a remounted list reads the source's stores without reopening them", async () => {
+  const drill = fakeStore(withAvatar("drill-key"));
+  const { opened, source } = fakeSource({ drill });
+  const listing = [listed("drill")];
+  const first = renderHook(() => useDocumentAvatarUrls(source, listing));
+  await waitFor(() => expect(drill.listeners.size).toBe(1));
+  first.unmount();
+  expect(drill.listeners.size).toBe(0);
+
+  const second = renderHook(() => useDocumentAvatarUrls(source, listing));
+  await waitFor(() =>
+    expect(second.result.current).toEqual({
+      drill: expect.stringMatching(/^blob:/u),
+    }),
+  );
+  expect(drill.listeners.size).toBe(1);
+  expect(opened).toEqual(["drill"]);
+});
+
+test("a relink reopens the listed document and follows its new owner", async () => {
+  const displaced = fakeStore(withAvatar("old-key"));
+  const owner = fakeStore(withAvatar("new-key"));
+  const stores = { drill: displaced };
+  const { opened, source } = fakeSource(stores);
+  const listing = [listed("drill")];
+  const view = renderHook(() => useDocumentAvatarUrls(source, listing));
+  await waitFor(() =>
+    expect(view.result.current).toEqual({
+      drill: expect.stringMatching(/^blob:/u),
+    }),
+  );
+  const { drill: displacedUrl = "" } = view.result.current;
+
+  // Another record took the document id: the old view freezes, and a reopen
+  // of the same local id resolves to the record that now owns it.
+  stores.drill = owner;
+  act(() =>
+    displaced.update({
+      ...displaced.store.getSnapshot(),
+      relinkedElsewhere: true,
+    }),
+  );
+  await waitFor(() => expect(owner.listeners.size).toBe(1));
+  expect(displaced.listeners.size).toBe(0);
+  expect(opened).toEqual(["drill", "drill"]);
+  await waitFor(() => {
+    const { drill: ownerUrl } = view.result.current;
+    expect(ownerUrl).toMatch(/^blob:/u);
+    expect(ownerUrl).not.toBe(displacedUrl);
+  });
+  expect(source.openedDocument("drill")).toBe(owner.store);
+});
+
+test("an open that finishes after its listing changed is not subscribed", async () => {
   const drill = fakeStore(withAvatar("drill-key"));
   let finishOpen: (store: DocumentStore) => void = () => undefined;
   const source: DocumentAvatarSource = {
