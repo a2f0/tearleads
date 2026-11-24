@@ -282,6 +282,17 @@ chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../../raw-document-history-recovery.md)
 epochs throw `DocumentRawHistoryUnavailableError`.
 
+A request may pass `rebaseOntoFreshPeer`, a `DocumentPeerRebaser`. When the
+API refuses the pass with `document_sync_peer_owned` and names
+`peerFrontiers`, the pass hands them to it and returns `null`. The hook moves
+the document's unsent operations onto a fresh peer
+([peer ownership](../../advisory-op-spans.md#rebasing-onto-a-fresh-peer)) and
+returns `"rebased"` or `"superseded"`, after which the host requests another
+pass, or `"nothing_to_cut"`, which, like a refusal without frontiers or a
+request without the hook, reports the failure to `onTerminalSubmitFailure`.
+A hook that throws reports it too, and the error propagates. Built-in document
+stores and container metadata pass their own hook.
+
 Custom [sync lanes](../../glossary/sync.md#sync-lane) may provide
 `SyncLaneConfig.priority()`: lower finite numbers start first within a
 [phase](../../client-sync-ordering.md), with fair rotation among ties. Missing,

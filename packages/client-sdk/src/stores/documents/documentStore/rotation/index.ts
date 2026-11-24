@@ -182,7 +182,10 @@ async function collectVerifiedRawHistoryForRotation(input: {
 }) {
   const consumedPullContinuation = input.state.pullContinuation;
   const writerProjectionGeneration = input.state.writerProjectionGeneration;
-  const rebuiltDocument = await createStoredDocument(input.state);
+  const rebuiltDocument = await createStoredDocument(
+    input.state,
+    input.currentRecord.peerSalt,
+  );
   const voids = new RotationRawHistoryVoids();
   try {
     const synced = await pullVerifiedRawHistoryForRotation({

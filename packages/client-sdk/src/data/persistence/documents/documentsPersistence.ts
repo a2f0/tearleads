@@ -58,6 +58,7 @@ import { mapPendingCreateLocalIds } from "./internal/pendingCreateAdoption";
 import { documentRowQueryPersistence } from "./internal/rowQueryPersistence";
 import { documentSyncQueuePersistence } from "./internal/syncQueuePersistence";
 import { settleQueuedDocumentUpdatesInTransaction } from "./records/documentPendingUpdatePersistence";
+import { installDocumentPeerRebase } from "./records/peerRebaseInstall";
 import type {
   ContainerDocumentTombstoneInput,
   DiscardDocumentToShellResult,
@@ -76,6 +77,8 @@ export type {
   AttachmentStagingRows,
   ContainerDocumentTombstoneInput,
   DiscardDocumentToShellResult,
+  DocumentPeerRebaseInstall,
+  DocumentPeerRebaseRecord,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,
@@ -226,6 +229,7 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
   ...documentRowQueryPersistence,
   ...documentSyncQueuePersistence,
   supportsAtomicRecoveryHistoryPruning: true,
+  installPeerRebase: installDocumentPeerRebase,
   saveHydratedAttachment,
   settleAttachmentRemovalMarker,
   createDocumentWithHistoryCheckpoint:

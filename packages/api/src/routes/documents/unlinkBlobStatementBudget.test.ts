@@ -130,7 +130,9 @@ for (const committed of [false, true]) {
     );
     const transactionStatements =
       getDefaultApiDatabaseKind() === "postgres" ? 2 : 0;
-    const baselineStatements = committed ? 4 : 0;
+    // The baseline's append, including one peer-ownership read; it only
+    // re-asserts committed peers, so it claims none.
+    const baselineStatements = committed ? 5 : 0;
     expect(sweep).toHaveLength(3);
     for (const [index, ceiling] of [46, 58, 64].entries())
       expect(sweep[index]).toBeLessThanOrEqual(

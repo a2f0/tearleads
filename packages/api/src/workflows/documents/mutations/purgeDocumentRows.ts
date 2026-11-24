@@ -11,6 +11,7 @@ import {
   documentContentWriteHeaders,
   documentInlineRekeyCommits,
   documentManifestObservations,
+  documentPeerOwners,
   documents,
   documentUpdateSpans,
   documentUpdates,
@@ -21,7 +22,8 @@ import { wallClockNowExpression } from "../../../utils/postgresSql";
 import { DocumentMutationError } from "./errors";
 
 // Content-key targets reference documentContentKeyEpochs(id); the loro update
-// payloads, write headers, and baseline markers are independent.
+// payloads, their spans and peer owners, write headers, and baseline markers
+// are independent.
 async function deleteDocumentContentRows(
   documentIds: readonly string[],
   executor: DatabaseTransaction,
@@ -47,6 +49,9 @@ async function deleteDocumentContentRows(
   await executor
     .delete(documentUpdateSpans)
     .where(inArray(documentUpdateSpans.documentId, [...documentIds]));
+  await executor
+    .delete(documentPeerOwners)
+    .where(inArray(documentPeerOwners.documentId, [...documentIds]));
   await executor
     .delete(documentUpdates)
     .where(inArray(documentUpdates.documentId, [...documentIds]));

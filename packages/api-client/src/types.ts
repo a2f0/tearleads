@@ -4,6 +4,7 @@ import type {
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
 import type {
+  DocumentPeerFrontier,
   ReferencedPrincipalStateResponse,
   WriterProjectionListing,
 } from "@tearleads/validators/response";
@@ -95,6 +96,12 @@ export interface RequestFailure {
   readonly status: number | null;
   readonly statusText: string;
   readonly stalePrincipalHeads?: ReferencedPrincipalStateResponse[] | undefined;
+  /**
+   * With `document_sync_peer_owned`: each peer the sync extended that another
+   * user owns, with the frontier committed on it; at most
+   * `MAX_DOCUMENT_PEER_FRONTIERS`, and a retry names any others.
+   */
+  readonly peerFrontiers?: readonly DocumentPeerFrontier[] | undefined;
   /**
    * With `container_descendant_rekeys_required`, the full owed set, parent-first;
    * with `container_descendant_rekeys_inaccessible`, its unwritable subset.

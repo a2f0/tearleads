@@ -132,6 +132,17 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 7,
   },
+  {
+    // A record moved to a fresh writer peer keeps the salt that derives it,
+    // so a reload writes on that peer and not the refused one.
+    name: "add_document_peer_salt",
+    up: async (execSql, context) => {
+      if (await context.hasTable("documents")) {
+        await execSql('ALTER TABLE "documents" ADD COLUMN "peer_salt" TEXT');
+      }
+    },
+    version: 8,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

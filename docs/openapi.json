@@ -3545,6 +3545,7 @@
               "document_sync_checkpoint_coverage_conflict",
               "document_sync_conflict",
               "document_sync_descendant_rekeys_required",
+              "document_sync_peer_owned",
               "document_sync_state_stale",
               "document_sync_update_id_conflict"
             ]
@@ -3669,6 +3670,30 @@
         ],
         "additionalProperties": {},
         "description": "One encrypted Loro update a client uploads, with its signed write header."
+      },
+      "DocumentPeerFrontier": {
+        "type": "object",
+        "properties": {
+          "peerId": {
+            "maxLength": 20,
+            "minLength": 1,
+            "pattern": "^[0-9]+$",
+            "type": "string",
+            "description": "Loro peer id, in decimal."
+          },
+          "committedEndCounter": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer",
+            "description": "End (exclusive) of the peer's committed operations; the request may re-assert counters below it."
+          }
+        },
+        "required": [
+          "peerId",
+          "committedEndCounter"
+        ],
+        "additionalProperties": {},
+        "description": "A Loro peer the request extended that another user owns."
       },
       "DocumentPurgeProofResponse": {
         "type": "object",
@@ -3844,6 +3869,7 @@
               "document_sync_checkpoint_coverage_conflict",
               "document_sync_conflict",
               "document_sync_descendant_rekeys_required",
+              "document_sync_peer_owned",
               "document_sync_state_stale",
               "document_sync_update_id_conflict"
             ]
@@ -3851,6 +3877,14 @@
           "error": {
             "type": "string",
             "minLength": 1
+          },
+          "peerFrontiers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentPeerFrontier"
+            },
+            "maxItems": 64,
+            "description": "With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request."
           },
           "principalHeads": {
             "type": "array",
@@ -3866,7 +3900,7 @@
           "error"
         ],
         "additionalProperties": {},
-        "description": "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, or stop."
+        "description": "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop."
       },
       "DocumentSyncPullPageResponse": {
         "type": "object",

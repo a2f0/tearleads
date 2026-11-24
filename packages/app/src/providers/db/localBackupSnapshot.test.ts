@@ -56,7 +56,7 @@ test("backup keeps related rows and blob bytes consistent during a concurrent de
       securityIncidents: unexpectedSecurityIncidents,
       payload,
     });
-    expect(await target.execSql("SELECT * FROM documents")).toEqual([
+    expect(await target.execSql("SELECT id FROM documents")).toEqual([
       { id: "document-1" },
     ]);
     expect(await target.execSql("PRAGMA foreign_key_check")).toEqual([]);

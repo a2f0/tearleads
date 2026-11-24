@@ -86,7 +86,7 @@ test("every document the store builds stamps its changes", async () => {
     );
     const before = nowSeconds();
     for (const doc of [
-      await createStoredDocument(state),
+      await createStoredDocument(state, undefined),
       // The replacement built after discarding non-durable local operations.
       await createFreshPeerStoredDocument(),
     ]) {

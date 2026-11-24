@@ -3,6 +3,7 @@ import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVe
 import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import {
   createDocumentWriterPublicKeyResolver,
+  type DocumentPeerRebaser,
   describeDocumentSyncSubmitFailure,
   type RekeyPendingUpdate,
   RemoteDocumentService,
@@ -61,6 +62,8 @@ interface SyncRemoteContainerMetadataInput {
   persistedState: ContainerMetadataState["record"];
   policyOperation: PrincipalPolicyOperation;
   pullContinuation?: ContainerMetadataState["pullContinuation"];
+  /** Moves the live metadata off peers the server refused as another user's. */
+  rebaseOntoFreshPeer?: DocumentPeerRebaser | undefined;
   rekeyPendingUpdate: RekeyPendingUpdate;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerMetadataSyncRuntime;
@@ -151,6 +154,7 @@ export async function syncRemoteContainerMetadata(
       pullContinuation: input.pullContinuation ?? undefined,
       pullRecoveryRequired:
         input.persistedState.pullContinuationRecoveryRequired === true,
+      rebaseOntoFreshPeer: input.rebaseOntoFreshPeer,
       rekeyPendingUpdate: (rekeyExecSql, updateId) =>
         isCurrent()
           ? input.rekeyPendingUpdate(rekeyExecSql, updateId)

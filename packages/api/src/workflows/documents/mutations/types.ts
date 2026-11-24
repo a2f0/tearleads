@@ -54,6 +54,8 @@ export interface AppendDocumentUpdatesInput {
    */
   readonly contentKeyCommitment: string;
   readonly documentId: string;
+  /** A create's seed: the document has no committed spans or peer owners. */
+  readonly documentInsertedInTransaction: boolean;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly organizationId: string;

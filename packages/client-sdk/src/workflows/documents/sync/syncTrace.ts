@@ -71,12 +71,14 @@ const SAFE_FAILURE_CODES: ReadonlySet<string> = new Set([
 ]);
 
 type DocumentSyncTraceAction =
+  | "rebase-peer"
   | "recover-update-ids"
   | "regenerate-checkpoints"
   | "retry"
   | "stop";
 
 const TRACE_ACTIONS: ReadonlyArray<DocumentSyncTraceAction> = [
+  "rebase-peer",
   "recover-update-ids",
   "regenerate-checkpoints",
   "retry",
