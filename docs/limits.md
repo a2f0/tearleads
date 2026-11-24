@@ -121,7 +121,7 @@ for the exact-length rule.
 | Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`); a request's `maxPageUpdates`, 1 to 64, lowers it but never raises it | Validators bound `maxPageUpdates`; API: [`workflows/documents/mutations/syncResponseUpdates.ts`](../packages/api/src/workflows/documents/mutations/syncResponseUpdates.ts) serves the smaller. The SDK asks for 1 while it [isolates](#loro-runtime) updates a death left unattributed. | Pagination via the pull cursor. |
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
 | Refused peers named per refusal | 64 (`MAX_DOCUMENT_PEER_FRONTIERS`, [`validators/src/response/documentSyncError.ts`](../packages/validators/src/response/documentSyncError.ts)) in the `peerFrontiers` of a 409 `document_sync_peer_owned` or `document_sync_dependency_uncommitted` | API: [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) names the first 64 refused peers in canonical order, each with the frontier committed before the request; the response schema bounds the list. | Pagination. The client [rebases](./advisory-op-spans.md#rebasing-onto-a-fresh-peer) the named peers onto a fresh peer, and its retry draws a refusal naming the rest. |
-| Span rows per write | 13,107, with no constant of its own: Postgres binds at most 65,535 parameters to one statement, and each row binds five | API: [`documents/documentUpdateSpans.ts`](../packages/api/src/documents/documentUpdateSpans.ts) inserts one row per peer of each new update's declared span, for the whole request, in one statement. Document sync and a link-set mutation's rotation baseline both write through it. | The insert fails at the database, the request rolls back, and the response is 500. An ordinary update has one span row per peer it changed, and a request carries at most 64 updates (the request schema refuses more), so honest edits stay far below it. A rotation baseline has one row per peer in the document's history, and nothing caps those peers: see [the known defect](#known-defect-unbounded-peers-per-document). |
+| Span and peer-owner rows per insert statement | 8,192 (`DOCUMENT_PEER_ROWS_PER_INSERT`, [`api/src/documents/documentPeerRowChunks.ts`](../packages/api/src/documents/documentPeerRowChunks.ts)) | API: [`documents/documentUpdateSpans.ts`](../packages/api/src/documents/documentUpdateSpans.ts) inserts one span row per peer of each new update's declared span, and [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) one owner row per peer the write claims, in statements of at most this many rows inside the write's transaction. Document sync and a link-set mutation's rotation baseline both write through them. Postgres binds at most 65,535 parameters to one statement, and a span row binds five. | More statements in the same transaction; nothing is refused, so a write's rows are bounded only by its request body. A rotation baseline has one span row per peer in the document's history, and nothing caps that history: see [the known defect](#known-defect-unbounded-document-history). |
 
 ## Loro runtime
 
@@ -250,21 +250,19 @@ beneath the stale level first performs it. See
 invariant and [client-sdk.md](./developer/client-sdk/public-api.md#public-api-entry-points)
 for how the SDK reports the parked state.
 
-### Known defect: unbounded peers per document
+### Known defect: unbounded document history
 
 This defect stops writes outright rather than making a writer wait. Nothing
-caps how many peers a document's history holds, and a
-[rotation baseline](./glossary/keys.md#rotation-baseline), a full-history
-snapshot, grows with them. A member can commit valid operations under more
-than 13,107 peers of one document, in requests that each stay under the
-span-row bound in [Document sync](#document-sync). Every rotation baseline of
-that document then needs more span rows than one insert binds, and fails with
-500. No member can rotate its content key, unlink, move, or purge-unlink it,
-and unlink can no longer remove a link's access to it
-([#3230](https://github.com/a2f0/tearleads/issues/3230), item 3). Writing the
-span rows in batches would not close this alone: with more peers the baseline
-also outgrows its one request. Past 16 MiB a sync abandons it with
-`document_sync_request_too_large`, and past the 32 MiB route ceiling a
-link-set mutation is refused
-([#3238](https://github.com/a2f0/tearleads/issues/3238)). Writes other than
-rotation baselines stay far below both bounds.
+caps a document's history: its peers, or its content, which deleting text
+does not shrink. A [rotation baseline](./glossary/keys.md#rotation-baseline),
+a full-history snapshot, carries all of it in one request. Once the history
+outgrows that request, a sync abandons the baseline past 16 MiB with
+`document_sync_request_too_large`, and a link-set mutation is refused past
+the 32 MiB route ceiling. No member can then rotate the document's content
+key, unlink, move, or purge-unlink it, and unlink can no longer remove a
+link's access to it ([#3238](https://github.com/a2f0/tearleads/issues/3238)).
+A member can cause this with many peers or with content alone, and a large
+honest document reaches it too. Writes other than rotation baselines stay far
+below both bounds. Span and owner rows are written in chunks, so a
+baseline's peer count alone no longer fails at the database
+([#3230](https://github.com/a2f0/tearleads/issues/3230), item 3).

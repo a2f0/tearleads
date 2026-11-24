@@ -234,9 +234,9 @@ device voids the forged update too.
 An honest update depends on operations its writer holds: foreign ones it
 pulled, which are committed, and its own, which are committed or carried by
 an earlier update of the same request. Its dependencies are refused only when
-a purge and a recreation lost an operation it depends on. The device then
-rebases as for a peer another user owns, cutting the named peers at the
-frontiers the refusal gives.
+a billing purge and a stale recreation lost an operation it depends on. The
+device then rebases as for a peer another user owns, cutting the named peers
+at the frontiers the refusal gives.
 
 ### Rebasing onto a fresh peer
 
@@ -278,25 +278,26 @@ container and session.
 
 ### Residuals
 
-- **Recreation preemption.** A purge deletes a document's owner rows with its
-  spans. A malicious member who republishes the purged document from history
-  owns the peers of every record that survived it, and can commit their next
-  counters before the devices' offline edits land. Those devices then rebase
-  keeping their own operations below the forger's frontier as committed, and
-  readers, who hold the forger's operations there first, void the update that
-  re-asserts them.
+- **Recreation preemption.** Only an organization's billing purge frees a
+  document's id; a purge of one document is permanent (409 "Document was
+  permanently purged"). The owner's devices recreate it from local history
+  (`recoverPurgedOrganization`), but no freed id is reserved: a member who
+  knows it can create it first, which the owner's devices refuse to adopt.
+  A recreator owns the peers its copy carries, so a malicious one can commit
+  their next counters before the devices' offline edits land. Those devices
+  rebase keeping their operations below its frontier as committed, and
+  readers, holding its operations there first, void the re-assertion.
 - **Dependencies on void spans.** The server judges a dependency against the
   committed frontier, which also counts the spans of updates every reader
   voided, since it cannot read a payload. Only a peer's owner raises that
   frontier, so a member can cover operations nobody committed only on its own
   peer, where no honest device holds any, or on a peer a purge left unowned.
-  A recreation from a stale copy that lacks a device's peer entirely leaves it
-  unowned. A member who knows that peer can claim it with a void span over the
-  counters the device still holds, then commit an update that depends on
-  them: the device accepts that update and other readers void it. The same
-  member could instead claim the peer with forged operations at those
-  counters, which other readers accept and the device voids. Both are the
-  cost of a recreation that lost the peer.
+  The owner's recovery from a stale copy lacking a device's peer entirely
+  leaves it unowned, and a re-invited member who knows it can claim it before
+  a device holding its operations relays them: with a void span over them and
+  a dependent update, which the device accepts and other readers void, or
+  with forged operations, which other readers accept and the device voids.
+  Accepted (#3230): kept owner rows would turn honest relays into duplicates.
 - **Overclaims on one's own peer.** The server cannot read a payload, so an
   owner may declare a span past the operations it carries. The counters below
   that frontier are committed, so any writer may then fill them first, and

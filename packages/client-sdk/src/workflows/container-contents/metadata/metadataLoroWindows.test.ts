@@ -14,7 +14,10 @@ import { createOnlineDocumentsRuntime } from "../../../../test/helpers/workflows
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
-import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import {
+  type ContainerContentsPersistence,
+  sqlContainerContentsPersistence,
+} from "../../../data/persistence/container-contents/containerContentsPersistence";
 import {
   ensureDocumentTables,
   type PendingUpdateRecord,
@@ -247,11 +250,13 @@ async function servedMetadataUpdate(): Promise<PendingUpdateRecord> {
 
 /**
  * A full metadata sync against a server that serves `served`, another
- * device's update, through `wrap` around the client database.
+ * device's update, through `wrap` around the client database, saving
+ * through `persistence`.
  */
 async function createServedMetadataSync(
   served: PendingUpdateRecord,
   wrap: (database: ExecSql) => ExecSql = (database) => database,
+  persistence: ContainerContentsPersistence = sqlContainerContentsPersistence,
 ) {
   const fixture = await createMaterializedSyncFixture();
   const { documentId } = fixture.writerProjection;
@@ -317,7 +322,7 @@ async function createServedMetadataSync(
         forceReadSync: true,
         isCurrent,
         metadataState: { container, doc, record },
-        persistence: sqlContainerContentsPersistence,
+        persistence,
         policyOperation: createPrincipalPolicyOperation(),
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,
         runtime: createOnlineDocumentsRuntime({ apiClient, execSql, fixture }),
@@ -371,6 +376,43 @@ test("a metadata save rolled back at commit leaves no window row", async () => {
   }
 });
 
+/** A dead lifetime's counting window on `served`, which the pass claims. */
+async function leaveDeadWindowOn(
+  sync: Awaited<ReturnType<typeof createServedMetadataSync>>,
+  served: PendingUpdateRecord,
+): Promise<void> {
+  await writeLoroWindowInTransaction(
+    getClientSQLitePersistenceRuntime(sync.execSql).db,
+    containerMetadataScope(CONTAINER_ID),
+    {
+      counts: true,
+      documentId: sync.documentId,
+      judge: documentVerdictJudge(),
+      kind: "read",
+      lifetimeId: "dead",
+      updateIds: [served.id],
+      windowId: "dead-window",
+    },
+    "2026-11-24T00:00:00.000Z",
+  );
+}
+
+/** The `loro_runtime` attempts this device counted toward `served`. */
+async function metadataAttempts(
+  sync: Awaited<ReturnType<typeof createServedMetadataSync>>,
+  served: PendingUpdateRecord,
+) {
+  const [attempts] = await readRecordedImportVoids(
+    getClientSQLitePersistenceRuntime(sync.execSql).db,
+    {
+      judge: documentVerdictJudge(),
+      scope: containerMetadataScope(CONTAINER_ID),
+      updateIds: [served.id],
+    },
+  );
+  return attempts;
+}
+
 // The judge read the update and survived, but the live import after it
 // failed: the window did not end cleanly, so its close keeps the attempt a
 // dead lifetime's window counted toward the update.
@@ -379,20 +421,7 @@ test("a metadata close after the live import failed keeps the attempts", async (
   const served = await servedMetadataUpdate();
   const sync = await createServedMetadataSync(served);
   try {
-    await writeLoroWindowInTransaction(
-      getClientSQLitePersistenceRuntime(sync.execSql).db,
-      containerMetadataScope(CONTAINER_ID),
-      {
-        counts: true,
-        documentId: sync.documentId,
-        judge: documentVerdictJudge(),
-        kind: "read",
-        lifetimeId: "dead",
-        updateIds: [served.id],
-        windowId: "dead-window",
-      },
-      "2026-11-24T00:00:00.000Z",
-    );
+    await leaveDeadWindowOn(sync, served);
     const importing = spyOn(
       incomingUpdates,
       "applyIncomingContainerMetadataUpdates",
@@ -404,15 +433,43 @@ test("a metadata close after the live import failed keeps the attempts", async (
     await expect(sync.sync(() => true)).rejects.toThrow("unreachable");
     expect(importing).toHaveBeenCalledTimes(1);
 
-    const [attempts] = await readRecordedImportVoids(
-      getClientSQLitePersistenceRuntime(sync.execSql).db,
-      {
-        judge: documentVerdictJudge(),
-        scope: containerMetadataScope(CONTAINER_ID),
-        updateIds: [served.id],
-      },
-    );
-    expect(attempts).toMatchObject({ attempts: 1, stage: "loro_runtime" });
+    expect(await metadataAttempts(sync, served)).toMatchObject({
+      attempts: 1,
+      stage: "loro_runtime",
+    });
+  } finally {
+    removeWebLocks();
+    sync.close();
+  }
+});
+
+// The live import survived, but the save of its result threw before it
+// committed: as on the document path, the page did not end cleanly, so the
+// pass's settle keeps the attempt counted toward the update.
+test("a metadata close after the save threw keeps the attempts", async () => {
+  const removeWebLocks = installFakeWebLocks();
+  const served = await servedMetadataUpdate();
+  let saves = 0;
+  const sync = await createServedMetadataSync(served, (database) => database, {
+    ...sqlContainerContentsPersistence,
+    commitMetadataMutation: async () => {
+      saves += 1;
+      throw new Error("disk I/O error");
+    },
+  });
+  try {
+    await leaveDeadWindowOn(sync, served);
+
+    await expect(sync.sync(() => true)).rejects.toThrow("disk I/O error");
+    expect(saves).toBe(1);
+
+    expect(
+      await sync.execSql("SELECT lifetime_id FROM document_loro_windows"),
+    ).toEqual([]);
+    expect(await metadataAttempts(sync, served)).toMatchObject({
+      attempts: 1,
+      stage: "loro_runtime",
+    });
   } finally {
     removeWebLocks();
     sync.close();

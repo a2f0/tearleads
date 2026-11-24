@@ -144,14 +144,21 @@ A document writer can also cost other devices availability. The server
 refuses a write that extends a peer another user owns
 ([peer owner](../glossary/sync.md#peer-owner)), so once a device's peer has
 committed, another user can preempt its later operations only by recreating
-the purged document from history; the refused device then moves them to a
-fresh peer ([peer ownership](../advisory-op-spans.md#peer-ownership)). The
-server also refuses an update that depends on an operation nobody committed,
-and readers void one whose payload depends on other operations than it
-declares, so another user cannot make a device alone accept an update by
-depending on that device's unsent operations
-([dependencies](../advisory-op-spans.md#dependencies)), except on a peer that
-a recreation from a stale copy left unowned
+the document from history; the refused device then moves them to a fresh peer
+([peer ownership](../advisory-op-spans.md#peer-ownership)). Only a billing
+purge of a whole organization frees a document's id, and the owner's devices
+recreate it by republishing local history under the same id
+(`recoverPurgedOrganization`). The server reserves no freed id, so a member who
+knows it can create it first, which stalls the owner's recovery of that
+document. A purge of one document is permanent: a create of its id is refused
+with 409 "Document was permanently purged". The server also refuses an update
+that depends on an operation nobody committed, and readers void one whose
+payload depends on other operations than it declares, so another user cannot
+make a device alone accept an update by depending on that device's unsent
+operations ([dependencies](../advisory-op-spans.md#dependencies)), except on a
+peer that the owner's recovery from a stale copy left unowned. A member the
+owner re-invites can claim such a peer if it acts before a device holding the
+peer's operations relays them, an accepted residual
 ([residuals](../advisory-op-spans.md#residuals)).
 One whose payload fails the Loro runtime, or ends the reader's process
 while the app is visible, holds a reader's sync of that document for up to
