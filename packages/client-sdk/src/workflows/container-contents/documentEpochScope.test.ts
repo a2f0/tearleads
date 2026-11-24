@@ -4,6 +4,7 @@ import { sqlContainerContentsPersistence as metadata } from "../../data/persiste
 import { DocumentContainerProjectionRepository as Links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { testContainerMetadataWriter } from "./metadata/metadata.testFixtures";
 import { hydrateStoredContainerState } from "./storedContainerState";
 
 const holds = (execSql: ExecSql) =>
@@ -99,6 +100,7 @@ test("metadata saved before an ordinary document remains readable at startup", a
       execSql,
       persistence: metadata,
       storedContainer,
+      writer: testContainerMetadataWriter,
     });
     expect(restored.container.id).toBe(container.id);
     expect(
@@ -129,6 +131,7 @@ test("a legacy child repair cannot bypass a custom persistence adapter", async (
         execSql,
         persistence,
         storedContainer: { container: legacy, record: null },
+        writer: testContainerMetadataWriter,
       }),
     ).rejects.toThrow("saveContainerWithPendingUpdate");
     const saved: string[] = [];
@@ -147,6 +150,7 @@ test("a legacy child repair cannot bypass a custom persistence adapter", async (
       execSql,
       persistence: custom,
       storedContainer: { container: legacy, record: null },
+      writer: testContainerMetadataWriter,
     });
     expect(saved).toEqual([legacy.id]);
     expect(await metadata.containerExists(execSql, legacy.id)).toBe(false);

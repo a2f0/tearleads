@@ -76,6 +76,7 @@ test.each(["replace persistence", "dispose during read", "host rotates scope"])(
       persistence,
       runtime: {
         auth: { organizationId: "organization-id" },
+        state: { domainScope: createDomainScope() },
         infra: { dbStatus: "ready", execSql: async () => [] },
         util: { log: () => {} },
       } as unknown as ContainerContentsWorkflowRuntime,

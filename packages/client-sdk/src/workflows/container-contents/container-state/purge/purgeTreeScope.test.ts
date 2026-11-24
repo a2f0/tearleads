@@ -10,6 +10,7 @@ import { sqlContainerContentsPersistence } from "../../../../data/persistence/co
 import { DocumentContainerProjectionRepository as Links } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { DocumentMoveIntentRepository } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
@@ -115,6 +116,7 @@ for (const scenario of [
             rootContainerId: parent.projection.containerId,
             userId: parent.userId,
           },
+          state: { domainScope: createDomainScope() },
           infra: { execSql },
           resolveTrustedUserIdentity: createTestTrustedUserIdentityResolver({
             userId: parent.userId,

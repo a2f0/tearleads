@@ -91,8 +91,11 @@ does not identify one operation history. `getRuntimePeerSeed` grants the
 persisted scoped seed to one live runtime; other concurrent runtimes in that
 scope receive memory-only seeds cached by their domain scope. Persistent pane
 namespaces retain separate device seeds, and the first runtime after a page
-reload can reuse its device seed under the existing tab lock. Runtime seed
-regressions check isolation, stable reuse, and bounded device-storage keys.
+reload can reuse its device seed under the existing tab lock. Each record's
+peer comes from that runtime seed, the signed-in user, and the record
+(`recordPeerSeed`), so two identities on one device never share a peer.
+Runtime seed regressions check isolation, stable reuse, and bounded
+device-storage keys.
 This mapping does not change the version-vector dominance predicate.
 
 This is exhaustive bounded model checking, not an unbounded mathematical proof.

@@ -435,6 +435,8 @@ blob storage (OPFS after identity setup), manual identity provisioning, ignored
 array of `DocumentProjectorDefinition` values; prefer definitions for an
 app-owned document type list, and the SDK normalizes and caches the registry.
 `peerScope` gives each pane distinct Loro peer ids; omit it for a single pane.
+Within a pane, each document and container is written under its own peer id
+for the signed-in user.
 `provisionedSystemContainers` names app-owned system containers, such as a
 trash bin, that every new organization is created with.
 `principalHistoryKeyProvider` is covered in
