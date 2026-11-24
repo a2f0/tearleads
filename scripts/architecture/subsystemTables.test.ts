@@ -471,3 +471,30 @@ test("resolution does not depend on the order files are read", () => {
     }),
   ).toEqual(expectedViolations);
 });
+
+test("a local schema step's raw SQL names no table; its Drizzle uses do", () => {
+  const steps =
+    "/fixture/sqlite/data/sqlite/migrations/localSchemaMigrations.ts";
+  const lookalike = "/fixture/sqlite/data/sqlite/migrations/otherSteps.ts";
+  const backfill = [
+    'export const backfill = "UPDATE beta_rows SET n = 1 WHERE EXISTS (SELECT 1 FROM beta_log)";',
+  ];
+  expect(
+    findTableViolations({
+      baseline: {},
+      ...fixtureUses({
+        ...schemaFixtures,
+        [steps]: [
+          ...backfill,
+          'import { betaRows } from "../../../schema";',
+          "export const current = tx.insert(betaRows).values(row);",
+        ],
+        [lookalike]: backfill,
+      }),
+      registry: fixtureRegistry,
+    }),
+  ).toEqual([
+    `${steps} writes betaRows, which Beta owns`,
+    `${lookalike} writes betaRows, which Beta owns`,
+  ]);
+});
