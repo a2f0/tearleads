@@ -47,6 +47,11 @@ import type {
 import { getAttachmentSlotSnapshot } from "./attachments/attachmentSnapshot";
 import { sameValidationIssues, shallowEqualRecord } from "./snapshotEquality";
 import { observeRecordedAttachmentSlots } from "./sync/removedSlotDetaches";
+import {
+  initialStartupProbeState,
+  resetStartupProbe,
+  type StartupProbeState,
+} from "./sync/startupProbeMachine";
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["crypto"]["encapsulationKeyPair"]
@@ -190,8 +195,8 @@ export interface DocumentStoreState {
   remoteUpdateCompletedSignalSeq: number;
   /** A cancelled remote-only owner blocks late responses until fresh work. */
   remoteSyncBlocked: boolean;
-  scheduleStartupRemoteSync: boolean;
-  startupProbeDeferredAttempt: number | null;
+  /** Whether openers want a probe after each load; see `startupProbeMachine.ts`. */
+  startupProbe: StartupProbeState;
   remoteUpdatePending: boolean;
   /** Sequence used to keep an older pass from clearing a newer remote event. */
   remoteUpdateSignalSeq: number;
@@ -242,8 +247,9 @@ export function createDocumentStoreState(
   initialDocumentId: string | null,
   initialText = "",
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
-  scheduleStartupRemoteSync = true,
+  remoteSyncMode: "on-demand" | "startup" = "startup",
 ): DocumentStoreState {
+  const startupProbe = initialStartupProbeState(remoteSyncMode);
   return {
     attachmentBlobIdBySlotId: {},
     attachmentContentSha256BySlotId: {},
@@ -274,9 +280,8 @@ export function createDocumentStoreState(
     resolveProjectionUserKey:
       createDocumentProjectionUserKeyResolver(initialRuntime),
     remoteUpdateCompletedSignalSeq: 0,
-    remoteSyncBlocked: !scheduleStartupRemoteSync,
-    scheduleStartupRemoteSync,
-    startupProbeDeferredAttempt: null,
+    remoteSyncBlocked: startupProbe.status === "onDemand",
+    startupProbe,
     awaitingAncestorRepair: false,
     remoteUpdatePending: false,
     remoteUpdateSignalSeq: 0,
@@ -357,8 +362,8 @@ function clearDocumentStoreState(
   state.locallyAcceptedUpdateIds = new Set();
   state.rejectedServedAttachmentBindings = new Set();
   state.remoteUpdateCompletedSignalSeq = 0;
-  state.remoteSyncBlocked = !state.scheduleStartupRemoteSync;
-  state.startupProbeDeferredAttempt = null;
+  state.startupProbe = resetStartupProbe(state.startupProbe);
+  state.remoteSyncBlocked = state.startupProbe.status === "onDemand";
   state.awaitingAncestorRepair = false;
   state.remoteUpdatePending = false;
   state.remoteUpdateSignalSeq = 0;

@@ -39,10 +39,7 @@ import {
   setReadySnapshot,
 } from "../state";
 import { createStoredDocument } from "../storedDocument";
-import {
-  armDocumentStoreStartupProbe,
-  deferStartupProbeToPendingConnect,
-} from "../sync/startupProbeDeferral";
+import { loadDocumentStoreStartupProbe } from "../sync/startupProbeDeferral";
 import {
   captureDocumentStoreSyncGeneration,
   invalidateDocumentStoreRemoteSync,
@@ -344,13 +341,10 @@ async function initializeDocumentStore(
   // lazy, while body and attachment state for a restored window converges.
   // A connect attempt in flight arms a later probe on its acknowledgement,
   // which covers this one, so the startup probe waits on that attempt.
-  if (
-    restored.activeRecord.documentId &&
-    state.scheduleStartupRemoteSync &&
-    !deferStartupProbeToPendingConnect(state)
-  ) {
-    armDocumentStoreStartupProbe(state);
-  }
+  loadDocumentStoreStartupProbe(
+    state,
+    Boolean(restored.activeRecord.documentId),
+  );
   scheduleSync();
   void runDocumentOrphanMaintenance(state);
 }

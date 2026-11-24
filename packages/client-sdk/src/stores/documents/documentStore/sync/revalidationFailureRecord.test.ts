@@ -192,6 +192,7 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
         util: { log: () => undefined },
       },
       snapshot: { attachments: [], attachmentStatusBySlotId: {} },
+      startupProbe: { status: "wanted" },
     } as unknown as DocumentStoreState;
     const generation = captureDocumentStoreSyncGeneration(state, doc);
     if (!generation) {
@@ -319,6 +320,7 @@ test("a handler racing authoritative deletion records nothing", async () => {
         util: { log: () => undefined },
       },
       snapshot: { attachments: [], attachmentStatusBySlotId: {} },
+      startupProbe: { status: "wanted" },
     } as unknown as DocumentStoreState;
     const generation = captureDocumentStoreSyncGeneration(state, doc);
     if (!generation) {

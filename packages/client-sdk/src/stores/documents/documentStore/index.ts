@@ -311,7 +311,7 @@ function createBackingStoreContext(
     documentId,
     text,
     documentKind,
-    (options.remoteSyncMode ?? "startup") === "startup",
+    options.remoteSyncMode ?? "startup",
   );
   applyDocumentStoreCreationOptions(state, options);
   refreshDocumentStoreSyncLane(state);
