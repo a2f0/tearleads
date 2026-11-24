@@ -13,6 +13,8 @@ import {
 import { classNames } from "../../shared/classNames";
 import { MiniAppRowActionsButton } from "./MiniAppRowActionsButton";
 import "./MiniAppTable.css";
+import "./MiniAppTableEdges.css";
+import "./MiniAppRowDividers.css";
 
 export interface MiniAppTableColumn {
   ariaSort?: ThHTMLAttributes<HTMLTableCellElement>["aria-sort"] | undefined;

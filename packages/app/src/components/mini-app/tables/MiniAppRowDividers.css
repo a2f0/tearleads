@@ -1,0 +1,13 @@
+/*
+ * The line between one row and the next, in every list table (MiniAppTable.css)
+ * and divided list (MiniAppVirtual.css). Each draws it in its own colour through
+ * `var(--mini-app-row-divider-color, <that colour>)`, so the property is unset
+ * by default. The "Hide table divider lines" feature flag stamps the document
+ * root (useTableDividerLinesDocumentAttribute) and makes the line transparent
+ * rather than removing it, so no row changes height and a virtual list's row
+ * pitch holds. A heading's rule and a frame's edges are not row dividers and
+ * stay.
+ */
+:root[data-table-divider-lines="hidden"] {
+  --mini-app-row-divider-color: transparent;
+}
