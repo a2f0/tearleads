@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { runCli, usage } from "./cli";
 import { testContext } from "./cli.testUtils";
+import { type TargetName, targets } from "./targets";
 
 test("help prints usage", async () => {
   for (const argv of [[], ["help"], ["--help"], ["ls", "-h"]]) {
@@ -19,8 +20,26 @@ test("unknown commands, options, and targets are usage errors", async () => {
   const { context, output } = testContext();
   expect(await runCli(["whoami", "--env", "dev"], context)).toBe(2);
   expect(output.stderr).toEqual([
-    "Unknown --env dev; use production or staging.",
+    "Unknown --env dev; use production, staging, or development.",
   ]);
+});
+
+test("--env development resolves the local API", async () => {
+  const { context, keyStore, output } = testContext();
+  await keyStore.save("development", "abandon ability able");
+  const requested: string[] = [];
+  // Stops at URL resolution, before the session makes any request.
+  const resolving = {
+    ...context,
+    apiBaseUrl: (target: TargetName) => {
+      requested.push(target);
+      throw new Error(`resolved ${targets[target]}`);
+    },
+  };
+
+  expect(await runCli(["whoami", "--env", "development"], resolving)).toBe(1);
+  expect(requested).toEqual(["development"]);
+  expect(output.stderr).toEqual(["resolved http://localhost:3001"]);
 });
 
 test("commands that need a session ask for login first", async () => {
