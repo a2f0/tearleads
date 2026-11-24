@@ -10,8 +10,6 @@ import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppButton,
-  MiniAppHeader,
-  MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
@@ -141,12 +139,6 @@ function ExplorerOutgoingList(params: ExplorerOutgoingViewProps) {
 
   return (
     <>
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{EXPLORER_LABELS.outgoingAction}</strong>
-          <span>{EXPLORER_LABELS.outgoingDescription}</span>
-        </MiniAppHeaderCopy>
-      </MiniAppHeader>
       <MiniAppStatus>{getOutgoingSummary(params, rows)}</MiniAppStatus>
       <WriteQueueBlockers
         billingBlockedOrganizationId={params.billingBlockedOrganizationId}
