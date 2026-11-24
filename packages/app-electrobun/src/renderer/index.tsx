@@ -9,9 +9,11 @@ import {
   createAppHostConfig,
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
+import { createTelemetryConsent } from "app/host/telemetryConsent";
 import { createRoot } from "react-dom/client";
 import { configureElectrobunSentry } from "../diagnostics/sentry";
 import { createElectrobunFileSaver } from "./electrobunFileSaver";
+import { shareTelemetryConsentWithMainProcess } from "./mainProcessTelemetryConsent";
 
 function createElectrobunSQLiteRuntime() {
   const workerUrl =
@@ -41,13 +43,17 @@ const { apiBaseUrl, wsUrl } = resolveAppHostRuntimeConfig({
   wsUrl: process.env.BUN_PUBLIC_WS_URL,
 });
 
+// Both processes' reports follow the user's opt-in, which starts off.
+const telemetryConsent = createTelemetryConsent();
+shareTelemetryConsentWithMainProcess(telemetryConsent);
+
 renderApp(createRoot(elem), {
   hostConfig: createAppHostConfig({
     apiBaseUrl,
     // Inert until a packaged release build inlines a desktop DSN: with none
     // resolved this is undefined and the app keeps its local-only System
     // Monitor logging, exactly as before.
-    diagnostics: configureElectrobunSentry(),
+    diagnostics: configureElectrobunSentry(telemetryConsent),
     // Stamped by scripts/lib/withBuildInfoEnv.sh and inlined by the renderer defines
     // in electrobun.config.ts.
     buildInfo: createAppBuildInfo({
@@ -84,6 +90,7 @@ renderApp(createRoot(elem), {
     // navigator.storage.getDirectory on the renderer main thread. The default
     // auto-detect path would fall back to ephemeral memory storage.
     storagePersistence: PERSISTENT_STORAGE_POLICY,
+    telemetryConsent,
     wsUrl,
   }),
 });

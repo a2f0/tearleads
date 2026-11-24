@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, spyOn, test } from "bun:test";
 import {
   act,
   cleanup,
@@ -7,7 +7,10 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { registerPageDocumentWrites } from "../../providers/db/pageDocumentWrites";
+import {
+  isReloadDiscardingPageDocumentWrites,
+  registerPageDocumentWrites,
+} from "../../providers/db/pageDocumentWrites";
 import {
   RUNTIME_RESTART_LABELS,
   RuntimeRestartNotice,
@@ -30,7 +33,7 @@ function restartSource(pending: () => boolean) {
       steps.push("prepare");
       return Promise.resolve();
     },
-    reload: () => steps.push("reload"),
+    reload: (discard) => steps.push(discard ? "reload anyway" : "reload"),
     subscribe: () => () => {},
   };
   return { source, steps };
@@ -147,11 +150,12 @@ test("edits still unsaved ask before a reload loses them", async () => {
   );
   expect(steps).toEqual([]);
 
+  // The user answered here, so the page's unload prompt does not ask again.
   pressReload();
   fireEvent.click(
     await screen.findByRole("button", { name: RUNTIME_RESTART_LABELS.discard }),
   );
-  await waitFor(() => expect(steps).toEqual(["prepare", "reload"]));
+  await waitFor(() => expect(steps).toEqual(["prepare", "reload anyway"]));
 });
 
 // The app's own source asks every runtime mounted in the page.
@@ -161,6 +165,23 @@ test("the app's source asks the page's runtimes for unsaved edits", () => {
   expect(SDK_RUNTIME_RESTART.hasPendingWrites()).toBe(true);
   unregister();
   expect(SDK_RUNTIME_RESTART.hasPendingWrites()).toBe(false);
+});
+
+// Only a reload whose edits the user already chose to lose quiets the
+// page's unload prompt, and only while that reload runs.
+test("the app's source quiets the unload prompt only for a discard", () => {
+  const quiet: boolean[] = [];
+  const reload = spyOn(window.location, "reload").mockImplementation(() => {
+    quiet.push(isReloadDiscardingPageDocumentWrites());
+  });
+  try {
+    SDK_RUNTIME_RESTART.reload(false);
+    SDK_RUNTIME_RESTART.reload(true);
+  } finally {
+    reload.mockRestore();
+  }
+  expect(quiet).toEqual([false, true]);
+  expect(isReloadDiscardingPageDocumentWrites()).toBe(false);
 });
 
 // A run the notice has left acts no further: a source replaced mid-press
@@ -218,7 +239,7 @@ test("edits made while draining ask before the reload", async () => {
       pending = true;
       return Promise.resolve();
     },
-    reload: () => steps.push("reload"),
+    reload: (discard) => steps.push(discard ? "reload anyway" : "reload"),
     subscribe: () => () => {},
   };
   render(<RuntimeRestartNotice saveWaitMs={5_000} source={source} />);
@@ -230,7 +251,9 @@ test("edits made while draining ask before the reload", async () => {
     await screen.findByRole("button", { name: RUNTIME_RESTART_LABELS.discard }),
   );
 
-  await waitFor(() => expect(steps).toEqual(["prepare", "prepare", "reload"]));
+  await waitFor(() =>
+    expect(steps).toEqual(["prepare", "prepare", "reload anyway"]),
+  );
 });
 
 // `location.reload()` returns before the page unloads, so the notice waits;
@@ -283,4 +306,89 @@ test("a reload offers itself again only when the SDK asks again", async () => {
       await screen.findByRole("button", { name: RUNTIME_RESTART_LABELS.reload })
     ).hasAttribute("disabled"),
   ).toBe(false);
+});
+
+// A source that breaks its contract leaves no button stuck on "Reloading…":
+// the notice offers the press again, or a reload without its question.
+test("a throwing step offers Try again and Reload anyway", async () => {
+  let fault: "probe" | "prepare" | "reload" | null = "probe";
+  const steps: string[] = [];
+  const source: RuntimeRestartSource = {
+    getStatus: () => "restartRequired",
+    hasPendingWrites: () => {
+      if (fault === "probe") throw new Error("probe failed");
+      return false;
+    },
+    prepare: () => {
+      steps.push("prepare");
+      if (fault === "prepare") throw new Error("prepare failed");
+      return Promise.resolve();
+    },
+    reload: (discard) => {
+      steps.push(discard ? "reload anyway" : "reload");
+      if (fault === "reload") throw new Error("reload failed");
+    },
+    subscribe: () => () => {},
+  };
+  render(<RuntimeRestartNotice saveWaitMs={5_000} source={source} />);
+  const failed = () => screen.findByText(RUNTIME_RESTART_LABELS.failed);
+  const press = async (name: string) => {
+    const button = await screen.findByRole("button", { name });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+  };
+
+  await press(RUNTIME_RESTART_LABELS.reload);
+  await failed();
+  expect(steps).toEqual([]);
+
+  fault = "prepare";
+  await press(RUNTIME_RESTART_LABELS.retry);
+  await failed();
+  expect(steps).toEqual(["prepare"]);
+
+  fault = "reload";
+  await press(RUNTIME_RESTART_LABELS.retry);
+  await failed();
+  expect(steps).toEqual(["prepare", "prepare", "reload"]);
+
+  // Reloading anyway drains again but asks nothing about edits.
+  fault = null;
+  steps.length = 0;
+  await press(RUNTIME_RESTART_LABELS.discard);
+  await waitFor(() => expect(steps).toEqual(["prepare", "reload anyway"]));
+});
+
+// After a drain whose probe throws, reloading anyway reads no edits.
+test("reloading anyway after a failure skips the edits probe", async () => {
+  let probes = 0;
+  let prepared = false;
+  const reloads: boolean[] = [];
+  const source: RuntimeRestartSource = {
+    getStatus: () => "restartRequired",
+    hasPendingWrites: () => {
+      probes += 1;
+      if (prepared) throw new Error("probe failed");
+      return false;
+    },
+    prepare: () => {
+      prepared = true;
+      return Promise.resolve();
+    },
+    reload: (discard) => reloads.push(discard),
+    subscribe: () => () => {},
+  };
+  render(<RuntimeRestartNotice saveWaitMs={5_000} source={source} />);
+  const press = (name: string) =>
+    act(async () => {
+      fireEvent.click(screen.getByRole("button", { name }));
+    });
+
+  await press(RUNTIME_RESTART_LABELS.reload);
+  await screen.findByText(RUNTIME_RESTART_LABELS.failed);
+  const probesBefore = probes;
+  await press(RUNTIME_RESTART_LABELS.discard);
+  await waitFor(() => expect(reloads).toEqual([true]));
+  expect(probes).toBe(probesBefore);
 });

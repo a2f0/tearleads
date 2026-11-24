@@ -108,11 +108,11 @@ bun run check:package app
 The test preload refuses to start when `packages/client-sdk/dist` is older
 than the SDK source; `check:package` rebuilds it first. The suite also boots
 the API in-process for its request mocks.
-[`test/screenshot-seed`](test/screenshot-seed/) builds the
-seeded database the shared screenshots start from.
 
 ## Headless Continuity import
 
 The `app/continuity` entry point exposes the app document projectors, pinned
-dataset loader, Contacts folder resolver, and seed writer used by the
-[CLI](../cli/README.md#seed-an-account-with-continuity) and screenshot builder.
+dataset loader, Contacts folder resolver, seed writer, and the roster and group
+seeders (the Org Manager's own writes, built for a headless host) used by the
+[CLI](../cli/README.md#seed-an-account-with-continuity), which also seeds the
+shared screenshots.

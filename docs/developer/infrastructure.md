@@ -3,6 +3,17 @@
 Deployment and release credentials live in `.secrets`, a gitignored link to
 `../matrix-secrets/tearleads`. The a2f0/matrix repository manages and backs them
 up; see its [`docs/secrets.md`](https://github.com/a2f0/matrix/blob/main/docs/secrets.md).
+A clone that has none gets that link from
+[`scripts/lib/secretsStore.sh`](../../scripts/lib/secretsStore.sh): beside the
+clone, beside the matrix workspace for a `checkouts/<name>` checkout, or under
+`MATRIX_SECRETS_DIR` when set. `load_secrets_env` in
+[`terraform/scripts/secretsEnv.sh`](../../terraform/scripts/secretsEnv.sh),
+which every deploy, destroy, Terraform stack, soft reset, and desktop release
+calls, links first and stops with an error when the tier folder is still
+missing. The native release shortcuts, App Store build-number lookup,
+subscription review screenshots, LocalStack scripts, and Android and iOS dev
+launchers link the same way, so LocalStack's `staging/dev.env` is shared by
+every linked clone.
 Each tier reads only `.secrets/staging/` or `.secrets/prod/`: `shared.env`, then
 `app.env`, which wins. Commands without a tier use `prod`.
 

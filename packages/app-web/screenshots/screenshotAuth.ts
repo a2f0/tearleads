@@ -97,11 +97,11 @@ async function openIdentityManager(
   };
 }
 
-async function identityIsRegistered(
+async function assertIdentityRegistered(
   apiBaseUrl: string,
   page: Page,
   scope: Locator | Page,
-): Promise<boolean> {
+): Promise<void> {
   const signingFingerprint = await scope
     .locator("dt", { hasText: "Signing Key" })
     .locator("xpath=following-sibling::dd[1]")
@@ -113,17 +113,19 @@ async function identityIsRegistered(
     );
   }
 
-  // Probe from Playwright rather than trying Login first. A failed UI login is
-  // intentionally logged by the app and would make the System Monitor screenshot
-  // look unhealthy even though first-run registration is the expected next step.
+  // Probe from Playwright before Login: a failed UI login is logged by the app
+  // and would show in the System Monitor screenshot, and a missing account
+  // means the seed setup did not run against this API.
   const response = await page.request.post(`${apiBaseUrl}/auth/challenge`, {
     data: { fingerprint: signingFingerprint },
   });
   if (response.status() === 200) {
-    return true;
+    return;
   }
   if (response.status() === 404) {
-    return false;
+    throw new Error(
+      `The seed setup did not register the screenshot identity on ${apiBaseUrl}.`,
+    );
   }
   throw new Error(
     `Screenshot identity registration probe failed with ${response.status()}.`,
@@ -131,10 +133,10 @@ async function identityIsRegistered(
 }
 
 /**
- * Authenticate the restored fixed identity, registering it against a fresh
- * project-scoped API or logging in when a retry has already registered it.
+ * Sign the imported Continuity identity in to the account its seed setup
+ * registered, or confirm a session that is already signed in.
  */
-export async function authenticateOrRegisterScreenshotIdentity(
+export async function signInScreenshotIdentity(
   apiBaseUrl: string,
   page: Page,
   routed: boolean,
@@ -148,18 +150,10 @@ export async function authenticateOrRegisterScreenshotIdentity(
 
   if (!(await authenticated.isVisible())) {
     persistedSessionBefore = await readPersistedSessionSnapshot(page);
-    if (await identityIsRegistered(apiBaseUrl, page, scope)) {
-      const login = scope.getByRole("button", { name: "Login", exact: true });
-      await expect(login).toBeVisible({ timeout: 20_000 });
-      await login.click();
-    } else {
-      const register = scope.getByRole("button", {
-        name: "Register",
-        exact: true,
-      });
-      await expect(register).toBeEnabled({ timeout: 20_000 });
-      await register.click();
-    }
+    await assertIdentityRegistered(apiBaseUrl, page, scope);
+    const login = scope.getByRole("button", { name: "Login", exact: true });
+    await expect(login).toBeVisible({ timeout: 20_000 });
+    await login.click();
   }
 
   await expect(authenticated).toBeVisible({ timeout: 60_000 });
@@ -168,20 +162,19 @@ export async function authenticateOrRegisterScreenshotIdentity(
     .locator("xpath=following-sibling::dd[1]");
   await expect(organizationValue).not.toHaveText("None", { timeout: 20_000 });
   if (persistedSessionBefore !== null) {
-    // Registration writes a non-authenticated identity context before the
-    // challenge login writes the token-bearing context. Wait until the queued
-    // encrypted local-session writes have both advanced and settled; otherwise
-    // an immediate navigation can reboot from the intermediate signed-out
-    // record even though Identity Manager already paints "Authenticated".
+    // Login updates the live Identity Manager before the queued encrypted
+    // local-session writes land; an immediate navigation could reboot from the
+    // signed-out record even though "Authenticated" already shows. Wait until
+    // those writes have advanced and settled.
     await waitForPersistedSessionUpdate(page, persistedSessionBefore);
   }
   await close();
   await setDeveloperMode(page, false);
 
-  // Registration/login updates the live Identity Manager immediately, while
-  // other mini-app providers can still hold the signed-out snapshot from this
-  // boot. Reboot the shell across this auth boundary so Org Manager consumes
-  // the persisted authenticated session rather than racing that stale state.
+  // Login updates the live Identity Manager immediately, while other mini-app
+  // providers can still hold the signed-out snapshot from this boot. Reboot the
+  // shell across this auth boundary so every app consumes the persisted
+  // authenticated session rather than racing that stale state.
   await page.reload();
   await waitForBooted(page);
 }

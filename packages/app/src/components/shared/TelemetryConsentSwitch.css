@@ -1,0 +1,30 @@
+.telemetry-consent {
+  display: grid;
+  gap: var(--space-xs);
+  max-width: 26rem;
+  font-size: var(--font-size-sm);
+}
+
+.telemetry-consent-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--space-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.telemetry-consent-description {
+  margin: 0;
+  line-height: 1.45;
+  opacity: var(--opacity-subtle);
+}
+
+/* Centered under the onboarding choice, as the panel's own copy is. */
+.mini-app-state-panel .telemetry-consent-toggle {
+  justify-self: center;
+}
+
+:root[data-navigation-mode="routed"] .telemetry-consent-toggle {
+  min-height: var(--control-height);
+}

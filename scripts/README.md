@@ -16,7 +16,7 @@ below. Invoke them by path from the checkout or its parent workspace, for exampl
 | [`checks/`](checks/) | Check entry points, static analysis helpers, baselines, and regression fixtures. |
 | [`deploy/`](deploy/) | Tier and website deployments, teardown, and their shared helpers. |
 | [`dev/`](dev/) | Local launchers, shell setup, seed generation, and cache maintenance. |
-| [`git/`](git/) | Hook installation and hook sources; the pre-push hook is agent-tool's push gate. |
+| [`git/`](git/) | Hook installation and hook sources; the pre-push hook is agent-tool's push gate, and the root `postinstall` installs them after `bun install` in a checkout with none. |
 | [`keychain/`](keychain/) | Manual macOS keychain utilities. |
 | [`lib/`](lib/) | Helpers shared across script groups, including timings, build metadata, release environment guards, and the retried CI dependency install. |
 | [`localstack/`](localstack/) | Local S3 setup, shutdown, and reset commands. |
@@ -72,6 +72,21 @@ After the run completes, use
 to publish it to R2 with local credentials. See the
 [Windows release guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).
 
+The native and desktop release shortcuts, and the Android and iOS dev
+launchers, prepare a fresh clone, or a worktree beside the other clones,
+before building. Every script that loads a tier through `load_secrets_env` in
+[`../terraform/scripts/secretsEnv.sh`](../terraform/scripts/secretsEnv.sh)
+(deploys, destroys, Terraform stacks, and the soft reset) links `.secrets`
+the same way and stops when the tier folder is still missing.
+[`lib/secretsStore.sh`](lib/secretsStore.sh) links a missing `.secrets` to
+the shared `matrix-secrets/tearleads` folder when it exists, as
+[`lib/screenshotsStore.sh`](lib/screenshotsStore.sh) does for `.screenshots`,
+and [`lib/gradleWrapper.sh`](lib/gradleWrapper.sh) regenerates the
+gitignored Gradle wrapper jar in a scratch build, since the Android build
+cannot configure before `cap sync`. `bun run test:clone-setup` covers these,
+the loader's link, and the hook-installing
+[`git/postinstall.ts`](git/postinstall.ts), and is part of `check:fast`.
+
 [`release/publishNpmPackage.sh`](release/publishNpmPackage.sh) publishes a
 package to npm by its directory name: `windowing` or `client-sdk`.
 Each package's publish workflow runs it when a
@@ -87,14 +102,17 @@ authentication, versioning, and consumer smoke checks.
 
 ## Screenshot seed and capture
 
-`bun run screenshots:seed` verifies the pinned Continuity manifest, validates
-its versioned seed contract, and builds `tearleads-seed.tlbackup.json` through
-the SDK. The adjacent `.provenance.json` binds the backup to the seed and screenshot
-expectations. Both are local artifacts. A direct Playwright capture rejects a
-missing or stale provenance; regenerate with `bun run screenshots:seed`.
-
-`bun run screenshots` regenerates that backup and restores it through the app
-before capturing desktop, tablet, and phone layouts in both themes. Household
+`bun run screenshots` seeds the account it captures the same way a person seeds
+their own. Each capture API (one for desktop, one shared by tablet and phone)
+starts empty, and a Playwright setup project
+([`seed.setup.ts`](../packages/app-web/screenshots/seed.setup.ts)) runs
+`tearleads register` and then `tearleads seed --roster` against it with the
+Continuity identity's recovery key on stdin, so the Org Manager captures show
+the Family group and its members on the roster. The CLI verifies the pinned Continuity
+manifest and seed contract before writing anything. The capture then imports
+that identity into a fresh browser, signs in, and waits for the app to download
+the seeded documents before capturing desktop, tablet, and phone layouts in
+both themes. Household
 detail captures assert decoded family/equipment photos and receipts, inventory
 fields, and tracker table rows and graph points. The browser locale and time
 zone are pinned so the dated readings render consistently. It writes below the
@@ -118,13 +136,15 @@ Add canonical facts and photographic assets in
 [a2f0/continuity](https://github.com/a2f0/continuity), regenerate and ship them
 there, then update the root catalog commit pin and run `bun install`. The
 contract test in
-[`packages/app/test/screenshot-seed/continuitySeed.test.ts`](../packages/app/test/screenshot-seed/continuitySeed.test.ts)
-builds and restores the pinned data into a separate database and blob store.
-Tracker `rows` go through `addRow`; repeated `equipment-photos` entries append
-independent images, while single-image attachment slots reject duplicates.
+[`continuitySeed.test.ts`](../packages/app/src/document-types/continuity/continuitySeed.test.ts)
+checks that the pinned data yields every document, title, and image the
+screenshot run asserts on, and the CLI's seed tests write it to an API and read
+it back from a fresh device. Tracker `rows` go through `addRow`; repeated
+`equipment-photos` entries append independent images, while single-image
+attachment slots reject duplicates.
 
 Tracker seeds preserve Continuity’s recorded wall-clock time when converting
-offset-bearing timestamps to the app’s `datetime-local` fields. The restore
+offset-bearing timestamps to the app’s `datetime-local` fields. The contract
 test verifies that every seeded reading is accepted by the chart parser.
 
 ## Verification

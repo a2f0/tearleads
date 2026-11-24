@@ -1,0 +1,20 @@
+/*
+ * A folded Document Links row reads like the Explorer item list's: a 32px kind
+ * glyph spanning both lines, the document's title, and a muted details line.
+ *
+ * The title is a table action, which routed mode stands on its own 44px line
+ * so a lone link is a full touch target. Folded, the whole row is that target
+ * (it opens the document on a tap anywhere, as the item list does), so the
+ * title sits on its text line instead. Otherwise the two lines measure 44px
+ * plus the details, and every row outgrows the shared two-line pitch.
+ */
+:root[data-navigation-mode="routed"]
+  .mini-app-compact-table-line
+  .explorer-blob-reference-row-button {
+  min-height: 0;
+  line-height: inherit;
+}
+
+.explorer-blob-reference-icon {
+  opacity: var(--opacity-icon);
+}

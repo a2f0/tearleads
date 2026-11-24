@@ -8,14 +8,17 @@ import { switchToWindowedDesktop } from "./windowedDesktop";
  * drawn the way Explorer's are: as tall, because both carry the shared column
  * menu in the kebab column's heading, and out to the edges of the surface that
  * shows them, through the shared `mini-app-table-frame--edges`. The headings'
- * text keeps the inset Explorer's has. Signed in, because a signed-out device
- * has no organization to list.
+ * text keeps the inset Explorer's has. With no header above it, the list also
+ * sits directly under the app bar or window toolbar, with one rule between
+ * them rather than a blank band. Signed in, because a signed-out device has no
+ * organization to list.
  */
 test.use({ baseURL: SIGNED_IN_APP_URL });
 
 type Host = "phone" | "tablet" | "window";
 
 interface HeadingFit {
+  readonly frameBorderTop: number;
   readonly frameOverflow: number;
   readonly height: number;
   readonly left: number;
@@ -23,6 +26,8 @@ interface HeadingFit {
   readonly right: number;
   readonly surfaceLeft: number;
   readonly surfaceRight: number;
+  readonly surfaceTop: number;
+  readonly top: number;
 }
 
 const VIEWPORT_WIDTH: Record<Host, number> = {
@@ -99,6 +104,9 @@ function measureHeading(frame: Locator, host: Host): Promise<HeadingFit> {
     const box = heading.getBoundingClientRect();
     const surfaceBox = surface.getBoundingClientRect();
     return {
+      frameBorderTop: Number.parseFloat(
+        getComputedStyle(element).borderTopWidth,
+      ),
       frameOverflow: element.scrollWidth - element.clientWidth,
       height: box.height,
       leadingTextInset:
@@ -109,6 +117,8 @@ function measureHeading(frame: Locator, host: Host): Promise<HeadingFit> {
       right: box.right,
       surfaceLeft: surfaceBox.left,
       surfaceRight: surfaceBox.right,
+      surfaceTop: surfaceBox.top,
+      top: box.top,
     };
   }, SURFACE[host]);
 }
@@ -138,5 +148,11 @@ for (const host of ["tablet", "phone", "window"] as const) {
     expect(shared.right).toBeCloseTo(shared.surfaceRight, 0);
     expect(shared.frameOverflow).toBeLessThanOrEqual(0);
     expect(shared.leadingTextInset).toBeCloseTo(explorer.leadingTextInset, 0);
+    // Flush under the chrome. The routed app bar rules its own bottom edge,
+    // so the list drops its top rule there; a window's toolbar has none, so
+    // the list's rule is the one line between them.
+    const rule = host === "window" ? 1 : 0;
+    expect(shared.frameBorderTop).toBe(rule);
+    expect(shared.top - shared.surfaceTop).toBeCloseTo(rule, 0);
   });
 }

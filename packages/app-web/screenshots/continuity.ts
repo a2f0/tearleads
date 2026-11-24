@@ -9,7 +9,7 @@ export const seedIdentity = JSON.parse(
     require.resolve("@a2f0/continuity/genesis/tearleads/seed.json"),
     "utf8",
   ),
-) as { password: string; identitySeedPhrase: string };
+) as { identitySeedPhrase: string };
 
 export interface DocumentExpectation {
   title: string;
@@ -44,6 +44,8 @@ export const seedExpectations = JSON.parse(
   appliances: EquipmentExpectation[];
   weight: TrackerExpectation;
   bloodPressure: TrackerExpectation;
+  /** Each group's name and its members' roster names (`firstName lastName`). */
+  groups: ReadonlyArray<{ name: string; members: readonly string[] }>;
 };
 
 // These positional IDs are the website gallery's explicit fixture contract.
@@ -64,7 +66,8 @@ const galleryMatches = Object.entries(galleryTitles).every(([kind, titles]) => {
 });
 
 if (
-  seedExpectations.schemaVersion !== 2 ||
+  seedExpectations.schemaVersion !== 3 ||
+  !seedExpectations.groups.some((group) => group.members.length > 0) ||
   !galleryMatches ||
   seedExpectations.weight.rowCount < 2 ||
   seedExpectations.bloodPressure.rowCount < 2

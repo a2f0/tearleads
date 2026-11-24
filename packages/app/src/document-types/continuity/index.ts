@@ -4,6 +4,13 @@ export {
   ensureContactsContainer,
 } from "./contactsContainer";
 export { loadContinuityAssets } from "./continuityAssets";
+export {
+  type ContinuityGroup,
+  continuityGroups,
+  continuityRosterActions,
+  createGroupMembersSeed,
+  seedRosterEntry,
+} from "./continuityRoster";
 export { captureContinuityScope } from "./continuityScope";
 export { continuityDocuments } from "./seedDocuments";
 export {

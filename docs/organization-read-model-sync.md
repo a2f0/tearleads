@@ -279,17 +279,25 @@ Explorer presentation loaders read the SQLite projection only. They do not
 reconcile as a cold-miss fallback; the latched demand catch-up above is the one
 network owner and repaints consumers after the atomic projection update.
 Roster and attribution display names are joined only from already-persisted
-local contact summaries. Org Manager never opens profile document stores or
-schedules profile-document synchronization merely to render the roster.
-Explorer preserves that behavior for non-admins. For an organization admin
-viewing document attribution, Explorer may open and probe only contributor
-profile documents already named by the organization projection and already
-located beneath the existing roster-profile container; it never provisions
-that container. Hydration is disabled-first, cumulatively capped at a sticky 32
-contributors per document across at most 32 recently viewed documents, attempts
-each probe at most three times, and is cancelled when the authenticated
-organization scope changes. Until a probe persists a profile locally,
-attribution falls back to the contributor's user ID. Opening the selected
+local contact summaries. Roster profiles carry member PII, so container
+document listings withhold them, and a device obtains a profile it did not
+write only by opening it by id. Org Manager never opens or synchronizes a
+profile this device already holds merely to render the roster, and does
+nothing for non-admins. For an organization admin it pulls, one at a time and
+at most 32 per roster load, the profiles named by the organization projection
+that have no local row, binding each to its canonical local id beneath the
+existing roster-profile container; it never provisions that container. Pulled
+rows persist, so a later load only pulls what is still missing, and the pass
+is cancelled when the load ends. Explorer preserves the local-only behavior
+for non-admins. For an organization admin viewing document attribution,
+Explorer may open and probe only contributor profile documents already named
+by the organization projection and already located beneath the existing
+roster-profile container; it never provisions that container. Hydration is
+disabled-first, cumulatively capped at a sticky 32 contributors per document
+across at most 32 recently viewed documents, attempts each probe at most three
+times, and is cancelled when the authenticated organization scope changes.
+Until a probe persists a profile locally, attribution falls back to the
+contributor's user ID. Opening the selected
 profile editor remains an explicit document operation and may synchronize that
 one selected profile.
 

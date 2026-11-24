@@ -1,10 +1,8 @@
 import type { Documents, Tearleads } from "@tearleads/client-sdk";
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import {
-  isDocumentsAuthorityCurrent,
-  useDocumentsAuthorityGeneration,
-} from "../../../stores/documents/documentsAuthority";
+import { isDocumentsAuthorityCurrent } from "../../../stores/documents/documentsAuthority";
+import { useDocumentsAuthorityGeneration } from "../../../stores/documents/useDocumentsAuthorityGeneration";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { resolveProfileDocumentIdentity } from "../../../stores/org-manager/profileDocumentIdentity";
 import { createBoundedRetrySchedule } from "../hooks/boundedRetry";

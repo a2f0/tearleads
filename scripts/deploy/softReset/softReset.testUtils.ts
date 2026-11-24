@@ -77,6 +77,10 @@ export function fixture(tier: "prod" | "staging" = "prod") {
     "terraform/scripts/common.sh",
     `
 load_secrets_env() {
+  if [ -e "$SOFT_RESET_FIXTURE/missing-secrets" ]; then
+    echo "ERROR: fixture .secrets/$1 is missing" >&2
+    return 1
+  fi
   export TF_VAR_cloudflare_account_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   export TF_VAR_planetscale_organization=tearleads TF_VAR_domain=example.test
   export PLANETSCALE_SERVICE_TOKEN_ID=fixture PLANETSCALE_SERVICE_TOKEN=fixture

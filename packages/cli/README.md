@@ -36,6 +36,7 @@ Commands:
   orgs     List the organizations you belong to.
   verify-seed  Read back the original fixture contents and attachment bytes.
   seed     Sync the Continuity screenshot dataset to your personal organization.
+           With --roster, also seed its groups and their members.
   ls       List the folders of your organization, or of --org <id>.
 ```
 
@@ -96,6 +97,21 @@ upload, the web app follows the edit and an encrypted fixture blob can remain
 bound on the server. [Attachment binding follow-up](https://github.com/a2f0/tearleads/issues/3070)
 A signed purge proof keeps a permanently deleted fixture out of future imports.
 A changed seed manifest can produce a new set of documents.
+
+### Roster and groups
+
+`seed --roster` also seeds the dataset's organization groups (today a Family
+group of three relatives). Each member gets an account whose recovery key is
+derived from yours and the member's Continuity ID, so no one else can derive
+it and every run reaches the same accounts. The command signs in as each
+member to make their identity link, verifies the link as an Org Manager admin
+would, adds the member to your roster under their contact name, and then to
+the group, creating the group when your organization has none by that name.
+A rerun finds the same members and changes nothing.
+
+Each member takes a seat in your organization, so on a billed organization
+this raises the seat count. The screenshot run passes `--roster`; leave it
+off for an account you only want documents in.
 
 To diagnose an import, run the read-only check in a fresh local session:
 

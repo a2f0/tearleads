@@ -157,16 +157,15 @@ exited zero** and the descendants stop cooperatively. The failed step retains
 its timing, lock, and private evidence; no later reset effect runs. The reset's
 source checks and API source/index probes disable inherited Git fsmonitor.
 
-Commands that can run Terraform receive **one SIGINT** to their detached
-process group and a fixed **60-second grace period**, measured from the first
+Commands that can run Terraform receive **one SIGINT** to their detached process
+group and a fixed **60-second grace period**, measured from the first
 cancellation or automatic cleanup, to stop work, save partial state, and release
-backend locks. This
-includes `init` inside stack-output wrappers, plan/apply, API preflight and
-API deployment, and the drop-owned/empty-bucket helpers. A wrapper exiting
-does not end the grace period while descendants remain. Wrappers also stop
-after interrupted initialization even when Terraform exits zero. Ordinary builds,
-maintenance, non-Terraform deployers, and direct read-only probes instead
-receive SIGTERM with a one-second grace period.
+backend locks. This includes `init` inside stack-output wrappers, plan/apply,
+API preflight and API deployment, and the drop-owned/empty-bucket helpers. A
+wrapper exiting does not end the grace period while descendants remain. Wrappers
+also stop after interrupted initialization even when Terraform exits zero.
+Ordinary builds, maintenance, non-Terraform deployers, and direct read-only
+probes instead receive SIGTERM with a one-second grace period.
 
 At the deadline, the remaining group receives SIGKILL, with a one-second
 post-kill observation budget. A forced-timeout diagnostic means
@@ -178,11 +177,12 @@ escape the owned group, host failure, and noncooperating providers require
 manual investigation. The grace period is not configurable through environment
 variables or CLI flags, and cancellation never starts a later reset step.
 
-Successful runs retain sanitized identity/schema/timing records and remove
-their private command outputs, saved plans, and owned lock. A failed or
-interrupted run keeps its lock and private evidence, including sensitive
-credentials/plans, so an accidental fresh run is refused. A hard kill or host
-failure can leave a `running` phase; do not interpret that as success.
+Successful runs retain sanitized identity/schema/timing records and remove their
+private command outputs, saved plans, and owned lock. A run that fails in
+`credentials`, which calls no provider, releases its lock so it can be fixed and
+rerun. Any other failed or interrupted run keeps its lock and private evidence,
+including sensitive credentials/plans, so an accidental fresh run is refused. A
+hard kill or host failure can leave a `running` phase; never read it as success.
 
 There is **no rollback**. On failure, stop and read the exact failed phase and
 its private command logs. Confirm the owner PID and its children are gone,

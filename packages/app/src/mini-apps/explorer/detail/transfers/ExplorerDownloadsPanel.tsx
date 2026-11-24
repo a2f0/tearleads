@@ -11,8 +11,6 @@ import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useMemo, useState } from "react";
 import {
   MiniAppButton,
-  MiniAppHeader,
-  MiniAppHeaderCopy,
   MiniAppPanel,
   MiniAppStatus,
 } from "../../../../components/mini-app/MiniAppLayout";
@@ -265,12 +263,6 @@ export function ExplorerDownloadsPanel(params: {
   });
   return (
     <MiniAppPanel className="explorer-detail explorer-detail--incoming" scroll>
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{EXPLORER_LABELS.incomingAction}</strong>
-          <span>{EXPLORER_LABELS.downloadsDescription}</span>
-        </MiniAppHeaderCopy>
-      </MiniAppHeader>
       {state.status === "failed" ? (
         <MiniAppStatus role="alert">{state.message}</MiniAppStatus>
       ) : (
@@ -280,7 +272,7 @@ export function ExplorerDownloadsPanel(params: {
             : getExplorerDownloadsCountLabel(pendingCount)}
         </MiniAppStatus>
       )}
-      <MiniAppTableFrame className="mini-app-table-frame--bleed">
+      <MiniAppTableFrame className="mini-app-table-frame--bleed mini-app-table-frame--edges">
         <MiniAppTable
           aria-label={EXPLORER_LABELS.downloadsTitle}
           columns={COLUMNS}

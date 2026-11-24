@@ -291,9 +291,10 @@
  * this reads as "no cap" for all of them.
  *
  * This releases the shell subtree, not the tier: portaled surfaces (menus,
- * modals, the image viewer) render outside it and keep the 34rem cap. Harmless
- * while they stay narrower than the measure — `--modal-width` is 22rem — but a
- * portal that outgrows it would need the release repeated on its own root.
+ * modals, the image viewer) render outside it and keep the 34rem cap. A modal
+ * portaled to the body therefore centers its content in a 34rem column on the
+ * widest phones, where one inside the shell spans the pane; a portal that
+ * needs the full width would have to repeat the release on its own root.
  */
 .routed-pane--mobile {
   --form-measure: 100%;
