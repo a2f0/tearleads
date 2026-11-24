@@ -38,14 +38,20 @@ async function sealedRecord() {
       plaintext,
     ),
   );
-  const open = (sealed: Uint8Array<ArrayBuffer> = ciphertext) =>
-    openAesGcmRecord({
-      additionalData,
-      ciphertext: sealed,
-      decryptKey: key,
-      encryptKey: async () => key,
-      iv,
-    });
+  const open = (
+    sealed: Uint8Array<ArrayBuffer> = ciphertext,
+    buildCanary?: (length: number) => Uint8Array<ArrayBuffer>,
+  ) =>
+    openAesGcmRecord(
+      {
+        additionalData,
+        ciphertext: sealed,
+        decryptKey: key,
+        encryptKey: async () => key,
+        iv,
+      },
+      buildCanary,
+    );
   return { ciphertext, iv, open, plaintext };
 }
 
@@ -78,11 +84,49 @@ test("an intact record opens", async () => {
   );
 });
 
+/** A canary builder that records the length of each canary it builds. */
+function countingCanaries() {
+  const lengths: number[] = [];
+  const build = (length: number) => {
+    lengths.push(length);
+    return new Uint8Array(length).fill(0x5a);
+  };
+  return { build, lengths };
+}
+
+function tamperedCopy(ciphertext: Uint8Array<ArrayBuffer>) {
+  const tampered = new Uint8Array(ciphertext);
+  tampered[0] = (tampered[0] ?? 0) ^ 1;
+  return tampered;
+}
+
+test("a record that opens builds no canary", async () => {
+  const record = await sealedRecord();
+  const canaries = countingCanaries();
+  expect((await record.open(record.ciphertext, canaries.build)).status).toBe(
+    "opened",
+  );
+  expect(canaries.lengths).toEqual([]);
+});
+
 test("a record whose tag fails is refused once canaries round-trip", async () => {
   const record = await sealedRecord();
-  const tampered = new Uint8Array(record.ciphertext);
-  tampered[0] = (tampered[0] ?? 0) ^ 1;
-  expect((await record.open(tampered)).status).toBe("refused");
+  const canaries = countingCanaries();
+  const opening = await record.open(
+    tamperedCopy(record.ciphertext),
+    canaries.build,
+  );
+  expect(opening.status).toBe("refused");
+  // One canary the size of the record's plaintext serves both round trips.
+  expect(canaries.lengths).toEqual([record.plaintext.length]);
+});
+
+test("a canary this runtime cannot build is the runtime's", async () => {
+  const record = await sealedRecord();
+  const opening = await record.open(tamperedCopy(record.ciphertext), () => {
+    throw new RangeError("Array buffer allocation failed");
+  });
+  expect(opening.status).toBe("runtime");
 });
 
 test("a fault that hits every buffer the record's size is the runtime's", async () => {

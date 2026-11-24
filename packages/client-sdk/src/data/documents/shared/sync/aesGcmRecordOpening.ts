@@ -42,14 +42,21 @@ function canaryPlaintext(length: number): Uint8Array<ArrayBuffer> {
  * the record must be refused again, and a second canary must round-trip
  * after that. Only then is the refusal the record's, which every reader
  * holding the key reaches. The canaries never leave this device.
+ *
+ * The canary is built only after a refusal, so a record that opens costs no
+ * second plaintext-sized buffer, and a failure to build one is the runtime's.
+ * `buildCanary` is replaced only by tests that count the builds.
  */
-export async function openAesGcmRecord(input: {
-  readonly additionalData: Uint8Array<ArrayBuffer>;
-  readonly ciphertext: Uint8Array<ArrayBuffer>;
-  readonly decryptKey: CryptoKey;
-  readonly encryptKey: () => Promise<CryptoKey>;
-  readonly iv: Uint8Array<ArrayBuffer>;
-}): Promise<AesGcmRecordOpening> {
+export async function openAesGcmRecord(
+  input: {
+    readonly additionalData: Uint8Array<ArrayBuffer>;
+    readonly ciphertext: Uint8Array<ArrayBuffer>;
+    readonly decryptKey: CryptoKey;
+    readonly encryptKey: () => Promise<CryptoKey>;
+    readonly iv: Uint8Array<ArrayBuffer>;
+  },
+  buildCanary: (length: number) => Uint8Array<ArrayBuffer> = canaryPlaintext,
+): Promise<AesGcmRecordOpening> {
   const algorithm = (iv: Uint8Array<ArrayBuffer>) => ({
     name: "AES-GCM",
     iv,
@@ -69,18 +76,20 @@ export async function openAesGcmRecord(input: {
         : { status: "runtime", error };
     }
   };
-  const canary = canaryPlaintext(
-    Math.max(0, input.ciphertext.length - AES_GCM_TAG_BYTES),
-  );
+  let canary: Uint8Array<ArrayBuffer> | undefined;
   let encryptKey: Promise<CryptoKey> | undefined;
   const roundTrip = async (): Promise<AesGcmRecordOpening | undefined> => {
     try {
+      canary ??= buildCanary(
+        Math.max(0, input.ciphertext.length - AES_GCM_TAG_BYTES),
+      );
+      const expected = canary;
       encryptKey ??= input.encryptKey();
       const iv = createAesGcmIv();
       const sealed = await crypto.subtle.encrypt(
         algorithm(iv),
         await encryptKey,
-        canary,
+        expected,
       );
       const opened = new Uint8Array(
         await crypto.subtle.decrypt(
@@ -90,8 +99,8 @@ export async function openAesGcmRecord(input: {
         ),
       );
       if (
-        opened.length !== canary.length ||
-        opened.some((byte, index) => byte !== canary[index])
+        opened.length !== expected.length ||
+        opened.some((byte, index) => byte !== expected[index])
       ) {
         throw new Error("AES-GCM canary did not round-trip");
       }
