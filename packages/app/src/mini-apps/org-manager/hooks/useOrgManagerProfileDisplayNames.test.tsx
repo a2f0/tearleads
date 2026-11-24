@@ -22,7 +22,7 @@ import {
   SECOND_PROFILE_DOCUMENT_ID,
   subscribeToNoContainerChanges,
   USER_ID,
-} from "./useOrgManagerProfileDisplayNames.testUtils";
+} from "./useOrgManagerProfileDisplayNames.testFixtures";
 
 afterEach(() => cleanup());
 

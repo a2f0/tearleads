@@ -20,7 +20,7 @@ import {
   rosterUser,
   runtime,
   USER_ID,
-} from "./useOrgManagerProfileDisplayNames.testUtils";
+} from "./useOrgManagerProfileDisplayNames.testFixtures";
 
 afterEach(() => cleanup());
 
