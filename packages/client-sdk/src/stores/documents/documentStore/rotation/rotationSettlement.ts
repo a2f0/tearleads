@@ -1,5 +1,9 @@
 import { encodeVersionVector, satisfiesVersionVector } from "@tearleads/loro";
-import type { PendingUpdateRecord } from "../../../../workflows/documents";
+import {
+  createDocumentSyncLoroWindow,
+  type PendingUpdateRecord,
+  settleDocumentSyncLoroWindow,
+} from "../../../../workflows/documents";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { chainIdentityWrite } from "../identityWriteChain";
 import { listPendingUpdates, persistDocument } from "../persistence";
@@ -261,12 +265,16 @@ async function settleOrdinaryUpdatePass(input: {
     state,
     sentUpdateIds,
     async () => {
+      // The judge reads served updates the settlement never imports: its
+      // window ends with the request (#3194).
+      const loroWindow = createDocumentSyncLoroWindow();
       const syncAttempt = await requestRemoteDocumentSync({
         allowRecoveryBaseline: false,
         currentDoc,
         currentRecord: prepared.record,
         encapsulationKeyPair,
         generation,
+        loroWindow,
         onOutgoingUpdatesMaterialized: (updateIds) =>
           preRegisterMaterializedDocumentSyncUpdateIds(
             state,
@@ -280,7 +288,7 @@ async function settleOrdinaryUpdatePass(input: {
         state,
         unavailableWriterLogMessage:
           "Documents: rotation could not settle local updates because the writer context is unavailable.",
-      });
+      }).finally(() => settleDocumentSyncLoroWindow(loroWindow, null));
       if (
         !syncAttempt ||
         !isDocumentStoreSyncGenerationCurrent(state, generation)

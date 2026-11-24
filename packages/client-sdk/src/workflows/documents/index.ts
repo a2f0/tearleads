@@ -171,6 +171,7 @@ export {
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,
 } from "./sync/syncTrace";
+export { judgeUnrecordedDocumentSyncImports } from "./sync/unrecordedImports";
 export {
   describeDocumentRevalidationFailure,
   describeDocumentSyncSubmitFailure,
