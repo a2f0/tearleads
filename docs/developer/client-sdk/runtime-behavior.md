@@ -275,7 +275,11 @@ It first waits up to 10 seconds for open documents to write their edits to
 SQLite (`hasPendingLocalDocumentWrites`, for every runtime in the page), and
 looks again once the SDK has drained, since the user may type meanwhile.
 Native shells ignore the unload prompt, so if edits are still unsaved it asks
-before reloading and losing them. `location.reload()` returns before the page
-unloads, so the notice waits on "Reloading…" until the status returns to
-`restartRequired`. The command line runs one lifetime per command, so its next
-command is fresh.
+before reloading and losing them. Once its user chooses to reload anyway, that
+reload skips the page's own unload prompt in browsers that dispatch it inside
+`location.reload()` (Chromium and Firefox; Safari dispatches it later, so it
+still asks). A step that throws offers the press again or a reload anyway.
+`location.reload()` returns before the page unloads, so the notice waits on
+"Reloading…" until the status returns to `restartRequired`. The notice takes
+its own row above any billing warning, so both show. The command line runs one
+lifetime per command, so its next command is fresh.

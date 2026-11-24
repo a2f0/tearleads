@@ -45,6 +45,7 @@ test("a first sign-in still pulling content reads as syncing, with what is left"
   });
   expect(
     describeSyncStatusDetails({
+      unavailableReason: null,
       downloads,
       lanes: { ...NO_LANES, running: 3 },
       pausedOrganizationCount: 0,
@@ -178,6 +179,7 @@ test("offline hides lane failures and activity from the status and the popover",
   });
   expect(
     listSyncStatusActions({
+      unavailableReason: null,
       billingBlock: null,
       canSync: false,
       downloads: { failed: 0, firstError: null, pending: 0, status: "read" },
@@ -205,6 +207,7 @@ test("a pending download with a recorded error is named in the popover", () => {
   });
   expect(
     describeSyncStatusDetails({
+      unavailableReason: null,
       downloads,
       lanes: NO_LANES,
       pausedOrganizationCount: 0,
@@ -219,6 +222,7 @@ test("a pending download with a recorded error is named in the popover", () => {
   ]);
   expect(
     describeSyncStatusDetails({
+      unavailableReason: null,
       downloads: summarizeDownloadQueue({
         items: [],
         message: "Storage unavailable",
@@ -278,6 +282,7 @@ test("a write being flushed reads differently from one that is waiting", () => {
 
 test("the popover offers Sync now and a view for each line that needs one", () => {
   const quiet = {
+    unavailableReason: null,
     billingBlock: null,
     canSync: true,
     downloads: { failed: 0, firstError: null, pending: 0, status: "read" },

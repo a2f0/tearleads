@@ -9,6 +9,7 @@ import type { SyncStatusResult } from "./useSyncStatus";
 afterEach(cleanup);
 
 const SYNCED: SyncStatusResult = {
+  unavailableReason: null,
   billingBlock: null,
   lanes: { failed: 0, firstError: null, running: 0 },
   pausedOrganizationCount: 0,

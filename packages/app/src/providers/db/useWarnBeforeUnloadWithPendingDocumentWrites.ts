@@ -3,7 +3,10 @@ import {
   hasPendingLocalDocumentWrites,
 } from "@tearleads/client-sdk";
 import { useEffect } from "react";
-import { registerPageDocumentWrites } from "./pageDocumentWrites";
+import {
+  isReloadDiscardingPageDocumentWrites,
+  registerPageDocumentWrites,
+} from "./pageDocumentWrites";
 
 /**
  * Ask before leaving the page while any open document still holds local edits
@@ -19,7 +22,9 @@ import { registerPageDocumentWrites } from "./pageDocumentWrites";
  * native shells (Capacitor WebView, Electrobun) may ignore it entirely; there
  * the guard is a harmless no-op. So a reload the app itself starts asks
  * first: the same check is registered for the page while mounted
- * (`registerPageDocumentWrites`). The scope is read at event time so the
+ * (`registerPageDocumentWrites`), and once its user chose to lose the edits,
+ * that reload asks nothing more (`reloadDiscardingPageDocumentWrites`).
+ * The scope is read at event time so the
  * check always covers every open document in the current domain scope.
  */
 export function useWarnBeforeUnloadWithPendingDocumentWrites(
@@ -35,7 +40,8 @@ export function useWarnBeforeUnloadWithPendingDocumentWrites(
 
     const pending = () => hasPendingWrites(sdk.domainScope);
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!pending()) {
+      // The app already asked about these edits before its own reload.
+      if (isReloadDiscardingPageDocumentWrites() || !pending()) {
         return;
       }
       event.preventDefault();
