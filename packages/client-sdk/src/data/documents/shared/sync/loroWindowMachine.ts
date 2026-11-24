@@ -6,11 +6,9 @@
 
 /** A window another lifetime left, as stored. */
 export interface LoroWindow {
-  readonly contentKeyEpoch: number | null;
   readonly counts: boolean;
   readonly documentId: string;
   readonly judge: string;
-  readonly keyFingerprint: string | null;
   readonly lifetimeId: string;
   /** The unsettled updates it read, in server order. */
   readonly updateIds: readonly string[];
@@ -19,12 +17,7 @@ export interface LoroWindow {
 /** What a window whose lifetime ended means for its updates. */
 export type OrphanVerdict =
   /** The lifetime died reading this update alone: one attempt toward it. */
-  | {
-      readonly kind: "count";
-      readonly contentKeyEpoch: number | null;
-      readonly keyFingerprint: string | null;
-      readonly updateId: string;
-    }
+  | { readonly kind: "count"; readonly updateId: string }
   /** The death says nothing about any one update: read each alone. */
   | { readonly kind: "isolate"; readonly suspects: readonly string[] }
   /**
@@ -69,12 +62,7 @@ export function judgeOrphanWindow(
     window.updateIds.length === 1 &&
     only !== undefined
   ) {
-    return {
-      kind: "count",
-      contentKeyEpoch: window.contentKeyEpoch,
-      keyFingerprint: window.keyFingerprint,
-      updateId: only,
-    };
+    return { kind: "count", updateId: only };
   }
   return { kind: "isolate", suspects: window.updateIds };
 }

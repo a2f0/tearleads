@@ -21,7 +21,6 @@ import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
 } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
-import { deriveDocumentContentKeyCommitments } from "../../../../data/documents/shared/sync/contentKeyCommitment";
 import { documentVerdictJudge } from "../../../../data/documents/shared/sync/documentUpdateVerdict";
 import { MAX_LORO_RUNTIME_ATTEMPTS } from "../../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
@@ -170,17 +169,11 @@ test("rotation keeps an update this device voided out of the rebuild", async () 
       liveDocument: fixture.remoteDocument,
       localId,
     });
-    const { contentKeyEpoch } = fixture.writerProjection.contentKeyBundle;
     const { documentId } = fixture.writerProjection;
-    const fingerprints = await deriveDocumentContentKeyCommitments({
-      contentKeysByEpoch: new Map([[contentKeyEpoch, fixture.contentKey]]),
-      documentId,
-    });
     await execSql(
       `INSERT INTO document_void_updates (app_kind, local_id, document_id,
-         update_id, stage, message, attempts, judge, content_key_epoch,
-         key_fingerprint, voided_at)
-       VALUES ('documents', ?, ?, ?, 'loro_runtime', 'trapped', ?, ?, ?, ?,
+         update_id, stage, message, attempts, judge, voided_at)
+       VALUES ('documents', ?, ?, ?, 'loro_runtime', 'trapped', ?, ?,
          '2026-11-23T00:00:00.000Z')`,
       [
         localId,
@@ -188,8 +181,6 @@ test("rotation keeps an update this device voided out of the rebuild", async () 
         voidedId,
         MAX_LORO_RUNTIME_ATTEMPTS,
         documentVerdictJudge(),
-        contentKeyEpoch,
-        fingerprints.get(contentKeyEpoch) ?? null,
       ],
     );
 

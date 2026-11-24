@@ -46,6 +46,17 @@ import { reportQuietly } from "./reportQuietly";
  * its last completed pull, while the persisted frontier still covers the
  * version recorded with it and every verdict behind it came from the running
  * judge. Otherwise undefined, and the pull goes by version alone.
+ *
+ * The content key this pass holds is no input. The running judge accepts or
+ * voids an update only under the key its writer-signed envelope commits to,
+ * and a pass holding another key fails at that update and records no
+ * verdict for it, so every verdict behind the cursor is the one the
+ * committed key gives. A cursor recorded before readers checked the commitment carries an
+ * older judge and is withheld. A pass that now holds another key for an
+ * epoch cannot judge those updates differently: it can only fail on the
+ * epoch's updates after the cursor. `ContentKeyCommitment.tla` checks this:
+ * `Fetch` and `StaleKey` change a reader's keys and leave its cursor, and
+ * `VerdictsAreCanonical` holds.
  */
 export async function readProcessedCursorForSync(
   execSql: ExecSql,
@@ -67,6 +78,10 @@ export async function readProcessedCursorForSync(
  * document version it cites, so the API skips the updates this device
  * already judged; undefined when no cursor's recorded version is covered by
  * `version`, and the API then weighs every committed update.
+ *
+ * It needs no content key: every verdict behind any cursor was reached under
+ * the key its update's signed envelope commits to, which is the verdict every
+ * reader reaches, so a cursor from any scope stands for the server's history.
  */
 export async function readProcessedCursorForVersion(
   execSql: ExecSql,
@@ -111,24 +126,16 @@ function isImportJudgeStage(stage: string): stage is DocumentVoidStage {
 }
 
 /**
- * Splits the recorded verdicts this pass's keys still stand behind: a final
- * void stays void without a Loro call, and an unsettled runtime failure
- * keeps its attempts.
+ * Splits the recorded verdicts: a final void stays void without a Loro call,
+ * and an unsettled runtime failure keeps its attempts.
  */
 function recordedImportJudgements(
   recorded: readonly RecordedImportVoid[],
-  fingerprintsByEpoch: ReadonlyMap<number, string>,
 ): RecordedImportJudgements {
   const knownVoids = new Map<string, DocumentVoidStage>();
   const runtimeAttempts = new Map<string, number>();
   for (const row of recorded) {
-    if (
-      !isImportJudgeStage(row.stage) ||
-      (row.contentKeyEpoch !== null &&
-        fingerprintsByEpoch.get(row.contentKeyEpoch) !== row.keyFingerprint)
-    ) {
-      continue;
-    }
+    if (!isImportJudgeStage(row.stage)) continue;
     const attempts = row.attempts ?? 0;
     if (row.stage === "loro_runtime" && attempts < MAX_LORO_RUNTIME_ATTEMPTS) {
       runtimeAttempts.set(row.updateId, attempts);
@@ -141,10 +148,7 @@ function recordedImportJudgements(
 
 async function readRecordedImportJudgements(input: {
   readonly execSql: ExecSql;
-  readonly result: Pick<
-    SyncRemoteDocumentResult,
-    "contentKeyFingerprintsByEpoch" | "decryptedUpdates"
-  >;
+  readonly result: Pick<SyncRemoteDocumentResult, "decryptedUpdates">;
   readonly scope: DocumentScope;
 }): Promise<RecordedImportJudgements> {
   await ensureDocumentTables(input.execSql);
@@ -156,23 +160,17 @@ async function readRecordedImportJudgements(input: {
       updateIds: input.result.decryptedUpdates.map((update) => update.id),
     },
   );
-  return recordedImportJudgements(
-    recorded,
-    input.result.contentKeyFingerprintsByEpoch,
-  );
+  return recordedImportJudgements(recorded);
 }
 
 /**
- * The final voids this scope recorded for a page's updates, under the running
- * judge and the keys the page holds: a judge that records nothing, such as a
- * rotation's raw-history judge, keeps them void without a Loro call.
+ * The final voids this scope recorded for a page's updates under the running
+ * judge: a judge that records nothing, such as a rotation's raw-history
+ * judge, keeps them void without a Loro call.
  */
 export async function readRecordedDocumentSyncVoids(input: {
   readonly execSql: ExecSql;
-  readonly result: Pick<
-    SyncRemoteDocumentResult,
-    "contentKeyFingerprintsByEpoch" | "decryptedUpdates"
-  >;
+  readonly result: Pick<SyncRemoteDocumentResult, "decryptedUpdates">;
   readonly scope: DocumentScope;
 }): Promise<ReadonlyMap<string, DocumentVoidStage>> {
   return (await readRecordedImportJudgements(input)).knownVoids;
@@ -181,8 +179,7 @@ export async function readRecordedDocumentSyncVoids(input: {
 /**
  * Judges a sync page's imports against `currentDocument`. An update this
  * scope already voided at a stage the import judge decides, under the
- * running judge and the content key this pass holds for its epoch, stays
- * void without being read again: a re-served void costs nothing, so a pass
+ * running judge, stays void without being read again: a re-served void costs nothing, so a pass
  * that deferred part of its page makes progress on the next one.
  *
  * Every Loro runtime failure is recorded before this returns, in its own
@@ -211,7 +208,7 @@ export async function judgeDocumentSyncImports(input: {
   readonly loroWindow?: DocumentSyncLoroWindow | undefined;
   readonly result: Pick<
     SyncRemoteDocumentResult,
-    "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
+    "decryptedUpdates" | "response"
   >;
   /** @internal This process's runtime failures; tests stand in a new one. */
   readonly runtimeLedger?: LoroRuntimeAttempts | undefined;
@@ -257,10 +254,6 @@ async function recordDocumentSyncRuntimeFailures(input: {
   readonly isCurrent?: (() => boolean) | undefined;
   readonly lifetimes: LoroLifetimes;
   readonly logError?: WorkflowRuntimeUtilInput["logError"] | undefined;
-  readonly result: Pick<
-    SyncRemoteDocumentResult,
-    "contentKeyFingerprintsByEpoch"
-  >;
   readonly scope: DocumentScope;
   readonly verdicts: DocumentSyncImportVerdicts;
 }): Promise<void> {
@@ -277,13 +270,10 @@ async function recordDocumentSyncRuntimeFailures(input: {
             acceptedUpdateIds: [],
             documentId: input.documentId,
             judge: documentVerdictJudge(),
-            keyFingerprintsByEpoch: input.result.contentKeyFingerprintsByEpoch,
             now: new Date().toISOString(),
-            resolvesKeyConflicts: false,
             scope: input.scope,
             voids: failures.map((failure) => ({
               attempts: failure.attempts,
-              contentKeyEpoch: failure.contentKeyEpoch,
               message: failure.error.message,
               stage: "loro_runtime",
               updateId: failure.updateId,
@@ -336,7 +326,6 @@ function documentSyncVerdictInput(input: {
     acceptedUpdateIds: synced.decryptedUpdates.map((update) => update.id),
     documentId: synced.plan.documentId,
     judge: documentVerdictJudge(),
-    keyFingerprintsByEpoch: synced.contentKeyFingerprintsByEpoch,
     now: new Date().toISOString(),
     pullPage: input.advancesCursor
       ? {
@@ -364,7 +353,6 @@ function documentSyncVerdictInput(input: {
       // A served runtime void is final; its row may not be written yet.
       attempts:
         voided.stage === "loro_runtime" ? MAX_LORO_RUNTIME_ATTEMPTS : null,
-      contentKeyEpoch: voided.contentKeyEpoch,
       message: voided.error.message,
       stage: voided.stage,
       updateId: voided.updateId,

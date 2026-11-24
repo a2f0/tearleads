@@ -66,9 +66,8 @@ incomplete, and drops the page's continuation, so its next pull serves them
 again. Voids that change nothing (a counter gap read from the update's
 metadata, a collision with operations already held, an undecodable payload)
 cost no rebuild. An update this device already voided at a stage the import
-judge decides, under the same judge and the same content key, stays void
-without another Loro call, so every pass judges at least one update the last
-one did not.
+judge decides, under the same judge, stays void without another Loro call, so
+every pass judges at least one update the last one did not.
 
 ## Loro Runtime Failures
 
@@ -93,9 +92,8 @@ document.
 Only the first runtime failure in a process counts as an attempt, because a
 later one may be the module's state, not the update. Once three process
 lifetimes have each failed the update, it is a final void like the others, is
-reported as such, and is never read again under that judge and key. A new
-decoder or another content key judges it from zero. An update that imports on
-a retry joins.
+reported as such, and is never read again under that judge. A new decoder
+judges it from zero. An update that imports on a retry joins.
 
 A payload can also kill the process outright (an out-of-memory crash, or a
 renderer crash) rather than throw. Document sync reads a page inside a read
@@ -265,9 +263,17 @@ frontier does not cover again, when:
 
 - its judge changed, so a newer decoder reads what an older one voided;
 - its frontier no longer covers the one recorded with the cursor, as after its
-  state is replaced;
-- a void was judged under a different content key for its epoch than the one it
-  now holds.
+  state is replaced.
+
+The content key the reader holds is not among them. Every verdict behind a
+cursor was reached under the key its update's envelope commits to, and every
+reader holding that key reaches the same one. A cursor recorded before readers
+checked the commitment carries an older judge, so it is withheld. Neither a
+void row nor a cursor records a key, and a later pass holding another key for
+an epoch leaves both as they are: it cannot judge the updates behind the
+cursor differently, only fail on that epoch's later ones.
+[`ContentKeyCommitment`](../formal/document-sync/ContentKeyCommitment.md)
+checks this, since its key changes leave every reader's cursor where it is.
 
 A pull of several pages advances the cursor only if every page after the first
 went out under the judge and the cursor its first page was sent with. The

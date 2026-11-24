@@ -153,14 +153,11 @@ test("a death toward an update another tab voided leaves that void", async () =>
       acceptedUpdateIds: [],
       documentId: DOCUMENT_ID,
       judge: documentVerdictJudge(),
-      keyFingerprintsByEpoch: new Map(),
       now: "2026-11-23T00:00:00.000Z",
-      resolvesKeyConflicts: false,
       scope: SCOPE,
       voids: [
         {
           attempts: null,
-          contentKeyEpoch: null,
           message: "voided elsewhere",
           stage: "loro_import",
           updateId: FIRST,
@@ -371,7 +368,6 @@ test("a death building the reader's history opens no window", async () => {
     logError: () => undefined,
     loroWindow: createDocumentSyncLoroWindow(),
     result: {
-      contentKeyFingerprintsByEpoch: new Map(),
       decryptedUpdates: [update],
       response: EMPTY_RESPONSE,
     },

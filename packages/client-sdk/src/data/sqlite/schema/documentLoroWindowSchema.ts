@@ -23,9 +23,6 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  * - `counts`: 1 when the window held one update and its lifetime had met no
  *   Loro runtime failure, so a death inside it is an attempt toward that
  *   update; 0 when a death isolates the window's updates instead.
- * - `contentKeyEpoch`, `keyFingerprint`: For a counting window, the update's
- *   epoch and content-key fingerprint, so the attempt is recorded under the
- *   key it was read with.
  * - `judge`: The judge (`documentVerdictJudge`) the window read with. A
  *   window left by another judge counts nothing.
  * - `openedAt`: When it was opened, for diagnostics.
@@ -40,8 +37,6 @@ export const documentLoroWindows = sqliteTable(
     documentId: text("document_id").notNull(),
     updateIds: text("update_ids").notNull(),
     counts: integer("counts").notNull(),
-    contentKeyEpoch: integer("content_key_epoch"),
-    keyFingerprint: text("key_fingerprint"),
     judge: text("judge").notNull(),
     openedAt: text("opened_at").notNull(),
   },

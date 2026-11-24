@@ -53,7 +53,6 @@ function record(overrides: Partial<DocumentSyncVerdictInput> = {}) {
       acceptedUpdateIds: [],
       documentId: DOCUMENT_ID,
       judge: JUDGE,
-      keyFingerprintsByEpoch: new Map([[1, "key-a"]]),
       now: "2026-11-22T00:00:01.000Z",
       scope: SCOPE,
       voids: [],
@@ -65,7 +64,6 @@ function record(overrides: Partial<DocumentSyncVerdictInput> = {}) {
 function liar(updateId = LIAR) {
   return {
     attempts: null,
-    contentKeyEpoch: 1,
     message: "declared span is false",
     stage: "loro_metadata",
     updateId,
@@ -105,7 +103,6 @@ const completed: PullPagePosition = {
 test("a completed pull's cursor is sent only while every input behind it holds", async () => {
   expect(await sendable()).toBeUndefined();
   expect(await record({ pullPage: completed })).toEqual({
-    cursorCleared: false,
     newlyPreemptedUpdateIds: [],
     newlyVoidedUpdateIds: [],
   });
@@ -152,39 +149,9 @@ test("a void is reported once and dropped when the update is accepted", async ()
   expect(await voidIds()).toEqual([OTHER_LIAR]);
 });
 
-test("a void judged under another key for its epoch is dropped with the cursor", async () => {
-  await record({ pullPage: completed, voids: [liar()] });
-  expect(await sendable()).toBe(THROUGH);
-
-  const outcome = await record({
-    pullPage: { ...completed, sentCursor: THROUGH },
-    keyFingerprintsByEpoch: new Map([[1, "key-b"]]),
-  });
-  expect(outcome).toEqual({
-    cursorCleared: true,
-    newlyPreemptedUpdateIds: [],
-    newlyVoidedUpdateIds: [],
-  });
-  expect(await voidIds()).toEqual([]);
-  expect(await sendable()).toBeUndefined();
-
-  // Another epoch's key says nothing about this void.
-  await record({ pullPage: completed, voids: [liar()] });
-  expect(
-    (
-      await record({
-        pullPage: completed,
-        keyFingerprintsByEpoch: new Map([[2, "key-c"]]),
-      })
-    ).cursorCleared,
-  ).toBe(false);
-  expect(await voidIds()).toEqual([LIAR]);
-});
-
 test("a scope that is gone or holds another document keeps no verdicts", async () => {
   await setRecord(FRONTIER, OTHER_LIAR);
   expect(await record({ pullPage: completed, voids: [liar()] })).toEqual({
-    cursorCleared: false,
     newlyPreemptedUpdateIds: [],
     newlyVoidedUpdateIds: [],
   });
@@ -252,23 +219,4 @@ test("a pull whose pages keep one premise advances on its last page", async () =
   expect(await sendable()).toBe(THROUGH);
   await record({ pullPage: { ...premise, first: false, last: true } });
   expect(await sendable()).toBe(NEXT_THROUGH);
-});
-
-test("a key conflict on an earlier page keeps the pull's last page from recording a cursor", async () => {
-  await record({ pullPage: completed, voids: [liar()] });
-  const pages = {
-    held: false,
-    sentCursor: THROUGH,
-    throughUpdateId: NEXT_THROUGH,
-  };
-  expect(
-    (
-      await record({
-        keyFingerprintsByEpoch: new Map([[1, "key-b"]]),
-        pullPage: { ...pages, first: true, last: false },
-      })
-    ).cursorCleared,
-  ).toBe(true);
-  await record({ pullPage: { ...pages, first: false, last: true } });
-  expect(await sendable()).toBeUndefined();
 });
