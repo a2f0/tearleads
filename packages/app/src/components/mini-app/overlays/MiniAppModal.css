@@ -1,21 +1,90 @@
+/* A modal blocks the region it covers (see `MiniAppModalLayer`): a window's
+   content section, the routed shell, or the whole screen. */
 .mini-app-modal-backdrop {
   position: absolute;
   inset: 0;
   z-index: 10;
   display: flex;
+}
+
+.mini-app-modal-backdrop--raised {
+  z-index: 2000;
+}
+
+.mini-app-modal-backdrop--viewport {
+  position: fixed;
+  z-index: 2000;
+}
+
+.mini-app-modal-panel {
+  position: relative;
+  box-sizing: border-box;
+  background: var(--color-light);
+}
+
+/* Takeover, the default: the dialog replaces the region instead of floating a
+   small card over it, so a phone shows one full-screen step and a window
+   section gives the dialog its whole area. The opaque surface hides what the
+   modal blocks. */
+.mini-app-modal-backdrop--takeover {
+  background: var(--color-light);
+}
+
+/* A mini-app root inside a window sits within the body scroller's padding,
+   and lists and tab strips break out through that padding to the window's
+   edges (MiniAppTableEdges.css), so a takeover anchored on the root breaks out
+   by the same `--window-content-inset` to cover them. Where the root is not
+   the anchor, `.window-body-content` clips the overshoot; the routed shell
+   leaves the inset unset. */
+.mini-app-root > .mini-app-modal-backdrop--takeover {
+  inset: calc(-1 * var(--window-content-inset, 0px));
+}
+
+/* The panel fills the region and scrolls. Its content keeps one readable
+   column (the form measure, released to the full width on phones), and the
+   inline padding centers that column. The block padding clears the notch and
+   home indicator where the region reaches the screen's edge; the gap beside
+   the spacers below adds the margin inside it. */
+.mini-app-modal-panel--takeover {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+  padding-block: var(--safe-area-top) var(--safe-area-bottom);
+  padding-inline: max(
+      calc(var(--space-md) + var(--safe-area-left)),
+      calc((100% - var(--form-measure)) / 2)
+    )
+    max(
+      calc(var(--space-md) + var(--safe-area-right)),
+      calc((100% - var(--form-measure)) / 2)
+    );
+  overflow-y: auto;
+}
+
+/* Two flexible spacers center the column vertically while it fits. They
+   shrink to nothing once it does not, so a tall dialog scrolls from its title;
+   `justify-content: center` would push that title above the scrollport, out of
+   reach. */
+.mini-app-modal-panel--takeover::before,
+.mini-app-modal-panel--takeover::after {
+  content: "";
+  flex: 1 0 0;
+}
+
+/* Floating: a framed panel over the dimmed region, for a viewer that sizes its
+   own frame. */
+.mini-app-modal-backdrop--floating {
   align-items: center;
   justify-content: center;
   padding: var(--space-md);
   background: var(--overlay-background);
 }
 
-.mini-app-modal-panel {
-  position: relative;
-  width: min(100%, var(--modal-width));
-  box-sizing: border-box;
+.mini-app-modal-panel--floating {
   padding: var(--space-md);
   border: var(--border);
-  background: var(--color-light);
   border-radius: var(--app-radius-surface);
   box-shadow: var(--app-shadow-surface);
 }
@@ -26,7 +95,7 @@
   gap: var(--space-md);
 }
 
-.mini-app-modal-form h2 {
+.mini-app-modal-panel h2 {
   margin: 0;
   font-size: var(--font-size-md);
 }

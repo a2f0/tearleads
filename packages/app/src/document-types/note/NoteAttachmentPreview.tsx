@@ -249,6 +249,7 @@ function NoteAttachmentPreview({
 
   return createPortal(
     <MiniAppModalBackdrop
+      floating
       className={classNames(
         "note-attachment-preview-backdrop",
         fillsRoutedPane && "note-attachment-preview-backdrop--routed",
@@ -261,6 +262,7 @@ function NoteAttachmentPreview({
       }}
     >
       <MiniAppModalPanel
+        floating
         className={classNames(
           "note-attachment-preview-panel",
           windowed &&

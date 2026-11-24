@@ -111,7 +111,6 @@ export function AvatarEditorDialog({
       <MiniAppModalPanel
         aria-labelledby={titleId}
         aria-modal="true"
-        className="avatar-editor"
         role="dialog"
       >
         <h2 id={titleId}>{title}</h2>

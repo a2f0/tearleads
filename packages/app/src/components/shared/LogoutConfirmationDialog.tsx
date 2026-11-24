@@ -47,10 +47,7 @@ export function LogoutConfirmationDialog({
   };
 
   return (
-    <MiniAppModalBackdrop
-      className="logout-confirmation-dialog-backdrop"
-      role="presentation"
-    >
+    <MiniAppModalBackdrop layer="raised" role="presentation">
       <MiniAppModalPanel
         role="dialog"
         aria-labelledby={titleId}
