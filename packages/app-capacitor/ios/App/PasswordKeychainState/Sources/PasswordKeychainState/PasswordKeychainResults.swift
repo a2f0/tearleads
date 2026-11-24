@@ -48,10 +48,16 @@ func passwordKeychainPick(_ passphrase: String?) -> [String: String] {
     return ["passphrase": passphrase]
 }
 
-/// Whether a failed pick means the user chose nothing: they closed the sheet,
-/// or the app's domain has no saved password to offer.
+/// Whether a failed pick means the user chose nothing: they closed the sheet
+/// (`canceled`), or nothing could answer the request (`notHandled`), as when
+/// the app's domain has no saved password to offer. Other errors are failures.
 func passwordKeychainPickWasDismissed(_ error: Error) -> Bool {
-    (error as? ASAuthorizationError)?.code == .canceled
+    switch (error as? ASAuthorizationError)?.code {
+    case .canceled, .notHandled:
+        return true
+    default:
+        return false
+    }
 }
 
 /// The web credential domain a build's Info.plist names, or nil when its

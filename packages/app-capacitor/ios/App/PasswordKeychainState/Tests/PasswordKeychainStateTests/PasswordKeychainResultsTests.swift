@@ -42,9 +42,11 @@ final class PasswordKeychainResultsTests: XCTestCase {
         XCTAssertEqual(passwordKeychainPick(nil), [:])
     }
 
-    func testOnlyACanceledPickMeansNothingWasChosen() {
+    func testACanceledOrUnhandledPickMeansNothingWasChosen() {
         XCTAssertTrue(passwordKeychainPickWasDismissed(ASAuthorizationError(.canceled)))
+        XCTAssertTrue(passwordKeychainPickWasDismissed(ASAuthorizationError(.notHandled)))
         XCTAssertFalse(passwordKeychainPickWasDismissed(ASAuthorizationError(.failed)))
+        XCTAssertFalse(passwordKeychainPickWasDismissed(ASAuthorizationError(.unknown)))
         XCTAssertFalse(
             passwordKeychainPickWasDismissed(
                 NSError(domain: NSOSStatusErrorDomain, code: Int(errSecUserCanceled))
