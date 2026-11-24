@@ -93,6 +93,7 @@ async function saveStoredContainer(
     const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
     const save = async (tx: ClientSQLiteTransactionScope) => {
       const saved = await saveContainerContentsContainerRows({
+        committedSeedUpdateId: options?.committedSeedUpdateId,
         container,
         createIntent: options?.createIntent,
         moveIntent: options?.moveIntent,

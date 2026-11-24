@@ -86,6 +86,7 @@ async function syncPage(
     readonly fixture: Fixture;
     readonly sentCursor?: string | undefined;
     readonly served: Awaited<ReturnType<typeof createSyncResponse>>["updates"];
+    readonly throughUpdateCount: number;
     readonly throughUpdateId: string;
   },
   keyingExecSql: ExecSql,
@@ -101,6 +102,7 @@ async function syncPage(
     pullPage: {
       hasMore: false,
       nextCursor: null,
+      throughUpdateCount: input.throughUpdateCount,
       throughUpdateId: input.throughUpdateId,
     },
     updates: input.served,
@@ -157,7 +159,12 @@ test("a cursor stays sendable after the scope's key for an epoch changes", async
     });
     const { updates } = await createSyncResponse(written.plan);
     await syncPage(
-      { fixture: committed, served: updates, throughUpdateId: VOIDED_ID },
+      {
+        fixture: committed,
+        served: updates,
+        throughUpdateCount: 1,
+        throughUpdateId: VOIDED_ID,
+      },
       keyingExecSql,
     );
   });
@@ -179,6 +186,7 @@ test("a cursor stays sendable after the scope's key for an epoch changes", async
         fixture: rekeyed,
         sentCursor: VOIDED_ID,
         served: [],
+        throughUpdateCount: 2,
         throughUpdateId: NEXT_THROUGH,
       },
       keyingExecSql,

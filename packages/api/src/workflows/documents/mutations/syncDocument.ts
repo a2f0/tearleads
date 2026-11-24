@@ -10,6 +10,7 @@ import {
 } from "../../../access/read/documentContentKeyStore";
 import { readCommitCheckpoint } from "../../../documents/commitLsn";
 import { readProcessedThroughSequence } from "../../../documents/documentProcessedCursor";
+import { countDocumentUpdatesThrough } from "../../../documents/documentUpdateCount";
 import {
   assertMinLsnSatisfied,
   readDocumentUpdateUpperBound,
@@ -87,6 +88,11 @@ async function buildSyncDocumentTransactionResult(input: {
     targetHash: input.contentKeyBundle.targetHash,
   };
   const pullPagePlan = await resolveSyncPullPagePlan({
+    countUpdatesThrough: (sequence) =>
+      countDocumentUpdatesThrough(input.executor, {
+        documentId: input.documentId,
+        sequence,
+      }),
     cursorHmacKey: input.cursorHmacKey,
     identity: pullIdentity,
     processedThroughSequence: await readProcessedThroughSequence(
@@ -194,6 +200,8 @@ async function assertCreateSeedPullRequest(input: {
     await assertMinLsnSatisfied(input.executor, input.request.minLsn);
   }
   const plan = await resolveSyncPullPagePlan({
+    countUpdatesThrough: () =>
+      Promise.reject(new Error("A create seed's pull has no upper bound")),
     cursorHmacKey: null,
     identity: {
       contentKeyEpoch: input.contentKeyBundle.contentKeyEpoch,

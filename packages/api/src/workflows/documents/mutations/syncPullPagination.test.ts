@@ -34,6 +34,9 @@ function request(
   };
 }
 
+/** The document holds half as many updates as the global sequence. */
+const countUpdatesThrough = async (sequence: number) => sequence / 2;
+
 const resolveCursorBounds = async () => ({
   afterSequence: 12,
   upperBoundSequence: 42,
@@ -41,6 +44,7 @@ const resolveCursorBounds = async () => ({
 
 test("pull cursor retains the first page upper bound", async () => {
   const firstPlan = await resolveSyncPullPagePlan({
+    countUpdatesThrough,
     cursorHmacKey: CURSOR_HMAC_KEY,
     identity: IDENTITY,
     request: request(),
@@ -50,6 +54,7 @@ test("pull cursor retains the first page upper bound", async () => {
   expect(firstPlan).toEqual({
     afterSequence: 0,
     upperBoundSequence: 42,
+    upperBoundUpdateCount: 21,
     upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
   });
   if (!firstPlan) throw new Error("Expected a paginated pull plan");
@@ -68,6 +73,7 @@ test("pull cursor retains the first page upper bound", async () => {
   expect(normalCursorWire[0]).toBe(1);
   expect(
     await resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: IDENTITY,
       request: request({ pullCursor: firstPage.nextCursor ?? undefined }),
@@ -77,6 +83,7 @@ test("pull cursor retains the first page upper bound", async () => {
   ).toEqual({
     afterSequence: 12,
     upperBoundSequence: 42,
+    upperBoundUpdateCount: 21,
     upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
   });
 });
@@ -90,11 +97,13 @@ test("a processed cursor skips judged updates on continuation pages, within the 
     plan: {
       afterSequence: 0,
       upperBoundSequence: 42,
+      upperBoundUpdateCount: 21,
       upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
     },
   });
   const continuation = (processedThroughSequence: number) =>
     resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: IDENTITY,
       processedThroughSequence,
@@ -104,6 +113,7 @@ test("a processed cursor skips judged updates on continuation pages, within the 
     });
   const bound = {
     upperBoundSequence: 42,
+    upperBoundUpdateCount: 21,
     upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
   };
 
@@ -117,6 +127,7 @@ test("a processed cursor skips judged updates on continuation pages, within the 
 
 test("pull cursor binds raw-history mode across every page", async () => {
   const plan = await resolveSyncPullPagePlan({
+    countUpdatesThrough,
     cursorHmacKey: CURSOR_HMAC_KEY,
     identity: IDENTITY,
     request: request({ historyMode: "raw" }),
@@ -140,6 +151,7 @@ test("pull cursor binds raw-history mode across every page", async () => {
 
   expect(
     await resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: IDENTITY,
       request: request({
@@ -152,10 +164,12 @@ test("pull cursor binds raw-history mode across every page", async () => {
   ).toEqual({
     afterSequence: 12,
     upperBoundSequence: 42,
+    upperBoundUpdateCount: 21,
     upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
   });
   await expect(
     resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: IDENTITY,
       request: request({ pullCursor: page.nextCursor ?? undefined }),
@@ -170,6 +184,7 @@ test("pull cursor binds raw-history mode across every page", async () => {
 
 test("pull cursor fails stale when key state rotates", async () => {
   const plan = await resolveSyncPullPagePlan({
+    countUpdatesThrough,
     cursorHmacKey: CURSOR_HMAC_KEY,
     identity: IDENTITY,
     request: request(),
@@ -187,6 +202,7 @@ test("pull cursor fails stale when key state rotates", async () => {
 
   await expect(
     resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: { ...IDENTITY, contentKeyEpoch: 4 },
       request: request({ pullCursor: page.nextCursor ?? undefined }),
@@ -202,6 +218,7 @@ test("pull cursor fails stale when key state rotates", async () => {
 test("pull cursor rejects malformed requests", async () => {
   await expect(
     resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: IDENTITY,
       request: request({ pullCursor: "not-a-cursor" }),
@@ -217,6 +234,7 @@ test("pull cursor rejects malformed requests", async () => {
 test("pull cursor accepts stale-bundle reads pinned to the same bundle", async () => {
   expect(
     await resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: IDENTITY,
       request: request(),
@@ -226,6 +244,7 @@ test("pull cursor accepts stale-bundle reads pinned to the same bundle", async (
   ).toEqual({
     afterSequence: 0,
     upperBoundSequence: 42,
+    upperBoundUpdateCount: 21,
     upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
   });
 });
@@ -240,12 +259,14 @@ test("final pull page has no continuation, and names the pull's upper bound", ()
       plan: {
         afterSequence: 12,
         upperBoundSequence: 42,
+        upperBoundUpdateCount: 21,
         upperBoundUpdateId: UPPER_BOUND_UPDATE_ID,
       },
     }),
   ).toEqual({
     hasMore: false,
     nextCursor: null,
+    throughUpdateCount: 21,
     throughUpdateId: UPPER_BOUND_UPDATE_ID,
   });
 });
@@ -258,6 +279,7 @@ test("pull response rejects an oversized serialized envelope", () => {
 
 test("pull cursor rejects a tampered frozen upper bound", async () => {
   const plan = await resolveSyncPullPagePlan({
+    countUpdatesThrough,
     cursorHmacKey: CURSOR_HMAC_KEY,
     identity: IDENTITY,
     request: request(),
@@ -283,6 +305,7 @@ test("pull cursor rejects a tampered frozen upper bound", async () => {
 
   await expect(
     resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: IDENTITY,
       request: request({ pullCursor: tamperedCursor }),
@@ -297,6 +320,7 @@ test("pull cursor rejects a tampered frozen upper bound", async () => {
 
 test("pull cursor restarts stale when its stored bounds disappear", async () => {
   const plan = await resolveSyncPullPagePlan({
+    countUpdatesThrough,
     cursorHmacKey: CURSOR_HMAC_KEY,
     identity: IDENTITY,
     request: request(),
@@ -314,6 +338,7 @@ test("pull cursor restarts stale when its stored bounds disappear", async () => 
 
   await expect(
     resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: CURSOR_HMAC_KEY,
       identity: IDENTITY,
       request: request({ pullCursor: page.nextCursor ?? undefined }),
@@ -333,6 +358,7 @@ test("pull cursor restarts stale when its stored bounds disappear", async () => 
 
 test("pull cursor restarts stale after the deployment key rotates", async () => {
   const plan = await resolveSyncPullPagePlan({
+    countUpdatesThrough,
     cursorHmacKey: CURSOR_HMAC_KEY,
     identity: IDENTITY,
     request: request(),
@@ -350,6 +376,7 @@ test("pull cursor restarts stale after the deployment key rotates", async () => 
 
   await expect(
     resolveSyncPullPagePlan({
+      countUpdatesThrough,
       cursorHmacKey: "tearleads-rotated-document-sync-cursor-key",
       identity: IDENTITY,
       request: request({ pullCursor: page.nextCursor ?? undefined }),
@@ -383,6 +410,7 @@ function withSlot(wire: readonly unknown[], index: number, value: unknown) {
 
 function pullWithDecodedCursor(payload: unknown) {
   return resolveSyncPullPagePlan({
+    countUpdatesThrough,
     cursorHmacKey: CURSOR_HMAC_KEY,
     identity: IDENTITY,
     request: request({

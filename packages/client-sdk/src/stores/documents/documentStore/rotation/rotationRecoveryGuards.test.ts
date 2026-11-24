@@ -70,6 +70,7 @@ test("rotation aborts a paged recovery when the runtime generation changes", asy
           pullPage: {
             hasMore: true,
             nextCursor: "generation-page-2",
+            throughUpdateCount: 0,
             throughUpdateId: null,
           },
           updates: [firstPageUpdate],

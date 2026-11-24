@@ -1,4 +1,3 @@
-import { emptyVersionVector } from "@tearleads/loro";
 import type { AppliedContainerMove } from "../../../containers";
 import type { ContainerState, RemoteContainer } from "../../remoteHydration";
 import type { ContainerMoveIntentSyncInput } from "../types";
@@ -87,8 +86,8 @@ export function appliedRemoteContainer(
     metadataDocumentId: state.metadataDocumentId,
     // Verifying the head already warmed the policies it references.
     metadataReferencedPrincipals: [],
-    // A move says nothing about the metadata document's version.
-    metadataVersionVector: emptyVersionVector(),
+    // A move says nothing about the metadata document's updates.
+    metadataUpdateCount: 0,
     organizationId: state.organizationId,
     parentId: state.parentContainerId,
     updatedAt,

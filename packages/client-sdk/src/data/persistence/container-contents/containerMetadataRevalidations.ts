@@ -6,7 +6,8 @@ import { ensureContainerTables } from "./containerPersistence";
 
 /** A metadata document owed a remote read, and the request's revision. */
 export interface ContainerMetadataRevalidation {
-  readonly advertisedVersionVector: string;
+  /** The most updates a listing counted; a read must cover at least these. */
+  readonly advertisedUpdateCount: number;
   readonly documentId: string;
   readonly revision: string;
 }
@@ -16,7 +17,7 @@ export interface ContainerMetadataRevalidationPersistence {
   requestContainerMetadataRevalidation: (
     execSql: ExecSql,
     request: {
-      readonly advertisedVersionVector: string;
+      readonly advertisedUpdateCount: number;
       readonly documentId: string;
     },
   ) => Promise<void>;
@@ -37,7 +38,7 @@ export interface ContainerMetadataRevalidationPersistence {
 async function requestContainerMetadataRevalidation(
   execSql: ExecSql,
   request: {
-    readonly advertisedVersionVector: string;
+    readonly advertisedUpdateCount: number;
     readonly documentId: string;
   },
 ): Promise<void> {
@@ -46,7 +47,7 @@ async function requestContainerMetadataRevalidation(
     await db
       .insert(containerMetadataRevalidations)
       .values({
-        advertisedVersionVector: request.advertisedVersionVector,
+        advertisedUpdateCount: request.advertisedUpdateCount,
         documentId: request.documentId,
         requestedAt: new Date().toISOString(),
         revision: crypto.randomUUID(),
@@ -54,7 +55,8 @@ async function requestContainerMetadataRevalidation(
       .onConflictDoUpdate({
         target: containerMetadataRevalidations.documentId,
         set: {
-          advertisedVersionVector: sql`excluded.advertised_version_vector`,
+          // A listing read from a lagging replica never lowers the debt.
+          advertisedUpdateCount: sql`max(${containerMetadataRevalidations.advertisedUpdateCount}, excluded.advertised_update_count)`,
           requestedAt: sql`excluded.requested_at`,
           revision: sql`excluded.revision`,
         },
@@ -69,8 +71,8 @@ async function listContainerMetadataRevalidations(
   await ensureContainerTables(execSql);
   return getClientSQLitePersistenceRuntime(execSql)
     .db.select({
-      advertisedVersionVector:
-        containerMetadataRevalidations.advertisedVersionVector,
+      advertisedUpdateCount:
+        containerMetadataRevalidations.advertisedUpdateCount,
       documentId: containerMetadataRevalidations.documentId,
       revision: containerMetadataRevalidations.revision,
     })

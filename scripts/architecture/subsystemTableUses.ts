@@ -322,6 +322,16 @@ function nodeUses(
 }
 
 /**
+ * The client SDK's local schema step registry. A step's raw SQL is written
+ * against each table's shape before that step, not against the current
+ * definition, and a step may backfill any table, so its raw SQL names no
+ * table use. Its Drizzle references are still checked; a step must not import
+ * current definitions at all.
+ */
+const localSchemaStepRegistryPattern =
+  /(?:^|\/)data\/sqlite\/migrations\/localSchemaMigrations\.ts$/;
+
+/**
  * Table uses in production files outside schema modules. The type checker
  * resolves each reference to the table it stands for, through imports,
  * re-exports, aliases, destructuring, and dynamic imports, so a re-export is
@@ -344,7 +354,10 @@ export function findTableUsesInProgram(
       ts.forEachChild(node, visit);
     };
     visit(source);
-    for (const [sqlName, kind] of rawSqlTableAccess(source)) {
+    const rawSql = localSchemaStepRegistryPattern.test(from)
+      ? new Map<string, TableAccess>()
+      : rawSqlTableAccess(source);
+    for (const [sqlName, kind] of rawSql) {
       const table = catalog.tablesBySqlName.get(sqlName);
       if (table !== undefined) add(table, kind);
     }

@@ -155,4 +155,10 @@ test("a first page after a processed cursor still goes straight to the rotation 
     processedThroughUpdateId: document.baselineId,
   });
   expect(pastBaseline.updates).toEqual([]);
+
+  // Each pull counts every update through its bound, the ones the redirect
+  // skipped included: the baseline covers them, so the reader has them.
+  for (const page of [byVersion, afterCursor, pastBaseline]) {
+    expect(page.pullPage.throughUpdateCount).toBe(3);
+  }
 });

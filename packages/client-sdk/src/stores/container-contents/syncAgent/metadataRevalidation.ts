@@ -12,15 +12,13 @@
  * saw before its request, so a newer request from another tab survives.
  */
 
-import {
-  decodeVersionVector,
-  encodeVersionVector,
-  satisfiesVersionVector,
-} from "@tearleads/loro";
 import type {
   ContainerMetadataRevalidation,
   ExecSql,
 } from "../../../workflows/container-contents/containerPersistence";
+import { coversMetadataUpdateCount } from "../../../workflows/container-contents/metadata/metadataSyncVerdicts";
+import type { SyncedContainerMetadataState } from "../../../workflows/container-contents/metadata/metadataTypes";
+import type { ContainerState } from "../../../workflows/container-contents/remoteHydration";
 import { bumpMetadataSyncSeq } from "./metadataSyncSignal";
 import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
 
@@ -45,7 +43,7 @@ function queueMetadataRead(
 export async function oweContainerMetadataRead(
   state: MetadataRevalidationState,
   request: {
-    readonly advertisedVersionVector: string;
+    readonly advertisedUpdateCount: number;
     readonly documentId: string;
   },
 ): Promise<void> {
@@ -57,22 +55,22 @@ export async function oweContainerMetadataRead(
 }
 
 /**
- * Whether the local copy covers the version a listing advertised. A read
+ * Whether a completed read, once saved, covers the update count a listing
+ * advertised: this device's processed cursor counts at least as many. A read
  * served by a replica that lags the listing can succeed without the edit; its
- * debt then stays for a later pass. An unreadable version is covered: the read
- * it caused already pulled the truth.
+ * debt then stays for a later pass.
  */
-export function coversAdvertisedMetadataVersion(
-  doc: Parameters<typeof encodeVersionVector>[0],
+function coversAdvertisedMetadataUpdates(
+  execSql: ExecSql,
+  containerState: Pick<ContainerState, "container" | "doc">,
   owed: ContainerMetadataRevalidation,
-): boolean {
-  try {
-    const advertised = owed.advertisedVersionVector;
-    if (decodeVersionVector(advertised).toJSON().size === 0) return true;
-    return satisfiesVersionVector(encodeVersionVector(doc), advertised);
-  } catch {
-    return true;
-  }
+): Promise<boolean> {
+  return coversMetadataUpdateCount(execSql, {
+    containerId: containerState.container.id,
+    doc: containerState.doc,
+    documentId: owed.documentId,
+    updateCount: owed.advertisedUpdateCount,
+  });
 }
 
 /**
@@ -131,5 +129,46 @@ export async function settleOwedContainerMetadataRead(
   await state.persistence.settleContainerMetadataRevalidation(
     input.execSql,
     input.revalidation,
+  );
+}
+
+/**
+ * Whether a completed read keeps its signals for another read, and whether to
+ * ask for that read now. A resumed pull reads only to its earlier bound, and a
+ * superseded result discarded what it pulled: both hand the read to a fresh
+ * pass. A replica lagging the listing can answer without the advertised edit;
+ * that debt waits for a later pass rather than a follow-up loop.
+ */
+export async function keptContainerMetadataSignals(input: {
+  containerState: ContainerState;
+  execSql: ExecSql;
+  owedRead: ContainerMetadataRevalidation | null;
+  synced: SyncedContainerMetadataState;
+}): Promise<{ followUp: boolean; keep: boolean }> {
+  const followUp =
+    input.synced.resumedEarlierPull === true ||
+    isSupersededMetadataSync(input.synced);
+  const behindListing =
+    input.owedRead !== null &&
+    !(await coversAdvertisedMetadataUpdates(
+      input.execSql,
+      input.containerState,
+      input.owedRead,
+    ));
+  return { followUp, keep: followUp || behindListing };
+}
+
+function isSupersededMetadataSync(
+  synced: Pick<
+    SyncedContainerMetadataState,
+    | "mutationSuperseded"
+    | "pullContinuationSuperseded"
+    | "syncIdentitySuperseded"
+  >,
+): boolean {
+  return (
+    synced.mutationSuperseded === true ||
+    synced.pullContinuationSuperseded === true ||
+    synced.syncIdentitySuperseded === true
   );
 }

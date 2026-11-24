@@ -43,7 +43,7 @@ export const documentLoroWindows = sqliteTable(
     counts: integer("counts").notNull(),
     judge: text("judge").notNull(),
     openedAt: text("opened_at").notNull(),
-    // Last, where migration step 9 added it to existing tables, with the
+    // Last, where migration step 10 added it to existing tables, with the
     // same default.
     kind: text("kind").notNull().default("read"),
   },

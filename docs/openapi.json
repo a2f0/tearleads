@@ -2216,9 +2216,11 @@
             },
             "description": "Principal policy heads the metadata document's access depends on."
           },
-          "metadataVersionVector": {
-            "type": "string",
-            "description": "Loro version vector of every update the server holds for the metadata document, encoded like a sync update's version vectors. A client whose copy does not cover it owes the document a read."
+          "metadataUpdateCount": {
+            "maximum": 1.7976931348623157e+308,
+            "minimum": 0,
+            "type": "integer",
+            "description": "How many updates the server holds for the metadata document. It only grows while the document exists. A client owes the document a read unless it is 0 or the client's processed cursor for the document came from a completed pull whose `throughUpdateCount` is at least this."
           },
           "organizationId": {
             "type": "string"
@@ -2258,7 +2260,7 @@
           "metadataAccessStateHash",
           "metadataDocumentId",
           "metadataReferencedPrincipals",
-          "metadataVersionVector",
+          "metadataUpdateCount",
           "organizationId",
           "parentId",
           "updatedAt"
@@ -3922,6 +3924,12 @@
             ],
             "description": "Opaque cursor for the next page, or null on the last page; it grants nothing, and each page is reauthorized."
           },
+          "throughUpdateCount": {
+            "maximum": 1.7976931348623157e+308,
+            "minimum": 0,
+            "type": "integer",
+            "description": "How many updates the document held through `throughUpdateId`, counting it, the same on every page: 0 exactly when `throughUpdateId` is null. Updates are deleted only with their document, so a later pull never counts fewer; a container listing's `metadataUpdateCount` at or below it was read no later than this pull's bound."
+          },
           "throughUpdateId": {
             "anyOf": [
               {
@@ -3938,6 +3946,7 @@
         "required": [
           "hasMore",
           "nextCursor",
+          "throughUpdateCount",
           "throughUpdateId"
         ],
         "additionalProperties": {},
@@ -17746,6 +17755,10 @@
           {
             "description": "pullPage.hasMore is true exactly when pullPage.nextCursor is non-null",
             "id": "response.pull-page-continuation"
+          },
+          {
+            "description": "pullPage.throughUpdateId is null exactly when pullPage.throughUpdateCount is 0",
+            "id": "response.pull-page-update-count"
           },
           {
             "description": "contentKeyBundles carries each content-key epoch at most once",

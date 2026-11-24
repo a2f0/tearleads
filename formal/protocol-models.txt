@@ -28,6 +28,7 @@ formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTai
 formal/document-sync/DiscoveryPublication.tla|formal/document-sync/DiscoveryPublication.cfg
 formal/document-sync/EmptyFrontierUnlink.tla|formal/document-sync/EmptyFrontierUnlink.cfg
 formal/document-sync/MetadataListingConvergence.tla|formal/document-sync/MetadataListingConvergence.cfg
+formal/document-sync/MetadataListingConvergence.tla|formal/document-sync/MetadataListingConvergenceVoids.cfg
 formal/document-sync/OutgoingQueueMerge.tla|formal/document-sync/OutgoingQueueMerge.cfg
 formal/document-sync/PeerOwnership.tla|formal/document-sync/PeerOwnership.cfg
 formal/document-sync/RawHistoryRecovery.tla|formal/document-sync/RawHistoryRecovery.cfg

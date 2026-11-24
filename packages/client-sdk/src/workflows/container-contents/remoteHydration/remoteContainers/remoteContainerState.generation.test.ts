@@ -48,7 +48,7 @@ const remoteContainer: RemoteContainer = {
   metadataAccessEpoch: 2,
   metadataAccessStateHash: "access-new",
   metadataDocumentId: "metadata-1",
-  metadataVersionVector: "",
+  metadataUpdateCount: 0,
   metadataReferencedPrincipals: [],
   organizationId: "organization-1",
   parentId: "root-2",

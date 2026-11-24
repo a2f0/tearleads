@@ -58,6 +58,7 @@ async function judgedScope(localId: string) {
         held: false,
         last: true,
         sentCursor: null,
+        throughUpdateCount: 1,
         throughUpdateId: THROUGH,
       },
       scope: { appKind: APP_KIND, localId },

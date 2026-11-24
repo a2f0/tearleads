@@ -29,6 +29,7 @@ export async function persistMissingContainerBootstrap(
     record,
     existing
       ? {
+          committedSeedUpdateId: options?.committedSeedUpdateId,
           ...(existing.container.localUpdatedAt
             ? { localUpdatedAt: existing.container.localUpdatedAt }
             : {}),

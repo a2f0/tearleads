@@ -21,12 +21,15 @@ import {
   type DocumentSyncVerdictOutcome,
   type RecordedImportVoid,
   readRecordedImportVoids,
-  readSendableProcessedCursor,
   recordDocumentSyncVerdictsInTransaction,
 } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import { readFinalVoidUpdateIds } from "../../../data/persistence/documents/records/finalVoidUpdates";
 import { markLoroWindowsNotCountingInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { readProcessedCursorCoveredBy } from "../../../data/persistence/documents/records/processedCursorForVersion";
+import {
+  readSendableProcessedCursor,
+  readSendableProcessedProgress,
+} from "../../../data/persistence/documents/records/sendableProcessedCursor";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
@@ -72,6 +75,28 @@ export async function readProcessedCursorForSync(
     getClientSQLitePersistenceRuntime(execSql).db,
     { ...input, judge: documentVerdictJudge() },
   );
+}
+
+/**
+ * How many updates the pull behind `readProcessedCursorForSync`'s cursor
+ * counted, or null when there is no sendable cursor or its count is unknown.
+ * A listing count at or below it was read before that pull's bound, so it
+ * owes no read.
+ */
+export async function readProcessedUpdateCountForSync(
+  execSql: ExecSql,
+  input: {
+    readonly documentId: string;
+    readonly frontier: string;
+    readonly scope: DocumentScope;
+  },
+): Promise<number | null> {
+  await ensureDocumentTables(execSql);
+  const progress = await readSendableProcessedProgress(
+    getClientSQLitePersistenceRuntime(execSql).db,
+    { ...input, judge: documentVerdictJudge() },
+  );
+  return progress?.updateCount ?? null;
 }
 
 /**
@@ -331,6 +356,7 @@ function documentSyncVerdictInput(input: {
           held: synced.hasHeldPull,
           last: !synced.hasIncompletePull,
           sentCursor: synced.plan.request.processedThroughUpdateId ?? null,
+          throughUpdateCount: synced.response.pullPage?.throughUpdateCount ?? 0,
           throughUpdateId: synced.response.pullPage?.throughUpdateId ?? null,
         }
       : undefined,

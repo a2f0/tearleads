@@ -102,13 +102,19 @@ test("a discovered document's paged first pull is one download, recorded when it
               pullPage: {
                 hasMore: true,
                 nextCursor: "page-2",
+                throughUpdateCount: throughUpdateId === null ? 0 : 1,
                 throughUpdateId,
               },
             }
           : {
               ...response,
               updates: [],
-              pullPage: { hasMore: false, nextCursor: null, throughUpdateId },
+              pullPage: {
+                hasMore: false,
+                nextCursor: null,
+                throughUpdateCount: throughUpdateId === null ? 0 : 1,
+                throughUpdateId,
+              },
             };
       },
     });
@@ -254,6 +260,7 @@ async function syncStoredDocument(name: string, paged: boolean) {
                     pullPage: {
                       hasMore: true,
                       nextCursor: "page-2",
+                      throughUpdateCount: throughUpdateId === null ? 0 : 1,
                       throughUpdateId,
                     },
                   }
@@ -263,6 +270,7 @@ async function syncStoredDocument(name: string, paged: boolean) {
                     pullPage: {
                       hasMore: false,
                       nextCursor: null,
+                      throughUpdateCount: throughUpdateId === null ? 0 : 1,
                       throughUpdateId,
                     },
                   };

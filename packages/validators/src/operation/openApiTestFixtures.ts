@@ -409,7 +409,12 @@ export function createSyncResponse() {
     contentKeyBundles: [],
     documentId: "document-1",
     futureResponseField: true,
-    pullPage: { hasMore: false, nextCursor: null, throughUpdateId: null },
+    pullPage: {
+      hasMore: false,
+      nextCursor: null,
+      throughUpdateCount: 0,
+      throughUpdateId: null,
+    },
     updates: [
       {
         accessEpoch: 1,
