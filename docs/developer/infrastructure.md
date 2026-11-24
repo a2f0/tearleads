@@ -3,6 +3,11 @@
 Deployment and release credentials live in `.secrets`, a gitignored link to
 `../matrix-secrets/tearleads`. The a2f0/matrix repository manages and backs them
 up; see its [`docs/secrets.md`](https://github.com/a2f0/matrix/blob/main/docs/secrets.md).
+The native and desktop release shortcuts and the Android and iOS dev launchers
+create that link in a clone that has none, through
+[`scripts/lib/secretsStore.sh`](../../scripts/lib/secretsStore.sh): beside the
+clone, beside the matrix workspace for a `checkouts/<name>` checkout, or under
+`MATRIX_SECRETS_DIR` when set.
 Each tier reads only `.secrets/staging/` or `.secrets/prod/`: `shared.env`, then
 `app.env`, which wins. Commands without a tier use `prod`.
 

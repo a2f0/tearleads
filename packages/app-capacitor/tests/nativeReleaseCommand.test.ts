@@ -1,5 +1,14 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdtemp, rm } from "node:fs/promises";
+import {
+  chmod,
+  cp,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readlink,
+  realpath,
+  rm,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
@@ -121,5 +130,56 @@ native_release_main android build staging build_number:42`,
     );
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+});
+
+test("the shared runner links a fresh clone's secrets at its root unless overridden", async () => {
+  const workspace = await realpath(
+    await mkdtemp(resolve(tmpdir(), "tearleads-native-secrets-")),
+  );
+  const clone = resolve(workspace, "clone");
+  const releaseScripts = resolve(clone, "scripts/release");
+  await mkdir(resolve(clone, ".git"), { recursive: true });
+  await mkdir(releaseScripts, { recursive: true });
+  await mkdir(resolve(clone, "scripts/lib"), { recursive: true });
+  await cp(
+    resolve(nativeReleaseScript, "../../lib/secretsStore.sh"),
+    resolve(clone, "scripts/lib/secretsStore.sh"),
+  );
+  await mkdir(resolve(workspace, "matrix-secrets/tearleads/prod"), {
+    recursive: true,
+  });
+  // As native_release_main sets it: the wrapper's own scripts/release folder.
+  const link = (secretsDirOverride: string) =>
+    Bun.spawnSync(
+      [
+        "sh",
+        "-c",
+        'set -eu\n. "$1"\nnative_script_dir="$2"\nnative_release_link_secrets',
+        "sh",
+        nativeReleaseScript,
+        releaseScripts,
+      ],
+      {
+        env: {
+          PATH: environmentValue("PATH"),
+          NATIVE_RELEASE_SECRETS_DIR: secretsDirOverride,
+        },
+      },
+    );
+
+  try {
+    const overridden = link("../elsewhere");
+    expect(overridden.exitCode, overridden.stderr.toString()).toBe(0);
+    expect(overridden.stdout.toString()).toBe("");
+    await expect(lstat(resolve(clone, ".secrets"))).rejects.toThrow("ENOENT");
+
+    const linked = link(" ");
+    expect(linked.exitCode, linked.stderr.toString()).toBe(0);
+    expect(await readlink(resolve(clone, ".secrets"))).toBe(
+      "../matrix-secrets/tearleads",
+    );
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
   }
 });

@@ -34,9 +34,9 @@ Environment:
 Fastlane loads the tier's secrets folder (.secrets/prod or .secrets/staging, or
 NATIVE_RELEASE_SECRETS_DIR): shared.env, then app.env, importing only store
 credentials, signing passwords, and the tier's allowlisted Vite client
-settings. Explicitly exported environment variables take precedence. A clone
-with no .secrets is first linked to the shared matrix-secrets/tearleads folder
-when one exists.
+settings. Explicitly exported environment variables take precedence. Without
+NATIVE_RELEASE_SECRETS_DIR, a clone with no .secrets is first linked to the
+shared matrix-secrets/tearleads folder when one exists.
 
 When the platform/tier Sentry DSN is configured, the build uploads JavaScript
 source maps before native packaging. Maps and the private SENTRY_AUTH_TOKEN are
@@ -101,8 +101,12 @@ native_release_ensure_android_wrapper() {
 }
 
 # A fresh clone has no .secrets yet; link it to the shared store before Fastlane
-# and the native web build look for the tier's folder.
+# and the native web build look for the tier's folder. NATIVE_RELEASE_SECRETS_DIR
+# names another folder, so a link would go unread.
 native_release_link_secrets() {
+  if [ -n "$(printf '%s' "${NATIVE_RELEASE_SECRETS_DIR:-}" | tr -d '[:space:]')" ]; then
+    return 0
+  fi
   # shellcheck source=scripts/lib/secretsStore.sh
   . "$native_script_dir/../lib/secretsStore.sh"
   secrets_store_link "$(CDPATH='' cd -- "$native_script_dir/../.." && pwd -P)"

@@ -7,8 +7,9 @@
 #
 # POSIX sh throughout: callers run under /bin/sh.
 
-# Regenerates <android project>/gradle/wrapper/gradle-wrapper.jar from the
-# repo-managed Gradle (see .mise.toml) when it is missing. The wrapper task runs
+# Regenerates <android project>/gradle/wrapper/gradle-wrapper.jar when it is
+# missing, with the Gradle on PATH (the .mise.toml pin in a mise-activated
+# shell), else through `mise exec`, as the Fastlane lanes do. The wrapper task runs
 # in an empty scratch build, not the Android one: that build includes the
 # Cordova plugins project `cap sync` creates, so configuring it fails on a fresh
 # clone before the first sync. Only the jar is copied, so the tracked gradlew
