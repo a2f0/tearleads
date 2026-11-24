@@ -1,11 +1,10 @@
 import {
   DOCUMENTS_APP_KIND,
   type DocumentSyncImportVerdicts,
-  processLoroRuntimeFailures,
-  readRecordedDocumentSyncVoids,
+  type DocumentSyncLoroWindow,
+  judgeUnrecordedDocumentSyncImports,
   recordUncursoredDocumentSyncVerdicts,
   type SyncRemoteDocumentResult,
-  validateDocumentSyncUpdateImports,
 } from "../../../../workflows/documents";
 import type { DocumentState, DocumentStoreState } from "../state";
 import {
@@ -93,7 +92,10 @@ export class RotationRawHistoryVoids {
 
 export function rotationIncomingUpdateIsolation(input: {
   currentDocument: DocumentState;
+  documentId: string;
   generation: DocumentStoreSyncGeneration;
+  /** The page's read window, which the caller settles after the rebuild. */
+  loroWindow: DocumentSyncLoroWindow;
   state: DocumentStoreState;
 }) {
   return {
@@ -107,22 +109,18 @@ export function rotationIncomingUpdateIsolation(input: {
     ) => {
       // A void this device recorded stays void without a Loro call, as in a
       // sync pass, so an update that failed the runtime for good is not
-      // imported again. The judge records no runtime attempts, so its
-      // failures count toward none. Checkpoints are judged with the stream,
-      // as the rebuild imports them with it.
-      const knownVoids = await readRecordedDocumentSyncVoids({
-        execSql: input.state.runtime.infra.execSql,
-        result,
-        scope: { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
-      });
+      // imported again. The judge records no runtime attempts, so its traps
+      // count toward none; a death in its window does. Checkpoints are
+      // judged with the stream, as the rebuild imports them with it.
       return assertRotationVerdictsSettled(
-        await validateDocumentSyncUpdateImports({
+        await judgeUnrecordedDocumentSyncImports({
           currentDocument: input.currentDocument,
-          decryptedUpdates: result.decryptedUpdates,
-          knownVoids,
+          documentId: input.documentId,
+          execSql: input.state.runtime.infra.execSql,
+          loroWindow: input.loroWindow,
           rebuildBudgetBytes: Number.POSITIVE_INFINITY,
-          responseUpdates: result.response.updates,
-          runtimeLedger: processLoroRuntimeFailures.unrecorded(),
+          result,
+          scope: { appKind: DOCUMENTS_APP_KIND, localId: input.state.localId },
         }),
       );
     },

@@ -19,6 +19,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
 } from "../../../../workflows/documents";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents/sync/loroPassWindow";
 import { buildMaterializedDocumentSyncPlan } from "../../../../workflows/documents/syncPlan/syncPlanMaterial";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
@@ -186,6 +187,7 @@ test("an advanced durable winner republishes before a failed fresh retry", async
 
   try {
     const attempt = await requestRemoteDocumentSync({
+      loroWindow: createDocumentSyncLoroWindow(),
       policyOperation: createPrincipalPolicyOperation(),
       currentDoc: document,
       currentRecord: record,

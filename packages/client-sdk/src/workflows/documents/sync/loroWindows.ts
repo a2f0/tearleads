@@ -228,6 +228,18 @@ export async function claimDocumentSyncOrphanWindows(
   }
 }
 
+/**
+ * The page limit a pull asks for, once the windows ended lifetimes left on
+ * its scope are claimed: a pull after a death that named no update then
+ * isolates at once, instead of reading the whole page and dying again.
+ */
+export async function claimThenReadDocumentSyncPageLimit(
+  input: Parameters<typeof claimDocumentSyncOrphanWindows>[0],
+): Promise<1 | undefined> {
+  await claimDocumentSyncOrphanWindows(input);
+  return readDocumentSyncPageLimit(input.execSql, input);
+}
+
 /** The page limit the scope's next pull asks for while it isolates. */
 export async function readDocumentSyncPageLimit(
   execSql: ExecSql,
