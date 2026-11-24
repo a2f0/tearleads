@@ -227,6 +227,11 @@ field; text writes coalesce to the newest value. See
 [`hasPendingLocalDocumentWrites`](../../../../docs/developer/client-sdk/public-api.md#unsaved-document-writes)
 and [`stillCurrent` admission](../../../../docs/developer/client-sdk/public-api.md#host-controlled-mutation-admission).
 
+### Runtime restart
+
+`prepareRuntimeRestart` drains Loro read windows before a host's reload. See
+[runtime restart](../../../../docs/developer/client-sdk/runtime-behavior.md#runtime-restart).
+
 ### Persistence notifications
 
 `PersistedDocumentListener` supplies a summary and `placementChanged` flag.
