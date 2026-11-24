@@ -50,7 +50,22 @@ export interface DocumentStoreOpenOptions {
    */
   initialRows?: ReadonlyArray<Readonly<Record<string, string>>> | undefined;
   initialStructuredFields?: DocumentStructuredFieldPatch | undefined;
+  /**
+   * False opens only a record that already exists. When there is none, the
+   * store stays unloaded (`ensureInitialized()` resolves false) rather than
+   * creating one, so a reader holding a stale listing cannot bring a deleted
+   * document back. A later open that may create joins the store and creates
+   * the record from its own initial content.
+   */
+  createIfMissing?: boolean | undefined;
   remoteSyncMode?: "on-demand" | "startup" | undefined;
+}
+
+/** A later open of an already-registered store, as the store takes it in. */
+export interface DocumentStoreJoiningOpen {
+  readonly initialDocumentKind: StoredDocumentKind;
+  readonly initialText: string;
+  readonly options: DocumentStoreOpenOptions;
 }
 
 export interface DocumentAttachmentUpload {

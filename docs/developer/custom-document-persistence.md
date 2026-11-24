@@ -150,6 +150,10 @@ has not loaded yet, or as soon as the open returns when it has, unless a remote
 pass was already allowed. The join never runs inside the open, so the join
 publishes nothing during a render. A listing that reads documents on demand
 therefore never cancels the probe for a view that opens one of them normally.
+In the same way, a reader that opens with `createIfMissing: false` never
+creates a missing record, and a later open that may create joins the store and
+creates the record from its own initial content
+([`openJoin.ts`](../../packages/client-sdk/src/stores/documents/documentStore/initialization/openJoin.ts)).
 
 `requestRemoteSyncAndWait(signal)` returns `true` only after its requested sync
 generation completes. Abort, coordinator invalidation, missing prerequisites,

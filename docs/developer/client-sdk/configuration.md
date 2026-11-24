@@ -116,6 +116,13 @@ put content known at creation into the birth update beside the kind and text,
 so the first sync can send it inside the create. An existing record ignores
 them; fields need a non-note kind.
 
+A host that opens a listed document only to read it, as Explorer does for
+avatars, passes `createIfMissing: false` in the `documents.open(...)` options.
+When the record is gone, as when a listing row is stale, the store stays
+unloaded and `ensureInitialized()` resolves `false`, instead of creating an
+empty record. A later open that may create joins the same store and creates
+the record from its own kind, text and initial content.
+
 The `.env` file kind is SDK-owned so every host writes the same shape:
 `ENV_FILE_DOCUMENT_KIND`, the `ENV_FILE_NAME_FIELD` structured field, one row
 per variable keyed by `ENV_FILE_VARIABLE_KEY_FIELD` and
