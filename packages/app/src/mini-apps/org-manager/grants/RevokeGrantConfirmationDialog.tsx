@@ -50,10 +50,7 @@ export function RevokeGrantConfirmationDialog({
   };
 
   return (
-    <MiniAppModalBackdrop
-      className="org-manager-revoke-grant-dialog-backdrop"
-      role="presentation"
-    >
+    <MiniAppModalBackdrop layer="raised" role="presentation">
       <MiniAppModalPanel
         role="dialog"
         aria-describedby={messageId}

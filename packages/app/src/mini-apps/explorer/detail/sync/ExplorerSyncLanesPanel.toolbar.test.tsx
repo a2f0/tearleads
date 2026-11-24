@@ -40,8 +40,6 @@ function renderSyncLanesPanelContainer(input: { domainScope: DomainScope }) {
     <WindowMenuProvider>
       <ExplorerSyncLanesPanel
         domainScope={input.domainScope}
-        embedded
-        onBackToSelectionRoute={() => undefined}
         onOpenLaneDetail={() => undefined}
         selectedLaneKey={null}
       />

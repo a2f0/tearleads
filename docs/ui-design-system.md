@@ -192,8 +192,9 @@ caps a column of entry controls.
   asserts this). Override the token, never the individual rules: `100%` and
   not `none` because consumers also read it inside `min()`, where a keyword
   invalidates the whole declaration. The release covers the shell subtree, so
-  portaled menus and modals keep the cap on this tier — fine while they stay
-  under the measure (`--modal-width` is 22rem).
+  portaled menus and modals keep the cap on this tier: a modal portaled to the
+  body centers its content in a 34rem column there instead of spanning the
+  pane.
 - 34rem matches the windowed `min-width` floors those apps already declare, so a
   form fills its narrowest window exactly and simply stops growing past it.
 - The unit is deliberately `rem`, and `rem` is **not** the same pixel value in
@@ -204,7 +205,9 @@ caps a column of entry controls.
   ~442px windowed and 544px routed: the same *character* count, which is what a
   measure should hold constant in a monospace UI. Do not "fix" this by switching
   to `px`.
-- Form columns stay **left-aligned**; the slack goes to the right. Do not cap
+- Form columns stay **left-aligned**; the slack goes to the right. A modal is
+  the exception: it takes over its region (see [Modals](#modals)), so nothing
+  sits beside its column, and it centers the column instead. Do not cap
   what wants the width — tables, virtualized lists, document editors
   (`NoteDocument`, `EnvFile`, `JsonFileDocument`), and media previews.
 - Two other standard answers are already used where they fit better: reflow
@@ -268,6 +271,40 @@ surface the way a tab strip does, through the shared
   [`e2e/shared-with-me-table.spec.ts`](../packages/app-web/e2e/shared-with-me-table.spec.ts)
   asserts the flush leading list.
 
+## Modals
+
+A modal takes over the region it blocks instead of floating a small card over
+it. Every confirmation, prompt, and detail view renders through the primitives
+in
+[`MiniAppModal.tsx`](../packages/app/src/components/mini-app/overlays/MiniAppModal.tsx):
+`MiniAppModalBackdrop`, `MiniAppModalPanel`, and `MiniAppModalForm`, with
+`MiniAppModalBusyOverlay` while an action runs and `MiniAppDetailModal` for a
+read-only drill-down. Do not hand-roll a backdrop or re-declare a panel's
+size in feature CSS.
+
+- The backdrop paints an opaque surface over its region, and the panel fills
+  it. The panel keeps its content in one column at the form measure,
+  centered both ways, and scrolls from the title once the content is taller
+  than the region. On a phone the column takes the full width.
+- `layer` on the backdrop picks the region and its stacking. `section`, the
+  default, covers the nearest positioned ancestor: the window's content
+  section, which includes the body's padding when the anchor is a mini-app
+  root, or the routed main pane. `raised` covers the same region above window
+  menus and shell chrome, and so fills a phone's screen. `viewport` covers
+  the whole screen, for a dialog portaled to the body.
+- There is nothing outside a takeover to tap, so a modal closes through its
+  own Cancel or Close button.
+- `floating` on both the backdrop and the panel keeps the dimmed backdrop
+  and framed panel for a viewer that sizes its own frame. Only the note
+  attachment preview uses it.
+- Set a runtime value in modal copy (the phrase a confirmation asks the user
+  to type, or the name of what the action changes) in `MiniAppModalHighlight`,
+  not `<strong>`: `:root` sets `font-synthesis: none`, so weight alone renders
+  as regular text wherever the monospace face ships no bold, as on Android.
+- [`e2e/modal-takeover.spec.ts`](../packages/app-web/e2e/modal-takeover.spec.ts)
+  asserts the region each layer fills, the centered column, and the scroll
+  from the title.
+
 ## Component policy
 
 The de-facto component library is [`packages/app/src/components`](../packages/app/src/components/):
@@ -293,12 +330,8 @@ The de-facto component library is [`packages/app/src/components`](../packages/ap
 - **Layout**: `MiniAppRoot` / `MiniAppHeader` / `MiniAppSection` /
   `MiniAppPanel` / `MiniAppSidebar` / `MiniAppToolbar`
   ([`components/mini-app/layout/`](../packages/app/src/components/mini-app/layout/)),
-  modal/sheet via
-  [`components/mini-app/overlays/MiniAppModal.tsx`](../packages/app/src/components/mini-app/overlays/MiniAppModal.tsx).
-  Set a runtime value in modal copy (the phrase a confirmation asks the user
-  to type, or the name of what the action changes) in `MiniAppModalHighlight`,
-  not `<strong>`: `:root` sets `font-synthesis: none`, so weight alone renders
-  as regular text wherever the monospace face ships no bold, as on Android.
+  modals via the primitives in
+  [Modals](#modals).
 - **Checkboxes**: use `MiniAppCheckbox`
   ([`components/mini-app/controls/MiniAppCheckbox.tsx`](../packages/app/src/components/mini-app/controls/MiniAppCheckbox.tsx))
   with a clickable label. It owns the bordered square, checked fill and

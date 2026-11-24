@@ -3,7 +3,9 @@
  * documents write their edits to SQLite, then lets the SDK drain its read
  * windows, then reloads. Edits still unsaved after either wait would be
  * lost, so the notice asks, since native shells ignore the page's unload
- * prompt. `attempt` tags each press, so only its own work moves the notice.
+ * prompt. A step that throws offers the press again, or a reload that
+ * may lose unsaved edits. `attempt` tags each press, so only its own work
+ * moves the notice.
  */
 export type RuntimeRestartNoticeStep =
   /** Reload is offered. */
@@ -22,12 +24,24 @@ export type RuntimeRestartNoticeStep =
       readonly discard: boolean;
     }
   /**
+   * A wait, the drain, or the reload threw: the user tries again, or
+   * reloads anyway, which may lose unsaved edits.
+   */
+  | { readonly status: "failed"; readonly attempt: number }
+  /**
    * The page reloads. `location.reload()` returns before the page unloads,
    * so the notice waits here until the SDK asks for a restart again.
+   * `discard` when the user already chose to lose unsaved edits, so the
+   * page's unload prompt asks nothing more.
    */
-  | { readonly status: "reloading"; readonly attempt: number };
+  | {
+      readonly status: "reloading";
+      readonly attempt: number;
+      readonly discard: boolean;
+    };
 
 export type RuntimeRestartNoticeEvent =
+  /** Reload, or Try again after a failure, was pressed. */
   | { readonly type: "reloadPressed"; readonly attempt: number }
   /** Attempt `attempt`'s wait for edits ended, `unsaved` if some remain. */
   | {
@@ -45,6 +59,8 @@ export type RuntimeRestartNoticeEvent =
       readonly attempt: number;
       readonly unsaved: boolean;
     }
+  /** Attempt `attempt`'s wait, drain, or reload threw. */
+  | { readonly type: "failed"; readonly attempt: number }
   /**
    * The SDK asks for a restart again while attempt `attempt` reloads: its
    * hold ended in a page that was kept, as when a browser's user cancels the
@@ -62,11 +78,13 @@ export function transitionRuntimeRestartNotice(
 ): RuntimeRestartNoticeStep {
   switch (event.type) {
     case "reloadPressed":
-      return current.status === "offered"
+      return current.status === "offered" || current.status === "failed"
         ? { attempt: event.attempt, status: "saving" }
         : current;
     case "discardConfirmed":
-      return current.status === "unsaved"
+      // Asked about unsaved edits, or after a step threw, the user reloads
+      // anyway: the drain still runs, but asks nothing about edits.
+      return current.status === "unsaved" || current.status === "failed"
         ? { attempt: current.attempt, discard: true, status: "preparing" }
         : current;
     case "keepConfirmed":
@@ -85,7 +103,7 @@ function finishAttemptWork(
   current: Exclude<RuntimeRestartNoticeStep, { status: "offered" }>,
   event: Extract<
     RuntimeRestartNoticeEvent,
-    { type: "settled" | "prepared" | "pageKept" }
+    { type: "settled" | "prepared" | "failed" | "pageKept" }
   >,
 ): RuntimeRestartNoticeStep {
   const { attempt } = current;
@@ -97,7 +115,14 @@ function finishAttemptWork(
   if (event.type === "prepared" && current.status === "preparing") {
     return event.unsaved && !current.discard
       ? { attempt, status: "unsaved" }
-      : { attempt, status: "reloading" };
+      : { attempt, discard: current.discard, status: "reloading" };
+  }
+  if (event.type === "failed") {
+    return current.status === "saving" ||
+      current.status === "preparing" ||
+      current.status === "reloading"
+      ? { attempt, status: "failed" }
+      : current;
   }
   return event.type === "pageKept" && current.status === "reloading"
     ? RUNTIME_RESTART_NOTICE_OFFERED

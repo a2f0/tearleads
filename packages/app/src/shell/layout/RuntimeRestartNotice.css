@@ -1,5 +1,5 @@
 .runtime-restart-notice {
-  grid-area: banner;
+  grid-area: notice;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -8,8 +8,8 @@
   padding-inline: calc(var(--space-md) + var(--safe-area-left))
     calc(var(--space-md) + var(--safe-area-right));
   font-size: var(--font-size-sm);
-  /* The topmost chrome, sharing the routed app bar's surface, as the billing
-     warning does. */
+  /* The topmost chrome, above any billing warning, sharing the routed app
+     bar's surface as that warning does. */
   background: var(--color-muted);
   border-bottom: var(--border-width) solid var(--tearleads-border);
   border-left: var(--space-2xs) solid var(--tearleads-accent);
