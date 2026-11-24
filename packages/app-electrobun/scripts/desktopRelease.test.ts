@@ -17,6 +17,11 @@ beforeAll(async () => {
     join(sourceScripts, "desktopRelease.sh"),
     join(root, "scripts/release/desktopRelease.sh"),
   );
+  await mkdir(join(root, "scripts/lib"), { recursive: true });
+  await cp(
+    join(sourceScripts, "../lib/secretsStore.sh"),
+    join(root, "scripts/lib/secretsStore.sh"),
+  );
   for (const platform of ["Macos", "Linux"]) {
     await Bun.write(
       join(packageScripts, `release${platform}.sh`),

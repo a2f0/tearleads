@@ -72,6 +72,16 @@ After the run completes, use
 to publish it to R2 with local credentials. See the
 [Windows release guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).
 
+The native and desktop release shortcuts, and the Android and iOS dev
+launchers, prepare a fresh clone or worktree before building.
+[`lib/secretsStore.sh`](lib/secretsStore.sh) links a missing `.secrets` to
+the shared `matrix-secrets/tearleads` folder when it exists, as
+[`lib/screenshotsStore.sh`](lib/screenshotsStore.sh) does for `.screenshots`,
+and [`lib/gradleWrapper.sh`](lib/gradleWrapper.sh) regenerates the
+gitignored Gradle wrapper jar in a scratch build, since the Android build
+cannot configure before `cap sync`. `bun run test:clone-setup` covers both and
+is part of `check:fast`.
+
 [`release/publishNpmPackage.sh`](release/publishNpmPackage.sh) publishes a
 package to npm by its directory name: `windowing` or `client-sdk`.
 Each package's publish workflow runs it when a

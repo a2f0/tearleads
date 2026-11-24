@@ -86,6 +86,9 @@ native_release_guard_environment() {
   printf 'guard:%s:%s\\n' "$1" "$2" >> "$NATIVE_RELEASE_TEST_LOG"
   export VITE_API_BASE_URL=https://api-staging.tearleads.com
 }
+native_release_link_secrets() {
+  printf 'secrets:%s\\n' "$NATIVE_RELEASE_TIER" >> "$NATIVE_RELEASE_TEST_LOG"
+}
 native_release_ensure_android_wrapper() {
   printf 'wrapper\\n' >> "$NATIVE_RELEASE_TEST_LOG"
 }
@@ -109,6 +112,7 @@ native_release_main android build staging build_number:42`,
     expect(exitCode, stderr).toBe(0);
     await expect(Bun.file(logPath).text()).resolves.toBe(
       [
+        "secrets:staging",
         "guard:android:staging",
         "wrapper",
         "bun:staging:run android:build-release:staging build_number:42",
