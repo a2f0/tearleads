@@ -15,8 +15,10 @@ import {
   within,
 } from "@testing-library/react";
 import { type ComponentType, type PropsWithChildren, useMemo } from "react";
+import { createAppHostConfig } from "../../host/AppHostConfig";
 import { SettingsApp } from "../../mini-apps/settings/SettingsApp";
 import type { MiniAppId } from "../../mini-apps/types";
+import { AppHostConfigProvider } from "../../providers/host/AppHostConfigProvider";
 import { DiagnosticsProvider } from "../../providers/logging/DiagnosticsProvider";
 import { MiniAppBoundary } from "./MiniAppBoundary";
 
@@ -172,12 +174,18 @@ test("Settings fits measured fractional content without automatic resizing", () 
     }
   };
   try {
+    const hostConfig = createAppHostConfig({
+      apiBaseUrl: "http://localhost:3001",
+      wsUrl: "ws://localhost:3001/events",
+    });
     const view = render(
-      <DiagnosticsProvider value={undefined}>
-        <WindowStateProvider>
-          <Desktop appId="display-properties" component={SettingsApp} />
-        </WindowStateProvider>
-      </DiagnosticsProvider>,
+      <AppHostConfigProvider value={hostConfig}>
+        <DiagnosticsProvider value={undefined}>
+          <WindowStateProvider>
+            <Desktop appId="display-properties" component={SettingsApp} />
+          </WindowStateProvider>
+        </DiagnosticsProvider>
+      </AppHostConfigProvider>,
     );
     const surface = view.getByTestId("surface");
     Object.defineProperties(surface, {

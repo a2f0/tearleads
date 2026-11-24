@@ -16,6 +16,12 @@ type ClearNativeCache = () => Promise<void>;
 interface DeviceResetGateProps extends PropsWithChildren {
   /** The host's cleanup of files it staged outside WebView storage. */
   readonly clearNativeCache?: ClearNativeCache | undefined;
+  /**
+   * Re-reads what the shell loaded from storage before this page wiped it.
+   * Clearing storage in this page fires no `storage` event here, and the app
+   * mounts after the wipe without a reload.
+   */
+  readonly onWiped: () => void;
   /** Performs the requested reset; tests substitute the page's storage. */
   readonly completeReset?: (
     clearNativeCache: ClearNativeCache | undefined,
@@ -33,6 +39,7 @@ export function DeviceResetGate({
   children,
   clearNativeCache,
   completeReset = runRequestedDeviceReset,
+  onWiped,
 }: DeviceResetGateProps) {
   const [state, dispatch] = useReducer(
     transitionDeviceResetGate,
@@ -52,6 +59,8 @@ export function DeviceResetGate({
     let current = true;
     void completeReset(clearNativeCache).then(
       () => {
+        // Stale whether or not this gate is still mounted.
+        onWiped();
         if (current) dispatch({ type: "reset-completed" });
       },
       (error: unknown) => {
@@ -66,7 +75,7 @@ export function DeviceResetGate({
     return () => {
       current = false;
     };
-  }, [clearNativeCache, completeReset, state.status]);
+  }, [clearNativeCache, completeReset, onWiped, state.status]);
 
   // One subscription and one lock across joining and ready, so the lock is
   // never let go while the app is mounted.

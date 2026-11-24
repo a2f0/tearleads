@@ -72,6 +72,8 @@ export async function openClickTrackingFixture(
   app: string,
   signal: PrivacySignal = "none",
   productionBuild = true,
+  // The app's opt-in; the website takes no consent and ignores it.
+  consented = true,
 ) {
   const requests: { body: string; headers: Record<string, string> }[] = [];
   const errors: string[] = [];
@@ -137,8 +139,21 @@ export async function openClickTrackingFixture(
         <div contenteditable="true">${privateMarker}</div>
         <script type="module">
           import { initializeClickTracking } from '/tracker.js';
-          initializeClickTracking(${productionBuild});
-          initializeClickTracking(${productionBuild});
+          const listeners = new Set();
+          let consented = ${consented};
+          const consent = {
+            enabled: () => consented,
+            subscribe(listener) {
+              listeners.add(listener);
+              return () => listeners.delete(listener);
+            },
+          };
+          window.setTelemetryConsent = (value) => {
+            consented = value;
+            for (const listener of listeners) listener();
+          };
+          initializeClickTracking(${productionBuild}, consent);
+          initializeClickTracking(${productionBuild}, consent);
           document.documentElement.dataset.ready = 'true';
         </script></html>`,
       });

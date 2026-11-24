@@ -1,10 +1,13 @@
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
-import { createBrowserDiagnostics } from "@tearleads/diagnostics/browser";
+import {
+  type CollectionConsent,
+  createBrowserDiagnostics,
+} from "@tearleads/diagnostics/browser";
 import { fetchWithTimeout } from "@tearleads/diagnostics/fetch";
 import { resolveNativeSentryConfig } from "./sentryConfig";
 
-export async function configureNativeSentry() {
+export async function configureNativeSentry(consent: CollectionConsent) {
   if (
     !Capacitor.isNativePlatform() ||
     !import.meta.env.PROD ||
@@ -34,7 +37,7 @@ export async function configureNativeSentry() {
       manifest,
     );
     if (!config) return undefined;
-    const diagnostics = createBrowserDiagnostics(config);
+    const diagnostics = createBrowserDiagnostics(config, consent);
     // Flush pending JS errors when the WebView is about to be suspended.
     void App.addListener("pause", () => {
       void Promise.resolve(diagnostics.flush()).catch(() => undefined);
