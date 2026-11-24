@@ -35,6 +35,7 @@ function optionalHeaderString(
   return typeof value === "string" ? value : null;
 }
 
+/** The content-key epoch a served update's write header names, if any. */
 function optionalHeaderEpoch(
   update: SyncResponseUpdate | undefined,
 ): number | null {

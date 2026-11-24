@@ -64,6 +64,8 @@ define executable request, response, and verifier behavior.
   - [Checkpoint](./glossary/sync.md#checkpoint)
   - [Commit LSN](./glossary/sync.md#commit-lsn)
   - [Head](./glossary/sync.md#head)
+  - [Loro Read Window](./glossary/sync.md#loro-read-window)
+  - [Peer Owner](./glossary/sync.md#peer-owner)
   - [Processed Cursor](./glossary/sync.md#processed-cursor)
   - [Projection Row](./glossary/sync.md#projection-row)
   - [Realtime Hint](./glossary/sync.md#realtime-hint)

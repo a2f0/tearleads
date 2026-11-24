@@ -25,6 +25,8 @@ export type {
   AttachmentRemovalMarkerSettlement,
   AttachmentRemovalRows,
   AttachmentStagingRows,
+  DocumentPeerRebaseInstall,
+  DocumentPeerRebaseRecord,
   DocumentsPersistence,
   LocalAttachmentRecord,
   PendingAttachmentRecord,

@@ -27,6 +27,12 @@ export interface DocumentRecord {
   documentKekTargets?: string | null;
   documentManifestBundle?: string | null;
   pendingBaseVersion?: string | null;
+  /**
+   * Salt of the writer peer a peer rebase moved this record to. Absent while
+   * the record writes on its first peer. Only the rebase install writes the
+   * column, so an ordinary save never clears it.
+   */
+  peerSalt?: string;
   pullContinuation?: DocumentSyncPullContinuation | null;
   /**
    * The durable continuation column was non-null but could not be decoded.
@@ -84,6 +90,7 @@ export interface SelectedDocumentRecordRow {
   documentKekTargets: string | null;
   documentManifestBundle: string | null;
   pendingBaseVersion: string | null;
+  peerSalt: string | null;
   pullContinuation: string | null;
 }
 

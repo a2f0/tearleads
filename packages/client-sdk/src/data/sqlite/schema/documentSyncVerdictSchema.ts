@@ -62,12 +62,9 @@ export const documentSyncProgress = sqliteTable(
  *   judged again.
  * - `attempts`: For a `loro_runtime` row, how many process lifetimes have
  *   each failed the Loro runtime on the update; null at other stages.
- * - `judge`: As in `document_sync_progress`.
- * - `contentKeyEpoch`, `keyFingerprint`: The epoch and the content-key
- *   commitment of the key the payload was judged under
- *   (`deriveDocumentContentKeyCommitment`), never the key. A later pass that
- *   holds another key for that epoch drops the cursor so the update is judged
- *   again.
+ * - `judge`: As in `document_sync_progress`. A verdict needs no content key
+ *   beside it: the update's signed envelope commits to the one key every
+ *   reader judges it under.
  * - `voidedAt`: When this device first voided it.
  */
 export const documentVoidUpdates = sqliteTable(
@@ -81,8 +78,6 @@ export const documentVoidUpdates = sqliteTable(
     message: text("message").notNull(),
     attempts: integer("attempts"),
     judge: text("judge").notNull(),
-    contentKeyEpoch: integer("content_key_epoch"),
-    keyFingerprint: text("key_fingerprint"),
     voidedAt: text("voided_at").notNull(),
   },
   (table) => [

@@ -144,6 +144,7 @@ Encrypted [Loro sync](./loro-e2ee-sync-protocol.md) uses
 - optional `minLsn`
 - `supportsPullPagination: true`
 - optional opaque `pullCursor`
+- optional `maxPageUpdates`, from 1 to the server's page limit
 - optional read-only `historyMode: "raw"`
 - `inlineRekeyCommitId`, present exactly when `containerRekeys[]` is non-empty
 - `outgoingUpdates[]`
@@ -218,7 +219,10 @@ baseline's signed processed cursor, which its author imported or voided (see
 explicit read-only `historyMode: "raw"` request bypasses that redirect and
 returns every retained
 update missing from the supplied frontier. Each page includes the content-key
-bundle for every epoch represented by its updates.
+bundle for every epoch represented by its updates. A request's
+`maxPageUpdates` lowers the page's update count below the server's limit; a
+client isolating updates a process death left unattributed sends 1 (see
+[Loro read window](./glossary/sync.md#loro-read-window)).
 [Raw mode](./raw-document-history-recovery.md) is for deliberate recovery or
 diagnosis by clients that can still unwrap the historical keys; it cannot make
 old ciphertext readable to a newly authorized reader who never possessed those
@@ -261,6 +265,7 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 | -------------------------------------------- | ---------------------------------------------- |
 | `document_sync_checkpoint_coverage_conflict` | Regenerate the queued rotation checkpoint.     |
 | `document_sync_descendant_rekeys_required`   | Commit the container rekeys standalone, retry. |
+| `document_sync_peer_owned`                   | Move unsent ops off the named peers, retry.    |
 | `document_sync_state_stale`                  | Refetch the writer projection and replan.      |
 | `document_sync_update_id_conflict`           | Run pending-update ID recovery.                |
 | `document_sync_conflict`                     | Report the terminal conflict without retrying. |
@@ -283,3 +288,14 @@ principals named by its submitted rekeys, before it refetches the
 alone never admit checkpoints. Exact scoped references and the original runtime
 lifetime must remain valid throughout recovery, and the retry stays bounded by
 the normal stale-state budget. Other conflict codes ignore repair heads.
+
+A sync that extends a Loro peer past its committed frontier when another user
+is that peer's [owner](./glossary/sync.md#peer-owner) is refused whole with
+`document_sync_peer_owned`. Its `peerFrontiers[]` names at most 64 refused
+peers in canonical order, each as a decimal `peerId` with the
+`committedEndCounter` (exclusive) committed before the request; a request
+refused on more peers is refused again for the rest after its retry. Counters
+below that frontier may be re-asserted by any writer, so the client keeps
+everything there, moves its unsent operations past it onto a fresh peer, and
+resubmits. Other conflict codes ignore `peerFrontiers`. The rule is in
+[advisory op spans](./advisory-op-spans.md#what-the-server-checks).

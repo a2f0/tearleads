@@ -1,4 +1,7 @@
-import type { DocumentRecord } from "../../../../workflows/documents";
+import type {
+  DocumentRecord,
+  DocumentSyncLoroWindow,
+} from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import { requestDocumentStoreSync } from "../../registry";
 import type {
@@ -30,6 +33,7 @@ export async function revalidateRemoteDocumentBeforeAttachments(
   encapsulationKeyPair: EncapsulationKeyPair,
   generation: DocumentStoreSyncGeneration,
   policyOperation: PrincipalPolicyOperation,
+  loroWindow: DocumentSyncLoroWindow,
 ): Promise<AttachmentRevalidation> {
   if (state.pendingAttachments.length === 0) {
     return { canSyncAttachments: true, nextRecord };
@@ -41,6 +45,7 @@ export async function revalidateRemoteDocumentBeforeAttachments(
     encapsulationKeyPair,
     generation,
     policyOperation,
+    loroWindow,
   );
 }
 
@@ -57,6 +62,8 @@ export async function pullRemoteDocumentForAttachments(
   encapsulationKeyPair: EncapsulationKeyPair,
   generation: DocumentStoreSyncGeneration,
   policyOperation: PrincipalPolicyOperation,
+  /** The pass's read window; a pull outside a pass reads without one. */
+  loroWindow: DocumentSyncLoroWindow | undefined,
 ): Promise<AttachmentRevalidation> {
   if (!nextRecord.documentId) {
     return { canSyncAttachments: true, nextRecord };
@@ -71,6 +78,7 @@ export async function pullRemoteDocumentForAttachments(
     encapsulationKeyPair,
     generation,
     pendingUpdates: [],
+    loroWindow,
     policyOperation,
     unavailableWriterLogMessage:
       "Documents: skipped pre-attachment revalidation because the writer context is unavailable.",

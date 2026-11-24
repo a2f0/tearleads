@@ -99,6 +99,15 @@ export function documentSyncErrorBody(
         : {}),
     };
   }
+  if (code === DOCUMENT_SYNC_ERROR_CODES.peerOwned) {
+    return {
+      code,
+      error: error.error,
+      ...(error.details?.peerFrontiers
+        ? { peerFrontiers: [...error.details.peerFrontiers] }
+        : {}),
+    };
+  }
   return { code, error: error.error };
 }
 

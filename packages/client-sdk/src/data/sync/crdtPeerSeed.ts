@@ -143,18 +143,19 @@ export function getRuntimePeerSeed(
  * first commit on the record's document, and that commit is what claims it.
  * The user keeps two identities on one device apart, and the record keeps a
  * peer the server has seen on one document from naming this writer on
- * another.
+ * another. A `peerSalt` moves the record to a fresh peer after the server
+ * refused its peer as another user's; the record keeps the salt, so every
+ * later load derives the same fresh peer.
  */
 export function recordPeerSeed(input: {
+  readonly peerSalt?: string | undefined;
   readonly recordId: string;
   readonly runtimeSeed: string;
   readonly userId: string | null;
 }): string {
-  return JSON.stringify([
-    input.runtimeSeed,
-    input.userId ?? "",
-    input.recordId,
-  ]);
+  const parts = [input.runtimeSeed, input.userId ?? "", input.recordId];
+  if (input.peerSalt !== undefined) parts.push(input.peerSalt);
+  return JSON.stringify(parts);
 }
 
 /**

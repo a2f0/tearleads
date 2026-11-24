@@ -64,6 +64,13 @@
       "when": 1795467305434,
       "tag": "0008_document_content_key_commitment",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795486154047,
+      "tag": "0009_document_peer_owners",
+      "breakpoints": true
     }
   ]
 }

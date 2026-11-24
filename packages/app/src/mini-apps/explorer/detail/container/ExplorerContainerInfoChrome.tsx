@@ -1,12 +1,12 @@
 import {
   MiniAppActions,
   MiniAppButton,
-  MiniAppHeader,
-  MiniAppHeaderCopy,
   MiniAppStatePanel,
 } from "../../../../components/mini-app/MiniAppLayout";
 import { EXPLORER_LABELS } from "../../labels";
+import { ExplorerContainerIcon } from "../../shared/ExplorerContainerIcon";
 import { compactId } from "../compactId";
+import { ExplorerInfoHeader } from "../ExplorerInfoHeader";
 
 /**
  * Fills the info panel while a share runs: it seals keys for its recipient
@@ -23,17 +23,24 @@ export function ExplorerContainerInfoSharingProgress() {
 }
 
 export function ExplorerContainerInfoHeader(params: {
+  containerIcon: string | null;
   containerId: string;
   containerName: string | undefined;
 }) {
-  const { containerId, containerName } = params;
+  const { containerIcon, containerId, containerName } = params;
   return (
-    <MiniAppHeader>
-      <MiniAppHeaderCopy>
-        <strong>{EXPLORER_LABELS.containerInfoTitle}</strong>
-        <span>{containerName ?? compactId(containerId)}</span>
-      </MiniAppHeaderCopy>
-    </MiniAppHeader>
+    <ExplorerInfoHeader
+      icon={
+        // Open, as in the container's own header: Get Info selects it.
+        <ExplorerContainerIcon
+          className="explorer-detail-header-icon"
+          icon={containerIcon}
+          isOpen
+        />
+      }
+      subject={containerName ?? compactId(containerId)}
+      title={EXPLORER_LABELS.containerInfoTitle}
+    />
   );
 }
 

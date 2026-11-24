@@ -68,6 +68,8 @@ export {
   type DocumentNotFoundErrorCode,
   type DocumentNotFoundErrorResponse,
   DocumentNotFoundErrorResponseSchema,
+  type DocumentPeerFrontier,
+  DocumentPeerFrontierSchema,
   type DocumentProjectionErrorCode,
   DocumentProjectionErrorCodeSchema,
   type DocumentSyncErrorCode,
@@ -81,6 +83,7 @@ export {
   isDocumentSyncErrorCode,
   isDocumentSyncErrorResponse,
   isDocumentSyncStateStaleErrorResponse,
+  MAX_DOCUMENT_PEER_FRONTIERS,
 } from "../documentSyncError";
 export {
   isSyncWatermark,

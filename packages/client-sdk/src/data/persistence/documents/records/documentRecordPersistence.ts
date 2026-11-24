@@ -29,6 +29,7 @@ export const documentRecordSelection = {
   contentKeyBundle: documents.contentKeyBundle,
   documentKekTargets: documents.documentKekTargets,
   pendingBaseVersion: documents.pendingBaseVersion,
+  peerSalt: documents.peerSalt,
   pullContinuation: documents.pullContinuation,
 };
 
@@ -62,6 +63,10 @@ export function mapSelectedDocumentRecord(
   // one keeps its prior shape (and init falls through to seeding it).
   if (row.pendingBaseVersion !== null) {
     record.pendingBaseVersion = row.pendingBaseVersion;
+  }
+
+  if (row.peerSalt !== null) {
+    record.peerSalt = row.peerSalt;
   }
 
   const pullContinuation = deserializeDocumentSyncPullContinuation(

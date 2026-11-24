@@ -84,16 +84,14 @@ export function containerMetadataVerdictRecorder(
       });
     },
     /**
-     * Reports each void the committed save first recorded. True when it
-     * dropped the cursor, so the next pull goes by version and judges again.
-     * A save that never ran the recorder reports nothing.
+     * Reports each void the committed save first recorded. A save that never
+     * ran the recorder reports nothing.
      */
     settle: (
       logError: WorkflowRuntimeUtilInput["logError"] | undefined,
-    ): boolean => {
-      if (!recorded) return false;
+    ): void => {
+      if (!recorded) return;
       reportDocumentSyncVoids(logError, synced, recorded);
-      return recorded.cursorCleared;
     },
   };
 }

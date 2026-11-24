@@ -55,6 +55,38 @@ Related docs:
 - [protocol-specification.md](../protocol-specification/container-access.md#container-access-and-kek-protocol)
 - [security-guarantees.md](../security-guarantees/properties.md#held-descendant-re-citation)
 
+## Loro Read Window
+
+A local row naming the unsettled updates of one document pull, committed
+before the client first reads them with Loro and deleted by the pull's save.
+A process that dies reading them leaves the row, and the next process lifetime
+claims it once that lifetime's Web Lock is gone. A window that held one update,
+and was its lifetime's only open window, counts a runtime attempt toward it;
+any other window makes the document pull
+one update a page (`maxPageUpdates: 1`) until it has passed those updates. A
+window left by a lifetime that ended while the app was hidden counts nothing.
+Each sync pass holds its own window and settles only that one.
+
+Related docs:
+
+- [advisory-op-spans.md](../advisory-op-spans.md#loro-runtime-failures)
+- [VoidUpdateProgress.md](../../formal/document-sync/VoidUpdateProgress.md)
+
+## Peer Owner
+
+The user the server lets extend a Loro peer of one document past its committed
+frontier, the highest span end committed on that peer. The API keeps one
+`document_peer_owners` row per document and peer. The first committed update
+that extends an unowned peer claims it for its writer's user, so every device
+of that user may continue the peer. Any writer may re-assert counters below the
+frontier, but a sync or unlink that extends another user's peer is refused with
+409 `document_sync_peer_owned` and rolls back. A purge deletes the rows.
+
+Related docs:
+
+- [advisory-op-spans.md](../advisory-op-spans.md#what-the-server-checks)
+- [document-link-and-sync-protocol.md](../document-link-and-sync-protocol.md#document-sync-conflict-codes)
+
 ## Processed Cursor
 
 The last update of a document pull a client completed, sent on its next pull as

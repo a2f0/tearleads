@@ -19,11 +19,10 @@ test.each([
     );
     try {
       // A database from before the migration ledger also still has the
-      // column local schema step 3 drops.
-      const obsoleteSql = documentsTable.createSql.replace(
-        `  ${definition},\n`,
-        '  "sync_failure_status" INTEGER,\n',
-      );
+      // column local schema step 3 drops, and lacks the one step 7 adds.
+      const obsoleteSql = documentsTable.createSql
+        .replace(`  ${definition},\n`, '  "sync_failure_status" INTEGER,\n')
+        .replace('  "peer_salt" TEXT,\n', "");
       expect(obsoleteSql).not.toContain(definition);
       await execSql(obsoleteSql);
       await expect(ensureSqlTables(execSql, [documentsTable])).rejects.toThrow(

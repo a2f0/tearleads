@@ -166,3 +166,69 @@ testApiClient("rejects malformed coded document sync failures", async () => {
   expect(result.message).toContain("Invalid failure response body");
   expect(result.message.includes("Untrusted stale state")).toBe(false);
 });
+
+testApiClient(
+  "exposes the refused peers of a peer-owned document sync",
+  async () => {
+    const peerFrontiers = [{ committedEndCounter: 5, peerId: "900" }];
+    server.use(
+      http.post(`${apiBaseUrl}/documents/:documentId/sync`, () =>
+        HttpResponse.json(
+          {
+            code: "document_sync_peer_owned",
+            error: "Document peer is owned by another user",
+            peerFrontiers,
+          },
+          { status: 409, statusText: "Conflict" },
+        ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const result = await client.syncDocumentResult(
+      "document-1",
+      createDocumentSyncRequest(),
+      { reportErrors: false },
+    );
+
+    if (result.ok) {
+      throw new Error("Expected document sync result failure");
+    }
+    expect(result.status).toBe(409);
+    expect(result.code).toBe("document_sync_peer_owned");
+    expect(result.peerFrontiers).toEqual(peerFrontiers);
+    expect(result.stalePrincipalHeads).toBeUndefined();
+  },
+);
+
+testApiClient(
+  "rejects malformed peer-owned document sync failures",
+  async () => {
+    server.use(
+      http.post(`${apiBaseUrl}/documents/:documentId/sync`, () =>
+        HttpResponse.json(
+          {
+            code: "document_sync_peer_owned",
+            error: "Untrusted peers",
+            peerFrontiers: [{ committedEndCounter: -1, peerId: "not-a-peer" }],
+          },
+          { status: 409, statusText: "Conflict" },
+        ),
+      ),
+    );
+
+    const client = new ApiClient(apiBaseUrl);
+    const result = await client.syncDocumentResult(
+      "document-1",
+      createDocumentSyncRequest(),
+      { reportErrors: false },
+    );
+
+    if (result.ok) {
+      throw new Error("Expected document sync result failure");
+    }
+    expect(result.code).toBeUndefined();
+    expect(result.peerFrontiers).toBeUndefined();
+    expect(result.message).toContain("Invalid failure response body");
+  },
+);

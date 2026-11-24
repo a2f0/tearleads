@@ -19,10 +19,10 @@ A completed pull records a processed cursor with the count of updates through
 its bound, as the server counted them. That count includes every update the
 client voided (`PeerVoidEdit`), which it judged but whose content it never
 holds. The client stops sending the cursor (`WithholdCursor`) after a judge
-change, a key conflict, or once its frontier no longer covers the cursor's
-version. A listing whose count that cursor does not cover owes the document one
-read, in memory and in `container_metadata_revalidations` at the listed count,
-before the watermark advances past the row. A read settles the debt only once
+change, or once its frontier no longer covers the cursor's version. A listing
+whose count that cursor does not cover owes the document one read, in memory
+and in `container_metadata_revalidations` at the listed count, before the
+watermark advances past the row. A read settles the debt only once
 the cursor its pull left covers the owed count. A crash loses memory, the
 socket and in-flight work. The watermark, the durable debt, the cursor and the
 local copy survive, and the store's first pass requeues the debt.

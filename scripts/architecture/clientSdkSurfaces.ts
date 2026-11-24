@@ -62,7 +62,8 @@ export const principalPolicyContractsSurface = [
 // Container Data, Client Blob Storage, and Document Store & Sync build on.
 // Document sync also uses the KEK currency, content crypto, event, outgoing
 // batch, pagination, decryption, import, verdict, Loro runtime-failure ledger,
-// content-key commitment, acknowledgement, and submit-failure contracts.
+// Loro lifetime and read-window, content-key commitment, acknowledgement, and
+// submit-failure contracts.
 export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/containerKek/index.ts`,
   `${sdk}/data/documents/shared/projection/index.ts`,
@@ -84,8 +85,12 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/sync/documentSyncUpdateImport.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncUpdateIsolation.ts`,
   `${sdk}/data/documents/shared/sync/documentUpdateVerdict.ts`,
+  `${sdk}/data/documents/shared/sync/loroLifetime.ts`,
   `${sdk}/data/documents/shared/sync/loroRuntimeFailureLedger.ts`,
+  `${sdk}/data/documents/shared/sync/loroWindowGate.ts`,
+  `${sdk}/data/documents/shared/sync/loroWindowMachine.ts`,
   `${sdk}/data/documents/shared/sync/mutationAcknowledgement.ts`,
+  `${sdk}/data/documents/shared/sync/peerRebase.ts`,
   `${sdk}/data/documents/shared/sync/pullContinuation.ts`,
   `${sdk}/data/documents/shared/sync/syncPagination.ts`,
   `${sdk}/data/documents/shared/sync/syncSubmitFailure.ts`,

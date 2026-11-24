@@ -15,6 +15,25 @@ differs from its signed write header, and an envelope that does not name its
 epoch's [content-key commitment](./glossary/keys.md#content-key-commitment). No
 honest client sends any of them. It stores any other span as declared.
 
+It also ties each peer to the user that may extend it (#3194). A peer's
+committed frontier is the highest declared span end on it. Under the document
+lock, the server walks a request's new updates in request order, raising each
+frontier as it goes. A span ending at or below the frontier re-asserts
+committed counters, which any writer may do. A span past it claims an unowned
+peer for the writer's user, who becomes its
+[peer owner](./glossary/sync.md#peer-owner); passes on a peer that user owns;
+and is refused on a peer another user owns. A refusal rolls the whole request
+back with 409 `document_sync_peer_owned`, whose `peerFrontiers` name at most
+64 refused peers in canonical order, each with the frontier committed before
+the request. Update ids the document already holds are retries and are not
+judged again. A rotation baseline is judged the same way whether a sync or an
+unlink carries it, so it may re-assert every user's peers but extend only its
+writer's; the unlink's refusal carries the code without `peerFrontiers`. A
+purge deletes the owner rows with the spans. Peers committed before the rule
+were backfilled to the user of their first update, or to the nil id, which no
+user has, when that author names no user. The rule is modeled in
+[`PeerOwnership.tla`](../formal/document-sync/PeerOwnership.md).
+
 ## Void Updates
 
 A reader judges each served update in server order. It checks the envelope
@@ -47,9 +66,8 @@ incomplete, and drops the page's continuation, so its next pull serves them
 again. Voids that change nothing (a counter gap read from the update's
 metadata, a collision with operations already held, an undecodable payload)
 cost no rebuild. An update this device already voided at a stage the import
-judge decides, under the same judge and the same content key, stays void
-without another Loro call, so every pass judges at least one update the last
-one did not.
+judge decides, under the same judge, stays void without another Loro call, so
+every pass judges at least one update the last one did not.
 
 ## Loro Runtime Failures
 
@@ -74,46 +92,157 @@ document.
 Only the first runtime failure in a process counts as an attempt, because a
 later one may be the module's state, not the update. Once three process
 lifetimes have each failed the update, it is a final void like the others, is
-reported as such, and is never read again under that judge and key. A new
-decoder or another content key judges it from zero. An update that imports on
-a retry joins.
+reported as such, and is never read again under that judge. A new decoder
+judges it from zero. An update that imports on a retry joins.
 
-Two residuals remain. An honest update that fails the runtime in three
-separate process lifetimes on one device is void on that device. And while an
-update is unsettled, the device applies nothing served after it on that
-document and cannot bind attachments to it, for up to three process
-lifetimes; its own writes still push and settle. A payload that kills the
-process outright, rather than throwing, records no attempt.
+A payload can also kill the process outright (an out-of-memory crash, or a
+renderer crash) rather than throw. Document sync reads a page inside a read
+window: a local row naming the page's unsettled updates, committed once the
+reader's history is built, before the first update is read, and deleted by the
+page's save. Each process lifetime holds a Web Lock named after it, so the
+next lifetime knows a window whose lock is gone was left by a dead one. A
+window that held one update, in a lifetime that met no runtime failure,
+records one `loro_runtime` attempt toward it, so a killing payload is voided
+after three deaths. Any other window says nothing about one update: its
+updates become suspects, and the document pulls one update a page
+(`maxPageUpdates: 1`) until it has passed them, so a later death names the
+update alone. Documents sync in parallel, so a window counts only while it is
+its lifetime's only open one: opening a second stops every window of that
+lifetime counting, in every database it has open, and a death then isolates
+them all. Each sync pass holds a window of its own and settles only that one,
+so a stale pass still running after the store moved to another database
+cannot close the window of the pass that replaced it. Container metadata,
+rotation, and a founding view read served updates with no window yet; while
+such a read runs, the lifetime's failure marker stands, so a death then
+isolates the open windows' updates instead of counting it toward one. A
+document isolating
+suspects waits to read until its window would be the lifetime's only one;
+after 30 seconds it reads beside the others, and counts nothing. A lifetime
+that ends while the app is hidden, with a window open, leaves a `localStorage`
+marker, and its window counts nothing and isolates nothing: the user closed
+the app, which says nothing about the update. A lifetime that met a runtime
+failure anywhere, with a window open, leaves a marker too, and its window
+isolates instead of counting, since the module may be unusable. A lifetime
+that cannot delete a window's row keeps its failure marker too, so its death
+isolates that row's updates. A host that cannot keep these markers (no working
+`localStorage` or page visibility) opens windows that count nothing, since a
+close could not be told from a death; a death there isolates. A lifetime's
+markers stay until a claim finds none of its windows left in the database.
+A lifetime that could not settle a window keeps them for good, since its
+windows may stand in a database that claim cannot see. A host without
+Web Locks, or whose lock request is refused, opens no window. The command
+line's database is memory-only, so its windows die with it; a host whose
+database outlives its process must hold such a lock or mark its clean exits.
 
-## Preempted Operations
+Four residuals remain. An honest update that fails the runtime, or ends the
+process while the app is visible, in three separate process lifetimes on one
+device is void on that device. A window opens once the reader's history is
+built and closes with the page's save, which imports the update, so a visible
+death inside it counts toward the update whatever caused it: Loro work on
+local or accepted data the process runs meanwhile (the editor, a live apply,
+another document's reader history being built), the document's own size while
+saving, or a killer read by another tab that shares the browser process. A
+claim counts at most one attempt per update, so
+tabs that die together in one browser process count one. While an update is
+unsettled, the device applies nothing served after it on that document and
+cannot bind attachments to it, for up to three process lifetimes; its own
+writes still push and settle. And container metadata, rotation, and a founding
+view open no window yet, nor does the live apply after a page's save, so a
+payload that kills the process there records no attempt.
+
+## Peer Ownership
 
 Earliest-wins voids the later of two updates that carry the same operation ids
-(peer and counter) with different operations. A writer that commits operations
-under another device's peer id at that device's next counters, before the
-device's own update lands, therefore makes every reader void the device's
-update. This is an accepted residual of #3135; the server does not yet tie a
-peer id to the writer that may use it. Before advisory spans, one such forged
-collision stopped every reader's sync of the document; now it drops the
-preempted operations on other readers.
+(peer and counter) with different operations. A writer that committed
+operations under another device's peer id at that device's next counters,
+before the device's own update landed, would make every reader void the
+device's update. The server now refuses that: past a peer's committed
+frontier, only its [peer owner](./glossary/sync.md#peer-owner) may write
+([what the server checks](#what-the-server-checks)).
 
 A writer derives a separate peer id for each document or container it writes,
 from a seed that never leaves its device, the signed-in user, and the record
 (`recordPeerSeed`). Another member therefore cannot read a device's peer id on
 a document from that device's updates to other documents: it first sees the
-peer id in the device's first commit on the document. Two identities on one
-device also never write one history under one peer id. The first update of a
-new container's metadata, organization profile, or roster profile goes under
-a fresh peer id that is never reused.
+peer id in the device's first commit on the document, and by then the device's
+user owns it. Two identities on one device also never write one history under
+one peer id. The first update of a new container's metadata, organization
+profile, or roster profile goes under a fresh peer id that is never reused.
 
-A device that is served such an update holds its own operations first, so it
-voids the forger's update instead. When that void reuses ids under the peer id
-the device writes with, it records a notice in `document_peer_preemptions` and
-reports once which writer (user and key fingerprint) signed the update. For a
-rotation baseline that is the writer that relayed the operations, not
-necessarily the one that forged them. A forger that declares exactly the
-counters the device already holds is not served to that device, because the
-device's frontier covers the declared span, so the notice catches only a
-forgery the device is served.
+### Rebasing onto a fresh peer
+
+A device whose sync is refused with `document_sync_peer_owned` recovers by its
+own steps. For each refused peer it keeps the operations below the frontier the
+server named and cuts the rest, then cuts every operation that depends on a cut
+one. It writes the cut operations' net effect again under a fresh peer, on a
+fork of what it kept, and replaces the record's queued updates with one update
+holding every fork operation from where its unsent operations start: on each
+peer, the lowest of its pending base and every queued update's start on that
+peer. That update re-asserts the refused peer's committed counters, which any
+writer may do, and extends only the fresh peer, so the retry lands. Operations
+committed on a refused peer stay under their ids in the fork whoever committed
+them, so no reader sees them twice.
+
+Before the server checks dependencies, a forged committed operation could
+depend on a cut one. The rebase never cuts what the device knows is committed
+(on a refused peer, below the named frontier; on any other peer, below where
+its unsent operations start): writing it again under the fresh peer would
+duplicate it for every reader, so the rebase fails loudly instead. Honest
+histories never get there. A refusal that names no frontiers, such as an
+unlink's, fails that operation; the document's next sync draws the refusal with
+its frontiers and rebases, so a retry builds on the fork.
+
+A document's fresh peer comes from a new random salt its record keeps
+(`peer_salt`), so a reload writes on that peer and not the refused one. One
+transaction replaces the record's history with the fork's full history, its
+queue with the one update, and its void rows and preemption notices with none,
+and moves the record to the next recovery generation, which fences out every
+writer that read the old history. It writes nothing if the record or its
+history moved past what the rebase read: another tab's queued edit is merged
+into the fork before the cut, and one queued after that read makes the device
+rebase again on its next refusal. Container metadata rebases the same way, with
+its stored content as the fence, onto a random peer it keeps in memory only. A
+reload derives the writer's own metadata peer again, which the server still
+refuses, so the next write after a reload rebases again, once per written
+container and session.
+
+### Residuals
+
+- **Recreation preemption.** A purge deletes a document's owner rows with its
+  spans. A malicious member who republishes the purged document from history
+  owns the peers of every record that survived it, and can commit their next
+  counters before the devices' offline edits land. Those devices then rebase
+  keeping their own operations below the forger's frontier as committed, and
+  readers, who hold the forger's operations there first, void the update that
+  re-asserts them.
+- **Overclaims on one's own peer.** The server cannot read a payload, so an
+  owner may declare a span past the operations it carries. The counters below
+  that frontier are committed, so any writer may then fill them first, and
+  readers void the owner's later operations there. Only a dishonest or broken
+  client overclaims, and the cost falls on its own peer.
+- **Same-user devices share ownership.** A peer belongs to a user, not a
+  device. A modified client signed in as the same user can extend the peer of
+  that user's other device, which honest devices never share, and readers void
+  the later operations.
+- **Operation references outside dependencies.** The rebase cuts by Loro
+  dependencies. An operation that names another (a move or delete target)
+  without depending on it is left to another track.
+
+### Preemption notices
+
+A device that is served a colliding update holds its own operations first, so
+it voids the other writer's update instead. When that void reuses ids under
+the peer id the device writes with, it records a notice in
+`document_peer_preemptions` and reports once which writer (user and key
+fingerprint) signed the update. For a rotation baseline that is the writer
+that relayed the operations, not necessarily the one that forged them. A
+forger that declares exactly the counters the device already holds is not
+served to that device, because the device's frontier covers the declared
+span, so the notice catches only a forgery the device is served. Under an
+honest server a notice comes only from a non-owner re-asserting committed
+counters with other operations, or from a residual above; under a dishonest
+server it is the only signal. A rebase clears the document's notices and void
+rows along with the history they were judged against.
 
 ## The Processed Cursor
 
@@ -144,9 +273,17 @@ frontier does not cover again, when:
 
 - its judge changed, so a newer decoder reads what an older one voided;
 - its frontier no longer covers the one recorded with the cursor, as after its
-  state is replaced;
-- a void was judged under a different content key for its epoch than the one it
-  now holds.
+  state is replaced.
+
+The content key the reader holds is not among them. Every verdict behind a
+cursor was reached under the key its update's envelope commits to, and every
+reader holding that key reaches the same one. A cursor recorded before readers
+checked the commitment carries an older judge, so it is withheld. Neither a
+void row nor a cursor records a key, and a later pass holding another key for
+an epoch leaves both as they are: it cannot judge the updates behind the
+cursor differently, only fail on that epoch's later ones.
+[`ContentKeyCommitment`](../formal/document-sync/ContentKeyCommitment.md)
+checks this, since its key changes leave every reader's cursor where it is.
 
 A pull of several pages advances the cursor only if every page after the first
 went out under the judge and the cursor its first page was sent with. The

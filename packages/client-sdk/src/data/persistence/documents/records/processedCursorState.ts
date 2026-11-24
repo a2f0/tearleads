@@ -20,8 +20,8 @@ export interface PullPagePosition {
 /**
  * What the pull in progress started from: the judge its first page was
  * judged with and the cursor that page sent. A pull whose later pages ran
- * under anything else (a decoder upgrade, a cursor cleared or withheld
- * meanwhile) did not judge everything its completion would claim.
+ * under anything else (a decoder upgrade, a cursor withheld meanwhile) did
+ * not judge everything its completion would claim.
  */
 export interface PullPremise {
   readonly judge: string;
@@ -32,9 +32,6 @@ export interface PullPremise {
  * What recording one sync page does to its scope's processed cursor.
  *
  * - `unchanged`: a later page of a pull whose premise holds; nothing moves.
- * - `cleared`: a void was judged under another content key for its epoch than
- *   the pass held. The cursor and the pull's premise are dropped, so the next
- *   pull goes by version alone and judges that update again.
  * - `pulling`: the first page of a pull that continues; its premise is kept
  *   for the pages after it.
  * - `abandoned`: a page ran under another premise than its pull's first page,
@@ -48,7 +45,6 @@ export interface PullPremise {
  */
 export type ProcessedCursorTransition =
   | { readonly status: "unchanged" }
-  | { readonly status: "cleared" }
   | { readonly premise: PullPremise; readonly status: "pulling" }
   | { readonly status: "abandoned" }
   | {
@@ -64,8 +60,6 @@ export type ProcessedCursorTransition =
 export function processedCursorTransition(input: {
   /** The judge this page was judged with. */
   readonly judge: string;
-  /** Whether a recorded void was judged under another key for its epoch. */
-  readonly keyConflict: boolean;
   /** Undefined for a judge that keeps no cursor, such as rotation's. */
   readonly page: PullPagePosition | undefined;
   /** The frontier the record holds once the page is saved. */
@@ -73,7 +67,6 @@ export function processedCursorTransition(input: {
   /** The premise the scope's first page of this pull recorded, if any. */
   readonly storedPremise: PullPremise | null;
 }): ProcessedCursorTransition {
-  if (input.keyConflict) return { status: "cleared" };
   const { page } = input;
   if (!page) return { status: "unchanged" };
   const premise: PullPremise | null = page.first

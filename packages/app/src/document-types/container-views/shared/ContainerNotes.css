@@ -20,3 +20,20 @@
 .container-view-note {
   padding-block: var(--space-sm);
 }
+
+/*
+ * A note listed here is one of several inside the container view, not a pane
+ * of its own, so its attachments tray is an inset card under the note rather
+ * than the foot of a surface (NoteDocument.css).
+ */
+.container-view-note .note-document-dropzone {
+  margin-block-end: var(--space-md);
+  margin-inline: var(--space-md);
+  border: var(--border-width) solid var(--color-hairline);
+}
+
+/* On a phone the card spans the screen and closes with top and bottom rules. */
+.routed-pane--mobile .container-view-note .note-document-dropzone {
+  margin-inline: 0;
+  border-inline: 0;
+}

@@ -161,9 +161,9 @@ OtherTouch ==
                  resumes, withholds, up, connected, relistDue, listingVars,
                  owedMem, owedDurable, seq, clientVars, readVars>>
 
-\* The client stops sending its processed cursor: a new judge, a key
-\* conflict, or a frontier that no longer covers the cursor's version. What
-\* it processed is unchanged; only the count it can show is lost.
+\* The client stops sending its processed cursor: a new judge, or a frontier
+\* that no longer covers the cursor's version. What it processed is
+\* unchanged; only the count it can show is lost.
 WithholdCursor ==
   /\ cursorVer > 0 /\ withholds < MaxWithholds
   /\ cursorVer' = 0 /\ withholds' = withholds + 1

@@ -20,6 +20,7 @@ import {
   DocumentMutationErrorCodeSchema,
   DocumentMutationFailureResponseSchema,
   DocumentNotFoundErrorResponseSchema,
+  DocumentPeerFrontierSchema,
   DocumentPurgeProofResponseSchema,
   DocumentPurgeResponseSchema,
   DocumentSyncErrorResponseSchema,
@@ -134,6 +135,8 @@ describeSchema(
       "Marker that makes carried rekeys and the write replay-safe as one transaction; present exactly when `containerRekeys` is non-empty.",
     localVersionVector:
       "The client's current version vector; the response returns updates it does not cover.",
+    maxPageUpdates:
+      "The most updates this page may hold, below the server's own limit. A client sends 1 while it isolates the updates a process death left unattributed, so each is read alone and a death counts toward it; absent, the server's limit applies.",
     minLsn:
       "Commit LSN the server must have reached before answering, for read-after-write consistency.",
     outgoingUpdates: "Encrypted updates to upload.",
@@ -201,10 +204,22 @@ describeSchema(
 
 describeSchema(
   DocumentSyncErrorResponseSchema,
-  "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, or stop.",
+  "A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop.",
   {
+    peerFrontiers:
+      "With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request.",
     principalHeads:
       "With `document_sync_state_stale` from a carried rekey, up to 16 current principal heads to recover before replanning; advisory only.",
+  },
+);
+
+describeSchema(
+  DocumentPeerFrontierSchema,
+  "A Loro peer the request extended that another user owns.",
+  {
+    committedEndCounter:
+      "End (exclusive) of the peer's committed operations; the request may re-assert counters below it.",
+    peerId: "Loro peer id, in decimal.",
   },
 );
 

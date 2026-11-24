@@ -109,19 +109,13 @@ async function judgePage(
 }
 
 test("a page whose judge defers updates applies only what it judged and starts its pull again", async () => {
-  const fingerprintEpochs: number[][] = [];
   await judgePage(
-    ({ contentKeyFingerprintsByEpoch }) => {
-      fingerprintEpochs.push([...contentKeyFingerprintsByEpoch.keys()]);
-      return {
-        ...emptyDocumentSyncImportVerdicts(),
-        deferredUpdateIds: [ids.deferred],
-      };
-    },
+    () => ({
+      ...emptyDocumentSyncImportVerdicts(),
+      deferredUpdateIds: [ids.deferred],
+    }),
     async ({ response, result: pending }) => {
       const result = await pending;
-      // The judge sees the fingerprint of each key it judges under.
-      expect(fingerprintEpochs).toHaveLength(1);
       expect(result.decryptedUpdates.map((update) => update.id)).toEqual([
         ids.judged,
       ]);

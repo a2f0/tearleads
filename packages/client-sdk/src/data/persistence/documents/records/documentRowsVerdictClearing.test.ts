@@ -9,6 +9,10 @@ import {
   rebindDocumentRowInTransaction,
 } from "./documentRowsInTransaction";
 import { recordDocumentSyncVerdictsInTransaction } from "./documentSyncVerdictPersistence";
+import {
+  writeLoroIsolationInTransaction,
+  writeLoroWindowInTransaction,
+} from "./loroWindowPersistence";
 import { RecordedAttachmentSlotRepository } from "./recordedAttachmentSlotPersistence";
 
 const APP_KIND = "container-metadata";
@@ -22,8 +26,8 @@ let close: () => void = () => undefined;
 let execSql: ExecSql;
 
 /**
- * A scope with a cursor, a void row, a preemption notice, and a slot its
- * store saw recorded.
+ * A scope with a cursor, a void row, a preemption notice, a slot its store
+ * saw recorded, and a Loro read window and isolation a death left.
  */
 async function judgedScope(localId: string) {
   await execSql(
@@ -38,7 +42,6 @@ async function judgedScope(localId: string) {
       acceptedUpdateIds: [],
       documentId: DOCUMENT_ID,
       judge: "void-rules-1:loro-crdt@1.0.0",
-      keyFingerprintsByEpoch: new Map([[1, "key-a"]]),
       now: "2026-11-22T00:00:01.000Z",
       preemptions: [
         {
@@ -60,7 +63,6 @@ async function judgedScope(localId: string) {
       voids: [
         {
           attempts: null,
-          contentKeyEpoch: 1,
           message: "declared span is false",
           stage: "loro_import",
           updateId: LIAR,
@@ -76,6 +78,25 @@ async function judgedScope(localId: string) {
       slotIds: ["contact-photos:portrait"],
     },
   );
+  const db = getClientSQLitePersistenceRuntime(execSql).db;
+  await writeLoroWindowInTransaction(
+    db,
+    { appKind: APP_KIND, localId },
+    {
+      counts: false,
+      documentId: DOCUMENT_ID,
+      judge: "void-rules-1:loro-crdt@1.0.0",
+      lifetimeId: "dead",
+      updateIds: [THROUGH],
+      windowId: "dead-window",
+    },
+    "2026-11-22T00:00:01.000Z",
+  );
+  await writeLoroIsolationInTransaction(
+    db,
+    { appKind: APP_KIND, localId },
+    { status: "isolating", documentId: DOCUMENT_ID, suspects: [THROUGH] },
+  );
 }
 
 async function scopesWith(table: string): Promise<unknown[]> {
@@ -87,8 +108,10 @@ async function judgedScopes() {
   return {
     notices: await scopesWith("document_peer_preemptions"),
     progress: await scopesWith("document_sync_progress"),
+    isolation: await scopesWith("document_loro_isolation"),
     sightings: await scopesWith("document_recorded_attachment_slots"),
     voids: await scopesWith("document_void_updates"),
+    windows: await scopesWith("document_loro_windows"),
   };
 }
 
@@ -100,16 +123,18 @@ beforeEach(async () => {
   await judgedScope(KEPT);
   await judgedScope(CLEARED);
   expect(await judgedScopes()).toEqual({
+    isolation: [CLEARED, KEPT],
     notices: [CLEARED, KEPT],
     progress: [CLEARED, KEPT],
     sightings: [CLEARED, KEPT],
     voids: [CLEARED, KEPT],
+    windows: [CLEARED, KEPT],
   });
 });
 
 afterEach(() => close());
 
-test("rebinding a scope to another server document drops its cursor, voids, notices, and sightings", async () => {
+test("rebinding a scope to another server document drops its cursor, voids, notices, sightings, and Loro windows", async () => {
   await rebindDocumentRowInTransaction(
     getClientSQLitePersistenceRuntime(execSql).db,
     { appKind: APP_KIND, localId: CLEARED },
@@ -119,23 +144,27 @@ test("rebinding a scope to another server document drops its cursor, voids, noti
     },
   );
   expect(await judgedScopes()).toEqual({
+    isolation: [KEPT],
     notices: [KEPT],
     progress: [KEPT],
     sightings: [KEPT],
     voids: [KEPT],
+    windows: [KEPT],
   });
 });
 
-test("deleting a scope's rows drops its cursor, voids, notices, and sightings", async () => {
+test("deleting a scope's rows drops its cursor, voids, notices, sightings, and Loro windows", async () => {
   await deleteDocumentScopeRowsInTransaction(
     getClientSQLitePersistenceRuntime(execSql).db,
     APP_KIND,
     [CLEARED],
   );
   expect(await judgedScopes()).toEqual({
+    isolation: [KEPT],
     notices: [KEPT],
     progress: [KEPT],
     sightings: [KEPT],
     voids: [KEPT],
+    windows: [KEPT],
   });
 });

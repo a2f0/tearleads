@@ -2803,7 +2803,7 @@ export type components = {
             [key: string]: unknown;
         };
         /** @description A machine-readable reason a document mutation was refused. */
-        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
+        DocumentMutationErrorCode: "document_manifest_already_exists" | ("document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict") | "document_not_found" | "container_unavailable" | "document_link_attachments_changed" | "document_unlink_rotation_baseline_stale";
         /** @description A refused document create, link, unlink, or purge. */
         DocumentMutationFailureResponse: {
             code?: components["schemas"]["DocumentMutationErrorCode"];
@@ -2852,6 +2852,15 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A Loro peer the request extended that another user owns. */
+        DocumentPeerFrontier: {
+            /** @description End (exclusive) of the peer's committed operations; the request may re-assert counters below it. */
+            committedEndCounter: number;
+            /** @description Loro peer id, in decimal. */
+            peerId: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description The signed proof that a document was purged, with the manifests and policy history a client needs to verify it. */
         DocumentPurgeProofResponse: {
             /** @description Container path that authorized the purge. */
@@ -2897,11 +2906,13 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
-        /** @description A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, or stop. */
+        /** @description A refused sync. The code tells the client what to do: regenerate a rotation checkpoint, commit rekeys first, replan, recover update ids, move ops off another user's peer, or stop. */
         DocumentSyncErrorResponse: {
             /** @enum {string} */
-            code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_state_stale" | "document_sync_update_id_conflict";
+            code: "document_sync_checkpoint_coverage_conflict" | "document_sync_conflict" | "document_sync_descendant_rekeys_required" | "document_sync_peer_owned" | "document_sync_state_stale" | "document_sync_update_id_conflict";
             error: string;
+            /** @description With `document_sync_peer_owned`, up to 64 refused peers, each with the frontier committed before the request. */
+            peerFrontiers?: components["schemas"]["DocumentPeerFrontier"][];
             /** @description With `document_sync_state_stale` from a carried rekey, up to 16 current principal heads to recover before replanning; advisory only. */
             principalHeads?: components["schemas"]["ReferencedPrincipalStateResponse"][];
         } & {
@@ -2979,6 +2990,8 @@ export type components = {
             inlineRekeyCommitId?: string;
             /** @description The client's current version vector; the response returns updates it does not cover. */
             localVersionVector: string | null;
+            /** @description The most updates this page may hold, below the server's own limit. A client sends 1 while it isolates the updates a process death left unattributed, so each is read alone and a death counts toward it; absent, the server's limit applies. */
+            maxPageUpdates?: number;
             /** @description Commit LSN the server must have reached before answering, for read-after-write consistency. */
             minLsn?: string;
             /** @description Encrypted updates to upload. */

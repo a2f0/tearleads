@@ -72,15 +72,12 @@ function pageWithVoid(): SyncRemoteDocumentResult {
     updateId: VOID_ID,
   });
   return {
-    contentKeyFingerprintsByEpoch: new Map([[1, "key-a"]]),
     decryptedUpdates: [],
     hasHeldPull: false,
     hasIncompletePull: false,
     plan: { documentId: DOCUMENT_ID, request: {} },
     response: { pullPage: { throughUpdateId: THROUGH } },
-    voidedUpdates: [
-      { contentKeyEpoch: 1, error, stage: "loro_metadata", updateId: VOID_ID },
-    ],
+    voidedUpdates: [{ error, stage: "loro_metadata", updateId: VOID_ID }],
   } as unknown as SyncRemoteDocumentResult;
 }
 
@@ -99,10 +96,10 @@ async function settlePass(expectedRecord: ContainerMetadataRecord) {
     runtime: { infra: { execSql } },
   });
   const reported: unknown[] = [];
-  const cursorCleared = verdicts.settle((message) => {
+  verdicts.settle((message) => {
     reported.push(message);
   });
-  return { cursorCleared, persisted, reported };
+  return { persisted, reported };
 }
 
 function sendable(localVersionVector: string | null) {
@@ -124,10 +121,9 @@ test("a settled metadata pass records its voids and cursor with its save", async
   const frontier = encodeVersionVector(metadataState.doc);
   expect(await sendable(frontier)).toBeUndefined();
 
-  const { cursorCleared, reported } = await settlePass(storedRecord);
+  const { reported } = await settlePass(storedRecord);
 
   expect(reported).toEqual(["Documents: sync update voided"]);
-  expect(cursorCleared).toBe(false);
   expect(await voidRows()).toEqual([{ update_id: VOID_ID }]);
   expect(await sendable(frontier)).toBe(THROUGH);
   // A raw-history pull carries none, nor does a frontier that lost the

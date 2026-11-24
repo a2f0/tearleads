@@ -140,12 +140,19 @@ makes one such omission durable. An update the server leaves out of a pull that
 completes is not served to that device again while its cursor stands, where a
 pull by version alone would serve it on the next pass.
 
-A document writer can also cost other devices availability. One that commits
-operations under another device's peer id first makes readers void that
-device's own update ([preempted operations](../advisory-op-spans.md#preempted-operations)),
-and one whose payload fails the Loro runtime holds a reader's sync of that
-document for up to three process lifetimes before it is void
-([runtime failures](../advisory-op-spans.md#loro-runtime-failures)).
+A document writer can also cost other devices availability. The server
+refuses a write that extends a peer another user owns
+([peer owner](../glossary/sync.md#peer-owner)), so once a device's peer has
+committed, another user can preempt its later operations only by recreating
+the purged document from history; the refused device then moves them to a
+fresh peer ([peer ownership](../advisory-op-spans.md#peer-ownership)).
+One whose payload fails the Loro runtime, or ends the reader's process
+while the app is visible, holds a reader's sync of that document for up to
+three process lifetimes before it is void
+([runtime failures](../advisory-op-spans.md#loro-runtime-failures)). In a
+browser, tabs can share one process, so a killer one tab reads can also end
+another tab's read of an honest update read alone, and spend that update's
+attempts on the device until it too is void there.
 A device that rotates with an older decoder leaves an update a newer decoder
 reads out of the baseline, and so out of what new readers start from
 ([rotations and unlinks](../advisory-op-spans.md#rotations-and-unlinks));

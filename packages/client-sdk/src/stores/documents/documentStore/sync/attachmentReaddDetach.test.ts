@@ -20,6 +20,7 @@ import { getDocumentAttachments } from "../../../../data/documents/documentConte
 import { planAttachmentRemovalMarkerSettlement } from "../../../../data/persistence/documents/attachmentRemovalMarkerPlan";
 import { listPendingDownloads } from "../../../../workflows/container-contents/documentQueries/pendingDownloads";
 import {
+  createDocumentSyncLoroWindow,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
   reclaimDocumentOrphanBlobs,
@@ -347,6 +348,7 @@ test("a requeued copy under its first-attach key lists the binding it may still 
       attachmentGeneration: generation,
       encapsulationKeyPair,
       generation,
+      loroWindow: createDocumentSyncLoroWindow(),
       nextRecord: reopened.record,
       policyOperation: createPrincipalPolicyOperation(),
       state: reopened,

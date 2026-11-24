@@ -101,6 +101,8 @@ export {
   type AttachmentStagingRows,
   DOCUMENTS_APP_KIND,
   type DocumentBirthResult,
+  type DocumentPeerRebaseInstall,
+  type DocumentPeerRebaseRecord,
   type DocumentRecord,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
@@ -142,6 +144,16 @@ export {
 } from "./runtime";
 export { documentCreateSeedCandidate } from "./sync/initialSync";
 export {
+  closeDocumentSyncLoroWindowInTransaction,
+  createDocumentSyncLoroWindow,
+  type DocumentSyncLoroWindow,
+  settleDocumentSyncLoroWindow,
+} from "./sync/loroPassWindow";
+export {
+  claimDocumentSyncOrphanWindows,
+  readDocumentSyncPageLimit,
+} from "./sync/loroWindows";
+export {
   judgeDocumentSyncImports,
   readProcessedCursorForSync,
   readRecordedDocumentSyncVoids,
@@ -149,7 +161,11 @@ export {
   recordUncursoredDocumentSyncVerdicts,
   reportDocumentSyncVoids,
 } from "./sync/processedCursor";
-export type { SyncRemoteDocumentRequest } from "./sync/remoteDocumentSyncPass";
+export type {
+  DocumentPeerRebaseOutcome,
+  DocumentPeerRebaser,
+  SyncRemoteDocumentRequest,
+} from "./sync/remoteDocumentSyncPass";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
   type DocumentSyncLane,

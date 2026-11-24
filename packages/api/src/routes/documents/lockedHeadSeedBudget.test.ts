@@ -90,8 +90,10 @@ test.each([false, true])(
     );
     if (seeded) {
       expect(await seedTouchCounts(queries, [document.id])).toEqual([1]);
+      // 74 before the seed claimed its new peer; a new document has no
+      // committed peers to read.
       expect(counter.statements).toBeLessThanOrEqual(
-        74 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+        75 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
       );
     } else {
       expect(await unseededTouchCount(queries, document.id)).toBe(1);
@@ -119,6 +121,7 @@ test("provisioning seeds reuse each newly created document's locked paths", asyn
     "locked-head-provisioned-seeds",
     JSON.stringify({ statements: counter.statements, documents: rows.length }),
   );
+  // 200 before each seed claimed its new peer with one insert.
   expect(counter.statements).toBeLessThanOrEqual(
     202 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );

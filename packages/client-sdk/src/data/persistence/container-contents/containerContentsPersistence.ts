@@ -21,7 +21,10 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import { DocumentRecordRepository } from "../documents/records";
+import {
+  DocumentRecordRepository,
+  installDocumentPeerRebase,
+} from "../documents/records";
 import {
   hasQueuedDocumentUpdates,
   settleQueuedDocumentUpdatesInTransaction,
@@ -130,6 +133,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
   ...containerMetadataPullContinuationPersistence,
   commitHydratedContainer: commitStoredHydratedContainer,
   commitMetadataMutation: commitStoredMetadataMutation,
+  installPeerRebase: installDocumentPeerRebase,
   settleAcceptedMetadataPendingUpdates: settleStoredMetadataPendingUpdates,
   listDormantMetadataSweepRequests,
   ...containerPendingUpdatePersistence,

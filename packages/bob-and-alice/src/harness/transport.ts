@@ -8,6 +8,8 @@ export interface ObservedRequest {
 
 export interface Exchange extends ObservedRequest {
   status?: number;
+  /** The `code` of a refused response's JSON body. */
+  errorCode?: string;
 }
 
 type Phase = "before-request" | "after-response";
@@ -132,6 +134,8 @@ export class DeviceTransport {
       { decompress: false },
     );
     exchange.status = response.status;
+    const code = response.ok ? undefined : await errorCode(response);
+    if (code !== undefined) exchange.errorCode = code;
     if (
       gate?.phase === "after-response" &&
       (await gate.pause(exchange)) === "drop"
@@ -147,6 +151,23 @@ export class DeviceTransport {
     for (const gate of this.gates) gate.drop();
     this.server.stop(true);
   }
+}
+
+/** The `code` of an uncompressed JSON error body, read from a copy. */
+async function errorCode(response: Response): Promise<string | undefined> {
+  const type = response.headers.get("content-type") ?? "";
+  if (!type.includes("application/json")) return undefined;
+  if (response.headers.has("content-encoding")) return undefined;
+  const body: unknown = await response
+    .clone()
+    .json()
+    .catch(() => null);
+  return typeof body === "object" &&
+    body !== null &&
+    "code" in body &&
+    typeof body.code === "string"
+    ? body.code
+    : undefined;
 }
 
 export function documentWrite(documentId: string) {

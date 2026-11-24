@@ -5,7 +5,10 @@ import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtur
 import { ensureDocumentStoreReady } from "../initialization";
 import { createDocumentStoreState, type DocumentStoreState } from "../state";
 
-function offlineRuntime(execSql: DocumentsRuntime["infra"]["execSql"]) {
+function offlineRuntime(
+  execSql: DocumentsRuntime["infra"]["execSql"],
+  domainScope: object,
+) {
   return {
     apiClient: {} as DocumentsRuntime["apiClient"],
     auth: { isAuthenticated: false, organizationId: null, userId: null },
@@ -23,7 +26,7 @@ function offlineRuntime(execSql: DocumentsRuntime["infra"]["execSql"]) {
     resolveTrustedUserIdentity: async () => null,
     state: {
       containerId: "container",
-      domainScope: createDomainScope(),
+      domainScope,
       events: [],
       online: false,
       peerScope: null,
@@ -37,10 +40,12 @@ export async function openHistoryTestStore(
   localId: string,
   persistence: Parameters<typeof createDocumentStoreState>[2],
   initialText = "",
+  // One runtime across reopens keeps its peer seed, as a page reload does.
+  domainScope: object = createDomainScope(),
 ): Promise<DocumentStoreState> {
   const state = createDocumentStoreState(
     localId,
-    offlineRuntime(execSql),
+    offlineRuntime(execSql, domainScope),
     persistence,
     noopDocumentStorePersistenceEffects,
     null,

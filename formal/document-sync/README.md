@@ -94,6 +94,21 @@ that judged the whole log is never refused, and that a new reader starts at
 the latest accepted baseline. See the
 [production mapping, negative controls, and bounds](./BaselineCursorCoverage.md).
 
+## Document Peer Ownership
+
+[`PeerOwnership.tla`](./PeerOwnership.tla)
+models the server's peer-ownership rule. A span past a peer's committed
+frontier claims an unowned peer, passes on its writer's own, and refuses the
+request on another user's, while a re-assertion within the frontier is open to
+every writer. Peers stay secret until their first commit. A dishonest member
+commits forged spans on peers it has seen, and a republisher recreates a
+purged document from its history. A device refused on a peer the recreation
+claimed rebases onto a fresh peer. It requires that no reader voids an honest
+update, that no other user occupies a device's counters past what it
+committed, that a re-assertion is never the cause of a refusal, and that every
+honest edit is eventually committed. See the
+[production mapping, negative controls, and bounds](./PeerOwnership.md).
+
 ## Opened-Document Recovery Probes
 
 [Raw-history reconstruction](../../docs/raw-document-history-recovery.md) before

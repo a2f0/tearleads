@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { DocumentStoreState } from "./state";
-import { createStoredDocument } from "./storedDocument";
+import { createStoredDocument, storedDocumentPeer } from "./storedDocument";
 
 async function peerOf(input: {
   readonly domainScope: object;
   readonly localId: string;
+  readonly peerSalt?: string;
   readonly peerScope?: string;
   readonly userId: string;
 }): Promise<string> {
@@ -19,7 +20,7 @@ async function peerOf(input: {
       },
     },
   } as unknown as DocumentStoreState;
-  const doc = await createStoredDocument(state);
+  const doc = await createStoredDocument(state, input.peerSalt);
   try {
     return doc.peerIdStr;
   } finally {
@@ -44,4 +45,24 @@ test("a store writes each record under its own peer for its user", async () => {
   expect(await peerOf({ ...alice, domainScope: createDomainScope() })).not.toBe(
     first,
   );
+});
+
+test("a salted record writes on the peer its rebase moved it to", async () => {
+  const alice = {
+    domainScope: createDomainScope(),
+    localId: "doc-1",
+    userId: "alice",
+  };
+  const state = {
+    localId: alice.localId,
+    runtime: {
+      auth: { userId: alice.userId },
+      state: { domainScope: alice.domainScope, peerScope: null },
+    },
+  } as unknown as DocumentStoreState;
+  const salted = await peerOf({ ...alice, peerSalt: "salt" });
+
+  expect(salted).not.toBe(await peerOf(alice));
+  expect(await peerOf({ ...alice, peerSalt: "salt" })).toBe(salted);
+  expect<string>(await storedDocumentPeer(state, "salt")).toBe(salted);
 });

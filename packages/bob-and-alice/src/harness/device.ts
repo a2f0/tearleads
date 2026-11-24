@@ -10,6 +10,11 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { forgeFirstQueuedRowAsCheckpoint } from "./forgedCheckpoint";
+import {
+  type QueuedDocumentUpdate,
+  queueRelayedDocumentUpdate,
+  readQueuedDocumentUpdates,
+} from "./relayedUpdate";
 import { DeviceTransport } from "./transport";
 import { until } from "./until";
 
@@ -34,9 +39,11 @@ interface DeviceStorage {
 
 /**
  * One installed client: its own SQLite database and a full `Tearleads`
- * runtime. Apart from `forgeQueuedUpdateSpans` and `forgeQueuedCheckpoint`,
- * which play a modified client, nothing here reaches past the SDK's public
- * surface, so a device can only do and see what a real host could.
+ * runtime. Apart from `forgeQueuedUpdateSpans`, `forgeQueuedCheckpoint`, and
+ * `relayQueuedUpdate`, which play a modified client, and
+ * `queuedDocumentUpdates`, which reads what it would send, nothing here
+ * reaches past the SDK's public surface, so a device can only do and see what
+ * a real host could.
  */
 export class Device {
   private treeStore: ContainerContentsStore | null = null;
@@ -280,6 +287,31 @@ export class Device {
    */
   forgeQueuedCheckpoint(): Promise<number> {
     return forgeFirstQueuedRowAsCheckpoint(this.storage.database.execSql);
+  }
+
+  /**
+   * This install's queued updates of `documentId`, oldest first: what its
+   * next sync would send. Reads only.
+   */
+  queuedDocumentUpdates(documentId: string): Promise<QueuedDocumentUpdate[]> {
+    return readQueuedDocumentUpdates(this.storage.database.execSql, documentId);
+  }
+
+  /**
+   * Plays a modified client that relays another writer's operations: queues
+   * `update` for `documentId` in this install's own outbox under a fresh
+   * update id, so the SDK signs it as this user's on the next sync. Like the
+   * other forgeries, it reaches only into this device's own outgoing queue.
+   */
+  relayQueuedUpdate(
+    documentId: string,
+    update: QueuedDocumentUpdate,
+  ): Promise<void> {
+    return queueRelayedDocumentUpdate(
+      this.storage.database.execSql,
+      documentId,
+      update,
+    );
   }
 
   /** Waits until every queued local write has settled with the API. */

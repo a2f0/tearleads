@@ -108,6 +108,42 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     version: 6,
   },
   {
+    // Every verdict is reached under the content key its update's signed
+    // envelope commits to, so neither a void row nor a Loro read window
+    // names the key it was read with. None of these columns is indexed or
+    // part of a key. No step creates either table: each one's ensure does,
+    // after migrating. A database at version 6 from before a table (step 6
+    // shipped a day before the void table, two before the window table), a
+    // pre-ledger database, or a backup any of them took lacks it, and
+    // failing here would leave that database unopenable.
+    name: "drop_document_sync_key_columns",
+    up: async (execSql) => {
+      for (const table of ["document_void_updates", "document_loro_windows"]) {
+        const columns = new Set(
+          (await execSql(`SELECT name FROM pragma_table_info('${table}')`)).map(
+            ({ name }) => String(name),
+          ),
+        );
+        for (const column of ["content_key_epoch", "key_fingerprint"]) {
+          if (!columns.has(column)) continue;
+          await execSql(`ALTER TABLE "${table}" DROP COLUMN "${column}"`);
+        }
+      }
+    },
+    version: 7,
+  },
+  {
+    // A record moved to a fresh writer peer keeps the salt that derives it,
+    // so a reload writes on that peer and not the refused one.
+    name: "add_document_peer_salt",
+    up: async (execSql, context) => {
+      if (await context.hasTable("documents")) {
+        await execSql('ALTER TABLE "documents" ADD COLUMN "peer_salt" TEXT');
+      }
+    },
+    version: 8,
+  },
+  {
     // A container listing advertises its metadata document's update count,
     // which a processed cursor covers, instead of a version vector. A cursor
     // recorded before its pull's count is known covers no count. An owed
@@ -129,7 +165,7 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
         );
       }
     },
-    version: 7,
+    version: 9,
   },
 ];
 
