@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 import type { CliContext, CommandInput } from "./cliContext";
-import { login, logout, whoami } from "./commands/account";
+import { login, logout, register, whoami } from "./commands/account";
 import { listFolders, listOrganizations } from "./commands/browse";
 import { printable } from "./printable";
 import { isTargetName } from "./targets";
@@ -11,6 +11,8 @@ export const usage = `Usage: tearleads <command> [--env production|staging|devel
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
            Reads it from the terminal without echo, or from piped stdin.
+  register Create the account for a recovery key, as a new app install does,
+           then save the key like login. An existing account is left as is.
   logout   Remove the target's saved recovery key.
   whoami   Show the signed-in user, signing fingerprint, and organization.
   orgs     List the organizations you belong to.
@@ -22,7 +24,11 @@ Commands:
 http://localhost:3001. Every command signs in, works on an in-memory
 database, and revokes its session before exiting.
 
---key-stdin reads a one-time recovery key for seed or verify-seed.
+--key-stdin reads a one-time recovery key for register, seed, or verify-seed,
+and keeps it out of the Keychain.
+
+--api-url <url> uses that API instead of an --env target, such as a local test
+API. It needs --key-stdin, so no target's saved key is sent to it.
 
 --trace (or TEARLEADS_TRACE=1) prints timestamped progress to stderr: each
 step, API request, and sync lane run with its duration, then a summary of
@@ -33,6 +39,7 @@ const commands = {
   logout,
   ls: listFolders,
   orgs: listOrganizations,
+  register,
   seed: async (input) => (await import("./commands/seed")).seed(input),
   "verify-seed": async (input) =>
     (await import("./commands/verifySeed")).verifySeed(input),
@@ -48,7 +55,8 @@ function parse(argv: readonly string[]) {
     args: [...argv],
     allowPositionals: true,
     options: {
-      env: { type: "string", default: "production" },
+      "api-url": { type: "string" },
+      env: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
       org: { type: "string" },
       "key-stdin": { type: "boolean", default: false },
@@ -57,6 +65,39 @@ function parse(argv: readonly string[]) {
     strict: true,
   });
   return { positionals, values };
+}
+
+const KEY_STDIN_COMMANDS: ReadonlySet<string> = new Set([
+  "register",
+  "seed",
+  "verify-seed",
+]);
+
+/** The command's API, or the usage error that stops it before any request. */
+function commandOptions(
+  commandName: string,
+  values: ReturnType<typeof parse>["values"],
+): Pick<CommandInput, "apiUrl" | "target"> | string {
+  const target = values.env ?? "production";
+  if (!isTargetName(target)) {
+    return `Unknown --env ${target}; use production, staging, or development.`;
+  }
+  if (values["key-stdin"] && !KEY_STDIN_COMMANDS.has(commandName)) {
+    return "--key-stdin applies to register, seed, and verify-seed.";
+  }
+  const apiUrl = values["api-url"];
+  if (apiUrl === undefined) return { target };
+  if (values.env !== undefined) return "Use either --env or --api-url.";
+  if (!values["key-stdin"]) return "--api-url needs --key-stdin.";
+  const parsed = URL.canParse(apiUrl) ? new URL(apiUrl) : null;
+  if (
+    !parsed ||
+    (parsed.protocol !== "http:" && parsed.protocol !== "https:") ||
+    parsed.origin !== apiUrl.replace(/\/$/u, "")
+  ) {
+    return `--api-url ${apiUrl} is not an http(s) origin such as http://127.0.0.1:3001.`;
+  }
+  return { apiUrl: parsed.origin, target };
 }
 
 /** Runs one command and returns the process exit code. */
@@ -84,19 +125,9 @@ export async function runCli(
     context.stderr(usage);
     return 2;
   }
-  if (!isTargetName(values.env)) {
-    context.stderr(
-      `Unknown --env ${values.env}; use production, staging, or development.`,
-    );
-    return 2;
-  }
-
-  if (
-    values["key-stdin"] &&
-    commandName !== "seed" &&
-    commandName !== "verify-seed"
-  ) {
-    context.stderr("--key-stdin applies to seed and verify-seed.");
+  const options = commandOptions(commandName, values);
+  if (typeof options === "string") {
+    context.stderr(options);
     return 2;
   }
   const tracer = createTracer({
@@ -106,9 +137,9 @@ export async function runCli(
   try {
     await commands[commandName]({
       context,
+      ...options,
       keyFromStdin: values["key-stdin"],
       organizationId: values.org,
-      target: values.env,
       tracer,
     });
     return 0;

@@ -15,7 +15,7 @@ import type { CommandInput } from "../cliContext";
 import { loadFolderTree } from "../folderTree";
 import { resolveSeedAccount, seedLocalId } from "../seedAccount";
 import type { CliSession } from "../session";
-import { withSavedSession } from "./account";
+import { apiLabel, withSavedSession } from "./account";
 
 async function findSeedPlacement(
   session: CliSession,
@@ -175,6 +175,6 @@ export async function seed(input: CommandInput): Promise<void> {
     },
   );
   input.context.stdout(
-    `Synced ${count.synced} Continuity documents to your ${input.target} account.${count.purged ? ` Skipped ${count.purged} permanently deleted.` : ""}`,
+    `Synced ${count.synced} Continuity documents to your ${apiLabel(input)} account.${count.purged ? ` Skipped ${count.purged} permanently deleted.` : ""}`,
   );
 }

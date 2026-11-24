@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@tearleads/api": "workspace:*",
+    "@tearleads/crypto": "workspace:*",
     "@tearleads/loro": "workspace:*",
     "@types/bun": "catalog:"
   }

@@ -24,6 +24,41 @@ test("unknown commands, options, and targets are usage errors", async () => {
   ]);
 });
 
+test("--api-url is a one-time-key origin in place of --env", async () => {
+  const cases: [string[], string][] = [
+    [
+      ["whoami", "--key-stdin"],
+      "--key-stdin applies to register, seed, and verify-seed.",
+    ],
+    [
+      ["seed", "--api-url", "http://127.0.0.1:1"],
+      "--api-url needs --key-stdin.",
+    ],
+    [
+      [
+        "seed",
+        "--key-stdin",
+        "--env",
+        "staging",
+        "--api-url",
+        "http://127.0.0.1:1",
+      ],
+      "Use either --env or --api-url.",
+    ],
+    ...["ftp://127.0.0.1", "http://127.0.0.1:1/api", "localhost:1"].map(
+      (url): [string[], string] => [
+        ["register", "--key-stdin", "--api-url", url],
+        `--api-url ${url} is not an http(s) origin such as http://127.0.0.1:3001.`,
+      ],
+    ),
+  ];
+  for (const [argv, message] of cases) {
+    const { context, output } = testContext();
+    expect(await runCli(argv, context)).toBe(2);
+    expect(output.stderr).toEqual([message]);
+  }
+});
+
 test("--env development resolves the local API", async () => {
   const { context, keyStore, output } = testContext();
   await keyStore.save("development", "abandon ability able");
