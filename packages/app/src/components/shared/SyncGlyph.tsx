@@ -8,6 +8,7 @@ import "./SyncGlyph.css";
  * table; the Explorer's per-object states fold into it (see the badge).
  */
 export type SyncGlyphTone =
+  | "inactive"
   | "loading"
   | "synced"
   | "syncing"
@@ -18,9 +19,9 @@ export type SyncGlyphTone =
 /**
  * One sync vocabulary for the whole app: a coloured dot for the passive states
  * (green synced, a green ring while syncing, red unflushed, muted
- * not-yet-known) and a warning glyph for the two that need the user to act.
- * Shared by the footer-tray indicator and the Explorer's per-object badge so
- * both read identically.
+ * not-yet-known, a muted ring when nothing can sync yet) and a warning glyph
+ * for the two that need the user to act. Shared by the footer-tray indicator
+ * and the Explorer's per-object badge so both read identically.
  */
 export function SyncGlyph({
   className,

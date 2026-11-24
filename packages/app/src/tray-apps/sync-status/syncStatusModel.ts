@@ -1,9 +1,13 @@
 import type {
+  DatabaseStatus,
   OrganizationBillingView,
   PendingWriteQueueItem,
 } from "@tearleads/client-sdk";
 
-// The states the Sync Status tray app can be in. `billing` outranks
+// The states the Sync Status tray app can be in. `inactive` outranks
+// everything: with no identity on this device yet, or its keys locked, there is
+// no local data to read or sync until the user acts, so waiting for the queue's
+// first read would leave the indicator "checking" forever. `billing` outranks
 // everything else: when the org cannot sync because billing lapsed, that is the
 // reason nothing flushes, so it is the more useful thing to surface than the
 // resulting red "pending" dot. `error` outranks `pending`: a queue item whose
@@ -21,6 +25,7 @@ import type {
 // `useHeldSyncActivity`): nothing local is waiting, but content is still
 // arriving, so it is not alarming.
 export type SyncStatus =
+  | "inactive"
   | "loading"
   | "synced"
   | "syncing"
@@ -29,6 +34,36 @@ export type SyncStatus =
   | "billing";
 
 type BillingStatus = OrganizationBillingView["status"];
+
+/**
+ * Why this device's data cannot be read at all, so nothing syncs until the
+ * user acts: it has no identity yet (first launch, or after a device reset),
+ * or its keys are locked behind the PIN.
+ */
+export type SyncUnavailableReason = "no-identity" | "locked";
+
+export function resolveSyncUnavailableReason(input: {
+  readonly databaseStatus: DatabaseStatus;
+  readonly hasIdentity: boolean;
+  /** The stored identity has been looked for. */
+  readonly identityRestoreSettled: boolean;
+  /** A switch is under way, which clears the keys before the next arrive. */
+  readonly identityTransitionInFlight: boolean;
+  readonly isLocked: boolean;
+}): SyncUnavailableReason | null {
+  if (input.databaseStatus === "ready") return null;
+  if (input.isLocked) return "locked";
+  // A database that failed to open is retried a few times on its own
+  // (`useEnsureDatabaseForIdentity`), and nothing here tells a retry from a
+  // boot that gave up, so it reads as still checking, as it did before.
+  if (input.databaseStatus === "error") return null;
+  // Until the stored identity is found, or while a switch opens the next
+  // one, the database is still on its way.
+  if (!input.identityRestoreSettled || input.identityTransitionInFlight) {
+    return null;
+  }
+  return input.hasIdentity ? null : "no-identity";
+}
 
 // Aggregate unflushed-operation count across the durable write queue — the exact
 // figure the Explorer Write Queue panel derives (sum of every queued item's
@@ -109,6 +144,8 @@ export function selectBillingBlock(
 }
 
 interface SyncStatusInput {
+  /** Why nothing on this device can sync until the user acts, if so. */
+  readonly unavailableReason: SyncUnavailableReason | null;
   /**
    * Billing lapsed for the active org (expired trial or disabled) so
    * sync is paused. Excludes the free "local" org, which is not trying to sync
@@ -137,6 +174,7 @@ interface SyncStatusInput {
 }
 
 export function resolveSyncStatus(input: SyncStatusInput): SyncStatus {
+  if (input.unavailableReason !== null) return "inactive";
   if (input.billingNeedsAttention || input.otherOrganizationBillingBlocked) {
     return "billing";
   }
@@ -156,6 +194,8 @@ export function resolveSyncStatus(input: SyncStatusInput): SyncStatus {
 }
 
 const SYNC_STATUS_LABELS = {
+  noIdentity: "Not syncing — this device has no identity yet",
+  locked: "Not syncing — this device is locked",
   loading: "Checking sync status…",
   synced: "All changes synced",
   syncing: "All changes synced, syncing updates…",
@@ -195,6 +235,7 @@ function describeBillingBlock(status: BillingStatus | null): string {
 
 interface SyncStatusDescriptionInput {
   readonly status: SyncStatus;
+  readonly unavailableReason: SyncUnavailableReason | null;
   readonly pendingWriteCount: number;
   readonly failedWriteCount: number;
   readonly firstWriteError: string | null;
@@ -278,6 +319,10 @@ function describePendingCount(input: SyncStatusDescriptionInput): string {
 /** Human-readable tooltip / accessible label for the current status. */
 export function describeSyncStatus(input: SyncStatusDescriptionInput): string {
   switch (input.status) {
+    case "inactive":
+      return input.unavailableReason === "locked"
+        ? SYNC_STATUS_LABELS.locked
+        : SYNC_STATUS_LABELS.noIdentity;
     case "loading":
       return SYNC_STATUS_LABELS.loading;
     case "synced":
