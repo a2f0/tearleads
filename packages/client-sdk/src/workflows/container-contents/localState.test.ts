@@ -20,11 +20,18 @@ import {
   createContainerContentsPersistence,
   createContainerRecord,
   type SaveContainerCall,
+  testContainerMetadataWriter,
 } from "./metadata/metadata.testFixtures";
 import { syncedContainerDocumentObjectSyncState } from "./syncState";
 
+/** A signed-in writer whose runtime names no organization. */
+const personalWriter = {
+  ...testContainerMetadataWriter,
+  auth: { ...testContainerMetadataWriter.auth, organizationId: null },
+};
+
 const execSql: ExecSql = async () => [];
-const runtime = { infra: { execSql } };
+const runtime = { ...personalWriter, infra: { execSql } };
 
 type PendingUpdateInput = Parameters<
   ContainerContentsPersistence["enqueuePendingUpdate"]
@@ -233,7 +240,7 @@ test("loadLocalContainerStates keeps replayed remote metadata snapshots synced",
     "containerContents-local-state-replay-synced-metadata",
   );
   try {
-    const runtime = { infra: { execSql } };
+    const runtime = { ...personalWriter, infra: { execSql } };
     const syncedAt = "2026-05-01T00:00:00.000Z";
 
     await defaultContainerContentsPersistence.ensureSchema(execSql);
@@ -319,7 +326,10 @@ test("a local hydration repair cannot write stale metadata after disposal", asyn
     await persistence.ensureSchema(database.execSql);
     await persistence.saveContainer(database.execSql, container, null);
     const input = {
-      runtime: { infra: { execSql: database.execSql } },
+      runtime: {
+        ...personalWriter,
+        infra: { execSql: database.execSql },
+      },
       isCurrent: () => current,
       persistence: {
         ...persistence,

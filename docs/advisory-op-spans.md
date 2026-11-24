@@ -122,6 +122,15 @@ peer id to the writer that may use it. Before advisory spans, one such forged
 collision stopped every reader's sync of the document; now it drops the
 preempted operations on other readers.
 
+A writer derives a separate peer id for each document or container it writes,
+from a seed that never leaves its device, the signed-in user, and the record
+(`recordPeerSeed`). Another member therefore cannot read a device's peer id on
+a document from that device's updates to other documents: it first sees the
+peer id in the device's first commit on the document. Two identities on one
+device also never write one history under one peer id. The first update of a
+new container's metadata, organization profile, or roster profile goes under
+a fresh peer id that is never reused.
+
 A device that is served such an update holds its own operations first, so it
 voids the forger's update instead. When that void reuses ids under the peer id
 the device writes with, it records a notice in `document_peer_preemptions` and

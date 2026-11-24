@@ -13,6 +13,7 @@ import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/wor
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import { createClientSQLitePersistenceRuntime } from "../../../../data/sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../../../data/sqlite/sqlSchema";
+import { testContainerMetadataWriter } from "../../metadata/metadata.testFixtures";
 import {
   installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
@@ -126,6 +127,7 @@ async function hydrateListing(
       execSql,
       persistence: sqlContainerContentsPersistence,
       storedContainer: stored,
+      writer: testContainerMetadataWriter,
     });
     const state = {
       containersById: new Map<string, ContainerState>([[listed.id, held]]),
