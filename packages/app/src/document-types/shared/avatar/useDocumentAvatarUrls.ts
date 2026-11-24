@@ -1,5 +1,5 @@
 import type { DocumentStore } from "@tearleads/client-sdk";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getDocumentAvatarRef,
   sameDocumentAvatarRef,
@@ -15,44 +15,6 @@ import {
 } from "./useAvatarUrls";
 
 const NO_AVATAR_ENTRIES: ReadonlyArray<AvatarEntry> = [];
-
-/**
- * The stores one source has opened, kept while the listing scrolls or
- * changes. The SDK never releases a document store, so keeping the reference
- * costs nothing, and a document listed again is read at once, not reopened.
- */
-interface OpenedAvatarStores {
-  readonly opened: Map<string, DocumentStore>;
-  readonly opening: Map<string, Promise<DocumentStore | null>>;
-  readonly source: DocumentAvatarSource;
-}
-
-function openAvatarStore(
-  stores: OpenedAvatarStores,
-  document: AvatarDocument,
-): Promise<DocumentStore | null> {
-  const pending = stores.opening.get(document.localId);
-  if (pending) {
-    return pending;
-  }
-
-  // A document with no local copy yet is not remembered, so a later listing
-  // tries it again.
-  const opening = stores.source
-    .openDocument(document)
-    .then(
-      (store) => {
-        if (store) {
-          stores.opened.set(document.localId, store);
-        }
-        return store;
-      },
-      () => null,
-    )
-    .finally(() => stores.opening.delete(document.localId));
-  stores.opening.set(document.localId, opening);
-  return opening;
-}
 
 function readAvatarEntry(
   document: AvatarDocument,
@@ -93,55 +55,63 @@ export function useDocumentAvatarUrls(
   documents: ReadonlyArray<AvatarDocument>,
 ): AvatarUrlById {
   const [entries, setEntries] = useState(NO_AVATAR_ENTRIES);
-  const storesRef = useRef<OpenedAvatarStores | null>(null);
   useEffect(() => {
     if (!source || documents.length === 0) {
       setEntries(NO_AVATAR_ENTRIES);
       return;
     }
 
-    if (storesRef.current?.source !== source) {
-      storesRef.current = { opened: new Map(), opening: new Map(), source };
-    }
-    const stores = storesRef.current;
-    // Only this run's listing may publish; a document still listed keeps its
-    // entry from the first read, so its avatar never drops while others open.
+    // Only this run's listing may publish; a document the source already
+    // opened keeps its entry from the first read, so its avatar never drops
+    // while others open.
     let current = true;
-    const unsubscribes = new Map<string, () => void>();
+    const followed = new Map<
+      string,
+      { store: DocumentStore; unsubscribe: () => void }
+    >();
     const read = () => {
       if (!current) {
         return;
       }
       const next = documents.flatMap((document) => {
-        const store = stores.opened.get(document.localId);
+        const store = followed.get(document.localId)?.store;
         return store ? [readAvatarEntry(document, store)] : [];
       });
       setEntries((previous) =>
         sameAvatarEntries(previous, next) ? previous : next,
       );
     };
-    const follow = (localId: string) => {
-      const store = stores.opened.get(localId);
-      if (store && !unsubscribes.has(localId)) {
-        unsubscribes.set(localId, store.subscribe(read));
-      }
-    };
-    for (const document of documents) {
-      if (stores.opened.has(document.localId)) {
-        follow(document.localId);
-        continue;
-      }
-      void openAvatarStore(stores, document).then((store) => {
+    const open = (document: AvatarDocument) => {
+      void source.openDocument(document).then((store) => {
         if (current && store) {
-          follow(document.localId);
+          follow(document, store);
           read();
         }
       });
+    };
+    // A relink freezes the followed view; reopening follows the new owner.
+    const follow = (document: AvatarDocument, store: DocumentStore) => {
+      followed.get(document.localId)?.unsubscribe();
+      const unsubscribe = store.subscribe(() => {
+        if (store.getSnapshot().relinkedElsewhere) {
+          open(document);
+        }
+        read();
+      });
+      followed.set(document.localId, { store, unsubscribe });
+    };
+    for (const document of documents) {
+      const store = source.openedDocument(document.localId);
+      if (store) {
+        follow(document, store);
+      } else {
+        open(document);
+      }
     }
     read();
     return () => {
       current = false;
-      for (const unsubscribe of unsubscribes.values()) {
+      for (const { unsubscribe } of followed.values()) {
         unsubscribe();
       }
     };
