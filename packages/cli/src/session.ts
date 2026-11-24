@@ -64,7 +64,7 @@ function labelConsoleOutput(tracer: Tracer): () => void {
 }
 
 /** Thrown when the API refuses to sign in the identity behind a key. */
-class LoginRefusedError extends Error {
+export class LoginRefusedError extends Error {
   constructor() {
     super(
       "The API refused to sign in with this recovery key. Check that the account exists on this target.",
