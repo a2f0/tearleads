@@ -148,7 +148,10 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     // which a processed cursor covers, instead of a version vector. A cursor
     // recorded before its pull's count is known covers no count. An owed
     // read keeps its debt at a count of 1, which only a completed pull of a
-    // document with an update settles, so no debt is lost.
+    // document with an update settles. That count is below what the listing
+    // saw, so a read from a replica behind that listing could settle it
+    // early: while any debt is owed, every container lane lists again from
+    // the start, owing each read again at the count the server now reports.
     name: "count_metadata_listing_updates",
     up: async (execSql, context) => {
       if (await context.hasTable("document_sync_progress")) {
@@ -156,12 +159,21 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
           "ALTER TABLE document_sync_progress ADD COLUMN through_update_count INTEGER",
         );
       }
-      if (await context.hasTable("container_metadata_revalidations")) {
+      if (!(await context.hasTable("container_metadata_revalidations"))) {
+        return;
+      }
+      await execSql(
+        "ALTER TABLE container_metadata_revalidations ADD COLUMN advertised_update_count INTEGER NOT NULL DEFAULT 1",
+      );
+      await execSql(
+        "ALTER TABLE container_metadata_revalidations DROP COLUMN advertised_version_vector",
+      );
+      if (await context.hasTable("container_sync_watermarks")) {
         await execSql(
-          "ALTER TABLE container_metadata_revalidations ADD COLUMN advertised_update_count INTEGER NOT NULL DEFAULT 1",
-        );
-        await execSql(
-          "ALTER TABLE container_metadata_revalidations DROP COLUMN advertised_version_vector",
+          `UPDATE container_sync_watermarks
+           SET watermark_updated_at = NULL, watermark_id = NULL
+           WHERE lane_kind = 'container_parent'
+             AND EXISTS (SELECT 1 FROM container_metadata_revalidations)`,
         );
       }
     },
