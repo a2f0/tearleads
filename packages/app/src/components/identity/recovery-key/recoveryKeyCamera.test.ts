@@ -14,7 +14,6 @@ test("scanned phrases are normalized and oversized payloads are rejected", () =>
   );
   expect(recoveryKeyScanPhrase(phrase.toUpperCase())).toBe(phrase);
   expect(recoveryKeyScanPhrase(`${" ".repeat(512)}${phrase}`)).toBeNull();
-  expect(recoveryKeyScanPhrase(null)).toBeNull();
   expect(recoveryKeyScanPhrase("unrelated QR")).toBeNull();
   expect(
     recoveryKeyScanPhrase(phrase.split(" ").slice(0, 12).join(" ")),

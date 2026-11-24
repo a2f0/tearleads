@@ -9,9 +9,12 @@ const read = (path: string) => Bun.file(resolve(packageRoot, path)).text();
 // refuses for a permission the manifest does not declare.
 test("Android declares the camera the WebView's live QR scanner asks for", async () => {
   const manifest = await read("android/app/src/main/AndroidManifest.xml");
-  expect(manifest).toContain(
-    '<uses-permission android:name="android.permission.CAMERA" />',
+  const declarations = manifest.match(
+    /<uses-permission[^>]*android:name="android\.permission\.CAMERA"[^>]*\/>/g,
   );
+  // One unconditional declaration: a maxSdkVersion would drop it on new Android.
+  expect(declarations).toHaveLength(1);
+  expect(declarations?.[0]).not.toContain("maxSdkVersion");
 });
 
 // Declaring CAMERA implies camera hardware is required, which would hide the
