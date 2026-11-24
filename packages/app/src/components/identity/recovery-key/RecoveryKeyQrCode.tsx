@@ -19,7 +19,8 @@ export function RecoveryKeyQrCode({ seedPhrase }: { seedPhrase: string }) {
         width={320}
       />
       <MiniAppStatus>
-        On your other device, open Identity Manager → Recovery Key → Recovery
+        On a new device, choose Restore identity, then Restore from QR code. On
+        a device already set up, open Identity Manager → Recovery Key → Recovery
         and choose Scan QR Code. Anyone with this code can access your identity.
       </MiniAppStatus>
     </div>

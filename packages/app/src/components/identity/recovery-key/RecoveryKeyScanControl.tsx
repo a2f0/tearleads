@@ -1,10 +1,8 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
-import {
-  MiniAppButton,
-  MiniAppStatus,
-} from "../../../components/mini-app/MiniAppLayout";
-import { recoveryKeyScanPhrase } from "../actions/recoveryKeyScanPhrase";
+import { recoveryKeyScanPhrase } from "../../../identity/recoveryKeyScanPhrase";
+import { MiniAppButton, MiniAppStatus } from "../../mini-app/MiniAppLayout";
 import { startRecoveryKeyCamera } from "./recoveryKeyCamera";
+import "./RecoveryKeyScan.css";
 
 function RecoveryKeyCamera({
   onCancel,
@@ -20,7 +18,7 @@ function RecoveryKeyCamera({
     const phrase = recoveryKeyScanPhrase(value);
     if (!phrase) {
       setError(
-        "This QR code does not contain a valid recovery key. Scan the code shown in Identity Manager.",
+        "This QR code does not contain a valid recovery key. Scan the recovery QR code from Identity Manager or your printed recovery key.",
       );
       return false;
     }
@@ -52,13 +50,11 @@ function RecoveryKeyCamera({
   }, []);
 
   return (
-    <div className="identity-manager-recovery-key-form">
-      <MiniAppStatus>
-        Point your camera at the recovery QR code on your other device.
-      </MiniAppStatus>
+    <div className="recovery-key-scan">
+      <MiniAppStatus>Point your camera at your recovery QR code.</MiniAppStatus>
       <video
         aria-label="Recovery QR code camera"
-        className="identity-manager-recovery-camera"
+        className="recovery-key-scan-camera"
         muted
         playsInline
         ref={videoRef}
@@ -75,9 +71,11 @@ function RecoveryKeyCamera({
 
 export function RecoveryKeyScanControl({
   disabled,
+  label,
   onScan,
 }: {
   disabled: boolean;
+  label: string;
   onScan: (phrase: string) => void;
 }) {
   const [scanning, setScanning] = useState(false);
@@ -95,15 +93,8 @@ export function RecoveryKeyScanControl({
     );
   }
   return (
-    <div className="identity-manager-recovery-key-form">
-      <MiniAppButton
-        disabled={disabled}
-        onClick={() => {
-          setScanning(true);
-        }}
-      >
-        Scan QR Code
-      </MiniAppButton>
-    </div>
+    <MiniAppButton disabled={disabled} onClick={() => setScanning(true)}>
+      {label}
+    </MiniAppButton>
   );
 }
