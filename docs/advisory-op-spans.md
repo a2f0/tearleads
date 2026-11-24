@@ -185,8 +185,8 @@ profile, or roster profile goes under a fresh peer id that is never reused.
 
 ### Dependencies
 
-A Loro update depends on the operations its first changes were made on, and a
-reader that lacks one cannot import it. Before the server checked
+A Loro update depends on the operations outside it that its changes were made
+on, and a reader that lacks one cannot import it. Before the server checked
 dependencies, a member who had read a device's peer could commit an update on
 its own peer that depends on the device's next counter. Its spans name only
 its own peer, so ownership passed it. Every reader that lacked that operation
