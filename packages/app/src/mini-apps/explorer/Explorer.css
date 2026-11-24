@@ -100,12 +100,41 @@
   padding-inline: var(--space-md);
 }
 
-/* A note is the exception: it already supplies its own inline padding (the
-   editor's) and its attachments tray runs to the screen edges. The tray cannot
-   bleed back out through the restored padding — `.note-document-scroll` clips
-   the inline axis on purpose — so the note pane simply keeps the bleed. */
-.routed-pane--mobile .explorer-inline-note:has(.note-document) {
+/*
+ * A note's pane runs to the surface's edges and its foot in every tier, so its
+ * attachments tray spans the window (or the routed pane) and sits flush with
+ * the bottom: in a window the status bar, when shown, runs under it. The tray
+ * cannot bleed out on its own, because `.note-document-scroll` clips the
+ * inline axis on purpose, so the pane moves and the note body is set back in
+ * by the same distance. `--mini-app-edge-inset` is that distance: the root's
+ * padding plus the window body's (MiniAppRoot.css). The pane is a flex child,
+ * so the negative block-end margin frees the space its `flex: 1` grows into.
+ *
+ * Direct child only: notes listed inside a container view are not panes.
+ */
+.explorer-inline-note:has(> .note-document) {
+  --note-tray-padding-inline: var(--mini-app-edge-inset);
+
+  margin-block-end: calc(-1 * var(--mini-app-edge-inset));
+  margin-inline: calc(-1 * var(--mini-app-edge-inset));
+}
+
+.explorer-inline-note:has(> .note-document) .note-document-editor {
+  margin-inline: var(--mini-app-edge-inset);
+}
+
+/* On a phone the note body spans the screen too: it supplies its own inline
+   padding, and the tray keeps its compact one. */
+.routed-pane--mobile .explorer-inline-note:has(> .note-document) {
+  --note-tray-padding-inline: var(--space-sm);
+
   padding-inline: 0;
+}
+
+.routed-pane--mobile
+  .explorer-inline-note:has(> .note-document)
+  .note-document-editor {
+  margin-inline: 0;
 }
 
 .explorer-linked-container-list {
