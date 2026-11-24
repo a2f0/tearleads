@@ -15,6 +15,14 @@
  * mark its clean exits, or its deaths count nothing.
  */
 
+import {
+  LORO_WINDOW_GATE_IDLE,
+  type LoroWindowGate,
+  type LoroWindowGateEvent,
+  loroGateHolders,
+  transitionLoroWindowGate,
+} from "./loroWindowGate";
+
 const LOCK_PREFIX = "tearleads-loro-lifetime:";
 const HIDDEN_MARKER_PREFIX = "tearleads-loro-hidden:";
 const FAILED_MARKER_PREFIX = "tearleads-loro-failed:";
@@ -67,11 +75,20 @@ export interface LoroLifetimes {
   noteFailed(): void;
   /** Whether this lifetime holds a window on `scope`. */
   hasWindow(scope: string): boolean;
-  /** Notes a window on `scope`, which the lifetime's markers then cover. */
-  openWindow(scope: string): void;
+  /** How many windows this lifetime holds open. */
+  openWindowCount(): number;
+  /**
+   * Notes a window on `scope`, which the lifetime's markers then cover,
+   * once the window gate admits it (alone when `exclusive`). A wait longer
+   * than the gate's limit opens it anyway, outside the gate.
+   */
+  openWindow(scope: string, exclusive: boolean): Promise<void>;
   /** Notes the window on `scope` gone; false when none was open. */
   closeWindow(scope: string): boolean;
 }
+
+/** How long a window waits for the gate before reading outside it. */
+const GATE_WAIT_MS = 30_000;
 
 function markerKey(prefix: string, id: string): string {
   return `${prefix}${id}`;
@@ -85,47 +102,13 @@ function quietly<T>(read: () => T, fallback: T): T {
   }
 }
 
-/**
- * A lifetime over the given host surfaces. While it holds a window, its
- * hidden marker stands while the app is hidden and its failure marker once
- * it has failed; with no window open it leaves neither, so a death while
- * hidden or after a failure leaves its marker and a closed tab leaves none.
- */
-export function createLoroLifetimes(host: {
-  readonly id?: string | undefined;
-  /** The lock manager, or how to find it each time it is needed. */
-  readonly locks?:
-    | LifetimeLockManager
-    | (() => LifetimeLockManager | undefined)
-    | undefined;
-  readonly storage?: LifetimeMarkerStorage | undefined;
-  readonly visibility?: LifetimeVisibility | undefined;
-}): LoroLifetimes {
-  const id = host.id ?? crypto.randomUUID();
-  const { storage, visibility } = host;
-  const lockManager = () =>
-    typeof host.locks === "function" ? host.locks() : host.locks;
-  const windows = new Set<string>();
-  let failed = false;
+/** This lifetime's Web Lock, and what other lifetimes' locks say. */
+function lifetimeLock(
+  id: string,
+  lockManager: () => LifetimeLockManager | undefined,
+): Pick<LoroLifetimes, "endedAmong" | "ready"> {
   let held: Promise<boolean> | undefined;
-  let watching = false;
-
-  const setMarker = (prefix: string, standing: boolean) => {
-    quietly(() => {
-      if (standing) storage?.setItem(markerKey(prefix, id), "1");
-      else storage?.removeItem(markerKey(prefix, id));
-    }, undefined);
-  };
-  const syncMarkers = () => {
-    const open = windows.size > 0;
-    setMarker(HIDDEN_MARKER_PREFIX, open && (visibility?.hidden() ?? false));
-    setMarker(FAILED_MARKER_PREFIX, open && failed);
-  };
-  const marked = (prefix: string, other: string) =>
-    quietly(() => storage?.getItem(markerKey(prefix, other)) === "1", false);
-
   return {
-    id,
     ready() {
       const locks = lockManager();
       if (!locks) return Promise.resolve(false);
@@ -162,6 +145,94 @@ export function createLoroLifetimes(host: {
         ids.filter((other) => !names.has(`${LOCK_PREFIX}${other}`)),
       );
     },
+  };
+}
+
+/** The windows this lifetime holds, admitted through its window gate. */
+function lifetimeWindows(gateWaitMs: number, onChange: () => void) {
+  const windows = new Set<string>();
+  const entering = new Map<string, { enter(): void; entered: Promise<void> }>();
+  let gate: LoroWindowGate = LORO_WINDOW_GATE_IDLE;
+  const moveGate = (event: LoroWindowGateEvent) => {
+    gate = transitionLoroWindowGate(gate, event);
+    for (const holder of loroGateHolders(gate)) entering.get(holder)?.enter();
+  };
+  return {
+    count: () => windows.size,
+    has: (scope: string) => windows.has(scope),
+    open(scope: string, exclusive: boolean): Promise<void> {
+      if (windows.has(scope)) return Promise.resolve();
+      const pending = entering.get(scope);
+      if (pending) return pending.entered;
+      const { promise, resolve } = Promise.withResolvers<void>();
+      const enter = () => {
+        clearTimeout(timer);
+        entering.delete(scope);
+        windows.add(scope);
+        onChange();
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        // Leaves the queue and reads outside the gate: it may not count.
+        moveGate({ type: "released", scope });
+        enter();
+      }, gateWaitMs);
+      entering.set(scope, { enter, entered: promise });
+      moveGate({ type: "requested", waiter: { exclusive, scope } });
+      return promise;
+    },
+    close(scope: string): boolean {
+      const closed = windows.delete(scope);
+      moveGate({ type: "released", scope });
+      onChange();
+      return closed;
+    },
+  };
+}
+
+/**
+ * A lifetime over the given host surfaces. While it holds a window, its
+ * hidden marker stands while the app is hidden and its failure marker once
+ * it has failed; with no window open it leaves neither, so a death while
+ * hidden or after a failure leaves its marker and a closed tab leaves none.
+ */
+export function createLoroLifetimes(host: {
+  readonly id?: string | undefined;
+  /** The lock manager, or how to find it each time it is needed. */
+  readonly locks?:
+    | LifetimeLockManager
+    | (() => LifetimeLockManager | undefined)
+    | undefined;
+  readonly storage?: LifetimeMarkerStorage | undefined;
+  readonly visibility?: LifetimeVisibility | undefined;
+  /** @internal How long a window waits for the gate; tests shorten it. */
+  readonly gateWaitMs?: number | undefined;
+}): LoroLifetimes {
+  const id = host.id ?? crypto.randomUUID();
+  const { storage, visibility } = host;
+  let failed = false;
+  let watching = false;
+
+  const setMarker = (prefix: string, standing: boolean) => {
+    quietly(() => {
+      if (standing) storage?.setItem(markerKey(prefix, id), "1");
+      else storage?.removeItem(markerKey(prefix, id));
+    }, undefined);
+  };
+  const syncMarkers = () => {
+    const open = windows.count() > 0;
+    setMarker(HIDDEN_MARKER_PREFIX, open && (visibility?.hidden() ?? false));
+    setMarker(FAILED_MARKER_PREFIX, open && failed);
+  };
+  const windows = lifetimeWindows(host.gateWaitMs ?? GATE_WAIT_MS, syncMarkers);
+  const marked = (prefix: string, other: string) =>
+    quietly(() => storage?.getItem(markerKey(prefix, other)) === "1", false);
+
+  return {
+    id,
+    ...lifetimeLock(id, () =>
+      typeof host.locks === "function" ? host.locks() : host.locks,
+    ),
     endedHidden: (other) => marked(HIDDEN_MARKER_PREFIX, other),
     endedFailed: (other) => marked(FAILED_MARKER_PREFIX, other),
     forget(other) {
@@ -174,20 +245,16 @@ export function createLoroLifetimes(host: {
       failed = true;
       syncMarkers();
     },
-    hasWindow: (scope) => windows.has(scope),
-    openWindow(scope) {
+    hasWindow: windows.has,
+    openWindowCount: windows.count,
+    openWindow(scope, exclusive) {
       if (!watching && visibility) {
         watching = true;
         visibility.onChange(syncMarkers);
       }
-      windows.add(scope);
-      syncMarkers();
+      return windows.open(scope, exclusive);
     },
-    closeWindow(scope) {
-      const closed = windows.delete(scope);
-      syncMarkers();
-      return closed;
-    },
+    closeWindow: windows.close,
   };
 }
 

@@ -82,12 +82,18 @@ update, in a lifetime that met no runtime failure, records one `loro_runtime`
 attempt toward it, so a killing payload is voided after three deaths. Any
 other window says nothing about one update: its updates become suspects, and
 the document pulls one update a page (`maxPageUpdates: 1`) until it has
-passed them, so a later death names the update alone. A lifetime that ends
+passed them, so a later death names the update alone. Documents sync in
+parallel, so a window counts only while it is its lifetime's only open one:
+opening a second stops every window of that lifetime counting, and a death
+then isolates them all. A document isolating suspects waits to read until
+its window would be the lifetime's only one; after 30 seconds it reads beside
+the others, and counts nothing. A lifetime that ends
 while the app is hidden, with a window open, leaves a `localStorage` marker,
 and its window counts nothing and isolates nothing: the user closed the app,
 which says nothing about the update. A lifetime that met a runtime failure
 anywhere, with a window open, leaves a marker too, and its window isolates
-instead of counting, since the module may be unusable. A host without Web
+instead of counting, since the module may be unusable. A lifetime's markers
+stay until its windows on every document are claimed. A host without Web
 Locks, or whose lock request is refused, opens no window. The command line's
 database is memory-only, so its windows die with it; a host whose database
 outlives its process must hold such a lock or mark its clean exits.

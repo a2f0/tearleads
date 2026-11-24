@@ -24,6 +24,7 @@ import {
   claimDocumentSyncOrphanWindows,
   closeDocumentSyncLoroWindowInTransaction,
   readDocumentSyncPageLimit,
+  settleDocumentSyncLoroWindow,
 } from "./loroWindows";
 import { judgeDocumentSyncImports } from "./processedCursor";
 
@@ -32,6 +33,12 @@ const DOCUMENT_ID = "550e8400-e29b-41d4-a716-446655440e00";
 const FIRST = "550e8400-e29b-41d4-a716-446655440e01";
 const SECOND = "550e8400-e29b-41d4-a716-446655440e02";
 const EMPTY_RESPONSE = { updates: [] } as unknown as DocumentSyncResponse;
+const MAIN = { documentId: DOCUMENT_ID, scope: SCOPE };
+const OTHER = {
+  documentId: "550e8400-e29b-41d4-a716-446655440f00",
+  scope: { appKind: "documents", localId: "windows-other" },
+} as const;
+type Target = typeof MAIN | typeof OTHER;
 
 let close: () => void = () => undefined;
 let execSql: ExecSql;
@@ -41,12 +48,14 @@ beforeEach(async () => {
   close = database.close;
   execSql = database.execSql;
   await ensureDocumentTables(execSql);
-  await execSql(
-    `INSERT INTO documents (app_kind, local_id, document_id,
-       snapshot_end_version, updated_at)
-     VALUES (?, ?, ?, '', '2026-11-23T00:00:00.000Z')`,
-    [SCOPE.appKind, SCOPE.localId, DOCUMENT_ID],
-  );
+  for (const { documentId, scope } of [MAIN, OTHER]) {
+    await execSql(
+      `INSERT INTO documents (app_kind, local_id, document_id,
+         snapshot_end_version, updated_at)
+       VALUES (?, ?, ?, '', '2026-11-23T00:00:00.000Z')`,
+      [scope.appKind, scope.localId, documentId],
+    );
+  }
 });
 
 afterEach(() => close());
@@ -117,12 +126,13 @@ async function judgeIn(
   lifetimes: ReturnType<ReturnType<typeof device>["lifetime"]>,
   updates: readonly DecryptedDocumentSyncUpdate[],
   ledger = new LoroRuntimeFailureLedger(),
+  target: Target = MAIN,
 ) {
   const currentDocument = await createDocument("windows-reader");
   try {
     return await judgeDocumentSyncImports({
       currentDocument,
-      documentId: DOCUMENT_ID,
+      documentId: target.documentId,
       execSql,
       lifetimes,
       logError: () => undefined,
@@ -133,26 +143,34 @@ async function judgeIn(
         response: EMPTY_RESPONSE,
       },
       runtimeLedger: ledger,
-      scope: SCOPE,
+      scope: target.scope,
     });
   } finally {
     currentDocument.free();
   }
 }
 
-async function recordedAttempts(updateId: string) {
+async function recordedAttempts(updateId: string, target: Target = MAIN) {
   const [row] = await readRecordedImportVoids(
     getClientSQLitePersistenceRuntime(execSql).db,
-    { judge: documentVerdictJudge(), scope: SCOPE, updateIds: [updateId] },
+    {
+      judge: documentVerdictJudge(),
+      scope: target.scope,
+      updateIds: [updateId],
+    },
   );
   return row?.stage === "loro_runtime" ? row.attempts : null;
 }
 
-function pageLimit() {
-  return readDocumentSyncPageLimit(execSql, {
-    documentId: DOCUMENT_ID,
-    scope: SCOPE,
-  });
+function pageLimit(target: Target = MAIN) {
+  return readDocumentSyncPageLimit(execSql, target);
+}
+
+function claimIn(
+  lifetimes: ReturnType<ReturnType<typeof device>["lifetime"]>,
+  target: Target,
+) {
+  return claimDocumentSyncOrphanWindows({ ...target, execSql, lifetimes });
 }
 
 // A payload that kills the process records no attempt from inside it; its
@@ -335,4 +353,105 @@ test("a lifetime whose lock is refused judges without a window", async () => {
   expect(
     await execSql("SELECT lifetime_id FROM document_loro_windows"),
   ).toEqual([]);
+});
+
+// Document lanes read in parallel. A death with two scopes' windows open
+// says nothing about either update, so both are isolated, neither counted.
+test("a death with two scopes' windows open counts toward neither", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const dead = host.lifetime("dead");
+  await judgeIn(dead, [first]);
+  await judgeIn(dead, [second], undefined, OTHER);
+  host.kill("dead");
+
+  const next = host.lifetime("next");
+  await claimIn(next, MAIN);
+  await claimIn(next, OTHER);
+
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(await recordedAttempts(SECOND, OTHER)).toBeNull();
+  expect(await pageLimit(MAIN)).toBe(1);
+  expect(await pageLimit(OTHER)).toBe(1);
+});
+
+// A hidden lifetime's marker must outlast the claim of its first window:
+// its window on another scope says nothing either.
+test("a hidden death leaves every scope it read alone", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const hidden = host.lifetime("hidden");
+  await judgeIn(hidden, [first]);
+  await judgeIn(hidden, [second], undefined, OTHER);
+  host.hide();
+  host.kill("hidden");
+
+  const next = host.lifetime("next");
+  await claimIn(next, MAIN);
+  await claimIn(next, OTHER);
+
+  expect(await pageLimit(MAIN)).toBeUndefined();
+  expect(await pageLimit(OTHER)).toBeUndefined();
+  expect(host.markers.size).toBe(0);
+});
+
+// An isolating scope waits until it is the lifetime's only window, so a
+// killer read there is counted even while other lanes keep reading.
+test("an isolating scope reads alone, so a killer there counts", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const lifetime = host.lifetime("isolating");
+  await judgeIn(lifetime, [second], undefined, OTHER);
+  await execSql(
+    `INSERT INTO document_loro_isolation
+       (app_kind, local_id, document_id, suspects)
+     VALUES (?, ?, ?, ?)`,
+    [SCOPE.appKind, SCOPE.localId, DOCUMENT_ID, JSON.stringify([FIRST])],
+  );
+  let judged = false;
+  const judging = judgeIn(lifetime, [first]).then(() => {
+    judged = true;
+  });
+  await Bun.sleep(20);
+  expect(judged).toBe(false);
+
+  await settleDocumentSyncLoroWindow({
+    committed: false,
+    execSql,
+    lifetimes: lifetime,
+    scope: OTHER.scope,
+  });
+  await judging;
+  host.kill("isolating");
+  await claimIn(host.lifetime("next"), MAIN);
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
+});
+
+// A generation invalidated once the claim commits keeps its count but, like
+// its verdicts, reports nothing.
+test("a claim whose generation ends after commit reports nothing", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await judgeIn(host.lifetime("dead"), [update]);
+  host.kill("dead");
+  const reports: unknown[] = [];
+  let guards = 0;
+
+  await claimDocumentSyncOrphanWindows({
+    ...MAIN,
+    execSql,
+    isCurrent: () => {
+      guards += 1;
+      return guards === 1;
+    },
+    lifetimes: host.lifetime("next"),
+    logError: (message) => reports.push(message),
+  });
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
+  expect(reports).toEqual([]);
 });

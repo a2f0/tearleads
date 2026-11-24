@@ -113,9 +113,23 @@ export async function deleteLoroWindowInTransaction(
     .run();
 }
 
+/** The lifetimes among `lifetimeIds` still holding a window on any scope. */
+export async function readLifetimesWithWindows(
+  db: Pick<ClientSQLiteTransactionScope, "selectDistinct">,
+  lifetimeIds: readonly string[],
+): Promise<ReadonlySet<string>> {
+  if (lifetimeIds.length === 0) return new Set();
+  const rows = await db
+    .selectDistinct({ lifetimeId: documentLoroWindows.lifetimeId })
+    .from(documentLoroWindows)
+    .where(inArray(documentLoroWindows.lifetimeId, [...lifetimeIds]))
+    .all();
+  return new Set(rows.map((row) => row.lifetimeId));
+}
+
 /**
- * After a Loro runtime failure this lifetime counted, its open windows count
- * nothing more: a later death in the same lifetime isolates instead.
+ * This lifetime's open windows count nothing more: after a Loro runtime
+ * failure it counted, or once another of its windows opens beside them.
  */
 export async function markLoroWindowsNotCountingInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "update">,

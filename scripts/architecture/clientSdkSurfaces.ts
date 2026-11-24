@@ -87,6 +87,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/sync/documentUpdateVerdict.ts`,
   `${sdk}/data/documents/shared/sync/loroLifetime.ts`,
   `${sdk}/data/documents/shared/sync/loroRuntimeFailureLedger.ts`,
+  `${sdk}/data/documents/shared/sync/loroWindowGate.ts`,
   `${sdk}/data/documents/shared/sync/loroWindowMachine.ts`,
   `${sdk}/data/documents/shared/sync/mutationAcknowledgement.ts`,
   `${sdk}/data/documents/shared/sync/pullContinuation.ts`,

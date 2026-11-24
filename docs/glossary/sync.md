@@ -60,8 +60,9 @@ Related docs:
 A local row naming the unsettled updates of one document pull, committed
 before the client first reads them with Loro and deleted by the pull's save.
 A process that dies reading them leaves the row, and the next process lifetime
-claims it once that lifetime's Web Lock is gone. A window that held one update
-counts a runtime attempt toward it; any other window makes the document pull
+claims it once that lifetime's Web Lock is gone. A window that held one update,
+and was its lifetime's only open window, counts a runtime attempt toward it;
+any other window makes the document pull
 one update a page (`maxPageUpdates: 1`) until it has passed those updates. A
 window left by a lifetime that ended while the app was hidden counts nothing.
 

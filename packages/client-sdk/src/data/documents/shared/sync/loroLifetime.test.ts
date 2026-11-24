@@ -35,14 +35,14 @@ function host() {
 
 // A marker stands only while a window is open and the app is hidden, so a
 // closed tab with no window open leaves nothing behind in storage.
-test("the hidden marker covers open windows only while the app is hidden", () => {
+test("the hidden marker covers open windows only while the app is hidden", async () => {
   const surfaces = host();
   const lifetimes = createLoroLifetimes({ id: "tab", ...surfaces });
   const key = "tearleads-loro-hidden:tab";
 
   surfaces.setHidden(true);
   expect(surfaces.markers.has(key)).toBe(false);
-  lifetimes.openWindow("scope");
+  await lifetimes.openWindow("scope", false);
   expect(lifetimes.endedHidden("tab")).toBe(true);
   surfaces.setHidden(false);
   expect(surfaces.markers.has(key)).toBe(false);
@@ -55,13 +55,13 @@ test("the hidden marker covers open windows only while the app is hidden", () =>
 // A failure anywhere in the lifetime, even outside document sync, may leave
 // the module unusable, so a death after it says nothing about the update a
 // window then held.
-test("a failure marker covers the windows open after the lifetime failed", () => {
+test("a failure marker covers the windows open after the lifetime failed", async () => {
   const surfaces = host();
   const lifetimes = createLoroLifetimes({ id: "tab", ...surfaces });
 
   lifetimes.noteFailed();
   expect(lifetimes.endedFailed("tab")).toBe(false);
-  lifetimes.openWindow("scope");
+  await lifetimes.openWindow("scope", false);
   expect(lifetimes.endedFailed("tab")).toBe(true);
   lifetimes.forget("tab");
   expect(lifetimes.endedFailed("tab")).toBe(false);
@@ -110,4 +110,39 @@ test("a page that hides, closes, or comes back reports it", () => {
   listeners.get("visibilitychange")?.();
 
   expect(changes).toEqual([true, false, true]);
+});
+
+// An isolating scope reads alone, so the death it may cause names it alone;
+// other scopes wait behind it and share the gate with each other.
+test("an isolating scope's window waits to be the lifetime's only one", async () => {
+  const lifetimes = createLoroLifetimes({ id: "tab" });
+  const order: string[] = [];
+  await lifetimes.openWindow("shared-a", false);
+  const isolating = lifetimes
+    .openWindow("isolating", true)
+    .then(() => order.push("isolating"));
+  const later = lifetimes
+    .openWindow("shared-b", false)
+    .then(() => order.push("shared-b"));
+  await Promise.resolve();
+  expect(order).toEqual([]);
+
+  lifetimes.closeWindow("shared-a");
+  await isolating;
+  expect(lifetimes.openWindowCount()).toBe(1);
+  lifetimes.closeWindow("isolating");
+  await later;
+
+  expect(order).toEqual(["isolating", "shared-b"]);
+});
+
+// The gate is for progress only: a window that cannot get in opens anyway,
+// beside the others, and so does not count.
+test("a window that waits too long opens outside the gate", async () => {
+  const lifetimes = createLoroLifetimes({ gateWaitMs: 5, id: "tab" });
+  await lifetimes.openWindow("stuck", false);
+
+  await lifetimes.openWindow("isolating", true);
+
+  expect(lifetimes.openWindowCount()).toBe(2);
 });

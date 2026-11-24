@@ -71,8 +71,8 @@ The abstraction maps to production at these seams:
 | `Judge` / `Accepts` | `validateDocumentSyncUpdateImports` and `judgeUpdate`, which checks the decoded Loro metadata against the signed span before the scratch import, after `judgeDocumentSyncUpdateDecryption` checks the plaintext hash |
 | `RuntimeFailure` / `attempts` | `judgeUpdate` returning `runtime_failure` for `isLoroRuntimeFailure`, `LoroRuntimeFailureLedger.noteFailure`, and `recordDocumentSyncRuntimeFailures`, which records the `loro_runtime` row and its `attempts` before the page is saved, and in the same transaction stops the lifetime's windows counting (`markLoroWindowsNotCountingInTransaction`) |
 | `failedInLife` / `Restart` / `lifeAttempts` | `processLoroRuntimeFailures`, the ledger a process starts with, which counts only its first failure (`LoroRuntimeFailureLedger.hasFailed`); its first failure anywhere also calls `noteFailed`, whose marker makes `judgeOrphanWindow` isolate a window that lifetime held open (`endedFailed`) |
-| `Die` / `Pending` | `openDocumentSyncLoroWindow`, which commits the page's unsettled updates as a `document_loro_windows` row before `validateDocumentSyncUpdateImports` reads them; `closeDocumentSyncLoroWindowInTransaction` deletes it in the page's save, and `settleDocumentSyncLoroWindow` deletes it when no save commits |
-| `Kill` / `Start` | `claimDocumentSyncOrphanWindows` in the next lifetime: `createLoroLifetimes` tells an ended lifetime by its released Web Lock, `claimOrphansInTransaction` reads the orphans again in its transaction so two tabs count one death once, and `judgeOrphanWindow` counts a window `loroWindowCounts` opened as counting |
+| `Die` / `Pending` | `openDocumentSyncLoroWindow`, which commits the page's unsettled updates as a `document_loro_windows` row before `validateDocumentSyncUpdateImports` reads them; `closeDocumentSyncLoroWindowInTransaction` deletes it in the page's save, and `settleDocumentSyncLoroWindow` deletes it when no save commits. The model's one window is the union of a lifetime's open windows across documents: a row counts only while it is the lifetime's only open window (`openWindowCount`), and opening a second stops every row of the lifetime counting in its transaction (`markLoroWindowsNotCountingInTransaction`) |
+| `Kill` / `Start` | `claimDocumentSyncOrphanWindows` in the next lifetime: `createLoroLifetimes` tells an ended lifetime by its released Web Lock, `claimOrphansInTransaction` reads the orphans again in its transaction so two tabs count one death once, and `judgeOrphanWindow` counts a window `loroWindowCounts` opened as counting. A scope isolating suspects reads alone through the lifetime's window gate (`transitionLoroWindowGate`), as the model's fairness on deaths assumes an isolated read does |
 | `HiddenKill` | the hidden marker `createLoroLifetimes` keeps in `localStorage` while the app is hidden with a window open; `judgeOrphanWindow` discards a window whose lifetime `endedHidden` |
 | `suspects` | `document_loro_isolation`, through `transitionLoroIsolation`; `readDocumentSyncPageLimit` makes the next pull send `maxPageUpdates`, and `listMissingDocumentUpdatePage` caps its page there |
 | `finalVoid` | a `loro_runtime` row with `MAX_LORO_RUNTIME_ATTEMPTS` attempts, read back as a known void by `recordedImportJudgements` |
@@ -164,7 +164,10 @@ again as a shorter page would leave them; the retry delay between a process's
 attempts and its uncounted later failures, which only hold a pull as a stutter
 would; deaths while hydrating container metadata, rotating, or showing a
 founding view, which open no window yet (#3194, D2b), and a death in the live
-apply after a page's save, when the update is already accepted; the
+apply after a page's save, when the update is already accepted; a document
+isolating suspects that waits longer than the window gate allows (30 seconds)
+for other documents' windows to close, which then reads beside them and
+counts nothing, so it only delays progress as a stutter would; the
 record of import voids that spares a device a second import of an update under
 the same judge and key; and devices' own writes. An honest writer depends only
 on operations committed before its update. A dishonest writer that forges a
