@@ -38,7 +38,6 @@ export const EXPLORER_BLOB_BROWSER_LABELS = {
   blobBrowserSyncHeading: "Sync Status",
   blobBrowserSyncIdle: "No active sync work.",
   blobBrowserTextTruncated: "Preview truncated.",
-  blobBrowserTitle: "Blob Browser",
   blobBrowserUpdatedColumn: "Updated",
   blobBrowserUpdatedRow: "Updated",
   blobPickCancelAction: "Cancel",

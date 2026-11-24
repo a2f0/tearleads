@@ -52,7 +52,6 @@ test("blob lane detail opens the matching Blob Browser storage key", () => {
   const lane = createLane("documents/local-1/report.pdf");
   const view = render(
     <ExplorerSyncLanesPanelView
-      onBackToSelectionRoute={() => undefined}
       onOpenBlobDetail={(storageKey) => openedStorageKeys.push(storageKey)}
       onOpenLaneDetail={() => undefined}
       selectedLaneKey={lane.key}
@@ -73,7 +72,6 @@ test("non-blob lane detail omits the Blob Browser action", () => {
   const lane = createLane(null);
   const view = render(
     <ExplorerSyncLanesPanelView
-      onBackToSelectionRoute={() => undefined}
       onOpenBlobDetail={() => undefined}
       onOpenLaneDetail={() => undefined}
       selectedLaneKey={lane.key}
@@ -93,7 +91,6 @@ test("blob lane Label and Key open the blob being uploaded", () => {
   const lane = createLane("documents/local-1/report.pdf");
   const view = render(
     <ExplorerSyncLanesPanelView
-      onBackToSelectionRoute={() => undefined}
       onOpenBlobDetail={(storageKey) => openedStorageKeys.push(storageKey)}
       onOpenLaneDetail={() => undefined}
       selectedLaneKey={lane.key}
@@ -132,7 +129,6 @@ function renderDocumentLane(summary: DocumentSummary | null) {
         openDocument: (localId, containerId) =>
           opened.push({ containerId, localId }),
       }}
-      onBackToSelectionRoute={() => undefined}
       onOpenLaneDetail={() => undefined}
       selectedLaneKey={lane.key}
       snapshot={createSnapshot(lane)}

@@ -21,7 +21,6 @@ import {
 import { EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
 import {
-  BlobBrowserHeader,
   BlobBrowserRowContextMenu,
   BlobDetail,
 } from "./ExplorerBlobBrowserSections";
@@ -98,7 +97,6 @@ function BlobBrowserBrowseScreen(params: {
 
   return (
     <>
-      <BlobBrowserHeader selectedBlob={data.selectedBlob} />
       {isDetailScreen ? (
         <div className="explorer-blob-browser-screen">
           <BlobDetail

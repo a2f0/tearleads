@@ -11,3 +11,13 @@
   margin-inline: calc(-1 * var(--space-md));
   padding-inline: var(--space-md);
 }
+
+/*
+ * Each tab opens straight onto its content — the tab names the view, so no
+ * panel header repeats it. The panel takes the space that header used to put
+ * between the strip and the first row; as padding inside the panel, it scrolls
+ * away with a scrolling panel's content rather than standing over it.
+ */
+.explorer-sections-tab-panel > .explorer-detail {
+  padding-block-start: var(--space-md);
+}

@@ -6,15 +6,8 @@ import {
 } from "@tearleads/client-sdk";
 import { useWindowRefreshMenuItem } from "@tearleads/windowing";
 import { useCallback, useMemo, useState } from "react";
-import {
-  MiniAppActions,
-  MiniAppButton,
-  MiniAppHeader,
-  MiniAppHeaderCopy,
-  MiniAppPanel,
-} from "../../../../components/mini-app/MiniAppLayout";
+import { MiniAppPanel } from "../../../../components/mini-app/MiniAppLayout";
 import { useDomainSyncSnapshot } from "../../../../providers/sdk/useDomainSyncSnapshot";
-import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
 import { EXPLORER_LABELS } from "../../labels";
 import {
   ExplorerSyncLaneDetail,
@@ -27,24 +20,11 @@ import "./ExplorerSyncLanesPanel.css";
 
 export { getExplorerSyncLaneProgress } from "./ExplorerSyncLaneUtils";
 
-function getSyncLaneDetailSubtitle(
-  snapshot: DomainSyncSnapshot,
-  selectedLaneKey: string,
-): string {
-  return (
-    snapshot.lanes.find((lane) => lane.key === selectedLaneKey)?.label ??
-    selectedLaneKey
-  );
-}
-
+// The panel opens straight onto its content: the hub's tab names the view, and
+// the lane-detail "Back to Sync Lanes" affordance lives on the window toolbar
+// (registered by ExplorerRoutedChrome).
 export function ExplorerSyncLanesPanelView(params: {
-  // The lane-detail "Back to Sync Lanes" affordance lives on the window toolbar
-  // (registered by ExplorerRoutedChrome), so the panel renders no in-detail back
-  // button. In list mode the "Back to Explorer" button is suppressed when
-  // embedded, since the compact tabbed hub's tab bar owns top-level navigation.
-  embedded?: boolean;
   documentLinks?: ExplorerSyncLaneDocumentLinks | undefined;
-  onBackToSelectionRoute: () => void;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
   onOpenLaneDetail: (laneKey: string) => void;
   selectedLaneKey: string | null;
@@ -52,14 +32,11 @@ export function ExplorerSyncLanesPanelView(params: {
 }) {
   const {
     documentLinks,
-    embedded = false,
-    onBackToSelectionRoute,
     onOpenBlobDetail,
     onOpenLaneDetail,
     selectedLaneKey,
     snapshot,
   } = params;
-  const showingLaneDetail = selectedLaneKey !== null;
   // Held above the list/detail branch so a filter survives a round trip into a
   // lane detail and back.
   const [laneFilter, setLaneFilter] = useState<SyncLaneFilter>(null);
@@ -73,29 +50,6 @@ export function ExplorerSyncLanesPanelView(params: {
       className="explorer-detail explorer-detail--sync-lanes"
       scroll
     >
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>
-            {showingLaneDetail
-              ? EXPLORER_LABELS.syncLanesDetailTitle
-              : EXPLORER_LABELS.syncLanesTitle}
-          </strong>
-          <span>
-            {selectedLaneKey !== null
-              ? getSyncLaneDetailSubtitle(snapshot, selectedLaneKey)
-              : formatMiniAppDateTime(snapshot.updatedAt, {
-                  emptyFallback: "-",
-                })}
-          </span>
-        </MiniAppHeaderCopy>
-        <MiniAppActions>
-          {showingLaneDetail || embedded ? null : (
-            <MiniAppButton onClick={onBackToSelectionRoute}>
-              {EXPLORER_LABELS.syncLanesBackAction}
-            </MiniAppButton>
-          )}
-        </MiniAppActions>
-      </MiniAppHeader>
       {selectedLaneKey !== null ? (
         <ExplorerSyncLaneDetail
           documentLinks={documentLinks}
@@ -126,10 +80,8 @@ export function ExplorerSyncLanesPanelView(params: {
 }
 
 export function ExplorerSyncLanesPanel(params: {
-  embedded?: boolean;
   documentQueries?: ContainerDocumentQueries | undefined;
   domainScope: DomainScope;
-  onBackToSelectionRoute: () => void;
   onOpenBlobDetail?: ((storageKey: string) => void) | undefined;
   onOpenDocument?: ((localId: string, containerId: string) => void) | undefined;
   onOpenLaneDetail: (laneKey: string) => void;
@@ -175,8 +127,6 @@ export function ExplorerSyncLanesPanel(params: {
   return (
     <ExplorerSyncLanesPanelView
       documentLinks={documentLinks}
-      embedded={params.embedded ?? false}
-      onBackToSelectionRoute={params.onBackToSelectionRoute}
       onOpenBlobDetail={params.onOpenBlobDetail}
       onOpenLaneDetail={params.onOpenLaneDetail}
       selectedLaneKey={params.selectedLaneKey}

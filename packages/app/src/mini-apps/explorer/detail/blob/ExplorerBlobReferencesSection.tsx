@@ -1,3 +1,4 @@
+import { FileIcon } from "@phosphor-icons/react/dist/csr/File";
 import { InfoIcon } from "@phosphor-icons/react/dist/csr/Info";
 import type {
   BlobInfo,
@@ -26,25 +27,36 @@ import {
 } from "../../../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../../../components/mini-app/virtual/MiniAppVirtual";
 import { classNames } from "../../../../components/shared/classNames";
+import { getDocumentTypeIcon } from "../../../../document-types/registry";
 import { getBlobDisplayName } from "../../../shared/blob-pick/blob-list/blobListState";
 import {
   EXPLORER_LABELS,
   getExplorerDocumentInfoAttachmentKindLabel,
 } from "../../labels";
 import { compactId } from "../compactId";
+import "./ExplorerBlobReferencesSection.css";
 
 /**
- * The folded row's muted second line, in order. One list for both the header
- * labels and the body fields, so the two lines cannot drift out of step.
+ * The folded row's muted second line: State · Container · Filename as one
+ * joined field, the way Get Info folds a document's attachments. Each value is
+ * self-describing, and three equal-width fields would each truncate on a
+ * phone. The state leads because it is what tells a document's local and
+ * pending links apart; the filename trails because it is usually the blob's
+ * own, already shown above, and the one most likely to be cut short. The slot
+ * id, an opaque key, stays in the wide layout only. Shared by the header label
+ * and the body text.
  */
-const BLOB_REFERENCE_SECONDARY_COLUMNS = [
-  { id: "container", label: EXPLORER_LABELS.documentInfoContainerColumn },
-  { id: "state", label: EXPLORER_LABELS.blobBrowserStateColumn },
-  { id: "slot", label: EXPLORER_LABELS.blobBrowserSlotColumn },
-] as const;
+const BLOB_REFERENCE_SECONDARY_SEPARATOR = " · ";
+
+const BLOB_REFERENCE_SECONDARY_LABEL = [
+  EXPLORER_LABELS.blobBrowserStateColumn,
+  EXPLORER_LABELS.documentInfoContainerColumn,
+  EXPLORER_LABELS.blobBrowserFilenameColumn,
+].join(BLOB_REFERENCE_SECONDARY_SEPARATOR);
 
 /**
- * The compact row pairs each document with its own attachment filename.
+ * Folded, the row reads like the Explorer's own item list: the document's kind
+ * glyph spans both lines, its title leads, and the details sit muted beneath.
  */
 function getBlobReferenceColumns(
   compact: boolean,
@@ -59,15 +71,10 @@ function getBlobReferenceColumns(
                 id: "document",
                 text: EXPLORER_LABELS.blobBrowserDocumentColumn,
               },
-              {
-                id: "filename",
-                text: EXPLORER_LABELS.blobBrowserFilenameColumn,
-              },
             ]}
-            secondary={BLOB_REFERENCE_SECONDARY_COLUMNS.map((column) => ({
-              id: column.id,
-              text: column.label,
-            }))}
+            secondary={[
+              { id: "details", text: BLOB_REFERENCE_SECONDARY_LABEL },
+            ]}
           />
         ),
         id: "summary",
@@ -184,30 +191,42 @@ function getBlobReferenceContainerLabel(
   );
 }
 
-function getBlobReferenceSecondaryFields(
+function getBlobReferenceSecondaryField(
   reference: BlobInfoDocumentReference,
   containerName: string | null,
-): ReadonlyArray<MiniAppCompactTableField> {
-  const [container, state, slot] = BLOB_REFERENCE_SECONDARY_COLUMNS;
+): MiniAppCompactTableField {
+  const text = [
+    getExplorerDocumentInfoAttachmentKindLabel(reference.attachmentKind),
+    getBlobReferenceContainerLabel(reference, containerName),
+    getBlobDisplayName(reference),
+  ].join(BLOB_REFERENCE_SECONDARY_SEPARATOR);
 
-  return [
-    {
-      ...container,
-      text: getBlobReferenceContainerLabel(reference, containerName),
-      title: reference.containerId ?? undefined,
-    },
-    {
-      ...state,
-      text: getExplorerDocumentInfoAttachmentKindLabel(
-        reference.attachmentKind,
-      ),
-    },
-    {
-      ...slot,
-      text: compactId(reference.slotId),
-      title: reference.slotId,
-    },
-  ];
+  return {
+    id: "details",
+    label: BLOB_REFERENCE_SECONDARY_LABEL,
+    text,
+    title: text,
+  };
+}
+
+/** The document's kind glyph, or the generic file glyph when it is unknown. */
+function BlobReferenceDocumentIcon(params: {
+  documentKind: BlobInfoDocumentReference["documentKind"];
+}) {
+  const Glyph = params.documentKind
+    ? getDocumentTypeIcon(params.documentKind)
+    : FileIcon;
+
+  return (
+    <Glyph
+      aria-hidden="true"
+      className="explorer-blob-reference-icon"
+      data-icon={params.documentKind ?? undefined}
+      focusable="false"
+      size={32}
+      weight="regular"
+    />
+  );
 }
 
 function BlobReferenceRow(params: {
@@ -237,7 +256,7 @@ function BlobReferenceRow(params: {
     : undefined;
   // The same control on both layouts — folded it becomes the summary's primary
   // line, so the row keeps one focusable, labelled way into the document rather
-  // than trading it for plain text.
+  // than trading it for plain text. The row is the touch target either way.
   const documentButton = (
     <MiniAppTableActionButton
       className="explorer-blob-reference-row-button"
@@ -268,9 +287,11 @@ function BlobReferenceRow(params: {
               id: "document",
               title: reference.localId,
             },
-            { id: "filename", text: filename, title: filename },
           ]}
-          secondary={getBlobReferenceSecondaryFields(reference, containerName)}
+          secondary={[getBlobReferenceSecondaryField(reference, containerName)]}
+          visual={
+            <BlobReferenceDocumentIcon documentKind={reference.documentKind} />
+          }
         />
       ) : (
         <>

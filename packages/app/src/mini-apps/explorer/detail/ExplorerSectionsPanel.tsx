@@ -129,10 +129,8 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
   }
   return (
     <ExplorerSyncLanesPanel
-      embedded
       documentQueries={params.documentQueries}
       domainScope={params.domainScope}
-      onBackToSelectionRoute={params.openSyncLanesRoute}
       onOpenBlobDetail={(storageKey) => {
         params.openBlobBrowserRoute({ storageKey });
       }}
