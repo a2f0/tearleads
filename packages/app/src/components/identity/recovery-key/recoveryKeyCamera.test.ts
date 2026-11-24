@@ -2,7 +2,7 @@ import { afterEach, expect, mock, test } from "bun:test";
 import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
 import { waitFor } from "@testing-library/react";
 import { installRecoveryQrCamera } from "../../../../test/helpers/recoveryQrCameraTestKit";
-import { recoveryKeyScanPhrase } from "../actions/recoveryKeyScanPhrase";
+import { recoveryKeyScanPhrase } from "../../../identity/recoveryKeyScanPhrase";
 import { startRecoveryKeyCamera } from "./recoveryKeyCamera";
 
 let camera: ReturnType<typeof installRecoveryQrCamera> | undefined;
