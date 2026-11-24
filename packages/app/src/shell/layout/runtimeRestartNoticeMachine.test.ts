@@ -17,7 +17,12 @@ const DISCARDING: RuntimeRestartNoticeStep = {
   discard: true,
   status: "preparing",
 };
-const RELOADING: RuntimeRestartNoticeStep = { attempt: 1, status: "reloading" };
+const RELOADING: RuntimeRestartNoticeStep = {
+  attempt: 1,
+  discard: false,
+  status: "reloading",
+};
+const FAILED: RuntimeRestartNoticeStep = { attempt: 1, status: "failed" };
 
 // Reload waits for edits to reach SQLite, then drains, or asks when edits
 // would be lost.
@@ -76,9 +81,12 @@ test("edits made while draining ask again unless discarded", () => {
   expect(transitionRuntimeRestartNotice(PREPARING, prepared(false))).toEqual(
     RELOADING,
   );
-  expect(transitionRuntimeRestartNotice(DISCARDING, prepared(true))).toEqual(
-    RELOADING,
-  );
+  // The reload carries the user's choice, so the page's unload prompt does
+  // not ask about the same edits again.
+  expect(transitionRuntimeRestartNotice(DISCARDING, prepared(true))).toEqual({
+    ...RELOADING,
+    discard: true,
+  });
 });
 
 // Only the current attempt's work moves the notice. A reload keeps the
@@ -107,4 +115,34 @@ test("a stale attempt changes nothing", () => {
   expect(
     transitionRuntimeRestartNotice(PREPARING, { attempt: 1, type: "pageKept" }),
   ).toBe(PREPARING);
+});
+
+// A wait, the drain, or the reload that throws leaves no step waiting: the
+// user may try the press again, or reload anyway without asking about edits.
+test("a step that throws offers the press again or a reload anyway", () => {
+  const failed = (attempt: number) => ({ attempt, type: "failed" }) as const;
+  for (const working of [SAVING, PREPARING, DISCARDING, RELOADING]) {
+    expect(transitionRuntimeRestartNotice(working, failed(1))).toEqual(FAILED);
+    expect(transitionRuntimeRestartNotice(working, failed(0))).toBe(working);
+  }
+  expect(transitionRuntimeRestartNotice(UNSAVED, failed(1))).toBe(UNSAVED);
+  expect(
+    transitionRuntimeRestartNotice(RUNTIME_RESTART_NOTICE_OFFERED, failed(1)),
+  ).toBe(RUNTIME_RESTART_NOTICE_OFFERED);
+
+  expect(
+    transitionRuntimeRestartNotice(FAILED, {
+      attempt: 2,
+      type: "reloadPressed",
+    }),
+  ).toEqual({ attempt: 2, status: "saving" });
+  expect(
+    transitionRuntimeRestartNotice(FAILED, { type: "discardConfirmed" }),
+  ).toEqual(DISCARDING);
+  expect(
+    transitionRuntimeRestartNotice(FAILED, { type: "keepConfirmed" }),
+  ).toBe(FAILED);
+  expect(
+    transitionRuntimeRestartNotice(FAILED, { attempt: 1, type: "pageKept" }),
+  ).toBe(FAILED);
 });
