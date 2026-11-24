@@ -215,15 +215,8 @@
  * body's own scroller is no obstacle: its padding sits inside its padding box,
  * which is exactly where the bleed stops.
  *
- * Scoped with `:has()` so only tabbed panels move; a framed panel is excluded
- * because its own `--panel-padding` would make the edge inset the wrong distance.
- *
- * A surface whose strips scroll in its own container rather than a
- * `MiniAppPanel` (Org Manager's main region) marks that container
- * `mini-app-edge-scrollport` instead (MiniAppRoot.css), which gives a list
- * running to the edges the same room.
+ * The handoff is shared with lists that run to the edges, so it lives in
+ * MiniAppRoot.css: a scrolling `MiniAppPanel` takes it whenever it holds a
+ * strip, and any other scroll container that does (Org Manager's main region)
+ * is marked `mini-app-edge-scrollport`.
  */
-.mini-app-panel--scroll:not(.mini-app-panel--framed):has(.mini-app-tabs) {
-  margin-inline: calc(-1 * var(--mini-app-edge-inset, 0px));
-  padding-inline: var(--mini-app-edge-inset, 0px);
-}

@@ -8,9 +8,12 @@ import { switchToWindowedDesktop } from "./windowedDesktop";
  * that shows it, as Explorer's item list does (explorer-edge-rules.spec.ts):
  * its column headings and their rule reach both sides of the window's content
  * pane or the routed pane, in every tier, while the headings' text keeps the
- * inset of the content above it. Org Manager's lists sit in a region that
- * scrolls on its own, so this also proves that region does not clip them or
- * scroll sideways. Signed in, because these views need an account.
+ * inset of the content above it. Org Manager's and Explorer's diagnostics
+ * lists sit in regions that scroll on their own, which clip a breakout while
+ * its layout box still measures flush, so this also reads what is painted just
+ * inside each edge and checks every such region for sideways scroll. Signed
+ * in, because these views need an account. Root's lists take the same
+ * treatment but need a platform operator, which this server cannot grant.
  */
 test.use({ baseURL: SIGNED_IN_APP_URL });
 
@@ -22,14 +25,24 @@ interface ListView {
 }
 
 interface ListFit {
-  readonly frameOverflow: number;
+  /** Sideways scroll in the frame or any region scrolling around it. */
+  readonly overflow: number;
   readonly headingLeft: number;
   readonly headingRight: number;
   readonly leadingTextInset: number;
-  readonly scrollportOverflow: number;
+  /** Whether the headings, not what lies behind them, are painted there. */
+  readonly paintedAtLeft: boolean;
+  readonly paintedAtRight: boolean;
   readonly surfaceLeft: number;
   readonly surfaceRight: number;
 }
+
+/*
+ * How far inside the surface's sides to read what is painted: past a window's
+ * resize handles, which reach a few pixels over its border, and well inside
+ * the content inset a clipped list would lose.
+ */
+const PAINT_PROBE_INSET = 6;
 
 const VIEWS: ReadonlyArray<ListView> = [
   { app: "Org Manager", route: "org-manager/directory" },
@@ -91,37 +104,52 @@ async function openList(
 }
 
 function measureList(frame: Locator, host: Host): Promise<ListFit> {
-  return frame.evaluate((element, surfaceSelector) => {
-    const surface = element.closest(surfaceSelector);
-    const root = element.closest(".mini-app-root");
-    const heading = element.querySelector("thead tr");
-    const leading = heading?.firstElementChild;
-    if (!surface || !root || !heading || !leading) {
-      throw new Error("Expected a framed list with headings in a mini-app.");
-    }
-    const scrollport = element.parentElement?.closest(
-      ".mini-app-edge-scrollport",
-    );
-    const headingBox = heading.getBoundingClientRect();
-    const surfaceBox = surface.getBoundingClientRect();
-    const rootContentLeft =
-      root.getBoundingClientRect().left +
-      Number.parseFloat(getComputedStyle(root).paddingLeft);
-    return {
-      frameOverflow: element.scrollWidth - element.clientWidth,
-      headingLeft: headingBox.left,
-      headingRight: headingBox.right,
-      leadingTextInset:
-        leading.getBoundingClientRect().left +
-        Number.parseFloat(getComputedStyle(leading).paddingLeft) -
-        rootContentLeft,
-      scrollportOverflow: scrollport
-        ? scrollport.scrollWidth - scrollport.clientWidth
-        : 0,
-      surfaceLeft: surfaceBox.left,
-      surfaceRight: surfaceBox.right,
-    };
-  }, SURFACE[host]);
+  return frame.evaluate(
+    (element, { probeInset, surfaceSelector }) => {
+      const surface = element.closest(surfaceSelector);
+      const root = element.closest(".mini-app-root");
+      const heading = element.querySelector("thead tr");
+      const leading = heading?.firstElementChild;
+      if (!surface || !root || !heading || !leading) {
+        throw new Error("Expected a framed list with headings in a mini-app.");
+      }
+      let overflow = element.scrollWidth - element.clientWidth;
+      for (
+        let ancestor = element.parentElement;
+        ancestor && ancestor !== surface;
+        ancestor = ancestor.parentElement
+      ) {
+        if (getComputedStyle(ancestor).overflowX !== "visible") {
+          overflow = Math.max(
+            overflow,
+            ancestor.scrollWidth - ancestor.clientWidth,
+          );
+        }
+      }
+      const headingBox = heading.getBoundingClientRect();
+      const surfaceBox = surface.getBoundingClientRect();
+      const rootContentLeft =
+        root.getBoundingClientRect().left +
+        Number.parseFloat(getComputedStyle(root).paddingLeft);
+      const headingMiddle = headingBox.top + headingBox.height / 2;
+      const paintsHeading = (x: number) =>
+        heading.contains(document.elementFromPoint(x, headingMiddle));
+      return {
+        overflow,
+        headingLeft: headingBox.left,
+        headingRight: headingBox.right,
+        leadingTextInset:
+          leading.getBoundingClientRect().left +
+          Number.parseFloat(getComputedStyle(leading).paddingLeft) -
+          rootContentLeft,
+        paintedAtLeft: paintsHeading(surfaceBox.left + probeInset),
+        paintedAtRight: paintsHeading(surfaceBox.right - probeInset),
+        surfaceLeft: surfaceBox.left,
+        surfaceRight: surfaceBox.right,
+      };
+    },
+    { probeInset: PAINT_PROBE_INSET, surfaceSelector: SURFACE[host] },
+  );
 }
 
 for (const host of ["tablet", "phone", "window"] as const) {
@@ -140,10 +168,10 @@ for (const host of ["tablet", "phone", "window"] as const) {
       const label = `${view.route} (${host})`;
       expect(fit.headingLeft, label).toBeCloseTo(fit.surfaceLeft, 0);
       expect(fit.headingRight, label).toBeCloseTo(fit.surfaceRight, 0);
-      // Running out to the edges added no sideways scroll, here or in a
-      // region scrolling around the list (Org Manager's main region).
-      expect(fit.frameOverflow, label).toBeLessThanOrEqual(0);
-      expect(fit.scrollportOverflow, label).toBeLessThanOrEqual(0);
+      // Nothing clipped the edges or turned them into sideways scroll.
+      expect(fit.paintedAtLeft, label).toBe(true);
+      expect(fit.paintedAtRight, label).toBe(true);
+      expect(fit.overflow, label).toBeLessThanOrEqual(0);
       // The headings' text keeps the content's inset, a cell's padding in.
       // On a phone the list bleeds and its text sits nearer the edge.
       if (host === "phone") {
