@@ -88,6 +88,11 @@ export async function assertAttachmentDocumentVersionCurrent(input: {
  * frontier of a peer the uploader owns, and the peer is secret until the
  * uploader's first commit claims it. The caller holds the document head
  * lock, so no update commits between this read and the detach.
+ *
+ * The uploader can still overclaim its own peer, and once readers void that
+ * update and a detach lands, re-assert those counters with the real re-add.
+ * That unbinds only bytes its own content names, which any writer can do by
+ * recording a slot that names bytes it never bound.
  */
 export async function assertBindVersionCommitted(input: {
   readonly bindVersion: DocumentVersionFrontier;

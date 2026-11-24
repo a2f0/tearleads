@@ -77,6 +77,16 @@ past the frontier of a peer its writer owns, and a peer stays secret until
 its first commit claims it, so only the restorer moves its own peer's
 frontier.
 
+Peer ownership does not stop the restorer itself, and the model's restorer is
+honest. A dishonest restorer could overclaim its own peer past its unsent
+re-add, let readers void that update and a detach land, and then commit the
+re-add at the same counters, which the API accepts as a re-assertion. The
+slot would then name bytes with no binding. That gives the restorer nothing
+it lacks: the API cannot read content, so any writer can record a slot that
+names bytes it never bound, or remove a slot, let its detach land, and record
+it again. A restore that adopts the active binding (`rs`) was open to the
+same steps under the earlier rule, which weighed only the bind version.
+
 `RemovedSlotEventuallyUnbound` puts fairness only on the observing device's
 own reads and detaches, following the
 [no-brick](../container-keying/NoBrickedDevice.md) standard: the importer,
