@@ -20,6 +20,7 @@ if [ "$platform" = android ]; then
   gradle :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
 else
   swift test --package-path ios/App/RevenueCatPurchaseState
+  swift test --package-path ios/App/PasswordKeychainState
   xcodebuild \
     -quiet \
     -project ios/App/App.xcodeproj \
