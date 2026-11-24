@@ -48,6 +48,8 @@ function peerOwnedFailure(peerFrontiers: readonly DocumentPeerFrontier[]) {
 
 async function syncRefusedPass(input: {
   peerFrontiers?: readonly DocumentPeerFrontier[];
+  /** Submits answered with a retryable stale-state 409 before the refusal. */
+  staleSubmits?: number;
   rebase?: (
     peerFrontiers: readonly DocumentPeerFrontier[],
   ) => Promise<DocumentPeerRebaseOutcome>;
@@ -63,6 +65,13 @@ async function syncRefusedPass(input: {
       getDocumentWriterProjection: async () => fixture.writerProjection,
       syncDocumentResult: async (_documentId, request) => {
         submits.push(request.outgoingUpdates.length);
+        if (submits.length <= (input.staleSubmits ?? 0)) {
+          return createMockRequestFailure({
+            code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+            message: "POST /documents/sync: 409 Conflict: State is stale",
+            status: 409,
+          });
+        }
         return peerOwnedFailure(input.peerFrontiers ?? REFUSED);
       },
     }),
@@ -100,6 +109,21 @@ describe("document sync peer-owned refusal", () => {
     expect(pass.trace.some((line) => line.endsWith("action=rebase-peer"))).toBe(
       true,
     );
+  });
+
+  test("rebases a refusal on the pass's last attempt", async () => {
+    const calls: (readonly DocumentPeerFrontier[])[] = [];
+    const pass = await syncRefusedPass({
+      rebase: async (peerFrontiers) => {
+        calls.push(peerFrontiers);
+        return "rebased";
+      },
+      staleSubmits: 2,
+    });
+
+    expect(pass.submits).toEqual([1, 1, 1]);
+    expect(calls).toEqual([REFUSED]);
+    expect(pass.terminal).toEqual([]);
   });
 
   test("is terminal without a rebase hook", async () => {

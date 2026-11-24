@@ -310,7 +310,10 @@ precondition](./protocol-specification/blobs.md#document-version-precondition)).
 An overclaim's ops are in no version, so on its own that check would refuse
 every later bind and detach on the document. Each request therefore also
 carries `processedThroughUpdateId`, and the API weighs only updates committed
-after it. The SDK sends a cursor only with a version that covers the frontier
+after it. A detach also waits while the version its binding was bound at
+names an op no committed update declares; an overclaim's declared span counts
+as committed there, so a bind version naming its ops never holds the
+binding. The SDK sends a cursor only with a version that covers the frontier
 recorded with it, so the version holds every update the cursor's pull imported
 and the pull voided the rest; a version read before that pull finished goes
 without one. Any local record of the same server document may supply the

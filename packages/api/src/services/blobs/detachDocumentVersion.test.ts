@@ -36,6 +36,7 @@ async function detach(
   fixture: DocumentVersionFixture,
   binding: VerifiedAttachmentBinding,
   documentVersionVector?: string,
+  processedThroughUpdateId?: string,
 ) {
   const request = await buildDetach({
     binding,
@@ -51,6 +52,9 @@ async function detach(
       ...request,
       documentVersionVector:
         documentVersionVector ?? request.documentVersionVector,
+      ...(processedThroughUpdateId === undefined
+        ? {}
+        : { processedThroughUpdateId }),
     },
   });
 }
@@ -78,7 +82,7 @@ test("a detach behind a committed edit is refused until it pulls", async () => {
   expect(await activeBoundBlobIds(fixture.document.id)).toEqual([]);
 }, 20_000);
 
-test("a binding bound with its uploader's unsent op keeps it until that op is read", async () => {
+test("a binding bound with its uploader's unsent op keeps it until that op commits", async () => {
   const fixture = await documentWithRoot();
   const { binding, blobId, request } = await stagedBind(fixture);
   // The uploader binds before pushing the update that records its slot.
@@ -117,6 +121,31 @@ test("a binding bound with its uploader's unsent op keeps it until that op is re
   );
   expect(response.status).toBe(200);
   await detach(fixture, binding);
+  expect(await activeBoundBlobIds(fixture.document.id)).toEqual([]);
+}, 20_000);
+
+test("a bind version naming an op the detaching client voided does not hold the binding", async () => {
+  const fixture = await documentWithRoot();
+  const readRemoved = await committedDocumentVersionVector(fixture.document.id);
+  // Another device commits an update the detaching client voids, so no
+  // version it reads holds that update's ops. The uploader bound at a version
+  // naming them, as a dishonest uploader may name any committed counter.
+  const { request: voided, updateId } = await createSignedDocumentSyncRequest({
+    created: fixture.document,
+    owner: fixture.owner,
+    root: fixture.root,
+  });
+  const response = await postDocumentSync(
+    fixture.owner,
+    fixture.document.id,
+    voided,
+  );
+  expect(response.status).toBe(200);
+  const { binding } = await boundAtCommittedVersion(fixture);
+
+  // The detaching client judged that update, so its cursor names it, and
+  // read the slot removed at a version without its ops.
+  await detach(fixture, binding, readRemoved, updateId);
   expect(await activeBoundBlobIds(fixture.document.id)).toEqual([]);
 }, 20_000);
 
