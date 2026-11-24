@@ -93,6 +93,7 @@ test("a store isolating updates a death left pulls one update a page", async () 
       },
       generation,
       pendingUpdates: [],
+      readsInLoroWindow: true,
       state,
       unavailableWriterLogMessage: "unexpected unavailable writer",
     });

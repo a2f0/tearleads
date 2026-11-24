@@ -17,7 +17,12 @@ const WINDOW: LoroWindow = {
   lifetimeId: "dead",
   updateIds: ["u1"],
 };
-const CONTEXT = { documentId: "doc", endedHidden: false, judge: "judge" };
+const CONTEXT = {
+  documentId: "doc",
+  endedFailed: false,
+  endedHidden: false,
+  judge: "judge",
+};
 
 test("a window counts only for one update in a lifetime that has not failed", () => {
   expect(loroWindowCounts(1, false)).toBe(true);
@@ -35,10 +40,15 @@ test("an orphan counts, isolates, or says nothing", () => {
   expect(
     judgeOrphanWindow({ ...WINDOW, updateIds: ["u1", "u2"] }, CONTEXT),
   ).toEqual({ kind: "isolate", suspects: ["u1", "u2"] });
-  expect(judgeOrphanWindow({ ...WINDOW, counts: false }, CONTEXT)).toEqual({
-    kind: "isolate",
-    suspects: ["u1"],
-  });
+  for (const [window, context] of [
+    [{ ...WINDOW, counts: false }, CONTEXT],
+    [WINDOW, { ...CONTEXT, endedFailed: true }],
+  ] as const) {
+    expect(judgeOrphanWindow(window, context)).toEqual({
+      kind: "isolate",
+      suspects: ["u1"],
+    });
+  }
   for (const context of [
     { ...CONTEXT, endedHidden: true },
     { ...CONTEXT, judge: "newer" },

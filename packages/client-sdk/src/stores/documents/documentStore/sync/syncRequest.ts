@@ -130,6 +130,12 @@ interface RequestRemoteDocumentSyncInput {
   /** The pass or workflow operation the sync's policy reads belong to. */
   policyOperation: PrincipalPolicyOperation;
   queuedUpdateCount?: number | undefined;
+  /**
+   * Reads the page inside a Loro read window (`loroWindows.ts`). Only a pass
+   * whose page `finalizeDocumentSync` saves, inside the scheduled sync loop
+   * that settles an unsaved window, may set it; rotation settlement does not.
+   */
+  readsInLoroWindow?: boolean | undefined;
   state: DocumentStoreState;
   unavailableWriterLogMessage: string;
 }
@@ -175,7 +181,7 @@ function documentImportJudge(
       execSql: state.runtime.infra.execSql,
       isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
       logError: state.runtime.util.logError,
-      opensLoroWindow: true,
+      opensLoroWindow: input.readsInLoroWindow === true,
       result,
       scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
     });
@@ -305,10 +311,12 @@ export async function requestRemoteDocumentSync(
       scope,
     },
   );
-  const maxPageUpdates = await readDocumentSyncPageLimit(generation.execSql, {
-    documentId: currentRecord.documentId,
-    scope,
-  });
+  const maxPageUpdates = input.readsInLoroWindow
+    ? await readDocumentSyncPageLimit(generation.execSql, {
+        documentId: currentRecord.documentId,
+        scope,
+      })
+    : undefined;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   const synced = await runRemoteDocumentSync(
     input,

@@ -102,6 +102,7 @@ async function requestOutgoingDocumentBatch(input: {
         pendingUpdates: planningUpdates,
         policyOperation: input.policyOperation,
         queuedUpdateCount,
+        readsInLoroWindow: true,
         state: input.state,
         unavailableWriterLogMessage:
           "Documents: skipped sync because the writer context is unavailable.",

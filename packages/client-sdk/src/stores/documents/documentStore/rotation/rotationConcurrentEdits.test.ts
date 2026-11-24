@@ -107,6 +107,11 @@ for (const editCount of [1, 3]) {
       } finally {
         reader.free();
       }
+      // Settlement judges the pages it pulls but saves none of them, so it
+      // must leave no Loro read window for a later death to count.
+      expect(
+        await execSql("SELECT lifetime_id FROM document_loro_windows"),
+      ).toEqual([]);
     } finally {
       for (const gate of gates) gate.release.resolve();
       close();

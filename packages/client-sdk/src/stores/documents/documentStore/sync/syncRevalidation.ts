@@ -72,6 +72,7 @@ export async function pullRemoteDocumentForAttachments(
     generation,
     pendingUpdates: [],
     policyOperation,
+    readsInLoroWindow: true,
     unavailableWriterLogMessage:
       "Documents: skipped pre-attachment revalidation because the writer context is unavailable.",
   });

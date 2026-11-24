@@ -12,7 +12,6 @@ import {
 import {
   judgeOrphanWindow,
   type LoroIsolation,
-  type LoroWindow,
   loroIsolationPageLimit,
   loroWindowCounts,
   type OrphanVerdict,
@@ -60,20 +59,8 @@ interface WindowScopeInput {
   readonly scope: DocumentScope;
 }
 
-/** The scopes each lifetime holds a window on, so a close knows its own. */
-const openScopes = new WeakMap<LoroLifetimes, Set<string>>();
-
 function scopeKey(scope: DocumentScope): string {
   return `${scope.appKind}\u0000${scope.localId}`;
-}
-
-function scopesOf(lifetimes: LoroLifetimes): Set<string> {
-  let scopes = openScopes.get(lifetimes);
-  if (!scopes) {
-    scopes = new Set();
-    openScopes.set(lifetimes, scopes);
-  }
-  return scopes;
 }
 
 type ClaimTransaction = Parameters<
@@ -128,18 +115,31 @@ async function countOrphanAttemptInTransaction(
   return attempts;
 }
 
-/** Settles each orphan and deletes it; returns the attempts it counted. */
+interface ClaimedOrphans {
+  readonly claimed: readonly string[];
+  readonly counted: readonly { attempts: number; updateId: string }[];
+}
+
+/**
+ * Settles the orphans of ended lifetimes `ended` still on the scope, and
+ * deletes them. Read inside the transaction: another tab may have claimed
+ * one since this tab listed them, and a window is counted at most once.
+ */
 async function claimOrphansInTransaction(
   tx: ClaimTransaction,
   claim: OrphanClaim,
-  orphans: readonly LoroWindow[],
+  ended: ReadonlySet<string>,
   lifetimes: LoroLifetimes,
-): Promise<{ attempts: number; updateId: string }[]> {
+): Promise<ClaimedOrphans> {
+  const orphans = (
+    await readForeignLoroWindows(tx, claim.scope, lifetimes.id)
+  ).filter((window) => ended.has(window.lifetimeId));
   const counted: { attempts: number; updateId: string }[] = [];
   let isolation = await readLoroIsolation(tx, claim.scope);
   for (const orphan of orphans) {
     const verdict = judgeOrphanWindow(orphan, {
       documentId: claim.documentId,
+      endedFailed: lifetimes.endedFailed(orphan.lifetimeId),
       endedHidden: lifetimes.endedHidden(orphan.lifetimeId),
       judge: claim.judge,
     });
@@ -160,15 +160,19 @@ async function claimOrphansInTransaction(
     await deleteLoroWindowInTransaction(tx, claim.scope, orphan.lifetimeId);
   }
   await writeLoroIsolationInTransaction(tx, claim.scope, isolation);
-  return counted;
+  return {
+    claimed: orphans.map((orphan) => orphan.lifetimeId),
+    counted,
+  };
 }
 
 /**
  * Claims the windows ended lifetimes left on this scope, before the page's
  * recorded judgements are read: a window that held one update records one
  * `loro_runtime` attempt toward it, a final void at the limit; any other
- * window isolates its updates; a window whose lifetime the user ended by
- * hiding the app counts nothing. A live lifetime's window is left alone.
+ * window isolates its updates, as does one whose lifetime had met a runtime
+ * failure; a window whose lifetime the user ended by hiding the app counts
+ * nothing. A live lifetime's window is left alone.
  */
 export async function claimDocumentSyncOrphanWindows(
   input: WindowScopeInput & {
@@ -188,30 +192,24 @@ export async function claimDocumentSyncOrphanWindows(
   const ended = await lifetimes.endedAmong(
     foreign.map((window) => window.lifetimeId),
   );
-  const orphans = foreign.filter((window) => ended.has(window.lifetimeId));
-  if (orphans.length === 0) return;
+  if (ended.size === 0) return;
   const claim: OrphanClaim = {
     documentId: input.documentId,
     judge: documentVerdictJudge(),
     scope: input.scope,
   };
-  let counted: { attempts: number; updateId: string }[] = [];
+  let claimed: ClaimedOrphans = { claimed: [], counted: [] };
   const outcome = await runSerializedSqlMutation(input.execSql, (locked) =>
     getClientSQLitePersistenceRuntime(locked).guardedTransaction(
       async (tx) => {
-        counted = await claimOrphansInTransaction(
-          tx,
-          claim,
-          orphans,
-          lifetimes,
-        );
+        claimed = await claimOrphansInTransaction(tx, claim, ended, lifetimes);
       },
       input.isCurrent ?? (() => true),
     ),
   );
   if (!outcome.committed) return;
-  for (const orphan of orphans) lifetimes.forget(orphan.lifetimeId);
-  for (const { attempts, updateId } of counted) {
+  for (const lifetimeId of claimed.claimed) lifetimes.forget(lifetimeId);
+  for (const { attempts, updateId } of claimed.counted) {
     reportQuietly(
       input.logError,
       `Documents: the process ended while reading a sync update (attempt ${attempts} of ${MAX_LORO_RUNTIME_ATTEMPTS}${attempts >= MAX_LORO_RUNTIME_ATTEMPTS ? "; voided" : ""})`,
@@ -239,8 +237,7 @@ export async function openDocumentSyncLoroWindow(
   const unsettled = input.result.decryptedUpdates
     .map((update) => update.id)
     .filter((id) => !input.knownVoids.has(id) && input.ledger.mayAttempt(id));
-  if (unsettled.length === 0) return false;
-  await lifetimes.ready();
+  if (unsettled.length === 0 || !(await lifetimes.ready())) return false;
   const counts = loroWindowCounts(unsettled.length, input.ledger.hasFailed());
   const [only] = unsettled;
   const epoch = counts
@@ -248,13 +245,8 @@ export async function openDocumentSyncLoroWindow(
         input.result.response.updates.find((update) => update.id === only),
       )
     : null;
-  const scopes = scopesOf(lifetimes);
-  const key = scopeKey(input.scope);
-  // Counted first, so a death once the row commits leaves a hidden marker.
-  if (!scopes.has(key)) {
-    scopes.add(key);
-    lifetimes.windowOpened();
-  }
+  // Noted first, so a death once the row commits leaves its markers.
+  lifetimes.openWindow(scopeKey(input.scope));
   await runSerializedSqlMutation(input.execSql, (locked) =>
     getClientSQLitePersistenceRuntime(locked).guardedTransaction(
       (tx) =>
@@ -314,7 +306,7 @@ export async function closeDocumentSyncLoroWindowInTransaction(
 ): Promise<void> {
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
   const db = getClientSQLitePersistenceRuntime(transactionExecSql).db;
-  if (scopesOf(lifetimes).has(scopeKey(input.scope))) {
+  if (lifetimes.hasWindow(scopeKey(input.scope))) {
     await deleteLoroWindowInTransaction(db, input.scope, lifetimes.id);
   }
   const isolation = await readLoroIsolation(db, input.scope);
@@ -337,9 +329,8 @@ export async function settleDocumentSyncLoroWindow(
   input: WindowScopeInput & { readonly committed: boolean },
 ): Promise<void> {
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
-  const scopes = scopesOf(lifetimes);
   const key = scopeKey(input.scope);
-  if (!scopes.has(key)) return;
+  if (!lifetimes.hasWindow(key)) return;
   if (!input.committed) {
     try {
       await runSerializedSqlMutation(input.execSql, (locked) =>
@@ -353,8 +344,7 @@ export async function settleDocumentSyncLoroWindow(
       return;
     }
   }
-  scopes.delete(key);
-  lifetimes.windowClosed();
+  lifetimes.closeWindow(key);
 }
 
 /** The page limit the scope's next pull asks for while it isolates. */

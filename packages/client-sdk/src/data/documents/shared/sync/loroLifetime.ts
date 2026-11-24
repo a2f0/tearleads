@@ -8,7 +8,8 @@
  * for as long as it runs, and the browser releases a dead realm's locks.
  * Tabs share one database through the cross-tab SQLite owner, so a live
  * tab's window must never look like an orphan. A host without Web Locks
- * treats every other lifetime as alive and never claims an orphan. The
+ * opens no window and never claims an orphan. A lifetime that met a Loro
+ * runtime failure anywhere counts no death: the module may be unusable. The
  * command line's database is memory-only, so its windows never outlive the
  * process; a host whose database outlives its process must hold a lock or
  * mark its clean exits, or its deaths count nothing.
@@ -16,6 +17,7 @@
 
 const LOCK_PREFIX = "tearleads-loro-lifetime:";
 const HIDDEN_MARKER_PREFIX = "tearleads-loro-hidden:";
+const FAILED_MARKER_PREFIX = "tearleads-loro-failed:";
 
 /** The Web Locks surface a lifetime uses. */
 export interface LifetimeLockManager {
@@ -44,22 +46,35 @@ export interface LifetimeVisibility {
 
 export interface LoroLifetimes {
   readonly id: string;
-  /** Resolves once other lifetimes can see this one is alive. */
-  ready(): Promise<void>;
+  /**
+   * Resolves true once other lifetimes can see this one is alive. Resolves
+   * false without Web Locks or when the lock is refused: no lifetime could
+   * then tell this one's windows from orphans, so it opens none.
+   */
+  ready(): Promise<boolean>;
   /** The lifetimes among `ids` known to have ended. */
   endedAmong(ids: readonly string[]): Promise<ReadonlySet<string>>;
   /** Whether lifetime `id` ended while its app was hidden. */
   endedHidden(id: string): boolean;
-  /** Drops the marker an ended lifetime left. */
+  /** Whether lifetime `id` met a Loro runtime failure with a window open. */
+  endedFailed(id: string): boolean;
+  /** Drops the markers an ended lifetime left. */
   forget(id: string): void;
-  /** Counts an open window, which a hidden marker then covers. */
-  windowOpened(): void;
-  /** Uncounts a window once its row is gone. */
-  windowClosed(): void;
+  /**
+   * Notes this lifetime's first Loro runtime failure, wherever it happened:
+   * a window open now counts nothing if the lifetime then dies.
+   */
+  noteFailed(): void;
+  /** Whether this lifetime holds a window on `scope`. */
+  hasWindow(scope: string): boolean;
+  /** Notes a window on `scope`, which the lifetime's markers then cover. */
+  openWindow(scope: string): void;
+  /** Notes the window on `scope` gone; false when none was open. */
+  closeWindow(scope: string): boolean;
 }
 
-function markerKey(id: string): string {
-  return `${HIDDEN_MARKER_PREFIX}${id}`;
+function markerKey(prefix: string, id: string): string {
+  return `${prefix}${id}`;
 }
 
 function quietly<T>(read: () => T, fallback: T): T {
@@ -71,9 +86,10 @@ function quietly<T>(read: () => T, fallback: T): T {
 }
 
 /**
- * A lifetime over the given host surfaces. Its hidden marker is set while
- * the app is hidden and a window is open, and removed otherwise, so a death
- * while hidden leaves a marker and a closed tab without windows leaves none.
+ * A lifetime over the given host surfaces. While it holds a window, its
+ * hidden marker stands while the app is hidden and its failure marker once
+ * it has failed; with no window open it leaves neither, so a death while
+ * hidden or after a failure leaves its marker and a closed tab leaves none.
  */
 export function createLoroLifetimes(host: {
   readonly id?: string | undefined;
@@ -83,31 +99,41 @@ export function createLoroLifetimes(host: {
 }): LoroLifetimes {
   const id = host.id ?? crypto.randomUUID();
   const { locks, storage, visibility } = host;
-  let openWindows = 0;
-  let held: Promise<void> | undefined;
+  const windows = new Set<string>();
+  let failed = false;
+  let held: Promise<boolean> | undefined;
   let watching = false;
 
-  const syncMarker = () => {
-    if (!storage) return;
-    const hidden = visibility?.hidden() ?? false;
+  const setMarker = (prefix: string, standing: boolean) => {
     quietly(() => {
-      if (hidden && openWindows > 0) storage.setItem(markerKey(id), "1");
-      else storage.removeItem(markerKey(id));
+      if (standing) storage?.setItem(markerKey(prefix, id), "1");
+      else storage?.removeItem(markerKey(prefix, id));
     }, undefined);
   };
+  const syncMarkers = () => {
+    const open = windows.size > 0;
+    setMarker(HIDDEN_MARKER_PREFIX, open && (visibility?.hidden() ?? false));
+    setMarker(FAILED_MARKER_PREFIX, open && failed);
+  };
+  const marked = (prefix: string, other: string) =>
+    quietly(() => storage?.getItem(markerKey(prefix, other)) === "1", false);
 
   return {
     id,
     ready() {
-      if (!locks) return Promise.resolve();
-      held ??= new Promise<void>((granted, failed) => {
-        locks
-          .request(`${LOCK_PREFIX}${id}`, { mode: "exclusive" }, () => {
-            granted();
-            // Held for the rest of the lifetime.
-            return new Promise<void>(() => undefined);
-          })
-          .catch(failed);
+      if (!locks) return Promise.resolve(false);
+      held ??= new Promise<boolean>((settle) => {
+        try {
+          locks
+            .request(`${LOCK_PREFIX}${id}`, { mode: "exclusive" }, () => {
+              settle(true);
+              // Held for the rest of the lifetime.
+              return new Promise<void>(() => undefined);
+            })
+            .catch(() => settle(false));
+        } catch {
+          settle(false);
+        }
       });
       return held;
     },
@@ -128,23 +154,31 @@ export function createLoroLifetimes(host: {
         ids.filter((other) => !names.has(`${LOCK_PREFIX}${other}`)),
       );
     },
-    endedHidden(other) {
-      return quietly(() => storage?.getItem(markerKey(other)) === "1", false);
-    },
+    endedHidden: (other) => marked(HIDDEN_MARKER_PREFIX, other),
+    endedFailed: (other) => marked(FAILED_MARKER_PREFIX, other),
     forget(other) {
-      quietly(() => storage?.removeItem(markerKey(other)), undefined);
+      quietly(() => {
+        storage?.removeItem(markerKey(HIDDEN_MARKER_PREFIX, other));
+        storage?.removeItem(markerKey(FAILED_MARKER_PREFIX, other));
+      }, undefined);
     },
-    windowOpened() {
+    noteFailed() {
+      failed = true;
+      syncMarkers();
+    },
+    hasWindow: (scope) => windows.has(scope),
+    openWindow(scope) {
       if (!watching && visibility) {
         watching = true;
-        visibility.onChange(syncMarker);
+        visibility.onChange(syncMarkers);
       }
-      openWindows += 1;
-      syncMarker();
+      windows.add(scope);
+      syncMarkers();
     },
-    windowClosed() {
-      openWindows = Math.max(0, openWindows - 1);
-      syncMarker();
+    closeWindow(scope) {
+      const closed = windows.delete(scope);
+      syncMarkers();
+      return closed;
     },
   };
 }
@@ -175,31 +209,46 @@ function browserStorage(): LifetimeMarkerStorage | undefined {
   );
 }
 
+/** The page events a lifetime's visibility follows. */
+export interface VisibilityPage {
+  addEventListener(type: "pagehide" | "pageshow", listener: () => void): void;
+  readonly document: {
+    addEventListener(type: "visibilitychange", listener: () => void): void;
+    readonly visibilityState: string;
+  };
+}
+
 /**
- * Hidden while the document is hidden, and from `pagehide` until a
- * `pageshow`: a closing tab fires `pagehide` even when it never reports
+ * @internal Hidden while the document is hidden, and from `pagehide` until
+ * a `pageshow`: a closing tab fires `pagehide` even when it never reports
  * itself hidden.
  */
-function browserVisibility(): LifetimeVisibility | undefined {
-  if (typeof document !== "object" || typeof addEventListener !== "function") {
-    return undefined;
-  }
-  const page = document;
+export function pageVisibility(page: VisibilityPage): LifetimeVisibility {
   let pageHidden = false;
   return {
-    hidden: () => pageHidden || page.visibilityState === "hidden",
+    hidden: () => pageHidden || page.document.visibilityState === "hidden",
     onChange(listener) {
-      page.addEventListener("visibilitychange", listener);
-      addEventListener("pagehide", () => {
+      page.document.addEventListener("visibilitychange", listener);
+      page.addEventListener("pagehide", () => {
         pageHidden = true;
         listener();
       });
-      addEventListener("pageshow", () => {
+      page.addEventListener("pageshow", () => {
         pageHidden = false;
         listener();
       });
     },
   };
+}
+
+function browserVisibility(): LifetimeVisibility | undefined {
+  if (typeof document !== "object" || typeof addEventListener !== "function") {
+    return undefined;
+  }
+  return pageVisibility({
+    addEventListener: (type, listener) => addEventListener(type, listener),
+    document,
+  });
 }
 
 /** This realm's lifetime; tests pass their own to stand for another one. */

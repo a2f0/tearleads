@@ -85,10 +85,12 @@ the document pulls one update a page (`maxPageUpdates: 1`) until it has
 passed them, so a later death names the update alone. A lifetime that ends
 while the app is hidden, with a window open, leaves a `localStorage` marker,
 and its window counts nothing and isolates nothing: the user closed the app,
-which says nothing about the update. A host without Web Locks never claims a
-window. The command line's database is memory-only, so its windows die with
-it; a host whose database outlives its process must hold such a lock or mark
-its clean exits.
+which says nothing about the update. A lifetime that met a runtime failure
+anywhere, with a window open, leaves a marker too, and its window isolates
+instead of counting, since the module may be unusable. A host without Web
+Locks, or whose lock request is refused, opens no window. The command line's
+database is memory-only, so its windows die with it; a host whose database
+outlives its process must hold such a lock or mark its clean exits.
 
 Three residuals remain. An honest update that fails the runtime, or ends the
 process while the app is visible, in three separate process lifetimes on one

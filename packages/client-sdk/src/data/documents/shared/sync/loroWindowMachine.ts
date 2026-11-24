@@ -48,6 +48,8 @@ export function judgeOrphanWindow(
   window: LoroWindow,
   context: {
     readonly documentId: string;
+    /** The lifetime met a Loro runtime failure with this window open. */
+    readonly endedFailed: boolean;
     readonly endedHidden: boolean;
     readonly judge: string;
   },
@@ -61,7 +63,12 @@ export function judgeOrphanWindow(
     return { kind: "discard" };
   }
   const [only] = window.updateIds;
-  if (window.counts && window.updateIds.length === 1 && only !== undefined) {
+  if (
+    window.counts &&
+    !context.endedFailed &&
+    window.updateIds.length === 1 &&
+    only !== undefined
+  ) {
     return {
       kind: "count",
       contentKeyEpoch: window.contentKeyEpoch,

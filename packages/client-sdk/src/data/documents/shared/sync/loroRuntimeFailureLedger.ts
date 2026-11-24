@@ -1,3 +1,5 @@
+import { processLoroLifetimes } from "./loroLifetime";
+
 /**
  * How many process lifetimes must each fail the Loro runtime on a served
  * update before this device voids it. Below this the update is unsettled:
@@ -34,7 +36,20 @@ export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
     { readonly delayMs: number; readonly retryAt: number }
   >();
 
-  constructor(private readonly now: () => number = Date.now) {}
+  /**
+   * `onFirstFailure` runs once, at the process's first failure, so a Loro
+   * read window open anywhere stops counting a death (`loroLifetime.ts`).
+   */
+  constructor(
+    private readonly now: () => number = Date.now,
+    private readonly onFirstFailure: () => void = () => undefined,
+  ) {}
+
+  private markFailed(): void {
+    if (this.failedInProcess) return;
+    this.failedInProcess = true;
+    this.onFirstFailure();
+  }
 
   /** Whether this process has met a Loro runtime failure. */
   hasFailed(): boolean {
@@ -50,7 +65,7 @@ export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
   /** Notes `updateId` failing; true when the failure counts as an attempt. */
   noteFailure(updateId: string): boolean {
     const counted = !this.failedInProcess;
-    this.failedInProcess = true;
+    this.markFailed();
     const previous = this.retries.get(updateId);
     const delayMs =
       previous === undefined
@@ -62,7 +77,7 @@ export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
 
   /** Notes a failure no single update is to blame for (a scratch rebuild). */
   noteUnattributedFailure(): void {
-    this.failedInProcess = true;
+    this.markFailed();
   }
 
   /**
@@ -85,4 +100,7 @@ export class LoroRuntimeFailureLedger implements LoroRuntimeAttempts {
 }
 
 /** The process's ledger; tests pass their own to stand for a new process. */
-export const processLoroRuntimeFailures = new LoroRuntimeFailureLedger();
+export const processLoroRuntimeFailures = new LoroRuntimeFailureLedger(
+  Date.now,
+  () => processLoroLifetimes.noteFailed(),
+);

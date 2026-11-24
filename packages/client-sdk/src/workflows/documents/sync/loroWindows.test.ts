@@ -21,6 +21,7 @@ import { readRecordedImportVoids } from "../../../data/persistence/documents/rec
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
+  claimDocumentSyncOrphanWindows,
   closeDocumentSyncLoroWindowInTransaction,
   readDocumentSyncPageLimit,
 } from "./loroWindows";
@@ -269,4 +270,69 @@ test("a trap stops its lifetime's window counting", async () => {
 
   expect(await recordedAttempts(FIRST)).toBe(1);
   expect(await pageLimit()).toBe(1);
+});
+
+// A trap in container metadata, rotation, or a founding view marks the
+// lifetime as failed too. A window the document page held open then counts
+// nothing: the death may be the module's state, not the update.
+test("a failure elsewhere in the lifetime stops its open window counting", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  const lifetime = host.lifetime("failed-elsewhere");
+  const ledger = new LoroRuntimeFailureLedger(Date.now, () =>
+    lifetime.noteFailed(),
+  );
+  await judgeIn(lifetime, [update], ledger);
+  ledger.noteUnattributedFailure();
+  host.kill("failed-elsewhere");
+
+  await judgeIn(host.lifetime("next"), [update]);
+
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(await pageLimit()).toBe(1);
+});
+
+// Tabs share one database: two live tabs that both list an orphan before
+// either claims it must still count its death once.
+test("two tabs claiming one orphan count its death once", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await judgeIn(host.lifetime("dead"), [update]);
+  host.kill("dead");
+  const tabs = [host.lifetime("tab-a"), host.lifetime("tab-b")];
+  await Promise.all(tabs.map((tab) => tab.ready()));
+
+  await Promise.all(
+    tabs.map((lifetimes) =>
+      claimDocumentSyncOrphanWindows({
+        documentId: DOCUMENT_ID,
+        execSql,
+        lifetimes,
+        scope: SCOPE,
+      }),
+    ),
+  );
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
+});
+
+// A refused lock must not stop sync: the page is judged without a window.
+test("a lifetime whose lock is refused judges without a window", async () => {
+  const { update } = await honest(FIRST);
+  const refused = createLoroLifetimes({
+    id: "refused",
+    locks: {
+      query: async () => ({ held: [] }),
+      request: async () => {
+        throw new Error("SecurityError");
+      },
+    },
+  });
+
+  const verdicts = await judgeIn(refused, [update]);
+
+  expect(verdicts.voided).toEqual([]);
+  expect(
+    await execSql("SELECT lifetime_id FROM document_loro_windows"),
+  ).toEqual([]);
 });

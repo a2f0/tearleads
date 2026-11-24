@@ -39,7 +39,11 @@ passed them, so each is read alone and a later death counts toward it. A
 death after the app was hidden counts nothing and isolates nothing
 (`HiddenKill`): the user ended that lifetime, not the update. A payload whose
 import always kills the process is a killer (`KillerPending`); dying on it is
-the device's own processing outcome.
+the device's own processing outcome. Only devices in `FaultyDevices` die
+visibly (`Kill`): the others stand for readers whose runtime never fails nor
+ends their process while the app is visible, so on them
+`FaultFreeDevicesCountNothing` checks that a hidden death counts nothing.
+Production counts a visible death on any device.
 
 The model collapses a pull's pages into one served inbox (`Pull`) and one
 judging step (`Process`). A decoder upgrade may land between the two, which
@@ -66,9 +70,9 @@ The abstraction maps to production at these seams:
 | `CursorSendable` | `readSendableProcessedCursor`, read by `readProcessedCursorForSync` before each store pull and by `readContainerMetadataProcessedCursor` before each container metadata pull |
 | `Judge` / `Accepts` | `validateDocumentSyncUpdateImports` and `judgeUpdate`, which checks the decoded Loro metadata against the signed span before the scratch import, after `judgeDocumentSyncUpdateDecryption` checks the plaintext hash |
 | `RuntimeFailure` / `attempts` | `judgeUpdate` returning `runtime_failure` for `isLoroRuntimeFailure`, `LoroRuntimeFailureLedger.noteFailure`, and `recordDocumentSyncRuntimeFailures`, which records the `loro_runtime` row and its `attempts` before the page is saved, and in the same transaction stops the lifetime's windows counting (`markLoroWindowsNotCountingInTransaction`) |
-| `failedInLife` / `Restart` / `lifeAttempts` | `processLoroRuntimeFailures`, the ledger a process starts with, which counts only its first failure (`LoroRuntimeFailureLedger.hasFailed`) |
+| `failedInLife` / `Restart` / `lifeAttempts` | `processLoroRuntimeFailures`, the ledger a process starts with, which counts only its first failure (`LoroRuntimeFailureLedger.hasFailed`); its first failure anywhere also calls `noteFailed`, whose marker makes `judgeOrphanWindow` isolate a window that lifetime held open (`endedFailed`) |
 | `Die` / `Pending` | `openDocumentSyncLoroWindow`, which commits the page's unsettled updates as a `document_loro_windows` row before `validateDocumentSyncUpdateImports` reads them; `closeDocumentSyncLoroWindowInTransaction` deletes it in the page's save, and `settleDocumentSyncLoroWindow` deletes it when no save commits |
-| `Kill` / `Start` | `claimDocumentSyncOrphanWindows` in the next lifetime: `createLoroLifetimes` tells an ended lifetime by its released Web Lock, and `judgeOrphanWindow` counts a window `loroWindowCounts` opened as counting |
+| `Kill` / `Start` | `claimDocumentSyncOrphanWindows` in the next lifetime: `createLoroLifetimes` tells an ended lifetime by its released Web Lock, `claimOrphansInTransaction` reads the orphans again in its transaction so two tabs count one death once, and `judgeOrphanWindow` counts a window `loroWindowCounts` opened as counting |
 | `HiddenKill` | the hidden marker `createLoroLifetimes` keeps in `localStorage` while the app is hidden with a window open; `judgeOrphanWindow` discards a window whose lifetime `endedHidden` |
 | `suspects` | `document_loro_isolation`, through `transitionLoroIsolation`; `readDocumentSyncPageLimit` makes the next pull send `maxPageUpdates`, and `listMissingDocumentUpdatePage` caps its page there |
 | `finalVoid` | a `loro_runtime` row with `MAX_LORO_RUNTIME_ATTEMPTS` attempts, read back as a known void by `recordedImportJudgements` |

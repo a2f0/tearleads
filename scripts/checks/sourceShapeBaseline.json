@@ -84,10 +84,6 @@
       "lines": 672,
       "bytes": 19961
     },
-    "packages/client-sdk/src/workflows/documents/syncPlan/syncPlanMaterial.ts": {
-      "lines": 502,
-      "bytes": 19922
-    },
     "scripts/architecture/subsystems.ts": {
       "lines": 601,
       "bytes": 23106
