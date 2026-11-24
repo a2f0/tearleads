@@ -9,7 +9,7 @@ import {
 } from "../../../document-types/shared/avatar/documentAvatarSource";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useDomainDocumentQueries } from "../../../providers/sdk/useDomainDocumentQueries";
-import { useDomainSyncActiveWork } from "../../../providers/sdk/useDomainSyncSnapshot";
+import { useDomainStructuralSyncActive } from "../../../providers/sdk/useDomainSyncSnapshot";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
 import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
@@ -207,7 +207,7 @@ export function useExplorerModel(
     onDocumentLinksChanged: handleDocumentLinksChanged,
   });
   const startupPending = useCollectionStartupPending(explorer.nodes.length);
-  const syncActive = useDomainSyncActiveWork(appData.state.domainScope);
+  const syncActive = useDomainStructuralSyncActive(appData.state.domainScope);
   const folderState = resolveExplorerFolderState({
     count: explorer.nodes.length,
     knownCount: explorer.knownNodes.length,

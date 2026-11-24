@@ -37,8 +37,8 @@ test("an empty local tree progresses from loading to syncing to a settled folder
 });
 
 test("known folders still being pulled by sync read as syncing, not unavailable", () => {
-  // A restored identity lists its folders before their names arrive; sync
-  // pulls those after the listing settles.
+  // A restored identity lists its folders before their names arrive;
+  // structural sync pulls those after the listing settles.
   const listed = {
     ready: true,
     count: 0,

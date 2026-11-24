@@ -52,31 +52,38 @@ export function useDomainSyncSnapshot(
 }
 
 /**
- * Whether sync is doing work that can still bring content in: some lane is
- * running or requested and is not failing, abandoned, or an upload. A failing
- * lane re-arms on a timer for the rest of the session, so counting it would
- * keep the work from ever looking settled; uploads bring nothing in.
+ * Whether the scope's structural sync, which lists the container tree and
+ * pulls each container's details, is still working: a structural lane is
+ * running or requested and has not failed or been abandoned. A failing lane
+ * re-arms on a timer for the rest of the session, so counting it would keep
+ * the tree from ever looking settled; it counts again once a run completes.
+ * Document lanes are left out: they bring content, not containers, and they
+ * wait behind a structural lane that is backing off.
  */
-export function hasActiveSyncWork(snapshot: DomainSyncSnapshot): boolean {
+export function hasActiveStructuralSync(snapshot: DomainSyncSnapshot): boolean {
   return snapshot.lanes.some(
     (lane) =>
+      lane.phase === "structural" &&
       (lane.running || lane.requested) &&
       lane.lastError === null &&
-      !lane.runAbandoned &&
-      lane.phase !== "blob",
+      lane.status !== "error" &&
+      !lane.runAbandoned,
   );
 }
 
 /**
- * {@link hasActiveSyncWork} for the scope's coordinator. A view that only
- * needs that re-renders when it flips, not on every lane's progress.
+ * {@link hasActiveStructuralSync} for the scope's coordinator. A view that
+ * only needs that re-renders when it flips, not on every lane's progress.
  */
-export function useDomainSyncActiveWork(domainScope: DomainScope): boolean {
+export function useDomainStructuralSyncActive(
+  domainScope: DomainScope,
+): boolean {
   const subscribe = useDomainSyncSubscription(domainScope);
-  const getActiveWork = useCallback(
-    () => hasActiveSyncWork(getDomainSyncCoordinatorSnapshot(domainScope)),
+  const getActive = useCallback(
+    () =>
+      hasActiveStructuralSync(getDomainSyncCoordinatorSnapshot(domainScope)),
     [domainScope],
   );
 
-  return useTearleadsExternalValue(subscribe, getActiveWork);
+  return useTearleadsExternalValue(subscribe, getActive);
 }

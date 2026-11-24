@@ -10,10 +10,11 @@ export type ExplorerFolderState =
 
 /**
  * What the folder pane shows when no folder is selected. Online, it is
- * `syncing` while a listing or refresh is in flight or sync is still working
- * (sync pulls a folder's details once the listing finds it), so a restore or
- * a first sync does not ask the user to refresh while folders are still
- * arriving. Otherwise known folders without names are `unavailable`.
+ * `syncing` while a listing or refresh is in flight or structural sync is
+ * still working (it pulls a folder's details once the listing finds it), so
+ * a restore or a first sync does not ask the user to refresh while folders
+ * are still arriving. Otherwise known folders without names are
+ * `unavailable`.
  */
 export function resolveExplorerFolderState(input: {
   count: number;
@@ -23,7 +24,7 @@ export function resolveExplorerFolderState(input: {
   /** Explorer is listing folders: a hydration or a refresh is in flight. */
   refreshing: boolean;
   startupPending: boolean;
-  /** Sync has healthy work running or requested (`hasActiveSyncWork`). */
+  /** Structural sync is still working (`hasActiveStructuralSync`). */
   syncActive: boolean;
 }): ExplorerFolderState {
   if (input.count > 0) return "available";
