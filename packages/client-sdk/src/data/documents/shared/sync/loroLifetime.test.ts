@@ -282,3 +282,28 @@ test("a drained realm opens no window before its restart", async () => {
   expect(idle.openWindowCount()).toBe(0);
   idle.closeWindow(await after);
 });
+
+// A request held through the hold still enters outside the gate once its
+// own wait ends, and a restart asked for while it is open drains it again.
+test("a held window that leaves during the hold is drained again", async () => {
+  const lifetimes = createLoroLifetimes({
+    gateWaitMs: 5,
+    id: "tab",
+    restartHoldMs: 200,
+  });
+  expect(await lifetimes.drainWindows(60_000)).toBe(true);
+
+  const outside = await lifetimes.openWindow(false);
+  expect(lifetimes.openWindowCount()).toBe(1);
+  let drained = false;
+  const again = lifetimes.drainWindows(60_000).then((value) => {
+    drained = true;
+    return value;
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(drained).toBe(false);
+
+  lifetimes.closeWindow(outside);
+  expect(await again).toBe(true);
+});

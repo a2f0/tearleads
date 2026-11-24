@@ -265,8 +265,11 @@ admits no new Loro read window until the open ones close, or until a
 second call while one drains joins it. A window still open at the reload ends
 with the page hidden, so the next lifetime counts nothing for it. A window
 asked for meanwhile waits at most the window gate's 30 seconds and then
-opens. A host that keeps the page after `ready`, as when the user cancels an
-unload prompt for queued edits, admits windows again once the hold ends, and
-may prepare again. The app shows a notice with a Reload button and
-reloads only on that press. The command line runs one lifetime per command,
-so its next command is fresh.
+opens. A host that keeps the page after `ready`, as a browser does when its
+user cancels the unload prompt, admits windows again once the hold ends, and
+may prepare again. The app shows a notice with a Reload button and reloads
+only on that press. It first waits up to 10 seconds for open documents to
+write their edits to SQLite (`hasPendingLocalDocumentWrites`, for every
+runtime in the page). Native shells ignore the unload prompt, so if edits are
+still unsaved it asks before reloading and losing them. The command line runs
+one lifetime per command, so its next command is fresh.

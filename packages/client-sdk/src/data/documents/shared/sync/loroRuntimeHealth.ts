@@ -55,11 +55,13 @@ export function createLoroRuntimeHealth(input: {
       if (health.status === "draining" && draining) return draining;
       drains += 1;
       const drain = drains;
-      move({ drain, type: "restartRequested" });
+      // The promise stands before listeners hear `draining`, so one that
+      // asks again joins this drain; its end runs only after this returns.
       draining = input.lifetimes
         .drainWindows(input.drainWaitMs ?? DRAIN_WAIT_MS)
         .catch(() => false)
         .then(() => move({ drain, type: "windowsDrained" }));
+      move({ drain, type: "restartRequested" });
       return draining;
     },
   };

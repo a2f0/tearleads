@@ -3,6 +3,7 @@ import {
   hasPendingLocalDocumentWrites,
 } from "@tearleads/client-sdk";
 import { useEffect } from "react";
+import { registerPageDocumentWrites } from "./pageDocumentWrites";
 
 /**
  * Ask before leaving the page while any open document still holds local edits
@@ -16,8 +17,10 @@ import { useEffect } from "react";
  *
  * Browsers only show the prompt after the page has had user activation, and
  * native shells (Capacitor WebView, Electrobun) may ignore it entirely; there
- * the guard is a harmless no-op. The scope is read at event time so the check
- * always covers every open document in the current domain scope.
+ * the guard is a harmless no-op. So a reload the app itself starts asks
+ * first: the same check is registered for the page while mounted
+ * (`registerPageDocumentWrites`). The scope is read at event time so the
+ * check always covers every open document in the current domain scope.
  */
 export function useWarnBeforeUnloadWithPendingDocumentWrites(
   sdk: { readonly domainScope: DomainScope },
@@ -30,8 +33,9 @@ export function useWarnBeforeUnloadWithPendingDocumentWrites(
       return;
     }
 
+    const pending = () => hasPendingWrites(sdk.domainScope);
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!hasPendingWrites(sdk.domainScope)) {
+      if (!pending()) {
         return;
       }
       event.preventDefault();
@@ -39,8 +43,10 @@ export function useWarnBeforeUnloadWithPendingDocumentWrites(
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
+    const unregister = registerPageDocumentWrites(pending);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      unregister();
     };
   }, [sdk, hasPendingWrites]);
 }

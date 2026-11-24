@@ -63,6 +63,32 @@ test("a restart is ready after a bounded wait", async () => {
   expect(lifetimes.openWindowCount()).toBe(1);
 });
 
+// A listener that asks again while hearing the drain start joins it rather
+// than starting a second drain.
+test("a request from a listener joins the drain it hears", async () => {
+  let drains = 0;
+  const health = createLoroRuntimeHealth({
+    lifetimes: {
+      drainWindows: () => {
+        drains += 1;
+        return Promise.resolve(true);
+      },
+    },
+  });
+  const joined: Promise<void>[] = [];
+  health.subscribe(() => {
+    if (health.current().status === "draining") {
+      joined.push(health.prepareRestart());
+    }
+  });
+
+  const first = health.prepareRestart();
+
+  expect(joined).toEqual([first]);
+  await first;
+  expect(drains).toBe(1);
+});
+
 // The realm's ledger is what tells the host: its first failure, wherever it
 // happened, stops the realm's windows counting and asks for a restart.
 test("a realm's first runtime failure asks for a restart once", () => {
