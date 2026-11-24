@@ -34,6 +34,7 @@ const EXPECTED_TRACES = [
   "interest-barrier-seams",
   "probe-signal-kernels",
   "startup-probe-deferral",
+  "startup-probe-join",
 ];
 
 function tamperedSequenceTrace(
