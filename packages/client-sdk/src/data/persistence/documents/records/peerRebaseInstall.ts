@@ -41,6 +41,13 @@ export interface DocumentPeerRebaseInstall {
    */
   readonly readVersion: string;
   /**
+   * The ids of the updates queued when the rebase read the record. The
+   * rebase kept what it took to be unsent; another runtime that settled,
+   * merged, rekeyed, or queued an update since changed that, and the fork
+   * could replay committed operations, so the install refuses.
+   */
+  readonly queuedUpdateIds: readonly string[];
+  /**
    * The fork's full history, which becomes the record's only history: a
    * full-history snapshot for a document, the exported updates for
    * container metadata.
@@ -71,6 +78,11 @@ function updateEndVersion(row: {
     row.partialEndVersionVector ??
     getImportBlobMetadata(base64ToBytes(row.updateData)).partialEndVersionVector
   );
+}
+
+function sameIds(left: readonly string[], right: readonly string[]): boolean {
+  const ids = new Set(left);
+  return ids.size === new Set(right).size && right.every((id) => ids.has(id));
 }
 
 /** Whether the record and every durable row are still what the rebase read. */
@@ -119,11 +131,18 @@ async function readStillCovered(
     .select({
       partialEndVersionVector: documentHistoryUpdates.partialEndVersionVector,
       updateData: documentHistoryUpdates.updateData,
+      updateId: documentHistoryUpdates.updateId,
     })
     .from(documentHistoryUpdates)
     .where(inScope(scope));
-  return rows.every((row) =>
-    satisfiesVersionVector(input.readVersion, updateEndVersion(row)),
+  const queuedIds = rows.flatMap((row) =>
+    row.updateId === null ? [] : [row.updateId],
+  );
+  return (
+    sameIds(queuedIds, input.queuedUpdateIds) &&
+    rows.every((row) =>
+      satisfiesVersionVector(input.readVersion, updateEndVersion(row)),
+    )
   );
 }
 

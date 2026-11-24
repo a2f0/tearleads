@@ -203,6 +203,40 @@ test("carries edits another runtime queued that the live document lacks", async 
   expect(getTextValue(state.doc ?? live)).toBe("base more elsewhere");
 });
 
+test("installs nothing once another runtime settled the queue the rebase read", async () => {
+  const { committed, recordPeer, state } = await refusedNote();
+  const liveDoc = state.doc;
+  const generation = state.record?.recoveryGeneration ?? 0;
+  const install = state.persistence.installPeerRebase;
+  if (!install) throw new Error("expected the SQL adapter to install rebases");
+  // Another tab's pass commits the queued edits after this rebase read them
+  // as unsent, so the fork would replay operations now committed.
+  const repository = new DocumentRecordRepository(execSql);
+  state.persistence = {
+    ...state.persistence,
+    installPeerRebase: async (installExecSql, input) => {
+      for (const row of await listPendingUpdates(state)) {
+        await repository.settleDocumentPendingUpdate(row.id);
+      }
+      return install(installExecSql, input);
+    },
+  };
+
+  const outcome = await rebaser(state)([
+    { committedEndCounter: committed, peerId: recordPeer },
+  ]);
+
+  expect(outcome).toBe("superseded");
+  expect(state.doc).toBe(liveDoc);
+  expect(state.record?.peerSalt).toBeUndefined();
+  expect(state.record?.recoveryGeneration ?? 0).toBe(generation);
+  const [stored] = await execSql(
+    "SELECT recovery_generation, peer_salt FROM documents WHERE local_id = ?",
+    [LOCAL_ID],
+  );
+  expect(stored).toEqual({ peer_salt: null, recovery_generation: generation });
+});
+
 test("the store's sync pass hands its own rebase to the refused pass", async () => {
   const { committed, recordPeer, state } = await refusedNote();
   // A signed-in writer, so the pass resolves an author and submits.
