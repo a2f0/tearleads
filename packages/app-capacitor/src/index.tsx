@@ -14,7 +14,7 @@ import { createCapacitorSQLiteRuntime } from "./database/capacitorSQLiteRuntime"
 import { subscribeCapacitorConnectionRefresh } from "./device/capacitorConnectionRefresh";
 import { subscribeCapacitorKeyboardVisibility } from "./device/capacitorKeyboardVisibility";
 import { createCapacitorNetworkStatus } from "./device/capacitorNetworkStatus";
-import { createAndroidPasswordKeychain } from "./device/capacitorPasswordKeychain";
+import { createNativePasswordKeychain } from "./device/capacitorPasswordKeychain";
 import { createCapacitorScanner } from "./device/capacitorScanner";
 import { syncStatusBarWithTheme } from "./device/statusBar";
 import { configureNativeSentry } from "./diagnostics/sentry";
@@ -88,12 +88,11 @@ const hostConfig = createAppHostConfig({
   // Native connectivity via @capacitor/network — the Android WebView's
   // navigator.onLine reports offline while genuinely connected.
   createNetworkStatus: createCapacitorNetworkStatus,
-  // Google Password Manager through Credential Manager. iOS offers no save
-  // until the app carries the Associated Domains entitlement its sheet needs.
-  createPasswordKeychain:
-    Capacitor.getPlatform() === "android"
-      ? createAndroidPasswordKeychain
-      : undefined,
+  // Google Password Manager through Credential Manager on Android, and iCloud
+  // Keychain on iOS for the domain the build's entitlement associates.
+  createPasswordKeychain: Capacitor.isNativePlatform()
+    ? createNativePasswordKeychain
+    : undefined,
   createPurchases: createCapacitorPurchases,
   createScanner: Capacitor.isNativePlatform()
     ? createCapacitorScanner

@@ -351,7 +351,13 @@ test("iOS staging release settings stay aligned with production", async () => {
     "PBXNativeTarget",
     "Release-Staging",
   );
-  const intendedDifferences = ["APP_DISPLAY_NAME", "PRODUCT_BUNDLE_IDENTIFIER"];
+  // The web credential domain follows the bundle ID; see
+  // nativePasswordKeychainConfig.test.ts.
+  const intendedDifferences = [
+    "APP_DISPLAY_NAME",
+    "PRODUCT_BUNDLE_IDENTIFIER",
+    "WEB_CREDENTIAL_DOMAIN",
+  ];
   expect(withoutXcodeSettings(targetStaging, intendedDifferences)).toEqual(
     withoutXcodeSettings(targetRelease, intendedDifferences),
   );
