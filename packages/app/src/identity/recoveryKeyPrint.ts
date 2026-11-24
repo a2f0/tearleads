@@ -84,7 +84,7 @@ function buildRecoveryKeySheet(doc: Document, sheet: RecoveryKeyPrintSheet) {
     element(
       doc,
       "p",
-      "To restore this identity on a device, open Identity Manager → Recovery Key → Recovery, then enter the words in order or choose Scan QR Code.",
+      "To restore this identity on a new device, choose Restore identity, then enter the words in order or choose Restore from QR code. On a device already set up, open Identity Manager → Recovery Key → Recovery.",
     ),
   );
   doc.body.replaceChildren(main);
