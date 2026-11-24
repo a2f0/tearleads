@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.326",
+      "version": "0.1.327",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -241,7 +241,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.306",
+      "version": "0.1.307",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
