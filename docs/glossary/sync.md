@@ -55,6 +55,23 @@ Related docs:
 - [protocol-specification.md](../protocol-specification/container-access.md#container-access-and-kek-protocol)
 - [security-guarantees.md](../security-guarantees/properties.md#held-descendant-re-citation)
 
+## Loro Read Window
+
+A local row naming the unsettled updates of one document pull, committed
+before the client first reads them with Loro and deleted by the pull's save.
+A process that dies reading them leaves the row, and the next process lifetime
+claims it once that lifetime's Web Lock is gone. A window that held one update,
+and was its lifetime's only open window, counts a runtime attempt toward it;
+any other window makes the document pull
+one update a page (`maxPageUpdates: 1`) until it has passed those updates. A
+window left by a lifetime that ended while the app was hidden counts nothing.
+Each sync pass holds its own window and settles only that one.
+
+Related docs:
+
+- [advisory-op-spans.md](../advisory-op-spans.md#loro-runtime-failures)
+- [VoidUpdateProgress.md](../../formal/document-sync/VoidUpdateProgress.md)
+
 ## Processed Cursor
 
 The last update of a document pull a client completed, sent on its next pull as

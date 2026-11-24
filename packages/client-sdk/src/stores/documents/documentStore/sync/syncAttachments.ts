@@ -2,6 +2,7 @@ import {
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   DocumentRecordRepository,
+  type DocumentSyncLoroWindow,
   type PendingAttachmentRecord,
 } from "../../../../workflows/documents";
 import type { PrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
@@ -57,6 +58,8 @@ export async function syncPendingAttachments(input: {
   readonly encapsulationKeyPair: EncapsulationKeyPair;
   /** The pass's remote generation; a pull after a refused bind runs under it. */
   readonly generation: DocumentStoreSyncGeneration;
+  /** The pass's read window, which that pull reads in. */
+  readonly loroWindow: DocumentSyncLoroWindow;
   readonly nextRecord: DocumentRecord;
   readonly policyOperation: PrincipalPolicyOperation;
   readonly state: DocumentStoreState;
@@ -95,6 +98,7 @@ export async function syncPendingAttachments(input: {
       encapsulationKeyPair,
       input.generation,
       policyOperation,
+      input.loroWindow,
     );
     passRecord = pulled.nextRecord;
     return pulled.canSyncAttachments;

@@ -73,6 +73,7 @@ async function completeReadOnlyRemoteDocumentSyncWithProjection(
     execSql: input.execSql,
     historyMode: input.historyMode,
     localVersionVector: input.localVersionVector,
+    maxPageUpdates: input.maxPageUpdates,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     processedThroughUpdateId: input.processedThroughUpdateId,
     pullCursor: input.pullContinuation?.cursor,
@@ -159,6 +160,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
   documentId: string;
   historyMode?: "raw" | undefined;
   localVersionVector: string | null;
+  maxPageUpdates?: number | undefined;
   minLsn?: string | undefined;
   processedThroughUpdateId?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;
@@ -181,6 +183,7 @@ async function buildReadOnlyDocumentSyncPlanFromPersistedState(input: {
     documentManifest: persisted.documentManifest,
     historyMode: input.historyMode,
     localVersionVector: input.localVersionVector,
+    maxPageUpdates: input.maxPageUpdates,
     minLsn: resolvePullContinuationMinLsn(input.pullContinuation, input.minLsn),
     outgoingUpdates: [],
     processedThroughUpdateId: input.processedThroughUpdateId,
@@ -207,6 +210,7 @@ interface ReadOnlyDocumentSyncCompletionInput {
   execSql: ExecSql;
   historyMode?: "raw" | undefined;
   localVersionVector: string | null;
+  maxPageUpdates?: number | undefined;
   minLsn?: string | undefined;
   processedThroughUpdateId?: string | undefined;
   pullContinuation?: DocumentSyncPullContinuation | undefined;

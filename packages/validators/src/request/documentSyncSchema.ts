@@ -35,6 +35,7 @@ import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
 } from "../util/documentSyncLimits";
 import { isUuidV4String, UUID_V4_PATTERN } from "../util/uuid";
 import { isWalLsnString, WAL_LSN_PATTERN } from "../util/walLsn";
@@ -252,6 +253,20 @@ export const DocumentSyncRequestSchema = registerJsonSchemaRuntimeRefinements(
     localVersionVector: boundedStringSchema(
       MAX_DOCUMENT_SYNC_REQUEST_BYTES,
     ).nullable(),
+    maxPageUpdates: registerJsonSchemaFragment(
+      z.custom<number>(
+        (value) =>
+          typeof value === "number" &&
+          Number.isInteger(value) &&
+          value >= 1 &&
+          value <= MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+      ),
+      {
+        maximum: MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+        minimum: 1,
+        type: "integer",
+      },
+    ).optional(),
     minLsn: WalLsnSchema.optional(),
     outgoingUpdates: arraySchema(
       DocumentSyncOutgoingUpdateSchema,

@@ -245,7 +245,8 @@ function ExplorerContent() {
   const billing = useOrganizationBilling();
   // Ask the host shell, not the global router: in a window this is the window's
   // own Back stack, in the routed shell it is browser history.
-  const { canGoBack: historyCanGoBack } = useMiniAppRouteSegments("explorer");
+  const { canGoBack: historyCanGoBack, goBack: historyGoBack } =
+    useMiniAppRouteSegments("explorer");
   const hostConfig = useAppHostConfig();
   const explorer = usePeerShareAdmission(useExplorer());
   const { setSidebar } = useWindowSidebar();
@@ -320,9 +321,24 @@ function ExplorerContent() {
       // re-arm edit mode for the returning document — otherwise attaching a blob
       // silently drops the user back to read mode mid-attach.
       model.markDocumentStartsInEditMode(localId);
-      routeState.selectExplorerDocument(localId, containerId);
+      // The picker was pushed on top of the document, so step back to that
+      // entry instead of pushing the document again: Back from the document
+      // then leaves it, rather than reopening the blob browser.
+      if (historyCanGoBack) {
+        historyGoBack();
+        return;
+      }
+      // Nothing to step back to: put the document in the picker's place.
+      routeState.selectExplorerDocument(localId, containerId, {
+        replace: true,
+      });
     },
-    [model.markDocumentStartsInEditMode, routeState.selectExplorerDocument],
+    [
+      historyCanGoBack,
+      historyGoBack,
+      model.markDocumentStartsInEditMode,
+      routeState.selectExplorerDocument,
+    ],
   );
   const toolbarUpload = useExplorerToolbarUpload(model.uploadManager);
   const itemView = useExplorerItemViewState();
@@ -390,6 +406,7 @@ function ExplorerContent() {
       <BlobPickProvider
         loadBlobInfo={model.loadBlobInfo}
         openBlobBrowserRoute={routeState.openBlobBrowserRoute}
+        pickerRouteActive={routeState.route.view === "blob-browser"}
         returnToDocumentRoute={returnToDocumentFromBlobPick}
       >
         <ExplorerItemViewProvider value={itemView.view}>

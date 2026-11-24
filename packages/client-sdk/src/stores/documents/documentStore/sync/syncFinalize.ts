@@ -7,11 +7,13 @@ import {
 } from "@tearleads/loro";
 import { readPullContinuation } from "../../../../data/documents/shared/sync/syncPagination";
 import {
+  closeDocumentSyncLoroWindowInTransaction,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type DocumentSyncVerdictOutcome,
   recordDocumentSyncVerdicts,
   reportDocumentSyncVoids,
+  settleDocumentSyncLoroWindow,
   settleOutgoingPassAndDecideReArm,
   shouldClearDocumentSyncFailureAfterPass,
 } from "../../../../workflows/documents";
@@ -158,9 +160,11 @@ async function persistSyncedDocument(
   const options = documentSyncSaveOptions(syncAttempt);
   const isCurrent = () =>
     isDocumentStoreSyncGenerationCurrent(state, generation);
+  const scope = { appKind: DOCUMENTS_APP_KIND, localId: state.localId };
   // Written by the save's commit side effect, so only a committed save has
   // one; a retried transaction overwrites an attempt that rolled back.
   let recordedVerdicts: DocumentSyncVerdictOutcome | undefined;
+  let committed = false;
   try {
     importSyncedDocumentUpdates(candidate, updates);
     if (state.pendingBaseVersion === null) {
@@ -188,14 +192,19 @@ async function persistSyncedDocument(
       async (transactionExecSql) => {
         recordedVerdicts = await recordDocumentSyncVerdicts(
           transactionExecSql,
-          {
-            scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-            synced,
-          },
+          { scope, synced },
         );
+        // The page's Loro reads are over and saved: its window closes.
+        await closeDocumentSyncLoroWindowInTransaction(transactionExecSql, {
+          documentId: synced.plan.documentId,
+          scope,
+          synced,
+          window: syncAttempt.loroWindow,
+        });
       },
     );
     const verdicts = recordedVerdicts;
+    committed = Boolean(persisted) && verdicts !== undefined;
     if (persisted && verdicts && isCurrent()) {
       // After the save committed: report each void first recorded here.
       reportDocumentSyncVoids(state.runtime.util.logError, synced, verdicts);
@@ -230,12 +239,30 @@ async function persistSyncedDocument(
     );
   } finally {
     candidate.free();
+    await settleUnsavedLoroWindow(
+      syncAttempt,
+      committed ? generation.execSql : null,
+    );
+  }
+}
+
+/**
+ * Settles the read window the request read in, once its save is over or
+ * before the pass goes on to other work without one: a death after that
+ * says nothing about the page's updates.
+ */
+async function settleUnsavedLoroWindow(
+  syncAttempt: DocumentSyncAttempt,
+  committedTo: DocumentStoreSyncGeneration["execSql"] | null = null,
+): Promise<void> {
+  if (syncAttempt.loroWindow) {
+    await settleDocumentSyncLoroWindow(syncAttempt.loroWindow, committedTo);
   }
 }
 
 export function shouldReArmDocumentSync(
   state: DocumentStoreState,
-  syncAttempt: DocumentSyncAttempt,
+  syncAttempt: Pick<DocumentSyncAttempt, "outgoingUpdateCount" | "synced">,
 ): boolean {
   const { synced } = syncAttempt;
   const shouldReArmOutgoing = settleOutgoingPassAndDecideReArm(state, {
@@ -264,6 +291,7 @@ export async function finalizeDocumentSync(
 ): Promise<DocumentRecord> {
   const { synced } = syncAttempt;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    await settleUnsavedLoroWindow(syncAttempt);
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
     requestDocumentStoreSync(state);
     return state.record ?? currentRecord;
@@ -328,6 +356,8 @@ export async function finalizeDocumentSync(
     responseApplied = !persisted.pullContinuationSuperseded;
     return persisted;
   });
+  // A save settled its window; an exit before the save settles it here.
+  await settleUnsavedLoroWindow(syncAttempt);
   if (!responseApplied) {
     discardPreRegisteredUpdateIds(state, sentUpdateIds);
     requestDocumentStoreSync(state);

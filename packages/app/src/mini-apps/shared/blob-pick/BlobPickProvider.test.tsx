@@ -169,3 +169,62 @@ test("openBlob forwards the storage-key request to the blob-browser route", () =
   expect(openRequests).toEqual([OPEN_BLOB_REQUEST]);
   expect(openRequests[0]).toBe(OPEN_BLOB_REQUEST);
 });
+
+// The Explorer's wiring: the picker is a route of its own, shown while
+// `pickerRouteActive`, and the return navigation leaves it a moment later.
+function RoutedHarness({ returns }: { returns: string[] }) {
+  const [pickerRouteActive, setPickerRouteActive] = useState(false);
+
+  return (
+    <BlobPickProvider
+      loadBlobInfo={makeLoadBlobInfo(1)}
+      openBlobBrowserRoute={() => setPickerRouteActive(true)}
+      pickerRouteActive={pickerRouteActive}
+      returnToDocumentRoute={(localId) => returns.push(localId)}
+    >
+      <Probe />
+      <button type="button" onClick={() => setPickerRouteActive(false)}>
+        leave
+      </button>
+    </BlobPickProvider>
+  );
+}
+
+test("a routed pick holds its target until the picker's route is left", () => {
+  const returns: string[] = [];
+  const screen = render(<RoutedHarness returns={returns} />);
+
+  fireEvent.click(screen.getByText("request"));
+  fireEvent.click(screen.getByText("resolve"));
+
+  // The return navigation started, and the picker stays up for its target
+  // instead of dropping to the plain blob browser while that lands.
+  expect(returns).toEqual(["n1"]);
+  expect(screen.getByTestId("target").textContent).toBe("Attachment");
+
+  // A second resolve while returning neither navigates nor replaces the blob.
+  fireEvent.click(screen.getByText("resolve"));
+  expect(returns).toEqual(["n1"]);
+
+  fireEvent.click(screen.getByText("leave"));
+  expect(screen.getByTestId("target").textContent).toBe("none");
+  fireEvent.click(screen.getByText("consume"));
+  expect(screen.getByTestId("consumed").textContent).toBe("hit");
+});
+
+test("leaving the picker's route mid-pick abandons the pick", () => {
+  const returns: string[] = [];
+  const screen = render(<RoutedHarness returns={returns} />);
+
+  fireEvent.click(screen.getByText("request"));
+  expect(screen.getByTestId("target").textContent).toBe("Attachment");
+
+  // The host's own Back or the sidebar, not Cancel: nothing routes back.
+  fireEvent.click(screen.getByText("leave"));
+  expect(screen.getByTestId("target").textContent).toBe("none");
+
+  fireEvent.click(screen.getByText("resolve"));
+  expect(returns).toEqual([]);
+  fireEvent.click(screen.getByText("consume"));
+  expect(screen.getByTestId("consumed").textContent).toBe("miss");
+});

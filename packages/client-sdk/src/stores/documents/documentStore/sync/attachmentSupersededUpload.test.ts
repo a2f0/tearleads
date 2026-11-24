@@ -10,6 +10,7 @@ import {
   removeDocumentAttachment,
 } from "../../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { createDocumentSyncLoroWindow } from "../../../../workflows/documents";
 import { createPrincipalPolicyOperation } from "../../../../workflows/principals/principalPolicyService";
 import {
   createRemoteHistoryFixture,
@@ -128,6 +129,7 @@ for (const change of [
           secretKey: fixture.secretKey,
         },
         generation,
+        loroWindow: createDocumentSyncLoroWindow(),
         nextRecord: record,
         policyOperation: createPrincipalPolicyOperation(),
         state,

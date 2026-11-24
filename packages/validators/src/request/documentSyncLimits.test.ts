@@ -8,6 +8,7 @@ import {
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
   MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
 } from "../util/documentSyncLimits";
 import { isDocumentSyncRequest } from "./index";
 
@@ -262,4 +263,19 @@ test("document sync bounds content-key targets", () => {
       contentKeyBundle: { ...valid.contentKeyBundle, targets },
     }),
   ).toBe(false);
+});
+
+test("document sync page limit is a whole number of updates within the server's", () => {
+  const valid = createSyncRequest();
+  for (const maxPageUpdates of [1, MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES]) {
+    expect(isDocumentSyncRequest({ ...valid, maxPageUpdates })).toBe(true);
+  }
+  for (const maxPageUpdates of [
+    0,
+    1.5,
+    MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES + 1,
+    "1",
+  ]) {
+    expect(isDocumentSyncRequest({ ...valid, maxPageUpdates })).toBe(false);
+  }
 });
