@@ -9,6 +9,8 @@ export const documentStoreTables = [
   "documentDiscoverySequence",
   "documentHistoryCheckpoints",
   "documentHistoryUpdates",
+  "documentLoroIsolation",
+  "documentLoroWindows",
   "documentOrphanBlobReclaims",
   "documentPeerPreemptions",
   "documentPendingAttachments",

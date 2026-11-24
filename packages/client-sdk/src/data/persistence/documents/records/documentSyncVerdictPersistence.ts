@@ -13,6 +13,7 @@ import {
   recordDocumentPeerPreemptions,
 } from "./documentPeerPreemptionPersistence";
 import type { DocumentScope } from "./documentPersistenceTypes";
+import { deleteDocumentLoroWindowsInTransaction } from "./loroWindowPersistence";
 import {
   type ProcessedCursorTransition,
   type PullPagePosition,
@@ -454,6 +455,7 @@ export async function deleteDocumentSyncVerdictsInTransaction(
   localIds: readonly string[],
 ): Promise<void> {
   await deleteDocumentPeerPreemptionsInTransaction(tx, appKind, localIds);
+  await deleteDocumentLoroWindowsInTransaction(tx, appKind, localIds);
   await deleteRecordedAttachmentSlotsInTransaction(tx, appKind, localIds);
   for (const batch of chunks(localIds, UPDATE_IDS_PER_STATEMENT)) {
     await tx

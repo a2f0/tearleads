@@ -71,6 +71,7 @@ export interface BuildDocumentSyncPlanInput {
   historyMode?: "raw" | undefined;
   inlineRekeyCommitId?: string | undefined;
   localVersionVector: string | null;
+  maxPageUpdates?: number | undefined;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;
   /**

@@ -15,12 +15,14 @@ import {
   createResponseFromRequest,
   type DocumentCreateFixture,
 } from "../../../../../test/helpers/data/documentFixtures";
+import { installFakeWebLocks } from "../../../../../test/helpers/data/fakeWebLocks";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/workflows/materializedSyncFixture";
 import {
   createEchoDocumentSyncResponse,
   createOnlineDocumentsRuntime,
   createStoredDocumentWriterProjection,
 } from "../../../../../test/helpers/workflows/onlineDocumentStoreFixtures";
+import { processLoroLifetimes } from "../../../../data/documents/shared/sync/loroLifetime";
 import { defaultDocumentsPersistence } from "../../../../workflows/documents";
 import { buildMaterializedDocumentSyncPlan } from "../../../../workflows/documents/syncPlan/syncPlanMaterial";
 import { createDocumentStore } from "../index";
@@ -295,6 +297,116 @@ test("a cursor judged by another decoder or rule set is not sent", async () => {
     await store.requestRemoteSyncAndWait();
     expect(harness.requests.at(-1)?.processedThroughUpdateId).toBeDefined();
   } finally {
+    harness.close();
+  }
+});
+
+// The page's save closes its Loro read window and clears the suspects it
+// passed. A window left open after a committed page would be claimed by the
+// next lifetime as a death, and suspects left after the pull completed would
+// keep the document pulling one update a page.
+test("a committed page closes its read window and ends isolation", async () => {
+  const localId = "read-window-close";
+  const harness = await createServerHarness(localId);
+  // Holding a lifetime lock, as a tab does, so the page opens a window.
+  const removeWebLocks = installFakeWebLocks();
+  try {
+    const store = createDocumentStore(
+      localId,
+      harness.runtime,
+      defaultDocumentsPersistence,
+      null,
+      "",
+      "note",
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    await store.setText("mine");
+    expect(await store.requestRemoteSyncAndWait()).toBe(true);
+    const [served] = await otherWriterEdits("served", 1);
+    if (!served) throw new Error("expected an edit");
+    await harness.commitFromAnotherWriter([
+      createPendingUpdateRecord({
+        id: HONEST_ID,
+        partialEndVersionVector: served.end,
+        partialStartVersionVector: served.start,
+        updateData: bytesToBase64(served.data),
+      }),
+    ]);
+    await harness.execSql(
+      `INSERT INTO document_loro_isolation
+         (app_kind, local_id, document_id, suspects)
+       SELECT app_kind, local_id, document_id, '["${HONEST_ID}"]'
+       FROM documents WHERE local_id = ?`,
+      [localId],
+    );
+    // Logs each window the page opens, since its save deletes the row.
+    await harness.execSql("CREATE TABLE opened_windows (update_ids TEXT)");
+    await harness.execSql(
+      `CREATE TRIGGER log_opened_window AFTER INSERT ON document_loro_windows
+       BEGIN INSERT INTO opened_windows VALUES (NEW.update_ids); END`,
+    );
+
+    expect(await store.requestRemoteSyncAndWait()).toBe(true);
+
+    expect(store.getSnapshot().text).toContain("served-0");
+    expect(
+      await harness.execSql("SELECT update_ids FROM opened_windows"),
+    ).toEqual([{ update_ids: JSON.stringify([HONEST_ID]) }]);
+    expect(harness.requests.at(-1)?.maxPageUpdates).toBe(1);
+    expect(
+      await harness.execSql("SELECT lifetime_id FROM document_loro_windows"),
+    ).toEqual([]);
+    expect(
+      await harness.execSql("SELECT local_id FROM document_loro_isolation"),
+    ).toEqual([]);
+  } finally {
+    removeWebLocks();
+    harness.close();
+  }
+});
+
+// A pass that ends before any save, here because its window's row cannot
+// be written, still settles the window it opened: one left open would keep
+// the lifetime's later windows from counting, and its markers standing.
+test("a pass that fails after opening its read window settles it", async () => {
+  const localId = "read-window-failed-pass";
+  const harness = await createServerHarness(localId);
+  const removeWebLocks = installFakeWebLocks();
+  try {
+    const store = createDocumentStore(
+      localId,
+      harness.runtime,
+      defaultDocumentsPersistence,
+      null,
+      "",
+      "note",
+    );
+    expect(await store.ensureInitialized()).toBe(true);
+    await store.setText("mine");
+    expect(await store.requestRemoteSyncAndWait()).toBe(true);
+    const [served] = await otherWriterEdits("unsaved", 1);
+    if (!served) throw new Error("expected an edit");
+    await harness.commitFromAnotherWriter([
+      createPendingUpdateRecord({
+        id: HONEST_ID,
+        partialEndVersionVector: served.end,
+        partialStartVersionVector: served.start,
+        updateData: bytesToBase64(served.data),
+      }),
+    ]);
+    await harness.execSql(
+      `CREATE TRIGGER refuse_window BEFORE INSERT ON document_loro_windows
+       BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END`,
+    );
+    const openBefore = processLoroLifetimes.openWindowCount();
+
+    await store.requestRemoteSyncAndWait().catch(() => false);
+
+    expect(harness.requests.at(-1)?.maxPageUpdates).toBeUndefined();
+    expect(store.getSnapshot().text).not.toContain("unsaved-0");
+    expect(processLoroLifetimes.openWindowCount()).toBe(openBefore);
+  } finally {
+    removeWebLocks();
     harness.close();
   }
 });
