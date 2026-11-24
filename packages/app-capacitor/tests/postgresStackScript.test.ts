@@ -73,6 +73,12 @@ async function runWrapper(
         resolve(scripts, file),
       );
     }
+    // secretsEnv.sh sources the clone's .secrets linker.
+    await mkdir(resolve(root, "scripts/lib"), { recursive: true });
+    await cp(
+      resolve(import.meta.dir, "../../../scripts/lib/secretsStore.sh"),
+      resolve(root, "scripts/lib/secretsStore.sh"),
+    );
     await Bun.write(
       resolve(secrets, "shared.env"),
       [
