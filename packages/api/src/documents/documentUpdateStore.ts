@@ -336,29 +336,6 @@ export function parseDocumentVersionFrontier(
   return { frontierJson: buildClientFrontierJson(versionVector) };
 }
 
-const frontierRowsSchema = z.array(
-  z.object({ counter: z.number().int().nonnegative(), peer_id: z.string() }),
-);
-
-/**
- * Whether `version` holds every op `covered` holds, compared per peer. Both
- * are frontiers this module encoded, such as a bind version stored with its
- * binding.
- */
-export function documentVersionCovers(
-  version: DocumentVersionFrontier,
-  covered: DocumentVersionFrontier,
-): boolean {
-  const counters = new Map(
-    frontierRowsSchema
-      .parse(JSON.parse(version.frontierJson))
-      .map((row) => [row.peer_id, row.counter]),
-  );
-  return frontierRowsSchema
-    .parse(JSON.parse(covered.frontierJson))
-    .every((row) => (counters.get(row.peer_id) ?? 0) >= row.counter);
-}
-
 /**
  * Whether an update of the document committed after `afterSequence` holds an
  * op the version lacks. Only spans count: an update with no span carries no
@@ -397,6 +374,41 @@ export async function hasDocumentOpsBeyondVersion(
     where ${spanDocumentId} = ${uuidValue(input.documentId)}
       and coalesce(${frontier.counter}, 0) < ${spanEndCounter}
       ${afterCursor}
+    limit 1
+  `);
+  return result.rows.length > 0;
+}
+
+/**
+ * Whether `version` names an op past the document's committed frontier: a
+ * counter past the end of every span committed on that peer. The frontier
+ * counts every declared span, including one every reader voided, so it
+ * stands for "committed" only on a peer whose frontier no other user can
+ * move. `version` is a frontier this module encoded, such as a bind version
+ * stored with its binding, and goes to the database as one parameter.
+ */
+export async function hasDocumentOpsBeyondCommittedFrontier(
+  executor: DatabaseSession,
+  input: {
+    readonly documentId: string;
+    readonly version: DocumentVersionFrontier;
+  },
+): Promise<boolean> {
+  const spanDocumentId = aliasedColumn("s", documentUpdateSpans.documentId);
+  const spanPeerId = aliasedColumn("s", documentUpdateSpans.peerId);
+  const spanEndCounter = aliasedColumn("s", documentUpdateSpans.endCounter);
+  const frontier = buildFrontierRecordset(input.version.frontierJson);
+  const result = await executor.execute(sql`
+    select 1 as "uncommitted"
+    from ${frontier.recordset}
+    where ${frontier.counter} > 0
+      and not exists (
+        select 1
+        from ${documentUpdateSpans} s
+        where ${spanDocumentId} = ${uuidValue(input.documentId)}
+          and ${spanPeerId} = ${frontier.peerId}
+          and ${spanEndCounter} >= ${frontier.counter}
+      )
     limit 1
   `);
   return result.rows.length > 0;

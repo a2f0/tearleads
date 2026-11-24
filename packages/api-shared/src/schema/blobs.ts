@@ -126,9 +126,9 @@ export const blobStages = pgTable(
  *   binding.
  * - `bindDocumentVersion`: The document version the bind checked its slot
  *   against, as a JSON array of `{ peer_id, counter }` rows. It can hold the
- *   uploader's unsent ops, so a detach must cover it: until those ops commit,
- *   the slot's content may still be on its way. `[]` (no ops) for bindings
- *   that predate it.
+ *   uploader's unsent ops, so a detach waits until each of its ops is
+ *   committed: until then, the slot's content may still be on its way.
+ *   `[]` (no ops) for bindings that predate it.
  * - `detachedAt`: Timestamp when this binding was detached, or `null` while it
  *   is active.
  * - `createdAt`: Server-side insertion timestamp.

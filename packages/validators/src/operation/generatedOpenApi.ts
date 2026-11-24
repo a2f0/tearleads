@@ -1800,7 +1800,7 @@ export type components = {
             body: unknown;
             /** @description Container rekeys to commit first in the same transaction. */
             containerRekeys?: components["schemas"]["ContainerMutationRequest"][];
-            /** @description Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update, after `processedThroughUpdateId` when one is sent, that this version lacks, or while the binding's bind version holds an op it lacks, such as a restore whose content update is not yet committed. */
+            /** @description Encoded Loro version vector of the document the client read when it found the slot removed, with none of its own ops unsent. The API refuses the detach with `409 attachment_document_changed` while the document has a committed update, after `processedThroughUpdateId` when one is sent, that this version lacks, or while the binding's bind version holds an op no committed update declares, such as a restore whose content update is still on its way. */
             documentVersionVector: string;
             event: {
                 [key: string]: unknown;
@@ -1938,7 +1938,7 @@ export type components = {
         /** @description A refused attachment bind or detach. */
         BlobMutationFailureResponse: {
             /**
-             * @description `container_unavailable` when a container the write depends on no longer exists; `attachment_document_changed` when the document has a committed update the request's `documentVersionVector` lacks, or, for a detach, when the binding was bound at a version holding an op it lacks. The client pulls, checks the slot again, and retries.
+             * @description `container_unavailable` when a container the write depends on no longer exists; `attachment_document_changed` when the document has a committed update the request's `documentVersionVector` lacks, or, for a detach, when the binding was bound at a version holding an op no committed update declares. The client pulls, checks the slot again, and retries.
              * @enum {string}
              */
             code?: "attachment_document_changed" | "container_unavailable";

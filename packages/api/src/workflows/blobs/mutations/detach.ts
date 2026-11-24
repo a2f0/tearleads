@@ -20,7 +20,7 @@ import { registerAttachmentBlobs } from "./blobAuditRegistry";
 import { lockBlobMutationRows } from "./blobMutationLocks";
 import {
   assertAttachmentDocumentVersionCurrent,
-  assertDetachCoversBindVersion,
+  assertBindVersionCommitted,
   parseAttachmentDocumentVersion,
 } from "./documentVersionPrecondition";
 import { toMutationError } from "./errors";
@@ -89,17 +89,19 @@ async function detachBlobAttachmentTransaction(
   }
   // As a bind does, only once the signed detach is verified and under the
   // document head lock taken above: the client read the slot removed at this
-  // version, which must hold every committed op and every op the binding was
-  // bound at, so a restore that is committed or still on its way keeps it.
+  // version, which must hold every committed op, and every op the binding was
+  // bound at must be committed, so a restore that is committed or still on
+  // its way keeps it.
   await assertAttachmentDocumentVersionCurrent({
     documentId: activeBinding.documentId,
     executor: tx,
     processedThroughUpdateId: input.request.processedThroughUpdateId,
     version: input.documentVersion,
   });
-  assertDetachCoversBindVersion({
+  await assertBindVersionCommitted({
     bindVersion: { frontierJson: activeBinding.bindDocumentVersion },
-    version: input.documentVersion,
+    documentId: activeBinding.documentId,
+    executor: tx,
   });
 
   await lockBlobMutationRows({

@@ -236,10 +236,15 @@ active binding, signed event, document manifest, authorizing paths, and
 referenced principal policies. Then, still under the document head lock, it
 refuses the detach with `409 attachment_document_changed` when a committed
 update holds an op that version lacks (the bind's check) or when the version
-the binding was bound at holds one. A bind stores the version it checked with
-the binding for that second check: an uploader may bind before pushing the
-update that records its slot, and until that update commits and the
-detaching client reads it, the slot may still ask for these bytes.
+the binding was bound at holds an op no committed update declares. A bind
+stores the version it checked with the binding for that second check: an
+uploader may bind before pushing the update that records its slot, and until
+that update commits, the slot may still ask for these bytes. Once it commits,
+the first check makes the detaching client read it, or have voided it, like
+any other committed op, so the detach version need not hold the bind
+version's ops. A bind version that names ops every reader voided therefore
+never holds its binding, and one that names a counter no update ever commits
+holds only its own binding, whose bytes stay reachable through it alone.
 
 A client detaches a listed binding once its synced document holds no entry
 for the slot, readable or not: a device that held the bytes settles its

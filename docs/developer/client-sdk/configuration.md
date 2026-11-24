@@ -192,9 +192,10 @@ its binds and detaches. See the
 the document the caller read the slot removed at, holding none of its own
 unsent ops. The API refuses the detach with `409 attachment_document_changed`
 while the document holds a committed update that version lacks, or while the
-binding was bound at a version holding one. The service then calls the
-optional `onDocumentChanged` and returns `null`: pull, check that the slot is
-still removed, and detach again at the newer version. A document store does
+binding was bound at a version holding an op no committed update declares.
+The service then calls the optional `onDocumentChanged` and returns `null`:
+pull, check that the slot is still removed, and detach again at the newer
+version. A document store does
 this itself at the end of a sync pass that left nothing to push. The service
 sends the processed cursor with the version as a bind does.
 
