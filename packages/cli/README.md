@@ -26,7 +26,7 @@ Keychain under `com.tearleads.cli.recovery-key`. `logout` removes it.
 ## Usage
 
 ```text
-Usage: tearleads <command> [--env production|staging] [--org <id>] [--trace]
+Usage: tearleads <command> [--env production|staging|development] [--org <id>] [--trace]
 
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
@@ -38,8 +38,10 @@ Commands:
   ls       List the folders of your organization, or of --org <id>.
 ```
 
-`--env` defaults to `production` (`https://api.tearleads.com`). Each target
-keeps its own saved key.
+`--env` defaults to `production` (`https://api.tearleads.com`). `staging` is
+`https://api-staging.tearleads.com`, and `development` is the local API
+started by `scripts/dev/runApi.sh` (`http://localhost:3001`, the URL the app
+uses in dev). Each target keeps its own saved key.
 
 ## Seed an account with Continuity
 
@@ -52,8 +54,12 @@ bun run tearleads seed --env staging
 ```
 
 Paste the account's recovery key at the login prompt. For production, use
-`--env production` on both commands. Once the command reports success, open
-the web app in that environment and sign in with the same identity.
+`--env production` on both commands; for a local API, `--env development`.
+`scripts/dev/seedFromContinuity.sh <dev|staging|prod>` runs the install,
+build, login, and traced seed in one step, unlocking the login Keychain first
+for shells outside the desktop session (SSH, tmux, screen). Once the command
+reports success, open the web app in that environment and sign in with the
+same identity.
 [Staging web app](https://app-staging.tearleads.com) ·
 [Production web app](https://app.tearleads.com)
 
