@@ -13,7 +13,7 @@ test("an empty local tree progresses from loading to syncing to a settled folder
     online: true,
     refreshing: false,
     startupPending: false,
-    syncPending: false,
+    syncActive: false,
   };
   const state = (changes: Partial<typeof local>) =>
     resolveExplorerFolderState({ ...local, ...changes });
@@ -46,10 +46,10 @@ test("known folders still being pulled by sync read as syncing, not unavailable"
     online: true,
     refreshing: false,
     startupPending: false,
-    syncPending: true,
+    syncActive: true,
   };
   expect(resolveExplorerFolderState(listed)).toBe("syncing");
-  expect(resolveExplorerFolderState({ ...listed, syncPending: false })).toBe(
+  expect(resolveExplorerFolderState({ ...listed, syncActive: false })).toBe(
     "unavailable",
   );
   // Offline, nothing will arrive, so the panel says why.

@@ -62,7 +62,9 @@ async function createFolder(page: Page): Promise<void> {
   await dialog.getByRole("button", { name: "Create", exact: true }).click();
   await created;
   await expect(
-    page.getByRole("button", { name: "All changes synced" }).first(),
+    page
+      .getByRole("button", { name: "All changes synced", exact: true })
+      .first(),
   ).toBeVisible({ timeout: 60_000 });
 }
 
@@ -137,8 +139,8 @@ test("a restored phone syncs its folders without calling them unavailable", asyn
   expect(
     await page.evaluate(
       () =>
-        (Reflect.get(window, "folderUnavailableRecord") as { seen: boolean })
-          .seen,
+        Reflect.get(Reflect.get(window, "folderUnavailableRecord"), "seen") ===
+        true,
     ),
   ).toBe(false);
 });

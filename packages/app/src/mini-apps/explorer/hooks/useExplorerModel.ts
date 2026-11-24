@@ -9,7 +9,7 @@ import {
 } from "../../../document-types/shared/avatar/documentAvatarSource";
 import type { RuntimeSnapshot } from "../../../providers/sdk/TearleadsProvider";
 import { useDomainDocumentQueries } from "../../../providers/sdk/useDomainDocumentQueries";
-import { useDomainSyncPendingWork } from "../../../providers/sdk/useDomainSyncSnapshot";
+import { useDomainSyncActiveWork } from "../../../providers/sdk/useDomainSyncSnapshot";
 import { useTearleadsExternalStoreSnapshot } from "../../../providers/sdk/useTearleadsSubscription";
 import { findCurrentSelfContactLocalId } from "../../../stores/contacts/contactLabels";
 import { useContactsStoreForContainer } from "../../../stores/contacts/useContactsStoreForContainer";
@@ -207,7 +207,7 @@ export function useExplorerModel(
     onDocumentLinksChanged: handleDocumentLinksChanged,
   });
   const startupPending = useCollectionStartupPending(explorer.nodes.length);
-  const syncPending = useDomainSyncPendingWork(appData.state.domainScope);
+  const syncActive = useDomainSyncActiveWork(appData.state.domainScope);
   const folderState = resolveExplorerFolderState({
     count: explorer.nodes.length,
     knownCount: explorer.knownNodes.length,
@@ -215,7 +215,7 @@ export function useExplorerModel(
     ready: explorer.ready,
     refreshing: Boolean(explorer.hydrating) || isRefreshing,
     startupPending,
-    syncPending,
+    syncActive,
   });
   const {
     activateLinkedContainer,

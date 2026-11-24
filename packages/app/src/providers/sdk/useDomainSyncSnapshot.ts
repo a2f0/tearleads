@@ -52,15 +52,31 @@ export function useDomainSyncSnapshot(
 }
 
 /**
- * Whether the scope's sync has work requested or running. A view that only
- * needs to know that re-renders when it flips, not on every lane's progress.
+ * Whether sync is doing work that can still bring content in: some lane is
+ * running or requested and is not failing, abandoned, or an upload. A failing
+ * lane re-arms on a timer for the rest of the session, so counting it would
+ * keep the work from ever looking settled; uploads bring nothing in.
  */
-export function useDomainSyncPendingWork(domainScope: DomainScope): boolean {
+export function hasActiveSyncWork(snapshot: DomainSyncSnapshot): boolean {
+  return snapshot.lanes.some(
+    (lane) =>
+      (lane.running || lane.requested) &&
+      lane.lastError === null &&
+      !lane.runAbandoned &&
+      lane.phase !== "blob",
+  );
+}
+
+/**
+ * {@link hasActiveSyncWork} for the scope's coordinator. A view that only
+ * needs that re-renders when it flips, not on every lane's progress.
+ */
+export function useDomainSyncActiveWork(domainScope: DomainScope): boolean {
   const subscribe = useDomainSyncSubscription(domainScope);
-  const getPendingWork = useCallback(
-    () => getDomainSyncCoordinatorSnapshot(domainScope).hasPendingWork,
+  const getActiveWork = useCallback(
+    () => hasActiveSyncWork(getDomainSyncCoordinatorSnapshot(domainScope)),
     [domainScope],
   );
 
-  return useTearleadsExternalValue(subscribe, getPendingWork);
+  return useTearleadsExternalValue(subscribe, getActiveWork);
 }
