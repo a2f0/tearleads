@@ -159,7 +159,13 @@ for (const host of ["tablet", "phone", "window"] as const) {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: VIEWPORT_WIDTH[host], height: 900 });
     if (host === "window") {
-      await page.goto("/");
+      // Name the account while one surface asks for it. In windows every open
+      // window shows the prompt, and the handler's click on the first one can
+      // land behind the window a deep link brought to the front.
+      await page.goto("/app/explorer");
+      await expect(
+        page.locator(".routed-pane-main tbody tr").first(),
+      ).toBeVisible({ timeout: 60_000 });
       await switchToWindowedDesktop(page);
     }
 
