@@ -256,13 +256,18 @@ test("a reload offers itself again only when the SDK asks again", async () => {
       return () => listeners.delete(listener);
     },
   };
-  render(<RuntimeRestartNotice saveWaitMs={5_000} source={source} />);
+  const { rerender } = render(
+    <RuntimeRestartNotice saveWaitMs={5_000} source={source} />,
+  );
 
   fireEvent.click(
     screen.getByRole("button", { name: RUNTIME_RESTART_LABELS.reload }),
   );
   await waitFor(() => expect(reloads).toBe(1));
+  // A source replaced while the page unloads does not reload it again.
+  rerender(<RuntimeRestartNotice saveWaitMs={5_000} source={{ ...source }} />);
   await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(reloads).toBe(1);
   const waiting = screen.getByRole("button", {
     name: RUNTIME_RESTART_LABELS.reloading,
   });
