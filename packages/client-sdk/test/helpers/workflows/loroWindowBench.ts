@@ -131,13 +131,18 @@ export function createLoroWindowBench() {
       updates: readonly DecryptedDocumentSyncUpdate[],
       ledger = new LoroRuntimeFailureLedger(),
       target: Target = MAIN,
+      pass: {
+        readonly execSql?: ExecSql;
+        readonly isCurrent?: () => boolean;
+      } = {},
     ) {
       const currentDocument = await createDocument("windows-reader");
       try {
         return await judgeDocumentSyncImports({
           currentDocument,
           documentId: target.documentId,
-          execSql: current(),
+          execSql: pass.execSql ?? current(),
+          isCurrent: pass.isCurrent,
           lifetimes,
           logError: () => undefined,
           opensLoroWindow: true,

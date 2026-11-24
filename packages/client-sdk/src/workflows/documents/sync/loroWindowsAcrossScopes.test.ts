@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createLoroWindowBench,
   DOCUMENT_ID,
@@ -11,9 +12,10 @@ import {
   SECOND,
 } from "../../../../test/helpers/workflows/loroWindowBench";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
+import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { writeLoroWindowInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { createExecSql, type ExecSql } from "../../../data/sqlite/sqlSchema";
 import { settleDocumentSyncLoroWindow } from "./loroWindows";
 
 const bench = createLoroWindowBench();
@@ -129,4 +131,89 @@ test("a row a failed settle left stops counting when the lifetime reads again", 
   await claimIn(host.lifetime("next"), OTHER);
 
   expect(await recordedAttempts(SECOND, OTHER)).toBeNull();
+});
+
+// The page is read with Loro even when its pass has gone stale, so its window
+// is written regardless: otherwise another document's lone window would stay
+// counting while this page's reads ran beside it.
+test("a page read under a stale generation still stops other windows counting", async () => {
+  const host = device();
+  const { update: first } = await honest(FIRST);
+  const { update: second } = await honest(SECOND);
+  const lifetime = host.lifetime("stale-pass");
+  await judgeIn(lifetime, [first]);
+  await judgeIn(lifetime, [second], undefined, OTHER, {
+    isCurrent: () => false,
+  });
+  host.kill("stale-pass");
+
+  const next = host.lifetime("next");
+  await claimIn(next, MAIN);
+  await claimIn(next, OTHER);
+
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(await pageLimit(MAIN)).toBe(1);
+  expect(await pageLimit(OTHER)).toBe(1);
+});
+
+// A store whose runtime moved to another database settles with the new one;
+// the window's row must still go from the database it was written to.
+test("a settle deletes the window from the database it was opened in", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  const lifetime = host.lifetime("moved");
+  const moved = await createTestExecSql(`windows-moved-${crypto.randomUUID()}`);
+  try {
+    await ensureDocumentTables(moved.execSql);
+    await judgeIn(lifetime, [update]);
+
+    await settleDocumentSyncLoroWindow({
+      committed: false,
+      execSql: moved.execSql,
+      lifetimes: lifetime,
+      scope: SCOPE,
+    });
+
+    expect(
+      await execSql("SELECT lifetime_id FROM document_loro_windows"),
+    ).toEqual([]);
+  } finally {
+    moved.close();
+  }
+});
+
+// A row that cannot be deleted outlives its window; the lifetime's failure
+// marker then stands, so its death isolates that row instead of counting it.
+test("a window whose row cannot be deleted no longer counts its death", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  const lifetime = host.lifetime("stuck");
+  let failDeletes = false;
+  const flaky = createExecSql({
+    exec: async ({ bind, rowMode, sql }) => {
+      if (failDeletes && /delete from "document_loro_windows"/i.test(sql)) {
+        throw new Error("disk I/O error");
+      }
+      return {
+        rows: await execSql(sql, bind, { rowMode: rowMode ?? "object" }),
+      };
+    },
+  });
+  await judgeIn(lifetime, [update], undefined, MAIN, { execSql: flaky });
+  failDeletes = true;
+
+  await settleDocumentSyncLoroWindow({
+    committed: false,
+    execSql: flaky,
+    lifetimes: lifetime,
+    scope: SCOPE,
+  });
+  host.kill("stuck");
+  await claimIn(host.lifetime("next"), MAIN);
+
+  expect(lifetime.hasWindow(`${SCOPE.appKind}\u0000${SCOPE.localId}`)).toBe(
+    false,
+  );
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(await pageLimit(MAIN)).toBe(1);
 });

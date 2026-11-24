@@ -38,6 +38,7 @@ import {
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
+import { reportQuietly } from "./reportQuietly";
 
 /**
  * Loro read windows for a document's sync pages (#3194). A page's reads of
@@ -62,6 +63,32 @@ interface WindowScopeInput {
 
 function scopeKey(scope: DocumentScope): string {
   return `${scope.appKind}\u0000${scope.localId}`;
+}
+
+/**
+ * The database each open window's row was written to, so its settle deletes
+ * it there even after the store's runtime moved to another database.
+ */
+const windowDatabases = new WeakMap<LoroLifetimes, Map<string, ExecSql>>();
+
+function rememberWindowDatabase(
+  lifetimes: LoroLifetimes,
+  key: string,
+  execSql: ExecSql,
+): void {
+  const databases = windowDatabases.get(lifetimes) ?? new Map();
+  databases.set(key, execSql);
+  windowDatabases.set(lifetimes, databases);
+}
+
+function takeWindowDatabase(
+  lifetimes: LoroLifetimes,
+  key: string,
+): ExecSql | undefined {
+  const databases = windowDatabases.get(lifetimes);
+  const database = databases?.get(key);
+  databases?.delete(key);
+  return database;
 }
 
 type ClaimTransaction = Parameters<
@@ -236,7 +263,6 @@ export async function claimDocumentSyncOrphanWindows(
 export async function openDocumentSyncLoroWindow(
   input: WindowScopeInput & {
     readonly documentId: string;
-    readonly isCurrent?: (() => boolean) | undefined;
     readonly knownVoids: ReadonlyMap<string, unknown>;
     readonly ledger: LoroRuntimeAttempts;
     readonly result: PageResult;
@@ -257,6 +283,7 @@ export async function openDocumentSyncLoroWindow(
     ) !== undefined;
   // Noted first, so a death once the row commits leaves its markers.
   await lifetimes.openWindow(scopeKey(input.scope), isolating);
+  rememberWindowDatabase(lifetimes, scopeKey(input.scope), input.execSql);
   const [only] = unsettled;
   const epoch = optionalHeaderEpoch(
     input.result.response.updates.find((update) => update.id === only),
@@ -290,7 +317,8 @@ export async function openDocumentSyncLoroWindow(
           new Date().toISOString(),
         );
       },
-      input.isCurrent ?? (() => true),
+      // The page is read whatever the pass's generation: its window too.
+      () => true,
     ),
   );
   return counts;
@@ -344,8 +372,11 @@ export async function closeDocumentSyncLoroWindowInTransaction(
 
 /**
  * Settles this lifetime's window once the page's save is over. A save that
- * committed already deleted the row; any other outcome deletes it here, best
- * effort, so a later death of this lifetime cannot count a page it left.
+ * committed to the window's database already deleted the row; any other
+ * outcome deletes it here, from the database the window was opened in, so a
+ * later death of this lifetime cannot count a page it left. A row that
+ * cannot be deleted leaves the lifetime's failure marker standing, so its
+ * death isolates that row's updates instead of counting them.
  */
 export async function settleDocumentSyncLoroWindow(
   input: WindowScopeInput & { readonly committed: boolean },
@@ -353,17 +384,17 @@ export async function settleDocumentSyncLoroWindow(
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
   const key = scopeKey(input.scope);
   if (!lifetimes.hasWindow(key)) return;
-  if (!input.committed) {
+  const database = takeWindowDatabase(lifetimes, key) ?? input.execSql;
+  if (!input.committed || database !== input.execSql) {
     try {
-      await runSerializedSqlMutation(input.execSql, (locked) =>
+      await runSerializedSqlMutation(database, (locked) =>
         getClientSQLitePersistenceRuntime(locked).guardedTransaction(
           (tx) => deleteLoroWindowInTransaction(tx, input.scope, lifetimes.id),
           () => true,
         ),
       );
     } catch {
-      // The row stays until this scope's next page replaces it, or this
-      // lifetime's next window stops it counting.
+      lifetimes.noteUnsettledWindow();
     }
   }
   lifetimes.closeWindow(key);
@@ -382,16 +413,4 @@ export async function readDocumentSyncPageLimit(
     ),
     input.documentId,
   );
-}
-
-function reportQuietly(
-  logError: WorkflowRuntimeUtilInput["logError"] | undefined,
-  message: string,
-  error: Error,
-): void {
-  try {
-    logError?.(message, error);
-  } catch {
-    // Reporting never fails a sync pass.
-  }
 }

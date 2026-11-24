@@ -73,6 +73,12 @@ export interface LoroLifetimes {
    * a window open now counts nothing if the lifetime then dies.
    */
   noteFailed(): void;
+  /**
+   * Notes a window whose row could not be deleted: the failure marker then
+   * stands for the rest of the lifetime, so its death isolates that row's
+   * updates instead of counting them.
+   */
+  noteUnsettledWindow(): void;
   /** Whether this lifetime holds a window on `scope`. */
   hasWindow(scope: string): boolean;
   /** How many windows this lifetime holds open. */
@@ -212,6 +218,7 @@ export function createLoroLifetimes(host: {
   const id = host.id ?? crypto.randomUUID();
   const { storage, visibility } = host;
   let failed = false;
+  let unsettled = false;
   let watching = false;
 
   const setMarker = (prefix: string, standing: boolean) => {
@@ -221,7 +228,7 @@ export function createLoroLifetimes(host: {
     }, undefined);
   };
   const syncMarkers = () => {
-    const open = windows.count() > 0;
+    const open = windows.count() > 0 || unsettled;
     setMarker(HIDDEN_MARKER_PREFIX, open && (visibility?.hidden() ?? false));
     setMarker(FAILED_MARKER_PREFIX, open && failed);
   };
@@ -244,6 +251,11 @@ export function createLoroLifetimes(host: {
     },
     noteFailed() {
       failed = true;
+      syncMarkers();
+    },
+    noteUnsettledWindow() {
+      failed = true;
+      unsettled = true;
       syncMarkers();
     },
     hasWindow: windows.has,

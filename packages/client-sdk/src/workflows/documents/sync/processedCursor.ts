@@ -38,6 +38,7 @@ import {
   openDocumentSyncLoroWindow,
   stopCountingLoroWindows,
 } from "./loroWindows";
+import { reportQuietly } from "./reportQuietly";
 
 /**
  * The processed cursor a document's next pull may carry: the upper bound of
@@ -365,19 +366,6 @@ function documentSyncVerdictInput(input: {
       updateId: voided.updateId,
     })),
   };
-}
-
-function reportQuietly(
-  logError: WorkflowRuntimeUtilInput["logError"] | undefined,
-  message: string,
-  error: unknown,
-): void {
-  if (!logError) return;
-  try {
-    void Promise.resolve(logError(message, error)).catch(() => undefined);
-  } catch {
-    // Hosts may throw synchronously or return a rejected promise.
-  }
 }
 
 /**
