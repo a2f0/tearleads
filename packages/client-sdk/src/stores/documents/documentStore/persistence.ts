@@ -434,11 +434,17 @@ export async function withGenerationGuardedMutation(
   return ran;
 }
 
+/**
+ * Queues `update` for the store's document. `unlessQueued` queues nothing
+ * when a queued local row already holds these exact bytes
+ * (`enqueuePendingDocumentUpdate`).
+ */
 export async function enqueuePendingUpdate(
   state: DocumentStoreState,
   update: Uint8Array,
   sourceVersionVector?: string | null,
   expectedGeneration?: DocumentStoreSyncGeneration,
+  options: { readonly unlessQueued?: boolean } = {},
 ): Promise<boolean> {
   const expectedDocumentId = state.record?.documentId;
   const expectedRecoveryGeneration = state.record?.recoveryGeneration ?? 0;
@@ -457,6 +463,7 @@ export async function enqueuePendingUpdate(
         localId: state.localId,
         persistence: state.persistence,
         ...(sourceVersionVector === undefined ? {} : { sourceVersionVector }),
+        ...(options.unlessQueued ? { unlessQueued: true } : {}),
         update,
       });
     },
