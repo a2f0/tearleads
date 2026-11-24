@@ -106,25 +106,31 @@ export async function honest(id: string) {
   return { reads, update };
 }
 
+/** A fresh database with both documents' rows. */
+export async function openBenchDatabase() {
+  const opened = await createTestExecSql(`windows-${crypto.randomUUID()}`);
+  await ensureDocumentTables(opened.execSql);
+  for (const { documentId, scope } of [MAIN, OTHER]) {
+    await opened.execSql(
+      `INSERT INTO documents (app_kind, local_id, document_id,
+         snapshot_end_version, updated_at)
+       VALUES (?, ?, ?, '', '2026-11-23T00:00:00.000Z')`,
+      [scope.appKind, scope.localId, documentId],
+    );
+  }
+  return opened;
+}
+
 /** A fresh database per test, with both documents' rows. */
 export function createLoroWindowBench() {
-  let database: Awaited<ReturnType<typeof createTestExecSql>> | undefined;
+  let database: Awaited<ReturnType<typeof openBenchDatabase>> | undefined;
   const current = (): ExecSql => {
     if (!database) throw new Error("Open the bench first");
     return database.execSql;
   };
   return {
     async open(): Promise<ExecSql> {
-      database = await createTestExecSql(`windows-${crypto.randomUUID()}`);
-      await ensureDocumentTables(database.execSql);
-      for (const { documentId, scope } of [MAIN, OTHER]) {
-        await database.execSql(
-          `INSERT INTO documents (app_kind, local_id, document_id,
-             snapshot_end_version, updated_at)
-           VALUES (?, ?, ?, '', '2026-11-23T00:00:00.000Z')`,
-          [scope.appKind, scope.localId, documentId],
-        );
-      }
+      database = await openBenchDatabase();
       return database.execSql;
     },
     close() {

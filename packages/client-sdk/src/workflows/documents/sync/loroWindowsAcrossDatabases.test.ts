@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createLoroWindowBench,
   device,
   FIRST,
   honest,
   MAIN,
+  openBenchDatabase,
   SECOND,
 } from "../../../../test/helpers/workflows/loroWindowBench";
 import { documentVerdictJudge } from "../../../data/documents/shared/sync/documentUpdateVerdict";
-import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { readRecordedImportVoids } from "../../../data/persistence/documents/records/documentSyncVerdictPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { createExecSql, type ExecSql } from "../../../data/sqlite/sqlSchema";
@@ -57,9 +56,8 @@ test("a settle deletes the window from the database it was opened in", async () 
   const { update } = await honest(FIRST);
   const lifetime = host.lifetime("moved");
   const pass = createDocumentSyncLoroWindow();
-  const moved = await createTestExecSql(`windows-moved-${crypto.randomUUID()}`);
+  const moved = await openBenchDatabase();
   try {
-    await ensureDocumentTables(moved.execSql);
     await judgeIn(lifetime, [update], undefined, MAIN, { window: pass });
 
     // The save committed to the store's new database, not the window's.
@@ -131,13 +129,6 @@ test("an orphan another tab claims mid-claim is not counted again", async () => 
   expect(await recordedAttempts(FIRST)).toBeNull();
 });
 
-/** A second database, as the store's runtime moves to mid-pass. */
-async function movedDatabase() {
-  const moved = await createTestExecSql(`windows-moved-${crypto.randomUUID()}`);
-  await ensureDocumentTables(moved.execSql);
-  return moved;
-}
-
 // When the store's runtime moves mid-pass, a new pass reads the scope while
 // the stale one still runs. Each settles only its own window: the stale
 // pass's row leaves its database, and the markers still cover the new pass.
@@ -147,7 +138,7 @@ test("a stale pass settles only its own window", async () => {
   const { update: second } = await honest(SECOND);
   const lifetime = host.lifetime("swapped");
   const stale = createDocumentSyncLoroWindow();
-  const moved = await movedDatabase();
+  const moved = await openBenchDatabase();
   try {
     await judgeIn(lifetime, [first], undefined, MAIN, { window: stale });
     await judgeIn(lifetime, [second], undefined, MAIN, {
@@ -178,7 +169,7 @@ test("a window opened in another database stops the first counting", async () =>
   const { update: first } = await honest(FIRST);
   const { update: second } = await honest(SECOND);
   const lifetime = host.lifetime("two-databases");
-  const moved = await movedDatabase();
+  const moved = await openBenchDatabase();
   try {
     await judgeIn(lifetime, [first]);
     await judgeIn(lifetime, [second], undefined, MAIN, {
@@ -210,7 +201,7 @@ test("an unsettled lifetime's markers outlast a claim in one database", async ()
   });
   flaky.failing = true;
   await settleDocumentSyncLoroWindow(stuck, null);
-  const moved = await movedDatabase();
+  const moved = await openBenchDatabase();
   try {
     await judgeIn(lifetime, [second], undefined, MAIN, {
       execSql: moved.execSql,
