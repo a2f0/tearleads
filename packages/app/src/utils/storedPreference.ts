@@ -48,3 +48,16 @@ export function saveStoredPreference(storageKey: string, value: string): void {
     // Persistence is best-effort; ignore disabled storage / quota errors.
   }
 }
+
+/** Forgets a stored preference, so the next load reads its fallback. */
+export function clearStoredPreference(storageKey: string): void {
+  const storage = getLocalStorage();
+  if (!storage) {
+    return;
+  }
+  try {
+    storage.removeItem(storageKey);
+  } catch {
+    // Best-effort, as saving is.
+  }
+}

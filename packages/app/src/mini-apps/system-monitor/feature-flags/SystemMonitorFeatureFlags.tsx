@@ -1,11 +1,15 @@
 import { useId } from "react";
 import {
+  MiniAppButton,
   MiniAppCheckbox,
   MiniAppSection,
   MiniAppSectionHeading,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useAppFeatureFlags } from "../../../providers/feature-flags/AppFeatureFlagsProvider";
-import { APP_FEATURE_FLAG_IDS } from "../../../providers/feature-flags/appFeatureFlags";
+import {
+  APP_FEATURE_FLAG_IDS,
+  defaultAppFeatureFlagMode,
+} from "../../../providers/feature-flags/appFeatureFlags";
 import {
   FEATURE_FLAG_DETAILS,
   formatFeatureFlagState,
@@ -49,12 +53,19 @@ function SystemMonitorFeatureFlagToggle({
 }
 
 export function SystemMonitorFeatureFlags() {
-  const { isEnabled, setEnabled } = useAppFeatureFlags();
+  const { isEnabled, resetToDefaults, setEnabled } = useAppFeatureFlags();
+  const allAtDefault = APP_FEATURE_FLAG_IDS.every(
+    (flag) =>
+      isEnabled(flag) === (defaultAppFeatureFlagMode(flag) === "enabled"),
+  );
 
   return (
     <MiniAppSection className="system-monitor-feature-flags">
       <MiniAppSectionHeading>
         <h2>Feature Flags</h2>
+        <MiniAppButton disabled={allAtDefault} onClick={resetToDefaults}>
+          Reset to Defaults
+        </MiniAppButton>
       </MiniAppSectionHeading>
       {APP_FEATURE_FLAG_IDS.map((flag) => (
         <SystemMonitorFeatureFlagToggle
