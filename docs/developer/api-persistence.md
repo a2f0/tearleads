@@ -101,6 +101,15 @@ The stored shapes enforce:
   adds `content_key_commitment` as `NOT NULL` with no default, so it fails, and
   rolls back, on a database that still holds epoch rows: deploying it requires
   the reset above and fresh client databases.
+- Each document update stores the
+  [dependency frontiers](../glossary/sync.md#dependency-frontier) its writer
+  signed (#3194). Migration `0010` adds
+  `document_updates.dependency_version_vector` as `NOT NULL` with no default,
+  so it fails, and rolls back, on a database that still holds update rows.
+  Deploying it requires the reset above and fresh client databases. The reset
+  stops old writers with the API maintenance Worker before it drops data and
+  publishes the API Worker only after `migrate`, so no Worker that predates the
+  column writes to the migrated table.
 - Signed write headers are the write-integrity mechanism (see
   [document write integrity](../document-rekey-and-audit-history.md#write-integrity));
   there is no server-side audit hash chain. A
