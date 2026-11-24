@@ -82,11 +82,9 @@ async function judgedScope(localId: string) {
     db,
     { appKind: APP_KIND, localId },
     {
-      contentKeyEpoch: null,
       counts: false,
       documentId: DOCUMENT_ID,
       judge: "void-rules-1:loro-crdt@1.0.0",
-      keyFingerprint: null,
       lifetimeId: "dead",
       updateIds: [THROUGH],
       windowId: "dead-window",

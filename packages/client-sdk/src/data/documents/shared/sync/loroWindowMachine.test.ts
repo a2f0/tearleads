@@ -9,11 +9,9 @@ import {
 } from "./loroWindowMachine";
 
 const WINDOW: LoroWindow = {
-  contentKeyEpoch: 2,
   counts: true,
   documentId: "doc",
   judge: "judge",
-  keyFingerprint: "key",
   lifetimeId: "dead",
   updateIds: ["u1"],
 };
@@ -33,8 +31,6 @@ test("a window counts only for one update in a lifetime that has not failed", ()
 test("an orphan counts, isolates, or says nothing", () => {
   expect(judgeOrphanWindow(WINDOW, CONTEXT)).toEqual({
     kind: "count",
-    contentKeyEpoch: 2,
-    keyFingerprint: "key",
     updateId: "u1",
   });
   expect(

@@ -141,11 +141,9 @@ test("the first pull after such a death already asks for one update", async () =
       getClientSQLitePersistenceRuntime(database.execSql).db,
       { appKind: "documents", localId: record.id },
       {
-        contentKeyEpoch: null,
         counts: false,
         documentId,
         judge: documentVerdictJudge(),
-        keyFingerprint: null,
         lifetimeId: "dead",
         updateIds: ["first-suspect", "second-suspect"],
         windowId: "dead-window",
