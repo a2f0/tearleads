@@ -31,6 +31,14 @@ builds the app with `APP_WEB_TIER`, which
 reads, then adds the header while staging the assets and refuses a build whose
 tags do not match its tier.
 
+Each app host serves `/.well-known/apple-app-site-association` as JSON, naming
+the tier's iOS app (`com.tearleads.app`, or `com.tearleads.staging.app` on
+staging) under the Apple team in the tier's `TEAM_ID`. iOS saves passwords to
+iCloud Keychain for a host named in an app's `webcredentials:` entitlement
+only when that host's file names the app. `TEAM_ID` must be the team that signs
+the app, as the release lanes do by default, and the app-web deploy refuses to
+start without a 10-character one.
+
 Every proxied tearleads.com host, staging and continuity included, answers
 `http://` with a 301 to `https://` before any Worker runs. That is the zone's
 Always Use HTTPS setting, which the production website stack owns because it

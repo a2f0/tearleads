@@ -352,6 +352,8 @@ puts JSON.generate(
 });
 
 test("iOS release lanes take the Xcode marketing version and create profiles with the API key", async () => {
+  // The profiles lane enables Associated Domains once, regenerating the
+  // profile that lacked it, and leaves an App ID that has it alone.
   const project = await Bun.file(
     join(packageRoot, "ios/App/App.xcodeproj/project.pbxproj"),
   ).text();
@@ -370,14 +372,40 @@ fastfile.define_singleton_method(:with_ios_signing_keychain) do |&block|
   block.call
 end
 fastfile.define_singleton_method(:app_store_connect_api_key_options) { { key_id: "KEY" } }
-fastfile.define_singleton_method(:app_store_connect_api_key) { |options| "api-key:#{options[:key_id]}" }
+fastfile.define_singleton_method(:app_store_connect_api_key) do |options|
+  calls << "api-key"
+  "api-key:#{options[:key_id]}"
+end
 fastfile.define_singleton_method(:match) { |options| calls << options }
+Capability = Struct.new(:type) do
+  def is_type?(candidate) = type == candidate
+end
+enabled = [Capability.new("IN_APP_PURCHASE")]
+app_id = Object.new
+app_id.define_singleton_method(:get_capabilities) { enabled.dup }
+app_id.define_singleton_method(:create_capability) do |type|
+  calls << "enable:#{type}"
+  enabled << Capability.new(type)
+end
+found = app_id
+Spaceship::ConnectAPI::BundleId.define_singleton_method(:find) do |identifier|
+  calls << "find:#{identifier}"
+  found
+end
+fastfile.runner.execute(:profiles, :ios, {})
 fastfile.runner.execute(:profiles, :ios, {})
 fastfile.runner.execute(:profiles, :ios, { force: true })
+found = nil
+missing_app_id = begin
+  fastfile.runner.execute(:profiles, :ios, {})
+rescue FastlaneCore::Interface::FastlaneError => e
+  "error: #{e.message}"
+end
 puts JSON.generate(
   version: fastfile.send(:ios_release_version, {}),
   explicitVersion: fastfile.send(:ios_release_version, { version: "2.0.0" }),
-  calls: calls
+  calls: calls,
+  missingAppId: missing_app_id
 )
 `);
   const profile = {
@@ -386,15 +414,25 @@ puts JSON.generate(
     api_key: "api-key:KEY",
     readonly: false,
   };
+  const lookup = ["api-key", "find:com.tearleads.staging.app"];
   expect(result).toEqual({
     version,
     explicitVersion: "2.0.0",
     calls: [
-      "keychain",
-      { ...profile, force: false },
+      ...lookup,
+      "enable:ASSOCIATED_DOMAINS",
       "keychain",
       { ...profile, force: true },
+      ...lookup,
+      "keychain",
+      { ...profile, force: false },
+      ...lookup,
+      "keychain",
+      { ...profile, force: true },
+      ...lookup,
     ],
+    missingAppId:
+      "error: The developer account has no App ID com.tearleads.staging.app.",
   });
 });
 
