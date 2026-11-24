@@ -80,7 +80,7 @@ Google Play access, and App Store signing profile.
 | --- | --- | --- |
 | `ios build_release` | Signed App Store IPA, without uploading | `build_number:` |
 | `ios upload_release` | `build_release`, then uploads to TestFlight | `build_number:` |
-| `ios profiles` | Creates or renews the match App Store profiles | `force:true` regenerates them |
+| `ios profiles` | Enables the App ID's capabilities, then creates or renews the match App Store profiles | `force:true` regenerates them |
 | `ios fetch_profiles` | Installs the match App Store profiles read-only | |
 | `android build_release` | Signed release App Bundle, without uploading | `build_number:` |
 | `android upload_release` | `build_release`, then uploads to a Google Play track | `build_number:`, `track:` (`internal`), `release_status:` (`completed`) |
@@ -213,11 +213,14 @@ distributes only a processed build, and submits for review.
 `skip_submission:`, override either default; skipping the wait distributes
 nothing.
 
-`ios profiles` creates the tier's App Store profile in the match repository
-with the API key, reusing the team's distribution certificate there, or renews
-one that is missing or invalid; `force:true` regenerates it, as after the
-bundle ID's capabilities change. `ios fetch_profiles` only verifies and
-installs the existing profile.
+`ios profiles` first enables, with the API key, each capability the app's
+entitlements need that the tier's App ID lacks (Associated Domains, for the
+`webcredentials:` domain behind iCloud Keychain). It then creates the tier's
+App Store profile in the match repository, reusing the team's distribution
+certificate there, or renews one that is missing or invalid. A capability it
+enabled is in no existing profile, so it regenerates the profile then;
+`force:true` also regenerates it, as after the certificate changes.
+`ios fetch_profiles` only verifies and installs the existing profile.
 
 ### Android releases
 

@@ -35,6 +35,20 @@ validate_domain_env
 validate_stripe_env "$TIER"
 export_wrangler_env
 
+# iOS saves an identity's recovery passphrase to iCloud Keychain, and reads it
+# back, only for a domain whose association file names the app: the tier's
+# bundle ID under the Apple team that signs it. TEAM_ID is the name fastlane
+# reads from the same shared.env.
+case "$TIER" in
+  prod) IOS_APP_IDENTIFIER=com.tearleads.app ;;
+  staging) IOS_APP_IDENTIFIER=com.tearleads.staging.app ;;
+esac
+if [[ ! "${TEAM_ID:-}" =~ ^[A-Z0-9]{10}$ ]]; then
+  echo "ERROR: TEAM_ID must be the 10-character Apple team ID that signs $IOS_APP_IDENTIFIER; set it in .secrets/$TIER/shared.env." >&2
+  exit 1
+fi
+IOS_WEB_CREDENTIALS_APP="$TEAM_ID.$IOS_APP_IDENTIFIER"
+
 DOMAIN="${TF_VAR_domain:?}"
 API_HOSTNAME="$(tier_api_hostname "$TIER")"
 APP_HOSTNAME="$(tier_app_hostname "$TIER")"
@@ -100,6 +114,16 @@ stage_assets() {
 /chunk-*
   Cache-Control: public, max-age=31536000, immutable
 HEADERS
+  # The app host names the iOS app for its saved passwords. Apple fetches the
+  # file without redirects and reads it as JSON; it has no extension to give
+  # the type.
+  if [[ "$variant" == app ]]; then
+    mkdir -p "$assets_dir/.well-known"
+    printf '{"webcredentials":{"apps":["%s"]}}\n' "$IOS_WEB_CREDENTIALS_APP" \
+      >"$assets_dir/.well-known/apple-app-site-association"
+    printf '/.well-known/apple-app-site-association\n  Content-Type: application/json\n' \
+      >>"$assets_dir/_headers"
+  fi
   if [[ "$TIER" == staging ]]; then
     printf '/*\n  X-Robots-Tag: noindex, nofollow\n' >>"$assets_dir/_headers"
   fi

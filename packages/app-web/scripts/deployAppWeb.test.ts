@@ -61,6 +61,11 @@ async function deployFixture(tier: "staging" | "production", failure = "") {
   SENTRY_PRODUCTION_PROJECT=web-production
   SENTRY_ORG=fixture
   export SENTRY_AUTH_TOKEN=private-upload-token
+  case "$WEB_DEPLOY_FAILURE" in
+    missing-team-id) ;;
+    lowercase-team-id) TEAM_ID=abcde12345 ;;
+    *) TEAM_ID=ABCDE12345 ;;
+  esac
 }
 validate_domain_env() { :; }
 validate_stripe_env() { :; }
@@ -220,6 +225,27 @@ test.each(["staging", "production"] as const)(
         } else {
           expect(headers).not.toContain("X-Robots-Tag");
         }
+        // Only the app host names the iOS app for its saved passwords.
+        const association = Bun.file(
+          join(published, ".well-known/apple-app-site-association"),
+        );
+        const associationType =
+          "/.well-known/apple-app-site-association\n  Content-Type: application/json\n";
+        if (variant === "app") {
+          expect(JSON.parse(await association.text())).toEqual({
+            webcredentials: {
+              apps: [
+                tier === "staging"
+                  ? "ABCDE12345.com.tearleads.staging.app"
+                  : "ABCDE12345.com.tearleads.app",
+              ],
+            },
+          });
+          expect(headers).toContain(associationType);
+        } else {
+          expect(await association.exists()).toBe(false);
+          expect(headers).not.toContain("apple-app-site-association");
+        }
         await expect(
           stat(
             join(published, `chunk-${variant === "app" ? "demo" : "app"}.js`),
@@ -270,6 +296,28 @@ test.each([
       const calls = await readFile(fixture.log, "utf8");
       expect(calls).not.toContain("publish|");
       expect(calls).not.toContain("build|demo");
+    } finally {
+      await fixture.cleanup();
+    }
+  },
+);
+
+test.each([
+  ["staging", "missing-team-id"],
+  ["production", "lowercase-team-id"],
+] as const)(
+  "%s %s stops the deploy before anything is built",
+  async (tier, failure) => {
+    const fixture = await deployFixture(tier, failure);
+    try {
+      const result = fixture.run();
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr.toString()).toContain(
+        `TEAM_ID must be the 10-character Apple team ID that signs ${
+          tier === "staging" ? "com.tearleads.staging.app" : "com.tearleads.app"
+        }`,
+      );
+      expect(await Bun.file(fixture.log).exists()).toBe(false);
     } finally {
       await fixture.cleanup();
     }

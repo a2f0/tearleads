@@ -279,6 +279,34 @@ def install_ios_appstore_signing_assets!
   )
 end
 
+# Capabilities App/App.entitlements needs on the tier's App ID. A profile
+# carries only the capabilities its App ID had when the profile was made.
+# Associated Domains backs `webcredentials:`, which lets the app save to and
+# read from iCloud Keychain.
+IOS_APP_ID_CAPABILITIES = %w[ASSOCIATED_DOMAINS].freeze
+
+def missing_ios_app_id_capabilities(bundle_id)
+  enabled = bundle_id.get_capabilities
+  IOS_APP_ID_CAPABILITIES.reject do |type|
+    enabled.any? { |capability| capability.is_type?(type) }
+  end
+end
+
+# Enables each of IOS_APP_ID_CAPABILITIES the tier's App ID lacks, through the
+# App Store Connect API key already set for Spaceship, and returns those it
+# enabled.
+def enable_ios_app_id_capabilities!
+  bundle_id = Spaceship::ConnectAPI::BundleId.find(NATIVE_APP_IDENTIFIER)
+  UI.user_error!("The developer account has no App ID #{NATIVE_APP_IDENTIFIER}.") if bundle_id.nil?
+
+  missing = missing_ios_app_id_capabilities(bundle_id)
+  missing.each do |type|
+    UI.message("Enabling #{type} on #{NATIVE_APP_IDENTIFIER}.")
+    bundle_id.create_capability(type)
+  end
+  missing
+end
+
 def ios_export_options(team_id, profile_name)
   {
     manageAppVersionAndBuildNumber: false,
@@ -355,21 +383,25 @@ platform :ios do
     profile_name
   end
 
-  # Creates the tier's App Store profile in the match repo with the App Store
+  # Enables the capabilities the app's entitlements need on the tier's App ID,
+  # then creates its App Store profile in the match repo with the App Store
   # Connect API key, reusing the team's distribution certificate there, or
-  # renews one that is missing or no longer valid. force:true regenerates it,
-  # as after the bundle ID's capabilities or the certificate change.
-  desc 'Create or renew the match App Store profiles (force:true regenerates them)'
+  # renews one that is missing or no longer valid. A capability enabled here is
+  # in no existing profile, so the profile is regenerated; force:true also
+  # regenerates it, as after the certificate changes.
+  desc 'Enable App ID capabilities, then create or renew the match App Store profiles (force:true regenerates them)'
   lane :profiles do |options|
     load_ios_release_secrets_env
+    api_key = app_store_connect_api_key(app_store_connect_api_key_options)
+    enabled_capabilities = enable_ios_app_id_capabilities!
     with_ios_signing_keychain do
       # readonly: false overrides the MATCH_READONLY the signing keychain sets.
       match(
         type: 'appstore',
         app_identifier: NATIVE_APP_IDENTIFIER,
-        api_key: app_store_connect_api_key(app_store_connect_api_key_options),
+        api_key: api_key,
         readonly: false,
-        force: lane_boolean_option(options, :force, 'MATCH_FORCE', false)
+        force: !enabled_capabilities.empty? || lane_boolean_option(options, :force, 'MATCH_FORCE', false)
       )
     end
   end
