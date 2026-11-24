@@ -7,6 +7,7 @@ import {
 } from "../../stores/container-contents";
 import { openDocumentStore } from "../../stores/documents";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../stores/documents/documentStore/internalRelink";
+import { loadReaderDocumentEditAttribution } from "../../workflows/container-contents/attribution/attributionVoids";
 import {
   type DocumentAttributionRangesInput,
   type DocumentAttributionRangesPage,
@@ -437,16 +438,21 @@ class ContainerContentsService implements ContainerContents {
   loadDocumentEditAttribution(
     documentId: string,
   ): ReturnType<ContainerContents["loadDocumentEditAttribution"]> {
-    return this.runtimeService
-      .workflowInput()
-      .apiClient.getDocumentEditAttribution(documentId);
+    const runtime = this.runtimeService.workflowInput();
+    return loadReaderDocumentEditAttribution({
+      apiClient: runtime.apiClient,
+      documentId,
+      execSql: readyExecSql(runtime),
+    });
   }
 
   loadDocumentAttributionRanges(
     input: DocumentAttributionRangesInput,
   ): Promise<DocumentAttributionRangesPage> {
+    const runtime = this.runtimeService.workflowInput();
     return loadDocumentAttributionRanges({
-      apiClient: this.runtimeService.workflowInput().apiClient,
+      apiClient: runtime.apiClient,
+      execSql: readyExecSql(runtime),
       query: input,
     });
   }

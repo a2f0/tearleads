@@ -19,6 +19,7 @@ import {
   type PullPremise,
   processedCursorTransition,
 } from "./processedCursorState";
+import { deleteRecordedAttachmentSlotsInTransaction } from "./recordedAttachmentSlotPersistence";
 
 type VerdictReader = Pick<ClientSQLiteTransactionScope, "select">;
 
@@ -50,7 +51,7 @@ export interface DocumentSyncVerdictInput {
   readonly preemptions?: readonly DocumentPeerPreemption[] | undefined;
   /**
    * Where the page sits in its pull; a completed pull advances the cursor.
-   * Undefined for a scope that keeps no cursor.
+   * Undefined for a judge that keeps no cursor, such as rotation's.
    */
   readonly pullPage?: PullPagePosition | undefined;
   readonly scope: DocumentScope;
@@ -453,6 +454,7 @@ export async function deleteDocumentSyncVerdictsInTransaction(
   localIds: readonly string[],
 ): Promise<void> {
   await deleteDocumentPeerPreemptionsInTransaction(tx, appKind, localIds);
+  await deleteRecordedAttachmentSlotsInTransaction(tx, appKind, localIds);
   for (const batch of chunks(localIds, UPDATE_IDS_PER_STATEMENT)) {
     await tx
       .delete(documentSyncProgress)

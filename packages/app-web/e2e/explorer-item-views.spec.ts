@@ -48,6 +48,8 @@ async function createRootFolders(page: Page, names: ReadonlyArray<string>) {
 test("the Explorer item list switches between small rows, large rows, and a grid", async ({
   page,
 }) => {
+  // Eight app loads: one per folder, then a visit and a reload at each width.
+  test.setTimeout(90_000);
   // Enough items beside Contacts for a phone grid to wrap onto a second line.
   await createRootFolders(page, ["Alpha", "Bravo", "Charlie", "Delta"]);
 

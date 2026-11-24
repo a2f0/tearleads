@@ -38,6 +38,31 @@ export function assertOutgoingDeclaredSpan(
 }
 
 /**
+ * A rotation baseline that signs a processed cursor may declare no
+ * operations: its author voided every update through the cursor, so its
+ * snapshot is empty, and the coverage gate weighs only the updates after
+ * the cursor. The checkpoint consistency check still requires its vectors to
+ * be valid, start empty, and end at its source. Every other update, a
+ * baseline with no cursor included, must name at least one operation.
+ */
+export function assertOutgoingSpanOrCursoredEmptyBaseline(
+  update: Pick<
+    DocumentOutgoingUpdate,
+    | "checkpointKind"
+    | "coversThroughUpdateId"
+    | "partialEndVersionVector"
+    | "partialStartVersionVector"
+  >,
+): void {
+  if (
+    update.checkpointKind !== "rotate_baseline" ||
+    update.coversThroughUpdateId === undefined
+  ) {
+    assertOutgoingDeclaredSpan(update);
+  }
+}
+
+/**
  * The writer signs only the envelope's hash, so a reader would otherwise be
  * the first to find an envelope that does not parse or that names another
  * epoch, record, metadata, or nonce domain than its signed header. Every

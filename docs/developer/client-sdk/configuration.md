@@ -379,7 +379,10 @@ follow `nextCursor` only while a view that needs every range is open (Edit
 Ranges, or History, which reads when each change was uploaded). Each range
 carries its upload's `createdAt` (when the server stored it) and `signedAt`
 (the time its writer signed). Cursors bind the document incarnation and
-attribution revision, so stale pages fail instead of mixing histories.
+attribution revision, so stale pages fail instead of mixing histories. Both
+reads leave out the updates this device voided for good, so a page may hold
+fewer ranges than its limit (see
+[edit attribution](../../advisory-op-spans.md#edit-attribution)).
 
 ### Device-first reads, writes, and background reconciliation
 

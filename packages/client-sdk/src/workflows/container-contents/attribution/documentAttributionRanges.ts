@@ -1,7 +1,10 @@
-import type {
-  DocumentEditAttributionRangeResponse,
-  ListDocumentEditAttributionRangesResponse,
-} from "@tearleads/validators/response";
+import type { DocumentEditAttributionRangeResponse } from "@tearleads/validators/response";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  type DocumentAttributionApi,
+  readAttributionVoids,
+  withoutVoidRanges,
+} from "./attributionVoids";
 
 export interface DocumentAttributionRangesInput {
   readonly cursor?: string | null | undefined;
@@ -16,21 +19,26 @@ export interface DocumentAttributionRangesPage {
   readonly hasMore: boolean;
   readonly items: DocumentEditAttributionRangeResponse[];
   readonly nextCursor: string | null;
+  /**
+   * The updates whose ranges this read left out, sorted. A held read is
+   * current only while the revision and these are unchanged: a device can
+   * void an update after it read the update's ranges.
+   */
+  readonly voidUpdateIds: readonly string[];
 }
 
-interface DocumentAttributionRangesApi {
-  listDocumentEditAttributionRanges(
-    documentId: string,
-    options?: {
-      readonly cursor?: string | null | undefined;
-      readonly expectedRevision?: number | undefined;
-      readonly limit?: number | undefined;
-    },
-  ): Promise<ListDocumentEditAttributionRangesResponse | null>;
-}
-
+/**
+ * One page of a document's per-upload ranges as this device reads it: the
+ * ranges of the updates it voided for good are left out (see
+ * `readAttributionVoids`), so a page may hold fewer than it asked for, or
+ * none while more follow.
+ */
 export async function loadDocumentAttributionRanges(input: {
-  readonly apiClient: DocumentAttributionRangesApi;
+  readonly apiClient: Pick<
+    DocumentAttributionApi,
+    "listDocumentEditAttributionRanges"
+  >;
+  readonly execSql: ExecSql | null;
   readonly query: DocumentAttributionRangesInput;
 }): Promise<DocumentAttributionRangesPage> {
   const page = await input.apiClient.listDocumentEditAttributionRanges(
@@ -51,5 +59,13 @@ export async function loadDocumentAttributionRanges(input: {
       `Edit attribution ranges belonged to document ${page.documentId}, not ${input.query.documentId}.`,
     );
   }
-  return page;
+  const voids = await readAttributionVoids(
+    input.execSql,
+    input.query.documentId,
+  );
+  return {
+    ...page,
+    items: withoutVoidRanges(page.items, voids),
+    voidUpdateIds: [...voids].sort(),
+  };
 }

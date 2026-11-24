@@ -26,6 +26,7 @@ test("loadDocumentAttributionRanges forwards pagination and returns the page", a
 
   await expect(
     loadDocumentAttributionRanges({
+      execSql: null,
       apiClient: {
         listDocumentEditAttributionRanges: (documentId, options) => {
           calls.push({ documentId, options });
@@ -39,7 +40,7 @@ test("loadDocumentAttributionRanges forwards pagination and returns the page", a
         limit: 50,
       },
     }),
-  ).resolves.toEqual(response);
+  ).resolves.toEqual({ ...response, voidUpdateIds: [] });
   expect(calls).toEqual([
     {
       documentId: "document-1",
@@ -51,6 +52,7 @@ test("loadDocumentAttributionRanges forwards pagination and returns the page", a
 test("loadDocumentAttributionRanges surfaces unavailable pages", async () => {
   await expect(
     loadDocumentAttributionRanges({
+      execSql: null,
       apiClient: {
         listDocumentEditAttributionRanges: () => Promise.resolve(null),
       },
@@ -64,6 +66,7 @@ test("loadDocumentAttributionRanges surfaces unavailable pages", async () => {
 test("loadDocumentAttributionRanges rejects a page for another document", async () => {
   await expect(
     loadDocumentAttributionRanges({
+      execSql: null,
       apiClient: {
         listDocumentEditAttributionRanges: () =>
           Promise.resolve({

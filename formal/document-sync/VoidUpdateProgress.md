@@ -48,14 +48,14 @@ The abstraction maps to production at these seams:
 | `Overclaim` / `Underclaim` | a modified client signing spans its payload does not carry, which the server stores once `assertOutgoingDeclaredSpan` finds the span non-empty and not inverted |
 | `Pull` / `Uncovered` | `resolveSyncPullPagePlan` starting after `readProcessedThroughSequence`, then filtering by the request's version vector |
 | `bound` | `createSyncPullPageResponse` returning the page plan's upper bound as `throughUpdateId` |
-| `CursorSendable` | `readSendableProcessedCursor`, read by `readProcessedCursorForSync` before each store pull |
+| `CursorSendable` | `readSendableProcessedCursor`, read by `readProcessedCursorForSync` before each store pull and by `readContainerMetadataProcessedCursor` before each container metadata pull |
 | `Judge` / `Accepts` | `validateDocumentSyncUpdateImports` and `judgeUpdate`, which checks the decoded Loro metadata against the signed span before the scratch import, after `judgeDocumentSyncUpdateDecryption` checks the plaintext hash |
 | `RuntimeFailure` / `attempts` | `judgeUpdate` returning `runtime_failure` for `isLoroRuntimeFailure`, `LoroRuntimeFailureLedger.noteFailure`, and `recordDocumentSyncRuntimeFailures`, which records the `loro_runtime` row and its `attempts` before the page is saved |
 | `failedInLife` / `Restart` | `processLoroRuntimeFailures`, the ledger a process starts with, which counts only its first failure |
 | `finalVoid` | a `loro_runtime` row with `MAX_LORO_RUNTIME_ATTEMPTS` attempts, read back as a known void by `recordedImportJudgements` |
 | `pullJudge` | the pull premise in `processedCursorTransition`: a pull's first page records its judge and sent cursor (`pullJudge`, `pullSentCursor` on `document_sync_progress`), and a later page under another premise is `abandoned` |
 | `CursorPastUnsettled` | the `held` page position in `processedCursorTransition`, which abandons the pull, set from `hasHeldPull` |
-| `Process` / `cursorVersion` | `recordDocumentSyncVerdictsInTransaction` as the record save's commit side effect, recording the saved `snapshotEndVersion` |
+| `Process` / `cursorVersion` | `recordDocumentSyncVerdictsInTransaction` as the commit side effect of a document's record save, or of `commitStoredMetadataMutation` through `containerMetadataVerdictRecorder`, recording the saved `snapshotEndVersion` |
 | `Upgrade` / `cursorJudge` | `documentVerdictJudge`, from `loroDecoderIdentity` and the void rules version |
 | `Replace` | a replaced local state whose frontier no longer satisfies the recorded one (`satisfiesVersionVector`); `deleteDocumentSyncVerdictsInTransaction` on a rebind or delete |
 | `RefuseVoid` | `assertNoVoidedDocumentSyncUpdates`, which rotation still uses for the history it re-encrypts |
@@ -114,25 +114,23 @@ asserts the named violation on every run:
   holds it: `ProcessedDevicesAgree` fails against a device whose runtime did
   not fail.
 
-Outside the model: the rotation-baseline redirect of a pull's first page,
-which skips only updates after the cursor that the baseline covers
-([`BaselineDominance`](./BaselineDominance.md) checks that gate); AEAD
-failures, which stay availability failures until a
-writer-signed key commitment exists; the content-key fingerprint that drops a
-void judged under another key; duplicate update ids, which still fail a page;
-container metadata documents, which void but keep no cursor; a pull's pages
-beyond the collapse above, and a cursor dropped between them, which abandons the
-pull as an upgrade does; the per-page rebuild budget, whose deferred updates are
-served again as a shorter page would leave them; the retry delay between a
-process's attempts and its uncounted later failures, which only hold a pull as
-a stutter would; a payload that kills the process outright, which records no
-attempt; the record of import voids
-that spares a device a second import of an update under the same judge and key;
-and devices' own writes. An honest writer depends only on operations committed
-before its update. A dishonest writer that forges a dependency on a
-later update can make a device that judges an update again (after an upgrade or
-a replaced state) accept what a device judging in server order voided; that is
-left to the forged-dependency follow-up.
+Outside the model: the rotation-baseline redirect of a pull's first page, which
+skips only updates after the cursor that the baseline covers
+([`BaselineDominance`](./BaselineDominance.md) checks that gate); AEAD failures,
+which stay availability failures until a writer-signed key commitment exists;
+the content-key fingerprint that drops a void judged under another key;
+duplicate update ids, which still fail a page; a pull's pages beyond the
+collapse above, and a cursor dropped between them, which abandons the pull as an
+upgrade does; the per-page rebuild budget, whose deferred updates are served
+again as a shorter page would leave them; the retry delay between a process's
+attempts and its uncounted later failures, which only hold a pull as a stutter
+would; a payload that kills the process outright, which records no attempt; the
+record of import voids that spares a device a second import of an update under
+the same judge and key; and devices' own writes. An honest writer depends only
+on operations committed before its update. A dishonest writer that forges a
+dependency on a later update can make a device that judges an update again
+(after an upgrade or a replaced state) accept what a device judging in server
+order voided; that is left to the forged-dependency follow-up.
 
 The configuration bounds two devices, two updates, two decoder versions, one
 state replacement, and two attempts over two process lifetimes on one device
