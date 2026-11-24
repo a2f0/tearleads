@@ -1,0 +1,78 @@
+/*
+ * A list that fills its mini-app runs to the edges of the surface that shows
+ * it, in every tier: its column headings, the rule above them, and every row's
+ * line and highlight reach the window's sides (or the routed pane's). Opt in
+ * with `mini-app-table-frame--edges` (Explorer's item list and grid, Shared
+ * with Me). The frame breaks out of the mini-app root's padding by
+ * `--mini-app-edge-inset`, the same distance the tab strip uses
+ * (MiniAppRoot.css).
+ *
+ * The text stays where it was. The frame pads itself back in by
+ * `--mini-app-table-edge-inset`, so its content box, which is what the frame's
+ * width is measured as (MiniAppVirtual.tsx), keeps the width a table's fold and
+ * a grid's column count were tuned for. The table then runs out through that
+ * padding, and its leading and trailing cells take it back as extra padding; a
+ * grid's tiles stay inside it and only its sort header runs out.
+ *
+ * On a phone a list already bleeds without setting its text back in
+ * (`mini-app-table-frame--bleed`, MiniAppTable.css), so the inset is zero there
+ * and that layout is unchanged.
+ */
+.mini-app-table-frame--edges {
+  --mini-app-table-edge-inset: var(--mini-app-edge-inset, 0px);
+  /* The kebab column widens by the inset its trailing padding takes. */
+  --mini-app-row-actions-column-width: calc(
+    var(--control-height) +
+    2 *
+    var(--mini-app-row-actions-inset) +
+    var(--mini-app-table-edge-inset)
+  );
+
+  margin-inline: calc(-1 * var(--mini-app-edge-inset, 0px));
+  padding-inline: var(--mini-app-table-edge-inset);
+}
+
+.routed-pane--mobile .mini-app-table-frame--edges {
+  --mini-app-table-edge-inset: 0px;
+}
+
+/* Exactly the padding box: no sideways scroll. */
+.mini-app-table-frame--edges .mini-app-table {
+  width: calc(100% + 2 * var(--mini-app-table-edge-inset));
+  margin-inline: calc(-1 * var(--mini-app-table-edge-inset));
+}
+
+/* Spacer rows only hold height, and keep the zero padding they are given. The
+   trailing cell is the kebab column in every row but the empty-state one. */
+.mini-app-table-frame--edges
+  .mini-app-table
+  tr:not(.mini-app-virtual-table-spacer-row)
+  > :first-child {
+  padding-inline-start: calc(
+    var(--space-sm) +
+    var(--mini-app-table-edge-inset)
+  );
+}
+
+.mini-app-table-frame--edges
+  .mini-app-table
+  tr:not(.mini-app-virtual-table-spacer-row)
+  > :last-child {
+  padding-inline-end: calc(var(--space-sm) + var(--mini-app-table-edge-inset));
+}
+
+/* A phone's wider trailing inset (MiniAppTable.css) outranks this one. */
+.mini-app-table-frame--edges
+  .mini-app-table
+  tr:not(.mini-app-virtual-table-spacer-row)
+  > :is(.mini-app-row-actions-cell, .mini-app-row-actions-column):last-child {
+  padding-inline-end: calc(
+    var(--mini-app-row-actions-inset) +
+    var(--mini-app-table-edge-inset)
+  );
+}
+
+.mini-app-table-frame--edges .mini-app-item-grid-header {
+  margin-inline: calc(-1 * var(--mini-app-table-edge-inset));
+  padding-inline: calc(var(--space-sm) + var(--mini-app-table-edge-inset));
+}

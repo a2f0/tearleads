@@ -24,6 +24,7 @@ import { AppScreensaverHost } from "./AppScreensaverHost";
 import { BillingBanner } from "./BillingBanner";
 import "./Layout.css";
 import "./AppChrome.css";
+import { useTableDividerLinesDocumentAttribute } from "./useTableDividerLinesDocumentAttribute";
 import { Workspace } from "./workspace/Workspace";
 import {
   SINGLE_WORKSPACE_IDS,
@@ -151,6 +152,7 @@ function LayoutInner({ hostConfig }: LayoutProps) {
 
 function FeatureFlaggedWorkspaceLayout({ hostConfig }: LayoutProps) {
   const { isEnabled } = useAppFeatureFlags();
+  useTableDividerLinesDocumentAttribute(isEnabled("hide-table-divider-lines"));
   const workspaceIds =
     hostConfig.profile.features.panePeerUserIds ||
     !isEnabled("workspace-switcher")

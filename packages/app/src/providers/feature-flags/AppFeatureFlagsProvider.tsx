@@ -11,17 +11,21 @@ import {
   type AppFeatureFlagId,
   type AppFeatureFlagMode,
   appFeatureFlagStorageKey,
+  clearAppFeatureFlag,
   loadAppFeatureFlag,
   saveAppFeatureFlag,
 } from "./appFeatureFlags";
 
 interface AppFeatureFlagsValue {
   isEnabled: (flag: AppFeatureFlagId) => boolean;
+  /** Forgets every choice made on this device, so each flag reads its default. */
+  resetToDefaults: () => void;
   setEnabled: (flag: AppFeatureFlagId, enabled: boolean) => void;
 }
 
 const NO_APP_FEATURE_FLAGS: AppFeatureFlagsValue = {
   isEnabled: () => false,
+  resetToDefaults: () => {},
   setEnabled: () => {},
 };
 
@@ -65,8 +69,20 @@ function usePersistentAppFeatureFlags(): AppFeatureFlagsValue {
       featureFlagModeFromEnabled(enabled),
     );
   }, []);
+  // Cleared rather than saved as each default, so a flag whose default later
+  // changes follows it. The flags are then reread: storage that would not clear
+  // still holds the choice, and the switches should say so.
+  const resetToDefaults = useCallback(() => {
+    for (const flag of APP_FEATURE_FLAG_IDS) {
+      clearAppFeatureFlag(flag);
+    }
+    setEnabledFlags(loadEnabledAppFeatureFlags());
+  }, []);
 
-  return useMemo(() => ({ isEnabled, setEnabled }), [isEnabled, setEnabled]);
+  return useMemo(
+    () => ({ isEnabled, resetToDefaults, setEnabled }),
+    [isEnabled, resetToDefaults, setEnabled],
+  );
 }
 
 function AppFeatureFlagsProviderInner({ children }: PropsWithChildren) {

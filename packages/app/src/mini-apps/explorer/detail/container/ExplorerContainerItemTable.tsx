@@ -36,7 +36,6 @@ import {
   renderExplorerItemCell,
 } from "./explorerItemTableColumns";
 import "../../../../components/mini-app/item-view/MiniAppItemView.css";
-import "../item-views/ExplorerItemListEdges.css";
 
 function getExplorerItemColumnLabel(id: ExplorerItemColumnId): string {
   switch (id) {
@@ -220,6 +219,7 @@ function getExplorerItemTableFrameClassName(params: {
     "mini-app-table-frame--virtual",
     "mini-app-table-frame--compact",
     "mini-app-table-frame--bleed",
+    "mini-app-table-frame--edges",
     // The item list fills its route, so it also bleeds its bottom edge to sit
     // flush against the mobile task bar.
     "mini-app-table-frame--bleed-block-end",
