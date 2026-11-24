@@ -6,11 +6,13 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { registerPageDocumentWrites } from "../../providers/db/pageDocumentWrites";
 import {
   RUNTIME_RESTART_LABELS,
   RuntimeRestartNotice,
   RuntimeRestartNoticeView,
   type RuntimeRestartSource,
+  SDK_RUNTIME_RESTART,
 } from "./RuntimeRestartNotice";
 
 afterEach(() => cleanup());
@@ -149,4 +151,47 @@ test("edits still unsaved ask before a reload loses them", async () => {
     await screen.findByRole("button", { name: RUNTIME_RESTART_LABELS.discard }),
   );
   await waitFor(() => expect(steps).toEqual(["prepare", "reload"]));
+});
+
+// The app's own source asks every runtime mounted in the page.
+test("the app's source asks the page's runtimes for unsaved edits", () => {
+  expect(SDK_RUNTIME_RESTART.hasPendingWrites()).toBe(false);
+  const unregister = registerPageDocumentWrites(() => true);
+  expect(SDK_RUNTIME_RESTART.hasPendingWrites()).toBe(true);
+  unregister();
+  expect(SDK_RUNTIME_RESTART.hasPendingWrites()).toBe(false);
+});
+
+// A run the notice has left acts no further: a source replaced mid-press
+// neither asks about edits early nor reloads twice.
+test("a source replaced mid-press neither asks early nor reloads twice", async () => {
+  let pending = true;
+  const prepared = Promise.withResolvers<void>();
+  let reloads = 0;
+  const makeSource = (): RuntimeRestartSource => ({
+    getStatus: () => "restartRequired",
+    hasPendingWrites: () => pending,
+    prepare: () => prepared.promise,
+    reload: () => {
+      reloads += 1;
+    },
+    subscribe: () => () => {},
+  });
+  const { rerender } = render(
+    <RuntimeRestartNotice saveWaitMs={5_000} source={makeSource()} />,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: RUNTIME_RESTART_LABELS.reload }),
+  );
+
+  rerender(<RuntimeRestartNotice saveWaitMs={5_000} source={makeSource()} />);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  expect(screen.queryByText(RUNTIME_RESTART_LABELS.unsaved)).toBeNull();
+  pending = false;
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  rerender(<RuntimeRestartNotice saveWaitMs={5_000} source={makeSource()} />);
+  prepared.resolve();
+  await waitFor(() => expect(reloads).toBe(1));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(reloads).toBe(1);
 });

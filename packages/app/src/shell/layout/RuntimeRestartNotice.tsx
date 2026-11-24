@@ -97,7 +97,7 @@ export interface RuntimeRestartSource {
 // Bun dev bundle the SDK root finishes evaluating only after its async Loro
 // WASM dependency, so this module, evaluated first, would read its namespace
 // as null and crash the app on load (envFileDocumentDefinition.ts).
-const SDK_RUNTIME_RESTART: RuntimeRestartSource = {
+export const SDK_RUNTIME_RESTART: RuntimeRestartSource = {
   getStatus: () => getRuntimeHealth(),
   hasPendingWrites: () => hasPendingPageDocumentWrites(),
   prepare: () => prepareRuntimeRestart(),
