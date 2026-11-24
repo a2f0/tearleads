@@ -14,6 +14,7 @@ import {
   MAX_DOCUMENT_PEER_FRONTIERS,
 } from "@tearleads/validators/response";
 import { and, type Column, eq, max, type SQL, sql } from "drizzle-orm";
+import { chunkDocumentPeerRows } from "./documentPeerRowChunks";
 
 interface DocumentUpdatePeerSource {
   readonly dependencyVersionVector: string;
@@ -283,13 +284,15 @@ export async function claimDocumentPeers(
   // No conflict clause: under the lock no other writer can have claimed one of
   // these peers since the read (nor before a create's seed), and if one did,
   // the primary key fails the request instead of letting its spans extend
-  // that writer's peer.
-  await executor.insert(documentPeerOwners).values(
-    verdict.claimedPeerIds.map((peerId) => ({
-      documentId: input.documentId,
-      ownerUserId: input.userId,
-      peerId,
-    })),
-  );
+  // that writer's peer. A write may claim more peers than one statement can
+  // bind, so the rows go in chunks within the caller's transaction.
+  const ownerRows = verdict.claimedPeerIds.map((peerId) => ({
+    documentId: input.documentId,
+    ownerUserId: input.userId,
+    peerId,
+  }));
+  for (const chunk of chunkDocumentPeerRows(ownerRows)) {
+    await executor.insert(documentPeerOwners).values(chunk);
+  }
   return null;
 }
