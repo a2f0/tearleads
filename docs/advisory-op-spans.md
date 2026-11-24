@@ -92,8 +92,10 @@ while the app is hidden, with a window open, leaves a `localStorage` marker,
 and its window counts nothing and isolates nothing: the user closed the app,
 which says nothing about the update. A lifetime that met a runtime failure
 anywhere, with a window open, leaves a marker too, and its window isolates
-instead of counting, since the module may be unusable. A lifetime's markers
-stay until its windows on every document are claimed. A host without Web
+instead of counting, since the module may be unusable. A lifetime that
+cannot delete a window's row keeps its failure marker too, so its death
+isolates that row's updates. A lifetime's markers stay until its windows on
+every document are claimed. A host without Web
 Locks, or whose lock request is refused, opens no window. The command line's
 database is memory-only, so its windows die with it; a host whose database
 outlives its process must hold such a lock or mark its clean exits.
