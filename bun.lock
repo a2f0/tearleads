@@ -191,7 +191,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.104",
+      "version": "0.1.105",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -226,7 +226,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.18",
+      "version": "0.1.19",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
@@ -370,7 +370,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.81",
+      "version": "0.1.82",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.74",
         "@a2f0/ct-client": "0.1.6",

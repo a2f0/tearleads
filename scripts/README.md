@@ -98,14 +98,16 @@ authentication, versioning, and consumer smoke checks.
 
 ## Screenshot seed and capture
 
-`bun run screenshots:seed` verifies the pinned Continuity manifest, validates
-its versioned seed contract, and builds `tearleads-seed.tlbackup.json` through
-the SDK. The adjacent `.provenance.json` binds the backup to the seed and screenshot
-expectations. Both are local artifacts. A direct Playwright capture rejects a
-missing or stale provenance; regenerate with `bun run screenshots:seed`.
-
-`bun run screenshots` regenerates that backup and restores it through the app
-before capturing desktop, tablet, and phone layouts in both themes. Household
+`bun run screenshots` seeds the account it captures the same way a person seeds
+their own. Each capture API (one for desktop, one shared by tablet and phone)
+starts empty, and a Playwright setup project
+([`seed.setup.ts`](../packages/app-web/screenshots/seed.setup.ts)) runs
+`tearleads register` and then `tearleads seed` against it with the Continuity
+identity's recovery key on stdin. The CLI verifies the pinned Continuity
+manifest and seed contract before writing anything. The capture then imports
+that identity into a fresh browser, signs in, and waits for the app to download
+the seeded documents before capturing desktop, tablet, and phone layouts in
+both themes. Household
 detail captures assert decoded family/equipment photos and receipts, inventory
 fields, and tracker table rows and graph points. The browser locale and time
 zone are pinned so the dated readings render consistently. It writes below the
@@ -129,13 +131,15 @@ Add canonical facts and photographic assets in
 [a2f0/continuity](https://github.com/a2f0/continuity), regenerate and ship them
 there, then update the root catalog commit pin and run `bun install`. The
 contract test in
-[`packages/app/test/screenshot-seed/continuitySeed.test.ts`](../packages/app/test/screenshot-seed/continuitySeed.test.ts)
-builds and restores the pinned data into a separate database and blob store.
-Tracker `rows` go through `addRow`; repeated `equipment-photos` entries append
-independent images, while single-image attachment slots reject duplicates.
+[`continuitySeed.test.ts`](../packages/app/src/document-types/continuity/continuitySeed.test.ts)
+checks that the pinned data yields every document, title, and image the
+screenshot run asserts on, and the CLI's seed tests write it to an API and read
+it back from a fresh device. Tracker `rows` go through `addRow`; repeated
+`equipment-photos` entries append independent images, while single-image
+attachment slots reject duplicates.
 
 Tracker seeds preserve Continuity’s recorded wall-clock time when converting
-offset-bearing timestamps to the app’s `datetime-local` fields. The restore
+offset-bearing timestamps to the app’s `datetime-local` fields. The contract
 test verifies that every seeded reading is accepted by the chart parser.
 
 ## Verification

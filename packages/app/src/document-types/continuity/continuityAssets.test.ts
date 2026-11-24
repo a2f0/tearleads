@@ -2,10 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  loadContinuityAssets,
-  seedDigest,
-} from "../../src/document-types/continuity/continuityAssets";
+import { loadContinuityAssets, seedDigest } from "./continuityAssets";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -19,7 +16,6 @@ async function fixture() {
   const contents = {
     "seed.json": JSON.stringify({
       schemaVersion: 2,
-      password: "test",
       identitySeedPhrase: "fixture",
       contacts: [
         {

@@ -66,13 +66,7 @@ const baseConfig = {
       project: ["src/**/*.ts", "scripts/**/*.ts"],
     },
     "packages/app": {
-      // The root screenshots:seed script crosses into this workspace; Knip
-      // 6.42 needs its CLI and the tests outside src declared explicitly.
-      entry: [
-        "src/**/*.test.{ts,tsx}",
-        "test/screenshot-seed/buildScreenshotSeed.ts",
-        "test/screenshot-seed/**/*.test.ts",
-      ],
+      entry: ["src/**/*.test.{ts,tsx}"],
       project: ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"],
       includeEntryExports: true,
     },

@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
-// Shared helpers for driving the booted app shell in the screenshot run, used by
-// both the capture spec and the seed-restore step.
+// Shared helpers for driving the booted app shell, used by the screenshot run
+// and by e2e specs.
 
 const DISABLE_ANIMATIONS_CSS = `
   *, *::before, *::after {
@@ -14,6 +14,14 @@ const DISABLE_ANIMATIONS_CSS = `
 `;
 
 const windowedScreenshotPages = new WeakSet<Page>();
+// A quiet app loads its assets in under a second.
+const ASSET_SETTLE_TIMEOUT_MS = 2_000;
+
+/**
+ * How `waitForBooted` lets the network settle: "idle" waits until it goes
+ * idle, "assets" for at most two seconds, enough for a quiet app's assets.
+ */
+export type BootSettle = "idle" | "assets";
 
 export function preferWindowedScreenshotLayout(page: Page): void {
   windowedScreenshotPages.add(page);
@@ -44,7 +52,10 @@ export async function closeDefaultExplorerWindows(page: Page): Promise<void> {
   await expect(explorers).toHaveCount(0);
 }
 
-export async function waitForBooted(page: Page): Promise<void> {
+export async function waitForBooted(
+  page: Page,
+  settle: BootSettle = "idle",
+): Promise<void> {
   // Windowed shell mounts `.pane`; the routed (tablet/mobile) shell mounts
   // `.routed-pane`. Either means the app tree has rendered.
   await page
@@ -66,8 +77,17 @@ export async function waitForBooted(page: Page): Promise<void> {
   }
 
   // Best-effort: let initial asset loads and any host-enabled identity autopilot
-  // work settle. Never block on background network activity.
-  await page.waitForLoadState("networkidle").catch(() => {});
+  // work settle. Setup steps wait for idle: a second device reloaded before it
+  // went idle after importing the identity and signing in showed only its own
+  // contact, never the seeded ones. Capture loops pass "assets": the seeded data
+  // is on the device by then, and every full load re-syncs it for about 10 s,
+  // which ran the routed captures past the test timeout.
+  await page
+    .waitForLoadState(
+      "networkidle",
+      settle === "assets" ? { timeout: ASSET_SETTLE_TIMEOUT_MS } : {},
+    )
+    .catch(() => {});
 
   // Autopilot clears the first-run "Generate Key Pair" affordance once it has
   // derived the identity. If it never appears this resolves immediately.
@@ -120,32 +140,4 @@ export async function setStoredTheme(page: Page, theme: string): Promise<void> {
     },
     [THEME_CHOICE_STORAGE_KEY, theme] as const,
   );
-}
-
-// Restoring a backup authored under a different identity replaces the DB's root
-// container, but the persisted session + document/container caches still point
-// at the pre-restore root, so a plain reload re-bootstraps an empty root.
-// Clearing them makes the next reload re-derive the root container + read models
-// from the restored DB. (localStorage only; the identity registry is preserved
-// so the same per-identity DB file is reopened.)
-//
-// The shipping backup-restore mini-app clears the same caches before its
-// post-restore reload via clearRestoredLocalCaches (packages/app/src/providers/
-// db/clearRestoredLocalCaches.ts), except the session: it rewrites that signed
-// out and keeps the identity's root acknowledgements (#2365 finding 24). A
-// screenshot seed wants a clean session, so this helper still clears it. It runs
-// in the browser page context (page.evaluate), so it cannot import that module
-// and keeps its own copy of the prefixes.
-export async function clearStaleLocalState(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    for (const key of Object.keys(localStorage)) {
-      if (
-        key.startsWith("tearleads.local-session") ||
-        key.startsWith("tearleads.documents") ||
-        key.startsWith("tearleads.container-metadata")
-      ) {
-        localStorage.removeItem(key);
-      }
-    }
-  });
 }
