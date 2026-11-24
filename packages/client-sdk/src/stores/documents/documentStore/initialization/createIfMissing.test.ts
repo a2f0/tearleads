@@ -107,10 +107,16 @@ test("an open that may create joins a reading store with its own content", async
     expect(input.open(READ_ONLY, "second reader")).toBe(reader);
     expect(await reader.ensureInitialized()).toBe(false);
 
-    const creator = input.open({}, "creator text");
+    const creator = input.open(
+      { initialRows: [{ item: "first row" }] },
+      "creator text",
+    );
     expect(creator).toBe(reader);
     expect(await creator.ensureInitialized()).toBe(true);
     expect(creator.getSnapshot().text).toBe("creator text");
+    expect(creator.getSnapshot().rows).toMatchObject([
+      { fields: { item: "first row" } },
+    ]);
     expect(await input.loadRecord()).toMatchObject({ text: "creator text" });
   });
 });
@@ -124,5 +130,18 @@ test("an open that may create joins a reading store mid-initialization", async (
     expect(await initialized).toBe(true);
     expect(reader.getSnapshot().text).toBe("creator text");
     expect(await input.loadRecord()).toMatchObject({ text: "creator text" });
+  });
+});
+
+test("a creator whose content does not fit its kind cannot join a reading store", async () => {
+  await withEmptyDatabase("create-if-missing-bad-join", async (input) => {
+    const reader = input.open(READ_ONLY);
+    // Structured fields need a structured kind; this open asks for a note.
+    expect(() =>
+      input.open({ initialStructuredFields: { name: "Drill" } }, "creator"),
+    ).toThrow("Initial structured fields need a structured kind");
+
+    expect(await reader.ensureInitialized()).toBe(false);
+    expect(await input.loadRecord()).toBeNull();
   });
 });

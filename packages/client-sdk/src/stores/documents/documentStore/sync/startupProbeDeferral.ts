@@ -15,7 +15,7 @@ import {
  * deferral, and a joining opener all arm it here; the caller schedules the
  * sync lane.
  */
-export function armDocumentStoreStartupProbe(state: DocumentStoreState): void {
+function armDocumentStoreStartupProbe(state: DocumentStoreState): void {
   allowDocumentStoreRemoteSync(state);
   markDocumentStoreRemoteSyncPending(state, "independent");
   logRevalidationScheduled(state.runtime, "startup");

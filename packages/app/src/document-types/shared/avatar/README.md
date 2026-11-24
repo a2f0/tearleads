@@ -53,4 +53,7 @@ does for every contact. The SDK keeps a store for the session, so scrolling a
 large container grows memory until the database closes. Once open, a store
 takes part in domain-wide sync requests like any open document. Reopening a
 store replaces its runtime, which arms a reconnect probe when the connection
-changed since it last saw one, so the avatar source opens each document once.
+changed since it last saw one, so the avatar source opens each document once. A
+document deleted while its avatar opens leaves the source an unloaded store,
+which shows the kind's glyph until the record comes back or the source
+changes.
