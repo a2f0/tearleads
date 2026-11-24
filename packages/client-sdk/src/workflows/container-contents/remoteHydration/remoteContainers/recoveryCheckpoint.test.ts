@@ -10,6 +10,7 @@ import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/pri
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
 import { KeyingCheckpointRepository } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointRepository";
 import { openPrincipalPolicyBundleReader } from "../../../../data/persistence/principalPolicy/principalPolicyBundleRepository";
+import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
@@ -127,6 +128,7 @@ test.each(["before verification", "before insertion"])(
             organizationId: original.organizationId,
             rootContainerId: parent.projection.containerId,
           },
+          state: { domainScope: createDomainScope() },
           infra: { execSql },
           resolveTrustedUserIdentity: resolveUserKey,
           util: { log: () => {}, reportSecurityIncident: async () => {} },

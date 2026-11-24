@@ -13,6 +13,7 @@ import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpe
 import { withTestExecSql } from "../../../../../test/helpers/data/withTestExecSql";
 import { withPrincipalPolicies } from "../../../../../test/helpers/workflows/principalPolicyServiceFixture";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
+import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { SecurityIncidentContext } from "../../../../data/shared/securityIncidents";
 import {
   buildMaterializedContainerCreatePlan,
@@ -65,6 +66,7 @@ for (const [signedSlot, listedSlot] of [
                 ? projection.containerId
                 : parent.projection.containerId,
           },
+          state: { domainScope: createDomainScope() },
           infra: { execSql },
           resolveTrustedUserIdentity: createTestTrustedUserIdentityResolver({
             userId: parent.userId,
@@ -161,6 +163,7 @@ test("an acknowledged root created by another identity is never the merge target
           getCurrentPrincipalPolicy: async () => null,
         },
         auth,
+        state: { domainScope: createDomainScope() },
         infra: { execSql },
         resolveTrustedUserIdentity: createTestTrustedUserIdentityResolver({
           userId: attacker.userId,
@@ -303,6 +306,7 @@ test("a root head at a later epoch binds the epoch-1 creator through its served 
           getCurrentPrincipalPolicy: async () => null,
         },
         auth,
+        state: { domainScope: createDomainScope() },
         infra: { execSql },
         resolveTrustedUserIdentity: createTestTrustedUserIdentityResolver({
           userId: owner.userId,

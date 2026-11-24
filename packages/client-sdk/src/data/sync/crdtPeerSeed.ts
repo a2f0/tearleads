@@ -67,6 +67,30 @@ const seedCachesByEnvironment = new WeakMap<
   Map<string, Promise<string>>
 >();
 
+// Hosts without device storage (the CLI, tests) keep one memory-only seed per
+// runtime and scope, so a runtime's records keep their peers while it lives.
+const memoryOnlyRuntimeSeeds = new WeakMap<
+  object,
+  Map<string, Promise<string>>
+>();
+
+function memoryOnlyRuntimePeerSeed(
+  scope: string,
+  owner: object,
+): Promise<string> {
+  let seeds = memoryOnlyRuntimeSeeds.get(owner);
+  if (!seeds) {
+    seeds = new Map();
+    memoryOnlyRuntimeSeeds.set(owner, seeds);
+  }
+  let seed = seeds.get(scope);
+  if (!seed) {
+    seed = Promise.resolve(crypto.randomUUID());
+    seeds.set(scope, seed);
+  }
+  return seed;
+}
+
 const runtimeSeedsByEnvironment = new WeakMap<
   PeerSeedEnvironment,
   {
@@ -85,7 +109,7 @@ export function getRuntimePeerSeed(
   try {
     resolvedEnvironment = environment ?? defaultPeerSeedEnvironment();
   } catch {
-    return Promise.resolve(crypto.randomUUID());
+    return memoryOnlyRuntimePeerSeed(scope, owner);
   }
   let runtimeSeeds = runtimeSeedsByEnvironment.get(resolvedEnvironment);
   if (!runtimeSeeds) {
@@ -110,6 +134,27 @@ export function getRuntimePeerSeed(
   }
   seeds.set(scope, seed);
   return seed;
+}
+
+/**
+ * The seed of the peer one writer uses for one record: a runtime seed from
+ * `getRuntimePeerSeed`, the signed-in user, and the record. The runtime seed
+ * never leaves the device, so no other user can predict the peer before its
+ * first commit on the record's document, and that commit is what claims it.
+ * The user keeps two identities on one device apart, and the record keeps a
+ * peer the server has seen on one document from naming this writer on
+ * another.
+ */
+export function recordPeerSeed(input: {
+  readonly recordId: string;
+  readonly runtimeSeed: string;
+  readonly userId: string | null;
+}): string {
+  return JSON.stringify([
+    input.runtimeSeed,
+    input.userId ?? "",
+    input.recordId,
+  ]);
 }
 
 /**

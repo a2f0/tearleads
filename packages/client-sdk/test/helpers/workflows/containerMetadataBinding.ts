@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../../../src/data/persistence/container-contents/containerContentsPersistence";
+import { createDomainScope } from "../../../src/data/shared/domainScope";
 import type { ExecSql } from "../../../src/data/sqlite/sqlSchema";
 import { persistContainerMetadataStateFromRuntime } from "../../../src/workflows/container-contents/metadata/metadataPersistence";
 import { upsertRemoteContainerState } from "../../../src/workflows/container-contents/remoteHydration/remoteContainers/remoteContainerState";
@@ -58,6 +59,7 @@ export async function createMetadataBindingFixture(execSql: ExecSql) {
         rootContainerId: parent.projection.containerId,
         userId: parent.userId,
       },
+      state: { domainScope: createDomainScope() },
       infra: { execSql },
       resolveTrustedUserIdentity: createTestTrustedUserIdentityResolver({
         userId: parent.userId,

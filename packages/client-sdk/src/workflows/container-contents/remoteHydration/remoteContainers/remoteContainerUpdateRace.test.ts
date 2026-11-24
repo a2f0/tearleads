@@ -9,6 +9,7 @@ import {
   createClientSQLitePersistenceRuntime,
 } from "../../../../data/sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../../../data/sqlite/sqlSchema";
+import { testContainerMetadataWriter } from "../../metadata/metadata.testFixtures";
 import {
   installContainerMetadataRecord,
   persistContainerMetadataStateFromRuntime,
@@ -144,6 +145,7 @@ test("stale same-identity hydration cannot overwrite a newer pane", async () => 
       execSql: first.runtime.execSql,
       persistence: sqlContainerContentsPersistence,
       storedContainer: staleStored,
+      writer: testContainerMetadataWriter,
     });
 
     await sqlContainerContentsPersistence.saveContainer(
@@ -253,6 +255,7 @@ test("pending structural hydration preserves a newer pane move", async () => {
       execSql: first.runtime.execSql,
       persistence: sqlContainerContentsPersistence,
       storedContainer: staleStored,
+      writer: testContainerMetadataWriter,
     });
     staleState.record.accessStateHash = "access-1";
 
