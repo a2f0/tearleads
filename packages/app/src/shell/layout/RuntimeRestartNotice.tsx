@@ -55,11 +55,15 @@ export interface RuntimeRestartSource {
   readonly subscribe: (listener: () => void) => () => void;
 }
 
+// Each SDK value is read inside a function body, not at module scope: in the
+// Bun dev bundle the SDK root finishes evaluating only after its async Loro
+// WASM dependency, so this module, evaluated first, would read its namespace
+// as null and crash the app on load (envFileDocumentDefinition.ts).
 const SDK_RUNTIME_RESTART: RuntimeRestartSource = {
-  getStatus: getRuntimeHealth,
-  prepare: prepareRuntimeRestart,
+  getStatus: () => getRuntimeHealth(),
+  prepare: () => prepareRuntimeRestart(),
   reload: () => window.location.reload(),
-  subscribe: subscribeRuntimeHealth,
+  subscribe: (listener) => subscribeRuntimeHealth(listener),
 };
 
 /**
