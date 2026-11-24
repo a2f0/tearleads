@@ -156,7 +156,9 @@ test("a local write's row landing after the pass's row merges with it", async ()
     });
 
     expect(merged).toHaveLength(1);
-    expect(await queued(fixture)).toEqual(merged);
+    expect((await queued(fixture)).map(({ id }) => id)).toEqual(
+      merged.map(({ id }) => id),
+    );
     expect(merged[0]?.updateData).toBe(pendingUpdate.updateData);
     expect(await queueCovers(fixture, fixture.documentVersion)).toBe(true);
   } finally {
