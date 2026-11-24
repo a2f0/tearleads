@@ -15,6 +15,11 @@ export const TELEMETRY_CONSENT_STORAGE_KEY = "tearleads.telemetry";
 export interface TelemetryConsent {
   readonly enabled: () => boolean;
   readonly setEnabled: (enabled: boolean) => void;
+  /**
+   * Re-reads the stored choice, as after this page cleared storage itself:
+   * no `storage` event reports a page's own writes.
+   */
+  readonly refresh: () => void;
   /** Notifies on a change made here or in another tab of this origin. */
   readonly subscribe: (listener: () => void) => () => void;
 }
@@ -30,7 +35,7 @@ function loadTelemetryConsent(): boolean {
  * One per page, created by the shell's entry point before its collectors so
  * they start from the stored choice. Another tab's change arrives as a
  * `storage` event, heard while anything subscribes; a cleared store, as after
- * a device reset elsewhere, reads as off.
+ * a device reset, reads as off.
  */
 export function createTelemetryConsent(): TelemetryConsent {
   const listeners = new Set<() => void>();
@@ -40,9 +45,10 @@ export function createTelemetryConsent(): TelemetryConsent {
     current = next;
     for (const listener of [...listeners]) listener();
   };
+  const refresh = () => update(loadTelemetryConsent());
   const onStorage = (event: StorageEvent) => {
     if (event.key === null || event.key === TELEMETRY_CONSENT_STORAGE_KEY) {
-      update(loadTelemetryConsent());
+      refresh();
     }
   };
   const listening = typeof window !== "undefined";
@@ -55,13 +61,15 @@ export function createTelemetryConsent(): TelemetryConsent {
       );
       update(enabled);
     },
+    refresh,
     subscribe(listener) {
-      if (listeners.size === 0 && listening) {
-        // Nothing heard another tab while unsubscribed; catch up first.
-        current = loadTelemetryConsent();
-        window.addEventListener("storage", onStorage);
-      }
       listeners.add(listener);
+      if (listeners.size === 1 && listening) {
+        window.addEventListener("storage", onStorage);
+        // Nothing heard another tab while unsubscribed. Catching up after
+        // adding the listener tells it when what it read before is stale.
+        refresh();
+      }
       return () => {
         listeners.delete(listener);
         if (listeners.size === 0 && listening) {

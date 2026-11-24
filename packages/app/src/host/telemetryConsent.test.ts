@@ -57,10 +57,25 @@ test("another tab's change reaches this one, and a cleared store reads as off", 
   expect(consent.enabled()).toBe(false);
   expect(seen).toEqual([true, false]);
 
-  // With nothing subscribed it stops listening, then catches up on return.
+  // With nothing subscribed it stops listening. On return it catches up and
+  // tells the new listener, whose earlier read of enabled() is now stale.
   unsubscribe();
   otherTabWrites("enabled");
   expect(seen).toEqual([true, false]);
   consent.subscribe(() => seen.push(consent.enabled()));
   expect(consent.enabled()).toBe(true);
+  expect(seen).toEqual([true, false, true]);
+});
+
+test("refresh picks up this page's own clear, which no storage event reports", () => {
+  globalThis.localStorage.setItem(TELEMETRY_CONSENT_STORAGE_KEY, "enabled");
+  const consent = createTelemetryConsent();
+  let notified = 0;
+  consent.subscribe(() => notified++);
+
+  globalThis.localStorage.clear();
+  expect(consent.enabled()).toBe(true);
+  consent.refresh();
+  expect(consent.enabled()).toBe(false);
+  expect(notified).toBe(1);
 });
