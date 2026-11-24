@@ -19,10 +19,15 @@ export interface AvatarDocument {
 /** Where listed documents' avatars come from: their stores, then their blobs. */
 export interface DocumentAvatarSource {
   readonly blobStore: BlobStore;
-  /** Null when there is no local copy to read the avatar from. */
+  /**
+   * The document's store, opened once per source and reused after that.
+   * Null when there is no local copy to read the avatar from.
+   */
   readonly openDocument: (
     document: AvatarDocument,
   ) => Promise<DocumentStore | null>;
+  /** The store this source already opened for a document, without opening one. */
+  readonly openedDocument: (localId: string) => DocumentStore | null;
 }
 
 interface DocumentAvatarSourceInput {
@@ -43,40 +48,82 @@ interface DocumentAvatarSourceInput {
  *   linked document keeps its container scope.
  * - It opens on demand, so opening starts no remote sync; a later view that
  *   opens it normally still runs the startup probe.
- * Each is a full store, loaded as any view loads one (load-time maintenance
- * included), and the SDK keeps it for the session. Once open, it takes part in
- * domain-wide sync requests and reconnect probes like any open document.
- * Stores are shared per domain, so one another view already loaded is read
- * without loading it again.
+ * Each is a full store, loaded as any view loads one, and the SDK keeps it for
+ * the session. The source keeps the stores it opened too, so a list that
+ * remounts or scrolls back reads them without reopening: a reopen replaces the
+ * store's runtime and can arm a reconnect probe. A store a relink displaced is
+ * dropped, and the next open follows the record that now owns the document.
  */
 export function createDocumentAvatarSource(
   input: DocumentAvatarSourceInput,
 ): DocumentAvatarSource {
   const { blobStore, dbStatus, documentQueries, documents } = input;
+  const opened = new Map<string, DocumentStore>();
+  const opening = new Map<string, Promise<DocumentStore | null>>();
+
+  const openedDocument = (localId: string): DocumentStore | null => {
+    const store = opened.get(localId);
+    if (store?.getSnapshot().relinkedElsewhere) {
+      opened.delete(localId);
+      return null;
+    }
+    return store ?? null;
+  };
+
+  const openLocalCopy = async (
+    document: AvatarDocument,
+  ): Promise<DocumentStore | null> => {
+    if (dbStatus !== "ready") {
+      return null;
+    }
+
+    const summary = await documentQueries.loadDocumentSummary(
+      document.localId,
+      { requireHydrated: true },
+    );
+    if (!summary?.containerId) {
+      return null;
+    }
+
+    return documents.open(
+      {
+        containerId: summary.containerId,
+        documentId: summary.documentId,
+        localId: summary.id,
+      },
+      { remoteSyncMode: "on-demand" },
+    );
+  };
+
   return {
     blobStore,
-    openDocument: async (document) => {
-      if (dbStatus !== "ready") {
-        return null;
+    openDocument: (document) => {
+      const store = openedDocument(document.localId);
+      if (store) {
+        return Promise.resolve(store);
+      }
+      const pending = opening.get(document.localId);
+      if (pending) {
+        return pending;
       }
 
-      const summary = await documentQueries.loadDocumentSummary(
-        document.localId,
-        { requireHydrated: true },
-      );
-      if (!summary?.containerId) {
-        return null;
-      }
-
-      return documents.open(
-        {
-          containerId: summary.containerId,
-          documentId: summary.documentId,
-          localId: summary.id,
-        },
-        { remoteSyncMode: "on-demand" },
-      );
+      // A document with no local copy yet is not remembered, so a later
+      // listing tries it again.
+      const open = openLocalCopy(document)
+        .then(
+          (next) => {
+            if (next) {
+              opened.set(document.localId, next);
+            }
+            return next;
+          },
+          () => null,
+        )
+        .finally(() => opening.delete(document.localId));
+      opening.set(document.localId, open);
+      return open;
     },
+    openedDocument,
   };
 }
 
