@@ -74,10 +74,7 @@ export function PhraseConfirmationDialog({
   };
 
   return (
-    <MiniAppModalBackdrop
-      className="phrase-confirmation-dialog-backdrop"
-      role="presentation"
-    >
+    <MiniAppModalBackdrop layer="raised" role="presentation">
       <MiniAppModalPanel
         role="dialog"
         aria-labelledby={titleId}

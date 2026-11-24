@@ -157,7 +157,6 @@
 
   /* === Overlays === */
   --overlay-background: rgb(0 0 0 / 35%);
-  --modal-width: 22rem;
 
   /* === Scrollbars === */
   /* Firefox renders classic (space-consuming) scrollbars while Chromium

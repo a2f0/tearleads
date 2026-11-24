@@ -9,8 +9,9 @@ const DETAIL_MODAL_CLOSE_LABEL = "Close";
 
 /**
  * A read-only drill-down modal: a title over the caller's sections, then a
- * Close button. It closes on Escape, a tap on the backdrop, or Close, and
- * returns focus to whatever opened it. `actions` sit before Close.
+ * Close button. It takes over its region like every modal, so nothing outside
+ * it is left to tap: it closes on Escape or Close, and returns focus to
+ * whatever opened it. `actions` sit before Close.
  */
 export function MiniAppDetailModal({
   actions,
@@ -28,14 +29,7 @@ export function MiniAppDetailModal({
   useModalEscapeAndFocusRestore(onClose, closeButtonRef);
 
   return (
-    <MiniAppModalBackdrop
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-      role="presentation"
-    >
+    <MiniAppModalBackdrop role="presentation">
       <MiniAppModalPanel
         aria-labelledby={titleId}
         aria-modal="true"
