@@ -59,6 +59,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/document-sync/BaselineCursorCoverage.md": 1,
   "formal/document-sync/BaselineDominance.md": 1,
   "formal/document-sync/BlobEnvelopeAuthority.md": 1,
+  "formal/document-sync/ContentKeyCommitment.md": 1,
   "formal/document-sync/ContentWriteAuthority.md": 1,
   "formal/document-sync/DeferredTailSettlement.md": 1,
   "formal/document-sync/OutgoingQueueMerge.md": 1,

@@ -63,10 +63,11 @@ export const documentSyncProgress = sqliteTable(
  * - `attempts`: For a `loro_runtime` row, how many process lifetimes have
  *   each failed the Loro runtime on the update; null at other stages.
  * - `judge`: As in `document_sync_progress`.
- * - `contentKeyEpoch`, `keyFingerprint`: The epoch and a fingerprint of the
- *   content key the payload was judged under (`deriveDocumentContentKeyFingerprint`),
- *   never the key. A later pass that holds another key for that epoch drops
- *   the cursor so the update is judged again.
+ * - `contentKeyEpoch`, `keyFingerprint`: The epoch and the content-key
+ *   commitment of the key the payload was judged under
+ *   (`deriveDocumentContentKeyCommitment`), never the key. A later pass that
+ *   holds another key for that epoch drops the cursor so the update is judged
+ *   again.
  * - `voidedAt`: When this device first voided it.
  */
 export const documentVoidUpdates = sqliteTable(

@@ -2836,6 +2836,13 @@
       "DocumentContentKeyBundleRequest": {
         "type": "object",
         "properties": {
+          "contentKeyCommitment": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "The epoch's content-key commitment: an HKDF output of the wrapped key. It opens an epoch and must repeat the stored one when a link adds targets."
+          },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
             "maximum": 1.7976931348623157e+308,
@@ -2860,6 +2867,7 @@
           }
         },
         "required": [
+          "contentKeyCommitment",
           "contentKeyEpoch",
           "linkSetManifestHash",
           "targetHash",
@@ -2871,6 +2879,13 @@
       "DocumentContentKeyBundleResponse": {
         "type": "object",
         "properties": {
+          "contentKeyCommitment": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "The epoch's content-key commitment; every update of the epoch carries it in its signed envelope."
+          },
           "contentKeyEpoch": {
             "exclusiveMinimum": 0,
             "maximum": 1.7976931348623157e+308,
@@ -2898,6 +2913,7 @@
           }
         },
         "required": [
+          "contentKeyCommitment",
           "contentKeyEpoch",
           "documentId",
           "linkSetManifestHash",

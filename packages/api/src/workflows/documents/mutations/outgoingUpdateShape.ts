@@ -1,4 +1,7 @@
-import type { WriteHeader } from "@tearleads/crypto";
+import type {
+  ParsedDocumentEncryptedUpdate,
+  WriteHeader,
+} from "@tearleads/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
@@ -72,8 +75,8 @@ export async function assertOutgoingEnvelopeMatchesHeader(input: {
   readonly documentId: string;
   readonly header: WriteHeader;
   readonly update: Pick<DocumentOutgoingUpdate, "encryptedData">;
-}): Promise<void> {
-  let envelope: ReturnType<typeof parseDocumentEncryptedUpdate>;
+}): Promise<ParsedDocumentEncryptedUpdate> {
+  let envelope: ParsedDocumentEncryptedUpdate;
   try {
     envelope = parseDocumentEncryptedUpdate(input.update.encryptedData);
   } catch (error) {
@@ -101,6 +104,25 @@ export async function assertOutgoingEnvelopeMatchesHeader(input: {
   ) {
     throw new DocumentMutationError(
       "Document update envelope does not match its write header",
+      400,
+    );
+  }
+  return envelope;
+}
+
+/**
+ * A new update's envelope must commit to the content key of the epoch it is
+ * written at. Every honest writer encrypts under the key it unwrapped and
+ * checked against that commitment, so this refuses only a writer that used
+ * another key, whose update every reader of the epoch would fail to judge.
+ */
+export function assertOutgoingEnvelopeCommitsToEpochKey(
+  envelope: Pick<ParsedDocumentEncryptedUpdate, "contentKeyCommitment">,
+  contentKeyCommitment: string,
+): void {
+  if (envelope.contentKeyCommitment !== contentKeyCommitment) {
+    throw new DocumentMutationError(
+      "Document update envelope does not commit to its epoch's content key",
       400,
     );
   }

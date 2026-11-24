@@ -9,8 +9,11 @@ import { CONTENT_RECORD_ENCRYPTION_SUITE } from "./keying/writeHeaderTypes";
 const iv = new Uint8Array(12).fill(7);
 const ciphertext = new Uint8Array([1, 2, 3, 4]);
 
+const contentKeyCommitment = "ab".repeat(32);
+
 const envelope = {
   ciphertext: bytesToBase64(ciphertext),
+  contentKeyCommitment,
   contentKeyEpoch: 2,
   contentRecordId: "content-record",
   encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -29,6 +32,7 @@ function parse(overrides: Record<string, unknown>) {
 test("an envelope every reader can open parses to its fields", () => {
   expect(parseDocumentEncryptedUpdate(JSON.stringify(envelope))).toEqual({
     ciphertext,
+    contentKeyCommitment,
     contentKeyEpoch: 2,
     contentRecordId: "content-record",
     iv,
@@ -60,6 +64,11 @@ test("each field must be present and well formed", () => {
     "nonceDomainHash",
   ]) {
     expect(parse({ [key]: "" })).toThrow(`${key} must be a non-empty string`);
+  }
+  for (const commitment of [undefined, "AB".repeat(32), "ab".repeat(31)]) {
+    expect(parse({ contentKeyCommitment: commitment })).toThrow(
+      "contentKeyCommitment",
+    );
   }
   for (const contentKeyEpoch of [0, -1, 1.5, "2", 2 ** 53]) {
     expect(parse({ contentKeyEpoch })).toThrow(

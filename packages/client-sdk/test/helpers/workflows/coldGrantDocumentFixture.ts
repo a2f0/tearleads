@@ -16,6 +16,7 @@ import type {
   DocumentKekTargetsResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
+import { deriveDocumentContentKeyCommitment } from "../../../src/data/documents/shared/sync/contentKeyCommitment";
 import { prepareDocumentOutgoingUpdates } from "../../../src/workflows/documents/syncPlan/syncContentKeys";
 import { signDocumentOutgoingUpdate } from "../../../src/workflows/documents/syncPlan/syncPlanIdentity";
 import {
@@ -68,6 +69,11 @@ async function createContentKeyBundle(input: {
   });
 
   return {
+    contentKeyCommitment: await deriveDocumentContentKeyCommitment({
+      contentKey: input.contentKey,
+      contentKeyEpoch: input.contentKeyEpoch,
+      documentId: DOCUMENT_ID,
+    }),
     contentKeyEpoch: input.contentKeyEpoch,
     documentId: DOCUMENT_ID,
     linkSetManifestHash: input.linkSetManifestHash,

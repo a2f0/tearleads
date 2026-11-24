@@ -7,6 +7,7 @@ const DOCUMENT_ID = "document-1";
 
 function bundle(contentKeyEpoch: number): StoredDocumentContentKeyBundle {
   return {
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch,
     documentId: DOCUMENT_ID,
     linkSetManifestHash: `manifest-${contentKeyEpoch}`,

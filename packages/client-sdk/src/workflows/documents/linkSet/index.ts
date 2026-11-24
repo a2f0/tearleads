@@ -46,6 +46,7 @@ import {
   targetKey,
   uniqueSortedStrings,
 } from "../../../data/documents/shared/readers";
+import { deriveDocumentContentKeyCommitment } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import type {
   BuildDocumentLinkSetMutationPlanInput,
   DocumentCreateAuthor,
@@ -234,6 +235,7 @@ function readDocumentLinkSetPreviousEpoch(
 async function buildDocumentLinkSetMutationPlan({
   author,
   blobRewraps,
+  contentKeyCommitment,
   contentKeyEpoch,
   eventId = crypto.randomUUID(),
   operation,
@@ -302,6 +304,7 @@ async function buildDocumentLinkSetMutationPlan({
       targetContainerPathRefs,
       authorizingContainerPathRefs: eventPlan.authorizingContainerPathRefs,
       contentKeyBundle: {
+        contentKeyCommitment,
         contentKeyEpoch,
         linkSetManifestHash: manifestHash,
         targetHash,
@@ -387,6 +390,13 @@ export async function buildMaterializedDocumentLinkSetMutationPlan(
   const plan = await buildDocumentLinkSetMutationPlan({
     author: input.author,
     blobRewraps: await input.prepareBlobRewraps(targetState.targets),
+    // A link repeats the commitment the unwrap just checked; an unlink
+    // commits to its fresh key.
+    contentKeyCommitment: await deriveDocumentContentKeyCommitment({
+      contentKey,
+      contentKeyEpoch,
+      documentId: input.writerProjection.documentId,
+    }),
     contentKeyEpoch,
     eventId: input.eventId,
     operation: input.operation,

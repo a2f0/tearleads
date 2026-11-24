@@ -67,6 +67,7 @@ export function createContainerWithMetadataDocumentRequest() {
     metadataDocument: {
       body: { documentId: "document-1" },
       contentKeyBundle: {
+        contentKeyCommitment: "c".repeat(64),
         contentKeyEpoch: 1,
         linkSetManifestHash: "document-manifest-hash",
         targetHash: "target-hash",
@@ -103,6 +104,7 @@ function createDocumentMutationAcknowledgement() {
 
 function createDocumentContentKeyBundleRequest() {
   return {
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch: 1,
     linkSetManifestHash: "link-set-hash",
     targetHash: "target-hash",
@@ -206,6 +208,7 @@ export function createSyncRequest() {
     ],
     containerRekeys: [createContainerMutation()],
     contentKeyBundle: {
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 1,
       linkSetManifestHash: "link-set-hash",
       targetHash: "target-hash",
@@ -242,6 +245,7 @@ export function createSyncRequest() {
 
 export function createContentKeyBundleResponse() {
   return {
+    contentKeyCommitment: "c".repeat(64),
     contentKeyEpoch: 1,
     documentId: "document-1",
     linkSetManifestHash: "link-set-hash",

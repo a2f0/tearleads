@@ -21,7 +21,7 @@ import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
 } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
-import { deriveDocumentContentKeyFingerprints } from "../../../../data/documents/shared/sync/contentKeyFingerprint";
+import { deriveDocumentContentKeyCommitments } from "../../../../data/documents/shared/sync/contentKeyCommitment";
 import { documentVerdictJudge } from "../../../../data/documents/shared/sync/documentUpdateVerdict";
 import { MAX_LORO_RUNTIME_ATTEMPTS } from "../../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
@@ -173,7 +173,7 @@ test("rotation keeps an update this device voided out of the rebuild", async () 
     });
     const { contentKeyEpoch } = fixture.writerProjection.contentKeyBundle;
     const { documentId } = fixture.writerProjection;
-    const fingerprints = await deriveDocumentContentKeyFingerprints({
+    const fingerprints = await deriveDocumentContentKeyCommitments({
       contentKeysByEpoch: new Map([[contentKeyEpoch, fixture.contentKey]]),
       documentId,
     });

@@ -35,6 +35,7 @@ function createSyncRequest() {
   return {
     authorizingContainerPathRefs: [[MANIFEST_REF]],
     contentKeyBundle: {
+      contentKeyCommitment: "c".repeat(64),
       contentKeyEpoch: 1,
       linkSetManifestHash: "document-link-set-hash",
       targetHash: "target-hash",

@@ -12,6 +12,7 @@ For shared protocol terminology, see [glossary.md](./glossary.md).
   - [Threat Model](./security-guarantees/overview.md#threat-model)
   - [Root And System Destinations](./security-guarantees/overview.md#root-and-system-destinations)
   - [Recovery Key Disclosure](./security-guarantees/overview.md#recovery-key-disclosure)
+  - [Document Decrypt Verdicts](./security-guarantees/overview.md#document-decrypt-verdicts-do-not-depend-on-the-readers-key)
   - [Protocol Handshake](./security-guarantees/overview.md#protocol-handshake)
 - [Security properties](./security-guarantees/properties.md)
 - [Boundaries](./security-guarantees/boundaries.md)

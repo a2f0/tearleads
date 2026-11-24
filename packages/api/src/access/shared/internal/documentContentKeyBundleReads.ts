@@ -78,6 +78,7 @@ export async function loadDocumentContentKeyBundle(
   if (!row) return null;
   return {
     documentId: row.documentId,
+    contentKeyCommitment: row.contentKeyCommitment,
     contentKeyEpoch: row.contentKeyEpoch,
     linkSetManifestHash: row.linkSetManifestHash,
     targetHash: row.targetHash,
@@ -117,6 +118,7 @@ export async function toStoredBundle(
 ): Promise<StoredDocumentContentKeyBundle> {
   return {
     documentId: row.documentId,
+    contentKeyCommitment: row.contentKeyCommitment,
     contentKeyEpoch: row.contentKeyEpoch,
     linkSetManifestHash: row.linkSetManifestHash,
     targetHash: row.targetHash,

@@ -20,6 +20,7 @@ import invariant from "invariant";
 import { authenticate } from "../../test/helpers/authenticate";
 import { currentDocumentLinkRows } from "../../test/helpers/currentDocumentLinks";
 import { withDocumentMutationArtifacts } from "../../test/helpers/documentAcknowledgementFixture";
+import { CONTENT_KEY_COMMITMENT_FIXTURE } from "../../test/helpers/documentEnvelopeFixture";
 import {
   buildDocumentLinkRequest,
   buildDocumentUnlinkRequest,
@@ -447,6 +448,7 @@ test("POST /documents/:documentId/unlink rejects removing the final signed link"
       ],
     ],
     contentKeyBundle: {
+      contentKeyCommitment: CONTENT_KEY_COMMITMENT_FIXTURE,
       contentKeyEpoch: createdDocument.contentKeyEpoch,
       linkSetManifestHash: createdDocument.manifestHash,
       targetHash: createdDocument.targetHash,

@@ -70,12 +70,28 @@ Related docs:
 
 The collection of wrapped [content-key material](#content-key) for one document
 or blob content key epoch. A bundle must match the [target hash](#target-hash)
-derived from verified access state before the API or app accepts it.
+derived from verified access state before the API or app accepts it. A
+document bundle also declares its epoch's
+[content-key commitment](#content-key-commitment).
 
 Related docs:
 
 - [protocol-specification.md](../protocol-specification/container-access.md#document-link-and-sync-protocol)
 - [loro-e2ee-sync-protocol.md](../loro-e2ee-sync-protocol.md#protocol-shape)
+
+## Content-Key Commitment
+
+A one-way commitment to a document's [content key](#content-key) for one
+[epoch](#epoch), derived by HKDF in its own domain. The API stores it when the
+epoch opens and refuses any update or bundle of that epoch that names another.
+Every update's signed envelope names it, so a reader holding the committed key
+judges each update as its writer's readers do, and a reader holding another key
+records no verdict.
+
+Related docs:
+
+- [keying-design.md](../keying-design/content-keys.md#content-key-commitment)
+- [advisory-op-spans.md](../advisory-op-spans.md#void-updates)
 
 ## DEK
 

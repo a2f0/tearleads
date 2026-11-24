@@ -36,6 +36,10 @@ import {
   targetEnvelopeReference,
 } from "../readers";
 import {
+  assertDocumentContentKeyCommitment,
+  deriveDocumentContentKeyCommitment,
+} from "../sync/contentKeyCommitment";
+import {
   deriveDocumentCreateTargets,
   describeProjectionTargetKek,
   readLinkedContainerIdsFromDocumentManifest,
@@ -356,6 +360,14 @@ export async function unwrapDocumentContentKeyFromBundle(
   if (contentKey.byteLength !== 32) {
     throw new Error("Document content key must be 32 bytes");
   }
+  // Every reader and writer of the epoch must hold the key its opener
+  // committed to, so a failure to decrypt under it is the writer's alone.
+  await assertDocumentContentKeyCommitment({
+    contentKey,
+    contentKeyCommitment: bundle.contentKeyCommitment,
+    contentKeyEpoch: bundle.contentKeyEpoch,
+    documentId,
+  });
 
   return contentKey;
 }
@@ -441,6 +453,11 @@ export async function buildRotatedDocumentContentKeyBundle(input: {
   }
 
   return {
+    contentKeyCommitment: await deriveDocumentContentKeyCommitment({
+      contentKey: input.contentKey,
+      contentKeyEpoch,
+      documentId: contentKeyBundle.documentId,
+    }),
     contentKeyEpoch,
     documentId: contentKeyBundle.documentId,
     linkSetManifestHash: documentKekTargets.linkSetManifestHash,
