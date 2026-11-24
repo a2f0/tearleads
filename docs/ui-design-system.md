@@ -235,13 +235,38 @@ a surface's own CSS keeps only its layout around the strip and the panel.
   app bar or window toolbar. A strip below a heading, as in Get Info or
   Backup/Restore, keeps its place in the flow.
 - A negative margin cannot escape a scrollport, so a scrolling panel that holds
-  a strip takes over the inset as padding. `MiniAppPanel scroll` gets this
-  automatically; any other scroll container that holds a strip, such as Org
-  Manager's main region, adds the `mini-app-tabs-scrollport` class. A strip
-  nested inside further inline padding, such as a framed panel, needs its own
-  rule.
+  a strip, or a list running to the edges, takes over the inset as padding.
+  `MiniAppPanel scroll` gets this automatically; any other scroll container
+  that holds one, such as Org Manager's main region, adds the
+  `mini-app-edge-scrollport` class. A strip nested inside further inline
+  padding, such as a framed panel, needs its own rule.
 - [`e2e/tab-strip-bleed.spec.ts`](../packages/app-web/e2e/tab-strip-bleed.spec.ts)
   asserts the painted edges in every tier.
+
+## List tables
+
+A list a mini-app shows as a view's content (Explorer's item list and
+diagnostics lists, Shared with Me, Org Manager's roster, groups, and grants,
+Identity Manager's sessions, Root's section lists) runs to the edges of its
+surface the way a tab strip does, through the shared
+`mini-app-table-frame--edges` modifier
+([`MiniAppTableEdges.css`](../packages/app/src/components/mini-app/tables/MiniAppTableEdges.css)):
+
+- The column headings, the rule above them, and every row's line and highlight
+  reach both sides of the window's content pane or the routed pane. The text
+  and kebabs keep the content's inset. On a phone the list also takes
+  `mini-app-table-frame--bleed`, which sets its text nearer the screen edge.
+- A table inside an info or detail view, such as Get Info or a group's links,
+  keeps its inset.
+- A list with nothing above it in its mini-app, as in Shared with Me, sits
+  directly under the app bar or window toolbar. In the routed shell it drops
+  its own top rule, because the app bar already draws one.
+- A list inside a region that scrolls on its own needs that region to take over
+  the inset, as a tab strip does (see the scrollport rule above).
+- [`e2e/mini-app-list-edges.spec.ts`](../packages/app-web/e2e/mini-app-list-edges.spec.ts)
+  asserts the painted edges in every tier, and
+  [`e2e/shared-with-me-table.spec.ts`](../packages/app-web/e2e/shared-with-me-table.spec.ts)
+  asserts the flush leading list.
 
 ## Component policy
 
