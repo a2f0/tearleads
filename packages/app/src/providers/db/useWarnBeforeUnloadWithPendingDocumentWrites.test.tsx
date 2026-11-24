@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { createDomainScope, type DomainScope } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
-import { hasPendingPageDocumentWrites } from "./pageDocumentWrites";
+import {
+  hasPendingPageDocumentWrites,
+  reloadDiscardingPageDocumentWrites,
+} from "./pageDocumentWrites";
 import { useWarnBeforeUnloadWithPendingDocumentWrites } from "./useWarnBeforeUnloadWithPendingDocumentWrites";
 
 afterEach(cleanup);
@@ -68,4 +71,26 @@ test("lets a page-wide reload ask for pending writes while mounted", () => {
   pending = true;
   unmount();
   expect(hasPendingPageDocumentWrites()).toBe(false);
+});
+
+// Once the app asked and its user chose to lose the edits, that reload's
+// unload prompt asks nothing more. Chromium and Firefox dispatch
+// `beforeunload` inside `location.reload()`, as `reload` does here; a later
+// navigation asks again, even after a reload that threw.
+test("a reload whose edits the user discarded does not ask again", () => {
+  renderGuard(() => true);
+  const inside: boolean[] = [];
+
+  reloadDiscardingPageDocumentWrites(() => {
+    inside.push(dispatchBeforeUnload().defaultPrevented);
+  });
+  expect(inside).toEqual([false]);
+  expect(dispatchBeforeUnload().defaultPrevented).toBe(true);
+
+  expect(() =>
+    reloadDiscardingPageDocumentWrites(() => {
+      throw new Error("reload failed");
+    }),
+  ).toThrow("reload failed");
+  expect(dispatchBeforeUnload().defaultPrevented).toBe(true);
 });
