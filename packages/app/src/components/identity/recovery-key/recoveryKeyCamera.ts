@@ -1,6 +1,32 @@
+import type { Quad } from "qr/decode.js";
+import type { RecoveryQrFrame } from "./recoveryKeyScanState";
+
 interface RecoveryKeyCameraCallbacks {
+  /** Returns true when the value finishes the scan and the camera may stop. */
   readonly onDecode: (value: string) => boolean;
   readonly onError: (message: string) => void;
+  /** Reports each frame that did not finish the scan, for live feedback. */
+  readonly onFrame?: ((frame: RecoveryQrFrame) => void) | undefined;
+}
+
+// Ask for enough pixels that a dense recovery QR held at arm's length still
+// spans several pixels per module; frames are scaled down before decoding.
+const CAMERA_CONSTRAINTS: MediaStreamConstraints = {
+  audio: false,
+  video: {
+    facingMode: { ideal: "environment" },
+    height: { ideal: 720 },
+    width: { ideal: 1280 },
+  },
+};
+const DECODE_MAX_SIDE = 960;
+// Wait at least as long as the last decode took, so scanning never holds more
+// than half of the main thread on a slow device.
+const MIN_SCAN_GAP_MS = 80;
+
+interface RecoveryQrRead {
+  readonly frame: RecoveryQrFrame;
+  readonly value: string | undefined;
 }
 
 function cameraErrorMessage(error: unknown): string {
@@ -20,30 +46,46 @@ function readRecoveryQrFrame(
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
   decode: typeof import("qr/decode.js").default,
-): string | undefined {
+): RecoveryQrRead | undefined {
   if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
   const scale = Math.min(
     1,
-    960 / Math.max(video.videoWidth, video.videoHeight),
+    DECODE_MAX_SIDE / Math.max(video.videoWidth, video.videoHeight),
   );
   canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
   canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
   context.drawImage(video, 0, 0, canvas.width, canvas.height);
   const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  // A holder keeps the callback's write visible to control-flow analysis.
+  const located: { outline?: Quad } = {};
+  let value: string | undefined;
   try {
-    return decode(pixels);
+    value = decode(pixels, {
+      pointsOnDetect: (points) => {
+        located.outline = points.outline;
+      },
+    });
   } catch {
     // An undecodable frame is normal while the camera focuses.
-    return undefined;
   } finally {
     pixels.data.fill(0);
   }
+  return {
+    frame: {
+      at: performance.now(),
+      height: pixels.height,
+      outline: located.outline,
+      rejected: value !== undefined,
+      width: pixels.width,
+    },
+    value,
+  };
 }
 
 /** Own the stream even while permission or video playback is still pending. */
 export function startRecoveryKeyCamera(
   video: HTMLVideoElement,
-  { onDecode, onError }: RecoveryKeyCameraCallbacks,
+  { onDecode, onError, onFrame }: RecoveryKeyCameraCallbacks,
 ): () => void {
   let stopped = false;
   let stream: MediaStream | undefined;
@@ -69,6 +111,15 @@ export function startRecoveryKeyCamera(
     onError(message);
   };
 
+  const report = (read: RecoveryQrRead | undefined) => {
+    if (read?.value !== undefined && onDecode(read.value)) {
+      stop();
+      return;
+    }
+    // A callback may have closed the scan; report nothing after that.
+    if (!stopped && read) onFrame?.(read.frame);
+  };
+
   const start = async () => {
     if (!navigator.mediaDevices?.getUserMedia) {
       fail(
@@ -86,10 +137,8 @@ export function startRecoveryKeyCamera(
       return;
     }
     const { default: decodeQR } = decoder;
-    const acquired = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { facingMode: { ideal: "environment" } },
-    });
+    const acquired =
+      await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS);
     if (stopped) {
       for (const track of acquired.getTracks()) track.stop();
       return;
@@ -109,12 +158,11 @@ export function startRecoveryKeyCamera(
     const scan = () => {
       if (stopped) return;
       try {
-        const decoded = readRecoveryQrFrame(video, canvas, context, decodeQR);
-        if (decoded !== undefined && onDecode(decoded)) {
-          stop();
-          return;
-        }
-        timer = setTimeout(scan, 150);
+        const startedAt = performance.now();
+        report(readRecoveryQrFrame(video, canvas, context, decodeQR));
+        if (stopped) return;
+        const elapsed = performance.now() - startedAt;
+        timer = setTimeout(scan, Math.max(MIN_SCAN_GAP_MS, elapsed));
       } catch {
         fail(
           "Could not read the camera. Try scanning again or enter your passphrase.",

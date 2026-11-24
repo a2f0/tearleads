@@ -1,15 +1,27 @@
 import { mock, spyOn } from "bun:test";
 import encodeQR from "qr";
 
-/** Real QR pixels keep camera tests exercising the production decoder. */
-function recoveryQrPixels(value: string): ImageData {
+/**
+ * Real QR pixels keep camera tests exercising the production decoder. An
+ * unreadable code keeps its finder patterns but scrambles the data between
+ * them, so the decoder locates it without reading it, as during focusing.
+ */
+function recoveryQrPixels(value: string, unreadable = false): ImageData {
   const matrix = encodeQR(value, "raw", { border: 4 });
   const width = matrix.length * 4;
   const data = new Uint8ClampedArray(width * width * 4);
+  const scrambled = (row: number, column: number) =>
+    unreadable &&
+    row > 12 &&
+    row < matrix.length - 12 &&
+    (row * 3 + column * 7) % 2 === 0;
   for (let y = 0; y < width; y++) {
     for (let x = 0; x < width; x++) {
       const offset = (y * width + x) * 4;
-      const shade = matrix[Math.floor(y / 4)]?.[Math.floor(x / 4)] ? 0 : 255;
+      const row = Math.floor(y / 4);
+      const column = Math.floor(x / 4);
+      const dark = scrambled(row, column) || matrix[row]?.[column];
+      const shade = dark ? 0 : 255;
       data[offset] = shade;
       data[offset + 1] = shade;
       data[offset + 2] = shade;
@@ -63,6 +75,9 @@ export function installRecoveryQrCamera(value: string) {
     stream,
     setCode: (code: string) => {
       pixels = recoveryQrPixels(code);
+    },
+    setUnreadableCode: (code: string) => {
+      pixels = recoveryQrPixels(code, true);
     },
     clearFrame: () => {
       pixels.data.fill(255);

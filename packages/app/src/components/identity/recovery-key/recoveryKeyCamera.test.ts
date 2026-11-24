@@ -4,6 +4,7 @@ import { waitFor } from "@testing-library/react";
 import { installRecoveryQrCamera } from "../../../../test/helpers/recoveryQrCameraTestKit";
 import { recoveryKeyScanPhrase } from "../../../identity/recoveryKeyScanPhrase";
 import { startRecoveryKeyCamera } from "./recoveryKeyCamera";
+import type { RecoveryQrFrame } from "./recoveryKeyScanState";
 
 let camera: ReturnType<typeof installRecoveryQrCamera> | undefined;
 let cancel: (() => void) | undefined;
@@ -38,8 +39,50 @@ test("decodes frames once and releases the camera after acceptance", async () =>
   expect(onError).not.toHaveBeenCalled();
   expect(camera.getUserMedia).toHaveBeenCalledWith({
     audio: false,
-    video: { facingMode: { ideal: "environment" } },
+    video: {
+      facingMode: { ideal: "environment" },
+      height: { ideal: 720 },
+      width: { ideal: 1280 },
+    },
   });
+});
+
+test("reports each unfinished frame with the code it located", async () => {
+  camera = installRecoveryQrCamera("unrelated QR");
+  const onFrame = mock((_frame: RecoveryQrFrame) => undefined);
+  cancel = startRecoveryKeyCamera(document.createElement("video"), {
+    onDecode: () => false,
+    onError: () => undefined,
+    onFrame,
+  });
+  await waitFor(() => expect(onFrame).toHaveBeenCalled());
+  const rejected = onFrame.mock.calls[0]?.[0];
+  expect(rejected?.rejected).toBe(true);
+  expect(rejected?.outline).toHaveLength(4);
+  expect(rejected?.width).toBeGreaterThan(0);
+  expect(rejected?.height).toBeGreaterThan(0);
+
+  camera.clearFrame();
+  const calls = onFrame.mock.calls.length;
+  await waitFor(() =>
+    expect(onFrame.mock.calls.length).toBeGreaterThan(calls + 1),
+  );
+  const empty = onFrame.mock.calls.at(-1)?.[0];
+  expect(empty?.rejected).toBe(false);
+  expect(empty?.outline).toBeUndefined();
+});
+
+test("an accepted frame is not reported as feedback", async () => {
+  camera = installRecoveryQrCamera("recovery test");
+  const onFrame = mock(() => undefined);
+  const onDecode = mock(() => true);
+  cancel = startRecoveryKeyCamera(document.createElement("video"), {
+    onDecode,
+    onError: () => undefined,
+    onFrame,
+  });
+  await waitFor(() => expect(onDecode).toHaveBeenCalledTimes(1));
+  expect(onFrame).not.toHaveBeenCalled();
 });
 
 test("cancellation releases a stream granted after the scan closed", async () => {
