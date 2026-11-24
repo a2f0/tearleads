@@ -57,12 +57,8 @@ test("create organization dialog mounts as a body-level overlay", () => {
     container: host,
   });
 
+  expect(host.querySelector(".mini-app-modal-backdrop--viewport")).toBeNull();
   expect(
-    host.querySelector(".org-manager-create-organization-dialog-backdrop"),
-  ).toBeNull();
-  expect(
-    document.body.querySelector(
-      ".org-manager-create-organization-dialog-backdrop",
-    ),
+    document.body.querySelector(".mini-app-modal-backdrop--viewport"),
   ).toBeTruthy();
 });
