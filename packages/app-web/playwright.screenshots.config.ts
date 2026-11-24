@@ -38,9 +38,10 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  // Routed captures reload every view in both themes; the full set takes
-  // several minutes. Individual readiness assertions retain short timeouts.
-  timeout: 600_000,
+  // Routed captures reload every view in both themes, and each signed-in load
+  // re-syncs the seeded account: a routed project took 7.4 minutes on a quiet
+  // machine. Individual readiness assertions retain short timeouts.
+  timeout: 900_000,
   reporter: [["list"]],
   use: {
     baseURL: WEB_APP_BASE_URL,

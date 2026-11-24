@@ -161,7 +161,7 @@ async function captureRouted(page: Page, outputDir: string): Promise<void> {
     const targetPath = screen.route.replace(/\/$/, "") || "/";
     if (currentPath !== targetPath) {
       await page.goto(screen.route);
-      await waitForBooted(page);
+      await waitForBooted(page, "assets");
     }
     await disableAnimations(page);
     if (screen.name === "org-manager") {
@@ -248,7 +248,7 @@ async function captureRoutedDetails(
 ): Promise<void> {
   for (const screen of DETAIL_SCREENS) {
     await page.goto(screen.route);
-    await waitForBooted(page);
+    await waitForBooted(page, "assets");
     // Disable animations before opening so the list->detail transition is
     // instantaneous; page.goto resets injected styles, so this must run per
     // iteration and before the interaction.
@@ -281,7 +281,7 @@ async function captureWindowedDetails(
 async function applyTheme(page: Page, theme: string): Promise<void> {
   await setStoredTheme(page, theme);
   await page.reload();
-  await waitForBooted(page);
+  await waitForBooted(page, "assets");
   await page.waitForFunction(
     (expected) =>
       document.documentElement.getAttribute("data-theme") === expected,
