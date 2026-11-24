@@ -21,7 +21,6 @@ import {
   getExplorerContainerItemName,
   renderExplorerItemVisual,
 } from "./explorerItemVisual";
-import "./ExplorerItemListEdges.css";
 
 function ExplorerContainerItemTile(
   params: ExplorerItemListProps & { row: ContainerItemRow },
@@ -60,6 +59,7 @@ export function ExplorerContainerItemGrid(
       className={classNames(
         "explorer-item-grid-frame",
         "mini-app-table-frame--bleed",
+        "mini-app-table-frame--edges",
         "mini-app-table-frame--bleed-block-end",
         params.dragActive && "explorer-item-grid-frame--drop-active",
       )}

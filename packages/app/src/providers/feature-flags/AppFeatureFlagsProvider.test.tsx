@@ -7,6 +7,7 @@ import {
 import {
   APP_FEATURE_FLAG_IDS,
   appFeatureFlagStorageKey,
+  defaultAppFeatureFlagMode,
   saveAppFeatureFlag,
 } from "./appFeatureFlags";
 
@@ -95,4 +96,43 @@ test("nested providers share one persistent feature-flag value", () => {
       appFeatureFlagStorageKey("workspace-switcher"),
     ),
   ).toBe("disabled");
+});
+
+test("resetting forgets every choice made on this device", () => {
+  for (const flag of APP_FEATURE_FLAG_IDS) {
+    saveAppFeatureFlag(
+      appFeatureFlagStorageKey(flag),
+      defaultAppFeatureFlagMode(flag) === "enabled" ? "disabled" : "enabled",
+    );
+  }
+  let value: AppFeatureFlagsValue | null = null;
+  render(
+    <AppFeatureFlagsProvider>
+      <FeatureFlagProbe
+        capture={(next) => {
+          value = next;
+        }}
+      />
+    </AppFeatureFlagsProvider>,
+  );
+  for (const flag of APP_FEATURE_FLAG_IDS) {
+    expect(captured(value).isEnabled(flag)).toBe(
+      defaultAppFeatureFlagMode(flag) !== "enabled",
+    );
+  }
+
+  act(() => {
+    captured(value).resetToDefaults();
+  });
+
+  for (const flag of APP_FEATURE_FLAG_IDS) {
+    expect(captured(value).isEnabled(flag)).toBe(
+      defaultAppFeatureFlagMode(flag) === "enabled",
+    );
+    // Cleared, not saved as the default, so a default that changes later is
+    // followed.
+    expect(
+      globalThis.localStorage.getItem(appFeatureFlagStorageKey(flag)),
+    ).toBeNull();
+  }
 });
