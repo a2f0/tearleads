@@ -429,7 +429,6 @@ async function syncReadOnlyRemoteDocumentFromPersistedState(
         response: submitted.response,
         settledPendingUpdateIds: [],
         acceptedRecoveryBaseline: false,
-        contentKeyFingerprintsByEpoch: new Map(),
         voidedUpdates: [],
       },
     };

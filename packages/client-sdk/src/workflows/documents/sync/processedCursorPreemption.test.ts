@@ -47,7 +47,6 @@ function preemptingVoid(): VoidedDocumentSyncUpdate {
     updateId: FORGED,
   });
   return {
-    contentKeyEpoch: 1,
     error,
     preemptedPeerId: PEER,
     stage: "loro_import",
@@ -57,7 +56,6 @@ function preemptingVoid(): VoidedDocumentSyncUpdate {
 
 function synced(): SyncRemoteDocumentResult {
   return {
-    contentKeyFingerprintsByEpoch: new Map([[1, "key-a"]]),
     decryptedUpdates: [],
     hasHeldPull: false,
     hasIncompletePull: false,

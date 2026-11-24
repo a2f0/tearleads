@@ -8,6 +8,7 @@ import {
 import { organizationReadModelTables } from "../schema";
 import { documentProjectionTables } from "../schema/documentProjectionSchema";
 import { documentTables } from "../schema/documentRecordSchema";
+import { documentSyncVerdictTables } from "../schema/documentSyncVerdictSchema";
 import { ensureSqlTables } from "../sqlSchema";
 import { localSchemaMigrations } from "./localSchemaMigrations";
 import {
@@ -157,7 +158,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5, 6]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
@@ -237,6 +238,100 @@ test("step 6 marks a version-5 database's pending uploads as first attaches", as
       ),
     ).toEqual([{ requeued: 0, slot_id: "photo" }]);
     await ensureSqlTables(execSql, documentProjectionTables);
+  } finally {
+    close();
+  }
+});
+
+// The version-6 shape, as the table definition created it before step 7.
+const VERSION_6_VOID_UPDATES = `CREATE TABLE "document_void_updates" (
+  "app_kind" TEXT NOT NULL,
+  "local_id" TEXT NOT NULL,
+  "document_id" TEXT NOT NULL,
+  "update_id" TEXT NOT NULL,
+  "stage" TEXT NOT NULL,
+  "message" TEXT NOT NULL,
+  "attempts" INTEGER,
+  "judge" TEXT NOT NULL,
+  "content_key_epoch" INTEGER,
+  "key_fingerprint" TEXT,
+  "voided_at" TEXT NOT NULL,
+  PRIMARY KEY ("app_kind", "local_id", "update_id")
+)`;
+
+test("step 7 drops the void rows' content-key columns and keeps the voids", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-void-key-columns",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 5),
+    });
+    await execSql(VERSION_6_VOID_UPDATES);
+    await execSql(
+      `INSERT INTO document_void_updates (app_kind, local_id, document_id,
+         update_id, stage, message, attempts, judge, content_key_epoch,
+         key_fingerprint, voided_at)
+       VALUES ('documents', 'note', 'doc', 'liar', 'loro_import', 'false span',
+         NULL, 'void-rules-3:loro-crdt@1.0.0', 1, ?, ?)`,
+      ["a".repeat(64), CREATED_AT],
+    );
+
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+
+    expect(
+      await execSql(
+        "SELECT name FROM pragma_table_info('document_void_updates') ORDER BY cid",
+      ),
+    ).toEqual(
+      [
+        "app_kind",
+        "local_id",
+        "document_id",
+        "update_id",
+        "stage",
+        "message",
+        "attempts",
+        "judge",
+        "voided_at",
+      ].map((name) => ({ name })),
+    );
+    expect(await execSql("SELECT * FROM document_void_updates")).toEqual([
+      {
+        app_kind: "documents",
+        attempts: null,
+        document_id: "doc",
+        judge: "void-rules-3:loro-crdt@1.0.0",
+        local_id: "note",
+        message: "false span",
+        stage: "loro_import",
+        update_id: "liar",
+        voided_at: CREATED_AT,
+      },
+    ]);
+    // The migrated table is the shape the current definition checks.
+    await ensureSqlTables(execSql, documentSyncVerdictTables);
+  } finally {
+    close();
+  }
+});
+
+// Step 6 shipped a day before the void table, and no step creates the table,
+// so a database a build between them wrote reaches step 7 without it.
+test("step 7 skips a version-6 database from before the void table", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "local-schema-void-key-columns-absent",
+  );
+  try {
+    await migrateLocalSchema(execSql, {
+      migrations: localSchemaMigrations.slice(0, 5),
+    });
+    expect((await migrateLocalSchema(execSql)).status).toBe("behind");
+    expect(
+      await execSql(
+        "SELECT name FROM sqlite_master WHERE name = 'document_void_updates'",
+      ),
+    ).toEqual([]);
   } finally {
     close();
   }

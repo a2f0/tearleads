@@ -38,7 +38,6 @@ async function judgedScope(localId: string) {
       acceptedUpdateIds: [],
       documentId: DOCUMENT_ID,
       judge: "void-rules-1:loro-crdt@1.0.0",
-      keyFingerprintsByEpoch: new Map([[1, "key-a"]]),
       now: "2026-11-22T00:00:01.000Z",
       preemptions: [
         {
@@ -59,7 +58,6 @@ async function judgedScope(localId: string) {
       voids: [
         {
           attempts: null,
-          contentKeyEpoch: 1,
           message: "declared span is false",
           stage: "loro_import",
           updateId: LIAR,

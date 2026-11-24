@@ -107,6 +107,32 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 6,
   },
+  {
+    // Every void verdict is reached under the content key its update's
+    // signed envelope commits to, so a void row no longer names the key it
+    // was judged under. Neither column is indexed or part of the key. No
+    // step creates the table: its ensure does, after migrating. A database
+    // at version 6 from before the table (step 6 shipped a day earlier), a
+    // pre-ledger database, or a backup either took lacks it, and failing
+    // here would leave that database unopenable.
+    name: "drop_document_void_key_columns",
+    up: async (execSql) => {
+      const columns = new Set(
+        (
+          await execSql(
+            "SELECT name FROM pragma_table_info('document_void_updates')",
+          )
+        ).map(({ name }) => String(name)),
+      );
+      for (const column of ["content_key_epoch", "key_fingerprint"]) {
+        if (!columns.has(column)) continue;
+        await execSql(
+          `ALTER TABLE "document_void_updates" DROP COLUMN "${column}"`,
+        );
+      }
+    },
+    version: 7,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

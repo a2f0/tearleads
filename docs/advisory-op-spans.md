@@ -134,9 +134,13 @@ frontier does not cover again, when:
 
 - its judge changed, so a newer decoder reads what an older one voided;
 - its frontier no longer covers the one recorded with the cursor, as after its
-  state is replaced;
-- a void was judged under a different content key for its epoch than the one it
-  now holds.
+  state is replaced.
+
+The content key the reader holds is not among them. Every verdict behind a
+cursor was reached under the key its update's envelope commits to, and every
+reader holding that key reaches the same one, so neither a void row nor a
+cursor records a key, and a later pass holding another key for an epoch
+leaves both as they are.
 
 A pull of several pages advances the cursor only if every page after the first
 went out under the judge and the cursor its first page was sent with. The
