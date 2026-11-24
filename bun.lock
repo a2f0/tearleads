@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.330",
+      "version": "0.1.331",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -191,7 +191,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.105",
+      "version": "0.1.106",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -226,15 +226,15 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/crypto": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
         "app": "workspace:*",
       },
       "devDependencies": {
         "@tearleads/api": "workspace:*",
-        "@tearleads/crypto": "workspace:*",
         "@tearleads/loro": "workspace:*",
         "@types/bun": "catalog:",
       },
@@ -425,7 +425,7 @@
     },
   },
   "catalog": {
-    "@a2f0/continuity": "github:a2f0/continuity#ccec49fd27cc7084c1b8ab3cc4ea34c270ed5149",
+    "@a2f0/continuity": "github:a2f0/continuity#0662b0747061fddcbef0814305409fcd11333f2f",
     "@types/bun": "1.4.3",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
@@ -451,7 +451,7 @@
   "packages": {
     "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.74", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-1pTztRKSGBuBiYPA6Q0FbUrdgkr1XZP+duzYNxhkkmc+PLav/d/qpAqv5EjTqE8tFMNqbfgghMLzAL+9MGpLMw=="],
 
-    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
+    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#0662b07", {}, "a2f0-continuity-0662b07", "sha512-3A83f5QRYrCzEQNSK0sgdzgLqGCr1u+i6NwnnkBP+BqeShcQ6/kMofRml+ua21anMb8+VytNNDUKJcD6Dbd9tQ=="],
 
     "@a2f0/ct-client": ["@a2f0/ct-client@0.1.6", "", {}, "sha512-DlDg2DKCilbrX5jIh3D+jctG66+xwpjnead8L4YY3jnIVFZ4fOBHbpJk7yY9KFBcuhNAy9UhvbgmHJgI97dI4w=="],
 

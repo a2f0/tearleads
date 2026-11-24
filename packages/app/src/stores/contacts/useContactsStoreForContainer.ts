@@ -4,10 +4,8 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { useEffect, useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useRuntimeScopedMemo } from "../../providers/sdk/useRuntimeScopedMemo";
-import {
-  isDocumentsAuthorityCurrent,
-  useDocumentsAuthorityGeneration,
-} from "../documents/documentsAuthority";
+import { isDocumentsAuthorityCurrent } from "../documents/documentsAuthority";
+import { useDocumentsAuthorityGeneration } from "../documents/useDocumentsAuthorityGeneration";
 import {
   type ContactsRuntime,
   type ContactsStore,

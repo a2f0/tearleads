@@ -15,10 +15,11 @@ async function fixture() {
   await mkdir(join(root, "tearleads"));
   const contents = {
     "seed.json": JSON.stringify({
-      schemaVersion: 2,
+      schemaVersion: 3,
       identitySeedPhrase: "fixture",
       contacts: [
         {
+          id: "fixture",
           fields: { firstName: "Fixture" },
           avatar: { file: "photo.jpg", mimeType: "image/jpeg" },
         },

@@ -26,6 +26,7 @@ test("unknown commands, options, and targets are usage errors", async () => {
 
 test("--api-url is a one-time-key origin in place of --env", async () => {
   const cases: [string[], string][] = [
+    [["verify-seed", "--roster"], "--roster applies to seed."],
     [
       ["whoami", "--key-stdin"],
       "--key-stdin applies to register, seed, and verify-seed.",
