@@ -7,6 +7,8 @@ import type { StoredDocumentKind } from "@tearleads/client-sdk";
 // not to raw SQLite rows, so authors never touch the encrypted schema.
 
 export interface SeedContact {
+  /** Continuity's character ID, stable across versions; groups cite it. */
+  readonly id: string;
   readonly avatar?: Pick<SeedAttachment, "file" | "mimeType">;
   // Contact structured fields. Display name is DERIVED (nickname, else
   // "firstName lastName") — there is intentionally no displayName/email/phone.
@@ -45,17 +47,25 @@ export interface SeedFile {
   readonly rows?: readonly Readonly<Record<string, string>>[];
 }
 
+/** An organization group: its name and the `id`s of its member contacts. */
+export interface SeedGroup {
+  readonly name: string;
+  readonly members: readonly string[];
+}
+
 export interface SeedSpec {
-  readonly schemaVersion: 2;
+  readonly schemaVersion: 3;
   /**
-   * Fixed BIP39 seed phrase the screenshot identity is derived from. The CLI
-   * seeds the account with it (deterministic signing key), so the Contacts
-   * system slot — HMAC(definition, signingPrivateKey) — is reproducible. The
-   * Playwright run imports the SAME phrase, so that slot re-derives and the
-   * Contacts mini-app resolves the seeded container. Must be a valid phrase.
+   * Fixed BIP39 seed phrase of the account the screenshot run seeds and signs
+   * in as. Its deterministic signing key makes the Contacts system slot,
+   * HMAC(definition, signingPrivateKey), reproducible, so a browser that
+   * imports the same phrase resolves the seeded Contacts container. Must be a
+   * valid phrase.
    */
   readonly identitySeedPhrase: string;
   readonly contacts?: readonly SeedContact[];
   readonly notes?: readonly SeedNote[];
   readonly files?: readonly SeedFile[];
+  /** Seeded only on request (`tearleads seed --roster`). */
+  readonly groups?: readonly SeedGroup[];
 }

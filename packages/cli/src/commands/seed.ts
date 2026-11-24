@@ -7,6 +7,7 @@ import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   captureContinuityScope,
   continuityDocuments,
+  continuityGroups,
   ensureContactsContainer,
   loadContinuityAssets,
   writeContinuityDocument,
@@ -14,8 +15,9 @@ import {
 import type { CommandInput } from "../cliContext";
 import { loadFolderTree } from "../folderTree";
 import { resolveSeedAccount, seedLocalId } from "../seedAccount";
+import { seedRoster } from "../seedRoster";
 import type { CliSession } from "../session";
-import { apiLabel, withSavedSession } from "./account";
+import { apiBaseUrl, apiLabel, withSavedSession } from "./account";
 
 async function findSeedPlacement(
   session: CliSession,
@@ -98,6 +100,41 @@ async function confirmSeedSync(
   }
 }
 
+/** Runs `--roster` after the documents synced; null when not requested. */
+function seedRequestedRoster(
+  input: CommandInput,
+  session: CliSession,
+  spec: Awaited<ReturnType<typeof loadContinuityAssets>>["spec"],
+  signingPrivateKey: Uint8Array,
+) {
+  if (!input.roster) return null;
+  return session.tracer.span("seed roster", () =>
+    seedRoster(session, {
+      apiBaseUrl: apiBaseUrl(input),
+      groups: continuityGroups(spec),
+      signingPrivateKey,
+    }),
+  );
+}
+
+function reportSeed(
+  input: CommandInput,
+  count: {
+    readonly purged: number;
+    readonly roster: Awaited<ReturnType<typeof seedRoster>> | null;
+    readonly synced: number;
+  },
+) {
+  input.context.stdout(
+    `Synced ${count.synced} Continuity documents to your ${apiLabel(input)} account.${count.purged ? ` Skipped ${count.purged} permanently deleted.` : ""}`,
+  );
+  if (count.roster) {
+    input.context.stdout(
+      `Seeded ${count.roster.members} roster members in ${count.roster.groups} ${count.roster.groups === 1 ? "group" : "groups"}.`,
+    );
+  }
+}
+
 /** Import the pinned screenshot dataset into the signed-in personal root. */
 export async function seed(input: CommandInput): Promise<void> {
   const count = await withSavedSession(
@@ -166,14 +203,18 @@ export async function seed(input: CommandInput): Promise<void> {
       }
       assertCurrent();
       session.assertNoFailures();
-      return { synced: documents.length - purged, purged };
+      const roster = await seedRequestedRoster(
+        input,
+        session,
+        spec,
+        signingPrivateKey,
+      );
+      return { synced: documents.length - purged, purged, roster };
     },
     {
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
       automaticSessionRenewal: false,
     },
   );
-  input.context.stdout(
-    `Synced ${count.synced} Continuity documents to your ${apiLabel(input)} account.${count.purged ? ` Skipped ${count.purged} permanently deleted.` : ""}`,
-  );
+  reportSeed(input, count);
 }

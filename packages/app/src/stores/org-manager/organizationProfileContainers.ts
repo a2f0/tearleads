@@ -11,6 +11,10 @@ import {
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { useCallback, useMemo } from "react";
 import type { OrgManagerOperationScope } from "./orgManagerOperationScope";
+import {
+  ensureOrganizationSystemContainer,
+  findOrganizationSystemContainer,
+} from "./rosterProfile";
 
 interface OrganizationProfileContainersInput {
   readonly captureOperationScope: () => OrgManagerOperationScope | null;
@@ -34,6 +38,8 @@ export function useOrganizationProfileContainers(
 ): {
   ensureOrganizationMetadataContainer: () => Promise<ContainerNode | null>;
   ensureRosterProfileContainer: () => Promise<ContainerNode | null>;
+  findRosterProfileContainer: () => Promise<ContainerNode | null>;
+  subscribeToContainers: (listener: () => void) => () => void;
 } {
   const {
     captureOperationScope,
@@ -59,18 +65,13 @@ export function useOrganizationProfileContainers(
       if (!isOperationScopeActive(operationScope)) {
         return null;
       }
-      const existingContainer = containerContentsStore
-        .getSnapshot()
-        .nodes.find(
-          (node) =>
-            node.systemSlot === systemSlot &&
-            node.organizationId === operationScope.organizationId &&
-            (independentRoot ? node.parentId === null : node.parentId !== null),
-        );
-
-      const container =
-        existingContainer ??
-        (await containerContentsStore.ensureSystemContainer(systemSlot, name));
+      const container = await ensureOrganizationSystemContainer({
+        containerStore: containerContentsStore,
+        independentRoot,
+        name,
+        organizationId: operationScope.organizationId,
+        systemSlot,
+      });
       return isOperationScopeActive(operationScope) ? container : null;
     },
     [captureOperationScope, containerContentsStore, isOperationScopeActive],
@@ -85,6 +86,26 @@ export function useOrganizationProfileContainers(
       ),
     [ensureSystemContainer],
   );
+  // Reads never provision: a device that has not listed the container yet
+  // gets null rather than a duplicate.
+  const findRosterProfileContainer = useCallback(async () => {
+    const operationScope = captureOperationScope();
+    if (!operationScope || !isOperationScopeActive(operationScope)) {
+      return null;
+    }
+    const systemSlot = await deriveOrganizationRosterProfileContainerSystemSlot(
+      { organizationId: operationScope.organizationId },
+    );
+    if (!isOperationScopeActive(operationScope)) {
+      return null;
+    }
+    return findOrganizationSystemContainer({
+      containerStore: containerContentsStore,
+      independentRoot: false,
+      organizationId: operationScope.organizationId,
+      systemSlot,
+    });
+  }, [captureOperationScope, containerContentsStore, isOperationScopeActive]);
   const ensureOrganizationMetadataContainer = useCallback(
     () =>
       ensureSystemContainer(
@@ -95,11 +116,23 @@ export function useOrganizationProfileContainers(
     [ensureSystemContainer],
   );
 
+  const subscribeToContainers = useCallback(
+    (listener: () => void) => containerContentsStore.subscribe(listener),
+    [containerContentsStore],
+  );
+
   return useMemo(
     () => ({
       ensureOrganizationMetadataContainer,
       ensureRosterProfileContainer,
+      findRosterProfileContainer,
+      subscribeToContainers,
     }),
-    [ensureOrganizationMetadataContainer, ensureRosterProfileContainer],
+    [
+      ensureOrganizationMetadataContainer,
+      ensureRosterProfileContainer,
+      findRosterProfileContainer,
+      subscribeToContainers,
+    ],
   );
 }

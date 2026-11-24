@@ -47,22 +47,56 @@ function document(value: unknown): boolean {
   );
 }
 
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function distinct(values: readonly unknown[]): boolean {
+  return new Set(values).size === values.length;
+}
+
+// Every organization already has these built-in groups.
+const BUILT_IN_GROUP_NAMES = new Set(["admins", "members"]);
+
+// Each group names existing contacts with a first and last name, once each, and
+// no two groups share a name or take a built-in group's. Members are admitted
+// under those names, so a nameless member must fail here, before the seed
+// writes anything.
+function validGroups(groups: unknown, contactIds: ReadonlySet<unknown>) {
+  return (
+    optionalArray(groups, (item) => {
+      if (!record(item)) return false;
+      const { name, members } = item;
+      return (
+        nonEmptyString(name) &&
+        !BUILT_IN_GROUP_NAMES.has(name.trim().toLowerCase()) &&
+        Array.isArray(members) &&
+        distinct(members) &&
+        members.every((member) => contactIds.has(member))
+      );
+    }) &&
+    (!Array.isArray(groups) ||
+      distinct(groups.map(({ name }: { name?: unknown }) => name)))
+  );
+}
+
 export function validateSeedSpec(value: unknown): asserts value is SeedSpec {
   if (!record(value)) throw new Error("Invalid Continuity seed object");
-  const { schemaVersion, identitySeedPhrase, contacts, notes, files } = value;
-  if (
-    schemaVersion !== 2 ||
-    typeof identitySeedPhrase !== "string" ||
-    !identitySeedPhrase
-  )
+  const { schemaVersion, identitySeedPhrase, contacts, notes, files, groups } =
+    value;
+  if (schemaVersion !== 3 || !nonEmptyString(identitySeedPhrase))
     throw new Error(
-      "Unsupported or invalid Continuity seed: expected schemaVersion 2 and an identity seed phrase",
+      "Unsupported or invalid Continuity seed: expected schemaVersion 3 and an identity seed phrase",
     );
   if (
     !optionalArray(contacts, (item) => {
       if (!record(item)) return false;
-      const { fields, avatar } = item;
-      return strings(fields) && (avatar === undefined || attachment(avatar));
+      const { id, fields, avatar } = item;
+      return (
+        nonEmptyString(id) &&
+        strings(fields) &&
+        (avatar === undefined || attachment(avatar))
+      );
     }) ||
     !optionalArray(notes, (item) => {
       if (!record(item)) return false;
@@ -73,4 +107,22 @@ export function validateSeedSpec(value: unknown): asserts value is SeedSpec {
     throw new Error("Invalid seed contacts or notes");
   if (!optionalArray(files, document))
     throw new Error("Invalid seed document, attachment, or tracker rows");
+  const contactList: ReadonlyArray<{
+    readonly fields: {
+      readonly firstName?: unknown;
+      readonly lastName?: unknown;
+    };
+    readonly id: unknown;
+  }> = Array.isArray(contacts) ? contacts : [];
+  const contactIds = contactList.map(({ id }) => id);
+  const namedContactIds = new Set(
+    contactList
+      .filter(
+        ({ fields }) =>
+          nonEmptyString(fields.firstName) && nonEmptyString(fields.lastName),
+      )
+      .map(({ id }) => id),
+  );
+  if (!distinct(contactIds) || !validGroups(groups, namedContactIds))
+    throw new Error("Invalid seed contact ids or groups");
 }

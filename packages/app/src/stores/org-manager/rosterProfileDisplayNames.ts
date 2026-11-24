@@ -56,6 +56,19 @@ export function getRosterProfileDocumentIds(
   );
 }
 
+/** The bindings whose profile document has no local row on this device. */
+export function getRosterProfileBindingsWithoutLocalRow(input: {
+  readonly documents: DocumentList | null;
+  readonly profileBindingsByLocalId: ReadonlyMap<string, RosterProfileBinding>;
+}): ReadonlyArray<RosterProfileBinding> {
+  const localDocumentIds = new Set(
+    (input.documents?.rows ?? []).map((row) => row.documentId),
+  );
+  return [...input.profileBindingsByLocalId.values()].filter(
+    (binding) => !localDocumentIds.has(binding.profileDocumentId),
+  );
+}
+
 function getUsableRosterProfileTitle(title: string): string | null {
   const displayName = title.trim();
   return displayName.length > 0 && displayName !== "Untitled contact"

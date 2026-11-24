@@ -1,10 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import type { useDocument } from "../../../stores/documents/DocumentsProvider";
-import {
-  isDocumentsAuthorityCurrent,
-  useDocumentsAuthorityGeneration,
-} from "../../../stores/documents/documentsAuthority";
+import { isDocumentsAuthorityCurrent } from "../../../stores/documents/documentsAuthority";
+import { useDocumentsAuthorityGeneration } from "../../../stores/documents/useDocumentsAuthorityGeneration";
 import { transitionProfileDocumentRequest } from "./profileDocumentRequestMachine";
 
 /** Relink the resolved local record, without turning read access into write. */

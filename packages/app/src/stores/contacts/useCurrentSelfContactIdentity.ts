@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import { useDeviceFirstContainerContents } from "../device-first/DeviceFirstProvider";
-import { useDocumentsAuthorityGeneration } from "../documents/documentsAuthority";
+import { useDocumentsAuthorityGeneration } from "../documents/useDocumentsAuthorityGeneration";
 import { createSelfContactIdentitySource } from "./createSelfContactIdentitySource";
 import type { SelfContactIdentityView } from "./currentSelfContactIdentityState";
 import { useSelfContactIdentitySource } from "./useSelfContactIdentitySource";

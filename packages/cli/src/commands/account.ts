@@ -5,7 +5,7 @@ import { registerAccount } from "../registerAccount";
 import { type CliSession, type SessionOptions, withSession } from "../session";
 
 /** The API a command talks to: `--api-url`, or else the target's. */
-function apiBaseUrl(input: CommandInput): string {
+export function apiBaseUrl(input: CommandInput): string {
   return input.apiUrl ?? input.context.apiBaseUrl(input.target);
 }
 
