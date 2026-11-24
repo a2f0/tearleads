@@ -55,10 +55,13 @@ test("browser diagnostics tag later reports with the API build", async () => {
     removeEventListener: () => {},
   });
   try {
-    const diagnostics = createBrowserDiagnostics({
-      ...config,
-      dsn: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`,
-    });
+    const diagnostics = createBrowserDiagnostics(
+      {
+        ...config,
+        dsn: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`,
+      },
+      { enabled: () => true, subscribe: () => () => {} },
+    );
     diagnostics.setApiVersion?.(2461);
     diagnostics.captureError("not an Error", {
       area: "app",
