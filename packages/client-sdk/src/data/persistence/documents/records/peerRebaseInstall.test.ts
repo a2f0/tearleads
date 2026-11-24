@@ -51,6 +51,7 @@ async function installCandidate(): Promise<DocumentPeerRebaseInstall> {
   const pendingUpdate = createPendingUpdateFields(exportAllUpdates(fork));
   if (!pendingUpdate) throw new Error("expected the fork's update");
   return {
+    queuedUpdateIds: await queuedUpdateIds(),
     checkpoint: {
       endVersionVector: encodeVersionVector(fork),
       snapshot: "c25hcHNob3Q=",
@@ -63,6 +64,14 @@ async function installCandidate(): Promise<DocumentPeerRebaseInstall> {
     scope: SCOPE,
     stillCurrent: () => true,
   };
+}
+
+async function queuedUpdateIds(): Promise<string[]> {
+  const rows = await execSql(
+    "SELECT update_id FROM document_history_updates WHERE local_id = ? AND update_id IS NOT NULL",
+    [LOCAL_ID],
+  );
+  return rows.map(({ update_id }) => String(update_id));
 }
 
 async function storedState() {
@@ -138,6 +147,7 @@ test.each([
     { readVersion: emptyVersionVector() },
   ],
   ["another recovery generation", { expectedRecoveryGeneration: 1 }],
+  ["a queue the rebase never read", { queuedUpdateIds: [] }],
   ["another document identity", { expectedDocumentId: "other-note" }],
   ["a stale store", { stillCurrent: () => false }],
 ])("writes nothing against %s", async (_case, change) => {
@@ -147,6 +157,20 @@ test.each([
   expect(
     await installDocumentPeerRebase(execSql, { ...candidate, ...change }),
   ).toBe(false);
+
+  expect(await storedState()).toEqual(before);
+});
+
+test("writes nothing once another runtime settled a queued update the rebase read", async () => {
+  const candidate = await installCandidate();
+  const repository = new DocumentRecordRepository(execSql);
+  for (const id of candidate.queuedUpdateIds) {
+    await repository.settleDocumentPendingUpdate(id);
+  }
+  expect(await queuedUpdateIds()).toEqual([]);
+  const before = await storedState();
+
+  expect(await installDocumentPeerRebase(execSql, candidate)).toBe(false);
 
   expect(await storedState()).toEqual(before);
 });

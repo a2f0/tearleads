@@ -50,7 +50,6 @@ export function documentVerdictJudge(): string {
  * continues, so one writer's bad record cannot stop anyone else's sync.
  */
 export interface VoidedDocumentSyncUpdate {
-  readonly contentKeyEpoch: number | null;
   readonly error: DocumentSyncUpdateIsolationError;
   /**
    * This device's peer id, when the update reused ids of operations this
@@ -70,7 +69,6 @@ export interface VoidedDocumentSyncUpdate {
  */
 export interface DocumentSyncRuntimeFailure {
   readonly attempts: number;
-  readonly contentKeyEpoch: number | null;
   readonly counted: boolean;
   readonly error: DocumentSyncUpdateIsolationError;
   readonly final: boolean;
@@ -146,12 +144,7 @@ export function voidedDocumentSyncUpdate(
   ) {
     return null;
   }
-  return {
-    contentKeyEpoch: error.contentKeyEpoch,
-    error,
-    stage: error.stage,
-    updateId: error.updateId,
-  };
+  return { error, stage: error.stage, updateId: error.updateId };
 }
 
 /**

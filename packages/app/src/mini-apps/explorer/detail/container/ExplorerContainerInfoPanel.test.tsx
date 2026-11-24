@@ -347,6 +347,19 @@ test("container info sharing grant rows open grant detail from a click or the ro
   ]);
 });
 
+test("the container info header shows the container's icon", () => {
+  const headerIcon = (view: ReturnType<typeof render>) =>
+    view.container
+      .querySelector(".mini-app-header .explorer-detail-header-icon")
+      ?.getAttribute("data-container-icon");
+
+  const playlist = renderContainerInfoPanel({ containerIcon: "playlist" });
+  expect(headerIcon(playlist)).toBe("playlist");
+  playlist.unmount();
+
+  expect(headerIcon(renderContainerInfoPanel())).toBe("folder");
+});
+
 test("admins can change the folder icon from the general tab", async () => {
   const calls: Array<{ containerId: string; icon: string | null }> = [];
   const view = renderContainerInfoPanel({

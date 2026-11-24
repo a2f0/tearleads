@@ -22,31 +22,16 @@ function page(overrides: Partial<PullPagePosition> = {}): PullPagePosition {
 
 function transition(input: {
   readonly judge?: string;
-  readonly keyConflict?: boolean;
   readonly page: PullPagePosition | undefined;
   readonly storedPremise?: PullPremise | null;
 }) {
   return processedCursorTransition({
     judge: input.judge ?? JUDGE,
-    keyConflict: input.keyConflict ?? false,
     page: input.page,
     recordedFrontier: FRONTIER,
     storedPremise: input.storedPremise ?? null,
   });
 }
-
-test("a key conflict clears the cursor on any page, or none", () => {
-  for (const position of [
-    undefined,
-    page(),
-    page({ last: false }),
-    page({ first: false }),
-  ]) {
-    expect(transition({ keyConflict: true, page: position })).toEqual({
-      status: "cleared",
-    });
-  }
-});
 
 test("a scope that keeps no cursor leaves it unchanged", () => {
   expect(transition({ page: undefined })).toEqual({ status: "unchanged" });
@@ -92,14 +77,15 @@ test("a later page under another judge or cursor, or with no premise, abandons t
         storedPremise,
       }),
     ).toEqual({ status: "abandoned" });
-    // A cursor cleared or withheld between pages.
+    // A cursor withheld between pages.
     expect(
       transition({
         page: page({ first: false, last, sentCursor: null }),
         storedPremise,
       }),
     ).toEqual({ status: "abandoned" });
-    // The premise was dropped with the cursor by a key conflict.
+    // No premise: the first page's save never ran, or an earlier page
+    // abandoned the pull.
     expect(
       transition({ page: page({ first: false, last }), storedPremise: null }),
     ).toEqual({ status: "abandoned" });

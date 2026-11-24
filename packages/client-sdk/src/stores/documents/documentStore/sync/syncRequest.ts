@@ -4,15 +4,18 @@ import {
 } from "@tearleads/loro";
 import { isRejectedDecodedProjection } from "@tearleads/validators/response";
 import {
+  claimDocumentSyncOrphanWindows,
   createDocumentWriterPublicKeyResolver,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
+  type DocumentSyncLoroWindow,
   deletePersistedDocument,
   type ExecSql,
   type IncomingDocumentSyncUpdateValidator,
   judgeDocumentSyncImports,
   type PendingUpdateRecord,
   RemoteDocumentService,
+  readDocumentSyncPageLimit,
   readProcessedCursorForSync,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
@@ -98,6 +101,7 @@ export async function deleteUpstreamDeletedDocument(
 
 function createDocumentSyncAttempt(input: {
   currentRecord: DocumentRecord;
+  loroWindow: DocumentSyncLoroWindow | undefined;
   outgoingUpdateCount: number;
   policyOperation: PrincipalPolicyOperation;
   requestedPullContinuation: DocumentStoreState["pullContinuation"];
@@ -109,6 +113,7 @@ function createDocumentSyncAttempt(input: {
       input.synced.plan.request.pullCursor === undefined
         ? null
         : input.requestedPullContinuation,
+    loroWindow: input.loroWindow ?? null,
     outgoingUpdateCount: input.outgoingUpdateCount,
     policyOperation: input.policyOperation,
     requestRecord: input.currentRecord,
@@ -130,13 +135,25 @@ interface RequestRemoteDocumentSyncInput {
   /** The pass or workflow operation the sync's policy reads belong to. */
   policyOperation: PrincipalPolicyOperation;
   queuedUpdateCount?: number | undefined;
+  /**
+   * The pass's Loro read window (`loroPassWindow.ts`), which the page is
+   * read in. Only a scheduled pass, whose pages `finalizeDocumentSync` saves
+   * and which settles the window as it ends, has one; rotation settlement
+   * reads without.
+   */
+  loroWindow?: DocumentSyncLoroWindow | undefined;
   state: DocumentStoreState;
   unavailableWriterLogMessage: string;
 }
 
-/** The pull continuation a pass resumes and the processed cursor it sends. */
+/**
+ * The pull continuation a pass resumes, the processed cursor it sends, and
+ * the page limit it asks for while isolating updates a death left
+ * unattributed.
+ */
 interface PullStart {
   readonly continuation: DocumentStoreState["pullContinuation"];
+  readonly maxPageUpdates: number | undefined;
   readonly processedThroughUpdateId: string | undefined;
 }
 
@@ -146,9 +163,10 @@ interface PullStart {
  */
 function pullPosition(
   record: RequestRemoteDocumentSyncInput["currentRecord"],
-  { continuation, processedThroughUpdateId }: PullStart,
+  { continuation, maxPageUpdates, processedThroughUpdateId }: PullStart,
 ) {
   return {
+    maxPageUpdates,
     minLsn: record.lastCommitLsn ?? undefined,
     processedThroughUpdateId,
     pullContinuation: continuation ?? undefined,
@@ -169,9 +187,29 @@ function documentImportJudge(
       execSql: state.runtime.infra.execSql,
       isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
       logError: state.runtime.util.logError,
+      loroWindow: input.loroWindow,
       result,
       scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
     });
+}
+
+/**
+ * The page limit this pull asks for, once the windows ended lifetimes left
+ * on the scope are claimed: a pull after a death that named no update then
+ * isolates at once, instead of reading the whole page and dying again.
+ */
+async function claimThenReadPageLimit(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+  page: Parameters<typeof readDocumentSyncPageLimit>[1],
+): Promise<1 | undefined> {
+  await claimDocumentSyncOrphanWindows({
+    ...page,
+    execSql: generation.execSql,
+    isCurrent: () => isDocumentStoreSyncGenerationCurrent(state, generation),
+    logError: state.runtime.util.logError,
+  });
+  return readDocumentSyncPageLimit(generation.execSql, page);
 }
 
 function runRemoteDocumentSync(
@@ -290,20 +328,31 @@ export async function requestRemoteDocumentSync(
     return null;
   }
 
+  const scope = { appKind: DOCUMENTS_APP_KIND, localId: state.localId };
   const processedThroughUpdateId = await readProcessedCursorForSync(
     generation.execSql,
     {
       documentId: currentRecord.documentId,
       frontier: currentRecord.snapshotEndVersion,
-      scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+      scope,
     },
   );
+  const maxPageUpdates = input.loroWindow
+    ? await claimThenReadPageLimit(state, generation, {
+        documentId: currentRecord.documentId,
+        scope,
+      })
+    : undefined;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   const synced = await runRemoteDocumentSync(
     input,
     author,
     currentRecord.documentId,
-    { continuation: requestedPullContinuation, processedThroughUpdateId },
+    {
+      continuation: requestedPullContinuation,
+      maxPageUpdates,
+      processedThroughUpdateId,
+    },
   );
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return null;
   if (!synced) return null;
@@ -311,6 +360,7 @@ export async function requestRemoteDocumentSync(
   const outgoingUpdateCount = input.queuedUpdateCount ?? pendingUpdates.length;
   return createDocumentSyncAttempt({
     currentRecord,
+    loroWindow: input.loroWindow,
     outgoingUpdateCount,
     policyOperation: input.policyOperation,
     requestedPullContinuation,

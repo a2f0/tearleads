@@ -102,8 +102,9 @@ must not enqueue the optional outgoing update.
 with `document_sync_peer_owned` records a terminal failure; with it the
 document store [rebases onto a fresh peer](../advisory-op-spans.md#rebasing-onto-a-fresh-peer)
 and retries. In one transaction, it confirms the record still has the expected
-`documentId` and `recoveryGeneration` and that no checkpoint or history row
-ends past `readVersion`, then replaces every history row with the supplied
+`documentId` and `recoveryGeneration`, that no checkpoint or history row
+ends past `readVersion`, and that exactly the `queuedUpdateIds` are still
+queued, then replaces every history row with the supplied
 checkpoint and one queued outgoing update, deletes the scope's void rows and
 preemption notices, and, for a `document` record, stores `peerSalt`, sets the
 pending base and snapshot end to the checkpoint's frontier, and advances

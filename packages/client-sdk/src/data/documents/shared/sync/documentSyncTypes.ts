@@ -71,6 +71,7 @@ export interface BuildDocumentSyncPlanInput {
   historyMode?: "raw" | undefined;
   inlineRekeyCommitId?: string | undefined;
   localVersionVector: string | null;
+  maxPageUpdates?: number | undefined;
   minLsn?: string | undefined;
   outgoingUpdates?: readonly DocumentSyncPreparedUpdate[] | undefined;
   /**
@@ -126,10 +127,7 @@ export interface MaterializedDocumentSyncPlan {
  * when it returns anything else.
  */
 export type IncomingDocumentSyncUpdateValidator = (
-  result: Pick<
-    SyncRemoteDocumentResult,
-    "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
-  >,
+  result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
 ) => DocumentSyncImportVerdicts | Promise<DocumentSyncImportVerdicts>;
 
 export interface SyncRemoteDocumentResult {
@@ -162,11 +160,6 @@ export interface SyncRemoteDocumentResult {
   response: DocumentSyncResponse;
   settledPendingUpdateIds: readonly string[];
   acceptedRecoveryBaseline: boolean;
-  /**
-   * A fingerprint of each content key the pass judged served updates under,
-   * by epoch; a void is final only for the key it was judged with.
-   */
-  contentKeyFingerprintsByEpoch: ReadonlyMap<number, string>;
   /**
    * Served updates this pass will never apply, in server order: each one's
    * payload is not its declared update, or it cannot join the history built

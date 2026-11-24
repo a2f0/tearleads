@@ -5,6 +5,8 @@ import { readJournalMigrations } from "./adapters/migrationHistory";
 
 const OWNERS_MIGRATION = "0009_document_peer_owners";
 
+const NO_USER = "00000000-0000-0000-0000-000000000000";
+
 test("the peer-owner backfill gives each committed peer the user of its first update", async () => {
   const client = new PGlite();
   const folder = fileURLToPath(new URL("../drizzle", import.meta.url));
@@ -52,6 +54,7 @@ test("the peer-owner backfill gives each committed peer the user of its first up
     const aliceLater = await insertUpdate(first, "alice-fingerprint");
     const bobLast = await insertUpdate(first, "bob-fingerprint");
     const unknownAuthor = await insertUpdate(first, "unknown-fingerprint");
+    const aliceAfterUnknown = await insertUpdate(first, "alice-fingerprint");
     const aliceElsewhere = await insertUpdate(second, "alice-fingerprint");
     // Spans go in against sequence order, so only the sequence can pick.
     await insertSpan(first, bobLast, "2", [2, 4]);
@@ -59,6 +62,7 @@ test("the peer-owner backfill gives each committed peer the user of its first up
     await insertSpan(first, aliceLater, "1", [3, 5]);
     await insertSpan(first, bobFirst, "1", [0, 3]);
     await insertSpan(first, unknownAuthor, "3", [0, 1]);
+    await insertSpan(first, aliceAfterUnknown, "3", [1, 2]);
     await insertSpan(second, aliceElsewhere, "1", [0, 2]);
 
     for (const migration of migrations.filter(
@@ -75,10 +79,12 @@ test("the peer-owner backfill gives each committed peer the user of its first up
       "SELECT document_id, peer_id, owner_user_id FROM document_peer_owners ORDER BY document_id = $1 DESC, peer_id",
       [first],
     );
-    // A peer whose only author has no user row stays unowned.
+    // A peer whose first author has no user row goes to nobody, not to a
+    // later author, so no user may extend it.
     expect(rows).toEqual([
       { document_id: first, owner_user_id: users.bob, peer_id: "1" },
       { document_id: first, owner_user_id: users.alice, peer_id: "2" },
+      { document_id: first, owner_user_id: NO_USER, peer_id: "3" },
       { document_id: second, owner_user_id: users.alice, peer_id: "1" },
     ]);
   } finally {

@@ -122,6 +122,7 @@ async function rebaseLiveMetadata(
       expectedDocumentId: documentId,
       expectedRecoveryGeneration: record.recoveryGeneration ?? 0,
       pendingUpdate,
+      queuedUpdateIds: queued.map((row) => row.id),
       readVersion: encodeVersionVector(merged),
       record: { kind: "container_metadata" },
       scope: containerMetadataScope(metadataState.container.id),

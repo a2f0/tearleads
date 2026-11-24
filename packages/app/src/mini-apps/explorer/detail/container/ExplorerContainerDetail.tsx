@@ -42,6 +42,7 @@ import {
 } from "./explorerContainerItemWindow";
 import { useExplorerColumnVisibility } from "./useExplorerColumnVisibility";
 import "./ExplorerContainerDetail.css";
+import "../ExplorerDetailHeaderIdentity.css";
 
 export { getNextExplorerItemSort } from "./explorerContainerItemWindow";
 

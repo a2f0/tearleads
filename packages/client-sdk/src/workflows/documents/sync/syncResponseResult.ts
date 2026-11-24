@@ -10,7 +10,6 @@ import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
 } from "../../../data/documents/shared/responses";
-import { deriveDocumentContentKeyCommitments } from "../../../data/documents/shared/sync/contentKeyCommitment";
 import type {
   IncomingDocumentSyncUpdateValidator,
   MaterializedDocumentSyncPlan,
@@ -166,7 +165,6 @@ function inServerOrder(
 async function judgeDocumentSyncResponseUpdates(
   input: SyncRemoteDocumentResultInput,
   contentKeysByEpoch: ReadonlyMap<number, Uint8Array>,
-  contentKeyFingerprintsByEpoch: ReadonlyMap<number, string>,
 ) {
   const { plan } = input.materializedPlan;
   const decrypted = await judgeDocumentSyncUpdateDecryption({
@@ -177,7 +175,6 @@ async function judgeDocumentSyncResponseUpdates(
   });
   const importVerdicts = requireDocumentSyncImportVerdicts(
     await input.validateIncomingUpdates({
-      contentKeyFingerprintsByEpoch,
       decryptedUpdates: decrypted.accepted,
       response: input.response,
     }),
@@ -215,19 +212,8 @@ export async function syncRemoteDocumentResultFromResponse(
   const { plan } = input.materializedPlan;
   const { contentKeysByEpoch, persistedState } =
     await resolveVerifiedResponseState(input);
-  // The ledger's key fingerprints are the content-key commitments of the
-  // keys this pass held, which the envelopes it accepted also name.
-  const contentKeyFingerprintsByEpoch =
-    await deriveDocumentContentKeyCommitments({
-      contentKeysByEpoch,
-      documentId: plan.documentId,
-    });
   const { decryptedUpdates, deferred, held, voidedUpdates } =
-    await judgeDocumentSyncResponseUpdates(
-      input,
-      contentKeysByEpoch,
-      contentKeyFingerprintsByEpoch,
-    );
+    await judgeDocumentSyncResponseUpdates(input, contentKeysByEpoch);
   const pageOutcome = documentPullOutcome({
     deferred,
     held,
@@ -277,7 +263,6 @@ export async function syncRemoteDocumentResultFromResponse(
     response: deferred || held ? restartedPull(input.response) : input.response,
     settledPendingUpdateIds,
     acceptedRecoveryBaseline,
-    contentKeyFingerprintsByEpoch,
     voidedUpdates,
     writerProjection: input.writerProjection,
   };

@@ -153,6 +153,7 @@ async function rebaseOnWriteChain(
       expectedDocumentId: documentId,
       expectedRecoveryGeneration: record.recoveryGeneration ?? 0,
       pendingUpdate,
+      queuedUpdateIds: queued.map((row) => row.id),
       readVersion: encodeVersionVector(merged),
       record: { kind: "document", peerSalt },
       scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },

@@ -232,6 +232,8 @@ export async function listMissingSyncUpdateEntries(input: {
   /** The target hash the client holds; matching target sets are omitted. */
   readonly expectedTargetHash: string;
   readonly localVersionVector: string | null;
+  /** The client's own page limit; it never raises the server's. */
+  readonly maxPageUpdates?: number | undefined;
   readonly minLsn?: string | undefined;
   readonly pullPage?:
     | {
@@ -246,7 +248,10 @@ export async function listMissingSyncUpdateEntries(input: {
         documentId: input.documentId,
         localVersionVector: input.localVersionVector,
         maxSerializedBytes: MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES,
-        maxUpdates: MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+        maxUpdates: Math.min(
+          input.maxPageUpdates ?? MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+          MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
+        ),
         minLsn: input.minLsn,
       })
     : undefined;

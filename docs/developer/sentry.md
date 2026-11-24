@@ -190,7 +190,11 @@ results from an invalidated sync generation are not reported either.
 A [Loro runtime failure](../advisory-op-spans.md#loro-runtime-failures) is
 reported as `Documents: sync update failed the Loro runtime (attempt n of 3)`,
 ending in `; voided` on the attempt that voids the update, once per counted
-attempt after its `document_void_updates` row is recorded. A void that reused
+attempt after its `document_void_updates` row is recorded. A process that died
+reading one update is reported by the next lifetime that claims its
+[read window](../glossary/sync.md#loro-read-window), as `Documents: the process
+ended while reading a sync update (attempt n of 3)`, with the same `; voided`
+ending. A void that reused
 operation ids under this device's own peer id
 ([peer ownership](../advisory-op-spans.md#preemption-notices)) is
 reported once more, after its `document_peer_preemptions` notice is recorded,

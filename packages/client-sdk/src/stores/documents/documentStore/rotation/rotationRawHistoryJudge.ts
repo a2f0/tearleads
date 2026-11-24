@@ -103,10 +103,7 @@ export function rotationIncomingUpdateIsolation(input: {
         input.generation,
       ),
     validateIncomingUpdates: async (
-      result: Pick<
-        SyncRemoteDocumentResult,
-        "contentKeyFingerprintsByEpoch" | "decryptedUpdates" | "response"
-      >,
+      result: Pick<SyncRemoteDocumentResult, "decryptedUpdates" | "response">,
     ) => {
       // A void this device recorded stays void without a Loro call, as in a
       // sync pass, so an update that failed the runtime for good is not
