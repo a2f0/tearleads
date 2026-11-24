@@ -133,6 +133,17 @@ async function claimOrphansInTransaction(
   ).filter((window) => ended.has(window.lifetimeId));
   const counted: { attempts: number; updateId: string }[] = [];
   let isolation = await readLoroIsolation(tx, claim.scope);
+  // Read before any delete: another tab's claim may forget a lifetime's
+  // markers once its rows are gone.
+  const marked = new Map(
+    orphans.map((orphan) => [
+      orphan.lifetimeId,
+      {
+        endedFailed: lifetimes.endedFailed(orphan.lifetimeId),
+        endedHidden: lifetimes.endedHidden(orphan.lifetimeId),
+      },
+    ]),
+  );
   const claimed: string[] = [];
   const countedUpdates = new Set<string>();
   for (const orphan of orphans) {
@@ -144,8 +155,8 @@ async function claimOrphansInTransaction(
     claimed.push(orphan.lifetimeId);
     const verdict = judgeOrphanWindow(orphan, {
       documentId: claim.documentId,
-      endedFailed: lifetimes.endedFailed(orphan.lifetimeId),
-      endedHidden: lifetimes.endedHidden(orphan.lifetimeId),
+      endedFailed: marked.get(orphan.lifetimeId)?.endedFailed ?? false,
+      endedHidden: marked.get(orphan.lifetimeId)?.endedHidden ?? false,
       judge: claim.judge,
     });
     if (verdict.kind === "count") {

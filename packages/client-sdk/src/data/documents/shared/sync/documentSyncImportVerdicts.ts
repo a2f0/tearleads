@@ -289,27 +289,28 @@ export async function validateDocumentSyncUpdateImports(input: {
     (input.responseUpdates ?? []).map((update) => [update.id, update]),
   );
   const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
-  // Until a window covers them, these Loro reads leave every other window
-  // of the lifetime unable to count a death: it may be theirs (#3194).
-  const release = (
-    input.lifetimes ?? processLoroLifetimes
-  ).beginUnwindowedRead();
+  const lifetimes = input.lifetimes ?? processLoroLifetimes;
+  // Loro work no window covers leaves every other window of the lifetime
+  // unable to count a death: it may be this work's (#3194).
+  const hold = { release: lifetimes.beginUnwindowedRead() };
   try {
     return await judgeUpdateReads(input, {
+      hold,
       ledger,
-      release,
+      lifetimes,
       responseById,
       verdicts,
     });
   } finally {
-    release();
+    hold.release();
   }
 }
 
 async function judgeUpdateReads(
   input: Parameters<typeof validateDocumentSyncUpdateImports>[0],
   judging: Omit<PageJudging, "runtimeAttempts" | "scratch"> & {
-    readonly release: () => void;
+    readonly hold: { release: () => void };
+    readonly lifetimes: LoroLifetimes;
   },
 ): Promise<DocumentSyncImportVerdicts> {
   const { ledger, responseById, verdicts } = judging;
@@ -326,7 +327,12 @@ async function judgeUpdateReads(
     verdicts,
   };
   try {
-    if (await input.beforeUpdateReads?.()) judging.release();
+    // Opening the window may wait at its gate, with no Loro work running, so
+    // the hold drops meanwhile; it stands again if no window covers reads.
+    judging.hold.release();
+    if (!(await input.beforeUpdateReads?.())) {
+      judging.hold.release = judging.lifetimes.beginUnwindowedRead();
+    }
     for (const update of input.decryptedUpdates) {
       const knownStage = input.knownVoids?.get(update.id);
       if (verdicts.holding) {

@@ -399,3 +399,70 @@ test("a death inside a read its window covers still counts", async () => {
 
   expect(await recordedAttempts(FIRST)).toBe(1);
 });
+
+// A lane waiting at the gate runs no Loro work, so it must not keep the
+// isolating window it waits behind from counting a killer read alone.
+test("a lane waiting at the gate leaves the isolating window counting", async () => {
+  const host = device();
+  const { update: second } = await honest(SECOND);
+  const killer = readNoting((await honest(FIRST)).update, host.markers);
+  const lifetime = host.lifetime("queued");
+  const reading = createDocumentSyncLoroWindow();
+  await judgeIn(lifetime, [second], undefined, OTHER, { window: reading });
+  await execSql(
+    `INSERT INTO document_loro_isolation
+       (app_kind, local_id, document_id, suspects)
+     VALUES (?, ?, ?, ?)`,
+    [SCOPE.appKind, SCOPE.localId, DOCUMENT_ID, JSON.stringify([FIRST])],
+  );
+  const isolatingPass = createDocumentSyncLoroWindow();
+  const isolating = judgeIn(lifetime, [killer.update], undefined, MAIN, {
+    window: isolatingPass,
+  });
+  await Bun.sleep(20);
+  const queued = judgeIn(lifetime, [second], undefined, OTHER);
+  await Bun.sleep(20);
+
+  await settleDocumentSyncLoroWindow(reading, null);
+  await isolating;
+  killer.restore();
+  host.kill("queued");
+  await claimIn(host.lifetime("next"), MAIN);
+
+  expect(await recordedAttempts(FIRST)).toBe(1);
+  await settleDocumentSyncLoroWindow(isolatingPass, null);
+  await queued;
+});
+
+// Another tab's claim may forget a dead lifetime's markers once its own rows
+// are gone, while this claim is between listing an orphan and deleting it;
+// the markers this claim judges by are read before any delete.
+test("a claim judges by the markers it saw before deleting", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await judgeIn(host.lifetime("hidden"), [update]);
+  host.hide();
+  host.kill("hidden");
+  let forgotten = false;
+  const racing = createExecSql({
+    exec: async ({ bind, rowMode, sql }) => {
+      if (!forgotten && /delete from "document_loro_windows"/i.test(sql)) {
+        forgotten = true;
+        host.markers.clear();
+      }
+      return {
+        rows: await execSql(sql, bind, { rowMode: rowMode ?? "object" }),
+      };
+    },
+  });
+
+  await claimDocumentSyncOrphanWindows({
+    ...MAIN,
+    execSql: racing,
+    lifetimes: host.lifetime("next"),
+  });
+
+  expect(forgotten).toBe(true);
+  expect(await recordedAttempts(FIRST)).toBeNull();
+  expect(await pageLimit(MAIN)).toBeUndefined();
+});
