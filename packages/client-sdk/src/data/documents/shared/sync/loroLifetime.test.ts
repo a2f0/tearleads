@@ -194,3 +194,116 @@ test("a lock request that never settles leaves the lifetime unready", async () =
 
   expect(await lifetimes.ready()).toBe(false);
 });
+
+// A restart drains the lifetime's windows: none is admitted, queued ones
+// included, until the open ones close, and those asked for meanwhile enter
+// in order once the drain ends.
+test("a drain admits no window until the open ones close", async () => {
+  const lifetimes = createLoroLifetimes({ id: "tab", restartHoldMs: 1 });
+  const order: string[] = [];
+  const open = await lifetimes.openWindow(false);
+  const queued = lifetimes.openWindow(true).then((window) => {
+    order.push("queued");
+    return window;
+  });
+
+  const drained = lifetimes.drainWindows(60_000);
+  const asked = lifetimes.openWindow(false).then((window) => {
+    order.push("asked");
+    return window;
+  });
+  await Promise.resolve();
+  expect(lifetimes.openWindowCount()).toBe(1);
+
+  lifetimes.closeWindow(open);
+  expect(await drained).toBe(true);
+  lifetimes.closeWindow(await queued);
+  await asked;
+
+  expect(order).toEqual(["queued", "asked"]);
+});
+
+// A drain never holds the restart past its wait, nor a window past the
+// gate's: either goes ahead, reading outside the gate.
+test("a drain ends after its wait, and a held window after the gate's", async () => {
+  const lifetimes = createLoroLifetimes({
+    gateWaitMs: 5,
+    id: "tab",
+    restartHoldMs: 1,
+  });
+  const open = await lifetimes.openWindow(false);
+  const draining = lifetimes.drainWindows(60_000);
+
+  const outside = await lifetimes.openWindow(false);
+  expect(lifetimes.openWindowCount()).toBe(2);
+  lifetimes.closeWindow(open);
+  lifetimes.closeWindow(outside);
+  expect(await draining).toBe(true);
+  // The window that left the drain to read outside the gate holds no place
+  // in it: once the hold ends, an isolating window enters at once.
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  let alone = false;
+  const isolating = lifetimes.openWindow(true).then((window) => {
+    alone = true;
+    return window;
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(alone).toBe(true);
+  lifetimes.closeWindow(await isolating);
+
+  const short = createLoroLifetimes({ id: "short", restartHoldMs: 1 });
+  const stuck = await short.openWindow(false);
+  expect(await short.drainWindows(5)).toBe(false);
+  expect(await short.openWindow(false)).not.toBe(stuck);
+});
+
+// A drained realm is about to restart, so nothing the drain held, and
+// nothing asked for after it, opens a window before the restart: not even
+// when no window was open to drain. A realm its host kept admits them once
+// the restart's hold ends.
+test("a drained realm opens no window before its restart", async () => {
+  const lifetimes = createLoroLifetimes({ id: "tab", restartHoldMs: 20 });
+  const open = await lifetimes.openWindow(false);
+  const drained = lifetimes.drainWindows(60_000);
+  const held = lifetimes.openWindow(false);
+  lifetimes.closeWindow(open);
+  expect(await drained).toBe(true);
+  const asked = lifetimes.openWindow(false);
+  await Promise.resolve();
+  expect(lifetimes.openWindowCount()).toBe(0);
+  lifetimes.closeWindow(await held);
+  lifetimes.closeWindow(await asked);
+
+  const idle = createLoroLifetimes({ id: "idle", restartHoldMs: 20 });
+  expect(await idle.drainWindows(60_000)).toBe(true);
+  const after = idle.openWindow(false);
+  await Promise.resolve();
+  expect(idle.openWindowCount()).toBe(0);
+  idle.closeWindow(await after);
+});
+
+// A request held through the hold still enters outside the gate once its
+// own wait ends, and a restart asked for while it is open drains it again.
+test("a held window that leaves during the hold is drained again", async () => {
+  const lifetimes = createLoroLifetimes({
+    gateWaitMs: 5,
+    id: "tab",
+    restartHoldMs: 200,
+  });
+  expect(await lifetimes.drainWindows(60_000)).toBe(true);
+
+  const outside = await lifetimes.openWindow(false);
+  expect(lifetimes.openWindowCount()).toBe(1);
+  let drained = false;
+  const again = lifetimes.drainWindows(60_000).then((value) => {
+    drained = true;
+    return value;
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(drained).toBe(false);
+
+  lifetimes.closeWindow(outside);
+  expect(await again).toBe(true);
+});

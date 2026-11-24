@@ -178,6 +178,12 @@ export {
   noteDocumentRotationRebuilt,
   readDocumentRotationLeftOut,
 } from "./sync/rotationAvailability";
+export {
+  getRuntimeHealth,
+  prepareRuntimeRestart,
+  type RuntimeHealthStatus,
+  subscribeRuntimeHealth,
+} from "./sync/runtimeRestart";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
   type DocumentSyncLane,

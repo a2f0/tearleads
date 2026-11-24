@@ -107,7 +107,11 @@ Only the first runtime failure in a process counts as an attempt, because a
 later one may be the module's state, not the update. Once three process
 lifetimes have each failed the update, it is a final void like the others, is
 reported as such, and is never read again under that judge. A new decoder
-judges it from zero. An update that imports on a retry joins.
+judges it from zero. An update that imports on a retry joins. The app asks its
+user to reload after a page's first failure and reloads only on that press,
+once `prepareRuntimeRestart` lets the read windows close; each reload counts
+the update once more
+([runtime restart](./developer/client-sdk/runtime-behavior.md#runtime-restart)).
 
 A payload can also kill the process outright (an out-of-memory crash, or a
 renderer crash) rather than throw. Document sync reads a page inside a read

@@ -157,11 +157,18 @@ setInterval(() => {}, 100);
           /* gone */
         }
       }
+      // Cleanup may neither throw nor hang, or it replaces the error that
+      // brought the test here with a bare timeout (CI, #3191 and #3224).
       const workerPid = pid;
-      if (workerPid) await waitFor(() => !alive(workerPid));
-      now = 61_000;
-      tick();
-      await completed;
+      if (workerPid) await waitFor(() => !alive(workerPid)).catch(() => {});
+      // Step past every deadline. A single tick can find the group it just
+      // killed not yet reaped and leave the supervisor draining, with nothing
+      // left to tick it, so `completed` would never settle.
+      for (let step = 0; step < 3; step += 1) {
+        now += 61_000;
+        tick();
+      }
+      await completed.catch(() => {});
       rmSync(root, { recursive: true, force: true });
     }
   },
