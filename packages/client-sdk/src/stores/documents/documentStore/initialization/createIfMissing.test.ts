@@ -4,12 +4,26 @@ import {
   createProbeRuntime,
   settleCoordinator,
 } from "../../../../../test/helpers/workflows/remoteSyncWait";
+import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import { disposeDomainSyncCoordinator } from "../../../../data/sync/syncCoordinator";
 import { defaultDocumentsPersistence } from "../../../../workflows/documents";
 import type { DocumentStoreOpenOptions, DocumentsRuntime } from "../../types";
-import { createRemoteHistoryFixture } from "../documentStore.testFixtures";
+import {
+  createRemoteHistoryFixture,
+  noopDocumentStorePersistenceEffects,
+} from "../documentStore.testFixtures";
 import { getOrCreateDocumentStore } from "../index";
+import { createDocumentStoreState } from "../state";
+import {
+  ensureDeferredBirthSchema,
+  offlineAttachRuntime,
+} from "./deferredInitialUpdate.testFixtures";
+import { ensureDocumentStoreReady } from "./index";
+import {
+  applyDocumentStoreCreationOptions,
+  joinDocumentStoreCreation,
+} from "./initialContent";
 
 const READ_ONLY: DocumentStoreOpenOptions = {
   createIfMissing: false,
@@ -24,6 +38,8 @@ async function withEmptyDatabase(
     loadRecord: () => ReturnType<
       typeof defaultDocumentsPersistence.loadDocument
     >;
+    /** Runs after each query the stores make resolves, before they resume. */
+    onQueryResolved: (listener: (() => void) | null) => void;
     open: (
       options?: DocumentStoreOpenOptions,
       initialText?: string,
@@ -34,8 +50,14 @@ async function withEmptyDatabase(
 ) {
   const fixture = await createRemoteHistoryFixture();
   const database = await createTestExecSql(name);
+  let afterQuery: (() => void) | null = null;
+  const execSql = ((...args: Parameters<typeof database.execSql>) =>
+    database.execSql(...args).then((rows) => {
+      afterQuery?.();
+      return rows;
+    })) as typeof database.execSql;
   const runtime = createProbeRuntime({
-    execSql: database.execSql,
+    execSql,
     fixture,
     syncDocument: async () => fixture.response,
   });
@@ -45,6 +67,9 @@ async function withEmptyDatabase(
     await run({
       loadRecord: () =>
         defaultDocumentsPersistence.loadDocument(database.execSql, name),
+      onQueryResolved: (listener) => {
+        afterQuery = listener;
+      },
       open: (options = {}, initialText = "", openRuntime = runtime) => {
         scopes.add(openRuntime.state.domainScope);
         return getOrCreateDocumentStore(
@@ -144,4 +169,90 @@ test("a creator whose content does not fit its kind cannot join a reading store"
     expect(await reader.ensureInitialized()).toBe(false);
     expect(await input.loadRecord()).toBeNull();
   });
+});
+
+// How many queries a reading open makes before it refuses a missing record.
+async function countRefusalQueries(): Promise<number> {
+  let count = 0;
+  await withEmptyDatabase("create-if-missing-count", async (input) => {
+    input.onQueryResolved(() => {
+      count += 1;
+    });
+    expect(await input.open(READ_ONLY).ensureInitialized()).toBe(false);
+    input.onQueryResolved(null);
+  });
+  return count;
+}
+
+test("a creator that joins right after a reader's refusal still creates", async () => {
+  // The reader refuses after its last query. Joining a counted number of
+  // ticks after that query lands one join between the refusal and the end of
+  // the reader's initialization, where the creator would wait on it.
+  const lastQuery = (await countRefusalQueries()) - 1;
+  for (let ticks = 0; ticks < 24; ticks += 1) {
+    const name = `create-if-missing-late-${ticks}`;
+    await withEmptyDatabase(name, async (input) => {
+      let created: Promise<boolean> | null = null;
+      const join = () => {
+        created ??= input.open({}, "late creator").ensureInitialized();
+        return created;
+      };
+      let resolved = 0;
+      input.onQueryResolved(() => {
+        if (resolved++ !== lastQuery) return;
+        void (async () => {
+          for (let tick = 0; tick < ticks; tick += 1) await Promise.resolve();
+          join();
+        })();
+      });
+      const reader = input.open(READ_ONLY);
+      const refused = await reader.ensureInitialized();
+      input.onQueryResolved(null);
+      const ready = join();
+
+      expect(refused).toBeBoolean();
+      expect(await ready).toBe(true);
+      expect(await input.loadRecord()).toMatchObject({ text: "late creator" });
+    });
+  }
+}, 30_000);
+
+test("an open that may create leaves a reading store that loaded alone", async () => {
+  const database = await createTestExecSql("create-if-missing-loaded-join");
+  try {
+    await ensureDeferredBirthSchema(database.execSql);
+    const runtime = offlineAttachRuntime({
+      blobStore: createMemoryBlobStore(),
+      canAttach: true,
+      execSql: database.execSql,
+    });
+    const openState = (text: string) =>
+      createDocumentStoreState(
+        "loaded-join",
+        runtime,
+        defaultDocumentsPersistence,
+        noopDocumentStorePersistenceEffects,
+        null,
+        text,
+      );
+    expect(
+      await ensureDocumentStoreReady(openState("saved text"), () => undefined),
+    ).toBe(true);
+    const reader = openState("");
+    applyDocumentStoreCreationOptions(reader, { createIfMissing: false });
+    expect(await ensureDocumentStoreReady(reader, () => undefined)).toBe(true);
+
+    // Like any later open of a loaded store, it shapes nothing: a deferred
+    // birth here would hold the live record's sync for an attach.
+    joinDocumentStoreCreation(reader, {
+      initialDocumentKind: reader.initialDocumentKind,
+      initialText: "creator text",
+      options: { deferInitialUpdate: true },
+    });
+    expect(reader.deferInitialUpdate).not.toBe(true);
+    expect(reader.initialText).toBe("");
+    expect(reader.createIfMissing).toBe(false);
+  } finally {
+    database.close();
+  }
 });

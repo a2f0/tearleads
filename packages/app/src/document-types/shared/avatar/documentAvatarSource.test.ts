@@ -14,8 +14,9 @@ const drill = {
   photos: { avatarFallbackIcon: WrenchIcon, slotId: "equipment-photos" },
 } as const;
 
-function fakeStore(relinkedElsewhere?: true) {
+function fakeStore(relinkedElsewhere?: true, loads = true) {
   return {
+    ensureInitialized: async () => loads,
     getSnapshot: () => ({ relinkedElsewhere }),
   } as unknown as DocumentStore;
 }
@@ -127,6 +128,7 @@ test("a document without a local copy yet is tried again later", async () => {
 test("a kept store a relink displaced is dropped, and the next read reopens", async () => {
   let snapshot: { relinkedElsewhere?: true } = {};
   const displaced = {
+    ensureInitialized: async () => true,
     getSnapshot: () => snapshot,
   } as unknown as DocumentStore;
   const owner = fakeStore();
@@ -152,6 +154,24 @@ test("an open that returns a displaced view shows nothing and keeps nothing", as
   expect(await source.openDocument(drill)).toBeNull();
   expect(source.openedDocument("drill-local")).toBeNull();
   expect(await source.openDocument(drill)).toBeNull();
+  expect(opens).toHaveLength(2);
+});
+
+test("a store whose record was deleted while it opened is not kept", async () => {
+  let loads = false;
+  const { opens, source } = createSource({
+    open: () => fakeStore(undefined, loads),
+    summary,
+  });
+
+  expect(await source.openDocument(drill)).toBeNull();
+  expect(source.openedDocument(drill.localId)).toBeNull();
+
+  // The record comes back: the next listing tries again and keeps it.
+  loads = true;
+  const reopened = await source.openDocument(drill);
+  expect(reopened).not.toBeNull();
+  expect(source.openedDocument(drill.localId)).toBe(reopened);
   expect(opens).toHaveLength(2);
 });
 

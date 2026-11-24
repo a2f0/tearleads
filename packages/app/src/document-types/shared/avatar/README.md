@@ -37,7 +37,7 @@ with galleries through `getDocumentPhotoCapability` in the
   container, not the listing's, and opens on demand, so opening starts no
   remote sync. A view that later opens the document normally still gets its
   startup probe. The source
-  keeps each store it opened, so a list that scrolls back or remounts reads it
+  keeps each store it loaded, so a list that scrolls back or remounts reads it
   without reopening, and drops one a relink displaced.
 - [`useDocumentAvatarUrls.ts`](useDocumentAvatarUrls.ts) follows those stores
   and maps each chosen avatar to an object URL. Explorer uses it for the loaded
@@ -54,6 +54,5 @@ large container grows memory until the database closes. Once open, a store
 takes part in domain-wide sync requests like any open document. Reopening a
 store replaces its runtime, which arms a reconnect probe when the connection
 changed since it last saw one, so the avatar source opens each document once. A
-document deleted while its avatar opens leaves the source an unloaded store,
-which shows the kind's glyph until the record comes back or the source
-changes.
+document deleted while its avatar opens shows the kind's glyph, and the source
+keeps no store for it, so a later listing tries it again.

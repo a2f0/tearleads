@@ -60,6 +60,14 @@ test.each<
     false,
   ],
   ["load of a local-only record", WANTED, loaded(false), WANTED, false],
+  ["load while deferred", DEFERRED, loaded(true), WANTED, true],
+  [
+    "load while deferred during a connect",
+    DEFERRED,
+    loaded(true, 7),
+    { attempt: 7, status: "deferred" },
+    false,
+  ],
   [
     "reconnect covers the deferred probe",
     DEFERRED,
@@ -91,6 +99,7 @@ test.each<[string, StartupProbeState, StartupProbeEvent]>([
   ["a second join", WANTED, joined(true)],
   ["a join while deferred", DEFERRED, joined(true)],
   ["an on-demand load", ON_DEMAND, loaded(true)],
+  ["a local-only load while deferred", DEFERRED, loaded(false)],
   ["a runtime without a deferral", WANTED, runtimeInstalled(false)],
   ["an on-demand runtime", ON_DEMAND, runtimeInstalled(true)],
   ["an on-demand reset", ON_DEMAND, RESET],

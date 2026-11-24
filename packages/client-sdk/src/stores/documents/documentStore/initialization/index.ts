@@ -181,8 +181,6 @@ async function restoreOrCreateInitialDocument(input: {
   if (persistedState.document) {
     return restoreLoadedInitialDocument(input);
   }
-  // Only readers opened this store: leave the record missing until a join.
-  if (state.createIfMissing === false) return null;
   const created = await createInitialDocumentRecord(state, input.nextDoc);
   if (!created || state.localWriteGeneration !== initializeGeneration) {
     return null;
@@ -268,6 +266,13 @@ async function initializeDocumentStore(
     log: state.runtime.util.log,
   });
   if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
+  // Only readers opened this store: leave the record missing until a join.
+  // Ending in this same step means a creator that joins later starts its own
+  // initialization instead of waiting on this one.
+  if (!persistedState.document && state.createIfMissing === false) {
+    state.initializePromise = null;
     return;
   }
   const restored = await restoreOrCreateInitialDocument({

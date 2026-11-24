@@ -63,6 +63,7 @@ function fakeStore(initial: DocumentSnapshot) {
   let snapshot = initial;
   const listeners = new Set<() => void>();
   const store = {
+    ensureInitialized: async () => true,
     getSnapshot: () => snapshot,
     subscribe: (listener: () => void) => {
       listeners.add(listener);

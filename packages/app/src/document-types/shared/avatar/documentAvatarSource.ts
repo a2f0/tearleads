@@ -58,7 +58,7 @@ function isRelinkedElsewhere(store: DocumentStore): boolean {
  * - It opens on demand, so opening starts no remote sync; a later view that
  *   opens it normally still runs the startup probe.
  * Each is a full store, loaded as any view loads one, and the SDK keeps it for
- * the session. The source keeps the stores it opened too, so a list that
+ * the session. The source keeps the stores it loaded too, so a list that
  * remounts or scrolls back reads them without reopening: a reopen replaces the
  * store's runtime and can arm a reconnect probe. A store a relink displaced is
  * dropped, and the next open follows the record that now owns the document.
@@ -104,8 +104,13 @@ export function createDocumentAvatarSource(
       },
       { createIfMissing: false, remoteSyncMode: "on-demand" },
     );
-    // A displaced view never shows again; the next listing opens the owner.
-    return isRelinkedElsewhere(store) ? null : store;
+    // A displaced view never shows again, and a record deleted while it
+    // opened leaves a store that never loads. Neither is kept: the next
+    // listing opens the owner, or tries the document again.
+    if (isRelinkedElsewhere(store) || !(await store.ensureInitialized())) {
+      return null;
+    }
+    return store;
   };
 
   return {

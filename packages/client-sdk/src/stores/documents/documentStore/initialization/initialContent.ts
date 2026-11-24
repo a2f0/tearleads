@@ -70,13 +70,15 @@ export function applyDocumentStoreCreationOptions(
  * An open that may create joins a store whose openers so far only read. The
  * readers set no content for a record, so a record still missing is created
  * from this open's kind, text and content. It runs inside the open, so an
- * initialization already in flight sees it before deciding to create.
+ * initialization already in flight sees it before deciding to create. A store
+ * that already loaded its record ignores it, like any later open.
  */
 export function joinDocumentStoreCreation(
   state: DocumentStoreState,
   open: DocumentStoreJoiningOpen,
 ): void {
   if (
+    state.initialized ||
     state.createIfMissing !== false ||
     open.options.createIfMissing === false
   ) {

@@ -12,6 +12,9 @@
  * | wanted     | loaded           | local-only record                     | wanted        | no  |
  * | wanted     | loaded           | connect attempt `a` open              | deferred(a)   | no  |
  * | wanted     | loaded           | no connect attempt                    | wanted        | yes |
+ * | deferred   | loaded           | local-only record                     | deferred      | no  |
+ * | deferred   | loaded           | connect attempt `a` open              | deferred(a)   | no  |
+ * | deferred   | loaded           | no connect attempt                    | wanted        | yes |
  * | deferred   | runtimeInstalled | server events reconnected             | wanted        | no  |
  * | deferred(a)| runtimeInstalled | attempt `a` still open                | deferred(a)   | no  |
  * | deferred   | runtimeInstalled | otherwise                             | wanted        | yes |
@@ -21,7 +24,9 @@
  * a runtime installed with no deferred probe, a reset that had nothing to
  * forget. A probe is "owed" to a loaded remote record whose remote sync is
  * still blocked; one already allowed (a requested sync, a server hint) covers
- * it. "wanted" stays after arming: it says the next load probes again.
+ * it. "wanted" stays after arming: it says the next load probes again. A
+ * store loads again only after a reset, which leaves "deferred", so the
+ * deferred load rows keep the old behavior for a load that does not happen.
  */
 export type StartupProbeState =
   | { readonly status: "onDemand" }
