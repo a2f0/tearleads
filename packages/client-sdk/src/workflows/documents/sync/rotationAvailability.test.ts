@@ -127,6 +127,7 @@ test("an unreadable availability row reads as available", async () => {
     ["leavingOut", 3, null, "alone"],
     ["leavingOut", 0, "[]", "alone"],
     ["leavingOut", 3, '["alone"]', "alone"],
+    ["leavingOut", 3, "not json", "alone"],
     ["leftOut", 0, null, null],
     ["leftOut", 0, "[]", null],
     ["leftOut", 0, "not json", null],
