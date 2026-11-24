@@ -3,15 +3,16 @@ import { useEffect, useRef, useState } from "react";
 import {
   isAutomaticBlobPreviewAllowed,
   readAutomaticPreviewBlobBytes,
-} from "../shared/documentAttachmentUtils";
-import type { ContactAvatarRef } from "./contactAvatarSlot";
+} from "../documentAttachmentUtils";
+import type { DocumentAvatarRef } from "./documentAvatarRef";
 
-interface ContactAvatarEntryLike {
-  avatar?: ContactAvatarRef | undefined;
+/** One document, keyed by its local id, and the avatar it has chosen. */
+export interface AvatarEntry {
+  avatar?: DocumentAvatarRef | null | undefined;
   id: string;
 }
 
-export type AvatarUrlByContactId = Readonly<Record<string, string>>;
+export type AvatarUrlById = Readonly<Record<string, string>>;
 
 interface AvatarObjectUrlEntry {
   storageKey: string;
@@ -21,12 +22,12 @@ interface AvatarObjectUrlEntry {
 interface AvatarUrlState {
   createdObjectUrls: string[];
   nextObjectUrls: Map<string, AvatarObjectUrlEntry>;
-  nextUrlByContactId: Record<string, string>;
+  nextUrlById: Record<string, string>;
 }
 
 function getLoadableAvatar(
-  entry: ContactAvatarEntryLike,
-): (ContactAvatarRef & { storageKey: string }) | null {
+  entry: AvatarEntry,
+): (DocumentAvatarRef & { storageKey: string }) | null {
   const avatar = entry.avatar;
   if (
     !avatar?.storageKey ||
@@ -48,7 +49,7 @@ function revokeAvatarObjectUrls(
 }
 
 async function loadAvatarObjectUrl(
-  avatar: ContactAvatarRef & { storageKey: string },
+  avatar: DocumentAvatarRef & { storageKey: string },
   blobStore: BlobStore,
 ): Promise<string | null> {
   const blobBytes = await readAutomaticPreviewBlobBytes(
@@ -67,15 +68,19 @@ async function loadAvatarObjectUrl(
 }
 
 async function buildAvatarUrlState(
-  entries: ReadonlyArray<ContactAvatarEntryLike>,
-  blobStore: BlobStore,
+  entries: ReadonlyArray<AvatarEntry>,
+  blobStore: BlobStore | null,
   currentObjectUrls: ReadonlyMap<string, AvatarObjectUrlEntry>,
 ): Promise<AvatarUrlState> {
   const state: AvatarUrlState = {
     createdObjectUrls: [],
     nextObjectUrls: new Map(),
-    nextUrlByContactId: {},
+    nextUrlById: {},
   };
+  // Without a blob store nothing loads, and any earlier URLs are revoked.
+  if (!blobStore) {
+    return state;
+  }
 
   for (const entry of entries) {
     const avatar = getLoadableAvatar(entry);
@@ -86,7 +91,7 @@ async function buildAvatarUrlState(
     const existingEntry = currentObjectUrls.get(entry.id);
     if (existingEntry && existingEntry.storageKey === avatar.storageKey) {
       state.nextObjectUrls.set(entry.id, existingEntry);
-      state.nextUrlByContactId[entry.id] = existingEntry.url;
+      state.nextUrlById[entry.id] = existingEntry.url;
       continue;
     }
 
@@ -96,7 +101,7 @@ async function buildAvatarUrlState(
     }
     state.createdObjectUrls.push(url);
     state.nextObjectUrls.set(entry.id, { storageKey: avatar.storageKey, url });
-    state.nextUrlByContactId[entry.id] = url;
+    state.nextUrlById[entry.id] = url;
   }
 
   return state;
@@ -106,24 +111,22 @@ function revokeReplacedAvatarUrls(
   currentObjectUrls: ReadonlyMap<string, AvatarObjectUrlEntry>,
   nextObjectUrls: ReadonlyMap<string, AvatarObjectUrlEntry>,
 ) {
-  for (const [contactId, entry] of currentObjectUrls.entries()) {
-    const nextEntry = nextObjectUrls.get(contactId);
+  for (const [id, entry] of currentObjectUrls.entries()) {
+    const nextEntry = nextObjectUrls.get(id);
     if (!nextEntry || nextEntry.url !== entry.url) {
       URL.revokeObjectURL(entry.url);
     }
   }
 }
 
-// Map each contact's avatar blob to an object URL, reusing URLs while the
+// Map each document's avatar blob to an object URL, reusing URLs while the
 // storage key is unchanged and revoking them when the avatar changes, the
-// contact disappears, or the consumer unmounts.
-export function useContactAvatarUrls(
-  entries: ReadonlyArray<ContactAvatarEntryLike>,
-  blobStore: BlobStore,
-): AvatarUrlByContactId {
-  const [urlByContactId, setUrlByContactId] = useState<AvatarUrlByContactId>(
-    {},
-  );
+// document disappears, or the consumer unmounts.
+export function useAvatarUrls(
+  entries: ReadonlyArray<AvatarEntry>,
+  blobStore: BlobStore | null,
+): AvatarUrlById {
+  const [urlById, setUrlById] = useState<AvatarUrlById>({});
   const objectUrlsRef = useRef(new Map<string, AvatarObjectUrlEntry>());
 
   useEffect(() => {
@@ -138,7 +141,7 @@ export function useContactAvatarUrls(
 
     async function loadAvatars() {
       const currentObjectUrls = objectUrlsRef.current;
-      const { createdObjectUrls, nextObjectUrls, nextUrlByContactId } =
+      const { createdObjectUrls, nextObjectUrls, nextUrlById } =
         await buildAvatarUrlState(entries, blobStore, currentObjectUrls);
 
       if (cancelled) {
@@ -150,7 +153,7 @@ export function useContactAvatarUrls(
 
       revokeReplacedAvatarUrls(currentObjectUrls, nextObjectUrls);
       objectUrlsRef.current = nextObjectUrls;
-      setUrlByContactId(nextUrlByContactId);
+      setUrlById(nextUrlById);
     }
 
     void loadAvatars();
@@ -160,5 +163,5 @@ export function useContactAvatarUrls(
     };
   }, [blobStore, entries]);
 
-  return urlByContactId;
+  return urlById;
 }

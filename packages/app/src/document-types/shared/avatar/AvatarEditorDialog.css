@@ -1,4 +1,4 @@
-.contact-avatar-editor {
+.avatar-editor {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -7,16 +7,16 @@
   overflow: auto;
 }
 
-.contact-avatar-editor h2 {
+.avatar-editor h2 {
   margin: 0;
   font-size: var(--font-size-md);
 }
 
-.contact-avatar-editor-viewport {
+.avatar-editor-viewport {
   position: relative;
   align-self: center;
   box-sizing: border-box;
-  width: min(100%, var(--contact-avatar-editor-size));
+  width: min(100%, var(--avatar-editor-size));
   aspect-ratio: 1;
   flex-shrink: 0;
   overflow: hidden;
@@ -29,11 +29,11 @@
   -webkit-touch-callout: none;
 }
 
-.contact-avatar-editor-viewport:active {
+.avatar-editor-viewport:active {
   cursor: grabbing;
 }
 
-.contact-avatar-editor-image {
+.avatar-editor-image {
   position: absolute;
   max-width: none;
   user-select: none;
@@ -42,7 +42,7 @@
 
 /* Circle crop guide: the inscribed circle stays clear while the oversized
    box-shadow dims the square corners that will be cropped away. */
-.contact-avatar-editor-mask {
+.avatar-editor-mask {
   position: absolute;
   inset: 0;
   box-sizing: border-box;
@@ -52,20 +52,20 @@
   pointer-events: none;
 }
 
-.contact-avatar-editor-hint {
+.avatar-editor-hint {
   margin: 0;
   font-size: var(--font-size-xs);
   opacity: 0.75;
 }
 
-.contact-avatar-editor-zoom {
+.avatar-editor-zoom {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   font-size: var(--font-size-sm);
 }
 
-.contact-avatar-editor-zoom input[type="range"] {
+.avatar-editor-zoom input[type="range"] {
   flex: 1 1 auto;
   min-width: 0;
 }

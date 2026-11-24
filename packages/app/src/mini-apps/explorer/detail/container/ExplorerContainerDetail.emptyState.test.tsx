@@ -434,7 +434,7 @@ test("an orphaned document renders an empty actions cell", () => {
       <tbody>
         <tr>
           {renderExplorerItemCell("actions", {
-            contactAvatarUrlByLocalId: {},
+            avatarUrlByLocalId: {},
             currentSelfContactLocalId: null,
             currentSigningFingerprint: null,
             currentUserId: null,

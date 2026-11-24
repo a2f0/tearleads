@@ -1,3 +1,4 @@
+import type { Icon } from "@phosphor-icons/react";
 import type {
   DocumentAttachment,
   DocumentAttachmentUpload,
@@ -12,9 +13,14 @@ import {
 /** A document has an avatar only when this field selects a gallery photo. */
 export const AVATAR_PHOTO_FIELD = "avatarPhotoSlotId";
 
+/**
+ * A document kind's photo gallery. Every kind with one can pick a gallery
+ * photo as its avatar; `avatarFallbackIcon` stands in while none is chosen, in
+ * the document's avatar control and wherever the document is listed.
+ */
 export interface DocumentPhotoCapability {
   readonly slotId: string;
-  readonly avatar: boolean;
+  readonly avatarFallbackIcon: Icon;
 }
 
 export function photoCollectionSlot(slotId: string) {
@@ -36,7 +42,7 @@ export function findDocumentAvatar(
   snapshot: Pick<DocumentSnapshot, "attachments" | "structuredFields">,
 ) {
   const slotId = snapshot.structuredFields[AVATAR_PHOTO_FIELD];
-  if (!photos.avatar || !slotId) return null;
+  if (!slotId) return null;
   const photo = getLatestDocumentAttachmentBySlotId(
     snapshot.attachments,
     slotId,
@@ -132,7 +138,7 @@ export async function selectDocumentAvatar(
       snapshot.documentKind === kind
     );
   };
-  if (!photos.avatar || !writable()) return;
+  if (!writable()) return;
   const intent = {};
   latestSelection.set(store, intent);
   const current = () => latestSelection.get(store) === intent && writable();

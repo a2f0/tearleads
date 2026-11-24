@@ -1,0 +1,23 @@
+.document-avatar-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.document-avatar-control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.document-avatar-control-file-input {
+  display: none;
+}
+
+.avatar-photo-option {
+  width: 2rem;
+  height: 2rem;
+  object-fit: cover;
+  border-radius: var(--app-radius-control);
+}

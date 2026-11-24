@@ -1,13 +1,26 @@
 import { expect, test } from "bun:test";
+import { WrenchIcon } from "@phosphor-icons/react/dist/csr/Wrench";
 import type { DocumentAttachment } from "@tearleads/client-sdk";
-import { getContactAvatarRef, sameContactAvatarRef } from "./contactAvatarSlot";
+import type { DocumentPhotoCapability } from "../documentPhotos";
+import {
+  getDocumentAvatarRef,
+  sameDocumentAvatarRef,
+} from "./documentAvatarRef";
+
+const photos: DocumentPhotoCapability = {
+  avatarFallbackIcon: WrenchIcon,
+  slotId: "equipment-photos",
+};
+
+const readAvatarRef = (snapshot: Parameters<typeof getDocumentAvatarRef>[1]) =>
+  getDocumentAvatarRef(photos, snapshot);
 
 const avatarAttachment: DocumentAttachment = {
   contentSha256: "1".repeat(64),
   byteLength: 1024,
   mimeType: "image/png",
   name: "avatar.png",
-  slotId: "contact-photos:one",
+  slotId: "equipment-photos:one",
 };
 
 function snapshot(
@@ -17,14 +30,14 @@ function snapshot(
   return {
     attachments,
     attachmentStorageKeyBySlotId: keys,
-    structuredFields: { avatarPhotoSlotId: "contact-photos:one" },
+    structuredFields: { avatarPhotoSlotId: "equipment-photos:one" },
   };
 }
 
 test("returns null without an avatar slot attachment", () => {
-  expect(getContactAvatarRef(snapshot([]))).toBeNull();
+  expect(readAvatarRef(snapshot([]))).toBeNull();
   expect(
-    getContactAvatarRef({
+    readAvatarRef({
       ...snapshot([{ ...avatarAttachment, slotId: "other-slot" }]),
       structuredFields: { avatarPhotoSlotId: "other-slot" },
     }),
@@ -38,9 +51,9 @@ test("returns the latest avatar attachment with its storage key", () => {
   };
 
   expect(
-    getContactAvatarRef(
+    readAvatarRef(
       snapshot([avatarAttachment, replacement], {
-        "contact-photos:one": "avatar-key",
+        "equipment-photos:one": "avatar-key",
       }),
     ),
   ).toEqual({
@@ -51,7 +64,7 @@ test("returns the latest avatar attachment with its storage key", () => {
 });
 
 test("reports a null storage key while the blob is not local yet", () => {
-  expect(getContactAvatarRef(snapshot([avatarAttachment]))).toEqual({
+  expect(readAvatarRef(snapshot([avatarAttachment]))).toEqual({
     byteLength: 1024,
     mimeType: "image/png",
     storageKey: null,
@@ -61,9 +74,9 @@ test("reports a null storage key while the blob is not local yet", () => {
 test("compares avatar refs by byte length, mime type, and storage key", () => {
   const ref = { byteLength: 1, mimeType: "image/png", storageKey: "a" };
 
-  expect(sameContactAvatarRef(null, undefined)).toBe(true);
-  expect(sameContactAvatarRef(ref, null)).toBe(false);
-  expect(sameContactAvatarRef(ref, { ...ref })).toBe(true);
-  expect(sameContactAvatarRef(ref, { ...ref, storageKey: "b" })).toBe(false);
-  expect(sameContactAvatarRef(ref, { ...ref, byteLength: 2 })).toBe(false);
+  expect(sameDocumentAvatarRef(null, undefined)).toBe(true);
+  expect(sameDocumentAvatarRef(ref, null)).toBe(false);
+  expect(sameDocumentAvatarRef(ref, { ...ref })).toBe(true);
+  expect(sameDocumentAvatarRef(ref, { ...ref, storageKey: "b" })).toBe(false);
+  expect(sameDocumentAvatarRef(ref, { ...ref, byteLength: 2 })).toBe(false);
 });

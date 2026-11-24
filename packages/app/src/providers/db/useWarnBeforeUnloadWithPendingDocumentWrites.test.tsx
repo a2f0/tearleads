@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { createDomainScope, type DomainScope } from "@tearleads/client-sdk";
 import { cleanup, render } from "@testing-library/react";
+import { hasPendingPageDocumentWrites } from "./pageDocumentWrites";
 import { useWarnBeforeUnloadWithPendingDocumentWrites } from "./useWarnBeforeUnloadWithPendingDocumentWrites";
 
 afterEach(cleanup);
@@ -49,4 +50,22 @@ test("removes the listener on unmount", () => {
 
   expect(dispatchBeforeUnload().defaultPrevented).toBe(false);
   expect(checks).toBe(0);
+});
+
+// Native shells ignore the unload prompt, so a reload the app starts asks
+// every mounted runtime itself, through the page's registry, while it is
+// mounted.
+test("lets a page-wide reload ask for pending writes while mounted", () => {
+  let pending = true;
+  const { domainScope, unmount } = renderGuard((scope) => {
+    expect(scope).toBe(domainScope);
+    return pending;
+  });
+
+  expect(hasPendingPageDocumentWrites()).toBe(true);
+  pending = false;
+  expect(hasPendingPageDocumentWrites()).toBe(false);
+  pending = true;
+  unmount();
+  expect(hasPendingPageDocumentWrites()).toBe(false);
 });

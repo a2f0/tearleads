@@ -31,7 +31,7 @@ must cover its target. This abstracts the runtime remote-update signal sequence.
 | `RemoteBodyAdvance` | peer `document_update_created` commit, whether or not its websocket hint arrives |
 | `RemoteSlotAdvance` | peer Loro update changing attachment-slot metadata and emitting the ordinary lossy invalidation (`document_update_created`) |
 | `Restart` | document-store and in-memory event teardown across process restart, re-entered through `initializeDocumentStore` on the next load |
-| `InitializeOpenedPersistedDocument` | `initializeDocumentStore` arming `remoteUpdatePending` for a loaded remote record, or, with its `defer` parameter, `deferStartupProbeToPendingConnect` recording the connect attempt in flight (`serverEventsPendingConnectAttempt`) instead |
+| `InitializeOpenedPersistedDocument` | `initializeDocumentStore` arming `remoteUpdatePending` for a loaded remote record, or, with its `defer` parameter, `deferStartupProbeToPendingConnect` recording the connect attempt in flight (`serverEventsPendingConnectAttempt`) instead. A store first opened on demand reaches this action when a later default-mode open joins it (`joinDocumentStoreStartupProbe`), at its initialization or at once if it already loaded |
 | `DisconnectEvents` | server-events disconnect (`setConnected` drops the connected flag) while retaining accepted document work |
 | `OpenEventsSocket` | the socket `open` event starting `startContainerInterestDeclaration` without marking events connected; the server installs no interest for it |
 | `MarkContainerTreeReady` | the `containerStore` snapshot publishing its ready, hydrated node set |

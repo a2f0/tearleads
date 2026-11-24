@@ -8,6 +8,7 @@ import type {
   DocumentSnapshot,
   DocumentStore,
   DocumentStoreFacade,
+  DocumentStoreOpenOptions,
   DocumentsRuntime,
   PersistedDocumentListener,
 } from "./types";
@@ -267,6 +268,41 @@ export function registerDocumentStoreSupersedeHandler(
   handler: () => void,
 ): void {
   supersedeHandlers.set(store, handler);
+}
+
+const startupProbeJoins = new WeakMap<DocumentStore, () => void>();
+
+/** How a backing store runs the startup probe a later opener asks for. */
+export function registerDocumentStoreStartupProbeJoin(
+  store: DocumentStore,
+  join: () => void,
+): void {
+  startupProbeJoins.set(store, join);
+}
+
+/** A facade joins the startup probe through the store it wraps. */
+export function forwardDocumentStoreStartupProbeJoin(
+  facade: DocumentStore,
+  target: DocumentStore,
+): void {
+  startupProbeJoins.set(facade, () => startupProbeJoins.get(target)?.());
+}
+
+/**
+ * An open in the default startup mode gives an already-open store the startup
+ * probe its first, on-demand opener skipped: the open that wants the probe
+ * wins, whichever opened first. A store that already scheduled it is unchanged.
+ * An open can run during a render, so the join waits until it returns and never
+ * publishes a lane or snapshot change to subscribers mid-render.
+ */
+export function requestDocumentStoreStartupProbe(
+  store: DocumentStore,
+  options: DocumentStoreOpenOptions,
+): void {
+  const join = startupProbeJoins.get(store);
+  if (join && (options.remoteSyncMode ?? "startup") === "startup") {
+    queueMicrotask(join);
+  }
 }
 
 export function createDocumentStoreFacade(

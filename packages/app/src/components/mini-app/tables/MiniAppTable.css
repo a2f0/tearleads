@@ -48,6 +48,11 @@
   vertical-align: middle;
 }
 
+/* A row's own line, which the divider flag can clear (MiniAppRowDividers.css). */
+.mini-app-table-cell {
+  border-bottom-color: var(--mini-app-row-divider-color, var(--color-hairline));
+}
+
 .mini-app-table-frame--compact .mini-app-table-row {
   /* Keep in sync with MINI_APP_VIRTUAL_COMPACT_TABLE_ROW_HEIGHT (36px). */
   height: var(--mini-app-table-row-height-compact);
@@ -290,7 +295,8 @@
   tbody
   .mini-app-table-row:not(.mini-app-virtual-table-spacer-row):last-child
   .mini-app-table-cell {
-  border-bottom: var(--border-width) solid var(--color-hairline);
+  border-bottom: var(--border-width) solid
+    var(--mini-app-row-divider-color, var(--color-hairline));
 }
 
 :root[data-navigation-mode="routed"]
