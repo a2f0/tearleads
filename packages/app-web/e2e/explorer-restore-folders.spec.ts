@@ -1,11 +1,17 @@
-import { expect, type Page, type Response, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { createFirstIdentity } from "./createFirstIdentity";
 import {
   installRecoveryQrCamera,
   pointCameraAtRecoveryQr,
   showRecoveryQr,
 } from "./recoveryQrCamera";
-import { SIGNED_IN_API_URL, SIGNED_IN_APP_URL } from "./signedInServer";
+import {
+  apiResponse,
+  createFolder,
+  PHONE_VIEWPORT,
+  SIGNED_IN_FOLDER,
+} from "./signedInGetInfo";
+import { SIGNED_IN_APP_URL } from "./signedInServer";
 
 /*
  * A phone that resets and restores its identity from the recovery QR lists
@@ -18,55 +24,9 @@ import { SIGNED_IN_API_URL, SIGNED_IN_APP_URL } from "./signedInServer";
  * drawn, however briefly.
  */
 
-const FOLDER = "Field Notes";
 const UNAVAILABLE = "Folder details unavailable";
 
-test.use({
-  baseURL: SIGNED_IN_APP_URL,
-  viewport: { width: 390, height: 844 },
-});
-
-function apiResponse(
-  page: Page,
-  method: string,
-  pathname: RegExp,
-): Promise<Response> {
-  return page.waitForResponse(
-    (response) => {
-      const url = new URL(response.url());
-      return (
-        url.origin === SIGNED_IN_API_URL &&
-        response.request().method() === method &&
-        pathname.test(url.pathname) &&
-        response.status() === 200
-      );
-    },
-    { timeout: 60_000 },
-  );
-}
-
-async function createFolder(page: Page): Promise<void> {
-  const create = page.getByRole("button", {
-    name: "Create Child Folder",
-    exact: true,
-  });
-  await expect(create).toBeEnabled({ timeout: 60_000 });
-  await create.click();
-  const dialog = page.getByRole("dialog", { name: "Create Child Folder" });
-  await dialog.getByRole("textbox", { name: "Container name" }).fill(FOLDER);
-  const created = apiResponse(
-    page,
-    "POST",
-    /^\/containers\/with-metadata-document$/u,
-  );
-  await dialog.getByRole("button", { name: "Create", exact: true }).click();
-  await created;
-  await expect(
-    page
-      .getByRole("button", { name: "All changes synced", exact: true })
-      .first(),
-  ).toBeVisible({ timeout: 60_000 });
-}
+test.use({ baseURL: SIGNED_IN_APP_URL, viewport: PHONE_VIEWPORT });
 
 async function resetDevice(page: Page): Promise<void> {
   await page.goto("/app/identity-manager/local-data");
@@ -85,6 +45,12 @@ test("a restored phone syncs its folders without calling them unavailable", asyn
   await createFirstIdentity(page);
   await loggedIn;
   await createFolder(page);
+  // The restore lists what the server holds, so the folder must reach it.
+  await expect(
+    page
+      .getByRole("button", { name: "All changes synced", exact: true })
+      .first(),
+  ).toBeVisible({ timeout: 60_000 });
   await page.goto("/app/identity-manager/recovery-key");
   const qr = await showRecoveryQr(page);
 
@@ -123,10 +89,10 @@ test("a restored phone syncs its folders without calling them unavailable", asyn
     .getByRole("button", { name: "Restore from QR code" })
     .first()
     .click();
+  const camera = page.getByLabel("Recovery QR code camera");
+  await expect(camera.first()).toBeVisible({ timeout: 30_000 });
   await pointCameraAtRecoveryQr(page);
-  await expect(page.getByLabel("Recovery QR code camera")).toHaveCount(0, {
-    timeout: 30_000,
-  });
+  await expect(camera).toHaveCount(0, { timeout: 30_000 });
 
   // Opened in place, as a tap would, so the restored session keeps running.
   await page.evaluate(() => {
@@ -134,7 +100,7 @@ test("a restored phone syncs its folders without calling them unavailable", asyn
     dispatchEvent(new PopStateEvent("popstate"));
   });
   await expect(
-    page.getByRole("button", { name: FOLDER, exact: true }).first(),
+    page.getByRole("button", { name: SIGNED_IN_FOLDER, exact: true }).first(),
   ).toBeVisible({ timeout: 90_000 });
   expect(
     await page.evaluate(

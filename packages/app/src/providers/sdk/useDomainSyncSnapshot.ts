@@ -54,20 +54,20 @@ export function useDomainSyncSnapshot(
 /**
  * Whether the scope's structural sync, which lists the container tree and
  * pulls each container's details, is still working: a structural lane is
- * running or requested and has not failed or been abandoned. A failing lane
- * re-arms on a timer for the rest of the session, so counting it would keep
- * the tree from ever looking settled; it counts again once a run completes.
- * Document lanes are left out: they bring content, not containers, and they
- * wait behind a structural lane that is backing off.
+ * running or requested and its last run did not fail (a run the watchdog
+ * abandons records a failure too). A failing lane re-arms on a timer for the
+ * rest of the session, so counting it would keep the tree from ever looking
+ * settled; it counts again once a run completes. That includes the retry
+ * after a single transient failure, which reads as settled until it
+ * succeeds. Document lanes are left out: they bring content, not containers,
+ * and they wait behind a structural lane that is backing off.
  */
 export function hasActiveStructuralSync(snapshot: DomainSyncSnapshot): boolean {
   return snapshot.lanes.some(
     (lane) =>
       lane.phase === "structural" &&
       (lane.running || lane.requested) &&
-      lane.lastError === null &&
-      lane.status !== "error" &&
-      !lane.runAbandoned,
+      lane.lastError === null,
   );
 }
 

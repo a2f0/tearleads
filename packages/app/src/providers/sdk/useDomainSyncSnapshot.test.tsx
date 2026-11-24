@@ -130,15 +130,16 @@ test("structural sync is working while a structural lane is requested or running
   );
 });
 
-test("a failing or abandoned structural lane does not count, nor the lanes queued behind it", () => {
+test("a failing structural lane does not count, nor the lanes queued behind it", () => {
   // Backing off holds the phase barrier, so document lanes stay requested.
   const backingOff = lane({ lastError: "Network error", status: "queued" });
   expect(hasActiveStructuralSync(lanes(backingOff, lane(NOTE)))).toBe(false);
+  // Its retry is not told apart from one that keeps failing, so it reads as
+  // settled until a run completes.
   expect(
-    hasActiveStructuralSync(lanes(lane({ lastError: null, status: "error" }))),
-  ).toBe(false);
-  expect(
-    hasActiveStructuralSync(lanes(lane({ running: true, runAbandoned: true }))),
+    hasActiveStructuralSync(
+      lanes(lane({ lastError: "Network error", running: true })),
+    ),
   ).toBe(false);
 });
 
