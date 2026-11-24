@@ -13,7 +13,8 @@ import {
 const NO_IDENTITY = {
   databaseStatus: "idle",
   hasIdentity: false,
-  identitySettled: true,
+  identityRestoreSettled: true,
+  identityTransitionInFlight: false,
   isLocked: false,
 } as const;
 
@@ -23,7 +24,17 @@ test("a device with no identity yet has nothing to sync", () => {
 
 test("the database is still on its way while the identity is looked for or switched", () => {
   expect(
-    resolveSyncUnavailableReason({ ...NO_IDENTITY, identitySettled: false }),
+    resolveSyncUnavailableReason({
+      ...NO_IDENTITY,
+      identityRestoreSettled: false,
+    }),
+  ).toBeNull();
+  // A switch publishes no keys partway through, before the next identity's.
+  expect(
+    resolveSyncUnavailableReason({
+      ...NO_IDENTITY,
+      identityTransitionInFlight: true,
+    }),
   ).toBeNull();
   expect(
     resolveSyncUnavailableReason({ ...NO_IDENTITY, hasIdentity: true }),

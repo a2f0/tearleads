@@ -42,24 +42,6 @@ export interface SyncStatusResult {
   readonly unavailableReason: SyncUnavailableReason | null;
 }
 
-/**
- * The Sync Status tray app's data source. It reads the durable write queue
- * through the store the Explorer "Write Queue" panel shares (see
- * `usePendingWriteCount`), treating a non-empty queue
- * as unflushed local data, and takes billing from the shared
- * `useOrganizationBilling` snapshot, so the widget agrees with the Explorer and
- * the billing banner about whether the org can sync. That snapshot is scoped to
- * the active organization while the queue is identity-wide, so the sync billing
- * gate covers the rest (see `useOtherOrganizationBillingBlocked`): an
- * organization whose billing lapsed raises the warning even when it is not the
- * one currently switched to. The sync coordinator's lanes add what the queue
- * cannot show: sync work running (held, so short runs do not blink the glyph)
- * and sync tasks failing, including pulls. Failures recorded while offline are
- * left out after the reconnect while a retry revisits them (see
- * `useLastOfflineWindow`). With no identity on this device, its keys locked,
- * or its database failed, there is nothing to read, so the status says what
- * the user can do rather than waiting on a read.
- */
 type RuntimeSnapshot = ReturnType<typeof useTearleadsRuntime>;
 
 /** Why nothing on this device can sync until the user acts, if so. */
@@ -71,9 +53,8 @@ function useSyncUnavailableReason(
   return resolveSyncUnavailableReason({
     databaseStatus,
     hasIdentity: identity.signingKeyPair !== null,
-    identitySettled:
-      identity.localIdentityRestoreSettled &&
-      !identity.identityTransitionInFlight,
+    identityRestoreSettled: identity.localIdentityRestoreSettled,
+    identityTransitionInFlight: identity.identityTransitionInFlight,
     isLocked,
   });
 }
@@ -96,6 +77,24 @@ function useOtherBillingBlocked(appData: RuntimeSnapshot): boolean {
   });
 }
 
+/**
+ * The Sync Status tray app's data source. It reads the durable write queue
+ * through the store the Explorer "Write Queue" panel shares (see
+ * `usePendingWriteCount`), treating a non-empty queue
+ * as unflushed local data, and takes billing from the shared
+ * `useOrganizationBilling` snapshot, so the widget agrees with the Explorer and
+ * the billing banner about whether the org can sync. That snapshot is scoped to
+ * the active organization while the queue is identity-wide, so the sync billing
+ * gate covers the rest (see `useOtherOrganizationBillingBlocked`): an
+ * organization whose billing lapsed raises the warning even when it is not the
+ * one currently switched to. The sync coordinator's lanes add what the queue
+ * cannot show: sync work running (held, so short runs do not blink the glyph)
+ * and sync tasks failing, including pulls. Failures recorded while offline are
+ * left out after the reconnect while a retry revisits them (see
+ * `useLastOfflineWindow`). With no identity on this device, its keys locked,
+ * or its database failed, there is nothing to read, so the status says what
+ * the user can do rather than waiting on a read.
+ */
 export function useSyncStatus(): SyncStatusResult {
   const appData = useTearleadsRuntime();
   const billing = useOrganizationBilling();

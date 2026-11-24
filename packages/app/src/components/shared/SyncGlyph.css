@@ -67,8 +67,10 @@
 }
 
 /* Before the first read resolves: a muted neutral dot rather than a premature
-   green, so a fresh mount does not flash "synced". */
-.sync-glyph--loading {
+   green, so a fresh mount does not flash "synced". The inactive ring below
+   shares the hue. */
+.sync-glyph--loading,
+.sync-glyph--inactive {
   color: color-mix(in srgb, var(--color-dark) 35%, transparent);
 }
 
@@ -76,10 +78,6 @@
    its keys locked): the muted hue drawn as a ring, so it reads as "off"
    rather than as the "checking" dot. Declared after the dot so its
    transparent fill wins. */
-.sync-glyph--inactive {
-  color: color-mix(in srgb, var(--color-dark) 35%, transparent);
-}
-
 .sync-glyph--inactive.sync-glyph--dot {
   background: transparent;
   box-shadow: inset 0 0 0 2px currentColor;

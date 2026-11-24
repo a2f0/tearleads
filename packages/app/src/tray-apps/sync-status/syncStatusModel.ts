@@ -48,8 +48,10 @@ export type SyncUnavailableReason =
 export function resolveSyncUnavailableReason(input: {
   readonly databaseStatus: DatabaseStatus;
   readonly hasIdentity: boolean;
-  /** The stored identity has been looked for, and no switch is under way. */
-  readonly identitySettled: boolean;
+  /** The stored identity has been looked for. */
+  readonly identityRestoreSettled: boolean;
+  /** A switch is under way, which clears the keys before the next arrive. */
+  readonly identityTransitionInFlight: boolean;
   readonly isLocked: boolean;
 }): SyncUnavailableReason | null {
   if (input.databaseStatus === "ready") return null;
@@ -57,7 +59,10 @@ export function resolveSyncUnavailableReason(input: {
   if (input.databaseStatus === "error") return "database-failed";
   // Until the stored identity is found, or while a switch opens the next
   // one, the database is still on its way.
-  return input.identitySettled && !input.hasIdentity ? "no-identity" : null;
+  if (!input.identityRestoreSettled || input.identityTransitionInFlight) {
+    return null;
+  }
+  return input.hasIdentity ? null : "no-identity";
 }
 
 // Aggregate unflushed-operation count across the durable write queue — the exact
