@@ -476,25 +476,24 @@ test("a local schema step's raw SQL names no table; its Drizzle uses do", () => 
   const steps =
     "/fixture/sqlite/data/sqlite/migrations/localSchemaMigrations.ts";
   const lookalike = "/fixture/sqlite/data/sqlite/migrations/otherSteps.ts";
-  const backfill = [
-    'export const backfill = "UPDATE beta_rows SET n = 1 WHERE EXISTS (SELECT 1 FROM beta_log)";',
-  ];
+  const sql = ['x = "UPDATE beta_rows SET n = (SELECT n FROM alpha_rows)";'];
   expect(
     findTableViolations({
       baseline: {},
       ...fixtureUses({
         ...schemaFixtures,
         [steps]: [
-          ...backfill,
-          'import { betaRows } from "../../../schema";',
-          "export const current = tx.insert(betaRows).values(row);",
+          ...sql,
+          'import { betaLog } from "../../../schema";',
+          "export const current = tx.insert(betaLog).values(row);",
         ],
-        [lookalike]: backfill,
+        [lookalike]: sql,
       }),
       registry: fixtureRegistry,
     }),
   ).toEqual([
-    `${steps} writes betaRows, which Beta owns`,
+    `${steps} writes betaLog, which Beta owns`,
+    `${lookalike} reads alphaRows, which Alpha does not expose for reading`,
     `${lookalike} writes betaRows, which Beta owns`,
   ]);
 });
