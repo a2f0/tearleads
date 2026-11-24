@@ -3,8 +3,9 @@ import { createLoroLifetimes } from "./loroLifetime";
 import { createRealmLoroRuntimeFailures } from "./loroRuntimeFailureLedger";
 import { createLoroRuntimeHealth } from "./loroRuntimeHealth";
 
-// A failure anywhere in the realm asks the host for a restart, once.
-test("a runtime failure asks the host for a restart", () => {
+// A failure anywhere in the realm asks the host for a restart, once, and a
+// listener hears each change until it unsubscribes.
+test("a runtime failure asks the host for a restart", async () => {
   const health = createLoroRuntimeHealth({
     lifetimes: createLoroLifetimes({ id: "tab" }),
   });
@@ -15,10 +16,12 @@ test("a runtime failure asks the host for a restart", () => {
 
   health.noteRuntimeFailed();
   health.noteRuntimeFailed();
-  unsubscribe();
-  health.noteRuntimeFailed();
-
   expect(health.current()).toEqual({ status: "restartRequired" });
+  expect(changes).toBe(1);
+  unsubscribe();
+  await health.prepareRestart();
+
+  expect(health.current()).toEqual({ status: "ready" });
   expect(changes).toBe(1);
 });
 
