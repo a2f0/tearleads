@@ -16,7 +16,10 @@ import { ensureDocumentTables } from "../../../data/persistence/documents/record
 import { writeLoroWindowInTransaction } from "../../../data/persistence/documents/records/loroWindowPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { createExecSql, type ExecSql } from "../../../data/sqlite/sqlSchema";
-import { settleDocumentSyncLoroWindow } from "./loroWindows";
+import {
+  claimDocumentSyncOrphanWindows,
+  settleDocumentSyncLoroWindow,
+} from "./loroWindows";
 
 const bench = createLoroWindowBench();
 const { claimIn, judgeIn, pageLimit, recordedAttempts } = bench;
@@ -216,4 +219,38 @@ test("a window whose row cannot be deleted no longer counts its death", async ()
   );
   expect(await recordedAttempts(FIRST)).toBeNull();
   expect(await pageLimit(MAIN)).toBe(1);
+});
+
+// The database worker does not isolate one tab's transaction from another
+// tab's statements, so another tab may claim an orphan between this claim's
+// read and its delete. Only the claim whose delete removed the row settles it.
+test("an orphan another tab claims mid-claim is not counted again", async () => {
+  const host = device();
+  const { update } = await honest(FIRST);
+  await judgeIn(host.lifetime("dead"), [update]);
+  host.kill("dead");
+  let claimedElsewhere = false;
+  const racing = createExecSql({
+    exec: async ({ bind, rowMode, sql }) => {
+      if (
+        !claimedElsewhere &&
+        /delete from "document_loro_windows"/i.test(sql)
+      ) {
+        claimedElsewhere = true;
+        await execSql("DELETE FROM document_loro_windows");
+      }
+      return {
+        rows: await execSql(sql, bind, { rowMode: rowMode ?? "object" }),
+      };
+    },
+  });
+
+  await claimDocumentSyncOrphanWindows({
+    ...MAIN,
+    execSql: racing,
+    lifetimes: host.lifetime("next"),
+  });
+
+  expect(claimedElsewhere).toBe(true);
+  expect(await recordedAttempts(FIRST)).toBeNull();
 });

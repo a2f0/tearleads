@@ -103,9 +103,27 @@ export interface LoroLifetimes {
 
 /** How long a window waits for the gate before reading outside it. */
 const GATE_WAIT_MS = 30_000;
+/** How long a lifetime waits for its lock before opening no windows. */
+const LOCK_WAIT_MS = 10_000;
 
 function markerKey(prefix: string, id: string): string {
   return `${prefix}${id}`;
+}
+
+/** Whether this host can write and read back a lifetime's markers. */
+function probeMarkers(
+  storage: LifetimeMarkerStorage | undefined,
+  visibility: LifetimeVisibility | undefined,
+  id: string,
+): boolean {
+  if (!storage || !visibility) return false;
+  const probe = markerKey(PROBE_MARKER_PREFIX, id);
+  return quietly(() => {
+    storage.setItem(probe, "1");
+    const kept = storage.getItem(probe) === "1";
+    storage.removeItem(probe);
+    return kept;
+  }, false);
 }
 
 function quietly<T>(read: () => T, fallback: T): T {
@@ -120,13 +138,21 @@ function quietly<T>(read: () => T, fallback: T): T {
 function lifetimeLock(
   id: string,
   lockManager: () => LifetimeLockManager | undefined,
+  lockWaitMs: number,
 ): Pick<LoroLifetimes, "endedAmong" | "ready"> {
   let held: Promise<boolean> | undefined;
   return {
     ready() {
       const locks = lockManager();
       if (!locks) return Promise.resolve(false);
-      held ??= new Promise<boolean>((settle) => {
+      held ??= new Promise<boolean>((resolve) => {
+        // A request never granted (a frozen page, a stub manager) opens no
+        // window rather than holding every page's sync.
+        const timer = setTimeout(() => resolve(false), lockWaitMs);
+        const settle = (granted: boolean) => {
+          clearTimeout(timer);
+          resolve(granted);
+        };
         try {
           locks
             .request(`${LOCK_PREFIX}${id}`, { mode: "exclusive" }, () => {
@@ -222,11 +248,14 @@ export function createLoroLifetimes(host: {
   readonly visibility?: LifetimeVisibility | undefined;
   /** @internal How long a window waits for the gate; tests shorten it. */
   readonly gateWaitMs?: number | undefined;
+  /** @internal How long the lifetime waits for its lock; tests shorten it. */
+  readonly lockWaitMs?: number | undefined;
 }): LoroLifetimes {
   const id = host.id ?? crypto.randomUUID();
   const { storage, visibility } = host;
   let failed = false;
   let unsettled = false;
+  let markersKept: boolean | undefined;
   let watching = false;
 
   const setMarker = (prefix: string, standing: boolean) => {
@@ -246,8 +275,10 @@ export function createLoroLifetimes(host: {
 
   return {
     id,
-    ...lifetimeLock(id, () =>
-      typeof host.locks === "function" ? host.locks() : host.locks,
+    ...lifetimeLock(
+      id,
+      () => (typeof host.locks === "function" ? host.locks() : host.locks),
+      host.lockWaitMs ?? LOCK_WAIT_MS,
     ),
     endedHidden: (other) => marked(HIDDEN_MARKER_PREFIX, other),
     endedFailed: (other) => marked(FAILED_MARKER_PREFIX, other),
@@ -258,14 +289,9 @@ export function createLoroLifetimes(host: {
       }, undefined);
     },
     keepsMarkers() {
-      if (!storage || !visibility) return false;
-      const probe = markerKey(PROBE_MARKER_PREFIX, id);
-      return quietly(() => {
-        storage.setItem(probe, "1");
-        const kept = storage.getItem(probe) === "1";
-        storage.removeItem(probe);
-        return kept;
-      }, false);
+      // Probed once: each write fires a storage event in every other tab.
+      markersKept ??= probeMarkers(storage, visibility, id);
+      return markersKept;
     },
     noteFailed() {
       failed = true;

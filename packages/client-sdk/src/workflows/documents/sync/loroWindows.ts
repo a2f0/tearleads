@@ -76,7 +76,8 @@ function rememberWindowDatabase(
   key: string,
   execSql: ExecSql,
 ): void {
-  const databases = windowDatabases.get(lifetimes) ?? new Map();
+  const databases =
+    windowDatabases.get(lifetimes) ?? new Map<string, ExecSql>();
   databases.set(key, execSql);
   windowDatabases.set(lifetimes, databases);
 }
@@ -164,8 +165,10 @@ interface ClaimedOrphans {
 
 /**
  * Settles the orphans of ended lifetimes `ended` still on the scope, and
- * deletes them. Read inside the transaction: another tab may have claimed
- * one since this tab listed them, and a window is counted at most once.
+ * deletes them. Each is settled only by the claim whose delete removed it:
+ * the database worker does not isolate one tab's transaction from another
+ * tab's statements, so two tabs may read the same orphan, and a window is
+ * counted at most once.
  */
 async function claimOrphansInTransaction(
   tx: ClaimTransaction,
@@ -178,7 +181,14 @@ async function claimOrphansInTransaction(
   ).filter((window) => ended.has(window.lifetimeId));
   const counted: { attempts: number; updateId: string }[] = [];
   let isolation = await readLoroIsolation(tx, claim.scope);
+  const claimed: string[] = [];
   for (const orphan of orphans) {
+    if (
+      !(await deleteLoroWindowInTransaction(tx, claim.scope, orphan.lifetimeId))
+    ) {
+      continue;
+    }
+    claimed.push(orphan.lifetimeId);
     const verdict = judgeOrphanWindow(orphan, {
       documentId: claim.documentId,
       endedFailed: lifetimes.endedFailed(orphan.lifetimeId),
@@ -201,11 +211,9 @@ async function claimOrphansInTransaction(
         suspects: verdict.suspects,
       });
     }
-    await deleteLoroWindowInTransaction(tx, claim.scope, orphan.lifetimeId);
   }
   await writeLoroIsolationInTransaction(tx, claim.scope, isolation);
   // A lifetime's markers stay until its windows on other scopes are claimed.
-  const claimed = orphans.map((orphan) => orphan.lifetimeId);
   const remaining = await readLifetimesWithWindows(tx, claimed);
   return { counted, settled: claimed.filter((id) => !remaining.has(id)) };
 }

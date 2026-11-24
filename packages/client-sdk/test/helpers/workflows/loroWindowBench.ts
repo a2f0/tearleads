@@ -127,7 +127,10 @@ export function createLoroWindowBench() {
       database?.close();
       database = undefined;
     },
-    /** One lifetime judging a page, whose save never runs. */
+    /**
+     * One lifetime pulling and judging a page, whose save never runs. Like
+     * the store, it claims dead lifetimes' windows before the pull.
+     */
     async judgeIn(
       lifetimes: LoroLifetimes,
       updates: readonly DecryptedDocumentSyncUpdate[],
@@ -138,6 +141,12 @@ export function createLoroWindowBench() {
         readonly isCurrent?: () => boolean;
       } = {},
     ) {
+      await claimDocumentSyncOrphanWindows({
+        ...target,
+        execSql: pass.execSql ?? current(),
+        isCurrent: pass.isCurrent,
+        lifetimes,
+      });
       const currentDocument = await createDocument("windows-reader");
       try {
         return await judgeDocumentSyncImports({

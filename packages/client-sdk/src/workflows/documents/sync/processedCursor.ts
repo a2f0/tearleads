@@ -34,7 +34,6 @@ import {
 } from "../../../data/sqlite/sqlSchema";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import {
-  claimDocumentSyncOrphanWindows,
   openDocumentSyncLoroWindow,
   stopCountingLoroWindows,
 } from "./loroWindows";
@@ -191,8 +190,9 @@ export async function readRecordedDocumentSyncVoids(input: {
  *
  * With `opensLoroWindow`, the update reads run inside a window the page's
  * save closes (`loroWindows.ts`), opened once the reader's history is built,
- * so a death inside them is found by the next lifetime; the windows ended
- * lifetimes left are claimed first.
+ * so a death inside them is found by the next lifetime. The caller claims
+ * the windows ended lifetimes left before its pull asks for the page
+ * (`claimDocumentSyncOrphanWindows`), so their counts are recorded first.
  */
 export async function judgeDocumentSyncImports(input: {
   readonly currentDocument: Parameters<
@@ -217,9 +217,6 @@ export async function judgeDocumentSyncImports(input: {
   const { result } = input;
   const ledger = input.runtimeLedger ?? processLoroRuntimeFailures;
   const lifetimes = input.lifetimes ?? processLoroLifetimes;
-  if (input.opensLoroWindow) {
-    await claimDocumentSyncOrphanWindows({ ...input, lifetimes });
-  }
   const recorded = await readRecordedImportJudgements(input);
   let windowCounts = false;
   const verdicts = await validateDocumentSyncUpdateImports({

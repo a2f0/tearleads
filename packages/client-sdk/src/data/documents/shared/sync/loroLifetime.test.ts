@@ -162,3 +162,18 @@ test("closing a scope that is still waiting for the gate keeps its place", async
   expect(lifetimes.closeWindow("isolating")).toBe(true);
   expect(lifetimes.openWindowCount()).toBe(0);
 });
+
+// A lock request a host never grants nor refuses must not hold every page's
+// sync: after a bounded wait the lifetime opens no windows.
+test("a lock request that never settles leaves the lifetime unready", async () => {
+  const lifetimes = createLoroLifetimes({
+    id: "frozen",
+    locks: {
+      query: async () => ({ held: [] }),
+      request: () => new Promise<void>(() => undefined),
+    },
+    lockWaitMs: 5,
+  });
+
+  expect(await lifetimes.ready()).toBe(false);
+});

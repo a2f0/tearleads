@@ -104,13 +104,14 @@ export async function deleteLoroWindowInTransaction(
   tx: Pick<ClientSQLiteTransactionScope, "delete">,
   scope: DocumentScope,
   lifetimeId: string,
-): Promise<void> {
-  await tx
+): Promise<boolean> {
+  const deleted = await tx
     .delete(documentLoroWindows)
     .where(
       and(windowScope(scope), eq(documentLoroWindows.lifetimeId, lifetimeId)),
     )
-    .run();
+    .returning({ lifetimeId: documentLoroWindows.lifetimeId });
+  return deleted.length > 0;
 }
 
 /** The lifetimes among `lifetimeIds` still holding a window on any scope. */

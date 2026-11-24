@@ -7,10 +7,11 @@ import {
 import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
 
 /**
- * A lifetime reading served updates with Loro. The row is committed before
- * the first Loro call on a page and deleted when the page's save commits, so
- * a row whose lifetime has ended was left by a process that died inside it
- * (#3194). One row per document scope and lifetime.
+ * A lifetime reading served updates with Loro. The row is committed once
+ * the reader's history is built, before the page's first update is read,
+ * and deleted when the page's save commits, so a row whose lifetime has
+ * ended was left by a process that died inside it (#3194). One row per
+ * document scope and lifetime.
  *
  * Columns:
  * - `appKind`, `localId`, `documentId`: Document scope and server document.
