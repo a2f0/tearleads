@@ -16,6 +16,8 @@ import {
  * for its writer's user, so another user's extension is refused (409
  * `document_sync_peer_owned`) and its request rolls back. Owner is the user,
  * not a device or key, so every device of one user may write under the peer.
+ * The migration that added this table gave a peer whose first author named
+ * no user the nil id, which no user has, so nobody may extend that peer.
  *
  * Like the span rows, these rows carry no foreign keys; a document purge
  * deletes both.

@@ -29,7 +29,9 @@ the request. Update ids the document already holds are retries and are not
 judged again. A rotation baseline is judged the same way whether a sync or an
 unlink carries it, so it may re-assert every user's peers but extend only its
 writer's; the unlink's refusal carries the code without `peerFrontiers`. A
-purge deletes the owner rows with the spans. The rule is modeled in
+purge deletes the owner rows with the spans. Peers committed before the rule
+were backfilled to the user of their first update, or to the nil id, which no
+user has, when that author names no user. The rule is modeled in
 [`PeerOwnership.tla`](../formal/document-sync/PeerOwnership.md).
 
 ## Void Updates
