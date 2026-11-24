@@ -60,7 +60,6 @@ function renderSyncLanesPanel(input: {
 }) {
   return render(
     createElement(ExplorerSyncLanesPanelView, {
-      onBackToSelectionRoute: () => undefined,
       onOpenLaneDetail: input.onOpenLaneDetail ?? (() => undefined),
       selectedLaneKey: input.selectedLaneKey ?? null,
       snapshot: input.snapshot,
@@ -103,7 +102,7 @@ test("ExplorerSyncLanesPanelView renders lane status, progress, and counts", () 
 
   const view = renderSyncLanesPanel({ snapshot });
 
-  expect(view.getByText("Sync Lanes")).toBeTruthy();
+  expect(view.getByRole("table", { name: "Sync Lanes" })).toBeTruthy();
   // Both document lanes roll up to the compact "Document" category label in the
   // lane column; the opaque local-id suffix stays out of the list entirely.
   const laneLabels = Array.from(
@@ -297,7 +296,6 @@ test("ExplorerSyncLanesPanelView renders lane detail metadata", () => {
     snapshot,
   });
 
-  expect(view.getByText("Sync Lane Detail")).toBeTruthy();
   // The three sections are now tabs; each is a tab button, and the general tab
   // is active on open so its section content renders.
   expect(view.getByRole("tab", { name: "Lane Details" })).toBeTruthy();

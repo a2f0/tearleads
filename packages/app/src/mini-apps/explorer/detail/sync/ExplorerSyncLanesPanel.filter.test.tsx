@@ -62,7 +62,6 @@ function createPanelElement(input: {
   snapshot: DomainSyncSnapshot;
 }) {
   return createElement(ExplorerSyncLanesPanelView, {
-    onBackToSelectionRoute: () => undefined,
     onOpenLaneDetail: () => undefined,
     selectedLaneKey: input.selectedLaneKey ?? null,
     snapshot: input.snapshot,
