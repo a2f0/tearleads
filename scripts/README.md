@@ -16,7 +16,7 @@ below. Invoke them by path from the checkout or its parent workspace, for exampl
 | [`checks/`](checks/) | Check entry points, static analysis helpers, baselines, and regression fixtures. |
 | [`deploy/`](deploy/) | Tier and website deployments, teardown, and their shared helpers. |
 | [`dev/`](dev/) | Local launchers, shell setup, seed generation, and cache maintenance. |
-| [`git/`](git/) | Hook installation and hook sources; the pre-push hook is agent-tool's push gate. |
+| [`git/`](git/) | Hook installation and hook sources; the pre-push hook is agent-tool's push gate, and the root `postinstall` installs the hooks after `bun install`. |
 | [`keychain/`](keychain/) | Manual macOS keychain utilities. |
 | [`lib/`](lib/) | Helpers shared across script groups, including timings, build metadata, release environment guards, and the retried CI dependency install. |
 | [`localstack/`](localstack/) | Local S3 setup, shutdown, and reset commands. |

@@ -16,9 +16,8 @@ It provides Bun and the other tools pinned in [`.mise.toml`](.mise.toml).
 ```sh
 mise trust                       # after reviewing .mise.toml
 mise install
-bun install --frozen-lockfile
+bun install --frozen-lockfile    # also installs the commit-msg, pre-commit, and pre-push hooks
 bun run build:packages           # SQLite, the client SDK, and the Electrobun devkit
-sh scripts/git/install-hooks.sh  # commit-msg, pre-commit, and pre-push hooks
 bun run --filter=@tearleads/api dev  # API at http://127.0.0.1:3001
 bun run --filter=app-web dev         # in a second shell: web app at http://localhost:3000
 ```

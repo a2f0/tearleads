@@ -64,8 +64,13 @@ needs Java and TLA+.
 
 `sh scripts/git/install-hooks.sh` installs the tracked hooks declared in
 [`agent-tool.json`](../../agent-tool.json) through
-`agent-tool hooks install --apply`. On an existing checkout, first compare the
-installed hooks with [`scripts/git/hooks`](../../scripts/git/hooks/), then run
+`agent-tool hooks install --apply`. The root `postinstall`,
+[`scripts/git/postinstall.sh`](../../scripts/git/postinstall.sh), runs it after
+every `bun install` outside CI when `hooks check` finds missing or stale hooks,
+so a fresh clone gets the push gate without a separate step; it only warns when
+a hook needs the migration below or a local edit blocks the install. On an
+existing checkout, first compare the installed hooks with
+[`scripts/git/hooks`](../../scripts/git/hooks/), then run
 `sh scripts/git/install-hooks.sh --adopt` once to migrate the inspected hooks.
 The installer backs up replacements, records ownership, preserves unrelated
 hooks, and refuses later local edits. `bun run agent-tool hooks check` detects
