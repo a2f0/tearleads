@@ -263,8 +263,9 @@ export interface AppHostConfigOptions {
    * the user asks (Save to Password Manager, behind the typed acknowledgement),
    * never on its own, and restore forms can fill a passphrase from it.
    * Shells whose platform can show its own save prompt supply one: browsers
-   * with the Credential Management API's `PasswordCredential`, and Android's
-   * Credential Manager. Elsewhere it is omitted and no save is offered.
+   * with the Credential Management API's `PasswordCredential`, Android's
+   * Credential Manager, and iCloud Keychain on iOS. Elsewhere it is omitted
+   * and no save is offered.
    */
   readonly createPasswordKeychain?: CreatePasswordKeychainFn | undefined;
   readonly createScanner?: CreateScannerFn | undefined;
