@@ -146,7 +146,9 @@ export interface ReconciliationService {
   /**
    * Queue, at idle priority, every container whose document lane an earlier
    * session left owed, such as one a reload cut short mid-discovery. A start
-   * otherwise lists no lane until a hint names it.
+   * whose connection is never acknowledged otherwise lists no lane until a
+   * hint names it; one that connects leaves this to
+   * {@link reconcileAcknowledgedConnection}, which lists every lane.
    */
   resumeOwedDiscovery: () => void;
   /**

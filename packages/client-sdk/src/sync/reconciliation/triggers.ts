@@ -45,8 +45,11 @@ export function connectReconciliationTriggers(input: {
         if (signal.activeContainerId) {
           service.enqueueContainer(signal.activeContainerId, "active");
         }
-        // A cached tree raises no other signal at start, so resume each lane
-        // whose discovery an earlier session (or a cut-short boot) left owed.
+        break;
+      case "owed-discovery":
+        // A cached tree raises no hint for a lane it already holds, so list
+        // each lane an earlier boot left owed. The projection raises this
+        // only when no acknowledged connection's catch-up will list it.
         service.resumeOwedDiscovery();
         break;
       case "connection-acknowledged":
