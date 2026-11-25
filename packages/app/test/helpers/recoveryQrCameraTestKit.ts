@@ -102,20 +102,27 @@ export function installRecoveryQrCamera(value: string) {
     () => undefined,
   );
   const drawImage = mock(() => undefined);
-  // Every copy handed to the scanner, so tests can check what it leaves behind.
+  // Every canvas and pixel copy handed to the scanner, so tests can check
+  // what it leaves behind.
+  const canvases: HTMLCanvasElement[] = [];
   const readFrames: ImageData[] = [];
-  const context = spyOn(
-    HTMLCanvasElement.prototype,
-    "getContext",
-  ).mockReturnValue({
+  const scratch = {
     drawImage,
     getImageData: () => {
       const frame = { ...pixels, data: pixels.data.slice() };
       readFrames.push(frame);
       return frame;
     },
-  } as unknown as CanvasRenderingContext2D);
+  } as unknown as CanvasRenderingContext2D;
+  const context = spyOn(
+    HTMLCanvasElement.prototype,
+    "getContext",
+  ).mockImplementation(function (this: HTMLCanvasElement) {
+    canvases.push(this);
+    return scratch;
+  } as unknown as HTMLCanvasElement["getContext"]);
   return {
+    canvases,
     getUserMedia,
     readFrames,
     play,

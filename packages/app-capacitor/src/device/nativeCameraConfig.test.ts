@@ -3,15 +3,18 @@ import { resolve } from "node:path";
 
 const packageRoot = resolve(import.meta.dir, "../..");
 const read = (path: string) => Bun.file(resolve(packageRoot, path)).text();
+// Commented-out declarations do not count.
+const liveManifest = async () =>
+  (await read("android/app/src/main/AndroidManifest.xml")).replaceAll(
+    /<!--[\s\S]*?-->/g,
+    "",
+  );
 
 // The recovery QR scanner runs getUserMedia inside the WebView. Capacitor
 // turns that request into Android's runtime CAMERA grant, which Android
 // refuses for a permission the manifest does not declare.
 test("Android declares the camera the WebView's live QR scanner asks for", async () => {
-  const manifest = (
-    await read("android/app/src/main/AndroidManifest.xml")
-  ).replaceAll(/<!--[\s\S]*?-->/g, "");
-  const declarations = manifest.match(
+  const declarations = (await liveManifest()).match(
     /<uses-permission\s[^>]*android:name="android\.permission\.CAMERA"[^>]*\/>/g,
   );
   // One unconditional declaration: a maxSdkVersion would drop it on new Android.
@@ -24,13 +27,14 @@ test("Android declares the camera the WebView's live QR scanner asks for", async
 test.each(["android.hardware.camera", "android.hardware.camera.autofocus"])(
   "Android keeps %s optional",
   async (feature) => {
-    const manifest = await read("android/app/src/main/AndroidManifest.xml");
-    const declaration = manifest.match(
+    const declarations = (await liveManifest()).match(
       new RegExp(
-        `<uses-feature[^>]*android:name="${feature.replaceAll(".", "\\.")}"[^>]*/>`,
+        `<uses-feature\\s[^>]*android:name="${feature.replaceAll(".", "\\.")}"[^>]*/>`,
+        "g",
       ),
-    )?.[0];
-    expect(declaration).toContain('android:required="false"');
+    );
+    expect(declarations).toHaveLength(1);
+    expect(declarations?.[0]).toContain('android:required="false"');
   },
 );
 

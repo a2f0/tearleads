@@ -187,7 +187,7 @@ test("immediate cancellation never requests camera permission", async () => {
   expect(camera.getUserMedia).not.toHaveBeenCalled();
 });
 
-test("every frame's pixels are zeroed once decoded", async () => {
+test("a scan leaves no frame pixels behind once it stops", async () => {
   camera = installRecoveryQrCamera("unrelated QR");
   const onDecode = mock(() => false);
   cancel = startRecoveryKeyCamera(document.createElement("video"), {
@@ -195,10 +195,17 @@ test("every frame's pixels are zeroed once decoded", async () => {
     onError: () => undefined,
   });
   await waitFor(() => expect(onDecode).toHaveBeenCalled());
+  expect(camera.canvases.length).toBeGreaterThan(0);
+  for (const canvas of camera.canvases) {
+    expect(canvas.width * canvas.height).toBeGreaterThan(0);
+  }
   cancel();
   expect(camera.readFrames.length).toBeGreaterThan(0);
   for (const frame of camera.readFrames) {
     expect(frame.data.some((value) => value !== 0)).toBe(false);
+  }
+  for (const canvas of camera.canvases) {
+    expect([canvas.width, canvas.height]).toEqual([0, 0]);
   }
 });
 
