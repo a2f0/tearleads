@@ -14,6 +14,7 @@ import type {
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
+import { documentUpdateCountExpression } from "../../documents/documentUpdateCount";
 import { uniqueSortedStrings } from "../../utils/array";
 import { textExpression } from "../../utils/postgresSql";
 import type {
@@ -187,6 +188,7 @@ const currentDocumentRow = discoveryRow
     createdAt: z.string().transform((value) => new Date(value)),
     manifestHash: z.string(),
     manifestEpoch: z.number().int(),
+    updateCount: z.number().int().nonnegative(),
   })
   .transform(({ id, ...row }) => ({ ...row, documentId: id }));
 
@@ -210,6 +212,11 @@ function currentContainerDocumentsQuery(input: {
           "manifestHash",
         ),
         manifestEpoch: sql`${accessManifestHeads.epoch}`.as("manifestEpoch"),
+        // Counted in the listing's own statement, so the count and the row's
+        // publication position come from one snapshot.
+        updateCount: documentUpdateCountExpression(sql`${documents.id}`).as(
+          "updateCount",
+        ),
         updatedAt: syncTimestampExpression(sql`${documents.updatedAt}`).as(
           "updatedAt",
         ),
@@ -387,6 +394,7 @@ async function buildListContainerDocumentsResponse(input: {
         linkedContainerIds,
         referencedPrincipals:
           collectReferencedPrincipalsFromContainerAccess(accessPaths),
+        updateCount: documentRow.updateCount,
         updatedAt: syncItemTimestamp(documentRow.updatedAt),
       };
     },

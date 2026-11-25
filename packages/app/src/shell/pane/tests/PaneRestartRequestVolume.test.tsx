@@ -25,6 +25,7 @@ import {
   waitForPersistedPaneLocalIdentity,
 } from "../../../../test/helpers/paneTestUtils";
 import { createPersistedPaneStorage } from "../../../../test/helpers/persistedPaneStorage";
+import type { ProxiedApiRequestBudget } from "../../../../test/helpers/proxiedApiRequestBudget";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
@@ -61,7 +62,11 @@ test("restart storage survives a closed and terminated worker", async () => {
   }
 });
 
-test("a pane restart reconciles its persisted tree without replaying writes", async () => {
+/** Restarts a pane holding two folders of `notesPerFolder` notes each. */
+async function measureRestart(input: {
+  readonly budget: ProxiedApiRequestBudget;
+  readonly notesPerFolder: number;
+}) {
   useTestApiAppHandlers();
   const storage = createPersistedPaneStorage();
   const namespace = `restart-budget-${crypto.randomUUID()}`;
@@ -70,7 +75,7 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
     localIdentityNamespace: namespace,
   }).withOverrides({ createSQLiteRuntime: storage.createRuntime });
   const first = renderLifecyclePane(hostConfig);
-  await seedLifecycleTree(first.pane);
+  await seedLifecycleTree(first.pane, input.notesPerFolder);
   await waitForLifecycleConnection(first.sdk(), 1);
   await waitForPersistedPaneLocalIdentity(namespace);
   const userId = getPaneUserId(first.pane);
@@ -99,22 +104,7 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
   let restarted: ReturnType<typeof renderLifecyclePane> | undefined;
   const requests = await measureWorkflowRequests({
     label: "persisted pane restart",
-    budget: {
-      total: 23,
-      byRequest: {
-        "POST /auth/ws-ticket": 1,
-        "GET /organization-memberships": 1,
-        "GET /organizations/:organizationId/billing": 1,
-        "POST /containers/parent-lanes/query": 2,
-        "POST /containers/documents/query": 3,
-        "GET /principals/organization/:organizationId/policy": 2,
-        "GET /principals/group/:groupId/policy": 0,
-        "GET /principals/history": 1,
-        "GET /containers/:containerId/writer-projection": 3,
-        "GET /documents/:documentId/writer-projection": 3,
-        "POST /documents/:documentId/sync": 6,
-      },
-    },
+    budget: input.budget,
     mutations: [],
     operation: async () => {
       const second = renderLifecyclePane(hostConfig);
@@ -153,4 +143,47 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
   await waitFor(() => expect(storage.closedWorkers.size).toBe(2));
   expect(storage.workers.every((worker) => worker.terminated)).toBe(true);
   await expectNoLateLifecycleRequests();
+}
+
+const RESTART_ROUTES_INDEPENDENT_OF_NOTES = {
+  "POST /auth/ws-ticket": 1,
+  "GET /organization-memberships": 1,
+  "GET /organizations/:organizationId/billing": 1,
+  "POST /containers/parent-lanes/query": 2,
+  "POST /containers/documents/query": 3,
+  "GET /principals/organization/:organizationId/policy": 2,
+  "GET /principals/group/:groupId/policy": 0,
+  "GET /principals/history": 1,
+  "GET /containers/:containerId/writer-projection": 3,
+};
+
+test("a pane restart reconciles its persisted tree without replaying writes", async () => {
+  await measureRestart({
+    budget: {
+      total: 23,
+      byRequest: {
+        ...RESTART_ROUTES_INDEPENDENT_OF_NOTES,
+        "GET /documents/:documentId/writer-projection": 3,
+        "POST /documents/:documentId/sync": 6,
+      },
+    },
+    notesPerFolder: 1,
+  });
 }, 60_000);
+
+// The same restart with six more notes. Today every note costs one more
+// read-only sync and one more document writer-projection read, because each
+// opened document probes once per session; the other routes do not move.
+test("a pane restart costs two more reads for each note it holds", async () => {
+  await measureRestart({
+    budget: {
+      total: 35,
+      byRequest: {
+        ...RESTART_ROUTES_INDEPENDENT_OF_NOTES,
+        "GET /documents/:documentId/writer-projection": 9,
+        "POST /documents/:documentId/sync": 12,
+      },
+    },
+    notesPerFolder: 4,
+  });
+}, 120_000);
