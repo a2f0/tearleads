@@ -6,6 +6,7 @@ import {
 import {
   ContainerReadLaneIdSchema,
   ContainerReadLaneWatermarkSchema,
+  MAX_CONTAINER_PARENT_LANES,
   refineContainerReadLaneRequests,
 } from "../containerReadSchemas";
 import {
@@ -26,7 +27,10 @@ const ContainerParentLaneRequestSchema = z.strictObject({
 });
 
 const ListContainerParentLanesRequestViewSchema = z.strictObject({
-  lanes: boundedNonEmptyArraySchema(ContainerParentLaneRequestSchema, 4),
+  lanes: boundedNonEmptyArraySchema(
+    ContainerParentLaneRequestSchema,
+    MAX_CONTAINER_PARENT_LANES,
+  ),
 });
 
 export const ListContainerParentLanesRequestSchema =

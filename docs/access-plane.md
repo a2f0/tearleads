@@ -292,6 +292,8 @@ Read/list routes use the same signed manifest state:
 - `POST /containers/parent-lanes/query`
   - lists containers reachable from manifest direct grants and managed-principal
     projections, one bounded page per requested parent lane
+  - lists up to 32 parent lanes per request, each with its own watermark and
+    page limit (500 rows in total), four lanes at a time
 - `POST /containers/documents/query`
   - lists up to 32 container lanes per request, each with its own watermark
     and page limit (500 rows in total)
