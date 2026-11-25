@@ -21,7 +21,7 @@ function decrypted(id: string, data: Uint8Array): DecryptedDocumentSyncUpdate {
  * writer forged under that same peer at the device's next counters, holding
  * other operations than the device then wrote there.
  */
-async function preemptedDevice(seed: string) {
+async function preemptedDevice(seed: string, forgedText = " forged") {
   const device = await createDocument(seed);
   device.getText("text").update("base");
   device.commit();
@@ -29,7 +29,7 @@ async function preemptedDevice(seed: string) {
   const forger = await createDocument(seed);
   importSnapshot(forger, base);
   const before = encodeVersionVector(forger);
-  forger.getText("text").insert(4, " forged");
+  forger.getText("text").insert(4, forgedText);
   forger.commit();
   const forged = exportUpdatesSince(forger, before);
   forger.free();
@@ -40,6 +40,24 @@ async function preemptedDevice(seed: string) {
 
 test("an update that reuses this device's own operation ids with other operations names the device's peer", async () => {
   const { device, forged } = await preemptedDevice("preempted-victim");
+  try {
+    const verdicts = await validateDocumentSyncUpdateImports({
+      currentDocument: device,
+      decryptedUpdates: [forged],
+    });
+    expect(verdicts.voided.map((entry) => entry.updateId)).toEqual([FORGED]);
+    expect(verdicts.voided[0]?.stage).toBe("loro_import");
+    expect(verdicts.voided[0]?.preemptedPeerId).toBe(device.peerIdStr);
+  } finally {
+    device.free();
+  }
+});
+
+test("a forgery that runs past the operations this device holds names the device's peer too", async () => {
+  const { device, forged } = await preemptedDevice(
+    "preempted-longer",
+    " forged at greater length",
+  );
   try {
     const verdicts = await validateDocumentSyncUpdateImports({
       currentDocument: device,

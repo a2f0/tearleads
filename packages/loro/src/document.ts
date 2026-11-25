@@ -3,12 +3,14 @@ import { LoroDoc, VersionVector } from "loro-crdt";
 import { recordChangeTimestamps } from "./changeTimestamps";
 import { serializeReplayedHistory } from "./historyCanonicalization";
 import { getImportBlobMetadata } from "./importMetadata";
+import { runLoroImport } from "./importRefusal";
 
 export {
   getImportBlobMetadata,
   type ImportBlobMode,
   loroDecoderIdentity,
 } from "./importMetadata";
+export { LoroReusedOperationIdError } from "./importRefusal";
 
 function isPeerIdString(value: string): value is `${number}` {
   return /^\d+$/.test(value);
@@ -296,10 +298,16 @@ export function versionVectorsEqual(
   return true;
 }
 
+/**
+ * Import update blobs into a document. A batch is not all-or-nothing: when
+ * one update is refused on its own, such as with
+ * `LoroReusedOperationIdError`, this throws and the document keeps what the
+ * other updates brought.
+ */
 export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
   // Reject an obsolete member before importBatch can mutate the document.
   for (const update of updates) getImportBlobMetadata(update);
-  const status = doc.importBatch(updates);
+  const status = runLoroImport(() => doc.importBatch(updates));
   if (status.pending != null && status.pending.size > 0) {
     // importBatch applies out-of-order batches correctly but can still report
     // the intermediate pending set it saw mid-batch. Trust the document, not
@@ -326,7 +334,7 @@ export function importUpdates(doc: LoroDoc, updates: Uint8Array[]): void {
  */
 export function importSnapshot(doc: LoroDoc, snapshot: Uint8Array): void {
   getImportBlobMetadata(snapshot);
-  const status = doc.import(snapshot);
+  const status = runLoroImport(() => doc.import(snapshot));
   // Reject only a genuinely incomplete import: `pending` can be an empty
   // VersionVector (size 0) rather than null when everything resolved, so test
   // for at least one unresolved dependency instead of mere presence.
