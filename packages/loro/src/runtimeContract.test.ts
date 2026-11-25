@@ -10,6 +10,7 @@ import {
   exportUpdatesSince,
   importSnapshot,
   importUpdates,
+  LoroReusedOperationIdError,
 } from "./document";
 
 const LARGE_INSERT_CHARACTERS = 512 * 1024;
@@ -60,7 +61,7 @@ test("an update left pending under a document's own peer refuses its writes unti
 
   // The raw import leaves the update pending; `importUpdates` would throw.
   const status = device.import(parked);
-  expect(status.pending).toBeInstanceOf(Object);
+  expect(status.pending?.size).toBeGreaterThan(0);
   expect(device.getText("text").toString()).toBe("mine");
   expect(() => {
     device.getText("text").insert(0, "x");
@@ -85,3 +86,53 @@ test("an update left pending under a document's own peer refuses its writes unti
   missing.free();
   forger.free();
 });
+
+test.each([
+  ["before", true],
+  ["after", false],
+])(
+  "a blob refused for a reused id leaves nothing pending, with the reuse %s a change whose dependency is missing",
+  async (_order, reuseFirst) => {
+    const held = await createDocument("refused-blob-held");
+    held.getText("text").insert(0, "aaaa");
+    held.commit();
+    const missing = await createDocument("refused-blob-missing");
+    missing.getText("text").insert(0, "dep");
+    missing.commit();
+    // One blob: other content under the held peer's ids, and a change by a
+    // third peer on top of operations the holder lacks.
+    const forger = await createDocument("refused-blob-held");
+    const reuse = () => {
+      forger.setPeerId(held.peerIdStr);
+      forger.getText("text").insert(0, "bbbb");
+      forger.commit();
+    };
+    const dependOnMissing = () => {
+      importUpdates(forger, [exportUpdatesSince(missing)]);
+      forger.setPeerId("4242");
+      forger.getText("text").insert(0, "parked");
+      forger.commit();
+    };
+    for (const write of reuseFirst
+      ? [reuse, dependOnMissing]
+      : [dependOnMissing, reuse]) {
+      write();
+    }
+    const blob = exportUpdatesSince(forger, encodeVersionVector(missing));
+    const before = encodeVersionVector(held);
+
+    expect(() => importUpdates(held, [blob])).toThrow(
+      LoroReusedOperationIdError,
+    );
+    expect(encodeVersionVector(held)).toBe(before);
+    expect(held.exportPendingUpdates()).toBeUndefined();
+
+    // The dependency arriving later brings nothing of the refused blob.
+    importUpdates(held, [exportUpdatesSince(missing)]);
+    expect(held.oplogVersion().get("4242")).toBeUndefined();
+    expect(held.getText("text").toString()).not.toContain("parked");
+    held.free();
+    missing.free();
+    forger.free();
+  },
+);

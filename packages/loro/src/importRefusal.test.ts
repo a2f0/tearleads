@@ -9,6 +9,7 @@ import {
   importUpdates,
   LoroReusedOperationIdError,
 } from "./document";
+import { runLoroImport } from "./importRefusal";
 
 type Document = Awaited<ReturnType<typeof createDocument>>;
 
@@ -99,17 +100,43 @@ test("a batch with a refused update keeps what its other updates brought", async
   other.free();
 });
 
-test("a refusal this package has no name for is thrown as Loro threw it", async () => {
-  const held = await documentWith("corrupt-held", "aaaa");
-  const other = await documentWith("corrupt-other", "cccc");
-  const corrupt = exportUpdatesSince(other).slice();
-  const damaged = corrupt.length - 3;
-  corrupt[damaged] = (corrupt[damaged] ?? 0) ^ 0xff;
+test("an update that starts inside a change the document holds imports", async () => {
+  const writer = await documentWith("mid-change", "hello");
+  writer.getText("text").insert(5, " world");
+  writer.commit();
+  const reader = await createDocument("mid-change-reader");
+  importUpdates(reader, [exportAllUpdates(writer)]);
+  // One peer's consecutive commits share a change, so this starts inside it.
+  const prefix = reader.forkAt([{ counter: 2, peer: writer.peerIdStr }]);
+  const midChange = encodeVersionVector(prefix);
+  prefix.free();
+  writer.getText("text").insert(11, "!!!");
+  writer.commit();
 
-  const error = refusal(() => importUpdates(held, [corrupt]));
+  importUpdates(reader, [exportUpdatesSince(writer, midChange)]);
 
-  expect(error).toBeString();
-  expect(error).not.toBeInstanceOf(LoroReusedOperationIdError);
-  held.free();
-  other.free();
+  expect(reader.getText("text").toString()).toBe("hello world!!!");
+  writer.free();
+  reader.free();
+});
+
+test.each([
+  ["another refusal", "Decode error: Checksum mismatch."],
+  [
+    "an id that is not numeric",
+    "Every op id should be unique. ID x@y has been used.",
+  ],
+  ["an error object", new RangeError("out of memory")],
+])("%s is thrown as Loro threw it", (_case, thrown) => {
+  const error = refusal(() =>
+    runLoroImport(() => {
+      throw thrown;
+    }),
+  );
+
+  expect(error).toBe(thrown);
+});
+
+test("a result is returned as the import returned it", () => {
+  expect(runLoroImport(() => "imported")).toBe("imported");
 });

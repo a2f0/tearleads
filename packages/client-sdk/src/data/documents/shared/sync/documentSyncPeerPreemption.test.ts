@@ -6,9 +6,11 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
   importSnapshot,
+  LoroReusedOperationIdError,
 } from "@tearleads/loro";
 import { validateDocumentSyncUpdateImports } from "./documentSyncImportVerdicts";
 import type { DecryptedDocumentSyncUpdate } from "./documentSyncTypes";
+import { importDecryptedDocumentSyncUpdates } from "./documentSyncUpdateImport";
 
 const FORGED = "550e8400-e29b-41d4-a716-446655440c01";
 
@@ -66,6 +68,45 @@ test("a forgery that runs past the operations this device holds names the device
     expect(verdicts.voided.map((entry) => entry.updateId)).toEqual([FORGED]);
     expect(verdicts.voided[0]?.stage).toBe("loro_import");
     expect(verdicts.voided[0]?.preemptedPeerId).toBe(device.peerIdStr);
+  } finally {
+    device.free();
+  }
+});
+
+test("an update judged before a colliding local write is refused at import and voided by the next judgement", async () => {
+  const device = await createDocument("preempted-after-judgement");
+  device.getText("text").update("base");
+  device.commit();
+  const other = await createDocument("preempted-after-judgement");
+  importSnapshot(other, exportFullHistorySnapshot(device));
+  const before = encodeVersionVector(other);
+  other.getText("text").insert(4, " served");
+  other.commit();
+  const served = decrypted(FORGED, exportUpdatesSince(other, before));
+  other.free();
+  try {
+    const judged = await validateDocumentSyncUpdateImports({
+      currentDocument: device,
+      decryptedUpdates: [served],
+    });
+    expect(judged.voided).toEqual([]);
+
+    // The device writes at the same counters before the page is applied.
+    device.getText("text").insert(4, " local");
+    device.commit();
+    const candidate = device.fork();
+    expect(() =>
+      importDecryptedDocumentSyncUpdates(candidate, [served]),
+    ).toThrow(LoroReusedOperationIdError);
+    expect(candidate.getText("text").toString()).toBe("base local");
+    candidate.free();
+
+    const judgedAgain = await validateDocumentSyncUpdateImports({
+      currentDocument: device,
+      decryptedUpdates: [served],
+    });
+    expect(judgedAgain.voided.map((entry) => entry.updateId)).toEqual([FORGED]);
+    expect(judgedAgain.voided[0]?.preemptedPeerId).toBe(device.peerIdStr);
   } finally {
     device.free();
   }
