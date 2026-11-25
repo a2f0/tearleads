@@ -10,6 +10,7 @@ import {
   getMiniAppItemGridColumns,
   getMiniAppItemGridItemWindow,
 } from "../../../../components/mini-app/item-view/MiniAppItemGrid";
+import { useMiniAppItemViewLayout } from "../../../../components/mini-app/item-view/useMiniAppItemViewLayout";
 import {
   MiniAppActions,
   MiniAppButton,
@@ -39,7 +40,6 @@ import { ExplorerContainerItemTable } from "./ExplorerContainerItemTable";
 import {
   getNextExplorerItemSort,
   useExplorerContainerItemWindow,
-  useExplorerItemTableLayout,
 } from "./explorerContainerItemWindow";
 import { useExplorerColumnVisibility } from "./useExplorerColumnVisibility";
 import "./ExplorerContainerDetail.css";
@@ -186,7 +186,7 @@ function useExplorerContainerItems(
   // continuously, so a drag re-issues the window query at most once per fold
   // rather than once per pixel.
   const [narrowFrame, setNarrowFrame] = useState(false);
-  const { compact, rowHeight } = useExplorerItemTableLayout(narrowFrame, view);
+  const { compact, rowHeight } = useMiniAppItemViewLayout(narrowFrame, view);
   const { frameRef, frameWidth, limit, offset } = useMiniAppVirtualWindow({
     resetKey,
     rowHeight,

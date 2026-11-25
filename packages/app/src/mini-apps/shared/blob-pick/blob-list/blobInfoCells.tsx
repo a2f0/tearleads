@@ -61,17 +61,49 @@ function getBlobIdentity(blob: BlobInfo): string {
 // Browsers don't reliably show a `title` on a disabled button, so the
 // not-selectable hint rides on the never-disabled element wrapping it, which
 // resolves the tooltip for the button inside.
-function getBlobIdentityTitle(blob: BlobInfo, selectable: boolean): string {
+export function getBlobIdentityTitle(
+  blob: BlobInfo,
+  selectable: boolean,
+): string {
   return selectable
     ? getBlobIdentity(blob)
     : BLOB_LIST_LABELS.pickUnavailableHint;
 }
 
-// The identity control hides the blob id and shows a thumbnail instead: an image
-// blob renders its bytes inline, everything else falls back to a file-type icon.
-// The id stays reachable via the button's accessible name and the tooltip. A
-// folded row promotes it to the summary's spanning visual, hence the larger
-// compact size.
+// A blob's visual: an image blob renders its bytes inline, everything else falls
+// back to a file-type icon. `fill` draws the glyph to the size of its box, the
+// way an image thumbnail always is, for the squares a stylesheet sizes (a
+// folded row's, a grid tile's).
+export function BlobThumbnail(params: {
+  blob: BlobInfo;
+  blobStore: BlobStore;
+  fill: boolean;
+}) {
+  const { blob, blobStore, fill } = params;
+  const thumbnailUrl = useBlobThumbnailUrl({ blob, blobStore });
+  const { Icon, isImage } = getAttachmentFileType({
+    mimeType: blob.mimeType,
+    name: blob.name,
+  });
+
+  return isImage && thumbnailUrl ? (
+    <img
+      alt=""
+      className="explorer-blob-browser-thumb-image"
+      src={thumbnailUrl}
+    />
+  ) : (
+    <Icon
+      aria-hidden
+      className="explorer-blob-browser-thumb-icon"
+      size={fill ? "100%" : 20}
+    />
+  );
+}
+
+// The identity control hides the blob id and shows a thumbnail instead. The id
+// stays reachable via the button's accessible name and the tooltip. A folded row
+// promotes it to the summary's spanning visual, hence the larger compact size.
 function BlobIdentityButton(params: {
   blob: BlobInfo;
   blobStore: BlobStore;
@@ -80,11 +112,6 @@ function BlobIdentityButton(params: {
   selectable: boolean;
 }) {
   const { blob, blobStore, compact, onSelectBlob, selectable } = params;
-  const thumbnailUrl = useBlobThumbnailUrl({ blob, blobStore });
-  const { Icon, isImage } = getAttachmentFileType({
-    mimeType: blob.mimeType,
-    name: blob.name,
-  });
 
   return (
     <MiniAppTableActionButton
@@ -96,31 +123,19 @@ function BlobIdentityButton(params: {
       disabled={!selectable}
       onClick={() => onSelectBlob(blob)}
     >
-      {/* The shared square: the large-thumbnail toggle sizes it through the
-          list's large-rows view (MiniAppItemView.css). */}
+      {/* The shared square: the list's large-rows view sizes it
+          (MiniAppItemView.css). */}
       <MiniAppItemThumb
         className={classNames(
           "explorer-blob-browser-thumb",
           compact && "explorer-blob-browser-thumb--compact",
         )}
       >
-        {isImage && thumbnailUrl ? (
-          <img
-            alt=""
-            className="explorer-blob-browser-thumb-image"
-            src={thumbnailUrl}
-          />
-        ) : (
-          <Icon
-            aria-hidden
-            className="explorer-blob-browser-thumb-icon"
-            // A folded glyph fills its box the way an image thumbnail does, so
-            // the square in BlobList.css stays the one place the compact size is
-            // decided — and the two variants cover the summary's lines to the
-            // same depth in both the touch and the denser windowed rem.
-            size={compact ? "100%" : 20}
-          />
-        )}
+        {/* A folded glyph fills its box the way an image thumbnail does, so
+            the square in BlobList.css stays the one place the compact size is
+            decided — and the two variants cover the summary's lines to the
+            same depth in both the touch and the denser windowed rem. */}
+        <BlobThumbnail blob={blob} blobStore={blobStore} fill={compact} />
       </MiniAppItemThumb>
     </MiniAppTableActionButton>
   );

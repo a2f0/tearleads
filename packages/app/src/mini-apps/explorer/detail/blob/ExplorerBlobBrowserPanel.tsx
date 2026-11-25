@@ -114,12 +114,12 @@ function BlobBrowserBrowseScreen(params: {
           bleed
           blobInfo={data.blobInfo}
           blobStore={params.blobStore}
+          columns={data.columns}
           compact={data.compact}
-          largeThumbnails={data.largeThumbnails}
-          onThumbnailSizeChange={data.changeThumbnailSize}
           downloadMessage={downloadMessage}
           frameRef={data.frameRef}
           isWindowPending={data.isWindowPending}
+          itemView={data.itemView}
           onQueryChange={data.handleQueryChange}
           onRowContextMenu={openContextMenu}
           onSelectBlob={data.handleSelectBlob}
