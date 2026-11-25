@@ -30,6 +30,25 @@ export {
   UserSessionResponseSchema,
 } from "./sessions";
 export {
+  isTwoFactorEnableResponse,
+  isTwoFactorRecoveryCodesResponse,
+  isTwoFactorSetupResponse,
+  isTwoFactorStatusResponse,
+  TWO_FACTOR_ERROR_CODES,
+  type TwoFactorEnableResponse,
+  TwoFactorEnableResponseSchema,
+  type TwoFactorErrorCode,
+  TwoFactorErrorCodeSchema,
+  type TwoFactorErrorResponse,
+  TwoFactorErrorResponseSchema,
+  type TwoFactorRecoveryCodesResponse,
+  TwoFactorRecoveryCodesResponseSchema,
+  type TwoFactorSetupResponse,
+  TwoFactorSetupResponseSchema,
+  type TwoFactorStatusResponse,
+  TwoFactorStatusResponseSchema,
+} from "./twoFactor";
+export {
   isUserIdentityResponse,
   type UserIdentityResponse,
   UserIdentityResponseSchema,
@@ -37,6 +56,8 @@ export {
 export {
   isVerifyResponse,
   VERIFY_ERROR_CODES,
+  type VerifyErrorCode,
+  VerifyErrorCodeSchema,
   type VerifyFailureResponse,
   VerifyFailureResponseSchema,
   type VerifyResponse,

@@ -51,6 +51,10 @@ Write surfaces:
 | Destroy current session | `POST /auth/logout` | n/a |
 | Destroy a user session | `DELETE /auth/sessions/:sessionId` | n/a |
 | Mint a one-time websocket ticket | `POST /auth/ws-ticket` | n/a |
+| Start two-factor setup | `POST /auth/two-factor/setup` | n/a |
+| Turn two-factor on with an authenticator code | `POST /auth/two-factor/enable` | `TwoFactorEnableRequest` |
+| Turn two-factor off | `POST /auth/two-factor/disable` | `TwoFactorConfirmationRequest` |
+| Replace two-factor recovery codes | `POST /auth/two-factor/recovery-codes` | `TwoFactorConfirmationRequest` |
 | Store signed organization policy and member envelopes atomically (group updates use `policy-commit`) | `PUT /principals/organization/:principalId/policy` | `OrganizationPrincipalPolicyRequest` |
 | Create an organization | `POST /organizations` | `CreateOrganizationRequest` |
 | Update the organization profile | `PUT /organizations/:organizationId/profile` | `UpdateOrganizationProfileRequest` |
@@ -58,6 +62,7 @@ Write surfaces:
 | Atomically create an organization group and advance its signed directory | `POST /organizations/:organizationId/groups` | `CreateOrganizationGroupWithPolicyRequest` |
 | Delete an organization group | `DELETE /organizations/:organizationId/groups/:groupId` | `DeleteOrganizationGroupRequest` |
 | Bind encrypted roster profile document | `PUT /organizations/:organizationId/roster/:userId` | `UpdateOrganizationRosterEntryRequest` |
+| Require two-factor authentication of a member | `PUT /organizations/:organizationId/roster/:userId/two-factor` | `UpdateOrganizationRosterTwoFactorRequest` |
 | Create container with metadata document | `POST /containers/with-metadata-document` | `ContainerCreateWithMetadataDocumentRequest` |
 | Create container | `POST /containers` | `ContainerMutationRequest` |
 | Share container | `POST /containers/:containerId/share` | `ContainerMutationRequest` |

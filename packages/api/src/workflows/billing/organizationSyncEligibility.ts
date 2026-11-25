@@ -1,5 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { organizationCanSync } from "../../billing/organizationBilling";
+import { assertOrganizationTwoFactorStanding } from "../../utils/requestTwoFactorStanding";
 import {
   type OrganizationBillingRow,
   resolveOrganizationBilling,
@@ -66,11 +67,15 @@ export async function assertOrganizationIsSyncEntitled(
   );
 }
 
-/** Rejects every sync operation once destructive organization purge starts. */
+/**
+ * Rejects every sync operation once destructive organization purge starts,
+ * and every sync by a session the organization requires two-factor sign-in of.
+ */
 export async function assertOrganizationSyncEndpointAvailable(
   executor: DatabaseSession,
   organizationId: string,
 ): Promise<void> {
+  assertOrganizationTwoFactorStanding(organizationId);
   assertBillingEndpointAvailable(
     await resolveOrganizationBilling(executor, organizationId),
     organizationId,
@@ -84,6 +89,7 @@ export async function assertOrganizationCanSync(
   userId: string,
   now: Date = new Date(),
 ): Promise<void> {
+  assertOrganizationTwoFactorStanding(organizationId);
   const { billing, seatId } = await resolveOrganizationBillingWithSeat(
     executor,
     organizationId,
@@ -107,6 +113,7 @@ export async function assertDocumentSyncBillingAllowed(
   },
   now: Date = new Date(),
 ): Promise<void> {
+  assertOrganizationTwoFactorStanding(input.organizationId);
   if (!input.requireWriteEntitlement) {
     assertBillingEndpointAvailable(
       await resolveOrganizationBilling(executor, input.organizationId, now),

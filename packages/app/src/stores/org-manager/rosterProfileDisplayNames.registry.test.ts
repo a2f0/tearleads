@@ -25,6 +25,7 @@ function rosterUser(userId: string): OrganizationDirectoryUser {
     createdAt: "2026-08-25T12:00:00.000Z",
     disabledAt: "2026-08-25T13:00:00.000Z",
     disabledByUserId: "admin-user-id",
+    twoFactorRequired: false,
     encapsulationKeyFingerprint: `encapsulation-${userId}`,
     isPersonalOrganizationOwner: false,
     isSelf: false,

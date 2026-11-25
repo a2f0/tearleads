@@ -125,6 +125,32 @@ renewal of an expired session, then rejects with an error named
 requests stop renewing. Retrying cannot succeed until the suspension is lifted;
 name the reason instead of reporting a generic failure.
 
+An identity can turn on two-factor authentication through `tearleads.twoFactor`
+(`status`, `beginSetup`, `enable`, `disable`, `regenerateRecoveryCodes`; a
+refused call throws `TwoFactorRequestError` with the server's `code`). Its
+sign-in then needs a second factor. `session.login(challengeHex?, twoFactor?)`
+takes a `SessionTwoFactorCode`, an authenticator or recovery code with
+`rememberDevice`. Without one, or with a code that misses, login rejects with
+`TwoFactorLoginError` and its `code` (`two_factor_required`,
+`two_factor_invalid`, or `two_factor_locked`) and clears the session; ask the
+person for a code and log in again. Automatic renewal cannot answer it either.
+A remembered device's token arrives in `SessionSnapshot.twoFactorDeviceToken`
+and is sent with each later sign-in for 30 days. Persist it with the session:
+it survives `logout`, and the SDK forgets it when the server refuses it or the
+identity turns two-factor off. Clear it on an identity switch, since it names
+the previous identity's account.
+
+`tearleads.twoFactor` is also a store: `snapshot` holds the status this session
+last learned, and `subscribe` reports changes. A new session token resets it to
+null. `requiredByOrganizationIds` lists the organizations that refuse this
+session until it passes a second factor. Their server routes answer it with 403
+and code `organization_two_factor_required`, which, unlike an access denial,
+keeps the organization's local data. Writes and moves it refuses stay queued,
+not denied, and `enable` retries them once this session passes a second factor.
+An administrator sets the requirement per
+member with `organizations.setRosterTwoFactorRequired(userId, required)`, and
+directory users report it as `twoFactorRequired`.
+
 `prepareNativeSubscriptionRestoreOrganization()` durably replays one fresh
 restore org. Activate it, then call
 `completeNativeSubscriptionRestoreOrganization(organizationId)`.

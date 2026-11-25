@@ -83,6 +83,8 @@ test("attachment bind rejects an authorizing path through a deleted container", 
         ipAddresses: [],
         lastActiveAt: Date.now(),
         lastActiveIp: null,
+        twoFactorRequiredOrganizationIds: [],
+        twoFactorVerified: false,
         userId: owner.userId,
       });
       return next();

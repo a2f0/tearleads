@@ -38,6 +38,7 @@ const rosterUser: OrganizationUserDetail["user"] = {
   createdAt: "2026-05-20T12:00:00.000Z",
   disabledAt: "2026-05-24T12:00:00.000Z",
   disabledByUserId: "550e8400-e29b-41d4-a716-446655440002",
+  twoFactorRequired: false,
   encapsulationKeyFingerprint: "encapsulation-fingerprint",
   isPersonalOrganizationOwner: false,
   isSelf: false,
@@ -96,6 +97,7 @@ function renderUserDetailView(
       canEditRosterProfile={false}
       canRevokeGrants={false}
       detail={detail}
+      twoFactorRequirement={null}
       pending={false}
       mutating={false}
       onRosterProfileDisplayNameChange={() => undefined}
@@ -229,6 +231,7 @@ test("a roster edit request opens the profile tab", async () => {
       canEditRosterProfile={true}
       canRevokeGrants={false}
       detail={detail}
+      twoFactorRequirement={null}
       pending={false}
       mutating={false}
       onRosterProfileDisplayNameChange={() => undefined}
@@ -255,4 +258,48 @@ test("a roster edit request opens the profile tab", async () => {
       ),
     ).toBeTruthy();
   });
+});
+
+test("an administrator requires two-factor of an active member", () => {
+  const activeDetail: OrganizationUserDetail = {
+    ...detail,
+    user: {
+      ...detail.user,
+      disabledAt: null,
+      disabledByUserId: null,
+      status: "active",
+    },
+  };
+  const requested: Array<[string, boolean]> = [];
+  const view = renderUserDetailView({
+    detail: activeDetail,
+    twoFactorRequirement: {
+      mutating: false,
+      set: async (userId, required) => {
+        requested.push([userId, required]);
+      },
+    },
+  });
+
+  expect(view.getByText(ORG_MANAGER_LABELS.twoFactorNotRequired)).toBeTruthy();
+  fireEvent.click(
+    view.getByRole("button", { name: ORG_MANAGER_LABELS.twoFactorRequire }),
+  );
+  expect(requested).toEqual([[activeDetail.user.userId, true]]);
+});
+
+test("a member sees the two-factor requirement without a control", () => {
+  const view = renderUserDetailView({
+    detail: {
+      ...detail,
+      user: { ...detail.user, twoFactorRequired: true },
+    },
+  });
+
+  expect(view.getByText(ORG_MANAGER_LABELS.twoFactorRequired)).toBeTruthy();
+  expect(
+    view.queryByRole("button", {
+      name: ORG_MANAGER_LABELS.twoFactorStopRequiring,
+    }),
+  ).toBeNull();
 });

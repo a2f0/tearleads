@@ -55,6 +55,7 @@ test("crypto sessions are persisted independently for each identity", async () =
         isRoot: false,
         rootAcknowledgments: [],
         organizationId: "org-a",
+        twoFactorDeviceToken: "device-a",
         userId: "user-a",
       },
       localPersistence: persistenceFor(identityA),
@@ -71,6 +72,7 @@ test("crypto sessions are persisted independently for each identity", async () =
         isRoot: false,
         rootAcknowledgments: [],
         organizationId: "org-b",
+        twoFactorDeviceToken: null,
         userId: "user-b",
       },
       localPersistence: persistenceFor(identityB),
@@ -92,6 +94,7 @@ test("crypto sessions are persisted independently for each identity", async () =
     isRoot: false,
     rootAcknowledgments: [],
     organizationId: "org-a",
+    twoFactorDeviceToken: "device-a",
     userId: "user-a",
   });
   expect(
@@ -107,6 +110,7 @@ test("crypto sessions are persisted independently for each identity", async () =
     isRoot: false,
     rootAcknowledgments: [],
     organizationId: "org-b",
+    twoFactorDeviceToken: null,
     userId: "user-b",
   });
 });
@@ -138,6 +142,7 @@ test("an authenticated session without a default org fails closed", async () => 
       isRoot: false,
       rootAcknowledgments: [],
       organizationId: "active-org",
+      twoFactorDeviceToken: null,
       userId: "user",
     },
     localPersistence,
@@ -168,6 +173,7 @@ test("a session write reports unavailable key material", async () => {
         isRoot: false,
         rootAcknowledgments: [],
         organizationId: "organization",
+        twoFactorDeviceToken: null,
         userId: "user",
       },
       localPersistence: {
@@ -218,6 +224,7 @@ test("clearing an identity session wins over an older in-flight write", async ()
         isRoot: false,
         rootAcknowledgments: [],
         organizationId: "stale-organization",
+        twoFactorDeviceToken: null,
         userId: "stale-user",
       },
       localPersistence: { keyring, scope, storage, storageKey },
@@ -260,6 +267,7 @@ test("server root acknowledgements survive encrypted session restore", async () 
       },
     ],
     organizationId: "org-root",
+    twoFactorDeviceToken: null,
     userId: "user-root",
   };
 

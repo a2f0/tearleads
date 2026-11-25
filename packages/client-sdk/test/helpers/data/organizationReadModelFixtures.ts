@@ -265,6 +265,7 @@ export const userDetail: OrganizationUserDetailResponse = {
     updatedAt: "2026-05-16T12:00:00.000Z",
     disabledAt: null,
     disabledByUserId: null,
+    twoFactorRequired: false,
   },
   groups: groups.groups,
   grants: {

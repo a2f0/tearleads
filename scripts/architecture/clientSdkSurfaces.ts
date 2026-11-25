@@ -289,6 +289,7 @@ export const identitySurface = [`${sdk}/data/trustedUserIdentity/index.ts`];
 export const identitySessionClientSurface = [
   `${sdk}/client/identity/index.ts`,
   `${sdk}/client/session/index.ts`,
+  `${sdk}/client/twoFactor/index.ts`,
   `${sdk}/client/identity/keyPackage.ts`,
   `${sdk}/client/identity/userIdentities.ts`,
   `${sdk}/client/session/sessionRecoveryErrors.ts`,

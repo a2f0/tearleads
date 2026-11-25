@@ -503,6 +503,16 @@ must prevent later presentation; there is no capability flag or conservative
 provider-start fallback. Keep restore/claim/bind atomic. See
 [revenuecat-billing.md](../revenuecat-billing.md).
 
+### Two-factor sign-in
+
+The root entry point exports the `tearleads.twoFactor` facade's types
+(`TwoFactor`, `TwoFactorStatus`, `TwoFactorSetup`, `TwoFactorAnswer`), its
+refusal `TwoFactorRequestError`, the sign-in refusal `TwoFactorLoginError` with
+`TwoFactorLoginErrorCode`, and `SessionTwoFactorCode`, the code
+`session.login` takes. `SessionSnapshot.twoFactorDeviceToken` is the remembered
+device a host persists with the session. See
+[two-factor sign-in](local-keyring.md) for the flow.
+
 ## Package Contract
 
 The package is `private: true` and consumed across the monorepo by build output.

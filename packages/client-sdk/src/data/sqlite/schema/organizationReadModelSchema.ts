@@ -69,6 +69,10 @@ export const organizationReadModelDirectoryUsers = sqliteTable(
     disabledByUserId: text("disabled_by_user_id"),
     /** A pending leave request, as JSON, kept only once its signature verified. */
     leaveRequest: text("leave_request"),
+    /** An administrator requires this member to sign in with two-factor. */
+    twoFactorRequired: integer("two_factor_required", { mode: "boolean" })
+      .notNull()
+      .default(false),
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.userId] })],
 );

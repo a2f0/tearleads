@@ -21,7 +21,7 @@ export const organizationReadModelTables: ReadonlyArray<SqlTableSchema> = [
   },
   {
     ...defineSqlTableSchema(organizationReadModelDirectoryUsers),
-    requiredColumns: ["is_personal_organization_owner"],
+    requiredColumns: ["is_personal_organization_owner", "two_factor_required"],
   },
   {
     ...defineSqlTableSchema(organizationReadModelGroups),

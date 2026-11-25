@@ -1,7 +1,10 @@
 import { SignInIcon } from "@phosphor-icons/react/dist/csr/SignIn";
 import { useAutoProvisioningStatus } from "../../identity/autoProvisioningStatus";
 import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
-import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
+import {
+  type AuthenticateAction,
+  useAuthenticateAction,
+} from "../../identity/useAuthenticateAction";
 import { useDatabase } from "../../providers/db/DatabaseProvider";
 import { useIdentity } from "../../providers/identity/IdentityProvider";
 import {
@@ -10,6 +13,7 @@ import {
   MiniAppStatus,
 } from "../mini-app/MiniAppLayout";
 import { AccountBootstrapProgressPanel } from "./AccountBootstrapProgressPanel";
+import { TwoFactorSignInForm } from "./TwoFactorSignInForm";
 
 const SIGN_IN_ICON = <SignInIcon size={40} weight="light" />;
 
@@ -40,7 +44,8 @@ function AccountSignInPanel({
   const { signingKeyPair } = useIdentity();
   const { status: databaseStatus } = useDatabase();
   const { generation, registration } = useAutoProvisioningStatus();
-  const { authenticate, authenticating, error } = useAuthenticateAction();
+  const { authenticate, authenticating, error, twoFactorPrompt } =
+    useAuthenticateAction();
   const failedStep = signingKeyPair === null ? generation : registration;
   const reason =
     error ?? (failedStep.status === "failed" ? failedStep.message : null);
@@ -59,6 +64,7 @@ function AccountSignInPanel({
           authenticating={authenticating}
           canAuthenticate={signingKeyPair !== null}
           reason={reason}
+          twoFactorPrompt={twoFactorPrompt !== null}
         />
       )}
     </MiniAppStatePanel>
@@ -70,15 +76,23 @@ function AccountSignInAction({
   authenticating,
   canAuthenticate,
   reason,
+  twoFactorPrompt,
 }: {
-  authenticate: () => Promise<boolean>;
+  authenticate: AuthenticateAction["authenticate"];
   authenticating: boolean;
   canAuthenticate: boolean;
   reason: string | null;
+  twoFactorPrompt: boolean;
 }) {
   return (
     <>
-      {canAuthenticate && (
+      {canAuthenticate && twoFactorPrompt && (
+        <TwoFactorSignInForm
+          authenticate={authenticate}
+          authenticating={authenticating}
+        />
+      )}
+      {canAuthenticate && !twoFactorPrompt && (
         <MiniAppButton
           loading={authenticating}
           onClick={() => void authenticate()}

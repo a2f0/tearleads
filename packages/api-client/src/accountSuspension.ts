@@ -1,4 +1,8 @@
 import { VERIFY_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  isTwoFactorLoginErrorCode,
+  TwoFactorLoginError,
+} from "./twoFactorLogin";
 import type { RequestResult } from "./types";
 
 /**
@@ -14,13 +18,19 @@ export class AccountSuspendedError extends Error {
   }
 }
 
-/** A verify result's login, null for an ordinary refusal; throws on suspension. */
+/**
+ * A verify result's login, null for an ordinary refusal. Throws on a
+ * suspension and on a refusal that needs a second factor from the person.
+ */
 export function verifiedLogin<Data>(result: RequestResult<Data>): Data | null {
   if (result.ok) {
     return result.data;
   }
   if (result.code === VERIFY_ERROR_CODES.accountSuspended) {
     throw new AccountSuspendedError();
+  }
+  if (isTwoFactorLoginErrorCode(result.code)) {
+    throw new TwoFactorLoginError(result.code);
   }
   return null;
 }

@@ -8,6 +8,8 @@ const validSession = {
   ipAddresses: ["127.0.0.1"],
   lastActiveAt: Number.MAX_SAFE_INTEGER,
   lastActiveIp: null,
+  twoFactorRequiredOrganizationIds: [],
+  twoFactorVerified: false,
   userId: "12345678-1234-4123-8123-123456789abc",
 };
 

@@ -17,6 +17,8 @@ function rootApp(sessionUserId: string | null) {
         ipAddresses: [],
         lastActiveAt: 0,
         lastActiveIp: null,
+        twoFactorRequiredOrganizationIds: [],
+        twoFactorVerified: false,
         userId: sessionUserId,
       });
     }

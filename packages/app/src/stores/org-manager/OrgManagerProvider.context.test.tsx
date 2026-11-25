@@ -101,6 +101,7 @@ test("Org Manager keeps its narrow bound surface and positional adapters", async
       "loadUserDetail",
       "removeUserFromGroup",
       "revokeGrant",
+      "setRosterTwoFactorRequired",
       "subscribeToContainers",
       "updateProfile",
       "updateRosterEntry",

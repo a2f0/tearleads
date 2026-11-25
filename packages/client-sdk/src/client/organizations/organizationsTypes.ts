@@ -207,6 +207,14 @@ export interface Organizations {
     userId: string,
     profileDocumentId: string | null,
   ) => ReturnType<typeof updateOrganizationRosterEntry>;
+  /**
+   * An administrator sets whether a member must sign in with two-factor.
+   * The member's sessions without a second factor are signed out.
+   */
+  setRosterTwoFactorRequired: (
+    userId: string,
+    required: boolean,
+  ) => ReturnType<typeof updateOrganizationRosterEntry>;
   updateProfile: (
     profileDocumentId: string | null,
   ) => ReturnType<typeof updateOrganizationProfile>;

@@ -1,0 +1,29 @@
+.two-factor-setup,
+.two-factor-codes,
+.two-factor-on {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.two-factor-qr-image {
+  display: block;
+  width: min(15rem, 100%);
+  height: auto;
+  background: white;
+}
+
+.two-factor-key {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.two-factor-code-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: var(--space-xs) var(--space-sm);
+  margin: 0;
+  padding-left: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}

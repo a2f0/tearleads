@@ -25,6 +25,8 @@ const { token } = await createSession({
   createdAt: Date.now(),
   userId: identity.userId,
   fingerprint: identity.fingerprint,
+  twoFactorRequiredOrganizationIds: [],
+  twoFactorVerified: false,
 });
 Bun.gc(true);
 const initial = process.memoryUsage();

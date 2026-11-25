@@ -187,6 +187,7 @@ describe("Tearleads", () => {
         isRoot: false,
         rootAcknowledgments: [],
         organizationId: "organization-1",
+        twoFactorDeviceToken: null,
         userId: "user-1",
       },
       {
@@ -197,6 +198,7 @@ describe("Tearleads", () => {
         isRoot: false,
         rootAcknowledgments: [],
         organizationId: "organization-1",
+        twoFactorDeviceToken: null,
         userId: "user-1",
       },
     ]);

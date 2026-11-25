@@ -13,6 +13,8 @@ test("identity transition clears the full session and prior server events", () =
     isRoot: true,
     rootAcknowledgments: [],
     organizationId: "org-a",
+    // Identity A's remembered device must not follow the switch.
+    twoFactorDeviceToken: "device-a",
     userId: "user-a",
   });
   tearleads.events.push({ id: "event-a" });
@@ -27,6 +29,7 @@ test("identity transition clears the full session and prior server events", () =
     isRoot: false,
     rootAcknowledgments: [],
     organizationId: null,
+    twoFactorDeviceToken: null,
     userId: null,
   });
   expect(tearleads.events.events).toEqual([]);

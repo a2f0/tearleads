@@ -3,12 +3,27 @@ import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   CONTAINER_UNAVAILABLE_ERROR_CODE,
   DOCUMENT_SYNC_ERROR_CODES,
+  ORGANIZATION_TWO_FACTOR_ERROR_CODES,
 } from "@tearleads/validators/response";
 import type { ContainerMutationSubmitFailure } from "./types";
 
 interface ContainerBehaviorFailure {
   readonly code?: string | undefined;
   readonly status: number | null;
+}
+
+/**
+ * The organization requires a second factor of this member and the session
+ * has not passed one. Unlike a permission denial, the same request succeeds
+ * once it has: `twoFactor.enable` re-requests the sync lanes then.
+ */
+export function isOrganizationTwoFactorRefusal(
+  failure: ContainerBehaviorFailure,
+): boolean {
+  return (
+    failure.status === 403 &&
+    failure.code === ORGANIZATION_TWO_FACTOR_ERROR_CODES.required
+  );
 }
 
 export function isContainerNotFoundFailure(
