@@ -207,7 +207,9 @@
     /* The state panel centers its items; here the documents fill their area. */
     align-items: stretch;
     justify-content: center;
-    column-gap: calc(2 * var(--space-md));
+    /* A length, not a spacing token: the breakpoint above counts it as 2rem,
+       and a container query cannot read a custom property. */
+    column-gap: 2rem;
     row-gap: 0;
     text-align: start;
   }

@@ -1,12 +1,14 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
+import { DEMO_APP_URL } from "./demoServer";
 import { legalTermsAgreement } from "./legalTermsAgreement";
 
 /*
  * The legal terms a new identity agrees to, laid out by the shape of the pane
  * that shows them. A phone or an upright tablet stacks the documents between
  * the copy and the agreement; a landscape pane sets the copy and the agreement
- * beside documents that run its full height.
+ * beside documents that run its full height. The demo asks once for its whole
+ * page, before either pane starts, so its gate fills the panes' row.
  *
  * Measured from what the browser draws: the tab strip used to bleed past the
  * documents' frame on both sides, and the documents sat in a 26rem column a
@@ -33,28 +35,43 @@ async function boxOf(locator: Locator) {
   };
 }
 
-async function openAgreement(page: Page) {
+/** The visible agreement's parts, found inside its own panel. */
+async function findAgreement(page: Page) {
+  const checkbox = legalTermsAgreement(page);
+  await expect(checkbox).toBeVisible();
+  const panel = page.locator(".legal-terms-agreement").filter({
+    has: checkbox,
+  });
+  const frame = panel.locator(".legal-terms-agreement-documents");
+  return {
+    checkbox,
+    continueButton: panel.getByRole("button", { name: "Continue" }),
+    frame,
+    label: panel.locator(".legal-terms-agreement-check > span"),
+    panel,
+    strip: frame.getByRole("tablist", { name: "Legal documents" }),
+    tabs: frame.getByRole("tab"),
+    text: frame.getByRole("tabpanel"),
+    title: panel.getByRole("heading", { name: "Review our terms" }),
+  };
+}
+
+type Agreement = Awaited<ReturnType<typeof findAgreement>>;
+
+/** A new identity's agreement, in Identity Manager. */
+async function openAgreement(page: Page): Promise<Agreement> {
   await page.goto("/app/identity-manager/recovery-key");
   await page
     .getByRole("button", { name: "Create new identity", exact: true })
     .first()
     .click();
-  const checkbox = legalTermsAgreement(page);
-  await expect(checkbox).toBeVisible();
-  const frame = page.locator(".legal-terms-agreement-documents");
-  return {
-    checkbox,
-    continueButton: page.getByRole("button", { name: "Continue" }),
-    frame,
-    label: page.locator(".legal-terms-agreement-check > span"),
-    strip: frame.getByRole("tablist", { name: "Legal documents" }),
-    tabs: frame.getByRole("tab"),
-    text: frame.getByRole("tabpanel"),
-    title: page.getByRole("heading", { name: "Review our terms" }),
-  };
+  return findAgreement(page);
 }
 
-type Agreement = Awaited<ReturnType<typeof openAgreement>>;
+/** How far a box's content reaches past its scrollport, in px. */
+function overflowOf(locator: Locator): Promise<number> {
+  return locator.evaluate((node) => node.scrollHeight - node.clientHeight);
+}
 
 /** The strip spans the frame's inside, and every tab shows within it. */
 async function expectStripInsideFrame(agreement: Agreement) {
@@ -73,10 +90,7 @@ async function expectStripInsideFrame(agreement: Agreement) {
 
 /** The documents scroll inside their frame rather than growing the page. */
 async function expectTextScrollsInFrame(agreement: Agreement) {
-  const overflow = await agreement.text.evaluate(
-    (node) => node.scrollHeight - node.clientHeight,
-  );
-  expect(overflow).toBeGreaterThan(0);
+  expect(await overflowOf(agreement.text)).toBeGreaterThan(0);
 }
 
 /** The label stands apart from its box. */
@@ -111,11 +125,8 @@ async function expectSideBySide(agreement: Agreement) {
  * The whole panel fits its pane, so nothing but the documents scrolls, from
  * the moment it appears: the shared state panel's entrance rise overflowed it.
  */
-async function expectPanelFitsPane(page: Page) {
-  const overflow = await page
-    .locator(".legal-terms-agreement")
-    .evaluate((node) => node.scrollHeight - node.clientHeight);
-  expect(overflow).toBeLessThanOrEqual(0);
+async function expectPanelFitsPane(agreement: Agreement) {
+  expect(await overflowOf(agreement.panel)).toBeLessThanOrEqual(0);
 }
 
 test.describe("phone", () => {
@@ -167,6 +178,51 @@ test.describe("phone on its side", () => {
     await expectSideBySide(agreement);
     await expectStripInsideFrame(agreement);
     await expectTextScrollsInFrame(agreement);
-    await expectPanelFitsPane(page);
+    await expectPanelFitsPane(agreement);
+  });
+});
+
+/**
+ * The demo's gate fills the frame's panes row, edge to edge and down to the
+ * frame's foot, whatever the agreement inside it needs.
+ */
+async function expectGateFillsPanesRow(page: Page) {
+  const frame = await boxOf(page.locator(".tearleads-frame"));
+  const gate = await boxOf(page.locator(".demo-legal-terms-gate"));
+  expect(gate.left).toBeCloseTo(frame.left, 0);
+  expect(gate.right).toBeCloseTo(frame.right, 0);
+  expect(gate.bottom).toBeCloseTo(frame.bottom, 0);
+  expect(gate.height).toBeGreaterThan(frame.height / 2);
+}
+
+test.describe("demo on a desktop", () => {
+  test.use({ baseURL: DEMO_APP_URL, viewport: { height: 900, width: 1440 } });
+
+  // Auto-placed, the gate took the frame's first cell: the notice row, in the
+  // left pane's column, so the agreement filled the top of half the screen.
+  test("fills the panes' row across both columns", async ({ page }) => {
+    await page.goto("/");
+    const agreement = await findAgreement(page);
+    await expectGateFillsPanesRow(page);
+    await expectSideBySide(agreement);
+    await expectStripInsideFrame(agreement);
+    await expectPanelFitsPane(agreement);
+  });
+});
+
+test.describe("demo on a short phone", () => {
+  test.use({ baseURL: DEMO_APP_URL, viewport: { height: 400, width: 390 } });
+
+  // Shorter than the stacked panel's floor: the panel's own box scrolls, so
+  // the gate around it, which fills the frame, never does.
+  test("scrolls the panel inside the gate", async ({ page }) => {
+    await page.goto("/");
+    const agreement = await findAgreement(page);
+    await expectGateFillsPanesRow(page);
+    await expectStacked(agreement);
+    expect(await overflowOf(agreement.panel)).toBeGreaterThan(0);
+    expect(
+      await overflowOf(page.locator(".demo-legal-terms-gate")),
+    ).toBeLessThanOrEqual(0);
   });
 });
