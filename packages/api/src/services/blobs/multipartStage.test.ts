@@ -10,6 +10,7 @@ import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import {
   completeStageAsBind,
   declaredFirstPart,
+  uploadSignedStagePart,
 } from "../../../test/helpers/blobStageParts";
 import { createFakeS3BlobObjectStore } from "../../../test/helpers/fakeS3BlobObjectStore";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
@@ -213,7 +214,7 @@ test("multipart blob stages upload resumable parts outside Postgres", async () =
 });
 
 test("S3 multipart completion rejects and deletes mismatched bytes", async () => {
-  const { store } = createFakeS3BlobObjectStore();
+  const { putSignedPart, store } = createFakeS3BlobObjectStore();
   const runtime = createServiceTestRuntime(undefined, {
     blobObjectStore: store,
   });
@@ -223,8 +224,8 @@ test("S3 multipart completion rejects and deletes mismatched bytes", async () =>
     ...(await createMultipartStageInput("expected-bytes")),
     userId,
   });
-  await uploadTextPart(runtime, {
-    encryptedBytes: "tampered-bytes",
+  await uploadSignedStagePart(runtime, putSignedPart, {
+    bytes: blobObjectBytes("tampered-bytes"),
     partNumber: 1,
     stageId: initiated.stageId,
     uploadId: initiated.uploadId,
@@ -245,7 +246,7 @@ test("S3 multipart completion rejects and deletes mismatched bytes", async () =>
   ).resolves.toBeNull();
 });
 
-test("multipart blob stages accept streamed part uploads", async () => {
+test("multipart blob stages accept parts the API carries to the memory store", async () => {
   const runtime = createServiceTestRuntime();
   const { userId, organizationId } = await createBlobStageOwner();
   const encryptedBytes = "streamed-multipart-part";
