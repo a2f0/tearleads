@@ -99,6 +99,19 @@ export async function applyListedContainerDocuments(
 
   const complete = await verification.commit();
   if (!(await verification.isCurrent())) return null;
+  // Every listed row is checked, verified or not: the debt names the server
+  // document, and the watermark below passes all of them.
+  const owedDocumentIds = await options.oweListedDocumentReads(
+    listedDocuments.items.map((document) => ({
+      documentId: document.id,
+      updateCount: document.updateCount,
+    })),
+    verification.isCurrent,
+  );
+  if (!(await verification.isCurrent())) return null;
+  if (owedDocumentIds.length > 0) {
+    options.onDocumentReadsOwed?.(owedDocumentIds);
+  }
   await saveAppliedContainerDocumentWatermark({
     containerId,
     listedDocuments,

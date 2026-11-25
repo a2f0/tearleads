@@ -103,9 +103,15 @@ export async function expectLifecycleNotes(pane: HTMLElement) {
   await selectContainerAndWaitForItemTable(pane, "/");
 }
 
-/** Observe, never invoke, the full sweep started by the socket's real ack. */
+/**
+ * Observe, never invoke, the catch-up listing the SDK starts when the
+ * socket's real acknowledgement advances the connection generation.
+ */
 export function observeReconnectSweep(sdk: Tearleads) {
-  const sweep = spyOn(sdk.deviceFirst.open().reconciler, "reconcileNow");
+  const sweep = spyOn(
+    sdk.deviceFirst.open().reconciler,
+    "reconcileAcknowledgedConnection",
+  );
   return {
     [Symbol.dispose]: () => sweep.mockRestore(),
     wait: async () => {
@@ -169,6 +175,26 @@ export function expectLifecycleReads(
   ).toEqual([]);
 }
 
+/**
+ * Waits until the runtime is settled and no request has completed for the
+ * span `expectNoLateLifecycleRequests` checks, however long delayed follow-up
+ * work takes to start. For a step whose requests are not measured.
+ */
+export async function waitForLifecycleQuiet() {
+  for (;;) {
+    const count = listProxiedApiRequests().length;
+    await act(async () => {
+      expect(
+        await waitForAppTestRuntimeToSettle({
+          apiQuietMs: 500,
+          timeoutMs: 20_000,
+        }),
+      ).toBe(true);
+    });
+    if (listProxiedApiRequests().length === count) return;
+  }
+}
+
 /** Detect a measurement that stopped before delayed follow-up work began. */
 export async function expectNoLateLifecycleRequests() {
   const count = listProxiedApiRequests().length;
@@ -181,7 +207,12 @@ export async function expectNoLateLifecycleRequests() {
       }),
     ).toBe(true);
   });
-  expect(listProxiedApiRequests()).toHaveLength(count);
+  // Name what arrived late, so a failure says which work was still pending.
+  expect(
+    listProxiedApiRequests()
+      .slice(count)
+      .map((request) => `${request.method} ${requestPath(request.url)}`),
+  ).toEqual([]);
 }
 
 export async function unmountLifecyclePane(

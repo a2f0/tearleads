@@ -27,6 +27,7 @@ function listContainerDocumentsResponse(
     id: string;
     linkedContainerIds: string[];
     referencedPrincipals?: ReferencedPrincipalStateResponse[];
+    updateCount?: number;
     updatedAt: string;
   }>,
   overrides: Partial<{
@@ -45,6 +46,7 @@ function listContainerDocumentsResponse(
     items: items.map((item) => ({
       ...item,
       referencedPrincipals: item.referencedPrincipals ?? [],
+      updateCount: item.updateCount ?? 0,
     })),
     nextWatermark: lastItem
       ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
@@ -208,6 +210,7 @@ test("container document discovery resumes from stored watermark and advances af
     replaceDocumentLinksBatch: async () => {
       applyOrder.push("replace-links");
     },
+    oweListedDocumentReads: async () => [],
     saveContainerDocumentWatermark: async (containerId, watermark) => {
       applyOrder.push("save-watermark");
       saveContainerDocumentWatermarkCalls.push({ containerId, watermark });
@@ -280,6 +283,7 @@ test("container document discovery does not advance watermark when local apply f
         ]),
       ),
       replaceDocumentLinksBatch: async () => {},
+      oweListedDocumentReads: async () => [],
       saveContainerDocumentWatermark: async (_containerId, watermark) => {
         saveContainerDocumentWatermarkCalls.push(watermark);
       },
@@ -340,6 +344,7 @@ test("container document discovery applies tombstones before advancing watermark
     replaceDocumentLinksBatch: async () => {
       applyOrder.push("replace-links");
     },
+    oweListedDocumentReads: async () => [],
     saveContainerDocumentWatermark: async (_containerId, watermark) => {
       applyOrder.push("save-watermark");
       saveContainerDocumentWatermarkCalls.push(watermark);
@@ -406,6 +411,7 @@ test("container document discovery does not advance watermark when tombstone app
         }),
       ),
       replaceDocumentLinksBatch: async () => {},
+      oweListedDocumentReads: async () => [],
       saveContainerDocumentWatermark: async (_containerId, watermark) => {
         saveContainerDocumentWatermarkCalls.push(watermark);
       },

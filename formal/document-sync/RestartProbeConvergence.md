@@ -6,6 +6,12 @@ server-events disconnect. Remote and local body versions and attachment-slot
 metadata versions represent encrypted Loro state. Attachment bindings, blob
 bytes, and hydration are outside this model.
 
+The document here is one no container listing covers: its scope installs no
+listing authority, its lane was not listed, or its record has not completed a
+pull. A covered document arms neither probe; the listing that follows each
+acknowledgement owes it a read if it moved, as
+[DocumentListingConvergence](./DocumentListingConvergence.md) models.
+
 Restart destroys queued and in-flight process-local work; reopening the row arms
 a startup HTTP probe. A retained disconnect preserves work already accepted by
 the document store, while peer hints emitted during the disconnected interval

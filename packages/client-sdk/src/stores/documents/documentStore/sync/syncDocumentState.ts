@@ -12,6 +12,10 @@ import type {
   DocumentSyncAttempt,
   EncapsulationKeyPair,
 } from "../state";
+import {
+  findOwedListingReadBeforePull,
+  settleOwedListingReadAfterPull,
+} from "./listingCoverage";
 import { logRevalidationUnavailable as logUnavailable } from "./remoteRevalidationTelemetry";
 import {
   cleanupPreRegisteredUpdateIdsOnFailure,
@@ -109,6 +113,95 @@ function requestSyncAgain(
   return state.record ?? fallback;
 }
 
+/**
+ * Sends the queued updates with a pull and finalizes the response. The read a
+ * listing owes the document is read before the request and settled after a
+ * pull that reached its bound.
+ */
+async function pullAndFinalizeDocumentSync(input: {
+  readonly consumedRemoteUpdateSignalSeq: number;
+  readonly currentDoc: DocumentState;
+  readonly encapsulationKeyPair: EncapsulationKeyPair;
+  readonly generation: DocumentStoreSyncGeneration;
+  readonly loroWindow: DocumentSyncLoroWindow;
+  readonly pendingUpdates: PendingUpdateRecord[];
+  readonly policyOperation: PrincipalPolicyOperation;
+  readonly record: DocumentRecord;
+  readonly state: DocumentStoreState;
+  readonly wasRemoteProbe: boolean;
+}): Promise<DocumentRecord> {
+  const { currentDoc, generation, state, wasRemoteProbe } = input;
+  const nextRemoteRecord = input.record;
+  const remoteDocumentId = nextRemoteRecord.documentId;
+  if (remoteDocumentId === null) return nextRemoteRecord;
+  // The read a listing owes this document, seen before the request: the
+  // completed pull settles only that request, and a newer one survives.
+  const owedListingRead = await findOwedListingReadBeforePull(
+    state,
+    generation,
+    { documentId: remoteDocumentId, remoteProbe: wasRemoteProbe },
+  );
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation))
+    return requestSyncAgain(state, nextRemoteRecord);
+
+  // Pre-register the IDs we are about to send so the author's OWN
+  // `document_update_created` echo (fanned back over realtime) is classified as
+  // self-authored and never re-arms a redundant sync. Registering BEFORE the
+  // network await closes the race where the echo lands before
+  // finalizeDocumentSync records the accepted IDs — the gap that turned every
+  // fast keystroke into an extra self-triggered sync.
+  const { sentUpdateIds, syncAttempt } = await requestOutgoingDocumentBatch({
+    currentDoc,
+    encapsulationKeyPair: input.encapsulationKeyPair,
+    generation,
+    loroWindow: input.loroWindow,
+    pendingUpdates: input.pendingUpdates,
+    policyOperation: input.policyOperation,
+    record: nextRemoteRecord,
+    state,
+  });
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    discardPreRegisteredUpdateIds(state, sentUpdateIds);
+    requestDocumentStoreSync(state);
+    return state.record ?? nextRemoteRecord;
+  }
+  if (!syncAttempt) {
+    discardPreRegisteredUpdateIds(state, sentUpdateIds);
+    logUnavailable(state, wasRemoteProbe);
+    return nextRemoteRecord;
+  }
+
+  const finalRecord = await cleanupPreRegisteredUpdateIdsOnFailure(
+    state,
+    sentUpdateIds,
+    () =>
+      finalizeDocumentSync(
+        state,
+        currentDoc,
+        nextRemoteRecord,
+        syncAttempt,
+        input.consumedRemoteUpdateSignalSeq,
+        generation,
+        sentUpdateIds,
+        wasRemoteProbe,
+      ),
+  );
+  // A pull that reached its bound may have paid the read a listing owed. The
+  // debt settles against the cursor now on disk, whatever this pass saved.
+  if (
+    owedListingRead &&
+    !syncAttempt.synced.hasIncompletePull &&
+    !syncAttempt.synced.hasHeldPull &&
+    isDocumentStoreSyncGenerationCurrent(state, generation)
+  ) {
+    await settleOwedListingReadAfterPull(state, generation, {
+      frontier: finalRecord.snapshotEndVersion,
+      owed: owedListingRead,
+    });
+  }
+  return finalRecord;
+}
+
 export async function syncDocumentState(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -181,13 +274,8 @@ export async function syncDocumentState(
     return nextRemoteRecord;
   }
 
-  // Pre-register the IDs we are about to send so the author's OWN
-  // `document_update_created` echo (fanned back over realtime) is classified as
-  // self-authored and never re-arms a redundant sync. Registering BEFORE the
-  // network await closes the race where the echo lands before
-  // finalizeDocumentSync records the accepted IDs — the gap that turned every
-  // fast keystroke into an extra self-triggered sync.
-  const { sentUpdateIds, syncAttempt } = await requestOutgoingDocumentBatch({
+  return pullAndFinalizeDocumentSync({
+    consumedRemoteUpdateSignalSeq,
     currentDoc,
     encapsulationKeyPair,
     generation,
@@ -196,28 +284,6 @@ export async function syncDocumentState(
     policyOperation,
     record: nextRemoteRecord,
     state,
+    wasRemoteProbe,
   });
-  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
-    discardPreRegisteredUpdateIds(state, sentUpdateIds);
-    requestDocumentStoreSync(state);
-    return state.record ?? nextRemoteRecord;
-  }
-  if (!syncAttempt) {
-    discardPreRegisteredUpdateIds(state, sentUpdateIds);
-    logUnavailable(state, wasRemoteProbe);
-    return nextRemoteRecord;
-  }
-
-  return cleanupPreRegisteredUpdateIdsOnFailure(state, sentUpdateIds, () =>
-    finalizeDocumentSync(
-      state,
-      currentDoc,
-      nextRemoteRecord,
-      syncAttempt,
-      consumedRemoteUpdateSignalSeq,
-      generation,
-      sentUpdateIds,
-      wasRemoteProbe,
-    ),
-  );
 }

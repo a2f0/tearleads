@@ -12,6 +12,7 @@ import type {
   DocumentSummary,
 } from "../../../data/documents/documentSummary";
 import type { DiscoveredDocumentCandidate } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import type { ListedDocumentUpdateCount } from "../../documents";
 
 export interface ListedContainerDocument {
   createdAt: string;
@@ -21,6 +22,8 @@ export interface ListedContainerDocument {
   id: string;
   linkedContainerIds: string[];
   referencedPrincipals: ReferencedPrincipalStateResponse[];
+  /** How many updates the server holds for the document. */
+  updateCount: number;
   updatedAt: string;
 }
 
@@ -189,6 +192,21 @@ export interface DiscoverContainerDocumentsOptions
   cacheReferencedPrincipalPolicies?: (
     references: ReadonlyArray<ReferencedPrincipalStateResponse>,
   ) => Promise<void>;
+  /**
+   * Owe a read, durably, to each listed document this device's processed
+   * cursor does not cover, and return the documents owed. A lane's watermark
+   * may pass a row only after this ran for it: an opened document is not
+   * probed on its own, so the debt is what recovers an edit whose hint was
+   * lost.
+   */
+  oweListedDocumentReads: (
+    listed: ReadonlyArray<ListedDocumentUpdateCount>,
+    stillCurrent: () => Promise<boolean>,
+  ) => Promise<ReadonlyArray<string>>;
+  /** The documents a listing just owed a read, once their debts are durable. */
+  onDocumentReadsOwed?:
+    | ((documentIds: ReadonlyArray<string>) => void)
+    | undefined;
   containerId: string;
   /** Completed unwatermarked listing, published only after local apply succeeds. */
   onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;

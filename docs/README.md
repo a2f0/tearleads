@@ -74,6 +74,7 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
   [purge verification](document-purge-verification.md).
 - [Attachment retention](attachment-retention.md).
 - [Client sync ordering](client-sync-ordering.md),
+  [document listing coverage](document-listing-coverage.md),
   [sync edge cases](sync-edge-cases.md), and
   [interruption safety](sync-interruption-safety.md).
 - [Organization read-model sync](organization-read-model-sync.md) and

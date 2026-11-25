@@ -46,6 +46,10 @@ import {
   type DiscoveredDocumentPrimerHost,
   startDiscoveredDocumentPrimer,
 } from "./discoveredDocumentPrimer";
+import {
+  createListingCoverageHost,
+  installDocumentListingAuthority,
+} from "./listingCoverageHost";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
 export type { LocalProjectionView } from "../../stores/local-projection";
@@ -90,6 +94,7 @@ interface DeviceFirstScopeEntry {
   coordinator: DomainSyncCoordinator;
   contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
+  removeListingAuthority: () => void;
   stopDocumentPrimer: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
   unsubscribePersistedDocuments: () => void;
@@ -99,6 +104,7 @@ function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
   entry.coordinator.dispose();
   entry.contents.reconciler.stop();
   entry.disconnectReconciliationTriggers();
+  entry.removeListingAuthority();
   entry.stopDocumentPrimer();
   entry.unsubscribePersistedDocumentDeletions();
   entry.unsubscribePersistedDocuments();
@@ -306,6 +312,11 @@ class DeviceFirstService implements DeviceFirst {
         view,
       },
       disconnectReconciliationTriggers,
+      removeListingAuthority: installDocumentListingAuthority({
+        domainScope,
+        runtimeService: this.runtimeService,
+        store,
+      }),
       stopDocumentPrimer,
       unsubscribePersistedDocumentDeletions,
       unsubscribePersistedDocuments,
@@ -397,6 +408,7 @@ class DeviceFirstService implements DeviceFirst {
         store.loadContainerDelta(containerId),
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
+      ...createListingCoverageHost(runtimeService, domainScope),
       ...createInitialDocumentProbeHost(runtimeService, domainScope),
       refreshTree: () =>
         refreshContainerTree((onListingUnavailable) =>

@@ -66,7 +66,7 @@ test("a settled pane reconnects with no pending local work", async () => {
   const requests = await measureWorkflowRequests({
     label: "reconnect without pending work",
     budget: {
-      total: 22,
+      total: 16,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
@@ -78,7 +78,9 @@ test("a settled pane reconnects with no pending local work", async () => {
         "GET /principals/history": 0,
         "GET /containers/:containerId/writer-projection": 1,
         "GET /documents/:documentId/writer-projection": 3,
-        "POST /documents/:documentId/sync": 8,
+        // The notes are not probed: the listing that follows the
+        // acknowledgement covers them.
+        "POST /documents/:documentId/sync": 2,
       },
     },
     mutations: [],
@@ -158,19 +160,19 @@ test("reconnect discovers one folder created by a peer while disconnected", asyn
   const requests = await measureWorkflowRequests({
     label: "reconnect after peer folder create",
     budget: {
-      total: 30,
+      total: 23,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
         "GET /organizations/:organizationId/billing": 0,
         "POST /containers/parent-lanes/query": 6,
         "POST /containers/documents/query": 2,
-        "GET /principals/organization/:organizationId/policy": 5,
+        "GET /principals/organization/:organizationId/policy": 4,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /containers/:containerId/writer-projection": 2,
         "GET /documents/:documentId/writer-projection": 4,
-        "POST /documents/:documentId/sync": 9,
+        "POST /documents/:documentId/sync": 3,
       },
     },
     mutations: [],

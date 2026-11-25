@@ -15,7 +15,10 @@ import {
   processLoroRuntimeFailures,
 } from "../../../data/documents/shared/sync/loroRuntimeFailureLedger";
 import type { DocumentScope } from "../../../data/persistence/documents/records";
-import { ensureDocumentTables } from "../../../data/persistence/documents/records";
+import {
+  ensureDocumentTables,
+  recordCommittedSeedProgressInTransaction,
+} from "../../../data/persistence/documents/records";
 import {
   type DocumentSyncVerdictInput,
   type DocumentSyncVerdictOutcome,
@@ -97,6 +100,27 @@ export async function readProcessedUpdateCountForSync(
     { ...input, judge: documentVerdictJudge() },
   );
   return progress?.updateCount ?? null;
+}
+
+/**
+ * Records the processed cursor a create's committed seed stands for, in the
+ * transaction that saves the created record, after the save. The create made
+ * the seed its document's only update and this device wrote it, so a
+ * container listing that counts it owes no read of it. See
+ * `recordCommittedSeedProgressInTransaction`.
+ */
+export function recordCommittedDocumentSeedProgress(
+  transactionExecSql: ExecSql,
+  input: {
+    readonly documentId: string;
+    readonly scope: DocumentScope;
+    readonly seedUpdateId: string;
+  },
+): Promise<void> {
+  return recordCommittedSeedProgressInTransaction(
+    getClientSQLitePersistenceRuntime(transactionExecSql).db,
+    { ...input, judge: documentVerdictJudge() },
+  );
 }
 
 /**

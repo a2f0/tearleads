@@ -39,6 +39,7 @@ import {
   setReadySnapshot,
 } from "../state";
 import { createStoredDocument } from "../storedDocument";
+import { loadDocumentListingCoverage } from "../sync/listingCoverage";
 import { loadDocumentStoreStartupProbe } from "../sync/startupProbeDeferral";
 import {
   captureDocumentStoreSyncGeneration,
@@ -334,6 +335,13 @@ async function initializeDocumentStore(
   if (state.localWriteGeneration !== initializeGeneration) {
     return;
   }
+  // What a listing owes the document decides the startup probe below.
+  const coveredByListing = await loadDocumentListingCoverage(
+    state,
+    state.record ?? restored.activeRecord,
+    () => state.localWriteGeneration === initializeGeneration,
+  );
+  if (state.localWriteGeneration !== initializeGeneration) return;
   state.initialized = true;
   state.initializePromise = null;
   setReadySnapshot(state, restored.doc, false);
@@ -342,13 +350,14 @@ async function initializeDocumentStore(
   // Websocket invalidations are intentionally session-local. A process can
   // stop before receiving a peer device's update event, and no event survives
   // the restart to distinguish a clean local snapshot from a stale one. Probe
-  // each opened remote document once after loading it; unopened documents stay
-  // lazy, while body and attachment state for a restored window converges.
-  // A connect attempt in flight arms a later probe on its acknowledgement,
-  // which covers this one, so the startup probe waits on that attempt.
+  // each opened remote document once after loading it, unless a container
+  // listing covers it (`listingCoverage.ts`). A connect attempt in flight arms
+  // a later probe on its acknowledgement, which covers this one, so the
+  // startup probe waits on that attempt.
   loadDocumentStoreStartupProbe(
     state,
     Boolean(restored.activeRecord.documentId),
+    coveredByListing,
   );
   scheduleSync();
   void runDocumentOrphanMaintenance(state);

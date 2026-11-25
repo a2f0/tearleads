@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
 import { documentAttachmentSightingTables } from "./documentAttachmentSightingSchema";
+import { documentListingRevalidationTables } from "./documentListingRevalidationSchema";
 import { documentLoroWindowTables } from "./documentLoroWindowSchema";
 import { documentSyncVerdictTables } from "./documentSyncVerdictSchema";
 
@@ -222,4 +223,5 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
   ...documentSyncVerdictTables,
   ...documentLoroWindowTables,
   ...documentAttachmentSightingTables,
+  ...documentListingRevalidationTables,
 ];

@@ -234,9 +234,7 @@ independent of any clock. Recovery compares it with what the client processed:
 - No-brick. The forced read uses the stored commit position as its floor, as
   a hint-forced read does, and never waits on another device.
 
-Ordinary documents need no such debt: opening one probes it, and an
-acknowledged reconnect probes every open one (see
-[remote pull eligibility](#remote-pull-eligibility)).
+Ordinary documents carry [the same debt](./document-listing-coverage.md).
 
 ## Document Phase
 
@@ -265,8 +263,11 @@ following signals require a probe:
   installed the declaration. Each already-open remote document that observes a
   newer generation arms one reconnect probe; a boolean edge or raw socket
   `open` can be missed and is too early to close the event-loss window;
-- a matching remote event, explicit document revalidation, or forced
-  reconciliation requests a probe through the registered document store.
+- a matching remote event, explicit revalidation, forced reconciliation, or a
+  read a listing owes requests a probe through the registered document store.
+
+A store whose document [a listing covers](./document-listing-coverage.md)
+arms neither the startup probe nor the reconnect probe.
 
 A clean scheduled pass skips a document that has a stored `lastCommitLsn` and
 all three bundle fields. Registration returns the `commitLsn` and
@@ -289,8 +290,8 @@ membership changes, while content revalidation targets only the named document.
 The app filters known ordinary content hints out of discovery; their registered
 stores receive them directly. Hints routed to the reconciler still list their
 named containers. Hints queued during a listing collapse into one trailing
-listing, retaining the union of named documents. Explicit Refresh, reconnect,
-and resync-required events force every registered document. Force is
+listing, retaining the union of named documents. Explicit Refresh and
+resync-required events force every registered document. Force is
 acknowledged only after successful reconciliation, so the lossy hint cannot be
 discarded by discovery suppression, temporary ineligibility, a transient request
 failure, or database loss mid-request. A fulfilled discovery that reports an
@@ -336,11 +337,10 @@ manifest. Until that acknowledgment arrives, the SDK continues to report server
 events as disconnected, and a cold `ready=false` tree is never declared.
 
 On every acknowledged reconnect, the client also clears cached writer
-projections and runs one full reconciliation after the live interest set is in
-place. That sweep refreshes container/access structure and force-revalidates
-registered document stores, closing the lossy interval for access changes and
-key-epoch [rotations](./glossary/keys.md#rotate) even when the affected
-container or document was not open when the socket dropped. Native app resume and
+projections. After every acknowledged connection the container store re-lists
+the tree and the reconciler lists every known document lane, owing a read to
+each document that moved, which closes the lossy interval for access changes
+and key-epoch [rotations](./glossary/keys.md#rotate). Native app resume and
 network-path changes deliberately replace the socket first, because WKWebView
 can retain an `OPEN` WebSocket whose underlying connection is no longer usable.
 

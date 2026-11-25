@@ -18,6 +18,7 @@ import {
   seedLifecycleTree,
   unmountLifecyclePane,
   waitForLifecycleConnection,
+  waitForLifecycleQuiet,
 } from "../../../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
@@ -62,10 +63,17 @@ test("restart storage survives a closed and terminated worker", async () => {
   }
 });
 
-/** Restarts a pane holding two folders of `notesPerFolder` notes each. */
+/**
+ * Restarts a pane holding two folders of `notesPerFolder` notes each and
+ * measures the last restart. `settledRestarts` earlier restarts run first and
+ * are left to settle unmeasured: the first restart after local writes lists
+ * the rows those writes published, and the ones after it list nothing.
+ */
 async function measureRestart(input: {
   readonly budget: ProxiedApiRequestBudget;
+  readonly label: string;
   readonly notesPerFolder: number;
+  readonly settledRestarts?: number;
 }) {
   useTestApiAppHandlers();
   const storage = createPersistedPaneStorage();
@@ -96,14 +104,26 @@ async function measureRestart(input: {
   await unmountLifecyclePane(first);
   expect(dispose).toHaveBeenCalledTimes(1);
   dispose.mockRestore();
-  await waitFor(() =>
-    expect(storage.workers.every((worker) => worker.terminated)).toBe(true),
-  );
-  expect(storage.closedWorkers.size).toBe(1);
+  const expectWorkersClosed = async (count: number) => {
+    await waitFor(() => expect(storage.closedWorkers.size).toBe(count));
+    expect(storage.workers.every((worker) => worker.terminated)).toBe(true);
+  };
+  await expectWorkersClosed(1);
+
+  const settledRestarts = input.settledRestarts ?? 0;
+  for (let restart = 1; restart <= settledRestarts; restart += 1) {
+    const settled = renderLifecyclePane(hostConfig);
+    await waitForSinglePaneProvisioning(settled.pane);
+    await waitForLifecycleConnection(settled.sdk(), 1);
+    await openExplorer(settled.pane);
+    await waitForLifecycleQuiet();
+    await unmountLifecyclePane(settled);
+    await expectWorkersClosed(1 + restart);
+  }
 
   let restarted: ReturnType<typeof renderLifecyclePane> | undefined;
   const requests = await measureWorkflowRequests({
-    label: "persisted pane restart",
+    label: input.label,
     budget: input.budget,
     mutations: [],
     operation: async () => {
@@ -136,55 +156,72 @@ async function measureRestart(input: {
   });
   expectLifecycleReads(requests);
   await expectNoLateLifecycleRequests();
-  expect(storage.initializedDatabaseNames).toHaveLength(2);
+  expect(storage.initializedDatabaseNames).toHaveLength(2 + settledRestarts);
   expect(new Set(storage.initializedDatabaseNames).size).toBe(1);
   invariant(restarted, "Expected restarted pane");
   await unmountLifecyclePane(restarted);
-  await waitFor(() => expect(storage.closedWorkers.size).toBe(2));
-  expect(storage.workers.every((worker) => worker.terminated)).toBe(true);
+  await expectWorkersClosed(2 + settledRestarts);
   await expectNoLateLifecycleRequests();
+  return requests;
 }
 
-const RESTART_ROUTES_INDEPENDENT_OF_NOTES = {
-  "POST /auth/ws-ticket": 1,
-  "GET /organization-memberships": 1,
-  "GET /organizations/:organizationId/billing": 1,
-  "POST /containers/parent-lanes/query": 2,
-  "POST /containers/documents/query": 3,
-  "GET /principals/organization/:organizationId/policy": 2,
-  "GET /principals/group/:groupId/policy": 0,
-  "GET /principals/history": 1,
-  "GET /containers/:containerId/writer-projection": 3,
-};
-
 test("a pane restart reconciles its persisted tree without replaying writes", async () => {
+  // The first restart after the notes were created: their lanes list the
+  // rows those creates published, and each listed row's head is verified
+  // with one document writer-projection read. No note is synced: the cursor
+  // each create left covers the count its row lists.
   await measureRestart({
     budget: {
-      total: 23,
+      total: 22,
       byRequest: {
-        ...RESTART_ROUTES_INDEPENDENT_OF_NOTES,
+        "POST /auth/ws-ticket": 1,
+        "GET /organization-memberships": 1,
+        "GET /organizations/:organizationId/billing": 1,
+        "POST /containers/parent-lanes/query": 2,
+        "POST /containers/documents/query": 3,
+        "GET /principals/organization/:organizationId/policy": 3,
+        "GET /principals/group/:groupId/policy": 0,
+        "GET /principals/history": 1,
+        "GET /containers/:containerId/writer-projection": 3,
         "GET /documents/:documentId/writer-projection": 3,
-        "POST /documents/:documentId/sync": 6,
+        "POST /documents/:documentId/sync": 4,
       },
     },
+    label: "persisted pane restart",
     notesPerFolder: 1,
   });
 }, 60_000);
 
-// A baseline, not a target: the same restart with six more notes. Every note
-// costs one more read-only sync and one more document writer-projection read,
-// because each opened document probes once per session; the other routes do
-// not move. Lower these ceilings when a restart stops probing every document.
-test("restart request baseline with eight notes", async () => {
-  await measureRestart({
-    budget: {
-      total: 35,
-      byRequest: {
-        ...RESTART_ROUTES_INDEPENDENT_OF_NOTES,
-        "GET /documents/:documentId/writer-projection": 9,
-        "POST /documents/:documentId/sync": 12,
-      },
-    },
-    notesPerFolder: 4,
-  });
-}, 120_000);
+// A restart whose lanes already listed this device's own writes, which is
+// every restart after the first. The server holds nothing the device lacks,
+// so no lane lists a row and no note is synced or has its head read: the
+// cost is the same with two notes and with eight. The three syncs left are
+// system-container documents, which are pulled once per launch.
+const SETTLED_RESTART_BUDGET: ProxiedApiRequestBudget = {
+  total: 17,
+  byRequest: {
+    "POST /auth/ws-ticket": 1,
+    "GET /organization-memberships": 1,
+    "GET /organizations/:organizationId/billing": 1,
+    "POST /containers/parent-lanes/query": 2,
+    "POST /containers/documents/query": 6,
+    "GET /principals/organization/:organizationId/policy": 1,
+    "GET /principals/group/:groupId/policy": 0,
+    "GET /principals/history": 0,
+    "GET /containers/:containerId/writer-projection": 2,
+    "GET /documents/:documentId/writer-projection": 0,
+    "POST /documents/:documentId/sync": 3,
+  },
+};
+
+test("a settled restart costs the same whatever the number of notes", async () => {
+  for (const notesPerFolder of [1, 4]) {
+    await measureRestart({
+      budget: SETTLED_RESTART_BUDGET,
+      label: `settled restart with ${notesPerFolder * 2} notes`,
+      notesPerFolder,
+      settledRestarts: 1,
+    });
+    await cleanupPaneTestEnvironment();
+  }
+}, 180_000);

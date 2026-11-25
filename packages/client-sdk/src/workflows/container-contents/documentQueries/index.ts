@@ -30,6 +30,10 @@ import {
 } from "../../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import {
+  type ListedDocumentUpdateCount,
+  oweListedDocumentReadsBehindCursor,
+} from "../../documents";
+import {
   listPendingWrites,
   type PendingWriteQueueItem,
   resetPendingWriteRetryState,
@@ -145,6 +149,14 @@ export interface ContainerDocumentQueries {
   listLinkedContainerIdsByDocumentIds(
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
+  /**
+   * Owes a read to each listed document this device's processed cursor does
+   * not cover, and returns the documents owed. A document lane's watermark
+   * may pass a listed row only after this ran for it.
+   */
+  oweListedDocumentReads(
+    listed: ReadonlyArray<ListedDocumentUpdateCount>,
+  ): Promise<ReadonlyArray<string>>;
   listPendingDownloads(): Promise<ReadonlyArray<PendingDownloadQueueItem>>;
   listPendingWrites(): Promise<ReadonlyArray<PendingWriteQueueItem>>;
   retryPendingWriteItem(input: {
@@ -442,6 +454,9 @@ export function createContainerDocumentQueriesFromRuntime(
         execSql,
         documentIds,
       );
+    },
+    oweListedDocumentReads(listed) {
+      return oweListedDocumentReadsBehindCursor(execSql, listed);
     },
     listPendingDownloads() {
       return listPendingDownloads(execSql);

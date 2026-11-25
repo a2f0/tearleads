@@ -46,6 +46,13 @@ export function connectReconciliationTriggers(input: {
           service.enqueueContainer(signal.activeContainerId, "active");
         }
         break;
+      case "connection-acknowledged":
+        // Hints sent before the acknowledgement are lost, so every document
+        // lane is listed from its watermark. A lane that fails keeps its
+        // force and is retried by the reconciliation lane, so the failure
+        // needs no handling here.
+        service.reconcileAcknowledgedConnection().catch(() => undefined);
+        break;
       case "remote-containers-added":
         // A cold-cache tree crawl can finish after the auth-edge backfill was
         // queued. Pick up the newly materialized ids without resetting the
