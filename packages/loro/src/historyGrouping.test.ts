@@ -134,6 +134,29 @@ test("inserts that do not continue each other stay apart", async () => {
   together.free();
 });
 
+test("an insert that starts where one into another container ends is not joined to it", async () => {
+  // By position alone the second insert continues the first: five counters
+  // after an insert at 0, it lands at 5. It is into another text.
+  const doc = await documentWith("grouping-containers", (written) => {
+    written.getText("other").insert(0, "zzzzz");
+    written.getText("text").insert(0, "aaaaa");
+    written.getText("other").insert(5, "bbbbb");
+  });
+  const [change] = historyOf(doc).changes;
+  const [, first, second] = change?.ops ?? [];
+  if (!first || !second) throw new Error("Expected three operations");
+  expect("pos" in second.content && second.content.pos).toBe(
+    second.counter - first.counter,
+  );
+
+  const serialized = serializeCanonicalHistory(historyOf(doc));
+
+  expect(serialized).toContain("aaaaa");
+  expect(serialized).toContain("bbbbb");
+  expect(serialized).not.toContain("aaaaabbbbb");
+  doc.free();
+});
+
 test("a holder of a cut insert has the identity of the holder of the whole one", async () => {
   const writer = await documentWith("grouping-identity", (written) =>
     written.getText("text").insert(0, "a".repeat(5) + "b".repeat(30)),

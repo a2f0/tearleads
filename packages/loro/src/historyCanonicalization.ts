@@ -99,51 +99,57 @@ function sequenceInsertOf(operation: JsonOp): SequenceInsert | null {
   return null;
 }
 
-/** A run of continuing inserts, as the one operation they join into. */
+/** A run of continuing inserts: its first operation and every part. */
 interface InsertRun {
   readonly first: JsonOp;
-  insert: SequenceInsert;
+  readonly pos: number;
+  readonly texts: string[] | null;
+  readonly values: unknown[] | null;
+}
+
+function startRun(first: JsonOp, insert: SequenceInsert): InsertRun {
+  return "text" in insert
+    ? { first, pos: insert.pos, texts: [insert.text], values: null }
+    : { first, pos: insert.pos, texts: null, values: [...insert.values] };
 }
 
 /**
- * `run` extended by `next`, or null when `next` does not continue it: an
- * insert of the same kind into the same container that starts where the run
- * ends. A run's length is the distance from its first counter to the next
- * operation's, in the unit its position counts in.
+ * Whether `next` continues `run`, extending it when it does: an insert of the
+ * same kind into the same container that starts where the run ends. A run's
+ * length is the distance from its first counter to the next operation's, in
+ * the unit its position counts in.
  */
-function extendedRun(
-  run: InsertRun,
-  next: JsonOp,
-  insert: SequenceInsert,
-): SequenceInsert | null {
-  const { first } = run;
+function extendRun(run: InsertRun, next: JsonOp, insert: SequenceInsert) {
   if (
-    next.container !== first.container ||
-    insert.pos !== run.insert.pos + (next.counter - first.counter)
+    next.container !== run.first.container ||
+    insert.pos !== run.pos + (next.counter - run.first.counter)
   ) {
-    return null;
+    return false;
   }
-  if ("text" in run.insert && "text" in insert) {
-    return { pos: run.insert.pos, text: run.insert.text + insert.text };
+  if (run.texts !== null && "text" in insert) {
+    run.texts.push(insert.text);
+    return true;
   }
-  if ("values" in run.insert && "values" in insert) {
-    return {
-      pos: run.insert.pos,
-      values: [...run.insert.values, ...insert.values],
-    };
+  if (run.values !== null && "values" in insert) {
+    run.values.push(...insert.values);
+    return true;
   }
-  return null;
+  return false;
 }
 
-function runOperation(run: InsertRun): unknown {
-  const { first, insert } = run;
+/** The one operation a run's inserts join into. */
+function runOperation(run: InsertRun): JsonOp {
+  const { first } = run;
+  if (run.texts !== null && run.texts.length === 1) return first;
+  // Only the inserted content changes: the kind, container, first counter and
+  // position are the first operation's.
   return {
     ...first,
     content:
-      "text" in insert
-        ? { ...first.content, text: insert.text }
-        : { ...first.content, value: insert.values },
-  };
+      run.texts !== null
+        ? { ...first.content, text: run.texts.join("") }
+        : { ...first.content, value: run.values },
+  } as JsonOp;
 }
 
 /**
@@ -154,23 +160,19 @@ function runOperation(run: InsertRun): unknown {
  * holder of the same inserts serializes them alike. Loro groups deletes the
  * same way for every holder.
  */
-function joinContinuingInserts(operations: readonly JsonOp[]): unknown[] {
-  const joined: unknown[] = [];
+function joinContinuingInserts(operations: readonly JsonOp[]): JsonOp[] {
+  const joined: JsonOp[] = [];
   let run: InsertRun | null = null;
   for (const operation of operations) {
     const insert = sequenceInsertOf(operation);
-    const extended =
-      run !== null && insert !== null
-        ? extendedRun(run, operation, insert)
-        : null;
-    if (run !== null && extended !== null) {
-      run.insert = extended;
-      joined[joined.length - 1] = runOperation(run);
+    if (run !== null && insert !== null && extendRun(run, operation, insert)) {
       continue;
     }
-    run = insert === null ? null : { first: operation, insert };
-    joined.push(operation);
+    if (run !== null) joined.push(runOperation(run));
+    run = insert === null ? null : startRun(operation, insert);
+    if (run === null) joined.push(operation);
   }
+  if (run !== null) joined.push(runOperation(run));
   return joined;
 }
 

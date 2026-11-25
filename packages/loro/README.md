@@ -46,6 +46,9 @@ canonical form removes both:
   two uploads as one operation once a checkpoint regroups it; a reader of those
   uploads holds two. The identity joins every run of continuing text or list
   inserts into one. Loro groups deletes the same way for every holder.
+  Movable-list inserts are not joined: no document uses one, and a list this
+  package does not know stays as Loro grouped it, which can only make two
+  identities differ.
 
 [`historyGrouping.test.ts`](./src/historyGrouping.test.ts) checks this over
 generated histories held by writers, readers of separate and batched uploads,
