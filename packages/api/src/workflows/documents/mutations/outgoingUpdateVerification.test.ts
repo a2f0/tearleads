@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
+import { sha256Hex } from "../../../utils/sha256";
 import {
   storedDocumentUpdateMatchesOutgoingContent,
   uniqueOutgoingUpdates,
@@ -13,8 +14,19 @@ const stored = {
   plaintextHash: "plaintext-hmac",
 };
 
+// What Postgres returns for the stored row: digests of its UTF-8 content.
+const storedDigests = {
+  dependencyVersionVectorSha256: sha256Hex(stored.dependencyVersionVector),
+  encryptedDataSha256: sha256Hex(stored.encryptedData),
+  partialEndVersionVectorSha256: sha256Hex(stored.partialEndVersionVector),
+  partialStartVersionVectorSha256: sha256Hex(stored.partialStartVersionVector),
+  plaintextHashSha256: sha256Hex(stored.plaintextHash),
+};
+
 test("stored update matching commits to every persisted content field", () => {
-  expect(storedDocumentUpdateMatchesOutgoingContent(stored, stored)).toBe(true);
+  expect(
+    storedDocumentUpdateMatchesOutgoingContent(storedDigests, stored),
+  ).toBe(true);
 
   for (const changed of [
     { ...stored, dependencyVersionVector: "other-dependency-vector" },
@@ -23,9 +35,9 @@ test("stored update matching commits to every persisted content field", () => {
     { ...stored, partialStartVersionVector: "other-start-vector" },
     { ...stored, plaintextHash: "other-plaintext-hmac" },
   ]) {
-    expect(storedDocumentUpdateMatchesOutgoingContent(stored, changed)).toBe(
-      false,
-    );
+    expect(
+      storedDocumentUpdateMatchesOutgoingContent(storedDigests, changed),
+    ).toBe(false);
   }
 
   expect(storedDocumentUpdateMatchesOutgoingContent(undefined, stored)).toBe(

@@ -320,7 +320,8 @@ export async function uploadMultipartBlobPartBytes(
   runtime: ApiServiceRuntime,
   input: UploadMultipartBlobPartInput,
 ): Promise<UploadMultipartBlobPartResponse> {
-  if (runtime.blobObjectStore.createUploadPartUrl) {
+  const store = runtime.blobObjectStore;
+  if (store.createUploadPartUrl || !store.uploadPart) {
     throw new MultipartBlobStageError(
       "Direct multipart uploads are required",
       409,
@@ -339,7 +340,7 @@ export async function uploadMultipartBlobPartBytes(
       uploadId: input.uploadId,
     });
 
-    const part = await runtime.blobObjectStore.uploadPart({
+    const part = await store.uploadPart({
       body: {
         byteLength: input.byteLength,
         bytes: input.bytes,

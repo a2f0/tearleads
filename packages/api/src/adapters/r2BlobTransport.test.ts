@@ -1,33 +1,10 @@
 import { expect, test } from "bun:test";
-import { UploadPartCommand } from "@aws-sdk/client-s3";
+import { createHash } from "node:crypto";
 import { startFakeS3 } from "../../test/helpers/fakeS3";
-import { createFakeS3BlobObjectStore } from "../../test/helpers/fakeS3BlobObjectStore";
 import { sha256Hex } from "../utils/sha256";
 import { createDefaultBlobObjectStore } from "./defaultBlobObjectStore";
 
-test("R2 part integrity rejects a false SHA-256 before any storage request", async () => {
-  const { client, store } = createFakeS3BlobObjectStore();
-  const key = "r2-integrity";
-  const { uploadId } = await store.createMultipartUpload({ key });
-  const bytes = new TextEncoder().encode("actual bytes");
-  await expect(
-    store.uploadPart({
-      key,
-      uploadId,
-      partNumber: 1,
-      body: {
-        bytes,
-        byteLength: bytes.byteLength,
-        sha256: sha256Hex("wrong bytes"),
-      },
-    }),
-  ).rejects.toThrow("sha256 mismatch");
-  expect(
-    client.commands.filter((command) => command instanceof UploadPartCommand),
-  ).toHaveLength(0);
-});
-
-test("the configured client uses R2-compatible wire checksums through completion", async () => {
+test("a signed part upload and the configured client's completion use R2-compatible checksums", async () => {
   const server = startFakeS3();
   try {
     const store = createDefaultBlobObjectStore({
@@ -43,14 +20,31 @@ test("the configured client uses R2-compatible wire checksums through completion
     const { uploadId } = await store.createMultipartUpload({ key });
     const bytes = new Uint8Array([0, 1, 127, 128, 255]);
     const expected = { byteLength: bytes.byteLength, sha256: sha256Hex(bytes) };
-    // The HTTP fixture rejects flexible checksum headers and missing/incorrect
-    // Content-MD5, so this includes the SDK's serialization middleware.
-    const part = await store.uploadPart({
+    const contentMd5 = createHash("md5").update(bytes).digest("base64");
+    const signed = await store.createUploadPartUrl?.({
       key,
       uploadId,
       partNumber: 1,
-      body: { bytes, ...expected },
+      byteLength: bytes.byteLength,
+      contentMd5,
+      expiresIn: 300,
     });
+    if (!signed) throw new Error("Expected multipart signing support");
+    // The client's PUT: the bytes go to storage, not through the API. The HTTP
+    // fixture rejects flexible checksum headers and missing or wrong
+    // Content-MD5, as R2 does.
+    const response = await fetch(signed.url, {
+      method: "PUT",
+      body: bytes,
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-MD5": contentMd5,
+      },
+    });
+    expect(response.status).toBe(200);
+    const etag = response.headers.get("ETag");
+    if (!etag) throw new Error("Expected the part's ETag");
+    const part = { byteLength: bytes.byteLength, etag, partNumber: 1 };
     expect(await store.listParts({ key, uploadId })).toEqual([part]);
     expect(
       await store.completeMultipartUpload({
