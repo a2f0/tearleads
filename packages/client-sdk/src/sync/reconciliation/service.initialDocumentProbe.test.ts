@@ -9,6 +9,7 @@ import { createReconciliationService } from "./service";
 import {
   createManualReconciliationClock,
   createReconciliationTestHost,
+  perContainerListing,
 } from "./service.testFixtures";
 import type { ReconciliationHost } from "./serviceTypes";
 
@@ -28,7 +29,9 @@ function createProbeHost(input: {
     listKnownContainerIds:
       input.listKnownContainerIds ?? (() => ["c-1", "c-2"]),
     listAutomaticRootCatchupContainerIds: () => ["c-1", "c-2"],
-    listContainerDocumentIds: input.listContainerDocumentIds,
+    listContainerDocumentIds: perContainerListing(
+      input.listContainerDocumentIds,
+    ),
     probeUndiscoveredDocumentsBatch: input.probeUndiscoveredDocumentsBatch,
     reportInitialDocumentProbeComplete:
       input.reportComplete ?? (() => undefined),
@@ -364,21 +367,24 @@ test("discovery reset preserves an in-progress probe cursor", async () => {
 
 test("stop invalidates an in-flight listing before a restarted probe", async () => {
   let releaseFirstListing: (() => void) | undefined;
-  let listingAttempts = 0;
-  let probeCount = 0;
+  const listings: string[][] = [];
+  const probes: InitialDocumentProbeBatchInput[] = [];
   const service = createReconciliationService(
-    createProbeHost({
-      listContainerDocumentIds: async (containerId) => {
-        listingAttempts += 1;
-        if (listingAttempts === 1) {
+    createReconciliationTestHost({
+      listAutomaticRootCatchupContainerIds: () => ["c-1", "c-2"],
+      listContainerDocumentIds: async (ids) => {
+        listings.push([...ids]);
+        const attempt = listings.length;
+        if (attempt === 1) {
           await new Promise<void>((resolve) => {
             releaseFirstListing = resolve;
           });
         }
-        return [`listed-${containerId}`];
+        return new Map(ids.map((id) => [id, [`listed-${id}-${attempt}`]]));
       },
-      probeUndiscoveredDocumentsBatch: async () => {
-        probeCount += 1;
+      listKnownContainerIds: () => ["c-1", "c-2"],
+      probeUndiscoveredDocumentsBatch: async (batch) => {
+        probes.push(batch);
         return { done: true, nextCursor: null, requestedCount: 0 };
       },
     }),
@@ -395,6 +401,96 @@ test("stop invalidates an in-flight listing before a restarted probe", async () 
   service.enqueueIdleBackfill();
   releaseFirstListing?.();
 
-  await waitFor(() => probeCount === 1, "Expected restarted probe");
-  expect(listingAttempts).toBe(3);
+  await waitFor(() => probes.length === 1, "Expected restarted probe");
+  // The restarted probe listed both lanes again and used only that answer.
+  expect(listings).toEqual([
+    ["c-1", "c-2"],
+    ["c-1", "c-2"],
+  ]);
+  expect([...(probes[0]?.listedDocumentIds ?? [])].sort()).toEqual([
+    "listed-c-1-2",
+    "listed-c-2-2",
+  ]);
+  service.stop();
+});
+
+test("initial probe lists a request's worth of lanes at a time", async () => {
+  const containerIds = Array.from({ length: 40 }, (_, index) => `c-${index}`);
+  const listings: string[][] = [];
+  const probes: InitialDocumentProbeBatchInput[] = [];
+  const service = createReconciliationService(
+    createReconciliationTestHost({
+      listAutomaticRootCatchupContainerIds: () => containerIds,
+      listContainerDocumentIds: async (ids) => {
+        listings.push([...ids]);
+        return new Map(ids.map((id) => [id, [`listed-${id}`]]));
+      },
+      listKnownContainerIds: () => containerIds,
+      probeUndiscoveredDocumentsBatch: async (batch) => {
+        probes.push(batch);
+        return { done: true, nextCursor: null, requestedCount: 0 };
+      },
+    }),
+  );
+  try {
+    service.start();
+    service.enqueueIdleBackfill();
+    await waitFor(() => probes.length === 1, "Expected the candidate batch");
+
+    // 40 lanes cost two listings, not 40.
+    expect(listings.map((ids) => ids.length)).toEqual([32, 8]);
+    expect(listings.flat()).toEqual(containerIds);
+    expect(probes[0]?.listedDocumentIds.size).toBe(40);
+  } finally {
+    service.stop();
+  }
+});
+
+test("a failed listing request counts one attempt for each lane it carried", async () => {
+  const listings: string[][] = [];
+  const probes: InitialDocumentProbeBatchInput[] = [];
+  const clock = createManualReconciliationClock();
+  const service = createReconciliationService(
+    createReconciliationTestHost({
+      clock,
+      listAutomaticRootCatchupContainerIds: () => ["c-1", "c-2"],
+      listContainerDocumentIds: async (ids) => {
+        listings.push([...ids]);
+        if (listings.length === 1) throw new Error("request failed");
+        // The retry lists c-1 and omits c-2, which the server refused.
+        return new Map([["c-1", ["listed-c-1"]]]);
+      },
+      listKnownContainerIds: () => ["c-1", "c-2"],
+      probeUndiscoveredDocumentsBatch: async (batch) => {
+        probes.push(batch);
+        return { done: true, nextCursor: null, requestedCount: 0 };
+      },
+    }),
+  );
+  try {
+    service.start();
+    service.enqueueIdleBackfill();
+    await waitFor(() => {
+      clock.advance(0);
+      return listings.length === 1;
+    }, "Expected the failed listing");
+    // Both lanes back off together after the failed request.
+    await waitFor(() => {
+      clock.advance(1_000);
+      return listings.length === 2;
+    }, "Expected the retry");
+    expect(listings).toEqual([
+      ["c-1", "c-2"],
+      ["c-1", "c-2"],
+    ]);
+    // c-2 has failed twice; one more failure skips it and lets c-1 finish.
+    await waitFor(() => {
+      clock.advance(2_000);
+      return probes.length === 1;
+    }, "Expected the healthy lane to complete");
+    expect(listings.at(-1)).toEqual(["c-2"]);
+    expect([...(probes[0]?.listedContainerIds ?? [])]).toEqual(["c-1"]);
+  } finally {
+    service.stop();
+  }
 });

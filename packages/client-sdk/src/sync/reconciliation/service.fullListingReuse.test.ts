@@ -9,6 +9,7 @@ import { createReconciliationService } from "./service";
 import {
   createReconciliationTestHost,
   perContainerDiscovery,
+  perContainerListing,
 } from "./service.testFixtures";
 
 test("reconciliation reuses a full discovery listing and still fetches incremental lanes for the initial probe", async () => {
@@ -24,10 +25,10 @@ test("reconciliation reuses a full discovery listing and still fetches increment
           return [];
         },
       ),
-      listContainerDocumentIds: async (id) => {
+      listContainerDocumentIds: perContainerListing(async (id) => {
         fullReads.push(id);
         return ["visible-b"];
-      },
+      }),
       probeUndiscoveredDocumentsBatch: async (batch) => {
         batches.push(batch);
         return { done: true, nextCursor: null, requestedCount: 1 };
@@ -62,10 +63,10 @@ for (const reset of ["stop", "eligible-set"] as const) {
     const batches: InitialDocumentProbeBatchInput[] = [];
     const probe = createInitialDocumentProbe({
       clock: systemReconciliationClock,
-      listContainerDocumentIds: async (id) => {
+      listContainerDocumentIds: perContainerListing(async (id) => {
         reads.push(id);
         return ["current"];
-      },
+      }),
       probeUndiscoveredDocumentsBatch: async (batch) => {
         batches.push(batch);
         return { done: true, nextCursor: null, requestedCount: 0 };

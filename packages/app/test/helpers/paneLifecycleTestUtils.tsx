@@ -97,9 +97,14 @@ export async function waitForLifecycleTreeCrawl(sdk: Tearleads) {
 
 /**
  * Two folders with `notesPerFolder` notes each. The first note of a folder is
- * `Note in <folder>`; the canaries that vary the account's size add more.
+ * `Note in <folder>`; the canaries that vary the account's size add more
+ * notes, or `extraFolders` more folders of one note each.
  */
-export async function seedLifecycleTree(pane: HTMLElement, notesPerFolder = 1) {
+export async function seedLifecycleTree(
+  pane: HTMLElement,
+  notesPerFolder = 1,
+  extraFolders = 0,
+) {
   await waitForSinglePaneProvisioning(pane);
   await waitForPersonalBootstrap();
   await openExplorer(pane);
@@ -109,6 +114,11 @@ export async function seedLifecycleTree(pane: HTMLElement, notesPerFolder = 1) {
     for (let note = 2; note <= notesPerFolder; note += 1) {
       await createNoteInContainer(pane, name, `Note ${note} in ${name}`);
     }
+  }
+  for (let folder = 1; folder <= extraFolders; folder += 1) {
+    const name = `Canary extra ${folder}`;
+    await createChildContainer(pane, name);
+    await createNoteInContainer(pane, name, `Note in ${name}`);
   }
   await selectContainerAndWaitForItemTable(pane, "/");
   await waitForPaneRuntimeToSettle();
