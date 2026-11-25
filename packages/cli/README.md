@@ -152,6 +152,13 @@ bun run tearleads restore-keepass ~/Passwords.kdbx --env staging
 bun run tearleads restore-keepass vault.kdbx --name "Family Vault" --key-file vault.keyx
 ```
 
+`scripts/dev/restoreKeepass.sh <dev|staging|prod> <file.kdbx> [options]` runs
+the install, build, login, and restore in one step, unlocking the login
+Keychain first for shells outside the desktop session (SSH, tmux, screen), as
+`scripts/dev/seedFromContinuity.sh` does for `seed`. It passes `--name`,
+`--key-file`, and `--trace` through, and resolves relative paths from the
+directory you run it in.
+
 The command reads the master password without echo (or from piped stdin) and
 decrypts the file on this machine before it signs in, so a wrong password
 fails without opening a session. It then creates one new folder under your
