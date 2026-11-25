@@ -43,7 +43,11 @@
   padding-inline: 0;
 }
 
-.legal-terms-agreement-panel {
+/* Scoped under the container so these outrank `.mini-app-state-panel` whatever
+   order the stylesheets load in: tied, they won only by source order, which
+   Bun's dev server and the production bundle have not always agreed on (see
+   MiniAppTabs.css). */
+.legal-terms-agreement > .legal-terms-agreement-panel {
   /* A floor for short hosts (a small window), so the stacked documents keep a
      few lines to read; below it, the box above scrolls. */
   min-height: max(100%, 30rem);
@@ -169,7 +173,7 @@
  * steps out of the layout so the documents and the form are placed directly.
  */
 @container legal-terms-agreement (width >= 40rem) and (orientation: landscape) {
-  .legal-terms-agreement-panel {
+  .legal-terms-agreement > .legal-terms-agreement-panel {
     display: grid;
     grid-template-areas:
       ". documents"
