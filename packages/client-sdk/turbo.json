@@ -17,7 +17,8 @@
         "$TURBO_ROOT$/.github/workflows/ci.yml",
         "$TURBO_ROOT$/.github/workflows/uncached-tests.yml",
         "$TURBO_ROOT$/packages/api/src/documents/documentPeerOwners.ts",
-        "$TURBO_ROOT$/packages/api/src/documents/documentPeerRowChunks.ts"
+        "$TURBO_ROOT$/packages/api/src/documents/documentPeerRowChunks.ts",
+        "$TURBO_ROOT$/packages/api-shared/src/**"
       ]
     }
   }
