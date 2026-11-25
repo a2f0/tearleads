@@ -40,6 +40,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "weight",
     "tool",
     "appliance",
+    "vehicle",
     "json_file",
     "image",
     "audio",
@@ -79,6 +80,7 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(getDocumentTypeDefinition("weight").createLabel).toBe("Weight");
   expect(getDocumentTypeDefinition("tool").createLabel).toBe("Tool");
   expect(getDocumentTypeDefinition("appliance").createLabel).toBe("Appliance");
+  expect(getDocumentTypeDefinition("vehicle").createLabel).toBe("Vehicle");
   expect(getDocumentTypeDefinition("json_file").createLabel).toBe("JSON File");
   expect(getDocumentTypeDefinition("image").createLabel).toBe("Image");
   expect(getDocumentTypeDefinition("audio").createLabel).toBe("Audio");
@@ -104,6 +106,7 @@ test("creatable document types exclude upload-only file kinds", () => {
     "weight",
     "tool",
     "appliance",
+    "vehicle",
   ]);
 });
 

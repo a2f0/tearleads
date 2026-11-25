@@ -14,6 +14,7 @@ import {
   isAutomaticBlobPreviewAllowed,
   isDocumentAttachmentBlobAccepted,
   isImageDocumentAttachmentBlob,
+  isPdfDocumentAttachmentBlob,
   readAutomaticPreviewBlobBytes,
   readBlobDocumentAttachmentUpload,
   readDocumentAttachmentUpload,
@@ -37,6 +38,33 @@ test("a file slot's statuses call its attachment a file", () => {
   expect(getDocumentAttachmentStatusLabel("unavailable", "File")).toBe(
     "File missing or damaged on this device.",
   );
+});
+
+test("a PDF is known by a parameterized or recased type, or by its name when untyped", () => {
+  expect(
+    isPdfDocumentAttachmentBlob({ mimeType: "Application/PDF; version=1.7" }),
+  ).toBe(true);
+  expect(
+    isPdfDocumentAttachmentBlob({ mimeType: null, name: "Policy.PDF" }),
+  ).toBe(true);
+  expect(
+    isPdfDocumentAttachmentBlob({
+      mimeType: "application/octet-stream",
+      name: "policy.pdf",
+    }),
+  ).toBe(true);
+  expect(
+    isPdfDocumentAttachmentBlob({ mimeType: "text/plain", name: "notes.pdf" }),
+  ).toBe(false);
+  expect(
+    isPdfDocumentAttachmentBlob({ mimeType: null, name: "scan.png" }),
+  ).toBe(false);
+  expect(
+    isDocumentAttachmentBlobAccepted(
+      "image-or-pdf",
+      createBlobInfo({ mimeType: null, name: "policy.pdf" }),
+    ),
+  ).toBe(true);
 });
 
 test("only a file slot accepts PDF blobs, and its items keep that", () => {

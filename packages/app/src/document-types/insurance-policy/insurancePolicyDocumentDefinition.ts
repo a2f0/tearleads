@@ -98,17 +98,21 @@ export function getInsurancePolicyFieldLabel(
 /**
  * The fields to show for a document. A variant field (member or prescription
  * details) is offered for its policy types, and also whenever it holds a value,
- * so changing the type never hides what was recorded.
+ * so changing the type never hides what was recorded. An editor passes the
+ * fields as they stood when editing began, so clearing such a value keeps its
+ * input in place until the edit ends.
  */
 export function getVisibleInsurancePolicyFields(
   fields: InsurancePolicyDocumentFields,
+  atEditStart?: InsurancePolicyDocumentFields | null,
 ): ReadonlyArray<InsurancePolicyFieldDefinition> {
   const policyType = fields.policyType.trim();
   return INSURANCE_POLICY_FIELDS.filter(
     (field) =>
       !("policyTypes" in field) ||
       field.policyTypes.some((type) => type === policyType) ||
-      fields[field.key].trim().length > 0,
+      fields[field.key].trim().length > 0 ||
+      (atEditStart?.[field.key].trim().length ?? 0) > 0,
   );
 }
 

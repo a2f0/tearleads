@@ -5,9 +5,9 @@ import { useLog } from "../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { formatByteLength } from "../../utils/formatByteLength";
 import type { getAttachmentFileType } from "../shared/attachmentFileType";
+import { isPdfMimeType } from "../shared/documentAttachmentUtils";
 import {
   FileDocumentPdfPreviewPanel,
-  isPdfMimeType,
   useFileDocumentPdfPreview,
 } from "../shared/FileDocumentPdfPreview";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
