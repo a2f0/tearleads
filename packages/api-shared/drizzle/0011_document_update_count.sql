@@ -29,7 +29,12 @@ REFERENCING NEW TABLE AS inserted_document_updates
 FOR EACH STATEMENT EXECUTE FUNCTION public.count_document_updates();
 --> statement-breakpoint
 -- Rows committed before the trigger existed. Updates are deleted only with
--- their document, so the count never has to go down.
+-- their document, so the count never has to go down. This runs inside the
+-- migration transaction, under the locks the statements above took on both
+-- tables, so no insert can fall between the trigger and the count. It is one
+-- pass over document_updates, not a batched backfill like 0005: migration
+-- 0010 only applies to a database that holds no update rows, so every
+-- deployed database reaches this step small.
 UPDATE public.documents AS document
   SET update_count = counted.updates
   FROM (

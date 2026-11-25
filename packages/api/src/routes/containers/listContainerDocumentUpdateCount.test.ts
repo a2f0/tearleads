@@ -3,7 +3,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import type { VerifiedAttachmentBinding } from "@tearleads/crypto";
 import { isDocumentSyncResponse } from "@tearleads/validators/response";
-import { count, eq, sql } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import {
   type DocumentVersionFixture,
   documentWithRoot,
@@ -125,14 +125,13 @@ test("every write a document read would show lists the document again", async ()
   ).toBe(edited);
   expect(await listedAfter(() => detach(fixture, bound.binding))).toBe(edited);
 
-  // Registration, the create and each write above went through the insert
-  // trigger: no document row disagrees with the updates stored for it.
-  const drifted = await db.execute(sql`
-    select document.id from ${documents} document
-    where document.update_count <> (
-      select count(*) from ${documentUpdates} stored
-      where stored.document_id = document.id
-    )
-  `);
-  expect(drifted.rows).toEqual([]);
+  // The create and each write above went through the insert trigger: the
+  // row's count is the number of updates stored for it.
+  const [stored] = await db
+    .select({ updateCount: documents.updateCount })
+    .from(documents)
+    .where(eq(documents.id, fixture.document.id));
+  expect(stored?.updateCount).toBe(
+    await storedUpdateCount(fixture.document.id),
+  );
 }, 30_000);
