@@ -14,7 +14,7 @@ import type {
 } from "../state";
 import {
   findOwedListingReadBeforePull,
-  settleOwedListingReadAfterPull,
+  settleOwedListingReadAfterCompletedPull,
 } from "./listingCoverage";
 import { logRevalidationUnavailable as logUnavailable } from "./remoteRevalidationTelemetry";
 import {
@@ -188,17 +188,11 @@ async function pullAndFinalizeDocumentSync(input: {
   );
   // A pull that reached its bound may have paid the read a listing owed. The
   // debt settles against the cursor now on disk, whatever this pass saved.
-  if (
-    owedListingRead &&
-    !syncAttempt.synced.hasIncompletePull &&
-    !syncAttempt.synced.hasHeldPull &&
-    isDocumentStoreSyncGenerationCurrent(state, generation)
-  ) {
-    await settleOwedListingReadAfterPull(state, generation, {
-      frontier: finalRecord.snapshotEndVersion,
-      owed: owedListingRead,
-    });
-  }
+  await settleOwedListingReadAfterCompletedPull(state, generation, {
+    frontier: finalRecord.snapshotEndVersion,
+    owed: owedListingRead,
+    pull: syncAttempt.synced,
+  });
   return finalRecord;
 }
 

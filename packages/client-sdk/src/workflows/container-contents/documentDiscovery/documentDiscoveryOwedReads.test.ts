@@ -10,7 +10,7 @@ import {
 import { DocumentListingRevalidationRepository } from "../../../data/persistence/documents/documentListingRevalidationRepository";
 import { documentTables } from "../../../data/sqlite/schema/documentRecordSchema";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
-import { oweListedDocumentReadsBehindCursor } from "../../documents";
+import { oweListedDocumentReadsBehindListing } from "../../documents";
 import {
   laneLister,
   nullContainerDocumentWatermarks,
@@ -42,8 +42,15 @@ afterEach(() => close());
 async function holdDocument(documentId: string, processed: number) {
   await execSql(
     `INSERT INTO documents (app_kind, local_id, document_id,
-       snapshot_end_version, updated_at) VALUES ('documents', ?, ?, ?, ?)`,
-    [`local-${documentId}`, documentId, FRONTIER, AT],
+       snapshot_end_version, content_key_bundle, updated_at)
+     VALUES ('documents', ?, ?, ?, ?, ?)`,
+    [
+      `local-${documentId}`,
+      documentId,
+      FRONTIER,
+      JSON.stringify({ linkSetManifestHash: `head:${documentId}` }),
+      AT,
+    ],
   );
   await execSql(
     `INSERT INTO document_sync_progress (app_kind, local_id, document_id,
@@ -61,13 +68,14 @@ async function holdDocument(documentId: string, processed: number) {
 
 function listing(
   counts: Readonly<Record<string, number>>,
+  heads: Readonly<Record<string, string>> = {},
 ): ListContainerDocumentsResponse {
   return {
     hasMore: false,
     items: Object.entries(counts).map(([id, updateCount]) => ({
       createdAt: AT,
       currentAccessEpoch: 1,
-      currentAccessStateHash: `head:${id}`,
+      currentAccessStateHash: heads[id] ?? `head:${id}`,
       id,
       linkedContainerIds: [LANE],
       referencedPrincipals: [],
@@ -104,7 +112,7 @@ function discover(input: {
       input.steps.push(`asked:${documentIds.join(",")}`);
     },
     oweListedDocumentReads: (listed) =>
-      oweListedDocumentReadsBehindCursor(execSql, listed),
+      oweListedDocumentReadsBehindListing(execSql, listed),
     replaceDocumentLinksBatch: async () => {},
     saveContainerDocumentWatermark: async (containerId, watermark) => {
       // What the watermark is about to pass must already be owed.
@@ -114,7 +122,13 @@ function discover(input: {
         watermark,
       );
     },
-    upsertDiscoveredDocuments: async () => [],
+    upsertDiscoveredDocuments: async () => {
+      // Applying a row whose access epoch moved drops the key bundle its
+      // record held, so whatever the listing owes must be durable by now.
+      input.steps.push(`applied:${(await owedDocumentIds()).join(",")}`);
+      await execSql("UPDATE documents SET content_key_bundle = NULL");
+      return [];
+    },
     ...input.lane,
   };
   return discoverContainerDocumentLanes({
@@ -136,8 +150,9 @@ test("a listing owes each read before its watermark passes the row", async () =>
   });
 
   expect(outcome?.status).toBe("fulfilled");
-  // Durable first, then the registered store is asked, then the watermark.
-  expect(steps).toEqual(["asked:behind", "saved:behind"]);
+  // Durable before the rows are applied, then the registered store is asked,
+  // then the watermark.
+  expect(steps).toEqual(["applied:behind", "asked:behind", "saved:behind"]);
   expect(await savedWatermark()).toEqual(NEXT);
   expect(
     (await new DocumentListingRevalidationRepository(execSql).find("behind"))
@@ -151,8 +166,26 @@ test("a listing every cursor covers owes nothing and asks no store", async () =>
 
   await discover({ page: listing({ covered: 3 }), steps });
 
-  expect(steps).toEqual(["saved:"]);
+  expect(steps).toEqual(["applied:", "saved:"]);
   expect(await savedWatermark()).toEqual(NEXT);
+});
+
+test("a listed access head the record's key bundle does not name owes a read before it is applied", async () => {
+  // A peer moved the document: its head changed and no update was added.
+  await holdDocument("moved", 3);
+  await holdDocument("still", 3);
+  const steps: string[] = [];
+
+  await discover({
+    page: listing({ moved: 3, still: 3 }, { moved: "head:moved-again" }),
+    steps,
+  });
+
+  expect(steps).toEqual(["applied:moved", "asked:moved", "saved:moved"]);
+  expect(
+    (await new DocumentListingRevalidationRepository(execSql).find("moved"))
+      ?.advertisedUpdateCount,
+  ).toBe(3);
 });
 
 test("a debt that cannot be written leaves the lane's watermark behind the row", async () => {

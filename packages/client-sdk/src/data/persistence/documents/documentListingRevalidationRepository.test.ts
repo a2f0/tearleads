@@ -10,6 +10,9 @@ const JUDGE = "void-rules-1:loro-crdt@1.0.0";
 const FRONTIER = encodeVersionVectorCounters({ "7": 4 });
 const BEHIND_FRONTIER = encodeVersionVectorCounters({ "7": 2 });
 
+/** The access head a held record's key bundle names unless a test says otherwise. */
+const head = (documentId: string) => `head:${documentId}`;
+
 let close: () => void = () => undefined;
 let execSql: ExecSql;
 let repository: DocumentListingRevalidationRepository;
@@ -34,14 +37,25 @@ async function holdDocument(input: {
   };
   readonly documentId: string;
   readonly frontier?: string;
+  /** The head the record's key bundle names; `null` for a record with no bundle. */
+  readonly head?: string | null;
   readonly localId?: string;
 }) {
   const localId = input.localId ?? `local-${input.documentId}`;
   await execSql(
     `INSERT INTO documents (app_kind, local_id, document_id,
-       snapshot_end_version, updated_at)
-     VALUES ('documents', ?, ?, ?, '2026-11-25T00:00:00.000Z')`,
-    [localId, input.documentId, input.frontier ?? FRONTIER],
+       snapshot_end_version, content_key_bundle, updated_at)
+     VALUES ('documents', ?, ?, ?, ?, '2026-11-25T00:00:00.000Z')`,
+    [
+      localId,
+      input.documentId,
+      input.frontier ?? FRONTIER,
+      input.head === null
+        ? null
+        : JSON.stringify({
+            linkSetManifestHash: input.head ?? head(input.documentId),
+          }),
+    ],
   );
   if (!input.cursor) return;
   await execSql(
@@ -58,9 +72,16 @@ async function holdDocument(input: {
   );
 }
 
-async function behind(documentId: string, updateCount: number) {
+async function behind(
+  documentId: string,
+  updateCount: number,
+  accessStateHash = head(documentId),
+) {
   return (
-    await repository.listBehindCursor([{ documentId, updateCount }], JUDGE)
+    await repository.listBehindListing(
+      [{ accessStateHash, documentId, updateCount }],
+      JUDGE,
+    )
   ).map((document) => document.documentId);
 }
 
@@ -108,6 +129,23 @@ test("a document with no update, or no record here, owes nothing", async () => {
   expect(await behind("never-held", 5)).toEqual([]);
 });
 
+test("a record whose key bundle names another access head is behind at any count", async () => {
+  // A link change or a rotation moved the head; no update need follow it.
+  await holdDocument({ cursor: { count: 3 }, documentId: "doc" });
+  await holdDocument({ documentId: "empty" });
+  await holdDocument({
+    cursor: { count: 3 },
+    documentId: "unpulled",
+    head: null,
+  });
+
+  expect(await behind("doc", 3, "head:moved")).toEqual(["doc"]);
+  expect(await behind("empty", 0, "head:moved")).toEqual(["empty"]);
+  // A record with no key bundle has no head to compare: no listing covers
+  // its store, which probes when it loads.
+  expect(await behind("unpulled", 3, "head:moved")).toEqual([]);
+});
+
 test("every record holding the document must be covered", async () => {
   await holdDocument({ cursor: { count: 3 }, documentId: "doc" });
   await holdDocument({ documentId: "doc", localId: "displaced" });
@@ -120,11 +158,23 @@ test("a batch reports each behind document once with its largest count", async (
   await holdDocument({ cursor: { count: 5 }, documentId: "covered" });
 
   expect(
-    await repository.listBehindCursor(
+    await repository.listBehindListing(
       [
-        { documentId: "behind", updateCount: 2 },
-        { documentId: "covered", updateCount: 5 },
-        { documentId: "behind", updateCount: 4 },
+        {
+          accessStateHash: head("behind"),
+          documentId: "behind",
+          updateCount: 2,
+        },
+        {
+          accessStateHash: head("covered"),
+          documentId: "covered",
+          updateCount: 5,
+        },
+        {
+          accessStateHash: head("behind"),
+          documentId: "behind",
+          updateCount: 4,
+        },
       ],
       JUDGE,
     ),

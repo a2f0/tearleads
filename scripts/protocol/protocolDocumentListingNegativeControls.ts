@@ -23,12 +23,29 @@ export const DOCUMENT_LISTING_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A pull served by a replica that lags the listing can complete without the edit; settling the debt on it leaves an unread update that nothing will list again.",
   },
   {
+    id: "document-listing-applies-before-debt",
+    module: DOCUMENT_LISTING_MODULE,
+    config: DOCUMENT_LISTING_CONFIG,
+    constants: { OweBeforeApply: "FALSE" },
+    expect: { kind: "invariant", name: "AccessHeadEvidenceRetained" },
+    why: "Applying a listed row whose access head is newer drops the key bundle the record held. A debt checked only afterwards finds no head to compare, so an open store keeps the access context of the older head and nothing lists the row again.",
+  },
+  {
     id: "document-listing-settles-stale-read",
     module: DOCUMENT_LISTING_MODULE,
     config: DOCUMENT_LISTING_CONFIG,
-    constants: { SettleOnlyIfUnchanged: "FALSE" },
+    // Without head moves, so the hinted edit is the only thing the read loses.
+    constants: { MaxHeadMoves: "0", SettleOnlyIfUnchanged: "FALSE" },
     expect: { kind: "liveness", name: "Converges" },
     why: "A read that started before a peer's hinted edit must not clear that hint with its older snapshot.",
+  },
+  {
+    id: "document-listing-settles-debt-with-older-read",
+    module: DOCUMENT_LISTING_MODULE,
+    config: DOCUMENT_LISTING_CONFIG,
+    constants: { SettleOnlyIfUnchanged: "FALSE" },
+    expect: { kind: "invariant", name: "AccessHeadEvidenceRetained" },
+    why: "A read that started before the access head moved must not settle the debt a later listing owed for that move: its snapshot predates the head, and the watermark already passed the row.",
   },
   {
     id: "document-listing-drops-closed-store-hint",

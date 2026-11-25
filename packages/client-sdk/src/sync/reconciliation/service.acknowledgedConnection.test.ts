@@ -168,3 +168,91 @@ test("the catch-up never joins a sweep that listed before the acknowledgement", 
   // The explicit refresh listed each lane once, and the catch-up again.
   expect(listed.sort()).toEqual(["a", "a", "b", "b"]);
 });
+
+test("a root refresh never joins the catch-up, which lists no tree lane", async () => {
+  const gate = createGate();
+  const steps: string[] = [];
+  const { host } = createObservedHost({
+    discoverContainerDocuments: perContainerDiscovery(async () => null),
+    listAutomaticRootCatchupContainerIds: () => ["a"],
+    refreshRootTree: async () => {
+      steps.push("root-tree");
+    },
+    refreshTree: async () => {
+      steps.push("full-tree");
+      await gate.wait;
+    },
+  });
+  const service = createReconciliationService(host);
+  // The catch-up queues behind a running refresh, so it has not started.
+  const refresh = service.reconcileNow();
+  await Promise.resolve();
+  await Promise.resolve();
+  const catchUp = service.reconcileAcknowledgedConnection();
+  // A share event asks for the root lane while the catch-up is pending.
+  const root = service.reconcileRootContainersNow({ freshListing: true });
+  gate.open();
+  await Promise.all([refresh, catchUp, root]);
+
+  // A root container shared just after the acknowledgement is listed.
+  expect(steps).toEqual(["full-tree", "root-tree"]);
+});
+
+test("a failure to ask for owed reads is logged and keeps the sweep's own error", async () => {
+  const restoreConsole = silenceExpectedTransientDiscoveryError(0);
+  const logged: string[] = [];
+  const { host } = createObservedHost({
+    discoverContainerDocuments: async (requests, onOutcome) => {
+      const outcomes = requests.map(
+        ({ containerId }): ContainerDiscoveryOutcome => ({
+          containerId,
+          reason: new Error("transient discovery failure"),
+          status: "rejected",
+        }),
+      );
+      for (const outcome of outcomes) await onOutcome(outcome);
+      return outcomes;
+    },
+    logError: (message) => {
+      logged.push(message);
+    },
+    requestOwedDocumentReads: async () => {
+      throw new Error("local database unavailable");
+    },
+  });
+  const service = createReconciliationService(host);
+
+  await expect(service.reconcileAcknowledgedConnection()).rejects.toThrow(
+    "transient discovery failure",
+  );
+  await Promise.resolve();
+
+  expect(logged).toContain("Reconciliation: owed document reads failed");
+  // Nothing awaits the sweep an acknowledgement starts, so it reports itself.
+  expect(logged).toContain("Reconciliation: connection catch-up failed");
+  restoreConsole();
+});
+
+test("a lane whose apply was superseded is reported unlisted", async () => {
+  const { host, laneReports } = createObservedHost({
+    discoverContainerDocuments: async (requests, onOutcome) => {
+      const outcomes = requests.map(
+        ({ containerId }): ContainerDiscoveryOutcome =>
+          containerId === "a"
+            ? // A reset cancelled the apply: the watermark may not have moved.
+              { containerId, status: "fulfilled", unlisted: true, value: null }
+            : { containerId, status: "fulfilled", value: null },
+      );
+      for (const outcome of outcomes) await onOutcome(outcome);
+      return outcomes;
+    },
+  });
+  const service = createReconciliationService(host);
+
+  await service.reconcileAcknowledgedConnection();
+
+  expect(laneReports).toEqual([
+    ["a", false],
+    ["b", true],
+  ]);
+});

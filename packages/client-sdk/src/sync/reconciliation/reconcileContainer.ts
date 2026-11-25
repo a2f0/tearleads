@@ -54,7 +54,7 @@ async function settleDiscoveredContainer(
     );
     // A durable, scheduled retry is settled for this sweep and force request.
     // Its own timer will reopen the lane when evidence is due.
-    return { containerId, listed: true, status: "reconciled" };
+    return { containerId, listed: !outcome.unlisted, status: "reconciled" };
   } catch (error) {
     // The lane's own apply already saved its watermark when the failure came
     // from reading the delta afterwards; only a rejected listing left it.

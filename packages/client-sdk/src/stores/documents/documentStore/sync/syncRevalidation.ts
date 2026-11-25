@@ -9,6 +9,10 @@ import type {
   DocumentStoreState,
   EncapsulationKeyPair,
 } from "../state";
+import {
+  findOwedListingReadBeforePull,
+  settleOwedListingReadAfterCompletedPull,
+} from "./listingCoverage";
 import { logRevalidationUnavailable as logUnavailable } from "./remoteRevalidationTelemetry";
 import { finalizeDocumentSync } from "./syncFinalize";
 import {
@@ -71,6 +75,17 @@ export async function pullRemoteDocumentForAttachments(
 
   const consumedRemoteUpdateSignalSeq = state.remoteUpdateSignalSeq;
   const wasRemoteProbe = state.remoteUpdatePending;
+  // This pull consumes the probe signal, so it also answers the read a
+  // listing owes: the pass's later pull would no longer look for the debt.
+  const owedListingRead = await findOwedListingReadBeforePull(
+    state,
+    generation,
+    { documentId: nextRecord.documentId, remoteProbe: wasRemoteProbe },
+  );
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
+    requestDocumentStoreSync(state);
+    return { canSyncAttachments: false, nextRecord };
+  }
   const syncAttempt = await requestRemoteDocumentSync({
     state,
     currentDoc,
@@ -102,6 +117,11 @@ export async function pullRemoteDocumentForAttachments(
     [],
     wasRemoteProbe,
   );
+  await settleOwedListingReadAfterCompletedPull(state, generation, {
+    frontier: refreshedRecord.snapshotEndVersion,
+    owed: owedListingRead,
+    pull: syncAttempt.synced,
+  });
   return {
     canSyncAttachments:
       !syncAttempt.synced.hasIncompletePull &&

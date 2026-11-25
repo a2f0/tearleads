@@ -18,8 +18,9 @@ export type ContainerDocumentDiscoveryOutcome =
       readonly containerId: string;
       readonly status: "fulfilled";
       /**
-       * The server refused the lane, or it was never sent: its watermark did
-       * not move, so it says nothing about the documents it holds.
+       * The server refused the lane, it was never sent, or its apply was
+       * superseded: its watermark may not have moved, so it says nothing
+       * about the documents it holds.
        */
       readonly unlisted?: true | undefined;
       /** `null` when the lane was not fully listed or nothing applied. */
@@ -59,15 +60,23 @@ async function applyListedLane(
         value: null,
       };
     }
-    return {
-      containerId: lane.containerId,
-      status: "fulfilled",
-      value: await applyListedContainerDocuments(
-        lane,
-        generation,
-        listedDocuments,
-      ),
-    };
+    const applied = await applyListedContainerDocuments(
+      lane,
+      generation,
+      listedDocuments,
+    );
+    return applied.status === "superseded"
+      ? {
+          containerId: lane.containerId,
+          status: "fulfilled",
+          unlisted: true,
+          value: null,
+        }
+      : {
+          containerId: lane.containerId,
+          status: "fulfilled",
+          value: applied.documents,
+        };
   } catch (reason) {
     return { containerId: lane.containerId, reason, status: "rejected" };
   }

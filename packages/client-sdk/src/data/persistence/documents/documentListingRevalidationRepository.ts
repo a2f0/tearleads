@@ -18,11 +18,17 @@ export interface DocumentListingRevalidation {
   readonly revision: string;
 }
 
-/** A document as a container listing counted it. */
-export interface ListedDocumentUpdateCount {
+/** A document as a container listing reported it. */
+export interface ListedDocumentHead {
+  /** The document's access manifest head. */
+  readonly accessStateHash: string;
   readonly documentId: string;
+  /** How many updates the server holds for the document. */
   readonly updateCount: number;
 }
+
+/** A read to owe: the document and the count its pull must cover. */
+type OwedDocumentRead = Pick<ListedDocumentHead, "documentId" | "updateCount">;
 
 const ID_BATCH_SIZE = 400;
 
@@ -70,6 +76,30 @@ function cursorCovers(
 }
 
 /**
+ * The access manifest head a record's stored key bundle was issued under,
+ * which is the head its next sync presents; null for a record that holds no
+ * bundle.
+ */
+const heldAccessHead = sql<
+  string | null
+>`json_extract(CASE WHEN json_valid(${documents.contentKeyBundle}) THEN ${documents.contentKeyBundle} END, '$.linkSetManifestHash')`;
+
+/** Whether a record has not read what the listing shows; see `listBehindListing`. */
+function recordIsBehind(
+  row: Parameters<typeof cursorCovers>[0] & {
+    readonly heldAccessHead: string | null;
+  },
+  judge: string,
+  head: ListedDocumentHead,
+): boolean {
+  return (
+    (row.heldAccessHead !== null &&
+      row.heldAccessHead !== head.accessStateHash) ||
+    (head.updateCount > 0 && !cursorCovers(row, judge, head.updateCount))
+  );
+}
+
+/**
  * Reads owed to ordinary documents, bound to one executor and clock. See
  * `document_listing_revalidations` for what a row means.
  */
@@ -85,22 +115,32 @@ export class DocumentListingRevalidationRepository {
   }
 
   /**
-   * The listed documents this device holds whose processed cursor does not
-   * cover the count the listing advertised. A cursor counts only when the
-   * running `judge` reached it for this server document and the record's
-   * persisted frontier still covers the version recorded with it, which are
-   * the rules for sending it. A document with no update owes nothing, and
-   * one this device holds no record of is left to its first open, which
-   * always pulls.
+   * The listed documents this device holds that the listing shows moved past
+   * what a record here last read. Run it before the listing is applied: an
+   * apply that moves a record's access epoch drops the key bundle the record
+   * held, and with it the head this compares.
+   *
+   * A record is behind when its processed cursor does not cover the count the
+   * listing advertised. A cursor counts only when the running `judge` reached
+   * it for this server document and the record's persisted frontier still
+   * covers the version recorded with it, which are the rules for sending it;
+   * a document with no update has nothing to cover. A record is also behind
+   * when the key bundle it holds was issued under another access head than
+   * the one listed: a link change or a rotation moves the head, and an open
+   * store keeps the context of the head it last read. A record with no key
+   * bundle has completed no pull, so no listing covers its store and it
+   * probes when it loads; a document this device holds no record of is left
+   * to its first open, which always pulls.
    */
-  async listBehindCursor(
-    listed: ReadonlyArray<ListedDocumentUpdateCount>,
+  async listBehindListing(
+    listed: ReadonlyArray<ListedDocumentHead>,
     judge: string,
-  ): Promise<ReadonlyArray<ListedDocumentUpdateCount>> {
-    const advertised = new Map<string, number>();
-    for (const { documentId, updateCount } of listed) {
-      if (updateCount > (advertised.get(documentId) ?? 0)) {
-        advertised.set(documentId, updateCount);
+  ): Promise<ReadonlyArray<OwedDocumentRead>> {
+    const advertised = new Map<string, ListedDocumentHead>();
+    for (const document of listed) {
+      const known = advertised.get(document.documentId);
+      if (!known || document.updateCount > known.updateCount) {
+        advertised.set(document.documentId, document);
       }
     }
     if (advertised.size === 0) return [];
@@ -111,6 +151,7 @@ export class DocumentListingRevalidationRepository {
         .select({
           documentId: documents.documentId,
           frontier: documents.snapshotEndVersion,
+          heldAccessHead,
           judge: documentSyncProgress.judge,
           progressDocumentId: documentSyncProgress.documentId,
           throughUpdateCount: documentSyncProgress.throughUpdateCount,
@@ -132,24 +173,21 @@ export class DocumentListingRevalidationRepository {
           ),
         );
       for (const row of rows) {
-        if (
-          row.documentId !== null &&
-          !cursorCovers(row, judge, advertised.get(row.documentId) ?? 0)
-        ) {
-          behind.add(row.documentId);
+        const head =
+          row.documentId === null ? undefined : advertised.get(row.documentId);
+        if (head && recordIsBehind(row, judge, head)) {
+          behind.add(head.documentId);
         }
       }
     }
     return [...behind].map((documentId) => ({
       documentId,
-      updateCount: advertised.get(documentId) ?? 0,
+      updateCount: advertised.get(documentId)?.updateCount ?? 0,
     }));
   }
 
   /** Record, or renew, a request that each document be read. */
-  async request(
-    requests: ReadonlyArray<ListedDocumentUpdateCount>,
-  ): Promise<void> {
+  async request(requests: ReadonlyArray<OwedDocumentRead>): Promise<void> {
     if (requests.length === 0) return;
     await ensureSqlTables(this.execSql, documentTables);
     const requestedAt = this.now().toISOString();

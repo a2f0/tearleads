@@ -104,7 +104,7 @@ export function updateDocumentStoreRuntime(
 }
 
 /** What a loaded store owes its newly installed runtime's connection. */
-function settleReadyStoreConnection(
+export function settleReadyStoreConnection(
   state: DocumentStoreState,
   scheduleSync: () => void,
   connection: {

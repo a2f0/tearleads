@@ -76,7 +76,7 @@ unless noted.
 | [`packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx`](../packages/app/src/mini-apps/explorer/ExplorerUploadRequestVolume.test.tsx) | Upload one small image from Explorer | 6 | One document create, one multipart stage, one part upload, one attachment binding that carries the first content update and acknowledges its KEK targets by hash, no sync; one organization-policy read shared by the create and the bind's sync drain; no per-part authorization or stage-completion request; 34,500 request and 2,300 response bytes, plus the bytes of the one allowed root projection read when it happens |
 | [`DualPaneProvider.activePeerRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx) | An active peer reconciles an ungranted custom-group change | Exactly 4 | One read-model read, two organization-policy reads and one group-policy read; no container or document request and no Admins-policy read |
 | [`DeviceFirstOfflineRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx) | Offline folder create, cached note edit, and move to Trash | 0 each | After reconnect the queued create, link and unlink commit |
-| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one | 22 / 17 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the later restart costs 17 with two notes and with eight |
+| [`PaneRestartRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneRestartRequestVolume.test.tsx) | Restart on the existing local database, server unchanged: the first restart after local creates / a later one / the first after a local edit | 22 / 17 / 21 | Two user folders; fresh SDK and SQLite worker; no replayed writes; the later restart costs 17 with two notes and with eight |
 | [`PaneReconnectRequestVolume.test.tsx`](../packages/app/src/shell/pane/tests/PaneReconnectRequestVolume.test.tsx) | Reconnect without pending work / after one peer folder create | 16 / 23 | Disconnect costs zero; one WebSocket ticket and one memberships read each; no write-bearing syncs |
 
 [`DualPaneProvider.sidebarReloadBudget.test.tsx`](../packages/app/src/shell/pane/tests/DualPaneProvider.sidebarReloadBudget.test.tsx)
@@ -188,7 +188,10 @@ notes and with eight, which the canary runs at both sizes. Its six listing
 requests are one batch of queued lanes, one batch for the catch-up after the
 acknowledgement, and one unwatermarked listing for each of the four lanes that
 hold a document. That last part still grows with the number of folders that
-hold documents.
+hold documents. The first restart after a local edit lists the edited note's
+row again, which costs two more listings and two more policy reads than a
+settled restart; the note is not synced and its head is not read, because the
+device's own accepted update is behind its cursor.
 
 Before listings covered documents, every opened document probed once per
 session: the first restart cost 23 requests with two notes and 35 with eight,

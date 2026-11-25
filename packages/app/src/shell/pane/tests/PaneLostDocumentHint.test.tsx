@@ -1,6 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
-import { isDocumentSyncResponse } from "@tearleads/validators/response";
 import { waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { useEffect } from "react";
@@ -14,11 +13,7 @@ import {
   selectContainerAndWaitForItemTable,
   waitForSinglePaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
-import {
-  editSelectedNoteText,
-  openExplorer,
-  selectExplorerNoteByName,
-} from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
+import { openExplorer } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
 import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
 import {
   listProxiedApiRequests,
@@ -26,8 +21,10 @@ import {
   useTestApiAppHandlers,
 } from "../../../../test/helpers/msw/server";
 import {
+  editLifecycleNote,
   expectLifecycleNotes,
   expectNoLateLifecycleRequests,
+  lifecycleSyncRequestsBy,
   observeReconnectSweep,
   renderLifecyclePane,
   seedLifecycleTree,
@@ -39,7 +36,6 @@ import {
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
-  waitForPaneRuntimeToSettle,
   waitForPersistedPaneLocalIdentity,
 } from "../../../../test/helpers/paneTestUtils";
 import { createPersistedPaneStorage } from "../../../../test/helpers/persistedPaneStorage";
@@ -61,19 +57,6 @@ function PeerSdkProbe({ sdks }: { sdks: Map<PaneSide, Tearleads> }) {
   return null;
 }
 
-function syncRequestsBy(sdk: Tearleads, start: number) {
-  return listProxiedApiRequests()
-    .slice(start)
-    .filter(
-      (request) =>
-        request.method === "POST" &&
-        request.status === 200 &&
-        request.authorization === `Bearer ${sdk.session.authToken}` &&
-        /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)),
-    );
-}
-
-/** The server id of the note this session lists under `title`. */
 function remoteNoteId(sdk: Tearleads, title: string): string {
   const { documentSummariesByContainerId } = sdk.deviceFirst
     .open()
@@ -83,26 +66,6 @@ function remoteNoteId(sdk: Tearleads, title: string): string {
     .find((document) => document.title === title);
   invariant(summary?.documentId, `Expected a synced note titled ${title}`);
   return summary.documentId;
-}
-
-/** The peer rewrites the note and waits until the server accepted the edit. */
-async function editNoteOnPeer(peer: HTMLElement, peerSdk: Tearleads) {
-  await selectContainerAndWaitForItemTable(peer, FOLDER);
-  await selectExplorerNoteByName(peer, NOTE);
-  const start = listProxiedApiRequests().length;
-  await editSelectedNoteText(peer, EDITED);
-  await waitFor(() => {
-    expect(
-      syncRequestsBy(peerSdk, start).some((request) => {
-        const response: unknown = JSON.parse(request.responseBody);
-        return (
-          isDocumentSyncResponse(response) &&
-          response.acceptedOutgoingUpdateIds.length > 0
-        );
-      }),
-    ).toBe(true);
-  });
-  await waitForPaneRuntimeToSettle();
 }
 
 /** The folder lists the note under its edited text, and not its old one. */
@@ -148,7 +111,7 @@ test("reconnect shows a note a peer edited while this session was disconnected",
   using sweep = observeReconnectSweep(observerSdk);
   await setLifecycleNetworkMode(observer, true);
   await waitFor(() => expect(observerSdk.events.connected).toBe(false));
-  await editNoteOnPeer(peer, peerSdk);
+  await editLifecycleNote(peer, peerSdk, EDITED);
   await expectNoLateLifecycleRequests();
 
   const reconnected = listProxiedApiRequests().length;
@@ -159,8 +122,8 @@ test("reconnect shows a note a peer edited while this session was disconnected",
   // The listing that followed the acknowledgement owed the read: the note the
   // peer edited was synced, and the note nobody touched was not.
   await waitForLifecycleQuiet();
-  const synced = syncRequestsBy(observerSdk, reconnected).map((request) =>
-    requestPath(request.url),
+  const synced = lifecycleSyncRequestsBy(observerSdk, reconnected).map(
+    (request) => requestPath(request.url),
   );
   expect(synced).toContain(`/documents/${noteIds.edited}/sync`);
   expect(synced).not.toContain(`/documents/${noteIds.untouched}/sync`);
@@ -194,7 +157,7 @@ test("restart shows a note a peer edited while this session was closed", async (
   await restorePaneFromRecoveryKey(peer.pane, recoveryKey);
   await openExplorer(peer.pane);
   await expectLifecycleNotes(peer.pane);
-  await editNoteOnPeer(peer.pane, peer.sdk());
+  await editLifecycleNote(peer.pane, peer.sdk(), EDITED);
   await unmountLifecyclePane(peer);
 
   const restarted = renderLifecyclePane(hostConfig);

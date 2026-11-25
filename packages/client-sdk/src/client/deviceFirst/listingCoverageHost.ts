@@ -38,31 +38,53 @@ export function createListingCoverageHost(
 }
 
 /**
+ * The containers whose document lanes the reconciler lists. A local-first id
+ * is not listable yet and may still be racing its create request. Once
+ * remote-backed, it participates normally; system contents are especially
+ * important during rematerialization because this device may not have
+ * authored them.
+ */
+export function listReconcilableContainerIds(
+  runtimeService: InternalRuntime,
+  store: LocalProjectionStore,
+): string[] {
+  const homeOrganizationId = runtimeService.workflowInput().auth.organizationId;
+  return store
+    .getSnapshot()
+    .containers.flatMap((node) =>
+      isReconcilableContainerNode(node, homeOrganizationId) ? [node.id] : [],
+    );
+}
+
+/**
  * The scope's listing authority: the reconciler lists every reconcilable
  * container's document lane after each acknowledged connection, so a store
- * opened under one of them need not probe on its own. The container set is
- * rebuilt only when the tree's node list is replaced.
+ * whose document one of them holds need not probe on its own. It answers
+ * from the same list the sweep walks, rebuilt when the tree's node list is
+ * replaced or the home organization changes.
  */
 export function installDocumentListingAuthority(input: {
   readonly domainScope: DomainScope;
   readonly runtimeService: InternalRuntime;
   readonly store: LocalProjectionStore;
 }): () => void {
-  let listedFor: ReadonlyArray<unknown> | null = null;
+  let listedFor: {
+    readonly containers: ReadonlyArray<unknown>;
+    readonly homeOrganizationId: unknown;
+  } | null = null;
   let listedContainerIds: ReadonlySet<string> = new Set();
   return getOrCreateDocumentListingCoverage(input.domainScope).install({
     listsContainer: (containerId) => {
       const { containers } = input.store.getSnapshot();
-      if (containers !== listedFor) {
-        const homeOrganizationId =
-          input.runtimeService.workflowInput().auth.organizationId;
-        listedFor = containers;
+      const homeOrganizationId =
+        input.runtimeService.workflowInput().auth.organizationId;
+      if (
+        containers !== listedFor?.containers ||
+        homeOrganizationId !== listedFor.homeOrganizationId
+      ) {
+        listedFor = { containers, homeOrganizationId };
         listedContainerIds = new Set(
-          containers.flatMap((node) =>
-            isReconcilableContainerNode(node, homeOrganizationId)
-              ? [node.id]
-              : [],
-          ),
+          listReconcilableContainerIds(input.runtimeService, input.store),
         );
       }
       return listedContainerIds.has(containerId);

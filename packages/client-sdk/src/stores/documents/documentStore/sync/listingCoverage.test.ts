@@ -22,8 +22,9 @@ import {
   findOwedListingReadBeforePull,
   isDocumentStoreCoveredByListing,
   loadDocumentListingCoverage,
-  settleOwedListingReadAfterPull,
+  settleOwedListingReadAfterCompletedPull,
 } from "./listingCoverage";
+import { settleReadyStoreConnection } from "./storeRuntime";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 const DOCUMENT_ID = "44444444-4444-4444-8444-444444444444";
@@ -31,6 +32,7 @@ const CONTAINER_ID = "container-1";
 const FRONTIER = encodeVersionVectorCounters({ "7": 4 });
 const SLOT_ID = "55555555-5555-4555-8555-555555555555";
 const DIGEST = "a".repeat(64);
+const COMPLETE_PULL = { hasHeldPull: false, hasIncompletePull: false };
 
 let close: () => void = () => undefined;
 let execSql: ExecSql;
@@ -75,6 +77,7 @@ async function createLoadedStore(record: Record<string, unknown> = {}) {
     DOCUMENT_ID,
   );
   state.record = {
+    containerId: CONTAINER_ID,
     contentKeyBundle: "bundle",
     documentId: DOCUMENT_ID,
     documentKekTargets: "targets",
@@ -148,16 +151,27 @@ test.each([
   expect(await load(state)).toBe(false);
 });
 
-test("a store without a listing authority, or outside its lanes, is not covered", async () => {
-  const outside = (await createLoadedStore()).state;
-  outside.runtime = {
-    ...outside.runtime,
-    state: { ...outside.runtime.state, containerId: "elsewhere" },
-  };
-  expect(await load(outside)).toBe(false);
-
+test("a store without a listing authority is not covered", async () => {
   removeAuthority();
   expect(await load((await createLoadedStore()).state)).toBe(false);
+});
+
+test("the document's own container decides, not the one its store opened under", async () => {
+  // Opened under the listed default container, but held in another one.
+  const elsewhere = (await createLoadedStore({ containerId: "container-2" }))
+    .state;
+  expect(await load(elsewhere)).toBe(false);
+
+  const unplaced = (await createLoadedStore({ containerId: null })).state;
+  expect(await load(unplaced)).toBe(false);
+
+  // Held in the listed container, whatever container the store opened under.
+  const held = (await createLoadedStore()).state;
+  held.runtime = {
+    ...held.runtime,
+    state: { ...held.runtime.state, containerId: "container-2" },
+  };
+  expect(await load(held)).toBe(true);
 });
 
 test("a lane that was not listed covers nothing until it is listed again", async () => {
@@ -222,9 +236,10 @@ test("a read a listing owes uncovers the store until a pull pays it", async () =
   if (!owed) throw new Error("Expected the owed read");
 
   // A replica lagging the listing answered: the cursor counts two updates.
-  await settleOwedListingReadAfterPull(state, generation, {
+  await settleOwedListingReadAfterCompletedPull(state, generation, {
     frontier: FRONTIER,
     owed,
+    pull: COMPLETE_PULL,
   });
   expect(isDocumentStoreCoveredByListing(state)).toBe(false);
   expect(state.remoteUpdatePending).toBe(true);
@@ -232,20 +247,54 @@ test("a read a listing owes uncovers the store until a pull pays it", async () =
 
   // The same debt is retried once, not on every pass that finds it unpaid.
   state.remoteUpdatePending = false;
-  await settleOwedListingReadAfterPull(state, generation, {
+  await settleOwedListingReadAfterCompletedPull(state, generation, {
     frontier: FRONTIER,
     owed,
+    pull: COMPLETE_PULL,
   });
   expect(state.remoteUpdatePending).toBe(false);
   expect(delayedSyncs).toHaveLength(1);
 
   // A pull that counted the third update pays the debt.
   await saveCursor(3);
-  await settleOwedListingReadAfterPull(state, generation, {
+  await settleOwedListingReadAfterCompletedPull(state, generation, {
     frontier: FRONTIER,
     owed,
+    pull: COMPLETE_PULL,
   });
   expect(isDocumentStoreCoveredByListing(state)).toBe(true);
+  expect(
+    await new DocumentListingRevalidationRepository(execSql).find(DOCUMENT_ID),
+  ).toBeNull();
+});
+
+test("a debt owed for a moved access head alone is paid by a completed pull", async () => {
+  // The listing counted no update, so no cursor exists to cover the debt.
+  await owe(0);
+  const { delayedSyncs, state } = await createLoadedStore();
+  expect(await load(state)).toBe(false);
+  const generation = generationOf(state);
+  const owed = await findOwedListingReadBeforePull(state, generation, {
+    documentId: DOCUMENT_ID,
+    remoteProbe: false,
+  });
+  if (!owed) throw new Error("Expected the owed read");
+
+  // A pull that stopped short of its bound read no head to rely on.
+  await settleOwedListingReadAfterCompletedPull(state, generation, {
+    frontier: FRONTIER,
+    owed,
+    pull: { hasHeldPull: false, hasIncompletePull: true },
+  });
+  expect(isDocumentStoreCoveredByListing(state)).toBe(false);
+
+  await settleOwedListingReadAfterCompletedPull(state, generation, {
+    frontier: FRONTIER,
+    owed,
+    pull: COMPLETE_PULL,
+  });
+  expect(isDocumentStoreCoveredByListing(state)).toBe(true);
+  expect(delayedSyncs).toHaveLength(0);
   expect(
     await new DocumentListingRevalidationRepository(execSql).find(DOCUMENT_ID),
   ).toBeNull();
@@ -273,4 +322,34 @@ test("a pass reads the debt only for a probe or a store that knows of one", asyn
     )?.advertisedUpdateCount,
   ).toBe(1);
   expect(isDocumentStoreCoveredByListing(state)).toBe(false);
+});
+
+/** Installs a reconnected runtime on a loaded store; reports what it asked. */
+function reconnect(state: DocumentStoreState) {
+  let scheduled = 0;
+  settleReadyStoreConnection(state, () => scheduled++, {
+    regainedSyncPrerequisites: false,
+    serverEventsReconnected: true,
+  });
+  return { probed: state.remoteUpdatePending, scheduled };
+}
+
+test("a reconnect probes a store only when no listing covers it", async () => {
+  const covered = (await createLoadedStore()).state;
+  expect(await load(covered)).toBe(true);
+  // The listing after the acknowledgement answers for it; local work still runs.
+  expect(reconnect(covered)).toEqual({ probed: false, scheduled: 1 });
+
+  const uncovered = (await createLoadedStore({ containerId: "container-2" }))
+    .state;
+  expect(await load(uncovered)).toBe(false);
+  expect(reconnect(uncovered)).toEqual({ probed: true, scheduled: 1 });
+});
+
+test("a startup probe that waited on the connection still runs when it is covered", async () => {
+  const { state } = await createLoadedStore();
+  expect(await load(state)).toBe(true);
+  state.startupProbe = { attempt: 1, status: "deferred" };
+
+  expect(reconnect(state).probed).toBe(true);
 });

@@ -52,7 +52,13 @@ async function sweepForScope(input: {
       scope === "acknowledged" &&
       isCurrentReconciliationLifecycle(state, lifecycleGeneration)
     ) {
-      await host.requestOwedDocumentReads?.();
+      try {
+        await host.requestOwedDocumentReads?.();
+      } catch (error) {
+        // Never replace the sweep's own failure; each store also reads its
+        // document's debt when its record loads and before each pull.
+        host.logError?.("Reconciliation: owed document reads failed", error);
+      }
     }
   }
 }
@@ -169,9 +175,11 @@ function requeueUnsettledContainers(
 }
 
 // Sweeps share the queue and discovered set, so they must run serially.
-// Root requests join any sweep, and a request joins a sweep of its own scope
-// or a full one; a full request after a narrower sweep must wait for it and
-// then refresh the whole tree. A fresh-listing request
+// A request joins a sweep of its own scope or a full one, which does all a
+// narrower sweep does. No other pair joins: an acknowledged sweep lists no
+// tree lane, so a root request that joined it would skip its root listing,
+// and a full request after a narrower sweep must wait for it and then
+// refresh the whole tree. A fresh-listing request
 // joins only a sweep that has not started: one already running may have listed
 // before the event behind the request, so it queues a trailing sweep instead.
 // A sweep every caller withdrew from is stopping, so nothing joins it.
@@ -190,7 +198,7 @@ export function requestContainerRefresh(input: {
   if (
     pending &&
     !pending.stopping &&
-    (scope === "root" || pending.scope === "full" || pending.scope === scope) &&
+    (pending.scope === "full" || pending.scope === scope) &&
     !(input.freshListing && pending.started)
   ) {
     return pending.join(signal);
@@ -223,7 +231,7 @@ export function requestAcknowledgedConnectionSweep(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): Promise<void> {
-  return requestContainerRefresh({
+  const sweep = requestContainerRefresh({
     freshListing: true,
     host,
     state,
@@ -232,6 +240,12 @@ export function requestAcknowledgedConnectionSweep(
     scope: "acknowledged",
     signal: undefined,
   });
+  // Nothing awaits the sweep an acknowledgement starts, so report its
+  // failure here. An ignorable one never reaches this promise.
+  sweep.catch((error: unknown) =>
+    host.logError?.("Reconciliation: connection catch-up failed", error),
+  );
+  return sweep;
 }
 
 export function listFullRefreshContainerIds(

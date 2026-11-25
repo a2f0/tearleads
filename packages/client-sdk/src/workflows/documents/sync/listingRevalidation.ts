@@ -3,10 +3,12 @@
  *
  * A document whose lane a listing covers is not probed when its store loads
  * or its socket reconnects. Instead, a listing that shows the document with
- * more updates than this device's processed cursor covers owes it one read,
- * written to `document_listing_revalidations` before the lane's watermark
- * passes the row (`oweListedDocumentReads`). A store reads its document's
- * debt when it loads and before each remote pull, and settles it only once
+ * more updates than this device's processed cursor covers, or with another
+ * access head than the one its record's key bundle was issued under, owes it
+ * one read, written to `document_listing_revalidations` before the listing
+ * is applied and the lane's watermark passes the row
+ * (`oweListedDocumentReads`). A store reads its document's debt when it
+ * loads and before each remote pull, and settles it only once
  * the cursor its completed pull saved covers the advertised count: a replica
  * that lags the listing can answer without the edit, and that debt then
  * waits for a later pull.
@@ -17,27 +19,30 @@ import { documentVerdictJudge } from "../../../data/documents/shared/sync/docume
 import {
   type DocumentListingRevalidation,
   DocumentListingRevalidationRepository,
-  type ListedDocumentUpdateCount,
+  type ListedDocumentHead,
 } from "../../../data/persistence/documents/documentListingRevalidationRepository";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { readProcessedUpdateCountForSync } from "./processedCursor";
 
 export type {
   DocumentListingRevalidation,
-  ListedDocumentUpdateCount,
+  ListedDocumentHead,
 } from "../../../data/persistence/documents/documentListingRevalidationRepository";
 
 /**
- * Owes a read, durably, to each listed document this device's processed
- * cursor does not cover, and returns the documents owed. A document lane's
- * watermark may pass a listed row only after this ran for it.
+ * Owes a read, durably, to each listed document this device holds behind the
+ * listing: its processed cursor does not cover the listed count, or its
+ * record's key bundle was issued under another access head. Returns the
+ * documents owed. It must run before the listing is applied, which can drop
+ * that key bundle, and a document lane's watermark may pass a listed row
+ * only after this ran for it.
  */
-export async function oweListedDocumentReadsBehindCursor(
+export async function oweListedDocumentReadsBehindListing(
   execSql: ExecSql,
-  listed: ReadonlyArray<ListedDocumentUpdateCount>,
+  listed: ReadonlyArray<ListedDocumentHead>,
 ): Promise<ReadonlyArray<string>> {
   const revalidations = new DocumentListingRevalidationRepository(execSql);
-  const behind = await revalidations.listBehindCursor(
+  const behind = await revalidations.listBehindListing(
     listed,
     documentVerdictJudge(),
   );
@@ -76,16 +81,20 @@ export async function settleCoveredDocumentListingRead(
     readonly owed: DocumentListingRevalidation;
   },
 ): Promise<boolean> {
-  const processed =
-    input.frontier === ""
-      ? null
-      : await readProcessedUpdateCountForSync(execSql, {
-          documentId: input.owed.documentId,
-          frontier: input.frontier,
-          scope: { appKind: DOCUMENTS_APP_KIND, localId: input.localId },
-        });
-  if (processed === null || processed < input.owed.advertisedUpdateCount) {
-    return false;
+  // A debt at count zero is owed for a moved access head alone: the server
+  // holds no update a cursor could count, so the completed pull pays it.
+  if (input.owed.advertisedUpdateCount > 0) {
+    const processed =
+      input.frontier === ""
+        ? null
+        : await readProcessedUpdateCountForSync(execSql, {
+            documentId: input.owed.documentId,
+            frontier: input.frontier,
+            scope: { appKind: DOCUMENTS_APP_KIND, localId: input.localId },
+          });
+    if (processed === null || processed < input.owed.advertisedUpdateCount) {
+      return false;
+    }
   }
   await new DocumentListingRevalidationRepository(execSql).settle(input.owed);
   return true;

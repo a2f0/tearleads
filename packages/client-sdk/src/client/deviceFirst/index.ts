@@ -9,7 +9,6 @@ import {
   type ContainerContentsStore,
   type ContainerContentsStoreOptions,
   isAutomaticRootCatchupContainerNode,
-  isReconcilableContainerNode,
   isRemoteBackedContainerNode,
 } from "../../stores/container-contents";
 import { openDocumentStore } from "../../stores/documents";
@@ -49,6 +48,7 @@ import {
 import {
   createListingCoverageHost,
   installDocumentListingAuthority,
+  listReconcilableContainerIds,
 } from "./listingCoverageHost";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
@@ -354,21 +354,8 @@ class DeviceFirstService implements DeviceFirst {
         .containers.find((node) => node.id === containerId);
       return container ? isRemoteBackedContainerNode(container) : false;
     };
-    const listKnownContainerIds = () => {
-      // A local-first id is not listable yet and may still be racing its create
-      // request. Once remote-backed, it participates normally; system contents
-      // are especially important during rematerialization because this device
-      // may not have authored them.
-      const homeOrganizationId =
-        runtimeService.workflowInput().auth.organizationId;
-      return store
-        .getSnapshot()
-        .containers.flatMap((node) =>
-          isReconcilableContainerNode(node, homeOrganizationId)
-            ? [node.id]
-            : [],
-        );
-    };
+    const listKnownContainerIds = () =>
+      listReconcilableContainerIds(runtimeService, store);
     const listAutomaticRootCatchupContainerIds = () => {
       const homeOrganizationId =
         runtimeService.workflowInput().auth.organizationId;

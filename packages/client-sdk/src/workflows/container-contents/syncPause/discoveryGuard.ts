@@ -13,7 +13,7 @@ import {
 } from "../../../data/persistence/documents/documentsPersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { oweListedDocumentReadsBehindCursor } from "../../documents";
+import { oweListedDocumentReadsBehindListing } from "../../documents";
 import type { DiscoverContainerDocumentsOptions } from "../documentDiscovery/documentDiscoveryTypes";
 
 type PauseGuardedDiscovery = Pick<
@@ -34,7 +34,7 @@ type ListedDocuments = Parameters<
 
 /** The owed-read write for one listing, run on the locked executor. */
 const oweReads = (listed: ListedDocuments) => (locked: ExecSql) =>
-  oweListedDocumentReadsBehindCursor(locked, listed);
+  oweListedDocumentReadsBehindListing(locked, listed);
 
 /**
  * Binds a discovery lane's writes to its generation and its organization

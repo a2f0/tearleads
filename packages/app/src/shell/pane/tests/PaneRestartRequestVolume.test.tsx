@@ -12,6 +12,7 @@ import {
   useTestApiAppHandlers,
 } from "../../../../test/helpers/msw/server";
 import {
+  editLifecycleNote,
   expectLifecycleReads,
   expectNoLateLifecycleRequests,
   renderLifecyclePane,
@@ -68,10 +69,13 @@ test("restart storage survives a closed and terminated worker", async () => {
  * Restarts a pane holding two folders of `notesPerFolder` notes each and
  * measures the last restart. `settledRestarts` earlier restarts run first and
  * are left to settle unmeasured: the first restart after local writes lists
- * the rows those writes published, and the ones after it list nothing.
+ * the rows those writes published, and the ones after it list nothing. With
+ * `editedText`, the last unmeasured restart rewrites one note before it
+ * closes, so the measured restart is the first one after that edit.
  */
 async function measureRestart(input: {
   readonly budget: ProxiedApiRequestBudget;
+  readonly editedText?: string;
   readonly label: string;
   readonly notesPerFolder: number;
   readonly settledRestarts?: number;
@@ -118,6 +122,10 @@ async function measureRestart(input: {
     await waitForLifecycleConnection(settled.sdk(), 1);
     await openExplorer(settled.pane);
     await waitForLifecycleQuiet();
+    if (restart === settledRestarts && input.editedText !== undefined) {
+      await editLifecycleNote(settled.pane, settled.sdk(), input.editedText);
+      await waitForLifecycleQuiet();
+    }
     await unmountLifecyclePane(settled);
     await expectWorkersClosed(1 + restart);
   }
@@ -154,6 +162,16 @@ async function measureRestart(input: {
           .listPendingWrites(),
       ).toEqual([]);
       await waitForLifecycleTreeCrawl(second.sdk());
+      // Every row these lanes listed is this device's own write, which its
+      // cursor already counts and whose access head its record names.
+      expect(
+        await second
+          .sdk()
+          .runtime.input()
+          .infra.execSql(
+            "SELECT document_id FROM document_listing_revalidations",
+          ),
+      ).toEqual([]);
     },
   });
   expectLifecycleReads(requests);
@@ -227,3 +245,25 @@ test("a settled restart costs the same whatever the number of notes", async () =
     await cleanupPaneTestEnvironment();
   }
 }, 180_000);
+
+test("the first restart after a local edit owes that note no read", async () => {
+  // The edited note's lane lists its row once more, which costs two more
+  // listings and two more policy reads than a settled restart. The device's
+  // own accepted update is behind its cursor, so the listing owes no read:
+  // the three syncs are the same system-container documents, and the note
+  // is neither synced nor has its head read.
+  await measureRestart({
+    budget: {
+      total: 21,
+      byRequest: {
+        ...SETTLED_RESTART_BUDGET.byRequest,
+        "POST /containers/documents/query": 8,
+        "GET /principals/organization/:organizationId/policy": 3,
+      },
+    },
+    editedText: "Rewritten on this device",
+    label: "restart after a local edit",
+    notesPerFolder: 1,
+    settledRestarts: 1,
+  });
+}, 120_000);

@@ -146,9 +146,9 @@ export { documentCreateSeedCandidate } from "./sync/initialSync";
 export {
   type DocumentListingRevalidation,
   findOwedDocumentListingRead,
-  type ListedDocumentUpdateCount,
+  type ListedDocumentHead,
   listOwedDocumentListingReads,
-  oweListedDocumentReadsBehindCursor,
+  oweListedDocumentReadsBehindListing,
   settleCoveredDocumentListingRead,
 } from "./sync/listingRevalidation";
 export {

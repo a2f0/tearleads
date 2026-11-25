@@ -21,8 +21,14 @@ import { getOrCreateDocumentListingCoverage } from "../../listingCoverage";
 import { awaitsAttachmentCopy } from "../attachments/attachmentHydration";
 import type { DocumentStoreState } from "../state";
 import {
+  type OwedListingReadEvent,
+  type OwedListingReadState,
+  transitionOwedListingRead,
+} from "./owedListingReadMachine";
+import {
   allowDocumentStoreRemoteSync,
   type DocumentStoreSyncGeneration,
+  isDocumentStoreSyncGenerationCurrent,
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
 import { hasPersistedRemoteDocumentSyncState } from "./syncShared";
@@ -30,13 +36,20 @@ import { hasPersistedRemoteDocumentSyncState } from "./syncShared";
 /** One later pull for a read a lagging replica answered without the edit. */
 const BEHIND_LISTING_RETRY_DELAY_MS = 2_000;
 
-/** The read a listing owes each store's document, as the store last saw it. */
-const owedReads = new WeakMap<
-  DocumentStoreState,
-  DocumentListingRevalidation
->();
-/** The debt revision each store already retried once. */
-const retriedRevisions = new WeakMap<DocumentStoreState, string>();
+/** Each store's owed-read state; a store with no entry knows of no debt. */
+const owedReadStates = new WeakMap<DocumentStoreState, OwedListingReadState>();
+
+/** Applies `event`; returns the store's owed-read state before and after. */
+function applyOwedReadEvent(
+  state: DocumentStoreState,
+  event: OwedListingReadEvent,
+) {
+  const previous = owedReadStates.get(state) ?? null;
+  const next = transitionOwedListingRead(previous, event);
+  if (next) owedReadStates.set(state, next);
+  else owedReadStates.delete(state);
+  return { next, previous };
+}
 
 function coverage(state: DocumentStoreState) {
   return getOrCreateDocumentListingCoverage(state.runtime.state.domainScope);
@@ -58,11 +71,13 @@ export function isDocumentStoreCoveredByListing(
     hasPersistedRemoteDocumentSyncState(record) &&
     state.pullContinuation === null &&
     !record.pullContinuationRecoveryRequired &&
-    !owedReads.has(state) &&
+    !owedReadStates.has(state) &&
     // Attachment bytes download after a sync response, so a copy still to
     // fetch or repair needs the pull a probe makes.
     !awaitsAttachmentCopy(state) &&
-    coverage(state).coversContainer(state.runtime.state.containerId)
+    // The lane that lists the document is its own container's, which is not
+    // always the container the store was opened under.
+    coverage(state).coversContainer(record.containerId)
   );
 }
 
@@ -78,7 +93,7 @@ export async function loadDocumentListingCoverage(
   isCurrent: () => boolean,
 ): Promise<boolean> {
   if (record.documentId === null) {
-    owedReads.delete(state);
+    applyOwedReadEvent(state, { read: null, type: "observed" });
     return false;
   }
   const owed = await findOwedDocumentListingRead(
@@ -86,8 +101,7 @@ export async function loadDocumentListingCoverage(
     record.documentId,
   );
   if (!isCurrent()) return false;
-  if (owed) owedReads.set(state, owed);
-  else owedReads.delete(state);
+  applyOwedReadEvent(state, { read: owed, type: "observed" });
   observeDocumentListingHints(state);
   const hinted = coverage(state).takeHint(record.documentId);
   return !hinted && isDocumentStoreCoveredByListing(state);
@@ -104,14 +118,45 @@ export async function findOwedListingReadBeforePull(
   generation: DocumentStoreSyncGeneration,
   input: { readonly documentId: string; readonly remoteProbe: boolean },
 ): Promise<DocumentListingRevalidation | null> {
-  if (!input.remoteProbe && !owedReads.has(state)) return null;
+  if (!input.remoteProbe && !owedReadStates.has(state)) return null;
   const owed = await findOwedDocumentListingRead(
     generation.execSql,
     input.documentId,
   );
-  if (owed) owedReads.set(state, owed);
-  else owedReads.delete(state);
+  // A pass that was superseded while it read says nothing about the store.
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return owed;
+  applyOwedReadEvent(state, { read: owed, type: "observed" });
   return owed;
+}
+
+/**
+ * Settles the debt `owed` once the pull that followed it has finalized, if
+ * that pull reached its bound and its pass is still current.
+ */
+export async function settleOwedListingReadAfterCompletedPull(
+  state: DocumentStoreState,
+  generation: DocumentStoreSyncGeneration,
+  input: {
+    readonly frontier: string;
+    readonly owed: DocumentListingRevalidation | null;
+    readonly pull: {
+      readonly hasHeldPull: boolean;
+      readonly hasIncompletePull: boolean;
+    };
+  },
+): Promise<void> {
+  if (
+    input.owed === null ||
+    input.pull.hasIncompletePull ||
+    input.pull.hasHeldPull ||
+    !isDocumentStoreSyncGenerationCurrent(state, generation)
+  ) {
+    return;
+  }
+  await settleOwedListingReadAfterPull(state, generation, {
+    frontier: input.frontier,
+    owed: input.owed,
+  });
 }
 
 /**
@@ -120,7 +165,7 @@ export async function findOwedListingReadBeforePull(
  * listing can answer without the edit: the debt then stays, the store asks
  * for one later pull, and until it settles no listing covers the store.
  */
-export async function settleOwedListingReadAfterPull(
+async function settleOwedListingReadAfterPull(
   state: DocumentStoreState,
   generation: DocumentStoreSyncGeneration,
   input: {
@@ -133,14 +178,20 @@ export async function settleOwedListingReadAfterPull(
     localId: state.localId,
     owed: input.owed,
   });
+  // A superseded pass leaves the store's own state to the pass after it,
+  // which reads the debt again.
+  if (!isDocumentStoreSyncGenerationCurrent(state, generation)) return;
   if (settled) {
-    if (owedReads.get(state)?.revision === input.owed.revision) {
-      owedReads.delete(state);
-    }
+    applyOwedReadEvent(state, { read: input.owed, type: "paid" });
     return;
   }
-  if (retriedRevisions.get(state) === input.owed.revision) return;
-  retriedRevisions.set(state, input.owed.revision);
+  const { next, previous } = applyOwedReadEvent(state, {
+    read: input.owed,
+    type: "unpaid",
+  });
+  // One later pull per debt revision; a renewed debt's listing asked for
+  // its own.
+  if (next === previous) return;
   allowDocumentStoreRemoteSync(state);
   markDocumentStoreRemoteSyncPending(state, "independent");
   state.syncLane?.requestSyncAfter(BEHIND_LISTING_RETRY_DELAY_MS);
