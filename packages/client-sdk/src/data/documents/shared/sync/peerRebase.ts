@@ -12,10 +12,13 @@ type DocumentChange = ReturnType<RebaseDocument["getChangeAt"]>;
 export type PeerCounters = ReadonlyMap<string, number>;
 
 /**
- * The rebase would cut an operation this device knows is committed. Honest
- * histories never get here: a committed operation depends only on committed
- * operations, and the cut holds none. Re-expressing committed content under
- * a fresh peer would duplicate it for every reader, so the rebase refuses.
+ * The rebase would cut an operation this device knows is committed although
+ * every named frontier covers what it knows. Only a forged committed
+ * operation, one that depends on an operation nobody committed, gets here:
+ * a server that checks dependencies commits none, and a frontier that fell
+ * is reported as `history_regressed` before anything is cut. Writing
+ * committed content again under a fresh peer would duplicate it for every
+ * reader, so the rebase refuses.
  */
 export class PeerRebaseCommittedCutError extends Error {
   constructor(
@@ -53,14 +56,35 @@ export interface PeerRebaseInput {
   readonly refusedFrontiers: PeerCounters;
   /**
    * Per peer, the version before any operation this device has not sent: the
-   * minimum of its pending base and every queued update's start. Everything
-   * below it is committed.
+   * minimum of its pending base and every queued update's start. The fork's
+   * update starts here.
    */
   readonly unsentStart: PeerCounters;
+  /**
+   * Per peer, what this device knows the server committed at some time
+   * (`knownCommittedOf`): at least `unsentStart`, and more where a relay
+   * queued operations again that it had already seen committed.
+   */
+  readonly knownCommitted: PeerCounters;
 }
 
 export type PeerRebase =
   | { readonly kind: "nothing_to_cut" }
+  | {
+      /**
+       * The server named a frontier below what this device knows is
+       * committed. A server's frontier falls only when a billing purge
+       * deletes the document and its owner recreates it from a copy that
+       * lacks those operations. Nothing is cut: the operations past the
+       * frontier include committed ones, which other devices still hold
+       * under their own ids.
+       */
+      readonly kind: "history_regressed";
+      /** What this device knows is committed, on every peer it holds. */
+      readonly knownCommitted: PeerCounters;
+      /** F on each named peer whose frontier fell. */
+      readonly regressedFrontiers: PeerCounters;
+    }
   | {
       readonly kind: "rebased";
       /** The live content on `newPeer`, over the kept operations K. */
@@ -125,7 +149,36 @@ export function unsentStartOf(input: {
   return start;
 }
 
-function versionOf(peerCounters: PeerCounters): DocumentVersion {
+/**
+ * Per peer of `liveVersion`, what a device knows the server committed at
+ * some time: where its unsent operations start, raised to the version a
+ * queued update recorded as committed when a relay lowered its start
+ * (`committedVersionVector`), and never past what the device holds. A relay
+ * sends committed operations again, so the queue alone no longer says where
+ * the unsent ones start.
+ */
+export function knownCommittedOf(input: {
+  readonly liveVersion: string;
+  readonly queued: readonly {
+    readonly committedVersionVector?: string | null | undefined;
+  }[];
+  readonly unsentStart: PeerCounters;
+}): Map<string, number> {
+  const recorded = input.queued.map((row) =>
+    encodedCounters(row.committedVersionVector),
+  );
+  const known = new Map<string, number>();
+  for (const [peer, end] of encodedCounters(input.liveVersion)) {
+    const committed = Math.max(
+      input.unsentStart.get(peer) ?? 0,
+      ...recorded.map((version) => version.get(peer) ?? 0),
+    );
+    known.set(peer, Math.min(end, committed));
+  }
+  return known;
+}
+
+export function versionOf(peerCounters: PeerCounters): DocumentVersion {
   return decodeVersionVector(
     encodeVersionVectorCounters(Object.fromEntries(peerCounters)),
   );
@@ -222,10 +275,35 @@ function closeCut(
   }
 }
 
+/** What the device knows is committed on each peer it holds. */
+function committedWithin(
+  liveVersion: PeerCounters,
+  knownCommitted: PeerCounters,
+): Map<string, number> {
+  const committed = new Map<string, number>();
+  for (const [peer, end] of liveVersion) {
+    committed.set(peer, Math.min(end, knownCommitted.get(peer) ?? 0));
+  }
+  return committed;
+}
+
+/** F on each refused peer the device knows is committed past F. */
+function regressedFrontiers(
+  refusedFrontiers: PeerCounters,
+  committed: PeerCounters,
+): Map<string, number> {
+  const regressed = new Map<string, number>();
+  for (const [peer, frontier] of refusedFrontiers) {
+    if (frontier < (committed.get(peer) ?? 0)) regressed.set(peer, frontier);
+  }
+  return regressed;
+}
+
 /**
  * C: what this device knows is committed. On a refused peer it is the
- * frontier the server named; on every other peer, the start of the unsent
- * operations. The closure must keep every operation below it.
+ * frontier the server named, which is no lower than what the device knows
+ * or the rebase would have reported a regression; on every other peer, what
+ * the device knows. The closure must keep every operation below it.
  */
 function assertKeepsCommitted(
   input: PeerRebaseInput,
@@ -234,7 +312,7 @@ function assertKeepsCommitted(
 ): void {
   for (const [peer, end] of liveVersion) {
     const committed =
-      input.refusedFrontiers.get(peer) ?? input.unsentStart.get(peer) ?? 0;
+      input.refusedFrontiers.get(peer) ?? input.knownCommitted.get(peer) ?? 0;
     const keptCounter = kept.get(peer) ?? 0;
     if (keptCounter < Math.min(committed, end)) {
       throw new PeerRebaseCommittedCutError(
@@ -293,16 +371,27 @@ function forkOnFreshPeer(
 
 /**
  * Rebase the live document's operations the server refused onto a fresh
- * peer. Cuts each refused peer at its committed frontier, then cuts every
- * operation that depends on a cut one, and writes the cut operations' net
- * effect again under `newPeer` on a fork of what is kept. Before the server
- * checks dependencies, a forged committed operation may depend on a cut one;
- * it is committed, so the rebase throws instead of writing it again.
+ * peer. A frontier below what the device knows is committed means the
+ * server's history went backwards; the rebase reports that and cuts
+ * nothing. Otherwise it cuts each refused peer at its committed frontier,
+ * then cuts every operation that depends on a cut one, and writes the cut
+ * operations' net effect again under `newPeer` on a fork of what is kept. A
+ * forged committed operation may depend on a cut one; it is committed, so
+ * the rebase throws instead of writing it again.
  */
 export function rebaseOntoFreshPeer(input: PeerRebaseInput): PeerRebase {
   const { live, newPeer } = input;
   live.commit();
   const liveVersion = counters(live.oplogVersion());
+  const knownCommitted = committedWithin(liveVersion, input.knownCommitted);
+  const regressed = regressedFrontiers(input.refusedFrontiers, knownCommitted);
+  if (regressed.size > 0) {
+    return {
+      kind: "history_regressed",
+      knownCommitted,
+      regressedFrontiers: regressed,
+    };
+  }
   if ((liveVersion.get(newPeer) ?? 0) > 0) {
     throw new Error("Peer rebase target already writes this document");
   }

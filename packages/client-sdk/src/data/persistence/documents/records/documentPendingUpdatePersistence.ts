@@ -62,6 +62,10 @@ function mapSelectedPendingUpdate(
     partialStartVersionVector: row.partialStartVersionVector,
     partialEndVersionVector: row.partialEndVersionVector,
     sourceVersionVector: row.sourceVersionVector,
+    // Only a relay's update carries one; every other row keeps its shape.
+    ...(row.committedVersionVector === null
+      ? {}
+      : { committedVersionVector: row.committedVersionVector }),
     rekeyCount: row.rekeyCount,
   };
 }
@@ -111,6 +115,7 @@ export async function selectDocumentPendingUpdates(
         documentHistoryUpdates.partialStartVersionVector,
       partialEndVersionVector: documentHistoryUpdates.partialEndVersionVector,
       sourceVersionVector: documentHistoryUpdates.sourceVersionVector,
+      committedVersionVector: documentHistoryUpdates.committedVersionVector,
       rekeyCount: documentHistoryUpdates.rekeyCount,
     })
     .from(documentHistoryUpdates)
@@ -171,6 +176,7 @@ export function queuedUpdateRow(input: {
     partialStartVersionVector: input.pendingUpdate.partialStartVersionVector,
     partialEndVersionVector: input.pendingUpdate.partialEndVersionVector,
     sourceVersionVector: input.pendingUpdate.sourceVersionVector ?? null,
+    committedVersionVector: input.pendingUpdate.committedVersionVector ?? null,
   };
 }
 
@@ -294,6 +300,7 @@ async function unqueueSelectedUpdates(
       partialStartVersionVector: null,
       partialEndVersionVector: null,
       sourceVersionVector: null,
+      committedVersionVector: null,
       rekeyCount: 0,
     })
     .where(selected)

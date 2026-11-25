@@ -165,6 +165,10 @@ export const documentHistoryCheckpoints = sqliteTable(
  * - `partialStartVersionVector` / `partialEndVersionVector`: Version vectors
  *   around a queued partial update.
  * - `sourceVersionVector`: Present on a queued rotation baseline checkpoint.
+ * - `committedVersionVector`: Present on a queued update that starts below
+ *   operations this device saw committed, which a relay after a stale
+ *   recreation sends again: the version it knew was committed. A later peer
+ *   refusal is judged against it, since the queue's start no longer is.
  * - `rekeyCount`: Durable bound on rekeys of a queued row; a merged row takes
  *   the largest count among the rows it replaces.
  *
@@ -184,6 +188,7 @@ export const documentHistoryUpdates = sqliteTable(
     partialStartVersionVector: text("partial_start_version_vector"),
     partialEndVersionVector: text("partial_end_version_vector"),
     sourceVersionVector: text("source_version_vector"),
+    committedVersionVector: text("committed_version_vector"),
     rekeyCount: integer("rekey_count").notNull().default(0),
   },
   (table) => [
@@ -218,7 +223,7 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(documentHistoryCheckpoints),
   {
     ...defineSqlTableSchema(documentHistoryUpdates),
-    requiredColumns: ["update_id"],
+    requiredColumns: ["update_id", "committed_version_vector"],
   },
   ...documentSyncVerdictTables,
   ...documentLoroWindowTables,

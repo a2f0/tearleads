@@ -226,6 +226,21 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 12,
   },
+  {
+    // A relay after a stale recreation queues operations again that the
+    // device saw committed, and records that version on the queued update
+    // (#3263). No update queued before this step is a relay, so the column
+    // starts null. It is unindexed.
+    name: "add_queued_update_committed_version",
+    up: async (execSql, context) => {
+      if (await context.hasTable("document_history_updates")) {
+        await execSql(
+          'ALTER TABLE "document_history_updates" ADD COLUMN "committed_version_vector" TEXT',
+        );
+      }
+    },
+    version: 13,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

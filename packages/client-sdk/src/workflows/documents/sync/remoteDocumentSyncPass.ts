@@ -1,12 +1,10 @@
-import type {
-  DocumentPeerFrontier,
-  DocumentWriterProjectionResponse,
-} from "@tearleads/validators/response";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import type {
   DocumentSyncApi,
   IncomingDocumentSyncUpdateValidator,
 } from "../../../data/documents/shared/sync/documentSyncTypes";
 import type { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import type { PeerRefusal } from "../../../data/documents/shared/sync/peerRefusalRecovery";
 import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/sync/syncPagination";
 import type {
   DocumentCreateAuthor,
@@ -29,23 +27,37 @@ import type { DocumentSyncContainerRekeyBuilder } from "./syncAttemptState";
 import type { DocumentSyncTraceEmitter } from "./syncTrace";
 
 /**
- * What a peer rebase did: installed the rebased document and queued its
- * update; lost to a concurrent change of the document, so a later pass is
- * refused and rebases again; or found nothing past the named frontiers, which
- * leaves the refusal terminal.
+ * What the host did about a peer refusal.
+ *
+ * - `rebased`: installed the rebased document and queued its update.
+ * - `relayed`: the server lost operations this device saw committed; the
+ *   host queued them again under their own peers and left the document as
+ *   it was.
+ * - `parked`: the server lost such operations on a peer another user now
+ *   owns. The queue and the document stay as they are, and a later pass
+ *   recovers once that user's device has sent them again. The pass reports
+ *   `document_peer_restore_awaits_owner` and abandons; it is not a failure.
+ * - `superseded`: lost to a concurrent change of the document, so a later
+ *   pass is refused and recovers again.
+ * - `nothing_to_cut`: found nothing past the named frontiers, which leaves
+ *   the refusal terminal.
  */
 export type DocumentPeerRebaseOutcome =
   | "nothing_to_cut"
+  | "parked"
   | "rebased"
+  | "relayed"
   | "superseded";
 
 /**
- * Rebases the record's unsent operations on the refused peers onto a fresh
- * peer, replaces its queued updates with one update of the rebased document,
- * and requests a new sync.
+ * Recovers from a peer refusal and requests a new sync when the queue
+ * changed. It rebases the record's unsent operations on the refused peers
+ * onto a fresh peer, or, when a named frontier is below what the device saw
+ * committed, relays the lost operations or parks. Either way one update
+ * replaces the record's queued updates, except when it parks.
  */
 export type DocumentPeerRebaser = (
-  peerFrontiers: readonly DocumentPeerFrontier[],
+  refusal: PeerRefusal,
 ) => Promise<DocumentPeerRebaseOutcome>;
 
 /** What one `RemoteDocumentService.syncRemoteDocument` call varies. */
@@ -112,8 +124,9 @@ export interface SyncRemoteDocumentRequest {
   /**
    * Answers a `document_sync_peer_owned` refusal (another user owns a peer
    * the queued updates extend) or a `document_sync_dependency_uncommitted`
-   * one (they depend on an op nobody committed). The pass calls it and ends
-   * without a result. Without it, either refusal is terminal.
+   * one (they depend on an op nobody committed). The pass calls it with the
+   * refusal's kind and named frontiers and ends without a result. Without
+   * it, either refusal is terminal.
    */
   rebaseOntoFreshPeer?: DocumentPeerRebaser | undefined;
   rekeyPendingUpdate?: RekeyPendingUpdate | undefined;

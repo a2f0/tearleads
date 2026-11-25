@@ -6,18 +6,19 @@ import {
   importUpdates,
   versionVectorsEqual,
 } from "@tearleads/loro";
-import type { DocumentPeerFrontier } from "@tearleads/validators/response";
-import { createPendingUpdateFields } from "../../../data/documents/documentSync";
+import { asPeerId } from "../../../data/documents/shared/sync/peerRebase";
 import {
-  asPeerId,
-  rebaseOntoFreshPeer,
-  unsentStartOf,
-} from "../../../data/documents/shared/sync/peerRebase";
+  type PeerRefusal,
+  type PeerRefusalRecovery,
+  planPeerRefusalRecovery,
+} from "../../../data/documents/shared/sync/peerRefusalRecovery";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type {
-  DocumentPeerRebaseOutcome,
-  DocumentPeerRebaser,
+import {
+  type DocumentPeerRebaseOutcome,
+  type DocumentPeerRebaser,
+  peerRebaseChangedQueue,
+  queuedRecoveryUpdate,
 } from "../../documents";
 import { containerMetadataScope } from "./metadataSyncVerdicts";
 import type { ContainerMetadataState } from "./metadataTypes";
@@ -45,7 +46,7 @@ function freshPeer(): `${number}` {
 
 /**
  * The live metadata with its stored content and queue merged in, so the
- * install, which replaces both, keeps whatever another runtime wrote.
+ * install, which replaces the queue, keeps whatever another runtime wrote.
  */
 async function readMergedMetadata(context: MetadataPeerRebaseContext) {
   const { execSql, metadataState, persistence } = context;
@@ -70,68 +71,41 @@ async function readMergedMetadata(context: MetadataPeerRebaseContext) {
   return { merged, queued, record: stored?.record ?? null };
 }
 
-async function rebaseLiveMetadata(
+/** What every install of this recovery must still find. */
+type MetadataInstallFence = Pick<
+  Parameters<InstallPeerRebase>[1],
+  | "expectedDocumentId"
+  | "expectedRecoveryGeneration"
+  | "queuedUpdateIds"
+  | "readVersion"
+  | "scope"
+  | "stillCurrent"
+>;
+
+async function installMetadataFork(
   context: MetadataPeerRebaseContext,
-  peerFrontiers: readonly DocumentPeerFrontier[],
+  fence: MetadataInstallFence,
+  rebase: Extract<PeerRefusalRecovery, { kind: "rebase" }>,
 ): Promise<DocumentPeerRebaseOutcome> {
   const { metadataState } = context;
-  const live = metadataState.doc;
-  const liveVersion = encodeVersionVector(live);
-  const stillCurrent = () =>
-    context.isCurrent() &&
-    metadataState.doc === live &&
-    versionVectorsEqual(encodeVersionVector(live), liveVersion);
-  const { merged, queued, record } = await readMergedMetadata(context);
+  const { fork } = rebase;
+  let installed = false;
   try {
-    const documentId = metadataState.record.documentId;
-    if (!stillCurrent() || !documentId || record?.documentId !== documentId) {
-      return "superseded";
-    }
-    const rebase = rebaseOntoFreshPeer({
-      live: merged,
-      newPeer: freshPeer(),
-      refusedFrontiers: new Map(
-        peerFrontiers.map((frontier) => [
-          frontier.peerId,
-          frontier.committedEndCounter,
-        ]),
-      ),
-      // Every local metadata write queues its own update beside the content,
-      // so the queue alone marks what this device has not sent.
-      unsentStart: unsentStartOf({
-        liveVersion: encodeVersionVector(merged),
-        pendingBases: [],
-        queued,
-      }),
-    });
-    if (rebase.kind === "nothing_to_cut") return "nothing_to_cut";
-    const { fork } = rebase;
     const metadataUpdates = exportAllUpdates(fork);
-    const pendingUpdate = createPendingUpdateFields(rebase.update);
-    if (!pendingUpdate) {
-      fork.free();
-      throw new Error("Peer rebase produced no metadata update to send");
-    }
     const endVersionVector =
       getImportBlobMetadata(metadataUpdates).partialEndVersionVector;
-    const installed = await context.install(context.execSql, {
-      checkpoint: {
-        endVersionVector,
-        snapshot: bytesToBase64(metadataUpdates),
-      },
-      expectedDocumentId: documentId,
-      expectedRecoveryGeneration: record.recoveryGeneration ?? 0,
-      pendingUpdate,
-      queuedUpdateIds: queued.map((row) => row.id),
-      readVersion: encodeVersionVector(merged),
-      record: { kind: "container_metadata" },
-      scope: containerMetadataScope(metadataState.container.id),
-      stillCurrent,
-    });
-    if (!installed || !stillCurrent()) {
-      fork.free();
-      return "superseded";
-    }
+    installed =
+      (await context.install(context.execSql, {
+        ...fence,
+        checkpoint: {
+          endVersionVector,
+          snapshot: bytesToBase64(metadataUpdates),
+        },
+        kind: "fork",
+        pendingUpdate: queuedRecoveryUpdate(rebase),
+        record: { kind: "container_metadata" },
+      })) && fence.stillCurrent();
+    if (!installed) return "superseded";
     // The fork's fresh peer is memory-only and is not bound to the runtime's
     // writer peers: no other document may borrow it. A reload derives the
     // writer's own peer again, which the server still refuses, so its next
@@ -148,26 +122,77 @@ async function rebaseLiveMetadata(
     };
     return "rebased";
   } finally {
+    if (!installed) fork.free();
+  }
+}
+
+async function recoverLiveMetadata(
+  context: MetadataPeerRebaseContext,
+  refusal: PeerRefusal,
+): Promise<DocumentPeerRebaseOutcome> {
+  const { metadataState } = context;
+  const live = metadataState.doc;
+  const liveVersion = encodeVersionVector(live);
+  const stillCurrent = () =>
+    context.isCurrent() &&
+    metadataState.doc === live &&
+    versionVectorsEqual(encodeVersionVector(live), liveVersion);
+  const { merged, queued, record } = await readMergedMetadata(context);
+  try {
+    const documentId = metadataState.record.documentId;
+    if (!stillCurrent() || !documentId || record?.documentId !== documentId) {
+      return "superseded";
+    }
+    const recovery = planPeerRefusalRecovery({
+      live: merged,
+      newPeer: freshPeer(),
+      // Every local metadata write queues its own update beside the content,
+      // so the queue alone marks what this device has not sent.
+      pendingBases: [],
+      queued,
+      refusal,
+    });
+    if (recovery.kind === "nothing_to_cut") return "nothing_to_cut";
+    if (recovery.kind === "park") return "parked";
+    const fence = {
+      expectedDocumentId: documentId,
+      expectedRecoveryGeneration: record.recoveryGeneration ?? 0,
+      queuedUpdateIds: queued.map((row) => row.id),
+      readVersion: encodeVersionVector(merged),
+      scope: containerMetadataScope(metadataState.container.id),
+      stillCurrent,
+    };
+    if (recovery.kind === "rebase") {
+      return await installMetadataFork(context, fence, recovery);
+    }
+    // A relay sends operations the stored content already holds, so the
+    // content, the live document, and its writer peer stay as they are.
+    const installed = await context.install(context.execSql, {
+      ...fence,
+      kind: "relay",
+      pendingUpdate: queuedRecoveryUpdate(recovery),
+    });
+    return installed && stillCurrent() ? "relayed" : "superseded";
+  } finally {
     merged.free();
   }
 }
 
 /**
- * The metadata pass's rebase hook, or none when the adapter cannot install
- * one. A rebase that cut something, or that lost a race, asks the host for
- * the pass that sends the current queue.
+ * The metadata pass's recovery hook, or none when the adapter cannot install
+ * one. It rebases onto a fresh peer, or, when the server's history went
+ * backwards, relays the operations the server lost or parks until the
+ * owner's device restores them. A recovery that changed the queue, or that
+ * lost a race, asks the host for the pass that sends the current queue.
  */
 export function containerMetadataPeerRebaser(
   context: Omit<MetadataPeerRebaseContext, "install">,
 ): DocumentPeerRebaser | undefined {
   const install = context.persistence.installPeerRebase;
   if (!install) return undefined;
-  return async (peerFrontiers) => {
-    const outcome = await rebaseLiveMetadata(
-      { ...context, install },
-      peerFrontiers,
-    );
-    if (outcome !== "nothing_to_cut") context.onRebased();
+  return async (refusal) => {
+    const outcome = await recoverLiveMetadata({ ...context, install }, refusal);
+    if (peerRebaseChangedQueue(outcome)) context.onRebased();
     return outcome;
   };
 }

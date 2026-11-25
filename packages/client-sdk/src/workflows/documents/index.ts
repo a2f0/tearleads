@@ -200,6 +200,10 @@ export {
   requestDocumentSyncLaneAndWait,
 } from "./sync/syncLane";
 export {
+  peerRebaseChangedQueue,
+  queuedRecoveryUpdate,
+} from "./sync/syncPeerRebase";
+export {
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,
 } from "./sync/syncTrace";

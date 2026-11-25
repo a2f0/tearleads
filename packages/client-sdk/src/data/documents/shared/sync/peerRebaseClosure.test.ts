@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { PeerRebaseCommittedCutError, rebaseOntoFreshPeer } from "./peerRebase";
+import {
+  PeerRebaseCommittedCutError,
+  type PeerRebaseInput,
+  rebaseOntoFreshPeer,
+} from "./peerRebase";
 import {
   canonicalContent,
   documentOnPeer,
@@ -28,13 +32,18 @@ async function deviceWithUnsentRecordOp(): Promise<TestDocument> {
   return device;
 }
 
+/** No relay ran, so what the device knows is committed ends where its unsent operations start. */
+function rebaseUnrelayed(input: Omit<PeerRebaseInput, "knownCommitted">) {
+  return rebaseOntoFreshPeer({ ...input, knownCommitted: input.unsentStart });
+}
+
 describe("rebaseOntoFreshPeer cut closure", () => {
   it("cuts an unsent own op on another peer that depends on a cut op", async () => {
     const device = await deviceWithUnsentRecordOp();
     writeAs(device, OLDER_OWN_PEER, "Y");
     const content = canonicalContent(device);
 
-    const result = rebaseOntoFreshPeer({
+    const result = rebaseUnrelayed({
       live: device,
       newPeer: NEW_PEER,
       refusedFrontiers: new Map([[RECORD_PEER, 5]]),
@@ -63,7 +72,7 @@ describe("rebaseOntoFreshPeer cut closure", () => {
     writeAs(device, OLDER_OWN_PEER, "Y");
     writeAs(device, RECORD_PEER, "X");
 
-    const result = rebaseOntoFreshPeer({
+    const result = rebaseUnrelayed({
       live: device,
       newPeer: NEW_PEER,
       refusedFrontiers: new Map([[RECORD_PEER, 5]]),
@@ -88,7 +97,7 @@ describe("rebaseOntoFreshPeer cut closure", () => {
     writeAs(device, OLDER_OWN_PEER, "Y");
 
     expect(() =>
-      rebaseOntoFreshPeer({
+      rebaseUnrelayed({
         live: device,
         newPeer: NEW_PEER,
         refusedFrontiers: new Map([[RECORD_PEER, 5]]),
@@ -112,7 +121,7 @@ describe("rebaseOntoFreshPeer cut closure", () => {
 
     let thrown: unknown;
     try {
-      rebaseOntoFreshPeer({
+      rebaseUnrelayed({
         live: device,
         newPeer: NEW_PEER,
         refusedFrontiers: new Map([[RECORD_PEER, 5]]),
@@ -132,7 +141,7 @@ describe("rebaseOntoFreshPeer cut closure", () => {
   it("reports nothing to cut when no refused peer passes its frontier", async () => {
     const device = await deviceWithUnsentRecordOp();
 
-    const result = rebaseOntoFreshPeer({
+    const result = rebaseUnrelayed({
       live: device,
       newPeer: NEW_PEER,
       refusedFrontiers: new Map([[RECORD_PEER, 6]]),

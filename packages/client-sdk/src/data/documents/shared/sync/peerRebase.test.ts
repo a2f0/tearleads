@@ -115,6 +115,7 @@ describe("rebaseOntoFreshPeer over random histories", () => {
       if (scenario.refused.size === 0) continue;
       const liveContent = canonicalContent(scenario.device);
       const result = rebaseOntoFreshPeer({
+        knownCommitted: scenario.unsentStart,
         live: scenario.device,
         newPeer: `${NEW_PEER}`,
         refusedFrontiers: scenario.refused,
@@ -163,5 +164,100 @@ describe("rebaseOntoFreshPeer over random histories", () => {
     expect(rebased).toBeGreaterThan(40);
     // Some histories put an own op on the other peer after a cut op.
     expect(closureCuts).toBeGreaterThan(5);
+  });
+});
+
+function append(doc: TestDocument, text: string): void {
+  const content = doc.getText("text");
+  content.insert(content.length, text);
+  doc.commit();
+}
+
+// A billing purge and the owner's recovery from a stale copy lower the
+// server's frontiers below operations this device saw committed (#3263).
+describe("rebaseOntoFreshPeer after a stale recreation", () => {
+  it("reports the regression where a committed foreign change builds on a lost operation", async () => {
+    const live = await documentOnPeer(RECORD_PEER);
+    append(live, "hello ");
+    const other = await documentOnPeer(FOREIGN_PEER);
+    exchange(other, live);
+    append(other, "world");
+    exchange(live, other);
+    const committed = versionCounters(live);
+
+    const result = rebaseOntoFreshPeer({
+      knownCommitted: committed,
+      live,
+      newPeer: `${NEW_PEER}`,
+      refusedFrontiers: new Map([[`${RECORD_PEER}`, 0]]),
+      unsentStart: committed,
+    });
+
+    expect(result).toEqual({
+      kind: "history_regressed",
+      knownCommitted: committed,
+      regressedFrontiers: new Map([[`${RECORD_PEER}`, 0]]),
+    });
+  });
+
+  it("reports the regression instead of writing committed operations again", async () => {
+    const live = await documentOnPeer(RECORD_PEER);
+    append(live, "hello ");
+    const committed = versionCounters(live);
+
+    const result = rebaseOntoFreshPeer({
+      knownCommitted: committed,
+      live,
+      newPeer: `${NEW_PEER}`,
+      refusedFrontiers: new Map([[`${RECORD_PEER}`, 0]]),
+      unsentStart: committed,
+    });
+
+    expect(result.kind).toBe("history_regressed");
+  });
+
+  it("judges a frontier against what a relay recorded as committed", async () => {
+    const live = await documentOnPeer(RECORD_PEER);
+    append(live, "hello ");
+    const committed = versionCounters(live);
+
+    // A relay queued the peer again from zero, so its unsent start fell.
+    const result = rebaseOntoFreshPeer({
+      knownCommitted: committed,
+      live,
+      newPeer: `${NEW_PEER}`,
+      refusedFrontiers: new Map([[`${RECORD_PEER}`, 2]]),
+      unsentStart: new Map([[`${RECORD_PEER}`, 0]]),
+    });
+
+    expect(result).toEqual({
+      kind: "history_regressed",
+      knownCommitted: committed,
+      regressedFrontiers: new Map([[`${RECORD_PEER}`, 2]]),
+    });
+  });
+
+  it("still rebases a refusal at what the device knows is committed", async () => {
+    const live = await documentOnPeer(RECORD_PEER);
+    append(live, "hello ");
+    const committed = versionCounters(live);
+    append(live, "world");
+
+    const result = rebaseOntoFreshPeer({
+      knownCommitted: committed,
+      live,
+      newPeer: `${NEW_PEER}`,
+      refusedFrontiers: committed,
+      unsentStart: committed,
+    });
+
+    if (result.kind !== "rebased") throw new Error("expected a rebase");
+    expect(result.keptVersion).toEqual(committed);
+    expect(result.unsentBase).toEqual(committed);
+    expect(versionCounters(result.fork)).toEqual(
+      new Map([...committed, [`${NEW_PEER}`, 5]]),
+    );
+    expect(canonicalContent(result.fork)).toBe(canonicalContent(live));
+    result.fork.free();
   });
 });

@@ -1,6 +1,49 @@
-import type { DocumentPeerFrontier } from "@tearleads/validators/response";
+import { createPendingUpdateFields } from "../../../data/documents/documentSync";
+import type { PeerRefusal } from "../../../data/documents/shared/sync/peerRefusalRecovery";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/sync/syncSubmitFailure";
-import type { RemoteDocumentSyncPass } from "./remoteDocumentSyncPass";
+import type { PendingUpdateFields } from "../../../data/persistence/documents/records";
+import type {
+  DocumentPeerRebaseOutcome,
+  RemoteDocumentSyncPass,
+} from "./remoteDocumentSyncPass";
+
+/** The abandon reason of a pass parked until the owner restores history. */
+const PEER_RESTORE_AWAITS_OWNER = "peer-restore-awaits-owner";
+
+/**
+ * Whether a recovery left a queue a new pass must send: it replaced the
+ * queue, or lost a race to a change that did. A park, and a refusal with
+ * nothing to cut, leave the queue the server just refused, so asking for
+ * another pass would only draw the same refusal.
+ */
+export function peerRebaseChangedQueue(
+  outcome: DocumentPeerRebaseOutcome,
+): boolean {
+  switch (outcome) {
+    case "rebased":
+    case "relayed":
+    case "superseded":
+      return true;
+    case "nothing_to_cut":
+    case "parked":
+      return false;
+  }
+}
+
+/**
+ * The one queued update a rebase or a relay installs, with the version the
+ * device knows is committed while the update starts below it.
+ */
+export function queuedRecoveryUpdate(recovery: {
+  readonly committedVersionVector: string | null;
+  readonly update: Uint8Array;
+}): PendingUpdateFields {
+  const fields = createPendingUpdateFields(recovery.update);
+  if (!fields) throw new Error("Peer recovery produced no update to send");
+  return recovery.committedVersionVector === null
+    ? fields
+    : { ...fields, committedVersionVector: recovery.committedVersionVector };
+}
 
 async function reportTerminalPeerRefusal(
   sync: RemoteDocumentSyncPass,
@@ -13,32 +56,66 @@ async function reportTerminalPeerRefusal(
 }
 
 /**
- * Another user owns a peer the queued updates extend. Hand the refused peers
- * to the host's rebase and end the pass without a result: the rebase changes
- * the queue, and the host requests the pass that sends it. A rebase that finds
- * nothing to cut, or that fails, leaves the refusal terminal for this pass.
+ * The server lost committed operations on a peer another user now owns, so
+ * this device may not send them again and must not write them under a fresh
+ * peer. The writes stay queued and the document stays readable and editable.
+ * The durable row tells the write queue why, as it does for an ancestor
+ * repair this writer cannot make; nothing is reported as an error. Every
+ * later pass submits the queue again, and the first one after the owner's
+ * device restores those operations recovers and clears the row.
+ */
+async function parkUntilOwnerRestores(
+  sync: RemoteDocumentSyncPass,
+): Promise<void> {
+  if (sync.stillCurrent?.() === false) return;
+  await sync.onTerminalSubmitFailure?.({
+    code: "document_peer_restore_awaits_owner",
+    message:
+      "The server lost committed history that only the document owner's devices may restore; queued changes sync afterwards",
+    ok: false,
+    report: () => undefined,
+    status: null,
+  });
+  sync.onSyncAbandoned?.(PEER_RESTORE_AWAITS_OWNER);
+}
+
+/**
+ * Another user owns a peer the queued updates extend, or they depend on an
+ * operation nobody committed. Hand the refusal to the host's recovery and
+ * end the pass without a result: a rebase or a relay changes the queue, and
+ * the host requests the pass that sends it. A recovery that parks reports
+ * the wait and leaves the queue. One that finds nothing to cut, or that
+ * fails, leaves the refusal terminal for this pass; a failure is rethrown.
  */
 export async function rebaseAfterPeerRefusal(
   sync: RemoteDocumentSyncPass,
-  refusal: {
+  request: {
     readonly failure: DocumentSyncSubmitFailure;
-    readonly peerFrontiers: readonly DocumentPeerFrontier[];
+    readonly refusal: PeerRefusal;
   },
 ): Promise<null> {
   const rebase = sync.rebaseOntoFreshPeer;
   if (!rebase) {
-    await reportTerminalPeerRefusal(sync, refusal.failure);
+    await reportTerminalPeerRefusal(sync, request.failure);
     return null;
   }
-  let result: Awaited<ReturnType<typeof rebase>>;
+  let outcome: Awaited<ReturnType<typeof rebase>>;
   try {
-    result = await rebase(refusal.peerFrontiers);
+    outcome = await rebase(request.refusal);
   } catch (error) {
-    await reportTerminalPeerRefusal(sync, refusal.failure);
+    await reportTerminalPeerRefusal(sync, request.failure);
     throw error;
   }
-  if (result === "nothing_to_cut") {
-    await reportTerminalPeerRefusal(sync, refusal.failure);
+  switch (outcome) {
+    case "nothing_to_cut":
+      await reportTerminalPeerRefusal(sync, request.failure);
+      return null;
+    case "parked":
+      await parkUntilOwnerRestores(sync);
+      return null;
+    case "rebased":
+    case "relayed":
+    case "superseded":
+      return null;
   }
-  return null;
 }

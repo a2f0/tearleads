@@ -47,6 +47,14 @@ export interface PendingUpdateFields {
   partialStartVersionVector: string;
   partialEndVersionVector: string;
   sourceVersionVector?: string | null;
+  /**
+   * The version this device knew the server had committed when it queued the
+   * update below it: a relay after a stale recreation sends committed
+   * operations again. Absent on every other update. A later peer refusal is
+   * judged against it, because the queue's start no longer says where the
+   * unsent operations begin.
+   */
+  committedVersionVector?: string | null;
 }
 
 /**
@@ -101,5 +109,6 @@ export interface SelectedPendingUpdateRow {
   partialStartVersionVector: string | null;
   partialEndVersionVector: string | null;
   sourceVersionVector: string | null;
+  committedVersionVector: string | null;
   rekeyCount: number;
 }
