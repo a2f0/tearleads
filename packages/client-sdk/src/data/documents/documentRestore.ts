@@ -1,3 +1,4 @@
+import { type createDocument, getTextValue, updateText } from "@tearleads/loro";
 import {
   type DocumentProjectorRegistryInput,
   readStoredDocumentState,
@@ -29,18 +30,13 @@ export interface DocumentRestoreContent {
 
 type RestoreRow = DocumentRestoreContent["rows"][number];
 
-/** A document whose text can be replaced, as a Loro document's can. */
-type RestorableDocument = Omit<StructuredDocumentShape, "getText"> & {
-  getText: (key: string) => {
-    toString: () => string;
-    update: (text: string) => void;
-  };
-};
+type RestorableDocument = Awaited<ReturnType<typeof createDocument>>;
 
 function restoreText(doc: RestorableDocument, text: string): boolean {
-  const current = doc.getText("text");
-  if (current.toString() === text) return false;
-  current.update(text);
+  if (getTextValue(doc) === text) return false;
+  // Bounded: a version from before a whole-text replacement differs
+  // throughout from the text it replaces.
+  updateText(doc, text);
   return true;
 }
 
