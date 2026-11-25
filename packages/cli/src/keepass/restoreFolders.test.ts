@@ -1,10 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ContainerNode } from "@tearleads/client-sdk";
-import {
-  partialRestoreError,
-  uniqueFolderName,
-  unsyncedFoldersReason,
-} from "./restoreFolders";
+import { unsyncedFoldersReason } from "../folderSync";
+import { partialRestoreError, uniqueFolderName } from "./restoreFolders";
 
 type FolderState = Pick<ContainerNode, "id" | "syncState">;
 

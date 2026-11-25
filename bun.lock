@@ -440,7 +440,7 @@
     },
   },
   "catalog": {
-    "@a2f0/continuity": "github:a2f0/continuity#0662b0747061fddcbef0814305409fcd11333f2f",
+    "@a2f0/continuity": "github:a2f0/continuity#504df2e02876743b6ed9d8e33a95098b7e6eafee",
     "@types/bun": "1.4.3",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
@@ -466,7 +466,7 @@
   "packages": {
     "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.74", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-1pTztRKSGBuBiYPA6Q0FbUrdgkr1XZP+duzYNxhkkmc+PLav/d/qpAqv5EjTqE8tFMNqbfgghMLzAL+9MGpLMw=="],
 
-    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#0662b07", {}, "a2f0-continuity-0662b07", "sha512-3A83f5QRYrCzEQNSK0sgdzgLqGCr1u+i6NwnnkBP+BqeShcQ6/kMofRml+ua21anMb8+VytNNDUKJcD6Dbd9tQ=="],
+    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#504df2e", {}, "a2f0-continuity-504df2e", "sha512-09IQyr9aXkp6Ng9ERILHAXqZtnx3pMak79TLJc2OvbhbWWvM2wrmWVRmxc/SAYisfQpC4+1Jg99aqR1JnYinBw=="],
 
     "@a2f0/ct-client": ["@a2f0/ct-client@0.1.6", "", {}, "sha512-DlDg2DKCilbrX5jIh3D+jctG66+xwpjnead8L4YY3jnIVFZ4fOBHbpJk7yY9KFBcuhNAy9UhvbgmHJgI97dI4w=="],
 
