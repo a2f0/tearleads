@@ -5,15 +5,15 @@ usage() {
   cat <<'EOF'
 Usage: scripts/dev/restoreKeepass.sh <dev|staging|prod> <file.kdbx> [options]
 
-Logs the `tearleads` CLI in to a tier and restores a KeePass database into the
-account as a new folder of passcodes, from a fresh shell. dev is the local API
-(scripts/dev/runApi.sh) at http://localhost:3001; staging and prod are the
+Logs the `tearleads` CLI in to a tier and restores a KeePass database into
+the account as a new folder of passcodes, from a fresh shell. dev is the local
+API (scripts/dev/runApi.sh) at http://localhost:3001; staging and prod are the
 deployed APIs. The account must already exist on that tier.
 
-Options pass through to `tearleads restore-keepass`:
+Options pass through to `tearleads restore-keepass`, which always runs with
+--trace (timestamped progress on stderr; it can include folder names):
   --name <folder>     Name the restore folder (default: the database's name)
   --key-file <path>   The database's key file, if it has one
-  --trace             Print timestamped progress to stderr
 
 The CLI asks for the account's recovery key, then the database's master
 password; neither echoes. Each run makes a new folder, so running it again
@@ -107,4 +107,4 @@ fi
 bun install
 bun run build:runtime
 bun run tearleads login --env "$target"
-bun run tearleads restore-keepass "$file" --env "$target" "$@"
+bun run tearleads restore-keepass "$file" --env "$target" --trace "$@"
