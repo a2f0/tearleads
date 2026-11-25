@@ -80,6 +80,7 @@ import {
   listOrganizationGroupMembersOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
+  updateOrganizationRosterTwoFactorOperation,
 } from "./organizations";
 import {
   listOrganizationPendingBlobDeletionsOperation,
@@ -123,6 +124,13 @@ import {
   getStripeCheckoutOptionsOperation,
 } from "./stripeCheckout";
 import {
+  beginTwoFactorSetupOperation,
+  disableTwoFactorOperation,
+  enableTwoFactorOperation,
+  getTwoFactorStatusOperation,
+  regenerateTwoFactorRecoveryCodesOperation,
+} from "./twoFactor";
+import {
   getContainerWriterProjectionOperation,
   getDocumentWriterProjectionOperation,
 } from "./writerProjections";
@@ -140,6 +148,11 @@ export const protocolOperations: readonly [
   typeof userIdentityOperation,
   typeof verifyOperation,
   typeof webSocketTicketOperation,
+  typeof getTwoFactorStatusOperation,
+  typeof beginTwoFactorSetupOperation,
+  typeof enableTwoFactorOperation,
+  typeof disableTwoFactorOperation,
+  typeof regenerateTwoFactorRecoveryCodesOperation,
   typeof getBlobBytesOperation,
   typeof getBlobDownloadOperation,
   typeof receiveRevenueCatWebhookOperation,
@@ -194,6 +207,7 @@ export const protocolOperations: readonly [
   typeof listOrganizationGroupMembersOperation,
   typeof updateOrganizationProfileOperation,
   typeof updateOrganizationRosterEntryOperation,
+  typeof updateOrganizationRosterTwoFactorOperation,
   typeof listOrganizationMembershipsOperation,
   typeof updateOrganizationMembershipOperation,
   typeof requestOrganizationLeaveOperation,
@@ -229,6 +243,11 @@ export const protocolOperations: readonly [
   userIdentityOperation,
   verifyOperation,
   webSocketTicketOperation,
+  getTwoFactorStatusOperation,
+  beginTwoFactorSetupOperation,
+  enableTwoFactorOperation,
+  disableTwoFactorOperation,
+  regenerateTwoFactorRecoveryCodesOperation,
   getBlobBytesOperation,
   getBlobDownloadOperation,
   receiveRevenueCatWebhookOperation,
@@ -283,6 +302,7 @@ export const protocolOperations: readonly [
   listOrganizationGroupMembersOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
+  updateOrganizationRosterTwoFactorOperation,
   listOrganizationMembershipsOperation,
   updateOrganizationMembershipOperation,
   requestOrganizationLeaveOperation,

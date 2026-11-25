@@ -49,7 +49,7 @@ test("auth operations own their HTTP contract metadata", () => {
   expect(verifyOperation).toMatchObject({
     auth: "none",
     body: VerifyRequestSchema,
-    failureStatuses: [400, 401, 403, 404, 500, 503],
+    failureStatuses: [400, 401, 403, 404, 429, 500, 503],
     id: "auth.verify",
     method: "POST",
     path: "/auth/verify",
@@ -60,6 +60,7 @@ test("auth operations own their HTTP contract metadata", () => {
     401: VerifyFailureResponseSchema,
     403: VerifyFailureResponseSchema,
     404: VerifyFailureResponseSchema,
+    429: VerifyFailureResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   });

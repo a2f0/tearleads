@@ -345,6 +345,7 @@ export function useOrgManagerModel() {
     importRosterUser,
     removeMember,
     revokeGrant,
+    setRosterTwoFactorRequired,
   } = useOrgManagerMutations({
     addUserId,
     appData,
@@ -483,6 +484,7 @@ export function useOrgManagerModel() {
     showCompactMenu,
     setGroupNameDraft,
     setImportUserIdDraft,
+    setRosterTwoFactorRequired,
     setSelectedProfileDisplayName,
     userDetail: activeUserDetail,
     userId: appData.auth.userId,

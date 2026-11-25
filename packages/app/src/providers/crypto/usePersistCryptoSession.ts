@@ -36,6 +36,7 @@ export function usePersistCryptoSession(input: {
       isRoot,
       organizationId,
       rootAcknowledgments,
+      twoFactorDeviceToken,
       userIdAcknowledged,
     },
     signingFingerprint,
@@ -75,6 +76,7 @@ export function usePersistCryptoSession(input: {
         isRoot,
         organizationId,
         rootAcknowledgments,
+        twoFactorDeviceToken,
         userId,
       },
       localPersistence,
@@ -94,6 +96,7 @@ export function usePersistCryptoSession(input: {
     organizationId,
     rootAcknowledgments,
     signingFingerprint,
+    twoFactorDeviceToken,
     userId,
   ]);
 }

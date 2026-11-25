@@ -77,6 +77,11 @@ function OrgManagerDirectoryContent({
       setSelectedProfileDisplayName={model.setSelectedProfileDisplayName}
       setImportUserIdDraft={model.setImportUserIdDraft}
       syncSeatUserIds={syncSeatUserIds}
+      twoFactorRequirement={
+        model.directory?.currentUser.isOrgAdmin
+          ? { mutating: model.mutating, set: model.setRosterTwoFactorRequired }
+          : null
+      }
     />
   );
 }

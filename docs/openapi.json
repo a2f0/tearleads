@@ -6107,6 +6107,9 @@
             ],
             "description": "`active` members have access; `disabled` entries stay visible without access."
           },
+          "twoFactorRequired": {
+            "type": "boolean"
+          },
           "updatedAt": {
             "type": "string"
           },
@@ -6126,6 +6129,7 @@
           "profileDocumentId",
           "signingKeyFingerprint",
           "status",
+          "twoFactorRequired",
           "updatedAt",
           "userId"
         ],
@@ -6871,6 +6875,9 @@
                             "disabled"
                           ]
                         },
+                        "twoFactorRequired": {
+                          "type": "boolean"
+                        },
                         "updatedAt": {
                           "type": "string"
                         },
@@ -6890,6 +6897,7 @@
                         "profileDocumentId",
                         "signingKeyFingerprint",
                         "status",
+                        "twoFactorRequired",
                         "updatedAt",
                         "userId"
                       ],
@@ -7397,6 +7405,9 @@
                                 "disabled"
                               ]
                             },
+                            "twoFactorRequired": {
+                              "type": "boolean"
+                            },
                             "updatedAt": {
                               "type": "string"
                             },
@@ -7416,6 +7427,7 @@
                             "profileDocumentId",
                             "signingKeyFingerprint",
                             "status",
+                            "twoFactorRequired",
                             "updatedAt",
                             "userId"
                           ],
@@ -7902,6 +7914,9 @@
                                 "disabled"
                               ]
                             },
+                            "twoFactorRequired": {
+                              "type": "boolean"
+                            },
                             "updatedAt": {
                               "type": "string"
                             },
@@ -7921,6 +7936,7 @@
                             "profileDocumentId",
                             "signingKeyFingerprint",
                             "status",
+                            "twoFactorRequired",
                             "updatedAt",
                             "userId"
                           ],
@@ -12542,6 +12558,199 @@
         "additionalProperties": {},
         "description": "The last row a listing page returned, by update time and id; the next page starts after it."
       },
+      "TwoFactorConfirmationRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string",
+            "description": "An authenticator code or an unused recovery code."
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "totp",
+              "recovery_code"
+            ],
+            "description": "`totp` for an authenticator code, `recovery_code` for a recovery code."
+          }
+        },
+        "required": [
+          "code",
+          "method"
+        ],
+        "additionalProperties": {},
+        "description": "Proves the second factor again before turning it off or replacing the recovery codes."
+      },
+      "TwoFactorEnableRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string",
+            "description": "The authenticator's current six-digit code."
+          },
+          "rememberDevice": {
+            "type": "boolean",
+            "description": "True to also receive a device token for this device's later sign-ins."
+          }
+        },
+        "required": [
+          "code",
+          "rememberDevice"
+        ],
+        "additionalProperties": {},
+        "description": "Confirms a pending authenticator with its current code, turning two-factor on."
+      },
+      "TwoFactorEnableResponse": {
+        "type": "object",
+        "properties": {
+          "deviceToken": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean",
+            "const": true
+          },
+          "recoveryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "enabled",
+          "recoveryCodes"
+        ],
+        "additionalProperties": {},
+        "description": "Two-factor is on: the recovery codes, shown once, and the device token if one was asked for."
+      },
+      "TwoFactorErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "two_factor_already_enabled",
+              "two_factor_invalid",
+              "two_factor_locked",
+              "two_factor_not_enabled",
+              "two_factor_setup_missing"
+            ],
+            "description": "Why it was refused, such as `two_factor_invalid` for a code that did not match."
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": {},
+        "description": "A refused two-factor management request."
+      },
+      "TwoFactorLoginCode": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "maxLength": 32,
+            "minLength": 1,
+            "type": "string",
+            "description": "The authenticator's current six-digit code, or an unused recovery code."
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "totp",
+              "recovery_code"
+            ],
+            "description": "`totp` for an authenticator code, `recovery_code` for a recovery code."
+          },
+          "rememberDevice": {
+            "type": "boolean",
+            "description": "True to receive a device token, so this device's sign-ins need no code for thirty days."
+          }
+        },
+        "required": [
+          "code",
+          "method",
+          "rememberDevice"
+        ],
+        "additionalProperties": {},
+        "description": "A second factor sent with sign-in by an identity that has two-factor on."
+      },
+      "TwoFactorRecoveryCodesResponse": {
+        "type": "object",
+        "properties": {
+          "recoveryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "recoveryCodes"
+        ],
+        "additionalProperties": {},
+        "description": "New recovery codes, shown once; the previous codes no longer work."
+      },
+      "TwoFactorSetupResponse": {
+        "type": "object",
+        "properties": {
+          "otpauthUri": {
+            "type": "string",
+            "minLength": 1
+          },
+          "secret": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "otpauthUri",
+          "secret"
+        ],
+        "additionalProperties": {},
+        "description": "A new authenticator secret, pending until a code confirms it."
+      },
+      "TwoFactorStatusResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "recoveryCodesRemaining": {
+            "maximum": 1.7976931348623157e+308,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "requiredByOrganizationIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "sessionVerified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "recoveryCodesRemaining",
+          "requiredByOrganizationIds",
+          "sessionVerified"
+        ],
+        "additionalProperties": {},
+        "description": "The signed-in identity's two-factor state and the calling session's standing."
+      },
       "UpdateOrganizationMembershipRequest": {
         "type": "object",
         "properties": {
@@ -12597,6 +12806,20 @@
         ],
         "additionalProperties": {},
         "description": "Binds or clears a roster entry's encrypted profile document."
+      },
+      "UpdateOrganizationRosterTwoFactorRequest": {
+        "type": "object",
+        "properties": {
+          "required": {
+            "type": "boolean",
+            "description": "True to refuse the member's sessions that did not pass a second factor."
+          }
+        },
+        "required": [
+          "required"
+        ],
+        "additionalProperties": false,
+        "description": "An administrator's two-factor requirement for one member."
       },
       "UploadMultipartBlobPartResponse": {
         "type": "object",
@@ -12723,8 +12946,13 @@
           },
           "code": {
             "type": "string",
-            "const": "account_suspended",
-            "description": "`account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal."
+            "enum": [
+              "account_suspended",
+              "two_factor_required",
+              "two_factor_invalid",
+              "two_factor_locked"
+            ],
+            "description": "`account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal. `two_factor_required`, `two_factor_invalid`, or `two_factor_locked` when the identity has two-factor on: ask the person for a code."
           },
           "error": {
             "type": "string"
@@ -12770,6 +12998,17 @@
             "pattern": "^(?:[A-Za-z0-9+/]{4}){1542}[A-Za-z0-9+/][AQgw]==$",
             "type": "string",
             "description": "Base64 ML-DSA-87 signature over the challenge, bound to the API origin and fingerprint."
+          },
+          "twoFactor": {
+            "$ref": "#/components/schemas/TwoFactorLoginCode",
+            "description": "The second factor, for an identity with two-factor on and no remembered device."
+          },
+          "twoFactorDeviceToken": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]+$",
+            "type": "string",
+            "description": "The token a remembered device received; it stands in for a code while valid."
           }
         },
         "required": [
@@ -12817,6 +13056,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Bearer token for the `Authorization` header of later requests."
+          },
+          "twoFactorDeviceToken": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Issued when the sign-in asked to remember this device; send it with later sign-ins."
           },
           "userId": {
             "type": "string",
@@ -13324,6 +13568,426 @@
         ]
       }
     },
+    "/auth/two-factor/disable": {
+      "post": {
+        "operationId": "auth.twoFactor.disable",
+        "summary": "Turn off two-factor authentication",
+        "description": "Turns off two-factor authentication after checking an authenticator or recovery code. It deletes the secret, the recovery codes, and every remembered device, and revokes every session of the identity, the calling one included; each renews by signing in again. Organizations that require two-factor authentication of this member refuse the renewed sessions.",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorConfirmationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/two-factor/enable": {
+      "post": {
+        "operationId": "auth.twoFactor.enable",
+        "summary": "Turn on two-factor authentication",
+        "description": "Confirms the pending authenticator with its current code and turns on two-factor authentication. The response carries ten single-use recovery codes, shown only once. The calling session counts as having passed a second factor; the identity's other sessions are revoked, so each device signs in again with a code. A wrong code returns 400 and repeated wrong codes lock code entry for a while with 429.",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorEnableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorEnableResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/two-factor/recovery-codes": {
+      "post": {
+        "operationId": "auth.twoFactor.recoveryCodes",
+        "summary": "Replace two-factor recovery codes",
+        "description": "Replaces every recovery code with ten new ones after checking an authenticator or recovery code. The old codes stop working at once; the new ones are shown only in this response.",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorConfirmationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorRecoveryCodesResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/two-factor/setup": {
+      "post": {
+        "operationId": "auth.twoFactor.setup",
+        "summary": "Start authenticator setup",
+        "description": "Creates a new authenticator secret for the signed-in identity and returns it as an `otpauth://` URI and in base32. Nothing changes at sign-in until `POST /auth/two-factor/enable` confirms a code from it; starting again replaces an unconfirmed secret. An identity that already has two-factor authentication turned on gets 409.",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorSetupResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/auth/two-factor": {
+      "get": {
+        "operationId": "auth.twoFactor.status",
+        "summary": "Get two-factor authentication status",
+        "description": "Reports whether the signed-in identity has two-factor authentication turned on, how many unused recovery codes it has, and whether the calling session passed a second factor.",
+        "tags": [
+          "Auth"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorStatusResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/auth/user-identity/{userId}": {
       "get": {
         "operationId": "auth.userIdentity",
@@ -13407,7 +14071,7 @@
       "post": {
         "operationId": "auth.verify",
         "summary": "Verify an auth challenge",
-        "description": "Completes sign-in by checking the challenge signature, bound to the API origin, against the identity's registered signing key, then opens a session and returns its bearer token plus the first WebSocket ticket. Each challenge can be used once. A suspended identity's valid signature is refused with 403 and code `account_suspended`, which clients treat as terminal.",
+        "description": "Completes sign-in by checking the challenge signature, bound to the API origin, against the identity's registered signing key, then opens a session and returns its bearer token plus the first WebSocket ticket. Each challenge can be used once. A suspended identity's valid signature is refused with 403 and code `account_suspended`, which clients treat as terminal. An identity with two-factor authentication turned on also needs an authenticator or recovery code, or a device trust token from an earlier sign-in that asked to remember the device: without one the valid signature gets 401 `two_factor_required`, a wrong code 401 `two_factor_invalid`, and repeated wrong codes 429 `two_factor_locked`.",
         "tags": [
           "Auth"
         ],
@@ -13472,6 +14136,16 @@
               }
             },
             "description": "Not Found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyFailureResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           },
           "500": {
             "content": {
@@ -21257,6 +21931,127 @@
           {
             "description": "read-model lanes match the response organization; grants and memberships are unambiguous; snapshot lanes are complete and contain no deletions",
             "id": "response.organization-read-model-consistency"
+          }
+        ]
+      }
+    },
+    "/organizations/{organizationId}/roster/{userId}/two-factor": {
+      "put": {
+        "operationId": "organizations.roster.twoFactor.update",
+        "summary": "Require two-factor authentication of a member",
+        "description": "Sets whether a member must sign in with two-factor authentication before this organization's server routes answer them. Only organization administrators may call it, for a user on the roster. While it is set, a session of the member that did not pass a second factor is refused with 403 and code `organization_two_factor_required`. When the setting changes, the member's sessions that did not pass one are revoked so the next sign-in applies it.",
+        "tags": [
+          "Organizations"
+        ],
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "organizationId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          },
+          {
+            "explode": false,
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationRosterTwoFactorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationDirectoryUserResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionFailureResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
           }
         ]
       }

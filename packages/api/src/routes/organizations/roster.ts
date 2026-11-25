@@ -1,22 +1,27 @@
 import {
   operationRoutePath,
   updateOrganizationRosterEntryOperation,
+  updateOrganizationRosterTwoFactorOperation,
 } from "@tearleads/validators/operation";
 import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
-import { updateOrganizationRosterEntry } from "../../services/organizations/orgManager";
+import {
+  updateOrganizationRosterEntry,
+  updateOrganizationRosterTwoFactor,
+} from "../../services/organizations/orgManager";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import {
-  type OrganizationsRouterDeps,
+  type OrganizationRosterRouteDeps,
   toOrganizationManagerErrorResponse,
 } from "./shared";
 
 export function createOrganizationRosterRoute({
   requireAuth,
   runtime,
-}: OrganizationsRouterDeps) {
+  sessions,
+}: OrganizationRosterRouteDeps) {
   const route = new Hono<SessionEnv>();
 
   route.on(
@@ -40,6 +45,38 @@ export function createOrganizationRosterRoute({
             c.get("session").userId,
             c.req.valid("json"),
           ),
+        );
+      } catch (error) {
+        const response = toOrganizationManagerErrorResponse(error);
+        if (response) {
+          return response;
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  route.on(
+    updateOrganizationRosterTwoFactorOperation.method,
+    operationRoutePath(updateOrganizationRosterTwoFactorOperation),
+    requireAuth,
+    jsonRequestValidator(updateOrganizationRosterTwoFactorOperation.body),
+    pathParamsValidator(
+      updateOrganizationRosterTwoFactorOperation.params,
+      "Invalid roster route",
+    ),
+    async (c) => {
+      const { organizationId, userId } = c.req.valid("param");
+
+      try {
+        return c.json<OrganizationDirectoryUserResponse>(
+          await updateOrganizationRosterTwoFactor(runtime, sessions, {
+            organizationId,
+            request: c.req.valid("json"),
+            sessionUserId: c.get("session").userId,
+            userId,
+          }),
         );
       } catch (error) {
         const response = toOrganizationManagerErrorResponse(error);

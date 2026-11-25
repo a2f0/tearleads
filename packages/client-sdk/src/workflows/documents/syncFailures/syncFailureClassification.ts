@@ -2,6 +2,7 @@ import {
   DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
+import { isOrganizationTwoFactorRefusal } from "../../../data/containers/shared/mutationFailures";
 import { shouldRetryWithFreshProjection } from "../../../data/documents/shared/projection/freshProjectionRetry";
 import {
   isRetryableDocumentSyncConflict,
@@ -48,8 +49,11 @@ export function describeDocumentRevalidationFailure(
 
 /** Human-readable description of a terminal submit failure for queue display. */
 export function describeDocumentSyncSubmitFailure(
-  failure: Pick<DocumentSyncSubmitFailure, "message" | "status">,
+  failure: Pick<DocumentSyncSubmitFailure, "code" | "message" | "status">,
 ): string {
+  if (isOrganizationTwoFactorRefusal(failure)) {
+    return "The organization requires two-factor sign-in (403)";
+  }
   if (failure.status === 403) {
     return "Write access denied by the server (403)";
   }

@@ -10,6 +10,8 @@ function clearSessionForIdentityTransition(tearleads: Tearleads): void {
     isAuthenticated: false,
     isRoot: false,
     organizationId: null,
+    // The remembered device was for the old identity's account.
+    twoFactorDeviceToken: null,
     userId: null,
   });
 }

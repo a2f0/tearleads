@@ -1,4 +1,7 @@
-import { AccountSuspendedError } from "@tearleads/api-client";
+import {
+  AccountSuspendedError,
+  TwoFactorLoginError,
+} from "@tearleads/api-client";
 import {
   reportAndRethrowKeyingVerificationError,
   type SecurityIncidentReporter,
@@ -27,19 +30,23 @@ export async function refuseSessionLogin(
 }
 
 /**
- * Runs the sign-in request. A suspended account is terminal: the session it
- * would have renewed is cleared, so that session's requests stop renewing,
- * and the error propagates for the host to name.
+ * Runs the sign-in request. A suspended account, or one that needs a second
+ * factor silent renewal cannot supply, ends the session it would have
+ * renewed: it is cleared, so that session's requests stop renewing, and the
+ * error propagates for the host to name or to ask the person for a code.
  */
-export async function authenticateUnlessSuspended<Authentication>(
+export async function authenticateUnlessRefused<Authentication>(
   authenticate: () => Promise<Authentication>,
-  clear: () => void,
+  clear: (error: unknown) => void,
 ): Promise<Authentication> {
   try {
     return await authenticate();
   } catch (error) {
-    if (error instanceof AccountSuspendedError) {
-      clear();
+    if (
+      error instanceof AccountSuspendedError ||
+      error instanceof TwoFactorLoginError
+    ) {
+      clear(error);
     }
     throw error;
   }

@@ -15,10 +15,12 @@ import {
   isCreateOrganizationRequest,
   isUpdateOrganizationProfileRequest,
   isUpdateOrganizationRosterEntryRequest,
+  isUpdateOrganizationRosterTwoFactorRequest,
   OrganizationReadModelHeldCursorQuerySchema,
   OrganizationReadModelQuerySchema,
   UpdateOrganizationProfileRequestSchema,
   UpdateOrganizationRosterEntryRequestSchema,
+  UpdateOrganizationRosterTwoFactorRequestSchema,
 } from "../request";
 import {
   CreateOrganizationGroupResponseSchema,
@@ -295,6 +297,29 @@ export const updateOrganizationRosterEntryOperation = defineJsonOperation({
   },
 });
 
+export const updateOrganizationRosterTwoFactorOperation = defineJsonOperation({
+  auth: "session",
+  body: UpdateOrganizationRosterTwoFactorRequestSchema,
+  failureResponses: {
+    400: ErrorResponseSchema,
+    401: SessionFailureResponseSchema,
+    403: ErrorResponseSchema,
+    404: ErrorResponseSchema,
+    500: ErrorResponseSchema,
+  },
+  failureStatuses: [400, 401, 403, 404, 500],
+  id: "organizations.roster.twoFactor.update",
+  summary: "Require two-factor authentication of a member",
+  description:
+    "Sets whether a member must sign in with two-factor authentication before this organization's server routes answer them. Only organization administrators may call it, for a user on the roster. While it is set, a session of the member that did not pass a second factor is refused with 403 and code `organization_two_factor_required`. When the setting changes, the member's sessions that did not pass one are revoked so the next sign-in applies it.",
+  method: "PUT",
+  params: OrganizationRosterPathParamsSchema,
+  path: "/organizations/{organizationId}/roster/{userId}/two-factor",
+  responses: {
+    200: OrganizationDirectoryUserResponseSchema,
+  },
+});
+
 export const isCreateOrganizationGroupOperationRequest =
   isCreateOrganizationGroupWithPolicyRequest;
 export const isCreateOrganizationGroupOperationResponse =
@@ -317,4 +342,8 @@ export const isUpdateOrganizationProfileOperationResponse =
 export const isUpdateOrganizationRosterEntryOperationRequest =
   isUpdateOrganizationRosterEntryRequest;
 export const isUpdateOrganizationRosterEntryOperationResponse =
+  isOrganizationDirectoryUserResponse;
+export const isUpdateOrganizationRosterTwoFactorOperationRequest =
+  isUpdateOrganizationRosterTwoFactorRequest;
+export const isUpdateOrganizationRosterTwoFactorOperationResponse =
   isOrganizationDirectoryUserResponse;

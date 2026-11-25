@@ -10,6 +10,7 @@ import {
   updateOrganizationMembershipOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
+  updateOrganizationRosterTwoFactorOperation,
   withdrawOrganizationLeaveRequestOperation,
 } from "@tearleads/validators/operation";
 import type {
@@ -17,9 +18,11 @@ import type {
   UpdateOrganizationMembershipRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
+  UpdateOrganizationRosterTwoFactorRequest,
 } from "@tearleads/validators/request";
 import type {
   OrganizationDataUsageResponse,
+  OrganizationDirectoryUserResponse,
   OrganizationMembershipResponse,
   OrganizationReadModelResponse,
   PendingBlobDeletionsResponse,
@@ -111,6 +114,18 @@ export class OrganizationArea {
       updateOrganizationRosterEntryOperation,
       input,
       { expectedPaymentRequiredOrganizationId: organizationId },
+    );
+  }
+
+  /** An administrator sets whether a member must sign in with two-factor. */
+  updateOrganizationRosterTwoFactorResult(
+    organizationId: string,
+    userId: string,
+    input: UpdateOrganizationRosterTwoFactorRequest,
+  ): Promise<RequestResult<OrganizationDirectoryUserResponse>> {
+    return this.context.transport.requestResult(
+      updateOrganizationRosterTwoFactorOperation,
+      { body: input, params: { organizationId, userId } },
     );
   }
 

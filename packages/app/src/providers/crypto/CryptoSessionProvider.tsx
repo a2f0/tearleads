@@ -1,4 +1,7 @@
-import { isDatabaseUnavailableError } from "@tearleads/client-sdk";
+import {
+  isDatabaseUnavailableError,
+  type SessionTwoFactorCode,
+} from "@tearleads/client-sdk";
 import {
   createContext,
   type MutableRefObject,
@@ -57,6 +60,8 @@ export interface CryptoSessionContextValue {
   setContainerId: (id: string | null) => void;
   login: () => Promise<boolean>;
   loginWithChallenge: (challengeHex: string) => Promise<boolean>;
+  /** Signs in with the code an identity with two-factor on was asked for. */
+  loginWithSecondFactor: (twoFactor: SessionTwoFactorCode) => Promise<boolean>;
   logout: () => void;
   /**
    * Leaves a signed-out record that keeps this identity's root
@@ -154,24 +159,32 @@ function useCryptoAuthActions(tearleads: ReturnType<typeof useTearleads>) {
   }, [tearleads]);
 
   const authenticate = useCallback(
-    async (challengeHex?: string): Promise<boolean> => {
+    async (
+      challengeHex?: string,
+      twoFactor?: SessionTwoFactorCode,
+    ): Promise<boolean> => {
       if (!tearleads.identity.signingKeyPair) {
         return false;
       }
 
-      return tearleads.session.login(challengeHex);
+      return tearleads.session.login(challengeHex, twoFactor);
     },
     [tearleads],
   );
   const login = useCallback(() => authenticate(), [authenticate]);
+  const loginWithSecondFactor = useCallback(
+    (twoFactor: SessionTwoFactorCode) => authenticate(undefined, twoFactor),
+    [authenticate],
+  );
 
   return useMemo(
     () => ({
       login,
       loginWithChallenge: authenticate,
+      loginWithSecondFactor,
       logout,
     }),
-    [authenticate, login, logout],
+    [authenticate, login, loginWithSecondFactor, logout],
   );
 }
 
@@ -316,6 +329,7 @@ function useSdkBackedCryptoSessionState(
       isAuthenticated: false,
       isRoot: false,
       organizationId: null,
+      twoFactorDeviceToken: null,
       userId: null,
     });
   }, [tearleads]);
@@ -332,6 +346,7 @@ function useSdkBackedCryptoSessionState(
     setContainerId,
     setOrganizationId,
     setUserId,
+    twoFactorDeviceToken: snapshot.twoFactorDeviceToken,
     userId: snapshot.userId,
     userIdAcknowledged,
   };
@@ -343,7 +358,7 @@ function useCryptoSessionContextValue(
   actions: ReturnType<typeof useCryptoAuthActions>,
   prepareForRestoreReload: () => Promise<RestoreReloadDrop>,
 ) {
-  const { login, loginWithChallenge, logout } = actions;
+  const { login, loginWithChallenge, loginWithSecondFactor, logout } = actions;
   return useMemo<CryptoSessionContextValue>(
     () => ({
       authToken: sessionState.authToken,
@@ -352,6 +367,7 @@ function useCryptoSessionContextValue(
       isRoot: sessionState.isRoot,
       login,
       loginWithChallenge,
+      loginWithSecondFactor,
       logout,
       prepareForRestoreReload,
       organizationId: sessionState.organizationId,
@@ -364,6 +380,7 @@ function useCryptoSessionContextValue(
     [
       login,
       loginWithChallenge,
+      loginWithSecondFactor,
       logout,
       prepareForRestoreReload,
       sessionRestoreSettled,

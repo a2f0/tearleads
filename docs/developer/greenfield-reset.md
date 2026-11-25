@@ -439,9 +439,9 @@ no old session can survive the reset. The edge stack apply in those scripts
 changes nothing, because the hostnames stayed attached; a plan that would
 create or replace a custom domain means something detached one. Record
 `dig +short api.<domain> @1.1.1.1` (and the app and demo hostnames) before,
-during, and after the reset. The document sync cursor HMAC key persists in
-`.secrets/<tier>/worker.env`; delete that file before the rebuild when the reset
-should rotate it.
+during, and after the reset. The cursor HMAC and two-factor keys persist in
+`.secrets/<tier>/worker.env`; to rotate them, delete that file and deploy with
+`TWO_FACTOR_SECRET_KEY_RESET=1`.
 
 Verify current schema initialization and application-table emptiness before any
 test identities are created. Match the latest snapshot and the full migration

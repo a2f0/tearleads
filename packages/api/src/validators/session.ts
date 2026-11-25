@@ -24,13 +24,40 @@ const sessionDataSchema = z.custom<Record<string, unknown>>(isPlainObject).pipe(
     ipAddresses: ipAddressesSchema,
     lastActiveAt: z.number().refine(isNonNegativeSafeInteger),
     lastActiveIp: z.string().min(1).nullable(),
+    /**
+     * Organizations that required two-factor sign-in of this user when the
+     * session opened. Empty for a session that passed a second factor.
+     */
+    twoFactorRequiredOrganizationIds: z.array(
+      z.string().refine(isUuidV4String),
+    ),
+    /** Whether sign-in passed a second factor (code or remembered device). */
+    twoFactorVerified: z.boolean(),
     userId: z.string().refine(isUuidV4String),
   }),
 );
 
 export type SessionData = z.infer<typeof sessionDataSchema>;
 
-export interface SessionCreateInput {
+/** A session's two-factor standing, fixed when it opens. */
+export interface SessionTwoFactorStanding {
+  readonly twoFactorRequiredOrganizationIds: readonly string[];
+  readonly twoFactorVerified: boolean;
+}
+
+/** A stored copy of the standing, detached from the caller's array. */
+export function sessionTwoFactorStanding(
+  input: SessionTwoFactorStanding,
+): Pick<SessionData, "twoFactorRequiredOrganizationIds" | "twoFactorVerified"> {
+  return {
+    twoFactorRequiredOrganizationIds: [
+      ...input.twoFactorRequiredOrganizationIds,
+    ],
+    twoFactorVerified: input.twoFactorVerified,
+  };
+}
+
+export interface SessionCreateInput extends SessionTwoFactorStanding {
   userId: string;
   fingerprint: string;
   createdAt: number;

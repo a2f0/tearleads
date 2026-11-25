@@ -12,6 +12,7 @@ import {
   type RosterUserContextMenuHandler,
 } from "./DirectoryTable";
 import { ImportRosterUserDialog } from "./ImportRosterUserDialog";
+import type { RosterTwoFactorRequirement } from "./RosterTwoFactorRow";
 import { UserDetailView } from "./UserDetailView";
 
 export function DirectoryView({
@@ -42,6 +43,7 @@ export function DirectoryView({
   setSelectedProfileDisplayName,
   setImportUserIdDraft,
   syncSeatUserIds,
+  twoFactorRequirement,
 }: {
   canImportRosterUser: boolean;
   canUpdateSelectedRosterEntry: boolean;
@@ -70,6 +72,8 @@ export function DirectoryView({
   setSelectedProfileDisplayName: (displayName: string | null) => void;
   setImportUserIdDraft: (userId: string) => void;
   syncSeatUserIds: ReadonlySet<string> | null;
+  /** Set for an administrator, who may require two-factor of a member. */
+  twoFactorRequirement: RosterTwoFactorRequirement | null;
 }) {
   const importUserDialog = (
     <ImportRosterUserDialog
@@ -133,6 +137,7 @@ export function DirectoryView({
               ? rosterProfileEditRequest.key
               : null
           }
+          twoFactorRequirement={twoFactorRequirement}
           syncSeatAssigned={
             detail?.user.status === "active" && syncSeatUserIds !== null
               ? syncSeatUserIds.has(detail.user.userId)

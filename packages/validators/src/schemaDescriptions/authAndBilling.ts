@@ -72,6 +72,10 @@ describeSchema(
     fingerprint: "Fingerprint the challenge was issued for.",
     signature:
       "Base64 ML-DSA-87 signature over the challenge, bound to the API origin and fingerprint.",
+    twoFactor:
+      "The second factor, for an identity with two-factor on and no remembered device.",
+    twoFactorDeviceToken:
+      "The token a remembered device received; it stands in for a code while valid.",
   },
 );
 
@@ -85,13 +89,15 @@ describeSchema(
     rootContainerId:
       "Root container of the default organization, or null after that organization was purged; clients verify its role from signed state.",
     token: "Bearer token for the `Authorization` header of later requests.",
+    twoFactorDeviceToken:
+      "Issued when the sign-in asked to remember this device; send it with later sign-ins.",
     wsTicket:
       "Single-use ticket for this session's first WebSocket connection.",
   },
 );
 
 describeSchema(VerifyFailureResponseSchema, "A refused sign-in.", {
-  code: "`account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal.",
+  code: "`account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal. `two_factor_required`, `two_factor_invalid`, or `two_factor_locked` when the identity has two-factor on: ask the person for a code.",
 });
 
 describeSchema(

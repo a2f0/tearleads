@@ -9,9 +9,9 @@ import { createOrganizationPolicyHistoryRoute } from "./policyHistory";
 import { createOrganizationProfileRoute } from "./profile";
 import { createOrganizationReadModelRoute } from "./readModel";
 import { createOrganizationRosterRoute } from "./roster";
-import type { OrganizationsRouterDeps } from "./shared";
+import type { OrganizationRosterRouteDeps } from "./shared";
 
-export function createOrganizationsRouter(deps: OrganizationsRouterDeps) {
+export function createOrganizationsRouter(deps: OrganizationRosterRouteDeps) {
   const organizationsRouter = new Hono<SessionEnv>();
 
   organizationsRouter.route("/", createOrganizationCreateRoute(deps));

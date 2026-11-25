@@ -9,6 +9,11 @@ import {
 import { formatMiniAppDate } from "../../../utils/formatMiniAppDate";
 import { compactFingerprint } from "../display";
 import { ORG_MANAGER_LABELS } from "../labels";
+import {
+  type RosterTwoFactorRequirement,
+  RosterTwoFactorToggle,
+  rosterTwoFactorLabel,
+} from "./RosterTwoFactorRow";
 
 function formatNullableDate(value: string | null): string {
   return value ? formatMiniAppDate(value) : ORG_MANAGER_LABELS.none;
@@ -43,8 +48,10 @@ function RosterMetadataRow({
 }
 
 export function UserRosterMetadata({
+  twoFactorRequirement = null,
   user,
 }: {
+  twoFactorRequirement?: RosterTwoFactorRequirement | null;
   user: OrganizationUserDetail["user"];
 }) {
   return (
@@ -76,6 +83,18 @@ export function UserRosterMetadata({
         label={ORG_MANAGER_LABELS.signingKey}
         title={user.signingKeyFingerprint}
         value={compactFingerprint(user.signingKeyFingerprint)}
+      />
+      <RosterMetadataRow
+        action={
+          twoFactorRequirement ? (
+            <RosterTwoFactorToggle
+              requirement={twoFactorRequirement}
+              user={user}
+            />
+          ) : undefined
+        }
+        label={ORG_MANAGER_LABELS.twoFactor}
+        value={rosterTwoFactorLabel(user)}
       />
       <RosterMetadataRow
         label={ORG_MANAGER_LABELS.joined}

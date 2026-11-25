@@ -45,6 +45,8 @@ function createApp() {
           ipAddresses: [],
           lastActiveAt: 0,
           lastActiveIp: null,
+          twoFactorRequiredOrganizationIds: [],
+          twoFactorVerified: false,
           userId: "user-1",
         });
         return next();

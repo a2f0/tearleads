@@ -1,0 +1,27 @@
+# Two-factor sign-in (greenfield flag day, no compatibility shim; no tracking
+# issue, see the PR that adds these entries): a refused `POST /auth/verify`
+# reports `two_factor_required`, `two_factor_invalid`, or `two_factor_locked`
+# beside `account_suspended`, so the failure `code` becomes an enum. Only an
+# identity that turned two-factor on with the new client can receive the new
+# codes, and clients and the API deploy together. Remove these entries, and
+# this file, as soon as main contains this contract.
+POST /auth/verify the `code` response property const value `account_suspended` was removed for the status `401`
+POST /auth/verify the `code` response property const value `account_suspended` was removed for the status `403`
+POST /auth/verify the `code` response property const value `account_suspended` was removed for the status `404`
+POST /auth/verify added the new `account_suspended` enum value to the `code` response property for the response status `401`
+POST /auth/verify added the new `account_suspended` enum value to the `code` response property for the response status `403`
+POST /auth/verify added the new `account_suspended` enum value to the `code` response property for the response status `404`
+POST /auth/verify added the new `two_factor_invalid` enum value to the `code` response property for the response status `401`
+POST /auth/verify added the new `two_factor_invalid` enum value to the `code` response property for the response status `403`
+POST /auth/verify added the new `two_factor_invalid` enum value to the `code` response property for the response status `404`
+POST /auth/verify added the new `two_factor_locked` enum value to the `code` response property for the response status `401`
+POST /auth/verify added the new `two_factor_locked` enum value to the `code` response property for the response status `403`
+POST /auth/verify added the new `two_factor_locked` enum value to the `code` response property for the response status `404`
+POST /auth/verify added the new `two_factor_required` enum value to the `code` response property for the response status `401`
+POST /auth/verify added the new `two_factor_required` enum value to the `code` response property for the response status `403`
+POST /auth/verify added the new `two_factor_required` enum value to the `code` response property for the response status `404`
+
+# Same change: organization directory users gain `twoFactorRequired`, an
+# administrator's roster requirement, so the read-model response's snapshot
+# and delta subschemas both change. Remove once main contains this contract.
+GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`

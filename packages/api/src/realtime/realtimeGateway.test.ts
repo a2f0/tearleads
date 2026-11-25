@@ -51,6 +51,8 @@ function sessionData(userId: string, sessionId: string): SessionData {
     ipAddresses: [],
     lastActiveAt: 1,
     lastActiveIp: null,
+    twoFactorRequiredOrganizationIds: [],
+    twoFactorVerified: false,
     userId,
   };
 }
