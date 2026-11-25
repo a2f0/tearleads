@@ -17,6 +17,7 @@ import {
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { assertStoredWriteHeaderVerbatim } from "../../../access/write/documentContentKeyStore";
 import { canonicalJsonEquals } from "../../../utils/canonicalJson";
+import { sha256Hex } from "../../../utils/sha256";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
 import {
   assertOutgoingDeclaredDependencies,
@@ -202,16 +203,21 @@ async function assertRetryWriteHeaderMatches(input: {
   assertStoredWriteHeaderVerbatim(input.accepted, { header, headerHash });
 }
 
-interface StoredDocumentUpdateContent {
-  readonly dependencyVersionVector: string;
-  readonly encryptedData: string;
-  readonly partialEndVersionVector: string;
-  readonly partialStartVersionVector: string;
-  readonly plaintextHash: string;
+/**
+ * SHA-256 (hex) of a stored update's content columns, as UTF-8. Postgres
+ * computes them, so matching a retried id never loads stored ciphertext into
+ * the isolate.
+ */
+export interface StoredDocumentUpdateContentDigests {
+  readonly dependencyVersionVectorSha256: string;
+  readonly encryptedDataSha256: string;
+  readonly partialEndVersionVectorSha256: string;
+  readonly partialStartVersionVectorSha256: string;
+  readonly plaintextHashSha256: string;
 }
 
 export function storedDocumentUpdateMatchesOutgoingContent(
-  existing: StoredDocumentUpdateContent | undefined,
+  existing: StoredDocumentUpdateContentDigests | undefined,
   update: Pick<
     DocumentOutgoingUpdate,
     | "dependencyVersionVector"
@@ -223,11 +229,14 @@ export function storedDocumentUpdateMatchesOutgoingContent(
 ): boolean {
   return (
     existing !== undefined &&
-    existing.encryptedData === update.encryptedData &&
-    existing.dependencyVersionVector === update.dependencyVersionVector &&
-    existing.partialStartVersionVector === update.partialStartVersionVector &&
-    existing.partialEndVersionVector === update.partialEndVersionVector &&
-    existing.plaintextHash === update.plaintextHash
+    existing.encryptedDataSha256 === sha256Hex(update.encryptedData) &&
+    existing.dependencyVersionVectorSha256 ===
+      sha256Hex(update.dependencyVersionVector) &&
+    existing.partialStartVersionVectorSha256 ===
+      sha256Hex(update.partialStartVersionVector) &&
+    existing.partialEndVersionVectorSha256 ===
+      sha256Hex(update.partialEndVersionVector) &&
+    existing.plaintextHashSha256 === sha256Hex(update.plaintextHash)
   );
 }
 
@@ -236,7 +245,7 @@ export async function assertRetryUpdateMatchesAcceptedContent(input: {
     | { readonly header: WriteHeader; readonly headerHash: string }
     | undefined;
   readonly documentId: string;
-  readonly existingRow: StoredDocumentUpdateContent | undefined;
+  readonly existingRow: StoredDocumentUpdateContentDigests | undefined;
   readonly update: DocumentOutgoingUpdate;
 }): Promise<void> {
   if (

@@ -101,8 +101,10 @@ function registerPartBytesRoute(
     pathParamsValidator(uploadMultipartBlobPartBytesOperation.params),
     headersValidator(uploadMultipartBlobPartBytesOperation.headers),
     async (c) => {
-      // S3/R2 payloads go directly to storage. Refuse before buffering a body.
-      if (runtime.blobObjectStore.createUploadPartUrl) {
+      // S3/R2 parts go from the client straight to storage over signed URLs.
+      // Refuse before reading a body, so the API never holds their bytes.
+      const store = runtime.blobObjectStore;
+      if (store.createUploadPartUrl || !store.uploadPart) {
         return c.json({ error: "Direct multipart uploads are required" }, 409);
       }
       const headers = c.req.valid("header");
@@ -110,11 +112,8 @@ function registerPartBytesRoute(
       const sha256 = headers[blobWireHeaderKeys.partSha256];
       const uploadId = headers[blobWireHeaderKeys.partUploadId];
 
-      // Read the part body with Bun's native body consumption instead of a
-      // hand-rolled ReadableStream reader over c.req.raw.body. That reader trips
-      // a Bun native request-stream defect that failed a fraction of part reads
-      // behind the ingress tunnel (and segfaulted the process before the body
-      // was buffered); arrayBuffer() consumes the body without that JS reader.
+      // Only the in-memory development store takes parts here, and it keeps
+      // every part in memory anyway, so read the bounded body in one piece.
       const bodyResult = uploadMultipartBlobPartBytesOperation.body.safeParse(
         new Uint8Array(await c.req.arrayBuffer()),
       );

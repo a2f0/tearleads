@@ -112,7 +112,17 @@ function createPrefixedBlobObjectStore(
   }
   const createDownloadUrl = store.createDownloadUrl;
   const createUploadPartUrl = store.createUploadPartUrl;
+  const uploadPart = store.uploadPart;
   return {
+    ...(uploadPart
+      ? {
+          uploadPart: (input: Parameters<typeof uploadPart>[0]) =>
+            uploadPart.call(store, {
+              ...input,
+              key: prefixBlobObjectKey(prefix, input.key),
+            }),
+        }
+      : {}),
     ...(createUploadPartUrl
       ? {
           createUploadPartUrl: (
@@ -156,11 +166,6 @@ function createPrefixedBlobObjectStore(
       store.getObjectStream(prefixBlobObjectKey(prefix, key)),
     listParts: (input) =>
       store.listParts({
-        ...input,
-        key: prefixBlobObjectKey(prefix, input.key),
-      }),
-    uploadPart: (input) =>
-      store.uploadPart({
         ...input,
         key: prefixBlobObjectKey(prefix, input.key),
       }),
