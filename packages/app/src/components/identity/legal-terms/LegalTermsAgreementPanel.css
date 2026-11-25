@@ -1,22 +1,84 @@
 /*
- * The legal terms a new identity agrees to. The onboarding-style state panel
- * centers its contents; the documents take a reading column under its copy,
- * framed like a list so the tab strip opens into it, and scroll inside that
- * frame so the agreement below stays on screen.
+ * The legal terms a new identity agrees to, in three layouts chosen by the
+ * shape of whatever hosts them (a phone, a tablet pane, a desktop window, or
+ * the demo's page), not the screen's:
+ *
+ * - narrow: one column, the documents framed between the copy and the
+ *   agreement, as wide as the screen;
+ * - medium: the same column, its copy and documents widened to a reading
+ *   measure and centered, for a tablet held upright or a tall window;
+ * - wide: two columns, the copy and the agreement beside the documents, so a
+ *   landscape host (a phone on its side, a desktop) spends its width on the
+ *   text instead of its height.
+ *
+ * In every layout the documents take the height left over and scroll inside
+ * their frame, so the agreement under or beside them stays on screen.
  */
+.legal-terms-agreement {
+  /* Size, not inline-size, so the wide layout can ask for a landscape host.
+     Every host is a flex column of definite height that this box fills. */
+  container: legal-terms-agreement / size;
+
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  /* Size containment sizes this box without its content, so a host that
+     centers its items would shrink it to nothing; stretch it instead. */
+  align-self: stretch;
+  /* Fill the host, never grow past it: the documents scroll inside it. A host
+     too short for the panel's floor scrolls here. */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.legal-terms-agreement-panel {
+  /* A floor for short hosts (a small window), so the stacked documents keep a
+     few lines to read; below it, the box above scrolls. */
+  min-height: max(100%, 30rem);
+  /* The host already insets its content; inset again, a phone's frame was too
+     narrow for both tabs and its strip scrolled one out of view. */
+  padding-inline: 0;
+  /* `safe`: centered content that overflows its box spills only downward,
+     where it can be scrolled to, never above the title. */
+  justify-content: safe center;
+}
+
+.legal-terms-agreement-panel .mini-app-state-panel-actions {
+  flex: 1 1 auto;
+  align-self: stretch;
+  gap: 0;
+  max-width: none;
+  min-height: 0;
+}
+
 .legal-terms-agreement-documents {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  width: min(100%, 40rem);
+  width: min(100%, 44rem);
   min-height: 0;
+  box-sizing: border-box;
   border: var(--border-strong);
   background: var(--color-light);
   text-align: start;
 }
 
+/* The shared strip bleeds past its surface's padding to the window's edges
+   (MiniAppTabs.css). Here it opens a framed box, so it spans the frame
+   instead, and its baseline meets the frame's sides. On touch it scrolls
+   sideways, which would let the column squeeze it flat; it keeps its height. */
+.legal-terms-agreement-documents .mini-app-tabs {
+  flex: none;
+  margin: 0;
+}
+
 .legal-terms-agreement-document {
+  flex: 1 1 auto;
   gap: var(--space-sm);
-  max-height: min(50vh, 28rem);
+  min-height: 0;
+  /* Its height comes from the space left over, never from the text, which
+     would otherwise size the wide layout's rows to the whole document. */
+  contain: size;
   padding: var(--space-sm) var(--space-md);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -64,17 +126,77 @@
 
 .legal-terms-agreement-form {
   display: grid;
-  gap: var(--space-sm);
-  width: min(100%, 40rem);
+  gap: var(--space-md);
+  width: min(100%, 44rem);
+  /* Set the agreement apart from the scrolling text above it. */
+  padding-block-start: var(--space-md);
   text-align: start;
 }
 
 .legal-terms-agreement-check {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
 }
 
 .legal-terms-agreement-form .mini-app-toolbar {
   justify-content: center;
+}
+
+/* Medium: widen the copy with the column, so the description does not stand
+   in a narrow block over text twice its width. */
+@container legal-terms-agreement (width >= 36rem) {
+  .legal-terms-agreement-panel .mini-app-state-panel-copy {
+    max-width: 36rem;
+  }
+}
+
+/*
+ * Wide: the copy and the agreement on the left, centered against the
+ * documents, which run the panel's full height on the right. The actions box
+ * steps out of the layout so the documents and the form are placed directly.
+ */
+@container legal-terms-agreement (width >= 40rem) and (orientation: landscape) {
+  .legal-terms-agreement-panel {
+    display: grid;
+    grid-template-areas:
+      ". documents"
+      "copy documents"
+      "form documents"
+      ". documents";
+    grid-template-columns: minmax(14rem, 20rem) minmax(0, 44rem);
+    grid-template-rows: 1fr auto auto 1fr;
+    /* Beside the documents, the column only needs room for the copy and the
+       agreement: a phone on its side keeps the whole panel on screen. */
+    min-height: max(100%, 18rem);
+    /* The state panel centers its items; here the documents fill their area. */
+    align-items: stretch;
+    justify-content: center;
+    column-gap: calc(2 * var(--space-md));
+    row-gap: 0;
+    text-align: start;
+  }
+
+  .legal-terms-agreement-panel .mini-app-state-panel-copy {
+    grid-area: copy;
+    max-width: none;
+  }
+
+  .legal-terms-agreement-panel .mini-app-state-panel-actions {
+    display: contents;
+  }
+
+  .legal-terms-agreement-documents {
+    grid-area: documents;
+    width: auto;
+  }
+
+  .legal-terms-agreement-form {
+    grid-area: form;
+    width: auto;
+  }
+
+  .legal-terms-agreement-form .mini-app-toolbar {
+    justify-content: flex-start;
+  }
 }
