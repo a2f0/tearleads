@@ -153,11 +153,13 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
         legalTerms.agreedVersion,
         registrationNames(peerLabel, options?.accountName ?? givenName),
       );
-      if (
-        response === "awaiting-agreement" ||
-        tearleads.identity.snapshot !== identitySnapshot
-      ) {
-        return false;
+      if (tearleads.identity.snapshot !== identitySnapshot) return false;
+      if (response === "awaiting-agreement") {
+        // Without an agreement only an identity with an account goes on: one
+        // recovered from its passphrase has one this device does not bind yet.
+        return legalTermsRequirement === "not-required"
+          ? signBackIn(tearleads, login, identitySnapshot, false)
+          : false;
       }
       if (!response || "status" in response) {
         return signBackIn(
@@ -174,6 +176,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       canRegisterCurrentIdentity,
       givenName,
       legalTerms,
+      legalTermsRequirement,
       login,
       loginWithChallenge,
       peerLabel,
