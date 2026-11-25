@@ -10,6 +10,7 @@ import { envFileDocumentProjectorDefinition } from "../document-types/env-file/e
 import { eyeglassPrescriptionDocumentProjectorDefinition } from "../document-types/eyeglass-prescription/eyeglassPrescriptionDocumentDefinition";
 import { genericFileDocumentProjectorDefinition } from "../document-types/generic-file/genericFileDocumentDefinition";
 import { imageDocumentProjectorDefinition } from "../document-types/image/imageDocumentDefinition";
+import { insurancePolicyDocumentProjectorDefinition } from "../document-types/insurance-policy/insurancePolicyDocumentDefinition";
 import { jsonFileDocumentProjectorDefinition } from "../document-types/json-file/jsonFileDocumentDefinition";
 import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
 import { passportDocumentProjectorDefinition } from "../document-types/passport/passportDocumentDefinition";
@@ -49,6 +50,7 @@ export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentP
       ...birthCertificateDocumentProjectorDefinition,
       clientProjection: birthCertificateClientProjection,
     },
+    insurancePolicyDocumentProjectorDefinition,
     envFileDocumentProjectorDefinition,
     bloodPressureDocumentProjectorDefinition,
     eyeglassPrescriptionDocumentProjectorDefinition,

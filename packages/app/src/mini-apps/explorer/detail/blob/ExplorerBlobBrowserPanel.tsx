@@ -45,7 +45,7 @@ interface ExplorerBlobBrowserPanelProps {
   online: boolean;
   organizationNamesById?: ReadonlyMap<string, string> | undefined;
   // When set, the panel runs in pick mode: rows resolve the pick (instead of
-  // opening blob detail) and the list is filtered to image blobs.
+  // opening blob detail) and only blobs the slot accepts are selectable.
   pickTarget?: BlobPickTarget | null | undefined;
   onCancelBlobPick: () => void;
   onPickBlob?: ((blob: BlobInfo) => void) | undefined;
@@ -190,6 +190,7 @@ export function ExplorerBlobBrowserPanel(
           onPickBlob={pickBlob}
           organizationNamesById={params.organizationNamesById}
           renderSyncCell={renderExplorerSyncCell}
+          slotAccept={params.pickTarget.slotAccept}
           slotLabel={params.pickTarget.slotLabel}
         />
       ) : (

@@ -10,6 +10,7 @@ import {
 const TARGET: BlobPickTarget = {
   containerId: "c1",
   localId: "n1",
+  slotAccept: "image",
   slotId: "slot",
   slotLabel: "Attachment",
 };

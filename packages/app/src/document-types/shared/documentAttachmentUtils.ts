@@ -6,13 +6,43 @@ import type {
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
 
+/**
+ * The files a slot takes. Cards and photos are images; policies, titles, and
+ * prescriptions often arrive as PDFs, so their slots take either.
+ */
+export type DocumentAttachmentAccept = "image" | "image-or-pdf";
+
 export interface DocumentAttachmentSlot {
   label: string;
   slotId: string;
-  /** A named collection; each image has its own immutable storage slot. */
+  /** Defaults to images only. */
+  accept?: DocumentAttachmentAccept;
+  /** A named collection; each file has its own immutable storage slot. */
   multiple?: boolean;
   /** A collection item's label, numbered as "Photo 1"; defaults to `label`. */
   itemLabel?: string;
+}
+
+const PDF_MIME_TYPE = "application/pdf";
+
+export function getAttachmentSlotAccept(
+  slot: Pick<DocumentAttachmentSlot, "accept">,
+): DocumentAttachmentAccept {
+  return slot.accept ?? "image";
+}
+
+/** The file chooser's `accept` attribute for a slot. */
+export function getAttachmentSlotFileInputAccept(
+  accept: DocumentAttachmentAccept,
+): string {
+  return accept === "image-or-pdf" ? `image/*,${PDF_MIME_TYPE}` : "image/*";
+}
+
+/** What a slot's actions and placeholders call its file: "Image" or "File". */
+export function getAttachmentSlotNoun(
+  accept: DocumentAttachmentAccept,
+): "File" | "Image" {
+  return accept === "image-or-pdf" ? "File" : "Image";
 }
 
 export function resolveAttachmentUploadSlot(
@@ -31,15 +61,16 @@ export function expandAttachmentSlots(
 ): ReadonlyArray<DocumentAttachmentSlot> {
   return slots.flatMap((slot) => {
     if (!slot.multiple) return [slot];
-    // Each photo lives in its own `<slot>:<uuid>` slot; the bare slot is only
+    // Each item lives in its own `<slot>:<uuid>` slot; the bare slot is only
     // the collection's append action. An empty collection keeps it while
     // editing, so the card holds its place until attaching becomes possible;
     // a reader has nothing to append, so an empty collection shows nothing.
     const expanded: DocumentAttachmentSlot[] = attachments
       .filter((attachment) => attachment.slotId.startsWith(`${slot.slotId}:`))
-      .map((photo, index) => ({
+      .map((item, index) => ({
+        ...(slot.accept ? { accept: slot.accept } : {}),
         label: `${slot.itemLabel ?? slot.label} ${index + 1}`,
-        slotId: photo.slotId,
+        slotId: item.slotId,
       }));
     if (mode.canAttach || (mode.isEditing && expanded.length === 0)) {
       expanded.push(slot);
@@ -118,6 +149,21 @@ export function isImageDocumentAttachmentBlob(
   return blob.mimeType?.startsWith("image/") === true;
 }
 
+export function isPdfDocumentAttachmentBlob(blob: Pick<BlobInfo, "mimeType">) {
+  return blob.mimeType === PDF_MIME_TYPE;
+}
+
+/** Whether a blob can fill a slot that takes `accept`. */
+export function isDocumentAttachmentBlobAccepted(
+  accept: DocumentAttachmentAccept,
+  blob: Pick<BlobInfo, "mimeType">,
+) {
+  return (
+    isImageDocumentAttachmentBlob(blob) ||
+    (accept === "image-or-pdf" && isPdfDocumentAttachmentBlob(blob))
+  );
+}
+
 export function getDocumentAttachmentBlobName(
   blob: Pick<BlobInfo, "blobId" | "name" | "references" | "storageKey">,
 ): string {
@@ -151,15 +197,16 @@ export async function readBlobDocumentAttachmentUpload(params: {
 
 export function getDocumentAttachmentStatusLabel(
   status: DocumentAttachmentStatus | undefined,
+  noun: "File" | "Image" = "Image",
 ): string | null {
   if (status === "syncing") {
-    return "Syncing image.";
+    return `Syncing ${noun.toLowerCase()}.`;
   }
   if (status === "intent-mismatch") {
-    return "Image differs from the document's recorded version.";
+    return `${noun} differs from the document's recorded version.`;
   }
   if (status === "unavailable") {
-    return "Image missing or damaged on this device.";
+    return `${noun} missing or damaged on this device.`;
   }
 
   return null;

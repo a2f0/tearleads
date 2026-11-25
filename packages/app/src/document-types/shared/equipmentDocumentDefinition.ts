@@ -7,6 +7,10 @@ import {
 } from "@tearleads/client-sdk";
 import type { AppDocumentProjectorDefinition } from "../types";
 import type { DocumentAttachmentSlot } from "./documentAttachmentUtils";
+import {
+  type DocumentFieldOption,
+  getDocumentFieldOptionLabel,
+} from "./documentFieldOptions";
 import { structuredFieldsProjector } from "./documentFieldUtils";
 import {
   type DocumentPhotoCapability,
@@ -26,17 +30,12 @@ export type EquipmentDocumentFields = {
   serialNumber: string;
 };
 
-export interface EquipmentTypeOption {
-  readonly label: string;
-  readonly value: string;
-}
-
 export interface EquipmentDocumentTypeDefinition
   extends AppDocumentProjectorDefinition {
   readonly photos: DocumentPhotoCapability;
   readonly slots: readonly DocumentAttachmentSlot[];
   readonly label: string;
-  readonly typeOptions: ReadonlyArray<EquipmentTypeOption>;
+  readonly typeOptions: ReadonlyArray<DocumentFieldOption>;
   readonly untitledTitle: string;
 }
 
@@ -64,40 +63,12 @@ export function readEquipmentFields(
   return readEquipmentFieldsFromRecord(fields).fields;
 }
 
-function humanizeEquipmentType(value: string): string {
-  return value
-    .split(/[\s_-]+/u)
-    .filter((part) => part.length > 0)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(" ");
-}
-
-/**
- * The display label for a stored type value. A value outside the kind's option
- * list (written by a newer client with a longer list) is humanized rather than
- * dropped so the document still reads sensibly here.
- */
-export function getEquipmentTypeLabel(
-  options: ReadonlyArray<EquipmentTypeOption>,
-  value: string,
-): string {
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    return "";
-  }
-
-  return (
-    options.find((option) => option.value === trimmed)?.label ??
-    humanizeEquipmentType(trimmed)
-  );
-}
-
 interface EquipmentDocumentTypeConfig {
   createIcon: Icon;
   createLabel: string;
   kind: StoredDocumentKind;
   label: string;
-  typeOptions: ReadonlyArray<EquipmentTypeOption>;
+  typeOptions: ReadonlyArray<DocumentFieldOption>;
   untitledTitle: string;
 }
 
@@ -109,7 +80,7 @@ function deriveEquipmentTitle(
   fields: EquipmentDocumentFields,
 ): string {
   const descriptor = [
-    getEquipmentTypeLabel(config.typeOptions, fields.equipmentType),
+    getDocumentFieldOptionLabel(config.typeOptions, fields.equipmentType),
     fields.make.trim(),
     fields.model.trim(),
   ]
