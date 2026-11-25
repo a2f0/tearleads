@@ -10,6 +10,9 @@ export async function uploadBlobObject(
   key: string,
   value: string | Uint8Array,
 ): Promise<void> {
+  if (!store.uploadPart) {
+    throw new Error("uploadBlobObject needs a store that takes API parts");
+  }
   const bytes = blobObjectBytes(value);
   const sha256 = await sha256Hex(bytes);
   const { uploadId } = await store.createMultipartUpload({ key });

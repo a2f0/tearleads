@@ -68,58 +68,62 @@ export function LegalTermsAgreementPanel({
     if (agreed) onAgree();
   };
 
+  // The outer box is the size container the layout's breakpoints query: a
+  // window, a pane, or the demo's page can each be wide or narrow on its own.
   return (
-    <MiniAppStatePanel
-      className="legal-terms-agreement"
-      description={LEGAL_TERMS_COPY?.description}
-      title={LEGAL_TERMS_COPY?.title}
-    >
-      <div className="legal-terms-agreement-documents" ref={documentRef}>
-        <MiniAppTabList
-          activeTab={tab}
-          idPrefix={idPrefix}
-          label="Legal documents"
-          onSelect={setTab}
-          tabs={LEGAL_DOCUMENT_TABS}
-        />
-        <MiniAppTabPanel
-          activeTab={tab}
-          className="legal-terms-agreement-document"
-          idPrefix={idPrefix}
-        >
-          {tab === "terms-of-service" ? (
-            <TermsOfServiceDocument
-              idPrefix={`${idPrefix}-terms-`}
-              siteHref={siteHref}
-            />
-          ) : (
-            <PrivacyPolicyDocument
-              idPrefix={`${idPrefix}-privacy-`}
-              siteHref={siteHref}
-            />
-          )}
-        </MiniAppTabPanel>
-      </div>
-      <form className="legal-terms-agreement-form" onSubmit={submit}>
-        <label className="legal-terms-agreement-check" htmlFor={checkboxId}>
-          <MiniAppCheckbox
-            checked={agreed}
-            id={checkboxId}
-            onChange={(event) => setAgreed(event.currentTarget.checked)}
+    <div className="legal-terms-agreement">
+      <MiniAppStatePanel
+        className="legal-terms-agreement-panel"
+        description={LEGAL_TERMS_COPY?.description}
+        title={LEGAL_TERMS_COPY?.title}
+      >
+        <div className="legal-terms-agreement-documents" ref={documentRef}>
+          <MiniAppTabList
+            activeTab={tab}
+            idPrefix={idPrefix}
+            label="Legal documents"
+            onSelect={setTab}
+            tabs={LEGAL_DOCUMENT_TABS}
           />
-          <span>{LEGAL_TERMS_AGREEMENT_LABEL}</span>
-        </label>
-        <MiniAppToolbar>
-          {onBack && (
-            <MiniAppButton type="button" variant="ghost" onClick={onBack}>
-              Back
+          <MiniAppTabPanel
+            activeTab={tab}
+            className="legal-terms-agreement-document"
+            idPrefix={idPrefix}
+          >
+            {tab === "terms-of-service" ? (
+              <TermsOfServiceDocument
+                idPrefix={`${idPrefix}-terms-`}
+                siteHref={siteHref}
+              />
+            ) : (
+              <PrivacyPolicyDocument
+                idPrefix={`${idPrefix}-privacy-`}
+                siteHref={siteHref}
+              />
+            )}
+          </MiniAppTabPanel>
+        </div>
+        <form className="legal-terms-agreement-form" onSubmit={submit}>
+          <label className="legal-terms-agreement-check" htmlFor={checkboxId}>
+            <MiniAppCheckbox
+              checked={agreed}
+              id={checkboxId}
+              onChange={(event) => setAgreed(event.currentTarget.checked)}
+            />
+            <span>{LEGAL_TERMS_AGREEMENT_LABEL}</span>
+          </label>
+          <MiniAppToolbar>
+            {onBack && (
+              <MiniAppButton type="button" variant="ghost" onClick={onBack}>
+                Back
+              </MiniAppButton>
+            )}
+            <MiniAppButton disabled={!agreed} type="submit">
+              Continue
             </MiniAppButton>
-          )}
-          <MiniAppButton disabled={!agreed} type="submit">
-            Continue
-          </MiniAppButton>
-        </MiniAppToolbar>
-      </form>
-    </MiniAppStatePanel>
+          </MiniAppToolbar>
+        </form>
+      </MiniAppStatePanel>
+    </div>
   );
 }

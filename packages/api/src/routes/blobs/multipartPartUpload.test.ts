@@ -49,6 +49,9 @@ async function fixture(
   const owner = await createBlobStageOwner();
   const runtime = createServiceTestRuntime();
   const memory = runtime.blobObjectStore;
+  // Stands in for storage receiving a client's signed PUT.
+  const uploadMemoryPart = memory.uploadPart;
+  if (!uploadMemoryPart) throw new Error("Expected the in-memory blob store");
   const contentMd5 = createHash("md5")
     .update(bytes.subarray(0, firstPartByteLength))
     .digest("base64");
@@ -92,6 +95,7 @@ async function fixture(
     memory,
     stage,
     createUploadPartUrl,
+    uploadMemoryPart,
     route,
     body,
     path,
@@ -242,7 +246,7 @@ test("later chunks receive fresh URLs after five minutes and complete with earli
     ).json(),
   );
   const key = `organizations/${f.owner.organizationId}/blob-stages/${f.stage.stageId}`;
-  const part1 = await f.memory.uploadPart({
+  const part1 = await f.uploadMemoryPart({
     key,
     uploadId: f.stage.uploadId,
     partNumber: 1,
@@ -287,7 +291,7 @@ test("later chunks receive fresh URLs after five minutes and complete with earli
         })
       ).uploadedParts,
     ).toEqual([part1]);
-    const part2 = await f.memory.uploadPart({
+    const part2 = await f.uploadMemoryPart({
       key,
       uploadId: f.stage.uploadId,
       partNumber: 2,
@@ -339,8 +343,6 @@ test("unsigned stores use byte transport while S3 byte proxy requests fail befor
     runtime: f.runtime,
     requireAuth: authenticated(f.owner.userId),
   });
-  const uploadPart = mock(f.memory.uploadPart);
-  f.runtime.blobObjectStore = { ...f.runtime.blobObjectStore, uploadPart };
   const proxy = await app.request(f.path.replace("/upload", "/bytes"), {
     method: "PUT",
     headers: {
@@ -370,7 +372,6 @@ test("unsigned stores use byte transport while S3 byte proxy requests fail befor
       userId: f.owner.userId,
     }),
   ).rejects.toThrow("Direct multipart uploads are required");
-  expect(uploadPart).not.toHaveBeenCalled();
 });
 
 test("part authorization requires authentication before input validation", async () => {

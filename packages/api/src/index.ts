@@ -102,12 +102,11 @@ const server = {
   // so never expose this upload-capable development server to the network.
   hostname: resolveApiHost(API_HOST),
   port: Number(API_PORT),
-  // Bound every request body to the multipart part ceiling. The part route reads
-  // its body with c.req.arrayBuffer() (Bun's native read, which sidesteps the
-  // native-stream defect that segfaulted the streamed reader), so this server cap
-  // is what keeps that buffered read from growing unbounded — Bun rejects a larger
-  // body with a 413 before the handler allocates it. Blob parts are the only
-  // bodies that approach this size; everything else is small JSON.
+  // Bound every request body to the multipart part ceiling. With the in-memory
+  // blob store, the part route buffers its body with c.req.arrayBuffer(), so
+  // this cap keeps that read bounded: Bun rejects a larger body with a 413
+  // before the handler allocates it. Blob parts are the only bodies that
+  // approach this size; everything else is small JSON.
   maxRequestBodySize: MAX_UPLOAD_PART_BYTES,
   fetch(
     req: Request,

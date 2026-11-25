@@ -10,7 +10,10 @@ import {
   type S3Client,
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
-import type { BlobObjectPart } from "../../src/adapters/blobObjectStore";
+import type {
+  BlobObjectPart,
+  BlobObjectStore,
+} from "../../src/adapters/blobObjectStore";
 import { createS3BlobObjectStore } from "../../src/adapters/s3BlobObjectStore";
 
 export interface CommandWithInput {
@@ -237,14 +240,86 @@ class FakeS3Client {
   }
 }
 
+const FAKE_SIGNED_ORIGIN = "https://signed-part.test";
+
+/**
+ * A store shaped like the deployed one: S3 operations plus upload signing, so
+ * part bytes reach the fake bucket the way a client sends them, never through
+ * the API. `putSignedPart` plays the client's PUT and, like R2, refuses bytes
+ * whose length or MD5 differs from what the URL signed.
+ */
 export function createFakeS3BlobObjectStore() {
   const client = new FakeS3Client();
-  const store = createS3BlobObjectStore({
-    bucket: "blob-test-bucket",
-    client: client as unknown as Pick<S3Client, "send">,
-  });
+  const bucket = "blob-test-bucket";
+  const store: BlobObjectStore = {
+    ...createS3BlobObjectStore({
+      bucket,
+      client: client as unknown as Pick<S3Client, "send">,
+    }),
+    async createUploadPartUrl(input) {
+      const url = new URL(
+        `/${encodeURIComponent(input.key)}`,
+        FAKE_SIGNED_ORIGIN,
+      );
+      url.searchParams.set("uploadId", input.uploadId);
+      url.searchParams.set("partNumber", String(input.partNumber));
+      url.searchParams.set("byteLength", String(input.byteLength));
+      url.searchParams.set("contentMd5", input.contentMd5);
+      return {
+        url: url.href,
+        expiresAt: new Date(Date.now() + input.expiresIn * 1000).toISOString(),
+      };
+    },
+  };
 
-  return { client, store };
+  async function putSignedPart(
+    signedUrl: string,
+    bytes: Uint8Array,
+  ): Promise<BlobObjectPart> {
+    const url = new URL(signedUrl);
+    const contentMd5 = createHash("md5").update(bytes).digest("base64");
+    if (
+      url.origin !== FAKE_SIGNED_ORIGIN ||
+      url.searchParams.get("byteLength") !== String(bytes.byteLength) ||
+      url.searchParams.get("contentMd5") !== contentMd5
+    ) {
+      throw new Error("Part bytes do not match the signed upload");
+    }
+    const partNumber = Number(url.searchParams.get("partNumber"));
+    const { ETag } = (await client.send(
+      new UploadPartCommand({
+        Body: bytes,
+        Bucket: bucket,
+        ContentLength: bytes.byteLength,
+        ContentMD5: contentMd5,
+        Key: decodeURIComponent(url.pathname.slice(1)),
+        PartNumber: partNumber,
+        UploadId: url.searchParams.get("uploadId") ?? "",
+      }),
+    )) as { readonly ETag: string };
+    return { byteLength: bytes.byteLength, etag: ETag, partNumber };
+  }
+
+  /** Sign one part, then send its bytes as a client would. */
+  async function uploadPart(input: {
+    readonly bytes: Uint8Array;
+    readonly key: string;
+    readonly partNumber: number;
+    readonly uploadId: string;
+  }): Promise<BlobObjectPart> {
+    const signed = await store.createUploadPartUrl?.({
+      byteLength: input.bytes.byteLength,
+      contentMd5: createHash("md5").update(input.bytes).digest("base64"),
+      expiresIn: 300,
+      key: input.key,
+      partNumber: input.partNumber,
+      uploadId: input.uploadId,
+    });
+    if (!signed) throw new Error("Expected the fake store to sign uploads");
+    return putSignedPart(signed.url, input.bytes);
+  }
+
+  return { client, putSignedPart, store, uploadPart };
 }
 
 export function listPartNumbers(
