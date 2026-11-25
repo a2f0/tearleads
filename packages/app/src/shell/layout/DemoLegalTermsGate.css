@@ -1,11 +1,15 @@
 /* Stands in for the demo's panes until the terms are agreed: it takes their
- * place in the frame and scrolls on a short screen. */
+ * place in the frame, and the agreement panel scrolls itself on a short
+ * screen. Auto-placed, it landed in the frame's first cell, the notice row's
+ * left column, and filled the top of one half of a desktop; it takes the
+ * panes' row, across both their columns. */
 .demo-legal-terms-gate {
+  grid-row: left;
+  grid-column: 1 / -1;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
   background: var(--color-light);
 }
