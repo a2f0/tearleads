@@ -36,9 +36,11 @@ function documentRequests(device: Device, from: number, profileId: string) {
 // the CLI's in-memory database) birthed an empty local copy whose first sync
 // re-submitted the profile's create: the API refused it with 409
 // `document_manifest_already_exists` and the SDK adopted it, at the cost of a
-// failed request and a writer-projection read (#3257). A member add only
-// commits group policy; it neither creates nor reads the profile.
-test("a member add neither re-creates nor reads the organization profile", async () => {
+// failed request and a writer-projection read (#3257). A member add or
+// removal only commits group policy; it neither creates nor reads the
+// profile. Each window opens once the device has settled, so a reconciler
+// pull started by its folder hydration is not counted against the change.
+test("a member change neither re-creates nor reads the organization profile", async () => {
   world = await World.create();
   const alice = await world.register("alice");
   const bob = await world.register("bob");
@@ -56,15 +58,30 @@ test("a member add neither re-creates nor reads the organization profile", async
   // Organization Metadata container.
   const fresh = await world.newDevice(alice);
   await fresh.holdFolder(world.root(alice).id);
+  await fresh.idle();
   const freshFrom = fresh.transport.history.length;
   await world.addToOrganization(alice, bob, fresh);
   expect(documentRequests(fresh, freshFrom, profileId)).toEqual([]);
 
   // A later member, added from the install that registered, its tree open.
   await registered.holdFolder(world.root(alice).id);
+  await registered.idle();
   const registeredFrom = registered.transport.history.length;
   await world.addToOrganization(alice, carol, registered);
   expect(documentRequests(registered, registeredFrom, profileId)).toEqual([]);
+
+  // A member removal, from the same install.
+  const directory = await registered.sdk.organizations.loadDirectoryAndGroups();
+  if (!directory) throw new Error("alice has no directory");
+  const removalFrom = registered.transport.history.length;
+  await registered.sdk.organizations.removeUserFromGroup({
+    expectedGroupName: "Members",
+    groupId: directory.memberGroupId,
+    removedUserId: carol.userId,
+  });
+  await registered.idle();
+  await registered.sdk.organizations.loadDirectoryAndGroupsAfterMutation();
+  expect(documentRequests(registered, removalFrom, profileId)).toEqual([]);
 
   expect(fresh.errors).toEqual([]);
   expect(registered.errors).toEqual([]);

@@ -141,6 +141,8 @@ export class World {
     device: Device = primary(owner),
   ): Promise<void> {
     trace(`addToOrganization`);
+    if (!owner.devices.includes(device))
+      throw new Error(`${device.label} is not a device of ${owner.name}`);
     const directory = await device.sdk.organizations.loadDirectoryAndGroups();
     if (!directory) throw new Error(`${owner.name} has no directory`);
     await admit(device, member);
