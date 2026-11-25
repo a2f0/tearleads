@@ -48,6 +48,23 @@ helpers name the ones callers act on:
 on its own, it throws and the document keeps what the other updates brought.
 Operations a document already holds import again as a no-op.
 
+## Text writes
+
+Write a document's text through `updateText`, never through a text
+container's own `update`. Loro's diffs run in one synchronous WebAssembly call
+and take time quadratic in how much of the text differs, so `updateText` gives
+each one `TEXT_DIFF_BUDGET_MS` and falls back when it runs out. A diff that
+runs out leaves the document as it was. The result says how the write was
+expressed, which decides how it merges with a concurrent edit:
+
+- `character`: only the characters that differ were deleted and inserted. An
+  ordinary edit or paste takes this path.
+- `line`: only the lines that differ were. A concurrent edit inside a line the
+  write kept merges into it; one inside a rewritten line loses its
+  surroundings.
+- `whole`: every character held was deleted and the new text inserted. A
+  concurrent insert survives, without any of the text it was written into.
+
 ## Runtime contract
 
 [`runtimeContract.test.ts`](./src/runtimeContract.test.ts) pins behavior of the
@@ -60,6 +77,10 @@ exact Loro version that document sync is built on:
   fresh peer id. Sync never leaves such an update in a live document: the
   judge voids an update whose dependencies no earlier update carries before it
   reaches one.
+
+[`textUpdate.test.ts`](./src/textUpdate.test.ts) pins what `updateText` relies
+on: a diff past its `timeoutMs` throws an `Error` whose message is
+`Update timeout`, and leaves the document as it was.
 
 See [dependency maintenance](../../docs/dependency-upgrades.md#current-constraints)
 for what moving the Loro pin requires.
