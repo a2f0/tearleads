@@ -133,6 +133,15 @@ from the other wait.
 describes the windows, and [rotation deaths](./rotation-deaths.md) the count a
 key rotation keeps.
 
+No limit here bounds the time a reader spends importing one served update. The
+sync request ceiling bounds the update's size, and the exactly pinned Loro
+version imports one large text insert in bounded time: 512 KiB in under a
+second, which the
+[runtime contract](../packages/loro/src/runtimeContract.test.ts) checks. Loro
+1.16.4 took time quadratic in the insert's size, about a minute for 2 MiB
+([#3196](https://github.com/a2f0/tearleads/issues/3196)). Moving the pin
+follows [dependency maintenance](./dependency-upgrades.md#current-constraints).
+
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
 | Runtime attempts that void an update | 3 process lifetimes (`MAX_LORO_RUNTIME_ATTEMPTS`, [`data/documents/shared/sync/loroRuntimeFailureLedger.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroRuntimeFailureLedger.ts)) | SDK: a process's first runtime failure while sync judges the update counts one attempt toward it, and so does a death in a read window that held the update alone, which the next lifetime claims ([`workflows/documents/sync/loroWindows.ts`](../packages/client-sdk/src/workflows/documents/sync/loroWindows.ts)). Attempts persist at stage `loro_runtime` in `document_void_updates`. | The update is a final void under that judge, reported, and never read again; a new judge (a decoder or void-rules change) judges it from zero. Below the limit it is unsettled: it holds every later update of its page, and in the same process it waits out a retry delay of one minute, doubling to an hour. |

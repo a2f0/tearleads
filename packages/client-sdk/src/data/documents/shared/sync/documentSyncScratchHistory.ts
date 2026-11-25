@@ -6,6 +6,7 @@ import {
   importUpdates,
   isLoroRuntimeFailure,
   LoroImportUnresolvedDependenciesError,
+  LoroReusedOperationIdError,
   listVersionVectorSpans,
   satisfiesVersionVector,
   updateMatchesDocumentHistory,
@@ -19,6 +20,8 @@ export type SyncDocument = Awaited<ReturnType<typeof createDocument>>;
 
 const MISSING_DEPENDENCY_MESSAGE =
   "incoming Loro update depends on operations no earlier served update carries";
+const REUSED_FRONTIER_MESSAGE =
+  "incoming Loro update reuses an already-covered frontier with different operations";
 
 /** The peer this device writes under and how many of its operations it held. */
 export interface OwnPeer {
@@ -136,6 +139,23 @@ function importVoid(
 }
 
 /**
+ * The void of an update that reuses ids `document` held with other
+ * operations. It names this device's peer when those ids are its own.
+ */
+function reusedFrontierVoid(
+  update: DecryptedDocumentSyncUpdate,
+  own: OwnPeer,
+  scratchChanged: boolean,
+  cause?: unknown,
+): ScratchVoid {
+  return importVoid(
+    new Error(REUSED_FRONTIER_MESSAGE, { cause }),
+    scratchChanged,
+    preemptedOwnPeer(update, own),
+  );
+}
+
+/**
  * Whether `update` joins `document`, which holds the reader's history and
  * every update accepted before it in server order. A void reports whether its
  * import changed the document: an import that left pending or partial
@@ -168,19 +188,16 @@ function judgeOnScratch(
         true,
       );
     }
+    if (error instanceof LoroReusedOperationIdError) {
+      return reusedFrontierVoid(update, own, changed(), error);
+    }
     return importVoid(error, changed());
   }
-  // Loro keeps the first operation it holds for a peer/counter and ignores a
-  // later one, so an update that reuses held ids with different operations
-  // imports "successfully". Only the resulting history shows the reuse.
+  // Loro refuses an update that reuses held ids with different operations.
+  // An import it accepts is still proved against the resulting history, so
+  // the verdict does not rest on that refusal alone.
   if (!updateMatchesDocumentHistory(document, update.updateData)) {
-    return importVoid(
-      new Error(
-        "incoming Loro update reuses an already-covered frontier with different operations",
-      ),
-      changed(),
-      preemptedOwnPeer(update, own),
-    );
+    return reusedFrontierVoid(update, own, changed());
   }
   return { verdict: "accepted" };
 }

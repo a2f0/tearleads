@@ -71,21 +71,35 @@ remove them when the stated checks pass without the pin.
 - MSW stays on 2.15.0: 3.0.3 bypasses request handlers under pinned Bun 1.4.3.
   Revisit when MSW/Bun changes, proving interception and strict unhandled-request
   rejection under the pinned Bun runtime, not only Node.
-- Loro stays on 1.16.4. On 1.17.1, snapshot reimport and segmented update replay
-  can export different operation grouping despite equal text and version vectors;
-  the unchanged rotation provenance guard correctly rejects unequal identities.
-  Revisit only when the [history identity regression](../packages/loro/src/historyIdentity.test.ts)
-  and complete SDK rotation, recovery, provenance, and settlement suites pass.
+- Loro is pinned to the exact version 1.19.1. History identity, the void
+  verdicts a reader records under its
+  [decoder identity](../packages/loro/src/importMetadata.ts), and the import
+  refusals the sync judge names all follow the runtime's exact behavior, so a
+  range would let two installs of one SDK release disagree about the same
+  update. 1.17.1 failed the history identity regression (snapshot reimport and
+  segmented update replay exported different operation grouping); 1.19.1
+  passes it. Move the pin only after reading the Loro changelog for changes to
+  what `import`, `export`, and local writes refuse, and only when the
+  [history identity regression](../packages/loro/src/historyIdentity.test.ts),
+  the [runtime contract](../packages/loro/src/runtimeContract.test.ts), the
+  [import refusals](../packages/loro/src/importRefusal.test.ts), and the
+  complete SDK rotation, recovery, provenance, and settlement suites pass, with
+  the API suite (`bun run check:package @tearleads/api`), whose Worker loads
+  the same catalog version's `loro-crdt/web` build. A new version changes the
+  decoder identity, so every device judges its void updates again once. The
+  move from 1.16.4 assumed a [greenfield reset](./developer/greenfield-reset.md):
+  1.16.4 kept the first of two contents stored at one operation id, and 1.19.1
+  refuses to open a store that already holds such a pair.
   The [SDK publish manifest](../packages/client-sdk/scripts/publishManifest.ts)
-  preserves this hold as an exact version resolved from the declaring catalog;
-  unrelated externals retain caret ranges. Do not remove that publication hold
-  until fresh Bun and npm installs of the packed SDK pass the same history
-  regression through the installed wrapper, including split-commit replay under
-  Node. The [package smoke](../packages/client-sdk/scripts/smokePackage.ts) runs
-  these behavioral checks before automatic publishing. After publication, repeat
-  the consumer checks against the actual registry archive: a local candidate is
-  not proof of the released package. Preserve operation-history verification;
-  text or vector equality cannot replace it.
+  publishes the exact version resolved from the declaring catalog; unrelated
+  externals retain caret ranges. The
+  [package smoke](../packages/client-sdk/scripts/smokePackage.ts) runs the
+  history regression through the installed wrapper under fresh Bun and npm
+  installs of the packed SDK, including split-commit replay under Node, before
+  automatic publishing. After publication, repeat the consumer checks against
+  the actual registry archive: a local candidate is not proof of the released
+  package. Preserve operation-history verification; text or vector equality
+  cannot replace it.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
   `prepare:devkit` prepares ignored SDK output before standalone checks.
   Keep the paired toolchain and Windows host-transport fix; validate macOS,

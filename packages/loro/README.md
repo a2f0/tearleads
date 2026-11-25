@@ -29,3 +29,37 @@ ordering: recorded time, then Lamport time, then peer, with a change never
 placed before one it depends on, so every prefix is a real version whatever the
 clocks recorded. The viewer keeps its document detached, so it cannot be
 edited; never hand it a document that is being edited.
+
+## Import refusals
+
+Import blobs through `importUpdates` and `importSnapshot`, never through a
+document's own `import`. Loro throws its refusals as bare strings; these
+helpers name the ones callers act on:
+
+- `LoroReusedOperationIdError`: the blob carries an operation id the document
+  already holds with other content. It names the first such id Loro met. The
+  sync judge voids the update and, when the update's declared span reuses ids
+  under the peer this device writes with, records a
+  [preemption notice](../../docs/advisory-op-spans.md#preemption-notices).
+- `LoroImportUnresolvedDependenciesError`: the blob depends on operations the
+  document lacks, which Loro keeps as pending.
+
+`importUpdates` is not all-or-nothing. When one update of a batch is refused
+on its own, it throws and the document keeps what the other updates brought.
+Operations a document already holds import again as a no-op.
+
+## Runtime contract
+
+[`runtimeContract.test.ts`](./src/runtimeContract.test.ts) pins behavior of the
+exact Loro version that document sync is built on:
+
+- One large text insert imports into a non-empty document in bounded time.
+  Loro 1.16.4 took time quadratic in the insert's size.
+- While an update is pending under a document's own peer id, Loro refuses that
+  document's local writes with `ConcurrentOpsWithSamePeerID`. The way out is a
+  fresh peer id. Sync never leaves such an update in a live document: the
+  judge voids an update whose dependencies no earlier update carries before it
+  reaches one.
+
+See [dependency maintenance](../../docs/dependency-upgrades.md#current-constraints)
+for what moving the Loro pin requires.

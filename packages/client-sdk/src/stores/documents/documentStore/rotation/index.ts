@@ -14,7 +14,7 @@ import { reportQuietly } from "../../../../workflows/documents/sync/reportQuietl
 import { requestDocumentStoreSync } from "../../registry";
 import { installRebuiltDocument } from "../history/historyRebuild";
 import { chainIdentityWrite } from "../identityWriteChain";
-import { chainQueuedWrite } from "../localWriteQueue";
+import { holdQueuedWritesFor } from "../localWriteQueue";
 import { listPendingUpdates } from "../persistence";
 import type { DocumentState, DocumentStoreState } from "../state";
 import { createStoredDocument } from "../storedDocument";
@@ -163,57 +163,47 @@ function installRotationRecovery(input: {
     leftOut,
     state,
   } = input;
-  const installation = state.writeChain
-    .catch(() => undefined)
-    .then(() =>
-      chainIdentityWrite(state, async () => {
-        assertCapturedDocumentCurrent({
-          capturedVersion,
-          currentDocument: currentDoc,
-          generation,
-          state,
-        });
-        assertExactDocumentHistory({
-          currentDocument: currentDoc,
-          leftOutEnds: collection.voids.leftOutEnds,
-          rebuiltDocument: collection.rebuiltDocument,
-        });
-        // Only a proven rebuild vouches for the voids it left out, and for
-        // an update it left out unread (`leavingOut`). They are recorded
-        // while the pass is current, which the install ends.
-        await collection.voids.record({ generation, state });
-        await noteBesideRotation(
-          state,
-          noteDocumentRotationProven({
-            documentId,
-            execSql: state.runtime.infra.execSql,
-            leftOut,
-            isCurrent: () =>
-              isDocumentStoreSyncGenerationCurrent(state, generation),
-            scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
-          }),
-        );
-        return installRebuiltDocument({
-          consumedPullContinuation: collection.consumedPullContinuation,
-          currentRecord: collection.currentRecord,
-          generation,
-          rebuiltDoc: collection.rebuiltDocument,
-          state,
-          synced: collection.synced,
-          writerProjectionGeneration: collection.writerProjectionGeneration,
-        });
-      }),
-    );
   // Only the checked local install occupies the write queue. Network recovery
   // uses the remote queue, so an outage cannot hold new edits hostage.
-  void chainQueuedWrite(
-    state,
-    installation.then(
-      () => undefined,
-      () => undefined,
-    ),
+  return holdQueuedWritesFor(state, () =>
+    chainIdentityWrite(state, async () => {
+      assertCapturedDocumentCurrent({
+        capturedVersion,
+        currentDocument: currentDoc,
+        generation,
+        state,
+      });
+      assertExactDocumentHistory({
+        currentDocument: currentDoc,
+        leftOutEnds: collection.voids.leftOutEnds,
+        rebuiltDocument: collection.rebuiltDocument,
+      });
+      // Only a proven rebuild vouches for the voids it left out, and for
+      // an update it left out unread (`leavingOut`). They are recorded
+      // while the pass is current, which the install ends.
+      await collection.voids.record({ generation, state });
+      await noteBesideRotation(
+        state,
+        noteDocumentRotationProven({
+          documentId,
+          execSql: state.runtime.infra.execSql,
+          leftOut,
+          isCurrent: () =>
+            isDocumentStoreSyncGenerationCurrent(state, generation),
+          scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+        }),
+      );
+      return installRebuiltDocument({
+        consumedPullContinuation: collection.consumedPullContinuation,
+        currentRecord: collection.currentRecord,
+        generation,
+        rebuiltDoc: collection.rebuiltDocument,
+        state,
+        synced: collection.synced,
+        writerProjectionGeneration: collection.writerProjectionGeneration,
+      });
+    }),
   );
-  return installation;
 }
 
 async function recoverFullHistoryForRotation(

@@ -1,11 +1,17 @@
 import { expect, test } from "bun:test";
 import {
+  createDocument,
+  encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
+  exportUpdatesSince,
+  getUpdateVersionVectors,
   importSnapshot,
   importUpdates,
   listVersionVectorSpans,
 } from "@tearleads/loro";
+import { validateDocumentSyncUpdateImports } from "../../../data/documents/shared/sync/documentSyncImportVerdicts";
+import type { DecryptedDocumentSyncUpdate } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createWriterContainerMetadataDocument,
@@ -19,6 +25,7 @@ import {
   createDocumentRecord,
   metadataTestExecSql as execSql,
 } from "./metadata.testFixtures";
+import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -234,4 +241,175 @@ test("renames queue their operations under the container's writer peer", async (
     listVersionVectorSpans(input).map((span) => span.peerId),
   );
   expect(peers).toEqual([live.writerPeer, live.writerPeer]);
+});
+
+const FORGED = "550e8400-e29b-41d4-a716-446655440f01";
+
+/** The operations `source` wrote after `before`, as a judged served update. */
+function servedSince(
+  source: Awaited<ReturnType<typeof liveState>>["doc"],
+  before: string,
+): DecryptedDocumentSyncUpdate {
+  const data = exportUpdatesSince(source, before);
+  return { id: FORGED, ...getUpdateVersionVectors(data), updateData: data };
+}
+
+/**
+ * An update another holder of the live writer's peer committed at the peer's
+ * next counters, as a sync pass is served it once the judge accepted it.
+ */
+async function forgedOnWriterPeer(
+  live: Awaited<ReturnType<typeof liveState>>,
+): Promise<DecryptedDocumentSyncUpdate> {
+  const forger = await createDocument("metadata-writer-peer-forger");
+  importSnapshot(forger, exportFullHistorySnapshot(live.doc));
+  const before = encodeVersionVector(forger);
+  forger.setPeerId(live.writerPeer);
+  forger.getMap("container").set("icon", "forged");
+  forger.commit();
+  const served = servedSince(forger, before);
+  forger.free();
+  return served;
+}
+
+/**
+ * Local edits racing a one-operation forged page. Against an edit that holds
+ * as many operations, the page's copy looks no older than the live document
+ * and would replace it; against a longer one, the install merges the two.
+ */
+const LOCAL_EDITS = [
+  ["as long as the page", { name: "Local" }],
+  ["longer than the page", { name: "Local", primaryDocumentId: "doc-1" }],
+] as const;
+
+for (const [length, edit] of LOCAL_EDITS) {
+  test(`a page forged on the writer peer after a local edit ${length} is not imported, and the next judgement voids it`, async () => {
+    const live = await liveState();
+    const forged = await forgedOnWriterPeer(live);
+    const pass = await createDetachedContainerMetadataState(live);
+    const rename = await createDetachedContainerMetadataState(live);
+    writeContainerMetadataValue(rename.doc, edit);
+    expect(rename.doc.peerIdStr).toBe(live.writerPeer);
+
+    const held = encodeVersionVector(pass.doc);
+    const imported = applyIncomingContainerMetadataUpdates(pass.doc, {
+      decryptedUpdates: [forged],
+    });
+    installDetachedContainerMetadataState(live, rename);
+    // The pass failed its page; a pass that saved one installs like this.
+    installDetachedContainerMetadataState(live, pass, {
+      preserveConcurrentMetadataEdit: true,
+    });
+
+    expect(readContainerMetadataValue(live.doc, "fallback")).toEqual({
+      icon: null,
+      ...edit,
+    });
+    expect(imported).toBe(false);
+    expect(encodeVersionVector(pass.doc)).toBe(held);
+    // The next pass's copy holds the edit, so its judge voids the forgery.
+    const next = await createDetachedContainerMetadataState(live);
+    const verdicts = await validateDocumentSyncUpdateImports({
+      currentDocument: next.doc,
+      decryptedUpdates: [forged],
+    });
+    expect(verdicts.voided.map((entry) => entry.updateId)).toEqual([FORGED]);
+    expect(verdicts.voided[0]?.stage).toBe("loro_import");
+  });
+
+  test(`a local edit ${length} after a page forged on the writer peer writes a fresh peer, and both land`, async () => {
+    const live = await liveState();
+    const forged = await forgedOnWriterPeer(live);
+    const pass = await createDetachedContainerMetadataState(live);
+    const rename = await createDetachedContainerMetadataState(live);
+
+    const imported = applyIncomingContainerMetadataUpdates(pass.doc, {
+      decryptedUpdates: [forged],
+    });
+    writeContainerMetadataValue(rename.doc, edit);
+    installDetachedContainerMetadataState(live, rename);
+    installDetachedContainerMetadataState(live, pass, {
+      preserveConcurrentMetadataEdit: true,
+    });
+
+    expect(readContainerMetadataValue(live.doc, "fallback")).toEqual({
+      icon: "forged",
+      ...edit,
+    });
+    expect(imported).toBe(true);
+    expect(rename.doc.peerIdStr).not.toBe(live.writerPeer);
+    const ids = opIds(live.doc);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+}
+
+test("the live document continues the writer peer after the page a pass installed", async () => {
+  const live = await liveState();
+  const forged = await forgedOnWriterPeer(live);
+  const pass = await createDetachedContainerMetadataState(live);
+  applyIncomingContainerMetadataUpdates(pass.doc, {
+    decryptedUpdates: [forged],
+  });
+  installDetachedContainerMetadataState(live, pass, {
+    preserveConcurrentMetadataEdit: true,
+  });
+  expect(live.doc.peerIdStr).toBe(live.writerPeer);
+
+  const pageEnd = live.doc.version().get(live.writerPeer) ?? 0;
+  const rename = await createDetachedContainerMetadataState(live);
+  writeContainerMetadataValue(rename.doc, { name: "After the page" });
+  expect(rename.doc.peerIdStr).toBe(live.writerPeer);
+  expect(rename.doc.version().get(live.writerPeer)).toBeGreaterThan(pageEnd);
+});
+
+test("a page whose pass failed after importing it is imported by the next pass", async () => {
+  const live = await liveState();
+  const forged = await forgedOnWriterPeer(live);
+  const failed = await createDetachedContainerMetadataState(live);
+  expect(
+    applyIncomingContainerMetadataUpdates(failed.doc, {
+      decryptedUpdates: [forged],
+    }),
+  ).toBe(true);
+
+  // Until a pass installs the page, an edit stays off the peer it extends.
+  const rename = await createDetachedContainerMetadataState(live);
+  writeContainerMetadataValue(rename.doc, { name: "Local" });
+  expect(rename.doc.peerIdStr).not.toBe(live.writerPeer);
+  installDetachedContainerMetadataState(live, rename);
+
+  const retried = await createDetachedContainerMetadataState(live);
+  expect(
+    applyIncomingContainerMetadataUpdates(retried.doc, {
+      decryptedUpdates: [forged],
+    }),
+  ).toBe(true);
+  installDetachedContainerMetadataState(live, retried, {
+    preserveConcurrentMetadataEdit: true,
+  });
+  expect(readContainerMetadataValue(live.doc, "fallback")).toEqual({
+    icon: "forged",
+    name: "Local",
+  });
+});
+
+test("a page under another writer's peer leaves the writer peer to the next edit", async () => {
+  const live = await liveState();
+  const other = await createDocument("metadata-writer-peer-other");
+  importSnapshot(other, exportFullHistorySnapshot(live.doc));
+  const before = encodeVersionVector(other);
+  other.getMap("container").set("icon", "elsewhere");
+  other.commit();
+  const served = servedSince(other, before);
+  other.free();
+  const pass = await createDetachedContainerMetadataState(live);
+  const rename = await createDetachedContainerMetadataState(live);
+
+  expect(
+    applyIncomingContainerMetadataUpdates(pass.doc, {
+      decryptedUpdates: [served],
+    }),
+  ).toBe(true);
+  writeContainerMetadataValue(rename.doc, { name: "Local" });
+  expect(rename.doc.peerIdStr).toBe(live.writerPeer);
 });

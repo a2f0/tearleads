@@ -1,3 +1,4 @@
+import { listVersionVectorSpans } from "@tearleads/loro";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/sync/documentSyncTypes";
 import { importLiveDocumentSyncUpdates } from "../../../data/documents/shared/sync/documentSyncUpdateImport";
 import type { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
@@ -12,6 +13,7 @@ import { judgeDocumentSyncImports } from "../../documents/sync/processedCursor";
 import { reportDocumentSyncQuarantine } from "../../documents/sync/reportDocumentSyncQuarantine";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import type { ContainerMetadataState } from "./metadataTypes";
+import { admitServedMetadataPage } from "./metadataWriterPeers";
 
 export async function recordCurrentMetadataSyncFailure(input: {
   execSql: ExecSql;
@@ -36,11 +38,21 @@ export async function recordCurrentMetadataSyncFailure(input: {
   });
 }
 
+/**
+ * Imports a judged page into a pass's metadata copy. False, importing
+ * nothing, when the page extends the writer peer over operations written here
+ * that the copy lacks (`admitServedMetadataPage`): Loro would refuse to merge
+ * the copy with the document that holds them. The check and the import are
+ * one synchronous step.
+ */
 export function applyIncomingContainerMetadataUpdates(
   currentDocument: ContainerMetadataState["doc"],
   result: Pick<SyncRemoteDocumentResult, "decryptedUpdates">,
-): void {
+): boolean {
+  const spans = result.decryptedUpdates.flatMap(listVersionVectorSpans);
+  if (!admitServedMetadataPage(currentDocument, spans)) return false;
   importLiveDocumentSyncUpdates(currentDocument, result.decryptedUpdates);
+  return true;
 }
 
 export function metadataIncomingUpdateIsolation(input: {

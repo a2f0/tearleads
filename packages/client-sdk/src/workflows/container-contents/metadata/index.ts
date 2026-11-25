@@ -36,6 +36,7 @@ import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
 } from "./metadataStateIsolation";
+import { logDeferredWriterPeerPage } from "./metadataSyncErrors";
 import {
   resumedEarlierMetadataPull,
   shouldRequestContainerMetadataFollowup,
@@ -377,10 +378,16 @@ async function finalizeContainerMetadataSync(input: {
   );
   metadataState.metadataWriterProjection =
     resolveSyncedContainerMetadataWriterProjection(metadataState, synced);
-  if (synced.decryptedUpdates.length > 0) {
-    runDocumentSyncLoroWork(input.loroWindow, () =>
+  if (
+    synced.decryptedUpdates.length > 0 &&
+    !runDocumentSyncLoroWork(input.loroWindow, () =>
       applyIncomingContainerMetadataUpdates(metadataState.doc, synced),
-    );
+    )
+  ) {
+    // Nothing of the page was imported or saved.
+    discardAllSent();
+    logDeferredWriterPeerPage(input.runtime, metadataState.container.id);
+    return null;
   }
   const persisted = await saveContainerMetadataPage(input);
   // A save that lost currency at commit returns null: it rolled back.

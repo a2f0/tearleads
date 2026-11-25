@@ -22,6 +22,30 @@ export const noopDocumentStorePersistenceEffects: DocumentStorePersistenceEffect
     registerDocumentIdentity: () => undefined,
   };
 
+/** A sync response serving `updates`, encrypted and signed by the fixture's author. */
+export async function createRemoteUpdatesResponse(
+  materialized: Awaited<ReturnType<typeof createMaterializedSyncFixture>>,
+  updates: readonly { readonly id: string; readonly update: Uint8Array }[],
+): Promise<Awaited<ReturnType<typeof createSyncResponse>>> {
+  const remotePlan = await buildMaterializedDocumentSyncPlan({
+    author: materialized.author,
+    localVersionVector: null,
+    pendingUpdates: updates.map(({ id, update }) =>
+      createPendingUpdateRecord({
+        id,
+        updateData: bytesToBase64(update),
+        ...getUpdateVersionVectors(update),
+      }),
+    ),
+    targetSecretKey: materialized.secretKey,
+    trustedLocalProjection: true,
+    writerProjection: materialized.writerProjection,
+  });
+  return createSyncResponse(remotePlan.plan, {
+    acceptedOutgoingUpdateIds: [],
+  });
+}
+
 /**
  * A remote document whose op log spans two commits ("survives key" then
  * "survives key rotation"), materialized into a sync response a store-level
@@ -45,27 +69,9 @@ export async function createRemoteHistoryFixture(): Promise<
   remoteDocument.getText("text").update("survives key rotation");
   remoteDocument.commit();
   const secondUpdate = exportUpdatesSince(remoteDocument, firstEndVersion);
-  const remotePlan = await buildMaterializedDocumentSyncPlan({
-    author: materialized.author,
-    localVersionVector: null,
-    pendingUpdates: [
-      createPendingUpdateRecord({
-        id: "550e8400-e29b-41d4-a716-446655440441",
-        updateData: bytesToBase64(firstUpdate),
-        ...getUpdateVersionVectors(firstUpdate),
-      }),
-      createPendingUpdateRecord({
-        id: "550e8400-e29b-41d4-a716-446655440442",
-        updateData: bytesToBase64(secondUpdate),
-        ...getUpdateVersionVectors(secondUpdate),
-      }),
-    ],
-    targetSecretKey: materialized.secretKey,
-    trustedLocalProjection: true,
-    writerProjection: materialized.writerProjection,
-  });
-  const response = await createSyncResponse(remotePlan.plan, {
-    acceptedOutgoingUpdateIds: [],
-  });
+  const response = await createRemoteUpdatesResponse(materialized, [
+    { id: "550e8400-e29b-41d4-a716-446655440441", update: firstUpdate },
+    { id: "550e8400-e29b-41d4-a716-446655440442", update: secondUpdate },
+  ]);
   return { ...materialized, behindSnapshot, remoteDocument, response };
 }

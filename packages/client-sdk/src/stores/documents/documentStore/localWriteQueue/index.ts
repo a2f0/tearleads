@@ -65,3 +65,24 @@ export function chainQueuedWrite(
   state.writeChain = countQueuedWrite(state, link);
   return state.writeChain;
 }
+
+/**
+ * Runs `work` behind every queued local write and holds the write queue
+ * until it settles, so no edit runs between `work` reading the document and
+ * replacing or extending it. The hold is installed synchronously: a write
+ * queued in the same tick waits behind it.
+ */
+export function holdQueuedWritesFor<T>(
+  state: DocumentStoreState,
+  work: () => Promise<T>,
+): Promise<T> {
+  const held = state.writeChain.catch(() => undefined).then(work);
+  void chainQueuedWrite(
+    state,
+    held.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return held;
+}

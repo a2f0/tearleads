@@ -3,6 +3,7 @@ import {
   emptyVersionVector,
   encodeVersionVector,
   getImportBlobMetadata,
+  LoroReusedOperationIdError,
   mergeVersionVectors,
 } from "@tearleads/loro";
 import { readPullContinuation } from "../../../../data/documents/shared/sync/syncPagination";
@@ -30,6 +31,7 @@ import type {
 } from "../state";
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
 import { noteDocumentDownloadDrained } from "./downloadCompletion";
+import { applyingPage } from "./ownPeerPage";
 import { logRevalidationApplied as logApplied } from "./remoteRevalidationTelemetry";
 import { noteDocumentPullCompleted } from "./replacedBindingSightings";
 import {
@@ -147,6 +149,30 @@ function documentSyncSaveOptions(
   };
 }
 
+/**
+ * Ends a page whose import or save threw. Loro work on the imported state
+ * runs on through the version vector and the save's snapshot: a throw before
+ * the commit ends the page uncleanly. When that throw is Loro refusing a
+ * reused id, an edit wrote other operations at ids the page carries before
+ * the page could be applied. Nothing was saved, so the pass stays unapplied
+ * (null): the next one judges the page against that edit and voids what
+ * collides. Every other failure is thrown.
+ */
+function unappliedPageOrThrow(
+  state: DocumentStoreState,
+  error: unknown,
+  committed: boolean,
+  syncAttempt: DocumentSyncAttempt,
+): null {
+  if (committed) throw error;
+  noteDocumentSyncLoroWorkFailed(syncAttempt.loroWindow);
+  if (!(error instanceof LoroReusedOperationIdError)) throw error;
+  state.runtime.util.log(
+    `Documents: left a sync page for ${state.localId} unapplied because an edit wrote at operation ids it carries (${error.counter}@${error.peerId}).`,
+  );
+  return null;
+}
+
 async function persistSyncedDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -239,11 +265,7 @@ async function persistSyncedDocument(
       isCurrent,
     );
   } catch (error) {
-    // Loro work on the imported state runs on through the version vector
-    // and the save's snapshot: a throw before the commit ends the page
-    // uncleanly.
-    if (!committed) noteDocumentSyncLoroWorkFailed(syncAttempt.loroWindow);
-    throw error;
+    return unappliedPageOrThrow(state, error, committed, syncAttempt);
   } finally {
     candidate.free();
     await settleUnsavedLoroWindow(
@@ -284,6 +306,96 @@ export function shouldReArmDocumentSync(
   );
 }
 
+/**
+ * Saves a pass's response and applies it to the live document, on the
+ * identity-write chain: `synced.persistedState` carries this pass's
+ * documentId, so it would clobber a relink that landed mid-pass. If the
+ * identity moved, the response describes the OLD document: skip every
+ * response-derived in-memory mutation and let the new identity's own sync
+ * pass take over.
+ */
+function persistPassResponse(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  currentRecord: DocumentRecord,
+  syncAttempt: DocumentSyncAttempt,
+  generation: DocumentStoreSyncGeneration,
+): Promise<{ record: DocumentRecord; responseApplied: boolean }> {
+  const { synced } = syncAttempt;
+  return chainIdentityWrite(state, async () => {
+    const liveRecord = state.record;
+    if (
+      !isDocumentStoreSyncGenerationCurrent(state, generation) ||
+      !documentSyncContextMatches(
+        liveRecord,
+        currentRecord,
+        synced.plan.documentId,
+      )
+    ) {
+      return { record: liveRecord ?? currentRecord, responseApplied: false };
+    }
+
+    installDocumentWriterProjection(
+      state,
+      resolveSyncedDocumentWriterProjection(state, synced),
+      syncAttempt.writerProjectionGeneration,
+    );
+    const persisted = await persistSyncedDocument(
+      state,
+      currentDoc,
+      currentRecord,
+      syncAttempt,
+      generation,
+    );
+    if (
+      !persisted ||
+      !isDocumentStoreSyncGenerationCurrent(state, generation)
+    ) {
+      return { record: state.record ?? currentRecord, responseApplied: false };
+    }
+
+    state.pullContinuation = persisted.record.pullContinuation ?? null;
+    if (persisted.pullContinuationSuperseded) {
+      state.writerProjection = null;
+    }
+    // A CAS loss means neither this response's acknowledgements nor its
+    // continuation were committed. Keep the pass unapplied so its signals and
+    // accepted-id registrations cannot be cleared without a follow-up.
+    return {
+      record: persisted.record,
+      responseApplied: !persisted.pullContinuationSuperseded,
+    };
+  });
+}
+
+/**
+ * Completes the signal a drained pull consumed. A bounded pull request owns
+ * the whole page chain: completing the signal on an intermediate page would
+ * let a failed or null continuation pass report the original request as
+ * successful though the server frontier was never drained. A held pull has
+ * not applied the update it stopped at, so the signal it consumed stays
+ * pending for the next scheduled pull to judge it again.
+ */
+function noteDrainedPull(
+  state: DocumentStoreState,
+  syncAttempt: DocumentSyncAttempt,
+  consumedRemoteUpdateSignalSeq: number,
+  storedRecord: DocumentRecord,
+): void {
+  const { synced } = syncAttempt;
+  if (synced.hasIncompletePull || synced.hasHeldPull) return;
+  clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
+  // The server's updates are applied and drained: a binding the detach
+  // pass sighted before this pull no longer awaits its content update.
+  noteDocumentPullCompleted(state);
+  noteDocumentDownloadDrained({
+    requestRecord: syncAttempt.requestRecord,
+    requestedPage: syncAttempt.consumedPullContinuation !== null,
+    state,
+    storedRecord,
+  });
+}
+
 export async function finalizeDocumentSync(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -313,54 +425,19 @@ export async function finalizeDocumentSync(
     sentUpdateIds,
     synced.response.acceptedOutgoingUpdateIds,
   );
-  // Persist on the identity-write chain: synced.persistedState carries this
-  // pass's documentId, so it would clobber a relink that landed mid-pass. If
-  // the identity moved, the response describes the OLD document — skip every
-  // response-derived in-memory mutation and let the new identity's own sync
-  // pass take over.
-  let responseApplied = false;
-  const { record: nextRecord } = await chainIdentityWrite(state, async () => {
-    const liveRecord = state.record;
-    if (
-      !isDocumentStoreSyncGenerationCurrent(state, generation) ||
-      !documentSyncContextMatches(
-        liveRecord,
+  const { record: nextRecord, responseApplied } = await applyingPage(
+    state,
+    currentDoc,
+    synced.decryptedUpdates,
+    () =>
+      persistPassResponse(
+        state,
+        currentDoc,
         currentRecord,
-        synced.plan.documentId,
-      )
-    ) {
-      return { record: liveRecord ?? currentRecord };
-    }
-
-    installDocumentWriterProjection(
-      state,
-      resolveSyncedDocumentWriterProjection(state, synced),
-      syncAttempt.writerProjectionGeneration,
-    );
-    const persisted = await persistSyncedDocument(
-      state,
-      currentDoc,
-      currentRecord,
-      syncAttempt,
-      generation,
-    );
-    if (
-      !persisted ||
-      !isDocumentStoreSyncGenerationCurrent(state, generation)
-    ) {
-      return { record: state.record ?? currentRecord };
-    }
-
-    state.pullContinuation = persisted.record.pullContinuation ?? null;
-    if (persisted.pullContinuationSuperseded) {
-      state.writerProjection = null;
-    }
-    // A CAS loss means neither this response's acknowledgements nor its
-    // continuation were committed. Keep the pass unapplied so its signals and
-    // accepted-id registrations cannot be cleared without a follow-up.
-    responseApplied = !persisted.pullContinuationSuperseded;
-    return persisted;
-  });
+        syncAttempt,
+        generation,
+      ),
+  );
   // A save settled its window; an exit before the save settles it here.
   await settleUnsavedLoroWindow(syncAttempt);
   if (!responseApplied) {
@@ -375,24 +452,12 @@ export async function finalizeDocumentSync(
     return state.record ?? nextRecord;
   }
 
-  // A bounded pull request owns the whole page chain. Completing the signal on
-  // an intermediate page would let a failed/null continuation pass report the
-  // original request as successful even though the server frontier was never
-  // drained.
-  // A held pull has not applied the update it stopped at, so the signal it
-  // consumed stays pending for the next scheduled pull to judge it again.
-  if (!synced.hasIncompletePull && !synced.hasHeldPull) {
-    clearConsumedRemoteUpdateSignal(state, consumedRemoteUpdateSignalSeq);
-    // The server's updates are applied and drained: a binding the detach
-    // pass sighted before this pull no longer awaits its content update.
-    noteDocumentPullCompleted(state);
-    noteDocumentDownloadDrained({
-      requestRecord: syncAttempt.requestRecord,
-      requestedPage: syncAttempt.consumedPullContinuation !== null,
-      state,
-      storedRecord: nextRecord,
-    });
-  }
+  noteDrainedPull(
+    state,
+    syncAttempt,
+    consumedRemoteUpdateSignalSeq,
+    nextRecord,
+  );
 
   if (shouldReArmDocumentSync(state, syncAttempt)) {
     requestDocumentStoreSync(state);

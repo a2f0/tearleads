@@ -13,18 +13,20 @@ type PeerId = MetadataDocument["peerIdStr"];
  * Applies `metadataWriterPeerMachine.ts` to live metadata documents: a copy
  * borrows the live document's peer at its first write while no other
  * document may write it, so serial edits keep one peer per container and
- * writer, and only overlapping writes add a peer.
+ * writer, and only overlapping writes add a peer. A sync pass asks before it
+ * imports a served page that extends the peer (`admitServedMetadataPage`).
  *
  * A runtime's writer peers share one table, so every document a runtime
  * loads under a writer peer sees its state. A document on a fresh peer starts
  * its own table, which its copies share and which goes with them.
  */
 type StoredState =
-  | { readonly status: "held"; readonly end: number }
+  | { readonly status: "held"; readonly end: number; readonly written: number }
   | {
       readonly status: "lent";
       readonly borrower: WeakRef<MetadataDocument>;
       readonly end: number;
+      readonly written: number;
     };
 
 type PeerStates = Map<PeerId, StoredState>;
@@ -66,7 +68,7 @@ function readState(
   if (!stored) return { status: "none" };
   return stored.status === "held"
     ? stored
-    : { borrower: stored.borrower.deref(), end: stored.end, status: "lent" };
+    : { ...stored, borrower: stored.borrower.deref() };
 }
 
 function writeState(
@@ -88,7 +90,7 @@ function writeState(
         : undefined
       : new WeakRef(state.borrower);
   if (borrower) {
-    states.set(peerId, { borrower, end: state.end, status: "lent" });
+    states.set(peerId, { ...state, borrower });
   }
 }
 
@@ -165,6 +167,44 @@ export function finishLocalMetadataWrite(doc: MetadataDocument): void {
     counter: counterOf(doc, doc.peerIdStr),
     type: "wrote",
   });
+}
+
+/** The operations a served page carries under one peer, up to `endCounter`. */
+interface ServedPeerSpan {
+  readonly endCounter: number;
+  readonly peerId: string;
+}
+
+/**
+ * Runs before a sync pass imports a judged page into `doc`, with the spans
+ * the page carries. A page that extends the writer peer `doc` would write
+ * next, past the operations `doc` holds, was committed by another holder of
+ * that peer. False when a document here wrote operations `doc` lacks at those
+ * counters: the page must not be imported. Otherwise the peer ends past the
+ * page from now on, so a document that lacks the page takes a fresh peer for
+ * its next write. The caller imports in the same synchronous step, so no
+ * local write runs between this check and the import.
+ */
+export function admitServedMetadataPage(
+  doc: MetadataDocument,
+  spans: readonly ServedPeerSpan[],
+): boolean {
+  // A copy that has not written would borrow its source's peer.
+  const holder = copySources.get(doc) ?? doc;
+  const peerId = holder.peerIdStr;
+  const counter = counterOf(doc, peerId);
+  const end = spans.reduce(
+    (highest, span) =>
+      span.peerId === peerId ? Math.max(highest, span.endCounter) : highest,
+    counter,
+  );
+  if (end === counter) return true;
+  const effect = dispatch(peerStatesOf(holder), peerId, {
+    counter,
+    end,
+    type: "remoteExtended",
+  });
+  return effect !== "collide";
 }
 
 /** `copy` replaced `source` as the live document. */

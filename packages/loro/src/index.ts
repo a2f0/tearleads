@@ -20,6 +20,7 @@ export {
   importSnapshot,
   importUpdates,
   LoroImportUnresolvedDependenciesError,
+  LoroReusedOperationIdError,
   listSnapshotCharBlameSource,
   listSnapshotCharOpIds,
   listSnapshotFieldEditors,

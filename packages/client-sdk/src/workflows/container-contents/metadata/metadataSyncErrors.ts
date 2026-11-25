@@ -71,3 +71,19 @@ export async function deferRecoverableMetadataSyncError(input: {
 
   throw input.error;
 }
+
+/**
+ * Logs a served page a pass left unimported because it extends the writer
+ * peer over operations written here that the pass's copy lacks
+ * (`metadataWriterPeerMachine.ts`, `collide`). The pass saved nothing, so the
+ * container's needing-sync state stays set, and the pass the local edit
+ * schedules judges the page against a copy that holds those operations.
+ */
+export function logDeferredWriterPeerPage(
+  runtime: { util: { log: (message: string) => void } },
+  containerId: string,
+): void {
+  runtime.util.log(
+    `Container contents: deferred a metadata page for ${containerId} because it extends this device's writer peer over a local edit the pass did not hold.`,
+  );
+}
