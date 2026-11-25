@@ -17,8 +17,9 @@ import {
 import { type CliSession, withSession } from "./session";
 
 // A group grant reaches a member's device as the organization read model and
-// the folder's key wrap catch up, which takes a few round trips.
-const SETTLE_ATTEMPTS = 40;
+// the folder's key wrap catch up, which takes a few round trips. One deadline
+// bounds every attempt, its sync included.
+const SETTLE_TIMEOUT_MS = 120_000;
 const SETTLE_DELAY_MS = 250;
 
 /** What folder grants and members' note additions need from `--roster`. */
@@ -36,11 +37,12 @@ export interface SeededFolders {
 }
 
 async function settle<T>(
-  step: () => Promise<T | null>,
+  step: (deadline: AbortSignal) => Promise<T | null>,
   failure: string,
 ): Promise<T> {
-  for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt += 1) {
-    const result = await step();
+  const deadline = AbortSignal.timeout(SETTLE_TIMEOUT_MS);
+  while (!deadline.aborted) {
+    const result = await step(deadline);
     if (result !== null) return result;
     await Bun.sleep(SETTLE_DELAY_MS);
   }
@@ -103,27 +105,25 @@ async function grantFolder(
 /** The note as the member's device sees it, once their grant has reached it. */
 async function openSharedNote(
   member: CliSession,
-  folderId: string,
-  documentId: string,
+  target: { folderId: string; documentId: string },
+  deadline: AbortSignal,
 ): Promise<DocumentStore | null> {
   const { sdk } = member;
-  const rows = [];
-  for (;;) {
-    const batch =
-      await sdk.containerContents.discoverContainerDocuments(folderId);
-    if (!batch?.length) break;
-    rows.push(...batch);
+  const { folderId, documentId } = target;
+  // Discovery returns only what is new, so the note may have arrived in an
+  // earlier attempt: drain it, then find the note on the device by its ID.
+  let batch = await sdk.containerContents.discoverContainerDocuments(folderId);
+  while (batch?.length) {
+    batch = await sdk.containerContents.discoverContainerDocuments(folderId);
   }
-  const row = rows.find((candidate) => candidate.documentId === documentId);
-  if (!row) return null;
-  const store = sdk.containerContents.documentLinks().openDocument({
-    containerId: folderId,
-    localId: row.id,
-    documentId,
-  });
+  const localId = await sdk.documents.findLocalIdByDocumentId(documentId);
+  if (!localId) return null;
+  const store = sdk.containerContents
+    .documentLinks()
+    .openDocument({ containerId: folderId, localId, documentId });
   if (
     !(await store.ensureInitialized()) ||
-    !(await store.requestRemoteSyncAndWait(AbortSignal.timeout(120_000)))
+    !(await store.requestRemoteSyncAndWait(deadline))
   )
     return null;
   return store;
@@ -153,7 +153,7 @@ function appendAsMember(
     async (member) => {
       await loadFolderTree(member, { organizationId });
       const store = await settle(
-        () => openSharedNote(member, target.folderId, target.documentId),
+        (deadline) => openSharedNote(member, target, deadline),
         `${addition.author} could not open ${target.key}.`,
       );
       const next = appendNoteAddition(store.getSnapshot().text, addition.text);
@@ -198,7 +198,7 @@ async function addMemberLines(
 ): Promise<number> {
   let added = 0;
   for (const { document, additions } of notes) {
-    const documentId = await seedDocumentIds(run, document.key).documentId;
+    const { documentId } = await seedDocumentIds(run, document.key);
     for (const addition of additions) {
       const appended = await run.session.tracer.span(
         `add ${document.key} by ${addition.author}`,

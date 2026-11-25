@@ -45,15 +45,15 @@ export function createSeedRun(
   };
 }
 
-/** A fixture's stable document ID in this account and dataset version. */
-export function seedDocumentIds(run: SeedRun, key: string) {
+/** A fixture's stable local and document IDs in this account and dataset. */
+export async function seedDocumentIds(run: SeedRun, key: string) {
   const localId = seedLocalId(
     run.signingPrivateKey,
     run.rootId,
     run.datasetSha256,
     key,
   );
-  return { localId, documentId: deriveStableDocumentId(localId) };
+  return { localId, documentId: await deriveStableDocumentId(localId) };
 }
 
 async function findSeedPlacement(run: SeedRun, documentId: string) {
@@ -147,8 +147,8 @@ export async function seedContinuityDocument(
   const { session, assertCurrent } = run;
   const { tracer } = session;
   return tracer.span(`seed ${document.key}`, async () => {
-    const ids = seedDocumentIds(run, document.key);
-    const documentId = await ids.documentId;
+    const ids = await seedDocumentIds(run, document.key);
+    const { documentId } = ids;
     const existing = await findSeedPlacement(run, documentId);
     assertCurrent();
     const store = await writeContinuityDocument({

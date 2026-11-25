@@ -17,13 +17,20 @@ import { memberRecoveryKey, seedRoster } from "./seedRoster";
 import { type CliSession, withSession } from "./session";
 
 let apiBaseUrl = "";
+// Sign-ins during the folder step: each is a member signing in to add a line.
+let countSignIns = false;
+let signIns = 0;
 
 beforeAll(async () => {
   await initializeApiDatabase();
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
-    fetch: (request) => routeApp.fetch(request),
+    fetch: (request) => {
+      if (countSignIns && new URL(request.url).pathname === "/auth/verify")
+        signIns += 1;
+      return routeApp.fetch(request);
+    },
   });
   apiBaseUrl = server.url.origin;
 });
@@ -64,11 +71,18 @@ function seedFamily(recoveryKey: string) {
       readAttachment,
       folders: new Set(account.folders.map(({ id }) => id)),
     });
-    return seedFolders(run, continuityFolders(spec), {
-      apiBaseUrl,
-      memberRecoveryKey: (contactId) =>
-        memberRecoveryKey(signingPrivateKey, contactId),
-    });
+    signIns = 0;
+    countSignIns = true;
+    try {
+      const seeded = await seedFolders(run, continuityFolders(spec), {
+        apiBaseUrl,
+        memberRecoveryKey: (contactId) =>
+          memberRecoveryKey(signingPrivateKey, contactId),
+      });
+      return { ...seeded, signIns };
+    } finally {
+      countSignIns = false;
+    }
   });
 }
 
@@ -90,14 +104,16 @@ test("seedFolders shares each folder with its groups and members add their lines
     notes: 1,
     grants: family.grants.length,
     additions: note.additions.length,
+    signIns: note.additions.length,
   });
   // A rerun, as from a fresh device, reuses the folder, keeps the grant, and
-  // finds every line already in the note.
+  // sees every line already in the note, so no member signs in.
   expect(await seedFamily(seedPhrase)).toEqual({
     folders: 1,
     notes: 1,
     grants: 0,
     additions: 0,
+    signIns: 0,
   });
 
   await asOwner(seedPhrase, async (session) => {

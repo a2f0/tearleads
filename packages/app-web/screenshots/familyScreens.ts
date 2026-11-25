@@ -35,9 +35,11 @@ const FIRST_AUTHOR = NOTE.authors[0] ?? "";
 const LAST_AUTHOR = NOTE.authors.at(-1) ?? "";
 
 async function openFamilyFolder(scope: Scope): Promise<void> {
+  // A row's text starts with its name; a phone row adds its type after it.
+  const name = FOLDER.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
   const row = scope
     .locator(".explorer-item-row-button")
-    .filter({ hasText: new RegExp(`^${FOLDER}`, "u") });
+    .filter({ hasText: new RegExp(`^${name}`, "u") });
   await expect(row).toHaveCount(1, { timeout: 20_000 });
   await row.click();
   await expect(
@@ -131,8 +133,10 @@ async function openPasscodeDetail(scope: Scope): Promise<void> {
     }
   }
   // Secrets stay masked on screen.
-  const { password = "" } = PASSCODE.fields;
-  await expect(entry.getByText(password, { exact: true })).toHaveCount(0);
+  const { password } = PASSCODE.fields;
+  if (password) {
+    await expect(entry.getByText(password, { exact: true })).toHaveCount(0);
+  }
   const attributes = scope.getByRole("group", {
     name: "Additional attributes",
     exact: true,
