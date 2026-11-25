@@ -171,10 +171,11 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
   });
 }, 60_000);
 
-// The same restart with six more notes. Today every note costs one more
-// read-only sync and one more document writer-projection read, because each
-// opened document probes once per session; the other routes do not move.
-test("a pane restart costs two more reads for each note it holds", async () => {
+// A baseline, not a target: the same restart with six more notes. Every note
+// costs one more read-only sync and one more document writer-projection read,
+// because each opened document probes once per session; the other routes do
+// not move. Lower these ceilings when a restart stops probing every document.
+test("restart request baseline with eight notes", async () => {
   await measureRestart({
     budget: {
       total: 35,

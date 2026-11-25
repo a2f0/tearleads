@@ -14,7 +14,6 @@ import type {
 } from "@tearleads/validators/response";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { documentUpdateCountExpression } from "../../documents/documentUpdateCount";
 import { uniqueSortedStrings } from "../../utils/array";
 import { textExpression } from "../../utils/postgresSql";
 import type {
@@ -212,11 +211,9 @@ function currentContainerDocumentsQuery(input: {
           "manifestHash",
         ),
         manifestEpoch: sql`${accessManifestHeads.epoch}`.as("manifestEpoch"),
-        // Counted in the listing's own statement, so the count and the row's
-        // publication position come from one snapshot.
-        updateCount: documentUpdateCountExpression(sql`${documents.id}`).as(
-          "updateCount",
-        ),
+        // Read with the row, so the count and the row's publication position
+        // come from one snapshot.
+        updateCount: sql`${documents.updateCount}`.as("updateCount"),
         updatedAt: syncTimestampExpression(sql`${documents.updatedAt}`).as(
           "updatedAt",
         ),

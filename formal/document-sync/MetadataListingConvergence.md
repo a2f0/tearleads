@@ -30,7 +30,7 @@ local copy survive, and the store's first pass requeues the debt.
 | Model action | Production seam |
 | --- | --- |
 | `Init` | registration or a create that commits the metadata seed, saving the cursor through it (`recordCommittedSeedProgressInTransaction`) |
-| `PeerEdit` | a peer's accepted metadata write, which stores one update row (`documentUpdateCountExpression` counts them) and touches the container through `touchAcceptedSyncTargets`, publishing a hint that reaches only connected, subscribed clients |
+| `PeerEdit` | a peer's accepted metadata write, which stores one update row (`documentUpdateCountExpression` reads the count the document row keeps of them) and touches the container through `touchAcceptedSyncTargets`, publishing a hint that reaches only connected, subscribed clients |
 | `PeerVoidEdit` | the same write, of an update this client voids when its pull judges it (`recordDocumentSyncVerdicts`) |
 | `OtherTouch` | `touchContainers` for a write into the folder, or `touchContainerStructure` for a move |
 | `WithholdCursor` | `readSendableProcessedProgress` finding no cursor this client may send |

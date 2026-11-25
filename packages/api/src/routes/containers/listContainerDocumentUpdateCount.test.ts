@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
+import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import type { VerifiedAttachmentBinding } from "@tearleads/crypto";
 import { isDocumentSyncResponse } from "@tearleads/validators/response";
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import {
   type DocumentVersionFixture,
   documentWithRoot,
@@ -97,25 +97,42 @@ test("every write a document read would show lists the document again", async ()
   // Nothing committed since: the lane's delta leaves the document out.
   expect((await listLane(fixture, watermark)).row).toBeUndefined();
 
-  const expectListedOnce = async (write: () => Promise<unknown>) => {
+  /** Runs one write and returns the count the lane then lists, once. */
+  const listedAfter = async (write: () => Promise<unknown>) => {
     await write();
     const listed = await listLane(fixture, watermark);
-    expect(listed.row?.updateCount).toBe(
+    if (!listed.row) throw new Error("Expected the write to list the row");
+    expect(listed.row.updateCount).toBe(
       await storedUpdateCount(fixture.document.id),
     );
     watermark = listed.watermark;
     expect((await listLane(fixture, watermark)).row).toBeUndefined();
+    return listed.row.updateCount;
   };
 
-  await expectListedOnce(() => commitUpdate(fixture));
+  const edited = await listedAfter(() => commitUpdate(fixture));
   const bound = await stagedBind(fixture);
-  // A bind and a detach change the attachment listing and add no update.
-  await expectListedOnce(() =>
-    bindForTest({
-      blobId: bound.blobId,
-      owner: fixture.owner,
-      request: bound.request,
-    }),
-  );
-  await expectListedOnce(() => detach(fixture, bound.binding));
+  // A bind and a detach change the attachment listing and add no update, so
+  // the row comes back with the count the edit left.
+  expect(
+    await listedAfter(() =>
+      bindForTest({
+        blobId: bound.blobId,
+        owner: fixture.owner,
+        request: bound.request,
+      }),
+    ),
+  ).toBe(edited);
+  expect(await listedAfter(() => detach(fixture, bound.binding))).toBe(edited);
+
+  // Registration, the create and each write above went through the insert
+  // trigger: no document row disagrees with the updates stored for it.
+  const drifted = await db.execute(sql`
+    select document.id from ${documents} document
+    where document.update_count <> (
+      select count(*) from ${documentUpdates} stored
+      where stored.document_id = document.id
+    )
+  `);
+  expect(drifted.rows).toEqual([]);
 }, 30_000);
