@@ -75,7 +75,7 @@ function getDaysInMonth(year: number, month: number): number {
 
 // Strict YYYY-MM-DD calendar-date check — rejects impossible dates like
 // 2024-02-30 rather than letting Date() roll them over.
-function isValidDateOnly(value: string): boolean {
+export function isValidDateOnly(value: string): boolean {
   if (!DATE_ONLY_PATTERN.test(value)) {
     return false;
   }
