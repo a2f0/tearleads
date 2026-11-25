@@ -30,6 +30,8 @@ import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
+import { InsurancePolicyDocumentApp } from "./insurance-policy/InsurancePolicyApp";
+import { INSURANCE_POLICY_DOCUMENT_KIND } from "./insurance-policy/insurancePolicyDocumentDefinition";
 import { JsonFileDocumentApp } from "./json-file/JsonFileDocumentApp";
 import { JSON_FILE_DOCUMENT_KIND } from "./json-file/jsonFileDocumentDefinition";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
@@ -74,6 +76,7 @@ const documentTypeAppsByKind = new Map<
   [CREDIT_CARD_DOCUMENT_KIND, CreditCardDocumentApp],
   [PASSPORT_DOCUMENT_KIND, PassportDocumentApp],
   [BIRTH_CERTIFICATE_DOCUMENT_KIND, BirthCertificateDocumentApp],
+  [INSURANCE_POLICY_DOCUMENT_KIND, InsurancePolicyDocumentApp],
   [ENV_FILE_DOCUMENT_KIND, EnvFileDocumentApp],
   [BLOOD_PRESSURE_DOCUMENT_KIND, BloodPressureDocumentApp],
   [EYEGLASS_PRESCRIPTION_DOCUMENT_KIND, EyeglassPrescriptionDocumentApp],

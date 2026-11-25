@@ -1,6 +1,5 @@
 import type { ComponentType } from "react";
 import { useContext, useId } from "react";
-import { MiniAppSelectMenu } from "../../components/mini-app/controls/MiniAppSelectMenu";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import {
   DocumentContext,
@@ -10,12 +9,15 @@ import type { DocumentTypeAppProps } from "../types";
 import { DocumentAvatar } from "./avatar/DocumentAvatar";
 import { createDocumentTypeApp } from "./createDocumentTypeApp";
 import { DocumentAttachmentSlots } from "./DocumentAttachmentSlots";
+import { DocumentFieldOptionSelect } from "./DocumentFieldOptionSelect";
+import {
+  type DocumentFieldOption,
+  getDocumentFieldOptionLabel,
+} from "./documentFieldOptions";
 import { removeDocumentPhoto } from "./documentPhotos";
 import {
   type EquipmentDocumentFields,
   type EquipmentDocumentTypeDefinition,
-  type EquipmentTypeOption,
-  getEquipmentTypeLabel,
   readEquipmentFields,
 } from "./equipmentDocumentDefinition";
 import {
@@ -48,7 +50,7 @@ export function EquipmentFields(params: {
   isEditing: boolean;
   onChange: (patch: Partial<EquipmentDocumentFields>) => void;
   ready: boolean;
-  typeOptions: ReadonlyArray<EquipmentTypeOption>;
+  typeOptions: ReadonlyArray<DocumentFieldOption>;
 }) {
   const {
     ariaLabelPrefix,
@@ -60,11 +62,10 @@ export function EquipmentFields(params: {
     ready,
     typeOptions,
   } = params;
-  // The stored value is compared trimmed everywhere — here, in the label
-  // helper, and as the menu's selected id — so a padded value written by
-  // another client reads and edits as the same option instead of a duplicate.
-  const storedType = fields.equipmentType.trim();
-  const typeLabel = getEquipmentTypeLabel(typeOptions, storedType);
+  const typeLabel = getDocumentFieldOptionLabel(
+    typeOptions,
+    fields.equipmentType,
+  );
 
   if (!isEditing) {
     return (
@@ -83,31 +84,17 @@ export function EquipmentFields(params: {
     );
   }
 
-  // A stored type outside this client's option list stays selectable as
-  // itself, so opening the editor never silently reverts it to the placeholder.
-  const hasUnlistedType =
-    storedType.length > 0 &&
-    !typeOptions.some((option) => option.value === storedType);
-  const typeMenuOptions = [
-    ...(hasUnlistedType ? [{ id: storedType, label: typeLabel }] : []),
-    ...typeOptions.map((option) => ({ id: option.value, label: option.label })),
-  ];
-
   return (
     <StructuredDocumentFields>
-      {/* Portaled so the open listbox floats over the pane instead of growing
-          the document's scroll region, and so its option buttons never render
-          inside this field's <label>. */}
       <StructuredDocumentField inputId={inputIds.equipmentType} label="Type">
-        <MiniAppSelectMenu
+        <DocumentFieldOptionSelect
           ariaLabel={`${ariaLabelPrefix} type`}
           disabled={disabled}
           id={inputIds.equipmentType}
           onChange={(value) => onChange({ equipmentType: value })}
-          options={typeMenuOptions}
+          options={typeOptions}
           placeholder={ready ? "Select a type" : "Loading..."}
-          portaled
-          value={storedType}
+          value={fields.equipmentType}
         />
       </StructuredDocumentField>
       <StructuredDocumentField inputId={inputIds.make} label="Make">

@@ -2,10 +2,14 @@
 // and carries the chosen blob back. This is the pick's lifecycle, kept apart
 // from the provider that runs its navigation.
 
+import type { DocumentAttachmentAccept } from "../../../document-types/shared/documentAttachmentUtils";
+
 export interface BlobPickTarget {
   containerId: string;
   // localId of the document the pick returns to once a blob is chosen.
   localId: string;
+  // The files the slot takes; only those blobs are selectable.
+  slotAccept: DocumentAttachmentAccept;
   slotId: string;
   slotLabel: string;
 }
