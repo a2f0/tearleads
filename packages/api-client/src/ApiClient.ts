@@ -28,6 +28,14 @@ export class ApiClient extends ApiClientAreas {
   destroySession = this.session.destroySession;
   logout = this.session.logout;
 
+  // The signed-in identity's two-factor authentication.
+  getTwoFactorStatusResult = this.twoFactor.getTwoFactorStatusResult;
+  beginTwoFactorSetupResult = this.twoFactor.beginTwoFactorSetupResult;
+  enableTwoFactorResult = this.twoFactor.enableTwoFactorResult;
+  disableTwoFactorResult = this.twoFactor.disableTwoFactorResult;
+  regenerateTwoFactorRecoveryCodesResult =
+    this.twoFactor.regenerateTwoFactorRecoveryCodesResult;
+
   // Published user identities.
   getUserIdentity = this.identities.getUserIdentity;
   getUserIdentityRequestFailure = this.identities.getUserIdentityRequestFailure;
@@ -64,6 +72,8 @@ export class ApiClient extends ApiClientAreas {
     this.organizations.getOrganizationDataUsageResult;
   updateOrganizationRosterEntry =
     this.organizations.updateOrganizationRosterEntry;
+  updateOrganizationRosterTwoFactorResult =
+    this.organizations.updateOrganizationRosterTwoFactorResult;
   listOrganizationMemberships = this.organizations.listOrganizationMemberships;
   updateOrganizationMembership =
     this.organizations.updateOrganizationMembership;

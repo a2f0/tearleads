@@ -6,6 +6,7 @@ import {
   operationRoutePath,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
+  updateOrganizationRosterTwoFactorOperation,
 } from "@tearleads/validators/operation";
 import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -25,7 +26,13 @@ function createRoutes(requireAuth: MiddlewareHandler<SessionEnv>) {
     groups: createOrganizationGroupsRoute(deps),
     mutations: createOrganizationMutationsRoute(deps),
     profile: createOrganizationProfileRoute(deps),
-    roster: createOrganizationRosterRoute(deps),
+    roster: createOrganizationRosterRoute({
+      ...deps,
+      sessions: {
+        destroyUserSession: async () => false,
+        listUserSessions: async () => [],
+      },
+    }),
   };
 }
 
@@ -43,6 +50,7 @@ test("organization management routes register from shared operations", () => {
     listOrganizationGroupMembersOperation,
     updateOrganizationProfileOperation,
     updateOrganizationRosterEntryOperation,
+    updateOrganizationRosterTwoFactorOperation,
   ]) {
     expect(
       registrations.some(

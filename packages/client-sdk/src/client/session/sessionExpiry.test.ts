@@ -96,6 +96,7 @@ for (const [sameUser, selected] of [
         isRoot: false,
         rootAcknowledgments: [],
         organizationId: selected,
+        twoFactorDeviceToken: null,
         userId: "22222222-2222-4222-8222-222222222222",
       });
 
@@ -131,6 +132,7 @@ for (const [sameUser, selected] of [
           },
         ],
         organizationId: selected === "org-1" ? "org-2" : selected,
+        twoFactorDeviceToken: null,
         userId: "22222222-2222-4222-8222-222222222222",
       });
       expect(requests).toEqual([

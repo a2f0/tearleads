@@ -1,3 +1,4 @@
+import type { RequestResult } from "@tearleads/api-client";
 import type {
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
@@ -89,6 +90,11 @@ export interface OrganizationGroupDetails {
 }
 
 interface OrganizationReadApi {
+  readonly updateOrganizationRosterTwoFactorResult: (
+    organizationId: string,
+    userId: string,
+    input: { readonly required: boolean },
+  ) => Promise<RequestResult<OrganizationDirectoryUserResponse>>;
   readonly updateOrganizationRosterEntry: (
     organizationId: string,
     userId: string,
@@ -114,6 +120,24 @@ export async function updateOrganizationRosterEntry(input: {
     input.userId,
     { profileDocumentId: input.profileDocumentId },
   );
+}
+
+/** Null when the server refused, as for any other roster update. */
+export async function setOrganizationRosterTwoFactorRequired(input: {
+  readonly apiClient: Pick<
+    OrganizationReadApi,
+    "updateOrganizationRosterTwoFactorResult"
+  >;
+  readonly organizationId: string;
+  readonly required: boolean;
+  readonly userId: string;
+}): Promise<OrganizationDirectoryUser | null> {
+  const result = await input.apiClient.updateOrganizationRosterTwoFactorResult(
+    input.organizationId,
+    input.userId,
+    { required: input.required },
+  );
+  return result.ok ? result.data : null;
 }
 
 export async function updateOrganizationProfile(input: {

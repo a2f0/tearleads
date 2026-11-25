@@ -10,6 +10,7 @@ import {
   principalCurrentStateKey,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
+import { assertOrganizationTwoFactorStanding } from "../../utils/requestTwoFactorStanding";
 import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "../principals/getCurrentPrincipalPolicy";
 import { PrincipalPolicyError } from "../principals/shared";
@@ -217,6 +218,9 @@ export async function requireDirectOrganizationAccess(input: {
   if (input.requireAdmin && !access.isOrgAdmin) {
     throw new OrganizationManagerError("Organization admin required", 403);
   }
+  // A member, so the requirement is theirs to meet; outsiders were refused
+  // above without learning whether the organization requires two-factor.
+  assertOrganizationTwoFactorStanding(input.organizationId);
 
   return access;
 }

@@ -1,3 +1,4 @@
+import type { SessionTwoFactorCode } from "@tearleads/client-sdk";
 import { useCallback, useState } from "react";
 import { registrationFailureMessage } from "../../../identity/registrationRecoveryError";
 import { useAuthenticateAction } from "../../../identity/useAuthenticateAction";
@@ -34,6 +35,7 @@ export function useIdentityManagerIdentityMutations({
     authenticating,
     clearError: clearAuthError,
     error: authError,
+    twoFactorPrompt,
   } = useAuthenticateAction();
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
@@ -69,10 +71,13 @@ export function useIdentityManagerIdentityMutations({
     }
   }, [clearAuthError, logError, registerCurrentIdentity]);
 
-  const authenticate = useCallback(async () => {
-    setRegisterError(null);
-    await runAuthenticate();
-  }, [runAuthenticate]);
+  const authenticate = useCallback(
+    async (twoFactor?: SessionTwoFactorCode) => {
+      setRegisterError(null);
+      return runAuthenticate(twoFactor);
+    },
+    [runAuthenticate],
+  );
 
   const identityBusy: IdentityBusyState = destroyDialog.destroying
     ? "transition"
@@ -89,5 +94,6 @@ export function useIdentityManagerIdentityMutations({
     handleRegisterIdentity,
     identityBusy,
     identityError,
+    twoFactorPrompt,
   };
 }

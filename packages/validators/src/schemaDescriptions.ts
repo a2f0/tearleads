@@ -6,3 +6,4 @@ import "./schemaDescriptions/containers";
 import "./schemaDescriptions/documents";
 import "./schemaDescriptions/organizations";
 import "./schemaDescriptions/root";
+import "./schemaDescriptions/twoFactor";

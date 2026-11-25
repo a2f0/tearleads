@@ -7,7 +7,26 @@ export const VERIFY_ERROR_CODES = {
    * Terminal: renewing the session cannot succeed until the suspension lifts.
    */
   accountSuspended: "account_suspended",
+  /**
+   * The signature is valid, the identity has two-factor authentication turned
+   * on, and the request carried no code and no device trust token the server
+   * still honors. The person must enter a code; a silent renewal cannot.
+   */
+  twoFactorRequired: "two_factor_required",
+  /** The code was wrong, already used, or not a code at all. */
+  twoFactorInvalid: "two_factor_invalid",
+  /** Too many wrong codes; codes are refused until the lockout ends. */
+  twoFactorLocked: "two_factor_locked",
 } as const;
+
+export const VerifyErrorCodeSchema = z.literal([
+  VERIFY_ERROR_CODES.accountSuspended,
+  VERIFY_ERROR_CODES.twoFactorRequired,
+  VERIFY_ERROR_CODES.twoFactorInvalid,
+  VERIFY_ERROR_CODES.twoFactorLocked,
+]);
+
+export type VerifyErrorCode = z.infer<typeof VerifyErrorCodeSchema>;
 
 export const VerifySuccessResponseSchema = loosePlainObject({
   authenticated: z.literal(true),
@@ -18,6 +37,11 @@ export const VerifySuccessResponseSchema = loosePlainObject({
   organizationId: nonEmptyStringSchema,
   rootContainerId: nonEmptyStringSchema.nullable(),
   token: nonEmptyStringSchema,
+  /**
+   * Issued when a code was verified with `rememberDevice`; sending it with a
+   * later sign-in from this device stands in for a code until it expires.
+   */
+  twoFactorDeviceToken: nonEmptyStringSchema.optional(),
   userId: nonEmptyStringSchema,
   /** Single-use upgrade ticket for this session's first websocket connect. */
   wsTicket: nonEmptyStringSchema,
@@ -25,7 +49,7 @@ export const VerifySuccessResponseSchema = loosePlainObject({
 
 export const VerifyFailureResponseSchema = loosePlainObject({
   authenticated: z.literal(false),
-  code: z.literal(VERIFY_ERROR_CODES.accountSuspended).optional(),
+  code: VerifyErrorCodeSchema.optional(),
   error: z.string().optional(),
   isRoot: z.never().optional(),
   organizationId: z.never().optional(),

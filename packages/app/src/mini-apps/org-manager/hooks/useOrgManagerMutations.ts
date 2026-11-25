@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useImportRosterIdentityLink } from "../directory/useImportRosterIdentityLink";
 import { useOrgManagerDisableRosterUser } from "../directory/useOrgManagerDisableRosterUser";
+import { useOrgManagerRosterTwoFactor } from "../directory/useOrgManagerRosterTwoFactor";
 import { useOrgManagerMembershipMutations } from "../groups/useOrgManagerMembershipMutations";
 import { groupSignedName } from "../labels";
 import type { OrgManagerMutationsParams } from "./orgManagerMutationsTypes";
@@ -221,6 +222,16 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     setMutating,
     isOperationActive,
   });
+  const setRosterTwoFactorRequired = useOrgManagerRosterTwoFactor({
+    directory,
+    isOperationActive,
+    logError,
+    orgManagerActions,
+    refreshDirectoryAndGroups,
+    refreshSelectedUserDetail,
+    setError,
+    setMutating,
+  });
   const revokeGrant = useOrgManagerRevokeGrant({
     isOperationActive,
     organizationId: appData.auth.organizationId,
@@ -240,5 +251,6 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     importRosterUser,
     removeMember,
     revokeGrant,
+    setRosterTwoFactorRequired,
   };
 }

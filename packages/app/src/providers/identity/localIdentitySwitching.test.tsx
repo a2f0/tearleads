@@ -43,6 +43,7 @@ test("failed identity creation returns to the previous identity", async () => {
     isRoot: false,
     rootAcknowledgments: [],
     organizationId: "organization-a",
+    twoFactorDeviceToken: null,
     userId: "user-a",
   };
   tearleads.session.setContext(identityASession);
@@ -90,6 +91,7 @@ test("failed target startup rolls back the live identity, session, and active se
     isRoot: false,
     rootAcknowledgments: [],
     organizationId: "organization-a",
+    twoFactorDeviceToken: null,
     userId: "user-a",
   });
 
@@ -148,6 +150,7 @@ test("failed target startup rolls back the live identity, session, and active se
     isRoot: false,
     rootAcknowledgments: [],
     organizationId: "organization-a",
+    twoFactorDeviceToken: null,
     userId: "user-a",
   });
   expect(ensuredFingerprints).toEqual([
@@ -189,6 +192,7 @@ test("failed key-package import startup leaves the restored identity uncommitted
     isRoot: false,
     rootAcknowledgments: [],
     organizationId: "organization-a",
+    twoFactorDeviceToken: null,
     userId: "user-a",
   };
   tearleads.session.setContext(identityASession);

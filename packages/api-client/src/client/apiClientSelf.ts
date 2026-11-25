@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { ApiRequestRuntime } from "../apiRequestRuntime";
 import type { PrincipalPolicyRequests } from "../principalPolicyRequests";
+import type { LoginSecondFactor } from "../twoFactorLogin";
 import type { RequestResult, RequestResultOptions } from "../types";
 
 export type DeleteContainerOptions = RequestResultOptions & {
@@ -22,6 +23,7 @@ export interface ApiClientSelf {
     fingerprint: string,
     secretKey: Uint8Array,
     challengeHex: string,
+    secondFactor?: LoginSecondFactor,
   ): Promise<VerifySuccessResponse | null>;
   clearWriterProjectionCaches(): void;
   commitOrganizationGroupPolicyResult: PrincipalPolicyRequests["commitResult"];

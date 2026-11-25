@@ -38,6 +38,7 @@ import { groupDisplayName, ORG_MANAGER_LABELS } from "../labels";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import { UserRosterMetadata } from "./RosterMetadata";
 import { RosterProfileEditor } from "./RosterProfileEditor";
+import type { RosterTwoFactorRequirement } from "./RosterTwoFactorRow";
 
 type UserDetailTabId = "profile" | "groups" | "links";
 
@@ -60,6 +61,7 @@ function UserDetailTabContent({
   openGroupRoute,
   organizationId,
   revokeGrant,
+  twoFactorRequirement,
 }: {
   activeTab: UserDetailTabId;
   canEditRosterProfile: boolean;
@@ -73,6 +75,7 @@ function UserDetailTabContent({
   openGroupRoute: (groupId: string) => void;
   organizationId: string;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
+  twoFactorRequirement: RosterTwoFactorRequirement | null;
 }) {
   return (
     <>
@@ -85,7 +88,10 @@ function UserDetailTabContent({
             organizationId={organizationId}
             user={detail.user}
           />
-          <UserRosterMetadata user={detail.user} />
+          <UserRosterMetadata
+            twoFactorRequirement={twoFactorRequirement}
+            user={detail.user}
+          />
         </MiniAppSection>
       </div>
       {activeTab === "groups" ? (
@@ -218,6 +224,7 @@ export function UserDetailView({
   revokeGrant,
   syncSeatAssigned,
   mutating,
+  twoFactorRequirement,
 }: {
   canEditRosterProfile: boolean;
   canRevokeGrants: boolean;
@@ -233,6 +240,7 @@ export function UserDetailView({
   profileDisplayNamesByUserId: ReadonlyMap<string, string>;
   revokeGrant: (grant: OrganizationContainerGrant) => void;
   syncSeatAssigned: boolean | null;
+  twoFactorRequirement: RosterTwoFactorRequirement | null;
 }) {
   const idPrefix = useId();
   const [activeTab, setActiveTab] = useState<UserDetailTabId>("profile");
@@ -343,6 +351,7 @@ export function UserDetailView({
           openGroupRoute={openGroupRoute}
           organizationId={organizationId}
           revokeGrant={revokeGrant}
+          twoFactorRequirement={twoFactorRequirement}
         />
       </MiniAppTabPanel>
     </>

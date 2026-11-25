@@ -16,8 +16,6 @@ import {
   measureOrganizationDeviceDataUsage,
   startOrganizationTrial,
   updateOrganizationProfile,
-  updateOrganizationRosterEntry,
-  withVerifiedDirectoryUser,
 } from "../../workflows/organizations";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import {
@@ -25,7 +23,6 @@ import {
   type OrganizationDataUsageCoordinator,
 } from "./organizationDataUsage";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
-import { leaveRequestVerifier } from "./organizationLeaveRequestVerifier";
 import {
   createOrganizationMemberships,
   type OrganizationContentReconciler,
@@ -33,6 +30,10 @@ import {
 } from "./organizationMemberships";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
+import {
+  setActiveRosterTwoFactorRequired,
+  updateActiveRosterEntry,
+} from "./organizationRosterMutations";
 import type { Organizations } from "./organizationsTypes";
 import {
   activeOrganizationDataRuntime,
@@ -423,31 +424,19 @@ class OrganizationsService implements Organizations {
     return this.readModelCoordinator.loadLocalUserDetail(userId);
   }
 
-  async updateRosterEntry(userId: string, profileDocumentId: string | null) {
-    const runtime = this.runtimeService.workflowInput();
-    const organizationId = authenticatedOrganizationId(runtime);
-    if (!organizationId || userId.length === 0) {
-      return null;
-    }
-
-    const user = await updateOrganizationRosterEntry({
-      apiClient: runtime.apiClient,
-      organizationId,
-      profileDocumentId,
+  updateRosterEntry(userId: string, profileDocumentId: string | null) {
+    return updateActiveRosterEntry(
+      this.runtimeService,
       userId,
-    });
-    // Callers store this response as directory state, so its leave request
-    // passes the same check as one read from the read model.
-    return (
-      user &&
-      withVerifiedDirectoryUser(
-        organizationId,
-        user,
-        leaveRequestVerifier(this.runtimeService, runtime, {
-          organizationId,
-          userId: runtime.auth.userId ?? "",
-        }),
-      )
+      profileDocumentId,
+    );
+  }
+
+  setRosterTwoFactorRequired(userId: string, required: boolean) {
+    return setActiveRosterTwoFactorRequired(
+      this.runtimeService,
+      userId,
+      required,
     );
   }
 

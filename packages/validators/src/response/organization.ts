@@ -53,6 +53,12 @@ export const OrganizationDirectoryUserResponseShape = {
   profileDocumentId: z.string().nullable(),
   signingKeyFingerprint: z.string(),
   status: OrganizationRosterStatusSchema,
+  /**
+   * An administrator requires this member to sign in with two-factor
+   * authentication before the organization's server data is available to
+   * them. Product state, not access authority: it gates server routes only.
+   */
+  twoFactorRequired: z.boolean(),
   updatedAt: z.string(),
   userId: z.string(),
 };

@@ -52,6 +52,7 @@ async function persistedSessionFixture() {
         rootContainerId: "server-root",
       },
     ],
+    twoFactorDeviceToken: "device-1",
     userId: "user-1",
   };
   expect(
@@ -97,6 +98,8 @@ test("a restore reload signs out and unpins the root but keeps acknowledgements"
     isRoot: false,
     organizationId: null,
     rootAcknowledgments: context.rootAcknowledgments,
+    // The device stays remembered for the same identity after the reload.
+    twoFactorDeviceToken: "device-1",
     userId: "user-1",
   });
   if (!restored) throw new Error("expected the restore-reload record");

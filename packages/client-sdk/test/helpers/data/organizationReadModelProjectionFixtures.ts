@@ -33,6 +33,7 @@ function directoryUser(
     updatedAt: CREATED_AT,
     disabledAt: null,
     disabledByUserId: null,
+    twoFactorRequired: false,
   };
 }
 

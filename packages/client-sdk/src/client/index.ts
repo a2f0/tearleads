@@ -282,5 +282,13 @@ export type {
   SessionRegistrationRefusal,
   SessionRegistrationResult,
   SessionSnapshot,
+  SessionTwoFactorCode,
   UserSession,
 } from "./session/sessionTypes";
+export {
+  type TwoFactor,
+  type TwoFactorAnswer,
+  TwoFactorRequestError,
+  type TwoFactorSetup,
+  type TwoFactorStatus,
+} from "./twoFactor";

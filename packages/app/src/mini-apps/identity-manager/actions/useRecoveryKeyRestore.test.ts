@@ -47,6 +47,7 @@ beforeEach(() => {
   const session = spyOn(Session, "useCryptoSession").mockReturnValue({
     login,
     loginWithChallenge: async () => true,
+    loginWithSecondFactor: async () => true,
     logout: () => undefined,
     prepareForRestoreReload: async () => null,
     authToken: null,

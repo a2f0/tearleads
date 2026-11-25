@@ -240,6 +240,8 @@ export {
   isUpdateOrganizationProfileOperationResponse,
   isUpdateOrganizationRosterEntryOperationRequest,
   isUpdateOrganizationRosterEntryOperationResponse,
+  isUpdateOrganizationRosterTwoFactorOperationRequest,
+  isUpdateOrganizationRosterTwoFactorOperationResponse,
   listOrganizationGroupMembersOperation,
   type OrganizationGroupPathParams,
   OrganizationGroupPathParamsSchema,
@@ -249,6 +251,7 @@ export {
   OrganizationRosterPathParamsSchema,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
+  updateOrganizationRosterTwoFactorOperation,
 } from "./organizations";
 export {
   listOrganizationPendingBlobDeletionsOperation,
@@ -344,6 +347,19 @@ export {
   type StripeCheckoutPathParams,
   StripeCheckoutPathParamsSchema,
 } from "./stripeCheckout";
+export {
+  beginTwoFactorSetupOperation,
+  disableTwoFactorOperation,
+  enableTwoFactorOperation,
+  getTwoFactorStatusOperation,
+  isBeginTwoFactorSetupOperationResponse,
+  isEnableTwoFactorOperationRequest,
+  isEnableTwoFactorOperationResponse,
+  isGetTwoFactorStatusOperationResponse,
+  isTwoFactorConfirmationOperationRequest,
+  isTwoFactorRecoveryCodesOperationResponse,
+  regenerateTwoFactorRecoveryCodesOperation,
+} from "./twoFactor";
 export {
   type ContainerWriterProjectionPathParams,
   ContainerWriterProjectionPathParamsSchema,

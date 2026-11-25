@@ -4,9 +4,10 @@ import {
 } from "@tearleads/validators/operation";
 import {
   VERIFY_ERROR_CODES,
+  type VerifyErrorCode,
   type VerifyResponse,
 } from "@tearleads/validators/response";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { readRequestIpAddress } from "../../middleware/requestIp";
 import type { SessionEnv } from "../../middleware/session";
 import type { WebSocketTicketIdentity } from "../../realtime/wsIdentity";
@@ -17,6 +18,45 @@ import {
 } from "../../services/auth/verifyChallenge";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
+
+/** Refusals a client acts on by code rather than by status alone. */
+const codedVerifyRefusals: Partial<
+  Record<
+    VerifyChallengeError["reason"],
+    { readonly code: VerifyErrorCode; readonly status: 401 | 403 | 429 }
+  >
+> = {
+  account_suspended: {
+    code: VERIFY_ERROR_CODES.accountSuspended,
+    status: 403,
+  },
+  two_factor_invalid: {
+    code: VERIFY_ERROR_CODES.twoFactorInvalid,
+    status: 401,
+  },
+  two_factor_locked: {
+    code: VERIFY_ERROR_CODES.twoFactorLocked,
+    status: 429,
+  },
+  two_factor_required: {
+    code: VERIFY_ERROR_CODES.twoFactorRequired,
+    status: 401,
+  },
+};
+
+function verifyRefusal(c: Context<SessionEnv>, error: VerifyChallengeError) {
+  const coded = codedVerifyRefusals[error.reason];
+  if (coded) {
+    return c.json<VerifyResponse>(
+      { authenticated: false, code: coded.code, error: error.message },
+      coded.status,
+    );
+  }
+  return c.json<VerifyResponse>(
+    { authenticated: false, error: error.message },
+    error.reason === "unknown_fingerprint" ? 404 : 401,
+  );
+}
 
 /**
  * `publicOrigin` is the configured origin login challenges must be signed
@@ -56,30 +96,15 @@ export function createVerifyRoute(
           organizationId: result.organizationId,
           rootContainerId: result.rootContainerId,
           token: result.token,
+          ...(result.twoFactorDeviceToken === null
+            ? {}
+            : { twoFactorDeviceToken: result.twoFactorDeviceToken }),
           userId: result.userId,
           wsTicket,
         });
       } catch (error) {
         if (error instanceof VerifyChallengeError) {
-          if (error.reason === "account_suspended") {
-            return c.json<VerifyResponse>(
-              {
-                authenticated: false,
-                code: VERIFY_ERROR_CODES.accountSuspended,
-                error: error.message,
-              },
-              403,
-            );
-          }
-          const status = error.reason === "unknown_fingerprint" ? 404 : 401;
-
-          return c.json<VerifyResponse>(
-            {
-              authenticated: false,
-              error: error.message,
-            },
-            status,
-          );
+          return verifyRefusal(c, error);
         }
 
         throw error;

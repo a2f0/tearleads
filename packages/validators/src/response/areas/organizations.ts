@@ -122,3 +122,9 @@ export {
   type OrganizationReadModelFailureResponse,
   OrganizationReadModelFailureResponseSchema,
 } from "../organizationReadModelError";
+export {
+  isOrganizationTwoFactorRequiredResponse,
+  ORGANIZATION_TWO_FACTOR_ERROR_CODES,
+  type OrganizationTwoFactorRequiredResponse,
+  OrganizationTwoFactorRequiredResponseSchema,
+} from "../organizationTwoFactor";

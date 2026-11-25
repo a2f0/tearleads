@@ -1,11 +1,15 @@
-import type { ApiClient } from "@tearleads/api-client";
+import {
+  type ApiClient,
+  type LoginSecondFactor,
+  TwoFactorLoginError,
+} from "@tearleads/api-client";
 import {
   requireUserIdentityAvailable,
   type SessionIdentityAcknowledgments,
 } from "./sessionIdentityTrust";
 import { sessionLifetime } from "./sessionLifetime";
 import {
-  authenticateUnlessSuspended,
+  authenticateUnlessRefused,
   refuseSessionLogin,
 } from "./sessionLoginRefusal";
 import { commitSessionRootAcknowledgment } from "./sessionRootAuthority";
@@ -13,7 +17,16 @@ import type {
   Session,
   SessionContext,
   SessionDependencies,
+  SessionTwoFactorCode,
 } from "./sessionTypes";
+
+/** One sign-in: a fresh login, or the silent renewal of an expired session. */
+interface SignIn {
+  readonly challengeHex?: string | undefined;
+  readonly renewal: boolean;
+  /** A typed second factor; renewal never has one. */
+  readonly twoFactor?: SessionTwoFactorCode | undefined;
+}
 
 export async function authenticateSession(
   dependencies: SessionDependencies,
@@ -26,10 +39,9 @@ export async function authenticateSession(
     clearAuthentication(renewal: boolean): void;
   },
   acknowledgments: SessionIdentityAcknowledgments,
-  challengeHex: string | undefined,
-  renewal: boolean,
+  signIn: SignIn,
 ): Promise<boolean> {
-  const attempt = sessionLifetime(session).authentication.start(renewal);
+  const attempt = sessionLifetime(session).authentication.start(signIn.renewal);
   try {
     return (
       attempt.current() &&
@@ -37,8 +49,7 @@ export async function authenticateSession(
         dependencies,
         session,
         acknowledgments,
-        challengeHex,
-        renewal,
+        signIn,
         attempt.current,
       ))
     );
@@ -47,14 +58,72 @@ export async function authenticateSession(
   }
 }
 
+/** A typed code wins; otherwise a remembered device's token, if any. */
+function loginSecondFactor(
+  signIn: SignIn,
+  deviceToken: string | null,
+): LoginSecondFactor {
+  if (signIn.twoFactor) return { twoFactor: { ...signIn.twoFactor } };
+  return deviceToken ? { twoFactorDeviceToken: deviceToken } : {};
+}
+
+/** The server no longer honors this device's token; stop sending it. */
+function forgetRefusedDeviceToken(
+  session: Session,
+  sent: LoginSecondFactor,
+  error: unknown,
+): void {
+  if (
+    sent.twoFactorDeviceToken &&
+    error instanceof TwoFactorLoginError &&
+    error.code === "two_factor_required" &&
+    session.snapshot.twoFactorDeviceToken === sent.twoFactorDeviceToken
+  )
+    session.setContext({ twoFactorDeviceToken: null });
+}
+
+/**
+ * Sends the sign-in. A refusal that ends the session (a suspension, or a
+ * second factor silent renewal cannot give) clears the session it started
+ * from, unless another sign-in replaced that session meanwhile.
+ */
+function requestSignIn(
+  api: ApiClient,
+  session: Parameters<typeof authenticateSession>[1],
+  input: {
+    readonly fingerprint: string;
+    readonly isCurrent: () => boolean;
+    readonly privateKey: Uint8Array;
+    readonly signIn: SignIn;
+    readonly snapshotAtStart: Session["snapshot"];
+  },
+) {
+  const { isCurrent, signIn, snapshotAtStart } = input;
+  const secondFactor = loginSecondFactor(
+    signIn,
+    snapshotAtStart.twoFactorDeviceToken,
+  );
+  return authenticate(
+    api,
+    { fingerprint: input.fingerprint, privateKey: input.privateKey },
+    { challengeHex: signIn.challengeHex, secondFactor },
+    (error) => {
+      if (!isCurrent()) return;
+      forgetRefusedDeviceToken(session, secondFactor, error);
+      if (session.authToken === snapshotAtStart.authToken)
+        session.clearAuthentication(signIn.renewal);
+    },
+  );
+}
+
 async function runAuthentication(
   dependencies: SessionDependencies,
   session: Parameters<typeof authenticateSession>[1],
   acknowledgments: SessionIdentityAcknowledgments,
-  challengeHex: string | undefined,
-  renewal: boolean,
+  signIn: SignIn,
   isCurrent: () => boolean,
 ): Promise<boolean> {
+  const { challengeHex, renewal } = signIn;
   const signingKeyPair = dependencies.identity.requireSigningKeyPair("login");
   const fingerprint =
     (await dependencies.identity.refreshSigningFingerprint()) ?? null;
@@ -81,16 +150,13 @@ async function runAuthentication(
   dependencies.log(
     challengeHex ? "Authenticating with challenge..." : "Authenticating...",
   );
-  const authentication = await authenticate(
-    dependencies.api,
+  const authentication = await requestSignIn(dependencies.api, session, {
     fingerprint,
-    signingKeyPair.signingPrivateKey,
-    challengeHex,
-    () => {
-      if (isCurrent() && session.authToken === snapshotAtStart.authToken)
-        session.clearAuthentication(renewal);
-    },
-  );
+    isCurrent,
+    privateKey: signingKeyPair.signingPrivateKey,
+    signIn,
+    snapshotAtStart,
+  });
 
   const identityCurrent = () =>
     isCurrent() && dependencies.identity.snapshot === identitySnapshot;
@@ -176,6 +242,9 @@ function authenticatedSessionContext(
       renewal && selected && selected !== session.defaultOrganizationId
         ? selected
         : serverDefault,
+    ...(authentication.twoFactorDeviceToken
+      ? { twoFactorDeviceToken: authentication.twoFactorDeviceToken }
+      : {}),
     userId: authentication.userId,
   };
 }
@@ -194,16 +263,25 @@ function assertSignInCurrent(isCurrent: () => boolean): void {
 
 function authenticate(
   api: ApiClient,
-  fingerprint: string,
-  privateKey: Uint8Array,
-  challengeHex: string | undefined,
-  clear: () => void,
+  key: { readonly fingerprint: string; readonly privateKey: Uint8Array },
+  request: {
+    readonly challengeHex: string | undefined;
+    readonly secondFactor: LoginSecondFactor;
+  },
+  clear: (error: unknown) => void,
 ) {
-  return authenticateUnlessSuspended(
+  const { fingerprint, privateKey } = key;
+  const { challengeHex, secondFactor } = request;
+  return authenticateUnlessRefused(
     () =>
       challengeHex
-        ? api.authenticateWithChallenge(fingerprint, privateKey, challengeHex)
-        : api.authenticate(fingerprint, privateKey),
+        ? api.authenticateWithChallenge(
+            fingerprint,
+            privateKey,
+            challengeHex,
+            secondFactor,
+          )
+        : api.authenticate(fingerprint, privateKey, secondFactor),
     clear,
   );
 }

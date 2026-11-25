@@ -1,10 +1,12 @@
 import { useAccountBootstrapProgress } from "../../identity/useAccountBootstrapProgress";
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { MiniAppButton, MiniAppStatus } from "../mini-app/MiniAppLayout";
+import { TwoFactorSignInForm } from "./TwoFactorSignInForm";
 
 export function IdentityLinkSignIn() {
   const progress = useAccountBootstrapProgress();
-  const { authenticate, authenticating, error } = useAuthenticateAction();
+  const { authenticate, authenticating, error, twoFactorPrompt } =
+    useAuthenticateAction();
   // The progress takes the Sign in button's place, spinner inside the button,
   // so the surrounding form does not shift or gain a stray status line.
   if (progress) {
@@ -26,13 +28,20 @@ export function IdentityLinkSignIn() {
           {error}
         </MiniAppStatus>
       )}
-      <MiniAppButton
-        disabled={authenticating}
-        onClick={() => void authenticate()}
-        type="button"
-      >
-        {authenticating ? "Signing in..." : "Sign in"}
-      </MiniAppButton>
+      {twoFactorPrompt ? (
+        <TwoFactorSignInForm
+          authenticate={authenticate}
+          authenticating={authenticating}
+        />
+      ) : (
+        <MiniAppButton
+          disabled={authenticating}
+          onClick={() => void authenticate()}
+          type="button"
+        >
+          {authenticating ? "Signing in..." : "Sign in"}
+        </MiniAppButton>
+      )}
     </>
   );
 }

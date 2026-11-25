@@ -48,6 +48,7 @@ const owner: OrganizationDirectoryUser = {
   profileDocumentId: null,
   disabledAt: null,
   disabledByUserId: null,
+  twoFactorRequired: false,
   signingKeyFingerprint: "signing-fingerprint",
   encapsulationKeyFingerprint: "kem-fingerprint",
 };
