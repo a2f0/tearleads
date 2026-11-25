@@ -21,6 +21,7 @@ import {
   DocumentListingRevalidationRepository,
   type ListedDocumentHead,
 } from "../../../data/persistence/documents/documentListingRevalidationRepository";
+import { readPersistedDocumentFrontiers } from "../../../data/persistence/documents/records/persistedDocumentFrontiers";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { readProcessedUpdateCountForSync } from "./processedCursor";
 
@@ -58,16 +59,24 @@ export function findOwedDocumentListingRead(
   return new DocumentListingRevalidationRepository(execSql).find(documentId);
 }
 
-/**
- * Every document a listing still owes a read. Debts of documents this device
- * no longer holds a record of are forgotten first.
- */
-export async function listOwedDocumentListingReads(
+/** Every document a listing still owes a read. */
+export function listOwedDocumentListingReads(
   execSql: ExecSql,
 ): Promise<ReadonlyArray<string>> {
-  const revalidations = new DocumentListingRevalidationRepository(execSql);
-  await revalidations.forgetUnheld();
-  return revalidations.listOwedDocumentIds();
+  return new DocumentListingRevalidationRepository(
+    execSql,
+  ).listOwedDocumentIds();
+}
+
+/**
+ * Forgets the reads owed to documents this device no longer holds a record
+ * of. Nothing reads such a debt, so a catch-up clears them once its own
+ * reads are requested.
+ */
+export function forgetUnheldDocumentListingReads(
+  execSql: ExecSql,
+): Promise<void> {
+  return new DocumentListingRevalidationRepository(execSql).forgetUnheld();
 }
 
 /** A loaded store's record, as far as telling whether it lags the disk. */
@@ -91,9 +100,11 @@ export async function listLoadedRecordsSavedElsewhere(
   execSql: ExecSql,
   loaded: ReadonlyArray<LoadedDocumentRecord>,
 ): Promise<ReadonlySet<string>> {
-  const frontiers = await new DocumentListingRevalidationRepository(
+  const frontiers = await readPersistedDocumentFrontiers(
     execSql,
-  ).readPersistedFrontiers(loaded.map(({ localId }) => localId));
+    DOCUMENTS_APP_KIND,
+    loaded.map(({ localId }) => localId),
+  );
   const behind = new Set<string>();
   for (const { lacks, localId } of loaded) {
     const frontier = frontiers.get(localId);

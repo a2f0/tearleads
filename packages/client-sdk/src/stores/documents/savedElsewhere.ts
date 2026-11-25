@@ -4,7 +4,7 @@ import {
   type LoadedDocumentRecord,
   listLoadedRecordsSavedElsewhere,
 } from "../../workflows/documents";
-import { getOrCreateDocumentStoreRegistry } from "./registry";
+import { listRegisteredDocumentStores } from "./registry";
 import type { DocumentStore } from "./types";
 
 type LoadedRecordReader = () => LoadedDocumentRecord | null;
@@ -47,9 +47,7 @@ export async function requestRemoteSyncsOfRecordsSavedElsewhere(
     readonly record: LoadedDocumentRecord;
     readonly store: DocumentStore;
   }> = [];
-  for (const store of getOrCreateDocumentStoreRegistry(
-    domainScope,
-  ).storesByKey.values()) {
+  for (const store of listRegisteredDocumentStores(domainScope)) {
     const record = loadedRecordReaders.get(store)?.() ?? null;
     if (record) loaded.push({ record, store });
   }

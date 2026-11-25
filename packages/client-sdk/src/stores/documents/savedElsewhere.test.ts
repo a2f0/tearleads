@@ -142,14 +142,6 @@ test("a store compares the document it holds in memory, not its record", async (
   mine.commit();
   expect(loaded?.lacks(encodeVersionVector(mine))).toBe(false);
 
-  // A save merges its frontier with the durable one, so the record can name
-  // the other runtime's content before the document holds it.
-  state.record = {
-    documentId: "document-1",
-    snapshotEndVersion: savedElsewhere,
-  } as typeof state.record;
-  expect(loaded?.lacks(savedElsewhere)).toBe(true);
-
   // Once the store holds the peer's edit, the other runtime's save is covered.
   importSnapshot(mine, exportFullHistorySnapshot(peer));
   expect(loaded?.lacks(savedElsewhere)).toBe(false);

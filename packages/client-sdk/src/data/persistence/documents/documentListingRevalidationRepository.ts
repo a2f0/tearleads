@@ -276,34 +276,6 @@ export class DocumentListingRevalidationRepository {
   }
 
   /**
-   * The content frontier each of these ordinary document records has on
-   * disk, by local id. A record that is not on disk has no entry.
-   */
-  async readPersistedFrontiers(
-    localIds: ReadonlyArray<string>,
-  ): Promise<ReadonlyMap<string, string>> {
-    const frontiers = new Map<string, string>();
-    if (localIds.length === 0) return frontiers;
-    const db = await this.db();
-    for (const batch of batches(localIds)) {
-      const rows = await db
-        .select({
-          frontier: documents.snapshotEndVersion,
-          localId: documents.localId,
-        })
-        .from(documents)
-        .where(
-          and(
-            eq(documents.appKind, DOCUMENTS_APP_KIND),
-            inArray(documents.localId, batch),
-          ),
-        );
-      for (const row of rows) frontiers.set(row.localId, row.frontier);
-    }
-    return frontiers;
-  }
-
-  /**
    * Settle the request a read observed. A newer request, from this tab or
    * another sharing the database, carries another revision and stays.
    */

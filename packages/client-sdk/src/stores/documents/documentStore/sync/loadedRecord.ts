@@ -7,11 +7,11 @@ import type { DocumentStoreState } from "../state";
  * shares the database has saved content this store's document lacks. Null
  * for a store with no record, no document in memory, or no server document.
  *
- * The comparison reads the live document, not the record. A save of this
- * store's own that is still in flight has already written its frontier to
- * disk, and the document in memory holds everything that save wrote. And a
- * save merges its frontier with the durable one, so the record a save
- * returned can name content the document has yet to load.
+ * The comparison reads the live document, not the record: the question is
+ * what this runtime holds in memory. A save of this store's own that is
+ * still in flight has already written its frontier to disk while the record
+ * still names the earlier one, and the document holds everything that save
+ * wrote.
  */
 export function describeLoadedDocumentRecord(
   state: DocumentStoreState,

@@ -228,22 +228,3 @@ test("debts of documents no record holds are forgotten, and held ones stay", asy
 
   expect(await repository.listOwedDocumentIds()).toEqual(["held"]);
 });
-
-test("persisted frontiers are read by local id for ordinary records on disk", async () => {
-  await holdDocument({ documentId: "a", frontier: FRONTIER });
-  await holdDocument({ documentId: "b", frontier: BEHIND_FRONTIER });
-
-  expect(
-    await repository.readPersistedFrontiers([
-      "local-a",
-      "local-b",
-      "local-missing",
-    ]),
-  ).toEqual(
-    new Map([
-      ["local-a", FRONTIER],
-      ["local-b", BEHIND_FRONTIER],
-    ]),
-  );
-  expect(await repository.readPersistedFrontiers([])).toEqual(new Map());
-});
