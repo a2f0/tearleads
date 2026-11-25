@@ -81,6 +81,7 @@ remove them when the stated checks pass without the pin.
   passes it. Move the pin only after reading the Loro changelog for changes to
   what `import`, `export`, and local writes refuse, and only when the
   [history identity regression](../packages/loro/src/historyIdentity.test.ts),
+  the [insert grouping tests](../packages/loro/src/historyGrouping.test.ts),
   the [runtime contract](../packages/loro/src/runtimeContract.test.ts), the
   [import refusals](../packages/loro/src/importRefusal.test.ts), the
   [text write budgets](../packages/loro/src/textUpdate.test.ts), and the

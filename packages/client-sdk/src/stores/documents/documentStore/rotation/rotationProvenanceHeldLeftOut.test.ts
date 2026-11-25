@@ -3,7 +3,9 @@ import {
   createDocument,
   encodeVersionVector,
   exportFullHistorySnapshot,
+  exportUpdatesSince,
   importSnapshot,
+  importUpdates,
 } from "@tearleads/loro";
 import {
   assertExactDocumentHistory,
@@ -75,4 +77,49 @@ test("a difference blames a left-out update only for counters it alone holds", a
   } finally {
     for (const doc of [base, current, rebuilt, unheld]) doc.free();
   }
+});
+
+// Loro groups consecutive inserts by the path that brought them. A writer
+// holds what it typed across two uploads as one operation once a checkpoint
+// regroups it, while a rebuild from those uploads holds two.
+test("a writer whose inserts were uploaded in parts matches the rebuild of those uploads", async () => {
+  // Inserts join only inside one change, which spans at most a second. Of
+  // three attempts made back to back, at most one straddles a boundary.
+  const operationCounts: { rebuilt: number; writer: number }[] = [];
+  const operationCount = (doc: Awaited<ReturnType<typeof createDocument>>) =>
+    doc
+      .exportJsonUpdates(undefined, undefined, false)
+      .changes.reduce((count, change) => count + change.ops.length, 0);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const writer = await createDocument(`uploaded-in-parts-${attempt}`);
+    writer.getText("text").insert(0, "a".repeat(5));
+    writer.commit();
+    const first = exportUpdatesSince(writer);
+    const held = encodeVersionVector(writer);
+    writer.getText("text").insert(5, "b".repeat(30));
+    writer.commit();
+    const second = exportUpdatesSince(writer, held);
+    // A save's checkpoint.
+    exportFullHistorySnapshot(writer);
+    const rebuilt = await createDocument(
+      `uploaded-in-parts-rebuilt-${attempt}`,
+    );
+    importUpdates(rebuilt, [first]);
+    importUpdates(rebuilt, [second]);
+
+    expect(() =>
+      assertExactDocumentHistory({
+        currentDocument: writer,
+        rebuiltDocument: rebuilt,
+      }),
+    ).not.toThrow();
+    operationCounts.push({
+      rebuilt: operationCount(rebuilt),
+      writer: operationCount(writer),
+    });
+    writer.free();
+    rebuilt.free();
+  }
+  // At least one attempt met the case: one operation against two.
+  expect(operationCounts).toContainEqual({ rebuilt: 2, writer: 1 });
 });
