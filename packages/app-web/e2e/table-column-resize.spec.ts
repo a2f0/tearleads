@@ -98,66 +98,107 @@ async function itemTable(page: Page) {
   return table;
 }
 
+/**
+ * The handle straddles the edge and takes the pointer on both sides of it: the
+ * half reaching over the left-hand heading is not covered by that heading.
+ */
+async function expectHandleTakesPointer(
+  page: Page,
+  handle: Locator,
+  edge: number,
+) {
+  const box = await handle.boundingBox();
+  if (!box) {
+    throw new Error("Expected a rendered resize handle.");
+  }
+  for (const offset of [-3, 3]) {
+    const hit = await page.evaluate(
+      ({ x, y }) =>
+        document.elementFromPoint(x, y)?.getAttribute("aria-label") ?? null,
+      { x: edge + offset, y: box.y + box.height / 2 },
+    );
+    expect(hit).toBe(TYPE_MODIFIED);
+  }
+}
+
+/** Drags both edges and returns the layout the drags left behind. */
+async function dragEdges(page: Page, table: Locator, before: Layout) {
+  const typeModified = table.getByRole("separator", { name: TYPE_MODIFIED });
+  const nameType = table.getByRole("separator", { name: NAME_TYPE });
+
+  // Between two measured columns: the left one takes what the right gives.
+  await dragHandle(page, typeModified, 60);
+  const traded = await measure(table);
+  expectNear(traded.modified.left - before.modified.left, 60);
+  expectNear(traded.type.width - before.type.width, 60);
+  expectNear(traded.modified.width - before.modified.width, -60);
+  expectNear(traded.name.width, before.name.width);
+  expectNear(traded.type.left, before.type.left);
+  expectNear(traded.tableWidth, before.tableWidth);
+  expect(traded.frameOverflow).toBe(0);
+  // Dragging an edge is not a click on a heading: the sort is untouched.
+  expect(traded.sorted).toBe(before.sorted);
+  // A narrowed column cuts its text short rather than wrapping it, so the
+  // rows keep the pitch the virtualized list is measured by.
+  expect(traded.dateClipped).toBe(true);
+  expect(traded.rowHeight).toBe(before.rowHeight);
+
+  // Beside the fill column: the edge still follows the pointer, and the
+  // column that takes the table's slack gives up what its neighbour gains.
+  await dragHandle(page, nameType, -50);
+  const filled = await measure(table);
+  expectNear(filled.type.left - traded.type.left, -50);
+  expectNear(filled.type.width - traded.type.width, 50);
+  expectNear(filled.name.width - traded.name.width, -50);
+  expectNear(filled.modified.left, traded.modified.left);
+  expectNear(filled.modified.width, traded.modified.width);
+  expectNear(filled.tableWidth, before.tableWidth);
+  expect(filled.frameOverflow).toBe(0);
+
+  // Dragged as far as it goes, the fill column stops at its floor (10rem, a
+  // length the windowed and routed layouts size differently) rather than
+  // letting the table outgrow its frame and scroll sideways.
+  const nameFloor = await page.evaluate(
+    () =>
+      10 *
+      Number.parseFloat(getComputedStyle(document.documentElement).fontSize),
+  );
+  await dragHandle(page, nameType, -2000);
+  const floored = await measure(table);
+  expectNear(floored.name.width, nameFloor);
+  expect(floored.type.width).toBeGreaterThan(filled.type.width);
+  expectNear(floored.modified.width, filled.modified.width);
+  expectNear(floored.tableWidth, before.tableWidth);
+  expect(floored.frameOverflow).toBe(0);
+  for (const attribute of ["aria-valuenow", "aria-valuemin"]) {
+    await expect(nameType).toHaveAttribute(
+      attribute,
+      String(Math.round(nameFloor)),
+    );
+  }
+  return floored;
+}
+
 for (const host of ["pane", "window"] as const) {
   test(`dragging a column edge resizes the two columns beside it (${host})`, async ({
     page,
   }) => {
     test.setTimeout(60_000);
     const table = await openItemTable(page, host);
-    const typeModified = table.getByRole("separator", { name: TYPE_MODIFIED });
-    const nameType = table.getByRole("separator", { name: NAME_TYPE });
     const before = await measure(table);
     // At its declared width a date column shows the whole date on one line.
     expect(before.dateClipped).toBe(false);
-
-    // The handle straddles the edge and takes the pointer on both sides of it:
-    // the half reaching over the left-hand heading is not covered by it.
-    const edge = before.modified.left;
-    const handleBox = await typeModified.boundingBox();
-    if (!handleBox) {
-      throw new Error("Expected a rendered resize handle.");
-    }
-    for (const offset of [-3, 3]) {
-      const hit = await page.evaluate(
-        ({ x, y }) =>
-          document.elementFromPoint(x, y)?.getAttribute("aria-label") ?? null,
-        { x: edge + offset, y: handleBox.y + handleBox.height / 2 },
-      );
-      expect(hit).toBe(TYPE_MODIFIED);
-    }
+    await expectHandleTakesPointer(
+      page,
+      table.getByRole("separator", { name: TYPE_MODIFIED }),
+      before.modified.left,
+    );
     // A heading holding a handle is still named by its own content.
     await expect(
       table.getByRole("columnheader", { exact: true, name: "Type" }),
     ).toBeVisible();
 
-    // Between two measured columns: the left one takes what the right gives.
-    await dragHandle(page, typeModified, 60);
-    const traded = await measure(table);
-    expectNear(traded.modified.left - before.modified.left, 60);
-    expectNear(traded.type.width - before.type.width, 60);
-    expectNear(traded.modified.width - before.modified.width, -60);
-    expectNear(traded.name.width, before.name.width);
-    expectNear(traded.type.left, before.type.left);
-    expectNear(traded.tableWidth, before.tableWidth);
-    expect(traded.frameOverflow).toBe(0);
-    // Dragging an edge is not a click on a heading: the sort is untouched.
-    expect(traded.sorted).toBe(before.sorted);
-    // A narrowed column cuts its text short rather than wrapping it, so the
-    // rows keep the pitch the virtualized list is measured by.
-    expect(traded.dateClipped).toBe(true);
-    expect(traded.rowHeight).toBe(before.rowHeight);
-
-    // Beside the fill column: the edge still follows the pointer, and the
-    // column that takes the table's slack gives up what its neighbour gains.
-    await dragHandle(page, nameType, -50);
-    const filled = await measure(table);
-    expectNear(filled.type.left - traded.type.left, -50);
-    expectNear(filled.type.width - traded.type.width, 50);
-    expectNear(filled.name.width - traded.name.width, -50);
-    expectNear(filled.modified.left, traded.modified.left);
-    expectNear(filled.modified.width, traded.modified.width);
-    expectNear(filled.tableWidth, before.tableWidth);
-    expect(filled.frameOverflow).toBe(0);
+    const dragged = await dragEdges(page, table, before);
 
     // The chosen widths are a stored preference.
     await page.reload();
@@ -166,8 +207,8 @@ for (const host of ["pane", "window"] as const) {
       name: TYPE_MODIFIED,
     });
     const reloaded = await measure(reloadedTable);
-    expectNear(reloaded.type.width, filled.type.width);
-    expectNear(reloaded.modified.width, filled.modified.width);
+    expectNear(reloaded.type.width, dragged.type.width);
+    expectNear(reloaded.modified.width, dragged.modified.width);
 
     // The keyboard moves a focused handle ten pixels at a time.
     await reloadedHandle.focus();

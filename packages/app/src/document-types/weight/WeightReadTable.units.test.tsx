@@ -121,3 +121,26 @@ test("change sorts across units by the magnitude of the change", () => {
   expect(changeCells().slice(0, 2)).toEqual(["+8 lb", "+5 kg"]);
   expect(changeCells().slice(2)).toEqual(["—", "—"]);
 });
+
+test("a tracker table's columns can be resized, and remember their widths", () => {
+  globalThis.localStorage.setItem(
+    "tearleads.weight.entries:column-widths",
+    JSON.stringify({ weight: 210 }),
+  );
+  const view = renderWeightTable([makeEntry({ id: "a", weight: "180" })]);
+
+  const handles = view
+    .getAllByRole("separator")
+    .map((handle) => handle.getAttribute("aria-label"));
+  // One handle per edge between two data columns; the kebab column has none.
+  expect(handles).toHaveLength(view.getAllByRole("columnheader").length - 2);
+  expect(handles).toContain("Resize Weight and Change columns");
+
+  const weightIndex = view
+    .getAllByRole("columnheader")
+    .indexOf(view.getByRole("columnheader", { name: "Weight" }));
+  expect(view.container.querySelectorAll("col")[weightIndex]?.style.width).toBe(
+    "210px",
+  );
+  expect(view.getByRole("table").style.minWidth).toContain("210px");
+});

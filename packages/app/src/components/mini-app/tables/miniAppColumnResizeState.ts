@@ -5,8 +5,9 @@
  *
  * A boundary trades width between its two neighbours: the left one grows by
  * what the right one gives up. Nothing else in the table moves, so the boundary
- * stays under the pointer wherever the table's fill column sits, and a drag
- * never pushes the table wider than its frame.
+ * stays under the pointer wherever the table's fill column sits. Each side
+ * stops at its floor, the fill column at the one the table's `min-width` holds
+ * it to, so a drag never pushes the table wider than its frame.
  */
 
 /**
@@ -15,8 +16,18 @@
  */
 export type MiniAppColumnWidths = Readonly<Record<string, number>>;
 
-/** The narrowest a drag or an arrow key may leave either neighbour. */
+/** The narrowest a drag or an arrow key may leave a measured column. */
 export const MINI_APP_COLUMN_MIN_WIDTH = 48;
+
+/**
+ * How far the pointer travels before a press becomes a drag. A click's jitter
+ * stays under it, so clicking a handle stores nothing and still counts toward
+ * the double-click that resets it.
+ */
+const MINI_APP_COLUMN_DRAG_THRESHOLD = 3;
+
+/** Still presses in a row that make a double-click a request to reset. */
+const MINI_APP_COLUMN_RESET_PRESSES = 2;
 
 /** What a fill column shrinks to before the table scrolls sideways instead. */
 const MINI_APP_FILL_COLUMN_MIN_WIDTH = "3rem";
@@ -117,6 +128,11 @@ export function resolveMiniAppColumnLayout(
 interface MiniAppColumnResizeSide {
   readonly fill: boolean;
   readonly id: string;
+  /**
+   * The narrowest the trade may leave this column: the shared minimum, or for
+   * a fill column the floor the table's `min-width` holds it to.
+   */
+  readonly min: number;
   /** The column's rendered width when the trade began. */
   readonly width: number;
 }
@@ -128,25 +144,23 @@ export interface MiniAppColumnResizePair {
 
 /**
  * The widths to store after moving a pair's boundary `delta` pixels to the
- * right (negative for left). Both neighbours stay at or above the minimum, and
+ * right (negative for left). Both neighbours stay at or above their floors, and
  * a fill neighbour gets no entry: it takes whatever the other one leaves.
- * A pair too narrow to give either side the minimum does not trade.
+ * A pair too narrow to give both sides their floors does not trade.
  */
 export function tradeMiniAppColumnWidths(
   pair: MiniAppColumnResizePair,
   delta: number,
 ): MiniAppColumnWidths {
   const total = Math.round(pair.left.width + pair.right.width);
-  const maxLeft = total - MINI_APP_COLUMN_MIN_WIDTH;
-  if (maxLeft < MINI_APP_COLUMN_MIN_WIDTH) {
+  const minLeft = Math.round(pair.left.min);
+  const maxLeft = total - Math.round(pair.right.min);
+  if (maxLeft < minLeft) {
     return {};
   }
 
   const left = Math.round(
-    Math.min(
-      maxLeft,
-      Math.max(MINI_APP_COLUMN_MIN_WIDTH, pair.left.width + delta),
-    ),
+    Math.min(maxLeft, Math.max(minLeft, pair.left.width + delta)),
   );
   return {
     ...(pair.left.fill ? {} : { [pair.left.id]: left }),
@@ -167,7 +181,16 @@ export function resetMiniAppColumnWidths(
 }
 
 export type MiniAppColumnResizeState =
-  | { readonly status: "idle" }
+  | {
+      readonly status: "idle";
+      /**
+       * Presses in a row that were released without becoming a drag. A browser
+       * reports any two quick clicks on a handle as a double-click, including
+       * the clicks that end two short drags; only this many still presses make
+       * one a request to reset.
+       */
+      readonly stillReleases: number;
+    }
   | {
       readonly status: "dragging";
       /** The stored widths the drag started from. */
@@ -175,10 +198,11 @@ export type MiniAppColumnResizeState =
       readonly pair: MiniAppColumnResizePair;
       readonly pointerId: number;
       readonly startX: number;
+      readonly stillReleases: number;
       /**
        * What the table draws while the drag lasts, and what a release stores.
-       * Still `base` itself until the pointer moves, so a press that never
-       * moves stores nothing.
+       * `base` itself while the pointer is within the drag threshold of where
+       * it pressed, so a press that never leaves it stores nothing.
        */
       readonly widths: MiniAppColumnWidths;
     };
@@ -198,11 +222,24 @@ export type MiniAppColumnResizeEvent =
     }
   /** `released` and `cancelled` both end the drag; only a release is stored. */
   | { readonly type: "released"; readonly pointerId: number }
-  | { readonly type: "cancelled"; readonly pointerId: number };
+  | { readonly type: "cancelled"; readonly pointerId: number }
+  /** A double-click on a handle; see {@link isMiniAppColumnResetDue}. */
+  | { readonly type: "reset" };
 
 export const MINI_APP_COLUMN_RESIZE_IDLE: MiniAppColumnResizeState = {
   status: "idle",
+  stillReleases: 0,
 };
+
+/** Whether a double-click arriving in `state` should reset its columns. */
+export function isMiniAppColumnResetDue(
+  state: MiniAppColumnResizeState,
+): boolean {
+  return (
+    state.status === "idle" &&
+    state.stillReleases >= MINI_APP_COLUMN_RESET_PRESSES
+  );
+}
 
 export function transitionMiniAppColumnResize(
   state: MiniAppColumnResizeState,
@@ -217,9 +254,14 @@ export function transitionMiniAppColumnResize(
           pointerId: event.pointerId,
           startX: event.clientX,
           status: "dragging",
+          stillReleases: state.stillReleases,
           widths: event.base,
         }
       : state;
+  }
+
+  if (event.type === "reset") {
+    return isMiniAppColumnResetDue(state) ? MINI_APP_COLUMN_RESIZE_IDLE : state;
   }
 
   if (state.status !== "dragging" || state.pointerId !== event.pointerId) {
@@ -227,22 +269,29 @@ export function transitionMiniAppColumnResize(
   }
 
   if (event.type === "moved") {
+    const delta = event.clientX - state.startX;
     return {
       ...state,
-      widths: {
-        ...state.base,
-        ...tradeMiniAppColumnWidths(state.pair, event.clientX - state.startX),
-      },
+      widths:
+        Math.abs(delta) < MINI_APP_COLUMN_DRAG_THRESHOLD
+          ? state.base
+          : { ...state.base, ...tradeMiniAppColumnWidths(state.pair, delta) },
     };
   }
 
-  return MINI_APP_COLUMN_RESIZE_IDLE;
+  return {
+    status: "idle",
+    stillReleases:
+      event.type === "released" && state.widths === state.base
+        ? state.stillReleases + 1
+        : 0,
+  };
 }
 
 /**
  * The widths to store when `event` ends a drag in `state`, or null when it
  * stores nothing: the event is not this drag's release, or the pointer never
- * moved.
+ * left the drag threshold.
  */
 export function getMiniAppColumnResizeCommit(
   state: MiniAppColumnResizeState,

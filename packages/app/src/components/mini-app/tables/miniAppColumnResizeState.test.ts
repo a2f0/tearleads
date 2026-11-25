@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   getMiniAppColumnResizeCommit,
+  isMiniAppColumnResetDue,
   MINI_APP_COLUMN_MIN_WIDTH,
   MINI_APP_COLUMN_RESIZE_IDLE,
   type MiniAppColumnResizePair,
@@ -20,8 +21,8 @@ const COLUMNS = [
 ];
 
 const PAIR: MiniAppColumnResizePair = {
-  left: { fill: false, id: "type", width: 128 },
-  right: { fill: false, id: "modified", width: 176 },
+  left: { fill: false, id: "type", min: 48, width: 128 },
+  right: { fill: false, id: "modified", min: 48, width: 176 },
 };
 
 function press(
@@ -121,8 +122,8 @@ test("a trade stops at each neighbour's minimum", () => {
 test("a trade keeps the pair's total when the measured widths are fractional", () => {
   const traded = tradeMiniAppColumnWidths(
     {
-      left: { fill: false, id: "type", width: 128.4 },
-      right: { fill: false, id: "modified", width: 175.9 },
+      left: { fill: false, id: "type", min: 48, width: 128.4 },
+      right: { fill: false, id: "modified", min: 48, width: 175.9 },
     },
     10.3,
   );
@@ -134,20 +135,42 @@ test("a fill neighbour stores nothing: it takes what the other leaves", () => {
   expect(
     tradeMiniAppColumnWidths(
       {
-        left: { fill: true, id: "name", width: 400 },
-        right: { fill: false, id: "type", width: 128 },
+        left: { fill: true, id: "name", min: 48, width: 400 },
+        right: { fill: false, id: "type", min: 48, width: 128 },
       },
       -30,
     ),
   ).toEqual({ type: 158 });
 });
 
+test("a fill neighbour stops at the floor the table holds it to", () => {
+  const pair: MiniAppColumnResizePair = {
+    // The table has 40px to give up before it would outgrow its frame.
+    left: { fill: true, id: "name", min: 160, width: 200 },
+    right: { fill: false, id: "type", min: 48, width: 128 },
+  };
+
+  expect(tradeMiniAppColumnWidths(pair, -30)).toEqual({ type: 158 });
+  expect(tradeMiniAppColumnWidths(pair, -300)).toEqual({ type: 168 });
+
+  // On the other side of the edge, it caps how far the left column grows.
+  expect(
+    tradeMiniAppColumnWidths(
+      {
+        left: { fill: false, id: "type", min: 48, width: 128 },
+        right: { fill: true, id: "name", min: 160, width: 200 },
+      },
+      300,
+    ),
+  ).toEqual({ type: 168 });
+});
+
 test("a pair too narrow for two minimums does not trade", () => {
   expect(
     tradeMiniAppColumnWidths(
       {
-        left: { fill: false, id: "type", width: 50 },
-        right: { fill: false, id: "modified", width: 40 },
+        left: { fill: false, id: "type", min: 48, width: 50 },
+        right: { fill: false, id: "modified", min: 48, width: 40 },
       },
       10,
     ),
@@ -156,8 +179,8 @@ test("a pair too narrow for two minimums does not trade", () => {
   expect(
     tradeMiniAppColumnWidths(
       {
-        left: { fill: false, id: "type", width: 0 },
-        right: { fill: false, id: "modified", width: 0 },
+        left: { fill: false, id: "type", min: 48, width: 0 },
+        right: { fill: false, id: "modified", min: 48, width: 0 },
       },
       10,
     ),
@@ -216,6 +239,106 @@ test("a press that never moves stores nothing", () => {
   expect(
     getMiniAppColumnResizeCommit(pressed, { pointerId: 7, type: "released" }),
   ).toBeNull();
+});
+
+test("a pointer within the drag threshold of its press draws and stores nothing", () => {
+  const pressed = press(PAIR, { size: 90 });
+  const released = { pointerId: 7, type: "released" } as const;
+
+  for (const clientX of [500, 498, 502]) {
+    const jittered = transitionMiniAppColumnResize(pressed, {
+      clientX,
+      pointerId: 7,
+      type: "moved",
+    });
+    expect(jittered).toMatchObject({
+      status: "dragging",
+      widths: { size: 90 },
+    });
+    expect(getMiniAppColumnResizeCommit(jittered, released)).toBeNull();
+  }
+
+  // Past the threshold it is a drag, measured from the press; back inside it,
+  // the columns return to where they started and nothing is stored.
+  const dragged = transitionMiniAppColumnResize(pressed, {
+    clientX: 503,
+    pointerId: 7,
+    type: "moved",
+  });
+  expect(dragged).toMatchObject({
+    widths: { modified: 173, size: 90, type: 131 },
+  });
+  const returned = transitionMiniAppColumnResize(dragged, {
+    clientX: 501,
+    pointerId: 7,
+    type: "moved",
+  });
+  expect(getMiniAppColumnResizeCommit(returned, released)).toBeNull();
+});
+
+function stillPress(
+  state: MiniAppColumnResizeState,
+  pointerId: number,
+): MiniAppColumnResizeState {
+  const pressed = transitionMiniAppColumnResize(state, {
+    base: {},
+    clientX: 500,
+    pair: PAIR,
+    pointerId,
+    type: "pressed",
+  });
+  return transitionMiniAppColumnResize(pressed, {
+    pointerId,
+    type: "released",
+  });
+}
+
+test("a reset is due after two presses in a row that dragged nothing", () => {
+  const once = stillPress(MINI_APP_COLUMN_RESIZE_IDLE, 1);
+  expect(isMiniAppColumnResetDue(MINI_APP_COLUMN_RESIZE_IDLE)).toBe(false);
+  expect(isMiniAppColumnResetDue(once)).toBe(false);
+  // Not due: the double-click is ignored and the count stands.
+  expect(transitionMiniAppColumnResize(once, { type: "reset" })).toBe(once);
+
+  const twice = stillPress(once, 2);
+  expect(isMiniAppColumnResetDue(twice)).toBe(true);
+  expect(transitionMiniAppColumnResize(twice, { type: "reset" })).toEqual(
+    MINI_APP_COLUMN_RESIZE_IDLE,
+  );
+});
+
+test("a drag or a cancelled press starts the count of still presses again", () => {
+  const once = stillPress(MINI_APP_COLUMN_RESIZE_IDLE, 1);
+
+  const pressed = transitionMiniAppColumnResize(once, {
+    base: {},
+    clientX: 500,
+    pair: PAIR,
+    pointerId: 2,
+    type: "pressed",
+  });
+  // A press in progress is never a reset, whatever came before it.
+  expect(isMiniAppColumnResetDue(pressed)).toBe(false);
+  expect(transitionMiniAppColumnResize(pressed, { type: "reset" })).toBe(
+    pressed,
+  );
+
+  const dragged = transitionMiniAppColumnResize(
+    transitionMiniAppColumnResize(pressed, {
+      clientX: 540,
+      pointerId: 2,
+      type: "moved",
+    }),
+    { pointerId: 2, type: "released" },
+  );
+  expect(dragged).toEqual(MINI_APP_COLUMN_RESIZE_IDLE);
+  expect(isMiniAppColumnResetDue(stillPress(dragged, 3))).toBe(false);
+
+  const cancelled = transitionMiniAppColumnResize(pressed, {
+    pointerId: 2,
+    type: "cancelled",
+  });
+  expect(cancelled).toEqual(MINI_APP_COLUMN_RESIZE_IDLE);
 });
 
 test("a cancelled drag ends without storing what it had drawn", () => {

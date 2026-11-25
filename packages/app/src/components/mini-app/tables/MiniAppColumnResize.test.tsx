@@ -281,18 +281,38 @@ test("two short drags in quick succession are not a double-click reset", () => {
 
   for (const pointerId of [1, 2]) {
     press(handle, 500, pointerId);
-    fireEvent.pointerMove(handle, { clientX: 502, pointerId });
+    fireEvent.pointerMove(handle, { clientX: 504, pointerId });
     fireEvent.pointerUp(handle, { pointerId });
   }
   // The browser pairs the two releases' clicks into a double-click.
   fireEvent.doubleClick(handle);
-  expect(storedWidths()).toEqual({ modified: 172, type: 132 });
+  expect(storedWidths()).toEqual({ modified: 168, type: 136 });
 
   // One still press after a drag is not two.
   press(handle, 500, 3);
   fireEvent.pointerUp(handle, { pointerId: 3 });
   fireEvent.doubleClick(handle);
-  expect(storedWidths()).toEqual({ modified: 172, type: 132 });
+  expect(storedWidths()).toEqual({ modified: 168, type: 136 });
+});
+
+test("a click's jitter is not a drag, and still counts toward a reset", () => {
+  globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify({ type: 90 }));
+  const view = render(<ResizableTable />);
+  const handle = view.getByRole("separator", {
+    name: "Resize Type and Modified columns",
+  });
+
+  for (const pointerId of [1, 2]) {
+    press(handle, 500, pointerId);
+    fireEvent.pointerMove(handle, { clientX: 502, pointerId });
+    // Nothing is drawn differently for a pointer that has barely moved.
+    expect(colWidths(view.container)).toEqual(["", "90px", "11rem", "2.25rem"]);
+    fireEvent.pointerUp(handle, { pointerId });
+    expect(storedWidths()).toEqual({ type: 90 });
+  }
+
+  fireEvent.doubleClick(handle);
+  expect(storedWidths()).toBeNull();
 });
 
 test("stored widths that are not usable widths are ignored", () => {

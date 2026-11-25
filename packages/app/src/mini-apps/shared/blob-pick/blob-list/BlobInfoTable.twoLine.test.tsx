@@ -286,3 +286,57 @@ test("unfolded blob list keeps its wide columns and pitch", () => {
     "36px",
   );
 });
+
+test("unfolded blob list reserves its columns' widths and lets its fields be resized", () => {
+  const view = renderBlobInfoTable();
+
+  // The thumbnail column is as wide as the thumbnail, so its edge has no
+  // handle; every edge between two fields does.
+  expect(
+    view
+      .getAllByRole("separator")
+      .map((handle) => handle.getAttribute("aria-label")),
+  ).toEqual([
+    `Resize ${BLOB_LIST_LABELS.filenameColumn} and ${BLOB_LIST_LABELS.mimeTypeColumn} columns`,
+    `Resize ${BLOB_LIST_LABELS.mimeTypeColumn} and ${BLOB_LIST_LABELS.sizeColumn} columns`,
+    `Resize ${BLOB_LIST_LABELS.sizeColumn} and ${BLOB_LIST_LABELS.referenceColumn} columns`,
+    `Resize ${BLOB_LIST_LABELS.referenceColumn} and ${BLOB_LIST_LABELS.updatedColumn} columns`,
+  ]);
+  // The last field takes the spare width, down to its declared width: the
+  // table's floor is every visible column's width, as it was when the list
+  // computed it itself.
+  expect(
+    [...view.container.querySelectorAll("col")].map((col) => col.style.width),
+  ).toEqual([
+    "var(--mini-app-item-thumb-column-width, 4rem)",
+    "12rem",
+    "10rem",
+    "5rem",
+    "8rem",
+    "",
+  ]);
+  expect(view.getByRole("table").style.minWidth).toBe(
+    "calc(var(--mini-app-item-thumb-column-width, 4rem) + 12rem + 10rem + 5rem + 8rem + 11rem)",
+  );
+});
+
+test("a chosen blob column width is drawn and reserved", () => {
+  globalThis.localStorage.setItem(
+    "tearleads.blob-browser:column-widths",
+    JSON.stringify({ filename: 300, updated: 400 }),
+  );
+  const view = renderBlobInfoTable();
+
+  // `updated` is the last visible field, so it fills and ignores its entry.
+  expect(view.container.querySelectorAll("col")[1]?.style.width).toBe("300px");
+  expect(view.getByRole("table").style.minWidth).toBe(
+    "calc(var(--mini-app-item-thumb-column-width, 4rem) + 300px + 10rem + 5rem + 8rem + 11rem)",
+  );
+});
+
+test("folded blob list has nothing to resize", () => {
+  const view = renderFoldedBlobInfoTable();
+
+  expect(view.queryAllByRole("separator")).toEqual([]);
+  expect(view.getByRole("table").style.minWidth).toBe("");
+});

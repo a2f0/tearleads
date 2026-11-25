@@ -2,6 +2,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
+  type RefObject,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -12,6 +13,7 @@ import { classNames } from "../../shared/classNames";
 import type { MiniAppColumnWidthsControl } from "./MiniAppColumnWidths";
 import {
   getMiniAppColumnResizeCommit,
+  isMiniAppColumnResetDue,
   MINI_APP_COLUMN_MIN_WIDTH,
   MINI_APP_COLUMN_RESIZE_IDLE,
   type MiniAppColumnBoundary,
@@ -28,31 +30,57 @@ import "./MiniAppColumnResize.css";
 const KEYBOARD_RESIZE_STEP = 10;
 const KEYBOARD_RESIZE_SHIFT_MULTIPLIER = 5;
 
+/** The header cells a handle sits between: its own, and the one before it. */
+function getMiniAppColumnPairCells(handle: Element) {
+  const right = handle.closest("th");
+  const left = right?.previousElementSibling;
+  const table = right?.closest("table");
+  return right && left && table ? { left, right, table } : null;
+}
+
 /**
- * Reads the two columns a handle sits between from the header cells drawn:
- * the handle's own cell is the right-hand column, the cell before it the left.
+ * Reads the two columns a handle sits between from the header cells drawn.
+ *
+ * A fill column has no width of its own to stop at: the table's `min-width`
+ * holds it at its floor, and past that the table would grow instead and scroll
+ * its frame sideways. So its floor here is what it would be left with once the
+ * table has given up all the room it has beyond that `min-width`.
  */
 function measureMiniAppColumnPair(
   handle: Element,
-  boundary: MiniAppColumnBoundary,
+  boundary: {
+    left: Pick<MiniAppColumnBoundary["left"], "fill" | "id">;
+    right: Pick<MiniAppColumnBoundary["right"], "fill" | "id">;
+  },
 ): MiniAppColumnResizePair | null {
-  const right = handle.closest("th");
-  const left = right?.previousElementSibling;
-  if (!right || !left) {
+  const cells = getMiniAppColumnPairCells(handle);
+  if (!cells) {
     return null;
   }
 
+  const tableFloor = Number.parseFloat(getComputedStyle(cells.table).minWidth);
+  // Unresolved where there is no layout; the shared minimum then stands in.
+  const slack = Number.isFinite(tableFloor)
+    ? Math.max(0, cells.table.getBoundingClientRect().width - tableFloor)
+    : Number.POSITIVE_INFINITY;
+  const measureSide = (
+    side: Pick<MiniAppColumnBoundary["left"], "fill" | "id">,
+    cell: Element,
+  ): MiniAppColumnResizePair["left"] => {
+    const width = cell.getBoundingClientRect().width;
+    return {
+      fill: side.fill,
+      id: side.id,
+      min: side.fill
+        ? Math.max(MINI_APP_COLUMN_MIN_WIDTH, width - slack)
+        : MINI_APP_COLUMN_MIN_WIDTH,
+      width,
+    };
+  };
+
   return {
-    left: {
-      fill: boundary.left.fill,
-      id: boundary.left.id,
-      width: left.getBoundingClientRect().width,
-    },
-    right: {
-      fill: boundary.right.fill,
-      id: boundary.right.id,
-      width: right.getBoundingClientRect().width,
-    },
+    left: measureSide(boundary.left, cells.left),
+    right: measureSide(boundary.right, cells.right),
   };
 }
 
@@ -85,6 +113,8 @@ type MiniAppColumnDragEvent = Exclude<
 
 interface MiniAppColumnResizeHandleProps {
   boundary: MiniAppColumnBoundary;
+  /** The left-hand column's chosen width, when it has one. */
+  chosenLeft: number | undefined;
   dragging: boolean;
   onAbandon: () => void;
   onDrag: (event: MiniAppColumnDragEvent) => void;
@@ -98,6 +128,65 @@ interface MiniAppColumnResizeHandleProps {
 }
 
 /**
+ * A separator announces its position and range, which only layout knows: read
+ * them once the handle is drawn, then whenever either column changes size (a
+ * chosen width, a resized frame, a column switched on or off beside the fill
+ * one), and on demand through `measure`.
+ */
+function useMiniAppColumnPairMeasure(
+  handleRef: RefObject<HTMLHRElement | null>,
+  boundary: MiniAppColumnBoundary,
+) {
+  const [measured, setMeasured] = useState({ max: 0, min: 0, now: 0 });
+  const leftFill = boundary.left.fill;
+  const leftId = boundary.left.id;
+  const rightFill = boundary.right.fill;
+  const rightId = boundary.right.id;
+
+  const measure = useCallback(() => {
+    const handle = handleRef.current;
+    const pair = handle
+      ? measureMiniAppColumnPair(handle, {
+          left: { fill: leftFill, id: leftId },
+          right: { fill: rightFill, id: rightId },
+        })
+      : null;
+    if (!pair) {
+      return;
+    }
+
+    const next = {
+      max: Math.round(pair.left.width + pair.right.width - pair.right.min),
+      min: Math.round(pair.left.min),
+      now: Math.round(pair.left.width),
+    };
+    setMeasured((current) =>
+      current.max === next.max &&
+      current.min === next.min &&
+      current.now === next.now
+        ? current
+        : next,
+    );
+  }, [handleRef, leftFill, leftId, rightFill, rightId]);
+
+  useLayoutEffect(() => {
+    const handle = handleRef.current;
+    const cells = handle ? getMiniAppColumnPairCells(handle) : null;
+    if (!cells) {
+      return;
+    }
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(cells.left);
+    observer.observe(cells.right);
+    return () => observer.disconnect();
+  }, [handleRef, measure]);
+
+  return { measure, measured };
+}
+
+/**
  * The handle on the edge two columns share. It is a focusable separator, as the
  * sidebar's is: drag it, or use the arrow keys (Shift for larger steps, Home
  * and End for the limits), and double-click it to give both columns back the
@@ -105,6 +194,7 @@ interface MiniAppColumnResizeHandleProps {
  */
 function MiniAppColumnResizeHandle({
   boundary,
+  chosenLeft,
   dragging,
   onAbandon,
   onDrag,
@@ -113,27 +203,10 @@ function MiniAppColumnResizeHandle({
   onReset,
 }: MiniAppColumnResizeHandleProps) {
   const handleRef = useRef<HTMLHRElement>(null);
-  const [measured, setMeasured] = useState({ left: 0, total: 0 });
-
-  const measure = useCallback(() => {
-    const handle = handleRef.current;
-    const pair = handle ? measureMiniAppColumnPair(handle, boundary) : null;
-    if (!pair) {
-      return;
-    }
-
-    const left = Math.round(pair.left.width);
-    const total = Math.round(pair.left.width + pair.right.width);
-    setMeasured((current) =>
-      current.left === left && current.total === total
-        ? current
-        : { left, total },
-    );
-  }, [boundary]);
-
-  // A separator announces its position, which only layout knows, so read it
-  // back after every render: any of them may have moved the columns.
-  useLayoutEffect(measure);
+  const { measure, measured } = useMiniAppColumnPairMeasure(
+    handleRef,
+    boundary,
+  );
 
   // A handle that leaves mid-drag (the table folded, or lost its columns) can
   // no longer deliver the release, so it ends the drag without storing it.
@@ -143,12 +216,9 @@ function MiniAppColumnResizeHandle({
     <hr
       aria-label={`Resize ${boundary.left.label} and ${boundary.right.label} columns`}
       aria-orientation="vertical"
-      aria-valuemax={Math.max(
-        MINI_APP_COLUMN_MIN_WIDTH,
-        measured.total - MINI_APP_COLUMN_MIN_WIDTH,
-      )}
-      aria-valuemin={MINI_APP_COLUMN_MIN_WIDTH}
-      aria-valuenow={measured.left}
+      aria-valuemax={measured.max}
+      aria-valuemin={measured.min}
+      aria-valuenow={chosenLeft ?? measured.now}
       className={classNames(
         "mini-app-column-resize-handle",
         dragging && "mini-app-column-resize-handle--dragging",
@@ -237,11 +307,6 @@ export function useMiniAppColumnResize(
     return getMiniAppColumnResizeCommit(previous, event);
   }, []);
 
-  // A browser reports any two clicks in quick succession on a handle as a
-  // double-click, including the clicks that end two short drags. Only two
-  // presses that moved nothing are a request to reset.
-  const stillPressesRef = useRef(0);
-
   const abandon = useCallback(() => {
     const current = stateRef.current;
     if (current.status === "dragging") {
@@ -262,14 +327,13 @@ export function useMiniAppColumnResize(
     };
   }, [dragging]);
 
-  const layout = resolveMiniAppColumnLayout(
-    columns,
+  const widths =
     control === undefined
       ? undefined
       : state.status === "dragging"
         ? state.widths
-        : control.widths,
-  );
+        : control.widths;
+  const layout = resolveMiniAppColumnLayout(columns, widths);
 
   return {
     layout,
@@ -282,6 +346,9 @@ export function useMiniAppColumnResize(
       return (
         <MiniAppColumnResizeHandle
           boundary={boundary}
+          chosenLeft={
+            boundary.left.fill ? undefined : widths?.[boundary.left.id]
+          }
           dragging={
             state.status === "dragging" &&
             state.pair.left.id === boundary.left.id &&
@@ -290,11 +357,6 @@ export function useMiniAppColumnResize(
           onAbandon={abandon}
           onDrag={(event) => {
             const commit = apply(event);
-            if (event.type === "released") {
-              stillPressesRef.current = commit
-                ? 0
-                : stillPressesRef.current + 1;
-            }
             if (commit) {
               control.onChange(commit);
             }
@@ -309,11 +371,13 @@ export function useMiniAppColumnResize(
             apply({ ...press, base: control.widths, type: "pressed" })
           }
           onReset={() => {
-            if (stillPressesRef.current < 2) {
+            // Two quick short drags also end in a double-click; only two
+            // presses that moved nothing ask for the declared widths back.
+            if (!isMiniAppColumnResetDue(stateRef.current)) {
               return;
             }
 
-            stillPressesRef.current = 0;
+            apply({ type: "reset" });
             control.onChange(
               resetMiniAppColumnWidths(control.widths, boundary),
             );
