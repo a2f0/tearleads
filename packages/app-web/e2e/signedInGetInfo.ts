@@ -60,7 +60,7 @@ const GET_INFO_TABLE_HEADINGS = {
 
 type GetInfoTable = keyof typeof GET_INFO_TABLE_HEADINGS;
 
-function apiResponse(
+export function apiResponse(
   page: Page,
   method: string,
   pathname: RegExp,
@@ -89,7 +89,7 @@ async function signIn(page: Page): Promise<void> {
   await loggedIn;
 }
 
-async function createFolder(page: Page): Promise<void> {
+export async function createFolder(page: Page): Promise<void> {
   const create = page.getByRole("button", {
     name: "Create Child Folder",
     exact: true,
