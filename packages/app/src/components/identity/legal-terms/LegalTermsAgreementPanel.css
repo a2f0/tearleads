@@ -38,8 +38,8 @@
   overflow-y: auto;
 }
 
-/* A mini-app root already insets its content by that distance. */
-.mini-app-root .legal-terms-agreement {
+/* A padded mini-app root already insets its content by that distance. */
+.mini-app-root:not(.mini-app-root--padding-none) .legal-terms-agreement {
   padding-inline: 0;
 }
 
@@ -172,7 +172,7 @@
  * documents, which run the panel's full height on the right. The actions box
  * steps out of the layout so the documents and the form are placed directly.
  */
-@container legal-terms-agreement (width >= 40rem) and (orientation: landscape) {
+@container legal-terms-agreement (width >= 36rem) and (orientation: landscape) {
   .legal-terms-agreement > .legal-terms-agreement-panel {
     display: grid;
     grid-template-areas:
@@ -180,7 +180,9 @@
       "copy documents"
       "form documents"
       ". documents";
-    grid-template-columns: minmax(14rem, 20rem) minmax(0, 44rem);
+    /* The documents keep room for both tabs; the copy gives way first. The
+       two minimums and the gap add up to the 36rem this layout starts at. */
+    grid-template-columns: minmax(12rem, 20rem) minmax(22rem, 44rem);
     grid-template-rows: 1fr auto auto 1fr;
     /* Beside the documents, the column only needs room for the copy and the
        agreement: a phone on its side keeps the whole panel on screen. */
