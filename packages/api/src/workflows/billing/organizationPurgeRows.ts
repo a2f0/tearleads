@@ -38,6 +38,7 @@ import {
 import { deleteDocumentRows } from "../documents/mutations/purgeDocumentRows";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 import type { OrganizationRemotePurgeScope } from "./organizationPurgeScope";
+import { reservePurgedOrganizationObjects } from "./purgedObjectReservations";
 
 async function deleteContainerRows(input: {
   readonly executor: DatabaseTransaction;
@@ -265,6 +266,14 @@ export async function deleteOrganizationRemoteRows(input: {
     .update(organizationRosterEntries)
     .set({ profileDocumentId: null, updatedAt: input.now })
     .where(eq(organizationRosterEntries.organizationId, input.organizationId));
+  // Same transaction as the deletes: a create sees the rows or the
+  // reservation, never neither.
+  await reservePurgedOrganizationObjects({
+    containerIds: input.scope.containerIds,
+    documentIds: input.scope.freedDocumentIds,
+    executor: input.executor,
+    organizationId: input.organizationId,
+  });
   for (const documentBatch of organizationPurgeBatches(
     input.scope.documentIds,
   )) {

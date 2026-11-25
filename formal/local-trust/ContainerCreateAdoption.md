@@ -48,6 +48,13 @@ folder, and keeping the metadata seed on adoption. Without the queued-move rule,
 the owed move both cites a parent that never committed and takes over the
 queued destination; TLC reports the stale citation first.
 
+A foreign create under the device's own id no longer follows from an
+organization billing purge: the purge reserves each id it frees for the purged
+organization's owner, and the server refuses it to every other user
+([reserved ids](../../docs/developer/billing-purge-recovery.md#reserved-ids)).
+Such a create can now come only from a dishonest server, and
+`RefuseForeignCreate` with `ParkForeignCreates` remain the defense against it.
+
 Remote deletes are not held, and the model has no delete action. Settlement
 compares the desired parent with the created one, so a local move away and
 back while another writer moved the folder keeps the remote move. The model
