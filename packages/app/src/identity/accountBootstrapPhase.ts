@@ -1,3 +1,4 @@
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import type { SystemBootstrapStatus } from "../providers/system-bootstrap/systemBootstrapMachine";
 import type { AutoProvisioningStep } from "./autoProvisioningStatus";
 import type { IdentityOnboardingState } from "./identityOnboardingMachine";
@@ -9,6 +10,8 @@ import type { IdentityOnboardingState } from "./identityOnboardingMachine";
  * - `restoring-session`: a stored identity or session is still loading.
  * - `creating-identity`: the autopilot is deriving a new identity key pair.
  * - `choosing-identity`: a fresh device offers creation or recovery.
+ * - `accepting-terms`: creation, or a new identity's registration, waits for
+ *   the person to agree to the Privacy Policy and Terms of Service.
  * - `naming-account`: creation or a previously pending registration awaits a name.
  * - `entering-passphrase`: the user can paste their recovery passphrase or scan
  *   its QR code.
@@ -31,6 +34,12 @@ export interface AccountBootstrapInput {
   readonly onboardingPhase?: IdentityOnboardingState["status"] | undefined;
   /** The autopilot holds this identity's registration for the user's name. */
   readonly awaitingAccountName: boolean;
+  /**
+   * The autopilot holds this identity's registration until the person using
+   * the page agrees to the legal terms: it registers every identity but one
+   * recovered from its passphrase, which only signs back in.
+   */
+  readonly awaitingLegalTerms: boolean;
   readonly autoGenerateIdentity: boolean;
   readonly autoProvisioningEnabled: boolean;
   readonly autoRegisterIdentity: boolean;
@@ -106,8 +115,12 @@ function registrationPhase(
   if (!autoRegistering || input.userId !== null) {
     return "signed-out";
   }
-  // Registration holds until the name is given, whatever an earlier run (say,
-  // for another identity before a switch back) or bootstrap reported.
+  // Registration records the agreement, so it waits for it, and then for the
+  // name, whatever an earlier run (say, for another identity before a switch
+  // back) or bootstrap reported. Onboarding asks in the same order.
+  if (input.awaitingLegalTerms) {
+    return "accepting-terms";
+  }
   if (input.awaitingAccountName) {
     return "naming-account";
   }
@@ -131,11 +144,23 @@ export interface AccountBootstrapCopy {
   readonly title: string;
 }
 
+const LEGAL_TERMS_EFFECTIVE_DATE = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+  year: "numeric",
+}).format(new Date(`${LEGAL_TERMS_VERSION}T00:00:00Z`));
+
 const ACCOUNT_BOOTSTRAP_COPY: {
   readonly [Phase in AccountBootstrapProgressPhase]: AccountBootstrapCopy & {
     readonly phase: Phase;
   };
 } = {
+  "accepting-terms": {
+    title: "Review our terms",
+    description: `Read the Terms of Service and Privacy Policy, effective ${LEGAL_TERMS_EFFECTIVE_DATE}. Your account is created only once you agree to them.`,
+    phase: "accepting-terms",
+  },
   "choosing-identity": {
     title: "Set up your identity",
     description:

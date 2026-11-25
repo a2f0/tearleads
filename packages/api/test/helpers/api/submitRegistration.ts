@@ -8,6 +8,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
 import { API_TEST_IDENTITY_TRUST_DOMAIN } from "../policyProjection";
@@ -186,6 +187,7 @@ export async function createRegistrationRequestBody(
   });
 
   return {
+    acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
     userId,
     organizationId,
     rootContainerId,

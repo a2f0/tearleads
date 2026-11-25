@@ -82,7 +82,9 @@ This avoids a circular foreign key between organizations and containers.
 7. Build the organization metadata container, the roster-profile and
  organization-profile containers and encrypted documents, and any
  app-provisioned system containers.
-8. Send all material in a single `POST /auth/register`.
+8. Send all material in a single `POST /auth/register`, with the Privacy Policy
+ and Terms of Service revision the person agreed to
+ (`acceptedLegalTermsVersion`).
 
 ### Server Side (atomic transaction)
 
@@ -93,7 +95,8 @@ transaction:
 1. Insert the organization with `admin_group_id`, `member_group_id`, and
  `root_container_id`, and its initial billing row.
 2. Insert the root container (`organization_id = org.id`, `parent_id = NULL`).
-3. Insert the user (`default_organization_id = org.id`).
+3. Insert the user (`default_organization_id = org.id`), with the agreed legal
+ terms revision and the time it was given.
 4. Insert the reserved `Admins` and `Members` group rows.
 5. Store the initial `Admins`, `Members`, and organization policies and the
  initial [roster](./glossary/principals.md#organization-roster-entry).
@@ -107,7 +110,8 @@ transaction:
  updates.
 
 If the user's fingerprint already exists, the transaction rolls back and the
-endpoint returns 409.
+endpoint returns 409. A legal terms revision other than the current one is
+refused with 409 before the transaction starts.
 
 ### Client Side (after response)
 

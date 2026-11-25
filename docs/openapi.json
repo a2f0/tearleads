@@ -9751,6 +9751,12 @@
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "type": "string"
           },
+          "acceptedLegalTermsVersion": {
+            "maxLength": 10,
+            "minLength": 1,
+            "type": "string",
+            "description": "The Privacy Policy and Terms of Service revision the user agreed to before registering: the documents' shared effective date (`YYYY-MM-DD`). The API registers only the current revision and records it, with the time of registration, on the identity."
+          },
           "encapsulationPublicKey": {
             "maxLength": 2092,
             "minLength": 2092,
@@ -9776,6 +9782,7 @@
           "organizationId",
           "rootContainerId",
           "userId",
+          "acceptedLegalTermsVersion",
           "encapsulationPublicKey",
           "signingPublicKey"
         ],

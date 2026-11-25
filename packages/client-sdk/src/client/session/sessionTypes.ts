@@ -104,6 +104,13 @@ export interface CreateOrganizationOptions {
 
 export interface RegisterIdentityOptions {
   /**
+   * The Privacy Policy and Terms of Service revision the user agreed to before
+   * this registration: `LEGAL_TERMS_VERSION` once they have seen it and
+   * agreed. The API registers only the current revision and records it, with
+   * the time of registration, on the identity.
+   */
+  readonly acceptedLegalTermsVersion: string;
+  /**
    * Overrides the seeded personal-organization profile name. Optional; when
    * omitted the default personal-org name is used. The demo host passes each
    * pane's peer-labeled org name ("Peer 1's Org").
@@ -177,7 +184,7 @@ export interface Session {
     options?: CreateOrganizationOptions,
   ): Promise<SessionCreateOrganizationResult | null>;
   registerIdentity(
-    options?: RegisterIdentityOptions,
+    options: RegisterIdentityOptions,
   ): Promise<SessionRegistrationResult | SessionRegistrationRefusal | null>;
   recoverPurgedOrganization(
     organizationId: string,

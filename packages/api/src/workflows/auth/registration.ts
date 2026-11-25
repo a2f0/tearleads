@@ -4,9 +4,10 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { reportBackgroundFailure } from "../../diagnostics/reportBackgroundFailure";
 import { readCommitCheckpoint } from "../../documents/commitLsn";
 import {
@@ -20,6 +21,20 @@ import { validateOrganizationProvisioningInput } from "../organizations/provisio
 export { OrganizationProvisioningError as RegistrationError };
 
 const DUPLICATE_FINGERPRINT_ERROR = "REGISTRATION_DUPLICATE_FINGERPRINT";
+
+export const LEGAL_TERMS_OUTDATED_MESSAGE =
+  "The Privacy Policy and Terms of Service have changed. Review and agree to the current revision, then register again.";
+
+/**
+ * A registration carries the legal terms revision its user agreed to, and
+ * only the current one registers: an identity is never recorded as agreeing
+ * to a revision that no longer governs the service.
+ */
+function requireCurrentLegalTerms(input: RegistrationRequest): void {
+  if (input.acceptedLegalTermsVersion !== LEGAL_TERMS_VERSION) {
+    throw new OrganizationProvisioningError(LEGAL_TERMS_OUTDATED_MESSAGE, 409);
+  }
+}
 
 /**
  * Read after the registration committed, as a document create's seed reports
@@ -47,6 +62,7 @@ async function createRegisteredUser(
     encapsulationKeyBytes: Uint8Array;
     fingerprint: string;
     ip: string | null;
+    legalTermsVersion: string;
     organizationId: string;
     userId: string;
     signingKeyBytes: Uint8Array;
@@ -62,6 +78,10 @@ async function createRegisteredUser(
       encapsulationKeyFingerprint: input.encapsulationFingerprint,
       defaultOrganizationId: input.organizationId,
       registrationSourceIpAddress: input.ip,
+      legalTermsVersion: input.legalTermsVersion,
+      // The database clock, as for `createdAt`: the time the registration
+      // carrying the agreement committed, not a client's claim of it.
+      legalTermsAcceptedAt: sql`now()`,
     })
     .onConflictDoNothing({ target: users.fingerprint })
     .returning({ id: users.id });
@@ -83,6 +103,7 @@ export async function runRegistrationWorkflow(
     readonly identityTrustDomain: string;
   },
 ) {
+  requireCurrentLegalTerms(input);
   const signer: OrganizationProvisioningSigner = {
     encapsulationFingerprint: keyMaterial.encapsulationFingerprint,
     fingerprint: keyMaterial.fingerprint,
@@ -110,6 +131,7 @@ export async function runRegistrationWorkflow(
             encapsulationKeyBytes: keyMaterial.encapsulationKeyBytes,
             fingerprint: keyMaterial.fingerprint,
             ip: keyMaterial.ip ?? null,
+            legalTermsVersion: input.acceptedLegalTermsVersion,
             organizationId,
             signingKeyBytes: keyMaterial.signingKeyBytes,
             userId: input.userId,

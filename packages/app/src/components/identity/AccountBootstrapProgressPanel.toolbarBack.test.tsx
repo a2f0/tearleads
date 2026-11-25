@@ -41,12 +41,21 @@ function OnboardingWindow() {
         enabled: true,
         generation: AUTO_PROVISIONING_IDLE,
         onboarding: {
+          agreeToTerms: () =>
+            setState((current) =>
+              transitionIdentityOnboarding(current, { type: "terms-agreed" }),
+            ),
           confirmBackup: () => {},
+          // As before agreement: creating asks for the terms first.
           navigate: (phase) =>
             setState((current) =>
               transitionIdentityOnboarding(current, {
                 type: "navigate",
-                phase,
+                phase:
+                  phase === "naming-account" &&
+                  current.status === "choosing-identity"
+                    ? "accepting-terms"
+                    : phase,
               }),
             ),
           state,
@@ -73,6 +82,31 @@ function renderOnboardingWindow() {
   const toolbar = () => view.getByRole("toolbar", { name: "Toolbar" });
   return { toolbar, view };
 }
+
+test("creating an identity agrees to the terms before naming it", async () => {
+  const { toolbar, view } = renderOnboardingWindow();
+  fireEvent.click(view.getByRole("button", { name: "Create new identity" }));
+  await view.findByRole("heading", { name: "Review our terms" });
+  view.getByRole("tab", { name: "Terms of Service", selected: true });
+  view.getByRole("heading", { name: "1. The agreement" });
+  fireEvent.click(view.getByRole("tab", { name: "Privacy Policy" }));
+  view.getByRole("tab", { name: "Privacy Policy", selected: true });
+  view.getByRole("heading", { name: "1. Who we are and what this covers" });
+  const proceed = view.getByRole("button", { name: "Continue" });
+  expect(proceed).toHaveProperty("disabled", true);
+  fireEvent.click(
+    view.getByRole("checkbox", {
+      name: "I agree to the Terms of Service and Privacy Policy",
+    }),
+  );
+  fireEvent.click(proceed);
+  await view.findByRole("heading", { name: "What should we call you?" });
+  // Back from naming returns to the choice, not to the agreement.
+  fireEvent.click(
+    await within(toolbar()).findByRole("button", { name: "Back" }),
+  );
+  await view.findByRole("button", { name: "Restore identity" });
+});
 
 for (const choice of ["Restore identity", "Create new identity"]) {
   test(`the toolbar Back leaves the form ${choice} opens`, async () => {

@@ -8,6 +8,7 @@
     "./billing": "./src/billing.ts",
     "./containerSystemSlot": "./src/containerSystemSlot.ts",
     "./isPlainObject": "./src/isPlainObject.ts",
+    "./legalTerms": "./src/legalTerms.ts",
     "./util": "./src/util/index.ts",
     "./event": "./src/event/index.ts",
     "./operation": "./src/operation/index.ts",

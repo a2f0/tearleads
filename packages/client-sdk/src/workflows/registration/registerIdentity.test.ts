@@ -7,6 +7,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import type {
   CreateOrganizationGroupRequest,
   ProvisionedDocumentRequest,
@@ -22,6 +23,7 @@ import { buildInitialOrganizationPolicyRequest } from "../../data/principals/org
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 interface CapturedRegistrationRequest {
+  acceptedLegalTermsVersion: string;
   userId: string;
   organizationId: string;
   rootContainerId: string;
@@ -58,6 +60,8 @@ function captureRegistrationRequest(
     initialRosterProfileDocument,
     initialOrganizationMetadataContainer,
     initialOrganizationProfileDocument,
+    ,
+    acceptedLegalTermsVersion,
   ] = args;
   if (!initialRosterProfileContainer) {
     throw new Error("Expected initial roster profile container request");
@@ -72,6 +76,7 @@ function captureRegistrationRequest(
     throw new Error("Expected initial organization profile document request");
   }
   return {
+    acceptedLegalTermsVersion,
     userId,
     organizationId,
     rootContainerId,
@@ -190,6 +195,7 @@ test("registerIdentity submits the registration request and persists the local b
 
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId,
@@ -206,6 +212,7 @@ test("registerIdentity submits the registration request and persists the local b
     expect(response?.rootContainerId).toBe(containerId);
     expect(response?.challenge).toBe("a".repeat(64));
     expect(request.rootContainerId).toBe(containerId);
+    expect(request.acceptedLegalTermsVersion).toBe(LEGAL_TERMS_VERSION);
     expect(request.signingPublicKey).toBe(signingKeyPair.signingPublicKey);
     expect(request.encapsulationPublicKey).toBe(encapsulationKeyPair.publicKey);
     expect(request.initialAdminGroup).not.toHaveProperty("name");
@@ -372,6 +379,7 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
 
   await expect(
     registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId,
@@ -400,6 +408,7 @@ test("registration checks the sign-in before dispatch after preparing its organi
   let current = true;
   let submitted = false;
   const pending = registerIdentity({
+    acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
     identityTrustDomain: "https://api.example.test",
     containerId: crypto.randomUUID(),
     apiClient: {

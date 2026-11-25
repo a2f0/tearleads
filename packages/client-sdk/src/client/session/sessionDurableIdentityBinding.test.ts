@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import {
   createSqlClient,
   noIdentityChange,
@@ -147,7 +148,11 @@ test("registration declines a key already bound to a user, before contacting the
     // It is declined first, and the caller falls back to logging in.
     const session = createSession(dependencies);
     session.setContainerId(crypto.randomUUID());
-    expect(await session.registerIdentity()).toEqual({
+    expect(
+      await session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      }),
+    ).toEqual({
       status: "identity-already-bound",
       userId: "11111111-1111-4111-8111-111111111111",
     });

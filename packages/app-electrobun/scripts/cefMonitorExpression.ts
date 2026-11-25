@@ -14,13 +14,24 @@ export const openSystemMonitorExpression = `(() => {
 })()`;
 
 // The first-launch probe starts on Explorer. Stay there until its creation
-// form has submitted; opening System Monitor earlier hides onboarding.
+// form, after the legal terms agreement, has submitted; opening System Monitor
+// earlier hides onboarding.
 export const submitFirstIdentityExpression = `(() => {
   const create = Array.from(document.querySelectorAll('button')).find(
     button => button.textContent.trim() === 'Create new identity' && button.getClientRects().length,
   );
   if (create) {
     create.click();
+    return false;
+  }
+  // Creation first asks for agreement to the legal terms: check it, then
+  // continue once the check has enabled Continue.
+  const agreement = Array.from(document.querySelectorAll('input[type="checkbox"]')).find(
+    input => input.getClientRects().length && input.labels?.[0]?.textContent.trim() === 'I agree to the Terms of Service and Privacy Policy',
+  );
+  if (agreement) {
+    if (!agreement.checked) agreement.click();
+    else agreement.form?.querySelector('button[type="submit"]:enabled')?.click();
     return false;
   }
   const name = Array.from(document.querySelectorAll('input[autocomplete="nickname"]')).find(

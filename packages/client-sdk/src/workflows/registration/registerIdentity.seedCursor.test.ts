@@ -5,6 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { CONTAINER_METADATA_APP_KIND } from "../../data/persistence/container-contents/dormantContainerMetadata";
@@ -17,6 +18,7 @@ test("every container metadata seed registration commits keeps the cursor it sta
   try {
     const seeds: { documentId: string; updateId: string }[] = [];
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient: {
         registerUser: async (

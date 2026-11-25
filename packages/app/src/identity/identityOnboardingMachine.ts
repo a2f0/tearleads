@@ -1,12 +1,18 @@
 export type OnboardingForm = "naming-account" | "entering-passphrase";
 
 /**
+ * `accepting-terms` comes before naming a new identity, unless the person
+ * already agreed on this page: they read the Privacy Policy and Terms of
+ * Service and agree to them, as its registration will record. A restored
+ * identity is already registered, so restoring never asks.
+ *
  * `confirming-backup` follows a created identity: the user backs up its new
  * recovery key and types an agreement before the account is registered. A
  * restored identity skips it, since its passphrase is the backup.
  */
 export type IdentityOnboardingState =
   | { readonly status: "choosing-identity" }
+  | { readonly status: "accepting-terms" }
   | { readonly status: OnboardingForm; readonly error?: string }
   | {
       readonly status: "creating-identity" | "restoring-identity";
@@ -14,10 +20,14 @@ export type IdentityOnboardingState =
     }
   | { readonly status: "confirming-backup" };
 
-export type OnboardingNavigation = OnboardingForm | "choosing-identity";
+export type OnboardingNavigation =
+  | OnboardingForm
+  | "accepting-terms"
+  | "choosing-identity";
 
 export type OnboardingEvent =
   | { type: "navigate"; phase: OnboardingNavigation }
+  | { type: "terms-agreed" }
   | { type: "submit"; form: OnboardingForm; request: symbol }
   | { type: "finish"; request: symbol; error?: string }
   | { type: "confirm-backup" };
@@ -77,6 +87,10 @@ export function transitionIdentityOnboarding(
             error: event.error,
           }
         : settledState[state.status];
+    case "terms-agreed":
+      return state.status === "accepting-terms"
+        ? { status: "naming-account" }
+        : state;
     case "confirm-backup":
       return state.status === "confirming-backup" ? INITIAL_ONBOARDING : state;
   }

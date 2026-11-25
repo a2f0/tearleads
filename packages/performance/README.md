@@ -59,7 +59,10 @@ Account and organization IDs remain in the report for operator follow-up.
 Private keys and the local database are discarded. A lost registration response
 can leave an account whose ID was never acknowledged; a failed login or logout
 may leave a session until server expiry. The harness does not delete accounts,
-purchase subscriptions, or exercise existing identities.
+purchase subscriptions, or exercise existing identities. Each account records
+the current Privacy Policy and Terms of Service revision
+(`LEGAL_TERMS_VERSION`), which the operator running the harness agrees to on
+its behalf.
 
 The scenario calls `identity.generate()`, `session.registerIdentity()`, and
 `session.login(challenge)` on `Tearleads`, with the app's Trash system-container

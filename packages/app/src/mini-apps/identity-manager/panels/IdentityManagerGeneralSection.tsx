@@ -1,12 +1,14 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { AccountBootstrapProgressPanel } from "../../../components/identity/AccountBootstrapProgressPanel";
 import { CopyMyIdentityLinkButton } from "../../../components/identity/CopyMyIdentityLinkButton";
+import { LegalTermsAgreementPanel } from "../../../components/identity/legal-terms/LegalTermsAgreementPanel";
 import {
   MiniAppClipboardButton,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import { useLegalTermsAgreement } from "../../../identity/legalTermsAgreement";
 import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapProgress";
 import { useDeveloperMode } from "../../../providers/developer-mode/DeveloperModeProvider";
 import type { useIdentityManager } from "../IdentityManagerController";
@@ -103,16 +105,37 @@ export function IdentityManagerGeneralSection({
 }: {
   model: IdentityManagerModel;
 }) {
-  const { identityMutations, identityState, session } = model;
-  const actions = getIdentitySectionActions(model);
+  const { identityMutations, identityState, registration, session } = model;
   const { isDeveloperMode } = useDeveloperMode();
   const progress = useAccountBootstrapProgress();
+  const { agree } = useLegalTermsAgreement();
+  // Registering records agreement to the legal terms, so a Register that has
+  // none yet shows them first.
+  const [agreeingToTerms, setAgreeingToTerms] = useState(false);
+  const actions = {
+    ...getIdentitySectionActions(model),
+    handleRegisterIdentity: registration.legalTermsAgreed
+      ? identityMutations.handleRegisterIdentity
+      : async () => setAgreeingToTerms(true),
+  };
 
   // While the account is still being restored, named, created, or signed in,
   // every control here is either disabled or about to change; one centered
   // panel says so instead of spinner lines threaded between them.
   if (progress) {
     return <AccountBootstrapProgressPanel progress={progress} />;
+  }
+  if (agreeingToTerms) {
+    return (
+      <LegalTermsAgreementPanel
+        onAgree={() => {
+          agree();
+          setAgreeingToTerms(false);
+          void identityMutations.handleRegisterIdentity();
+        }}
+        onBack={() => setAgreeingToTerms(false)}
+      />
+    );
   }
 
   return (

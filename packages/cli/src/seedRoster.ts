@@ -6,6 +6,7 @@ import {
   createGroupMembersSeed,
   seedRosterEntry,
 } from "app/continuity";
+import type { LegalTermsAgreement } from "./legalTerms";
 import { registerAccount } from "./registerAccount";
 import { type CliSession, withSession } from "./session";
 
@@ -53,11 +54,18 @@ async function settle(step: () => Promise<boolean>, failure: string) {
  */
 async function memberIdentityLink(
   session: CliSession,
-  apiBaseUrl: string,
+  input: {
+    readonly agreeToLegalTerms: LegalTermsAgreement;
+    readonly apiBaseUrl: string;
+  },
   recoveryKey: string,
 ): Promise<string> {
+  const { apiBaseUrl } = input;
   const member = { apiBaseUrl, recoveryKey, tracer: session.tracer };
-  await registerAccount(member);
+  await registerAccount({
+    ...member,
+    agreeToLegalTerms: input.agreeToLegalTerms,
+  });
   // The link only carries the member's keys; its URL is never opened.
   return withSession(member, ({ sdk }) =>
     sdk.userIdentities.createLink(apiBaseUrl),
@@ -73,6 +81,8 @@ async function memberIdentityLink(
 export async function seedRoster(
   session: CliSession,
   input: {
+    /** Agrees to the legal terms for each member account it creates. */
+    readonly agreeToLegalTerms: LegalTermsAgreement;
     readonly apiBaseUrl: string;
     readonly groups: readonly ContinuityGroup[];
     readonly signingPrivateKey: Uint8Array;
@@ -90,7 +100,7 @@ export async function seedRoster(
         const link = await tracer.span(`provision ${member.contactId}`, () =>
           memberIdentityLink(
             session,
-            input.apiBaseUrl,
+            input,
             memberRecoveryKey(input.signingPrivateKey, member.contactId),
           ),
         );

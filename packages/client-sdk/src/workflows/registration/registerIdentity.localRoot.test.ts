@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
@@ -36,6 +37,7 @@ test("registration binds a device-first root with locally hydrated metadata", as
     expect(local.container.organizationId).toBe("");
 
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient: {
         registerUser: (...args) => respondToRegistration(args),

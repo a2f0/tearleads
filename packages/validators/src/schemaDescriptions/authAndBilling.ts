@@ -97,6 +97,8 @@ describeSchema(
   RegistrationRequestSchema,
   "A new identity's public keys plus every signed artifact that bootstraps its personal organization, all created atomically.",
   {
+    acceptedLegalTermsVersion:
+      "The Privacy Policy and Terms of Service revision the user agreed to before registering: the documents' shared effective date (`YYYY-MM-DD`). The API registers only the current revision and records it, with the time of registration, on the identity.",
     encapsulationPublicKey:
       "Base64 ML-KEM-1024 public key that key material is wrapped to.",
     signingPublicKey:

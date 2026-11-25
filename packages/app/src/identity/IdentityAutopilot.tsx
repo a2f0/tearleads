@@ -21,6 +21,7 @@ import {
   AutoProvisioningStatusContext,
   type AutoProvisioningStep,
 } from "./autoProvisioningStatus";
+import { useLegalTermsAgreement } from "./legalTermsAgreement";
 import { autoRegisterFailureMessage } from "./registrationRecoveryError";
 import {
   INITIAL_REGISTRATION_RUN,
@@ -70,6 +71,7 @@ function useAutoProvisionIdentity(enabled: boolean) {
     setRecoveredFingerprint,
   );
   const automatic = useAutoGenerateIdentity(enabled && !interactive);
+  const { agreedVersion } = useLegalTermsAgreement();
   const generation: AutoProvisioningStep =
     onboarding && "request" in onboarding.state
       ? { status: "running" }
@@ -82,6 +84,7 @@ function useAutoProvisionIdentity(enabled: boolean) {
     registration: useAutoRegisterIdentity(enabled, {
       backupPending: onboarding?.state.status === "confirming-backup",
       generation,
+      legalTermsAgreed: agreedVersion !== null,
       naming: naming.state,
       namingSettled: naming.settled,
       recovered,
@@ -157,6 +160,8 @@ function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
 interface PendingRegistration {
   /** The created identity's recovery key is not yet confirmed backed up. */
   readonly backupPending: boolean;
+  /** The person using this page agreed to the current legal terms. */
+  readonly legalTermsAgreed: boolean;
   readonly recovered: boolean;
   readonly generation: AutoProvisioningStep;
   readonly naming: AccountNamingState;
@@ -167,8 +172,10 @@ interface PendingRegistration {
  * Whether registration must wait for the user, and the name it carries. A
  * key the autopilot is still installing may yet need a name, a name given
  * before a restart may still be on its way back, a name still owed holds the
- * identity's first registration, a name given holds it until stored, and a
- * created identity holds it until its recovery key is confirmed backed up.
+ * identity's first registration, a name given holds it until stored, a
+ * created identity holds it until its recovery key is confirmed backed up, and
+ * every registration holds until the person agrees to the legal terms, which
+ * it records. A recovered identity only signs back in, so it never waits.
  */
 function pendingRegistration(pending: PendingRegistration) {
   return {
@@ -176,6 +183,7 @@ function pendingRegistration(pending: PendingRegistration) {
       pending.naming.status === "named" ? pending.naming.name : undefined,
     awaitingInput:
       pending.backupPending ||
+      (!pending.recovered && !pending.legalTermsAgreed) ||
       pending.generation.status === "running" ||
       !pending.namingSettled ||
       pending.naming.status === "awaiting" ||

@@ -34,12 +34,19 @@ export interface RegistrationApi {
     initialRosterProfileContainer: RegistrationRequest["initialRosterProfileContainer"],
     initialRosterProfileDocument: ProvisionedDocumentRequest | undefined,
     initialOrganizationMetadataContainer: ProvisionedSystemContainerRequest,
-    initialOrganizationProfileDocument?: ProvisionedDocumentRequest | undefined,
-    initialSystemContainers?: ProvisionedSystemContainerRequest[] | undefined,
+    initialOrganizationProfileDocument: ProvisionedDocumentRequest | undefined,
+    initialSystemContainers: ProvisionedSystemContainerRequest[] | undefined,
+    acceptedLegalTermsVersion: RegistrationRequest["acceptedLegalTermsVersion"],
   ): Promise<RegistrationResponse | null>;
 }
 
 export interface RegisterIdentityInput {
+  /**
+   * The legal terms revision the user agreed to before registering (see
+   * `LEGAL_TERMS_VERSION` in `@tearleads/validators/legalTerms`). The API
+   * registers only the current revision and records it on the identity.
+   */
+  acceptedLegalTermsVersion: string;
   identityTrustDomain: string;
   apiClient: RegistrationApi;
   containerId: string;
@@ -127,6 +134,7 @@ export async function registerIdentity(
     artifacts.systemContainerBootstraps.map(
       (systemContainer) => systemContainer.containerRequest,
     ),
+    input.acceptedLegalTermsVersion,
   );
   if (!response) {
     return null;

@@ -7,6 +7,11 @@ import { useTearleads } from "../providers/sdk/TearleadsProvider";
 import { selfPaneLabel, usePaneSideOptional } from "../shell/pane/dual-pane";
 import { personalOrganizationName } from "./accountNamingMachine";
 import { useAutoProvisioningStatus } from "./autoProvisioningStatus";
+import {
+  type LegalTermsAgreementStore,
+  useLegalTermsAgreement,
+  useLegalTermsAgreementStore,
+} from "./legalTermsAgreement";
 import { RegistrationRecoveryError } from "./registrationRecoveryError";
 
 export interface RegisterCurrentIdentityOptions {
@@ -19,7 +24,13 @@ export interface RegisterCurrentIdentityOptions {
 }
 
 export interface RegisterCurrentIdentityResult {
+  /**
+   * The current identity could register now; it also needs the legal terms
+   * agreed ({@link RegisterCurrentIdentityResult.legalTermsAgreed}).
+   */
   canRegisterCurrentIdentity: boolean;
+  /** Registration carries the agreement, so it needs one first. */
+  legalTermsAgreed: boolean;
   registerCurrentIdentity: (
     options?: RegisterCurrentIdentityOptions,
   ) => Promise<boolean>;
@@ -53,6 +64,17 @@ function registrationNames(
     : {};
 }
 
+/**
+ * The agreed revision a registration records, read when it starts so one
+ * that follows the agreement at once carries it; null when it cannot run.
+ */
+function registrationAgreement(
+  canRegister: boolean,
+  legalTerms: LegalTermsAgreementStore,
+): string | null {
+  return canRegister ? legalTerms.agreedVersion : null;
+}
+
 export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const { client: dbClient } = useDatabase();
   const { userId, containerId, login, loginWithChallenge } = useCryptoSession();
@@ -70,6 +92,8 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const peerLabel =
     seedPeerIdentities && paneSide ? selfPaneLabel(paneSide) : null;
   const { accountNaming } = useAutoProvisioningStatus();
+  const { agreedVersion } = useLegalTermsAgreement();
+  const legalTerms = useLegalTermsAgreementStore();
   const givenName =
     accountNaming.status === "named" ? accountNaming.name : undefined;
 
@@ -82,14 +106,19 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
 
   const registerCurrentIdentity = useCallback(
     async (options?: RegisterCurrentIdentityOptions): Promise<boolean> => {
-      if (!canRegisterCurrentIdentity) {
+      const acceptedLegalTermsVersion = registrationAgreement(
+        canRegisterCurrentIdentity,
+        legalTerms,
+      );
+      if (acceptedLegalTermsVersion === null) {
         return false;
       }
 
       const identitySnapshot = tearleads.identity.snapshot;
-      const response = await tearleads.session.registerIdentity(
-        registrationNames(peerLabel, options?.accountName ?? givenName),
-      );
+      const response = await tearleads.session.registerIdentity({
+        acceptedLegalTermsVersion,
+        ...registrationNames(peerLabel, options?.accountName ?? givenName),
+      });
       if (tearleads.identity.snapshot !== identitySnapshot) {
         return false;
       }
@@ -109,6 +138,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     [
       canRegisterCurrentIdentity,
       givenName,
+      legalTerms,
       login,
       loginWithChallenge,
       peerLabel,
@@ -116,5 +146,9 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
     ],
   );
 
-  return { canRegisterCurrentIdentity, registerCurrentIdentity };
+  return {
+    canRegisterCurrentIdentity,
+    legalTermsAgreed: agreedVersion !== null,
+    registerCurrentIdentity,
+  };
 }

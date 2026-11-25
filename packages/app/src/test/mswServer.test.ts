@@ -1,5 +1,8 @@
 import { afterEach, expect, test } from "bun:test";
-import { registerIdentity as registerClientIdentity } from "@tearleads/client-sdk";
+import {
+  LEGAL_TERMS_VERSION,
+  registerIdentity as registerClientIdentity,
+} from "@tearleads/client-sdk";
 import type { ExecSql, ExecSqlClientLike } from "@tearleads/client-sdk/sqlite";
 import {
   authChallengeSigningBytes,
@@ -62,6 +65,7 @@ async function registerIdentity(
   const { close, execSql } = await createTestExecSql("app-msw-registration");
   try {
     const registration = await registerClientIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       apiClient: {
         async registerUser(
           userId,
@@ -79,11 +83,13 @@ async function registerIdentity(
           initialOrganizationMetadataContainer,
           initialOrganizationProfileDocument,
           initialSystemContainers,
+          acceptedLegalTermsVersion,
         ) {
           const response = await fetch(`${apiBaseUrl}/auth/register`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              acceptedLegalTermsVersion,
               userId,
               organizationId,
               rootContainerId,

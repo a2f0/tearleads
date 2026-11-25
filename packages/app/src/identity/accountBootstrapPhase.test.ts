@@ -9,6 +9,7 @@ import {
 // restores have settled, and no account has signed in yet.
 const REGISTERING: AccountBootstrapInput = {
   awaitingAccountName: false,
+  awaitingLegalTerms: false,
   autoGenerateIdentity: true,
   autoProvisioningEnabled: true,
   autoRegisterIdentity: true,
@@ -90,6 +91,45 @@ describe("resolveAccountBootstrapPhase", () => {
         systemBootstrapStatus: "error",
       }),
     ).toBe("naming-account");
+  });
+
+  test("a registration waiting for agreement to the legal terms asks for it", () => {
+    expect(phaseOf({ awaitingLegalTerms: true, registration: "idle" })).toBe(
+      "accepting-terms",
+    );
+    // An identity reloaded on this device but never registered still asks.
+    expect(
+      phaseOf({
+        awaitingLegalTerms: true,
+        identityRestored: true,
+        registration: "idle",
+      }),
+    ).toBe("accepting-terms");
+    // Agreement comes before a name still owed, as in onboarding.
+    expect(
+      phaseOf({
+        awaitingAccountName: true,
+        awaitingLegalTerms: true,
+        registration: "idle",
+      }),
+    ).toBe("accepting-terms");
+    // A registered identity, or no autopilot, has nothing to agree to here.
+    for (const overrides of [
+      { userId: "user-1" },
+      { autoProvisioningEnabled: false },
+      { autoRegisterIdentity: false },
+    ]) {
+      expect(
+        phaseOf({
+          awaitingLegalTerms: true,
+          registration: "idle",
+          ...overrides,
+        }),
+      ).toBe("signed-out");
+    }
+    expect(accountBootstrapCopy("accepting-terms")?.title).toBe(
+      "Review our terms",
+    );
   });
 
   test("a key that lands before the autopilot's generation settles is still being created", () => {

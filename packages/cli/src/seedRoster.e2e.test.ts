@@ -1,5 +1,6 @@
 import { beforeAll, expect, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
+import { LEGAL_TERMS_VERSION } from "@tearleads/client-sdk";
 import {
   APP_DOCUMENT_PROJECTOR_DEFINITIONS,
   continuityGroups,
@@ -58,6 +59,7 @@ test("seedRoster admits each group member to the roster and the group, once", as
     const keys = session.sdk.identity.signingKeyPair;
     if (!keys) throw new Error("Missing the owner's signing keys.");
     return seedRoster(session, {
+      agreeToLegalTerms: async () => LEGAL_TERMS_VERSION,
       apiBaseUrl,
       groups,
       signingPrivateKey: keys.signingPrivateKey,
