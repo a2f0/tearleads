@@ -16,22 +16,28 @@ export type ContainerDocumentDiscoveryLane = Omit<
   | "loadContainerDocumentWatermark"
 >;
 
-async function saveAppliedContainerDocumentWatermark(input: {
-  containerId: string;
-  listedDocuments: ListedContainerDocuments;
-  saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"];
-  stillCurrent: () => Promise<boolean>;
-}) {
-  const { containerId, listedDocuments, saveContainerDocumentWatermark } =
-    input;
-  if (!listedDocuments.nextWatermark) {
+/**
+ * The cursor and the settled mark share one row and one statement. A lane cut
+ * short before here stays owed, so the next boot lists it again.
+ */
+async function recordAppliedContainerDocumentListing(
+  lane: Pick<
+    ContainerDocumentDiscoveryLane,
+    "containerId" | "recordContainerDocumentListing"
+  >,
+  listedDocuments: ListedContainerDocuments,
+  outcome: { settled: boolean; stillCurrent: () => Promise<boolean> },
+) {
+  const { settled, stillCurrent } = outcome;
+  const watermark = listedDocuments.nextWatermark;
+  if (!watermark && !settled) {
     return;
   }
 
-  await saveContainerDocumentWatermark(
-    containerId,
-    listedDocuments.nextWatermark,
-    input.stillCurrent,
+  await lane.recordContainerDocumentListing(
+    lane.containerId,
+    { settled, watermark },
+    stillCurrent,
   );
 }
 
@@ -130,10 +136,8 @@ export async function applyListedContainerDocuments(
   if (owedDocumentIds.length > 0) {
     options.onDocumentReadsOwed?.(owedDocumentIds);
   }
-  await saveAppliedContainerDocumentWatermark({
-    containerId,
-    listedDocuments,
-    saveContainerDocumentWatermark: options.saveContainerDocumentWatermark,
+  await recordAppliedContainerDocumentListing(options, listedDocuments, {
+    settled: complete,
     stillCurrent: verification.isCurrent,
   });
   if (!(await verification.isCurrent())) return SUPERSEDED;

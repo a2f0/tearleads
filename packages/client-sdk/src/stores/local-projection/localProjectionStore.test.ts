@@ -370,12 +370,16 @@ test("remote container growth re-arms backfill after initial hydration only", as
     // A warm cached tree becoming ready emits only the normal hydration signal;
     // it must not turn every startup into a full document backfill.
     store.updateRuntime(runtime);
-    expect(signals).toEqual(["hydrated"]);
+    expect(signals).toEqual(["hydrated", "owed-discovery"]);
 
     // A newly discovered remote child re-arms the cold-recovery backfill.
     nodes = [...nodes, remoteContacts];
     emitContainerStore();
-    expect(signals).toEqual(["hydrated", "remote-containers-added"]);
+    expect(signals).toEqual([
+      "hydrated",
+      "owed-discovery",
+      "remote-containers-added",
+    ]);
 
     // A local-first child becoming remotely listable under the same id must
     // signal one trailing backfill. This is the active-container promotion
@@ -397,13 +401,14 @@ test("remote container growth re-arms backfill after initial hydration only", as
     emitContainerStore();
     expect(signals).toEqual([
       "hydrated",
+      "owed-discovery",
       "remote-containers-added",
       "remote-containers-added",
     ]);
 
     nodes = [...nodes];
     emitContainerStore();
-    expect(signals).toHaveLength(3);
+    expect(signals).toHaveLength(4);
 
     // A write-only foreign system container is excluded from the generic
     // known-container set, but its active lane still needs a trailing flush
@@ -416,6 +421,7 @@ test("remote container growth re-arms backfill after initial hydration only", as
     emitContainerStore();
     expect(signals).toEqual([
       "hydrated",
+      "owed-discovery",
       "remote-containers-added",
       "remote-containers-added",
       "remote-containers-added",

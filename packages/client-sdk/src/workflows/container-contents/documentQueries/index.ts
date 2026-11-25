@@ -29,6 +29,7 @@ import {
   localIntentTables,
 } from "../../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
+import type { ContainerDocumentListingRecord } from "../documentDiscovery/documentDiscoveryTypes";
 import {
   listPendingWrites,
   type PendingWriteQueueItem,
@@ -155,9 +156,9 @@ export interface ContainerDocumentQueries {
   replaceDocumentLinksBatch(
     inputs: ReadonlyArray<ContainerDocumentLinkInput>,
   ): Promise<void>;
-  saveContainerDocumentWatermark(
+  recordContainerDocumentListing(
     containerId: string,
-    watermark: SyncWatermark,
+    listing: ContainerDocumentListingRecord,
   ): Promise<void>;
   upsertDiscoveredDocuments(
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
@@ -457,10 +458,10 @@ export function createContainerDocumentQueriesFromRuntime(
         execSql,
       ).replaceDocumentLinksBatch(inputs);
     },
-    async saveContainerDocumentWatermark(containerId, watermark) {
-      await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
+    async recordContainerDocumentListing(containerId, listing) {
+      await new ContainerSyncWatermarkRepository(execSql).recordLaneFetch(
         containerContentsSyncLane(containerId),
-        watermark,
+        { checked: listing.settled, watermark: listing.watermark },
       );
     },
     upsertDiscoveredDocuments(inputs, assertCurrent) {

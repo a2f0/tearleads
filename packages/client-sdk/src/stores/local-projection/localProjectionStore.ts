@@ -4,6 +4,11 @@ import { didRegainSyncPrerequisites } from "../../workflows/container-contents/s
 import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import type { ContainerContentsStoreRuntime } from "../container-contents";
 import type { ContainerContentsStore } from "../container-contents/types";
+import {
+  INITIAL_OWED_DISCOVERY_RESUME,
+  type OwedDiscoveryResumeState,
+  stepOwedDiscoveryResume,
+} from "./owedDiscoveryResumeMachine";
 import { hasRemoteBackedContainerMembershipGrowth } from "./remoteContainerGrowth";
 import {
   applyContainerSummaries,
@@ -28,6 +33,7 @@ export interface LocalProjectionReconcileSignal {
     | "hydrated"
     | "active-changed"
     | "connection-acknowledged"
+    | "owed-discovery"
     | "prerequisites-regained"
     | "remote-containers-added";
   activeContainerId: string | null;
@@ -80,6 +86,9 @@ interface LocalProjectionStoreState {
    * hydrated tree to know which lanes to list.
    */
   pendingConnectionAcknowledged: boolean;
+  /** Lists the lanes an earlier boot left owed: `owedDiscoveryResumeMachine`. */
+  owedDiscoveryResume: OwedDiscoveryResumeState;
+  pendingOwedDiscovery: boolean;
   reconcileListeners: Set<LocalProjectionReconcileListener>;
   runtime: ContainerContentsStoreRuntime;
   snapshot: LocalProjectionSnapshot;
@@ -257,7 +266,10 @@ function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
 /**
  * Raises the signals latched while the tree was not ready. A regain resets
  * what the reconciler considers discovered, so it goes first; the listing an
- * acknowledged connection owes then takes over the queue it filled.
+ * acknowledged connection owes then takes over the queue it filled. A resume
+ * of owed lanes is latched by its machine, which drops it when the awaited
+ * attempt is acknowledged. One latched before a flush can still flush beside
+ * a later acknowledgement, and both may then list the same lanes.
  */
 function flushPendingReconcileSignals(state: LocalProjectionStoreState): void {
   if (
@@ -269,6 +281,7 @@ function flushPendingReconcileSignals(state: LocalProjectionStoreState): void {
   for (const [pending, reason] of [
     ["pendingPrerequisitesRegained", "prerequisites-regained"],
     ["pendingConnectionAcknowledged", "connection-acknowledged"],
+    ["pendingOwedDiscovery", "owed-discovery"],
   ] as const) {
     if (!state[pending]) continue;
     state[pending] = false;
@@ -287,6 +300,12 @@ function publishHydration(state: LocalProjectionStoreState): boolean {
       reason: "hydrated",
       activeContainerId: state.activeContainerId,
     });
+    stepOwedDiscoveryResume(state, {
+      acknowledged: state.pendingConnectionAcknowledged,
+      pendingConnectAttempt:
+        state.runtime.state.serverEventsPendingConnectAttempt,
+      type: "hydrated",
+    });
   }
   // Backfills read getSnapshot(), so publish the tree before requesting them.
   flushPendingReconcileSignals(state);
@@ -298,6 +317,8 @@ function resetProjection(state: LocalProjectionStoreState): void {
   resetSummaryCache(state.cache);
   state.pendingSummaryReads.clear();
   state.hydratedContainerSummaries = false;
+  state.owedDiscoveryResume = INITIAL_OWED_DISCOVERY_RESUME;
+  state.pendingOwedDiscovery = false;
 }
 
 function removePersistedDocumentFromCache(
@@ -335,18 +356,21 @@ function updateLocalProjectionRuntime(
   if (didRegainSyncPrerequisites(previousRuntime, runtime)) {
     state.pendingPrerequisitesRegained = true;
   }
-  if (
+  const acknowledged =
     (runtime.state.serverEventsConnectionGeneration ?? 0) >
-    (previousRuntime.state.serverEventsConnectionGeneration ?? 0)
-  ) {
-    state.pendingConnectionAcknowledged = true;
-  }
+    (previousRuntime.state.serverEventsConnectionGeneration ?? 0);
+  if (acknowledged) state.pendingConnectionAcknowledged = true;
 
   if (runtime.infra.dbStatus !== "ready") {
     resetProjection(state);
     emit(state);
     return;
   }
+  stepOwedDiscoveryResume(state, {
+    acknowledged,
+    pendingConnectAttempt: runtime.state.serverEventsPendingConnectAttempt,
+    type: "runtime",
+  });
 
   // Reload the active container's summaries when the local store becomes
   // ready (e.g. first DB attach) so first paint reflects cached contents.
@@ -391,6 +415,8 @@ export function createLocalProjectionStore(input: {
     // change, and still owes the catch-up listing.
     pendingConnectionAcknowledged:
       (input.runtime.state.serverEventsConnectionGeneration ?? 0) > 0,
+    owedDiscoveryResume: INITIAL_OWED_DISCOVERY_RESUME,
+    pendingOwedDiscovery: false,
     reconcileListeners: new Set(),
     runtime: input.runtime,
     snapshot: EMPTY_SNAPSHOT,

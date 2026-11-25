@@ -88,11 +88,13 @@ export async function waitForBooted(
   }
 
   // Best-effort: let initial asset loads and any host-enabled identity autopilot
-  // work settle. Setup steps wait for idle: a second device reloaded before it
-  // went idle after importing the identity and signing in showed only its own
-  // contact, never the seeded ones. Capture loops pass "assets": the seeded data
-  // is on the device by then, and every full load re-syncs it for about 10 s,
-  // which ran the routed captures past the test timeout.
+  // work settle. Setup steps wait for idle so the seeded data is on the device
+  // before the first capture. A reload that cuts sign-in short no longer loses
+  // it (the next start lists the document lanes the cut boot left owed), but
+  // that later start would still race the capture. Capture loops pass
+  // "assets": the seeded data is on the device by then, and every full load
+  // re-syncs it for about 10 s, which ran the routed captures past the test
+  // timeout.
   await page
     .waitForLoadState(
       "networkidle",

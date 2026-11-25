@@ -30,7 +30,10 @@ import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
  * - `cursorFormat`: SDK format that applied the saved watermark.
  * - `updatedAt`: Local timestamp for when the cursor was saved.
  * - `checkedAt`: Local timestamp for the most recent fully drained lane check;
- *   null until one completes.
+ *   null until one completes. On a `container_documents` lane it marks the
+ *   lane settled: an applied listing left no candidate pending. A lane
+ *   without it still owes a listing, which the reconciler resumes at start
+ *   (see `documentLaneDiscovery.ts`).
  *
  * Indexes:
  * - `(laneKind, laneId)` is the primary key and stores one row per lane.

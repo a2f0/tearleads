@@ -28,6 +28,10 @@ holds are excluded. `listContainerDocumentSidebarWindow` accepts an optional
 canonical id cannot be selected as primary until their first sync.
 Hosts implementing `ContainerDocumentQueries` themselves, including test
 doubles, must implement `loadContainerDocumentSummary`, a source-level change.
+`saveContainerDocumentWatermark` became `recordContainerDocumentListing`: its
+root-exported `ContainerDocumentListingRecord` holds the next cursor (`null`
+keeps the stored one) and `settled`, written together; a lane never settled is
+[listed again](../device-first.md#owed-document-lanes) at the next start.
 `listCompletedDownloads(refs)` gave way to the [download history](runtime-behavior.md#explorer-hydration-and-pending-downloads).
 
 See [container views](../container-views.md) for the app extension point,

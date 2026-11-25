@@ -11,6 +11,7 @@ import { CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS } from "./protocolContainerMove
 import { CONTENT_KEY_COMMITMENT_NEGATIVE_CONTROLS } from "./protocolContentKeyCommitmentNegativeControls";
 import { CONTENT_WRITE_NEGATIVE_CONTROLS } from "./protocolContentWriteNegativeControls";
 import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
+import { DISCOVERY_LANE_NEGATIVE_CONTROLS } from "./protocolDiscoveryLaneNegativeControls";
 import { DOCUMENT_LISTING_NEGATIVE_CONTROLS } from "./protocolDocumentListingNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS } from "./protocolGroupGrantRevocationNegativeControls";
@@ -51,6 +52,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...HISTORY_NEGATIVE_CONTROLS,
   ...MEMBER_IDENTITY_NEGATIVE_CONTROLS,
   ...METADATA_LISTING_NEGATIVE_CONTROLS,
+  ...DISCOVERY_LANE_NEGATIVE_CONTROLS,
   ...DOCUMENT_LISTING_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,

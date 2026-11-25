@@ -65,19 +65,28 @@ test("each acknowledged connection raises connection-acknowledged once", async (
     store.onReconcileSignal((signal) => signals.push(signal.reason));
 
     store.updateRuntime(runtime(0));
-    expect(signals).toEqual(["hydrated"]);
+    expect(signals).toEqual(["hydrated", "owed-discovery"]);
 
     // The first acknowledgement after a restart owes the catch-up too.
     store.updateRuntime(runtime(1));
-    expect(signals).toEqual(["hydrated", "connection-acknowledged"]);
+    expect(signals).toEqual([
+      "hydrated",
+      "owed-discovery",
+      "connection-acknowledged",
+    ]);
 
     // The same generation again, as on any unrelated runtime change.
     store.updateRuntime(runtime(1));
-    expect(signals).toEqual(["hydrated", "connection-acknowledged"]);
+    expect(signals).toEqual([
+      "hydrated",
+      "owed-discovery",
+      "connection-acknowledged",
+    ]);
 
     store.updateRuntime(runtime(2));
     expect(signals).toEqual([
       "hydrated",
+      "owed-discovery",
       "connection-acknowledged",
       "connection-acknowledged",
     ]);
