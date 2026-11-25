@@ -165,10 +165,11 @@ Scheduling policy (active-first, then idle backfill):
 
 #### Owed document lanes
 
-Discovery spans network round trips: one batched listing names every lane,
-then the lanes verify and apply one at a time. A reload can land anywhere in
-that, and a start with a cached tree raises no hint for a lane the tree already
-holds, so a lane cut short must say so durably. Its `container_documents` row
+Discovery spans network round trips: each reconciler run lists up to four
+lanes in one batched request, then the lanes verify and apply one at a time.
+A reload can land anywhere in that, and a start with a cached tree raises no
+hint for a lane the tree already holds, so a lane cut short must say so
+durably. Its `container_documents` row
 in `container_sync_watermarks` does
 ([`documentLaneDiscovery.ts`](../../packages/client-sdk/src/workflows/container-contents/documentDiscovery/documentLaneDiscovery.ts)):
 
@@ -184,8 +185,9 @@ one without the other. An access change or a remote reset deletes the row, and
 staging a candidate owes the lane until the candidate is acknowledged. On
 local hydration the reconciler queues every owed known lane at idle priority,
 so a device whose sign-in boot was cut short still lists the Contacts and
-organization lanes it never applied. A settled lane is not listed at start;
-later remote changes reach it through hints, a visit, or a reconnect sweep.
+organization lanes it never applied, at one listing per four owed lanes. A
+settled lane is not listed at start; later remote changes reach it through
+hints, a visit, or a reconnect sweep.
 [`owedDiscovery.test.ts`](../../packages/client-sdk/src/client/deviceFirst/owedDiscovery.test.ts)
 restarts a device whose earlier boot applied only some of its lanes.
 

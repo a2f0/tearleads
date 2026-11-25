@@ -76,7 +76,9 @@ Start ==
   /\ queued' = IF ResumeOwedOnStart THEN {l \in Lanes : Owed(l)} ELSE {}
   /\ UNCHANGED <<durableVars, up, listed, page, retry, crashes, deferrals>>
 
-\* One batched listing pages every queued lane from its cursor.
+\* One batched listing pages every queued lane from its cursor. A later
+\* start's reconciler takes up to four lanes per run; the model folds those
+\* runs into one listing, since a lane a reload leaves unlisted stays owed.
 BeginListing ==
   /\ up /\ started /\ queued # {} /\ listed = {}
   /\ listed' = queued /\ queued' = {}

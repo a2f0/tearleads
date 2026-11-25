@@ -391,6 +391,7 @@ export type {
   // documentQueries variant has a different shape, so it keeps a disambiguating
   // alias on the public surface.
   ContainerDocumentLinkInput as ContainerDocumentQueriesLinkInput,
+  ContainerDocumentListingRecord,
   ContainerSystemSlotDefinition,
   PendingDownloadQueueItem,
   RecoveryFolder,

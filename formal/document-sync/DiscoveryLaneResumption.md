@@ -7,14 +7,16 @@ publication model checks that a listing never skips a committed row, and
 assumes the client keeps reading.
 
 The sign-in boot learns every lane from the remote tree, and membership growth
-queues them all. One batched listing pages every queued lane from its cursor;
-the lanes then verify and apply one at a time. Verification may defer a
-document whose signed head is not yet available: the candidate is staged
-durably, and an in-memory timer retries the lane. A crash loses the queue, the
-listing in flight, and the timers. The projection, the cursor, the lane's
-settled mark, and the staged candidates survive. A later start publishes the
-cached tree, which raises no hint for a lane the tree already holds, so only
-the durable state can say that a lane still owes a listing.
+queues them all. A batched listing pages the queued lanes from their cursors
+(production takes up to four lanes per reconciler run; the model lists every
+queued lane at once); the lanes then verify and apply one at a time.
+Verification may defer a document whose signed head is not yet available: the
+candidate is staged durably, and an in-memory timer retries the lane. A crash
+loses the queue, the listing in flight, and the timers. The projection, the
+cursor, the lane's settled mark, and the staged candidates survive. A later
+start publishes the cached tree, which raises no hint for a lane the tree
+already holds, so only the durable state can say that a lane still owes a
+listing.
 
 Issue #3255 was this gap. The reload that follows an identity restore cut the
 sign-in boot short after its one listing named every lane but before the

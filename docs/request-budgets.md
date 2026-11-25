@@ -205,9 +205,10 @@ local application.
   cannot substitute for it.
 - Each start lists only the document lanes an earlier boot left
   [owed](./developer/device-first.md#owed-document-lanes): never settled by
-  an applied listing, or holding staged candidates. A reload that cuts
-  discovery short therefore costs one batched listing at the next start, and
-  a settled lane costs nothing.
+  an applied listing, or holding staged candidates. The reconciler lists up
+  to four lanes per batched request, so a reload that cuts discovery short
+  costs one listing per four owed lanes at the next start, and a settled lane
+  costs nothing.
 - Scoped hints force the affected lanes, including the parent lane needed to
   remove a nested revoked or deleted child. Newer force generations survive
   older completions, and temporary failures keep the force with bounded
