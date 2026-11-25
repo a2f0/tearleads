@@ -30,8 +30,9 @@ export interface RegisterCurrentIdentityResult {
    */
   canRegisterCurrentIdentity: boolean;
   /**
-   * Registration records the agreement, so the person is asked first. An
-   * identity this device already binds to an account signs back in instead.
+   * Registration records the agreement, so the person is asked first,
+   * including for a key recovered from its passphrase. An identity this
+   * device already binds to an account signs back in instead.
    */
   legalTermsRequired: boolean;
   registerCurrentIdentity: (
