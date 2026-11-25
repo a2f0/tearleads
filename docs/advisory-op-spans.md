@@ -96,9 +96,9 @@ keeps the remote-update signal pending, and does not pull again at once. A
 later pull judges the update again; like a parked sync failure, it waits for
 the next edit, remote hint, reconnect, start, or refresh rather than a timer.
 In the same process it waits out a retry delay (one minute, doubling to an
-hour) and is not read in the meantime. Rotation and a founding view judge
-updates without recording attempts: a runtime failure there fails that
-operation, counts toward no update, and still marks the process as failed.
+hour) and is not read in the meantime. Rotation, a founding view, and history
+verification judge without recording attempts: a runtime failure there fails
+the operation, counts toward no update, and still marks the process as failed.
 So does a runtime failure while the judge builds the reader's own history
 (the page is held whole) or while a judged page is applied to the live
 document.
@@ -132,17 +132,17 @@ so a stale pass still running after the store moved to another database
 cannot close the window of the pass that replaced it. Container metadata,
 rotation (its raw history, and the sync that settles queued edits first), and
 a founding view read served updates in windows of their own, claimed and
-isolated the same way; a rotation or founding window closes once its Loro work
-on the page is over, since it saves no page. A rotation's raw-history window
-can charge a death to the rotation instead of an update (below). A window the
+isolated the same way; such a window closes once its Loro work on the page is
+over, since it saves no page. A rotation's raw-history window can charge a
+death to the rotation instead of an update (below), and a history verifier's
+charges it to nothing ([window kinds](./limits.md#loro-runtime)). A window the
 process outlives, closed by a save or settled without one, clears the
-`loro_runtime` attempts earlier deaths and failures counted toward the updates
-it read, except one the runtime failed on inside it: the process read them and
-lived, so those deaths were not theirs, and deaths months apart never add up
-to a void. A window whose page's Loro work, or the save of its result, threw
-clears none. A final void stands. Every read of served updates is
-then inside a window. A caller of the import judge that opens none, as a host
-calling it directly may, marks the lifetime failed once it reads an update, so
+`loro_runtime` attempts counted toward the updates it read, except one the
+runtime failed on inside it, and except in a history window: the process read
+them and lived, so deaths months apart never add up to a void. A window whose
+page's Loro work, or its save, threw clears none. A final void stands. Every
+read of served updates is inside a window. A caller of the import judge that
+opens none, as a host may, marks the lifetime failed once it reads an update, so
 its death counts toward no update. A document isolating suspects waits to read
 until its window would be the lifetime's only one;
 after 30 seconds it reads beside the others, and counts nothing. A lifetime

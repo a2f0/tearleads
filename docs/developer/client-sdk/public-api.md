@@ -366,7 +366,7 @@ seeds, using the scoped workflow runtime and its readiness and access checks.
 `loadPersistedDocumentContent` returns a detached Loro document or `null` for
 an unhydrated shell. Call `free()` after inspecting the document.
 See [custom document persistence](../custom-document-persistence.md) and
-[document history and `documents.readFoundingUpdate`](./document-history.md).
+[history, `documents.readFoundingUpdate`, and `documents.verifyHistory`](./document-history.md).
 
 `documents.retryDownload({ localId, documentId })` pulls a synced document again
 to re-list its attachment bindings, resolving `false` when the record no longer
