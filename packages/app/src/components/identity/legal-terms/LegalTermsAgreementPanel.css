@@ -18,25 +18,37 @@
   /* Size, not inline-size, so the wide layout can ask for a landscape host.
      Every host is a flex column of definite height that this box fills. */
   container: legal-terms-agreement / size;
+  /* Size containment sizes this box without its content. A host that gives
+     it no height (a block that scrolls) gets the panel's floor, not zero. */
+  contain-intrinsic-block-size: 30rem;
 
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  /* Size containment sizes this box without its content, so a host that
-     centers its items would shrink it to nothing; stretch it instead. */
+  /* For the same reason, a host that centers its items would shrink it to
+     nothing; stretch it instead. */
   align-self: stretch;
   /* Fill the host, never grow past it: the documents scroll inside it. A host
      too short for the panel's floor scrolls here. */
   min-height: 0;
+  box-sizing: border-box;
+  /* Its distance from the host's sides: the empty desktop and the demo's page
+     have none of their own. */
+  padding-inline: var(--space-md);
   overflow-y: auto;
+}
+
+/* A mini-app root already insets its content by that distance. */
+.mini-app-root .legal-terms-agreement {
+  padding-inline: 0;
 }
 
 .legal-terms-agreement-panel {
   /* A floor for short hosts (a small window), so the stacked documents keep a
      few lines to read; below it, the box above scrolls. */
   min-height: max(100%, 30rem);
-  /* The host already insets its content; inset again, a phone's frame was too
-     narrow for both tabs and its strip scrolled one out of view. */
+  /* The box above insets the panel, so the panel adds no inset of its own.
+     Inset twice, a phone's documents frame was too narrow for both tabs. */
   padding-inline: 0;
   /* `safe`: centered content that overflows its box spills only downward,
      where it can be scrolled to, never above the title. */
