@@ -1,7 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import { DEMO_APP_URL } from "./demoServer";
-import { legalTermsAgreement } from "./legalTermsAgreement";
 
 /*
  * The legal terms a new identity agrees to, laid out by the shape of the pane
@@ -35,13 +34,19 @@ async function boxOf(locator: Locator) {
   };
 }
 
-/** The visible agreement's parts, found inside its own panel. */
-async function findAgreement(page: Page) {
-  const checkbox = legalTermsAgreement(page);
-  await expect(checkbox).toBeVisible();
-  const panel = page.locator(".legal-terms-agreement").filter({
-    has: checkbox,
+/**
+ * The agreement's parts, found inside its own panel within `scope`: a windowed
+ * desktop can show one agreement in each window, so a windowed spec passes the
+ * window it measures.
+ */
+async function findAgreement(page: Page, scope: Locator | Page = page) {
+  const panel = scope.locator(".legal-terms-agreement").first();
+  const checkbox = panel.getByRole("checkbox", {
+    name: "I agree to the Terms of Service and Privacy Policy",
   });
+  await expect(checkbox).toBeVisible();
+  // Measure the settled layout: a late web font would rewrap the copy.
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
   const frame = panel.locator(".legal-terms-agreement-documents");
   return {
     checkbox,
@@ -165,6 +170,33 @@ test.describe("desktop", () => {
     await expectTextScrollsInFrame(agreement);
     await expectLabelClearOfCheckbox(agreement);
     await expect(agreement.continueButton).toBeInViewport();
+  });
+});
+
+test.describe("desktop window", () => {
+  test.use({ viewport: { height: 900, width: 1440 } });
+
+  // A window is narrower and shorter than the screen it sits on: the layout
+  // follows the window, not the screen.
+  test("sets the agreement beside the documents", async ({ page }) => {
+    await page.goto("/app/identity-manager/recovery-key");
+    await page
+      .getByRole("button", { name: "Switch to windowed layout" })
+      .first()
+      .click();
+    const window = page.getByRole("region", {
+      exact: true,
+      name: "Identity Manager",
+    });
+    await window
+      .getByRole("button", { name: "Create new identity", exact: true })
+      .click();
+    const agreement = await findAgreement(page, window);
+    await expectSideBySide(agreement);
+    await expectStripInsideFrame(agreement);
+    await expectTextScrollsInFrame(agreement);
+    await expectPanelFitsPane(agreement);
+    await expect(agreement.title).toBeInViewport();
   });
 });
 
