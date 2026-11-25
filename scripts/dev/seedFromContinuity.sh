@@ -10,6 +10,10 @@ Continuity screenshot dataset, from a fresh shell. dev is the local API
 (scripts/dev/runApi.sh) at http://localhost:3001; staging and prod are the
 deployed APIs. The account must already exist on that tier.
 
+The seed passes --roster, so it also seeds the dataset's groups: each group
+member gets an account derived from yours, joins your roster, and takes a
+seat in your organization.
+
 The CLI keeps its recovery key in the macOS login Keychain, which is locked
 in a shell that is not part of the desktop session (SSH, tmux, screen).
 `security` prompts for the macOS login password; other platforms have no
@@ -48,4 +52,4 @@ fi
 bun install
 bun run build:runtime
 bun run tearleads login --env "$target"
-bun run tearleads seed --env "$target" --trace
+bun run tearleads seed --env "$target" --roster --trace
