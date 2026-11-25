@@ -45,7 +45,7 @@ export async function showExplorerSidebar(window: Locator): Promise<void> {
 
 // Screenshot setup opens one app at a time and assumes an empty desktop.
 // Call only after boot or the initial layout switch, preserving later windows.
-export async function closeDefaultExplorerWindows(page: Page): Promise<void> {
+async function closeDefaultExplorerWindows(page: Page): Promise<void> {
   const explorers = page.getByRole("region", { name: "Explorer", exact: true });
   while (await explorers.count()) {
     await explorers
