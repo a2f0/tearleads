@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { encodeVersionVector, getTextValue } from "@tearleads/loro";
+import { encodeVersionVector, getTextValue, updateText } from "@tearleads/loro";
 import {
   projectStoredDocumentState,
   type StoredDocumentKind,
@@ -143,7 +143,8 @@ async function writeDocumentText(
     return;
   }
   if (textChanged) {
-    writeDoc.getText("text").update(value);
+    // Bounded: an unrelated replacement must not stall the writer.
+    updateText(writeDoc, value);
   }
   const update = pendingDeltaSinceBase(state, writeDoc);
   // Captured at delta time: the enqueued row proves durable coverage up
