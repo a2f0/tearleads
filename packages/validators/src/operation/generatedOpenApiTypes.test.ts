@@ -18,6 +18,7 @@ import type {
   ListSessionsResponse,
   OrganizationDataUsageResponse,
   PaymentRequiredErrorResponse,
+  RegistrationConflictResponse,
   RegistrationResponse,
   SessionFailureResponse,
   UserIdentityResponse,
@@ -314,7 +315,7 @@ test("generated OpenAPI types match the auth structural contracts", () => {
   assertType<
     IsEqual<
       NormalizeWireType<GeneratedRegistrationErrorResponse>,
-      NormalizeWireType<ErrorResponse>
+      NormalizeWireType<RegistrationConflictResponse>
     >
   >();
   assertType<

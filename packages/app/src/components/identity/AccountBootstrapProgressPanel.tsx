@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import type { AccountBootstrapCopy } from "../../identity/accountBootstrapPhase";
 import { useAutoProvisioningStatus } from "../../identity/autoProvisioningStatus";
+import { useLegalTermsAgreement } from "../../identity/legalTermsAgreement";
 import { useRecoveryKeyPrivacy } from "../../identity/useRecoveryKeyPrivacy";
 import {
   MiniAppButton,
@@ -13,6 +14,7 @@ import {
 import { useMiniAppDetailBackAction } from "../mini-app/useMiniAppDetailBackAction";
 import "./AccountBootstrapProgressPanel.css";
 import { TelemetryConsentSwitch } from "../shared/TelemetryConsentSwitch";
+import { LegalTermsAgreementPanel } from "./legal-terms/LegalTermsAgreementPanel";
 import { RecoveryKeyBackupConfirmation } from "./recovery-key/RecoveryKeyBackupConfirmation";
 import { RecoveryKeyScanControl } from "./recovery-key/RecoveryKeyScanControl";
 import { SavedPassphraseButton } from "./SavedPassphraseButton";
@@ -116,6 +118,19 @@ export function AccountBootstrapProgressPanel({
   progress: AccountBootstrapCopy;
 }) {
   const { onboarding } = useAutoProvisioningStatus();
+  const { agree } = useLegalTermsAgreement();
+  if (progress.phase === "accepting-terms") {
+    // Onboarding goes on to naming the new identity; a held registration
+    // resumes on its own once the agreement is recorded.
+    return onboarding ? (
+      <LegalTermsAgreementPanel
+        onAgree={onboarding.agreeToTerms}
+        onBack={() => onboarding.navigate("choosing-identity")}
+      />
+    ) : (
+      <LegalTermsAgreementPanel onAgree={agree} />
+    );
+  }
   if (progress.phase === "choosing-identity" && onboarding) {
     return (
       <MiniAppStatePanel

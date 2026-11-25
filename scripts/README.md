@@ -107,7 +107,8 @@ their own. Each capture API (one for desktop, one shared by tablet and phone)
 starts empty, and a Playwright setup project
 ([`seed.setup.ts`](../packages/app-web/screenshots/seed.setup.ts)) runs
 `tearleads register` and then `tearleads seed --roster` against it with the
-Continuity identity's recovery key on stdin, so the Org Manager captures show
+Continuity identity's recovery key on stdin (each with `--accept-terms`, since
+both create accounts on that throwaway API), so the Org Manager captures show
 the Family group and its members on the roster. The CLI verifies the pinned Continuity
 manifest and seed contract before writing anything. The capture then imports
 that identity into a fresh browser, signs in, and waits for the app to download

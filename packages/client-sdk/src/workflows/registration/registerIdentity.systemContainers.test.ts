@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { deriveOrganizationTrashSystemSlot } from "@tearleads/validators/containerSystemSlot";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import {
   documentCreateSeedSyncRequest,
   isDocumentSyncRequest,
@@ -27,6 +28,7 @@ test("registration includes initial metadata in the personal-org transaction", a
   const plannedOrganizationId =
     await deriveRegistrationOrganizationId(rootContainerId);
   const response = await registerIdentity({
+    acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
     identityTrustDomain: "https://api.example.test",
     apiClient: {
       registerUser: async (

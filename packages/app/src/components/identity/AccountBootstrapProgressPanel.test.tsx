@@ -29,8 +29,10 @@ test("onboarding offers the telemetry opt-in, off, beside creating or restoring"
           accountNaming: ACCOUNT_NAMING_IDLE,
           accountNamingSettled: true,
           enabled: true,
+          legalTerms: "not-required",
           generation: AUTO_PROVISIONING_IDLE,
           onboarding: {
+            agreeToTerms: () => {},
             confirmBackup: () => {},
             navigate: () => {},
             state: { status: "choosing-identity" },

@@ -95,12 +95,14 @@ record the server root for the signing fingerprint, user, and organization. A ho
 restoring an encrypted session must persist and restore these acknowledgements;
 passing a view container to `setContext` never establishes root authority.
 
-Session state is explicit. `session.registerIdentity()` persists the current
-identity and canonical IDs. With keys, a container, and the database ready,
-registration can recover an unconfirmed response through login:
+Session state is explicit. `session.registerIdentity(options)` persists the
+current identity and canonical IDs. With keys, a container, and the database
+ready, registration can recover an unconfirmed response through login:
 
 ```ts
-const registration = await tearleads.session.registerIdentity();
+const registration = await tearleads.session.registerIdentity({
+  acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+});
 if (registration && !("status" in registration)) {
   await tearleads.session.login(registration.challenge);
 } else {

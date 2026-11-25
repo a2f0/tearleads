@@ -1,4 +1,8 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import {
+  agreeToLegalTerms,
+  legalTermsAgreement,
+} from "../e2e/legalTermsAgreement";
 
 // Shared helpers for driving the booted app shell, used by the screenshot run
 // and by e2e specs.
@@ -57,11 +61,18 @@ export async function waitForBooted(
   settle: BootSettle = "idle",
 ): Promise<void> {
   // Windowed shell mounts `.pane`; the routed (tablet/mobile) shell mounts
-  // `.routed-pane`. Either means the app tree has rendered.
-  await page
-    .locator(".pane:not(.pane-hidden), .routed-pane")
+  // `.routed-pane`. Either means the app tree has rendered. The demo first
+  // asks for agreement to the legal terms, and starts its panes after it.
+  const panes = page.locator(".pane:not(.pane-hidden), .routed-pane");
+  const demoAgreement = page.locator(".demo-legal-terms-gate");
+  await panes
+    .or(demoAgreement)
     .first()
     .waitFor({ state: "visible", timeout: 60_000 });
+  if (await demoAgreement.isVisible()) {
+    await agreeToLegalTerms(legalTermsAgreement(page));
+    await panes.first().waitFor({ state: "visible", timeout: 60_000 });
+  }
 
   if (
     windowedScreenshotPages.has(page) &&

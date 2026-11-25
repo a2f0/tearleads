@@ -7,6 +7,10 @@ export {
   ApiRequestMetrics,
   type ApiRequestMetricsSnapshot,
 } from "@tearleads/api-client";
+export {
+  LEGAL_DOCUMENT_URLS,
+  LEGAL_TERMS_VERSION,
+} from "@tearleads/validators/legalTerms";
 export type {
   AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,
@@ -593,6 +597,7 @@ export {
   buildInitialOrganizationPolicyRequest,
   createInitialRootMetadataBootstrap,
   deriveRegistrationOrganizationId,
+  LegalTermsOutdatedError,
   persistRegistrationBootstrap,
   registerIdentity,
 } from "./workflows/registration";

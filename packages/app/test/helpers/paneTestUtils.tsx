@@ -9,7 +9,7 @@ import {
   within,
 } from "@testing-library/react";
 import invariant from "invariant";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { AppHostConfig } from "../../src/host/AppHostConfig";
 import {
   saveSystemMonitorMode,
@@ -96,10 +96,14 @@ export function createDelayedLoadLocalKeyringFactory(
 export function renderPane({
   children,
   hostConfig = createTestHostConfig(),
+  legalTermsAgreement,
   pinSystemMonitor = true,
 }: {
   readonly children?: ReactNode;
   readonly hostConfig?: AppHostConfig | undefined;
+  readonly legalTermsAgreement?: ComponentProps<
+    typeof AppLayoutTestProviders
+  >["legalTermsAgreement"];
   readonly pinSystemMonitor?: boolean | undefined;
 } = {}): RenderResult {
   saveSystemMonitorMode(
@@ -107,7 +111,7 @@ export function renderPane({
     pinSystemMonitor ? "pinned" : "windowed",
   );
   return renderEmptyDesktop(
-    <AppLayoutTestProviders>
+    <AppLayoutTestProviders legalTermsAgreement={legalTermsAgreement}>
       <DualPaneProvider>
         <PaneSideProvider side="left">
           <PaneProvider hostConfig={hostConfig}>

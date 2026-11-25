@@ -35,6 +35,12 @@ import {
  * - `registrationSourceIpAddress`: Best-effort source IP observed on the
  *   registration request. It is nullable when registration is created outside
  *   an HTTP request or no usable client IP metadata is available.
+ * - `legalTermsVersion`: The Privacy Policy and Terms of Service revision
+ *   (their shared `YYYY-MM-DD` effective date) the user agreed to before
+ *   registering. Registration refuses any revision but the current one.
+ * - `legalTermsAcceptedAt`: Server time of the registration that carried that
+ *   agreement. Both are written together on every registration and are null
+ *   only on identities registered before registration recorded an agreement.
  * - `isRoot`: Platform-operator flag for internal staff and technical support.
  *   Root identities may call the `/root` administration routes, which are
  *   gated by `requireRoot`. This is a plain operational boolean, not part of
@@ -76,6 +82,8 @@ export const users = pgTable(
     ).notNull(),
     defaultOrganizationId: uuid("default_organization_id").notNull(),
     registrationSourceIpAddress: text("registration_source_ip_address"),
+    legalTermsVersion: text("legal_terms_version"),
+    legalTermsAcceptedAt: timestamp("legal_terms_accepted_at"),
     isRoot: boolean("is_root").default(false).notNull(),
     suspendedAt: timestamp("suspended_at"),
     lastActiveAt: timestamp("last_active_at"),

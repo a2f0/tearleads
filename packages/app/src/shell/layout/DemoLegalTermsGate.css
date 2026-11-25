@@ -1,0 +1,11 @@
+/* Stands in for the demo's panes until the terms are agreed: it takes their
+ * place in the frame and scrolls on a short screen. */
+.demo-legal-terms-gate {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-light);
+}

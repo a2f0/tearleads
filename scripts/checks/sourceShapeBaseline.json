@@ -60,8 +60,8 @@
       "bytes": 16141
     },
     "docs/developer/client-sdk/public-api.md": {
-      "lines": 521,
-      "bytes": 36108
+      "lines": 530,
+      "bytes": 36680
     },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
@@ -84,12 +84,12 @@
       "bytes": 38101
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 681,
-      "bytes": 20198
+      "lines": 686,
+      "bytes": 20323
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 514,
-      "bytes": 38785
+      "bytes": 38932
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 601,

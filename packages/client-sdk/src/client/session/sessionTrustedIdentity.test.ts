@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import {
   createSqlClient,
   noIdentityChange,
@@ -217,7 +218,11 @@ test("registration does not publish server context before local identity trust",
   });
 
   try {
-    await expect(session.registerIdentity()).rejects.toBe(mismatch);
+    await expect(
+      session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      }),
+    ).rejects.toBe(mismatch);
     expect(session.userId).toBeNull();
     expect(session.organizationId).toBeNull();
     expect(publishedUserIds).toEqual([]);

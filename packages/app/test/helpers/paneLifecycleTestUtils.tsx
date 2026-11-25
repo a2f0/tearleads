@@ -39,9 +39,14 @@ export function renderLifecyclePane(
   hostConfig: AppHostConfig = createTestHostConfig({
     autoProvisionIdentity: true,
   }),
+  options: Pick<
+    Parameters<typeof renderPane>[0] & {},
+    "legalTermsAgreement"
+  > = {},
 ) {
   let current: Tearleads | undefined;
   const view = renderPane({
+    ...options,
     hostConfig,
     children: (
       <SdkProbe

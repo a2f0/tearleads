@@ -1,6 +1,6 @@
 import { runCli } from "./cli";
 import type { CliContext } from "./cliContext";
-import { readSecret } from "./prompt";
+import { readLine, readSecret } from "./prompt";
 import { createKeychainRecoveryKeyStore } from "./recoveryKeyStore";
 import { runSeedCommandWithDeadline } from "./seedCommandLifetime";
 import { targets } from "./targets";
@@ -18,6 +18,7 @@ const argv = process.argv.slice(2);
 const context: CliContext = {
   apiBaseUrl: (target) => targets[target],
   keyStore: createKeychainRecoveryKeyStore(),
+  readLine,
   readRecoveryKey: readSecret,
   // Written directly, not through `console`, which tracing labels.
   stderr: (line) => process.stderr.write(`${line}\n`),

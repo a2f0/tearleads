@@ -11,6 +11,20 @@ It depends only on React and must not import application implementation code.
 | `TearleadsLogo` | The Tearleads mark |
 | `ThemeInvertIcon` | The light/dark toggle icon |
 
+The `@tearleads/ui/legal` entry point holds the Privacy Policy and Terms of
+Service text, unstyled: the website publishes it, and the apps show it to a new
+identity before it agrees. Each surface styles the markup itself.
+
+| `@tearleads/ui/legal` export | Use for |
+| --- | --- |
+| `PrivacyPolicyDocument`, `TermsOfServiceDocument` | A document's sections; `idPrefix` keeps their ids unique on a page, and `siteHref` resolves links to other website pages |
+| `PRIVACY_POLICY_SECTIONS`, `TERMS_OF_SERVICE_SECTIONS` | Each document's section ids and labels, for a table of contents |
+| `LegalContact`, `legalContactDetails` | The operator's legal contact |
+
+Revise the text only through the website's
+[legal publication review](../website/LEGAL_REVIEW.md), which also moves the
+revision a registration records.
+
 ## Styles
 
 Importing a component loads its stylesheets:
