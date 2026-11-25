@@ -30,7 +30,7 @@ The watermark, the durable debt, the cursor and the local copy survive.
 | `Init` | a create whose committed seed saves its cursor (`recordCommittedDocumentSeedProgress`), or a completed pull (`recordDocumentSyncVerdicts`) |
 | `PeerEdit` | a peer's accepted write, which the document row counts and `touchAcceptedSyncTargets` publishes; its hint reaches a store that is receiving runtimes through `handleDocumentRemoteEvents`, and `observeDocumentListingHints` remembers the document for a store that has not loaded |
 | `OtherTouch` | `finalizeAttachmentMutation` for a bind or detach, or `recordDocumentLinkSetChange` for a link change |
-| `Acknowledge` | `flushPendingConnectionAcknowledged` after the interest acknowledgement advances the connection generation, or on a projection opened after it |
+| `Acknowledge` | `flushPendingReconcileSignals` after the interest acknowledgement advances the connection generation, or on a projection opened after it |
 | `BeginListing` | `reconcileAcknowledgedConnection` listing every known lane from its watermark |
 | `OweListedRead` | `oweListedDocumentReadsBehindCursor` in `applyListedContainerDocuments`, then `requestRegisteredDocumentRemoteSyncs` |
 | `AdvanceWatermark` | `saveAppliedContainerDocumentWatermark` after the lane's rows are applied and owed |

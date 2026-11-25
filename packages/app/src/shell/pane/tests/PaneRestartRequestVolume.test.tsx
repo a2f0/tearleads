@@ -19,6 +19,7 @@ import {
   unmountLifecyclePane,
   waitForLifecycleConnection,
   waitForLifecycleQuiet,
+  waitForLifecycleTreeCrawl,
 } from "../../../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
@@ -152,6 +153,7 @@ async function measureRestart(input: {
           .containerContents.documentQueries()
           .listPendingWrites(),
       ).toEqual([]);
+      await waitForLifecycleTreeCrawl(second.sdk());
     },
   });
   expectLifecycleReads(requests);

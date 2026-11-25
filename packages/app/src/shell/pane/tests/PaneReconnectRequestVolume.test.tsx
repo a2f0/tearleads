@@ -33,6 +33,7 @@ import {
   setLifecycleNetworkMode,
   unmountLifecyclePane,
   waitForLifecycleConnection,
+  waitForLifecycleTreeCrawl,
 } from "../../../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
@@ -88,6 +89,7 @@ test("a settled pane reconnects with no pending local work", async () => {
       await setLifecycleNetworkMode(fixture.pane, false);
       await waitForLifecycleConnection(sdk, 2);
       await sweep.wait();
+      await waitForLifecycleTreeCrawl(sdk);
       expect(
         await sdk.containerContents.documentQueries().listPendingWrites(),
       ).toEqual([]);
@@ -180,6 +182,7 @@ test("reconnect discovers one folder created by a peer while disconnected", asyn
       await setLifecycleNetworkMode(observer, false);
       await waitForLifecycleConnection(observerSdk, 2);
       await sweep.wait();
+      await waitForLifecycleTreeCrawl(observerSdk);
       expect(
         await observerSdk.containerContents
           .documentQueries()

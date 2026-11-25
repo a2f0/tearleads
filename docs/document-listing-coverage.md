@@ -52,6 +52,8 @@ one [container metadata][metadata-debt] uses:
   attempt failed or was refused. A lane the sweep cannot list also has every
   registered document probed at once, and keeps a force for its retry. The
   worst case is the earlier cost, never a refusal.
+- Attachments. Attachment bytes download after a sync response, so a document
+  that names an attachment whose bytes the device does not hold also probes.
 - No-brick. The read is this device's own pull, with its stored commit
   position as the floor, and never waits on another device.
 

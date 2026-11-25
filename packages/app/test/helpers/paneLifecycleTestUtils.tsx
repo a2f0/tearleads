@@ -73,6 +73,21 @@ export async function waitForLifecycleConnection(
 }
 
 /**
+ * Waits for the tree crawl an acknowledged connection starts. Its second lane
+ * query follows local work the runtime-settle helper cannot see, so a
+ * measurement that ended between the two queries would miss the second.
+ */
+export async function waitForLifecycleTreeCrawl(sdk: Tearleads) {
+  await waitFor(
+    () =>
+      expect(
+        sdk.deviceFirst.open().containerStore.getSnapshot().hydrating,
+      ).toBeUndefined(),
+    { timeout: 20_000 },
+  );
+}
+
+/**
  * Two folders with `notesPerFolder` notes each. The first note of a folder is
  * `Note in <folder>`; the canaries that vary the account's size add more.
  */
