@@ -6,6 +6,19 @@ function editedSecret(value: string, character: string): string {
 }
 
 /**
+ * Drops the one line ending that `echo` or a here-string adds to piped input,
+ * keeping any other whitespace: it can be part of a password.
+ */
+export function withoutLineEnding(value: string): string {
+  return value.replace(/\r?\n$/u, "");
+}
+
+/** Reads a password: `readSecret` without piped input's line ending. */
+export async function readPassword(prompt: string): Promise<string> {
+  return withoutLineEnding(await readSecret(prompt));
+}
+
+/**
  * Reads one secret line: from the terminal without echoing it, or, when input
  * is piped, the whole of stdin.
  */

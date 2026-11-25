@@ -14,6 +14,7 @@ import { insurancePolicyDocumentProjectorDefinition } from "../document-types/in
 import { jsonFileDocumentProjectorDefinition } from "../document-types/json-file/jsonFileDocumentDefinition";
 import { medicationDocumentProjectorDefinition } from "../document-types/medication/medicationDocumentDefinition";
 import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
+import { passcodeDocumentProjectorDefinition } from "../document-types/passcode/passcodeDocumentDefinition";
 import { passportDocumentProjectorDefinition } from "../document-types/passport/passportDocumentDefinition";
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
 import { toolDocumentProjectorDefinition } from "../document-types/tool/toolDocumentDefinition";
@@ -54,6 +55,7 @@ export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentP
     },
     insurancePolicyDocumentProjectorDefinition,
     envFileDocumentProjectorDefinition,
+    passcodeDocumentProjectorDefinition,
     bloodPressureDocumentProjectorDefinition,
     eyeglassPrescriptionDocumentProjectorDefinition,
     medicationDocumentProjectorDefinition,

@@ -13,9 +13,14 @@ export function seedLocalId(
     .digest("hex");
 }
 
+/**
+ * The signed-in account's personal root, signing key, and folders. `command`
+ * names the command in the refusal when another organization is active.
+ */
 export async function resolveSeedAccount(
   session: CliSession,
   organizationId: string | undefined,
+  command = "Seed",
 ) {
   const { sdk } = session;
   if (
@@ -23,14 +28,14 @@ export async function resolveSeedAccount(
     organizationId !== sdk.session.defaultOrganizationId
   ) {
     throw new Error(
-      "Seed requires the signed-in account's personal organization.",
+      `${command} requires the signed-in account's personal organization.`,
     );
   }
   const { memberships, nodes } = await loadFolderTree(session);
   const org = memberships.find((m) => m.isPersonalOrganizationOwner);
   if (!org || org.organizationId !== sdk.session.organizationId) {
     throw new Error(
-      "Seed requires the signed-in account's personal organization.",
+      `${command} requires the signed-in account's personal organization.`,
     );
   }
   const rootId = sdk.runtime.input().auth.rootContainerId;

@@ -20,6 +20,7 @@ export function testContext(
     readonly apiBaseUrl?: string;
     /** The terminal's answer to a question; without it, nothing can be asked. */
     readonly answer?: string;
+    readonly password?: string;
     readonly recoveryKey?: string;
   } = {},
 ) {
@@ -32,6 +33,12 @@ export function testContext(
   const context: CliContext = {
     apiBaseUrl: () => options.apiBaseUrl ?? "http://127.0.0.1:9",
     keyStore,
+    readPassword: async () => {
+      if (options.password === undefined) {
+        throw new Error("no password supplied");
+      }
+      return options.password;
+    },
     readRecoveryKey: async () => {
       if (options.recoveryKey === undefined) {
         throw new Error("no recovery key supplied");

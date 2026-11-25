@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import type { useDocument } from "../../stores/documents/DocumentsProvider";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
+import { DocumentSecretActions } from "../shared/DocumentSecretActions";
 import {
   StructuredDocument,
   StructuredDocumentField,
@@ -12,7 +13,6 @@ import { useAttachedStructuredDocument } from "../shared/useAttachedStructuredDo
 import {
   CREDIT_CARD_CVV_REVEAL_LABEL,
   CREDIT_CARD_NUMBER_REVEAL_LABEL,
-  CreditCardSecretActions,
   CreditCardSecretField,
   CreditCardTextField,
   formatMaskedCardNumber,
@@ -108,7 +108,7 @@ function CreditCardReadFields(params: { fields: CreditCardDocumentFields }) {
           // Nothing to unmask or copy when the field is empty, so the controls
           // are dropped rather than shown as buttons that do nothing.
           action: hasCreditCardValue(fields.cardNumber) ? (
-            <CreditCardSecretActions
+            <DocumentSecretActions
               isRevealed={isCardNumberRevealed}
               label={CREDIT_CARD_NUMBER_REVEAL_LABEL}
               onToggle={toggleCardNumber}
@@ -125,7 +125,7 @@ function CreditCardReadFields(params: { fields: CreditCardDocumentFields }) {
         { label: "Expiration Date", value: fields.expirationDate },
         {
           action: hasCreditCardValue(fields.cvvCode) ? (
-            <CreditCardSecretActions
+            <DocumentSecretActions
               isRevealed={isCvvCodeRevealed}
               label={CREDIT_CARD_CVV_REVEAL_LABEL}
               onToggle={toggleCvvCode}

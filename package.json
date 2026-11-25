@@ -140,6 +140,7 @@
     "packages/crypto",
     "packages/diagnostics",
     "packages/encoding",
+    "packages/keepass",
     "packages/loro",
     "packages/performance",
     "packages/sqlite-instance",
@@ -175,6 +176,9 @@
     "zod": "catalog:"
   },
   "overrides": {
+    "kdbxweb@2.1.1": {
+      "@xmldom/xmldom": "0.8.15"
+    },
     "markdownlint@0.42.0": {
       "re2js": "2.8.7"
     },

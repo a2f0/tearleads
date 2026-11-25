@@ -43,6 +43,7 @@
       "packages/crypto",
       "packages/diagnostics",
       "packages/encoding",
+      "packages/keepass",
       "packages/loro",
       "packages/performance",
       "packages/sqlite-instance",

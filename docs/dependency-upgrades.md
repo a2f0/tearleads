@@ -53,6 +53,13 @@ verification and Java/TLA toolchain checks stay in place. Run
 Revisit these constraints when updating their owning package or runtime, and
 remove them when the stated checks pass without the pin.
 
+- `kdbxweb` 2.1.1 (the KeePass reader in
+  [`packages/keepass`](../packages/keepass/README.md)) asks for
+  `@xmldom/xmldom` `^0.7.4`, whose releases carry parser and serializer
+  advisories through 0.8.14. A root `overrides` entry lifts it to 0.8.15. The
+  0.9 line rejects the `errorHandler` object kdbxweb passes, so the keepass
+  tests fail there. Remove the override once kdbxweb depends on a patched
+  xmldom and `bun audit` stays clean without it.
 - Biome stays on 2.5.15. Version 2.6.4 fixes the grid-area regression, but its
   new Markdown formatter rewrites managed skill frontmatter and tables. Adopt
   it only with an owning-tool formatting migration that preserves generated

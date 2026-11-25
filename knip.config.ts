@@ -171,6 +171,10 @@ const baseConfig = {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
+    "packages/keepass": {
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
     "packages/loro": {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
@@ -301,6 +305,10 @@ const productionConfig = {
     "packages/crypto": { project: productionProject },
     "packages/diagnostics": { project: productionProject },
     "packages/encoding": { project: productionProject },
+    "packages/keepass": {
+      // Exported as ./test-database for other packages' tests only.
+      project: [...productionProject, "!src/keepassTestDatabase.ts"],
+    },
     "packages/loro": { project: productionProject },
     "packages/performance": {
       entry: [

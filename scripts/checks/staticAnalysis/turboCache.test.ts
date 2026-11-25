@@ -47,6 +47,13 @@ test.each([
     ["@tearleads/client-sdk#test", postgres, windows, ...native],
     [models],
   ],
+  // The CLI runs the KeePass reader from source. Keepass has no build script,
+  // but its no-op build still hashes its sources into the CLI's ^build.
+  [
+    "packages/keepass/src/readKeepassDatabase.ts",
+    ["@tearleads/keepass#test", "@tearleads/cli#test"],
+    ["app#test", "@tearleads/api#test", models],
+  ],
   // Tests are no build or runtime input: dependents keep their passes, while
   // lanes that run the package's own test files still miss.
   [
