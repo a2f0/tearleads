@@ -1,14 +1,12 @@
 import { WashingMachineIcon } from "@phosphor-icons/react/dist/csr/WashingMachine";
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
-import {
-  createEquipmentDocumentType,
-  type EquipmentTypeOption,
-} from "../shared/equipmentDocumentDefinition";
+import type { DocumentFieldOption } from "../shared/documentFieldOptions";
+import { createEquipmentDocumentType } from "../shared/equipmentDocumentDefinition";
 
 export const APPLIANCE_DOCUMENT_KIND = "appliance" satisfies StoredDocumentKind;
 
 // The hard-coded picker entries, in dropdown order.
-export const APPLIANCE_TYPE_OPTIONS: ReadonlyArray<EquipmentTypeOption> = [
+export const APPLIANCE_TYPE_OPTIONS: ReadonlyArray<DocumentFieldOption> = [
   { label: "Air Conditioner", value: "air_conditioner" },
   { label: "Dishwasher", value: "dishwasher" },
   { label: "Dryer", value: "dryer" },

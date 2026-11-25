@@ -88,6 +88,7 @@ function NotesEditorOrBlobPicker(params: {
           online={params.online}
           onPickBlob={resolveBlobPick}
           organizationNamesById={params.organizationNamesById}
+          slotAccept={pickTarget.slotAccept}
           slotLabel={pickTarget.slotLabel}
         />
       </MiniAppRoot>

@@ -25,7 +25,7 @@ import { classNames } from "../../components/shared/classNames";
 import "@tearleads/windowing/window/WindowTitleBar.css";
 import "@tearleads/windowing/window/WindowToolBar.css";
 import { getAttachmentFileType } from "../shared/attachmentFileType";
-import { isPdfMimeType } from "../shared/FileDocumentPdfPreview";
+import { isPdfMimeType } from "../shared/documentAttachmentUtils";
 import { NoteAttachmentPreviewStage } from "./NoteAttachmentPreviewStage";
 import { NOTE_DOCUMENT_LABELS } from "./noteDocumentLabels";
 
