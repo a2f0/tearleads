@@ -2,7 +2,7 @@
 EXTENDS FiniteSets, Naturals, Sequences
 
 (***************************************************************************)
-(* Document peer ownership (#3194, part B1b).                              *)
+(* Document peer ownership (#3194, part B1b; #3263).                       *)
 (*                                                                         *)
 (* A Loro operation id is (peer, counter), and each committed update       *)
 (* declares a span (peer, start, end) per peer it carries. The server      *)
@@ -20,8 +20,8 @@ EXTENDS FiniteSets, Naturals, Sequences
 (* record (B1a), so nobody names an honest device's peer before that       *)
 (* peer's first commit, which claims it. A purge deletes the owner rows,   *)
 (* and the organization's owner, who alone may recreate the freed id,      *)
-(* claims every peer the committed history it carries. A device still      *)
-(* holding unsent operations on such a peer is refused, forks it at        *)
+(* claims every peer the history it carries. A device still holding        *)
+(* unsent operations on such a peer is refused, forks it at                *)
 (* A[p] = min(live[p], F[p]), moves to a fresh secret peer, re-expresses   *)
 (* everything beyond A on it (content kept, attribution not), and          *)
 (* resubmits; the fresh peer is unknown to anyone, so the resubmission     *)
@@ -37,12 +37,22 @@ EXTENDS FiniteSets, Naturals, Sequences
 (* reader voids an update whose payload depends on other ops than it      *)
 (* declares. Every reader then judges dependencies against committed ops. *)
 (*                                                                         *)
+(* The owner may recover from a stale copy, one that lacks operations the  *)
+(* server committed. F then falls below what other devices saw committed.  *)
+(* A device refused with such a frontier must not fork there: what lies    *)
+(* beyond it includes committed operations other devices still hold under  *)
+(* their own ids, and writing them again would duplicate them. Refused for *)
+(* a dependency, it relays: it queues the lost operations again under      *)
+(* their own ids. Refused on a peer another user owns, it parks, and only  *)
+(* that user's device, republishing what it holds, lets it go on (#3263).  *)
+(*                                                                         *)
 (* A request is collapsed into one update, and the device's request and    *)
 (* the server's locked processing into one step. The honest devices' own  *)
-(* submit, rebase, and pull steps are fair. Edits, the dishonest writer,   *)
-(* and the republisher have no fairness, so no device waits on another.    *)
+(* submit, recovery, and pull steps are fair. Edits, the dishonest writer, *)
+(* and the republisher have no fairness, so a device waits on another      *)
+(* only while it is parked.                                                *)
 (*                                                                         *)
-(* Six switches each relax one rule, set safe in the registered config:   *)
+(* Eight switches each relax one rule, set safe in the registered config: *)
 (*   NoOwnership         the server skips the owner rule                   *)
 (*   RefuseForeignSpans  the server refuses any span on a peer another     *)
 (*                       user owns, even one within F                      *)
@@ -52,11 +62,16 @@ EXTENDS FiniteSets, Naturals, Sequences
 (*   NoDependencyCheck   the server skips the dependency rule              *)
 (*   NoDeclaredJudge     readers do not compare an update's dependencies   *)
 (*                       with those it declares                            *)
+(*   NoRelay             a device forks at a frontier that fell, as at any *)
+(*                       other                                             *)
+(*   ForgetRelayed       a device judges a frontier against the start of   *)
+(*                       its queue, which a relay lowers, and not against  *)
+(*                       what it saw committed                             *)
 (***************************************************************************)
 
 CONSTANTS MaxEdits, MaxRecreations, MaxForges,
           NoOwnership, RefuseForeignSpans, NoRebase, PublicPeers,
-          NoDependencyCheck, NoDeclaredJudge
+          NoDependencyCheck, NoDeclaredJudge, NoRelay, ForgetRelayed
 
 ASSUME /\ MaxEdits \in Nat \ {0}
        /\ MaxRecreations \in Nat
@@ -67,6 +82,8 @@ ASSUME /\ MaxEdits \in Nat \ {0}
        /\ PublicPeers \in BOOLEAN
        /\ NoDependencyCheck \in BOOLEAN
        /\ NoDeclaredJudge \in BOOLEAN
+       /\ NoRelay \in BOOLEAN
+       /\ ForgetRelayed \in BOOLEAN
 
 (* Two honest devices, each its own user, a dishonest member, and a member *)
 (* who republishes a purged document.                                      *)
@@ -111,18 +128,24 @@ End(ops, p) ==
 (* writer, whether an honest actor wrote it, its operations, the op ids    *)
 (* its payload depends on (`deps`), and those it declares. Per             *)
 (* device: `gen` its peer generation, `doc` the operations it holds,      *)
-(* `pending` its own operations not yet committed, `phase` and `refusal`  *)
-(* (the frontier a 409 returned for the request's peers), and `edits` the  *)
-(* edits made. `ownerEnd` (ghost) is the highest end each peer's own       *)
-(* device has had committed; `wrongRefusal` (ghost) records a refusal of   *)
-(* an honest request with no beyond-F span on another user's peer.         *)
-VARIABLES log, recreations, forges, gen, doc, pending, phase, refusal,
-          edits, ownerEnd, wrongRefusal
+(* `pending` its queue, `known` the operations it saw committed, `phase`, *)
+(* `refusal` (the frontier a 409 returned for the request's peers) with   *)
+(* its `kind`, and `edits` the edits made. `purged` is what the server    *)
+(* held when a recreation replaced it, which the owner's other device     *)
+(* still holds. Ghosts: `ownerEnd` is the highest end each peer's own      *)
+(* device has had committed, `wrongRefusal` a refusal of an honest request *)
+(* for neither a beyond-F span on another user's peer nor a dependency a   *)
+(* recreation lost, and `stalledRelay` a relay that queued nothing new.    *)
+VARIABLES log, recreations, forges, gen, doc, pending, known, phase,
+          refusal, kind, edits, purged, ownerEnd, wrongRefusal, stalledRelay
 
-vars == << log, recreations, forges, gen, doc, pending, phase, refusal,
-           edits, ownerEnd, wrongRefusal >>
+vars == << log, recreations, forges, gen, doc, pending, known, phase,
+           refusal, kind, edits, purged, ownerEnd, wrongRefusal,
+           stalledRelay >>
 
-DeviceVars == << gen, doc, pending, phase, refusal, edits >>
+DeviceVars == << gen, doc, pending, known, phase, refusal, kind, edits >>
+
+Ghosts == << ownerEnd, wrongRefusal, stalledRelay >>
 
 (* --- Server ------------------------------------------------------------ *)
 
@@ -150,12 +173,19 @@ Foreign(w, req) == {p \in PeersIn(req) : Owner(p) \notin {NoOwner, w}}
 Uncommitted(declared) ==
   {dep[1] : dep \in {x \in declared : x[2] >= Frontier(x[1])}}
 
-(* The peers the server refuses the request on, which a refusal names     *)
-(* with their frontiers.                                                   *)
-RefusedPeers(w, req, declared) ==
+(* The peers a request is refused on as another user's. *)
+OwnedRefusal(w, req) ==
   (IF NoOwnership THEN {} ELSE Preempting(w, req)) \cup
-    (IF RefuseForeignSpans THEN Foreign(w, req) ELSE {}) \cup
-    (IF NoDependencyCheck THEN {} ELSE Uncommitted(declared))
+    (IF RefuseForeignSpans THEN Foreign(w, req) ELSE {})
+
+(* The peers the server refuses the request on, which a refusal names     *)
+(* with their frontiers. A peer another user owns outranks a dependency.  *)
+RefusedPeers(w, req, declared) ==
+  IF OwnedRefusal(w, req) # {} THEN OwnedRefusal(w, req)
+  ELSE IF NoDependencyCheck THEN {} ELSE Uncommitted(declared)
+
+RefusalKind(w, req) ==
+  IF OwnedRefusal(w, req) # {} THEN "owned" ELSE "dependency"
 
 Refuses(w, req, declared) == RefusedPeers(w, req, declared) # {}
 
@@ -170,14 +200,17 @@ Unreadable(entry, held) ==
   \/ ~NoDeclaredJudge /\ entry.declared # entry.deps
   \/ ~(entry.deps \subseteq IdsOf(held))
 
-(* Judges entries i.. in server order from operations `held`: an entry     *)
-(* reusing a held op id with other content is void, the earliest wins.    *)
-RECURSIVE JudgeFrom(_, _, _)
-JudgeFrom(i, held, voids) ==
-  IF i > Len(log) THEN [held |-> held, voids |-> voids]
+(* Judges entries i..last in server order from operations `held`: an      *)
+(* entry reusing a held op id with other content is void, the earliest    *)
+(* wins.                                                                   *)
+RECURSIVE JudgeThrough(_, _, _, _)
+JudgeThrough(i, last, held, voids) ==
+  IF i > last THEN [held |-> held, voids |-> voids]
   ELSE IF Conflicts(log[i].ops, held) \/ Unreadable(log[i], held)
-         THEN JudgeFrom(i + 1, held, voids \cup {i})
-         ELSE JudgeFrom(i + 1, held \cup log[i].ops, voids)
+         THEN JudgeThrough(i + 1, last, held, voids \cup {i})
+         ELSE JudgeThrough(i + 1, last, held \cup log[i].ops, voids)
+
+JudgeFrom(i, held, voids) == JudgeThrough(i, Len(log), held, voids)
 
 (* A fresh reader of the committed log. *)
 Reader == JudgeFrom(1, {}, {})
@@ -193,14 +226,18 @@ Init ==
   /\ gen = [d \in Devices |-> 0]
   /\ doc = [d \in Devices |-> {}]
   /\ pending = [d \in Devices |-> {}]
+  /\ known = [d \in Devices |-> {}]
   /\ phase = [d \in Devices |-> "idle"]
   /\ refusal = [d \in Devices |-> {}]
+  /\ kind = [d \in Devices |-> "none"]
   /\ edits = [d \in Devices |-> 0]
+  /\ purged = {}
   /\ ownerEnd = [p \in Peers |-> 0]
   /\ wrongRefusal = FALSE
+  /\ stalledRelay = FALSE
 
-(* A local edit at the next counter of the device's current peer, refused  *)
-(* or not.                                                                 *)
+(* A local edit at the next counter of the device's current peer, refused, *)
+(* parked, or not.                                                         *)
 Edit(d) ==
   /\ edits[d] < MaxEdits
   /\ LET p == CurrentPeer(d)
@@ -208,37 +245,45 @@ Edit(d) ==
      IN /\ doc' = [doc EXCEPT ![d] = @ \cup {op}]
         /\ pending' = [pending EXCEPT ![d] = @ \cup {op}]
   /\ edits' = [edits EXCEPT ![d] = @ + 1]
-  /\ UNCHANGED << log, recreations, forges, gen, phase, refusal, ownerEnd,
-                  wrongRefusal >>
+  /\ UNCHANGED << log, recreations, forges, gen, known, phase, refusal, kind,
+                  purged >>
+  /\ UNCHANGED Ghosts
 
-(* Sends the unsent operations, alone or with everything the device holds *)
-(* (a lagging delta or a rotation baseline re-asserting every peer from    *)
-(* counter 0), and the server answers under its lock. The update depends   *)
-(* on every op the device holds that it does not carry, and declares so.  *)
+(* Sends the queue, alone or with everything the device holds (a lagging   *)
+(* delta or a rotation baseline re-asserting every peer from counter 0),   *)
+(* and the server answers under its lock. The update depends on every op   *)
+(* the device holds that it does not carry, and declares so. A parked      *)
+(* device sends its queue again on every pass.                             *)
 Submit(d) ==
-  /\ phase[d] = "idle"
+  /\ phase[d] \in {"idle", "parked"}
   /\ pending[d] # {}
   /\ \E carryHistory \in BOOLEAN :
        LET req == IF carryHistory THEN doc[d] ELSE pending[d]
            deps == IdsOf(doc[d] \ req)
            w == UserOf(d)
+           lost == \E p \in Uncommitted(deps) :
+                     Frontier(p) < End(known[d], p)
        IN IF Refuses(w, req, deps)
             THEN /\ phase' = [phase EXCEPT ![d] = "refused"]
                  /\ refusal' = [refusal EXCEPT ![d] =
                                   {<< p, Frontier(p) >> :
                                      p \in RefusedPeers(w, req, deps)}]
-                 /\ wrongRefusal' = (wrongRefusal \/ Preempting(w, req) = {})
-                 /\ UNCHANGED << log, pending, ownerEnd >>
+                 /\ kind' = [kind EXCEPT ![d] = RefusalKind(w, req)]
+                 /\ wrongRefusal' =
+                      (wrongRefusal \/ (Preempting(w, req) = {} /\ ~lost))
+                 /\ UNCHANGED << log, pending, known, ownerEnd >>
             ELSE /\ log' = Append(log, [user |-> w, honest |-> TRUE,
                                         ops |-> req, deps |-> deps,
                                         declared |-> deps])
                  /\ pending' = [pending EXCEPT ![d] = {}]
+                 /\ known' = [known EXCEPT ![d] = @ \cup req]
+                 /\ phase' = [phase EXCEPT ![d] = "idle"]
                  /\ ownerEnd' = [p \in Peers |->
                                    IF PeerDevice(p) = d
                                      THEN Max({ownerEnd[p], End(req, p)})
                                      ELSE ownerEnd[p]]
-                 /\ UNCHANGED << phase, refusal, wrongRefusal >>
-  /\ UNCHANGED << recreations, forges, gen, doc, edits >>
+                 /\ UNCHANGED << refusal, kind, wrongRefusal >>
+  /\ UNCHANGED << recreations, forges, gen, doc, edits, purged, stalledRelay >>
 
 (* Re-expresses operations `S`, in peer and counter order, as consecutive *)
 (* operations on peer `fresh` from counter `next`, keeping their content.  *)
@@ -254,30 +299,79 @@ Renumber(S, fresh, next) ==
 ForkPoint(d, p) ==
   Min({End(doc[d], p)} \cup {pr[2] : pr \in {q \in refusal[d] : q[1] = p}})
 
-(* On refusal the device forks at A, moves to a fresh secret peer, and     *)
-(* queues everything beyond A on it; with NoRebase it only retries.        *)
+(* What the device saw committed at some time. With ForgetRelayed it is    *)
+(* what the device holds outside its queue, which a relay shrinks.         *)
+SeenCommitted(d) == IF ForgetRelayed THEN doc[d] \ pending[d] ELSE known[d]
+
+(* The named peers whose frontier is below what the device saw committed: *)
+(* the server's history went backwards.                                    *)
+Regressed(d) ==
+  IF NoRelay THEN {}
+  ELSE {pr \in refusal[d] : pr[2] < End(SeenCommitted(d), pr[1])}
+
+(* What the device holds at or past a frontier that fell. *)
+Lost(d) ==
+  {op \in doc[d] : \E pr \in Regressed(d) : pr[1] = op[1] /\ pr[2] <= op[2]}
+
+LeaveRefusal(d, next) ==
+  /\ phase' = [phase EXCEPT ![d] = next]
+  /\ refusal' = [refusal EXCEPT ![d] = {}]
+  /\ kind' = [kind EXCEPT ![d] = "none"]
+
+(* On a refusal at frontiers that cover what it saw committed, the device  *)
+(* forks at A, moves to a fresh secret peer, and queues everything beyond *)
+(* A on it with what its queue held below A; with NoRebase it only        *)
+(* retries.                                                                *)
 Rebase(d) ==
   /\ phase[d] = "refused"
+  /\ Regressed(d) = {}
   /\ IF NoRebase
-       THEN UNCHANGED << gen, doc, pending >>
+       THEN UNCHANGED << gen, doc, pending, known >>
        ELSE /\ gen[d] < MaxRecreations
             /\ LET kept == {op \in doc[d] : op[2] < ForkPoint(d, op[1])}
                    moved == Renumber(doc[d] \ kept, PeerOf(d, gen[d] + 1), 0)
                IN /\ doc' = [doc EXCEPT ![d] = kept \cup moved]
-                  /\ pending' = [pending EXCEPT ![d] = moved]
+                  /\ pending' = [pending EXCEPT ![d] = moved \cup (@ \cap kept)]
+                  /\ known' = [known EXCEPT ![d] = @ \cap kept]
             /\ gen' = [gen EXCEPT ![d] = @ + 1]
-  /\ phase' = [phase EXCEPT ![d] = "idle"]
-  /\ refusal' = [refusal EXCEPT ![d] = {}]
-  /\ UNCHANGED << log, recreations, forges, edits, ownerEnd, wrongRefusal >>
+  /\ LeaveRefusal(d, "idle")
+  /\ UNCHANGED << log, recreations, forges, edits, purged >>
+  /\ UNCHANGED Ghosts
+
+(* Refused for a dependency on an operation the server lost, the device    *)
+(* queues what it holds from each frontier that fell, under its own ids.   *)
+(* What it holds and what it saw committed stay as they are.               *)
+Relay(d) ==
+  /\ phase[d] = "refused"
+  /\ Regressed(d) # {}
+  /\ kind[d] = "dependency"
+  /\ pending' = [pending EXCEPT ![d] = @ \cup Lost(d)]
+  /\ stalledRelay' = (stalledRelay \/ Lost(d) \subseteq pending[d])
+  /\ LeaveRefusal(d, "idle")
+  /\ UNCHANGED << log, recreations, forges, gen, doc, known, edits, purged,
+                  ownerEnd, wrongRefusal >>
+
+(* Refused on a peer another user owns whose frontier fell, the device     *)
+(* keeps its queue and waits for that user's device.                       *)
+Park(d) ==
+  /\ phase[d] = "refused"
+  /\ Regressed(d) # {}
+  /\ kind[d] = "owned"
+  /\ LeaveRefusal(d, "parked")
+  /\ UNCHANGED << log, recreations, forges, gen, doc, pending, known, edits,
+                  purged >>
+  /\ UNCHANGED Ghosts
 
 (* Imports the committed log in server order into what the device holds,  *)
-(* voiding what conflicts with it.                                         *)
+(* voiding what conflicts with it. What it imports is committed.           *)
 Pull(d) ==
   /\ LET imported == JudgeFrom(1, doc[d], {}).held
      IN /\ imported # doc[d]
         /\ doc' = [doc EXCEPT ![d] = imported]
+        /\ known' = [known EXCEPT ![d] = @ \cup (imported \ doc[d])]
   /\ UNCHANGED << log, recreations, forges, gen, pending, phase, refusal,
-                  edits, ownerEnd, wrongRefusal >>
+                  kind, edits, purged >>
+  /\ UNCHANGED Ghosts
 
 (* --- Outside actors ---------------------------------------------------- *)
 
@@ -287,6 +381,12 @@ Nameable ==
   PeersIn(LogOps) \cup
     (IF PublicPeers THEN {CurrentPeer(d) : d \in Devices} ELSE {})
 
+Commit(entry) ==
+  /\ log' = Append(log, entry)
+  /\ UNCHANGED << recreations, purged >>
+  /\ UNCHANGED DeviceVars
+  /\ UNCHANGED Ghosts
+
 (* Commits forged content at counter c of a nameable peer: a re-assertion  *)
 (* below F, or the peer's next counter. A refused forgery changes nothing. *)
 Forge(p, c) ==
@@ -294,12 +394,9 @@ Forge(p, c) ==
   /\ p \in Nameable
   /\ c <= Frontier(p)
   /\ ~Refuses(Dishonest, {<< p, c, Forged >>}, {})
-  /\ log' = Append(log, [user |-> Dishonest, honest |-> FALSE,
-                         ops |-> {<< p, c, Forged >>}, deps |-> {},
-                         declared |-> {}])
+  /\ Commit([user |-> Dishonest, honest |-> FALSE,
+             ops |-> {<< p, c, Forged >>}, deps |-> {}, declared |-> {}])
   /\ forges' = forges + 1
-  /\ UNCHANGED << recreations, ownerEnd, wrongRefusal >>
-  /\ UNCHANGED DeviceVars
 
 (* Commits an op on the dishonest member's own peer whose payload depends *)
 (* on the next counter of a nameable peer, which the peer's device may    *)
@@ -313,25 +410,38 @@ ForgeDependent(p) ==
          deps == {<< p, Frontier(p) >>}
      IN \E declared \in {deps, {}} :
           /\ ~Refuses(Dishonest, {op}, declared)
-          /\ log' = Append(log, [user |-> Dishonest, honest |-> FALSE,
-                                 ops |-> {op}, deps |-> deps,
-                                 declared |-> declared])
+          /\ Commit([user |-> Dishonest, honest |-> FALSE, ops |-> {op},
+                     deps |-> deps, declared |-> declared])
   /\ forges' = forges + 1
-  /\ UNCHANGED << recreations, ownerEnd, wrongRefusal >>
-  /\ UNCHANGED DeviceVars
 
-(* Purges the document and recreates it from the committed history a       *)
-(* reader holds. F starts at 0 and the owner rows are gone, so the         *)
-(* recreation claims every peer it carries for the republisher. A full     *)
-(* history depends on nothing.                                             *)
+(* Purges the document and recreates it from a copy: what a reader held    *)
+(* after the first `last` committed updates, which is stale unless `last` *)
+(* is the whole log. F starts at 0 and the owner rows are gone, so the     *)
+(* recreation claims every peer the copy carries for the republisher, and *)
+(* the frontier of every operation the copy lacks falls. A full history   *)
+(* depends on nothing.                                                     *)
 Recreate ==
   /\ recreations < MaxRecreations
-  /\ Reader.held # {}
-  /\ log' = << [user |-> Republisher, honest |-> TRUE, ops |-> Reader.held,
-                deps |-> {}, declared |-> {}] >>
+  /\ \E last \in DOMAIN log :
+       LET copy == JudgeThrough(1, last, {}, {}).held
+       IN /\ copy # {}
+          /\ log' = << [user |-> Republisher, honest |-> TRUE, ops |-> copy,
+                        deps |-> {}, declared |-> {}] >>
+  /\ purged' = Reader.held
   /\ recreations' = recreations + 1
-  /\ UNCHANGED << forges, ownerEnd, wrongRefusal >>
+  /\ UNCHANGED forges
   /\ UNCHANGED DeviceVars
+  /\ UNCHANGED Ghosts
+
+(* The owner's other device, which holds everything committed before the  *)
+(* purge, republishes it as one full history. A refused republish changes *)
+(* nothing.                                                                *)
+Restore ==
+  /\ ~(purged \subseteq LogOps)
+  /\ ~Refuses(Republisher, purged, {})
+  /\ Commit([user |-> Republisher, honest |-> TRUE, ops |-> purged,
+             deps |-> {}, declared |-> {}])
+  /\ UNCHANGED forges
 
 Idle == UNCHANGED vars
 
@@ -340,17 +450,22 @@ Next ==
        \/ Edit(d)
        \/ Submit(d)
        \/ Rebase(d)
+       \/ Relay(d)
+       \/ Park(d)
        \/ Pull(d)
   \/ \E p \in AllPeers, c \in Counters : Forge(p, c)
   \/ \E p \in AllPeers : ForgeDependent(p)
   \/ Recreate
+  \/ Restore
   \/ Idle
 
 (* Only the honest devices' own steps are fair; edits, the dishonest       *)
 (* member, and the republisher are not.                                    *)
 Fairness ==
   \A d \in Devices :
-    WF_vars(Submit(d)) /\ WF_vars(Rebase(d)) /\ WF_vars(Pull(d))
+    /\ WF_vars(Submit(d))
+    /\ WF_vars(Rebase(d) \/ Relay(d) \/ Park(d))
+    /\ WF_vars(Pull(d))
 
 Spec == Init /\ [][Next]_vars /\ Fairness
 
@@ -364,12 +479,18 @@ TypeOK ==
   /\ gen \in [Devices -> 0..MaxRecreations]
   /\ doc \in [Devices -> SUBSET Ops]
   /\ pending \in [Devices -> SUBSET Ops]
-  /\ \A d \in Devices : pending[d] \subseteq doc[d]
-  /\ phase \in [Devices -> {"idle", "refused"}]
+  /\ known \in [Devices -> SUBSET Ops]
+  /\ \A d \in Devices : /\ pending[d] \subseteq doc[d]
+                        /\ known[d] \subseteq doc[d]
+                        /\ doc[d] \subseteq known[d] \cup pending[d]
+  /\ phase \in [Devices -> {"idle", "refused", "parked"}]
   /\ refusal \in [Devices -> SUBSET (AllPeers \X (0..MaxEdits))]
+  /\ kind \in [Devices -> {"none", "owned", "dependency"}]
   /\ edits \in [Devices -> 0..MaxEdits]
+  /\ purged \in SUBSET Ops
   /\ ownerEnd \in [Peers -> 0..MaxEdits]
   /\ wrongRefusal \in BOOLEAN
+  /\ stalledRelay \in BOOLEAN
 
 (* No reader voids a committed honest update. *)
 HonestUpdatesAccepted == \A i \in Reader.voids : ~log[i].honest
@@ -381,7 +502,9 @@ NoPreemption ==
     log[i].user # RightfulUser(p) => End(log[i].ops, p) <= ownerEnd[p]
 
 (* An honest request is refused only for a beyond-F span on a peer another *)
-(* user owns: never for a re-assertion within F, nor for a dependency.     *)
+(* user owns, or for a dependency on an operation the device saw committed *)
+(* and a recreation lost: never for a re-assertion within F, nor for a     *)
+(* dependency nothing lost.                                                *)
 ReassertionsNeverRefused == ~wrongRefusal
 
 (* No device accepts a committed update that a fresh reader voids, so      *)
@@ -391,18 +514,40 @@ ReassertionsNeverRefused == ~wrongRefusal
 ReadersAgree ==
   \A d \in Devices : Reader.voids \subseteq JudgeFrom(1, doc[d], {}).voids
 
-(* Every refusal of a device, and so every rebase, is paid for by its own  *)
-(* recreation: the resubmission after a rebase is never refused.           *)
+(* A device is refused only after a recreation and rebases at most once    *)
+(* for each, and a relay always queues an operation that was not queued,  *)
+(* so no recovery repeats without moving.                                  *)
 RebaseCannotLoop ==
-  \A d \in Devices :
-    gen[d] + (IF phase[d] = "refused" THEN 1 ELSE 0) <= recreations
+  /\ ~stalledRelay
+  /\ \A d \in Devices : /\ gen[d] <= recreations
+                        /\ phase[d] # "idle" => recreations > 0
+
+(* No reader holds one honest edit under two op ids: no honest device      *)
+(* writes again, under another peer, an operation that was committed.      *)
+Duplicated(ops) ==
+  \E a, b \in ops : /\ a[3] = b[3]
+                    /\ a[3] # Forged
+                    /\ << a[1], a[2] >> # << b[1], b[2] >>
+
+NoDuplication ==
+  /\ ~Duplicated(Reader.held)
+  /\ \A d \in Devices : ~Duplicated(doc[d])
 
 Committed(v) == \E op \in Reader.held : op[3] = v
 
-(* Every honest edit's content is eventually committed and accepted by     *)
-(* readers, possibly under a rebased peer.                                 *)
+Queued(d, k) == \E op \in pending[d] : op[3] = Content(d, k)
+
+(* The server holds less of a peer another user owns than the device saw   *)
+(* committed there: only that user's device can restore it.                *)
+AwaitsOwner(d) ==
+  \E p \in AllPeers : /\ Owner(p) \notin {NoOwner, UserOf(d)}
+                      /\ Frontier(p) < End(known[d], p)
+
+(* Every queued honest edit's content is eventually committed and accepted *)
+(* by readers, possibly under a rebased peer, unless from some point on    *)
+(* the device awaits the owner of a peer whose history fell.               *)
 HonestWorkEventuallyCommitted ==
   \A d \in Devices, k \in 1..MaxEdits :
-    (edits[d] >= k) ~> Committed(Content(d, k))
+    Queued(d, k) ~> (Committed(Content(d, k)) \/ [](AwaitsOwner(d)))
 
 =============================================================================

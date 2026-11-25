@@ -101,16 +101,27 @@ must not enqueue the optional outgoing update.
 `installPeerRebase(...)` is optional. Without it a sync the server refuses
 with `document_sync_peer_owned` or `document_sync_dependency_uncommitted`
 records a terminal failure; with it the
-document store [rebases onto a fresh peer](../advisory-op-spans.md#rebasing-onto-a-fresh-peer)
-and retries. In one transaction, it confirms the record still has the expected
-`documentId` and `recoveryGeneration`, that no checkpoint or history row
-ends past `readVersion`, and that exactly the `queuedUpdateIds` are still
-queued, then replaces every history row with the supplied
-checkpoint and one queued outgoing update, deletes the scope's void rows and
-preemption notices, and, for a `document` record, stores `peerSalt`, sets the
-pending base and snapshot end to the checkpoint's frontier, and advances
-`recoveryGeneration`. It returns false and writes nothing when any check fails
-or `stillCurrent()` is false at commit.
+document store [rebases onto a fresh peer](../peer-ownership.md#rebasing-onto-a-fresh-peer),
+or [relays](../peer-ownership.md#after-a-stale-recreation) operations the
+server lost, and retries. Its input's `kind` says which. In one transaction, it
+confirms the record still has the expected `documentId` and
+`recoveryGeneration`, that no checkpoint or history row ends past
+`readVersion`, and that exactly the `queuedUpdateIds` are still queued. For
+`"fork"` it then replaces every history row with the supplied checkpoint and
+one queued outgoing update, deletes the scope's void rows and preemption
+notices, and, for a `document` record, stores `peerSalt`, sets the pending base
+and snapshot end to the checkpoint's frontier, and advances
+`recoveryGeneration`. For `"relay"` it stops queueing every queued update,
+dropping an outbox row and keeping a history-tail row as history, and queues
+`pendingUpdate` as an outbox row; the record, its checkpoint, its void rows,
+and `recoveryGeneration` stay. It returns false and writes nothing when any
+check fails or `stillCurrent()` is false at commit.
+
+A queued update may carry `committedVersionVector`
+(`PendingUpdateRecord.committedVersionVector`): the version the device knew
+was committed when a relay queued operations below it. Store it with the
+update, return it from the queue listing, and clear it when the update
+settles; the next peer refusal is judged against it.
 
 `settleAcceptedPendingUpdates(...)` removes acknowledged updates from the queue
 only while the canonical record still has the response's security identity and

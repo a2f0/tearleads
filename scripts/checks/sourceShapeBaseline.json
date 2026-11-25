@@ -60,8 +60,8 @@
       "bytes": 15964
     },
     "docs/developer/client-sdk/public-api.md": {
-      "lines": 540,
-      "bytes": 37172
+      "lines": 544,
+      "bytes": 37400
     },
     "formal/blob-attachments/StagePromotion.tla": {
       "lines": 503,
@@ -70,6 +70,10 @@
     "formal/document-sync/DeferredTailSettlement.tla": {
       "lines": 596,
       "bytes": 24668
+    },
+    "formal/document-sync/PeerOwnership.tla": {
+      "lines": 553,
+      "bytes": 26176
     },
     "formal/document-sync/RawHistoryRecovery.tla": {
       "lines": 593,
@@ -89,7 +93,7 @@
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 520,
-      "bytes": 39427
+      "bytes": 39457
     },
     "scripts/architecture/subsystems.ts": {
       "lines": 603,

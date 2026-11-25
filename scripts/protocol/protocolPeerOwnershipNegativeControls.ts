@@ -52,4 +52,20 @@ export const PEER_OWNERSHIP_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "ReadersAgree" },
     why: "Unless readers compare an update's dependencies with those it declares, a member declares none, passes the dependency rule, and the device alone accepts its update (#3194).",
   },
+  {
+    id: "peer-ownership-no-relay",
+    module: MODULE,
+    config: CONFIG,
+    constants: { NoRelay: "TRUE" },
+    expect: { kind: "invariant", name: "NoDuplication" },
+    why: "A device that forks at a frontier a stale recreation lowered writes committed operations again on a fresh peer, and a reader holds both copies once the owner's other device republishes the originals (#3263).",
+  },
+  {
+    id: "peer-ownership-forgets-relayed",
+    module: MODULE,
+    config: CONFIG,
+    constants: { ForgetRelayed: "TRUE" },
+    expect: { kind: "invariant", name: "NoDuplication" },
+    why: "A relay queues committed operations again, so a device that judges the next refusal against its queue's start takes them for unsent and forks them onto a fresh peer (#3263).",
+  },
 ];
