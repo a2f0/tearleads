@@ -9,6 +9,7 @@ import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import {
   completeStageAsBind,
   declaredFirstPart,
+  uploadSignedStagePart,
 } from "../../../test/helpers/blobStageParts";
 import { createFakeS3BlobObjectStore } from "../../../test/helpers/fakeS3BlobObjectStore";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
@@ -16,11 +17,10 @@ import { sha256Hex } from "../../utils/sha256";
 import {
   cleanupExpiredBlobStages,
   initiateMultipartBlobStage,
-  uploadMultipartBlobPartBytes,
 } from "./multipartStage";
 
 test("expired stage cleanup deletes an object assembled after the stage was read as pending", async () => {
-  const { store } = createFakeS3BlobObjectStore();
+  const { putSignedPart, store } = createFakeS3BlobObjectStore();
   const runtime = createServiceTestRuntime(undefined, {
     blobObjectStore: store,
   });
@@ -36,8 +36,7 @@ test("expired stage cleanup deletes an object assembled after the stage was read
     firstParts: declaredFirstPart(metadata.byteLength),
     userId,
   });
-  await uploadMultipartBlobPartBytes(runtime, {
-    ...metadata,
+  await uploadSignedStagePart(runtime, putSignedPart, {
     bytes: blobObjectBytes(encryptedBytes),
     partNumber: 1,
     stageId: initiated.stageId,
