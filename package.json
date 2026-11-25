@@ -123,6 +123,7 @@
     "test:knip:production": "bun scripts/testing/testKnipProduction.ts",
     "typecheck:tools": "tsc --build tsconfig.tools.json --pretty false",
     "perf:database": "bun run --cwd packages/performance database",
+    "perf:realtime": "bun run --cwd packages/performance realtime",
     "tearleads": "bun run --cwd packages/cli start"
   },
   "workspaces": [

@@ -317,6 +317,7 @@
       "name": "@tearleads/performance",
       "version": "0.1.10",
       "dependencies": {
+        "@tearleads/api": "workspace:*",
         "@tearleads/api-shared": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
