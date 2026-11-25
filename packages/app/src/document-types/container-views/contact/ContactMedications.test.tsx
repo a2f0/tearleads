@@ -106,3 +106,43 @@ test("a person without medications says so, and a long list pages", async () => 
   );
   expect(view.queryByRole("button", { name: "Medication 0" })).toBeNull();
 });
+
+test("a page emptied by removed records keeps its way back", async () => {
+  const titles = Array.from(
+    { length: 12 },
+    (_, index) => `Medication ${index}`,
+  );
+  const props = {
+    containerId: "person",
+    onOpenDocument: () => undefined,
+  };
+  const view = render(
+    <ContactMedications
+      {...props}
+      documentQueries={medicationQueries(titles, [])}
+      revision={0}
+    />,
+  );
+  fireEvent.click(
+    await view.findByRole("button", { name: "Next medications" }),
+  );
+  await view.findByRole("button", { name: "Medication 10" });
+
+  // Two records go elsewhere; the second page now has nothing on it.
+  view.rerender(
+    <ContactMedications
+      {...props}
+      documentQueries={medicationQueries(titles.slice(0, 10), [])}
+      revision={1}
+    />,
+  );
+  await waitFor(() =>
+    expect(view.queryByRole("button", { name: "Medication 10" })).toBeNull(),
+  );
+  const previous = view.getByRole("button", { name: "Previous medications" });
+  expect(previous.hasAttribute("disabled")).toBe(false);
+  fireEvent.click(previous);
+  expect(
+    await view.findByRole("button", { name: "Medication 0" }),
+  ).toBeTruthy();
+});

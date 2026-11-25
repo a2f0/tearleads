@@ -88,7 +88,8 @@ function RowLogFieldControl(params: {
     // A value synced from elsewhere that the list lacks stays visible as
     // itself, rather than reading as the blank choice.
     const unlisted =
-      value.length > 0 && !options.some((option) => option.value === value);
+      value.trim().length > 0 &&
+      !options.some((option) => option.value === value.trim());
     return (
       <MiniAppField className="tracker-entry-field">
         <span>{field.label}</span>

@@ -44,25 +44,29 @@ export function ContactMedications({
       {page.status === "failed" ? (
         <MiniAppStatus tone="error">{page.error}</MiniAppStatus>
       ) : null}
-      {page.status === "ready" && page.value.totalCount === 0 ? (
-        <MiniAppStatus>No medications in this container.</MiniAppStatus>
-      ) : null}
-      {page.status === "ready" && page.value.totalCount > 0 ? (
+      {page.status === "ready" ? (
         <>
-          <ul>
-            {page.value.rows.map((medication) => (
-              <li key={medication.localId}>
-                <MiniAppButton
-                  onClick={() =>
-                    onOpenDocument(medication.localId, containerId)
-                  }
-                >
-                  {medication.title || "Untitled medication"}
-                </MiniAppButton>
-              </li>
-            ))}
-          </ul>
-          {page.value.totalCount > PAGE_SIZE ? (
+          {page.value.totalCount === 0 ? (
+            <MiniAppStatus>No medications in this container.</MiniAppStatus>
+          ) : null}
+          {page.value.rows.length > 0 ? (
+            <ul>
+              {page.value.rows.map((medication) => (
+                <li key={medication.localId}>
+                  <MiniAppButton
+                    onClick={() =>
+                      onOpenDocument(medication.localId, containerId)
+                    }
+                  >
+                    {medication.title || "Untitled medication"}
+                  </MiniAppButton>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {/* Past the first page the way back stays, even when records
+              removed since leave this page empty. */}
+          {offset > 0 || page.value.totalCount > PAGE_SIZE ? (
             <nav aria-label="Medication pages">
               <MiniAppButton
                 disabled={offset === 0}

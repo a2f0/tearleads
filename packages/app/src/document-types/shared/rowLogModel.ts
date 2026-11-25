@@ -161,13 +161,13 @@ export function emptyRowLogCells(
   return Object.fromEntries(fields.map((field) => [field.key, ""]));
 }
 
-/** A `date` input's value for today, in local time. */
 const pad = (value: number) => String(value).padStart(2, "0");
 
 function localDateOnly(now: Date): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+/** A `date` input's value for today, in local time. */
 export function currentDateOnly(): string {
   return localDateOnly(new Date());
 }

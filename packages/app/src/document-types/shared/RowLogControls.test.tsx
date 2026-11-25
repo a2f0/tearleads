@@ -62,6 +62,8 @@ test("a synced unit the list lacks shows as itself and is flagged", () => {
   });
   expect(unit.value).toBe("miles");
   expect(unit.getAttribute("aria-invalid")).toBe("true");
+  const values = Array.from(unit.options).map((option) => option.value);
+  expect(new Set(values).size).toBe(values.length);
   expect(Array.from(unit.options).map((option) => option.textContent)).toEqual([
     "",
     "miles",

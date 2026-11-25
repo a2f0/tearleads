@@ -156,6 +156,12 @@ export function isPdfMimeType(value: string | null | undefined): boolean {
   return value?.split(";")[0]?.trim().toLowerCase() === PDF_MIME_TYPE;
 }
 
+/**
+ * A PDF by its stored type. Uploads take their extension's type when they
+ * declare none (`readDocumentAttachmentUpload`), so the name is not consulted
+ * again here; blobs stored untyped before that are not reinterpreted, since
+ * the project keeps no compatibility paths for earlier data.
+ */
 export function isPdfDocumentAttachmentBlob(blob: Pick<BlobInfo, "mimeType">) {
   return isPdfMimeType(blob.mimeType);
 }
