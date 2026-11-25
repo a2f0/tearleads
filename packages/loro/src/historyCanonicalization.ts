@@ -131,7 +131,8 @@ function extendRun(run: InsertRun, next: JsonOp, insert: SequenceInsert) {
     return true;
   }
   if (run.values !== null && "values" in insert) {
-    run.values.push(...insert.values);
+    // Not a spread: an insert can hold more values than a call takes.
+    for (const value of insert.values) run.values.push(value);
     return true;
   }
   return false;

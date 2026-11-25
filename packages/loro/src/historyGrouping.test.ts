@@ -107,6 +107,20 @@ test("a list insert cut in two serializes as the one insert it is", async () => 
   doc.free();
 });
 
+test("a list insert of more values than a call takes joins", async () => {
+  const count = 200_000;
+  const doc = await documentWith("grouping-large-list", (written) => {
+    const list = written.getList("list");
+    for (let index = 0; index < count; index += 1) list.insert(index, 0);
+  });
+  const whole = historyOf(doc);
+
+  expect(serializeCanonicalHistory(withInsertCut(whole, 0, 1))).toBe(
+    serializeCanonicalHistory(whole),
+  );
+  doc.free();
+});
+
 test("inserts that do not continue each other stay apart", async () => {
   const apart = await documentWith("grouping-apart", (written) => {
     written.getText("text").insert(0, "aaaaa");
