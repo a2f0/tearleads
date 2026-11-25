@@ -78,12 +78,110 @@ function canonicalHistoryOperation(operation: JsonOp): JsonOp {
   return operation;
 }
 
+/** An insert into a text or a list: the two kinds Loro groups by path. */
+type SequenceInsert =
+  | { readonly pos: number; readonly text: string }
+  | { readonly pos: number; readonly values: readonly unknown[] };
+
+function sequenceInsertOf(operation: JsonOp): SequenceInsert | null {
+  const { container, content } = operation;
+  if (content.type !== "insert" || !("pos" in content)) return null;
+  if (container.endsWith(":Text") && "text" in content) {
+    return { pos: content.pos, text: content.text };
+  }
+  if (
+    container.endsWith(":List") &&
+    "value" in content &&
+    Array.isArray(content.value)
+  ) {
+    return { pos: content.pos, values: content.value };
+  }
+  return null;
+}
+
+/** A run of continuing inserts, as the one operation they join into. */
+interface InsertRun {
+  readonly first: JsonOp;
+  insert: SequenceInsert;
+}
+
+/**
+ * `run` extended by `next`, or null when `next` does not continue it: an
+ * insert of the same kind into the same container that starts where the run
+ * ends. A run's length is the distance from its first counter to the next
+ * operation's, in the unit its position counts in.
+ */
+function extendedRun(
+  run: InsertRun,
+  next: JsonOp,
+  insert: SequenceInsert,
+): SequenceInsert | null {
+  const { first } = run;
+  if (
+    next.container !== first.container ||
+    insert.pos !== run.insert.pos + (next.counter - first.counter)
+  ) {
+    return null;
+  }
+  if ("text" in run.insert && "text" in insert) {
+    return { pos: run.insert.pos, text: run.insert.text + insert.text };
+  }
+  if ("values" in run.insert && "values" in insert) {
+    return {
+      pos: run.insert.pos,
+      values: [...run.insert.values, ...insert.values],
+    };
+  }
+  return null;
+}
+
+function runOperation(run: InsertRun): unknown {
+  const { first, insert } = run;
+  return {
+    ...first,
+    content:
+      "text" in insert
+        ? { ...first.content, text: insert.text }
+        : { ...first.content, value: insert.values },
+  };
+}
+
+/**
+ * A change's operations with every run of continuing inserts joined into
+ * one. Loro groups consecutive inserts by the path that brought them: a
+ * writer holds what it typed across two uploads as one operation, a reader
+ * of those uploads holds two, and an export regroups either. Joined, every
+ * holder of the same inserts serializes them alike. Loro groups deletes the
+ * same way for every holder.
+ */
+function joinContinuingInserts(operations: readonly JsonOp[]): unknown[] {
+  const joined: unknown[] = [];
+  let run: InsertRun | null = null;
+  for (const operation of operations) {
+    const insert = sequenceInsertOf(operation);
+    const extended =
+      run !== null && insert !== null
+        ? extendedRun(run, operation, insert)
+        : null;
+    if (run !== null && extended !== null) {
+      run.insert = extended;
+      joined[joined.length - 1] = runOperation(run);
+      continue;
+    }
+    run = insert === null ? null : { first: operation, insert };
+    joined.push(operation);
+  }
+  return joined;
+}
+
 export function serializeCanonicalHistory(history: JsonSchema): string {
   const canonicalChanges = history.changes
     .map((sourceChange) => {
       const change = {
         ...sourceChange,
-        ops: sourceChange.ops.map(canonicalHistoryOperation),
+        ops: joinContinuingInserts(
+          sourceChange.ops.map(canonicalHistoryOperation),
+        ),
       };
       return { change, identity: serializeCanonicalHistoryValue(change) };
     })
