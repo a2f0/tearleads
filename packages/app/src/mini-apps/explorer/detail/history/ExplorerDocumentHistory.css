@@ -128,7 +128,8 @@
 .explorer-document-history-actions,
 .explorer-document-history-copy,
 .explorer-document-history-newer,
-.explorer-document-history-restore {
+.explorer-document-history-restore,
+.explorer-document-history-verification {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

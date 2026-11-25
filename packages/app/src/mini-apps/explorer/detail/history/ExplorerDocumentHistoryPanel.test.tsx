@@ -9,9 +9,16 @@ import type {
 import { act, cleanup, render } from "@testing-library/react";
 import * as Runtime from "../../../../providers/sdk/TearleadsProvider";
 import * as History from "../../../../stores/document-history/useDocumentHistory";
+import * as Verification from "../../../../stores/document-history/useDocumentHistoryVerification";
 import * as Documents from "../../../../stores/documents/DocumentsProvider";
 import { ExplorerDocumentHistoryPanel } from "./ExplorerDocumentHistoryPanel";
 import type { ExplorerDocumentVersionCopy } from "./useExplorerDocumentVersionCopy";
+
+/** These tests never show another history than the device's own. */
+const NO_SOURCE_CHANGE = {
+  showLocal: () => undefined,
+  showSigned: () => undefined,
+};
 
 /** These tests never reach the timeline's actions. */
 const NO_VERSION_COPY: ExplorerDocumentVersionCopy = {
@@ -101,6 +108,7 @@ function mountPanel(input: {
 }) {
   const asked: Array<string | null> = [];
   const historySpy = spyOn(History, "useDocumentHistory").mockReturnValue({
+    ...NO_SOURCE_CHANGE,
     reload: () => undefined,
     seek: () => undefined,
     state: {
@@ -110,11 +118,17 @@ function mountPanel(input: {
       run: 1,
       selectedIndex: 0,
       shown: { change: NO_CHANGE, index: 0, view: VIEW },
+      source: "local",
       status: "ready",
     },
     step: () => undefined,
     togglePlay: () => undefined,
   });
+  // The history is never checked here.
+  const verificationSpy = spyOn(
+    Verification,
+    "useDocumentHistoryVerification",
+  ).mockReturnValue({ state: { status: "idle" }, verify: () => undefined });
   const providerSpy = spyOn(Documents, "DocumentsProvider").mockImplementation(
     ({ readOnly }) => (
       <div data-read-only={String(readOnly)} data-testid="live-document" />
@@ -122,6 +136,7 @@ function mountPanel(input: {
   );
   restorers.push(
     () => historySpy.mockRestore(),
+    () => verificationSpy.mockRestore(),
     () => providerSpy.mockRestore(),
   );
   const view = render(
@@ -204,6 +219,7 @@ test("a document whose summary failed to load never has its history opened", asy
 test("a cold link opens History once the document hydrates", async () => {
   const saves = documentSaves();
   const historySpy = spyOn(History, "useDocumentHistory").mockReturnValue({
+    ...NO_SOURCE_CHANGE,
     reload: () => undefined,
     seek: () => undefined,
     state: { run: 1, status: "loading" },
