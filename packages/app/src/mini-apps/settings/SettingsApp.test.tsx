@@ -51,8 +51,10 @@ test("Settings opens on General, whose telemetry switch starts off", () => {
   });
   expect(telemetry).toHaveProperty("checked", false);
   expect(telemetry.getAttribute("aria-checked")).toBe("false");
-  const description = view.getByText(/Sends error reports/);
-  expect(telemetry.getAttribute("aria-describedby")).toBe(description.id);
+  expect(telemetry.hasAttribute("aria-describedby")).toBe(false);
+  expect(view.getByRole("group", { name: "Privacy" }).textContent).toBe(
+    "PrivacyShare anonymous telemetry",
+  );
 });
 
 test("the switch opts the device in and out, and follows changes made elsewhere", () => {
