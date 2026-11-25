@@ -44,7 +44,7 @@ key bundle survive.
 | `BeginListing` | `reconcileAcknowledgedConnection` listing every known lane from its watermark |
 | `OweListedRead` | `oweListedDocumentReadsBehindListing` in `applyListedContainerDocuments`, which `listBehindListing` answers from the cursor and from the head of the record's stored key bundle, then `requestRegisteredDocumentRemoteSyncs` |
 | `ApplyListedRow` | `upsertDiscoveredDocuments` after the debt is durable; `resolvePersistedDocumentRuntimeState` drops the key bundle of a record whose access epoch the row moved |
-| `AdvanceWatermark` | `saveAppliedContainerDocumentWatermark` after the lane's rows are applied and owed |
+| `AdvanceWatermark` | `recordAppliedContainerDocumentListing` after the lane's rows are applied and owed |
 | `OpenStore` | `loadDocumentListingCoverage` when a store's record loads: it reads the debt (`findOwedDocumentListingRead`) and asks `takeHint`, and a record neither names is covered and arms no probe; a record with no key bundle fails `hasPersistedRemoteDocumentSyncState`, so nothing covers it |
 | `BeginRead` | `findOwedListingReadBeforePull` reading the debt before the pull's request |
 | `BeginLaggingRead` | the same pull (`requestRemoteDocumentSync`) answered by a replica that lags the listing |

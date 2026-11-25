@@ -13,7 +13,10 @@ import {
   nullContainerDocumentWatermarks,
   trustedContainerDocumentTombstones,
 } from "./documentDiscovery.testUtils";
-import type { DocumentLinkInput } from "./documentDiscoveryTypes";
+import type {
+  ContainerDocumentListingRecord,
+  DocumentLinkInput,
+} from "./documentDiscoveryTypes";
 
 type CapturedInput = Omit<DiscoveredDocumentInput, "accessStateHash"> & {
   accessStateHash: string;
@@ -177,9 +180,9 @@ test("container document discovery resumes from stored watermark and advances af
     containerId: string;
     watermark: SyncWatermark | null | undefined;
   }> = [];
-  const saveContainerDocumentWatermarkCalls: Array<{
+  const recordedListings: Array<{
     containerId: string;
-    watermark: SyncWatermark;
+    listing: ContainerDocumentListingRecord;
   }> = [];
   const applyOrder: string[] = [];
   const discovered = await discoverContainerDocuments({
@@ -211,9 +214,9 @@ test("container document discovery resumes from stored watermark and advances af
       applyOrder.push("replace-links");
     },
     oweListedDocumentReads: async () => [],
-    saveContainerDocumentWatermark: async (containerId, watermark) => {
-      applyOrder.push("save-watermark");
-      saveContainerDocumentWatermarkCalls.push({ containerId, watermark });
+    recordContainerDocumentListing: async (containerId, listing) => {
+      applyOrder.push("record-listing");
+      recordedListings.push({ containerId, listing });
     },
     upsertDiscoveredDocuments: async (inputs) => {
       applyOrder.push("upsert-documents");
@@ -239,14 +242,17 @@ test("container document discovery resumes from stored watermark and advances af
   expect(applyOrder).toEqual([
     "upsert-documents",
     "replace-links",
-    "save-watermark",
+    "record-listing",
   ]);
-  expect(saveContainerDocumentWatermarkCalls).toEqual([
+  expect(recordedListings).toEqual([
     {
       containerId: "shared-container",
-      watermark: {
-        id: "peer-note-document",
-        updatedAt: "2026-04-06T12:00:00.000Z",
+      listing: {
+        settled: true,
+        watermark: {
+          id: "peer-note-document",
+          updatedAt: "2026-04-06T12:00:00.000Z",
+        },
       },
     },
   ]);
@@ -262,7 +268,7 @@ test("container document discovery resumes from stored watermark and advances af
 });
 
 test("container document discovery does not advance watermark when local apply fails", async () => {
-  const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
+  const recordedListings: ContainerDocumentListingRecord[] = [];
 
   await expect(
     discoverContainerDocuments({
@@ -284,8 +290,8 @@ test("container document discovery does not advance watermark when local apply f
       ),
       replaceDocumentLinksBatch: async () => {},
       oweListedDocumentReads: async () => [],
-      saveContainerDocumentWatermark: async (_containerId, watermark) => {
-        saveContainerDocumentWatermarkCalls.push(watermark);
+      recordContainerDocumentListing: async (_containerId, listing) => {
+        recordedListings.push(listing);
       },
       upsertDiscoveredDocuments: async () => {
         throw new Error("upsert failed");
@@ -293,7 +299,7 @@ test("container document discovery does not advance watermark when local apply f
     }),
   ).rejects.toThrow("upsert failed");
 
-  expect(saveContainerDocumentWatermarkCalls).toEqual([]);
+  expect(recordedListings).toEqual([]);
 });
 
 test("container document discovery applies tombstones before advancing watermark", async () => {
@@ -307,7 +313,7 @@ test("container document discovery applies tombstones before advancing watermark
       updatedAt: string;
     }>
   > = [];
-  const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
+  const recordedListings: ContainerDocumentListingRecord[] = [];
 
   const discovered = await discoverContainerDocuments({
     ...trustedContainerDocumentTombstones,
@@ -345,9 +351,9 @@ test("container document discovery applies tombstones before advancing watermark
       applyOrder.push("replace-links");
     },
     oweListedDocumentReads: async () => [],
-    saveContainerDocumentWatermark: async (_containerId, watermark) => {
-      applyOrder.push("save-watermark");
-      saveContainerDocumentWatermarkCalls.push(watermark);
+    recordContainerDocumentListing: async (_containerId, listing) => {
+      applyOrder.push("record-listing");
+      recordedListings.push(listing);
     },
     upsertDiscoveredDocuments: async () => {
       applyOrder.push("upsert-documents");
@@ -355,7 +361,7 @@ test("container document discovery applies tombstones before advancing watermark
     },
   });
 
-  expect(applyOrder).toEqual(["apply-tombstones", "save-watermark"]);
+  expect(applyOrder).toEqual(["apply-tombstones", "record-listing"]);
   expect(appliedTombstones).toEqual([
     [
       {
@@ -367,10 +373,13 @@ test("container document discovery applies tombstones before advancing watermark
       },
     ],
   ]);
-  expect(saveContainerDocumentWatermarkCalls).toEqual([
+  expect(recordedListings).toEqual([
     {
-      id: "deleted-document",
-      updatedAt: "2026-04-06T12:00:00.000Z",
+      settled: true,
+      watermark: {
+        id: "deleted-document",
+        updatedAt: "2026-04-06T12:00:00.000Z",
+      },
     },
   ]);
   expect(discovered).toEqual([
@@ -385,7 +394,7 @@ test("container document discovery applies tombstones before advancing watermark
 });
 
 test("container document discovery does not advance watermark when tombstone apply fails", async () => {
-  const saveContainerDocumentWatermarkCalls: SyncWatermark[] = [];
+  const recordedListings: ContainerDocumentListingRecord[] = [];
 
   await expect(
     discoverContainerDocuments({
@@ -412,14 +421,14 @@ test("container document discovery does not advance watermark when tombstone app
       ),
       replaceDocumentLinksBatch: async () => {},
       oweListedDocumentReads: async () => [],
-      saveContainerDocumentWatermark: async (_containerId, watermark) => {
-        saveContainerDocumentWatermarkCalls.push(watermark);
+      recordContainerDocumentListing: async (_containerId, listing) => {
+        recordedListings.push(listing);
       },
       upsertDiscoveredDocuments: async () => [],
     }),
   ).rejects.toThrow("tombstone apply failed");
 
-  expect(saveContainerDocumentWatermarkCalls).toEqual([]);
+  expect(recordedListings).toEqual([]);
 });
 
 test("discovery caches each referenced principal state once per listing", async () => {

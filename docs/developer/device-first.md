@@ -111,6 +111,7 @@ interface ReconciliationService {
   setActiveContainer(containerId: string | null): void;  // re-prioritize
   enqueueContainer(containerId, priority: "active" | "idle", force?, documentId?): void;
   enqueueIdleBackfill(): void;           // known-container catch-up
+  resumeOwedDiscovery(): void;           // lanes an earlier boot left owed
   resetDiscovered(): void;               // re-arm after reconnect/relogin
   reconcileRootContainersNow(o?: RefreshRequestOptions): Promise<void>;
   reconcileNow(o?: RefreshRequestOptions): Promise<void>;  // explicit "Refresh"
@@ -141,9 +142,11 @@ Work items and the functions that perform them:
 
 Scheduling policy (active-first, then idle backfill):
 
-1. On local hydration, enqueue the active container at active priority. On
-   auth-gain / online-regain, also reset the session suppression set and enqueue
-   all other known containers at idle priority.
+1. On local hydration, enqueue the active container at active priority, and
+   every [owed document lane](#owed-document-lanes) at idle priority unless
+   an acknowledged connection's catch-up will list it. On auth-gain /
+   online-regain, also reset the session suppression set and enqueue all
+   other known containers at idle priority.
 2. The active container reconciles first (background, post-paint). Its results
    `applyReconciled` into Layer A, patching the list in place with no re-blank.
 3. Idle priority drains as the coordinator goes quiet
@@ -161,6 +164,48 @@ Scheduling policy (active-first, then idle backfill):
    every currently linked lane. These publications are best-effort after commit:
    a broker failure never changes the successful HTTP mutation result, and later
    HTTP reconciliation remains authoritative.
+
+#### Owed document lanes
+
+Discovery spans network round trips: each reconciler run lists up to four
+lanes in one batched request, then the lanes verify and apply one at a time.
+A reload can land anywhere in that, and a start with a cached tree raises no
+hint for a lane the tree already holds, so a lane cut short must say so
+durably. Its `container_documents` row
+in `container_sync_watermarks` does
+([`documentLaneDiscovery.ts`](../../packages/client-sdk/src/workflows/container-contents/documentDiscovery/documentLaneDiscovery.ts)):
+
+| Durable evidence | Lane state |
+| --- | --- |
+| No row, or a row without `checked_at` | owed |
+| Staged candidates in `pending_document_discoveries` | owed |
+| `checked_at` set and no staged candidate | settled |
+
+An applied listing that leaves no candidate pending settles its lane: it sets
+`checked_at` in the statement that stores the cursor, so a reload never leaves
+one without the other. An access change or a remote reset deletes the row, and
+staging a candidate owes the lane until the candidate is acknowledged.
+
+The catch-up after an acknowledged connection lists every known lane, owed
+ones included, but a start may never get one: the socket can open without
+declaring its interest, or realtime can be down while HTTP works. So the
+local projection decides at hydration
+([`owedDiscoveryResumeMachine.ts`](../../packages/client-sdk/src/stores/local-projection/owedDiscoveryResumeMachine.ts)).
+With no connect attempt pending, it raises `owed-discovery` and the
+reconciler queues every owed known lane at idle priority. While an attempt is
+pending, it waits: an acknowledgement leaves the owed lanes to its catch-up,
+and an attempt that ends without one, or is replaced by a reconnect, resumes
+them. So an acknowledgement that arrives while the start waits lists each
+owed lane once, in its catch-up, and a device whose sign-in boot was cut
+short still lists the Contacts and organization lanes it never applied, at
+one listing per four owed lanes. Once the resume has run, a connection that
+starts or is acknowledged later, a replacing reconnect included, is a new
+catch-up and lists every lane again, the resumed ones included. A settled
+lane is not listed by the resume; later remote changes reach it through
+hints, a visit, or the next acknowledged connection.
+[`owedDiscovery.test.ts`](../../packages/client-sdk/src/client/deviceFirst/owedDiscovery.test.ts)
+restarts a device whose earlier boot applied only some of its lanes, with no
+connect attempt, with one that never acknowledges, and with one that does.
 
 #### Document content pull policy
 

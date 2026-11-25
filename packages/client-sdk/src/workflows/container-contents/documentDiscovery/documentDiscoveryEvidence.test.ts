@@ -204,7 +204,7 @@ for (const available of [true, false]) {
     );
     try {
       const store = new DocumentDiscoveryEvidenceRepository(execSql);
-      const saved: string[] = [];
+      const saved: Array<readonly [string, boolean]> = [];
       const inputs: unknown[] = [];
       let retries = 0;
       const result = await discoverContainerDocuments({
@@ -251,11 +251,12 @@ for (const available of [true, false]) {
         },
         replaceDocumentLinksBatch: async () => {},
         oweListedDocumentReads: async () => [],
-        saveContainerDocumentWatermark: async (id) => {
-          saved.push(id);
+        recordContainerDocumentListing: async (id, listing) => {
+          saved.push([id, listing.settled]);
         },
       });
-      expect(saved).toEqual(["b"]);
+      // A deferred candidate keeps the lane owed, so the next start lists it.
+      expect(saved).toEqual([["b", available]]);
       expect(retries).toBeGreaterThan(0);
       if (available) {
         expect(result).toHaveLength(1);

@@ -25,6 +25,7 @@ formal/document-sync/BlobEnvelopeAuthority.tla|formal/document-sync/BlobEnvelope
 formal/document-sync/ContentKeyCommitment.tla|formal/document-sync/ContentKeyCommitment.cfg
 formal/document-sync/ContentWriteAuthority.tla|formal/document-sync/ContentWriteAuthority.cfg
 formal/document-sync/DeferredTailSettlement.tla|formal/document-sync/DeferredTailSettlement.cfg
+formal/document-sync/DiscoveryLaneResumption.tla|formal/document-sync/DiscoveryLaneResumption.cfg
 formal/document-sync/DiscoveryPublication.tla|formal/document-sync/DiscoveryPublication.cfg
 formal/document-sync/EmptyFrontierUnlink.tla|formal/document-sync/EmptyFrontierUnlink.cfg
 formal/document-sync/MetadataListingConvergence.tla|formal/document-sync/MetadataListingConvergence.cfg

@@ -46,6 +46,12 @@ export function connectReconciliationTriggers(input: {
           service.enqueueContainer(signal.activeContainerId, "active");
         }
         break;
+      case "owed-discovery":
+        // A cached tree raises no hint for a lane it already holds, so list
+        // each lane an earlier boot left owed. The projection raises this
+        // only when no acknowledged connection's catch-up will list it.
+        service.resumeOwedDiscovery();
+        break;
       case "connection-acknowledged":
         // Hints sent before the acknowledgement are lost, so every document
         // lane is listed from its watermark. A lane that fails keeps its

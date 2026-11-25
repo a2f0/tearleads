@@ -100,9 +100,9 @@ test("a write queued behind the pause is skipped", async () => {
         [{ accessEpoch: 1, containerIds: [CONTAINER_ID], documentId: "doc-1" }],
         async () => true,
       ),
-      guarded.saveContainerDocumentWatermark(
+      guarded.recordContainerDocumentListing(
         CONTAINER_ID,
-        WATERMARK,
+        { settled: true, watermark: WATERMARK },
         async () => true,
       ),
     ]);

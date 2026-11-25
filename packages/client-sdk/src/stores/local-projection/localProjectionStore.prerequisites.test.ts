@@ -64,7 +64,7 @@ test("regaining the encapsulation key pair raises prerequisites-regained", async
     });
 
     store.updateRuntime(withoutKeyPair);
-    expect(signals).toEqual(["hydrated"]);
+    expect(signals).toEqual(["hydrated", "owed-discovery"]);
 
     // Unlocking the local keyring loads the key pair without an auth or
     // online edge — e.g. a restored session whose keys arrive after startup.
@@ -81,7 +81,11 @@ test("regaining the encapsulation key pair raises prerequisites-regained", async
     });
     store.updateRuntime(withKeyPair);
 
-    expect(signals).toEqual(["hydrated", "prerequisites-regained"]);
+    expect(signals).toEqual([
+      "hydrated",
+      "owed-discovery",
+      "prerequisites-regained",
+    ]);
   } finally {
     close();
   }
@@ -145,7 +149,12 @@ test("a prerequisite regain before tree readiness is latched until hydration", a
     nodes = [cachedRoot];
     emitContainerStore();
 
-    expect(signals).toEqual(["hydrated", "prerequisites-regained"]);
+    // No connect attempt is pending, so the start also resumes owed lanes.
+    expect(signals).toEqual([
+      "hydrated",
+      "prerequisites-regained",
+      "owed-discovery",
+    ]);
     expect(containerIdsAtRegain).toEqual([["cached-root"]]);
   } finally {
     close();

@@ -280,7 +280,7 @@ test("a tampered listing head queues evidence before advancing its watermark", a
         upsertDiscoveredDocuments: persist,
         replaceDocumentLinksBatch: replaceLinks,
         oweListedDocumentReads: async () => [],
-        saveContainerDocumentWatermark: watermark,
+        recordContainerDocumentListing: watermark,
       }),
     ).toBeNull();
     expect(persist).not.toHaveBeenCalled();

@@ -13,9 +13,11 @@ import {
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import {
   clearPendingDiscoveryRetries,
+  isCurrentReconciliationLifecycle,
   reconcileMarkedContainers,
 } from "./knownContainerSweep";
 import { rearmFailedContainer } from "./laneFailure";
+import { resumeOwedDocumentDiscovery } from "./owedDiscovery";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
 import { canReconcile, type ReconciliationState } from "./serviceState";
 import type { ReconciliationHost, ReconciliationService } from "./serviceTypes";
@@ -261,6 +263,14 @@ export function createReconciliationService(
       ),
     enqueueContainer,
     enqueueIdleBackfill,
+    resumeOwedDiscovery: () => {
+      const generation = state.lifecycleGeneration;
+      resumeOwedDocumentDiscovery({
+        enqueue: enqueueContainer,
+        host,
+        isCurrent: () => isCurrentReconciliationLifecycle(state, generation),
+      });
+    },
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
       state.initialDocumentProbe.resetSkippedListings();
