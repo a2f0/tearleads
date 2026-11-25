@@ -18,9 +18,11 @@
   /* Size, not inline-size, so the wide layout can ask for a landscape host.
      Every host is a flex column of definite height that this box fills. */
   container: legal-terms-agreement / size;
+  /* The stacked panel's least height: below it, this box scrolls. */
+  --legal-terms-agreement-floor: 30rem;
   /* Size containment sizes this box without its content. A host that gives
      it no height (a block that scrolls) gets the panel's floor, not zero. */
-  contain-intrinsic-block-size: 30rem;
+  contain-intrinsic-block-size: var(--legal-terms-agreement-floor);
 
   display: flex;
   flex: 1 1 auto;
@@ -50,13 +52,28 @@
 .legal-terms-agreement > .legal-terms-agreement-panel {
   /* A floor for short hosts (a small window), so the stacked documents keep a
      few lines to read; below it, the box above scrolls. */
-  min-height: max(100%, 30rem);
+  min-height: max(100%, var(--legal-terms-agreement-floor));
   /* The box above insets the panel, so the panel adds no inset of its own.
      Inset twice, a phone's documents frame was too narrow for both tabs. */
   padding-inline: 0;
   /* `safe`: centered content that overflows its box spills only downward,
      where it can be scrolled to, never above the title. */
   justify-content: safe center;
+  /* Fade in without the state panel's rise: the panel fills the scrolling box
+     above, so rising it overflowed that box and flashed a scrollbar. */
+  animation-name: legal-terms-agreement-enter;
+}
+
+@keyframes legal-terms-agreement-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .legal-terms-agreement > .legal-terms-agreement-panel {
+    animation-name: none;
+  }
 }
 
 .legal-terms-agreement-panel .mini-app-state-panel-actions {

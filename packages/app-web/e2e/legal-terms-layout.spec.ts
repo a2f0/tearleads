@@ -101,9 +101,21 @@ async function expectSideBySide(agreement: Agreement) {
   const continueButton = await boxOf(agreement.continueButton);
   expect(title.right).toBeLessThanOrEqual(frame.left);
   expect(continueButton.right).toBeLessThanOrEqual(frame.left);
-  // The documents run the column's full height, past the copy both ways.
-  expect(frame.top).toBeLessThan(title.top);
-  expect(frame.bottom).toBeGreaterThan(continueButton.bottom);
+  // The documents run the column's full height, at least as far as the copy
+  // both ways (on a short screen the copy can fill the column).
+  expect(frame.top).toBeLessThanOrEqual(title.top);
+  expect(frame.bottom).toBeGreaterThanOrEqual(continueButton.bottom);
+}
+
+/**
+ * The whole panel fits its pane, so nothing but the documents scrolls, from
+ * the moment it appears: the shared state panel's entrance rise overflowed it.
+ */
+async function expectPanelFitsPane(page: Page) {
+  const overflow = await page
+    .locator(".legal-terms-agreement")
+    .evaluate((node) => node.scrollHeight - node.clientHeight);
+  expect(overflow).toBeLessThanOrEqual(0);
 }
 
 test.describe("phone", () => {
@@ -148,9 +160,13 @@ test.describe("desktop", () => {
 test.describe("phone on its side", () => {
   test.use({ viewport: { height: 375, width: 667 } });
 
+  // Identity Manager's own minimum height lets its pane scroll on a screen
+  // this short, so the panel is held to fitting that pane, not the screen.
   test("sets the agreement beside the documents", async ({ page }) => {
     const agreement = await openAgreement(page);
     await expectSideBySide(agreement);
     await expectStripInsideFrame(agreement);
+    await expectTextScrollsInFrame(agreement);
+    await expectPanelFitsPane(page);
   });
 });
