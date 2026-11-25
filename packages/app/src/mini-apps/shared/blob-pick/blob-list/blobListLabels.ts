@@ -1,3 +1,5 @@
+import type { DocumentAttachmentAccept } from "../../../../document-types/shared/documentAttachmentUtils";
+
 // Self-contained labels for the shared blob-list surface. Kept independent of
 // any mini-app's label catalog so the surface can render in the Explorer and the
 // Notes mini-app alike without importing across a mini-app boundary. A handful of
@@ -21,7 +23,7 @@ export const BLOB_LIST_LABELS = {
   organizationColumn: "Organization",
   pickCancelAction: "Cancel",
   pickTitle: "Choose Blob",
-  pickUnavailableHint: "Only image blobs can be attached.",
+  pickUnavailableHint: "This file type can't be attached here.",
   referenceColumn: "References",
   searchPlaceholder: "Search blobs, storage keys, documents, or slots",
   sizeColumn: "Size",
@@ -41,6 +43,10 @@ export function getBlobListReferenceCountLabel(value: number): string {
   return `${BLOB_LIST_COUNT_FORMATTER.format(value)} ${plural}`;
 }
 
-export function getBlobListPickSubtitle(slotLabel: string): string {
-  return `Choose an image blob for ${slotLabel}.`;
+export function getBlobListPickSubtitle(
+  slotLabel: string,
+  accept: DocumentAttachmentAccept,
+): string {
+  const files = accept === "image-or-pdf" ? "an image or PDF" : "an image";
+  return `Choose ${files} blob for ${slotLabel}.`;
 }

@@ -283,3 +283,55 @@ test("an unavailable image says so and retries its download", () => {
     view.queryByRole("button", { name: "Retry download of Back Image" }),
   ).toBeNull();
 });
+
+test("a file slot takes PDFs, names its actions for files, and opens a held PDF", () => {
+  const opened: DocumentBlobOpenRequest[] = [];
+  const cleared: string[] = [];
+  const view = renderAttachmentSlots({
+    slots: [
+      { accept: "image-or-pdf", label: "Policy", slotId: "policy" },
+      {
+        accept: "image-or-pdf",
+        itemLabel: "Statement",
+        label: "Statements",
+        multiple: true,
+        slotId: "statements",
+      },
+    ],
+    attachments: [
+      {
+        byteLength: 4096,
+        contentSha256: "2".repeat(64),
+        mimeType: "application/pdf",
+        name: "policy.pdf",
+        slotId: "policy",
+      },
+    ],
+    attachmentStorageKeyBySlotId: { policy: "held-policy" },
+    onClearAttachment: (slotId) => cleared.push(slotId),
+    onOpenBlob: (request) => opened.push(request),
+  });
+
+  expect(view.getByLabelText("Policy").getAttribute("accept")).toBe(
+    "image/*,application/pdf",
+  );
+  expect(view.getByLabelText("Statements").getAttribute("accept")).toBe(
+    "image/*,application/pdf",
+  );
+  expect(view.getByText("PDF document")).toBeTruthy();
+  expect(view.getByText("No file selected")).toBeTruthy();
+  expect(view.getByRole("button", { name: "Replace File" })).toBeTruthy();
+  expect(view.getByRole("button", { name: "Add Files" })).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Open Policy" }));
+  fireEvent.click(view.getByRole("button", { name: "Clear Policy" }));
+  expect(opened).toEqual([{ storageKey: "held-policy" }]);
+  expect(cleared).toEqual(["policy"]);
+});
+
+test("image slots keep accepting only images", () => {
+  const view = renderAttachmentSlots({ attachments: [] });
+  expect(view.getByLabelText("Front Image").getAttribute("accept")).toBe(
+    "image/*",
+  );
+  expect(view.getAllByRole("button", { name: "Upload Image" })).toHaveLength(2);
+});

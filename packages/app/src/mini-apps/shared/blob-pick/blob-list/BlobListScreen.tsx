@@ -6,7 +6,7 @@ import type {
   BlobInfoSortKey,
   BlobStore,
 } from "@tearleads/client-sdk";
-import type { MouseEvent } from "react";
+import { type MouseEvent, useCallback } from "react";
 import type { useMiniAppItemView } from "../../../../components/mini-app/item-view/miniAppItemView";
 import {
   type MiniAppItemViewSwitchLabels,
@@ -21,7 +21,10 @@ import {
   MiniAppStatus,
   MiniAppToolbar,
 } from "../../../../components/mini-app/MiniAppLayout";
-import { isImageDocumentAttachmentBlob } from "../../../../document-types/shared/documentAttachmentUtils";
+import {
+  type DocumentAttachmentAccept,
+  isDocumentAttachmentBlobAccepted,
+} from "../../../../document-types/shared/documentAttachmentUtils";
 import { BlobInfoGrid } from "./BlobInfoGrid";
 import { BlobInfoTable } from "./BlobInfoTable";
 import type { RenderBlobSyncCell } from "./blobInfoCells";
@@ -151,14 +154,18 @@ export function BlobListScreen(params: {
   );
 }
 
-function BlobPickHeader(params: { onCancel: () => void; slotLabel: string }) {
-  const { onCancel, slotLabel } = params;
+function BlobPickHeader(params: {
+  onCancel: () => void;
+  slotAccept: DocumentAttachmentAccept;
+  slotLabel: string;
+}) {
+  const { onCancel, slotAccept, slotLabel } = params;
 
   return (
     <MiniAppHeader>
       <MiniAppHeaderCopy>
         <strong>{BLOB_LIST_LABELS.pickTitle}</strong>
-        <span>{getBlobListPickSubtitle(slotLabel)}</span>
+        <span>{getBlobListPickSubtitle(slotLabel, slotAccept)}</span>
       </MiniAppHeaderCopy>
       <MiniAppActions>
         <MiniAppButton onClick={onCancel}>
@@ -169,10 +176,10 @@ function BlobPickHeader(params: { onCancel: () => void; slotLabel: string }) {
   );
 }
 
-// Pick mode: choose an image blob for a document slot. Self-contained (owns its
-// list data) so any mini-app can render it directly; only image blobs bind to
-// image slots, so non-image rows are shown but not selectable, and a row click
-// resolves the pick.
+// Pick mode: choose a blob for a document slot. Self-contained (owns its list
+// data) so any mini-app can render it directly; only blobs the slot accepts
+// (images, or images and PDFs) bind to it, so other rows are shown but not
+// selectable, and a row click resolves the pick.
 export function BlobPickSurface(params: {
   bleed?: boolean | undefined;
   blobStore: BlobStore;
@@ -182,8 +189,14 @@ export function BlobPickSurface(params: {
   onPickBlob: (blob: BlobInfo) => void;
   organizationNamesById?: ReadonlyMap<string, string> | undefined;
   renderSyncCell?: RenderBlobSyncCell | undefined;
+  slotAccept: DocumentAttachmentAccept;
   slotLabel: string;
 }) {
+  const { slotAccept } = params;
+  const isRowSelectable = useCallback(
+    (blob: BlobInfo) => isDocumentAttachmentBlobAccepted(slotAccept, blob),
+    [slotAccept],
+  );
   const data = useBlobBrowserData({
     loadBlobInfo: params.loadBlobInfo,
     route: EMPTY_PICK_ROUTE,
@@ -191,7 +204,11 @@ export function BlobPickSurface(params: {
 
   return (
     <>
-      <BlobPickHeader onCancel={params.onCancel} slotLabel={params.slotLabel} />
+      <BlobPickHeader
+        onCancel={params.onCancel}
+        slotAccept={slotAccept}
+        slotLabel={params.slotLabel}
+      />
       <BlobListScreen
         bleed={params.bleed}
         blobInfo={data.blobInfo}
@@ -199,9 +216,9 @@ export function BlobPickSurface(params: {
         columns={data.columns}
         compact={data.compact}
         frameRef={data.frameRef}
-        // Filtering non-image rows out of the windowed list would desync the
+        // Filtering unaccepted rows out of the windowed list would desync the
         // virtual-scroll padding from the total count, so disable instead.
-        isRowSelectable={isImageDocumentAttachmentBlob}
+        isRowSelectable={isRowSelectable}
         isWindowPending={data.isWindowPending}
         itemView={data.itemView}
         onQueryChange={data.handleQueryChange}

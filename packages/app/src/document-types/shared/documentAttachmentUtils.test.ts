@@ -7,10 +7,12 @@ import {
 } from "@tearleads/client-sdk";
 import {
   AUTOMATIC_BLOB_PREVIEW_MAX_BYTES,
+  expandAttachmentSlots,
   getDocumentAttachmentBlobName,
   getDocumentAttachmentStatusLabel,
   getLatestDocumentAttachmentBySlotId,
   isAutomaticBlobPreviewAllowed,
+  isDocumentAttachmentBlobAccepted,
   isImageDocumentAttachmentBlob,
   readAutomaticPreviewBlobBytes,
   readBlobDocumentAttachmentUpload,
@@ -26,6 +28,51 @@ test("attachment statuses label queued uploads and unrecorded served bytes", () 
     "Image missing or damaged on this device.",
   );
   expect(getDocumentAttachmentStatusLabel(undefined)).toBeNull();
+});
+
+test("a file slot's statuses call its attachment a file", () => {
+  expect(getDocumentAttachmentStatusLabel("syncing", "File")).toBe(
+    "Syncing file.",
+  );
+  expect(getDocumentAttachmentStatusLabel("unavailable", "File")).toBe(
+    "File missing or damaged on this device.",
+  );
+});
+
+test("only a file slot accepts PDF blobs, and its items keep that", () => {
+  const pdf = createBlobInfo({ mimeType: "application/pdf" });
+  const text = createBlobInfo({ mimeType: "text/plain" });
+  expect(isDocumentAttachmentBlobAccepted("image", pdf)).toBe(false);
+  expect(isDocumentAttachmentBlobAccepted("image-or-pdf", pdf)).toBe(true);
+  expect(
+    isDocumentAttachmentBlobAccepted("image-or-pdf", createBlobInfo()),
+  ).toBe(true);
+  expect(isDocumentAttachmentBlobAccepted("image-or-pdf", text)).toBe(false);
+  expect(
+    expandAttachmentSlots(
+      [
+        {
+          accept: "image-or-pdf",
+          itemLabel: "Statement",
+          label: "Statements",
+          multiple: true,
+          slotId: "statements",
+        },
+      ],
+      [
+        {
+          byteLength: 1,
+          contentSha256: "3".repeat(64),
+          mimeType: "application/pdf",
+          name: "march.pdf",
+          slotId: "statements:a",
+        },
+      ],
+      { canAttach: false, isEditing: false },
+    ),
+  ).toEqual([
+    { accept: "image-or-pdf", label: "Statement 1", slotId: "statements:a" },
+  ]);
 });
 
 test("automatic blob previews have a fixed memory bound", () => {
