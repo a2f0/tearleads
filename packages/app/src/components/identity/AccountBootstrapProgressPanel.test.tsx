@@ -51,6 +51,9 @@ test("onboarding offers the telemetry opt-in, off, beside creating or restoring"
     name: "Share anonymous telemetry",
   });
   expect(telemetry).toHaveProperty("checked", false);
+  // Onboarding shows the switch and its label only; Settings explains it.
+  expect(telemetry.hasAttribute("aria-describedby")).toBe(false);
+  expect(view.queryByText(/Sends error reports/)).toBeNull();
   fireEvent.click(telemetry);
   expect(hostConfig.telemetryConsent.enabled()).toBe(true);
 });

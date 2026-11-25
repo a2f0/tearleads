@@ -7,7 +7,7 @@ export function GeneralSettings() {
   return (
     <fieldset className="app-settings-group">
       <legend>Privacy</legend>
-      <TelemetryConsentSwitch />
+      <TelemetryConsentSwitch showDescription />
     </fieldset>
   );
 }
