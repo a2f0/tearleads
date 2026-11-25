@@ -82,7 +82,8 @@ remove them when the stated checks pass without the pin.
   what `import`, `export`, and local writes refuse, and only when the
   [history identity regression](../packages/loro/src/historyIdentity.test.ts),
   the [runtime contract](../packages/loro/src/runtimeContract.test.ts), the
-  [import refusals](../packages/loro/src/importRefusal.test.ts), and the
+  [import refusals](../packages/loro/src/importRefusal.test.ts), the
+  [text write budgets](../packages/loro/src/textUpdate.test.ts), and the
   complete SDK rotation, recovery, provenance, and settlement suites pass, with
   the API suite (`bun run check:package @tearleads/api`), whose Worker loads
   the same catalog version's `loro-crdt/web` build. A new version changes the

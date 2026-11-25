@@ -47,6 +47,7 @@ export * from "./shared";
 export {
   TEXT_DIFF_BUDGET_MS,
   type TextUpdateGranularity,
+  type TextUpdateOptions,
   updateText,
 } from "./textUpdate";
 export { updateMatchesDocumentHistory } from "./updateIdentity";

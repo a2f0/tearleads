@@ -144,7 +144,12 @@ async function writeDocumentText(
   }
   if (textChanged) {
     // Bounded: an unrelated replacement must not stall the writer.
-    updateText(writeDoc, value);
+    const granularity = updateText(writeDoc, value);
+    if (granularity !== "character") {
+      state.runtime.util.log(
+        `Documents: wrote the text of ${state.localId} as a ${granularity} replacement because its character diff ran out of time.`,
+      );
+    }
   }
   const update = pendingDeltaSinceBase(state, writeDoc);
   // Captured at delta time: the enqueued row proves durable coverage up

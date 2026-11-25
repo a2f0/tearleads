@@ -1,4 +1,4 @@
-import { exportAllUpdates } from "@tearleads/loro";
+import { exportAllUpdates, updateText } from "@tearleads/loro";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { DEFAULT_DOCUMENT_KIND } from "../../../../data/documents/documentConstants";
 import {
@@ -92,7 +92,7 @@ async function createSeedUpdate(
   )
     throw new Error("A seeded note cannot contain rows.");
   initializeStoredDocumentKind(doc, initialDocumentKind, projectors);
-  if (input.initialText) doc.getText("text").update(input.initialText);
+  if (input.initialText) updateText(doc, input.initialText);
   writeInitialDocumentContent(
     { runtime, initialContent: input, initialDocumentKind },
     doc,

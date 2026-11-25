@@ -78,5 +78,9 @@ exact Loro version that document sync is built on:
   judge voids an update whose dependencies no earlier update carries before it
   reaches one.
 
+[`textUpdate.test.ts`](./src/textUpdate.test.ts) pins what `updateText` relies
+on: a diff past its `timeoutMs` throws an `Error` whose message is
+`Update timeout`, and leaves the document as it was.
+
 See [dependency maintenance](../../docs/dependency-upgrades.md#current-constraints)
 for what moving the Loro pin requires.

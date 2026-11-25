@@ -6,7 +6,11 @@ import {
   exportUpdatesSince,
   importUpdates,
 } from "./document";
-import { TEXT_DIFF_BUDGET_MS, updateText } from "./textUpdate";
+import {
+  TEXT_DIFF_BUDGET_MS,
+  type TextUpdateOptions,
+  updateText,
+} from "./textUpdate";
 
 type Document = Awaited<ReturnType<typeof createDocument>>;
 
@@ -56,7 +60,7 @@ async function writeDuringRemoteEdit(
   name: string,
   held: string,
   value: string,
-  budgets: Parameters<typeof updateText>[2],
+  budgets: TextUpdateOptions | undefined,
 ) {
   const writer = await documentHolding(`${name}-writer`, held);
   const remote = await createDocument(`${name}-remote`);
@@ -113,14 +117,34 @@ test("a rewrite neither diff can finish replaces the whole text, and a concurren
   expect(merged).not.toContain("keep REMOTE me");
 });
 
-test("a diff that runs out of its budget leaves the document as it was", async () => {
-  const held = prose(65536, 1);
-  const doc = await documentHolding("untouched", held);
+// The budget runs out at once, and again after the diff has done real work.
+test.each([5, 300])(
+  "a diff that runs out of a %d ms budget leaves the document as it was",
+  async (budgetMs) => {
+    const held = prose(65536, 1);
+    const doc = await documentHolding(`untouched-${budgetMs}`, held);
+    const before = encodeVersionVector(doc);
+
+    expect(() =>
+      doc.getText("text").update(prose(65536, 99), { timeoutMs: budgetMs }),
+    ).toThrow(new Error("Update timeout"));
+    expect(doc.getText("text").toString()).toBe(held);
+    doc.commit();
+
+    expect(doc.getText("text").toString()).toBe(held);
+    expect(encodeVersionVector(doc)).toBe(before);
+    doc.free();
+  },
+);
+
+test("the line diff that runs out of its budget leaves the document as it was", async () => {
+  const held = shortLines(20_000, "a");
+  const doc = await documentHolding("untouched-lines", held);
   const before = encodeVersionVector(doc);
 
   expect(() =>
-    doc.getText("text").update(prose(65536, 99), { timeoutMs: 5 }),
-  ).toThrow("Update timeout");
+    doc.getText("text").updateByLine(shortLines(20_000, "b"), { timeoutMs: 5 }),
+  ).toThrow(new Error("Update timeout"));
   doc.commit();
 
   expect(doc.getText("text").toString()).toBe(held);
@@ -148,7 +172,8 @@ test("another failure of the write is thrown, not retried more coarsely", async 
   const doc = await documentHolding("detached", "held");
   doc.detach();
 
-  expect(() => updateText(doc, "changed")).toThrow();
+  // Loro refuses a write into a detached document; that is not a timeout.
+  expect(() => updateText(doc, "changed")).toThrow(/detached/iu);
   expect(doc.getText("text").toString()).toBe("held");
   doc.free();
 });
