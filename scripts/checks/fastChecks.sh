@@ -53,6 +53,7 @@ run_fast_checks() {
   step_timings_run screenshots-store-tests bun run test:screenshots-store
   step_timings_run clone-setup-tests bun run test:clone-setup
   step_timings_run soft-reset-tests bun run test:soft-reset
+  step_timings_run dev-script-tests bun run test:dev-scripts
   step_timings_run install-tests bun run test:install-dependencies
   step_timings_run npm-publish-tests bun run test:npm-publish
   step_timings_run markdown bun run lint:markdown

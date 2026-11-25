@@ -15,9 +15,9 @@ Options pass through to `tearleads restore-keepass`, which always runs with
   --name <folder>     Name the restore folder (default: the database's name)
   --key-file <path>   The database's key file, if it has one
 
-The CLI asks for the account's recovery key, then the database's master
-password; neither echoes. Each run makes a new folder, so running it again
-restores a second copy rather than updating the first.
+Run it from a terminal: the CLI asks for the account's recovery key, then the
+database's master password, and neither echoes. Each run makes a new folder,
+so running it again restores a second copy rather than updating the first.
 
 The CLI keeps its recovery key in the macOS login Keychain, which is locked
 in a shell that is not part of the desktop session (SSH, tmux, screen).
@@ -63,19 +63,31 @@ file=$(absolute "$2")
 require_readable "$file"
 shift 2
 
-# Rebuild the options in place, making a key file path absolute. Checked
-# before the Keychain prompt and the build, so a typo costs nothing.
+# Rebuild the options in place, taking each value with its flag and making a
+# key file path absolute. Anything else is refused here, before the Keychain
+# prompt, the build, and the login, so a typo costs nothing.
+needs_value() {
+  if [ "$2" -eq 0 ]; then
+    echo "$1 needs a value." >&2
+    exit 1
+  fi
+}
+
 remaining=$#
 while [ "$remaining" -gt 0 ]; do
   option=$1
   shift
   remaining=$((remaining - 1))
   case "$option" in
+    --name)
+      needs_value "$option" "$remaining"
+      set -- "$@" --name "$1"
+      shift
+      remaining=$((remaining - 1))
+      ;;
+    --name=*) set -- "$@" "$option" ;;
     --key-file)
-      if [ "$remaining" -eq 0 ]; then
-        echo "--key-file needs a path." >&2
-        exit 1
-      fi
+      needs_value "$option" "$remaining"
       key_file=$(absolute "$1")
       shift
       remaining=$((remaining - 1))
@@ -88,10 +100,14 @@ while [ "$remaining" -gt 0 ]; do
       set -- "$@" "--key-file=$key_file"
       ;;
     --env | --env=* | --api-url | --api-url=* | --key-stdin)
-      echo "$option does not apply: the tier argument picks the API." >&2
+      echo "$option does not apply: the tier picks the API," \
+        "and the login is saved in the Keychain." >&2
       exit 1
       ;;
-    *) set -- "$@" "$option" ;;
+    *)
+      echo "Unknown option $option; the script takes --name and --key-file." >&2
+      exit 1
+      ;;
   esac
 done
 
