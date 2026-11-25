@@ -11,6 +11,7 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import {
   documentCreateSeedSyncRequest,
   isDocumentSyncRequest,
@@ -213,6 +214,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
         initialOrganizationMetadataContainer,
         initialOrganizationProfileDocument,
         initialSystemContainers,
+        acceptedLegalTermsVersion,
       ] = args;
       if (
         !initialRosterProfileContainer ||
@@ -223,6 +225,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
         throw new Error("Expected provisioned profile requests");
       }
       captured = {
+        acceptedLegalTermsVersion,
         encapsulationPublicKey: bytesToBase64(encapsulationPublicKey),
         initialAdminGroup,
         initialMemberGroup,
@@ -245,6 +248,7 @@ test("registerIdentity settles acknowledged profiles", async () => {
 
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),

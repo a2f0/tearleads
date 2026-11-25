@@ -5,6 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { CONTAINER_METADATA_APP_KIND } from "../../data/persistence/container-contents/dormantContainerMetadata";
@@ -41,6 +42,7 @@ async function expectCommittedSeedCursors(
       seeds[kind]?.push({ documentId, updateId });
     };
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient: {
         registerUser: async (

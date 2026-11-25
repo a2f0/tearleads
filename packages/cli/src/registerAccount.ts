@@ -1,4 +1,5 @@
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import type { LegalTermsAgreement } from "./legalTerms";
 import { openLocalDatabase } from "./localDatabase";
 import { type CliSession, LoginRefusedError, withSession } from "./session";
 import { disabledTracer, type Tracer } from "./trace";
@@ -12,6 +13,8 @@ export interface RegisteredAccount {
 }
 
 interface RegisterInput {
+  /** Asked only when the key has no account yet and one is created. */
+  readonly agreeToLegalTerms: LegalTermsAgreement;
   readonly apiBaseUrl: string;
   readonly recoveryKey: string;
   readonly tracer?: Tracer | undefined;
@@ -32,6 +35,7 @@ async function readAccount({ sdk, userId }: CliSession) {
  * nothing here needs revoking.
  */
 async function createAccount(input: RegisterInput): Promise<void> {
+  const acceptedLegalTermsVersion = await input.agreeToLegalTerms();
   const tracer = input.tracer ?? disabledTracer;
   const database = await openLocalDatabase();
   const sdk = new Tearleads({
@@ -50,7 +54,7 @@ async function createAccount(input: RegisterInput): Promise<void> {
     );
     await sdk.session.bootstrapLocalRootContainer();
     const registered = await tracer.span("register", () =>
-      sdk.session.registerIdentity(),
+      sdk.session.registerIdentity({ acceptedLegalTermsVersion }),
     );
     if (!registered || "status" in registered) {
       throw new Error("The API did not register this recovery key.");

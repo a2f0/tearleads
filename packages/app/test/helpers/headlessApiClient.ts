@@ -1,4 +1,8 @@
-import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import {
+  createMemoryBlobStore,
+  LEGAL_TERMS_VERSION,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import {
   generateKemSeedAndKeyPair,
@@ -29,7 +33,9 @@ export async function createHeadlessApiClient(execSql: ExecSql, id: string) {
       signingKeyPair: generateSigningSeedAndKeyPair(),
     });
     await sdk.session.bootstrapLocalRootContainer();
-    const registered = await sdk.session.registerIdentity();
+    const registered = await sdk.session.registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+    });
     if (
       !registered ||
       "status" in registered ||

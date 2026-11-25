@@ -45,3 +45,22 @@ export async function readSecret(prompt: string): Promise<string> {
     stdin.on("data", onData);
   });
 }
+
+/**
+ * Asks one question on the terminal and reads a visible answer line. Null when
+ * stdin is not a terminal: piped input may be the recovery key, and answering
+ * for the person running the command is not this prompt's to do.
+ */
+export async function readLine(prompt: string): Promise<string | null> {
+  if (!process.stdin.isTTY) return null;
+  const { createInterface } = await import("node:readline/promises");
+  const terminal = createInterface({
+    input: process.stdin,
+    output: process.stderr,
+  });
+  try {
+    return await terminal.question(prompt);
+  } finally {
+    terminal.close();
+  }
+}

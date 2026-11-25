@@ -1,3 +1,4 @@
+import { LEGAL_TERMS_VERSION } from "@tearleads/client-sdk";
 import { createIdentitySeedPhrase } from "@tearleads/crypto";
 import { registerAccount } from "./registerAccount";
 
@@ -5,6 +6,7 @@ import { registerAccount } from "./registerAccount";
 export async function registerCliTestAccount(apiBaseUrl: string) {
   const seedPhrase = createIdentitySeedPhrase();
   const account = await registerAccount({
+    agreeToLegalTerms: async () => LEGAL_TERMS_VERSION,
     apiBaseUrl,
     recoveryKey: seedPhrase,
   });

@@ -129,11 +129,13 @@ export class SessionArea {
     initialRosterProfileContainer: RegistrationRequest["initialRosterProfileContainer"],
     initialRosterProfileDocument: RegistrationRequest["initialRosterProfileDocument"],
     initialOrganizationMetadataContainer: RegistrationRequest["initialOrganizationMetadataContainer"],
-    initialOrganizationProfileDocument?: RegistrationRequest["initialOrganizationProfileDocument"],
-    initialSystemContainers?: RegistrationRequest["initialSystemContainers"],
+    initialOrganizationProfileDocument: RegistrationRequest["initialOrganizationProfileDocument"],
+    initialSystemContainers: RegistrationRequest["initialSystemContainers"],
+    acceptedLegalTermsVersion: RegistrationRequest["acceptedLegalTermsVersion"],
   ) {
     return this.context.transport.request(registerOperation, {
       body: {
+        acceptedLegalTermsVersion,
         userId,
         organizationId,
         rootContainerId,

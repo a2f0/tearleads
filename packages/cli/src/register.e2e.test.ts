@@ -1,9 +1,15 @@
 import { beforeAll, expect, test } from "bun:test";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
-import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import {
+  createMemoryBlobStore,
+  LEGAL_DOCUMENT_URLS,
+  LEGAL_TERMS_VERSION,
+  Tearleads,
+} from "@tearleads/client-sdk";
 import { createIdentitySeedPhrase } from "@tearleads/crypto";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
+import { LEGAL_TERMS_REQUIRED_MESSAGE } from "./legalTerms";
 import { openLocalDatabase } from "./localDatabase";
 
 let apiBaseUrl = "";
@@ -39,15 +45,23 @@ async function openSessions(seedPhrase: string): Promise<number> {
   }
 }
 
+const LEGAL_TERMS_NOTICE = [
+  `Creating an account means agreeing to the Tearleads Privacy Policy and Terms of Service (effective ${LEGAL_TERMS_VERSION}):`,
+  `  ${LEGAL_DOCUMENT_URLS.privacyPolicy}`,
+  `  ${LEGAL_DOCUMENT_URLS.termsOfService}`,
+];
+
 test("register creates the key's account once and saves the key", async () => {
   const seedPhrase = createIdentitySeedPhrase();
   const { context, keyStore, output } = testContext({
+    answer: " YES ",
     apiBaseUrl,
     recoveryKey: seedPhrase,
   });
 
   expect(await runCli(["register"], context)).toBe(0);
-  expect(output.stderr).toEqual([]);
+  expect(output.stderr).toEqual(LEGAL_TERMS_NOTICE);
+  expect(output.questions).toEqual(["Type yes to agree: "]);
   const [registered, saved] = output.stdout;
   expect(registered).toMatch(/^Registered [0-9a-f-]{36} on production\.$/u);
   expect(saved).toBe("The recovery key is saved in the Keychain.");
@@ -59,8 +73,11 @@ test("register creates the key's account once and saves the key", async () => {
   expect(output.stdout).toContain(`user          ${userId}`);
 
   output.stdout.length = 0;
+  output.stderr.length = 0;
   const repeat = await runCli(["register"], context);
+  // An existing account creates nothing, so there is nothing to agree to.
   expect(output.stderr).toEqual([]);
+  expect(output.questions).toHaveLength(1);
   expect(repeat).toBe(0);
   expect(output.stdout[0]).toBe(
     `This recovery key already has an account on production: ${userId}.`,
@@ -83,14 +100,50 @@ test("register --api-url uses that API and keeps the key out of the Keychain", a
 
   expect(
     await runCli(
-      ["register", "--key-stdin", "--api-url", `${apiBaseUrl}/`],
+      [
+        "register",
+        "--key-stdin",
+        "--accept-terms",
+        "--api-url",
+        `${apiBaseUrl}/`,
+      ],
       targetless,
     ),
   ).toBe(0);
-  expect(output.stderr).toEqual([]);
+  expect(output.stderr).toEqual([
+    ...LEGAL_TERMS_NOTICE,
+    "Agreed with --accept-terms.",
+  ]);
   expect(output.stdout).toHaveLength(1);
   expect(output.stdout[0]).toEndWith(` on ${apiBaseUrl}.`);
   expect(keyStore.items.size).toBe(0);
+  expect(await openSessions(seedPhrase)).toBe(0);
+}, 60_000);
+
+test("register creates no account without agreement to the legal terms", async () => {
+  const seedPhrase = createIdentitySeedPhrase();
+  // No terminal to ask (stdin carries the key), and a terminal answer of no.
+  for (const options of [{}, { answer: "no" }]) {
+    const { context, keyStore, output } = testContext({
+      apiBaseUrl,
+      recoveryKey: seedPhrase,
+      ...options,
+    });
+    expect(await runCli(["register"], context)).toBe(1);
+    expect(output.stderr).toEqual([
+      ...LEGAL_TERMS_NOTICE,
+      LEGAL_TERMS_REQUIRED_MESSAGE,
+    ]);
+    expect(output.stdout).toEqual([]);
+    expect(keyStore.items.size).toBe(0);
+  }
+  // Nothing was created: agreeing now registers the key for the first time.
+  const { context, output } = testContext({
+    apiBaseUrl,
+    recoveryKey: seedPhrase,
+  });
+  expect(await runCli(["register", "--accept-terms"], context)).toBe(0);
+  expect(output.stdout[0]).toMatch(/^Registered /u);
   expect(await openSessions(seedPhrase)).toBe(0);
 }, 60_000);
 

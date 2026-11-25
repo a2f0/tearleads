@@ -20,6 +20,7 @@ const REGISTERING: AccountBootstrapInput = {
   identityTransitionInFlight: false,
   isAuthenticated: false,
   isLocked: false,
+  legalTerms: "not-required",
   localIdentityRestoreSettled: true,
   registration: "running",
   sessionRestoreSettled: true,
@@ -90,6 +91,66 @@ describe("resolveAccountBootstrapPhase", () => {
         systemBootstrapStatus: "error",
       }),
     ).toBe("naming-account");
+  });
+
+  test("a registration waiting for agreement to the legal terms asks for it", () => {
+    expect(phaseOf({ legalTerms: "required", registration: "idle" })).toBe(
+      "accepting-terms",
+    );
+    // An identity reloaded on this device but never registered still asks.
+    expect(
+      phaseOf({
+        identityRestored: true,
+        legalTerms: "required",
+        registration: "idle",
+      }),
+    ).toBe("accepting-terms");
+    // One whose account binding is still being read signs in meanwhile, and
+    // one the device already binds to an account signs back in without asking.
+    for (const legalTerms of ["checking", "not-required"] as const) {
+      expect(
+        phaseOf({
+          awaitingAccountName: true,
+          identityRestored: true,
+          legalTerms,
+          registration: legalTerms === "checking" ? "idle" : "running",
+        }),
+      ).toBe("signing-in");
+    }
+    // A stalled bootstrap shows the signed-out controls rather than waiting.
+    for (const stalled of [
+      { registration: "failed" },
+      { registration: "idle", systemBootstrapStatus: "error" },
+    ] as const) {
+      expect(
+        phaseOf({ identityRestored: true, legalTerms: "checking", ...stalled }),
+      ).toBe("signed-out");
+    }
+    // Agreement comes before a name still owed, as in onboarding.
+    expect(
+      phaseOf({
+        awaitingAccountName: true,
+        legalTerms: "required",
+        registration: "idle",
+      }),
+    ).toBe("accepting-terms");
+    // A registered identity, or no autopilot, has nothing to agree to here.
+    for (const overrides of [
+      { userId: "user-1" },
+      { autoProvisioningEnabled: false },
+      { autoRegisterIdentity: false },
+    ]) {
+      expect(
+        phaseOf({
+          legalTerms: "required",
+          registration: "idle",
+          ...overrides,
+        }),
+      ).toBe("signed-out");
+    }
+    expect(accountBootstrapCopy("accepting-terms")?.title).toBe(
+      "Review our terms",
+    );
   });
 
   test("a key that lands before the autopilot's generation settles is still being created", () => {

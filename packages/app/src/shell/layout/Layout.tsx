@@ -22,6 +22,7 @@ import { WallpaperProvider } from "../../theme/WallpaperProvider";
 import { TRAY_APPS } from "../../tray-apps/registry";
 import { AppScreensaverHost } from "./AppScreensaverHost";
 import { BillingBanner } from "./BillingBanner";
+import { DemoLegalTermsGate } from "./DemoLegalTermsGate";
 import { RuntimeRestartNotice } from "./RuntimeRestartNotice";
 import "./Layout.css";
 import "./AppChrome.css";
@@ -80,8 +81,9 @@ function WorkspaceRuntimeHost({
     });
   }, [hostConfig]);
 
+  // The demo's panes register on their own, so one agreement precedes both.
   if (hostConfig.profile.paneRuntimePolicy === "isolated") {
-    return <>{children}</>;
+    return <DemoLegalTermsGate>{children}</DemoLegalTermsGate>;
   }
 
   return (

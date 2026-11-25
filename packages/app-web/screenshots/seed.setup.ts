@@ -56,7 +56,12 @@ test("seed the capture account through the CLI", async () => {
   if (typeof apiUrl !== "string") {
     throw new Error(`Missing API URL for ${test.info().project.name}.`);
   }
-  for (const command of [["register"], ["seed", "--roster"]]) {
+  // Both create accounts on the throwaway capture API; the capture run
+  // agrees to the legal terms for them.
+  for (const command of [
+    ["register", "--accept-terms"],
+    ["seed", "--roster", "--accept-terms"],
+  ]) {
     await tearleads(
       [...command, "--api-url", apiUrl],
       seedIdentity.identitySeedPhrase,
