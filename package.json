@@ -108,6 +108,7 @@
     "test:screenshots-store": "cd scripts/lib && bun test screenshotsStore.test.ts",
     "test:clone-setup": "cd scripts/lib && bun test secretsStore.test.ts secretsLoader.test.ts gradleWrapper.test.ts ../git/postinstall.test.ts",
     "test:soft-reset": "bun test ./scripts/deploy/softReset/",
+    "test:dev-scripts": "bun test ./scripts/dev/restoreKeepass.test.ts",
     "test:install-dependencies": "cd scripts/lib && bun test installDependencies.test.ts",
     "test:npm-publish": "cd scripts/release && bun test releasePlan.test.ts publishPolicy.test.ts publishNpmPackage.test.ts waitForCi.test.ts",
     "test:biome:promises": "bun scripts/testing/testBiomePromises.ts",

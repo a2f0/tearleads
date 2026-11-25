@@ -61,4 +61,28 @@ try {
   restored.free();
   replayed.free();
 }
+
+// A writer whose insert was uploaded in parts regroups it at a checkpoint; a
+// reader of those uploads keeps the parts. Both hold one history.
+for (let attempt = 0; attempt < 3; attempt += 1) {
+  const writer = await createDocument("grouped-history-writer-" + attempt);
+  const reader = await createDocument("grouped-history-reader-" + attempt);
+  try {
+    writer.getText("text").insert(0, "a".repeat(5));
+    writer.commit();
+    const first = exportUpdatesSince(writer);
+    const held = encodeVersionVector(writer);
+    writer.getText("text").insert(5, "b".repeat(30));
+    writer.commit();
+    const second = exportUpdatesSince(writer, held);
+    exportFullHistorySnapshot(writer);
+    importUpdates(reader, [first]);
+    importUpdates(reader, [second]);
+    assert.equal(exportFullHistoryIdentity(reader),
+      exportFullHistoryIdentity(writer));
+  } finally {
+    writer.free();
+    reader.free();
+  }
+}
 `;
