@@ -1,14 +1,12 @@
 import { WrenchIcon } from "@phosphor-icons/react/dist/csr/Wrench";
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
-import {
-  createEquipmentDocumentType,
-  type EquipmentTypeOption,
-} from "../shared/equipmentDocumentDefinition";
+import type { DocumentFieldOption } from "../shared/documentFieldOptions";
+import { createEquipmentDocumentType } from "../shared/equipmentDocumentDefinition";
 
 export const TOOL_DOCUMENT_KIND = "tool" satisfies StoredDocumentKind;
 
 // The hard-coded picker entries, in dropdown order.
-export const TOOL_TYPE_OPTIONS: ReadonlyArray<EquipmentTypeOption> = [
+export const TOOL_TYPE_OPTIONS: ReadonlyArray<DocumentFieldOption> = [
   { label: "Chainsaw", value: "chainsaw" },
   { label: "Circular Saw", value: "circular_saw" },
   { label: "Drill", value: "drill" },

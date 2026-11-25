@@ -30,6 +30,8 @@ import { GenericFileDocumentApp } from "./generic-file/GenericFileDocumentApp";
 import { GENERIC_FILE_DOCUMENT_KIND } from "./generic-file/genericFileDocumentDefinition";
 import { ImageDocumentApp } from "./image/ImageDocumentApp";
 import { IMAGE_DOCUMENT_KIND } from "./image/imageDocumentDefinition";
+import { InsurancePolicyDocumentApp } from "./insurance-policy/InsurancePolicyApp";
+import { INSURANCE_POLICY_DOCUMENT_KIND } from "./insurance-policy/insurancePolicyDocumentDefinition";
 import { JsonFileDocumentApp } from "./json-file/JsonFileDocumentApp";
 import { JSON_FILE_DOCUMENT_KIND } from "./json-file/jsonFileDocumentDefinition";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
@@ -49,6 +51,8 @@ import type {
   AppDocumentProjectorDefinition,
   DocumentTypeAppProps,
 } from "./types";
+import { VehicleDocumentApp } from "./vehicle/VehicleApp";
+import { VEHICLE_DOCUMENT_KIND } from "./vehicle/vehicleDocumentDefinition";
 import { VideoDocumentApp } from "./video/VideoDocumentApp";
 import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
 import { WeightDocumentApp } from "./weight/WeightApp";
@@ -74,12 +78,14 @@ const documentTypeAppsByKind = new Map<
   [CREDIT_CARD_DOCUMENT_KIND, CreditCardDocumentApp],
   [PASSPORT_DOCUMENT_KIND, PassportDocumentApp],
   [BIRTH_CERTIFICATE_DOCUMENT_KIND, BirthCertificateDocumentApp],
+  [INSURANCE_POLICY_DOCUMENT_KIND, InsurancePolicyDocumentApp],
   [ENV_FILE_DOCUMENT_KIND, EnvFileDocumentApp],
   [BLOOD_PRESSURE_DOCUMENT_KIND, BloodPressureDocumentApp],
   [EYEGLASS_PRESCRIPTION_DOCUMENT_KIND, EyeglassPrescriptionDocumentApp],
   [WEIGHT_DOCUMENT_KIND, WeightDocumentApp],
   [TOOL_DOCUMENT_KIND, ToolDocumentApp],
   [APPLIANCE_DOCUMENT_KIND, ApplianceDocumentApp],
+  [VEHICLE_DOCUMENT_KIND, VehicleDocumentApp],
   [JSON_FILE_DOCUMENT_KIND, JsonFileDocumentApp],
   [IMAGE_DOCUMENT_KIND, ImageDocumentApp],
   [AUDIO_DOCUMENT_KIND, AudioDocumentApp],

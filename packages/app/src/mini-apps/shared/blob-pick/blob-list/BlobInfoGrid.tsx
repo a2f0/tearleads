@@ -86,7 +86,7 @@ export function BlobInfoGrid(params: {
   error: string | null;
   frameRef: (frame: HTMLDivElement | null) => void;
   // When provided, blobs that fail the predicate are shown but not selectable
-  // (pick mode: only image blobs bind to image slots).
+  // (pick mode: only blobs the slot accepts bind to it).
   isRowSelectable?: ((blob: BlobInfo) => boolean) | undefined;
   isLoading: boolean;
   onRowContextMenu?:

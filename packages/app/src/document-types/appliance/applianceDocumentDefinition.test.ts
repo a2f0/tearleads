@@ -6,9 +6,9 @@ import {
 } from "@tearleads/client-sdk";
 import { createDocument } from "@tearleads/loro";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../projectors";
+import { getDocumentFieldOptionLabel } from "../shared/documentFieldOptions";
 import {
   type EquipmentDocumentFields,
-  getEquipmentTypeLabel,
   readEquipmentFieldsFromRecord,
 } from "../shared/equipmentDocumentDefinition";
 import { APPLIANCE_TYPE_OPTIONS } from "./applianceDocumentDefinition";
@@ -89,16 +89,16 @@ test("appliance title humanizes a type outside the option list", async () => {
 });
 
 test("type labels resolve from the option list or the stored value", () => {
-  expect(getEquipmentTypeLabel(APPLIANCE_TYPE_OPTIONS, "washing_machine")).toBe(
-    "Washing Machine",
-  );
-  expect(getEquipmentTypeLabel(APPLIANCE_TYPE_OPTIONS, " dryer ")).toBe(
+  expect(
+    getDocumentFieldOptionLabel(APPLIANCE_TYPE_OPTIONS, "washing_machine"),
+  ).toBe("Washing Machine");
+  expect(getDocumentFieldOptionLabel(APPLIANCE_TYPE_OPTIONS, " dryer ")).toBe(
     "Dryer",
   );
-  expect(getEquipmentTypeLabel(APPLIANCE_TYPE_OPTIONS, "heat-pump")).toBe(
+  expect(getDocumentFieldOptionLabel(APPLIANCE_TYPE_OPTIONS, "heat-pump")).toBe(
     "Heat Pump",
   );
-  expect(getEquipmentTypeLabel(APPLIANCE_TYPE_OPTIONS, "   ")).toBe("");
+  expect(getDocumentFieldOptionLabel(APPLIANCE_TYPE_OPTIONS, "   ")).toBe("");
 });
 
 test("non-string equipment fields are reported and blanked", () => {

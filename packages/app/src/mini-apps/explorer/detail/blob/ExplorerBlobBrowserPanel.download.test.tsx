@@ -393,6 +393,7 @@ test("the blob id is hidden from the row but stays the button's label", async ()
 const PICK_TARGET: BlobPickTarget = {
   containerId: "container-1",
   localId: "local-document-1",
+  slotAccept: "image",
   slotId: "front-image",
   slotLabel: "Front Image",
 };

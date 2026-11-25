@@ -44,6 +44,7 @@ function createBlobStore(): BlobStore {
 const PICK_TARGET: BlobPickTarget = {
   containerId: "container-1",
   localId: "local-document-1",
+  slotAccept: "image",
   slotId: "front-image",
   slotLabel: "Front Image",
 };
@@ -62,8 +63,10 @@ function BackActionProbe() {
 function renderPickPanel(overrides: {
   onCancelBlobPick?: () => void;
   onPickBlob?: (blob: BlobInfo) => void;
+  pickTarget?: BlobPickTarget;
+  rows?: BlobInfo[];
 }) {
-  const rows = createBlobRows();
+  const rows = overrides.rows ?? createBlobRows();
   return render(
     <WindowMenuProvider>
       <ExplorerBlobBrowserPanel
@@ -74,7 +77,7 @@ function renderPickPanel(overrides: {
         onCancelBlobPick={overrides.onCancelBlobPick ?? (() => undefined)}
         onPickBlob={overrides.onPickBlob ?? (() => undefined)}
         openDocumentInfoRoute={() => undefined}
-        pickTarget={PICK_TARGET}
+        pickTarget={overrides.pickTarget ?? PICK_TARGET}
         route={{ blobId: null, storageKey: null }}
         selectDocumentProjection={() => undefined}
       />
@@ -119,6 +122,41 @@ test("pick mode disables non-image rows", async () => {
 
   fireEvent.click(textRow);
   expect(picked).toEqual([]);
+});
+
+test("a file slot picks PDFs as well as images and disables other files", async () => {
+  const picked: BlobInfo[] = [];
+  const [textBlob, imageBlob] = createBlobRows();
+  if (!textBlob || !imageBlob) throw new Error("missing blob rows");
+  const pdfBlob: BlobInfo = {
+    ...textBlob,
+    blobId: "blob-3",
+    key: "blob:blob-3",
+    mimeType: "application/pdf",
+    storageKey: "storage-3",
+  };
+  const view = renderPickPanel({
+    onPickBlob: (blob) => {
+      picked.push(blob);
+    },
+    pickTarget: {
+      ...PICK_TARGET,
+      slotAccept: "image-or-pdf",
+      slotLabel: "Policy Documents",
+    },
+    rows: [textBlob, imageBlob, pdfBlob],
+  });
+
+  await waitFor(() => {
+    expect(
+      view.getByText("Choose an image or PDF blob for Policy Documents."),
+    ).toBeTruthy();
+  });
+  const textRow = await view.findByRole("button", { name: "blob-1" });
+  expect((textRow as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(textRow);
+  fireEvent.click(view.getByRole("button", { name: "blob-3" }));
+  expect(picked.map((blob) => blob.blobId)).toEqual(["blob-3"]);
 });
 
 test("pick mode cancel abandons the pick", async () => {
