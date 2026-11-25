@@ -59,7 +59,14 @@ async function loadDocumentBlobIds(
 export interface OrganizationRemotePurgeScope {
   readonly blobIds: string[];
   readonly containerIds: string[];
+  /** Ids with a document row, whose rows the purge deletes. */
   readonly documentIds: string[];
+  /**
+   * Every document id the organization's rows name, which the purge frees:
+   * its documents, folder metadata ids bound before their document exists,
+   * and ids only its manifests or content headers still name.
+   */
+  readonly freedDocumentIds: string[];
 }
 
 export async function loadOrganizationRemotePurgeScope(input: {
@@ -139,5 +146,6 @@ export async function loadOrganizationRemotePurgeScope(input: {
     ],
     containerIds,
     documentIds,
+    freedDocumentIds: candidateDocumentIds,
   };
 }

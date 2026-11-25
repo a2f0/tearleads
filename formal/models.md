@@ -266,7 +266,8 @@ or forging its acknowledged head.
 recovery adopts a replacement organization or root that an untrusted API
 returns, or re-homes the local corpus there, only with this identity's explicit
 signed replacement intent. Recovery starts from the API's unsigned purged
-status only for the user's own personal organization. See the
+status only for the user's own personal organization, and no other user's
+create of a purged id can stop the owner's recreation of it. See the
 [mapping and boundaries](./local-trust/PurgeRecovery.md).
 
 [`local-trust/SubtreePurgeScope.tla`](./local-trust/SubtreePurgeScope.tla)

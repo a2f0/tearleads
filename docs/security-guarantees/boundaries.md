@@ -148,9 +148,11 @@ the document from history; the refused device then moves them to a fresh peer
 ([peer ownership](../advisory-op-spans.md#peer-ownership)). Only a billing
 purge of a whole organization frees a document's id, and the owner's devices
 recreate it by republishing local history under the same id
-(`recoverPurgedOrganization`). The server reserves no freed id, so a member who
-knows it can create it first, which stalls the owner's recovery of that
-document. A purge of one document is permanent: a create of its id is refused
+(`recoverPurgedOrganization`). The purge reserves each freed container and
+document id for that owner, and the server refuses it to every other user
+([reserved ids](../developer/billing-purge-recovery.md#reserved-ids)), so
+nobody who learned an id from history can stall that recovery. A purge of one
+document is permanent: a create of its id is refused
 with 409 "Document was permanently purged". The server also refuses an update
 that depends on an operation nobody committed, and readers void one whose
 payload depends on other operations than it declares, so another user cannot

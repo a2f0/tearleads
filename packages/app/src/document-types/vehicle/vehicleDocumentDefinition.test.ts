@@ -132,3 +132,13 @@ test("each service row keeps its own unit and currency, and bad cells are flagge
     },
   ]);
 });
+
+test("a saved service whose work was cleared is reported", () => {
+  expect(
+    project({ make: "Toyota" }, [
+      { fields: { serviceDate: "2026-03-01", work: "" }, id: "service-1" },
+    ]).fieldValidationIssues,
+  ).toEqual([
+    { field: "rows[0].work", message: "Expected a value.", value: "" },
+  ]);
+});
