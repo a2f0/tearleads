@@ -97,7 +97,7 @@ export const disableTwoFactorOperation = defineJsonOperation({
   id: "auth.twoFactor.disable",
   summary: "Turn off two-factor authentication",
   description:
-    "Turns off two-factor authentication after checking an authenticator or recovery code. It deletes the secret, the recovery codes, and every remembered device, and revokes the identity's other sessions. Organizations that require two-factor authentication of this member refuse the calling session afterwards.",
+    "Turns off two-factor authentication after checking an authenticator or recovery code. It deletes the secret, the recovery codes, and every remembered device, and revokes every session of the identity, the calling one included; each renews by signing in again. Organizations that require two-factor authentication of this member refuse the renewed sessions.",
   method: "POST",
   params: TwoFactorPathParamsSchema,
   path: "/auth/two-factor/disable",

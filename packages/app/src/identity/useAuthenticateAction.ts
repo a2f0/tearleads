@@ -2,10 +2,14 @@ import type {
   SessionTwoFactorCode,
   TwoFactorLoginErrorCode,
 } from "@tearleads/client-sdk";
-import { useCallback, useState } from "react";
+import { useCallback, useReducer, useRef } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../providers/logging/LogProvider";
 import { useTearleads } from "../providers/sdk/TearleadsProvider";
+import {
+  INITIAL_AUTHENTICATE_ACTION_STATE,
+  transitionAuthenticateAction,
+} from "./authenticateActionMachine";
 import {
   IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE,
   isIdentityAcknowledgmentMismatch,
@@ -94,33 +98,45 @@ export function useAuthenticateAction(): AuthenticateAction {
   const { login, loginWithSecondFactor } = useCryptoSession();
   const { logError } = useLog();
   const tearleads = useTearleads();
-  const [authenticating, setAuthenticating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [twoFactorPrompt, setTwoFactorPrompt] =
-    useState<TwoFactorLoginErrorCode | null>(null);
+  const [state, dispatch] = useReducer(
+    transitionAuthenticateAction,
+    INITIAL_AUTHENTICATE_ACTION_STATE,
+  );
+  // Each attempt is tagged; only the latest one may finish the state.
+  const latest = useRef(0);
 
   const authenticate = useCallback(
     async (twoFactor?: SessionTwoFactorCode): Promise<boolean> => {
-      setAuthenticating(true);
-      setError(null);
+      const tag = ++latest.current;
+      dispatch({ type: "started" });
+      const finish = (event: Parameters<typeof dispatch>[0]) => {
+        if (tag === latest.current) dispatch(event);
+      };
       try {
         const authenticated = twoFactor
           ? await loginWithSecondFactor(twoFactor)
           : await login();
-        if (authenticated) setTwoFactorPrompt(null);
-        if (!authenticated) {
+        if (authenticated) {
+          finish({ type: "succeeded" });
+        } else {
           // Read the network store now, not a render-time snapshot, so a source
           // event that arrived during the authentication attempt is reflected.
-          setError(
-            describeAuthenticationFailure({ online: tearleads.network.online }),
-          );
+          finish({
+            message: describeAuthenticationFailure({
+              online: tearleads.network.online,
+            }),
+            type: "failed",
+          });
         }
         return authenticated;
       } catch (caught: unknown) {
         const refusal = twoFactorRefusal(caught);
         if (refusal) {
-          setTwoFactorPrompt(refusal);
-          setError(TWO_FACTOR_MESSAGES[refusal]);
+          finish({
+            message: TWO_FACTOR_MESSAGES[refusal],
+            prompt: refusal,
+            type: "second-factor-refused",
+          });
           return false;
         }
         const identityMismatch = isIdentityAcknowledgmentMismatch(caught);
@@ -130,25 +146,29 @@ export function useAuthenticateAction(): AuthenticateAction {
             : "Authentication failed",
           caught,
         );
-        setError(
-          describeAuthenticationFailure({
+        finish({
+          message: describeAuthenticationFailure({
             accountSuspended: isAccountSuspended(caught),
             identityMismatch,
             online: tearleads.network.online,
           }),
-        );
+          type: "failed",
+        });
         return false;
-      } finally {
-        setAuthenticating(false);
       }
     },
     [login, loginWithSecondFactor, logError, tearleads],
   );
 
   const clearError = useCallback(() => {
-    setError(null);
-    setTwoFactorPrompt(null);
+    dispatch({ type: "dismissed" });
   }, []);
 
-  return { authenticate, authenticating, error, clearError, twoFactorPrompt };
+  return {
+    authenticate,
+    authenticating: state.status === "authenticating",
+    clearError,
+    error: state.status === "failed" ? state.message : null,
+    twoFactorPrompt: state.status === "idle" ? null : state.prompt,
+  };
 }

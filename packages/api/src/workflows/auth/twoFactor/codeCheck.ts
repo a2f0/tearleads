@@ -29,10 +29,17 @@ async function acceptsCode(input: {
 }): Promise<boolean> {
   const { answer, executor, now, record } = input;
   if (answer.method === "recovery_code") {
-    const codeHash = recoveryCodeHash(answer.code);
+    const codeHash = recoveryCodeHash(answer.code, {
+      serverSecret: input.serverSecret,
+      userId: record.userId,
+    });
     return (
       codeHash !== null &&
-      (await consumeRecoveryCode(executor, { codeHash, userId: record.userId }))
+      (await consumeRecoveryCode(executor, {
+        codeHash,
+        now,
+        userId: record.userId,
+      }))
     );
   }
   const code = normalizeTotpCode(answer.code);

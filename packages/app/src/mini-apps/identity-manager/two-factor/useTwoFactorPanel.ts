@@ -43,7 +43,9 @@ export function useTwoFactorPanel() {
   const latest = useRef(0);
 
   const load = useCallback(async () => {
+    // A load supersedes any action in flight, whose result is then ignored.
     const tag = ++latest.current;
+    setBusy(null);
     setError(null);
     dispatch({ type: "load" });
     try {
@@ -69,7 +71,8 @@ export function useTwoFactorPanel() {
       setError(null);
       try {
         const event = await work();
-        if (tag === latest.current) dispatch(event);
+        if (tag !== latest.current) return false;
+        dispatch(event);
         return true;
       } catch (caught) {
         if (tag === latest.current) setError(describeTwoFactorFailure(caught));

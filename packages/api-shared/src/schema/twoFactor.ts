@@ -19,7 +19,7 @@ import { users } from "./users";
  * Columns:
  * - `userId`: The user; one authenticator per user.
  * - `secretCiphertext`: The TOTP secret, sealed with AES-256-GCM under a key
- *   the API derives from its server secret and bound to `userId`, so a
+ *   the API derives from `TWO_FACTOR_SECRET_KEY` and bound to `userId`, so a
  *   database read alone cannot produce codes.
  * - `enabledAt`: When a code from the secret was first confirmed and sign-in
  *   began asking for one. Null while setup is pending; a pending row is
@@ -47,7 +47,9 @@ export const userTwoFactor = pgTable("user_two_factor", {
 /**
  * Unused single-use recovery codes for a user's two-factor sign-in.
  *
- * Only SHA-256 hashes are stored; the codes themselves are shown once. Using
+ * Only HMAC-SHA-256 hashes are stored, keyed by `TWO_FACTOR_SECRET_KEY` and
+ * bound to the user, so a database read alone cannot test guesses; the codes
+ * themselves are shown once. Using
  * a code deletes its row, and turning two-factor off or replacing the codes
  * deletes them all.
  *

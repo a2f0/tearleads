@@ -8,6 +8,7 @@ import { base64ToBytes } from "@tearleads/encoding";
 import type { TwoFactorLoginCode } from "@tearleads/validators/request";
 import { and, eq, isNull } from "drizzle-orm";
 import { twoFactorRequiredOrganizationIdsSql } from "../../middleware/userActivity";
+import { readTwoFactorSecretKey } from "../../utils/serverSecrets";
 import { resolveLoginSecondFactor } from "../../workflows/auth/twoFactor/loginSecondFactor";
 import {
   type TwoFactorRecord,
@@ -104,7 +105,7 @@ async function requireSecondFactor(
     executor: runtime.db,
     now: new Date(),
     record,
-    serverSecret: runtime.documentSyncCursorHmacKey,
+    serverSecret: readTwoFactorSecretKey(),
   });
   if (
     secondFactor.status === "verified" ||
@@ -114,6 +115,30 @@ async function requireSecondFactor(
   }
   const [message, reason] = secondFactorRefusals[secondFactor.status];
   throw new VerifyChallengeError(message, reason);
+}
+
+/** Stores the session, refusing it if the standing changed since sign-in. */
+async function openVerifiedSession(
+  runtime: ApiServiceRuntime,
+  input: VerifyChallengeInput,
+  standing: {
+    readonly twoFactorRequiredOrganizationIds: readonly string[];
+    readonly twoFactorVerified: boolean;
+    readonly userId: string;
+  },
+): Promise<{ readonly sessionId: string; readonly token: string }> {
+  const session = await openLoginSession(runtime, {
+    fingerprint: input.fingerprint,
+    ipAddress: input.ipAddress,
+    ...standing,
+  });
+  if (session.status === "suspended") throw suspendedError();
+  if (session.status === "two_factor_required") {
+    // Two-factor was turned on while this sign-in was in flight.
+    const [message, reason] = secondFactorRefusals.required;
+    throw new VerifyChallengeError(message, reason);
+  }
+  return session;
 }
 
 export async function verifyChallenge(
@@ -199,14 +224,11 @@ export async function verifyChallenge(
     input,
     joinedTwoFactorRecord(user),
   );
-  const session = await openLoginSession(runtime, {
-    fingerprint: input.fingerprint,
-    ipAddress: input.ipAddress,
+  const session = await openVerifiedSession(runtime, input, {
     twoFactorRequiredOrganizationIds: user.twoFactorRequiredOrganizationIds,
     twoFactorVerified: secondFactor.status === "verified",
     userId: user.id,
   });
-  if (session.status === "suspended") throw suspendedError();
 
   return {
     rootContainerId: user.rootContainerId,

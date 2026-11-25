@@ -3,11 +3,14 @@ import {
   db,
   withDatabaseStatementCounter,
 } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import { users, userTwoFactor } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createRequireAuth, type SessionEnv } from "./session";
-import { createRecordActivityUnlessSuspended } from "./userActivity";
+import {
+  createRecordActivityUnlessSuspended,
+  sessionStandingRefusal,
+} from "./userActivity";
 
 async function insertUser(): Promise<string> {
   const [inserted] = await db
@@ -29,7 +32,11 @@ async function insertUser(): Promise<string> {
   return inserted.id;
 }
 
-const notSuspended = { suspended: false, twoFactorRequiredOrganizationIds: [] };
+const notSuspended = {
+  suspended: false,
+  twoFactorEnabled: false,
+  twoFactorRequiredOrganizationIds: [],
+};
 
 async function readLastActiveAt(userId: string): Promise<Date | null> {
   const [row] = await db
@@ -76,6 +83,33 @@ test("the standing stamp reports a suspended user and leaves its activity", asyn
     suspended: true,
   });
   await expect(readLastActiveAt(userId)).resolves.toEqual(new Date(seen));
+});
+
+test("once two-factor is on, only a session that passed it stands", async () => {
+  const userId = await insertUser();
+  const record = createRecordActivityUnlessSuspended(db);
+  const session = (twoFactorVerified: boolean) => ({
+    twoFactorRequiredOrganizationIds: [],
+    twoFactorVerified,
+  });
+  await db.insert(userTwoFactor).values({
+    secretCiphertext: "sealed",
+    userId,
+  });
+  const pending = await record({ lastActiveAt: Date.now(), userId });
+  expect(pending.twoFactorEnabled).toBe(false);
+  expect(sessionStandingRefusal(session(false), pending)).toBeNull();
+
+  await db
+    .update(userTwoFactor)
+    .set({ enabledAt: new Date() })
+    .where(eq(userTwoFactor.userId, userId));
+  const enabled = await record({ lastActiveAt: Date.now(), userId });
+  expect(enabled.twoFactorEnabled).toBe(true);
+  expect(sessionStandingRefusal(session(false), enabled)).toBe(
+    "Two-factor sign-in required",
+  );
+  expect(sessionStandingRefusal(session(true), enabled)).toBeNull();
 });
 
 test("the standing stamp reads an unknown user as not suspended", async () => {

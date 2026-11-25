@@ -65,7 +65,11 @@ function standing(
   suspended: boolean,
   twoFactorRequiredOrganizationIds: readonly string[] = [],
 ) {
-  return { suspended, twoFactorRequiredOrganizationIds };
+  return {
+    suspended,
+    twoFactorEnabled: false,
+    twoFactorRequiredOrganizationIds,
+  };
 }
 
 function activityApp(

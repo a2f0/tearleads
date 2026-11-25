@@ -96,6 +96,20 @@ if [[ "${#DOCUMENT_SYNC_CURSOR_HMAC_KEY}" -lt 32 ]]; then
   echo "ERROR: DOCUMENT_SYNC_CURSOR_HMAC_KEY must be at least 32 bytes." >&2
   exit 1
 fi
+# The two-factor key seals authenticator secrets and keys recovery-code
+# hashes. It is generated once per tier the same way and must never rotate:
+# a new key leaves every enrolled authenticator and recovery code unusable.
+if [[ -z "${TWO_FACTOR_SECRET_KEY:-}" ]]; then
+  (
+    umask 077
+    printf 'export TWO_FACTOR_SECRET_KEY=%s\n' "$(openssl rand -hex 32)" >>"$WORKER_ENV_FILE"
+  )
+  load_secrets_env "$TIER"
+fi
+if [[ "${#TWO_FACTOR_SECRET_KEY}" -lt 32 ]]; then
+  echo "ERROR: TWO_FACTOR_SECRET_KEY must be at least 32 bytes." >&2
+  exit 1
+fi
 
 umask 077
 CONNECTION_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tearleads-${TIER}-worker-XXXXXX")
@@ -164,6 +178,7 @@ export BLOB_GC_HEALTHCHECK_URL
 # Secrets reach jq through its environment, never its argument list, which
 # any process on the host can read.
 export DOCUMENT_SYNC_CURSOR_HMAC_KEY
+export TWO_FACTOR_SECRET_KEY
 jq -n \
   --slurpfile storage "$CONNECTION_DIR/storage.json" \
   '
@@ -171,6 +186,7 @@ jq -n \
     if ((env[$name] // "") | length) > 0 then { ($name): env[$name] } else {} end;
   {
     DOCUMENT_SYNC_CURSOR_HMAC_KEY: env.DOCUMENT_SYNC_CURSOR_HMAC_KEY,
+    TWO_FACTOR_SECRET_KEY: env.TWO_FACTOR_SECRET_KEY,
     BLOB_GC_HEALTHCHECK_URL: env.BLOB_GC_HEALTHCHECK_URL,
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: $storage[0].blob_s3_access_key_id,
     BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: $storage[0].blob_s3_secret_access_key

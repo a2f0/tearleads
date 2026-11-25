@@ -90,15 +90,20 @@ Authentication uses challenge signing:
 An identity can add a second factor: a TOTP authenticator (RFC 6238, SHA-1,
 six digits, thirty-second steps, one step of drift) with ten single-use
 recovery codes, managed under `/auth/two-factor`. The server keeps the secret
-sealed under a key derived from its own secret and the recovery codes only as
-SHA-256 hashes, and refuses a step it already accepted. While it is on,
+sealed under a key derived from `TWO_FACTOR_SECRET_KEY`, a server secret that
+never rotates, and the recovery codes only as HMAC-SHA-256 hashes keyed by it
+and bound to the user. It refuses a step it already accepted, and refuses
+every code while a lockout is in force, checked in the statement that accepts
+the code. While it is on,
 `POST /auth/verify` also needs `twoFactor`, a code, or `twoFactorDeviceToken`,
 a token the server issued for a remembered device (thirty days, bound to the
 user and to that enrollment). It answers `401 two_factor_required` without one,
 `401 two_factor_invalid` for a wrong code, and `429 two_factor_locked` once five
 codes in a row miss, for fifteen minutes. Turning two-factor on keeps the
-calling session and revokes the identity's others; turning it off revokes all
-of them.
+calling session and revokes the identity's others; a sign-in that stored its
+session during that sweep rereads the user and is refused without a second
+factor, and the activity check refuses any session without one that remains.
+Turning two-factor off revokes all of them.
 
 An organization administrator can require a second factor of a member with
 `PUT /organizations/:organizationId/roster/:userId/two-factor`. Each session
@@ -113,7 +118,9 @@ renewal records them afresh. Reads that a container grant authorizes without
 one of those organization checks, and realtime hints, are not gated by the
 requirement. Enrolling a second factor needs only a signed-in session, so the
 requirement makes members enroll; it does not protect a signing key stolen
-before they do.
+before they do. Whoever holds the key first can enroll their own
+authenticator and keep the recovery codes, after which the owner's sign-ins
+need a code they do not have.
 
 A `401 session_refresh_required` response means the bearer token identified a
 missing, expired, or invalid stored session and permits the client to renew and

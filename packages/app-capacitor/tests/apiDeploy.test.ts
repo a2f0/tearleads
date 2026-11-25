@@ -71,10 +71,10 @@ async function deployFixture(
       '  local traced=0; if [[ "$-" == *x* ]]; then traced=1; set +x; fi',
       "  TF_VAR_domain=example.test",
       `  TF_VAR_cloudflare_account_id=${"b".repeat(32)}`,
-      // A generated key is read back from the tier's worker.env.
+      // Generated keys are read back from the tier's worker.env.
       options.generateCursorKey
         ? '  if [[ -f "$API_DEPLOY_TEST_ROOT/.secrets/$1/worker.env" ]]; then . "$API_DEPLOY_TEST_ROOT/.secrets/$1/worker.env"; fi'
-        : '  DOCUMENT_SYNC_CURSOR_HMAC_KEY="fixture-cursor-key-with-at-least-32-bytes"',
+        : '  DOCUMENT_SYNC_CURSOR_HMAC_KEY="fixture-cursor-key-with-at-least-32-bytes" TWO_FACTOR_SECRET_KEY="fixture-two-factor-key-with-at-least-32-bytes"',
       `  BLOB_GC_HEALTHCHECK_URL=${options.healthcheckUrl ?? "https://hc.example.test/ping/fixture"}`,
       "  SENTRY_API_STAGING_DSN=https://staging-dsn.example.test/1",
       "  SENTRY_API_PRODUCTION_DSN=https://production-dsn.example.test/2",
@@ -267,6 +267,7 @@ test("the Worker receives Hyperdrive, derived origins, and only managed secrets"
   );
   expect(run.secrets).toMatchObject({
     DOCUMENT_SYNC_CURSOR_HMAC_KEY: "fixture-cursor-key-with-at-least-32-bytes",
+    TWO_FACTOR_SECRET_KEY: "fixture-two-factor-key-with-at-least-32-bytes",
     BLOB_GC_HEALTHCHECK_URL: "https://hc.example.test/ping/fixture",
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "fixture-key",
     API_SENTRY_DSN: "https://staging-dsn.example.test/1",
@@ -348,14 +349,15 @@ for (const [label, healthcheckUrl] of [
 }
 
 for (const tier of ["staging", "prod"] as const) {
-  test(`a missing ${tier} cursor key is generated once into the tier's worker.env`, async () => {
+  test(`missing ${tier} cursor and two-factor keys are generated once into the tier's worker.env`, async () => {
     const run = await deployFixture({}, { tier, generateCursorKey: true });
     expect(run.exitCode, run.stderr).toBe(0);
-    const key = run.workerEnv?.match(
-      /^export DOCUMENT_SYNC_CURSOR_HMAC_KEY=([0-9a-f]{64})\n$/,
-    )?.[1];
-    expect(key).toBeDefined();
-    expect(run.secrets).toMatchObject({ DOCUMENT_SYNC_CURSOR_HMAC_KEY: key });
+    const pattern =
+      /^export DOCUMENT_SYNC_CURSOR_HMAC_KEY=(\w{64})\nexport TWO_FACTOR_SECRET_KEY=(\w{64})\n$/;
+    const [, cursor, twoFactor] = run.workerEnv?.match(pattern) ?? [];
+    expect(twoFactor).not.toBe(cursor);
+    expect(run.secrets).toHaveProperty("DOCUMENT_SYNC_CURSOR_HMAC_KEY", cursor);
+    expect(run.secrets).toHaveProperty("TWO_FACTOR_SECRET_KEY", twoFactor);
   });
 }
 

@@ -43,6 +43,7 @@ function open(
 test("a requirement committed while signing in reissues the session with it", async () => {
   const { opened, revoked, runtime } = recordingRuntime({
     suspended: false,
+    twoFactorEnabled: false,
     twoFactorRequiredOrganizationIds: [ORGANIZATION_ID],
   });
 
@@ -58,6 +59,7 @@ test("a requirement committed while signing in reissues the session with it", as
 test("a session that passed a second factor ignores requirements", async () => {
   const { opened, revoked, runtime } = recordingRuntime({
     suspended: false,
+    twoFactorEnabled: false,
     twoFactorRequiredOrganizationIds: [ORGANIZATION_ID],
   });
 
@@ -69,11 +71,38 @@ test("a session that passed a second factor ignores requirements", async () => {
 test("a suspension read after storing revokes the session", async () => {
   const { revoked, runtime } = recordingRuntime({
     suspended: true,
+    twoFactorEnabled: false,
     twoFactorRequiredOrganizationIds: [ORGANIZATION_ID],
   });
 
   expect(await open(runtime, false)).toEqual({ status: "suspended" });
   expect(revoked).toEqual(["session-1"]);
+});
+
+test("two-factor turned on while signing in refuses a session without it", async () => {
+  // The sign-in read the record before two-factor was on; turning it on swept
+  // the user's sessions before this one was stored.
+  const { revoked, runtime } = recordingRuntime({
+    suspended: false,
+    twoFactorEnabled: true,
+    twoFactorRequiredOrganizationIds: [ORGANIZATION_ID],
+  });
+
+  expect(await open(runtime, false)).toEqual({
+    status: "two_factor_required",
+  });
+  expect(revoked).toEqual(["session-1"]);
+});
+
+test("a session that passed a second factor stands once two-factor is on", async () => {
+  const { revoked, runtime } = recordingRuntime({
+    suspended: false,
+    twoFactorEnabled: true,
+    twoFactorRequiredOrganizationIds: [],
+  });
+
+  expect((await open(runtime, true)).status).toBe("open");
+  expect(revoked).toEqual([]);
 });
 
 test("a failed activity stamp falls back to reading the standing", async () => {

@@ -21,6 +21,7 @@ export async function startHibernatingWorker() {
           API_CORS_ORIGINS: "*",
           API_BILLING_RETURN_ORIGINS: "https://app.workerd.test",
           DOCUMENT_SYNC_CURSOR_HMAC_KEY: "workerd-cursor-key-".repeat(3),
+          TWO_FACTOR_SECRET_KEY: "workerd-two-factor-key-".repeat(2),
         }),
       },
       stdin: "ignore",

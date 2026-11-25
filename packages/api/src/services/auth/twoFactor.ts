@@ -10,6 +10,7 @@ import {
   type TwoFactorSetupResponse,
   type TwoFactorStatusResponse,
 } from "@tearleads/validators/response";
+import { readTwoFactorSecretKey } from "../../utils/serverSecrets";
 import { checkSecondFactorCode } from "../../workflows/auth/twoFactor/codeCheck";
 import { issueTwoFactorDeviceToken } from "../../workflows/auth/twoFactor/deviceTrust";
 import { generateRecoveryCodes } from "../../workflows/auth/twoFactor/recoveryCodes";
@@ -18,12 +19,12 @@ import {
   sealTwoFactorSecret,
 } from "../../workflows/auth/twoFactor/secretSeal";
 import {
-  acceptTotpStep,
+  confirmTwoFactorEnrollment,
   countRecoveryCodes,
-  deleteTwoFactor,
   loadTwoFactorRecord,
   recordFailedCode,
-  replaceRecoveryCodes,
+  reissueRecoveryCodes,
+  removeTwoFactor,
   savePendingTwoFactorSecret,
   type TwoFactorRecord,
 } from "../../workflows/auth/twoFactor/store";
@@ -145,7 +146,7 @@ export async function beginTwoFactorSetup(
     now: new Date(),
     secretCiphertext: await sealTwoFactorSecret({
       secret,
-      serverSecret: runtime.documentSyncCursorHmacKey,
+      serverSecret: readTwoFactorSecretKey(),
       userId: caller.userId,
     }),
     userId: caller.userId,
@@ -203,6 +204,7 @@ export async function enableTwoFactor(
   request: TwoFactorEnableRequest,
 ): Promise<TwoFactorEnableResponse> {
   const now = new Date();
+  const serverSecret = readTwoFactorSecretKey();
   const record = await requirePendingRecord(runtime, caller.userId, now);
   const code = normalizeTotpCode(request.code);
   const step =
@@ -214,29 +216,22 @@ export async function enableTwoFactor(
           nowMs: now.getTime(),
           secret: await openTwoFactorSecret({
             sealed: record.secretCiphertext,
-            serverSecret: runtime.documentSyncCursorHmacKey,
+            serverSecret,
             userId: caller.userId,
           }),
         });
-  const recoveryCodes = generateRecoveryCodes();
+  const recoveryCodes = generateRecoveryCodes({
+    serverSecret,
+    userId: caller.userId,
+  });
   const enabledAt =
     step === null
       ? null
-      : await runtime.db.transaction(async (tx) => {
-          const accepted = await acceptTotpStep(tx, {
-            enabling: true,
-            now,
-            step,
-            userId: caller.userId,
-          });
-          if (accepted) {
-            await replaceRecoveryCodes(tx, {
-              hashes: recoveryCodes.hashes,
-              now,
-              userId: caller.userId,
-            });
-          }
-          return accepted;
+      : await confirmTwoFactorEnrollment(runtime.db, {
+          hashes: recoveryCodes.hashes,
+          now,
+          step,
+          userId: caller.userId,
         });
   if (!enabledAt) {
     const lockedUntil = await recordFailedCode(runtime.db, {
@@ -276,7 +271,7 @@ async function requireConfirmedCaller(
     executor: runtime.db,
     now: new Date(),
     record,
-    serverSecret: runtime.documentSyncCursorHmacKey,
+    serverSecret: readTwoFactorSecretKey(),
   });
   if (outcome.status === "locked") throw lockedOut();
   if (outcome.status === "invalid") throw invalidCode();
@@ -295,7 +290,7 @@ export async function disableTwoFactor(
   request: TwoFactorConfirmationRequest,
 ): Promise<TwoFactorStatusResponse> {
   await requireConfirmedCaller(runtime, caller, request);
-  await runtime.db.transaction((tx) => deleteTwoFactor(tx, caller.userId));
+  await removeTwoFactor(runtime.db, caller.userId);
   await revokeUserSessions(sessions, caller.userId, null);
   // The caller's session is gone; its renewal reports the standing afresh.
   return {
@@ -312,13 +307,14 @@ export async function regenerateTwoFactorRecoveryCodes(
   request: TwoFactorConfirmationRequest,
 ): Promise<TwoFactorRecoveryCodesResponse> {
   await requireConfirmedCaller(runtime, caller, request);
-  const recoveryCodes = generateRecoveryCodes();
-  await runtime.db.transaction((tx) =>
-    replaceRecoveryCodes(tx, {
-      hashes: recoveryCodes.hashes,
-      now: new Date(),
-      userId: caller.userId,
-    }),
-  );
+  const recoveryCodes = generateRecoveryCodes({
+    serverSecret: readTwoFactorSecretKey(),
+    userId: caller.userId,
+  });
+  await reissueRecoveryCodes(runtime.db, {
+    hashes: recoveryCodes.hashes,
+    now: new Date(),
+    userId: caller.userId,
+  });
   return { recoveryCodes: [...recoveryCodes.codes] };
 }

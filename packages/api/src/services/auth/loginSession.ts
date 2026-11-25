@@ -2,6 +2,7 @@ import { users } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import {
   sameOrganizationIds,
+  twoFactorEnabledSql,
   twoFactorRequiredOrganizationIdsSql,
   type UserStanding,
 } from "../../middleware/userActivity";
@@ -15,6 +16,7 @@ async function readUserStanding(
   const [row] = await runtime.db
     .select({
       suspendedAt: users.suspendedAt,
+      twoFactorEnabled: twoFactorEnabledSql,
       twoFactorRequiredOrganizationIds: twoFactorRequiredOrganizationIdsSql,
     })
     .from(users)
@@ -22,6 +24,7 @@ async function readUserStanding(
     .limit(1);
   return {
     suspended: Boolean(row?.suspendedAt),
+    twoFactorEnabled: Boolean(row?.twoFactorEnabled),
     twoFactorRequiredOrganizationIds:
       row?.twoFactorRequiredOrganizationIds ?? [],
   };
@@ -33,15 +36,18 @@ export type LoginSession =
       readonly sessionId: string;
       readonly token: string;
     }
-  | { readonly status: "suspended" };
+  | { readonly status: "suspended" }
+  | { readonly status: "two_factor_required" };
 
 /**
  * Stores a signed-in session, then checks it against the standing read after
- * it was stored. A suspension or a two-factor requirement change sweeps the
- * user's sessions after it commits, so one that committed since sign-in read
- * the user row may have swept before this session existed; reading again now
- * leaves no window between them. A changed requirement reissues the session
- * once with the new set; requireAuth's activity check covers later changes.
+ * it was stored. A suspension, turning two-factor on, or a two-factor
+ * requirement change sweeps the user's sessions after it commits, so one
+ * that committed since sign-in read the user row may have swept before this
+ * session existed; reading again now leaves no window between them. A
+ * session without a second factor is refused once two-factor is on. A changed
+ * requirement reissues the session once with the new set; requireAuth's
+ * activity check covers later changes.
  */
 export async function openLoginSession(
   runtime: ApiServiceRuntime,
@@ -78,6 +84,7 @@ export async function openLoginSession(
   if (
     !input.twoFactorVerified &&
     !standing.suspended &&
+    !standing.twoFactorEnabled &&
     !sameOrganizationIds(standing.twoFactorRequiredOrganizationIds, required)
   ) {
     await revoke(issued.sessionId);
@@ -87,6 +94,10 @@ export async function openLoginSession(
   if (standing.suspended) {
     await revoke(issued.sessionId);
     return { status: "suspended" };
+  }
+  if (!input.twoFactorVerified && standing.twoFactorEnabled) {
+    await revoke(issued.sessionId);
+    return { status: "two_factor_required" };
   }
   return { sessionId: issued.sessionId, status: "open", token: issued.token };
 }

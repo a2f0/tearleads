@@ -2,7 +2,11 @@ import {
   type DatabaseSession,
   db as defaultDb,
 } from "@tearleads/api-shared/postgres";
-import { organizationRosterEntries, users } from "@tearleads/api-shared/schema";
+import {
+  organizationRosterEntries,
+  users,
+  userTwoFactor,
+} from "@tearleads/api-shared/schema";
 import {
   and,
   type Column,
@@ -26,6 +30,8 @@ export type UserActivityRecorder = (input: UserActivityInput) => Promise<void>;
 /** What a stored session must be checked against after it is issued. */
 export interface UserStanding {
   readonly suspended: boolean;
+  /** Two-factor is on, so only a session that passed it may stand. */
+  readonly twoFactorEnabled: boolean;
   /** Organizations whose administrators require two-factor sign-in. */
   readonly twoFactorRequiredOrganizationIds: readonly string[];
 }
@@ -56,6 +62,13 @@ export const twoFactorRequiredOrganizationIdsSql = sql<string[]>`coalesce((
     and ${qualified(roster, roster.twoFactorRequired)}
 ), '{}'::text[])`;
 
+/** Whether the user row in scope has two-factor turned on. */
+export const twoFactorEnabledSql = sql<boolean>`exists (
+  select 1 from ${userTwoFactor}
+  where ${qualified(userTwoFactor, userTwoFactor.userId)} = ${qualified(users, users.id)}
+    and ${qualified(userTwoFactor, userTwoFactor.enabledAt)} is not null
+)`;
+
 export function sameOrganizationIds(
   left: readonly string[],
   right: readonly string[],
@@ -68,7 +81,9 @@ export function sameOrganizationIds(
  * Why a live session must renew, or null. A session that did not pass a
  * second factor holds the requirements read when it opened; once they differ
  * it renews and reads them again, so a requirement change whose session
- * sweep missed it still applies within one activity interval.
+ * sweep missed it still applies within one activity interval. Such a session
+ * also stops standing once two-factor is on, even one opened while it was
+ * being turned on, after that sweep listed the user's sessions.
  */
 export function sessionStandingRefusal(
   session: {
@@ -78,6 +93,9 @@ export function sessionStandingRefusal(
   standing: UserStanding,
 ): string | null {
   if (standing.suspended) return "Account suspended";
+  if (!session.twoFactorVerified && standing.twoFactorEnabled) {
+    return "Two-factor sign-in required";
+  }
   if (
     !session.twoFactorVerified &&
     !sameOrganizationIds(
@@ -116,10 +134,12 @@ export function createRecordActivityUnlessSuspended(
       .where(eq(users.id, userId))
       .returning({
         suspendedAt: users.suspendedAt,
+        twoFactorEnabled: twoFactorEnabledSql,
         twoFactorRequiredOrganizationIds: twoFactorRequiredOrganizationIdsSql,
       });
     return {
       suspended: Boolean(row?.suspendedAt),
+      twoFactorEnabled: Boolean(row?.twoFactorEnabled),
       twoFactorRequiredOrganizationIds:
         row?.twoFactorRequiredOrganizationIds ?? [],
     };
