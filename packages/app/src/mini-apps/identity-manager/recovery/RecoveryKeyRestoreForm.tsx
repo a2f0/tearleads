@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { RecoveryKeyScan } from "../../../components/identity/recovery-key/RecoveryKeyScan";
+import { RecoveryKeyScanControl } from "../../../components/identity/recovery-key/RecoveryKeyScanControl";
 import { SavedPassphraseButton } from "../../../components/identity/SavedPassphraseButton";
 import {
   MiniAppButton,
@@ -56,7 +56,7 @@ export function RecoveryKeyRestoreForm({
           Wait for the current identity change to finish.
         </MiniAppStatus>
       )}
-      <RecoveryKeyScan
+      <RecoveryKeyScanControl
         disabled={busy !== null || !canRestore}
         label="Scan QR Code"
         onScan={setRestorePassphrase}

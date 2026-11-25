@@ -12,13 +12,12 @@ import type { RecoveryQrFrame } from "./recoveryKeyScanState";
 let camera: ReturnType<typeof installRecoveryQrCamera> | undefined;
 let cancel: (() => void) | undefined;
 
-test("both camera paths normalize valid phrases and reject oversized scan payloads", () => {
+test("scanned phrases are normalized and oversized payloads are rejected", () => {
   const phrase = createIdentitySeedPhraseFromEntropy(
     new Uint8Array(32).fill(0x23),
   );
   expect(recoveryKeyScanPhrase(phrase.toUpperCase())).toBe(phrase);
   expect(recoveryKeyScanPhrase(`${" ".repeat(512)}${phrase}`)).toBeNull();
-  expect(recoveryKeyScanPhrase(null)).toBeNull();
   expect(recoveryKeyScanPhrase("unrelated QR")).toBeNull();
   expect(
     recoveryKeyScanPhrase(phrase.split(" ").slice(0, 12).join(" ")),
@@ -186,6 +185,28 @@ test("immediate cancellation never requests camera permission", async () => {
   cancel();
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(camera.getUserMedia).not.toHaveBeenCalled();
+});
+
+test("a scan leaves no frame pixels behind once it stops", async () => {
+  camera = installRecoveryQrCamera("unrelated QR");
+  const onDecode = mock(() => false);
+  cancel = startRecoveryKeyCamera(document.createElement("video"), {
+    onDecode,
+    onError: () => undefined,
+  });
+  await waitFor(() => expect(onDecode).toHaveBeenCalled());
+  expect(camera.canvases.length).toBeGreaterThan(0);
+  for (const canvas of camera.canvases) {
+    expect(canvas.width * canvas.height).toBeGreaterThan(0);
+  }
+  cancel();
+  expect(camera.readFrames.length).toBeGreaterThan(0);
+  for (const frame of camera.readFrames) {
+    expect(frame.data.some((value) => value !== 0)).toBe(false);
+  }
+  for (const canvas of camera.canvases) {
+    expect([canvas.width, canvas.height]).toEqual([0, 0]);
+  }
 });
 
 test("missing camera support preserves manual recovery", async () => {

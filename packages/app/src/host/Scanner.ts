@@ -5,7 +5,8 @@
  * hardware or denied permissions reject. A ScannerPhotoCleanupError means
  * capture succeeded but its temporary file could not be removed.
  * Implementations must delete temporary capture files before resolving the
- * Blob; captured images may contain recovery keys or other sensitive data.
+ * Blob; captured images may show people, documents, or other sensitive data.
+ * Recovery QR codes never pass through here: they scan from live frames.
  */
 export interface Scanner {
   capturePhoto(): Promise<Blob | null>;

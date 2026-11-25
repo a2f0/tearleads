@@ -102,15 +102,29 @@ export function installRecoveryQrCamera(value: string) {
     () => undefined,
   );
   const drawImage = mock(() => undefined);
+  // Every canvas and pixel copy handed to the scanner, so tests can check
+  // what it leaves behind.
+  const canvases: HTMLCanvasElement[] = [];
+  const readFrames: ImageData[] = [];
+  const scratch = {
+    drawImage,
+    getImageData: () => {
+      const frame = { ...pixels, data: pixels.data.slice() };
+      readFrames.push(frame);
+      return frame;
+    },
+  } as unknown as CanvasRenderingContext2D;
   const context = spyOn(
     HTMLCanvasElement.prototype,
     "getContext",
-  ).mockReturnValue({
-    drawImage,
-    getImageData: () => ({ ...pixels, data: pixels.data.slice() }),
-  } as unknown as CanvasRenderingContext2D);
+  ).mockImplementation(function (this: HTMLCanvasElement) {
+    canvases.push(this);
+    return scratch;
+  } as unknown as HTMLCanvasElement["getContext"]);
   return {
+    canvases,
     getUserMedia,
+    readFrames,
     play,
     stopTrack,
     stream,
@@ -139,32 +153,6 @@ export function installRecoveryQrCamera(value: string) {
       } else {
         Reflect.deleteProperty(Navigator.prototype, "mediaDevices");
       }
-    },
-  };
-}
-
-export function installRecoveryQrPhoto(value: string) {
-  const camera = installRecoveryQrCamera(value);
-  const original = Object.getOwnPropertyDescriptor(
-    globalThis,
-    "createImageBitmap",
-  );
-  const close = mock(() => undefined);
-  const bitmap = { width: 320, height: 320, close } as ImageBitmap;
-  const createBitmap = mock(() => Promise.resolve(bitmap));
-  Object.defineProperty(globalThis, "createImageBitmap", {
-    configurable: true,
-    value: createBitmap,
-  });
-  return {
-    camera,
-    close,
-    createBitmap,
-    restore: () => {
-      camera.restore();
-      if (original)
-        Object.defineProperty(globalThis, "createImageBitmap", original);
-      else Reflect.deleteProperty(globalThis, "createImageBitmap");
     },
   };
 }
