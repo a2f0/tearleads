@@ -20,8 +20,8 @@ type PauseGuardedDiscovery = Pick<
   | "applyContainerDocumentTombstones"
   | "holdContainerDocumentTombstones"
   | "refuteContainerDocumentTombstoneHolds"
+  | "recordContainerDocumentListing"
   | "replaceDocumentLinksBatch"
-  | "saveContainerDocumentWatermark"
   | "upsertDiscoveredDocuments"
   | "verifyDiscoveredDocuments"
 >;
@@ -89,13 +89,16 @@ export function guardDocumentDiscoveryWrites(input: {
           ).replaceDocumentLinksBatch(inputs),
         stillCurrent,
       ),
-    saveContainerDocumentWatermark: (containerId, watermark, stillCurrent) =>
+    recordContainerDocumentListing: (containerId, listing, stillCurrent) =>
       whileCurrent(
         undefined,
         async (lockedExecSql) => {
           await new ContainerSyncWatermarkRepository(
             lockedExecSql,
-          ).saveWatermark(containerContentsSyncLane(containerId), watermark);
+          ).recordLaneFetch(containerContentsSyncLane(containerId), {
+            checked: listing.settled,
+            watermark: listing.watermark,
+          });
         },
         stillCurrent,
       ),

@@ -15,6 +15,7 @@ import {
   sweepKnownContainers,
 } from "./knownContainerSweep";
 import { rearmFailedContainer, SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
+import { resumeOwedDocumentDiscovery } from "./owedDiscovery";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
 import type {
   ReconciliationHost,
@@ -456,6 +457,14 @@ export function createReconciliationService(
       ),
     enqueueContainer,
     enqueueIdleBackfill,
+    resumeOwedDiscovery: () => {
+      const generation = state.lifecycleGeneration;
+      resumeOwedDocumentDiscovery({
+        enqueue: enqueueContainer,
+        host,
+        isCurrent: () => isCurrentReconciliationLifecycle(state, generation),
+      });
+    },
     resetDiscovered: () => {
       state.discoveredContainerIds.clear();
       state.initialDocumentProbe.resetSkippedListings();

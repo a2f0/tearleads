@@ -111,6 +111,7 @@ interface ReconciliationService {
   setActiveContainer(containerId: string | null): void;  // re-prioritize
   enqueueContainer(containerId, priority: "active" | "idle", force?, documentId?): void;
   enqueueIdleBackfill(): void;           // known-container catch-up
+  resumeOwedDiscovery(): void;           // lanes an earlier boot left owed
   resetDiscovered(): void;               // re-arm after reconnect/relogin
   reconcileRootContainersNow(o?: RefreshRequestOptions): Promise<void>;
   reconcileNow(o?: RefreshRequestOptions): Promise<void>;  // explicit "Refresh"
@@ -140,7 +141,8 @@ Work items and the functions that perform them:
 
 Scheduling policy (active-first, then idle backfill):
 
-1. On local hydration, enqueue the active container at active priority. On
+1. On local hydration, enqueue the active container at active priority and
+   every [owed document lane](#owed-document-lanes) at idle priority. On
    auth-gain / online-regain, also reset the session suppression set and enqueue
    all other known containers at idle priority.
 2. The active container reconciles first (background, post-paint). Its results
@@ -160,6 +162,32 @@ Scheduling policy (active-first, then idle backfill):
    every currently linked lane. These publications are best-effort after commit:
    a broker failure never changes the successful HTTP mutation result, and later
    HTTP reconciliation remains authoritative.
+
+#### Owed document lanes
+
+Discovery spans network round trips: one batched listing names every lane,
+then the lanes verify and apply one at a time. A reload can land anywhere in
+that, and a start with a cached tree raises no hint for a lane the tree already
+holds, so a lane cut short must say so durably. Its `container_documents` row
+in `container_sync_watermarks` does
+([`documentLaneDiscovery.ts`](../../packages/client-sdk/src/workflows/container-contents/documentDiscovery/documentLaneDiscovery.ts)):
+
+| Durable evidence | Lane state |
+| --- | --- |
+| No row, or a row without `checked_at` | owed |
+| Staged candidates in `pending_document_discoveries` | owed |
+| `checked_at` set and no staged candidate | settled |
+
+An applied listing that leaves no candidate pending settles its lane: it sets
+`checked_at` in the statement that stores the cursor, so a reload never leaves
+one without the other. An access change or a remote reset deletes the row, and
+staging a candidate owes the lane until the candidate is acknowledged. On
+local hydration the reconciler queues every owed known lane at idle priority,
+so a device whose sign-in boot was cut short still lists the Contacts and
+organization lanes it never applied. A settled lane is not listed at start;
+later remote changes reach it through hints, a visit, or a reconnect sweep.
+[`owedDiscovery.test.ts`](../../packages/client-sdk/src/client/deviceFirst/owedDiscovery.test.ts)
+restarts a device whose earlier boot applied only some of its lanes.
 
 #### Document content pull policy
 

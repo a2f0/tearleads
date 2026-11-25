@@ -134,6 +134,9 @@ Model-specific gaps:
   overclaims; decoders, dependencies, and runtime failures are
   `VoidUpdateProgress`'s. A writer that signs a cursor past its own snapshot
   is outside it.
+- `DiscoveryLaneResumption` fixes the server's documents before sign-in and
+  bounds crashes and deferrals. A peer write after a lane settles, and a hint
+  for it lost to a reload, are outside it.
 - `RestartProbeConvergence` and the honest `NoBrickedDevice` configuration bound
   the number of server writes, so their eventual-convergence checks reach a
   quiescent server; they do not show catch-up under unbounded writes.

@@ -16,21 +16,22 @@ export type ContainerDocumentDiscoveryLane = Omit<
   | "loadContainerDocumentWatermark"
 >;
 
-async function saveAppliedContainerDocumentWatermark(input: {
+async function recordAppliedContainerDocumentListing(input: {
   containerId: string;
   listedDocuments: ListedContainerDocuments;
-  saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"];
+  recordContainerDocumentListing: DiscoverContainerDocumentsOptions["recordContainerDocumentListing"];
+  settled: boolean;
   stillCurrent: () => Promise<boolean>;
 }) {
-  const { containerId, listedDocuments, saveContainerDocumentWatermark } =
-    input;
-  if (!listedDocuments.nextWatermark) {
+  const { containerId, listedDocuments, settled } = input;
+  const watermark = listedDocuments.nextWatermark;
+  if (!watermark && !settled) {
     return;
   }
 
-  await saveContainerDocumentWatermark(
+  await input.recordContainerDocumentListing(
     containerId,
-    listedDocuments.nextWatermark,
+    { settled, watermark },
     input.stillCurrent,
   );
 }
@@ -99,10 +100,13 @@ export async function applyListedContainerDocuments(
 
   const complete = await verification.commit();
   if (!(await verification.isCurrent())) return null;
-  await saveAppliedContainerDocumentWatermark({
+  // The cursor and the settled mark share one row and one statement. A lane
+  // cut short before here stays owed, so the next boot lists it again.
+  await recordAppliedContainerDocumentListing({
     containerId,
     listedDocuments,
-    saveContainerDocumentWatermark: options.saveContainerDocumentWatermark,
+    recordContainerDocumentListing: options.recordContainerDocumentListing,
+    settled: complete,
     stillCurrent: verification.isCurrent,
   });
   if (!(await verification.isCurrent())) return null;

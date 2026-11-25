@@ -64,6 +64,7 @@ export function createReconciliationTestHost(
     listAutomaticRootCatchupContainerIds: () => [],
     listContainerDocumentIds: async () => [],
     listKnownContainerIds: () => [],
+    listOwedDocumentDiscoveryContainerIds: async () => [],
     loadContainerDelta: async (containerId) => ({
       containerId,
       documentSummaries: [],

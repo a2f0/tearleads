@@ -88,7 +88,7 @@ for (const phase of ["listing", "head", "commit"] as const) {
         ),
         upsertDiscoveredDocuments: upsert,
         replaceDocumentLinksBatch: replaceLinks,
-        saveContainerDocumentWatermark: saveWatermark,
+        recordContainerDocumentListing: saveWatermark,
         onFullListing,
       };
       const discover = () => discoverContainerDocuments(options);

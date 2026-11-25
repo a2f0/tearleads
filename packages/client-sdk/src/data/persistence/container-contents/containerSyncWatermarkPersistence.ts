@@ -327,6 +327,22 @@ export class ContainerSyncWatermarkRepository {
     });
   }
 
+  /** Container ids whose document lane an applied listing settled. */
+  async listSettledContainerDocumentLaneIds(): Promise<ReadonlySet<string>> {
+    await ensureSqlTables(this.execSql, containerSyncWatermarkTables);
+    const { db } = getClientSQLitePersistenceRuntime(this.execSql);
+    const rows = await db
+      .select({ laneId: containerSyncWatermarks.laneId })
+      .from(containerSyncWatermarks)
+      .where(
+        and(
+          eq(containerSyncWatermarks.laneKind, CONTAINER_DOCUMENTS_LANE),
+          isNotNull(containerSyncWatermarks.checkedAt),
+        ),
+      );
+    return new Set(rows.map((row) => row.laneId));
+  }
+
   markChecked(
     lane: ContainerSyncWatermarkLane,
     options?: ContainerSyncMarkerMutationOptions,

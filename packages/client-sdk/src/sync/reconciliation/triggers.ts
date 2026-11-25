@@ -45,6 +45,9 @@ export function connectReconciliationTriggers(input: {
         if (signal.activeContainerId) {
           service.enqueueContainer(signal.activeContainerId, "active");
         }
+        // A cached tree raises no other signal at start, so resume each lane
+        // whose discovery an earlier session (or a cut-short boot) left owed.
+        service.resumeOwedDiscovery();
         break;
       case "remote-containers-added":
         // A cold-cache tree crawl can finish after the auth-edge backfill was

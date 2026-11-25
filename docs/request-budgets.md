@@ -203,6 +203,11 @@ local application.
   only after every page and its local persistence succeed, for the same probe
   generation and container; incremental, partial or earlier-lifecycle listings
   cannot substitute for it.
+- Each start lists only the document lanes an earlier boot left
+  [owed](./developer/device-first.md#owed-document-lanes): never settled by
+  an applied listing, or holding staged candidates. A reload that cuts
+  discovery short therefore costs one batched listing at the next start, and
+  a settled lane costs nothing.
 - Scoped hints force the affected lanes, including the parent lane needed to
   remove a nested revoked or deleted child. Newer force generations survive
   older completions, and temporary failures keep the force with bounded

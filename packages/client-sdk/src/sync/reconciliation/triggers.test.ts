@@ -22,6 +22,7 @@ function stubService(
   return {
     enqueueContainer: () => {},
     enqueueIdleBackfill: () => {},
+    resumeOwedDiscovery: () => {},
     setActiveContainer: () => {},
     ...overrides,
   } as ReconciliationService;
@@ -75,9 +76,10 @@ test("prerequisites-regained trigger resets the discovered set first", () => {
   expect(calls).toEqual(["reset", "enqueue:c-1", "backfill"]);
 });
 
-test("hydrated trigger reconciles only the active container", () => {
+test("hydrated trigger reconciles the active container and resumes owed lanes", () => {
   const calls: Array<{ containerId: string; priority: string }> = [];
   let idleBackfills = 0;
+  let owedResumes = 0;
   const reconcileListener = connectListener(
     stubService({
       enqueueContainer: (containerId, priority) => {
@@ -85,6 +87,9 @@ test("hydrated trigger reconciles only the active container", () => {
       },
       enqueueIdleBackfill: () => {
         idleBackfills += 1;
+      },
+      resumeOwedDiscovery: () => {
+        owedResumes += 1;
       },
     }),
   );
@@ -95,7 +100,9 @@ test("hydrated trigger reconciles only the active container", () => {
   reconcileListener(signal);
 
   expect(calls).toEqual([{ containerId: "c-1", priority: "active" }]);
+  // Only lanes left owed are listed, never every known container.
   expect(idleBackfills).toBe(0);
+  expect(owedResumes).toBe(1);
 });
 
 test("remote container growth queues one idle backfill", () => {

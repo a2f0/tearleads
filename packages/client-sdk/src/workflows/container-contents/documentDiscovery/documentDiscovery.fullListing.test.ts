@@ -59,7 +59,7 @@ for (const scenario of [
       // Local summaries are intentionally empty: only the raw complete listing
       // can prove presence, never a filtered projection or a tombstone summary.
       upsertDiscoveredDocuments: async () => [],
-      saveContainerDocumentWatermark: async () => {
+      recordContainerDocumentListing: async () => {
         if (scenario === "persistence-failure")
           throw new Error("disk unavailable");
         saved = true;

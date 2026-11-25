@@ -55,8 +55,8 @@ test("discovery cannot restore a cursor after a permission change", async () => 
         nextWatermark: cursor,
         tombstones: [],
       })),
-      saveContainerDocumentWatermark: async (...args) => {
-        if (!reset) return guarded.saveContainerDocumentWatermark(...args);
+      recordContainerDocumentListing: async (...args) => {
+        if (!reset) return guarded.recordContainerDocumentListing(...args);
         reset = false;
         // Apply has already checked the generation. The permission change
         // holds the write lock while this old listing queues its cursor.
@@ -73,7 +73,7 @@ test("discovery cannot restore a cursor after a permission change", async () => 
             }),
           );
         });
-        const save = guarded.saveContainerDocumentWatermark(...args);
+        const save = guarded.recordContainerDocumentListing(...args);
         release();
         await cleanup;
         await save;

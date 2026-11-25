@@ -139,6 +139,14 @@ checks commit-ordered discovery with concurrent live and removal writers.
 Every committed change remains available above a page's saved watermark
 until the client observes it.
 
+[`DiscoveryLaneResumption.tla`](./DiscoveryLaneResumption.tla) models the
+document lanes a device lists at sign-in while a reload can stop it anywhere
+between the batched listing and each lane's apply. A lane settles only with an
+applied listing that left nothing staged, a lane still missing documents stays
+durably owed, and each start resumes the owed lanes, so the device converges
+however many reloads land. See the
+[production mapping and negative controls](./DiscoveryLaneResumption.md).
+
 [`MetadataListingConvergence.tla`](./MetadataListingConvergence.tla)
 models a client holding a container metadata document while a peer's edit hint
 is lost: offline, closed, or before its interest is acknowledged. Each

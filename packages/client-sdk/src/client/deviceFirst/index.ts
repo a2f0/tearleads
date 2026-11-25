@@ -35,6 +35,7 @@ import {
   createContainerContentsDocumentsRuntime,
 } from "../../workflows/container-contents";
 import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
+import { listOwedDocumentLaneContainerIds } from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
 import {
   type ContainerContents,
@@ -383,6 +384,11 @@ class DeviceFirstService implements DeviceFirst {
         };
       },
       listKnownContainerIds,
+      listOwedDocumentDiscoveryContainerIds: () =>
+        listOwedDocumentLaneContainerIds(
+          runtimeService.workflowInput().infra.execSql,
+          listKnownContainerIds(),
+        ),
       // Root discovery can surface directly granted non-root containers, so
       // retain every regular container. Exclude only this identity's own system
       // children; cold/auth backfill and explicit full Refresh cover those.
