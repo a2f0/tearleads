@@ -56,8 +56,8 @@
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": {
-      "lines": 529,
-      "bytes": 16141
+      "lines": 509,
+      "bytes": 15964
     },
     "docs/developer/client-sdk/public-api.md": {
       "lines": 517,

@@ -55,6 +55,7 @@ const leafSupportSourceRoots = [
   sourceRoot.crypto,
   sourceRoot.loro,
   sourceRoot.encoding,
+  sourceRoot.keepass,
   sourceRoot.diagnostics,
   sourceRoot.validators,
   sourceRoot.sqliteInstance,
@@ -65,6 +66,17 @@ const leafSupportSourceRoots = [
 const productAndServerSourceRoots = allPackageSourceRoots.filter(
   (root) => !leafSupportSourceRoots.includes(root),
 );
+
+/** Forbids a leaf package's production source from importing any other package. */
+function leafPackageRule(name: string, root: string, comment: string) {
+  return {
+    name,
+    severity: "error",
+    comment,
+    from: { path: root, pathNot: testFilesPattern },
+    to: { path: allPackageSourceRoots.filter((other) => other !== root) },
+  } satisfies ForbiddenRules[number];
+}
 
 const standardRules = [
   {
@@ -310,63 +322,31 @@ const apiPackageBoundaryRules = [
 ] satisfies ForbiddenRules;
 
 const corePackageRules = [
-  {
-    name: "validators-stays-leaf",
-    severity: "error",
-    comment:
-      "Validators define wire contracts and low-level shape checks; they must not depend on other source packages.",
-    from: {
-      path: sourceRoot.validators,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: allPackageSourceRoots.filter(
-        (root) => root !== sourceRoot.validators,
-      ),
-    },
-  },
-  {
-    name: "diagnostics-stays-leaf",
-    severity: "error",
-    comment:
-      "Privacy filtering and diagnostics contracts must not depend on product or server implementation code.",
-    from: { path: sourceRoot.diagnostics, pathNot: testFilesPattern },
-    to: {
-      path: allPackageSourceRoots.filter(
-        (root) => root !== sourceRoot.diagnostics,
-      ),
-    },
-  },
-  {
-    name: "encoding-stays-leaf",
-    severity: "error",
-    comment:
-      "Encoding helpers are leaf-level primitives and must not depend on other source packages.",
-    from: {
-      path: sourceRoot.encoding,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: allPackageSourceRoots.filter(
-        (root) => root !== sourceRoot.encoding,
-      ),
-    },
-  },
-  {
-    name: "sqlite-instance-stays-leaf",
-    severity: "error",
-    comment:
-      "The SQLite instance package only wraps the wasm distribution and must not depend on higher-level source packages.",
-    from: {
-      path: sourceRoot.sqliteInstance,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: allPackageSourceRoots.filter(
-        (root) => root !== sourceRoot.sqliteInstance,
-      ),
-    },
-  },
+  leafPackageRule(
+    "validators-stays-leaf",
+    sourceRoot.validators,
+    "Validators define wire contracts and low-level shape checks; they must not depend on other source packages.",
+  ),
+  leafPackageRule(
+    "diagnostics-stays-leaf",
+    sourceRoot.diagnostics,
+    "Privacy filtering and diagnostics contracts must not depend on product or server implementation code.",
+  ),
+  leafPackageRule(
+    "encoding-stays-leaf",
+    sourceRoot.encoding,
+    "Encoding helpers are leaf-level primitives and must not depend on other source packages.",
+  ),
+  leafPackageRule(
+    "keepass-stays-leaf",
+    sourceRoot.keepass,
+    "The KeePass reader only decodes .kdbx files into plain records and must not depend on other source packages, so it can be removed or reused on its own.",
+  ),
+  leafPackageRule(
+    "sqlite-instance-stays-leaf",
+    sourceRoot.sqliteInstance,
+    "The SQLite instance package only wraps the wasm distribution and must not depend on higher-level source packages.",
+  ),
   {
     name: "crypto-does-not-depend-on-app-api-or-sdk-implementations",
     severity: "error",

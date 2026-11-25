@@ -1,0 +1,142 @@
+/*
+ * A passcode reads and edits like KeePassX's entry form: a narrow,
+ * right-aligned label column beside the values. Read mode is the shared
+ * key/value list with its labels right-aligned; edit mode repeats the same
+ * column geometry with labelled controls, and both stack below 48ch.
+ */
+.passcode {
+  --mini-app-info-label-width: 10ch;
+  container: passcode-form / inline-size;
+  display: grid;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.passcode-key-values .mini-app-key-value-row > dt {
+  text-align: end;
+}
+
+.passcode-value--multiline {
+  white-space: pre-wrap;
+}
+
+.passcode-value--empty {
+  opacity: var(--opacity-muted);
+}
+
+.passcode-value--masked {
+  letter-spacing: 0.1em;
+}
+
+.passcode-secret {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.passcode-secret > .passcode-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.passcode-secret-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.passcode-form {
+  display: grid;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+}
+
+.passcode-form-row {
+  display: grid;
+  grid-template-columns:
+    calc(var(--mini-app-info-label-width) + 2 * var(--info-table-cell-padding))
+    minmax(0, 1fr);
+  align-items: center;
+}
+
+.passcode-form-row > label {
+  padding: var(--info-table-cell-padding);
+  font-weight: 700;
+  text-align: end;
+}
+
+.passcode-form-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.passcode-form-control > :is(input, textarea),
+.passcode-attribute-edit-row > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--control-height);
+  padding: 0 var(--space-sm);
+  border: var(--border);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.passcode-form-control > textarea {
+  min-height: 5lh;
+  padding: var(--space-sm);
+  resize: vertical;
+}
+
+.passcode-attribute-edit-list {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+}
+
+.passcode-attribute-edit-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) minmax(8rem, 2fr) auto auto;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.passcode-attribute-protected {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+@container passcode-form (width < 48ch) {
+  .passcode-form-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-2xs);
+  }
+
+  .passcode-form-row > label {
+    padding: 0;
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+    opacity: var(--opacity-muted);
+    text-align: start;
+  }
+
+  .passcode-key-values .mini-app-key-value-row > dt {
+    text-align: start;
+  }
+
+  .passcode-attribute-edit-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .passcode-attribute-edit-row > input {
+    grid-column: 1 / -1;
+  }
+}

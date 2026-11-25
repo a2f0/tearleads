@@ -35,6 +35,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "birth_certificate",
     "insurance_policy",
     "env_file",
+    "passcode",
     "blood_pressure",
     "eyeglass_prescription",
     "weight",
@@ -71,6 +72,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "Insurance Policy",
   );
   expect(getDocumentTypeDefinition("env_file").createLabel).toBe(".env File");
+  expect(getDocumentTypeDefinition("passcode").createLabel).toBe("Passcode");
   expect(getDocumentTypeDefinition("blood_pressure").createLabel).toBe(
     "Blood Pressure",
   );
@@ -101,6 +103,7 @@ test("creatable document types exclude upload-only file kinds", () => {
     "birth_certificate",
     "insurance_policy",
     "env_file",
+    "passcode",
     "blood_pressure",
     "eyeglass_prescription",
     "weight",

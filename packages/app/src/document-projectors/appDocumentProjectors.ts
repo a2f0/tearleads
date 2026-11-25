@@ -13,6 +13,7 @@ import { imageDocumentProjectorDefinition } from "../document-types/image/imageD
 import { insurancePolicyDocumentProjectorDefinition } from "../document-types/insurance-policy/insurancePolicyDocumentDefinition";
 import { jsonFileDocumentProjectorDefinition } from "../document-types/json-file/jsonFileDocumentDefinition";
 import { noteDocumentProjectorDefinition } from "../document-types/note/noteDocumentDefinition";
+import { passcodeDocumentProjectorDefinition } from "../document-types/passcode/passcodeDocumentDefinition";
 import { passportDocumentProjectorDefinition } from "../document-types/passport/passportDocumentDefinition";
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
 import { toolDocumentProjectorDefinition } from "../document-types/tool/toolDocumentDefinition";
@@ -53,6 +54,7 @@ export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentP
     },
     insurancePolicyDocumentProjectorDefinition,
     envFileDocumentProjectorDefinition,
+    passcodeDocumentProjectorDefinition,
     bloodPressureDocumentProjectorDefinition,
     eyeglassPrescriptionDocumentProjectorDefinition,
     weightDocumentProjectorDefinition,

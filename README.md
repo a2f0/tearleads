@@ -56,6 +56,7 @@ tl() { . /path/to/checkout/scripts/dev/session.sh /path/to/checkout; } && tl
 | [`packages/bob-and-alice`](packages/bob-and-alice/README.md), [`packages/test-utils`](packages/test-utils/README.md) | Multi-party keying scenarios and shared test helpers |
 | [`packages/performance`](packages/performance/README.md) | SDK and database performance experiments |
 | [`packages/cli`](packages/cli/README.md) | `tearleads` command line built on the client SDK |
+| [`packages/keepass`](packages/keepass/README.md) | KeePass (`.kdbx`) reader behind the CLI's `restore-keepass` |
 | [`formal`](formal/README.md) | TLA+ protocol models |
 | [`scripts`](scripts/README.md) | Repository scripts, grouped by purpose |
 | [`terraform`](terraform/) | Infrastructure stacks and modules |

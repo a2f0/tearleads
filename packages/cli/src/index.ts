@@ -18,6 +18,7 @@ const argv = process.argv.slice(2);
 const context: CliContext = {
   apiBaseUrl: (target) => targets[target],
   keyStore: createKeychainRecoveryKeyStore(),
+  readPassword: readSecret,
   readRecoveryKey: readSecret,
   // Written directly, not through `console`, which tracing labels.
   stderr: (line) => process.stderr.write(`${line}\n`),
@@ -25,7 +26,9 @@ const context: CliContext = {
   traceByDefault: TEARLEADS_TRACE === "1",
 };
 const exitCode =
-  argv.includes("seed") || argv.includes("verify-seed")
+  argv.includes("seed") ||
+  argv.includes("verify-seed") ||
+  argv.includes("restore-keepass")
     ? await runSeedCommandWithDeadline(
         (registerShutdown) => runCli(argv, { ...context, registerShutdown }),
         context.stderr,

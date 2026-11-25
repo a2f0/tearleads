@@ -38,6 +38,8 @@ Commands:
   seed     Sync the Continuity screenshot dataset to your personal organization.
            With --roster, also seed its groups and their members.
   ls       List the folders of your organization, or of --org <id>.
+  restore-keepass  Restore a KeePass (.kdbx) database into a new folder under
+           your root: one folder per group, one passcode per entry.
 ```
 
 `--env` defaults to `production` (`https://api.tearleads.com`). `staging` is
@@ -128,6 +130,39 @@ verification session one hour, including discovery continuation requests.
 Each CLI process has a 65-minute limit and attempts logout on interruption.
 An edit, removal or missing download fails the check and identifies the fixture.
 Add `--trace` to `seed` for per-file staging, confirmation and skip messages.
+
+## Restore a KeePass database
+
+`restore-keepass` copies a KeePass 2 database (`.kdbx`, as written by
+KeePassXC, KeePassX 2, or KeePass) into the signed-in account:
+
+```sh
+bun run tearleads restore-keepass ~/Passwords.kdbx --env staging
+bun run tearleads restore-keepass vault.kdbx --name "Family Vault" --key-file vault.keyx
+```
+
+The command reads the master password without echo (or from piped stdin) and
+decrypts the file on this machine before it signs in, so a wrong password
+fails without opening a session. It then creates one new folder under your
+root: the database's root group. It is named after `--name`, else the
+database's name, else the file's; when a folder beside it already has that
+name, the new one becomes `Vault (2)`, `Vault (3)`, and so on. Each group
+becomes a child folder, and each entry a **passcode** document: title,
+username, password, URL, notes, tags, expiry date, KeePassXC's TOTP link, and
+every other string field as an additional attribute that keeps KeePass's
+protected (masked) flag. The app shows a passcode like KeePassX's entry view,
+with the password masked behind a visibility toggle.
+
+Every run makes a new folder; it never merges into an earlier restore. If a
+run stops partway, delete its folder and run the command again. The report
+counts what was left out: the recycle bin and its contents, attachments (not
+imported yet), and entry history. Reading is done by
+[`@tearleads/keepass`](../keepass/README.md), which supports KDBX 3.1 and 4
+with AES or ChaCha20, but not Twofish or KeePass 1.x `.kdb` files.
+
+Like `seed`, it writes only to your personal organization, has a 65-minute
+limit, and revokes its session when interrupted. `--trace` names entries by
+position, never by title or URL.
 
 ## Tracing
 

@@ -16,7 +16,11 @@ function memoryRecoveryKeyStore(): RecoveryKeyStore & {
 }
 
 export function testContext(
-  options: { readonly apiBaseUrl?: string; readonly recoveryKey?: string } = {},
+  options: {
+    readonly apiBaseUrl?: string;
+    readonly password?: string;
+    readonly recoveryKey?: string;
+  } = {},
 ) {
   const output: { stderr: string[]; stdout: string[] } = {
     stderr: [],
@@ -26,6 +30,12 @@ export function testContext(
   const context: CliContext = {
     apiBaseUrl: () => options.apiBaseUrl ?? "http://127.0.0.1:9",
     keyStore,
+    readPassword: async () => {
+      if (options.password === undefined) {
+        throw new Error("no password supplied");
+      }
+      return options.password;
+    },
     readRecoveryKey: async () => {
       if (options.recoveryKey === undefined) {
         throw new Error("no recovery key supplied");
