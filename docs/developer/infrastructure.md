@@ -313,7 +313,9 @@ The document sync cursor HMAC key and `TWO_FACTOR_SECRET_KEY` are generated
 once per tier into `.secrets/<tier>/worker.env`. The two-factor key seals
 authenticator secrets and keys recovery-code hashes, so never rotate it on a
 live tier: every enrolled user would be left unable to answer a second factor.
-A reset that wipes the database may rotate it.
+The deploy generates it only while the Worker holds none, and refuses while the
+Worker holds one that `worker.env` lacks; restore the file then. A reset that
+wipes the database may rotate it with `TWO_FACTOR_SECRET_KEY_RESET=1`.
 
 Neither tier deployment applies the downloads stack. After a teardown, apply it
 from a saved plan before publishing a desktop release. The wrapper runs

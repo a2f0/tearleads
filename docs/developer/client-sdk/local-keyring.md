@@ -145,7 +145,9 @@ last learned, and `subscribe` reports changes. A new session token resets it to
 null. `requiredByOrganizationIds` lists the organizations that refuse this
 session until it passes a second factor. Their server routes answer it with 403
 and code `organization_two_factor_required`, which, unlike an access denial,
-keeps the organization's local data. An administrator sets the requirement per
+keeps the organization's local data. Writes and moves it refuses stay queued,
+not denied, and `enable` retries them once this session passes a second factor.
+An administrator sets the requirement per
 member with `organizations.setRosterTwoFactorRequired(userId, required)`, and
 directory users report it as `twoFactorRequired`.
 

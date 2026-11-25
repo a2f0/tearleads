@@ -380,9 +380,9 @@ requester-scoped and UI-only. Members changes never touch the organization
 profile; provisioning commits it. Directory users carry `twoFactorRequired`,
 which an administrator sets with `setOrganizationRosterTwoFactorRequired`. The
 API enforces it: a session of that member without a second factor gets 403
-`organization_two_factor_required` from the organization's routes. The
-reconcile keeps the retained projection then, rather than purging it as it does
-on an access denial. See
+`organization_two_factor_required` from the organization's routes. Unlike an
+access denial, that keeps the projection, and refused writes and moves stay
+queued; `twoFactor.enable` re-requests the scope's sync lanes. See
 [two-factor sign-in](../../../../docs/developer/client-sdk/local-keyring.md).
 
 On-device data usage (`measureOrganizationDeviceDataUsage`, exposed as

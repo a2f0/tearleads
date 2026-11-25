@@ -54,6 +54,7 @@ test("status and changes publish the session's standing", async () => {
   const twoFactor = createTwoFactor(
     fakeApi(async () => ok(UNVERIFIED)),
     session,
+    { onSessionVerified: () => {} },
   );
   let notified = 0;
   twoFactor.subscribe(() => {
@@ -86,6 +87,7 @@ test("a new session token forgets the standing", async () => {
   const twoFactor = createTwoFactor(
     fakeApi(async () => ok(UNVERIFIED)),
     session,
+    { onSessionVerified: () => {} },
   );
   await twoFactor.status();
 
@@ -104,6 +106,7 @@ test("an answer for an earlier session token is not published", async () => {
         }),
     ),
     session,
+    { onSessionVerified: () => {} },
   );
 
   const pending = twoFactor.status();
@@ -111,4 +114,26 @@ test("an answer for an earlier session token is not published", async () => {
   answer(ok(UNVERIFIED));
   expect(await pending).toEqual(UNVERIFIED);
   expect(twoFactor.snapshot).toBeNull();
+});
+
+test("enabling reports the verified session, not one that replaced it", async () => {
+  const session = fakeSession("token-1");
+  let verified = 0;
+  const api = fakeApi(async () => ok(UNVERIFIED));
+  const twoFactor = createTwoFactor(api, session, {
+    onSessionVerified: () => {
+      verified += 1;
+    },
+  });
+
+  await twoFactor.enable("123456");
+  expect(verified).toBe(1);
+
+  const enable = api.enableTwoFactorResult;
+  api.enableTwoFactorResult = async (body) => {
+    session.signIn("token-2");
+    return enable(body);
+  };
+  await twoFactor.enable("123456");
+  expect(verified).toBe(1);
 });

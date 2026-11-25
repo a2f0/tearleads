@@ -55,7 +55,8 @@ export const userTwoFactor = pgTable("user_two_factor", {
  *
  * Columns:
  * - `userId`: The user the code belongs to.
- * - `codeHash`: Lowercase hex SHA-256 of the normalized code.
+ * - `codeHash`: Lowercase hex HMAC-SHA-256 of the user id and normalized
+ *   code, under a key derived from `TWO_FACTOR_SECRET_KEY`.
  * - `createdAt`: When the code was issued.
  */
 export const userTwoFactorRecoveryCodes = pgTable(

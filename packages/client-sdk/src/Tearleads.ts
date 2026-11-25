@@ -52,6 +52,7 @@ import type { SecurityIncidentReporter } from "./data/shared/securityIncidents";
 import {
   disposeDomainSyncCoordinator,
   getOrCreateDomainSyncCoordinator,
+  requestAllDomainSyncLanes,
 } from "./data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "./data/trustedUserIdentity";
 import type { TearleadsOptions } from "./TearleadsOptions";
@@ -184,7 +185,11 @@ export class Tearleads {
       () => this.deviceFirst.open().reconciler,
     );
     this.root = createRoot(rootRuntimeOf(runtime, this.session));
-    this.twoFactor = createTwoFactor(this.apiClient, this.session);
+    // Writes and moves an organization refused for a missing second factor
+    // stayed queued; retry them once this session passes one.
+    this.twoFactor = createTwoFactor(this.apiClient, this.session, {
+      onSessionVerified: () => requestAllDomainSyncLanes(this.domainScope),
+    });
     this.userIdentities = createUserIdentities({
       getOrganizationId: () => this.session.organizationId,
       reportSecurityIncident: security.report,

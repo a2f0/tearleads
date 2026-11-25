@@ -1,4 +1,7 @@
-import { isVanishedContainerFailure } from "../../../data/containers/shared/mutationFailures";
+import {
+  isOrganizationTwoFactorRefusal,
+  isVanishedContainerFailure,
+} from "../../../data/containers/shared/mutationFailures";
 import type { DocumentLinkSetMutationFailure } from "../../documents";
 
 /**
@@ -8,7 +11,11 @@ import type { DocumentLinkSetMutationFailure } from "../../documents";
  */
 export interface DocumentMoveFailureState {
   current: DocumentLinkSetMutationFailure | null;
-  /** A 403 anywhere in the pass parks the intent as denied (row 7). */
+  /**
+   * A 403 anywhere in the pass parks the intent as denied (row 7), except an
+   * organization's refusal of a session without a second factor: that move
+   * stays pending until the session passes one.
+   */
   sawPermissionDenial: boolean;
   /**
    * The server proved a cited container no longer exists (coded projection
@@ -34,7 +41,8 @@ export function recordDocumentMoveFailure(
 ): void {
   state.current = failure;
   state.sawPermissionDenial =
-    state.sawPermissionDenial || failure.status === 403;
+    state.sawPermissionDenial ||
+    (failure.status === 403 && !isOrganizationTwoFactorRefusal(failure));
   state.sawVanishedContainer =
     state.sawVanishedContainer || isVanishedContainerFailure(failure);
 }

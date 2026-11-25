@@ -96,20 +96,6 @@ if [[ "${#DOCUMENT_SYNC_CURSOR_HMAC_KEY}" -lt 32 ]]; then
   echo "ERROR: DOCUMENT_SYNC_CURSOR_HMAC_KEY must be at least 32 bytes." >&2
   exit 1
 fi
-# The two-factor key seals authenticator secrets and keys recovery-code
-# hashes. It is generated once per tier the same way and must never rotate:
-# a new key leaves every enrolled authenticator and recovery code unusable.
-if [[ -z "${TWO_FACTOR_SECRET_KEY:-}" ]]; then
-  (
-    umask 077
-    printf 'export TWO_FACTOR_SECRET_KEY=%s\n' "$(openssl rand -hex 32)" >>"$WORKER_ENV_FILE"
-  )
-  load_secrets_env "$TIER"
-fi
-if [[ "${#TWO_FACTOR_SECRET_KEY}" -lt 32 ]]; then
-  echo "ERROR: TWO_FACTOR_SECRET_KEY must be at least 32 bytes." >&2
-  exit 1
-fi
 
 umask 077
 CONNECTION_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tearleads-${TIER}-worker-XXXXXX")
@@ -142,6 +128,35 @@ DEPLOY_CONFIG="$(mktemp "$API_DIR/wrangler.deploy.XXXXXX")"
 mv "$DEPLOY_CONFIG" "$DEPLOY_CONFIG.jsonc"
 DEPLOY_CONFIG="$DEPLOY_CONFIG.jsonc"
 sed "s/HYPERDRIVE_ID_$TIER/$HYPERDRIVE_ID/g" "$API_DIR/wrangler.jsonc" >"$DEPLOY_CONFIG"
+
+# The two-factor key seals authenticator secrets and keys recovery-code
+# hashes, so it must never rotate on a live tier: a new key leaves every
+# enrolled authenticator and recovery code unusable. It is generated once per
+# tier, before migrations, and only while the Worker holds none. A Worker that
+# holds one while worker.env lacks it means the file was lost; restore it.
+# TWO_FACTOR_SECRET_KEY_RESET=1 generates one anyway, for a reset that wipes
+# the database or a tier whose API Worker was never published.
+if [[ -z "${TWO_FACTOR_SECRET_KEY:-}" ]]; then
+  if [[ "${TWO_FACTOR_SECRET_KEY_RESET:-}" != 1 ]]; then
+    if ! WORKER_SECRET_NAMES="$(cd "$API_DIR" && bunx --no-install wrangler secret list --env "$TIER" --config "$DEPLOY_CONFIG" --format json | jq -r '.[].name')"; then
+      echo "ERROR: Could not list the $TIER Worker's secrets to confirm it holds no TWO_FACTOR_SECRET_KEY. If its API Worker was never published, rerun with TWO_FACTOR_SECRET_KEY_RESET=1." >&2
+      exit 1
+    fi
+    if grep -Fqx TWO_FACTOR_SECRET_KEY <<<"$WORKER_SECRET_NAMES"; then
+      echo "ERROR: The $TIER Worker holds a TWO_FACTOR_SECRET_KEY that $WORKER_ENV_FILE lacks. Restore that file: a new key would leave every enrolled authenticator and recovery code unusable. Only a reset that wipes the database may rerun with TWO_FACTOR_SECRET_KEY_RESET=1." >&2
+      exit 1
+    fi
+  fi
+  (
+    umask 077
+    printf 'export TWO_FACTOR_SECRET_KEY=%s\n' "$(openssl rand -hex 32)" >>"$WORKER_ENV_FILE"
+  )
+  load_secrets_env "$TIER"
+fi
+if [[ "${#TWO_FACTOR_SECRET_KEY}" -lt 32 ]]; then
+  echo "ERROR: TWO_FACTOR_SECRET_KEY must be at least 32 bytes." >&2
+  exit 1
+fi
 
 read_connection() {
   jq -r --arg key "$2" '.[$key] // empty' "$CONNECTION_DIR/$1.json"

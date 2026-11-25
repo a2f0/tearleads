@@ -78,10 +78,15 @@ function createTwoFactorStatusStore(session: TwoFactorSession) {
   };
 }
 
-/** The remembered-device token lives with the session the host persists. */
+/**
+ * The remembered-device token lives with the session the host persists.
+ * `onSessionVerified` runs once `enable` makes this session pass a second
+ * factor, the edge an organization's refusal of it waited for.
+ */
 export function createTwoFactor(
   api: TwoFactorApi,
   session: TwoFactorSession,
+  hooks: { readonly onSessionVerified: () => void },
 ): TwoFactor {
   const store = createTwoFactorStatusStore(session);
   return {
@@ -99,6 +104,7 @@ export function createTwoFactor(
       return dataOrThrow(await api.beginTwoFactorSetupResult());
     },
     async enable(code, options = {}) {
+      const startedWith = session.snapshot.authToken;
       const enabled = await store.track(
         async () =>
           dataOrThrow(
@@ -117,6 +123,7 @@ export function createTwoFactor(
       if (enabled.deviceToken) {
         session.setContext({ twoFactorDeviceToken: enabled.deviceToken });
       }
+      if (session.snapshot.authToken === startedWith) hooks.onSessionVerified();
       return enabled.recoveryCodes;
     },
     async disable(answer: TwoFactorAnswer) {
