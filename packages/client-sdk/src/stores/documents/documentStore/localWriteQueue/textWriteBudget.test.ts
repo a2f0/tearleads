@@ -36,19 +36,32 @@ const REPLACEMENT_LIMIT_MS = 2000;
 
 test("replacing a note's whole text with unrelated text does not stall the writer", async () => {
   const { close, execSql } = await createTestExecSql("text-write-budget");
-  const open = () =>
-    createDocumentStore(
+  const logs: string[] = [];
+  const open = () => {
+    const runtime = offlineAttachRuntime({
+      blobStore: createMemoryBlobStore(),
+      canAttach: false,
+      execSql,
+    });
+    return createDocumentStore(
       "text-write-budget",
-      offlineAttachRuntime({
-        blobStore: createMemoryBlobStore(),
-        canAttach: false,
-        execSql,
-      }),
+      {
+        ...runtime,
+        util: {
+          ...runtime.util,
+          log: (message: string) => {
+            logs.push(message);
+            // A host logger that throws must not cost the write its save.
+            throw new Error("host logger failed");
+          },
+        },
+      },
       defaultDocumentsPersistence,
       null,
       "",
       "note",
     );
+  };
   try {
     await ensureDeferredBirthSchema(execSql);
     const store = open();
@@ -61,6 +74,12 @@ test("replacing a note's whole text with unrelated text does not stall the write
     const elapsed = performance.now() - started;
 
     expect(elapsed).toBeLessThan(REPLACEMENT_LIMIT_MS);
+    // The character diff ran out of time, and the store said so once.
+    expect(logs).toEqual([
+      expect.stringMatching(
+        /^Documents: wrote the text of text-write-budget as a (line|whole) replacement/u,
+      ),
+    ]);
     expect(store.getSnapshot().text).toBe(replacement);
     const reopened = open();
     expect(await reopened.ensureInitialized()).toBe(true);

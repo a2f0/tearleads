@@ -28,7 +28,10 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
-import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
+import {
+  noteDocumentStoreWrite,
+  reportDocumentStoreWriteFailure,
+} from "./reportWriteFailure";
 import {
   canWriteDocument,
   type DocumentState,
@@ -146,7 +149,8 @@ async function writeDocumentText(
     // Bounded: an unrelated replacement must not stall the writer.
     const granularity = updateText(writeDoc, value);
     if (granularity !== "character") {
-      state.runtime.util.log(
+      noteDocumentStoreWrite(
+        state,
         `Documents: wrote the text of ${state.localId} as a ${granularity} replacement because its character diff ran out of time.`,
       );
     }
