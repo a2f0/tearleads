@@ -28,6 +28,14 @@ import {
 import type { ExplorerItemColumnId } from "./explorerItemColumnIds";
 import "./ExplorerContainerDetail.css";
 
+// Fits the longest date the list formats ("Sep 30, 2026, 12:59 PM", 22
+// characters) on one line: the name column takes the table's slack, so a date
+// column is drawn at exactly this width and has no spare room to borrow. Cells
+// are set in the app's monospace face at `--font-size-sm`, which a touch layout
+// enlarges, so the width follows it: 0.6em a character, plus the cell padding.
+const EXPLORER_DATE_COLUMN_WIDTH =
+  "calc(13.5 * var(--font-size-sm) + 2 * var(--space-sm))";
+
 interface ColumnBuildContext {
   columnMenu?: ReactNode;
   onSort: (key: ContainerItemSortKey) => void;
@@ -58,13 +66,17 @@ function buildExplorerItemColumn(
         ariaSort: getMiniAppTableSortAria(sort, "name"),
         id,
         header: sortableHeader("name", EXPLORER_LABELS.itemNameColumn),
-        width: "40%",
+        // No width: the name takes whatever the measured columns leave, which
+        // is also what lets the reader resize them.
+        minWidth: "10rem",
+        resizeLabel: EXPLORER_LABELS.itemNameColumn,
       };
     case "type":
       return {
         ariaSort: getMiniAppTableSortAria(sort, "type"),
         id,
         header: sortableHeader("type", EXPLORER_LABELS.itemTypeColumn),
+        resizeLabel: EXPLORER_LABELS.itemTypeColumn,
         width: "8rem",
       };
     case "created":
@@ -72,19 +84,22 @@ function buildExplorerItemColumn(
         ariaSort: getMiniAppTableSortAria(sort, "created"),
         id,
         header: sortableHeader("created", EXPLORER_LABELS.dateCreatedColumn),
-        width: "11rem",
+        resizeLabel: EXPLORER_LABELS.dateCreatedColumn,
+        width: EXPLORER_DATE_COLUMN_WIDTH,
       };
     case "modified":
       return {
         ariaSort: getMiniAppTableSortAria(sort, "modified"),
         id,
         header: sortableHeader("modified", EXPLORER_LABELS.dateModifiedColumn),
-        width: "11rem",
+        resizeLabel: EXPLORER_LABELS.dateModifiedColumn,
+        width: EXPLORER_DATE_COLUMN_WIDTH,
       };
     case "sync":
       return {
         id,
         header: EXPLORER_LABELS.itemSyncColumn,
+        resizeLabel: EXPLORER_LABELS.itemSyncColumn,
         // Wide enough for the header word; the cell below it is a single glyph.
         width: "4.5rem",
       };

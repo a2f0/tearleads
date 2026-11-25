@@ -95,6 +95,7 @@ export function BloodPressureReadTable(params: {
       ariaLabel="Readings"
       buildRows={buildBloodPressureRows}
       columnStorageKey="tearleads.blood-pressure.readings:hidden-columns:v2"
+      columnWidthsStorageKey="tearleads.blood-pressure.readings:column-widths"
       currentAuthorId={currentAuthorId}
       detailFields={toBloodPressureReadingDetailFields}
       detailLabel="Attribution"

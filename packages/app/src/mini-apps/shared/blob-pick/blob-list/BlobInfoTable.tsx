@@ -24,7 +24,10 @@ import {
   type RenderBlobSyncCell,
   renderBlobInfoCell,
 } from "./blobInfoCells";
-import { useBlobInfoColumnVisibility } from "./blobListColumnPreferences";
+import {
+  useBlobInfoColumnVisibility,
+  useBlobInfoColumnWidths,
+} from "./blobListColumnPreferences";
 import {
   type BlobInfoColumnId,
   getBlobInfoColumnMenuOptions,
@@ -182,18 +185,17 @@ export function BlobInfoTable(params: {
       getVisibleBlobInfoColumnIds(columnVisibility.hiddenColumns, includeSync),
     [columnVisibility.hiddenColumns, includeSync],
   );
-  const { columns, minWidth } = useMemo(() => {
-    const layout = getBlobInfoTableLayout({
-      compact: params.compact,
-      hiddenColumns: columnVisibility.hiddenColumns,
-      includeSync,
-      onSort: params.onSort,
-      sort: params.sort,
-    });
-    return {
-      minWidth: layout.minWidth,
-      columns: addMiniAppTableHeaderAction(
-        layout.columns,
+  const columnWidths = useBlobInfoColumnWidths();
+  const columns = useMemo(
+    () =>
+      addMiniAppTableHeaderAction(
+        getBlobInfoTableLayout({
+          compact: params.compact,
+          hiddenColumns: columnVisibility.hiddenColumns,
+          includeSync,
+          onSort: params.onSort,
+          sort: params.sort,
+        }),
         <MiniAppColumnMenuButton
           ariaLabel={BLOB_LIST_LABELS.columnsMenuButton}
           hiddenColumns={columnVisibility.hiddenColumns}
@@ -205,15 +207,15 @@ export function BlobInfoTable(params: {
           toggleColumn={columnVisibility.toggleColumn}
         />,
       ),
-    };
-  }, [
-    columnVisibility.hiddenColumns,
-    columnVisibility.toggleColumn,
-    includeSync,
-    params.compact,
-    params.onSort,
-    params.sort,
-  ]);
+    [
+      columnVisibility.hiddenColumns,
+      columnVisibility.toggleColumn,
+      includeSync,
+      params.compact,
+      params.onSort,
+      params.sort,
+    ],
+  );
 
   return (
     <MiniAppTableFrame
@@ -232,7 +234,9 @@ export function BlobInfoTable(params: {
       <MiniAppTable
         aria-label={BLOB_LIST_LABELS.title}
         columns={columns}
-        style={{ minWidth }}
+        // A folded list has one summary column and nothing to resize. Unfolded,
+        // the table reserves the width its visible columns need.
+        columnWidths={params.compact ? undefined : columnWidths}
       >
         <BlobInfoTableContent
           activeBlob={params.activeBlob}

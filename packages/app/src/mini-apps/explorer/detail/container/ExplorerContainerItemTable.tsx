@@ -9,6 +9,7 @@ import {
   MiniAppTableEmptyRow,
   MiniAppTableFrame,
   MiniAppTableRow,
+  useMiniAppColumnWidths,
 } from "../../../../components/mini-app/MiniAppTable";
 import {
   getMiniAppVirtualFrameStyle,
@@ -25,6 +26,7 @@ import {
   isExplorerContainerItemContextTarget,
   openExplorerItem,
 } from "../item-views/explorerItemList";
+import { EXPLORER_COLUMN_WIDTHS_STORAGE_KEY } from "./explorerColumnPreferences";
 import {
   type ExplorerItemColumnId,
   getVisibleExplorerItemColumnIds,
@@ -260,6 +262,9 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
     sort,
     toggleColumn,
   });
+  const columnWidths = useMiniAppColumnWidths(
+    EXPLORER_COLUMN_WIDTHS_STORAGE_KEY,
+  );
   return (
     <MiniAppTableFrame
       {...getExplorerItemListFrameHandlers(params)}
@@ -272,6 +277,8 @@ export function ExplorerContainerItemTable(params: ItemTableProps) {
       <MiniAppTable
         aria-label={getExplorerItemTableLabel(selectedNode.name)}
         columns={columns}
+        // A folded list has one summary column and nothing to resize.
+        columnWidths={compact ? undefined : columnWidths}
       >
         <ExplorerContainerItemTableBody
           columnIds={columnIds}

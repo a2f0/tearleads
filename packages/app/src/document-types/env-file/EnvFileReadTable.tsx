@@ -99,6 +99,7 @@ export function EnvFileReadTable(params: {
       ariaLabel="Variables"
       buildRows={buildEnvFileRows}
       columnStorageKey="tearleads.env-file.variables:hidden-columns:v2"
+      columnWidthsStorageKey="tearleads.env-file.variables:column-widths"
       currentAuthorId={currentAuthorId}
       detailFields={toEnvVariableDetailFields}
       detailLabel="Details"

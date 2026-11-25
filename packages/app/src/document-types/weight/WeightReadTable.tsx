@@ -133,6 +133,7 @@ export function WeightReadTable(params: {
       ariaLabel="Entries"
       buildRows={buildWeightRows}
       columnStorageKey="tearleads.weight.entries:hidden-columns:v2"
+      columnWidthsStorageKey="tearleads.weight.entries:column-widths"
       currentAuthorId={currentAuthorId}
       detailFields={toWeightEntryDetailFields}
       detailLabel="Attribution"

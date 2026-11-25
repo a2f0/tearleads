@@ -9,6 +9,7 @@ export {
   saveMiniAppHiddenColumns,
   useMiniAppColumnVisibility,
 } from "./tables/MiniAppColumnVisibility";
+export { useMiniAppColumnWidths } from "./tables/MiniAppColumnWidths";
 export {
   MiniAppCompactTableCell,
   type MiniAppCompactTableField,
