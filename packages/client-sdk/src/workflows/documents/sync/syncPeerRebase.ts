@@ -7,7 +7,7 @@ import type {
   RemoteDocumentSyncPass,
 } from "./remoteDocumentSyncPass";
 
-/** The abandon reason of a pass parked until the owner restores history. */
+/** The abandon reason of a pass parked until a peer's owner restores it. */
 const PEER_RESTORE_AWAITS_OWNER = "peer-restore-awaits-owner";
 
 /**
@@ -61,8 +61,10 @@ async function reportTerminalPeerRefusal(
  * peer. The writes stay queued and the document stays readable and editable.
  * The durable row tells the write queue why, as it does for an ancestor
  * repair this writer cannot make; nothing is reported as an error. Every
- * later pass submits the queue again, and the first one after the owner's
- * device restores those operations recovers and clears the row.
+ * later pass submits the queue again, and the first one after a device of
+ * the peer's owner restores those operations recovers and clears the row.
+ * After a recovery that owner is normally the organization's, whose seed
+ * claimed the peer.
  */
 async function parkUntilOwnerRestores(
   sync: RemoteDocumentSyncPass,
@@ -71,7 +73,7 @@ async function parkUntilOwnerRestores(
   await sync.onTerminalSubmitFailure?.({
     code: "document_peer_restore_awaits_owner",
     message:
-      "The server lost committed history that only the document owner's devices may restore; queued changes sync afterwards",
+      "The server lost committed history on a writer another user now owns; queued changes sync after that user's device restores it",
     ok: false,
     report: () => undefined,
     status: null,

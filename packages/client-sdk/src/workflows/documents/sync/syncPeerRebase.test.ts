@@ -210,7 +210,7 @@ describe("document sync peer-owned refusal", () => {
       {
         code: "document_peer_restore_awaits_owner",
         message:
-          "The server lost committed history that only the document owner's devices may restore; queued changes sync afterwards",
+          "The server lost committed history on a writer another user now owns; queued changes sync after that user's device restores it",
         status: null,
       },
     ]);

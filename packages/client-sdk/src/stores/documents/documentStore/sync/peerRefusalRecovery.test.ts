@@ -279,7 +279,7 @@ test("parks on a lost peer another user owns, reports it, and recovers", async (
   expect(await storedRecord()).toEqual({
     ...before,
     sync_failure_message:
-      "The server lost committed history that only the document owner's devices may restore; queued changes sync afterwards",
+      "The server lost committed history on a writer another user now owns; queued changes sync after that user's device restores it",
   });
   // Still editable while parked.
   await setDocumentText(state, () => undefined, "base more, later");
