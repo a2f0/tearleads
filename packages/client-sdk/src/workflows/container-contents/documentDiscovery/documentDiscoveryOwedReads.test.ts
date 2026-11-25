@@ -114,12 +114,12 @@ function discover(input: {
     oweListedDocumentReads: (listed) =>
       oweListedDocumentReadsBehindListing(execSql, listed),
     replaceDocumentLinksBatch: async () => {},
-    saveContainerDocumentWatermark: async (containerId, watermark) => {
+    recordContainerDocumentListing: async (containerId, listing) => {
       // What the watermark is about to pass must already be owed.
       input.steps.push(`saved:${(await owedDocumentIds()).join(",")}`);
-      await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
+      await new ContainerSyncWatermarkRepository(execSql).recordLaneFetch(
         containerContentsSyncLane(containerId),
-        watermark,
+        { checked: listing.settled, watermark: listing.watermark },
       );
     },
     upsertDiscoveredDocuments: async () => {

@@ -58,6 +58,11 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   /** Known ids eligible after an automatic root-lane discovery hint. */
   listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
   /**
+   * Known container ids whose document lane still owes a listing: one never
+   * settled by an applied listing, or one holding staged candidates.
+   */
+  listOwedDocumentDiscoveryContainerIds: () => Promise<ReadonlyArray<string>>;
+  /**
    * Discover + persist documents for every requested container through one
    * batched listing. Each lane's outcome is handed to `onOutcome` (awaited)
    * as soon as it applies, before later lanes apply; every outcome is also
@@ -138,6 +143,14 @@ export interface ReconciliationService {
   ) => void;
   /** Queue known containers at idle priority. */
   enqueueIdleBackfill: () => void;
+  /**
+   * Queue, at idle priority, every container whose document lane an earlier
+   * session left owed, such as one a reload cut short mid-discovery. A start
+   * whose connection is never acknowledged otherwise lists no lane until a
+   * hint names it; one that connects leaves this to
+   * {@link reconcileAcknowledgedConnection}, which lists every lane.
+   */
+  resumeOwedDiscovery: () => void;
   /**
    * Forget which containers were reconciled this session so the next enqueue of
    * each re-validates against the server exactly once. Call on the

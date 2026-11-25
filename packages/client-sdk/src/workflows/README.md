@@ -139,6 +139,12 @@ root.
 whose local destination parent is unavailable. Recovery uses it to distinguish
 local work from shared folders with inaccessible parents.
 
+`ContainerDocumentQueries.recordContainerDocumentListing` replaces
+`saveContainerDocumentWatermark`: it stores a listing's cursor and settled mark
+(`ContainerDocumentListingRecord`, a root export) in one statement, so a lane a
+reload cut short stays
+[owed](../../../../docs/developer/device-first.md#owed-document-lanes).
+
 ### Explorer hydration and pending downloads
 
 Explorer queries omit remote document shells until content is present, including

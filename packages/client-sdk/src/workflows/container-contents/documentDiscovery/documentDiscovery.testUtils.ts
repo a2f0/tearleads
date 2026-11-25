@@ -87,7 +87,7 @@ export const nullContainerDocumentWatermarks = {
   applyContainerDocumentTombstones: async () => [],
   loadContainerDocumentWatermark: async () => null,
   oweListedDocumentReads: async () => [],
-  saveContainerDocumentWatermark: async () => {},
+  recordContainerDocumentListing: async () => {},
 };
 
 /** Runs the production lane path for one container, rethrowing its rejection. */

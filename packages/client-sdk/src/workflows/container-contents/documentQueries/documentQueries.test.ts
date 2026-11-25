@@ -24,7 +24,10 @@ test("createContainerDocumentQueriesFromRuntime uses the runtime executor", asyn
       updatedAt: "2026-05-09T00:00:00.000Z",
     };
 
-    await readModel.saveContainerDocumentWatermark("container-1", watermark);
+    await readModel.recordContainerDocumentListing("container-1", {
+      settled: true,
+      watermark,
+    });
 
     expect(
       await readModel.loadContainerDocumentWatermark("container-1"),

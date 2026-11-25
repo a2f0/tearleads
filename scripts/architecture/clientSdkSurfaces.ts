@@ -159,6 +159,7 @@ export const containerContentsSurface = [
   `${sdk}/workflows/container-contents/attribution/documentAttributionRanges.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryEvidence.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryLanes.ts`,
+  `${sdk}/workflows/container-contents/documentDiscovery/documentLaneDiscovery.ts`,
   `${sdk}/workflows/container-contents/documentDiscovery/documentDiscoveryTypes.ts`,
   `${sdk}/workflows/container-contents/documentQueries/documentStructure.ts`,
   `${sdk}/workflows/container-contents/documentQueries/index.ts`,

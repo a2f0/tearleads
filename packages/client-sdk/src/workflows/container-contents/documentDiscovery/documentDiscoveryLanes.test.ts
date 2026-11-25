@@ -21,6 +21,7 @@ import type {
   ContainerDocumentLaneLister,
   ListContainerDocumentsResponse,
 } from "./documentDiscoveryTypes";
+import { listOwedDocumentLaneContainerIds } from "./documentLaneDiscovery";
 
 const AT = "2026-10-14T00:00:00.000Z";
 const LANES = ["lane-a", "lane-b", "lane-c"] as const;
@@ -92,10 +93,10 @@ async function createHarness(execSql: ExecSql): Promise<Harness> {
     containerId,
     replaceDocumentLinksBatch: async () => {},
     oweListedDocumentReads: async () => [],
-    saveContainerDocumentWatermark: async (id, watermark) => {
-      await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
+    recordContainerDocumentListing: async (id, listing) => {
+      await new ContainerSyncWatermarkRepository(execSql).recordLaneFetch(
         containerContentsSyncLane(id),
-        watermark,
+        { checked: listing.settled, watermark: listing.watermark },
       );
     },
     upsertDiscoveredDocuments: async (
@@ -195,6 +196,11 @@ test("a reset between lane applications rejects every later lane's stale listing
     expect(
       await harness.store.loadHead("lane-b:doc-1", "head:lane-b:doc-1"),
     ).toBeNull();
+    // The stale pages recorded nothing, so B and C stay owed across a restart.
+    expect(await listOwedDocumentLaneContainerIds(execSql, LANES)).toEqual([
+      "lane-b",
+      "lane-c",
+    ]);
 
     // A fresh generation re-lists B and C from their untouched cursors and
     // applies each from its own page; A resumes from its own final cursor.
@@ -250,6 +256,10 @@ test("a lane whose local apply fails keeps its cursor while healthy lanes advanc
     // B's verified candidate stays durably pending for the next pass.
     expect(await harness.store.hasPending(["lane-b"])).toBe(true);
     expect(await harness.store.hasPending(["lane-a", "lane-c"])).toBe(false);
+    // Only B still owes a listing, so a restart resumes just B.
+    expect(await listOwedDocumentLaneContainerIds(execSql, LANES)).toEqual([
+      "lane-b",
+    ]);
 
     // Only B is listed from the start again; A and C resume from their own
     // final cursors and have nothing new.
@@ -268,6 +278,7 @@ test("a lane whose local apply fails keeps its cursor while healthy lanes advanc
       LANES.map((id) => cursor(`${id}:final`)),
     );
     expect(await harness.store.hasPending([...LANES])).toBe(false);
+    expect(await listOwedDocumentLaneContainerIds(execSql, LANES)).toEqual([]);
   } finally {
     close();
   }

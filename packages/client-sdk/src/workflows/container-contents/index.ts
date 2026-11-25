@@ -17,6 +17,7 @@ export {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
 } from "./containerPersistence";
+export type { ContainerDocumentListingRecord } from "./documentDiscovery/documentDiscoveryTypes";
 export {
   type ContainerDocumentLinkInput,
   type ContainerDocumentQueries,

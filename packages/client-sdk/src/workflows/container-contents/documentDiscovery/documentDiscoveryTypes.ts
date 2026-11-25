@@ -220,15 +220,27 @@ export interface DiscoverContainerDocumentsOptions
     inputs: ReadonlyArray<DocumentLinkInput>,
     stillCurrent: () => Promise<boolean>,
   ) => Promise<void>;
-  saveContainerDocumentWatermark: (
+  /**
+   * Advance the lane's cursor and, once an applied listing left no candidate
+   * pending, settle the lane (see `documentLaneDiscovery.ts`).
+   */
+  recordContainerDocumentListing: (
     containerId: string,
-    watermark: SyncWatermark,
+    listing: ContainerDocumentListingRecord,
     stillCurrent: () => Promise<boolean>,
   ) => Promise<void>;
   upsertDiscoveredDocuments: (
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
     stillCurrent: () => Promise<boolean>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
+}
+
+/** What one applied listing durably records for its lane. */
+export interface ContainerDocumentListingRecord {
+  /** The listing's next cursor; `null` keeps the stored one. */
+  readonly watermark: SyncWatermark | null;
+  /** True when the listing applied and no candidate in the lane is pending. */
+  readonly settled: boolean;
 }
 
 export interface ListedContainerDocuments {

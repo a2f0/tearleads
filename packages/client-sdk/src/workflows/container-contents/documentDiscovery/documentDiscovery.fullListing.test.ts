@@ -61,7 +61,7 @@ for (const scenario of [
       // can prove presence, never a filtered projection or a tombstone summary.
       upsertDiscoveredDocuments: async () => [],
       oweListedDocumentReads: async () => [],
-      saveContainerDocumentWatermark: async () => {
+      recordContainerDocumentListing: async () => {
         if (scenario === "persistence-failure")
           throw new Error("disk unavailable");
         saved = true;

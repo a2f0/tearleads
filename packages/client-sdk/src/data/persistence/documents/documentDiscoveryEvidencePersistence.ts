@@ -269,6 +269,14 @@ export class DocumentDiscoveryEvidenceRepository {
     }
     return false;
   }
+  /** Containers holding staged candidates, due or backing off. */
+  async listPendingContainerIds(): Promise<ReadonlySet<string>> {
+    const db = await this.read();
+    const rows = await db
+      .selectDistinct({ containerId: pending.containerId })
+      .from(pending);
+    return new Set(rows.map((row) => row.containerId));
+  }
   async retryDelay(containerIds: readonly string[]): Promise<number | null> {
     const db = await this.read();
     let due: number | null = null;
