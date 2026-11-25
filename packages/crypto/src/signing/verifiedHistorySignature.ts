@@ -1,5 +1,5 @@
-import { bytesToHex } from "../hex";
-import { createIncrementalSha256 } from "../incrementalSha256";
+import { bytesToHex } from "../primitives/hex";
+import { createIncrementalSha256 } from "../primitives/incrementalSha256";
 import { verify } from "./verify";
 
 export function signatureVerificationDigest(

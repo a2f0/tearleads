@@ -171,7 +171,7 @@ Markdown file except the managed skill copies and fails on:
   rename just as relative ones do;
 - in [`docs/`](../) and [`formal/`](../../formal/), a code span naming an
   existing repository path that is not a link. Write
-  [`packages/crypto/src/challenge.ts`](../../packages/crypto/src/challenge.ts),
+  [`packages/crypto/src/identity/challenge.ts`](../../packages/crypto/src/identity/challenge.ts),
   not a bare code span, so readers on GitHub and on the website can open the
   file. Spans with globs, braces, or placeholders are not checked.
 

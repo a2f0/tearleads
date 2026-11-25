@@ -1,0 +1,489 @@
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import {
+  isCanonicalSignedAt,
+  SIGNED_AT_CONTRACT,
+} from "@tearleads/validators/util";
+import { ML_KEM1024_PUBLIC_KEY_BYTES } from "../encapsulation/generateKeyPair";
+import { toFingerprint } from "../primitives/fingerprint";
+import { sign } from "../signing/sign";
+import { computePrincipalContainerGrantRoot } from "./principalContainerGrants";
+import { computePrincipalMemberEnvelopesRoot } from "./principalMemberEnvelopes";
+import { throwPrincipalPolicyValidationError } from "./principalPolicyValidationError";
+import {
+  comparePrincipalProjectionMembers,
+  comparePrincipalStateMembers,
+  hasDuplicateNormalizedPrincipalProjectionMembers,
+  hasDuplicateNormalizedPrincipalStateMembers,
+} from "./principalStateMembers";
+import type {
+  ManagedRecipientPrincipalType,
+  PrincipalProjectionMember,
+  PrincipalProjectionRole,
+  PrincipalStateExternalAuthority,
+  PrincipalStateHeaderInput,
+  PrincipalStateMember,
+  PrincipalStateMembershipMode,
+  PrincipalStateSigningInput,
+  SignedPrincipalState,
+  UnsignedPrincipalState,
+} from "./principalStateTypes";
+
+const TEXT_ENCODER = new TextEncoder();
+const TEXT_DECODER = new TextDecoder();
+
+export type {
+  ManagedRecipientPrincipalType,
+  PrincipalContainerGrant,
+  PrincipalContainerGrantAccessLevel,
+  PrincipalProjectionMember,
+  PrincipalProjectionRole,
+  PrincipalStateExternalAuthority,
+  PrincipalStateHeaderInput,
+  PrincipalStateMember,
+  PrincipalStateMemberEnvelope,
+  PrincipalStateMembershipMode,
+  PrincipalStateSigningInput,
+  SignedPrincipalState,
+  UnsignedPrincipalState,
+} from "./principalStateTypes";
+
+function isValidPositiveInteger(value: number): boolean {
+  return Number.isSafeInteger(value) && value > 0;
+}
+
+function isValidNonNegativeInteger(value: number): boolean {
+  return Number.isInteger(value) && value >= 0;
+}
+
+function encodeNormalizedPrincipalStateMembers(
+  normalizedMembers: ReadonlyArray<PrincipalStateMember>,
+): Uint8Array {
+  return TEXT_ENCODER.encode(
+    JSON.stringify(
+      normalizedMembers.map((member) => ({
+        userId: member.userId,
+      })),
+    ),
+  );
+}
+
+function encodeNormalizedPrincipalProjectionMembers(
+  normalizedMembers: ReadonlyArray<PrincipalProjectionMember>,
+): Uint8Array {
+  return TEXT_ENCODER.encode(
+    JSON.stringify(
+      normalizedMembers.map((member) => ({
+        userId: member.userId,
+        role: member.role,
+        identityBundleFingerprint: member.identityBundleFingerprint,
+      })),
+    ),
+  );
+}
+
+export function encodeUnsignedPrincipalState(
+  state: UnsignedPrincipalState,
+): Uint8Array {
+  return TEXT_ENCODER.encode(
+    JSON.stringify({
+      domain: "tearleads.principal-state",
+      principalType: state.principalType,
+      principalId: state.principalId,
+      version: state.version,
+      prevStateHash: state.prevStateHash,
+      keyEpoch: state.keyEpoch,
+      encapsulationPublicKey: state.encapsulationPublicKey,
+      keyFingerprint: state.keyFingerprint,
+      membershipMode: state.membershipMode,
+      membershipRoot: state.membershipRoot,
+      memberEnvelopesRoot: state.memberEnvelopesRoot,
+      projectionRoot: state.projectionRoot,
+      grantRoot: state.grantRoot,
+      payloadCiphertextHash: state.payloadCiphertextHash,
+      memberCount: state.memberCount,
+      grantCount: state.grantCount,
+      externalAuthority: state.externalAuthority,
+      signedAt: state.signedAt,
+      signerUserId: state.signerUserId,
+      signerUserKeyFingerprint: state.signerUserKeyFingerprint,
+    }),
+  );
+}
+
+export function toUnsignedPrincipalState(
+  state: UnsignedPrincipalState,
+): UnsignedPrincipalState {
+  return {
+    principalType: state.principalType,
+    principalId: state.principalId,
+    version: state.version,
+    prevStateHash: state.prevStateHash,
+    keyEpoch: state.keyEpoch,
+    encapsulationPublicKey: state.encapsulationPublicKey,
+    keyFingerprint: state.keyFingerprint,
+    membershipMode: state.membershipMode,
+    membershipRoot: state.membershipRoot,
+    memberEnvelopesRoot: state.memberEnvelopesRoot,
+    projectionRoot: state.projectionRoot,
+    grantRoot: state.grantRoot,
+    payloadCiphertextHash: state.payloadCiphertextHash,
+    memberCount: state.memberCount,
+    grantCount: state.grantCount,
+    externalAuthority: state.externalAuthority,
+    signedAt: state.signedAt,
+    signerUserId: state.signerUserId,
+    signerUserKeyFingerprint: state.signerUserKeyFingerprint,
+  };
+}
+
+function isMembershipMode(
+  value: string,
+): value is PrincipalStateMembershipMode {
+  return value === "projection";
+}
+
+function validatePrincipalStateIdentityFields(
+  state: UnsignedPrincipalState,
+): void {
+  // Versions are counters, not a lifetime history budget. Keep every value
+  // exact across JSON, JavaScript arithmetic, and the database number mapping.
+  if (!Number.isSafeInteger(state.version) || state.version < 1) {
+    throw new Error("Principal state version must be a positive safe integer");
+  }
+
+  if (!isValidPositiveInteger(state.keyEpoch)) {
+    throw new Error(
+      "Principal state key epoch must be a positive safe integer",
+    );
+  }
+
+  if (state.principalId.length === 0) {
+    throw new Error("Principal state principalId cannot be empty");
+  }
+
+  if (state.encapsulationPublicKey.length === 0) {
+    throw new Error("Principal state encapsulationPublicKey cannot be empty");
+  }
+
+  if (state.keyFingerprint.length === 0) {
+    throw new Error("Principal state keyFingerprint cannot be empty");
+  }
+
+  if (state.signerUserId.length === 0) {
+    throw new Error("Principal state signerUserId cannot be empty");
+  }
+
+  if (state.signerUserKeyFingerprint.length === 0) {
+    throw new Error("Principal state signerUserKeyFingerprint cannot be empty");
+  }
+
+  if (!isCanonicalSignedAt(state.signedAt)) {
+    throw new Error(`Principal state signedAt must be ${SIGNED_AT_CONTRACT}`);
+  }
+}
+
+function resolveMembershipMode(
+  membershipMode: string | undefined,
+): PrincipalStateMembershipMode {
+  if (!membershipMode || !isMembershipMode(membershipMode)) {
+    throw new Error("Principal state membershipMode is unsupported");
+  }
+  return membershipMode;
+}
+
+function requireNonEmptyHeaderString(
+  value: string | undefined,
+  message: string,
+): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(message);
+  }
+  return value;
+}
+
+function resolveMemberCount(state: UnsignedPrincipalState): number {
+  if (
+    typeof state.memberCount !== "number" ||
+    !isValidNonNegativeInteger(state.memberCount)
+  ) {
+    throw new Error(
+      "Principal state memberCount must be a non-negative integer",
+    );
+  }
+
+  return state.memberCount;
+}
+
+function normalizeExternalAuthority(
+  authority: PrincipalStateExternalAuthority | null,
+): PrincipalStateExternalAuthority | null {
+  if (authority === null) {
+    return null;
+  }
+
+  if (
+    authority.principalType !== "group" ||
+    authority.principalId.length === 0 ||
+    !Number.isSafeInteger(authority.version) ||
+    authority.version < 1 ||
+    !isValidPositiveInteger(authority.keyEpoch) ||
+    authority.stateHash.length === 0 ||
+    authority.keyFingerprint.length === 0
+  ) {
+    throw new Error("Principal state externalAuthority is invalid");
+  }
+
+  return {
+    principalType: "group",
+    principalId: authority.principalId,
+    version: authority.version,
+    keyEpoch: authority.keyEpoch,
+    stateHash: authority.stateHash,
+    keyFingerprint: authority.keyFingerprint,
+  };
+}
+
+async function validatePrincipalEncapsulationKey(
+  state: UnsignedPrincipalState,
+): Promise<void> {
+  let publicKey: Uint8Array;
+  try {
+    publicKey = base64ToBytes(state.encapsulationPublicKey);
+  } catch {
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      "Principal state encapsulationPublicKey must use canonical base64 encoding",
+    );
+  }
+
+  if (bytesToBase64(publicKey) !== state.encapsulationPublicKey) {
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      "Principal state encapsulationPublicKey must use canonical base64 encoding",
+    );
+  }
+
+  if (publicKey.length !== ML_KEM1024_PUBLIC_KEY_BYTES) {
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      `Principal state encapsulationPublicKey must contain exactly ${ML_KEM1024_PUBLIC_KEY_BYTES} bytes`,
+    );
+  }
+
+  const publicKeyFingerprint = await toFingerprint(publicKey);
+  if (publicKeyFingerprint !== state.keyFingerprint) {
+    throwPrincipalPolicyValidationError(
+      "invalid_artifact",
+      "Principal state keyFingerprint does not match encapsulationPublicKey",
+    );
+  }
+}
+
+export async function normalizeUnsignedPrincipalState(
+  state: UnsignedPrincipalState,
+): Promise<UnsignedPrincipalState> {
+  validatePrincipalStateIdentityFields(state);
+
+  const membershipMode = resolveMembershipMode(state.membershipMode);
+  const resolvedMembershipRoot = requireNonEmptyHeaderString(
+    state.membershipRoot,
+    "Principal state membershipRoot is required",
+  );
+  const resolvedProjectionRoot = requireNonEmptyHeaderString(
+    state.projectionRoot,
+    "Principal state projectionRoot is required",
+  );
+  const resolvedGrantRoot = requireNonEmptyHeaderString(
+    state.grantRoot,
+    "Principal state grantRoot is required",
+  );
+  const resolvedMemberEnvelopesRoot = requireNonEmptyHeaderString(
+    state.memberEnvelopesRoot,
+    "Principal state memberEnvelopesRoot is required",
+  );
+  const resolvedPayloadCiphertextHash = requireNonEmptyHeaderString(
+    state.payloadCiphertextHash,
+    "Principal state payloadCiphertextHash is required",
+  );
+  const memberCount = resolveMemberCount(state);
+  if (!isValidNonNegativeInteger(state.grantCount)) {
+    throw new Error(
+      "Principal state grantCount must be a non-negative integer",
+    );
+  }
+
+  await validatePrincipalEncapsulationKey(state);
+
+  return {
+    principalType: state.principalType,
+    principalId: state.principalId,
+    version: state.version,
+    prevStateHash: state.prevStateHash,
+    keyEpoch: state.keyEpoch,
+    encapsulationPublicKey: state.encapsulationPublicKey,
+    keyFingerprint: state.keyFingerprint,
+    membershipMode,
+    membershipRoot: resolvedMembershipRoot,
+    memberEnvelopesRoot: resolvedMemberEnvelopesRoot,
+    projectionRoot: resolvedProjectionRoot,
+    grantRoot: resolvedGrantRoot,
+    payloadCiphertextHash: resolvedPayloadCiphertextHash,
+    memberCount,
+    grantCount: state.grantCount,
+    externalAuthority: normalizeExternalAuthority(state.externalAuthority),
+    signedAt: state.signedAt,
+    signerUserId: state.signerUserId,
+    signerUserKeyFingerprint: state.signerUserKeyFingerprint,
+  };
+}
+
+export function isManagedRecipientPrincipalType(
+  value: string,
+): value is ManagedRecipientPrincipalType {
+  return value === "group" || value === "organization";
+}
+
+export function isPrincipalProjectionRole(
+  value: string,
+): value is PrincipalProjectionRole {
+  return value === "member" || value === "admin";
+}
+
+export function normalizePrincipalStateMembers(
+  members: ReadonlyArray<PrincipalStateMember>,
+): PrincipalStateMember[] {
+  return members
+    .map((member) => ({ userId: member.userId }))
+    .sort(comparePrincipalStateMembers);
+}
+
+export function derivePrincipalProjectionMembers(
+  members: ReadonlyArray<
+    Pick<PrincipalProjectionMember, "userId" | "identityBundleFingerprint">
+  >,
+): PrincipalProjectionMember[] {
+  return normalizePrincipalProjectionMembers(
+    members.map((member) => ({ ...member, role: "member" })),
+  );
+}
+
+export function normalizePrincipalProjectionMembers(
+  members: ReadonlyArray<PrincipalProjectionMember>,
+): PrincipalProjectionMember[] {
+  return members
+    .map((member) => {
+      if (
+        typeof member.identityBundleFingerprint !== "string" ||
+        !/^[a-f0-9]{64}$/u.test(member.identityBundleFingerprint)
+      ) {
+        throwPrincipalPolicyValidationError(
+          "invalid_shape",
+          "Principal projection identity bundle fingerprint must be lowercase SHA-256",
+        );
+      }
+      return {
+        userId: member.userId,
+        role: member.role,
+        identityBundleFingerprint: member.identityBundleFingerprint,
+      };
+    })
+    .sort(comparePrincipalProjectionMembers);
+}
+
+export async function computePrincipalMembershipRoot(
+  members: ReadonlyArray<PrincipalStateMember>,
+): Promise<string> {
+  const normalizedMembers = normalizePrincipalStateMembers(members);
+
+  if (hasDuplicateNormalizedPrincipalStateMembers(normalizedMembers)) {
+    throw new Error("Principal state cannot contain duplicate members");
+  }
+
+  return toFingerprint(
+    encodeNormalizedPrincipalStateMembers(normalizedMembers),
+  );
+}
+
+export async function computePrincipalProjectionRoot(
+  members: ReadonlyArray<PrincipalProjectionMember>,
+): Promise<string> {
+  const normalizedMembers = normalizePrincipalProjectionMembers(members);
+
+  if (hasDuplicateNormalizedPrincipalProjectionMembers(normalizedMembers)) {
+    throw new Error(
+      "Principal state projection cannot contain duplicate members",
+    );
+  }
+
+  return toFingerprint(
+    encodeNormalizedPrincipalProjectionMembers(normalizedMembers),
+  );
+}
+
+export async function computePrincipalStatePayloadCiphertextHash(
+  ciphertext: string,
+): Promise<string> {
+  return toFingerprint(TEXT_ENCODER.encode(ciphertext));
+}
+
+export async function buildPrincipalStateSigningInput(
+  input: PrincipalStateHeaderInput,
+): Promise<PrincipalStateSigningInput> {
+  return {
+    principalType: input.principalType,
+    principalId: input.principalId,
+    version: input.version,
+    prevStateHash: input.prevStateHash,
+    keyEpoch: input.keyEpoch,
+    encapsulationPublicKey: input.encapsulationPublicKey,
+    keyFingerprint: input.keyFingerprint,
+    membershipMode: "projection",
+    membershipRoot: await computePrincipalMembershipRoot(input.members),
+    memberEnvelopesRoot: await computePrincipalMemberEnvelopesRoot(
+      input.memberEnvelopes,
+    ),
+    projectionRoot: await computePrincipalProjectionRoot(input.projection),
+    grantRoot: await computePrincipalContainerGrantRoot(input.grants),
+    payloadCiphertextHash: await computePrincipalStatePayloadCiphertextHash(
+      input.payloadCiphertext,
+    ),
+    memberCount: input.projection.length,
+    grantCount: input.grants.length,
+    externalAuthority: input.externalAuthority,
+    signedAt: input.signedAt,
+    signerUserId: input.signerUserId,
+    signerUserKeyFingerprint: input.signerUserKeyFingerprint,
+  };
+}
+
+export async function serializeUnsignedPrincipalState(
+  state: UnsignedPrincipalState,
+): Promise<string> {
+  const normalizedState = await normalizeUnsignedPrincipalState(state);
+  return TEXT_DECODER.decode(encodeUnsignedPrincipalState(normalizedState));
+}
+
+export async function computePrincipalStateHash(
+  state: UnsignedPrincipalState,
+): Promise<string> {
+  const normalizedState = await normalizeUnsignedPrincipalState(state);
+  return toFingerprint(encodeUnsignedPrincipalState(normalizedState));
+}
+
+export async function signPrincipalState(
+  state: PrincipalStateSigningInput,
+  secretKey: Uint8Array,
+): Promise<SignedPrincipalState> {
+  const normalizedState = await normalizeUnsignedPrincipalState(
+    toUnsignedPrincipalState(state),
+  );
+  const signature = sign(
+    encodeUnsignedPrincipalState(normalizedState),
+    secretKey,
+  );
+
+  return {
+    ...normalizedState,
+    signature: bytesToBase64(signature),
+  };
+}

@@ -4,46 +4,26 @@
 // with the wire arithmetic in @tearleads/validators so every layer shares
 // one equation.
 export { MAX_CONTAINER_KEY_EPOCH } from "@tearleads/validators/util";
-export * from "./accessEvent";
-export * from "./accessEventTypes";
-export * from "./accessManifestSnapshot";
-export * from "./accessManifestTypes";
-export { ACCESS_MANIFEST_VERIFICATION_REVISION } from "./accessManifestVerificationRevision";
-export * from "./accessManifestVerificationTypes";
-export {
-  normalizeAttachmentAccessEventBody,
-  verifyAttachmentBindingEvent,
-  verifyAttachmentDetachEvent,
-} from "./attachmentAccessEvent";
-export * from "./attachmentAccessTypes";
-export * from "./canonical";
-export {
-  computeAccessManifestBundleDigest,
-  computeContainerKekLevelDigest,
-  isKeyingCanonicalJson,
-  readKeyingCanonicalJson,
-} from "./canonicalJsonGuard";
-export * from "./canonicalJsonTypes";
-export * from "./checkpoints";
-export * from "./checkpointTypes";
-export * from "./containerAccess";
-export { MAX_CONTAINER_RECITATION_EPOCH } from "./containerAccessReciteBody";
-export * from "./containerAccessTypes";
-export * from "./containerKek";
+export * from "./access/accessEvent";
+export * from "./access/accessEventTypes";
+export * from "./access/accessManifestSnapshot";
+export * from "./access/accessManifestTypes";
+export { ACCESS_MANIFEST_VERIFICATION_REVISION } from "./access/accessManifestVerificationRevision";
+export * from "./access/accessManifestVerificationTypes";
+export * from "./access/checkpoints";
+export * from "./access/checkpointTypes";
+export { prepareHeldProjectionCitations } from "./access/heldProjectionCitations";
+export * from "./containerAccess/containerAccess";
+export { MAX_CONTAINER_RECITATION_EPOCH } from "./containerAccess/containerAccessReciteBody";
+export * from "./containerAccess/containerAccessTypes";
+export { verifyContainerParentEdge } from "./containerAccess/containerParentEdge";
+export { resolveContainerStatePathUserAccessLevel } from "./containerAccess/containerPathAccess";
 export { computeBlobAccessManifestHash } from "./containerKek/blobAccessManifest";
 export {
   computeBlobContentKeyTargetHash,
   deriveBlobKekTargets,
 } from "./containerKek/blobKeyTargets";
-export {
-  computeDocumentContentKeyTargetHash,
-  deriveDocumentKekTargets,
-} from "./containerKek/documentKeyTargets";
-export {
-  computeContainerKekRecipientTargetHash,
-  deriveContainerKekRecipientTargets,
-  derivePrincipalRecipientKeyEpochId,
-} from "./containerKek/recipientTargets";
+export * from "./containerKek/containerKek";
 export {
   assertSealedContainerKekKeyringLength,
   CONTAINER_KEK_KEYRING_ENTRY_BYTES,
@@ -55,90 +35,86 @@ export {
   openContainerKekKeyring,
   sealContainerKekKeyring,
   verifyContainerKekKeyringEntry,
-} from "./containerKekKeyring";
+} from "./containerKek/containerKekKeyring";
 export {
   computeContainerKekMaterialId,
   isContainerKekMaterialId,
-} from "./containerKekMaterial";
+} from "./containerKek/containerKekMaterial";
 export {
   computeContainerKekPredecessorBridgeHash,
   createContainerKekPredecessorBridge,
   normalizeContainerKekPredecessorBridge,
   unwrapContainerKekPredecessorBridge,
-} from "./containerKekPredecessor";
-export * from "./containerKekTypes";
+} from "./containerKek/containerKekPredecessor";
+export * from "./containerKek/containerKekTypes";
 export {
   deriveContainerKekWrappingPublicKey,
   unwrapContainerKekParentWrap,
-} from "./containerKekWrapping";
-export { verifyContainerParentEdge } from "./containerParentEdge";
-export { resolveContainerStatePathUserAccessLevel } from "./containerPathAccess";
-export * from "./contentKeyTargetTypes";
-export * from "./documentAccess";
-export { normalizeDocumentAccessEventBody } from "./documentAccessBody";
-export * from "./documentAccessTypes";
+} from "./containerKek/containerKekWrapping";
+export * from "./containerKek/contentKeyTargetTypes";
+export {
+  computeDocumentContentKeyTargetHash,
+  deriveDocumentKekTargets,
+} from "./containerKek/documentKeyTargets";
+export {
+  computeContainerKekRecipientTargetHash,
+  deriveContainerKekRecipientTargets,
+  derivePrincipalRecipientKeyEpochId,
+} from "./containerKek/recipientTargets";
+export * from "./core/canonical";
+export {
+  computeAccessManifestBundleDigest,
+  computeContainerKekLevelDigest,
+  isKeyingCanonicalJson,
+  readKeyingCanonicalJson,
+} from "./core/canonicalJsonGuard";
+export * from "./core/canonicalJsonTypes";
+export type { KeyingHashDomain } from "./core/keyingHashDomains";
+export {
+  isKeyingVerificationCode,
+  KEYING_VERIFICATION_CODES,
+  type KeyingVerificationCode,
+  KeyingVerificationError,
+  type KeyingVerificationResult,
+} from "./core/verificationError";
+export {
+  normalizeAttachmentAccessEventBody,
+  verifyAttachmentBindingEvent,
+  verifyAttachmentDetachEvent,
+} from "./documentAccess/attachmentAccessEvent";
+export * from "./documentAccess/attachmentAccessTypes";
+export * from "./documentAccess/documentAccess";
+export { normalizeDocumentAccessEventBody } from "./documentAccess/documentAccessBody";
+export * from "./documentAccess/documentAccessTypes";
 export {
   computeDocumentLinkSetGrantRoot,
   computeDocumentLinkSetKeyTargetHash,
   computeDocumentLinkSetStructuralHash,
   deriveDocumentLinkSetManifest,
-} from "./documentLinkSetManifest";
+} from "./documentAccess/documentLinkSetManifest";
 export {
   type DocumentPurgeAccessEventBody,
   normalizeDocumentPurgeAccessEventBody,
   type VerifyDocumentPurgeEventInput,
   verifyDocumentPurgeEvent,
-} from "./documentPurge";
-export { prepareHeldProjectionCitations } from "./heldProjectionCitations";
-export type { KeyingHashDomain } from "./keyingHashDomains";
-export * from "./principalPolicy";
-export { verifyPrincipalPolicyBundleAgainstHistory } from "./principalPolicyBundleHistory";
-export {
-  type PrincipalPolicyCurrent,
-  type VerifiedPrincipalPolicyCurrent,
-  verifyPrincipalPolicyCurrent,
-} from "./principalPolicyCurrent";
-export { verifyPrincipalPolicyCurrentMutation } from "./principalPolicyCurrentMutation";
-export { selectPrincipalPolicyCurrentPredecessorReferences } from "./principalPolicyCurrentPredecessorReferences";
-export { verifyPrincipalPolicyCurrentSuccessor } from "./principalPolicyCurrentSuccessor";
+} from "./documentAccess/documentPurge";
+export * from "./principalPolicy/principalPolicy";
 export type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicyExternalAuthorityState,
-} from "./principalPolicyExternalAuthorityTypes";
-export {
-  createPrincipalPolicyHistoryVerifier,
-  restorePrincipalPolicyHistoryVerifier,
-} from "./principalPolicyHistory";
-export type { PrincipalHistoryIndexNode } from "./principalPolicyHistoryIndex";
-export {
-  createPrincipalHistoryIndexProof,
-  principalHistoryIndexLeaf,
-  resolvePrincipalHistoryIndexProof,
-} from "./principalPolicyHistoryIndex";
-export { PRINCIPAL_HISTORY_VERIFICATION_REVISION } from "./principalPolicyHistoryPage";
-export type { PrincipalPolicyHistoryReferenceProof } from "./principalPolicyHistoryReferences";
-export { verifyPrincipalPolicyHistoryReferences } from "./principalPolicyHistoryReferences";
-export type { PrincipalHistorySigner } from "./principalPolicyHistorySigners";
-export type {
-  PrincipalPolicyHistoryInput,
-  PrincipalPolicyHistoryPage,
-  PrincipalPolicyHistoryProgressOptions,
-  PrincipalPolicyHistoryVerifier,
-  VerifiedPrincipalPolicyHistory,
-} from "./principalPolicyHistoryTypes";
-export { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistoryTypes";
+} from "./principalPolicy/principalPolicyExternalAuthorityTypes";
 export {
   selectPrincipalPolicyAuthorization,
   type VerifiedPrincipalPolicySelection,
-} from "./principalPolicySelection";
+} from "./principalPolicy/principalPolicySelection";
 export type {
   PrincipalPolicyTransitionMismatch,
   PrincipalPolicyTransitionMismatchCode,
-} from "./principalPolicyTransition";
+} from "./principalPolicy/principalPolicyTransition";
 export {
   getPrincipalPolicyTransitionMismatch,
   getPrincipalPolicyTransitionMismatchReason,
-} from "./principalPolicyTransition";
+} from "./principalPolicy/principalPolicyTransition";
 export type {
   AnyVerifiedPrincipalPolicy,
   ManagedPrincipalKind,
@@ -156,34 +132,58 @@ export type {
   VerifiedPrincipalPolicySnapshot,
   VerifyPrincipalPolicyBundleInput,
   VerifyPrincipalPolicySnapshotInput,
-} from "./principalPolicyTypes";
-export { makeVerifiedPrincipalPolicy } from "./principalPolicyTypes";
-export * from "./transparency";
+} from "./principalPolicy/principalPolicyTypes";
+export { makeVerifiedPrincipalPolicy } from "./principalPolicy/principalPolicyTypes";
+export {
+  type PrincipalPolicyCurrent,
+  type VerifiedPrincipalPolicyCurrent,
+  verifyPrincipalPolicyCurrent,
+} from "./principalPolicyCurrent/principalPolicyCurrent";
+export { verifyPrincipalPolicyCurrentMutation } from "./principalPolicyCurrent/principalPolicyCurrentMutation";
+export { selectPrincipalPolicyCurrentPredecessorReferences } from "./principalPolicyCurrent/principalPolicyCurrentPredecessorReferences";
+export { verifyPrincipalPolicyCurrentSuccessor } from "./principalPolicyCurrent/principalPolicyCurrentSuccessor";
+export { verifyPrincipalPolicyBundleAgainstHistory } from "./principalPolicyHistory/principalPolicyBundleHistory";
+export {
+  createPrincipalPolicyHistoryVerifier,
+  restorePrincipalPolicyHistoryVerifier,
+} from "./principalPolicyHistory/principalPolicyHistory";
+export type { PrincipalHistoryIndexNode } from "./principalPolicyHistory/principalPolicyHistoryIndex";
+export {
+  createPrincipalHistoryIndexProof,
+  principalHistoryIndexLeaf,
+  resolvePrincipalHistoryIndexProof,
+} from "./principalPolicyHistory/principalPolicyHistoryIndex";
+export { PRINCIPAL_HISTORY_VERIFICATION_REVISION } from "./principalPolicyHistory/principalPolicyHistoryPage";
+export type { PrincipalPolicyHistoryReferenceProof } from "./principalPolicyHistory/principalPolicyHistoryReferences";
+export { verifyPrincipalPolicyHistoryReferences } from "./principalPolicyHistory/principalPolicyHistoryReferences";
+export type { PrincipalHistorySigner } from "./principalPolicyHistory/principalPolicyHistorySigners";
+export type {
+  PrincipalPolicyHistoryInput,
+  PrincipalPolicyHistoryPage,
+  PrincipalPolicyHistoryProgressOptions,
+  PrincipalPolicyHistoryVerifier,
+  VerifiedPrincipalPolicyHistory,
+} from "./principalPolicyHistory/principalPolicyHistoryTypes";
+export { PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT } from "./principalPolicyHistory/principalPolicyHistoryTypes";
+export * from "./transparency/transparency";
 export {
   accessManifestTransparencyLeaf,
   computeTransparencyLeafHash,
   identityStateTransparencyLeaf,
   principalPolicyTransparencyLeaf,
-} from "./transparencyLeaf";
+} from "./transparency/transparencyLeaf";
 export {
   type VerifyTransparencyConsistencyProofInput,
   type VerifyTransparencyInclusionProofInput,
   verifyTransparencyConsistencyProof,
   verifyTransparencyInclusionProof,
-} from "./transparencyProofs";
+} from "./transparency/transparencyProofs";
 export {
   computeTransparencyMerkleRoot,
   createTransparencyConsistencyProof,
   createTransparencyInclusionProof,
   largestPowerOfTwoLessThan,
-} from "./transparencyTree";
-export * from "./transparencyTypes";
-export {
-  isKeyingVerificationCode,
-  KEYING_VERIFICATION_CODES,
-  type KeyingVerificationCode,
-  KeyingVerificationError,
-  type KeyingVerificationResult,
-} from "./verificationError";
-export * from "./writeHeader";
-export * from "./writeHeaderTypes";
+} from "./transparency/transparencyTree";
+export * from "./transparency/transparencyTypes";
+export * from "./writeHeader/writeHeader";
+export * from "./writeHeader/writeHeaderTypes";

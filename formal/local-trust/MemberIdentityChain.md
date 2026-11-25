@@ -33,8 +33,8 @@ Sources:
 [admission](../../packages/client-sdk/src/workflows/organizations/memberships/rosterVouchedAdmission.ts),
 [shared history reader](../../packages/client-sdk/src/workflows/organizations/memberships/rosterAdmissionHistory.ts),
 [pin service](../../packages/client-sdk/src/data/trustedUserIdentity/service.ts),
-[principal chain entry verification](../../packages/crypto/src/keying/principalPolicyChainEntry.ts),
-and [external authority](../../packages/crypto/src/keying/principalPolicyExternalAuthority.ts).
+[principal chain entry verification](../../packages/crypto/src/keying/principalPolicy/principalPolicyChainEntry.ts),
+and [external authority](../../packages/crypto/src/keying/principalPolicy/principalPolicyExternalAuthority.ts).
 The authority guard belongs to verified-history recovery, not a second ad hoc
 check inside admission. The abstraction map's name check is not a refinement
 proof of those call sites.

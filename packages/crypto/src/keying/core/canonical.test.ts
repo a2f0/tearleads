@@ -1,0 +1,231 @@
+import { expect, test } from "bun:test";
+import type { ContainerKekTarget } from "../index";
+import {
+  BLOB_CONTENT_KEY_WRAP_SUITE,
+  CONTAINER_KEK_MATERIAL_ID_PREFIX,
+  CONTAINER_KEK_PARENT_WRAP_SUITE,
+  CONTAINER_KEK_USER_WRAP_SUITE,
+  CONTENT_RECORD_ENCRYPTION_SUITE,
+  computeContainerKekMaterialId,
+  computeDocumentContentKeyTargetHash,
+  computeDocumentContentRecordMetadataHash,
+  computeDocumentContentRecordPlaintextHash,
+  DOCUMENT_CONTENT_KEY_WRAP_SUITE,
+  isContainerKekMaterialId,
+  serializeKeyingCanonicalJson,
+} from "../index";
+import { fixtureHash } from "./canonical.testFixtures";
+
+test("suite identifiers distinguish content records from key wrapping", () => {
+  expect(CONTENT_RECORD_ENCRYPTION_SUITE).toBe(
+    "aes-256-gcm-hkdf-sha256-record-key",
+  );
+  expect(DOCUMENT_CONTENT_KEY_WRAP_SUITE).toBe(
+    "tearleads.document.content-key-wrap.aes-256-gcm-container-kek",
+  );
+  expect(BLOB_CONTENT_KEY_WRAP_SUITE).toBe(
+    "tearleads.blob.content-key-wrap.aes-256-gcm-container-kek",
+  );
+  expect(CONTAINER_KEK_USER_WRAP_SUITE).toBe(
+    "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm",
+  );
+  expect(CONTAINER_KEK_PARENT_WRAP_SUITE).toBe(
+    "tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek",
+  );
+});
+
+test("container KEK material ids commit to context and key material", async () => {
+  const keyMaterial = new Uint8Array(32).fill(7);
+  const id = await computeContainerKekMaterialId({
+    containerId: "container-1",
+    keyEpoch: 1,
+    keyMaterial,
+  });
+
+  expect(id.startsWith(CONTAINER_KEK_MATERIAL_ID_PREFIX)).toBe(true);
+  expect(isContainerKekMaterialId(id)).toBe(true);
+  expect(
+    isContainerKekMaterialId(
+      `${CONTAINER_KEK_MATERIAL_ID_PREFIX}${"g".repeat(64)}`,
+    ),
+  ).toBe(false);
+  expect(
+    await computeContainerKekMaterialId({
+      containerId: "container-1",
+      keyEpoch: 2,
+      keyMaterial,
+    }),
+  ).not.toBe(id);
+  expect(
+    await computeContainerKekMaterialId({
+      containerId: "container-1",
+      keyEpoch: 1,
+      keyMaterial: new Uint8Array(32).fill(8),
+    }),
+  ).not.toBe(id);
+  expect(isContainerKekMaterialId("legacy-container-key-epoch")).toBe(false);
+});
+
+test("keying canonical JSON sorts object keys deterministically", () => {
+  const umlautA = "\u00e4";
+
+  expect(
+    serializeKeyingCanonicalJson({
+      z: "last",
+      a: { y: "why", b: "bee" },
+    }),
+  ).toBe(
+    serializeKeyingCanonicalJson({
+      a: { b: "bee", y: "why" },
+      z: "last",
+    }),
+  );
+
+  expect(
+    serializeKeyingCanonicalJson({
+      [umlautA]: "umlaut",
+      z: "zed",
+      a: "aye",
+    }),
+  ).toBe(`{"a":"aye","z":"zed","${umlautA}":"umlaut"}`);
+});
+
+test("document plaintext HMAC uses the domain-framed bytes", async () => {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new Uint8Array(Array.from({ length: 32 }, (_, index) => index)),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  await expect(
+    computeDocumentContentRecordPlaintextHash(
+      new Uint8Array([0, 1, 2, 255]),
+      key,
+    ),
+  ).resolves.toBe(
+    "d37e1478496b72520180235a36fafbb1f0afc3a34382ed89f9ed53c5ad2bc447",
+  );
+});
+
+test("canonical JSON preserves prototype-named properties at every depth", () => {
+  for (const value of [null, false, 7, "value", { nested: true }]) {
+    const object = { ["__proto__"]: value, constructor: "own value" };
+    const expected = JSON.stringify(object);
+    expect(serializeKeyingCanonicalJson(object)).toBe(expected);
+    expect(serializeKeyingCanonicalJson({ body: object })).toBe(
+      `{"body":${expected}}`,
+    );
+  }
+});
+
+test("keying target hashes sort arrays where ordering is a set", async () => {
+  const firstTarget: ContainerKekTarget = {
+    containerId: "container-a",
+    containerManifestHash: await fixtureHash("container-a-manifest"),
+    containerKeyEpochId: "container-a-key-epoch",
+    containerKeyEpoch: 1,
+  };
+  const secondTarget: ContainerKekTarget = {
+    containerId: "container-b",
+    containerManifestHash: await fixtureHash("container-b-manifest"),
+    containerKeyEpochId: "container-b-key-epoch",
+    containerKeyEpoch: 1,
+  };
+
+  await expect(
+    computeDocumentContentKeyTargetHash([firstTarget, secondTarget]),
+  ).resolves.toBe(
+    await computeDocumentContentKeyTargetHash([secondTarget, firstTarget]),
+  );
+});
+
+test("keying target hashes reject duplicate canonical entries", async () => {
+  const target: ContainerKekTarget = {
+    containerId: "container-a",
+    containerManifestHash: await fixtureHash("container-a-manifest"),
+    containerKeyEpochId: "container-a-key-epoch",
+    containerKeyEpoch: 1,
+  };
+
+  await expect(
+    computeDocumentContentKeyTargetHash([target, target]),
+  ).rejects.toThrow("document content-key targets contains a duplicate");
+});
+
+test("canonical payloads reject negative zero at every nesting level", () => {
+  for (const value of [-0, [-0], { nested: { value: -0 } }]) {
+    expect(() => serializeKeyingCanonicalJson(value)).toThrow("negative zero");
+  }
+  expect(serializeKeyingCanonicalJson({ value: 0 })).toBe('{"value":0}');
+});
+
+test("canonical JSON rejects lone surrogates in values and property names", () => {
+  for (const text of ["\ud800", "\udfff", "prefix\ud800suffix"]) {
+    for (const value of [text, [text], { nested: text }, { [text]: "value" }]) {
+      expect(() => serializeKeyingCanonicalJson(value)).toThrow("well-formed");
+    }
+  }
+  expect(
+    serializeKeyingCanonicalJson({ emoji: "😀", decomposed: "e\u0301" }),
+  ).toBe('{"decomposed":"e\u0301","emoji":"😀"}');
+});
+
+// The API weighs only updates committed after a baseline's cursor, so the
+// cursor is signed: a baseline without one keeps its old hash, and a server
+// that changes or drops it breaks the writer's signature.
+test("document content-record metadata commits to a baseline's cursor", async () => {
+  const baseline = {
+    checkpointKind: "rotate_baseline" as const,
+    checkpointPayloadKind: "full_history_snapshot" as const,
+    dependencyVersionVector: "",
+    documentId: "document-1",
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+    plaintextHash: "plaintext",
+    sourceVersionVector: "end",
+    updateId: "baseline-1",
+  };
+  const withoutCursor =
+    await computeDocumentContentRecordMetadataHash(baseline);
+  const hashes = new Set([
+    withoutCursor,
+    await computeDocumentContentRecordMetadataHash({
+      ...baseline,
+      coversThroughUpdateId: "update-1",
+    }),
+    await computeDocumentContentRecordMetadataHash({
+      ...baseline,
+      coversThroughUpdateId: "update-2",
+    }),
+  ]);
+  expect(hashes.size).toBe(3);
+  expect(
+    await computeDocumentContentRecordMetadataHash({
+      ...baseline,
+      coversThroughUpdateId: undefined,
+    }),
+  ).toBe(withoutCursor);
+});
+
+// The API refuses an update whose dependencies it has not committed, and every
+// reader voids one whose payload depends on other ops, so the declared
+// dependencies are signed: a server that changes them breaks the signature.
+test("document content-record metadata commits to its declared dependencies", async () => {
+  const update = {
+    dependencyVersionVector: "deps-1",
+    documentId: "document-1",
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+    plaintextHash: "plaintext",
+    updateId: "update-1",
+  };
+
+  expect(
+    await computeDocumentContentRecordMetadataHash({
+      ...update,
+      dependencyVersionVector: "deps-2",
+    }),
+  ).not.toBe(await computeDocumentContentRecordMetadataHash(update));
+});

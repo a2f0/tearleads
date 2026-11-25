@@ -1,7 +1,7 @@
 /-!
 # Transparency tree shape
 
-A symbolic model of `packages/crypto/src/keying/transparencyTree.ts`. A
+A symbolic model of `packages/crypto/src/keying/transparency/transparencyTree.ts`. A
 `Digest` is the term that produced a hash rather than its bytes, so two
 digests are equal exactly when they denote the same tree. That models a
 collision-free hash whose leaf, node, and empty-tree inputs never coincide,

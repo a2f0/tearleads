@@ -5,7 +5,7 @@ import Tearleads.Transparency.Theorems
 # Vector export
 
 Cases for `formal/lean/vectors/transparency.json`, which
-`packages/crypto/src/keying/transparencyLeanVectors.test.ts` replays through
+`packages/crypto/src/keying/transparency/transparencyLeanVectors.test.ts` replays through
 the production generator and verifiers. Every digest is named by the leaf
 range it is the root of, so the replay hashes the same ranges with the real
 domain hashes and must reach the outcome the model records here.

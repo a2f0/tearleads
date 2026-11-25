@@ -1,6 +1,6 @@
 import { ml_kem1024 } from "@noble/post-quantum/ml-kem.js";
-import { toFingerprint } from "../fingerprint";
-import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "../symmetric";
+import { toFingerprint } from "../primitives/fingerprint";
+import { AES_GCM_IV_BYTES, AES_GCM_TAG_BYTES } from "../primitives/symmetric";
 import {
   ML_KEM1024_CIPHERTEXT_BYTES,
   ML_KEM1024_PUBLIC_KEY_BYTES,

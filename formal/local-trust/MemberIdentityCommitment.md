@@ -17,10 +17,10 @@ collision-free commitment premise of [identity-chain admission](./MemberIdentity
 | (boundary assumption) | `normalizePrincipalProjectionMembers` requires a lowercase 64-character `identityBundleFingerprint`; `assertPrincipalIdentityBundles` recomputes it from registered public keys in the configured deployment trust domain |
 
 The concrete sources are
-[`userIdentityBundle.ts`](../../packages/crypto/src/userIdentityBundle.ts),
-[`principalState.ts`](../../packages/crypto/src/principalState.ts),
-[`principalPolicyCommitments.ts`](../../packages/crypto/src/keying/principalPolicyCommitments.ts),
-[`principalPolicyTransition.ts`](../../packages/crypto/src/keying/principalPolicyTransition.ts),
+[`userIdentityBundle.ts`](../../packages/crypto/src/identity/userIdentityBundle.ts),
+[`principalState.ts`](../../packages/crypto/src/principalState/principalState.ts),
+[`principalPolicyCommitments.ts`](../../packages/crypto/src/keying/principalPolicy/principalPolicyCommitments.ts),
+[`principalPolicyTransition.ts`](../../packages/crypto/src/keying/principalPolicy/principalPolicyTransition.ts),
 [API transition validation](../../packages/api/src/access/shared/internal/principalStateValidation.ts),
 [API registered-key validation](../../packages/api/src/workflows/principals/principalIdentityBundles.ts),
 and [chain admission](../../packages/client-sdk/src/workflows/organizations/memberships/rosterVouchedAdmission.ts).

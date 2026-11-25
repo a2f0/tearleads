@@ -15,8 +15,8 @@ The executable contract is layered:
   and
   [`packages/validators/src/operation`](../packages/validators/src/operation/)
   define wire grammar and HTTP metadata.
-- [`packages/crypto/src/keying.ts`](../packages/crypto/src/keying.ts) defines
-  canonical cryptographic checks.
+- [`packages/crypto/src/keying`](../packages/crypto/src/keying/index.ts)
+  defines canonical cryptographic checks.
 - [`packages/api/src/workflows`](../packages/api/src/workflows/) defines
   authorized transactional transitions.
 - [`packages/client-sdk/src/workflows`](../packages/client-sdk/src/workflows/)

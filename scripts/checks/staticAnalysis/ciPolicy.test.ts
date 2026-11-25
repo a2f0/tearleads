@@ -146,7 +146,7 @@ test("selects native, proof, and infrastructure checks without skipping their de
   // The replay suite in Lint covers production changes against the committed
   // vectors, so neither the TypeScript verifier nor the TLA+ models need Lean.
   for (const path of [
-    "packages/crypto/src/keying/transparencyProofs.ts",
+    "packages/crypto/src/keying/transparency/transparencyProofs.ts",
     "formal/document-sync/BaselineDominance.tla",
   ]) {
     expect(ciScopes([path]).proofs).toBe(false);

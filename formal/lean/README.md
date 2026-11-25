@@ -9,9 +9,9 @@ through a committed vector fixture that the TypeScript verifiers replay.
 
 | Module | Production counterpart |
 | --- | --- |
-| [`Tearleads/Transparency/Tree.lean`](Tearleads/Transparency/Tree.lean) | `computeTransparencyMerkleRoot`, `largestPowerOfTwoLessThan`, and the empty and node hashes in [`transparencyTree.ts`](../../packages/crypto/src/keying/transparencyTree.ts) |
+| [`Tearleads/Transparency/Tree.lean`](Tearleads/Transparency/Tree.lean) | `computeTransparencyMerkleRoot`, `largestPowerOfTwoLessThan`, and the empty and node hashes in [`transparencyTree.ts`](../../packages/crypto/src/keying/transparency/transparencyTree.ts) |
 | [`Tearleads/Transparency/Generate.lean`](Tearleads/Transparency/Generate.lean) | `createTransparencyInclusionProof` and `createTransparencyConsistencyProof` |
-| [`Tearleads/Transparency/Verify.lean`](Tearleads/Transparency/Verify.lean) | `assertTransparencyInclusion` and `assertTransparencyConsistency` in [`transparencyProofs.ts`](../../packages/crypto/src/keying/transparencyProofs.ts), check for check, with the same refusal codes |
+| [`Tearleads/Transparency/Verify.lean`](Tearleads/Transparency/Verify.lean) | `assertTransparencyInclusion` and `assertTransparencyConsistency` in [`transparencyProofs.ts`](../../packages/crypto/src/keying/transparency/transparencyProofs.ts), check for check, with the same refusal codes |
 | [`Tearleads/Transparency/Theorems.lean`](Tearleads/Transparency/Theorems.lean) | The F3 theorem statements |
 | `*.lean` in [`formal/lean/Tearleads/Transparency/Proof/`](Tearleads/Transparency/Proof/) | Their proofs |
 | [`Tearleads/Transparency/Vectors.lean`](Tearleads/Transparency/Vectors.lean) | The cases in [`vectors/transparency.json`](vectors/transparency.json) |
@@ -97,13 +97,13 @@ the outcome the model reaches: `ok` or a `KeyingVerificationCode`.
 - Cases labeled `empty-prefix-any-root` are accepted by design, because the
   empty tree is a prefix of every tree.
 
-[`transparencyLeanVectors.test.ts`](../../packages/crypto/src/keying/transparencyLeanVectors.test.ts)
+[`transparencyLeanVectors.test.ts`](../../packages/crypto/src/keying/transparency/transparencyLeanVectors.test.ts)
 hashes the same ranges with the production domain hashes. It requires the
 production generators to produce every honest proof and the production verifiers
 to reach every recorded outcome, refusal code included. It runs in
 `test:protocol-conformance` and the crypto package tests. Restoring the #2186
 fold in
-[`transparencyProofs.ts`](../../packages/crypto/src/keying/transparencyProofs.ts)
+[`transparencyProofs.ts`](../../packages/crypto/src/keying/transparency/transparencyProofs.ts)
 makes it fail at the `honest 5 → 6` case.
 
 ## Running

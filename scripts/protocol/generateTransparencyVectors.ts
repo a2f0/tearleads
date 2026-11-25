@@ -3,7 +3,7 @@
  * theorem in it, and regenerates formal/lean/vectors/transparency.json from
  * its vector exporter. `--check` verifies the committed fixture matches
  * instead of writing it. The replay suite
- * (packages/crypto/src/keying/transparencyLeanVectors.test.ts) drives the
+ * (packages/crypto/src/keying/transparency/transparencyLeanVectors.test.ts) drives the
  * fixture through the production generator and verifiers.
  */
 

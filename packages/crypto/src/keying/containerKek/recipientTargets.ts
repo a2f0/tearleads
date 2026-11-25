@@ -1,22 +1,11 @@
-import { normalizeReferencedPrincipalHead } from "../accessEvent";
-import { computeKeyingDomainHash } from "../canonical";
-import type { KeyingCanonicalPayload } from "../canonicalJsonTypes";
-import { principalPolicyMatchesReference } from "../containerAccess";
+import { normalizeReferencedPrincipalHead } from "../access/accessEvent";
+import { principalPolicyMatchesReference } from "../containerAccess/containerAccess";
 import type {
   ContainerAccessManifestState,
   ContainerDirectGrant,
-} from "../containerAccessTypes";
-import type {
-  ContainerKekParentBinding,
-  ContainerKekRecipientTarget,
-  ContainerUserRecipientKey,
-  DeriveContainerKekRecipientTargetsInput,
-} from "../containerKekTypes";
-import { normalizeContainerUserRecipientKey } from "../containerUserRecipientKey";
-import type {
-  PrincipalPolicyAuthorization,
-  ReferencedPrincipalHead,
-} from "../principalPolicyTypes";
+} from "../containerAccess/containerAccessTypes";
+import { computeKeyingDomainHash } from "../core/canonical";
+import type { KeyingCanonicalPayload } from "../core/canonicalJsonTypes";
 import {
   assertExactKeys,
   normalizeKekRecipientKind,
@@ -26,8 +15,19 @@ import {
   readString,
   throwVerification,
   toVerificationResult,
-} from "../shared";
-import type { KeyingVerificationResult } from "../verificationError";
+} from "../core/shared";
+import type { KeyingVerificationResult } from "../core/verificationError";
+import type {
+  PrincipalPolicyAuthorization,
+  ReferencedPrincipalHead,
+} from "../principalPolicy/principalPolicyTypes";
+import type {
+  ContainerKekParentBinding,
+  ContainerKekRecipientTarget,
+  ContainerUserRecipientKey,
+  DeriveContainerKekRecipientTargetsInput,
+} from "./containerKekTypes";
+import { normalizeContainerUserRecipientKey } from "./containerUserRecipientKey";
 
 export function derivePrincipalRecipientKeyEpochId(
   reference: ReferencedPrincipalHead,

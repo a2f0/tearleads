@@ -1,6 +1,5 @@
-import { computeKeyingDomainHash } from "../canonical";
-import type { KeyingCanonicalPayload } from "../canonicalJsonTypes";
-import type { BlobAccessManifest } from "../contentKeyTargetTypes";
+import { computeKeyingDomainHash } from "../core/canonical";
+import type { KeyingCanonicalPayload } from "../core/canonicalJsonTypes";
 import {
   assertExactKeys,
   normalizeUniqueSortedStrings,
@@ -9,7 +8,8 @@ import {
   readStringArray,
   readVersion,
   throwVerification,
-} from "../shared";
+} from "../core/shared";
+import type { BlobAccessManifest } from "./contentKeyTargetTypes";
 
 function normalizeHashStringArray(
   record: Record<string, unknown>,

@@ -18,14 +18,33 @@ how the pieces fit.
 
 | Path | Contents |
 | --- | --- |
+| [`src/primitives`](src/primitives/) | AES-256-GCM payloads, SHA-256 fingerprints and incremental hashing, hex encoding, and canonical string ordering |
 | [`src/encapsulation`](src/encapsulation/) | ML-KEM key pairs, recipient encryption, and DEK wrapping |
 | [`src/signing`](src/signing/) | ML-DSA key pairs, signing, verification, and signature histories |
-| [`src/symmetric.ts`](src/symmetric.ts), [`src/contentKeyEnvelope.ts`](src/contentKeyEnvelope.ts), [`src/blobEnvelopeError.ts`](src/blobEnvelopeError.ts), [`src/blobEnvelopeFields.ts`](src/blobEnvelopeFields.ts), [`src/blobEnvelopeReader.ts`](src/blobEnvelopeReader.ts), [`src/blobEnvelopeV2.ts`](src/blobEnvelopeV2.ts) | AES-GCM payloads, content keys, and encrypted blob envelopes |
-| [`src/challenge.ts`](src/challenge.ts), [`src/identitySeedPhrase.ts`](src/identitySeedPhrase.ts), [`src/fingerprint.ts`](src/fingerprint.ts) | Sign-in challenges, the BIP39 identity seed phrase, and key fingerprints |
-| [`src/identityTrustDomain.ts`](src/identityTrustDomain.ts), [`src/userIdentityBundle.ts`](src/userIdentityBundle.ts) | Shared canonical identity scopes and full identity-link bundle commitments |
-| [`src/principalState.ts`](src/principalState.ts), [`src/principalStateMembers.ts`](src/principalStateMembers.ts), [`src/principalStateTypes.ts`](src/principalStateTypes.ts), [`src/principalStateVerification.ts`](src/principalStateVerification.ts), [`src/principalContainerGrants.ts`](src/principalContainerGrants.ts), [`src/principalMemberEnvelopes.ts`](src/principalMemberEnvelopes.ts), [`src/principalPolicyValidationError.ts`](src/principalPolicyValidationError.ts) | Signed group and organization principal state and member envelopes |
-| [`src/keying`](src/keying/) | Canonical encoding, access events and manifests, container KEKs, document access, principal policy history, and verifying held writer projection citations |
-| [`src/keying/containerKek`](src/keying/containerKek/README.md) | Container KEK internals and content-key target derivations |
+| [`src/envelopes`](src/envelopes/) | Content-key envelopes, encrypted blob envelopes and content metadata, and encrypted document updates |
+| [`src/identity`](src/identity/) | Sign-in challenges, the BIP39 identity seed phrase, identity links, canonical identity trust domains, and identity bundle fingerprints |
+| [`src/principalState`](src/principalState/) | Signed group and organization principal state, container grants, and member envelopes |
+| [`src/organization`](src/organization/) | Encrypted group metadata and signed organization leave and replacement requests |
+| [`src/keying`](src/keying/) | The keying protocol's signed artifacts and their verifiers; [`index.ts`](src/keying/index.ts) lists its public functions |
+
+The keying folders:
+
+| Path | Contents |
+| --- | --- |
+| [`src/keying/core`](src/keying/core/) | Canonical encoding and hash domains, shared field readers, and verification errors |
+| [`src/keying/access`](src/keying/access/) | Access events, access manifests and their snapshots, local checkpoints, and held writer projection citations |
+| [`src/keying/containerAccess`](src/keying/containerAccess/) | Container access manifests: grants, moves, rekeys, recitations, parent edges, and path access levels |
+| [`src/keying/containerKek`](src/keying/containerKek/README.md) | Container KEK state, wrapping, keyrings, and content-key target derivations |
+| [`src/keying/documentAccess`](src/keying/documentAccess/) | Document link sets, citation scopes, write authority, purges, and attachment bindings |
+| [`src/keying/principalPolicy`](src/keying/principalPolicy/) | Principal policy bundles, chain entries, transitions, signatures, and authorization selection |
+| [`src/keying/principalPolicyCurrent`](src/keying/principalPolicyCurrent/) | The current principal policy and its mutation, successor, and predecessor-reference checks |
+| [`src/keying/principalPolicyHistory`](src/keying/principalPolicyHistory/) | The principal policy history verifier, its index, pages, progress, and reference proofs |
+| [`src/keying/transparency`](src/keying/transparency/) | Transparency leaves, Merkle trees, proofs, and signed tree heads |
+| [`src/keying/writeHeader`](src/keying/writeHeader/) | Signed document and blob write headers and their authorization |
+| [`src/keying/properties`](src/keying/properties/) | Property-based tests over generated keying histories |
+
+A new module goes in the folder for its artifact, not in `src` or
+`src/keying` directly.
 
 The root entry point exports the public functions. Keep canonical hashing
 domains and exported names stable: signed artifacts already in storage depend

@@ -6,20 +6,20 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./access-event-test-fixtures": "./src/keying/accessEvent.testFixtures.ts",
-    "./attachment-access-event-test-fixtures": "./src/keying/attachmentAccessEvent.testFixtures.ts",
-    "./canonical-test-fixtures": "./src/keying/canonical.testFixtures.ts",
-    "./container-access-test-fixtures": "./src/keying/containerAccess.testFixtures.ts",
-    "./container-kek-test-fixtures": "./src/keying/containerKek.testFixtures.ts",
-    "./container-wrapping-test-fixtures": "./src/keying/containerWrapping.testFixtures.ts",
-    "./document-link-set-manifest-test-fixtures": "./src/keying/documentLinkSetManifest.testFixtures.ts",
+    "./access-event-test-fixtures": "./src/keying/access/accessEvent.testFixtures.ts",
+    "./attachment-access-event-test-fixtures": "./src/keying/documentAccess/attachmentAccessEvent.testFixtures.ts",
+    "./canonical-test-fixtures": "./src/keying/core/canonical.testFixtures.ts",
+    "./container-access-test-fixtures": "./src/keying/containerAccess/containerAccess.testFixtures.ts",
+    "./container-kek-test-fixtures": "./src/keying/containerKek/containerKek.testFixtures.ts",
+    "./container-wrapping-test-fixtures": "./src/keying/containerKek/containerWrapping.testFixtures.ts",
+    "./document-link-set-manifest-test-fixtures": "./src/keying/documentAccess/documentLinkSetManifest.testFixtures.ts",
     "./fast-signatures-test-fixtures": "./src/signing/fastSignatures.testFixtures.ts",
-    "./write-header-test-fixtures": "./src/keying/writeHeader.testFixtures.ts",
-    "./principal-policy-test-fixtures": "./src/keying/principalPolicyTestFixtures.ts"
+    "./write-header-test-fixtures": "./src/keying/writeHeader/writeHeader.testFixtures.ts",
+    "./principal-policy-test-fixtures": "./src/keying/principalPolicy/principalPolicyTestFixtures.ts"
   },
   "scripts": {
     "test": "bun test src",
-    "test:principal-history": "PRINCIPAL_HISTORY_BOUNDARY_TEST=1 bun test src/keying/principalPolicyHistoryAvailability.test.ts"
+    "test:principal-history": "PRINCIPAL_HISTORY_BOUNDARY_TEST=1 bun test src/keying/principalPolicyHistory/principalPolicyHistoryAvailability.test.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.4.0",

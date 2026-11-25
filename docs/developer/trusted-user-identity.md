@@ -96,7 +96,7 @@ explicit API domain for path-prefixed deployments: the public origin has no
 path. Behind a reverse proxy, configure the client-visible URL, not an internal
 listener or a forwarded request header. An SDK `identityTrustDomain` override
 must name that same stable domain. Both use the shared
-[`canonicalIdentityTrustDomain`](../../packages/crypto/src/identityTrustDomain.ts)
+[`canonicalIdentityTrustDomain`](../../packages/crypto/src/identity/identityTrustDomain.ts)
 to remove trailing slashes and reject credentials, queries, and fragments.
 The API requires HTTPS in production; only non-production composition may fall
 back to a request URL's origin when no domain is configured. Never use that
@@ -267,14 +267,15 @@ server security incident.
 Every group and organization projection, including genesis, requires a
 lowercase 64-character SHA-256 `identityBundleFingerprint` for each member.
 It is the complete [identity-link tuple](#identity-links), computed by the
-shared [bundle fingerprint helper](../../packages/crypto/src/userIdentityBundle.ts),
+shared [bundle fingerprint helper](../../packages/crypto/src/identity/userIdentityBundle.ts),
 not a signing-key-only or encapsulation-key-only hash.
 
-The [projection encoder](../../packages/crypto/src/principalState.ts) hashes
-`userId`, `role`, and `identityBundleFingerprint` into the signed
+The
+[projection encoder](../../packages/crypto/src/principalState/principalState.ts)
+hashes `userId`, `role`, and `identityBundleFingerprint` into the signed
 `projectionRoot`. `membershipRoot` remains an ID-set commitment;
 `memberEnvelopesRoot` still commits the encryption envelopes. The
-[transition verifier](../../packages/crypto/src/keying/principalPolicyTransition.ts)
+[transition verifier](../../packages/crypto/src/keying/principalPolicy/principalPolicyTransition.ts)
 rejects a changed bundle for any continuing member, even if their role or the
 principal's own key epoch changes. This does not introduce identity rotation.
 

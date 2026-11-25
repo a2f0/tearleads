@@ -33,14 +33,14 @@ seeds complete signed group and organization chains through 16,384, submits the
 membership revocation through the real compound endpoint, loses durable
 verification markers, and recovers an older encrypted document with a fresh SDK
 database.
-[`principalStateVersion.test.ts`](../../packages/crypto/src/principalStateVersion.test.ts)
+[`principalStateVersion.test.ts`](../../packages/crypto/src/principalState/principalStateVersion.test.ts)
 and
 [`principalVersionStorage.test.ts`](../../packages/api-shared/src/principalVersionStorage.test.ts)
 cover the wire/crypto and PostgreSQL representation boundaries. Principal key
 epochs are a separate counter: genesis uses 1 and each rotation advances exactly
 one with fresh key material. Unchanged keys retain their epoch; membership
 shrink and grant removal require rotation.
-[`principalPolicyEpoch.test.ts`](../../packages/crypto/src/keying/principalPolicyEpoch.test.ts)
+[`principalPolicyEpoch.test.ts`](../../packages/crypto/src/keying/principalPolicy/principalPolicyEpoch.test.ts)
 covers full-chain and paged verification, and
 [`policyEpochHttp.test.ts`](../../packages/api/src/routes/principals/policyEpochHttp.test.ts)
 checks atomic refusal and subsequent revocation over HTTP. Epochs use positive

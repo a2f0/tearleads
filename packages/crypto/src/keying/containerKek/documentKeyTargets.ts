@@ -1,17 +1,6 @@
-import { computeKeyingDomainHash } from "../canonical";
-import type { KeyingCanonicalPayload } from "../canonicalJsonTypes";
-import type { VerifiedContainerAccessManifest } from "../containerAccessTypes";
-import type {
-  ContainerKekTarget,
-  DocumentContentKeyTarget,
-  VerifiedContainerKekState,
-} from "../containerKekTypes";
-import type {
-  DeriveDocumentKekTargetsInput,
-  VerifiedDocumentKekTargets,
-} from "../contentKeyTargetTypes";
-import { makeVerifiedDocumentKekTargets } from "../contentKeyTargetTypes";
-import type { VerifiedDocumentLinkSetManifest } from "../documentAccessTypes";
+import type { VerifiedContainerAccessManifest } from "../containerAccess/containerAccessTypes";
+import { computeKeyingDomainHash } from "../core/canonical";
+import type { KeyingCanonicalPayload } from "../core/canonicalJsonTypes";
 import {
   assertExactKeys,
   normalizeSortedUniqueArray,
@@ -20,8 +9,19 @@ import {
   readString,
   runVerifier,
   throwVerification,
-} from "../shared";
-import type { KeyingVerificationResult } from "../verificationError";
+} from "../core/shared";
+import type { KeyingVerificationResult } from "../core/verificationError";
+import type { VerifiedDocumentLinkSetManifest } from "../documentAccess/documentAccessTypes";
+import type {
+  ContainerKekTarget,
+  DocumentContentKeyTarget,
+  VerifiedContainerKekState,
+} from "./containerKekTypes";
+import type {
+  DeriveDocumentKekTargetsInput,
+  VerifiedDocumentKekTargets,
+} from "./contentKeyTargetTypes";
+import { makeVerifiedDocumentKekTargets } from "./contentKeyTargetTypes";
 
 function normalizeContainerKekTarget(
   value: unknown,
