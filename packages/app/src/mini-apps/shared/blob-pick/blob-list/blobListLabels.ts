@@ -12,7 +12,10 @@ export const BLOB_LIST_LABELS = {
   columnSortedDescending: "sorted descending",
   empty: "No blobs.",
   filenameColumn: "Filename",
-  largeThumbnails: "Large thumbnails",
+  // The view switch names the view a click moves to, as the theme switch does.
+  itemViewSwitchToGrid: "Switch to grid",
+  itemViewSwitchToLargeRows: "Switch to large rows",
+  itemViewSwitchToRows: "Switch to small rows",
   loading: "Loading...",
   mimeTypeColumn: "MIME",
   organizationColumn: "Organization",
