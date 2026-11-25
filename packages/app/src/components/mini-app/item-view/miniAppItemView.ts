@@ -8,9 +8,8 @@ import { getMiniAppCompactTableRowHeight } from "../tables/MiniAppCompactTable";
 /**
  * How a list of items is drawn: the dense table rows every list starts with,
  * the same rows at a taller pitch with a large thumbnail, or a grid of square
- * tiles. A surface offers the subset it supports (the Blob Browser offers the
- * two row sizes; the Explorer item list offers all three) and cycles through
- * them in this order.
+ * tiles. A surface offers the subset it supports (the Explorer item list and
+ * the blob list both offer all three) and cycles through them in this order.
  */
 export type MiniAppItemView = "rows" | "large-rows" | "grid";
 
