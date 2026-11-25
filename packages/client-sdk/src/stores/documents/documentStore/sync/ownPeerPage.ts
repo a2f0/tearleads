@@ -14,7 +14,7 @@ type PageUpdates = DocumentSyncAttempt["synced"]["decryptedUpdates"];
  * committed them: a device that still has its own history is never served
  * its peer's operations ahead of itself.
  */
-export function pageExtendsOwnPeer(
+function pageExtendsOwnPeer(
   currentDoc: DocumentState,
   updates: PageUpdates,
 ): boolean {
@@ -34,7 +34,9 @@ export function pageExtendsOwnPeer(
  * live import would write other operations at the ids the page carries, and
  * Loro refuses the import of an id it holds with other content. An edit that
  * already ran fails the page before its save, and the next judgement voids
- * the update that collides with it.
+ * the update that collides with it. The pass's Loro read window stays open
+ * through the wait, so a process death there counts toward the page's
+ * updates though no Loro work on them was running.
  */
 export function applyingPage<T>(
   state: DocumentStoreState,

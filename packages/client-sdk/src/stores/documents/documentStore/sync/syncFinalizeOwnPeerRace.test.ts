@@ -58,12 +58,17 @@ async function openStoreServedOwnPeerPage(name: string) {
     localId,
   });
   let served = fixture.response;
-  const runtime = createRotationRecoveryRuntime({
+  const baseRuntime = createRotationRecoveryRuntime({
     execSql,
     fixture,
     requireRawHistory: false,
     responseForRequest: async () => served,
   });
+  const logs: string[] = [];
+  const runtime = {
+    ...baseRuntime,
+    util: { ...baseRuntime.util, log: (message: string) => logs.push(message) },
+  };
   const open = (persistence = sqlDocumentsPersistence) =>
     createDocumentStoreState(
       localId,
@@ -85,6 +90,12 @@ async function openStoreServedOwnPeerPage(name: string) {
   });
   expect(await ensureDocumentStoreReady(state, () => undefined)).toBe(true);
   if (!state.doc) throw new Error("Expected initialized store");
+  const syncRequests = { count: 0 };
+  state.syncLane = {
+    requestSync: () => {
+      syncRequests.count += 1;
+    },
+  } as NonNullable<typeof state.syncLane>;
 
   const forger = await createDocument(`${name}-forger`);
   importSnapshot(forger, fixture.behindSnapshot);
@@ -142,10 +153,12 @@ async function openStoreServedOwnPeerPage(name: string) {
     holdNextSave: () => {
       hold = true;
     },
+    logs,
     open,
     pull,
     release,
     state,
+    syncRequests,
   };
 }
 
@@ -209,12 +222,19 @@ test("an edit that ran before the page leaves the pass unapplied, and the next p
     expect(judgedFirst.attempt.synced.voidedUpdates).toEqual([]);
     await setDocumentText(state, () => undefined, "survives key LOCAL");
     const savedBefore = await store.durableText();
+    store.logs.length = 0;
+    store.syncRequests.count = 0;
 
     await judgedFirst.finalize();
 
-    // Nothing of the page was saved or applied, and nothing was thrown.
+    // Nothing of the page was saved or applied, and nothing was thrown: the
+    // pass says why once and asks for one more.
     expect(getTextValue(judgedFirst.currentDoc)).toBe("survives key LOCAL");
     expect(await store.durableText()).toBe(savedBefore);
+    expect(store.logs).toEqual([
+      expect.stringContaining("left a sync page for sync-own-peer-first-local"),
+    ]);
+    expect(store.syncRequests.count).toBe(1);
 
     const judgedAgain = await store.pull();
     expect(judgedAgain.attempt.synced.decryptedUpdates).toEqual([]);

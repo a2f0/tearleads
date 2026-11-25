@@ -76,9 +76,13 @@ remove them when the stated checks pass without the pin.
   [history identity regression](../packages/loro/src/historyIdentity.test.ts),
   the [runtime contract](../packages/loro/src/runtimeContract.test.ts), the
   [import refusals](../packages/loro/src/importRefusal.test.ts), and the
-  complete SDK rotation, recovery, provenance, and settlement suites pass. A
-  new version changes the decoder identity, so every device judges its void
-  updates again once.
+  complete SDK rotation, recovery, provenance, and settlement suites pass, with
+  the API suite (`bun run check:package @tearleads/api`), whose Worker loads
+  the same catalog version's `loro-crdt/web` build. A new version changes the
+  decoder identity, so every device judges its void updates again once. The
+  move from 1.16.4 assumed a [greenfield reset](./developer/greenfield-reset.md):
+  1.16.4 kept the first of two contents stored at one operation id, and 1.19.1
+  refuses to open a store that already holds such a pair.
   The [SDK publish manifest](../packages/client-sdk/scripts/publishManifest.ts)
   publishes the exact version resolved from the declaring catalog; unrelated
   externals retain caret ranges. The

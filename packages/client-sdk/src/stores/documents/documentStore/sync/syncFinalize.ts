@@ -159,14 +159,18 @@ function documentSyncSaveOptions(
  * collides. Every other failure is thrown.
  */
 function unappliedPageOrThrow(
+  state: DocumentStoreState,
   error: unknown,
   committed: boolean,
   syncAttempt: DocumentSyncAttempt,
 ): null {
   if (committed) throw error;
   noteDocumentSyncLoroWorkFailed(syncAttempt.loroWindow);
-  if (error instanceof LoroReusedOperationIdError) return null;
-  throw error;
+  if (!(error instanceof LoroReusedOperationIdError)) throw error;
+  state.runtime.util.log(
+    `Documents: left a sync page for ${state.localId} unapplied because an edit wrote at operation ids it carries (${error.counter}@${error.peerId}).`,
+  );
+  return null;
 }
 
 async function persistSyncedDocument(
@@ -261,7 +265,7 @@ async function persistSyncedDocument(
       isCurrent,
     );
   } catch (error) {
-    return unappliedPageOrThrow(error, committed, syncAttempt);
+    return unappliedPageOrThrow(state, error, committed, syncAttempt);
   } finally {
     candidate.free();
     await settleUnsavedLoroWindow(
