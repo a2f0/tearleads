@@ -121,8 +121,9 @@ test("provisioning seeds reuse each newly created document's locked paths", asyn
     "locked-head-provisioned-seeds",
     JSON.stringify({ statements: counter.statements, documents: rows.length }),
   );
-  // 200 before each seed claimed its new peer with one insert.
+  // 200 before each seed claimed its new peer with one insert; one more
+  // reads the root's organization-purge reservation after inserting it.
   expect(counter.statements).toBeLessThanOrEqual(
-    202 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    203 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 }, 30_000);

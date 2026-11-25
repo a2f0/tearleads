@@ -122,3 +122,18 @@ test("destructive container absence requires an exact status and code", () => {
     ),
   ).toBe(false);
 });
+
+// The API refuses a create of an id an organization purge reserved for its
+// owner's recovery with a plain, uncoded 409. It must never read as the
+// lost-response conflict: adopting it would read another user's id.
+test("a purged organization's reserved-id refusal is never adopted", () => {
+  for (const message of [
+    "Container ID is reserved for its purged organization's recovery",
+    "Document ID is reserved for its purged organization's recovery",
+    "Root container ID is unavailable",
+  ]) {
+    expect(
+      isContainerManifestAlreadyExistsConflict(failure(undefined, message)),
+    ).toBe(false);
+  }
+});

@@ -79,7 +79,7 @@ export const createDocumentOperation = defineJsonOperation({
   id: "documents.create",
   summary: "Create a document",
   description:
-    "Creates a document from a signed document access event, its document link-set manifest, and its content-key bundle, optionally committing the document's first encrypted update in the same transaction. Requires write access to the target container through an authorizing container path. A retry of a create that already committed returns 409 `document_manifest_already_exists`, which lets the client adopt it.",
+    "Creates a document from a signed document access event, its document link-set manifest, and its content-key bundle, optionally committing the document's first encrypted update in the same transaction. Requires write access to the target container through an authorizing container path. A retry of a create that already committed returns 409 `document_manifest_already_exists`, which lets the client adopt it. An id an organization billing purge freed is reserved for that organization's owner, and another user's create of it returns an uncoded 409 the client must not adopt.",
   method: "POST",
   params: EmptyDocumentMutationPathParamsSchema,
   path: "/documents",

@@ -279,14 +279,14 @@ container and session.
 ### Residuals
 
 - **Recreation preemption.** Only an organization's billing purge frees a
-  document's id; a purge of one document is permanent (409 "Document was
-  permanently purged"). The owner's devices recreate it from local history
-  (`recoverPurgedOrganization`), but no freed id is reserved: a member who
-  knows it can create it first, which the owner's devices refuse to adopt.
-  A recreator owns the peers its copy carries, so a malicious one can commit
+  document's id, and only for that organization's owner ([reserved
+  ids](./developer/billing-purge-recovery.md#reserved-ids)); a purge of one
+  document is permanent (409 "Document was permanently purged"). The owner's
+  devices recreate it from local history (`recoverPurgedOrganization`). The
+  recreator owns the peers its copy carries, so a malicious owner can commit
   their next counters before the devices' offline edits land. Those devices
-  rebase keeping their operations below its frontier as committed, and
-  readers, holding its operations there first, void the re-assertion.
+  rebase keeping their operations below its frontier as committed, and readers,
+  holding its operations there first, void the re-assertion.
 - **Dependencies on void spans.** The server judges a dependency against the
   committed frontier, which also counts the spans of updates every reader
   voided, since it cannot read a payload. Only a peer's owner raises that

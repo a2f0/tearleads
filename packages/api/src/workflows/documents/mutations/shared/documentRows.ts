@@ -14,6 +14,7 @@ import {
 } from "../../../../access/read/accessManifestStore";
 import { uniqueSortedStrings } from "../../../../utils/array";
 import { isUniqueViolation } from "../../../../utils/databaseErrors";
+import { PURGED_DOCUMENT_ID_RESERVED } from "../../../billing/purgedObjectReservations";
 
 import {
   DocumentMutationError,
@@ -60,11 +61,17 @@ export async function insertDocumentRow(input: {
   return inserted;
 }
 
+/**
+ * Refuses a create that cannot start this id's history. Resolves whether the
+ * id is reserved for `creatorUserId` after an organization purge freed it; the
+ * creator's insert then consumes that reservation.
+ */
 export async function assertCreateCanAdvanceDocumentHead(
   executor: DatabaseTransaction,
   documentId: string,
   linkedContainerIds: readonly string[],
-): Promise<void> {
+  creatorUserId: string,
+): Promise<{ readonly reservedForCreator: boolean }> {
   const rows = await readDocumentCreateGuardRows(executor, documentId);
   const rosterId = rows.find((row) => row.kind === "roster")?.rosterId;
   if (rosterId) {
@@ -108,6 +115,14 @@ export async function assertCreateCanAdvanceDocumentHead(
   if (head) {
     throw documentManifestAlreadyExists();
   }
+
+  const reservedFor = rows.find(
+    (row) => row.kind === "reserved",
+  )?.reservedForUserId;
+  if (reservedFor && reservedFor !== creatorUserId) {
+    throw new DocumentMutationError(PURGED_DOCUMENT_ID_RESERVED, 409);
+  }
+  return { reservedForCreator: reservedFor === creatorUserId };
 }
 
 export async function assertDocumentLinkSetCanAdvance(input: {
