@@ -15,8 +15,9 @@ const SYNC_SECTIONS_ICON = <StackIcon aria-hidden size={18} />;
 // opens the hub (defaulting to the Sync Lanes tab) and is kept rightmost via
 // the lowest priority among Explorer's actions; the tab bar owns navigation
 // among the hub's tabs once it is open. On the Sync tab the entry point steps
-// aside for its Blob Browser mirror, so each tab surfaces a single one-tap
-// switch to the other.
+// aside for its Blob Browser mirror. The Blob Browser shows neither: its
+// toolbar belongs to the blob list's view switch and a blob's own actions, and
+// the hub's tab bar already leads back to Sync.
 export function useExplorerHubToolbarActions({
   model,
   route,
@@ -26,9 +27,10 @@ export function useExplorerHubToolbarActions({
 }) {
   const onSyncTab =
     route.view === "sync-lanes" || route.view === "sync-lane-detail";
+  const onBlobBrowserTab = route.view === "blob-browser";
 
   useWindowTitleBarAction(
-    onSyncTab
+    onSyncTab || onBlobBrowserTab
       ? null
       : {
           icon: SYNC_SECTIONS_ICON,

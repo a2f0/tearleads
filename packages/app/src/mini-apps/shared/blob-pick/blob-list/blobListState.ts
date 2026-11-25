@@ -7,17 +7,14 @@ import type {
   ContainerNode,
 } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useReducer, useState } from "react";
-import { getMiniAppItemViewRowHeight } from "../../../../components/mini-app/item-view/miniAppItemView";
 import {
-  shouldFoldCompactRows,
-  useMiniAppCompactTableLayout,
-} from "../../../../components/mini-app/MiniAppTable";
+  getMiniAppItemGridColumns,
+  getMiniAppItemGridItemWindow,
+} from "../../../../components/mini-app/item-view/MiniAppItemGrid";
+import { useMiniAppItemView } from "../../../../components/mini-app/item-view/miniAppItemView";
+import { useMiniAppItemViewLayout } from "../../../../components/mini-app/item-view/useMiniAppItemViewLayout";
+import { shouldFoldCompactRows } from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
-import { useTouchRowHeight } from "../../../../navigation/useTouchRowHeight";
-import {
-  loadStoredPreference,
-  saveStoredPreference,
-} from "../../../../utils/storedPreference";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 import {
   type BlobSelectionState,
@@ -61,28 +58,9 @@ export function getBlobChangedAt(blob: BlobInfo): string | null {
   return blob.updatedAt ?? blob.createdAt;
 }
 
-const LARGE_THUMBNAILS_KEY = "tearleads.blob-browser:large-thumbnails";
-
-function useBlobListTableLayout(narrowFrame: boolean) {
-  const { compact: tierCompact } = useMiniAppCompactTableLayout();
-  const compact = tierCompact || narrowFrame;
-  const [largeThumbnails, setLargeThumbnails] = useState(() =>
-    loadStoredPreference(LARGE_THUMBNAILS_KEY, (stored) => stored === "true"),
-  );
-  const changeThumbnailSize = (large: boolean) => {
-    setLargeThumbnails(large);
-    saveStoredPreference(LARGE_THUMBNAILS_KEY, String(large));
-  };
-  // The rendered rows, scroll spacers, and fetch window all use this pitch:
-  // the large-thumbnail toggle is the shared large-rows view.
-  const rowHeight = useTouchRowHeight(
-    getMiniAppItemViewRowHeight(
-      largeThumbnails ? "large-rows" : "rows",
-      compact,
-    ),
-  );
-  return { changeThumbnailSize, compact, largeThumbnails, rowHeight };
-}
+// The list's view is a display preference of the blob list itself, kept apart
+// from the Explorer item list's: the two surfaces are browsed differently.
+const BLOB_LIST_ITEM_VIEW_STORAGE_KEY = "tearleads.blob-browser:item-view";
 
 export function getNextBlobInfoSort(
   currentSort: BlobInfoSort,
@@ -206,6 +184,45 @@ function getSelectedBlob(params: {
   }
 }
 
+// The list's view, the pitch that view draws at, and the window of blobs the
+// scroll frame asks for at that pitch.
+function useBlobListWindow(params: { query: string; sort: BlobInfoSort }) {
+  const { sort } = params;
+  const itemView = useMiniAppItemView(BLOB_LIST_ITEM_VIEW_STORAGE_KEY);
+  const { view } = itemView;
+  // Between the two row views the window keeps the top row in place (the
+  // pitch change rescales the offset). The grid counts lines of several blobs
+  // each, so a switch to or from it starts again at the top.
+  const resetKey = [
+    params.query,
+    sort.key,
+    sort.direction,
+    view === "grid" ? "grid" : "rows",
+  ].join(BLOB_BROWSER_RESET_KEY_SEPARATOR);
+  // The frame width arrives a render late (it is measured after mount), so the
+  // first paint is single-line and the fold follows. That ordering is
+  // deliberate: the pitch feeds the window math, so guessing narrow before
+  // measuring would fetch against a pitch the DOM does not have.
+  const [narrowFrame, setNarrowFrame] = useState(false);
+  const { compact, rowHeight } = useMiniAppItemViewLayout(narrowFrame, view);
+  const lineWindow = useMiniAppVirtualWindow({ resetKey, rowHeight });
+  const { frameRef, frameWidth } = lineWindow;
+  // A table line holds one blob; a grid line holds as many tiles as the
+  // measured frame fits, and the window fetches whole lines of them.
+  const columns = view === "grid" ? getMiniAppItemGridColumns(frameWidth) : 1;
+  const { limit, offset } = getMiniAppItemGridItemWindow({
+    columns,
+    limit: lineWindow.limit,
+    offset: lineWindow.offset,
+  });
+
+  useEffect(() => {
+    setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
+  }, [frameWidth]);
+
+  return { columns, compact, frameRef, itemView, limit, offset, rowHeight };
+}
+
 export function useBlobBrowserData(params: {
   loadBlobInfo: (query?: BlobInfoInput | undefined) => Promise<BlobInfoList>;
   route: BlobBrowserRoute;
@@ -221,18 +238,9 @@ export function useBlobBrowserData(params: {
     key: "updated",
   });
   const routeQuery = getBlobRouteQuery(params.route);
-  const resetKey = [debouncedQuery, sort.key, sort.direction].join(
-    BLOB_BROWSER_RESET_KEY_SEPARATOR,
-  );
-  // The frame width arrives a render late (it is measured after mount), so the
-  // first paint is single-line and the fold follows. That ordering is
-  // deliberate: the pitch feeds the window math, so guessing narrow before
-  // measuring would fetch against a pitch the DOM does not have.
-  const [narrowFrame, setNarrowFrame] = useState(false);
-  const layout = useBlobListTableLayout(narrowFrame);
-  const { frameRef, frameWidth, limit, offset } = useMiniAppVirtualWindow({
-    resetKey,
-    rowHeight: layout.rowHeight,
+  const { limit, offset, ...list } = useBlobListWindow({
+    query: debouncedQuery,
+    sort,
   });
   const blobInfo = useBlobInfoList({
     limit,
@@ -269,10 +277,6 @@ export function useBlobBrowserData(params: {
   }, []);
 
   useEffect(() => {
-    setNarrowFrame((current) => shouldFoldCompactRows(frameWidth, current));
-  }, [frameWidth]);
-
-  useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(query);
     }, 200);
@@ -287,9 +291,8 @@ export function useBlobBrowserData(params: {
   }, [routeQuery]);
 
   return {
-    ...layout,
+    ...list,
     blobInfo,
-    frameRef,
     handleBackToList,
     handleQueryChange,
     handleSelectBlob,

@@ -68,10 +68,17 @@
 
 /* The same emphasis a selected or hovered table row takes. */
 .mini-app-item-tile--selected,
-.mini-app-item-tile:hover,
+.mini-app-item-tile:not(:disabled):hover,
 .mini-app-item-tile:focus-visible {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+/* A tile that cannot be opened (a blob a pick cannot take) stays in the grid,
+   faded, and takes no hover emphasis. */
+.mini-app-item-tile:disabled {
+  cursor: default;
+  opacity: var(--opacity-disabled);
 }
 
 /* Square, and the whole of the tile above its name. Whatever it holds fills
