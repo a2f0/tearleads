@@ -4,9 +4,76 @@
   min-width: 0;
 }
 
-.recovery-key-scan-camera {
-  width: min(24rem, 100%);
+.recovery-key-scan-viewport {
+  /* Marks sit on live video, so they keep fixed colors in every theme. */
+  --recovery-key-scan-mark: rgb(255 255 255);
+  --recovery-key-scan-found: rgb(74 222 128);
+  --recovery-key-scan-found-fill: rgb(74 222 128 / 0.2);
+  --recovery-key-scan-wrong: rgb(255 107 107);
+  --recovery-key-scan-wrong-fill: rgb(255 107 107 / 0.2);
+  position: relative;
+  width: min(32rem, 100%);
+  max-height: 65vh;
   aspect-ratio: 4 / 3;
+  overflow: hidden;
   background: black;
+}
+
+.recovery-key-scan-camera,
+.recovery-key-scan-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The overlay's viewBox scales the same way, keeping decoder points aligned. */
+.recovery-key-scan-camera {
   object-fit: contain;
+}
+
+.recovery-key-scan-overlay {
+  pointer-events: none;
+}
+
+/*
+ * Stroke widths below are screen pixels on drawn camera marks, kept constant
+ * by non-scaling-stroke at any frame size; no border token fits a halo.
+ */
+
+.recovery-key-scan-guide-halo {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.45);
+  stroke-width: 8px;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+}
+
+.recovery-key-scan-guide {
+  fill: none;
+  stroke: var(--recovery-key-scan-mark);
+  stroke-width: 4px;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+}
+
+.recovery-key-scan-outline {
+  fill: var(--recovery-key-scan-found-fill);
+  stroke: var(--recovery-key-scan-found);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.recovery-key-scan-overlay[data-status="located"] .recovery-key-scan-guide {
+  stroke: var(--recovery-key-scan-found);
+}
+
+.recovery-key-scan-overlay[data-status="rejected"] .recovery-key-scan-guide {
+  stroke: var(--recovery-key-scan-wrong);
+}
+
+.recovery-key-scan-overlay[data-status="rejected"] .recovery-key-scan-outline {
+  fill: var(--recovery-key-scan-wrong-fill);
+  stroke: var(--recovery-key-scan-wrong);
 }

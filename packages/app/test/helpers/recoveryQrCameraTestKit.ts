@@ -1,22 +1,75 @@
 import { mock, spyOn } from "bun:test";
 import encodeQR from "qr";
 
-/** Real QR pixels keep camera tests exercising the production decoder. */
-function recoveryQrPixels(value: string): ImageData {
+/** Where a code sits inside a camera frame, in frame pixels. */
+export interface RecoveryQrPlacement {
+  readonly width: number;
+  readonly height: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+const MODULE_PIXELS = 4;
+
+/**
+ * Real QR pixels keep camera tests exercising the production decoder. An
+ * unreadable code keeps its finder patterns but scrambles the data between
+ * them, so the decoder locates it without reading it, as during focusing.
+ * The band starts 12 modules in (border 4, finder 7, separator 1), which
+ * leaves data rows only for the short payloads these tests encode. Without a
+ * placement the frame is exactly the code; with one, the code sits at
+ * (x, y) on a white frame of the given size.
+ */
+function recoveryQrPixels(
+  value: string,
+  {
+    placement,
+    unreadable = false,
+  }: {
+    placement?: RecoveryQrPlacement;
+    unreadable?: boolean;
+  } = {},
+): ImageData {
   const matrix = encodeQR(value, "raw", { border: 4 });
-  const width = matrix.length * 4;
-  const data = new Uint8ClampedArray(width * width * 4);
-  for (let y = 0; y < width; y++) {
+  const side = matrix.length * MODULE_PIXELS;
+  const {
+    width,
+    height,
+    x: left,
+    y: top,
+  } = placement ?? {
+    width: side,
+    height: side,
+    x: 0,
+    y: 0,
+  };
+  const data = new Uint8ClampedArray(width * height * 4);
+  const scrambled = (row: number, column: number) =>
+    unreadable &&
+    row > 12 &&
+    row < matrix.length - 12 &&
+    column >= 4 &&
+    column < matrix.length - 4 &&
+    (row * 3 + column * 7) % 2 === 0;
+  for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const offset = (y * width + x) * 4;
-      const shade = matrix[Math.floor(y / 4)]?.[Math.floor(x / 4)] ? 0 : 255;
+      const row = Math.floor((y - top) / MODULE_PIXELS);
+      const column = Math.floor((x - left) / MODULE_PIXELS);
+      const dark = scrambled(row, column) || matrix[row]?.[column];
+      const shade = dark ? 0 : 255;
       data[offset] = shade;
       data[offset + 1] = shade;
       data[offset + 2] = shade;
       data[offset + 3] = 255;
     }
   }
-  return { width, height: width, data, colorSpace: "srgb" };
+  return { width, height, data, colorSpace: "srgb" };
+}
+
+/** Pixel width of a test code, for placing it inside a frame. */
+export function recoveryQrSide(value: string): number {
+  return encodeQR(value, "raw", { border: 4 }).length * MODULE_PIXELS;
 }
 
 export function installRecoveryQrCamera(value: string) {
@@ -63,6 +116,12 @@ export function installRecoveryQrCamera(value: string) {
     stream,
     setCode: (code: string) => {
       pixels = recoveryQrPixels(code);
+    },
+    setUnreadableCode: (code: string) => {
+      pixels = recoveryQrPixels(code, { unreadable: true });
+    },
+    setCodeInFrame: (code: string, placement: RecoveryQrPlacement) => {
+      pixels = recoveryQrPixels(code, { placement });
     },
     clearFrame: () => {
       pixels.data.fill(255);
