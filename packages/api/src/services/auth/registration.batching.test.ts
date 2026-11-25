@@ -110,8 +110,10 @@ for (const full of [false, true]) {
     expect(await seedTouchCounts(queries, documentIds)).toEqual(
       updates.map(() => 1),
     );
+    // One more than before (406 / 202): provisioning reads its root's
+    // organization-purge reservation after inserting the root.
     expect(counter.statements).toBeLessThanOrEqual(
-      (full ? 406 : 202) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+      (full ? 407 : 203) + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
     );
   });
 }

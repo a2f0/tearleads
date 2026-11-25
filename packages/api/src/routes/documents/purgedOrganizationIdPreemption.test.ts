@@ -165,8 +165,8 @@ test("another user's device cannot recreate a purged organization's folder", asy
   const squatOnPurgedFolderId = async ({ folderId }: Preemption) => {
     const device = await createAncestorSdkContext(mallory, organizationId);
     try {
-      // The SDK names a folder's metadata document after the folder, and the
-      // purge reserved that document id too; it refuses first.
+      // The app names a folder's metadata document after the folder, and the
+      // purge reserved that document id too; the container id refuses first.
       await expect(
         device.containers.createRemoteContainer({
           ...device.mutation,
@@ -174,15 +174,36 @@ test("another user's device cannot recreate a purged organization's folder", asy
           metadataDocumentId: folderId,
           parentContainerId: root.kekState.containerId,
         }),
-      ).rejects.toThrow(
-        "Document ID is reserved for its purged organization's recovery",
-      );
+      ).rejects.toThrow(`Container mutation failed: ${CONTAINER_RESERVED}`);
     } finally {
       device.close();
     }
     expect(await storedContainerOrganization(folderId)).toBeNull();
   };
   await purgeAndRecover(squatOnPurgedFolderId, expectOwnerRecovers);
+}, 180_000);
+
+test("another user cannot bind a purged metadata document id to a fresh folder", async () => {
+  const { mallory, root } = await registerMallory();
+  const squatOnPurgedMetadataId = async ({ folderId }: Preemption) => {
+    const response = await routeApp.request("/containers", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${mallory.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        await buildChildCreateRequest({
+          metadataDocumentId: folderId,
+          root,
+          signer: mallory,
+        }),
+      ),
+    });
+    expect(response.status).toBe(409);
+    expect(await response.text()).toBe(DOCUMENT_RESERVED);
+  };
+  await purgeAndRecover(squatOnPurgedMetadataId, expectOwnerRecovers);
 }, 180_000);
 
 test("another user cannot create a purged folder id with a fresh metadata document", async () => {

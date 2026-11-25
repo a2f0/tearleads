@@ -17,7 +17,7 @@ local corpus.
 | `Reset` / `PreserveCheckpoints` | `clearRemoteSyncState` re-homes the locally scoped corpus while retaining access and principal checkpoints and principal ownership |
 | `Discover` / `ScopeDiscovery` | `documentHeadMatchesOrganization` scopes both discovery and tombstone evidence to the listed container's current organization |
 | `PurgeJob` / `ReserveFreedIds` | `deleteOrganizationRemoteRows` deletes the organization's rows and, in the same transaction, `reservePurgedOrganizationObjects` writes a `purged_object_reservations` row per freed container and document id, naming the personal organization's owner; a shared organization's purge writes none |
-| `OutsiderCreate` / `MemberCreate` / `ReserveForOwner` | another user's create of a copied id: `assertCreateCanAdvanceDocumentHead`, `assertMetadataDocumentAvailable`, the container insert in `persistContainerStructure`, and `createRootContainer` refuse a reservation that names another user, whichever organization the create targets |
+| `OutsiderCreate` / `MemberCreate` / `ReserveForOwner` | another user's create of a copied id: `assertCreateCanAdvanceDocumentHead`, `assertContainerCreateIdsAvailable` (a folder and its metadata id), and `createRootContainer` refuse a reservation that names another user, whichever organization the create targets |
 | `Recreate` / `idHolder` | the owner's queued recovery creates, which consume the reservation in their own transaction; another owner device's create then adopts that copy through `adoptExistingRemoteDocument` or `assertContainerCreateAdoptable` |
 
 The two candidate identities abstract two devices sharing the same signing key.

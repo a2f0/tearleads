@@ -66,9 +66,10 @@ export async function reservePurgedOrganizationObjects(input: {
  * Lets `userId` create an object whose id may be reserved: true when the id is
  * unreserved or reserved for that user, whose create then consumes the
  * reservation in its own transaction; false when another user holds it, and
- * the caller refuses the create. A caller that does not otherwise read the
- * id's head runs this after inserting the object's row: that insert waits out
- * a purge deleting the same row, so this read then sees its reservation.
+ * the caller refuses the create. A caller that reads no head for the id first
+ * runs this after inserting the object's row: that insert waits out a purge
+ * deleting the same row, so this later read sees the purge's reservation,
+ * where a read before the insert would see the pre-purge snapshot.
  */
 export async function claimPurgedObjectReservation(
   executor: DatabaseTransaction,

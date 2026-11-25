@@ -6,7 +6,8 @@ import {
   purgedObjectReservations,
   users,
 } from "@tearleads/api-shared/schema";
-import { assertMetadataDocumentAvailable } from "./metadataDocumentReservation";
+import { eq } from "drizzle-orm";
+import { assertContainerCreateIdsAvailable } from "./metadataDocumentReservation";
 
 async function insertPurgeEvent(documentId: string): Promise<void> {
   await db.insert(accessEvents).values({
@@ -54,10 +55,18 @@ async function insertUser(): Promise<string> {
 
 const requesterUserId: string = crypto.randomUUID();
 
-const check = (documentId: string, userId = requesterUserId) =>
+const check = (
+  documentId: string,
+  userId = requesterUserId,
+  containerId: string = crypto.randomUUID(),
+) =>
   db
     .transaction((tx) =>
-      assertMetadataDocumentAvailable(tx, documentId, userId),
+      assertContainerCreateIdsAvailable(tx, {
+        containerId,
+        metadataDocumentId: documentId,
+        requesterUserId: userId,
+      }),
     )
     .then(
       () => "available",
@@ -90,18 +99,42 @@ test("the one-statement reservation check keeps its refusals and their order", a
   );
 });
 
-test("an id an organization purge reserved binds only for its owner", async () => {
-  const owner = await insertUser();
-  const reserved = crypto.randomUUID();
+async function reserve(
+  objectKind: "container" | "document",
+  owner: string,
+): Promise<string> {
+  const objectId = crypto.randomUUID();
   await db.insert(purgedObjectReservations).values({
-    objectKind: "document",
-    objectId: reserved,
+    objectKind,
+    objectId,
     ownerUserId: owner,
     purgedOrganizationId: crypto.randomUUID(),
   });
+  return objectId;
+}
 
-  expect(await check(reserved)).toBe(
+const reservationsOf = (objectId: string) =>
+  db
+    .select({ kind: purgedObjectReservations.objectKind })
+    .from(purgedObjectReservations)
+    .where(eq(purgedObjectReservations.objectId, objectId));
+
+test("ids an organization purge reserved are created only by its owner", async () => {
+  const owner = await insertUser();
+  const documentId = await reserve("document", owner);
+  const containerId = await reserve("container", owner);
+
+  expect(await check(documentId)).toBe(
     "Document ID is reserved for its purged organization's recovery",
   );
-  expect(await check(reserved, owner)).toBe("available");
+  expect(await check(crypto.randomUUID(), requesterUserId, containerId)).toBe(
+    "Container ID is reserved for its purged organization's recovery",
+  );
+  expect(await reservationsOf(documentId)).toEqual([{ kind: "document" }]);
+  expect(await reservationsOf(containerId)).toEqual([{ kind: "container" }]);
+
+  // The owner's create consumes both reservations in its transaction.
+  expect(await check(documentId, owner, containerId)).toBe("available");
+  expect(await reservationsOf(documentId)).toEqual([]);
+  expect(await reservationsOf(containerId)).toEqual([]);
 });

@@ -156,10 +156,17 @@ no error code:
 
 The refusal carries neither `document_manifest_already_exists` nor
 `container_manifest_already_exists`, so a client never reads it as a lost
-response and never tries to adopt it. The document guard reads the reservation
-in the same statement as the id's head, after the document lifecycle lock.
-Container and root creates read it after inserting the row, since that insert
-waits out a purge deleting the same row; a read before it would see the
+response and never tries to adopt it.
+
+Each create reads the reservation in a statement that sees any purge of the id
+that committed before it, so no create slips between the purge's delete and
+its reservation. The document guard reads the reservation in the same
+statement as the id's head, after the document lifecycle lock. A folder create
+reads it with its metadata id's evidence, after the statement that found no
+head for the folder; a purge still in flight leaves that head visible, and the
+create is refused as already existing. Provisioning reads no head for its new
+root, so it reads the reservation after inserting the root row: that insert
+waits out a purge deleting the same row, and a read before it would see the
 pre-purge snapshot and miss the reservation.
 
 The owner's create consumes the reservation in its own transaction: a document

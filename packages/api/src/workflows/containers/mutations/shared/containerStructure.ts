@@ -5,10 +5,6 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/valida
 import { eq, sql } from "drizzle-orm";
 import { intExpression, uuidValue } from "../../../../utils/postgresSql";
 import {
-  claimPurgedObjectReservation,
-  PURGED_CONTAINER_ID_RESERVED,
-} from "../../../billing/purgedObjectReservations";
-import {
   ContainerMutationError,
   containerManifestAlreadyExists,
   runConflictBoundary,
@@ -22,7 +18,7 @@ import {
   assertContainerMoveDepth,
 } from "./containerDepth";
 import {
-  assertMetadataDocumentAvailable,
+  assertContainerCreateIdsAvailable,
   insertContainerMetadataBinding,
 } from "./metadataDocumentReservation";
 
@@ -76,11 +72,11 @@ async function persistCreatedContainerStructure(
   }
 
   assertContainerDepth(parent ? parent.depth + 1 : 0);
-  await assertMetadataDocumentAvailable(
-    executor,
-    state.metadataDocumentId,
+  await assertContainerCreateIdsAvailable(executor, {
+    containerId: state.containerId,
+    metadataDocumentId: state.metadataDocumentId,
     requesterUserId,
-  );
+  });
 
   const [inserted] = await runConflictBoundary(() =>
     executor
@@ -107,17 +103,6 @@ async function persistCreatedContainerStructure(
 
   if (!inserted) {
     throw containerManifestAlreadyExists();
-  }
-  // Read after the insert, which waits out an organization purge deleting this
-  // row; a new statement then sees the reservation that purge committed.
-  if (
-    !(await claimPurgedObjectReservation(executor, {
-      objectId: state.containerId,
-      objectKind: "container",
-      userId: requesterUserId,
-    }))
-  ) {
-    throw new ContainerMutationError(PURGED_CONTAINER_ID_RESERVED, 409);
   }
 
   await insertContainerMetadataBinding(executor, state);
