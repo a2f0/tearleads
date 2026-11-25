@@ -16,6 +16,8 @@ export {
   isWebSocketTicketResponse,
   type ListSessionsResponse,
   ListSessionsResponseSchema,
+  type RegistrationConflictResponse,
+  RegistrationConflictResponseSchema,
   SESSION_ERROR_CODES,
   type SessionErrorCode,
   SessionErrorCodeSchema,

@@ -4,7 +4,10 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
+import {
+  LEGAL_TERMS_OUTDATED_ERROR_CODE,
+  LEGAL_TERMS_VERSION,
+} from "@tearleads/validators/legalTerms";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import { eq, sql } from "drizzle-orm";
@@ -26,13 +29,26 @@ export const LEGAL_TERMS_OUTDATED_MESSAGE =
   "The Privacy Policy and Terms of Service have changed. Review and agree to the current revision, then register again.";
 
 /**
+ * A registration naming a legal terms revision other than the current one,
+ * answered with its own code so a client built with an earlier revision can
+ * tell it from a key that is already registered.
+ */
+export class LegalTermsOutdatedError extends OrganizationProvisioningError {
+  readonly code = LEGAL_TERMS_OUTDATED_ERROR_CODE;
+
+  constructor() {
+    super(LEGAL_TERMS_OUTDATED_MESSAGE, 409);
+  }
+}
+
+/**
  * A registration carries the legal terms revision its user agreed to, and
  * only the current one registers: an identity is never recorded as agreeing
  * to a revision that no longer governs the service.
  */
 function requireCurrentLegalTerms(input: RegistrationRequest): void {
   if (input.acceptedLegalTermsVersion !== LEGAL_TERMS_VERSION) {
-    throw new OrganizationProvisioningError(LEGAL_TERMS_OUTDATED_MESSAGE, 409);
+    throw new LegalTermsOutdatedError();
   }
 }
 

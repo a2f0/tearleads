@@ -10,6 +10,12 @@
  */
 export const LEGAL_TERMS_VERSION = "2026-10-22";
 
+/**
+ * The error `code` the API answers a registration naming any other revision
+ * with (409), so a client built with an earlier one can say it must update.
+ */
+export const LEGAL_TERMS_OUTDATED_ERROR_CODE = "legal_terms_outdated";
+
 /** A registration's legal terms version is a `YYYY-MM-DD` revision date. */
 export const LEGAL_TERMS_VERSION_MAX_LENGTH = 10;
 

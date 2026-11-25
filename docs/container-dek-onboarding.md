@@ -184,6 +184,7 @@ which registration shares with creating an additional organization.
 
 ```ts
 interface RegistrationRequest {
+ acceptedLegalTermsVersion: string; // the current LEGAL_TERMS_VERSION
  userId: string;
  organizationId: string;
  rootContainerId: string;

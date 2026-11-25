@@ -596,6 +596,7 @@ export {
   buildInitialOrganizationPolicyRequest,
   createInitialRootMetadataBootstrap,
   deriveRegistrationOrganizationId,
+  LegalTermsOutdatedError,
   persistRegistrationBootstrap,
   registerIdentity,
 } from "./workflows/registration";

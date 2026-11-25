@@ -6,7 +6,10 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
+import {
+  LEGAL_TERMS_OUTDATED_ERROR_CODE,
+  LEGAL_TERMS_VERSION,
+} from "@tearleads/validators/legalTerms";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
@@ -66,7 +69,11 @@ test("POST /auth/register refuses a revision other than the current one and crea
   for (const acceptedLegalTermsVersion of ["2000-01-01", "9999-12-31"]) {
     const res = await postRegistration({ ...body, acceptedLegalTermsVersion });
     expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: LEGAL_TERMS_OUTDATED_MESSAGE });
+    // Its own code tells it from a key that is already registered.
+    expect(await res.json()).toEqual({
+      code: LEGAL_TERMS_OUTDATED_ERROR_CODE,
+      error: LEGAL_TERMS_OUTDATED_MESSAGE,
+    });
   }
   const { acceptedLegalTermsVersion: _omitted, ...withoutAgreement } = body;
   expect((await postRegistration(withoutAgreement)).status).toBe(400);

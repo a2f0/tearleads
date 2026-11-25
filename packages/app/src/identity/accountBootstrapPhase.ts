@@ -121,18 +121,17 @@ function registrationPhase(
   if (input.legalTerms === "required") {
     return "accepting-terms";
   }
+  const stalled =
+    input.registration === "failed" || input.systemBootstrapStatus === "error";
   // Only a key this device stored can already have an account, and it signs
   // back in unless the device's binding says otherwise.
   if (input.legalTerms === "checking") {
-    return "signing-in";
+    return stalled ? "signed-out" : "signing-in";
   }
   if (input.awaitingAccountName) {
     return "naming-account";
   }
-  if (
-    input.registration === "failed" ||
-    input.systemBootstrapStatus === "error"
-  ) {
+  if (stalled) {
     return "signed-out";
   }
   return input.identityRestored ? "signing-in" : "creating-account";

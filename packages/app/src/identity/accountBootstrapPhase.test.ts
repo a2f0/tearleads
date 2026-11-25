@@ -117,6 +117,15 @@ describe("resolveAccountBootstrapPhase", () => {
         }),
       ).toBe("signing-in");
     }
+    // A stalled bootstrap shows the signed-out controls rather than waiting.
+    for (const stalled of [
+      { registration: "failed" },
+      { registration: "idle", systemBootstrapStatus: "error" },
+    ] as const) {
+      expect(
+        phaseOf({ identityRestored: true, legalTerms: "checking", ...stalled }),
+      ).toBe("signed-out");
+    }
     // Agreement comes before a name still owed, as in onboarding.
     expect(
       phaseOf({

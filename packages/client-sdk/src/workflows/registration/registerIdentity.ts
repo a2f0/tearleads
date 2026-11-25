@@ -14,6 +14,12 @@ import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
 import { validateUserIdentityKeys } from "../../data/trustedUserIdentity";
 import { deriveRegistrationOrganizationId } from "./bootstrapRootContainer";
+import {
+  isLegalTermsOutdatedFailure,
+  LegalTermsOutdatedError,
+  REGISTRATION_REQUEST,
+  type RegistrationRequestFailure,
+} from "./legalTermsOutdatedError";
 import { buildOrganizationProvisioningArtifacts } from "./organizationProvisioning";
 import { persistOrganizationProvisioningState } from "./organizationProvisioningPersistence";
 import type { ProvisionedStatePrimer } from "./provisionedStatePrimer";
@@ -38,6 +44,13 @@ export interface RegistrationApi {
     initialSystemContainers: ProvisionedSystemContainerRequest[] | undefined,
     acceptedLegalTermsVersion: RegistrationRequest["acceptedLegalTermsVersion"],
   ): Promise<RegistrationResponse | null>;
+  /**
+   * The last failure recorded for a request, which tells a refused legal
+   * terms revision from any other failed registration.
+   */
+  getRequestFailure?(
+    request: typeof REGISTRATION_REQUEST,
+  ): RegistrationRequestFailure | null;
 }
 
 export interface RegisterIdentityInput {
@@ -90,6 +103,46 @@ export interface RegisterIdentityInput {
   signingKeyPair: SigningKeyPair;
 }
 
+/**
+ * Submits the registration. A refusal of the legal terms revision it carries
+ * throws {@link LegalTermsOutdatedError}; any other failure resolves null.
+ */
+async function submitRegistration(
+  input: RegisterIdentityInput,
+  newUserId: string,
+  artifacts: Awaited<ReturnType<typeof buildOrganizationProvisioningArtifacts>>,
+): Promise<RegistrationResponse | null> {
+  const earlierFailure =
+    input.apiClient.getRequestFailure?.(REGISTRATION_REQUEST) ?? null;
+  const response = await input.apiClient.registerUser(
+    newUserId,
+    artifacts.organizationId,
+    input.containerId,
+    input.signingKeyPair.signingPublicKey,
+    input.encapsulationKeyPair.publicKey,
+    artifacts.initialAdminGroup,
+    artifacts.initialMemberGroup,
+    artifacts.initialOrganizationPolicy,
+    artifacts.initialRootContainer,
+    artifacts.rootMetadataDocumentRequest,
+    artifacts.rosterProfileBootstrap.containerRequest,
+    artifacts.rosterProfileBootstrap.profileDocumentRequest,
+    artifacts.organizationMetadataBootstrap.containerRequest,
+    artifacts.organizationMetadataBootstrap.organizationProfileDocumentRequest,
+    artifacts.systemContainerBootstraps.map(
+      (systemContainer) => systemContainer.containerRequest,
+    ),
+    input.acceptedLegalTermsVersion,
+  );
+  if (response) return response;
+  const failure =
+    input.apiClient.getRequestFailure?.(REGISTRATION_REQUEST) ?? null;
+  if (isLegalTermsOutdatedFailure(failure, earlierFailure)) {
+    throw new LegalTermsOutdatedError(input.acceptedLegalTermsVersion);
+  }
+  return null;
+}
+
 export async function registerIdentity(
   input: RegisterIdentityInput,
 ): Promise<RegistrationResponse | null> {
@@ -116,29 +169,8 @@ export async function registerIdentity(
   });
 
   if (input.isIdentityCurrent?.() === false) return null;
-  const response = await input.apiClient.registerUser(
-    newUserId,
-    artifacts.organizationId,
-    input.containerId,
-    input.signingKeyPair.signingPublicKey,
-    input.encapsulationKeyPair.publicKey,
-    artifacts.initialAdminGroup,
-    artifacts.initialMemberGroup,
-    artifacts.initialOrganizationPolicy,
-    artifacts.initialRootContainer,
-    artifacts.rootMetadataDocumentRequest,
-    artifacts.rosterProfileBootstrap.containerRequest,
-    artifacts.rosterProfileBootstrap.profileDocumentRequest,
-    artifacts.organizationMetadataBootstrap.containerRequest,
-    artifacts.organizationMetadataBootstrap.organizationProfileDocumentRequest,
-    artifacts.systemContainerBootstraps.map(
-      (systemContainer) => systemContainer.containerRequest,
-    ),
-    input.acceptedLegalTermsVersion,
-  );
-  if (!response) {
-    return null;
-  }
+  const response = await submitRegistration(input, newUserId, artifacts);
+  if (!response) return null;
   if (response.userId !== newUserId) {
     throw new KeyingVerificationError(
       "object_mismatch",

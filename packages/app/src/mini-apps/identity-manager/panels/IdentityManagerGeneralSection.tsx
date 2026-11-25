@@ -105,17 +105,18 @@ export function IdentityManagerGeneralSection({
 }: {
   model: IdentityManagerModel;
 }) {
-  const { identityMutations, identityState, registration, session } = model;
+  const { identity, identityMutations, identityState, registration, session } =
+    model;
   const { isDeveloperMode } = useDeveloperMode();
   const progress = useAccountBootstrapProgress();
   const { agree } = useLegalTermsAgreement();
   // Registering records agreement to the legal terms, so a Register that has
-  // none yet shows them first.
-  const [agreeingToTerms, setAgreeingToTerms] = useState(false);
+  // none yet shows them first, for the identity it was pressed for.
+  const [agreeingFor, setAgreeingFor] = useState<string | null>(null);
   const actions = {
     ...getIdentitySectionActions(model),
     handleRegisterIdentity: registration.legalTermsRequired
-      ? async () => setAgreeingToTerms(true)
+      ? async () => setAgreeingFor(identity.signingFingerprint)
       : identityMutations.handleRegisterIdentity,
   };
 
@@ -125,15 +126,20 @@ export function IdentityManagerGeneralSection({
   if (progress) {
     return <AccountBootstrapProgressPanel progress={progress} />;
   }
-  if (agreeingToTerms) {
+  // A binding read since Register may need none.
+  if (
+    agreeingFor !== null &&
+    agreeingFor === identity.signingFingerprint &&
+    registration.legalTermsRequired
+  ) {
     return (
       <LegalTermsAgreementPanel
         onAgree={() => {
           agree();
-          setAgreeingToTerms(false);
+          setAgreeingFor(null);
           void identityMutations.handleRegisterIdentity();
         }}
-        onBack={() => setAgreeingToTerms(false)}
+        onBack={() => setAgreeingFor(null)}
       />
     );
   }

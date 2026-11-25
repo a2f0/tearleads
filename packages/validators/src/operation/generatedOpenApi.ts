@@ -72,7 +72,7 @@ export type paths = {
         put?: never;
         /**
          * Register an identity and bootstrap its root state
-         * @description Creates a new identity from its signing and encapsulation public keys and, in one transaction, provisions its personal organization: the reserved `Admins` and `Members` groups, the root container, and their signed policies and metadata documents. The response carries a fresh login challenge, so the client signs in next with `POST /auth/verify`. A signing key that is already registered returns 409.
+         * @description Creates a new identity from its signing and encapsulation public keys and, in one transaction, provisions its personal organization: the reserved `Admins` and `Members` groups, the root container, and their signed policies and metadata documents. The response carries a fresh login challenge, so the client signs in next with `POST /auth/verify`. A signing key that is already registered returns 409, as does a legal terms revision other than the current one, with code `legal_terms_outdated`.
          */
         post: operations["auth.register"];
         delete?: never;
@@ -4384,6 +4384,17 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description A 409 from registration: the signing key is already registered, or the agreed legal terms revision is not the current one. */
+        RegistrationConflictResponse: {
+            /**
+             * @description `legal_terms_outdated` only when the registration named a legal terms revision other than the current one; a key that is already registered carries no code.
+             * @constant
+             */
+            code?: "legal_terms_outdated";
+            error: string;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description A new identity's public keys plus every signed artifact that bootstraps its personal organization, all created atomically. */
         RegistrationRequest: {
             /** @description The Privacy Policy and Terms of Service revision the user agreed to before registering: the documents' shared effective date (`YYYY-MM-DD`). The API registers only the current revision and records it, with the time of registration, on the identity. */
@@ -5387,7 +5398,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["RegistrationConflictResponse"];
                 };
             };
             /** @description Internal Server Error */

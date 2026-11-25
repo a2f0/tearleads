@@ -10,6 +10,7 @@ import {
   DestroySessionResponseSchema,
   ErrorResponseSchema,
   ListSessionsResponseSchema,
+  RegistrationConflictResponseSchema,
   RegistrationResponseSchema,
   UserIdentityResponseSchema,
   VerifyFailureResponseSchema,
@@ -76,7 +77,7 @@ test("auth operations own their HTTP contract metadata", () => {
     400: ErrorResponseSchema,
     403: ErrorResponseSchema,
     404: ErrorResponseSchema,
-    409: ErrorResponseSchema,
+    409: RegistrationConflictResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   });

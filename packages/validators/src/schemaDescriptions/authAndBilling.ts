@@ -26,6 +26,7 @@ import {
   OrganizationBillingResponseSchema,
   OrganizationNativePurchaseEligibilityResponseSchema,
   PaymentRequiredErrorResponseSchema,
+  RegistrationConflictResponseSchema,
   RegistrationResponseSchema,
   RevenueCatWebhookResponseSchema,
   SessionFailureResponseSchema,
@@ -171,6 +172,14 @@ describeSchema(
   {
     ticket:
       "Opaque ticket, passed in the WebSocket upgrade URL and deleted on first use.",
+  },
+);
+
+describeSchema(
+  RegistrationConflictResponseSchema,
+  "A 409 from registration: the signing key is already registered, or the agreed legal terms revision is not the current one.",
+  {
+    code: "`legal_terms_outdated` only when the registration named a legal terms revision other than the current one; a key that is already registered carries no code.",
   },
 );
 
