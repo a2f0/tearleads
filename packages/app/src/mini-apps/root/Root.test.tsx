@@ -75,11 +75,15 @@ test("the root console lists identities and opens their detail", async () => {
     expect(view.getAllByText("203.0.113.7").length).toBeGreaterThanOrEqual(2);
 
     // Back, Refresh, and Audit activity are toolbar chrome, not view buttons.
-    for (const name of ["Back", "Refresh", "Audit activity"]) {
-      expect(view.getAllByRole("button", { name })).toEqual([
-        rootToolbar(view).getByRole("button", { name }),
-      ]);
-    }
+    // The toolbar registration lags the view by a render, so Refresh can still
+    // read "Refreshing..." when the detail is already on screen.
+    await waitFor(() => {
+      for (const name of ["Back", "Refresh", "Audit activity"]) {
+        expect(view.getAllByRole("button", { name })).toEqual([
+          rootToolbar(view).getByRole("button", { name }),
+        ]);
+      }
+    });
     await clickRootToolbarButton(view, "Back");
     await waitFor(() => {
       expect(view.getByRole("table", { name: "Identities" })).toBeTruthy();

@@ -10,8 +10,10 @@ test("an empty local tree progresses from loading to syncing to a settled folder
     ready: true,
     count: 0,
     knownCount: 0,
-    syncing: false,
+    online: true,
+    refreshing: false,
     startupPending: false,
+    syncActive: false,
   };
   const state = (changes: Partial<typeof local>) =>
     resolveExplorerFolderState({ ...local, ...changes });
@@ -19,7 +21,7 @@ test("an empty local tree progresses from loading to syncing to a settled folder
   expect(view.getByRole("status").textContent).toContain(
     "Loading your workspace",
   );
-  view.rerender(<ExplorerFolderStatus state={state({ syncing: true })} />);
+  view.rerender(<ExplorerFolderStatus state={state({ refreshing: true })} />);
   expect(view.getByRole("status").textContent).toContain("Syncing folders");
   view.rerender(<ExplorerFolderStatus state={state({})} />);
   expect(view.queryByRole("status")).toBeNull();
@@ -28,8 +30,33 @@ test("an empty local tree progresses from loading to syncing to a settled folder
   ).toBeTruthy();
   expect(state({ startupPending: true })).toBe("loading");
   expect(state({ knownCount: 1 })).toBe("unavailable");
-  expect(state({ count: 1, syncing: true, startupPending: true })).toBe(
+  expect(state({ count: 1, refreshing: true, startupPending: true })).toBe(
     "available",
   );
   view.unmount();
+});
+
+test("known folders still being pulled by sync read as syncing, not unavailable", () => {
+  // A restored identity lists its folders before their names arrive;
+  // structural sync pulls those after the listing settles.
+  const listed = {
+    ready: true,
+    count: 0,
+    knownCount: 3,
+    online: true,
+    refreshing: false,
+    startupPending: false,
+    syncActive: true,
+  };
+  expect(resolveExplorerFolderState(listed)).toBe("syncing");
+  expect(resolveExplorerFolderState({ ...listed, syncActive: false })).toBe(
+    "unavailable",
+  );
+  // Offline, nothing will arrive, so the panel says why.
+  expect(resolveExplorerFolderState({ ...listed, online: false })).toBe(
+    "unavailable",
+  );
+  expect(
+    resolveExplorerFolderState({ ...listed, knownCount: 0, online: false }),
+  ).toBe("empty");
 });
