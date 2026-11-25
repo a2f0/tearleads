@@ -349,3 +349,25 @@ test("another user's create of a purged organization's folder id blocks the owne
     console.log(`folder recreate refused: ${refused}`);
   });
 }, 180_000);
+
+test("another user can provision an organization whose root takes a purged folder id", async () => {
+  const mallory = createTestUser();
+  await registerAndAuthenticateUsers(mallory);
+  const squatWithOrganizationRoot = async ({
+    folderId,
+  }: {
+    folderId: string;
+  }) => {
+    const request = await createOrganizationRequestBody(mallory, {
+      rootContainerId: folderId,
+    });
+    expect((await submitCreateOrganization(mallory, request)).status).toBe(200);
+  };
+  await purgeAndRecover(squatWithOrganizationRoot, async (recovery) => {
+    const refused = await recovery.recreateFolder().then(
+      () => null,
+      (error: unknown) => String(error),
+    );
+    expect(refused).toContain("container_manifest_already_exists");
+  });
+}, 180_000);
