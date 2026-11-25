@@ -1,0 +1,73 @@
+/*
+ * The handle on the edge two resizable columns share (MiniAppColumnResize.tsx).
+ * It sits in the right-hand column's heading and straddles the edge: each
+ * heading is its own stacking context, and a later one paints over an earlier
+ * one, so the half that reaches back over the left-hand heading stays on top
+ * and takes the pointer. Its strip is no wider than the two headings' facing
+ * padding, so it never covers a sort button.
+ */
+.mini-app-column-resize-handle {
+  --mini-app-column-resize-hit: 0.5625rem;
+
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(-0.5 * var(--mini-app-column-resize-hit));
+  width: var(--mini-app-column-resize-hit);
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  /* A touch drag on the handle resizes; it must not scroll the frame. */
+  touch-action: none;
+}
+
+.mini-app-column-resize-handle::before {
+  position: absolute;
+  inset-block: var(--space-xs);
+  inset-inline-start: 50%;
+  width: 1px;
+  background: var(--color-dark);
+  content: "";
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
+/* Pointing at the headings shows where their edges can be dragged. */
+.mini-app-table thead:hover .mini-app-column-resize-handle::before {
+  opacity: var(--opacity-disabled);
+}
+
+.mini-app-table thead .mini-app-column-resize-handle:hover::before,
+.mini-app-table thead .mini-app-column-resize-handle:focus-visible::before,
+.mini-app-table thead .mini-app-column-resize-handle--dragging::before {
+  width: 2px;
+  opacity: var(--opacity-subtle);
+}
+
+.mini-app-column-resize-handle:focus-visible {
+  outline: none;
+}
+
+/* Touch: a wider strip, still inside the headings' facing padding. */
+:root[data-navigation-mode="routed"] .mini-app-column-resize-handle {
+  --mini-app-column-resize-hit: var(--space-md);
+}
+
+/* Only names the heading beside a handle; it must not change how the heading's
+   own content (a sort button, a columns menu) is laid out. */
+.mini-app-column-heading-label {
+  display: contents;
+}
+
+/*
+ * A column its reader can narrow must not answer by wrapping: a taller row
+ * breaks the fixed pitch a virtualized list is measured by. Cut the text short
+ * instead. The empty-state row spans every column and keeps its wrapping.
+ */
+.mini-app-table--resizable .mini-app-table-cell:not(.mini-app-table-empty) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

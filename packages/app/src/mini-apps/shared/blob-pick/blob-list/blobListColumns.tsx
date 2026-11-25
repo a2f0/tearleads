@@ -188,24 +188,26 @@ export function getBlobInfoTableLayout(params: {
   includeSync: boolean;
   onSort: (key: BlobInfoSortKey) => void;
   sort: BlobInfoSort;
-}) {
+}): ReadonlyArray<MiniAppTableColumn> {
   if (params.compact) {
-    return {
-      columns: [buildBlobInfoSummaryColumn(params)],
-      minWidth: undefined,
-    };
+    return [buildBlobInfoSummaryColumn(params)];
   }
 
   const visible = getVisibleBlobInfoColumnIds(
     params.hiddenColumns,
     params.includeSync,
-  ).map((id) => buildBlobInfoColumn(id, params));
-  // Reserve enough space for every visible field, then let the last one take
-  // the spare width so earlier fields stay together on a wide screen.
-  return {
-    columns: visible.map((column, index) =>
-      index === visible.length - 1 ? { ...column, width: undefined } : column,
-    ),
-    minWidth: `calc(${visible.map((column) => column.width).join(" + ")})`,
-  };
+  ).map((id) => ({
+    ...buildBlobInfoColumn(id, params),
+    // The thumbnail column is as wide as the thumbnail; every field beside it
+    // can be dragged wider or narrower.
+    resizeLabel: id === "blob" ? undefined : getBlobInfoColumnLabel(id),
+  }));
+  // The table reserves enough space for every visible field (its declared
+  // width is the floor of the last one), then lets the last one take the spare
+  // width so earlier fields stay together on a wide screen.
+  return visible.map((column, index) =>
+    index === visible.length - 1
+      ? { ...column, minWidth: column.width, width: undefined }
+      : column,
+  );
 }
