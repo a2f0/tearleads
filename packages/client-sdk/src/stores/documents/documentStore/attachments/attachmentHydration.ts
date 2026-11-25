@@ -135,14 +135,36 @@ function bindingsAlreadyChecked(
       ? checked.sequence
       : 0);
   if (needsBindingProbe) return false;
-  // An unavailable copy's row still names its storage key, but its bytes are
-  // gone, so it retries like a slot with no bytes. A refused repair, or a
-  // finding settled while the store reloaded, raises no further signal.
+  return holdsEveryAttachmentCopy(state, attachments);
+}
+
+/**
+ * Whether the store holds bytes matching every attachment the document
+ * names. An unavailable copy's row still names its storage key, but its bytes
+ * are gone, so it counts like a slot with no bytes. A refused repair, or a
+ * finding settled while the store reloaded, raises no further signal.
+ */
+function holdsEveryAttachmentCopy(
+  state: DocumentStoreState,
+  attachments: ReturnType<typeof getDocumentAttachments>,
+): boolean {
   const unavailable = unavailableHeldCopySlotIds(state);
   return attachments.every(
     ({ contentSha256, slotId }) =>
       state.attachmentStorageKeyBySlotId[slotId] &&
       !unavailable.has(slotId) &&
       state.attachmentContentSha256BySlotId[slotId] === contentSha256,
+  );
+}
+
+/**
+ * Whether a loaded document still has an attachment to download or repair.
+ * Hydration runs after a sync response, so such a document needs a pull even
+ * when nothing else obliges one.
+ */
+export function awaitsAttachmentCopy(state: DocumentStoreState): boolean {
+  return (
+    state.doc !== null &&
+    !holdsEveryAttachmentCopy(state, getDocumentAttachments(state.doc))
   );
 }

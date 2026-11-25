@@ -9,7 +9,6 @@ import {
   type ContainerContentsStore,
   type ContainerContentsStoreOptions,
   isAutomaticRootCatchupContainerNode,
-  isReconcilableContainerNode,
   isRemoteBackedContainerNode,
 } from "../../stores/container-contents";
 import { openDocumentStore } from "../../stores/documents";
@@ -46,6 +45,11 @@ import {
   type DiscoveredDocumentPrimerHost,
   startDiscoveredDocumentPrimer,
 } from "./discoveredDocumentPrimer";
+import {
+  createListingCoverageHost,
+  installDocumentListingAuthority,
+  listReconcilableContainerIds,
+} from "./listingCoverageHost";
 import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
 export type { LocalProjectionView } from "../../stores/local-projection";
@@ -90,6 +94,7 @@ interface DeviceFirstScopeEntry {
   coordinator: DomainSyncCoordinator;
   contents: DeviceFirstContainerContents;
   disconnectReconciliationTriggers: () => void;
+  removeListingAuthority: () => void;
   stopDocumentPrimer: () => void;
   unsubscribePersistedDocumentDeletions: () => void;
   unsubscribePersistedDocuments: () => void;
@@ -99,6 +104,7 @@ function stopScopeEntry(entry: DeviceFirstScopeEntry): void {
   entry.coordinator.dispose();
   entry.contents.reconciler.stop();
   entry.disconnectReconciliationTriggers();
+  entry.removeListingAuthority();
   entry.stopDocumentPrimer();
   entry.unsubscribePersistedDocumentDeletions();
   entry.unsubscribePersistedDocuments();
@@ -306,6 +312,11 @@ class DeviceFirstService implements DeviceFirst {
         view,
       },
       disconnectReconciliationTriggers,
+      removeListingAuthority: installDocumentListingAuthority({
+        domainScope,
+        runtimeService: this.runtimeService,
+        store,
+      }),
       stopDocumentPrimer,
       unsubscribePersistedDocumentDeletions,
       unsubscribePersistedDocuments,
@@ -343,21 +354,8 @@ class DeviceFirstService implements DeviceFirst {
         .containers.find((node) => node.id === containerId);
       return container ? isRemoteBackedContainerNode(container) : false;
     };
-    const listKnownContainerIds = () => {
-      // A local-first id is not listable yet and may still be racing its create
-      // request. Once remote-backed, it participates normally; system contents
-      // are especially important during rematerialization because this device
-      // may not have authored them.
-      const homeOrganizationId =
-        runtimeService.workflowInput().auth.organizationId;
-      return store
-        .getSnapshot()
-        .containers.flatMap((node) =>
-          isReconcilableContainerNode(node, homeOrganizationId)
-            ? [node.id]
-            : [],
-        );
-    };
+    const listKnownContainerIds = () =>
+      listReconcilableContainerIds(runtimeService, store);
     const listAutomaticRootCatchupContainerIds = () => {
       const homeOrganizationId =
         runtimeService.workflowInput().auth.organizationId;
@@ -397,6 +395,7 @@ class DeviceFirstService implements DeviceFirst {
         store.loadContainerDelta(containerId),
       applyReconciled: (delta) => store.applyReconciled(delta),
       requestDocumentContentPull,
+      ...createListingCoverageHost(runtimeService, domainScope),
       ...createInitialDocumentProbeHost(runtimeService, domainScope),
       refreshTree: () =>
         refreshContainerTree((onListingUnavailable) =>

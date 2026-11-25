@@ -33,6 +33,7 @@ import {
 } from "../../data/sqlite/sqlSchema";
 import { getScopedPeerSeed } from "../../data/sync/crdtPeerSeed";
 import { persistDocumentState } from "../documents/persistence";
+import { recordCommittedDocumentSeedProgress } from "../documents/sync/processedCursor";
 import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../organizations/organizationProfile";
 import {
   ORGANIZATION_METADATA_CONTAINER_NAME,
@@ -73,8 +74,9 @@ interface ProvisionedProfileDocumentBootstrapInput {
   containerId: string;
   documentId: string;
   documentState: ProvisionedContainerBootstrapInput["metadataState"];
+  /** The seed's update id when provisioning committed it; else undefined. */
+  committedInitialUpdateId: string | undefined;
   initialUpdate: Uint8Array;
-  initialUpdateCommitted: boolean;
   localId: string;
 }
 
@@ -344,17 +346,19 @@ export async function persistInitialDocumentBootstrap(
       DocumentRecord,
       "contentKeyBundle" | "documentKekTargets" | "documentManifestBundle"
     >;
+    committedInitialUpdateId: string | undefined;
     initialUpdate: Uint8Array;
-    initialUpdateCommitted: boolean;
     lastCommitLsn: string | null;
     localId: string;
   },
 ): Promise<void> {
   const doc = await createDocument(await getScopedPeerSeed(DOCUMENTS_APP_KIND));
   importUpdates(doc, [input.initialUpdate]);
-  const pendingUpdate = input.initialUpdateCommitted
-    ? undefined
-    : (createPendingUpdateFields(input.initialUpdate) ?? undefined);
+  const { committedInitialUpdateId } = input;
+  const pendingUpdate =
+    committedInitialUpdateId === undefined
+      ? (createPendingUpdateFields(input.initialUpdate) ?? undefined)
+      : undefined;
 
   await persistDocumentState({
     currentDoc: doc,
@@ -384,6 +388,16 @@ export async function persistInitialDocumentBootstrap(
     pendingUpdate,
     persistence: sqlDocumentsPersistence,
   });
+  if (committedInitialUpdateId !== undefined) {
+    // Provisioning made the committed seed this document's only update, so
+    // the cursor a first pull would have left is known without that pull,
+    // and a container listing that counts the seed owes no read of it.
+    await recordCommittedDocumentSeedProgress(execSql, {
+      documentId: input.documentId,
+      scope: { appKind: DOCUMENTS_APP_KIND, localId: input.localId },
+      seedUpdateId: committedInitialUpdateId,
+    });
+  }
 }
 
 /**

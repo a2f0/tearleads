@@ -46,6 +46,7 @@ function page(containerId: string, watermark: SyncWatermark | null) {
         createdAt: AT,
         currentAccessEpoch: 1,
         currentAccessStateHash: `head:${documentId}`,
+        updateCount: 0,
         id: documentId,
         linkedContainerIds: [containerId],
         referencedPrincipals: [],
@@ -90,6 +91,7 @@ async function createHarness(execSql: ExecSql): Promise<Harness> {
     ...nullContainerDocumentWatermarks,
     containerId,
     replaceDocumentLinksBatch: async () => {},
+    oweListedDocumentReads: async () => [],
     saveContainerDocumentWatermark: async (id, watermark) => {
       await new ContainerSyncWatermarkRepository(execSql).saveWatermark(
         containerContentsSyncLane(id),

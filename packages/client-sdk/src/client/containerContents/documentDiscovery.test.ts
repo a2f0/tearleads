@@ -135,12 +135,23 @@ test("runtime discovery lists every stored lane in one request", async () => {
     });
 
     // A container without durable scope is never listed; one rejected lane
-    // leaves the others applied.
+    // leaves the others applied. Neither says anything about its documents,
+    // so both are reported unlisted.
     expect(requestedLanes).toEqual([["first", "rejected", "second"]]);
     expect(outcomes).toEqual([
       { containerId: "first", status: "fulfilled", value: [] },
-      { containerId: "missing", status: "fulfilled", value: null },
-      { containerId: "rejected", status: "fulfilled", value: null },
+      {
+        containerId: "missing",
+        status: "fulfilled",
+        unlisted: true,
+        value: null,
+      },
+      {
+        containerId: "rejected",
+        status: "fulfilled",
+        unlisted: true,
+        value: null,
+      },
       { containerId: "second", status: "fulfilled", value: [] },
     ]);
     expect(fullListings).toEqual(["first", "second"]);

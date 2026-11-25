@@ -81,7 +81,7 @@ test("a pending discovery for the open container retries ahead of idle work", as
     await reconcileMarkedContainers(host, state, [
       { containerId: "open", forceDocumentContentPull: false },
     ]),
-  ).toEqual([{ containerId: "open", status: "reconciled" }]);
+  ).toEqual([{ containerId: "open", listed: true, status: "reconciled" }]);
   expect(state.discoveredContainerIds.has("open")).toBe(true);
   await scheduled.wait;
   expect(queue.dequeue()).toBe("open");

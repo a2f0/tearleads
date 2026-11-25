@@ -1,5 +1,6 @@
 import { expect, spyOn } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
+import { isDocumentSyncResponse } from "@tearleads/validators/response";
 import { act, fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { useEffect } from "react";
@@ -14,7 +15,9 @@ import {
 import {
   createChildContainer,
   createNoteInContainer,
+  editSelectedNoteText,
   openExplorer,
+  selectExplorerNoteByName,
 } from "./dual-pane/dualPaneExplorerKit";
 import { requestPath } from "./dualPaneRequestSummary";
 import { listProxiedApiRequests } from "./msw/server";
@@ -78,6 +81,21 @@ export async function waitForLifecycleConnection(
 }
 
 /**
+ * Waits for the tree crawl an acknowledged connection starts. Its second lane
+ * query follows local work the runtime-settle helper cannot see, so a
+ * measurement that ended between the two queries would miss the second.
+ */
+export async function waitForLifecycleTreeCrawl(sdk: Tearleads) {
+  await waitFor(
+    () =>
+      expect(
+        sdk.deviceFirst.open().containerStore.getSnapshot().hydrating,
+      ).toBeUndefined(),
+    { timeout: 20_000 },
+  );
+}
+
+/**
  * Two folders with `notesPerFolder` notes each. The first note of a folder is
  * `Note in <folder>`; the canaries that vary the account's size add more.
  */
@@ -108,9 +126,15 @@ export async function expectLifecycleNotes(pane: HTMLElement) {
   await selectContainerAndWaitForItemTable(pane, "/");
 }
 
-/** Observe, never invoke, the full sweep started by the socket's real ack. */
+/**
+ * Observe, never invoke, the catch-up listing the SDK starts when the
+ * socket's real acknowledgement advances the connection generation.
+ */
 export function observeReconnectSweep(sdk: Tearleads) {
-  const sweep = spyOn(sdk.deviceFirst.open().reconciler, "reconcileNow");
+  const sweep = spyOn(
+    sdk.deviceFirst.open().reconciler,
+    "reconcileAcknowledgedConnection",
+  );
   return {
     [Symbol.dispose]: () => sweep.mockRestore(),
     wait: async () => {
@@ -174,6 +198,36 @@ export function expectLifecycleReads(
   ).toEqual([]);
 }
 
+/** How many settle passes `waitForLifecycleQuiet` allows before it fails. */
+const LIFECYCLE_QUIET_PASSES = 20;
+
+/**
+ * Waits until the runtime is settled and no request has completed for the
+ * span `expectNoLateLifecycleRequests` checks, however long delayed follow-up
+ * work takes to start. For a step whose requests are not measured.
+ */
+export async function waitForLifecycleQuiet() {
+  const start = listProxiedApiRequests().length;
+  for (let pass = 0; pass < LIFECYCLE_QUIET_PASSES; pass += 1) {
+    const count = listProxiedApiRequests().length;
+    await act(async () => {
+      expect(
+        await waitForAppTestRuntimeToSettle({
+          apiQuietMs: 500,
+          timeoutMs: 20_000,
+        }),
+      ).toBe(true);
+    });
+    if (listProxiedApiRequests().length === count) return;
+  }
+  // Name what kept arriving, so a failure is not a bare test timeout.
+  expect(
+    listProxiedApiRequests()
+      .slice(start)
+      .map((request) => `${request.method} ${requestPath(request.url)}`),
+  ).toEqual([]);
+}
+
 /** Detect a measurement that stopped before delayed follow-up work began. */
 export async function expectNoLateLifecycleRequests() {
   const count = listProxiedApiRequests().length;
@@ -186,7 +240,12 @@ export async function expectNoLateLifecycleRequests() {
       }),
     ).toBe(true);
   });
-  expect(listProxiedApiRequests()).toHaveLength(count);
+  // Name what arrived late, so a failure says which work was still pending.
+  expect(
+    listProxiedApiRequests()
+      .slice(count)
+      .map((request) => `${request.method} ${requestPath(request.url)}`),
+  ).toEqual([]);
 }
 
 export async function unmountLifecyclePane(
@@ -196,5 +255,46 @@ export async function unmountLifecyclePane(
   // Let the real provider's deferred disposal run before another runtime opens.
   await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
   expect(fixture.sdk().events.connected).toBe(false);
+  await waitForPaneRuntimeToSettle();
+}
+
+/** The document syncs `sdk`'s session completed since request `start`. */
+export function lifecycleSyncRequestsBy(sdk: Tearleads, start: number) {
+  return listProxiedApiRequests()
+    .slice(start)
+    .filter(
+      (request) =>
+        request.method === "POST" &&
+        request.status === 200 &&
+        request.authorization === `Bearer ${sdk.session.authToken}` &&
+        /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)),
+    );
+}
+
+/**
+ * Rewrites the first note of the first seeded folder as `text`, and waits
+ * until the server accepted the edit and the runtime settled.
+ */
+export async function editLifecycleNote(
+  pane: HTMLElement,
+  sdk: Tearleads,
+  text: string,
+) {
+  const folder = "Canary A";
+  await selectContainerAndWaitForItemTable(pane, folder);
+  await selectExplorerNoteByName(pane, `Note in ${folder}`);
+  const start = listProxiedApiRequests().length;
+  await editSelectedNoteText(pane, text);
+  await waitFor(() => {
+    expect(
+      lifecycleSyncRequestsBy(sdk, start).some((request) => {
+        const response: unknown = JSON.parse(request.responseBody);
+        return (
+          isDocumentSyncResponse(response) &&
+          response.acceptedOutgoingUpdateIds.length > 0
+        );
+      }),
+    ).toBe(true);
+  });
   await waitForPaneRuntimeToSettle();
 }

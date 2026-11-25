@@ -9,10 +9,10 @@
  * | onDemand   | joined           | probe owed, connect attempt `a` open  | deferred(a)   | no  |
  * | onDemand   | joined           | probe owed, no connect attempt        | wanted        | yes |
  * | onDemand   | loaded           |                                       | onDemand      | no  |
- * | wanted     | loaded           | local-only record                     | wanted        | no  |
+ * | wanted     | loaded           | local-only record, or one a listing covers | wanted   | no  |
  * | wanted     | loaded           | connect attempt `a` open              | deferred(a)   | no  |
  * | wanted     | loaded           | no connect attempt                    | wanted        | yes |
- * | deferred   | loaded           | local-only record                     | deferred      | no  |
+ * | deferred   | loaded           | local-only record, or one a listing covers | deferred | no  |
  * | deferred   | loaded           | connect attempt `a` open              | deferred(a)   | no  |
  * | deferred   | loaded           | no connect attempt                    | wanted        | yes |
  * | deferred   | runtimeInstalled | server events reconnected             | wanted        | no  |
@@ -24,7 +24,9 @@
  * a runtime installed with no deferred probe, a reset that had nothing to
  * forget. A probe is "owed" to a loaded remote record whose remote sync is
  * still blocked; one already allowed (a requested sync, a server hint) covers
- * it. "wanted" stays after arming: it says the next load probes again. A
+ * it, and so does a container listing (`listingCoverage.ts`): the scope lists
+ * the record's lane after every acknowledged connection and owes a read to a
+ * document that moved, so a covered record never probes on its own. "wanted" stays after arming: it says the next load probes again. A
  * store loads again only after a reset, which leaves "deferred", so the
  * deferred load rows keep the old behavior for a load that does not happen.
  */
@@ -43,6 +45,8 @@ export type StartupProbeEvent =
   /** Initialization loaded the record. */
   | {
       readonly type: "loaded";
+      /** A container listing vouches for the record; see `listingCoverage.ts`. */
+      readonly covered: boolean;
       readonly pendingConnectAttempt: number | undefined;
       readonly remote: boolean;
     }
@@ -109,7 +113,9 @@ export function transitionStartupProbe(
         ? runOrDefer(event.pendingConnectAttempt)
         : stay(WANTED);
     case "loaded":
-      if (state.status === "onDemand" || !event.remote) return stay(state);
+      if (state.status === "onDemand" || !event.remote || event.covered) {
+        return stay(state);
+      }
       return runOrDefer(event.pendingConnectAttempt);
     case "runtimeInstalled":
       return settleDeferred(state, event);

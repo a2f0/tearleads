@@ -86,6 +86,7 @@ export const nullContainerDocumentWatermarks = {
   ...trustedContainerDocumentTombstones,
   applyContainerDocumentTombstones: async () => [],
   loadContainerDocumentWatermark: async () => null,
+  oweListedDocumentReads: async () => [],
   saveContainerDocumentWatermark: async () => {},
 };
 

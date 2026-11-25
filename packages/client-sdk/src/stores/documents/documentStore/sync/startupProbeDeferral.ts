@@ -1,4 +1,5 @@
 import type { DocumentStoreState } from "../state";
+import { isDocumentStoreCoveredByListing } from "./listingCoverage";
 import { logRevalidationScheduled } from "./remoteRevalidationTelemetry";
 import {
   type StartupProbeEvent,
@@ -48,13 +49,17 @@ function applyStartupProbeEvent(
  * wait: when the attempt ends without an acknowledgement (ticket or socket
  * failure, gateway refusal, sync turned off), the deferred probe runs at once.
  * Without a pending attempt (offline, local-only, between retries), the
- * startup probe runs as before. Returns whether it armed.
+ * startup probe runs as before. A record a container listing covers arms
+ * and defers nothing: the listing owes its document a read if it moved.
+ * Returns whether it armed.
  */
 export function loadDocumentStoreStartupProbe(
   state: DocumentStoreState,
   remote: boolean,
+  covered: boolean,
 ): boolean {
   return applyStartupProbeEvent(state, {
+    covered,
     pendingConnectAttempt:
       state.runtime.state.serverEventsPendingConnectAttempt,
     remote,
@@ -101,7 +106,8 @@ export function joinDocumentStoreStartupProbe(
     probeOwed:
       state.initialized &&
       isDocumentStoreRemoteSyncBlocked(state) &&
-      Boolean(state.record?.documentId),
+      Boolean(state.record?.documentId) &&
+      !isDocumentStoreCoveredByListing(state),
     type: "joined",
   });
   if (armed) scheduleSync();

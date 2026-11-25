@@ -3,6 +3,7 @@ import { sqlContainerContentsPersistence } from "../../data/persistence/containe
 import { ContainerDocumentTombstoneHoldRepository } from "../../data/persistence/documents/containerDocumentTombstoneHoldRepository";
 import { DocumentDiscoveryEvidenceRepository } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
+import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryEvidence";
 import {
@@ -78,6 +79,13 @@ function createDiscoveryLane(input: {
           })
         : Promise.resolve(),
     containerId: request.containerId,
+    // The debts are durable by now. A registered store probes at once; one
+    // that opens later reads its document's debt when it loads.
+    onDocumentReadsOwed: (documentIds) =>
+      requestRegisteredDocumentRemoteSyncs(
+        runtime.state.domainScope,
+        documentIds,
+      ),
     listHeldContainerDocumentTombstones: (containerIds) =>
       holdRepository.listRetryableHeldContainerDocumentTombstones(containerIds),
     listKnownContainerDocumentPlacements: (placements) =>
@@ -121,6 +129,7 @@ export async function discoverContainerDocumentLanesForRuntime({
   ): ContainerDocumentDiscoveryOutcome => ({
     containerId,
     status: "fulfilled",
+    unlisted: true,
     value: null,
   });
   const input = runtimeService.workflowInput();
