@@ -1,0 +1,6 @@
+# Legal terms acceptance (greenfield flag day, no compatibility shim; no
+# tracking issue, see the PR that adds this entry): registration now requires
+# the Privacy Policy and Terms of Service revision the user agreed to, and
+# every client sends it. Remove this exact diagnostic, and this file, as soon
+# as main contains the new contract.
+POST /auth/register added the new required request property `acceptedLegalTermsVersion`

@@ -71,21 +71,33 @@ These terms need review whenever the documents change:
 6. Review whether a separate organization data-processing agreement, store-specific
    license terms, or regulated-data agreement is needed. Encryption alone does
    not establish compliance with sector-specific obligations.
-7. Surface the finalized policies at identity registration and checkout, provide
-   conspicuous recurring-payment disclosures, and implement/version acceptance
-   where appropriate. Footer links alone do not establish contractual assent or
-   recurring-payment consent. Registration and checkout record no acceptance.
+7. Surface the finalized policies at checkout, provide conspicuous
+   recurring-payment disclosures, and implement acceptance there where
+   appropriate. Footer links alone do not establish contractual assent or
+   recurring-payment consent. Checkout records no acceptance. Identity
+   registration shows both documents in full, requires an unchecked-by-default
+   agreement box (the CLI asks for a typed `yes` or `--accept-terms`), and
+   records the agreed revision and the time of registration on the identity;
+   the API refuses any revision but the current one. Review whether that
+   clickwrap, and its record, establish assent for the intended jurisdictions.
 8. Verify Stripe and native-store cancellation and refund behavior, including
    cancellation without identity keys. Confirm billing-lapse warnings and the
    promised notice, export, and refund procedures are operationally supported.
 
 ## Publication
 
-For approved revisions, update the document text and agreed effective date in
-[`src/legal.ts`](src/legal.ts), keeping the published documents available. The
-display label is
-derived in UTC. `isDraft: false` enables full production rendering without the
-review notice or document-specific `noindex`; staging remains non-indexable.
+For approved revisions, update the document text in
+[`packages/ui/src/legal`](../ui/src/legal/), which both this site and the apps
+render, and the agreed effective date in
+[`LEGAL_TERMS_VERSION`](../validators/src/legalTerms.ts), keeping the published
+documents available. That date is also the revision a registration records,
+and the API registers only the current one, so a new date asks every new
+identity to agree to the new text. Each app build carries the date it was
+built with, so between the API deploy and an installed Capacitor or Electrobun
+app's update, that app's new identities cannot register. The display label is
+derived in UTC.
+`isDraft: false` enables full production rendering without the review notice
+or document-specific `noindex`; staging remains non-indexable.
 Preserve a copy of adopted versions and arrange appropriate notice to users.
 Build and review both pages again, then deploy only when publication is authorized.
 
@@ -98,6 +110,7 @@ Build and review both pages again, then deploy only when publication is authoriz
 | App API network-failure reports | [`docs/developer/api-network-failures.md`](../../docs/developer/api-network-failures.md), [`packages/diagnostics/src/apiNetworkFailure.ts`](../diagnostics/src/apiNetworkFailure.ts) |
 | Hosted click analytics, privacy preferences, and retention | [`docs/developer/click-tracking.md`](../../docs/developer/click-tracking.md), [`packages/app-web/src/clickTracking.ts`](../app-web/src/clickTracking.ts), [`src/clickTracking.ts`](src/clickTracking.ts) |
 | Session IPs and activity | [`packages/api/src/routes/auth/sessions.ts`](../api/src/routes/auth/sessions.ts), [`packages/api/src/middleware/session.ts`](../api/src/middleware/session.ts) |
+| Registration assent: documents shown, revision and time recorded | [`packages/app/src/components/identity/legal-terms/LegalTermsAgreementPanel.tsx`](../app/src/components/identity/legal-terms/LegalTermsAgreementPanel.tsx), [`packages/cli/src/legalTerms.ts`](../cli/src/legalTerms.ts), [`packages/api/src/workflows/auth/registration.ts`](../api/src/workflows/auth/registration.ts), [`packages/api-shared/src/schema/users.ts`](../api-shared/src/schema/users.ts) |
 | Local identity destruction is local | [`packages/app/src/providers/identity/useDestroyKey.ts`](../app/src/providers/identity/useDestroyKey.ts) |
 | Billing providers and platform responsibilities | [`docs/developer/revenuecat-billing.md`](../../docs/developer/revenuecat-billing.md) |
 | Billing-email cancellation | [`src/pages/manage-subscription.astro`](src/pages/manage-subscription.astro), [`packages/api/src/billing/stripeCustomerEmail.ts`](../api/src/billing/stripeCustomerEmail.ts) |

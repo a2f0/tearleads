@@ -25,6 +25,13 @@ appId: com.tearleads.app
     visible: "Menu"
     timeout: 40000
 - tapOn: "Create new identity"
+# Creation first shows the Terms of Service and Privacy Policy; the new
+# identity's registration records the agreement given here.
+- extendedWaitUntil:
+    visible: "Review our terms"
+    timeout: 40000
+- tapOn: "I agree to the Terms of Service and Privacy Policy"
+- tapOn: "Continue"
 - extendedWaitUntil:
     visible: "What should we call you\\?"
     timeout: 40000

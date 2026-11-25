@@ -14,6 +14,7 @@ import {
 } from "app/continuity";
 import type { CommandInput } from "../cliContext";
 import { loadFolderTree } from "../folderTree";
+import { legalTermsAgreement } from "../legalTerms";
 import { resolveSeedAccount, seedLocalId } from "../seedAccount";
 import { seedRoster } from "../seedRoster";
 import type { CliSession } from "../session";
@@ -110,6 +111,7 @@ function seedRequestedRoster(
   if (!input.roster) return null;
   return session.tracer.span("seed roster", () =>
     seedRoster(session, {
+      agreeToLegalTerms: legalTermsAgreement(input),
       apiBaseUrl: apiBaseUrl(input),
       groups: continuityGroups(spec),
       signingPrivateKey,

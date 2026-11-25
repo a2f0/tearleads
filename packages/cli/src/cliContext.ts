@@ -9,6 +9,11 @@ export interface CliContext {
   apiBaseUrl(target: TargetName): string;
   readonly keyStore: RecoveryKeyStore;
   readRecoveryKey(prompt: string): Promise<string>;
+  /**
+   * Asks a question on the terminal and reads one visible answer line; null
+   * when there is no terminal to ask. Absent where nothing can be asked.
+   */
+  readLine?(prompt: string): Promise<string | null>;
   stderr(line: string): void;
   stdout(line: string): void;
   /** Turns on `--trace` without the flag (TEARLEADS_TRACE=1). */
@@ -16,6 +21,8 @@ export interface CliContext {
 }
 
 export interface CommandInput {
+  /** `--accept-terms`: agree to the legal terms for accounts it creates. */
+  readonly acceptTerms?: boolean;
   /** `--api-url`: an API to use in place of the target's. */
   readonly apiUrl?: string | undefined;
   readonly context: CliContext;

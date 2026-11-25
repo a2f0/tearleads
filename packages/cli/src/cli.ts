@@ -8,7 +8,7 @@ import { createTracer } from "./trace";
 
 export const usage = `Usage: tearleads <command> [--env production|staging|development] [--org <id>] [--trace]
        tearleads register|seed|verify-seed --key-stdin [--api-url <origin>]
-       tearleads seed --roster
+       tearleads register|seed --roster [--accept-terms]
 
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
@@ -28,6 +28,12 @@ database, and revokes its session before exiting.
 
 --key-stdin reads a one-time recovery key for register, seed, or verify-seed,
 and keeps it out of the Keychain.
+
+Creating an account means agreeing to the Tearleads Privacy Policy and Terms of
+Service. register, and seed --roster for each member account it creates, print
+both documents' addresses and ask you to type yes. --accept-terms agrees
+without asking, as it must when no terminal can ask (for example with
+--key-stdin).
 
 --api-url <origin> uses that API instead of an --env target, such as a local
 test API. It needs --key-stdin, so no target's saved key is sent to it, and
@@ -62,6 +68,7 @@ function parse(argv: readonly string[]) {
     args: [...argv],
     allowPositionals: true,
     options: {
+      "accept-terms": { type: "boolean", default: false },
       "api-url": { type: "string" },
       env: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
@@ -88,6 +95,26 @@ const LOOPBACK_HOSTS: ReadonlySet<string> = new Set([
   "localhost",
 ]);
 
+/** The usage error a flag given to a command it does not apply to makes. */
+function misappliedFlag(
+  commandName: string,
+  values: ReturnType<typeof parse>["values"],
+): string | null {
+  if (values.roster && commandName !== "seed") {
+    return "--roster applies to seed.";
+  }
+  // Only these create accounts, which is what the terms govern.
+  const createsAccounts =
+    commandName === "register" || (commandName === "seed" && values.roster);
+  if (values["accept-terms"] && !createsAccounts) {
+    return "--accept-terms applies to register and seed --roster.";
+  }
+  if (values["key-stdin"] && !KEY_STDIN_COMMANDS.has(commandName)) {
+    return "--key-stdin applies to register, seed, and verify-seed.";
+  }
+  return null;
+}
+
 /** The command's API, or the usage error that stops it before any request. */
 function commandOptions(
   commandName: string,
@@ -97,12 +124,8 @@ function commandOptions(
   if (!isTargetName(target)) {
     return `Unknown --env ${target}; use production, staging, or development.`;
   }
-  if (values.roster && commandName !== "seed") {
-    return "--roster applies to seed.";
-  }
-  if (values["key-stdin"] && !KEY_STDIN_COMMANDS.has(commandName)) {
-    return "--key-stdin applies to register, seed, and verify-seed.";
-  }
+  const misapplied = misappliedFlag(commandName, values);
+  if (misapplied !== null) return misapplied;
   const apiUrl = values["api-url"];
   if (apiUrl === undefined) return { target };
   if (values.env !== undefined) return "Use either --env or --api-url.";
@@ -163,6 +186,7 @@ export async function runCli(
     await commands[commandName]({
       context,
       ...options,
+      acceptTerms: values["accept-terms"],
       keyFromStdin: values["key-stdin"],
       organizationId: values.org,
       roster: values.roster,

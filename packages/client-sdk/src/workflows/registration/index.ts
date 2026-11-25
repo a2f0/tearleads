@@ -3,6 +3,7 @@ export {
   bootstrapRootContainer,
   deriveRegistrationOrganizationId,
 } from "./bootstrapRootContainer";
+export { LegalTermsOutdatedError } from "./legalTermsOutdatedError";
 export {
   type CreateOrganizationApi,
   type CreateOrganizationInput,

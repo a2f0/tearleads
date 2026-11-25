@@ -13,6 +13,7 @@ import {
   sessionSnapshotsEqual,
 } from "./sessionContext";
 import {
+  currentKeyBoundUserId,
   registrationKeyAlreadyBound,
   requireRegistrationIdentityPinner,
   requireSessionTrustDomain,
@@ -224,8 +225,10 @@ class SessionService implements Session {
     }
   }
 
+  boundUserId = () => currentKeyBoundUserId(this.dependencies);
+
   async registerIdentity(
-    options?: RegisterIdentityOptions,
+    options: RegisterIdentityOptions,
   ): Promise<SessionRegistrationResult | SessionRegistrationRefusal | null> {
     const containerId = this.containerId;
     if (!containerId) {
@@ -277,6 +280,7 @@ class SessionService implements Session {
     let response: Awaited<ReturnType<typeof registerIdentityWorkflow>>;
     try {
       response = await registerIdentityWorkflow({
+        ...options,
         identityTrustDomain: requireSessionTrustDomain(this.dependencies),
         apiClient: this.dependencies.api,
         containerId,
@@ -286,12 +290,10 @@ class SessionService implements Session {
         isIdentityCurrent: isCurrent,
         log: this.dependencies.log,
         logError: this.dependencies.logError,
-        organizationProfileName: options?.organizationProfileName,
         pinLocalUserIdentity,
         primeProvisionedState: this.dependencies.primeProvisionedState,
         provisionedSystemContainers:
           this.dependencies.provisionedSystemContainers,
-        rosterProfileNickname: options?.rosterProfileNickname,
         signingKeyFingerprint: identitySnapshot.signingFingerprint,
         signingKeyPair,
       });

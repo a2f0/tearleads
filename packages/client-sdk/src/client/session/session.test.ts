@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import {
   createSqlClient,
   quietLogger,
@@ -36,7 +37,9 @@ describe("session", () => {
       await setGeneratedIdentity(identity);
       session.setContainerId(containerId);
 
-      const result = await session.registerIdentity();
+      const result = await session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      });
       if (!result || "status" in result) {
         throw new Error("Expected registration to succeed");
       }
@@ -99,7 +102,11 @@ describe("session", () => {
         session.setContext(identityBContext);
       };
 
-      await expect(session.registerIdentity()).resolves.toBeNull();
+      await expect(
+        session.registerIdentity({
+          acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+        }),
+      ).resolves.toBeNull();
       expect(session.snapshot).toEqual(identityBContext);
 
       // The replacement identity owns the local database now: the stale
@@ -151,9 +158,11 @@ describe("session", () => {
       await setGeneratedIdentity(identity);
       session.setContainerId(crypto.randomUUID());
 
-      await expect(session.registerIdentity()).rejects.toThrow(
-        "remote registration unavailable",
-      );
+      await expect(
+        session.registerIdentity({
+          acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+        }),
+      ).rejects.toThrow("remote registration unavailable");
 
       expect(errors).toEqual([
         {

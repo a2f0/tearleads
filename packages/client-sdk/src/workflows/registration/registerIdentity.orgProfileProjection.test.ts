@@ -6,6 +6,7 @@ import {
 import { base64ToBytes } from "@tearleads/encoding";
 import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import {
@@ -62,6 +63,7 @@ test("registration bootstrap projects the organization profile document", async 
 
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),
@@ -113,6 +115,7 @@ test("no-projector hosts keep the stable org profile title", async () => {
 
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),
@@ -155,6 +158,7 @@ test("a later save cannot overwrite the fallback title", async () => {
 
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId: crypto.randomUUID(),

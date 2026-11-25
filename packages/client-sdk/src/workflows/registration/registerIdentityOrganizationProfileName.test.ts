@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/data/organizationProvisioningResponder";
 import { readStoredDocumentState } from "../../data/documents/documentKinds";
@@ -28,6 +29,7 @@ async function registerAndReadOrganizationName(
   const { close, execSql } = await createTestExecSql(label);
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient: registrationApi,
       containerId: crypto.randomUUID(),
@@ -79,6 +81,7 @@ async function registerAndReadRosterNickname(
   const { close, execSql } = await createTestExecSql(label);
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient: registrationApi,
       containerId: crypto.randomUUID(),

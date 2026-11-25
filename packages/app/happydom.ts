@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { resetContainerManifestRegistry } from "@tearleads/test-utils";
+import { agreeToLegalTermsForTests } from "./src/identity/legalTermsAgreement";
 import { installCompactDomInspect } from "./test/helpers/compactDomInspect";
 import { takeUnhandledRequests } from "./test/helpers/unhandledRequests";
 
@@ -99,6 +100,12 @@ assertBuiltWorkspaceDepsFresh();
 
 GlobalRegistrator.register();
 installCompactDomInspect();
+
+// Registration waits for agreement to the legal terms, so every suite runs as
+// a person who has agreed, as anyone registering has. A suite about the
+// agreement itself gives its runtime a fresh, unagreed store through
+// LegalTermsAgreementContext.
+agreeToLegalTermsForTests();
 
 // happy-dom registers no ResizeObserver, while every production browser has
 // one — so app code constructs it unguarded. A no-op observer keeps mount

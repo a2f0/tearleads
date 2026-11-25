@@ -60,3 +60,37 @@ test("a created identity waits for its backup agreement and cannot be navigated 
   );
   expect(move(creating, { type: "confirm-backup" })).toBe(creating);
 });
+
+test("agreeing to the legal terms leads to naming, and only agreement leaves for it", () => {
+  const accepting = move(INITIAL_ONBOARDING, {
+    type: "navigate",
+    phase: "accepting-terms",
+  });
+  expect(accepting).toEqual({ status: "accepting-terms" });
+  // Naming, restoring, and submitting all wait for the agreement.
+  for (const phase of ["naming-account", "entering-passphrase"] as const) {
+    expect(move(accepting, { type: "navigate", phase })).toBe(accepting);
+  }
+  expect(
+    move(accepting, {
+      type: "submit",
+      form: "naming-account",
+      request: Symbol(),
+    }),
+  ).toBe(accepting);
+  expect(
+    move(accepting, { type: "navigate", phase: "choosing-identity" }),
+  ).toEqual(INITIAL_ONBOARDING);
+  expect(move(accepting, { type: "terms-agreed" })).toEqual({
+    status: "naming-account",
+  });
+  // Agreement moves nothing else.
+  expect(move(INITIAL_ONBOARDING, { type: "terms-agreed" })).toBe(
+    INITIAL_ONBOARDING,
+  );
+  const naming = move(INITIAL_ONBOARDING, {
+    type: "navigate",
+    phase: "naming-account",
+  });
+  expect(move(naming, { type: "terms-agreed" })).toBe(naming);
+});
