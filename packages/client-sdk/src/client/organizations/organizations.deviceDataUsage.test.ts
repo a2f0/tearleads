@@ -5,7 +5,6 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createDeviceUsageStore } from "../../workflows/organizations/readModel/deviceDataUsage.testFixtures";
-import type { ContainerContents } from "../containerContents";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createOrganizations } from ".";
 
@@ -27,7 +26,6 @@ test("device usage measures the active organization and is null without one", as
         execSql,
       }),
     ),
-    {} as ContainerContents,
     () => {
       throw new Error("No organization is resumed in this test");
     },

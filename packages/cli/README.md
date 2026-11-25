@@ -108,7 +108,9 @@ it and every run reaches the same accounts. The command signs in as each
 member to make their identity link, verifies the link as an Org Manager admin
 would, adds the member to your roster under their contact name, and then to
 the group, creating the group when your organization has none by that name.
-A rerun finds the same members and changes nothing.
+A rerun finds the same members and changes nothing. Like the document import,
+the roster step fails when one of your session's requests fails or the SDK
+logs an error, because a read it waited on may then be partial.
 
 Each member takes a seat in your organization, so on a billed organization
 this raises the seat count. The screenshot run passes `--roster`; leave it

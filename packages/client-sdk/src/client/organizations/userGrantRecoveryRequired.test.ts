@@ -2,7 +2,6 @@ import { beforeAll, expect, test } from "bun:test";
 import { setUpAdminGroupRoot } from "../../../test/helpers/workflows/adminGroupRoot";
 import { missingPrincipalRecoveryFixture } from "../../../test/helpers/workflows/missingPrincipalRecovery";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
-import type { ContainerContents } from "../containerContents";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import { revokeOrganizationGrant } from "./principalMutations";
 
@@ -65,7 +64,6 @@ for (const missing of ["custody", "pages"] as const) {
         subjectId: signed.author.signerUserId,
         subjectType: "user",
         stillCurrent: () => true,
-        containerContents: {} as ContainerContents,
         readModelCoordinator: {
           reconcileAfterOwnMutation: async () => {
             f.calls.push("host:reconcileAfterOwnMutation");

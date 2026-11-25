@@ -346,7 +346,7 @@ test("an own mutation's post-commit read is dropped once its session ended", asy
   const f = await committedFixture("committed-read-model-started-in-test");
   try {
     const startedIn = f.coordinator.sessionGuard(organizationId);
-    // A relogin lands while the mutation runs (its profile sync, say).
+    // A relogin lands while the mutation runs (its policy commit, say).
     f.advanceSession();
 
     await expect(

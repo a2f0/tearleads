@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { missingPrincipalRecoveryFixture } from "../../../test/helpers/workflows/missingPrincipalRecovery";
 import { ProjectionDependencyUnavailableError } from "../../data/shared/dependencyUnavailable";
-import type { ContainerContents } from "../containerContents";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import {
   addUserToOrganizationGroup,
@@ -33,7 +32,6 @@ for (const missing of ["custody", "pages"] as const) {
         groupId: "group-1",
         expectedGroupName: "Operators",
         stillCurrent: () => true,
-        containerContents: unexpectedHost as ContainerContents,
         readModelCoordinator:
           unexpectedHost as OrganizationReadModelCoordinator,
       };
