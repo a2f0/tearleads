@@ -1042,6 +1042,12 @@
             },
             "description": "Principal policy heads the document's access depends on."
           },
+          "updateCount": {
+            "maximum": 1.7976931348623157e+308,
+            "minimum": 0,
+            "type": "integer",
+            "description": "How many updates the server holds for the document, read in the same snapshot as the row. It only grows while the document exists. A document sync whose completed pull reports a `throughUpdateCount` at least this has read every update the listing counted."
+          },
           "updatedAt": {
             "type": "string"
           }
@@ -1054,6 +1060,7 @@
           "id",
           "linkedContainerIds",
           "referencedPrincipals",
+          "updateCount",
           "updatedAt"
         ],
         "additionalProperties": {},

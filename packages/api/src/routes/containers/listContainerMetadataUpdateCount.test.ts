@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
+import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/test-utils";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { createChild } from "../../../test/helpers/containerMutationRoutes";
 import {
   readContainerParentLanePage,
@@ -71,6 +71,12 @@ test("a container listing counts its metadata document's updates as a pull count
 
   const { metadataDocumentId } = before;
   const otherDocumentId = crypto.randomUUID();
+  // A bare create binds no document row. A metadata document that can hold
+  // updates has one, and its row is what counts them.
+  await db.insert(documents).values({
+    createdByFingerprint: "listing-count-author",
+    id: metadataDocumentId,
+  });
   await storeUpdate(metadataDocumentId);
   await storeUpdate(otherDocumentId);
   const last = await storeUpdate(metadataDocumentId);
@@ -93,5 +99,6 @@ test("a container listing counts its metadata document's updates as a pull count
           otherDocumentId,
         ]),
       );
+    await db.delete(documents).where(eq(documents.id, metadataDocumentId));
   }
 });

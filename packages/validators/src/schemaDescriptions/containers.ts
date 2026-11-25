@@ -201,6 +201,8 @@ describeSchema(
     linkedContainerIds: "Containers the document is linked into.",
     referencedPrincipals:
       "Principal policy heads the document's access depends on.",
+    updateCount:
+      "How many updates the server holds for the document, read in the same snapshot as the row. It only grows while the document exists. A document sync whose completed pull reports a `throughUpdateCount` at least this has read every update the listing counted.",
   },
 );
 
