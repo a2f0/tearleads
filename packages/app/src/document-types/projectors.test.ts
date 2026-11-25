@@ -294,40 +294,41 @@ test("explicit structured metadata determines kind independently of text", async
   });
 });
 
+// A kind no app registers, so the store keeps whatever fields it is given.
 test("unknown structured document kinds preserve generic field state", async () => {
   const doc = await createDocument("custom-structured-document");
 
-  initializeStoredDocumentKind(doc, "insurance_policy");
-  writeStoredDocumentFields(doc, "insurance_policy", {
+  initializeStoredDocumentKind(doc, "example_record");
+  writeStoredDocumentFields(doc, "example_record", {
     carrier: "Acme Mutual",
     policyId: "POL-123",
   });
 
   expect(readStoredDocumentState(doc)).toMatchObject({
-    documentKind: "insurance_policy",
+    documentKind: "example_record",
     fieldValidationIssues: [],
     structuredFields: {
       carrier: "Acme Mutual",
       policyId: "POL-123",
     },
-    title: "Untitled insurance policy",
+    title: "Untitled example record",
   });
 });
 
 test("structured field patches can delete fields", async () => {
   const doc = await createDocument("structured-field-delete");
 
-  initializeStoredDocumentKind(doc, "insurance_policy");
-  writeStoredDocumentFields(doc, "insurance_policy", {
+  initializeStoredDocumentKind(doc, "example_record");
+  writeStoredDocumentFields(doc, "example_record", {
     carrier: "Acme Mutual",
     policyId: "POL-123",
   });
-  writeStoredDocumentFields(doc, "insurance_policy", {
+  writeStoredDocumentFields(doc, "example_record", {
     policyId: undefined,
   });
 
   expect(readStoredDocumentState(doc)).toMatchObject({
-    documentKind: "insurance_policy",
+    documentKind: "example_record",
     structuredFields: {
       carrier: "Acme Mutual",
     },
