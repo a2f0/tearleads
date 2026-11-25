@@ -31,7 +31,10 @@ import {
   waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
 import { LEGAL_TERMS_AGREEMENT_LABEL } from "../components/identity/legal-terms/LegalTermsAgreementPanel";
-import { createLegalTermsAgreementStore } from "./legalTermsAgreement";
+import {
+  createLegalTermsAgreementStore,
+  KEPT_LEGAL_TERMS_STORAGE_PREFIX,
+} from "./legalTermsAgreement";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
@@ -221,6 +224,12 @@ test(
     );
     expect(sessionRecords).toHaveLength(1);
     for (const key of sessionRecords) globalThis.localStorage.removeItem(key);
+    // Nor does it keep the agreement, so only the binding can spare the terms.
+    const keptAgreement = `${KEPT_LEGAL_TERMS_STORAGE_PREFIX}${signingFingerprint}`;
+    expect(globalThis.localStorage.getItem(keptAgreement)).toBe(
+      LEGAL_TERMS_VERSION,
+    );
+    globalThis.localStorage.removeItem(keptAgreement);
 
     // After a restart nobody has agreed on this page, and none is needed.
     const second = renderLifecyclePane(config, {
@@ -247,6 +256,66 @@ test(
     ).toBeNull();
     expect(boundUserId).toHaveBeenCalled();
     expect(register).not.toHaveBeenCalled();
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+    second.view.unmount();
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 4,
+);
+
+test(
+  "a restarted identity that agreed but never registered registers with that agreement, without asking again",
+  async () => {
+    useTestApiAppHandlers();
+    const namespace = `test-legal-terms-${crypto.randomUUID()}`;
+    const config = createTestHostConfig({
+      autoProvisionIdentity: true,
+      createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+      localIdentityNamespace: namespace,
+    });
+    const firstAgreement = createLegalTermsAgreementStore();
+    const first = renderLifecyclePane(config, {
+      legalTermsAgreement: firstAgreement,
+    });
+    await waitForPaneKey(first.view);
+    await waitForPersistedPaneLocalIdentity(namespace);
+    // Its registration never lands, as when the key is created offline.
+    const unanswered = spyOn(
+      first.sdk().session,
+      "registerIdentity",
+    ).mockResolvedValue(null);
+    firstAgreement.agree();
+    await waitFor(
+      () => {
+        expect(unanswered).toHaveBeenCalled();
+      },
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+    );
+    const signingFingerprint = first.sdk().identity.signingFingerprint;
+    invariant(signingFingerprint, "Expected the identity's key");
+    expect(first.sdk().session.userId).toBeNull();
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+    await unmountLifecyclePane(first);
+
+    // After a relaunch nobody has agreed on this page, and the device binds
+    // the key to no account; the agreement kept for the key stands.
+    const secondAgreement = createLegalTermsAgreementStore();
+    const second = renderLifecyclePane(config, {
+      legalTermsAgreement: secondAgreement,
+    });
+    spyOn(second.sdk().session, "boundUserId").mockResolvedValue(null);
+    const register = spyOn(second.sdk().session, "registerIdentity");
+    await waitForPaneKey(second.view);
+    expect(second.sdk().identity.signingFingerprint).toBe(signingFingerprint);
+    await waitForRegistration(second.view);
+    expect(register).toHaveBeenCalledTimes(1);
+    expect(register.mock.calls[0]?.[0]).toMatchObject({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+    });
+    expect(secondAgreement.agreedVersion).toBeNull();
+    const manager = await openIdentityManagerFromPane(second.view);
+    expect(
+      within(manager).queryByRole("heading", { name: "Review our terms" }),
+    ).toBeNull();
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
     second.view.unmount();
   },

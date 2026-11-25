@@ -10,21 +10,57 @@ import { useTearleadsExternalValue } from "../providers/sdk/useTearleadsSubscrip
  *
  * It is the page's, not one identity's: everything a page runs (every
  * workspace, and each of the demo's panes) is the one person in front of it.
- * It lives in memory, so a reload asks again before registering anything
- * else; only the demo, which asks before its panes start, keeps it on the
- * device (see `DemoLegalTermsGate`).
+ * It lives in memory, so a reload asks again before a new identity registers
+ * (the demo, which asks before its panes start, keeps it on the device; see
+ * `DemoLegalTermsGate`). Each key it covers keeps it on this device, though:
+ * a key stored before it registered, say created offline, registers after a
+ * relaunch with the revision agreed for it, instead of asking again and
+ * holding every app until it does.
  */
 export interface LegalTermsAgreementStore {
   /** The agreed revision, or null until the person agrees. */
   readonly agreedVersion: string | null;
   /** Records agreement to the revision this build shows. */
   agree(): void;
+  /**
+   * The revision registering this key carries: the page's agreement, or else
+   * the current revision when this device keeps an agreement for the key.
+   */
+  agreedVersionFor(signingFingerprint: string | null): string | null;
+  /** Keeps the page's agreement on this device for a key it now covers. */
+  keepFor(signingFingerprint: string): void;
   subscribe(listener: () => void): () => void;
 }
 
-export function createLegalTermsAgreementStore(): LegalTermsAgreementStore {
+/** Where this device keeps, per signing key, the revision agreed for it. */
+export const KEPT_LEGAL_TERMS_STORAGE_PREFIX = "tearleads.legal-terms:";
+
+type KeptAgreementStorage = Pick<Storage, "getItem" | "setItem">;
+
+function deviceStorage(): KeptAgreementStorage | null {
+  try {
+    return globalThis.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function createLegalTermsAgreementStore(
+  storage: KeptAgreementStorage | null = deviceStorage(),
+): LegalTermsAgreementStore {
   let agreedVersion: string | null = null;
   const listeners = new Set<() => void>();
+  const keptFor = (signingFingerprint: string): string | null => {
+    try {
+      return storage?.getItem(
+        `${KEPT_LEGAL_TERMS_STORAGE_PREFIX}${signingFingerprint}`,
+      ) === LEGAL_TERMS_VERSION
+        ? LEGAL_TERMS_VERSION
+        : null;
+    } catch {
+      return null;
+    }
+  };
   return {
     get agreedVersion() {
       return agreedVersion;
@@ -33,6 +69,23 @@ export function createLegalTermsAgreementStore(): LegalTermsAgreementStore {
       if (agreedVersion === LEGAL_TERMS_VERSION) return;
       agreedVersion = LEGAL_TERMS_VERSION;
       for (const listener of listeners) listener();
+    },
+    agreedVersionFor(signingFingerprint) {
+      if (agreedVersion !== null || signingFingerprint === null) {
+        return agreedVersion;
+      }
+      return keptFor(signingFingerprint);
+    },
+    keepFor(signingFingerprint) {
+      if (agreedVersion === null) return;
+      try {
+        storage?.setItem(
+          `${KEPT_LEGAL_TERMS_STORAGE_PREFIX}${signingFingerprint}`,
+          agreedVersion,
+        );
+      } catch {
+        // Unkept, a relaunch asks again before this key registers.
+      }
     },
     subscribe(listener) {
       listeners.add(listener);

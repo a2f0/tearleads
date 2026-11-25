@@ -150,7 +150,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       const identitySnapshot = tearleads.identity.snapshot;
       const response = await registerWithAgreement(
         tearleads.session,
-        legalTerms.agreedVersion,
+        legalTerms.agreedVersionFor(tearleads.identity.signingFingerprint),
         registrationNames(peerLabel, options?.accountName ?? givenName),
       );
       if (tearleads.identity.snapshot !== identitySnapshot) return false;
