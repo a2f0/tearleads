@@ -47,5 +47,6 @@ export * from "./shared";
 export { updateMatchesDocumentHistory } from "./updateIdentity";
 export {
   exportUpdatesInVersionRange,
+  meetVersionVectors,
   minimumVersionVectors,
 } from "./versionRange";
