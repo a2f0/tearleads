@@ -102,6 +102,8 @@ test("contact view shows scoped read-only notes below it in bounded pages", asyn
       limit: number;
       documentKind?: string;
     }) => {
+      // The contact view also lists medications; this test follows the notes.
+      if (input.documentKind !== "note") return { totalCount: 0, rows: [] };
       requests.push(input);
       return {
         totalCount: 6,
