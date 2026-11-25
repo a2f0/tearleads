@@ -12,11 +12,6 @@
   cursor: pointer;
 }
 
-/* Centered under the onboarding choice, as the panel's own copy is. */
-.mini-app-state-panel .telemetry-consent-toggle {
-  justify-self: center;
-}
-
 :root[data-navigation-mode="routed"] .telemetry-consent-toggle {
   min-height: var(--control-height);
 }

@@ -52,8 +52,8 @@ test("Settings opens on General, whose telemetry switch starts off", () => {
   expect(telemetry).toHaveProperty("checked", false);
   expect(telemetry.getAttribute("aria-checked")).toBe("false");
   expect(telemetry.hasAttribute("aria-describedby")).toBe(false);
-  expect(view.getByRole("group", { name: "Privacy" }).textContent).toBe(
-    "PrivacyShare anonymous telemetry",
+  expect(view.container.querySelector(".telemetry-consent")?.textContent).toBe(
+    "Share anonymous telemetry",
   );
 });
 
