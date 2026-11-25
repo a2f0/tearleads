@@ -14,10 +14,7 @@ import {
   LINK_USER_ID,
 } from "../../data/trustedUserIdentity/identityLink.testFixtures";
 import { createTrustedUserIdentityService } from "../../data/trustedUserIdentity/service";
-import {
-  type ContainerContents,
-  createContainerContents,
-} from "../containerContents";
+import { createContainerContents } from "../containerContents";
 import { createOrganizations } from ".";
 
 const ORGANIZATION_ID = "6a1f3c2e-8d4b-4f6a-9c1e-2b3d4e5f6a7b";
@@ -53,13 +50,9 @@ test("a group add refuses a member whose pin was only observed", async () => {
     "admission-group-add",
   );
   try {
-    const organizations = createOrganizations(
-      runtime,
-      {} as ContainerContents,
-      () => {
-        throw new Error("No organization is resumed in this test");
-      },
-    );
+    const organizations = createOrganizations(runtime, () => {
+      throw new Error("No organization is resumed in this test");
+    });
     const add = () =>
       organizations.addUserToGroup({
         expectedGroupName: "Members",
@@ -155,13 +148,9 @@ test("a group add admitted in one database cannot proceed in another", async () 
     "admission-group-add-switch",
   );
   try {
-    const organizations = createOrganizations(
-      runtime,
-      {} as ContainerContents,
-      () => {
-        throw new Error("No organization is resumed in this test");
-      },
-    );
+    const organizations = createOrganizations(runtime, () => {
+      throw new Error("No organization is resumed in this test");
+    });
     armSwitch();
     await expect(
       organizations.addUserToGroup({

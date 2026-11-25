@@ -21,6 +21,7 @@ import {
   DocumentBlobPickProvider,
   type DocumentBlobPickRequest,
 } from "../../../document-types/shared/DocumentBlobPickContext";
+import { getAttachmentSlotAccept } from "../../../document-types/shared/documentAttachmentUtils";
 import {
   type BlobPickEvent,
   type BlobPickTarget,
@@ -108,6 +109,7 @@ function useBlobPickLifecycle(routing: BlobPickRouting) {
         target: {
           containerId: request.containerId,
           localId: request.localId,
+          slotAccept: getAttachmentSlotAccept(request.slot),
           slotId: request.slot.slotId,
           slotLabel: request.slot.label,
         },

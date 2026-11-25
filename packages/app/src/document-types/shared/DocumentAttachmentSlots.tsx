@@ -14,8 +14,12 @@ import { useDocumentBlobOpen } from "./DocumentBlobOpenContext";
 import {
   type DocumentAttachmentSlot,
   expandAttachmentSlots,
+  getAttachmentSlotAccept,
+  getAttachmentSlotFileInputAccept,
+  getAttachmentSlotNoun,
   getDocumentAttachmentStatusLabel,
   getLatestDocumentAttachmentBySlotId,
+  isPdfDocumentAttachmentBlob,
 } from "./documentAttachmentUtils";
 
 // "Choose Blob" hands selection off to the Explorer's blob-browser panel (in
@@ -47,15 +51,18 @@ function DocumentAttachmentSlotActions(params: {
     return null;
   }
 
+  const noun = getAttachmentSlotNoun(getAttachmentSlotAccept(slot));
   return (
     <>
       <AttachmentActionButton
         label={
           slot.multiple
-            ? "Add Photos"
+            ? noun === "Image"
+              ? "Add Photos"
+              : "Add Files"
             : storedAttachment
-              ? "Replace Image"
-              : "Upload Image"
+              ? `Replace ${noun}`
+              : `Upload ${noun}`
         }
         onClick={onUploadAttachment}
       />
@@ -68,7 +75,7 @@ function DocumentAttachmentSlotActions(params: {
       {storedAttachment ? (
         <AttachmentActionButton
           ariaLabel={`Clear ${slot.label}`}
-          label="Clear Image"
+          label={`Clear ${noun}`}
           onClick={() => onClearAttachment(slot.slotId)}
           title={`Clear ${slot.label}`}
         >
@@ -81,12 +88,18 @@ function DocumentAttachmentSlotActions(params: {
 
 function slotPlaceholder(slot: {
   hasStorageKey: boolean;
-  stored: boolean;
+  noun: "File" | "Image";
+  stored: DocumentAttachment | null;
   unavailable: boolean;
 }): string {
-  if (!slot.stored) return "No image selected";
-  if (slot.unavailable) return "Image unavailable";
-  return slot.hasStorageKey ? "No image preview" : "Waiting for image bytes";
+  const noun = slot.noun.toLowerCase();
+  if (!slot.stored) return `No ${noun} selected`;
+  if (slot.unavailable) return `${slot.noun} unavailable`;
+  if (!slot.hasStorageKey) return `Waiting for ${noun} bytes`;
+  // A PDF has no inline preview; the card opens it in the blob viewer.
+  return isPdfDocumentAttachmentBlob(slot.stored)
+    ? "PDF document"
+    : `No ${noun} preview`;
 }
 
 function DocumentAttachmentSlotPreview(params: {
@@ -134,7 +147,8 @@ function DocumentAttachmentSlotPreview(params: {
 
   const placeholderContent = slotPlaceholder({
     hasStorageKey,
-    stored: storedAttachment !== null,
+    noun: getAttachmentSlotNoun(getAttachmentSlotAccept(slot)),
+    stored: storedAttachment,
     unavailable,
   });
 
@@ -182,7 +196,11 @@ function DocumentAttachmentSlotCard(params: {
   } = params;
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const statusLabel = getDocumentAttachmentStatusLabel(status);
+  const accept = getAttachmentSlotAccept(slot);
+  const statusLabel = getDocumentAttachmentStatusLabel(
+    status,
+    getAttachmentSlotNoun(accept),
+  );
   const blobOpen = useDocumentBlobOpen();
   const openAttachment =
     storedAttachment && attachmentStorageKey && blobOpen
@@ -242,7 +260,7 @@ function DocumentAttachmentSlotCard(params: {
         ref={inputRef}
         className="structured-document-file-input"
         type="file"
-        accept="image/*"
+        accept={getAttachmentSlotFileInputAccept(accept)}
         aria-label={slot.label}
         multiple={slot.multiple}
         disabled={!canAttach}

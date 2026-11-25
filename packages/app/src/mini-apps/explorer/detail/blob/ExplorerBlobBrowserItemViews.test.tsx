@@ -105,6 +105,7 @@ async function renderBlobBrowser(
             ? {
                 containerId: "container-1",
                 localId: "local-document-1",
+                slotAccept: "image",
                 slotId: "front-image",
                 slotLabel: "Front Image",
               }

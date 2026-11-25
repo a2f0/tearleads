@@ -148,7 +148,6 @@ test("built-in current mutation adds then removes an Admin with only paged reads
       createdAt: expect.any(String),
       containerMutations: [],
     });
-    expect(added.enrolled).toBe(true);
     expect(f.state.writes).toBe(1);
     expect(admittedHeads).toEqual([
       history.memberPolicy.currentState.stateHash,

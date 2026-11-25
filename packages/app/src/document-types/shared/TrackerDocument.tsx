@@ -21,6 +21,11 @@ interface TrackerDocumentProps<Row extends TrackerRow, QuickEntry> {
   onAddRow: AddTrackerRow<QuickEntry>;
   onEnterEdit?: ((id: string) => void) | undefined;
   onToggleEditing: () => void;
+  /**
+   * The document's own fields in read mode, above the graph and entries. Edit
+   * mode shows them through `renderEditFields`.
+   */
+  readSummary?: ReactNode;
   ready: boolean;
   renderEditRow: (
     row: Row,
@@ -129,6 +134,7 @@ function TrackerReadFields<Row extends TrackerRow, QuickEntry>(
     | "listLabel"
     | "onAddRow"
     | "onEnterEdit"
+    | "readSummary"
     | "renderQuickAdd"
     | "renderReadTable"
     | "resolveRowWriter"
@@ -155,6 +161,7 @@ function TrackerReadFields<Row extends TrackerRow, QuickEntry>(
   } = params;
   return (
     <div className="tracker-document-fields">
+      {params.readSummary ?? null}
       {params.graph}
       <section className="tracker-entry-list">
         <strong>{listLabel}</strong>
@@ -220,6 +227,7 @@ export function TrackerDocument<Row extends TrackerRow, QuickEntry>(
         onAddRow={onAddRow}
         onEnterEdit={onEnterEdit}
         onPendingChange={onPendingChange}
+        readSummary={params.readSummary}
         renderQuickAdd={renderQuickAdd}
         renderReadTable={renderReadTable}
         resolveRowWriter={resolveRowWriter}
