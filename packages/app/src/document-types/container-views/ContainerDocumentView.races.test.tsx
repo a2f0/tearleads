@@ -51,7 +51,7 @@ function contents() {
   return <div>Normal listing</div>;
 }
 
-test("late notes do not cross container or account boundaries", async () => {
+test("late notes and medications do not cross container or account boundaries", async () => {
   const renderer = spyOn(Contact, "ContactDocumentApp").mockImplementation(
     () => <div>Contact</div>,
   );
@@ -68,12 +68,19 @@ test("late notes do not cross container or account boundaries", async () => {
           >
         >
       >();
-    const loadNotes = mock(() => pending.promise);
+    const loadNotes = mock(
+      (_input: { documentKind?: string | undefined }) => pending.promise,
+    );
     p.documentQueries.listContainerDocumentSidebarWindow = loadNotes;
     const view = render(
       <ContainerDocumentView {...p}>{contents()}</ContainerDocumentView>,
     );
-    await waitFor(() => expect(loadNotes).toHaveBeenCalledTimes(1));
+    // The contact view lists medications and notes; both answers arrive late.
+    await waitFor(() =>
+      expect(
+        loadNotes.mock.calls.map(([input]) => input.documentKind).sort(),
+      ).toEqual(["medication", "note"]),
+    );
     const next = setup();
     next.node = { ...node, id: "other" };
     view.rerender(
@@ -99,6 +106,7 @@ test("late notes do not cross container or account boundaries", async () => {
       });
     });
     expect(view.queryByText("old-note")).toBeNull();
+    expect(view.queryByText("Old note")).toBeNull();
     expect(noteRenderer).not.toHaveBeenCalled();
   } finally {
     renderer.mockRestore();

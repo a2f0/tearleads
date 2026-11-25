@@ -71,6 +71,7 @@ export interface RowLogDefinition {
 }
 
 const DATE_FORMAT_MESSAGE = "Expected a calendar date in YYYY-MM-DD format.";
+const REQUIRED_MESSAGE = "Expected a value.";
 // A datetime-local input's value: a local wall-clock minute, no zone.
 const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d$/u;
 
@@ -105,17 +106,28 @@ export function getRowLogFieldIssue(
   return null;
 }
 
-/** Whether a new row is ready to add: required cells set, every cell valid. */
+/**
+ * What is wrong with a stored cell: a blank required cell, or a filled-in one
+ * the field rejects.
+ */
+export function getRowLogCellIssue(
+  field: RowLogField,
+  value: string,
+): string | null {
+  if (field.required === true && value.trim().length === 0) {
+    return REQUIRED_MESSAGE;
+  }
+  return getRowLogFieldIssue(field, value);
+}
+
+/** Whether a row can be saved: required cells set, every cell valid. */
 export function isRowLogEntryComplete(
   fields: ReadonlyArray<RowLogField>,
   cells: Readonly<Record<string, string>>,
 ): boolean {
-  return fields.every((field) => {
-    const value = rowLogCell(cells, field.key);
-    return value.trim().length === 0
-      ? field.required !== true
-      : getRowLogFieldIssue(field, value) === null;
-  });
+  return fields.every(
+    (field) => getRowLogCellIssue(field, rowLogCell(cells, field.key)) === null,
+  );
 }
 
 /** Projector validation: report each stored cell the log would reject. */
@@ -127,7 +139,7 @@ export function addRowLogIssues(
   (rows ?? []).forEach((row, index) => {
     for (const field of fields) {
       const value = row.fields[field.key] ?? "";
-      const message = getRowLogFieldIssue(field, value);
+      const message = getRowLogCellIssue(field, value);
       if (message !== null) {
         issues.push({ field: `rows[${index}].${field.key}`, message, value });
       }
@@ -149,9 +161,19 @@ export function emptyRowLogCells(
   return Object.fromEntries(fields.map((field) => [field.key, ""]));
 }
 
+const pad = (value: number) => String(value).padStart(2, "0");
+
+function localDateOnly(now: Date): string {
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 /** A `date` input's value for today, in local time. */
 export function currentDateOnly(): string {
+  return localDateOnly(new Date());
+}
+
+/** Now as a datetime-local value: this device's wall clock, to the minute. */
+export function currentDateTimeLocal(): string {
   const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return `${localDateOnly(now)}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
