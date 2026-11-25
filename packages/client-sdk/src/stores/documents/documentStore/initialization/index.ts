@@ -5,6 +5,7 @@ import {
   exportAllUpdates,
   exportFullHistorySnapshot,
   mergeVersionVectors,
+  updateText,
 } from "@tearleads/loro";
 import {
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -71,9 +72,7 @@ async function createInitialDocumentRecord(
     state.initialDocumentKind,
     state.runtime.infra.documentProjectors,
   );
-  if (state.initialText.length > 0) {
-    nextDoc.getText("text").update(state.initialText);
-  }
+  if (state.initialText) updateText(nextDoc, state.initialText);
   const wroteInitialContent = writeInitialDocumentContent(state, nextDoc);
   const initialDocumentState = readStoredDocumentState(
     nextDoc,
