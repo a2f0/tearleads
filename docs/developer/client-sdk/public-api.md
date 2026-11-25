@@ -174,7 +174,10 @@ See [principal policy outcomes](../principal-policy-outcomes.md) for scope and l
 `session.registerIdentity(options)` requires `acceptedLegalTermsVersion`: the
 root `LEGAL_TERMS_VERSION`, once the person agrees to the documents at
 `LEGAL_DOCUMENT_URLS`. The API refuses other revisions with 409 and records the
-revision and registration time on the identity.
+revision and registration time on the identity. `session.boundUserId()` reads,
+from local state only, the account this device already binds the current key
+to; registration declines such a key, so a host signs it back in without
+asking for an agreement.
 
 Ordinary `session.createOrganization` calls durably coalesce unresolved attempts
 for the same identity and full inputs, including concurrent calls and retries

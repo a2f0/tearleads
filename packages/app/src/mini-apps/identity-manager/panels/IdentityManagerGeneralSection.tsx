@@ -114,9 +114,9 @@ export function IdentityManagerGeneralSection({
   const [agreeingToTerms, setAgreeingToTerms] = useState(false);
   const actions = {
     ...getIdentitySectionActions(model),
-    handleRegisterIdentity: registration.legalTermsAgreed
-      ? identityMutations.handleRegisterIdentity
-      : async () => setAgreeingToTerms(true),
+    handleRegisterIdentity: registration.legalTermsRequired
+      ? async () => setAgreeingToTerms(true)
+      : identityMutations.handleRegisterIdentity,
   };
 
   // While the account is still being restored, named, created, or signed in,

@@ -2,6 +2,7 @@ import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import type { SystemBootstrapStatus } from "../providers/system-bootstrap/systemBootstrapMachine";
 import type { AutoProvisioningStep } from "./autoProvisioningStatus";
 import type { IdentityOnboardingState } from "./identityOnboardingMachine";
+import type { LegalTermsRequirement } from "./legalTermsRequirement";
 
 /**
  * Where the current account stands on its way to a signed-in session.
@@ -34,12 +35,6 @@ export interface AccountBootstrapInput {
   readonly onboardingPhase?: IdentityOnboardingState["status"] | undefined;
   /** The autopilot holds this identity's registration for the user's name. */
   readonly awaitingAccountName: boolean;
-  /**
-   * The autopilot holds this identity's registration until the person using
-   * the page agrees to the legal terms: it registers every identity but one
-   * recovered from its passphrase, which only signs back in.
-   */
-  readonly awaitingLegalTerms: boolean;
   readonly autoGenerateIdentity: boolean;
   readonly autoProvisioningEnabled: boolean;
   readonly autoRegisterIdentity: boolean;
@@ -52,6 +47,11 @@ export interface AccountBootstrapInput {
   readonly identityTransitionInFlight: boolean;
   readonly isAuthenticated: boolean;
   readonly isLocked: boolean;
+  /**
+   * Whether the autopilot holds this identity's registration for the legal
+   * terms, or while it reads whether the device already binds the key.
+   */
+  readonly legalTerms: LegalTermsRequirement;
   readonly localIdentityRestoreSettled: boolean;
   readonly registration: AutoProvisioningStep["status"];
   readonly sessionRestoreSettled: boolean;
@@ -118,8 +118,13 @@ function registrationPhase(
   // Registration records the agreement, so it waits for it, and then for the
   // name, whatever an earlier run (say, for another identity before a switch
   // back) or bootstrap reported. Onboarding asks in the same order.
-  if (input.awaitingLegalTerms) {
+  if (input.legalTerms === "required") {
     return "accepting-terms";
+  }
+  // Only a key this device stored can already have an account, and it signs
+  // back in unless the device's binding says otherwise.
+  if (input.legalTerms === "checking") {
+    return "signing-in";
   }
   if (input.awaitingAccountName) {
     return "naming-account";

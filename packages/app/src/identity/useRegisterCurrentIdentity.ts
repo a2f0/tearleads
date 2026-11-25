@@ -1,3 +1,4 @@
+import type { Tearleads } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useDatabase } from "../providers/db/DatabaseProvider";
@@ -8,7 +9,6 @@ import { selfPaneLabel, usePaneSideOptional } from "../shell/pane/dual-pane";
 import { personalOrganizationName } from "./accountNamingMachine";
 import { useAutoProvisioningStatus } from "./autoProvisioningStatus";
 import {
-  type LegalTermsAgreementStore,
   useLegalTermsAgreement,
   useLegalTermsAgreementStore,
 } from "./legalTermsAgreement";
@@ -25,12 +25,15 @@ export interface RegisterCurrentIdentityOptions {
 
 export interface RegisterCurrentIdentityResult {
   /**
-   * The current identity could register now; it also needs the legal terms
-   * agreed ({@link RegisterCurrentIdentityResult.legalTermsAgreed}).
+   * The current identity could register now; a new account also needs the
+   * legal terms agreed ({@link RegisterCurrentIdentityResult.legalTermsRequired}).
    */
   canRegisterCurrentIdentity: boolean;
-  /** Registration carries the agreement, so it needs one first. */
-  legalTermsAgreed: boolean;
+  /**
+   * Registration records the agreement, so the person is asked first. An
+   * identity this device already binds to an account signs back in instead.
+   */
+  legalTermsRequired: boolean;
   registerCurrentIdentity: (
     options?: RegisterCurrentIdentityOptions,
   ) => Promise<boolean>;
@@ -64,15 +67,50 @@ function registrationNames(
     : {};
 }
 
+type RegistrationResponse = Awaited<
+  ReturnType<Tearleads["session"]["registerIdentity"]>
+>;
+
 /**
- * The agreed revision a registration records, read when it starts so one
- * that follows the agreement at once carries it; null when it cannot run.
+ * Registers carrying the agreed revision, read when it starts so one that
+ * follows the agreement at once carries it. Without one, only a key this
+ * device already binds to an account goes on, declined as registration would
+ * decline it, to sign back in; any other waits for the agreement.
  */
-function registrationAgreement(
-  canRegister: boolean,
-  legalTerms: LegalTermsAgreementStore,
-): string | null {
-  return canRegister ? legalTerms.agreedVersion : null;
+async function registerWithAgreement(
+  session: Tearleads["session"],
+  agreedVersion: string | null,
+  names: RegistrationNames,
+): Promise<RegistrationResponse | "awaiting-agreement"> {
+  if (agreedVersion !== null) {
+    return session.registerIdentity({
+      acceptedLegalTermsVersion: agreedVersion,
+      ...names,
+    });
+  }
+  const userId = await session.boundUserId();
+  return userId === null
+    ? "awaiting-agreement"
+    : { status: "identity-already-bound", userId };
+}
+
+/**
+ * Both a lost registration response and a known binding recover through
+ * proof of key ownership. Neither permits publishing a replaced identity. A
+ * declined key that cannot sign back in says why.
+ */
+async function signBackIn(
+  tearleads: Tearleads,
+  login: () => Promise<boolean>,
+  identitySnapshot: Tearleads["identity"]["snapshot"],
+  declined: boolean,
+): Promise<boolean> {
+  const recovered = await login();
+  if (tearleads.identity.snapshot !== identitySnapshot) return false;
+  if (declined && !recovered) {
+    throw new RegistrationRecoveryError(tearleads.network.online);
+  }
+  return recovered;
 }
 
 export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
@@ -91,7 +129,8 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const paneSide = usePaneSideOptional();
   const peerLabel =
     seedPeerIdentities && paneSide ? selfPaneLabel(paneSide) : null;
-  const { accountNaming } = useAutoProvisioningStatus();
+  const { accountNaming, legalTerms: legalTermsRequirement } =
+    useAutoProvisioningStatus();
   const { agreedVersion } = useLegalTermsAgreement();
   const legalTerms = useLegalTermsAgreementStore();
   const givenName =
@@ -106,31 +145,27 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
 
   const registerCurrentIdentity = useCallback(
     async (options?: RegisterCurrentIdentityOptions): Promise<boolean> => {
-      const acceptedLegalTermsVersion = registrationAgreement(
-        canRegisterCurrentIdentity,
-        legalTerms,
-      );
-      if (acceptedLegalTermsVersion === null) {
-        return false;
-      }
+      if (!canRegisterCurrentIdentity) return false;
 
       const identitySnapshot = tearleads.identity.snapshot;
-      const response = await tearleads.session.registerIdentity({
-        acceptedLegalTermsVersion,
-        ...registrationNames(peerLabel, options?.accountName ?? givenName),
-      });
-      if (tearleads.identity.snapshot !== identitySnapshot) {
+      const response = await registerWithAgreement(
+        tearleads.session,
+        legalTerms.agreedVersion,
+        registrationNames(peerLabel, options?.accountName ?? givenName),
+      );
+      if (
+        response === "awaiting-agreement" ||
+        tearleads.identity.snapshot !== identitySnapshot
+      ) {
         return false;
       }
       if (!response || "status" in response) {
-        // Both a lost registration response and a known binding recover through
-        // proof of key ownership. Neither permits publishing a replaced identity.
-        const recovered = await login();
-        if (tearleads.identity.snapshot !== identitySnapshot) return false;
-        if (response && !recovered) {
-          throw new RegistrationRecoveryError(tearleads.network.online);
-        }
-        return recovered;
+        return signBackIn(
+          tearleads,
+          login,
+          identitySnapshot,
+          response !== null,
+        );
       }
 
       return loginWithChallenge(response.challenge);
@@ -148,7 +183,10 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
 
   return {
     canRegisterCurrentIdentity,
-    legalTermsAgreed: agreedVersion !== null,
+    // The autopilot reads whether the device binds this key; without one
+    // (outside a runtime), a registration asks.
+    legalTermsRequired:
+      agreedVersion === null && legalTermsRequirement !== "not-required",
     registerCurrentIdentity,
   };
 }

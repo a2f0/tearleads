@@ -13,6 +13,7 @@ import {
   sessionSnapshotsEqual,
 } from "./sessionContext";
 import {
+  currentKeyBoundUserId,
   registrationKeyAlreadyBound,
   requireRegistrationIdentityPinner,
   requireSessionTrustDomain,
@@ -224,6 +225,8 @@ class SessionService implements Session {
     }
   }
 
+  boundUserId = () => currentKeyBoundUserId(this.dependencies);
+
   async registerIdentity(
     options: RegisterIdentityOptions,
   ): Promise<SessionRegistrationResult | SessionRegistrationRefusal | null> {
@@ -277,7 +280,6 @@ class SessionService implements Session {
     let response: Awaited<ReturnType<typeof registerIdentityWorkflow>>;
     try {
       response = await registerIdentityWorkflow({
-        // The agreed legal terms and the seeded profile names.
         ...options,
         identityTrustDomain: requireSessionTrustDomain(this.dependencies),
         apiClient: this.dependencies.api,

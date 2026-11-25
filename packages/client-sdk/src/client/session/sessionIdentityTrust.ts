@@ -109,6 +109,42 @@ export type BoundUserIdLookup = (
   signingKeyFingerprint: string,
 ) => Promise<string | null>;
 
+interface BoundUserIdDependencies {
+  readonly boundUserIdForSigningKey?: BoundUserIdLookup | undefined;
+}
+
+/** The user this device's trust store binds the current signing key to. */
+export function currentKeyBoundUserId(
+  dependencies: BoundUserIdDependencies & {
+    readonly identity: {
+      readonly snapshot: { readonly signingFingerprint: string | null };
+    };
+  },
+): Promise<string | null> {
+  return boundUserIdForSigningKey(
+    dependencies,
+    dependencies.identity.snapshot.signingFingerprint,
+  );
+}
+
+/**
+ * The user this device's trust store binds `signingFingerprint` to, or null.
+ * It reads local state only.
+ */
+async function boundUserIdForSigningKey(
+  dependencies: BoundUserIdDependencies,
+  signingFingerprint: string | null,
+): Promise<string | null> {
+  if (!dependencies.boundUserIdForSigningKey) {
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Account binding requires the durable local identity trust service",
+    );
+  }
+  if (!signingFingerprint) return null;
+  return dependencies.boundUserIdForSigningKey(signingFingerprint);
+}
+
 /**
  * A key this device already binds to a user belongs to that user: the trust
  * store holds one user per key, so a new registration's pin would be refused
@@ -118,21 +154,15 @@ export type BoundUserIdLookup = (
  * requires clearing the device's local data.
  */
 export async function registrationKeyAlreadyBound(
-  dependencies: {
-    readonly boundUserIdForSigningKey?: BoundUserIdLookup | undefined;
+  dependencies: BoundUserIdDependencies & {
     readonly log: (message: string) => void;
   },
   signingFingerprint: string | null,
 ): Promise<SessionRegistrationRefusal | null> {
-  if (!dependencies.boundUserIdForSigningKey) {
-    throw new KeyingVerificationError(
-      "missing_dependency",
-      "Registration requires the durable local identity trust service",
-    );
-  }
-  if (!signingFingerprint) return null;
-  const boundUserId =
-    await dependencies.boundUserIdForSigningKey(signingFingerprint);
+  const boundUserId = await boundUserIdForSigningKey(
+    dependencies,
+    signingFingerprint,
+  );
   if (!boundUserId) return null;
   dependencies.log(
     `Registration skipped: this signing key is already bound to ${boundUserId}`,

@@ -11,7 +11,6 @@ import {
   resolveAccountBootstrapPhase,
 } from "./accountBootstrapPhase";
 import { useAutoProvisioningStatus } from "./autoProvisioningStatus";
-import { useLegalTermsAgreement } from "./legalTermsAgreement";
 
 /**
  * The current account's {@link AccountBootstrapPhase}, so a surface gated on
@@ -26,13 +25,10 @@ function useAccountBootstrapPhase(): AccountBootstrapPhase {
   const { status: databaseStatus } = useDatabase();
   const { status: systemBootstrapStatus } = useSystemBootstrap();
   const autoProvisioning = useAutoProvisioningStatus();
-  const { agreedVersion } = useLegalTermsAgreement();
 
   return resolveAccountBootstrapPhase({
     onboardingPhase: autoProvisioning.onboarding?.state.status,
     awaitingAccountName: autoProvisioning.accountNaming.status === "awaiting",
-    awaitingLegalTerms:
-      autoProvisioning.recovered !== true && agreedVersion === null,
     autoGenerateIdentity: features.autoGenerateIdentity,
     autoProvisioningEnabled: autoProvisioning.enabled,
     autoRegisterIdentity: features.autoRegisterIdentity,
@@ -48,6 +44,7 @@ function useAccountBootstrapPhase(): AccountBootstrapPhase {
     identityTransitionInFlight: identity.identityTransitionInFlight,
     isAuthenticated: session.isAuthenticated,
     isLocked,
+    legalTerms: autoProvisioning.legalTerms,
     localIdentityRestoreSettled: identity.localIdentityRestoreSettled,
     registration: autoProvisioning.registration.status,
     sessionRestoreSettled: session.sessionRestoreSettled,

@@ -159,6 +159,13 @@ export interface Session {
   readonly userIdAcknowledged: boolean;
   /** Stable predicate for this sign-in, including after verified renewal. */
   captureSignIn(purpose?: "restore"): () => boolean;
+  /**
+   * The user this device already binds the current signing key to, an
+   * account it registered or signed in to, or null. It reads local state
+   * only. {@link Session.registerIdentity} declines a bound key, so its
+   * caller signs back in instead of registering.
+   */
+  boundUserId(): Promise<string | null>;
   bootstrapLocalRootContainer(isCurrent?: () => boolean): Promise<{
     containerId: string;
     created: boolean;

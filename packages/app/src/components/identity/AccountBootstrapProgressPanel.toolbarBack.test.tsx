@@ -39,6 +39,7 @@ function OnboardingWindow() {
         accountNaming: ACCOUNT_NAMING_IDLE,
         accountNamingSettled: true,
         enabled: true,
+        legalTerms: "not-required",
         generation: AUTO_PROVISIONING_IDLE,
         onboarding: {
           agreeToTerms: () =>

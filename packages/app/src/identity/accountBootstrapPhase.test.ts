@@ -9,7 +9,6 @@ import {
 // restores have settled, and no account has signed in yet.
 const REGISTERING: AccountBootstrapInput = {
   awaitingAccountName: false,
-  awaitingLegalTerms: false,
   autoGenerateIdentity: true,
   autoProvisioningEnabled: true,
   autoRegisterIdentity: true,
@@ -21,6 +20,7 @@ const REGISTERING: AccountBootstrapInput = {
   identityTransitionInFlight: false,
   isAuthenticated: false,
   isLocked: false,
+  legalTerms: "not-required",
   localIdentityRestoreSettled: true,
   registration: "running",
   sessionRestoreSettled: true,
@@ -94,22 +94,34 @@ describe("resolveAccountBootstrapPhase", () => {
   });
 
   test("a registration waiting for agreement to the legal terms asks for it", () => {
-    expect(phaseOf({ awaitingLegalTerms: true, registration: "idle" })).toBe(
+    expect(phaseOf({ legalTerms: "required", registration: "idle" })).toBe(
       "accepting-terms",
     );
     // An identity reloaded on this device but never registered still asks.
     expect(
       phaseOf({
-        awaitingLegalTerms: true,
         identityRestored: true,
+        legalTerms: "required",
         registration: "idle",
       }),
     ).toBe("accepting-terms");
+    // One whose account binding is still being read signs in meanwhile, and
+    // one the device already binds to an account signs back in without asking.
+    for (const legalTerms of ["checking", "not-required"] as const) {
+      expect(
+        phaseOf({
+          awaitingAccountName: true,
+          identityRestored: true,
+          legalTerms,
+          registration: legalTerms === "checking" ? "idle" : "running",
+        }),
+      ).toBe("signing-in");
+    }
     // Agreement comes before a name still owed, as in onboarding.
     expect(
       phaseOf({
         awaitingAccountName: true,
-        awaitingLegalTerms: true,
+        legalTerms: "required",
         registration: "idle",
       }),
     ).toBe("accepting-terms");
@@ -121,7 +133,7 @@ describe("resolveAccountBootstrapPhase", () => {
     ]) {
       expect(
         phaseOf({
-          awaitingLegalTerms: true,
+          legalTerms: "required",
           registration: "idle",
           ...overrides,
         }),

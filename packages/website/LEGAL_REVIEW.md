@@ -92,7 +92,10 @@ render, and the agreed effective date in
 [`LEGAL_TERMS_VERSION`](../validators/src/legalTerms.ts), keeping the published
 documents available. That date is also the revision a registration records,
 and the API registers only the current one, so a new date asks every new
-identity to agree to the new text. The display label is derived in UTC.
+identity to agree to the new text. Each app build carries the date it was
+built with, so between the API deploy and an installed Capacitor or Electrobun
+app's update, that app's new identities cannot register. The display label is
+derived in UTC.
 `isDraft: false` enables full production rendering without the review notice
 or document-specific `noindex`; staging remains non-indexable.
 Preserve a copy of adopted versions and arrange appropriate notice to users.

@@ -21,7 +21,7 @@ import {
   AutoProvisioningStatusContext,
   type AutoProvisioningStep,
 } from "./autoProvisioningStatus";
-import { useLegalTermsAgreement } from "./legalTermsAgreement";
+import type { LegalTermsRequirement } from "./legalTermsRequirement";
 import { autoRegisterFailureMessage } from "./registrationRecoveryError";
 import {
   INITIAL_REGISTRATION_RUN,
@@ -32,6 +32,7 @@ import {
 } from "./registrationRunMachine";
 import { useAccountNaming } from "./useAccountNaming";
 import { useIdentityOnboarding } from "./useIdentityOnboarding";
+import { useLegalTermsRequirement } from "./useLegalTermsRequirement";
 import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
 /**
@@ -71,20 +72,21 @@ function useAutoProvisionIdentity(enabled: boolean) {
     setRecoveredFingerprint,
   );
   const automatic = useAutoGenerateIdentity(enabled && !interactive);
-  const { agreedVersion } = useLegalTermsAgreement();
+  const legalTerms = useLegalTermsRequirement(recovered);
   const generation: AutoProvisioningStep =
     onboarding && "request" in onboarding.state
       ? { status: "running" }
       : automatic;
   return {
     generation,
+    legalTerms,
     naming,
     onboarding,
     recovered,
     registration: useAutoRegisterIdentity(enabled, {
       backupPending: onboarding?.state.status === "confirming-backup",
       generation,
-      legalTermsAgreed: agreedVersion !== null,
+      legalTerms,
       naming: naming.state,
       namingSettled: naming.settled,
       recovered,
@@ -160,8 +162,8 @@ function useAutoGenerateIdentity(enabled: boolean): AutoProvisioningStep {
 interface PendingRegistration {
   /** The created identity's recovery key is not yet confirmed backed up. */
   readonly backupPending: boolean;
-  /** The person using this page agreed to the current legal terms. */
-  readonly legalTermsAgreed: boolean;
+  /** Whether registration waits for the person to agree to the terms. */
+  readonly legalTerms: LegalTermsRequirement;
   readonly recovered: boolean;
   readonly generation: AutoProvisioningStep;
   readonly naming: AccountNamingState;
@@ -174,8 +176,9 @@ interface PendingRegistration {
  * before a restart may still be on its way back, a name still owed holds the
  * identity's first registration, a name given holds it until stored, a
  * created identity holds it until its recovery key is confirmed backed up, and
- * every registration holds until the person agrees to the legal terms, which
- * it records. A recovered identity only signs back in, so it never waits.
+ * a new account's registration holds until the person agrees to the legal
+ * terms, which it records. An identity that already has an account only signs
+ * back in, so it never waits for them.
  */
 function pendingRegistration(pending: PendingRegistration) {
   return {
@@ -183,7 +186,7 @@ function pendingRegistration(pending: PendingRegistration) {
       pending.naming.status === "named" ? pending.naming.name : undefined,
     awaitingInput:
       pending.backupPending ||
-      (!pending.recovered && !pending.legalTermsAgreed) ||
+      pending.legalTerms !== "not-required" ||
       pending.generation.status === "running" ||
       !pending.namingSettled ||
       pending.naming.status === "awaiting" ||
@@ -368,8 +371,14 @@ export function IdentityAutopilot({
   readonly enabled?: boolean | undefined;
 }>) {
   const { features } = useAppHostConfig().profile;
-  const { generation, naming, onboarding, recovered, registration } =
-    useAutoProvisionIdentity(enabled);
+  const {
+    generation,
+    legalTerms,
+    naming,
+    onboarding,
+    recovered,
+    registration,
+  } = useAutoProvisionIdentity(enabled);
   const { contactNamed, settled, state: accountNaming, submit } = naming;
   // Only a profile that asks for names has one to wait for.
   const accountNamingSettled =
@@ -380,6 +389,7 @@ export function IdentityAutopilot({
       accountNamingSettled,
       enabled,
       generation,
+      legalTerms,
       onboarding,
       recovered,
       registration,
@@ -390,6 +400,7 @@ export function IdentityAutopilot({
       accountNamingSettled,
       enabled,
       generation,
+      legalTerms,
       onboarding,
       recovered,
       registration,

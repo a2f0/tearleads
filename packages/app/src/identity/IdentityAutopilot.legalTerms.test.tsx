@@ -13,10 +13,14 @@ import {
   MOCK_SERVER_RESET_TIMEOUT_MS,
   useTestApiAppHandlers,
 } from "../../test/helpers/msw/server";
-import { renderLifecyclePane } from "../../test/helpers/paneLifecycleTestUtils";
+import {
+  renderLifecyclePane,
+  unmountLifecyclePane,
+} from "../../test/helpers/paneLifecycleTestUtils";
 import {
   cleanupPaneTestEnvironment,
   clickPaneAppMenuItem,
+  createSharedMemoryLocalKeyringFactory,
   createTestHostConfig,
   generateIdentityAndWaitForDb,
   getPaneStatusText,
@@ -24,11 +28,15 @@ import {
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS,
   renderPane,
   waitForPaneRuntimeToSettle,
+  waitForPersistedPaneLocalIdentity,
 } from "../../test/helpers/paneTestUtils";
 import { LEGAL_TERMS_AGREEMENT_LABEL } from "../components/identity/legal-terms/LegalTermsAgreementPanel";
 import { createLegalTermsAgreementStore } from "./legalTermsAgreement";
 
 afterEach(cleanupPaneTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
+
+/** Where this device stores an identity's session, by namespace and key. */
+const SESSION_RECORD_PREFIX = "tearleads.local-session:";
 
 /** Checks the agreement shown anywhere in `container`, then continues. */
 async function agreeToLegalTerms(container: HTMLElement): Promise<void> {
@@ -179,6 +187,68 @@ test(
     await waitForRegistration(view);
     expect(legalTerms.agreedVersion).toBe(LEGAL_TERMS_VERSION);
     await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+  },
+  PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 4,
+);
+
+test(
+  "a restarted identity this device already binds to an account signs back in without asking for the terms",
+  async () => {
+    useTestApiAppHandlers();
+    const namespace = `test-legal-terms-${crypto.randomUUID()}`;
+    const config = createTestHostConfig({
+      autoProvisionIdentity: true,
+      createLocalKeyring: createSharedMemoryLocalKeyringFactory(),
+      localIdentityNamespace: namespace,
+    });
+    const agreed = createLegalTermsAgreementStore();
+    agreed.agree();
+    const first = renderLifecyclePane(config, { legalTermsAgreement: agreed });
+    await waitForPersistedPaneLocalIdentity(namespace);
+    await waitForRegistration(first.view);
+    const createdUserId = first.sdk().session.userId;
+    invariant(createdUserId, "Expected the account to be created");
+    const signingFingerprint = first.sdk().identity.signingFingerprint;
+    invariant(signingFingerprint, "Expected the identity's key");
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+    await unmountLifecyclePane(first);
+    // The device keeps the identity but loses its stored session (the pane
+    // keeps its records under its side of the namespace).
+    const sessionRecords = Object.keys(globalThis.localStorage).filter(
+      (key) =>
+        key.startsWith(SESSION_RECORD_PREFIX) &&
+        key.endsWith(`:${signingFingerprint}`),
+    );
+    expect(sessionRecords).toHaveLength(1);
+    for (const key of sessionRecords) globalThis.localStorage.removeItem(key);
+
+    // After a restart nobody has agreed on this page, and none is needed.
+    const second = renderLifecyclePane(config, {
+      legalTermsAgreement: createLegalTermsAgreementStore(),
+    });
+    // These databases live in memory, so the binding the first run stored
+    // stands in for the device's.
+    const boundUserId = spyOn(
+      second.sdk().session,
+      "boundUserId",
+    ).mockResolvedValue(createdUserId);
+    const register = spyOn(second.sdk().session, "registerIdentity");
+    await waitForPaneKey(second.view);
+    const manager = await openIdentityManagerFromPane(second.view);
+    await waitFor(
+      () => {
+        expect(second.sdk().session.isAuthenticated).toBe(true);
+      },
+      { timeout: PANE_LONG_ASYNC_TEST_TIMEOUT_MS },
+    );
+    expect(second.sdk().session.userId).toBe(createdUserId);
+    expect(
+      within(manager).queryByRole("heading", { name: "Review our terms" }),
+    ).toBeNull();
+    expect(boundUserId).toHaveBeenCalled();
+    expect(register).not.toHaveBeenCalled();
+    await waitForPaneRuntimeToSettle(PANE_LONG_ASYNC_TEST_TIMEOUT_MS);
+    second.view.unmount();
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 4,
 );

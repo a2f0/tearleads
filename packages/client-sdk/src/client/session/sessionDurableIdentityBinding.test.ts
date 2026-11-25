@@ -140,6 +140,7 @@ test("registration declines a key already bound to a user, before contacting the
     },
   };
   try {
+    expect(await createSession(dependencies).boundUserId()).toBeNull();
     // A login binds this device's key to its user.
     expect(await createSession(dependencies).login()).toBe(true);
 
@@ -148,6 +149,11 @@ test("registration declines a key already bound to a user, before contacting the
     // It is declined first, and the caller falls back to logging in.
     const session = createSession(dependencies);
     session.setContainerId(crypto.randomUUID());
+    // A host asks the same question first, from local state alone, so a bound
+    // key signs back in without anything registration asks for.
+    expect(await session.boundUserId()).toBe(
+      "11111111-1111-4111-8111-111111111111",
+    );
     expect(
       await session.registerIdentity({
         acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
