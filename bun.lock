@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.193",
+      "version": "0.1.194",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -69,7 +69,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.86",
+      "version": "0.1.87",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -83,7 +83,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.48",
+      "version": "0.1.49",
       "dependencies": {
         "@electric-sql/pglite": "0.5.15",
         "@tearleads/crypto": "workspace:*",
@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.344",
+      "version": "0.1.345",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -131,7 +131,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.59",
+      "version": "0.0.60",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -170,7 +170,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.30",
+      "version": "0.0.31",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -191,7 +191,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.114",
+      "version": "0.1.115",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -214,7 +214,7 @@
     },
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
-      "version": "0.1.32",
+      "version": "0.1.33",
       "devDependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -226,7 +226,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -241,7 +241,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.312",
+      "version": "0.1.313",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -303,7 +303,7 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "dependencies": {
         "@tearleads/api-shared": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -347,7 +347,7 @@
     },
     "packages/ui": {
       "name": "@tearleads/ui",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "dependencies": {
         "react": "catalog:react",
       },
@@ -357,7 +357,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.94",
+      "version": "0.1.95",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "zod": "catalog:",
@@ -370,7 +370,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.82",
+      "version": "0.1.83",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.74",
         "@a2f0/ct-client": "0.1.6",
