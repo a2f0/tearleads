@@ -15,7 +15,7 @@ below. Invoke them by path from the checkout or its parent workspace, for exampl
 | [`architecture/`](architecture/) | Architecture checks and reports, dependency rules, workspace and subsystem registries. |
 | [`checks/`](checks/) | Check entry points, static analysis helpers, baselines, and regression fixtures. |
 | [`deploy/`](deploy/) | Tier and website deployments, teardown, and their shared helpers. |
-| [`dev/`](dev/) | Local launchers, shell setup, seed generation, and cache maintenance. |
+| [`dev/`](dev/) | Local launchers, shell setup, seed generation, KeePass restore, and cache maintenance. `bun run test:dev-scripts` tests the KeePass restore script's arguments with stub commands, and is part of `check:fast`. |
 | [`git/`](git/) | Hook installation and hook sources; the pre-push hook is agent-tool's push gate, and the root `postinstall` installs them after `bun install` in a checkout with none. |
 | [`keychain/`](keychain/) | Manual macOS keychain utilities. |
 | [`lib/`](lib/) | Helpers shared across script groups, including timings, build metadata, release environment guards, and the retried CI dependency install. |
