@@ -1,18 +1,6 @@
-import type { VerifiedAttachmentBinding } from "../attachmentAccessTypes";
-import { computeKeyingDomainHash } from "../canonical";
-import type { KeyingCanonicalPayload } from "../canonicalJsonTypes";
-import type { VerifiedContainerAccessManifest } from "../containerAccessTypes";
-import type {
-  BlobContentKeyTarget,
-  VerifiedContainerKekState,
-} from "../containerKekTypes";
-import type {
-  DeriveBlobKekTargetsInput,
-  VerifiedBlobKekTargets,
-} from "../contentKeyTargetTypes";
-import { makeVerifiedBlobKekTargets } from "../contentKeyTargetTypes";
-import { requireEventDependency } from "../documentAccessAuthorization";
-import type { VerifiedDocumentLinkSetManifest } from "../documentAccessTypes";
+import type { VerifiedContainerAccessManifest } from "../containerAccess/containerAccessTypes";
+import { computeKeyingDomainHash } from "../core/canonical";
+import type { KeyingCanonicalPayload } from "../core/canonicalJsonTypes";
 import {
   assertExactKeys,
   compareCanonicalStrings,
@@ -22,9 +10,21 @@ import {
   readString,
   runVerifier,
   throwVerification,
-} from "../shared";
-import type { KeyingVerificationResult } from "../verificationError";
+} from "../core/shared";
+import type { KeyingVerificationResult } from "../core/verificationError";
+import type { VerifiedAttachmentBinding } from "../documentAccess/attachmentAccessTypes";
+import { requireEventDependency } from "../documentAccess/documentAccessAuthorization";
+import type { VerifiedDocumentLinkSetManifest } from "../documentAccess/documentAccessTypes";
 import { computeBlobAccessManifestHash } from "./blobAccessManifest";
+import type {
+  BlobContentKeyTarget,
+  VerifiedContainerKekState,
+} from "./containerKekTypes";
+import type {
+  DeriveBlobKekTargetsInput,
+  VerifiedBlobKekTargets,
+} from "./contentKeyTargetTypes";
+import { makeVerifiedBlobKekTargets } from "./contentKeyTargetTypes";
 import {
   containerKekTargetKey,
   deriveDocumentKekTargets,

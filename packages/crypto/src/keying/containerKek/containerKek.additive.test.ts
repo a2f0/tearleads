@@ -1,0 +1,95 @@
+import { expect, test } from "bun:test";
+import { createContainerManifestFixture } from "../containerAccess/containerAccess.testFixtures";
+import { expectVerificationError } from "../core/verificationError.testFixtures";
+import { verifyContainerKekState } from "../index";
+import {
+  createContainerKeyEpochFixture,
+  createContainerKeyWrap,
+} from "./containerKek.testFixtures";
+import { fixtureContainerKekMaterialId } from "./containerKekMaterial.testFixtures";
+import { createContainerUserRecipientKey } from "./containerUserRecipientKey.testFixtures";
+
+test("verifyContainerKekState accepts additive wraps on the existing KEK epoch", async () => {
+  const originalManifest = await createContainerManifestFixture({
+    containerId: "additive-container",
+    containerKeyEpochId: await fixtureContainerKekMaterialId(
+      "additive-container-key-epoch-1",
+      "additive-container",
+    ),
+    directGrants: [
+      {
+        subjectType: "user",
+        subjectId: "alice",
+        accessLevel: "read",
+      },
+    ],
+  });
+  const currentManifest = await createContainerManifestFixture({
+    containerId: originalManifest.state.containerId,
+    containerKeyEpochId: originalManifest.state.containerKeyEpochId,
+    directGrants: [
+      ...originalManifest.state.directGrants,
+      {
+        subjectType: "user",
+        subjectId: "bob",
+        accessLevel: "read",
+      },
+    ],
+    epoch: 2,
+    previousManifestHash: originalManifest.manifestHash,
+  });
+  const aliceKey = await createContainerUserRecipientKey("alice");
+  const bobKey = await createContainerUserRecipientKey("bob");
+  const keyEpoch = await createContainerKeyEpochFixture({
+    manifest: currentManifest,
+    createdByManifest: originalManifest,
+  });
+  const state = await verifyContainerKekState({
+    containerManifest: currentManifest,
+    containerManifestHistory: [originalManifest],
+    keyEpoch,
+    userRecipientKeys: [aliceKey, bobKey],
+    wraps: [
+      await createContainerKeyWrap({
+        containerKeyEpochId: keyEpoch.id,
+        recipientKind: "user",
+        recipientId: aliceKey.userId,
+        recipientKeyEpochId: aliceKey.recipientKeyEpochId,
+        recipientKeyFingerprint: aliceKey.recipientKeyFingerprint,
+        wrapManifestHash: originalManifest.manifestHash,
+      }),
+      await createContainerKeyWrap({
+        containerKeyEpochId: keyEpoch.id,
+        recipientKind: "user",
+        recipientId: bobKey.userId,
+        recipientKeyEpochId: bobKey.recipientKeyEpochId,
+        recipientKeyFingerprint: bobKey.recipientKeyFingerprint,
+        wrapManifestHash: currentManifest.manifestHash,
+      }),
+    ],
+  });
+
+  expectVerificationError(
+    await verifyContainerKekState({
+      containerManifest: currentManifest,
+      containerManifestHistory: [originalManifest],
+      keyEpoch: await createContainerKeyEpochFixture({
+        manifest: currentManifest,
+      }),
+      userRecipientKeys: [aliceKey, bobKey],
+      wraps: [],
+    }),
+    "key_epoch_reuse",
+  );
+
+  expect(state.ok).toBe(true);
+  if (state.ok) {
+    expect(state.value.containerKeyEpochId).toBe(
+      originalManifest.state.containerKeyEpochId ?? "",
+    );
+    expect(state.value.wraps.map((wrap) => wrap.wrapManifestHash)).toEqual([
+      originalManifest.manifestHash,
+      currentManifest.manifestHash,
+    ]);
+  }
+});

@@ -1,55 +1,3 @@
-export { blobContentMetadataHash } from "./blobContentMetadata";
-export { BlobEnvelopeError } from "./blobEnvelopeError";
-export type {
-  BlobEnvelopeHeaderRecord,
-  BlobEnvelopeRecord,
-} from "./blobEnvelopeReader";
-export {
-  MAX_BLOB_ENVELOPE_HEADER_BYTES,
-  parseBlobEnvelopeV2,
-  parseBlobEnvelopeV2Header,
-  readBlobEnvelopeHeaderByteLength,
-} from "./blobEnvelopeReader";
-export type { BlobEnvelopeV2Header } from "./blobEnvelopeV2";
-export {
-  BLOB_CHUNK_SIZE_BYTES,
-  BLOB_ENCRYPTED_BYTES_FORMAT,
-  BLOB_ENCRYPTED_BYTES_VERSION,
-  BLOB_ENVELOPE_MAGIC_BYTES,
-  BLOB_ENVELOPE_PREFIX_BYTES,
-  blobChunkPlaintextByteLength,
-  computeBlobChunkCount,
-  computeBlobEncryptedByteLength,
-  deriveBlobChunkIv,
-  encodeBlobEnvelopeV2Header,
-  joinBlobPartBytes,
-  MAX_BLOB_CHUNK_COUNT,
-  normalizeBlobChunkSize,
-} from "./blobEnvelopeV2";
-export { compareCanonicalStrings } from "./canonicalOrdering";
-export {
-  AUTH_CHALLENGE_BYTES,
-  AUTH_CHALLENGE_HEX_LENGTH,
-  authChallengeSigningBytes,
-  CHALLENGE_TTL_SECONDS,
-  canonicalAuthOrigin,
-  generateChallenge,
-} from "./challenge";
-export type {
-  ContentKeyEnvelopeKind,
-  ContentKeyWrapBinding,
-} from "./contentKeyEnvelope";
-export {
-  ContentKeyEnvelopeError,
-  decodeContentKeyEnvelope,
-  unwrapContentKey,
-  wrapContentKey,
-} from "./contentKeyEnvelope";
-export {
-  DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
-  type ParsedDocumentEncryptedUpdate,
-  parseDocumentEncryptedUpdate,
-} from "./documentEncryptedUpdate";
 export { decryptAsRecipient } from "./encapsulation/decryptAsRecipient";
 export { encryptForRecipients } from "./encapsulation/encryptForRecipients";
 export type { EncapsulationKeyPair } from "./encapsulation/generateKeyPair";
@@ -64,22 +12,63 @@ export {
 export type { EncryptedEnvelope, RecipientEntry } from "./encapsulation/types";
 export { unwrapDek } from "./encapsulation/unwrapDek";
 export { wrapDekForRecipients } from "./encapsulation/wrapDek";
-export { toFingerprint } from "./fingerprint";
+export { blobContentMetadataHash } from "./envelopes/blobContentMetadata";
+export { BlobEnvelopeError } from "./envelopes/blobEnvelopeError";
+export type {
+  BlobEnvelopeHeaderRecord,
+  BlobEnvelopeRecord,
+} from "./envelopes/blobEnvelopeReader";
 export {
-  decryptGroupMetadata,
-  encodeBuiltinGroupMetadata,
-  encryptGroupMetadata,
-  type GroupMetadata,
-  type GroupMetadataKey,
-  readGroupMetadata,
-} from "./groupMetadata";
-export { bytesToHex, hexToBytes } from "./hex";
+  MAX_BLOB_ENVELOPE_HEADER_BYTES,
+  parseBlobEnvelopeV2,
+  parseBlobEnvelopeV2Header,
+  readBlobEnvelopeHeaderByteLength,
+} from "./envelopes/blobEnvelopeReader";
+export type { BlobEnvelopeV2Header } from "./envelopes/blobEnvelopeV2";
+export {
+  BLOB_CHUNK_SIZE_BYTES,
+  BLOB_ENCRYPTED_BYTES_FORMAT,
+  BLOB_ENCRYPTED_BYTES_VERSION,
+  BLOB_ENVELOPE_MAGIC_BYTES,
+  BLOB_ENVELOPE_PREFIX_BYTES,
+  blobChunkPlaintextByteLength,
+  computeBlobChunkCount,
+  computeBlobEncryptedByteLength,
+  deriveBlobChunkIv,
+  encodeBlobEnvelopeV2Header,
+  joinBlobPartBytes,
+  MAX_BLOB_CHUNK_COUNT,
+  normalizeBlobChunkSize,
+} from "./envelopes/blobEnvelopeV2";
+export type {
+  ContentKeyEnvelopeKind,
+  ContentKeyWrapBinding,
+} from "./envelopes/contentKeyEnvelope";
+export {
+  ContentKeyEnvelopeError,
+  decodeContentKeyEnvelope,
+  unwrapContentKey,
+  wrapContentKey,
+} from "./envelopes/contentKeyEnvelope";
+export {
+  DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,
+  type ParsedDocumentEncryptedUpdate,
+  parseDocumentEncryptedUpdate,
+} from "./envelopes/documentEncryptedUpdate";
+export {
+  AUTH_CHALLENGE_BYTES,
+  AUTH_CHALLENGE_HEX_LENGTH,
+  authChallengeSigningBytes,
+  CHALLENGE_TTL_SECONDS,
+  canonicalAuthOrigin,
+  generateChallenge,
+} from "./identity/challenge";
 export {
   decodeIdentityLink,
   encodeIdentityLinkToken,
   IDENTITY_LINK_PATH,
   type IdentityLinkExpectation,
-} from "./identityLink";
+} from "./identity/identityLink";
 export {
   createIdentitySeedPhrase,
   createIdentitySeedPhraseFromEntropy,
@@ -91,12 +80,9 @@ export {
   type IdentitySeedPhraseKeyPairs,
   normalizeIdentitySeedPhrase,
   validateIdentitySeedPhrase,
-} from "./identitySeedPhrase";
-export { canonicalIdentityTrustDomain } from "./identityTrustDomain";
-export {
-  createIncrementalSha256,
-  type IncrementalSha256,
-} from "./incrementalSha256";
+} from "./identity/identitySeedPhrase";
+export { canonicalIdentityTrustDomain } from "./identity/identityTrustDomain";
+export { computeUserIdentityBundleFingerprint } from "./identity/userIdentityBundle";
 export type {
   AccessEvent,
   AccessEventType,
@@ -232,7 +218,7 @@ export type {
   VerifyTransparencyProofInput,
   VerifyWriteHeaderInput,
   WriteHeader,
-} from "./keying";
+} from "./keying/index";
 export {
   ACCESS_MANIFEST_VERIFICATION_REVISION,
   accessManifestCheckpointFromManifest,
@@ -364,33 +350,58 @@ export {
   verifyTransparencyInclusionProof,
   verifyTransparencyProof,
   verifyWriteHeader,
-} from "./keying";
+} from "./keying/index";
+export {
+  decryptGroupMetadata,
+  encodeBuiltinGroupMetadata,
+  encryptGroupMetadata,
+  type GroupMetadata,
+  type GroupMetadataKey,
+  readGroupMetadata,
+} from "./organization/groupMetadata";
 export {
   isValidOrganizationLeaveRequest,
   organizationLeaveRequestSigningBytes,
   signOrganizationLeaveRequest,
-} from "./organizationLeaveRequest";
+} from "./organization/organizationLeaveRequest";
 export {
   organizationReplacementAuthorizationPayload,
   organizationReplacementSigningBytes,
   signOrganizationReplacementAuthorization,
   type VerifiedOrganizationReplacementAuthorization,
   verifyOrganizationReplacementAuthorization,
-} from "./organizationReplacement";
+} from "./organization/organizationReplacement";
+export { compareCanonicalStrings } from "./primitives/canonicalOrdering";
+export { toFingerprint } from "./primitives/fingerprint";
+export { bytesToHex, hexToBytes } from "./primitives/hex";
+export {
+  createIncrementalSha256,
+  type IncrementalSha256,
+} from "./primitives/incrementalSha256";
+export type { SymmetricCiphertext } from "./primitives/symmetric";
+export {
+  AES_256_KEY_BYTES,
+  AES_GCM_IV_BYTES,
+  AES_GCM_TAG_BYTES,
+  assertAesGcmIv,
+  createAesGcmIv,
+  decryptWithDek,
+  encryptWithDek,
+} from "./primitives/symmetric";
 export {
   computePrincipalContainerGrantRoot,
   normalizePrincipalContainerGrants,
-} from "./principalContainerGrants";
+} from "./principalState/principalContainerGrants";
 export {
   computePrincipalMemberEnvelopesRoot,
   normalizePrincipalStateMemberEnvelopes,
   PrincipalMemberEnvelopeValidationError,
-} from "./principalMemberEnvelopes";
-export type { PrincipalPolicyValidationErrorCode } from "./principalPolicyValidationError";
+} from "./principalState/principalMemberEnvelopes";
+export type { PrincipalPolicyValidationErrorCode } from "./principalState/principalPolicyValidationError";
 export {
   PrincipalPolicyValidationError,
   throwPrincipalPolicyValidationError,
-} from "./principalPolicyValidationError";
+} from "./principalState/principalPolicyValidationError";
 export type {
   ManagedRecipientPrincipalType,
   PrincipalContainerGrant,
@@ -405,7 +416,7 @@ export type {
   PrincipalStateSigningInput,
   SignedPrincipalState,
   UnsignedPrincipalState,
-} from "./principalState";
+} from "./principalState/principalState";
 export {
   buildPrincipalStateSigningInput,
   computePrincipalMembershipRoot,
@@ -419,11 +430,11 @@ export {
   normalizePrincipalStateMembers,
   serializeUnsignedPrincipalState,
   signPrincipalState,
-} from "./principalState";
+} from "./principalState/principalState";
 export {
   verifySignedPrincipalState,
   verifySignedPrincipalStateResult,
-} from "./principalStateVerification";
+} from "./principalState/principalStateVerification";
 export type { SigningKeyPair } from "./signing/generateKeyPair";
 export {
   generateSigningKeyPair,
@@ -434,14 +445,3 @@ export {
 } from "./signing/generateKeyPair";
 export { sign } from "./signing/sign";
 export { verify } from "./signing/verify";
-export type { SymmetricCiphertext } from "./symmetric";
-export {
-  AES_256_KEY_BYTES,
-  AES_GCM_IV_BYTES,
-  AES_GCM_TAG_BYTES,
-  assertAesGcmIv,
-  createAesGcmIv,
-  decryptWithDek,
-  encryptWithDek,
-} from "./symmetric";
-export { computeUserIdentityBundleFingerprint } from "./userIdentityBundle";

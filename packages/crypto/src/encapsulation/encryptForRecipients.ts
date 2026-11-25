@@ -1,4 +1,4 @@
-import { AES_256_KEY_BYTES, AES_GCM_IV_BYTES } from "../symmetric";
+import { AES_256_KEY_BYTES, AES_GCM_IV_BYTES } from "../primitives/symmetric";
 import type { EncryptedEnvelope } from "./types";
 import { wrapDekForRecipients } from "./wrapDek";
 

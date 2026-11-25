@@ -29,10 +29,10 @@ exec bun test \
   protocol/failFastPool.test.ts \
   protocol/noBrickTraceModule.test.ts \
   ../packages/api/src/documents/documentBaselineDominanceTraceReplay.test.ts \
-  ../packages/crypto/src/keying/transparencyProofs.test.ts \
-  ../packages/crypto/src/keying/transparencyProofMutations.test.ts \
-  ../packages/crypto/src/keying/transparencyLeanVectors.test.ts \
-  ../packages/crypto/src/keying/keyingProperties.test.ts \
-  ../packages/crypto/src/keying/keyingPathProperties.test.ts \
+  ../packages/crypto/src/keying/transparency/transparencyProofs.test.ts \
+  ../packages/crypto/src/keying/transparency/transparencyProofMutations.test.ts \
+  ../packages/crypto/src/keying/transparency/transparencyLeanVectors.test.ts \
+  ../packages/crypto/src/keying/properties/keyingProperties.test.ts \
+  ../packages/crypto/src/keying/properties/keyingPathProperties.test.ts \
   ../packages/api-client/src/operationTransportSurface.test.ts \
   ../packages/validators/src
