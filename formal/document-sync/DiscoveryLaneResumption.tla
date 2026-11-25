@@ -14,9 +14,9 @@
 (* acknowledged connection lists every known lane, but a connect attempt   *)
 (* may end without an acknowledgement, and a device may not connect at     *)
 (* all. A resume lists the lanes the durable state says are still owed.    *)
-(* It waits while an attempt is pending, so a start lists an owed lane     *)
-(* once: in the acknowledgement's catch-up, or in the resume when the      *)
-(* attempt ends without one.                                               *)
+(* It waits while an attempt is pending, so that attempt's catch-up never  *)
+(* re-lists what the resume listed. A connection made after the resume     *)
+(* ran is a new catch-up and lists every lane again.                       *)
 (*                                                                         *)
 (* Each lane holds one document the device lacks. The server's documents   *)
 (* are fixed: the account's content exists before this device signs in.    *)
@@ -236,8 +236,8 @@ UnappliedLaneIsOwed == \A l \in Lanes : ~applied[l] => Owed(l)
 \* The settled mark means the lane's documents are in the projection.
 SettledLaneIsApplied == \A l \in Lanes : settled[l] => applied[l]
 
-\* A start lists an owed lane once: an attempt's catch-up never re-lists
-\* what the same start's resume listed while that attempt was pending.
+\* An attempt's catch-up never re-lists what the same start's resume listed
+\* while that attempt was pending. A later connection may list it again.
 OwedListedOnce == ~listedTwice
 
 \* Once crashes stop, every lane's document reaches the projection, whether

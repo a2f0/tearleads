@@ -267,7 +267,9 @@ function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
  * Raises the signals latched while the tree was not ready. A regain resets
  * what the reconciler considers discovered, so it goes first; the listing an
  * acknowledged connection owes then takes over the queue it filled. A resume
- * of owed lanes is latched by its machine and never shares a flush with one.
+ * of owed lanes is latched by its machine, which drops it when the awaited
+ * attempt is acknowledged. One latched before a flush can still flush beside
+ * a later acknowledgement, and both may then list the same lanes.
  */
 function flushPendingReconcileSignals(state: LocalProjectionStoreState): void {
   if (

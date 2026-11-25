@@ -147,8 +147,9 @@ applied listing that left nothing staged, and a lane still missing documents
 stays durably owed. A start that is connecting leaves the owed lanes to the
 acknowledged connection's catch-up, which lists every lane; otherwise, or when
 the attempt ends without an acknowledgement, it resumes them itself. The
-device converges however many reloads land, and no start lists an owed lane
-twice. See the
+device converges however many reloads land, and the catch-up of an attempt
+pending at the start never re-lists lanes that start's resume listed; a
+connection made after the resume ran lists every lane again. See the
 [production mapping and negative controls](./DiscoveryLaneResumption.md).
 
 [`MetadataListingConvergence.tla`](./MetadataListingConvergence.tla)

@@ -23,9 +23,12 @@ connection lists every known lane, owed ones included. But a connect attempt
 can end without an acknowledgement (in the screenshot probe the socket opens
 on every boot after the identity restore and never declares its interest), and
 a device may not connect at all. The resume lists the lanes the durable state
-says are owed. It waits while an attempt is pending, so each start lists an
-owed lane once: in the acknowledgement's catch-up, or in the resume when the
-attempt ends without one or none was pending.
+says are owed. It waits while an attempt is pending, so an acknowledgement
+that arrives while the start waits lists each owed lane once, in its
+catch-up; the resume lists them when the attempt ends without one or none
+was pending. That is all the deferral promises: once the resume has run, a
+connection that starts or is acknowledged later is a new catch-up and lists
+every lane again, which the model allows.
 
 Issue #3255 was this gap. The reload that follows an identity restore cut the
 sign-in boot short after its one listing named every lane but before the

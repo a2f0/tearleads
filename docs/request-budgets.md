@@ -226,9 +226,20 @@ local application.
   an applied listing, or holding staged candidates. The reconciler lists up
   to four lanes per batched request, so a reload that cuts discovery short
   costs one listing per four owed lanes at the next start, and a settled lane
-  costs nothing. A start whose connect attempt is acknowledged leaves its owed
-  lanes to the catch-up below, which lists every lane anyway, so no start
-  lists an owed lane twice.
+  costs nothing. A start whose connect attempt is still pending at hydration
+  does not resume: if the attempt is acknowledged, the catch-up below lists
+  every lane, owed ones included, and the resume never runs. The resume runs
+  when no attempt is pending at hydration or the attempt ends without an
+  acknowledgement (the socket opens before the tree can declare its interest,
+  or no acknowledgement arrives within 15 seconds). A connection that starts
+  or is acknowledged after that is a new catch-up and lists every lane again,
+  the resumed ones included.
+- Upgrading costs one full listing. Devices that ran earlier releases have no
+  settled mark on any document lane, so every known lane starts owed, and the
+  first start after the upgrade lists each one once, four lanes per request,
+  in the resume or the catch-up. That listing also repairs devices whose
+  sign-in boot was cut short. A lane the server refuses never settles, so it
+  stays owed and is listed again on every start.
 - Scoped hints force the affected lanes, including the parent lane needed to
   remove a nested revoked or deleted child. Newer force generations survive
   older completions, and temporary failures keep the force with bounded
