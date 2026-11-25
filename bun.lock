@@ -191,7 +191,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.115",
+      "version": "0.1.116",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -241,7 +241,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.316",
+      "version": "0.1.317",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
