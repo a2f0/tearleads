@@ -21,7 +21,7 @@ import {
 import { requestDocumentStoreSync } from "../../registry";
 import { importDurableDocumentHistory } from "../history/durableDocumentReload";
 import { chainIdentityWrite } from "../identityWriteChain";
-import { chainQueuedWrite } from "../localWriteQueue";
+import { holdQueuedWritesFor } from "../localWriteQueue";
 import { listPendingUpdates } from "../persistence";
 import {
   type DocumentState,
@@ -187,21 +187,11 @@ async function rebaseDocumentStoreOntoFreshPeer(
   const { state } = context;
   const peerSalt = crypto.randomUUID();
   const newPeer = await storedDocumentPeer(state, peerSalt);
-  const installation = state.writeChain
-    .catch(() => undefined)
-    .then(() =>
-      chainIdentityWrite(state, () =>
-        rebaseOnWriteChain(context, peerFrontiers, peerSalt, newPeer),
-      ),
-    );
-  void chainQueuedWrite(
-    state,
-    installation.then(
-      () => undefined,
-      () => undefined,
+  const outcome = await holdQueuedWritesFor(state, () =>
+    chainIdentityWrite(state, () =>
+      rebaseOnWriteChain(context, peerFrontiers, peerSalt, newPeer),
     ),
   );
-  const outcome = await installation;
   if (outcome !== "nothing_to_cut") requestDocumentStoreSync(state);
   return outcome;
 }
