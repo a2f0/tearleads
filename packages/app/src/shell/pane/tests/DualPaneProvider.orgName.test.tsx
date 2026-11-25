@@ -49,7 +49,7 @@ function explorerSectionHeadings(pane: HTMLElement): string[] {
 // End-to-end proof that a new roster member decrypts a foreign org's display
 // name. This exercises the whole chain: Admins-group sync of the founder's
 // containers, roster import into the Members group (which rotates the epoch
-// and re-shares the metadata container; registration already committed the
+// and re-shares the metadata container; provisioning already committed the
 // org profile body, so nothing pushes it), the
 // reconciler pulling + decrypting the Members-granted metadata container's
 // organization_profile document (a system-container document synced on every

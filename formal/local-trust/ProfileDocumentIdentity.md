@@ -72,12 +72,13 @@ The model has no competing birth at the preferred local ID. It therefore does
 not cover the SDK's `null` same-local winner result or restoration of that
 winner's durable history; implementation tests must cover that path separately.
 
-Besides these seams, only registration's bootstrap persist writes the
-organization profile at its preferred local ID. Member changes once opened it
+Besides these seams, only the provisioning persist (registration or
+organization creation) writes the organization profile at its preferred local
+ID. Member changes once opened it
 there to push the profile after the commit. An install that held no row under
 that ID, such as a fresh login, then birthed an empty profile whose create the
 API refused with `409 document_manifest_already_exists`
-([#3257](https://github.com/a2f0/tearleads/issues/3257)). Registration commits
+([#3257](https://github.com/a2f0/tearleads/issues/3257)). Provisioning commits
 the profile with the organization, so member changes no longer open it.
 
 ## Checks and fault sensitivity
