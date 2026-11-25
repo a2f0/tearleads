@@ -9,10 +9,8 @@ import { createCurrentOrganizationGroup } from "../../workflows/organizations/gr
 import { deleteCurrentOrganizationGroup } from "../../workflows/organizations/groups/deleteCurrentOrganizationGroup";
 import { createRuntimeCurrentOrganizationMutation } from "../../workflows/organizations/principalMutations/runtimeCurrentOrganizationMutation";
 
-import type { ContainerContents } from "../containerContents";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
-import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModelCoordinator";
 import type { GroupMemberAdmission } from "./recipientAdmission";
 
@@ -88,7 +86,6 @@ function requireEncapsulationKeyPair(
 
 interface PrincipalMutationRuntime extends OrganizationMutationScope {
   readonly stillCurrent: () => boolean;
-  readonly containerContents: ContainerContents;
   readonly readModelCoordinator: OrganizationReadModelCoordinator;
 }
 
@@ -122,22 +119,13 @@ export async function addUserToOrganizationGroup(
         signingContext.organizationId,
       );
       const {
-        memberGroupId,
         response: { readModel, ...bundle },
-        enrolled,
       } = await mutateCurrent(input.groupId, {
         kind: "add",
         expectedGroupName: input.expectedGroupName,
         targetUserId: input.targetUserId,
         admission: input.admission,
       });
-      if (input.groupId === memberGroupId || enrolled) {
-        await syncOrganizationMetadataProfile({
-          containerContents: input.containerContents,
-          log: input.runtime.util.log,
-          organizationId: signingContext.organizationId,
-        });
-      }
       // The verified post-commit read is the mutation's own, from the delta
       // its response carried when that applies: callers apply this directory
       // instead of reading the read model a second time.
@@ -280,20 +268,12 @@ export async function removeUserFromOrganizationGroup(
         signingContext.organizationId,
       );
       const {
-        memberGroupId,
         response: { readModel, ...bundle },
       } = await mutateCurrent(input.groupId, {
         kind: "remove",
         expectedGroupName: input.expectedGroupName,
         removedUserId: input.removedUserId,
       });
-      if (input.groupId === memberGroupId) {
-        await syncOrganizationMetadataProfile({
-          containerContents: input.containerContents,
-          log: input.runtime.util.log,
-          organizationId: signingContext.organizationId,
-        });
-      }
       // The verified post-commit read is the mutation's own, from the delta
       // its response carried when that applies: callers apply this directory
       // instead of reading the read model a second time.

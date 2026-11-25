@@ -118,8 +118,8 @@ export async function seedRoster(
       ),
     );
   }
-  // Success is the state each settle loop re-read, not a clean request log:
-  // the first member add makes the SDK re-submit the organization profile's
-  // create, which the API answers 409 and the SDK adopts as already done.
+  // Each settle loop re-read the state it waited for; a failed request or a
+  // logged SDK error means one of those reads may have been partial.
+  session.assertNoFailures();
   return { groups: input.groups.length, members: userIds.size };
 }

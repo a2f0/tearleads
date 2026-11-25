@@ -19,7 +19,6 @@ import {
   updateOrganizationRosterEntry,
   withVerifiedDirectoryUser,
 } from "../../workflows/organizations";
-import type { ContainerContents } from "../containerContents";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import {
   createOrganizationDataUsageCoordinator,
@@ -115,10 +114,9 @@ export type {
 
 export function createOrganizations(
   runtime: InternalRuntime,
-  containerContents: ContainerContents,
   openReconciler: () => OrganizationContentReconciler,
 ): Organizations {
-  return new OrganizationsService(runtime, containerContents, openReconciler);
+  return new OrganizationsService(runtime, openReconciler);
 }
 
 class OrganizationsService implements Organizations {
@@ -128,7 +126,6 @@ class OrganizationsService implements Organizations {
 
   constructor(
     private readonly runtimeService: InternalRuntime,
-    private readonly containerContents: ContainerContents,
     openReconciler: () => OrganizationContentReconciler,
   ) {
     this.dataUsageCoordinator = createOrganizationDataUsageCoordinator(
@@ -157,7 +154,6 @@ class OrganizationsService implements Organizations {
     );
     return addUserToOrganizationGroup({
       ...input,
-      containerContents: this.containerContents,
       readModelCoordinator: this.readModelCoordinator,
       ...mutation,
     });
@@ -472,7 +468,6 @@ class OrganizationsService implements Organizations {
   async removeUserFromGroup(input: RemoveOrganizationGroupUserInput) {
     return removeUserFromOrganizationGroup({
       ...input,
-      containerContents: this.containerContents,
       readModelCoordinator: this.readModelCoordinator,
       ...currentOrganizationSigningMutation(this.runtimeService),
     });
@@ -481,7 +476,6 @@ class OrganizationsService implements Organizations {
   async revokeGrant(grant: OrganizationGrantRef) {
     return revokeOrganizationGrant({
       ...grant,
-      containerContents: this.containerContents,
       readModelCoordinator: this.readModelCoordinator,
       ...currentOrganizationSigningMutation(this.runtimeService),
     });

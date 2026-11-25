@@ -51,6 +51,8 @@ import type {
   AppDocumentProjectorDefinition,
   DocumentTypeAppProps,
 } from "./types";
+import { VehicleDocumentApp } from "./vehicle/VehicleApp";
+import { VEHICLE_DOCUMENT_KIND } from "./vehicle/vehicleDocumentDefinition";
 import { VideoDocumentApp } from "./video/VideoDocumentApp";
 import { VIDEO_DOCUMENT_KIND } from "./video/videoDocumentDefinition";
 import { WeightDocumentApp } from "./weight/WeightApp";
@@ -83,6 +85,7 @@ const documentTypeAppsByKind = new Map<
   [WEIGHT_DOCUMENT_KIND, WeightDocumentApp],
   [TOOL_DOCUMENT_KIND, ToolDocumentApp],
   [APPLIANCE_DOCUMENT_KIND, ApplianceDocumentApp],
+  [VEHICLE_DOCUMENT_KIND, VehicleDocumentApp],
   [JSON_FILE_DOCUMENT_KIND, JsonFileDocumentApp],
   [IMAGE_DOCUMENT_KIND, ImageDocumentApp],
   [AUDIO_DOCUMENT_KIND, AudioDocumentApp],

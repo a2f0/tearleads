@@ -123,11 +123,7 @@ export function createCurrentPrincipalMutation(
           member,
           resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
         });
-        return {
-          response,
-          memberGroupId: context.memberGroupId,
-          enrolled: Boolean(member),
-        };
+        return { response };
       },
     );
 }
