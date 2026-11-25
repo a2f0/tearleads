@@ -17,6 +17,26 @@ export type PerContainerDiscovery = (
   onPendingDiscovery?: ContainerDiscoveryRequest["onPendingDiscovery"],
 ) => Promise<ReadonlyArray<DocumentSummary> | null>;
 
+/**
+ * Serves each lane of a batched authoritative listing from a per-container
+ * mock, in order. A lane whose mock throws or returns `null` was not listed.
+ */
+export function perContainerListing(
+  list: (containerId: string) => Promise<ReadonlyArray<string> | null>,
+): ReconciliationHost["listContainerDocumentIds"] {
+  return async (containerIds) => {
+    const listed = new Map<string, ReadonlyArray<string> | null>();
+    for (const containerId of containerIds) {
+      try {
+        listed.set(containerId, await list(containerId));
+      } catch {
+        listed.set(containerId, null);
+      }
+    }
+    return listed;
+  };
+}
+
 /** Serves each lane of a batched discovery from a per-container mock, in order. */
 export function perContainerDiscovery(
   discover: PerContainerDiscovery,
@@ -62,7 +82,7 @@ export function createReconciliationTestHost(
     }),
     isIgnorableError: () => false,
     listAutomaticRootCatchupContainerIds: () => [],
-    listContainerDocumentIds: async () => [],
+    listContainerDocumentIds: perContainerListing(async () => []),
     listKnownContainerIds: () => [],
     listOwedDocumentDiscoveryContainerIds: async () => [],
     loadContainerDelta: async (containerId) => ({

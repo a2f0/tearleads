@@ -242,22 +242,24 @@ Pausing does not close stores already open; their pulls are held as usual.
 Three bounded probes close gaps that container discovery cannot observe:
 
 - after the initial idle discovery sweep, the reconciler pages an authoritative
-  unwatermarked listing for every known remotely listable container. It then
+  unwatermarked listing for every known remotely listable container, up to 32
+  lanes per request. It then
   opens locally persisted, visible remote documents linked to those completed
   lanes — including shared containers from another organization — but absent
   from every full listing. An empty early tree does not complete the pass, and
   remote-container growth while it settles restarts its candidate cursor.
   Once the first non-empty pass completes, later user-created containers do not
-  reopen it. Hidden system documents keep their specialized sync paths. Listing
-  failures receive three short, backed-off attempts; a lane that remains
-  unlistable is skipped for that service lifecycle. Each low-priority candidate
+  reopen it. Hidden system documents keep their specialized sync paths. A lane
+  the server refuses, or one whose request failed, receives three short,
+  backed-off attempts on its own count; a lane that remains unlistable is
+  skipped for that service lifecycle. Each low-priority candidate
   turn scans up to 64 local rows but opens at most eight stores, so a restored
   replica converges old remote deletions without monopolizing the sync
   coordinator. Progress survives reconnects within the service lifecycle. The
   completion marker is deliberately not durable, because a local backup restore
   can replace document rows underneath the runtime; the cost is one
-  unwatermarked listing per remotely listable container on every service
-  launch;
+  unwatermarked listing request per 32 remotely listable containers on every
+  service launch;
 - opening a persisted remote document arms an initialization probe, unless a
   listing covers it. Websocket invalidations live only in process memory, so a
   clean cached snapshot cannot prove that no peer committed an update before
