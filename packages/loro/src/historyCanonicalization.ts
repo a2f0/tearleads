@@ -78,39 +78,49 @@ function canonicalHistoryOperation(operation: JsonOp): JsonOp {
   return operation;
 }
 
-/** An insert into a text or a list: the two kinds Loro groups by path. */
-type SequenceInsert =
-  | { readonly pos: number; readonly text: string }
-  | { readonly pos: number; readonly values: readonly unknown[] };
+type InsertContent = Extract<JsonOp["content"], { type: "insert" }>;
+type TextInsert = Extract<InsertContent, { text: string }>;
+type ListInsert = Extract<InsertContent, { pos: number; value: unknown }>;
+type ListValues = Extract<ListInsert["value"], readonly unknown[]>;
 
-function sequenceInsertOf(operation: JsonOp): SequenceInsert | null {
+/**
+ * A run of continuing inserts into a text or a list, the two kinds Loro
+ * groups by path: its first operation's content and every part.
+ */
+type InsertRun =
+  | {
+      readonly kind: "text";
+      readonly content: TextInsert;
+      readonly first: JsonOp;
+      readonly texts: string[];
+    }
+  | {
+      readonly kind: "list";
+      readonly content: ListInsert;
+      readonly first: JsonOp;
+      readonly values: ListValues;
+    };
+
+/** The run `operation` starts, or null when it is no text or list insert. */
+function startRun(operation: JsonOp): InsertRun | null {
   const { container, content } = operation;
   if (content.type !== "insert" || !("pos" in content)) return null;
   if (container.endsWith(":Text") && "text" in content) {
-    return { pos: content.pos, text: content.text };
+    return { content, first: operation, kind: "text", texts: [content.text] };
   }
   if (
     container.endsWith(":List") &&
     "value" in content &&
     Array.isArray(content.value)
   ) {
-    return { pos: content.pos, values: content.value };
+    return {
+      content,
+      first: operation,
+      kind: "list",
+      values: [...content.value],
+    };
   }
   return null;
-}
-
-/** A run of continuing inserts: its first operation and every part. */
-interface InsertRun {
-  readonly first: JsonOp;
-  readonly pos: number;
-  readonly texts: string[] | null;
-  readonly values: unknown[] | null;
-}
-
-function startRun(first: JsonOp, insert: SequenceInsert): InsertRun {
-  return "text" in insert
-    ? { first, pos: insert.pos, texts: [insert.text], values: null }
-    : { first, pos: insert.pos, texts: null, values: [...insert.values] };
 }
 
 /**
@@ -119,38 +129,41 @@ function startRun(first: JsonOp, insert: SequenceInsert): InsertRun {
  * length is the distance from its first counter to the next operation's, in
  * the unit its position counts in.
  */
-function extendRun(run: InsertRun, next: JsonOp, insert: SequenceInsert) {
+function extendRun(run: InsertRun, next: JsonOp): boolean {
+  const part = startRun(next);
   if (
+    part === null ||
     next.container !== run.first.container ||
-    insert.pos !== run.pos + (next.counter - run.first.counter)
+    part.content.pos !== run.content.pos + (next.counter - run.first.counter)
   ) {
     return false;
   }
-  if (run.texts !== null && "text" in insert) {
-    run.texts.push(insert.text);
+  if (run.kind === "text" && part.kind === "text") {
+    run.texts.push(...part.texts);
     return true;
   }
-  if (run.values !== null && "values" in insert) {
+  if (run.kind === "list" && part.kind === "list") {
     // Not a spread: an insert can hold more values than a call takes.
-    for (const value of insert.values) run.values.push(value);
+    for (const value of part.values) run.values.push(value);
     return true;
   }
   return false;
 }
 
-/** The one operation a run's inserts join into. */
+/**
+ * The one operation a run's inserts join into. Only the inserted content
+ * changes: the container, first counter and position are the first
+ * operation's.
+ */
 function runOperation(run: InsertRun): JsonOp {
-  const { first } = run;
-  if (run.texts !== null && run.texts.length === 1) return first;
-  // Only the inserted content changes: the kind, container, first counter and
-  // position are the first operation's.
-  return {
-    ...first,
-    content:
-      run.texts !== null
-        ? { ...first.content, text: run.texts.join("") }
-        : { ...first.content, value: run.values },
-  } as JsonOp;
+  const { container, counter } = run.first;
+  return run.kind === "text"
+    ? {
+        container,
+        content: { ...run.content, text: run.texts.join("") },
+        counter,
+      }
+    : { container, content: { ...run.content, value: run.values }, counter };
 }
 
 /**
@@ -165,12 +178,9 @@ function joinContinuingInserts(operations: readonly JsonOp[]): JsonOp[] {
   const joined: JsonOp[] = [];
   let run: InsertRun | null = null;
   for (const operation of operations) {
-    const insert = sequenceInsertOf(operation);
-    if (run !== null && insert !== null && extendRun(run, operation, insert)) {
-      continue;
-    }
+    if (run !== null && extendRun(run, operation)) continue;
     if (run !== null) joined.push(runOperation(run));
-    run = insert === null ? null : startRun(operation, insert);
+    run = startRun(operation);
     if (run === null) joined.push(operation);
   }
   if (run !== null) joined.push(runOperation(run));
