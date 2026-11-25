@@ -76,6 +76,7 @@ export function SyncStatusPopoverBody({
         lanes: sync.lanes,
         pendingWriteCount: sync.pendingWriteCount,
         queueReadFailed: sync.queueReadFailed,
+        unavailableReason: sync.unavailableReason,
         uploadingFileCount,
       }).map(
         (id): SyncStatusPopoverAction => ({
@@ -103,6 +104,7 @@ export function SyncStatusPopoverBody({
     lanes: sync.lanes,
     pausedOrganizationCount: sync.pausedOrganizationCount,
     pendingWriteCount: sync.pendingWriteCount,
+    unavailableReason: sync.unavailableReason,
     uploadingFileCount,
   });
   return (

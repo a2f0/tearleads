@@ -23,6 +23,7 @@ afterEach(() => {
 });
 
 const WAITING: SyncStatusResult = {
+  unavailableReason: null,
   billingBlock: null,
   lanes: { failed: 0, firstError: null, running: 0 },
   pausedOrganizationCount: 0,
