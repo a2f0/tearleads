@@ -3,6 +3,7 @@ import {
   emptyVersionVector,
   encodeVersionVector,
   getImportBlobMetadata,
+  LoroReusedOperationIdError,
   mergeVersionVectors,
 } from "@tearleads/loro";
 import { readPullContinuation } from "../../../../data/documents/shared/sync/syncPagination";
@@ -148,6 +149,26 @@ function documentSyncSaveOptions(
   };
 }
 
+/**
+ * Ends a page whose import or save threw. Loro work on the imported state
+ * runs on through the version vector and the save's snapshot: a throw before
+ * the commit ends the page uncleanly. When that throw is Loro refusing a
+ * reused id, an edit wrote other operations at ids the page carries before
+ * the page could be applied. Nothing was saved, so the pass stays unapplied
+ * (null): the next one judges the page against that edit and voids what
+ * collides. Every other failure is thrown.
+ */
+function unappliedPageOrThrow(
+  error: unknown,
+  committed: boolean,
+  syncAttempt: DocumentSyncAttempt,
+): null {
+  if (committed) throw error;
+  noteDocumentSyncLoroWorkFailed(syncAttempt.loroWindow);
+  if (error instanceof LoroReusedOperationIdError) return null;
+  throw error;
+}
+
 async function persistSyncedDocument(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -240,11 +261,7 @@ async function persistSyncedDocument(
       isCurrent,
     );
   } catch (error) {
-    // Loro work on the imported state runs on through the version vector
-    // and the save's snapshot: a throw before the commit ends the page
-    // uncleanly.
-    if (!committed) noteDocumentSyncLoroWorkFailed(syncAttempt.loroWindow);
-    throw error;
+    return unappliedPageOrThrow(error, committed, syncAttempt);
   } finally {
     candidate.free();
     await settleUnsavedLoroWindow(

@@ -38,8 +38,8 @@ helpers name the ones callers act on:
 
 - `LoroReusedOperationIdError`: the blob carries an operation id the document
   already holds with other content. It names the first such id Loro met. The
-  sync judge voids the update and, when the id is on the peer this device
-  writes with, records a
+  sync judge voids the update and, when the update's declared span reuses ids
+  under the peer this device writes with, records a
   [preemption notice](../../docs/advisory-op-spans.md#preemption-notices).
 - `LoroImportUnresolvedDependenciesError`: the blob depends on operations the
   document lacks, which Loro keeps as pending.
