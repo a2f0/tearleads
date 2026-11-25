@@ -129,8 +129,11 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   const paneSide = usePaneSideOptional();
   const peerLabel =
     seedPeerIdentities && paneSide ? selfPaneLabel(paneSide) : null;
-  const { accountNaming, legalTerms: legalTermsRequirement } =
-    useAutoProvisioningStatus();
+  const {
+    accountNaming,
+    legalTerms: legalTermsRequirement,
+    recovered = false,
+  } = useAutoProvisioningStatus();
   const { agreedVersion } = useLegalTermsAgreement();
   const legalTerms = useLegalTermsAgreementStore();
   const givenName =
@@ -154,13 +157,7 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
         registrationNames(peerLabel, options?.accountName ?? givenName),
       );
       if (tearleads.identity.snapshot !== identitySnapshot) return false;
-      if (response === "awaiting-agreement") {
-        // Without an agreement only an identity with an account goes on: one
-        // recovered from its passphrase has one this device does not bind yet.
-        return legalTermsRequirement === "not-required"
-          ? signBackIn(tearleads, login, identitySnapshot, false)
-          : false;
-      }
+      if (response === "awaiting-agreement") return false;
       if (!response || "status" in response) {
         return signBackIn(
           tearleads,
@@ -176,7 +173,6 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
       canRegisterCurrentIdentity,
       givenName,
       legalTerms,
-      legalTermsRequirement,
       login,
       loginWithChallenge,
       peerLabel,
@@ -187,9 +183,13 @@ export function useRegisterCurrentIdentity(): RegisterCurrentIdentityResult {
   return {
     canRegisterCurrentIdentity,
     // The autopilot reads whether the device binds this key; without one
-    // (outside a runtime), a registration asks.
+    // (outside a runtime), a registration asks. A key recovered from its
+    // passphrase usually has an account, so the autopilot only signs it in,
+    // but one created offline and never registered has none: Register asks
+    // for it too, and a key that does have one signs in on the duplicate.
     legalTermsRequired:
-      agreedVersion === null && legalTermsRequirement !== "not-required",
+      agreedVersion === null &&
+      (recovered || legalTermsRequirement !== "not-required"),
     registerCurrentIdentity,
   };
 }
