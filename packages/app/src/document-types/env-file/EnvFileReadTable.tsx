@@ -70,6 +70,9 @@ function getEnvFileColumns(context: {
       fold: "secondary",
       header: "Value",
       id: "value",
+      // For the same reason its edges cannot be dragged: a narrowed cell would
+      // cut the two controls off while the keyboard could still reach them.
+      resizable: false,
       width: "15rem",
     },
     trackerUpdatedColumn<EnvVariableRow>(context),

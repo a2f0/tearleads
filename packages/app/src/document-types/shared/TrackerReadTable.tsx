@@ -71,6 +71,11 @@ export interface TrackerReadColumn<TRow> {
   id: string;
   /** Values that are data rather than prose: measurements, keys, timestamps. */
   monospace?: boolean | undefined;
+  /**
+   * Set false on a column whose content cannot be cut short (controls that
+   * must stay reachable): neither of its edges can then be dragged.
+   */
+  resizable?: boolean | undefined;
   /** Supporting values (notes, attribution) that should not compete with data. */
   muted?: boolean | undefined;
   /**
@@ -142,6 +147,14 @@ function toFoldedFields<TRow>(
     });
 }
 
+function getTrackerColumnResizeLabel<TRow>(
+  column: TrackerReadColumn<TRow>,
+): string | undefined {
+  return column.resizable === false
+    ? undefined
+    : (column.sortLabel ?? column.header);
+}
+
 function buildTrackerReadTableColumns<TRow>(params: {
   actionsLabel: string;
   columnMenu: ReactNode;
@@ -180,7 +193,7 @@ function buildTrackerReadTableColumns<TRow>(params: {
           column.header
         ),
         id: column.id,
-        resizeLabel: column.sortLabel ?? column.header,
+        resizeLabel: getTrackerColumnResizeLabel(column),
         width: column.width,
       })),
       actionsColumn,

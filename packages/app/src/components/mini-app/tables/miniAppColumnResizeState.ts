@@ -80,17 +80,18 @@ function toBoundarySide(
 /**
  * Resolves the widths a table lays its columns out with.
  *
- * Resizing needs a fill column, one that declares no width, to take up what
- * the others leave: without it a fixed table layout spreads spare room over
- * every column, and a chosen width would not be the width drawn. A table with
- * no fill column, like one handed no `widths`, keeps its declared layout and
- * gets no boundaries.
+ * Resizing needs exactly one fill column, one that declares no width, to take
+ * up what the others leave. Without it a fixed table layout spreads spare room
+ * over every column, and with two it splits that room between them; either
+ * way a chosen width would not be the width drawn, and an edge would drift
+ * from the pointer. Such a table, like one handed no `widths`, keeps its
+ * declared layout and gets no boundaries.
  */
 export function resolveMiniAppColumnLayout(
   columns: ReadonlyArray<MiniAppResizableColumn>,
   widths: MiniAppColumnWidths | undefined,
 ): MiniAppColumnLayout {
-  if (widths === undefined || !columns.some(isFillColumn)) {
+  if (widths === undefined || columns.filter(isFillColumn).length !== 1) {
     return {
       boundaries: columns.map(() => null),
       colWidths: columns.map((column) => column.width),
@@ -114,7 +115,7 @@ export function resolveMiniAppColumnLayout(
       return left && right ? { left, right } : null;
     }),
     colWidths,
-    // Holds every measured column at its width and each fill column at its
+    // Holds every measured column at its width and the fill column at its
     // floor; a frame narrower than this scrolls the table sideways.
     minWidth: `calc(${columns
       .map(
@@ -241,51 +242,78 @@ export function isMiniAppColumnResetDue(
   );
 }
 
+/** Whether `state` is a drag that `pointerId` owns. */
+function isMiniAppColumnDragOf(
+  state: MiniAppColumnResizeState,
+  pointerId: number,
+): state is MiniAppColumnDrag {
+  return state.status === "dragging" && state.pointerId === pointerId;
+}
+
+type MiniAppColumnDrag = Extract<
+  MiniAppColumnResizeState,
+  { status: "dragging" }
+>;
+
+/** The drag with its boundary `delta` pixels from where it was pressed. */
+function moveMiniAppColumnDrag(
+  drag: MiniAppColumnDrag,
+  delta: number,
+): MiniAppColumnDrag {
+  return {
+    ...drag,
+    widths:
+      Math.abs(delta) < MINI_APP_COLUMN_DRAG_THRESHOLD
+        ? drag.base
+        : { ...drag.base, ...tradeMiniAppColumnWidths(drag.pair, delta) },
+  };
+}
+
+function assertNever(event: never): never {
+  throw new Error(`Unhandled column resize event: ${JSON.stringify(event)}`);
+}
+
 export function transitionMiniAppColumnResize(
   state: MiniAppColumnResizeState,
   event: MiniAppColumnResizeEvent,
 ): MiniAppColumnResizeState {
-  if (event.type === "pressed") {
-    // A second pointer cannot take over a drag in progress.
-    return state.status === "idle"
-      ? {
-          base: event.base,
-          pair: event.pair,
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          status: "dragging",
-          stillReleases: state.stillReleases,
-          widths: event.base,
-        }
-      : state;
+  switch (event.type) {
+    case "pressed":
+      // A second pointer cannot take over a drag in progress.
+      return state.status === "idle"
+        ? {
+            base: event.base,
+            pair: event.pair,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            status: "dragging",
+            stillReleases: state.stillReleases,
+            widths: event.base,
+          }
+        : state;
+    case "reset":
+      return isMiniAppColumnResetDue(state)
+        ? MINI_APP_COLUMN_RESIZE_IDLE
+        : state;
+    case "moved":
+      return isMiniAppColumnDragOf(state, event.pointerId)
+        ? moveMiniAppColumnDrag(state, event.clientX - state.startX)
+        : state;
+    case "released":
+      return isMiniAppColumnDragOf(state, event.pointerId)
+        ? {
+            status: "idle",
+            stillReleases:
+              state.widths === state.base ? state.stillReleases + 1 : 0,
+          }
+        : state;
+    case "cancelled":
+      return isMiniAppColumnDragOf(state, event.pointerId)
+        ? MINI_APP_COLUMN_RESIZE_IDLE
+        : state;
+    default:
+      return assertNever(event);
   }
-
-  if (event.type === "reset") {
-    return isMiniAppColumnResetDue(state) ? MINI_APP_COLUMN_RESIZE_IDLE : state;
-  }
-
-  if (state.status !== "dragging" || state.pointerId !== event.pointerId) {
-    return state;
-  }
-
-  if (event.type === "moved") {
-    const delta = event.clientX - state.startX;
-    return {
-      ...state,
-      widths:
-        Math.abs(delta) < MINI_APP_COLUMN_DRAG_THRESHOLD
-          ? state.base
-          : { ...state.base, ...tradeMiniAppColumnWidths(state.pair, delta) },
-    };
-  }
-
-  return {
-    status: "idle",
-    stillReleases:
-      event.type === "released" && state.widths === state.base
-        ? state.stillReleases + 1
-        : 0,
-  };
 }
 
 /**

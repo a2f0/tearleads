@@ -51,6 +51,17 @@ test("a table without chosen widths, or without a fill column, keeps its declare
     colWidths: ["5rem", "5rem", "5rem", "5rem", "5rem"],
     minWidth: undefined,
   });
+
+  // Two columns would split the spare room, so an edge could not follow the
+  // pointer: that table is not resizable either.
+  const twoFills = COLUMNS.map((column) =>
+    column.id === "type" ? { ...column, width: undefined } : column,
+  );
+  expect(resolveMiniAppColumnLayout(twoFills, { modified: 200 })).toEqual({
+    boundaries: [null, null, null, null, null],
+    colWidths: ["4rem", undefined, undefined, "11rem", "2.25rem"],
+    minWidth: undefined,
+  });
 });
 
 test("chosen widths replace declared ones, and the fill column takes the rest", () => {
