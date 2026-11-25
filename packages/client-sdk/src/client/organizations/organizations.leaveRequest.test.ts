@@ -11,7 +11,6 @@ import {
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
 import { createTestTrustedUserIdentity } from "../../data/trustedUserIdentity/testFixtures";
-import type { ContainerContents } from "../containerContents";
 import { createOrganizations } from ".";
 import { leaveRequestVerifier } from "./organizationLeaveRequestVerifier";
 
@@ -58,13 +57,9 @@ test("a roster update response cannot carry a forged leave request", async () =>
       resolvePinned: async (userId: string) =>
         userId === MEMBER_ID ? pinned : null,
     });
-    const organizations = createOrganizations(
-      runtime,
-      {} as ContainerContents,
-      () => {
-        throw new Error("No organization is resumed in this test");
-      },
-    );
+    const organizations = createOrganizations(runtime, () => {
+      throw new Error("No organization is resumed in this test");
+    });
 
     const user = await organizations.updateRosterEntry(MEMBER_ID, "profile");
 
@@ -144,13 +139,9 @@ test("a genuine request is not shown while this device cannot place the membersh
       resolvePinned: async (userId: string) =>
         userId === MEMBER_ID ? pinned : null,
     });
-    const organizations = createOrganizations(
-      runtime,
-      {} as ContainerContents,
-      () => {
-        throw new Error("No organization is resumed in this test");
-      },
-    );
+    const organizations = createOrganizations(runtime, () => {
+      throw new Error("No organization is resumed in this test");
+    });
 
     const user = await organizations.updateRosterEntry(MEMBER_ID, "profile");
 
