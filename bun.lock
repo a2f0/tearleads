@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.192",
+      "version": "0.1.193",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -83,7 +83,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.47",
+      "version": "0.1.48",
       "dependencies": {
         "@electric-sql/pglite": "0.5.15",
         "@tearleads/crypto": "workspace:*",
@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.341",
+      "version": "0.1.342",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -241,7 +241,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.311",
+      "version": "0.1.312",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -291,7 +291,7 @@
     },
     "packages/loro": {
       "name": "@tearleads/loro",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "dependencies": {
         "@tearleads/encoding": "workspace:*",
         "drizzle-orm": "0.45.4",
@@ -357,7 +357,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.93",
+      "version": "0.1.94",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "zod": "catalog:",
