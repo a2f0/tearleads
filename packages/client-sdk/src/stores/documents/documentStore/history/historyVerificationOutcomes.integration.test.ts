@@ -16,7 +16,10 @@ import {
   persistFullHistoryDocument,
 } from "../../../../../test/helpers/workflows/rotationRecoveryRuntime";
 import { DocumentRawHistoryUnavailableError } from "../../../../workflows/documents";
-import { MAX_VERIFIED_HISTORY_UPDATES } from "../../../../workflows/documents/history/documentHistoryRawPull";
+import {
+  MAX_EMPTY_HISTORY_PAGES,
+  MAX_VERIFIED_HISTORY_UPDATES,
+} from "../../../../workflows/documents/history/documentHistoryRawPull";
 
 type Bench = Awaited<ReturnType<typeof openHistoryVerificationBench>>;
 
@@ -261,6 +264,42 @@ test("a cursor the server repeats is rejected", async () => {
       status: "unavailable",
     });
     expect(requested).toEqual([undefined, "cycle-a", "cycle-b"]);
+  } finally {
+    bench.close();
+  }
+}, 10_000);
+
+test("a server that keeps promising more while serving nothing is rejected", async () => {
+  const bench = await openHistoryVerificationBench("history-verify-empty");
+  const { execSql, fixture } = bench;
+  try {
+    const localId = "history-verify-empty-local";
+    await persistRemoteHistory(bench, localId);
+    let pages = 0;
+    const runtime = createRotationRecoveryRuntime({
+      execSql,
+      fixture,
+      responseForRequest: (_request, response) => {
+        pages += 1;
+        return {
+          ...response,
+          pullPage: {
+            hasMore: true,
+            nextCursor: `empty-${pages}`,
+            throughUpdateCount: 0,
+            throughUpdateId: null,
+          },
+          updates: [],
+        };
+      },
+    });
+
+    expect(await verifyHistory(runtime, localId)).toEqual({
+      reason: "rejected",
+      status: "unavailable",
+    });
+    // One empty page may be honest; a run of them is not.
+    expect(pages).toBe(MAX_EMPTY_HISTORY_PAGES + 1);
   } finally {
     bench.close();
   }

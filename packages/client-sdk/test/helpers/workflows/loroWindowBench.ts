@@ -244,8 +244,8 @@ export function createLoroWindowBench() {
     },
     /**
      * One lifetime's history-verification page reading `updates`, which it
-     * never settles. Like the verifier, it claims dead lifetimes' windows
-     * before the pull.
+     * never settles. The verifier claims no dead lifetime's windows; this
+     * claims them first so a test sees what a claim does with a history one.
      */
     async verifyIn(
       lifetimes: LoroLifetimes,

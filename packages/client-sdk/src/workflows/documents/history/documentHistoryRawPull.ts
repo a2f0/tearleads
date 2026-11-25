@@ -42,6 +42,13 @@ import type { CreditedHistoryUpdate } from "./documentHistoryProvenance";
  */
 export const MAX_VERIFIED_HISTORY_UPDATES = 20_000;
 
+/**
+ * How many pages in a row may serve no update while promising more. One may
+ * be honest; a server that keeps doing it would hold the verification open
+ * for ever without ever reaching the update cap.
+ */
+export const MAX_EMPTY_HISTORY_PAGES = 4;
+
 /** How far a verification has read. */
 export interface DocumentHistoryVerificationProgress {
   /** Updates read and judged so far. */
@@ -356,6 +363,7 @@ export async function drainSignedDocumentHistory(
     voided: 0,
   };
   const seenCursors = new Set<string>();
+  let emptyPages = 0;
   let request: HistoryPageRequest = {
     continuation: undefined,
     planningRecord: input.record,
@@ -373,10 +381,15 @@ export async function drainSignedDocumentHistory(
       updatesTotal: Math.max(tally.total ?? 0, tally.served),
     });
     if (!synced.hasIncompletePull) break;
+    emptyPages = synced.response.updates.length === 0 ? emptyPages + 1 : 0;
     const continuation = nextHistoryPage(synced);
-    // A server with more to serve names where; a cursor it repeats would
-    // serve the same page for ever.
-    if (!continuation || seenCursors.has(continuation.cursor)) {
+    // A server with more to serve names where; a cursor it repeats, or a
+    // run of pages that serve nothing, would hold the read open for ever.
+    if (
+      !continuation ||
+      seenCursors.has(continuation.cursor) ||
+      emptyPages > MAX_EMPTY_HISTORY_PAGES
+    ) {
       return historyVerificationUnavailable("rejected");
     }
     seenCursors.add(continuation.cursor);
