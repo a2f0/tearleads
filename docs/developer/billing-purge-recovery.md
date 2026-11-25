@@ -131,3 +131,56 @@ The root package exports `RemoteResetInput`, `RemoteResetReplacement`,
 `PurgedOrganizationRecoveryBillingRequiredError` for hosts that own session
 or billing orchestration. Most applications should use the session recovery
 method instead of calling the low-level reset directly.
+
+## Reserved ids
+
+Recovery recreates the purged organization's folders and documents under their
+old ids, including the old root and system folders, which it rebinds beneath
+the fresh root. Those ids appear in signed history that members and anyone the
+owner shared with hold. So in the same transaction that deletes an
+organization's rows, the purge (`deleteOrganizationRemoteRows`) records every
+container id and every document id the organization's rows named in
+`purged_object_reservations`. Each row names the user whose default (personal)
+organization was purged: the only user `assertReplacementReady` lets replace
+it. A shared organization has no such user and cannot be recovered, so its
+purge reserves nothing.
+
+Every create path refuses a reserved id to any other user with a plain 409 and
+no error code:
+
+| Create | Refusal |
+| --- | --- |
+| `POST /documents`, including a folder's metadata document | `Document ID is reserved for its purged organization's recovery` |
+| `POST /containers` and the container-with-metadata create | `Container ID is reserved for its purged organization's recovery`, or the document message for its metadata id |
+| `POST /organizations` with a reserved root container id | `Root container ID is unavailable` |
+
+The refusal carries neither `document_manifest_already_exists` nor
+`container_manifest_already_exists`, so a client never reads it as a lost
+response and never tries to adopt it. The document guard reads the reservation
+in the same statement as the id's head, after the document lifecycle lock.
+Container and root creates read it after inserting the row, since that insert
+waits out a purge deleting the same row; a read before it would see the
+pre-purge snapshot and miss the reservation.
+
+The owner's create consumes the reservation in its own transaction: a document
+create, a folder create, and binding a folder's metadata id each delete their
+row, and the id's new head or binding guards it from then on. Another device of
+the owner then gets the ordinary already-exists conflict and adopts that copy.
+A purge of the replacement reserves the recreated ids again; an id not yet
+recovered keeps its first reservation.
+
+Reservations never expire. An owner device that comes back late must still be
+able to recreate what it holds, and an expiry would reopen the race the
+reservation closes, leaving that device stuck behind another user's copy.
+Retained `document.purge` events already hold a purged document's id forever,
+and the purge's own group tombstones likewise outlive their groups. The rows
+are bounded by the owner's own unrecovered folders and documents, hold
+only opaque ids, and are deleted with the owner's user row.
+
+Because no other user can create a freed id, a foreign copy under one of the
+owner's recovery ids can now come only from a dishonest server. The client's
+adoption checks (`assertExpectedAdoptionScope`, `assertContainerCreateAdoptable`)
+still refuse such a copy, and the folder lane parks it
+([container create adoption](../../formal/local-trust/ContainerCreateAdoption.md)).
+[`PurgeRecovery`](../../formal/local-trust/PurgeRecovery.md) checks that no
+other user's create can stop the owner's recreation.

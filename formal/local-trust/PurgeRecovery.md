@@ -16,6 +16,9 @@ local corpus.
 | `newCheckpoint` | `persistOrganizationReplacementCheckpoints` seeds the signed winning genesis before adoption, preserves later pins, and rejects conflicting genesis or ownership atomically |
 | `Reset` / `PreserveCheckpoints` | `clearRemoteSyncState` re-homes the locally scoped corpus while retaining access and principal checkpoints and principal ownership |
 | `Discover` / `ScopeDiscovery` | `documentHeadMatchesOrganization` scopes both discovery and tombstone evidence to the listed container's current organization |
+| `PurgeJob` / `ReserveFreedIds` | `deleteOrganizationRemoteRows` deletes the organization's rows and, in the same transaction, `reservePurgedOrganizationObjects` writes a `purged_object_reservations` row per freed container and document id, naming the personal organization's owner; a shared organization's purge writes none |
+| `OutsiderCreate` / `MemberCreate` / `ReserveForOwner` | another user's create of a copied id: `assertCreateCanAdvanceDocumentHead`, `assertMetadataDocumentAvailable`, the container insert in `persistContainerStructure`, and `createRootContainer` refuse a reservation that names another user, whichever organization the create targets |
+| `Recreate` / `idHolder` | the owner's queued recovery creates, which consume the reservation in their own transaction; another owner device's create then adopts that copy through `adoptExistingRemoteDocument` or `assertContainerCreateAdoptable` |
 
 The two candidate identities abstract two devices sharing the same signing key.
 Signature validity, old-organization binding, and response binding are
@@ -50,8 +53,22 @@ personal organization is that the device re-homes its own corpus into a fresh
 personal organization it signed for: the server could equally withhold the
 old one, so this is an availability residual, not a trust decision.
 
-Six negative controls independently remove client authentication, server
+One abstract container or document id follows the purge (#3264). The honest
+purge job frees it (`PurgeJob`), and recovery recreates it under the same id
+after `Reset` (`Recreate`). Two other creators have no fairness: an outsider
+who learned the id from history, and a member the owner re-invited into the
+replacement. Under the no-brick invariant only the owner's own steps are fair,
+so `RecreateCanProceed` requires that neither can disable the owner's
+recreation: the reservation must exist (`ReserveFreedIds`) and must name the
+owner rather than the replacement organization (`ReserveForOwner`). A
+dishonest API's false purged status frees nothing, which leaves the id held by
+the old organization: the existing withholding residual. Chained purges, where
+a replacement lapses before every id is recovered, repeat the same step; the
+runtime regressions cover them, along with each create path and the create
+racing the purge.
+
+Eight negative controls independently remove client authentication, server
 validation, checkpoint retention, discovery scope, seeding the winning genesis
-before adoption, and the personal-organization trigger guard. The adversarial
-runtime regressions fail when the corresponding implementation guards are
-removed.
+before adoption, the personal-organization trigger guard, the reservation of
+freed ids, and keying that reservation to the owner. The adversarial runtime
+regressions fail when the corresponding implementation guards are removed.
