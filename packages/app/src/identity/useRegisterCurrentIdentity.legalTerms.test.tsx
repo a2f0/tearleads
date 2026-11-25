@@ -1,5 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads } from "@tearleads/client-sdk";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import {
@@ -23,35 +24,35 @@ import { useRegisterCurrentIdentity } from "./useRegisterCurrentIdentity";
 
 afterEach(cleanupIdentityManagerTestEnvironment, MOCK_SERVER_RESET_TIMEOUT_MS);
 
-/** Publishes the runtime's status, but as an identity needing no agreement. */
-function NoAgreementNeeded({ children }: PropsWithChildren) {
+/**
+ * Publishes the runtime's status, but as an identity recovered from its
+ * passphrase on this launch, which the autopilot asks no agreement of.
+ */
+function RecoveredIdentity({ children }: PropsWithChildren) {
   const status = useAutoProvisioningStatus();
   return (
     <AutoProvisioningStatusContext.Provider
-      value={{ ...status, legalTerms: "not-required" }}
+      value={{ ...status, legalTerms: "not-required", recovered: true }}
     >
       {children}
     </AutoProvisioningStatusContext.Provider>
   );
 }
 
-async function renderRegistration(
-  options: { noAgreementNeeded?: boolean } = {},
-) {
+async function renderRegistration(options: { recovered?: boolean } = {}) {
   const sdkRef: { current: Tearleads | null } = { current: null };
   const hostConfig = createIdentityManagerHostConfig();
+  const agreement = createLegalTermsAgreementStore();
   const wrapper = ({ children }: PropsWithChildren) => (
-    <LegalTermsAgreementContext.Provider
-      value={createLegalTermsAgreementStore()}
-    >
+    <LegalTermsAgreementContext.Provider value={agreement}>
       <IdentityManagerTestRuntime
         hostConfig={hostConfig}
         onTearleadsReady={(sdk) => {
           sdkRef.current = sdk;
         }}
       >
-        {options.noAgreementNeeded ? (
-          <NoAgreementNeeded>{children}</NoAgreementNeeded>
+        {options.recovered ? (
+          <RecoveredIdentity>{children}</RecoveredIdentity>
         ) : (
           children
         )}
@@ -75,7 +76,7 @@ async function renderRegistration(
   });
   const sdk = sdkRef.current;
   if (!sdk) throw new Error("SDK was not initialized");
-  return { sdk, view };
+  return { agreement, sdk, view };
 }
 
 test("without an agreement, a key this device already binds signs back in, and any other waits", async () => {
@@ -120,25 +121,44 @@ test("without an agreement, a key this device already binds signs back in, and a
   }
 }, 15_000);
 
-test("without an agreement, an identity needing none (recovered from its passphrase) signs back in", async () => {
+test("Register asks a recovered identity for the agreement, then registers with it, signing in to an account it already has", async () => {
   const originalWebSocket = globalThis.WebSocket;
   Reflect.set(globalThis, "WebSocket", TestWebSocket);
   try {
-    const { sdk, view } = await renderRegistration({ noAgreementNeeded: true });
-    expect(view.result.current.registration.legalTermsRequired).toBe(false);
-    const register = spyOn(sdk.session, "registerIdentity");
+    const { agreement, sdk, view } = await renderRegistration({
+      recovered: true,
+    });
+    // It may never have registered (created offline), so Register asks.
+    expect(view.result.current.registration.legalTermsRequired).toBe(true);
+    // The account it already has answers the registration as a duplicate.
+    const register = spyOn(sdk.session, "registerIdentity").mockResolvedValue(
+      null,
+    );
     const login = spyOn(sdk.session, "login").mockImplementation(
       async () => true,
     );
     try {
-      // The device binds no account to it yet, but it has one to sign in to.
+      // Without the agreement nothing registers or signs in.
+      await act(async () => {
+        expect(
+          await view.result.current.registration.registerCurrentIdentity(),
+        ).toBe(false);
+      });
+      expect(register).not.toHaveBeenCalled();
+      expect(login).not.toHaveBeenCalled();
+
+      act(() => agreement.agree());
+      expect(view.result.current.registration.legalTermsRequired).toBe(false);
       await act(async () => {
         expect(
           await view.result.current.registration.registerCurrentIdentity(),
         ).toBe(true);
       });
+      expect(register).toHaveBeenCalledTimes(1);
+      expect(register.mock.calls[0]?.[0]).toMatchObject({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      });
       expect(login).toHaveBeenCalledTimes(1);
-      expect(register).not.toHaveBeenCalled();
     } finally {
       login.mockRestore();
       register.mockRestore();
