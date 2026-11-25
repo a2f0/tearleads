@@ -1,5 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
-import { encodeVersionVector, getTextValue } from "@tearleads/loro";
+import { encodeVersionVector, getTextValue, updateText } from "@tearleads/loro";
 import {
   projectStoredDocumentState,
   type StoredDocumentKind,
@@ -28,7 +28,10 @@ import {
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
-import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
+import {
+  noteDocumentStoreWrite,
+  reportDocumentStoreWriteFailure,
+} from "./reportWriteFailure";
 import {
   canWriteDocument,
   type DocumentState,
@@ -143,7 +146,14 @@ async function writeDocumentText(
     return;
   }
   if (textChanged) {
-    writeDoc.getText("text").update(value);
+    // Bounded: an unrelated replacement must not stall the writer.
+    const granularity = updateText(writeDoc, value);
+    if (granularity !== "character") {
+      noteDocumentStoreWrite(
+        state,
+        `Documents: wrote the text of ${state.localId} as a ${granularity} replacement because its character diff ran out of time.`,
+      );
+    }
   }
   const update = pendingDeltaSinceBase(state, writeDoc);
   // Captured at delta time: the enqueued row proves durable coverage up

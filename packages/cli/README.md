@@ -152,17 +152,25 @@ bun run tearleads restore-keepass ~/Passwords.kdbx --env staging
 bun run tearleads restore-keepass vault.kdbx --name "Family Vault" --key-file vault.keyx
 ```
 
-The command reads the master password without echo (or from piped stdin) and
-decrypts the file on this machine before it signs in, so a wrong password
-fails without opening a session. It then creates one new folder under your
-root: the database's root group. It is named after `--name`, else the
-database's name, else the file's; when a folder beside it already has that
-name, the new one becomes `Vault (2)`, `Vault (3)`, and so on. Each group
-becomes a child folder, and each entry a **passcode** document: title,
-username, password, URL, notes, tags, expiry date, KeePassXC's TOTP link, and
-every other string field as an additional attribute that keeps KeePass's
-protected (masked) flag. The app shows a passcode like KeePassX's entry view,
-with the password masked behind a visibility toggle.
+`scripts/dev/restoreKeepass.sh <dev|staging|prod> <file.kdbx> [options]` runs
+the install, build, login, and traced restore in one step, unlocking the login
+Keychain first for shells outside the desktop session (SSH, tmux, screen), as
+`scripts/dev/seedFromContinuity.sh` does for `seed`. It passes `--name` and
+`--key-file` through and resolves relative paths from the directory you run it
+in. Run it from a terminal: it prompts for the recovery key and then the master
+password, so it cannot take them from piped stdin.
+
+`restore-keepass` reads the master password without echo (or from piped stdin)
+and decrypts the file on this machine before it signs in, so a wrong password
+fails without opening a session. It then creates one new folder under your root:
+the database's root group. It is named after `--name`, else the database's name,
+else the file's; when a folder beside it already has that name, the new one
+becomes `Vault (2)`, `Vault (3)`, and so on. Each group becomes a child folder,
+and each entry a **passcode** document: title, username, password, URL, notes,
+tags, expiry date, KeePassXC's TOTP link, and every other string field as an
+additional attribute that keeps KeePass's protected (masked) flag. The app shows
+a passcode like KeePassX's entry view, with the password masked behind a
+visibility toggle.
 
 Every run makes a new folder; it never merges into an earlier restore. If a
 run stops partway, delete its folder and run the command again. The report

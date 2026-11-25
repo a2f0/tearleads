@@ -50,6 +50,46 @@ test("text is replaced with the restored text", async () => {
   expect(doc.getText("text").toString()).toBe("the old text");
 });
 
+const WORDS = [
+  "the",
+  "quick",
+  "brown",
+  "fox",
+  "jumps",
+  "over",
+  "lazy",
+  "dog\n",
+];
+
+/** `length` characters of prose; two seeds share almost nothing. */
+function prose(length: number, seed: number): string {
+  let text = "";
+  let state = seed;
+  while (text.length < length) {
+    state = (state * 1103515245 + 12345) & 0x7fffffff;
+    // The generator's low bits repeat every few steps: take high ones.
+    text += `${WORDS[(state >>> 16) % WORDS.length]} `;
+  }
+  return text.slice(0, length);
+}
+
+test("restoring the text from before a whole-text replacement does not stall", async () => {
+  const doc = await createDocument("restore-unrelated-text");
+  doc.getText("text").insert(0, prose(65536, 1));
+  doc.commit();
+  const restored = prose(65536, 99);
+
+  const started = performance.now();
+  expect(
+    restoreDocumentContent(doc, content({ text: restored }), RESTORER),
+  ).toBe(true);
+  const elapsed = performance.now() - started;
+
+  // Loro's unbounded character diff took about 8 s for this replacement.
+  expect(elapsed).toBeLessThan(2000);
+  expect(doc.getText("text").toString()).toBe(restored);
+});
+
 test("content that already matches changes nothing", async () => {
   const doc = await contactWithRows([
     { id: "r1", fields: { street: "1 Way" } },

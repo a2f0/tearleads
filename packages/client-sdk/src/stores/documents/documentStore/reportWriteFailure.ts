@@ -15,6 +15,18 @@ function dispatchToHost(call: () => unknown): void {
 }
 
 /**
+ * Log a note about a local write through the host. It runs between a write's
+ * mutation and its save, so it must stay purely observational too: a host
+ * logger that throws or rejects changes nothing.
+ */
+export function noteDocumentStoreWrite(
+  state: DocumentStoreState,
+  message: string,
+): void {
+  dispatchToHost(() => state.runtime.util.log(message));
+}
+
+/**
  * Report a failed local write through the host's diagnostics. The write chain
  * already swallowed the error to keep an un-awaited `setText` from rejecting,
  * so this is the only place the loss is observable — and it must stay purely
