@@ -109,14 +109,17 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members and the custom group in
         // one write, including metadata discovery, read-only sync, and billing.
         // The second add reuses the roster membership.
-        // First enrollment measures 35 calls with private metadata-root
-        // authority, its group create included (29 for the add itself). The
+        // First enrollment measures 34 calls with private metadata-root
+        // authority, its group create included (28 for the add itself). The
         // commit's response carries the read-model delta from the cursor the
         // SDK held, which the add applies instead of reading the read model,
         // and the hint naming that cursor costs no read (later adds measure
-        // 5; 30 and 6 when the add read the read model after its commit).
+        // 5; 30 and 6 when the add read the read model after its commit). No
+        // add syncs the organization profile, which registration committed;
+        // the first add measured 29 calls, three of them syncs, while each
+        // Members change pulled that profile.
         // Keep five reads of phase headroom; later adds get three.
-        total: group === "first" ? 42 : 8,
+        total: group === "first" ? 41 : 8,
         byRequest: {
           "GET /principals/history": group === "first" ? 8 : 2,
           "GET /containers/:containerId/writer-projection":
@@ -131,7 +134,7 @@ test("group creation and adding a peer have separate request budgets", async () 
           // A concurrent policy advance can require a fresh post-create proof.
           "GET /documents/:documentId/writer-projection":
             group === "first" ? 3 : 0,
-          "POST /documents/:documentId/sync": group === "first" ? 3 : 0,
+          "POST /documents/:documentId/sync": group === "first" ? 2 : 0,
           "POST /containers/parent-lanes/query": group === "first" ? 2 : 0,
           "POST /containers/documents/query": group === "first" ? 1 : 0,
           "GET /organizations/:organizationId/billing":
@@ -165,7 +168,7 @@ test("group creation and adding a peer have separate request budgets", async () 
       `create and add peer to ${group} group`,
       pairStart,
     );
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 47 : 12);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 46 : 12);
     expect(
       combined.filter(
         (request) =>

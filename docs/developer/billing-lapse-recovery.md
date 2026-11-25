@@ -15,7 +15,9 @@ period expires.
 - `purged`: remote [containers](../glossary/access.md#container), documents, access
   history, [read-model data](../organization-read-model-sync.md), and
   [blob](../glossary/content.md#blob) objects are gone. The retained organization,
-  roster, user, and billing rows form a dormant control plane. The old
+  roster, user, and billing rows form a dormant control plane, with the
+  [reservations](./billing-purge-recovery.md#reserved-ids) that hold a personal
+  organization's freed container and document ids for its owner. The old
   organization is terminal and cannot be reactivated by a late Stripe or
   RevenueCat event.
 
@@ -44,7 +46,9 @@ a final provisioning replay rechecks sync eligibility and atomically moves the d
 pointer. Retained documents are recreated using their former server document ids
 as deterministic recovery identities. This lets multiple devices race safely:
 the first create wins and the other clients adopt the same remote document
-rather than creating duplicates.
+rather than creating duplicates. Only the owner's devices can make that create:
+the purge [reserved](./billing-purge-recovery.md#reserved-ids) each freed id for
+the owner, so no other user takes it first.
 
 Before submitting the replacement, the client durably checkpoints its exact
 [signed provisioning artifacts](../container-dek-onboarding.md#registration-flow).

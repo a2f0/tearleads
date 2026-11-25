@@ -35,7 +35,12 @@ test("organization purge removes only its own compound and standalone policy rec
       groupIds: [],
       organizationId,
       now: new Date(),
-      scope: { blobIds: [], containerIds: [], documentIds: [] },
+      scope: {
+        blobIds: [],
+        containerIds: [],
+        documentIds: [],
+        freedDocumentIds: [],
+      },
     }),
   );
   expect(

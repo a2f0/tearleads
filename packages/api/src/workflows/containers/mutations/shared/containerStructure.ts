@@ -18,7 +18,7 @@ import {
   assertContainerMoveDepth,
 } from "./containerDepth";
 import {
-  assertMetadataDocumentAvailable,
+  assertContainerCreateIdsAvailable,
   insertContainerMetadataBinding,
 } from "./metadataDocumentReservation";
 
@@ -47,6 +47,7 @@ async function persistCreatedContainerStructure(
   executor: DatabaseTransaction,
   state: VerifiedContainerAccessState,
   updatedAt: Date,
+  requesterUserId: string,
 ): Promise<StoredContainerRow> {
   const isMetadataRoot =
     state.parentContainerId === null &&
@@ -71,7 +72,11 @@ async function persistCreatedContainerStructure(
   }
 
   assertContainerDepth(parent ? parent.depth + 1 : 0);
-  await assertMetadataDocumentAvailable(executor, state.metadataDocumentId);
+  await assertContainerCreateIdsAvailable(executor, {
+    containerId: state.containerId,
+    metadataDocumentId: state.metadataDocumentId,
+    requesterUserId,
+  });
 
   const [inserted] = await runConflictBoundary(() =>
     executor
@@ -141,11 +146,17 @@ export async function persistContainerStructure(
   executor: DatabaseTransaction,
   manifest: VerifiedContainerAccessManifest,
   updatedAt: Date,
+  requesterUserId: string,
 ): Promise<StoredContainerRow> {
   const state = manifest.state;
 
   if (manifest.event.event.eventType === "container.create") {
-    return persistCreatedContainerStructure(executor, state, updatedAt);
+    return persistCreatedContainerStructure(
+      executor,
+      state,
+      updatedAt,
+      requesterUserId,
+    );
   }
 
   const container = await loadContainerRow(executor, state.containerId);

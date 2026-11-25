@@ -189,8 +189,10 @@ test("POST /organizations atomically stores core metadata bodies readable on loc
   expect(createResponseBody.committedProfileUpdateIds).toEqual(
     profileUpdateIds,
   );
-  // Each of the five seeds claims its new peer with one insert (330 before).
+  // Each of the five seeds claims its new peer with one insert (330 before),
+  // and one statement reads the root's organization-purge reservation after
+  // inserting it.
   expect(counter.statements).toBeLessThanOrEqual(
-    335 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
+    336 + (getDefaultApiDatabaseKind() === "postgres" ? 2 : 0),
   );
 });

@@ -114,6 +114,7 @@ interface ReconciliationService {
   resetDiscovered(): void;               // re-arm after reconnect/relogin
   reconcileRootContainersNow(o?: RefreshRequestOptions): Promise<void>;
   reconcileNow(o?: RefreshRequestOptions): Promise<void>;  // explicit "Refresh"
+  reconcileAcknowledgedConnection(): Promise<void>;  // catch-up after an ack
   stop(): void;
 }
 // { freshListing?: boolean; signal?: AbortSignal }
@@ -167,17 +168,22 @@ The reconciliation service owns discovery scheduling; registered document
 stores own encrypted content sync and attachment hydration. Hint-driven
 reconciliation passes `force` and `documentId` to the content puller, and hints
 merge their targets into one trailing pass that revalidates only the named
-registered stores. A full force without a target, including Refresh and
-reconnect, revalidates every registered store. Discovery itself does not open
-documents.
+registered stores. A full force without a target, which is an explicit
+Refresh, revalidates every registered store. The catch-up after an
+acknowledged connection (`reconcileAcknowledgedConnection`) lists every known
+lane and forces nothing: a listed document the device's processed cursor does
+not cover is owed a read
+([document listing coverage](../document-listing-coverage.md)). Discovery
+itself does not open documents.
 
 The device-first scope opens them instead, in the background, whatever the
 host is showing. Its discovered-document primer
 ([`discoveredDocumentPrimer.ts`](../../packages/client-sdk/src/client/deviceFirst/discoveredDocumentPrimer.ts)),
 started and stopped with the scope's reconciler, watches the local
 projection and opens the store of every remote document in each summary list
-it publishes. Opening a store pulls the document's content and attachments,
-and a registered store is what later hints revalidate. Each published list is
+it publishes. Opening a store pulls a document the device has not pulled yet,
+and a registered store is what a listing's owed read and later hints
+revalidate. Each published list is
 opened once; the projection swaps a container's list when its documents
 change, so only new lists are new work. The primer runs only while the scope
 can sync (database ready, authenticated, online), so local-only mode and an
@@ -207,11 +213,13 @@ Three bounded probes close gaps that container discovery cannot observe:
   can replace document rows underneath the runtime; the cost is one
   unwatermarked listing per remotely listable container on every service
   launch;
-- opening a persisted remote document arms an initialization probe. Websocket
-  invalidations live only in process memory, so a clean cached snapshot cannot
-  prove that no peer committed an update before restart;
-- an already-open remote document arms a reconnect probe when it observes a
-  newer server-events connection generation. The generation advances only after
+- opening a persisted remote document arms an initialization probe, unless a
+  listing covers it. Websocket invalidations live only in process memory, so a
+  clean cached snapshot cannot prove that no peer committed an update before
+  restart; a covered document leaves that proof to its lane's listing;
+- an already-open remote document that no listing covers arms a reconnect
+  probe when it observes a newer server-events connection generation. The
+  generation advances only after
   a ready local tree sends its authoritative container-interest declaration and
   the server acknowledges installing it in the live router. It therefore
   survives coalesced connection notifications and retained stores that missed

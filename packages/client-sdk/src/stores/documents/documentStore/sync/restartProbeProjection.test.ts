@@ -4,6 +4,7 @@ import {
   persistRestartProbeTrace,
   type RestartProbeTraceRecorder,
 } from "@tearleads/test-utils";
+import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { DocumentsRuntime } from "../../types";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState, type DocumentStoreState } from "../state";
@@ -49,7 +50,9 @@ function createProbeState(
     util: { log: () => undefined },
     state: {
       containerId: "container-1",
-      domainScope: "scope-1",
+      // A real scope: the join asks the scope whether a listing covers the
+      // record, and none does here, so every probe below is the store's own.
+      domainScope: createDomainScope(),
       events: deliveredEvents,
       peerScope: "peer-1",
     },
@@ -254,7 +257,7 @@ test("startup probe deferral replays onto the RestartProbeConvergence model", ()
   // waits on that attempt instead of arming the startup probe.
   const deferred = createProbeState();
   deferred.runtime = withPendingConnectAttempt(deferred, 3);
-  expect(loadDocumentStoreStartupProbe(deferred, true)).toBe(false);
+  expect(loadDocumentStoreStartupProbe(deferred, true, false)).toBe(false);
   expect(deferred.startupProbe).toEqual({ attempt: 3, status: "deferred" });
   recorder.record({
     action: "InitializeOpenedPersistedDocument",
@@ -301,7 +304,7 @@ test("a startup open joining an on-demand store replays onto the RestartProbeCon
   // a probe, which the model does not see as an opened document.
   const state = createProbeState("on-demand");
   state.initialized = true;
-  expect(loadDocumentStoreStartupProbe(state, true)).toBe(false);
+  expect(loadDocumentStoreStartupProbe(state, true, false)).toBe(false);
   expect(state.remoteUpdatePending).toBe(false);
 
   // A view opens it normally: the real join kernel arms the probe the

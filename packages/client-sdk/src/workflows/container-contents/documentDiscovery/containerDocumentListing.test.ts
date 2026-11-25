@@ -19,6 +19,7 @@ function page(
       createdAt: "2026-07-30T12:00:00.000Z",
       currentAccessEpoch: 1,
       currentAccessStateHash: `hash-${id}`,
+      updateCount: 0,
       id,
       linkedContainerIds: ["container-a"],
       referencedPrincipals: [],

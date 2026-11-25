@@ -51,11 +51,10 @@ function Harness({
   );
 }
 
-test("replaces the socket on native refresh and reconciles the acknowledged gap", async () => {
+test("replaces the socket on native refresh and acknowledges a new connection", async () => {
   const originalWebSocket = globalThis.WebSocket;
   const state: { tearleads?: Tearleads } = {};
   let refreshConnection: (() => void) | null = null;
-  let reconcileCalls = 0;
   TestWebSocket.instances = [];
 
   try {
@@ -91,11 +90,6 @@ test("replaces the socket on native refresh and reconciles the acknowledged gap"
     spyOn(tearleads.deviceFirst, "open").mockReturnValue({
       ...deviceFirst,
       containerStore: readyEmptyContainerTree,
-      reconciler: {
-        reconcileNow: async () => {
-          reconcileCalls += 1;
-        },
-      },
     } as never);
 
     await act(async () => {
@@ -111,7 +105,6 @@ test("replaces the socket on native refresh and reconciles the acknowledged gap"
       firstSocket.acknowledgeLastContainerInterest();
     });
     expect(tearleads.events.connectionGeneration).toBe(1);
-    expect(reconcileCalls).toBe(0);
 
     await act(async () => {
       refreshConnection?.();
@@ -131,8 +124,9 @@ test("replaces the socket on native refresh and reconciles the acknowledged gap"
       refreshedSocket.acknowledgeLastContainerInterest();
     });
     expect(tearleads.events.connected).toBe(true);
+    // The acknowledgement only advances the generation: the SDK starts its
+    // own catch-up from it, on a first connection as on a reconnect.
     expect(tearleads.events.connectionGeneration).toBe(2);
-    expect(reconcileCalls).toBe(1);
 
     view.unmount();
     expect(refreshConnection).toBeNull();

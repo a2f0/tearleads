@@ -144,6 +144,14 @@ export {
 } from "./runtime";
 export { documentCreateSeedCandidate } from "./sync/initialSync";
 export {
+  type DocumentListingRevalidation,
+  findOwedDocumentListingRead,
+  type ListedDocumentHead,
+  listOwedDocumentListingReads,
+  oweListedDocumentReadsBehindListing,
+  settleCoveredDocumentListingRead,
+} from "./sync/listingRevalidation";
+export {
   closeDocumentSyncLoroWindowInTransaction,
   createDocumentSyncLoroWindow,
   type DocumentSyncLoroWindow,
@@ -160,6 +168,7 @@ export {
   judgeDocumentSyncImports,
   readProcessedCursorForSync,
   readRecordedDocumentSyncVoids,
+  recordCommittedDocumentSeedProgress,
   recordDocumentSyncVerdicts,
   recordUncursoredDocumentSyncVerdicts,
   reportDocumentSyncVoids,

@@ -13,11 +13,20 @@ export interface ContainerReconcileEntry {
   readonly onPendingDiscovery?: ((delayMs: number) => void) | undefined;
 }
 
+/**
+ * `listed` is false when the container's document lane was not listed: its
+ * request failed, the server refused it, or it was never sent.
+ */
 export type ContainerReconcileResult =
-  | { readonly containerId: string; readonly status: "reconciled" | "skipped" }
+  | {
+      readonly containerId: string;
+      readonly listed: boolean;
+      readonly status: "reconciled" | "skipped";
+    }
   | {
       readonly containerId: string;
       readonly error: unknown;
+      readonly listed: false;
       readonly status: "failed";
     };
 
@@ -31,7 +40,7 @@ async function settleDiscoveredContainer(
   try {
     if (outcome.status === "rejected") throw outcome.reason;
     if (outcome.value === null && !pending) {
-      return { containerId, status: "skipped" };
+      return { containerId, listed: !outcome.unlisted, status: "skipped" };
     }
     const delta = await host.loadContainerDelta(containerId);
     host.applyReconciled(delta);
@@ -45,11 +54,14 @@ async function settleDiscoveredContainer(
     );
     // A durable, scheduled retry is settled for this sweep and force request.
     // Its own timer will reopen the lane when evidence is due.
-    return { containerId, status: "reconciled" };
+    return { containerId, listed: !outcome.unlisted, status: "reconciled" };
   } catch (error) {
+    // The lane's own apply already saved its watermark when the failure came
+    // from reading the delta afterwards; only a rejected listing left it.
+    const listed = outcome.status === "fulfilled" && !outcome.unlisted;
     return host.isIgnorableError(error)
-      ? { containerId, status: "skipped" }
-      : { containerId, error, status: "failed" };
+      ? { containerId, listed, status: "skipped" }
+      : { containerId, error, listed: false, status: "failed" };
   }
 }
 
@@ -103,8 +115,16 @@ export async function reconcileContainers(
       }
     }
   }
-  return entries.map(
-    ({ containerId }) =>
-      results.get(containerId) ?? { containerId, status: "skipped" },
+  const settled = entries.map(
+    ({ containerId }): ContainerReconcileResult =>
+      results.get(containerId) ?? {
+        containerId,
+        listed: false,
+        status: "skipped",
+      },
   );
+  for (const { containerId, listed } of settled) {
+    host.reportDocumentLaneListed?.(containerId, listed);
+  }
+  return settled;
 }

@@ -106,7 +106,8 @@ frontier claims an unowned peer, passes on its writer's own, and refuses the
 request on another user's, while a re-assertion within the frontier is open to
 every writer. Peers stay secret until their first commit. A dishonest member
 commits forged spans on peers it has seen, and a republisher recreates a
-document from its history after a billing purge of its organization. A device
+document from its history after a billing purge of its organization; the purge
+reserves the freed id for that organization's owner. A device
 refused on a peer the recreation claimed rebases onto a fresh peer. Each update
 also declares the op ids it depends on: the server refuses one past a peer's
 committed frontier, and readers void an update that depends on other ops than
@@ -148,6 +149,22 @@ and durably, before the watermark passes the row. TLC checks that some evidence
 of an unread edit always survives, through crashes and reads in flight, and
 that the client eventually holds the server's version. See the
 [production mapping and negative controls](./MetadataListingConvergence.md).
+
+## Ordinary Documents Under Lost Hints
+
+[`DocumentListingConvergence.tla`](./DocumentListingConvergence.tla)
+models a client holding an ordinary document that it no longer probes on every
+restart and reconnect. Each acknowledged connection re-lists the client's lanes
+from their watermarks, and a listed update count the client's processed cursor
+does not cover owes the document a read, durably, before the watermark passes
+the row. So does a listed access head that is not the one the record's key
+bundle was issued under, before the row is applied. A store that opens later
+reads the debt, and a hint that names a document with no loaded store is
+remembered until one loads. TLC checks that some evidence of an unread edit or
+an unread access head always survives, through crashes, reads in flight and
+reads a lagging replica serves, and that the client eventually holds the
+server's version. See the
+[production mapping and negative controls](./DocumentListingConvergence.md).
 
 ## Epoch Advances Without a Covering Baseline
 
