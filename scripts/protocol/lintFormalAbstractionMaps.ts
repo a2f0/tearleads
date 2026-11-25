@@ -26,6 +26,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/blob-attachments/AttachmentRemovedSlotDetach.md": 1,
   "formal/blob-attachments/PendingAttachmentDetach.md": 1,
   "formal/container-keying/ContainerGrantScope.md": 1,
+  "formal/document-sync/DocumentListingConvergence.md": 1,
   "formal/document-sync/EmptyFrontierUnlink.md": 1,
   "formal/document-sync/MetadataListingConvergence.md": 1,
   "formal/document-sync/VoidUpdateProgress.md": 1,

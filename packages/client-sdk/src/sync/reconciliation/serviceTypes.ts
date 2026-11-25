@@ -19,6 +19,8 @@ export type ContainerDiscoveryOutcome =
   | {
       readonly containerId: string;
       readonly status: "fulfilled";
+      /** The lane was refused or never sent, so its watermark did not move. */
+      readonly unlisted?: true | undefined;
       readonly value: ReadonlyArray<DocumentSummary> | null;
     }
   | {
@@ -85,6 +87,21 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
     force: boolean,
     documentIds?: ReadonlySet<string>,
   ) => void;
+  /**
+   * Told after every listing attempt whether the container's document lane
+   * was listed. A lane that was not listed cannot vouch for its documents,
+   * so their stores probe on their own until it is.
+   */
+  reportDocumentLaneListed?:
+    | ((containerId: string, listed: boolean) => void)
+    | undefined;
+  /**
+   * Asks the registered store of every document a listing still owes a read
+   * to probe. The catch-up after an acknowledged connection ends with it, so
+   * a debt this process did not record itself (another tab sharing the
+   * database listed the row) still reaches this process's open stores.
+   */
+  requestOwedDocumentReads?: (() => Promise<void>) | undefined;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
   /** Refresh only the top-level root lane from the server. */
@@ -148,5 +165,16 @@ export interface ReconciliationService {
    * See {@link RefreshRequestOptions} for `signal`.
    */
   reconcileNow: (options?: RefreshRequestOptions) => Promise<void>;
+  /**
+   * Catch up after the server acknowledged this socket's interest: list every
+   * known container's document lane from its watermark, in a sweep that
+   * starts after this call. Hints sent before the acknowledgement are lost,
+   * and a document whose lane covers it is not probed on its own, so this
+   * listing is what finds an edit made meanwhile: a listed document the
+   * device's processed cursor does not cover is owed a read. Nothing else is
+   * revalidated. A lane that cannot be listed has its registered documents
+   * probed instead.
+   */
+  reconcileAcknowledgedConnection: () => Promise<void>;
   stop: () => void;
 }

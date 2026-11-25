@@ -194,6 +194,24 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 10,
   },
+  {
+    // A document lane's watermark now promises that every row it passed was
+    // checked against this device's processed cursor, with a read owed where
+    // the cursor fell short (#3256). An earlier SDK advanced a lane without
+    // that check and probed every opened document instead. Forget the
+    // document-lane cursors, so each lane lists from its start once and
+    // checks every row. Parent lanes and restoration markers keep theirs.
+    name: "relist_document_lanes_for_owed_reads",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("container_sync_watermarks"))) return;
+      await execSql(
+        `UPDATE container_sync_watermarks
+            SET watermark_id = NULL, watermark_updated_at = NULL
+          WHERE lane_kind = 'container_documents'`,
+      );
+    },
+    version: 11,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

@@ -1,10 +1,12 @@
 import { mergeVersionVectors } from "@tearleads/loro";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentCreateSeedResponse } from "@tearleads/validators/response";
-import type {
-  CreateRemoteDocumentResult,
-  DocumentRecord,
-  PendingUpdateRecord,
+import {
+  type CreateRemoteDocumentResult,
+  DOCUMENTS_APP_KIND,
+  type DocumentRecord,
+  type PendingUpdateRecord,
+  recordCommittedDocumentSeedProgress,
 } from "../../../../workflows/documents";
 import { persistDocument } from "../persistence";
 import type {
@@ -116,6 +118,8 @@ export async function persistCreatedRemoteDocument(input: {
     pendingBaseVersion: state.pendingBaseVersion,
     seedUpdate: input.seed?.update,
   });
+  const createdDocumentId = input.created.persistedState.documentId;
+  const seedUpdateId = input.seed?.update.id;
   const persisted = await persistDocument(
     state,
     input.currentDoc,
@@ -126,6 +130,16 @@ export async function persistCreatedRemoteDocument(input: {
       preserveSnapshotText: true,
     },
     input.generation,
+    // The create made its committed seed the document's only update, so the
+    // cursor a first pull would have left is known without that pull.
+    settlement && createdDocumentId && seedUpdateId
+      ? (transactionExecSql) =>
+          recordCommittedDocumentSeedProgress(transactionExecSql, {
+            documentId: createdDocumentId,
+            scope: { appKind: DOCUMENTS_APP_KIND, localId: state.localId },
+            seedUpdateId,
+          })
+      : undefined,
   );
   if (persisted && settlement) {
     advancePendingBaseVersion(state, settlement.baseVersion);

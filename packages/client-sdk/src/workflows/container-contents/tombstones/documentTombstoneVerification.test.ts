@@ -169,6 +169,7 @@ for (const listedContainer of [
               id: DOCUMENT_ID,
               currentAccessEpoch: 1,
               currentAccessStateHash: "forged-hash",
+              updateCount: 0,
               linkedContainerIds: ["forged-placement"],
               createdAt: at,
               updatedAt: at,
@@ -262,6 +263,7 @@ test("a tampered listing head queues evidence before advancing its watermark", a
               id: DOCUMENT_ID,
               currentAccessEpoch: 1,
               currentAccessStateHash: "forged",
+              updateCount: 0,
               linkedContainerIds: ["attacker"],
               createdAt: at,
               updatedAt: at,
@@ -277,6 +279,7 @@ test("a tampered listing head queues evidence before advancing its watermark", a
         ),
         upsertDiscoveredDocuments: persist,
         replaceDocumentLinksBatch: replaceLinks,
+        oweListedDocumentReads: async () => [],
         saveContainerDocumentWatermark: watermark,
       }),
     ).toBeNull();

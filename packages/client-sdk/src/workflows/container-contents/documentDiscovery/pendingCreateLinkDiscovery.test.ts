@@ -45,6 +45,7 @@ test("discovery preserves pending-create links while discovering unrelated docum
           updatedAt: "2026-09-12T00:00:00.000Z",
           currentAccessEpoch: 1,
           currentAccessStateHash: "1".repeat(64),
+          updateCount: 0,
           linkedContainerIds: ["shared-container"],
           referencedPrincipals: [],
         })),

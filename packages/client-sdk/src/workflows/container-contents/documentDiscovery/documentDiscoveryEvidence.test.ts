@@ -222,6 +222,7 @@ for (const available of [true, false]) {
               updatedAt: at,
               currentAccessEpoch: 1,
               currentAccessStateHash: "signed-head",
+              updateCount: 0,
               linkedContainerIds: ["a", "b"],
               referencedPrincipals: [],
             },
@@ -249,6 +250,7 @@ for (const available of [true, false]) {
           }));
         },
         replaceDocumentLinksBatch: async () => {},
+        oweListedDocumentReads: async () => [],
         saveContainerDocumentWatermark: async (id) => {
           saved.push(id);
         },

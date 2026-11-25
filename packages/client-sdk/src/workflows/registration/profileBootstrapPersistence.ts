@@ -15,14 +15,15 @@ interface ProfileBootstrapInput {
   response: OrganizationProvisioningResponse;
 }
 
-function initialUpdateCommitted(
+/** The seed's update id, when provisioning committed it with the document. */
+function committedInitialUpdateId(
   input: Pick<ProfileBootstrapInput, "request" | "response">,
-): boolean {
+): string | undefined {
   const updateId = input.request.initialSync.outgoingUpdates[0]?.id;
-  return (
-    updateId !== undefined &&
+  return updateId !== undefined &&
     input.response.committedProfileUpdateIds.includes(updateId)
-  );
+    ? updateId
+    : undefined;
 }
 
 export function buildOrganizationProfileBootstrapInput(
@@ -42,7 +43,7 @@ export function buildOrganizationProfileBootstrapInput(
       document,
     ),
     initialUpdate: base64ToBytes(input.snapshot),
-    initialUpdateCommitted: initialUpdateCommitted(input),
+    committedInitialUpdateId: committedInitialUpdateId(input),
     localId: getOrganizationProfileDocumentLocalId({
       organizationId: input.response.organizationId,
     }),
@@ -66,7 +67,7 @@ export function buildRosterProfileBootstrapInput(
       document,
     ),
     initialUpdate: input.initialUpdate,
-    initialUpdateCommitted: initialUpdateCommitted(input),
+    committedInitialUpdateId: committedInitialUpdateId(input),
     localId: getRosterProfileDocumentLocalId({
       organizationId: input.response.organizationId,
       userId: input.response.userId,

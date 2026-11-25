@@ -111,9 +111,10 @@ export async function reconcileMarkedContainers(
 
 /**
  * The force a failed container keeps for its automatic retry: the one it had
- * when its batch started, or, in a full sweep, the sweep's own. A full sweep
- * forces every container but only within its pass, so a failure keeps that
- * force like a hint's, to be acknowledged only by a later success. A newer
+ * when its batch started, or, in a sweep that lists every container, the
+ * sweep's own. Such a sweep covers every container but only within its pass,
+ * so a failure keeps a force like a hint's, to be acknowledged only by a
+ * later success. A newer
  * hint that arrived meanwhile already holds a force and its own queue entry,
  * so it is left alone.
  */
@@ -121,12 +122,15 @@ function failedContainerForce(
   state: KnownContainerSweepState,
   containerId: string,
   batchForceGeneration: number | undefined,
-  fullSweep: boolean,
+  listsEveryContainer: boolean,
 ): FailedForcedContainer | null {
   if (batchForceGeneration !== undefined) {
     return { containerId, forceGeneration: batchForceGeneration };
   }
-  if (!fullSweep || state.forcedContainerGenerations.has(containerId)) {
+  if (
+    !listsEveryContainer ||
+    state.forcedContainerGenerations.has(containerId)
+  ) {
     return null;
   }
   markContainerForced(state, containerId);
@@ -134,6 +138,33 @@ function failedContainerForce(
   return forceGeneration === undefined
     ? null
     : { containerId, forceGeneration };
+}
+
+/**
+ * A lane the catch-up after an acknowledged connection could not list says
+ * nothing about its documents, so each registered one is probed, as every
+ * opened document was before listings owed reads. The lane keeps its force
+ * and is listed again by its retry.
+ */
+async function probeUnlistedLanes(
+  host: ReconciliationHost,
+  results: ReadonlyArray<ContainerReconcileResult>,
+): Promise<void> {
+  for (const { containerId, listed } of results) {
+    if (listed || !host.canDiscoverContainerDocuments(containerId)) continue;
+    try {
+      const delta = await host.loadContainerDelta(containerId);
+      host.requestDocumentContentPull(
+        containerId,
+        delta.documentSummaries,
+        true,
+      );
+    } catch (error) {
+      if (!host.isIgnorableError(error)) {
+        host.logError?.("Reconciliation: unlisted lane probe failed", error);
+      }
+    }
+  }
 }
 
 /**
@@ -146,6 +177,9 @@ async function sweepContainerBatch(input: {
   forceAllDocumentContentPulls: boolean;
   host: ReconciliationHost;
   lifecycleGeneration: number;
+  listsEveryContainer: boolean;
+  onListed: ((containerId: string) => void) | undefined;
+  probeUnlistedLanes: boolean;
   state: KnownContainerSweepState;
 }): Promise<{
   readonly failedForces: ReadonlyArray<FailedForcedContainer>;
@@ -169,13 +203,43 @@ async function sweepContainerBatch(input: {
     })),
     forceAllDocumentContentPulls,
   );
-  if (!isCurrentReconciliationLifecycle(state, input.lifecycleGeneration)) {
-    return null;
+  const isCurrent = () =>
+    isCurrentReconciliationLifecycle(state, input.lifecycleGeneration);
+  if (input.probeUnlistedLanes && isCurrent()) {
+    await probeUnlistedLanes(host, results);
   }
+  if (!isCurrent()) return null;
+  for (const result of results) {
+    if (result.listed) input.onListed?.(result.containerId);
+  }
+  return settleBatchForces({
+    forceGenerations,
+    host,
+    listsEveryContainer: input.listsEveryContainer,
+    results,
+    state,
+  });
+}
+
+/**
+ * Acknowledges the force of each container a batch reconciled, and keeps one
+ * for each it failed, to be retried.
+ */
+function settleBatchForces(input: {
+  forceGenerations: ReadonlyMap<string, number | undefined>;
+  host: ReconciliationHost;
+  listsEveryContainer: boolean;
+  results: ReadonlyArray<ContainerReconcileResult>;
+  state: KnownContainerSweepState;
+}): {
+  readonly failedForces: ReadonlyArray<FailedForcedContainer>;
+  readonly firstError: unknown;
+} {
+  const { host, state } = input;
   const failedForces: FailedForcedContainer[] = [];
   let firstError: unknown;
-  for (const result of results) {
-    const forceGeneration = forceGenerations.get(result.containerId);
+  for (const result of input.results) {
+    const forceGeneration = input.forceGenerations.get(result.containerId);
     if (result.status === "reconciled") {
       acknowledgeContainerForce(state, result.containerId, forceGeneration);
     } else if (result.status === "failed") {
@@ -183,7 +247,7 @@ async function sweepContainerBatch(input: {
         state,
         result.containerId,
         forceGeneration,
-        forceAllDocumentContentPulls,
+        input.listsEveryContainer,
       );
       if (failedForce) failedForces.push(failedForce);
       if (!host.isIgnorableError(result.error) && firstError === undefined) {
@@ -224,10 +288,20 @@ function releaseUnreachedContainers(
 }
 
 export async function sweepKnownContainers(input: {
+  /** Revalidate every registered document of each container that changed. */
   forceAllDocumentContentPulls: boolean;
   host: ReconciliationHost;
   knownIds: ReadonlyArray<string>;
   lifecycleGeneration: number;
+  /**
+   * List every known container, not only the forced and undiscovered ones.
+   * Implied by `forceAllDocumentContentPulls`.
+   */
+  listsEveryContainer?: boolean | undefined;
+  /** Told each container whose document lane this sweep listed. */
+  onListed?: ((containerId: string) => void) | undefined;
+  /** Probe the registered documents of a lane this sweep could not list. */
+  probeUnlistedLanes?: boolean | undefined;
   state: KnownContainerSweepState;
   /**
    * Ends the sweep before its next batch. The batch in flight finishes, and
@@ -245,7 +319,9 @@ export async function sweepKnownContainers(input: {
   if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
     return;
   }
-  const containerIds = forceAllDocumentContentPulls
+  const listsEveryContainer =
+    forceAllDocumentContentPulls || input.listsEveryContainer === true;
+  const containerIds = listsEveryContainer
     ? knownIds
     : knownIds.filter(
         (containerId) =>
@@ -286,6 +362,9 @@ export async function sweepKnownContainers(input: {
       forceAllDocumentContentPulls,
       host,
       lifecycleGeneration,
+      listsEveryContainer,
+      onListed: input.onListed,
+      probeUnlistedLanes: input.probeUnlistedLanes === true,
       state,
     });
     if (!batch) return;

@@ -2,11 +2,8 @@ import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants
 import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import {
-  createDocumentProjectionUserKeyResolver,
   type DocumentsPersistence,
   defaultDocumentsPersistence,
-  didDocumentProjectionKeyRuntimeChange,
-  didRegainSyncPrerequisites,
   requestDocumentSyncLaneAndWait,
 } from "../../../workflows/documents";
 import {
@@ -52,120 +49,29 @@ import { createRowWrites } from "./rows";
 import {
   createDocumentStoreState,
   type DocumentStoreState,
-  refreshAttachabilitySnapshot,
-  resetDocumentStore,
   subscribeToDocumentStore,
 } from "./state";
-import { registerDocumentStoreSyncLane } from "./sync";
-import { logRevalidationScheduled } from "./sync/remoteRevalidationTelemetry";
-import { settleDeferredStartupProbe } from "./sync/startupProbeDeferral";
 import {
-  allowDocumentStoreRemoteSync,
+  refreshDocumentStoreSyncLane,
+  requestRemoteDocumentStoreSync,
+  updateDocumentStoreRuntime,
+} from "./sync/storeRuntime";
+import {
   captureDocumentStoreRemoteSyncRequestGeneration,
-  captureDocumentStoreSyncLaneGeneration,
   type DocumentStoreRemoteSyncRequestGeneration,
-  type DocumentStoreSyncLaneGeneration,
   didDocumentStoreRemoteSyncRequestComplete,
   hasPendingIndependentDocumentStoreRemoteSync,
   invalidateDocumentStoreRemoteSync,
-  invalidateDocumentStoreSyncLane,
   isDocumentStoreRemoteSyncBlocked,
   isDocumentStoreRemoteSyncRequestGenerationCurrent,
-  markDocumentStoreRemoteSyncPending,
   registerDocumentStoreRemoteSyncWaiter,
 } from "./sync/syncGeneration";
-import { handleDocumentRemoteEvents } from "./sync/syncRemoteSignals";
 
 export {
   discardRegisteredDocumentLocalState,
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,
 } from "../registry";
-
-function refreshDocumentStoreSyncLane(
-  state: DocumentStoreState,
-  force = false,
-): void {
-  if (!force && state.syncLane && !state.syncLane.isDisposed?.()) {
-    return;
-  }
-  if (state.syncLane) {
-    invalidateDocumentStoreSyncLane(state);
-  }
-  let syncLaneGeneration: DocumentStoreSyncLaneGeneration | null = null;
-  state.syncLane = registerDocumentStoreSyncLane(
-    state,
-    () => syncLaneGeneration,
-  );
-  syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
-}
-
-function updateDocumentStoreRuntime(
-  state: DocumentStoreState,
-  nextRuntime: DocumentsRuntime,
-  scheduleSync: () => void,
-) {
-  const previousRuntime = state.runtime;
-  const serverEventsReconnected =
-    (nextRuntime.state.serverEventsConnectionGeneration ?? 0) >
-    (previousRuntime.state.serverEventsConnectionGeneration ?? 0);
-  const domainScopeChanged =
-    previousRuntime.state.domainScope !== nextRuntime.state.domainScope;
-  const projectionKeyRuntimeChanged = didDocumentProjectionKeyRuntimeChange(
-    previousRuntime,
-    nextRuntime,
-  );
-  if (projectionKeyRuntimeChanged) {
-    state.resolveProjectionUserKey =
-      createDocumentProjectionUserKeyResolver(nextRuntime);
-    state.writerProjection = null;
-  }
-  state.runtime = nextRuntime;
-  refreshDocumentStoreSyncLane(state, domainScopeChanged);
-  if (domainScopeChanged) {
-    state.locallyAcceptedUpdateIds = new Set();
-    state.remoteUpdatePending = false;
-    state.writerProjection = null;
-  }
-
-  if (nextRuntime.infra.dbStatus !== "ready") {
-    if (state.snapshot.ready || state.initialized || state.initializePromise) {
-      resetDocumentStore(state);
-    }
-    state.lastEventCount = nextRuntime.state.events.length;
-    return;
-  }
-
-  refreshAttachabilitySnapshot(state);
-  ensureDocumentStoreInitialized(state, scheduleSync);
-  handleDocumentRemoteEvents(state, scheduleSync);
-
-  if (state.snapshot.ready) {
-    settleDeferredStartupProbe(state, serverEventsReconnected, scheduleSync);
-    if (serverEventsReconnected) {
-      // The invalidation stream is lossy while disconnected. Once the server
-      // has acknowledged this socket's authoritative interest declaration,
-      // every already-open remote document needs one HTTP probe to cover peer
-      // writes made during the gap. This also closes iOS background/resume reconnects where the
-      // native network source remained online throughout.
-      requestRemoteDocumentStoreSync(state, scheduleSync);
-      logRevalidationScheduled(state.runtime, "reconnect");
-    } else if (didRegainSyncPrerequisites(previousRuntime, state.runtime)) {
-      scheduleSync();
-    }
-  }
-}
-
-function requestRemoteDocumentStoreSync(
-  state: DocumentStoreState,
-  scheduleSync: () => void,
-  owner: "independent" | "waiter" = "independent",
-): number {
-  allowDocumentStoreRemoteSync(state);
-  const signalSequence = markDocumentStoreRemoteSyncPending(state, owner);
-  scheduleSync();
-  return signalSequence;
-}
 
 function requestOrdinaryDocumentStoreSync(
   state: DocumentStoreState,
