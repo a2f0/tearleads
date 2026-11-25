@@ -15,6 +15,14 @@ stored as `tearleads.telemetry` in the origin's `localStorage` (`enabled` or
 `disabled`), so it covers every identity on the device. A device reset clears it
 along with the rest of `localStorage`.
 
+Both places show the switch and its label only. That is the owner's product
+decision (2026-11-24): the app carries no description of what the choice sends.
+The website's [privacy policy](../../packages/website/src/pages/privacy-policy.astro)
+describes what error reports and click analytics send, including that the
+receiving services see the IP address, but it does not yet name this opt-in and
+still reads as if app reports are always sent. Do not add copy or a link beside
+the switch without the owner's say.
+
 Each shell creates the store with `createTelemetryConsent()` (from
 `app/host/telemetryConsent`) before its collectors and passes it to them and to
 the app's host config. The private browser client takes it as a required

@@ -51,6 +51,10 @@ test("Settings opens on General, whose telemetry switch starts off", () => {
   });
   expect(telemetry).toHaveProperty("checked", false);
   expect(telemetry.getAttribute("aria-checked")).toBe("false");
+  expect(telemetry.hasAttribute("aria-describedby")).toBe(false);
+  expect(view.container.querySelector(".telemetry-consent")?.textContent).toBe(
+    "Share anonymous telemetry",
+  );
 });
 
 test("the switch opts the device in and out, and follows changes made elsewhere", () => {
