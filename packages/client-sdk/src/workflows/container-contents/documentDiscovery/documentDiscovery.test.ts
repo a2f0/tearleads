@@ -30,6 +30,7 @@ function listContainerDocumentsResponse(
     id: string;
     linkedContainerIds: string[];
     referencedPrincipals?: ReferencedPrincipalStateResponse[];
+    updateCount?: number;
     updatedAt: string;
   }>,
   overrides: Partial<{
@@ -48,6 +49,7 @@ function listContainerDocumentsResponse(
     items: items.map((item) => ({
       ...item,
       referencedPrincipals: item.referencedPrincipals ?? [],
+      updateCount: item.updateCount ?? 0,
     })),
     nextWatermark: lastItem
       ? { id: lastItem.id, updatedAt: lastItem.updatedAt }
@@ -211,6 +213,7 @@ test("container document discovery resumes from stored watermark and advances af
     replaceDocumentLinksBatch: async () => {
       applyOrder.push("replace-links");
     },
+    oweListedDocumentReads: async () => [],
     recordContainerDocumentListing: async (containerId, listing) => {
       applyOrder.push("record-listing");
       recordedListings.push({ containerId, listing });
@@ -286,6 +289,7 @@ test("container document discovery does not advance watermark when local apply f
         ]),
       ),
       replaceDocumentLinksBatch: async () => {},
+      oweListedDocumentReads: async () => [],
       recordContainerDocumentListing: async (_containerId, listing) => {
         recordedListings.push(listing);
       },
@@ -346,6 +350,7 @@ test("container document discovery applies tombstones before advancing watermark
     replaceDocumentLinksBatch: async () => {
       applyOrder.push("replace-links");
     },
+    oweListedDocumentReads: async () => [],
     recordContainerDocumentListing: async (_containerId, listing) => {
       applyOrder.push("record-listing");
       recordedListings.push(listing);
@@ -415,6 +420,7 @@ test("container document discovery does not advance watermark when tombstone app
         }),
       ),
       replaceDocumentLinksBatch: async () => {},
+      oweListedDocumentReads: async () => [],
       recordContainerDocumentListing: async (_containerId, listing) => {
         recordedListings.push(listing);
       },

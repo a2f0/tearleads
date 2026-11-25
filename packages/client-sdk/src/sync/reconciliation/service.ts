@@ -1,10 +1,13 @@
 import { clearOriginatedDocuments } from "../../data/sync/originatedDocuments";
-import type { SyncLane } from "../../data/sync/syncLaneConfig";
+import {
+  listFullRefreshContainerIds,
+  requestAcknowledgedConnectionSweep,
+  requestContainerRefresh,
+} from "./containerRefresh";
 import {
   acknowledgeContainerForce,
   activateContainer,
   enqueueKnownContainersForIdleBackfill,
-  type IdleBackfillState,
   markContainerForced,
 } from "./idleBackfill";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
@@ -12,33 +15,12 @@ import {
   clearPendingDiscoveryRetries,
   isCurrentReconciliationLifecycle,
   reconcileMarkedContainers,
-  sweepKnownContainers,
 } from "./knownContainerSweep";
-import { rearmFailedContainer, SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
+import { rearmFailedContainer } from "./laneFailure";
 import { resumeOwedDocumentDiscovery } from "./owedDiscovery";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
-import type {
-  ReconciliationHost,
-  ReconciliationRuntimeStatus,
-  ReconciliationService,
-} from "./serviceTypes";
-import {
-  type RefreshScope,
-  refreshTreeForSweep,
-  SharedRefresh,
-} from "./sharedRefresh";
-
-function canReconcile(status: ReconciliationRuntimeStatus): boolean {
-  return status.dbStatus === "ready" && status.isAuthenticated && status.online;
-}
-
-interface ReconciliationState extends IdleBackfillState {
-  active: boolean;
-  lane: SyncLane | null;
-  lifecycleGeneration: number;
-  probeContinuationCancel: (() => void) | null;
-  pendingRefresh: SharedRefresh | null;
-}
+import { canReconcile, type ReconciliationState } from "./serviceState";
+import type { ReconciliationHost, ReconciliationService } from "./serviceTypes";
 
 /**
  * Queued containers one lane run lists together. Each still verifies and
@@ -141,182 +123,6 @@ function scheduleProbeContinuation(
       state.lane?.requestSync();
     }
   }, state.initialDocumentProbe.continuationDelayMs());
-}
-
-function forgetIneligibleDiscoveredContainers(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-): void {
-  for (const containerId of state.discoveredContainerIds) {
-    if (!host.canDiscoverContainerDocuments(containerId)) {
-      state.discoveredContainerIds.delete(containerId);
-    }
-  }
-}
-
-async function refreshAndReconcileContainers(input: {
-  forceAllDocumentContentPulls: boolean;
-  host: ReconciliationHost;
-  listContainerIds: () => ReadonlyArray<string>;
-  refreshTree: () => Promise<void>;
-  state: ReconciliationState;
-  /** Every caller withdrew: stop at the next safe boundary. */
-  stop: AbortSignal;
-}): Promise<void> {
-  const { host, listContainerIds, refreshTree, state, stop } = input;
-  if (!canReconcile(host.getRuntimeStatus())) {
-    return;
-  }
-  const lifecycleGeneration = state.lifecycleGeneration;
-
-  // A full sweep reconciles every known container, so it takes over the queue
-  // and each container is fetched once. It hands back whatever it leaves
-  // unsettled, so queued work is never dropped.
-  const takenOver = input.forceAllDocumentContentPulls
-    ? state.queue.drain()
-    : [];
-  try {
-    // A resync_required structural refresh runs independently of this service.
-    // If it already removed a container after the forced document lane won its
-    // race against the old tree, forget the stale discovered bit before this
-    // refresh can re-add the same id.
-    forgetIneligibleDiscoveredContainers(host, state);
-    // A tree refresh that failed still leaves every known container to
-    // reconcile: sweep them, then report the tree failure.
-    const treeError = await refreshTreeForSweep(host, refreshTree, stop);
-    if (
-      !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
-      stop.aborted
-    ) {
-      return;
-    }
-    // Structural hydration can revoke and remove a container after a targeted
-    // force already reconciled it against the old tree. Forget every id that
-    // is no longer remotely listable so a later share of the same container id
-    // is treated as newly surfaced instead of being suppressed for the rest of
-    // the session.
-    forgetIneligibleDiscoveredContainers(host, state);
-    await sweepKnownContainers({
-      forceAllDocumentContentPulls: input.forceAllDocumentContentPulls,
-      host,
-      knownIds: listContainerIds(),
-      lifecycleGeneration,
-      state,
-      stop,
-    });
-    if (
-      !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
-      stop.aborted
-    ) {
-      return;
-    }
-    if (treeError !== undefined) throw treeError;
-  } catch (error) {
-    if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
-      return;
-    }
-    if (!host.isIgnorableError(error)) {
-      throw error;
-    }
-  } finally {
-    requeueUnsettledContainers(state, takenOver, lifecycleGeneration);
-  }
-}
-
-/**
- * Re-queues the containers a full sweep took over but did not settle: one it
- * never reached, one outside the known set, a failure, or a force it did not
- * acknowledge. A container it settled is discovered with no force left, which
- * the lane would only skip. The lane picks them up after the sweep's retry
- * backoff, so a container that just failed is not retried at once.
- */
-function requeueUnsettledContainers(
-  state: ReconciliationState,
-  entries: ReadonlyArray<readonly [string, ReconcilePriority]>,
-  lifecycleGeneration: number,
-): void {
-  if (
-    entries.length === 0 ||
-    !isCurrentReconciliationLifecycle(state, lifecycleGeneration)
-  ) {
-    return;
-  }
-  for (const [containerId, priority] of entries) {
-    if (
-      state.forcedContainerGenerations.has(containerId) ||
-      !state.discoveredContainerIds.has(containerId)
-    ) {
-      state.queue.enqueue(containerId, priority);
-    }
-  }
-  if (state.queue.size > 0) {
-    state.lane?.requestSyncAfter(SWEEP_RETRY_BACKOFF_MS);
-  }
-}
-
-// Sweeps share the queue and discovered set, so they must run serially.
-// Root requests join either kind of sweep; a full request after a root sweep
-// must wait for it and then refresh the whole tree. A fresh-listing request
-// joins only a sweep that has not started: one already running may have listed
-// before the event behind the request, so it queues a trailing sweep instead.
-// A sweep every caller withdrew from is stopping, so nothing joins it.
-function requestContainerRefresh(input: {
-  freshListing: boolean;
-  host: ReconciliationHost;
-  state: ReconciliationState;
-  refreshTree: () => Promise<void>;
-  listContainerIds: () => ReadonlyArray<string>;
-  scope: RefreshScope;
-  signal: AbortSignal | undefined;
-}): Promise<void> {
-  const { state, scope, signal } = input;
-  if (signal?.aborted) return Promise.reject(signal.reason);
-  const pending = state.pendingRefresh;
-  if (
-    pending &&
-    !pending.stopping &&
-    (scope === "root" || pending.scope === "full") &&
-    !(input.freshListing && pending.started)
-  ) {
-    return pending.join(signal);
-  }
-
-  const refresh = new SharedRefresh({
-    after: pending?.promise,
-    onSettled: (settled) => {
-      if (state.pendingRefresh === settled) state.pendingRefresh = null;
-    },
-    run: (stop) =>
-      refreshAndReconcileContainers({
-        forceAllDocumentContentPulls: scope === "full",
-        host: input.host,
-        listContainerIds: input.listContainerIds,
-        refreshTree: input.refreshTree,
-        state,
-        stop,
-      }),
-    scope,
-  });
-  state.pendingRefresh = refresh;
-  return refresh.join(signal);
-}
-
-function listFullRefreshContainerIds(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-): ReadonlyArray<string> {
-  const knownIds = host.listKnownContainerIds();
-  const activeContainerId = state.activeContainerId;
-  if (
-    !activeContainerId ||
-    knownIds.includes(activeContainerId) ||
-    !host.canDiscoverContainerDocuments(activeContainerId)
-  ) {
-    return knownIds;
-  }
-  // Explicit refresh also retries an open foreign system container that the
-  // background discovery list excludes.
-  return [...knownIds, activeContainerId];
 }
 
 function startReconciliationLane(
@@ -489,6 +295,8 @@ export function createReconciliationService(
         scope: "full",
         signal: options?.signal,
       }),
+    reconcileAcknowledgedConnection: () =>
+      requestAcknowledgedConnectionSweep(host, state),
     stop: () => stopReconciliationService(host, state),
   };
 }

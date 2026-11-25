@@ -161,7 +161,7 @@ test("step 3 drops the sync failure status from a version-2 database and keeps t
           `SELECT version FROM ${LOCAL_SCHEMA_MIGRATIONS_TABLE} ORDER BY version`,
         )
       ).map(({ version }) => Number(version)),
-    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     // The migrated table is the shape the current definition checks.
     await ensureSqlTables(execSql, documentTables);
   } finally {
@@ -191,9 +191,11 @@ test("step 4 replays publication cursors saved before unlink and restored-folder
     const repository = new ContainerSyncWatermarkRepository(execSql);
     const lane = containerContentsSyncLane("replay");
     expect(await repository.loadWatermark(lane)).toBeNull();
+    // Step 4 keeps a legacy document cursor, which replays by itself; step 11
+    // forgets every document-lane cursor, so the lane lists from its start.
     expect(
       await repository.loadWatermark(containerContentsSyncLane("legacy")),
-    ).toEqual({ id: "doc", updatedAt: CREATED_AT });
+    ).toBeNull();
     expect(
       await repository.loadWatermark(containerParentSyncLane(null)),
     ).toBeNull();

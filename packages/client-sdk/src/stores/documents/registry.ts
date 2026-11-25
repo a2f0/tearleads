@@ -205,6 +205,25 @@ export function requestRegisteredDocumentRemoteSync(
 }
 
 /**
+ * Asks the registered store of each server document to probe; a document
+ * with no open store is skipped. A listing that owes documents a read calls
+ * this once their debts are durable, and a store that opens later reads its
+ * document's debt itself.
+ */
+export function requestRegisteredDocumentRemoteSyncs(
+  domainScope: DomainScope,
+  documentIds: ReadonlyArray<string>,
+): void {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  if (!registry) return;
+  for (const documentId of documentIds) {
+    const storeKey = registry.storeKeysByDocumentId.get(documentId);
+    if (storeKey === undefined) continue;
+    registry.storesByKey.get(storeKey)?.requestRemoteSync();
+  }
+}
+
+/**
  * Discard a registered document's local edits through its store, so the
  * teardown serializes on the store's write machinery instead of racing an
  * in-flight persist that would resurrect the deleted rows. Only registered

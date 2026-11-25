@@ -67,7 +67,7 @@ test("a pause landing while a listing applies stores none of it", async () => {
       tombstones: [],
     });
 
-    expect(applied).toBeNull();
+    expect(applied).toEqual({ status: "superseded" });
     // Saved now, the watermark would let the listing after a resume skip the
     // documents this one did not apply.
     expect(await loadWatermark(execSql)).toBeNull();

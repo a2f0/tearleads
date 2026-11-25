@@ -3,11 +3,8 @@ import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflow
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
 import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordination";
 import type { ContainerContentsStoreRuntime } from "../container-contents";
-import {
-  isReconcilableContainerNode,
-  isRemoteBackedContainerNode,
-} from "../container-contents";
 import type { ContainerContentsStore } from "../container-contents/types";
+import { hasRemoteBackedContainerMembershipGrowth } from "./remoteContainerGrowth";
 import {
   applyContainerSummaries,
   createSummaryCache,
@@ -30,6 +27,7 @@ export interface LocalProjectionReconcileSignal {
   reason:
     | "hydrated"
     | "active-changed"
+    | "connection-acknowledged"
     | "prerequisites-regained"
     | "remote-containers-added";
   activeContainerId: string | null;
@@ -75,6 +73,13 @@ interface LocalProjectionStoreState {
    * hydration completes.
    */
   pendingPrerequisitesRegained: boolean;
+  /**
+   * The server acknowledged a socket's interest declaration, which advanced
+   * the connection generation, and the catch-up listing it owes has not been
+   * requested yet. Latched like a prerequisite regain: the listing needs the
+   * hydrated tree to know which lanes to list.
+   */
+  pendingConnectionAcknowledged: boolean;
   reconcileListeners: Set<LocalProjectionReconcileListener>;
   runtime: ContainerContentsStoreRuntime;
   snapshot: LocalProjectionSnapshot;
@@ -249,21 +254,29 @@ function markHydratedIfReady(state: LocalProjectionStoreState): boolean {
   return true;
 }
 
-function flushPendingPrerequisitesRegained(
-  state: LocalProjectionStoreState,
-): void {
+/**
+ * Raises the signals latched while the tree was not ready. A regain resets
+ * what the reconciler considers discovered, so it goes first; the listing an
+ * acknowledged connection owes then takes over the queue it filled.
+ */
+function flushPendingReconcileSignals(state: LocalProjectionStoreState): void {
   if (
-    !state.pendingPrerequisitesRegained ||
     !state.hydratedContainerSummaries ||
     !state.containerStore.getSnapshot().ready
   ) {
     return;
   }
-  state.pendingPrerequisitesRegained = false;
-  notifyReconcile(state, {
-    reason: "prerequisites-regained",
-    activeContainerId: state.activeContainerId,
-  });
+  for (const [pending, reason] of [
+    ["pendingPrerequisitesRegained", "prerequisites-regained"],
+    ["pendingConnectionAcknowledged", "connection-acknowledged"],
+  ] as const) {
+    if (!state[pending]) continue;
+    state[pending] = false;
+    notifyReconcile(state, {
+      reason,
+      activeContainerId: state.activeContainerId,
+    });
+  }
 }
 
 function publishHydration(state: LocalProjectionStoreState): boolean {
@@ -276,7 +289,7 @@ function publishHydration(state: LocalProjectionStoreState): boolean {
     });
   }
   // Backfills read getSnapshot(), so publish the tree before requesting them.
-  flushPendingPrerequisitesRegained(state);
+  flushPendingReconcileSignals(state);
   return didMarkHydrated;
 }
 
@@ -285,46 +298,6 @@ function resetProjection(state: LocalProjectionStoreState): void {
   resetSummaryCache(state.cache);
   state.pendingSummaryReads.clear();
   state.hydratedContainerSummaries = false;
-}
-
-function hasRemoteBackedContainerMembershipGrowth(
-  previous: LocalProjectionSnapshot["containers"],
-  next: LocalProjectionSnapshot["containers"],
-  homeOrganizationId: string | null,
-  activeContainerId: string | null,
-): boolean {
-  const isRemoteReconcilable = (
-    container: LocalProjectionSnapshot["containers"][number],
-  ) => isReconcilableContainerNode(container, homeOrganizationId);
-  const previousIds = new Set(
-    previous.flatMap((container) =>
-      isRemoteReconcilable(container) ? [container.id] : [],
-    ),
-  );
-  if (
-    next.some(
-      (container) =>
-        isRemoteReconcilable(container) && !previousIds.has(container.id),
-    )
-  ) {
-    return true;
-  }
-  if (!activeContainerId) {
-    return false;
-  }
-  const wasActiveRemoteBacked = previous.some(
-    (container) =>
-      container.id === activeContainerId &&
-      isRemoteBackedContainerNode(container),
-  );
-  return (
-    !wasActiveRemoteBacked &&
-    next.some(
-      (container) =>
-        container.id === activeContainerId &&
-        isRemoteBackedContainerNode(container),
-    )
-  );
 }
 
 function removePersistedDocumentFromCache(
@@ -361,6 +334,12 @@ function updateLocalProjectionRuntime(
   // hydration instead of being lost to startup ordering.
   if (didRegainSyncPrerequisites(previousRuntime, runtime)) {
     state.pendingPrerequisitesRegained = true;
+  }
+  if (
+    (runtime.state.serverEventsConnectionGeneration ?? 0) >
+    (previousRuntime.state.serverEventsConnectionGeneration ?? 0)
+  ) {
+    state.pendingConnectionAcknowledged = true;
   }
 
   if (runtime.infra.dbStatus !== "ready") {
@@ -408,6 +387,10 @@ export function createLocalProjectionStore(input: {
     hydratedContainerSummaries: false,
     listeners: new Set(),
     pendingPrerequisitesRegained: false,
+    // A projection opened after the acknowledgement missed its generation
+    // change, and still owes the catch-up listing.
+    pendingConnectionAcknowledged:
+      (input.runtime.state.serverEventsConnectionGeneration ?? 0) > 0,
     reconcileListeners: new Set(),
     runtime: input.runtime,
     snapshot: EMPTY_SNAPSHOT,

@@ -202,16 +202,12 @@ function markServerEventsConnected(
     // epoch change. Drop cached writer projections before the HTTP sweep.
     tearleads.events.invalidateAccessState();
   }
+  // The declaration acknowledgement is the ordering barrier: routing is live
+  // before the SDK closes the lossy interval. Advancing the connection
+  // generation here is what starts that catch-up, on a first connection as on
+  // a reconnect: the container store re-lists the tree, and the reconciler
+  // lists every document lane and owes a read to each document that moved.
   tearleads.events.setConnected(true);
-  if (reconnecting) {
-    // The declaration acknowledgement is the ordering barrier: routing is live
-    // before this sweep closes the lossy interval. This also catches re-keys in
-    // unopened containers, which open-document reconnect probes cannot.
-    void tearleads.deviceFirst
-      .open()
-      .reconciler.reconcileNow()
-      .catch(() => log("WebSocket: reconnect catch-up unavailable"));
-  }
   refreshOrganizationMemberships(tearleads, log);
   log("WebSocket: interest declaration acknowledged");
   log("WebSocket connected");

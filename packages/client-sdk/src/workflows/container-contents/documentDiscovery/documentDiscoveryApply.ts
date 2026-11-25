@@ -16,36 +16,56 @@ export type ContainerDocumentDiscoveryLane = Omit<
   | "loadContainerDocumentWatermark"
 >;
 
-async function recordAppliedContainerDocumentListing(input: {
-  containerId: string;
-  listedDocuments: ListedContainerDocuments;
-  recordContainerDocumentListing: DiscoverContainerDocumentsOptions["recordContainerDocumentListing"];
-  settled: boolean;
-  stillCurrent: () => Promise<boolean>;
-}) {
-  const { containerId, listedDocuments, settled } = input;
+/**
+ * The cursor and the settled mark share one row and one statement. A lane cut
+ * short before here stays owed, so the next boot lists it again.
+ */
+async function recordAppliedContainerDocumentListing(
+  lane: Pick<
+    ContainerDocumentDiscoveryLane,
+    "containerId" | "recordContainerDocumentListing"
+  >,
+  listedDocuments: ListedContainerDocuments,
+  outcome: { settled: boolean; stillCurrent: () => Promise<boolean> },
+) {
+  const { settled, stillCurrent } = outcome;
   const watermark = listedDocuments.nextWatermark;
   if (!watermark && !settled) {
     return;
   }
 
-  await input.recordContainerDocumentListing(
-    containerId,
+  await lane.recordContainerDocumentListing(
+    lane.containerId,
     { settled, watermark },
-    input.stillCurrent,
+    stillCurrent,
   );
 }
+
+/** What applying one lane's listing did. */
+export type ListedContainerDocumentsApply =
+  | {
+      /** `null` when the listing held nothing new. */
+      readonly documents: ReadonlyArray<DocumentSummary> | null;
+      readonly status: "applied";
+    }
+  /**
+   * A reset, an access change or a pause cancelled the apply. Its watermark
+   * may not have moved, so the lane was not listed.
+   */
+  | { readonly status: "superseded" };
+
+const SUPERSEDED: ListedContainerDocumentsApply = { status: "superseded" };
 
 /**
  * Verifies and applies one container's completed listing under a discovery
  * generation captured before the listing request, then advances its
- * watermark. Returns `null` when nothing was applied.
+ * watermark.
  */
 export async function applyListedContainerDocuments(
   options: ContainerDocumentDiscoveryLane,
   generation: number,
   listedDocuments: ListedContainerDocuments,
-): Promise<ReadonlyArray<DocumentSummary> | null> {
+): Promise<ListedContainerDocumentsApply> {
   const { containerId, upsertDiscoveredDocuments } = options;
   await options.cacheReferencedPrincipalPolicies?.(
     dedupeReferencedPrincipalStates(
@@ -72,7 +92,20 @@ export async function applyListedContainerDocuments(
     tombstones,
     new Set(tombstones.map((row) => row.documentId)),
   );
-  if (!(await verification.isCurrent())) return null;
+  if (!(await verification.isCurrent())) return SUPERSEDED;
+  // Every listed row is checked, verified or not: the debt names the server
+  // document, and the watermark below passes all of them. It is checked
+  // before the rows are applied: applying a row whose access epoch moved
+  // drops the key bundle its record held, which would hide that move.
+  const owedDocumentIds = await options.oweListedDocumentReads(
+    listedDocuments.items.map((document) => ({
+      accessStateHash: document.currentAccessStateHash,
+      documentId: document.id,
+      updateCount: document.updateCount,
+    })),
+    verification.isCurrent,
+  );
+  if (!(await verification.isCurrent())) return SUPERSEDED;
   const verifiedInputs = verification.inputs;
   const discoveredDocuments = verifiedInputs.length
     ? await upsertDiscoveredDocuments(verifiedInputs, verification.isCurrent)
@@ -99,17 +132,15 @@ export async function applyListedContainerDocuments(
   });
 
   const complete = await verification.commit();
-  if (!(await verification.isCurrent())) return null;
-  // The cursor and the settled mark share one row and one statement. A lane
-  // cut short before here stays owed, so the next boot lists it again.
-  await recordAppliedContainerDocumentListing({
-    containerId,
-    listedDocuments,
-    recordContainerDocumentListing: options.recordContainerDocumentListing,
+  if (!(await verification.isCurrent())) return SUPERSEDED;
+  if (owedDocumentIds.length > 0) {
+    options.onDocumentReadsOwed?.(owedDocumentIds);
+  }
+  await recordAppliedContainerDocumentListing(options, listedDocuments, {
     settled: complete,
     stillCurrent: verification.isCurrent,
   });
-  if (!(await verification.isCurrent())) return null;
+  if (!(await verification.isCurrent())) return SUPERSEDED;
 
   if (listedDocuments.isFullListing) {
     // Initial probes consume ids as discovery hints and verify their own heads.
@@ -118,9 +149,13 @@ export async function applyListedContainerDocuments(
     );
   }
 
-  return !complete &&
-    discoveredDocuments.length === 0 &&
-    tombstoneDocumentSummaries.length === 0
-    ? null
-    : [...discoveredDocuments, ...tombstoneDocumentSummaries];
+  return {
+    documents:
+      !complete &&
+      discoveredDocuments.length === 0 &&
+      tombstoneDocumentSummaries.length === 0
+        ? null
+        : [...discoveredDocuments, ...tombstoneDocumentSummaries],
+    status: "applied",
+  };
 }

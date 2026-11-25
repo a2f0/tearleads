@@ -36,6 +36,7 @@ reference.
 | Organization operations in container contents | `ContainerContentsOrganizationHost` (`runtime.organizations`): group share, current group policy, group metadata name, metadata-root authority and reload | `containerContentsOrganizationHost`, bound by the workflow runtime and the standalone `createContainerContentsWorkflowRuntime` | None; tests bind the real host |
 | Domain sync lanes | `getOrCreateDomainSyncCoordinator(domainScope)` | One coordinator per domain scope | None |
 | Container metadata writer peers | `getOrCreateRuntimeMetadataWriterPeers(domainScope)`, module-private to `metadataWriterPeers.ts` | One peer table per domain scope, read before and after every local metadata write, so a copy borrows the writer peer only while no other document may write it | A per-document table for a document on a fresh peer and its copies |
+| Document listing coverage | `getOrCreateDocumentListingCoverage(domainScope)`, which says whether the scope's listings vouch for a container's documents, so their stores need not probe on load or reconnect | One per domain scope; the device-first scope installs its `DocumentListingAuthority` (the lanes its reconciler lists) and reports each lane's listing outcome | No authority, which leaves every store probing |
 | Domain download history | `getOrCreateDomainDownloadHistory(domainScope)` | One history per domain scope, recorded where document, folder-metadata, rotation-recovery, and first-copy attachment downloads finish | Host tests record through its `recordCompleted` |
 | Identity change preparation | `IdentityChangePreparation` | `Blobs` prepares a store and returns a commit that only assigns state | No-op preparation in identity/session tests |
 | Blob attachment I/O | `BlobAttachmentService` (`runtime.blobAttachments`) | One per documents runtime, built by `createDocumentsWorkflowRuntime` | Constructed over a fake API in tests |
@@ -49,6 +50,7 @@ reference.
 | Container sync watermarks | `ContainerSyncWatermarkRepository(execSql, now)` | Built from the caller's executor (the locked one inside a mutation) at each call | None |
 | Organization provisioning attempts | `OrganizationProvisioningAttemptRepository(execSql, now)` | Built from the caller's executor at each call | None |
 | Container document tombstone holds | `ContainerDocumentTombstoneHoldRepository(execSql, now)` | Built from the caller's executor at each call | None |
+| Reads a listing owes documents | `DocumentListingRevalidationRepository(execSql, now)` | Built from the caller's executor (the locked one inside a listing's apply) at each call | None |
 | Document discovery evidence | `DocumentDiscoveryEvidenceRepository(execSql, now)` | One per discovery pass, built by `discoverContainerDocumentLanesForRuntime` | None |
 | Principal mutation journal | `PrincipalMutationJournalRepository(execSql)` | Built from the caller's executor at each call | None |
 | Principal policy bundle storage | `PrincipalPolicyBundleRepository(execSql, now)` | Built from the caller's executor at each call | None |

@@ -66,6 +66,7 @@ for (const phase of ["listing", "head", "commit"] as const) {
                 updatedAt: at,
                 currentAccessEpoch: 1,
                 currentAccessStateHash: "signed-head",
+                updateCount: 0,
                 linkedContainerIds: ["org-b-container"],
                 referencedPrincipals: [],
               },
@@ -88,6 +89,7 @@ for (const phase of ["listing", "head", "commit"] as const) {
         ),
         upsertDiscoveredDocuments: upsert,
         replaceDocumentLinksBatch: replaceLinks,
+        oweListedDocumentReads: async () => [],
         recordContainerDocumentListing: saveWatermark,
         onFullListing,
       };

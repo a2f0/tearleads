@@ -69,3 +69,4 @@ formal/blob-attachments/AttachmentReaddReconcile.tla|formal/blob-attachments/Att
 formal/blob-attachments/AttachmentRemovedSlotDetach.tla|formal/blob-attachments/AttachmentRemovedSlotDetach.cfg
 formal/blob-attachments/StagePromotion.tla|formal/blob-attachments/StagePromotion.cfg
 formal/document-sync/SyncLaneConcurrency.tla|formal/document-sync/SyncLaneConcurrency.cfg
+formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg

@@ -13,18 +13,28 @@ import {
 } from "../../../data/persistence/documents/documentsPersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { oweListedDocumentReadsBehindListing } from "../../documents";
 import type { DiscoverContainerDocumentsOptions } from "../documentDiscovery/documentDiscoveryTypes";
 
 type PauseGuardedDiscovery = Pick<
   DiscoverContainerDocumentsOptions,
   | "applyContainerDocumentTombstones"
   | "holdContainerDocumentTombstones"
+  | "oweListedDocumentReads"
   | "refuteContainerDocumentTombstoneHolds"
   | "recordContainerDocumentListing"
   | "replaceDocumentLinksBatch"
   | "upsertDiscoveredDocuments"
   | "verifyDiscoveredDocuments"
 >;
+
+type ListedDocuments = Parameters<
+  DiscoverContainerDocumentsOptions["oweListedDocumentReads"]
+>[0];
+
+/** The owed-read write for one listing, run on the locked executor. */
+const oweReads = (listed: ListedDocuments) => (locked: ExecSql) =>
+  oweListedDocumentReadsBehindListing(locked, listed);
 
 /**
  * Binds a discovery lane's writes to its generation and its organization
@@ -71,6 +81,8 @@ export function guardDocumentDiscoveryWrites(input: {
           ).holdContainerDocumentTombstones(rows),
         stillCurrent,
       ),
+    oweListedDocumentReads: (listed, stillCurrent) =>
+      whileCurrent([], oweReads(listed), stillCurrent),
     refuteContainerDocumentTombstoneHolds: (rows, stillCurrent) =>
       whileCurrent(
         undefined,

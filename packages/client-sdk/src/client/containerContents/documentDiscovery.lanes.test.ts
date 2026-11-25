@@ -43,6 +43,7 @@ function laneApiFor(containerIds: ReadonlyArray<string>) {
               createdAt: AT,
               currentAccessEpoch: 1,
               currentAccessStateHash: `head:${containerId}:doc`,
+              updateCount: 0,
               effectiveAccessLevel: "write",
               id: `${containerId}:doc`,
               linkedContainerIds: [containerId],
