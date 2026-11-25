@@ -179,4 +179,20 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "RecoveryOnlyForPersonalOrganization" },
     why: "An unsigned purged status must not start re-homing a shared organization's members.",
   },
+  {
+    id: "purge-recovery-frees-ids-unreserved",
+    module: "formal/local-trust/PurgeRecovery.tla",
+    config: "formal/local-trust/PurgeRecovery.cfg",
+    constants: { ReserveFreedIds: "FALSE" },
+    expect: { kind: "invariant", name: "RecreateCanProceed" },
+    why: "Another user who learned a purged id must not take it before the owner's recovery recreates it (#3264).",
+  },
+  {
+    id: "purge-recovery-reserves-for-replacement-organization",
+    module: "formal/local-trust/PurgeRecovery.tla",
+    config: "formal/local-trust/PurgeRecovery.cfg",
+    constants: { ReserveForOwner: "FALSE" },
+    expect: { kind: "invariant", name: "RecreateCanProceed" },
+    why: "A reservation keyed by the replacement organization admits a re-invited member; it must be keyed by the owner (#3264).",
+  },
 ];

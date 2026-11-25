@@ -181,7 +181,6 @@ export class Tearleads {
     };
     this.organizations = createOrganizations(
       runtime,
-      this.containerContents,
       () => this.deviceFirst.open().reconciler,
     );
     this.root = createRoot(rootRuntimeOf(runtime, this.session));

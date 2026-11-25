@@ -40,31 +40,30 @@ test("a file slot's statuses call its attachment a file", () => {
   );
 });
 
-test("a PDF is known by a parameterized or recased type, or by its name when untyped", () => {
+test("a PDF is known by its type, however parameterized or cased", () => {
   expect(
     isPdfDocumentAttachmentBlob({ mimeType: "Application/PDF; version=1.7" }),
   ).toBe(true);
+  // Only the upload infers a type from a name; a stored blob's type is final.
+  expect(isPdfDocumentAttachmentBlob({ mimeType: null })).toBe(false);
   expect(
-    isPdfDocumentAttachmentBlob({ mimeType: null, name: "Policy.PDF" }),
-  ).toBe(true);
-  expect(
-    isPdfDocumentAttachmentBlob({
-      mimeType: "application/octet-stream",
-      name: "policy.pdf",
-    }),
-  ).toBe(true);
-  expect(
-    isPdfDocumentAttachmentBlob({ mimeType: "text/plain", name: "notes.pdf" }),
+    isPdfDocumentAttachmentBlob({ mimeType: "application/octet-stream" }),
   ).toBe(false);
+});
+
+test("an untyped or generically typed upload takes its extension's type", async () => {
+  const upload = (name: string, type: string) =>
+    readDocumentAttachmentUpload(new File(["%PDF-1.7"], name, { type }));
+  expect((await upload("Policy.PDF", "")).mimeType).toBe("application/pdf");
   expect(
-    isPdfDocumentAttachmentBlob({ mimeType: null, name: "scan.png" }),
-  ).toBe(false);
-  expect(
-    isDocumentAttachmentBlobAccepted(
-      "image-or-pdf",
-      createBlobInfo({ mimeType: null, name: "policy.pdf" }),
-    ),
-  ).toBe(true);
+    (await upload("policy.pdf", "application/octet-stream")).mimeType,
+  ).toBe("application/pdf");
+  // A declared type wins over the extension.
+  expect((await upload("notes.pdf", "text/plain")).mimeType).toBe("text/plain");
+  expect((await upload("blob.bin", "application/octet-stream")).mimeType).toBe(
+    "application/octet-stream",
+  );
+  expect((await upload("blob", "")).mimeType).toBeNull();
 });
 
 test("only a file slot accepts PDF blobs, and its items keep that", () => {

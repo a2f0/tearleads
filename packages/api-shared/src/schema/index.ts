@@ -61,6 +61,10 @@ export {
   principalStatePayloads,
   principalStates,
 } from "./principalStates";
+export {
+  type PurgedObjectKind,
+  purgedObjectReservations,
+} from "./purgedObjectReservations";
 export { revenuecatWebhookEvents } from "./revenuecatWebhookEvents";
 export { type RootAuditAction, rootAuditEvents } from "./rootAuditEvents";
 export type {

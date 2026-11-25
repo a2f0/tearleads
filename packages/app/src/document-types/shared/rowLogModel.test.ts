@@ -6,6 +6,7 @@ import {
   isValidReading,
 } from "./documentValueFormats";
 import {
+  getRowLogCellIssue,
   getRowLogFieldIssue,
   isRowLogEntryComplete,
   type RowLogField,
@@ -46,6 +47,14 @@ test("each input kind accepts blanks and rejects malformed values", () => {
   expect(getRowLogFieldIssue(field("unit"), "km")).toBe("Expected one of mi.");
   expect(getRowLogFieldIssue(field("cost"), "12.5")).toBeNull();
   expect(getRowLogFieldIssue(field("cost"), "$12")).toBe("Bad amount.");
+});
+
+test("a stored cell's issue adds a blank required cell to the format checks", () => {
+  expect(getRowLogCellIssue(field("work"), " ")).toBe("Expected a value.");
+  expect(getRowLogCellIssue(field("work"), "Tires")).toBeNull();
+  // An optional blank cell is fine; a filled one is checked as before.
+  expect(getRowLogCellIssue(field("cost"), "")).toBeNull();
+  expect(getRowLogCellIssue(field("cost"), "$12")).toBe("Bad amount.");
 });
 
 test("a new row needs its required cells and no malformed ones", () => {

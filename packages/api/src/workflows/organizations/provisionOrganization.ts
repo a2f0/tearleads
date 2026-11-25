@@ -322,11 +322,11 @@ async function provisionOrganizationAuthorityAndBilling(
     org.id,
     options.initialBilling,
   );
-  const container = await createRootContainer(
-    tx,
-    input.rootContainerId,
-    org.id,
-  );
+  const container = await createRootContainer(tx, {
+    organizationId: org.id,
+    rootContainerId: input.rootContainerId,
+    userId: input.userId,
+  });
   await options.onOrganizationRootCreated?.(org.id);
   await createInitialGroup(tx, {
     groupId: input.initialAdminGroup.groupId,

@@ -212,6 +212,20 @@ test("document lost-response adoption requires the exact manifest code", () => {
   ).toBe(false);
 });
 
+// The API refuses a create of an id an organization purge reserved for its
+// owner's recovery with a plain, uncoded 409. It must never read as the
+// lost-response conflict: adopting it would read another user's id.
+test("a purged organization's reserved-id refusal is never adopted", () => {
+  for (const message of [
+    "Document ID is reserved for its purged organization's recovery",
+    "POST /documents: 409 Conflict: Document ID is reserved for its purged organization's recovery",
+  ]) {
+    expect(
+      isDocumentManifestAlreadyExistsConflict(failure(undefined, message)),
+    ).toBe(false);
+  }
+});
+
 test("upstream deletion requires the exact status AND coded signal", () => {
   expect(
     isUpstreamDeletedDocumentSyncFailure(

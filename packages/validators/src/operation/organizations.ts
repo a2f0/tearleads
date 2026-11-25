@@ -96,7 +96,7 @@ export const createOrganizationOperation = defineJsonOperation({
   id: "organizations.create",
   summary: "Create an organization",
   description:
-    "Provisions an additional organization for the signed-in user, who becomes its founding administrator: reserved `Admins` and `Members` groups, root container, signed policies, and metadata documents in one transaction. It also creates the replacement for the caller's purged personal organization, which must use a fresh organization id. An exact ordinary-create replay returns HTTP 410 with organization_creation_purged only after current signer and user/request binding validation proves that its previously committed organization was purged. Reversible unavailability and other failures do not certify abandonment.",
+    "Provisions an additional organization for the signed-in user, who becomes its founding administrator: reserved `Admins` and `Members` groups, root container, signed policies, and metadata documents in one transaction. It also creates the replacement for the caller's purged personal organization, which must use a fresh organization id. A root container id that is in use, or that an organization billing purge reserved for another user, returns 409. An exact ordinary-create replay returns HTTP 410 with organization_creation_purged only after current signer and user/request binding validation proves that its previously committed organization was purged. Reversible unavailability and other failures do not certify abandonment.",
   method: "POST",
   params: CreateOrganizationPathParamsSchema,
   path: "/organizations",

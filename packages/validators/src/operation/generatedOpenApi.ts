@@ -492,7 +492,7 @@ export type paths = {
         put?: never;
         /**
          * Create a container
-         * @description Creates a container from a signed `container.create` event, the hash of the access manifest it derives, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.
+         * @description Creates a container from a signed `container.create` event, the hash of the access manifest it derives, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`. A container or metadata document id an organization billing purge freed is reserved for that organization's owner, and another user's create of it returns an uncoded 409 the client must not adopt.
          */
         post: operations["containers.create"];
         delete?: never;
@@ -752,7 +752,7 @@ export type paths = {
         put?: never;
         /**
          * Create a document
-         * @description Creates a document from a signed document access event, its document link-set manifest, and its content-key bundle, optionally committing the document's first encrypted update in the same transaction. Requires write access to the target container through an authorizing container path. A retry of a create that already committed returns 409 `document_manifest_already_exists`, which lets the client adopt it.
+         * @description Creates a document from a signed document access event, its document link-set manifest, and its content-key bundle, optionally committing the document's first encrypted update in the same transaction. Requires write access to the target container through an authorizing container path. A retry of a create that already committed returns 409 `document_manifest_already_exists`, which lets the client adopt it. An id an organization billing purge freed is reserved for that organization's owner, and another user's create of it returns an uncoded 409 the client must not adopt.
          */
         post: operations["documents.create"];
         delete?: never;
@@ -1000,7 +1000,7 @@ export type paths = {
         put?: never;
         /**
          * Create an organization
-         * @description Provisions an additional organization for the signed-in user, who becomes its founding administrator: reserved `Admins` and `Members` groups, root container, signed policies, and metadata documents in one transaction. It also creates the replacement for the caller's purged personal organization, which must use a fresh organization id. An exact ordinary-create replay returns HTTP 410 with organization_creation_purged only after current signer and user/request binding validation proves that its previously committed organization was purged. Reversible unavailability and other failures do not certify abandonment.
+         * @description Provisions an additional organization for the signed-in user, who becomes its founding administrator: reserved `Admins` and `Members` groups, root container, signed policies, and metadata documents in one transaction. It also creates the replacement for the caller's purged personal organization, which must use a fresh organization id. A root container id that is in use, or that an organization billing purge reserved for another user, returns 409. An exact ordinary-create replay returns HTTP 410 with organization_creation_purged only after current signer and user/request binding validation proves that its previously committed organization was purged. Reversible unavailability and other failures do not certify abandonment.
          */
         post: operations["organizations.create"];
         delete?: never;

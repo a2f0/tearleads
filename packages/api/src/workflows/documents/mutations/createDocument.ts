@@ -2,6 +2,7 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
+import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
 import {
   type DocumentCreateRequest,
   type DocumentCreateSeedRequest,
@@ -17,6 +18,7 @@ import { storeDocumentContentKeyBundleInTransaction } from "../../../access/writ
 import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
 import { readCommitCheckpoint } from "../../../documents/commitLsn";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
+import { releasePurgedObjectReservation } from "../../billing/purgedObjectReservations";
 import { applyContainerRekeys } from "../../containers/mutations";
 
 import { loadSignerPublicKey } from "../../signerPublicKey";
@@ -223,6 +225,36 @@ export async function createDocumentWithExecutor(
   };
 }
 
+/**
+ * Starts the id's history once no head, purge, or other user's reservation
+ * refuses it. When an organization purge reserved the id for this creator, the
+ * insert consumes that reservation; the new head guards the id from then on.
+ */
+async function insertCreatedDocumentRow(
+  input: CreateDocumentWithExecutorInput,
+  manifest: VerifiedDocumentLinkSetManifest,
+) {
+  const { reservedForCreator } = await assertCreateCanAdvanceDocumentHead(
+    input.executor,
+    manifest.state.documentId,
+    manifest.state.linkedContainerIds,
+    input.userId,
+  );
+  const document = await insertDocumentRow({
+    createdByFingerprint: input.fingerprint,
+    executor: input.executor,
+    manifest,
+  });
+  if (reservedForCreator) {
+    await releasePurgedObjectReservation(input.executor, {
+      objectId: manifest.state.documentId,
+      objectKind: "document",
+      userId: input.userId,
+    });
+  }
+  return document;
+}
+
 // The content-key bundle store resolves the document's current KEK targets
 // in this transaction; nothing after it changes heads, links, or epochs, so
 // its organization is the one a fresh resolution would return. The caller
@@ -283,16 +315,7 @@ async function createDocumentInTransaction(
       manifest.state.documentId,
     );
 
-    await assertCreateCanAdvanceDocumentHead(
-      input.executor,
-      manifest.state.documentId,
-      manifest.state.linkedContainerIds,
-    );
-    const document = await insertDocumentRow({
-      createdByFingerprint: input.fingerprint,
-      executor: input.executor,
-      manifest,
-    });
+    const document = await insertCreatedDocumentRow(input, manifest);
     await storeVerifiedAccessManifestInTransaction(
       { verifiedManifest: manifest },
       input.executor,

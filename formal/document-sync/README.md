@@ -106,7 +106,8 @@ frontier claims an unowned peer, passes on its writer's own, and refuses the
 request on another user's, while a re-assertion within the frontier is open to
 every writer. Peers stay secret until their first commit. A dishonest member
 commits forged spans on peers it has seen, and a republisher recreates a
-document from its history after a billing purge of its organization. A device
+document from its history after a billing purge of its organization; the purge
+reserves the freed id for that organization's owner. A device
 refused on a peer the recreation claimed rebases onto a fresh peer. Each update
 also declares the op ids it depends on: the server refuses one past a peer's
 committed frontier, and readers void an update that depends on other ops than
