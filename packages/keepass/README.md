@@ -24,8 +24,10 @@ encrypted with AES or ChaCha20. Twofish-encrypted databases and KeePass 1.x
 - Standard fields become `title`, `username`, `password`, `url`, and `notes`;
   every other string field is a `customFields` entry that keeps KeePass's
   protect-in-memory flag. Attachments are listed by name and size.
-- A blank password counts as no password, as KeePass treats it; a key file
-  alone is accepted.
+- A blank password is tried first as no password, then as an explicitly empty
+  one, the order KeePassXC uses; a key file alone is accepted.
+- A file cut off or damaged reads as `corrupt`, though one cut off inside the
+  encrypted payload can only be reported as `wrong-key`.
 - Failures are `KeepassReadError`s with a `code` (`wrong-key`, `not-kdbx`,
   `unsupported`, `corrupt`, `too-large`, `no-credentials`) and a message meant
   for the person running the import.
@@ -42,4 +44,12 @@ bun run --cwd packages/keepass test
 One fixture is a database written by KeePassXC 2.7.4, embedded as base64 in
 `src/keepassxcFixture.testUtils.ts`; the KDBX 4 cases are generated with
 kdbxweb, and the Argon2 adapter is checked against tags computed with
-`@noble/hashes`.
+`@noble/hashes`. KeePassXC's command line writes only KDBX 3.1 with AES-KDF,
+so there is no KeePassXC-written Argon2 fixture; kdbxweb hands the adapter
+memory in KiB, the unit those tags are computed with.
+
+Other packages' tests build databases with the `@tearleads/keepass/test-database`
+entry point: `createKeepassTestDatabase` writes a KDBX 4 Argon2d database from
+a tree of groups and entries (deleting one so the recycle bin is not empty),
+and `createKeepassTestKeyFile` makes a key file for it. Production code must
+not import it.

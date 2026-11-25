@@ -43,12 +43,18 @@ export function passcodeAttributeLabel(
   return name.length > 0 ? name : `Attribute ${index + 1}`;
 }
 
-/** The cells of a newly added attribute, named after its position. */
+/**
+ * The cells of a newly added attribute, named after its position, or the next
+ * number no other attribute uses (after a removal, the position can be taken).
+ */
 export function newPasscodeAttributeCells(
-  existingCount: number,
+  existing: ReadonlyArray<Pick<PasscodeAttribute, "name">>,
 ): Record<string, string> {
+  const names = new Set(existing.map(({ name }) => name.trim()));
+  let number = existing.length + 1;
+  while (names.has(`Attribute ${number}`)) number++;
   return {
-    [PASSCODE_ATTRIBUTE_NAME_FIELD]: `Attribute ${existingCount + 1}`,
+    [PASSCODE_ATTRIBUTE_NAME_FIELD]: `Attribute ${number}`,
     [PASSCODE_ATTRIBUTE_PROTECTED_FIELD]: "",
     [PASSCODE_ATTRIBUTE_VALUE_FIELD]: "",
   };

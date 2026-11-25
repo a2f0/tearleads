@@ -25,13 +25,13 @@ const context: CliContext = {
   stdout: (line) => process.stdout.write(`${line}\n`),
   traceByDefault: TEARLEADS_TRACE === "1",
 };
+const restoring = argv.includes("restore-keepass");
 const exitCode =
-  argv.includes("seed") ||
-  argv.includes("verify-seed") ||
-  argv.includes("restore-keepass")
+  restoring || argv.includes("seed") || argv.includes("verify-seed")
     ? await runSeedCommandWithDeadline(
         (registerShutdown) => runCli(argv, { ...context, registerShutdown }),
         context.stderr,
+        restoring ? { label: "restore-keepass" } : {},
       )
     : await runCli(argv, context);
 // SDK background work can hold timers after dispose; the command is done.

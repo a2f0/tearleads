@@ -14,7 +14,7 @@ test("a stalled verification revokes its session before returning a timeout", as
       return new Promise<number>(() => {});
     },
     (message) => messages.push(message),
-    5,
+    { timeoutMs: 5 },
   );
   expect(result).toBe(1);
   expect(revoked).toBe(true);
@@ -29,8 +29,7 @@ test("a stalled logout returns after the revocation grace period", async () => {
       return new Promise<number>(() => {});
     },
     (message) => messages.push(message),
-    5,
-    5,
+    { graceMs: 5, timeoutMs: 5 },
   );
   expect(result).toBe(1);
   expect(messages.at(-1)).toContain("Could not confirm revocation");
@@ -73,10 +72,20 @@ test("a sign-in accepted during shutdown gets a fresh logout grace period", asyn
       return new Promise<number>(() => {});
     },
     (message) => messages.push(message),
-    1000,
-    100,
+    { graceMs: 100, timeoutMs: 1000 },
   );
   expect(result).toBe(1);
   expect(revoked).toBe(true);
   expect(messages).toEqual(["Seed command interrupted."]);
+});
+
+test("a labelled command reports under its own name", async () => {
+  const messages: string[] = [];
+  const result = await runSeedCommandWithDeadline(
+    () => new Promise<number>(() => {}),
+    (message) => messages.push(message),
+    { label: "restore-keepass", timeoutMs: 5 },
+  );
+  expect(result).toBe(1);
+  expect(messages).toEqual(["restore-keepass timed out."]);
 });

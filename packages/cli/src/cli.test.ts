@@ -91,8 +91,8 @@ test("restore-keepass takes one file, and only it takes --name and --key-file", 
       "restore-keepass needs the .kdbx file to restore.",
     ],
     [
-      ["restore-keepass", "a.kdbx", "b.kdbx"],
-      "Unknown command: restore-keepass a.kdbx b.kdbx",
+      ["restore-keepass", "My", "Vault.kdbx"],
+      "restore-keepass takes one .kdbx file; quote a path that has spaces.",
     ],
     [
       ["ls", "--name", "Vault"],
@@ -111,7 +111,8 @@ test("restore-keepass takes one file, and only it takes --name and --key-file", 
 });
 
 test("restore-keepass reads the file before asking for a password", async () => {
-  const { context, output } = testContext();
+  const { context, keyStore, output } = testContext();
+  await keyStore.save("production", "abandon ability able");
   const missing = "/nonexistent/tearleads/vault.kdbx";
   expect(await runCli(["restore-keepass", missing], context)).toBe(1);
   expect(output.stderr).toHaveLength(1);
@@ -119,9 +120,16 @@ test("restore-keepass reads the file before asking for a password", async () => 
 });
 
 test("commands that need a session ask for login first", async () => {
-  for (const command of ["whoami", "orgs", "ls", "seed"]) {
+  for (const argv of [
+    ["whoami"],
+    ["orgs"],
+    ["ls"],
+    ["seed"],
+    // Before the file is read or the master password asked for.
+    ["restore-keepass", "/nonexistent/tearleads/vault.kdbx"],
+  ]) {
     const { context, output } = testContext();
-    expect(await runCli([command], context)).toBe(1);
+    expect(await runCli(argv, context)).toBe(1);
     expect(output.stderr).toEqual([
       "Not signed in to production. Run `tearleads login --env production` first.",
     ]);

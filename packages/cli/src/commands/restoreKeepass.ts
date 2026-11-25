@@ -9,12 +9,13 @@ import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "app/continuity";
 import type { CommandInput, KeepassRestoreOptions } from "../cliContext";
 import {
   createRestoreFolders,
+  partialRestoreError,
   uniqueFolderName,
 } from "../keepass/restoreFolders";
 import { createRestoredPasscodes } from "../keepass/restorePasscodes";
 import { printable } from "../printable";
 import { resolveSeedAccount } from "../seedAccount";
-import { apiLabel, withSavedSession } from "./account";
+import { apiLabel, requireRecoveryKey, withRecoveryKey } from "./account";
 
 // KeePass key files are small (XML, 32 or 64 bytes, or any file hashed whole).
 const KEY_FILE_MAX_BYTES = 1024 * 1024;
@@ -110,6 +111,8 @@ function requireRestoreOptions(input: CommandInput): KeepassRestoreOptions {
 export async function restoreKeepass(input: CommandInput): Promise<void> {
   const options = requireRestoreOptions(input);
   const { context, tracer } = input;
+  // Ask for the vault's password only once the restore can sign in.
+  const recoveryKey = await requireRecoveryKey(input);
   const bytes = await readLocalFile(
     options.file,
     "KeePass database",
@@ -123,8 +126,9 @@ export async function restoreKeepass(input: CommandInput): Promise<void> {
   const database = await tracer.span("decrypt KeePass database", () =>
     readKeepassDatabase(bytes, { keyFile, password }),
   );
-  const result = await withSavedSession(
+  const result = await withRecoveryKey(
     input,
+    recoveryKey,
     async (session) => {
       const { folders, rootId, signingPrivateKey } = await resolveSeedAccount(
         session,
@@ -152,11 +156,7 @@ export async function restoreKeepass(input: CommandInput): Promise<void> {
         return { folderId: groups[0]?.folderId ?? "", folderName, passcodes };
       } catch (error) {
         // The folder may already hold part of the restore; say which one.
-        const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(
-          `${reason} Delete the folder "${folderName}" if it was created, then run the command again.`,
-          { cause: error },
-        );
+        throw partialRestoreError(error, folderName);
       }
     },
     {

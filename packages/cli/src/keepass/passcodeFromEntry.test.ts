@@ -10,7 +10,8 @@ const entry: KeepassEntry = {
     { name: "PIN", protected: true, value: "4321" },
     { name: "otp", protected: true, value: "otpauth://totp/Mail:alice" },
   ],
-  expiresAt: "2027-01-31T23:30:00.000Z",
+  // 23:30 on 31 January here; west of UTC, that instant's UTC date is 1 February.
+  expiresAt: new Date(2027, 0, 31, 23, 30).toISOString(),
   historyCount: 1,
   id: "bWFpbGVudHJ5dXVpZDAwMQ==",
   modifiedAt: "2026-06-01T12:00:00.000Z",
@@ -49,7 +50,8 @@ describe("passcodeFromEntry", () => {
   test("reads an expiry past year 9999 as none", () => {
     const farFuture = passcodeFromEntry({
       ...entry,
-      expiresAt: "+010000-01-01T00:00:00.000Z",
+      // Mid-year, so the year is 10000 in every time zone.
+      expiresAt: "+010000-06-01T00:00:00.000Z",
     });
     expect(farFuture.fields.expirationDate).toBeUndefined();
   });

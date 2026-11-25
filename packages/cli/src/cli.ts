@@ -139,7 +139,9 @@ function commandOperands(
   if (file === undefined) {
     return "restore-keepass needs the .kdbx file to restore.";
   }
-  if (rest.length > 0) return unknown;
+  if (rest.length > 0) {
+    return "restore-keepass takes one .kdbx file; quote a path that has spaces.";
+  }
   return {
     keepass: { file, folderName: values.name, keyFile: values["key-file"] },
   };

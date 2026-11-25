@@ -12,12 +12,17 @@ const KEEPASS_OTP_FIELD = "otp";
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/u;
 
 /**
- * KeePass expires at an instant; a passcode expires on a UTC date. A year
- * past 9999 (`+010000-...`) has no date-field form, so it reads as no expiry
- * rather than an invalid field that would refuse the whole passcode.
+ * KeePass expires at an instant and shows it in local time; a passcode
+ * expires on a date the app compares with the device's local date. So this
+ * is the instant's date on this machine, as KeePass showed it. A year past
+ * 9999 has no date-field form, so it reads as no expiry rather than an
+ * invalid field that would refuse the whole passcode.
  */
 function expirationDate(expiresAt: string | null): string {
-  const date = expiresAt?.slice(0, 10) ?? "";
+  if (!expiresAt) return "";
+  const instant = new Date(expiresAt);
+  const pad = (value: number, width = 2) => String(value).padStart(width, "0");
+  const date = `${pad(instant.getFullYear(), 4)}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}`;
   return DATE_ONLY.test(date) ? date : "";
 }
 

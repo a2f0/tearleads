@@ -132,7 +132,7 @@ export function PasscodeAttributesEditor(params: {
         <MiniAppButton
           disabled={disabled}
           onClick={() =>
-            void operations.addRow(newPasscodeAttributeCells(attributes.length))
+            void operations.addRow(newPasscodeAttributeCells(attributes))
           }
         >
           <PlusIcon aria-hidden size={16} />

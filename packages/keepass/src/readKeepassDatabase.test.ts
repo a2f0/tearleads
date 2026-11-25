@@ -155,22 +155,38 @@ describe("readKeepassDatabase with KDBX 4", () => {
     );
   });
 
-  test("treats a blank password as none", async () => {
+  test("tries a blank password as none, then as an empty password", async () => {
     const keyFile = await KdbxCredentials.createRandomKeyFile(2);
-    const bytes = await createKdbx4({ kdf: Consts.KdfId.Argon2d, keyFile });
-    const database = await readKeepassDatabase(bytes, {
-      keyFile,
-      password: "",
-    });
+    const kdf = Consts.KdfId.Argon2d;
+    for (const bytes of [
+      await createKdbx4({ kdf, keyFile }),
+      await createKdbx4({ kdf, keyFile, password: "" }),
+    ]) {
+      const database = await readKeepassDatabase(bytes, {
+        keyFile,
+        password: "",
+      });
+      expect(database.root.entries).toHaveLength(1);
+    }
+    const emptyOnly = await createKdbx4({ kdf, password: "" });
+    const database = await readKeepassDatabase(emptyOnly, { password: "" });
     expect(database.root.entries).toHaveLength(1);
+    await expectReadError(
+      readKeepassDatabase(emptyOnly, { password: "pw" }),
+      "wrong-key",
+    );
   });
 });
 
 describe("readKeepassDatabase refusals", () => {
   test("requires a password or key file", async () => {
     await expectReadError(
-      readKeepassDatabase(keepassxcFixture, { password: "" }),
+      readKeepassDatabase(keepassxcFixture, {}),
       "no-credentials",
+    );
+    await expectReadError(
+      readKeepassDatabase(keepassxcFixture, { password: "" }),
+      "wrong-key",
     );
   });
 
@@ -180,6 +196,47 @@ describe("readKeepassDatabase refusals", () => {
         password: "pw",
       }),
       "not-kdbx",
+    );
+  });
+
+  test("reports a damaged or cut-off file as corrupt", async () => {
+    const damaged = keepassxcFixture.slice();
+    const at = Math.floor(damaged.length * 0.6);
+    damaged[at] = (damaged[at] ?? 0) ^ 0xff;
+    const credentials = { password: KEEPASSXC_FIXTURE_PASSWORD };
+    const error = await expectReadError(
+      readKeepassDatabase(damaged, credentials),
+      "corrupt",
+    );
+    expect(error.message).toBe(
+      "The database could not be read: invalid hash block.",
+    );
+    await expectReadError(
+      readKeepassDatabase(keepassxcFixture.slice(0, 100), credentials),
+      "corrupt",
+    );
+  });
+
+  test("names an unsupported cipher or version", async () => {
+    const credentials = { password: KEEPASSXC_FIXTURE_PASSWORD };
+    // The header's cipher id, AES-256, swapped for Twofish.
+    const twofish = keepassxcFixture.slice();
+    const aes = Buffer.from("31c1f2e6bf714350be5805216afc5aff", "hex");
+    const at = Buffer.from(twofish).indexOf(aes);
+    expect(at).toBeGreaterThan(0);
+    twofish.set(Buffer.from("ad68f29f576f4bb9a36ad47af965346c", "hex"), at);
+    const error = await expectReadError(
+      readKeepassDatabase(twofish, credentials),
+      "unsupported",
+    );
+    expect(error.message).toContain("(unsupported cipher)");
+    expect(error.message).toContain("Twofish is not");
+    // KDBX major version 9 (bytes 10-11 of the signature block).
+    const future = keepassxcFixture.slice();
+    future[10] = 9;
+    await expectReadError(
+      readKeepassDatabase(future, credentials),
+      "unsupported",
     );
   });
 

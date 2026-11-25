@@ -14,7 +14,8 @@ export function apiLabel(input: CommandInput): string {
   return input.apiUrl ?? input.target;
 }
 
-async function requireRecoveryKey({
+/** The recovery key a command signs in with, or the "log in first" error. */
+export async function requireRecoveryKey({
   context,
   keyFromStdin,
   target,
@@ -32,16 +33,27 @@ async function requireRecoveryKey({
   return recoveryKey;
 }
 
+type SavedSessionOptions = Pick<
+  SessionOptions,
+  "documentProjectors" | "verificationDeadline" | "automaticSessionRenewal"
+>;
+
 /** Runs `work` signed in with the saved recovery key for the target. */
 export async function withSavedSession<T>(
   input: CommandInput,
   work: (session: CliSession) => Promise<T>,
-  options: Pick<
-    SessionOptions,
-    "documentProjectors" | "verificationDeadline" | "automaticSessionRenewal"
-  > = {},
+  options: SavedSessionOptions = {},
 ): Promise<T> {
-  const recoveryKey = await requireRecoveryKey(input);
+  return withRecoveryKey(input, await requireRecoveryKey(input), work, options);
+}
+
+/** `withSavedSession` with a key `requireRecoveryKey` already returned. */
+export async function withRecoveryKey<T>(
+  input: CommandInput,
+  recoveryKey: string,
+  work: (session: CliSession) => Promise<T>,
+  options: SavedSessionOptions = {},
+): Promise<T> {
   return withSession(
     {
       apiBaseUrl: apiBaseUrl(input),

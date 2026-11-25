@@ -26,6 +26,32 @@ export function uniqueFolderName(
   }
 }
 
+/**
+ * Why the restored folders are not all on the API, or null when they are. A
+ * folder the tree no longer lists counts as unsynced, not as done.
+ */
+export function unsyncedFoldersReason(
+  idle: boolean,
+  nodes: ReadonlyArray<Pick<ContainerNode, "id" | "syncState">>,
+  folderIds: readonly string[],
+): string | null {
+  if (!idle) return "timed out";
+  const byId = new Map(nodes.map((node) => [node.id, node.syncState]));
+  const unsyncedId = folderIds.find((id) => byId.get(id)?.status !== "synced");
+  if (unsyncedId === undefined) return null;
+  const state = byId.get(unsyncedId);
+  return state?.lastError ?? state?.status ?? "missing from the folder tree";
+}
+
+/** A failure after the restore folder may exist, naming it for deletion. */
+export function partialRestoreError(error: unknown, folderName: string): Error {
+  const reason = error instanceof Error ? error.message : String(error);
+  return new Error(
+    `${reason} Delete the folder "${folderName}" if it was created, then run the command again.`,
+    { cause: error },
+  );
+}
+
 async function waitForFoldersSynced(
   session: CliSession,
   nodes: () => readonly ContainerNode[],
@@ -38,16 +64,8 @@ async function waitForFoldersSynced(
     timeoutMs: FOLDER_SYNC_TIMEOUT_MS,
   });
   session.assertNoFailures();
-  const byId = new Map(nodes().map((node) => [node.id, node]));
-  // A folder the tree no longer lists counts as unsynced, not as done.
-  const unsyncedId = folderIds.find(
-    (id) => byId.get(id)?.syncState.status !== "synced",
-  );
-  if (!idle || unsyncedId !== undefined) {
-    const state = unsyncedId ? byId.get(unsyncedId)?.syncState : undefined;
-    const reason = !idle
-      ? "timed out"
-      : (state?.lastError ?? state?.status ?? "missing from the folder tree");
+  const reason = unsyncedFoldersReason(idle, nodes(), folderIds);
+  if (reason !== null) {
     throw new Error(
       `Could not finish syncing the restored folders: ${reason}.`,
     );

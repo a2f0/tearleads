@@ -51,6 +51,11 @@ export class KeepassReadError extends Error {
   }
 }
 
+/** kdbxweb's `Error <Code>: <detail>` message without its prefix. */
+function kdbxDetail(error: KdbxError): string {
+  return error.message.replace(/^Error \w+(: )?/u, "") || error.code;
+}
+
 function describeKdbxError(error: KdbxError): KeepassReadError {
   switch (error.code) {
     case Consts.ErrorCodes.InvalidKey:
@@ -67,12 +72,12 @@ function describeKdbxError(error: KdbxError): KeepassReadError {
     case Consts.ErrorCodes.Unsupported:
       return new KeepassReadError(
         "unsupported",
-        `This database uses a format the importer does not support (${error.message}). KDBX 3.1 and 4 with AES or ChaCha20 are supported; Twofish is not.`,
+        `This database uses a format the importer does not support (${kdbxDetail(error)}). KDBX 3.1 and 4 with AES or ChaCha20 are supported; Twofish is not.`,
       );
     default:
       return new KeepassReadError(
         "corrupt",
-        `The database could not be read: ${error.message}.`,
+        `The database could not be read: ${kdbxDetail(error)}.`,
       );
   }
 }
@@ -164,34 +169,56 @@ function readGroup(
   };
 }
 
-function toCredentials(credentials: KeepassCredentials): KdbxCredentials {
-  const { keyFile, password } = credentials;
-  // KeePass treats a blank password as no password component at all.
-  const hasPassword = password !== undefined && password.length > 0;
-  if (!hasPassword && !keyFile) {
+/**
+ * The composite keys to try, in order. A blank password is ambiguous: a
+ * database can have no password component or an explicitly empty one. Like
+ * KeePassXC, try without a password first (with the key file), then with an
+ * empty one.
+ */
+function credentialAttempts(
+  credentials: KeepassCredentials,
+): readonly KdbxCredentials[] {
+  const { keyFile = null, password } = credentials;
+  if (password === undefined && !keyFile) {
     throw new KeepassReadError(
       "no-credentials",
       "A master password or key file is required.",
     );
   }
-  return new KdbxCredentials(
-    hasPassword ? ProtectedValue.fromString(password) : null,
-    keyFile ?? null,
-  );
+  if (password) {
+    return [new KdbxCredentials(ProtectedValue.fromString(password), keyFile)];
+  }
+  const empty = new KdbxCredentials(ProtectedValue.fromString(""), keyFile);
+  if (!keyFile) return [empty];
+  return password === undefined
+    ? [new KdbxCredentials(null, keyFile)]
+    : [new KdbxCredentials(null, keyFile), empty];
 }
 
 async function loadKdbx(
   bytes: Uint8Array,
-  credentials: KdbxCredentials,
+  attempts: readonly KdbxCredentials[],
 ): Promise<KdbxDatabase> {
   installArgon2();
-  const buffer = bytes.slice().buffer;
-  try {
-    return await KdbxDatabase.load(buffer, credentials);
-  } catch (error) {
-    if (error instanceof KdbxError) throw describeKdbxError(error);
-    throw error;
+  for (const [index, credentials] of attempts.entries()) {
+    try {
+      return await KdbxDatabase.load(bytes.slice().buffer, credentials);
+    } catch (error) {
+      // kdbxweb reads a cut-off header past its end rather than reporting it.
+      if (error instanceof RangeError) {
+        throw new KeepassReadError(
+          "corrupt",
+          "The database could not be read: the file is cut off or damaged.",
+        );
+      }
+      if (!(error instanceof KdbxError)) throw error;
+      const retry =
+        error.code === Consts.ErrorCodes.InvalidKey &&
+        index < attempts.length - 1;
+      if (!retry) throw describeKdbxError(error);
+    }
   }
+  throw new KeepassReadError("no-credentials", "No key was tried.");
 }
 
 /**
@@ -208,7 +235,7 @@ export async function readKeepassDatabase(
       `The file is larger than ${KEEPASS_MAX_FILE_BYTES / (1024 * 1024)} MiB.`,
     );
   }
-  const database = await loadKdbx(bytes, toCredentials(credentials));
+  const database = await loadKdbx(bytes, credentialAttempts(credentials));
   const recycleBin = database.meta.recycleBinEnabled
     ? database.meta.recycleBinUuid
     : undefined;

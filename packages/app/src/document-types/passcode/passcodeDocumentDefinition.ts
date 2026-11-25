@@ -82,7 +82,12 @@ export function readPasscodeFieldValues(
 function urlHost(url: string): string {
   const trimmed = url.trim();
   if (trimmed.length === 0) return "";
-  return URL.canParse(trimmed) ? new URL(trimmed).hostname || trimmed : trimmed;
+  // `new URL`, not `URL.canParse`, which WebViews before 2023 lack.
+  try {
+    return new URL(trimmed).hostname || trimmed;
+  } catch {
+    return trimmed;
+  }
 }
 
 /** The title, else the site the URL names, else the username. */

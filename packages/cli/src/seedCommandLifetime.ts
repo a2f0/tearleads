@@ -26,12 +26,22 @@ async function awaitCleanup(
   }
 }
 
-/** One seed command owns the process and its in-memory database. */
+/**
+ * One seed command owns the process and its in-memory database. `label`
+ * names it when it is stopped: "<label> timed out." or "<label> interrupted."
+ */
 export async function runSeedCommandWithDeadline(
   run: (registerShutdown: RegisterSeedShutdown) => Promise<number>,
   report: (message: string) => void,
-  timeoutMs = 65 * 60_000,
-  graceMs = 5_000,
+  {
+    graceMs = 5_000,
+    label = "Seed command",
+    timeoutMs = 65 * 60_000,
+  }: {
+    readonly graceMs?: number;
+    readonly label?: string;
+    readonly timeoutMs?: number;
+  } = {},
 ): Promise<number> {
   const stopped = Promise.withResolvers<string>();
   const terminate = () => stopped.resolve("interrupted");
@@ -49,7 +59,7 @@ export async function runSeedCommandWithDeadline(
       stopped.promise,
     ]);
     if (typeof outcome === "number") return outcome;
-    report(`Seed command ${outcome}.`);
+    report(`${label} ${outcome}.`);
     if (revoke && !(await awaitCleanup(revoke, logoutStarted, graceMs))) {
       report("Could not confirm revocation of the interrupted session.");
     }

@@ -100,7 +100,9 @@ export function PasscodeSecretInput(params: {
       <input
         aria-label={params.ariaLabel}
         autoCapitalize="off"
-        autoComplete="off"
+        // Browsers ignore "off" on password inputs; "new-password" keeps them
+        // from filling in this site's own login.
+        autoComplete="new-password"
         autoCorrect="off"
         disabled={params.disabled}
         id={params.id}
