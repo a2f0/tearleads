@@ -81,7 +81,8 @@ while [ "$remaining" -gt 0 ]; do
   case "$option" in
     --name)
       needs_value "$option" "$remaining"
-      set -- "$@" --name "$1"
+      # Inline, as the CLI refuses a separate value that starts with "-".
+      set -- "$@" "--name=$1"
       shift
       remaining=$((remaining - 1))
       ;;

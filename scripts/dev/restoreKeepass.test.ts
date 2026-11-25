@@ -26,7 +26,8 @@ beforeAll(() => {
   const stubs = {
     bun: `printf 'bun'; for a in "$@"; do printf ' [%s]' "$a"; done; echo`,
     security: `echo "security $*"`,
-    uname: "echo Darwin",
+    // runOn always sets UNAME_STUB.
+    uname: 'echo "$UNAME_STUB"',
   };
   for (const [name, body] of Object.entries(stubs)) {
     writeFileSync(join(bin, name), `#!/bin/sh\n${body}\n`);
@@ -38,11 +39,15 @@ beforeAll(() => {
 
 afterAll(() => rmSync(root, { force: true, recursive: true }));
 
-function run(...args: string[]) {
+function runOn(platform: string, args: readonly string[]) {
   const { PATH = "", PWD: _inherited, ...env } = process.env;
   const result = Bun.spawnSync(["sh", script, ...args], {
     cwd: caller,
-    env: { ...env, PATH: `${join(root, "bin")}:${PATH}` },
+    env: {
+      ...env,
+      PATH: `${join(root, "bin")}:${PATH}`,
+      UNAME_STUB: platform,
+    },
     stderr: "pipe",
     stdout: "pipe",
   });
@@ -52,6 +57,8 @@ function run(...args: string[]) {
     stdout: result.stdout.toString().trim().split("\n"),
   };
 }
+
+const run = (...args: string[]) => runOn("Darwin", args);
 
 const setup = (env: string) => [
   "security unlock-keychain",
@@ -73,7 +80,7 @@ describe("restoreKeepass.sh", () => {
     expect(code).toBe(0);
     expect(stdout).toEqual([
       ...setup("staging"),
-      `bun [run] [tearleads] [restore-keepass] [${caller}/My Vault.kdbx] [--env] [staging] [--trace] [--name] [Family Vault] [--key-file] [${caller}/vault.keyx]`,
+      `bun [run] [tearleads] [restore-keepass] [${caller}/My Vault.kdbx] [--env] [staging] [--trace] [--name=Family Vault] [--key-file] [${caller}/vault.keyx]`,
     ]);
   });
 
@@ -94,10 +101,19 @@ describe("restoreKeepass.sh", () => {
     ]);
   });
 
-  test("takes a --name value that looks like a flag as the name", () => {
-    const { code, stdout } = run("staging", "My Vault.kdbx", "--name", "--env");
+  test("passes a --name value inline, so one starting with - stays a name", () => {
+    const { code, stdout } = run("staging", "My Vault.kdbx", "--name", "-old");
     expect(code).toBe(0);
-    expect(stdout.at(-1)).toEndWith("[--trace] [--name] [--env]");
+    expect(stdout.at(-1)).toEndWith("[--trace] [--name=-old]");
+  });
+
+  test("skips the Keychain unlock off macOS", () => {
+    const { code, stdout } = runOn("Linux", ["staging", "My Vault.kdbx"]);
+    expect(code).toBe(0);
+    expect(stdout.slice(0, 2)).toEqual([
+      "Not macOS; skipping the login Keychain unlock.",
+      "bun [install]",
+    ]);
   });
 
   test.each([
@@ -107,7 +123,13 @@ describe("restoreKeepass.sh", () => {
     [["staging", "My Vault.kdbx", "--key-file"], "--key-file needs a value."],
     [["staging", "My Vault.kdbx", "--name"], "--name needs a value."],
     [["staging", "My Vault.kdbx", "--key-file", "nope.keyx"], "Cannot read"],
+    [["staging", "My Vault.kdbx", "--key-file=nope.keyx"], "Cannot read"],
     [["staging", "My Vault.kdbx", "--env", "prod"], "--env does not apply"],
+    [["staging", "My Vault.kdbx", "--env=prod"], "--env=prod does not apply"],
+    [
+      ["staging", "My Vault.kdbx", "--api-url", "http://127.0.0.1:1"],
+      "--api-url does not apply",
+    ],
     [["staging", "My Vault.kdbx", "--key-stdin"], "--key-stdin does not apply"],
     [["staging", "My Vault.kdbx", "--nmae", "Vault"], "Unknown option --nmae"],
     [["staging", "My Vault.kdbx", "extra"], "Unknown option extra"],

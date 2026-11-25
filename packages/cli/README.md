@@ -156,8 +156,9 @@ bun run tearleads restore-keepass vault.kdbx --name "Family Vault" --key-file va
 the install, build, login, and traced restore in one step, unlocking the login
 Keychain first for shells outside the desktop session (SSH, tmux, screen), as
 `scripts/dev/seedFromContinuity.sh` does for `seed`. It passes `--name` and
-`--key-file` through, and resolves relative paths from the directory you run
-it in.
+`--key-file` through and resolves relative paths from the directory you run it
+in. Run it from a terminal: it prompts for the recovery key and then the master
+password, so it cannot take them from piped stdin.
 
 `restore-keepass` reads the master password without echo (or from piped stdin)
 and decrypts the file on this machine before it signs in, so a wrong password
