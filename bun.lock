@@ -214,7 +214,7 @@
     },
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
-      "version": "0.1.32",
+      "version": "0.1.33",
       "devDependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -226,7 +226,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",

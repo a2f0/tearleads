@@ -376,8 +376,8 @@ are joined from local encrypted metadata. Group containers repaint
 independently from the local grants lane. State-hash and member-count checks
 prevent torn local views, but do not make presentation rows authoritative.
 `isSelf` is derived from the active user, while `isOrgAdmin` is
-requester-scoped and UI-only. Metadata profile upload is a separate idempotent
-content sync and never changes grants.
+requester-scoped and UI-only. Members changes never touch the organization
+profile; provisioning commits it.
 
 On-device data usage (`measureOrganizationDeviceDataUsage`, exposed as
 `Organizations.loadDeviceDataUsage()`) is a read-only measurement, not a

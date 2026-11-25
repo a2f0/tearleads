@@ -4,7 +4,6 @@ import {
   createInternalRuntimeFixture,
   createWorkflowInputFixture,
 } from "../../../test/helpers/workflows/internalRuntimeFixtures";
-import type { ContainerContents } from "../containerContents";
 import { createOrganizations } from ".";
 
 test("billing targets follow the current authenticated session", async () => {
@@ -42,7 +41,6 @@ test("billing targets follow the current authenticated session", async () => {
   });
   const organizations = createOrganizations(
     createInternalRuntimeFixture(() => workflowInput),
-    {} as ContainerContents,
     () => {
       throw new Error("No organization is resumed in this test");
     },

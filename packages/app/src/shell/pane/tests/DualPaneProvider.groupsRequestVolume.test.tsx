@@ -70,13 +70,14 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // reconciliation pass's lanes in one request. Provisioning seeds the roster
   // profile container's role, which moves the founder's first read of its
   // projection and Admins history here from bootstrap. Measured completed
-  // calls are 47 (48 before the commit's response carried its read-model
-  // delta, 50 before read-model hints carried their cursor and recites of
-  // ungranted containers stopped stamping grants; 55 before drain-scoped
-  // sync operations, 56 before pass-scoped discovery, 70–73 before #2537);
-  // allow three more bounded reads.
+  // calls are 46 (47 while each Members change pulled the organization
+  // profile, 48 before the commit's response carried its read-model delta,
+  // 50 before read-model hints carried their cursor and recites of ungranted
+  // containers stopped stamping grants; 55 before drain-scoped sync
+  // operations, 56 before pass-scoped discovery, 70–73 before #2537); allow
+  // three more bounded reads.
   // Preparation continuations are counted below.
-  total: 50,
+  total: 49,
   // Container mutations cite stored manifests by hash and principal policies
   // by head: 134 KB sent with one descendant recitation (193 KB when they
   // carried each ~9.8 KB policy, 389.5 KB when they also echoed path
@@ -113,7 +114,9 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /principals/group/:groupId/policy": 3,
     "POST /containers/documents/query": 3,
     "GET /documents/:documentId/writer-projection": 9,
-    "POST /documents/:documentId/sync": 12,
+    // Measured 7, all read-only (8 while each Members change pulled the
+    // organization profile).
+    "POST /documents/:documentId/sync": 11,
     "GET /auth/user-identity/:userId": 2,
     // None: the commit's response carries the actor's delta and the peer
     // keeps no read-model demand (measured 1 before the response carried it,
@@ -304,7 +307,7 @@ test(
     // The extra settle rounds are read-only; a membership add still writes
     // nothing through the document sync lane.
     expect(syncIntents.writeBearing).toBe(0);
-    expect(syncIntents.readOnly).toBeLessThanOrEqual(12);
+    expect(syncIntents.readOnly).toBeLessThanOrEqual(11);
   },
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
 );
