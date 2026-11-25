@@ -2,14 +2,7 @@ import { useCompactRoutedMode } from "@tearleads/windowing";
 import { useEffect, useState } from "react";
 import { AccountBootstrapProgressPanel } from "../../components/identity/AccountBootstrapProgressPanel";
 import { RecoveryKeyBackupConfirmation } from "../../components/identity/recovery-key/RecoveryKeyBackupConfirmation";
-import {
-  MiniAppButton,
-  MiniAppRoot,
-  MiniAppSection,
-  MiniAppSectionHeading,
-  MiniAppStatus,
-  MiniAppToolbar,
-} from "../../components/mini-app/MiniAppLayout";
+import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { DestroyKeyPackageConfirmationDialog } from "../../components/shared/DestroyKeyPackageConfirmationDialog";
 import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirmationDialog";
 import { useAutoProvisioningStatus } from "../../identity/autoProvisioningStatus";
@@ -22,11 +15,13 @@ import { IdentityManagerGeneralSection } from "./panels/IdentityManagerGeneralSe
 import { IdentityManagerLocalDataSection } from "./panels/IdentityManagerLocalDataSection";
 import { IdentityManagerPinCodeSection } from "./panels/IdentityManagerPinCodeSection";
 import { IdentityManagerRecoveryKeySection } from "./panels/IdentityManagerRecoveryKeySection";
+import { IdentityManagerSignInGate } from "./panels/IdentityManagerSignInGate";
 import type { IdentityManagerView } from "./routes";
 import { SessionDetailSection } from "./sessions/IdentityManagerSessionDetail";
 import { SessionsSection } from "./sessions/IdentityManagerSessions";
 import { IdentitySwitcher } from "./switcher/IdentitySwitcher";
 import { useIdentityManagerLogoutAction } from "./toolbar/useIdentityManagerLogoutAction";
+import { IdentityManagerTwoFactorSection } from "./two-factor/IdentityManagerTwoFactorSection";
 import { useIdentityManagerRoute } from "./useIdentityManagerRoute";
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
@@ -38,51 +33,15 @@ function ActiveSessionsSection({
   model: IdentityManagerModel;
   onOpenSessionDetail: (sessionId: string) => void;
 }) {
-  const {
-    canAuthenticate,
-    canManageSessions,
-    identity,
-    identityMutations,
-    sessionList,
-    sessionMutations,
-  } = model;
-  const progress = useAccountBootstrapProgress();
-
-  if (!canManageSessions && progress) {
-    return <AccountBootstrapProgressPanel progress={progress} />;
-  }
+  const { canManageSessions, sessionList, sessionMutations } = model;
 
   if (!canManageSessions) {
-    const identityBusy =
-      identity.identityTransitionInFlight ||
-      identityMutations.identityBusy !== null;
-
     return (
-      <MiniAppSection>
-        <MiniAppSectionHeading>
-          <h2>Active Sessions</h2>
-        </MiniAppSectionHeading>
-        <MiniAppStatus>
-          Log in to view and manage active sessions.
-        </MiniAppStatus>
-        {identityMutations.identityError && (
-          <MiniAppStatus tone="error">
-            {identityMutations.identityError}
-          </MiniAppStatus>
-        )}
-        {canAuthenticate && (
-          <MiniAppToolbar>
-            <MiniAppButton
-              disabled={identityBusy}
-              onClick={() => void identityMutations.authenticate()}
-            >
-              {identityMutations.identityBusy === "authenticate"
-                ? "Logging in..."
-                : "Login"}
-            </MiniAppButton>
-          </MiniAppToolbar>
-        )}
-      </MiniAppSection>
+      <IdentityManagerSignInGate
+        message="Log in to view and manage active sessions."
+        model={model}
+        title="Active Sessions"
+      />
     );
   }
 
@@ -113,6 +72,10 @@ function IdentityManagerSectionContent({
 
   if (view === "pin-lock") {
     return <IdentityManagerPinCodeSection />;
+  }
+
+  if (view === "two-factor") {
+    return <IdentityManagerTwoFactorSection model={model} />;
   }
 
   if (view === "local-data") {

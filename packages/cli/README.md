@@ -51,6 +51,15 @@ uses in dev). Each target keeps its own saved key.
 install does, then saves the key like `login`. An account that already exists
 is left as it is.
 
+Creating an account means agreeing to the Tearleads
+[Privacy Policy](https://tearleads.com/privacy-policy/) and
+[Terms of Service](https://tearleads.com/terms-of-service/). Before `register`,
+or `seed --roster` for its member accounts, creates one, it prints both
+documents' addresses and their effective date, then asks you to type `yes`; the
+API records that revision and the time on the account. `--accept-terms` agrees
+without asking, which is the only way to agree when no terminal can ask, such as
+with `--key-stdin`. Nothing is asked when the account already exists.
+
 `--key-stdin` reads a one-time recovery key for `register`, `seed`, or
 `verify-seed` and keeps it out of the Keychain. `--api-url <origin>` points
 those commands at an API other than the named targets, such as a test API on
@@ -59,7 +68,7 @@ Plain `http` is accepted only for a loopback host.
 
 ```sh
 printf '%s\n' "$RECOVERY_KEY" |
-  bun run tearleads register --key-stdin --api-url http://127.0.0.1:32001
+  bun run tearleads register --key-stdin --accept-terms --api-url http://127.0.0.1:32001
 ```
 
 ## Seed an account with Continuity

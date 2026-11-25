@@ -75,6 +75,7 @@ interface SelectedDirectoryUser {
   readonly profileDocumentId: string | null;
   readonly signingKeyFingerprint: string;
   readonly status: string;
+  readonly twoFactorRequired: boolean;
   readonly updatedAt: string;
   readonly userId: string;
 }
@@ -124,6 +125,7 @@ function toDirectoryUser(
     isPersonalOrganizationOwner: row.isPersonalOrganizationOwner,
     isSelf: row.userId === currentUserId,
     status: row.status,
+    twoFactorRequired: row.twoFactorRequired,
     profileDocumentId: row.profileDocumentId,
     joinedAt: row.joinedAt,
     leaveRequest: readStoredLeaveRequest(row.leaveRequest),
@@ -263,6 +265,7 @@ async function loadDirectoryRows(
       signingKeyFingerprint:
         organizationReadModelDirectoryUsers.signingKeyFingerprint,
       status: organizationReadModelDirectoryUsers.status,
+      twoFactorRequired: organizationReadModelDirectoryUsers.twoFactorRequired,
       updatedAt: organizationReadModelDirectoryUsers.updatedAt,
       userId: organizationReadModelDirectoryUsers.userId,
     })

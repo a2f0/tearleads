@@ -1,5 +1,6 @@
+import type { SessionTwoFactorCode } from "@tearleads/client-sdk";
 import { useCallback, useState } from "react";
-import { RegistrationRecoveryError } from "../../../identity/registrationRecoveryError";
+import { registrationFailureMessage } from "../../../identity/registrationRecoveryError";
 import { useAuthenticateAction } from "../../../identity/useAuthenticateAction";
 import type { IdentityContextValue } from "../../../providers/identity/IdentityProvider";
 import type { useLog } from "../../../providers/logging/LogProvider";
@@ -34,6 +35,7 @@ export function useIdentityManagerIdentityMutations({
     authenticating,
     clearError: clearAuthError,
     error: authError,
+    twoFactorPrompt,
   } = useAuthenticateAction();
   const [registerError, setRegisterError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
@@ -63,20 +65,19 @@ export function useIdentityManagerIdentityMutations({
       }
     } catch (error: unknown) {
       logError("Failed to register key", error);
-      setRegisterError(
-        error instanceof RegistrationRecoveryError
-          ? error.message
-          : "Could not register key.",
-      );
+      setRegisterError(registrationFailureMessage(error));
     } finally {
       setRegistering(false);
     }
   }, [clearAuthError, logError, registerCurrentIdentity]);
 
-  const authenticate = useCallback(async () => {
-    setRegisterError(null);
-    await runAuthenticate();
-  }, [runAuthenticate]);
+  const authenticate = useCallback(
+    async (twoFactor?: SessionTwoFactorCode) => {
+      setRegisterError(null);
+      return runAuthenticate(twoFactor);
+    },
+    [runAuthenticate],
+  );
 
   const identityBusy: IdentityBusyState = destroyDialog.destroying
     ? "transition"
@@ -93,5 +94,6 @@ export function useIdentityManagerIdentityMutations({
     handleRegisterIdentity,
     identityBusy,
     identityError,
+    twoFactorPrompt,
   };
 }

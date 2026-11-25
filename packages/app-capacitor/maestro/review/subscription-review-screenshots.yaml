@@ -13,16 +13,23 @@ tags:
 - extendedWaitUntil:
     visible: "Menu"
     timeout: 40000
-# A fresh dedicated simulator's first identity asks what to call the reviewer
-# before any app opens; a persisted identity goes straight to the Explorer.
+# A fresh dedicated simulator's first identity asks the reviewer to agree to
+# the legal terms and what to call them before any app opens; a persisted
+# identity goes straight to the Explorer.
 - extendedWaitUntil:
-    visible: "Contacts|Create new identity|What should we call you\\?"
+    visible: "Contacts|Create new identity|Review our terms|What should we call you\\?"
     timeout: 40000
 - runFlow:
     when:
       visible: "Create new identity"
     commands:
       - tapOn: "Create new identity"
+- runFlow:
+    when:
+      visible: "Review our terms"
+    commands:
+      - tapOn: "I agree to the Terms of Service and Privacy Policy"
+      - tapOn: "Continue"
 - runFlow:
     when:
       visible: "What should we call you\\?"

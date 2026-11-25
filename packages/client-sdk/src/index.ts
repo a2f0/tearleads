@@ -6,7 +6,13 @@ export {
   type ApiRequestEndpointCounts,
   ApiRequestMetrics,
   type ApiRequestMetricsSnapshot,
+  TwoFactorLoginError,
+  type TwoFactorLoginErrorCode,
 } from "@tearleads/api-client";
+export {
+  LEGAL_DOCUMENT_URLS,
+  LEGAL_TERMS_VERSION,
+} from "@tearleads/validators/legalTerms";
 export type {
   AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,
@@ -173,8 +179,13 @@ export type {
   SessionRegistrationRefusal,
   SessionRegistrationResult,
   SessionSnapshot,
+  SessionTwoFactorCode,
   SetActiveDocumentContainerInput,
   SetLinkedContainerIdsForDocument,
+  TwoFactor,
+  TwoFactorAnswer,
+  TwoFactorSetup,
+  TwoFactorStatus,
   UnlinkDocumentFromContainerInput,
   UnwrapLocalSecretInput,
   UserIdentities,
@@ -248,6 +259,7 @@ export {
   type SyncPurchaseResult,
   type SyncSubscriptionOption,
   serializeLocalKeyringManifest,
+  TwoFactorRequestError,
   UnverifiedUserIdentityError,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";
@@ -592,6 +604,7 @@ export {
   buildInitialOrganizationPolicyRequest,
   createInitialRootMetadataBootstrap,
   deriveRegistrationOrganizationId,
+  LegalTermsOutdatedError,
   persistRegistrationBootstrap,
   registerIdentity,
 } from "./workflows/registration";

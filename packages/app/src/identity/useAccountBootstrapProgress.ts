@@ -44,6 +44,7 @@ function useAccountBootstrapPhase(): AccountBootstrapPhase {
     identityTransitionInFlight: identity.identityTransitionInFlight,
     isAuthenticated: session.isAuthenticated,
     isLocked,
+    legalTerms: autoProvisioning.legalTerms,
     localIdentityRestoreSettled: identity.localIdentityRestoreSettled,
     registration: autoProvisioning.registration.status,
     sessionRestoreSettled: session.sessionRestoreSettled,

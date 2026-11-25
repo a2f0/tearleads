@@ -15,8 +15,13 @@ import {
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { notifySessionRevoked } from "../realtime/sessionRevocation";
 import { withPrincipalHistoryRequest } from "../utils/principalHistoryWork";
+import { withRequestTwoFactorStanding } from "../utils/requestTwoFactorStanding";
 import type { SessionCreateInput, SessionData } from "../validators/session";
-import { isSessionData, isSessionId } from "../validators/session";
+import {
+  isSessionData,
+  isSessionId,
+  sessionTwoFactorStanding,
+} from "../validators/session";
 import {
   normalizeRequestIpAddress,
   type RouteRequestBindings,
@@ -30,8 +35,10 @@ import {
 } from "./sessionActivity";
 import {
   recordActivityUnlessSuspended as defaultRecordActivityUnlessSuspended,
+  sessionStandingRefusal,
   type UserActivityRecorder,
   type UserActivityStandingRecorder,
+  type UserStanding,
 } from "./userActivity";
 import {
   isUserSuspended as defaultIsUserSuspended,
@@ -78,9 +85,10 @@ export interface UserSessionSummary {
   isCurrent: boolean;
   lastActiveAt: number;
   lastActiveIp: string | null;
+  twoFactorVerified: boolean;
 }
 
-function sessionKey(token: string): string {
+export function sessionKey(token: string): string {
   return `${SESSION_PREFIX}${token}`;
 }
 
@@ -101,7 +109,7 @@ function extractToken(c: Context): string | null {
   return isSessionId(token) ? token : null;
 }
 
-function parseSessionData(raw: string): SessionData | null {
+export function parseSessionData(raw: string): SessionData | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -224,19 +232,19 @@ export function createRequireAuth(
       // Refused before session activity advances, so every later request
       // re-checks. A failed statement fails the request: suspension
       // enforcement is closed.
-      if (
-        shouldUpdateActivity &&
-        recordActivityUnlessSuspended &&
-        (await recordActivityUnlessSuspended({
-          lastActiveAt: now,
-          userId: session.userId,
-        }))
-      ) {
+      const refusal =
+        shouldUpdateActivity && recordActivityUnlessSuspended
+          ? sessionStandingRefusal(
+              session,
+              await recordActivityUnlessSuspended({
+                lastActiveAt: now,
+                userId: session.userId,
+              }),
+            )
+          : null;
+      if (refusal) {
         return c.json(
-          {
-            code: SESSION_ERROR_CODES.refreshRequired,
-            error: "Account suspended",
-          },
+          { code: SESSION_ERROR_CODES.refreshRequired, error: refusal },
           401,
         );
       }
@@ -251,9 +259,11 @@ export function createRequireAuth(
       c.set("session", session);
       c.set("sessionToken", token);
 
-      return withPrincipalHistoryRequest(
-        c.env?.beginPrincipalHistoryVerification,
-        next,
+      return withRequestTwoFactorStanding(session, () =>
+        withPrincipalHistoryRequest(
+          c.env?.beginPrincipalHistoryVerification,
+          next,
+        ),
       );
     },
   );
@@ -311,6 +321,7 @@ export function createListUserSessions(
               isCurrent: token === input.currentToken,
               lastActiveAt: data.lastActiveAt,
               lastActiveIp: data.lastActiveIp,
+              twoFactorVerified: data.twoFactorVerified,
             };
           },
         ),
@@ -423,7 +434,7 @@ export interface IssuedSession {
   readonly sessionId: string;
   readonly token: string;
   /** Standing read after persistence; absent if activity recording failed. */
-  readonly suspended?: boolean;
+  readonly standing?: UserStanding;
 }
 
 export function createSessionTokenIssuer(
@@ -442,6 +453,7 @@ export function createSessionTokenIssuer(
       ipAddresses: ipAddress ? [ipAddress] : [],
       lastActiveAt: data.createdAt,
       lastActiveIp: ipAddress,
+      ...sessionTwoFactorStanding(data),
       userId: data.userId,
     };
 
@@ -456,14 +468,14 @@ export function createSessionTokenIssuer(
 
     // Login is itself activity; without this a user seen only within the
     // throttle window after logging in would have no last_active_at at all.
-    let suspended: boolean | undefined;
+    let standing: UserStanding | undefined;
     if (recordUserActivity) {
       try {
-        const standing = await recordUserActivity({
-          lastActiveAt: session.createdAt,
-          userId: session.userId,
-        });
-        if (typeof standing === "boolean") suspended = standing;
+        standing =
+          (await recordUserActivity({
+            lastActiveAt: session.createdAt,
+            userId: session.userId,
+          })) ?? undefined;
       } catch (error) {
         console.error("Failed to record login activity:", error);
       }
@@ -472,7 +484,7 @@ export function createSessionTokenIssuer(
     return {
       sessionId: session.id,
       token,
-      ...(typeof suspended === "boolean" ? { suspended } : {}),
+      ...(standing ? { standing } : {}),
     };
   };
 }

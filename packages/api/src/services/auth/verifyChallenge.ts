@@ -1,12 +1,21 @@
-import { containers, users } from "@tearleads/api-shared/schema";
+import { containers, users, userTwoFactor } from "@tearleads/api-shared/schema";
 import {
   authChallengeSigningBytes,
   toFingerprint,
   verify,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import type { TwoFactorLoginCode } from "@tearleads/validators/request";
 import { and, eq, isNull } from "drizzle-orm";
+import { twoFactorRequiredOrganizationIdsSql } from "../../middleware/userActivity";
+import { readTwoFactorSecretKey } from "../../utils/serverSecrets";
+import { resolveLoginSecondFactor } from "../../workflows/auth/twoFactor/loginSecondFactor";
+import {
+  type TwoFactorRecord,
+  twoFactorRecordColumns,
+} from "../../workflows/auth/twoFactor/store";
 import type { ApiServiceRuntime } from "../runtime";
+import { openLoginSession } from "./loginSession";
 
 interface VerifyChallengeInput {
   /** The origin this API expects challenges to be signed for. */
@@ -15,6 +24,10 @@ interface VerifyChallengeInput {
   ipAddress?: string | null | undefined;
   /** Canonical base64 of the ML-DSA-87 signature. */
   signature: string;
+  /** A typed second factor, for an identity with two-factor turned on. */
+  twoFactor?: TwoFactorLoginCode | undefined;
+  /** A remembered device's token, standing in for a typed second factor. */
+  twoFactorDeviceToken?: string | undefined;
 }
 
 interface VerifyChallengeResult {
@@ -25,6 +38,8 @@ interface VerifyChallengeResult {
   /** The new session's id, which a websocket ticket for it binds to. */
   sessionId: string;
   token: string;
+  /** Issued when a typed code asked to remember this device. */
+  twoFactorDeviceToken: string | null;
   userId: string;
 }
 
@@ -32,6 +47,9 @@ type VerifyChallengeErrorReason =
   | "account_suspended"
   | "challenge_not_found"
   | "invalid_signature"
+  | "two_factor_invalid"
+  | "two_factor_locked"
+  | "two_factor_required"
   | "unknown_fingerprint";
 
 export class VerifyChallengeError extends Error {
@@ -47,16 +65,80 @@ function suspendedError(): VerifyChallengeError {
   return new VerifyChallengeError("Account suspended", "account_suspended");
 }
 
-async function isSuspended(
+const secondFactorRefusals = {
+  invalid: ["Invalid two-factor code", "two_factor_invalid"],
+  locked: [
+    "Too many invalid two-factor codes; try again later",
+    "two_factor_locked",
+  ],
+  required: ["Two-factor code required", "two_factor_required"],
+} as const;
+
+function joinedTwoFactorRecord(row: {
+  readonly id: string;
+  readonly twoFactorEnabledAt: Date | null;
+  readonly twoFactorFailedAttempts: number | null;
+  readonly twoFactorLastUsedStep: number | null;
+  readonly twoFactorLockedUntil: Date | null;
+  readonly twoFactorSecretCiphertext: string | null;
+}): TwoFactorRecord | null {
+  if (row.twoFactorSecretCiphertext === null) return null;
+  return {
+    enabledAt: row.twoFactorEnabledAt,
+    failedAttempts: row.twoFactorFailedAttempts ?? 0,
+    lastUsedStep: row.twoFactorLastUsedStep,
+    lockedUntil: row.twoFactorLockedUntil,
+    secretCiphertext: row.twoFactorSecretCiphertext,
+    userId: row.id,
+  };
+}
+
+async function requireSecondFactor(
   runtime: ApiServiceRuntime,
-  userId: string,
-): Promise<boolean> {
-  const [row] = await runtime.db
-    .select({ suspendedAt: users.suspendedAt })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  return Boolean(row?.suspendedAt);
+  input: VerifyChallengeInput,
+  record: TwoFactorRecord | null,
+) {
+  const secondFactor = await resolveLoginSecondFactor({
+    answer: input.twoFactor,
+    deviceToken: input.twoFactorDeviceToken,
+    deviceTrust: runtime.keyValueStore,
+    executor: runtime.db,
+    now: new Date(),
+    record,
+    serverSecret: readTwoFactorSecretKey(),
+  });
+  if (
+    secondFactor.status === "verified" ||
+    secondFactor.status === "not_enabled"
+  ) {
+    return secondFactor;
+  }
+  const [message, reason] = secondFactorRefusals[secondFactor.status];
+  throw new VerifyChallengeError(message, reason);
+}
+
+/** Stores the session, refusing it if the standing changed since sign-in. */
+async function openVerifiedSession(
+  runtime: ApiServiceRuntime,
+  input: VerifyChallengeInput,
+  standing: {
+    readonly twoFactorRequiredOrganizationIds: readonly string[];
+    readonly twoFactorVerified: boolean;
+    readonly userId: string;
+  },
+): Promise<{ readonly sessionId: string; readonly token: string }> {
+  const session = await openLoginSession(runtime, {
+    fingerprint: input.fingerprint,
+    ipAddress: input.ipAddress,
+    ...standing,
+  });
+  if (session.status === "suspended") throw suspendedError();
+  if (session.status === "two_factor_required") {
+    // Two-factor was turned on while this sign-in was in flight.
+    const [message, reason] = secondFactorRefusals.required;
+    throw new VerifyChallengeError(message, reason);
+  }
+  return session;
 }
 
 export async function verifyChallenge(
@@ -83,6 +165,12 @@ export async function verifyChallenge(
       rootContainerId: containers.id,
       signingPublicKey: users.signingPublicKey,
       suspendedAt: users.suspendedAt,
+      twoFactorEnabledAt: twoFactorRecordColumns.enabledAt,
+      twoFactorFailedAttempts: twoFactorRecordColumns.failedAttempts,
+      twoFactorLastUsedStep: twoFactorRecordColumns.lastUsedStep,
+      twoFactorLockedUntil: twoFactorRecordColumns.lockedUntil,
+      twoFactorRequiredOrganizationIds: twoFactorRequiredOrganizationIdsSql,
+      twoFactorSecretCiphertext: twoFactorRecordColumns.secretCiphertext,
     })
     .from(users)
     .leftJoin(
@@ -93,6 +181,7 @@ export async function verifyChallenge(
         isNull(containers.systemSlot),
       ),
     )
+    .leftJoin(userTwoFactor, eq(userTwoFactor.userId, users.id))
     .where(eq(users.fingerprint, input.fingerprint))
     .limit(1);
 
@@ -128,30 +217,27 @@ export async function verifyChallenge(
     throw suspendedError();
   }
 
-  const { sessionId, token, suspended } =
-    await runtime.sessionTokenIssuer.createSession({
-      userId: user.id,
-      fingerprint: input.fingerprint,
-      createdAt: Date.now(),
-      ipAddress: input.ipAddress,
-    });
-  // A suspension committed since the read above may have swept the user's
-  // sessions before this one existed. It commits the flag before sweeping, so
-  // re-reading it after the session is stored leaves no window between them.
-  if (suspended ?? (await isSuspended(runtime, user.id))) {
-    await runtime.sessionTokenIssuer.revokeSession({
-      sessionId,
-      userId: user.id,
-    });
-    throw suspendedError();
-  }
+  // Also checked only after the signature: the code check counts toward a
+  // lockout, which only the key holder may advance.
+  const secondFactor = await requireSecondFactor(
+    runtime,
+    input,
+    joinedTwoFactorRecord(user),
+  );
+  const session = await openVerifiedSession(runtime, input, {
+    twoFactorRequiredOrganizationIds: user.twoFactorRequiredOrganizationIds,
+    twoFactorVerified: secondFactor.status === "verified",
+    userId: user.id,
+  });
 
   return {
     rootContainerId: user.rootContainerId,
     isRoot: user.isRoot,
     organizationId: user.defaultOrganizationId,
-    sessionId,
-    token,
+    sessionId: session.sessionId,
+    token: session.token,
+    twoFactorDeviceToken:
+      secondFactor.status === "verified" ? secondFactor.deviceToken : null,
     userId: user.id,
   };
 }

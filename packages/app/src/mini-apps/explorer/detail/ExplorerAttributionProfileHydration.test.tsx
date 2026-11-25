@@ -35,6 +35,7 @@ function rosterUser(
     createdAt: "2026-05-20T12:00:00.000Z",
     disabledAt: disabled ? "2026-05-21T12:00:00.000Z" : null,
     disabledByUserId: disabled ? "viewer-user-id" : null,
+    twoFactorRequired: false,
     encapsulationKeyFingerprint: `encapsulation-${userId}`,
     isPersonalOrganizationOwner: false,
     isSelf: false,

@@ -10,13 +10,18 @@ import type { RegistrationResponse } from "@tearleads/validators/response";
 import { resolveApiIdentityTrustDomain } from "../../apiIdentityTrustDomain";
 import {
   isDuplicateRegistrationFingerprintError,
+  LegalTermsOutdatedError,
   RegistrationError,
   runRegistrationWorkflow,
 } from "../../workflows/auth/registration";
 import { toOrganizationProvisioningResponse } from "../../workflows/organizations/provisionOrganizationResponse";
 import type { ApiServiceRuntime } from "../runtime";
 
-export { isDuplicateRegistrationFingerprintError, RegistrationError };
+export {
+  isDuplicateRegistrationFingerprintError,
+  LegalTermsOutdatedError,
+  RegistrationError,
+};
 
 async function issueRegistrationChallenge(
   runtime: ApiServiceRuntime,

@@ -1,4 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import type {
   CreateOrganizationRequest,
   RegistrationRequest,
@@ -102,6 +103,7 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
     RegistrationRequest,
     "initialOrganizationMetadataContainer"
   > = {
+    acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
     encapsulationPublicKey: bytesToBase64(
       Uint8Array.from(
         { length: ML_KEM1024_PUBLIC_KEY_BYTES },
@@ -166,6 +168,7 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
 
 export function createOrganizationRequestFixture(): CreateOrganizationRequest {
   const {
+    acceptedLegalTermsVersion: _acceptedLegalTermsVersion,
     encapsulationPublicKey: _encapsulationPublicKey,
     signingPublicKey: _signingPublicKey,
     ...request

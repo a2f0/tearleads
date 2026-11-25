@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import {
   createNoopSqlClient,
   quietLogger,
@@ -236,19 +237,35 @@ describe("Tearleads", () => {
       },
     });
 
-    await expect(sdk.session.registerIdentity()).resolves.toBeNull();
+    await expect(
+      sdk.session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      }),
+    ).resolves.toBeNull();
 
     sdk.session.setContainerId("container-1");
-    await expect(sdk.session.registerIdentity()).resolves.toBeNull();
+    await expect(
+      sdk.session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      }),
+    ).resolves.toBeNull();
 
     await sdk.identity.setKeyPairs({
       encapsulationKeyPair: null,
       signingKeyPair: generateSigningSeedAndKeyPair(),
     });
-    await expect(sdk.session.registerIdentity()).resolves.toBeNull();
+    await expect(
+      sdk.session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      }),
+    ).resolves.toBeNull();
 
     await setGeneratedIdentity(sdk.identity);
-    await expect(sdk.session.registerIdentity()).resolves.toBeNull();
+    await expect(
+      sdk.session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      }),
+    ).resolves.toBeNull();
 
     expect(messages).toEqual([
       "Registration skipped: container id is unavailable",

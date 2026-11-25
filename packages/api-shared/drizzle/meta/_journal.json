@@ -92,6 +92,20 @@
       "when": 1795616051928,
       "tag": "0012_purged_object_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795625171693,
+      "tag": "0013_legal_terms_acceptance",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795627600836,
+      "tag": "0014_two_factor_authentication",
+      "breakpoints": true
     }
   ]
 }

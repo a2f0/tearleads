@@ -1,0 +1,12 @@
+.two-factor-sign-in,
+.two-factor-answer {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.two-factor-remember {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}

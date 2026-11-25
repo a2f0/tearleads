@@ -64,6 +64,15 @@ export type UpdateOrganizationRosterEntryRequest = z.infer<
   typeof UpdateOrganizationRosterEntryRequestSchema
 >;
 
+/** An administrator's two-factor requirement for one roster member. */
+export const UpdateOrganizationRosterTwoFactorRequestSchema = z.strictObject({
+  required: z.boolean(),
+});
+
+export type UpdateOrganizationRosterTwoFactorRequest = z.infer<
+  typeof UpdateOrganizationRosterTwoFactorRequestSchema
+>;
+
 /** The session user's own choice for one organization they belong to. */
 export const UpdateOrganizationMembershipRequestSchema = z.strictObject({
   syncPaused: z.boolean(),
@@ -98,6 +107,13 @@ export function isDeleteOrganizationGroupRequest(
   value: unknown,
 ): value is DeleteOrganizationGroupRequest {
   return DeleteOrganizationGroupRequestSchema.safeParse(value).success;
+}
+
+export function isUpdateOrganizationRosterTwoFactorRequest(
+  value: unknown,
+): value is UpdateOrganizationRosterTwoFactorRequest {
+  return UpdateOrganizationRosterTwoFactorRequestSchema.safeParse(value)
+    .success;
 }
 
 export function isUpdateOrganizationRosterEntryRequest(

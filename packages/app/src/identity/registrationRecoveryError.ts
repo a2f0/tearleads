@@ -1,3 +1,4 @@
+import { LegalTermsOutdatedError } from "@tearleads/client-sdk";
 import {
   IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE,
   isIdentityAcknowledgmentMismatch,
@@ -16,12 +17,33 @@ export class RegistrationRecoveryError extends Error {
 }
 
 /**
+ * What a build that shows an earlier revision of the legal terms says when
+ * the API registers only a later one: only an update shows the current text.
+ */
+export const LEGAL_TERMS_OUTDATED_APP_MESSAGE =
+  "The Terms of Service and Privacy Policy have changed since this version of the app. Update the app to review and agree to the current terms, then try again.";
+
+/**
+ * Why a manual Register failed, in words the user can act on: recovery
+ * guidance and outdated terms are named; anything else stays generic.
+ */
+export function registrationFailureMessage(error: unknown): string {
+  if (error instanceof RegistrationRecoveryError) return error.message;
+  if (error instanceof LegalTermsOutdatedError)
+    return LEGAL_TERMS_OUTDATED_APP_MESSAGE;
+  return "Could not register key.";
+}
+
+/**
  * An acknowledgment mismatch is named distinctly: the SDK has already recorded
  * it as a security incident, and retrying registration cannot resolve it.
  */
 export function autoRegisterFailureMessage(error: unknown): string {
-  if (error instanceof RegistrationRecoveryError)
-    return `Auto-register identity failed: ${error.message}`;
+  if (
+    error instanceof RegistrationRecoveryError ||
+    error instanceof LegalTermsOutdatedError
+  )
+    return `Auto-register identity failed: ${registrationFailureMessage(error)}`;
   return isIdentityAcknowledgmentMismatch(error)
     ? `Auto-register identity refused: ${IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE}`
     : "Failed to auto-register identity";

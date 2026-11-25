@@ -40,6 +40,8 @@ export interface PersistedCryptoSessionContext {
   /** Platform-operator flag reported at login; the API enforces root access. */
   readonly isRoot: boolean;
   readonly organizationId: string | null;
+  /** This device's remembered second factor, kept across sign-outs. */
+  readonly twoFactorDeviceToken: string | null;
   readonly userId: string | null;
 }
 
@@ -61,6 +63,7 @@ export function restoreReloadCryptoSessionContext(
     isRoot: false,
     organizationId: null,
     rootAcknowledgments: context.rootAcknowledgments,
+    twoFactorDeviceToken: context.twoFactorDeviceToken,
     userId: context.userId,
   };
 }
@@ -85,6 +88,7 @@ export function persistableCryptoSessionContext(
     isRoot: snapshot.isRoot,
     organizationId: snapshot.organizationId,
     rootAcknowledgments: snapshot.rootAcknowledgments,
+    twoFactorDeviceToken: snapshot.twoFactorDeviceToken,
     userId: userIdAcknowledged ? snapshot.userId : null,
   };
 }
@@ -120,6 +124,52 @@ function readNullableString(
     : undefined;
 }
 
+type PersistedSessionStrings = Pick<
+  PersistedCryptoSessionContext,
+  | "authToken"
+  | "containerId"
+  | "defaultOrganizationId"
+  | "organizationId"
+  | "twoFactorDeviceToken"
+  | "userId"
+>;
+
+/** The record's nullable strings, or null when any is missing or malformed. */
+function readPersistedSessionStrings(
+  value: object,
+): PersistedSessionStrings | null {
+  const authToken = readNullableString(value, "authToken");
+  const containerId = readNullableString(value, "containerId");
+  const defaultOrganizationId = readNullableString(
+    value,
+    "defaultOrganizationId",
+  );
+  const organizationId = readNullableString(value, "organizationId");
+  const twoFactorDeviceToken = readNullableString(
+    value,
+    "twoFactorDeviceToken",
+  );
+  const userId = readNullableString(value, "userId");
+  if (
+    authToken === undefined ||
+    containerId === undefined ||
+    defaultOrganizationId === undefined ||
+    organizationId === undefined ||
+    twoFactorDeviceToken === undefined ||
+    userId === undefined
+  ) {
+    return null;
+  }
+  return {
+    authToken,
+    containerId,
+    defaultOrganizationId,
+    organizationId,
+    twoFactorDeviceToken,
+    userId,
+  };
+}
+
 function parsePersistedCryptoSession(
   value: unknown,
 ): PersistedCryptoSessionEnvelope | null {
@@ -140,53 +190,34 @@ function parsePersistedCryptoSession(
     return null;
   }
 
-  const authToken = readNullableString(value, "authToken");
-  const containerId = readNullableString(value, "containerId");
-  const organizationId = readNullableString(value, "organizationId");
-  const defaultOrganizationId = readNullableString(
-    value,
-    "defaultOrganizationId",
-  );
-  const userId = readNullableString(value, "userId");
+  const strings = readPersistedSessionStrings(value);
+  if (!strings) return null;
   const rootAcknowledgments = parsePersistedSessionRoots(
     Reflect.get(value, "rootAcknowledgments"),
     signingFingerprint,
-    userId,
+    strings.userId,
   );
   if (!rootAcknowledgments) return null;
   const isRoot = Reflect.get(value, "isRoot");
   if (typeof isRoot !== "boolean") {
     return null;
   }
-  if (
-    authToken === undefined ||
-    containerId === undefined ||
-    defaultOrganizationId === undefined ||
-    organizationId === undefined ||
-    userId === undefined
-  ) {
-    return null;
-  }
   // Every authenticated session carries its identity's default organization;
   // system/Contacts bootstrap keys on it, so restoring an authenticated
   // session without one would leave bootstrap waiting forever. Fail closed —
   // discarding the stored session just forces a fresh sign-in.
-  if (isAuthenticated && defaultOrganizationId === null) {
+  if (isAuthenticated && strings.defaultOrganizationId === null) {
     return null;
   }
 
   return {
+    ...strings,
     rootAcknowledgments,
-    authToken,
-    containerId,
-    defaultOrganizationId,
     format: LOCAL_CRYPTO_SESSION_FORMAT,
     isAuthenticated,
     isRoot,
-    organizationId,
     signingFingerprint,
     storedAt,
-    userId,
     version: 1,
   };
 }
@@ -291,6 +322,7 @@ export async function restorePersistedCryptoSession(input: {
         persistedSession.isAuthenticated && persistedSession.authToken !== null,
       isRoot: persistedSession.isRoot,
       organizationId: persistedSession.organizationId,
+      twoFactorDeviceToken: persistedSession.twoFactorDeviceToken,
       userId: persistedSession.userId,
     };
   } finally {

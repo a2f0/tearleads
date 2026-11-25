@@ -3,6 +3,7 @@ import {
   BACKUP_AGREEMENT_LABEL,
   createFirstIdentity,
 } from "./createFirstIdentity";
+import { agreeToLegalTerms, legalTermsAgreement } from "./legalTermsAgreement";
 import { switchToWindowedDesktop } from "./windowedDesktop";
 
 /*
@@ -186,6 +187,7 @@ test("the new-identity backup prompt centers the menu at the form's width", asyn
     .getByRole("button", { name: "Create new identity", exact: true })
     .first()
     .click();
+  await agreeToLegalTerms(legalTermsAgreement(page));
   const prompt = page
     .getByRole("textbox", { name: "What should we call you?" })
     .first();

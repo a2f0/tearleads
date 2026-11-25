@@ -4,6 +4,7 @@ import type { SessionEnv } from "../../middleware/session";
 import {
   OrganizationManagerError,
   OrganizationReadModelCursorError,
+  type RosterTwoFactorSessionStore,
 } from "../../services/organizations/orgManager";
 import type { ApiServiceRuntime } from "../../services/runtime";
 
@@ -12,6 +13,11 @@ export interface OrganizationsRouterDeps {
   readonly runtime: ApiServiceRuntime;
   /** Approved Stripe checkout and portal return origins, independent of CORS. */
   readonly billingReturnOrigins?: readonly string[];
+}
+
+export interface OrganizationRosterRouteDeps extends OrganizationsRouterDeps {
+  /** Sweeps a member's sessions when their two-factor requirement changes. */
+  readonly sessions: RosterTwoFactorSessionStore;
 }
 
 export function toOrganizationManagerErrorResponse(

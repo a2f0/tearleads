@@ -1,0 +1,80 @@
+/*
+ * The legal terms a new identity agrees to. The onboarding-style state panel
+ * centers its contents; the documents take a reading column under its copy,
+ * framed like a list so the tab strip opens into it, and scroll inside that
+ * frame so the agreement below stays on screen.
+ */
+.legal-terms-agreement-documents {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 40rem);
+  min-height: 0;
+  border: var(--border-strong);
+  background: var(--color-light);
+  text-align: start;
+}
+
+.legal-terms-agreement-document {
+  gap: var(--space-sm);
+  max-height: min(50vh, 28rem);
+  padding: var(--space-sm) var(--space-md);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+/* The documents' own type, sized down to the panel's reading scale. */
+.legal-terms-agreement-document h2 {
+  margin: var(--space-sm) 0 0;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+.legal-terms-agreement-document h3 {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.legal-terms-agreement-document p,
+.legal-terms-agreement-document ul {
+  margin: 0;
+}
+
+.legal-terms-agreement-document ul {
+  padding-inline-start: var(--space-md);
+}
+
+.legal-terms-agreement-document a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.legal-terms-agreement-document .legal-callout {
+  padding: var(--space-xs) var(--space-sm);
+  border-inline-start: 2px solid var(--color-dark);
+  background: var(--color-muted);
+}
+
+.legal-terms-agreement-document .legal-contact {
+  display: grid;
+  font-style: normal;
+}
+
+.legal-terms-agreement-form {
+  display: grid;
+  gap: var(--space-sm);
+  width: min(100%, 40rem);
+  text-align: start;
+}
+
+.legal-terms-agreement-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.legal-terms-agreement-form .mini-app-toolbar {
+  justify-content: center;
+}

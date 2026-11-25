@@ -171,6 +171,8 @@ test("publishes a committed hint after a downstream post-commit error", async ()
       ipAddresses: [],
       lastActiveAt: now,
       lastActiveIp: null,
+      twoFactorRequiredOrganizationIds: [],
+      twoFactorVerified: false,
     });
     await next();
     throw new Error("downstream post-commit failure");

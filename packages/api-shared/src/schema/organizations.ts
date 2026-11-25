@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -90,6 +91,11 @@ export const organizations = pgTable(
  * - `leaveRequest`: The member's pending signed request to leave, as JSON, or
  *   null. Only the member files or withdraws it; deactivation clears it.
  *   Administrators verify its signature before acting on it.
+ * - `twoFactorRequired`: An administrator requires this member to sign in
+ *   with two-factor authentication. While set, the organization's server
+ *   routes refuse the member's sessions that did not pass a second factor. It
+ *   is a server gate, not access authority: keys already wrapped to the
+ *   member stay usable on their devices.
  * - `createdAt` / `updatedAt`: Server-side row timestamps.
  */
 export const organizationRosterEntries = pgTable(
@@ -108,10 +114,16 @@ export const organizationRosterEntries = pgTable(
     disabledByUserId: uuid("disabled_by_user_id"),
     syncPausedAt: timestamp("sync_paused_at"),
     leaveRequest: text("leave_request"),
+    twoFactorRequired: boolean("two_factor_required").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
+    // Sign-in reads a user's requiring organizations; only required rows are
+    // indexed, so the index stays as small as the set of such members.
+    index("organization_roster_entries_two_factor_user_idx")
+      .on(table.userId)
+      .where(sql`${table.twoFactorRequired}`),
     uniqueIndex("organization_roster_entries_org_user_idx").on(
       table.organizationId,
       table.userId,

@@ -133,9 +133,13 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Identity & Session Client",
     package: "client-sdk",
     responsibility:
-      "The tearleads.identity/session/userIdentities facades: identity keypairs, sessions, and auth context for the host.",
-    seam: "tearleads.identity/session/userIdentities facades",
-    paths: [`${sdk}/client/identity/`, `${sdk}/client/session/`],
+      "The tearleads.identity/session/twoFactor/userIdentities facades: identity keypairs, sessions, two-factor sign-in, and auth context for the host.",
+    seam: "tearleads.identity/session/twoFactor/userIdentities facades",
+    paths: [
+      `${sdk}/client/identity/`,
+      `${sdk}/client/session/`,
+      `${sdk}/client/twoFactor/`,
+    ],
     surface: identitySessionClientSurface,
   },
   {

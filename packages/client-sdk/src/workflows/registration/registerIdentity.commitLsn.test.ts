@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { LEGAL_TERMS_VERSION } from "@tearleads/validators/legalTerms";
 import { execSqlClientFromExecSql } from "../../../test/helpers/data/execSqlClient";
 import {
   PROVISIONING_COMMIT_LSN,
@@ -19,6 +20,7 @@ async function seededCommitLsns(
   );
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient: {
         registerUser: async (...args) => ({

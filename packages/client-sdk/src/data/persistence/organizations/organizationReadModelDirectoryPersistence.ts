@@ -57,6 +57,7 @@ function toDirectoryRows(
     disabledAt: user.disabledAt,
     disabledByUserId: user.disabledByUserId,
     leaveRequest: storedLeaveRequestJson(organizationId, user),
+    twoFactorRequired: user.twoFactorRequired,
   }));
 }
 

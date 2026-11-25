@@ -7,6 +7,7 @@ import {
   requireAuth as defaultRequireAuth,
   type SessionEnv,
 } from "./middleware/session";
+import { updateSessionTwoFactorStanding as defaultUpdateSessionTwoFactorStanding } from "./middleware/sessionTwoFactorStanding";
 import type { PublishedRealtimeEvent } from "./realtime/publishedRealtimeEvents";
 import { hasRootAccess } from "./services/root/identities";
 import {
@@ -26,6 +27,7 @@ export interface RouteAppOverrides {
    */
   readonly requireRoot?: MiddlewareHandler<SessionEnv>;
   readonly runtime?: ApiServiceRuntime;
+  readonly updateSessionTwoFactorStanding?: typeof defaultUpdateSessionTwoFactorStanding;
 }
 
 export type ResolvedRouteAppDeps = Required<RouteAppOverrides>;
@@ -38,6 +40,7 @@ export const productionRouteAppOverrides: RouteAppOverrides = {
   destroyUserSession: defaultDestroyUserSession,
   listUserSessions: defaultListUserSessions,
   requireAuth: defaultRequireAuth,
+  updateSessionTwoFactorStanding: defaultUpdateSessionTwoFactorStanding,
 };
 
 export function resolveRouteAppDeps({
@@ -48,6 +51,7 @@ export function resolveRouteAppDeps({
   requireAuth,
   requireRoot,
   runtime,
+  updateSessionTwoFactorStanding,
 }: RouteAppOverrides): ResolvedRouteAppDeps {
   const runtimeBase = runtime ?? getDefaultApiServiceRuntime();
   const resolvedPublish = publish ?? runtimeBase.eventPublisher.publish;
@@ -73,5 +77,7 @@ export function resolveRouteAppDeps({
       requireRoot ??
       createRequireRoot((userId) => hasRootAccess(resolvedRuntime, userId)),
     runtime: resolvedRuntime,
+    updateSessionTwoFactorStanding:
+      updateSessionTwoFactorStanding ?? defaultUpdateSessionTwoFactorStanding,
   };
 }

@@ -26,6 +26,7 @@ import {
   OrganizationBillingResponseSchema,
   OrganizationNativePurchaseEligibilityResponseSchema,
   PaymentRequiredErrorResponseSchema,
+  RegistrationConflictResponseSchema,
   RegistrationResponseSchema,
   RevenueCatWebhookResponseSchema,
   SessionFailureResponseSchema,
@@ -71,6 +72,10 @@ describeSchema(
     fingerprint: "Fingerprint the challenge was issued for.",
     signature:
       "Base64 ML-DSA-87 signature over the challenge, bound to the API origin and fingerprint.",
+    twoFactor:
+      "The second factor, for an identity with two-factor on and no remembered device.",
+    twoFactorDeviceToken:
+      "The token a remembered device received; it stands in for a code while valid.",
   },
 );
 
@@ -84,19 +89,23 @@ describeSchema(
     rootContainerId:
       "Root container of the default organization, or null after that organization was purged; clients verify its role from signed state.",
     token: "Bearer token for the `Authorization` header of later requests.",
+    twoFactorDeviceToken:
+      "Issued when the sign-in asked to remember this device; send it with later sign-ins.",
     wsTicket:
       "Single-use ticket for this session's first WebSocket connection.",
   },
 );
 
 describeSchema(VerifyFailureResponseSchema, "A refused sign-in.", {
-  code: "`account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal.",
+  code: "`account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal. `two_factor_required`, `two_factor_invalid`, or `two_factor_locked` when the identity has two-factor on: ask the person for a code.",
 });
 
 describeSchema(
   RegistrationRequestSchema,
   "A new identity's public keys plus every signed artifact that bootstraps its personal organization, all created atomically.",
   {
+    acceptedLegalTermsVersion:
+      "The Privacy Policy and Terms of Service revision the user agreed to before registering: the documents' shared effective date (`YYYY-MM-DD`). The API registers only the current revision and records it, with the time of registration, on the identity.",
     encapsulationPublicKey:
       "Base64 ML-KEM-1024 public key that key material is wrapped to.",
     signingPublicKey:
@@ -169,6 +178,14 @@ describeSchema(
   {
     ticket:
       "Opaque ticket, passed in the WebSocket upgrade URL and deleted on first use.",
+  },
+);
+
+describeSchema(
+  RegistrationConflictResponseSchema,
+  "A 409 from registration: the signing key is already registered, or the agreed legal terms revision is not the current one.",
+  {
+    code: "`legal_terms_outdated` only when the registration named a legal terms revision other than the current one; a key that is already registered carries no code.",
   },
 );
 

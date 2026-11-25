@@ -6,6 +6,7 @@ import { createChallengeRoute } from "./challenge";
 import { createLogoutRoute, type LogoutRouteDeps } from "./logout";
 import { createRegisterRoute } from "./register";
 import { createSessionsRoute, type SessionsRouteDeps } from "./sessions";
+import { createTwoFactorRoute, type TwoFactorRouteDeps } from "./twoFactor";
 import { createUserIdentityRoute } from "./userIdentity";
 import { createVerifyRoute } from "./verify";
 import { createWsTicketRoute } from "./wsTicket";
@@ -17,6 +18,7 @@ interface AuthRouterDeps {
   readonly publicOrigin: string | null;
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
+  readonly updateSessionTwoFactorStanding: TwoFactorRouteDeps["sessions"]["updateSessionTwoFactorStanding"];
 }
 
 export function createAuthRouter({
@@ -26,6 +28,7 @@ export function createAuthRouter({
   publicOrigin,
   requireAuth,
   runtime,
+  updateSessionTwoFactorStanding,
 }: AuthRouterDeps) {
   const auth = new Hono();
 
@@ -38,6 +41,18 @@ export function createAuthRouter({
   auth.route(
     "/",
     createSessionsRoute({ destroyUserSession, listUserSessions, requireAuth }),
+  );
+  auth.route(
+    "/",
+    createTwoFactorRoute({
+      requireAuth,
+      runtime,
+      sessions: {
+        destroyUserSession,
+        listUserSessions,
+        updateSessionTwoFactorStanding,
+      },
+    }),
   );
 
   return auth;

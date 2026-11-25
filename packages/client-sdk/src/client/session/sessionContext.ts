@@ -60,6 +60,10 @@ export function mergeSessionContext(
       "organizationId" in context
         ? (context.organizationId ?? null)
         : previous.organizationId,
+    twoFactorDeviceToken:
+      "twoFactorDeviceToken" in context
+        ? (context.twoFactorDeviceToken ?? null)
+        : previous.twoFactorDeviceToken,
     userId: mergedUserId(previous, context),
   };
 }
@@ -76,6 +80,7 @@ export function sessionSnapshotsEqual(
     previous.isAuthenticated === next.isAuthenticated &&
     previous.isRoot === next.isRoot &&
     previous.organizationId === next.organizationId &&
+    previous.twoFactorDeviceToken === next.twoFactorDeviceToken &&
     previous.userId === next.userId
   );
 }
@@ -89,6 +94,7 @@ export function emptySessionSnapshot(): SessionSnapshot {
     isAuthenticated: false,
     isRoot: false,
     organizationId: null,
+    twoFactorDeviceToken: null,
     userId: null,
   };
 }

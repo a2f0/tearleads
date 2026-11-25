@@ -21,6 +21,8 @@ function authenticated(userId = "user-1") {
       ipAddresses: [],
       lastActiveAt: Date.now(),
       lastActiveIp: null,
+      twoFactorRequiredOrganizationIds: [],
+      twoFactorVerified: false,
       userId,
     });
     return next();

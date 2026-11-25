@@ -18,11 +18,14 @@ function memoryRecoveryKeyStore(): RecoveryKeyStore & {
 export function testContext(
   options: {
     readonly apiBaseUrl?: string;
+    /** The terminal's answer to a question; without it, nothing can be asked. */
+    readonly answer?: string;
     readonly password?: string;
     readonly recoveryKey?: string;
   } = {},
 ) {
-  const output: { stderr: string[]; stdout: string[] } = {
+  const output: { questions: string[]; stderr: string[]; stdout: string[] } = {
+    questions: [],
     stderr: [],
     stdout: [],
   };
@@ -44,6 +47,14 @@ export function testContext(
     },
     stderr: (line) => output.stderr.push(line),
     stdout: (line) => output.stdout.push(line),
+    ...(options.answer === undefined
+      ? {}
+      : {
+          readLine: async (question: string) => {
+            output.questions.push(question);
+            return options.answer ?? null;
+          },
+        }),
   };
   return { context, keyStore, output };
 }

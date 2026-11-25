@@ -8,7 +8,7 @@ import { createTracer } from "./trace";
 
 export const usage = `Usage: tearleads <command> [--env production|staging|development] [--org <id>] [--trace]
        tearleads register|seed|verify-seed --key-stdin [--api-url <origin>]
-       tearleads seed --roster
+       tearleads register|seed --roster [--accept-terms]
        tearleads restore-keepass <file.kdbx> [--name <folder>] [--key-file <path>]
 
 Commands:
@@ -31,6 +31,12 @@ database, and revokes its session before exiting.
 
 --key-stdin reads a one-time recovery key for register, seed, or verify-seed,
 and keeps it out of the Keychain.
+
+Creating an account means agreeing to the Tearleads Privacy Policy and Terms of
+Service. register, and seed --roster for each member account it creates, print
+both documents' addresses and ask you to type yes. --accept-terms agrees
+without asking, as it must when no terminal can ask (for example with
+--key-stdin).
 
 --api-url <origin> uses that API instead of an --env target, such as a local
 test API. It needs --key-stdin, so no target's saved key is sent to it, and
@@ -72,6 +78,7 @@ function parse(argv: readonly string[]) {
     args: [...argv],
     allowPositionals: true,
     options: {
+      "accept-terms": { type: "boolean", default: false },
       "api-url": { type: "string" },
       env: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
@@ -109,6 +116,12 @@ function misappliedFlag(
 ): string | null {
   if (values.roster && commandName !== "seed") {
     return "--roster applies to seed.";
+  }
+  // Only these create accounts, which is what the terms govern.
+  const createsAccounts =
+    commandName === "register" || (commandName === "seed" && values.roster);
+  if (values["accept-terms"] && !createsAccounts) {
+    return "--accept-terms applies to register and seed --roster.";
   }
   if (values["key-stdin"] && !KEY_STDIN_COMMANDS.has(commandName)) {
     return "--key-stdin applies to register, seed, and verify-seed.";
@@ -236,6 +249,7 @@ export async function runCli(
       context,
       ...options,
       ...command.operands,
+      acceptTerms: values["accept-terms"],
       keyFromStdin: values["key-stdin"],
       organizationId: values.org,
       roster: values.roster,

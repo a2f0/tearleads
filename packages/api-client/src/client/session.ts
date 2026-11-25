@@ -20,6 +20,7 @@ import {
   logout as authLogout,
 } from "../routes/auth/session";
 import type { SessionBoundary } from "../sessionRenewal";
+import type { LoginSecondFactor } from "../twoFactorLogin";
 import type { HttpMethod } from "../types";
 import type { VerifiedManifestCitations } from "../verifiedManifestCitations";
 import { WebSocketTickets } from "../webSocketTickets";
@@ -129,11 +130,13 @@ export class SessionArea {
     initialRosterProfileContainer: RegistrationRequest["initialRosterProfileContainer"],
     initialRosterProfileDocument: RegistrationRequest["initialRosterProfileDocument"],
     initialOrganizationMetadataContainer: RegistrationRequest["initialOrganizationMetadataContainer"],
-    initialOrganizationProfileDocument?: RegistrationRequest["initialOrganizationProfileDocument"],
-    initialSystemContainers?: RegistrationRequest["initialSystemContainers"],
+    initialOrganizationProfileDocument: RegistrationRequest["initialOrganizationProfileDocument"],
+    initialSystemContainers: RegistrationRequest["initialSystemContainers"],
+    acceptedLegalTermsVersion: RegistrationRequest["acceptedLegalTermsVersion"],
   ) {
     return this.context.transport.request(registerOperation, {
       body: {
+        acceptedLegalTermsVersion,
         userId,
         organizationId,
         rootContainerId,
@@ -154,7 +157,11 @@ export class SessionArea {
     });
   }
 
-  async authenticate(fingerprint: string, secretKey: Uint8Array) {
+  async authenticate(
+    fingerprint: string,
+    secretKey: Uint8Array,
+    secondFactor?: LoginSecondFactor,
+  ) {
     const session = this.context.runtime.responseRequest.sessionSignal?.();
     const challenge = await this.context.transport.request(
       challengeOperation,
@@ -167,6 +174,7 @@ export class SessionArea {
       fingerprint,
       secretKey,
       challenge.challenge,
+      secondFactor,
     );
   }
 
@@ -174,6 +182,7 @@ export class SessionArea {
     fingerprint: string,
     secretKey: Uint8Array,
     challengeHex: string,
+    secondFactor: LoginSecondFactor = {},
   ): Promise<VerifySuccessResponse | null> {
     const session = this.context.runtime.responseRequest.sessionSignal?.();
     const signed = sign(
@@ -184,7 +193,16 @@ export class SessionArea {
       await this.context.transport.requestResult(
         verifyOperation,
         {
-          body: { fingerprint, signature: bytesToBase64(signed) },
+          body: {
+            fingerprint,
+            signature: bytesToBase64(signed),
+            ...(secondFactor.twoFactor
+              ? { twoFactor: secondFactor.twoFactor }
+              : {}),
+            ...(secondFactor.twoFactorDeviceToken
+              ? { twoFactorDeviceToken: secondFactor.twoFactorDeviceToken }
+              : {}),
+          },
           params: {},
         },
         { retryOnSessionExpired: false },
