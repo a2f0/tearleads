@@ -16,6 +16,7 @@ import {
   MiniAppTableText,
   miniAppRowActionsColumn,
   useMiniAppColumnVisibility,
+  useMiniAppColumnWidths,
   useMiniAppCompactTableFrame,
 } from "../../components/mini-app/MiniAppTable";
 import { getMiniAppVirtualFrameStyle } from "../../components/mini-app/virtual/MiniAppVirtual";
@@ -70,6 +71,11 @@ export interface TrackerReadColumn<TRow> {
   id: string;
   /** Values that are data rather than prose: measurements, keys, timestamps. */
   monospace?: boolean | undefined;
+  /**
+   * Set false on a column whose content cannot be cut short (controls that
+   * must stay reachable): neither of its edges can then be dragged.
+   */
+  resizable?: boolean | undefined;
   /** Supporting values (notes, attribution) that should not compete with data. */
   muted?: boolean | undefined;
   /**
@@ -141,6 +147,14 @@ function toFoldedFields<TRow>(
     });
 }
 
+function getTrackerColumnResizeLabel<TRow>(
+  column: TrackerReadColumn<TRow>,
+): string | undefined {
+  return column.resizable === false
+    ? undefined
+    : (column.sortLabel ?? column.header);
+}
+
 function buildTrackerReadTableColumns<TRow>(params: {
   actionsLabel: string;
   columnMenu: ReactNode;
@@ -179,6 +193,7 @@ function buildTrackerReadTableColumns<TRow>(params: {
           column.header
         ),
         id: column.id,
+        resizeLabel: getTrackerColumnResizeLabel(column),
         width: column.width,
       })),
       actionsColumn,
@@ -345,6 +360,8 @@ export function TrackerReadTable<TRow>(params: {
    * with fresh storage.
    */
   columnStorageKey: string;
+  /** Where this tracker remembers the widths the reader dragged columns to. */
+  columnWidthsStorageKey: string;
   columns: ReadonlyArray<TrackerReadColumn<TRow>>;
   defaultSortColumnId: string;
   emptyLabel: string;
@@ -357,6 +374,7 @@ export function TrackerReadTable<TRow>(params: {
     actionsLabel,
     ariaLabel,
     columnStorageKey,
+    columnWidthsStorageKey,
     columns,
     defaultSortColumnId,
     emptyLabel,
@@ -366,6 +384,7 @@ export function TrackerReadTable<TRow>(params: {
     sortMenuLabel,
   } = params;
   const { compact, frameRef, rowHeight } = useMiniAppCompactTableFrame();
+  const columnWidths = useMiniAppColumnWidths(columnWidthsStorageKey);
   const [sort, setSort] = useState<MiniAppTableSortState>({
     direction: "asc",
     key: defaultSortColumnId,
@@ -427,7 +446,12 @@ export function TrackerReadTable<TRow>(params: {
       ref={frameRef}
       style={getMiniAppVirtualFrameStyle(rowHeight)}
     >
-      <MiniAppTable aria-label={ariaLabel} columns={tableColumns}>
+      <MiniAppTable
+        aria-label={ariaLabel}
+        columns={tableColumns}
+        // A folded table has one summary column and nothing to resize.
+        columnWidths={compact ? undefined : columnWidths}
+      >
         {orderedRows.length === 0 ? (
           <MiniAppTableEmptyRow colSpan={tableColumns.length}>
             {emptyLabel}

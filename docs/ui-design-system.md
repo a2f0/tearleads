@@ -271,6 +271,37 @@ surface the way a tab strip does, through the shared
   [`e2e/shared-with-me-table.spec.ts`](../packages/app-web/e2e/shared-with-me-table.spec.ts)
   asserts the flush leading list.
 
+### Resizable columns
+
+A table with sortable headings (Explorer's item list, the blob list, the
+tracker index tables) lets its reader drag the edge between two columns. Pass
+`MiniAppTable` the control from `useMiniAppColumnWidths(storageKey)` as
+`columnWidths`, and give each resizable column a `resizeLabel`
+([`MiniAppColumnResize.tsx`](../packages/app/src/components/mini-app/tables/MiniAppColumnResize.tsx)):
+
+- An edge gets a handle when the columns on both sides carry a `resizeLabel`.
+  A column sized by its content, such as the kebab column or a thumbnail, takes
+  none.
+- Dragging an edge trades width between its two columns: the left one grows by
+  what the right one gives up, so the edge stays under the pointer and the
+  table keeps filling its frame.
+- Exactly one column declares no `width` and takes the table's spare room.
+  The table needs it to resize at all, and sets its own `min-width` from the
+  other columns' widths plus that column's `minWidth`, which is also where a
+  drag stops shrinking it.
+- A handle is a focusable separator: the arrow keys move it (Shift for larger
+  steps, Home and End for the limits), and a double-click gives both columns
+  back their declared widths.
+- Cells cut their text short instead of wrapping, so a narrowed column cannot
+  change the row pitch a virtualized list is measured by.
+- Chosen widths are a device preference in `localStorage`, as column
+  visibility is. A folded table has one column, so leave `columnWidths` out.
+  They are stored in pixels under one key for every layout, so a width chosen
+  in a window also applies in the routed shell, whose larger type may need more
+  room; a double-click on the edge returns to the declared width.
+- [`e2e/table-column-resize.spec.ts`](../packages/app-web/e2e/table-column-resize.spec.ts)
+  measures the drag in the routed pane and in a window.
+
 ## Modals
 
 A modal takes over the region it blocks instead of floating a small card over

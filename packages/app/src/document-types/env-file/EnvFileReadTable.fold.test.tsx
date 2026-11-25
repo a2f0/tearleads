@@ -102,3 +102,25 @@ test("phone env table keeps the masked value's identifying suffix and controls",
     view.getByRole("button", { name: "Copy Env variable 1 value" }),
   ).toBeTruthy();
 });
+
+test("the value column's edges cannot be dragged, so its controls are never cut off", () => {
+  // Every column switched on: order, key, value, updated.
+  globalThis.localStorage.setItem(
+    "tearleads.env-file.variables:hidden-columns:v2",
+    "[]",
+  );
+  const view = render(
+    <EnvFileReadTable currentAuthorId={null} variables={variables} />,
+  );
+
+  expect(
+    view.getAllByRole("columnheader").map((heading) => heading.textContent),
+  ).toHaveLength(5);
+  // The table is resizable (the order column's edge with the key is), but no
+  // handle sits on either side of the value and its reveal and copy buttons.
+  expect(
+    view
+      .getAllByRole("separator")
+      .map((handle) => handle.getAttribute("aria-label")),
+  ).toEqual(["Resize Variable order and Key columns"]);
+});
