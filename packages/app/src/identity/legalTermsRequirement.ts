@@ -1,16 +1,18 @@
 /**
  * Whether the current identity's registration waits for the person to agree
  * to the legal terms. Registration records the agreed revision, so a new
- * account needs it. An identity that already has one does not: one recovered
- * from its passphrase, or one this device already binds to an account (say,
- * its session was never stored before a reload), only signs back in.
+ * account needs it. An identity that already has one does not: one this
+ * device already binds to an account (say, its session was never stored
+ * before a reload) only signs back in. Neither does one recovered from its
+ * passphrase, which the autopilot only signs in, though a manual Register
+ * asks it (see `useRegisterCurrentIdentity`), since it may never have had one.
  */
 export type LegalTermsRequirement =
   /** Registration waits for the agreement, which the person is asked for. */
   | "required"
   /** Neither asked for nor registering until the device's binding is read. */
   | "checking"
-  /** Agreed, or nothing would record an agreement. */
+  /** Agreed, or nothing the autopilot runs would record an agreement. */
   | "not-required";
 
 /**
