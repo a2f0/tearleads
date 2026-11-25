@@ -7,6 +7,10 @@ export {
   isChallengeResponse,
 } from "./challenge";
 export {
+  type RegistrationConflictResponse,
+  RegistrationConflictResponseSchema,
+} from "./registrationConflict";
+export {
   isSessionRefreshRequiredFailure,
   SESSION_ERROR_CODES,
   type SessionErrorCode,

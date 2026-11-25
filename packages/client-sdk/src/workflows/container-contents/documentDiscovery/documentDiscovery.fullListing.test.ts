@@ -17,6 +17,7 @@ function page(id: string, hasMore = false): ListContainerDocumentsResponse {
         updatedAt: watermark.updatedAt,
         currentAccessEpoch: 1,
         currentAccessStateHash: "state-hash",
+        updateCount: 0,
         linkedContainerIds: ["container"],
         referencedPrincipals: [],
       },
@@ -59,6 +60,7 @@ for (const scenario of [
       // Local summaries are intentionally empty: only the raw complete listing
       // can prove presence, never a filtered projection or a tombstone summary.
       upsertDiscoveredDocuments: async () => [],
+      oweListedDocumentReads: async () => [],
       saveContainerDocumentWatermark: async () => {
         if (scenario === "persistence-failure")
           throw new Error("disk unavailable");

@@ -138,7 +138,10 @@ function documentSyncFailureHandler(input: {
   };
 }
 
-function hasPersistedRemoteDocumentSyncState(record: DocumentRecord): boolean {
+/** Whether the record holds what a completed pull leaves behind. */
+export function hasPersistedRemoteDocumentSyncState(
+  record: DocumentRecord,
+): boolean {
   return (
     record.lastCommitLsn !== null &&
     record.contentKeyBundle !== null &&

@@ -5,6 +5,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { BACKUP_AGREEMENT_LABEL } from "./createFirstIdentity";
+import { agreeToLegalTerms, legalTermsAgreement } from "./legalTermsAgreement";
 
 export { expect };
 
@@ -29,8 +30,9 @@ async function answerPrompt(
 }
 
 /**
- * Fresh profiles wait for a choice and a name before creating an identity,
- * then for the agreement that its recovery key is backed up. Playwright
+ * Fresh profiles wait for a choice, agreement to the legal terms, and a name
+ * before creating an identity, then for the agreement that its recovery key
+ * is backed up; the demo waits for the legal terms before its panes start. Playwright
  * handles each prompt when it appears before an action or an auto-waiting
  * assertion, so specs read as if they were already answered.
  */
@@ -45,6 +47,10 @@ function answerAccountNamePrompt(page: Page): Promise<void> {
         async (button) => {
           await button.click();
         },
+      );
+      await page.addLocatorHandler(
+        legalTermsAgreement(page),
+        agreeToLegalTerms,
       );
       await page.addLocatorHandler(
         page.getByRole("textbox", { name: "What should we call you?" }).first(),

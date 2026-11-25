@@ -13,9 +13,12 @@ import {
   type OnboardingNavigation,
   transitionIdentityOnboarding,
 } from "./identityOnboardingMachine";
+import { useLegalTermsAgreement } from "./legalTermsAgreement";
 
 export interface IdentityOnboarding {
   readonly state: IdentityOnboardingState;
+  /** Records agreement to the legal terms, then asks for the new name. */
+  readonly agreeToTerms: () => void;
   /** Records that the new identity's recovery key is backed up. */
   readonly confirmBackup: () => void;
   readonly navigate: (phase: OnboardingNavigation) => void;
@@ -64,7 +67,20 @@ function useOnboardingTransitions() {
     () => send({ type: "confirm-backup" }),
     [send],
   );
-  return { confirmBackup, isCurrent, send, state };
+  const legalTerms = useLegalTermsAgreement();
+  const { agree } = legalTerms;
+  const agreeToTerms = useCallback(() => {
+    agree();
+    send({ type: "terms-agreed" });
+  }, [agree, send]);
+  // Creating an identity asks for agreement first, unless this page has it.
+  const agreed = legalTerms.agreedVersion !== null;
+  const nextPhase = useCallback(
+    (phase: OnboardingNavigation): OnboardingNavigation =>
+      phase === "naming-account" && !agreed ? "accepting-terms" : phase,
+    [agreed],
+  );
+  return { agreeToTerms, confirmBackup, isCurrent, nextPhase, send, state };
 }
 
 export function useIdentityOnboarding(
@@ -90,12 +106,13 @@ export function useIdentityOnboarding(
     !identityDestroyed &&
     !identityTransitionInFlight &&
     signingKeyPair === null;
-  const { confirmBackup, isCurrent, send, state } = useOnboardingTransitions();
+  const { agreeToTerms, confirmBackup, isCurrent, nextPhase, send, state } =
+    useOnboardingTransitions();
   const navigate = useCallback(
     (phase: OnboardingNavigation) => {
-      if (available) send({ type: "navigate", phase });
+      if (available) send({ type: "navigate", phase: nextPhase(phase) });
     },
-    [available, send],
+    [available, nextPhase, send],
   );
   const submit = useCallback(
     (form: OnboardingForm, value: string) => {
@@ -145,7 +162,8 @@ export function useIdentityOnboarding(
   );
   const visible = available || (holdsOnboarding(state) && enabled && !isLocked);
   return useMemo(
-    () => (visible ? { confirmBackup, navigate, state, submit } : null),
-    [confirmBackup, navigate, state, submit, visible],
+    () =>
+      visible ? { agreeToTerms, confirmBackup, navigate, state, submit } : null,
+    [agreeToTerms, confirmBackup, navigate, state, submit, visible],
   );
 }

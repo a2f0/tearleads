@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { LEGAL_TERMS_VERSION } from "@tearleads/client-sdk";
 import { openLocalDatabase } from "./localDatabase";
 import { targets } from "./options";
 import { createSdkHost } from "./sdkHost";
@@ -23,7 +24,10 @@ async function provisionSeedAccount(origin: string) {
     const sdk = createSdkHost(origin, id, db.client);
     try {
       const { seedPhrase } = await sdk.identity.generate();
-      const account = await sdk.session.registerIdentity();
+      // The operator running the probe agrees to the terms for its accounts.
+      const account = await sdk.session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      });
       if (!seedPhrase || !account || "status" in account)
         throw new Error("Registration failed.");
       console.log(`Test account ${account.userId}`);

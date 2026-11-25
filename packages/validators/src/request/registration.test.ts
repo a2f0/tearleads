@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { LEGAL_TERMS_VERSION } from "../legalTerms";
 import {
   ML_DSA87_PUBLIC_KEY_BYTES,
   ML_KEM1024_PUBLIC_KEY_BYTES,
@@ -110,6 +111,7 @@ test("isRegistrationRequest", () => {
   const createInitialSync = () => ({ outgoingUpdates: [initialUpdate] });
   const createValidRequest = (overrides: Record<string, unknown> = {}) => {
     const request = {
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       userId,
       organizationId,
       rootContainerId: "550e8400-e29b-41d4-a716-446655440000",
@@ -174,6 +176,12 @@ test("isRegistrationRequest", () => {
   expect(validResult.success).toBe(true);
   expect(validResult.success && validResult.data).toBe(validRequest);
   expect(isRegistrationRequest(validRequest)).toBe(true);
+  // Registration names the legal terms revision its user agreed to.
+  for (const acceptedLegalTermsVersion of [undefined, "", "2026-10-22T00"]) {
+    expect(
+      isRegistrationRequest(createValidRequest({ acceptedLegalTermsVersion })),
+    ).toBe(false);
+  }
   for (const validateRequest of [
     isRegistrationRequest,
     isOrganizationProvisioningRequest,

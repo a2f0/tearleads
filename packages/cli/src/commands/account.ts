@@ -1,4 +1,5 @@
 import type { CommandInput } from "../cliContext";
+import { legalTermsAgreement } from "../legalTerms";
 import { printable } from "../printable";
 import { normalizeRecoveryKey } from "../recoveryKey";
 import { registerAccount } from "../registerAccount";
@@ -77,6 +78,7 @@ export async function register(input: CommandInput): Promise<void> {
     await context.readRecoveryKey("Recovery key: "),
   );
   const account = await registerAccount({
+    agreeToLegalTerms: legalTermsAgreement(input),
     apiBaseUrl: apiBaseUrl(input),
     recoveryKey,
     tracer,

@@ -55,7 +55,8 @@ export function resolveMiniAppAccessGateState({
   }
 
   // Progress replaces manual setup while keys are being prepared, and a new
-  // identity holds every app until it is created, named, and backed up. Otherwise, once
+  // identity holds every app until its terms are agreed and it is created,
+  // named, and backed up. Otherwise, once
   // keys exist, each app owns its loading surface so stalled account
   // provisioning cannot block local content or unmount an editor during a
   // retry.
@@ -96,6 +97,7 @@ export function LocalKeyringUnlockGate({
       (accountNaming.status === "named" && !accountNaming.sealed) ||
       progress?.phase === "restoring-identity" ||
       progress?.phase === "creating-identity" ||
+      progress?.phase === "accepting-terms" ||
       progress?.phase === "naming-account" ||
       progress?.phase === "confirming-backup",
     requireLocalIdentity,

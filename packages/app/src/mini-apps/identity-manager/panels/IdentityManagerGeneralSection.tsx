@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { AccountBootstrapProgressPanel } from "../../../components/identity/AccountBootstrapProgressPanel";
 import { CopyMyIdentityLinkButton } from "../../../components/identity/CopyMyIdentityLinkButton";
+import { LegalTermsAgreementPanel } from "../../../components/identity/legal-terms/LegalTermsAgreementPanel";
 import { TwoFactorSignInForm } from "../../../components/identity/TwoFactorSignInForm";
 import {
   MiniAppClipboardButton,
@@ -8,6 +9,7 @@ import {
   MiniAppSectionHeading,
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
+import { useLegalTermsAgreement } from "../../../identity/legalTermsAgreement";
 import { useAccountBootstrapProgress } from "../../../identity/useAccountBootstrapProgress";
 import { useDeveloperMode } from "../../../providers/developer-mode/DeveloperModeProvider";
 import type { useIdentityManager } from "../IdentityManagerController";
@@ -106,16 +108,43 @@ export function IdentityManagerGeneralSection({
 }: {
   model: IdentityManagerModel;
 }) {
-  const { identityMutations, identityState, session } = model;
-  const actions = getIdentitySectionActions(model);
+  const { identity, identityMutations, identityState, registration, session } =
+    model;
   const { isDeveloperMode } = useDeveloperMode();
   const progress = useAccountBootstrapProgress();
+  const { agree } = useLegalTermsAgreement();
+  // Registering records agreement to the legal terms, so a Register that has
+  // none yet shows them first, for the identity it was pressed for.
+  const [agreeingFor, setAgreeingFor] = useState<string | null>(null);
+  const actions = {
+    ...getIdentitySectionActions(model),
+    handleRegisterIdentity: registration.legalTermsRequired
+      ? async () => setAgreeingFor(identity.signingFingerprint)
+      : identityMutations.handleRegisterIdentity,
+  };
 
   // While the account is still being restored, named, created, or signed in,
   // every control here is either disabled or about to change; one centered
   // panel says so instead of spinner lines threaded between them.
   if (progress) {
     return <AccountBootstrapProgressPanel progress={progress} />;
+  }
+  // A binding read since Register may need none.
+  if (
+    agreeingFor !== null &&
+    agreeingFor === identity.signingFingerprint &&
+    registration.legalTermsRequired
+  ) {
+    return (
+      <LegalTermsAgreementPanel
+        onAgree={() => {
+          agree();
+          setAgreeingFor(null);
+          void identityMutations.handleRegisterIdentity();
+        }}
+        onBack={() => setAgreeingFor(null)}
+      />
+    );
   }
 
   return (

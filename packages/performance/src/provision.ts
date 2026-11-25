@@ -1,4 +1,4 @@
-import type { Tearleads } from "@tearleads/client-sdk";
+import { LEGAL_TERMS_VERSION, type Tearleads } from "@tearleads/client-sdk";
 import { openLocalDatabase } from "./localDatabase";
 import { createSdkHost } from "./sdkHost";
 import { createMeasuredFetch, type RequestMeasurement } from "./transport";
@@ -81,7 +81,10 @@ export async function provision(input: {
     client = sdk;
     await measure("identity", () => sdk.identity.generate());
     const result = await measure("registration", async () => {
-      const response = await sdk.session.registerIdentity();
+      // The operator running the probe agrees to the terms for its accounts.
+      const response = await sdk.session.registerIdentity({
+        acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+      });
       if (!response || "status" in response)
         throw new Error("Registration refused");
       return response;

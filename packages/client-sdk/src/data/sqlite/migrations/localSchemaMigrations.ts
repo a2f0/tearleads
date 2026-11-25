@@ -195,6 +195,24 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     version: 10,
   },
   {
+    // A document lane's watermark now promises that every row it passed was
+    // checked against this device's processed cursor, with a read owed where
+    // the cursor fell short (#3256). An earlier SDK advanced a lane without
+    // that check and probed every opened document instead. Forget the
+    // document-lane cursors, so each lane lists from its start once and
+    // checks every row. Parent lanes and restoration markers keep theirs.
+    name: "relist_document_lanes_for_owed_reads",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable("container_sync_watermarks"))) return;
+      await execSql(
+        `UPDATE container_sync_watermarks
+            SET watermark_id = NULL, watermark_updated_at = NULL
+          WHERE lane_kind = 'container_documents'`,
+      );
+    },
+    version: 11,
+  },
+  {
     // An administrator may require a member to sign in with two-factor
     // authentication. Every member existing before this step had no such
     // requirement, which the default records; a later change rewrites the
@@ -206,7 +224,7 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
         `ALTER TABLE "${DIRECTORY_USERS_TABLE}" ADD COLUMN "two_factor_required" INTEGER NOT NULL DEFAULT 0`,
       );
     },
-    version: 11,
+    version: 12,
   },
 ];
 

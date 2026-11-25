@@ -2,6 +2,7 @@ import {
   type ContainerContentsStore,
   createMemoryBlobStore,
   getOrCreateDomainSyncCoordinator,
+  LEGAL_TERMS_VERSION,
   Tearleads,
 } from "@tearleads/client-sdk";
 import {
@@ -64,7 +65,9 @@ export class Device {
     };
     const device = await Device.open(origin, label, keys);
     await device.sdk.session.bootstrapLocalRootContainer();
-    const registered = await device.sdk.session.registerIdentity();
+    const registered = await device.sdk.session.registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
+    });
     if (
       !registered ||
       "status" in registered ||

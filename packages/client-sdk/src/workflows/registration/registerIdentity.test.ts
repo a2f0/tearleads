@@ -7,6 +7,10 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  LEGAL_TERMS_OUTDATED_ERROR_CODE,
+  LEGAL_TERMS_VERSION,
+} from "@tearleads/validators/legalTerms";
 import type {
   CreateOrganizationGroupRequest,
   ProvisionedDocumentRequest,
@@ -19,9 +23,11 @@ import { sqlContainerContentsPersistence } from "../../data/persistence/containe
 import { PrincipalPolicyBundleRepository } from "../../data/persistence/principalPolicy/principalPolicyBundleRepository";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principalContracts/organizationAuthorityDescriptor";
 import { buildInitialOrganizationPolicyRequest } from "../../data/principals/organizationPolicyRequest";
+import { LegalTermsOutdatedError } from "./legalTermsOutdatedError";
 import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 interface CapturedRegistrationRequest {
+  acceptedLegalTermsVersion: string;
   userId: string;
   organizationId: string;
   rootContainerId: string;
@@ -58,6 +64,8 @@ function captureRegistrationRequest(
     initialRosterProfileDocument,
     initialOrganizationMetadataContainer,
     initialOrganizationProfileDocument,
+    ,
+    acceptedLegalTermsVersion,
   ] = args;
   if (!initialRosterProfileContainer) {
     throw new Error("Expected initial roster profile container request");
@@ -72,6 +80,7 @@ function captureRegistrationRequest(
     throw new Error("Expected initial organization profile document request");
   }
   return {
+    acceptedLegalTermsVersion,
     userId,
     organizationId,
     rootContainerId,
@@ -190,6 +199,7 @@ test("registerIdentity submits the registration request and persists the local b
 
   try {
     const response = await registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId,
@@ -206,6 +216,7 @@ test("registerIdentity submits the registration request and persists the local b
     expect(response?.rootContainerId).toBe(containerId);
     expect(response?.challenge).toBe("a".repeat(64));
     expect(request.rootContainerId).toBe(containerId);
+    expect(request.acceptedLegalTermsVersion).toBe(LEGAL_TERMS_VERSION);
     expect(request.signingPublicKey).toBe(signingKeyPair.signingPublicKey);
     expect(request.encapsulationPublicKey).toBe(encapsulationKeyPair.publicKey);
     expect(request.initialAdminGroup).not.toHaveProperty("name");
@@ -372,6 +383,7 @@ test("registerIdentity propagates local bootstrap persistence failures", async (
 
   await expect(
     registerIdentity({
+      acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
       identityTrustDomain: "https://api.example.test",
       apiClient,
       containerId,
@@ -400,6 +412,7 @@ test("registration checks the sign-in before dispatch after preparing its organi
   let current = true;
   let submitted = false;
   const pending = registerIdentity({
+    acceptedLegalTermsVersion: LEGAL_TERMS_VERSION,
     identityTrustDomain: "https://api.example.test",
     containerId: crypto.randomUUID(),
     apiClient: {
@@ -417,4 +430,49 @@ test("registration checks the sign-in before dispatch after preparing its organi
   current = false;
   await expect(pending).resolves.toBeNull();
   expect(submitted).toBe(false);
+});
+
+test("a registration the API refuses for its legal terms revision says so, and any other failure resolves null", async () => {
+  const outdated = {
+    code: LEGAL_TERMS_OUTDATED_ERROR_CODE,
+    kind: "http",
+    status: 409,
+  };
+  const duplicate = { kind: "http", status: 409 };
+  const register = (failures: { before: unknown; after: unknown }) =>
+    registerIdentity({
+      acceptedLegalTermsVersion: "2000-01-01",
+      identityTrustDomain: "https://api.example.test",
+      containerId: crypto.randomUUID(),
+      apiClient: {
+        getRequestFailure: (() => {
+          let submitted = false;
+          return (request: { method: string; path: string }) => {
+            expect(request).toEqual({ method: "POST", path: "/auth/register" });
+            const failure = submitted ? failures.after : failures.before;
+            submitted = true;
+            return failure as typeof outdated | null;
+          };
+        })(),
+        registerUser: async () => null,
+      },
+      dbClient: { exec: async () => ({ rows: [] }) },
+      encapsulationKeyPair: generateKemSeedAndKeyPair(),
+      signingKeyPair: generateSigningSeedAndKeyPair(),
+      pinLocalUserIdentity: async () => {},
+    });
+
+  const refused = register({ before: null, after: outdated });
+  await expect(refused).rejects.toBeInstanceOf(LegalTermsOutdatedError);
+  await expect(refused).rejects.toMatchObject({
+    acceptedLegalTermsVersion: "2000-01-01",
+  });
+  // A key that is already registered also answers 409, without the code.
+  await expect(
+    register({ before: null, after: duplicate }),
+  ).resolves.toBeNull();
+  // A refusal recorded before this request is not this request's.
+  await expect(
+    register({ before: outdated, after: outdated }),
+  ).resolves.toBeNull();
 });

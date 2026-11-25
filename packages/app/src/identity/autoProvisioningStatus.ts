@@ -4,6 +4,7 @@ import {
   type AccountNamingState,
 } from "./accountNamingMachine";
 
+import type { LegalTermsRequirement } from "./legalTermsRequirement";
 import type { IdentityOnboarding } from "./useIdentityOnboarding";
 
 /**
@@ -29,6 +30,8 @@ export interface AutoProvisioningStatus {
   readonly accountNamingSettled: boolean;
   /** Whether this runtime's autopilot may provision (its workspace is active). */
   readonly enabled: boolean;
+  /** Whether the current identity's registration waits for the legal terms. */
+  readonly legalTerms: LegalTermsRequirement;
   readonly generation: AutoProvisioningStep;
   readonly registration: AutoProvisioningStep;
   /** Names the current identity's account; ignored unless it awaits a name. */
@@ -47,6 +50,8 @@ export const AutoProvisioningStatusContext =
     accountNamingSettled: true,
     enabled: false,
     generation: AUTO_PROVISIONING_IDLE,
+    // Without a runtime to read the device's binding, a registration asks.
+    legalTerms: "required",
     registration: AUTO_PROVISIONING_IDLE,
     // Nothing outside a runtime awaits a name, so there is nothing to submit.
     submitAccountName: () => {},

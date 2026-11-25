@@ -7,8 +7,8 @@ import { migrateLocalSchema } from "./migrateLocalSchema";
 
 const CREATED_AT = "2026-11-25T00:00:00.000Z";
 
-// The version-10 shape: the current table without the two-factor requirement.
-const VERSION_10_DIRECTORY_USERS = `CREATE TABLE "organization_read_model_directory_users" (
+// The version-11 shape: the current table without the two-factor requirement.
+const VERSION_11_DIRECTORY_USERS = `CREATE TABLE "organization_read_model_directory_users" (
   "organization_id" TEXT NOT NULL,
   "user_id" TEXT NOT NULL,
   "sort_order" INTEGER NOT NULL,
@@ -26,17 +26,17 @@ const VERSION_10_DIRECTORY_USERS = `CREATE TABLE "organization_read_model_direct
   PRIMARY KEY ("organization_id", "user_id")
 )`;
 
-const VERSION_10_STEPS = localSchemaMigrations.filter(
-  (migration) => migration.version <= 10,
+const VERSION_11_STEPS = localSchemaMigrations.filter(
+  (migration) => migration.version <= 11,
 );
 
-test("step 11 reads a version-10 directory's members as not required", async () => {
+test("step 12 reads a version-11 directory's members as not required", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-directory-two-factor",
   );
   try {
-    await migrateLocalSchema(execSql, { migrations: VERSION_10_STEPS });
-    await execSql(VERSION_10_DIRECTORY_USERS);
+    await migrateLocalSchema(execSql, { migrations: VERSION_11_STEPS });
+    await execSql(VERSION_11_DIRECTORY_USERS);
     await execSql(
       `INSERT INTO organization_read_model_directory_users (organization_id,
          user_id, sort_order, signing_key_fingerprint,
@@ -65,7 +65,7 @@ test("the current definition refuses a directory without the requirement", async
   );
   try {
     await migrateLocalSchema(execSql);
-    await execSql(VERSION_10_DIRECTORY_USERS);
+    await execSql(VERSION_11_DIRECTORY_USERS);
 
     await expect(
       ensureSqlTables(execSql, organizationReadModelTables),

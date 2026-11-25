@@ -6,7 +6,13 @@ import {
   transitionSharedRefresh,
 } from "./sharedRefreshMachine";
 
-export type RefreshScope = "root" | "full";
+/**
+ * What a refresh covers. `root` re-lists root containers and reconciles the
+ * root catch-up set; `acknowledged` lists every known document lane after an
+ * acknowledged connection; `full` also refreshes the whole tree and
+ * revalidates every registered document.
+ */
+export type RefreshScope = "root" | "acknowledged" | "full";
 
 /**
  * One refresh every joining caller shares; see `sharedRefreshMachine.ts` for

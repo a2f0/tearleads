@@ -17,8 +17,12 @@ function joined(
   return { pendingConnectAttempt, probeOwed, type: "joined" };
 }
 
-function loaded(remote: boolean, pendingConnectAttempt?: number) {
-  return { pendingConnectAttempt, remote, type: "loaded" } as const;
+function loaded(
+  remote: boolean,
+  pendingConnectAttempt?: number,
+  covered = false,
+) {
+  return { covered, pendingConnectAttempt, remote, type: "loaded" } as const;
 }
 
 function runtimeInstalled(
@@ -100,6 +104,9 @@ test.each<[string, StartupProbeState, StartupProbeEvent]>([
   ["a join while deferred", DEFERRED, joined(true)],
   ["an on-demand load", ON_DEMAND, loaded(true)],
   ["a local-only load while deferred", DEFERRED, loaded(false)],
+  ["a load a listing covers", WANTED, loaded(true, undefined, true)],
+  ["a covered load during a connect", WANTED, loaded(true, 7, true)],
+  ["a covered load while deferred", DEFERRED, loaded(true, undefined, true)],
   ["a runtime without a deferral", WANTED, runtimeInstalled(false)],
   ["an on-demand runtime", ON_DEMAND, runtimeInstalled(true)],
   ["an on-demand reset", ON_DEMAND, RESET],
