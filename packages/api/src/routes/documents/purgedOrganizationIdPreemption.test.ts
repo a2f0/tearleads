@@ -1,280 +1,140 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { db } from "@tearleads/api-shared/postgres";
-import {
-  accessManifestHeads,
-  containers,
-  organizationBilling,
-} from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
-import { and, eq } from "drizzle-orm";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import {
   createOrganizationRequestBody,
   submitCreateOrganization,
 } from "../../../test/helpers/api";
+import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";
 import {
   asVerifiedContainerManifest,
   bootstrapRoot,
-  createDocumentRequest,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { addOrganizationMember } from "../../../test/helpers/organizationMembership";
 import { registerAndAuthenticateUsers } from "../../../test/helpers/principalPolicyReadFixtures";
+import {
+  type Preemption,
+  purgeAndRecover,
+  type Recovery,
+  storedContainerOrganization,
+  storedDocumentOrganization,
+} from "../../../test/helpers/purgedOrganizationRecovery";
 import { createSdkRemoteDocument } from "../../../test/helpers/sdkRemoteDocuments";
-import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { routeApp } from "../../routeApp";
-import { runOrganizationPurgeMaintenance } from "../../services/billing/organizationPurge";
-import { runStartOrganizationTrialWorkflow } from "../../workflows/billing/organizationBilling";
 
-async function storedDocumentOrganization(documentId: string) {
-  const [head] = await db
-    .select({ organizationId: accessManifestHeads.organizationId })
-    .from(accessManifestHeads)
-    .where(
-      and(
-        eq(accessManifestHeads.objectKind, "document"),
-        eq(accessManifestHeads.objectId, documentId),
-      ),
-    );
-  return head?.organizationId ?? null;
+const DOCUMENT_RESERVED = `{"error":"Document ID is reserved for its purged organization's recovery"}`;
+const CONTAINER_RESERVED = `{"error":"Container ID is reserved for its purged organization's recovery"}`;
+
+async function registerMallory() {
+  const mallory = createTestUser();
+  await registerAndAuthenticateUsers(mallory);
+  const root = await bootstrapRoot(mallory);
+  const organizationId = asVerifiedContainerManifest(root.bundle).state
+    .organizationId;
+  return { mallory, organizationId, root };
+}
+
+/** The owner's devices recover both ids into the replacement. */
+async function expectOwnerRecovers(recovery: Recovery): Promise<void> {
+  expect(await recovery.device.recreateFolder()).not.toBeNull();
+  expect(await storedContainerOrganization(recovery.folderId)).toBe(
+    recovery.organization.organizationId,
+  );
+  const recovered = await recovery.device.attempt();
+  expect(recovered?.documentId).toBe(recovery.documentId);
+  expect(await storedDocumentOrganization(recovery.documentId)).toBe(
+    recovery.organization.organizationId,
+  );
+  expect(recovery.device.terminalFailures).toEqual([]);
 }
 
 /**
- * The owner's personal organization holds folder C and document X in it. The
- * real billing job purges the organization, the owner provisions and
- * finalizes its replacement, and (as `recoverPurgedOrganization`'s queued
- * republish does) the owner's device recreates C under the replacement root
- * and then creates X under its recovery id through the SDK create path.
- * `preempt` runs between the purge and the recovery.
+ * Mallory's SDK create of the purged document id, through the logging server.
+ * The reserved-id refusal carries no adoptable code: the SDK reports it as a
+ * terminal failure and never reads the id's projection to adopt it.
  */
-interface Recovery {
-  readonly attempt: () => ReturnType<typeof createSdkRemoteDocument>;
-  readonly documentId: string;
-  readonly folderId: string;
-  /** Recreates the folder under its old id, as the reset's queued create does. */
-  readonly recreateFolder: () => Promise<unknown>;
-  readonly replacementOrganizationId: string;
-  /** Each owner request of the last attempt: method, path, status, body. */
-  readonly responses: string[];
-  readonly terminalFailures: unknown[];
-}
-
-async function purgeAndRecover(
-  preempt: (input: {
-    documentId: string;
-    folderId: string;
-    owner: TestUser;
-  }) => Promise<void>,
-  check: (recovery: Recovery) => Promise<void>,
-  knownUsers: readonly TestUser[] = [],
+async function expectSdkSquatRefused(
+  input: Preemption & {
+    readonly containerId: string;
+    readonly knownUsers?: readonly TestUser[];
+    readonly mallory: TestUser;
+    readonly organizationId: string;
+  },
 ): Promise<void> {
-  const owner = createTestUser();
-  await registerAndAuthenticateUsers(owner);
-  const ownerRoot = await bootstrapRoot(owner);
-  const organizationId = asVerifiedContainerManifest(ownerRoot.bundle).state
-    .organizationId;
-  const responses: string[] = [];
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch: async (request) => {
-      const response = await routeApp.fetch(request);
-      const { pathname } = new URL(request.url);
-      responses.push(
-        `${request.method} ${pathname} ${response.status} ${await response.clone().text()}`,
-      );
-      return response;
-    },
-  });
-  const client = new ApiClient(server.url.origin);
-  client.setAuthToken(owner.token);
-  const before = await createAncestorSdkContext(owner, organizationId);
+  const client = new ApiClient(input.serverOrigin);
+  client.setAuthToken(input.mallory.token);
+  const device = await createAncestorSdkContext(
+    input.mallory,
+    input.organizationId,
+    ...(input.knownUsers ?? []),
+  );
   try {
-    const folder = await before.containers.createRemoteContainer({
-      ...before.mutation,
-      parentContainerId: ownerRoot.kekState.containerId,
-    });
-    if (!folder) throw new Error("Expected the owner's folder");
-    const created = await createSdkRemoteDocument({
-      ...before.common,
+    const failures: unknown[] = [];
+    input.responses.length = 0;
+    const squat = await createSdkRemoteDocument({
+      ...device.common,
       apiClient: client,
-      containerId: folder.containerId,
+      containerId: input.containerId,
+      documentId: input.documentId,
+      onTerminalSubmitFailure: (failure) => {
+        failures.push(failure);
+      },
     });
-    if (!created) throw new Error("Expected the owner's document");
-    const documentId = created.documentId;
-
-    const now = new Date();
-    await db
-      .update(organizationBilling)
-      .set({ status: "disabled", purgeAfter: new Date(now.getTime() - 1) })
-      .where(eq(organizationBilling.organizationId, organizationId));
+    expect(squat).toBeNull();
     expect(
-      await runOrganizationPurgeMaintenance(createServiceTestRuntime(), {
-        now,
-        organizationIds: [organizationId],
-      }),
-    ).toEqual({ claimed: 1, failed: 0, purged: 1 });
-    expect(await storedDocumentOrganization(documentId)).toBeNull();
-
-    await preempt({ documentId, folderId: folder.containerId, owner });
-
-    const replacement = await createOrganizationRequestBody(owner, {
-      replacesOrganizationId: organizationId,
-    });
-    expect((await submitCreateOrganization(owner, replacement)).status).toBe(
-      200,
-    );
-    await runStartOrganizationTrialWorkflow(
-      db,
-      replacement.organizationId,
-      owner.userId,
-    );
-    expect(
-      (
-        await submitCreateOrganization(owner, {
-          ...replacement,
-          finalizeReplacement: true,
-        })
-      ).status,
-    ).toBe(200);
-
-    const after = await createAncestorSdkContext(
-      owner,
-      replacement.organizationId,
-      ...knownUsers,
-    );
-    try {
-      client.clearWriterProjectionCaches();
-      const recreateFolder = () =>
-        after.containers.createRemoteContainer({
-          ...after.mutation,
-          containerId: folder.containerId,
-          parentContainerId: replacement.rootContainerId,
-        });
-      const terminalFailures: unknown[] = [];
-      const attempt = () => {
-        responses.length = 0;
-        return createSdkRemoteDocument({
-          ...after.common,
-          apiClient: client,
-          containerId: folder.containerId,
-          documentId,
-          onTerminalSubmitFailure: (failure) => {
-            terminalFailures.push(failure);
-          },
-          // The document store passes its sync generation guard here.
-          stillCurrent: () => true,
-        });
-      };
-      await check({
-        attempt,
-        documentId,
-        folderId: folder.containerId,
-        recreateFolder,
-        replacementOrganizationId: replacement.organizationId,
-        responses,
-        terminalFailures,
-      });
-    } finally {
-      after.close();
-    }
+      input.responses.filter(
+        (line) =>
+          line.startsWith("POST /documents ") ||
+          line.startsWith(`GET /documents/${input.documentId}/`),
+      ),
+    ).toEqual([`POST /documents 409 ${DOCUMENT_RESERVED}`]);
+    expect(failures).toMatchObject([
+      {
+        message:
+          "POST /documents: 409 Conflict: Document ID is reserved for its purged organization's recovery",
+        status: 409,
+      },
+    ]);
+    expect(failures[0]).not.toHaveProperty("code");
+    expect(await storedDocumentOrganization(input.documentId)).toBeNull();
   } finally {
-    before.close();
-    await server.stop(true);
+    device.close();
   }
 }
 
-test("control: with no other create, the owner's recovery recreates its document id", async () => {
+test("another user cannot create a purged organization's document id", async () => {
+  const { mallory, organizationId, root } = await registerMallory();
   await purgeAndRecover(
-    async () => undefined,
-    async (recovery) => {
-      expect(await recovery.recreateFolder()).not.toBeNull();
-      const recovered = await recovery.attempt();
-      expect(recovered?.documentId).toBe(recovery.documentId);
-      expect(await storedDocumentOrganization(recovery.documentId)).toBe(
-        recovery.replacementOrganizationId,
-      );
-    },
+    (preemption) =>
+      expectSdkSquatRefused({
+        ...preemption,
+        containerId: root.kekState.containerId,
+        mallory,
+        organizationId,
+      }),
+    expectOwnerRecovers,
   );
 }, 180_000);
 
-test("another user's create of a purged organization's document id blocks the owner's recovery of it", async () => {
-  const mallory = createTestUser();
-  await registerAndAuthenticateUsers(mallory);
-  const malloryRoot = await bootstrapRoot(mallory);
-  const malloryOrganizationId = asVerifiedContainerManifest(malloryRoot.bundle)
-    .state.organizationId;
-  const squatOnPurgedId = async ({ documentId }: { documentId: string }) => {
-    const squat = await routeApp.request("/documents", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${mallory.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(
-        await createDocumentRequest({
-          documentId,
-          owner: mallory,
-          root: malloryRoot,
-        }),
-      ),
-    });
-    expect(squat.status).toBe(200);
-  };
-  await purgeAndRecover(squatOnPurgedId, async (recovery) => {
-    expect(await recovery.recreateFolder()).not.toBeNull();
-    expect(await storedDocumentOrganization(recovery.documentId)).toBe(
-      malloryOrganizationId,
-    );
-    // The create reports "manifest already exists"; adoption cannot read or
-    // accept Mallory's copy, so every retry ends the same way.
-    for (let retry = 0; retry < 3; retry += 1) {
-      expect(await recovery.attempt()).toBeNull();
-      expect(
-        recovery.responses.filter(
-          (line) =>
-            line.startsWith("POST /documents ") ||
-            line.startsWith(`GET /documents/${recovery.documentId}/`),
-        ),
-      ).toEqual([
-        `POST /documents 409 {"code":"document_manifest_already_exists","error":"Document manifest already exists"}`,
-        `GET /documents/${recovery.documentId}/writer-projection 403 {"error":"Forbidden"}`,
-      ]);
-    }
-    expect(recovery.terminalFailures).toEqual([]);
-    expect(await storedDocumentOrganization(recovery.documentId)).toBe(
-      malloryOrganizationId,
-    );
-  });
-}, 180_000);
-
-test("when the owner can read the other copy, adoption throws instead", async () => {
-  const mallory = createTestUser();
-  await registerAndAuthenticateUsers(mallory);
-  const malloryRoot = await bootstrapRoot(mallory);
-  const malloryOrganizationId = asVerifiedContainerManifest(malloryRoot.bundle)
-    .state.organizationId;
-  const squatInSharedFolder = async ({
-    documentId,
-    owner,
-  }: {
-    documentId: string;
-    owner: TestUser;
-  }) => {
+test("another user cannot create it in a folder the owner can read", async () => {
+  const { mallory, organizationId, root } = await registerMallory();
+  const squatInSharedFolder = async (preemption: Preemption) => {
     await addOrganizationMember({
       actor: mallory,
-      member: owner,
-      organizationId: malloryOrganizationId,
+      member: preemption.owner,
+      organizationId,
     });
     const device = await createAncestorSdkContext(
       mallory,
-      malloryOrganizationId,
-      owner,
+      organizationId,
+      preemption.owner,
     );
+    let sharedFolderId: string;
     try {
       const shared = await device.containers.createRemoteContainer({
         ...device.mutation,
-        parentContainerId: malloryRoot.kekState.containerId,
+        parentContainerId: root.kekState.containerId,
       });
       if (!shared) throw new Error("Expected Mallory's folder");
       expect(
@@ -282,92 +142,86 @@ test("when the owner can read the other copy, adoption throws instead", async ()
           ...device.mutation,
           accessLevel: "read",
           containerId: shared.containerId,
-          recipientUserId: owner.userId,
+          recipientUserId: preemption.owner.userId,
         }),
       ).not.toBeNull();
-      const squat = await createSdkRemoteDocument({
-        ...device.common,
-        containerId: shared.containerId,
-        documentId,
-      });
-      expect(squat?.documentId).toBe(documentId);
+      sharedFolderId = shared.containerId;
     } finally {
       device.close();
     }
-  };
-  await purgeAndRecover(
-    squatInSharedFolder,
-    async (recovery) => {
-      expect(await recovery.recreateFolder()).not.toBeNull();
-      expect(await storedDocumentOrganization(recovery.documentId)).toBe(
-        malloryOrganizationId,
-      );
-      await expect(recovery.attempt()).rejects.toThrow(
-        "Document create conflict belongs to another container or organization",
-      );
-      expect(await storedDocumentOrganization(recovery.documentId)).toBe(
-        malloryOrganizationId,
-      );
-    },
-    [mallory],
-  );
-}, 180_000);
-
-test("another user's create of a purged organization's folder id blocks the owner's recovery of the folder", async () => {
-  const mallory = createTestUser();
-  await registerAndAuthenticateUsers(mallory);
-  const malloryRoot = await bootstrapRoot(mallory);
-  const malloryOrganizationId = asVerifiedContainerManifest(malloryRoot.bundle)
-    .state.organizationId;
-  const squatOnPurgedFolderId = async ({ folderId }: { folderId: string }) => {
-    const device = await createAncestorSdkContext(
+    await expectSdkSquatRefused({
+      ...preemption,
+      containerId: sharedFolderId,
+      knownUsers: [preemption.owner],
       mallory,
-      malloryOrganizationId,
-    );
+      organizationId,
+    });
+  };
+  await purgeAndRecover(squatInSharedFolder, expectOwnerRecovers, [mallory]);
+}, 180_000);
+
+test("another user's device cannot recreate a purged organization's folder", async () => {
+  const { mallory, organizationId, root } = await registerMallory();
+  const squatOnPurgedFolderId = async ({ folderId }: Preemption) => {
+    const device = await createAncestorSdkContext(mallory, organizationId);
     try {
-      const squat = await device.containers.createRemoteContainer({
-        ...device.mutation,
-        containerId: folderId,
-        parentContainerId: malloryRoot.kekState.containerId,
-      });
-      expect(squat?.containerId).toBe(folderId);
+      // The SDK names a folder's metadata document after the folder, and the
+      // purge reserved that document id too; it refuses first.
+      await expect(
+        device.containers.createRemoteContainer({
+          ...device.mutation,
+          containerId: folderId,
+          metadataDocumentId: folderId,
+          parentContainerId: root.kekState.containerId,
+        }),
+      ).rejects.toThrow(
+        "Document ID is reserved for its purged organization's recovery",
+      );
     } finally {
       device.close();
     }
+    expect(await storedContainerOrganization(folderId)).toBeNull();
   };
-  await purgeAndRecover(squatOnPurgedFolderId, async (recovery) => {
-    const [folder] = await db
-      .select({ organizationId: containers.organizationId })
-      .from(containers)
-      .where(eq(containers.id, recovery.folderId));
-    expect(folder?.organizationId).toBe(malloryOrganizationId);
-    const refused = await recovery.recreateFolder().then(
-      () => null,
-      (error: unknown) => String(error),
-    );
-    expect(refused).not.toBeNull();
-    console.log(`folder recreate refused: ${refused}`);
-  });
+  await purgeAndRecover(squatOnPurgedFolderId, expectOwnerRecovers);
 }, 180_000);
 
-test("another user can provision an organization whose root takes a purged folder id", async () => {
+test("another user cannot create a purged folder id with a fresh metadata document", async () => {
+  const { mallory, root } = await registerMallory();
+  const squatOnPurgedFolderId = async ({ folderId }: Preemption) => {
+    const response = await routeApp.request("/containers", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${mallory.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        await buildChildCreateRequest({
+          containerId: folderId,
+          root,
+          signer: mallory,
+        }),
+      ),
+    });
+    expect(response.status).toBe(409);
+    expect(await response.text()).toBe(CONTAINER_RESERVED);
+    expect(await storedContainerOrganization(folderId)).toBeNull();
+  };
+  await purgeAndRecover(squatOnPurgedFolderId, expectOwnerRecovers);
+}, 180_000);
+
+test("another user cannot provision an organization rooted at a purged folder id", async () => {
   const mallory = createTestUser();
   await registerAndAuthenticateUsers(mallory);
-  const squatWithOrganizationRoot = async ({
-    folderId,
-  }: {
-    folderId: string;
-  }) => {
+  const squatWithOrganizationRoot = async ({ folderId }: Preemption) => {
     const request = await createOrganizationRequestBody(mallory, {
       rootContainerId: folderId,
     });
-    expect((await submitCreateOrganization(mallory, request)).status).toBe(200);
+    const response = await submitCreateOrganization(mallory, request);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "Root container ID is unavailable",
+    });
+    expect(await storedContainerOrganization(folderId)).toBeNull();
   };
-  await purgeAndRecover(squatWithOrganizationRoot, async (recovery) => {
-    const refused = await recovery.recreateFolder().then(
-      () => null,
-      (error: unknown) => String(error),
-    );
-    expect(refused).toContain("container_manifest_already_exists");
-  });
+  await purgeAndRecover(squatWithOrganizationRoot, expectOwnerRecovers);
 }, 180_000);

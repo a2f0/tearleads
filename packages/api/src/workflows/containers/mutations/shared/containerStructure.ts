@@ -5,6 +5,10 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/valida
 import { eq, sql } from "drizzle-orm";
 import { intExpression, uuidValue } from "../../../../utils/postgresSql";
 import {
+  claimPurgedObjectReservation,
+  PURGED_CONTAINER_ID_RESERVED,
+} from "../../../billing/purgedObjectReservations";
+import {
   ContainerMutationError,
   containerManifestAlreadyExists,
   runConflictBoundary,
@@ -47,6 +51,7 @@ async function persistCreatedContainerStructure(
   executor: DatabaseTransaction,
   state: VerifiedContainerAccessState,
   updatedAt: Date,
+  requesterUserId: string,
 ): Promise<StoredContainerRow> {
   const isMetadataRoot =
     state.parentContainerId === null &&
@@ -71,7 +76,11 @@ async function persistCreatedContainerStructure(
   }
 
   assertContainerDepth(parent ? parent.depth + 1 : 0);
-  await assertMetadataDocumentAvailable(executor, state.metadataDocumentId);
+  await assertMetadataDocumentAvailable(
+    executor,
+    state.metadataDocumentId,
+    requesterUserId,
+  );
 
   const [inserted] = await runConflictBoundary(() =>
     executor
@@ -98,6 +107,17 @@ async function persistCreatedContainerStructure(
 
   if (!inserted) {
     throw containerManifestAlreadyExists();
+  }
+  // Read after the insert, which waits out an organization purge deleting this
+  // row; a new statement then sees the reservation that purge committed.
+  if (
+    !(await claimPurgedObjectReservation(executor, {
+      objectId: state.containerId,
+      objectKind: "container",
+      userId: requesterUserId,
+    }))
+  ) {
+    throw new ContainerMutationError(PURGED_CONTAINER_ID_RESERVED, 409);
   }
 
   await insertContainerMetadataBinding(executor, state);
@@ -141,11 +161,17 @@ export async function persistContainerStructure(
   executor: DatabaseTransaction,
   manifest: VerifiedContainerAccessManifest,
   updatedAt: Date,
+  requesterUserId: string,
 ): Promise<StoredContainerRow> {
   const state = manifest.state;
 
   if (manifest.event.event.eventType === "container.create") {
-    return persistCreatedContainerStructure(executor, state, updatedAt);
+    return persistCreatedContainerStructure(
+      executor,
+      state,
+      updatedAt,
+      requesterUserId,
+    );
   }
 
   const container = await loadContainerRow(executor, state.containerId);

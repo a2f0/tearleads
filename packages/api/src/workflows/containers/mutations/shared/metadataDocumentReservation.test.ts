@@ -3,6 +3,8 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
   accessManifestHeads,
+  purgedObjectReservations,
+  users,
 } from "@tearleads/api-shared/schema";
 import { assertMetadataDocumentAvailable } from "./metadataDocumentReservation";
 
@@ -37,9 +39,26 @@ async function insertHead(documentId: string): Promise<void> {
   });
 }
 
-const check = (documentId: string) =>
+async function insertUser(): Promise<string> {
+  const id = crypto.randomUUID();
+  await db.insert(users).values({
+    id,
+    fingerprint: `fingerprint-${id}`,
+    signingPublicKey: "signing",
+    encapsulationPublicKey: "encapsulation",
+    encapsulationKeyFingerprint: `encapsulation-${id}`,
+    defaultOrganizationId: crypto.randomUUID(),
+  });
+  return id;
+}
+
+const requesterUserId: string = crypto.randomUUID();
+
+const check = (documentId: string, userId = requesterUserId) =>
   db
-    .transaction((tx) => assertMetadataDocumentAvailable(tx, documentId))
+    .transaction((tx) =>
+      assertMetadataDocumentAvailable(tx, documentId, userId),
+    )
     .then(
       () => "available",
       (error: unknown) =>
@@ -69,4 +88,20 @@ test("the one-statement reservation check keeps its refusals and their order", a
   expect(await check(purged)).toBe(
     "Stored access event type is not unique for its object",
   );
+});
+
+test("an id an organization purge reserved binds only for its owner", async () => {
+  const owner = await insertUser();
+  const reserved = crypto.randomUUID();
+  await db.insert(purgedObjectReservations).values({
+    objectKind: "document",
+    objectId: reserved,
+    ownerUserId: owner,
+    purgedOrganizationId: crypto.randomUUID(),
+  });
+
+  expect(await check(reserved)).toBe(
+    "Document ID is reserved for its purged organization's recovery",
+  );
+  expect(await check(reserved, owner)).toBe("available");
 });

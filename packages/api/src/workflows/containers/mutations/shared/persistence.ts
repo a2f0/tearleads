@@ -300,6 +300,7 @@ async function persistMutationTombstones(input: {
 
 export async function persistVerifiedMutation(
   context: ContainerMutationContext,
+  requesterUserId: string,
   manifest: VerifiedContainerAccessManifest,
   verifiedKekMutation: VerifiedContainerKekMutationState,
   previousManifest: VerifiedContainerAccessManifest | null,
@@ -316,6 +317,7 @@ export async function persistVerifiedMutation(
     executor,
     manifest,
     updatedAt,
+    requesterUserId,
   );
   const manifestHead = await runConflictBoundary(() =>
     storeVerifiedAccessManifestInTransaction(
