@@ -187,6 +187,7 @@ const currentDocumentRow = discoveryRow
     createdAt: z.string().transform((value) => new Date(value)),
     manifestHash: z.string(),
     manifestEpoch: z.number().int(),
+    updateCount: z.number().int().nonnegative(),
   })
   .transform(({ id, ...row }) => ({ ...row, documentId: id }));
 
@@ -210,6 +211,9 @@ function currentContainerDocumentsQuery(input: {
           "manifestHash",
         ),
         manifestEpoch: sql`${accessManifestHeads.epoch}`.as("manifestEpoch"),
+        // Read with the row, so the count and the row's publication position
+        // come from one snapshot.
+        updateCount: sql`${documents.updateCount}`.as("updateCount"),
         updatedAt: syncTimestampExpression(sql`${documents.updatedAt}`).as(
           "updatedAt",
         ),
@@ -387,6 +391,7 @@ async function buildListContainerDocumentsResponse(input: {
         linkedContainerIds,
         referencedPrincipals:
           collectReferencedPrincipalsFromContainerAccess(accessPaths),
+        updateCount: documentRow.updateCount,
         updatedAt: syncItemTimestamp(documentRow.updatedAt),
       };
     },

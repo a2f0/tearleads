@@ -23,6 +23,10 @@ export const documents = pgTable(
     discoveryOrder: bigint("discovery_order", { mode: "bigint" })
       .default(sql`0`)
       .notNull(),
+    // How many `document_updates` rows the document holds, kept by the
+    // `count_document_updates` trigger in the inserting transaction, so a
+    // listing reads it without scanning the document's history.
+    updateCount: integer("update_count").default(0).notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
