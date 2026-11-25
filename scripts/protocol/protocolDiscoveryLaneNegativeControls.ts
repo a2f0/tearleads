@@ -12,7 +12,15 @@ export const DISCOVERY_LANE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     config: DISCOVERY_LANE_CONFIG,
     constants: { ResumeOwedOnStart: "FALSE" },
     expect: { kind: "liveness", name: "Converges" },
-    why: "A start with a cached tree raises no hint for a lane the tree already holds, so a lane whose listing a reload cut short is never listed again unless the start resumes it.",
+    why: "A start with a cached tree raises no hint for a lane the tree already holds, and its connect attempt may end without an acknowledgement, so a lane whose listing a reload cut short is never listed again unless the start resumes it.",
+  },
+  {
+    id: "discovery-lane-resume-races-acknowledgement",
+    module: DISCOVERY_LANE_MODULE,
+    config: DISCOVERY_LANE_CONFIG,
+    constants: { DeferToAcknowledgement: "FALSE" },
+    expect: { kind: "invariant", name: "OwedListedOnce" },
+    why: "The catch-up after an acknowledged connection lists every known lane, so a resume that lists the owed lanes while that attempt is pending lists each of them twice.",
   },
   {
     id: "discovery-lane-settles-on-receipt",

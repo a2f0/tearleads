@@ -142,10 +142,11 @@ Work items and the functions that perform them:
 
 Scheduling policy (active-first, then idle backfill):
 
-1. On local hydration, enqueue the active container at active priority and
-   every [owed document lane](#owed-document-lanes) at idle priority. On
-   auth-gain / online-regain, also reset the session suppression set and enqueue
-   all other known containers at idle priority.
+1. On local hydration, enqueue the active container at active priority, and
+   every [owed document lane](#owed-document-lanes) at idle priority unless
+   an acknowledged connection's catch-up will list it. On auth-gain /
+   online-regain, also reset the session suppression set and enqueue all
+   other known containers at idle priority.
 2. The active container reconciles first (background, post-paint). Its results
    `applyReconciled` into Layer A, patching the list in place with no re-blank.
 3. Idle priority drains as the coordinator goes quiet
@@ -183,14 +184,24 @@ in `container_sync_watermarks` does
 An applied listing that leaves no candidate pending settles its lane: it sets
 `checked_at` in the statement that stores the cursor, so a reload never leaves
 one without the other. An access change or a remote reset deletes the row, and
-staging a candidate owes the lane until the candidate is acknowledged. On
-local hydration the reconciler queues every owed known lane at idle priority,
-so a device whose sign-in boot was cut short still lists the Contacts and
-organization lanes it never applied, at one listing per four owed lanes. A
-settled lane is not listed at start; later remote changes reach it through
-hints, a visit, or a reconnect sweep.
+staging a candidate owes the lane until the candidate is acknowledged.
+
+The catch-up after an acknowledged connection lists every known lane, owed
+ones included, but a start may never get one: the socket can open without
+declaring its interest, or realtime can be down while HTTP works. So the
+local projection decides at hydration
+([`owedDiscoveryResumeMachine.ts`](../../packages/client-sdk/src/stores/local-projection/owedDiscoveryResumeMachine.ts)).
+With no connect attempt pending, it raises `owed-discovery` and the
+reconciler queues every owed known lane at idle priority. While an attempt is
+pending, it waits: an acknowledgement leaves the owed lanes to its catch-up,
+and an attempt that ends without one resumes them. Each start therefore lists
+an owed lane once, and a device whose sign-in boot was cut short still lists
+the Contacts and organization lanes it never applied, at one listing per four
+owed lanes. A settled lane is not listed by the resume; later remote changes
+reach it through hints, a visit, or the next acknowledged connection.
 [`owedDiscovery.test.ts`](../../packages/client-sdk/src/client/deviceFirst/owedDiscovery.test.ts)
-restarts a device whose earlier boot applied only some of its lanes.
+restarts a device whose earlier boot applied only some of its lanes, with no
+connect attempt, with one that never acknowledges, and with one that does.
 
 #### Document content pull policy
 

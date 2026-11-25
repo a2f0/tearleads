@@ -32,8 +32,9 @@ For local editing versus custom remote creation workflows, see
 ## Host Contract
 
 `deviceFirst.open()` returns one shared handle. Reconciliation takes scoped
-hints, `enqueueIdleBackfill()` performs catch-up, and each start resumes the
-document lanes an interrupted earlier boot left owed.
+hints, `enqueueIdleBackfill()` performs catch-up, and a start that no
+acknowledged connection catches up resumes the document lanes an interrupted
+earlier boot left owed.
 [Container](../../glossary/access.md#container) creation commits the container
 and its metadata document in one compound API request. Create, link/unlink, projection,
 and sync adapters provide structured `Result` methods that report complete

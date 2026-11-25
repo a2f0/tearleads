@@ -136,7 +136,9 @@ Model-specific gaps:
   is outside it.
 - `DiscoveryLaneResumption` fixes the server's documents before sign-in and
   bounds crashes and deferrals. A peer write after a lane settles, and a hint
-  for it lost to a reload, are outside it.
+  for it lost to a reload, are outside it; `DocumentListingConvergence`
+  covers edits to documents the device holds. It assumes a pending connect
+  attempt resolves, acknowledged or ended.
 - `RestartProbeConvergence` and the honest `NoBrickedDevice` configuration bound
   the number of server writes, so their eventual-convergence checks reach a
   quiescent server; they do not show catch-up under unbounded writes.
