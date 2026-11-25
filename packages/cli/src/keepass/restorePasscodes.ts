@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { deriveStableDocumentId } from "@tearleads/client-sdk";
+import type { KeepassEntry } from "@tearleads/keepass";
 import { PASSCODE_DOCUMENT_KIND } from "app/passcode";
 import type { CliSession } from "../session";
 import { passcodeFromEntry } from "./passcodeFromEntry";
@@ -22,6 +23,27 @@ async function passcodeDocumentId(
   return deriveStableDocumentId(localId);
 }
 
+async function createPasscode(
+  session: CliSession,
+  input: {
+    readonly entry: KeepassEntry;
+    readonly folderId: string;
+    readonly documentId: string;
+  },
+): Promise<void> {
+  const content = passcodeFromEntry(input.entry);
+  const receipt = await session.sdk.documents.createSeeded({
+    containerId: input.folderId,
+    documentId: input.documentId,
+    initialDocumentKind: PASSCODE_DOCUMENT_KIND,
+    initialRows: content.rows,
+    initialStructuredFields: content.fields,
+    onRecoveredStaleTarget: () =>
+      session.recordExpectedSeedFailure("recovered stale target"),
+  });
+  if (receipt === "purged") throw new Error("it was refused as deleted.");
+}
+
 /**
  * Creates one passcode per entry, each in its group's folder, as a single
  * online create the API acknowledges. Returns how many it created.
@@ -33,7 +55,7 @@ export async function createRestoredPasscodes(
     readonly signingPrivateKey: Uint8Array;
   },
 ): Promise<number> {
-  const { sdk, tracer } = session;
+  const { tracer } = session;
   const restoreFolderId = input.groups[0]?.folderId;
   if (!restoreFolderId) throw new Error("The restore has no folder.");
   const total = input.groups.reduce(
@@ -45,26 +67,25 @@ export async function createRestoredPasscodes(
     for (const entry of group.entries) {
       const ordinal = created + 1;
       // Traces name the position only: titles and URLs are the user's data.
-      await tracer.span(`create passcode ${ordinal} of ${total}`, async () => {
-        const content = passcodeFromEntry(entry);
-        const receipt = await sdk.documents.createSeeded({
-          containerId: folderId,
-          documentId: await passcodeDocumentId(
-            input.signingPrivateKey,
-            restoreFolderId,
-            ordinal,
-            entry.id,
-          ),
-          initialDocumentKind: PASSCODE_DOCUMENT_KIND,
-          initialRows: content.rows,
-          initialStructuredFields: content.fields,
-          onRecoveredStaleTarget: () =>
-            session.recordExpectedSeedFailure("recovered stale target"),
-        });
-        if (receipt === "purged") {
-          throw new Error(`Passcode ${ordinal} was refused as deleted.`);
-        }
-      });
+      const documentId = await passcodeDocumentId(
+        input.signingPrivateKey,
+        restoreFolderId,
+        ordinal,
+        entry.id,
+      );
+      await tracer.span(`create passcode ${ordinal} of ${total}`, () =>
+        createPasscode(session, { documentId, entry, folderId }).catch(
+          (error: unknown) => {
+            // Name the position, not the title: titles are the user's data.
+            const reason =
+              error instanceof Error ? error.message : String(error);
+            throw new Error(
+              `Could not restore passcode ${ordinal} of ${total}: ${reason}`,
+              { cause: error },
+            );
+          },
+        ),
+      );
       created = ordinal;
     }
   }

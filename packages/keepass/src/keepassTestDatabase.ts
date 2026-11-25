@@ -46,9 +46,11 @@ function addEntries(
 /**
  * Writes a KDBX 4 (Argon2d) database for tests in other packages: the root
  * group takes `root`'s name, entries, and child groups, and one entry is
- * deleted so the recycle bin holds it.
+ * deleted so the recycle bin holds it. A `keyFile` (from
+ * `createKeepassTestKeyFile`) is required alongside the password.
  */
 export async function createKeepassTestDatabase(input: {
+  readonly keyFile?: Uint8Array;
   readonly name: string;
   readonly password: string;
   readonly root: KeepassTestGroup;
@@ -56,6 +58,7 @@ export async function createKeepassTestDatabase(input: {
   installArgon2();
   const credentials = new KdbxCredentials(
     ProtectedValue.fromString(input.password),
+    input.keyFile ?? null,
   );
   await credentials.ready;
   const database = KdbxDatabase.create(credentials, input.name);
@@ -68,4 +71,9 @@ export async function createKeepassTestDatabase(input: {
   discarded.fields.set("Title", "Discarded");
   database.remove(discarded);
   return new Uint8Array(await database.save());
+}
+
+/** A KeePass 2 XML key file for `createKeepassTestDatabase`. */
+export async function createKeepassTestKeyFile(): Promise<Uint8Array> {
+  return KdbxCredentials.createRandomKeyFile(2);
 }

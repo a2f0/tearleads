@@ -163,8 +163,11 @@ imported yet), and entry history. Reading is done by
 with AES or ChaCha20, but not Twofish or KeePass 1.x `.kdb` files.
 
 Like `seed`, it writes only to your personal organization, has a 65-minute
-limit, and revokes its session when interrupted. `--trace` names entries by
-position, never by title or URL.
+limit, and revokes its session when interrupted. It signs in with the key
+`login` saved, so it runs on macOS and takes neither `--key-stdin` nor
+`--api-url`. `--trace` names passcodes by position, never by title or URL, but
+SDK log lines in it can include folder names, which are the database's group
+names; see [Tracing](#tracing).
 
 ## Tracing
 

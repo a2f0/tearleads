@@ -46,6 +46,14 @@ describe("passcodeFromEntry", () => {
     ]);
   });
 
+  test("reads an expiry past year 9999 as none", () => {
+    const farFuture = passcodeFromEntry({
+      ...entry,
+      expiresAt: "+010000-01-01T00:00:00.000Z",
+    });
+    expect(farFuture.fields.expirationDate).toBeUndefined();
+  });
+
   test("leaves blank fields unwritten", () => {
     const sparse = passcodeFromEntry({
       ...entry,

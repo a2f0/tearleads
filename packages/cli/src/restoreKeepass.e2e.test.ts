@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initializeApiDatabase, routeApp } from "@tearleads/api/test-runtime";
 import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
-import { createKeepassTestDatabase } from "@tearleads/keepass/test-database";
+import {
+  createKeepassTestDatabase,
+  createKeepassTestKeyFile,
+} from "@tearleads/keepass/test-database";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "app/continuity";
 import { runCli } from "./cli";
 import { testContext } from "./cli.testUtils";
@@ -14,8 +17,9 @@ import { withSession } from "./session";
 
 const MASTER_PASSWORD = "correct horse";
 
-const database = () =>
+const database = (keyFile?: Uint8Array) =>
   createKeepassTestDatabase({
+    ...(keyFile ? { keyFile } : {}),
     name: "Family Vault",
     password: MASTER_PASSWORD,
     root: {
@@ -249,6 +253,29 @@ test("restore-keepass restores groups as folders and entries as passcodes", asyn
         "Family Vault/Untitled group: Loose",
       ].sort(),
     );
+
+    // A database that also needs a key file, restored under --name.
+    const keyFile = await createKeepassTestKeyFile();
+    const keyed = join(directory, "keyed.kdbx");
+    const keyPath = join(directory, "vault.keyx");
+    await writeFile(keyed, await database(keyFile));
+    await writeFile(keyPath, keyFile);
+    expect(
+      await runCli(["restore-keepass", keyed, "--env", "staging"], context),
+    ).toBe(1);
+    expect(output.stderr).toEqual([
+      "The master password or key file is wrong.",
+    ]);
+    const argv = ["restore-keepass", keyed, "--key-file", keyPath];
+    expect(
+      await runCli([...argv, "--name", "Work", "--env", "staging"], context),
+    ).toBe(0);
+    expect(output.stdout.slice(-2)).toEqual([
+      expect.stringMatching(
+        /^Restored 3 passcodes in 4 folders to "Work" \([^)]+\) on staging\.$/u,
+      ),
+      "Left out: 1 entry in the recycle bin.",
+    ]);
   } finally {
     await server.stop(true);
     await rm(directory, { force: true, recursive: true });

@@ -83,6 +83,41 @@ test("--env development resolves the local API", async () => {
   expect(output.stderr).toEqual(["resolved http://localhost:3001"]);
 });
 
+test("restore-keepass takes one file, and only it takes --name and --key-file", async () => {
+  const cases: [string[], string][] = [
+    [["restore-keepass"], "restore-keepass needs the .kdbx file to restore."],
+    [
+      ["restore-keepass", "--name", "Vault"],
+      "restore-keepass needs the .kdbx file to restore.",
+    ],
+    [
+      ["restore-keepass", "a.kdbx", "b.kdbx"],
+      "Unknown command: restore-keepass a.kdbx b.kdbx",
+    ],
+    [
+      ["ls", "--name", "Vault"],
+      "--name and --key-file apply to restore-keepass.",
+    ],
+    [
+      ["whoami", "--key-file", "vault.keyx"],
+      "--name and --key-file apply to restore-keepass.",
+    ],
+  ];
+  for (const [argv, message] of cases) {
+    const { context, output } = testContext();
+    expect(await runCli(argv, context)).toBe(2);
+    expect(output.stderr[0]).toBe(message);
+  }
+});
+
+test("restore-keepass reads the file before asking for a password", async () => {
+  const { context, output } = testContext();
+  const missing = "/nonexistent/tearleads/vault.kdbx";
+  expect(await runCli(["restore-keepass", missing], context)).toBe(1);
+  expect(output.stderr).toHaveLength(1);
+  expect(output.stderr[0]).toContain(missing);
+});
+
 test("commands that need a session ask for login first", async () => {
   for (const command of ["whoami", "orgs", "ls", "seed"]) {
     const { context, output } = testContext();

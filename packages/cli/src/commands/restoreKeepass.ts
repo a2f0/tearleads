@@ -139,16 +139,25 @@ export async function restoreKeepass(input: CommandInput): Promise<void> {
             .map((node) => node.name),
         ),
       );
-      const groups = await createRestoreFolders(session, {
-        folderName,
-        root: database.root,
-        rootId,
-      });
-      const passcodes = await createRestoredPasscodes(session, {
-        groups,
-        signingPrivateKey,
-      });
-      return { folderId: groups[0]?.folderId ?? "", folderName, passcodes };
+      try {
+        const groups = await createRestoreFolders(session, {
+          folderName,
+          root: database.root,
+          rootId,
+        });
+        const passcodes = await createRestoredPasscodes(session, {
+          groups,
+          signingPrivateKey,
+        });
+        return { folderId: groups[0]?.folderId ?? "", folderName, passcodes };
+      } catch (error) {
+        // The folder may already hold part of the restore; say which one.
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `${reason} Delete the folder "${folderName}" if it was created, then run the command again.`,
+          { cause: error },
+        );
+      }
     },
     {
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,

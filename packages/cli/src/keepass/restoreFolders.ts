@@ -39,12 +39,17 @@ async function waitForFoldersSynced(
   });
   session.assertNoFailures();
   const byId = new Map(nodes().map((node) => [node.id, node]));
-  const unsynced = folderIds
-    .map((id) => byId.get(id))
-    .find((node) => node?.syncState.status !== "synced");
-  if (!idle || unsynced !== undefined || byId.size === 0) {
+  // A folder the tree no longer lists counts as unsynced, not as done.
+  const unsyncedId = folderIds.find(
+    (id) => byId.get(id)?.syncState.status !== "synced",
+  );
+  if (!idle || unsyncedId !== undefined) {
+    const state = unsyncedId ? byId.get(unsyncedId)?.syncState : undefined;
+    const reason = !idle
+      ? "timed out"
+      : (state?.lastError ?? state?.status ?? "missing from the folder tree");
     throw new Error(
-      `Could not finish syncing the restored folders: ${unsynced?.syncState.lastError ?? unsynced?.syncState.status ?? "timed out"}.`,
+      `Could not finish syncing the restored folders: ${reason}.`,
     );
   }
 }

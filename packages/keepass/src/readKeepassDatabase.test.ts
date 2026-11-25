@@ -28,9 +28,11 @@ async function expectReadError(
     () => null,
     (caught: unknown) => caught,
   );
-  expect(error).toBeInstanceOf(KeepassReadError);
-  expect((error as KeepassReadError).code).toBe(code);
-  return error as KeepassReadError;
+  if (!(error instanceof KeepassReadError)) {
+    throw new Error(`Expected a KeepassReadError, got ${String(error)}`);
+  }
+  expect(error.code).toBe(code);
+  return error;
 }
 
 describe("readKeepassDatabase with a KeePassXC database", () => {

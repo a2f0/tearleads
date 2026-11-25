@@ -9,6 +9,17 @@ import {
 
 /** KeePassXC keeps an entry's TOTP setup as this custom field. */
 const KEEPASS_OTP_FIELD = "otp";
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/u;
+
+/**
+ * KeePass expires at an instant; a passcode expires on a UTC date. A year
+ * past 9999 (`+010000-...`) has no date-field form, so it reads as no expiry
+ * rather than an invalid field that would refuse the whole passcode.
+ */
+function expirationDate(expiresAt: string | null): string {
+  const date = expiresAt?.slice(0, 10) ?? "";
+  return DATE_ONLY.test(date) ? date : "";
+}
 
 export interface PasscodeContent {
   /** Only the fields with a value; blank ones are left unwritten. */
@@ -40,8 +51,7 @@ export function passcodeFromEntry(entry: KeepassEntry): PasscodeContent {
       notes: entry.notes,
       otp: otp?.value ?? "",
       tags: entry.tags.join(", "),
-      // KeePass expires at an instant; a passcode expires on a UTC date.
-      expirationDate: entry.expiresAt?.slice(0, 10) ?? "",
+      expirationDate: expirationDate(entry.expiresAt),
       sourceId: `keepass:${entry.id}`,
       sourceCreatedAt: entry.createdAt ?? "",
       sourceModifiedAt: entry.modifiedAt ?? "",
