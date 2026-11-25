@@ -1,8 +1,10 @@
 import type { DomainScope } from "../../data/shared/domainScope";
 import { isReconcilableContainerNode } from "../../stores/container-contents";
-import { getOrCreateDocumentListingCoverage } from "../../stores/documents";
+import {
+  getOrCreateDocumentListingCoverage,
+  requestRemoteSyncsOfRecordsSavedElsewhere,
+} from "../../stores/documents";
 import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
-import { requestRemoteSyncsOfRecordsSavedElsewhere } from "../../stores/documents/savedElsewhere";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import type { ReconciliationHost } from "../../sync/reconciliation";
 import { listOwedDocumentListingReads } from "../../workflows/documents";

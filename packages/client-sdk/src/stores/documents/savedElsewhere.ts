@@ -1,6 +1,6 @@
 import type { DomainScope } from "../../data/shared/domainScope";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
+  type ExecSql,
   type LoadedDocumentRecord,
   listLoadedRecordsSavedElsewhere,
 } from "../../workflows/documents";
