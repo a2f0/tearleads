@@ -209,3 +209,41 @@ test("a read settles only the request it saw", async () => {
   expect(await repository.find("doc")).toBeNull();
   expect(await repository.listOwedDocumentIds()).toEqual([]);
 });
+
+test("debts of documents no record holds are forgotten, and held ones stay", async () => {
+  await holdDocument({ documentId: "held" });
+  // A container metadata record of the same id holds no ordinary document.
+  await execSql(
+    `INSERT INTO documents (app_kind, local_id, document_id,
+       snapshot_end_version, updated_at)
+     VALUES ('container-metadata', 'meta', 'purged', ?, '2026-11-25T00:00:00.000Z')`,
+    [FRONTIER],
+  );
+  await repository.request([
+    { documentId: "held", updateCount: 2 },
+    { documentId: "purged", updateCount: 2 },
+  ]);
+
+  await repository.forgetUnheld();
+
+  expect(await repository.listOwedDocumentIds()).toEqual(["held"]);
+});
+
+test("persisted frontiers are read by local id for ordinary records on disk", async () => {
+  await holdDocument({ documentId: "a", frontier: FRONTIER });
+  await holdDocument({ documentId: "b", frontier: BEHIND_FRONTIER });
+
+  expect(
+    await repository.readPersistedFrontiers([
+      "local-a",
+      "local-b",
+      "local-missing",
+    ]),
+  ).toEqual(
+    new Map([
+      ["local-a", FRONTIER],
+      ["local-b", BEHIND_FRONTIER],
+    ]),
+  );
+  expect(await repository.readPersistedFrontiers([])).toEqual(new Map());
+});

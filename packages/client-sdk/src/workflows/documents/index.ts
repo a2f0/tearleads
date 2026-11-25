@@ -147,6 +147,8 @@ export {
   type DocumentListingRevalidation,
   findOwedDocumentListingRead,
   type ListedDocumentHead,
+  type LoadedDocumentRecord,
+  listLoadedRecordsSavedElsewhere,
   listOwedDocumentListingReads,
   oweListedDocumentReadsBehindListing,
   settleCoveredDocumentListingRead,

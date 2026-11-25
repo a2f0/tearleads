@@ -2,6 +2,7 @@ import type { DomainScope } from "../../data/shared/domainScope";
 import { isReconcilableContainerNode } from "../../stores/container-contents";
 import { getOrCreateDocumentListingCoverage } from "../../stores/documents";
 import { requestRegisteredDocumentRemoteSyncs } from "../../stores/documents/registry";
+import { requestRemoteSyncsOfRecordsSavedElsewhere } from "../../stores/documents/savedElsewhere";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import type { ReconciliationHost } from "../../sync/reconciliation";
 import { listOwedDocumentListingReads } from "../../workflows/documents";
@@ -29,10 +30,14 @@ export function createListingCoverageHost(
       ) {
         return;
       }
+      const { execSql } = input.infra;
       requestRegisteredDocumentRemoteSyncs(
         domainScope,
-        await listOwedDocumentListingReads(input.infra.execSql),
+        await listOwedDocumentListingReads(execSql),
       );
+      // A debt another tab already settled leaves nothing to read above, and
+      // this tab's open copy of that document is still the older one.
+      await requestRemoteSyncsOfRecordsSavedElsewhere(domainScope, execSql);
     },
   };
 }
