@@ -131,25 +131,29 @@ export class World {
   }
 
   /**
-   * Adds `member` to `owner`'s organization roster (its Members group) and
-   * has every device of `member` work inside that organization from now on.
+   * Adds `member` to `owner`'s organization roster (its Members group) from
+   * `device`, by default the owner's first, and has every device of `member`
+   * work inside that organization from now on.
    */
-  async addToOrganization(owner: User, member: User): Promise<void> {
+  async addToOrganization(
+    owner: User,
+    member: User,
+    device: Device = primary(owner),
+  ): Promise<void> {
     trace(`addToOrganization`);
-    const directory =
-      await primary(owner).sdk.organizations.loadDirectoryAndGroups();
+    const directory = await device.sdk.organizations.loadDirectoryAndGroups();
     if (!directory) throw new Error(`${owner.name} has no directory`);
-    await admit(primary(owner), member);
-    await primary(owner).sdk.organizations.addUserToGroup({
+    await admit(device, member);
+    await device.sdk.organizations.addUserToGroup({
       expectedGroupName: "Members",
       groupId: directory.memberGroupId,
       targetUserId: member.userId,
     });
-    await settleOrganizationMutation(primary(owner));
-    const organizationId = primary(owner).organizationId;
+    await settleOrganizationMutation(device);
+    const organizationId = device.organizationId;
     this.workingOrganizations.set(member.userId, organizationId);
-    for (const device of member.devices)
-      device.enterOrganization(organizationId);
+    for (const memberDevice of member.devices)
+      memberDevice.enterOrganization(organizationId);
   }
 
   async createFolder(

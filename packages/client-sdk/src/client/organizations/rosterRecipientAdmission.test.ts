@@ -14,7 +14,6 @@ import {
   pin,
   VERIFIED_ADMIN_A,
 } from "../../workflows/organizations/memberships/rosterAdmission.testFixtures";
-import type { ContainerContents } from "../containerContents";
 import { createOrganizations } from ".";
 import {
   requireGroupMemberAdmission,
@@ -94,13 +93,9 @@ for (const access of ["read", "write", "admin"] as const) {
 test("an existing roster member passes group-add admission without a direct link", async () => {
   const { service, restore } = await fixtureRuntime();
   try {
-    const organizations = createOrganizations(
-      service,
-      {} as ContainerContents,
-      () => {
-        throw new Error("Unused reconciler");
-      },
-    );
+    const organizations = createOrganizations(service, () => {
+      throw new Error("Unused reconciler");
+    });
     // Admission succeeds, then this fixture's missing signing keys stop the write.
     await expect(
       organizations.addUserToGroup({
