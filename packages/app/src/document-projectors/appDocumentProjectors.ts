@@ -17,6 +17,7 @@ import { passportDocumentProjectorDefinition } from "../document-types/passport/
 import { pdfDocumentProjectorDefinition } from "../document-types/pdf/pdfDocumentDefinition";
 import { toolDocumentProjectorDefinition } from "../document-types/tool/toolDocumentDefinition";
 import type { AppDocumentProjectorDefinition } from "../document-types/types";
+import { vehicleDocumentProjectorDefinition } from "../document-types/vehicle/vehicleDocumentDefinition";
 import { videoDocumentProjectorDefinition } from "../document-types/video/videoDocumentDefinition";
 import { weightDocumentProjectorDefinition } from "../document-types/weight/weightDocumentDefinition";
 import { birthCertificateClientProjection } from "./birthCertificateClientProjection";
@@ -57,6 +58,7 @@ export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentP
     weightDocumentProjectorDefinition,
     toolDocumentProjectorDefinition,
     applianceDocumentProjectorDefinition,
+    vehicleDocumentProjectorDefinition,
     jsonFileDocumentProjectorDefinition,
     imageDocumentProjectorDefinition,
     audioDocumentProjectorDefinition,

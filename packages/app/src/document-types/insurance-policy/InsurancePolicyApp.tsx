@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { createDocumentTypeApp } from "../shared/createDocumentTypeApp";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import { DocumentFieldOptionSelect } from "../shared/DocumentFieldOptionSelect";
@@ -31,7 +31,16 @@ export function InsurancePolicyFields(params: {
 }) {
   const { disabled, fields, isEditing, onChange, ready } = params;
   const id = useId();
-  const visibleFields = getVisibleInsurancePolicyFields(fields);
+  // The fields as they stood when this edit began, so an input shown only for
+  // its recorded value stays put while the user clears it.
+  const [atEditStart, setAtEditStart] =
+    useState<InsurancePolicyDocumentFields | null>(null);
+  if (isEditing && ready && atEditStart === null) setAtEditStart(fields);
+  if (!isEditing && atEditStart !== null) setAtEditStart(null);
+  const visibleFields = getVisibleInsurancePolicyFields(
+    fields,
+    isEditing ? atEditStart : null,
+  );
   const typeLabel = getInsurancePolicyTypeLabel(fields.policyType);
 
   if (!isEditing) {

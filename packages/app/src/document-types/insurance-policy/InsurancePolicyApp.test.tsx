@@ -82,6 +82,53 @@ test("a health policy offers member and prescription fields", () => {
   expect(view.getByLabelText("Covered Members")).toBeTruthy();
 });
 
+test("clearing a recorded variant field keeps its input until the edit ends", () => {
+  const read = (source: Record<string, string>) =>
+    readInsurancePolicyFieldValues(source);
+  const props = {
+    disabled: false,
+    onChange: () => undefined,
+    ready: true,
+  };
+  // Member ID belongs to health plans; this auto policy shows it only because
+  // it holds a value.
+  const view = render(
+    <InsurancePolicyFields
+      {...props}
+      fields={read({ memberId: "M-1", policyType: "auto" })}
+      isEditing
+    />,
+  );
+  expect(view.getByLabelText("Member ID")).toBeTruthy();
+  view.rerender(
+    <InsurancePolicyFields
+      {...props}
+      fields={read({ memberId: "", policyType: "auto" })}
+      isEditing
+    />,
+  );
+  expect(view.getByLabelText("Member ID")).toBeTruthy();
+
+  // Done ends the edit; the cleared field then hides, and a new edit starts
+  // from the fields as they stand.
+  view.rerender(
+    <InsurancePolicyFields
+      {...props}
+      fields={read({ memberId: "", policyType: "auto" })}
+      isEditing={false}
+    />,
+  );
+  expect(view.queryByText("Member ID")).toBeNull();
+  view.rerender(
+    <InsurancePolicyFields
+      {...props}
+      fields={read({ memberId: "", policyType: "auto" })}
+      isEditing
+    />,
+  );
+  expect(view.queryByLabelText("Member ID")).toBeNull();
+});
+
 test("read mode shows the type's label and skips other variants' empty fields", () => {
   const view = renderFields(
     { insurer: "Acme Mutual", policyType: "home" },

@@ -149,14 +149,35 @@ export function isImageDocumentAttachmentBlob(
   return blob.mimeType?.startsWith("image/") === true;
 }
 
-export function isPdfDocumentAttachmentBlob(blob: Pick<BlobInfo, "mimeType">) {
-  return blob.mimeType === PDF_MIME_TYPE;
+export function isPdfMimeType(value: string | null | undefined): boolean {
+  return value?.split(";")[0]?.trim().toLowerCase() === PDF_MIME_TYPE;
+}
+
+const GENERIC_MIME_TYPES: ReadonlySet<string> = new Set([
+  "",
+  "application/octet-stream",
+]);
+
+/**
+ * A PDF by its MIME type, or by a `.pdf` name when the upload carried no
+ * specific type, as files from a native file manager often do.
+ */
+export function isPdfDocumentAttachmentBlob(blob: {
+  readonly mimeType: string | null;
+  readonly name?: string | null | undefined;
+}) {
+  if (isPdfMimeType(blob.mimeType)) return true;
+  const mimeType = blob.mimeType?.split(";")[0]?.trim().toLowerCase() ?? "";
+  return (
+    GENERIC_MIME_TYPES.has(mimeType) &&
+    (blob.name ?? "").trim().toLowerCase().endsWith(".pdf")
+  );
 }
 
 /** Whether a blob can fill a slot that takes `accept`. */
 export function isDocumentAttachmentBlobAccepted(
   accept: DocumentAttachmentAccept,
-  blob: Pick<BlobInfo, "mimeType">,
+  blob: Pick<BlobInfo, "mimeType" | "name">,
 ) {
   return (
     isImageDocumentAttachmentBlob(blob) ||

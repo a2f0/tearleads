@@ -15,7 +15,10 @@ import {
 } from "react";
 import { MiniAppStatus } from "../../components/mini-app/MiniAppLayout";
 import type { FileViewer } from "../../host/FileViewer";
-import { readAutomaticPreviewBlobBytes } from "./documentAttachmentUtils";
+import {
+  isPdfMimeType,
+  readAutomaticPreviewBlobBytes,
+} from "./documentAttachmentUtils";
 import {
   IDLE_PDF_PREVIEW,
   transitionPdfPreview,
@@ -35,10 +38,6 @@ export interface FileDocumentPdfPreview extends PdfPreviewCandidate {
   error: string | null;
   loading: boolean;
   onOpenExternal: (() => void) | null;
-}
-
-export function isPdfMimeType(value: string | null | undefined): boolean {
-  return value?.split(";")[0]?.trim().toLowerCase() === "application/pdf";
 }
 
 export function resolveFileDocumentPdfPreview(
