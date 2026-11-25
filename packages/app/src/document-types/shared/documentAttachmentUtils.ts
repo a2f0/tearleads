@@ -5,6 +5,7 @@ import type {
   DocumentAttachment,
   DocumentAttachmentStatus,
 } from "@tearleads/client-sdk";
+import { inferFileMimeType } from "./fileMimeType";
 
 /**
  * The files a slot takes. Cards and photos are images; policies, titles, and
@@ -136,9 +137,11 @@ export function createFrontAndBackImageSlots(params: {
 export async function readDocumentAttachmentUpload(
   file: File,
 ): Promise<DocumentAttachmentUpload> {
+  // A PDF dropped from a file manager often arrives untyped; its extension
+  // then names it, so every reader of the attachment sees a PDF.
   return {
     bytes: file,
-    mimeType: file.type.length > 0 ? file.type : null,
+    mimeType: inferFileMimeType(file) || file.type || null,
     name: file.name,
   };
 }
@@ -153,31 +156,14 @@ export function isPdfMimeType(value: string | null | undefined): boolean {
   return value?.split(";")[0]?.trim().toLowerCase() === PDF_MIME_TYPE;
 }
 
-const GENERIC_MIME_TYPES: ReadonlySet<string> = new Set([
-  "",
-  "application/octet-stream",
-]);
-
-/**
- * A PDF by its MIME type, or by a `.pdf` name when the upload carried no
- * specific type, as files from a native file manager often do.
- */
-export function isPdfDocumentAttachmentBlob(blob: {
-  readonly mimeType: string | null;
-  readonly name?: string | null | undefined;
-}) {
-  if (isPdfMimeType(blob.mimeType)) return true;
-  const mimeType = blob.mimeType?.split(";")[0]?.trim().toLowerCase() ?? "";
-  return (
-    GENERIC_MIME_TYPES.has(mimeType) &&
-    (blob.name ?? "").trim().toLowerCase().endsWith(".pdf")
-  );
+export function isPdfDocumentAttachmentBlob(blob: Pick<BlobInfo, "mimeType">) {
+  return isPdfMimeType(blob.mimeType);
 }
 
 /** Whether a blob can fill a slot that takes `accept`. */
 export function isDocumentAttachmentBlobAccepted(
   accept: DocumentAttachmentAccept,
-  blob: Pick<BlobInfo, "mimeType" | "name">,
+  blob: Pick<BlobInfo, "mimeType">,
 ) {
   return (
     isImageDocumentAttachmentBlob(blob) ||

@@ -7,6 +7,7 @@ import type { RowWriterResolver } from "../../stores/documents/useDocumentRowWri
 import type { RowDetailField } from "./DocumentRowDetail";
 import {
   emptyRowLogCells,
+  getRowLogCellIssue,
   getRowLogFieldIssue,
   isRowLogEntryComplete,
   type RowLogColumn,
@@ -77,22 +78,30 @@ function RowLogFieldControl(params: {
   ariaLabel: string;
   disabled: boolean;
   field: RowLogField;
+  invalid: boolean;
   onChange: (value: string) => void;
   value: string;
 }) {
-  const { ariaLabel, disabled, field, onChange, value } = params;
+  const { ariaLabel, disabled, field, invalid, onChange, value } = params;
   if (field.input === "select") {
+    const options = field.options ?? [];
+    // A value synced from elsewhere that the list lacks stays visible as
+    // itself, rather than reading as the blank choice.
+    const unlisted =
+      value.length > 0 && !options.some((option) => option.value === value);
     return (
       <MiniAppField className="tracker-entry-field">
         <span>{field.label}</span>
         <MiniAppSelect
+          aria-invalid={invalid ? "true" : undefined}
           aria-label={ariaLabel}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
           value={value}
         >
           <option value="" />
-          {(field.options ?? []).map((option) => (
+          {unlisted ? <option value={value}>{value}</option> : null}
+          {options.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -104,7 +113,7 @@ function RowLogFieldControl(params: {
 
   return (
     <TrackerInputField
-      aria-invalid={getRowLogFieldIssue(field, value) ? "true" : undefined}
+      aria-invalid={invalid ? "true" : undefined}
       aria-label={ariaLabel}
       autoComplete="off"
       disabled={disabled}
@@ -138,6 +147,10 @@ export function RowLogEditRow(params: {
           ariaLabel={`${name} ${field.label.toLowerCase()}`}
           disabled={controlsDisabled}
           field={field}
+          invalid={
+            getRowLogCellIssue(field, rowLogCell(entry.cells, field.key)) !==
+            null
+          }
           onChange={(value) => params.onUpdate(entry.id, field.key, value)}
           value={rowLogCell(entry.cells, field.key)}
         />
@@ -148,6 +161,7 @@ export function RowLogEditRow(params: {
         onSave={params.onSave}
         removeAriaLabel={`Remove ${name.toLowerCase()}`}
         saveAriaLabel={`Save ${name.toLowerCase()}`}
+        saveDisabled={!isRowLogEntryComplete(definition.fields, entry.cells)}
       />
     </div>
   );
@@ -183,6 +197,10 @@ export function RowLogQuickAdd(params: {
             ariaLabel={`New ${definition.entryLabel.toLowerCase()} ${field.label.toLowerCase()}`}
             disabled={controlsDisabled}
             field={field}
+            // A new row's blank cells are not yet mistakes; Add waits for them.
+            invalid={
+              getRowLogFieldIssue(field, rowLogCell(cells, field.key)) !== null
+            }
             onChange={(value) => onChange(field.key, value)}
             value={rowLogCell(cells, field.key)}
           />
