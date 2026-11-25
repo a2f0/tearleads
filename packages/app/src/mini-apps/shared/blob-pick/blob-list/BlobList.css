@@ -7,14 +7,6 @@
    shared table ones (see MiniAppTableSort.css), which every table already loads
    through the shared table components. */
 
-.blob-list-thumbnail-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: var(--control-height);
-  cursor: pointer;
-}
-
 .explorer-blob-browser-screen {
   display: flex;
   flex-direction: column;
@@ -93,7 +85,7 @@
   height: min(2.75rem, var(--explorer-blob-browser-thumb-budget));
 }
 
-/* Large thumbnails are the shared large-rows view: the pitch, the square, what
+/* Large rows are the shared large-rows view: the pitch, the square, what
    fills it, and the identity column's width all come from MiniAppItemView.css.
    Only this row button's own layout stays here — flex for the reason the
    compact rule above gives. */
@@ -111,4 +103,11 @@
 
 .explorer-blob-browser-thumb-icon {
   opacity: var(--opacity-icon);
+}
+
+/* The grid view's not-selectable hint wraps a disabled tile (see
+   BlobInfoGrid.tsx) and must hand it the whole grid cell, as the cell would. */
+.blob-list-tile-hint {
+  display: block;
+  height: 100%;
 }

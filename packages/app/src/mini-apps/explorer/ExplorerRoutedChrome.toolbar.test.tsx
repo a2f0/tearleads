@@ -156,3 +156,35 @@ test("document Get Info stays second from the right beside type actions", async 
     EXPLORER_LABELS.syncSectionsAction,
   ]);
 });
+
+// The Blob Browser's toolbar belongs to its list's view switch and a blob's own
+// actions; the hub's tab bar already leads to Sync, so the entry point that
+// every other route shows steps aside here.
+test("the Blob Browser puts no hub navigation on the toolbar", async () => {
+  const baseModel = createExplorerModel();
+  const view = render(
+    <WindowMenuProvider>
+      <ExplorerRoutedChromeHarness
+        model={createExplorerModel({
+          routeState: {
+            ...baseModel.routeState,
+            route: { blobId: null, storageKey: null, view: "blob-browser" },
+          },
+        })}
+      />
+      <DocumentTypeToolbarActionProbe />
+    </WindowMenuProvider>,
+  );
+
+  // The probe's action proves the toolbar registered.
+  await waitFor(() => {
+    expect(view.getByRole("button", { name: "Edit" })).toBeTruthy();
+  });
+
+  expect(
+    view.queryByRole("button", { name: EXPLORER_LABELS.syncSectionsAction }),
+  ).toBeNull();
+  expect(
+    view.queryByRole("button", { name: EXPLORER_LABELS.blobBrowserAction }),
+  ).toBeNull();
+});
