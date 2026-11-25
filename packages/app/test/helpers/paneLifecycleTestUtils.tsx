@@ -77,13 +77,20 @@ export async function waitForLifecycleConnection(
   await waitForPaneRuntimeToSettle();
 }
 
-export async function seedLifecycleTree(pane: HTMLElement) {
+/**
+ * Two folders with `notesPerFolder` notes each. The first note of a folder is
+ * `Note in <folder>`; the canaries that vary the account's size add more.
+ */
+export async function seedLifecycleTree(pane: HTMLElement, notesPerFolder = 1) {
   await waitForSinglePaneProvisioning(pane);
   await waitForPersonalBootstrap();
   await openExplorer(pane);
   for (const name of ["Canary A", "Canary B"]) {
     await createChildContainer(pane, name);
     await createNoteInContainer(pane, name, `Note in ${name}`);
+    for (let note = 2; note <= notesPerFolder; note += 1) {
+      await createNoteInContainer(pane, name, `Note ${note} in ${name}`);
+    }
   }
   await selectContainerAndWaitForItemTable(pane, "/");
   await waitForPaneRuntimeToSettle();

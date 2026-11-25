@@ -4,11 +4,11 @@ import {
   accessManifests,
   containerSyncTombstones,
   containers,
-  documentUpdates,
 } from "@tearleads/api-shared/schema";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
+import { documentUpdateCountExpression } from "../../documents/documentUpdateCount";
 import {
   intExpression,
   jsonTextProperty,
@@ -53,20 +53,6 @@ const accessibleContainerRowSchema = z.looseObject({
   organizationId: z.string(),
   parentId: z.string().nullable(),
 });
-
-/**
- * How many updates the server holds for the metadata document. A metadata
- * write adds one, and updates are deleted only with their document, so this
- * grows exactly when the document gains an update, independent of any clock
- * or of what the updates claim to carry.
- */
-function metadataUpdateCountExpression(metadataDocumentId: SQL): SQL {
-  return sql`(
-    select count(*)::int
-    from ${documentUpdates}
-    where ${documentUpdates.documentId} = (${metadataDocumentId})::uuid
-  )`;
-}
 
 function readDateIso(value: unknown, label: string): string {
   return readDateValue(value, label).toISOString();
@@ -297,8 +283,8 @@ export function accessibleContainersQuery(input: {
       ${syncTimestampExpression(sql`accessible.updated_at`)} as "updatedAt",
       ${intExpression(sql`accessible.epoch`)} as "metadataAccessEpoch",
       ${textExpression(sql`accessible.manifest_hash`)} as "metadataAccessStateHash",
-      ${metadataUpdateCountExpression(
-        jsonTextProperty(sql`accessible.state`, "metadataDocumentId"),
+      ${documentUpdateCountExpression(
+        sql`(${jsonTextProperty(sql`accessible.state`, "metadataDocumentId")})::uuid`,
       )} as "metadataUpdateCount"
     from visible_candidate_containers accessible
     order by

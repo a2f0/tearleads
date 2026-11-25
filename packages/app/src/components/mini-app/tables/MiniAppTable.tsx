@@ -9,8 +9,11 @@ import {
   type TableHTMLAttributes,
   type TdHTMLAttributes,
   type ThHTMLAttributes,
+  useId,
 } from "react";
 import { classNames } from "../../shared/classNames";
+import { useMiniAppColumnResize } from "./MiniAppColumnResize";
+import type { MiniAppColumnWidthsControl } from "./MiniAppColumnWidths";
 import { MiniAppRowActionsButton } from "./MiniAppRowActionsButton";
 import "./MiniAppTable.css";
 import "./MiniAppTableEdges.css";
@@ -21,11 +24,32 @@ export interface MiniAppTableColumn {
   className?: string | undefined;
   header: ReactNode;
   id: string;
+  /**
+   * The least a column with no `width` shrinks to in a table with
+   * `columnWidths`, before the table scrolls sideways instead.
+   */
+  minWidth?: string | undefined;
+  /**
+   * Names the column in the resize handles on its edges ("Resize Name and Type
+   * columns"), and is what makes it resizable in a table with `columnWidths`:
+   * an edge gets a handle when the columns on both sides of it carry one.
+   */
+  resizeLabel?: string | undefined;
+  /**
+   * Omit on the one column that takes the table's spare width. A table with
+   * `columnWidths` needs such a column to resize at all.
+   */
   width?: string | undefined;
 }
 
 type MiniAppTableProps = TableHTMLAttributes<HTMLTableElement> & {
   columns: ReadonlyArray<MiniAppTableColumn>;
+  /**
+   * The widths the reader chose (`useMiniAppColumnWidths`), which also lets
+   * them drag the edges between columns that carry a `resizeLabel`. The table
+   * then sets its own `min-width`. Leave it out while the table is folded.
+   */
+  columnWidths?: MiniAppColumnWidthsControl | undefined;
 };
 
 export type MiniAppTableEmptyRowProps = HTMLAttributes<HTMLTableRowElement> & {
@@ -77,34 +101,73 @@ export const MiniAppTableFrame = forwardRef<
 });
 
 export const MiniAppTable = forwardRef<HTMLTableElement, MiniAppTableProps>(
-  function MiniAppTable({ children, className, columns, ...props }, ref) {
+  function MiniAppTable(
+    { children, className, columns, columnWidths, style, ...props },
+    ref,
+  ) {
+    const { layout, renderHandle } = useMiniAppColumnResize(
+      columns,
+      columnWidths,
+    );
+    const headingId = useId();
+
     return (
       <table
         {...props}
-        className={classNames("mini-app-table", className)}
+        className={classNames(
+          "mini-app-table",
+          layout.minWidth !== undefined && "mini-app-table--resizable",
+          className,
+        )}
         ref={ref}
+        style={
+          layout.minWidth === undefined
+            ? style
+            : { ...style, minWidth: layout.minWidth }
+        }
       >
         <colgroup>
-          {columns.map((column) => (
-            <col
-              className={column.className}
-              key={column.id}
-              style={column.width ? { width: column.width } : undefined}
-            />
-          ))}
+          {columns.map((column, index) => {
+            const width = layout.colWidths[index];
+            return (
+              <col
+                className={column.className}
+                key={column.id}
+                style={width ? { width } : undefined}
+              />
+            );
+          })}
         </colgroup>
         <thead>
           <tr>
-            {columns.map((column) => (
-              <th
-                aria-sort={column.ariaSort}
-                className={column.className}
-                key={column.id}
-                scope="col"
-              >
-                {column.header}
-              </th>
-            ))}
+            {columns.map((column, index) => {
+              const handle = renderHandle(index);
+              // A heading is named from its content and a handle is a labelled
+              // control, so a heading holding one names itself by its own
+              // content alone: "Type", not "Resize Name and Type columns Type".
+              const labelId = handle ? `${headingId}-${index}` : undefined;
+              return (
+                <th
+                  aria-labelledby={labelId}
+                  aria-sort={column.ariaSort}
+                  className={column.className}
+                  key={column.id}
+                  scope="col"
+                >
+                  {handle}
+                  {labelId ? (
+                    <span
+                      className="mini-app-column-heading-label"
+                      id={labelId}
+                    >
+                      {column.header}
+                    </span>
+                  ) : (
+                    column.header
+                  )}
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>{children}</tbody>

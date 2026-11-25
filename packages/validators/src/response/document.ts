@@ -9,6 +9,7 @@ import {
   arraySchema,
   loosePlainObject,
   nonEmptyStringSchema,
+  nonNegativeIntegerSchema,
   safeNonNegativeIntegerSchema,
 } from "../schema";
 import { EffectiveAccessLevelSchema } from "./accessLevel";
@@ -23,6 +24,7 @@ export const ContainerDocumentSummaryResponseSchema = loosePlainObject({
   id: z.string(),
   linkedContainerIds: arraySchema(z.string()),
   referencedPrincipals: arraySchema(ReferencedPrincipalStateResponseSchema),
+  updateCount: nonNegativeIntegerSchema,
   updatedAt: z.string(),
 });
 

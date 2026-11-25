@@ -17,6 +17,7 @@ export function TrackerIndexTable<
   ariaLabel: string;
   buildRows: (rows: ReadonlyArray<Row>) => ReadonlyArray<IndexRow>;
   columnStorageKey: string;
+  columnWidthsStorageKey: string;
   currentAuthorId: string | null;
   detailFields: (
     row: Row,
@@ -41,6 +42,7 @@ export function TrackerIndexTable<
     ariaLabel,
     buildRows,
     columnStorageKey,
+    columnWidthsStorageKey,
     currentAuthorId,
     detailFields,
     detailLabel,
@@ -69,6 +71,7 @@ export function TrackerIndexTable<
         ariaLabel={ariaLabel}
         columns={columns}
         columnStorageKey={columnStorageKey}
+        columnWidthsStorageKey={columnWidthsStorageKey}
         defaultSortColumnId="ordinal"
         emptyLabel={emptyLabel}
         renderActions={(row) => (

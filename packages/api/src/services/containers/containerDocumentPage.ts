@@ -7,6 +7,8 @@ export interface ContainerDocumentRow {
   documentId: string;
   manifestHash: string;
   manifestEpoch: number;
+  /** How many updates the server holds for the document. */
+  updateCount: number;
   updatedAt: string;
 }
 

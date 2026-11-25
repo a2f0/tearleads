@@ -1,5 +1,5 @@
 {
-  "id": "1cfd5a46-e666-4dba-b6ca-acf1ea071260",
+  "id": "5632644d-3191-4c4d-ace2-9ed9b5860096",
   "prevId": "914b46f4-f818-4a1f-927b-fddbb91d9031",
   "version": "7",
   "dialect": "postgresql",
@@ -3372,6 +3372,13 @@
           "notNull": true,
           "default": "0"
         },
+        "update_count": {
+          "name": "update_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp",
@@ -6509,18 +6516,6 @@
         "registration_source_ip_address": {
           "name": "registration_source_ip_address",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "legal_terms_version": {
-          "name": "legal_terms_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "legal_terms_accepted_at": {
-          "name": "legal_terms_accepted_at",
-          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },

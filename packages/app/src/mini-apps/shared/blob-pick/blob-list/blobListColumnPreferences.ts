@@ -1,4 +1,7 @@
-import { useMiniAppColumnVisibility } from "../../../../components/mini-app/MiniAppTable";
+import {
+  useMiniAppColumnVisibility,
+  useMiniAppColumnWidths,
+} from "../../../../components/mini-app/MiniAppTable";
 import {
   BLOB_INFO_TOGGLEABLE_COLUMN_IDS,
   type BlobInfoColumnId,
@@ -28,4 +31,9 @@ export function useBlobInfoColumnVisibility() {
     storageKey: STORAGE_KEY,
     toggleableColumnIds: BLOB_INFO_TOGGLEABLE_COLUMN_IDS,
   });
+}
+
+/** The widths the reader dragged the blob list's columns to. */
+export function useBlobInfoColumnWidths() {
+  return useMiniAppColumnWidths("tearleads.blob-browser:column-widths");
 }

@@ -82,8 +82,15 @@
     {
       "idx": 11,
       "version": "7",
-      "when": 1795608211062,
-      "tag": "0011_legal_terms_acceptance",
+      "when": 1795606556279,
+      "tag": "0011_document_update_count",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795613205276,
+      "tag": "0012_legal_terms_acceptance",
       "breakpoints": true
     }
   ]

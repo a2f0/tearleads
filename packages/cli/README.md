@@ -82,8 +82,9 @@ bun run tearleads seed --env staging
 Paste the account's recovery key at the login prompt. For production, use
 `--env production` on both commands; for a local API, `--env development`.
 `scripts/dev/seedFromContinuity.sh <dev|staging|prod>` runs the install,
-build, login, and traced seed in one step, unlocking the login Keychain first
-for shells outside the desktop session (SSH, tmux, screen). Once the command
+build, login, and traced `seed --roster` in one step, unlocking the login
+Keychain first for shells outside the desktop session (SSH, tmux, screen); see
+[Roster and groups](#roster-and-groups) for the seats that costs. Once the command
 reports success, open the web app in that environment and sign in with the
 same identity.
 [Staging web app](https://app-staging.tearleads.com) ·
