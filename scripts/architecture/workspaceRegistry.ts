@@ -99,6 +99,12 @@ export const workspaceRegistry = [
     role: "shared-library",
   },
   {
+    directory: "keepass",
+    key: "keepass",
+    packageName: "@tearleads/keepass",
+    role: "shared-library",
+  },
+  {
     directory: "loro",
     key: "loro",
     packageName: "@tearleads/loro",

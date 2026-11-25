@@ -136,9 +136,9 @@ deleted as soon as the default branch contains the new contract.
 - `packages/app-web`, `packages/app-capacitor`, and `packages/app-electrobun`:
   deployment targets. Do not turn these into reusable libraries.
 - `packages/crypto`, `packages/diagnostics`, `packages/encoding`,
-  `packages/loro`, `packages/sqlite-instance`, `packages/sqlite-worker`,
-  `packages/validators`: lower-level support packages. Apps import these
-  packages, never the reverse.
+  `packages/keepass`, `packages/loro`, `packages/sqlite-instance`,
+  `packages/sqlite-worker`, `packages/validators`: lower-level support
+  packages. Apps import these packages, never the reverse.
 - `packages/test-utils` and `packages/bob-and-alice`: test support only.
   Production source must not depend on them.
 - `packages/ui`: product-neutral shared UI used by the website and app.
@@ -172,7 +172,8 @@ deleted as soon as the default branch contains the new contract.
   Follow [client SDK seams](docs/developer/client-sdk-seams.md) and the
   `isolate-sdk-component` skill.
 - `@tearleads/validators`, `@tearleads/diagnostics`, `@tearleads/encoding`,
-  and `@tearleads/sqlite-instance` are leaf-level support packages.
+  `@tearleads/keepass`, and `@tearleads/sqlite-instance` are leaf-level
+  support packages.
 - `@tearleads/api-shared` stays below `packages/api` and `packages/api-cli`,
   which do not import each other.
 - `@tearleads/sqlite-worker` may depend on `@tearleads/sqlite-instance`, but not

@@ -9,6 +9,7 @@ import { createTracer } from "./trace";
 export const usage = `Usage: tearleads <command> [--env production|staging|development] [--org <id>] [--trace]
        tearleads register|seed|verify-seed --key-stdin [--api-url <origin>]
        tearleads register|seed --roster [--accept-terms]
+       tearleads restore-keepass <file.kdbx> [--name <folder>] [--key-file <path>]
 
 Commands:
   login    Save a recovery key (seed phrase) for the target in the Keychain.
@@ -21,6 +22,8 @@ Commands:
   seed     Sync the Continuity screenshot dataset to your personal organization.
   verify-seed  Check the original fixture contents and bytes from a fresh session.
   ls       List the folders of your organization, or of --org <id>.
+  restore-keepass  Restore a KeePass (.kdbx) database into a new folder under
+           your root: one folder per group, one passcode per entry.
 
 --env defaults to production; development is the local API at
 http://localhost:3001. Every command signs in, works on an in-memory
@@ -43,6 +46,11 @@ seed --roster also gives each member of the dataset's groups (today a Family
 group) an account derived from yours, adds them to your organization's roster,
 and then to the group. Each member takes a seat on a billed organization.
 
+restore-keepass decrypts the database on this machine first, reading the
+master password without echo (or from piped stdin). --name names the new
+folder (default: the database's name); --key-file adds a key file. Every run
+makes a new folder; the recycle bin, attachments, and history are left out.
+
 --trace (or TEARLEADS_TRACE=1) prints timestamped progress to stderr: each
 step, API request, and sync lane run with its duration, then a summary of
 where the time went.`;
@@ -53,6 +61,8 @@ const commands = {
   ls: listFolders,
   orgs: listOrganizations,
   register,
+  "restore-keepass": async (input) =>
+    (await import("./commands/restoreKeepass")).restoreKeepass(input),
   seed: async (input) => (await import("./commands/seed")).seed(input),
   "verify-seed": async (input) =>
     (await import("./commands/verifySeed")).verifySeed(input),
@@ -72,6 +82,8 @@ function parse(argv: readonly string[]) {
       "api-url": { type: "string" },
       env: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
+      "key-file": { type: "string" },
+      name: { type: "string" },
       org: { type: "string" },
       "key-stdin": { type: "boolean", default: false },
       roster: { type: "boolean", default: false },
@@ -95,10 +107,12 @@ const LOOPBACK_HOSTS: ReadonlySet<string> = new Set([
   "localhost",
 ]);
 
-/** The usage error a flag given to a command it does not apply to makes. */
+type ParsedValues = ReturnType<typeof parse>["values"];
+
+/** A flag given to a command it does not apply to, or null. */
 function misappliedFlag(
   commandName: string,
-  values: ReturnType<typeof parse>["values"],
+  values: ParsedValues,
 ): string | null {
   if (values.roster && commandName !== "seed") {
     return "--roster applies to seed.";
@@ -112,13 +126,60 @@ function misappliedFlag(
   if (values["key-stdin"] && !KEY_STDIN_COMMANDS.has(commandName)) {
     return "--key-stdin applies to register, seed, and verify-seed.";
   }
+  const restoreOnly = [values.name, values["key-file"]].some(
+    (value) => value !== undefined,
+  );
+  if (restoreOnly && commandName !== "restore-keepass") {
+    return "--name and --key-file apply to restore-keepass.";
+  }
   return null;
+}
+
+/**
+ * The command's operands, or the usage error they make: restore-keepass takes
+ * the database file, and no other command takes any.
+ */
+function commandOperands(
+  commandName: string,
+  operands: readonly string[],
+  values: ParsedValues,
+): Pick<CommandInput, "keepass"> | string {
+  const unknown = `Unknown command: ${[commandName, ...operands].join(" ")}`;
+  if (commandName !== "restore-keepass") {
+    return operands.length > 0 ? unknown : {};
+  }
+  const [file, ...rest] = operands;
+  if (file === undefined) {
+    return "restore-keepass needs the .kdbx file to restore.";
+  }
+  if (rest.length > 0) {
+    return "restore-keepass takes one .kdbx file; quote a path that has spaces.";
+  }
+  return {
+    keepass: { file, folderName: values.name, keyFile: values["key-file"] },
+  };
+}
+
+/** The named command and its operands, or the usage error they make. */
+function resolveCommand(
+  positionals: readonly string[],
+  values: ParsedValues,
+):
+  | {
+      readonly name: keyof typeof commands;
+      readonly operands: Pick<CommandInput, "keepass">;
+    }
+  | string {
+  const [name = "", ...operands] = positionals;
+  if (!isCommandName(name)) return `Unknown command: ${positionals.join(" ")}`;
+  const resolved = commandOperands(name, operands, values);
+  return typeof resolved === "string" ? resolved : { name, operands: resolved };
 }
 
 /** The command's API, or the usage error that stops it before any request. */
 function commandOptions(
   commandName: string,
-  values: ReturnType<typeof parse>["values"],
+  values: ParsedValues,
 ): Pick<CommandInput, "apiUrl" | "target"> | string {
   const target = values.env ?? "production";
   if (!isTargetName(target)) {
@@ -163,17 +224,18 @@ export async function runCli(
   }
 
   const { positionals, values } = parsed;
-  const [commandName, ...extra] = positionals;
+  const [commandName] = positionals;
   if (values.help || commandName === undefined || commandName === "help") {
     context.stdout(usage);
     return 0;
   }
-  if (!isCommandName(commandName) || extra.length > 0) {
-    context.stderr(`Unknown command: ${positionals.join(" ")}`);
+  const command = resolveCommand(positionals, values);
+  if (typeof command === "string") {
+    context.stderr(command);
     context.stderr(usage);
     return 2;
   }
-  const options = commandOptions(commandName, values);
+  const options = commandOptions(command.name, values);
   if (typeof options === "string") {
     context.stderr(options);
     return 2;
@@ -183,9 +245,10 @@ export async function runCli(
     write: (line) => context.stderr(line),
   });
   try {
-    await commands[commandName]({
+    await commands[command.name]({
       context,
       ...options,
+      ...command.operands,
       acceptTerms: values["accept-terms"],
       keyFromStdin: values["key-stdin"],
       organizationId: values.org,

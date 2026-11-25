@@ -116,3 +116,8 @@ dataset loader, Contacts folder resolver, seed writer, and the roster and group
 seeders (the Org Manager's own writes, built for a headless host) used by the
 [CLI](../cli/README.md#seed-an-account-with-continuity), which also seeds the
 shared screenshots.
+
+The `app/passcode` entry point exposes the passcode document kind, its field
+types, and the attribute row names, so the
+[CLI's KeePass restore](../cli/README.md#restore-a-keepass-database) writes
+passcodes the app reads without importing its views.

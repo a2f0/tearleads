@@ -1,11 +1,12 @@
 {
   "name": "app",
-  "version": "0.1.352",
+  "version": "0.1.353",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./continuity": "./src/document-types/continuity/index.ts",
+    "./passcode": "./src/document-types/passcode/index.ts",
     "./host/AppDiagnostics": "./src/host/AppDiagnostics.ts",
     "./App": "./src/App.tsx",
     "./client": "./src/client.tsx",

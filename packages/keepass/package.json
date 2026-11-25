@@ -1,0 +1,21 @@
+{
+  "name": "@tearleads/keepass",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./test-database": "./src/keepassTestDatabase.ts"
+  },
+  "scripts": {
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "hash-wasm": "4.13.0",
+    "kdbxweb": "2.1.1"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:"
+  }
+}
