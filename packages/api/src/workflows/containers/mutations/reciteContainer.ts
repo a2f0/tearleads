@@ -84,11 +84,13 @@ async function verifyRecitation(
 async function persistRecitation(
   context: ContainerMutationContext,
   manifest: VerifiedContainerAccessManifest,
+  userId: string,
 ): Promise<ContainerReciteResponse> {
   const container = await persistContainerStructure(
     context.executor,
     manifest,
     new Date(),
+    userId,
   );
   const manifestHead = await runConflictBoundary(() =>
     storeVerifiedAccessManifestInTransaction(
@@ -169,7 +171,7 @@ export async function runReciteContainerWorkflow(
         manifest.state.organizationId,
         input.userId,
       );
-      return persistRecitation(context, manifest);
+      return persistRecitation(context, manifest, input.userId);
     });
   } catch (error) {
     throw toMutationError(error) ?? error;

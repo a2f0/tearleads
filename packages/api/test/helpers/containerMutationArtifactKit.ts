@@ -22,6 +22,7 @@ import { principalPolicyRefs } from "./principalPolicyRefs";
 export async function buildChildCreateRequest(input: {
   readonly root: StoredRootFixture;
   readonly signer: TestUser;
+  readonly containerId?: string;
   readonly metadataDocumentId?: string;
   readonly parentPath?: readonly AccessManifestBundleWire[];
   readonly systemSlot?: string | null;
@@ -29,7 +30,7 @@ export async function buildChildCreateRequest(input: {
   const parentBundle = input.root.bundle;
   const parentContainerPath = [...(input.parentPath ?? []), parentBundle];
   const parentManifest = asVerifiedContainerManifest(parentBundle);
-  const containerId = crypto.randomUUID();
+  const containerId = input.containerId ?? crypto.randomUUID();
   const metadataDocumentId = input.metadataDocumentId ?? crypto.randomUUID();
   const { containerKeyEpochId } = await createTestContainerKekMaterial({
     containerId,

@@ -57,6 +57,7 @@ async function fixture() {
           tx,
           document.id,
           linkedContainerIds,
+          owner.userId,
         );
       })
       .then(

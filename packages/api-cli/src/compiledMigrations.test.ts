@@ -75,7 +75,7 @@ test.skipIf(!serverUrl)(
         expect(migration.exitCode).toBe(0);
       }
       const tables = await tableNames(databaseUrl.href);
-      expect(tables).toHaveLength(51);
+      expect(tables).toHaveLength(52);
       expect(tables).toEqual(
         expect.arrayContaining([
           "principal_directory_bindings",

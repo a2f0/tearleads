@@ -58,6 +58,8 @@ export function TrackerRowActions(params: {
   onSave: () => void;
   removeAriaLabel: string;
   saveAriaLabel: string;
+  /** Holds Save (not Remove) while the row has a cell it would reject. */
+  saveDisabled?: boolean | undefined;
 }) {
   // Cell edits persist as they change; Save completes this row's edit state and
   // returns it to its read presentation without closing the surrounding form.
@@ -69,7 +71,7 @@ export function TrackerRowActions(params: {
         aria-label={saveAriaLabel}
         className="tracker-save-button"
         withIcon
-        disabled={disabled}
+        disabled={disabled || params.saveDisabled === true}
         onClick={onSave}
         title={saveAriaLabel}
       >

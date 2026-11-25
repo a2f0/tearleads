@@ -489,6 +489,7 @@ export async function mutateContainerWithExecutorOutcome(
     previousParentId: artifacts.previousManifest?.state.parentContainerId,
     response: await persistVerifiedMutation(
       context,
+      input.userId,
       artifacts.manifest,
       verifiedKekMutation,
       artifacts.previousManifest,

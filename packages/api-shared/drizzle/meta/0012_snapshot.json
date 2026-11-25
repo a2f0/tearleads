@@ -1,5 +1,5 @@
 {
-  "id": "771d86bf-4f58-4d09-9979-a17022d22b05",
+  "id": "ecb67be4-04ce-4245-a3d2-342993dba6b4",
   "prevId": "5632644d-3191-4c4d-ace2-9ed9b5860096",
   "version": "7",
   "dialect": "postgresql",
@@ -6092,6 +6092,81 @@
       },
       "isRLSEnabled": false
     },
+    "public.purged_object_reservations": {
+      "name": "purged_object_reservations",
+      "schema": "",
+      "columns": {
+        "object_kind": {
+          "name": "object_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "object_id": {
+          "name": "object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "owner_user_id": {
+          "name": "owner_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purged_organization_id": {
+          "name": "purged_organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "purged_object_reservations_owner_idx": {
+          "name": "purged_object_reservations_owner_idx",
+          "columns": [
+            {
+              "expression": "owner_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "purged_object_reservations_owner_user_id_users_id_fk": {
+          "name": "purged_object_reservations_owner_user_id_users_id_fk",
+          "tableFrom": "purged_object_reservations",
+          "tableTo": "users",
+          "columnsFrom": ["owner_user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "purged_object_reservations_pkey": {
+          "name": "purged_object_reservations_pkey",
+          "columns": ["object_kind", "object_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.revenuecat_webhook_events": {
       "name": "revenuecat_webhook_events",
       "schema": "",
@@ -6516,18 +6591,6 @@
         "registration_source_ip_address": {
           "name": "registration_source_ip_address",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "legal_terms_version": {
-          "name": "legal_terms_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "legal_terms_accepted_at": {
-          "name": "legal_terms_accepted_at",
-          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },

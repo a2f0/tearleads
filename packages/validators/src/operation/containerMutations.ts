@@ -69,7 +69,7 @@ export const createContainerOperation = defineJsonOperation({
   id: "containers.create",
   summary: "Create a container",
   description:
-    "Creates a container from a signed `container.create` event, the hash of the access manifest it derives, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`.",
+    "Creates a container from a signed `container.create` event, the hash of the access manifest it derives, and the container KEK wrapped to its recipients. Requires write access to the parent container, or admin access for a system container. A retry of a create that already committed returns 409 `container_manifest_already_exists`, which lets the client adopt it; a stale parent returns 409 `container_mutation_state_stale`. A container or metadata document id an organization billing purge freed is reserved for that organization's owner, and another user's create of it returns an uncoded 409 the client must not adopt.",
   method: "POST",
   params: EmptyContainerMutationPathParamsSchema,
   path: "/containers",
