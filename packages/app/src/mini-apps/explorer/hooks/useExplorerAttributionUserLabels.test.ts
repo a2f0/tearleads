@@ -54,6 +54,7 @@ function rosterUser(input: {
     createdAt: "2026-08-25T12:00:00.000Z",
     disabledAt: disabled ? "2026-08-25T13:00:00.000Z" : null,
     disabledByUserId: disabled ? "admin-user-id" : null,
+    twoFactorRequired: false,
     encapsulationKeyFingerprint: `encapsulation-${input.userId}`,
     isPersonalOrganizationOwner: false,
     isSelf: false,

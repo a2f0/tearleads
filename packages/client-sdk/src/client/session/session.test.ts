@@ -88,6 +88,7 @@ describe("session", () => {
       isRoot: false,
       rootAcknowledgments: [],
       organizationId: "identity-b-organization",
+      twoFactorDeviceToken: null,
       userId: "identity-b-user",
     };
 
@@ -274,6 +275,7 @@ describe("session", () => {
       isRoot: false,
       rootAcknowledgments: [],
       organizationId: "identity-b-organization",
+      twoFactorDeviceToken: null,
       userId: "identity-b-user",
     };
     await setGeneratedIdentity(identity);

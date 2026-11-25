@@ -18,6 +18,8 @@ const session: SessionData = {
   ipAddresses: [],
   lastActiveAt: 1,
   lastActiveIp: null,
+  twoFactorRequiredOrganizationIds: [],
+  twoFactorVerified: false,
   userId: USER_ID,
 };
 

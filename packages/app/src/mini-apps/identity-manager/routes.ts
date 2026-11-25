@@ -3,6 +3,7 @@ export type IdentityManagerView =
   | "general"
   | "recovery-key"
   | "pin-lock"
+  | "two-factor"
   | "active-sessions"
   | "local-data";
 
@@ -15,6 +16,7 @@ export function parseIdentityManagerRouteSegments(
     view === "general" ||
     view === "recovery-key" ||
     view === "pin-lock" ||
+    view === "two-factor" ||
     view === "active-sessions" ||
     view === "local-data"
   ) {

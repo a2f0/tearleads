@@ -29,6 +29,7 @@ export function organizationReadModelDirectoryUser(
     updatedAt: CREATED_AT,
     disabledAt: null,
     disabledByUserId: null,
+    twoFactorRequired: false,
     ...overrides,
   };
 }

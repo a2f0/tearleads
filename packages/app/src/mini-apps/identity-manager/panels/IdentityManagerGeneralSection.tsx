@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AccountBootstrapProgressPanel } from "../../../components/identity/AccountBootstrapProgressPanel";
 import { CopyMyIdentityLinkButton } from "../../../components/identity/CopyMyIdentityLinkButton";
+import { TwoFactorSignInForm } from "../../../components/identity/TwoFactorSignInForm";
 import {
   MiniAppClipboardButton,
   MiniAppSection,
@@ -88,7 +89,9 @@ function getIdentitySectionActions({
       void identity.generateKey().then((created) => {
         if (created) backupPrompt.identityCreated();
       }),
-    handleAuthenticate: identityMutations.authenticate,
+    handleAuthenticate: async () => {
+      await identityMutations.authenticate();
+    },
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
     hasSigningKeyPair: identity.signingKeyPair !== null,
@@ -125,6 +128,12 @@ export function IdentityManagerGeneralSection({
         <MiniAppStatus tone="error">
           {identityMutations.identityError}
         </MiniAppStatus>
+      )}
+      {identityMutations.twoFactorPrompt && (
+        <TwoFactorSignInForm
+          authenticate={identityMutations.authenticate}
+          authenticating={identityMutations.identityBusy === "authenticate"}
+        />
       )}
       <CopyMyIdentityLinkButton />
       <dl className="identity-manager-details">

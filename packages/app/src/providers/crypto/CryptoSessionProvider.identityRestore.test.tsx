@@ -34,6 +34,7 @@ test("a persisted session cannot bind to an identity switched before React clean
     defaultOrganizationId: null,
     isAuthenticated: false,
     organizationId: null,
+    twoFactorDeviceToken: null,
     userId: null as string | null,
   };
   const tearleads = {
@@ -111,6 +112,7 @@ test("a persisted session cannot bind to an identity switched before React clean
         isAuthenticated: false,
         isRoot: false,
         rootAcknowledgments: [],
+        twoFactorDeviceToken: null,
         userId: "old-user",
         organizationId: "old-org",
         defaultOrganizationId: "old-org",

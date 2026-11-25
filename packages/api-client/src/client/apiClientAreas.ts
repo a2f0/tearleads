@@ -11,6 +11,7 @@ import { OrganizationArea } from "./organizations";
 import { PrincipalPolicyArea } from "./principalPolicies";
 import { RootAdminArea } from "./rootAdmin";
 import { SessionArea } from "./session";
+import { TwoFactorArea } from "./twoFactor";
 import { WriterProjectionArea } from "./writerProjections";
 
 /**
@@ -32,6 +33,7 @@ export abstract class ApiClientAreas implements ApiClientSelf {
 
   protected readonly context: ApiClientContext;
   protected readonly session: SessionArea;
+  protected readonly twoFactor: TwoFactorArea;
   protected readonly identities: IdentityArea;
   protected readonly policies: PrincipalPolicyArea;
   protected readonly organizations: OrganizationArea;
@@ -50,6 +52,7 @@ export abstract class ApiClientAreas implements ApiClientSelf {
     const context = new ApiClientContext(baseUrl, instrumentation);
     this.context = context;
     this.session = new SessionArea(context, this);
+    this.twoFactor = new TwoFactorArea(context);
     this.identities = new IdentityArea(context, this);
     this.policies = new PrincipalPolicyArea(context, this);
     this.organizations = new OrganizationArea(context);

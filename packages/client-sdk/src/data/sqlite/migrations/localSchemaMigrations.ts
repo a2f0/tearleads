@@ -194,6 +194,20 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     },
     version: 10,
   },
+  {
+    // An administrator may require a member to sign in with two-factor
+    // authentication. Every member existing before this step had no such
+    // requirement, which the default records; a later change rewrites the
+    // row through the directory lane. The column is unindexed.
+    name: "add_directory_two_factor_required",
+    up: async (execSql, context) => {
+      if (!(await context.hasTable(DIRECTORY_USERS_TABLE))) return;
+      await execSql(
+        `ALTER TABLE "${DIRECTORY_USERS_TABLE}" ADD COLUMN "two_factor_required" INTEGER NOT NULL DEFAULT 0`,
+      );
+    },
+    version: 11,
+  },
 ];
 
 const STEP_NAME_PATTERN = /^[a-z0-9_]+$/;

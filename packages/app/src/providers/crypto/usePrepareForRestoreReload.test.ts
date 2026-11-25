@@ -48,6 +48,7 @@ async function sessionFixture() {
         rootContainerId: "server-root",
       },
     ],
+    twoFactorDeviceToken: null,
     userId: "user-1",
     userIdAcknowledged: true,
   };

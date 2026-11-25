@@ -1,3 +1,7 @@
+import type {
+  SessionTwoFactorCode,
+  TwoFactorLoginErrorCode,
+} from "@tearleads/client-sdk";
 import { useCallback, useState } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../providers/logging/LogProvider";
@@ -6,6 +10,26 @@ import {
   IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE,
   isIdentityAcknowledgmentMismatch,
 } from "./identityAcknowledgmentMismatch";
+
+const TWO_FACTOR_MESSAGES: Readonly<Record<TwoFactorLoginErrorCode, string>> = {
+  two_factor_invalid: "That code did not match. Try again.",
+  two_factor_locked:
+    "Too many incorrect codes. Wait 15 minutes, then try again.",
+  two_factor_required: "Enter the code from your authenticator app.",
+};
+
+function isTwoFactorPromptCode(code: unknown): code is TwoFactorLoginErrorCode {
+  return typeof code === "string" && Object.hasOwn(TWO_FACTOR_MESSAGES, code);
+}
+
+/** The second factor a refused sign-in asks for, matched like suspension. */
+function twoFactorRefusal(error: unknown): TwoFactorLoginErrorCode | null {
+  if (!(error instanceof Error) || error.name !== "TwoFactorLoginError") {
+    return null;
+  }
+  const code = Reflect.get(error, "code");
+  return isTwoFactorPromptCode(code) ? code : null;
+}
 
 export const ACCOUNT_SUSPENDED_MESSAGE =
   "This account is suspended. Contact support to restore access.";
@@ -42,13 +66,21 @@ export function describeAuthenticationFailure(input: {
     : "Authentication failed: no network connection.";
 }
 
-interface AuthenticateAction {
-  /** Run the login; resolves to whether authentication succeeded. */
-  readonly authenticate: () => Promise<boolean>;
+export interface AuthenticateAction {
+  /**
+   * Run the login, with a second factor once one was asked for; resolves to
+   * whether authentication succeeded.
+   */
+  readonly authenticate: (twoFactor?: SessionTwoFactorCode) => Promise<boolean>;
   readonly authenticating: boolean;
   /** A human reason for the most recent failure, or null when there is none. */
   readonly error: string | null;
   readonly clearError: () => void;
+  /**
+   * Set while sign-in waits on a code from the person: the identity has
+   * two-factor on and this device sent none, or the last code failed.
+   */
+  readonly twoFactorPrompt: TwoFactorLoginErrorCode | null;
 }
 
 /**
@@ -59,49 +91,64 @@ interface AuthenticateAction {
  * reason from one place.
  */
 export function useAuthenticateAction(): AuthenticateAction {
-  const { login } = useCryptoSession();
+  const { login, loginWithSecondFactor } = useCryptoSession();
   const { logError } = useLog();
   const tearleads = useTearleads();
   const [authenticating, setAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [twoFactorPrompt, setTwoFactorPrompt] =
+    useState<TwoFactorLoginErrorCode | null>(null);
 
-  const authenticate = useCallback(async (): Promise<boolean> => {
-    setAuthenticating(true);
-    setError(null);
-    try {
-      const authenticated = await login();
-      if (!authenticated) {
-        // Read the network store now, not a render-time snapshot, so a source
-        // event that arrived during the authentication attempt is reflected.
-        setError(
-          describeAuthenticationFailure({ online: tearleads.network.online }),
+  const authenticate = useCallback(
+    async (twoFactor?: SessionTwoFactorCode): Promise<boolean> => {
+      setAuthenticating(true);
+      setError(null);
+      try {
+        const authenticated = twoFactor
+          ? await loginWithSecondFactor(twoFactor)
+          : await login();
+        if (authenticated) setTwoFactorPrompt(null);
+        if (!authenticated) {
+          // Read the network store now, not a render-time snapshot, so a source
+          // event that arrived during the authentication attempt is reflected.
+          setError(
+            describeAuthenticationFailure({ online: tearleads.network.online }),
+          );
+        }
+        return authenticated;
+      } catch (caught: unknown) {
+        const refusal = twoFactorRefusal(caught);
+        if (refusal) {
+          setTwoFactorPrompt(refusal);
+          setError(TWO_FACTOR_MESSAGES[refusal]);
+          return false;
+        }
+        const identityMismatch = isIdentityAcknowledgmentMismatch(caught);
+        logError(
+          identityMismatch
+            ? "Authentication refused by identity acknowledgment"
+            : "Authentication failed",
+          caught,
         );
+        setError(
+          describeAuthenticationFailure({
+            accountSuspended: isAccountSuspended(caught),
+            identityMismatch,
+            online: tearleads.network.online,
+          }),
+        );
+        return false;
+      } finally {
+        setAuthenticating(false);
       }
-      return authenticated;
-    } catch (caught: unknown) {
-      const identityMismatch = isIdentityAcknowledgmentMismatch(caught);
-      logError(
-        identityMismatch
-          ? "Authentication refused by identity acknowledgment"
-          : "Authentication failed",
-        caught,
-      );
-      setError(
-        describeAuthenticationFailure({
-          accountSuspended: isAccountSuspended(caught),
-          identityMismatch,
-          online: tearleads.network.online,
-        }),
-      );
-      return false;
-    } finally {
-      setAuthenticating(false);
-    }
-  }, [login, logError, tearleads]);
+    },
+    [login, loginWithSecondFactor, logError, tearleads],
+  );
 
   const clearError = useCallback(() => {
     setError(null);
+    setTwoFactorPrompt(null);
   }, []);
 
-  return { authenticate, authenticating, error, clearError };
+  return { authenticate, authenticating, error, clearError, twoFactorPrompt };
 }

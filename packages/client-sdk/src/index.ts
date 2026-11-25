@@ -6,6 +6,8 @@ export {
   type ApiRequestEndpointCounts,
   ApiRequestMetrics,
   type ApiRequestMetricsSnapshot,
+  TwoFactorLoginError,
+  type TwoFactorLoginErrorCode,
 } from "@tearleads/api-client";
 export type {
   AbandonOrganizationPolicyMutationInput,
@@ -173,8 +175,13 @@ export type {
   SessionRegistrationRefusal,
   SessionRegistrationResult,
   SessionSnapshot,
+  SessionTwoFactorCode,
   SetActiveDocumentContainerInput,
   SetLinkedContainerIdsForDocument,
+  TwoFactor,
+  TwoFactorAnswer,
+  TwoFactorSetup,
+  TwoFactorStatus,
   UnlinkDocumentFromContainerInput,
   UnwrapLocalSecretInput,
   UserIdentities,
@@ -248,6 +255,7 @@ export {
   type SyncPurchaseResult,
   type SyncSubscriptionOption,
   serializeLocalKeyringManifest,
+  TwoFactorRequestError,
   UnverifiedUserIdentityError,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";

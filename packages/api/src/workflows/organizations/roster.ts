@@ -36,6 +36,7 @@ export function toOrganizationDirectoryUser(input: {
       input.user.defaultOrganizationId === input.rosterEntry.organizationId,
     isSelf: input.user.userId === input.sessionUserId,
     status: input.rosterEntry.status,
+    twoFactorRequired: input.rosterEntry.twoFactorRequired,
     profileDocumentId: input.rosterEntry.profileDocumentId,
     joinedAt: input.rosterEntry.joinedAt.toISOString(),
     leaveRequest: readStoredLeaveRequest(input.rosterEntry.leaveRequest),

@@ -34,6 +34,7 @@ function directoryUser(userId: string): OrganizationDirectoryUserResponse {
     updatedAt: CREATED_AT,
     disabledAt: null,
     disabledByUserId: null,
+    twoFactorRequired: false,
   };
 }
 

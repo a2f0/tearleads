@@ -9,6 +9,7 @@ const user = {
   updatedAt: "2026-09-10T00:00:00.000Z",
   disabledAt: null,
   disabledByUserId: null,
+  twoFactorRequired: false,
   profileDocumentId: null,
   signingKeyFingerprint: "signing-fingerprint",
   encapsulationKeyFingerprint: "kem-fingerprint",

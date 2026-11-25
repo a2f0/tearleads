@@ -49,6 +49,8 @@ export interface SessionContext {
   /** Platform-operator flag reported by the server at login. */
   isRoot?: boolean | undefined;
   organizationId?: string | null | undefined;
+  /** The token a remembered device signs in with in place of a code. */
+  twoFactorDeviceToken?: string | null | undefined;
   userId?: string | null | undefined;
 }
 
@@ -72,7 +74,21 @@ export interface SessionSnapshot {
   /** Platform-operator flag reported by the server at login. */
   isRoot: boolean;
   organizationId: string | null;
+  /**
+   * Issued when a sign-in with a typed second factor asked to remember this
+   * device. Later sign-ins, silent renewal included, send it instead of a
+   * code. It outlives sign-out; hosts persist it with the session.
+   */
+  twoFactorDeviceToken: string | null;
   userId: string | null;
+}
+
+/** A typed second factor for an identity with two-factor turned on. */
+export interface SessionTwoFactorCode {
+  readonly code: string;
+  readonly method: "recovery_code" | "totp";
+  /** Asks the server to remember this device for 30 days. */
+  readonly rememberDevice: boolean;
 }
 
 export type SessionListener = () => void;
@@ -167,7 +183,15 @@ export interface Session {
   ): Promise<boolean>;
   destroySession(sessionId: string): Promise<boolean>;
   listSessions(): Promise<UserSession[]>;
-  login(challengeHex?: string | undefined): Promise<boolean>;
+  /**
+   * Signs in. An identity with two-factor turned on needs `twoFactor`, or a
+   * remembered device's token; without either it throws
+   * `TwoFactorLoginError` with code `two_factor_required`.
+   */
+  login(
+    challengeHex?: string | undefined,
+    twoFactor?: SessionTwoFactorCode | undefined,
+  ): Promise<boolean>;
   logout(): void;
   /** Runs host cleanup only after this invocation clears its own local session. */
   logoutRemote(

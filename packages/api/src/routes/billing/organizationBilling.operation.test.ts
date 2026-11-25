@@ -56,6 +56,8 @@ test("native purchase eligibility responses are never cacheable", async () => {
       ipAddresses: [],
       lastActiveAt: 0,
       lastActiveIp: null,
+      twoFactorRequiredOrganizationIds: [],
+      twoFactorVerified: false,
       userId: "user-1",
     });
     return next();
@@ -83,6 +85,8 @@ test("native eligibility requires a recognized target store", async () => {
       ipAddresses: [],
       lastActiveAt: 0,
       lastActiveIp: null,
+      twoFactorRequiredOrganizationIds: [],
+      twoFactorVerified: false,
       userId: "user-1",
     });
     return next();

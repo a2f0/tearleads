@@ -45,6 +45,7 @@ test("auth operations emit their public request and response contracts", () => {
     "401",
     "403",
     "404",
+    "429",
     "500",
     "503",
   ]);

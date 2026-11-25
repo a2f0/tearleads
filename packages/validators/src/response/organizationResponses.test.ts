@@ -30,6 +30,7 @@ test("organization manager responses", () => {
           updatedAt: new Date().toISOString(),
           disabledAt: null,
           disabledByUserId: null,
+          twoFactorRequired: false,
         },
       ],
     }),
@@ -172,6 +173,7 @@ test("organization manager responses", () => {
         updatedAt: new Date().toISOString(),
         disabledAt: new Date().toISOString(),
         disabledByUserId: "admin-1",
+        twoFactorRequired: false,
       },
       groups: [
         {

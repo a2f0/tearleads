@@ -105,6 +105,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
           updatedAt: CREATED_AT,
           disabledAt: null,
           disabledByUserId: null,
+          twoFactorRequired: false,
         })),
       },
       grants: { organizationId: ORGANIZATION_ID, grants },

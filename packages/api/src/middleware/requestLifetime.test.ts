@@ -12,6 +12,8 @@ const SESSION = JSON.stringify({
   ipAddresses: [],
   lastActiveAt: Date.now(),
   lastActiveIp: null,
+  twoFactorRequiredOrganizationIds: [],
+  twoFactorVerified: false,
   userId: "33333333-3333-4333-8333-333333333333",
 });
 

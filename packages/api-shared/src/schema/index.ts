@@ -72,4 +72,5 @@ export type {
   OrganizationBillingStatus,
   OrganizationRosterStatus,
 } from "./shared";
+export { userTwoFactor, userTwoFactorRecoveryCodes } from "./twoFactor";
 export { users } from "./users";

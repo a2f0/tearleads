@@ -23,7 +23,7 @@ test("Postgres migrations initialize all tables without application data", async
     const { rows } = await client.query<{ tablename: string }>(
       "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
     );
-    expect(rows).toHaveLength(51);
+    expect(rows).toHaveLength(53);
     const nameColumns = await client.query(
       "SELECT table_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('groups', 'organizations') AND column_name = 'name'",
     );

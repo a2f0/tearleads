@@ -152,6 +152,8 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "RemoteDocumentService",
   "SyncBillingGate",
   "Tearleads",
+  "TwoFactorLoginError",
+  "TwoFactorRequestError",
   "UnreadablePrincipalMutationError",
   "UnverifiedUserIdentityError",
   "WRAPPED_LOCAL_SECRET_FORMAT",

@@ -73,6 +73,7 @@ type OrgManagerOrganizationActions = Pick<
   | "loadPolicyHistory"
   | "loadUserDetail"
   | "revokeGrant"
+  | "setRosterTwoFactorRequired"
   | "updateProfile"
   | "updateRosterEntry"
 >;
@@ -118,6 +119,7 @@ const organizationActionKeys =
     "loadGrants",
     "loadPolicyHistory",
     "loadUserDetail",
+    "setRosterTwoFactorRequired",
     "updateRosterEntry",
     "updateProfile",
     "revokeGrant",

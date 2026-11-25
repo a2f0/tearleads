@@ -46,6 +46,7 @@ import type {
   SessionRegistrationRefusal,
   SessionRegistrationResult,
   SessionSnapshot,
+  SessionTwoFactorCode,
   UserSession,
 } from "./sessionTypes";
 
@@ -158,13 +159,15 @@ class SessionService implements Session {
     return response?.message === "ok";
   }
 
-  login(challengeHex?: string): Promise<boolean> {
+  login(
+    challengeHex?: string,
+    twoFactor?: SessionTwoFactorCode,
+  ): Promise<boolean> {
     return authenticateSession(
       this.dependencies,
       this,
       this.identityAcknowledgments,
-      challengeHex,
-      false,
+      { challengeHex, renewal: false, twoFactor },
     );
   }
 
@@ -177,8 +180,7 @@ class SessionService implements Session {
       this.dependencies,
       this,
       this.identityAcknowledgments,
-      undefined,
-      true,
+      { renewal: true },
     );
   };
 

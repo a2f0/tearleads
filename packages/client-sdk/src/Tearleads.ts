@@ -39,6 +39,7 @@ import {
 } from "./client/securityIncidents";
 import { createSession, sessionLifetime } from "./client/session";
 import type { Session } from "./client/session/sessionTypes";
+import { createTwoFactor, type TwoFactor } from "./client/twoFactor";
 import {
   type DocumentProjectorRegistry,
   resolveDocumentProjectorRegistry,
@@ -82,6 +83,8 @@ export class Tearleads {
   readonly securityIncidents: SecurityIncidents;
   readonly session: Session;
   readonly syncBillingGate: SyncBillingGate;
+  /** The signed-in identity's two-factor authentication. */
+  readonly twoFactor: TwoFactor;
   readonly userIdentities: UserIdentities;
 
   private readonly apiClient: ApiClient;
@@ -182,6 +185,7 @@ export class Tearleads {
       () => this.deviceFirst.open().reconciler,
     );
     this.root = createRoot(rootRuntimeOf(runtime, this.session));
+    this.twoFactor = createTwoFactor(this.apiClient, this.session);
     this.userIdentities = createUserIdentities({
       getOrganizationId: () => this.session.organizationId,
       reportSecurityIncident: security.report,

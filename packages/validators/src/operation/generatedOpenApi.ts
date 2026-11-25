@@ -121,6 +121,106 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/auth/two-factor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get two-factor authentication status
+         * @description Reports whether the signed-in identity has two-factor authentication turned on, how many unused recovery codes it has, and whether the calling session passed a second factor.
+         */
+        get: operations["auth.twoFactor.status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/two-factor/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn off two-factor authentication
+         * @description Turns off two-factor authentication after checking an authenticator or recovery code. It deletes the secret, the recovery codes, and every remembered device, and revokes the identity's other sessions. Organizations that require two-factor authentication of this member refuse the calling session afterwards.
+         */
+        post: operations["auth.twoFactor.disable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/two-factor/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn on two-factor authentication
+         * @description Confirms the pending authenticator with its current code and turns on two-factor authentication. The response carries ten single-use recovery codes, shown only once. The calling session counts as having passed a second factor; the identity's other sessions are revoked, so each device signs in again with a code. A wrong code returns 400 and repeated wrong codes lock code entry for a while with 429.
+         */
+        post: operations["auth.twoFactor.enable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/two-factor/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace two-factor recovery codes
+         * @description Replaces every recovery code with ten new ones after checking an authenticator or recovery code. The old codes stop working at once; the new ones are shown only in this response.
+         */
+        post: operations["auth.twoFactor.recoveryCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/two-factor/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start authenticator setup
+         * @description Creates a new authenticator secret for the signed-in identity and returns it as an `otpauth://` URI and in base32. Nothing changes at sign-in until `POST /auth/two-factor/enable` confirms a code from it; starting again replaces an unconfirmed secret. An identity that already has two-factor authentication turned on gets 409.
+         */
+        post: operations["auth.twoFactor.setup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/user-identity/{userId}": {
         parameters: {
             query?: never;
@@ -152,7 +252,7 @@ export type paths = {
         put?: never;
         /**
          * Verify an auth challenge
-         * @description Completes sign-in by checking the challenge signature, bound to the API origin, against the identity's registered signing key, then opens a session and returns its bearer token plus the first WebSocket ticket. Each challenge can be used once. A suspended identity's valid signature is refused with 403 and code `account_suspended`, which clients treat as terminal.
+         * @description Completes sign-in by checking the challenge signature, bound to the API origin, against the identity's registered signing key, then opens a session and returns its bearer token plus the first WebSocket ticket. Each challenge can be used once. A suspended identity's valid signature is refused with 403 and code `account_suspended`, which clients treat as terminal. An identity with two-factor authentication turned on also needs an authenticator or recovery code, or a device trust token from an earlier sign-in that asked to remember the device: without one the valid signature gets 401 `two_factor_required`, a wrong code 401 `two_factor_invalid`, and repeated wrong codes 429 `two_factor_locked`.
          */
         post: operations["auth.verify"];
         delete?: never;
@@ -1342,6 +1442,26 @@ export type paths = {
          * @description Binds a member's encrypted roster profile document to their organization roster entry. Members may bind their own profile; binding another member's requires organization administrator access.
          */
         put: operations["organizations.roster.update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/roster/{userId}/two-factor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Require two-factor authentication of a member
+         * @description Sets whether a member must sign in with two-factor authentication before this organization's server routes answer them. Only organization administrators may call it, for a user on the roster. While it is set, a session of the member that did not pass a second factor is refused with 403 and code `organization_two_factor_required`. When the setting changes, the member's sessions that did not pass one are revoked so the next sign-in applies it.
+         */
+        put: operations["organizations.roster.twoFactor.update"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3487,6 +3607,7 @@ export type components = {
              * @enum {string}
              */
             status: "active" | "disabled";
+            twoFactorRequired: boolean;
             updatedAt: string;
             userId: string;
         } & {
@@ -3692,6 +3813,7 @@ export type components = {
                         signingKeyFingerprint: string;
                         /** @enum {string} */
                         status: "active" | "disabled";
+                        twoFactorRequired: boolean;
                         updatedAt: string;
                         userId: string;
                     }[];
@@ -3800,6 +3922,7 @@ export type components = {
                         signingKeyFingerprint: string;
                         /** @enum {string} */
                         status: "active" | "disabled";
+                        twoFactorRequired: boolean;
                         updatedAt: string;
                         userId: string;
                     }[];
@@ -3896,6 +4019,7 @@ export type components = {
                         signingKeyFingerprint: string;
                         /** @enum {string} */
                         status: "active" | "disabled";
+                        twoFactorRequired: boolean;
                         updatedAt: string;
                         userId: string;
                     }[];
@@ -5057,6 +5181,83 @@ export type components = {
         } & {
             [key: string]: unknown;
         };
+        /** @description Proves the second factor again before turning it off or replacing the recovery codes. */
+        TwoFactorConfirmationRequest: {
+            /** @description An authenticator code or an unused recovery code. */
+            code: string;
+            /**
+             * @description `totp` for an authenticator code, `recovery_code` for a recovery code.
+             * @enum {string}
+             */
+            method: "totp" | "recovery_code";
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Confirms a pending authenticator with its current code, turning two-factor on. */
+        TwoFactorEnableRequest: {
+            /** @description The authenticator's current six-digit code. */
+            code: string;
+            /** @description True to also receive a device token for this device's later sign-ins. */
+            rememberDevice: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description Two-factor is on: the recovery codes, shown once, and the device token if one was asked for. */
+        TwoFactorEnableResponse: {
+            deviceToken?: string;
+            /** @constant */
+            enabled: true;
+            recoveryCodes: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A refused two-factor management request. */
+        TwoFactorErrorResponse: {
+            /**
+             * @description Why it was refused, such as `two_factor_invalid` for a code that did not match.
+             * @enum {string}
+             */
+            code?: "two_factor_already_enabled" | "two_factor_invalid" | "two_factor_locked" | "two_factor_not_enabled" | "two_factor_setup_missing";
+            error: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A second factor sent with sign-in by an identity that has two-factor on. */
+        TwoFactorLoginCode: {
+            /** @description The authenticator's current six-digit code, or an unused recovery code. */
+            code: string;
+            /**
+             * @description `totp` for an authenticator code, `recovery_code` for a recovery code.
+             * @enum {string}
+             */
+            method: "totp" | "recovery_code";
+            /** @description True to receive a device token, so this device's sign-ins need no code for thirty days. */
+            rememberDevice: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description New recovery codes, shown once; the previous codes no longer work. */
+        TwoFactorRecoveryCodesResponse: {
+            recoveryCodes: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description A new authenticator secret, pending until a code confirms it. */
+        TwoFactorSetupResponse: {
+            otpauthUri: string;
+            secret: string;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description The signed-in identity's two-factor state and the calling session's standing. */
+        TwoFactorStatusResponse: {
+            enabled: boolean;
+            recoveryCodesRemaining: number;
+            requiredByOrganizationIds: string[];
+            sessionVerified: boolean;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description The caller's own setting for one organization they belong to. */
         UpdateOrganizationMembershipRequest: {
             /** @description True to hold this organization's content sync on the caller's devices, which keep their local copy; access and keys are unchanged. */
@@ -5073,6 +5274,11 @@ export type components = {
             profileDocumentId: string | null;
         } & {
             [key: string]: unknown;
+        };
+        /** @description An administrator's two-factor requirement for one member. */
+        UpdateOrganizationRosterTwoFactorRequest: {
+            /** @description True to refuse the member's sessions that did not pass a second factor. */
+            required: boolean;
         };
         /** @description Confirms a part uploaded through the API byte route. */
         UploadMultipartBlobPartResponse: {
@@ -5117,10 +5323,10 @@ export type components = {
             /** @constant */
             authenticated: false;
             /**
-             * @description `account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal.
-             * @constant
+             * @description `account_suspended` when the signature was valid but an operator suspended the account; treat it as terminal. `two_factor_required`, `two_factor_invalid`, or `two_factor_locked` when the identity has two-factor on: ask the person for a code.
+             * @enum {string}
              */
-            code?: "account_suspended";
+            code?: "account_suspended" | "two_factor_required" | "two_factor_invalid" | "two_factor_locked";
             error?: string;
             isRoot?: unknown;
             organizationId?: unknown;
@@ -5137,6 +5343,10 @@ export type components = {
             fingerprint: string;
             /** @description Base64 ML-DSA-87 signature over the challenge, bound to the API origin and fingerprint. */
             signature: string;
+            /** @description The second factor, for an identity with two-factor on and no remembered device. */
+            twoFactor?: components["schemas"]["TwoFactorLoginCode"];
+            /** @description The token a remembered device received; it stands in for a code while valid. */
+            twoFactorDeviceToken?: string;
         } & {
             [key: string]: unknown;
         };
@@ -5154,6 +5364,8 @@ export type components = {
             rootContainerId: string | null;
             /** @description Bearer token for the `Authorization` header of later requests. */
             token: string;
+            /** @description Issued when the sign-in asked to remember this device; send it with later sign-ins. */
+            twoFactorDeviceToken?: string;
             userId: string;
             /** @description Single-use ticket for this session's first WebSocket connection. */
             wsTicket: string;
@@ -5522,6 +5734,343 @@ export interface operations {
             };
         };
     };
+    "auth.twoFactor.status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorStatusResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "auth.twoFactor.disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFactorConfirmationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorStatusResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "auth.twoFactor.enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFactorEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorEnableResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "auth.twoFactor.recoveryCodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TwoFactorConfirmationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorRecoveryCodesResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "auth.twoFactor.setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorSetupResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TwoFactorErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     "auth.userIdentity": {
         parameters: {
             query?: never;
@@ -5631,6 +6180,15 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyFailureResponse"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11045,6 +11603,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaymentRequiredErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "organizations.roster.twoFactor.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOrganizationRosterTwoFactorRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationDirectoryUserResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionFailureResponse"];
                 };
             };
             /** @description Forbidden */

@@ -1,5 +1,5 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import type { Tearleads } from "@tearleads/client-sdk";
+import { type Tearleads, TwoFactorLoginError } from "@tearleads/client-sdk";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import {
@@ -163,5 +163,51 @@ test("derives the login-failure reason from the live network state", async () =>
     expect(view.result.current.error).toBe("Authentication failed.");
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
+  }
+});
+
+test("a sign-in that needs a second factor asks for it, then signs in with it", async () => {
+  const sent: unknown[] = [];
+  const spies = [
+    spyOn(CryptoSessionProvider, "useCryptoSession").mockReturnValue({
+      login: async () => {
+        throw new TwoFactorLoginError("two_factor_required");
+      },
+      loginWithSecondFactor: async (twoFactor: unknown) => {
+        sent.push(twoFactor);
+        return true;
+      },
+    } as unknown as CryptoSessionProvider.CryptoSessionContextValue),
+    spyOn(LogProvider, "useLog").mockReturnValue({
+      log: () => undefined,
+      logError: () => undefined,
+    } as unknown as ReturnType<typeof LogProvider.useLog>),
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      network: { online: true },
+    } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>),
+  ];
+  try {
+    const view = renderHook(() => useAuthenticateAction());
+    await act(async () => {
+      expect(await view.result.current.authenticate()).toBe(false);
+    });
+    expect(view.result.current.twoFactorPrompt).toBe("two_factor_required");
+    expect(view.result.current.error).toBe(
+      "Enter the code from your authenticator app.",
+    );
+
+    const code = { code: "123456", method: "totp", rememberDevice: true };
+    await act(async () => {
+      expect(
+        await view.result.current.authenticate(
+          code as Parameters<typeof view.result.current.authenticate>[0],
+        ),
+      ).toBe(true);
+    });
+    expect(sent).toEqual([code]);
+    expect(view.result.current.twoFactorPrompt).toBeNull();
+    expect(view.result.current.error).toBeNull();
+  } finally {
+    for (const spy of spies) spy.mockRestore();
   }
 });

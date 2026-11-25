@@ -3,6 +3,7 @@ import type {
   DeleteOrganizationGroupRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
+  UpdateOrganizationRosterTwoFactorRequest,
 } from "@tearleads/validators/request";
 import type {
   CreateOrganizationGroupResponse,
@@ -25,6 +26,7 @@ import { runDeleteOrganizationGroupWorkflow } from "../../workflows/organization
 import { runUpdateOrganizationProfileWorkflow } from "../../workflows/organizations/profileMutation";
 import { runGetOrganizationReadModelWorkflow } from "../../workflows/organizations/readModelFeed";
 import { runUpdateOrganizationRosterEntryWorkflow } from "../../workflows/organizations/rosterMutation";
+import { runUpdateOrganizationRosterTwoFactorWorkflow } from "../../workflows/organizations/rosterTwoFactor";
 import type { ApiServiceRuntime } from "../runtime";
 
 export { OrganizationManagerError, OrganizationReadModelCursorError };
@@ -69,6 +71,64 @@ export async function updateOrganizationRosterEntry(
     sessionUserId,
     input,
   );
+}
+
+/** The session store calls a requirement change sweeps a member's sessions with. */
+export interface RosterTwoFactorSessionStore {
+  readonly destroyUserSession: (input: {
+    sessionId: string;
+    userId: string;
+  }) => Promise<boolean>;
+  readonly listUserSessions: (input: {
+    currentToken: string;
+    userId: string;
+  }) => Promise<
+    readonly { readonly id: string; readonly twoFactorVerified: boolean }[]
+  >;
+}
+
+/**
+ * Sets a member's two-factor requirement, then revokes the member's sessions
+ * that did not pass a second factor: each holds the requirements read when it
+ * opened, and its silent renewal reads them again. Sessions that passed one
+ * already satisfy any requirement. Sign-in re-reads the requirements after
+ * storing a session, so a login racing this change leaves either a session
+ * the sweep finds or one that read the new requirement.
+ */
+export async function updateOrganizationRosterTwoFactor(
+  runtime: ApiServiceRuntime,
+  sessions: RosterTwoFactorSessionStore,
+  input: {
+    readonly organizationId: string;
+    readonly request: UpdateOrganizationRosterTwoFactorRequest;
+    readonly sessionUserId: string;
+    readonly userId: string;
+  },
+): Promise<OrganizationDirectoryUserResponse> {
+  const { changed, user } = await runUpdateOrganizationRosterTwoFactorWorkflow(
+    runtime.db,
+    input.organizationId,
+    input.userId,
+    input.sessionUserId,
+    input.request,
+  );
+  if (changed) {
+    const live = await sessions.listUserSessions({
+      currentToken: "",
+      userId: input.userId,
+    });
+    await Promise.all(
+      live
+        .filter((session) => !session.twoFactorVerified)
+        .map((session) =>
+          sessions.destroyUserSession({
+            sessionId: session.id,
+            userId: input.userId,
+          }),
+        ),
+    );
+  }
+  return user;
 }
 
 export async function updateOrganizationProfile(

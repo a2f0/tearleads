@@ -1,7 +1,9 @@
+import { ORGANIZATION_TWO_FACTOR_ERROR_CODES } from "@tearleads/validators/response";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { SessionEnv } from "../middleware/session";
 import { isTransientDatabaseFailure } from "../utils/databaseErrors";
+import { OrganizationTwoFactorRequiredError } from "../utils/requestTwoFactorStanding";
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import { OrganizationSyncDisabledError } from "../workflows/billing/organizationSyncEligibility";
 import { apiRequestContext } from "./requestContext";
@@ -25,6 +27,18 @@ export function createApiErrorHandler(
           reason: error.reason,
         },
         402,
+      );
+    }
+    // Distinct from an access denial, which tells clients to drop the
+    // organization's local projection; this one asks for a second factor.
+    if (error instanceof OrganizationTwoFactorRequiredError) {
+      return c.json(
+        {
+          code: ORGANIZATION_TWO_FACTOR_ERROR_CODES.required,
+          error: error.message,
+          organizationId: error.organizationId,
+        },
+        error.status,
       );
     }
     if (error instanceof HTTPException && error.status < 500) {

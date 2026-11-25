@@ -377,7 +377,13 @@ independently from the local grants lane. State-hash and member-count checks
 prevent torn local views, but do not make presentation rows authoritative.
 `isSelf` is derived from the active user, while `isOrgAdmin` is
 requester-scoped and UI-only. Metadata profile upload is a separate idempotent
-content sync and never changes grants.
+content sync and never changes grants. Directory users carry
+`twoFactorRequired`, which an administrator sets with
+`setOrganizationRosterTwoFactorRequired`. The API enforces it: a session of
+that member without a second factor gets 403 `organization_two_factor_required`
+from the organization's routes. The reconcile keeps the retained projection
+then, rather than purging it as it does on an access denial. See
+[two-factor sign-in](../../../../docs/developer/client-sdk/local-keyring.md).
 
 On-device data usage (`measureOrganizationDeviceDataUsage`, exposed as
 `Organizations.loadDeviceDataUsage()`) is a read-only measurement, not a

@@ -29,6 +29,8 @@ async function insertUser(): Promise<string> {
   return inserted.id;
 }
 
+const notSuspended = { suspended: false, twoFactorRequiredOrganizationIds: [] };
+
 async function readLastActiveAt(userId: string): Promise<Date | null> {
   const [row] = await db
     .select({ lastActiveAt: users.lastActiveAt })
@@ -42,15 +44,17 @@ test("the standing stamp moves an active user's last_active_at forward only", as
   const record = createRecordActivityUnlessSuspended(db);
   const later = Date.UTC(2026, 8, 6, 12, 0, 0);
 
-  await expect(record({ lastActiveAt: later, userId })).resolves.toBe(false);
-  await expect(readLastActiveAt(userId)).resolves.toEqual(new Date(later));
-  await expect(record({ lastActiveAt: later - 60_000, userId })).resolves.toBe(
-    false,
+  await expect(record({ lastActiveAt: later, userId })).resolves.toEqual(
+    notSuspended,
   );
   await expect(readLastActiveAt(userId)).resolves.toEqual(new Date(later));
-  await expect(record({ lastActiveAt: later + 1_000, userId })).resolves.toBe(
-    false,
-  );
+  await expect(
+    record({ lastActiveAt: later - 60_000, userId }),
+  ).resolves.toEqual(notSuspended);
+  await expect(readLastActiveAt(userId)).resolves.toEqual(new Date(later));
+  await expect(
+    record({ lastActiveAt: later + 1_000, userId }),
+  ).resolves.toEqual(notSuspended);
   await expect(readLastActiveAt(userId)).resolves.toEqual(
     new Date(later + 1_000),
   );
@@ -66,9 +70,11 @@ test("the standing stamp reports a suspended user and leaves its activity", asyn
     .set({ suspendedAt: new Date(seen + 1_000) })
     .where(eq(users.id, userId));
 
-  await expect(record({ lastActiveAt: seen + 60_000, userId })).resolves.toBe(
-    true,
-  );
+  await expect(
+    record({ lastActiveAt: seen + 60_000, userId }),
+  ).resolves.toMatchObject({
+    suspended: true,
+  });
   await expect(readLastActiveAt(userId)).resolves.toEqual(new Date(seen));
 });
 
@@ -78,7 +84,7 @@ test("the standing stamp reads an unknown user as not suspended", async () => {
       lastActiveAt: Date.now(),
       userId: "00000000-0000-4000-8000-000000000000",
     }),
-  ).resolves.toBe(false);
+  ).resolves.toEqual(notSuspended);
 });
 
 test("an activity-due authenticated request runs one statement", async () => {
@@ -96,6 +102,8 @@ test("an activity-due authenticated request runs one statement", async () => {
           ipAddresses: [],
           lastActiveAt: 0,
           lastActiveIp: null,
+          twoFactorRequiredOrganizationIds: [],
+          twoFactorVerified: false,
           userId,
         }),
       async () => undefined,

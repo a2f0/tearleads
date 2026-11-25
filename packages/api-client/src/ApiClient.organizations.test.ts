@@ -294,6 +294,7 @@ testApiClient(
             updatedAt: "2026-05-12T12:00:00.000Z",
             disabledAt: null,
             disabledByUserId: null,
+            twoFactorRequired: false,
           });
         }
         if (request.url.endsWith("/policy")) {

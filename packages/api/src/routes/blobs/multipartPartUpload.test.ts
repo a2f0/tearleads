@@ -35,6 +35,8 @@ function authenticated(userId: string) {
       ipAddresses: [],
       lastActiveAt: Date.now(),
       lastActiveIp: null,
+      twoFactorRequiredOrganizationIds: [],
+      twoFactorVerified: false,
       userId,
     });
     return next();

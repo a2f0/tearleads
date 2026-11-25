@@ -87,6 +87,34 @@ Authentication uses challenge signing:
 4. Authenticated mutation routes require the session user and fingerprint to
    match the signer fields embedded in signed access events or write headers.
 
+An identity can add a second factor: a TOTP authenticator (RFC 6238, SHA-1,
+six digits, thirty-second steps, one step of drift) with ten single-use
+recovery codes, managed under `/auth/two-factor`. The server keeps the secret
+sealed under a key derived from its own secret and the recovery codes only as
+SHA-256 hashes, and refuses a step it already accepted. While it is on,
+`POST /auth/verify` also needs `twoFactor`, a code, or `twoFactorDeviceToken`,
+a token the server issued for a remembered device (thirty days, bound to the
+user and to that enrollment). It answers `401 two_factor_required` without one,
+`401 two_factor_invalid` for a wrong code, and `429 two_factor_locked` once five
+codes in a row miss, for fifteen minutes. Turning two-factor on keeps the
+calling session and revokes the identity's others; turning it off revokes all
+of them.
+
+An organization administrator can require a second factor of a member with
+`PUT /organizations/:organizationId/roster/:userId/two-factor`. Each session
+records whether it passed a second factor and, if not, which organizations
+required one when it was issued. The organization's direct-access and sync
+routes refuse such a session with `403 organization_two_factor_required`.
+Unlike an access denial, this keeps the client's local copy of the
+organization. Changing the requirement revokes the member's sessions that
+passed no second factor. A session whose recorded organizations no longer
+match the roster is answered with `401 session_refresh_required`, so its
+renewal records them afresh. Reads that a container grant authorizes without
+one of those organization checks, and realtime hints, are not gated by the
+requirement. Enrolling a second factor needs only a signed-in session, so the
+requirement makes members enroll; it does not protect a signing key stolen
+before they do.
+
 A `401 session_refresh_required` response means the bearer token identified a
 missing, expired, or invalid stored session and permits the client to renew and
 replay a replayable request. Missing or malformed bearer credentials remain an

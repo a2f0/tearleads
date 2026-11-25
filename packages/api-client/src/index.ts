@@ -29,6 +29,11 @@ export type {
   UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
 export { describeMultipartBlobPart } from "./routes/blobs/multipartUpload";
+export {
+  type LoginSecondFactor,
+  TwoFactorLoginError,
+  type TwoFactorLoginErrorCode,
+} from "./twoFactorLogin";
 export type {
   HttpMethod,
   ListDocumentEditAttributionRangesOptions,

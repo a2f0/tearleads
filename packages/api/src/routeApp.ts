@@ -178,6 +178,7 @@ function mountRouters(
       listUserSessions: deps.listUserSessions,
       requireAuth: deps.requireAuth,
       runtime: deps.runtime,
+      updateSessionTwoFactorStanding: deps.updateSessionTwoFactorStanding,
     }),
   );
   routeApp.route(
@@ -217,6 +218,10 @@ function mountRouters(
     createOrganizationsRouter({
       requireAuth: deps.requireAuth,
       runtime: deps.runtime,
+      sessions: {
+        destroyUserSession: deps.destroyUserSession,
+        listUserSessions: deps.listUserSessions,
+      },
     }),
   );
   routeApp.route(

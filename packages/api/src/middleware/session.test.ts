@@ -43,6 +43,7 @@ test("missing and invalid stored sessions request refresh with a stable code", a
 });
 
 const ACTIVE_USER_ID = "33333333-3333-4333-8333-333333333333";
+const ORGANIZATION_ID = "44444444-4444-4444-8444-444444444444";
 
 function storedSessionJson(lastActiveAt: number): string {
   return JSON.stringify({
@@ -52,11 +53,20 @@ function storedSessionJson(lastActiveAt: number): string {
     ipAddresses: [],
     lastActiveAt,
     lastActiveIp: null,
+    twoFactorRequiredOrganizationIds: [],
+    twoFactorVerified: false,
     userId: ACTIVE_USER_ID,
   });
 }
 
 const authorized = { headers: { Authorization: `Bearer ${TOKEN}` } };
+
+function standing(
+  suspended: boolean,
+  twoFactorRequiredOrganizationIds: readonly string[] = [],
+) {
+  return { suspended, twoFactorRequiredOrganizationIds };
+}
 
 function activityApp(
   storedSession: string,
@@ -86,7 +96,7 @@ test("records user activity when the session's activity advances", async () => {
     storedSessionJson(0),
     async (input) => {
       recorded.push(input);
-      return false;
+      return standing(false);
     },
     async (_key, value) => {
       stored.push(value);
@@ -106,7 +116,7 @@ test("does not record user activity while the session is fresh", async () => {
     storedSessionJson(Date.now()),
     async (input) => {
       recorded.push(input);
-      return true;
+      return standing(true);
     },
   ).request("/", authorized);
 
@@ -119,7 +129,7 @@ test("a failing session-store write does not fail the request", async () => {
   try {
     const response = await activityApp(
       storedSessionJson(0),
-      async () => false,
+      async () => standing(false),
       async () => {
         throw new Error("session store unavailable");
       },
@@ -147,6 +157,8 @@ test("issuing a session records the login as user activity", async () => {
   const { sessionId, token } = await createSession({
     createdAt: 1_700_000_000_000,
     fingerprint: "c".repeat(64),
+    twoFactorRequiredOrganizationIds: [],
+    twoFactorVerified: false,
     userId: ACTIVE_USER_ID,
   });
 
@@ -165,7 +177,7 @@ test("the throttled activity path refuses a suspended user's session", async () 
     storedSessionJson(0),
     async ({ userId }) => {
       checked.push(userId);
-      return true;
+      return standing(true);
     },
     async (_key, value) => {
       stored.push(value);
@@ -180,6 +192,36 @@ test("the throttled activity path refuses a suspended user's session", async () 
   expect(checked).toEqual([ACTIVE_USER_ID]);
   // Refused before session activity advances, so the next request re-checks.
   expect(stored).toEqual([]);
+});
+
+test("the throttled activity path renews an unverified session whose two-factor requirements changed", async () => {
+  const stored: string[] = [];
+  const response = await activityApp(
+    storedSessionJson(0),
+    async () => standing(false, [ORGANIZATION_ID]),
+    async (_key, value) => {
+      stored.push(value);
+    },
+  ).request("/", authorized);
+
+  expect(response.status).toBe(401);
+  expect(await response.json()).toEqual({
+    code: SESSION_ERROR_CODES.refreshRequired,
+    error: "Two-factor requirements changed",
+  });
+  expect(stored).toEqual([]);
+});
+
+test("a session that passed a second factor ignores requirement changes", async () => {
+  const verified = JSON.stringify({
+    ...JSON.parse(storedSessionJson(0)),
+    twoFactorVerified: true,
+  });
+  const response = await activityApp(verified, async () =>
+    standing(false, [ORGANIZATION_ID]),
+  ).request("/", authorized);
+
+  expect(response.status).toBe(200);
 });
 
 test("a failing standing check and stamp fails the request instead of admitting it", async () => {

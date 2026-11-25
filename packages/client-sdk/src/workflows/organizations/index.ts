@@ -112,6 +112,7 @@ export {
   type OrganizationPrincipalPolicyHistoryEntry,
   type OrganizationProfile,
   type OrganizationUserDetail,
+  setOrganizationRosterTwoFactorRequired,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "./readModel";
