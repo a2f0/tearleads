@@ -91,4 +91,8 @@ those edits for documents the device holds.
 Access changes and remote resets, which delete a lane's row and so owe it
 again, are also outside the model. Head verification, tombstones, and the
 order in which lanes apply are abstracted: any lane in the listing may apply
-next.
+next. A connect attempt that a reconnect replaces is modelled as
+`AttemptEnds` followed by `Connect`, so the resume runs between them and
+`OwedListedOnce` does not cover the replacement: in the code the resume runs
+while the replacement is pending, and that attempt's catch-up can list the
+resumed lanes again.

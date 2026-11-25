@@ -194,14 +194,15 @@ local projection decides at hydration
 With no connect attempt pending, it raises `owed-discovery` and the
 reconciler queues every owed known lane at idle priority. While an attempt is
 pending, it waits: an acknowledgement leaves the owed lanes to its catch-up,
-and an attempt that ends without one resumes them. So an acknowledgement
-that arrives while the start waits lists each owed lane once, in its
-catch-up, and a device whose sign-in boot was cut short still lists the
-Contacts and organization lanes it never applied, at one listing per four
-owed lanes. Once the resume has run, a connection that starts or is
-acknowledged later is a new catch-up and lists every lane again, the resumed
-ones included. A settled lane is not listed by the resume; later remote changes
-reach it through hints, a visit, or the next acknowledged connection.
+and an attempt that ends without one, or is replaced by a reconnect, resumes
+them. So an acknowledgement that arrives while the start waits lists each
+owed lane once, in its catch-up, and a device whose sign-in boot was cut
+short still lists the Contacts and organization lanes it never applied, at
+one listing per four owed lanes. Once the resume has run, a connection that
+starts or is acknowledged later, a replacing reconnect included, is a new
+catch-up and lists every lane again, the resumed ones included. A settled
+lane is not listed by the resume; later remote changes reach it through
+hints, a visit, or the next acknowledged connection.
 [`owedDiscovery.test.ts`](../../packages/client-sdk/src/client/deviceFirst/owedDiscovery.test.ts)
 restarts a device whose earlier boot applied only some of its lanes, with no
 connect attempt, with one that never acknowledges, and with one that does.
