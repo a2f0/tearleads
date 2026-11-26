@@ -39,6 +39,8 @@ export interface SeededFolders {
   readonly notes: number;
   readonly grants: number;
   readonly additions: number;
+  /** Notes moved out of their folder, whose missing lines were skipped. */
+  readonly moved: number;
 }
 
 async function settle<T>(
@@ -88,7 +90,12 @@ async function grantFolder(
   const tree = await openReadyContainerTree(sdk, captureContinuityScope(sdk));
   let granted = 0;
   for (const { group: name, access } of grants) {
-    const groupId = state.groups.find((group) => group.name === name)?.groupId;
+    // The group the roster seed made or reused: never a built-in group or one
+    // whose name does not open.
+    const groupId = state.groups.find(
+      (group) =>
+        !group.isBuiltin && !group.nameUnreadable && group.name === name,
+    )?.groupId;
     if (!groupId) throw new Error(`The group ${name} does not exist.`);
     const held = async () =>
       (await sdk.organizations.loadGroupContainers(groupId))?.containers.some(
@@ -195,7 +202,7 @@ async function seedFolderNotes(
     const { text } = seeded.store.getSnapshot();
     written.push({
       document: note.document,
-      // An earlier run, or the user, may have left the note elsewhere.
+      // The user may have moved the note out of the folder since.
       containerId: seeded.containerId,
       additions: note.additions.filter(
         (addition) => appendNoteAddition(text, addition.text) !== null,
@@ -235,7 +242,9 @@ async function addMemberLines(
  * Makes each dataset folder under the root and writes its notes. With the
  * roster, it also grants the folder's groups their access and has each
  * member append their lines. Idempotent: a rerun reuses the folder by name,
- * keeps held grants, and skips lines the note already has.
+ * keeps held grants, and skips lines the note already has. Only the seeded
+ * folder is shared: a note the user moved elsewhere stays private to them,
+ * so its missing lines are skipped and counted.
  */
 export async function seedFolders(
   run: SeedRun,
@@ -243,7 +252,7 @@ export async function seedFolders(
   roster: FolderRoster | null,
 ): Promise<SeededFolders> {
   const { tracer } = run.session;
-  const count = { folders: 0, notes: 0, grants: 0, additions: 0 };
+  const count = { folders: 0, notes: 0, grants: 0, additions: 0, moved: 0 };
   for (const folder of folders) {
     const folderId = await tracer.span(`folder ${folder.name}`, () =>
       ensureSeedFolder(run, folder.name),
@@ -253,18 +262,14 @@ export async function seedFolders(
     const notes = await seedFolderNotes(run, folderId, folder.notes);
     count.notes += notes.length;
     if (!roster) continue;
-    // Members reach each note through the folder it is in, so a note left
-    // outside the dataset's folder shares its own folder too.
-    const shared = new Set([
-      folderId,
-      ...notes.map((note) => note.containerId),
-    ]);
-    for (const containerId of shared) {
-      count.grants += await tracer.span(`share ${folder.name}`, () =>
-        grantFolder(run.session, containerId, folder.grants),
-      );
-    }
-    count.additions += await addMemberLines(run, roster, notes);
+    count.grants += await tracer.span(`share ${folder.name}`, () =>
+      grantFolder(run.session, folderId, folder.grants),
+    );
+    const inFolder = notes.filter((note) => note.containerId === folderId);
+    count.moved += notes.filter(
+      (note) => note.containerId !== folderId && note.additions.length > 0,
+    ).length;
+    count.additions += await addMemberLines(run, roster, inFolder);
   }
   return count;
 }

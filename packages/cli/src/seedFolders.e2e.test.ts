@@ -14,14 +14,14 @@ import {
 } from "app/continuity";
 import { loadFolderTree } from "./folderTree";
 
-type FolderNodes = Awaited<ReturnType<typeof loadFolderTree>>["nodes"];
-
 import { registerCliTestAccount } from "./registerCliAccount.testUtils";
 import { resolveSeedAccount } from "./seedAccount";
 import { createSeedRun } from "./seedDocument";
 import { seedFolders } from "./seedFolders";
 import { memberRecoveryKey, seedRoster } from "./seedRoster";
 import { type CliSession, withSession } from "./session";
+
+type FolderNodes = Awaited<ReturnType<typeof loadFolderTree>>["nodes"];
 
 let apiBaseUrl = "";
 // Sign-ins during the folder step: each is a member signing in to add a line.
@@ -169,6 +169,7 @@ test("seedFolders shares each folder with its groups and members add their lines
     notes: 1,
     grants: family.grants.length,
     additions: note.additions.length,
+    moved: 0,
     signIns: note.additions.length,
   });
   // A rerun, as from a fresh device, reuses the folder, keeps the grant, and
@@ -178,6 +179,7 @@ test("seedFolders shares each folder with its groups and members add their lines
     notes: 1,
     grants: 0,
     additions: 0,
+    moved: 0,
     signIns: 0,
   });
 
@@ -194,8 +196,8 @@ test("seedFolders shares each folder with its groups and members add their lines
   });
 }, 300_000);
 
-test("members add their lines where the note is, after the owner moves it", async () => {
-  const { family, note, expectedText } = await familyFixture();
+test("a note the owner moved out of its folder stays unshared, without lines", async () => {
+  const { family, note } = await familyFixture();
   const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
   // A plain seed writes the note in the folder, with no grant and no lines.
   expect(await seedFamily(seedPhrase, false)).toMatchObject({
@@ -235,21 +237,22 @@ test("members add their lines where the note is, after the owner moves it", asyn
     return elsewhere.id;
   });
 
-  // The seed keeps the note where the owner put it and shares that folder
-  // too, so each member reaches the note there.
+  // The seed keeps the note where the owner put it and shares only its own
+  // folder, so no member signs in to add a line to the moved note.
   expect(await seedFamily(seedPhrase)).toEqual({
     folders: 1,
     notes: 1,
-    grants: 2 * family.grants.length,
-    additions: note.additions.length,
-    signIns: note.additions.length,
+    grants: family.grants.length,
+    additions: 0,
+    moved: 1,
+    signIns: 0,
   });
   await asOwner(seedPhrase, async (session) => {
     const { sdk } = session;
     await loadFolderTree(session);
-    expect(await groupAccess(sdk, family.name, elsewhereId)).toEqual(["write"]);
+    expect(await groupAccess(sdk, family.name, elsewhereId)).toEqual([]);
     const { text, writers } = await readFolderNote(sdk, elsewhereId);
-    expect(text).toBe(expectedText);
-    expect(writers.size).toBe(1 + note.additions.length);
+    expect(text).toBe(note.document.text ?? "");
+    expect(writers).toEqual(new Set([session.userId]));
   });
 }, 300_000);

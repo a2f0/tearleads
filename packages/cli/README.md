@@ -131,8 +131,10 @@ Family group), skipping a grant your organization already holds. Each member
 then signs in again to add their own line to the folder's note, so the note
 has several authors for Get Info's attribution and for History. A line already
 in the note is not added twice, and a rerun signs no member in for a line you
-can already see. Without `--roster` the folders and their notes are made, but
-no grant or member line is.
+can already see. Only the seeded folder is shared: if you move its note
+elsewhere, the note keeps its place and gets no member lines, and the command
+says so. Without `--roster` the folders and their notes are made, but no grant
+or member line is.
 
 Each member takes a seat in your organization, so on a billed organization
 this raises the seat count. The screenshot run passes `--roster`; leave it

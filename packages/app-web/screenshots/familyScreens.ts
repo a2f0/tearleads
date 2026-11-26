@@ -35,11 +35,13 @@ const FIRST_AUTHOR = NOTE.authors[0] ?? "";
 const LAST_AUTHOR = NOTE.authors.at(-1) ?? "";
 
 async function openFamilyFolder(scope: Scope): Promise<void> {
-  // A row's text starts with its name; a phone row adds its type after it.
-  const name = FOLDER.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const row = scope
-    .locator(".explorer-item-row-button")
-    .filter({ hasText: new RegExp(`^${name}`, "u") });
+  // The row whose name is exactly the folder's; a phone row adds its type
+  // beside the name, and a sibling may share the name's start.
+  const row = scope.locator(".explorer-item-row-button").filter({
+    has: scope.locator(".explorer-item-name").getByText(FOLDER, {
+      exact: true,
+    }),
+  });
   await expect(row).toHaveCount(1, { timeout: 20_000 });
   await row.click();
   await expect(
@@ -105,10 +107,16 @@ async function openEarlierNoteHistory(scope: Scope): Promise<void> {
   await openNoteHistory(scope);
   const timeline = historyTimeline(scope);
   const caption = timeline.locator(".explorer-document-history-caption");
-  for (const _ of NOTE.authors.slice(1)) {
+  const position = timeline.locator(".explorer-document-history-position");
+  const total = Number((await position.textContent())?.split(" / ")[1]);
+  for (let step = 1; step < NOTE.authors.length; step += 1) {
     await timeline
       .getByRole("button", { name: "Previous change", exact: true })
       .click();
+    // Each step moves the position first; then the view replays to it.
+    await expect(position).toHaveText(`${total - step} / ${total}`, {
+      timeout: 30_000,
+    });
     await expect(
       scope.locator(".explorer-document-history-view[aria-busy='false']"),
     ).toHaveCount(1, { timeout: 30_000 });
