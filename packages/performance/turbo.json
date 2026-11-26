@@ -11,7 +11,8 @@
       "dependsOn": [
         "$TURBO_EXTENDS$",
         "@tearleads/sqlite-worker#runtime-sources",
-        "@tearleads/api-shared#runtime-sources"
+        "@tearleads/api-shared#runtime-sources",
+        "@tearleads/api#runtime-sources"
       ]
     },
     "seed": {
@@ -21,6 +22,9 @@
       "cache": false
     },
     "database": {
+      "cache": false
+    },
+    "realtime": {
       "cache": false
     }
   }
