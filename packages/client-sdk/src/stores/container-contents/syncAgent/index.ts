@@ -301,6 +301,9 @@ function createHydrationRequester(input: {
   return (options = {}) =>
     requestContainerContentsRemoteHydration({
       ...input,
+      yieldsToReconnectCrawl: options.yieldToReconnectCrawl
+        ? () => input.state.reconnectRefresh.owesCrawl
+        : undefined,
       followDiscoveredParentLanes: options.followDiscoveredParentLanes,
       parentIds: options.parentIds,
       resetAllLaneWatermarks: options.resetAllLaneWatermarks,

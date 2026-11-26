@@ -39,8 +39,15 @@ export interface ContainerContentsStoreSyncAgent {
     followDiscoveredParentLanes?: boolean | undefined;
     parentIds?: ReadonlyArray<string | null> | undefined;
     resetAllLaneWatermarks?: boolean | undefined;
+    /**
+     * The crawl lists what the crawl after an acknowledged connection lists,
+     * so it gives way to one: see `yieldsToReconnectCrawl` on the request.
+     */
+    yieldToReconnectCrawl?: boolean | undefined;
   }) => Promise<void>;
-  scheduleRemoteHydration: () => void;
+  scheduleRemoteHydration: (options?: {
+    yieldToReconnectCrawl?: boolean | undefined;
+  }) => void;
   scheduleSync: () => void;
 }
 

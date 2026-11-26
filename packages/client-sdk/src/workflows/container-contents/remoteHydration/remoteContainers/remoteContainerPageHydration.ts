@@ -1,3 +1,4 @@
+import { MAX_CONTAINER_PARENT_LANES } from "@tearleads/validators/request";
 import {
   createPrincipalPolicyOperation,
   type PrincipalPolicyOperation,
@@ -32,7 +33,8 @@ import {
   upsertIsolatedRemoteContainerState,
 } from "./remoteContainerState";
 
-const CONTAINER_PARENT_HYDRATION_CONCURRENCY = 4;
+/** Parent lanes one crawl request lists: as many as the server accepts. */
+const CONTAINER_PARENT_LANES_PER_REQUEST = MAX_CONTAINER_PARENT_LANES;
 
 interface HydrationProgress {
   changedCount: number;
@@ -353,7 +355,7 @@ function takeContainerParentLaneBatch(input: {
 
   while (
     lanes.length > 0 &&
-    batch.length < CONTAINER_PARENT_HYDRATION_CONCURRENCY
+    batch.length < CONTAINER_PARENT_LANES_PER_REQUEST
   ) {
     const lane = lanes.shift();
     if (

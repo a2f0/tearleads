@@ -194,12 +194,12 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
   // each create left covers the count its row lists.
   await measureRestart({
     budget: {
-      total: 22,
+      total: 21,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
         "GET /organizations/:organizationId/billing": 1,
-        "POST /containers/parent-lanes/query": 2,
+        "POST /containers/parent-lanes/query": 1,
         "POST /containers/documents/query": 3,
         "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,
@@ -220,14 +220,15 @@ test("a pane restart reconciles its persisted tree without replaying writes", as
 // cost is the same with two notes and with eight. The three syncs left are
 // system-container documents, which are pulled once per launch. The three
 // listings are one batch of queued lanes, one for the catch-up after the
-// acknowledgement, and one unwatermarked batch for the initial probe.
+// acknowledgement, and one unwatermarked batch for the initial probe. The
+// tree crawl is one request: it lists up to 32 parent lanes at once.
 const SETTLED_RESTART_BUDGET: ProxiedApiRequestBudget = {
-  total: 14,
+  total: 13,
   byRequest: {
     "POST /auth/ws-ticket": 1,
     "GET /organization-memberships": 1,
     "GET /organizations/:organizationId/billing": 1,
-    "POST /containers/parent-lanes/query": 2,
+    "POST /containers/parent-lanes/query": 1,
     "POST /containers/documents/query": 3,
     "GET /principals/organization/:organizationId/policy": 1,
     "GET /principals/group/:groupId/policy": 0,
@@ -250,18 +251,12 @@ test("a settled restart costs the same whatever the number of notes", async () =
   }
 }, 180_000);
 
-test("a settled restart lists every folder's documents in one request", async () => {
-  // Six more folders cost no more document listings: the initial probe reads
-  // every lane's unwatermarked listing in one batch. Only the tree crawl
-  // grows, by one parent-lane request for every four folders.
+test("a settled restart costs the same with two folders and with eight", async () => {
+  // Six more folders cost no more requests: the initial probe reads every
+  // lane's unwatermarked listing in one batch, and the tree crawl lists every
+  // parent lane in one request.
   await measureRestart({
-    budget: {
-      total: 16,
-      byRequest: {
-        ...SETTLED_RESTART_BUDGET.byRequest,
-        "POST /containers/parent-lanes/query": 4,
-      },
-    },
+    budget: SETTLED_RESTART_BUDGET,
     extraFolders: 6,
     label: "settled restart with 8 folders",
     notesPerFolder: 1,
@@ -277,7 +272,7 @@ test("the first restart after a local edit owes that note no read", async () => 
   // is neither synced nor has its head read.
   await measureRestart({
     budget: {
-      total: 16,
+      total: 15,
       byRequest: {
         ...SETTLED_RESTART_BUDGET.byRequest,
         "GET /principals/organization/:organizationId/policy": 3,

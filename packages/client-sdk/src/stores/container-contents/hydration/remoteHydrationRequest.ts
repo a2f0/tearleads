@@ -1,17 +1,12 @@
 import {
   createGenerationGuardedHydrationHost,
   hydrateRemoteContainers,
-  type ReconnectCrawl,
-  type RemoteContainerHydrationHost,
   StaleRemoteHydrationError,
 } from "../../../workflows/container-contents/remoteHydration";
-import type { RemoteContainerHydrationState } from "../../../workflows/container-contents/remoteHydration/types";
 import { isDatabaseUnavailableError } from "../../../workflows/container-contents/syncLane";
 import { ownsContainerStore } from "../containerState/storeScope";
-import {
-  type LocalContainerRefreshState,
-  refreshLocalContainerStates,
-} from "../localRefresh";
+import { refreshLocalContainerStates } from "../localRefresh";
+import { waitForPendingConnectAttempt } from "./connectAttemptGate";
 import {
   IDLE_RECOVERY_HYDRATION,
   type RecoveryHydrationEvent,
@@ -19,54 +14,16 @@ import {
   transitionRecoveryHydration,
 } from "./recoveryHydrationMachine";
 
+import type {
+  RecoveryHydrationRequest,
+  RemoteHydrationRequestInput,
+  RemoteHydrationRequestState,
+} from "./remoteHydrationRequestTypes";
 import {
   captureTreeResetOwner,
   claimTreeReset,
   queueTreeReset,
 } from "./treeResetMachine";
-
-type RemoteHydrationRequestState = RemoteContainerHydrationState &
-  LocalContainerRefreshState & {
-    containerParentIdsNeedingHydration: Set<string | null>;
-    initializePromise: Promise<void> | null;
-    lifecycleGeneration: number;
-    remoteHydrationGeneration: number | null;
-    remoteHydrationPromise: Promise<void> | null;
-    remoteHydrationStructuralGeneration: number | null;
-    rootLaneHydrated: boolean;
-    snapshot: {
-      ready: boolean;
-    };
-    structuralGeneration: number;
-    trackHydration?: (request: Promise<unknown>) => void;
-    writeGeneration?: number;
-  };
-
-interface RemoteHydrationRequestInput {
-  ownsTreeReset?: () => boolean;
-  followDiscoveredParentLanes?: boolean | undefined;
-  host: RemoteContainerHydrationHost;
-  reconnect?: ReconnectCrawl | undefined;
-  onFullyHydrated?: (() => Promise<void> | void) | undefined;
-  parentIds?: ReadonlyArray<string | null> | undefined;
-  resetAllLaneWatermarks?: boolean | undefined;
-  resetRootLaneWatermark?: boolean | undefined;
-  recreateOnFullyHydratedAfterReset?:
-    | (() => () => Promise<void> | void)
-    | undefined;
-  recreateOnFullyHydratedAtStart?: boolean | undefined;
-  resumeRecoveryWork: () => Promise<void>;
-  scheduleSyncAfterHydration?: boolean | undefined;
-  scheduleSyncOnHydrationChange?: boolean | undefined;
-  scheduleSync: () => void;
-  state: RemoteHydrationRequestState;
-}
-
-interface RecoveryHydrationRequest {
-  input: RemoteHydrationRequestInput;
-  lifecycleGeneration: number;
-  structuralGeneration: number;
-}
 
 function isRequestGenerationCurrent(input: {
   lifecycleGeneration: number;
@@ -246,6 +203,9 @@ function waitForActiveInitialization(
 function retryRemoteHydrationAfterReset(
   input: RemoteHydrationRequestInput,
 ): Promise<void> {
+  // The acknowledgement that superseded this crawl owes one that lists the
+  // same lanes after it; listing them here as well would list the tree twice.
+  if (input.yieldsToReconnectCrawl?.()) return Promise.resolve();
   // The reconnect state machine owns its retry across a reset.
   if (input.reconnect) {
     // A superseded crawl still owes the manual refresh whose reset it consumed.
@@ -430,9 +390,16 @@ function startHydration(input: RemoteHydrationRequestInput): Promise<void> {
     stillCurrent: input.reconnect?.isCurrent,
     state,
   })
-    .then(() => {
+    .then(async () => {
       if (!isCurrent()) {
         return 0;
+      }
+      if (input.yieldsToReconnectCrawl) {
+        await waitForPendingConnectAttempt(state);
+        // An acknowledgement moved the generation: its own crawl lists.
+        if (!isCurrent()) {
+          return 0;
+        }
       }
       return hydrateRemoteContainers({
         followDiscoveredParentLanes,

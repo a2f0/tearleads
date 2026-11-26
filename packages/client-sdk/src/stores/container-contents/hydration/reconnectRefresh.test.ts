@@ -34,3 +34,43 @@ test("a shared manual refusal rejects while the reconnect schedules a retry", as
     recovery.reset("disposed");
   }
 });
+
+test("a reconnect crawl is owed from the acknowledgement until it completes", async () => {
+  const never = new ReconnectRefresh(false);
+  expect(never.owesCrawl).toBe(false);
+
+  const recovery = new ReconnectRefresh(true);
+  const crawl = Promise.withResolvers<boolean>();
+  try {
+    // Pending: acknowledged, and not yet able to run.
+    expect(recovery.owesCrawl).toBe(true);
+    recovery.runWhenReady(
+      () => true,
+      ({ reconnect }) => {
+        reconnect.record("complete");
+        return crawl.promise;
+      },
+    );
+    // Crawling.
+    expect(recovery.owesCrawl).toBe(true);
+    crawl.resolve(true);
+    await crawl.promise;
+    await Promise.resolve();
+    expect(recovery.owesCrawl).toBe(false);
+
+    // A retry in backoff is still owed; a disposed machine owes nothing.
+    recovery.reset("acknowledged");
+    recovery.runWhenReady(
+      () => true,
+      async ({ reconnect }) => {
+        reconnect.record("retry");
+        return true;
+      },
+    );
+    await Bun.sleep(1);
+    expect(recovery.owesCrawl).toBe(true);
+  } finally {
+    recovery.reset("disposed");
+  }
+  expect(recovery.owesCrawl).toBe(false);
+});

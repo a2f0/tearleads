@@ -17,6 +17,17 @@ export class ReconnectRefresh {
     if (acknowledged) this.reset("acknowledged");
   }
 
+  /**
+   * Whether a crawl for an acknowledged connection is still to run or to be
+   * retried: one that will list the root lane and every known lane.
+   */
+  get owesCrawl(): boolean {
+    const { status } = this.state;
+    return (
+      status === "pending" || status === "crawling" || status === "backoff"
+    );
+  }
+
   reset(type: "acknowledged" | "runtimeChanged" | "disposed"): void {
     clearTimeout(this.timer);
     this.timer = undefined;
