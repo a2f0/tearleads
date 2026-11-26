@@ -36,9 +36,10 @@ about 0.03 ms while a warm driver exchange cost roughly five milliseconds.
 This supports accumulated driver/proxy/network round trips as a major cause
 of provisioning delay. It does not isolate which hop contributes that cost.
 
-The [registration baseline](baseline.md) recorded 878 statements and about
-seven seconds of database timing. At five milliseconds per awaited exchange,
-hundreds of exchanges can consume seconds even when SQL execution is cheap.
+The [registration baseline](2026-10-24-provisioning.md) recorded 878
+statements and about seven seconds of database timing. At five milliseconds
+per awaited exchange, hundreds of exchanges can consume seconds even when SQL
+execution is cheap.
 That is an order-of-magnitude comparison, not a decomposition: ORM statement
 count is not necessarily exchange count, the runs occurred on different days,
 and real provisioning includes writes, locks, verification, and payloads absent
@@ -54,7 +55,7 @@ does not establish its size.
 
 ## Reproduction and limitations
 
-See [running and measurement boundaries](database-experiment.md). The CLI ran
+See [running and measurement boundaries](../database-experiment.md). The CLI ran
 on arm64 macOS with Bun 1.4.3, source base `78074ec586ea07e5534c710c56b7ded34d3fcff7`
 plus the experiment changes in the working tree. Both bundles had SHA-256
 `2304b17e4f9277a71c151a7091cef07757873546e0aaffb356badf7ab034177b`.
