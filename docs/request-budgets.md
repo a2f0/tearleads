@@ -241,25 +241,24 @@ local application.
   only after every page and its local persistence succeed, for the same probe
   generation and container; incremental, partial or earlier-lifecycle listings
   cannot substitute for it.
-- A start whose connection is never acknowledged lists only the document
-  lanes an earlier boot left
-  [owed](./developer/device-first.md#owed-document-lanes): never settled by
-  an applied listing, or holding staged candidates. The reconciler lists up
-  to four lanes per batched request, so a reload that cuts discovery short
-  costs one listing per four owed lanes at the next start, and a settled lane
-  costs nothing. A start whose connect attempt is still pending at hydration
-  does not resume: if the attempt is acknowledged, the catch-up below lists
-  every owed lane, and the resume never runs. The resume runs
-  when no attempt is pending at hydration, or when the attempt ends without an
-  acknowledgement (the socket opens before the tree can declare its interest,
-  or no acknowledgement arrives within 15 seconds) or is replaced by a new
-  one. A connection that starts or is acknowledged after that, the
-  replacement included, is a new catch-up: it lists the lanes still owed and
-  the lanes its tree crawl is served.
+- A start whose connection is never acknowledged lists only the document lanes
+  an earlier boot left [owed](./developer/device-first.md#owed-document-lanes):
+  never settled by an applied listing, holding staged candidates, or named by a
+  request a tree listing recorded. The resume lists up to four lanes per
+  batched request, so a reload that cuts discovery short costs one listing per
+  four owed lanes at the next start, and a settled lane costs nothing. A start
+  whose connect attempt is still pending at hydration does not resume: if the
+  attempt is acknowledged, the catch-up below lists every owed lane, and the
+  resume never runs. The resume runs when no attempt is pending at hydration,
+  or when the attempt ends without an acknowledgement (the socket opens before
+  the tree can declare its interest, or no acknowledgement arrives within 15
+  seconds) or is replaced by a new one. A connection that starts or is
+  acknowledged after that, the replacement included, is a new catch-up: it
+  lists the lanes still owed and the lanes its tree crawl is served.
 - Upgrading costs at least one full listing. Devices that ran earlier
   releases have no settled mark on any document lane, so every known lane
-  starts owed, and the first start after the upgrade lists all of them, four
-  lanes per request, in the resume or the catch-up, or in both when a
+  starts owed, and the first start after the upgrade lists all of them, in
+  the resume (four lanes per request) or the catch-up (32), or in both when a
   connection is acknowledged after the resume ran. That listing also repairs
   devices whose sign-in boot was cut short. A lane the server refuses never
   settles, so it stays owed and is listed again on every start. The release

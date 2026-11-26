@@ -38,10 +38,12 @@ adding an update. The mechanism is the one
   watermark advances past it. Applying a row whose access epoch moved drops
   the key bundle the record held, which would hide that move from a later
   check. A listing read from a lagging replica never lowers a debt.
-- Who reads. Once the debt is durable, the document's registered store is
-  asked to probe. A store that opens later reads its document's debt when its
-  record loads, and a store that knows of a debt is not covered until it
-  settles.
+- Who reads. Once the debt is durable and the listing's rows have applied,
+  the document's registered store is asked to probe. A listing superseded
+  before it applied asks nobody: the debt stays, and the catch-up that ends
+  the sweep asks every store a debt names. A store that opens later reads its
+  document's debt when its record loads, and a store that knows of a debt is
+  not covered until it settles.
 - Settling. A completed pull settles the debt it saw before its request, and
   only once the cursor that pull saved counts as many updates as the listing
   advertised. A replica lagging the listing can answer without the edit; the
@@ -54,7 +56,9 @@ adding an update. The mechanism is the one
   is linked into, and that is what tells the catch-up after an acknowledged
   connection [which lanes to list](#which-lanes-a-catch-up-lists). Its
   listings start after the acknowledgement and revalidate nothing else: only
-  an explicit Refresh still forces every registered document.
+  an explicit Refresh, or resuming a paused organization (`resumeSync` in
+  `organizationMemberships.ts` runs the same full refresh), still forces
+  every registered document.
 - Hints. A store reads hints only once its record has loaded and while a view
   hands it runtimes. The scope remembers which documents the hints it saw
   named, and a store whose document was named before its record loaded probes
