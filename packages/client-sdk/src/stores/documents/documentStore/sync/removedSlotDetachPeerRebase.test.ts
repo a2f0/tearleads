@@ -39,7 +39,10 @@ test("a peer rebase keeps the slots a store saw recorded, so a restart still det
     const recordPeer = before.doc?.peerIdStr;
     if (!recordPeer) throw new Error("Expected a loaded document");
     expect(
-      await rebaser(before)([{ committedEndCounter: 0, peerId: recordPeer }]),
+      await rebaser(before)({
+        kind: "peer_owned",
+        peerFrontiers: [{ committedEndCounter: 0, peerId: recordPeer }],
+      }),
     ).toBe("rebased");
     expect(before.doc?.peerIdStr).not.toBe(recordPeer);
 

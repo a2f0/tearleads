@@ -120,7 +120,7 @@ for the exact-length rule.
 | Response page | 48 MiB (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES`), of which 16 MiB is envelope (`MAX_DOCUMENT_SYNC_RESPONSE_ENVELOPE_BYTES`) | API. Sized to carry the largest accepted atomic rotation baseline plus its signed metadata, while the page and its serialized copy both fit the 128 MB Workers isolate. A page is sized from stored byte lengths before it loads, so it holds at most the 32 MiB update share plus 64 entries' fixed-size fields. | Pagination. |
 | Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`); a request's `maxPageUpdates`, 1 to 64, lowers it but never raises it | Validators bound `maxPageUpdates`; API: [`workflows/documents/mutations/syncResponseUpdates.ts`](../packages/api/src/workflows/documents/mutations/syncResponseUpdates.ts) serves the smaller. The SDK asks for 1 while it [isolates](#loro-runtime) updates a death left unattributed. | Pagination via the pull cursor. |
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
-| Refused peers named per refusal | 64 (`MAX_DOCUMENT_PEER_FRONTIERS`, [`validators/src/response/documentSyncError.ts`](../packages/validators/src/response/documentSyncError.ts)) in the `peerFrontiers` of a 409 `document_sync_peer_owned` or `document_sync_dependency_uncommitted` | API: [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) names the first 64 refused peers in canonical order, each with the frontier committed before the request; the response schema bounds the list. | Pagination. The client [rebases](./advisory-op-spans.md#rebasing-onto-a-fresh-peer) the named peers onto a fresh peer, and its retry draws a refusal naming the rest. |
+| Refused peers named per refusal | 64 (`MAX_DOCUMENT_PEER_FRONTIERS`, [`validators/src/response/documentSyncError.ts`](../packages/validators/src/response/documentSyncError.ts)) in the `peerFrontiers` of a 409 `document_sync_peer_owned` or `document_sync_dependency_uncommitted` | API: `judgeDocumentPeerSpans` in [`validators/src/documentPeerSpans.ts`](../packages/validators/src/documentPeerSpans.ts), called from [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts), names the first 64 refused peers in canonical order, each with the frontier committed before the request; the response schema bounds the list. | Pagination. The client [recovers](./peer-ownership.md#rebasing-onto-a-fresh-peer) on the named peers, by a rebase onto a fresh peer or a relay, and its retry draws a refusal naming the rest. |
 | Span and peer-owner rows per insert statement | 8,192 (`DOCUMENT_PEER_ROWS_PER_INSERT`, [`api/src/documents/documentPeerRowChunks.ts`](../packages/api/src/documents/documentPeerRowChunks.ts)) | API: [`documents/documentUpdateSpans.ts`](../packages/api/src/documents/documentUpdateSpans.ts) inserts one span row per peer of each new update's declared span, and [`documents/documentPeerOwners.ts`](../packages/api/src/documents/documentPeerOwners.ts) one owner row per peer the write claims, in statements of at most this many rows inside the write's transaction. Document sync and a link-set mutation's rotation baseline both write through them. Postgres binds at most 65,535 parameters to one statement, and a span row binds five. | More statements in the same transaction; nothing is refused, so a write's rows are bounded only by its request body. A rotation baseline has one span row per peer in the document's history, and nothing caps that history: see [the known defect](#known-defect-unbounded-document-history). |
 
 ## Loro runtime
@@ -132,6 +132,23 @@ from the other wait.
 [Loro runtime failures](./advisory-op-spans.md#loro-runtime-failures)
 describes the windows, and [rotation deaths](./rotation-deaths.md) the count a
 key rotation keeps.
+
+A window's kind (`LoroWindowKind` in
+[`loroWindowMachine.ts`](../packages/client-sdk/src/data/documents/shared/sync/loroWindowMachine.ts))
+decides what a death inside it is charged to:
+
+| Kind | Opened by | A death inside it | A window the process outlives |
+| --- | --- | --- | --- |
+| `read` | A sync pass, a container metadata pull, a founding view, and a rotation page reading an update the device has not accepted. | Counts one attempt toward the update, when the window held it alone and was its lifetime's only open one. Otherwise it isolates the page's updates. | Clears the attempts earlier deaths counted toward the updates it read. |
+| `rotation` | A rotation's raw-history page whose updates the live document covers. | Counts toward the device's rotation of the document, never an update, and isolates the page's updates. | Clears those attempts too. |
+| `history` | Each page of a [history verification](./developer/client-sdk/document-history.md#verifying-history). | Counts toward nothing: no attempt, no isolation, no rotation death. The next claim on the scope deletes the row. Its row never replaces the row another window of the lifetime holds on the scope, so a death beside a sync pass's window still isolates that page's updates. | Clears no attempt. Verification writes nothing but its window rows. |
+
+A verification rebuilds a whole history for a viewer, so its death is
+likeliest the rebuild's size, and a viewer must cost neither an update nor
+the device's rotation. Its window still follows the one rule every window
+shares: while it is open, no other window of the lifetime counts a death. A
+scope already isolating suspects is not read at all, and the verification
+ends `unsettled`.
 
 No limit here bounds the time a reader spends importing one served update. The
 sync request ceiling bounds the update's size, and the exactly pinned Loro
@@ -153,6 +170,7 @@ follows [dependency maintenance](./dependency-upgrades.md#current-constraints).
 | Text write diff | 100 ms for the character diff, then 100 ms for the line diff (`TEXT_DIFF_BUDGET_MS`, [`loro/src/textUpdate.ts`](../packages/loro/src/textUpdate.ts)) | SDK: `updateText`, which the document store's text write calls. Both diffs run in one synchronous WebAssembly call and take time quadratic in how much of the text differs: unbounded, replacing a 64 KB note with unrelated text took 8 s. | Never a refusal. The write is expressed more coarsely: by the lines that differ, then by replacing the whole text. A concurrent edit then merges with less of its surroundings ([text writes](../packages/loro/README.md#text-writes)). |
 | Rotation deaths per document | 3 under one judge with no completed rebuild between them (`MAX_ROTATION_DEATHS`, [`data/documents/shared/sync/rotationAvailabilityMachine.ts`](../packages/client-sdk/src/data/documents/shared/sync/rotationAvailabilityMachine.ts)), held equal to `MAX_LORO_RUNTIME_ATTEMPTS` | SDK: a death alone in a rotation's raw-history window, on a page the live document already covers, counts toward the device's rotation of the document, never toward an update (`loroWindows.ts`); the count persists in `document_rotation_availability`. | If the third death read one update alone, the next rebuild [leaves it out](./rotation-deaths.md#leaving-an-update-out); otherwise the device's rotation of the document is [unavailable](./rotation-deaths.md#unavailable-rotation). A rotation, unlink, or purge-unlink it starts is then refused with `DocumentRotationUnavailableError` and a queued move parks, leaving those writes to other members until a new judge starts the count over. Below the limit, a completed rebuild starts it over. |
 | Updates left out of one document's rebuilds | 8 (`MAX_ROTATION_LEFT_OUT`) | SDK: `rotationAvailabilityMachine.ts`. | The next death that would leave one more out makes the device's rotation of the document unavailable instead, as above. Each update left out cost the device the deaths that found it, so a writer must spend eight crashing updates on a device before one more stops its rotations. |
+| Updates in a history one device verifies | 20,000 (`MAX_VERIFIED_HISTORY_UPDATES`, [`workflows/documents/history/documentHistoryRawPull.ts`](../packages/client-sdk/src/workflows/documents/history/documentHistoryRawPull.ts)), held equal to the attribution reader's `MAX_RANGES` | SDK: `verifyDocumentHistory` reads the count the first raw page reports (`pullPage.throughUpdateCount`), and counts the updates it is served, so a server that understates the count is bounded too. | The verification ends `unavailable` with reason `too_large`, before it imports anything of that page. Nothing is recorded, and sync, editing, and rotation are unaffected. The number is not measured: it bounds the pages a viewer asks for, not the memory a rebuild needs. |
 
 ## Edit attribution
 
@@ -248,6 +266,20 @@ writer waiting on another authorized member:
   members: one it starts is refused, and a queued move it cannot prove parks,
   until a new judge (a decoder or void-rules change) starts the count over. It
   still opens, edits, and syncs the document, and no other device waits on it.
+- **A peer a stale recreation claimed.** After a billing purge, the owner's
+  recovery from a stale copy can leave the server with less of a
+  [peer](./glossary/sync.md#peer-owner) than another device saw committed,
+  and claim that peer for the owner. A device whose queue depends on the lost
+  operations may not send them, because another user owns the peer, and must
+  not write them again under a fresh peer: every device that still holds the
+  originals would then hold both copies. It parks under
+  `document_peer_restore_awaits_owner` until a device of the peer's owner
+  republishes the peer, keeps the document readable and editable, and submits
+  its queue again on every pass. Each of those requests is refused whole, so
+  the device also receives no remote edits to the document while parked. If no
+  such device holds the lost operations it stays parked until its user
+  discards the local edits
+  ([after a stale recreation](./peer-ownership.md#after-a-stale-recreation)).
 
 For the single-path case within the carried-rekey bound, the model in
 [InaccessibleIntermediateRepair.md](../formal/container-keying/InaccessibleIntermediateRepair.md)
@@ -255,7 +287,10 @@ proves the writer is eventually unblocked with fairness only on its own step.
 Outside it, that model's `rotation-without-descendant-repairs-bricks-leaf-writer`
 control is the exact behaviour, and it violates the liveness property by
 design. Nothing schedules the lazy repair; whichever capable member writes
-beneath the stale level first performs it. See
+beneath the stale level first performs it. The stale-recreation park is
+modeled in [PeerOwnership.md](../formal/document-sync/PeerOwnership.md), whose
+liveness property excuses a device only while it awaits the owner of a peer
+whose history fell. See
 [NoBrickedDevice.md](../formal/container-keying/NoBrickedDevice.md) for the
 invariant and [client-sdk.md](./developer/client-sdk/public-api.md#public-api-entry-points)
 for how the SDK reports the parked state.

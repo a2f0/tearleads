@@ -227,6 +227,21 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
     version: 12,
   },
   {
+    // A device judges a peer refusal against what it has seen the server
+    // commit, which the record now keeps (#3263). No record written before
+    // this step has one, so the column starts null: nothing is known
+    // committed until the next sync settlement. It is unindexed.
+    name: "add_document_committed_version",
+    up: async (execSql, context) => {
+      if (await context.hasTable("documents")) {
+        await execSql(
+          'ALTER TABLE "documents" ADD COLUMN "committed_version" TEXT',
+        );
+      }
+    },
+    version: 13,
+  },
+  {
     // The catch-up after an acknowledged connection now lists only the
     // document lanes that are owed a listing: those a tree listing showed
     // moved, and those never settled (#3256). An earlier SDK listed every
@@ -244,7 +259,7 @@ export const localSchemaMigrations: ReadonlyArray<LocalSchemaMigration> = [
           WHERE lane_kind = 'container_documents'`,
       );
     },
-    version: 13,
+    version: 14,
   },
 ];
 

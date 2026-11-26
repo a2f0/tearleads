@@ -3,6 +3,7 @@ import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentCreateSeedResponse } from "@tearleads/validators/response";
 import {
   type CreateRemoteDocumentResult,
+  committedUpdateVersions,
   DOCUMENTS_APP_KIND,
   type DocumentRecord,
   type PendingUpdateRecord,
@@ -69,6 +70,8 @@ function committedSeedSettlement(input: {
     options: {
       acceptedPendingUpdateIds: [seedUpdate.id],
       clearSyncFailure: true,
+      // The server committed the seed, so the record has seen its span.
+      committedVersions: committedUpdateVersions([seedUpdate]),
       pendingBaseVersionOverride: baseVersion,
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,

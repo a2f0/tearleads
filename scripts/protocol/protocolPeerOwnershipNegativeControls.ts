@@ -52,4 +52,28 @@ export const PEER_OWNERSHIP_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "ReadersAgree" },
     why: "Unless readers compare an update's dependencies with those it declares, a member declares none, passes the dependency rule, and the device alone accepts its update (#3194).",
   },
+  {
+    id: "peer-ownership-no-relay",
+    module: MODULE,
+    config: CONFIG,
+    constants: { NoRelay: "TRUE" },
+    expect: { kind: "invariant", name: "NoDuplication" },
+    why: "A device that forks at a frontier a stale recreation lowered writes committed operations again on a fresh peer, and a reader holds both copies once the owner's other device republishes the originals (#3263).",
+  },
+  {
+    id: "peer-ownership-forgets-relayed",
+    module: MODULE,
+    config: CONFIG,
+    constants: { ForgetRelayed: "TRUE" },
+    expect: { kind: "invariant", name: "NoDuplication" },
+    why: "A relay queues committed operations again, so a device whose relay lowers what it saw committed to its queue's start takes them for unsent at the next refusal and forks them onto a fresh peer (#3263).",
+  },
+  {
+    id: "peer-ownership-forgets-queued-history",
+    module: MODULE,
+    config: CONFIG,
+    constants: { ForgetQueuedHistory: "TRUE" },
+    expect: { kind: "invariant", name: "NoDuplication" },
+    why: "A queued full history (a rotation baseline or a republished history) starts every peer at counter 0, so a device that lets it lower what it saw committed forks at a frontier that fell and writes another device's committed operation again on a fresh peer (#3263).",
+  },
 ];

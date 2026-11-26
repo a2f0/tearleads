@@ -59,6 +59,8 @@ This avoids a circular foreign key between organizations and containers.
 
 ## Registration Flow
 
+![The device builds and signs the policies, root container, root metadata document, and organization containers; one POST /auth/register commits them in a single transaction; the device then pins the identity, persists the result, and signs in.](./diagrams/registration-bootstrap.svg)
+
 ### Client Side (before request)
 
 1. Use the identity's

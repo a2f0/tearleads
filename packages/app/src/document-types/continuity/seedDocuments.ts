@@ -11,6 +11,10 @@ import { seedTrackerRow } from "./seedTrackerRows";
 import type { SeedAttachment, SeedFile, SeedSpec } from "./seedTypes";
 
 const seedPortraitSlotId = `${CONTACT_PHOTOS.slotId}:portrait`;
+const TRACKER_KINDS: ReadonlySet<StoredDocumentKind> = new Set([
+  "weight",
+  "blood_pressure",
+]);
 
 const SLOTS: Partial<
   Record<StoredDocumentKind, readonly DocumentAttachmentSlot[]>
@@ -77,7 +81,10 @@ export function continuityDocuments(spec: SeedSpec): SeedDocument[] {
         key: `file/${index}`,
         kind: file.kind,
         fields: file.fields,
-        rows: file.rows?.map(seedTrackerRow),
+        // Tracker readings carry a measurement time; passcode rows do not.
+        rows: TRACKER_KINDS.has(file.kind)
+          ? file.rows?.map(seedTrackerRow)
+          : file.rows,
         attachments: file.attachments.map((attachment) => {
           if (attachment.slot) {
             const definition = resolveSeedSlot(file, attachment.slot, used);

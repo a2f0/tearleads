@@ -9,12 +9,12 @@ import { getOrCreateDomainSyncCoordinator } from "../../workflows/sync/coordinat
 import { persistContainerState } from "./containerState/containerStatePersistence";
 import { createTreeRefreshMethods } from "./hydration/remoteHydrationRefresh";
 import {
-  createChildContainer,
   deleteContainer,
   ensureSystemContainer,
   moveContainer,
   renameContainer,
 } from "./operations";
+import { createChildMethod } from "./operations/createChildMethod";
 import { emptyTrash } from "./operations/emptyTrashOperation";
 import {
   prepareContainerGroupRewrap,
@@ -325,13 +325,7 @@ export function createContainerWriteMethods(
 ): ContainerWriteMethods {
   return {
     ...createContainerSharingMethods(state, syncAgent),
-    createChild: (parentId, name) =>
-      chainContainerWrite(
-        state,
-        (isCurrent) =>
-          createChildContainer(state, syncAgent, parentId, name, isCurrent),
-        [parentId],
-      ),
+    createChild: createChildMethod(state, syncAgent),
     deleteContainer: createDeleteContainerMethod(state, syncAgent),
     purgeContainer: (containerId, options) =>
       chainPurgeAfterScopeMoves(

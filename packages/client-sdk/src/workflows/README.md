@@ -166,7 +166,7 @@ The queue does not estimate undiscovered objects or blob reads.
 `deriveStableDocumentId(localId)` derives the first-creation ID.
 Persisted remote and recovery IDs take precedence. See [document identity](../../../../docs/developer/client-sdk/public-api.md#document-identity).
 `loadPersistedDocumentContent` returns a detached document for inspection.
-`openDocumentHistory` and `documents.readFoundingUpdate` replay [durable history](../../../../docs/developer/client-sdk/document-history.md).
+`openDocumentHistory`, `readFoundingUpdate`, and `verifyHistory` read [history](../../../../docs/developer/client-sdk/document-history.md).
 Views displaced by a relink go read-only (`relinkedElsewhere`) until reopened.
 
 The documents facade admits explicit `historyMode: "raw"` reads through
@@ -210,8 +210,10 @@ Create and commit store supplied `attachmentNames` with the document projection.
 Maintenance uses `orphanBlobs` to retain bytes until their last reference is
 removed; `reclaimDocumentOrphanBlobs(runtime, persistence)` awaits the run.
 An adapter that implements the optional `installPeerRebase` lets the document
-store recover from a peer or dependency refusal by rebasing onto a fresh peer;
-else the refusal is terminal.
+store recover from a peer or dependency refusal by a rebase onto a fresh peer
+or a relay of lost operations; else the refusal is terminal. A host's own
+`DocumentPeerRebaser` receives the refusal as a `PeerRefusal`, whose `kind`
+is a `PeerRefusalKind`.
 
 ### Deferred initial update
 

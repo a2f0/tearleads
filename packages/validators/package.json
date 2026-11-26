@@ -1,12 +1,13 @@
 {
   "name": "@tearleads/validators",
-  "version": "0.1.98",
+  "version": "0.1.100",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "exports": {
     "./billing": "./src/billing.ts",
     "./containerSystemSlot": "./src/containerSystemSlot.ts",
+    "./documentPeerSpans": "./src/documentPeerSpans.ts",
     "./isPlainObject": "./src/isPlainObject.ts",
     "./legalTerms": "./src/legalTerms.ts",
     "./util": "./src/util/index.ts",

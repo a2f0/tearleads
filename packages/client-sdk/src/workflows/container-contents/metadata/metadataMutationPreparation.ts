@@ -27,6 +27,8 @@ export interface PersistContainerMetadataStateInput {
   commitSideEffect?: Parameters<
     ContainerContentsPersistence["commitMetadataMutation"]
   >[1]["commitSideEffect"];
+  /** What a sync response showed the server to hold; raises the record's. */
+  committedVersions?: readonly string[] | undefined;
   execSql: ExecSql;
   expectedSyncState?: ExpectedContainerMetadataSyncState | undefined;
   localMetadataPatch?:

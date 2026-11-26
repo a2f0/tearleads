@@ -46,7 +46,7 @@ declares.
 
 Related docs:
 
-- [advisory-op-spans.md](../advisory-op-spans.md#dependencies)
+- [peer-ownership.md](../peer-ownership.md#dependencies)
 - [document-link-and-sync-protocol.md](../document-link-and-sync-protocol.md#document-sync-conflict-codes)
 
 ## Head
@@ -89,7 +89,10 @@ one update alone: the next rebuild leaves it out and rotates if the result
 still equals the live document. A rotation page reading
 an update the device has not accepted counts a death as a sync pass does. A
 window the process outlives clears the attempts earlier deaths counted toward
-the updates it read.
+the updates it read. Each page of a
+[history verification](../developer/client-sdk/document-history.md#verifying-history)
+reads in a `history` window, which is the exception to both: a death in it
+counts toward nothing and isolates nothing, and it clears no attempt.
 
 Related docs:
 
@@ -105,13 +108,15 @@ frontier, the highest span end committed on that peer. The API keeps one
 that extends an unowned peer claims it for its writer's user, so every device
 of that user may continue the peer. Any writer may re-assert counters below the
 frontier, but a sync or unlink that extends another user's peer is refused with
-409 `document_sync_peer_owned` and rolls back. A purge deletes the rows. A
+409 `document_sync_peer_owned` and rolls back. A purge deletes the rows, and a
+recreation's seed claims every peer it carries for the organization's owner. A
 [dependency frontier](#dependency-frontier) past the committed frontier is
 refused the same way, with its own code.
 
 Related docs:
 
 - [advisory-op-spans.md](../advisory-op-spans.md#what-the-server-checks)
+- [peer-ownership.md](../peer-ownership.md)
 - [document-link-and-sync-protocol.md](../document-link-and-sync-protocol.md#document-sync-conflict-codes)
 
 ## Processed Cursor

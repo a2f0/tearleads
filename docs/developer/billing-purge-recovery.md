@@ -132,6 +132,35 @@ The root package exports `RemoteResetInput`, `RemoteResetReplacement`,
 or billing orchestration. Most applications should use the session recovery
 method instead of calling the low-level reset directly.
 
+## Stale copies
+
+Each recreated document's seed is the durable history of the device that runs
+the recovery. If that device had not pulled everything the server committed,
+the recreated document lacks those operations. Their committed frontiers are
+then lower than before the purge: zero on a
+[peer](../glossary/sync.md#peer-owner) the copy lacks, which is left unowned,
+and part-way on a peer the copy holds part of, which the seed claims for the
+owner. Other devices still hold the lost operations. The purge deletes
+container tombstones instead of sending them, so a member's device keeps its
+local copy, and a re-shared folder rebinds with its history and queue.
+
+- Another device of the owner that adopts the replacement queues its whole
+  history from counter zero, which restores what it holds under the original
+  ids.
+- A device whose record was not reset, such as a member's, learns of the loss
+  only when an edit of its own depends on a lost operation and the server
+  refuses it. It then sends the lost operations again under their own ids, or,
+  where the seed claimed the peer for the owner, keeps its queue and waits for
+  a device of the owner to restore the peer
+  ([peer ownership](../peer-ownership.md#after-a-stale-recreation)). It never
+  writes a committed operation again under a fresh peer.
+- A device with nothing queued sends nothing, so an operation only it holds
+  stays off the server until it next edits the document.
+
+Recovering from the owner's most recently synced device keeps this rare. What
+remains open is listed with the
+[residuals](../peer-ownership.md#residuals).
+
 ## Reserved ids
 
 Recovery recreates the purged organization's folders and documents under their
