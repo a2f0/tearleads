@@ -34,6 +34,8 @@ import { InsurancePolicyDocumentApp } from "./insurance-policy/InsurancePolicyAp
 import { INSURANCE_POLICY_DOCUMENT_KIND } from "./insurance-policy/insurancePolicyDocumentDefinition";
 import { JsonFileDocumentApp } from "./json-file/JsonFileDocumentApp";
 import { JSON_FILE_DOCUMENT_KIND } from "./json-file/jsonFileDocumentDefinition";
+import { LicenseDocumentApp } from "./license/LicenseApp";
+import { LICENSE_DOCUMENT_KIND } from "./license/licenseDocumentDefinition";
 import { MedicationDocumentApp } from "./medication/MedicationApp";
 import { MEDICATION_DOCUMENT_KIND } from "./medication/medicationDocumentDefinition";
 import { NoteDocumentApp } from "./note/NoteDocumentApp";
@@ -83,6 +85,7 @@ const documentTypeAppsByKind = new Map<
   [PASSPORT_DOCUMENT_KIND, PassportDocumentApp],
   [BIRTH_CERTIFICATE_DOCUMENT_KIND, BirthCertificateDocumentApp],
   [INSURANCE_POLICY_DOCUMENT_KIND, InsurancePolicyDocumentApp],
+  [LICENSE_DOCUMENT_KIND, LicenseDocumentApp],
   [ENV_FILE_DOCUMENT_KIND, EnvFileDocumentApp],
   [PASSCODE_DOCUMENT_KIND, PasscodeDocumentApp],
   [BLOOD_PRESSURE_DOCUMENT_KIND, BloodPressureDocumentApp],

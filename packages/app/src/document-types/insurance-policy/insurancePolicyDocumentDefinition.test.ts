@@ -6,9 +6,10 @@ import {
 } from "@tearleads/client-sdk";
 import { createDocument } from "@tearleads/loro";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS as projectors } from "../projectors";
+import { getVisibleVariantFields } from "../shared/variantDocumentFieldModel";
 import {
-  getVisibleInsurancePolicyFields,
   INSURANCE_POLICY_DOCUMENT_KIND,
+  INSURANCE_POLICY_FIELDS,
   readInsurancePolicyFields,
 } from "./insurancePolicyDocumentDefinition";
 
@@ -119,10 +120,14 @@ test("an expiration before the effective date is flagged", () => {
 });
 
 test("variant fields follow the type but never hide a recorded value", () => {
-  const keysFor = (source: Record<string, string>) =>
-    getVisibleInsurancePolicyFields(
-      readInsurancePolicyFields(source).fields,
+  const keysFor = (source: Record<string, string>) => {
+    const { fields } = readInsurancePolicyFields(source);
+    return getVisibleVariantFields(
+      INSURANCE_POLICY_FIELDS,
+      fields.policyType,
+      fields,
     ).map((field) => field.key);
+  };
 
   expect(keysFor({ policyType: "health" })).toContain("rxBin");
   expect(keysFor({ policyType: "dental" })).toContain("memberId");
