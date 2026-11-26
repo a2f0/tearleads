@@ -9,11 +9,62 @@ export function ciDiffRange(
   return `${base}...${head}`;
 }
 
-export function ciScopes(paths: readonly string[]) {
-  const common = paths.some((path) =>
-    /^(\.github\/workflows\/|scripts\/checks\/ci|\.mise\.toml$|\.nvmrc$|mise\.lock$|bun\.lock$|package\.json$)/.test(
+/** `bun.lock` on each side of the diff; missing means it could not be read. */
+export interface CiLockfiles {
+  base?: string | undefined;
+  head?: string | undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function withoutWorkspaceVersions(lockfile: string) {
+  const parsed: unknown = Bun.JSONC.parse(lockfile);
+  if (!isRecord(parsed)) throw new Error("bun.lock is not an object.");
+  const { workspaces: entries } = parsed;
+  if (!isRecord(entries)) throw new Error("bun.lock has no workspaces.");
+  const workspaces = Object.entries(entries).map(([path, workspace]) => {
+    if (!isRecord(workspace)) {
+      throw new Error(`bun.lock workspace ${path} is not an object.`);
+    }
+    return [
       path,
-    ),
+      Object.fromEntries(
+        Object.entries(workspace).filter(([key]) => key !== "version"),
+      ),
+    ];
+  });
+  return { ...parsed, workspaces: Object.fromEntries(workspaces) };
+}
+
+// `versions prepare` rewrites the workspace `version` fields of bun.lock on
+// nearly every pull request. Those fields change nothing any platform lane
+// installs, so only a lockfile that differs elsewhere (dependencies,
+// resolutions, integrity, the workspace set) exercises every lane. A lockfile
+// that is missing or cannot be parsed counts as changed.
+export function lockfileChangeIsCommon({ base, head }: CiLockfiles) {
+  if (base === undefined || head === undefined) return true;
+  try {
+    return !Bun.deepEquals(
+      withoutWorkspaceVersions(base),
+      withoutWorkspaceVersions(head),
+    );
+  } catch {
+    return true;
+  }
+}
+
+export function ciScopes(
+  paths: readonly string[],
+  lockfiles: CiLockfiles = {},
+) {
+  const common = paths.some((path) =>
+    path === "bun.lock"
+      ? lockfileChangeIsCommon(lockfiles)
+      : /^(\.github\/workflows\/|scripts\/checks\/ci|\.mise\.toml$|\.nvmrc$|mise\.lock$|package\.json$)/.test(
+          path,
+        ),
   );
   return {
     native:
