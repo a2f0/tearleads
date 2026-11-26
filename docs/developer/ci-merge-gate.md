@@ -92,10 +92,17 @@ selection. The shared `agent-tool ci gate` command evaluates
 required jobs and binds conditional jobs to the classifier’s exact outputs. A
 platform job may be skipped only when successful change detection explicitly
 marked it irrelevant. A failed, cancelled, missing, or unexpectedly skipped job
-fails the gate. Changes to workflows, CI scripts, tool pins,
-[`package.json`](../../package.json), or [`bun.lock`](../../bun.lock) exercise
-every lane. CI runs on pull requests and `main` pushes only, so a feature-branch
-push does not duplicate the pull-request run.
+fails the gate. Changes to workflows, CI scripts, tool pins, or
+[`package.json`](../../package.json) exercise every lane. So does a
+[`bun.lock`](../../bun.lock) change, unless it only rewrites workspace
+`version` fields, as `versions prepare` does on nearly every pull request: the
+classifier compares the merge base's and head's lockfiles with those fields
+removed, so a dependency, resolution, integrity, or workspace-set change still
+selects every lane, and a lockfile it cannot read or parse counts as changed.
+A version bump inside a lane's paths, such as
+[`packages/app-capacitor`](../../packages/app-capacitor/), still
+selects that lane. CI runs on pull requests and `main` pushes only, so a
+feature-branch push does not duplicate the pull-request run.
 
 Require the aggregate gate rather than a path-filtered workflow: GitHub leaves
 checks from skipped workflows pending, while skipped jobs can count as passing.

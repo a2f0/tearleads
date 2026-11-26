@@ -20,15 +20,19 @@ revision makes a proposal Measured.
 | --- | --- | --- |
 | `bun run perf:realtime` | Statements, round trips, rows, and bytes per realtime hub interest pass, counted at the PostgreSQL wire of a local database | The hub's container-interest reads (`realtime/containerInterest*`) in `api-access-and-projections`. They never reach `api.request.cost` or the canaries |
 | `bun run perf:realtime-contention` | How long other sockets wait while those passes run | Whether a statement or row saving there also shortens the hub's stalls |
+| `bun run perf:reload` | PostgreSQL traffic and the client's local SQLite statements for one returning client's reload, by account size, against a local database | `client-sync-persistence` and `api-listings-and-sync-reads`: how a reload's statements on both sides grow with the account. The app canaries have no client statement hook |
 | `bun run perf:database` | One warm driver exchange through Hyperdrive, against the same statements batched in one exchange | Turning a serial round-trip saving into production latency |
 | `bun run perf:provision --cloudflare` | Statements and database wait per registration and login request on a deployed tier | Production statements per request in `api-auth-and-registration`, beside the PGlite capture |
 
-The realtime probes need only a scratch database the audit creates, which
-the audit request authorizes. Seeding a 10,000-folder tree takes over an
-hour; reuse a seeded scratch database with `--reuse` when one exists, and
-record which. `perf:database` deploys a temporary Worker and `perf:provision`
-creates persistent accounts on a deployed tier, so run them only with the
-user's approval; otherwise cite the latest result and its date.
+The realtime probes and `perf:reload` are local. They create a scratch
+database and write git-ignored reports under the measured checkout's
+`.test_files/performance/`; the audit request authorizes both. Copy every
+report the audit cites into `measurements/`. Seeding a 10,000-folder tree
+takes over an hour; reuse a seeded scratch database with `--reuse` when one
+exists, and record which.
+`perf:database` deploys a temporary Worker and `perf:provision` creates
+persistent accounts on a deployed tier, so run them only with the user's
+approval; otherwise cite the latest result and its date.
 
 Statements inside one transaction run serially, so each one removed there
 saves one exchange. Multiply by the warm exchange cost in the latest
@@ -186,18 +190,20 @@ Capture once per revision, in the background, and keep one log and one
 capture file per run. When the protocol audit runs at the same revision,
 run the canaries once for both: set `DUAL_PANE_REQUEST_PROFILE=1` and
 `DUAL_PANE_REQUEST_PROFILE_DETAIL=1` beside the capture preload, so one log
-holds the request profile and one file the statements (about two minutes
-for all eight on 2026-10-30). Set `SQL_CAPTURE_PARAM_HASH=1` on that shared
+holds the request profile and one file the statements. `perf:canaries`
+runs the same files but cannot load the capture preload, so this shared
+pass runs each one by hand. Set `SQL_CAPTURE_PARAM_HASH=1` on that shared
 pass: without the hashes neither audit can split a repeated statement into
 same-key and different-key reads afterwards.
 
-- The eight request-volume canaries listed in the `protocol-efficiency-audit`
+- The request-volume canaries listed in the `protocol-efficiency-audit`
   measurement reference (upload, organization bootstrap, folder and group
-  mutations, device-first offline, active peer, groups, sharing), under the
-  capture preload. They drive the real SDK against the in-process test API
-  on PGlite, so their statement mix approximates production. Statements
-  between two `phaseEnd` markers include any setup the canary ran before
-  the phase started; use a probe for exact per-operation numbers.
+  mutations, device-first offline, groups, sharing, reconnect, restart; the
+  active-peer canary prints no profile), under the capture preload. They
+  drive the real SDK against the in-process test API on PGlite, so their
+  statement mix approximates production. Statements between two `phaseEnd`
+  markers include any setup the canary ran before the phase started; use a
+  probe for exact per-operation numbers.
 - The API statement-budget tests from the inventory, under the preload, for
   registration, read-model, projection, and verification-marker counts.
 

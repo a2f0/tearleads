@@ -1,39 +1,6 @@
-import {
-  chmod,
-  mkdir,
-  readFile,
-  rename,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-
-const reportDirectory = resolve(
-  import.meta.dir,
-  "../../../../.test_files/performance",
-);
-
-/** Writes `value` as owner-only JSON, replacing the file atomically. */
-export async function saveJson(
-  name: string,
-  value: object,
-  directory = reportDirectory,
-): Promise<string> {
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  await chmod(directory, 0o700);
-  const path = resolve(directory, name);
-  const temporary = `${path}.${crypto.randomUUID()}.tmp`;
-  try {
-    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, {
-      mode: 0o600,
-      flag: "wx",
-    });
-    await rename(temporary, path);
-  } finally {
-    await rm(temporary, { force: true });
-  }
-  return path;
-}
+import { reportDirectory } from "../reportFiles";
 
 /** The account a run seeded, so a later run can measure it again. */
 export interface SeededTree {
