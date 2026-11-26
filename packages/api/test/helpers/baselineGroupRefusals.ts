@@ -6,6 +6,7 @@ import {
   decodeVersionVector,
   emptyVersionVector,
   encodeVersionVectorCounters,
+  mergeVersionVectors,
 } from "@tearleads/loro";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import {
@@ -167,6 +168,42 @@ export const REFUSED_GROUPS: readonly RefusedGroup[] = [
         ],
       });
     },
+    reason: NOT_GAPLESS,
+  },
+  {
+    name: "peers named at their ends with no span",
+    baseline: ({ frontier, sign }) => {
+      const [first, ...others] = peerRanges(frontier);
+      if (!first || others.length === 0) throw new Error("Expected peers");
+      // One segment carries the first peer alone and names every other
+      // peer at its committed end, so its end vector reaches the frontier.
+      return sign({
+        ranges: [
+          {
+            dependencyVersionVector: emptyVersionVector(),
+            partialEndVersionVector: frontier,
+            partialStartVersionVector: mergeVersionVectors(
+              others.map((range) => range.partialEndVersionVector),
+            ),
+          },
+        ],
+      });
+    },
+    reason: NOT_GAPLESS,
+  },
+  {
+    name: "a cursored baseline that names the frontier with no span",
+    baseline: ({ frontier, sign }) =>
+      sign({
+        coversThroughUpdateId: "9e7c4d7a-1b2c-4d3e-8f90-a1b2c3d4e5f6",
+        ranges: [
+          {
+            dependencyVersionVector: emptyVersionVector(),
+            partialEndVersionVector: frontier,
+            partialStartVersionVector: frontier,
+          },
+        ],
+      }),
     reason: NOT_GAPLESS,
   },
   {

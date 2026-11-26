@@ -2,7 +2,7 @@ import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { documentUpdates } from "@tearleads/api-shared/schema";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   type DocumentBaselineGroup,
   documentBaselineGroupFaultMessage,
@@ -56,9 +56,17 @@ export function selectOutgoingBaselineSegments(
  * the hashes in its write header; the append that follows verifies every
  * header's signature and that the declared fields are the signed ones, so a
  * group that passes here and commits is the group its writer signed.
+ *
+ * The group's cursor must not name an update of the request that carries it
+ * (`requestUpdates`, the segments themselves when absent). A cursor stands
+ * for updates its author judged in a pull it completed, which were committed
+ * before the request. One that names an update committed with the group is
+ * unknown when the coverage gate reads it, so the gate weighs every update,
+ * and known once committed, so a redirect would skip that update unweighed.
  */
 export async function requireOutgoingBaselineGroup(input: {
   readonly documentId: string;
+  readonly requestUpdates?: readonly DocumentOutgoingUpdate[] | undefined;
   readonly segments: readonly DocumentOutgoingUpdate[];
 }): Promise<DocumentBaselineGroup> {
   const verdict = await judgeDocumentBaselineGroup({
@@ -88,6 +96,15 @@ export async function requireOutgoingBaselineGroup(input: {
       documentBaselineGroupFaultMessage(verdict.fault),
     );
   }
+  const cursor = verdict.group.coversThroughUpdateId;
+  if (
+    cursor !== undefined &&
+    (input.requestUpdates ?? input.segments).some(({ id }) => id === cursor)
+  ) {
+    throw documentBaselineGroupInvalid(
+      "its cursor names an update of the same request",
+    );
+  }
   return verdict.group;
 }
 
@@ -95,7 +112,8 @@ export async function requireOutgoingBaselineGroup(input: {
 export type CommittedBaselineGroupState = "committed" | "new" | "partial";
 
 /**
- * Whether the group's segments are committed already, by update id. A group
+ * Whether the group's segments are committed in this document already, by
+ * update id; an id another document holds is the append's to refuse. A group
  * commits whole in one transaction, so an honest first attempt finds none of
  * its ids and an honest retry finds them all. Some but not all is `partial`:
  * committing the rest would leave a group that was never written as one. A
@@ -104,13 +122,19 @@ export type CommittedBaselineGroupState = "committed" | "new" | "partial";
  */
 export async function readCommittedBaselineGroupState(
   executor: DatabaseSession,
+  documentId: string,
   segments: readonly DocumentOutgoingUpdate[],
 ): Promise<CommittedBaselineGroupState> {
   const segmentIds = [...new Set(segments.map((segment) => segment.id))];
   const rows = await executor
     .select({ id: documentUpdates.id })
     .from(documentUpdates)
-    .where(inArray(documentUpdates.id, segmentIds));
+    .where(
+      and(
+        eq(documentUpdates.documentId, documentId),
+        inArray(documentUpdates.id, segmentIds),
+      ),
+    );
   if (rows.length === 0) return "new";
   return rows.length === segmentIds.length ? "committed" : "partial";
 }

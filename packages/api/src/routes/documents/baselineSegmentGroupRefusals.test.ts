@@ -85,6 +85,26 @@ test("a sync refuses a baseline that breaks a group rule and writes nothing", as
   });
   await expectNothingWritten(history);
 
+  // A cursor stands for updates committed before the request. One that
+  // names an update sent ahead of the group in the same request would be
+  // unknown to the coverage gate and known to every later redirect, which
+  // would skip that update unweighed.
+  const [ahead] = trailing.request.outgoingUpdates;
+  if (!ahead) throw new Error("Expected an ordinary update");
+  const sameRequestCursor = await send([
+    ahead,
+    ...(await sign({
+      coversThroughUpdateId: ahead.id,
+      ranges: peerRanges(frontier),
+    })),
+  ]);
+  expect(sameRequestCursor.status).toBe(409);
+  expect(await sameRequestCursor.json()).toEqual({
+    code: GROUP_INVALID,
+    error: `${NOT_WHOLE}its cursor names an update of the same request`,
+  });
+  await expectNothingWritten(history);
+
   // A whole group that stops short of the committed frontier is stale, not
   // malformed: the client proves its history again.
   const [onePeer] = peerRanges(frontier);
@@ -213,7 +233,10 @@ test("an unlink refuses a baseline that breaks a group rule and changes nothing"
   } = segment;
   const unmarked = await send([ordinary]);
   expect(unmarked.status).toBe(409);
-  expect((await unmarked.json()).code).toBe(GROUP_INVALID);
+  expect(await unmarked.json()).toEqual({
+    code: GROUP_INVALID,
+    error: `${NOT_WHOLE}it holds an update that is not a baseline segment`,
+  });
   await expectUnchanged();
 
   // A whole group of several segments that stops short of the frontier.

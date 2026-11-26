@@ -103,6 +103,7 @@ export async function assertSyncRotationBaselinesSound(input: {
   const group = segments
     ? await requireOutgoingBaselineGroup({
         documentId: input.documentId,
+        requestUpdates: input.request.outgoingUpdates,
         segments,
       })
     : null;
@@ -131,6 +132,7 @@ export async function assertSyncRotationBaselinesSound(input: {
 
   const committed = await readCommittedBaselineGroupState(
     input.executor,
+    input.documentId,
     segments,
   );
   if (committed === "partial") {

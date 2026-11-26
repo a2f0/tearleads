@@ -5,7 +5,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { computeDocumentContentRecordMetadataHash } from "@tearleads/crypto";
 import type { DocumentUpdateRecord } from "@tearleads/loro/server";
-import { and, asc, eq, isNotNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, lte } from "drizzle-orm";
 import {
   type DocumentBaselineGroup,
   judgeDocumentBaselineGroup,
@@ -81,7 +81,13 @@ export interface StoredDocumentBaselineGroup extends DocumentBaselineGroup {
   readonly firstSequence: number;
 }
 
-async function listStoredBaselineSegments(
+/**
+ * The rows of the baseline sealed last under `contentKeyEpoch` at or before
+ * `upperBoundSequence`, in commit order: the group whose final segment, the
+ * one row that stores a count, is the newest there. One statement, and it
+ * reads signed fields only, never a payload.
+ */
+async function listLatestSealedBaselineSegments(
   executor: DatabaseSession,
   input: {
     readonly contentKeyEpoch: number;
@@ -89,6 +95,26 @@ async function listStoredBaselineSegments(
     readonly upperBoundSequence?: number | undefined;
   },
 ) {
+  const latestSealed = executor
+    .select({ baselineId: documentUpdates.baselineId })
+    .from(documentUpdates)
+    .innerJoin(
+      documentContentWriteHeaders,
+      eq(documentContentWriteHeaders.updateId, documentUpdates.id),
+    )
+    .where(
+      and(
+        eq(documentUpdates.documentId, input.documentId),
+        isNotNull(documentUpdates.baselineId),
+        isNotNull(documentUpdates.baselineSegmentCount),
+        eq(documentContentWriteHeaders.contentKeyEpoch, input.contentKeyEpoch),
+        ...(input.upperBoundSequence === undefined
+          ? []
+          : [lte(documentUpdates.sequence, input.upperBoundSequence)]),
+      ),
+    )
+    .orderBy(desc(documentUpdates.sequence))
+    .limit(1);
   return executor
     .select({
       baselineCoversThroughUpdateId:
@@ -114,8 +140,7 @@ async function listStoredBaselineSegments(
     .where(
       and(
         eq(documentUpdates.documentId, input.documentId),
-        isNotNull(documentUpdates.baselineId),
-        eq(documentContentWriteHeaders.contentKeyEpoch, input.contentKeyEpoch),
+        inArray(documentUpdates.baselineId, latestSealed),
         ...(input.upperBoundSequence === undefined
           ? []
           : [lte(documentUpdates.sequence, input.upperBoundSequence)]),
@@ -125,7 +150,7 @@ async function listStoredBaselineSegments(
 }
 
 type StoredBaselineSegment = Awaited<
-  ReturnType<typeof listStoredBaselineSegments>
+  ReturnType<typeof listLatestSealedBaselineSegments>
 >[number];
 
 /**
@@ -169,12 +194,13 @@ async function judgeStoredBaselineGroup(
 
 /**
  * The latest whole baseline written under `contentKeyEpoch`: of the
- * document's stored baselines at that epoch within the bound, the one
- * committed last whose rows still pass the group rules, or null. One read
- * loads every segment's signed fields, never a payload. A group is committed
- * whole by one transaction, so an honest database never fails the rules; a
- * row altered or removed afterwards, or a group the bound cuts, is skipped
- * instead of redirecting a reader past history it does not carry.
+ * document's stored baselines at that epoch within the bound, the one sealed
+ * last whose rows still pass the group rules, or null. It reads the group
+ * sealed last, and an older one only when that group is not whole, so a
+ * document rotated many times at one epoch costs one group's rows. A group
+ * is committed whole by one transaction, so an honest database never fails
+ * the rules; a row altered or removed afterwards is skipped instead of
+ * redirecting a reader past history it does not carry.
  */
 export async function loadLatestStoredDocumentBaselineGroup(
   executor: DatabaseSession,
@@ -184,18 +210,18 @@ export async function loadLatestStoredDocumentBaselineGroup(
     readonly upperBoundSequence?: number | undefined;
   },
 ): Promise<StoredDocumentBaselineGroup | null> {
-  const groups = new Map<string, StoredBaselineSegment[]>();
-  for (const row of await listStoredBaselineSegments(executor, input)) {
-    if (row.baselineId === null) continue;
-    const group = groups.get(row.baselineId);
-    if (group) group.push(row);
-    else groups.set(row.baselineId, [row]);
-  }
-  // Rows arrive in commit order, so the groups are in the order they began;
-  // groups do not interleave, so that is also the order they were sealed.
-  for (const rows of [...groups.values()].reverse()) {
+  let upperBoundSequence = input.upperBoundSequence;
+  for (;;) {
+    const rows = await listLatestSealedBaselineSegments(executor, {
+      ...input,
+      upperBoundSequence,
+    });
+    const first = rows[0];
+    if (!first) return null;
     const group = await judgeStoredBaselineGroup(input.documentId, rows);
     if (group) return group;
+    // Groups do not interleave, so every older group ends before this one
+    // begins.
+    upperBoundSequence = first.sequence - 1;
   }
-  return null;
 }

@@ -1,8 +1,8 @@
 import { computeDocumentBaselineSegmentsDigest } from "@tearleads/crypto";
 import {
-  historySegmentsImportInOrder,
-  mergeVersionVectors,
-  versionVectorsEqual,
+  decodeVersionVector,
+  encodeVersionVectorCounters,
+  listVersionVectorSpans,
 } from "@tearleads/loro";
 
 /**
@@ -27,9 +27,10 @@ export interface DocumentBaselineSegment {
 export interface DocumentBaselineGroup {
   readonly baselineId: string;
   /**
-   * The version the segments reach together: for each peer, the end of its
-   * last span. A group's spans run gapless from zero, so the group holds
-   * every operation this version names.
+   * The version the segments carry together: for each peer, where its spans
+   * end. It is read from the walk that proves the spans run gapless from
+   * zero, never from a vector a segment declares, so the group holds every
+   * operation this version names.
    */
   readonly coverage: string;
   readonly coversThroughUpdateId: string | undefined;
@@ -42,6 +43,7 @@ export type DocumentBaselineGroupFault =
   | "empty_segment"
   | "history_not_gapless"
   | "mixed_baseline"
+  | "not_a_segment"
   | "segment_count_mismatch"
   | "segment_out_of_order"
   | "sealed_early";
@@ -59,6 +61,7 @@ const FAULT_MESSAGES: Record<DocumentBaselineGroupFault, string> = {
   history_not_gapless:
     "the segments do not carry each peer's operations gapless from zero, each depending only on earlier segments",
   mixed_baseline: "the segments name more than one baseline",
+  not_a_segment: "it holds an update that is not a baseline segment",
   segment_count_mismatch:
     "the final segment's count is not the number of segments",
   segment_out_of_order: "the segments are not in index order from zero",
@@ -87,6 +90,7 @@ function placementFault(
 ): DocumentBaselineGroupFault | null {
   const final = segments.length - 1;
   for (const [position, segment] of segments.entries()) {
+    if (segment.baselineId == null) return "not_a_segment";
     if (segment.baselineId !== baselineId) return "mixed_baseline";
     if (segment.baselineSegmentIndex !== position) {
       return "segment_out_of_order";
@@ -98,29 +102,64 @@ function placementFault(
     : "segment_count_mismatch";
 }
 
+interface GroupHistory {
+  /** Whether some segment carries no operations. */
+  readonly hasEmptySegment: boolean;
+  /** Per peer, the counter the segments' spans reach from zero. */
+  readonly reached: ReadonlyMap<string, number>;
+}
+
 /**
- * Whether the segments rebuild a history from nothing when imported in
- * order. A segment with no operations is allowed only as the whole of an
- * empty baseline, whose author voided every update through the cursor it
- * signs. A vector that does not decode fails the same rule.
+ * Walk the segments as an import into an empty document would: each must
+ * start every peer it names exactly where the earlier segments left it, from
+ * zero, and depend only on operations they carry. What the walk reaches is
+ * what the group carries. A segment's vectors are otherwise only claims: one
+ * that names a peer at a counter the group has not reached, with or without
+ * a span of its own, would stand for operations no segment holds. Returns
+ * null when a segment breaks the walk or a vector does not decode.
  */
-function historyFault(
+function walkGroupHistory(
+  segments: readonly DocumentBaselineSegment[],
+): GroupHistory | null {
+  const reached = new Map<string, number>();
+  const held = (peerId: string) => reached.get(peerId) ?? 0;
+  let hasEmptySegment = false;
+  try {
+    for (const segment of segments) {
+      const spans = listVersionVectorSpans(segment);
+      const starts = decodeVersionVector(segment.partialStartVersionVector);
+      const dependencies = decodeVersionVector(segment.dependencyVersionVector);
+      if (
+        [...starts.toJSON()].some(
+          ([peerId, counter]) => held(peerId) !== counter,
+        ) ||
+        spans.some((span) => held(span.peerId) !== span.startCounter) ||
+        [...dependencies.toJSON()].some(
+          ([peerId, counter]) => held(peerId) < counter,
+        )
+      ) {
+        return null;
+      }
+      for (const span of spans) reached.set(span.peerId, span.endCounter);
+      hasEmptySegment ||= spans.length === 0;
+    }
+  } catch {
+    return null;
+  }
+  return { hasEmptySegment, reached };
+}
+
+/**
+ * A segment with no operations, one whose vectors give no span, is allowed
+ * only as the whole of an empty baseline, whose author voided every update
+ * through the cursor it signs.
+ */
+function emptySegmentFault(
   segments: readonly DocumentBaselineSegment[],
   final: DocumentBaselineSegment,
+  history: GroupHistory,
 ): DocumentBaselineGroupFault | null {
-  let empty: boolean;
-  try {
-    if (!historySegmentsImportInOrder(segments)) return "history_not_gapless";
-    empty = segments.some((segment) =>
-      versionVectorsEqual(
-        segment.partialStartVersionVector,
-        segment.partialEndVersionVector,
-      ),
-    );
-  } catch {
-    return "history_not_gapless";
-  }
-  if (!empty) return null;
+  if (!history.hasEmptySegment) return null;
   if (segments.length > 1) return "empty_segment";
   return final.coversThroughUpdateId == null ? "cursor_missing" : null;
 }
@@ -132,8 +171,8 @@ function historyFault(
  *   from zero with none missing;
  * - only the final segment carries the count, the digest and the cursor, and
  *   its count is the number of segments;
- * - each peer's spans run gapless from zero across the list, and each
- *   segment depends only on operations earlier segments carry;
+ * - each segment starts every peer it names where the earlier segments left
+ *   it, from zero, and depends only on operations they carry;
  * - the final segment's digest is the digest of the segments before it.
  *
  * It reads declared fields and signed hashes only. The caller has verified,
@@ -148,10 +187,13 @@ export async function judgeDocumentBaselineGroup(input: {
   const final = segments.at(-1);
   const baselineId = segments[0]?.baselineId;
   if (!final || baselineId == null) {
-    return { fault: "mixed_baseline", ok: false };
+    return { fault: "not_a_segment", ok: false };
   }
-  const fault =
-    placementFault(segments, baselineId) ?? historyFault(segments, final);
+  const placement = placementFault(segments, baselineId);
+  if (placement) return { fault: placement, ok: false };
+  const history = walkGroupHistory(segments);
+  if (!history) return { fault: "history_not_gapless", ok: false };
+  const fault = emptySegmentFault(segments, final, history);
   if (fault) return { fault, ok: false };
   const digest = await computeDocumentBaselineSegmentsDigest({
     baselineId,
@@ -164,8 +206,8 @@ export async function judgeDocumentBaselineGroup(input: {
   return {
     group: {
       baselineId,
-      coverage: mergeVersionVectors(
-        segments.map((segment) => segment.partialEndVersionVector),
+      coverage: encodeVersionVectorCounters(
+        Object.fromEntries(history.reached),
       ),
       coversThroughUpdateId: final.coversThroughUpdateId ?? undefined,
     },
