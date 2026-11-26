@@ -1,0 +1,33 @@
+# Issue #3238 (segmented rotation baselines, PR 2): a rotation baseline is an
+# ordered group of update records, its segments, in place of one snapshot
+# record. An update's signed baseline fields are now `baselineId`,
+# `baselineSegmentIndex`, `baselineSegmentCount`, `baselineSegmentsDigest` and
+# `coversThroughUpdateId`, so the refinement on those fields has a new id, and
+# every request that embeds a document sync update reports it as added. This
+# is a signed-shape flag day for the greenfield SDK, which ships with the API:
+# a client built before it signs `checkpointKind`, `checkpointPayloadKind` and
+# `sourceVersionVector`, which no build reads any more. Remove these exact
+# diagnostics, and this file, as soon as main contains the new contract.
+POST /auth/register: request refinement 'request.rotation-baseline-segment-fields' was added; existing clients were not rejected by it.
+POST /blobs/{blobId}/attachment-bindings: request refinement 'request.rotation-baseline-segment-fields' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.rotation-baseline-segment-fields' was added; existing clients were not rejected by it.
+POST /documents/{documentId}/link: request refinement 'request.rotation-baseline-segment-fields' was added; existing clients were not rejected by it.
+POST /documents/{documentId}/sync: request refinement 'request.rotation-baseline-segment-fields' was added; existing clients were not rejected by it.
+POST /documents/{documentId}/unlink: request refinement 'request.rotation-baseline-segment-fields' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.rotation-baseline-segment-fields' was added; existing clients were not rejected by it.
+POST /organizations: request refinement 'request.rotation-baseline-segment-fields' was added; existing clients were not rejected by it.
+
+# Issue #3238 PR 2: the response refinement on the same fields has a new id
+# too, so the old one reads as removed. A client built before this contract
+# recomputes a served segment's metadata hash without its baseline fields and
+# fails closed on it, as the flag day above requires. Remove this exact
+# diagnostic as soon as main contains the new contract.
+POST /documents/{documentId}/sync: response refinement 'response.rotation-checkpoint-fields' was removed; existing clients still validate responses against it.
+
+# Issue #3238 PR 2: a link-set mutation's `rotationBaseline` is the group's
+# segments, an array of at most 64, where it was one update. The array is
+# new, so its ceiling tightens nothing an existing client could send; the
+# check reports any new `maxItems` under a changed request schema. Remove
+# these exact diagnostics as soon as main contains the new contract.
+POST /documents/{documentId}/link: 1 request maxItems constraint(s) tightened [sha256:0d5872b8daa2ebfb875c130be1b2d5c4d122a34d5387fdb37cb49236a5b688dc]; existing clients could send larger arrays.
+POST /documents/{documentId}/unlink: 1 request maxItems constraint(s) tightened [sha256:0d5872b8daa2ebfb875c130be1b2d5c4d122a34d5387fdb37cb49236a5b688dc]; existing clients could send larger arrays.

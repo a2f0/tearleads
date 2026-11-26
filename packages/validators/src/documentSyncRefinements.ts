@@ -2,8 +2,8 @@ import { MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS } from "./util/documentSyncLi
 
 export const documentSyncRequestRotationRefinement = {
   description:
-    "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
-  id: "request.rotation-checkpoint-fields",
+    "baselineId and baselineSegmentIndex must be absent together or both present; baselineSegmentCount and baselineSegmentsDigest appear only together and only with them, marking a baseline's final segment; only a final segment may carry coversThroughUpdateId",
+  id: "request.rotation-baseline-segment-fields",
 } as const;
 
 export const documentSyncRequestEnvelopeRefinements = [
@@ -64,8 +64,8 @@ export const documentLinkSetPathRefinement = {
 
 export const documentSyncResponseRotationRefinement = {
   description:
-    "checkpointKind, checkpointPayloadKind, and sourceVersionVector must be absent together or form a rotation baseline, and only a rotation baseline may carry coversThroughUpdateId",
-  id: "response.rotation-checkpoint-fields",
+    "baselineId and baselineSegmentIndex must be absent together or both present; baselineSegmentCount and baselineSegmentsDigest appear only together and only with them, marking a baseline's final segment; only a final segment may carry coversThroughUpdateId",
+  id: "response.rotation-baseline-segment-fields",
 } as const;
 
 export const documentSyncResponseCommitLsnModeRefinement = {

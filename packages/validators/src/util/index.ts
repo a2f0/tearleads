@@ -1,3 +1,4 @@
+export { classifyDocumentBaselineSegmentFields } from "../documentBaselineSegment";
 export {
   type AccessEventBundleWireResponse,
   AccessEventBundleWireResponseSchema,
@@ -44,6 +45,7 @@ export {
 } from "./containerKekKeyringWire";
 export { MAX_CONTAINER_PATH_LENGTH } from "./containerLimits";
 export {
+  MAX_DOCUMENT_BASELINE_SEGMENTS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,

@@ -4,6 +4,7 @@ import { documentLinkSetPathRefinement } from "../documentSyncRefinements";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
+  boundedNonEmptyArraySchema,
   loosePlainObject,
   nonEmptyStringSchema,
   plainObjectSchema,
@@ -11,6 +12,7 @@ import {
 } from "../schema";
 import {
   MAX_CONTAINER_PATH_LENGTH,
+  MAX_DOCUMENT_BASELINE_SEGMENTS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_INLINE_CONTAINER_REKEYS,
@@ -106,7 +108,10 @@ export const DocumentLinkSetMutationRequestSchema =
       contentKeyBundle: DocumentContentKeyBundleRequestSchema,
       event: plainObjectSchema,
       expectedManifestHash: nonEmptyStringSchema,
-      rotationBaseline: DocumentOutgoingUpdateSchema.optional(),
+      rotationBaseline: boundedNonEmptyArraySchema(
+        DocumentOutgoingUpdateSchema,
+        MAX_DOCUMENT_BASELINE_SEGMENTS,
+      ).optional(),
       // A container path (root→leaf chain) must carry at least one manifest
       // reference; an empty path authorizes nothing and is never legitimately built.
       targetContainerPathRefs: ContainerManifestPathSchema,

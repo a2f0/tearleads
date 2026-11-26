@@ -9,6 +9,15 @@ import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "../util/principalHistoryWire
 import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
 
 export const DOCUMENT_SYNC_ERROR_CODES = {
+  // The request's rotation baseline is not one well-formed group: its
+  // segments are out of order or incomplete, name several baselines, leave a
+  // gap in a peer's operations or a dependency unmet, or the final segment's
+  // count, digest or cursor does not fit them. Nothing was written, and a
+  // retry of the same request is refused again: the client builds the
+  // baseline anew from its proven history.
+  baselineGroupInvalid: "document_sync_baseline_group_invalid",
+  // The request's rotation baseline does not cover every update committed
+  // after its cursor. The client pulls, proves its history again and retries.
   checkpointCoverageConflict: "document_sync_checkpoint_coverage_conflict",
   conflict: "document_sync_conflict",
   // An inline container rekey would strand a level above a directly granted
@@ -27,6 +36,7 @@ export const DOCUMENT_SYNC_ERROR_CODES = {
 } as const;
 
 export const DocumentSyncErrorCodeSchema = z.literal([
+  DOCUMENT_SYNC_ERROR_CODES.baselineGroupInvalid,
   DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict,
   DOCUMENT_SYNC_ERROR_CODES.conflict,
   DOCUMENT_SYNC_ERROR_CODES.dependencyUncommitted,

@@ -1,4 +1,5 @@
 export type KeyingHashDomain =
+  | "tearleads.document.baseline-segments"
   | "tearleads.document.content-record-ciphertext"
   | "tearleads.document.content-record-metadata"
   | "tearleads.keying.access-event-body"

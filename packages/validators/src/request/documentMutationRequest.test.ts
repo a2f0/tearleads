@@ -222,18 +222,27 @@ test("isContainerCreateWithMetadataDocumentRequest", () => {
 });
 
 test("isDocumentLinkSetMutationRequest", () => {
-  const rotationBaseline = {
-    checkpointKind: "rotate_baseline" as const,
-    checkpointPayloadKind: "full_history_snapshot" as const,
-    id: "550e8400-e29b-41d4-a716-446655440111",
+  const baselineSegment = {
+    baselineId: "550e8400-e29b-41d4-a716-446655440222",
+    baselineSegmentIndex: 0,
+    id: "550e8400-e29b-41d4-a716-446655440110",
     encryptedData: "ciphertext",
     dependencyVersionVector: "{}",
     partialStartVersionVector: "{}",
     partialEndVersionVector: '{"actor":1}',
     plaintextHash: "plaintext-hash",
-    sourceVersionVector: '{"actor":1}',
+    writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440110" },
+  };
+  const finalSegment = {
+    ...baselineSegment,
+    baselineSegmentCount: 2,
+    baselineSegmentIndex: 1,
+    baselineSegmentsDigest: "ab".repeat(32),
+    coversThroughUpdateId: "550e8400-e29b-41d4-a716-446655440333",
+    id: "550e8400-e29b-41d4-a716-446655440111",
     writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
   };
+  const rotationBaseline = [baselineSegment, finalSegment];
   const validRequest = {
     event: { eventType: "document.link" },
     body: { documentId: "550e8400-e29b-41d4-a716-446655440001" },
@@ -257,10 +266,13 @@ test("isDocumentLinkSetMutationRequest", () => {
     isDocumentLinkSetMutationRequest({
       ...validRequest,
       event: { eventType: "document.unlink" },
-      rotationBaseline: {
-        ...rotationBaseline,
-        encryptedData: "A".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1),
-      },
+      rotationBaseline: [
+        {
+          ...baselineSegment,
+          encryptedData: "A".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1),
+        },
+        finalSegment,
+      ],
     }),
   ).toBe(true);
   const largeRotationVector = "V".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES + 1);
@@ -268,21 +280,34 @@ test("isDocumentLinkSetMutationRequest", () => {
     isDocumentLinkSetMutationRequest({
       ...validRequest,
       event: { eventType: "document.unlink" },
-      rotationBaseline: {
-        ...rotationBaseline,
-        dependencyVersionVector: "{}",
-        partialEndVersionVector: largeRotationVector,
-        partialStartVersionVector: largeRotationVector,
-        sourceVersionVector: largeRotationVector,
-      },
+      rotationBaseline: [
+        {
+          ...finalSegment,
+          baselineSegmentCount: 1,
+          baselineSegmentIndex: 0,
+          dependencyVersionVector: "{}",
+          partialEndVersionVector: largeRotationVector,
+          partialStartVersionVector: largeRotationVector,
+        },
+      ],
     }),
   ).toBe(true);
-  expect(
-    isDocumentLinkSetMutationRequest({
-      ...validRequest,
-      rotationBaseline: { ...rotationBaseline, sourceVersionVector: undefined },
-    }),
-  ).toBe(false);
+  // One baseline is a list of its segments: never one bare update, never
+  // empty, never more than a group may hold, and each entry a valid segment.
+  for (const invalid of [
+    finalSegment,
+    [],
+    Array.from({ length: 65 }, () => baselineSegment),
+    [baselineSegment, { ...finalSegment, baselineSegmentsDigest: undefined }],
+    [{ ...baselineSegment, coversThroughUpdateId: finalSegment.id }],
+  ]) {
+    expect(
+      isDocumentLinkSetMutationRequest({
+        ...validRequest,
+        rotationBaseline: invalid,
+      }),
+    ).toBe(false);
+  }
   expect(
     isDocumentLinkSetMutationRequest({
       ...validRequest,
@@ -396,15 +421,16 @@ test("document link aggregate validation does not rescan oversized path sets", (
 
 test("isDocumentSyncRequest", () => {
   const validOutgoingUpdate = {
-    checkpointKind: "rotate_baseline" as const,
-    checkpointPayloadKind: "full_history_snapshot" as const,
+    baselineId: "550e8400-e29b-41d4-a716-446655440222",
+    baselineSegmentCount: 1,
+    baselineSegmentIndex: 0,
+    baselineSegmentsDigest: "ab".repeat(32),
     id: "550e8400-e29b-41d4-a716-446655440111",
     encryptedData: "ciphertext",
     dependencyVersionVector: "{}",
     partialStartVersionVector: "{}",
     partialEndVersionVector: '{"actor":1}',
     plaintextHash: "plaintext-hash",
-    sourceVersionVector: '{"actor":1}',
     writeHeader: { updateId: "550e8400-e29b-41d4-a716-446655440111" },
   };
   const validRequest = {

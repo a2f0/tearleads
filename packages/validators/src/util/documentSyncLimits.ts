@@ -17,6 +17,12 @@ export const MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES = 64;
 export const MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH = 512;
 
 export const MAX_DOCUMENT_SYNC_OUTGOING_UPDATES = 64;
+// A rotation baseline is an ordered group of updates, its segments, sent
+// whole in the one request that rotates: with the unlink, or among a sync's
+// outgoing updates. So a group holds at most as many segments as a sync
+// carries updates (`MAX_DOCUMENT_SYNC_OUTGOING_UPDATES`, which a test holds
+// it to), and one request's bytes bound it sooner.
+export const MAX_DOCUMENT_BASELINE_SEGMENTS = 64;
 // Individual updates may use the request's remaining budget. The SDK applies
 // the exact serialized-byte ceiling after encryption and trims the batch; a
 // smaller estimate here would permanently strand an otherwise valid update.

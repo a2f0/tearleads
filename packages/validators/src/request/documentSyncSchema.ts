@@ -1,10 +1,8 @@
 import { z } from "zod";
 import {
-  classifyDocumentSyncCheckpointFields,
-  DOCUMENT_SYNC_CHECKPOINT_FIELD_SET_ISSUE_MESSAGE,
-  DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND,
-  DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND,
-} from "../documentSyncCheckpoint";
+  classifyDocumentBaselineSegmentFields,
+  DOCUMENT_BASELINE_SEGMENT_FIELD_SET_ISSUE_MESSAGE,
+} from "../documentBaselineSegment";
 import {
   documentSyncRequestEnvelopeRefinements,
   documentSyncRequestPullRefinements,
@@ -20,6 +18,8 @@ import {
 import {
   arraySchema,
   boundedNonEmptyStringSchema,
+  boundedNonNegativeIntegerSchema,
+  boundedPositiveIntegerSchema,
   boundedStringSchema,
   loosePlainObject,
   nonEmptyStringSchema,
@@ -27,9 +27,11 @@ import {
   positiveIntegerSchema,
   requiredUnknownSchema,
   sha256HexStringSchema,
+  uuidV4StringSchema,
 } from "../schema";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
 import {
+  MAX_DOCUMENT_BASELINE_SEGMENTS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
   MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
@@ -102,12 +104,14 @@ function createDocumentOutgoingUpdateSchema(
 ) {
   return registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
-      checkpointKind: z
-        .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_KIND)
-        .optional(),
-      checkpointPayloadKind: z
-        .literal(DOCUMENT_SYNC_ROTATION_CHECKPOINT_PAYLOAD_KIND)
-        .optional(),
+      baselineId: uuidV4StringSchema.optional(),
+      baselineSegmentCount: boundedPositiveIntegerSchema(
+        MAX_DOCUMENT_BASELINE_SEGMENTS,
+      ).optional(),
+      baselineSegmentIndex: boundedNonNegativeIntegerSchema(
+        MAX_DOCUMENT_BASELINE_SEGMENTS - 1,
+      ).optional(),
+      baselineSegmentsDigest: sha256HexStringSchema.optional(),
       coversThroughUpdateId: registerJsonSchemaFragment(
         z.string().refine(isUuidV4String),
         { pattern: UUID_V4_PATTERN.source, type: "string" },
@@ -121,13 +125,12 @@ function createDocumentOutgoingUpdateSchema(
       partialEndVersionVector: versionVectorSchema,
       partialStartVersionVector: versionVectorSchema,
       plaintextHash: nonEmptyStringSchema,
-      sourceVersionVector: versionVectorSchema.optional(),
       writeHeader: plainObjectSchema,
     }).superRefine((update, context) => {
-      if (classifyDocumentSyncCheckpointFields(update) === "invalid") {
+      if (classifyDocumentBaselineSegmentFields(update) === "invalid") {
         context.addIssue({
           code: "custom",
-          message: DOCUMENT_SYNC_CHECKPOINT_FIELD_SET_ISSUE_MESSAGE,
+          message: DOCUMENT_BASELINE_SEGMENT_FIELD_SET_ISSUE_MESSAGE,
         });
       }
     }),
@@ -135,10 +138,10 @@ function createDocumentOutgoingUpdateSchema(
   );
 }
 
-// Link-set rotations may carry a full-history baseline that is larger than a
-// single sync request. Their route has its own ingress policy, so keep the
-// shared update contract unbounded and apply the sync-specific ceiling only
-// where an update is embedded in DocumentSyncRequest.
+// An unlink carries its rotation baseline's segments on a route with its own,
+// larger ingress ceiling than a sync request has. So the shared update
+// contract stays unbounded, and the sync ceiling applies only where an update
+// is embedded in DocumentSyncRequest.
 export const DocumentOutgoingUpdateSchema = createDocumentOutgoingUpdateSchema(
   nonEmptyStringSchema,
   nonEmptyStringSchema,

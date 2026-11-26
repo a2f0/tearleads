@@ -138,6 +138,24 @@ export function boundedPositiveIntegerSchema(maximum: number) {
   );
 }
 
+/** An integer from zero to `maximum`, both included. */
+export function boundedNonNegativeIntegerSchema(maximum: number) {
+  return registerJsonSchemaFragment(
+    z.custom<number>(
+      (value) =>
+        typeof value === "number" &&
+        Number.isInteger(value) &&
+        value >= 0 &&
+        value <= maximum,
+    ),
+    {
+      maximum,
+      minimum: 0,
+      type: "integer",
+    },
+  );
+}
+
 export const requiredUnknownSchema = registerJsonSchemaView(
   z.custom<unknown>((value) => value !== undefined),
   z.unknown(),

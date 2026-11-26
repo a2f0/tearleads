@@ -182,7 +182,7 @@ test("generated OpenAPI types match the document sync structural contract", () =
     IsNotEqual<
       NormalizeWireType<
         LooseWireObject<{
-          nested: LooseWireObject<{ sourceVersionVector?: string }>;
+          nested: LooseWireObject<{ baselineId?: string }>;
         }>
       >,
       NormalizeWireType<LooseWireObject<{ nested: LooseWireObject<object> }>>

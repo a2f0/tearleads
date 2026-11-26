@@ -61,6 +61,12 @@ export {
   deriveContainerKekRecipientTargets,
   derivePrincipalRecipientKeyEpochId,
 } from "./containerKek/recipientTargets";
+export {
+  computeDocumentBaselineSegmentsDigest,
+  type DocumentBaselineSegmentDigestEntry,
+  extendDocumentBaselineSegmentsDigest,
+  startDocumentBaselineSegmentsDigest,
+} from "./core/baselineSegmentsDigest";
 export * from "./core/canonical";
 export {
   computeAccessManifestBundleDigest,

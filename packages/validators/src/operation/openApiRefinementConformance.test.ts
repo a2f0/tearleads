@@ -52,12 +52,10 @@ const witnesses = {
   [documentSyncRequestRotationRefinement.id]: {
     createInput: () => ({
       ...createSyncRequest(),
-      outgoingUpdates: [
-        { ...firstOutgoingUpdate(), checkpointKind: "rotate_baseline" },
-      ],
+      outgoingUpdates: [{ ...firstOutgoingUpdate(), baselineSegmentIndex: 0 }],
     }),
     expectedMessage:
-      "checkpoint fields must be absent or form a rotation baseline",
+      "baseline fields must be absent, mark a baseline segment, or mark a baseline's final segment",
     kind: "request",
   },
   "request.inline-rekey-commit-marker": {
@@ -133,12 +131,10 @@ const witnesses = {
   [documentSyncResponseRotationRefinement.id]: {
     createInput: () => ({
       ...createSyncResponse(),
-      updates: [
-        { ...firstResponseUpdate(), checkpointKind: "rotate_baseline" },
-      ],
+      updates: [{ ...firstResponseUpdate(), baselineSegmentIndex: 0 }],
     }),
     expectedMessage:
-      "checkpoint fields must be absent or form a rotation baseline",
+      "baseline fields must be absent, mark a baseline segment, or mark a baseline's final segment",
     kind: "response",
   },
   [documentSyncResponseCommitLsnModeRefinement.id]: {

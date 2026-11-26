@@ -1,0 +1,90 @@
+# Issue #3238 (segmented rotation baselines, PR 2; greenfield flag day, no
+# compatibility shim): a rotation baseline is an ordered group of update
+# records, its segments, in place of one snapshot record. An update's signed
+# metadata drops `checkpointKind`, `checkpointPayloadKind` and
+# `sourceVersionVector` for `baselineId`, `baselineSegmentIndex`,
+# `baselineSegmentCount`, `baselineSegmentsDigest` and `coversThroughUpdateId`,
+# so every request that embeds a document sync update loses the three
+# properties. No build reads them, and the SDK ships with the API. Remove
+# these entries, and this file, as soon as main contains this contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/outgoingUpdates/items/checkpointKind` (shared schema: `DocumentCreateSeedRequest`, also at `initialRosterProfileContainer/initialMetadataSync/outgoingUpdates/items/checkpointKind`, `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/checkpointKind` and 3 more)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/outgoingUpdates/items/checkpointPayloadKind` (shared schema: `DocumentCreateSeedRequest`, also at `initialRosterProfileContainer/initialMetadataSync/outgoingUpdates/items/checkpointPayloadKind`, `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/checkpointPayloadKind` and 3 more)
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/outgoingUpdates/items/sourceVersionVector` (shared schema: `DocumentCreateSeedRequest`, also at `initialRosterProfileContainer/initialMetadataSync/outgoingUpdates/items/sourceVersionVector`, `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/sourceVersionVector` and 3 more)
+POST /blobs/{blobId}/attachment-bindings removed the request property `documentSync/outgoingUpdates/items/checkpointKind`
+POST /blobs/{blobId}/attachment-bindings removed the request property `documentSync/outgoingUpdates/items/checkpointPayloadKind`
+POST /blobs/{blobId}/attachment-bindings removed the request property `documentSync/outgoingUpdates/items/sourceVersionVector`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/outgoingUpdates/items/checkpointKind`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/outgoingUpdates/items/checkpointPayloadKind`
+POST /containers/with-metadata-document removed the request property `initialMetadataSync/outgoingUpdates/items/sourceVersionVector`
+POST /documents removed the request property `initialSync/outgoingUpdates/items/checkpointKind`
+POST /documents removed the request property `initialSync/outgoingUpdates/items/checkpointPayloadKind`
+POST /documents removed the request property `initialSync/outgoingUpdates/items/sourceVersionVector`
+POST /documents/{documentId}/sync removed the request property `outgoingUpdates/items/checkpointKind`
+POST /documents/{documentId}/sync removed the request property `outgoingUpdates/items/checkpointPayloadKind`
+POST /documents/{documentId}/sync removed the request property `outgoingUpdates/items/sourceVersionVector`
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/outgoingUpdates/items/checkpointKind` (shared schema: `DocumentCreateSeedRequest`, also at `initialRosterProfileContainer/initialMetadataSync/outgoingUpdates/items/checkpointKind`, `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/checkpointKind` and 3 more)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/outgoingUpdates/items/checkpointPayloadKind` (shared schema: `DocumentCreateSeedRequest`, also at `initialRosterProfileContainer/initialMetadataSync/outgoingUpdates/items/checkpointPayloadKind`, `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/checkpointPayloadKind` and 3 more)
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/outgoingUpdates/items/sourceVersionVector` (shared schema: `DocumentCreateSeedRequest`, also at `initialRosterProfileContainer/initialMetadataSync/outgoingUpdates/items/sourceVersionVector`, `initialSystemContainers/items/initialMetadataSync/outgoingUpdates/items/sourceVersionVector` and 3 more)
+
+# Issue #3238 PR 2: a link-set mutation's `rotationBaseline` is the group's
+# segments, an array of 1 to 64 updates, where it was one update. Remove these
+# entries as soon as main contains this contract.
+POST /documents/{documentId}/link the `rotationBaseline` request property `type` changed from `object` to `array<object>`
+POST /documents/{documentId}/link the `rotationBaseline` request property's maxItems was set to `64`
+POST /documents/{documentId}/link the `rotationBaseline` request property's minItems was set to `1`
+POST /documents/{documentId}/unlink the `rotationBaseline` request property `type` changed from `object` to `array<object>`
+POST /documents/{documentId}/unlink the `rotationBaseline` request property's maxItems was set to `64`
+POST /documents/{documentId}/unlink the `rotationBaseline` request property's minItems was set to `1`
+
+# Issue #3238 PR 2: the same change read from the old shape: an unlink's
+# `rotationBaseline` was an object, so each of its properties reads as removed
+# now that it is an array of the same update. Remove these entries as soon as
+# main contains this contract.
+POST /documents/{documentId}/link removed the request property `rotationBaseline/checkpointKind`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/checkpointPayloadKind`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/coversThroughUpdateId`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/dependencyVersionVector`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/encryptedData`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/id`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/partialEndVersionVector`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/partialStartVersionVector`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/plaintextHash`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/sourceVersionVector`
+POST /documents/{documentId}/link removed the request property `rotationBaseline/writeHeader`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/checkpointKind`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/checkpointPayloadKind`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/coversThroughUpdateId`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/dependencyVersionVector`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/encryptedData`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/id`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/partialEndVersionVector`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/partialStartVersionVector`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/plaintextHash`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/sourceVersionVector`
+POST /documents/{documentId}/unlink removed the request property `rotationBaseline/writeHeader`
+
+# Issue #3238 PR 2: a rotation baseline that is not one whole group is refused
+# with the new code `document_sync_baseline_group_invalid`, which joins the
+# document sync error codes every document and container mutation may report.
+# Only a request that carries a baseline can receive it, and only the new
+# client builds one. Remove these entries as soon as main contains this
+# contract.
+DELETE /containers/{containerId} added the new `document_sync_baseline_group_invalid` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+GET /documents/{documentId}/purge added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+GET /documents/{documentId}/purge added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+POST /containers added the new `document_sync_baseline_group_invalid` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+POST /containers/with-metadata-document added the new `document_sync_baseline_group_invalid` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+POST /containers/{containerId}/move added the new `document_sync_baseline_group_invalid` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+POST /containers/{containerId}/recite added the new `document_sync_baseline_group_invalid` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+POST /containers/{containerId}/rekey added the new `document_sync_baseline_group_invalid` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+POST /containers/{containerId}/revoke added the new `document_sync_baseline_group_invalid` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+POST /containers/{containerId}/share added the new `document_sync_baseline_group_invalid` enum value to the `anyOf[subschema #1]/code/anyOf[#/components/schemas/DocumentMutationErrorCode]/anyOf[subschema #2]/` response property for the response status `409`
+POST /documents added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+POST /documents added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+POST /documents/{documentId}/link added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+POST /documents/{documentId}/link added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+POST /documents/{documentId}/purge added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+POST /documents/{documentId}/purge added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
+POST /documents/{documentId}/sync added the new `document_sync_baseline_group_invalid` enum value to the `code` response property for the response status `409`
+POST /documents/{documentId}/unlink added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `404`
+POST /documents/{documentId}/unlink added the new `document_sync_baseline_group_invalid` enum value to the `code/anyOf[subschema #2]/` response property for the response status `409`
