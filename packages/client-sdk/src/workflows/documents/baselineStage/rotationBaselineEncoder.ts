@@ -34,7 +34,7 @@ const MEBIBYTE = 1024 * 1024;
  * (`MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES`), base64 inside its
  * envelope, which leaves this much with room for its header and vectors.
  */
-export const ROTATION_BASELINE_SEGMENT_MAX_BYTES = 11 * MEBIBYTE;
+const ROTATION_BASELINE_SEGMENT_MAX_BYTES = 11 * MEBIBYTE;
 
 /**
  * The plaintext a staged baseline's final segment aims for. That segment

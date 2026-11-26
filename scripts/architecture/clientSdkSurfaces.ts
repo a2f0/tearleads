@@ -81,6 +81,7 @@ export const documentProjectionContractsSurface = [
   `${sdk}/data/documents/shared/sync/baselineGroupMachine.ts`,
   `${sdk}/data/documents/shared/sync/baselineGroupProgress.ts`,
   `${sdk}/data/documents/shared/sync/baselineSegment.ts`,
+  `${sdk}/data/documents/shared/sync/baselineStageApi.ts`,
   `${sdk}/data/documents/shared/sync/contentKeyCommitment.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncImportVerdicts.ts`,
   `${sdk}/data/documents/shared/sync/documentSyncOutgoingBatch.ts`,
