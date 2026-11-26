@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="718" viewBox="0 0 600 718" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>One document sync round trip</title>
+  <desc>The client seals its pending Loro updates and sends them with the head it expects. The server checks that head, appends the encrypted updates and their visible version-vector spans in one transaction, and returns only the updates the client lacks. The client verifies, decrypts, and imports them, and asks for further pages while more remain.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <style>
+      .canvas,.box { fill: #fff; }
+      .band { fill: #f8fafc; }
+      .box,.edge { stroke: #4b5563; stroke-width: 1.25; }
+      .edge { fill: none; }
+      .arrowhead { fill: #4b5563; }
+      .colhead { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+      .name { font-size: 15px; font-weight: 600; }
+      .colhead,.name { fill: #111827; }
+      .meta { fill: #4b5563; font-size: 13px; }
+      .mono { fill: #374151; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      @media (prefers-color-scheme: dark) {
+        .canvas,.box { fill: #18181b; }
+        .band { fill: #242427; }
+        .colhead,.name { fill: #fafafa; }
+        .meta,.arrowhead { fill: #d4d4d8; }
+        .mono { fill: #e4e4e7; }
+        .box,.edge { stroke: #d4d4d8; }
+      }
+    </style>
+  </defs>
+  <rect width="600" height="718" class="canvas"/>
+  <rect y="196" width="600" height="324" class="band"/>
+
+  <text x="16" y="24" class="colhead">CLIENT</text>
+  <rect x="16" y="36" width="376" height="88" rx="4" class="box"/>
+  <text x="28" y="57" class="name">1 · Seal each pending Loro update</text>
+  <text x="28" y="76" class="meta">Encrypt under a record key from the content key</text>
+  <text x="28" y="94" class="meta">Sign a write header over the key epoch, visible</text>
+  <text x="28" y="112" class="meta">version vectors, and an opaque plaintext HMAC</text>
+
+  <path d="M204 124 V228" class="edge" marker-end="url(#arrow)"/>
+  <text x="218" y="148" class="mono">POST /documents/:id/sync</text>
+  <text x="218" y="167" class="meta">expected head and target hashes, local</text>
+  <text x="218" y="185" class="meta">version vector, outgoing updates</text>
+
+  <text x="16" y="218" class="colhead">API AND POSTGRES</text>
+  <rect x="16" y="230" width="376" height="70" rx="4" class="box"/>
+  <text x="28" y="251" class="name">2 · Check the expected head</text>
+  <text x="28" y="270" class="meta">Hashes must match the current signed link-set</text>
+  <text x="28" y="288" class="meta">manifest and its derived KEK targets</text>
+  <path d="M392 265 H410" class="edge" marker-end="url(#arrow)"/>
+  <rect x="412" y="230" width="172" height="70" rx="4" class="box"/>
+  <text x="424" y="251" class="name">Stale head</text>
+  <text x="424" y="270" class="meta">409: refetch the writer</text>
+  <text x="424" y="288" class="meta">projection and replan</text>
+  <path d="M204 300 V322" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="324" width="376" height="88" rx="4" class="box"/>
+  <text x="28" y="345" class="name">3 · Append outgoing updates</text>
+  <text x="28" y="364" class="meta">In one transaction: ciphertext, access epoch,</text>
+  <text x="28" y="382" class="meta">signed header, and the update's visible</text>
+  <text x="28" y="400" class="meta">version-vector spans (document_update_spans)</text>
+  <rect x="412" y="324" width="172" height="106" rx="4" class="box"/>
+  <text x="424" y="345" class="name">What it stores</text>
+  <text x="424" y="364" class="meta">Ciphertext, vectors,</text>
+  <text x="424" y="382" class="meta">epochs, signed headers,</text>
+  <text x="424" y="400" class="meta">and wrapped keys; never</text>
+  <text x="424" y="418" class="meta">plaintext content</text>
+  <path d="M204 412 V434" class="edge" marker-end="url(#arrow)"/>
+
+  <rect x="16" y="436" width="376" height="70" rx="4" class="box"/>
+  <text x="28" y="457" class="name">4 · Select what the client lacks</text>
+  <text x="28" y="476" class="meta">Only updates whose spans the client's frontier</text>
+  <text x="28" y="494" class="meta">does not cover, one page at a time</text>
+
+  <path d="M204 506 V612" class="edge" marker-end="url(#arrow)"/>
+  <text x="218" y="560" class="meta">accepted update ids, commitLsn, updates,</text>
+  <text x="218" y="578" class="meta">bundles for older key epochs, pullPage</text>
+
+  <text x="16" y="542" class="colhead">CLIENT</text>
+  <rect x="16" y="614" width="376" height="88" rx="4" class="box"/>
+  <text x="28" y="635" class="name">5 · Verify, decrypt, import</text>
+  <text x="28" y="654" class="meta">Check the signed metadata commitment, decrypt</text>
+  <text x="28" y="672" class="meta">with the cited epoch's key, reject a mismatched</text>
+  <text x="28" y="690" class="meta">plaintext hash, then import into Loro</text>
+  <path d="M392 658 H410" class="edge" marker-end="url(#arrow)"/>
+  <rect x="412" y="614" width="172" height="88" rx="4" class="box"/>
+  <text x="424" y="635" class="name">More pages</text>
+  <text x="424" y="654" class="meta">If pullPage.hasMore,</text>
+  <text x="424" y="672" class="meta">send its nextCursor</text>
+  <text x="424" y="690" class="meta">as the pullCursor</text>
+</svg>

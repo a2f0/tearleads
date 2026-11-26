@@ -1,7 +1,0 @@
-# Parent-lane batches of 32 (issue #3256, phase 4; greenfield flag day, no
-# compatibility shim): `POST /containers/parent-lanes/query` accepts 32 lanes
-# where it accepted four, so its response may carry 32 results. A response
-# never holds more results than its request named lanes, so a client that
-# still sends four receives four. Remove this entry, and this file, as soon
-# as main contains this contract.
-POST /containers/parent-lanes/query the `results` response property's maxItems was increased from `4` to `32` for the response status `200`

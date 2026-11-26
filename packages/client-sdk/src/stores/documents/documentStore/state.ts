@@ -78,6 +78,7 @@ export interface SaveDocumentRecordOptions {
   attachmentRemoval?: AttachmentRemovalRows | undefined;
   attachmentStaging?: AttachmentStagingRows | undefined;
   clearSyncFailure?: boolean | undefined;
+  committedVersions?: readonly string[] | undefined;
   expectedSyncState?:
     | {
         pullContinuation: DocumentSyncPullContinuation | null;

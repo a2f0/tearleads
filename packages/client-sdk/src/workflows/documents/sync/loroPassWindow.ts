@@ -16,6 +16,7 @@ import {
   type LoroIsolation,
   type LoroWindowKind,
   loroIsolationPageLimit,
+  loroWindowClearsAttempts,
   loroWindowCounts,
   transitionLoroIsolation,
 } from "../../../data/documents/shared/sync/loroWindowMachine";
@@ -57,6 +58,8 @@ interface WindowScopeInput {
 interface HeldLoroWindow {
   readonly execSql: ExecSql;
   readonly id: string;
+  /** The kind of the window's current page. */
+  kind: LoroWindowKind;
   readonly lifetimes: LoroLifetimes;
   /** The updates the window's current page reads, until judged. */
   reading: readonly string[];
@@ -96,8 +99,8 @@ function windowDatabasesOf(lifetimes: LoroLifetimes): Map<string, ExecSql> {
 
 /**
  * What opening a page's window left: no window over its reads, one whose
- * death isolates the page's updates, or one whose death counts toward its
- * single update.
+ * death counts toward nothing (it isolates the page's updates, or says
+ * nothing when the page verified history), or one whose death counts.
  */
 export type LoroWindowOpening = "none" | "isolating" | "counting";
 
@@ -107,10 +110,12 @@ export type LoroWindowOpening = "none" | "isolating" | "counting";
  * holds the updates this device accepted, all covered by its live document
  * (`acceptedVersion`), and past them any it has not, which the rotation
  * installs with the rest. Null names no live document, so none is accepted.
+ * History verification rebuilds raw history only to compare it (`history`).
  */
 export type DocumentSyncLoroReads =
   | { readonly kind: "read" }
-  | { readonly kind: "rotation"; readonly acceptedVersion: string | null };
+  | { readonly kind: "rotation"; readonly acceptedVersion: string | null }
+  | { readonly kind: "history" };
 
 function acceptedBy(
   version: string,
@@ -128,17 +133,25 @@ function acceptedBy(
  * accepted only when its live document covers every update the page reads:
  * a death there is likelier the rebuild's size or state, so it counts toward
  * the rotation. A page reading an update new to the device reads it as a
- * sync pass would, and its death counts toward the update.
+ * sync pass would, and its death counts toward the update. A verifier's
+ * page is a history window whatever it reads.
  */
 function pageWindowKind(
   reads: DocumentSyncLoroReads,
   updates: readonly DecryptedDocumentSyncUpdate[],
 ): LoroWindowKind {
-  const accepted = reads.kind === "rotation" ? reads.acceptedVersion : null;
-  if (accepted === null) return "read";
-  return updates.every((update) => acceptedBy(accepted, update))
-    ? "rotation"
-    : "read";
+  switch (reads.kind) {
+    case "read":
+    case "history":
+      return reads.kind;
+    case "rotation": {
+      const accepted = reads.acceptedVersion;
+      return accepted !== null &&
+        updates.every((update) => acceptedBy(accepted, update))
+        ? "rotation"
+        : "read";
+    }
+  }
 }
 
 /**
@@ -151,6 +164,7 @@ async function holdLoroWindow(
   window: DocumentSyncLoroWindow,
   target: WindowScopeInput & {
     readonly isolating: boolean;
+    readonly kind: LoroWindowKind;
     readonly lifetimes: LoroLifetimes;
   },
 ): Promise<HeldLoroWindow> {
@@ -161,6 +175,7 @@ async function holdLoroWindow(
     held.scope.appKind === target.scope.appKind &&
     held.scope.localId === target.scope.localId
   ) {
+    held.kind = target.kind;
     return held;
   }
   await settleDocumentSyncLoroWindow(window, null);
@@ -168,6 +183,7 @@ async function holdLoroWindow(
   const next: HeldLoroWindow = {
     execSql: target.execSql,
     id,
+    kind: target.kind,
     lifetimes: target.lifetimes,
     reading: [],
     scope: target.scope,
@@ -237,6 +253,7 @@ export async function openDocumentSyncLoroWindow(
   const held = await holdLoroWindow(input.window, {
     ...input,
     isolating,
+    kind,
     lifetimes,
   });
   await stopCountingElsewhere(held);
@@ -280,6 +297,7 @@ export async function openDocumentSyncLoroWindow(
  * Notes the page's judged reads: every update the window read except one the
  * runtime failed on, or left unread behind it or past the rebuild budget.
  * Called once the page's verdicts are in, so a judge that throws notes none.
+ * A history window notes none: its close clears no attempt.
  */
 export function noteDocumentSyncLoroWindowVerdicts(
   window: DocumentSyncLoroWindow,
@@ -292,8 +310,10 @@ export function noteDocumentSyncLoroWindowVerdicts(
     ...verdicts.deferredUpdateIds,
     ...verdicts.runtimeFailures.map((failure) => failure.updateId),
   ]);
-  for (const id of held.reading) {
-    if (!unread.has(id)) held.survived.add(id);
+  if (loroWindowClearsAttempts(held.kind)) {
+    for (const id of held.reading) {
+      if (!unread.has(id)) held.survived.add(id);
+    }
   }
   held.reading = [];
 }

@@ -8,13 +8,13 @@ import { accountBootstrapCopy } from "../../../identity/accountBootstrapPhase";
 import {
   MiniAppButton,
   MiniAppCheckbox,
-  MiniAppStatePanel,
   type MiniAppTabDescriptor,
   MiniAppTabList,
   MiniAppTabPanel,
   MiniAppToolbar,
 } from "../../mini-app/MiniAppLayout";
 import { useMiniAppDetailBackAction } from "../../mini-app/useMiniAppDetailBackAction";
+import { OnboardingStepPanel } from "../OnboardingStepPanel";
 import { useExternalDocumentLinks } from "./useExternalDocumentLinks";
 import "./LegalTermsAgreementPanel.css";
 
@@ -68,10 +68,13 @@ export function LegalTermsAgreementPanel({
     if (agreed) onAgree();
   };
 
+  // A window, a pane, or the demo's page can each be wide or narrow on its
+  // own, so the layout follows the step's host.
   return (
-    <MiniAppStatePanel
+    <OnboardingStepPanel
       className="legal-terms-agreement"
       description={LEGAL_TERMS_COPY?.description}
+      panelClassName="legal-terms-agreement-panel"
       title={LEGAL_TERMS_COPY?.title}
     >
       <div className="legal-terms-agreement-documents" ref={documentRef}>
@@ -120,6 +123,6 @@ export function LegalTermsAgreementPanel({
           </MiniAppButton>
         </MiniAppToolbar>
       </form>
-    </MiniAppStatePanel>
+    </OnboardingStepPanel>
   );
 }

@@ -27,7 +27,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.198",
+      "version": "0.1.200",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1161.0",
         "@aws-sdk/s3-request-presigner": "3.1161.0",
@@ -99,7 +99,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.354",
+      "version": "0.1.358",
       "dependencies": {
         "@a2f0/continuity": "catalog:",
         "@phosphor-icons/react": "2.1.10",
@@ -191,7 +191,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.116",
+      "version": "0.1.119",
       "dependencies": {
         "@a2f0/ct-client": "0.1.6",
         "@stripe/stripe-js": "10.2.1",
@@ -226,7 +226,7 @@
     },
     "packages/cli": {
       "name": "@tearleads/cli",
-      "version": "0.1.25",
+      "version": "0.1.26",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -242,7 +242,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.322",
+      "version": "0.1.328",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -303,7 +303,7 @@
     },
     "packages/loro": {
       "name": "@tearleads/loro",
-      "version": "0.1.20",
+      "version": "0.1.23",
       "dependencies": {
         "@tearleads/encoding": "workspace:*",
         "drizzle-orm": "0.45.4",
@@ -315,8 +315,9 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.10",
+      "version": "0.1.12",
       "dependencies": {
+        "@tearleads/api": "workspace:*",
         "@tearleads/api-shared": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
@@ -369,7 +370,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.98",
+      "version": "0.1.99",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "zod": "catalog:",
@@ -382,7 +383,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.83",
+      "version": "0.1.84",
       "dependencies": {
         "@a2f0/agent-tool": "0.1.74",
         "@a2f0/ct-client": "0.1.6",
@@ -440,7 +441,7 @@
     },
   },
   "catalog": {
-    "@a2f0/continuity": "github:a2f0/continuity#0662b0747061fddcbef0814305409fcd11333f2f",
+    "@a2f0/continuity": "github:a2f0/continuity#504df2e02876743b6ed9d8e33a95098b7e6eafee",
     "@types/bun": "1.4.3",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
@@ -466,7 +467,7 @@
   "packages": {
     "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.74", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-1pTztRKSGBuBiYPA6Q0FbUrdgkr1XZP+duzYNxhkkmc+PLav/d/qpAqv5EjTqE8tFMNqbfgghMLzAL+9MGpLMw=="],
 
-    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#0662b07", {}, "a2f0-continuity-0662b07", "sha512-3A83f5QRYrCzEQNSK0sgdzgLqGCr1u+i6NwnnkBP+BqeShcQ6/kMofRml+ua21anMb8+VytNNDUKJcD6Dbd9tQ=="],
+    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#504df2e", {}, "a2f0-continuity-504df2e", "sha512-09IQyr9aXkp6Ng9ERILHAXqZtnx3pMak79TLJc2OvbhbWWvM2wrmWVRmxc/SAYisfQpC4+1Jg99aqR1JnYinBw=="],
 
     "@a2f0/ct-client": ["@a2f0/ct-client@0.1.6", "", {}, "sha512-DlDg2DKCilbrX5jIh3D+jctG66+xwpjnead8L4YY3jnIVFZ4fOBHbpJk7yY9KFBcuhNAy9UhvbgmHJgI97dI4w=="],
 

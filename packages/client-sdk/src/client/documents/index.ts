@@ -26,11 +26,14 @@ import {
   createDocumentsWorkflowRuntimeFromSnapshot,
   type DocumentFoundingUpdate,
   type DocumentHistory,
+  type DocumentHistoryVerification,
+  type DocumentHistoryVerificationOptions,
   defaultDocumentsPersistence,
   deletePersistedDocument,
   openDocumentHistory,
   readDocumentFoundingUpdate,
   reclaimDocumentOrphanBlobs,
+  verifyDocumentHistory,
 } from "../../workflows/documents";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 
@@ -50,6 +53,12 @@ export type {
   DocumentHistoryRowChange,
   DocumentHistoryStop,
   DocumentHistoryTextChange,
+  DocumentHistoryVerification,
+  DocumentHistoryVerificationOptions,
+  DocumentHistoryVerificationProgress,
+  DocumentHistoryVerificationReport,
+  DocumentHistoryVerificationUnavailable,
+  DocumentHistoryVerifiedRange,
   DocumentHistoryVersion,
   DocumentHistoryVersionEntry,
   DocumentHistoryView,
@@ -128,6 +137,19 @@ export interface Documents {
     listener: PersistedDocumentListener,
     options?: DocumentSubscriptionOptions | undefined,
   ): () => void;
+  /**
+   * Check a synced document's durable local history against the signed
+   * updates the server retains: pull its whole raw history, authenticate
+   * and judge every update, and compare the rebuild with the local history.
+   * It needs the network, reads beside the open store, and changes nothing
+   * durable. Every expected outcome is a status of the result; resolves to
+   * null only while the database is not ready. A `mismatch` carries a replay
+   * of the signed history that the caller must `close()`.
+   */
+  verifyHistory(
+    localId: string,
+    options?: DocumentHistoryVerificationOptions | undefined,
+  ): Promise<DocumentHistoryVerification | null>;
   workflowRuntime(containerId?: string | null | undefined): DocumentsRuntime;
 }
 
@@ -283,6 +305,26 @@ class DocumentsService implements Documents {
     return retryDocumentDownload({
       ...input,
       workflowRuntime: (containerId) => this.workflowRuntime(containerId),
+    });
+  }
+
+  async verifyHistory(
+    localId: string,
+    options?: DocumentHistoryVerificationOptions | undefined,
+  ): Promise<DocumentHistoryVerification | null> {
+    const { runtime } = this.dependencies;
+    const generation = runtime.scopeGeneration;
+    const workflowRuntime = this.workflowRuntime();
+    if (workflowRuntime.infra.dbStatus !== "ready") {
+      return null;
+    }
+
+    await this.ensureSchema(workflowRuntime.infra.execSql);
+    return verifyDocumentHistory({
+      localId,
+      options,
+      runtime: workflowRuntime,
+      stillCurrent: () => runtime.scopeGeneration === generation,
     });
   }
 

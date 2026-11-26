@@ -2,14 +2,19 @@
 
 An executable SDK host for small, repeatable experiments against staging and
 production. It imports public SDK, SQLite, and PostgreSQL transport entry
-points. The app, SDK, and API do not depend on it.
+points, plus the API's test runtime for the local realtime hub probe. The app,
+SDK, and API do not depend on it.
 
-The [initial production baseline](baseline.md) records three registrations and
-their correlated database and CPU measurements.
+Measured runs live in [results](results/README.md), one dated file per run.
+This README describes the experiments and how to repeat them.
 
 The [database round-trip experiment](database-experiment.md) separates connection
 setup, repeated warm queries, batched queries, and server execution time through
 the API's existing Hyperdrive binding. Run it with `bun run perf:database`.
+
+The [realtime hub interest probe](#realtime-hub-interest-authorization) times
+the hub's folder authorization against a local database. Run it with
+`bun run perf:realtime`.
 
 ## Continuity seed round trip
 
@@ -29,13 +34,85 @@ session fails the phase. A timeout or a missing or changed
 fixture exits nonzero. The report goes to the terminal.
 Keys travel over stdin and are discarded. This exercises the deployed API and
 blob storage through the SDK. Browser rendering and OPFS require a web test.
+See the [2026-11-20 production run](results/2026-11-20-continuity-seed-round-trip.md).
 
-One production run on 2026-11-20 took 5.79 s to provision the account,
-152.97 s to seed it and 39.71 s to verify it. The 192.68 s round trip
-recovered 25 documents and 24 attachments (9,604,560 plaintext bytes),
-including the circular saw, drill and refrigerator photos and receipts.
+## Realtime hub interest authorization
+
+[Issue #3272](https://github.com/a2f0/tearleads/issues/3272) asks what the
+realtime hub spends when a socket declares a large folder tree, and again
+each time it re-verifies that tree, every 2.5 to 5 minutes. This probe
+measures both passes against a local scratch database. It needs no
+deployment and no Cloudflare credentials.
+
+```sh
+createdb tearleads_realtime_probe
+bun run build:packages
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_realtime_probe" \
+  bun run perf:realtime --sizes 100,1000,10000 --samples 3
+DATABASE_URL="postgres://$USER@localhost:5432/tearleads_realtime_probe" \
+  bun run perf:realtime --reuse --samples 3
+```
+
+The probe boots the API in its own process from `@tearleads/api/test-runtime`,
+as the [bob-and-alice harness](../bob-and-alice/README.md) does, and registers
+one account through the SDK. It then creates folders through the SDK's folder
+store until the tree holds the largest size. The tree is breadth first, with
+`--fanout` children per folder (default 10), so every folder carries the
+signed manifests the app writes. Seeding is slow: a quarter of a second per
+folder at first, slowing as the tree grows, so 10,000 folders took 76 minutes
+on an M2 Pro. The run saves the seeded account to
+`.test_files/performance/realtime-seed-<database>.json`. `--reuse` measures
+that account again without seeding, which is how to compare a change against
+the same tree.
+
+For each size and sample, a fresh gateway from `createRealtimeGateway` opens
+one socket for the account. The socket declares the first `size` containers of
+the tree in one `known_containers` message: the root and the three system
+containers registration provisions, then folders in creation order. The probe
+waits for the acknowledgement, then fires the socket's revalidation tick,
+which re-verifies every installed id as the hub's periodic pass does.
+Pub/sub, the session store and the timers are stubbed out, so nothing else
+runs during a pass. The authorization deadline is raised so a slow pass is
+measured instead of cut off. Each row is compared with the deadline
+production gives that many ids: 10 seconds per 100, at most 60.
+
+`DATABASE_URL` must name a loopback host and a database, without TLS. The API
+connects through a loopback TCP proxy that reads the PostgreSQL wire protocol
+and counts statements, exchanges, rows and bytes in each direction.
+
+| Field | What it measures |
+| --- | --- |
+| `durationMs` | From handing the gateway the message or tick until the pass completed |
+| `authorizationMs` | Time inside the hub's database transaction and proof checks |
+| `database.statements` | Simple queries and extended-protocol executes, including transaction control |
+| `database.roundTrips` | ReadyForQuery messages: completed exchanges with PostgreSQL |
+| `database.rows`, `bytesReturned` | Rows and every byte PostgreSQL sent back |
+| `resources.cpuMs` | Process CPU, user plus system, across all threads |
+| `resources.peakHeapDeltaBytes` | Peak sampled JavaScript heap above a collected baseline |
+| `resources.peakRssDeltaBytes` | Peak sampled resident memory above that baseline, including buffers |
+| `snapshot` | Characters and 16 KiB chunks of the hibernation snapshot the hub stores |
+| `productionBudgetMs` | The deadline production gives a declaration of this many ids |
+
+Statement, row and byte counts depend only on the tree, so they match
+production for the same shape. Durations and CPU do not. Bun's JavaScriptCore
+runs the hub code here instead of workerd's V8, and a local PostgreSQL answers
+in well under a millisecond, where the deployed hub waits about 5 ms per warm
+exchange through Hyperdrive
+([database round trip](results/2026-10-26-database-round-trip.md)). The
+returned bytes also cross the network in production. Memory is sampled every
+5 ms at event-loop turns, so a peak between two awaits is missed, and the
+peaks are lower bounds. Bun's heap figure leaves out Buffer storage, which the
+RSS figure includes. The process keeps pages it has touched, so a later sample
+can report a smaller RSS increase than the first. CPU includes the proxy's
+relay work, about 0.75 ms per MB returned on an M2 Pro. Reports are saved as
+`.test_files/performance/realtime-<run>.json`. See the
+[2026-11-25 results](results/2026-11-25-realtime-hub-interest.md) at 100,
+1,000 and 10,000 folders.
 
 ## Account provisioning
+
+The [initial production baseline](results/2026-10-24-provisioning.md) records
+three registrations and their correlated database and CPU measurements.
 
 Build the workspace SDK before running so the experiment uses current source:
 

@@ -70,3 +70,4 @@ formal/blob-attachments/AttachmentRemovedSlotDetach.tla|formal/blob-attachments/
 formal/blob-attachments/StagePromotion.tla|formal/blob-attachments/StagePromotion.cfg
 formal/document-sync/SyncLaneConcurrency.tla|formal/document-sync/SyncLaneConcurrency.cfg
 formal/document-sync/DocumentListingConvergence.tla|formal/document-sync/DocumentListingConvergence.cfg
+formal/document-sync/SharedDatabaseListing.tla|formal/document-sync/SharedDatabaseListing.cfg

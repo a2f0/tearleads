@@ -111,11 +111,18 @@ reserves the freed id for that organization's owner. A device
 refused on a peer the recreation claimed rebases onto a fresh peer. Each update
 also declares the op ids it depends on: the server refuses one past a peer's
 committed frontier, and readers void an update that depends on other ops than
-it declares, so the dishonest member cannot depend on a device's unsent ops. It
-requires that no reader voids an honest update, that no other user occupies a
-device's counters past what it committed, that a re-assertion or a dependency
-is never the cause of an honest refusal, that no device accepts an update a
-fresh reader voids, and that every honest edit is eventually committed. See the
+it declares, so the dishonest member cannot depend on a device's unsent ops.
+The recreation may be from a stale copy, which lowers frontiers below what
+devices saw committed: a device refused at such a frontier relays the lost
+operations under their own ids, or parks when another user owns the peer, and
+never forks there. What it saw committed is a record no queued update lowers,
+a relay's or a full history's. It requires that no reader voids an honest
+update, that no other user occupies a device's counters past what it
+committed, that an honest request is refused only for another user's peer or
+for a dependency a recreation lost, that no device accepts an update a fresh
+reader voids, that no reader holds one honest edit under two op ids, and that
+every queued honest edit is eventually committed unless its device awaits the
+owner of a peer whose history fell. See the
 [production mapping, negative controls, and bounds](./PeerOwnership.md).
 
 ## Opened-Document Recovery Probes
@@ -177,6 +184,16 @@ an unread access head always survives, through crashes, reads in flight and
 reads a lagging replica serves, and that the client eventually holds the
 server's version. See the
 [production mapping and negative controls](./DocumentListingConvergence.md).
+
+[`SharedDatabaseListing.tla`](./SharedDatabaseListing.tla) adds a second
+runtime on the same database, such as a second browser tab. The two share the
+lane watermark, the debt and the saved record, and each keeps its own copy of
+the open document. One runtime's listing consumes the row for both and its
+pull settles the debt for both, so a catch-up also asks a store for a pull
+when the saved record holds content its copy lacks. TLC checks that a
+connected runtime's stale copy always has something of its own left to oblige
+a read, and that every runtime's copy converges. See the
+[production mapping and negative control](./SharedDatabaseListing.md).
 
 ## Epoch Advances Without a Covering Baseline
 
