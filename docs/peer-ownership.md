@@ -119,10 +119,11 @@ settlement showed the server to hold. No queued update lowers what it says.
 Three writes raise it, each merging and keeping the higher counter on each
 peer:
 
-- a pull served an update and the pass accepted it: the update's span;
+- a pull served an update and the pass accepted it: the update's span. A
+  rotation's raw-history rebuild counts the same way: the version its raw
+  pull served, never an operation the device has not sent;
 - the server acknowledged an outgoing update: its span. A document create's
-  seed, a heal's baseline, and a rotation's raw-history rebuild count the same
-  way;
+  seed and a heal's baseline count the same way;
 - a rebase or a relay is installed: what the device knew when it planned the
   recovery. The one update the install queues may start below operations that
   were known committed only for being outside the queue.
