@@ -206,7 +206,8 @@ function markServerEventsConnected(
   // before the SDK closes the lossy interval. Advancing the connection
   // generation here is what starts that catch-up, on a first connection as on
   // a reconnect: the container store re-lists the tree, and the reconciler
-  // lists every document lane and owes a read to each document that moved.
+  // lists each document lane that moved and owes a read to each document
+  // that moved in it.
   tearleads.events.setConnected(true);
   refreshOrganizationMemberships(tearleads, log);
   log("WebSocket: interest declaration acknowledged");

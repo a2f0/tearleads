@@ -58,10 +58,14 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   /** Known ids eligible after an automatic root-lane discovery hint. */
   listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
   /**
-   * Known container ids whose document lane still owes a listing: one never
-   * settled by an applied listing, or one holding staged candidates.
+   * The given containers whose document lane still owes a listing: one never
+   * settled by an applied listing, one holding staged candidates, or one a
+   * tree listing requested. The caller names the containers, so what it
+   * learns is about exactly the set it read.
    */
-  listOwedDocumentDiscoveryContainerIds: () => Promise<ReadonlyArray<string>>;
+  listOwedDocumentDiscoveryContainerIds: (
+    containerIds: ReadonlyArray<string>,
+  ) => Promise<ReadonlyArray<string>>;
   /**
    * Discover + persist documents for every requested container through one
    * batched listing. Each lane's outcome is handed to `onOutcome` (awaited)

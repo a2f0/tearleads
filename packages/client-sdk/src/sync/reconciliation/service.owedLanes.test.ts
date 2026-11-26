@@ -2,42 +2,13 @@ import { expect, test } from "bun:test";
 import { createReconciliationService } from "./service";
 import {
   createGate,
-  createReconciliationTestHost,
+  createManualReconciliationClock,
+  createOwedLaneHost,
+  OWED_LANE_HOST_CONTAINER_IDS,
 } from "./service.testFixtures";
-import type { ReconciliationHost } from "./serviceTypes";
+import { TREE_CRAWL_WAIT_MS } from "./treeCrawlWait";
 
-const KNOWN = ["a", "b", "c"] as const;
-
-/**
- * A host with three known lanes, of which `owed` are owed a listing, that
- * records each batched listing request.
- */
-function createOwedLaneHost(input: {
-  readonly owed: () => ReadonlyArray<string>;
-  readonly overrides?: Partial<ReconciliationHost>;
-}) {
-  const listings: string[][] = [];
-  const steps: string[] = [];
-  const host = createReconciliationTestHost({
-    discoverContainerDocuments: async (requests, onOutcome) => {
-      listings.push(requests.map((request) => request.containerId));
-      const outcomes = requests.map(({ containerId }) => ({
-        containerId,
-        status: "fulfilled" as const,
-        value: null,
-      }));
-      for (const outcome of outcomes) await onOutcome(outcome);
-      return outcomes;
-    },
-    listKnownContainerIds: () => [...KNOWN],
-    listOwedDocumentDiscoveryContainerIds: async () => input.owed(),
-    requestOwedDocumentReads: async () => {
-      steps.push("owed-reads");
-    },
-    ...input.overrides,
-  });
-  return { host, listings, steps };
-}
+const KNOWN = OWED_LANE_HOST_CONTAINER_IDS;
 
 const settle = async () => {
   for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
@@ -136,10 +107,10 @@ test("a catch-up waits for the tree crawl, holding passive listings of known lan
   service.stop();
 });
 
-test("a catch-up that cannot read what is owed queues the lanes it held", async () => {
+test("a catch-up that cannot read what is owed lists every known lane", async () => {
   const errors: unknown[] = [];
   const failure = new Error("database busy");
-  let fail = true;
+  let fail = false;
   const { host, listings } = createOwedLaneHost({
     overrides: {
       logError: (_message, error) => {
@@ -155,17 +126,40 @@ test("a catch-up that cannot read what is owed queues the lanes it held", async 
   const service = createReconciliationService(host);
   service.start();
 
-  await expect(service.reconcileAcknowledgedConnection()).rejects.toBe(failure);
-  expect(errors).toEqual([failure]);
+  // An earlier catch-up vouched for every lane, so none is queued or held.
+  await service.reconcileAcknowledgedConnection();
+  expect(listings).toEqual([]);
 
-  // Nothing vouched for the lanes, and a passive enqueue made during the
-  // hold was skipped, so every held lane is queued again.
-  fail = false;
-  service.enqueueContainer("a", "idle");
-  await settle();
-  await settle();
-  expect(listings).toEqual([["a", "b", "c"]]);
+  // Nothing says which lanes this crawl owed, so nothing vouches for any.
+  fail = true;
+  await service.reconcileAcknowledgedConnection();
+
+  expect(listings).toEqual([[...KNOWN]]);
+  expect(errors).toEqual([failure]);
   service.stop();
+});
+
+test("a catch-up whose database is gone lists nothing and reports nothing", async () => {
+  const errors: unknown[] = [];
+  const gone = new Error("database closed");
+  const { host, listings } = createOwedLaneHost({
+    overrides: {
+      isIgnorableError: (error) => error === gone,
+      logError: (_message, error) => {
+        errors.push(error);
+      },
+      whenTreeCrawlSettles: async () => true,
+    },
+    owed: () => {
+      throw gone;
+    },
+  });
+  const service = createReconciliationService(host);
+
+  await service.reconcileAcknowledgedConnection();
+
+  expect(listings).toEqual([]);
+  expect(errors).toEqual([]);
 });
 
 test("a catch-up that outlives its session leaves the next one's lanes alone", async () => {
@@ -217,9 +211,11 @@ test("an open container the reconciler does not list in the background is always
   expect(listings).toEqual([["foreign"]]);
 });
 
-test("a refresh ends the catch-up's wait for the crawl", async () => {
+test("a refresh runs beside a catch-up that waits on its crawl", async () => {
+  const clock = createManualReconciliationClock();
   const { host, listings } = createOwedLaneHost({
     overrides: {
+      clock,
       // The crawl never starts: the socket dropped again.
       whenTreeCrawlSettles: () => new Promise<boolean>(() => undefined),
     },
@@ -230,10 +226,13 @@ test("a refresh ends the catch-up's wait for the crawl", async () => {
   await settle();
   expect(listings).toEqual([]);
 
-  // The refresh queues behind the catch-up, so it must not wait for it.
-  const refresh = service.reconcileNow();
-  await Promise.all([catchUp, refresh]);
+  // The wait takes no turn among the sweeps, so the refresh does not queue
+  // behind it and has no need to end it.
+  await service.reconcileNow();
+  expect(listings).toEqual([[...KNOWN]]);
 
-  // Nothing vouched for the catch-up's lanes, so it listed every one.
-  expect(listings[0]).toEqual([...KNOWN]);
+  // Once the wait is over nothing vouches for the catch-up's lanes.
+  clock.advance(TREE_CRAWL_WAIT_MS);
+  await catchUp;
+  expect(listings).toEqual([[...KNOWN], [...KNOWN]]);
 });

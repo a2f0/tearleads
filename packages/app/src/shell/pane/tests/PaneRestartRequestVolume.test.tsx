@@ -76,13 +76,25 @@ test("restart storage survives a closed and terminated worker", async () => {
 async function measureRestart(input: {
   readonly budget: ProxiedApiRequestBudget;
   readonly editedText?: string;
+  /**
+   * Hold the measured restart's tree crawl until a root refresh has been
+   * requested, as a share hint or Explorer's open catch-up requests one, so
+   * it arrives while the catch-up still waits on that crawl.
+   */
+  readonly rootRefreshBeforeCrawl?: boolean;
   /** Folders of one note each, beyond the fixture's two. */
   readonly extraFolders?: number;
   readonly label: string;
   readonly notesPerFolder: number;
   readonly settledRestarts?: number;
 }) {
-  useTestApiAppHandlers();
+  let crawlAnswers: Promise<void> | undefined;
+  useTestApiAppHandlers({
+    holdRequest: (request) =>
+      new URL(request.url).pathname === "/containers/parent-lanes/query"
+        ? crawlAnswers
+        : undefined,
+  });
   const storage = createPersistedPaneStorage();
   const namespace = `restart-budget-${crypto.randomUUID()}`;
   const hostConfig = createTestHostConfig({
@@ -138,9 +150,26 @@ async function measureRestart(input: {
     budget: input.budget,
     mutations: [],
     operation: async () => {
+      const rootRefreshRequested = Promise.withResolvers<void>();
+      if (input.rootRefreshBeforeCrawl) {
+        crawlAnswers = rootRefreshRequested.promise;
+      }
       const second = renderLifecyclePane(hostConfig);
       restarted = second;
       await waitForSinglePaneProvisioning(second.pane);
+      if (input.rootRefreshBeforeCrawl) {
+        // The acknowledgement has started the crawl, whose request is held.
+        await waitFor(() =>
+          expect(second.sdk().events.connectionGeneration).toBe(1),
+        );
+        const rootRefresh = second
+          .sdk()
+          .deviceFirst.open()
+          .reconciler.reconcileRootContainersNow();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        rootRefreshRequested.resolve();
+        await rootRefresh;
+      }
       await waitForLifecycleConnection(second.sdk(), 1);
       expect(second.sdk()).not.toBe(firstSdk);
       expect(second.sdk().deviceFirst.open().containerStore).not.toBe(
@@ -260,6 +289,27 @@ test("a settled restart costs the same with two folders and with eight", async (
     budget: SETTLED_RESTART_BUDGET,
     extraFolders: 6,
     label: "settled restart with 8 folders",
+    notesPerFolder: 1,
+    settledRestarts: 1,
+  });
+}, 180_000);
+
+test("a root refresh before the crawl answers costs a settled restart no listing", async () => {
+  // A root refresh arrives while the catch-up waits on the tree crawl. It
+  // lists the root lane, which is one more tree request and policy read,
+  // and leaves the document lanes to the catch-up, which the crawl then
+  // tells that nothing moved: no more document listings than without it.
+  await measureRestart({
+    budget: {
+      total: 13,
+      byRequest: {
+        ...SETTLED_RESTART_BUDGET.byRequest,
+        "POST /containers/parent-lanes/query": 2,
+        "GET /principals/organization/:organizationId/policy": 2,
+      },
+    },
+    rootRefreshBeforeCrawl: true,
+    label: "settled restart, root refresh before the crawl answered",
     notesPerFolder: 1,
     settledRestarts: 1,
   });

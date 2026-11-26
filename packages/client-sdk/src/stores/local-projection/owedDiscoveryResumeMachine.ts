@@ -1,9 +1,9 @@
 /**
  * Decides when a start lists the document lanes an earlier boot left owed
  * ([owed document lanes](../../../../../docs/developer/device-first.md#owed-document-lanes)).
- * The catch-up after an acknowledged connection lists every known lane, owed
- * ones included, so a start whose connect attempt is still pending waits for
- * that acknowledgement instead of listing owed lanes in both. A start with no
+ * The catch-up after an acknowledged connection lists every owed lane, so a
+ * start whose connect attempt is still pending waits for that
+ * acknowledgement instead of listing owed lanes in both. A start with no
  * attempt pending (offline, realtime unavailable, between retries), or whose
  * attempt ends without an acknowledgement, resumes the owed lanes itself.
  *
@@ -19,7 +19,7 @@
  *
  * Other events leave the state unchanged. That is the whole guarantee: a
  * connection that starts or is acknowledged after the resume ran is a new
- * catch-up and lists every lane again, the resumed ones included.
+ * catch-up, which lists the lanes still owed and the ones its crawl is served.
  */
 export type OwedDiscoveryResumeState =
   | { readonly status: "awaiting-hydration" }

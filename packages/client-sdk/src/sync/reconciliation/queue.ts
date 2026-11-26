@@ -11,8 +11,11 @@ export type ReconcilePriority = "active" | "idle";
 export interface ReconcileQueue {
   /** Queue a container, upgrading an existing idle entry to active if needed. */
   enqueue: (containerId: string, priority: ReconcilePriority) => void;
-  /** Take the next container to reconcile (active before idle), or null. */
-  dequeue: () => string | null;
+  /**
+   * Take the next container to reconcile (active before idle), or null.
+   * With `accepts`, take the next one it accepts and leave the others queued.
+   */
+  dequeue: (accepts?: (containerId: string) => boolean) => string | null;
   get size(): number;
   clear: () => void;
   /** Empty the queue, returning each container with its priority, in order. */
@@ -24,9 +27,12 @@ export function createReconcileQueue(): ReconcileQueue {
   // in-place priority upgrade keeps the original insertion position.
   const priorityByContainerId = new Map<string, ReconcilePriority>();
 
-  const takeByPriority = (priority: ReconcilePriority): string | null => {
+  const takeByPriority = (
+    priority: ReconcilePriority,
+    accepts: (containerId: string) => boolean,
+  ): string | null => {
     for (const [containerId, entryPriority] of priorityByContainerId) {
-      if (entryPriority === priority) {
+      if (entryPriority === priority && accepts(containerId)) {
         priorityByContainerId.delete(containerId);
         return containerId;
       }
@@ -45,7 +51,8 @@ export function createReconcileQueue(): ReconcileQueue {
       }
       priorityByContainerId.set(containerId, priority);
     },
-    dequeue: () => takeByPriority("active") ?? takeByPriority("idle"),
+    dequeue: (accepts = () => true) =>
+      takeByPriority("active", accepts) ?? takeByPriority("idle", accepts),
     get size() {
       return priorityByContainerId.size;
     },

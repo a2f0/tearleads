@@ -1,3 +1,4 @@
+import { defersRootSweepLane } from "./catchUpMachine";
 import {
   isCurrentReconciliationLifecycle,
   sweepKnownContainers,
@@ -11,7 +12,6 @@ import {
   refreshTreeForSweep,
   SharedRefresh,
 } from "./sharedRefresh";
-import { awaitTreeCrawl } from "./treeCrawlWait";
 
 function forgetIneligibleDiscoveredContainers(
   host: ReconciliationHost,
@@ -74,7 +74,7 @@ async function sweepForScope(input: {
 }
 
 /** What one sweep lists, read once the sweep is running. */
-interface SweepPlan {
+export interface SweepPlan {
   /** The containers whose document lanes the sweep lists. */
   readonly containerIds: ReadonlyArray<string>;
   /**
@@ -86,63 +86,25 @@ interface SweepPlan {
   readonly vouchedContainerIds?: ReadonlyArray<string> | undefined;
 }
 
-type PlanSweep = (stop: AbortSignal) => SweepPlan | Promise<SweepPlan>;
+type PlanSweep = () => SweepPlan | Promise<SweepPlan>;
 
 /**
- * Reads the sweep's plan with `holdWhilePlanning`'s containers held as
- * reconciled, and returns the containers to list. A hold is released for a
- * container the plan neither lists nor vouches for, and for every container
- * when the plan cannot be read. A vouched container stays reconciled and is
- * added to `settled`, so an unforced queue entry for it is not listed.
+ * Reads the sweep's plan and returns the containers to list. A container the
+ * plan vouches for counts as reconciled this session and is added to
+ * `settled`, so an unforced queue entry for it is not listed.
  */
-async function planSweepHolding(
-  input: {
-    holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
-    planSweep: PlanSweep;
-    state: ReconciliationState;
-    stop: AbortSignal;
-  },
+async function readSweepPlan(
+  input: { planSweep: PlanSweep; state: ReconciliationState },
   settled: Set<string>,
 ): Promise<ReadonlyArray<string>> {
   const { state } = input;
-  const { discoveredContainerIds } = state;
   // Reading the plan can outlast the session: a stop and start meanwhile
   // gives the discovered set to a new one, which this sweep must not touch.
   const lifecycleGeneration = state.lifecycleGeneration;
-  const isCurrent = () =>
-    isCurrentReconciliationLifecycle(state, lifecycleGeneration);
-  const held = new Set(
-    (input.holdWhilePlanning?.() ?? []).filter(
-      (containerId) => !discoveredContainerIds.has(containerId),
-    ),
-  );
-  for (const containerId of held) discoveredContainerIds.add(containerId);
-  const release = (keep: ReadonlySet<string>) => {
-    for (const containerId of held) {
-      if (!keep.has(containerId)) discoveredContainerIds.delete(containerId);
-    }
-  };
-  let plan: SweepPlan;
-  try {
-    plan = await input.planSweep(input.stop);
-  } catch (error) {
-    if (isCurrent()) {
-      release(new Set());
-      // A passive enqueue made during the hold was skipped, and this sweep
-      // lists nothing in its place.
-      requeueUnsettledContainers(
-        state,
-        [...held].map((containerId) => [containerId, "idle"] as const),
-        lifecycleGeneration,
-      );
-    }
-    throw error;
-  }
-  if (!isCurrent()) return [];
-  const vouched = plan.vouchedContainerIds ?? [];
-  release(new Set([...plan.containerIds, ...vouched]));
-  for (const containerId of vouched) {
-    discoveredContainerIds.add(containerId);
+  const plan = await input.planSweep();
+  if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) return [];
+  for (const containerId of plan.vouchedContainerIds ?? []) {
+    state.discoveredContainerIds.add(containerId);
     settled.add(containerId);
   }
   return plan.containerIds;
@@ -150,12 +112,6 @@ async function planSweepHolding(
 
 async function refreshAndReconcileContainers(input: {
   host: ReconciliationHost;
-  /**
-   * Containers to hold as reconciled while the plan is read, when reading it
-   * can take long. The sweep will list or vouch for each of them, so a
-   * passive enqueue of one meanwhile would only list it twice.
-   */
-  holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
   planSweep: PlanSweep;
   refreshTree: () => Promise<void>;
   scope: RefreshScope;
@@ -195,7 +151,7 @@ async function refreshAndReconcileContainers(input: {
     // is treated as newly surfaced instead of being suppressed for the rest of
     // the session.
     forgetIneligibleDiscoveredContainers(host, state);
-    const knownIds = await planSweepHolding(input, listedBySweep);
+    const knownIds = await readSweepPlan(input, listedBySweep);
     if (
       !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
       stop.aborted
@@ -298,12 +254,11 @@ function joinsPendingRefresh(
 }
 
 // Sweeps share the queue and discovered set, so they must run serially.
-function requestContainerRefresh(input: {
+export function requestContainerRefresh(input: {
   freshListing: boolean;
   host: ReconciliationHost;
   state: ReconciliationState;
   refreshTree: () => Promise<void>;
-  holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
   planSweep: PlanSweep;
   scope: RefreshScope;
   signal: AbortSignal | undefined;
@@ -315,7 +270,6 @@ function requestContainerRefresh(input: {
     return pending.join(signal);
   }
 
-  if (scope !== "acknowledged") treeCrawlWaits.get(state)?.abort();
   const refresh = new SharedRefresh({
     after: pending?.promise,
     onSettled: (settled) => {
@@ -323,7 +277,6 @@ function requestContainerRefresh(input: {
     },
     run: (stop) =>
       refreshAndReconcileContainers({
-        holdWhilePlanning: input.holdWhilePlanning,
         host: input.host,
         planSweep: input.planSweep,
         refreshTree: input.refreshTree,
@@ -348,8 +301,16 @@ export function requestRootRefresh(
     host,
     state,
     refreshTree: host.refreshRootTree,
+    // A catch-up waiting on its crawl will list or vouch for each lane it
+    // knew at the acknowledgement; a hint's forced lane is listed now.
     planSweep: () => ({
-      containerIds: host.listAutomaticRootCatchupContainerIds(),
+      containerIds: host
+        .listAutomaticRootCatchupContainerIds()
+        .filter(
+          (containerId) =>
+            state.forcedContainerGenerations.has(containerId) ||
+            !defersRootSweepLane(state.catchUp, containerId),
+        ),
     }),
     scope: "root",
     signal: options?.signal,
@@ -375,94 +336,19 @@ export function requestFullRefresh(
   });
 }
 
-/**
- * A sweep of the known lanes a durable record says are owed a listing. A
- * complete tree crawl stands behind every other known lane.
- */
-async function planOwedLanesSweep(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-): Promise<SweepPlan> {
-  const owed = new Set(await host.listOwedDocumentDiscoveryContainerIds());
-  // The owed set covers the containers the reconciler lists in the
-  // background. An open container outside them is listed here and nowhere
-  // else, so nothing says whether it is owed: it is always listed.
-  const vouchable = new Set(host.listKnownContainerIds());
-  const isOwed = (id: string) => owed.has(id) || !vouchable.has(id);
-  const known = listFullRefreshContainerIds(host, state);
-  return {
-    containerIds: known.filter(isOwed),
-    vouchedContainerIds: known.filter((id) => !isOwed(id)),
-  };
-}
-
-// A catch-up waiting on its tree crawl, by the state it waits in. An explicit
-// refresh or a root refresh queues behind the catch-up, so it ends the wait
-// rather than stall for it: the catch-up then lists every lane at once.
-const treeCrawlWaits = new WeakMap<ReconciliationState, AbortController>();
-
-async function awaitTreeCrawlForCatchUp(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-  stop: AbortSignal,
-): Promise<boolean> {
-  const hurry = new AbortController();
-  treeCrawlWaits.set(state, hurry);
-  try {
-    return await awaitTreeCrawl(
-      host.whenTreeCrawlSettles?.(),
-      AbortSignal.any([stop, hurry.signal]),
-    );
-  } finally {
-    if (treeCrawlWaits.get(state) === hurry) treeCrawlWaits.delete(state);
-  }
-}
-
-/** Reports a sweep nothing awaits; an ignorable failure never reaches it. */
-function reportUnawaitedSweep(
-  host: ReconciliationHost,
-  sweep: Promise<void>,
-  message: string,
-): Promise<void> {
-  sweep.catch((error: unknown) => host.logError?.(message, error));
-  return sweep;
-}
-
-// The container store re-lists the tree itself on the acknowledgement. A row
-// that crawl is served owes its container's document lane a listing, so once
-// the crawl has settled this sweep lists the owed lanes alone. It lists every
-// known lane when nothing vouches for the rest: the crawl did not complete,
-// did not settle in time, or the host reports no crawl at all. It never joins a sweep that already
-// started: that one may have listed before the acknowledgement.
-export function requestAcknowledgedConnectionSweep(
-  host: ReconciliationHost,
-  state: ReconciliationState,
-): Promise<void> {
-  return reportUnawaitedSweep(
-    host,
-    requestContainerRefresh({
-      freshListing: true,
-      host,
-      state,
-      refreshTree: () => Promise.resolve(),
-      // The plan waits for the tree crawl, and covers every known lane.
-      holdWhilePlanning: () => listFullRefreshContainerIds(host, state),
-      planSweep: async (stop) =>
-        (await awaitTreeCrawlForCatchUp(host, state, stop))
-          ? planOwedLanesSweep(host, state)
-          : { containerIds: listFullRefreshContainerIds(host, state) },
-      scope: "acknowledged",
-      signal: undefined,
-    }),
-    "Reconciliation: connection catch-up failed",
-  );
-}
-
-function listFullRefreshContainerIds(
+export function listFullRefreshContainerIds(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): ReadonlyArray<string> {
-  const knownIds = host.listKnownContainerIds();
+  return withOpenContainer(host, state, host.listKnownContainerIds());
+}
+
+/** `knownIds`, and the open container when the reconciler can list it. */
+export function withOpenContainer(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  knownIds: ReadonlyArray<string>,
+): ReadonlyArray<string> {
   const activeContainerId = state.activeContainerId;
   if (
     !activeContainerId ||

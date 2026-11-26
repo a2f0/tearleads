@@ -167,9 +167,10 @@ test(
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
           "GET /principals/history": 2,
-          // The catch-up waits for the tree crawl, so the lanes that crawl
-          // discovers are listed from the queue first and once more by the
-          // catch-up, which reads what is owed before that listing settles.
+          // While the catch-up waits on the tree crawl, a lane a hint names
+          // or the user has open is listed at once; its sweep then lists
+          // every lane the crawl was served, those included: a listing sent
+          // before the crawl served a row cannot answer for it.
           "POST /containers/documents/query": 3,
           // Measured 4 (6 before the provisioning commit position): the root
           // twice, as a second root-lane pass can sync it again, and the self
