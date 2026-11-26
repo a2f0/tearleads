@@ -21,17 +21,24 @@ import {
 } from "./recorder";
 
 const environment = readCaptureEnvironment(process.env);
-const probe = globalThis as { sqlCaptureLabel?: string | undefined };
+/** The global a probe sets around the work it measures. */
+const labelKey = "sqlCaptureLabel";
+
+function probeLabel(): string | undefined {
+  const label: unknown = Reflect.get(globalThis, labelKey);
+  return typeof label === "string" ? label : undefined;
+}
+
 const recorder = createStatementRecorder({
   paramHash: environment.paramHash,
   limit: environment.limit,
   write: (line) => appendFileSync(environment.out, line, { mode: 0o600 }),
-  label: () => probe.sqlCaptureLabel,
+  label: probeLabel,
 });
 
 beforeEach(() => {
   recorder.startTest();
-  probe.sqlCaptureLabel = undefined;
+  Reflect.set(globalThis, labelKey, undefined);
 });
 
 observeDatabaseStatements(({ sql, parameters, scope }) =>
