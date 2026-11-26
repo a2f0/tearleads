@@ -1,5 +1,12 @@
-import { closeSync, openSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { readCaptureFile } from "../statements/captureFile";
+import { parseCapture, summarizeCapture } from "../statements/summary";
+import {
+  packagePreloads,
+  runTestProcess,
+  testFileArgument,
+} from "../testProcess";
 import { appRoot, type Canary } from "./discover";
 import { type CanaryOutput, parseCanaryOutput } from "./output";
 import type { CanaryRun, CanaryRunStatus } from "./report";
@@ -7,10 +14,21 @@ import type { CanaryRun, CanaryRunStatus } from "./report";
 /** A canary file takes under a minute; this stops one that hangs. */
 const canaryTimeoutMs = 10 * 60_000;
 
+const capturePreload = resolve(
+  import.meta.dir,
+  "../statements/capturePreload.ts",
+);
+
 const profileEnvironment = {
   DUAL_PANE_REQUEST_PROFILE: "1",
   DUAL_PANE_REQUEST_PROFILE_DETAIL: "1",
 } as const;
+
+/** Record the API's statements beside the request profile. */
+export interface CanaryCapture {
+  readonly out: string;
+  readonly paramHash: boolean;
+}
 
 export function runStatus(
   exitCode: number | null,
@@ -23,56 +41,95 @@ export function runStatus(
 }
 
 /**
+ * Statements per profiled phase, from the capture's phase markers. The
+ * markers come from the same metrics lines, so they pair in order; null when
+ * they do not, as when the capture stopped at its limit.
+ */
+export function phaseStatements(
+  output: CanaryOutput,
+  capture: string,
+): number[] | null {
+  const phases = summarizeCapture(parseCapture(capture), 0).phases;
+  if (
+    phases.length !== output.phases.length ||
+    phases.some((phase, index) => phase.label !== output.phases[index]?.label)
+  )
+    return null;
+  return phases.map((phase) => phase.statements);
+}
+
+/**
  * Runs one canary file alone from `packages/app`, as its suite runs, with
- * the request profile on. Its output goes to `log`, owner-only.
+ * the request profile on and, when asked, the statement capture. Its output
+ * goes to `log`, owner-only.
  */
 export async function runCanary(input: {
   readonly canary: Canary;
   readonly sample: number;
   readonly log: string;
+  readonly capture?: CanaryCapture;
   readonly root?: string;
 }): Promise<CanaryRun> {
-  const descriptor = openSync(input.log, "w", 0o600);
-  const started = performance.now();
-  let timedOut = false;
-  let exitCode: number | null;
-  try {
-    const child = Bun.spawn(
-      // A leading ./ makes Bun treat the argument as a path, not a filter.
-      [process.execPath, "test", `./${input.canary.file}`],
-      {
-        cwd: input.root ?? appRoot,
-        env: { ...process.env, ...profileEnvironment },
-        stdin: "ignore",
-        stdout: descriptor,
-        stderr: descriptor,
-      },
-    );
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill("SIGKILL");
-    }, canaryTimeoutMs);
-    try {
-      exitCode = await child.exited;
-    } finally {
-      clearTimeout(timer);
-    }
-  } finally {
-    closeSync(descriptor);
-  }
-  const wallMs = Math.round(performance.now() - started);
+  const root = input.root ?? appRoot;
+  const { capture } = input;
+  const preloads = capture
+    ? [...(await packagePreloads(root)), capturePreload]
+    : [];
+  const result = await runTestProcess({
+    cwd: root,
+    args: [
+      ...preloads.flatMap((preload) => ["--preload", preload]),
+      testFileArgument(input.canary.file),
+    ],
+    env: {
+      ...process.env,
+      ...profileEnvironment,
+      ...(capture && {
+        PERF_STATEMENTS_OUT: capture.out,
+        PERF_STATEMENTS_PARAM_HASH: capture.paramHash ? "1" : "0",
+      }),
+    },
+    log: input.log,
+    timeoutMs: canaryTimeoutMs,
+  });
   const output = readCanaryOutput(await readFile(input.log, "utf8"));
+  const status = output
+    ? runStatus(result.exitCode, result.timedOut, output)
+    : "failed";
   return {
     canary: input.canary.name,
     file: input.canary.file,
     sample: input.sample,
-    status: output ? runStatus(exitCode, timedOut, output) : "failed",
-    exitCode,
-    wallMs,
+    status,
+    exitCode: result.exitCode,
+    wallMs: result.wallMs,
     tests: output?.tests ?? null,
     log: input.log,
     phases: output?.phases ?? [],
+    statements:
+      output && capture && status === "passed"
+        ? {
+            capture: capture.out,
+            perPhase: await capturedPhaseStatements(output, capture.out),
+          }
+        : null,
   };
+}
+
+/**
+ * Statements per phase, or null when the capture cannot be matched to the
+ * profile: its markers differ, it was never written, or it cannot be read
+ * or parsed. The run keeps its result, and the report names the capture.
+ */
+async function capturedPhaseStatements(
+  output: CanaryOutput,
+  path: string,
+): Promise<number[] | null> {
+  try {
+    return phaseStatements(output, (await readCaptureFile(path)) ?? "");
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -85,10 +142,4 @@ function readCanaryOutput(log: string): CanaryOutput | null {
   } catch {
     return null;
   }
-}
-
-/** The last lines of a failed run's log, for the terminal. */
-export async function logTail(log: string, lines = 15): Promise<string> {
-  const text = await readFile(log, "utf8");
-  return text.trimEnd().split("\n").slice(-lines).join("\n");
 }

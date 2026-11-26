@@ -9,6 +9,10 @@ export type CanaryOptions =
       readonly samples: number;
       /** A previous report to compare this run with. */
       readonly baseline: string | null;
+      /** Capture the API's statements beside the request profile. */
+      readonly statements: boolean;
+      /** Hash each statement's bind values, to tell keys apart. */
+      readonly paramHash: boolean;
     }
   | {
       readonly mode: "compare";
@@ -19,6 +23,7 @@ export type CanaryOptions =
 export const canaryUsage = `Run the app's request-volume canaries and record their request profiles.
 
 bun run perf:canaries [--canary <name>]... [--samples 1..5] [--baseline <report.json>]
+                      [--statements [--param-hash]]
 bun run perf:canaries --compare <before.json> <after.json>
 
 Finds every packages/app test that profiles its proxied API requests, runs
@@ -28,7 +33,10 @@ bytes and per-endpoint tables under .test_files/performance/, as JSON and as
 Markdown. --canary keeps the canaries whose name contains the text. Repeat
 each file with --samples, for byte claims. --baseline compares this run with
 an earlier report; --compare only compares two saved reports. Relative
-report paths resolve from the repository root.`;
+report paths resolve from the repository root. --statements also records
+every statement the in-process API sends, counts them per phase, and keeps
+each file's capture for bun run perf:statements --summarize; --param-hash
+adds a hash of each statement's bind values.`;
 
 export function parseCanaryOptions(args: string[]): CanaryOptions | null {
   const { values, positionals } = parseArgs({
@@ -38,6 +46,8 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
       samples: { type: "string", default: "1" },
       baseline: { type: "string" },
       compare: { type: "boolean", default: false },
+      statements: { type: "boolean", default: false },
+      "param-hash": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
     strict: true,
@@ -48,16 +58,25 @@ export function parseCanaryOptions(args: string[]): CanaryOptions | null {
     const [before, after, ...rest] = positionals;
     if (!before || !after || rest.length > 0)
       throw new Error("--compare takes exactly two report paths.");
-    if (values.canary.length > 0 || values.baseline !== undefined)
+    if (
+      values.canary.length > 0 ||
+      values.baseline !== undefined ||
+      values.statements ||
+      values["param-hash"]
+    )
       throw new Error("--compare reads saved reports; it runs no canaries.");
     return { mode: "compare", before, after };
   }
   if (positionals.length > 0)
     throw new Error(`Unexpected argument ${positionals[0]}; see --help.`);
+  if (values["param-hash"] && !values.statements)
+    throw new Error("--param-hash needs --statements.");
   return {
     mode: "run",
     canaries: values.canary,
     samples: integer(values.samples, "--samples", 1, 5),
     baseline: values.baseline ?? null,
+    statements: values.statements,
+    paramHash: values["param-hash"],
   };
 }

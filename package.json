@@ -127,6 +127,7 @@
     "perf:realtime-contention": "bun run --cwd packages/performance realtime:contention",
     "perf:reload": "bun run --cwd packages/performance reload",
     "perf:canaries": "bun run --cwd packages/performance canaries",
+    "perf:statements": "bun run --cwd packages/performance statements",
     "tearleads": "bun run --cwd packages/cli start"
   },
   "workspaces": [

@@ -1,0 +1,149 @@
+import { createHmac, randomBytes } from "node:crypto";
+
+/** One line of a capture file. */
+export type CaptureRecord =
+  | {
+      /** `globalThis.sqlCaptureLabel` when a probe set it, else `test-<n>`. */
+      readonly label: string;
+      readonly sql: string;
+      /** How many bind values the statement carried; values are never kept. */
+      readonly params: number;
+      /** A short hash of the bind values, keyed per capture, when asked for. */
+      readonly paramHash?: string;
+      /**
+       * The statement's outermost counter scope, numbered from 1 in the order
+       * scopes first send a statement: the API request, when the API's
+       * request-cost middleware opened it. Absent outside every scope.
+       */
+      readonly request?: number;
+    }
+  | {
+      /** A canary phase ended: its `[dual-pane-request-metrics]` label. */
+      readonly phaseEnd: string;
+      readonly requests: number;
+    }
+  | { readonly truncated: number };
+
+export interface RecorderOptions {
+  readonly paramHash: boolean;
+  /** Records to write before stopping with one `truncated` record. */
+  readonly limit: number;
+  readonly write: (line: string) => void;
+  /** The label a probe set for the work it measures, if any. */
+  readonly label: () => string | undefined;
+}
+
+export interface StatementRecorder {
+  /** Called before each test, so unlabelled statements name their test. */
+  startTest(): void;
+  statement(
+    sql: string,
+    parameters: readonly unknown[],
+    scope: object | undefined,
+  ): void;
+  phaseEnd(label: string, requests: number): void;
+}
+
+/**
+ * Hashes are keyed with a random key per recorder, so they match only within
+ * one capture and cannot confirm a guessed value such as an email.
+ */
+function hashParameters(key: Buffer, parameters: readonly unknown[]): string {
+  const json = JSON.stringify(parameters, (_key, value: unknown) =>
+    typeof value === "bigint" ? value.toString() : value,
+  );
+  return createHmac("sha256", key).update(json).digest("hex").slice(0, 12);
+}
+
+export function createStatementRecorder(
+  options: RecorderOptions,
+): StatementRecorder {
+  const hashKey = randomBytes(32);
+  let testNumber = 0;
+  let written = 0;
+  const requests = new WeakMap<object, number>();
+  let requestCount = 0;
+  const requestNumber = (scope: object): number => {
+    const known = requests.get(scope);
+    if (known !== undefined) return known;
+    requestCount += 1;
+    requests.set(scope, requestCount);
+    return requestCount;
+  };
+  const record = (entry: CaptureRecord) => {
+    if (written > options.limit) return;
+    written += 1;
+    options.write(
+      `${JSON.stringify(written > options.limit ? { truncated: options.limit } : entry)}\n`,
+    );
+  };
+  return {
+    startTest() {
+      testNumber += 1;
+    },
+    statement(sql, parameters, scope) {
+      record({
+        label: options.label() ?? `test-${testNumber}`,
+        sql,
+        params: parameters.length,
+        ...(options.paramHash
+          ? { paramHash: hashParameters(hashKey, parameters) }
+          : {}),
+        ...(scope === undefined ? {} : { request: requestNumber(scope) }),
+      });
+    },
+    phaseEnd(label, requests) {
+      record({ phaseEnd: label, requests });
+    },
+  };
+}
+
+const metricsMarker = "[dual-pane-request-metrics] ";
+
+/** The phase a canary's metrics line closes, or null for any other line. */
+export function phaseFromConsole(
+  args: readonly unknown[],
+): { label: string; requests: number } | null {
+  const [first] = args;
+  if (typeof first !== "string" || !first.startsWith(metricsMarker))
+    return null;
+  const metrics: unknown = JSON.parse(first.slice(metricsMarker.length));
+  if (typeof metrics !== "object" || metrics === null) return null;
+  const label: unknown = Reflect.get(metrics, "label");
+  const requests: unknown = Reflect.get(metrics, "total");
+  return typeof label === "string" && typeof requests === "number"
+    ? { label, requests }
+    : null;
+}
+
+export interface CaptureEnvironment {
+  readonly out: string;
+  readonly paramHash: boolean;
+  readonly limit: number;
+}
+
+/** Records kept by default: under 1 GB of typical API statements. */
+export const defaultCaptureLimit = 1_000_000;
+
+/** The variables the preload reads; `process.env` satisfies it. */
+export interface CaptureVariables {
+  readonly [name: string]: string | undefined;
+  readonly PERF_STATEMENTS_OUT?: string;
+  readonly PERF_STATEMENTS_PARAM_HASH?: string;
+  readonly PERF_STATEMENTS_LIMIT?: string;
+}
+
+export function readCaptureEnvironment(
+  env: CaptureVariables,
+): CaptureEnvironment {
+  const out = env.PERF_STATEMENTS_OUT;
+  if (!out) throw new Error("PERF_STATEMENTS_OUT must name the capture file.");
+  const limit = env.PERF_STATEMENTS_LIMIT;
+  if (limit !== undefined && !/^[1-9]\d*$/u.test(limit))
+    throw new Error("PERF_STATEMENTS_LIMIT must be a positive integer.");
+  return {
+    out,
+    paramHash: env.PERF_STATEMENTS_PARAM_HASH === "1",
+    limit: limit === undefined ? defaultCaptureLimit : Number(limit),
+  };
+}
