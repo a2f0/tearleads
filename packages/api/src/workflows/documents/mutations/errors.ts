@@ -13,6 +13,7 @@ import {
 } from "@tearleads/validators/response";
 import { DocumentKekTargetError } from "../../../access/read/documentKekTargets";
 import { DocumentContentKeyBundleError } from "../../../access/write/documentContentKeyStore";
+import { DocumentUpdatePayloadMissingError } from "../../../documents/documentUpdatePageRows";
 import { DocumentUpdateReadError } from "../../../documents/documentUpdateStore";
 import { keyingVerificationHttpStatus } from "../../../keyingProjectionRecords";
 import {
@@ -216,7 +217,10 @@ export function toMutationError(error: unknown): DocumentMutationError | null {
     );
   }
 
-  if (error instanceof DocumentUpdateReadError) {
+  if (
+    error instanceof DocumentUpdateReadError ||
+    error instanceof DocumentUpdatePayloadMissingError
+  ) {
     return new DocumentMutationError(error.message, error.status);
   }
 

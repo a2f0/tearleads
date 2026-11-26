@@ -12,10 +12,11 @@ import {
   DOCUMENT_BASELINE_STAGE_ERROR_CODES,
   MAX_DOCUMENT_PEER_FRONTIERS,
 } from "@tearleads/validators/response";
-import { and, eq, ne, type SQL, sql } from "drizzle-orm";
+import { and, eq, ne, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { deleteDocumentBaselineStage } from "../../../documents/documentBaselineStageStore";
 import { writeHeaderAuthorizationHash } from "../../../documents/writeHeaderAuthorizationHash";
+import { isUniqueViolation } from "../../../utils/databaseErrors";
 import { uuidValue } from "../../../utils/postgresSql";
 import {
   documentPeerOwned,
@@ -103,6 +104,57 @@ async function assertStagedHeadersAuthorized(
 }
 
 /**
+ * A staged segment's content record and nonce domain were unused when it was
+ * staged; an update committed since may have taken one, and the final
+ * segment, whose header this request has stored already, may repeat one. The
+ * committed headers keep both unique within a document's epoch, so the
+ * insert would fail on them. One statement finds such a segment first and
+ * says which stage rule it breaks, so the writer knows the stage cannot
+ * commit as it stands.
+ */
+async function assertStagedContentRecordsUnused(
+  input: PromoteStagedBaselineSegmentsInput,
+): Promise<void> {
+  const { stage } = input.commit;
+  const [taken] = await input.executor
+    .select({ updateId: documentBaselineSegments.updateId })
+    .from(documentBaselineSegments)
+    .innerJoin(
+      documentContentWriteHeaders,
+      and(
+        eq(
+          documentContentWriteHeaders.documentId,
+          documentBaselineSegments.documentId,
+        ),
+        eq(documentContentWriteHeaders.contentKeyEpoch, stage.contentKeyEpoch),
+        or(
+          eq(
+            documentContentWriteHeaders.contentRecordId,
+            documentBaselineSegments.contentRecordId,
+          ),
+          eq(
+            documentContentWriteHeaders.nonceDomainHash,
+            documentBaselineSegments.nonceDomainHash,
+          ),
+        ),
+      ),
+    )
+    .where(
+      and(
+        eq(documentBaselineSegments.documentId, input.documentId),
+        eq(documentBaselineSegments.baselineId, stage.id),
+      ),
+    )
+    .limit(1);
+  if (taken) {
+    throw documentBaselineGroupInvalid(
+      "a staged segment's content record is already committed",
+      DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentConflict,
+    );
+  }
+}
+
+/**
  * The staged peers whose spans end past the document's committed frontier,
  * each with that frontier: the ones the commit extends, as against the ones
  * it only re-asserts. A stage's spans on a peer run gapless from zero, so
@@ -172,8 +224,13 @@ async function claimStagedPeers(
 /**
  * Insert one update row per staged segment, in segment order, with no
  * payload: the ciphertext stays in the staged row, which readers join by
- * update id. The rows are small whatever the history's size, so the insert
- * does not hold the document head lock for longer on a larger history.
+ * update id, so no ciphertext is copied under the document head lock.
+ *
+ * An update id names one update everywhere. A staged id that an update has
+ * taken since it was staged is read first and refused as an id conflict. The
+ * head lock keeps this document's writers out, but not another document's:
+ * one can commit the same id between that read and the insert, and the
+ * insert's unique violation is then the same conflict.
  *
  * `order by segment_index` feeds the insert in segment order, and the
  * identity column takes its values as rows arrive, so sequences rise with
@@ -198,7 +255,8 @@ async function insertStagedUpdateRows(
     )
     .limit(1);
   if (taken) throw documentUpdateIdConflict();
-  const inserted = await input.executor.execute(sql`
+  const inserted = await input.executor
+    .execute(sql`
     insert into ${documentUpdates} (
       id, document_id, access_epoch, author_fingerprint, byte_length,
       partial_start_version_vector, partial_end_version_vector,
@@ -213,7 +271,10 @@ async function insertStagedUpdateRows(
     where ${stagedSegmentsOf(input)}
     order by segment_index
     returning sequence, baseline_segment_index as "segmentIndex"
-  `);
+  `)
+    .catch((error: unknown) => {
+      throw isUniqueViolation(error) ? documentUpdateIdConflict() : error;
+    });
   const rows = inserted.rows
     .map((row) => insertedSegmentSchema.parse(row))
     .sort((left, right) => left.segmentIndex - right.segmentIndex);
@@ -260,16 +321,21 @@ async function moveStagedHeadersAndSpans(
  * the stage's row lock and has verified the final segment's header, held it
  * to the stage (`lockStagedBaselineForCommit`), and proved the group covers
  * the committed frontier. In this order: the staged headers are authorized
- * by the final one; the peers the stage extends are the writer's or become
- * so; the update rows are inserted in segment order by reference; headers
- * and spans follow them; and the stage is deleted, which leaves the staged
- * rows as the committed updates' payloads. Every step is in the request's
+ * by the final one, and none repeats a committed content record; the peers
+ * the stage extends are the writer's or become so; the update rows are
+ * inserted in segment order by reference; headers and spans follow them;
+ * and the stage is deleted, which leaves the staged rows as the committed
+ * updates' payloads. The rows written here under the head lock are one
+ * update row and one header row per staged segment, one span row per staged
+ * span, and at most one peer-owner row per span: the stage's segment and
+ * span caps bound them, whatever the ciphertext's size. Every step is in the request's
  * transaction, so a stage commits whole with the rotation or not at all.
  */
 export async function promoteStagedBaselineSegments(
   input: PromoteStagedBaselineSegmentsInput,
 ): Promise<void> {
   await assertStagedHeadersAuthorized(input);
+  await assertStagedContentRecordsUnused(input);
   await claimStagedPeers(input);
   await insertStagedUpdateRows(input);
   await moveStagedHeadersAndSpans(input);

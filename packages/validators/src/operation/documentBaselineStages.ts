@@ -19,22 +19,36 @@ import {
 } from "../response/documentBaselineStage";
 import { ErrorResponseSchema } from "../response/error";
 import { PaymentRequiredErrorResponseSchema } from "../response/organizationBilling";
-import { uuidStringSchema } from "../schema";
+import { uuidV4StringSchema } from "../schema";
 import {
   DOCUMENT_BASELINE_STAGE_IDLE_SECONDS,
   DOCUMENT_BASELINE_STAGE_MAX_SECONDS,
   MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
   MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
+  MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER,
 } from "../util/documentSyncLimits";
 import { defineJsonOperation } from "./definition";
 
+// A stage route names its document and baseline by their canonical ids:
+// lower-case, as every signed artifact spells them. The baseline digest and
+// each segment's signed metadata are rooted in those strings, so an id the
+// path spelled another way would name a group no reader can reproduce. The
+// API refuses one here, before any route reads it.
+const CANONICAL_UUID_PATTERN =
+  "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+
+const canonicalUuidSchema = registerJsonSchemaFragment(
+  z.string().regex(new RegExp(CANONICAL_UUID_PATTERN, "u")),
+  { pattern: CANONICAL_UUID_PATTERN, type: "string" },
+);
+
 export const DocumentBaselineStagesPathParamsSchema = z.strictObject({
-  documentId: uuidStringSchema,
+  documentId: canonicalUuidSchema,
 });
 
 export const DocumentBaselineStagePathParamsSchema = z.strictObject({
-  baselineId: uuidStringSchema,
-  documentId: uuidStringSchema,
+  baselineId: uuidV4StringSchema,
+  documentId: canonicalUuidSchema,
 });
 
 // Every segment but the final one is staged, so the highest staged index is
@@ -60,8 +74,8 @@ const stagedSegmentIndexSchema = registerJsonSchemaFragment(
 );
 
 export const DocumentBaselineStageSegmentPathParamsSchema = z.strictObject({
-  baselineId: uuidStringSchema,
-  documentId: uuidStringSchema,
+  baselineId: uuidV4StringSchema,
+  documentId: canonicalUuidSchema,
   segmentIndex: stagedSegmentIndexSchema,
 });
 
@@ -94,7 +108,7 @@ export const openDocumentBaselineStageOperation = defineJsonOperation({
   failureStatuses: stageFailureStatuses,
   id: "documents.baselineStages.open",
   summary: "Open a rotation baseline stage",
-  description: `Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document and replaces the caller's earlier stage for it. The stage expires ${IDLE_MINUTES} minutes after its last upload and at most ${MAX_HOURS} hours after it opened; nothing staged is served until a rotating request commits it.`,
+  description: `Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document, as every later stage request does, and replaces the caller's earlier stage for it; a user holds at most ${MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER} open stages, and one more returns 409 \`document_baseline_stage_limit_reached\`. The stage expires ${IDLE_MINUTES} minutes after its last upload and at most ${MAX_HOURS} hours after it opened; nothing staged is served until a rotating request commits it.`,
   method: "POST",
   params: DocumentBaselineStagesPathParamsSchema,
   path: "/documents/{documentId}/baseline-stages",
@@ -137,7 +151,7 @@ export const stageDocumentBaselineSegmentOperation = defineJsonOperation({
   id: "documents.baselineStages.segments.stage",
   summary: "Stage one rotation baseline segment",
   description:
-    "Stages one segment of the baseline, in index order: the server verifies its signed write header and envelope and that it starts every peer where the staged segments left it. The final segment is never staged; it travels in the rotating request. Sending the same index with the same ciphertext again is acknowledged without a write, and an index that is not the stage's next returns 409 `document_baseline_stage_segment_out_of_order` naming the next one.",
+    "Stages one segment of the baseline, in index order: the server verifies its signed write header and envelope and that it starts every peer where the staged segments left it. The final segment is never staged; it travels in the rotating request. Sending the same index with the same ciphertext again is acknowledged without a write, an index that is not the stage's next returns 409 `document_baseline_stage_segment_out_of_order` naming the next one, and a segment that would take the stage past its byte or span cap returns 409 `document_baseline_stage_too_large`.",
   method: "PUT",
   params: DocumentBaselineStageSegmentPathParamsSchema,
   path: "/documents/{documentId}/baseline-stages/{baselineId}/segments/{segmentIndex}",

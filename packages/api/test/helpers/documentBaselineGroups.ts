@@ -100,11 +100,13 @@ async function signBaselineSegment(
   signer: BaselineGroupSigner,
   range: BaselineSegmentRange,
   fields: BaselineSegmentFields,
+  contentRecordIdOf: (updateId: string) => string,
 ): Promise<{
   readonly entry: DocumentBaselineSegmentDigestEntry;
   readonly update: DocumentOutgoingUpdate;
 }> {
   const id = crypto.randomUUID();
+  const contentRecordId = contentRecordIdOf(id);
   const plaintextHash = `plaintext-hash:${id}`;
   const dependencyVersionVector =
     range.dependencyVersionVector ?? range.partialStartVersionVector;
@@ -120,7 +122,7 @@ async function signBaselineSegment(
       contentKeyEpoch: signer.contentKeyEpoch,
       targetHash: signer.targetHash,
       encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-      contentRecordId: id,
+      contentRecordId,
       nonceDomainHash: await computeContentRecordNonceDomainHash({
         version: 1,
         organizationId: signer.organizationId,
@@ -128,7 +130,7 @@ async function signBaselineSegment(
         objectId: signer.documentId,
         contentKeyEpoch: signer.contentKeyEpoch,
         encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
-        contentRecordId: id,
+        contentRecordId,
       }),
       metadataHash: await computeDocumentContentRecordMetadataHash({
         ...fields,
@@ -176,6 +178,13 @@ async function signBaselineSegment(
 export async function createSignedBaselineGroup(
   input: BaselineGroupSigner & {
     readonly baselineId?: string | undefined;
+    /**
+     * The content record a segment's header signs, by position; its own
+     * update id when absent, as every honest writer's is.
+     */
+    readonly contentRecordId?:
+      | ((position: number, updateId: string) => string)
+      | undefined;
     readonly coversThroughUpdateId?: string | undefined;
     readonly override?:
       | ((
@@ -214,6 +223,7 @@ export async function createSignedBaselineGroup(
       input,
       range,
       input.override ? input.override(honest, position) : honest,
+      (updateId) => input.contentRecordId?.(position, updateId) ?? updateId,
     );
     entries.push(entry);
     updates.push(update);

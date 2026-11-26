@@ -3,8 +3,13 @@
 // `sequence`, so the claim that needs a database to hold is that the
 // identity column takes its values in that order, whatever order the staged
 // rows sit in, and that the statement trigger counts the rows.
+//
+// This file runs on the memory database with every other suite, and again
+// in the Postgres concurrency lane (`testPostgresConcurrency.sh`), where the
+// claim is about Postgres itself. It keeps the plain `.test.ts` name for
+// that reason: a `.pg.test.ts` file is one whose tests run only there.
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import {
   documentBaselineSegmentSpans,
   documentBaselineSegments,
@@ -17,8 +22,15 @@ import {
 } from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
-import { DOCUMENT_BASELINE_STAGE_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  DOCUMENT_BASELINE_STAGE_ERROR_CODES,
+  DOCUMENT_SYNC_ERROR_CODES,
+} from "@tearleads/validators/response";
 import { asc, eq, sql } from "drizzle-orm";
+import {
+  holdPostgresLock,
+  waitForPostgresLockWait,
+} from "../../../../test/helpers/postgresConcurrency";
 import { writeHeaderAuthorizationHash } from "../../../documents/writeHeaderAuthorizationHash";
 import { DocumentMutationError } from "./errors";
 import { promoteStagedBaselineSegments } from "./stagedBaselinePromotion";
@@ -87,11 +99,13 @@ async function stagedGroup(
       authorizationHash: input.authorizationHash?.(index) ?? authorizationHash,
       baselineId,
       byteLength: 9,
+      contentRecordId: updateId,
       dependencyVersionVector: "dependency",
       documentId,
       encryptedData: `payload-${index}`,
       header: header(updateId, organizationId),
       headerHash: `header-${updateId}`,
+      nonceDomainHash: `nonce-${updateId}`,
       partialEndVersionVector: "end",
       partialStartVersionVector: "start",
       plaintextHash: "plaintext",
@@ -222,3 +236,73 @@ test("one staged header signed for another manifest refuses the whole stage", as
   });
   expect(await committedRows(documentId)).toEqual([]);
 });
+
+/** Another document's update under `id`, as any writer may commit one. */
+function foreignUpdate(id: string) {
+  return {
+    accessEpoch: 1,
+    authorFingerprint: "another-writer",
+    byteLength: 7,
+    dependencyVersionVector: "dependency",
+    documentId: crypto.randomUUID(),
+    encryptedData: "payload",
+    id,
+    partialEndVersionVector: "end",
+    partialStartVersionVector: "start",
+    plaintextHash: "plaintext",
+  };
+}
+
+const UPDATE_ID_CONFLICT = {
+  code: DOCUMENT_SYNC_ERROR_CODES.updateIdConflict,
+  message: "Document update id conflict",
+  status: 409,
+};
+
+// An update id names one update everywhere, and the document head lock a
+// commit holds keeps out only its own document's writers.
+test("an update that took a staged segment's id refuses the stage", async () => {
+  const { documentId, ids, promote } = await stagedGroup();
+  await db.insert(documentUpdates).values(foreignUpdate(ids[61] ?? ""));
+  const refusal = await promote().then(
+    () => null,
+    (error: unknown) => error,
+  );
+  expect(refusal).toBeInstanceOf(DocumentMutationError);
+  expect(refusal).toMatchObject(UPDATE_ID_CONFLICT);
+  expect(await committedRows(documentId)).toEqual([]);
+});
+
+// The same id committed by another document's writer after the commit read
+// that it was free: the insert meets the unique index, and that is the same
+// conflict. Only a database with several connections can show it.
+test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
+  "an update that takes a staged segment's id while the stage commits refuses it the same way",
+  async () => {
+    const { documentId, ids, promote } = await stagedGroup();
+    const other = await holdPostgresLock(async (tx) => {
+      await tx.insert(documentUpdates).values(foreignUpdate(ids[61] ?? ""));
+    });
+    let promoting: Promise<unknown> | undefined;
+    try {
+      promoting = promote().then(
+        () => null,
+        (error: unknown) => error,
+      );
+      // The commit's read found the id free; its insert waits for the
+      // other writer's uncommitted row.
+      await waitForPostgresLockWait({
+        blockerPid: other.backendPid,
+        queryFragment: "insert into",
+      });
+    } finally {
+      // The other writer commits.
+      await other.release();
+    }
+    const refusal = await promoting;
+    expect(refusal).toBeInstanceOf(DocumentMutationError);
+    expect(refusal).toMatchObject(UPDATE_ID_CONFLICT);
+    expect(await committedRows(documentId)).toEqual([]);
+  },
+  60_000,
+);

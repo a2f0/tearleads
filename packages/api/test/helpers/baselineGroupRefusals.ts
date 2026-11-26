@@ -42,7 +42,11 @@ function peerOf(range: BaselineSegmentRange): string {
 export type SignGroup = (
   options: Pick<
     Parameters<typeof createSignedBaselineGroup>[0],
-    "baselineId" | "coversThroughUpdateId" | "override" | "ranges"
+    | "baselineId"
+    | "contentRecordId"
+    | "coversThroughUpdateId"
+    | "override"
+    | "ranges"
   >,
 ) => Promise<DocumentOutgoingUpdate[]>;
 

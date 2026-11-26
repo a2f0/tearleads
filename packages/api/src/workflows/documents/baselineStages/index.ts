@@ -2,7 +2,14 @@ export {
   type CleanupExpiredDocumentBaselineStagesInput,
   cleanupExpiredDocumentBaselineStages,
 } from "./cleanupExpiredStages";
-export { DocumentBaselineStageError } from "./errors";
+export {
+  DocumentBaselineStageError,
+  DocumentBaselineStageNotFoundError,
+} from "./errors";
+export {
+  type OpenDocumentBaselineStageInput,
+  openDocumentBaselineStage,
+} from "./openStage";
 export {
   type ResignStagedBaselineSegmentHeaderInput,
   resignStagedBaselineSegmentHeader,
@@ -10,8 +17,6 @@ export {
 export {
   abandonDocumentBaselineStage,
   type DocumentBaselineStageInput,
-  type OpenDocumentBaselineStageInput,
-  openDocumentBaselineStage,
   readDocumentBaselineStage,
 } from "./stageLifecycle";
 export {

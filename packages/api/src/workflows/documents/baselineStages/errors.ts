@@ -1,19 +1,23 @@
 import {
   DOCUMENT_BASELINE_STAGE_ERROR_CODES,
-  type DocumentBaselineStageErrorCode,
+  type DocumentBaselineStageConflictCode,
 } from "@tearleads/validators/response";
 import type { DocumentBaselineStageState } from "../../../documents/documentBaselineStageState";
 import { isUniqueViolation } from "../../../utils/databaseErrors";
 import { toMutationError } from "../mutations/errors";
 
-type DocumentBaselineStageStatus = 400 | 403 | 404 | 409 | 503;
+type DocumentBaselineStageRefusalStatus = 400 | 403 | 409 | 503;
 
-/** A refused stage request, with the code its response carries, if any. */
+/**
+ * A refused stage request, with the code its response carries, if any. The
+ * codes are the ones a stage route's 409 may carry: a missing stage is the
+ * subclass below, and stale headers are only a commit's to find.
+ */
 export class DocumentBaselineStageError extends Error {
   constructor(
     message: string,
-    readonly status: DocumentBaselineStageStatus,
-    readonly code?: DocumentBaselineStageErrorCode | undefined,
+    readonly status: DocumentBaselineStageRefusalStatus | 404,
+    readonly code?: DocumentBaselineStageConflictCode | undefined,
     /** With `segment_out_of_order`: the index the stage expects next. */
     readonly nextSegmentIndex?: number | undefined,
   ) {
@@ -22,54 +26,75 @@ export class DocumentBaselineStageError extends Error {
   }
 }
 
-export function documentBaselineStageNotFound(): DocumentBaselineStageError {
-  return new DocumentBaselineStageError(
-    "Document baseline stage not found",
-    404,
-    DOCUMENT_BASELINE_STAGE_ERROR_CODES.notFound,
-  );
+/**
+ * No stage of this caller under that id on that document: the one failure a
+ * stage route answers with a 404, always with the stage's own code.
+ */
+export class DocumentBaselineStageNotFoundError extends DocumentBaselineStageError {
+  constructor() {
+    super("Document baseline stage not found", 404);
+    this.name = "DocumentBaselineStageNotFoundError";
+  }
 }
 
-function documentBaselineStageExpired(): DocumentBaselineStageError {
-  return new DocumentBaselineStageError(
-    "Document baseline stage expired",
-    409,
-    DOCUMENT_BASELINE_STAGE_ERROR_CODES.expired,
-  );
+function stageConflict(
+  message: string,
+  code: DocumentBaselineStageConflictCode,
+  nextSegmentIndex?: number,
+): DocumentBaselineStageError {
+  return new DocumentBaselineStageError(message, 409, code, nextSegmentIndex);
+}
+
+export function documentBaselineStageNotFound(): DocumentBaselineStageError {
+  return new DocumentBaselineStageNotFoundError();
 }
 
 export function documentBaselineStageEpochStale(
   reason: string,
 ): DocumentBaselineStageError {
-  return new DocumentBaselineStageError(
+  return stageConflict(
     `Document baseline stage cannot commit: ${reason}`,
-    409,
     DOCUMENT_BASELINE_STAGE_ERROR_CODES.epochStale,
   );
 }
 
 export function documentBaselineStageIdConflict(): DocumentBaselineStageError {
-  return new DocumentBaselineStageError(
+  return stageConflict(
     "Document baseline id is already in use",
-    409,
     DOCUMENT_BASELINE_STAGE_ERROR_CODES.idConflict,
+  );
+}
+
+/** The caller holds as many open stages as one user may. */
+export function documentBaselineStageLimitReached(): DocumentBaselineStageError {
+  return stageConflict(
+    "Too many open document baseline stages",
+    DOCUMENT_BASELINE_STAGE_ERROR_CODES.limitReached,
+  );
+}
+
+/** The segment would take the stage past what one stage may store. */
+export function documentBaselineStageTooLarge(
+  bound: string,
+): DocumentBaselineStageError {
+  return stageConflict(
+    `Document baseline stage would exceed its ${bound}`,
+    DOCUMENT_BASELINE_STAGE_ERROR_CODES.tooLarge,
   );
 }
 
 export function stagedSegmentInvalid(
   reason: string,
 ): DocumentBaselineStageError {
-  return new DocumentBaselineStageError(
+  return stageConflict(
     `Document baseline segment cannot be staged: ${reason}`,
-    409,
     DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentInvalid,
   );
 }
 
 export function stagedSegmentConflict(): DocumentBaselineStageError {
-  return new DocumentBaselineStageError(
+  return stageConflict(
     "Document baseline segment conflicts with what is stored",
-    409,
     DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentConflict,
   );
 }
@@ -77,9 +102,8 @@ export function stagedSegmentConflict(): DocumentBaselineStageError {
 export function stagedSegmentOutOfOrder(
   nextSegmentIndex: number,
 ): DocumentBaselineStageError {
-  return new DocumentBaselineStageError(
+  return stageConflict(
     "Document baseline segment is not the stage's next",
-    409,
     DOCUMENT_BASELINE_STAGE_ERROR_CODES.segmentOutOfOrder,
     nextSegmentIndex,
   );
@@ -90,7 +114,12 @@ export function requireOpenDocumentBaselineStage(
   state: DocumentBaselineStageState,
 ) {
   if (state.status === "absent") throw documentBaselineStageNotFound();
-  if (state.status === "expired") throw documentBaselineStageExpired();
+  if (state.status === "expired") {
+    throw stageConflict(
+      "Document baseline stage expired",
+      DOCUMENT_BASELINE_STAGE_ERROR_CODES.expired,
+    );
+  }
   return state.stage;
 }
 

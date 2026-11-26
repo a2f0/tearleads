@@ -30,6 +30,7 @@ function stage(
     ownerUserId: OWNER,
     segmentsDigest: "0".repeat(64),
     stagedBytes: 0,
+    stagedSpans: 0,
     ...values,
   };
 }

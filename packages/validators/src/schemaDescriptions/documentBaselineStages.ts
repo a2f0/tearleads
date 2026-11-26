@@ -46,7 +46,8 @@ describeSchema(
       "Index the next staged segment must carry, and the index of the final segment a rotating request sends to commit the stage now.",
     segmentsDigest:
       "The baseline digest over the segments staged so far: what a final segment sent now must sign as `baselineSegmentsDigest`.",
-    stagedBytes: "Ciphertext bytes staged so far.",
+    stagedBytes:
+      "Bytes the stage stores so far: each staged segment's ciphertext, signed vectors, plaintext hash and write header. A stage holds at most 1 GiB.",
   },
 );
 
@@ -58,7 +59,7 @@ describeSchema(
 
 describeSchema(
   DocumentBaselineStageErrorCodeSchema,
-  "Why a staged rotation baseline was refused: the stage is gone (`not_found`, `expired`), can no longer commit (`epoch_stale`, `id_conflict`), needs its headers signed again (`headers_stale`), or was sent a segment out of order, in conflict with what it holds, or that no baseline holds at that place.",
+  "Why a staged rotation baseline was refused: the stage is gone (`not_found`, `expired`), can no longer commit (`epoch_stale`, `id_conflict`), needs its headers signed again (`headers_stale`), was sent a segment out of order, in conflict with what it holds or with a committed update, or that no baseline holds at that place, would grow past what a stage may store (`too_large`), or would be one more than a user may hold open (`limit_reached`).",
 );
 
 describeSchema(

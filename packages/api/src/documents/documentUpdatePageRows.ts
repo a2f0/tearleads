@@ -34,10 +34,22 @@ const storedDocumentUpdateColumns = {
   encryptedData: storedDocumentUpdatePayload,
 };
 
+/** A committed update whose payload is stored nowhere. */
+export class DocumentUpdatePayloadMissingError extends Error {
+  readonly status = 409;
+
+  constructor() {
+    super("Document update payload is missing");
+    this.name = "DocumentUpdatePayloadMissingError";
+  }
+}
+
 /**
  * A committed update always has a payload: its own, or the staged row a
  * commit left for it, which only a purge of the document deletes. A row
- * without one is a broken database, never a client's fault.
+ * without one is a damaged database, never a client's fault, and no retry
+ * mends it: the pull is refused as a conflict, as a row that no longer gives
+ * its signed metadata hash is, and nothing of the page is served.
  */
 function withPayload(
   update: Omit<DocumentUpdateRecord, "encryptedData"> & {
@@ -45,9 +57,7 @@ function withPayload(
   },
 ): StoredDocumentUpdate {
   const { encryptedData } = update;
-  if (encryptedData === null) {
-    throw new Error("Document update payload is missing");
-  }
+  if (encryptedData === null) throw new DocumentUpdatePayloadMissingError();
   return { ...update, encryptedData };
 }
 

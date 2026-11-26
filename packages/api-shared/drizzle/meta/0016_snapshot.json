@@ -1,5 +1,5 @@
 {
-  "id": "97e7db5c-07cb-4539-a172-e5d4314736b1",
+  "id": "eaea2d84-eaa5-461b-ac21-1359fc5fe592",
   "prevId": "d773e3f0-c8a9-409a-8cc5-ea13e5d73858",
   "version": "7",
   "dialect": "postgresql",
@@ -2724,6 +2724,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "content_record_id": {
+          "name": "content_record_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nonce_domain_hash": {
+          "name": "nonce_domain_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "authorization_hash": {
           "name": "authorization_hash",
           "type": "text",
@@ -2756,6 +2768,60 @@
             },
             {
               "expression": "segment_index",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "document_baseline_segments_content_record_idx": {
+          "name": "document_baseline_segments_content_record_idx",
+          "columns": [
+            {
+              "expression": "document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "baseline_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "content_record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "document_baseline_segments_nonce_domain_idx": {
+          "name": "document_baseline_segments_nonce_domain_idx",
+          "columns": [
+            {
+              "expression": "document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "baseline_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "nonce_domain_hash",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2834,6 +2900,13 @@
           "notNull": true,
           "default": 0
         },
+        "staged_spans": {
+          "name": "staged_spans",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -2866,6 +2939,21 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "document_baseline_stages_owner_user_idx": {
+          "name": "document_baseline_stages_owner_user_idx",
+          "columns": [
+            {
+              "expression": "owner_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}

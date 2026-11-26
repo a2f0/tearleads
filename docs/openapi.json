@@ -2864,9 +2864,11 @@
               "document_baseline_stage_epoch_stale",
               "document_baseline_stage_expired",
               "document_baseline_stage_id_conflict",
+              "document_baseline_stage_limit_reached",
               "document_baseline_stage_segment_conflict",
               "document_baseline_stage_segment_invalid",
-              "document_baseline_stage_segment_out_of_order"
+              "document_baseline_stage_segment_out_of_order",
+              "document_baseline_stage_too_large"
             ]
           },
           "error": {
@@ -2978,7 +2980,7 @@
             "maximum": 9007199254740991,
             "minimum": 0,
             "type": "integer",
-            "description": "Ciphertext bytes staged so far."
+            "description": "Bytes the stage stores so far: each staged segment's ciphertext, signed vectors, plaintext hash and write header. A stage holds at most 1 GiB."
           }
         },
         "required": [
@@ -3782,10 +3784,12 @@
               "document_baseline_stage_expired",
               "document_baseline_stage_headers_stale",
               "document_baseline_stage_id_conflict",
+              "document_baseline_stage_limit_reached",
               "document_baseline_stage_not_found",
               "document_baseline_stage_segment_conflict",
               "document_baseline_stage_segment_invalid",
-              "document_baseline_stage_segment_out_of_order"
+              "document_baseline_stage_segment_out_of_order",
+              "document_baseline_stage_too_large"
             ],
             "description": "With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code."
           },
@@ -4102,10 +4106,12 @@
               "document_baseline_stage_expired",
               "document_baseline_stage_headers_stale",
               "document_baseline_stage_id_conflict",
+              "document_baseline_stage_limit_reached",
               "document_baseline_stage_not_found",
               "document_baseline_stage_segment_conflict",
               "document_baseline_stage_segment_invalid",
-              "document_baseline_stage_segment_out_of_order"
+              "document_baseline_stage_segment_out_of_order",
+              "document_baseline_stage_too_large"
             ],
             "description": "With `document_sync_baseline_group_invalid`, why the named `baselineStageId` could not commit: a `document_baseline_stage_*` code."
           },
@@ -18128,7 +18134,7 @@
             "name": "documentId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"
@@ -18139,7 +18145,7 @@
             "name": "baselineId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"
@@ -18270,7 +18276,7 @@
       "put": {
         "operationId": "documents.baselineStages.segments.stage",
         "summary": "Stage one rotation baseline segment",
-        "description": "Stages one segment of the baseline, in index order: the server verifies its signed write header and envelope and that it starts every peer where the staged segments left it. The final segment is never staged; it travels in the rotating request. Sending the same index with the same ciphertext again is acknowledged without a write, and an index that is not the stage's next returns 409 `document_baseline_stage_segment_out_of_order` naming the next one.",
+        "description": "Stages one segment of the baseline, in index order: the server verifies its signed write header and envelope and that it starts every peer where the staged segments left it. The final segment is never staged; it travels in the rotating request. Sending the same index with the same ciphertext again is acknowledged without a write, an index that is not the stage's next returns 409 `document_baseline_stage_segment_out_of_order` naming the next one, and a segment that would take the stage past its byte or span cap returns 409 `document_baseline_stage_too_large`.",
         "tags": [
           "Documents"
         ],
@@ -18281,7 +18287,7 @@
             "name": "documentId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"
@@ -18292,7 +18298,7 @@
             "name": "baselineId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"
@@ -18519,7 +18525,7 @@
             "name": "documentId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"
@@ -18530,7 +18536,7 @@
             "name": "baselineId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"
@@ -18648,7 +18654,7 @@
             "name": "documentId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"
@@ -18659,7 +18665,7 @@
             "name": "baselineId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"
@@ -18768,7 +18774,7 @@
       "post": {
         "operationId": "documents.baselineStages.open",
         "summary": "Open a rotation baseline stage",
-        "description": "Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document and replaces the caller's earlier stage for it. The stage expires 60 minutes after its last upload and at most 24 hours after it opened; nothing staged is served until a rotating request commits it.",
+        "description": "Opens the stage a writer uploads a rotation baseline's segments to ahead of the unlink or sync that rotates, for a history too large for one request. Requires write access to the document, as every later stage request does, and replaces the caller's earlier stage for it; a user holds at most 4 open stages, and one more returns 409 `document_baseline_stage_limit_reached`. The stage expires 60 minutes after its last upload and at most 24 hours after it opened; nothing staged is served until a rotating request commits it.",
         "tags": [
           "Documents"
         ],
@@ -18779,7 +18785,7 @@
             "name": "documentId",
             "required": true,
             "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
               "type": "string"
             },
             "style": "simple"

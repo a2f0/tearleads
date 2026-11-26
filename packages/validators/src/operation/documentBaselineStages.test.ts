@@ -19,13 +19,18 @@ import {
   DOCUMENT_BASELINE_STAGE_MAX_SECONDS,
   MAX_DOCUMENT_BASELINE_SEGMENT_REQUEST_BYTES,
   MAX_DOCUMENT_BASELINE_SEGMENTS,
+  MAX_DOCUMENT_BASELINE_STAGE_BYTES,
+  MAX_DOCUMENT_BASELINE_STAGE_SPANS,
   MAX_DOCUMENT_STAGED_BASELINE_SEGMENTS,
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER,
 } from "../util";
 import { operationRequestPath, operationRoutePath } from "./definition";
 import {
   abandonDocumentBaselineStageOperation,
+  DocumentBaselineStagePathParamsSchema,
   DocumentBaselineStageSegmentPathParamsSchema,
+  DocumentBaselineStagesPathParamsSchema,
   getDocumentBaselineStageOperation,
   openDocumentBaselineStageOperation,
   resignDocumentBaselineSegmentHeaderOperation,
@@ -46,6 +51,47 @@ test("the staged baseline bounds are the published ones", () => {
   );
   expect(DOCUMENT_BASELINE_STAGE_IDLE_SECONDS).toBe(3600);
   expect(DOCUMENT_BASELINE_STAGE_MAX_SECONDS).toBe(86_400);
+  expect(MAX_DOCUMENT_BASELINE_STAGE_BYTES).toBe(1024 * 1024 * 1024);
+  expect(MAX_DOCUMENT_BASELINE_STAGE_SPANS).toBe(1_048_576);
+  expect(MAX_OPEN_DOCUMENT_BASELINE_STAGES_PER_USER).toBe(4);
+});
+
+// The baseline digest and every signed header are rooted in the ids as
+// their signers spell them, lower-case. A stage route reads no other
+// spelling, so no stage is ever opened or staged to under one.
+test("a stage path names its document and baseline in canonical form only", () => {
+  const schemas = [
+    [DocumentBaselineStagesPathParamsSchema, {}],
+    [DocumentBaselineStagePathParamsSchema, { baselineId }],
+    [
+      DocumentBaselineStageSegmentPathParamsSchema,
+      { baselineId, segmentIndex: 0 },
+    ],
+  ] as const;
+  for (const [schema, rest] of schemas) {
+    const parses = (params: object) =>
+      schema.safeParse({ ...rest, documentId, ...params }).success;
+    expect(parses({})).toBe(true);
+    for (const params of [
+      { documentId: documentId.replace("1111-4111", "abcd-4abc") },
+      ...("baselineId" in rest
+        ? [{ baselineId: baselineId.replace("2222-4222", "abcd-4abc") }]
+        : []),
+    ]) {
+      expect([params, parses(params)]).toEqual([params, true]);
+      const upper = Object.fromEntries(
+        Object.entries(params).map(([key, id]) => [key, id.toUpperCase()]),
+      );
+      expect([upper, parses(upper)]).toEqual([upper, false]);
+    }
+    for (const id of ["", "document", `{${documentId}}`, ` ${documentId}`]) {
+      expect([id, parses({ documentId: id })]).toEqual([id, false]);
+    }
+  }
+  const parameters =
+    openApiDocument.paths["/documents/{documentId}/baseline-stages"]?.post
+      ?.parameters ?? [];
+  expect(JSON.stringify(parameters)).toContain("^[0-9a-f]{8}-");
 });
 
 test("the stage operations own their HTTP contracts", () => {
@@ -152,7 +198,7 @@ test("a staged segment's index is every index but the final one's", () => {
 
 test("a stage's refusals are exact codes, and a commit carries them beside its own", () => {
   const codes = Object.values(DOCUMENT_BASELINE_STAGE_ERROR_CODES);
-  expect(codes).toHaveLength(8);
+  expect(codes).toHaveLength(10);
   for (const code of codes) {
     expect(code.startsWith("document_baseline_stage_")).toBe(true);
     expect(isDocumentBaselineStageErrorCode(code)).toBe(true);
@@ -212,6 +258,19 @@ test("a stage's refusals are exact codes, and a commit carries them beside its o
       nextSegmentIndex: 3,
     }),
   ).toBe(true);
+  // Every other stage code is a stage route's to send, the two bounds among
+  // them.
+  for (const code of Object.values(DOCUMENT_BASELINE_STAGE_ERROR_CODES)) {
+    expect([code, conflict({ code, error: "refused" })]).toEqual([
+      code,
+      code !== notFound &&
+        code !== DOCUMENT_BASELINE_STAGE_ERROR_CODES.headersStale,
+    ]);
+  }
+  expect(DOCUMENT_BASELINE_STAGE_ERROR_CODES).toMatchObject({
+    limitReached: "document_baseline_stage_limit_reached",
+    tooLarge: "document_baseline_stage_too_large",
+  });
   for (const code of [
     notFound,
     DOCUMENT_BASELINE_STAGE_ERROR_CODES.headersStale,

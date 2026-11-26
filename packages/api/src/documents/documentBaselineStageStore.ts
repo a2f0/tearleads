@@ -66,6 +66,28 @@ export async function lockDocumentBaselineStageRow(
   return row;
 }
 
+/** The segment a stage holds at `segmentIndex`, as its header binds it. */
+export async function readStagedSegmentAt(
+  executor: DatabaseSession,
+  stage: Pick<DocumentBaselineStageRow, "documentId" | "id">,
+  segmentIndex: number,
+) {
+  const [held] = await executor
+    .select({
+      header: documentBaselineSegments.header,
+      updateId: documentBaselineSegments.updateId,
+    })
+    .from(documentBaselineSegments)
+    .where(
+      and(
+        stagedSegmentOf({ baselineId: stage.id, documentId: stage.documentId }),
+        eq(documentBaselineSegments.segmentIndex, segmentIndex),
+      ),
+    )
+    .limit(1);
+  return held;
+}
+
 /**
  * Where the stage's segments leave each of `peerIds`: the highest counter
  * staged for it, zero when none. A staged segment starts every peer it

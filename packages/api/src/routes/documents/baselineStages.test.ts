@@ -105,7 +105,15 @@ test("a writer stages a baseline's segments in order, and none is served", async
       segmentIndex: 0,
       updateId: first.id,
     }),
-    stagedBytes: first.encryptedData.length,
+    // Everything the staged row keeps of the segment, not its ciphertext
+    // alone.
+    stagedBytes:
+      first.encryptedData.length +
+      first.partialStartVersionVector.length +
+      first.partialEndVersionVector.length +
+      first.dependencyVersionVector.length +
+      first.plaintextHash.length +
+      JSON.stringify(header).length,
   };
   expect(
     await stageStatus(await putSegment(owner, created.id, first)),
