@@ -21,6 +21,7 @@ import {
   DocumentListingRevalidationRepository,
   type ListedDocumentHead,
 } from "../../../data/persistence/documents/documentListingRevalidationRepository";
+import { readPersistedDocumentFrontiers } from "../../../data/persistence/documents/records/persistedDocumentFrontiers";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { readProcessedUpdateCountForSync } from "./processedCursor";
 
@@ -65,6 +66,53 @@ export function listOwedDocumentListingReads(
   return new DocumentListingRevalidationRepository(
     execSql,
   ).listOwedDocumentIds();
+}
+
+/**
+ * Forgets the reads owed to documents this device no longer holds a record
+ * of. Nothing reads such a debt, so a catch-up clears them once its own
+ * reads are requested.
+ */
+export function forgetUnheldDocumentListingReads(
+  execSql: ExecSql,
+): Promise<void> {
+  return new DocumentListingRevalidationRepository(execSql).forgetUnheld();
+}
+
+/** A loaded store's record, as far as telling whether it lags the disk. */
+export interface LoadedDocumentRecord {
+  readonly localId: string;
+  /** Whether the store's document in memory lacks content `frontier` holds. */
+  readonly lacks: (frontier: string) => boolean;
+}
+
+/**
+ * The loaded records whose stores lack content their record has on disk,
+ * by local id. Runtimes that share one database (two tabs, say) share each
+ * record, its processed cursor and its listing debt, but each keeps its own
+ * copy of an open document in memory. Once another runtime's pull has saved
+ * an edit and settled its debt, no listing names the document to this
+ * runtime again, so a catch-up ends by asking each such store for one pull.
+ * That pull cites the store's own version: the shared cursor was recorded
+ * with a version the store does not cover, so it is not sent.
+ */
+export async function listLoadedRecordsSavedElsewhere(
+  execSql: ExecSql,
+  loaded: ReadonlyArray<LoadedDocumentRecord>,
+): Promise<ReadonlySet<string>> {
+  const frontiers = await readPersistedDocumentFrontiers(
+    execSql,
+    DOCUMENTS_APP_KIND,
+    loaded.map(({ localId }) => localId),
+  );
+  const behind = new Set<string>();
+  for (const { lacks, localId } of loaded) {
+    const frontier = frontiers.get(localId);
+    if (frontier !== undefined && frontier !== "" && lacks(frontier)) {
+      behind.add(localId);
+    }
+  }
+  return behind;
 }
 
 /**

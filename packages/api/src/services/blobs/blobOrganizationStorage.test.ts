@@ -19,6 +19,7 @@ import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
 import {
   completeStageAsBind,
   firstPartOf,
+  uploadSignedStagePart,
 } from "../../../test/helpers/blobStageParts";
 import { createFakeS3BlobObjectStore } from "../../../test/helpers/fakeS3BlobObjectStore";
 import {
@@ -51,6 +52,8 @@ async function stageBytes(
     readonly encryptedBytes?: Uint8Array;
     readonly complete?: boolean;
   },
+  // Set for a signing store: the part goes to storage, not through the API.
+  putSignedPart?: (url: string, bytes: Uint8Array) => Promise<unknown>,
 ) {
   const encryptedBytes = input.encryptedBytes ?? bytes;
   const metadata = {
@@ -65,14 +68,24 @@ async function stageBytes(
   const key = `organizations/${input.organizationId}/blob-stages/${stage.stageId}`;
   expect(stage.organizationId).toBe(input.organizationId);
   if (input.complete !== false) {
-    await uploadMultipartBlobPartBytes(runtime, {
-      ...metadata,
-      bytes: encryptedBytes,
+    const part = {
       partNumber: 1,
       stageId: stage.stageId,
       uploadId: stage.uploadId,
       userId: input.userId,
-    });
+    };
+    if (putSignedPart) {
+      await uploadSignedStagePart(runtime, putSignedPart, {
+        ...part,
+        bytes: encryptedBytes,
+      });
+    } else {
+      await uploadMultipartBlobPartBytes(runtime, {
+        ...metadata,
+        ...part,
+        bytes: encryptedBytes,
+      });
+    }
     await completeStageAsBind(runtime, {
       stageId: stage.stageId,
       userId: input.userId,
@@ -162,16 +175,25 @@ test("promotion, reads, and GC retries retain the organization key and preserve 
   await authenticate(first.owner);
   const root = await bootstrapRoot(first.owner);
   const document = await createDocument({ owner: first.owner, root });
+  const fake = createFakeS3BlobObjectStore();
   const runtime = createServiceTestRuntime(undefined, {
-    blobObjectStore: createFakeS3BlobObjectStore().store,
+    blobObjectStore: fake.store,
   });
   const blobId = crypto.randomUUID();
   const { bytes } = await createBlobEnvelopeFixture({
     blobId,
     organizationId: first.organizationId,
   });
-  const staged = await stageBytes(runtime, { ...first, encryptedBytes: bytes });
-  const other = await stageBytes(runtime, { ...second, encryptedBytes: bytes });
+  const staged = await stageBytes(
+    runtime,
+    { ...first, encryptedBytes: bytes },
+    fake.putSignedPart,
+  );
+  const other = await stageBytes(
+    runtime,
+    { ...second, encryptedBytes: bytes },
+    fake.putSignedPart,
+  );
   const bind = await buildBind({
     blobId,
     document,
