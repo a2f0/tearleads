@@ -1,12 +1,12 @@
 {
   "name": "@tearleads/cli",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "start": "bun src/index.ts",
-    "test": "bun test src"
+    "test": "bun test src --timings=test-timings.json"
   },
   "dependencies": {
     "@tearleads/client-sdk": "workspace:*",

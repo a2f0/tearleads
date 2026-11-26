@@ -273,4 +273,7 @@ bun run --cwd packages/cli test
 ```
 
 The end-to-end tests boot the API in-process, register accounts the way the
-app does, and drive the CLI against it.
+app does, and drive the CLI against it. CI runs them in five shards, one file
+at a time, split by the per-file durations in
+[`test-timings.json`](test-timings.json); see
+[balancing shards by measured time](../../docs/developer/test-optimization.md#balance-shards-by-measured-time).

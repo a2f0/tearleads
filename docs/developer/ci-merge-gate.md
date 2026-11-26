@@ -18,33 +18,52 @@ entry points. `Lint` passes pull-request names to
 `agent-tool branch check --pre-push` as stdin ref tuples, so the policy also
 applies to pull requests from clones without hooks.
 
-The API, app, client SDK, and bob-and-alice suites run in `Test (...)` jobs of
-their own, and `Build and test` runs the remaining package tests. The API suite
-runs one backend per job, and every one of these suites splits into Bun shards
-(`--shard=1/3` and so on);
+The API, app, client SDK, bob-and-alice, and CLI suites run in `Test (...)`
+jobs of their own, and `Build and test` runs the remaining package tests. The
+API suite runs one backend per job, and every one of these suites splits into
+Bun shards (`--shard=1/3` and so on);
 [`ciPolicy.test.ts`](../../scripts/checks/staticAnalysis/ciPolicy.test.ts)
-checks that every backend's shards are all present. The gate requires both jobs,
-so the suites need no ruleset entries. Turbo hashes each shard's arguments, so
-shards cache independently. Turbo serves cached results from the GitHub Actions
-cache: a pull request reads entries written on its own ref or on `main`, while
-`main` never reads an entry a pull request wrote. The nightly `Uncached tests`
-workflow calls the entire CI workflow with `force: true`, including Postgres,
+checks that every backend's shards are all present and that a suite's shards
+share their other arguments. A suite whose `test` script passes `--timings`
+splits by the per-file durations committed in its package rather than by file
+count; see [balancing shards by measured time](test-optimization.md#balance-shards-by-measured-time).
+The gate requires both jobs, so the suites need no ruleset entries. Turbo
+hashes each shard's arguments, so shards cache independently. Turbo serves
+cached results from the GitHub Actions cache: a pull request reads entries
+written on its own ref or on `main`, while `main` never reads an entry a pull
+request wrote. The nightly `Uncached tests` workflow calls the entire CI
+workflow with `force: true`, including Postgres,
 Windows, native bridge compiles, and [protocol models](../../formal/README.md).
 Manual workflow dispatches also bypass the cache.
 
-CI runs the Postgres concurrency probe, Windows CEF persistence probe, and native
-purchase bridge compiles as dedicated root Turbo tasks. Each caches a successful
+CI runs the Postgres concurrency probe, Windows CEF persistence probe, and
+Android purchase bridge compile as dedicated root Turbo tasks, and the iOS
+compile as `app-capacitor#test:native-ios-ci`. Each caches a successful
 verification without build artifacts, keyed on its workspace source dependencies
 and external scripts. Windows and native tasks also hash the hosted
 runner image version; Postgres hashes the service image. The native release tests
 in `Lint` reuse the same `app-capacitor#test` task as `Build and test`.
+
+The iOS compile syncs a placeholder page instead of the web build, which only
+the Android check builds and syncs. Its key therefore covers app-capacitor's
+manifest, iOS project, Capacitor configuration, and locked plugin versions, but
+not the web sources or workspace dependencies. It is a package task because
+Turbo hashes the root manifest into every root task; app-capacitor's manifest
+stays in, since it holds the check's command and Capacitor's sync hooks. It
+keeps no Xcode build state between runs: restoring DerivedData from the Actions
+cache still rebuilt every object file under the runner's Xcode 16.4.
 
 The two pure TLC model passes run in the `Protocol models (...)` jobs, one per
 pass, with `CI_TURBO_PROTOCOL_CACHE=1`; `Lint` skips them
 (`CI_DEFER_PROTOCOL_MODELS=1`). Their inputs include the formal models,
 registry, checker scripts, tool pins, and Java runtime identity. The wrapper
 validates the installed Java version and jar digest before every lookup,
-including cache hits. Implementation projections, conformance tests, and other
+including cache hits. Each job overlaps four TLC runs, one per runner vCPU
+(`PROTOCOL_TLC_PARALLELISM=4`; local runs default to two), with each JVM's
+heap capped so the four fit in the runner's memory, and starts its longest
+runs first from the [recorded durations](../../formal/README.md). The
+parallelism is part of the task hash, so changing it reruns both passes.
+Implementation projections, conformance tests, and other
 static checks still run in `Lint`. Local
 [`check:fast`](./verification.md#before-a-push) and the direct model commands
 still execute TLC.
@@ -95,7 +114,7 @@ marked it irrelevant. A failed, cancelled, missing, or unexpectedly skipped job
 fails the gate. Changes to workflows, CI scripts, tool pins, or
 [`package.json`](../../package.json) exercise every lane. So does a
 [`bun.lock`](../../bun.lock) change, unless it only rewrites workspace
-`version` fields, as `versions prepare` does on nearly every pull request: the
+`version` fields, as a hand version bump does: the
 classifier compares the merge base's and head's lockfiles with those fields
 removed, so a dependency, resolution, integrity, or workspace-set change still
 selects every lane, and a lockfile it cannot read or parse counts as changed.
@@ -117,7 +136,7 @@ checks and API errors stop the merge. This also protects standalone helper
 calls, where waiting only for the checks a ruleset requires would be
 insufficient. It does not require the branch to contain the base's newest
 commit: a base that moved during CI needs integration only when GitHub reports
-a conflict or `versions check` fails against the live base. Two PRs that pass
+a conflict. Two PRs that pass
 separately can break `main` together, so CI also runs on every `main` push and
 the `ship-pr` skill starts from `agent-tool repo base-health`. Update
 [`agent-tool.json`](../../agent-tool.json) together with the ruleset when a

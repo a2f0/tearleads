@@ -6,8 +6,9 @@ name: Publish client SDK
 # trusted publisher on npmjs.com names this file and the `npm` environment.
 #
 # The package ships the workspace packages the SDK imports, compiled inside it.
-# agent-tool.json lists the SDK under versions.bundles, so a change to any of
-# them also bumps packages/client-sdk/package.json, which this filter covers.
+# Pull requests do not bump versions: a release of the SDK or of changes to
+# those packages bumps packages/client-sdk/package.json by hand, which this
+# filter covers.
 on:
   push:
     branches: [main]

@@ -126,10 +126,9 @@ the version in [`package.json`][workspace-manifest] if it is a stable `x.y.z`
 newer than npm's `latest`, after the
 smoke script passes. A merge that leaves the version alone, a re-run, or a run
 that finishes after a newer release succeeds without publishing
-(`agent-tool release plan` makes that call). Because the package ships the
-workspace packages above, [`agent-tool.json`][version-policy] lists it under
-`versions.bundles`:
-a change to any of them also bumps the SDK's version, so it publishes too.
+(`agent-tool release plan` makes that call). Pull requests do not bump
+versions, so bump the SDK's version by hand to release changes to it or to the
+workspace packages above that it ships.
 
 The workflow authenticates with
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) and
@@ -166,5 +165,4 @@ a version with provenance), and declares `"license": "UNLICENSED"`.
 [sdk-source]: https://github.com/a2f0/tearleads/tree/main/packages/client-sdk
 [client-sdk-publish]: https://github.com/a2f0/tearleads/blob/main/.github/workflows/client-sdk-publish.yml
 [workspace-manifest]: https://github.com/a2f0/tearleads/blob/main/packages/client-sdk/package.json
-[version-policy]: https://github.com/a2f0/tearleads/blob/main/agent-tool.json
 [publish-npm-package]: https://github.com/a2f0/tearleads/blob/main/scripts/release/publishNpmPackage.sh
