@@ -11,15 +11,14 @@ export async function mapLanesBounded<Lane, Result>(
   work: (lane: Lane) => Promise<Result>,
 ): Promise<Result[]> {
   const results = new Array<Result>(lanes.length);
-  let next = 0;
+  // The workers share one iterator, so each lane is taken once.
+  const pending = lanes.entries();
   let failed = false;
   const worker = async () => {
-    while (!failed && next < lanes.length) {
-      const index = next;
-      next += 1;
+    for (const [index, lane] of pending) {
+      if (failed) return;
       try {
-        // The index is below the length, so the lane exists.
-        results[index] = await work(lanes[index] as Lane);
+        results[index] = await work(lane);
       } catch (error) {
         failed = true;
         throw error;
