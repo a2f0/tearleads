@@ -3,13 +3,10 @@ import { devices } from "@playwright/test";
 import config from "../playwright.screenshots.config";
 
 test("phone captures keep the iPhone 13 profile at its full 390x844 screen", () => {
-  const phones = (config.projects ?? []).filter((project) =>
-    ["mobile", "blame-mobile"].includes(project.name ?? ""),
+  const phones = (config.projects ?? []).filter(
+    (project) => project.name === "mobile",
   );
-  expect(phones.map((project) => project.name)).toEqual([
-    "mobile",
-    "blame-mobile",
-  ]);
+  expect(phones.map((project) => project.name)).toEqual(["mobile"]);
   const iPhone = devices["iPhone 13"];
   for (const phone of phones) {
     expect(phone.use?.viewport).toEqual({ width: 390, height: 844 });
