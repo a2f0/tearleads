@@ -48,10 +48,11 @@ export interface AuthorizationCall {
   readonly failed: boolean;
 }
 
-interface Frame {
+export interface Frame {
   readonly type?: unknown;
   readonly declarationId?: unknown;
   readonly containerIds?: unknown;
+  readonly documentId?: unknown;
 }
 
 function frameIds(frame: Frame | undefined): number {
@@ -113,66 +114,141 @@ function createProbeGateway(
   });
 }
 
+export type ProbeSocket = ReturnType<ProbeHub["openSocket"]>;
+
 /**
- * One socket on a fresh realtime gateway, with the hub's real authorization
- * and routing. The revalidation tick fires only when the probe asks for it.
+ * One realtime gateway, as the hub runs it, with the hub's real
+ * authorization and routing. Every socket opened on it shares its thread,
+ * as every socket shares the one global hub in production. Revalidation
+ * ticks fire only when the probe asks for them.
  */
-export function openHubSocket(api: InProcessApi, userId: string) {
+export function createProbeHub(api: InProcessApi) {
   const timers = new Set<ArmedTimer>();
-  const frames: Frame[] = [];
   const calls: AuthorizationCall[] = [];
   const gateway = createProbeGateway(api, timers, calls);
-  const socket: GatewaySocket = {
-    data: { userId, sessionId: crypto.randomUUID() },
-    send: (message: string) => {
-      // The gateway sends only serialized server messages, all objects.
-      const frame: Frame = JSON.parse(message);
-      frames.push(frame);
-    },
-    close: () => undefined,
-  };
-  gateway.websocket.open(socket);
+  const open = new Set<GatewaySocket>();
 
-  /** Authorization calls made by `work`, and the frames it sent. */
-  async function observe(work: () => Promise<void>) {
-    const firstCall = calls.length;
-    const firstFrame = frames.length;
-    await work();
+  /** Removes and returns every armed revalidation tick. */
+  function takeDueTicks(): ArmedTimer[] {
+    const due = [...timers].filter(
+      (timer) => Math.abs(timer.delayMs - TICK_DELAY_MS) <= TICK_WINDOW_MS,
+    );
+    if (due.length === 0) throw new Error("No revalidation tick is armed.");
+    for (const timer of due) timers.delete(timer);
+    return due;
+  }
+
+  function openSocket(userId: string) {
+    const frames: Frame[] = [];
+    const listeners = new Set<(frame: Frame) => void>();
+    const socket: GatewaySocket = {
+      data: { userId, sessionId: crypto.randomUUID() },
+      send: (message: string) => {
+        // The gateway sends only serialized server messages, all objects.
+        const frame: Frame = JSON.parse(message);
+        frames.push(frame);
+        for (const listener of listeners) listener(frame);
+      },
+      close: () => undefined,
+    };
+    gateway.websocket.open(socket);
+    open.add(socket);
     return {
-      calls: calls.slice(firstCall),
-      frames: frames.slice(firstFrame),
+      frames,
+      /** Calls `listener` with every frame the hub sends this socket. */
+      listen(listener: (frame: Frame) => void): () => void {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      /** A full `known_containers` replace, answered by its acknowledgement. */
+      async declare(ids: readonly string[]): Promise<{ authorized: number }> {
+        const declarationId = crypto.randomUUID();
+        const firstFrame = frames.length;
+        await gateway.websocket.message(
+          socket,
+          JSON.stringify({
+            type: "known_containers",
+            declarationId,
+            containerIds: ids,
+          }),
+        );
+        const ack = frames
+          .slice(firstFrame)
+          .find(
+            (frame) =>
+              frame.type === "known_containers_ack" &&
+              frame.declarationId === declarationId,
+          );
+        if (!ack) throw new Error("The declaration was not acknowledged.");
+        return { authorized: frameIds(ack) };
+      },
+      /** The hibernation snapshot the hub would store for this socket. */
+      snapshotSize() {
+        const characters = JSON.stringify(
+          gateway.hibernation.snapshot(socket),
+        ).length;
+        return {
+          characters,
+          chunks: Math.ceil(characters / SNAPSHOT_CHUNK_CHARS),
+        };
+      },
     };
   }
 
   return {
-    /** A full `known_containers` replace, answered by its acknowledgement. */
+    calls,
+    openSocket,
+    /** Hands the hub one pub/sub message, as the Worker does on publish. */
+    publish: (message: string) => gateway.publish(message),
+    /**
+     * Fires every armed revalidation tick at once, the worst alignment of
+     * the sockets' jittered passes.
+     */
+    async revalidateAll(): Promise<void> {
+      await Promise.all(takeDueTicks().map((timer) => timer.run()));
+    },
+    /** Closes every socket still open, then the gateway. */
+    stop(): void {
+      for (const socket of open) gateway.websocket.close(socket);
+      open.clear();
+      gateway.stop();
+    },
+  };
+}
+
+export type ProbeHub = ReturnType<typeof createProbeHub>;
+
+/**
+ * One socket on a fresh realtime gateway. The revalidation tick fires only
+ * when the probe asks for it.
+ */
+export function openHubSocket(api: InProcessApi, userId: string) {
+  const hub = createProbeHub(api);
+  const socket = hub.openSocket(userId);
+
+  /** Authorization calls made by `work`, and the frames it sent. */
+  async function observe(work: () => Promise<void>) {
+    const firstCall = hub.calls.length;
+    const firstFrame = socket.frames.length;
+    await work();
+    return {
+      calls: hub.calls.slice(firstCall),
+      frames: socket.frames.slice(firstFrame),
+    };
+  }
+
+  return {
     async declare(ids: readonly string[]) {
-      const declarationId = crypto.randomUUID();
-      const message = JSON.stringify({
-        type: "known_containers",
-        declarationId,
-        containerIds: ids,
+      let authorized = 0;
+      const seen = await observe(async () => {
+        ({ authorized } = await socket.declare(ids));
       });
-      const seen = await observe(() =>
-        gateway.websocket.message(socket, message),
-      );
-      const ack = seen.frames.find(
-        (frame) =>
-          frame.type === "known_containers_ack" &&
-          frame.declarationId === declarationId,
-      );
-      if (!ack) throw new Error("The declaration was not acknowledged.");
-      return { authorized: frameIds(ack), calls: seen.calls };
+      return { authorized, calls: seen.calls };
     },
     /** The socket's periodic re-verification of every installed id. */
     async revalidate() {
-      const due = [...timers].filter(
-        (timer) => Math.abs(timer.delayMs - TICK_DELAY_MS) <= TICK_WINDOW_MS,
-      );
-      if (due.length === 0) throw new Error("No revalidation tick is armed.");
-      for (const timer of due) timers.delete(timer);
       const seen = await observe(async () => {
-        await Promise.all(due.map((timer) => timer.run()));
+        await hub.revalidateAll();
       });
       if (seen.calls.length === 0 || seen.calls.some((call) => call.failed))
         throw new Error("The revalidation pass did not complete.");
@@ -185,19 +261,9 @@ export function openHubSocket(api: InProcessApi, userId: string) {
         calls: seen.calls,
       };
     },
-    /** The hibernation snapshot the hub would store for this socket. */
-    snapshotSize() {
-      const characters = JSON.stringify(
-        gateway.hibernation.snapshot(socket),
-      ).length;
-      return {
-        characters,
-        chunks: Math.ceil(characters / SNAPSHOT_CHUNK_CHARS),
-      };
-    },
+    snapshotSize: socket.snapshotSize,
     close(): void {
-      gateway.websocket.close(socket);
-      gateway.stop();
+      hub.stop();
     },
   };
 }

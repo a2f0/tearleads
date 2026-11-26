@@ -1,4 +1,8 @@
-import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import {
+  createMemoryBlobStore,
+  Tearleads,
+  type TearleadsOptions,
+} from "@tearleads/client-sdk";
 import type { ExecSqlClientLike } from "@tearleads/client-sdk/sqlite";
 import { provisioningSpec } from "./provisioningSpec";
 
@@ -6,8 +10,13 @@ export function createSdkHost(
   origin: string,
   id: string,
   client: ExecSqlClientLike,
+  options: Pick<
+    TearleadsOptions,
+    "apiRequestMetrics" | "principalHistoryKeyProvider"
+  > = {},
 ) {
   return new Tearleads({
+    ...options,
     apiBaseUrl: origin,
     database: { client, id },
     blobStoreFactory: () => createMemoryBlobStore(),

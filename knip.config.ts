@@ -317,6 +317,8 @@ const productionConfig = {
         "src/database/index.ts!",
         "src/database/worker.ts!",
         "src/realtime/index.ts!",
+        "src/realtime/contention/index.ts!",
+        "src/reload/index.ts!",
       ],
       project: productionProject,
     },
