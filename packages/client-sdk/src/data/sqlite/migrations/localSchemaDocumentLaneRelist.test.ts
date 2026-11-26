@@ -19,8 +19,8 @@ const VERSION_10_STEPS = localSchemaMigrations.filter(
 const VERSION_11_STEPS = localSchemaMigrations.filter(
   (migration) => migration.version <= 11,
 );
-const VERSION_12_STEPS = localSchemaMigrations.filter(
-  (migration) => migration.version <= 12,
+const VERSION_13_STEPS = localSchemaMigrations.filter(
+  (migration) => migration.version <= 13,
 );
 
 test("step 11 lists every document lane from its start once", async () => {
@@ -94,12 +94,12 @@ test("step 11 skips a database that never listed a lane", async () => {
   }
 });
 
-test("step 13 leaves every document lane owing one listing from its cursor", async () => {
+test("step 14 leaves every document lane owing one listing from its cursor", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-document-lane-unsettle",
   );
   try {
-    await migrateLocalSchema(execSql, { migrations: VERSION_12_STEPS });
+    await migrateLocalSchema(execSql, { migrations: VERSION_13_STEPS });
     await execSql(`CREATE TABLE "container_sync_watermarks" (
       "lane_kind" TEXT NOT NULL, "lane_id" TEXT NOT NULL,
       "watermark_updated_at" TEXT, "watermark_id" TEXT,
@@ -149,12 +149,12 @@ test("step 13 leaves every document lane owing one listing from its cursor", asy
   }
 });
 
-test("step 13 skips a database that never listed a lane", async () => {
+test("step 14 skips a database that never listed a lane", async () => {
   const { close, execSql } = await createTestExecSql(
     "local-schema-document-lane-unsettle-absent",
   );
   try {
-    await migrateLocalSchema(execSql, { migrations: VERSION_12_STEPS });
+    await migrateLocalSchema(execSql, { migrations: VERSION_13_STEPS });
 
     expect((await migrateLocalSchema(execSql)).status).toBe("behind");
   } finally {
