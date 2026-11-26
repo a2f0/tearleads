@@ -427,7 +427,7 @@ function startHydration(input: RemoteHydrationRequestInput): Promise<void> {
     stillCurrent: input.reconnect?.isCurrent,
     state,
   })
-    .then(() => {
+    .then(async () => {
       if (!isCurrent()) {
         return 0;
       }
