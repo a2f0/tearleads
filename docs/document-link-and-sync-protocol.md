@@ -263,9 +263,8 @@ previously tracked checkpoint with that explicit mode and sentinel.
 ## Rotation Baseline Groups
 
 A [rotation baseline](./glossary/keys.md#rotation-baseline) is an ordered
-group of ordinary updates, its segments, sent whole in the one request that
-rotates. Imported in index order, the segments rebuild the document's whole
-history at the new content-key epoch.
+group of ordinary updates, its segments, sent whole in the request that
+rotates. Imported in order they rebuild the whole history at the new epoch.
 
 - An unlink's `rotationBaseline` is an array of 1 to 64 segments in index
   order.
@@ -314,23 +313,26 @@ the request's group to these rules (`judgeDocumentBaselineGroup`):
 2. The segments are in index order from zero, with none missing.
 3. Only the final segment carries the count, the digest, and the cursor, and
    its count is the number of segments.
-4. Each peer's spans run gapless from zero across the segments, and each
-   segment depends only on operations that earlier segments carry.
-5. A segment with no operations is allowed only as the whole of an empty
-   baseline: one segment with `baselineSegmentCount` 1 that signs a cursor.
-   Its author voided every update through that cursor.
+4. Each segment starts every peer its vectors name exactly where the earlier
+   segments left that peer, from zero, with or without a span of its own,
+   and depends only on operations they carry.
+5. A segment with no operations (no span) is allowed only as the whole of an
+   empty baseline: one segment with `baselineSegmentCount` 1 that signs a
+   cursor. Its author voided every update through that cursor.
 6. The final segment's digest is the digest of the earlier segments' update
    ids, metadata hashes, and ciphertext hashes.
 
 The API then weighs coverage. What a group covers is derived, not signed: for
-each peer, the highest end among its segments' `partialEndVersionVector`s.
-That version must hold the frontier of the updates committed after the
-group's signed cursor. A group that signs no cursor, or a cursor that names
-no update of the document, must cover every committed update.
+each peer, the counter the walk of rule 4 reached, never a vector a segment
+declares. That version must hold the frontier of the updates committed after
+the group's signed cursor; with no cursor, or one that names no update of the
+document, every committed update. A cursor may not name an update of the
+same request: the gate would not know it yet, and every later redirect
+would skip that update unweighed.
 
 | Refused group | Response |
 | --- | --- |
-| It breaks a group rule; a sync puts other updates between its segments; or only some of a sync group's update ids are already committed. | `409 document_sync_baseline_group_invalid`, on both routes |
+| It breaks a group rule; it holds an update that is no segment; its cursor names an update of the same request; a sync puts other updates between its segments; or only some of a sync group's update ids are already committed. | `409 document_sync_baseline_group_invalid`, on both routes |
 | A sync's group does not cover the committed frontier after its cursor. | `409 document_sync_checkpoint_coverage_conflict` |
 | An unlink's group does not cover it. | `409 document_unlink_rotation_baseline_stale` |
 | A segment's declared fields are not the ones its write header signs. | `400`, the metadata hash mismatch of any update |
@@ -389,27 +391,40 @@ page's accepted updates, segments included, go to the live document in one
 import.
 
 The reader also holds the groups a server serves to their rules
-(`judgeServedBaselineGroups`). What it can check depends on what it asked
-for:
+(`judgeServedBaselineGroups`), by what the page was requested with:
 
-- **Cold pull.** A pull sent with a null or empty version vector that is
-  served index 0 of a group follows the group whole. Each next served update
-  must be the group's next index. The final segment's count must be its index
-  plus one, and its digest must be the digest of the served segments. An
-  ordinary update or another group's segment in between, a skipped or
+- **Cold page.** A page requested with no version is served every update in
+  its range; a pull's first page is cold when it also names no processed
+  cursor. A group on it starts at index 0 and is followed whole: each next
+  served update is the group's next index, and the final segment's count is
+  its index plus one and its digest the digest of the served segments. A
+  group that starts past index 0, another update in between, a skipped or
   repeated index, and a pull that ends before the final segment each break
   the group.
-- **Pull sent with a version.** The server leaves out segments whose
-  operations the version already holds, so the reader checks less: indices
-  only rise within a group, a final segment's count must be its index plus
-  one, and a one-segment group's digest must be the start digest.
+- **A whole group across pages.** The pull continuation carries the baseline
+  id, the next index, and the digest so far
+  (`readPullContinuation(response, baselineGroupRun)`). The page that
+  continues it is requested with no version, whatever the reader holds by
+  then, because the server leaves out every update whose operations a page's
+  version holds, and a reader served the ordinary history ahead of the group
+  already holds the later segments' operations.
+- **Any other page.** Indices only rise within a group, across pages too, a
+  final count is its index plus one, and a lone segment signs the start.
 
-A broken group fails the pass. It is never a void, because no single update
-is to blame for the order or number of updates a server served, and the
-reader imports nothing from the page. A group followed whole can cross pages:
-the pull continuation carries the baseline id, the next index, and the digest
-so far, and `readPullContinuation(response, baselineGroupRun)` takes that run
-from the pass result.
+On every page a segment must be able to join the reader's history. The API
+keeps a group's dependencies inside it and leaves a segment out only when the
+reader holds it, so a segment that starts after an operation the reader
+lacks, or depends on one, was served without the segments it builds on, and
+breaks the group. The exception is its writer's doing: after an earlier
+segment of the group in the same pull was not accepted, those that build on
+it are void. The run carries that across pages, so a host must pass it on.
+
+A broken group fails the pass at stage `baseline_group`. It is never a void:
+the reader imports nothing from the page and records no void, which would
+outlast the server's correction. The page is refused on each pass until the
+server serves the group whole, and while a pull's continuation stands the
+device sends no queued writes
+([a liveness trade](./limits.md#limits-that-trade-write-liveness)).
 
 ## Document Sync Conflict Codes
 
@@ -418,7 +433,7 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 | Code                                         | Client action                                  |
 | -------------------------------------------- | ---------------------------------------------- |
 | `document_sync_baseline_group_invalid`       | Terminal failure; a later pass rebuilds it.    |
-| `document_sync_checkpoint_coverage_conflict` | Terminal failure; a later pass heals again.    |
+| `document_sync_checkpoint_coverage_conflict` | Terminal failure; the device is behind.        |
 | `document_sync_dependency_uncommitted`       | Recover from the peer refusal, retry.          |
 | `document_sync_descendant_rekeys_required`   | Commit the container rekeys standalone, retry. |
 | `document_sync_peer_owned`                   | Recover from the peer refusal, retry or park.  |
@@ -429,11 +444,15 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 Neither baseline code is retried within the pass, which ends in a terminal
 submit failure. The baseline was built for that request and never queued, so
 there is no local row to repair. After
-`document_sync_checkpoint_coverage_conflict`, a later pass that has pulled
-the missing history heals again from its then-current history. After
 `document_sync_baseline_group_invalid`, a resend of the same request is
 refused again, so a later pass builds the baseline anew from the history it
 proves.
+
+`document_sync_checkpoint_coverage_conflict` means the device's history is
+behind the committed frontier. A refused request serves no update, and each
+pass with queued writes plans the same heal, so it is refused again until
+the device discards local edits and pulls, or another member rotates
+([limits](./limits.md#limits-that-trade-write-liveness)).
 
 Retry and recovery decisions use status plus `code`, never `error` text. A
 missing or unknown code [fails closed](./glossary/access.md#fail-closed) as a terminal

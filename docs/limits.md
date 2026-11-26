@@ -261,6 +261,21 @@ writer waiting on another authorized member:
   The trade avoids exposing inaccessible folders'
   [grant](./glossary/access.md#grant) lists.
   Ordinary writes need only one writable link while the bundle is current.
+- **A heal from behind.** A device with queued writes and a stale
+  [content-key bundle](./glossary/keys.md#content-key-bundle) heals by
+  rotating, and its [rotation baseline](./glossary/keys.md#rotation-baseline)
+  must cover the committed frontier. A device whose history is behind is
+  refused with `document_sync_checkpoint_coverage_conflict` on every pass:
+  the refused request serves nothing, and each pass plans the same heal.
+  Its writes wait until another member rotates, or it discards local edits
+  and pulls.
+- **A baseline the server serves in part.** A reader fails the pass on a
+  served rotation baseline that breaks a
+  [group rule](./document-link-and-sync-protocol.md#reader-checks), instead
+  of voiding segments for good. A server or API fault that withholds or
+  reorders a segment then blocks that device's pulls of the document, and,
+  past a pull's first page, its queued writes, until the server serves the
+  group whole. No other member can clear it.
 - **Rotation deaths past either limit.** A device whose rotation of a
   document is [unavailable](./rotation-deaths.md#unavailable-rotation) leaves
   that document's rotations, unlinks, moves, and purge-unlinks to other

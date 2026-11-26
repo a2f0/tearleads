@@ -41,7 +41,8 @@ vectors `getUpdateVersionVectors` reads from it. An empty document has no
 segments. The client SDK's rotation writer calls it to cut the history a
 rotation proved into the segments of a
 [rotation baseline](../../docs/glossary/keys.md#rotation-baseline), and the
-API holds each baseline group to `historySegmentsImportInOrder`.
+API walks a baseline group's declared spans by the rule
+`historySegmentsImportInOrder` states.
 
 - **Cuts.** A segment may start and end at any counter of any peer: between
   changes, inside a change, or inside one long text or list insert. The
