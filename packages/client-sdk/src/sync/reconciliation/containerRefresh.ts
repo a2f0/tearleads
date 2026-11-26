@@ -1,4 +1,4 @@
-import { defersRootSweepLane } from "./catchUpMachine";
+import { defersToCatchUp } from "./catchUpMachine";
 import {
   isCurrentReconciliationLifecycle,
   sweepKnownContainers,
@@ -314,7 +314,7 @@ export function requestRootRefresh(
         .filter(
           (containerId) =>
             state.forcedContainerGenerations.has(containerId) ||
-            !defersRootSweepLane(state.catchUp, containerId),
+            !defersToCatchUp(state.catchUp, containerId),
         ),
     }),
     scope: "root",

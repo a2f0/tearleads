@@ -101,18 +101,21 @@ crawl that the same acknowledgement starts already says which folders moved.
   containers are read once, before the owed record: a container that becomes
   known while that record is read was not tested, so it is neither listed
   nor counted as reconciled, and the next listing of it finds it owed.
-- While it waits. Nothing says yet whether an unforced lane moved, so that
-  work is deferred, not sent: a lane queued for an idle listing stays queued
-  for the catch-up's sweep, and a root refresh (Explorer opening, a share
-  hint) lists the root lane and leaves the document lanes that were known at
-  the acknowledgement to the catch-up. A hint's lane, and a folder the user
-  opens during the wait, are listed at once. The wait takes no turn among
-  the sweeps, so a root or full refresh runs beside it and does not end it.
-  The deferral lasts until the catch-up's sweep takes its turn, so a root
-  sweep ahead of it in line lists none of its lanes either. An acknowledgement
-  that arrives during the wait shares it. One that arrives after the crawl
-  settled supersedes the catch-up and waits on a crawl of its own: the
-  earlier sweep then lists nothing and counts nothing as reconciled.
+- While it waits. Nothing says yet whether a lane that was known at the
+  acknowledgement moved, so unforced work on those lanes is deferred, not
+  sent: one queued for an idle listing stays queued for the catch-up's sweep,
+  and a root refresh (Explorer opening, a share hint) lists the root lane and
+  leaves them to the catch-up. Listed at once all the same: a hint's lane, a
+  folder the user opens during the wait, a lane that was already owed a
+  listing when the acknowledgement arrived, and a lane found since, which no
+  crawl can vouch for (a new device's folders become known while it boots,
+  after its connection was acknowledged). The wait takes no turn among the
+  sweeps, so a root or full refresh runs beside it and does not end it. The
+  deferral lasts until the catch-up's sweep takes its turn, so a root sweep
+  ahead of it in line lists none of its lanes either. An acknowledgement that
+  arrives during the wait shares it. One that arrives after the crawl settled
+  supersedes the catch-up and waits on a crawl of its own: the earlier sweep
+  then lists nothing and counts nothing as reconciled.
 - Settling. A listing reads its lane's request before it is sent and settles
   only that revision, and only when it applied with no candidate left
   pending. A listing already in flight when the row was served may have been

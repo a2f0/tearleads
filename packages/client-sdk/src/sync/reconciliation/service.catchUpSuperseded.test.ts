@@ -120,15 +120,17 @@ test("a catch-up superseded while it reads the owed record lists nothing", async
       },
     },
   });
+  // Each acknowledgement reads what is owed as it arrives, and each sweep
+  // reads it again for its plan: the first sweep's read is the one held.
   let reads = 0;
   host.listOwedDocumentDiscoveryContainerIds = async () => {
     reads += 1;
-    if (reads === 1) await read.wait;
-    return reads === 1 ? ["a"] : ["b"];
+    if (reads === 2) await read.wait;
+    return reads <= 2 ? ["a"] : ["b"];
   };
   const first = service.reconcileAcknowledgedConnection().catch(() => {});
   await settle();
-  expect(reads).toBe(1);
+  expect(reads).toBe(2);
 
   // A second acknowledgement arrives while the first sweep reads what is
   // owed: that sweep's crawl is about a connection that is over.

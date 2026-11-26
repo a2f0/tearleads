@@ -5,12 +5,16 @@
  * lanes moved. Until it settles, nothing says whether an unforced lane needs
  * a listing, so that work is deferred instead of sent:
  *
- * - the lane runner leaves unforced queue entries queued;
- * - a root sweep skips unforced lanes that were known at the
- *   acknowledgement.
+ * - the lane runner leaves their unforced queue entries queued;
+ * - a root sweep skips them.
  *
- * A hint's forced entry is not deferred, and neither is a container the user
- * opens meanwhile: its documents are on screen. The wait takes no turn among
+ * That holds for the lanes known at the acknowledgement. A lane found since
+ * was never listed, so the crawl cannot vouch for it and it is not deferred.
+ *
+ * A hint's forced entry is not deferred. Neither is a container the user
+ * opens meanwhile, whose documents are on screen, nor a lane that was already
+ * owed a listing when the acknowledgement arrived: the crawl cannot vouch
+ * for that one, so waiting for it would only delay the listing. The wait takes no turn among
  * the sweeps, so a root or full refresh runs beside it. Once the crawl has
  * settled the catch-up asks for a turn, and when the turn comes its sweep
  * takes the queue over and lists the owed lanes, or every known lane when
@@ -23,7 +27,8 @@
  * | awaitingCrawl | acknowledged | unchanged: the wait in progress serves both |
  * | awaitingTurn | acknowledged | awaitingCrawl, with the new wait |
  * | awaitingCrawl | crawlSettled, the same wait | awaitingTurn |
- * | awaitingCrawl, awaitingTurn | opened | the same, with that container opened |
+ * | awaitingCrawl, awaitingTurn | opened | the same, with that container listed now |
+ * | awaitingCrawl, awaitingTurn | alreadyOwed, the same wait | the same, with those lanes listed now |
  * | awaitingCrawl, awaitingTurn | turnTaken, the same wait | idle |
  * | any | stopped | idle |
  *
@@ -46,8 +51,12 @@ export interface CatchUpWait {
 export type CatchUpState =
   | { readonly status: "idle" }
   | {
-      /** Containers the user opened since the acknowledgement. */
-      readonly openedContainerIds: ReadonlySet<string>;
+      /**
+       * Containers whose unforced listing does not wait: the user opened
+       * them since the acknowledgement, or their lane was already owed a
+       * listing when it arrived.
+       */
+      readonly listedNowContainerIds: ReadonlySet<string>;
       readonly status: "awaitingCrawl" | "awaitingTurn";
       readonly wait: CatchUpWait;
     };
@@ -56,6 +65,11 @@ export type CatchUpEvent =
   | { readonly type: "acknowledged"; readonly wait: CatchUpWait }
   | { readonly type: "crawlSettled"; readonly wait: CatchUpWait }
   | { readonly containerId: string; readonly type: "opened" }
+  | {
+      readonly containerIds: ReadonlyArray<string>;
+      readonly type: "alreadyOwed";
+      readonly wait: CatchUpWait;
+    }
   | { readonly type: "turnTaken"; readonly wait: CatchUpWait }
   | { readonly type: "stopped" };
 
@@ -67,10 +81,28 @@ function afterAcknowledged(
 ): CatchUpState {
   if (state.status === "awaitingCrawl") return state;
   return {
-    openedContainerIds:
-      state.status === "idle" ? new Set() : state.openedContainerIds,
+    listedNowContainerIds:
+      state.status === "idle" ? new Set() : state.listedNowContainerIds,
     status: "awaitingCrawl",
     wait,
+  };
+}
+
+type PendingCatchUp = Exclude<CatchUpState, { readonly status: "idle" }>;
+
+function listingNow(
+  state: PendingCatchUp,
+  containerIds: ReadonlyArray<string>,
+): PendingCatchUp {
+  if (containerIds.every((id) => state.listedNowContainerIds.has(id))) {
+    return state;
+  }
+  return {
+    ...state,
+    listedNowContainerIds: new Set([
+      ...state.listedNowContainerIds,
+      ...containerIds,
+    ]),
   };
 }
 
@@ -89,43 +121,30 @@ export function transitionCatchUp(
         ? { ...state, status: "awaitingTurn" }
         : state;
     case "opened":
-      return state.openedContainerIds.has(event.containerId)
-        ? state
-        : {
-            ...state,
-            openedContainerIds: new Set([
-              ...state.openedContainerIds,
-              event.containerId,
-            ]),
-          };
+      return listingNow(state, [event.containerId]);
+    case "alreadyOwed":
+      return state.wait === event.wait
+        ? listingNow(state, event.containerIds)
+        : state;
     case "turnTaken":
       return state.wait === event.wait ? IDLE_CATCH_UP : state;
   }
 }
 
 /**
- * Whether an unforced queue entry for `containerId` waits for the catch-up:
- * its sweep takes the queue over once the crawl has said which lanes moved.
+ * Whether an unforced listing of `containerId` waits for the catch-up, in
+ * the lane's queue or in a root sweep. Only a lane that was known at the
+ * acknowledgement waits: the crawl is what says whether such a lane moved. A
+ * lane found since was never listed, so no crawl can vouch for it, and it is
+ * listed at once, as a new device's folders are while it boots.
  */
-export function defersQueuedLane(
-  state: CatchUpState,
-  containerId: string,
-): boolean {
-  return state.status !== "idle" && !state.openedContainerIds.has(containerId);
-}
-
-/**
- * Whether a root sweep leaves an unforced `containerId` to the catch-up. A
- * lane found since the acknowledgement is not left: the crawl the catch-up
- * waits on was never asked about it.
- */
-export function defersRootSweepLane(
+export function defersToCatchUp(
   state: CatchUpState,
   containerId: string,
 ): boolean {
   return (
     state.status !== "idle" &&
-    !state.openedContainerIds.has(containerId) &&
+    !state.listedNowContainerIds.has(containerId) &&
     state.wait.knownContainerIds.has(containerId)
   );
 }

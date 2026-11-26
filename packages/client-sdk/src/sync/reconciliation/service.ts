@@ -1,5 +1,5 @@
 import { clearOriginatedDocuments } from "../../data/sync/originatedDocuments";
-import { defersQueuedLane, IDLE_CATCH_UP } from "./catchUpMachine";
+import { defersToCatchUp, IDLE_CATCH_UP } from "./catchUpMachine";
 import {
   dispatchCatchUp,
   requestAcknowledgedConnectionSweep,
@@ -32,10 +32,11 @@ import type { ReconciliationHost, ReconciliationService } from "./serviceTypes";
 const RECONCILE_LANE_BATCH_SIZE = 4;
 
 /**
- * The next queued containers to list. While a catch-up waits on its tree
- * crawl, an entry no hint forced stays queued: the crawl will say whether
- * its lane moved, and the catch-up's sweep takes the queue over. A hint's
- * forced entry is listed at once, and so is a container opened meanwhile.
+ * The next queued containers to list. While a catch-up is pending, an entry
+ * no hint forced stays queued when its lane was known at the acknowledgement:
+ * the crawl will say whether it moved, and the catch-up's sweep takes the
+ * queue over. A hint's forced entry is listed at once, and so are a container
+ * opened meanwhile and a lane found since the acknowledgement.
  */
 function dequeueContainerBatch(state: ReconciliationState): string[] {
   const containerIds: string[] = [];
@@ -43,7 +44,7 @@ function dequeueContainerBatch(state: ReconciliationState): string[] {
     const containerId = state.queue.dequeue(
       (id) =>
         state.forcedContainerGenerations.has(id) ||
-        !defersQueuedLane(state.catchUp, id),
+        !defersToCatchUp(state.catchUp, id),
     );
     if (!containerId) break;
     containerIds.push(containerId);

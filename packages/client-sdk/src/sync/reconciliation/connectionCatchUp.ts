@@ -137,6 +137,11 @@ async function catchUpAfterCrawl(
           // for. The sweep marks its lanes before the lane can run again.
           planned = true;
           dispatchCatchUp(state, { type: "turnTaken", wait });
+          // What was queued while the plan was read is the lane's again. It
+          // is woken now, before the sweep can hand back a lane it failed:
+          // a request made after that would cancel the failed lane's
+          // backoff.
+          if (state.queue.size > 0) state.lane?.requestSync();
         }
       },
       scope: "acknowledged",
@@ -167,6 +172,28 @@ function wakeLaneForDeferredWork(
   }
   if (planned) state.lane?.requestSyncAfter(SWEEP_RETRY_BACKOFF_MS);
   else state.lane?.requestSync();
+}
+
+/**
+ * Stops deferring the lanes that are owed a listing as the acknowledgement
+ * arrives: never listed, or holding staged candidates. No crawl can vouch
+ * for them, and what they hold, a new device's system documents included,
+ * should not wait for one. A failed read leaves them to the sweep.
+ */
+function releaseLanesAlreadyOwed(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  wait: CatchUpWait,
+): void {
+  void host
+    .listOwedDocumentDiscoveryContainerIds(host.listKnownContainerIds())
+    .then(
+      (containerIds) => {
+        dispatchCatchUp(state, { containerIds, type: "alreadyOwed", wait });
+        if (state.queue.size > 0) state.lane?.requestSync();
+      },
+      () => undefined,
+    );
 }
 
 /**
@@ -202,6 +229,7 @@ export function requestAcknowledgedConnectionSweep(
     ),
   };
   dispatchCatchUp(state, { type: "acknowledged", wait });
+  releaseLanesAlreadyOwed(host, state, wait);
   return wait.promise;
 }
 

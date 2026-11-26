@@ -12,6 +12,25 @@ const settle = async () => {
   for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
 };
 
+test("a lane already owed at the acknowledgement is not held for the crawl", async () => {
+  // Lane a was never listed: no crawl can vouch for it.
+  const { crawl, listings, service } = awaitingCrawl({ owed: () => ["a"] });
+  const catchUp = service.reconcileAcknowledgedConnection();
+  for (const containerId of KNOWN)
+    service.enqueueContainer(containerId, "idle");
+  await settle();
+  await settle();
+  expect(listings).toEqual([["a"]]);
+
+  // The rest waited for the crawl, which vouches for them.
+  crawl.open();
+  await catchUp;
+  await settle();
+  expect(listings[0]).toEqual(["a"]);
+  expect(listings.flat().filter((id) => id !== "a")).toEqual([]);
+  service.stop();
+});
+
 test("a hint during the wait lists its lane at once", async () => {
   const { crawl, listings, service } = awaitingCrawl({});
   const catchUp = service.reconcileAcknowledgedConnection();
@@ -319,27 +338,20 @@ test("an acknowledgement during the wait shares it", async () => {
   service.stop();
 });
 
-test("lanes queued during the wait are listed once, in the catch-up's sweep", async () => {
+test("lanes found after the acknowledgement are listed without waiting", async () => {
   let known: ReadonlyArray<string> = [];
-  let owed: ReadonlyArray<string> = [];
-  const { crawl, listings, service } = awaitingCrawl({
-    known: () => known,
-    owed: () => owed,
-  });
-  const catchUp = service.reconcileAcknowledgedConnection();
+  const { listings, service } = awaitingCrawl({ known: () => known });
+  void service.reconcileAcknowledgedConnection();
   await settle();
 
-  // The crawl finds the tree of a new device, which the projection queues
-  // for an idle listing as it appears.
+  // A new device's folders become known while it boots, after its
+  // connection was acknowledged. None was ever listed, so no crawl can vouch
+  // for them, and what they hold must not wait for one.
   known = [...KNOWN];
-  owed = [...KNOWN];
   service.enqueueIdleBackfill();
   await settle();
-  expect(listings).toEqual([]);
-
-  crawl.open();
-  await catchUp;
   await settle();
+
   expect(listings).toEqual([[...KNOWN]]);
   service.stop();
 });

@@ -167,10 +167,11 @@ test(
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
           "GET /principals/history": 2,
-          // While the catch-up waits on the tree crawl, a lane a hint names
-          // or the user opens meanwhile is listed at once; its sweep then
-          // lists every lane the crawl was served, those included: a listing
-          // sent before the crawl served a row cannot answer for it.
+          // A new device's folders become known after its connection was
+          // acknowledged, so they are listed at once while the catch-up
+          // waits on the tree crawl. Its sweep then lists every lane the
+          // crawl was served, those included: a listing sent before the
+          // crawl served a row cannot answer for it.
           "POST /containers/documents/query": 3,
           // Measured 4 (6 before the provisioning commit position): the root
           // twice, as a second root-lane pass can sync it again, and the self

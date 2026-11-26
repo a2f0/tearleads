@@ -2,8 +2,7 @@ import { expect, test } from "bun:test";
 import {
   type CatchUpState,
   type CatchUpWait,
-  defersQueuedLane,
-  defersRootSweepLane,
+  defersToCatchUp,
   IDLE_CATCH_UP,
   transitionCatchUp,
 } from "./catchUpMachine";
@@ -21,7 +20,7 @@ const pending = (
   current: CatchUpWait,
   opened: ReadonlyArray<string> = [],
 ): CatchUpState => ({
-  openedContainerIds: new Set(opened),
+  listedNowContainerIds: new Set(opened),
   status,
   wait: current,
 });
@@ -117,24 +116,41 @@ test("a container opened before the turn is remembered until then", () => {
   ).toBe(IDLE_CATCH_UP);
 });
 
-test("a queued lane defers to a pending catch-up unless it was opened", () => {
-  for (const status of ["awaitingCrawl", "awaitingTurn"] as const) {
-    const state = pending(status, wait(["known"]), ["opened"]);
-    expect(defersQueuedLane(state, "known")).toBe(true);
-    // The sweep lists a lane found since in one batch with the others.
-    expect(defersQueuedLane(state, "found-since")).toBe(true);
-    expect(defersQueuedLane(state, "opened")).toBe(false);
-  }
-  expect(defersQueuedLane(IDLE_CATCH_UP, "known")).toBe(false);
-});
-
-test("a root sweep leaves the lanes known at the acknowledgement", () => {
+test("a lane known at the acknowledgement defers to a pending catch-up", () => {
   for (const status of ["awaitingCrawl", "awaitingTurn"] as const) {
     const state = pending(status, wait(["known", "opened"]), ["opened"]);
-    expect(defersRootSweepLane(state, "known")).toBe(true);
-    // A lane found since was never part of what the crawl is asked about.
-    expect(defersRootSweepLane(state, "found-since")).toBe(false);
-    expect(defersRootSweepLane(state, "opened")).toBe(false);
+    expect(defersToCatchUp(state, "known")).toBe(true);
+    // A lane found since was never listed: no crawl can vouch for it.
+    expect(defersToCatchUp(state, "found-since")).toBe(false);
+    expect(defersToCatchUp(state, "opened")).toBe(false);
   }
-  expect(defersRootSweepLane(IDLE_CATCH_UP, "known")).toBe(false);
+  expect(defersToCatchUp(IDLE_CATCH_UP, "known")).toBe(false);
+});
+
+test("lanes already owed at the acknowledgement are listed without waiting", () => {
+  const current = wait(["owed", "settled"]);
+  const state = transitionCatchUp(awaiting(current), {
+    containerIds: ["owed"],
+    type: "alreadyOwed",
+    wait: current,
+  });
+
+  expect(defersToCatchUp(state, "owed")).toBe(false);
+  expect(defersToCatchUp(state, "settled")).toBe(true);
+  // What an older wait read is about another acknowledgement.
+  expect(
+    transitionCatchUp(state, {
+      containerIds: ["settled"],
+      type: "alreadyOwed",
+      wait: wait(),
+    }),
+  ).toBe(state);
+  // Nothing new to list now leaves the state as it is.
+  expect(
+    transitionCatchUp(state, {
+      containerIds: ["owed"],
+      type: "alreadyOwed",
+      wait: current,
+    }),
+  ).toBe(state);
 });
