@@ -30,9 +30,15 @@ function loadReport(path: string): Promise<CanaryReport> {
 
 function compare(before: CanaryReport, after: CanaryReport): string {
   return formatComparison(comparePhases(before.summary, after.summary), {
-    before: `run ${before.runId} at ${before.revision.slice(0, 12)}`,
-    after: `run ${after.runId} at ${after.revision.slice(0, 12)}`,
+    before: reportLabel(before),
+    after: reportLabel(after),
   });
+}
+
+/** A failed run's missing canaries show as removed, so its label says so. */
+function reportLabel(report: CanaryReport): string {
+  const label = `run ${report.runId} at ${report.revision.slice(0, 12)}`;
+  return report.status === "complete" ? label : `${label} (${report.status})`;
 }
 
 function printRun(run: CanaryRun): void {
@@ -85,7 +91,8 @@ async function measure(
     ...metadata,
     updatedAt: new Date().toISOString(),
     status,
-    summary: summarizePhases(runs),
+    // A failed run's phases would skew the ranges; its log shows them.
+    summary: summarizePhases(runs.filter((run) => run.status === "passed")),
     runs,
   });
   console.log(

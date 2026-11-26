@@ -292,9 +292,9 @@ way its suite runs it. A file that fails, hangs past ten minutes, or passes
 without printing a phase fails the run. `--canary` keeps the canaries whose
 name contains the text, ignoring case; a filter that matches nothing is an
 error. `--samples` repeats every file, since body bytes can vary between runs.
-The report gives each phase's lowest and highest value across samples.
-Phases are matched by canary, label and position, so a label printed twice
-is two phases.
+The report gives each phase's lowest and highest value across the samples
+that passed. Phases are matched by canary, label and position, so a label
+printed twice is two phases.
 
 | Field | What it measures |
 | --- | --- |
@@ -310,9 +310,10 @@ panes, so a path counted twice may be one read per device. Reports are saved
 as `.test_files/performance/canaries-<run>.json` and `.md`. Each file's
 complete output is kept in `canaries-<run>/` beside them. `--baseline` adds a
 comparison with an earlier report to the Markdown, and `--compare` prints one
-without running anything. Relative report paths resolve from the repository
-root. The canaries still assert their ceilings, so a count above one fails
-that canary's run.
+without running anything. Both refuse a saved report that did not complete;
+a failed new run is compared, with its status beside its name. Relative
+report paths resolve from the repository root. The canaries still assert
+their ceilings, so a count above one fails that canary's run.
 
 ## Statement capture
 

@@ -70,10 +70,18 @@ function isCanaryReport(value: unknown): value is CanaryReport {
   );
 }
 
-/** Reads a saved canary report, checking only what a comparison relies on. */
+/**
+ * Reads a saved canary report, checking only what a comparison relies on.
+ * A report that did not complete is missing canaries, which a comparison
+ * would show as removed, so it is refused.
+ */
 export async function loadCanaryReport(path: string): Promise<CanaryReport> {
   const value: unknown = JSON.parse(await readFile(path, "utf8"));
   if (!isCanaryReport(value))
     throw new Error(`${path} is not a request-volume canary report.`);
+  if (value.status !== "complete")
+    throw new Error(
+      `${path} is a ${value.status} report; compare only complete ones.`,
+    );
   return value;
 }
