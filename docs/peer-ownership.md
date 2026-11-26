@@ -194,8 +194,11 @@ and the next pass sends the queue.
 device may not extend the peer: the recreation's seed held part of it and
 claimed it for the owner. It parks. The queue, the document, and its history
 stay as they are; the document stays readable and editable, and new edits
-join the queue. The pass reports `document_peer_restore_awaits_owner` to
-`onTerminalSubmitFailure`, as it reports an
+join the queue. While it is parked the device receives no remote edits to the
+document either: every pass submits the queue with its pull, and the server
+refuses the request whole. The pass reports
+`document_peer_restore_awaits_owner` to `onTerminalSubmitFailure`, as it
+reports an
 [ancestor repair it cannot make](./developer/client-sdk/public-api.md#public-api-entry-points),
 and built-in stores keep its message on the
 [write-queue row](./sync-edge-cases.md#queue-statuses). Nothing is logged as an

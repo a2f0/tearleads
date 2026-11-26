@@ -257,8 +257,10 @@ writer waiting on another authorized member:
   originals would then hold both copies. It parks under
   `document_peer_restore_awaits_owner` until a device of the peer's owner
   republishes the peer, keeps the document readable and editable, and submits
-  its queue again on every pass. If no such device holds the lost operations
-  it stays parked until its user discards the local edits
+  its queue again on every pass. Each of those requests is refused whole, so
+  the device also receives no remote edits to the document while parked. If no
+  such device holds the lost operations it stays parked until its user
+  discards the local edits
   ([after a stale recreation](./peer-ownership.md#after-a-stale-recreation)).
 
 For the single-path case within the carried-rekey bound, the model in
