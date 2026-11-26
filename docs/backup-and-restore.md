@@ -47,6 +47,8 @@ The file name includes the export time and, when available, the first 12
 characters of the signing fingerprint, even for an encrypted export.
 [File encoder and decoder](../packages/app/src/providers/db/localBackupFormat.ts)
 
+![The backup password derives a 256-bit key with PBKDF2. The key encrypts the payload with AES-256-GCM, and the outer JSON records the salt and IV beside it.](diagrams/backup-file.svg)
+
 ## Restore a backup
 
 Restore replaces the active identity's local database. Export a backup first

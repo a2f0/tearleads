@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="580" viewBox="0 0 600 580" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+  <title>Client sync phases for one domain scope</title>
+  <desc>The structural lane replays container creates, container moves, container metadata, and document placement from the local intents outbox. A phase barrier holds document work until structural work drains. Then up to four document lanes run at once, each syncing its Loro updates and blob attachments, and their encrypted bytes share one pool of four transfer permits.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+    <style>
+      .canvas,.box { fill: #fff; }
+      .band { fill: #f8fafc; }
+      .box,.edge { stroke: #4b5563; stroke-width: 1.25; }
+      .edge { fill: none; }
+      .arrowhead { fill: #4b5563; }
+      .colhead { font-size: 13px; font-weight: 600; letter-spacing: .04em; }
+      .name { font-size: 15px; font-weight: 600; }
+      .lane { font-size: 13px; font-weight: 600; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .colhead,.name,.lane { fill: #111827; }
+      .meta { fill: #4b5563; font-size: 13px; }
+      @media (prefers-color-scheme: dark) {
+        .canvas,.box { fill: #18181b; }
+        .band { fill: #242427; }
+        .colhead,.name,.lane { fill: #fafafa; }
+        .meta,.arrowhead { fill: #d4d4d8; }
+        .box,.edge { stroke: #d4d4d8; }
+      }
+    </style>
+  </defs>
+  <rect width="600" height="580" class="canvas"/>
+  <text x="16" y="24" class="colhead">ONE DOMAIN SCOPE, ONE SYNC COORDINATOR</text>
+
+  <rect y="36" width="600" height="178" class="band"/>
+  <text x="16" y="60" class="colhead">PHASE 1 · STRUCTURAL</text>
+  <rect x="16" y="72" width="376" height="126" rx="4" class="box"/>
+  <text x="28" y="93" class="lane">container-contents</text>
+  <text x="28" y="112" class="meta">1</text>
+  <text x="44" y="112" class="meta">Pending container creates</text>
+  <text x="28" y="130" class="meta">2</text>
+  <text x="44" y="130" class="meta">Pending container moves</text>
+  <text x="28" y="148" class="meta">3</text>
+  <text x="44" y="148" class="meta">Container metadata documents</text>
+  <text x="28" y="166" class="meta">4</text>
+  <text x="44" y="166" class="meta">Root recovery, document placement replay,</text>
+  <text x="44" y="184" class="meta">and document store priming</text>
+  <rect x="412" y="72" width="172" height="126" rx="4" class="box"/>
+  <text x="424" y="93" class="lane">local_intents</text>
+  <text x="424" y="112" class="meta">Durable outbox with a</text>
+  <text x="424" y="130" class="meta">lane for each kind:</text>
+  <text x="424" y="148" class="meta">container.create,</text>
+  <text x="424" y="166" class="meta">container.move, and</text>
+  <text x="424" y="184" class="meta">document.placement</text>
+  <path d="M412 135 H394" class="edge" marker-end="url(#arrow)"/>
+
+  <path d="M204 198 V286" class="edge" marker-end="url(#arrow)"/>
+  <text x="218" y="234" class="meta">Phase barrier: queued structural work, and</text>
+  <text x="218" y="252" class="meta">any structural follow-up it requests, drains</text>
+  <text x="218" y="270" class="meta">before a queued document pass starts</text>
+
+  <rect y="290" width="600" height="212" class="band"/>
+  <text x="16" y="306" class="colhead">PHASE 2 · UP TO FOUR DOCUMENT LANES AT ONCE</text>
+  <rect x="16" y="318" width="136" height="70" rx="4" class="box"/>
+  <text x="28" y="339" class="lane">documents:a</text>
+  <text x="28" y="358" class="meta">Loro updates,</text>
+  <text x="28" y="376" class="meta">blob stage, bind</text>
+  <rect x="160" y="318" width="136" height="70" rx="4" class="box"/>
+  <text x="172" y="339" class="lane">documents:b</text>
+  <text x="172" y="358" class="meta">Loro updates,</text>
+  <text x="172" y="376" class="meta">blob stage, bind</text>
+  <rect x="304" y="318" width="136" height="70" rx="4" class="box"/>
+  <text x="316" y="339" class="lane">documents:c</text>
+  <text x="316" y="358" class="meta">Loro updates,</text>
+  <text x="316" y="376" class="meta">blob stage, bind</text>
+  <rect x="448" y="318" width="136" height="70" rx="4" class="box"/>
+  <text x="460" y="339" class="lane">documents:d</text>
+  <text x="460" y="358" class="meta">Loro updates,</text>
+  <text x="460" y="376" class="meta">blob stage, bind</text>
+  <path d="M84 388 V418" class="edge" marker-end="url(#arrow)"/>
+  <path d="M228 388 V418" class="edge" marker-end="url(#arrow)"/>
+  <path d="M372 388 V418" class="edge" marker-end="url(#arrow)"/>
+  <path d="M516 388 V418" class="edge" marker-end="url(#arrow)"/>
+  <rect x="16" y="420" width="568" height="70" rx="4" class="box"/>
+  <text x="28" y="441" class="name">Byte I/O pool: four FIFO permits per API client</text>
+  <text x="28" y="460" class="meta">Shared by multipart uploads and sync hydration downloads; the</text>
+  <text x="28" y="478" class="meta">document lane keeps ownership of binding and persistence</text>
+
+  <text x="16" y="528" class="meta">Non-preemptive: a structural request waits for running document passes,</text>
+  <text x="16" y="546" class="meta">then holds back new ones until structural work drains. Document lanes</text>
+  <text x="16" y="564" class="meta">favor remote revalidation and new content, then rotate by their last run.</text>
+</svg>
