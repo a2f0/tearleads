@@ -5,12 +5,14 @@ import {
   readFile,
   rm,
   stat,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { logTail } from "../testProcess";
 import { parseCanaryOutput } from "./output";
-import { logTail, runCanary, runStatus } from "./run";
+import { phaseStatements, runCanary, runStatus } from "./run";
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -112,6 +114,26 @@ test("prints a bad line", () => {
   expect(await readFile(log, "utf8")).toContain('{"label":"broken"}');
 });
 
+test("a capture that was never written leaves the run's result", async () => {
+  // console.log reaches the profile parser but not the capture's markers,
+  // and the file sends no statement, so the capture is never created.
+  const root = await fakeApp(`
+test("profiles", () => {
+  console.log(${JSON.stringify(`[dual-pane-request-metrics] ${metrics}`)});
+  expect(1).toBe(1);
+});`);
+  const out = resolve(root, "capture.jsonl");
+  const run = await runCanary({
+    canary: { name: "Fake", file: "src/Fake.test.ts" },
+    sample: 1,
+    log: resolve(root, "fake.log"),
+    capture: { out, paramHash: false },
+    root,
+  });
+  expect(run.status).toBe("passed");
+  expect(run.statements).toEqual({ capture: out, perPhase: null });
+});
+
 test("a timeout or a missing tally fails the run", () => {
   const phase = parseCanaryOutput(`[dual-pane-request-metrics] ${metrics}`)
     .phases[0];
@@ -121,4 +143,63 @@ test("a timeout or a missing tally fails the run", () => {
   expect(runStatus(0, true, passed)).toBe("timed-out");
   expect(runStatus(1, false, passed)).toBe("failed");
   expect(runStatus(0, false, { phases: [phase], tests: null })).toBe("failed");
+});
+
+const apiShared = resolve(import.meta.dir, "../../../api-shared/src");
+
+test("captures the API's statements per phase beside the profile", async () => {
+  const phaseLine = (label: string) =>
+    JSON.stringify(
+      `[dual-pane-request-metrics] ${metrics.replace("fake phase", label)}`,
+    );
+  const root = await fakeApp(`
+import { sql } from "drizzle-orm";
+import { createDefaultManagedApiDatabase } from ${JSON.stringify(`${apiShared}/adapters/postgres.ts`)};
+
+test("two phases", async () => {
+  const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
+  await managed.db.execute(sql\`select \${1}\`);
+  console.info(${phaseLine("first")});
+  await managed.db.execute(sql\`select 2\`);
+  await managed.db.execute(sql\`select 3\`);
+  console.info(${phaseLine("second")});
+  await managed.close();
+  expect(1).toBe(1);
+});`);
+  // Resolve drizzle-orm from the fake app as api-shared does.
+  await symlink(
+    resolve(apiShared, "../node_modules"),
+    resolve(root, "node_modules"),
+  );
+  const out = resolve(root, "capture.jsonl");
+  const run = await runCanary({
+    canary: { name: "Fake", file: "src/Fake.test.ts" },
+    sample: 1,
+    log: resolve(root, "fake.log"),
+    capture: { out, paramHash: true },
+    root,
+  });
+  expect(run.status).toBe("passed");
+  expect(run.phases.map((phase) => phase.label)).toEqual(["first", "second"]);
+  expect(run.statements).toEqual({ capture: out, perPhase: [1, 2] });
+  const records = (await readFile(out, "utf8")).trim().split("\n");
+  expect(records.map((line) => Object.keys(JSON.parse(line)))).toEqual([
+    ["label", "sql", "params", "paramHash"],
+    ["phaseEnd", "requests"],
+    ["label", "sql", "params", "paramHash"],
+    ["label", "sql", "params", "paramHash"],
+    ["phaseEnd", "requests"],
+  ]);
+  expect((await stat(out)).mode & 0o777).toBe(0o600);
+});
+
+test("counts no phases from a capture whose markers do not match the run", () => {
+  const output = parseCanaryOutput(`[dual-pane-request-metrics] ${metrics}`);
+  expect(
+    phaseStatements(output, '{"phaseEnd":"fake phase","requests":1}\n'),
+  ).toEqual([0]);
+  expect(
+    phaseStatements(output, '{"phaseEnd":"other","requests":1}\n'),
+  ).toBeNull();
+  expect(phaseStatements(output, "")).toBeNull();
 });

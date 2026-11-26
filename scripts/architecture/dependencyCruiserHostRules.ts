@@ -41,13 +41,16 @@ export const hostDependencyRules = [
   {
     name: "performance-consumes-public-postgres-transport",
     severity: "error",
+    comment:
+      "The database probe uses the Workers transport; the statement capture observes the ORM's statements. Neither initializes a database.",
     from: {
       path: packageSourceRoot.performance,
       pathNot: testFilePattern.source,
     },
     to: {
       path: packageSourceRoot.apiShared,
-      pathNot: "^packages/api-shared/src/adapters/postgresTransport\\.ts$",
+      pathNot:
+        "^packages/api-shared/src/adapters/(postgresTransport|databaseStatementObserver)\\.ts$",
     },
   },
   {
