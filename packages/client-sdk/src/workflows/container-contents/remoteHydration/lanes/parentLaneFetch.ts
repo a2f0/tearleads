@@ -1,3 +1,7 @@
+import {
+  DEFAULT_CONTAINER_PARENT_LANE_PAGE_LIMIT,
+  MAX_CONTAINER_PARENT_LANE_PAGE_TOTAL,
+} from "@tearleads/validators/request";
 import { ContainerSyncWatermarkRepository } from "../../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { createContainerParentSyncLane } from "../../containerPersistence";
 import { createContainerStateFingerprint } from "../remoteContainers/containerStateFingerprint";
@@ -7,12 +11,27 @@ import type {
   RemoteContainerHydrationState,
 } from "../types";
 
+/**
+ * Rows each lane may return so a full batch stays within the single-page
+ * maximum; a batch of up to five lanes keeps the ordinary page size.
+ */
+function laneLimit(laneCount: number): number {
+  return Math.max(
+    1,
+    Math.min(
+      DEFAULT_CONTAINER_PARENT_LANE_PAGE_LIMIT,
+      Math.floor(MAX_CONTAINER_PARENT_LANE_PAGE_TOTAL / laneCount),
+    ),
+  );
+}
+
 async function prepareContainerParentLanePage(input: {
   lane: ContainerParentHydrationLane;
   laneId: string;
+  limit: number;
   state: RemoteContainerHydrationState;
 }) {
-  const { lane, laneId, state } = input;
+  const { lane, laneId, limit, state } = input;
   const syncLane = createContainerParentSyncLane(lane.parentId);
   const watermark =
     lane.watermark === undefined
@@ -22,7 +41,7 @@ async function prepareContainerParentLanePage(input: {
       : lane.watermark;
   return {
     lane: { ...lane, watermark },
-    request: { laneId, parentId: lane.parentId, watermark },
+    request: { laneId, limit, parentId: lane.parentId, watermark },
     syncLane,
   };
 }
@@ -49,6 +68,7 @@ export async function fetchContainerParentLaneBatch(input: {
       prepareContainerParentLanePage({
         lane,
         laneId: `${prefix}-${index}`,
+        limit: laneLimit(batch.length),
         state,
       }),
     ),

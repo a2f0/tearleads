@@ -5,12 +5,13 @@ import {
 import { SWEEP_RETRY_BACKOFF_MS } from "./laneFailure";
 import type { ReconcilePriority } from "./queue";
 import { canReconcile, type ReconciliationState } from "./serviceState";
-import type { ReconciliationHost } from "./serviceTypes";
+import type { ReconciliationHost, RefreshRequestOptions } from "./serviceTypes";
 import {
   type RefreshScope,
   refreshTreeForSweep,
   SharedRefresh,
 } from "./sharedRefresh";
+import { awaitTreeCrawl } from "./treeCrawlWait";
 
 function forgetIneligibleDiscoveredContainers(
   host: ReconciliationHost,
@@ -21,6 +22,15 @@ function forgetIneligibleDiscoveredContainers(
       state.discoveredContainerIds.delete(containerId);
     }
   }
+}
+
+/**
+ * Whether `scope` lists lanes from their watermarks and forces nothing: a
+ * listed document behind this device's cursor is owed its read by the
+ * listing itself, and a lane that cannot be listed has its documents probed.
+ */
+function listsLanesUnforced(scope: RefreshScope): boolean {
+  return scope === "acknowledged";
 }
 
 /** Sweeps the known containers as `scope` asks; see `RefreshScope`. */
@@ -42,14 +52,14 @@ async function sweepForScope(input: {
       lifecycleGeneration,
       listsEveryContainer: scope !== "root",
       onListed: input.onListed,
-      probeUnlistedLanes: scope === "acknowledged",
+      probeUnlistedLanes: listsLanesUnforced(scope),
       state,
       stop: input.stop,
     });
   } finally {
     // Whatever the lanes it listed owed is owed even if another lane failed.
     if (
-      scope === "acknowledged" &&
+      listsLanesUnforced(scope) &&
       isCurrentReconciliationLifecycle(state, lifecycleGeneration)
     ) {
       try {
@@ -63,16 +73,97 @@ async function sweepForScope(input: {
   }
 }
 
+/** What one sweep lists, read once the sweep is running. */
+interface SweepPlan {
+  /** The containers whose document lanes the sweep lists. */
+  readonly containerIds: ReadonlyArray<string>;
+  /**
+   * Known containers a complete tree crawl vouches for without a listing:
+   * no tree listing was served their row and no record owes their lane, so
+   * their lane did not move. They count as reconciled this session, and an
+   * unforced queue entry for one is settled.
+   */
+  readonly vouchedContainerIds?: ReadonlyArray<string> | undefined;
+}
+
+type PlanSweep = (stop: AbortSignal) => SweepPlan | Promise<SweepPlan>;
+
+/**
+ * Reads the sweep's plan with `holdWhilePlanning`'s containers held as
+ * reconciled, and returns the containers to list. A hold is released for a
+ * container the plan neither lists nor vouches for, and for every container
+ * when the plan cannot be read. A vouched container stays reconciled and is
+ * added to `settled`, so an unforced queue entry for it is not listed.
+ */
+async function planSweepHolding(
+  input: {
+    holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
+    planSweep: PlanSweep;
+    state: ReconciliationState;
+    stop: AbortSignal;
+  },
+  settled: Set<string>,
+): Promise<ReadonlyArray<string>> {
+  const { state } = input;
+  const { discoveredContainerIds } = state;
+  // Reading the plan can outlast the session: a stop and start meanwhile
+  // gives the discovered set to a new one, which this sweep must not touch.
+  const lifecycleGeneration = state.lifecycleGeneration;
+  const isCurrent = () =>
+    isCurrentReconciliationLifecycle(state, lifecycleGeneration);
+  const held = new Set(
+    (input.holdWhilePlanning?.() ?? []).filter(
+      (containerId) => !discoveredContainerIds.has(containerId),
+    ),
+  );
+  for (const containerId of held) discoveredContainerIds.add(containerId);
+  const release = (keep: ReadonlySet<string>) => {
+    for (const containerId of held) {
+      if (!keep.has(containerId)) discoveredContainerIds.delete(containerId);
+    }
+  };
+  let plan: SweepPlan;
+  try {
+    plan = await input.planSweep(input.stop);
+  } catch (error) {
+    if (isCurrent()) {
+      release(new Set());
+      // A passive enqueue made during the hold was skipped, and this sweep
+      // lists nothing in its place.
+      requeueUnsettledContainers(
+        state,
+        [...held].map((containerId) => [containerId, "idle"] as const),
+        lifecycleGeneration,
+      );
+    }
+    throw error;
+  }
+  if (!isCurrent()) return [];
+  const vouched = plan.vouchedContainerIds ?? [];
+  release(new Set([...plan.containerIds, ...vouched]));
+  for (const containerId of vouched) {
+    discoveredContainerIds.add(containerId);
+    settled.add(containerId);
+  }
+  return plan.containerIds;
+}
+
 async function refreshAndReconcileContainers(input: {
   host: ReconciliationHost;
-  listContainerIds: () => ReadonlyArray<string>;
+  /**
+   * Containers to hold as reconciled while the plan is read, when reading it
+   * can take long. The sweep will list or vouch for each of them, so a
+   * passive enqueue of one meanwhile would only list it twice.
+   */
+  holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
+  planSweep: PlanSweep;
   refreshTree: () => Promise<void>;
   scope: RefreshScope;
   state: ReconciliationState;
   /** Every caller withdrew: stop at the next safe boundary. */
   stop: AbortSignal;
 }): Promise<void> {
-  const { host, listContainerIds, refreshTree, scope, state, stop } = input;
+  const { host, refreshTree, scope, state, stop } = input;
   if (!canReconcile(host.getRuntimeStatus())) {
     return;
   }
@@ -104,9 +195,16 @@ async function refreshAndReconcileContainers(input: {
     // is treated as newly surfaced instead of being suppressed for the rest of
     // the session.
     forgetIneligibleDiscoveredContainers(host, state);
+    const knownIds = await planSweepHolding(input, listedBySweep);
+    if (
+      !isCurrentReconciliationLifecycle(state, lifecycleGeneration) ||
+      stop.aborted
+    ) {
+      return;
+    }
     await sweepForScope({
       host,
-      knownIds: listContainerIds(),
+      knownIds,
       lifecycleGeneration,
       onListed: (containerId) => listedBySweep.add(containerId),
       scope,
@@ -174,36 +272,50 @@ function requeueUnsettledContainers(
   }
 }
 
+/**
+ * Whether a request of `scope` may join the `pending` sweep. A request joins
+ * a sweep of its own scope or a full one, which does all a narrower sweep
+ * does. No other pair joins: an acknowledged sweep lists no tree lane, so a
+ * root request that joined one would skip its root listing, and a full
+ * request after a narrower sweep must wait for it and then refresh the whole
+ * tree.
+ *
+ * A fresh-listing request joins only a sweep that has not started: one
+ * already running may have listed before the event behind the request, so it
+ * queues a trailing sweep instead. A sweep every caller withdrew from is
+ * stopping, so nothing joins it.
+ */
+function joinsPendingRefresh(
+  pending: SharedRefresh,
+  scope: RefreshScope,
+  freshListing: boolean,
+): boolean {
+  if (pending.stopping) return false;
+  return (
+    (pending.scope === "full" || pending.scope === scope) &&
+    !(freshListing && pending.started)
+  );
+}
+
 // Sweeps share the queue and discovered set, so they must run serially.
-// A request joins a sweep of its own scope or a full one, which does all a
-// narrower sweep does. No other pair joins: an acknowledged sweep lists no
-// tree lane, so a root request that joined it would skip its root listing,
-// and a full request after a narrower sweep must wait for it and then
-// refresh the whole tree. A fresh-listing request
-// joins only a sweep that has not started: one already running may have listed
-// before the event behind the request, so it queues a trailing sweep instead.
-// A sweep every caller withdrew from is stopping, so nothing joins it.
-export function requestContainerRefresh(input: {
+function requestContainerRefresh(input: {
   freshListing: boolean;
   host: ReconciliationHost;
   state: ReconciliationState;
   refreshTree: () => Promise<void>;
-  listContainerIds: () => ReadonlyArray<string>;
+  holdWhilePlanning?: (() => ReadonlyArray<string>) | undefined;
+  planSweep: PlanSweep;
   scope: RefreshScope;
   signal: AbortSignal | undefined;
 }): Promise<void> {
   const { state, scope, signal } = input;
   if (signal?.aborted) return Promise.reject(signal.reason);
   const pending = state.pendingRefresh;
-  if (
-    pending &&
-    !pending.stopping &&
-    (pending.scope === "full" || pending.scope === scope) &&
-    !(input.freshListing && pending.started)
-  ) {
+  if (pending && joinsPendingRefresh(pending, scope, input.freshListing)) {
     return pending.join(signal);
   }
 
+  if (scope !== "acknowledged") treeCrawlWaits.get(state)?.abort();
   const refresh = new SharedRefresh({
     after: pending?.promise,
     onSettled: (settled) => {
@@ -211,8 +323,9 @@ export function requestContainerRefresh(input: {
     },
     run: (stop) =>
       refreshAndReconcileContainers({
+        holdWhilePlanning: input.holdWhilePlanning,
         host: input.host,
-        listContainerIds: input.listContainerIds,
+        planSweep: input.planSweep,
         refreshTree: input.refreshTree,
         scope,
         state,
@@ -224,31 +337,128 @@ export function requestContainerRefresh(input: {
   return refresh.join(signal);
 }
 
-// The container store re-lists the tree itself on the acknowledgement, so
-// this sweep lists document lanes only. It never joins a sweep that already
+/** Re-lists root containers, then reconciles the root catch-up set. */
+export function requestRootRefresh(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  options: RefreshRequestOptions | undefined,
+): Promise<void> {
+  return requestContainerRefresh({
+    freshListing: options?.freshListing === true,
+    host,
+    state,
+    refreshTree: host.refreshRootTree,
+    planSweep: () => ({
+      containerIds: host.listAutomaticRootCatchupContainerIds(),
+    }),
+    scope: "root",
+    signal: options?.signal,
+  });
+}
+
+/** Refreshes the whole tree, then reconciles every known container. */
+export function requestFullRefresh(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  options: RefreshRequestOptions | undefined,
+): Promise<void> {
+  return requestContainerRefresh({
+    freshListing: options?.freshListing === true,
+    host,
+    state,
+    refreshTree: host.refreshTree,
+    planSweep: () => ({
+      containerIds: listFullRefreshContainerIds(host, state),
+    }),
+    scope: "full",
+    signal: options?.signal,
+  });
+}
+
+/**
+ * A sweep of the known lanes a durable record says are owed a listing. A
+ * complete tree crawl stands behind every other known lane.
+ */
+async function planOwedLanesSweep(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+): Promise<SweepPlan> {
+  const owed = new Set(await host.listOwedDocumentDiscoveryContainerIds());
+  // The owed set covers the containers the reconciler lists in the
+  // background. An open container outside them is listed here and nowhere
+  // else, so nothing says whether it is owed: it is always listed.
+  const vouchable = new Set(host.listKnownContainerIds());
+  const isOwed = (id: string) => owed.has(id) || !vouchable.has(id);
+  const known = listFullRefreshContainerIds(host, state);
+  return {
+    containerIds: known.filter(isOwed),
+    vouchedContainerIds: known.filter((id) => !isOwed(id)),
+  };
+}
+
+// A catch-up waiting on its tree crawl, by the state it waits in. An explicit
+// refresh or a root refresh queues behind the catch-up, so it ends the wait
+// rather than stall for it: the catch-up then lists every lane at once.
+const treeCrawlWaits = new WeakMap<ReconciliationState, AbortController>();
+
+async function awaitTreeCrawlForCatchUp(
+  host: ReconciliationHost,
+  state: ReconciliationState,
+  stop: AbortSignal,
+): Promise<boolean> {
+  const hurry = new AbortController();
+  treeCrawlWaits.set(state, hurry);
+  try {
+    return await awaitTreeCrawl(
+      host.whenTreeCrawlSettles?.(),
+      AbortSignal.any([stop, hurry.signal]),
+    );
+  } finally {
+    if (treeCrawlWaits.get(state) === hurry) treeCrawlWaits.delete(state);
+  }
+}
+
+/** Reports a sweep nothing awaits; an ignorable failure never reaches it. */
+function reportUnawaitedSweep(
+  host: ReconciliationHost,
+  sweep: Promise<void>,
+  message: string,
+): Promise<void> {
+  sweep.catch((error: unknown) => host.logError?.(message, error));
+  return sweep;
+}
+
+// The container store re-lists the tree itself on the acknowledgement. A row
+// that crawl is served owes its container's document lane a listing, so once
+// the crawl has settled this sweep lists the owed lanes alone. It lists every
+// known lane when nothing vouches for the rest: the crawl did not complete,
+// did not settle in time, or the host reports no crawl at all. It never joins a sweep that already
 // started: that one may have listed before the acknowledgement.
 export function requestAcknowledgedConnectionSweep(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): Promise<void> {
-  const sweep = requestContainerRefresh({
-    freshListing: true,
+  return reportUnawaitedSweep(
     host,
-    state,
-    refreshTree: () => Promise.resolve(),
-    listContainerIds: () => listFullRefreshContainerIds(host, state),
-    scope: "acknowledged",
-    signal: undefined,
-  });
-  // Nothing awaits the sweep an acknowledgement starts, so report its
-  // failure here. An ignorable one never reaches this promise.
-  sweep.catch((error: unknown) =>
-    host.logError?.("Reconciliation: connection catch-up failed", error),
+    requestContainerRefresh({
+      freshListing: true,
+      host,
+      state,
+      refreshTree: () => Promise.resolve(),
+      // The plan waits for the tree crawl, and covers every known lane.
+      holdWhilePlanning: () => listFullRefreshContainerIds(host, state),
+      planSweep: async (stop) =>
+        (await awaitTreeCrawlForCatchUp(host, state, stop))
+          ? planOwedLanesSweep(host, state)
+          : { containerIds: listFullRefreshContainerIds(host, state) },
+      scope: "acknowledged",
+      signal: undefined,
+    }),
+    "Reconciliation: connection catch-up failed",
   );
-  return sweep;
 }
 
-export function listFullRefreshContainerIds(
+function listFullRefreshContainerIds(
   host: ReconciliationHost,
   state: ReconciliationState,
 ): ReadonlyArray<string> {

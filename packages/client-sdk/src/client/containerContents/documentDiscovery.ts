@@ -13,6 +13,10 @@ import {
   discoverContainerDocumentLanes,
 } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryLanes";
 import { ContainerDocumentListingUnavailableError } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryTypes";
+import {
+  findOwedDocumentLaneListings,
+  settleOwedDocumentLaneListing,
+} from "../../workflows/container-contents/documentDiscovery/documentLaneDiscovery";
 import { createContainerDocumentQueriesFromRuntime } from "../../workflows/container-contents/documentQueries";
 import {
   type ContainerContentsWorkflowRuntime,
@@ -184,7 +188,11 @@ export async function discoverContainerDocumentLanesForRuntime({
     listContainerDocumentLanes: (listed) =>
       listContainerDocumentLanesFromApi(runtime.apiClient, listed),
     loadContainerDocumentWatermark: queries.loadContainerDocumentWatermark,
+    loadOwedLaneListings: (containerIds) =>
+      findOwedDocumentLaneListings(execSql, containerIds),
     onOutcome,
+    settleOwedLaneListing: (owed) =>
+      settleOwedDocumentLaneListing(execSql, owed),
   });
   const outcomeByContainerId = new Map(
     outcomes.map((outcome) => [outcome.containerId, outcome]),

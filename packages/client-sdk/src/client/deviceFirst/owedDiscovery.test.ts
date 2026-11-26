@@ -34,10 +34,14 @@ async function restartAfterCutShortBoot(
   name: string,
   connection: Connection,
   afterHydration: (connect: (next: Connection) => void) => void,
+  options: { readonly treeListingFails?: boolean } = {},
 ) {
   const { close, execSql } = await createTestExecSql(name);
   const listedLanes: string[][] = [];
   const apiClient = createMockApiClient({
+    ...(options.treeListingFails
+      ? { listContainerParentLanes: async () => null }
+      : {}),
     listContainerDocumentLanes: async ({ lanes }) => {
       listedLanes.push(lanes.map((lane) => lane.containerId).sort());
       return {
@@ -142,11 +146,26 @@ test("a restart whose connect attempt never acknowledges still lists the owed la
   expect(listed).toEqual([["cut-short-folder"]]);
 });
 
-test("a restart that connects lists each lane once, in the acknowledgement's catch-up", async () => {
+test("a restart that connects lists the owed lane once, in the acknowledgement's catch-up", async () => {
   const listed = await restartAfterCutShortBoot(
     "device-first-owed-acknowledged",
     { generation: 0, pendingAttempt: 1 },
     (connect) => connect({ generation: 1 }),
   );
+  // The tree crawl the acknowledgement owes completed and was served no
+  // container's row, so the settled lanes did not move: the catch-up lists
+  // the owed lane alone.
+  expect(listed).toEqual([["cut-short-folder"]]);
+});
+
+test("a restart whose tree crawl fails lists every lane in the catch-up", async () => {
+  const listed = await restartAfterCutShortBoot(
+    "device-first-owed-acknowledged-unvouched",
+    { generation: 0, pendingAttempt: 1 },
+    (connect) => connect({ generation: 1 }),
+    { treeListingFails: true },
+  );
+  // Nothing vouches for the lanes the crawl was not served, so every known
+  // lane is listed, as before lanes were owed listings.
   expect(listed).toEqual([["cut-short-folder", "listed-folder", "root"]]);
 });

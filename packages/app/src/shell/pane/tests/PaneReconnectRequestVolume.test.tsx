@@ -67,14 +67,16 @@ test("a settled pane reconnects with no pending local work", async () => {
   const requests = await measureWorkflowRequests({
     label: "reconnect without pending work",
     budget: {
-      total: 16,
+      total: 12,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
         "GET /organizations/:organizationId/billing": 0,
-        "POST /containers/parent-lanes/query": 4,
+        // One crawl per connect, one request per crawl: the crawl that going
+        // online starts gives way to the acknowledgement's.
+        "POST /containers/parent-lanes/query": 1,
         "POST /containers/documents/query": 1,
-        "GET /principals/organization/:organizationId/policy": 3,
+        "GET /principals/organization/:organizationId/policy": 2,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /containers/:containerId/writer-projection": 1,
@@ -162,14 +164,15 @@ test("reconnect discovers one folder created by a peer while disconnected", asyn
   const requests = await measureWorkflowRequests({
     label: "reconnect after peer folder create",
     budget: {
-      total: 23,
+      total: 18,
       byRequest: {
         "POST /auth/ws-ticket": 1,
         "GET /organization-memberships": 1,
         "GET /organizations/:organizationId/billing": 0,
-        "POST /containers/parent-lanes/query": 6,
+        // The crawl, then the child lane of the folder it discovered.
+        "POST /containers/parent-lanes/query": 2,
         "POST /containers/documents/query": 2,
-        "GET /principals/organization/:organizationId/policy": 4,
+        "GET /principals/organization/:organizationId/policy": 3,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "GET /containers/:containerId/writer-projection": 2,

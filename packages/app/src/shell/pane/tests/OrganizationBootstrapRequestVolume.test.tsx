@@ -136,10 +136,11 @@ test(
         // so the seeded documents skip their empty first syncs. Without those
         // syncs ahead of it, the self contact's create now runs before its
         // content is queued (it used to carry that content as its seed), so an
-        // empty read and one write follow it. Measured 24 calls (26 before the
+        // empty read and one write follow it. Measured 20 calls (24 before the
+        // tree crawl listed its parent lanes in one request, 26 before the
         // provisioning commit position, 29 with drain-scoped operations alone,
         // 30 before either, 31 before that).
-        total: 25,
+        total: 21,
         // Provisioned containers and documents are acknowledged by hash, not
         // echoed, seeded roles skip three destination projections, and syncs
         // no longer echo the bundle and KEK targets the request named: 61 KB
@@ -166,12 +167,16 @@ test(
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
           "GET /principals/history": 2,
-          "POST /containers/documents/query": 2,
+          // The catch-up waits for the tree crawl, so the lanes that crawl
+          // discovers are listed from the queue first and once more by the
+          // catch-up, which reads what is owed before that listing settles.
+          "POST /containers/documents/query": 3,
           // Measured 4 (6 before the provisioning commit position): the root
           // twice, as a second root-lane pass can sync it again, and the self
           // contact's read and write.
           "POST /documents/:documentId/sync": 5,
-          "POST /containers/parent-lanes/query": 5,
+          // Measured 1: a crawl lists every parent lane in one request.
+          "POST /containers/parent-lanes/query": 2,
           "GET /containers/:containerId/writer-projection": 1,
           // Provisioning commits the root's metadata, so no device-first copy
           // is replayed through a document projection. Discovery reuses the

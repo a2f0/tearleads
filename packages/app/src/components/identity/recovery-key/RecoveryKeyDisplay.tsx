@@ -6,6 +6,7 @@ import { EyeSlashIcon } from "@phosphor-icons/react/dist/csr/EyeSlash";
 import { PasswordIcon } from "@phosphor-icons/react/dist/csr/Password";
 import { PrinterIcon } from "@phosphor-icons/react/dist/csr/Printer";
 import { QrCodeIcon } from "@phosphor-icons/react/dist/csr/QrCode";
+import type { ReactNode } from "react";
 import { usePasswordKeychain } from "../../../identity/identityKeychain";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
 import {
@@ -48,14 +49,20 @@ function RecoveryKeyAction({
 }
 
 export function RecoveryKeyDisplay({
+  feedback,
   onHide,
   onRequestDisclosure,
+  placeholder,
   revealed,
   qrRevealed,
   seedPhrase,
 }: {
+  /** The last action's outcome, at the head of what the menu reveals. */
+  readonly feedback?: ReactNode;
   readonly onHide: (shown: "reveal" | "qr") => void;
   readonly onRequestDisclosure: (disclosure: RecoveryKeyDisclosure) => void;
+  /** Stands where the passphrase and its QR code show, while neither does. */
+  readonly placeholder?: ReactNode;
   readonly revealed: boolean;
   readonly qrRevealed: boolean;
   readonly seedPhrase: string | null;
@@ -119,6 +126,40 @@ export function RecoveryKeyDisplay({
           onClick={() => onRequestDisclosure("copy")}
         />
       </ul>
+      <RecoveryKeyRevealed
+        feedback={feedback}
+        placeholder={placeholder}
+        qrRevealed={qrRevealed}
+        revealed={revealed}
+        seedPhrase={seedPhrase}
+      />
+    </div>
+  );
+}
+
+/**
+ * What the menu reveals, and how its last action went, in one box a host can
+ * place on its own (the backup prompt frames it beside the menu on a wide
+ * screen). Nothing renders while there is nothing to show.
+ */
+function RecoveryKeyRevealed({
+  feedback,
+  placeholder,
+  qrRevealed,
+  revealed,
+  seedPhrase,
+}: {
+  readonly feedback: ReactNode;
+  readonly placeholder: ReactNode;
+  readonly qrRevealed: boolean;
+  readonly revealed: boolean;
+  readonly seedPhrase: string;
+}) {
+  const hidden = !revealed && !qrRevealed;
+  if (hidden && !placeholder && !feedback) return null;
+  return (
+    <div className="recovery-key-revealed">
+      {feedback}
       {revealed && (
         <MiniAppField>
           <span>Passphrase</span>
@@ -132,6 +173,7 @@ export function RecoveryKeyDisplay({
         </MiniAppField>
       )}
       {qrRevealed && <RecoveryKeyQrCode seedPhrase={seedPhrase} />}
+      {hidden && placeholder}
     </div>
   );
 }
