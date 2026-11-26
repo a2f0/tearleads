@@ -2,6 +2,29 @@
   "$schema": "https://turborepo.com/schema.json",
   "extends": ["//"],
   "tasks": {
+    "test:native-ios-ci": {
+      "description": "The iOS compile check. It syncs a placeholder page instead of the web build, so web sources and workspace dependencies stay out. This manifest stays in: it holds the check's command and any Capacitor sync hooks. Capacitor plugin versions reach the hash through this package's locked external dependencies. A workspace package that becomes a Capacitor plugin must be added to dependsOn.",
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!.rubocop.yml",
+        "!Gemfile",
+        "!Gemfile.lock",
+        "!README.md",
+        "!android/**",
+        "!fastlane/**",
+        "!index.html",
+        "!maestro/**",
+        "!scripts/**",
+        "!src/**",
+        "!tests/**",
+        "!tsconfig.json",
+        "!vite.config.ts",
+        "$TURBO_ROOT$/scripts/checks/testNativePurchaseBridge.sh",
+        "$TURBO_ROOT$/.github/workflows/native-purchase-bridges.yml"
+      ],
+      "env": ["ImageOS", "ImageVersion", "DEVELOPER_DIR"],
+      "outputs": []
+    },
     "build": {
       "inputs": [
         "$TURBO_EXTENDS$",
