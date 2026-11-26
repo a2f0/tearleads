@@ -35,6 +35,17 @@ export {
   versionVectorsEqual,
 } from "./document";
 export {
+  DEFAULT_HISTORY_SEGMENT_MAX_BYTES,
+  DEFAULT_HISTORY_SEGMENT_TARGET_BYTES,
+  exportHistorySegmentRange,
+  exportHistorySegments,
+  type HistorySegment,
+  HistorySegmentCounterTooLargeError,
+  type HistorySegmentRange,
+  type HistorySegmentSizes,
+  historySegmentsImportInOrder,
+} from "./historySegments";
+export {
   createReadOnlyDocument,
   type HistoryStop,
   type HistoryVersionEntry,
