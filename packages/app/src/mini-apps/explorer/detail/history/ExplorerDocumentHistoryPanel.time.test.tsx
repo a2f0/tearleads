@@ -11,6 +11,7 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { useEffect } from "react";
 import * as Registry from "../../../../document-types/registry";
 import * as History from "../../../../stores/document-history/useDocumentHistory";
+import * as Verification from "../../../../stores/document-history/useDocumentHistoryVerification";
 import * as Documents from "../../../../stores/documents/DocumentsProvider";
 import * as Ranges from "../../../../stores/documents/useDocumentAttributionRanges";
 import * as RowWriters from "../../../../stores/documents/useDocumentRowWriters";
@@ -127,6 +128,7 @@ function mountChange(input: {
     run: 1,
     selectedIndex: 0,
     shown: { change: NO_CHANGE, index: 0, view: VIEW },
+    source: "local",
     status: "ready",
   };
   const current: {
@@ -141,10 +143,17 @@ function mountChange(input: {
     spyOn(History, "useDocumentHistory").mockImplementation(() => ({
       reload: () => undefined,
       seek: () => undefined,
+      showLocal: () => undefined,
+      showSigned: () => undefined,
       state: current.state,
       step: () => undefined,
       togglePlay: () => undefined,
     })),
+    // The history is never checked here: the times are the server's.
+    spyOn(Verification, "useDocumentHistoryVerification").mockReturnValue({
+      state: { status: "idle" },
+      verify: () => undefined,
+    }),
     // The live document's provider, without opening a store.
     spyOn(Documents, "DocumentsProvider").mockImplementation(({ children }) => (
       <Documents.DocumentContext.Provider value={LIVE_DOCUMENT}>
