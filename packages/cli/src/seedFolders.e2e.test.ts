@@ -197,6 +197,7 @@ test("seedFolders shares each folder with its groups and members add their lines
     grants: family.grants.length,
     additions: note.additions.length,
     moved: 0,
+    left: 0,
     signIns: note.additions.length,
   });
   // A rerun, as from a fresh device, reuses the folder, keeps the grant, and
@@ -207,6 +208,7 @@ test("seedFolders shares each folder with its groups and members add their lines
     grants: 0,
     additions: 0,
     moved: 0,
+    left: 0,
     signIns: 0,
   });
 
@@ -259,6 +261,7 @@ test("a note the owner moved out of its folder stays unshared, without lines", a
     grants: family.grants.length,
     additions: 0,
     moved: 1,
+    left: 0,
     signIns: 0,
   });
   await asOwner(seedPhrase, async (session) => {
@@ -309,6 +312,7 @@ test("a folder of the user's own by the dataset's name is left alone", async () 
     grants: family.grants.length,
     additions: note.additions.length,
     moved: 0,
+    left: 0,
     signIns: note.additions.length,
   });
   expect(await seedFamily(seedPhrase)).toEqual({
@@ -317,6 +321,7 @@ test("a folder of the user's own by the dataset's name is left alone", async () 
     grants: 0,
     additions: 0,
     moved: 0,
+    left: 0,
     signIns: 0,
   });
   await asOwner(seedPhrase, async (session) => {
@@ -343,4 +348,71 @@ test("a folder of the user's own by the dataset's name is left alone", async () 
     await loadFolderTree(session);
     expect(await groupAccess(session.sdk, family.name, mineId)).toEqual([]);
   });
+}, 300_000);
+
+test("a seed folder the owner moved out of the root is left whole", async () => {
+  const { family, expectedText } = await familyFixture();
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  await seedFamily(seedPhrase);
+  const familyId = await asOwner(seedPhrase, async (session) => {
+    const { sdk } = session;
+    const { nodes } = await loadFolderTree(session);
+    const rootId = sdk.runtime.input().auth.rootContainerId;
+    if (!rootId) throw new Error("Missing the personal root.");
+    const id = rootFolder(session, nodes, family.name);
+    const tree = sdk.containerContents.openTree();
+    const archive = await tree.createChild(rootId, "Archive");
+    if (!archive) throw new Error("Could not create the target folder.");
+    expect(await syncIdle(sdk)).toBe(true);
+    expect((await tree.moveContainer(id, archive.id))?.parentId).toBe(
+      archive.id,
+    );
+    expect(await syncIdle(sdk)).toBe(true);
+    return id;
+  });
+  // A folder in Trash is out of the root the same way.
+  expect(await seedFamily(seedPhrase)).toEqual({
+    folders: 0,
+    notes: 0,
+    grants: 0,
+    additions: 0,
+    moved: 0,
+    left: 1,
+    signIns: 0,
+  });
+  await asOwner(seedPhrase, async (session) => {
+    const { sdk } = session;
+    const { nodes } = await loadFolderTree(session);
+    const rootId = sdk.runtime.input().auth.rootContainerId;
+    expect(
+      nodes.some(
+        (node) => node.parentId === rootId && node.name === family.name,
+      ),
+    ).toBe(false);
+    expect(await groupAccess(sdk, family.name, familyId)).toEqual(["write"]);
+    expect((await readFolderNote(sdk, familyId)).text).toBe(expectedText);
+  });
+}, 300_000);
+
+test("a seed folder emptied from Trash stops the folder step", async () => {
+  const { family } = await familyFixture();
+  const { seedPhrase } = await registerCliTestAccount(apiBaseUrl);
+  await seedFamily(seedPhrase, false);
+  await asOwner(seedPhrase, async (session) => {
+    const { sdk } = session;
+    const { nodes } = await loadFolderTree(session);
+    const rootId = sdk.runtime.input().auth.rootContainerId;
+    if (!rootId) throw new Error("Missing the personal root.");
+    const familyId = rootFolder(session, nodes, family.name);
+    const { row } = await readFolderNote(sdk, familyId);
+    await moveFolderNote(sdk, row, rootId);
+    // Emptying a folder from Trash deletes it on the server, which keeps its id.
+    expect(
+      await sdk.containerContents.openTree().deleteContainer(familyId),
+    ).toBe(true);
+    expect(await syncIdle(sdk)).toBe(true);
+  });
+  await expect(seedFamily(seedPhrase, false)).rejects.toThrow(
+    `If you emptied the seed's ${family.name} folder from Trash`,
+  );
 }, 300_000);

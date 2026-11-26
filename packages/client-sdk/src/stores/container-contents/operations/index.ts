@@ -39,18 +39,10 @@ import {
 import { hasAdvancedManagedPrincipalReference } from "../systemContainers/systemContainerPromotion";
 import type {
   ContainerContentsStoreState,
+  CreateChildContainerOptions,
   EnsureSystemContainerOptions,
 } from "../types";
 import { isContainerInSubtree, toContainerNode } from "../utils";
-
-/** How `createChild` names the new container. */
-export interface CreateChildContainerOptions {
-  /**
-   * A stable UUID v4-shaped id, so a caller that makes the same container
-   * again, such as a seed on its rerun, can find it by id. Random otherwise.
-   */
-  readonly id?: string | undefined;
-}
 
 export async function createChildContainer(
   state: ContainerContentsStoreState,

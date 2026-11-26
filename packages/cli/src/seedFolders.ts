@@ -41,6 +41,8 @@ export interface SeededFolders {
   readonly additions: number;
   /** Notes moved out of their folder, whose missing lines were skipped. */
   readonly moved: number;
+  /** Seed folders the user moved out of the root, left as they are. */
+  readonly left: number;
 }
 
 /** The one deadline every attempt of a wait shares. */
@@ -244,23 +246,21 @@ async function seedFolder(
   const folderId = await tracer.span(`folder ${folder.name}`, () =>
     resolveSeedFolder(run, folder),
   );
-  if (folderId) {
-    run.folders.add(folderId);
-    count.folders += 1;
+  // The user moved the seed's folder out of the root or to Trash: leave it,
+  // its notes, and its grants as they are.
+  if (!folderId) {
+    count.left += 1;
+    return;
   }
+  run.folders.add(folderId);
+  count.folders += 1;
   // A note that exists stays where it is; a new one goes into the folder.
-  const notes = await seedFolderNotes(
-    run,
-    folderId ?? run.rootId,
-    folder.notes,
-  );
+  const notes = await seedFolderNotes(run, folderId, folder.notes);
   count.notes += notes.length;
   if (!roster) return;
-  if (folderId) {
-    count.grants += await tracer.span(`share ${folder.name}`, () =>
-      grantFolder(run.session, folderId, folder.grants),
-    );
-  }
+  count.grants += await tracer.span(`share ${folder.name}`, () =>
+    grantFolder(run.session, folderId, folder.grants),
+  );
   const inFolder = notes.filter((note) => note.containerId === folderId);
   count.moved += notes.filter(
     (note) => note.containerId !== folderId && note.additions.length > 0,
@@ -274,14 +274,22 @@ async function seedFolder(
  * member append their lines. Idempotent: a rerun finds the folder by the
  * seed's id for it, keeps held grants, and skips lines the note already has.
  * Only the seed's own folder is shared: a note the user moved elsewhere
- * stays private to them, so its missing lines are skipped and counted.
+ * stays private to them, so its missing lines are skipped and counted. A
+ * seed folder the user moved out of the root is left whole, and counted.
  */
 export async function seedFolders(
   run: SeedRun,
   folders: readonly ContinuityFolder[],
   roster: FolderRoster | null,
 ): Promise<SeededFolders> {
-  const count = { folders: 0, notes: 0, grants: 0, additions: 0, moved: 0 };
+  const count = {
+    folders: 0,
+    notes: 0,
+    grants: 0,
+    additions: 0,
+    moved: 0,
+    left: 0,
+  };
   for (const folder of folders) {
     await seedFolder(run, folder, roster, count);
   }

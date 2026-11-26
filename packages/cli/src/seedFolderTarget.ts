@@ -35,6 +35,8 @@ export function seedFolderId(
   ].join("-");
 }
 
+const CREATE_FOLDER_ENDPOINT = "POST /containers/with-metadata-document";
+
 /**
  * The seed's folder for a dataset folder: the folder with the seed's id,
  * made under the root when the account has none, and named past any folder
@@ -64,6 +66,9 @@ export async function resolveSeedFolder(
   try {
     await waitForFoldersSynced(session, () => tree.getSnapshot().nodes, [id]);
   } catch (error) {
+    // The API refuses an id it already holds, as for a folder emptied from
+    // Trash; other failures, such as a timeout, pass through as they are.
+    if (!String(error).includes(CREATE_FOLDER_ENDPOINT)) throw error;
     throw new Error(
       `Could not create the ${name} folder. If you emptied the seed's ${folder.name} folder from Trash, the seed cannot make it again in this account.`,
       { cause: error },

@@ -100,8 +100,9 @@ under it with its notes inside. The seed knows its folder by an id only your
 key derives, not by its name: if you already have a folder of your own by
 that name, the seed leaves it alone and makes Family (2) instead, so it never
 writes to or shares your folder. If you move the seed's folder out of the root
-or to Trash, a rerun leaves it there. Once you empty it from Trash, its id
-stays taken on the server, and the command stops at the folder step.
+or to Trash, a rerun leaves it, its notes, and its grants as they are, and says
+so. Once you empty it from Trash, its id stays taken on the server, and the
+command stops at the folder step.
 The import commits each document with an encrypted fingerprint of its fixture.
 If it stops partway, run the
 same command again. For the same dataset version it reuses the documents,
@@ -132,7 +133,9 @@ logs an error, because a read it waited on may then be partial.
 
 With the roster in place, the command then shares each dataset folder with
 the groups the dataset names (the Family folder gets a write grant to the
-Family group), skipping a grant your organization already holds. Each member
+Family group), skipping a grant your organization already holds. A grant you
+removed from the seed's folder is given back on the next `--roster` run, along
+with anything you have put in that folder since. Each member
 then signs in again to add their own line to the folder's note, so the note
 has several authors for Get Info's attribution and for History. A line already
 in the note is not added twice, and a rerun signs no member in for a line you

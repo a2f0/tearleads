@@ -317,6 +317,11 @@ export async function createChildContainerState(input: {
     return null;
   }
 
+  if (input.childId !== undefined && systemSlot) {
+    throw new Error(
+      "A child container takes a stable id or a system slot, not both.",
+    );
+  }
   const icon = input.icon?.trim() || null;
   const childId =
     input.childId ??

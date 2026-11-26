@@ -55,7 +55,7 @@ function reportSeed(
       `Seeded ${count.roster.members} roster members in ${plural(count.roster.groups, "group")}.`,
     );
   }
-  const { folders, notes, grants, additions, moved } = count.folders;
+  const { folders, notes, grants, additions, moved, left } = count.folders;
   if (folders) {
     input.context.stdout(
       `Seeded ${plural(folders, "folder")} with ${plural(notes, "note")}${count.roster ? `, ${plural(grants, "new group grant")}, and ${plural(additions, "new member line")}` : ""}.`,
@@ -64,6 +64,11 @@ function reportSeed(
   if (moved) {
     input.context.stdout(
       `Skipped member lines for ${plural(moved, "note")} moved out of the seeded folder; only that folder is shared.`,
+    );
+  }
+  if (left) {
+    input.context.stdout(
+      `Left ${plural(left, "seeded folder")} you moved out of the root unchanged.`,
     );
   }
 }
